@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-OPAQUE] Error: `double` isn't opaque, so it always unfolds
+   ╭─[ reject/opaque-not-opaque.sw:8:45 ]
+   │
+ 8 │ theorem doubleThree: double 3 = 6 unfolding double := rfl
+   │                                             ───┬──  
+   │                                                ╰──── nothing to unfold
+   │ 
+   │ Note: remove `double` from `unfolding`
+───╯

@@ -485,6 +485,9 @@ impl Elaborator {
                     self.parts(d, &ordered[i], &|_| false, false)?
                 };
                 let id = self.declare_helper(d, &keys[i], &ty)?;
+                // Opaque with its owner's `unfolding` clause, if it has one
+                // (`opaque.rs`).
+                self.opaque_helper(id);
                 let g = &self.globals;
                 let mut call = Term::Def(id);
                 for (arg, icit) in args {
@@ -546,6 +549,9 @@ impl Elaborator {
             } else {
                 kernel::define_group(&mut self.globals, &bodies)
                     .map_err(|d| self.explain_lifted(d))?;
+                for (_, id) in &members {
+                    self.opaque_helper_admitted(*id);
+                }
             }
         }
         let resolved = resolved

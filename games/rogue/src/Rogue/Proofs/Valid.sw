@@ -24,7 +24,7 @@ theorem arriveValid (state: State) (plan: Plan) (atMost: state.hitPoints ≤ max
 }
 
 -- So every new game starts valid.
-theorem startingValid (plan: Plan) (deeper: List Plan): Valid (startingState plan deeper) := arriveValid (freshState plan deeper) plan rfl
+theorem startingValid (plan: Plan): Valid (startingState plan) := arriveValid (freshState plan) plan rfl
 
 -- A turn with any dice keeps the state valid.
 theorem resolveValid (dice: Dice) (state: State) (command: Command) (valid: Valid state): Valid (resolve dice state command) := {

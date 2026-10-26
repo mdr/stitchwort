@@ -146,6 +146,9 @@ pub struct Budget {
     /// When the frame limit was hit: the definitions with the most frames
     /// pending, as (definition index, frames) pairs, most first.
     deepest: RefCell<Vec<(usize, usize)>>,
+    /// When a value was too large to read back ([`ResourceError::Size`]): the
+    /// definition its outermost call was of, if it was one.
+    too_large: Cell<Option<usize>>,
     /// The definition whose case tree the reference evaluator last entered.
     entered: Cell<usize>,
     /// The host's cancellation flag, if it installed one.
@@ -171,6 +174,7 @@ impl Default for Budget {
             limits: Cell::new(None),
             exhausted: Cell::new(None),
             deepest: RefCell::new(Vec::new()),
+            too_large: Cell::new(None),
             entered: Cell::new(usize::MAX),
             cancel: RefCell::new(None),
             watching: Cell::new(false),
@@ -460,6 +464,18 @@ impl Budget {
     /// they're not known. Clears them.
     pub fn take_deepest(&self) -> Vec<(usize, usize)> {
         std::mem::take(&mut self.deepest.borrow_mut())
+    }
+
+    /// Records the definition (by index) whose call was too large to read
+    /// back, for whoever reports it ([`Budget::take_too_large`]).
+    pub fn set_too_large(&self, definition: Option<usize>) {
+        self.too_large.set(definition);
+    }
+
+    /// The definition whose call was last too large to read back, if the
+    /// value was one. Clears it.
+    pub fn take_too_large(&self) -> Option<usize> {
+        self.too_large.take()
     }
 
     /// The evaluator is about to have `frames` frames of pending work.

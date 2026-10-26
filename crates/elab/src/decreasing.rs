@@ -100,19 +100,19 @@ pub(crate) fn split_pis(ty: &Term, count: Option<usize>) -> (Vec<Binder>, Term) 
     (binders, ty.clone())
 }
 
-fn pis(binders: &[Binder], body: Term) -> Term {
+pub(crate) fn pis(binders: &[Binder], body: Term) -> Term {
     binders.iter().rev().fold(body, |body, b| {
         Term::Pi(b.name.clone(), b.icit, Rc::new(b.ty.clone()), Rc::new(body))
     })
 }
 
-fn lams(binders: &[(Name, Icit)], body: Term) -> Term {
+pub(crate) fn lams(binders: &[(Name, Icit)], body: Term) -> Term {
     binders.iter().rev().fold(body, |body, (x, icit)| {
         Term::Lam(x.clone(), *icit, Rc::new(body))
     })
 }
 
-fn apps(head: Term, args: impl IntoIterator<Item = (Term, Icit)>) -> Term {
+pub(crate) fn apps(head: Term, args: impl IntoIterator<Item = (Term, Icit)>) -> Term {
     args.into_iter()
         .fold(head, |f, (a, icit)| Term::app_icit(f, a, icit))
 }
@@ -833,6 +833,27 @@ impl Elaborator {
         };
         let mut out = Vec::new();
         self.module.item = Some(item);
+        // Its user-written body becomes the transparent `f.%step`, which
+        // can't unfold opaque definitions (docs/proposals/opaque-definitions.md
+        // §6.4).
+        if let Decl::Signature { unfolding, .. } = signature
+            && let (Some(first), Some(last)) = (unfolding.first(), unfolding.last())
+        {
+            out.push((
+                item,
+                Diagnostic::error(
+                    "E-DECREASING",
+                    "`decreasing` and `unfolding` can't be used together yet",
+                )
+                .with_label(first.span.to(last.span), "this `unfolding`")
+                .with_note(format!(
+                    "rewrite with `{}.unfold` instead, or prove what needs the body in a \
+                     theorem with `unfolding`",
+                    first.text
+                )),
+            ));
+            return out;
+        }
         if members.len() > 1 {
             let names: Vec<String> = members
                 .iter()
@@ -1506,6 +1527,12 @@ impl Elaborator {
         );
         let name: Name = format!("{}.unfold", plan.name).into();
         let unfold = kernel::declare_def(&mut self.globals, &name, &ty, true, false, plan.span)?;
+        // Of an opaque `f`, it unfolds `f`, so it's opaque too
+        // (docs/proposals/opaque-definitions.md §6.3).
+        if self.globals.def(plan.f).opaque {
+            kernel::mark_opaque(&mut self.globals, unfold);
+            kernel::set_unfolding(&mut self.globals, unfold, &[plan.f]);
+        }
         let g = &self.globals;
         let (r_go, e) = if plan.second.is_some() {
             lex_unfold_parts(plan, g, go, irrel)?

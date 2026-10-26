@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/opaque-type-hidden.sw:11:28 ]
+    │
+ 11 │ theorem startZero: start = 0 unfolding start := rfl
+    │                    ──┬──   ┬  
+    │                      ╰──────── this comparison is on `Code` because of this
+    │                            │  
+    │                            ╰── expected `Code`, but this has type `Nat`
+    │ 
+    │ Note 1: `Code` is opaque, so its body isn't used here
+    │ 
+    │ Note 2: add `unfolding Code` after this declaration's signature, or rewrite with `Code.unfold`
+    │ 
+    │ Note 3: a numeral can only be the prelude's `Nat` or `Int`
+────╯

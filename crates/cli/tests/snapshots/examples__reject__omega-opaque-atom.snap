@@ -5,7 +5,7 @@ expression: output
 [E-OMEGA] Error: `omega` can't prove `x ≤ x * y`
    ╭─[ reject/omega-opaque-atom.sw:5:48 ]
    │
- 5 │ theorem opaque (x: Nat) (y: Nat): x ≤ x * y := omega
+ 5 │ theorem atomic (x: Nat) (y: Nat): x ≤ x * y := omega
    │                                                ──┬──  
    │                                                  ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 

@@ -109,19 +109,49 @@ impl Parser<'_> {
         let start = self.here();
         match self.peek() {
             Some(Tok::KwType | Tok::KwInterface) => self.data(),
-            Some(Tok::KwInstance) => self.definition(start, false),
+            Some(Tok::KwInstance) => self.definition(start, false, false),
             Some(Tok::KwAbility) => Ok(vec![self.ability()?]),
             Some(Tok::KwTest) => Ok(vec![self.test()?]),
             Some(Tok::KwExport) => {
                 self.bump();
-                if !matches!(self.peek(), Some(Tok::KwDef | Tok::KwTheorem)) {
-                    return Err(self.unexpected("`def` or `theorem` after `export`"));
+                if self.peek() == Some(&Tok::KwOpaque) {
+                    self.bump();
+                    self.opaque_keyword()?;
+                    return self.definition(start, true, true);
                 }
-                self.definition(start, true)
+                if !matches!(self.peek(), Some(Tok::KwDef | Tok::KwTheorem)) {
+                    return Err(self.unexpected("`def`, `theorem` or `opaque` after `export`"));
+                }
+                self.definition(start, true, false)
             }
-            Some(Tok::KwDef | Tok::KwTheorem) => self.definition(start, false),
+            Some(Tok::KwOpaque) => {
+                self.bump();
+                self.opaque_keyword()?;
+                self.definition(start, false, true)
+            }
+            Some(Tok::KwDef | Tok::KwTheorem) => self.definition(start, false, false),
             Some(Tok::Lower(_) | Tok::Upper(_)) => Err(self.missing_keyword()),
             _ => Err(self.unexpected("a declaration")),
+        }
+    }
+
+    /// After `opaque`, which only `def` may follow
+    /// (docs/proposals/opaque-definitions.md §6.2): a theorem already stays
+    /// folded, and an instance that can't be taken apart can't be used.
+    fn opaque_keyword(&self) -> Result<()> {
+        match self.peek() {
+            Some(Tok::KwDef) => Ok(()),
+            Some(Tok::KwTheorem) => Err(error(self.here(), "a theorem can't be `opaque`")
+                .with_note("a theorem already stays folded where it's used")
+                .with_note(
+                    "to use an opaque definition's body in its proof, write `unfolding f` \
+                     after its type",
+                )),
+            Some(Tok::KwInstance) => Err(error(self.here(), "an instance can't be `opaque`")
+                .with_note("an instance is used by taking it apart, which needs its body")),
+            Some(Tok::KwExport) => Err(error(self.here(), "`export` goes before `opaque`")
+                .with_note("write `export opaque def`")),
+            _ => Err(self.unexpected("`def` after `opaque`")),
         }
     }
 
@@ -176,15 +206,16 @@ impl Parser<'_> {
     /// `export`, if it's there). Once here, it's a header: the parser never
     /// goes back to read the tokens another way (§2.1).
     #[inline(never)]
-    pub(super) fn definition(&mut self, start: Span, export: bool) -> Result<Vec<Decl>> {
+    pub(super) fn definition(
+        &mut self,
+        start: Span,
+        export: bool,
+        opaque: bool,
+    ) -> Result<Vec<Decl>> {
         let keyword = &self.tokens[self.pos];
         // D (§2.10) is the column of the declaration's first keyword:
-        // `export`'s, when it's there.
-        let column = if export {
-            self.tokens[self.pos - 1].column
-        } else {
-            keyword.column
-        };
+        // `export`'s or `opaque`'s, when one is there.
+        let column = self.tokens[self.pos - usize::from(export) - usize::from(opaque)].column;
         let theorem = keyword.tok == Tok::KwTheorem;
         let instance = keyword.tok == Tok::KwInstance;
         self.bump();
@@ -220,6 +251,37 @@ impl Parser<'_> {
         } else {
             None
         };
+        // `unfolding f, g`, after `decreasing e` if both are written
+        // (docs/proposals/opaque-definitions.md §6.3).
+        let mut unfolding = Vec::new();
+        if self.eat(&Tok::KwUnfolding) {
+            if instance {
+                return Err(
+                    error(self.prev_span(), "an instance can't have `unfolding`").with_note(
+                        "an instance is never opaque, so it can't unfold opaque definitions",
+                    ),
+                );
+            }
+            loop {
+                unfolding.push(match self.peek() {
+                    Some(Tok::Upper(_)) => self.upper_q("the name of an opaque definition")?,
+                    _ => self.lower_q("the name of an opaque definition")?,
+                });
+                if !self.eat(&Tok::Comma) {
+                    break;
+                }
+            }
+            if self
+                .tokens
+                .get(self.pos)
+                .is_some_and(|t| t.tok == Tok::ColonEq && t.line_start)
+            {
+                self.allow = Some(self.pos);
+            }
+        }
+        if self.peek() == Some(&Tok::KwDecreasing) && !unfolding.is_empty() {
+            return Err(error(self.here(), "`decreasing` goes before `unfolding`"));
+        }
         let (ty, header) = lower_header(params, result);
         let mut decls = vec![Decl::Signature {
             name: name.clone(),
@@ -229,6 +291,8 @@ impl Parser<'_> {
             synonym: false,
             instance,
             decreasing,
+            opaque,
+            unfolding,
             attrs: Vec::new(),
             span,
         }];
@@ -360,6 +424,8 @@ impl Parser<'_> {
                 synonym: true,
                 instance: false,
                 decreasing: None,
+                opaque: false,
+                unfolding: Vec::new(),
                 attrs: Vec::new(),
                 span: start.to(name.span),
             },

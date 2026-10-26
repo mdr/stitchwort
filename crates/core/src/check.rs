@@ -240,7 +240,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         }
         Term::Var(ix) => Err(malformed(cx, format!("variable {ix} is out of scope"))),
         Term::Def(id) => match g.defs.get(id.0) {
-            Some(def) => Ok((term.clone(), def.ty_value.clone())),
+            Some(def) => Ok((term.clone(), def_type(g, def)?)),
             None => Err(malformed(cx, "reference to an unknown definition")),
         },
         Term::Data(d, args) => {
@@ -1295,6 +1295,19 @@ pub fn infer_closed(g: &Globals, term: &Term, span: Span) -> Result<(Term, Value
     infer(&mut Ctx::new(g, span), term)
 }
 
+/// Definition `def`'s type as a value under the current transparency set.
+/// [`Def::ty_value`] was evaluated with every opaque definition hidden, so a
+/// call of one is neutral there for good; under a set that holds it, the
+/// type is evaluated again, so that call computes (a type `Code`, with
+/// `Code` unfolded, is `Nat`).
+pub fn def_type(g: &Globals, def: &Def) -> budget::Result<Value> {
+    if g.transparent.is_empty() {
+        Ok(def.ty_value.clone())
+    } else {
+        eval(g, &[], &def.ty)
+    }
+}
+
 // Declarations
 
 /// Checks the body of a definition added by [`declare_def`], which makes it
@@ -1371,6 +1384,13 @@ pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
         def.arity = body.count_lams();
         def.group = Some(ids.clone());
     }
+    // Each member's transparency set, also fixed before anything is checked.
+    for (id, _) in members {
+        match transparency(g, *id, &ids) {
+            Ok(set) => g.defs[id.0].transparent = set,
+            Err(e) => return fail(g, e),
+        }
+    }
     match admit_group(g, members) {
         Ok(bodies) => {
             for ((id, _), body) in members.iter().zip(bodies) {
@@ -1413,17 +1433,21 @@ fn admit_group(g: &Globals, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
     for (id, body) in members {
         let def = g.def(*id);
         let mut cx = Ctx::new(g, def.span);
+        // Its body sees the opaque definitions it unfolds (`transparency`).
+        let _set = g.transparent.set(def.transparent.clone());
+        let ty = def_type(g, def)?;
         // Checking keeps every location and lambda, so the checked body has
         // the same parameters; the termination checker refuses it if not.
         // With gluing on, so that two calls of the same definition are
         // compared by their arguments first (`value.rs`, `CallMemo`; D483).
         // Only here: the values made here are dropped once the body is
         // checked, where a type's value is kept (`Def::ty_value`, made
-        // unglued by `declare_def`). A type with parameters is a function
-        // type whose codomain is evaluated now, glued; one without (`f 5 =
-        // f 5`) was evaluated unglued, so its calls are already unfolded.
+        // unglued by `declare_def`; `def_type` above, unglued too). A type
+        // with parameters is a function type whose codomain is evaluated
+        // now, glued; one without (`f 5 = f 5`) was evaluated unglued, so
+        // its calls are already unfolded.
         let was = g.glue.replace(true);
-        let result = check(&mut cx, body, &def.ty_value);
+        let result = check(&mut cx, body, &ty);
         g.glue.set(was);
         checked.push(result?);
     }
@@ -1456,6 +1480,8 @@ pub fn declare_def(
     span: Span,
 ) -> Result<DefId> {
     debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
+    // A type is checked with every opaque definition hidden.
+    let _set = g.transparent.set(Rc::default());
     let mut cx = Ctx::new(g, span);
     if !case_only_in_tree(ty, false) {
         return Err(malformed(
@@ -1494,6 +1520,9 @@ pub fn declare_def(
         theorem,
         instance: false,
         fold: false,
+        opaque: false,
+        unfolding: Rc::default(),
+        transparent: Rc::default(),
         lift_leaf: false,
         recursive: true,
         export,
@@ -1512,6 +1541,7 @@ pub fn declare_def(
 /// against this one, as always.
 pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
     debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
+    let _set = g.transparent.set(Rc::default());
     let span = g.defs[id.0].span;
     let mut cx = Ctx::new(g, span);
     if g.defs[id.0].state != State::Pending {
@@ -1569,7 +1599,8 @@ pub fn set_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
         return Err(malformed(&cx, "a run body with a `case`"));
     }
     admissible(&cx, [body], None)?;
-    let ty = def.ty_value.clone();
+    let _set = g.transparent.set(def.transparent.clone());
+    let ty = def_type(g, def)?;
     let checked = check(&mut cx, body, &ty)?;
     g.defs[id.0].run_body = Some(Rc::new(checked));
     Ok(())
@@ -1582,6 +1613,112 @@ pub fn mark_folded(g: &mut Globals, id: DefId) {
     if def.state == State::Pending {
         def.fold = true;
     }
+}
+
+/// Marks pending definition `id` opaque to the checker ([`Def::opaque`],
+/// docs/proposals/opaque-definitions.md §6.4): once final, it has a type and
+/// no body while checking any declaration that doesn't unfold it. Hashed.
+pub fn mark_opaque(g: &mut Globals, id: DefId) {
+    let def = &mut g.defs[id.0];
+    if def.state == State::Pending {
+        def.opaque = true;
+    }
+}
+
+/// Gives pending definition `id` its `unfolding` list ([`Def::unfolding`]),
+/// as written: the opaque definitions its body may unfold. Checked when its
+/// group is submitted ([`define_group`]); hashed.
+pub fn set_unfolding(g: &mut Globals, id: DefId, unfolding: &[DefId]) {
+    let def = &mut g.defs[id.0];
+    if def.state == State::Pending {
+        def.unfolding = unfolding.into();
+    }
+}
+
+/// The transparency set member `id` of group `ids` is checked under, with its
+/// `unfolding` list checked first, as [`define_group`] will: for the
+/// elaborator, which elaborates the body under the same set
+/// (docs/proposals/opaque-definitions.md §6.4).
+pub fn transparency_set(g: &Globals, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
+    transparency(g, id, ids)
+}
+
+/// The transparency set member `id` of group `ids` is checked under, from its
+/// `unfolding` list (docs/proposals/opaque-definitions.md §6.4, §6.11), with
+/// the list checked first:
+///
+/// - a definition that unfolds any must itself be opaque, so it never
+///   unfolds where what it unfolds is hidden (`E-UNFOLDING-TRANSPARENT`);
+/// - each must be final (a member of its own group has no body yet,
+///   `E-UNFOLDING-GROUP`) and opaque (`E-NOT-OPAQUE`).
+///
+/// The set is the least one that holds the list and, with each opaque
+/// definition in it, that one's own set and its opaque group-mates (D1267).
+/// Each definition's set is closed already, so this only follows them; it
+/// ends, as it only grows within the final definitions. Sorted.
+fn transparency(g: &Globals, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
+    let def = g.def(id);
+    let cx = Ctx::new(g, def.span);
+    if !def.unfolding.is_empty() && !def.opaque {
+        return Err(cx
+            .error(
+                "E-UNFOLDING-TRANSPARENT",
+                format!("`{}` unfolds other definitions, but isn't opaque", def.name),
+                "a definition that always unfolds can't unfold opaque ones",
+            )
+            .with_note("make it opaque, or use the opaque definition's `unfold` equation"));
+    }
+    for &other in def.unfolding.iter() {
+        let Some(unfolded) = g.defs.get(other.0) else {
+            return Err(malformed(&cx, "reference to an unknown definition"));
+        };
+        if ids.contains(&other) {
+            return Err(cx
+                .error(
+                    "E-UNFOLDING-GROUP",
+                    format!(
+                        "`{}` can't unfold `{}`: they are checked together, so neither has a body yet",
+                        def.name, unfolded.name
+                    ),
+                    format!("`{}` is in the same group", unfolded.name),
+                )
+                .with_note("prove what needs the body in a theorem after both"));
+        }
+        match unfolded.state {
+            State::Final => {}
+            State::Failed => return Err(failed_dependency(&cx, &def.name, &unfolded.name)),
+            State::Pending => {
+                return Err(malformed(
+                    &cx,
+                    format!(
+                        "`{}` unfolds `{}`, which isn't final",
+                        def.name, unfolded.name
+                    ),
+                ));
+            }
+        }
+        if !unfolded.opaque {
+            return Err(cx
+                .error(
+                    "E-NOT-OPAQUE",
+                    format!("`{}` isn't opaque, so it always unfolds", unfolded.name),
+                    format!("`{}` is unfolded here", unfolded.name),
+                )
+                .with_note(format!("remove `{}` from `unfolding`", unfolded.name)));
+        }
+    }
+    let mut set = std::collections::BTreeSet::new();
+    let mut pending: Vec<DefId> = def.unfolding.to_vec();
+    while let Some(other) = pending.pop() {
+        if set.insert(other) {
+            let unfolded = g.def(other);
+            pending.extend(unfolded.transparent.iter().copied());
+            if let Some(group) = &unfolded.group {
+                pending.extend(group.iter().copied().filter(|m| g.def(*m).opaque));
+            }
+        }
+    }
+    Ok(set.into_iter().collect())
 }
 
 /// Marks which parameters of pending data type `id` are `auto`
@@ -1676,6 +1813,7 @@ pub fn declare_indexed_data_group(
     sort: Sort,
     members: Vec<DataDecl>,
 ) -> Result<Vec<DataId>> {
+    let _set = g.transparent.set(Rc::default());
     let Some(span) = members.first().map(|m| m.span) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",
@@ -1801,6 +1939,7 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
 ///   member's constructors: a member can't occur to the left of an arrow,
 ///   even in a sibling's constructor.
 pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>) -> Result<()> {
+    let _set = g.transparent.set(Rc::default());
     // Refused before anything changes: an empty group, or an id that isn't
     // a data type at all.
     if members.is_empty() {
@@ -2416,6 +2555,7 @@ pub fn add_validator(
     decidable: DataId,
     decision: &Term,
 ) -> Result<()> {
+    let _set = g.transparent.set(Rc::default());
     let Some(def) = g.defs.get(id.0) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",
@@ -2466,6 +2606,7 @@ pub fn add_field_validator(
     decidable: DataId,
     decision: &Term,
 ) -> Result<()> {
+    let _set = g.transparent.set(Rc::default());
     let Some(data) = g.datas.get(d.0) else {
         return Err(Diagnostic::error(
             "E-MALFORMED",

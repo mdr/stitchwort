@@ -136,3 +136,12 @@ pub fn substitute_folded(
         .map(|v| eval(g, &env, &quote_folded(g, level, v)?))
         .collect()
 }
+
+/// Definition `id`'s type as a value under the current transparency set
+/// (`check::def_type`): its stored type when nothing is unfolded, as almost
+/// everywhere; else evaluated again, so a type that names an opaque
+/// definition being unfolded computes (docs/proposals/opaque-definitions.md
+/// §6.4: a body sees `start: Code` as `start: Nat` when it unfolds `Code`).
+pub fn def_ty(g: &Globals, id: DefId) -> stitchwort_core::budget::Result<stitchwort_core::Value> {
+    k::def_type(g, g.def(id))
+}

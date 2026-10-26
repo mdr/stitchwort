@@ -43,6 +43,7 @@ pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, std_source};
 mod numbers;
 mod omega;
 mod omega_search;
+mod opaque;
 mod partial;
 mod patlet;
 mod pipe;
@@ -459,6 +460,16 @@ pub struct Elaborator {
     /// Local definitions admitted after an attempt at their owner's body
     /// failed, by key, for the next attempt (`local.rs`).
     preadmitted: RefCell<HashMap<String, lift::Resolved>>,
+    /// While the body of a declaration with an `unfolding` clause is
+    /// elaborated: that clause, which each helper lifted from the body (a
+    /// `match`, a local definition) gets too, opaque, so its body may use
+    /// what the declaration's may (docs/proposals/opaque-definitions.md
+    /// §6.4: a definition that unfolds others must be opaque). `None`
+    /// elsewhere (`opaque.rs`).
+    pub(crate) owner_unfolding: RefCell<Option<Rc<[DefId]>>>,
+    /// The helpers [`Self::owner_unfolding`] made opaque that were admitted
+    /// on their own, before their owner: the owner unfolds them.
+    pub(crate) owner_helpers: RefCell<Vec<DefId>>,
     /// The local definitions lifted from the declaration (or group) being
     /// checked, bound in the module's scope once it's final.
     local_helpers: Vec<(String, DefId, Span)>,
@@ -1365,6 +1376,8 @@ impl Elaborator {
             synonym: false,
             instance: false,
             decreasing: None,
+            opaque: false,
+            unfolding: Vec::new(),
             attrs: Vec::new(),
             span: *span,
         };
@@ -1464,6 +1477,8 @@ impl Elaborator {
             synonym: false,
             instance: false,
             decreasing: None,
+            opaque: false,
+            unfolding: Vec::new(),
             attrs: Vec::new(),
             span: *span,
         };
@@ -2215,6 +2230,18 @@ impl Elaborator {
                 self.scope.insert(&key, Global::Def(*id), n.span, false);
             }
         }
+        // Their `unfolding` clauses, now that every member can be named.
+        let mut refused = false;
+        for (&(item, signature, _), id) in members.iter().zip(&ids) {
+            self.module.item = Some(item);
+            if let Err(d) = self.resolve_unfolding(signature, *id, &ids) {
+                out.push((item, d));
+                refused = true;
+            }
+        }
+        if refused {
+            return out;
+        }
         if recursive {
             let partial = match members
                 .iter()
@@ -2250,7 +2277,8 @@ impl Elaborator {
             self.clear_metas();
             self.branch_errors.take();
             crate::unify::take_rigid_divergence();
-            let mut checked = self.lifted_body(*id, def_name, equations);
+            let mut checked =
+                self.in_body_of(*id, &ids, |e| e.lifted_body(*id, def_name, equations));
             // A body that moves a computation in its bare row `{e}` into a
             // handler's row needs `e` total: checked again with it
             // (docs/proposals/partial-stage-3.md §2.2, D1215). So is one
@@ -2267,7 +2295,8 @@ impl Elaborator {
                     Ok(true) => {
                         self.clear_metas();
                         self.branch_errors.take();
-                        checked = self.lifted_body(*id, def_name, equations);
+                        checked =
+                            self.in_body_of(*id, &ids, |e| e.lifted_body(*id, def_name, equations));
                         if checked.is_ok()
                             && let Some(at) = at
                         {
@@ -2322,6 +2351,11 @@ impl Elaborator {
             if let Err(d) = self.after_definition(signature, *id) {
                 out.push((item, d));
             }
+            if let Decl::Signature { name, .. } = signature
+                && let Err(d) = self.opaque_unfold(name, *id)
+            {
+                out.push((item, d));
+            }
         }
         out
     }
@@ -2337,12 +2371,15 @@ impl Elaborator {
             synonym,
             instance,
             decreasing: _,
+            opaque: _,
+            unfolding: _,
             attrs: _,
             span,
         } = signature
         else {
             unreachable!()
         };
+        self.check_unfolding_clause(signature)?;
         let no_receiver = self.definition_attributes(signature)?;
         let key = self.check_new_name(def_name)?;
         self.clear_metas();
@@ -2361,6 +2398,7 @@ impl Elaborator {
         if let Some(item) = self.module.item {
             self.module.def_items.insert(id, item);
         }
+        self.mark_opaque_signature(signature, id);
         // A dictionary keeps its name in what uses it (stage 1, item 13).
         if self.is_dictionary_type(&self.globals.def(id).ty.clone())? {
             kernel::mark_folded(&mut self.globals, id);
@@ -2638,10 +2676,12 @@ impl Elaborator {
         let g = &self.globals;
         let mut cx = Ctx::new(self, def_name.span);
         let written = Rc::new(g.def(id).ty.clone());
-        self.with_body_type(&g.def(id).ty_value, def_name.span, || {
+        // Its type, as the body sees it: with what it unfolds unfolded.
+        let ty_value = kernel::def_type(g, g.def(id))?;
+        self.with_body_type(&ty_value, def_name.span, || {
             self.body_in(
                 &mut cx,
-                g.def(id).ty_value.clone(),
+                ty_value.clone(),
                 Some(written),
                 def_name,
                 equations,

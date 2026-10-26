@@ -48,8 +48,40 @@ fn a9_quot_sound_is_reported_wherever_it_is_reached() {
 #[test]
 fn a9_nothing_is_reported_without_quot_sound() {
     for name in ["plain", "usesLift", "usesInd"] {
-        assert_eq!(report(name), "", "{name}");
+        assert_eq!(report(name), "no axioms are used\n", "{name}");
     }
+}
+
+/// Several names in a file are each reported under a heading, in the order
+/// given.
+#[test]
+fn several_names_in_a_file_are_reported_each_under_a_heading() {
+    let output = stitchwort(
+        Path::new("."),
+        &["axioms", &example(), "inline", "plain", "viaDef"],
+    );
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "inline:\n  Quot.sound\nplain:\n  no axioms are used\nviaDef:\n  Quot.sound\n"
+    );
+}
+
+/// One unknown name among several fails before anything is printed.
+#[test]
+fn one_unknown_name_among_several_prints_nothing() {
+    let output = stitchwort(Path::new("."), &["axioms", &example(), "plain", "nope"]);
+    assert!(!output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("there's no definition `nope`"));
+}
+
+/// A file with no names is told to name some.
+#[test]
+fn a_file_without_names_asks_for_them() {
+    let output = stitchwort(Path::new("."), &["axioms", &example()]);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("name the definitions"));
 }
 
 #[test]
@@ -74,6 +106,7 @@ fn a_project_name_is_given_in_full() {
     .unwrap();
     let same = stitchwort(&dir, &["axioms", "Proof.same"]);
     let plain = stitchwort(&dir, &["axioms", "Proof.plain"]);
+    let both = stitchwort(&dir, &["axioms", "Proof.same", "Proof.plain"]);
     let _ = std::fs::remove_dir_all(&base);
     assert_eq!(
         String::from_utf8_lossy(&same.stderr),
@@ -82,5 +115,12 @@ fn a_project_name_is_given_in_full() {
         String::from_utf8_lossy(&same.stdout)
     );
     assert_eq!(String::from_utf8_lossy(&same.stdout), "Quot.sound\n");
-    assert_eq!(String::from_utf8_lossy(&plain.stdout), "");
+    assert_eq!(
+        String::from_utf8_lossy(&plain.stdout),
+        "no axioms are used\n"
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&both.stdout),
+        "Proof.same:\n  Quot.sound\nProof.plain:\n  no axioms are used\n"
+    );
 }

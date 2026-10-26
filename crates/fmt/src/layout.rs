@@ -606,6 +606,9 @@ impl<'a> Layout<'a> {
         if k < range.end && tokens[k].tok == Tok::KwExport {
             k += 1;
         }
+        if k < range.end && tokens[k].tok == Tok::KwOpaque {
+            k += 1;
+        }
         let keyword = tokens.get(k).filter(|_| k < range.end)?;
         let ends: fn(&Token) -> bool = match keyword.tok {
             Tok::KwDef | Tok::KwTheorem | Tok::KwInstance | Tok::KwTest => {

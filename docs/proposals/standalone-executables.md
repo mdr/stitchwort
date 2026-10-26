@@ -949,6 +949,7 @@ work to go on tonight). They stand unless Matt overturns them.
 
 **D1287. Is the hybrid the architecture, or a stopgap?** **Decided by
 Claude, provisional: the architecture.**
+- Overturned by Matt (D1294, 26 Oct): binaries are fully native; see native-only.md.
 - **What it means:** a standalone binary always links the machine. It runs
   whole native islands where they fit, and the rest on the machine, by the
   same rule as `run --native`.

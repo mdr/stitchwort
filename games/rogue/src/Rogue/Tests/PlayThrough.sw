@@ -17,13 +17,12 @@ def keysOf (text: Text): List Key := text.toList.map Printable
 -- sword and potions, take the stairs (`>`), fight what's in the way,
 -- drink (`p`) when hurt, and take the amulet on level 3.
 def winningRoute: Text := Text.join [
-  "kjlllllllllllllllllllllllllljjjjjjjjjjjhjhhh",
-  "hhhhhhhhhhhhhhhkkkjjjlllllllllllllllllll>",
-  "jhkkklkllllllllllllljkkllkkkkkkkhhhhhhhhhhhh",
-  "jhhhhhhhhhhhhhhhhhhhhjhhhhhhhhpkhkkkllllllll",
-  "jjhhhhh>",
-  "jlllkhhhhhhhhhhhhhhhhhhhhhhhhhhhhphpphhphhhh",
-  "hjjkhhh"
+  "kjllllllllllllllllllllllllljjjjjjjjjjjhjhhhh",
+  "hhhhhhhhhhhhhhkkkjjjllllllllllllllllllll>jjl",
+  "lljjjjjjjjhhhhhhhhhhhhhhjhhhhhhhhphhhhhhhhhh",
+  "hhhhhhhhhhhjpjjjjjkhhhhhhhhklll>llllllllllll",
+  "llllllllkkkllllllllllllplllllllllllklkppllll",
+  "lpjhhhhh"
 ] ' '
 
 -- The game as `main` plays it, on scripted keys and the test seed: the
@@ -37,15 +36,15 @@ def winningGame: {Partial} Pair (List (List Text)) State := simulateGame (keysOf
 def statusLines (frames: List (List Text)): List Text := frames.filterMap (frame => frame.get levelRows)
 
 test "the winning route takes the amulet" := winningGame.snd.phase == Won
-test "on level 3, on turn 232, with 8 hit points" :=
+test "on level 3, on turn 228, with 8 hit points" :=
   let final := winningGame.snd
-  final.level.depth == 3 ∧ final.turn == 232 ∧ final.hitPoints == 8 ∧ final.below == []
+  final.level.depth == 3 ∧ final.turn == 228 ∧ final.hitPoints == 8
 test "it picks up both swords on the way" := winningGame.snd.strength == startingStrength + 2 * swordBonus
 test "every level is visited, in order" :=
   let depths := statusLines winningGame.fst |> .map (line => line.take 11) |> .dedup
   depths == ["Level 1/3  ", "Level 2/3  ", "Level 3/3  "]
 test "going down says so" := winningGame.fst.any (frame => frame.last == Some "You go down the stairs to level 3.")
-test "one frame per turn, and the first" := winningGame.fst.length == 233
+test "one frame per turn, and the first" := winningGame.fst.length == 229
 test "the end of the keys gives up" := (simulateGame []).snd.phase == GaveUp
 test "q gives up" :=
   let (frames, final) := simulateGame (keysOf "qlll")
@@ -69,13 +68,13 @@ test "main on piped input" :=
   (printed.filter (line => line == "\u{c}")).length == 4 ∧ printed.last == Some "You gave up on level 1, on turn 2."
 test "the winning route through the console handler" :=
   let (printed, final) := IO.simulate [winningRoute] (() => playOn testSeed)
-  final.phase == Won ∧ (printed.filter (line => line == "\u{c}")).length == 233
+  final.phase == Won ∧ (printed.filter (line => line == "\u{c}")).length == 229
 
 -- `IO.simulateWith` gives `main` the seed the route was found on, so the real
 -- `main` plays it through to the win.
 test "main plays the winning route on seed 2026" :=
   let (printed, _) := IO.simulateWith testSeed [winningRoute] main
-  (printed.filter (line => line == "\u{c}")).length == 233 ∧ (printed.last |> .getOrElse "").startsWith "You won"
+  (printed.filter (line => line == "\u{c}")).length == 229 ∧ (printed.last |> .getOrElse "").startsWith "You won"
 
 -- The first level on the test seed. The bars mark the ends of each row,
 -- which is 66 cells wide.

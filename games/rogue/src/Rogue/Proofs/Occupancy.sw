@@ -112,11 +112,10 @@ theorem playerMovesClear (dice: Dice) (state: State) (direction: Direction) (cle
           let target := state.player.toward direction
           rewrite enterPlayer state target, enterMonsters state target in found
 
-theorem descendClear (state: State) (clear: Clear state.player state.monsters):
-    Clear (descend state).player (descend state).monsters :=
-  match below: state.below with
-    | Cons plan deeper => placeMonstersClear plan.level plan.level.start [] plan.monsters rfl
-    | [] => clear
+theorem descendClear (dice: Dice) (state: State) (clear: Clear state.player state.monsters):
+    Clear (descend dice state).player (descend dice state).monsters :=
+  let plan := seeded dice.seed (() => generateLevel (state.level.depth + 1))
+  placeMonstersClear plan.level plan.level.start [] plan.monsters rfl
 
 theorem resolveClear (dice: Dice) (state: State) (command: Command) (clear: Clear state.player state.monsters):
     Clear (resolve dice state command).player (resolve dice state command).monsters :=
@@ -132,7 +131,7 @@ theorem resolveClear (dice: Dice) (state: State) (command: Command) (clear: Clea
             | False => monstersTurnClear dice (drink state) clear
         | Descend =>
           match stairs: isStairs state.level state.player with
-            | True => descendClear state clear
+            | True => descendClear dice state clear
             | False => clear
     | Won => clear
     | Died => clear

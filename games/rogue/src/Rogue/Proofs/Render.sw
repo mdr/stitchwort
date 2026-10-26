@@ -5,10 +5,9 @@
 -- player's mark comes first, so it's the one drawn, and the monsters'
 -- come next.
 --
--- The cell must be one the terrain covers. Every level `Level.build` makes
--- has terrain 20 rows by 66 columns; not proved: that the player and the
--- monsters stay inside those bounds (floor is a union of rectangles that
--- the generator keeps inside them, but `Level` itself doesn't say so).
+-- The cell must be one the terrain covers. That the player and every
+-- monster always are, in every state a real game reaches, is Bounds.sw
+-- (`drawnPlayer`, `drawnMonster`).
 
 namespace Rogue.Proofs
 import Rogue (..)

@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/opaque-note-body-name.sw:10:28 ]
+    │
+ 10 │   rewrite half.unfold n in rfl
+    │                            ─┬─  
+    │                             ╰─── `(body of half) n` and `0` aren't equal
+    │ 
+    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 2: this statement is false; a counterexample:
+    │           n = 2
+    │         `half n = 0` is false:
+    │           left:  1
+    │           right: 0
+    │         the search ran the real code, but `half` is opaque, so a proof can't use its body unless the theorem says `unfolding half`
+────╯

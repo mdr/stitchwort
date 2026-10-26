@@ -7,7 +7,8 @@ examples, and `stitchwort axioms` reports that none of them uses an axiom.
 
 This note lists what is proved, what was tried and didn't go through, and
 what the language or std would need for the rest. It came out of an
-exploration (25 Oct 2026); `NOTES.md` has the history before it.
+exploration (25 Oct 2026) and a follow-up (26 Oct 2026) that linked the
+proofs to the real generator; `NOTES.md` has the history before it.
 
 ## What's proved
 
@@ -47,11 +48,13 @@ handlers (`Terminal.simulate` for keys and frames, `seeded` for dice):
 The loop as a whole isn't proved (see "Tried" below); `replayValid` covers
 any sequence of the turns it takes.
 
-### 3. The way down can always be reached (Reach.sw)
+### 3. The way down can always be reached (Reach.sw, Generated.sw)
 
 | Theorem | In plain words |
 |---|---|
-| `goalReachable` | on every level the generator lays out, there is a sequence of moves from the start to the stairs (or the amulet) that only ever steps onto floor |
+| `generatedReachable` | **for every seed and depth**, on the level `generateLevel` makes under the seeded handler, there is a sequence of moves from the start to the stairs (or the amulet) that only ever steps onto floor |
+| `planReachable` | the same for the level `planFrom` plans from *any* list of numbers |
+| `goalReachable` | the same for the level `layOut` makes from any rooms, with entrance and exit numbered below 6 |
 | `walkWithin` | inside a rectangle of floor, any cell can be walked to from any other (along the row, then along the column) |
 | `corridorJoins` | the two ends of each corridor can be walked between, both ways |
 | `hubJoins` | the corridors form a snake through all six rooms, so every room's middle can be reached from room 0's and back |
@@ -61,21 +64,50 @@ proof only uses how corridors are drawn (middle to middle, along a row and
 then a column) and which rooms they join. Monsters may stand in the way,
 but walking into one attacks it, so nothing blocks the way for good.
 
-The theorem is about `layOut`, the pure part of `generateLevel`, for room
-numbers below 6. `generateLevel` picks them as `roll 5` and `… % 6`, which
-are always below 6, but that link isn't machine-checked (see below).
-
-### 4. Drawing (Render.sw)
+How the link to the real generator works (Generated.sw): `generateLevel`
+is now "draw, then plan": it draws every number it needs first
+(`drawMore`, the same `next()` calls in the same order as before) and
+plans the level from them with no randomness left (`planFrom`). So the
+handler's part is a single fact, proved by induction on how many numbers
+are drawn:
 
 | Theorem | In plain words |
 |---|---|
-| `renderPlayer` | the text `render` draws has `@` exactly at the player's row and column |
-| `renderEveryMonster` | in a valid state, each monster's letter (`g`, `o`, `T`) is drawn exactly at its row and column |
+| `seededDrawMore` | drawing under the seeded handler and then finishing purely is finishing with the numbers `seededNumbers` lists (a pure function of the seed) |
+| `generatedPlan` | so the plan `generateLevel` makes from a seed is `planFrom` of those numbers |
+| `generatedHolds` | so whatever is true of every planned level is true of every generated one, for every seed and depth |
+| `seededNewGame` | and the first state of the real program, `newGame()` under the seeded handler, is `startingState` of the level generated from that seed |
+| `rollBelow` | a roll is below its bound: `roll most` under the seeded handler is at most `most` |
+
+`planFrom` reads the rooms' numbers as remainders by 6, so its entrance
+and exit are below 6 by `Nat.modLt`, with no fact about the handler
+needed. `rollBelow` is the matching fact about `roll` itself, for
+programs that still roll as they go.
+
+### 4. Every level fits the screen, and everyone is drawn (Bounds.sw, Render.sw)
+
+A level is *framed* (`Framed`) when its terrain is 20 rows of 66 cells and
+every floor cell is among them. A state is *sound* (`Sound`) when it is
+valid and its level is framed.
+
+| Theorem | In plain words |
+|---|---|
+| `drawnPlayer` | in every sound state, the text `render` draws has `@` exactly at the player's row and column |
+| `drawnMonster` | in every sound state, each monster's letter (`g`, `o`, `T`) is drawn exactly at its row and column |
+| `newGameSound` | every new game, as the program starts it, is sound, for every seed |
+| `replaySound` | any number of turns keeps a state sound |
+| `generatedFramed` | every generated level is framed, for every seed and depth |
+| `stepFramed`, `resolveFramed` | a turn keeps the level framed (it keeps the level, or goes down to a generated one) |
+| `roomFits` | each of the six rooms fits inside its section, whatever the numbers |
+| `corridorFits` | a corridor between two cells on the screen stays on the screen |
+| `renderPlayer` | the text `render` draws has `@` at the player's row and column, for a player inside the terrain |
+| `renderEveryMonster` | in a valid state, each monster inside the terrain is drawn at its row and column |
 | `renderMonster` | the same without assuming validity: the cell shows the first monster standing there, unless the player is on it |
 | `renderCell` | in general, each cell shows what stands on it (player first, then monsters, then items), or else the terrain |
 
-These need the cell to be inside the drawn terrain (20 rows by 66 columns);
-that the player and monsters always are isn't proved (see below).
+So `drawnPlayer` and `drawnMonster` are `renderPlayer` and
+`renderEveryMonster` with the inside-the-terrain assumption discharged for
+every state a real game reaches.
 
 ### 5. Keys (Input.sw, Loop.sw)
 
@@ -84,6 +116,8 @@ that the player and monsters always are isn't proved (see below).
 | `arrowDecodes` | the bytes a terminal sends for each arrow key are read back as that arrow, whatever comes after (from std's `Key.nextBytes`) |
 | `arrowMoves` | each arrow is the move in its direction |
 | `documentedKeys` | h/j/k/l, a/s/w/d, `.`, `>`, `p` and `q` do what the keys line on screen says |
+| `onlyListedKeys` | **no other printable key is a command**: a key's command is the one `keyCommands` lists beside it |
+| `onlyCommandKeys` | and no other key at all: a key that is a command is an arrow, or a printable key listed with that command |
 | `arrowWalks` | end to end in the real turn: pressing an arrow, when the cell that way is floor with no monster on it, moves the player there |
 
 `commandOf` being total needs no theorem: the checker rejects any
@@ -103,47 +137,84 @@ function that might not return.
 
 ## Program changes
 
-Both keep the behaviour identical; all 99 tests pass unchanged, including
-the pinned first map and the 232-turn winning game.
+All keep the behaviour identical; the tests pass unchanged, including
+the pinned first map and the winning game (232 turns before levels were made on the stairs, 228 after), which goes through all three levels.
 
 - `play` was split into `play` (the loop) and `playTurn` (one key), so
   that one turn of the real loop is a total function (Rogue.sw).
-- `generateLevel` now builds its level with `layOut`, a pure function of
+- `generateLevel` builds its level with `layOut`, a pure function of
   the rooms and the rolls, with `corridorsOf` and `roomOf` named
-  (Generate.sw). The rolls are made in the same order.
+  (Generate.sw).
+- `generateLevel` is now `planFrom depth (drawMore [] (drawCount depth))`:
+  draw every number first, then plan. `planFrom` takes roll *i* as number
+  *i* of the draws, reduced as `roll` reduced it (`rollAt`: `% Succ most`),
+  so the same `next()` calls are made in the same order and give the same
+  level. `randomRoom`, `randomSpot`, `randomMonster` and `randomItem`
+  became `roomFrom`, `spotFrom`, `monsterFrom` and `itemFrom`. `drawMore`
+  adds each number at the end (`drawMore (drawn ++ [number]) rest`) rather
+  than `Cons number (draws rest)`: see "language gaps" below for why.
+- `layOut` and `drawCount` are opaque (only `goalReachable` and
+  `planFramed` unfold `layOut`; nothing unfolds `drawCount`).
+- `commandOfChar` looks the key up in a table, `keyCommands`, instead of
+  matching on characters (Input.sw). A test checks that no key is listed
+  twice, as the lookup takes the first.
 
 ## Tried, and how far it got
 
 | Candidate | Result |
 |---|---|
 | The whole loop `play` as one statement | **Not possible today, by design.** `play` is partial, and a partial program under a handler has nothing to prove about it (docs/proposals/partial-handlers.md §3.5). Two turns of `playTurn` do compute by `rfl` for any two keys; *n* turns would need induction over the handler, and `Terminal.simulate` hides its frame accumulator, so the state after one turn isn't `Terminal.simulate` of the rest. |
-| No key but the documented ones is a command | **Not proved.** A character pattern like `'k'` is a number pattern, and the catch-all arm of such a match learns nothing about the character (docs/syntax.md), so there's no way to show "anything else gives `None`" short of a case per character. |
-| `goalReachable` for `generateLevel` itself | **Not attempted.** It needs the generator's output under `seeded`, which unfolds the whole generator (the stage-2 friction in NOTES.md), plus "a roll is below its bound" under the handler. |
-| Player and monsters inside the 20 by 66 terrain | **Not attempted.** It's an extra invariant (floor stays inside the level), true because `randomRoom` keeps rooms inside their section; the same generator obstacle as above. With it, `renderPlayer` would need no hypotheses. |
+| No key but the documented ones is a command | **Proved, with a table** (`onlyListedKeys`, `onlyCommandKeys`). Written as a `match` on characters it can't be: a character pattern like `'k'` is a number pattern, compiled to a number case (`NumCase`) whose catch-all arm learns nothing about the character (docs/syntax.md), and a number case on an unknown number never steps, so even knowing `code ≠ 107` for every listed code doesn't reach the arm. Looking the key up in a list instead makes it an ordinary `find`, and std's `List.findSome` does the rest. |
+| `goalReachable` for `generateLevel` itself | **Proved** (`generatedReachable`), after three failures. (1) Unfolding the old `generateLevel` and passing `goalReachable` with holes: E-RESOURCE, the holes solved against the generator body run under the handler. (2) After splitting off `planFrom`, `planReachable` with `layOut` still transparent: E-RESOURCE, comparing `(planFrom depth numbers).level` with `layOut …` drew the terrain of a level with unknown rooms; fixed by making `layOut` opaque. (3) Then `generatedReachable` ran past 5 minutes: with an unknown depth, `drawCount depth` partly computes (`27 + 4 * (2 + 2 * depth) + …` still has some `Succ`s on the outside), so the handler starts drawing numbers symbolically; fixed by making `drawCount` opaque. Now all the proofs check in about 4 s of CPU. |
+| Player and monsters inside the 20 by 66 terrain | **Proved** (`drawnPlayer`, `drawnMonster`, Bounds.sw), by the same route: every planned level is framed (`planFramed`, by `omega` on each room's rolls and a case per section), so every generated one is (`generatedHolds`), and a turn keeps the level or goes down to a generated one. |
 | Winnability: a winning sequence of commands exists from the start | **Out of reach, and not true as stated.** Monsters roll their blows, so with unlucky seeds a game can be lost whatever the player does; "winnable" has to fix the seeds, and then it's a fact about one game. For a fixed seed it's the winning-route test, which is a unit test, not a proof. A real fairness theorem ("winnable with probability at least p") needs probability, which the language doesn't have. |
 
 ## What would be needed for the rest, ranked
 
-1. **Opaque or sealed definitions** (in progress in a parallel lane). The
-   first try of `goalReachable`, stated about `layOut` directly, ran out of
-   resources (`E-RESOURCE`, "a value was too large to show"): checking it
-   unfolded `Level.build`, whose terrain is a drawing of 20 by 66 cells.
-   Stating the proofs about any `Level` with an equation for its corridors
-   fixed it. Marking `Level.build`'s terrain (or `drawTerrain`) opaque
-   would let the theorem be stated about `layOut` plainly.
-2. **Proofs about the generator under its handler.** "A roll is below its
-   bound" for any handler of `Random`, and a way to reason about
-   `seeded seed (() => generateLevel depth)` without unfolding all of it,
-   would link `goalReachable` to `generateLevel` and give the
-   inside-the-terrain invariant.
-3. **A frames-free or accumulator-exposing `Terminal.simulate`** (say a
+1. **A frames-free or accumulator-exposing `Terminal.simulate`** (say a
    `Terminal.simulateFrom keys frames prog`), so that a proof can do
    induction over turns of a total loop (with fuel) and relate *n* turns of
-   the real loop to `replay`.
+   the real loop to `replay`. The one gap left between the proofs and the
+   real loop: `replaySound` and `replayValid` give each turn its own seed,
+   while the real loop threads one generator through every turn.
+2. **Monad laws that compute, or without an axiom.** Under a handler,
+   `f (g (p()))` and `(x => f (g x)) (p())` are different computations
+   (`bind (bind p g') f'` against `bind p (x => …)`) unless `p` is known,
+   and the law that joins them, `Effect.bindAssoc`, uses function
+   extensionality, so `Quot.sound`. A first `seededDrawMore`, about
+   `Cons first (draws rest)`, failed on exactly this (the step needs
+   `seeded s (() => finish (Cons n (draws c)))` to be
+   `seeded s (() => (rest => finish (Cons n rest)) (draws c))`). The
+   workaround is to draw onto an accumulator, so that each step is the
+   induction hypothesis on the nose, and to prove a second lemma
+   (`seededDrawMoreThen`) for two pure steps after the drawing. Every
+   program that runs a handler over "draw, then compute" will meet this; a
+   rule that a pure function applied to a computation's result commutes
+   with a handler (`seeded s (() => f (p())) = f (seeded s p)`, here
+   `seededDrawMore`) would be worth having once, generally, for any deep
+   handler of a state-like ability.
+3. **Opacity is still something to discover by `E-RESOURCE`.** Two of the
+   three failures above were a definition that was cheap to run and
+   enormous to compare once its arguments were unknown (`layOut`'s
+   terrain, `drawCount`'s partly-computed number). The goal-readback size
+   cap (docs/proposals/goal-readback.md) addresses the first kind; the
+   second was the kernel, not the read-back, and "ran out of resources"
+   didn't say which definition was being unfolded. Naming the definition
+   being unfolded at the time in the `E-RESOURCE` message would have
+   saved a good part of the search.
 4. **Negative information in literal-pattern matches**: in the catch-all
    arm of a match on `'k'`, `'w'`, …, knowing the character is none of
-   them. That would prove "no other key is a command".
+   them. The table works around it here, at the cost of a program change;
+   a program that wants its `match` will still need a case per character.
 5. **Small things met on the way** (each cost a few minutes):
+   - `unfolding` after a signature that spans lines must be indented
+     *less* than the type's continuation lines (as in docs/syntax.md);
+     at the same indentation it's read as part of the type, and the error
+     is "expected an expression, but found `unfolding`".
+   - `then` can't be a parameter name (it's a keyword); the error says
+     "expected a parameter's name, but found `then`", which is clear.
+   - An `And` proof has no `.snd` (its fields are `left` and `right`); `And.right p`
+     works.
    - `|>` binds looser than `=`, so a theorem statement written
      `xs.map f |> .getOr d i = y` checks, but means "pipe into the
      equation"; it was only caught when the lemma was used. A warning for

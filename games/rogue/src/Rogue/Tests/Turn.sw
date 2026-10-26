@@ -35,7 +35,6 @@ def corner: Position := { row = 1, column = 1 }
 -- The test level with nothing else about.
 def quiet: State := {
   level = testLevel,
-  below = [],
   player = corner,
   hitPoints = maxHitPoints,
   potions = 0,
@@ -174,12 +173,12 @@ test "items are drawn, under monsters" :=
 
 -- The stairs
 
-def onStairs: State := { quiet | player = testLevel.goal, below = [deeperPlan] }
+def onStairs: State := { quiet | player = testLevel.goal }
 
 test "the stairs are at the goal, and drawn" := isStairs testLevel { row = 3, column = 24 } ∧ (render quiet).get 3 == Some ("#.......................>.....#".padRight levelColumns ' ')
 test "> on the stairs goes down" :=
   let after := resolve lowRoll onStairs Descend
-  after.level.depth == 2 ∧ after.player == roomB.middle ∧ after.below == [] ∧ after.message == "You go down the stairs to level 2."
+  after.level.depth == 2 ∧ after.player == after.level.start ∧ after.message == "You go down the stairs to level 2."
 test "going down keeps what the player carries" :=
   let after := resolve lowRoll { onStairs | potions = 2, strength = 6, hitPoints = 5 } Descend
   after.potions == 2 ∧ after.strength == 6 ∧ after.hitPoints == 5
@@ -200,6 +199,7 @@ test "nothing happens once the game is over" :=
 test "vi keys" := ['h', 'j', 'k', 'l'].map commandOfChar == [Some (Move West), Some (Move South), Some (Move North), Some (Move East)]
 test "wasd keys" := ['a', 's', 'w', 'd'].map commandOfChar == [Some (Move West), Some (Move South), Some (Move North), Some (Move East)]
 test "other keys" := ['.', '>', 'p', 'q', 'x', ' '].map commandOfChar == [Some Wait, Some Descend, Some Drink, Some Quit, None, None]
+test "each key is listed once" := keyCommands.map (.fst) |> .dedup |> .length == keyCommands.length
 
 -- Randomness
 
