@@ -531,6 +531,14 @@ pub struct NativeRun<'a> {
     /// Frames pending, the island root's included.
     pub frames: u64,
     pub limits: Limits,
+    /// Values frames gave up on leaving with an error ([`sw_unwind`]), in
+    /// the order they left.
+    pub unwound: Vec<Vec<Value>>,
+    /// A tail call's arguments, dropped after the rest.
+    pub tail: Vec<Value>,
+    /// Each native frame's closure and pending arguments, as it left: the
+    /// machine keeps them in its frames, which it clears before registers.
+    pub held: Vec<Vec<Value>>,
 }
 
 /// Native code for some of a program's functions: the machine calls it at
@@ -538,10 +546,11 @@ pub struct NativeRun<'a> {
 pub trait NativeIslands {
     /// Whether a call of global `g` from the entry body may run natively.
     fn is_root(&self, g: u32) -> bool;
-    /// Whether this call, with these arguments, runs natively. `false`
-    /// leaves it to the machine (an island that applies function values
-    /// can't take one from outside).
-    fn accepts(&self, g: u32, args: &[&Value]) -> bool;
+    /// Whether this call, with these arguments and under this frame limit,
+    /// runs natively. `false` leaves it to the machine (an island that
+    /// applies function values can't take one from outside; a frame limit
+    /// the native stack might not hold).
+    fn accepts(&self, g: u32, args: &[&Value], frame_limit: u64) -> bool;
     /// Runs `g` on `args`; the steps it takes are added to `run.steps`.
     fn call(
         &self,
@@ -549,6 +558,14 @@ pub trait NativeIslands {
         args: Vec<Value>,
         run: &mut NativeRun<'_>,
     ) -> Result<Value, ResourceError>;
+    /// After a failed run's registers are cleared: drops what native
+    /// frames gave up on leaving with an error, in the order the machine
+    /// would have dropped it.
+    fn release_unwound(&self) {}
+    /// After a failed run's frames are cleared (before its registers):
+    /// drops the closures (and pending arguments) native frames held, last
+    /// frame first.
+    fn release_unwound_frames(&self) {}
 }
 
 /// Whether native code could apply every function value inside `v`: each
@@ -594,35 +611,133 @@ pub fn natively_callable(globals: &[bool], lambdas: &[*const u8], v: &Value) -> 
 /// calling convention, the arguments moved in, the result written.
 pub type Trampoline = extern "C" fn(*mut Context, *mut Value, *mut Value);
 
-/// How much of the stack [`CompiledCode::stack_size`] gives native code is kept
-/// back: what the host used above the crossing, and room at the bottom for
-/// the runtime's helpers.
-pub const STACK_SLACK: usize = 16 * 1024 * 1024;
+/// What the host (the driver, the machine, the CLI) may have used above
+/// the crossing into native code.
+pub const HOST_ROOM: usize = 8 * 1024 * 1024;
+/// What a runtime helper may use at the bottom of the stack (freeing a
+/// value, a big number's arithmetic, a native operation).
+pub const HELPER_ROOM: usize = 8 * 1024 * 1024;
 
-/// Compiled code, wherever it is (JIT-compiled memory, or linked into a
-/// standalone executable): what the crossing gives it in the [`Context`].
-pub struct CompiledCode {
-    /// For each global, its code as a function value's, or null.
-    pub functions: *const *const u8,
-    /// For each lambda, its code, or null.
-    pub lambdas: *const *const u8,
-    pub tables: *const Tables,
-    /// The stack the code runs on, if known: native code then stops with
-    /// `E-RESOURCE` rather than run off its end (a safety margin).
-    pub stack_size: Option<usize>,
+/// How far below the crossing the stack-pointer check puts its floor, for
+/// a stack of `stack_size` bytes and bodies of at most `max_frame`: the
+/// whole stack less the host's and helpers' room and one more frame (the
+/// check runs before a call pushes its frame). `None` if the stack is too
+/// small for that.
+pub fn floor_depth(stack_size: usize, max_frame: usize) -> Option<usize> {
+    stack_size.checked_sub(HOST_ROOM + HELPER_ROOM + max_frame)
 }
 
-impl CompiledCode {
+/// Whether the frame counter always fires before the stack-pointer check:
+/// `frame_limit` frames of at most `max_frame` fit above the floor.
+pub fn counter_fires_first(frame_limit: u64, stack_size: usize, max_frame: usize) -> bool {
+    floor_depth(stack_size, max_frame)
+        .is_some_and(|depth| frame_limit.saturating_mul(max_frame as u64) <= depth as u64)
+}
+
+/// Why the crossing leaves a call to the machine.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Declined {
+    /// The arguments hold a function value that has no compiled code.
+    FunctionValue,
+    /// The frame limit's frames might not fit the stack, so the stack
+    /// check could fire before the frame counter.
+    Stack,
+}
+
+/// Compiled islands, wherever their code is (JIT-compiled memory, or
+/// linked into a standalone executable): the tables the code is given in
+/// the [`Context`], and the crossing itself (the module comment). Shared by
+/// `run --native`'s JIT and a standalone executable's linked code, so the
+/// two can't drift.
+pub struct Crossing {
+    /// For each global: its code as a function value's, or null
+    /// ([`Context::functions`]).
+    pub functions: Box<[*const u8]>,
+    /// For each lambda: its code, or null ([`Context::lambdas`]).
+    pub lambdas: Box<[*const u8]>,
+    /// For each global: whether native code can apply it as a function
+    /// value (a compiled function, or an applicable native), for the
+    /// check of function values.
+    pub callable: Box<[bool]>,
+    /// What the code refers to by number ([`Context::tables`]).
+    pub tables: TableStore,
+    /// The stack the code runs on, if known: native code then stops with
+    /// `E-RESOURCE` rather than run off its end (a safety margin, never the
+    /// limit).
+    pub stack_size: Option<usize>,
+    /// A bound on the stack one level of recursion uses.
+    pub max_frame: usize,
+    /// Values frames gave up on leaving with an error, until the machine
+    /// has cleared its own registers ([`sw_unwind`]).
+    unwound: std::cell::RefCell<(Vec<Vec<Value>>, Vec<Value>, Vec<Vec<Value>>)>,
+}
+
+impl Crossing {
+    /// The crossing for code with these tables. `callable` is worked out
+    /// from `functions` and the program's natives.
+    pub fn new(
+        program: &Program,
+        functions: Box<[*const u8]>,
+        lambdas: Box<[*const u8]>,
+        tables: TableStore,
+        stack_size: Option<usize>,
+        max_frame: usize,
+    ) -> Crossing {
+        let callable = program
+            .globals
+            .iter()
+            .enumerate()
+            .map(|(g, global)| match global.kind {
+                GlobalKind::Native(op) => applicable_native(op),
+                _ => functions.get(g).is_some_and(|code| !code.is_null()),
+            })
+            .collect();
+        Crossing {
+            functions,
+            lambdas,
+            callable,
+            tables,
+            stack_size,
+            max_frame,
+            unwound: std::cell::RefCell::new((Vec::new(), Vec::new(), Vec::new())),
+        }
+    }
+
+    /// Whether a call of a root with these arguments, under this frame
+    /// limit, may run natively (`checks_arguments`: the root's island
+    /// applies function values).
+    pub fn admits(
+        &self,
+        checks_arguments: bool,
+        args: &[&Value],
+        frame_limit: u64,
+    ) -> Result<(), Declined> {
+        if checks_arguments
+            && !args
+                .iter()
+                .all(|v| natively_callable(&self.callable, &self.lambdas, v))
+        {
+            return Err(Declined::FunctionValue);
+        }
+        // The frame counter must fire before the stack check could:
+        // otherwise this call stays on the machine.
+        if let Some(size) = self.stack_size
+            && !counter_fires_first(frame_limit, size, self.max_frame)
+        {
+            return Err(Declined::Stack);
+        }
+        Ok(())
+    }
+
     /// Runs the island root whose trampoline is `trampoline` on `args`, as
     /// the machine's `Call` hands it over (the module comment): the
     /// counters go in and the steps come back in `run`, the arguments are
-    /// moved in and the result moved out. Shared by `run --native`'s JIT
-    /// and a standalone executable's linked code, so the two can't drift.
+    /// moved in and the result moved out, and what frames leaving on an
+    /// error gave up is kept for [`Crossing::release_unwound`].
     ///
     /// # Safety
-    /// `trampoline` is a finished trampoline of this code, and `functions`,
-    /// `lambdas` and `tables` are the tables it was compiled against, valid
-    /// for the call.
+    /// `trampoline` is a finished trampoline of the code these tables are
+    /// for, which stays mapped.
     #[allow(unsafe_code)]
     pub unsafe fn call(
         &self,
@@ -635,8 +750,11 @@ impl CompiledCode {
             std::hint::black_box(&marker) as *const u8 as u64
         };
         let stack_limit = match self.stack_size {
-            Some(size) if size > STACK_SLACK => here.saturating_sub((size - STACK_SLACK) as u64),
-            _ => 0,
+            Some(size) => match floor_depth(size, self.max_frame) {
+                Some(depth) => here.saturating_sub(depth as u64),
+                None => u64::MAX,
+            },
+            None => 0,
         };
         let mut context = Context {
             steps: run.steps,
@@ -645,10 +763,10 @@ impl CompiledCode {
             frame_limit: run.limits.frames as u64,
             error: OK,
             stack_limit,
-            functions: self.functions,
-            lambdas: self.lambdas,
+            functions: self.functions.as_ptr(),
+            lambdas: self.lambdas.as_ptr(),
             run: (run as *mut NativeRun<'_>).cast::<NativeRun<'static>>(),
-            tables: self.tables,
+            tables: self.tables.tables(),
         };
         let mut args = std::mem::ManuallyDrop::new(args);
         let mut out = MaybeUninit::<Value>::uninit();
@@ -663,7 +781,35 @@ impl CompiledCode {
             out.assume_init()
         };
         run.steps = context.steps;
+        {
+            let mut unwound = self.unwound.borrow_mut();
+            unwound.0.append(&mut run.unwound);
+            unwound.1.append(&mut run.tail);
+            unwound.2.append(&mut run.held);
+        }
         context.result().map(|()| result)
+    }
+
+    /// [`NativeIslands::release_unwound`].
+    pub fn release_unwound(&self) {
+        // Last frame out first, each from its lowest register up, then a
+        // tail call's arguments (the machine's `regs.clear()`, then
+        // `scratch.clear()`).
+        let (mut segments, tail, _) = std::mem::take(&mut *self.unwound.borrow_mut());
+        while let Some(segment) = segments.pop() {
+            drop(segment);
+        }
+        drop(tail);
+    }
+
+    /// [`NativeIslands::release_unwound_frames`].
+    pub fn release_unwound_frames(&self) {
+        // The machine's `frames.clear()`: each frame's closure and pending
+        // arguments, outermost (last to leave) first.
+        let mut held = std::mem::take(&mut self.unwound.borrow_mut().2);
+        while let Some(group) = held.pop() {
+            drop(group);
+        }
     }
 }
 
@@ -718,16 +864,52 @@ pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
     std::mem::forget(Value::clone(&v));
 }
 
-/// Drops registers `n - 1` down to 0 of a frame, as the machine releases a
-/// frame (on the way out after an error).
+/// Takes the `n` values at `regs` off a frame that is leaving on an error,
+/// to be dropped as the machine drops them after a failed run: it clears
+/// its frames (each frame's closure and pending arguments, outermost first)
+/// and then its registers (one vector for every frame: outermost frame first,
+/// each from its lowest register up), then a tail call's fetched arguments.
+/// Frames leave innermost first, so [`NativeIslands::release_unwound_frames`]
+/// and [`NativeIslands::release_unwound`] drop what is kept here last first.
+/// `mode`: 0, a frame's registers (a segment); 1, a tail call's arguments;
+/// 2, a frame's closure (a group, even of no values: every leaving frame
+/// pushes one); 3, more for the last group (pending arguments of the frame
+/// that just left).
 ///
 /// # Safety
-/// `regs` points at `n` initialised values.
+/// As [`sw_global`]; `regs` points at `n` initialised values, which native
+/// code doesn't use again.
 #[allow(unsafe_code)]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn sw_release(regs: *mut Value, n: u64) {
-    for i in (0..n as usize).rev() {
-        // SAFETY: within the frame's registers.
+pub unsafe extern "C" fn sw_unwind(context: *mut Context, regs: *mut Value, n: u64, mode: u64) {
+    // SAFETY: the caller's contract.
+    let run = unsafe { &mut *(*context).run };
+    let values: Vec<Value> = (0..n as usize)
+        .map(|i| unsafe { std::mem::take(&mut *regs.add(i)) })
+        .collect();
+    match mode {
+        0 => run.unwound.push(values),
+        1 => run.tail.extend(values),
+        2 => run.held.push(values),
+        _ => run
+            .held
+            .last_mut()
+            .expect("a frame left before")
+            .extend(values),
+    }
+}
+
+/// Drops the `n` values at `regs`, lowest first (as a vector of them is
+/// dropped).
+///
+/// # Safety
+/// `regs` points at `n` initialised values, which native code doesn't use
+/// again.
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sw_release_up(regs: *mut Value, n: u64) {
+    for i in 0..n as usize {
+        // SAFETY: within the values.
         drop(unsafe { std::mem::take(&mut *regs.add(i)) });
     }
 }
@@ -1215,6 +1397,64 @@ pub unsafe extern "C" fn sw_apply_prepare(
         unsafe { (&*(*context).run, (*context).functions, (*context).lambdas) };
     let program = run.program;
     let f = unsafe { f.read() };
+    // A partial application given exactly the rest of its arguments, whose
+    // head is a compiled global function or a closure: the common case of
+    // `List.map xs (add offset)`. Built in the plan directly, with no
+    // vectors: the new arguments moved up (they may lie in the plan), the
+    // held ones cloned in front, the function value dropped last, as below.
+    if let Value::Fun(fun) = &f
+        && let Fun::Pap { head, args: held } = &**fun
+        && let Value::Fun(h) = head
+    {
+        let total = held.len() + n as usize;
+        let target = match &**h {
+            Fun::Global(g)
+                if matches!(
+                    program.globals[*g as usize].kind,
+                    GlobalKind::Function { .. }
+                ) =>
+            {
+                // SAFETY: the table has an entry for every global.
+                Some((unsafe { *functions.add(*g as usize) }, false))
+            }
+            Fun::Closure { lambda, .. } => {
+                // SAFETY: the table has an entry for every lambda.
+                Some((unsafe { *lambdas.add(*lambda as usize) }, true))
+            }
+            _ => None,
+        };
+        if let Some((code, closure)) = target
+            && !code.is_null()
+            && total == crate::machine::arity(program, head)
+            && total <= unsafe { (*plan).cap } as usize
+        {
+            // A closure head's reference becomes the callee's `env`, as below.
+            let env = if closure {
+                let held_ref = std::mem::ManuallyDrop::new(Value::Fun(h.clone()));
+                words(&held_ref)[1]
+            } else {
+                0
+            };
+            // SAFETY: the caller's contract: `args` holds `n` values to
+            // move, `plan` room for `cap >= total` values after its header.
+            unsafe {
+                let to = plan
+                    .cast::<u8>()
+                    .add(ApplyPlan::ARGS_AT as usize)
+                    .cast::<Value>();
+                std::ptr::copy(args, to.add(held.len()), n as usize);
+                for (i, v) in held.iter().enumerate() {
+                    to.add(i).write(v.clone());
+                }
+                (*plan).code = code as u64;
+                (*plan).env = env;
+                (*plan).arity = total as u64;
+                (*plan).rest = 0;
+            }
+            drop(f);
+            return;
+        }
+    }
     let args: Vec<Value> = (0..n as usize)
         .map(|i| unsafe { args.add(i).read() })
         .collect();

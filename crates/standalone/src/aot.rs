@@ -6,13 +6,13 @@
 //!
 //! The run is `run --native`'s (the note's §3.3): the machine runs `main`'s
 //! entry body and hands the island roots it calls to native code, through
-//! the same crossing (`native_abi::CompiledCode::call`). The runtime builds
-//! the tables the code reads (`TableStore`) from the image it rebuilt, after
+//! the same crossing (`native_abi::Crossing`). The runtime builds the
+//! tables the code reads (`TableStore`) from the image it rebuilt, after
 //! checking that it is the image the code was compiled for.
 
 use stitchwort_core::ResourceError;
 use stitchwort_rt::code::Image;
-use stitchwort_rt::ir::{GlobalKind, Program};
+use stitchwort_rt::ir::Program;
 use stitchwort_rt::native_abi::{self as abi, NativeIslands, NativeRun, Trampoline};
 use stitchwort_rt::native_aot::{MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, image_hash};
 use stitchwort_rt::value::Value;
@@ -26,13 +26,8 @@ struct Root {
 pub struct AotIslands {
     /// For each global: its trampoline, if it's an island root.
     roots: Vec<Option<Root>>,
-    functions: &'static [*const u8],
-    lambdas: &'static [*const u8],
-    /// For each global: whether native code can apply it as a function
-    /// value, for the crossing's check of function values.
-    callable: Box<[bool]>,
-    tables: abi::TableStore,
-    stack_size: usize,
+    /// The code's tables and the crossing, shared with `run --native`.
+    crossing: abi::Crossing,
 }
 
 /// Why linked native code can't run the program.
@@ -137,22 +132,16 @@ impl AotIslands {
                 checks_arguments: root.checks_arguments != 0,
             });
         }
-        let callable = program
-            .globals
-            .iter()
-            .enumerate()
-            .map(|(g, global)| match global.kind {
-                GlobalKind::Native(op) => abi::applicable_native(op),
-                _ => functions.get(g).is_some_and(|code| !code.is_null()),
-            })
-            .collect();
         Ok(Some(AotIslands {
             roots: by_global,
-            functions,
-            lambdas,
-            callable,
-            tables: abi::TableStore::new(program, image, manifest.n_caches as usize),
-            stack_size,
+            crossing: abi::Crossing::new(
+                program,
+                functions.into(),
+                lambdas.into(),
+                abi::TableStore::new(program, image, manifest.n_caches as usize),
+                Some(stack_size),
+                manifest.max_frame as usize,
+            ),
         }))
     }
 }
@@ -162,16 +151,13 @@ impl NativeIslands for AotIslands {
         self.roots.get(g as usize).is_some_and(Option::is_some)
     }
 
-    fn accepts(&self, g: u32, args: &[&Value]) -> bool {
+    fn accepts(&self, g: u32, args: &[&Value], frame_limit: u64) -> bool {
+        // The executable has no `--verbose`, so a call left to the machine
+        // needs no note.
         let root = self.roots[g as usize].as_ref().expect("a root");
-        if root.checks_arguments
-            && !args
-                .iter()
-                .all(|v| abi::natively_callable(&self.callable, self.lambdas, v))
-        {
-            return false;
-        }
-        true
+        self.crossing
+            .admits(root.checks_arguments, args, frame_limit)
+            .is_ok()
     }
 
     #[allow(unsafe_code)]
@@ -182,16 +168,18 @@ impl NativeIslands for AotIslands {
         run: &mut NativeRun<'_>,
     ) -> Result<Value, ResourceError> {
         let root = self.roots[g as usize].as_ref().expect("a root");
-        let code = abi::CompiledCode {
-            functions: self.functions.as_ptr(),
-            lambdas: self.lambdas.as_ptr(),
-            tables: self.tables.tables(),
-            stack_size: Some(self.stack_size),
-        };
         // SAFETY: the trampoline and the tables are those the manifest
         // describes, linked into this executable, for this image (checked
         // in `new`).
-        unsafe { code.call(root.trampoline, args, run) }
+        unsafe { self.crossing.call(root.trampoline, args, run) }
+    }
+
+    fn release_unwound(&self) {
+        self.crossing.release_unwound();
+    }
+
+    fn release_unwound_frames(&self) {
+        self.crossing.release_unwound_frames();
     }
 }
 

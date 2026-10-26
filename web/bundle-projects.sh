@@ -119,8 +119,9 @@ for path in $rogue_files; do
   mkdir -p "$rogue_dest/$(dirname "$path")"
   cp "$path" "$rogue_dest/$path"
 done
-# One entry, "Play": Rogue.main, with its tests and proofs. The run input
-# starts as a short key script.
+# Two entries for Rogue.main, with its tests and proofs: "Play" runs live in
+# the terminal pane; "Play (scripted)" keeps the input box, which starts as a
+# short key script.
 {
   printf '{\n  "name": "rogue",\n  "title": "Roguelike",\n  "files": ['
   sep=""
@@ -129,7 +130,10 @@ done
     sep=","
   done
   printf '\n  ],\n  "data": [],\n  "days": [\n'
-  printf '    { "title": "Play", "open": "src/Rogue/Rogue.sw", "namespaces": ["Rogue", "Rogue.Tests", "Rogue.Proofs"], "main": "Rogue.main", "inputs": [],\n'
+  printf '    { "title": "Play", "open": "src/Rogue/Rogue.sw", "namespaces": ["Rogue", "Rogue.Tests", "Rogue.Proofs"], "main": "Rogue.main", "inputs": [], "live": true,\n'
+  printf '      "evalInput": "Rogue.ending",\n'
+  printf '      "hint": "Run opens a terminal: click it if it has not got the keys, then play. Arrows, h/j/k/l or a/s/w/d move, > goes down stairs, p drinks a potion, . waits, q quits; walking into a monster attacks it. Ctrl-C stops the game; Esc then Tab leaves the terminal." },\n'
+  printf '    { "title": "Play (scripted)", "open": "src/Rogue/Rogue.sw", "namespaces": ["Rogue", "Rogue.Tests", "Rogue.Proofs"], "main": "Rogue.main", "inputs": [],\n'
   printf '      "defaultInput": "lllj.q",\n'
   printf '      "evalInput": "Rogue.ending",\n'
   printf '      "hint": "Type keys into the input box, then Run: h/j/k/l, a/s/w/d or the arrow keys move, > goes down stairs, p drinks a potion, . waits, q quits; walking into a monster attacks it. Other keys are skipped, and the end of the input quits. Every turn prints a frame." }\n'

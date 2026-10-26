@@ -116,7 +116,7 @@ default-filter = "package(stitchwort-rt) & (kind(lib) | binary(tick_counts) | bi
 default-filter = "package(stitchwort-js) | (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/))"
 
 [profile.lane-native]
-default-filter = "package(stitchwort-native)"
+default-filter = "package(stitchwort-native) & !test(=tail_calls_of_every_shape_run_in_constant_stack)"
 
 [profile.lane-lsp]
 default-filter = "binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)"

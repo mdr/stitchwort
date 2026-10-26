@@ -91,6 +91,7 @@ pub fn compile_object(
         lambda_of,
         trampolines,
         n_caches,
+        max_frame,
     } = n1::emit(
         &mut module,
         program,
@@ -168,6 +169,7 @@ pub fn compile_object(
         Manifest::bytes(
             image_hash(image),
             n_caches as u64,
+            max_frame as u64,
             if functions_table.is_some() {
                 n_globals as u64
             } else {

@@ -17,6 +17,7 @@
 
 pub mod aot;
 pub mod checks;
+pub mod frames;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 pub mod map_jit;
 pub mod n1;

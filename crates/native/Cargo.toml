@@ -28,6 +28,9 @@ libc = "0.2.190"
 # traces.
 stitchwort-driver.workspace = true
 stitchwort-rt = { workspace = true, features = ["alloc-trace"] }
+# The frame-size test compiles for x86-64 and arm64 whatever the host
+# (tests/frames.rs).
+cranelift-codegen = { version = "=0.136.2", features = ["x86", "arm64"] }
 # Reading back the object `aot::compile_object` writes (tests/object.rs).
 object = { workspace = true, features = ["read_core", "macho", "elf"] }
 

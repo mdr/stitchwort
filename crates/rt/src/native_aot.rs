@@ -37,6 +37,9 @@ pub struct Manifest {
     pub image_hash: u64,
     /// How many `Apply` sites the code has (`Tables::n_caches`).
     pub n_caches: u64,
+    /// A bound on the stack one level of recursion of the code uses, in
+    /// bytes, for the stack check behind the frame limit.
+    pub max_frame: u64,
     /// The length of `functions`: the program's globals, or 0 with no roots.
     pub n_globals: u64,
     /// The length of `lambdas`: the image's lambdas, or 0 with no roots.
@@ -70,6 +73,7 @@ impl Manifest {
     pub const SIZE: usize = size_of::<Manifest>();
     pub const IMAGE_HASH_AT: usize = std::mem::offset_of!(Manifest, image_hash);
     pub const N_CACHES_AT: usize = std::mem::offset_of!(Manifest, n_caches);
+    pub const MAX_FRAME_AT: usize = std::mem::offset_of!(Manifest, max_frame);
     pub const N_GLOBALS_AT: usize = std::mem::offset_of!(Manifest, n_globals);
     pub const N_LAMBDAS_AT: usize = std::mem::offset_of!(Manifest, n_lambdas);
     pub const N_ROOTS_AT: usize = std::mem::offset_of!(Manifest, n_roots);
@@ -88,11 +92,13 @@ impl Manifest {
     }
 
     /// The manifest's bytes for `n_roots` roots compiled for an image of
-    /// hash `image_hash`, with `n_caches` caches, `n_globals` globals and
-    /// `n_lambdas` lambdas; the pointers are 0, for relocations to fill.
+    /// hash `image_hash`, with `n_caches` caches, frames of at most
+    /// `max_frame` bytes, `n_globals` globals and `n_lambdas` lambdas; the
+    /// pointers are 0, for relocations to fill.
     pub fn bytes(
         image_hash: u64,
         n_caches: u64,
+        max_frame: u64,
         n_globals: u64,
         n_lambdas: u64,
         n_roots: u64,
@@ -101,6 +107,7 @@ impl Manifest {
         for (at, value) in [
             (Manifest::IMAGE_HASH_AT, image_hash),
             (Manifest::N_CACHES_AT, n_caches),
+            (Manifest::MAX_FRAME_AT, max_frame),
             (Manifest::N_GLOBALS_AT, n_globals),
             (Manifest::N_LAMBDAS_AT, n_lambdas),
             (Manifest::N_ROOTS_AT, n_roots),
@@ -154,11 +161,11 @@ mod tests {
 
     #[test]
     fn the_layout_is_words_in_order() {
-        assert_eq!(Manifest::SIZE, 80);
-        assert_eq!(Manifest::ROOTS_AT, 72);
+        assert_eq!(Manifest::SIZE, 88);
+        assert_eq!(Manifest::ROOTS_AT, 80);
         assert_eq!(ManifestRoot::SIZE, 24);
         assert_eq!(ManifestRoot::TRAMPOLINE_AT, 16);
-        let bytes = Manifest::bytes(7, 1, 2, 3, 4);
+        let bytes = Manifest::bytes(7, 1, 304, 2, 3, 4);
         assert_eq!(&bytes[..8], b"swnative");
         assert_eq!(bytes[Manifest::IMAGE_HASH_AT], 7);
         assert_eq!(bytes[Manifest::N_ROOTS_AT], 4);
