@@ -51,6 +51,7 @@ pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
         include_str!("std/Decidable/Decidable.sw"),
     ),
     ("Each/Each.sw", include_str!("std/Each/Each.sw")),
+    ("Effect/Always.sw", include_str!("std/Effect/Always.sw")),
     ("Effect/Laws.sw", include_str!("std/Effect/Laws.sw")),
     ("Fail/Fail.sw", include_str!("std/Fail/Fail.sw")),
     ("Fin/Fin.sw", include_str!("std/Fin/Fin.sw")),

@@ -1,0 +1,6 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(&session, d, f)"
+---
+data Main.Holds 5111173c14ca050a508ba1f960bdf88e187919a1a04cd7bbeede30fb956f67e6
+Main.holdsSome 4c86586969a392339a6a9df3416a8221e195332dcb61159fe087895945827816
