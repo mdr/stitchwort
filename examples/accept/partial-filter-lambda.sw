@@ -7,15 +7,15 @@ def collatzSteps (n: Nat): {Partial} Nat :=
   else if n % 2 == 0 then 1 + collatzSteps (n / 2)
   else 1 + collatzSteps (3 * n + 1)
 
-def quickOnes (numbers: List Nat): {Partial} (List Nat) := List.filter numbers (n => Nat.leq (collatzSteps n) 9)
+def quickOnes (numbers: List Nat): {Partial} (List Nat) := numbers.filter (n => Nat.leq (collatzSteps n) 9)
 
 def totalSteps (numbers: List Nat): {Partial} Nat := List.sumBy numbers collatzSteps
 
-def anySlow (numbers: List Nat): {Partial} Bool := List.any numbers (n => Nat.leq 101 (collatzSteps n))
+def anySlow (numbers: List Nat): {Partial} Bool := numbers.any (n => Nat.leq 101 (collatzSteps n))
 
-def firstSlow (numbers: List Nat): {Partial} (Option Nat) := List.find numbers (n => Nat.leq 101 (collatzSteps n))
+def firstSlow (numbers: List Nat): {Partial} (Option Nat) := numbers.find (n => Nat.leq 101 (collatzSteps n))
 
-def quickPrefix (numbers: List Nat): {Partial} (List Nat) := List.takeWhile numbers (n => Nat.leq (collatzSteps n) 9)
+def quickPrefix (numbers: List Nat): {Partial} (List Nat) := numbers.takeWhile (n => Nat.leq (collatzSteps n) 9)
 
 test "filter with a partial lambda" := quickOnes [3, 7, 27, 8] == [3, 8]
 test "sumBy" := totalSteps [3, 7, 27] == 134

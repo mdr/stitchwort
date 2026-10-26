@@ -18,7 +18,7 @@ theorem sortsDescending: List.sortWith [1, 3, 2] (x y => Nat.leq y x) = [3, 2, 1
 def byKey (p: Pair Nat Text) (q: Pair Nat Text): Ordering := Nat.compare p.fst q.fst
 
 test "sorts by key, stably" :=
-  List.map (List.sortBy [(2, "b"), (1, "x"), (2, "a"), (0, "z"), (1, "y")] byKey) Pair.snd
+  [(2, "b"), (1, "x"), (2, "a"), (0, "z"), (1, "y")].sortBy byKey |> .map Pair.snd
     == ["z", "x", "y", "b", "a"]
 
 test "sorts texts" := List.sortBy ["pear", "apple", "fig"] Text.compare == ["apple", "fig", "pear"]

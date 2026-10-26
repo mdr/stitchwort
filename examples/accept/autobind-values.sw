@@ -14,7 +14,7 @@ theorem topExample: Dial.top small = 9 := rfl
 -- In a header parameter and the result alike, and in a function type.
 def Dial.reset (d: Dial highest): Dial highest := { position = 0, inRange = rfl }
 
-def Dial.apply (d: Dial highest) (f: Dial highest → Dial highest): Nat := (f d).position
+def Dial.apply (d: Dial highest) (f: Dial highest → Dial highest): Nat := f d |> .position
 
 theorem applyExample: Dial.apply small Dial.reset = 0 := rfl
 

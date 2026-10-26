@@ -29,7 +29,7 @@ import Std (Bool, List, Nat, Option, SafeNat, Text)
 -- Optional properties: `nick?: string`, `age?: bigint`.
 type Profile = { name: Text, nick: Option Text, age: Option Nat }
 
-export def nickname (p: Profile): Text := Option.getOrElse p.nick p.name
+export def nickname (p: Profile): Text := p.nick.getOrElse p.name
 
 export def withNick (p: Profile) (n: Option Text): Profile := { p | nick = n }
 
