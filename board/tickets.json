@@ -1,5 +1,5 @@
 {
-  "next": 590,
+  "next": 591,
   "tickets": [
     {
       "id": 13,
@@ -4145,7 +4145,7 @@
     {
       "id": 572,
       "title": "Private app port: adopt typed ids (D1309), std trim for blank names (D1310), delete dead helper (D1311), dead-code sweep (private work only)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4349,6 +4349,18 @@
     {
       "id": 589,
       "title": "Std lemma lane candidates are ready: float order, sortWith on a subset, alignWith, distinct, list/Bool-Prop bridge, scanLeft/zipWith (D1312) — group into one public std lane when approved",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 590,
+      "title": "JS backend: equality on an @[js.unboxed] microtype goes through a general comparison wrapper instead of plain string ===; typed ids cost 7–17% in a real-world merge benchmark (private app port, 26 Oct)",
       "status": "backlog",
       "agent": "",
       "where": "",
