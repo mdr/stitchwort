@@ -2047,11 +2047,17 @@ fn succ_unglued(g: &Globals, field: &Value) -> Result<Value> {
 /// on a work list, depth first and left to right, so the first difference
 /// found stops it, as a recursive version would.
 pub fn conv(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    conv_with(g, level, a, b, &mut CallMemo::default())
+}
+
+/// [`conv`], inside an outermost one whose record of glued calls compared
+/// so far is `memo`.
+fn conv_with(g: &Globals, level: usize, a: &Value, b: &Value, memo: &mut CallMemo) -> Result<bool> {
     let mut work = vec![ConvTask::Values(level, a.clone(), b.clone())];
     while let Some(task) = work.pop() {
         g.budget.step()?;
         let same = match task {
-            ConvTask::Values(level, a, b) => conv_step(g, level, a, b, &mut work)?,
+            ConvTask::Values(level, a, b) => conv_step(g, level, a, b, &mut work, memo)?,
             // Function types' codomains, compared once their domains are.
             // The same function gives the same codomain (see `same_closure`).
             ConvTask::Codomains(_, b1, b2) if same_closure(&b1, &b2) => true,
@@ -2078,6 +2084,101 @@ enum ConvTask {
     Codomains(usize, Closure, Closure),
 }
 
+// Two glued calls of the same definition (D483, docs/proposals/
+// folded-calls.md §7 stage 4).
+//
+// The kernel checks a definition's body with gluing on (`check.rs`
+// `admit_group`), so `f a` stays the call until something looks inside. Two
+// calls of the same definition are compared by their arguments first: if
+// those are equal, so are the calls (congruence: the same function applied
+// to equal arguments). If not, they're compared by their unfoldings, as
+// before, since `f a` and `f b` can be equal with `a` and `b` different. So
+// the rule only ever answers "equal" where unfolding would too, given the
+// time; it can't make the kernel accept anything it wouldn't.
+//
+// Trying the arguments first and then the unfoldings could repeat work when
+// they differ: the unfoldings usually contain the same arguments (`f n =
+// Succ n`), so `f (f (f x))` against `f (f (f y))` would compare the inner
+// pairs again at every level, twice as much per level. So each outermost
+// `conv` keeps a record of the pairs of calls it has met, by the addresses
+// of their unfolding cells (shared by every copy of a call), at the same
+// level: a pair whose arguments were found different isn't tried by its
+// arguments again, and a pair found different outright (an argument pair
+// compared on its own) is answered "different" at once. Both only ever
+// answer "different" or skip a shortcut, never "equal", and whether two
+// values are convertible depends only on them and the level (the kernel has
+// no metavariables). The record holds the values, so an address can't be
+// reused for another call while it lives; it's dropped when the outermost
+// `conv` ends. Lookups don't depend on the order of the map, so the
+// resource counters stay deterministic.
+
+/// What one outermost [`conv`] has found about pairs of glued calls of the
+/// same definition, by level and the addresses of their unfolding cells.
+#[derive(Default)]
+struct CallMemo(HashMap<(usize, usize, usize), (Differ, Value, Value)>);
+
+/// How a pair of calls in a [`CallMemo`] differs.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Differ {
+    /// In their arguments: compare them by their unfoldings.
+    Arguments,
+    /// Outright.
+    Values,
+}
+
+impl CallMemo {
+    fn key(level: usize, a: &Value, b: &Value) -> Option<(usize, usize, usize)> {
+        match (a, b) {
+            (Value::Call(i1, _, u1), Value::Call(i2, _, u2)) if i1 == i2 => {
+                Some((level, Rc::as_ptr(u1) as usize, Rc::as_ptr(u2) as usize))
+            }
+            _ => None,
+        }
+    }
+
+    fn get(&self, level: usize, a: &Value, b: &Value) -> Option<Differ> {
+        let key = Self::key(level, a, b)?;
+        self.0.get(&key).map(|entry| entry.0)
+    }
+
+    fn record(&mut self, level: usize, a: &Value, b: &Value, differ: Differ) {
+        if let Some(key) = Self::key(level, a, b) {
+            self.0.insert(key, (differ, a.clone(), b.clone()));
+        }
+    }
+}
+
+/// Whether two spines of the same definition are equal argument by argument
+/// (and `J` by `J`), each pair compared by a [`conv`] of its own. This is
+/// where `conv` recurses on the Rust stack: once per level of calls nested
+/// in arguments, ended by the stack guard (`budget.rs`, E-RESOURCE) if
+/// that's too deep. A pair of glued calls found different is recorded as
+/// such ([`CallMemo`]).
+fn same_spines(
+    g: &Globals,
+    level: usize,
+    s1: &[Elim],
+    s2: &[Elim],
+    memo: &mut CallMemo,
+) -> Result<bool> {
+    if s1.len() != s2.len() {
+        return Ok(false);
+    }
+    let Some(pairs) = spine_pairs(level, s1, s2) else {
+        return Ok(false);
+    };
+    for pair in pairs {
+        let ConvTask::Values(l, x, y) = pair else {
+            unreachable!()
+        };
+        if !conv_with(g, l, &x, &y, memo)? {
+            memo.record(l, &x, &y, Differ::Values);
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 /// Compares the outermost layer of `a` and `b`: `false` if they differ
 /// there; otherwise pushes the pairs of parts still to compare.
 fn conv_step(
@@ -2086,7 +2187,25 @@ fn conv_step(
     a: Value,
     b: Value,
     work: &mut Vec<ConvTask>,
+    memo: &mut CallMemo,
 ) -> Result<bool> {
+    // Two glued calls of the same definition: their arguments first, then
+    // (below) their unfoldings. See `CallMemo`.
+    if let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (&a, &b)
+        && i1 == i2
+        && !shortcuts_disabled()
+    {
+        match memo.get(level, &a, &b) {
+            Some(Differ::Values) => return Ok(false),
+            Some(Differ::Arguments) => {}
+            None => {
+                if same_spines(g, level, s1, s2, memo)? {
+                    return Ok(true);
+                }
+                memo.record(level, &a, &b, Differ::Arguments);
+            }
+        }
+    }
     // Dictionaries left folded by name: the same one applied to equal
     // arguments is equal; otherwise they're compared unfolded. (Like a
     // partially applied definition below, this recurses once per level of
@@ -2096,22 +2215,9 @@ fn conv_step(
     if is_folded(g, &a) || is_folded(g, &b) {
         if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
             && i1 == i2
-            && s1.len() == s2.len()
-            && let Some(pairs) = spine_pairs(level, s1, s2)
+            && same_spines(g, level, s1, s2, memo)?
         {
-            let mut same = true;
-            for pair in pairs {
-                let ConvTask::Values(l, x, y) = pair else {
-                    unreachable!()
-                };
-                if !conv(g, l, &x, &y)? {
-                    same = false;
-                    break;
-                }
-            }
-            if same {
-                return Ok(true);
-            }
+            return Ok(true);
         }
         let a2 = unfold_folded(g, &a)?;
         let b2 = unfold_folded(g, &b)?;
@@ -2223,26 +2329,10 @@ fn conv_step(
                 }
             } else {
                 // A function: equal if the spines match, or else by eta. This
-                // is the one place `conv` recurses, once per level of nested
-                // partially applied definitions, which is bounded by the
-                // program, not by the size of the data.
-                let spines = match spine_pairs(level, s1, s2) {
-                    Some(pairs) => {
-                        let mut same = true;
-                        for pair in pairs {
-                            let ConvTask::Values(l, x, y) = pair else {
-                                unreachable!()
-                            };
-                            if !conv(g, l, &x, &y)? {
-                                same = false;
-                                break;
-                            }
-                        }
-                        same
-                    }
-                    None => false,
-                };
-                spines || push_eta(g, level, &a, &b, work)?
+                // recurses once per level of nested partially applied
+                // definitions, which is bounded by the program, not by the
+                // size of the data.
+                same_spines(g, level, s1, s2, memo)? || push_eta(g, level, &a, &b, work)?
             }
         }
         // Two different definitions, each stuck on a `case`: compared by
@@ -2256,13 +2346,14 @@ fn conv_step(
             if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
         {
             same_stuck_trees(g, level, &a, &b, Relation::Conv, &mut |l, x, y| {
-                conv(g, l, x, y)
+                conv_with(g, l, x, y, memo)
             })?
         }
-        // Calls are compared by their unfoldings (D483: the kernel doesn't
-        // compare two calls by their arguments first). The cases above
-        // that a call can reach (numbers, compact lists, dictionaries, eta)
-        // look inside it themselves.
+        // Calls are compared by their unfoldings: two calls of the same
+        // definition whose arguments differ (tried at the top), or a call
+        // and anything else. The cases above that a call can reach
+        // (numbers, compact lists, dictionaries, eta) look inside it
+        // themselves.
         (Value::Call(..), _) | (_, Value::Call(..)) => {
             work.push(ConvTask::Values(level, force(g, a)?, force(g, b)?));
             true
@@ -2934,8 +3025,9 @@ thread_local! {
 
 /// Turns the identical-closure shortcut of [`conv`] (and of the elaborator's
 /// unification), and the record of pairs of calls found equal
-/// ([`same_stuck_trees`]), off, or back on, on this thread: for tests
-/// comparing the verdicts with and without them.
+/// ([`same_stuck_trees`]), and the kernel's comparison of two glued calls
+/// by their arguments first ([`CallMemo`]), off, or back on, on this
+/// thread: for tests comparing the verdicts with and without them.
 #[cfg(any(test, feature = "reference"))]
 pub fn set_shortcuts_disabled(disabled: bool) {
     SHORTCUTS_OFF.with(|s| s.set(disabled));

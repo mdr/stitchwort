@@ -205,9 +205,9 @@ pub const ALL: &[Benchmark] = &[
             check("import Std (List)\ndef big (u : ()) : Bool := List.range 100000 == List.range 100000\n".into())
         },
     },
-    // These still compute `cost` while checking, since a type needs its
-    // value and the evaluator is strict: recorded to measure option (b)
-    // against.
+    // These computed `cost` while checking, in the kernel, until it compared
+    // two calls of the same definition by their arguments first
+    // (docs/proposals/folded-calls.md, stage 4).
     Benchmark {
         name: "check-closed-if-less",
         about: "checks `if cost < 5 then 1 else 2` (the branches assume `cost < 5`)",

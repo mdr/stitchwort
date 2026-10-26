@@ -347,8 +347,9 @@ pub struct Globals {
     /// Whether evaluation keeps a definition applied to all its arguments
     /// as the call, a [`Value::Call`], unfolding it only when something
     /// looks inside (glued evaluation, docs/proposals/folded-calls.md).
-    /// Off unless the elaborator turns it on, and always off while the
-    /// kernel checks (D483) or a program runs.
+    /// Off unless the elaborator turns it on; the kernel is entered with it
+    /// off and turns it on only to check a definition's body (D483,
+    /// `check.rs` `admit_group`); never while a program runs.
     pub glue: Cell<bool>,
     /// Counts the times metavariable solutions were taken back (undone or
     /// cleared). A call's kept unfolding records the count it was computed

@@ -420,7 +420,7 @@ fn r5_projection_by_lift_needs_an_unprovable_respects_proof() {
     refused(
         try_define(f.g(), "unwrap", ty.clone(), body),
         "E-TYPE-MISMATCH",
-        "expected `x = y`, but this has type `Unit`",
+        "expected `x = y`, but this has type `AllTrue x y`",
     );
     // And `rfl` can't prove it either.
     let body = lift(&f, lam("x", lam("y", lam("r", Term::Refl))));

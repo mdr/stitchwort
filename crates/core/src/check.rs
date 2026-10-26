@@ -1287,7 +1287,7 @@ pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
 /// - Termination is decided for the whole group at once, from every call
 ///   between any two members.
 pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
-    debug_assert!(!g.glue.get(), "the kernel checks with gluing off (D483)");
+    debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
     // Refused before anything changes: an empty group, or an id that isn't
     // a definition at all.
     if members.is_empty() {
@@ -1380,7 +1380,17 @@ fn admit_group(g: &Globals, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
         let mut cx = Ctx::new(g, def.span);
         // Checking keeps every location and lambda, so the checked body has
         // the same parameters; the termination checker refuses it if not.
-        checked.push(check(&mut cx, body, &def.ty_value)?);
+        // With gluing on, so that two calls of the same definition are
+        // compared by their arguments first (`value.rs`, `CallMemo`; D483).
+        // Only here: the values made here are dropped once the body is
+        // checked, where a type's value is kept (`Def::ty_value`, made
+        // unglued by `declare_def`). A type with parameters is a function
+        // type whose codomain is evaluated now, glued; one without (`f 5 =
+        // f 5`) was evaluated unglued, so its calls are already unfolded.
+        let was = g.glue.replace(true);
+        let result = check(&mut cx, body, &def.ty_value);
+        g.glue.set(was);
+        checked.push(result?);
     }
     let group: Vec<termination::Member> = ids
         .iter()
@@ -1410,7 +1420,7 @@ pub fn declare_def(
     export: bool,
     span: Span,
 ) -> Result<DefId> {
-    debug_assert!(!g.glue.get(), "the kernel checks with gluing off (D483)");
+    debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
     let mut cx = Ctx::new(g, span);
     if !case_only_in_tree(ty, false) {
         return Err(malformed(
@@ -1466,7 +1476,7 @@ pub fn declare_def(
 /// has been admitted against the old type; the body is then checked
 /// against this one, as always.
 pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
-    debug_assert!(!g.glue.get(), "the kernel checks with gluing off (D483)");
+    debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
     let span = g.defs[id.0].span;
     let mut cx = Ctx::new(g, span);
     if g.defs[id.0].state != State::Pending {

@@ -3,7 +3,9 @@
 //! `same_closure`), and, comparing two definitions by their case trees,
 //! answer a pair of calls already found equal from a record
 //! (`same_stuck_trees`, SW-395; `reject/case-tree-chains-*.sw` exercise it,
-//! one with a metavariable solved and then taken back). Both are turned off
+//! one with a metavariable solved and then taken back); and the kernel
+//! compares two glued calls of the same definition by their arguments
+//! before their unfoldings (`conv`, `CallMemo`; D483). All are turned off
 //! together. That may only skip work, never change a verdict. The
 //! shortcuts can only answer "equal", so the risk is a program wrongly
 //! accepted: every rejected example (the soundness suite included) must get
