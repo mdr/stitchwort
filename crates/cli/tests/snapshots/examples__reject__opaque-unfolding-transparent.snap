@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNFOLDING-TRANSPARENT] Error: `quadruple` unfolds `double`, but isn't opaque
+    ╭─[ reject/opaque-unfolding-transparent.sw:10:39 ]
+    │
+ 10 │ def quadruple (n: Nat): Nat unfolding double := double (double n)
+    │                                       ───┬──  
+    │                                          ╰──── a definition that always unfolds can't unfold opaque ones
+    │ 
+    │ Note: write `opaque def quadruple`, or rewrite with `double.unfold` instead
+────╯

@@ -85,10 +85,8 @@ type Phase =
   | Died
   | GaveUp
 
--- `below` are the levels further down, made when the game starts.
 type State = {
   level: Level,
-  below: List Plan,
   player: Position,
   hitPoints: Nat,
   potions: Nat,

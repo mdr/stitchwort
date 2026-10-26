@@ -1463,6 +1463,13 @@ fn nothing_found(
              variable (`rewrite Nat.mulSucc k _`)"
         });
     }
+    // The pattern may be inside the body of an opaque definition in the goal.
+    if let (Some(pattern), Ok(goal_term)) = (folded(cx, lhs), cx.quote(goal)) {
+        let ids = crate::opaque::declined_holding(cx.g(), &[goal_term], &pattern);
+        for note in crate::opaque::opaque_notes(cx.e, &ids) {
+            error = error.with_note(note);
+        }
+    }
     error
 }
 

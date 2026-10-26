@@ -2294,7 +2294,7 @@ export def area: Shape -> Nat
   // text, so a long paste stays quick.
   const KEYWORDS = new Set(["type", "def", "theorem", "export", "test", "if", "then", "else",
                             "ability", "where", "handle", "with", "match", "return", "let", "Type", "Prop",
-                            "namespace", "import", "calc", "rewrite", "omega", "ring", "decreasing", "interface", "instance",
+                            "namespace", "import", "calc", "rewrite", "omega", "ring", "decreasing", "opaque", "unfolding", "interface", "instance",
                             "in", "exists"]);
   const KINDS = ["keyword", "name", "defined", "number", "string", "interp", "comment", "operator"];
   const isWordStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";

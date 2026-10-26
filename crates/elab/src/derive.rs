@@ -573,6 +573,8 @@ impl Elaborator {
             synonym: false,
             instance,
             decreasing: None,
+            opaque: false,
+            unfolding: Vec::new(),
             attrs: Vec::new(),
             span,
         };

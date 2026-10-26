@@ -467,3 +467,34 @@ no axioms for `stepValid`, `stepAtMost`, `stepOnFloor`, `stepOutOfWalls`,
 
 The tests: 99, all through `Terminal.simulate` or `IO.simulate`, 11 s from
 cold on a loaded machine.
+
+# Opaque definitions: levels made on the stairs
+
+Stage 2's workaround is gone (docs/proposals/opaque-definitions.md §7).
+`generateLevel` is an `opaque def`, and `descend` makes the next level from
+the turn's dice under `seeded`, as the first design did:
+
+```stitchwort
+def descend (dice: Dice) (state: State): State :=
+  let plan := seeded dice.seed (() => generateLevel (state.level.depth + 1))
+  …
+```
+
+`State.below` and the up-front level making in `newGame` are removed
+(`newGame` is `startingState (generateLevel 1)`). Every theorem about a turn
+checks again with no `unfolding` anywhere: `stepValid`, `stepAtMost`,
+`stepOnFloor`, `stepOutOfWalls`, `stepClear`, `stepApart` and `seededStep`
+are word for word as before. What changed are the five `descend…` lemmas:
+they dropped the `match state.below` and gained the `dice` argument. The
+three that care about the new level apply the generic lemmas to
+`seeded dice.seed (() => generateLevel (state.level.depth + 1))`
+(`startOnFloor`, `placeMonstersClear`, `placeMonstersApart`,
+`placeMonstersOnFloor`); the hit point ones are `rfl` and `atMost`.
+
+What did not get easier is linking `goalReachable` to `generateLevel` (see
+PROOFS.md, "Tried").
+
+Tests: levels are now made from the turn's seed, so the scripted game, its
+frames and the stairs test were re-recorded (a 228-turn win on seed 2026,
+found with a throwaway breadth-first-search bot driving `step`). The first
+level and its first frame are unchanged. 100 tests.

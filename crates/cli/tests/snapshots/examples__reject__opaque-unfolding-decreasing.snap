@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DECREASING] Error: `decreasing` and `unfolding` can't be used together yet
+    ╭─[ reject/opaque-unfolding-decreasing.sw:11:15 ]
+    │
+ 11 │     unfolding double
+    │               ───┬──  
+    │                  ╰──── this `unfolding`
+    │ 
+    │ Note: rewrite with `double.unfold` instead, or prove what needs the body in a theorem with `unfolding`
+────╯

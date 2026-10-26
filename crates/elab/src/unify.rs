@@ -139,9 +139,13 @@ pub(crate) fn rigid_head(g: &Globals, v: &Value) -> Option<Rigid> {
         {
             Rigid::Quot
         }
+        // A primitive, or an opaque definition whose body is hidden here
+        // (docs/proposals/opaque-definitions.md §6.4): it never computes.
         Value::Neutral(Head::Def(d), _) => {
             let def = g.def(*d);
-            if def.body().is_some() || def.state() != stitchwort_core::globals::State::Final {
+            if stitchwort_core::value::body_seen(g, *d).is_some()
+                || def.state() != stitchwort_core::globals::State::Final
+            {
                 return None;
             }
             Rigid::Opaque(*d)

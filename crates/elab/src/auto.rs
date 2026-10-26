@@ -267,8 +267,8 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             format!("`{shown}` is false"),
             "this needs a proof that can't exist",
         )),
-        _ => Err(cx
-            .error(
+        _ => Err(cx.with_opaque_notes(
+            cx.error(
                 "E-AUTO-STUCK",
                 format!("can't decide `{shown}` here"),
                 // Not "it depends on run-time values": `most + 1 ≠ 0` before
@@ -276,7 +276,9 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
                 // didn't compute (games/rogue/NOTES.md §2).
                 "it involves values that aren't known here, and computing it doesn't settle it",
             )
-            .with_note("establish it first, with `if h: … then … else …`")),
+            .with_note("establish it first, with `if h: … then … else …`"),
+            &[&goal],
+        )),
     }
 }
 

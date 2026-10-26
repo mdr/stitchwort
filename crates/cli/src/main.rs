@@ -152,17 +152,19 @@ enum Command {
         #[command(flatten)]
         cache: CacheArgs,
     },
-    /// List the axioms a definition or theorem depends on, directly or
-    /// through what it uses, one per line, sorted (today only `Quot.sound`).
-    /// An empty report means no axiom is used; it does not mean the term
-    /// computes to data in the kernel (a proof built from `Quot.ind` can
-    /// still be stuck)
+    /// List the axioms definitions or theorems depend on, directly or
+    /// through what they use, one per line, sorted (today only `Quot.sound`).
+    /// A definition that uses none is reported as such; that does not mean
+    /// the term computes to data in the kernel (a proof built from
+    /// `Quot.ind` can still be stuck). With several names, each is reported
+    /// under its own heading
     Axioms {
         /// A file, or the full name of a definition in the project
         /// (`Main.total`)
         target: String,
-        /// The definition's name in the file, when the target is a file
-        name: Option<String>,
+        /// The definitions' names in the file, when the target is a file;
+        /// more full names, when it is a definition in the project
+        names: Vec<String>,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -414,10 +416,10 @@ fn run(cli: Cli) -> ExitCode {
         ),
         Command::Axioms {
             target,
-            name,
+            names,
             project,
             cache,
-        } => axioms(&target, name.as_deref(), project.as_deref(), &cache),
+        } => axioms(&target, &names, project.as_deref(), &cache),
         Command::Dev(DevCommand::OpcodeCensus {
             target,
             functions,
@@ -1348,25 +1350,24 @@ fn render_census(target: &str, census: &stitchwort_rt::census::Census, functions
     out
 }
 
-/// `axioms`: loads the file or project, finds the definition and prints
-/// the axioms it depends on (`stitchwort_driver::axioms`).
-fn axioms(target: &str, name: Option<&str>, project: Option<&Path>, cache: &CacheArgs) -> ExitCode {
+/// `axioms`: loads the file or project, finds the definitions and prints
+/// the axioms each depends on (`stitchwort_driver::axioms`). One name is
+/// reported plainly; several, each under its own heading.
+fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheArgs) -> ExitCode {
     let mut session = new_session(false);
-    let key = if is_file_target(target) {
-        let Some(name) = name else {
-            eprintln!("error: name the definition to report on: `stitchwort axioms {target} NAME`");
+    let keys: Vec<&str> = if is_file_target(target) {
+        if names.is_empty() {
+            eprintln!(
+                "error: name the definitions to report on: `stitchwort axioms {target} NAME...`"
+            );
             return ExitCode::FAILURE;
-        };
+        }
         use_cache(&mut session, cache, Path::new("."));
         if !load_file(&mut session, Path::new(target), None) {
             return ExitCode::FAILURE;
         }
-        name
+        names.iter().map(String::as_str).collect()
     } else {
-        if name.is_some() {
-            eprintln!("error: a name in the project takes no second argument");
-            return ExitCode::FAILURE;
-        }
         let Some(project) = locate_project(project, "report on", "axioms hello.sw NAME") else {
             return ExitCode::FAILURE;
         };
@@ -1374,23 +1375,39 @@ fn axioms(target: &str, name: Option<&str>, project: Option<&Path>, cache: &Cach
         if !load_project(&mut session, &project, &Target::Everything) {
             return ExitCode::FAILURE;
         }
-        target
+        std::iter::once(target)
+            .chain(names.iter().map(String::as_str))
+            .collect()
     };
     session.elab.leave_namespace();
-    let Some(id) = session.elab.lookup_def(key) else {
-        eprintln!("error: there's no definition `{key}`");
-        return ExitCode::FAILURE;
-    };
-    if session.elab.is_unfinished(id) {
-        eprintln!(
-            "error: `{key}` isn't finished: it, or something it uses, has an open goal (`?`), so \
-             it isn't checked"
-        );
-        return ExitCode::FAILURE;
+    let mut ids = Vec::new();
+    for key in &keys {
+        let Some(id) = session.elab.lookup_def(key) else {
+            eprintln!("error: there's no definition `{key}`");
+            return ExitCode::FAILURE;
+        };
+        if session.elab.is_unfinished(id) {
+            eprintln!(
+                "error: `{key}` isn't finished: it, or something it uses, has an open goal \
+                 (`?`), so it isn't checked"
+            );
+            return ExitCode::FAILURE;
+        }
+        ids.push(id);
     }
-    let found = stitchwort_driver::axioms::axioms(&session.elab.globals, id);
-    for axiom in found {
-        println!("{axiom}");
+    let several = keys.len() > 1;
+    for (key, id) in keys.iter().zip(ids) {
+        let found = stitchwort_driver::axioms::axioms(&session.elab.globals, id);
+        let indent = if several { "  " } else { "" };
+        if several {
+            println!("{key}:");
+        }
+        if found.is_empty() {
+            println!("{indent}no axioms are used");
+        }
+        for axiom in found {
+            println!("{indent}{axiom}");
+        }
     }
     discard(session);
     ExitCode::SUCCESS

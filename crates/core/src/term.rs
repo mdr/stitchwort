@@ -11,7 +11,7 @@ use crate::globals::Globals;
 
 pub type Name = Rc<str>;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DefId(pub usize);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

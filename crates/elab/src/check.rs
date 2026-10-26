@@ -464,6 +464,24 @@ impl<'e> Ctx<'e> {
         }
     }
 
+    /// `d` with the "is opaque" notes (docs/proposals/opaque-definitions.md
+    /// §6.10) for the opaque definitions left folded in `values`, the sides
+    /// of a failed comparison. Error path only.
+    pub fn with_opaque_notes(&self, d: Diagnostic, values: &[&Value]) -> Diagnostic {
+        let g = self.g();
+        if !g.defs.iter().any(|def| def.opaque) {
+            return d;
+        }
+        let terms: Vec<Term> = values
+            .iter()
+            .filter_map(|v| quote(g, self.level(), v).ok())
+            .collect();
+        let ids = crate::opaque::declined_in(g, &terms);
+        crate::opaque::opaque_notes(self.e, &ids)
+            .into_iter()
+            .fold(d, Diagnostic::with_note)
+    }
+
     /// [`Ctx::show`], with the arguments the compiler fills in.
     pub fn show_hidden(&self, value: &Value) -> String {
         pretty::value_for_message_hidden(self.g(), &self.names, value)
@@ -536,6 +554,7 @@ impl<'e> Ctx<'e> {
             Some(note) => d.with_note(note),
             None => d,
         };
+        let d = self.with_opaque_notes(d, &[expected, found]);
         self.unrefined_hint(d, expected, found)
     }
 
@@ -1031,6 +1050,9 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
         cx.e.note_local(cx, name, &head.1);
         return apply_args(cx, head, args);
     }
+    if let Some(d) = crate::opaque::no_unfold_equation(cx.e, name) {
+        return Err(d);
+    }
     if let Some(fields) = as_fields(cx, name) {
         return infer_app(cx, &fields, args);
     }
@@ -1066,7 +1088,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
     match cx.e.named(&name.text) {
         None => Err(cx.e.not_found(name)),
         Some((Global::Def(id), _)) => {
-            let head = (Term::Def(*id), g.def(*id).ty_value.clone());
+            let head = (Term::Def(*id), crate::kernel::def_ty(g, *id)?);
             apply_args(cx, head, args)
         }
         // The parameters, then the indices: one telescope; `auto` parameters
@@ -3360,7 +3382,7 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
             // Propagation elaborates the application from this head without
             // going through `infer_app`, which would note the name.
             cx.e.note_name(name);
-            Some((Term::Def(*id), cx.g().def(*id).ty_value.clone()))
+            Some((Term::Def(*id), crate::kernel::def_ty(cx.g(), *id).ok()?))
         }
         _ => None,
     }
@@ -3952,7 +3974,9 @@ fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     } else if let Some(computed) = computed {
         error = error.with_note(computed);
     }
-    error.with_note("`rfl` proves `a = b` only when both sides compute to the same value")
+    let error =
+        error.with_note("`rfl` proves `a = b` only when both sides compute to the same value");
+    cx.with_opaque_notes(error, &[a, b])
 }
 
 #[cfg(test)]

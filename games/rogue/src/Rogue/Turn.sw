@@ -23,7 +23,7 @@ def resolve (dice: Dice) (state: State) (command: Command): State :=
           if state.potions == 0 then { state | message = "You have no potions." }
           else monstersTurn dice (drink state)
         | Descend =>
-          if isStairs state.level state.player then descend state
+          if isStairs state.level state.player then descend dice state
           else { state | message = "There are no stairs here." }
     | _ => state
 
@@ -70,14 +70,12 @@ def drink (state: State): State :=
 def healed (hitPoints: Nat): Nat :=
   if hitPoints + potionStrength ≤ maxHitPoints then hitPoints + potionStrength else maxHitPoints
 
--- Down the stairs to the next level, made when the game started (see
--- `newGame` for why).
-def descend (state: State): State :=
-  match state.below with
-    | Cons plan deeper =>
-      let arrived := arrive { state | below = deeper } plan
-      { arrived | turn = state.turn + 1, message = "You go down the stairs to level ${plan.level.depth}." }
-    | [] => { state | message = "These stairs lead nowhere." }
+-- Down the stairs: the next level is made now, from the turn's dice. The
+-- generator is opaque, so no proof about a turn looks inside it.
+def descend (dice: Dice) (state: State): State :=
+  let plan := seeded dice.seed (() => generateLevel (state.level.depth + 1))
+  let arrived := arrive state plan
+  { arrived | turn = state.turn + 1, message = "You go down the stairs to level ${plan.level.depth}." }
 
 -- After the player, the monsters' turn, unless the game is over.
 def monstersTurn (dice: Dice) (state: State): State :=
