@@ -634,6 +634,11 @@ pub fn counter_fires_first(frame_limit: u64, stack_size: usize, max_frame: usize
         .is_some_and(|depth| frame_limit.saturating_mul(max_frame as u64) <= depth as u64)
 }
 
+/// What frames leaving on an error gave up ([`sw_unwind`]): their
+/// registers (a segment each), a tail call's arguments, and their closures
+/// and pending arguments (a group each).
+type Unwound = (Vec<Vec<Value>>, Vec<Value>, Vec<Vec<Value>>);
+
 /// Why the crossing leaves a call to the machine.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Declined {
@@ -669,7 +674,7 @@ pub struct Crossing {
     pub max_frame: usize,
     /// Values frames gave up on leaving with an error, until the machine
     /// has cleared its own registers ([`sw_unwind`]).
-    unwound: std::cell::RefCell<(Vec<Vec<Value>>, Vec<Value>, Vec<Vec<Value>>)>,
+    unwound: std::cell::RefCell<Unwound>,
 }
 
 impl Crossing {
