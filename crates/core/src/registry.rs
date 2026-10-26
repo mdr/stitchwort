@@ -308,6 +308,11 @@ builtins! {
     // for matches on `b` itself (crates/elab/src/matching.rs)
     DecTrue = "Bool.decTrue": Def,
     ElimDec = "Decidable.elim": Def,
+    // `Ord.compare` of an instance the code names compiles to that
+    // instance's comparison, read from its definition (crates/js): a
+    // record, or `Ord.fromCompare` of one
+    OrdCompare = "Ord.compare": Def,
+    OrdFromCompare = "Ord.fromCompare": Def,
     // Lists, `Option`, pairs
     List = "List": Data,
     Nil = "Nil": Ctor(Builtin::List),

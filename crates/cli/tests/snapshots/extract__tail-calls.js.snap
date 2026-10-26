@@ -927,7 +927,7 @@ const $Main$dlookupIn = (v0, v1) => {
             const v6 = v0;
             const v7 = v5;
             const v8 = v3;
-            const v9 = $Std$dOrd$dcompare($Std$dNat$dinstOrd)(v0)(v4);
+            const v9 = $Std$dNat$dcompare(v0, v4);
             switch (v9.tag) {
               case "Less": {
                 s0 = v6;

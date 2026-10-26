@@ -1969,6 +1969,10 @@ struct Gen<'g> {
     if_then_else: Option<DefId>,
     /// `Decidable.elim`, which `if h: p then a else b` becomes.
     elim_dec: Option<DefId>,
+    /// `Ord.compare` and `Ord.fromCompare`: a comparison through an instance
+    /// the code names is a call of its `compare` ([`Gen::known_compare`]).
+    ord_compare: Option<DefId>,
+    ord_from_compare: Option<DefId>,
     /// `Nat.add`, whose calls in tail position a loop can add up as it goes
     /// ([`SelfCall::add`]), with the `bigint` representation of `Nat`.
     nat_add: Option<DefId>,
@@ -2165,6 +2169,8 @@ impl<'g> Gen<'g> {
             infos: g.defs.iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.registry.def(Builtin::IfThenElse),
             elim_dec: g.registry.def(Builtin::ElimDec),
+            ord_compare: g.registry.def(Builtin::OrdCompare),
+            ord_from_compare: g.registry.def(Builtin::OrdFromCompare),
             nat_add: nat.and(g.registry.def(Builtin::Add)),
             list_append: g.registry.def(Builtin::Append),
             effect: effect::Effect::new(g, options.effect_counters),
@@ -3811,8 +3817,105 @@ impl<'g> Gen<'g> {
         out
     }
 
+    /// Whether `term` is `Yes _` (or `No _`, with `yes` false), the proof
+    /// ignored.
+    fn is_decision(&self, term: &Term, yes: bool) -> bool {
+        let ctor = self
+            .g
+            .registry
+            .ctor(if yes { Builtin::Yes } else { Builtin::No });
+        matches!(term.strip_loc(), Term::Ctor(d, c, _) if Some((*d, *c)) == ctor)
+    }
+
+    /// `Decidable.elim d (h => Yes …) (h => No …)`: `d` itself, since the
+    /// proofs are erased. A derived `==` on a record with one field to
+    /// compare is this, around the field's decision.
+    fn decision_itself<'t>(&self, id: DefId, args: &[&'t Term]) -> Option<&'t Term> {
+        if Some(id) != self.elim_dec {
+            return None;
+        }
+        let [_, _, decision, yes, no] = args else {
+            return None;
+        };
+        match (yes.strip_loc(), no.strip_loc()) {
+            (Term::Lam(_, _, yes), Term::Lam(_, _, no))
+                if self.is_decision(yes, true) && self.is_decision(no, false) =>
+            {
+                Some(decision)
+            }
+            _ => None,
+        }
+    }
+
+    /// The comparison of `instance`, an `Ord` instance, if it's a definition
+    /// whose own body says which: a record of the fields
+    /// (`{ compare = Nat.compare, … }`) or `Ord.fromCompare c …`, with the
+    /// comparison a definition. So `Ord.compare Text.instOrd x y` (a derived
+    /// `Ord` on a record over `Text` is this) is `Text.compare x y`, a direct
+    /// call, rather than a read of the dictionary's field and a call of the
+    /// closure there one argument at a time.
+    fn known_compare(&self, instance: &Term) -> Option<Rc<Term>> {
+        let Term::Def(id) = instance.strip_loc() else {
+            return None;
+        };
+        let def = self.g.def(*id);
+        if def.arity != 0 {
+            return None;
+        }
+        let body = def.run_body()?.strip_loc();
+        // The field `compare` of a record built by `Ord`'s constructor.
+        let field = |term: &Term| -> Option<Rc<Term>> {
+            let Term::Ctor(d, 0, fields) = term.strip_loc() else {
+                return None;
+            };
+            let data = self.g.data(*d);
+            let k = data.ctors[0]
+                .fields
+                .iter()
+                .position(|(name, _)| &**name == "compare")?;
+            Some(fields[k].clone())
+        };
+        let compare = if let Some(compare) = field(body) {
+            compare
+        } else {
+            let (head, args) = body.spine();
+            let Term::Def(from) = head.strip_loc() else {
+                return None;
+            };
+            if Some(*from) != self.ord_from_compare {
+                return None;
+            }
+            // `Ord.fromCompare`'s record names its parameter `compare`: the
+            // argument in that place.
+            let from = self.g.def(*from);
+            let mut inner = from.run_body()?.strip_loc();
+            for _ in 0..from.arity {
+                let Term::Lam(_, _, b) = inner else {
+                    return None;
+                };
+                inner = b.strip_loc();
+            }
+            let Term::Var(ix) = field(inner)?.strip_loc().clone() else {
+                return None;
+            };
+            let param = from.arity.checked_sub(ix + 1)?;
+            Rc::new((*args.get(param)?).clone())
+        };
+        matches!(compare.strip_loc(), Term::Def(_)).then_some(compare)
+    }
+
     /// [`Gen::def_ref`], without building a closed map once.
     fn def_call(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> Fallible<String> {
+        if let Some(decision) = self.decision_itself(id, args) {
+            return self.expr(decision, env);
+        }
+        if Some(id) == self.ord_compare
+            && let [_, instance, rest @ ..] = args
+            && let Some(compare) = self.known_compare(instance)
+            && let Term::Def(compare) = compare.strip_loc()
+        {
+            return self.def_ref(*compare, rest, env);
+        }
         // A partial computation is the token, whatever its arguments: they
         // only feed a `Delay`, which nothing can run, so they aren't
         // computed.

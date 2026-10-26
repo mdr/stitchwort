@@ -1276,7 +1276,7 @@ const $Main$dItem$d$gdecEq = (v0, v1) => {
   const v3 = v0.name;
   const v4 = v1.id;
   const v5 = v1.name;
-  return $Std$dDecidable$delim($Std$dNat$ddecEq(v2, v4), ((v6) => $Std$dDecidable$delim($Std$dText$ddecEq(v3, v5), ((v7) => ({ tag: "Yes" })), ((v7) => ({ tag: "No" })))), ((v6) => ({ tag: "No" })));
+  return $Std$dDecidable$delim($Std$dNat$ddecEq(v2, v4), ((v6) => $Std$dText$ddecEq(v3, v5)), ((v6) => ({ tag: "No" })));
 };
 const $Main$ditems = (v0) => $Std$dList$dmap$e($Std$dList$drange(v0), ((v1) => ({ id: v1, name: "x" })));
 const $Main$dsameNats = (v0) => (((v1) => ((v2) => $Std$dDecidable$dtoBool($Std$dList$ddecEq(((v3) => ((v4) => $Std$dNat$ddecEq(v3, v4))), v1, v2)))))($Std$dList$drange(v0))($Std$dList$drange(v0));

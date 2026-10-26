@@ -567,3 +567,42 @@ Built in SW-380 stage 3. No compiler change.
   did use a `Text` fact, the microtype's own order is that fact through the field, because the
   derived `compare` is `Text`'s compare of `value`.
 - **`js.flavor`** remains not built (D1066: plain alias only).
+
+## As built (comparisons at the field's speed)
+
+Built in SW-590 (D1315). A program with typed ids measured them costing 7–17% in JS, because
+an unboxed microtype's derived `==` and order went through the field's dictionary, not straight
+to the field's comparison:
+
+```js
+// before
+const $Main$dCardId$d$gdecEq = (v0, v1) => { …; return $Std$dDecidable$delim($Std$dText$ddecEq(v2, v3), ((v4) => ({ tag: "Yes" })), ((v4) => ({ tag: "No" }))); };
+const $Main$dCardId$d$gcompare = (v0, v1) => { …; return $Std$dOrd$dcompare($Std$dText$dinstOrd)(v2)(v3); };
+// after
+const $Main$dCardId$d$gdecEq = (v0, v1) => { …; return $Std$dText$ddecEq(v2, v3); };
+const $Main$dCardId$d$gcompare = (v0, v1) => { …; return $Std$dText$dcompare(v2, v3); };
+```
+
+The fix is in the JS generator (`crates/js`), and is general, not special to microtypes:
+
+- `Decidable.elim d (h => Yes …) (h => No …)` is `d`, since proofs are erased. A derived `==`
+  ends in this for its last field, so every derived `==` gets one closure pair and one call
+  shorter.
+- `Ord.compare i` for an instance `i` that is a definition whose body says its comparison (a
+  record with a `compare` field, or `Ord.fromCompare c …`, with the comparison a definition) is
+  a direct call of that comparison: `Ord.compare Text.instOrd x y` is `Text.compare(x, y)`.
+  `Ord.compare` and `Ord.fromCompare` are registry built-ins for this.
+
+The library's code that takes the dictionary as a parameter (`Map`, `List.distinct`, `∉`)
+still calls through it, as for `Text`; what differed was the extra layer the microtype's own
+instance added. The micro-benchmark (10,000 cards, Node, each cell the fastest run of 7
+processes each running one function, so the typed and plain code share no JIT feedback):
+
+| | typed / plain before | after |
+|---|---|---|
+| `cards.filter (c => c.id ∉ ids)`, 100 ids | 2.25 | 1.00 |
+| `Map.indexBy cards (c => c.id)` | 1.05 | 0.97 |
+| `List.distinct` of 20,000 ids | 1.06 | 1.00 |
+
+`examples/extract/microtype-comparisons.sw` and the `extract` test
+`microtype_comparisons_are_their_fields` check the generated calls and the results.

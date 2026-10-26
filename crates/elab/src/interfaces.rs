@@ -310,6 +310,10 @@ impl Elaborator {
             let method: Name = format!("{name}.{field}").into();
             let id = kernel::declare_def(&mut self.globals, &method, &ty, false, false, span)?;
             kernel::define_def(&mut self.globals, id, &body)?;
+            // `Ord.compare` is the compiler's (crates/js).
+            if self.loading_prelude {
+                self.bind_builtin_def(id)?;
+            }
             methods.push(id);
             let key = Self::member_key(&data_key, field);
             self.scope.insert(&key, Global::Def(id), span, false);

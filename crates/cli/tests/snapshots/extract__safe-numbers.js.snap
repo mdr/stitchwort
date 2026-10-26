@@ -807,8 +807,8 @@ const $Std$dSafeInt$dvalue = (v0) => {
 };
 const $Std$dSafeNat$dofNat = (v0) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v0, 9007199254740991n), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
 const $Std$dSafeInt$dofInt = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessEq(v1, 9007199254740991n)))($Std$dInt$dnatAbs(v0)), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
-const $Std$dSafeNat$dinstDecEq = ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dNat$ddecEq(v2, v3))))($Std$dSafeNat$dvalue(v0))($Std$dSafeNat$dvalue(v1)), ((v2) => ({ tag: "Yes" })), ((v2) => ({ tag: "No" })))));
-const $Std$dSafeInt$dinstDecEq = ((v0) => ((v1) => $Std$dDecidable$delim((((v2) => ((v3) => $Std$dInt$ddecEq(v2, v3))))($Std$dSafeInt$dvalue(v0))($Std$dSafeInt$dvalue(v1)), ((v2) => ({ tag: "Yes" })), ((v2) => ({ tag: "No" })))));
+const $Std$dSafeNat$dinstDecEq = ((v0) => ((v1) => (((v2) => ((v3) => $Std$dNat$ddecEq(v2, v3))))($Std$dSafeNat$dvalue(v0))($Std$dSafeNat$dvalue(v1))));
+const $Std$dSafeInt$dinstDecEq = ((v0) => ((v1) => (((v2) => ((v3) => $Std$dInt$ddecEq(v2, v3))))($Std$dSafeInt$dvalue(v0))($Std$dSafeInt$dvalue(v1))));
 const $Std$dList$dmap$e = (v4, v5) => {
   let s4 = v4, s5 = v5;
   let h$ = null, l$ = null, k$ = null;
@@ -890,7 +890,7 @@ const $Main$dCounter$d$gdecEq = (v0, v1) => {
   const v3 = v0.delta;
   const v4 = v1.count;
   const v5 = v1.delta;
-  return $Std$dDecidable$delim($Std$dDecEq$ddecide($Std$dSafeNat$dinstDecEq)(v2)(v4), ((v6) => $Std$dDecidable$delim($Std$dDecEq$ddecide($Std$dSafeInt$dinstDecEq)(v3)(v5), ((v7) => ({ tag: "Yes" })), ((v7) => ({ tag: "No" })))), ((v6) => ({ tag: "No" })));
+  return $Std$dDecidable$delim($Std$dDecEq$ddecide($Std$dSafeNat$dinstDecEq)(v2)(v4), ((v6) => $Std$dDecEq$ddecide($Std$dSafeInt$dinstDecEq)(v3)(v5)), ((v6) => ({ tag: "No" })));
 };
 const $Main$dbump = (v0) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Std$dSafeNat$dvalue($Main$dCounter$dcount(v0)), $Std$dInt$dtoNat($Std$dSafeInt$dvalue($Main$dCounter$ddelta(v0)))));
 const $Main$dsumAll = (v0) => $Std$dSafeNat$dofNat($Std$dList$dfoldLeft$e(v0, 0n, ((v1) => ((v2) => $Std$dNat$dadd(v1, $Std$dSafeNat$dvalue(v2))))));

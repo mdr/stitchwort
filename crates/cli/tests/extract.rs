@@ -1718,6 +1718,76 @@ console.log("ok");
     run_script("microtypes", &[("micro.mjs", session)], script);
 }
 
+/// A microtype's derived `==` and order compile to its field's own, called
+/// directly (SW-590): `Text.decEq` (`===`) and `Text.compare` for an id over
+/// `Text`, `Nat.decEq` and `Nat.compare` over `Nat`, not a `Decidable.elim`
+/// around the field's decision, nor `Ord.compare` reading the field's
+/// dictionary. The results are the field's.
+#[test]
+fn microtype_comparisons_are_their_fields() {
+    let examples = examples();
+    let session = example(&examples, "microtype-comparisons.sw");
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds");
+    let body = |name: &str| -> &str {
+        let start = output
+            .js
+            .find(&format!("const $Main${name} = "))
+            .unwrap_or_else(|| panic!("no `{name}` in:\n{}", output.js));
+        let rest = &output.js[start..];
+        &rest[..rest.find("\n};\n").expect("a block")]
+    };
+    for (name, call) in [
+        ("dCardId$d$gdecEq", "return $Std$dText$ddecEq(v2, v3);"),
+        ("dCardId$d$gcompare", "return $Std$dText$dcompare(v2, v3);"),
+        ("dCount$d$gdecEq", "return $Std$dNat$ddecEq(v2, v3);"),
+        ("dCount$d$gcompare", "return $Std$dNat$dcompare(v2, v3);"),
+        ("dEmail$d$gdecEq", "return $Std$dText$ddecEq(v2, v4);"),
+        ("dEmail$d$gcompare", "return $Std$dText$dcompare(v2, v4);"),
+    ] {
+        assert!(
+            body(name).ends_with(call),
+            "`{name}` isn't `{call}`:\n{}",
+            body(name)
+        );
+    }
+    // A comparison through an instance named in the code calls its
+    // `compare`.
+    assert!(
+        output
+            .js
+            .contains("const $Main$dorder = (v0, v1) => $Main$dCardId$d$gcompare(v0, v1);"),
+        "{}",
+        output.js
+    );
+    let script = r#"
+import * as m from "./cmp.mjs";
+import assert from "node:assert/strict";
+
+assert.equal(m.same("c1", "c1"), true);
+assert.equal(m.same("c1", "c2"), false);
+assert.equal(m.order("a", "b").$tag, "Less");
+assert.equal(m.order("b", "b").$tag, "Equal");
+assert.equal(m.order("b", "a").$tag, "Greater");
+// Code points, not UTF-16 units: U+FFFF sorts before U+10000.
+assert.equal(m.order("\u{FFFF}", "\u{10000}").$tag, "Less");
+const cards = [{ id: "c1", n: 1n }, { id: "c2", n: 2n }, { id: "c3", n: 3n }];
+assert.deepEqual(m.unseen(cards, ["c2"]), [cards[0], cards[2]]);
+assert.deepEqual(m.unseen(cards, []), cards);
+const index = m.byId([{ id: "c2", n: 2n }, { id: "c1", n: 1n }, { id: "c2", n: 5n }]);
+assert.deepEqual(Object.entries(index), [["c1", { id: "c1", n: 1n }], ["c2", { id: "c2", n: 2n }]]);
+assert.deepEqual(m.distinctIds(["b", "a", "b", "c", "a"]), ["b", "a", "c"]);
+assert.equal(m.sameCount(3n, 3n), true);
+assert.equal(m.sameCount(3n, 4n), false);
+assert.equal(m.orderCount(10n, 9n).$tag, "Greater");
+assert.deepEqual(m.distinctCounts([2n, 1n, 2n]), [2n, 1n]);
+assert.equal(m.sameEmail("a@b", "a@b"), true);
+assert.equal(m.orderEmail("b@c", "a@b").$tag, "Greater");
+console.log("ok");
+"#;
+    run_script("microtype-comparisons", &[("cmp.mjs", session)], script);
+}
+
 /// The `.d.ts` of a microtype is a plain alias (D1066): an app passes its
 /// plain strings in and gets strings out, and its `Record<string, V>` is a
 /// map from one. A plain alias doesn't keep two microtypes apart in
