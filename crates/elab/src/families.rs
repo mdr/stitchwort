@@ -587,7 +587,7 @@ fn fin_missing(cx: &Ctx, x: usize, d: DataId, c: usize) -> Result<Option<FinMiss
     let g = cx.g();
     let (Some(fin), Some((_, fsucc))) = (
         g.registry.loaded_data(Builtin::Fin),
-        g.registry.ctor(Builtin::FSucc),
+        g.registry.loaded_ctor(Builtin::FSucc),
     ) else {
         return Ok(None);
     };

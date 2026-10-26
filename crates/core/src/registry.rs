@@ -495,6 +495,16 @@ impl Registry {
         }
     }
 
+    /// Built-in constructor `b` if its library file has loaded. Like
+    /// [`Registry::loaded_def`], for a caller that may run before the file
+    /// that declares `b` does: "not bound" is an answer, not a bug.
+    pub fn loaded_ctor(&self, b: Builtin) -> Option<(DataId, usize)> {
+        match self.entries.get(&b) {
+            Some(Entry::Ctor(d, c)) => Some((*d, *c)),
+            _ => None,
+        }
+    }
+
     /// A constructor: its data type and index.
     pub fn ctor(&self, b: Builtin) -> Option<(DataId, usize)> {
         self.assert_usable(b);
@@ -661,6 +671,14 @@ mod tests {
                 assert!(!(same_kind && a.name() == b.name()), "{a:?} and {b:?}");
             }
         }
+    }
+
+    /// A library constructor that no file has bound yet is "not loaded", not a
+    /// panic: the missing-case search asks before any `Fin` code loads.
+    #[test]
+    fn an_unloaded_library_constructor_is_not_loaded() {
+        let registry = Registry::default();
+        assert_eq!(registry.loaded_ctor(Builtin::FSucc), None);
     }
 
     #[test]
