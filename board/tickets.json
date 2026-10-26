@@ -4349,7 +4349,7 @@
     {
       "id": 587,
       "title": "Inversion for Abort blocks: a generated lemma (or simp via Abort.toOptionThen / Option.flatMapEqSome) for 'this .orAbort chain returned Some'; today each proof walks one step per .orAbort by hand (found in the private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4889,7 +4889,7 @@
     {
       "id": 630,
       "title": "fmt: a def with a multi-line header (parameter defaults) gets its body re-indented 6 columns with the closing } at column 4; hand-written column-0 body is rewritten (found by the factory-defaults lane, 26 Oct)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
