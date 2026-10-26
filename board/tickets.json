@@ -4455,7 +4455,7 @@
     {
       "id": 596,
       "title": "Std: more list/option/map lemmas a real program needed (private app port, 26 Oct): List.get ↔ List.getOr (std has no List.get theorems), take of zipWith/map; Option.mapEqNone; List.Any p xs from x ∈ xs and p x; a filter dropping every element is Nil; Map.indexBy 'what it finds is an element' and 'a key of the list is found' (Prop forms)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
