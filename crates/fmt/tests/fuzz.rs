@@ -51,6 +51,8 @@ const TOKENS: &[&str] = &[
     "rewrite",
     "omega",
     "ring",
+    "opaque",
+    "unfolding",
     "interface",
     "instance",
     "import",

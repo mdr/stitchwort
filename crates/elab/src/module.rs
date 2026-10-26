@@ -1910,6 +1910,25 @@ pub(crate) fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<(ast::Name,
                 false,
             )],
         ),
+        // So has an opaque definition without an `unfolding` clause
+        // (docs/proposals/opaque-definitions.md §6.3); one with a clause has
+        // none (`E-NO-UNFOLD-EQUATION`, `opaque.rs`).
+        Decl::Signature {
+            name,
+            opaque: true,
+            theorem: false,
+            unfolding,
+            ..
+        } if unfolding.is_empty() => (
+            Some(name.clone()),
+            vec![(
+                ast::Name {
+                    text: "unfold".into(),
+                    span: name.span,
+                },
+                false,
+            )],
+        ),
         Decl::Signature { name, .. } => (Some(name.clone()), Vec::new()),
         Decl::Test { .. } | Decl::Equation { .. } => (None, Vec::new()),
     }
@@ -2038,8 +2057,14 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
         out.extend(refs.into_iter().map(|r| (r, in_header)));
     };
     match decl {
-        Decl::Signature { ty, .. } => {
+        Decl::Signature { ty, unfolding, .. } => {
             add(free_names(vec![Work::Expr(ty)]), true);
+            // What it unfolds is used by its body
+            // (docs/proposals/opaque-definitions.md §6.11, rule 2).
+            add(
+                free_names(unfolding.iter().map(Work::Name).collect()),
+                false,
+            );
             let binders = body_binders(ty, equations);
             for eq in equations {
                 let Decl::Equation { patterns, rhs, .. } = eq else {

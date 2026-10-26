@@ -452,7 +452,7 @@ fn with_ends(cx: &Ctx, which: Builtin, ty: &Rc<Term>, ends: &[&Term]) -> Result<
 /// found from their types.
 pub(crate) fn lemma(cx: &mut Ctx, which: Builtin, args: &[Piped]) -> Result<Term> {
     let id = builtin_def(cx, which)?;
-    let head = (Term::Def(id), cx.g().def(id).ty_value.clone());
+    let head = (Term::Def(id), crate::kernel::def_ty(cx.g(), id)?);
     let args: Vec<Arg> = args.iter().map(Arg::Piped).collect();
     Ok(apply_args(cx, head, &args)?.0)
 }

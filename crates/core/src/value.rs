@@ -1630,7 +1630,7 @@ pub fn hidden(g: &Globals, id: DefId) -> bool {
 /// Definition `id`'s body, if it has one and it isn't [`hidden`]: what every
 /// path that unfolds a definition, or looks at its case tree, reads.
 #[inline(always)]
-fn body_seen(g: &Globals, id: DefId) -> Option<&Rc<Term>> {
+pub fn body_seen(g: &Globals, id: DefId) -> Option<&Rc<Term>> {
     let def = g.def(id);
     def.body.as_ref().filter(|_| !def.opaque || !hidden(g, id))
 }

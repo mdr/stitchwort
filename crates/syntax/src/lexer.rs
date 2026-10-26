@@ -121,6 +121,12 @@ pub enum Tok {
     /// `decreasing e` in a definition's header, and `[decreasing := p]`
     /// at a recursive call (docs/proposals/well-founded-recursion.md).
     KwDecreasing,
+    /// `opaque def f …`: a definition opaque to the checker
+    /// (docs/proposals/opaque-definitions.md §6.2).
+    KwOpaque,
+    /// `unfolding f, g` in a declaration's header: the opaque definitions
+    /// its body may unfold (docs/proposals/opaque-definitions.md §6.3).
+    KwUnfolding,
     LBrace,
     RBrace,
     /// `=>`, in a handler clause: `get () => k -> …`.
@@ -362,6 +368,8 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                     "omega" => Tok::KwOmega,
                     "ring" => Tok::KwRing,
                     "decreasing" => Tok::KwDecreasing,
+                    "opaque" => Tok::KwOpaque,
+                    "unfolding" => Tok::KwUnfolding,
                     "in" => Tok::KwIn,
                     // After a `.`, a field or a dot call: `x.exists p`.
                     "exists" if !(start > 0 && bytes[start - 1] == b'.') => Tok::KwExists,

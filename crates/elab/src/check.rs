@@ -1031,6 +1031,9 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
         cx.e.note_local(cx, name, &head.1);
         return apply_args(cx, head, args);
     }
+    if let Some(d) = crate::opaque::no_unfold_equation(cx.e, name) {
+        return Err(d);
+    }
     if let Some(fields) = as_fields(cx, name) {
         return infer_app(cx, &fields, args);
     }
@@ -1066,7 +1069,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
     match cx.e.named(&name.text) {
         None => Err(cx.e.not_found(name)),
         Some((Global::Def(id), _)) => {
-            let head = (Term::Def(*id), g.def(*id).ty_value.clone());
+            let head = (Term::Def(*id), crate::kernel::def_ty(g, *id)?);
             apply_args(cx, head, args)
         }
         // The parameters, then the indices: one telescope; `auto` parameters
@@ -3360,7 +3363,7 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
             // Propagation elaborates the application from this head without
             // going through `infer_app`, which would note the name.
             cx.e.note_name(name);
-            Some((Term::Def(*id), cx.g().def(*id).ty_value.clone()))
+            Some((Term::Def(*id), crate::kernel::def_ty(cx.g(), *id).ok()?))
         }
         _ => None,
     }
