@@ -1,5 +1,5 @@
 {
-  "next": 671,
+  "next": 673,
   "tickets": [
     {
       "id": 13,
@@ -4518,7 +4518,7 @@
     {
       "id": 600,
       "title": "Daily tier after today's merges: fix daily-only failures (text_natives_are_bound_to_the_prelude after SW-577; stale extract__results.js.snap) — lane stopped 26 Oct: its daily run hit ~50 GB RAM and locked the machine; rerun only after the memory guard",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4901,7 +4901,7 @@
     {
       "id": 631,
       "title": "Daily tier (tonight, quiet machine): small_programs_load_only_the_library_files_they_can_use fails on main (toolkit-only program also loads Decidable/Logic/Text Basics); plus text_natives_are_bound_to_the_prelude and stale extract__results.js.snap",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5369,7 +5369,31 @@
     {
       "id": 670,
       "title": "named_arguments::named_calls_keep_every_hash fails: rewriting examples/accept/abort-inversion.sw with named arguments doesn't parse ('expected }, but found )') (sweep memory lane, 26 Oct)",
-      "status": "next",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 671,
+      "title": "Library loader resolves dot calls without types, so xs.length in a std file makes list programs load Text/Basics (false dependency; List.padRight worked around with List.length xs). Use parameter type annotations when resolving dot calls — pipe-flow restyle makes dot calls the norm in std (daily-fix lane, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 672,
+      "title": "Error spans on interpolated strings with an empty first/last piece stop short of the closing }\" (parser drops the empty piece); test rewriter works around it (daily-fix lane, 26 Oct)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
