@@ -18,6 +18,42 @@
 let bindings = null;
 let ready = null;
 
+// A live run (docs/proposals/playground-live-keys.md): the run stays here,
+// paused, between keys. Its requests, each answered with { id, out } after
+// the output it caused ({ id, output }), where `out` is { state } with the
+// state "waiting", "finished", "interrupted", "ended", "stopped" or
+// "failed" (and then `errors`):
+//   live-start  { source } or { paths, texts, name }: start and run to the
+//               first wait
+//   live-keys   { keys: [[byte, ...], ...], close }: push each key as one
+//               read (Ctrl-C is [3]), close the input if asked, and run on
+//   live-stop   drop the run
+let live = null;
+
+function liveRequest(b, data, sink) {
+  const done = () => { live?.free(); live = null; };
+  if (data.action === "live-stop") {
+    done();
+    return { state: "stopped" };
+  }
+  if (data.action === "live-start") {
+    done();
+    try {
+      live = data.paths ? b.start_live_project(data.project, data.paths, data.texts, data.name) : b.start_live(data.source);
+    } catch (failure) {
+      return { state: "failed", errors: JSON.parse(failure).errors };
+    }
+  } else if (live) {
+    for (const key of data.keys ?? []) live.push(Uint8Array.from(key));
+    if (data.close) live.close();
+  } else {
+    return { state: "ended" };
+  }
+  const out = JSON.parse(live.advance(sink));
+  if (out.state !== "waiting") done();
+  return out;
+}
+
 self.onmessage = async ({ data }) => {
   try {
     bindings ??= import(`./pkg/stitchwort_web.js${self.location.search}`);
@@ -25,6 +61,10 @@ self.onmessage = async ({ data }) => {
     ready ??= b.default({ module_or_path: data.module });
     await ready;
     const sink = { write: (output) => self.postMessage({ id: data.id, output }) };
+    if (data.action.startsWith("live-")) {
+      self.postMessage({ id: data.id, out: liveRequest(b, data, sink) });
+      return;
+    }
     // A request with `paths` is for a project: the files are `paths` and
     // `texts`, and `targets` are the namespaces to check.
     // The library's text (for navigation): the one answer that isn't JSON.
