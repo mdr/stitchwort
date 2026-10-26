@@ -4518,11 +4518,11 @@
     {
       "id": 600,
       "title": "Daily tier after today's merges: fix daily-only failures (text_natives_are_bound_to_the_prelude after SW-577; stale extract__results.js.snap) — lane stopped 26 Oct: its daily run hit ~50 GB RAM and locked the machine; rerun only after the memory guard",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "26 Oct evening checkpoint: lane fixing run_js adapter args, small_programs loading, extract snapshot, text_natives, fmt repo idempotence, bench baseline (closed print/dot +19-25%, number patterns +37%).",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
@@ -4545,11 +4545,11 @@
     {
       "id": 602,
       "title": "Investigate the corpus sweeps' memory: machine::examples_agree 21 GB, lower::every_example_lowers 20 GB, differential 8.6 GB in the 26 Oct daily run — D1327 approved for TONIGHT (26 Oct) when Matt's machine is free; under the memory guard, one at a time; then the paused daily-tier fix",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "D1327. 26 Oct evening: daily killed by memguard at 16 GB (8 threads) and at 24 GB (4 threads, differential sweep). Lane measuring each sweep alone, cutting peaks below ~6 GB.",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
@@ -4901,7 +4901,7 @@
     {
       "id": 631,
       "title": "Daily tier (tonight, quiet machine): small_programs_load_only_the_library_files_they_can_use fails on main (toolkit-only program also loads Decidable/Logic/Text Basics); plus text_natives_are_bound_to_the_prelude and stale extract__results.js.snap",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
