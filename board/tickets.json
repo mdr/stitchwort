@@ -1,5 +1,5 @@
 {
-  "next": 625,
+  "next": 626,
   "tickets": [
     {
       "id": 13,
@@ -4818,6 +4818,18 @@
       "id": 624,
       "title": "Private app port: D1359/D1360 — WellFormed gains 'every recording duration is finite and >= 0' (Float.isFinite); annotation fact restated literally (0 <= start <= end of last recording, or 0 with no recordings), proved for well-formed inputs (clamp form may stay as an internal lemma); drop the negative-duration fallback; tests + differential updated. After the methods sweep (private work only)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 625,
+      "title": "std Float: no laws about rounding arithmetic are provable (add/sub/… are unknown functions in the logic, float.md 'no new propositional axioms'). Trigger: the private port needs 's <= s + d when 0 <= d' (monotone addition) and carries it as a hypothesis. Options: trusted law axioms (Rocq-style, tested against hardware), or bit-level reference definitions",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
