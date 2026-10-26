@@ -10,8 +10,9 @@
 --
 -- The proofs are about a `Level` whose corridors are `corridorsOf` (an
 -- equation); only `goalReachable` unfolds the opaque `layOut`, and only to
--- read off that equation. That it holds for the levels `generateLevel`
--- makes, for every seed, is in Generated.sw.
+-- read off that equation. `generateLevel` builds its level with `layOut`,
+-- with rooms numbered below 6 (it isn't proved for the generator itself:
+-- PROOFS.md §3).
 
 namespace Rogue.Proofs
 import Rogue (..)
