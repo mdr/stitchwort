@@ -130,6 +130,94 @@ theorem List.memDistinct [auto ord: Ord a] (x: a) (xs: List a): x ∈ List.disti
 theorem List.distinctNoRepeats [auto ord: Ord a] (xs: List a): List.Distinct (List.distinct xs) :=
   rewrite List.distinctIsDistinctEq xs in List.distinctEqNoRepeats [eq := ord.eq] xs
 
+-- What `distinctFrom` keeps of lists built up: a list with no repeats and
+-- nothing seen is kept whole; elements all seen are all dropped; elements
+-- appended that are seen or earlier are dropped; a new element appended is
+-- kept.
+theorem List.anyConsEqTrue [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (h: List.any seen (== y) = True): List.any (Cons x seen) (== y) = True :=
+  match d: x == y with
+    | True => rfl
+    | False => h
+
+theorem List.anyConsEqFalse [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (ne: Not (x = y)) (h: List.any seen (== y) = False):
+    List.any (Cons x seen) (== y) = False :=
+  match d: x == y with
+    | True => Void.exfalso (ne (DecEq.sound x y d))
+    | False => h
+
+theorem List.distinctFromKeep [auto eq: DecEq a]: (seen: List a) → (xs: List a) → List.Distinct xs →
+    ((z: a) → List.Mem z xs → List.any seen (== z) = False) → List.distinctFrom seen xs = xs
+  | seen, Nil, d, fresh => rfl
+  | seen, Cons y ys, Both notMem d, fresh =>
+    rewrite fresh y (Inl rfl) in
+    Eq.cong (Cons y)
+      (List.distinctFromKeep (Cons y seen) ys d (z m =>
+        List.anyConsEqFalse y z seen (e => notMem (rewrite e in m)) (fresh z (Inr m))))
+
+theorem List.distinctFromSeen [auto eq: DecEq a]: (seen: List a) → (ys: List a) →
+    ((y: a) → List.Mem y ys → List.any seen (== y) = True) → List.distinctFrom seen ys = Nil
+  | seen, Nil, h => rfl
+  | seen, Cons y ys, h => rewrite h y (Inl rfl) in List.distinctFromSeen seen ys (z m => h z (Inr m))
+
+theorem List.distinctFromAppendSeen [auto eq: DecEq a]: (seen: List a) → (xs: List a) → (ys: List a) →
+    ((y: a) → List.Mem y ys → Or (List.any seen (== y) = True) (List.Mem y xs)) →
+    List.distinctFrom seen (List.append xs ys) = List.distinctFrom seen xs
+  | seen, Nil, ys, cov =>
+    List.distinctFromSeen seen ys (y m =>
+      match cov y m with
+        | Inl s => s
+        | Inr none => Void.exfalso none)
+  | seen, Cons x xs, ys, cov =>
+    match c: List.any seen (== x) with
+      | True =>
+        List.distinctFromAppendSeen seen xs ys (y m =>
+          match cov y m with
+            | Inl s => Inl s
+            | Inr (Inl q) => Inl (rewrite <- q in c)
+            | Inr (Inr later) => Inr later)
+      | False =>
+        Eq.cong (Cons x)
+          (List.distinctFromAppendSeen (Cons x seen) xs ys (y m =>
+            match cov y m with
+              | Inl s =>
+                Inl (List.anyConsEqTrue x y seen s)
+              | Inr (Inl q) => Inl (rewrite <- q in List.anyConsSelf x seen)
+              | Inr (Inr later) => Inr later))
+
+theorem List.distinctFromSnoc [auto eq: DecEq a] (y: a): (seen: List a) → (xs: List a) → Not (List.Mem y xs) →
+    List.any seen (== y) = False → List.distinctFrom seen (List.append xs (Cons y Nil)) = List.append (List.distinctFrom seen xs) (Cons y Nil)
+  | seen, Nil, out, fresh => rewrite fresh in rfl
+  | seen, Cons x xs, out, fresh =>
+    match c: List.any seen (== x) with
+      | True => List.distinctFromSnoc y seen xs (m => out (Inr m)) fresh
+      | False =>
+        Eq.cong (Cons x)
+          (List.distinctFromSnoc y (Cons x seen) xs (m => out (Inr m))
+            (List.anyConsEqFalse x y seen (e => out (Inl e)) fresh))
+
+-- A list with no repeats is its own `distinct` ...
+theorem List.distinctOfNoRepeats [auto ord: Ord a] (xs: List a) (d: List.Distinct xs): List.distinct xs = xs :=
+  rewrite List.distinctIsDistinctEq xs in List.distinctFromKeep [eq := ord.eq] Nil xs d (z m => rfl)
+
+-- ... so `distinct` twice is `distinct` once.
+theorem List.distinctDistinct [auto ord: Ord a] (xs: List a): List.distinct (List.distinct xs) = List.distinct xs :=
+  List.distinctOfNoRepeats (List.distinct xs) (List.distinctNoRepeats xs)
+
+-- Appending elements the list has already changes nothing ...
+theorem List.distinctAppendSeen [auto ord: Ord a] (xs: List a) (ys: List a) (sub: (y: a) → List.Mem y ys → List.Mem y xs):
+    List.distinct (List.append xs ys) = List.distinct xs :=
+  rewrite List.distinctIsDistinctEq (List.append xs ys), List.distinctIsDistinctEq xs in
+  List.distinctFromAppendSeen [eq := ord.eq] Nil xs ys (y m => Inr (sub y m))
+
+-- ... and appending a new element appends it.
+theorem List.distinctSnoc [auto ord: Ord a] (xs: List a) (y: a) (out: Not (List.Mem y xs)):
+    List.distinct (List.append xs (Cons y Nil)) = List.append (List.distinct xs) (Cons y Nil) :=
+  rewrite List.distinctIsDistinctEq (List.append xs (Cons y Nil)), List.distinctIsDistinctEq xs in
+  List.distinctFromSnoc [eq := ord.eq] y Nil xs out rfl
+
+theorem List.distinctAppendSeenExample (xs: List Nat): List.distinct (List.append xs xs) = List.distinct xs :=
+  List.distinctAppendSeen xs xs (y m => m)
+
 test "List.distinct" := [3, 1, 3, 2, 1].distinct == [3, 1, 2]
 test "List.distinct empty" := (Nil: List Nat).distinct == Nil
 test "List.distinct all repeats" := [4, 4, 4].distinct == [4]

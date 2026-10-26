@@ -1213,6 +1213,25 @@ theorem List.findAny (xs: List a) (p: a → Bool) (q: a → Bool) (y: a) (qy: q 
   match List.findSome xs p y h with
     | Both py m => List.anyOfMem xs q y qy m
 
+-- With distinct keys, finding by an element's key finds that element (and
+-- `List.findKey`, std/List/Sort.sw, says what is found has the key).
+theorem List.findKeyDistinct [auto eq: DecEq k] (key: a → k): (xs: List a) → List.Distinct (List.map xs key) → (x: a) → List.Mem x xs →
+    List.find xs (y => key y == key x) = Some x
+  | Nil, d, x, m => Void.exfalso m
+  | Cons z zs, Both notMem d, x, Inl e => rewrite e, DecEq.refl (key x) in rfl
+  | Cons z zs, Both notMem d, x, Inr m =>
+    match c: key z == key x with
+      | True => Void.exfalso (notMem (rewrite DecEq.sound (key z) (key x) c in List.memMap zs x m key))
+      | False => List.findKeyDistinct key zs d x m
+
+theorem List.findKeyDistinctExample: List.find [(1, "a"), (2, "b")] (y => y.fst == 2) = Some (2, "b") :=
+  List.findKeyDistinct Pair.fst [(1, "a"), (2, "b")]
+    (Both (m => match m with
+        | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
+        | Inr v => v)
+      (Both (m => m) Trivial))
+    (2, "b") (Inr (Inl rfl))
+
 -- A key of part of the list is a key of the list.
 theorem List.memMapOfSub (key: a → k) (s: List a) (xs: List a) (sub: (y: a) → List.Mem y s → List.Mem y xs) (z: k)
     (m: List.Mem z (List.map s key)): List.Mem z (List.map xs key) :=
@@ -1768,3 +1787,157 @@ theorem List.memPairs (p: (a, a)): (xs: List a) → List.Mem p (List.pairs xs) �
       | Inr later =>
         match List.memPairs p xs later with
           | Both one other => Both (Inr one) (Inr other)
+
+-- The last element, if there is one, is an element.
+theorem List.lastMem: (xs: List a) → (x: a) → List.last xs = Some x → List.Mem x xs
+  | Nil, x, h => Void.exfalso (Option.noneNotSome x h)
+  | Cons y Nil, x, h => Inl (Option.someInjective y x h)
+  | Cons y (Cons z zs), x, h => Inr (List.lastMem (Cons z zs) x h)
+
+theorem List.lastMemExample: List.Mem 3 [1, 2, 3] := List.lastMem [1, 2, 3] 3 rfl
+
+-- `filterMap` keeps `y` when an element maps to `Some y` ...
+theorem List.memFilterMapIntro (f: a → Option b) (x: a) (y: b): (xs: List a) → List.Mem x xs → f x = Some y → List.Mem y (List.filterMap xs f)
+  | Nil, m, e => Void.exfalso m
+  | Cons z zs, Inl q, e => rewrite q, e in Inl rfl
+  | Cons z zs, Inr m, e =>
+    match c: f z with
+      | None => List.memFilterMapIntro f x y zs m e
+      | Some w => Inr (List.memFilterMapIntro f x y zs m e)
+
+-- ... and keeps nothing else.
+theorem List.memFilterMapElim (f: a → Option b) (y: b): (xs: List a) → List.Mem y (List.filterMap xs f) → List.Any (x => f x = Some y) xs
+  | Nil, m => m
+  | Cons z zs, m =>
+    match c: f z with
+      | None => Inr (List.memFilterMapElim f y zs m)
+      | Some w =>
+        match m with
+          | Inl q => Inl (Eq.cong Some q)
+          | Inr r => Inr (List.memFilterMapElim f y zs r)
+
+-- Everything `filterMap` keeps has `q` when every element's `Some` result
+-- would; and back.
+theorem List.allFilterMap (q: b → Prop) (f: a → Option b): (xs: List a) → List.All (x => (y: b) → f x = Some y → q y) xs → List.All q (List.filterMap xs f)
+  | Nil, h => Trivial
+  | Cons z zs, Both hz h =>
+    match c: f z with
+      | None => List.allFilterMap q f zs h
+      | Some w => Both (hz w rfl) (List.allFilterMap q f zs h)
+
+theorem List.allFilterMapElim (q: b → Prop) (f: a → Option b): (xs: List a) → List.All q (List.filterMap xs f) → List.All (x => (y: b) → f x = Some y → q y) xs
+  | Nil, h => Trivial
+  | Cons z zs, h =>
+    match c: f z with
+      | None => Both (y e => Void.exfalso (Option.noneNotSome y e)) (List.allFilterMapElim q f zs h)
+      | Some w =>
+        match h with
+          | Both hw rest => Both (y e => rewrite <- Option.someInjective w y e in hw) (List.allFilterMapElim q f zs rest)
+
+theorem List.memFilterMapExample: List.Mem 4 (List.filterMap [1, 2, 3] (x => if x == 2 then Some (x * 2) else None)) :=
+  List.memFilterMapIntro (x => if x == 2 then Some (x * 2) else None) 2 4 [1, 2, 3] (Inr (Inl rfl)) rfl
+
+-- `List.all` and `List.any` (the `Bool`s a program computes) are `List.All`
+-- and `List.Any` (the propositions proofs use), so a lemma needs only one
+-- form.
+theorem List.allToAll (p: a → Bool): (xs: List a) → List.all xs p = True → List.All (x => p x = True) xs
+  | Nil, h => Trivial
+  | Cons x xs, h =>
+    match c: p x with
+      | True => Both rfl (List.allToAll p xs h)
+      | False => Void.exfalso (Bool.falseNotTrue h)
+
+theorem List.allOfAll (p: a → Bool): (xs: List a) → List.All (x => p x = True) xs → List.all xs p = True
+  | Nil, h => rfl
+  | Cons x xs, Both px h => rewrite px in List.allOfAll p xs h
+
+theorem List.allIff (xs: List a) (p: a → Bool): List.all xs p = True ↔ List.All (x => p x = True) xs :=
+  { forward = List.allToAll p xs, backward = List.allOfAll p xs }
+
+theorem List.anyToAny (p: a → Bool): (xs: List a) → List.any xs p = True → List.Any (x => p x = True) xs
+  | Nil, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, h =>
+    match c: p x with
+      | True => Inl rfl
+      | False => Inr (List.anyToAny p xs h)
+
+theorem List.anyOfAny (p: a → Bool): (xs: List a) → List.Any (x => p x = True) xs → List.any xs p = True
+  | Nil, h => Void.exfalso h
+  | Cons x xs, Inl px => rewrite px in rfl
+  | Cons x xs, Inr h =>
+    match c: p x with
+      | True => rfl
+      | False => List.anyOfAny p xs h
+
+theorem List.anyIff (xs: List a) (p: a → Bool): List.any xs p = True ↔ List.Any (x => p x = True) xs :=
+  { forward = List.anyToAny p xs, backward = List.anyOfAny p xs }
+
+-- Membership written with `any` and `==` is `List.Mem`. (`x ∈ xs` as a
+-- `Bool` is `List.decMem`'s decision: `Decidable.toBoolSound` and
+-- `Decidable.toBoolOf` take it to `List.Mem` and back.)
+theorem List.anyEqIff [auto eq: DecEq a] (x: a) (xs: List a): List.any xs (== x) = True ↔ List.Mem x xs := {
+  forward = h => List.anyTrueElim xs (== x) (List.Mem x xs) h (y m e => rewrite <- DecEq.sound y x e in m),
+  backward = m => List.anyOfMem xs (== x) x (DecEq.refl x) m
+}
+
+theorem List.allIffExample: List.All (x => Nat.leq 1 x = True) [1, 2, 3] := (List.allIff [1, 2, 3] (x => Nat.leq 1 x)).forward rfl
+
+-- `any` is whether `find` finds something.
+theorem List.anyFind (p: a → Bool): (xs: List a) → List.any xs p = Option.isSome (List.find xs p)
+  | Nil => rfl
+  | Cons x xs =>
+    match c: p x with
+      | True => rfl
+      | False => List.anyFind p xs
+
+-- Running accumulations beside the elements: `List.zipWith xs
+-- (List.scanLeft xs z f) g` is `g` of each element and the fold of the
+-- elements before it (`List.getOrZipWithScanLeft`, std/List/Index.sw). It
+-- lays items end to end from `z`, say, with `f` adding an item's size and
+-- `g` placing it. Its first step, for induction, is by computation:
+theorem List.zipWithScanLeftCons (x: a) (xs: List a) (z: b) (f: b → a → b) (g: a → b → c):
+    List.zipWith (Cons x xs) (List.scanLeft (Cons x xs) z f) g = Cons (g x z) (List.zipWith xs (List.scanLeft xs (f z x) f) g) := rfl
+
+theorem List.zipWithScanLeftExample:
+    List.zipWith [2, 3, 4] (List.scanLeft [2, 3, 4] 10 (offset width => offset + width)) (width offset => (offset, width)) = [(10, 2), (12, 3), (15, 4)] := rfl
+
+-- It has an element for each element.
+theorem List.lengthZipWithScanLeft (f: b → a → b) (g: a → b → c): (xs: List a) → (z: b) →
+    List.length (List.zipWith xs (List.scanLeft xs z f) g) = List.length xs
+  | Nil, z => rfl
+  | Cons x xs, z => Eq.cong Succ (List.lengthZipWithScanLeft f g xs (f z x))
+
+-- What `g` keeps of an element (`h`, an id say) doesn't depend on the other
+-- list, so mapping it over the zip is mapping over the first list.
+theorem List.mapZipWithLeft (h: c → d) (k: a → d) (g: a → b → c) (same: (x: a) → (y: b) → h (g x y) = k x):
+    (xs: List a) → (ys: List b) → List.length xs ≤ List.length ys → List.map (List.zipWith xs ys g) h = List.map xs k
+  | Nil, ys, le => rfl
+  | Cons x xs, Nil, le => Void.exfalso (Bool.falseNotTrue le)
+  | Cons x xs, Cons y ys, le => rewrite same x y, List.mapZipWithLeft h k g same xs ys le in rfl
+
+theorem List.mapZipWithScanLeft (h: c → d) (k: a → d) (g: a → b → c) (same: (x: a) → (y: b) → h (g x y) = k x)
+    (xs: List a) (z: b) (f: b → a → b): List.map (List.zipWith xs (List.scanLeft xs z f) g) h = List.map xs k :=
+  List.mapZipWithLeft h k g same xs (List.scanLeft xs z f) (rewrite List.lengthScanLeft xs z f in Nat.leSucc (List.length xs))
+
+-- `mapAccumLeft` is a fold for its final state, and for its list the zip of
+-- the elements with the running states.
+theorem List.mapAccumLeftGoSpec (f: s → a → Pair s b): (xs: List a) → (state: s) → (done: List b) →
+    List.mapAccumLeftGo f state done xs
+      = MkPair (List.foldLeft xs state (st x => Pair.fst (f st x)))
+        (List.reverseOnto done (List.zipWith xs (List.scanLeft xs state (st x => Pair.fst (f st x))) (x st => Pair.snd (f st x))))
+  | Nil, state, done => rfl
+  | Cons x xs, state, done => List.mapAccumLeftGoSpec f xs (Pair.fst (f state x)) (Cons (Pair.snd (f state x)) done)
+
+theorem List.mapAccumLeftState (xs: List a) (initial: s) (f: s → a → Pair s b):
+    Pair.fst (List.mapAccumLeft xs initial f) = List.foldLeft xs initial (st x => Pair.fst (f st x)) :=
+  Eq.cong Pair.fst (List.mapAccumLeftGoSpec f xs initial Nil)
+
+theorem List.mapAccumLeftList (xs: List a) (initial: s) (f: s → a → Pair s b):
+    Pair.snd (List.mapAccumLeft xs initial f) = List.zipWith xs (List.scanLeft xs initial (st x => Pair.fst (f st x))) (x st => Pair.snd (f st x)) :=
+  Eq.cong Pair.snd (List.mapAccumLeftGoSpec f xs initial Nil)
+
+theorem List.lengthMapAccumLeft (xs: List a) (initial: s) (f: s → a → Pair s b):
+    List.length (Pair.snd (List.mapAccumLeft xs initial f)) = List.length xs :=
+  rewrite List.mapAccumLeftList xs initial f in List.lengthZipWithScanLeft (st x => Pair.fst (f st x)) (x st => Pair.snd (f st x)) xs initial
+
+theorem List.mapAccumLeftExample: List.mapAccumLeft [1, 2, 3] 0 (sum x => MkPair (sum + x) sum) = MkPair 6 [0, 1, 3] := rfl

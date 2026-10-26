@@ -164,3 +164,33 @@ theorem List.getOrMapLt: (xs: List a) → (d: a) → (e: b) → (i: Nat) → i <
   | Nil, d, e, i, h, f => Void.exfalso (Bool.falseNotTrue h)
   | Cons x xs, d, e, Zero, h, f => rfl
   | Cons x xs, d, e, Succ i, h, f => List.getOrMapLt xs d e i h f
+
+-- Entry k of the running accumulations is the fold of the first k elements.
+theorem List.getOrScanLeft (f: b → a → b) (d: b): (xs: List a) → (z: b) → (k: Nat) → k ≤ List.length xs →
+    List.getOr (List.scanLeft xs z f) d k = List.foldLeft (List.take xs k) z f
+  | Nil, z, Zero, h => rfl
+  | Nil, z, Succ k, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, z, Zero, h => rfl
+  | Cons x xs, z, Succ k, h => List.getOrScanLeft f d xs (f z x) k h
+
+-- Element k of `zipWith xs (scanLeft xs z f) g` is `g` of element k and the
+-- fold of the elements before it: laying items end to end from `z`, item k
+-- is placed after the first k.
+theorem List.getOrZipWithScanLeft (f: b → a → b) (g: a → b → c) (dx: a) (dc: c): (xs: List a) → (z: b) → (k: Nat) → k < List.length xs →
+    List.getOr (List.zipWith xs (List.scanLeft xs z f) g) dc k = g (List.getOr xs dx k) (List.foldLeft (List.take xs k) z f)
+  | Nil, z, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, z, Zero, h => rfl
+  | Cons x xs, z, Succ k, h => List.getOrZipWithScanLeft f g dx dc xs (f z x) k h
+
+-- The fold of the first k + 1 elements is one step after the fold of the
+-- first k: neighbouring entries of a scan differ by one step.
+theorem List.foldLeftTakeSucc (f: b → a → b) (d: a): (xs: List a) → (z: b) → (k: Nat) → k < List.length xs →
+    List.foldLeft (List.take xs (Succ k)) z f = f (List.foldLeft (List.take xs k) z f) (List.getOr xs d k)
+  | Nil, z, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, z, Zero, h => rfl
+  | Cons x xs, z, Succ k, h => List.foldLeftTakeSucc f d xs (f z x) k h
+
+theorem List.getOrZipWithScanLeftExample:
+    List.getOr (List.zipWith [2, 3, 4] (List.scanLeft [2, 3, 4] 10 (offset width => offset + width)) (width offset => (offset, width))) (0, 0) 2
+      = (List.foldLeft [2, 3] 10 (offset width => offset + width), 4) :=
+  List.getOrZipWithScanLeft (offset width => offset + width) (width offset => (offset, width)) 0 (0, 0) [2, 3, 4] 10 2 rfl

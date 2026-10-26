@@ -102,6 +102,45 @@ theorem Option.filterEqSome: (x: Option a) → (p: a → Bool) → (v: a) → Op
       | False => Void.exfalso (Option.noneNotSome v h)
   | None, p, v, h => Void.exfalso (Option.noneNotSome v h)
 
+-- `orElse` of an option with itself is the option.
+theorem Option.orElseSelf: (x: Option a) → Option.orElse x x = x
+  | Some w => rfl
+  | None => rfl
+
+-- If `alignWith` is `Some v`, `v` came from one of the three arms: the left
+-- value alone, the right alone, or both.
+theorem Option.alignWithEqSome [goal: Prop] (left: a → c) (right: b → c) (both: a → b → c) (v: c):
+    (x: Option a) → (y: Option b) → Option.alignWith x y left right both = Some v
+      → ((u: a) → x = Some u → y = None → left u = v → goal)
+      → ((w: b) → x = None → y = Some w → right w = v → goal)
+      → ((u: a) → (w: b) → x = Some u → y = Some w → both u w = v → goal) → goal
+  | Some u, Some w, h, onLeft, onRight, onBoth => onBoth u w rfl rfl (Option.someInjective (both u w) v h)
+  | Some u, None, h, onLeft, onRight, onBoth => onLeft u rfl rfl (Option.someInjective (left u) v h)
+  | None, Some w, h, onLeft, onRight, onBoth => onRight w rfl rfl (Option.someInjective (right w) v h)
+  | None, None, h, onLeft, onRight, onBoth => Void.exfalso (Option.noneNotSome v h)
+
+-- So a property each arm's result has, the result has.
+theorem Option.alignWithHolds (q: c → Prop) (left: a → c) (right: b → c) (both: a → b → c)
+    (onLeft: (u: a) → q (left u)) (onRight: (w: b) → q (right w)) (onBoth: (u: a) → (w: b) → q (both u w))
+    (x: Option a) (y: Option b) (v: c) (h: Option.alignWith x y left right both = Some v): q v :=
+  Option.alignWithEqSome [goal := q v] left right both v x y h
+    (u ex ey e => rewrite <- e in onLeft u)
+    (w ex ey e => rewrite <- e in onRight w)
+    (u w ex ey e => rewrite <- e in onBoth u w)
+
+-- `alignWith` is `None` exactly when both options are.
+theorem Option.alignWithEqNone (left: a → c) (right: b → c) (both: a → b → c):
+    (x: Option a) → (y: Option b) → Option.alignWith x y left right both = None ↔ And (x = None) (y = None)
+  | Some u, Some w => { forward = h => Void.exfalso (Option.someNotNone (both u w) h), backward = h => Void.exfalso (Option.someNotNone u (And.left h)) }
+  | Some u, None => { forward = h => Void.exfalso (Option.someNotNone (left u) h), backward = h => Void.exfalso (Option.someNotNone u (And.left h)) }
+  | None, Some w => { forward = h => Void.exfalso (Option.someNotNone (right w) h), backward = h => Void.exfalso (Option.someNotNone w (And.right h)) }
+  | None, None => { forward = h => Both rfl rfl, backward = h => rfl }
+
+theorem Option.alignWithHoldsExample (x: Option Nat) (y: Option Nat) (v: Nat)
+    (h: Option.alignWith x y Succ Succ (u w => Succ (u + w)) = Some v): Not (v = 0) :=
+  Option.alignWithHolds (n => Not (n = 0)) Succ Succ (u w => Succ (u + w))
+    (u => Nat.succNotZero u) (w => Nat.succNotZero w) (u w => Nat.succNotZero (u + w)) x y v h
+
 -- `MkPair` is injective: equal pairs have equal parts.
 theorem Pair.mkInjectiveFst (x1: a) (y1: b) (x2: a) (y2: b) (h: MkPair x1 y1 = MkPair x2 y2): x1 = x2 := Eq.cong Pair.fst h
 theorem Pair.mkInjectiveSnd (x1: a) (y1: b) (x2: a) (y2: b) (h: MkPair x1 y1 = MkPair x2 y2): y1 = y2 := Eq.cong Pair.snd h

@@ -304,6 +304,25 @@ theorem Map.memToList [auto ord: Ord k] (m: Map k v) (key: k) (value: v): Iff (L
   backward = found => Map.Spec.memOfLookup key value (Map.toList m) (Eq.trans (Eq.sym (Map.getToList m key)) found)
 }
 
+-- A key is among the keys exactly when the map contains it.
+theorem Map.containsOfGet [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (h: Map.get m key = Some value): Map.contains m key = True :=
+  rewrite h in rfl
+
+theorem Map.containsOfMemToList [auto ord: Ord k] (m: Map k v) (key: k): (e: (k, v)) → List.Mem e (Map.toList m) → Pair.fst e = key → Map.contains m key = True
+  | (k1, v1), inList, same => rewrite <- same in Map.containsOfGet m k1 v1 ((Map.memToList m k1 v1).forward inList)
+
+theorem Map.memKeysOfContains [auto ord: Ord k] (m: Map k v) (key: k) (h: Map.contains m key = True): List.Mem key (Map.keys m) :=
+  match c: Map.get m key with
+    | Some value => List.memMap (Map.toList m) (key, value) ((Map.memToList m key value).backward c) Pair.fst
+    | None => Void.exfalso (Bool.falseNotTrue h)
+
+theorem Map.memKeys [auto ord: Ord k] (m: Map k v) (key: k): List.Mem key (Map.keys m) ↔ Map.contains m key = True := {
+  forward = inKeys =>
+    List.anyElim (e => Pair.fst e = key) (Map.contains m key = True) (Map.toList m) (List.memMapAny (Map.toList m) Pair.fst key inKeys)
+      (e inList same => Map.containsOfMemToList m key e inList same),
+  backward = Map.memKeysOfContains m key
+}
+
 -- Maps that agree on every key are equal, whatever their values' type.
 theorem Map.ext (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: (key: k) → Map.get m key = Map.get n key): m = n :=
   Map.toListInjective m n
@@ -695,6 +714,35 @@ theorem Map.indexByKey [auto ord: Ord k] (xs: List a) (kk: k) (key: a → k) (y:
 -- For text keys, `==` is `Text`'s own.
 theorem Map.getIndexByText (xs: List a) (kk: Text) (key: a → Text): Map.get (Map.indexBy xs key) kk = List.find xs (x => key x == kk) :=
   Map.getIndexByEq xs kk key
+
+-- With distinct keys, `indexBy` has each element under its own key.
+theorem Map.getIndexByMem [auto ord: Ord k] (xs: List a) (key: a → k) (d: List.Distinct (List.map xs key)) (x: a) (m: List.Mem x xs):
+    Map.get (Map.indexBy xs key) (key x) = Some x :=
+  Eq.trans (Map.getIndexByEq xs (key x) key) (List.findKeyDistinct key xs d x m)
+
+-- `indexBy` has a key exactly when some element has it: its keys are the
+-- elements' keys.
+theorem Map.containsIndexBy [auto ord: Ord k] (xs: List a) (key: a → k) (kk: k):
+    Map.contains (Map.indexBy xs key) kk = List.any xs (x => key x == kk) :=
+  rewrite Map.getIndexByEq xs kk key, List.anyFind (x => key x == kk) xs in
+  match c: List.find xs (x => key x == kk) with
+    | Some y => rfl
+    | None => rfl
+
+theorem Map.memKeysIndexBy [auto ord: Ord k] (xs: List a) (key: a → k) (kk: k):
+    List.Mem kk (Map.keys (Map.indexBy xs key)) ↔ List.Mem kk (List.map xs key) := {
+      forward = inKeys =>
+        List.anyTrueElim xs (x => key x == kk) (List.Mem kk (List.map xs key))
+          (Eq.trans (Eq.sym (Map.containsIndexBy xs key kk)) ((Map.memKeys (Map.indexBy xs key) kk).forward inKeys))
+          (x inXs e => rewrite <- DecEq.sound (key x) kk e in List.memMap xs x inXs key),
+      backward = inMap =>
+        (Map.memKeys (Map.indexBy xs key) kk).backward
+          (Eq.trans (Map.containsIndexBy xs key kk)
+            (List.anyElim (x => key x = kk) (List.any xs (x => key x == kk) = True) xs (List.memMapAny xs key kk inMap)
+              (x inXs e => List.anyOfMem xs (x => key x == kk) x (rewrite e in DecEq.refl kk) inXs)))
+    }
+
+theorem Map.getIndexByMemExample: Map.get (Map.indexBy ["ab", "c"] Text.length) 2 = Some "ab" := rfl
 
 theorem Map.getMapWithKey [auto ord: Ord k] (m: Map k v) (key: k) (f: k → v → w):
     Map.get (Map.mapWithKey m f) key = Option.map (Map.get m key) (f key) :=

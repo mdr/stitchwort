@@ -147,7 +147,27 @@ theorem Set.containsInsertOther [auto ord: Ord k] (s: Set k) (key: k) (other: k)
     Set.contains (Set.insert s key) other = Set.contains s other :=
   rewrite Map.getInsertOther key () other ne s.items in rfl
 
--- Inserting the list's keys: `key` is there if it was, or if the list has it.
+-- What a set has, it still has after an insert, and a union has what
+-- either side has.
+theorem Set.containsInsertMono [auto ord: Ord k] (s: Set k) (key: k) (other: k) (h: Set.contains s other = True):
+    Set.contains (Set.insert s key) other = True :=
+  match e: other == key with
+    | True => rewrite DecEq.sound other key e in Set.containsInsert key s
+    | False => rewrite Set.containsInsertOther s key other (DecEq.soundFalse other key e) in h
+
+theorem Set.containsUnionLeft [auto ord: Ord k] (a: Set k) (b: Set k) (key: k) (h: Set.contains a key = True):
+    Set.contains (Set.union a b) key = True :=
+  rewrite Set.containsUnion a key b, h in rfl
+
+theorem Set.containsUnionRight [auto ord: Ord k] (a: Set k) (b: Set k) (key: k) (h: Set.contains b key = True):
+    Set.contains (Set.union a b) key = True :=
+  rewrite Set.containsUnion a key b, h in Bool.orTrue (Set.contains a key)
+
+theorem Set.containsInsertMonoExample (s: Set Nat) (h: Set.contains s 2 = True):
+    Set.contains (Set.union (Set.insert s 5) (Set.singleton 7)) 2 = True :=
+  Set.containsUnionLeft (Set.insert s 5) (Set.singleton 7) 2 (Set.containsInsertMono s 5 2 h)
+
+-- Inserting the list's keys:`key` is there if it was, or if the list has it.
 theorem Set.containsFoldInsert [auto ord: Ord k]: (s: Set k) → (key: k) → (xs: List k) →
     Set.contains (List.foldLeft xs s (acc x => Set.insert acc x)) key = (Set.contains s key ∨ List.any xs (x => Map.Spec.sameKey key x))
   | s, key, Nil =>
