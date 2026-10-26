@@ -8,9 +8,11 @@ examples, and `stitchwort axioms` reports that none of them uses an axiom.
 This note lists what is proved, what was tried and didn't go through, and
 what the language or std would need for the rest. It came out of an
 exploration (25 Oct 2026), a follow-up (26 Oct 2026) that linked the
-proofs to the real generator, and a change later that day that returned
+proofs to the real generator, a change later that day that returned
 the generator to rolling as it goes, for readability, and with it gave up
-that link (see §3 and §4); `NOTES.md` has the history before it.
+that link, and a second follow-up the same day that linked them again,
+to the generator as written (see §3 and §4); `NOTES.md` has the history
+before it.
 
 ## What's proved
 
@@ -58,6 +60,9 @@ any sequence of the turns it takes.
 | `walkWithin` | inside a rectangle of floor, any cell can be walked to from any other (along the row, then along the column) |
 | `corridorJoins` | the two ends of each corridor can be walked between, both ways |
 | `hubJoins` | the corridors form a snake through all six rooms, so every room's middle can be reached from room 0's and back |
+| `generatedReachable` (Generated.sw) | **on every level the game generates, for every seed and depth**, the same: `generateLevel` as written, run under the seeded handler |
+| `generatedLaidOut` (Generated.sw) | whatever every roll gives, the level `generateLevel` makes is `layOut` of six rooms that fit, with entrance and exit below 6 (a statement about the generator alone, with no handler) |
+| `seededAlways` (Generated.sw) | what is true of every result a `{Random}` computation can give is true of its result under the seeded handler, for every seed |
 | `rollBelow` (Generated.sw) | a roll is below its bound: `roll most` under the seeded handler is at most `most` |
 
 It holds for *any* rooms, wherever they are and whatever their size: the
@@ -65,28 +70,36 @@ proof only uses how corridors are drawn (middle to middle, along a row and
 then a column) and which rooms they join. Monsters may stand in the way,
 but walking into one attacks it, so nothing blocks the way for good.
 
-`generateLevel` builds its level as `layOut depth rooms entranceIndex
-exitIndex extra` with `entranceIndex := roll 5` and `exitIndex` a
-remainder by 6, so `goalReachable` is what makes its levels playable; but
-that step, from the generator as written to `goalReachable`'s hypotheses,
-is **no longer proved**.
+**How the generator is linked** (26 Oct 2026, second follow-up). The
+generator rolls as it goes (`let down := 2 + roll 3`) and is unchanged;
+the proof is in three parts.
 
-**Removed** (26 Oct 2026): `generatedReachable` (the same for the level
-`generateLevel` makes under the seeded handler, for every seed and depth),
-and with it `planReachable`, `generatedPlan`, `generatedHolds`,
-`seededDrawMore`, `seededDrawMoreThen` and `seededNewGame`. They needed the
-generator written as "draw every number first (`drawMore`), then plan
-purely (`planFrom`)", with each roll read back by its index in the draws
-(`rollAt numbers (6 * roomDraws + 1) 4`); see "Tried" for how that went.
+1. A statement about the generator alone, for every value every roll could
+   give: std's `Effect.Always property c` (std/Effect/Always.sw), "every
+   result `c` can finish with satisfies `property`". It computes: on a
+   computation that rolls, it is "for every number, `Always` of the rest",
+   so `generatedLaidOut` takes one argument per roll, named for what it
+   decides (`down0 across0 row0 column0 …`, then `entrance exit extra`, then
+   the first two monsters' four each). Where the generator is stuck on the
+   unknown depth (the monster count, the sword), `Effect.alwaysBind` (the
+   rule for sequencing, by induction on the computation, no axiom) steps
+   over the part, whose results the level doesn't use. At the end the goal
+   is the level `layOut` makes from the six rooms those rolls give, with
+   entrance `entrance % 6`; `roomFits` (for each room) and `Nat.modLt` give
+   the hypotheses. The level isn't drawn: `layOut` stays opaque.
+2. The handler: `seededAlways`, by induction on the proof of `Always`
+   (std's `Effect.AlwaysTree`, the same as data) with `match reify` to split
+   the program on its first roll. About 10 lines, and the same shape would
+   do for any handler that answers and resumes.
+3. `generatedHolds`: parts 1 and 2 together, for any property of every
+   laid-out level; `generatedReachable` is it with `goalReachable`.
 
-**Why:** readability first (Matt, 26 Oct 2026). The draw-then-plan
-generator needed index arithmetic (`roomDraws`, `layoutDraws`,
-`itemsFrom depth + itemDraws * index`) that was hard to read and broke
-silently if a roll was added or moved; the generator now says
-`let down := 2 + roll 3`. Proving the generator theorems again, without
-giving that up, is to be revisited as its own piece of work: it needs a way
-to follow the seeded handler through a program that rolls as it goes
-(see "What would be needed", item 2).
+`generatedLaidOut` checks in about 0.12 s (65 ms elaboration, 55 ms
+kernel); all of Rogue.Proofs in about 2.2 s.
+
+Earlier (26 Oct 2026) this link was proved against a "draw every number
+first, then plan purely" generator, and removed when the generator went
+back to rolling as it goes, for readability (see "Tried").
 
 ### 4. Every level fits the screen, and everyone is drawn (Bounds.sw, Render.sw)
 
@@ -98,9 +111,11 @@ valid and its level is framed.
 |---|---|
 | `drawnPlayer` | in every sound state, the text `render` draws has `@` exactly at the player's row and column |
 | `drawnMonster` | in every sound state, each monster's letter (`g`, `o`, `T`) is drawn exactly at its row and column |
+| `newGameSound` (Generated.sw) | every new game, as the program starts it, is sound, for every seed |
+| `replaySound` | any number of turns keeps a state sound |
+| `generatedFramed` (Generated.sw) | every level the game generates, for every seed and depth, is framed |
+| `stepFramed`, `resolveFramed` | a turn keeps the level framed (it keeps the level, or goes down to a generated one) |
 | `startingSound` | a new game on a framed level is sound |
-| `replaySound` | any number of turns keeps a state sound, **assuming** every generated level is framed (`GeneratesFramed`) |
-| `stepFramed`, `resolveFramed` | a turn keeps the level framed (it keeps the level, or goes down to a generated one), under the same assumption |
 | `layOutFramed` | every level `layOut` makes from rooms that fit is framed |
 | `roomFits` | a room as `roomFrom` makes it, in any of the six sections, fits inside its section, for any rolls below their bounds |
 | `corridorFits` | a corridor between two cells on the screen stays on the screen |
@@ -111,18 +126,14 @@ valid and its level is framed.
 
 So `drawnPlayer` and `drawnMonster` are `renderPlayer` and
 `renderEveryMonster` with the inside-the-terrain assumption replaced by
-soundness, which a game keeps (`replaySound`).
+soundness, which every game has from the start (`newGameSound`) and keeps
+(`replaySound`).
 
-**Weakened** (26 Oct 2026, for the reason in §3): `newGameSound` (every
-new game, as the program starts it, is sound, for every seed) became
-`startingSound`, for a starting level that is framed; `generatedFramed`
-(every generated level is framed, for every seed and depth) is removed,
-and is now the hypothesis `GeneratesFramed` that `resolveFramed`,
-`stepFramed` and `replaySound` take; `planFramed` (every level planned from
-any numbers is framed) became `layOutFramed` (for any rooms that fit); and
-`roomFits` is about the rolls rather than the drawn numbers. What is still
-proved is everything except the step "`generateLevel` builds its level
-with `layOut` from rooms `roomFits` describes".
+`generatedFramed` and `newGameSound` come from `generatedLaidOut` (§3) as
+`generatedReachable` does, with `layOutFramed` in place of `goalReachable`;
+`newGameSound` adds one `Effect.alwaysBind` for `startingState`. For a
+while (26 Oct 2026) they were the hypothesis `GeneratesFramed` that
+`resolveFramed`, `stepFramed` and `replaySound` took; it is gone.
 
 ### 5. Keys (Input.sw, Loop.sw)
 
@@ -179,8 +190,8 @@ the pinned first map and the winning game (232 turns before levels were made on 
 |---|---|
 | The whole loop `play` as one statement | **Not possible today, by design.** `play` is partial, and a partial program under a handler has nothing to prove about it (docs/proposals/partial-handlers.md §3.5). Two turns of `playTurn` do compute by `rfl` for any two keys; *n* turns would need induction over the handler, and `Terminal.simulate` hides its frame accumulator, so the state after one turn isn't `Terminal.simulate` of the rest. |
 | No key but the documented ones is a command | **Proved, on the plain `match`** (`onlyListedKeys`, `onlyCommandKeys`). At first it couldn't be: a character pattern like `'k'` is a number pattern, compiled to a number case (`NumCase`) whose catch-all arm learned nothing about the character, and a number case on an unknown number never steps, so even knowing `code ≠ 107` for every listed code didn't reach the arm. The game looked keys up in a table instead (`keyCommands`, with std's `List.findSome`). Then the language was fixed (SW-533, docs/proposals/literal-match-facts.md): a catch-all arm now knows the value is none of the literals above it, so a proof's match on the same twelve characters has `commandOfChar` take its `_` arm in the proof's `_` arm, and the table went. Membership in `commandKeys` is decided with `Decidable.fromYes`, not `auto`, whose search stops 8 deep (the 7th key, `'w'`, is past what it finds). |
-| `goalReachable` for `generateLevel` itself | **Proved, then given up** (`generatedReachable`, 26 Oct 2026; removed the same day for readability, §3), after three failures. (1) Unfolding the old `generateLevel` and passing `goalReachable` with holes: E-RESOURCE, the holes solved against the generator body run under the handler. (2) After splitting off `planFrom`, `planReachable` with `layOut` still transparent: E-RESOURCE, comparing `(planFrom depth numbers).level` with `layOut …` drew the terrain of a level with unknown rooms; fixed by making `layOut` opaque. (3) Then `generatedReachable` ran past 5 minutes: with an unknown depth, `drawCount depth` partly computes (`27 + 4 * (2 + 2 * depth) + …` still has some `Succ`s on the outside), so the handler starts drawing numbers symbolically; fixed by making `drawCount` opaque. All the proofs then checked in about 4 s of CPU. |
-| Player and monsters inside the 20 by 66 terrain | **Proved, then weakened** (`drawnPlayer`, `drawnMonster`, Bounds.sw; since the return to rolling as it goes, for a game whose levels are framed, §4), by the same route: every planned level is framed (`planFramed`, by `omega` on each room's rolls and a case per section), so every generated one is (`generatedHolds`), and a turn keeps the level or goes down to a generated one. |
+| `goalReachable` for `generateLevel` itself | **Proved** (`generatedReachable`, §3), on the generator as written. The first time (26 Oct 2026) it needed a "draw every number first, then plan purely" generator and three tries: (1) unfolding the old `generateLevel` and passing `goalReachable` with holes: E-RESOURCE, the holes solved against the generator body run under the handler; (2) `planReachable` with `layOut` transparent: E-RESOURCE, drawing the terrain of a level with unknown rooms, fixed by making `layOut` opaque; (3) past 5 minutes, as `drawCount depth` partly computed and the handler drew numbers symbolically, fixed by making `drawCount` opaque. That generator's index arithmetic was hard to read, so it went back to rolling as it goes and the theorem was removed. The second time, on the generator as written, the proof never runs the handler on unknown rolls: `Effect.Always` is about the computation alone (§3). What went wrong on the way: `Effect.alwaysBind` doesn't match `generateLevel`'s body as a whole (the checker computes the body through its first 35 rolls before comparing), so the proof takes those rolls as arguments and uses `alwaysBind` only where the body is stuck; a recursive `Always` can't be recursed on in the handler's lemma (the termination check sees a thunk, `() => k y`), hence the data version `AlwaysTree`; matching on an `AlwaysTree` whose index was a constructor crashed the compiler ("applying a constructor": a field's type was read with the indices among the parameters), fixed in the elaborator; and `Nat.modLt y _` let the checker pick the wrong bound, so `rollBound` states it as a remainder by `Succ most`. |
+| Player and monsters inside the 20 by 66 terrain | **Proved** (`drawnPlayer`, `drawnMonster`, Bounds.sw, from `newGameSound` and `replaySound`, §4), by the same route as `generatedReachable`, with `layOutFramed`. |
 | Winnability: a winning sequence of commands exists from the start | **Out of reach, and not true as stated.** Monsters roll their blows, so with unlucky seeds a game can be lost whatever the player does; "winnable" has to fix the seeds, and then it's a fact about one game. For a fixed seed it's the winning-route test, which is a unit test, not a proof. A real fairness theorem ("winnable with probability at least p") needs probability, which the language doesn't have. |
 
 ## What would be needed for the rest, ranked
@@ -195,20 +206,13 @@ the pinned first map and the winning game (232 turns before levels were made on 
    `f (g (p()))` and `(x => f (g x)) (p())` are different computations
    (`bind (bind p g') f'` against `bind p (x => …)`) unless `p` is known,
    and the law that joins them, `Effect.bindAssoc`, uses function
-   extensionality, so `Quot.sound`. A first `seededDrawMore`, about
-   `Cons first (draws rest)`, failed on exactly this (the step needs
-   `seeded s (() => finish (Cons n (draws c)))` to be
-   `seeded s (() => (rest => finish (Cons n rest)) (draws c))`). The
-   workaround is to draw onto an accumulator, so that each step is the
-   induction hypothesis on the nose, and to prove a second lemma
-   (`seededDrawMoreThen`) for two pure steps after the drawing; both were
-   removed with the draw-then-plan generator (§3), and a generator that
-   rolls as it goes needs this rule more, not less. Every
-   program that runs a handler over "draw, then compute" will meet this; a
-   rule that a pure function applied to a computation's result commutes
-   with a handler (`seeded s (() => f (p())) = f (seeded s p)`, here
-   `seededDrawMore`) would be worth having once, generally, for any deep
-   handler of a state-like ability.
+   extensionality, so `Quot.sound`. The draw-then-plan proofs met this and
+   worked round it with an accumulator. **Partly answered** for the
+   generator: a property of every result (`Effect.Always`) needs no
+   equation between computations, so `Effect.alwaysBind` is proved by
+   induction with no axiom, and the generator theorems avoid `bindAssoc`.
+   An *equation* about a handled program (`seeded s (() => f (p())) = f
+   (seeded s p)`) would still need it.
 3. **Opacity is still something to discover by `E-RESOURCE`.** Two of the
    three failures above were a definition that was cheap to run and
    enormous to compare once its arguments were unknown (`layOut`'s
@@ -246,3 +250,11 @@ the pinned first map and the winning game (232 turns before levels were made on 
      doesn't say so.
    - No eta for records in conversion: `p = { row = p.row, column = p.column }`
      needs a match on `p`.
+   - A data type's parameters can't be implicit, so `Effect.AlwaysTreeOf op
+     res a property c` passed a `{Random}` computation as `c` is
+     `E-ABILITY`; a `def` with implicit `[op] [res] [a]` around it
+     (`Effect.AlwaysTree`) takes it.
+   - A record literal for `List.All p rooms` with `rooms` still a hole is
+     `E-NOT-A-RECORD`, and a lemma whose type is `List.All p [r0, …]` has
+     that type computed to `And …` before `rooms` is solved; an opaque
+     `RoomsFit` keeps the list in the type.

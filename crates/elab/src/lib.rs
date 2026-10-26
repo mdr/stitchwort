@@ -3318,7 +3318,10 @@ impl Elaborator {
             Some(Value::Data(d2, params)) if d2 == d => params,
             _ => return Ok(vec![None; fields.len()]),
         };
+        // `params` holds the type's indices after its parameters; the fields
+        // are in the context of the parameters only.
         let mut env = params;
+        env.truncate(g.data(d).params.len());
         let mut out = Vec::new();
         for (f, (_, field_ty)) in fields.iter().enumerate() {
             out.push(Some(eval(g, &env, field_ty)?));

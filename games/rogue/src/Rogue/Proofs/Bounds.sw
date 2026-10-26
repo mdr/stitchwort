@@ -3,14 +3,10 @@
 -- them. Every room the generator makes fits inside its section, whatever
 -- the rolls (`roomFits`), and every level `layOut` makes from rooms that fit
 -- is framed, as its corridors run between the rooms' middles
--- (`layOutFramed`); and a turn keeps the level framed (`stepFramed`), given
--- that the levels it goes down to are (`GeneratesFramed`). So in a sound
+-- (`layOutFramed`); and a turn keeps the level framed (`stepFramed`), as
+-- every generated level is (`generatedFramed`, Generated.sw). So in a sound
 -- state the player and every monster are drawn where they stand, with no
 -- assumption about where that is (`drawnPlayer`, `drawnMonster`).
---
--- That `generateLevel` itself makes framed levels is not proved: it rolls
--- as it goes, and following the handler through it is future work
--- (PROOFS.md §4).
 
 namespace Rogue.Proofs
 import Rogue (..)
@@ -173,11 +169,6 @@ theorem layOutFramed (depth: Nat) (rooms: List Area) (entranceIndex: Nat) (exitI
   buildFramed depth (roomOf rooms entranceIndex) (roomOf rooms exitIndex) rooms (corridorsOf rooms extra)
     (roomOfFits rooms fit entranceIndex) (roomOfFits rooms fit exitIndex) fit (corridorsFit rooms fit extra)
 
--- Every level the generator makes, for every seed and depth, is framed.
--- True of each level it makes (`layOut` of six rooms that fit), but not
--- proved for the generator as written; the turn theorems below assume it.
-def GeneratesFramed: Prop := (seed: Nat) → (depth: Nat) → Framed (seeded seed (() => generateLevel depth)).level
-
 -- A turn keeps the level, or goes down to a generated one.
 theorem playerMovesLevel (dice: Dice) (state: State) (direction: Direction): (playerMoves dice state direction).level = state.level :=
   match found: monsterAt (state.player.toward direction) state.monsters with
@@ -187,7 +178,7 @@ theorem playerMovesLevel (dice: Dice) (state: State) (direction: Direction): (pl
         | True => rfl
         | False => enterLevel state (state.player.toward direction)
 
-theorem resolveFramed (generates: GeneratesFramed) (dice: Dice) (state: State) (command: Command) (framed: Framed state.level): Framed (resolve dice state command).level :=
+theorem resolveFramed (dice: Dice) (state: State) (command: Command) (framed: Framed state.level): Framed (resolve dice state command).level :=
   match phase: state.phase with
     | Playing =>
       match command with
@@ -200,28 +191,28 @@ theorem resolveFramed (generates: GeneratesFramed) (dice: Dice) (state: State) (
             | False => rewrite monstersTurnLevel dice (drink state) in framed
         | Descend =>
           match stairs: isStairs state.level state.player with
-            | True => generates dice.seed (state.level.depth + 1)
+            | True => generatedFramed dice.seed (state.level.depth + 1)
             | False => framed
     | Won => framed
     | Died => framed
     | GaveUp => framed
 
-theorem stepFramed (generates: GeneratesFramed) (seed: Nat) (state: State) (command: Command) (framed: Framed state.level):
+theorem stepFramed (seed: Nat) (state: State) (command: Command) (framed: Framed state.level):
     Framed (seeded seed (() => step state command)).level :=
-  resolveFramed generates { seed = lcg seed / 65536 } state command framed
+  resolveFramed { seed = lcg seed / 65536 } state command framed
 
 -- A state of a real game: valid, on a framed level.
 type Sound (state: State): Prop = { valid: Valid state, framed: Framed state.level }
 
--- A new game on a framed level is sound; and, if the generator makes
--- framed levels, so is every game after any number of turns.
+-- A new game on a framed level is sound, and so is every game after any
+-- number of turns.
 theorem startingSound (plan: Plan) (framed: Framed plan.level): Sound (startingState plan) :=
   { valid = startingValid plan, framed }
 
-theorem replaySound (generates: GeneratesFramed): (turns: List (Nat, Command)) → (state: State) → Sound state → Sound (replay state turns)
+theorem replaySound: (turns: List (Nat, Command)) → (state: State) → Sound state → Sound (replay state turns)
   | [], state, sound => sound
   | Cons (seed, command) rest, state, sound =>
-    replaySound generates rest (seeded seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed generates seed state command sound.framed }
+    replaySound rest (seeded seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed seed state command sound.framed }
 
 -- In a sound state, `render` draws `@` at the player's row and column,
 -- with nothing assumed about where that is.
