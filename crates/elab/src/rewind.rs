@@ -223,6 +223,7 @@ impl Elaborator {
             no_counterexamples: _,
             untimed_counterexamples: _,
             counterexample_log: _,
+            source_epoch: _,
         } = self;
         let defs = mark.globals.defs();
         let datas = mark.globals.datas();

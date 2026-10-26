@@ -75,7 +75,7 @@ impl Elaborator {
             let (signature, equations) = self.update_lemma_source(d, &suffix, &lemma, span);
             let result = self.definition(&signature, &equations);
             self.clear_metas();
-            self.forget_dot_calls(span);
+            self.end_generated_source();
             let Decl::Signature { name, .. } = &signature else {
                 unreachable!()
             };
@@ -98,14 +98,10 @@ impl Elaborator {
         Ok(())
     }
 
-    /// Forgets the dot calls found in source the compiler wrote at `span`.
-    /// They're remembered by the receiver's address and the spans, and that
-    /// source is dropped once checked, so the next lemma's, written at the
-    /// same span, can be allocated at the same address.
-    fn forget_dot_calls(&self, span: Span) {
-        let ours = |key: &crate::dot::CallKey| key.1 == span || key.2 == span;
-        self.dot_heads.borrow_mut().retain(|key, _| !ours(key));
-        self.dot_failed.borrow_mut().retain(|(key, ..)| !ours(key));
+    /// Starts a new stretch of generated source: dot calls found in the
+    /// source just checked are no longer matched.
+    fn end_generated_source(&self) {
+        self.source_epoch.set(self.source_epoch.get() + 1);
     }
 
     /// The lemmas `d` gets, in the shared fields' order.

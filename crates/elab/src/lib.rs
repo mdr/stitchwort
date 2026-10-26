@@ -398,6 +398,10 @@ pub struct Elaborator {
     pub(crate) dot_heads: RefCell<
         stitchwort_core::collections::HashMap<dot::CallKey, (dot::TyHead, stitchwort_core::DefId)>,
     >,
+    /// Counts the stretches of compiler-generated source, which is freed
+    /// once checked so its addresses can be reused: dot calls are only
+    /// remembered within one (`dot::CallKey`).
+    pub(crate) source_epoch: std::cell::Cell<usize>,
     /// Dot calls whose prefix form failed, with the metavariable state it
     /// failed in: not tried again until that changes (`dot::infer_call`).
     pub(crate) dot_failed:
