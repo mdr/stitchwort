@@ -206,8 +206,9 @@ impl Decision {
 
 /// The comparison a standard decision stands for, as the `Bool` it decides:
 /// `Nat.decLessEq m n` is `Nat.leq m n`, `Nat.decLessThan m n` is
-/// `Nat.leq (Succ m) n`, and the `Int` ones are `Int.leq m n` and
-/// `Int.less m n`.
+/// `Nat.leq (Succ m) n`, the `Int` ones are `Int.leq m n` and
+/// `Int.less m n`, and the `Float` ones `Float.leq m n` and
+/// `Float.less m n` (one native call each in the runtimes).
 fn comparison(cx: &Ctx, d: &Term) -> Option<Term> {
     let (head, args) = d.spine();
     let Term::Def(id) = head else {
@@ -227,6 +228,10 @@ fn comparison(cx: &Ctx, d: &Term) -> Option<Term> {
         (Builtin::IntLeq, false)
     } else if is(Builtin::DecLessThanInt) {
         (Builtin::IntLess, false)
+    } else if is(Builtin::FloatDecLessEq) {
+        (Builtin::FloatLeq, false)
+    } else if is(Builtin::FloatDecLessThan) {
+        (Builtin::FloatLess, false)
     } else {
         return None;
     };
@@ -255,6 +260,34 @@ pub(crate) fn decide(cx: &mut Ctx, prop: &Term) -> Result<Decision> {
     Ok(Decision::Plain(decide_written(cx, prop, &value)?))
 }
 
+/// `Float.decLessEq x y` for `Float.LessEq x y` as written, and
+/// `Float.decLessThan x y` for `Float.LessThan x y`: what `x <= y` and
+/// `x < y` on `Float` are once the instance is known. The search finds them
+/// too, but on the computed proposition, where an operand that is a literal
+/// has already turned `Float.less` into `Int.less` of order keys, and it
+/// decides that instead, as `Int`s (bigints in JS).
+fn float_decider(cx: &Ctx, prop: &Term) -> Option<Term> {
+    let reg = &cx.g().registry;
+    let (head, args) = prop.strip_loc().spine();
+    let Term::Def(id) = head.strip_loc() else {
+        return None;
+    };
+    let [x, y] = args[..] else {
+        return None;
+    };
+    let decider = if reg.def(Builtin::FloatLessEq) == Some(*id) {
+        Builtin::FloatDecLessEq
+    } else if reg.def(Builtin::FloatLessThan) == Some(*id) {
+        Builtin::FloatDecLessThan
+    } else {
+        return None;
+    };
+    Some(Term::app(
+        Term::app(Term::Def(reg.def(decider)?), x.clone()),
+        y.clone(),
+    ))
+}
+
 /// A decision of `prop` (`value` is its value): a relation method applied to
 /// a dictionary as written, `Ord.lessThan [ord := d] x y`, by its decider
 /// from the same dictionary (docs/proposals/interfaces.md §5.16 step 2); an
@@ -263,6 +296,9 @@ pub(crate) fn decide(cx: &mut Ctx, prop: &Term) -> Result<Decision> {
 /// what `prop` computes to).
 fn decide_written(cx: &mut Ctx, prop: &Term, value: &Value) -> Result<Term> {
     if let Some(decision) = crate::interfaces::written_relation_decider(cx.e, prop) {
+        return Ok(decision);
+    }
+    if let Some(decision) = float_decider(cx, prop) {
         return Ok(decision);
     }
     if let Term::Eq(Some(ty), a, b) = prop.strip_loc()

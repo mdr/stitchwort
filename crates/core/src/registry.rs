@@ -107,6 +107,12 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FloatIeeeLe,
     Builtin::FloatToInt,
     Builtin::FloatCompare,
+    Builtin::FloatLeq,
+    Builtin::FloatLess,
+    Builtin::FloatLessEq,
+    Builtin::FloatLessThan,
+    Builtin::FloatDecLessEq,
+    Builtin::FloatDecLessThan,
     Builtin::Fin,
     Builtin::FZero,
     Builtin::FSucc,
@@ -285,6 +291,16 @@ builtins! {
     FloatToInt = "Float.toInt": Def,
     // The total order: a native in the runtimes only
     FloatCompare = "Float.compare": Def,
+    // The total order's `<=` and `<` as `Bool`s: natives in the runtimes only.
+    // Their decisions (`Float.decLessEq`, `Float.decLessThan`) are written as
+    // them where a `Bool` is wanted, as `Int`'s are (crates/elab/src/bind.rs),
+    // and `x <= y` and `x < y` are decided by them as written
+    FloatLeq = "Float.leq": Def,
+    FloatLess = "Float.less": Def,
+    FloatLessEq = "Float.LessEq": Def,
+    FloatLessThan = "Float.LessThan": Def,
+    FloatDecLessEq = "Float.decLessEq": Def,
+    FloatDecLessThan = "Float.decLessThan": Def,
     // `Fin n`, the numbers below n (std/Fin/Fin.sw): a numeral `k` checked
     // against `Fin n` for a known n is `Fin.ofNatLt n k rfl`, and a number
     // pattern on one is `FZero` or `FSucc` (docs/proposals/fin-literals.md)

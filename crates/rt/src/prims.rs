@@ -410,6 +410,14 @@ fn float(s: &Shapes, f: FloatPrim, args: &[&Value]) -> Value {
             Some(n) => some(s, Value::int(n)),
         },
         FloatPrim::Compare => ordering(total_order(canonical_bits(x(0)), canonical_bits(x(1)))),
+        FloatPrim::Leq => boolean(
+            s,
+            total_order(canonical_bits(x(0)), canonical_bits(x(1))).is_le(),
+        ),
+        FloatPrim::Less => boolean(
+            s,
+            total_order(canonical_bits(x(0)), canonical_bits(x(1))).is_lt(),
+        ),
         // Rust's `-NaN` has the sign bit set: the NaN stays the NaN.
         FloatPrim::Neg => Value::float(-x(0)),
         FloatPrim::Abs => Value::float(x(0).abs()),

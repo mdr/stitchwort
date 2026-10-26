@@ -2,7 +2,7 @@
 -- instance always comes with them, so generic theorems need no extra
 -- "and it's lawful" argument.
 
-import Std (Eq, List, Nat, Ord, Ordering, Text)
+import Std (Eq, Float, List, Nat, Ord, Ordering, Text)
 
 -- `List.sort` is sorted, for any ordered type: the `flip` law makes the
 -- comparison total, once, for every type (`Ord.leTotal`).
@@ -39,3 +39,11 @@ theorem textOrderTransitive (s: Text) (t: Text) (u: Text)
     (h1: Ord.compare s t = Less) (h2: Ord.compare t u = Less): Ord.compare s u = Less := Text.compareTrans s t u h1 h2
 
 theorem appleFirst: Text.compare "apple" "banana" = Less := rfl
+
+-- `<=` is transitive, and `<` is `<=`, for any ordered type (`Ord.leTrans`,
+-- `Ord.lessLe`, `Ord.lessTrans`): here a chain of times, `Float`'s total order.
+theorem chain [auto ord: Ord a] (w: a) (x: a) (y: a) (z: a) (h1: w < x) (h2: x <= y) (h3: y <= z): w <= z :=
+  Ord.leTrans w y z (Ord.leTrans w x y (Ord.lessLe w x h1) h2) h3
+
+theorem timesInOrder (start: Float) (mid: Float) (finish: Float) (h1: start <= mid) (h2: mid < finish): start <= finish :=
+  Ord.leTrans start mid finish h1 (Ord.lessLe mid finish h2)

@@ -799,6 +799,12 @@ impl<'p> Interp<'p> {
                         (stitchwort_core::float::total_order(a?, bits(&args[1])?) as i8 + 1) as u32,
                         vec![],
                     ),
+                    FloatPrim::Leq => {
+                        boolean(stitchwort_core::float::total_order(a?, bits(&args[1])?).is_le())
+                    }
+                    FloatPrim::Less => {
+                        boolean(stitchwort_core::float::total_order(a?, bits(&args[1])?).is_lt())
+                    }
                     FloatPrim::FromBits => V::Float(
                         u64::try_from(nat(&args[0])?).map_err(|_| "bits beyond 64".to_string())?,
                     ),

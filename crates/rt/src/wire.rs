@@ -179,7 +179,9 @@ tags!(
         FloatPrim::ToInt,
         FloatPrim::Compare,
         FloatPrim::FromBits,
-        FloatPrim::Bits
+        FloatPrim::Bits,
+        FloatPrim::Leq,
+        FloatPrim::Less
     ]
 );
 

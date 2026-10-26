@@ -520,6 +520,9 @@ pub enum FloatPrim {
     ToInt,
     /// The total order (`Float.compare`).
     Compare,
+    /// The total order's `<=` and `<` (`Float.leq`, `Float.less`).
+    Leq,
+    Less,
     /// `{ bits = b, valid = _ }`: the double with bits `b`, which the
     /// record's proof says is a valid pattern.
     FromBits,
@@ -539,7 +542,9 @@ impl FloatPrim {
             | FloatPrim::IeeeEq
             | FloatPrim::IeeeLt
             | FloatPrim::IeeeLe
-            | FloatPrim::Compare => 2,
+            | FloatPrim::Compare
+            | FloatPrim::Leq
+            | FloatPrim::Less => 2,
             _ => 1,
         }
     }
@@ -557,6 +562,16 @@ const FLOAT_NATIVES: &[(Builtin, FloatPrim, &str)] = &[
         Builtin::FloatCompare,
         FloatPrim::Compare,
         "c740d4004978dba3b37fe8fd6ff190347137680809519e8d993301e4b5c18d27",
+    ),
+    (
+        Builtin::FloatLeq,
+        FloatPrim::Leq,
+        "7687187777e2ed58f2858a7cd6770ced92ef87b9eb877ae6c3104a55af558fd0",
+    ),
+    (
+        Builtin::FloatLess,
+        FloatPrim::Less,
+        "767cca38241182c31b60695919b8e178f29cf63f1e421f2c000e7d084f8da5dc",
     ),
 ];
 

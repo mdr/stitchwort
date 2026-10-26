@@ -1789,6 +1789,34 @@ console.log("ok");
     run_script("microtype-comparisons", &[("cmp.mjs", session)], script);
 }
 
+/// `<=` and `<` on `Float` are the natives `Float.leq` and `Float.less`,
+/// called directly, also against a literal (whose order key isn't computed
+/// at compile time into a `bigint` comparison), and `Ord.compare` is
+/// `Float.compare`'s native; sorting and `Map` are passed `Float.instOrd`.
+#[test]
+fn float_order_is_native() {
+    let examples = examples();
+    let session = example(&examples, "float-order.sw");
+    let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+        .expect("extraction succeeds");
+    for line in [
+        "const $Main$datMost = $Std$dFloat$dleq;",
+        "const $Main$dbelow = $Std$dFloat$dless;",
+        "const $Main$dbelowTen = (v0) => $Std$dFloat$dless(v0, 10.0);",
+        "const $Main$dorder = $Std$dFloat$dcompare;",
+        "const $Main$dupTo = (v0, v1) => $Std$dList$dfilter$e(v1, ((v2) => $Std$dFloat$dleq(v2, v0)));",
+        "const $Main$dbyStart = (v0) => $Std$dList$dsortOn($Std$dFloat$dinstOrd, v0, $Main$dEvent$dstartTime);",
+    ] {
+        assert!(output.js.contains(line), "no `{line}` in:\n{}", output.js);
+    }
+    for line in output.js.lines().filter(|l| l.starts_with("const $Main$d")) {
+        assert!(
+            !line.contains("$Std$dInt$d") && !line.contains("9223372036854775808n"),
+            "an order key is computed: {line}"
+        );
+    }
+}
+
 /// The `.d.ts` of a microtype is a plain alias (D1066): an app passes its
 /// plain strings in and gets strings out, and its `Record<string, V>` is a
 /// map from one. A plain alias doesn't keep two microtypes apart in
