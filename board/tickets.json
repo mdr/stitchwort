@@ -1,5 +1,5 @@
 {
-  "next": 556,
+  "next": 557,
   "tickets": [
     {
       "id": 13,
@@ -3926,6 +3926,18 @@
     {
       "id": 555,
       "title": "Effect runtime option B: state loop at an open row (design note + soundness argument) — D1291 for Matt",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 556,
+      "title": "Goal read-back cap (D1280, docs/proposals/goal-readback.md option d): rewrite/match see the unfolded goal except calls whose unfolding exceeds 100k nodes — deferred by Matt 26 Oct",
       "status": "backlog",
       "agent": "",
       "where": "",
