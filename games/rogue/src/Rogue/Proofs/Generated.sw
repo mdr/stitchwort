@@ -32,6 +32,14 @@ theorem seededDrawMore (finish: List Nat → b):
   | Zero, seed, drawn => rfl
   | Succ count, seed, drawn => seededDrawMore finish count (lcg seed) (drawn ++ [lcg seed / 65536])
 
+-- The same with two pure steps after the drawing. (Not a consequence of
+-- the one above: `next (first (drawMore …))` is a sequence of two steps,
+-- and joining them into one needs `Effect.bindAssoc`, which uses an axiom.)
+theorem seededDrawMoreThen (first: List Nat → b) (next: b → c):
+    (count: Nat) → (seed: Nat) → (drawn: List Nat) → seeded seed (() => next (first (drawMore drawn count))) = next (first (seededNumbers seed drawn count))
+  | Zero, seed, drawn => rfl
+  | Succ count, seed, drawn => seededDrawMoreThen first next count (lcg seed) (drawn ++ [lcg seed / 65536])
+
 -- So the level at `depth` from `seed` is planned from those numbers.
 theorem generatedPlan (seed: Nat) (depth: Nat): seeded seed (() => generateLevel depth) = planFrom depth (seededNumbers seed [] (drawCount depth))
     unfolding generateLevel
@@ -57,3 +65,10 @@ theorem generatedHolds (property: Plan → Prop) (planned: (depth: Nat) → (num
 theorem generatedReachable (seed: Nat) (depth: Nat):
     Reachable (seeded seed (() => generateLevel depth)).level (seeded seed (() => generateLevel depth)).level.start (seeded seed (() => generateLevel depth)).level.goal :=
   generatedHolds (plan => Reachable plan.level plan.level.start plan.level.goal) planReachable seed depth
+
+-- A new game, as the real program starts it under the seeded handler, is
+-- `startingState` of the level generated from that seed.
+theorem seededNewGame (seed: Nat): seeded seed (() => newGame()) = startingState (seeded seed (() => generateLevel 1))
+    unfolding generateLevel
+:=
+  Eq.trans (seededDrawMoreThen (planFrom 1) startingState (drawCount 1) seed []) (Eq.cong startingState (Eq.sym (generatedPlan seed 1)))
