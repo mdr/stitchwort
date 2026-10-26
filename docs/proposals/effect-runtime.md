@@ -1535,6 +1535,122 @@ none out of resources **[checked]**.
 (§9.9's other half). It would need `var`-style hoisting outside loops,
 because a loop's turns must keep their own `const`s.
 
+### 9.11 Profile: the cost of one operation on the machine (after N4)
+
+Native N4 measured about 29,000 instructions per `bump` and 20,000 per
+`ask` on the machine (`bench/native/effects.sw`, native-compilation.md).
+Is that cost per operation constant, or does it grow with the number of
+operations (which would make a loop quadratic)?
+
+**It is constant: the total is linear.** A whole `stitchwort run` of
+`effects.sw` with one of the two loops at n operations and the other at 0
+(release build at `d233d10e`, Apple M4 Pro, `/usr/bin/time -l`; the run
+with both at 0 retires 1.09 G instructions, nearly all of it elaboration)
+**[checked]**:
+
+| n | `bump`: instructions | cycles | `ask`: instructions | cycles |
+|---|---|---|---|---|
+| 1,000 | 1.10 G | 0.33 G | 1.09 G | 0.33 G |
+| 10,000 | 1.36 G | 0.38 G | 1.27 G | 0.36 G |
+| 100,000 | 3.92 G | 0.86 G | 3.05 G | 0.70 G |
+| 1,000,000 | 29.59 G | 5.75 G | 20.90 G | 4.06 G |
+| per operation, 10k to 100k | 28,500 | 5,400 | 19,800 | 3,800 |
+| per operation, 100k to 1M | 28,500 | 5,430 | 19,800 | 3,740 |
+
+The maximum resident set stays at 48.6 MB at every n, so nothing is kept
+per operation either. For scale: the same arithmetic as a pure loop
+(`loop n ((acc + s) % 1000000007) (s + 1)`) costs 1,630 instructions and
+230 cycles per turn. So one `bump` costs about 17 times a pure loop turn in
+instructions and 24 times in cycles (1.4 µs).
+
+**What one operation does.** These counts are exact, from a build with
+temporary counters added to `machine.rs`, `run.rs` and the CLI's allocator
+(not committed). They are the same per operation at 10,000 and 100,000
+**[checked]**:
+
+| per operation | `bump` | `ask` | pure loop turn |
+|---|---|---|---|
+| bytecode instructions | 72 | 39 | 12 |
+| frames entered | 8 | 6 | 0 |
+| generic `apply`s (an argument `Vec` each) | 12 | 10 | 0 |
+| run-loop steps / pending pushes and pops | 12 / 5 | 8 / 3 | – |
+| `Bind` nodes / lazy resumptions | 4 / 1 | 2 / 1 | – |
+| routes: lazy `foldComp` + `translate` | 1 + 1 | 1 + 1 | – |
+| heap allocations (bytes) | 69 (3,880) | 51 (2,850) | 0 |
+
+**Where the time goes.** I ran macOS `sample` on `bump` at 1,000,000
+operations and took inclusive shares of the run thread's 1,460 samples. The
+categories overlap **[checked]**:
+
+- the run loop `eff_run` with what it calls: 36%;
+- `apply` (eval/apply, which builds `Vec`s of arguments, and copies a
+  partial application's held arguments into a new `Vec` and extends it):
+  22%;
+- building `Vec`s and `Rc<[Value]>`s (`from_iter`, `extend`, `resize`):
+  21%;
+- dropping values (`Drop` for `Fields` and `Fun`, `drop_slow`, the
+  freeing work list): 22%;
+- `malloc` and `realloc`: 12%. `free`: 7%.
+
+No single function stands out. The time is spread over a few dozen small
+steps per operation, and about a third of it is allocating and freeing
+(69 blocks per `bump`). Nothing re-walks a growing structure: the
+pending list is consed and popped, the handler is one shared `Rc`, and a
+resumption is a pointer to the pending list.
+
+**Why it costs this much.** Two things in the program's shape add to the
+loop's own work, beyond the constant cost of the general path (§9.1):
+
+1. *`Counter.from` is used under `{IO}`.* Its row variable `e` is `IO`, so
+   stage 4d's state loop doesn't apply (it is for the empty row). The fold
+   is lazy (§9.2): each `k s (s + 1)` returns `Bind (Done y) k′` for the
+   outer loop to run, and the state function is a closure per operation.
+   The same handler used at the empty row (`def counted (n: Nat): Nat :=
+   Counter.from 0 (() => bumps n 0)`) runs the 4d loop and costs 18,100
+   instructions and 3,500 cycles per operation, 36% less **[checked]**.
+2. *`bumps` has the closed row `{Counter}`, and the handler takes
+   `{Counter | e}`.* So the call is wrapped in a `translate`, and every
+   operation crosses it as well as the fold (the second route above:
+   `inject`, a `Ret::Inject`, and on resuming `reply` through
+   `Ret::Then`). With `bumps` declared at `{Counter | e}` instead, an
+   operation costs 23,900 instructions and 4,600 cycles, 16% less
+   **[checked]**.
+
+**Options** (for review; none is done):
+
+- **A. Fewer allocations on the generic paths.** This is mechanical and
+  doesn't change meaning: `apply` and `enter` take their arguments as a
+  `Vec<Value>` (a heap block per call, 12 per `bump`); applying a partial
+  application copies the held arguments into a new `Vec` and grows it; each
+  pop of a pending continuation boxes an `EffRet`; `Closure` and `Pap`
+  collect into a `Vec` and then copy it into an `Rc<[Value]>`. Passing
+  arguments in the register stack (as `Call` and an exact `Apply` already
+  do), building `Rc<[Value]>` directly, and keeping the loop's state
+  without a `Box` would remove most of the 69. How much this saves is
+  **[inferred]** from the profile: up to the third of the time that is
+  allocation, perhaps 20-30%. One thing tried and not kept: a reusable
+  thread-local work list for `Drop` saved 2 allocations per `bump` and
+  cost 1.3% more instructions.
+- **B. A state loop at an open row.** Let a state-passing handler whose
+  clause ends in `k v s′` jump (as 4d does) also when `e` isn't empty, for
+  its own operations, and keep lazy resumption for the operations it
+  forwards. This is a semantic change to how such folds resume. It needs
+  its own argument, like §9.2's, that the jump agrees with the tree when
+  the rest of the computation can still perform `e`'s operations. The
+  empty-row measurement above bounds what it could save here at about a
+  third.
+- **C. Not routing through a `translate` that only widens a row.** A call
+  at `{A}` used where `{A | e}` is expected gets a `translate` whose map
+  only injects. If the row encoding let `A`'s operations keep the same
+  representation in both rows, it could be dropped when lowering. Whether
+  the encoding allows this hasn't been checked **[speculative]**. Writing
+  the callee at `{A | e}` avoids it today (16% here).
+
+None of these is a bug. They are constant factors, and they compound.
+Recommended order: A first (mechanical; it also speeds up pure code that
+applies closures), then measure, then decide whether B is worth a design
+note.
+
 ## Appendix A. Benchmark and prototype files
 
 In `bench/effect-runtime/`:
