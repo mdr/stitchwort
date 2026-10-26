@@ -691,9 +691,13 @@ import { execFileSync as __execFileSync } from "node:child_process";
         return { tag: SHAPE.unit };
       case SHAPE.randomSeed: {
         // Eight random bytes as a `Nat`, a bigint: the OS's entropy.
-        const words = new BigUint64Array(1);
-        globalThis.crypto.getRandomValues(words);
-        return words[0];
+        // (Bytes, not a 64-bit view: bit reinterpretation lives only in the
+        // canonical-bits module, D701.)
+        const bytes = new Uint8Array(8);
+        globalThis.crypto.getRandomValues(bytes);
+        let seed = 0n;
+        for (const byte of bytes) seed = (seed << 8n) | BigInt(byte);
+        return seed;
       }
       default:
         throw new Error("internal error: an unknown `IO` operation");
