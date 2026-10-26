@@ -3964,14 +3964,16 @@
     {
       "id": 558,
       "title": "Kernel same-call shortcut (D1293 approved): merge main, extend to check_case/substitute read-backs, merge",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "bdb7e5ca"
+      ]
     },
     {
       "id": 559,
