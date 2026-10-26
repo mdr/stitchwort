@@ -27,40 +27,19 @@ use std::rc::Rc;
 
 use smallvec::SmallVec;
 
-use stitchwort_core::{Limits as CoreLimits, ResourceError};
+use stitchwort_core::ResourceError;
 
 use crate::code::{Image, Instr, MOVE, NO_REG, compile};
-use crate::effect::{EffectCounts, EffectOp, Handler, Resume, StateRun};
+use crate::effect::{
+    EffectCounts, EffectOp, Handler, Resume, StateRun, StateStep, delay_k, done_k, field,
+    handler_for, jump_k, pair, resume_lazily, state_handler, state_k, state_step,
+};
 use crate::ir::{GlobalId, GlobalKind, PrimOp, Program, Shapes};
 use crate::natives::TextNative;
 use crate::prims;
+pub use crate::shared::Limits;
+use crate::shared::{arity, body_name, deepest};
 use crate::value::{Fields, Fun, Value};
-
-/// How much a run may use.
-#[derive(Clone, Copy, Debug)]
-pub struct Limits {
-    /// Frames entered (calls) between two operations or ticks.
-    pub steps: u64,
-    /// Frames pending at once: how deeply a program may recurse.
-    pub frames: usize,
-}
-
-impl Limits {
-    /// The reference evaluator's limits: its work limit as steps, and its
-    /// frame limit.
-    pub fn from_core(limits: CoreLimits) -> Limits {
-        Limits {
-            steps: limits.work,
-            frames: limits.frames,
-        }
-    }
-}
-
-impl Default for Limits {
-    fn default() -> Limits {
-        Limits::from_core(CoreLimits::default())
-    }
-}
 
 /// Where a frame's result goes.
 enum Ret {
@@ -237,7 +216,14 @@ impl<'p> Machine<'p> {
     /// the most pending calls, as "`List.append` (120000 calls), …". A
     /// function value that isn't a definition is "a lambda".
     pub fn depth_report(&self) -> Option<String> {
-        depth_report(&self.program, &self.image, &self.st.deepest)
+        crate::shared::depth_report(&self.st.deepest, |code| {
+            body_name(
+                &self.image.global_code,
+                self.image.entry_code,
+                |g| &self.program.globals[g].name,
+                code,
+            )
+        })
     }
 
     /// The compiled code it runs.
@@ -312,47 +298,6 @@ thread_local! {
 /// docs/proposals/native-only.md). In every build, since the test tiers run
 /// release binaries; an increment per instruction, in the machine's state,
 /// is little next to the instruction.
-/// The bodies with the most of `codes` (the pending frames' bodies, one
-/// each): the three with the most, and how many each has, most first.
-/// Shared with native code's executor, which counts the frames that left
-/// with the error (stage NO5 of docs/proposals/native-only.md).
-pub(crate) fn deepest(codes: impl IntoIterator<Item = u32>) -> Vec<(u32, usize)> {
-    let mut counts: stitchwort_core::collections::HashMap<u32, usize> = Default::default();
-    for code in codes {
-        *counts.entry(code).or_insert(0) += 1;
-    }
-    let mut counts: Vec<(u32, usize)> = counts.into_iter().collect();
-    counts.sort_by_key(|&(code, count)| (std::cmp::Reverse(count), code));
-    counts.truncate(3);
-    counts
-}
-
-/// [`Machine::depth_report`] for `deepest` ([`deepest`]) of `image`'s
-/// bodies.
-pub(crate) fn depth_report(
-    program: &Program,
-    image: &Image,
-    deepest: &[(u32, usize)],
-) -> Option<String> {
-    let &(_, most) = deepest.first()?;
-    let name = |code: u32| -> String {
-        if let Some(g) = image.global_code.iter().position(|c| *c == Some(code)) {
-            return format!("`{}`", program.globals[g].name);
-        }
-        if code == image.entry_code {
-            return "the program's entry".to_string();
-        }
-        "an anonymous function".to_string()
-    };
-    let parts: Vec<String> = deepest
-        .iter()
-        // Only the ones with a real share (the entry has one frame).
-        .filter(|&&(_, count)| count * 10 >= most)
-        .map(|&(code, count)| format!("{} ({count} frames pending)", name(code)))
-        .collect();
-    Some(parts.join(", "))
-}
-
 pub fn instructions_executed() -> u64 {
     EXECUTED.with(std::cell::Cell::get)
 }
@@ -379,8 +324,12 @@ impl crate::run::Executor for Machine<'_> {
         Machine::reset_steps(self);
     }
 
-    fn program(&self) -> &Program {
-        Machine::program(self)
+    fn shapes(&self) -> &Shapes {
+        Machine::shapes(self)
+    }
+
+    fn main_row(&self) -> crate::ir::MainRow {
+        self.program().main_row
     }
 
     fn depth_report(&self) -> Option<String> {
@@ -942,208 +891,6 @@ impl State {
                 pending
             }
         }
-    }
-}
-
-/// What a state-passing handler's clause returned, for its loop
-/// ([`state_step`]).
-pub(crate) enum StateStep {
-    /// Not a jump: the handler's result.
-    Value(Value),
-    /// A jump `y s′`: the loop goes on from `rest y` with state `s′`; the
-    /// jump's own value (`jumped`) is dropped once that has begun.
-    Jump {
-        handler: Rc<Handler>,
-        rest: Value,
-        pending: Value,
-        y: Value,
-        state: Value,
-        jumped: Rc<Fun>,
-    },
-}
-
-/// A state-passing handler's clause returned `v` for the operation whose
-/// resumption is `resume`: a jump `v′ s′` goes on with the loop from `rest
-/// v′` with state `s′`, on no new frame; anything else is the handler's
-/// result. The values taken apart in the machine's order; shared with
-/// native code's `native_abi::sw_state_step` (stage NO3 of
-/// docs/proposals/native-only.md), so the two can't drift.
-pub(crate) fn state_step(counts: &mut EffectCounts, v: Value, resume: Rc<Resume>) -> StateStep {
-    let Value::Fun(mut f) = v else {
-        return StateStep::Value(v);
-    };
-    if !matches!(&*f, Fun::Jumped(..)) {
-        return StateStep::Value(Value::Fun(f));
-    }
-    let (y, state) = match Rc::get_mut(&mut f) {
-        Some(Fun::Jumped(y, state)) => (std::mem::take(y), std::mem::take(state)),
-        _ => match &*f {
-            Fun::Jumped(y, state) => (y.clone(), state.clone()),
-            _ => unreachable!("a jump"),
-        },
-    };
-    counts.jumps += 1;
-    let (handler, rest, pending) = match Rc::try_unwrap(resume) {
-        Ok(Resume {
-            handler,
-            rest,
-            pending,
-            ..
-        }) => (handler, rest, pending),
-        Err(resume) => (
-            resume.handler.clone(),
-            resume.rest.clone(),
-            resume.pending.clone(),
-        ),
-    };
-    StateStep::Jump {
-        handler,
-        rest,
-        pending,
-        y,
-        state,
-        jumped: f,
-    }
-}
-
-/// Field `i` of a constructor's cell: moved out if this is the only
-/// reference to the cell, otherwise copied.
-pub(crate) fn field(mut fields: Fields, i: usize) -> Value {
-    match Rc::get_mut(&mut fields.0) {
-        Some(slice) => std::mem::take(&mut slice[i]),
-        None => fields[i].clone(),
-    }
-}
-
-/// The two fields of a constructor's cell, as [`field`] takes one.
-pub(crate) fn pair(mut fields: Fields) -> (Value, Value) {
-    match Rc::get_mut(&mut fields.0) {
-        Some(slice) => (std::mem::take(&mut slice[0]), std::mem::take(&mut slice[1])),
-        None => (fields[0].clone(), fields[1].clone()),
-    }
-}
-
-/// A state-passing handler's fold (`op`: `FoldState` or `FoldStateComp`)
-/// on the arguments `arg` gives in order (`done`, `call`, the computation):
-/// its function of the state, as the machine's `effect` makes it; shared
-/// with native code's `native_abi::sw_eff_state` (stage NO3 of
-/// docs/proposals/native-only.md), so the two can't drift.
-pub(crate) fn state_handler(s: &Shapes, op: EffectOp, mut arg: impl FnMut() -> Value) -> Value {
-    let (done, call, c) = (arg(), arg(), arg());
-    let comp = op == EffectOp::FoldStateComp;
-    let handler = Rc::new(Handler::State { done, call, comp });
-    let run = StateRun {
-        handler,
-        rest: Value::Erased,
-        arg: c,
-        pending: Value::Erased,
-    };
-    state_fn(s, comp, run)
-}
-
-/// A state-passing handler's function of the state, `Done` of it if the
-/// handler's carrier is a computation.
-fn state_fn(s: &Shapes, comp: bool, run: StateRun) -> Value {
-    let f = Value::Fun(Rc::new(Fun::StateRun(Rc::new(run))));
-    if comp { Value::data(s.done, [f]) } else { f }
-}
-
-/// The handler and the computation of `op` (`foldComp` and its lazy
-/// variants, `translate` or `runPure`) on the arguments `arg` gives in
-/// order, taken apart as the machine's `effect` takes them; shared with
-/// native code's `native_abi::sw_eff_begin` (stage NO2 of
-/// docs/proposals/native-only.md), so the two can't drift.
-pub(crate) fn handler_for(
-    s: &Shapes,
-    op: EffectOp,
-    mut arg: impl FnMut() -> Value,
-) -> (Rc<Handler>, Value) {
-    match op {
-        EffectOp::Fold | EffectOp::FoldLazy | EffectOp::FoldIn => {
-            let lazy = match op {
-                EffectOp::FoldLazy => true,
-                EffectOp::FoldIn => arg().tag() != Some(s.row_empty),
-                _ => false,
-            };
-            let (done, call, c) = (arg(), arg(), arg());
-            (Rc::new(Handler::Fold { done, call, lazy }), c)
-        }
-        EffectOp::Translate => {
-            let (m, c) = (arg(), arg());
-            let Value::Data(_, m) = m else {
-                panic!("internal error: a `SigMap` that isn't `MkSigMap`")
-            };
-            let (inject, reply) = pair(m);
-            (Rc::new(Handler::Translate { inject, reply }), c)
-        }
-        EffectOp::RunPure => (Rc::new(Handler::RunPure), arg()),
-        _ => unreachable!("an effect native that runs a loop"),
-    }
-}
-
-/// A lazy resumption `resume` called with `y`: `Bind (Done y) r`, `r` the
-/// same resumption, not lazy (the machine's `resume`, and native code's
-/// apply, `native_abi::sw_apply_prepare`).
-pub(crate) fn resume_lazily(
-    s: &Shapes,
-    counts: &mut EffectCounts,
-    resume: &Rc<Resume>,
-    y: Value,
-) -> Value {
-    counts.resumes += 1;
-    let k = Value::Fun(Rc::new(Fun::Resume(resume.clone(), false)));
-    Value::data(s.bind_node, [Value::data(s.done, [y]), k])
-}
-
-// The effect runtime's function values that only build a value (leaves:
-// they call no program code), shared by `State::enter` and native code's
-// apply (`native_abi::sw_apply_prepare`), so the two can't drift.
-
-/// `DoneK y`: `Done y`.
-pub(crate) fn done_k(s: &Shapes, y: Value) -> Value {
-    Value::data(s.done, [y])
-}
-
-/// A state-passing handler's `k y` (`StateK`): the loop from `rest y`, as a
-/// function of the state.
-pub(crate) fn state_k(s: &Shapes, resume: &Resume, y: Value) -> Value {
-    let Handler::State { comp, .. } = &*resume.handler else {
-        unreachable!("a state-passing handler's resumption")
-    };
-    let run = StateRun {
-        handler: resume.handler.clone(),
-        rest: resume.rest.clone(),
-        arg: y,
-        pending: resume.pending.clone(),
-    };
-    state_fn(s, *comp, run)
-}
-
-/// A state-passing handler's `jump v s` (`JumpK`): the jump, for its loop
-/// to find (`state_step`).
-pub(crate) fn jump_k(v: Value, s: Value) -> Value {
-    Value::Fun(Rc::new(Fun::Jumped(v, s)))
-}
-
-/// A resumption of a handler around partial code (`DelayK`): `k y` is a
-/// `Delay`, and runs nothing (the runner steps it).
-pub(crate) fn delay_k(capture: &Rc<crate::run::Capture>, y: Value) -> Value {
-    let resumed = crate::value::Delay::Resumed(capture.clone(), y);
-    Value::Delay(Rc::new(resumed))
-}
-
-/// The arity of a function value that isn't a partial application.
-pub(crate) fn arity(program: &Program, head: &Value) -> usize {
-    let Value::Fun(fun) = head else {
-        unreachable!("a function")
-    };
-    match &**fun {
-        Fun::Global(g) => program.globals[*g as usize].kind.params() as usize,
-        Fun::Closure { lambda, .. } => program.lambdas[*lambda as usize].params as usize,
-        Fun::DoneK | Fun::Resume(..) | Fun::StateRun(_) | Fun::StateK(_) | Fun::DelayK(_) => 1,
-        Fun::JumpK => 2,
-        Fun::Jumped(..) => panic!("internal error: a jump applied"),
-        Fun::Pap { .. } => unreachable!("a partial application's head"),
     }
 }
 

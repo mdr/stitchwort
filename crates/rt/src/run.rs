@@ -42,8 +42,9 @@ use stitchwort_core::ResourceError;
 
 use crate::host::{NoTerminal, RunError, Terminal, read_all, read_bytes, read_line, write_text};
 use crate::ir::{MainRow, Program, Shapes};
-use crate::machine::{Limits, Machine};
+use crate::machine::Machine;
 use crate::native_abi::{NativeExecutor, NativeIslands};
+use crate::shared::Limits;
 use crate::value::{Delay, Fun, Value};
 
 pub use live::{Advanced, LimitScope, LiveLimits, LiveRun};
@@ -176,11 +177,10 @@ pub trait Executor {
     fn step_comp(&mut self, c: Value) -> Result<Value, ResourceError>;
     /// Starts a new stretch of steps (after an operation or a tick).
     fn reset_steps(&mut self);
-    /// The program it runs.
-    fn program(&self) -> &Program;
-    fn shapes(&self) -> &Shapes {
-        &self.program().shapes
-    }
+    /// The program's shapes.
+    fn shapes(&self) -> &Shapes;
+    /// The row of the operations `main ()` leaves to the runner.
+    fn main_row(&self) -> MainRow;
     /// After the run stopped for recursing too deeply: which functions had
     /// the most pending calls, if known.
     fn depth_report(&self) -> Option<String>;
@@ -204,6 +204,35 @@ pub fn run_main_native(
     terminal: &mut dyn Terminal,
 ) -> Result<(), RunError> {
     let executor = NativeExecutor::new(program, image, code, limits, stack_size);
+    run_native_on(executor, limits, input, output, terminal)
+}
+
+/// Runs the program `outline` describes as [`run_main_native`] does, as its
+/// native `code`, which owns the tables it reads: what an executable built
+/// with `--native` runs, with no program, image or machine (stage NO6 of
+/// docs/proposals/native-only.md). Flushes `output`.
+#[allow(clippy::too_many_arguments)]
+pub fn run_main_linked(
+    outline: crate::linked::Outline,
+    code: Box<dyn NativeIslands>,
+    limits: Limits,
+    stack_size: usize,
+    input: &mut impl BufRead,
+    output: &mut impl Write,
+    terminal: &mut dyn Terminal,
+) -> Result<(), RunError> {
+    let executor = NativeExecutor::from_outline(outline, code, limits, stack_size);
+    run_native_on(executor, limits, input, output, terminal)
+}
+
+/// Runs `executor`'s program, then flushes `output`.
+fn run_native_on(
+    executor: NativeExecutor,
+    limits: Limits,
+    input: &mut impl BufRead,
+    output: &mut impl Write,
+    terminal: &mut dyn Terminal,
+) -> Result<(), RunError> {
     let result = run_on(
         executor,
         limits,
@@ -856,7 +885,7 @@ impl<'t, E: Executor> Runner<'t, E> {
         }
         let s = self.m.shapes();
         let (side, io) = split(op)?;
-        let io = match self.m.program().main_row {
+        let io = match self.m.main_row() {
             MainRow::Io => io,
             // `L (stop msg)` isn't a read; `R (L io)` is `io`.
             MainRow::FailIo if side == s.left => return None,
@@ -956,7 +985,7 @@ impl<'t, E: Executor> Runner<'t, E> {
             Value::Data(t, fields) if *t == s.left || *t == s.right => (*t, fields[0].clone()),
             other => panic!("internal error: an operation {other:?} outside `IO` and `Fail`"),
         };
-        let io = match (self.m.program().main_row, side(&op)) {
+        let io = match (self.m.main_row(), side(&op)) {
             (MainRow::Io, (t, io)) if t == s.left => io,
             (MainRow::FailIo, (t, stop)) if t == s.left => {
                 let Value::Data(tag, fields) = &stop else {

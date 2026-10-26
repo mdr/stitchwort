@@ -30,8 +30,6 @@
 
 use stitchwort_core::collections::HashMap;
 
-use num_bigint::BigUint;
-
 use crate::ir::{Expr, Lit, MatchKind, PrimOp, Program, Slot};
 use crate::value::Value;
 
@@ -226,12 +224,7 @@ pub enum Instr {
 }
 
 /// A [`Instr::NumSwitch`]'s targets.
-#[derive(Debug)]
-pub struct NumTable {
-    pub small: Vec<(u64, u32)>,
-    pub big: Vec<(BigUint, u32)>,
-    pub default: u32,
-}
+pub use crate::shared::NumTable;
 
 /// One body's code.
 #[derive(Debug)]
