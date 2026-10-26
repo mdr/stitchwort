@@ -4008,7 +4008,7 @@
     },
     {
       "id": 561,
-      "title": "Native-only NO5-NO7 (NO4 merged ecffde0e; NO5 running): no fallback; binary without the machine; Linux (native-only.md §6)",
+      "title": "Native-only NO6-NO7 (NO5 merged ee8524bc; NO6 running): binary without the machine; Linux (native-only.md §6)",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -4019,7 +4019,8 @@
       "commits": [
         "a5821e7c",
         "f78114ed",
-        "ecffde0e"
+        "ecffde0e",
+        "ee8524bc"
       ]
     },
     {
