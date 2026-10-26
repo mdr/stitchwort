@@ -54,8 +54,8 @@ def firstLongBookLogged (shelf: List Book): {IO, Abort} Text :=
   shelf.find (book =>
     IO.print book.title
     isLong book)
-    |> .orAbort
-    |> .title
+      |> .orAbort
+      |> .title
 
 def novel: Book := { title = "Long Novel", pages = 420, borrowed = False }
 def guide: Book := { title = "Short Guide", pages = 90, borrowed = True }
