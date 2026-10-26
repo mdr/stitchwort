@@ -1,5 +1,5 @@
 {
-  "next": 599,
+  "next": 600,
   "tickets": [
     {
       "id": 13,
@@ -4457,14 +4457,16 @@
     {
       "id": 596,
       "title": "Std: more list/option/map lemmas a real program needed (private app port, 26 Oct): List.get ↔ List.getOr (std has no List.get theorems), take of zipWith/map; Option.mapEqNone; List.Any p xs from x ∈ xs and p x; a filter dropping every element is Nil; Map.indexBy 'what it finds is an element' and 'a key of the list is found' (Prop forms)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "206ca14d"
+      ]
     },
     {
       "id": 597,
@@ -4482,6 +4484,18 @@
       "id": 598,
       "title": "Private app port: switch the three 'keep the other side's new items' sites to std List.appendNewBy (SW-584), re-benchmark typed ids after SW-590, rebuild dist + differential (private work only)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 599,
+      "title": "Std Toolkit.sw can't write membership as ∈ (the loader reports List/Mem.sw and List/Toolkit.sw need each other), so it spells List.Mem x xs while other files use ∈ (found 26 Oct, D1323 lane)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
