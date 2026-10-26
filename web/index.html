@@ -1111,6 +1111,13 @@ export def area: Shape -> Nat
   function setRunHint() {
     const main = project ? project.manifest.days[project.day].main : "main";
     runButton.title = `Run ${main} (Ctrl+Enter)`;
+    // A live day has no input box: its keys come from the terminal pane.
+    const live = !!project?.manifest.days[project.day].live;
+    runInput.hidden = live;
+    if (live) {
+      runHint.textContent = project.manifest.days[project.day].hint ?? `Run opens a terminal and calls ${main} () in it.`;
+      return;
+    }
     runHint.textContent =
       `Run calls ${project ? main : "main"} (). Its IO.readLine () gets the lines below, one at a time, then None; ` +
       "IO.readAll () gets all that's left at once. " +
@@ -1483,7 +1490,9 @@ export def area: Shape -> Nat
     const set = (state, text) => { screen.dataset.state = state; status.textContent = text; };
     const draw = () => {
       const atBottom = screen.scrollTop + screen.clientHeight >= screen.scrollHeight - 4;
+      const drawStart = performance.now();
       screen.replaceChildren(grid.render(true));
+      screen.dataset.drawMs = String(performance.now() - drawStart);
       screen.dataset.text = grid.text();
       screen.dataset.keys = grid.keysMode ? "keys" : "line";
       if (atBottom) screen.scrollTop = screen.scrollHeight;
@@ -1492,6 +1501,7 @@ export def area: Shape -> Nat
     draw();
     // Keys wait for the one before to be taken: the worker is busy while it
     // computes, and answers when the program waits again.
+    let sentAt = performance.now();
     let inFlight = true;
     let queued = [];
     let closing = false;
@@ -1500,6 +1510,7 @@ export def area: Shape -> Nat
       inFlight = true;
       set("running", "Running…");
       const keys = queued;
+      sentAt = performance.now();
       queued = [];
       const close = closing;
       closing = false;
@@ -1552,6 +1563,7 @@ export def area: Shape -> Nat
     const handle = (out) => {
       if (liveRun !== run) return;
       draw();
+      screen.dataset.frameMs = String(performance.now() - sentAt);
       screen.dataset.stretches = String((Number(screen.dataset.stretches) || 0) + 1);
       if (out.state === "waiting") {
         set("waiting", "Waiting for a key.");
