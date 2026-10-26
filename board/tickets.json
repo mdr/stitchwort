@@ -3539,26 +3539,26 @@
     },
     {
       "id": 526,
-      "title": "Opaque defs lane 2: surface opaque def / unfolding, f.unfold generation (lazy), docs — after lane 1",
+      "title": "Opaque defs lane 2: surface opaque def / unfolding, f.unfold (small f.%body shape) [built 19ce28e4 on lane 1, awaiting review]",
       "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
       "id": 527,
-      "title": "Opaque defs lanes 3-4: 'is opaque' error notes; roguelike generates levels on the stairs — after lane 2",
-      "status": "backlog",
+      "title": "Opaque defs lanes 3-4: lane 4 roguelike on the stairs doing (branch, stacked); lane 3 messages next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
