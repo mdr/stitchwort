@@ -66,8 +66,8 @@ def manifoldError (lines: List Text): Option Text :=
 -- Each step that finds nothing gives up, which makes the result `None`.
 def parseManifold (lines: List Text): {Abort} Manifold :=
   let width := gridWidth lines
-  let (rowIndex, columnIndex) := (findStart lines).orAbort
-  let start := (Fin.ofNatCheck width columnIndex).orAbort
+  let (rowIndex, columnIndex) := findStart lines |> .orAbort
+  let start := Fin.ofNatCheck width columnIndex |> .orAbort
   { width, start, rows = (lines.drop (rowIndex + 1)).map (splitterRow width) }
 
 -- Row and column of the first S, reading top to bottom, left to right.
@@ -101,7 +101,7 @@ def splitsBelow (beams: Vec Bool w): List (Vec Bool w) → Nat
   | Cons row rest => splitsIn row beams + splitsBelow (fall row beams) rest
 
 -- The splitters of a row that beams reach.
-def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := (Vec.zipWith row beams (∧)).count (hit => hit)
+def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := Vec.zipWith row beams (∧) |> .count (hit => hit)
 
 -- The beams falling out of a row: a beam passes a column with no splitter,
 -- and a splitter with a beam on it sends one down each side.
@@ -111,7 +111,7 @@ def fall (row: Vec Bool w) (beams: Vec Bool w): Vec Bool w :=
     (hit.shiftRight False) (hit.shiftLeft False) (pass left right => pass ∨ (left ∨ right))
 
 -- Part 2: the timelines of a particle starting at S.
-def solvePart2 (manifold: Manifold): Nat := (timelineCounts manifold).get manifold.start
+def solvePart2 (manifold: Manifold): Nat := timelineCounts manifold |> .get manifold.start
 
 -- For each column, the timelines of a particle falling into it from the row
 -- of S.

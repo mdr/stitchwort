@@ -28,7 +28,7 @@ import Std (Iff, List, Nat, Ord, Ordering)
 def boxAt (points: List Point) (i: Nat): Point := points.getOr origin i
 
 -- Every pair of the boxes 0 to n - 1: box i with box j, for i < j.
-def allPairs (n: Nat): List (Nat, Nat) := (List.range n).pairs
+def allPairs (n: Nat): List (Nat, Nat) := List.range n |> .pairs
 
 -- What decides the order of the pairs: the squared distance between the
 -- two boxes (in the same order as the distance), then the first box, then
@@ -40,7 +40,7 @@ def connectionKey (points: List Point) (pair: (Nat, Nat)): Connection :=
 def connectionOrder (points: List Point): List (Nat, Nat) := allPairs points.length |> .sortOn (connectionKey points)
 
 -- The first k connections.
-def firstConnections (k: Nat) (points: List Point): List (Nat, Nat) := (connectionOrder points).take k
+def firstConnections (k: Nat) (points: List Point): List (Nat, Nat) := connectionOrder points |> .take k
 
 -- `Joined connections a b`: box a and box b are in the same circuit, linked
 -- by a chain of the connections.
@@ -78,7 +78,7 @@ def LastNeeded (points: List Point) (k: Nat): Prop :=
   And (OneCircuit points.length (firstConnections (Succ k) points)) (Not (OneCircuit points.length (firstConnections k points)))
 
 -- Connection number k.
-def connectionAt (points: List Point) (k: Nat): (Nat, Nat) := (connectionOrder points).getOr (0, 0) k
+def connectionAt (points: List Point) (k: Nat): (Nat, Nat) := connectionOrder points |> .getOr (0, 0) k
 
 -- The product of the X coordinates of a pair's two boxes.
 def xProduct (points: List Point) (pair: (Nat, Nat)): Nat := (boxAt points pair.fst).x * (boxAt points pair.snd).x

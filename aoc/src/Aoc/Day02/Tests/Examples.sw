@@ -26,7 +26,7 @@ test "a missing number" := parsed "11-" == Err "expected a range like 11-22, got
 test "a trailing comma" := parsed "11-22," == Err "expected a range like 11-22, got ''"
 test "backwards" := parsed "22-11" == Err "the range '22-11' ends before it starts"
 
-test "weights" := List.map (List.rangeFrom 11 2) copiesWeight == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
+test "weights" := (List.rangeFrom 11 2).map copiesWeight == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
 
 test "single range" := sumOfIdsWrittenTwice (range 11 22) == 33
 test "no double counting" := sumOfIdsWrittenRepeatedly (range 111110 111112) == 111111

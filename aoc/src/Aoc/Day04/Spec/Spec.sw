@@ -31,7 +31,7 @@ type Cells = Nat → Nat → Cell
 -- The grid's cells: row r (counted from 0, and a row of floor past the last),
 -- then cell c of it (floor past the last).
 def cellsOf (grid: Grid): Cells :=
-  r c => grid.rows |> Vec.getOr (Vec.replicate grid.width Floor) r |> Vec.getOr Floor c
+  r c => grid.rows |> .getOr (Vec.replicate grid.width Floor) r |> .getOr Floor c
 
 -- How many positions (r, c) of the grid satisfy `p`.
 def countPositions (grid: Grid) (p: Nat → Nat → Bool): Nat :=

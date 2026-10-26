@@ -89,11 +89,11 @@ type Circuits = { labels: Map Nat Nat, count: Nat }
 
 -- Every box in a circuit of its own.
 def Circuits.separate (boxes: Nat): Circuits :=
-  { labels = Map.fromList (List.range boxes |> .map (box => (box, box))), count = boxes }
+  { labels = List.range boxes |> .map (box => (box, box)) |> Map.fromList, count = boxes }
 
 -- A box's label. Every box of `Circuits.separate` and its joins has a label
 -- stored, so the fallback (the box's own number) is never used for them.
-def Circuits.labelOf (circuits: Circuits) (box: Nat): Nat := circuits.labels |> Map.getOr box box
+def Circuits.labelOf (circuits: Circuits) (box: Nat): Nat := circuits.labels |> .getOr box box
 
 -- Joins the circuits of two boxes: every box in the first box's circuit
 -- takes the second's label.
@@ -102,7 +102,7 @@ def Circuits.join (circuits: Circuits) (first: Nat) (second: Nat): Circuits :=
   let secondLabel := circuits.labelOf second
   if firstLabel == secondLabel then circuits
   else {
-    labels = circuits.labels |> Map.map (label => if label == firstLabel then secondLabel else label),
+    labels = circuits.labels |> .map (label => if label == firstLabel then secondLabel else label),
     count = circuits.count - 1
   }
 
@@ -113,7 +113,7 @@ def Circuits.connect (circuits: Circuits) (connection: Connection): Circuits :=
 -- How many boxes are in each circuit, one number per circuit, in the order
 -- of the circuits' labels: how often each label comes up among the boxes'.
 def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
-  List.range boxes |> .map circuits.labelOf |> Map.counts |> Map.values
+  List.range boxes |> .map circuits.labelOf |> Map.counts |> .values
 
 -- Part 1: join the closest `connections` pairs (1,000 for the puzzle input,
 -- 10 for its example), then multiply the sizes of the three biggest circuits.
