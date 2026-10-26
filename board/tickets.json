@@ -1,5 +1,5 @@
 {
-  "next": 661,
+  "next": 662,
   "tickets": [
     {
       "id": 13,
@@ -5250,6 +5250,18 @@
       "id": 660,
       "title": "Rogue generator proof names each of the first 35 rolls as an argument (checker computes that far before comparing); cleaner with induction over a reified computation (proof-reification.md stage R3) — revisit when R3 lands",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 661,
+      "title": "Rogue: rename seeded → Random.withSeed (D1390, 26 Oct); with the proof-statement readability pass",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
