@@ -1450,7 +1450,7 @@ const $Std$dMap$dofRaw = (v2, v3) => v3;
 const $Std$dMap$dfromList = (v2, v3) => $Std$dMap$dofRaw(v2, $Std$dMap$dRaw$dfromListFast(v2, v3));
 const $Std$dMap$dtoList = (v2, v3) => $Std$dMap$dRaw$dtoList(v2, $Std$dMap$draw(v2, v3));
 const $Std$dMap$dget = (v2, v3, v4) => $Std$dMap$dRaw$dget(v2, v4, $Std$dMap$draw(v2, v3));
-const $Std$dMap$dinsert = (v2, v3, v4, v5) => (((v6) => $Std$dMap$dRaw$dinsert(v2, v4, v5, v6)))($Std$dMap$draw(v2, v3));
+const $Std$dMap$dinsert = (v2, v3, v4, v5) => $Std$dMap$dRaw$dinsert(v2, v4, v5, $Std$dMap$draw(v2, v3));
 const $Std$dText$dsameChar = (v0, v1) => $Std$dNat$dequal($Std$dChar$dtoNat(v0), $Std$dChar$dtoNat(v1));
 const $Std$dText$dstartsWithChars = (v0, v1) => {
   let s0 = v0, s1 = v1;
@@ -1549,12 +1549,12 @@ const $Main$dEmail$dvalue = (v0) => {
   const v1 = v0;
   return v1;
 };
-const $Main$dEmail$dparse = (v0) => $Std$dDecidable$delim((((v1) => $Std$dBool$ddecEq(v1, { tag: "True" })))($Main$dEmail$disValid(v0)), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
+const $Main$dEmail$dparse = (v0) => $Std$dDecidable$delim($Std$dBool$ddecEq($Main$dEmail$disValid(v0), { tag: "True" }), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
 const $Main$dparseEmail = (v0) => $Main$dEmail$dparse(v0);
 const $Main$demailText = (v0) => $Main$dEmail$dvalue(v0);
 const $Main$downerOf = (v0, v1) => $Std$dMap$dget($Main$dOrderId$d$ginstOrd, v0, v1);
 const $Main$dassign = (v0, v1, v2) => $Std$dMap$dinsert($Main$dOrderId$d$ginstOrd, v0, v1, v2);
-const $Main$dordersOf = (v0, v1) => $Std$dList$dfilterMap$e($Std$dMap$dtoList($Main$dOrderId$d$ginstOrd, v0), ((v2) => $Std$dBool$difThenElse(((v3) => $Std$dDecidable$dtoBool($Main$dUserId$d$gdecEq(v3, v1)))($Std$dPair$dsnd(v2)), ((v3) => ({ tag: "Some", value: $Std$dPair$dfst(v2) })), ((v3) => ({ tag: "None" })))));
+const $Main$dordersOf = (v0, v1) => $Std$dList$dfilterMap$e($Std$dMap$dtoList($Main$dOrderId$d$ginstOrd, v0), ((v2) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Main$dUserId$d$gdecEq($Std$dPair$dsnd(v2), v1)), ((v3) => ({ tag: "Some", value: $Std$dPair$dfst(v2) })), ((v3) => ({ tag: "None" })))));
 const $Main$ddescribe = (v0, v1) => $Std$dText$dappend("order ", $Std$dText$dappend($Std$dShow$dtoText($Main$dOrderId$dinstShow)(v0), $Std$dText$dappend(" belongs to ", $Std$dShow$dtoText($Main$dUserId$dinstShow)(v1))));
 
 // A map that crosses is built and read by the library's own functions.

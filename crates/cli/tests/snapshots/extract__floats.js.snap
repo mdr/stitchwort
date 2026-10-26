@@ -846,7 +846,7 @@ const $Main$dshift = (v0, v1) => $Std$dFloat$dadd(v0, v1);
 const $Main$dsameDouble = (v0, v1) => $Std$dDecidable$dtoBool($Std$dFloat$ddecEq(v0, v1));
 const $Main$dtripleEquals = (v0, v1) => $Std$dFloat$dieeeEq(v0, v1);
 const $Main$dbits = (v0) => $Std$dFloat$dbits(v0);
-const $Main$dfromBits = (v0) => $Std$dDecidable$delim((((v1) => $Std$dBool$ddecEq(v1, { tag: "True" })))($Std$dFloat$disValid(v0)), ((v1) => ({ tag: "Some", value: fromCanonicalBits(v0) })), ((v1) => ({ tag: "None" })));
+const $Main$dfromBits = (v0) => $Std$dDecidable$delim($Std$dBool$ddecEq($Std$dFloat$disValid(v0), { tag: "True" }), ((v1) => ({ tag: "Some", value: fromCanonicalBits(v0) })), ((v1) => ({ tag: "None" })));
 const $Main$dfirstOf = (v0) => {
   switch (v0.tag) {
     case "Nil": {

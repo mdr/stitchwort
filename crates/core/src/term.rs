@@ -467,6 +467,31 @@ impl Term {
         })
     }
 
+    /// The body of a `let` or a lambda (`self`, under one binder) with
+    /// `value` (a term outside the binder) in place of its variable, and the
+    /// rest lowered by one. Unless `value` is a variable, the binder's
+    /// variable must not be a `match`'s scrutinee (only a variable can be).
+    pub fn instantiate(&self, g: &Globals, value: &Term) -> Result<Term> {
+        if let Term::Var(to) = value.strip_loc() {
+            return self.instantiate_var(g, *to);
+        }
+        self.map_vars_with(
+            g,
+            0,
+            &|ix, depth| {
+                Ok(match ix.cmp(&depth) {
+                    std::cmp::Ordering::Less => Term::Var(ix),
+                    std::cmp::Ordering::Equal => value.shift(g, depth, 0)?,
+                    std::cmp::Ordering::Greater => Term::Var(ix - 1),
+                })
+            },
+            &|ix, depth| {
+                debug_assert_ne!(ix, depth, "a match on a substituted variable");
+                if ix > depth { ix - 1 } else { ix }
+            },
+        )
+    }
+
     /// Renumbers every variable: `f(ix, depth)` is the new index of variable
     /// `ix` with `depth` binders entered inside the starting point.
     fn map_vars(
@@ -475,10 +500,23 @@ impl Term {
         cutoff: usize,
         f: &dyn Fn(usize, usize) -> usize,
     ) -> Result<Term> {
+        self.map_vars_with(g, cutoff, &|ix, depth| Ok(Term::Var(f(ix, depth))), f)
+    }
+
+    /// [`Term::map_vars`], with a term for each occurrence of a variable,
+    /// `var(ix, depth)`, and the new index of a `match`'s scrutinee (which
+    /// stays a variable), `f(ix, depth)`.
+    fn map_vars_with(
+        &self,
+        g: &Globals,
+        cutoff: usize,
+        var: &dyn Fn(usize, usize) -> Result<Term>,
+        f: &dyn Fn(usize, usize) -> usize,
+    ) -> Result<Term> {
         g.budget.nesting("elaborator")?;
-        let go = |t: &Rc<Term>, cutoff| Ok(Rc::new(t.map_vars(g, cutoff, f)?));
+        let go = |t: &Rc<Term>, cutoff| Ok(Rc::new(t.map_vars_with(g, cutoff, var, f)?));
         Ok(match self {
-            Term::Var(ix) => Term::Var(f(*ix, cutoff)),
+            Term::Var(ix) => var(*ix, cutoff)?,
             Term::Def(_)
             | Term::Nat(_)
             | Term::Chars(_)

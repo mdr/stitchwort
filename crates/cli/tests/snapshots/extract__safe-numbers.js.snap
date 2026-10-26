@@ -806,9 +806,9 @@ const $Std$dSafeInt$dvalue = (v0) => {
   return v1;
 };
 const $Std$dSafeNat$dofNat = (v0) => $Std$dDecidable$delim($Std$dNat$ddecLessEq(v0, 9007199254740991n), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
-const $Std$dSafeInt$dofInt = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessEq(v1, 9007199254740991n)))($Std$dInt$dnatAbs(v0)), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
-const $Std$dSafeNat$dinstDecEq = ((v0) => ((v1) => (((v2) => ((v3) => $Std$dNat$ddecEq(v2, v3))))($Std$dSafeNat$dvalue(v0))($Std$dSafeNat$dvalue(v1))));
-const $Std$dSafeInt$dinstDecEq = ((v0) => ((v1) => (((v2) => ((v3) => $Std$dInt$ddecEq(v2, v3))))($Std$dSafeInt$dvalue(v0))($Std$dSafeInt$dvalue(v1))));
+const $Std$dSafeInt$dofInt = (v0) => $Std$dDecidable$delim($Std$dNat$ddecLessEq($Std$dInt$dnatAbs(v0), 9007199254740991n), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
+const $Std$dSafeNat$dinstDecEq = ((v0) => ((v1) => $Std$dNat$ddecEq($Std$dSafeNat$dvalue(v0), $Std$dSafeNat$dvalue(v1))));
+const $Std$dSafeInt$dinstDecEq = ((v0) => ((v1) => $Std$dInt$ddecEq($Std$dSafeInt$dvalue(v0), $Std$dSafeInt$dvalue(v1))));
 const $Std$dList$dmap$e = (v4, v5) => {
   let s4 = v4, s5 = v5;
   let h$ = null, l$ = null, k$ = null;

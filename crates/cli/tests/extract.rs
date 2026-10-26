@@ -3689,6 +3689,79 @@ console.log("ok");
     run_script_on("share", &[("share.mjs", js)], script);
 }
 
+/// SW-594: a comparison in a callback (`c.id ∉ ids2`, `c.id == key`),
+/// which the elaborator writes as a function applied to the operands, and a
+/// `let` a callback uses, are generated with no function applied where it's
+/// made: `((v4) => ((v5) => …))(x)(y)` made a closure for each element.
+/// `let-callbacks.sw`'s run lines, checked here whatever the tier's sample,
+/// check the results against the reference evaluator, an effectful block's
+/// order included.
+#[test]
+fn callbacks_apply_no_function_where_it_is_made() {
+    let path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/extract/let-callbacks.sw");
+    let (name, text, mut session) = check_example(&path);
+    let cases: Vec<Case> = text
+        .lines()
+        .filter_map(|l| l.strip_prefix(RUN))
+        .map(|line| {
+            let (call, expected) = run_line(&mut session, line.trim());
+            Case {
+                description: line.trim().to_string(),
+                call,
+                expected,
+            }
+        })
+        .collect();
+    assert!(!cases.is_empty(), "{name} has no `{RUN}` lines");
+    let g = &session.elab.globals;
+    check_in_node(&name, g, &cases);
+    let js = stitchwort_js::generate(g, Limits::default())
+        .expect("extraction succeeds")
+        .js;
+    let line = |name: &str| {
+        js.lines()
+            .find(|l| l.starts_with(&format!("const $Main$d{name} =")))
+            .unwrap_or_else(|| panic!("no definition of {name}"))
+    };
+    for name in [
+        "notIn",
+        "countEq",
+        "shifted",
+        "anyAll",
+        "weighted",
+        "usedTwice",
+        "direct",
+        "steps",
+    ] {
+        let line = line(name);
+        assert!(
+            !line.contains(")("),
+            "a function applied where it's made: {line}"
+        );
+    }
+    // The membership test reads the field where it's used, and the `let`
+    // is a `const`, computed once, before the `filter`.
+    assert!(
+        line("notIn")
+            .starts_with("const $Main$dnotIn = (v0, v1) => { const v2 = $Std$dList$dmap$e(v1, "),
+        "{}",
+        line("notIn")
+    );
+    assert!(
+        line("notIn")
+            .contains("$Std$dList$ddecMem($Std$dText$dinstDecEq, $Main$dCard$did(v3), v2)"),
+        "{}",
+        line("notIn")
+    );
+    // Used twice inside the callback: a `const` in its body, once per element.
+    assert!(
+        line("usedTwice").contains("((v2) => { const v3 = $Std$dNat$dmul(v2, v1); return "),
+        "{}",
+        line("usedTwice")
+    );
+}
+
 /// Every native integer operation, and the same operations compiled from
 /// their definitions (`DATA_INT`), must agree with each other and with
 /// `BigInt` arithmetic written out here, on all small pairs, values around

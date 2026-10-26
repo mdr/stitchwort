@@ -1773,10 +1773,10 @@ const $Std$dMap$dtoList = (v2, v3) => $Std$dMap$dRaw$dtoList(v2, $Std$dMap$draw(
 const $Std$dMap$dget = (v2, v3, v4) => $Std$dMap$dRaw$dget(v2, v4, $Std$dMap$draw(v2, v3));
 const $Std$dMap$dkeys = (v2, v3) => $Std$dList$dmap$e($Std$dMap$dtoList(v2, v3), $Std$dPair$dfst);
 const $Std$dMap$dfoldLeft = (v2, v4, v5, v6) => $Std$dMap$dRaw$dfoldLeft(v2, v6, v5, $Std$dMap$draw(v2, v4));
-const $Std$dMap$dinsertWith = (v2, v3, v4, v5, v6) => (((v7) => $Std$dMap$dRaw$dinsertWith(v2, v6, v4, v5, v7)))($Std$dMap$draw(v2, v3));
-const $Std$dMap$dmap = (v2, v4, v5) => (((v6) => $Std$dMap$dRaw$dmap(v2, v5, v6)))($Std$dMap$draw(v2, v4));
+const $Std$dMap$dinsertWith = (v2, v3, v4, v5, v6) => $Std$dMap$dRaw$dinsertWith(v2, v6, v4, v5, $Std$dMap$draw(v2, v3));
+const $Std$dMap$dmap = (v2, v4, v5) => $Std$dMap$dRaw$dmap(v2, v5, $Std$dMap$draw(v2, v4));
 const $Std$dMap$dliftBinaryRaw = (v4, v5, v7, v8) => (v5)(v7)(v8);
-const $Std$dMap$dliftBinary = (v4, v5, v7, v8) => (((v9) => $Std$dMap$dliftBinaryRaw(v4, v5, v9, $Std$dMap$draw(v4, v8))))($Std$dMap$draw(v4, v7));
+const $Std$dMap$dliftBinary = (v4, v5, v7, v8) => $Std$dMap$dliftBinaryRaw(v4, v5, $Std$dMap$draw(v4, v7), $Std$dMap$draw(v4, v8));
 const $Std$dMap$dunion = (v2, v3, v4) => $Std$dMap$dliftBinary(v2, (($p3) => ($p4) => $Std$dMap$dRaw$dunion(v2, $p3, $p4)), v3, v4);
 const $Std$dMap$ddecEq$d$gmatch1 = (v2, v3, v4, v5) => {
   switch (v5.tag) {

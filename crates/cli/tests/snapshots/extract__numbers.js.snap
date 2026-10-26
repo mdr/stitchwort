@@ -805,7 +805,7 @@ const $Main$dtotal = (v0) => {
     throw new Error("unreachable");
   }
 };
-const $Main$daverage = (v0) => $Std$dDecidable$delim((((v1) => $Std$dDecidable$dnot($Std$dNat$ddecEq(v1, 0n))))($Std$dList$dlength(v0)), ((v1) => $Std$dNat$ddiv($Main$dtotal(v0), $Std$dList$dlength(v0))), ((v1) => 0n));
+const $Main$daverage = (v0) => $Std$dDecidable$delim($Std$dDecidable$dnot($Std$dNat$ddecEq($Std$dList$dlength(v0), 0n)), ((v1) => $Std$dNat$ddiv($Main$dtotal(v0), $Std$dList$dlength(v0))), ((v1) => 0n));
 const $Main$dget = (v1, v2) => {
   let s1 = v1, s2 = v2;
   for (;;) {
@@ -830,7 +830,7 @@ const $Main$dget = (v1, v2) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dthird = (v0) => $Std$dDecidable$delim((((v1) => $Std$dNat$ddecLessThan(2n, v1)))($Std$dList$dlength(v0)), ((v1) => $Main$dget(v0, 2n)), ((v1) => 0n));
+const $Main$dthird = (v0) => $Std$dDecidable$delim($Std$dNat$ddecLessThan(2n, $Std$dList$dlength(v0)), ((v1) => $Main$dget(v0, 2n)), ((v1) => 0n));
 const $Main$disEven = (v0) => $Std$dNat$dleq($Std$dNat$dmod(v0, 2n), 0n);
 
 function $$average(arg0) {
