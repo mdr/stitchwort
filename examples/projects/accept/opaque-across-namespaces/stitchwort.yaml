@@ -1,0 +1,2 @@
+# Opaque definitions, their `unfolding` clauses and `f.unfold` equations used from another
+# namespace: loaded from the check cache, they mean the same.

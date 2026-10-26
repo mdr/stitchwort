@@ -532,7 +532,9 @@ fn def_reaches(g: &Globals, f: DefId, seen: &mut Seen) -> bool {
     if !matches!(ty, Term::Sort(_)) || !seen.defs.insert(f) {
         return false;
     }
-    let found = def.body().is_some_and(|body| reaches(g, body, seen));
+    // Not an opaque definition's hidden body
+    // (docs/proposals/opaque-definitions.md §6.4).
+    let found = stitchwort_core::value::body_seen(g, f).is_some_and(|body| reaches(g, body, seen));
     seen.defs.remove(&f);
     found
 }

@@ -889,6 +889,68 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
   form.
 - `decreasing` is a keyword.
 
+## Opaque definitions
+
+An **opaque** definition is checked like any other (its body against its
+type, its termination, its effects) and runs like any other, but while other
+declarations are checked it has a type and no body: no comparison, `rfl`,
+`match` or `rewrite` looks inside it (docs/proposals/opaque-definitions.md).
+A call of it is compared with another call of it by the arguments, as a
+function variable's would be. It's opaque *to the checker*, not private: the
+body is in the source, and `f.unfold` states it. The checker's kernel
+enforces it too, and it's part of the definition's hash.
+
+```
+opaque def generateLevel (depth: Nat): {Random} Plan :=
+  …
+
+-- A declaration that needs the body says so after its type.
+theorem generateLevelDepth (depth: Nat) (seed: Nat):
+      (seeded seed (() => generateLevel depth)).level.depth = depth
+    unfolding generateLevel
+:=
+  …
+
+-- Or it rewrites with the generated equation.
+theorem doubleTwo: double 2 = 4 := rewrite double.unfold in rfl
+```
+
+- **`opaque def`**, with or without parameters, arms, effects or
+  `decreasing`; `export opaque def` for an export. `opaque theorem` is
+  refused (a theorem already stays folded where it's used), and so is
+  `opaque instance` (an instance is used by taking it apart), each
+  `E-PARSE`. Top level only: a local definition can't be `opaque`.
+- **`unfolding f, g`** after the result type (and after `decreasing e`):
+  within this declaration's body, `f` and `g` unfold as usual. Its type is
+  still checked with every opaque definition hidden. Unfolding is
+  transitive: unfolding `f` also unfolds what `f` unfolds, and, for
+  definitions that call each other, `f`'s opaque group-mates. `:=` may start
+  a line of its own after it, as after `decreasing`.
+  - Allowed on `opaque def` and on `theorem`; a theorem with `unfolding`
+    stays folded even under `case` and `J`. On a plain `def` it's
+    `E-UNFOLDING-TRANSPARENT` (a definition that always unfolds would carry
+    the body to places where it's hidden: make it `opaque`, or rewrite with
+    `f.unfold`); on an instance, `E-PARSE`; on a local definition, `E-PARSE`
+    (a `match` or local definition in a body with `unfolding` unfolds what
+    the body does).
+  - Each name must be an opaque definition (`E-NOT-OPAQUE`), not one checked
+    together with this one, which has no body yet (`E-UNFOLDING-GROUP`).
+  - Not with `decreasing` yet (`E-DECREASING`).
+- **`f.unfold`**: every opaque `f` without an `unfolding` clause gets the
+  theorem `f.unfold (x…): f x… = f.%body x…`, where `f.%body` is a copy of
+  the body that computes when something looks inside it (a comparison, a
+  `match`), and is otherwise shown by name, as is `f.unfold` itself. So
+  `rewrite f.unfold in rfl` proves `f 2 = 4`; a proof that needs to
+  rewrite inside the body, or to compute through it inside arithmetic, says
+  `unfolding f`. A definition with `decreasing` keeps the `f.unfold` that
+  `decreasing` makes. One with an `unfolding` clause gets none, since its
+  equation may not be well-typed with what it unfolds hidden (`opaque def
+  start: Code unfolding Code := 0`: `start = 0` compares a `Code` with a
+  `Nat`); naming it is `E-NO-UNFOLD-EQUATION`.
+- `opaque` and `unfolding` are keywords.
+
+Examples: `examples/accept/opaque-*.sw`, `examples/reject/opaque-*.sw`.
+
 ## `Partial`
 
 A function that might not finish says `Partial` in its row, and so does

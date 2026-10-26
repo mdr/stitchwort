@@ -355,7 +355,7 @@ fn shape(
             let Term::Def(id) = head.strip_loc() else {
                 return Ok(Shape::Kept(term.clone()));
             };
-            let mut ty = g.def(*id).ty_value.clone();
+            let mut ty = crate::kernel::def_ty(g, *id)?;
             let mut built = Shape::Kept(head.clone());
             for arg in args {
                 let Value::Pi(_, icit, dom, cod) = force(g, ty)? else {

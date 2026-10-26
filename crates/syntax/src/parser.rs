@@ -210,6 +210,9 @@ fn declared_names_of(group: &[Token]) -> Vec<Name> {
     if group.first().map(|t| &t.tok) == Some(&Tok::KwExport) {
         i = 1;
     }
+    if group.get(i).map(|t| &t.tok) == Some(&Tok::KwOpaque) {
+        i += 1;
+    }
     let Some(keyword) = group.get(i).map(|t| &t.tok) else {
         return Vec::new();
     };
@@ -388,6 +391,7 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
                     | Tok::KwDef
                     | Tok::KwTheorem
                     | Tok::KwExport
+                    | Tok::KwOpaque
                     | Tok::KwInstance
                     | Tok::KwAbility
                     | Tok::KwTest
@@ -1692,6 +1696,10 @@ impl<'t> Parser<'t> {
                 self.here(),
                 "local definitions can't be exported: only top-level ones are",
             )),
+            Some(Tok::KwOpaque) => Err(error(
+                self.here(),
+                "local definitions can't be `opaque`: only top-level ones can",
+            )),
             _ => Ok(Stmt::Expr(self.expr_inline()?)),
         }
     }
@@ -1700,8 +1708,19 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn local_def(&mut self) -> Result<Stmt> {
         let start = self.here();
-        let mut decls = self.definition(start, false)?.into_iter();
+        let mut decls = self.definition(start, false, false)?.into_iter();
         let signature = decls.next().expect("a definition has a signature");
+        if let Decl::Signature { unfolding, .. } = &signature
+            && let Some(first) = unfolding.first()
+        {
+            return Err(error(
+                first.span,
+                "a local definition can't have `unfolding`",
+            )
+            .with_note(
+                "it unfolds what the declaration it's in unfolds: write `unfolding` on that one",
+            ));
+        }
         let equations: Vec<Decl> = decls.collect();
         if equations.is_empty() {
             return Err(error(
@@ -3554,6 +3573,8 @@ fn describe(tok: &Tok) -> String {
         Tok::KwOmega => "`omega`".into(),
         Tok::KwRing => "`ring`".into(),
         Tok::KwDecreasing => "`decreasing`".into(),
+        Tok::KwOpaque => "`opaque`".into(),
+        Tok::KwUnfolding => "`unfolding`".into(),
         Tok::LBrace => "`{`".into(),
         Tok::RBrace => "`}`".into(),
         Tok::FatArrow => "`=>`".into(),
@@ -4150,6 +4171,83 @@ mod tests {
             panic!("expected a call, got {rhs:?}");
         };
         assert!(matches!(&**arg, Expr::NamedArg(n, ..) if n.text == "decreasing"));
+    }
+
+    /// `opaque def`, and `unfolding` after the result type and after
+    /// `decreasing` (docs/proposals/opaque-definitions.md §6.2, §6.3).
+    #[test]
+    fn opaque_and_unfolding() {
+        for (source, export, names) in [
+            ("opaque def f (n: Nat): Nat := n\n", false, vec![]),
+            ("export opaque def f (n: Nat): Nat := n\n", true, vec![]),
+            (
+                "opaque def f (n: Nat): Nat unfolding g, Code := n\n",
+                false,
+                vec!["g", "Code"],
+            ),
+            (
+                "opaque def f (n: Nat): Nat\n    decreasing n\n    unfolding A.g\n:=\n  n\n",
+                false,
+                vec!["A.g"],
+            ),
+            (
+                "opaque def f: Nat -> Nat\n    unfolding g\n  | Zero => 0\n  | Succ k => k\n",
+                false,
+                vec!["g"],
+            ),
+        ] {
+            let module = parse(source);
+            let Decl::Signature {
+                opaque: true,
+                export: e,
+                unfolding,
+                ..
+            } = &module.decls[0]
+            else {
+                panic!("not an opaque signature: {source}");
+            };
+            assert_eq!(*e, export, "{source}");
+            let found: Vec<&str> = unfolding.iter().map(|n| n.text.as_str()).collect();
+            assert_eq!(found, names, "{source}");
+            assert!(module.decls.len() >= 2, "{source}");
+        }
+        let module = parse("theorem t: f 1 = 1\n    unfolding f\n  := rfl\n");
+        assert!(matches!(
+            &module.decls[0],
+            Decl::Signature { theorem: true, opaque: false, unfolding, .. } if unfolding.len() == 1
+        ));
+        for (source, message) in [
+            (
+                "opaque theorem t: 1 = 1 := rfl\n",
+                "a theorem can't be `opaque`",
+            ),
+            (
+                "opaque instance i: Show Nat := s\n",
+                "an instance can't be `opaque`",
+            ),
+            (
+                "opaque export def f: Nat := 1\n",
+                "`export` goes before `opaque`",
+            ),
+            (
+                "instance i: Show Nat unfolding f := s\n",
+                "an instance can't have `unfolding`",
+            ),
+            (
+                "def f (n: Nat): Nat unfolding g decreasing n := n\n",
+                "`decreasing` goes before `unfolding`",
+            ),
+            (
+                "def f (n: Nat): Nat :=\n  def g (m: Nat): Nat unfolding h := m\n  g n\n",
+                "a local definition can't have `unfolding`",
+            ),
+            (
+                "def f (n: Nat): Nat :=\n  opaque def g (m: Nat): Nat := m\n  g n\n",
+                "local definitions can't be `opaque`: only top-level ones can",
+            ),
+        ] {
+            assert_eq!(parse_error(source).message, message, "{source}");
+        }
     }
 
     /// `?` is a goal: an atom, so an argument too, and never a hole.

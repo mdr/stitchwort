@@ -304,7 +304,7 @@ fn bind_admitted(
 ) -> Result<()> {
     let g = cx.g();
     let mut term = Term::Def(id);
-    let mut ty = g.def(id).ty_value.clone();
+    let mut ty = crate::kernel::def_ty(g, id)?;
     for (level, icit, x) in captures {
         if *level >= cx.level() || cx.names[*level] != *x {
             return Err(Diagnostic::error(
