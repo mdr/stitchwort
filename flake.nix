@@ -103,7 +103,7 @@
             # The daily tier (docs/testing.md, "Tiers"): the `daily` profile
             # of `.config/nextest.toml`, and STITCHWORT_TIER for the corpus
             # sweeps. Every test runs, so one failure doesn't hide the others.
-            cargoNextestExtraArgs = "--no-fail-fast --profile daily";
+            cargoNextestExtraArgs = "--no-fail-fast --profile daily --features stitchwort-cli/native";
             STITCHWORT_TIER = "daily";
             # Nextest doesn't run doctests, and stitchwort-partial-model has
             # three (src/typed.rs, two of them `compile_fail`), so run those
@@ -127,7 +127,7 @@
             nextestArgs
             // {
               pname = "stitchwort-full";
-              cargoNextestExtraArgs = "--no-fail-fast --profile full";
+              cargoNextestExtraArgs = "--no-fail-fast --profile full --features stitchwort-cli/native";
               STITCHWORT_TIER = "full"; # every corpus sweep over the whole corpus
             }
           );

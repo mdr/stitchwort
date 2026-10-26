@@ -12,6 +12,10 @@ version: '3'
 vars:
   # The release CLI the AoC and `.sw` tasks run.
   SW: '{{.ROOT_DIR}}/target/release/stitchwort'
+  # The tests build `stitchwort` with native code, so that `build --native`
+  # is tested (crates/cli/tests/build.rs); the default binary leaves it out.
+  # The flake's test check passes the same.
+  TEST_FEATURES: '--features stitchwort-cli/native'
 
 tasks:
   default:
@@ -30,7 +34,7 @@ tasks:
   build:tests:
     desc: Build every release test binary, so the test tiers start at once
     cmds:
-      - cargo nextest run --release --workspace --no-run
+      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-run
 
   # ---------------------------------------------------------------- tests
 
@@ -53,7 +57,7 @@ tasks:
       STITCHWORT_TIER: lane
       EXAMPLES: '{{.NAME}}'
     cmds:
-      - cargo nextest run --release --workspace --profile lane-{{.AREA}} {{.CLI_ARGS}}
+      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile lane-{{.AREA}} {{.CLI_ARGS}}
 
   test:one:
     desc: 'Tests whose names match a filter, at the daily sample (task test:one -- named_calls)'
@@ -63,7 +67,7 @@ tasks:
       (`task test:one -- -E 'binary(lsp)'`). Corpus sweeps take the daily
       sample; set STITCHWORT_TIER=lane for the smallest, full for all.
     cmds:
-      - cargo nextest run --release --workspace {{.CLI_ARGS}}
+      - cargo nextest run --release --workspace {{.TEST_FEATURES}} {{.CLI_ARGS}}
 
   test:merge:
     desc: Merge tier, under 60 s; run after every merge
@@ -76,7 +80,7 @@ tasks:
       STITCHWORT_TIER: merge
     cmds:
       - cargo fmt --check
-      - cargo nextest run --release --workspace --profile merge {{.CLI_ARGS}}
+      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile merge {{.CLI_ARGS}}
 
   test:daily:
     desc: Daily tier, under 5 minutes; also what `nix flake check` runs
@@ -90,7 +94,7 @@ tasks:
     cmds:
       - cargo fmt --check
       - cargo clippy --release --all-targets -- --deny warnings
-      - cargo nextest run --release --workspace --profile daily {{.CLI_ARGS}}
+      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile daily {{.CLI_ARGS}}
       - cargo test --release --doc --workspace
       - cargo test -p stitchwort-driver --test builtins
       - task: board:test
@@ -105,7 +109,7 @@ tasks:
     env:
       STITCHWORT_TIER: full
     cmds:
-      - cargo nextest run --release --workspace --profile full {{.CLI_ARGS}}
+      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile full {{.CLI_ARGS}}
       - cargo test --release --doc --workspace
 
   test:gate:
@@ -170,7 +174,7 @@ tasks:
     env:
       INSTA_UPDATE: always
     cmds:
-      - cargo nextest run --release --workspace --no-fail-fast {{.CLI_ARGS}}
+      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-fail-fast {{.CLI_ARGS}}
       - git status --short -- '*.snap'
 
   guide:update:

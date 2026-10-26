@@ -12,6 +12,7 @@ publish.workspace = true
 crate-type = ["staticlib", "rlib"]
 
 [dependencies]
+stitchwort-core.workspace = true
 stitchwort-rt.workspace = true
 stitchwort-syntax.workspace = true
 stitchwort-host.workspace = true
@@ -20,6 +21,11 @@ mimalloc.workspace = true
 [target.'cfg(unix)'.dependencies]
 # Ignoring `SIGPIPE`, as Rust's own start-up does before a Rust `main`.
 nix.workspace = true
+
+[dev-dependencies]
+# The tests of `aot` (src/aot/tests.rs) check and lower programs to check
+# manifests against.
+stitchwort-driver.workspace = true
 
 [lints]
 workspace = true
