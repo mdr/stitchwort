@@ -1269,6 +1269,7 @@ dependencies = [
  "stitchwort-core",
  "stitchwort-driver",
  "stitchwort-rt",
+ "stitchwort-syntax",
 ]
 
 [[package]]

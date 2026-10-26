@@ -1,7 +1,6 @@
 //! The interface between the machine and native code (stage N1 of
 //! docs/proposals/native-compilation.md): what `stitchwort-native`'s
-//! compiled code reads and calls, and the one place the machine hands a call
-//! to it.
+//! compiled code reads and calls, and where the machine hands a call to it.
 //!
 //! **Values.** Native code works on the machine's own [`Value`]s, in its
 //! own layout: `Value` is `repr(u8)`, so its tag is the first byte and each
@@ -14,15 +13,17 @@
 //! at run time before any native code runs, and native code isn't used if
 //! one fails.
 //!
-//! **The crossing** ([`NativeIslands`]). Native code runs whole reachable
-//! islands (the note's §4.6): a function whose island (everything it can
-//! call or make) fits the N1 subset. The machine runs `main`'s glue, and
-//! where the entry body calls such a function, it hands the call over:
+//! **The crossing** ([`NativeIslands`]). Native code runs the bodies it has
+//! compiled (since stage N4, every body `main` reaches but the entry), and
+//! the machine hands a call over wherever it would push a frame for one: a
+//! `Call`, an exact `Apply` or `enter` (from the effect loop, the runner,
+//! eval/apply), and in tail positions a `TailCall` or exact `TailApply`
+//! (after `replace`'s step and release):
 //!
-//! - **Counting.** The machine's `Call` counts the step and checks the frame
-//!   limit for the island's root, exactly as for a frame it pushes, then
-//!   passes its counters in: the steps so far, and the frames pending
-//!   including the root's. Native code counts on from there by the
+//! - **Counting.** The machine counts the step and checks the frame limit
+//!   for the body, exactly as for a frame it pushes, then passes its
+//!   counters in: the steps so far, and the frames pending including the
+//!   body's. Native code counts on from there by the
 //!   machine's rules (a step and a frame for a call, a step for a tail
 //!   call) and hands the steps back, so a run counts the same whichever
 //!   runner did the work.
@@ -43,21 +44,30 @@
 //!   is `repr(u8)` too (its variant byte first, a global's or lambda's
 //!   index at byte 4, a closure's captures at bytes 8–23), so native code
 //!   reads a closure's captures and keys its apply caches on the first word
-//!   (`fun_key`). A root whose island applies function values is handed a
-//!   call only if every function value in its arguments has compiled code
-//!   ([`natively_callable`]); native code applies a function value through
-//!   the code [`Context`] lists for each global and lambda, or through
-//!   [`sw_apply_prepare`], which does what the machine's `apply` does. A
-//!   function value native code returns is the machine's to apply.
+//!   (`fun_key`). Native code applies a function value through the code
+//!   [`Context`] lists for each global and lambda, or through
+//!   [`sw_apply_prepare`], which does what the machine's `apply` does, and
+//!   has the machine enter what has no native code. A function value native
+//!   code returns is the machine's to apply.
+//! - **Back into the machine** (stage N4). What native code doesn't compile
+//!   (the effect runtime's natives but `bind`'s common case, `Text.fold`,
+//!   function values without native code) the machine runs for it, nested
+//!   on top of whatever is pending (`machine::nested`), counting on from
+//!   native code's counters. In a tail position native code leaves it as a
+//!   [`TailRequest`] instead ([`TAIL_REQUEST`]), which the nearest caller
+//!   not in a tail position has performed, or the machine, at the crossing:
+//!   so tail positions stay tail positions, and loops through the effect
+//!   runtime run in constant stack.
 
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 
 use stitchwort_core::ResourceError;
 
-use crate::code::{NO_REG, NumTable};
+use crate::code::{Image, NO_REG, NumTable};
+use crate::effect::EffectOp;
 use crate::ir::{GlobalKind, PrimOp, Program, Shapes};
-use crate::machine::Limits;
+use crate::machine::{Limits, State, Work, nested};
 use crate::value::{Fields, Fun, Value};
 
 // ------------------------------------------------------------ the layout
@@ -320,6 +330,13 @@ pub const OUT_OF_STEPS: u64 = 1;
 /// More frames than the limit, or the native stack's safety margin reached:
 /// [`ResourceError::Depth`].
 pub const OUT_OF_FRAMES: u64 = 2;
+/// Not an error: a frame left by a tail position that the machine has to
+/// run (a [`TailRequest`], kept in the [`NativeRun`]). Every native frame
+/// returns as for an error until one that called the frame making it, not
+/// in a tail position, which has the machine perform it in its place
+/// ([`sw_perform`]); or the crossing, which hands it to the machine. So a
+/// tail position stays one, through the machine and back.
+pub const TAIL_REQUEST: u64 = 3;
 
 /// What native code shares with the runtime, by pointer, as every
 /// function's first argument. `repr(C)`: compiled code reads and writes the
@@ -374,68 +391,75 @@ impl Context {
 /// reads, for the length of one call.
 pub struct NativeRun<'a> {
     pub program: &'a Program,
-    /// The machine's cache of global values.
-    pub globals: &'a mut [Option<Value>],
+    pub(crate) image: &'a Image,
+    /// The machine, waiting for the call: native code reads and fills its
+    /// cache of global values, adds to its effect counts, and runs it nested
+    /// (`machine::nested`) for what it doesn't compile.
+    pub(crate) state: *mut State,
     /// Steps so far in this stretch; native code's steps are added.
     pub steps: u64,
-    /// Frames pending, the island root's included.
+    /// Frames pending, the called body's included.
     pub frames: u64,
     pub limits: Limits,
+    /// What a tail position left for the machine to run
+    /// ([`TAIL_REQUEST`]), until something takes it.
+    pub request: Option<TailRequest>,
 }
 
-/// Native code for some of a program's functions: the machine calls it at
-/// the crossing (the module comment).
+impl NativeRun<'_> {
+    /// The machine's state.
+    #[allow(unsafe_code)]
+    fn state(&mut self) -> &mut State {
+        // SAFETY: the machine waits in the crossing while native code runs,
+        // so nothing else uses its state; each use here is brief and never
+        // overlaps a nested run's.
+        unsafe { &mut *self.state }
+    }
+}
+
+/// What native code left for the machine to run in a tail position: the
+/// machine's `TailApply` or `TailPrim` after the frame is popped. The
+/// frame's closure `env` (`Erased` for none) goes with it, since the
+/// machine drops the popped frame's once the call has begun.
+pub enum TailRequest {
+    /// A function value native code has no code for, with exactly the
+    /// arguments its head takes (a partial application's joined to the new
+    /// ones).
+    Apply {
+        f: Value,
+        args: Vec<Value>,
+        env: Value,
+    },
+    /// One of the effect runtime's natives.
+    Effect {
+        op: EffectOp,
+        args: Vec<Value>,
+        env: Value,
+    },
+}
+
+/// How a native call ended, when it didn't fail.
+pub enum NativeOut {
+    Value(Value),
+    /// With a tail position for the machine to run in its place.
+    Tail(TailRequest),
+}
+
+/// Native code for some of a program's bodies: the machine calls it
+/// wherever it would push a frame for one (the module comment).
 pub trait NativeIslands {
-    /// Whether a call of global `g` from the entry body may run natively.
-    fn is_root(&self, g: u32) -> bool;
-    /// Whether this call, with these arguments, runs natively. `false`
-    /// leaves it to the machine (an island that applies function values
-    /// can't take one from outside).
-    fn accepts(&self, g: u32, args: &[&Value]) -> bool;
-    /// Runs `g` on `args`; the steps it takes are added to `run.steps`.
+    /// Whether body `code` (an index into the image's codes) has native
+    /// code: a global function's or a lambda's.
+    fn compiled(&self, code: u32) -> bool;
+    /// Runs body `code` on `args`, with `env` the closure, for a lambda's
+    /// body; the steps it takes are added to `run.steps`.
     fn call(
         &self,
-        g: u32,
+        code: u32,
+        env: Option<Rc<Fun>>,
         args: Vec<Value>,
         run: &mut NativeRun<'_>,
-    ) -> Result<Value, ResourceError>;
-}
-
-/// Whether native code could apply every function value inside `v`: each
-/// is a global that `globals` (by global) says it can apply (a compiled
-/// function, or an applicable native), a closure of a compiled lambda
-/// (`lambdas`, by lambda, null for none) whose captures are callable too,
-/// `y => Done y`, or a partial application of one of those to callable
-/// values. A `Delay` is opaque to native code (it only builds them; the
-/// runner steps them), so what's inside it doesn't matter.
-pub fn natively_callable(globals: &[bool], lambdas: &[*const u8], v: &Value) -> bool {
-    let mut pending = vec![v];
-    while let Some(v) = pending.pop() {
-        match v {
-            Value::Data(_, fields) => pending.extend(fields.iter()),
-            Value::Fun(fun) => match &**fun {
-                Fun::Global(g) => {
-                    if !globals[*g as usize] {
-                        return false;
-                    }
-                }
-                Fun::Closure { lambda, captures } => {
-                    if lambdas[*lambda as usize].is_null() {
-                        return false;
-                    }
-                    pending.extend(captures.iter());
-                }
-                Fun::Pap { head, args } => {
-                    pending.push(head);
-                    pending.extend(args.iter());
-                }
-                Fun::DoneK => {}
-                _ => return false,
-            },
-            _ => {}
-        }
-    }
-    true
+    ) -> Result<NativeOut, ResourceError>;
 }
 
 // ------------------------------------------------------------ the helpers
@@ -745,7 +769,7 @@ pub unsafe extern "C" fn sw_num_switch(table: *const NumTable, v: *const Value) 
 pub unsafe extern "C" fn sw_global(context: *mut Context, g: u32, out: *mut Value) -> u64 {
     // SAFETY: the context's run outlives the native call.
     let run = unsafe { &mut *(*context).run };
-    if run.globals[g as usize].is_none()
+    if run.state().globals[g as usize].is_none()
         && let GlobalKind::Constant { .. } = run.program.globals[g as usize].kind
     {
         return 0;
@@ -762,7 +786,7 @@ pub unsafe extern "C" fn sw_global(context: *mut Context, g: u32, out: *mut Valu
 pub unsafe extern "C" fn sw_global_set(context: *mut Context, g: u32, v: *const Value) {
     // SAFETY: as for `sw_global`.
     let run = unsafe { &mut *(*context).run };
-    run.globals[g as usize] = Some(unsafe { (*v).clone() });
+    run.state().globals[g as usize] = Some(unsafe { (*v).clone() });
 }
 
 /// Whether a native operation can be applied by native code (through
@@ -786,14 +810,14 @@ fn internal(what: std::fmt::Arguments<'_>) -> ! {
 /// Global `g`'s value, if it's known: the cached value, or for a function
 /// or a native a new function value, kept (the machine's `function_value`).
 fn function_value(run: &mut NativeRun<'_>, g: u32) -> Value {
-    if let Some(v) = &run.globals[g as usize] {
+    if let Some(v) = &run.state().globals[g as usize] {
         return v.clone();
     }
     let v = match &run.program.globals[g as usize].kind {
         GlobalKind::Native(op) if op.arity() == 0 => Value::Erased,
         _ => Value::Fun(Rc::new(Fun::Global(g))),
     };
-    run.globals[g as usize] = Some(v.clone());
+    run.state().globals[g as usize] = Some(v.clone());
     v
 }
 
@@ -924,17 +948,26 @@ impl ApplyPlan {
 /// Writes an [`ApplyPlan`] at `plan`; `args` may point into it (every
 /// argument is read before anything is written).
 ///
-/// Island admission and the crossing make sure that every function value
-/// native code meets can be applied here ([`natively_callable`]); anything
-/// else is an internal error.
+/// A head native code has no code for (a resumption and the effect
+/// runtime's other function values, a native that runs on the machine's
+/// frames, a body that isn't compiled) is the machine's to enter
+/// (stage N4): in a tail position (`tail`, and nothing left over), as a
+/// [`TailRequest`] with the frame's closure `env` (taken), and
+/// [`TAIL_REQUEST`] set; otherwise run nested, on `frames` frames pending
+/// (the caller's), its value the plan's. Native code has written its steps
+/// to the context first. A failure there sets the context's error, and the
+/// plan then holds only the over-application's values.
 ///
 /// # Safety
 /// `context` is the running context; `f` and `args` point at values native
 /// code owns; `plan` at an `ApplyPlan` header followed by room for its
-/// `cap` values.
-#[allow(unsafe_code)]
+/// `cap` values; `env` is a closure's address word native code owns, or 0.
+#[allow(unsafe_code, clippy::too_many_arguments)]
 pub unsafe extern "C" fn sw_apply_prepare(
     context: *mut Context,
+    frames: u64,
+    tail: u64,
+    env_in: u64,
     f: *mut Value,
     args: *mut Value,
     n: u64,
@@ -943,7 +976,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
     // SAFETY: the caller's contract; the values are moved out and not used
     // again by the caller.
     let (run, functions, lambdas) =
-        unsafe { (&*(*context).run, (*context).functions, (*context).lambdas) };
+        unsafe { (&mut *(*context).run, (*context).functions, (*context).lambdas) };
     let program = run.program;
     let f = unsafe { f.read() };
     let args: Vec<Value> = (0..n as usize)
@@ -969,6 +1002,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
     let mut env = 0u64;
     let mut value = None;
     let mut rest = Vec::new();
+    let mut machine = false;
     if total < arity {
         value = Some(Value::Fun(Rc::new(Fun::Pap {
             head: head.clone(),
@@ -995,16 +1029,15 @@ pub unsafe extern "C" fn sw_apply_prepare(
                     // SAFETY: the table has an entry for every global.
                     code = unsafe { *functions.add(*g as usize) };
                 }
-                _ => internal(format_args!(
-                    "applied `{}`",
-                    program.globals[*g as usize].name
-                )),
+                _ => {}
             },
             Fun::Closure { lambda, .. } => {
                 // SAFETY: the table has an entry for every lambda.
                 code = unsafe { *lambdas.add(*lambda as usize) };
-                let closure = std::mem::ManuallyDrop::new(Value::Fun(h.clone()));
-                env = words(&closure)[1];
+                if !code.is_null() {
+                    let closure = std::mem::ManuallyDrop::new(Value::Fun(h.clone()));
+                    env = words(&closure)[1];
+                }
             }
             Fun::DoneK => {
                 value = Some(Value::data_vec(
@@ -1012,10 +1045,31 @@ pub unsafe extern "C" fn sw_apply_prepare(
                     std::mem::take(&mut all),
                 ));
             }
-            _ => internal(format_args!("applied {head:?}")),
+            _ => {}
         }
-        if value.is_none() && code.is_null() {
-            internal(format_args!("applied {head:?}, which isn't compiled"));
+        machine = value.is_none() && code.is_null();
+    }
+    let mut f = Some(f);
+    if machine {
+        let f = f.take().expect("the function value");
+        let all = std::mem::take(&mut all);
+        if tail != 0 && rest.is_empty() {
+            // SAFETY: the caller's contract: a closure's word it owns.
+            let env = unsafe { closure_value(env_in) };
+            run.request = Some(TailRequest::Apply { f, args: all, env });
+            // SAFETY: the running context.
+            unsafe { (*context).error = TAIL_REQUEST };
+        } else {
+            // SAFETY: the running context.
+            let steps = unsafe { &mut (*context).steps };
+            match nested(run, frames, steps, Work::Enter(f, all)) {
+                Ok(v) => value = Some(v),
+                Err(e) => {
+                    // SAFETY: the running context.
+                    unsafe { (*context).error = error_code(e) };
+                    value = Some(Value::Erased);
+                }
+            }
         }
     }
     let exact = all.len();
@@ -1025,7 +1079,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
     unsafe {
         if exact + after > (*plan).cap as usize {
             internal(format_args!(
-                "applied {f:?} to more arguments than it made room for"
+                "applied a function value to more arguments than it made room for"
             ));
         }
         let to = plan
@@ -1044,6 +1098,37 @@ pub unsafe extern "C" fn sw_apply_prepare(
         }
     }
     drop(f);
+}
+
+/// A closure's address word (its `Rc`'s allocation, as a function value
+/// holds it at byte 8), for native code, which owns the reference from then
+/// on.
+pub fn into_word(f: Rc<Fun>) -> u64 {
+    Rc::into_raw(f) as u64 - RC_VALUE_AT as u64
+}
+
+/// The value of a closure's address word native code owns (0 for none:
+/// `Erased`).
+///
+/// # Safety
+/// `word` is 0 or the address word of a function value native code owns,
+/// which it gives up.
+#[allow(unsafe_code)]
+unsafe fn closure_value(word: u64) -> Value {
+    if word == 0 {
+        Value::Erased
+    } else {
+        // SAFETY: the caller's contract.
+        unsafe { from_words(u64::from(TAG_FUN), word, 0) }
+    }
+}
+
+/// The context's error for `e`.
+fn error_code(e: ResourceError) -> u64 {
+    match e {
+        ResourceError::Work => OUT_OF_STEPS,
+        _ => OUT_OF_FRAMES,
+    }
 }
 
 /// `Closure`: a closure of `lambda` capturing the `n` values at `args`
@@ -1124,5 +1209,166 @@ pub unsafe extern "C" fn sw_unary(
             _ => crate::prims::chars(shapes, crate::prims::text_of(src)),
         };
         *dst = v;
+    }
+}
+
+// ------------------------------------------------- the effect runtime (N4)
+//
+// What native code doesn't compile, it has the machine run, nested on top
+// of whatever is pending (`machine::nested`): the effect runtime's natives
+// other than `bind`'s common case, `Text.fold`, and (in `sw_apply_prepare`)
+// function values without native code. The machine runs them as it always
+// does, on its own frames and with its own counting, so the effect values
+// are the same; whatever it calls that has native code runs natively. Each
+// of these is given the frames pending (the caller's own included), and
+// native code writes its steps to the context before the call and reads
+// them back after.
+
+/// `bind c k`, up to the call: for `c` = `Done x` (the cell taken apart as
+/// the machine's `field` does), writes `x` to `out` and returns 1, and
+/// native code then applies `k` (which it still owns) to it; otherwise
+/// writes the node `Bind c k` (both moved in) and returns 0.
+///
+/// # Safety
+/// `context` is the running context; `c` and `k` point at values native
+/// code owns (`c` is taken; `k` only if it returns 0); `out` at space for
+/// one.
+#[allow(unsafe_code)]
+pub unsafe extern "C" fn sw_bind(
+    context: *mut Context,
+    c: *mut Value,
+    k: *mut Value,
+    out: *mut Value,
+) -> u64 {
+    // SAFETY: the caller's contract.
+    let run = unsafe { &mut *(*context).run };
+    let s = run.program.shapes;
+    match unsafe { c.read() } {
+        Value::Data(tag, fields) if tag == s.done => {
+            unsafe { out.write(crate::machine::field(fields, 0)) };
+            1
+        }
+        c => {
+            let k = unsafe { k.read() };
+            run.state().counts.binds += 1;
+            unsafe { out.write(Value::data(s.bind_node, [c, k])) };
+            0
+        }
+    }
+}
+
+/// Writes the outcome of a nested run to `out`: its value, or `Erased` with
+/// the context's error set.
+///
+/// # Safety
+/// `context` is the running context; `out` points at space for a value.
+#[allow(unsafe_code)]
+unsafe fn deliver(context: *mut Context, result: Result<Value, ResourceError>, out: *mut Value) {
+    let v = match result {
+        Ok(v) => v,
+        Err(e) => {
+            // SAFETY: the caller's contract.
+            unsafe { (*context).error = error_code(e) };
+            Value::Erased
+        }
+    };
+    // SAFETY: the caller's contract.
+    unsafe { out.write(v) };
+}
+
+/// One of the effect runtime's natives (`op`, an `Effect` operation) on
+/// the `n` values at `args` (moved), run by the machine; its value to
+/// `out`.
+///
+/// # Safety
+/// `context` is the running context; `op` points at an operation; `args`
+/// at `n` values native code owns; `out` at space for one.
+#[allow(unsafe_code)]
+pub unsafe extern "C" fn sw_effect(
+    context: *mut Context,
+    frames: u64,
+    op: *const PrimOp,
+    args: *mut Value,
+    n: u64,
+    out: *mut Value,
+) {
+    // SAFETY: the caller's contract.
+    unsafe {
+        let PrimOp::Effect(op) = *op else {
+            internal(format_args!("ran {:?} as an effect native", *op))
+        };
+        let args: Vec<Value> = (0..n as usize).map(|i| args.add(i).read()).collect();
+        let run = &mut *(*context).run;
+        let result = nested(run, frames, &mut (*context).steps, Work::Effect(op, args));
+        deliver(context, result, out);
+    }
+}
+
+/// `Text.fold text initial f` on the three values at `args` (moved, in that
+/// order), run by the machine; its value to `out`.
+///
+/// # Safety
+/// As [`sw_effect`], with three values.
+#[allow(unsafe_code)]
+pub unsafe extern "C" fn sw_fold(
+    context: *mut Context,
+    frames: u64,
+    args: *mut Value,
+    out: *mut Value,
+) {
+    // SAFETY: the caller's contract.
+    unsafe {
+        let (t, z, f) = (args.read(), args.add(1).read(), args.add(2).read());
+        let run = &mut *(*context).run;
+        let result = nested(run, frames, &mut (*context).steps, Work::Fold(t, z, f));
+        deliver(context, result, out);
+    }
+}
+
+/// `TailPrim` of an effect native: its frame released, native code leaves
+/// the operation (`op`, on the `n` values at `args`, moved) and its closure
+/// `env` (taken; 0 for none) for the machine as a [`TailRequest`], and
+/// returns.
+///
+/// # Safety
+/// As [`sw_effect`]; `env` as for [`sw_apply_prepare`].
+#[allow(unsafe_code)]
+pub unsafe extern "C" fn sw_tail_effect(
+    context: *mut Context,
+    op: *const PrimOp,
+    args: *mut Value,
+    n: u64,
+    env: u64,
+) {
+    // SAFETY: the caller's contract.
+    unsafe {
+        let PrimOp::Effect(op) = *op else {
+            internal(format_args!("ran {:?} as an effect native", *op))
+        };
+        let args: Vec<Value> = (0..n as usize).map(|i| args.add(i).read()).collect();
+        let env = closure_value(env);
+        (*(*context).run).request = Some(TailRequest::Effect { op, args, env });
+        (*context).error = TAIL_REQUEST;
+    }
+}
+
+/// A callee left a [`TailRequest`]: the machine performs it here, with
+/// `frames` pending (the caller's), as it would have after popping the
+/// callee's frame; its value to `out`, and the context's error cleared
+/// (unless the machine failed).
+///
+/// # Safety
+/// As [`sw_effect`].
+#[allow(unsafe_code)]
+pub unsafe extern "C" fn sw_perform(context: *mut Context, frames: u64, out: *mut Value) {
+    // SAFETY: the caller's contract.
+    unsafe {
+        let run = &mut *(*context).run;
+        let Some(request) = run.request.take() else {
+            internal(format_args!("found no tail request to perform"))
+        };
+        (*context).error = OK;
+        let result = nested(run, frames, &mut (*context).steps, Work::Perform(request));
+        deliver(context, result, out);
     }
 }
