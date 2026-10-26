@@ -60,7 +60,7 @@ def Level.build (depth: Nat) (entrance: Area) (exit: Area) (rooms: List Area) (c
   { undrawn | terrain = drawTerrain undrawn }
 
 def drawTerrain (level: Level): List (List Char) :=
-  (List.range levelRows).map (row => (List.range levelColumns).map (column => terrainAt level { row, column }))
+  List.range levelRows |> .map (row => List.range levelColumns |> .map (column => terrainAt level { row, column }))
 
 def terrainAt (level: Level) (position: Position): Char :=
   if isStairs level position then '>'

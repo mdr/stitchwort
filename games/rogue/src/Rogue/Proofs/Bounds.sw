@@ -135,11 +135,11 @@ theorem floorOnScreen (level: Level) (entranceFits: OnMap level.entrance) (exitF
 
 -- The terrain is drawn 20 rows by 66 columns, whatever the level.
 theorem terrainRows (level: Level): (drawTerrain level).length = levelRows :=
-  Eq.trans (List.lengthMap (List.range levelRows) (row => (List.range levelColumns).map (column => terrainAt level { row, column })))
+  Eq.trans (List.lengthMap (List.range levelRows) (row => List.range levelColumns |> .map (column => terrainAt level { row, column })))
     (List.lengthRangeFrom levelRows 0)
 
 theorem terrainColumns (level: Level) (row: Nat) (small: row < levelRows): ((drawTerrain level).getOr [] row).length = levelColumns :=
-  let cellsOf: Nat → List Char := index => (List.range levelColumns).map (column => terrainAt level { row = index, column })
+  let cellsOf: Nat → List Char := index => List.range levelColumns |> .map (column => terrainAt level { row = index, column })
   let picked: (drawTerrain level).getOr [] row = cellsOf (row + 0) := List.getOrMapRange cellsOf [] levelRows 0 row small
   let counted: (cellsOf (row + 0)).length = levelColumns :=
     Eq.trans (List.lengthMap (List.range levelColumns) (column => terrainAt level { row = row + 0, column })) (List.lengthRangeFrom levelColumns 0)

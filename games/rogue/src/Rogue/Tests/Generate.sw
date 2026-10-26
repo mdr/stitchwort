@@ -13,7 +13,7 @@ def seeds: List Nat := List.range 40
 def planned (seed: Nat) (depth: Nat): Plan := seeded seed (() => generateLevel depth)
 
 -- Every plan the tests look at: each seed at each depth.
-def plans: List Plan := seeds.flatMap (seed => (List.between 1 deepest).map (depth => planned seed depth))
+def plans: List Plan := seeds.flatMap (seed => List.between 1 deepest |> .map (depth => planned seed depth))
 
 -- Search
 
@@ -33,12 +33,12 @@ def explore (level: Level): Nat → List Position → Set Nat → Set Nat
     let fresh := [North, South, West, East].map cell.toward |> .filter (next => ¬isWall level next ∧ ¬seen.contains (keyOf next))
     explore level fuel (fresh ++ pending) (fresh.foldLeft seen (cells next => cells.insert (keyOf next)))
 
-def canReachGoal (level: Level): Bool := (reachableFrom level level.start).contains (keyOf level.goal)
+def canReachGoal (level: Level): Bool := reachableFrom level level.start |> .contains (keyOf level.goal)
 
 -- Every floor cell can be reached, not only the goal: no room is cut off.
 def allFloorReachable (level: Level): Bool :=
   let reached := reachableFrom level level.start
-  (List.range levelRows).all (row => (List.range levelColumns).all (column => isWall level { row, column } ∨ reached.contains (keyOf { row, column })))
+  List.range levelRows |> .all (row => List.range levelColumns |> .all (column => isWall level { row, column } ∨ reached.contains (keyOf { row, column })))
 
 -- An area lies inside the screen, with rock all round the edge.
 def fitsOnScreen (area: Area): Bool :=
@@ -53,10 +53,10 @@ test "the search doesn't cross rock" := ¬canReachGoal { testLevel | corridors =
 -- Every level can be played
 
 test "the goal can be reached from the start, on every seed and depth" := plans.all (plan => canReachGoal plan.level)
-test "every floor cell can be reached" := (seeds.take 10).all (seed => allFloorReachable (planned seed 1).level)
+test "every floor cell can be reached" := seeds.take 10 |> .all (seed => allFloorReachable (planned seed 1).level)
 test "the start and the goal are different cells, in different rooms" :=
   plans.all (plan => plan.level.start ≠ plan.level.goal ∧ ¬plan.level.exit.contains plan.level.start)
-test "every room and corridor fits on the screen" := plans.all (plan => (plan.level.rooms ++ plan.level.corridors).all fitsOnScreen)
+test "every room and corridor fits on the screen" := plans.all (plan => plan.level.rooms ++ plan.level.corridors |> .all fitsOnScreen)
 test "six rooms" := plans.all (plan => plan.level.rooms.length == 6)
 test "the terrain is drawn at the size of the screen" :=
   plans.all (plan => plan.level.terrain.length == levelRows ∧ plan.level.terrain.all (row => row.length == levelColumns))

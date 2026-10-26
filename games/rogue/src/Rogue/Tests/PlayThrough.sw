@@ -53,8 +53,8 @@ test "keys that aren't commands are skipped, with no frame" :=
   let (frames, final) := simulateGame [Printable 'x', Unknown, Enter, Printable '.', Printable '?', Printable '.']
   final.turn == 2 ∧ frames.length == 4
 test "the arrows move" :=
-  let start := (simulateGame []).snd.player
-  let moved := (simulateGame [Right, Right, Left, Down, Up, Right]).snd.player
+  let start := simulateGame [] |> .snd |> .player
+  let moved := simulateGame [Right, Right, Left, Down, Up, Right] |> .snd |> .player
   moved == { start | column = start.column + 2 }
 test "the arrows, as commands" := [Up, Down, Left, Right].map commandOf == [Some (Move North), Some (Move South), Some (Move West), Some (Move East)]
 test "other keys aren't commands" := [Unknown, Enter, Key.Escape, Printable 'x'].map commandOf == [None, None, None, None]
@@ -101,7 +101,7 @@ def firstMap: Text := """
   |                                                   ##########     |"""
 
 test "the first frame draws the first level" :=
-  let lines := (simulateGame []).fst.head |> .getOrElse []
+  let lines := simulateGame [] |> .fst |> .head |> .getOrElse []
   lines.take levelRows |> .map (row => "|${row}|") == firstMap.lines ∧
     lines.drop levelRows == ["Level 1/3   HP 12/12   Potions 0   Blows 2-4   Turn 0", keysLine, "Find the amulet, 3 levels down."]
 
