@@ -577,8 +577,12 @@ impl Audit {
         let mut host = Vec::new();
         if cfg!(debug_assertions) || listing {
             fn span<T>(host: &mut Vec<(u64, u64)>, items: &[T]) {
-                let start = items.as_ptr() as u64;
-                host.push((start, start + size_of_val(items).max(1) as u64));
+                // An empty slice's pointer is a dangling one (its
+                // alignment), not an object.
+                if size_of_val(items) > 0 {
+                    let start = items.as_ptr() as u64;
+                    host.push((start, start + size_of_val(items) as u64));
+                }
             }
             fn one<T>(host: &mut Vec<(u64, u64)>, item: &T) {
                 span(host, std::slice::from_ref(item));
