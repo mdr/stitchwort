@@ -55,7 +55,7 @@ use std::rc::Rc;
 
 use stitchwort_core::ResourceError;
 
-use crate::code::{NO_REG, NumTable};
+use crate::code::{Image, Instr, NO_REG, NumTable};
 use crate::ir::{GlobalKind, PrimOp, Program, Shapes};
 use crate::machine::Limits;
 use crate::value::{Fields, Fun, Value};
@@ -350,6 +350,9 @@ pub struct Context {
     pub lambdas: *const *const u8,
     /// The run this is part of.
     pub run: *mut NativeRun<'static>,
+    /// What compiled code refers to by number ([`Tables`]): it holds no
+    /// address of the host's, so the same code can go into an object file.
+    pub tables: *const Tables,
 }
 
 impl Context {
@@ -359,6 +362,7 @@ impl Context {
     pub const FRAME_LIMIT_AT: i32 = std::mem::offset_of!(Context, frame_limit) as i32;
     pub const ERROR_AT: i32 = std::mem::offset_of!(Context, error) as i32;
     pub const STACK_LIMIT_AT: i32 = std::mem::offset_of!(Context, stack_limit) as i32;
+    pub const TABLES_AT: i32 = std::mem::offset_of!(Context, tables) as i32;
 
     /// The error native code stopped with, if any.
     pub fn result(&self) -> Result<(), ResourceError> {
@@ -366,6 +370,152 @@ impl Context {
             OK => Ok(()),
             OUT_OF_STEPS => Err(ResourceError::Work),
             _ => Err(ResourceError::Depth),
+        }
+    }
+}
+
+// ------------------------------------------------------------- the tables
+
+/// The things compiled code uses that live in the host's memory, which it
+/// reaches through [`Context::tables`] by number rather than by an address
+/// baked into the code (stage S4 of docs/proposals/standalone-executables.md:
+/// the same code then works in an object file, linked into another process).
+/// `repr(C)`: compiled code reads `pool` and `caches` at
+/// [`Tables::POOL_AT`] and [`Tables::CACHES_AT`]; the helpers read the rest.
+///
+/// The numbering is [`Numbering`]'s, a function of the image alone, so a
+/// runtime that rebuilds the image can rebuild the tables.
+#[repr(C)]
+pub struct Tables {
+    /// The image's constant pool: constant `k` at `pool + 24·k`.
+    pub pool: *const Value,
+    /// The program's shapes, for the native operations.
+    pub shapes: *const Shapes,
+    /// Every body's number tables, numbered by [`Numbering::num_table`].
+    pub num_tables: *const *const NumTable,
+    /// The operations of the image's `Prim`s and `Test`s, numbered by
+    /// [`Numbering::op`].
+    pub ops: *const PrimOp,
+    /// One cache per `Apply` site of the compiled code, numbered by the
+    /// compiler.
+    pub caches: *mut ApplyCache,
+    pub n_caches: u64,
+}
+
+impl Tables {
+    pub const POOL_AT: i32 = std::mem::offset_of!(Tables, pool) as i32;
+    pub const CACHES_AT: i32 = std::mem::offset_of!(Tables, caches) as i32;
+}
+
+/// How compiled code numbers an image's operations and number tables: in
+/// the order the image's bodies, then their instructions, first use them.
+/// Deterministic, so the compiler and a runtime that rebuilt the image from
+/// the same program agree.
+pub struct Numbering {
+    /// Each distinct operation of a `Prim` or `Test`, in order of first use.
+    pub ops: Vec<PrimOp>,
+    /// For each body, the number of its first number table.
+    num_table_base: Vec<u32>,
+    /// How many number tables the image has.
+    num_tables: u32,
+}
+
+impl Numbering {
+    pub fn of(image: &Image) -> Numbering {
+        let mut ops = Vec::new();
+        let mut num_table_base = Vec::with_capacity(image.codes.len());
+        let mut num_tables = 0u32;
+        for code in &image.codes {
+            num_table_base.push(num_tables);
+            num_tables += code.num_tables.len() as u32;
+            for instr in &code.instrs {
+                if let Instr::Prim { op, .. } | Instr::Test { op, .. } = instr
+                    && !ops.contains(op)
+                {
+                    ops.push(*op);
+                }
+            }
+        }
+        Numbering {
+            ops,
+            num_table_base,
+            num_tables,
+        }
+    }
+
+    /// The number of `op`, which the image uses in a `Prim` or `Test`.
+    pub fn op(&self, op: PrimOp) -> u32 {
+        self.ops
+            .iter()
+            .position(|o| *o == op)
+            .expect("the image uses the operation") as u32
+    }
+
+    /// The number of body `code`'s number table `table`.
+    pub fn num_table(&self, code: u32, table: u32) -> u32 {
+        self.num_table_base[code as usize] + table
+    }
+}
+
+/// The memory a [`Tables`] points into that it owns (the number tables'
+/// addresses, the operations, the caches); the pool and the shapes are the
+/// image's and the program's, which must outlive it.
+pub struct TableStore {
+    tables: *mut Tables,
+    num_tables: *mut [*const NumTable],
+    ops: *mut [PrimOp],
+    caches: *mut [ApplyCache],
+}
+
+impl TableStore {
+    /// The tables for compiled code of `image` (of `program`) with
+    /// `n_caches` `Apply` sites.
+    pub fn new(program: &Program, image: &Image, n_caches: usize) -> TableStore {
+        let numbering = Numbering::of(image);
+        let num_tables: Box<[*const NumTable]> = image
+            .codes
+            .iter()
+            .flat_map(|code| code.num_tables.iter().map(|t| t as *const NumTable))
+            .collect();
+        debug_assert_eq!(num_tables.len(), numbering.num_tables as usize);
+        let ops: Box<[PrimOp]> = numbering.ops.into_boxed_slice();
+        let caches: Box<[ApplyCache]> = (0..n_caches).map(|_| ApplyCache::new()).collect();
+        // Raw from here on: compiled code reads and writes through them.
+        let num_tables = Box::into_raw(num_tables);
+        let ops = Box::into_raw(ops);
+        let caches = Box::into_raw(caches);
+        let tables = Box::into_raw(Box::new(Tables {
+            pool: image.pool.as_ptr(),
+            shapes: &program.shapes,
+            num_tables: num_tables.cast::<*const NumTable>(),
+            ops: ops.cast::<PrimOp>(),
+            caches: caches.cast::<ApplyCache>(),
+            n_caches: n_caches as u64,
+        }));
+        TableStore {
+            tables,
+            num_tables,
+            ops,
+            caches,
+        }
+    }
+
+    /// For [`Context::tables`].
+    pub fn tables(&self) -> *const Tables {
+        self.tables
+    }
+}
+
+impl Drop for TableStore {
+    #[allow(unsafe_code)]
+    fn drop(&mut self) {
+        // SAFETY: each came from `Box::into_raw` in `new` and is freed once;
+        // no compiled code runs once the store is dropped.
+        unsafe {
+            drop(Box::from_raw(self.tables));
+            drop(Box::from_raw(self.num_tables));
+            drop(Box::from_raw(self.ops));
+            drop(Box::from_raw(self.caches));
         }
     }
 }
@@ -486,6 +636,7 @@ unsafe fn from_words(w0: u64, w1: u64, w2: u64) -> Value {
 /// # Safety
 /// The words are a value native code owns, and no longer uses.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_drop_words(w0: u64, w1: u64, w2: u64) {
     // SAFETY: the caller's contract.
     drop(unsafe { from_words(w0, w1, w2) });
@@ -497,6 +648,7 @@ pub unsafe extern "C" fn sw_drop_words(w0: u64, w1: u64, w2: u64) {
 /// # Safety
 /// The words are a live value native code holds.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
     // SAFETY: the caller's contract; the value read from the words isn't
     // dropped, so only the clone's count remains.
@@ -520,6 +672,7 @@ pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
 /// As [`sw_global`]; `regs` points at `n` initialised values, which native
 /// code doesn't use again.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_unwind(context: *mut Context, regs: *mut Value, n: u64, mode: u64) {
     // SAFETY: the caller's contract.
     let run = unsafe { &mut *(*context).run };
@@ -545,6 +698,7 @@ pub unsafe extern "C" fn sw_unwind(context: *mut Context, regs: *mut Value, n: u
 /// `regs` points at `n` initialised values, which native code doesn't use
 /// again.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_release_up(regs: *mut Value, n: u64) {
     for i in 0..n as usize {
         // SAFETY: within the values.
@@ -558,6 +712,7 @@ pub unsafe extern "C" fn sw_release_up(regs: *mut Value, n: u64) {
 /// # Safety
 /// `fields` points at `n` values native code owns; `out` at space for one.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_ctor(tag: u32, fields: *mut Value, n: u64, out: *mut Value) {
     // SAFETY: the caller's contract; the values are moved out (copied
     // bitwise into the new cell, which is then the only owner), and the
@@ -585,6 +740,7 @@ pub unsafe extern "C" fn sw_ctor(tag: u32, fields: *mut Value, n: u64, out: *mut
 /// whose every field has been moved out (and may still hold the moved
 /// value's words).
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_free_emptied(w0: u64, w1: u64, w2: u64) {
     // SAFETY: the caller's contract.
     let Value::Data(_, fields) = (unsafe { from_words(w0, w1, w2) }) else {
@@ -609,6 +765,7 @@ pub unsafe extern "C" fn sw_free_emptied(w0: u64, w1: u64, w2: u64) {
 /// # Safety
 /// As [`sw_ctor`], and `token` points at a register.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_ctor_reuse(
     tag: u32,
     fields: *mut Value,
@@ -649,6 +806,7 @@ fn unique(cell: &Rc<[Value]>) -> bool {
 /// `regs` points at the frame's registers, which every index is within;
 /// `pairs` at `2 * n` indices.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_unpack(
     regs: *mut Value,
     src: u32,
@@ -688,6 +846,7 @@ pub unsafe extern "C" fn sw_unpack(
 /// # Safety
 /// `cell` is the address word of a unique cell of `n` fields.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_empty_cell(cell: u64, n: u64) {
     let fields = (cell + RC_VALUE_AT as u64) as *mut Value;
     for i in 0..n as usize {
@@ -701,6 +860,7 @@ pub unsafe extern "C" fn sw_empty_cell(cell: u64, n: u64) {
 /// # Safety
 /// Both point at registers.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_drop_reuse(src: *mut Value, token: *mut Value) {
     // SAFETY: the caller's contract.
     let v = match std::mem::take(unsafe { &mut *src }) {
@@ -719,21 +879,38 @@ pub unsafe extern "C" fn sw_drop_reuse(src: *mut Value, token: *mut Value) {
 /// written to register `dst` as the machine's `Prim` writes it.
 ///
 /// # Safety
-/// `shapes` and `op` point at the program's shapes and an operation;
-/// `args` at `n` pointers to live values; `dst` at a register.
+/// `context` is the running context and `op` an operation's number in its
+/// tables; `args` points at `n` pointers to live values, `dst` at a
+/// register.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_prim(
-    shapes: *const Shapes,
-    op: *const PrimOp,
+    context: *const Context,
+    op: u32,
     args: *const *const Value,
     n: u64,
     dst: *mut Value,
 ) {
     // SAFETY: the caller's contract.
     unsafe {
+        let (shapes, op) = shapes_and_op(context, op);
         let refs: Vec<&Value> = (0..n as usize).map(|i| &**args.add(i)).collect();
-        let v = crate::prims::eval(&*shapes, *op, &refs);
+        let v = crate::prims::eval(shapes, op, &refs);
         *dst = v;
+    }
+}
+
+/// The program's shapes and operation `op`, from the context's tables.
+///
+/// # Safety
+/// As [`sw_prim`].
+#[allow(unsafe_code)]
+unsafe fn shapes_and_op<'a>(context: *const Context, op: u32) -> (&'a Shapes, PrimOp) {
+    // SAFETY: the caller's contract: the tables outlive the native call,
+    // and `op` is within them.
+    unsafe {
+        let tables = &*(*context).tables;
+        (&*tables.shapes, *tables.ops.add(op as usize))
     }
 }
 
@@ -743,17 +920,18 @@ pub unsafe extern "C" fn sw_prim(
 /// # Safety
 /// As [`sw_prim`], without `dst`.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_test(
-    shapes: *const Shapes,
-    op: *const PrimOp,
+    context: *const Context,
+    op: u32,
     args: *const *const Value,
     n: u64,
 ) -> u64 {
     // SAFETY: the caller's contract.
     unsafe {
-        let s = &*shapes;
+        let (s, op) = shapes_and_op(context, op);
         let refs: Vec<&Value> = (0..n as usize).map(|i| &**args.add(i)).collect();
-        match crate::prims::eval(s, *op, &refs).tag() {
+        match crate::prims::eval(s, op, &refs).tag() {
             Some(t) if t == s.true_ => 1,
             Some(t) if t == s.false_ => 0,
             other => panic!("internal error: a test made {other:?}"),
@@ -766,6 +944,7 @@ pub unsafe extern "C" fn sw_test(
 /// # Safety
 /// Both point at registers.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_nat_pred(src: *const Value, dst: *mut Value) {
     // SAFETY: the caller's contract.
     unsafe {
@@ -780,11 +959,19 @@ pub unsafe extern "C" fn sw_nat_pred(src: *const Value, dst: *mut Value) {
 /// Where a `NumSwitch` on the value at `v` jumps.
 ///
 /// # Safety
-/// `table` points at a table of the image; `v` at a register.
+/// `context` is the running context and `table` a number table's number in
+/// its tables; `v` points at a register.
 #[allow(unsafe_code)]
-pub unsafe extern "C" fn sw_num_switch(table: *const NumTable, v: *const Value) -> u64 {
-    // SAFETY: the caller's contract.
-    u64::from(crate::prims::num_switch(unsafe { &*table }, unsafe { &*v }))
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sw_num_switch(
+    context: *const Context,
+    table: u32,
+    v: *const Value,
+) -> u64 {
+    // SAFETY: the caller's contract: the tables outlive the native call,
+    // and `table` is within them.
+    let table = unsafe { &**(*(*context).tables).num_tables.add(table as usize) };
+    u64::from(crate::prims::num_switch(table, unsafe { &*v }))
 }
 
 /// `Global g`: if its value is known (a constant computed, or a function
@@ -794,6 +981,7 @@ pub unsafe extern "C" fn sw_num_switch(table: *const NumTable, v: *const Value) 
 /// # Safety
 /// `context` is the running context; `out` points at space for a value.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_global(context: *mut Context, g: u32, out: *mut Value) -> u64 {
     // SAFETY: the context's run outlives the native call.
     let run = unsafe { &mut *(*context).run };
@@ -811,6 +999,7 @@ pub unsafe extern "C" fn sw_global(context: *mut Context, g: u32, out: *mut Valu
 /// # Safety
 /// As [`sw_global`]; `v` points at a live value.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_global_set(context: *mut Context, g: u32, v: *const Value) {
     // SAFETY: as for `sw_global`.
     let run = unsafe { &mut *(*context).run };
@@ -894,6 +1083,7 @@ impl Default for ApplyCache {
 /// `context` is the running context; `f` points at a live value; `cache`
 /// at a live cache.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_apply_cached(
     context: *mut Context,
     f: *const Value,
@@ -985,6 +1175,7 @@ impl ApplyPlan {
 /// code owns; `plan` at an `ApplyPlan` header followed by room for its
 /// `cap` values.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_apply_prepare(
     context: *mut Context,
     f: *mut Value,
@@ -1104,6 +1295,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
 /// # Safety
 /// As [`sw_ctor`].
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_closure(lambda: u32, args: *mut Value, n: u64, out: *mut Value) {
     // SAFETY: the caller's contract.
     let captures: Box<[Value]> = (0..n as usize)
@@ -1118,6 +1310,7 @@ pub unsafe extern "C" fn sw_closure(lambda: u32, args: *mut Value, n: u64, out: 
 /// # Safety
 /// As [`sw_global`] and [`sw_ctor`].
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_pap(
     context: *mut Context,
     g: u32,
@@ -1139,6 +1332,7 @@ pub unsafe extern "C" fn sw_pap(
 /// # Safety
 /// `v` points at a live value.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_int_negative(v: *const Value) -> u64 {
     // SAFETY: the caller's contract.
     match unsafe { &*v } {
@@ -1160,6 +1354,7 @@ pub const UNARY_TEXT_CHARS: u32 = 2;
 /// # Safety
 /// `context` is the running context; both point at registers.
 #[allow(unsafe_code)]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_unary(
     context: *mut Context,
     op: u32,
