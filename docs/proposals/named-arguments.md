@@ -978,6 +978,9 @@ output, its result an input), and that is a separate design.
 
 ### 5.4 Later, if wanted: defaults in signatures
 
+Now designed in [signature-defaults.md](signature-defaults.md) (D1340, proposed),
+which supersedes the sketch below.
+
 ```
 def range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat := …
 
