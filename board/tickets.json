@@ -4643,7 +4643,7 @@
     },
     {
       "id": 610,
-      "title": "Private app port: restyle to pipe flow — x.f a |> .g instead of (T.f x a).g brackets, within reason (Matt's style note, 26 Oct); after the float-order lane (private work only)",
+      "title": "Private app port: restyle — pipe flow (x.f a |> .g) + per-event queries (D1339: Event.bubbleIds/annotationIds/recordingIds/bubbleIndex/annotationIndex, no get prefix; program uses the indexes; layout lists use rs.map .id); after the WellFormed lane (private work only)",
       "status": "next",
       "agent": "",
       "where": "",
