@@ -4409,8 +4409,8 @@
     },
     {
       "id": 592,
-      "title": "split stage 1 (D1317–D1319): automatic case splitting on goal and constructor-kind hypotheses, omega at leaves; simp deferred (docs/proposals/simp.md)",
-      "status": "review",
+      "title": "Proof word 'cases' (was split) stage 1: renaming per D1325; D1324 10 ms accepted; D1326 no code action (agentic proofs)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
