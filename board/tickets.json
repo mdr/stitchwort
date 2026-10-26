@@ -4596,11 +4596,11 @@
     {
       "id": 606,
       "title": "Syntax: a record literal as a constructor's (or function's) first argument needs brackets — TextCard ({ … }) rather than TextCard { … } (found in the private app port, 26 Oct; split out of SW-578)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "D1370 (a), 26 Oct: keep today's rule; a record argument right after a constructor is written TextCard ({ … }). Analysis: docs/proposals/record-argument-braces.md",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
