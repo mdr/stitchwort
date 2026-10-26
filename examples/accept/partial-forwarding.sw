@@ -37,5 +37,5 @@ def down: Nat → {IO, Partial} Nat
     step + extra + down (n - 1)
 
 def main(): {IO, Partial} () :=
-  let depth := Option.getOrElse (Text.toNat (Option.getOrElse (IO.readLine()) "")) 50
+  let depth := IO.readLine() |> .getOrElse "" |> Text.toNat |> .getOrElse 50
   IO.print "total ${down depth}"

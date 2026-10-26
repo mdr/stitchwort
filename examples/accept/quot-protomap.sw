@@ -145,7 +145,7 @@ theorem backwardsRoot: rootKey (Map.Raw.fromList [(4, "d"), (3, "c"), (2, "b"), 
 type Inventory = { owner: Text, counts: ProtoMap Text Nat }
 
 def morning: Inventory := { owner = "Ada", counts = ProtoMap.fromList [("nails", 3), ("screws", 5)] }
-def evening: Inventory := { owner = "Ada", counts = (ProtoMap.fromList [("screws", 5)]).insert "nails" 3 }
+def evening: Inventory := { owner = "Ada", counts = ProtoMap.fromList [("screws", 5)] |> .insert "nails" 3 }
 def other: Inventory := { owner = "Bo", counts = evening.counts }
 
 theorem inventoriesEqual: (morning == evening) = True := rfl
@@ -156,7 +156,7 @@ test "records holding maps" := morning == evening ∧ ¬(morning == other)
 def nested1: ProtoMap Text (ProtoMap Text Nat) :=
   ProtoMap.fromList [("shed", ProtoMap.fromList [("nails", 3), ("screws", 5)]), ("loft", ProtoMap.fromList [("boxes", 2)])]
 def nested2: ProtoMap Text (ProtoMap Text Nat) :=
-  (ProtoMap.empty.insert "loft" (ProtoMap.fromList [("boxes", 2)])).insert "shed" (ProtoMap.fromList [("screws", 5), ("nails", 3)])
+  ProtoMap.empty.insert "loft" (ProtoMap.fromList [("boxes", 2)]) |> .insert "shed" (ProtoMap.fromList [("screws", 5), ("nails", 3)])
 def nested3: ProtoMap Text (ProtoMap Text Nat) := nested2.insert "shed" (ProtoMap.fromList [("screws", 5)])
 
 theorem nestedEqual: (nested1 == nested2) = True := rfl
@@ -168,8 +168,8 @@ test "maps of maps" := nested1 == nested2 ∧ ¬(nested1 == nested3)
 def addOne (x: Nat): Nat := x + 1
 def double (x: Nat): Nat := x + x
 
-def fns1: ProtoMap Nat (Nat → Nat) := (ProtoMap.empty.insert 1 addOne).insert 2 double
-def fns2: ProtoMap Nat (Nat → Nat) := (ProtoMap.empty.insert 2 double).insert 1 addOne
+def fns1: ProtoMap Nat (Nat → Nat) := ProtoMap.empty.insert 1 addOne |> .insert 2 double
+def fns2: ProtoMap Nat (Nat → Nat) := ProtoMap.empty.insert 2 double |> .insert 1 addOne
 
 theorem functionMapsEqual: fns1 = fns2 := ProtoMap.toListInjective fns1 fns2 rfl
 

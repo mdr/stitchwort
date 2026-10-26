@@ -32,7 +32,7 @@ def Set.toList (set: Set k [ord := o]): List k := Map.keys set.items
 def Set.fromList [auto ord: Ord k] (xs: List k): Set k := List.foldLeft xs Set.empty (set key => Set.insert set key)
 
 -- Left fold over the keys in order.
-def Set.foldLeft (set: Set k [ord := o]) (initial: b) (f: b → k → b): b := Map.foldLeft set.items initial (acc key unit => f acc key)
+def Set.foldLeft (set: Set k [ord := o]) (initial: b) (f: b → k → b): b := set.items.foldLeft initial (acc key unit => f acc key)
 
 -- The keys for which `p` holds.
 def Set.filter [auto ord: Ord k] (set: Set k) (p: k → Bool): Set k := { items = Map.filter set.items (key unit => p key) }
@@ -51,16 +51,16 @@ def Set.difference [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = M
 def Set.unions [auto ord: Ord k] (ss: List (Set k)): Set k := List.foldLeft ss Set.empty Set.union
 
 -- The smallest key, O(log n).
-def Set.min (set: Set k [ord := o]): Option k := Option.map (Map.min set.items) Pair.fst
+def Set.min (set: Set k [ord := o]): Option k := set.items.min |> .map Pair.fst
 
 -- The largest key, O(log n).
-def Set.max (set: Set k [ord := o]): Option k := Option.map (Map.max set.items) Pair.fst
+def Set.max (set: Set k [ord := o]): Option k := set.items.max |> .map Pair.fst
 
 -- The largest key below `key` (strictly), O(log n).
-def Set.below [auto ord: Ord k] (set: Set k) (key: k): Option k := Option.map (Map.below set.items key) Pair.fst
+def Set.below [auto ord: Ord k] (set: Set k) (key: k): Option k := set.items.below key |> .map Pair.fst
 
 -- The smallest key above `key` (strictly), O(log n).
-def Set.above [auto ord: Ord k] (set: Set k) (key: k): Option k := Option.map (Map.above set.items key) Pair.fst
+def Set.above [auto ord: Ord k] (set: Set k) (key: k): Option k := set.items.above key |> .map Pair.fst
 
 -- Whether every key satisfies `p`.
 def Set.all (set: Set k [ord := o]) (p: k → Bool): Bool := Set.foldLeft set True (acc key => acc ∧ p key)
@@ -69,10 +69,10 @@ def Set.all (set: Set k [ord := o]) (p: k → Bool): Bool := Set.foldLeft set Tr
 def Set.isSubset [auto ord: Ord k] (a: Set k) (b: Set k): Bool := Set.all a (key => Set.contains b key)
 
 -- Whether no key is in both.
-def Set.disjoint [auto ord: Ord k] (a: Set k) (b: Set k): Bool := ¬(Set.any a (key => Set.contains b key))
+def Set.disjoint [auto ord: Ord k] (a: Set k) (b: Set k): Bool := ¬(a.any (key => b.contains key))
 
 -- The keys for which `p` holds, and those for which it doesn't.
-def Set.partition [auto ord: Ord k] (set: Set k) (p: k → Bool): (Set k, Set k) := (Set.filter set p, Set.filter set (key => ¬(p key)))
+def Set.partition [auto ord: Ord k] (set: Set k) (p: k → Bool): (Set k, Set k) := (set.filter p, set.filter (key => ¬(p key)))
 
 -- Right fold over the keys in order: `f k1 (f k2 initial)`.
 def Set.foldRight (set: Set k [ord := o]) (initial: b) (f: k → b → b): b := Map.foldRight set.items initial (key unit acc => f key acc)
@@ -86,7 +86,7 @@ def Map.keySet (m: Map k v [ord := o]): Set k [ord := o] := { items = Map.map m 
 def Map.fromKeys [auto ord: Ord k] (keys: Set k) (f: k → v): Map k v := Map.mapWithKey keys.items (key unit => f key)
 
 -- The entries whose keys aren't in `ks`.
-def Map.removeAll [auto ord: Ord k] (m: Map k v) (ks: Set k): Map k v := Map.filter m (key value => ¬(Set.contains ks key))
+def Map.removeAll [auto ord: Ord k] (m: Map k v) (ks: Set k): Map k v := m.filter (key value => ¬(ks.contains key))
 
 -- The entries whose keys are in `ks`.
 def Map.keepOnly [auto ord: Ord k] (m: Map k v) (ks: Set k): Map k v := Map.filter m (key value => Set.contains ks key)
@@ -122,7 +122,7 @@ def Set.decEq (set: Set k [ord := o]) (other: Set k [ord := o]): Decidable (set 
 instance Set.instDecEq: DecEq (Set k [ord := o]) := { decide = Set.decEq }
 
 -- `compare`: the keys in order, lexicographically, by the set's ordering.
-def Set.compare (set: Set k [ord := o]) (other: Set k [ord := o]): Ordering := List.compareLex o.compare (Set.toList set) (Set.toList other)
+def Set.compare (set: Set k [ord := o]) (other: Set k [ord := o]): Ordering := List.compareLex o.compare set.toList other.toList
 
 instance Set.instOrd: Ord (Set k [ord := o]) :=
   Ord.fromCompare [decEq := Set.instDecEq] Set.compare

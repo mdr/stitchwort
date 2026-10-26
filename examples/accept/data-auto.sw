@@ -62,7 +62,7 @@ test "a set" := small.keys == [1, 2]
 -- An operation on an existing map, with another `Ordered Nat` in scope: the
 -- map's type fixes `insert`'s `ord`, so the local one isn't used (§5.5 step 1).
 def insertFive [auto other: Ordered Nat] (m: Map Nat Nat [ord := descending]): List Nat :=
-  (m.insert 5 5).keys
+  m.insert 5 5 |> .keys
 
 test "the map's own ordering" := insertFive down == [5, 3, 2, 1]
 

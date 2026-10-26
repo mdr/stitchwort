@@ -307,7 +307,7 @@ Here the case `a = True` with `n ≤ 2` false is a real counterexample, `n = 3`:
 <!-- snippet: proofs.sw#decide -->
 ```stitchwort
 def firstOr (fallback: Nat) (xs: List Nat): Nat :=
-  if nonempty: 0 < xs.length then List.headOr xs fallback else fallback
+  if nonempty: 0 < xs.length then xs.headOr fallback else fallback
 
 def safeAt (v: Vec Nat 3) (i: Nat): Option Nat :=
   if inRange: i < 3 then Some (v.getLt i) else None

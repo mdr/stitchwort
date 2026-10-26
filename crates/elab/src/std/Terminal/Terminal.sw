@@ -44,7 +44,7 @@ def Frame.ansiLines: List Text → Text
 -- A frame as lines, when output isn't a terminal: the lines, then a line
 -- holding just a form feed to mark the end of the frame. Colour codes are
 -- stripped (`Ansi.strip`): a pipe gets plain text.
-def Frame.plain (lines: List Text): List Text := List.append (List.map lines Ansi.strip) ["\u{c}"]
+def Frame.plain (lines: List Text): List Text := lines.map Ansi.strip |> .append ["\u{c}"]
 
 -- Reading keys
 
@@ -140,7 +140,7 @@ def Terminal.sizeOf (console: Console): Terminal.Size :=
 -- fit on the screen (lines wider than it are cut off by the terminal, since
 -- keys mode turns wrapping off); otherwise as plain lines, `Frame.plain`.
 def Terminal.drawFrame (console: Console) (lines: List Text): {IO} () :=
-  if console.outputIsTerminal then IO.write (Frame.ansi (List.take lines (Terminal.sizeOf console).rows))
+  if console.outputIsTerminal then lines.take (Terminal.sizeOf console).rows |> Frame.ansi |> IO.write
   else Terminal.printLines (Frame.plain lines)
 
 def Terminal.printLines: List Text → {IO} ()

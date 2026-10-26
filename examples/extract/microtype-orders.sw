@@ -38,7 +38,7 @@ def Email.parse (t: Text): Option Email :=
 
 -- The same check for code that may fail, with a message.
 def Email.parseOrFail (t: Text): {Fail} Email :=
-  (Email.parse t).orFail "not an email address: ${t}"
+  Email.parse t |> .orFail "not an email address: ${t}"
 
 test "a valid address" := (Email.parse "ada@example.com").isSome
 test "an invalid address" := (Email.parse "nobody").isNone

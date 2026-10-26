@@ -8,17 +8,17 @@ A small set of names is always in scope (the **prelude**): the basic types (`Nat
 
 <!-- snippet: errors/import.sw -->
 ```stitchwort
-def numbers (line: Text): List Nat := (line.split ',').filterMap Text.toNat
+def numbers (line: Text): List Nat := line.split ',' |> .filterMap Text.toNat
 ```
 
 <!-- output: check errors/import.sw -->
 ```text
 [E-UNKNOWN-NAME] Error: unknown name `Text.toNat`
-   ╭─[ errors/import.sw:1:66 ]
+   ╭─[ errors/import.sw:1:68 ]
    │
- 1 │ def numbers (line: Text): List Nat := (line.split ',').filterMap Text.toNat
-   │                                                                  ─────┬────
-   │                                                                       ╰────── not in scope
+ 1 │ def numbers (line: Text): List Nat := line.split ',' |> .filterMap Text.toNat
+   │                                                                    ─────┬────
+   │                                                                         ╰────── not in scope
    │
    │ Note 1: `Text.toNat` needs `import Std (Text)`, or write it in full: `Std.Text.toNat`
    │
@@ -66,11 +66,11 @@ def catalogue: Map Text Product := Map.fromList [
 ]
 
 -- The price of an order, or `None` for a product the shop doesn't sell.
-def Order.price (order: Order): Option Nat := (catalogue.get order.product).map (product => product.pence * order.quantity)
+def Order.price (order: Order): Option Nat := catalogue.get order.product |> .map (product => product.pence * order.quantity)
 
 -- Orders of the same product, added up, in the product's name order.
 def combine (orders: List Order): Map Text Nat :=
-  orders.foldLeft Map.empty (totals order => Map.insertWith totals order.product order.quantity (a b => a + b))
+  orders.foldLeft Map.empty (totals order => totals.insertWith order.product order.quantity (a b => a + b))
 ```
 
 The second adds a function to read an order from a line of text. It sees `Order` without an import, because it is in the same namespace, but it has its own imports:
@@ -239,7 +239,7 @@ Note that `Text.toNat` and `Text.toInt` don't trim spaces, while `Text.toNatOrFa
 <!-- snippet: library.sw#map -->
 ```stitchwort
 def wordCounts (words: List Text): Map Text Nat :=
-  words.foldLeft Map.empty (counts word => Map.insertWith counts word 1 (a b => a + b))
+  words.foldLeft Map.empty (counts word => counts.insertWith word 1 (a b => a + b))
 
 test "counts" := (wordCounts ["a", "b", "a"]).get "a" == Some 2
 test "missing key" := (wordCounts ["a"]).get "z" == None

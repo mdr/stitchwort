@@ -25,9 +25,9 @@ def sum (xs: List Nat): Nat := List.foldLeft xs 0 (a x => a + x)
 def count (xs: List Nat): Nat := List.foldLeft xs 0 (a x => a + 1)
 
 -- Scrambled numbers below 100003.
-def scrambled (n: Nat): List Nat := List.map (List.range n) (i => (i * 7919) % 100003)
+def scrambled (n: Nat): List Nat := List.range n |> .map (i => (i * 7919) % 100003)
 
-export def mapSum (n: Nat): Nat := sum (List.map (List.range n) (x => x + 1))
+export def mapSum (n: Nat): Nat := sum (List.range n |> .map (x => x + 1))
 
 export def filterCount (n: Nat): Nat := count (List.filter (List.range n) (x => x % 3 == 0))
 

@@ -10,7 +10,7 @@ theorem Text.lengthAppend (a: Text) (b: Text):
 -- `Text.padRight text n char` is `text` followed by enough copies of `char` to make it
 -- n characters long (it is `text` itself when that is already n long or longer).
 def Text.padRight (text: Text) (n: Nat) (char: Char): Text :=
-  Text.fromList (List.padRight (Text.toList text) n char)
+  text.toList.padRight n char |> Text.fromList
 
 theorem Text.padRightExample: Text.padRight "ab" 5 '.' = "ab..." := rfl
 
@@ -97,10 +97,10 @@ def IO.readAllLines(): {IO} (List Text) := IO.readAll().lines
 -- "L"` and `Text.stripPrefix line "L"` all mean the same.
 
 -- The first `n` characters of the text (all of it if it is shorter).
-def Text.take (text: Text) (n: Nat): Text := Text.fromList (List.take (Text.toList text) n)
+def Text.take (text: Text) (n: Nat): Text := text.toList.take n |> Text.fromList
 
 -- The text without its first `n` characters (empty if it is shorter).
-def Text.drop (text: Text) (n: Nat): Text := Text.fromList (List.drop (Text.toList text) n)
+def Text.drop (text: Text) (n: Nat): Text := text.toList.drop n |> Text.fromList
 
 -- Whether two characters are the same.
 def Text.sameChar (a: Char) (b: Char): Bool := Nat.equal (Char.toNat a) (Char.toNat b)
@@ -119,25 +119,24 @@ def Text.startsWithChars: List Char → List Char → Bool
 -- `Text.stripPrefix text p` is the rest of `text` after `p`, or `None` if `text`
 -- doesn't start with `p`. The empty prefix gives `Some text`.
 def Text.stripPrefix (text: Text) (prefix: Text): Option Text :=
-  Option.map (Text.stripPrefixChars (Text.toList prefix) (Text.toList text)) Text.fromList
+  Text.stripPrefixChars prefix.toList text.toList |> .map Text.fromList
 
 -- `Text.stripSuffix text s` is `text` without its ending `s`, or `None`.
 def Text.stripSuffix (text: Text) (suffix: Text): Option Text :=
-  Option.map (Text.stripPrefixChars (List.reverse (Text.toList suffix)) (List.reverse (Text.toList text)))
-    (chars => Text.fromList (List.reverse chars))
+  Text.stripPrefixChars suffix.toList.reverse text.toList.reverse |> .map (chars => chars.reverse |> Text.fromList)
 
 def Text.startsWith (text: Text) (prefix: Text): Bool :=
-  Text.startsWithChars (Text.toList prefix) (Text.toList text)
+  Text.startsWithChars prefix.toList text.toList
 
 def Text.endsWith (text: Text) (suffix: Text): Bool :=
-  Text.startsWithChars (List.reverse (Text.toList suffix)) (List.reverse (Text.toList text))
+  Text.startsWithChars suffix.toList.reverse text.toList.reverse
 
 def Text.containsChars (needle: List Char): List Char → Bool
   | Nil => Text.startsWithChars needle Nil
   | Cons char chars => if Text.startsWithChars needle (Cons char chars) then True else Text.containsChars needle chars
 
 -- Whether `needle` occurs in the text. The empty text occurs in every text.
-def Text.contains (text: Text) (needle: Text): Bool := Text.containsChars (Text.toList needle) (Text.toList text)
+def Text.contains (text: Text) (needle: Text): Bool := Text.containsChars needle.toList text.toList
 
 -- `cur` is the current piece's characters, newest first, `acc` the finished
 -- pieces, newest first, and `skip` how many more characters of a separator
@@ -163,7 +162,7 @@ def Text.splitOnChars: List Char → List Char → List Text
 -- `Text.splitOn "aaa" "aa"` gives ["", "a"]. Always at least one piece, and
 -- `Text.splitOn text s` of a text without `s` is `[text]`. An empty separator
 -- doesn't split: the result is `[text]`, as in Lean's `String.splitOn`.
-def Text.splitOn (text: Text) (sep: Text): List Text := Text.splitOnChars (Text.toList sep) (Text.toList text)
+def Text.splitOn (text: Text) (sep: Text): List Text := Text.splitOnChars sep.toList text.toList
 
 -- Lemmas
 
@@ -210,13 +209,13 @@ test "splitOn overlapping" := Text.splitOn "aaa" "aa" == ["", "a"]
 
 -- `text` is the main value: `text.repeat 3` is `text` three times over; `text.repeat 0`
 -- is the empty text.
-def Text.repeat (text: Text) (n: Nat): Text := Text.fromList (List.concat (List.replicate n (Text.toList text)))
+def Text.repeat (text: Text) (n: Nat): Text := List.replicate n text.toList |> .concat |> Text.fromList
 
 -- `text` is the main value: `text.chunksOf 2` cuts it into pieces of `n` characters
 -- (the last one shorter if need be), as `List.chunksOf` does for lists:
 -- `"abcde".chunksOf 2` is `["ab", "cd", "e"]`, and `n = 0` gives the whole
 -- text as one chunk (none for an empty text).
-def Text.chunksOf (text: Text) (n: Nat): List Text := List.map (List.chunksOf (Text.toList text) n) Text.fromList
+def Text.chunksOf (text: Text) (n: Nat): List Text := text.toList.chunksOf n |> .map Text.fromList
 
 test "Text.repeat" := Text.repeat "ab" 3 == "ababab" ∧ Text.repeat "ab" 0 == "" ∧ Text.repeat "" 4 == ""
 test "Text.chunksOf" := Text.chunksOf "abcde" 2 == ["ab", "cd", "e"] ∧ Text.chunksOf "" 2 == []

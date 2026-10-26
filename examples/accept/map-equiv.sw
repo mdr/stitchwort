@@ -21,7 +21,7 @@ test "size is the number of entries" :=
 type Stock = { owner: Text, counts: Map Text Nat }
 
 def morning: Stock := { owner = "Ada", counts = Map.fromList [("nails", 3), ("screws", 5)] }
-def evening: Stock := { owner = "Ada", counts = (Map.fromList [("screws", 5)]).insert "nails" 3 }
+def evening: Stock := { owner = "Ada", counts = Map.fromList [("screws", 5)] |> .insert "nails" 3 }
 
 test "records with maps" := morning == evening ∧ morning ≠ { owner = "Bo", counts = evening.counts }
 

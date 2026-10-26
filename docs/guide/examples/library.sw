@@ -49,7 +49,7 @@ test "length counts characters" := "héllo".length == 5
 
 -- begin map
 def wordCounts (words: List Text): Map Text Nat :=
-  words.foldLeft Map.empty (counts word => Map.insertWith counts word 1 (a b => a + b))
+  words.foldLeft Map.empty (counts word => counts.insertWith word 1 (a b => a + b))
 
 test "counts" := (wordCounts ["a", "b", "a"]).get "a" == Some 2
 test "missing key" := (wordCounts ["a"]).get "z" == None

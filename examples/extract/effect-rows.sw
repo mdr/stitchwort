@@ -25,7 +25,7 @@ def sum (xs: List Nat): Nat := List.foldLeft xs 0 (a x => a + x)
 -- Pure uses of `List.map`: directly, and partially applied as a callback.
 export def doubled (xs: List Nat): List Nat := List.map xs double
 
-export def mappedSum (n: Nat): Nat := sum (List.map (List.range n) (x => x + 1))
+export def mappedSum (n: Nat): Nat := sum (List.range n |> .map (x => x + 1))
 
 -- A map with a pure callback type, as `List.map` was before it took effects:
 -- `List.map`'s empty-row variant is the same loop.

@@ -10,7 +10,7 @@ def parseLine (line: Text): List Bool := line.toList.map (== '#')
 
 -- `None` when a line's length differs from the first's.
 def parseGrid (lines: List Text): Option Grid :=
-  let width := (lines.headOr "").length
+  let width := lines.headOr "" |> .length
   Vec.fromList lines
     |> Vec.traverseOption (line => Vec.ofList width (parseLine line))
     |> Option.map (rows => ({ height = lines.length, width, rows }: Grid))
@@ -18,7 +18,7 @@ def parseGrid (lines: List Text): Option Grid :=
 def Grid.count (grid: Grid): Nat := grid.rows.sumBy (row => row.sumBy Bool.toNat)
 
 -- No bound checks: the indices' types say they are on the grid.
-def Grid.cell (grid: Grid) (r: Fin grid.height) (c: Fin grid.width): Bool := (grid.rows.get r).get c
+def Grid.cell (grid: Grid) (r: Fin grid.height) (c: Fin grid.width): Bool := grid.rows.get r |> .get c
 
 -- Every cell flipped.
 def Grid.flip (grid: Grid): Grid := { grid | rows = grid.rows.map (row => row.map not) }

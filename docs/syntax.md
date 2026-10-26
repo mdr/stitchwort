@@ -413,8 +413,8 @@ import Std (List, Map, Nat, Text)
 
 type Person = { name: Text, age: Nat }
 
-export def ages (people: Map Text Person): Map Text Nat := Map.map people (p => p.age)
-export def bump (scores: Map Text Nat) (who: Text): Map Text Nat := Map.insertWith scores who 1 Nat.add
+export def ages (people: Map Text Person): Map Text Nat := people.map (p => p.age)
+export def bump (scores: Map Text Nat) (who: Text): Map Text Nat := scores.insertWith who 1 Nat.add
 ```
 
 ```ts
@@ -503,7 +503,7 @@ type OrderId = { value: Text }
 
 instance UserId.instShow: Show UserId := Show.fromText (u => u.value)
 
-export def ownerOf (orders: Map OrderId UserId) (o: OrderId): Option UserId := Map.get orders o
+export def ownerOf (orders: Map OrderId UserId) (o: OrderId): Option UserId := orders.get o
 ```
 
 ```ts
@@ -528,7 +528,7 @@ export declare function ownerOf(orders: { readonly [k: OrderId]: UserId }, o: Or
      if h: Email.isValid t = True then Some ({ value = t, valid = h }) else None
    ```
 
-   Code that may fail says `{Fail}` instead and uses `(Email.parse t).orFail "not an email address: ${t}"`. An export that returns `Option Email` gives JavaScript `string | undefined`; one that takes an `Email` refuses a string that fails the rule (`e: proof field `valid` ... doesn't hold`).
+   Code that may fail says `{Fail}` instead and uses `Email.parse t |> .orFail "not an email address: ${t}"`. An export that returns `Option Email` gives JavaScript `string | undefined`; one that takes an `Email` refuses a string that fails the rule (`e: proof field `valid` ... doesn't hold`).
 3. *Use as a `Map` key.* `Map OrderId UserId` needs nothing more: the derived order compares the field, so `Map.get`, `Map.insert` and the lemmas work as for `Text` keys. Keep the derived `Ord`; a key in another order can't cross (above).
 4. *Export.* `export def ownerOf (owners: Map OrderId UserId) (o: OrderId): Option UserId`. In TypeScript the app passes `{ o1: "u1" }` and `"o1"`.
 

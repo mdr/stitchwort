@@ -91,10 +91,10 @@ def Fail.toAbort (prog: () → {Fail | e} a): {Abort | e} a :=
 -- either end are allowed; the text is quoted as it was given.
 
 -- `text` as a `Nat`, or fail with `expected a whole number, got 't'`.
-def Text.toNatOrFail (text: Text): {Fail} Nat := Fail.need (Text.toNat (Text.trim text)) "expected a whole number, got '${text}'"
+def Text.toNatOrFail (text: Text): {Fail} Nat := Fail.need text.trim.toNat "expected a whole number, got '${text}'"
 
 -- `text` as an `Int`, or fail with `expected a whole number, got 't'`.
-def Text.toIntOrFail (text: Text): {Fail} Int := Fail.need (Text.toInt (Text.trim text)) "expected a whole number, got '${text}'"
+def Text.toIntOrFail (text: Text): {Fail} Int := Fail.need text.trim.toInt "expected a whole number, got '${text}'"
 
 -- Theorems. A handled computation computes, so each holds by `rfl`, case
 -- by case.

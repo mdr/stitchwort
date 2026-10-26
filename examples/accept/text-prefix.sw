@@ -14,7 +14,7 @@ def turnRight: Option Text → Option Int
   | Some n => n.toInt
   | None => None
 
-def turnLeft (rest: Option Text): Option Int := Option.map (turnRight rest) Int.neg
+def turnLeft (rest: Option Text): Option Int := turnRight rest |> .map Int.neg
 
 def turn (line: Text): Option Int :=
   if line |> Text.startsWith "L" then turnLeft (line |> Text.stripPrefix "L")

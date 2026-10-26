@@ -57,7 +57,7 @@ test "given by name" := down.keys == [3, 2, 1]
 
 -- An operation on an existing map, with another `Ord Nat` in scope: the
 -- map's type fixes the ordering (§5.5 step 1), so the local one isn't used.
-def insertFive [auto other: Ord Nat] (m: Map Nat Text [ord := descending]): List Nat := (m.insert 5 "e").keys
+def insertFive [auto other: Ord Nat] (m: Map Nat Text [ord := descending]): List Nat := m.insert 5 "e" |> .keys
 
 test "the map's own ordering" := insertFive down == [5, 3, 2, 1]
 
