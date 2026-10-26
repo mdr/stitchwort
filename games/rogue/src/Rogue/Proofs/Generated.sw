@@ -86,8 +86,8 @@ theorem generatedHolds (property: Level → Prop) (laidOut: (depth: Nat) → Lai
 -- On every level the game generates, for every seed and depth, the way on
 -- can be walked to from the start.
 theorem generatedReachable (seed: Nat) (depth: Nat):
-    Reachable (seeded seed (() => generateLevel depth)).level (seeded seed (() => generateLevel depth)).level.start (seeded seed (() => generateLevel depth)).level.goal :=
-  generatedHolds (level => Reachable level level.start level.goal)
+    GoalReachable (seeded seed (() => generateLevel depth)).level :=
+  generatedHolds (level => GoalReachable level)
     (depth rooms entranceIndex exitIndex extra entranceSmall exitSmall fit => goalReachable depth rooms entranceIndex exitIndex extra entranceSmall exitSmall)
     seed depth
 

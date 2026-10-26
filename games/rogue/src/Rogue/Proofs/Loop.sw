@@ -15,8 +15,8 @@ import Rogue (..)
 import Std (Ansi, Key, List, Nat, Option, Pair, Terminal)
 
 theorem turnKey (seed: Nat) (state: State) (key: Key) (rest: List Key) (command: Command) (isCommand: commandOf key = Some command):
-    Terminal.simulate (Cons key rest) (() => seeded seed (() => playTurn state)) =
-      MkPair [(frame (resolve { seed = lcg seed / 65536 } state command)).map Ansi.strip] (resolve { seed = lcg seed / 65536 } state command) :=
+    let after := resolve { seed = lcg seed / 65536 } state command
+    Terminal.simulate (Cons key rest) (() => seeded seed (() => playTurn state)) = MkPair [frame after |> .map Ansi.strip] after :=
   rewrite isCommand in rfl
 
 theorem turnOther (seed: Nat) (state: State) (key: Key) (rest: List Key) (notCommand: commandOf key = None):
@@ -24,8 +24,8 @@ theorem turnOther (seed: Nat) (state: State) (key: Key) (rest: List Key) (notCom
   rewrite notCommand in rfl
 
 theorem turnEnd (seed: Nat) (state: State):
-    Terminal.simulate [] (() => seeded seed (() => playTurn state)) =
-      MkPair [(frame (resolve { seed = lcg seed / 65536 } state Quit)).map Ansi.strip] (resolve { seed = lcg seed / 65536 } state Quit) :=
+    let after := resolve { seed = lcg seed / 65536 } state Quit
+    Terminal.simulate [] (() => seeded seed (() => playTurn state)) = MkPair [frame after |> .map Ansi.strip] after :=
   rfl
 
 theorem turnValid (seed: Nat) (state: State) (valid: Valid state):
