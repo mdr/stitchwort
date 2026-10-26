@@ -1,5 +1,5 @@
 {
-  "next": 628,
+  "next": 629,
   "tickets": [
     {
       "id": 13,
@@ -4854,6 +4854,18 @@
       "id": 627,
       "title": "Signature defaults stage 1 follow-ups: spec text (bare f equals the required-params lambda only by eta, rule 3 kept; lambda-making calls keep their annotation so hashes differ); text literals count as simple (no let) incl. field defaults; hover on a call says which defaults it used; x |> r.g unreduced application; single-let binding on the lambda path; defaults in decreasing recursive calls; passed_args aware of defaults; retype_total helper alignment for effect-generic defs; lifted local f.go called from outside has no defaults",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 628,
+      "title": "Naming (D1367, to consider): the always-true proposition is called Unit (type Unit: Prop = | Trivial, core/Logic.sw:12), which misleads Scala/Kotlin readers; the data unit type has no name, only () (Builtin.UnitType, core/Effect.sw:94). True is taken by Bool's constructor. Proposal: prop → Truth (proof Trivial), data () named Unit; alternatives Top / ⊤. ~113 uses in std+examples",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
