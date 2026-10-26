@@ -1,11 +1,16 @@
 -- Every cell anyone can stand on is on the screen. A level is `Framed`
 -- when its terrain is 20 rows of 66 cells and every floor cell is among
--- them. Every level the generator makes is framed, for every seed and depth
--- (`generatedFramed`), because its rooms fit inside their sections
--- (`roomFits`) and its corridors run between the rooms' middles; and a turn
--- keeps the level framed (`stepFramed`). So in a real game the player and
--- every monster are drawn where they stand, with no assumption about where
--- that is (`drawnPlayer`, `drawnMonster`).
+-- them. Every room the generator makes fits inside its section, whatever
+-- the rolls (`roomFits`), and every level `layOut` makes from rooms that fit
+-- is framed, as its corridors run between the rooms' middles
+-- (`layOutFramed`); and a turn keeps the level framed (`stepFramed`), given
+-- that the levels it goes down to are (`GeneratesFramed`). So in a sound
+-- state the player and every monster are drawn where they stand, with no
+-- assumption about where that is (`drawnPlayer`, `drawnMonster`).
+--
+-- That `generateLevel` itself makes framed levels is not proved: it rolls
+-- as it goes, and following the handler through it is future work
+-- (PROOFS.md §4).
 
 namespace Rogue.Proofs
 import Rogue (..)
@@ -49,23 +54,21 @@ theorem sectionCorner: (index: Nat) → index < 6 → Corner index
   | Succ (Succ (Succ (Succ (Succ Zero)))), small => { top = omega, left = omega }
   | Succ (Succ (Succ (Succ (Succ (Succ more))))), small => Void.exfalso (Bool.falseNotTrue small)
 
-theorem roomFits (numbers: List Nat) (index: Nat) (small: index < 6): OnMap (roomFrom numbers index) :=
-  let first := roomDraws * index
+-- A room as `roomFrom` makes it in section `index`, from any rolls below
+-- their bounds (`roll most` is below `Succ most`), fits on the map.
+theorem roomFits (index: Nat) (small: index < 6) (downRoll: Nat) (acrossRoll: Nat) (rowRoll: Nat) (columnRoll: Nat)
+    (downSmall: downRoll < 4) (acrossSmall: acrossRoll < 11)
+    (rowSmall: rowRoll < Succ (sectionRows - 3 - (2 + downRoll))) (columnSmall: columnRoll < Succ (sectionColumns - 3 - (4 + acrossRoll))):
+    OnMap ({
+      corner = { row = (index / 3) * sectionRows + 1 + rowRoll, column = (index % 3) * sectionColumns + 1 + columnRoll },
+      down = 2 + downRoll,
+      across = 4 + acrossRoll
+    }: Area) :=
   let corner := sectionCorner index small
-  let downRoll := rollAt numbers first 3
-  let acrossRoll := rollAt numbers (first + 1) 10
   {
-    bottom = sectionFits ((index / 3) * sectionRows + 1) downRoll (rollAt numbers (first + 2) (sectionRows - 3 - (2 + downRoll)))
-      (Nat.modLt (numbers.getOr 0 first) 4) (Nat.modLt (numbers.getOr 0 (first + 2)) (Succ (sectionRows - 3 - (2 + downRoll)))) corner.top,
-    right = sectionFitsAcross ((index % 3) * sectionColumns + 1) acrossRoll (rollAt numbers (first + 3) (sectionColumns - 3 - (4 + acrossRoll)))
-      (Nat.modLt (numbers.getOr 0 (first + 1)) 11) (Nat.modLt (numbers.getOr 0 (first + 3)) (Succ (sectionColumns - 3 - (4 + acrossRoll)))) corner.left
+    bottom = sectionFits ((index / 3) * sectionRows + 1) downRoll rowRoll downSmall rowSmall corner.top,
+    right = sectionFitsAcross ((index % 3) * sectionColumns + 1) acrossRoll columnRoll acrossSmall columnSmall corner.left
   }
-
--- All six rooms fit.
-theorem roomsFit (numbers: List Nat) (area: Area) (listed: List.Mem area (roomsFrom numbers)): OnMap area :=
-  List.anyElim (index => roomFrom numbers index = area) (OnMap area) (List.range 6)
-    (List.memMapAny (List.range 6) (roomFrom numbers) area listed)
-    (index inRange same => rewrite <- same in roomFits numbers index (And.right (List.memRangeFrom index 6 0 inRange)))
 
 -- So does any room picked from them by number.
 theorem getOrFits (fallback: Area) (fallbackFits: OnMap fallback):
@@ -161,18 +164,19 @@ theorem buildFramed (depth: Nat) (entrance: Area) (exit: Area) (rooms: List Area
     floor = floorOnScreen (Level.build depth entrance exit rooms corridors) entranceFits exitFits roomsFit corridorsFit
   }
 
--- Every planned level is framed, whatever the numbers.
-theorem planFramed (depth: Nat) (numbers: List Nat): Framed (planFrom depth numbers).level
+-- Every level `layOut` makes from rooms that all fit is framed.
+theorem layOutFramed (depth: Nat) (rooms: List Area) (entranceIndex: Nat) (exitIndex: Nat) (extra: Nat)
+      (fit: (area: Area) → List.Mem area rooms → OnMap area):
+      Framed (layOut depth rooms entranceIndex exitIndex extra)
     unfolding layOut
 :=
-  let rooms := roomsFrom numbers
-  let fit := roomsFit numbers
-  buildFramed depth (roomOf rooms (entranceFrom numbers)) (roomOf rooms (exitFrom numbers)) rooms (corridorsOf rooms (extraFrom numbers))
-    (roomOfFits rooms fit (entranceFrom numbers)) (roomOfFits rooms fit (exitFrom numbers)) fit (corridorsFit rooms fit (extraFrom numbers))
+  buildFramed depth (roomOf rooms entranceIndex) (roomOf rooms exitIndex) rooms (corridorsOf rooms extra)
+    (roomOfFits rooms fit entranceIndex) (roomOfFits rooms fit exitIndex) fit (corridorsFit rooms fit extra)
 
--- So is every generated level, for every seed and depth.
-theorem generatedFramed (seed: Nat) (depth: Nat): Framed (seeded seed (() => generateLevel depth)).level :=
-  generatedHolds (plan => Framed plan.level) planFramed seed depth
+-- Every level the generator makes, for every seed and depth, is framed.
+-- True of each level it makes (`layOut` of six rooms that fit), but not
+-- proved for the generator as written; the turn theorems below assume it.
+def GeneratesFramed: Prop := (seed: Nat) → (depth: Nat) → Framed (seeded seed (() => generateLevel depth)).level
 
 -- A turn keeps the level, or goes down to a generated one.
 theorem playerMovesLevel (dice: Dice) (state: State) (direction: Direction): (playerMoves dice state direction).level = state.level :=
@@ -183,7 +187,7 @@ theorem playerMovesLevel (dice: Dice) (state: State) (direction: Direction): (pl
         | True => rfl
         | False => enterLevel state (state.player.toward direction)
 
-theorem resolveFramed (dice: Dice) (state: State) (command: Command) (framed: Framed state.level): Framed (resolve dice state command).level :=
+theorem resolveFramed (generates: GeneratesFramed) (dice: Dice) (state: State) (command: Command) (framed: Framed state.level): Framed (resolve dice state command).level :=
   match phase: state.phase with
     | Playing =>
       match command with
@@ -196,31 +200,28 @@ theorem resolveFramed (dice: Dice) (state: State) (command: Command) (framed: Fr
             | False => rewrite monstersTurnLevel dice (drink state) in framed
         | Descend =>
           match stairs: isStairs state.level state.player with
-            | True => generatedFramed dice.seed (state.level.depth + 1)
+            | True => generates dice.seed (state.level.depth + 1)
             | False => framed
     | Won => framed
     | Died => framed
     | GaveUp => framed
 
-theorem stepFramed (seed: Nat) (state: State) (command: Command) (framed: Framed state.level):
+theorem stepFramed (generates: GeneratesFramed) (seed: Nat) (state: State) (command: Command) (framed: Framed state.level):
     Framed (seeded seed (() => step state command)).level :=
-  resolveFramed { seed = lcg seed / 65536 } state command framed
+  resolveFramed generates { seed = lcg seed / 65536 } state command framed
 
 -- A state of a real game: valid, on a framed level.
 type Sound (state: State): Prop = { valid: Valid state, framed: Framed state.level }
 
--- Every new game is sound, for every seed (as the program makes it,
--- `newGame` under the seeded handler), and so is every game after any
--- number of turns.
-theorem newGameSound (seed: Nat): Sound (seeded seed (() => newGame())) :=
-  let started: Sound (startingState (seeded seed (() => generateLevel 1))) :=
-    { valid = startingValid (seeded seed (() => generateLevel 1)), framed = generatedFramed seed 1 }
-  J (state same => Sound state) started (Eq.sym (seededNewGame seed))
+-- A new game on a framed level is sound; and, if the generator makes
+-- framed levels, so is every game after any number of turns.
+theorem startingSound (plan: Plan) (framed: Framed plan.level): Sound (startingState plan) :=
+  { valid = startingValid plan, framed }
 
-theorem replaySound: (turns: List (Nat, Command)) → (state: State) → Sound state → Sound (replay state turns)
+theorem replaySound (generates: GeneratesFramed): (turns: List (Nat, Command)) → (state: State) → Sound state → Sound (replay state turns)
   | [], state, sound => sound
   | Cons (seed, command) rest, state, sound =>
-    replaySound rest (seeded seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed seed state command sound.framed }
+    replaySound generates rest (seeded seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed generates seed state command sound.framed }
 
 -- In a sound state, `render` draws `@` at the player's row and column,
 -- with nothing assumed about where that is.
