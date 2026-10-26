@@ -1,5 +1,5 @@
 {
-  "next": 654,
+  "next": 655,
   "tickets": [
     {
       "id": 13,
@@ -5166,6 +5166,18 @@
       "id": 653,
       "title": "Rogue: prove goal reachability for the real {Random} generateLevel without reshaping it (Matt, 26 Oct) — exploration lane: any-handler statement / Random program logic / seeded; stop with a note if the language needs a change",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 654,
+      "title": "task build doesn't build the runtime library, so build --native fails with 'can't find libstitchwort_standalone.a' until cargo build --release -p stitchwort-standalone is run (Matt compiling the roguelike, 26 Oct); make task build build both",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
