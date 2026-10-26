@@ -1,5 +1,5 @@
 {
-  "next": 669,
+  "next": 670,
   "tickets": [
     {
       "id": 13,
@@ -5345,7 +5345,19 @@
     {
       "id": 668,
       "title": "Private app port (D1361 revisit): discharge the AdditionMonotone hypothesis with std Float.addMonotoneRight (float laws stage 2 merged 26 Oct) (private work only)",
-      "status": "next",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Done 26 Oct: AdditionMonotone removed; Float.addMonotoneRight used directly; all port checks pass.",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 669,
+      "title": "Private app port: mergeWellFormed / mergeIdempotent / annotationsWithin use Quot.sound (pre-existing, not from Float); trace which dependency and whether it can be avoided, so the port's headline theorems are axiom-free (private work only)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
