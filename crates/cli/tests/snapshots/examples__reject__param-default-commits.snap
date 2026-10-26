@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/param-default-commits.sw:12:24 ]
+    │
+ 12 │ def size: Nat := sized two
+    │                        ─┬─  
+    │                         ╰─── expected `Vec Nat 3`, but this has type `Vec Nat 2`
+    │ 
+    │ Note: `n` is left out, so it is its default value, `3`; give `(n := 2)` to use another
+────╯

@@ -104,7 +104,25 @@ pub struct Def {
     /// have the definition's type and arity, but not for termination; never
     /// unfolded by the kernel, and not hashed (it's determined by the body).
     pub(crate) run_body: Option<Rc<Term>>,
+    /// The default values of its header's parameters, `(step: Nat := 1)`,
+    /// if any has one (docs/proposals/signature-defaults.md §7.1). Kept by
+    /// declaration and never hashed, as [`Data::defaults`] is: the kernel
+    /// never reads it; the elaborator fills calls that leave a defaulted
+    /// parameter out with its helper.
+    pub param_defaults: Option<Rc<ParamDefaults>>,
     pub span: Span,
+}
+
+/// A definition's parameter defaults: one entry per parameter of its type,
+/// up to the last of its header's, each the default's helper and the
+/// earlier parameters (by level) it takes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParamDefaults {
+    /// How many of the type's parameters are the header's (with the
+    /// implicitly bound ones in front): those after it are the result
+    /// type's.
+    pub header: usize,
+    pub params: Vec<Option<FieldDefault>>,
 }
 
 impl Def {
@@ -150,12 +168,15 @@ pub struct Validator {
     pub decision: Term,
 }
 
-/// One field's default: its helper, and the variables of the constructor's
+/// One field's or parameter's default: its helper, and the variables it
+/// takes, by level. For a field, the variables of the constructor's
 /// context (the type's parameters, then its fields) the helper takes, by
 /// level, in order: a level below the number of parameters is that
 /// parameter, any other is field `level - parameters`. The type's
 /// parameters are implicit parameters of the helper, and its fields
-/// explicit ones.
+/// explicit ones. For a definition's parameter, the definition's earlier
+/// parameters, each taken as the definition takes it (implicit or
+/// explicit).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FieldDefault {
     pub helper: DefId,

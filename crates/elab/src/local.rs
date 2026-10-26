@@ -170,15 +170,30 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
     let e = cx.e;
     let g = cx.g();
     let base = cx.level();
-    let mut todo = Vec::new();
+    // How many implicit parameters each type gets in front of its written
+    // ones, before the members' names are in scope.
+    let mut fronts = Vec::new();
     for &i in members {
+        let (_, ty, ..) = signature(&defs[i]);
+        fronts.push(
+            crate::autobind::auto_bound_in(e, ty, cx.scope_names())?
+                .names
+                .len(),
+        );
+    }
+    let mut heads = Vec::new();
+    let mut todo = Vec::new();
+    for (m, &i) in members.iter().enumerate() {
         let found = e
             .preadmitted
             .borrow()
             .get(&keys[i])
             .map(|r| (r.id, r.captures.clone()));
         match found {
-            Some((id, captures)) => bind_admitted(cx, &signature(&defs[i]).0.text, id, &captures)?,
+            Some((id, captures)) => {
+                let (term, ty) = bind_admitted(cx, &signature(&defs[i]).0.text, id, &captures)?;
+                heads.push((m, term, ty));
+            }
             None => todo.push(i),
         }
     }
@@ -223,6 +238,25 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
     }
     for (i, _, value, _, call) in &elaborated {
         cx.bind_local(&signature(&defs[*i]).0.text, call.clone(), value.clone());
+        let m = members.iter().position(|j| j == i).expect("a member");
+        heads.push((m, call.clone(), value.clone()));
+    }
+    // Each member's defaults, before any body.
+    heads.sort_by_key(|(m, ..)| *m);
+    let names: Vec<&str> = members
+        .iter()
+        .map(|&i| signature(&defs[i]).0.text.as_str())
+        .collect();
+    for (m, head, ty) in heads {
+        let i = members[m];
+        crate::defaults::local_defaults(
+            cx,
+            &defs[i].signature,
+            &keys[i],
+            (&head, &ty),
+            fronts[m],
+            &names,
+        )?;
     }
     for (i, ty, value, meta, _) in elaborated {
         let def = &defs[i];
@@ -301,7 +335,20 @@ fn bind_admitted(
     name: &str,
     id: stitchwort_core::DefId,
     captures: &[(usize, Icit, stitchwort_core::Name)],
-) -> Result<()> {
+) -> Result<(Term, Value)> {
+    let (term, ty) = admitted_call(cx, name, id, captures)?;
+    cx.bind_local(name, term.clone(), ty.clone());
+    Ok((term, ty))
+}
+
+/// The admitted local definition `id` applied to its captures, and its
+/// type then.
+pub(crate) fn admitted_call(
+    cx: &Ctx,
+    name: &str,
+    id: stitchwort_core::DefId,
+    captures: &[(usize, Icit, stitchwort_core::Name)],
+) -> Result<(Term, Value)> {
     let g = cx.g();
     let mut term = Term::Def(id);
     let mut ty = crate::kernel::def_ty(g, id)?;
@@ -330,8 +377,57 @@ fn bind_admitted(
         name: name.into(),
         levels: captures.iter().map(|(l, _, _)| *l).collect(),
     });
-    cx.bind_local(name, term, ty);
-    Ok(())
+    Ok((term, ty))
+}
+
+/// Records a helper of a local definition, `key`, whose `body` of type
+/// `goal` is a term in `cx`'s context, as a draft lifted with the owner's;
+/// the term standing for it, in `cx`'s context.
+pub(crate) fn draft(
+    cx: &Ctx,
+    key: &str,
+    name: &str,
+    span: stitchwort_syntax::Span,
+    body: Term,
+    goal: Term,
+) -> Result<Term> {
+    let e = cx.e;
+    let g = cx.g();
+    let base = cx.level();
+    let meta = g.new_meta(span);
+    g.freeze_meta(meta);
+    e.local_metas.borrow_mut().insert(meta, name.to_string());
+    let levels = spine(&cx.env, &cx.lets);
+    let mut call = Term::Meta(meta);
+    for &level in &levels {
+        call = Term::app(call, Term::Var(base - 1 - level));
+    }
+    g.print_labels.borrow_mut().push(PrintLabel {
+        head: Term::Meta(meta),
+        name: name.into(),
+        levels,
+    });
+    e.drafts.borrow_mut().push(Draft {
+        meta,
+        span,
+        env: cx.env.clone(),
+        types: cx.types.clone(),
+        names: cx.names.clone(),
+        base,
+        extra: Vec::new(),
+        body,
+        goal,
+        kinds: cx.kinds.clone(),
+        lets: cx.lets.clone(),
+        order: cx.order.clone(),
+        local: Some(LocalDraft {
+            key: key.to_string(),
+            name: name.to_string(),
+            theorem: false,
+            whole: span,
+        }),
+    });
+    Ok(call)
 }
 
 impl Elaborator {

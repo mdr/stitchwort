@@ -103,10 +103,14 @@ fn own_arguments(form: QuotForm, args: &[Arg]) -> usize {
                 return i;
             }
             Arg::Named(..) => {}
-            Arg::Explicit(_) | Arg::NamedExplicit(..) | Arg::Piped(_) if explicit == wanted => {
+            Arg::Explicit(_) | Arg::NamedExplicit(..) | Arg::Piped(_) | Arg::Default(_)
+                if explicit == wanted =>
+            {
                 return i;
             }
-            Arg::Explicit(_) | Arg::NamedExplicit(..) | Arg::Piped(_) => explicit += 1,
+            Arg::Explicit(_) | Arg::NamedExplicit(..) | Arg::Piped(_) | Arg::Default(_) => {
+                explicit += 1
+            }
         }
     }
     args.len()
@@ -186,6 +190,7 @@ fn elaborate_own(
                     "write its arguments after it",
                 ));
             }
+            Arg::Default(_) => unreachable!("a quotient form has no defaults"),
         }
     }
     if explicit.len() != form.arity() - form.implicit() {

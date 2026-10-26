@@ -336,7 +336,7 @@ Circle (radius := 1)       -- named arguments: a function still waiting for `id`
 - **Leaving a field out commits to its default.** Nothing is inferred from the other fields: with `size: Nat := 0`, `{ cells = threeCells }` is `E-TYPE-MISMATCH`, with a note that `size` is left out and is `0`.
 - **Run order.** In a computation, the fields given run once, in the order written, then the record is built, and the defaults use their results: with `type Twice = { x: Nat, twice: Nat := x + x }`, `{ x = readNat() }` reads once. In pure code, a given field that a default uses is bound by a `let` first (unless it's a variable or a literal), so it isn't computed twice.
 - **Identity.** Each default is a generated definition, `RangeOptions.step.default` (for a constructor's field, `Shape.Circle.id.default`), taking the parameters and earlier fields it needs. A literal that leaves a field out calls it, so `{ stop = 10 }` equals `{ start = 0, stop = 10, step = 1 }` (`rfl` proves it), but the two have different hashes. Defaults aren't part of the type's hash: changing one changes the hashes (and reruns the tests) of exactly the literals that leave that field out. A literal that gives every field is the same term, with the same hash, as before the type had defaults. These names can't be written in source.
-- **Where defaults can't go.** A function's parameter (`(step: Nat := 1)` in a `def` or a function type) is `E-PARSE`, with a note to use a record; an implicit constructor field can't have one; an interface's methods can't (`E-FIELD-DEFAULT`).
+- **Where defaults can't go.** A function type's parameter (`(f: (step: Nat := 1) -> Nat)`), a lambda's, or an implicit or `auto` parameter is `E-PARSE` ("only a definition's parameter or a field can have a default value"); an implicit constructor field can't have one; an interface's methods can't (`E-FIELD-DEFAULT`). A definition's explicit parameters can: see [Parameter defaults](#parameter-defaults).
 - **A default that names a definition of its module** makes the type depend on it, so that definition can't mention the type (`E-MUTUAL-KIND`, as for any cycle between a data type and a definition).
 - **At the JS boundary**, an export's parameter may leave a defaulted field out, and the decoder fills it by running the default, in field order, from the fields before it (given or defaulted). A result always has every field. So the TypeScript declarations have two shapes (D1101): `RangeOptions`, complete, for results, and `RangeOptionsInput`, with the defaulted fields optional, for parameters. Every type that holds one, anywhere in its fields, has an input shape too (`type Job = { name: Text, options: RangeOptions }` gives `JobInput`, with `options: RangeOptionsInput`), and a type argument is written with its input shape (`BoxInput<RangeOptionsInput>`):
 
@@ -349,6 +349,31 @@ Circle (radius := 1)       -- named arguments: a function still waiting for `id`
   Only a *missing* own property asks for the default. A property that is present is decoded as given, `undefined` included: for a field that isn't an `Option`, `undefined` is refused like any wrong value (`options.step: expected a non-negative bigint`), and an inherited property is refused as for any field. A defaulted `Option` field has three meanings (D1114): with `colour: Option Text := Some "blue"`, `{}` is the default, `{ colour: undefined }` is `None`, and `{ colour: "red" }` is `Some "red"` (`null` is still refused). Its input type is `colour?: string | undefined`, and on output it is always present, `colour: string | undefined`, `None` as `undefined`, so a value passed back in keeps its `None`. An `Option` field without a default keeps the encoding below: a missing property and `undefined` are both `None`, and `None` is no property. `@[js.optional]` on a field with a default is `E-ATTRIBUTE`. An input shape's name must be free: another type at the boundary called `RangeOptionsInput` is `E-EXPORT`. A `@[js.unboxed]` record is its field's value at the boundary, so its own default never applies there.
 
 Examples: `examples/accept/field-defaults.sw`, `examples/reject/field-default-*.sw`, `examples/extract/field-defaults.sw`. Design: [named-arguments.md](proposals/named-arguments.md) §5.1 to §5.3.
+
+### Parameter defaults
+
+An explicit parameter of a `def` or `theorem` header, top-level or local, may have a default value, written after `:=` (docs/proposals/signature-defaults.md):
+
+```
+def makeBooking (id: Text)
+    (start: Float := 0.0)
+    (duration: Float := 60.0)
+    (room: Option Text := None): Booking :=
+  { id, start, duration, room }
+
+test "a short booking" := makeBooking "a" (duration := 30.0) |> .duration == 30.0
+test "every booking" := ["a", "b"].map makeBooking |> .length == 2
+```
+
+- **Given by name only.** Positional arguments skip a defaulted parameter, so adding a default never moves a positional argument: `makeBooking "a" (duration := 30.0)`. A positional argument written after the header's parameters ran out, in a call that left a default out, is `E-DEFAULT-POSITIONAL` (`scaler 5 3` with `def scaler (base: Nat) (factor: Nat := 1): Nat -> Nat`), with both fixes: `scaler 5 (factor := 3)`, or `(scaler 5) 3`, whose brackets finish the call before `3` is applied.
+- **Every written call fills the defaults it doesn't name**, at the end of the call: a bare name (`makeBooking` is `id => makeBooking id 0.0 60.0 None`, so `.map makeBooking` works), dot notation (`clip.trimmed`), a method section (`.trimmed`) and a pipe (`clip |> Clip.trimmed`). A required parameter left out before the last given or defaulted one makes the call a function of it, with its name (`range 0` is `stop => range 0 stop 1`); one after it stays to currying. A function's type is still the full arrow, defaults included; to pass the function with a default open, write the lambda (`start stop step => range start stop (step := step)`).
+- **What a default may use**, and when it is checked, are as for fields: the parameters before it (a later one is `E-UNKNOWN-NAME`, with a note), checked once at the declaration for any values of those (`(ok: size = 8 := rfl)` after `(size: Nat := 8)` is `E-REFL`), and pure (`E-ABILITY`, `E-PARTIAL`). It can't use the definition, or one defined together with it (`E-MUTUAL-SIGNATURE`).
+- **Leaving a parameter out commits to its default** before the arguments are checked: with `def sized (n: Nat := 3) (xs: Vec Nat n)`, `sized two` (`two: Vec Nat 2`) is `E-TYPE-MISMATCH`, with a note that `n` is left out and is `3`; `sized (n := 2) two` checks. A written argument a default uses is computed once: bound by a `let` first unless it's a variable, a name or a number.
+- **Identity.** Each default is a generated definition, `range.step%default`, taking the earlier parameters it needs; a call that leaves the parameter out calls it, so `range 0 10` equals `range 0 10 (step := 1)` (`rfl` proves it) with a different hash. Defaults aren't part of the definition's hash: changing one changes the hashes of exactly the calls that leave it out, and a call that names every default is the term it was before the defaults were added.
+- **Not yet**: an `export def` with a default is `E-EXPORT` (JS callers will get an options object), and a constructor application doesn't fill field defaults.
+- **Editor.** Hover shows the header as written, defaults included, and completing a parameter's name shows its default (`step := 1`).
+
+Examples: `examples/accept/param-defaults.sw`, `examples/projects/accept/param-defaults-across-namespaces`, `examples/reject/param-default-*.sw`.
 
 ## Numbers in an `export`
 

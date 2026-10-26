@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: this function has no parameter named `stride`
+   ╭─[ reject/param-default-unknown.sw:7:38 ]
+   │
+ 7 │ def numbers: List Nat := range 0 10 (stride := 2)
+   │                                      ───┬──  
+   │                                         ╰──── not a parameter of this function
+   │ 
+   │ Note: its parameters are `(start)`, `(stop)` and `(step := 1)` (round brackets: explicit, square: implicit)
+───╯

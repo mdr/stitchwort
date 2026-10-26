@@ -20,6 +20,7 @@ use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::Expr;
 
 use crate::check::{Arg, Ctx, Piped, Result};
+use crate::defaults::HeadDefaults;
 
 /// One parameter of a signature: its name and kind.
 #[derive(Clone, Debug)]
@@ -29,6 +30,10 @@ pub(crate) struct Param {
     /// The type of the parameter, where the signature was read from a
     /// function type (for the language server's hover over a name).
     pub ty: Option<Value>,
+    /// It has a default value: given by name only, and filled with its
+    /// default by a call that doesn't name it
+    /// (docs/proposals/signature-defaults.md §6).
+    pub default: bool,
 }
 
 /// The parameters a call may name (§4.3).
@@ -42,9 +47,20 @@ pub(crate) struct Signature {
     /// parameters have values (`Picker n`, with `n` a parameter): the names
     /// of what follows are found after applying the arguments ([`split`]).
     pub stuck: bool,
+    /// The head's parameter defaults, from its declaration.
+    pub defaults: Option<HeadDefaults>,
 }
 
 impl Signature {
+    /// The signature with the head's parameter defaults.
+    pub(crate) fn with_defaults(mut self, defaults: HeadDefaults) -> Signature {
+        for (param, has) in self.params.iter_mut().zip(&defaults.defaulted) {
+            param.default = *has;
+        }
+        self.defaults = Some(defaults);
+        self
+    }
+
     /// Whether nothing at all is known: the head's type is an unknown.
     fn unknown(&self) -> bool {
         self.params.is_empty() && self.open
@@ -67,6 +83,7 @@ pub(crate) fn signature(cx: &Ctx, ty: &Value) -> Result<Signature> {
                 params,
                 open: true,
                 stuck: false,
+                defaults: None,
             });
         }
         if let Some((_, value)) = crate::effects::comp_parts(cx, &ty)? {
@@ -79,6 +96,7 @@ pub(crate) fn signature(cx: &Ctx, ty: &Value) -> Result<Signature> {
                     name: x,
                     icit,
                     ty: Some((*dom).clone()),
+                    default: false,
                 });
                 ty = cod.apply(g, Value::var(level))?;
                 level += 1;
@@ -88,6 +106,7 @@ pub(crate) fn signature(cx: &Ctx, ty: &Value) -> Result<Signature> {
                     params,
                     open: true,
                     stuck: false,
+                    defaults: None,
                 });
             }
             other => {
@@ -95,6 +114,7 @@ pub(crate) fn signature(cx: &Ctx, ty: &Value) -> Result<Signature> {
                     params,
                     open: false,
                     stuck: matches!(other, Value::Neutral(Head::Def(_), _)),
+                    defaults: None,
                 });
             }
         }
@@ -111,10 +131,12 @@ pub(crate) fn declared(params: impl IntoIterator<Item = (Name, Icit)>) -> Signat
                 name,
                 icit,
                 ty: None,
+                default: false,
             })
             .collect(),
         open: false,
         stuck: false,
+        defaults: None,
     }
 }
 
@@ -153,30 +175,95 @@ enum Fill<'a> {
 /// implicit parameters not named are left out (they're inserted as
 /// unknowns, as in a positional call), explicit ones are
 /// [`Slot::Missing`].
+///
+/// With the head's defaults ([`Signature::defaults`]), a positional
+/// argument skips a defaulted parameter, and each defaulted parameter not
+/// named is given its default, `Arg::Default`, counting as given
+/// (docs/proposals/signature-defaults.md §6.1).
 pub(crate) fn plan<'a>(
     cx: &Ctx,
     sig: &Signature,
     args: &[Arg<'a>],
     receiver: Option<usize>,
 ) -> Result<Vec<Slot<'a>>> {
+    Ok(plan_indexed(cx, sig, args, receiver)?
+        .into_iter()
+        .map(|(_, slot)| slot)
+        .collect())
+}
+
+/// [`plan`], with the index of the parameter each slot is for (`None` for
+/// a positional argument past the end).
+pub(crate) fn plan_indexed<'a>(
+    cx: &Ctx,
+    sig: &Signature,
+    args: &[Arg<'a>],
+    receiver: Option<usize>,
+) -> Result<Vec<(Option<usize>, Slot<'a>)>> {
     let params = &sig.params;
     let (filled, overflow) = fill(cx, sig, args, receiver, false)?;
-    let last = filled.iter().rposition(Option::is_some);
+    let defaulted: Vec<usize> = (0..params.len())
+        .filter(|&i| params[i].default && filled[i].is_none())
+        .collect();
+    if let Some(defaults) = &sig.defaults
+        && let Some(&left_out) = defaulted.first()
+    {
+        let past = (filled.iter().enumerate().skip(defaults.header))
+            .find_map(|(_, f)| match f {
+                Some(Fill::Arg(arg @ (Arg::Explicit(_) | Arg::Piped(_)))) => Some(*arg),
+                _ => None,
+            })
+            .or_else(|| overflow.first().copied());
+        if let Some(arg) = past {
+            return Err(past_the_end(defaults, &params[left_out].name, arg));
+        }
+    }
+    let last = filled
+        .iter()
+        .rposition(Option::is_some)
+        .max(defaulted.last().copied());
     let mut slots = Vec::new();
     if let Some(last) = last {
         for (i, fill) in filled.iter().enumerate().take(last + 1) {
             match fill {
-                Some(Fill::Arg(arg)) => slots.push(Slot::Given(placed(*arg))),
-                Some(Fill::Receiver) => slots.push(Slot::Receiver),
+                Some(Fill::Arg(arg)) => slots.push((Some(i), Slot::Given(placed(*arg)))),
+                Some(Fill::Receiver) => slots.push((Some(i), Slot::Receiver)),
+                None if params[i].default => {
+                    let defaults = sig.defaults.as_ref().expect("only with defaults");
+                    slots.push((Some(i), Slot::Given(Arg::Default(defaults.arg(i)))))
+                }
                 None if params[i].icit == Icit::Explicit => {
-                    slots.push(Slot::Missing(params[i].name.clone()))
+                    slots.push((Some(i), Slot::Missing(params[i].name.clone())))
                 }
                 None => {}
             }
         }
     }
-    slots.extend(overflow.into_iter().map(Slot::Given));
+    slots.extend(overflow.into_iter().map(|arg| (None, Slot::Given(arg))));
     Ok(slots)
+}
+
+/// `E-DEFAULT-POSITIONAL` (docs/proposals/signature-defaults.md §6.3): the
+/// positional argument `arg` comes after all of the header's parameters,
+/// in a call that leaves out `left_out`, which has a default.
+fn past_the_end(defaults: &HeadDefaults, left_out: &Name, arg: Arg) -> Diagnostic {
+    let f = &defaults.name;
+    Diagnostic::error(
+        "E-DEFAULT-POSITIONAL",
+        format!(
+            "this argument comes after all of `{f}`'s parameters, but `{left_out}` was left out \
+             and has a default"
+        ),
+    )
+    .with_label(arg_span(&arg), "after the last parameter")
+    .with_note(format!(
+        "a parameter with a default is given by name only: to give `{left_out}`, write \
+         `({left_out} := …)`"
+    ))
+    .with_note(format!(
+        "to apply the result of the call to this argument, put the call in brackets: \
+         `({f} …) …`"
+    ))
 }
 
 /// What [`plan`] matches each parameter of `sig` with (`Arg::Explicit` for
@@ -217,7 +304,7 @@ pub(crate) fn split<'a>(
     sig: &Signature,
     args: &[Arg<'a>],
 ) -> Result<Option<(Vec<Arg<'a>>, Vec<Arg<'a>>)>> {
-    if !sig.stuck || !any(args) {
+    if !sig.stuck || !any(args) || sig.defaults.is_some() {
         return Ok(None);
     }
     let unknown_name = |arg: &Arg| match arg {
@@ -272,8 +359,11 @@ fn fill<'a>(
     let mut spilled = false;
     for arg in args {
         match arg {
-            Arg::Explicit(_) | Arg::Piped(_) => {
-                match explicit.iter().find(|&&i| filled[i].is_none()) {
+            Arg::Explicit(_) | Arg::Piped(_) | Arg::Default(_) => {
+                match explicit
+                    .iter()
+                    .find(|&&i| filled[i].is_none() && !params[i].default)
+                {
                     Some(&i) if !spilled => filled[i] = Some(Fill::Arg(*arg)),
                     _ => {
                         spilled = true;
@@ -392,9 +482,15 @@ fn unknown(cx: &Ctx, sig: &Signature, name: &stitchwort_syntax::ast::Name) -> Di
         format!("this function has no parameter named `{}`", name.text),
     )
     .with_label(name.span, "not a parameter of this function");
-    let shown: Vec<String> = (sig.params.iter())
-        .filter(|p| !p.name.is_empty() && &*p.name != "_" && !p.name.starts_with('%'))
-        .map(|p| match p.icit {
+    let shown: Vec<String> = (sig.params.iter().enumerate())
+        .filter(|(_, p)| !p.name.is_empty() && &*p.name != "_" && !p.name.starts_with('%'))
+        .map(|(i, p)| match p.icit {
+            Icit::Explicit if p.default => {
+                let value = (sig.defaults.as_ref())
+                    .and_then(|d| crate::defaults::default_value(cx, d.arg(i)))
+                    .unwrap_or_else(|| "…".to_string());
+                format!("`({} := {value})`", p.name)
+            }
             Icit::Explicit => format!("`({})`", p.name),
             Icit::Implicit => format!("`[{}]`", p.name),
             Icit::Auto => format!("`[auto {}]`", p.name),
@@ -452,6 +548,7 @@ fn arg_span(arg: &Arg) -> stitchwort_syntax::Span {
         Arg::Explicit(e) => e.span(),
         Arg::Named(n, e) | Arg::NamedExplicit(n, e) => n.span.to(e.span()),
         Arg::Piped(p) => p.span,
+        Arg::Default(_) => stitchwort_syntax::Span::NOWHERE,
     }
 }
 
@@ -465,8 +562,12 @@ pub(crate) fn reached(
     call: &Expr,
     args: &[&Expr],
     extra: usize,
+    defaults: Option<HeadDefaults>,
 ) -> Option<usize> {
-    let sig = signature(cx, ty).ok()?;
+    let mut sig = signature(cx, ty).ok()?;
+    if let Some(defaults) = defaults {
+        sig = sig.with_defaults(defaults);
+    }
     // The value piped in: the first positional argument (any expression
     // stands for it).
     let mut written: Vec<Arg> = (0..extra).map(|_| Arg::Explicit(call)).collect();
@@ -749,7 +850,7 @@ pub(crate) fn filled_by(cx: &Ctx, sig: &Signature, args: &[Arg]) -> Option<Vec<O
             Arg::Explicit(e) | Arg::Named(_, e) | Arg::NamedExplicit(_, e) => {
                 Some(*e as *const Expr)
             }
-            Arg::Piped(_) => None,
+            Arg::Piped(_) | Arg::Default(_) => None,
         }
     };
     Some(

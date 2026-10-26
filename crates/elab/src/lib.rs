@@ -480,6 +480,9 @@ pub struct Elaborator {
     /// The frozen metavariables standing for local definitions, with their
     /// names, for messages.
     pub(crate) local_metas: RefCell<HashMap<usize, String>>,
+    /// The parameter defaults of the local definitions in scope, by what
+    /// their name stands for (`defaults::LocalHead`).
+    pub(crate) local_defaults: RefCell<HashMap<defaults::LocalHead, Rc<defaults::LocalDefaults>>>,
     /// The open goals, `?`, of the declaration being checked (`goals.rs`).
     pub(crate) goals: RefCell<goals::Goals>,
     /// The metavariables standing for a `_` written where a proof goes:
@@ -994,6 +997,7 @@ impl Elaborator {
         self.globals.clear_metas();
         self.drafts.borrow_mut().clear();
         self.local_metas.borrow_mut().clear();
+        self.local_defaults.borrow_mut().clear();
         self.obligations.borrow_mut().clear();
         self.row_metas.borrow_mut().clear();
         self.row_constraints.borrow_mut().clear();
@@ -1379,6 +1383,7 @@ impl Elaborator {
             decreasing: None,
             opaque: false,
             unfolding: Vec::new(),
+            defaults: Vec::new(),
             attrs: Vec::new(),
             span: *span,
         };
@@ -1480,6 +1485,7 @@ impl Elaborator {
             decreasing: None,
             opaque: false,
             unfolding: Vec::new(),
+            defaults: Vec::new(),
             attrs: Vec::new(),
             span: *span,
         };
@@ -2243,6 +2249,17 @@ impl Elaborator {
         if refused {
             return out;
         }
+        // Each default's helper, from the header alone, before any body.
+        for (&(item, signature, _), id) in members.iter().zip(&ids) {
+            self.module.item = Some(item);
+            if let Err(d) = self.param_defaults(signature, *id) {
+                out.push((item, d));
+                refused = true;
+            }
+        }
+        if refused {
+            return out;
+        }
         if recursive {
             let partial = match members
                 .iter()
@@ -2374,6 +2391,7 @@ impl Elaborator {
             decreasing: _,
             opaque: _,
             unfolding: _,
+            defaults,
             attrs: _,
             span,
         } = signature
@@ -2381,6 +2399,17 @@ impl Elaborator {
             unreachable!()
         };
         self.check_unfolding_clause(signature)?;
+        if *export && let Some(default) = defaults.iter().flatten().next() {
+            return Err(Diagnostic::error(
+                "E-EXPORT",
+                format!("`{}` can't be exported yet", def_name.text),
+            )
+            .with_label(default.span(), "a parameter with a default value")
+            .with_note(
+                "an exported function's parameters can't have default values yet; export a \
+                 function without them that calls this one",
+            ));
+        }
         let no_receiver = self.definition_attributes(signature)?;
         let key = self.check_new_name(def_name)?;
         self.clear_metas();

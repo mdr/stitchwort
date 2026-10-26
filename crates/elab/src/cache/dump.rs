@@ -216,6 +216,9 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             let _ = write!(out, "\n  validator {} ", v.param);
             term(&mut out, &v.decision);
         }
+        if let Some(table) = &def.param_defaults {
+            let _ = write!(out, "\n  param defaults {table:?}");
+        }
         out.push('\n');
     }
     for (i, data) in g.datas.iter().enumerate() {

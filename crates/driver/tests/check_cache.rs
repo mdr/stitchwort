@@ -272,6 +272,39 @@ fn the_cache_replays_opaque_definitions() {
     assert_cache_changes_nothing(&project, true);
 }
 
+/// Parameter defaults are replayed from the cache: the defaulting table of
+/// each definition, and calls in a namespace checked afresh against a
+/// cached one that leave a defaulted parameter out.
+#[test]
+fn the_cache_replays_parameter_defaults() {
+    let source = examples_dir().join("projects/accept/param-defaults-across-namespaces");
+    let project = Source::Project("param-defaults-across-namespaces".into(), source.clone());
+    assert_cache_changes_nothing(&project, false);
+
+    let copy = temp_dir("param-defaults-project");
+    std::fs::create_dir_all(copy.join("src")).unwrap();
+    for file in ["stitchwort.yaml", "src/layout.sw", "src/report.sw"] {
+        std::fs::copy(source.join(file), copy.join(file)).unwrap();
+    }
+    let cache = temp_dir("param-defaults-cache");
+    let copied = Source::Project("param-defaults-copy".into(), copy.clone());
+    let cold = run(&copied, false, Some(&cache));
+    assert!(cold.dump.contains("\naccepted true\n"), "{}", cold.dump);
+    let report = copy.join("src/report.sw");
+    let mut text = std::fs::read_to_string(&report).unwrap();
+    text.push_str("\ntheorem fourColumns: columns 4 = 7 := rfl\n");
+    std::fs::write(&report, text).unwrap();
+    let warm = run(&copied, false, Some(&cache));
+    let _ = std::fs::remove_dir_all(&copy);
+    let _ = std::fs::remove_dir_all(&cache);
+    assert!(warm.dump.contains("\naccepted true\n"), "{}", warm.dump);
+    assert!(
+        warm.stats.namespace_hits >= 1,
+        "`Layout` wasn't loaded from the cache"
+    );
+    assert!(warm.dump.contains("param defaults ParamDefaults"));
+}
+
 #[test]
 fn the_cache_changes_nothing_for_the_aoc_project() {
     if !full_tier("the_cache_changes_nothing_for_the_aoc_project") {

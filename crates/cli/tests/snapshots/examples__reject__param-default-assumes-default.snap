@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/param-default-assumes-default.sw:6:49 ]
+   │
+ 6 │ def board (size: Nat := 8) (square: size = 8 := rfl): Nat := size * size
+   │                                                 ─┬─  
+   │                                                  ╰─── `size` and `8` aren't equal
+   │ 
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: a default must work for any values of the earlier parameters (`size`), since a call may give them and leave this one out
+───╯

@@ -809,7 +809,7 @@ pub(crate) fn prefix_form<'a>(
             Arg::Explicit(e) => written.push(*e),
             // Put in place below, once the function is known.
             Arg::Named(..) | Arg::NamedExplicit(..) => {}
-            Arg::Piped(_) => return Ok(None),
+            Arg::Piped(_) | Arg::Default(_) => return Ok(None),
         }
     }
     let key = call_key(recv, field);
@@ -843,17 +843,22 @@ pub(crate) fn prefix_form<'a>(
         return Ok(None);
     }
     let mut full: Vec<Arg<'a>> = Vec::new();
-    if crate::named::any(args) {
+    let defaults = crate::defaults::of_head(cx, &Term::Def(f));
+    if crate::named::any(args) || defaults.is_some() {
         // Named arguments in their places, the receiver first in its
-        // (named-arguments.md §4.4); only if that's a positional call.
-        let sig = crate::named::signature(cx, &g.def(f).ty_value)?;
+        // (named-arguments.md §4.4), and defaults in theirs; only if that's
+        // a positional call.
+        let mut sig = crate::named::signature(cx, &g.def(f).ty_value)?;
+        if let Some(defaults) = defaults {
+            sig = sig.with_defaults(defaults);
+        }
         let Ok(slots) = crate::named::plan(cx, &sig, args, Some(0)) else {
             return Ok(None);
         };
         for slot in slots {
             match slot {
                 Slot::Receiver => full.push(Arg::Explicit(recv)),
-                Slot::Given(arg @ Arg::Explicit(_)) => full.push(arg),
+                Slot::Given(arg @ (Arg::Explicit(_) | Arg::Default(_))) => full.push(arg),
                 _ => return Ok(None),
             }
         }
@@ -895,13 +900,17 @@ fn call(
     // their places; otherwise the call is applied as any other, with the
     // receiver as an argument already elaborated.
     let ordered;
-    let args = if crate::named::any(args) {
-        let sig = crate::named::signature(cx, &g.def(f).ty_value)?;
+    let defaults = crate::defaults::of_head(cx, &Term::Def(f));
+    let args = if crate::named::any(args) || defaults.is_some() {
+        let mut sig = crate::named::signature(cx, &g.def(f).ty_value)?;
+        if let Some(defaults) = defaults {
+            sig = sig.with_defaults(defaults);
+        }
         let slots = crate::named::plan(cx, &sig, args, Some(0))?;
         let simple = slots.iter().all(|s| {
             matches!(
                 s,
-                Slot::Receiver | Slot::Given(Arg::Explicit(_) | Arg::Piped(_))
+                Slot::Receiver | Slot::Given(Arg::Explicit(_) | Arg::Piped(_) | Arg::Default(_))
             )
         });
         if !simple {

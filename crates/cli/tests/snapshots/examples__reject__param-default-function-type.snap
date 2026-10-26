@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: only a definition's parameter or a field can have a default value
+   ╭─[ reject/param-default-function-type.sw:5:26 ]
+   │
+ 5 │ def apply (f: (x: Nat := 0) -> Nat): Nat := f 1
+   │                          ┬  
+   │                          ╰── only a definition's parameter or a field can have a default value
+   │ 
+   │ Note: a definition's explicit parameters, `def range (step: Nat := 1)`, a record's fields, `{ step: Nat := 1 }`, and a constructor's, `| Circle (id: Text := "a")`, can have one; a function type can't
+───╯

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DEFAULT-POSITIONAL] Error: this argument comes after all of `scaler`'s parameters, but `factor` was left out and has a default
+   ╭─[ reject/param-default-positional.sw:8:29 ]
+   │
+ 8 │ def scaled: Nat := scaler 5 3
+   │                             ┬  
+   │                             ╰── after the last parameter
+   │ 
+   │ Note 1: a parameter with a default is given by name only: to give `factor`, write `(factor := …)`
+   │ 
+   │ Note 2: to apply the result of the call to this argument, put the call in brackets: `(scaler …) …`
+───╯

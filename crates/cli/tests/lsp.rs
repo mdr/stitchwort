@@ -1623,3 +1623,39 @@ fn named_arguments_hover_and_complete_parameter_names() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn parameter_defaults_show_in_hover_and_completion() {
+    let dir = temp_dir("param-defaults");
+    let file = dir.join("defaults.sw");
+    let text = "def range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat := [start, stop, step]\n\
+                def a: List Nat := range 0 10\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+
+    // Hover on the call's head: the header as written, the default in it.
+    let hover = client.at("textDocument/hover", &uri, 1, 20);
+    let shown = hover["contents"]["value"].as_str().unwrap();
+    assert!(
+        shown.contains("def range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat"),
+        "{hover}"
+    );
+
+    // Completion of a defaulted parameter's name shows its default.
+    client.change(&uri, 2, &format!("{text}def b: List Nat := range 0 10 (\n"));
+    client.diagnostics(&uri, 2);
+    let found = client.request(
+        "textDocument/completion",
+        json!({"textDocument": {"uri": uri}, "position": {"line": 2, "character": 31}, "context": {"triggerKind": 1}}),
+    );
+    let step = found
+        .as_array()
+        .and_then(|items| items.iter().find(|i| i["label"] == "step"))
+        .unwrap_or_else(|| panic!("no `step`: {found}"));
+    assert_eq!(step["detail"], "step := 1", "{found}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}

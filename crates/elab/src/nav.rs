@@ -841,8 +841,12 @@ impl Elaborator {
                 ty = (**cod).clone();
                 continue;
             }
+            let default = self
+                .param_default_shown(id, names.len())
+                .map(|d| format!(" := {d}"))
+                .unwrap_or_default();
             parts.push(match icit {
-                Icit::Explicit => format!("({name}: {shown})"),
+                Icit::Explicit => format!("({name}: {shown}{default})"),
                 _ => format!("[{name}: {shown}]"),
             });
             names.push(name.clone());
@@ -856,11 +860,62 @@ impl Elaborator {
         Some(parts.join(" -> "))
     }
 
+    /// The value of definition `id`'s parameter `i`'s default, if it has
+    /// one: its helper's body, in the names of the parameters it takes.
+    fn param_default_shown(&self, id: DefId, i: usize) -> Option<String> {
+        let g = &self.globals;
+        let table = g.def(id).param_defaults.clone()?;
+        let default = table.params.get(i)?.as_ref()?;
+        let mut body: Term = (**g.def(default.helper).body()?).clone();
+        let mut names: Vec<Name> = Vec::new();
+        while let Term::Lam(x, _, inner) = body.strip_loc() {
+            names.push(x.clone());
+            body = (**inner).clone();
+        }
+        Some(pretty::term(g, &names, &body))
+    }
+
+    /// A definition with parameter defaults, as its header is written:
+    /// `def range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat`.
+    fn defaulted_header(&self, id: DefId) -> Option<String> {
+        let g = &self.globals;
+        let def = g.def(id);
+        let table = def.param_defaults.clone()?;
+        let mut names: Vec<Name> = Vec::new();
+        let mut parts: Vec<String> = Vec::new();
+        let mut ty = def.ty.clone();
+        while names.len() < table.header {
+            let Term::Pi(name, icit, dom, cod) = ty.strip_loc() else {
+                return None;
+            };
+            if !name.starts_with("%div.") {
+                let shown = pretty::term(g, &names, dom);
+                parts.push(match (icit, self.param_default_shown(id, names.len())) {
+                    (Icit::Explicit, Some(d)) => format!("({name}: {shown} := {d})"),
+                    (Icit::Explicit, None) => format!("({name}: {shown})"),
+                    _ => format!("[{name}: {shown}]"),
+                });
+            }
+            names.push(name.clone());
+            ty = (**cod).clone();
+        }
+        let kind = if def.theorem { "theorem" } else { "def" };
+        let short = def.name.rsplit('.').next().unwrap_or(&def.name);
+        Some(format!(
+            "{kind} {short} {}: {}",
+            parts.join(" "),
+            pretty::term(g, &names, &ty)
+        ))
+    }
+
     fn global_type(&self, global: Global) -> Option<String> {
         let g = &self.globals;
         match global {
             Global::Def(id) => {
-                let ty = pretty::value(g, &[], &g.def(id).ty_value);
+                let ty = match self.defaulted_header(id) {
+                    Some(header) => header,
+                    None => pretty::value(g, &[], &g.def(id).ty_value),
+                };
                 // Checked with its bare row variables total (D1215,
                 // docs/proposals/partial-stage-3.md §2.2): say why.
                 Some(match self.total_rows.borrow().contains_key(&id) {
@@ -1267,7 +1322,7 @@ impl Walk<'_> {
                 | Expr::Binary(_, a, b)
                 | Expr::Pipe(a, b)
                 | Expr::Seq(a, b) => then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]),
-                Expr::Neg(a, _) => stack.push(Work::Expr(a)),
+                Expr::Neg(a, _) | Expr::Bracketed(a, _) => stack.push(Work::Expr(a)),
                 Expr::Lam(names, body, _) => {
                     let mut steps: Vec<Work> = names.iter().map(Work::Bind).collect();
                     steps.push(Work::Expr(body));
