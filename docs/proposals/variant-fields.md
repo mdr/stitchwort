@@ -7,7 +7,7 @@ D594 (a), D595 (b), D605 (a) (D1085). Open: D603, D604
 ([§11](#11-decisions-for-the-user)). Feature 1 is built
 ([§4.4](#44-as-built-feature-1)), and so is named construction
 ([§4.5](#45-as-built-named-construction-d605-a)); features 2 and 3 are built
-too (§5.6, §6.4).
+too (§5.6, §6.4), with generated update lemmas (§6.6).
 
 Labels, as in the other notes:
 
@@ -1040,7 +1040,8 @@ which today's records refuse (§2, **[run]**). That's D604.
 **In proofs**, `{ a | start = t }.start = t` holds after splitting `a`; on a
 known constructor both sides compute. The usual update laws are provable by
 cases; they needn't hold by computation on an unknown value. Generated lemmas
-such as `Shape.start_update` aren't proposed now.
+such as `Shape.start_update` weren't proposed at first; they're built now, as
+`Shape.start.update.start` (§6.6).
 
 ### 6.3 Orders: dependency, written, evaluation
 
@@ -1188,6 +1189,80 @@ of every record update whose base isn't a variable: in the examples,
 
 Regression examples: `examples/accept/update-identity.sw`,
 `examples/reject/update-identity-*.sw`.
+
+### 6.6 Update lemmas (as built)
+
+A port with proofs split on the value (`cases a`) wherever an update met
+an accessor: on an unknown `a`, `({ a | f = s }).g` is the accessor's
+`case` on the update's stuck `match`, so neither `.f = s` nor `.g = a.g`
+is `rfl`. Built in `crates/elab/src/update_lemmas.rs`, called with the
+type's other generated members (`after_data`, `crates/elab/src/lib.rs`).
+
+- **What.** For each shared field `f` an update can replace, and each
+  shared field `g`, the theorem `T.f.update.g`:
+
+  ```
+  theorem Shape.start.update.start (x: Shape) (start: Nat): ({ x | start = start }).start = start
+  theorem Shape.start.update.id (x: Shape) (start: Nat): ({ x | start = start }).id = x.id
+  ```
+
+  The parameters come first, implicit; the new value is named after the
+  field. When updating `f` forces other shared fields (a field whose type
+  mentions it, in any constructor, transitively, as 6.1's closure), the
+  update replaces them all, in the shared fields' order:
+  `Sized.n.update.name (x: Sized) (n: Nat) (xs: Vec Nat n): ({ x | n = n,
+  xs = xs }).name = x.name`.
+- **Names.** Under the accessor, as `f.unfold` is under `f`: `T.f` is the
+  field updated, `update` the operation, the last part the field read. A
+  type with `k` shared fields has up to `k²`. Source can't declare a name
+  of this shape, so nothing clashes; they're found as `f.unfold` is, as
+  local definitions of the accessor (`helper_keys`), and the library index
+  lists one candidate per pair of candidate fields (§12.1), confirmed or
+  removed by loading the file.
+- **Left out.** `g` is read back only when it's data and its declared
+  type mentions no field: after `{ x | xs = ys }`, `xs` has type
+  `Vec Nat ({ x | xs = ys }).n`, which isn't `Vec Nat x.n` by computation,
+  so `T.xs.update.xs` couldn't be stated without a cast; and a proof field's
+  accessor is a theorem, which isn't unfolded. No `f` whose update forces an
+  implicit field or one constructor's own field (6.1 refuses the update).
+  None for records (`({ p | x = a }).x = a` is already `rfl`, 6.5), indexed
+  families (no update) or propositions.
+- **How.** Each is source, elaborated like a written theorem: the signature
+  with the update in it, and one equation per constructor (named by its
+  exact key), proved by `rfl`. So the update in its statement is the same
+  lifted `match` a written update is, and `rewrite` finds it in any update
+  of the same fields, because two such helpers are compared by their case
+  trees (6.5). One that fails to check is left out, its name removed; a
+  resource error is passed on.
+- **Several fields at once.** `{ a | f = s, h = t }` elaborates to one
+  `match` that replaces both (6.5 keeps updates simultaneous), and that
+  helper's tree differs from the one-field helpers', so these lemmas don't
+  match it (`E-REWRITE-NOTHING`). Nested updates, `{ { a | f = s } | h = t }`,
+  are matched one at a time. Covering every set of fields would take a
+  lemma per subset and field read (`k · 2^k`); not built.
+- **Navigation.** A lemma is placed at its updated field's name in the
+  first constructor. Hover on `Shape.start.update.id` shows a theorem with
+  its statement; the printer shows the update as its helper,
+  `(Shape.start.update.id.%match1 x start).id = x.id`, as it does for any
+  written update.
+- **Source spans.** The generated source of all a field's lemmas has one
+  span, and the elaborator remembers dot calls by the receiver's address and
+  span (`dot_heads`). Generated source is freed after checking, so the next
+  lemma's can be allocated at the same address; the entries for that span are
+  forgotten after each lemma, or `x.id` could reuse an earlier `x.ref`'s
+  head.
+- **Hashes.** No existing declaration's hash moves. The snapshots gain only
+  lines, a lemma and its helper each: in the core, `Pair`, `Char`, `Text`,
+  `Int`, `Effect.SigMap`, `Effect.Rec`, `Omega.Env`, `Omega.Fact`,
+  `Omega.Row`, `Ring.Env` and `Ring.Mono` (37 lemmas); in 29 examples, their
+  types'.
+- **Cost.** About 0.3 ms a lemma: a type with ten shared fields (100
+  lemmas) checks in 443 ms instead of 415 ms; the core's 37 are within the
+  noise of loading it.
+
+Example: `examples/accept/shared-field-update-lemmas.sw`; tests in
+`crates/driver/tests/update_lemmas.rs` and `navigation.rs`
+(`update_lemmas`).
 
 ## 7. Before and after
 
@@ -1569,8 +1644,9 @@ built-ins, found by identity through the registry (`registry.rs:223`,
 - **Not proposed** and possibly asked for later: `show` printing a record argument in
   brackets (4.5), bare variant record patterns (D595), shared fields through a wrapped record
   (`| Circle CircleData`), updates on indexed families, accessors from index
-  refinements (5.1.2), generated update lemmas, the `.d.ts` base type, and the
-  `x.id` optimisation.
+  refinements (5.1.2), the `.d.ts` base type, and the
+  `x.id` optimisation. (Generated update lemmas were on this list; they're
+  built, §6.6.)
 
 ## 13. What I couldn't verify
 

@@ -406,3 +406,22 @@ fn shared_fields() {
         assert!(all.contains(expected), "missing `{expected}` in\n{all}");
     }
 }
+
+#[test]
+fn update_lemmas() {
+    let source = "type Shape =\n  | Dot (id: Text)\n  | Circle (count: Nat) (id: Text)\n\n\
+                  theorem renamed (s: Shape): ({ s | id = \"a\" }).id = \"a\" :=\n  \
+                    rewrite Shape.id.update.id in rfl\n";
+    let mut session = Session::navigable();
+    session.load("one.sw", source).expect("checks");
+    let index = index_of(&session);
+    let all = lines(&session, &index, "one.sw");
+    let found = all
+        .lines()
+        .find(|l| l.contains("-> Main.Shape.id.update.id [theorem]"))
+        .unwrap_or_else(|| panic!("no hover on the lemma in\n{all}"));
+    assert!(
+        found.contains(": (x: Shape) → (id: Text) → ") && found.ends_with(").id = id"),
+        "{found}"
+    );
+}

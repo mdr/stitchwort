@@ -572,6 +572,9 @@ impl Elaborator {
         // member's): the first such reference names the symbol.
         let mut visible: stitchwort_core::collections::HashSet<usize> =
             stitchwort_core::collections::HashSet::default();
+        let field_binders: stitchwort_core::collections::HashSet<Span> =
+            nav.field_spans.values().copied().collect();
+        let mut by_name: HashMap<(Span, String), usize> = HashMap::default();
         for (at, noted) in noted_refs {
             if !wanted(*at, noted.dot.as_deref()) {
                 continue;
@@ -606,7 +609,15 @@ impl Elaborator {
                 _ => noted.key.clone(),
             };
             let shown = !last.starts_with('%');
-            let index = *by_span.entry(target).or_insert_with(|| {
+            // A theorem declared at a field (a shared field's update lemma,
+            // `Shape.id.update.ref`, at `id`) is a symbol of its own there.
+            let at_field = field_span.is_none() && field_binders.contains(&target);
+            let found = if at_field {
+                by_name.get(&(target, name.clone())).copied()
+            } else {
+                by_span.get(&target).copied()
+            };
+            let index = found.unwrap_or_else(|| {
                 symbols.push(NavSymbol {
                     name: name.clone(),
                     kind,
@@ -622,6 +633,11 @@ impl Elaborator {
                 });
                 symbols.len() - 1
             });
+            if at_field {
+                by_name.insert((target, name.clone()), index);
+            } else {
+                by_span.insert(target, index);
+            }
             if symbols[index].range.is_none() {
                 // The elaborator's name is the one a reference was resolved
                 // by. A field is reached both by its projection (`Ord.equal`)
