@@ -3594,14 +3594,16 @@
     {
       "id": 530,
       "title": "Native N4: effects and handlers (after N3; D1285 yes)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "2b7be065"
+      ]
     },
     {
       "id": 531,
@@ -3764,14 +3766,16 @@
     {
       "id": 543,
       "title": "Standalone S7: roguelike fully native — M2 (after N4, S5)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
-      "commits": []
+      "updated": "2026-10-26",
+      "commits": [
+        "2b7be065"
+      ]
     },
     {
       "id": 544,
