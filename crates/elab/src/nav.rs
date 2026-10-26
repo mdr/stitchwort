@@ -930,7 +930,9 @@ impl Elaborator {
             Global::Def(id) => {
                 let ty = match self.defaulted_header(id) {
                     Some(header) => header,
-                    None => pretty::value(g, &[], &g.def(id).ty_value),
+                    // The type as elaborated, with calls as written
+                    // (`Float.isValid a`): unfolded, it can run to megabytes.
+                    None => pretty::term(g, &[], &g.def(id).ty),
                 };
                 // Checked with its bare row variables total (D1215,
                 // docs/proposals/partial-stage-3.md §2.2): say why.
