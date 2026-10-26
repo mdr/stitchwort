@@ -271,6 +271,7 @@
             pkgs.cargo-mutants # mutation testing: do the tests notice when code changes?
             pkgs.cargo-nextest # runs the test tiers (.config/nextest.toml)
             pkgs.go-task # `task`: the menu of what to run (Taskfile.yml)
+            pkgs.python3 # dev/memguard, which every test task runs under
 
             # Browser playground: Rust -> WASM
             pkgs.wasm-bindgen-cli

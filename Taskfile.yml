@@ -16,6 +16,15 @@ vars:
   # is tested (crates/cli/tests/build.rs); the default binary leaves it out.
   # The flake's test check passes the same.
   TEST_FEATURES: '--features stitchwort-cli/native'
+  # Every task that runs tests runs them under dev/memguard, which kills the
+  # whole process tree when its memory passes the tier's cap, in GB
+  # (docs/testing.md, "Memory"). STITCHWORT_MEM_CAP_GB overrides the cap (0
+  # for none); STITCHWORT_MEM_REPORT=1 prints the peak at the end.
+  GUARD: '{{.ROOT_DIR}}/dev/memguard'
+  MEM_CAP_LANE: 3
+  MEM_CAP_MERGE: 3
+  MEM_CAP_DAILY: 16
+  MEM_CAP_FULL: 16
 
 tasks:
   default:
@@ -57,7 +66,7 @@ tasks:
       STITCHWORT_TIER: lane
       EXAMPLES: '{{.NAME}}'
     cmds:
-      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile lane-{{.AREA}} {{.CLI_ARGS}}
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_LANE}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile lane-{{.AREA}} {{.CLI_ARGS}}'
 
   test:one:
     desc: 'Tests whose names match a filter, at the daily sample (task test:one -- named_calls)'
@@ -67,7 +76,7 @@ tasks:
       (`task test:one -- -E 'binary(lsp)'`). Corpus sweeps take the daily
       sample; set STITCHWORT_TIER=lane for the smallest, full for all.
     cmds:
-      - cargo nextest run --release --workspace {{.TEST_FEATURES}} {{.CLI_ARGS}}
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} {{.CLI_ARGS}}'
 
   test:merge:
     desc: Merge tier, under 60 s; run after every merge
@@ -80,7 +89,7 @@ tasks:
       STITCHWORT_TIER: merge
     cmds:
       - cargo fmt --check
-      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile merge {{.CLI_ARGS}}
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile merge {{.CLI_ARGS}}'
 
   test:daily:
     desc: Daily tier, under 5 minutes; also what `nix flake check` runs
@@ -94,9 +103,9 @@ tasks:
     cmds:
       - cargo fmt --check
       - cargo clippy --release --all-targets -- --deny warnings
-      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile daily {{.CLI_ARGS}}
-      - cargo test --release --doc --workspace
-      - cargo test -p stitchwort-driver --test builtins
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile daily {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test --release --doc --workspace'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test -p stitchwort-driver --test builtins'
       - task: board:test
 
   test:full:
@@ -109,8 +118,8 @@ tasks:
     env:
       STITCHWORT_TIER: full
     cmds:
-      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile full {{.CLI_ARGS}}
-      - cargo test --release --doc --workspace
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile full {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo test --release --doc --workspace'
 
   test:gate:
     desc: 'nix flake check: the daily tier in the Nix sandbox, with clippy, rustfmt, debug-builtins and the board'
@@ -128,7 +137,7 @@ tasks:
   test:affected:
     desc: "Whole-area test suites for the areas the change since BASE touches (dev/t affected; minutes)"
     cmds:
-      - dev/t affected {{.CLI_ARGS}}
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- dev/t affected {{.CLI_ARGS}}'
 
   test:browser:
     desc: Build the playground, then test it in headless Chrome (web/test.sh; about 35 s)
@@ -156,7 +165,7 @@ tasks:
       INSTA_UPDATE: always
       EXAMPLES: '{{.NAME}}'
     cmds:
-      - cargo nextest run --release -p stitchwort-cli --test examples --no-fail-fast
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release -p stitchwort-cli --test examples --no-fail-fast'
       - git status --short -- '*.snap'
 
   snap:hashes:
@@ -166,7 +175,7 @@ tasks:
       INSTA_UPDATE: always
       EXAMPLES: '{{.NAME}}'
     cmds:
-      - cargo nextest run --release -p stitchwort-driver --test hash_stability --no-fail-fast
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release -p stitchwort-driver --test hash_stability --no-fail-fast'
       - git status --short -- '*.snap'
 
   snap:one:
@@ -174,7 +183,7 @@ tasks:
     env:
       INSTA_UPDATE: always
     cmds:
-      - cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-fail-fast {{.CLI_ARGS}}
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-fail-fast {{.CLI_ARGS}}'
       - git status --short -- '*.snap'
 
   guide:update:
@@ -182,17 +191,17 @@ tasks:
     env:
       STITCHWORT_GUIDE_UPDATE: '1'
     cmds:
-      - cargo nextest run --release -p stitchwort-cli --test guide
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release -p stitchwort-cli --test guide'
 
   bench:
     desc: 'Benchmarks against bench/baseline.toml: counts and time (about a minute; args after --, e.g. -- --no-time)'
     cmds:
-      - cargo run --release -p stitchwort-bench -- {{.CLI_ARGS}}
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo run --release -p stitchwort-bench -- {{.CLI_ARGS}}'
 
   bench:update:
     desc: Record this run as the benchmark baseline (bench/baseline.toml); on a quiet machine
     cmds:
-      - cargo run --release -p stitchwort-bench -- --update
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo run --release -p stitchwort-bench -- --update'
 
   native:handwritten:
     desc: 'Hand-written native experiment (bench/native/handwritten): release build, every mode at 1,000,000 keys'
