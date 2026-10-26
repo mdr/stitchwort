@@ -662,14 +662,13 @@ fn verbose_says_what_was_compiled() {
     };
     let said = build_verbose("micro_call.sw", &native_bench("micro_call.sw"));
     assert!(
-        said.starts_with("native: compiled 2 of the 3 bodies `main` reaches (frames of at most "),
+        said.starts_with("native: compiled 3 of the 3 bodies `main` reaches (frames of at most "),
         "{said}"
     );
     assert_eq!(said.lines().count(), 1, "{said}");
     assert!(!native_trampolines(&dir.join("micro_call")).is_empty());
 
-    // A function that performs effects, which native code runs through the
-    // machine linked in (stage N4).
+    // A function that performs effects.
     let said = build_verbose(
         "countdown.sw",
         "import Std (IO, Nat)\n\n\
@@ -681,7 +680,7 @@ fn verbose_says_what_was_compiled() {
          def main(): {IO} () := countdown 2\n",
     );
     assert!(
-        said.starts_with("native: compiled 2 of the 3 bodies `main` reaches (frames of at most "),
+        said.starts_with("native: compiled 3 of the 3 bodies `main` reaches (frames of at most "),
         "{said}"
     );
     assert!(!native_trampolines(&dir.join("countdown")).is_empty());
@@ -690,16 +689,17 @@ fn verbose_says_what_was_compiled() {
         "2\n1\ngo\n"
     );
 
-    // Nothing but the entry: nothing to compile.
+    // Nothing but the entry, which is compiled too (stage NO4 of
+    // native-only.md).
     let said = build_verbose(
         "hello.sw",
         "import Std (IO)\n\ndef main(): {IO} () := IO.print \"hello\"\n",
     );
-    assert_eq!(
-        said,
-        "native: nothing `main` reaches compiles, so the whole run is on the machine\n"
+    assert!(
+        said.starts_with("native: compiled 1 of the 1 bodies `main` reaches (frames of at most "),
+        "{said}"
     );
-    assert!(native_trampolines(&dir.join("hello")).is_empty());
+    assert!(!native_trampolines(&dir.join("hello")).is_empty());
     assert_eq!(
         text(&run_executable(&dir.join("hello"), b"").stdout),
         "hello\n"
@@ -802,7 +802,7 @@ fn the_roguelike_built_native_plays_as_it_does_under_run() {
     let Some((Ok(compiled), Ok(reached))) = counts else {
         panic!("{said}");
     };
-    assert_eq!(compiled + 1, reached, "every body but the entry: {said}");
+    assert_eq!(compiled, reached, "every body, the entry included: {said}");
     // No note that the executable will run everything on the machine (its
     // frame bound fits the stack): the guard `the_roguelike_runs_natively`
     // checks under `run --native` too.
@@ -842,7 +842,7 @@ fn the_roguelike_runs_natively() {
     assert_eq!(ran.status.code(), Some(0), "{said}");
     assert!(!said.contains("on the machine"), "fell back: {said}");
     assert!(
-        said.contains("native: 0 nested runs of the machine"),
+        said.contains("native: the machine executed 0 instructions"),
         "{said}"
     );
     let running = said

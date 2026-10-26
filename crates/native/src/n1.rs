@@ -10,21 +10,17 @@
 //! the crossing). Only the interpreter's overhead goes: dispatch, the
 //! register vector, frame push and pop.
 //!
-//! **What runs natively** (stage N4; the note's §4.6 had whole islands from
-//! the entry's calls). Every body `main`'s entry reaches (`census::island`)
-//! but the entry itself (glue the machine runs once) is compiled, unless it
-//! has an instruction native code doesn't compile (`census::n1_blocker`;
-//! since N4, none) or calls such a body directly. The machine hands over
-//! wherever it would push a frame for a compiled body, whoever calls it: the
-//! entry, the effect loop applying a continuation, the `IO` runner, a
-//! machine frame (`native_abi::NativeIslands`). The other way, native code
-//! has the machine run nothing for it since stage NO3 of
-//! docs/proposals/native-only.md: `Text.fold` is a runtime body
-//! (`rt_text_fold`, NO1), the effect runtime's loop and resumptions are too
-//! (`rt_loop`, `rt_resume`, NO2), and its leaf function values and
-//! state-passing handlers are the runtime's leaves (NO3). Only a body that
-//! isn't compiled (none today) would be run by the machine, nested
-//! (`native_abi::nested_runs` counts such runs; `Plan::nests`).
+//! **What runs natively** (stage NO4 of docs/proposals/native-only.md).
+//! Every body `main`'s entry reaches (`census::island`), the entry
+//! included, is compiled, or none is and the whole run is the machine's (a
+//! body with an instruction native code doesn't compile,
+//! `census::n1_blocker`: none since N4). The runner drives native code
+//! through `native_abi::NativeExecutor`, which enters it by three
+//! trampolines (the entry, the apply stubs, the effect runtime's loop),
+//! and native code has the machine run nothing for it: `Text.fold` is a
+//! runtime body (`rt_text_fold`, NO1), the effect runtime's loop and
+//! resumptions are too (`rt_loop`, `rt_resume`, NO2), and its leaf function
+//! values and state-passing handlers are the runtime's leaves (NO3).
 //!
 //! **Effects** (stage N4, and NO2–NO3 of native-only.md). `bind c k` is
 //! inline: `abi::sw_bind` takes `c` apart, and for `Done x` native code
@@ -130,7 +126,6 @@ use cranelift_codegen::settings::{self, Configurable};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Switch, Variable};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module, default_libcall_names};
-use stitchwort_core::ResourceError;
 use stitchwort_core::native::Native;
 use stitchwort_rt::census::{island, n1_blocker};
 use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
@@ -138,12 +133,11 @@ use stitchwort_rt::effect::EffectOp;
 use stitchwort_rt::ir::{GlobalKind, PrimOp, Program};
 use stitchwort_rt::native_abi::{
     self as abi, ApplyPlan, Context, CrossingCode, FUN_CAPTURES_AT, FUN_KEY_MASK, NativeIslands,
-    NativeRun, Numbering, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT, STRONG_AT,
-    TAG_DATA, TAG_FLOAT, TAG_FUN, TAG_INT, TAG_NAT, TAG_TAG, Tables, Trampoline, VALUE_SIZE,
-    WEAK_AT,
+    Numbering, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA,
+    TAG_FLOAT, TAG_FUN, TAG_INT, TAG_NAT, TAG_TAG, Tables, VALUE_SIZE, WEAK_AT,
 };
 use stitchwort_rt::natives::{IntNative, TextNative};
-use stitchwort_rt::value::{Fun, Value};
+use stitchwort_rt::value::Value;
 
 use crate::frames;
 
@@ -180,10 +174,6 @@ pub struct Islands {
 }
 
 impl NativeIslands for Islands {
-    fn compiled(&self, code: u32) -> bool {
-        self.crossing.compiled(code)
-    }
-
     fn fits(&self, frame_limit: u64) -> bool {
         // The frame counter must fire before the stack check could (the
         // `frames` module): otherwise the run stays on the machine.
@@ -202,36 +192,25 @@ impl NativeIslands for Islands {
         false
     }
 
-    #[allow(unsafe_code)]
-    fn call(
-        &self,
-        code: u32,
-        env: Option<Rc<Fun>>,
-        args: Vec<Value>,
-        run: &mut NativeRun<'_>,
-    ) -> Result<Value, ResourceError> {
-        // SAFETY: the trampolines and the tables are this module's, whose
-        // code is never unmapped (`_module`); the machine calls only
-        // compiled bodies.
-        unsafe { self.crossing.call(code, env, args, run) }
+    fn crossing(&self) -> &abi::Crossing {
+        // The code is never unmapped (`_module`).
+        &self.crossing
     }
 }
 
 // --------------------------------------------------------------- admission
 
-/// What runs natively: every body reachable from the entry that compiles,
-/// and whose direct callees do.
+/// What runs natively: every body reachable from the entry, the entry
+/// included (stage NO4 of native-only.md: all or nothing).
 pub(crate) struct Plan {
     pub(crate) bodies: BTreeSet<u32>,
     /// How many bodies `main` reaches, its entry included.
     pub(crate) reachable: usize,
-    /// Whether native frames may nest inside runs of the machine: only if
-    /// some body `main` reaches (the entry aside) isn't compiled, since a
-    /// function value of one is the machine's to run (`Work::Enter`).
-    /// Until stage NO3 of docs/proposals/native-only.md, also a
-    /// state-passing handler or an effect native's function value; since
-    /// NO3 the effect runtime is all compiled, and as `census::n1_blocker`
-    /// declines nothing, this is false for every program today.
+    /// Whether native frames may nest inside runs of the machine: false
+    /// since stage NO4 of docs/proposals/native-only.md, when native code
+    /// runs only if every body `main` reaches is compiled (until then, a
+    /// body that wasn't, and until NO3 a state-passing handler or an effect
+    /// native's function value, was the machine's to run). NO5 removes it.
     pub(crate) nests: bool,
     /// Whether anything `main` reaches may run a state-passing handler
     /// ([`uses_state_handlers`]), so the runtime's bodies need their part
@@ -309,9 +288,6 @@ pub(crate) fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>
             .any(|instr| uses_effects(program, instr))
     });
     for code in reach {
-        if code == image.entry_code {
-            continue;
-        }
         let mut blockers = BTreeSet::new();
         for instr in &image.codes[code as usize].instrs {
             if let Some(key) = n1_blocker(instr) {
@@ -351,19 +327,19 @@ pub(crate) fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>
             ));
         }
     }
-    if bodies.is_empty() {
+    // Native code runs the whole program or none of it (stage NO4 of
+    // native-only.md): there is no machine for it to hand a body to.
+    if bodies.len() < reachable {
         notes.push(
-            "native: nothing `main` reaches compiles, so the whole run is on the machine"
+            "native: not every body `main` reaches compiles, so the whole run is on the machine"
                 .to_string(),
         );
         return Err(notes);
     }
-    // The entry is the machine's own (until NO4), and nests nothing.
-    let nests = bodies.len() + 1 < reachable;
     Ok(Plan {
         bodies,
         reachable,
-        nests,
+        nests: false,
         states,
         folds,
         effects,
@@ -547,16 +523,29 @@ fn compile_audited(
             eprintln!("@@ {:p} lambda #{l}", lambdas[l as usize]);
         }
     }
-    let trampolines: Vec<(u32, Trampoline)> = trampolines
-        .into_iter()
-        .map(|(arity, id)| (arity, trampoline(module.get_finalized_function(id))))
-        .collect();
+    let address = |id: FuncId| module.get_finalized_function(id);
+    // SAFETY: each is a finished trampoline of its kind (`emit`), in this
+    // module's code, which is never unmapped (`_module`).
+    #[allow(unsafe_code)]
+    let (enter, apply, step) = unsafe {
+        (
+            trampoline::<abi::EnterTrampoline>(address(trampolines.enter)),
+            [
+                trampoline::<abi::ApplyTrampoline>(address(trampolines.apply[0])),
+                trampoline::<abi::ApplyTrampoline>(address(trampolines.apply[1])),
+            ],
+            trampolines
+                .step
+                .map(|id| trampoline::<abi::StepTrampoline>(address(id))),
+        )
+    };
     let crossing = abi::Crossing::new(
-        image,
         CrossingCode {
             functions: table,
             lambdas,
-            trampolines: &trampolines,
+            enter,
+            apply,
+            step,
             max_frame,
             nests: plan.nests,
             resumes: plan.effects,
@@ -584,8 +573,8 @@ pub(crate) struct Emitted {
     pub(crate) adapters: BTreeMap<u32, (FuncId, u32)>,
     /// Which bodies are lambdas', and whose.
     pub(crate) lambda_of: BTreeMap<u32, u32>,
-    /// `(number of arguments, trampoline)` of each crossing's trampoline.
-    pub(crate) trampolines: Vec<(u32, FuncId)>,
+    /// The trampolines from the runtime into the code.
+    pub(crate) trampolines: Trampolines,
     /// How many `Apply` sites the code has, each with a cache in the
     /// tables (`abi::Tables::caches`).
     pub(crate) n_caches: usize,
@@ -691,8 +680,8 @@ impl Audit {
 /// docs/proposals/standalone-executables.md), so the JIT and an object file
 /// get the same code. The code holds no host address: what it needs of the
 /// host's memory it reaches through `Context::tables`, by number.
-/// `export_trampolines`: the trampolines are exported as
-/// `sw_cross_<number of arguments>` (for an object file) rather than local.
+/// `export_trampolines`: the trampolines are exported as `sw_cross_enter`,
+/// `sw_cross_apply1` and the others (for an object file) rather than local.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn emit(
     module: &mut dyn Module,
@@ -841,6 +830,20 @@ pub(crate) fn emit(
     } else {
         None
     };
+    // The runner applies functions to one or two values (stage NO4 of
+    // native-only.md), through these stubs.
+    for n in [1, 2] {
+        if let std::collections::btree_map::Entry::Vacant(slot) = apply_any.entry(n) {
+            let id = module
+                .declare_function(
+                    &format!("apply{n}"),
+                    Linkage::Local,
+                    &apply_signature(pointer, n),
+                )
+                .map_err(|e| fail(e.to_string()))?;
+            slot.insert(id);
+        }
+    }
     let helpers = Helpers::declare(module, pointer, call_conv).map_err(fail)?;
     let numbering = Numbering::of(image);
     let mut caches = 0u32;
@@ -1058,31 +1061,42 @@ pub(crate) fn emit(
         }
     }
 
-    // A trampoline for each number of arguments an entry takes, in the
-    // host's calling convention.
-    let mut trampolines = Vec::new();
-    for &arity in &arities {
+    // The trampolines from the runtime into the code (stage NO4 of
+    // native-only.md), in the host's calling convention: into the entry
+    // body, into the apply stubs for one and two arguments, and into the
+    // effect runtime's loop.
+    let entry_body = functions[&image.entry_code];
+    let mut trampoline_ids = Vec::new();
+    let mut kinds = vec![
+        Trampoline::Enter,
+        Trampoline::Apply(1),
+        Trampoline::Apply(2),
+    ];
+    if runtime.is_some() {
+        kinds.push(Trampoline::Step);
+    }
+    for kind in kinds {
         let mut signature = ir::Signature::new(call_conv);
-        for _ in 0..5 {
+        for _ in 0..kind.params() {
             signature.params.push(AbiParam::new(pointer));
         }
         let (name, linkage) = if export_trampolines {
-            (format!("sw_cross_{arity}"), Linkage::Export)
+            (format!("sw_cross_{}", kind.name()), Linkage::Export)
         } else {
-            (format!("cross{arity}"), Linkage::Local)
+            (format!("cross_{}", kind.name()), Linkage::Local)
         };
         let id = module
             .declare_function(&name, linkage, &signature)
             .map_err(|e| fail(e.to_string()))?;
         context.func.signature = signature;
-        context.func.name = ir::UserFuncName::user(1, arity);
+        context.func.name = ir::UserFuncName::user(1, kind.number());
         {
             let mut b = FunctionBuilder::new(&mut context.func, &mut builder_context);
             let entry = b.create_block();
             b.append_block_params_for_function_params(entry);
             b.switch_to_block(entry);
             let p = b.block_params(entry).to_vec();
-            let (ctx, code, args, env, out) = (p[0], p[1], p[2], p[3], p[4]);
+            let (ctx, out) = (p[0], p[p.len() - 1]);
             // The steps left, in the pinned register for the call; the
             // host's value of that register is kept and put back after.
             let host = b.ins().get_pinned_reg(types::I64);
@@ -1100,20 +1114,44 @@ pub(crate) fn emit(
             let frames = b
                 .ins()
                 .load(types::I64, MemFlagsData::trusted(), ctx, Context::FRAMES_AT);
-            let mut call_args = vec![ctx, frames];
-            for i in 0..arity {
-                for w in 0..3 {
-                    call_args.push(b.ins().load(
+            let words = |b: &mut FunctionBuilder<'_>, at: IrValue, values: usize| {
+                let mut words = Vec::new();
+                for i in 0..values * 3 {
+                    words.push(b.ins().load(
                         types::I64,
                         MemFlagsData::trusted(),
-                        args,
-                        (i as usize * VALUE_SIZE + w * 8) as i32,
+                        at,
+                        (i * 8) as i32,
                     ));
                 }
-            }
-            call_args.push(env);
-            let signature = b.import_signature(value_signature(pointer, arity));
-            let call = b.ins().call_indirect(signature, code, &call_args);
+                words
+            };
+            let zero = b.ins().iconst(types::I64, 0);
+            let (callee, call_args) = match kind {
+                // The entry body, its frame counted by the runtime.
+                Trampoline::Enter => (entry_body, vec![ctx, frames]),
+                // The stub, with nothing for it to drop: `(context, frames,
+                // drops, closure, function value, arguments)`.
+                Trampoline::Apply(n) => {
+                    let mut call_args = vec![ctx, frames, zero, zero];
+                    call_args.extend(words(&mut b, p[1], 1));
+                    call_args.extend(words(&mut b, p[2], n as usize));
+                    (apply_any[&n], call_args)
+                }
+                // The loop, from the computation with nothing pending and
+                // no state, for the handler: `(context, frames, computation,
+                // pending, state, handler, function value, closure)`.
+                Trampoline::Step => {
+                    let mut call_args = vec![ctx, frames];
+                    call_args.extend(words(&mut b, p[1], 1));
+                    call_args.extend([zero; 6]);
+                    call_args.extend([p[2], zero, zero]);
+                    let ids = runtime.expect("the effect runtime");
+                    (ids.run_loop, call_args)
+                }
+            };
+            let callee = module.declare_func_in_func(callee, b.func);
+            let call = b.ins().call(callee, &call_args);
             let results = b.inst_results(call).to_vec();
             for (w, r) in results.into_iter().enumerate() {
                 b.ins()
@@ -1133,8 +1171,22 @@ pub(crate) fn emit(
             .define_function(id, &mut context)
             .map_err(|e| fail(format!("trampoline: {e:?}")))?;
         module.clear_context(&mut context);
-        trampolines.push((arity, id));
+        trampoline_ids.push((kind, id));
     }
+    let trampoline_of = |kind: Trampoline| {
+        trampoline_ids
+            .iter()
+            .find(|(k, _)| *k == kind)
+            .map(|(_, id)| *id)
+    };
+    let trampolines = Trampolines {
+        enter: trampoline_of(Trampoline::Enter).expect("an entry trampoline"),
+        apply: [
+            trampoline_of(Trampoline::Apply(1)).expect("an apply trampoline"),
+            trampoline_of(Trampoline::Apply(2)).expect("an apply trampoline"),
+        ],
+        step: trampoline_of(Trampoline::Step),
+    };
     // A Stitchwort frame can be a body (an adapter tail-calls it, taking its
     // place), reached through an apply stub that may stay on the stack while
     // it runs, and through the compiled `Text.fold` (stage NO1 of
@@ -1168,15 +1220,67 @@ pub(crate) fn emit(
     })
 }
 
-/// The code at `pointer` as a trampoline.
-#[allow(unsafe_code)]
-fn trampoline(pointer: *const u8) -> Trampoline {
-    // SAFETY: `pointer` is a finished trampoline: the host's calling
-    // convention and five pointer-sized arguments, which is `Trampoline`'s
-    // signature. The code is never unmapped (`Islands::_module`).
-    unsafe { std::mem::transmute::<*const u8, Trampoline>(pointer) }
+/// A trampoline from the runtime into the code (stage NO4 of
+/// docs/proposals/native-only.md; `abi::Crossing`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Trampoline {
+    /// Into the entry body: `abi::EnterTrampoline`.
+    Enter,
+    /// Into the apply stub for this many arguments: `abi::ApplyTrampoline`.
+    Apply(u32),
+    /// Into the effect runtime's loop: `abi::StepTrampoline`.
+    Step,
 }
 
+impl Trampoline {
+    /// How many pointer-sized parameters it takes.
+    fn params(self) -> usize {
+        match self {
+            Trampoline::Enter => 2,
+            Trampoline::Apply(_) | Trampoline::Step => 4,
+        }
+    }
+
+    /// Its name, after `sw_cross_` (exported) or `cross_`.
+    fn name(self) -> String {
+        match self {
+            Trampoline::Enter => "enter".to_string(),
+            Trampoline::Apply(n) => format!("apply{n}"),
+            Trampoline::Step => "step".to_string(),
+        }
+    }
+
+    /// A number for its IR name.
+    fn number(self) -> u32 {
+        match self {
+            Trampoline::Enter => 0,
+            Trampoline::Apply(n) => n,
+            Trampoline::Step => u32::MAX,
+        }
+    }
+}
+
+/// The trampolines [`emit`] made.
+pub(crate) struct Trampolines {
+    pub(crate) enter: FuncId,
+    /// For one and two arguments.
+    pub(crate) apply: [FuncId; 2],
+    /// If the code has the effect runtime.
+    pub(crate) step: Option<FuncId>,
+}
+
+/// The code at `pointer` as a trampoline of type `T` (one of
+/// `abi::EnterTrampoline`, `ApplyTrampoline` and `StepTrampoline`).
+///
+/// # Safety
+/// `pointer` is a finished trampoline of that type, in code that is never
+/// unmapped (`Islands::_module`).
+#[allow(unsafe_code)]
+unsafe fn trampoline<T: Copy>(pointer: *const u8) -> T {
+    assert_eq!(size_of::<T>(), size_of::<*const u8>());
+    // SAFETY: the caller's contract; `T` is a function pointer type.
+    unsafe { std::mem::transmute_copy::<*const u8, T>(&pointer) }
+}
 /// A global body's signature: the context, the frames pending with its own
 /// (the module comment), and three words per argument, returning three
 /// words, in the `tail` convention.
@@ -1245,6 +1349,22 @@ fn drop_fun(b: &mut FunctionBuilder<'_>, drop_words: FuncRef, fun: IrValue) {
     b.switch_to_block(keep);
     let fewer = b.ins().iadd_imm_s(strong, -1);
     b.ins().store(flags(), fewer, fun, STRONG_AT);
+    b.ins().jump(after, &[]);
+    b.switch_to_block(after);
+}
+
+/// Drops the function values an apply stub put off (`abi::sw_defer_fun`),
+/// if there are any (`drop` is `sw_drop_deferred`): right after the
+/// function value a body or stub was given to drop, the innermost, as the
+/// machine's nested `apply`s drop theirs (stage NO4 of native-only.md).
+fn drop_deferred(b: &mut FunctionBuilder<'_>, drop: FuncRef, ctx: IrValue) {
+    let n = b.ins().load(types::I64, flags(), ctx, Context::DEFERRED_AT);
+    let dropping = b.create_block();
+    let after = b.create_block();
+    b.ins().brif(n, dropping, &[], after, &[]);
+    b.switch_to_block(dropping);
+    b.set_cold_block(dropping);
+    b.ins().call(drop, &[ctx]);
     b.ins().jump(after, &[]);
     b.switch_to_block(after);
 }
@@ -1334,6 +1454,7 @@ fn emit_apply_any(
     let release = module.declare_func_in_func(helpers.release, b.func);
     let unwind = module.declare_func_in_func(helpers.unwind, b.func);
     let drop_words = module.declare_func_in_func(helpers.drop_words, b.func);
+    let drop_deferred_ref = module.declare_func_in_func(helpers.drop_deferred, b.func);
     let slot = |b: &mut FunctionBuilder<'_>, size: usize| {
         b.create_sized_stack_slot(StackSlotData::new(
             StackSlotKind::ExplicitSlot,
@@ -1420,6 +1541,7 @@ fn emit_apply_any(
     b.ins().brif(drops_left, dropping_list, &[], list_gone, &[]);
     b.switch_to_block(dropping_list);
     drop_fun(b, drop_words, drops_left);
+    drop_deferred(b, drop_deferred_ref, ctx);
     b.ins().jump(list_gone, &[]);
     b.switch_to_block(list_gone);
     let dropping = b.create_block();
@@ -1517,11 +1639,16 @@ fn emit_apply_any(
     match runtime {
         Some(runtime) => {
             let resume = module.declare_func_in_func(runtime.resume, b.func);
+            // The function value this stub was given to drop is put off
+            // until the resumption has taken its `rest` apart (stage NO4):
+            // the machine's `apply` drops it once the nested `apply`s of
+            // `resume` have returned.
+            let defer = module.declare_func_in_func(helpers.defer_fun, b.func);
             let dropping = b.create_block();
             let gone = b.create_block();
             b.ins().brif(drops_left, dropping, &[], gone, &[]);
             b.switch_to_block(dropping);
-            drop_fun(b, drop_words, drops_left);
+            b.ins().call(defer, &[ctx, drops_left]);
             b.ins().jump(gone, &[]);
             b.switch_to_block(gone);
             let mut call_args = vec![ctx, frames];
@@ -1990,6 +2117,8 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_resume_begin", abi::sw_resume_begin as *const u8),
         ("sw_unwind_handler", abi::sw_unwind_handler as *const u8),
         ("sw_unwind_resume", abi::sw_unwind_resume as *const u8),
+        ("sw_defer_fun", abi::sw_defer_fun as *const u8),
+        ("sw_drop_deferred", abi::sw_drop_deferred as *const u8),
     ]
 }
 
@@ -2026,6 +2155,8 @@ struct Helpers {
     resume_begin: FuncId,
     unwind_handler: FuncId,
     unwind_resume: FuncId,
+    defer_fun: FuncId,
+    drop_deferred: FuncId,
 }
 
 impl Helpers {
@@ -2076,6 +2207,8 @@ impl Helpers {
             resume_begin: declare("sw_resume_begin", &[I64, p, p, p], &[I64])?,
             unwind_handler: declare("sw_unwind_handler", &[p, I64], &[])?,
             unwind_resume: declare("sw_unwind_resume", &[p, I64], &[])?,
+            defer_fun: declare("sw_defer_fun", &[p, I64], &[])?,
+            drop_deferred: declare("sw_drop_deferred", &[p], &[])?,
         })
     }
 }

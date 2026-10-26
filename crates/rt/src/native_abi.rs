@@ -1,6 +1,6 @@
 //! The interface between the machine and native code (stage N1 of
 //! docs/proposals/native-compilation.md): what `stitchwort-native`'s
-//! compiled code reads and calls, and where the machine hands a call to it.
+//! compiled code reads and calls, and the executor that runs it.
 //!
 //! **Values.** Native code works on the machine's own [`Value`]s, in its
 //! own layout: `Value` is `repr(u8)`, so its tag is the first byte and each
@@ -13,50 +13,45 @@
 //! at run time before any native code runs, and native code isn't used if
 //! one fails.
 //!
-//! **The crossing** ([`NativeIslands`]). Native code runs the bodies it has
-//! compiled (since stage N4, every body `main` reaches but the entry), and
-//! the machine hands a call over wherever it would push a frame for one: a
-//! `Call`, an exact `Apply` or `enter` (from the effect loop, the runner,
-//! eval/apply), and in tail positions a `TailCall` or exact `TailApply`
-//! (after `replace`'s step and release):
+//! **The crossing** ([`NativeIslands`], [`NativeExecutor`]). Since stage
+//! NO4 of docs/proposals/native-only.md native code runs every body `main`
+//! reaches, the entry included, or none of them, and the machine has no part
+//! in a native run: the runner (`run::Runner`) drives native code through
+//! [`NativeExecutor`], which calls it through three trampolines from the
+//! top of the stack, so nothing nests:
 //!
-//! - **Counting.** The machine counts the step and checks the frame limit
-//!   for the body, exactly as for a frame it pushes, then passes its
-//!   counters in: the steps so far, and the frames pending including the
-//!   body's. Native code counts on from there by the
+//! - **`enter`** runs the compiled entry, counting its step and frame as
+//!   the machine's `entry` does.
+//! - **`apply`** (one or two arguments) applies a function value through
+//!   the apply stubs, as the machine's `call` does.
+//! - **`step`** runs the effect runtime's loop on a computation with
+//!   `Handler::Step`, as the machine's `step_comp` does.
+//!
+//! Each time:
+//!
+//! - **Counting.** The executor passes its counters in: the steps so far,
+//!   and the frames pending. Native code counts on from there by the
 //!   machine's rules (a step and a frame for a call, a step for a tail
 //!   call) and hands the steps back, so a run counts the same whichever
 //!   runner did the work.
-//! - **Ownership.** The arguments are taken from the entry's registers as
-//!   `Call` takes them (`MOVE` operands moved, the rest cloned) and moved
-//!   into native code, which owns them from then on. The result is moved
-//!   back and written to the call's register, as a returning frame's would
-//!   be.
+//! - **Ownership.** The arguments are moved into native code, which owns
+//!   them from then on. The result is moved back.
 //! - **Errors.** Running out of steps or frames sets an error in the
 //!   [`Context`]; every native frame then drops its registers and returns,
-//!   and the crossing gives the machine the [`ResourceError`], which ends
-//!   its run as any other does. Nothing is leaked and nothing panics through
-//!   native frames.
-//! - **Constants** are the machine's: native code reads and fills the
-//!   machine's cache of global values, so a constant is computed once per
-//!   run whichever runner needs it first.
-//! - **Function values** (stage N3) cross both ways as they are: a `Fun`
+//!   and the executor returns the [`ResourceError`]. Nothing is leaked and
+//!   nothing panics through native frames.
+//! - **Constants** are the executor's: native code reads and fills its
+//!   cache of global values ([`NativeRun::globals`]), so a constant is
+//!   computed once per run.
+//! - **Function values** (stage N3) are the machine's as they are: a `Fun`
 //!   is `repr(u8)` too (its variant byte first, a global's or lambda's
 //!   index at byte 4, a closure's captures at bytes 8–23), so native code
 //!   reads a closure's captures and keys its apply caches on the first word
 //!   (`fun_key`). Native code applies a function value through the code
 //!   [`Context`] lists for each global and lambda, or through
-//!   [`sw_apply_prepare`], which does what the machine's `apply` does, and
-//!   has the machine enter what has no native code. A function value native
-//!   code returns is the machine's to apply.
-//! - **Back into the machine** (stage N4). What native code doesn't compile
-//!   the machine runs for it, nested on top of whatever is pending
-//!   (`machine::nested`), counting on from native code's counters. Since
-//!   stage NO3 of docs/proposals/native-only.md the whole effect runtime is
-//!   compiled (runtime bodies and the leaves below), so that is only a
-//!   function value whose body isn't compiled, which `census::n1_blocker`
-//!   makes none today; even in a tail position it's a nested run, not the
-//!   tail request N4 had.
+//!   [`sw_apply_prepare`], which does what the machine's `apply` does.
+//!   A function value whose body isn't compiled is an internal error: the
+//!   plan compiles every body or none.
 
 use std::mem::MaybeUninit;
 use std::rc::Rc;
@@ -64,9 +59,9 @@ use std::rc::Rc;
 use stitchwort_core::ResourceError;
 
 use crate::code::{Image, Instr, NO_REG, NumTable};
-use crate::effect::{EffectOp, Handler, Resume};
+use crate::effect::{EffectCounts, EffectOp, Handler, Resume};
 use crate::ir::{GlobalKind, PrimOp, Program, Shapes};
-use crate::machine::{Limits, State, Work, nested};
+use crate::machine::Limits;
 use crate::value::{Fields, Fun, Value};
 
 // ------------------------------------------------------------ the layout
@@ -340,8 +335,8 @@ pub struct Context {
     /// between, compiled code keeps the steps left in a register.
     pub steps: u64,
     pub step_limit: u64,
-    /// Frames pending when native code starts, the machine's and the island
-    /// root's; compiled code passes the count on from frame to frame.
+    /// Frames pending when native code starts; compiled code passes the
+    /// count on from frame to frame.
     pub frames: u64,
     pub frame_limit: u64,
     /// [`OK`], or why the run stopped. Once set, every native frame drops
@@ -367,6 +362,11 @@ pub struct Context {
     /// eager resumption run by them ([`RESUME_CODE`]) rather than by the
     /// machine.
     pub resumes: u64,
+    /// How many function values native code has put off dropping
+    /// ([`sw_defer_fun`]): compiled code drops them ([`sw_drop_deferred`])
+    /// when this isn't 0, at the next point it drops a function value it
+    /// was given to drop.
+    pub deferred: u64,
 }
 
 impl Context {
@@ -377,6 +377,7 @@ impl Context {
     pub const ERROR_AT: i32 = std::mem::offset_of!(Context, error) as i32;
     pub const STACK_LIMIT_AT: i32 = std::mem::offset_of!(Context, stack_limit) as i32;
     pub const TABLES_AT: i32 = std::mem::offset_of!(Context, tables) as i32;
+    pub const DEFERRED_AT: i32 = std::mem::offset_of!(Context, deferred) as i32;
 
     /// The error native code stopped with, if any.
     pub fn result(&self) -> Result<(), ResourceError> {
@@ -534,15 +535,18 @@ impl Drop for TableStore {
     }
 }
 
-/// The machine's side of a crossing: what native code counts on from and
-/// reads, for the length of one call.
+/// What native code counts on from and reads, for the length of one call
+/// from the runtime into it ([`Crossing`]): the run's constants cache and
+/// effect counts, its counters, and what frames gave up on an error exit.
 pub struct NativeRun<'a> {
     pub program: &'a Program,
-    pub(crate) image: &'a Image,
-    /// The machine, waiting for the call: native code reads and fills its
-    /// cache of global values, adds to its effect counts, and runs it nested
-    /// (`machine::nested`) for what it doesn't compile.
-    pub(crate) state: *mut State,
+    /// Each global's value, once known: a constant's, or a function value
+    /// (stage NO4 of docs/proposals/native-only.md: the run's own, where it
+    /// was the machine's). Native code reads and fills it, so a constant is
+    /// computed once per run.
+    pub globals: &'a mut [Option<Value>],
+    /// The effect runtime's work so far, which native code adds to.
+    pub counts: &'a mut EffectCounts,
     /// Steps so far in this stretch; native code's steps are added.
     pub steps: u64,
     /// Frames pending, the called body's included.
@@ -556,102 +560,74 @@ pub struct NativeRun<'a> {
     /// Each native frame's closure and pending arguments, as it left: the
     /// machine keeps them in its frames, which it clears before registers.
     pub held: Vec<Vec<Value>>,
-    /// How many times native code had the machine run something for it in
-    /// this crossing (`machine::nested`): what the native-only stages
-    /// (docs/proposals/native-only.md) bring to zero. Added to the thread's
-    /// total ([`nested_runs`]) when the crossing ends. In every build, not
-    /// only debug ones, since the test tiers run release binaries; an
-    /// increment per nested run is nothing next to the run.
-    pub nested_runs: u64,
-}
-
-thread_local! {
-    static NESTED_RUNS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
-}
-
-/// How many nested runs of the machine native code has asked for on this
-/// thread so far ([`NativeRun::nested_runs`], summed as each crossing ends).
-pub fn nested_runs() -> u64 {
-    NESTED_RUNS.with(std::cell::Cell::get)
-}
-
-/// Adds a crossing's nested runs to the thread's total.
-pub(crate) fn count_nested_runs(n: u64) {
-    NESTED_RUNS.with(|total| total.set(total.get() + n));
+    /// The function values put off dropping ([`sw_defer_fun`]), as words,
+    /// the last put off last.
+    pub deferred: Vec<u64>,
 }
 
 impl NativeRun<'_> {
-    /// The machine's state.
-    #[allow(unsafe_code)]
-    fn state(&mut self) -> &mut State {
-        // SAFETY: the machine waits in the crossing while native code runs,
-        // so nothing else uses its state; each use here is brief and never
-        // overlaps a nested run's.
-        unsafe { &mut *self.state }
+    /// After a failed call: drops what the frames gave up as the machine
+    /// drops its frames and registers after a failed run
+    /// (`State::release_failed`): every frame's closure and pending
+    /// arguments, outermost first, then every frame's registers likewise,
+    /// then a tail call's fetched arguments. Frames left innermost first.
+    pub fn release_failed(&mut self) {
+        let held = std::mem::take(&mut self.held);
+        for group in held.into_iter().rev() {
+            drop(group);
+        }
+        let unwound = std::mem::take(&mut self.unwound);
+        for segment in unwound.into_iter().rev() {
+            drop(segment);
+        }
+        drop(std::mem::take(&mut self.tail));
     }
 }
 
-/// Native code for some of a program's bodies: the machine calls it
-/// wherever it would push a frame for one (the module comment).
+/// A program's compiled code, wherever it is (JIT-compiled memory, or
+/// linked into a standalone executable): what [`NativeExecutor`] runs.
 pub trait NativeIslands {
-    /// Whether body `code` (an index into the image's codes) has native
-    /// code: a global function's or a lambda's.
-    fn compiled(&self, code: u32) -> bool;
     /// Whether native code may run under this frame limit: `false` (with a
     /// note why) if the native stack might not hold that many frames, and
     /// the run stays on the machine.
     fn fits(&self, frame_limit: u64) -> bool;
-    /// Runs body `code` on `args`, with `env` the closure, for a lambda's
-    /// body; the steps it takes are added to `run.steps`. What native
-    /// frames gave up on leaving with an error is in `run`'s `unwound`,
-    /// `tail` and `held` afterwards, for the machine to drop in its order.
-    fn call(
-        &self,
-        code: u32,
-        env: Option<Rc<Fun>>,
-        args: Vec<Value>,
-        run: &mut NativeRun<'_>,
-    ) -> Result<Value, ResourceError>;
+    /// The code's tables and the ways into it.
+    fn crossing(&self) -> &Crossing;
 }
 
 // ------------------------------------------------------------ the crossing
 
-/// A crossing's trampoline, one per number of arguments: `(context, code,
-/// arguments, closure, result)`, in the host's C calling convention. It
-/// calls `code` (a function value's entry: a lambda's body, or a global
-/// function's adapter) with the arguments moved in and the closure's
-/// address word (0 for none) last, and writes the result.
-pub type Trampoline = extern "C" fn(*mut Context, *const u8, *mut Value, u64, *mut Value);
+/// The trampoline into the compiled entry body: `(context, result)`, in
+/// the host's C calling convention. It calls the body with the context's
+/// frames pending (its own included) and writes the result.
+pub type EnterTrampoline = extern "C" fn(*mut Context, *mut Value);
 
-/// What the host (the driver, the machine, the CLI) may have used above
+/// A trampoline into an apply stub (`apply{n}`, one per number of
+/// arguments the runner passes): `(context, function value, arguments,
+/// result)`, in the host's C calling convention. The function value and
+/// the arguments are moved in; the stub counts the step and the frame as
+/// the machine's `apply` does, with the context's frames pending.
+pub type ApplyTrampoline = extern "C" fn(*mut Context, *mut Value, *mut Value, *mut Value);
+
+/// The trampoline into the effect runtime's loop (`rt_loop`) for a runner
+/// that takes computations apart: `(context, computation, handler's word,
+/// result)`, in the host's C calling convention; the computation and the
+/// handler are moved in.
+pub type StepTrampoline = extern "C" fn(*mut Context, *mut Value, u64, *mut Value);
+
+/// What the host (the driver, the runner, the CLI) may have used above
 /// the crossing into native code.
 pub const HOST_ROOM: usize = 8 * 1024 * 1024;
 /// What a runtime helper may use at the bottom of the stack (freeing a
 /// value, a big number's arithmetic, a native operation).
 pub const HELPER_ROOM: usize = 8 * 1024 * 1024;
 
-/// What nesting through the machine may add to each counted frame on the
-/// native stack (stage N4): a helper that runs the machine
-/// (`sw_apply_prepare`; `sw_perform` and `sw_effect` until NO3, `sw_fold`
-/// until NO1), the machine's `nested`
-/// and `run`, its way back (`State::cross`, [`Crossing::call`]) and a
-/// trampoline. Measured on the release build (aarch64, 26 October 2026),
-/// as the stack address at each nested run: a recursion through
-/// `Text.fold` used 4,208 bytes per level, two counted frames each (2,104
-/// per frame, native frames of at most 792 bytes included); a handler whose
-/// clause resumes in a non-tail position (`k 1 + 1`) nests twice per
-/// counted frame, 3,904 bytes per frame (native frames of at most 1,384
-/// bytes included). Handlers in other positions don't nest: the depth stays
-/// in the machine's frames. 4 KiB is more than either whole measurement,
-/// native frames included, so with the widest body's bound added
-/// ([`level_bound`]) the margin is that bound (5,480 bytes allowed against
-/// 3,904 used in the second case). Larger would keep the roguelike's
-/// 2,000,000 frames (bodies up to 2,760 bytes) off the 16 GiB stack
-/// (`stitchwort_host::NATIVE_STACK`).
-///
-/// Since stage NO3 of docs/proposals/native-only.md nothing the effect
-/// runtime does nests, so only code with a body that isn't compiled (none
-/// today) is given this room.
+/// What nesting through the machine added to each counted frame on the
+/// native stack until stage NO4 of docs/proposals/native-only.md, when the
+/// machine still ran what native code didn't compile (measured at 3,904
+/// bytes at most per frame, aarch64). Since NO4 nothing nests: native code
+/// runs only when every body `main` reaches is compiled, so no code is
+/// given this room; NO5 deletes it.
 pub const NEST_ROOM: usize = 4 * 1024;
 
 /// A bound on the stack one counted frame uses: a body (`max_frame`) and
@@ -688,23 +664,25 @@ pub fn counter_fires_first(frame_limit: u64, stack_size: usize, max_frame: usize
         .is_some_and(|depth| frame_limit.saturating_mul(max_frame as u64) <= depth as u64)
 }
 
-/// Compiled bodies, wherever their code is (JIT-compiled memory, or linked
-/// into a standalone executable): the tables the code is given in the
-/// [`Context`], and the crossing itself (the module comment). Shared by
-/// `run --native`'s JIT and a standalone executable's linked code, so the
-/// two can't drift.
+/// Compiled code, wherever it is (JIT-compiled memory, or linked into a
+/// standalone executable): the tables the code is given in the
+/// [`Context`], and the ways into it from the runtime (stage NO4 of
+/// docs/proposals/native-only.md): the entry, an apply stub, and the
+/// effect runtime's loop. Shared by `run --native`'s JIT and a standalone
+/// executable's linked code, so the two can't drift.
 pub struct Crossing {
     /// For each global: its code as a function value's, or null
     /// ([`Context::functions`]).
     functions: Box<[*const u8]>,
     /// For each lambda: its code, or null ([`Context::lambdas`]).
     lambdas: Box<[*const u8]>,
-    /// For each body (by code index): its entry as a function value's (a
-    /// lambda's body, or a global function's adapter), or null: what the
-    /// machine calls instead of pushing a frame for it.
-    entries: Box<[*const u8]>,
-    /// The trampolines, by number of arguments.
-    trampolines: Box<[Option<Trampoline>]>,
+    /// Into the compiled entry body.
+    enter: EnterTrampoline,
+    /// Into the apply stubs for one and two arguments: what the runner
+    /// passes.
+    apply: [ApplyTrampoline; 2],
+    /// Into the effect runtime's loop, if the code has it.
+    step: Option<StepTrampoline>,
     /// What the code refers to by number ([`Context::tables`]).
     tables: TableStore,
     /// The stack the code runs on, if known: native code then stops with
@@ -715,82 +693,55 @@ pub struct Crossing {
     /// nesting through the machine if the code can nest ([`level_bound`]).
     pub level: usize,
     /// The lowest stack address native code may call from, fixed at the
-    /// first crossing (whose stack is the host's, near the top): nested
-    /// crossings are deeper, and mustn't move it.
+    /// first crossing (whose stack is the host's, near the top: every
+    /// crossing is from the runner).
     stack_floor: std::cell::Cell<Option<u64>>,
     /// [`Context::resumes`].
     resumes: bool,
 }
 
 /// Where a [`Crossing`]'s code is and what it's like: its tables, its
-/// trampolines as `(number of arguments, trampoline)`, a bound on its
-/// frames (`max_frame` bytes), and whether they may nest inside runs of
-/// the machine (`nests`), and whether it has the effect runtime's bodies
-/// that run resumptions (`resumes`, [`Context::resumes`]).
-pub struct CrossingCode<'a> {
+/// trampolines, a bound on its frames (`max_frame` bytes), whether they
+/// may nest inside runs of the machine (`nests`; none since NO4), and
+/// whether it has the effect runtime's bodies that run resumptions
+/// (`resumes`, [`Context::resumes`]).
+pub struct CrossingCode {
     pub functions: Box<[*const u8]>,
     pub lambdas: Box<[*const u8]>,
-    pub trampolines: &'a [(u32, Trampoline)],
+    pub enter: EnterTrampoline,
+    pub apply: [ApplyTrampoline; 2],
+    pub step: Option<StepTrampoline>,
     pub max_frame: usize,
     pub nests: bool,
     pub resumes: bool,
 }
 
 impl Crossing {
-    /// The crossing for `code`, compiled for `image`, with `tables`, on a
-    /// stack of `stack_size` bytes if known.
-    pub fn new(
-        image: &Image,
-        code: CrossingCode<'_>,
-        tables: TableStore,
-        stack_size: Option<usize>,
-    ) -> Crossing {
+    /// The crossing for `code`, with `tables`, on a stack of `stack_size`
+    /// bytes if known.
+    pub fn new(code: CrossingCode, tables: TableStore, stack_size: Option<usize>) -> Crossing {
         let CrossingCode {
             functions,
             lambdas,
-            trampolines,
+            enter,
+            apply,
+            step,
             max_frame,
             nests,
             resumes,
         } = code;
-        let mut entries = vec![std::ptr::null::<u8>(); image.codes.len()].into_boxed_slice();
-        for (g, entry) in functions.iter().enumerate() {
-            if !entry.is_null()
-                && let Some(Some(code)) = image.global_code.get(g)
-            {
-                entries[*code as usize] = *entry;
-            }
-        }
-        for (l, entry) in lambdas.iter().enumerate() {
-            if !entry.is_null()
-                && let Some(code) = image.lambda_code.get(l)
-            {
-                entries[*code as usize] = *entry;
-            }
-        }
-        let arities = trampolines.iter().map(|&(n, _)| n as usize + 1).max();
-        let mut by_arity = vec![None; arities.unwrap_or(0)].into_boxed_slice();
-        for &(n, trampoline) in trampolines {
-            by_arity[n as usize] = Some(trampoline);
-        }
         Crossing {
             functions,
             lambdas,
-            entries,
-            trampolines: by_arity,
+            enter,
+            apply,
+            step,
             tables,
             stack_size,
             level: level(max_frame, nests),
             stack_floor: std::cell::Cell::new(None),
             resumes,
         }
-    }
-
-    /// [`NativeIslands::compiled`].
-    pub fn compiled(&self, code: u32) -> bool {
-        self.entries
-            .get(code as usize)
-            .is_some_and(|entry| !entry.is_null())
     }
 
     /// [`NativeIslands::fits`], without the note: whether the frame counter
@@ -800,25 +751,8 @@ impl Crossing {
             .is_none_or(|size| counter_fires_first(frame_limit, size, self.level))
     }
 
-    /// [`NativeIslands::call`]: runs body `code` on `args` (and the closure
-    /// `env`), as the machine hands it over (the module comment): the
-    /// counters go in and the steps come back in `run`, the arguments are
-    /// moved in and the result moved out.
-    ///
-    /// # Safety
-    /// The tables and trampolines are those of finished code for this
-    /// image, which stays mapped; `code` is [`Crossing::compiled`].
-    #[allow(unsafe_code)]
-    pub unsafe fn call(
-        &self,
-        code: u32,
-        env: Option<Rc<Fun>>,
-        args: Vec<Value>,
-        run: &mut NativeRun<'_>,
-    ) -> Result<Value, ResourceError> {
-        let entry = self.entries[code as usize];
-        let trampoline =
-            self.trampolines[args.len()].expect("a trampoline for this many arguments");
+    /// The context for a call from the runtime, with `run`'s counters.
+    fn context(&self, run: &mut NativeRun<'_>) -> Context {
         let stack_limit = match self.stack_floor.get() {
             Some(floor) => floor,
             None => {
@@ -837,7 +771,7 @@ impl Crossing {
                 floor
             }
         };
-        let mut context = Context {
+        Context {
             steps: run.steps,
             step_limit: run.limits.steps,
             frames: run.frames,
@@ -849,29 +783,233 @@ impl Crossing {
             run: (run as *mut NativeRun<'_>).cast::<NativeRun<'static>>(),
             tables: self.tables.tables(),
             resumes: u64::from(self.resumes),
-        };
-        let env = env.map_or(0, into_word);
-        let mut args = std::mem::ManuallyDrop::new(args);
-        let mut out = MaybeUninit::<Value>::uninit();
-        trampoline(
-            &mut context,
-            entry,
-            args.as_mut_ptr(),
-            env,
-            out.as_mut_ptr(),
-        );
-        // SAFETY: native code took the arguments and the closure (moved, as
-        // a frame takes them), so the vector gives back only its buffer; it
-        // wrote a whole value to `out` (`Erased` after an error), which is
-        // now ours. `context.run` isn't used after the
-        // call.
-        let result = unsafe {
-            args.set_len(0);
-            std::mem::ManuallyDrop::drop(&mut args);
-            out.assume_init()
-        };
+            deferred: 0,
+        }
+    }
+
+    /// The steps and the error a call left in `context`, and its result.
+    ///
+    /// # Safety
+    /// `out` was written by the call (a whole value: `Erased` after an
+    /// error).
+    #[allow(unsafe_code)]
+    unsafe fn finish(
+        context: &Context,
+        out: MaybeUninit<Value>,
+        run: &mut NativeRun<'_>,
+    ) -> Result<Value, ResourceError> {
+        // SAFETY: the caller's contract.
+        let result = unsafe { out.assume_init() };
         run.steps = context.steps;
         context.result().map(|()| result)
+    }
+
+    /// Runs the compiled entry body, its frame counted by the caller
+    /// (`run.frames` includes it): its value.
+    ///
+    /// # Safety
+    /// The tables and trampolines are those of finished code for this
+    /// program's image, which stays mapped.
+    #[allow(unsafe_code)]
+    pub unsafe fn enter(&self, run: &mut NativeRun<'_>) -> Result<Value, ResourceError> {
+        let mut context = self.context(run);
+        let mut out = MaybeUninit::<Value>::uninit();
+        (self.enter)(&mut context, out.as_mut_ptr());
+        // SAFETY: the entry wrote a whole value.
+        unsafe { Crossing::finish(&context, out, run) }
+    }
+
+    /// `f` applied to `args` (one or two) through the apply stub, as the
+    /// machine's `apply` does it with `run.frames` pending.
+    ///
+    /// # Safety
+    /// As [`Crossing::enter`].
+    #[allow(unsafe_code)]
+    pub unsafe fn apply(
+        &self,
+        f: Value,
+        args: Vec<Value>,
+        run: &mut NativeRun<'_>,
+    ) -> Result<Value, ResourceError> {
+        let trampoline = match args.len() {
+            1 => self.apply[0],
+            2 => self.apply[1],
+            n => internal(format_args!("was asked to apply a function to {n} values")),
+        };
+        let mut context = self.context(run);
+        let mut f = std::mem::ManuallyDrop::new(f);
+        let mut args = std::mem::ManuallyDrop::new(args);
+        let mut out = MaybeUninit::<Value>::uninit();
+        trampoline(&mut context, &mut *f, args.as_mut_ptr(), out.as_mut_ptr());
+        // SAFETY: the stub took the function value and the arguments
+        // (moved), so the vector gives back only its buffer; it wrote a
+        // whole value to `out`.
+        unsafe {
+            args.set_len(0);
+            std::mem::ManuallyDrop::drop(&mut args);
+            Crossing::finish(&context, out, run)
+        }
+    }
+
+    /// Computation `c` run by the effect runtime's loop for `handler`
+    /// (`Handler::Step`: up to its first operation), with `run.frames`
+    /// pending.
+    ///
+    /// # Safety
+    /// As [`Crossing::enter`].
+    #[allow(unsafe_code)]
+    pub unsafe fn step(
+        &self,
+        c: Value,
+        handler: Rc<Handler>,
+        run: &mut NativeRun<'_>,
+    ) -> Result<Value, ResourceError> {
+        let Some(trampoline) = self.step else {
+            internal(format_args!(
+                "has no effect runtime, but was given a computation to run"
+            ))
+        };
+        let mut context = self.context(run);
+        let mut c = std::mem::ManuallyDrop::new(c);
+        let handler = Rc::into_raw(handler) as u64;
+        let mut out = MaybeUninit::<Value>::uninit();
+        trampoline(&mut context, &mut *c, handler, out.as_mut_ptr());
+        // SAFETY: the loop took the computation and the handler, and wrote
+        // a whole value.
+        unsafe { Crossing::finish(&context, out, run) }
+    }
+}
+
+// --------------------------------------------------------- the executor
+
+/// Runs a program as native code, for the `IO` runner (`crate::run`'s
+/// `Runner`, stage NO4 of docs/proposals/native-only.md): the entry is
+/// compiled, a function the runner applies is entered through an apply
+/// stub, and a computation it takes apart is run by the effect runtime's
+/// loop. Every call starts from the runner, near the top of the stack, so
+/// nothing nests; the machine runs nothing.
+///
+/// It holds what the machine held between calls: the constants computed
+/// so far, the effect counts, and the steps of the stretch.
+pub struct NativeExecutor<'p> {
+    program: &'p Program,
+    /// The compiled code; dropped before the image its tables point into.
+    code: Box<dyn NativeIslands>,
+    /// The image the code was compiled for: its constants and number
+    /// tables are what the code's tables point at.
+    _image: Image,
+    globals: Vec<Option<Value>>,
+    counts: EffectCounts,
+    steps: u64,
+    limits: Limits,
+}
+
+impl<'p> NativeExecutor<'p> {
+    /// The executor for `program`, its compiled `image` and the `code`
+    /// compiled for that image.
+    pub fn new(
+        program: &'p Program,
+        image: Image,
+        code: Box<dyn NativeIslands>,
+        limits: Limits,
+    ) -> NativeExecutor<'p> {
+        NativeExecutor {
+            globals: vec![None; program.globals.len()],
+            program,
+            code,
+            _image: image,
+            counts: EffectCounts::default(),
+            steps: 0,
+            limits,
+        }
+    }
+
+    /// The effect runtime's work so far ([`crate::effect`]), for tests.
+    pub fn effect_counts(&self) -> EffectCounts {
+        self.counts
+    }
+
+    /// Calls into the code with `frames` pending, as `call` does it, and
+    /// drops what its frames gave up if it fails.
+    fn cross(
+        &mut self,
+        frames: u64,
+        call: impl FnOnce(&Crossing, &mut NativeRun<'_>) -> Result<Value, ResourceError>,
+    ) -> Result<Value, ResourceError> {
+        let mut run = NativeRun {
+            program: self.program,
+            globals: &mut self.globals,
+            counts: &mut self.counts,
+            steps: self.steps,
+            frames,
+            limits: self.limits,
+            unwound: Vec::new(),
+            tail: Vec::new(),
+            held: Vec::new(),
+            deferred: Vec::new(),
+        };
+        let out = call(self.code.crossing(), &mut run);
+        self.steps = run.steps;
+        if out.is_err() {
+            run.release_failed();
+        }
+        // Compiled code drops every function value it put off
+        // (`sw_defer_fun`) at the next one it was given to drop, so none is
+        // left over from a run that returned; one that failed drops any left.
+        debug_assert!(
+            out.is_err() || run.deferred.is_empty(),
+            "a function value put off and never dropped"
+        );
+        while let Some(fun) = run.deferred.pop() {
+            // SAFETY: the word of a function value native code gave up.
+            #[allow(unsafe_code)]
+            drop(unsafe { from_words(u64::from(TAG_FUN), fun, 0) });
+        }
+        out
+    }
+}
+
+impl crate::run::Executor for NativeExecutor<'_> {
+    #[allow(unsafe_code)]
+    fn entry(&mut self) -> Result<Value, ResourceError> {
+        // Counted as the machine's `push` of the entry's frame counts it.
+        self.steps += 1;
+        if self.steps > self.limits.steps {
+            return Err(ResourceError::Work);
+        }
+        if self.limits.frames == 0 {
+            return Err(ResourceError::Depth);
+        }
+        // SAFETY: the code is finished, for this program's image, which
+        // this executor keeps.
+        self.cross(1, |crossing, run| unsafe { crossing.enter(run) })
+    }
+
+    #[allow(unsafe_code)]
+    fn call(&mut self, f: Value, args: Vec<Value>) -> Result<Value, ResourceError> {
+        // SAFETY: as for `entry`.
+        self.cross(0, |crossing, run| unsafe { crossing.apply(f, args, run) })
+    }
+
+    #[allow(unsafe_code)]
+    fn step_comp(&mut self, c: Value) -> Result<Value, ResourceError> {
+        let handler = Rc::new(Handler::Step);
+        // SAFETY: as for `entry`.
+        self.cross(0, |crossing, run| unsafe { crossing.step(c, handler, run) })
+    }
+
+    fn reset_steps(&mut self) {
+        self.steps = 0;
+    }
+
+    fn program(&self) -> &Program {
+        self.program
+    }
+
+    fn depth_report(&self) -> Option<String> {
+        // Native frames aren't counted by body: stage NO5 adds the note,
+        // from the unwind.
+        None
     }
 }
 
@@ -931,16 +1069,15 @@ pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
 /// its frames (each frame's closure and pending arguments, outermost first)
 /// and then its registers (one vector for every frame: outermost frame first,
 /// each from its lowest register up), then a tail call's fetched arguments.
-/// Frames leave innermost first, so the machine (`State::release_failed`)
-/// drops what is kept here last first.
+/// Frames leave innermost first, so [`NativeRun::release_failed`] drops
+/// what is kept here last first.
 /// `mode`: 0, a frame's registers (a segment); 1, a tail call's arguments;
 /// 2, a frame's closure (a group, even of no values: every leaving frame
 /// pushes one); 3, more for the last group (what the machine keeps in the
 /// `Ret` of the frame that just left: an over-application's rest, a
 /// `Text.fold`'s function), or, if no frame has left yet (the call failed
-/// before its frame was pushed, or in a nested run of the machine, which
-/// keeps its own), dropped now, as the machine drops a `Ret` it never
-/// pushed.
+/// before its frame was pushed), dropped now, as the machine drops a
+/// `Ret` it never pushed.
 ///
 /// # Safety
 /// As [`sw_global`]; `regs` points at `n` initialised values, which native
@@ -1258,7 +1395,7 @@ pub unsafe extern "C" fn sw_num_switch(
 pub unsafe extern "C" fn sw_global(context: *mut Context, g: u32, out: *mut Value) -> u64 {
     // SAFETY: the context's run outlives the native call.
     let run = unsafe { &mut *(*context).run };
-    if run.state().globals[g as usize].is_none()
+    if run.globals[g as usize].is_none()
         && let GlobalKind::Constant { .. } = run.program.globals[g as usize].kind
     {
         return 0;
@@ -1276,7 +1413,7 @@ pub unsafe extern "C" fn sw_global(context: *mut Context, g: u32, out: *mut Valu
 pub unsafe extern "C" fn sw_global_set(context: *mut Context, g: u32, v: *const Value) {
     // SAFETY: as for `sw_global`.
     let run = unsafe { &mut *(*context).run };
-    run.state().globals[g as usize] = Some(unsafe { (*v).clone() });
+    run.globals[g as usize] = Some(unsafe { (*v).clone() });
 }
 
 /// Whether a native operation can be applied by native code (through
@@ -1300,14 +1437,14 @@ fn internal(what: std::fmt::Arguments<'_>) -> ! {
 /// Global `g`'s value, if it's known: the cached value, or for a function
 /// or a native a new function value, kept (the machine's `function_value`).
 fn function_value(run: &mut NativeRun<'_>, g: u32) -> Value {
-    if let Some(v) = &run.state().globals[g as usize] {
+    if let Some(v) = &run.globals[g as usize] {
         return v.clone();
     }
     let v = match &run.program.globals[g as usize].kind {
         GlobalKind::Native(op) if op.arity() == 0 => Value::Erased,
         _ => Value::Fun(Rc::new(Fun::Global(g))),
     };
-    run.state().globals[g as usize] = Some(v.clone());
+    run.globals[g as usize] = Some(v.clone());
     v
 }
 
@@ -1471,11 +1608,10 @@ pub const LOOP_CODE: u64 = 3;
 /// effect native's function value is run as the machine's `effect` runs it
 /// (stage NO3), [`LOOP_CODE`] for one that runs a loop.
 ///
-/// A head native code has no code for (a body that isn't compiled: none
-/// today) is the machine's to enter, run nested on `frames` frames pending
-/// (the caller's), its value the plan's. Native code has written its steps
-/// to the context first. A failure there sets the context's error, and the
-/// plan then holds only the over-application's values.
+/// A head with no code (a body that isn't compiled) is an internal error:
+/// since stage NO4 of native-only.md native code runs only when every body
+/// `main` reaches is compiled. `frames` (the caller's frames pending) is
+/// unused since then; native code has written its steps to the context.
 ///
 /// # Safety
 /// `context` is the running context; `f` and `args` point at values native
@@ -1485,7 +1621,7 @@ pub const LOOP_CODE: u64 = 3;
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sw_apply_prepare(
     context: *mut Context,
-    frames: u64,
+    _frames: u64,
     f: *mut Value,
     args: *mut Value,
     n: u64,
@@ -1575,8 +1711,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
     let mut env = 0u64;
     let mut value = None;
     let mut rest = Vec::new();
-    let mut machine = false;
-    let mut all = loop {
+    let all = loop {
         let Value::Fun(fun) = &f else {
             internal(format_args!("applied {f:?}, which isn't a function"))
         };
@@ -1642,7 +1777,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
                                 bound = Some((k, crate::machine::field(fields, 0)));
                             }
                             (c, k) => {
-                                run.state().counts.binds += 1;
+                                run.counts.binds += 1;
                                 value = Some(Value::data(s.bind_node, [c, k]));
                             }
                         },
@@ -1697,7 +1832,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
             // native-only.md), which takes this reference to it.
             Fun::Resume(resume, true) => {
                 let y = all.pop().expect("one argument");
-                let counts = &mut run.state().counts;
+                let counts = &mut run.counts;
                 value = Some(crate::machine::resume_lazily(
                     &program.shapes,
                     counts,
@@ -1716,24 +1851,14 @@ pub unsafe extern "C" fn sw_apply_prepare(
             args = vec![x];
             continue;
         }
-        machine = value.is_none() && code.is_null();
         break all;
     };
-    if machine {
-        // Only a body that isn't compiled (none today), run nested even in
-        // a tail position: N4's tail requests went in stage NO3.
-        let f = std::mem::replace(&mut f, Value::Erased);
-        let all = std::mem::take(&mut all);
-        // SAFETY: the running context.
-        let steps = unsafe { &mut (*context).steps };
-        match nested(run, frames, steps, Work::Enter(f, all)) {
-            Ok(v) => value = Some(v),
-            Err(e) => {
-                // SAFETY: the running context.
-                unsafe { (*context).error = error_code(e) };
-                value = Some(Value::Erased);
-            }
-        }
+    if value.is_none() && code.is_null() {
+        // Native code runs only when every body `main` reaches is compiled
+        // (stage NO4 of native-only.md): there is no machine to run one.
+        internal(format_args!(
+            "applied a function value whose body isn't compiled"
+        ))
     }
     let exact = all.len();
     let after = rest.len();
@@ -1771,14 +1896,6 @@ pub unsafe extern "C" fn sw_apply_prepare(
 /// on.
 pub fn into_word(f: Rc<Fun>) -> u64 {
     Rc::into_raw(f) as u64 - RC_VALUE_AT as u64
-}
-
-/// The context's error for `e`.
-fn error_code(e: ResourceError) -> u64 {
-    match e {
-        ResourceError::Work => OUT_OF_STEPS,
-        _ => OUT_OF_FRAMES,
-    }
 }
 
 /// `Closure`: a closure of `lambda` capturing the `n` values at `args`
@@ -1901,7 +2018,7 @@ pub unsafe extern "C" fn sw_bind(
         }
         c => {
             let k = unsafe { k.read() };
-            run.state().counts.binds += 1;
+            run.counts.binds += 1;
             unsafe { out.write(Value::data(s.bind_node, [c, k])) };
             0
         }
@@ -2104,7 +2221,7 @@ pub unsafe extern "C" fn sw_eff_step(
     // SAFETY: the caller's contract.
     let run = unsafe { &mut *(*context).run };
     let s = &run.program.shapes;
-    let counts = &mut run.state().counts;
+    let counts = &mut run.counts;
     counts.steps += 1;
     let write = |i: usize, v: Value| {
         // SAFETY: the caller's contract: room for five values.
@@ -2265,7 +2382,7 @@ pub unsafe extern "C" fn sw_state_step(
 ) -> u64 {
     // SAFETY: the caller's contract.
     let (run, v, resume) = unsafe { (&mut *(*context).run, v.read(), resume_taken(resume)) };
-    let counts = &mut run.state().counts;
+    let counts = &mut run.counts;
     match crate::machine::state_step(counts, v, resume) {
         crate::machine::StateStep::Value(v) => {
             // SAFETY: the caller's contract.
@@ -2417,5 +2534,46 @@ pub unsafe extern "C" fn sw_unwind_resume(context: *mut Context, resume: u64) {
     match run.held.last_mut() {
         Some(group) => group.push(Value::Fun(Rc::new(Fun::Resume(resume, false)))),
         None => drop(resume),
+    }
+}
+
+/// Puts off dropping the function value whose `Rc`'s word is `fun` (given
+/// up by native code), for an apply stub resuming a resumption while it
+/// holds the function value it was given to drop: the machine's `apply`s
+/// are nested in Rust, so the outer one drops its function value only once
+/// the inner ones have taken theirs apart and dropped them (stage NO4 of
+/// docs/proposals/native-only.md: a resumption whose `rest` is itself a
+/// resumption). Compiled code drops these ([`sw_drop_deferred`]) right
+/// after the next function value it was given to drop, the innermost.
+///
+/// # Safety
+/// As [`sw_global`]; `fun` is a function value's word native code owns,
+/// and gives up.
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sw_defer_fun(context: *mut Context, fun: u64) {
+    // SAFETY: the caller's contract.
+    unsafe {
+        (*(*context).run).deferred.push(fun);
+        (*context).deferred += 1;
+    }
+}
+
+/// Drops the function values [`sw_defer_fun`] put off, the last put off
+/// first, as the machine's nested `apply`s return.
+///
+/// # Safety
+/// As [`sw_global`].
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sw_drop_deferred(context: *mut Context) {
+    // SAFETY: the caller's contract.
+    let run = unsafe {
+        (*context).deferred = 0;
+        &mut *(*context).run
+    };
+    while let Some(fun) = run.deferred.pop() {
+        // SAFETY: the word of a function value native code gave up.
+        drop(unsafe { from_words(u64::from(TAG_FUN), fun, 0) });
     }
 }

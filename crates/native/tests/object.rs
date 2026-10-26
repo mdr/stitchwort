@@ -27,8 +27,9 @@ fn the_object_exports_its_manifest_and_trampolines_and_its_code_is_relocatable()
             stack_size: Some(STACK),
         };
         let compiled = compile_object(&program, &image, options).expect("compiles");
-        // Every body `main` reaches but its entry (stage N4).
-        assert_eq!(compiled.bodies + 1, compiled.reachable);
+        // Every body `main` reaches, its entry included (stage NO4 of
+        // native-only.md).
+        assert_eq!(compiled.bodies, compiled.reachable);
         let bytes = compiled.object.write().expect("writes");
         let file = object::File::parse(&*bytes).expect("parses");
         let prefix = if cfg!(target_os = "macos") { "_" } else { "" };

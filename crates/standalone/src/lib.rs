@@ -12,11 +12,10 @@
 //! - It catches the signals that would end the run (`catch_signals`) before
 //!   any thread starts, so that Ctrl-C puts the terminal back.
 //! - It decodes the program and runs it as `run --native` does
-//!   ([`stitchwort_rt::run_main_native`]): the machine runs `main`'s glue
-//!   and whatever isn't compiled, and the island roots the entry calls run
-//!   as the native code linked in, where `stitchwort build --native`
-//!   compiled them (stage S5: [`aot`], from the object's
-//!   `sw_native_manifest`). It runs on a thread with a big stack, with the
+//!   ([`stitchwort_rt::run_main_native`]): natively, every body `main`
+//!   reaches, where `stitchwort build --native` compiled them (stage S5:
+//!   [`aot`], from the object's `sw_native_manifest`; stage NO4 of
+//!   native-only.md: the entry too), and otherwise on the machine. It runs on a thread with a big stack, with the
 //!   Unix terminal, standard input locked and a `BufWriter` on standard
 //!   output.
 //! - It reports errors as `stitchwort run` does, without the excerpt of

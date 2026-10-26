@@ -2,8 +2,8 @@
 //! Native code builds the effect runtime's values as the machine does
 //! (`bind` inline, and since docs/proposals/native-only.md's NO2 and NO3
 //! the effect runtime's loop, resumptions and state-passing handlers as
-//! runtime bodies and leaves, never a nested run of the machine: checked on
-//! every native run here), and the `IO` runner calls compiled
+//! runtime bodies and leaves; since NO4 the entry too, so the machine
+//! executes no instruction: checked on every native run here), and the `IO` runner calls compiled
 //! continuations. Programs
 //! with state handlers, exceptions, `Random` under a seeded handler, a
 //! handler around partial code (`foldD`), resumptions used more than once,
@@ -22,8 +22,10 @@ use std::rc::Rc;
 use common::*;
 use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_native::n1::{Options, factory};
+use stitchwort_rt::code;
+use stitchwort_rt::native_abi::NativeExecutor;
 use stitchwort_rt::value::Value;
-use stitchwort_rt::{Limits, Machine, MainRow, alloc_trace, lower_main};
+use stitchwort_rt::{Executor, Limits, Machine, MainRow, alloc_trace, lower_main};
 use stitchwort_syntax::parse_expression;
 
 /// A counter handled with an open row (a fold whose resumptions are lazy:
@@ -410,22 +412,29 @@ fn effect_examples_agree_with_the_machine() {
                 // through the runtime if `trace`): its value's text, whether
                 // it equals the machine's, and the effect counts.
                 let run = |native: bool, trace: bool, expected: Option<&Value>| {
-                    let mut m = Machine::new(&program, limits);
-                    let notes = Rc::new(RefCell::new(Vec::new()));
-                    if native {
+                    let (v, counts) = if native {
+                        let notes = Rc::new(RefCell::new(Vec::new()));
                         let options = Options {
                             trace_refcounts: trace,
                             stack_size: Some(STACK),
                         };
-                        let islands = factory(options, notes.clone())(&program, m.image())
+                        let image = code::compile(&program);
+                        let islands = factory(options, notes.clone())(&program, &image)
                             .unwrap_or_else(|| panic!("`{source}`: {:#?}", notes.borrow()));
-                        m.set_native(islands);
-                    }
-                    let v = m
-                        .entry()
-                        .unwrap_or_else(|e| panic!("`{source}` (native: {native}): {e}"));
+                        let mut e = NativeExecutor::new(&program, image, islands, limits);
+                        let v = e
+                            .entry()
+                            .unwrap_or_else(|e| panic!("`{source}` (native): {e}"));
+                        (v, e.effect_counts())
+                    } else {
+                        let mut m = Machine::new(&program, limits);
+                        let v = m
+                            .entry()
+                            .unwrap_or_else(|e| panic!("`{source}` (machine): {e}"));
+                        (v, m.effect_counts())
+                    };
                     let agrees = expected.is_none_or(|e| same(e, &v));
-                    (v, agrees, m.effect_counts())
+                    (v, agrees, counts)
                 };
                 // The machine's value to compare with, then a traced run on
                 // each, its machine and its value dropped inside the trace.
@@ -441,17 +450,23 @@ fn effect_examples_agree_with_the_machine() {
                     (alloc_trace::finish(), counts)
                 };
                 let (on_machine, machine_counts) = traced(false);
-                let nested_before = stitchwort_rt::native_abi::nested_runs();
+                let executed_before = stitchwort_rt::machine::instructions_executed();
                 let (natively, native_counts) = traced(true);
                 assert_eq!(
-                    stitchwort_rt::native_abi::nested_runs() - nested_before,
+                    stitchwort_rt::machine::instructions_executed() - executed_before,
                     0,
-                    "{name}: `{source}`: native code nested a run of the machine"
+                    "{name}: `{source}`: the machine ran part of a native run"
                 );
                 assert_eq!(native_counts, machine_counts, "{name}: `{source}`");
                 assert_eq!(natively.leaks(), Vec::<u32>::new(), "{name}: `{source}`");
                 let (machine, native) = (on_machine.render(), natively.render());
                 if machine != native {
+                    // For reading them side by side.
+                    if let Ok(dir) = std::env::var("N1_TRACE_DIR") {
+                        for (which, trace) in [("machine", &machine), ("native", &native)] {
+                            std::fs::write(format!("{dir}/{which}.trace"), trace).expect("writes");
+                        }
+                    }
                     let first = machine
                         .lines()
                         .zip(native.lines())

@@ -85,7 +85,7 @@ pub fn native_on(
     };
     let mut make = factory(options, notes.clone());
     let mut output = Vec::new();
-    let nested_before = stitchwort_rt::native_abi::nested_runs();
+    let executed_before = stitchwort_rt::machine::instructions_executed();
     let result = run_main_native(
         program,
         limits,
@@ -94,14 +94,16 @@ pub fn native_on(
         &mut output,
         &mut NoTerminal,
     );
-    // Native code never has the machine run anything for it (stage NO3 of
-    // docs/proposals/native-only.md): no nested run.
-    assert_eq!(
-        stitchwort_rt::native_abi::nested_runs() - nested_before,
-        0,
-        "native code nested a run of the machine"
-    );
     let notes = notes.borrow().clone();
+    // A native run is native through and through (stage NO4 of
+    // docs/proposals/native-only.md): the machine executes nothing.
+    if ran_natively(&notes) {
+        assert_eq!(
+            stitchwort_rt::machine::instructions_executed() - executed_before,
+            0,
+            "the machine ran part of a native run"
+        );
+    }
     (ended(output, result), notes)
 }
 

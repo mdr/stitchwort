@@ -4,24 +4,21 @@
 //! compiled into the object, described by its `sw_native_manifest`
 //! (`stitchwort_rt::native_aot`).
 //!
-//! The run is `run --native`'s (the note's §3.3): the machine runs `main`'s
-//! entry body and hands every compiled body it would push a frame for to
-//! native code, through the same crossing (`native_abi::Crossing`); native
-//! code has the machine (linked in with the rest of the runtime) run what
-//! isn't compiled, effects and `Text.fold` (stage N4). The runtime builds
+//! The run is `run --native`'s (the note's §3.3): the runner drives the
+//! native code, entry and all, through the same executor and crossing
+//! (`native_abi::NativeExecutor`, `Crossing`; stage NO4 of
+//! native-only.md), with no part on the machine. The runtime builds
 //! the tables the code reads (`TableStore`) from the image it rebuilt,
 //! after checking that it is the image the code was compiled for.
 
-use std::rc::Rc;
-
-use stitchwort_core::ResourceError;
 use stitchwort_rt::code::Image;
 use stitchwort_rt::ir::Program;
-use stitchwort_rt::native_abi::{self as abi, CrossingCode, NativeIslands, NativeRun, Trampoline};
+use stitchwort_rt::native_abi::{
+    self as abi, ApplyTrampoline, CrossingCode, EnterTrampoline, NativeIslands, StepTrampoline,
+};
 use stitchwort_rt::native_aot::{
     FLAG_NESTS, FLAG_RESUMES, MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, image_hash,
 };
-use stitchwort_rt::value::{Fun, Value};
 
 /// The linked native code of one program.
 pub struct AotIslands {
@@ -71,7 +68,7 @@ impl AotIslands {
                 manifest.version, manifest.magic
             )));
         }
-        if manifest.n_trampolines == 0 {
+        if manifest.enter.is_null() {
             return Ok(None);
         }
         let hash = image_hash(image);
@@ -101,35 +98,38 @@ impl AotIslands {
         }
         // SAFETY: the manifest's tables are as long as it says, and live
         // as long as the process (the caller's contract).
-        let (functions, lambdas, listed) = unsafe {
+        let (functions, lambdas) = unsafe {
             (
                 table(manifest.functions, manifest.n_globals),
                 table(manifest.lambdas, manifest.n_lambdas),
-                table(manifest.trampolines, manifest.n_trampolines),
             )
         };
-        let mut trampolines: Vec<(u32, Trampoline)> = Vec::new();
-        for listed in listed {
-            if listed.trampoline.is_null() || listed.arity > u64::from(u16::MAX) {
-                return Err(Mismatch(format!(
-                    "its native code's trampoline for {} arguments is missing",
-                    listed.arity
-                )));
-            }
-            trampolines.push((
-                listed.arity as u32,
-                // SAFETY: the compiler wrote a trampoline's address, whose
-                // signature is `Trampoline`'s.
-                unsafe { std::mem::transmute::<*const u8, Trampoline>(listed.trampoline) },
+        if manifest.apply1.is_null() || manifest.apply2.is_null() {
+            return Err(Mismatch(
+                "its native code's apply trampolines are missing".to_string(),
             ));
         }
+        // SAFETY: the compiler wrote each trampoline's address, whose
+        // signature is its type's (`n1::Trampoline`).
+        let (enter, apply, step) = unsafe {
+            (
+                std::mem::transmute::<*const u8, EnterTrampoline>(manifest.enter),
+                [
+                    std::mem::transmute::<*const u8, ApplyTrampoline>(manifest.apply1),
+                    std::mem::transmute::<*const u8, ApplyTrampoline>(manifest.apply2),
+                ],
+                (!manifest.step.is_null())
+                    .then(|| std::mem::transmute::<*const u8, StepTrampoline>(manifest.step)),
+            )
+        };
         Ok(Some(AotIslands {
             crossing: abi::Crossing::new(
-                image,
                 CrossingCode {
                     functions: functions.into(),
                     lambdas: lambdas.into(),
-                    trampolines: &trampolines,
+                    enter,
+                    apply,
+                    step,
                     max_frame: manifest.max_frame as usize,
                     nests: manifest.flags & FLAG_NESTS != 0,
                     resumes: manifest.flags & FLAG_RESUMES != 0,
@@ -142,28 +142,16 @@ impl AotIslands {
 }
 
 impl NativeIslands for AotIslands {
-    fn compiled(&self, code: u32) -> bool {
-        self.crossing.compiled(code)
-    }
-
     fn fits(&self, frame_limit: u64) -> bool {
         // The executable has no `--verbose`, so a run left to the machine
         // needs no note.
         self.crossing.fits(frame_limit)
     }
 
-    #[allow(unsafe_code)]
-    fn call(
-        &self,
-        code: u32,
-        env: Option<Rc<Fun>>,
-        args: Vec<Value>,
-        run: &mut NativeRun<'_>,
-    ) -> Result<Value, ResourceError> {
-        // SAFETY: the trampolines and the tables are those the manifest
-        // describes, linked into this executable, for this image (checked
-        // in `new`); the machine calls only compiled bodies.
-        unsafe { self.crossing.call(code, env, args, run) }
+    fn crossing(&self) -> &abi::Crossing {
+        // The tables and trampolines the manifest describes, linked into
+        // this executable, for this image (checked in `new`).
+        &self.crossing
     }
 }
 

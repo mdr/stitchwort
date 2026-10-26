@@ -64,7 +64,7 @@ use stitchwort_rt::native_abi::{
     VALUE_SIZE,
 };
 
-use super::{Helpers, Options, drop_fun, fixed, flags, value_signature};
+use super::{Helpers, Options, drop_deferred, drop_fun, fixed, flags, value_signature};
 
 /// The runtime bodies, declared.
 #[derive(Clone, Copy)]
@@ -221,6 +221,15 @@ impl Rt<'_, '_> {
         self.b.switch_to_block(after);
         let zero = self.iconst(0);
         self.b.def_var(var, zero);
+    }
+
+    /// Drops a function value the body was given to drop once a callee is
+    /// taken apart (`drop_fun_var`), then any an apply stub put off
+    /// (`abi::sw_defer_fun`), as the machine's nested `apply`s drop theirs.
+    fn drop_pre(&mut self, var: Variable) {
+        self.drop_fun_var(var);
+        let drop = self.fref(self.helpers.drop_deferred);
+        drop_deferred(self.b, drop, self.ctx);
     }
 
     /// Gives up what the body holds, on an error exit (the module comment).
@@ -398,7 +407,7 @@ impl Rt<'_, '_> {
         self.count_step(unready);
         self.check_frame(unready);
         for var in pre {
-            self.drop_fun_var(*var);
+            self.drop_pre(*var);
         }
         if let Some(var) = env {
             self.drop_fun_var(var);
@@ -456,7 +465,7 @@ impl Rt<'_, '_> {
         }
         self.drop_value(fv);
         for var in pre {
-            self.drop_fun_var(*var);
+            self.drop_pre(*var);
         }
         if let Some(var) = env {
             self.drop_fun_var(var);
@@ -501,7 +510,7 @@ impl Rt<'_, '_> {
         let unready = self.b.create_block();
         self.count_step(unready);
         self.check_frame(unready);
-        self.drop_fun_var(pre);
+        self.drop_pre(pre);
         self.drop_fun_var(env);
         let pushed = self.b.ins().iadd_imm_s(self.frames, 1);
         let mut call_args = vec![self.ctx, pushed];
@@ -518,7 +527,7 @@ impl Rt<'_, '_> {
             self.drop_value(*v);
         }
         self.drop_value(fv);
-        self.drop_fun_var(pre);
+        self.drop_pre(pre);
         self.drop_fun_var(env);
         self.leave();
 
@@ -672,7 +681,7 @@ pub(crate) fn emit_loop(
     // The loop's value.
     rt.b.switch_to_block(returning);
     let v = rt.load(out_slot, 0);
-    rt.drop_fun_var(pre);
+    rt.drop_pre(pre);
     rt.drop_fun_var(env);
     rt.b.ins().return_(&v);
 

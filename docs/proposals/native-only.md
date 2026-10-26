@@ -734,6 +734,89 @@ waits for NO4's open-row figures.
   roguelike, and a debug counter of machine instructions executed under
   `run --native` is 0 for the roguelike, AoC days 1–9 and the benchmarks.
 
+**NO4 as built** (26 October 2026). Both done-when checks hold. `run
+--native --verbose` on the roguelike (27 keys, seeded) says `running 242 of
+the 242 bodies main reaches natively` and `the machine executed 0
+instructions`. The same holds for AoC days 1–9 on their inputs (56 to 105
+bodies each, output equal to `run`'s) and the five `bench/native` programs
+(2 to 43 bodies). `common::native_on` asserts 0 machine instructions on
+every native run of n1–n4, and `the_roguelike_runs_natively` checks the
+line. `Runner` is generic over `run::Executor`, which `Machine` and
+`native_abi::NativeExecutor` implement. The executor owns the constants
+cache (`NativeRun::globals`). The machine lost all its native support:
+`native`, `cross`, `nested`, `Work`, `defer`, `Unwound` and the native
+checks in its loop. Differences from the text above:
+- **All or nothing, now.** `plan` compiles the entry with the rest. If any
+  body `main` reaches doesn't compile, nothing does, and the whole run is
+  the machine's (`Plan::nests` is always false; NO5 deletes it with
+  `NEST_ROOM`). A function value whose body isn't compiled is an internal
+  error in `sw_apply_prepare`.
+- **Three trampolines replace the per-arity ones.** `enter` (the entry,
+  counting its step and frame as `Machine::entry` does), `apply1`/`apply2`
+  (the apply stubs, for `call`) and `step` (`rt_loop` with `Handler::Step`,
+  for `step_comp`). They are exported as `sw_cross_enter` and the others.
+  The object's manifest is version 4: the four pointers replace the
+  trampoline list. A program with no compiled code now has one (`hello`
+  compiles its entry).
+- **The counter counts instructions, not nested runs.**
+  `machine::instructions_executed` is a per-thread total that every
+  machine run adds to as it ends. It is in every build, since the test
+  tiers run release binaries. The machine's own figures are about 2% below
+  NO3's (below), since the native checks left its loop, so the counter
+  costs at most that.
+- **A drop-order bug the entry exposed.** With the entry compiled, the
+  `-- run:` lines' folds run natively for the first time (NO3's last
+  bullet). `effect-runtime.sw`'s `searchedIn [1, 2, 3]` (an open-row
+  `collectIn` whose clause applies a lazy resumption twice) then made a
+  different allocation trace: native code dropped a resumption's function
+  value before the `rest` inside it was taken apart, and the machine drops
+  it after. The machine's `apply`s nest in Rust, so the outer one drops its
+  function value when the inner ones return. The apply stub now puts that
+  function value off (`sw_defer_fun`) when it resumes, and compiled code
+  drops what was put off (`sw_drop_deferred`, behind a context counter)
+  right after the next function value it was given to drop. A run that
+  fails drops anything still put off.
+
+**Instructions per operation** (as for NO3: best of 3, a run less the same
+run with no operations, 1,000,000 operations, release `stitchwort` alone,
+aarch64 macOS; `effects.sw` per operation of either kind):
+
+| Benchmark | Machine | Native, NO3 | Native, NO4 |
+|---|---:|---:|---:|
+| `effects.sw`, 1,000,000 of each | 22,200 | 19,253 | 15,488 |
+| `ask` alone, open row (`{IO}`) | 17,929 | 16,202 | 13,312 |
+| `bump` alone, open row (`{IO}`) | 26,456 | 22,108 | 17,677 |
+| `ask` alone, closed row | 12,753 | 9,500 | 9,510 |
+| `bump` alone, closed row (a state loop) | 16,951 | 12,239 | 12,240 |
+
+The open rows improved, as expected: by 18% (`ask`) and 20% (`bump`), now
+that the runner's lazy resumptions run natively. The benchmark is 20% below
+NO3 and 30% below the machine. Against §1.6's estimate of 11,000–15,000 it
+is just above (15,488). The closed rows didn't change: nothing there was on
+the machine after NO3.
+
+**Profile** (`sample` this time attached to a child launched from a script:
+`run --native` of `effects.sw` at 3,000,000 each, 3 s, 2,531 samples on the
+run thread, by function on top of the stack; functions with fewer than 5
+samples aren't itemised by `sample`):
+
+| | Share |
+|---|---:|
+| the allocator (mimalloc, `Rc` and `Vec` allocation) | 24.7% |
+| dropping and freeing values (`value::free`, `take_children`, drop glue) | 24.0% |
+| `sw_*` helpers (`sw_apply_prepare` 8.8%, `sw_eff_step` 5.3%, the rest 6.1%) | 20.2% |
+| compiled code (at least) | 6.5% |
+| machine helpers native code shares (`pair`, `field`, `arity`) | 4.7% |
+| `memmove`, other | 2.5% |
+| functions under 5 samples each (mostly compiled code's addresses) | 17.5% |
+
+Against NO3's profile, the machine's 36.7% is gone. Allocation and freeing
+together are 48.7% (48.9% in §1.6's profile, of a larger total). Dispatch
+(the apply stub's plan and the loop's step) is 14%. So D1297's overturn
+condition holds: the benchmark is above about 12,000 instructions per
+operation, and allocation, not dispatch, dominates. Whether to change the
+representation now (§1.5, §9.11 B) goes to Matt.
+
 **NO5. Native only: no fallback, in `run --native` and `build`.**
 - **What:** the build errors of §4, and §3's stack sizing and cap.
   `Crossing::fits` and the fallback paths go, as does `NEST_ROOM`. The

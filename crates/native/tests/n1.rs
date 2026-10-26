@@ -127,13 +127,17 @@ def main(): {IO} () :=
     same_trace(source);
 }
 
-/// The nested runs of the machine a native run of `program` asks for
-/// (`native_abi::nested_runs`), and how it ended.
-fn nested_runs(program: &stitchwort_rt::Program, limits: Limits) -> (Ran, u64) {
-    let before = stitchwort_rt::native_abi::nested_runs();
+/// The instructions the machine executed in a native run of `program`
+/// (`machine::instructions_executed`: none since stage NO4 of
+/// native-only.md), and how it ended.
+fn machine_instructions(program: &stitchwort_rt::Program, limits: Limits) -> (Ran, u64) {
+    let before = stitchwort_rt::machine::instructions_executed();
     let (ran, notes) = native(program, limits, false);
     assert!(ran_natively(&notes), "{notes:#?}");
-    (ran, stitchwort_rt::native_abi::nested_runs() - before)
+    (
+        ran,
+        stitchwort_rt::machine::instructions_executed() - before,
+    )
 }
 
 /// A recursion through `Text.fold` (stage NO1 of native-only.md): each
@@ -160,25 +164,29 @@ def main(): {IO} () :=
         let (least_steps, least_frames) = every_limit_agrees(&program, limits);
         assert!(least_frames > 40, "{least_frames}");
         assert!(least_steps > 40, "{least_steps}");
-        let (ran, nested) = nested_runs(&program, limits);
+        let (ran, executed) = machine_instructions(&program, limits);
         assert_eq!(ran.1, Ok(()));
-        assert_eq!(nested, 0);
-        // One frame short: out of frames on both, with no nested run.
+        assert_eq!(executed, 0);
+        // The counter counts the machine's runs, so 0 means none.
+        let before = stitchwort_rt::machine::instructions_executed();
+        let _ = on_machine(&program, limits);
+        assert!(stitchwort_rt::machine::instructions_executed() > before);
+        // One frame short: out of frames on both, with no machine instructions.
         let short = Limits {
             frames: least_frames as usize - 1,
             ..limits
         };
-        let (ran, nested) = nested_runs(&program, short);
+        let (ran, executed) = machine_instructions(&program, short);
         assert_eq!(ran, on_machine(&program, short));
         assert_eq!(ran.1, Err("out of frames".to_string()));
-        assert_eq!(nested, 0);
+        assert_eq!(executed, 0);
     });
 }
 
 /// `Text.fold` as a function value, applied through the apply stub
 /// (`abi::FOLD_CODE`), and with a partial application as its function (its
 /// calls through `apply2`): compiled, with the machine's output, trace and
-/// limits, and no nested run.
+/// limits, and no machine instructions.
 #[test]
 fn text_fold_as_a_function_value_runs_natively() {
     let source = r#"import Std (IO, List, Text)
@@ -197,9 +205,9 @@ def main(): {IO} () :=
     with_stack(STACK, move || {
         let (program, limits) = lowered(source);
         every_limit_agrees(&program, limits);
-        let (ran, nested) = nested_runs(&program, limits);
+        let (ran, executed) = machine_instructions(&program, limits);
         assert_eq!(ran.1, Ok(()));
-        assert_eq!(nested, 0);
+        assert_eq!(executed, 0);
     });
 }
 

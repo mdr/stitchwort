@@ -84,7 +84,7 @@ pub enum Advanced {
 /// Between advances, [`LiveRun::push`] adds input (one key's bytes, or a
 /// line, as one read) and [`LiveRun::close`] ends it.
 pub struct LiveRun {
-    runner: Runner<'static, 'static>,
+    runner: Runner<'static, Machine<'static>>,
     input: LiveInput,
     limits: LiveLimits,
     /// Bytes printed in the current scope ([`LimitScope`]).
