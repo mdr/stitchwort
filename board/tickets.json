@@ -5357,11 +5357,11 @@
     {
       "id": 669,
       "title": "Private app port: mergeWellFormed / mergeIdempotent / annotationsWithin use Quot.sound (pre-existing, not from Float); trace which dependency and whether it can be avoided, so the port's headline theorems are axiom-free (private work only)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Dropped 26 Oct: Matt considers Quot.sound innocuous (same axiom Lean's std relies on); no need to make the port axiom-free.",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
