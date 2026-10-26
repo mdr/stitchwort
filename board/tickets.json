@@ -1,5 +1,5 @@
 {
-  "next": 665,
+  "next": 668,
   "tickets": [
     {
       "id": 13,
@@ -5296,6 +5296,42 @@
     },
     {
       "id": 664,
+      "title": "Design note: adding names to another namespace's type (Kotlin-style extensions; multi-file.md §4.7 D8 deferred). Triggers: rogue proofs want Level.goalReachable from Rogue.Proofs (E-FOREIGN-NAMESPACE); private port's isBlank (E-STD-NAMESPACE). Awaiting D1391",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 665,
+      "title": "Static Linux executables: run on real x86-64 hardware; under Rosetta the static machine-only binary was 1.8x slower than glibc (1,373 vs 768 ms), unexplained (musl lane, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 666,
+      "title": "nix crate under musl: tcgetattr reads 13 never-written c_cc bytes (UB, harmless); report upstream",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 667,
       "title": "Design note: adding names to another namespace's type (Kotlin-style extensions; multi-file.md §4.7 D8 deferred). Triggers: rogue proofs want Level.goalReachable from Rogue.Proofs (E-FOREIGN-NAMESPACE); private port's isBlank (E-STD-NAMESPACE). Awaiting D1391",
       "status": "backlog",
       "agent": "",
