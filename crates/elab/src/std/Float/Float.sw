@@ -304,6 +304,209 @@ theorem Float.ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float
   Float.ltLeBools (¬(Float.isNaN x)) (¬(Float.isNaN y)) (Float.isZero x ∧ Float.isZero y)
     (Float.orderKey x) (Float.orderKey y) h
 
+-- JS's `<=` and `<` as `Nat`'s, through a rank of the doubles: -infinity
+-- is 0, both zeros are +infinity's bits (9218868437227405312), and
+-- +infinity is twice that. A negative double's rank is -infinity's bits
+-- less its own; any other's is +infinity's bits plus its own. For doubles
+-- other than the NaN, `Float.ieeeLe x y` is `ieeeRank x <= ieeeRank y` and
+-- `Float.ieeeLt x y` is `ieeeRank x < ieeeRank y` (`Float.ieeeLeRank` and
+-- `Float.rankIeeeLe`, `Float.ieeeLtRank` and `Float.rankIeeeLt`), so the
+-- laws below come from `Nat`'s, by `omega`, and so can a program's.
+def Float.rankOf (n: Nat): Bool → Nat
+  | True => 18442240474082181120 - n
+  | False => 9218868437227405312 + n
+
+def Float.ieeeRank (x: Float): Nat := Float.rankOf x.bits (Nat.leq 9223372036854775808 x.bits)
+
+theorem Float.ieeeRankZeros: Float.ieeeRank 0.0 = Float.ieeeRank (-0.0) := rfl
+
+theorem Float.ieeeRankExample: Float.ieeeRank (-Float.infinity) = 0 := rfl
+
+theorem Float.notTrueFalse: (b: Bool) → (¬b) = True → b = False
+  | True, h => Void.exfalso (Bool.falseNotTrue h)
+  | False, h => rfl
+
+-- Both zeros have the same rank.
+theorem Float.rankZero (n: Nat) (z: (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808) = True):
+    Float.rankOf n (Nat.leq 9223372036854775808 n) = 9218868437227405312 :=
+  Bool.orElim (Nat.equal n 0) (Nat.equal n 9223372036854775808)
+    (Float.rankOf n (Nat.leq 9223372036854775808 n) = 9218868437227405312) z
+    (e => rewrite Nat.equalSound n 0 e in rfl)
+    (e => rewrite Nat.equalSound n 9223372036854775808 e in rfl)
+
+-- The ranks, from the order keys `ieeeLe` and `ieeeLt` compare, and back.
+theorem Float.rankLeOfKeys (m: Nat) (n: Nat):
+    (p: Bool) → Nat.leq 9223372036854775808 m = p → (q: Bool) → Nat.leq 9223372036854775808 n = q
+      → Int.leq (Float.keyOf m p) (Float.keyOf n q) = True → Float.rankOf m p ≤ Float.rankOf n q
+  | True, hp, True, hq, h => omega
+  | True, hp, False, hq, h => omega
+  | False, hp, True, hq, h => Void.exfalso (Bool.falseNotTrue h)
+  | False, hp, False, hq, h => omega
+
+theorem Float.rankLtOfKeys (m: Nat) (n: Nat) (vm: Float.isValid m = True)
+    (z: ((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808)) = False):
+    (p: Bool) → Nat.leq 9223372036854775808 m = p → (q: Bool) → Nat.leq 9223372036854775808 n = q
+      → Int.less (Float.keyOf m p) (Float.keyOf n q) = True → Float.rankOf m p < Float.rankOf n q
+  | True, hp, True, hq, h => omega [Float.highBound m vm hp]
+  | True, hp, False, hq, h =>
+    match c: Nat.equal n 0 with
+      | False => omega
+      | True =>
+        match d: Nat.equal m 9223372036854775808 with
+          | False => omega
+          | True =>
+            let e0: Nat.equal m 0 = False := Bool.falseOfNotTrue (Nat.equal m 0) (e => omega)
+            Void.exfalso (Bool.trueNotFalse (rewrite e0 at z))
+  | False, hp, True, hq, h => Void.exfalso (Bool.falseNotTrue h)
+  | False, hp, False, hq, h => omega
+
+theorem Float.keysOfRankLe (m: Nat) (n: Nat) (vm: Float.isValid m = True) (vn: Float.isValid n = True):
+    (p: Bool) → Nat.leq 9223372036854775808 m = p → (q: Bool) → Nat.leq 9223372036854775808 n = q
+      → Float.rankOf m p ≤ Float.rankOf n q
+      → (((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
+        ∨ Int.leq (Float.keyOf m p) (Float.keyOf n q)) = True
+  | True, hp, True, hq, h =>
+    Bool.orRight ((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
+      (Nat.leq (n - 9223372036854775808) (m - 9223372036854775808))
+      (omega [Float.highBound m vm hp, Float.highBound n vn hq])
+  | True, hp, False, hq, h =>
+    Bool.orTrue ((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
+  | False, hp, True, hq, h =>
+    let m0: m = 0 := omega
+    let nS: n = 9223372036854775808 := omega
+    rewrite m0, nS in rfl
+  | False, hp, False, hq, h =>
+    Bool.orRight ((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
+      (Nat.leq m n) omega
+
+theorem Float.keysOfRankLt (m: Nat) (n: Nat) (vm: Float.isValid m = True) (vn: Float.isValid n = True):
+    (p: Bool) → Nat.leq 9223372036854775808 m = p → (q: Bool) → Nat.leq 9223372036854775808 n = q
+      → Float.rankOf m p < Float.rankOf n q
+      → (¬((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
+        ∧ Int.less (Float.keyOf m p) (Float.keyOf n q)) = True
+  | True, hp, True, hq, h =>
+    let e0: Nat.equal m 0 = False := Bool.falseOfNotTrue (Nat.equal m 0) (e => omega)
+    let eS: Nat.equal m 9223372036854775808 = False :=
+      Bool.falseOfNotTrue (Nat.equal m 9223372036854775808) (e => omega [Float.highBound m vm hp])
+    rewrite e0, eS in omega [Float.highBound m vm hp]
+  | True, hp, False, hq, h =>
+    let e0: Nat.equal m 0 = False := Bool.falseOfNotTrue (Nat.equal m 0) (e => omega)
+    match c: Nat.equal n 0 with
+      | True =>
+        let eS: Nat.equal m 9223372036854775808 = False := Bool.falseOfNotTrue (Nat.equal m 9223372036854775808) (e => omega)
+        rewrite e0, eS in rfl
+      | False =>
+        let nS: Nat.equal n 9223372036854775808 = False := Bool.falseOfNotTrue (Nat.equal n 9223372036854775808) (e => omega)
+        match d: Nat.equal m 9223372036854775808 with
+          | True => rewrite e0, nS in rfl
+          | False => rewrite e0 in rfl
+  | False, hp, True, hq, h => omega
+  | False, hp, False, hq, h =>
+    let mS: Nat.equal m 9223372036854775808 = False := Bool.falseOfNotTrue (Nat.equal m 9223372036854775808) (e => omega)
+    let n0: Nat.equal n 0 = False := Bool.falseOfNotTrue (Nat.equal n 0) (e => omega)
+    let nS: Nat.equal n 9223372036854775808 = False := Bool.falseOfNotTrue (Nat.equal n 9223372036854775808) (e => omega)
+    match c: Nat.equal m 0 with
+      | True => rewrite n0, nS in omega
+      | False => rewrite mS in omega
+
+-- `x <= y` and `x < y` in JS order the ranks.
+theorem Float.ieeeLeRank (x: Float) (y: Float) (h: Float.ieeeLe x y = True): Float.ieeeRank x ≤ Float.ieeeRank y :=
+  let rest: ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y)) = True :=
+    Bool.andRight (¬(Float.isNaN y)) ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))
+      (Bool.andRight (¬(Float.isNaN x)) (¬(Float.isNaN y) ∧ ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))) h)
+  Bool.orElim (Float.isZero x ∧ Float.isZero y) (Int.leq (Float.orderKey x) (Float.orderKey y)) (Float.ieeeRank x ≤ Float.ieeeRank y) rest
+    (z => omega [Float.rankZero x.bits (Bool.andLeft (Float.isZero x) (Float.isZero y) z), Float.rankZero y.bits (Bool.andRight (Float.isZero x) (Float.isZero y) z)])
+    (l => Float.rankLeOfKeys x.bits y.bits (Nat.leq 9223372036854775808 x.bits) rfl (Nat.leq 9223372036854775808 y.bits) rfl l)
+
+theorem Float.ieeeLtRank (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeRank x < Float.ieeeRank y :=
+  let rest: (¬(Float.isZero x ∧ Float.isZero y) ∧ Int.less (Float.orderKey x) (Float.orderKey y)) = True :=
+    Bool.andRight (¬(Float.isNaN y)) (¬(Float.isZero x ∧ Float.isZero y) ∧ Int.less (Float.orderKey x) (Float.orderKey y))
+      (Bool.andRight (¬(Float.isNaN x)) (¬(Float.isNaN y) ∧ (¬(Float.isZero x ∧ Float.isZero y) ∧ Int.less (Float.orderKey x) (Float.orderKey y))) h)
+  Float.rankLtOfKeys x.bits y.bits x.valid
+    (Float.notTrueFalse (Float.isZero x ∧ Float.isZero y)
+      (Bool.andLeft (¬(Float.isZero x ∧ Float.isZero y)) (Int.less (Float.orderKey x) (Float.orderKey y)) rest))
+    (Nat.leq 9223372036854775808 x.bits) rfl (Nat.leq 9223372036854775808 y.bits) rfl
+    (Bool.andRight (¬(Float.isZero x ∧ Float.isZero y)) (Int.less (Float.orderKey x) (Float.orderKey y)) rest)
+
+-- And back, for doubles other than the NaN.
+theorem Float.rankIeeeLe (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: Float.isNaN y = False)
+    (h: Float.ieeeRank x ≤ Float.ieeeRank y): Float.ieeeLe x y = True :=
+  rewrite nx, ny in
+  Float.keysOfRankLe x.bits y.bits x.valid y.valid (Nat.leq 9223372036854775808 x.bits) rfl (Nat.leq 9223372036854775808 y.bits) rfl h
+
+theorem Float.rankIeeeLt (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: Float.isNaN y = False)
+    (h: Float.ieeeRank x < Float.ieeeRank y): Float.ieeeLt x y = True :=
+  rewrite nx, ny in
+  Float.keysOfRankLt x.bits y.bits x.valid y.valid (Nat.leq 9223372036854775808 x.bits) rfl (Nat.leq 9223372036854775808 y.bits) rfl h
+
+-- JS's `<=` and `<` are false when either side is the NaN.
+theorem Float.ieeeLeNotNaN (x: Float) (y: Float) (h: Float.ieeeLe x y = True): And (Float.isNaN x = False) (Float.isNaN y = False) :=
+  Both (Float.notTrueFalse (Float.isNaN x) (Bool.andLeft (¬(Float.isNaN x)) (¬(Float.isNaN y) ∧ ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))) h))
+    (Float.notTrueFalse (Float.isNaN y)
+      (Bool.andLeft (¬(Float.isNaN y)) ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))
+        (Bool.andRight (¬(Float.isNaN x)) (¬(Float.isNaN y) ∧ ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))) h)))
+
+theorem Float.ieeeLtNotNaN (x: Float) (y: Float) (h: Float.ieeeLt x y = True): And (Float.isNaN x = False) (Float.isNaN y = False) :=
+  Float.ieeeLeNotNaN x y (Float.ieeeLtLe x y h)
+
+-- `<` is irreflexive and asymmetric, `<=` reflexive (but on the NaN).
+theorem Float.ieeeLtIrrefl (x: Float): Float.ieeeLt x x = False :=
+  match h: Float.ieeeLt x x with
+    | True => omega [Float.ieeeLtRank x x h]
+    | False => rfl
+
+theorem Float.ieeeLtAsymm (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLt y x = False :=
+  match k: Float.ieeeLt y x with
+    | True => omega [Float.ieeeLtRank x y h, Float.ieeeLtRank y x k]
+    | False => rfl
+
+theorem Float.ieeeLeRefl (x: Float) (nx: Float.isNaN x = False): Float.ieeeLe x x = True :=
+  Float.rankIeeeLe x x nx nx (Nat.leRefl (Float.ieeeRank x))
+
+-- Both are transitive, also mixed. (`<=` needs no hypothesis about the NaN:
+-- `x <= y` already says neither is the NaN.)
+theorem Float.ieeeLtTrans (x: Float) (y: Float) (z: Float) (h1: Float.ieeeLt x y = True) (h2: Float.ieeeLt y z = True): Float.ieeeLt x z = True :=
+  Float.rankIeeeLt x z (And.left (Float.ieeeLtNotNaN x y h1)) (And.right (Float.ieeeLtNotNaN y z h2))
+    (omega [Float.ieeeLtRank x y h1, Float.ieeeLtRank y z h2])
+
+theorem Float.ieeeLeTrans (x: Float) (y: Float) (z: Float) (h1: Float.ieeeLe x y = True) (h2: Float.ieeeLe y z = True): Float.ieeeLe x z = True :=
+  Float.rankIeeeLe x z (And.left (Float.ieeeLeNotNaN x y h1)) (And.right (Float.ieeeLeNotNaN y z h2))
+    (omega [Float.ieeeLeRank x y h1, Float.ieeeLeRank y z h2])
+
+theorem Float.ieeeLtLeTrans (x: Float) (y: Float) (z: Float) (h1: Float.ieeeLt x y = True) (h2: Float.ieeeLe y z = True): Float.ieeeLt x z = True :=
+  Float.rankIeeeLt x z (And.left (Float.ieeeLtNotNaN x y h1)) (And.right (Float.ieeeLeNotNaN y z h2))
+    (omega [Float.ieeeLtRank x y h1, Float.ieeeLeRank y z h2])
+
+theorem Float.ieeeLeLtTrans (x: Float) (y: Float) (z: Float) (h1: Float.ieeeLe x y = True) (h2: Float.ieeeLt y z = True): Float.ieeeLt x z = True :=
+  Float.rankIeeeLt x z (And.left (Float.ieeeLeNotNaN x y h1)) (And.right (Float.ieeeLtNotNaN y z h2))
+    (omega [Float.ieeeLeRank x y h1, Float.ieeeLtRank y z h2])
+
+-- Without the NaN, `<=` is total: if `x <= y` is false, `y <= x`; and if
+-- `x < y` is false, `y <= x`.
+theorem Float.ieeeLeTotal (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: Float.isNaN y = False)
+    (h: Float.ieeeLe x y = False): Float.ieeeLe y x = True :=
+  Float.rankIeeeLe y x ny nx
+    (match c: Nat.leq (Float.ieeeRank x) (Float.ieeeRank y) with
+      | True => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (Float.rankIeeeLe x y nx ny c)) h))
+      | False => omega)
+
+theorem Float.ieeeNotLtLe (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: Float.isNaN y = False)
+    (h: Float.ieeeLt x y = False): Float.ieeeLe y x = True :=
+  Float.rankIeeeLe y x ny nx
+    (match c: Nat.leq (Succ (Float.ieeeRank x)) (Float.ieeeRank y) with
+      | True => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (Float.rankIeeeLt x y nx ny c)) h))
+      | False => omega)
+
+theorem Float.ieeeLeOr (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: Float.isNaN y = False):
+    Or (Float.ieeeLe x y = True) (Float.ieeeLe y x = True) :=
+  match c: Float.ieeeLe x y with
+    | True => Inl rfl
+    | False => Inr (Float.ieeeLeTotal x y nx ny c)
+
+theorem Float.ieeeLtTransExample: Float.ieeeLt (-1.5) 2.0 = True := Float.ieeeLtTrans (-1.5) (-0.0) 2.0 rfl rfl
+
+theorem Float.ieeeLeTotalExample: Float.ieeeLe 1.0 2.0 = True := Float.ieeeLeTotal 2.0 1.0 rfl rfl rfl
+
 -- `m / divisor`, if `divisor` (positive) divides `m`.
 def Float.exactDiv (m: Nat) (divisor: Nat): Option Nat :=
   if Nat.equal (Nat.divFuel m m divisor * divisor) m then Some (Nat.divFuel m m divisor) else None

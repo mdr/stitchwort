@@ -634,6 +634,112 @@ theorem List.pairwiseOfSorted (le: a → a → Bool) (trans: (x: a) → (y: a) �
   | Cons x rest, Both hx s =>
     Both (List.allOfMem (y => le x y = True) rest (z m => List.sortedHeadLe le trans x z rest (Both hx s) m)) (List.pairwiseOfSorted le trans rest s)
 
+-- Sorting a list whose elements all pass `p` needs `le` total only on the
+-- values that pass `p`, not on every value: doubles other than the NaN under
+-- `Float.ieeeLe`, say (`examples/accept/sort-on-subset.sw`). Merging and
+-- the sort's runs keep every element passing, so every comparison the sort
+-- makes is between two of them.
+theorem List.mergeAll (le: a → a → Bool) (p: a → Prop): (xs: List a) → (ys: List a) →
+    List.All p xs → List.All p ys → List.All p (List.merge le xs ys)
+  | Nil, ys, ax, ay => ay
+  | Cons x xs, Nil, ax, ay => ax
+  | Cons x xs, Cons y ys, Both px ax, Both py ay =>
+    Bool.inspect (le x y)
+      (c => List.All p (if c then Cons x (List.merge le xs (Cons y ys)) else Cons y (List.merge le (Cons x xs) ys)))
+      (e => Both px (List.mergeAll le p xs (Cons y ys) ax (Both py ay)))
+      (e => Both py (List.mergeAll le p (Cons x xs) ys (Both px ax) ay))
+
+theorem List.mergeSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) → (y: a) → p x → p y → le x y = False → le y x = True):
+    (xs: List a) → (ys: List a) → List.All p xs → List.All p ys → List.Sorted le xs → List.Sorted le ys → List.Sorted le (List.merge le xs ys)
+  | Nil, ys, ax, ay, sx, sy => sy
+  | Cons x xs, Nil, ax, ay, sx, sy => sx
+  | Cons x xs, Cons y ys, Both px ax, Both py ay, Both hx sxs, Both hy sys =>
+    Bool.inspect (le x y)
+      (c => List.Sorted le (if c then Cons x (List.merge le xs (Cons y ys)) else Cons y (List.merge le (Cons x xs) ys)))
+      (e => Both (List.mergeLeHead le x xs (Cons y ys) hx e) (List.mergeSortedOn le p tot xs (Cons y ys) ax (Both py ay) sxs (Both hy sys)))
+      (e => Both (List.mergeLeHead le y (Cons x xs) ys (tot x y px py e) hy) (List.mergeSortedOn le p tot (Cons x xs) ys (Both px ax) ay (Both hx sxs) sys))
+
+-- Every run in the counter passes `p`.
+@[noReceiver]
+def List.RunsAll (p: a → Prop): List (Option (List a)) → Prop
+  | Nil => Unit
+  | Cons None rest => List.RunsAll p rest
+  | Cons (Some r) rest => And (List.All p r) (List.RunsAll p rest)
+
+theorem List.pushRunAll (le: a → a → Bool) (p: a → Prop) (run: List a): (c: List (Option (List a))) →
+    List.All p run → List.RunsAll p c → List.RunsAll p (List.pushRun le run c)
+  | Nil, a, h => Both a Trivial
+  | Cons None rest, a, h => Both a h
+  | Cons (Some r) rest, a, Both ar h => List.pushRunAll le p (List.merge le r run) rest (List.mergeAll le p r run ar a) h
+
+theorem List.buildRunsAll (le: a → a → Bool) (p: a → Prop) (c: List (Option (List a))): (xs: List a) →
+    List.All p xs → List.RunsAll p c → List.RunsAll p (List.buildRuns le c xs)
+  | Nil, a, h => h
+  | Cons x xs, Both px a, h =>
+    List.buildRunsAll le p (List.pushRun le (Cons x Nil) c) xs a (List.pushRunAll le p (Cons x Nil) c (Both px Trivial) h)
+
+theorem List.mergeRunsAll (le: a → a → Bool) (p: a → Prop) (acc: List a): (c: List (Option (List a))) →
+    List.All p acc → List.RunsAll p c → List.All p (List.mergeRuns le acc c)
+  | Nil, a, h => a
+  | Cons None rest, a, h => List.mergeRunsAll le p acc rest a h
+  | Cons (Some r) rest, a, Both ar h => List.mergeRunsAll le p (List.merge le r acc) rest (List.mergeAll le p r acc ar a) h
+
+-- What every element passes, every element of the sorted list passes.
+theorem List.allSortWith (le: a → a → Bool) (p: a → Prop) (xs: List a) (a: List.All p xs): List.All p (List.sortWith xs le) :=
+  List.mergeRunsAll le p Nil (List.buildRuns le Nil xs) Trivial (List.buildRunsAll le p Nil xs a Trivial)
+
+theorem List.pushRunSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) → (y: a) → p x → p y → le x y = False → le y x = True)
+    (run: List a): (c: List (Option (List a))) → List.All p run → List.RunsAll p c → List.Sorted le run → List.RunsSorted le c →
+      List.RunsSorted le (List.pushRun le run c)
+  | Nil, a, ha, s, h => Both s Trivial
+  | Cons None rest, a, ha, s, h => Both s h
+  | Cons (Some r) rest, a, Both ar ha, s, Both sr h =>
+    List.pushRunSortedOn le p tot (List.merge le r run) rest (List.mergeAll le p r run ar a) ha (List.mergeSortedOn le p tot r run ar a sr s) h
+
+theorem List.buildRunsSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) → (y: a) → p x → p y → le x y = False → le y x = True)
+    (c: List (Option (List a))): (xs: List a) → List.All p xs → List.RunsAll p c → List.RunsSorted le c → List.RunsSorted le (List.buildRuns le c xs)
+  | Nil, a, ha, h => h
+  | Cons x xs, Both px a, ha, h =>
+    List.buildRunsSortedOn le p tot (List.pushRun le (Cons x Nil) c) xs a
+      (List.pushRunAll le p (Cons x Nil) c (Both px Trivial) ha)
+      (List.pushRunSortedOn le p tot (Cons x Nil) c (Both px Trivial) ha (Both Trivial Trivial) h)
+
+theorem List.mergeRunsSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) → (y: a) → p x → p y → le x y = False → le y x = True)
+    (acc: List a): (c: List (Option (List a))) → List.All p acc → List.RunsAll p c → List.Sorted le acc → List.RunsSorted le c →
+      List.Sorted le (List.mergeRuns le acc c)
+  | Nil, a, ha, s, h => s
+  | Cons None rest, a, ha, s, h => List.mergeRunsSortedOn le p tot acc rest a ha s h
+  | Cons (Some r) rest, a, Both ar ha, s, Both sr h =>
+    List.mergeRunsSortedOn le p tot (List.merge le r acc) rest (List.mergeAll le p r acc ar a) ha (List.mergeSortedOn le p tot r acc ar a sr s) h
+
+-- `List.sortWithSorted` for a `le` total only on the values passing `p`.
+theorem List.sortWithSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) → (y: a) → p x → p y → le x y = False → le y x = True)
+    (xs: List a) (a: List.All p xs): List.Sorted le (List.sortWith xs le) :=
+  List.mergeRunsSortedOn le p tot Nil (List.buildRuns le Nil xs) Trivial (List.buildRunsAll le p Nil xs a Trivial) Trivial
+    (List.buildRunsSortedOn le p tot Nil xs a Trivial Trivial)
+
+-- `List.sortedHeadLe` and `List.pairwiseOfSorted` for a `le` transitive only
+-- on the values passing `p`.
+theorem List.sortedHeadLeOn (le: a → a → Bool) (p: a → Prop)
+    (trans: (x: a) → (y: a) → (z: a) → p x → p y → p z → le x y = True → le y z = True → le x z = True)
+    (x: a) (z: a) (px: p x): (rest: List a) → List.All p rest → List.Sorted le (Cons x rest) → List.Mem z rest → le x z = True
+  | Nil, a, s, m => Void.exfalso m
+  | Cons y ys, Both py a, Both hxy s, Inl e => rewrite <- e in hxy
+  | Cons y ys, Both py a, Both hxy s, Inr m =>
+    trans x y z px py (List.allMem p z ys a m) hxy (List.sortedHeadLeOn le p trans y z py ys a s m)
+
+theorem List.pairwiseOfSortedOn (le: a → a → Bool) (p: a → Prop)
+    (trans: (x: a) → (y: a) → (z: a) → p x → p y → p z → le x y = True → le y z = True → le x z = True):
+    (xs: List a) → List.All p xs → List.Sorted le xs → List.Pairwise (x y => le x y = True) xs
+  | Nil, a, s => Trivial
+  | Cons x rest, Both px a, Both hx s =>
+    Both (List.allOfMem (y => le x y = True) rest (z m => List.sortedHeadLeOn le p trans x z px rest a (Both hx s) m))
+      (List.pairwiseOfSortedOn le p trans rest a s)
+
+-- `Nat.leq` restricted to even numbers is still total there.
+theorem List.sortWithSortedOnExample: List.Sorted Nat.leq (List.sortWith [4, 2, 6] Nat.leq) :=
+  List.sortWithSortedOn Nat.leq (n => n % 2 = 0) (x y px py h => Nat.leqTotal x y h) [4, 2, 6] (Both rfl (Both rfl (Both rfl Trivial)))
+
 theorem List.pairwiseAppendLeft (rel: a → a → Prop): (xs: List a) → (ys: List a) → List.Pairwise rel (List.append xs ys) → List.Pairwise rel xs
   | Nil, ys, h => Trivial
   | Cons x xs, ys, Both a h => Both (List.allAppendLeft (y => rel x y) xs ys a) (List.pairwiseAppendLeft rel xs ys h)
