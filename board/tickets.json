@@ -4644,7 +4644,7 @@
     {
       "id": 610,
       "title": "Private app port: restyle — pipe flow + per-event queries (D1339) + test factories renamed makeRecording/makeBubble/… with tests giving only pertinent data (switch to signature defaults once they exist); after the WellFormed lane (private work only)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4685,7 +4685,7 @@
     {
       "id": 613,
       "title": "Private app port: WellFormed contract (D1338: promote+rename Settled, theorems over well-formed inputs) + differential category for -0/NaN; then the pipe restyle (private work only)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
