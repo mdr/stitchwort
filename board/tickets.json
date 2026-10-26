@@ -1,5 +1,5 @@
 {
-  "next": 553,
+  "next": 554,
   "tickets": [
     {
       "id": 13,
@@ -3887,6 +3887,18 @@
       "id": 552,
       "title": "Full tier (26 Oct 02:2x): 10 failures — differential stack overflow (lane) + 9 output/snapshot failures (lane)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 553,
+      "title": "Inference: unannotated lambda inside an {IO} body makes effect-polymorphic List functions run at {IO} instead of the empty row (pure inline folds in main pay effect dispatch) — for Matt",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
