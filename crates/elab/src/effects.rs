@@ -2774,7 +2774,22 @@ fn comp_app(
         other => run_first(cx, other, row, &mut bound)?,
     };
     let mut owned: Vec<Expr> = Vec::new();
-    for (arg, passed) in args.iter().zip(passed) {
+    // `!p` for a proposition `p` that performs operations (`x !in xs.map
+    // f` in an effect-polymorphic callback): `p` runs as a `Bool`, decided,
+    // not as the proposition itself (SW-573).
+    if let Some(crate::logic::Logic::Not(operand, _)) = crate::logic::classify(cx, expr)
+        && is_proposition(operand)
+    {
+        let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+        let c = comp_check(cx, operand, row, &bool_ty)?;
+        let name = format!("%{}", cx.level());
+        bound.push(hold(cx, row, &name, c, bool_ty)?);
+        owned.push(Expr::Var(AstName {
+            text: name,
+            span: operand.span(),
+        }));
+    }
+    for (arg, passed) in args.iter().zip(passed).skip(owned.len()) {
         if passed {
             owned.push((*arg).clone());
             continue;
@@ -3406,6 +3421,14 @@ fn comp_compound(
             let b = run_first(cx, b, row, &mut bound)?;
             Expr::Binary(BinOp::Append, Box::new(a), Box::new(b))
         }
+        // `x in c`: the element runs first, then the container. It isn't
+        // arithmetic or a comparison, so as a group it would be one leaf,
+        // itself, and run first again without end (SW-573).
+        Expr::Binary(BinOp::In(op), a, b) => {
+            let a = run_first(cx, a, row, &mut bound)?;
+            let b = run_first(cx, b, row, &mut bound)?;
+            Expr::Binary(BinOp::In(*op), Box::new(a), Box::new(b))
+        }
         Expr::Binary(op, a, b) if nested_effects(cx, a, b)? => {
             // As before groups where that works, so existing programs
             // elaborate to the same terms: each operand runs as a
@@ -3459,6 +3482,12 @@ fn comp_compound(
         (Some(t), Expr::Binary(op, ..)) if crate::numbers::is_arith(*op) => {
             (check(cx, &pure, t)?, t.clone())
         }
+        // Membership, and a comparison that is a proposition where a `Bool`
+        // is expected, are checked, so that they're decided (SW-573).
+        (Some(t), Expr::Binary(BinOp::In(_), ..)) => (check(cx, &pure, t)?, t.clone()),
+        (Some(t), _) if is_proposition(&pure) && is_bool(cx, t)? => {
+            (check(cx, &pure, t)?, t.clone())
+        }
         _ => {
             let (term, ty) = infer(cx, &pure)?;
             insert(cx, term, ty)?
@@ -3466,6 +3495,23 @@ fn comp_compound(
     };
     let result = done(cx, row, &ty, term)?;
     Ok((wrap(cx, row, bound, result, &ty)?, ty))
+}
+
+/// Whether `e` is a proposition that is decided where a `Bool` is expected:
+/// membership, or a comparison but `==` (already a `Bool`).
+fn is_proposition(e: &Expr) -> bool {
+    matches!(
+        e,
+        Expr::Binary(
+            BinOp::In(_) | BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le,
+            ..
+        )
+    )
+}
+
+fn is_bool(cx: &Ctx, ty: &Value) -> Result<bool> {
+    Ok(matches!(force(cx.g(), ty.clone())?,
+        Value::Data(d, _) if cx.g().registry.is_data(Builtin::Bool, d)))
 }
 
 /// Whether an operand of `a op b` is itself arithmetic (or a prefix `-`)
