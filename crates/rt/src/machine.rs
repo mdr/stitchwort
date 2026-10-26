@@ -308,8 +308,14 @@ impl<'p> Machine<'p> {
         let result = pending.and_then(|p| run(&self.program, &self.image, &mut self.st, p));
         if result.is_err() {
             self.st.frames.clear();
+            if let Some(native) = &self.st.native {
+                native.release_unwound_frames();
+            }
             self.st.regs.clear();
             self.st.scratch.clear();
+            if let Some(native) = &self.st.native {
+                native.release_unwound();
+            }
         }
         result
     }
@@ -1075,7 +1081,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                                 .iter()
                                 .map(|r| &st.regs[base + (r & !MOVE) as usize])
                                 .collect();
-                            native.accepts(g, &refs)
+                            native.accepts(g, &refs, st.limits.frames as u64)
                         };
                         if accepted {
                             let values = args!(args);
@@ -1086,6 +1092,9 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                                 // The root's frame, counted above.
                                 frames: st.frames.len() as u64 + 1,
                                 limits: st.limits,
+                                unwound: Vec::new(),
+                                tail: Vec::new(),
+                                held: Vec::new(),
                             };
                             let result = native.call(g, values, &mut run);
                             st.steps = run.steps;

@@ -13,7 +13,7 @@ use stitchwort_native::n1::{Options, factory};
 use stitchwort_rt::host::{NoTerminal, RunError};
 use stitchwort_rt::{Limits, Program, alloc_trace, lower_main, run_main, run_main_native};
 
-pub const STACK: usize = 512 * 1024 * 1024;
+pub const STACK: usize = 16 * 1024 * 1024 * 1024;
 
 pub fn bench(name: &str) -> String {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -99,6 +99,7 @@ pub fn native_on(
 
 pub fn ran_natively(notes: &[String]) -> bool {
     notes.iter().any(|n| n.starts_with("native: running "))
+        && !notes.iter().any(|n| n.contains("ran on the machine"))
 }
 
 /// Native code prints what the machine prints, and did run.

@@ -91,8 +91,9 @@
 //! leaves through that point's own exit, which drops the registers that may
 //! hold a value there and returns; callers check the error after every
 //! call, and leave the same way. The stack-pointer check behind the frame
-//! limit is only a safety margin (§4.3): with a stack big enough for the
-//! frame limit it never fires, and stage N2b sizes and tests that.
+//! limit is only a safety margin (§4.3), sized by `frames` (stage N2b):
+//! with a stack big enough for the frame limit times the widest body's
+//! frame bound it never fires.
 //!
 //! **Looking at the code.** With `STITCHWORT_NATIVE_DUMP` set, compiling
 //! writes to stderr each body's Cranelift IR, its machine code as Cranelift
@@ -134,6 +135,8 @@ use stitchwort_rt::native_abi::{
 use stitchwort_rt::natives::IntNative;
 use stitchwort_rt::value::Value;
 
+use crate::frames;
+
 /// How to compile.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Options {
@@ -145,11 +148,6 @@ pub struct Options {
     /// limit; the module comment).
     pub stack_size: Option<usize>,
 }
-
-/// How much of the stack `Options::stack_size` gives native code is kept
-/// back: what the host used above the crossing, and room at the bottom for
-/// the runtime's helpers.
-const STACK_SLACK: usize = 16 * 1024 * 1024;
 
 /// A root's trampoline: `(context, arguments, result)`, the arguments moved
 /// in, the result written.
@@ -180,7 +178,12 @@ pub struct Islands {
     callable: Box<[bool]>,
     /// What the code refers to by number (`Context::tables`).
     tables: abi::TableStore,
+    /// Values frames gave up on leaving with an error, until the machine
+    /// has cleared its own registers (`sw_unwind`).
+    unwound: RefCell<(Vec<Vec<Value>>, Vec<Value>, Vec<Vec<Value>>)>,
     stack_size: Option<usize>,
+    /// A bound on the stack the widest body uses (`frames`).
+    pub max_frame: usize,
     /// What happened at the crossing, for `--verbose`.
     notes: Rc<RefCell<Vec<String>>>,
     /// How many bodies were compiled, and in what time.
@@ -204,7 +207,7 @@ impl NativeIslands for Islands {
         self.roots.get(g as usize).is_some_and(Option::is_some)
     }
 
-    fn accepts(&self, g: u32, args: &[&Value]) -> bool {
+    fn accepts(&self, g: u32, args: &[&Value], frame_limit: u64) -> bool {
         let root = self.roots[g as usize].as_ref().expect("a root");
         if root.checks_arguments
             && !args
@@ -215,6 +218,21 @@ impl NativeIslands for Islands {
                 "native: `{}` was given a function value that isn't compiled, so this call ran on the machine",
                 root.name
             ));
+            return false;
+        }
+        // The frame counter must fire before the stack check could (the
+        // `frames` module): otherwise this call stays on the machine.
+        if let Some(size) = self.stack_size
+            && !frames::counter_fires_first(frame_limit, size, self.max_frame)
+        {
+            let note = format!(
+                "native: `{}` ran on the machine: {frame_limit} frames of up to {} bytes may not fit the {size}-byte stack",
+                root.name, self.max_frame
+            );
+            let mut notes = self.notes.borrow_mut();
+            if !notes.contains(&note) {
+                notes.push(note);
+            }
             return false;
         }
         true
@@ -233,8 +251,11 @@ impl NativeIslands for Islands {
             std::hint::black_box(&marker) as *const u8 as u64
         };
         let stack_limit = match self.stack_size {
-            Some(size) if size > STACK_SLACK => here.saturating_sub((size - STACK_SLACK) as u64),
-            _ => 0,
+            Some(size) => match frames::floor_depth(size, self.max_frame) {
+                Some(depth) => here.saturating_sub(depth as u64),
+                None => u64::MAX,
+            },
+            None => 0,
         };
         let mut context = Context {
             steps: run.steps,
@@ -261,7 +282,33 @@ impl NativeIslands for Islands {
             out.assume_init()
         };
         run.steps = context.steps;
+        {
+            let mut unwound = self.unwound.borrow_mut();
+            unwound.0.append(&mut run.unwound);
+            unwound.1.append(&mut run.tail);
+            unwound.2.append(&mut run.held);
+        }
         context.result().map(|()| result)
+    }
+
+    fn release_unwound(&self) {
+        // Last frame out first, each from its lowest register up, then a
+        // tail call's arguments (the machine's `regs.clear()`, then
+        // `scratch.clear()`).
+        let (mut segments, tail, _) = std::mem::take(&mut *self.unwound.borrow_mut());
+        while let Some(segment) = segments.pop() {
+            drop(segment);
+        }
+        drop(tail);
+    }
+
+    fn release_unwound_frames(&self) {
+        // The machine's `frames.clear()`: each frame's closure and pending
+        // arguments, outermost (last to leave) first.
+        let mut held = std::mem::take(&mut self.unwound.borrow_mut().2);
+        while let Some(group) = held.pop() {
+            drop(group);
+        }
     }
 }
 
@@ -492,6 +539,7 @@ fn compile_audited(
         lambda_of,
         trampolines,
         n_caches,
+        max_frame,
     } = emit(&mut module, program, image, &plan, options, dump, audit)?;
     module
         .finalize_definitions()
@@ -532,7 +580,9 @@ fn compile_audited(
         lambdas,
         callable,
         tables: abi::TableStore::new(program, image, n_caches),
+        unwound: RefCell::new((Vec::new(), Vec::new(), Vec::new())),
         stack_size: options.stack_size,
+        max_frame,
         notes,
         bodies: plan.bodies.len(),
         compile_time: start.elapsed(),
@@ -553,6 +603,8 @@ struct Emitted {
     /// How many `Apply` sites the code has, each with a cache in the
     /// tables (`abi::Tables::caches`).
     n_caches: usize,
+    /// A bound on the stack one level of recursion uses (`frames`).
+    max_frame: usize,
 }
 
 /// The check that generated code holds no host address (stage S4 of
@@ -743,6 +795,7 @@ fn emit(
     let mut caches = 0u32;
     let mut context = module.make_context();
     let mut builder_context = FunctionBuilderContext::new();
+    let mut max_frame = 0;
     for &code in &plan.bodies {
         let params = image.codes[code as usize].params;
         let lambda = lambda_of.get(&code).copied();
@@ -802,6 +855,9 @@ fn emit(
         module
             .define_function(functions[&code], &mut context)
             .map_err(|e| fail(format!("{} ({e:?})", body_name(program, image, code))))?;
+        if let Some(compiled) = context.compiled_code() {
+            max_frame = max_frame.max(frames::frame_bound(&context.func, compiled));
+        }
         if dump && let Some(c) = context.compiled_code() {
             eprintln!("---- vcode\n{}", c.vcode.as_deref().unwrap_or("?"));
             // As an assembler's `.byte` line, so that a disassembler can
@@ -815,6 +871,8 @@ fn emit(
         }
         module.clear_context(&mut context);
     }
+    let mut adapter_frame = 0;
+    let mut stub_frame = 0;
     for (&g, &(id, code)) in &adapters {
         let params = image.codes[code as usize].params;
         context.func.signature = value_signature(pointer, params);
@@ -836,6 +894,9 @@ fn emit(
         module
             .define_function(id, &mut context)
             .map_err(|e| fail(format!("adapter: {e:?}")))?;
+        if let Some(compiled) = context.compiled_code() {
+            adapter_frame = adapter_frame.max(frames::frame_bound(&context.func, compiled));
+        }
         module.clear_context(&mut context);
     }
     let cap = arities.iter().copied().max().unwrap_or(0);
@@ -866,6 +927,9 @@ fn emit(
         module
             .define_function(id, &mut context)
             .map_err(|e| fail(format!("apply{n}: {e:?}")))?;
+        if let Some(compiled) = context.compiled_code() {
+            stub_frame = stub_frame.max(frames::frame_bound(&context.func, compiled));
+        }
         module.clear_context(&mut context);
     }
 
@@ -942,12 +1006,21 @@ fn emit(
         module.clear_context(&mut context);
         trampolines.push((g, id));
     }
+    // A Stitchwort frame can be a body (an adapter tail-calls it, taking its
+    // place), reached through an apply stub that may stay on the stack while
+    // it runs: the bound for one level of recursion is the larger of body and
+    // adapter, and a stub.
+    if dump {
+        eprintln!("frames: bodies {max_frame}, adapters {adapter_frame}, apply stubs {stub_frame}");
+    }
+    let max_frame = max_frame.max(adapter_frame) + stub_frame;
     Ok(Emitted {
         functions,
         adapters,
         lambda_of,
         trampolines,
         n_caches: caches as usize,
+        max_frame,
     })
 }
 
@@ -1082,6 +1155,7 @@ fn emit_apply_any(
 ) {
     let prepare = module.declare_func_in_func(helpers.apply_prepare, b.func);
     let release = module.declare_func_in_func(helpers.release, b.func);
+    let unwind = module.declare_func_in_func(helpers.unwind, b.func);
     let drop_words = module.declare_func_in_func(helpers.drop_words, b.func);
     let slot = |b: &mut FunctionBuilder<'_>, size: usize| {
         b.create_sized_stack_slot(StackSlotData::new(
@@ -1254,8 +1328,14 @@ fn emit_apply_any(
     let arity = b.ins().load(types::I64, flags(), plan, ApplyPlan::ARITY_AT);
     let rest = b.ins().load(types::I64, flags(), plan, ApplyPlan::REST_AT);
     let all = b.ins().iadd(arity, rest);
+    let _ = all;
+    // As the machine's `push` returning its error, which drops its
+    // parameters last to first: the rest of an over-application (in the
+    // `Ret`), the closure, then the arguments.
     let values = b.ins().iadd_imm_s(plan, i64::from(ApplyPlan::ARGS_AT));
-    b.ins().call(release, &[values, all]);
+    let skip = b.ins().imul_imm_s(arity, VALUE_SIZE as i64);
+    let from = b.ins().iadd(values, skip);
+    b.ins().call(release, &[from, rest]);
     let env = b.ins().load(pointer, flags(), plan, ApplyPlan::ENV_AT);
     let dropping = b.create_block();
     let gone = b.create_block();
@@ -1264,6 +1344,7 @@ fn emit_apply_any(
     drop_fun(b, drop_words, env);
     b.ins().jump(gone, &[]);
     b.switch_to_block(gone);
+    b.ins().call(release, &[values, arity]);
     let zero = b.ins().iconst(types::I64, 0);
     b.ins().return_(&[zero, zero, zero]);
 
@@ -1275,7 +1356,10 @@ fn emit_apply_any(
     let skip = b.ins().imul_imm_s(arity, VALUE_SIZE as i64);
     let from = b.ins().iadd(plan, skip);
     let from = b.ins().iadd_imm_s(from, i64::from(ApplyPlan::ARGS_AT));
-    b.ins().call(release, &[from, rest]);
+    // The callee's frame holds the rest in its `Ret`: with the frame's
+    // closure, in the group it just pushed.
+    let join = b.ins().iconst(types::I64, 3);
+    b.ins().call(unwind, &[ctx, from, rest, join]);
     let zero = b.ins().iconst(types::I64, 0);
     b.ins().return_(&[zero, zero, zero]);
 }
@@ -1287,7 +1371,8 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
     vec![
         ("sw_drop_words", abi::sw_drop_words as *const u8),
         ("sw_inc", abi::sw_inc as *const u8),
-        ("sw_release", abi::sw_release as *const u8),
+        ("sw_unwind", abi::sw_unwind as *const u8),
+        ("sw_release_up", abi::sw_release_up as *const u8),
         ("sw_ctor", abi::sw_ctor as *const u8),
         ("sw_ctor_reuse", abi::sw_ctor_reuse as *const u8),
         ("sw_unpack", abi::sw_unpack as *const u8),
@@ -1313,6 +1398,7 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
 struct Helpers {
     drop_words: FuncId,
     inc: FuncId,
+    unwind: FuncId,
     release: FuncId,
     ctor: FuncId,
     ctor_reuse: FuncId,
@@ -1353,7 +1439,8 @@ impl Helpers {
         Ok(Helpers {
             drop_words: declare("sw_drop_words", &[I64, I64, I64], &[])?,
             inc: declare("sw_inc", &[I64, I64, I64], &[])?,
-            release: declare("sw_release", &[p, I64], &[])?,
+            unwind: declare("sw_unwind", &[p, p, I64, I64], &[])?,
+            release: declare("sw_release_up", &[p, I64], &[])?,
             ctor: declare("sw_ctor", &[I32, p, I64, p], &[])?,
             ctor_reuse: declare("sw_ctor_reuse", &[I32, p, I64, p, p], &[])?,
             unpack: declare("sw_unpack", &[p, I32, p, I64, I32], &[])?,
@@ -1869,17 +1956,34 @@ impl Gen<'_, '_> {
     }
 
     /// If `cond`, leaves the frame on an error: sets the context's error
-    /// to `error` (unless a callee already did), drops the registers in
+    /// to `error` (unless a callee already did), gives up the registers in
     /// `live` (the registers that may hold a value at this point: registers
-    /// live in variables, so each exit releases its own), and returns.
+    /// live in variables, so each exit gives up its own), and returns.
     /// Otherwise continues.
-    fn exit_if(&mut self, cond: IrValue, live: &Regs, error: Option<u64>) {
-        self.exit_with(cond, live, error, &[]);
+    ///
+    /// The values are not dropped here but handed to the runtime
+    /// (`sw_unwind`), which drops them as the machine clears its registers
+    /// after a failed run, so that the allocation trace is the same: lowest
+    /// register first, outer frames before inner ones. `tail` is a tail
+    /// call's operands: the machine has fetched them (moved, or cloned)
+    /// when it runs out of steps, and drops them last.
+    fn exit_if(&mut self, cond: IrValue, live: &Regs, error: Option<u64>, tail: &[Reg]) {
+        self.exit_with(cond, live, error, &[], tail);
     }
 
     /// [`Gen::exit_if`], also dropping `extra`, values held outside the
-    /// registers (an `Apply`'s function value).
-    fn exit_with(&mut self, cond: IrValue, live: &Regs, error: Option<u64>, extra: &[Val]) {
+    /// registers (an `Apply`'s function value: the machine's local, dropped
+    /// at once). A lambda's closure (the frame's `env`) is kept for the
+    /// runtime too: the machine drops every frame's closure before any
+    /// register.
+    fn exit_with(
+        &mut self,
+        cond: IrValue,
+        live: &Regs,
+        error: Option<u64>,
+        extra: &[Val],
+        tail: &[Reg],
+    ) {
         let exit = self.b.create_block();
         let fine = self.b.create_block();
         self.b.ins().brif(cond, exit, &[], fine, &[]);
@@ -1894,26 +1998,56 @@ impl Gen<'_, '_> {
             let error = self.iconst(error);
             self.ctx_store(Context::ERROR_AT, error);
         }
-        // Written out lowest first, so that `sw_release` (which drops the
-        // last first) drops them highest first, as the machine releases a
-        // frame.
-        let regs = live.descending(self.code.regs);
-        for (i, r) in regs.iter().rev().enumerate() {
-            let v = self.load(Loc::Reg(*r));
-            self.spill_value(i, v);
-        }
-        if !regs.is_empty() {
-            let at = self.spill_address(0);
-            let count = self.iconst(regs.len() as u64);
-            self.call_helper(self.helpers.release, &[at, count]);
-        }
+        let kept = self.without_moved(live, tail);
+        let fetched: Vec<Val> = tail.iter().map(|r| self.operand(*r)).collect();
         for v in extra {
             self.drop_value(*v);
         }
-        self.drop_env();
+        for (i, v) in fetched.iter().enumerate() {
+            self.spill_value(i, *v);
+        }
+        self.unwind(fetched.len(), true);
+        self.unwind_env();
+        let mut regs = kept.descending(self.code.regs);
+        regs.reverse();
+        for (i, r) in regs.iter().enumerate() {
+            let v = self.load(Loc::Reg(*r));
+            self.spill_value(i, v);
+        }
+        self.unwind(regs.len(), false);
         let zero = self.iconst(0);
         self.b.ins().return_(&[zero, zero, zero]);
         self.b.switch_to_block(fine);
+    }
+
+    /// Hands the first `n` spill slots' values to the runtime (`sw_unwind`).
+    fn unwind(&mut self, n: usize, tail: bool) {
+        self.unwind_mode(n, u64::from(tail));
+    }
+
+    fn unwind_mode(&mut self, n: usize, mode: u64) {
+        if n == 0 && mode != 2 {
+            return;
+        }
+        let at = self.spill_address(0);
+        let count = self.iconst(n as u64);
+        let mode = self.iconst(mode);
+        self.call_helper(self.helpers.unwind, &[self.ctx, at, count, mode]);
+    }
+
+    /// In a lambda's body, gives its closure (the frame's `env`) to the
+    /// runtime, to be dropped before the registers.
+    fn unwind_env(&mut self) {
+        if let Some(env) = self.env {
+            let tag = self.iconst(u64::from(TAG_FUN));
+            let zero = self.iconst(0);
+            self.spill_value(0, Val([tag, env, zero]));
+            self.unwind_mode(1, 2);
+        } else {
+            // Every leaving frame pushes a group (the last frame's pending
+            // arguments join it).
+            self.unwind_mode(0, 2);
+        }
     }
 
     /// In a lambda's body, drops its closure (the frame's `env`).
@@ -1925,18 +2059,18 @@ impl Gen<'_, '_> {
     }
 
     /// A frame entered: a step, out of steps if over the limit (`live`
-    /// as for [`Gen::exit_if`]).
-    fn count_step(&mut self, live: &Regs) {
-        self.count_step_with(live, &[]);
+    /// and `tail` as for [`Gen::exit_if`]).
+    fn count_step(&mut self, live: &Regs, tail: &[Reg]) {
+        self.count_step_with(live, &[], tail);
     }
 
     /// [`Gen::count_step`], with `extra` as for [`Gen::exit_with`].
-    fn count_step_with(&mut self, live: &Regs, extra: &[Val]) {
+    fn count_step_with(&mut self, live: &Regs, extra: &[Val], tail: &[Reg]) {
         // The steps left are in the pinned register: none left means this
         // step is one over the limit.
         let left = self.b.ins().get_pinned_reg(types::I64);
         let over = self.b.ins().icmp_imm_u(IntCC::Equal, left, 0);
-        self.exit_with(over, live, Some(OUT_OF_STEPS), extra);
+        self.exit_with(over, live, Some(OUT_OF_STEPS), extra, tail);
         let left = self.b.ins().iadd_imm_s(left, -1);
         self.b.ins().set_pinned_reg(left);
     }
@@ -1961,9 +2095,9 @@ impl Gen<'_, '_> {
             let floor = self.ctx_load(Context::STACK_LIMIT_AT);
             let low = self.b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
             let either = self.b.ins().bor(over, low);
-            self.exit_with(either, live, Some(OUT_OF_FRAMES), extra);
+            self.exit_with(either, live, Some(OUT_OF_FRAMES), extra, &[]);
         } else {
-            self.exit_with(over, live, Some(OUT_OF_FRAMES), extra);
+            self.exit_with(over, live, Some(OUT_OF_FRAMES), extra, &[]);
         }
         self.b.ins().iadd_imm_s(frames, 1)
     }
@@ -1973,7 +2107,7 @@ impl Gen<'_, '_> {
     /// frame's again, which it never changed.)
     fn after_call(&mut self, live: &Regs) {
         let error = self.ctx_load(Context::ERROR_AT);
-        self.exit_if(error, live, None);
+        self.exit_if(error, live, None, &[]);
     }
 
     /// `regs` without the registers `o` moves out (marked `MOVE`).
@@ -2045,6 +2179,7 @@ impl Gen<'_, '_> {
                 | Instr::CtorReuse { args, .. }
                 | Instr::Apply { args, .. }
                 | Instr::TailApply { args, .. }
+                | Instr::TailCall { args, .. }
                 | Instr::Closure { args, .. }
                 | Instr::Pap { args, .. } => args.len as usize,
                 _ => 0,
@@ -2069,7 +2204,7 @@ impl Gen<'_, '_> {
         } else {
             0
         };
-        let spills = released.max(traced).max(max_prim + 1).max(2);
+        let spills = released.max(traced).max(max_prim + 1).max(max_ops).max(2);
         self.spill = self.b.create_sized_stack_slot(StackSlotData::new(
             StackSlotKind::ExplicitSlot,
             (spills * VALUE_SIZE) as u32,
@@ -2208,7 +2343,7 @@ impl Gen<'_, '_> {
             Instr::Global { dst, g } => self.global(pc, dst, g),
             Instr::Call { dst, g, args } => {
                 let live = self.full[pc].clone();
-                self.count_step(&live);
+                self.count_step(&live, &[]);
                 let frames = self.push_frame(&live);
                 let values = self.operands(args);
                 let live = self.without_moved(&live, ops(code, args));
@@ -2224,7 +2359,7 @@ impl Gen<'_, '_> {
             Instr::TailCall { g, args } => {
                 // As the machine's `replace`: the step, then this frame's
                 // closure dropped, then its registers.
-                self.count_step(&self.full[pc].clone());
+                self.count_step(&self.full[pc].clone(), ops(code, args));
                 let values = self.operands(args);
                 let left = self.without_moved(&self.full[pc], ops(code, args));
                 self.drop_env();
@@ -2256,7 +2391,7 @@ impl Gen<'_, '_> {
 
                 self.b.switch_to_block(exact);
                 let live = self.without_moved(&self.full[pc], &[f]);
-                self.count_step_with(&live, &[fv]);
+                self.count_step_with(&live, &[fv], &[]);
                 let frames = self.push_frame_with(&live, &[fv]);
                 let values = self.operands(args);
                 let live = self.without_moved(&live, ops(code, args));
@@ -2296,7 +2431,7 @@ impl Gen<'_, '_> {
 
                 // As the machine's `replace`, as for `TailCall`.
                 self.b.switch_to_block(exact);
-                self.count_step_with(&taken, &[fv]);
+                self.count_step_with(&taken, &[fv], ops(code, args));
                 let values = self.operands(args);
                 self.drop_env();
                 self.release(&left);
@@ -2555,7 +2690,7 @@ impl Gen<'_, '_> {
         self.b.switch_to_block(compute);
         self.b.set_cold_block(compute);
         let live = self.full[pc].clone();
-        self.count_step(&live);
+        self.count_step(&live, &[]);
         let frames = self.push_frame(&live);
         let code = self.image.global_code[g as usize].expect("a constant has code");
         let f = self.func_ref(self.functions[&code]);
@@ -2933,7 +3068,7 @@ pub fn factory(
     move |program, image| match compile(program, image, options, notes.clone()) {
         Ok(islands) => {
             notes.borrow_mut().push(format!(
-                "native: running {} natively ({} bodies, compiled in {:.1} ms)",
+                "native: running {} natively ({} bodies, frames of at most {} bytes, compiled in {:.1} ms)",
                 islands
                     .root_names()
                     .iter()
@@ -2941,6 +3076,7 @@ pub fn factory(
                     .collect::<Vec<_>>()
                     .join(", "),
                 islands.bodies,
+                islands.max_frame,
                 islands.compile_time.as_secs_f64() * 1000.0
             ));
             Some(Box::new(islands))

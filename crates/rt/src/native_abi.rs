@@ -531,6 +531,14 @@ pub struct NativeRun<'a> {
     /// Frames pending, the island root's included.
     pub frames: u64,
     pub limits: Limits,
+    /// Values frames gave up on leaving with an error ([`sw_unwind`]), in
+    /// the order they left.
+    pub unwound: Vec<Vec<Value>>,
+    /// A tail call's arguments, dropped after the rest.
+    pub tail: Vec<Value>,
+    /// Each native frame's closure and pending arguments, as it left: the
+    /// machine keeps them in its frames, which it clears before registers.
+    pub held: Vec<Vec<Value>>,
 }
 
 /// Native code for some of a program's functions: the machine calls it at
@@ -538,10 +546,11 @@ pub struct NativeRun<'a> {
 pub trait NativeIslands {
     /// Whether a call of global `g` from the entry body may run natively.
     fn is_root(&self, g: u32) -> bool;
-    /// Whether this call, with these arguments, runs natively. `false`
-    /// leaves it to the machine (an island that applies function values
-    /// can't take one from outside).
-    fn accepts(&self, g: u32, args: &[&Value]) -> bool;
+    /// Whether this call, with these arguments and under this frame limit,
+    /// runs natively. `false` leaves it to the machine (an island that
+    /// applies function values can't take one from outside; a frame limit
+    /// the native stack might not hold).
+    fn accepts(&self, g: u32, args: &[&Value], frame_limit: u64) -> bool;
     /// Runs `g` on `args`; the steps it takes are added to `run.steps`.
     fn call(
         &self,
@@ -549,6 +558,14 @@ pub trait NativeIslands {
         args: Vec<Value>,
         run: &mut NativeRun<'_>,
     ) -> Result<Value, ResourceError>;
+    /// After a failed run's registers are cleared: drops what native
+    /// frames gave up on leaving with an error, in the order the machine
+    /// would have dropped it.
+    fn release_unwound(&self) {}
+    /// After a failed run's frames are cleared (before its registers):
+    /// drops the closures (and pending arguments) native frames held, last
+    /// frame first.
+    fn release_unwound_frames(&self) {}
 }
 
 /// Whether native code could apply every function value inside `v`: each
@@ -639,16 +656,52 @@ pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
     std::mem::forget(Value::clone(&v));
 }
 
-/// Drops registers `n - 1` down to 0 of a frame, as the machine releases a
-/// frame (on the way out after an error).
+/// Takes the `n` values at `regs` off a frame that is leaving on an error,
+/// to be dropped as the machine drops them after a failed run: it clears
+/// its frames (each frame's closure and pending arguments, outermost first)
+/// and then its registers (one vector for every frame: outermost frame first,
+/// each from its lowest register up), then a tail call's fetched arguments.
+/// Frames leave innermost first, so [`NativeIslands::release_unwound_frames`]
+/// and [`NativeIslands::release_unwound`] drop what is kept here last first.
+/// `mode`: 0, a frame's registers (a segment); 1, a tail call's arguments;
+/// 2, a frame's closure (a group, even of no values: every leaving frame
+/// pushes one); 3, more for the last group (pending arguments of the frame
+/// that just left).
 ///
 /// # Safety
-/// `regs` points at `n` initialised values.
+/// As [`sw_global`]; `regs` points at `n` initialised values, which native
+/// code doesn't use again.
 #[allow(unsafe_code)]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn sw_release(regs: *mut Value, n: u64) {
-    for i in (0..n as usize).rev() {
-        // SAFETY: within the frame's registers.
+pub unsafe extern "C" fn sw_unwind(context: *mut Context, regs: *mut Value, n: u64, mode: u64) {
+    // SAFETY: the caller's contract.
+    let run = unsafe { &mut *(*context).run };
+    let values: Vec<Value> = (0..n as usize)
+        .map(|i| unsafe { std::mem::take(&mut *regs.add(i)) })
+        .collect();
+    match mode {
+        0 => run.unwound.push(values),
+        1 => run.tail.extend(values),
+        2 => run.held.push(values),
+        _ => run
+            .held
+            .last_mut()
+            .expect("a frame left before")
+            .extend(values),
+    }
+}
+
+/// Drops the `n` values at `regs`, lowest first (as a vector of them is
+/// dropped).
+///
+/// # Safety
+/// `regs` points at `n` initialised values, which native code doesn't use
+/// again.
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sw_release_up(regs: *mut Value, n: u64) {
+    for i in 0..n as usize {
+        // SAFETY: within the values.
         drop(unsafe { std::mem::take(&mut *regs.add(i)) });
     }
 }
