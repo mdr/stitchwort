@@ -1,5 +1,5 @@
 {
-  "next": 620,
+  "next": 624,
   "tickets": [
     {
       "id": 13,
@@ -4697,7 +4697,7 @@
     {
       "id": 614,
       "title": "Signature defaults (D1340): default values for function parameters — design note revisiting named-arguments.md §5.4 / D1097 (trigger: test factories in the private port), stop for review",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4757,6 +4757,54 @@
     {
       "id": 619,
       "title": "Private app port: methods sweep — move single-value helpers into their type's namespace with the value first (Recording.moveTo/moveBy/covers/positionOf/placeAt/shiftedTranscript, Transcript.shiftBy, Annotation.toCardGroup, Text.isBlank as local helper); list-of-recordings and merge-step functions stay free; theorems follow; no behaviour change, .d.ts identical, differential exits 0. After the D1341 clamp lane, before D1343 (private work only)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 620,
+      "title": "Signature defaults stage 1 (D1356): def/theorem parameter defaults, calls per signature-defaults.md §6 (named-only, filled at end of every call, committed before argument elaboration), errors, hover/completion, exports refused",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 621,
+      "title": "Signature defaults stage 1b: printing hides filled defaults (D1354)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 622,
+      "title": "Signature defaults stage 2: JS options object for exported defaults (D1355)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 623,
+      "title": "Signature defaults stage 3: constructor calls use field defaults (D1346)",
       "status": "next",
       "agent": "",
       "where": "",
