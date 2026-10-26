@@ -2708,7 +2708,7 @@
     },
     {
       "id": 464,
-      "title": "Private app port: migrate to rule E, then the Unicode/logic-notation house style, std Map.indexBy and the D1191 distinct (private work only). Rule E + indexBy/distinct DONE 25 Oct; remaining: Unicode style + Option.any/all rename",
+      "title": "Private app port: catch up with main (D1307): Option.any/all rename (doesn't check today), Unicode operators, newer features; re-run tests/proofs/differential/.d.ts (private work only)",
       "status": "doing",
       "agent": "",
       "where": "",
