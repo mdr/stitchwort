@@ -602,8 +602,13 @@ fn check_let_value(
 
 /// The universe that `ty` lives in.
 fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
-    if let Value::Sort(s) = &*force_ref(cx.g, ty)? {
-        return Ok(s.succ());
+    match &*force_ref(cx.g, ty)? {
+        Value::Sort(s) => return Ok(s.succ()),
+        // An equation is a proposition. Answered without quoting it: the
+        // quote of its sides can be exponentially larger than their values,
+        // which share.
+        Value::Eq(..) => return Ok(Sort::Prop),
+        _ => {}
     }
     let term = cx.quote_kept(ty)?;
     Ok(check_type(cx, &term)?.1)

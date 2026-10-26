@@ -67,6 +67,16 @@ const NORMAL_FORM_TOO_BIG: &[&str] = &[
     "Random.between",
     "Random.chance",
     "accept/random-seed.sw: main",
+    "accept/kernel-same-call-arguments.sw: generate",
+    "accept/kernel-same-call-arguments.sw: descend",
+];
+
+/// Definitions whose type's normal form is exponentially large, so only
+/// their types' conversion is compared: in kernel-same-call-arguments.sw,
+/// `mix 16 seed` on an unknown seed mentions the seed 3^16 times.
+const TYPE_NORMAL_FORM_TOO_BIG: &[&str] = &[
+    "accept/kernel-same-call-arguments.sw: descendMakes",
+    "accept/kernel-same-call-arguments.sw: descendCells",
 ];
 
 /// Compares the two evaluators on everything `g` defines: each definition
@@ -121,6 +131,12 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
         }
         let ty = reference::eval(g, &[], &def.ty).expect("no limits");
         assert!(value::conv(g, 0, &def.ty_value, &ty).expect("no limits"));
+        let type_too_big = TYPE_NORMAL_FORM_TOO_BIG
+            .iter()
+            .any(|entry| *entry == format!("{what}: {}", def.name));
+        if type_too_big {
+            continue;
+        }
         assert_eq!(
             normal(g, 0, &def.ty_value),
             normal(g, 0, &ty),
