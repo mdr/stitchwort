@@ -1,5 +1,5 @@
 {
-  "next": 550,
+  "next": 551,
   "tickets": [
     {
       "id": 13,
@@ -3840,6 +3840,18 @@
     {
       "id": 549,
       "title": "Merge tier over 60 s budget at times (73-86 s under load): n2b tail_calls_of_every_shape_run_in_constant_stack (~10 s) and others; trim or move to daily",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 550,
+      "title": "Profile the effect runtime: ~20-29k machine instructions per handled operation (bump/ask), linear in count; find why before making handlers native (N4 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
