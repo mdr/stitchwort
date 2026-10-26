@@ -412,7 +412,7 @@ binary can know, a start-up error) with a plain message:
 | A body has an instruction `n1_blocker` declines: it and its callers run on the machine | `build` fails: "``Main.f`` uses `<instruction>`, which the native compiler doesn't compile yet" (none today, but the census keeps the rule honest) |
 | `probe_layout` fails (`std`'s `Rc` or slice layout isn't as expected): no native code runs | Checked by `build` (the CLI and the runtime library come from one workspace build), which fails with the probe's message. The library checks again at start-up and exits 2 with "internal error: this executable can't run: …", as for a manifest mismatch |
 | The frame bound may not fit the stack: the run is on the machine | `build` fails when the bound passes the cap (§3); the binary fails at start-up if it can't reserve the stack |
-| A target Cranelift or the runtime doesn't support | `build` fails, naming the target. Supported: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu` (as S5) |
+| A target Cranelift or the runtime doesn't support | `build` fails, naming the target. Supported: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `aarch64-unknown-linux-musl`, `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-gnu` (as S5, with musl from standalone-executables.md's "Static Linux executables as built") |
 | Manifest or image-hash mismatch at start-up | Unchanged: exit 2, nothing run. The image hash becomes a hash of the object's tables (§5) |
 
 `--verbose` keeps reporting what was compiled. The "ran on the machine"
@@ -1138,8 +1138,9 @@ No cycle or instruction counts: `perf` wasn't tried in the VM.
   dynamically, so it runs where that store path exists. Linked by a
   distribution's own `cc` it would name the system's loader, as any C
   program does; that wasn't tried (no non-nix Linux here). A binary to
-  copy between Linux distributions would want a static or musl link,
-  which nothing does yet.
+  copy between Linux distributions would want a static or musl link:
+  done since, in standalone-executables.md's "Static Linux executables
+  as built".
 - **Other distributions and kernels:** only NixOS 24.11 on OrbStack's
   kernel 7.2.
 

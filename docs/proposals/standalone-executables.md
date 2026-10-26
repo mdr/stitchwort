@@ -520,21 +520,20 @@ def playOn (seed: Nat): {IO, Partial} State :=
 - **Out of scope:** this plan builds for the host only. A `--target` flag
   can come later, with libraries per target and probably `zig cc` or lld as
   the linker.
-- **Supported hosts for this plan** (`n1::SUPPORTED_TARGETS`; as of NO7 of
-  native-only.md, 26 October 2026):
+- **Supported hosts for this plan** (`n1::SUPPORTED_TARGETS`; as of
+  "Static Linux executables as built", 26 October 2026):
 
-  | Host | Object | Status | Evidence |
-  |---|---|---|---|
-  | macOS arm64 | Mach-O, signed by the linker | tested | every tier, on the M4 Pro |
-  | Linux aarch64 | ELF | tested | NO7: the `native` lane and every `build` test, natively in a NixOS VM, under overcommit modes 0 and 1 |
-  | Linux x86-64 | ELF | tested under emulation | NO7: the same tests through Rosetta in that VM; all pass but `link_failures_are_explained`, which Rosetta's `posix_spawn` breaks. Not run on x86-64 hardware |
-  | macOS x86-64 | Mach-O | untested | no Intel Mac |
-  | Windows | COFF | unsupported | see below |
+  | Host | Object | Executable | Status | Evidence |
+  |---|---|---|---|---|
+  | macOS arm64 | Mach-O, signed by the linker | dynamic (`libSystem`) | tested | every tier, on the M4 Pro |
+  | Linux aarch64 (`aarch64-unknown-linux-musl`) | ELF | static, musl | tested | the `native` lane and every `build`, `keys_mode` and runtime-library test, natively in a NixOS VM, under overcommit modes 0, 1 and 2; the executables also run on Ubuntu 24.10 |
+  | Linux x86-64 (`x86_64-unknown-linux-musl`) | ELF | static, musl | tested under emulation | the same tests and overcommit modes through Rosetta in that VM, all passing (`link_failures_are_explained` too, now). Not run on x86-64 hardware |
+  | Linux, either, `-gnu` | ELF | dynamic, glibc | not tested since musl | a `stitchwort` built for glibc still links as NO7 did (D1384) |
+  | macOS x86-64 | Mach-O | dynamic | untested | no Intel Mac |
+  | Windows | COFF | — | unsupported | see below |
 
-  On Linux the executable links the C library dynamically, so it runs
-  where the loader it names exists (a nix devShell's links the nix store's
-  `ld-linux`); a static or musl link, for one binary across distributions,
-  isn't done.
+  On Linux the executable is static: one file that runs on any Linux of
+  its architecture (see "Static Linux executables as built").
 - **Windows:** COFF objects are supported, but the terminal host is Unix
   only (`cfg(unix)`), as for `run`.
 - **Constraints on the code:**
@@ -987,7 +986,7 @@ parallel with N2a (S1 and S2 at once, then S3).
 
 ## Decisions
 
-All three are **decided by Claude, provisional** (Matt asked for the
+All are **decided by Claude, provisional** (Matt asked for the
 work to go on tonight). They stand unless Matt overturns them.
 
 **D1287. Is the hybrid the architecture, or a stopgap?** **Decided by
@@ -1032,6 +1031,25 @@ CLI. No cargo, and no bundled linker.**
   - A bundled lld is a large C++ dependency, and then we'd own signing.
 
   Either can be revisited if users without a C toolchain matter.
+
+**D1383. Where does a static Linux executable's C library come from?**
+**Decided by Claude, provisional: inside the runtime library.** Its build
+script bundles the Rust toolchain's musl `crt1.o`, `libc.a` and
+`libunwind.a`, and `build` links with the system `cc -static -nostdlib`
+plus `-lgcc`.
+- **What users need:** a `cc`, as before; nothing of musl's.
+- **The alternative:** link with a musl C compiler (`musl-gcc`) at
+  `build` time, which users would have to install.
+
+**D1384. What is built for musl on Linux?** **Decided by Claude,
+provisional: the whole workspace** (the devShell and the crane builds set
+`CARGO_BUILD_TARGET`), so `stitchwort` and its runtime library always
+match and the tests need nothing new. `stitchwort` is static too. A
+`stitchwort` built for glibc still links executables dynamically, as
+before, untested by the tiers.
+- **The alternative:** keep `stitchwort` on glibc and build only the
+  runtime library for musl, in a second cargo run; the CLI and the tests
+  would then have to find a library from another target folder.
 
 ## Appendix A: the experiment
 
@@ -1116,3 +1134,213 @@ cycles, 5.13 G instructions on main, 1.27 G and 3.82 G after (-14% cycles,
 -26% instructions); `Set` inserts 11.26 G cycles, 45.19 G instructions on
 main, 11.22 G and 44.85 G after (the `Set` keys use `%` only in their
 generation).
+
+## Static Linux executables as built (26 October 2026)
+
+**The goal (D1382).** On Linux, `stitchwort build` (with `--native` or
+without) writes one static file, as Go does without cgo, that runs on any
+Linux of the same architecture. The runtime needs nothing of glibc: its
+host is the terminal and standard input and output, and its allocator is
+mimalloc.
+
+**Before [ran].** The roguelike built natively in the NixOS VM of NO7
+(aarch64, the CLI and library built for `aarch64-unknown-linux-gnu`):
+
+```
+rogue: ELF 64-bit LSB pie executable, ARM aarch64, dynamically linked,
+  interpreter /nix/store/hx9wvdx2…-glibc-2.44-25/lib/ld-linux-aarch64.so.1
+NEEDED  libgcc_s.so.1 libutil.so.1 librt.so.1 libpthread.so.0 libm.so.6
+        libdl.so.2 libc.so.6 ld-linux-aarch64.so.1
+RUNPATH <the worktree>/outputs/out/lib:/nix/store/…-glibc-2.44-25/lib:
+        /nix/store/…-gcc-16.2.0-lib/lib
+```
+
+So it named a `/nix/store` loader and a `/nix/store` glibc (and a `RUNPATH`
+into the worktree, from nix's linker wrapper). Copied to Ubuntu 24.10
+(glibc 2.40, no `/nix`), it doesn't start: `cannot execute: required file
+not found`, exit 127.
+
+**After [ran].**
+
+```
+rogue: ELF 64-bit LSB executable, ARM aarch64, statically linked
+$ ldd rogue
+        not a dynamic executable
+$ readelf -d rogue
+There is no dynamic section in this file.
+```
+
+No `PT_INTERP`; the program headers are `LOAD`s, `TLS`, `GNU_EH_FRAME`,
+`GNU_STACK` and `GNU_RELRO`. On Ubuntu 24.10 the same file plays the
+500-key game with output identical, byte for byte, to the glibc build's in
+the VM.
+
+### How it is built
+
+- **Everything on Linux builds for musl** (D1384). The flake's Linux
+  devShell sets `CARGO_BUILD_TARGET` to `aarch64-unknown-linux-musl` or
+  `x86_64-unknown-linux-musl`, adds that target to the Rust toolchain, and
+  gives cargo musl's own C compiler (nixpkgs' `pkgsStatic.stdenv.cc`) for
+  mimalloc's C and as the linker (`CC_<target>`, `AR_<target>`,
+  `CARGO_TARGET_<TARGET>_LINKER`). The crane builds take the same on
+  Linux. So `stitchwort` and the runtime library come from one musl build,
+  side by side in `target/<target>/release/`, as before in
+  `target/release/`; the test build's library is beside the test binaries,
+  as before. `stitchwort` itself is static too. Taskfile's `SW` follows
+  `CARGO_BUILD_TARGET`. macOS is unchanged.
+- **The runtime library holds musl** (D1383). `crates/standalone/build.rs`,
+  for a musl target only, takes the Rust toolchain's own musl files (its
+  `lib/rustlib/<target>/lib/self-contained/`): it archives `crt1.o` (with
+  the `cc` crate) and links it, `libc.a` and `libunwind.a` as
+  `static:+bundle`, so `libstitchwort_standalone.a` contains them. rustc's
+  `native-static-libs` for the musl library is `-lunwind -lc`: exactly
+  these two (a unit test, `the_native_libraries_are_the_ones_rustc_lists`,
+  checks it).
+- **The link** (`crates/cli/src/build.rs`: `link` at line 400, flags at
+  lines 51 and 79, used at line 411):
+
+  ```
+  cc -static -nostdlib -Wl,-u,_start -Wl,--eh-frame-hdr \
+     program.o libstitchwort_standalone.a -lgcc -Wl,--gc-sections -o rogue
+  ```
+
+  `-nostdlib` keeps the system's (glibc's) start files and libraries out;
+  `-u _start` pulls `crt1.o` out of the archive; `--eh-frame-hdr` gives
+  the unwinder its table, which `gcc` leaves out of static links, so a
+  panic still unwinds to the restore guard; `-lgcc` is for musl's
+  `long double` arithmetic (`__addtf3` and friends, which `vfprintf` uses
+  on aarch64; without it the link fails). The user still needs only a `cc`,
+  as before: any `gcc` or `clang` that drives GNU `ld` (the system's
+  glibc `gcc` was used for every link here).
+- **The object's triple.** `program.o` is made by `n1::host_isa`
+  (`crates/native/src/n1.rs:451`, `cranelift_native::builder()`), so it
+  takes the triple `stitchwort` was built for: now `-musl`. For ELF it
+  makes no difference to the object: its header (ELF64, OS/ABI "UNIX -
+  System V", `REL`, flags 0) and section list are the same from a glibc
+  `stitchwort` and a musl one. Native code uses no thread-local storage,
+  so there is no TLS model to match; mimalloc's TLS links as local-exec in
+  the static executable (the `TLS` segment above).
+- `n1::SUPPORTED_TARGETS` adds the two musl targets and keeps the glibc
+  ones; `host_target` names musl when built for it.
+
+**Rejected:** linking with a musl C compiler at `build` time (`musl-gcc`,
+or nixpkgs' `aarch64-unknown-linux-musl-cc`). It works (`cc -static
+program.o lib.a` with that compiler gave the same static file), but users
+would need musl's toolchain installed, where bundling needs only `cc`.
+
+### Checks [ran]
+
+On aarch64 (natively in the VM) and x86-64 (Rosetta), each under the
+memory guard and a 7 GiB cgroup cap:
+
+- `crates/cli/tests/build.rs`, new: `the_executable_is_static_on_linux`
+  builds a program with and without `--native` and reads each
+  executable's ELF headers: no `PT_INTERP`, and no `DT_NEEDED` in any
+  dynamic table; then runs it.
+- The roguelike's play tests on the static executables:
+  `the_roguelike_plays_as_it_does_under_run`,
+  `the_roguelike_built_native_plays_as_it_does_under_run` (piped game equal
+  to `run`'s, and played in a pseudo-terminal: keys mode on, `q` quits,
+  the terminal put back), `the_terminal_is_put_back_after_q_and_after_ctrl_c`,
+  and every other `build` test; all of `keys_mode` (`run` in a terminal,
+  now by a static `stitchwort`), `broken_pipe`, the `stitchwort-standalone`
+  and `stitchwort-host` tests (the stack tests among them), and the
+  `native` lane (45 tests).
+- **One test needed a change, and it was the test.** The pseudo-terminal
+  check compared all 32 control characters of `struct termios` before and
+  after. Linux keeps 19 (`NCCS` in
+  [`asm-generic/termbits.h`](https://raw.githubusercontent.com/torvalds/linux/master/include/uapi/asm-generic/termbits.h)
+  **[web]**); musl's `tcgetattr` is a bare `ioctl(fd, TCGETS, tio)`
+  ([source](https://git.musl-libc.org/cgit/musl/tree/src/termios/tcgetattr.c))
+  **[web]**, so the other 13 bytes keep whatever was in the caller's
+  memory (the failing runs showed stack addresses there, different before
+  and after); glibc's zeroes the whole struct first
+  ([source](https://raw.githubusercontent.com/bminor/glibc/master/sysdeps/unix/sysv/linux/tcgetattr.c))
+  **[web]**. The check now
+  compares the 19 the kernel keeps on Linux. The executables restore the
+  terminal: `tcsetattr` sends only those 19.
+- **The stack under each overcommit mode** (the aarch64 static binaries
+  and the static `stitchwort`; `vm.overcommit_memory` set for the run and
+  put back to 1):
+
+  | Mode | native binary (9.1 GB stack) | machine binary | `run --native` (64 GiB) |
+  |---|---|---|---|
+  | 0, heuristic | ran | ran | ran |
+  | 1, always | ran | ran | ran |
+  | 2, strict | ran | ran | refused: `error: can't reserve a stack of 68719476736 bytes to run on: Out of memory (os error 12)` |
+
+  As NO7 found with glibc: `run_on`'s `mmap` with `MAP_NORESERVE` and
+  `pthread_attr_setstack` behave the same under musl. With `ulimit -v
+  4000000` the native binary stops before running: `error: this executable
+  can't reserve its stack of 9089056768 bytes: Out of memory (os error
+  12)`, exit 2. x86-64 under Rosetta gave the same table, with its stack
+  of 6,945,767,424 bytes. (musl's text for `ENOMEM` is "Out of memory",
+  glibc's "Cannot allocate memory".)
+- **musl's `malloc` is not used.** Under callgrind, the whole 500-key game
+  spends 418 instructions in musl's allocator (`__libc_malloc_impl`,
+  `alloc_slot`, `__malloc_alloc_meta`, `__libc_free`: musl's own use,
+  enough for a call or two), against 253 million in mimalloc's `mi_free`
+  and `_mi_page_malloc_zero`.
+
+### Measured [ran]
+
+The seeded roguelike, a 500-key piped game (544,754 bytes of output,
+identical for all four aarch64 executables and under valgrind), release
+builds, in the VM (aarch64, load 2.6–4.4). glibc is this branch's code
+built for `-gnu`, linked as before; instructions are callgrind's `I refs`
+(the VM has no hardware counters for `perf`):
+
+| aarch64 | Size | Stripped | Wall, best of 7 | Instructions |
+|---|---:|---:|---:|---:|
+| native, glibc (dynamic) | 6,502,248 | 1,915,848 | 178.8 ms | 3,126,646,815 |
+| native, musl (static) | 6,679,480 | 1,915,320 | 180.9 ms | 2,997,329,033 |
+| machine only, glibc | 5,741,568 | 1,129,384 | 494.9 ms | 7,527,216,836 |
+| machine only, musl | 5,984,248 | 1,194,392 | 471.9 ms | 7,421,007,209 |
+
+- Size: stripped, the native executable is the same (musl's code in place
+  of the PLT, `.dynamic` and the loader's tables); the machine-only one is
+  65 KB bigger. Unstripped, both carry the standard library's DWARF.
+- Time: the same within noise (+1% native, −5% machine).
+- Instructions: −4% native, −1% machine. musl's `memcpy` and friends are
+  simpler than glibc's, but little time goes there; nothing is slower.
+- `build --native` took 0.71 s with the static `stitchwort` and 1.52 s with
+  the glibc one; `build` alone 0.41 s and 0.45 s (best of 3).
+
+On x86-64 (Rosetta's translation, load 4–5, so the times show only that
+it runs, and one thing to look at; same game, same output):
+
+| x86-64 (Rosetta) | Size | Stripped | Wall, best of 7 |
+|---|---:|---:|---:|
+| native, glibc (dynamic) | 6,704,336 | 2,305,000 | 300.3 ms |
+| native, musl (static) | 6,857,904 | 2,337,184 | 287.9 ms |
+| machine only, glibc | 5,627,752 | 1,215,432 | 768.2 ms |
+| machine only, musl | 5,781,352 | 1,247,616 | 1,373.3 ms |
+
+The machine-only static binary is 1.8 times slower under Rosetta, in
+repeated runs (1,394 and 1,401 ms against 782 and 784 ms). Why isn't
+known. It isn't `memcpy` by call count: on aarch64 the native binary
+calls musl's `memcpy` more (1.87 million times, against 1.70 million for
+the machine) and isn't slower under Rosetta. It may be Rosetta's
+translation of something in musl's x86-64 code [inferred]; it needs a
+run on x86-64 hardware, where `perf` works, before it means anything.
+The native binary, the one `build --native` makes, is 4% faster.
+
+`link_failures_are_explained`, which NO7 found failing only under
+Rosetta (glibc's `posix_spawn` there reported success for a missing
+program), passes now: the test binary and `stitchwort` use musl's
+`posix_spawn`.
+
+### Left over
+
+- **x86-64 on real hardware**, as for NO7: everything here on x86-64 ran
+  under Rosetta, where the static machine-only binary is 1.8 times slower
+  for an unknown reason (above).
+- **A glibc-built `stitchwort`** still links dynamically, as NO7 did; no
+  tier builds one now (D1384).
+- **The `nix` crate reads uninitialised bytes under musl.** Its
+  `tcgetattr` takes the `termios` out of a `MaybeUninit` after the call,
+  and on musl 13 of its control characters were never written. Harmless in
+  practice (the values are never used), but strictly undefined behaviour;
+  a report upstream would be the fix.
+- The `nix` package (`nix build .#stitchwort-native-bin`) on Linux now
+  builds for musl too; it wasn't built here.
