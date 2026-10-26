@@ -1,5 +1,5 @@
 {
-  "next": 640,
+  "next": 644,
   "tickets": [
     {
       "id": 13,
@@ -4267,7 +4267,7 @@
     {
       "id": 581,
       "title": "Generated lemmas for updating a field shared by every variant (({ a | f = s }).g = a.g isn't rfl, stuck on the generated match); variant-fields.md lists them as 'possibly asked for later' — this is the ask (found in the private app port, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4482,7 +4482,7 @@
     {
       "id": 597,
       "title": "alignWith lemmas only apply with arm functions left as _: restating the program's { a | f = … } in a proof yields a different hidden match, so it isn't equal to the program's (private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4998,6 +4998,54 @@
       "id": 639,
       "title": "Float laws stage 4: div (roundRatio), rem, floor, ceil, trunc, round as definitions; no float primitive left with a reduction rule",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 640,
+      "title": "Bug (latent): elaborator caches dot-call lookups by receiver memory address + spans (dot_heads, dot.rs:1240); freed generated source can reuse an address and hit a wrong lookup (x.id resolving as x.ref). Update-lemma generation clears entries as a workaround; key the cache on something stable",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 641,
+      "title": "Print record updates as { x | f = s } in hover and goals instead of the hidden .%matchN helper (update-lemmas lane, 26 Oct)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 642,
+      "title": "Simultaneous updates { a | f = s, h = t } aren't matched by the generated update lemmas (one match replaces both); left to cases until a real proof needs it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 643,
+      "title": "Private app port: use the new std/generated lemmas (field-update lemmas, Abort inversion, filterMap members, scan/zipWith get lemmas) in place of local workarounds and hand walks; no statement changes",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
