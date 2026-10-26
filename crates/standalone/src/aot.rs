@@ -5,27 +5,26 @@
 //! (`stitchwort_rt::native_aot`).
 //!
 //! The run is `run --native`'s (the note's §3.3): the machine runs `main`'s
-//! entry body and hands the island roots it calls to native code, through
-//! the same crossing (`native_abi::Crossing`). The runtime builds the
-//! tables the code reads (`TableStore`) from the image it rebuilt, after
-//! checking that it is the image the code was compiled for.
+//! entry body and hands every compiled body it would push a frame for to
+//! native code, through the same crossing (`native_abi::Crossing`); native
+//! code has the machine (linked in with the rest of the runtime) run what
+//! isn't compiled, effects and `Text.fold` (stage N4). The runtime builds
+//! the tables the code reads (`TableStore`) from the image it rebuilt,
+//! after checking that it is the image the code was compiled for.
+
+use std::rc::Rc;
 
 use stitchwort_core::ResourceError;
 use stitchwort_rt::code::Image;
 use stitchwort_rt::ir::Program;
-use stitchwort_rt::native_abi::{self as abi, NativeIslands, NativeRun, Trampoline};
+use stitchwort_rt::native_abi::{
+    self as abi, CrossingCode, NativeIslands, NativeOut, NativeRun, Trampoline,
+};
 use stitchwort_rt::native_aot::{MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, image_hash};
-use stitchwort_rt::value::Value;
+use stitchwort_rt::value::{Fun, Value};
 
-struct Root {
-    trampoline: Trampoline,
-    checks_arguments: bool,
-}
-
-/// The linked islands of one program.
+/// The linked native code of one program.
 pub struct AotIslands {
-    /// For each global: its trampoline, if it's an island root.
-    roots: Vec<Option<Root>>,
     /// The code's tables and the crossing, shared with `run --native`.
     crossing: abi::Crossing,
 }
@@ -49,7 +48,7 @@ unsafe fn table<T>(pointer: *const T, len: u64) -> &'static [T] {
 }
 
 impl AotIslands {
-    /// The islands `manifest` describes, for `program` and its rebuilt
+    /// The code `manifest` describes, for `program` and its rebuilt
     /// `image`, running on a stack of `stack_size` bytes: `Ok(None)` if the
     /// executable has no native code (built without `--native`, or nothing
     /// fitted), and an error if the code was compiled for another image
@@ -72,7 +71,7 @@ impl AotIslands {
                 manifest.version, manifest.magic
             )));
         }
-        if manifest.n_roots == 0 {
+        if manifest.n_trampolines == 0 {
             return Ok(None);
         }
         let hash = image_hash(image);
@@ -102,84 +101,68 @@ impl AotIslands {
         }
         // SAFETY: the manifest's tables are as long as it says, and live
         // as long as the process (the caller's contract).
-        let (functions, lambdas, roots) = unsafe {
+        let (functions, lambdas, listed) = unsafe {
             (
                 table(manifest.functions, manifest.n_globals),
                 table(manifest.lambdas, manifest.n_lambdas),
-                table(manifest.roots, manifest.n_roots),
+                table(manifest.trampolines, manifest.n_trampolines),
             )
         };
-        let mut by_global: Vec<Option<Root>> = (0..program.globals.len()).map(|_| None).collect();
-        for root in roots {
-            let Some(slot) = by_global.get_mut(root.global as usize) else {
+        let mut trampolines: Vec<(u32, Trampoline)> = Vec::new();
+        for listed in listed {
+            if listed.trampoline.is_null() || listed.arity > u64::from(u16::MAX) {
                 return Err(Mismatch(format!(
-                    "its native code has a root for global {}, which the program doesn't have",
-                    root.global
-                )));
-            };
-            if root.trampoline.is_null() {
-                return Err(Mismatch(format!(
-                    "its native code's root for global {} has no trampoline",
-                    root.global
+                    "its native code's trampoline for {} arguments is missing",
+                    listed.arity
                 )));
             }
-            *slot = Some(Root {
+            trampolines.push((
+                listed.arity as u32,
                 // SAFETY: the compiler wrote a trampoline's address, whose
                 // signature is `Trampoline`'s.
-                trampoline: unsafe {
-                    std::mem::transmute::<*const u8, Trampoline>(root.trampoline)
-                },
-                checks_arguments: root.checks_arguments != 0,
-            });
+                unsafe { std::mem::transmute::<*const u8, Trampoline>(listed.trampoline) },
+            ));
         }
         Ok(Some(AotIslands {
-            roots: by_global,
             crossing: abi::Crossing::new(
-                program,
-                functions.into(),
-                lambdas.into(),
+                image,
+                CrossingCode {
+                    functions: functions.into(),
+                    lambdas: lambdas.into(),
+                    trampolines: &trampolines,
+                    max_frame: manifest.max_frame as usize,
+                    nests: manifest.nests != 0,
+                },
                 abi::TableStore::new(program, image, manifest.n_caches as usize),
                 Some(stack_size),
-                manifest.max_frame as usize,
             ),
         }))
     }
 }
 
 impl NativeIslands for AotIslands {
-    fn is_root(&self, g: u32) -> bool {
-        self.roots.get(g as usize).is_some_and(Option::is_some)
+    fn compiled(&self, code: u32) -> bool {
+        self.crossing.compiled(code)
     }
 
-    fn accepts(&self, g: u32, args: &[&Value], frame_limit: u64) -> bool {
-        // The executable has no `--verbose`, so a call left to the machine
+    fn fits(&self, frame_limit: u64) -> bool {
+        // The executable has no `--verbose`, so a run left to the machine
         // needs no note.
-        let root = self.roots[g as usize].as_ref().expect("a root");
-        self.crossing
-            .admits(root.checks_arguments, args, frame_limit)
-            .is_ok()
+        self.crossing.fits(frame_limit)
     }
 
     #[allow(unsafe_code)]
     fn call(
         &self,
-        g: u32,
+        code: u32,
+        env: Option<Rc<Fun>>,
         args: Vec<Value>,
         run: &mut NativeRun<'_>,
-    ) -> Result<Value, ResourceError> {
-        let root = self.roots[g as usize].as_ref().expect("a root");
-        // SAFETY: the trampoline and the tables are those the manifest
+    ) -> Result<NativeOut, ResourceError> {
+        // SAFETY: the trampolines and the tables are those the manifest
         // describes, linked into this executable, for this image (checked
-        // in `new`).
-        unsafe { self.crossing.call(root.trampoline, args, run) }
-    }
-
-    fn release_unwound(&self) {
-        self.crossing.release_unwound();
-    }
-
-    fn release_unwound_frames(&self) {
-        self.crossing.release_unwound_frames();
+        // in `new`); the machine calls only compiled bodies.
+        unsafe { self.crossing.call(code, env, args, run) }
     }
 }
 

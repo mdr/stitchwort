@@ -1,6 +1,6 @@
-//! Stages N1, N2a and N3 of docs/proposals/native-compilation.md: the machine's
+//! Stages N1 to N4 of docs/proposals/native-compilation.md: the machine's
 //! bytecode (`stitchwort_rt::code`) translated instruction by instruction to
-//! machine code with Cranelift, for whole reachable islands, behind `run
+//! machine code with Cranelift, for every body `main` reaches, behind `run
 //! --native`.
 //!
 //! **The thesis.** This is an executor for the machine compiler's
@@ -10,22 +10,31 @@
 //! the crossing). Only the interpreter's overhead goes: dispatch, the
 //! register vector, frame push and pop.
 //!
-//! **Islands** (the note's §4.6). The machine runs `main`'s entry body (its
-//! glue builds the `Delay` the runner steps, which N1 doesn't compile). Each
-//! function the entry body calls is an island root; its island is every
-//! body it can call or make a function value of (`census::island`). The run
-//! uses native code only if every root's island fits: every instruction is
-//! one native code compiles (`census::n1_blocker`, which the census also
-//! uses: everything but the effect operations and `Text.fold`), and, where
-//! an island applies function values, no native operation it can make a
-//! value of lacks a native implementation. Otherwise the whole run stays on
-//! the machine, with notes saying why. The function values the entry body
-//! makes (lambdas, partial applications) are compiled too when their islands
-//! fit ("guests"). Function values also come in as a root's arguments: for
-//! an island with an `Apply`, the crossing checks that every function value
-//! in the arguments (inside data, closures' captures and partial
-//! applications) has compiled code (`native_abi::natively_callable`), and a
-//! call with one that hasn't runs on the machine instead.
+//! **What runs natively** (stage N4; the note's §4.6 had whole islands from
+//! the entry's calls). Every body `main`'s entry reaches (`census::island`)
+//! but the entry itself (glue the machine runs once) is compiled, unless it
+//! has an instruction native code doesn't compile (`census::n1_blocker`;
+//! since N4, none) or calls such a body directly. The machine hands over
+//! wherever it would push a frame for a compiled body, whoever calls it: the
+//! entry, the effect loop applying a continuation, the `IO` runner, a
+//! machine frame (`native_abi::NativeIslands`). The other way, what native
+//! code doesn't compile it has the machine run for it, nested: the effect
+//! runtime's natives other than `bind`'s common case, `Text.fold`, and a
+//! function value with no native code (the effect runtime's resumptions and
+//! the like, natives that run on frames). In a tail position that is a
+//! *tail request* (`native_abi::TailRequest`): the frame returns, and the
+//! nearest caller that isn't in a tail position (or the machine, at the
+//! crossing) has the machine perform it there, so a tail position stays
+//! one through the machine and back and loops run in constant stack.
+//!
+//! **Effects** (stage N4). `bind c k` is inline: `abi::sw_bind` takes `c`
+//! apart, and for `Done x` native code applies `k` to `x` as `Apply` (or
+//! `TailApply`) would, compiled continuations called directly; otherwise
+//! the node `Bind c k` is the result. The other effect natives (`foldComp`
+//! and its variants, `translate`, `runPure`) are the machine's own code run
+//! nested (`abi::sw_effect`), so every effect value, count and allocation
+//! is the machine's. Helpers that run the machine are given the frames
+//! pending, and the steps go through the context around them.
 //!
 //! **Frames.** A compiled global body is one function in Cranelift's `tail`
 //! calling convention: the context, the frames pending (its own included),
@@ -125,14 +134,16 @@ use stitchwort_core::ResourceError;
 use stitchwort_core::native::Native;
 use stitchwort_rt::census::{island, n1_blocker};
 use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
+use stitchwort_rt::effect::EffectOp;
 use stitchwort_rt::ir::{GlobalKind, PrimOp, Program};
 use stitchwort_rt::native_abi::{
-    self as abi, ApplyPlan, Context, FUN_CAPTURES_AT, FUN_KEY_MASK, NativeIslands, NativeRun,
-    Numbering, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA,
-    TAG_FLOAT, TAG_FUN, TAG_INT, TAG_NAT, TAG_TAG, Tables, Trampoline, VALUE_SIZE, WEAK_AT,
+    self as abi, ApplyPlan, Context, CrossingCode, FUN_CAPTURES_AT, FUN_KEY_MASK, NativeIslands,
+    NativeOut, NativeRun, Numbering, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT,
+    STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_FUN, TAG_INT, TAG_NAT, TAG_TAG, TAIL_REQUEST, Tables,
+    Trampoline, VALUE_SIZE, WEAK_AT,
 };
-use stitchwort_rt::natives::IntNative;
-use stitchwort_rt::value::Value;
+use stitchwort_rt::natives::{IntNative, TextNative};
+use stitchwort_rt::value::{Fun, Value};
 
 use crate::frames;
 
@@ -148,20 +159,10 @@ pub struct Options {
     pub stack_size: Option<usize>,
 }
 
-struct Root {
-    trampoline: Trampoline,
-    /// The island applies function values, so its arguments mustn't hold
-    /// any (the module comment).
-    checks_arguments: bool,
-    name: String,
-}
-
-/// A program's islands, compiled.
+/// A program's bodies, compiled.
 pub struct Islands {
     /// Owns the code memory (never unmapped, so the pointers stay valid).
     _module: JITModule,
-    /// For each global: its trampoline, if it's an island root.
-    roots: Vec<Option<Root>>,
     /// The code's tables and the crossing, shared with a standalone
     /// executable's linked code.
     crossing: abi::Crossing,
@@ -169,92 +170,64 @@ pub struct Islands {
     pub max_frame: usize,
     /// What happened at the crossing, for `--verbose`.
     notes: Rc<RefCell<Vec<String>>>,
-    /// How many bodies were compiled, and in what time.
+    /// How many bodies were compiled, of how many `main` reaches (its entry
+    /// included), and in what time.
     pub bodies: usize,
+    pub reachable: usize,
     pub compile_time: std::time::Duration,
 }
 
-impl Islands {
-    /// The island roots, by name.
-    pub fn root_names(&self) -> Vec<String> {
-        self.roots
-            .iter()
-            .flatten()
-            .map(|r| r.name.clone())
-            .collect()
-    }
-}
-
 impl NativeIslands for Islands {
-    fn is_root(&self, g: u32) -> bool {
-        self.roots.get(g as usize).is_some_and(Option::is_some)
+    fn compiled(&self, code: u32) -> bool {
+        self.crossing.compiled(code)
     }
 
-    fn accepts(&self, g: u32, args: &[&Value], frame_limit: u64) -> bool {
-        let root = self.roots[g as usize].as_ref().expect("a root");
-        match self
-            .crossing
-            .admits(root.checks_arguments, args, frame_limit)
-        {
-            Ok(()) => true,
-            Err(abi::Declined::FunctionValue) => {
-                self.notes.borrow_mut().push(format!(
-                    "native: `{}` was given a function value that isn't compiled, so this call ran on the machine",
-                    root.name
-                ));
-                false
-            }
-            // The frame counter must fire before the stack check could (the
-            // `frames` module): otherwise this call stays on the machine.
-            Err(abi::Declined::Stack) => {
-                let note = format!(
-                    "native: `{}` ran on the machine: {frame_limit} frames of up to {} bytes may not fit the {}-byte stack",
-                    root.name,
-                    self.max_frame,
-                    self.crossing.stack_size.unwrap_or_default()
-                );
-                let mut notes = self.notes.borrow_mut();
-                if !notes.contains(&note) {
-                    notes.push(note);
-                }
-                false
-            }
+    fn fits(&self, frame_limit: u64) -> bool {
+        // The frame counter must fire before the stack check could (the
+        // `frames` module): otherwise the run stays on the machine.
+        if self.crossing.fits(frame_limit) {
+            return true;
         }
+        let note = format!(
+            "native: everything ran on the machine: {frame_limit} frames of up to {} bytes may not fit the {}-byte stack",
+            self.crossing.level,
+            self.crossing.stack_size.unwrap_or_default()
+        );
+        let mut notes = self.notes.borrow_mut();
+        if !notes.contains(&note) {
+            notes.push(note);
+        }
+        false
     }
 
     #[allow(unsafe_code)]
     fn call(
         &self,
-        g: u32,
+        code: u32,
+        env: Option<Rc<Fun>>,
         args: Vec<Value>,
         run: &mut NativeRun<'_>,
-    ) -> Result<Value, ResourceError> {
-        let root = self.roots[g as usize].as_ref().expect("a root");
-        // SAFETY: the trampoline and the tables are this module's, whose
-        // code is never unmapped (`_module`).
-        unsafe { self.crossing.call(root.trampoline, args, run) }
-    }
-
-    fn release_unwound(&self) {
-        self.crossing.release_unwound();
-    }
-
-    fn release_unwound_frames(&self) {
-        self.crossing.release_unwound_frames();
+    ) -> Result<NativeOut, ResourceError> {
+        // SAFETY: the trampolines and the tables are this module's, whose
+        // code is never unmapped (`_module`); the machine calls only
+        // compiled bodies.
+        unsafe { self.crossing.call(code, env, args, run) }
     }
 }
 
 // --------------------------------------------------------------- admission
 
-/// What runs natively: the roots, and every body their islands reach.
+/// What runs natively: every body reachable from the entry that compiles,
+/// and whose direct callees do.
 pub(crate) struct Plan {
-    /// `(global, code)` of each root.
-    pub(crate) roots: Vec<(u32, u32)>,
     pub(crate) bodies: BTreeSet<u32>,
-    /// The roots whose islands apply function values.
-    pub(crate) applying: BTreeSet<u32>,
-    /// Function values the entry body makes whose islands don't fit, so
-    /// that a root given one runs on the machine.
+    /// How many bodies `main` reaches, its entry included.
+    pub(crate) reachable: usize,
+    /// Whether anything `main` reaches has the machine run something for
+    /// native code ([`runs_on_the_machine`]), so native frames may nest
+    /// inside runs of the machine.
+    pub(crate) nests: bool,
+    /// Why any body doesn't.
     pub(crate) notes: Vec<String>,
 }
 
@@ -269,125 +242,114 @@ pub(crate) fn body_name(program: &Program, image: &Image, code: u32) -> String {
     }
 }
 
-/// Why the island of `code` (named `name` in notes) doesn't fit N1, if it
-/// doesn't, and whether it applies function values.
-fn check_island(program: &Program, image: &Image, code: u32, name: &str) -> (Vec<String>, bool) {
-    let reach = island(image, code);
-    let mut blockers: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    let mut applies = false;
-    let mut native_values = BTreeSet::new();
-    for &c in &reach {
-        for instr in &image.codes[c as usize].instrs {
-            if let Some(key) = n1_blocker(instr) {
-                blockers
-                    .entry(key)
-                    .or_default()
-                    .insert(body_name(program, image, c));
+/// The bodies `code` calls directly: its calls and tail calls, and the
+/// constants it uses (computed by a call where first used). Native code
+/// calls these as compiled code, so they must be compiled too; a function
+/// value it applies may be anything (the machine runs what has no code).
+fn direct_callees(program: &Program, image: &Image, code: u32) -> Vec<u32> {
+    image.codes[code as usize]
+        .instrs
+        .iter()
+        .filter_map(|instr| match instr {
+            Instr::Call { g, .. } | Instr::TailCall { g, .. } => image.global_code[*g as usize],
+            Instr::Global { g, .. }
+                if matches!(
+                    program.globals[*g as usize].kind,
+                    GlobalKind::Constant { .. }
+                ) =>
+            {
+                image.global_code[*g as usize]
             }
-            match instr {
-                Instr::Apply { .. } | Instr::TailApply { .. } => applies = true,
-                Instr::Global { g, .. } | Instr::Pap { g, .. } => {
-                    if let GlobalKind::Native(op) = &program.globals[*g as usize].kind
-                        && op.arity() > 0
-                        && !abi::applicable_native(*op)
-                    {
-                        native_values.insert(program.globals[*g as usize].name.to_string());
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-    let mut why = Vec::new();
-    for (key, places) in &blockers {
-        let places: Vec<&str> = places.iter().map(String::as_str).collect();
-        why.push(format!(
-            "native: `{name}`'s island has `{key}`, which native code doesn't compile (in {})",
-            places.join(", ")
-        ));
-    }
-    if applies {
-        for value in &native_values {
-            why.push(format!(
-                "native: `{name}`'s island applies function values and makes `{value}`, which runs on the machine's frames, one"
-            ));
-        }
-    }
-    (why, applies)
+            _ => None,
+        })
+        .collect()
 }
 
-/// Which island roots fit (the module comment), or why the run stays on
-/// the machine.
+/// Which bodies run natively (the module comment), or why none does.
 pub(crate) fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>> {
-    let mut roots = Vec::new();
-    // The bodies of the function values the entry body makes, which it may
-    // pass to a root.
-    let mut guests = BTreeSet::new();
-    for instr in &image.codes[image.entry_code as usize].instrs {
-        match instr {
-            Instr::Call { g, .. } => {
-                if let Some(code) = image.global_code[*g as usize]
-                    && !roots.contains(&(*g, code))
-                {
-                    roots.push((*g, code));
-                }
-            }
-            Instr::Closure { lambda, .. } => {
-                guests.insert(image.lambda_code[*lambda as usize]);
-            }
-            Instr::Pap { g, .. } | Instr::Global { g, .. } => {
-                if let GlobalKind::Function { .. } = program.globals[*g as usize].kind
-                    && let Some(code) = image.global_code[*g as usize]
-                {
-                    guests.insert(code);
-                }
-            }
-            _ => {}
-        }
-    }
-    if roots.is_empty() {
-        return Err(vec![
-            "native: `main` calls no function, so there's nothing to run natively".to_string(),
-        ]);
-    }
-    let mut why = Vec::new();
-    let mut bodies = BTreeSet::new();
-    let mut applying = BTreeSet::new();
-    for &(g, code) in &roots {
-        let (blocked, applies) =
-            check_island(program, image, code, &program.globals[g as usize].name);
-        why.extend(blocked);
-        if applies {
-            applying.insert(g);
-        }
-        bodies.extend(island(image, code));
-    }
-    if !why.is_empty() {
-        why.push("native: so the whole run is on the machine".to_string());
-        return Err(why);
-    }
     let mut notes = Vec::new();
-    for code in guests {
-        if bodies.contains(&code) {
+    let mut bodies = BTreeSet::new();
+    let reach = island(image, image.entry_code);
+    let reachable = reach.len();
+    let nests = reach.iter().any(|&code| {
+        image.codes[code as usize]
+            .instrs
+            .iter()
+            .any(|instr| runs_on_the_machine(program, instr))
+    });
+    for code in reach {
+        if code == image.entry_code {
             continue;
         }
-        let name = body_name(program, image, code);
-        let (blocked, _) = check_island(program, image, code, &name);
-        if blocked.is_empty() {
-            bodies.extend(island(image, code));
+        let mut blockers = BTreeSet::new();
+        for instr in &image.codes[code as usize].instrs {
+            if let Some(key) = n1_blocker(instr) {
+                blockers.insert(key);
+            }
+        }
+        if blockers.is_empty() {
+            bodies.insert(code);
         } else {
-            notes.extend(blocked);
+            let keys: Vec<String> = blockers.into_iter().map(|k| format!("`{k}`")).collect();
             notes.push(format!(
-                "native: so a root given `{name}` as a value runs on the machine"
+                "native: `{}` has {}, which native code doesn't compile, so it runs on the machine",
+                body_name(program, image, code),
+                keys.join(", ")
             ));
         }
     }
+    // Whatever calls a body that isn't compiled isn't either.
+    loop {
+        let calling: Vec<u32> = bodies
+            .iter()
+            .copied()
+            .filter(|&code| {
+                direct_callees(program, image, code)
+                    .iter()
+                    .any(|callee| !bodies.contains(callee))
+            })
+            .collect();
+        if calling.is_empty() {
+            break;
+        }
+        for code in calling {
+            bodies.remove(&code);
+            notes.push(format!(
+                "native: `{}` calls a body that runs on the machine, so it does too",
+                body_name(program, image, code)
+            ));
+        }
+    }
+    if bodies.is_empty() {
+        notes.push(
+            "native: nothing `main` reaches compiles, so the whole run is on the machine"
+                .to_string(),
+        );
+        return Err(notes);
+    }
     Ok(Plan {
-        roots,
         bodies,
-        applying,
+        reachable,
+        nests,
         notes,
     })
+}
+
+/// Whether `instr` has the machine run something for native code (and so
+/// can nest native frames inside a run of the machine): an effect native,
+/// `Text.fold`, or a function value of one of those (which only the
+/// machine can apply). Everything else `main` reaches is compiled, so a
+/// program with none of these never nests.
+fn runs_on_the_machine(program: &Program, instr: &Instr) -> bool {
+    let on_frames =
+        |op: PrimOp| matches!(op, PrimOp::Effect(_) | PrimOp::Text(TextNative::TextFold));
+    match instr {
+        Instr::Prim { op, .. } | Instr::TailPrim { op, .. } => on_frames(*op),
+        Instr::Global { g, .. } | Instr::Pap { g, .. } => {
+            matches!(program.globals[*g as usize].kind, GlobalKind::Native(op) if on_frames(op))
+        }
+        _ => false,
+    }
 }
 
 // --------------------------------------------------------------- compiling
@@ -505,28 +467,29 @@ fn compile_audited(
             eprintln!("@@ {:p} lambda #{l}", lambdas[l as usize]);
         }
     }
-    let mut roots: Vec<Option<Root>> = (0..program.globals.len()).map(|_| None).collect();
-    for (g, id) in trampolines {
-        roots[g as usize] = Some(Root {
-            trampoline: trampoline(module.get_finalized_function(id)),
-            checks_arguments: plan.applying.contains(&g),
-            name: program.globals[g as usize].name.to_string(),
-        });
-    }
+    let trampolines: Vec<(u32, Trampoline)> = trampolines
+        .into_iter()
+        .map(|(arity, id)| (arity, trampoline(module.get_finalized_function(id))))
+        .collect();
+    let crossing = abi::Crossing::new(
+        image,
+        CrossingCode {
+            functions: table,
+            lambdas,
+            trampolines: &trampolines,
+            max_frame,
+            nests: plan.nests,
+        },
+        abi::TableStore::new(program, image, n_caches),
+        options.stack_size,
+    );
     Ok(Islands {
         _module: module,
-        roots,
-        crossing: abi::Crossing::new(
-            program,
-            table,
-            lambdas,
-            abi::TableStore::new(program, image, n_caches),
-            options.stack_size,
-            max_frame,
-        ),
+        crossing,
         max_frame,
         notes,
         bodies: plan.bodies.len(),
+        reachable: plan.reachable,
         compile_time: start.elapsed(),
     })
 }
@@ -540,7 +503,7 @@ pub(crate) struct Emitted {
     pub(crate) adapters: BTreeMap<u32, (FuncId, u32)>,
     /// Which bodies are lambdas', and whose.
     pub(crate) lambda_of: BTreeMap<u32, u32>,
-    /// `(global, trampoline)` of each root.
+    /// `(number of arguments, trampoline)` of each crossing's trampoline.
     pub(crate) trampolines: Vec<(u32, FuncId)>,
     /// How many `Apply` sites the code has, each with a cache in the
     /// tables (`abi::Tables::caches`).
@@ -642,13 +605,13 @@ impl Audit {
 }
 
 /// Generates the code of `plan`'s bodies, the adapters and `Apply` stubs,
-/// and a trampoline for each root, into `module`: the code generator, apart
-/// from where the code goes (stage S4 of
+/// and a trampoline for each number of arguments, into `module`: the code
+/// generator, apart from where the code goes (stage S4 of
 /// docs/proposals/standalone-executables.md), so the JIT and an object file
 /// get the same code. The code holds no host address: what it needs of the
 /// host's memory it reaches through `Context::tables`, by number.
-/// `export_roots`: the trampolines are exported as `sw_root_<global>` (for
-/// an object file) rather than local.
+/// `export_trampolines`: the trampolines are exported as
+/// `sw_cross_<number of arguments>` (for an object file) rather than local.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn emit(
     module: &mut dyn Module,
@@ -658,7 +621,7 @@ pub(crate) fn emit(
     options: Options,
     dump: bool,
     audit: &mut Audit,
-    export_roots: bool,
+    export_trampolines: bool,
 ) -> Result<Emitted, Vec<String>> {
     let fail = |e: String| vec![format!("native: compiling failed: {e}")];
     let frontend_config = module.target_config();
@@ -722,17 +685,29 @@ pub(crate) fn emit(
     let mut apply_any: BTreeMap<u32, FuncId> = BTreeMap::new();
     for &code in &plan.bodies {
         for instr in &image.codes[code as usize].instrs {
-            if let Instr::Apply { args, .. } | Instr::TailApply { args, .. } = instr
-                && !apply_any.contains_key(&args.len)
-            {
+            let n = match instr {
+                Instr::Apply { args, .. } | Instr::TailApply { args, .. } => args.len,
+                // An inline `bind c k` applies `k` to one value (`Gen::bind`).
+                Instr::Prim {
+                    op: PrimOp::Effect(EffectOp::Bind),
+                    args,
+                    ..
+                }
+                | Instr::TailPrim {
+                    op: PrimOp::Effect(EffectOp::Bind),
+                    args,
+                } if args.len == 2 => 1,
+                _ => continue,
+            };
+            if let std::collections::btree_map::Entry::Vacant(slot) = apply_any.entry(n) {
                 let id = module
                     .declare_function(
-                        &format!("apply{}", args.len),
+                        &format!("apply{n}"),
                         Linkage::Local,
-                        &apply_signature(pointer, args.len),
+                        &apply_signature(pointer, n),
                     )
                     .map_err(|e| fail(e.to_string()))?;
-                apply_any.insert(args.len, id);
+                slot.insert(id);
             }
         }
     }
@@ -879,33 +854,31 @@ pub(crate) fn emit(
         module.clear_context(&mut context);
     }
 
-    // A trampoline for each root, in the host's calling convention.
+    // A trampoline for each number of arguments an entry takes, in the
+    // host's calling convention.
     let mut trampolines = Vec::new();
-    for &(g, code) in &plan.roots {
+    for &arity in &arities {
         let mut signature = ir::Signature::new(call_conv);
-        for _ in 0..3 {
+        for _ in 0..5 {
             signature.params.push(AbiParam::new(pointer));
         }
-        let (name, linkage) = if export_roots {
-            (format!("sw_root_{g}"), Linkage::Export)
+        let (name, linkage) = if export_trampolines {
+            (format!("sw_cross_{arity}"), Linkage::Export)
         } else {
-            (format!("root{g}"), Linkage::Local)
+            (format!("cross{arity}"), Linkage::Local)
         };
         let id = module
             .declare_function(&name, linkage, &signature)
             .map_err(|e| fail(e.to_string()))?;
         context.func.signature = signature;
-        context.func.name = ir::UserFuncName::user(1, g);
+        context.func.name = ir::UserFuncName::user(1, arity);
         {
             let mut b = FunctionBuilder::new(&mut context.func, &mut builder_context);
             let entry = b.create_block();
             b.append_block_params_for_function_params(entry);
             b.switch_to_block(entry);
-            let (ctx, args, out) = (
-                b.block_params(entry)[0],
-                b.block_params(entry)[1],
-                b.block_params(entry)[2],
-            );
+            let p = b.block_params(entry).to_vec();
+            let (ctx, code, args, env, out) = (p[0], p[1], p[2], p[3], p[4]);
             // The steps left, in the pinned register for the call; the
             // host's value of that register is kept and put back after.
             let host = b.ins().get_pinned_reg(types::I64);
@@ -924,7 +897,7 @@ pub(crate) fn emit(
                 .ins()
                 .load(types::I64, MemFlagsData::trusted(), ctx, Context::FRAMES_AT);
             let mut call_args = vec![ctx, frames];
-            for i in 0..image.codes[code as usize].params {
+            for i in 0..arity {
                 for w in 0..3 {
                     call_args.push(b.ins().load(
                         types::I64,
@@ -934,8 +907,9 @@ pub(crate) fn emit(
                     ));
                 }
             }
-            let callee = module.declare_func_in_func(functions[&code], b.func);
-            let call = b.ins().call(callee, &call_args);
+            call_args.push(env);
+            let signature = b.import_signature(value_signature(pointer, arity));
+            let call = b.ins().call_indirect(signature, code, &call_args);
             let results = b.inst_results(call).to_vec();
             for (w, r) in results.into_iter().enumerate() {
                 b.ins()
@@ -955,7 +929,7 @@ pub(crate) fn emit(
             .define_function(id, &mut context)
             .map_err(|e| fail(format!("trampoline: {e:?}")))?;
         module.clear_context(&mut context);
-        trampolines.push((g, id));
+        trampolines.push((arity, id));
     }
     // A Stitchwort frame can be a body (an adapter tail-calls it, taking its
     // place), reached through an apply stub that may stay on the stack while
@@ -979,7 +953,7 @@ pub(crate) fn emit(
 #[allow(unsafe_code)]
 fn trampoline(pointer: *const u8) -> Trampoline {
     // SAFETY: `pointer` is a finished trampoline: the host's calling
-    // convention and three pointer arguments, which is `Trampoline`'s
+    // convention and five pointer-sized arguments, which is `Trampoline`'s
     // signature. The code is never unmapped (`Islands::_module`).
     unsafe { std::mem::transmute::<*const u8, Trampoline>(pointer) }
 }
@@ -1012,13 +986,15 @@ fn value_signature(pointer: ir::Type, params: u32) -> ir::Signature {
 
 /// `Apply`'s slow path for `n` arguments ([`emit_apply_any`]): the context,
 /// the frames pending without the callee, a closure to drop once the
-/// function value is taken apart (a tail apply's own, or 0), the function
-/// value, and the arguments, three words each; returning three words.
+/// function value is taken apart (a tail apply's own, or 0), whether it's a
+/// tail apply (1) or not (0), the function value, and the arguments, three
+/// words each; returning three words.
 fn apply_signature(pointer: ir::Type, n: u32) -> ir::Signature {
     let mut signature = ir::Signature::new(CallConv::Tail);
     signature.params.push(AbiParam::new(pointer));
     signature.params.push(AbiParam::new(types::I64));
     signature.params.push(AbiParam::new(pointer));
+    signature.params.push(AbiParam::new(types::I64));
     for _ in 0..(n + 1) * 3 {
         signature.params.push(AbiParam::new(types::I64));
     }
@@ -1084,15 +1060,41 @@ fn emit_adapter(
     b.ins().return_call(callee, args);
 }
 
+/// The steps left, from the pinned register, written to the context as the
+/// steps so far, for a helper that runs the machine.
+fn steps_out(b: &mut FunctionBuilder<'_>, ctx: IrValue) {
+    let left = b.ins().get_pinned_reg(types::I64);
+    let limit = b
+        .ins()
+        .load(types::I64, flags(), ctx, Context::STEP_LIMIT_AT);
+    let steps = b.ins().isub(limit, left);
+    b.ins().store(flags(), steps, ctx, Context::STEPS_AT);
+}
+
+/// The steps so far, read back from the context into the pinned register
+/// as the steps left, after a helper that runs the machine.
+fn steps_in(b: &mut FunctionBuilder<'_>, ctx: IrValue) {
+    let limit = b
+        .ins()
+        .load(types::I64, flags(), ctx, Context::STEP_LIMIT_AT);
+    let steps = b.ins().load(types::I64, flags(), ctx, Context::STEPS_AT);
+    let left = b.ins().isub(limit, steps);
+    b.ins().set_pinned_reg(left);
+}
+
 /// `Apply`'s slow path for `n` arguments (`apply_signature`): the
 /// machine's eval/apply. Each step is the runtime's `sw_apply_prepare` on a
 /// plan in this frame (`ApplyPlan`, with room for `cap` values): a value
-/// now (a partial application, a native's result, `Done`), or code to call
-/// with a frame, counted as the machine's `enter` counts it. Then any
+/// now (a partial application, a native's result, `Done`, or what the
+/// machine computed for a function value without native code), or code to
+/// call with a frame, counted as the machine's `enter` counts it. Then any
 /// over-application's other arguments are applied to the result, the same
 /// way, until none are left. A last call with nothing left over is a tail
-/// call, so a tail apply stays in constant stack. Running out of steps or
-/// frames, or a callee's error, releases what the plan holds.
+/// call, so a tail apply stays in constant stack; and so does a tail apply
+/// of a function value the machine runs, which `sw_apply_prepare` leaves
+/// as a tail request. Running out of steps or frames, or a callee's error,
+/// releases what the plan holds; a callee's tail request with an
+/// over-application's rest still held is performed here.
 #[allow(clippy::too_many_arguments)]
 fn emit_apply_any(
     b: &mut FunctionBuilder<'_>,
@@ -1108,6 +1110,7 @@ fn emit_apply_any(
     let release = module.declare_func_in_func(helpers.release, b.func);
     let unwind = module.declare_func_in_func(helpers.unwind, b.func);
     let drop_words = module.declare_func_in_func(helpers.drop_words, b.func);
+    let perform = module.declare_func_in_func(helpers.perform, b.func);
     let slot = |b: &mut FunctionBuilder<'_>, size: usize| {
         b.create_sized_stack_slot(StackSlotData::new(
             StackSlotKind::ExplicitSlot,
@@ -1123,23 +1126,37 @@ fn emit_apply_any(
     b.append_block_params_for_function_params(entry);
     b.switch_to_block(entry);
     let params = b.block_params(entry).to_vec();
-    let (ctx, frames, drop_env) = (params[0], params[1], params[2]);
+    let (ctx, frames, drop_env, tail) = (params[0], params[1], params[2], params[3]);
     let fun_at = b.ins().stack_addr(pointer, fun_slot, 0);
     for w in 0..3 {
         b.ins()
-            .store(flags(), params[3 + w], fun_at, (w * 8) as i32);
+            .store(flags(), params[4 + w], fun_at, (w * 8) as i32);
     }
     let in_at = b.ins().stack_addr(pointer, in_slot, 0);
     for i in 0..n as usize * 3 {
-        b.ins().store(flags(), params[6 + i], in_at, (i * 8) as i32);
+        b.ins().store(flags(), params[7 + i], in_at, (i * 8) as i32);
     }
     let plan = b.ins().stack_addr(pointer, plan_slot, 0);
     let cap_value = b.ins().iconst(types::I64, i64::from(cap));
     b.ins().store(flags(), cap_value, plan, ApplyPlan::CAP_AT);
     let count = b.ins().iconst(types::I64, i64::from(n));
-    b.ins().call(prepare, &[ctx, fun_at, in_at, count, plan]);
+    steps_out(b, ctx);
+    b.ins().call(
+        prepare,
+        &[ctx, frames, tail, drop_env, fun_at, in_at, count, plan],
+    );
+    steps_in(b, ctx);
+    // A failure or a tail request in `sw_apply_prepare`, with the closure
+    // to drop if it's still this frame's.
+    let unprepared = b.create_block();
+    b.append_block_param(unprepared, pointer);
+    let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
+    let prepared = b.create_block();
+    b.ins()
+        .brif(error, unprepared, &[drop_env.into()], prepared, &[]);
     // A tail apply's own closure, dropped as the machine drops its frame's:
     // after the function value is taken apart.
+    b.switch_to_block(prepared);
     let dropping = b.create_block();
     let dispatch = b.create_block();
     b.ins().brif(drop_env, dropping, &[], dispatch, &[]);
@@ -1184,8 +1201,16 @@ fn emit_apply_any(
     let skip = b.ins().imul_imm_s(arity, VALUE_SIZE as i64);
     let from = b.ins().iadd(plan, skip);
     let from = b.ins().iadd_imm_s(from, i64::from(ApplyPlan::ARGS_AT));
-    b.ins().call(prepare, &[ctx, fun_at, from, rest, plan]);
-    b.ins().jump(dispatch, &[]);
+    let none = b.ins().iconst(pointer, 0);
+    steps_out(b, ctx);
+    b.ins().call(
+        prepare,
+        &[ctx, frames, tail, none, fun_at, from, rest, plan],
+    );
+    steps_in(b, ctx);
+    let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
+    b.ins()
+        .brif(error, unprepared, &[none.into()], dispatch, &[]);
 
     // Code to call: a step and a frame, as the machine's `enter_frame`.
     b.switch_to_block(enter);
@@ -1299,9 +1324,56 @@ fn emit_apply_any(
     let zero = b.ins().iconst(types::I64, 0);
     b.ins().return_(&[zero, zero, zero]);
 
-    // A callee's error, with an over-application's rest still held.
+    // `sw_apply_prepare` left a tail request (which took the closure), or
+    // the machine failed: the over-application's rest (the plan's only
+    // values then) and the closure released.
+    b.switch_to_block(unprepared);
+    b.set_cold_block(unprepared);
+    let env = b.block_params(unprepared)[0];
+    let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
+    let requested = b.ins().icmp_imm_u(IntCC::Equal, error, TAIL_REQUEST as i64);
+    let leave = b.create_block();
+    let releasing = b.create_block();
+    b.ins().brif(requested, leave, &[], releasing, &[]);
+    b.switch_to_block(releasing);
+    b.set_cold_block(releasing);
+    let rest = b.ins().load(types::I64, flags(), plan, ApplyPlan::REST_AT);
+    let values = b.ins().iadd_imm_s(plan, i64::from(ApplyPlan::ARGS_AT));
+    b.ins().call(release, &[values, rest]);
+    let dropping = b.create_block();
+    b.ins().brif(env, dropping, &[], leave, &[]);
+    b.switch_to_block(dropping);
+    b.set_cold_block(dropping);
+    drop_fun(b, drop_words, env);
+    b.ins().jump(leave, &[]);
+    b.switch_to_block(leave);
+    b.set_cold_block(leave);
+    let zero = b.ins().iconst(types::I64, 0);
+    b.ins().return_(&[zero, zero, zero]);
+
+    // A callee's error or tail request, with an over-application's rest
+    // still held: a tail request is performed here, as the machine would
+    // after popping the callee's frame, and its value applied to the rest;
+    // an error releases the rest.
     b.switch_to_block(failed);
     b.set_cold_block(failed);
+    let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
+    let requested = b.ins().icmp_imm_u(IntCC::Equal, error, TAIL_REQUEST as i64);
+    let performing = b.create_block();
+    let releasing = b.create_block();
+    b.ins().brif(requested, performing, &[], releasing, &[]);
+    b.switch_to_block(performing);
+    b.set_cold_block(performing);
+    steps_out(b, ctx);
+    b.ins().call(perform, &[ctx, frames, fun_at]);
+    steps_in(b, ctx);
+    let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
+    let v: Vec<ir::BlockArg> = (0..3)
+        .map(|w| b.ins().load(types::I64, flags(), fun_at, 8 * w).into())
+        .collect();
+    b.ins().brif(error, releasing, &[], again, &v);
+    b.switch_to_block(releasing);
+    b.set_cold_block(releasing);
     let arity = b.ins().load(types::I64, flags(), plan, ApplyPlan::ARITY_AT);
     let rest = b.ins().load(types::I64, flags(), plan, ApplyPlan::REST_AT);
     let skip = b.ins().imul_imm_s(arity, VALUE_SIZE as i64);
@@ -1342,6 +1414,11 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_int_negative", abi::sw_int_negative as *const u8),
         ("sw_unary", abi::sw_unary as *const u8),
         ("sw_free_emptied", abi::sw_free_emptied as *const u8),
+        ("sw_bind", abi::sw_bind as *const u8),
+        ("sw_effect", abi::sw_effect as *const u8),
+        ("sw_fold", abi::sw_fold as *const u8),
+        ("sw_tail_effect", abi::sw_tail_effect as *const u8),
+        ("sw_perform", abi::sw_perform as *const u8),
     ]
 }
 
@@ -1369,6 +1446,11 @@ struct Helpers {
     int_negative: FuncId,
     unary: FuncId,
     free_emptied: FuncId,
+    bind: FuncId,
+    effect: FuncId,
+    fold: FuncId,
+    tail_effect: FuncId,
+    perform: FuncId,
 }
 
 impl Helpers {
@@ -1404,12 +1486,17 @@ impl Helpers {
             global: declare("sw_global", &[p, I32, p], &[I64])?,
             global_set: declare("sw_global_set", &[p, I32, p], &[])?,
             apply_cached: declare("sw_apply_cached", &[p, p, I64, p], &[I64])?,
-            apply_prepare: declare("sw_apply_prepare", &[p, p, p, I64, p], &[])?,
+            apply_prepare: declare("sw_apply_prepare", &[p, I64, I64, I64, p, p, I64, p], &[])?,
             closure: declare("sw_closure", &[I32, p, I64, p], &[])?,
             pap: declare("sw_pap", &[p, I32, p, I64, p], &[])?,
             int_negative: declare("sw_int_negative", &[p], &[I64])?,
             unary: declare("sw_unary", &[p, I32, p, p], &[])?,
             free_emptied: declare("sw_free_emptied", &[I64, I64, I64], &[])?,
+            bind: declare("sw_bind", &[p, p, p, p], &[I64])?,
+            effect: declare("sw_effect", &[p, I64, I32, p, I64, p], &[])?,
+            fold: declare("sw_fold", &[p, I64, p, p], &[])?,
+            tail_effect: declare("sw_tail_effect", &[p, I32, p, I64, I64], &[])?,
+            perform: declare("sw_perform", &[p, I64, p], &[])?,
         })
     }
 }
@@ -1530,8 +1617,11 @@ fn maybe_full(code: &Code) -> Vec<Regs> {
             | Instr::IntOfNat { dst, .. }
             | Instr::IntNegSucc { dst, .. }
             | Instr::TextChars { dst, .. }
-            | Instr::Field { dst, .. }
-            | Instr::Prim { dst, .. } => after.add(dst),
+            | Instr::Field { dst, .. } => after.add(dst),
+            Instr::Prim { dst, args, .. } => {
+                unmove(&mut after, args);
+                after.add(dst);
+            }
             Instr::Take { dst, src } => {
                 after.remove(src);
                 after.add(dst);
@@ -1594,6 +1684,14 @@ fn maybe_full(code: &Code) -> Vec<Regs> {
 /// A value in three words.
 #[derive(Clone, Copy)]
 struct Val([IrValue; 3]);
+
+/// An application's arguments ([`Gen::apply`]): registers, taken once the
+/// frame is counted, as `Apply` takes them; or values already taken (`bind`'s
+/// `x`).
+enum ApplyArgs {
+    Regs(Ops),
+    Vals(Vec<Val>),
+}
 
 /// Where a value is.
 #[derive(Clone, Copy)]
@@ -1940,6 +2038,13 @@ impl Gen<'_, '_> {
         self.b.ins().brif(cond, exit, &[], fine, &[]);
         self.b.switch_to_block(exit);
         self.b.set_cold_block(exit);
+        self.exit_now(live, error, extra, tail);
+        self.b.switch_to_block(fine);
+    }
+
+    /// Leaves the frame on an error, as [`Gen::exit_with`] does when its
+    /// condition holds (in the current block, which this ends).
+    fn exit_now(&mut self, live: &Regs, error: Option<u64>, extra: &[Val], tail: &[Reg]) {
         if let Some(error) = error {
             if error == OUT_OF_STEPS {
                 // One step over the limit, as the machine counts it.
@@ -1968,7 +2073,6 @@ impl Gen<'_, '_> {
         self.unwind(regs.len(), false);
         let zero = self.iconst(0);
         self.b.ins().return_(&[zero, zero, zero]);
-        self.b.switch_to_block(fine);
     }
 
     /// Hands the first `n` spill slots' values to the runtime (`sw_unwind`).
@@ -2053,12 +2157,62 @@ impl Gen<'_, '_> {
         self.b.ins().iadd_imm_s(frames, 1)
     }
 
-    /// After a call returned: an error in the callee unwinds this frame
-    /// too. (The callee's frame is no longer pending: the count is this
-    /// frame's again, which it never changed.)
-    fn after_call(&mut self, live: &Regs) {
+    /// After a call returned `r`: its result. A tail request the callee
+    /// left is performed here, by the machine, as it would have been after
+    /// popping the callee's frame (with this frame's count: the callee's is
+    /// no longer pending, and this frame never changed its own), and its
+    /// value is the result. An error in the callee, or in the machine,
+    /// unwinds this frame too.
+    fn call_result(&mut self, live: &Regs, r: &[IrValue]) -> Val {
+        let error = self.ctx_load(Context::ERROR_AT);
+        let done = self.b.create_block();
+        for _ in 0..3 {
+            self.b.append_block_param(done, types::I64);
+        }
+        let check = self.b.create_block();
+        let args: Vec<ir::BlockArg> = r.iter().map(|x| (*x).into()).collect();
+        self.b.ins().brif(error, check, &[], done, &args);
+        self.b.switch_to_block(check);
+        self.b.set_cold_block(check);
+        let requested = self
+            .b
+            .ins()
+            .icmp_imm_u(IntCC::Equal, error, TAIL_REQUEST as i64);
+        let perform = self.b.create_block();
+        let fail = self.b.create_block();
+        self.b.ins().brif(requested, perform, &[], fail, &[]);
+        self.b.switch_to_block(perform);
+        self.b.set_cold_block(perform);
+        let out = self.spill_erased(0);
+        steps_out(&mut self.b, self.ctx);
+        self.call_helper(self.helpers.perform, &[self.ctx, self.frames, out]);
+        steps_in(&mut self.b, self.ctx);
+        let v = self.load(Loc::Mem(out, 0));
+        let error = self.ctx_load(Context::ERROR_AT);
+        let args: Vec<ir::BlockArg> = v.0.iter().map(|x| (*x).into()).collect();
+        self.b.ins().brif(error, fail, &[], done, &args);
+        self.b.switch_to_block(fail);
+        self.b.set_cold_block(fail);
+        self.exit_now(live, None, &[], &[]);
+        self.b.switch_to_block(done);
+        let p = self.b.block_params(done);
+        Val([p[0], p[1], p[2]])
+    }
+
+    /// A helper that runs the machine ([`Gen::machine_call`]) returned: an
+    /// error there unwinds this frame.
+    fn after_machine(&mut self, live: &Regs) {
         let error = self.ctx_load(Context::ERROR_AT);
         self.exit_if(error, live, None, &[]);
+    }
+
+    /// Calls `helper` (one that runs the machine), with the steps written
+    /// to the context before and read back after.
+    fn machine_call(&mut self, helper: FuncId, args: &[IrValue]) -> Vec<IrValue> {
+        steps_out(&mut self.b, self.ctx);
+        let r = self.call_helper(helper, args);
+        steps_in(&mut self.b, self.ctx);
+        r
     }
 
     /// `regs` without the registers `o` moves out (marked `MOVE`).
@@ -2132,7 +2286,9 @@ impl Gen<'_, '_> {
                 | Instr::TailApply { args, .. }
                 | Instr::TailCall { args, .. }
                 | Instr::Closure { args, .. }
-                | Instr::Pap { args, .. } => args.len as usize,
+                | Instr::Pap { args, .. }
+                | Instr::Prim { args, .. }
+                | Instr::TailPrim { args, .. } => args.len as usize,
                 _ => 0,
             })
             .max()
@@ -2155,7 +2311,7 @@ impl Gen<'_, '_> {
         } else {
             0
         };
-        let spills = released.max(traced).max(max_prim + 1).max(max_ops).max(2);
+        let spills = released.max(traced).max(max_prim + 1).max(max_ops).max(3);
         self.spill = self.b.create_sized_stack_slot(StackSlotData::new(
             StackSlotKind::ExplicitSlot,
             (spills * VALUE_SIZE) as u32,
@@ -2304,8 +2460,8 @@ impl Gen<'_, '_> {
                 call_args.extend(Self::words(&values));
                 let call = self.b.ins().call(f, &call_args);
                 let r = self.b.inst_results(call).to_vec();
-                self.after_call(&live);
-                self.assign(pc, dst, Val([r[0], r[1], r[2]]));
+                let v = self.call_result(&live, &r);
+                self.assign(pc, dst, v);
             }
             Instr::TailCall { g, args } => {
                 // As the machine's `replace`: the step, then this frame's
@@ -2335,80 +2491,13 @@ impl Gen<'_, '_> {
                 // the function value; anything else goes through eval/apply
                 // (`emit_apply_any`).
                 let (fv, target) = self.apply_target(f, args.len);
-                let exact = self.b.create_block();
-                let slow = self.b.create_block();
-                let after = self.b.create_block();
-                self.b.ins().brif(target, exact, &[], slow, &[]);
-
-                self.b.switch_to_block(exact);
                 let live = self.without_moved(&self.full[pc], &[f]);
-                self.count_step_with(&live, &[fv], &[]);
-                let frames = self.push_frame_with(&live, &[fv]);
-                let values = self.operands(args);
-                let live = self.without_moved(&live, ops(code, args));
-                let sig = self.value_sig(args.len);
-                let mut call_args = vec![self.ctx, frames];
-                call_args.extend(Self::words(&values));
-                call_args.push(fv.0[1]);
-                let call = self.b.ins().call_indirect(sig, target, &call_args);
-                let r = self.b.inst_results(call).to_vec();
-                self.after_call(&live);
-                self.assign(pc, dst, Val([r[0], r[1], r[2]]));
-                self.b.ins().jump(after, &[]);
-
-                self.b.switch_to_block(slow);
-                let values = self.operands(args);
-                let live = self.without_moved(&self.full[pc], &[f]);
-                let live = self.without_moved(&live, ops(code, args));
-                let apply = self.func_ref(self.apply_any[&args.len]);
-                let none = self.iconst(0);
-                let mut call_args = vec![self.ctx, self.frames, none];
-                call_args.extend(fv.0);
-                call_args.extend(Self::words(&values));
-                let call = self.b.ins().call(apply, &call_args);
-                let r = self.b.inst_results(call).to_vec();
-                self.after_call(&live);
-                self.assign(pc, dst, Val([r[0], r[1], r[2]]));
-                self.b.ins().jump(after, &[]);
-                self.b.switch_to_block(after);
+                self.apply(pc, dst, fv, target, &live, ApplyArgs::Regs(args));
             }
             Instr::TailApply { f, args } => {
                 let (fv, target) = self.apply_target(f, args.len);
                 let taken = self.without_moved(&self.full[pc], &[f]);
-                let left = self.without_moved(&taken, ops(code, args));
-                let exact = self.b.create_block();
-                let slow = self.b.create_block();
-                self.b.ins().brif(target, exact, &[], slow, &[]);
-
-                // As the machine's `replace`, as for `TailCall`.
-                self.b.switch_to_block(exact);
-                self.count_step_with(&taken, &[fv], ops(code, args));
-                let values = self.operands(args);
-                self.drop_env();
-                self.release(&left);
-                let sig = self.value_sig(args.len);
-                let mut call_args = vec![self.ctx, self.frames];
-                call_args.extend(Self::words(&values));
-                call_args.push(fv.0[1]);
-                self.b.ins().return_call_indirect(sig, target, &call_args);
-
-                // As the machine: this frame popped and its registers
-                // released, then eval/apply with the frames below, which
-                // drops this frame's closure once it has taken the function
-                // value apart (as the machine drops the popped frame).
-                self.b.switch_to_block(slow);
-                let values = self.operands(args);
-                self.release(&left);
-                let apply = self.func_ref(self.apply_any[&args.len]);
-                let below = self.b.ins().iadd_imm_s(self.frames, -1);
-                let env = match self.env {
-                    Some(env) => env,
-                    None => self.b.ins().iconst(self.pointer, 0),
-                };
-                let mut call_args = vec![self.ctx, below, env];
-                call_args.extend(fv.0);
-                call_args.extend(Self::words(&values));
-                self.b.ins().return_call(apply, &call_args);
+                self.tail_apply(fv, target, &taken, ApplyArgs::Regs(args));
                 return false;
             }
             Instr::Return { src } => {
@@ -2464,6 +2553,23 @@ impl Gen<'_, '_> {
             Instr::IntOfNat { dst, src } => self.unary(pc, dst, src, abi::UNARY_INT_OF_NAT),
             Instr::IntNegSucc { dst, src } => self.unary(pc, dst, src, abi::UNARY_INT_NEG_SUCC),
             Instr::TextChars { dst, src } => self.unary(pc, dst, src, abi::UNARY_TEXT_CHARS),
+            Instr::Prim {
+                dst,
+                op: op @ PrimOp::Effect(_),
+                args,
+            } => self.effect(pc, Some(dst), op, args),
+            Instr::TailPrim {
+                op: op @ PrimOp::Effect(_),
+                args,
+            } => {
+                self.effect(pc, None, op, args);
+                return false;
+            }
+            Instr::Prim {
+                dst,
+                op: PrimOp::Text(TextNative::TextFold),
+                args,
+            } => self.text_fold(pc, dst, args),
             Instr::Prim { dst, op, args } => self.prim(pc, dst, op, args),
             Instr::Test { op, args, target } => {
                 let o = ops(code, args).to_vec();
@@ -2647,8 +2753,7 @@ impl Gen<'_, '_> {
         let f = self.func_ref(self.functions[&code]);
         let call = self.b.ins().call(f, &[self.ctx, frames]);
         let r = self.b.inst_results(call).to_vec();
-        self.after_call(&live);
-        let v = Val([r[0], r[1], r[2]]);
+        let v = self.call_result(&live, &r);
         let out = self.temp_address(0);
         self.store(Loc::Mem(out, 0), v);
         let gc = self.i32const(g);
@@ -2663,6 +2768,12 @@ impl Gen<'_, '_> {
     /// takes exactly `n`: the machine's `exact`), or 0 for eval/apply.
     fn apply_target(&mut self, f: Reg, n: u32) -> (Val, IrValue) {
         let v = self.operand(f);
+        let target = self.apply_target_of(v, n);
+        (v, target)
+    }
+
+    /// [`Gen::apply_target`] for a function value already taken.
+    fn apply_target_of(&mut self, v: Val, n: u32) -> IrValue {
         // This site's cache (`abi::ApplyCache`): a function value with the
         // same key as last time (the same global function, or a closure of
         // the same lambda) calls the same code, with no runtime call.
@@ -2707,7 +2818,261 @@ impl Gen<'_, '_> {
         let target = self.call_helper(self.helpers.apply_cached, &[self.ctx, at, n, cache_at])[0];
         self.b.ins().jump(after, &[target.into()]);
         self.b.switch_to_block(after);
-        (v, self.b.block_params(after)[0])
+        self.b.block_params(after)[0]
+    }
+
+    /// The arguments of an application: registers (taken as `get!` takes
+    /// them, once the frame is counted), or values already taken.
+    fn take_args(&mut self, args: &ApplyArgs) -> Vec<Val> {
+        match args {
+            ApplyArgs::Regs(o) => self.operands(*o),
+            ApplyArgs::Vals(values) => values.clone(),
+        }
+    }
+
+    /// `live` without the registers `args` moves out.
+    fn without_args(&self, live: &Regs, args: &ApplyArgs) -> Regs {
+        match args {
+            ApplyArgs::Regs(o) => self.without_moved(live, ops(self.code, *o)),
+            ApplyArgs::Vals(_) => live.clone(),
+        }
+    }
+
+    /// `dst = fv args`, with `target` from [`Gen::apply_target`] and `live`
+    /// the registers that may hold a value once `fv` is taken: the
+    /// machine's `Apply`.
+    fn apply(
+        &mut self,
+        pc: usize,
+        dst: Reg,
+        fv: Val,
+        target: IrValue,
+        live: &Regs,
+        args: ApplyArgs,
+    ) {
+        let n = match &args {
+            ApplyArgs::Regs(o) => o.len,
+            ApplyArgs::Vals(values) => values.len() as u32,
+        };
+        // Values held outside the registers until the frame is counted.
+        let mut extra = vec![fv];
+        if let ApplyArgs::Vals(values) = &args {
+            extra.extend(values.iter().copied());
+        }
+        let exact = self.b.create_block();
+        let slow = self.b.create_block();
+        let after = self.b.create_block();
+        self.b.ins().brif(target, exact, &[], slow, &[]);
+
+        self.b.switch_to_block(exact);
+        self.count_step_with(live, &extra, &[]);
+        let frames = self.push_frame_with(live, &extra);
+        let values = self.take_args(&args);
+        let after_args = self.without_args(live, &args);
+        let sig = self.value_sig(n);
+        let mut call_args = vec![self.ctx, frames];
+        call_args.extend(Self::words(&values));
+        call_args.push(fv.0[1]);
+        let call = self.b.ins().call_indirect(sig, target, &call_args);
+        let r = self.b.inst_results(call).to_vec();
+        let v = self.call_result(&after_args, &r);
+        self.assign(pc, dst, v);
+        self.b.ins().jump(after, &[]);
+
+        self.b.switch_to_block(slow);
+        let values = self.take_args(&args);
+        let after_args = self.without_args(live, &args);
+        let apply = self.func_ref(self.apply_any[&n]);
+        let none = self.iconst(0);
+        let mut call_args = vec![self.ctx, self.frames, none, none];
+        call_args.extend(fv.0);
+        call_args.extend(Self::words(&values));
+        let call = self.b.ins().call(apply, &call_args);
+        let r = self.b.inst_results(call).to_vec();
+        let v = self.call_result(&after_args, &r);
+        self.assign(pc, dst, v);
+        self.b.ins().jump(after, &[]);
+        self.b.switch_to_block(after);
+    }
+
+    /// `fv args` in a tail position, with `target` from
+    /// [`Gen::apply_target`] and `taken` the registers that may hold a value
+    /// once `fv` is taken: the machine's `TailApply`. Ends the block.
+    fn tail_apply(&mut self, fv: Val, target: IrValue, taken: &Regs, args: ApplyArgs) {
+        let n = match &args {
+            ApplyArgs::Regs(o) => o.len,
+            ApplyArgs::Vals(values) => values.len() as u32,
+        };
+        let mut extra = vec![fv];
+        if let ApplyArgs::Vals(values) = &args {
+            extra.extend(values.iter().copied());
+        }
+        let left = self.without_args(taken, &args);
+        let exact = self.b.create_block();
+        let slow = self.b.create_block();
+        self.b.ins().brif(target, exact, &[], slow, &[]);
+
+        // As the machine's `replace`, as for `TailCall`: the operands
+        // fetched before the step is counted (dropped last if it fails).
+        self.b.switch_to_block(exact);
+        let fetched: Vec<Reg> = match &args {
+            ApplyArgs::Regs(o) => ops(self.code, *o).to_vec(),
+            ApplyArgs::Vals(_) => Vec::new(),
+        };
+        self.count_step_with(taken, &extra, &fetched);
+        let values = self.take_args(&args);
+        self.drop_env();
+        self.release(&left);
+        let sig = self.value_sig(n);
+        let mut call_args = vec![self.ctx, self.frames];
+        call_args.extend(Self::words(&values));
+        call_args.push(fv.0[1]);
+        self.b.ins().return_call_indirect(sig, target, &call_args);
+
+        // As the machine: this frame popped and its registers released,
+        // then eval/apply with the frames below, which drops this frame's
+        // closure once it has taken the function value apart (as the
+        // machine drops the popped frame), or leaves it with a tail request.
+        self.b.switch_to_block(slow);
+        let values = self.take_args(&args);
+        self.release(&left);
+        let apply = self.func_ref(self.apply_any[&n]);
+        let below = self.b.ins().iadd_imm_s(self.frames, -1);
+        let env = match self.env {
+            Some(env) => env,
+            None => self.b.ins().iconst(self.pointer, 0),
+        };
+        let tail = self.iconst(1);
+        let mut call_args = vec![self.ctx, below, env, tail];
+        call_args.extend(fv.0);
+        call_args.extend(Self::words(&values));
+        self.b.ins().return_call(apply, &call_args);
+    }
+
+    /// `bind c k` (the operands `args`), as the machine's `Bind`: for `c` =
+    /// `Done x`, `k x` applied as `Apply` applies (in a tail position, as
+    /// `TailApply`); otherwise the node `Bind c k`. `dst` is `None` in a
+    /// tail position (`TailPrim`), which ends the block.
+    fn bind(&mut self, pc: usize, dst: Option<Reg>, args: Ops) {
+        let o = ops(self.code, args).to_vec();
+        let c = self.operand(o[0]);
+        let k = self.operand(o[1]);
+        let mut live = self.without_moved(&self.full[pc], &o);
+        if dst.is_none() {
+            // `TailPrim`: the frame popped and its registers released
+            // before the native runs.
+            self.release(&live);
+            live = Regs::new(self.code.regs);
+        }
+        let c_at = self.spill_value(0, c);
+        let k_at = self.spill_value(1, k);
+        let out = self.spill_erased(2);
+        let done = self.call_helper(self.helpers.bind, &[self.ctx, c_at, k_at, out])[0];
+        let calling = self.b.create_block();
+        let node = self.b.create_block();
+        self.b.ins().brif(done, calling, &[], node, &[]);
+
+        // `k x`.
+        self.b.switch_to_block(calling);
+        let x = self.load(Loc::Mem(out, 0));
+        let k = self.load(Loc::Mem(k_at, 0));
+        let target = self.apply_target_of(k, 1);
+        let after = match dst {
+            Some(dst) => {
+                self.apply(pc, dst, k, target, &live, ApplyArgs::Vals(vec![x]));
+                let after = self.b.create_block();
+                self.b.ins().jump(after, &[]);
+                Some(after)
+            }
+            None => {
+                self.tail_apply(k, target, &live, ApplyArgs::Vals(vec![x]));
+                None
+            }
+        };
+
+        // The node.
+        self.b.switch_to_block(node);
+        let v = self.load(Loc::Mem(out, 0));
+        match (dst, after) {
+            (Some(dst), Some(after)) => {
+                self.assign(pc, dst, v);
+                self.b.ins().jump(after, &[]);
+                self.b.switch_to_block(after);
+            }
+            _ => {
+                // As the machine drops the popped frame's closure: once the
+                // native has run.
+                self.drop_env();
+                self.b.ins().return_(&v.0);
+            }
+        }
+    }
+
+    /// The machine's `Prim` of an effect native, or `TailPrim` (`dst`
+    /// `None`, ending the block): `bind` here ([`Gen::bind`]), the others
+    /// run by the machine (`abi::sw_effect`), or in a tail position left to
+    /// it as a tail request (`abi::sw_tail_effect`) with the frame's
+    /// closure.
+    fn effect(&mut self, pc: usize, dst: Option<Reg>, op: PrimOp, args: Ops) {
+        if op == PrimOp::Effect(EffectOp::Bind) && args.len == 2 {
+            self.bind(pc, dst, args);
+            return;
+        }
+        let o = ops(self.code, args).to_vec();
+        let values = self.operands(args);
+        let live = self.without_moved(&self.full[pc], &o);
+        for (i, v) in values.iter().enumerate() {
+            let at = self.temp_address(i * VALUE_SIZE);
+            self.store(Loc::Mem(at, 0), *v);
+        }
+        let at = self.temp_address(0);
+        let out = self.temp_address(values.len() * VALUE_SIZE);
+        let PrimOp::Effect(effect) = op else {
+            unreachable!("an effect native")
+        };
+        let op_at = self.i32const(effect.index());
+        let n = self.iconst(values.len() as u64);
+        match dst {
+            Some(dst) => {
+                self.erase(Loc::Mem(out, 0));
+                self.machine_call(
+                    self.helpers.effect,
+                    &[self.ctx, self.frames, op_at, at, n, out],
+                );
+                self.after_machine(&live);
+                let v = self.load(Loc::Mem(out, 0));
+                self.assign(pc, dst, v);
+            }
+            None => {
+                self.release(&live);
+                let env = match self.env {
+                    Some(env) => env,
+                    None => self.b.ins().iconst(self.pointer, 0),
+                };
+                self.call_helper(self.helpers.tail_effect, &[self.ctx, op_at, at, n, env]);
+                let zero = self.iconst(0);
+                self.b.ins().return_(&[zero, zero, zero]);
+            }
+        }
+    }
+
+    /// `Text.fold text initial f` (the registers `args`, read), run by the
+    /// machine (`abi::sw_fold`), on copies taken in order, as the machine's
+    /// `Prim` takes them.
+    fn text_fold(&mut self, pc: usize, dst: Reg, args: Ops) {
+        let o = ops(self.code, args).to_vec();
+        for (i, r) in o.iter().enumerate() {
+            let v = self.clone_from(Loc::Reg(*r & !MOVE));
+            let at = self.temp_address(i * VALUE_SIZE);
+            self.store(Loc::Mem(at, 0), v);
+        }
+        let at = self.temp_address(0);
+        let out = self.temp_address(3 * VALUE_SIZE);
+        let live = self.full[pc].clone();
+        self.machine_call(self.helpers.fold, &[self.ctx, self.frames, at, out]);
+        self.after_machine(&live);
+        let v = self.load(Loc::Mem(out, 0));
+        self.assign(pc, dst, v);
     }
 
     /// A value made by `helper` from `values` (moved): the helper takes
@@ -3031,14 +3396,9 @@ pub fn factory(
     move |program, image| match compile(program, image, options, notes.clone()) {
         Ok(islands) => {
             notes.borrow_mut().push(format!(
-                "native: running {} natively ({} bodies, frames of at most {} bytes, compiled in {:.1} ms)",
-                islands
-                    .root_names()
-                    .iter()
-                    .map(|n| format!("`{n}`"))
-                    .collect::<Vec<_>>()
-                    .join(", "),
+                "native: running {} of the {} bodies `main` reaches natively (frames of at most {} bytes, compiled in {:.1} ms)",
                 islands.bodies,
+                islands.reachable,
                 islands.max_frame,
                 islands.compile_time.as_secs_f64() * 1000.0
             ));

@@ -20,16 +20,16 @@
 //! creation sites in reached code are all counted, so every body an `Apply`
 //! could call is in the island (the over-approximation also counts bodies
 //! whose value is never applied). Function values that come from outside
-//! (host callbacks, the effect runtime's natives) pass through `Prim`
-//! instructions, which are blockers anyway, or as the island's arguments,
-//! which the native compiler checks at the crossing. `Apply` is in the N1
-//! subset; the creation edges are also how the compiler knows every
-//! function an island's `Apply` can meet.
+//! (host callbacks, the effect runtime's resumptions and continuations)
+//! have no body in the island; since stage N4 native code has the machine
+//! run those (`native_abi`), so the island is what the native compiler
+//! compiles, and no instruction is a blocker any more.
 
 use std::collections::BTreeMap;
 
 use crate::code::{Code, Image, Instr, compile};
-use crate::ir::{GlobalKind, Program};
+use crate::ir::{GlobalKind, PrimOp, Program};
+use crate::natives::TextNative;
 
 /// The kind of an instruction, by name (`Call`, `Prim`, ...).
 pub fn instr_name(instr: &Instr) -> &'static str {
@@ -83,13 +83,11 @@ pub fn instr_name(instr: &Instr) -> &'static str {
 /// `Captured`, `Pap`, and every kind of application), every `Prim` and
 /// `Test` the machine computes with `prims::eval` (the `Text`, `Int`,
 /// `Float` and `Delay` operations: the standalone note's "cheap find"),
-/// the `Int` and `Text` match instructions, and `Unreachable`. What's left
-/// is what runs on the machine's frames: the effect runtime's natives
-/// (`Prim`/`TailPrim` of `Effect`, stage N4) and `Text.fold`.
-///
-/// The compiler also checks things about an island as a whole that no one
-/// instruction shows (that no native the machine runs on its frames is
-/// made a function value): see `stitchwort_native::n1`.
+/// the `Int` and `Text` match instructions, and `Unreachable`. Stage N4
+/// added what runs on the machine's frames: the effect runtime's natives
+/// (`Prim`/`TailPrim` of `Effect`) and `Text.fold`, which native code has
+/// the machine run for it (`bind`'s common case inline). Nothing is left;
+/// the function stays so that a new instruction is a decision.
 ///
 /// Returns `None` if `instr` is in the subset, otherwise the blocker's key:
 /// the instruction's name, with the operation for a `Prim`, `TailPrim` or
@@ -137,6 +135,17 @@ pub fn n1_blocker(instr: &Instr) -> Option<String> {
         {
             None
         }
+        // Stage N4: the effect runtime's natives (`bind`'s common case
+        // inline, the rest run by the machine for native code) and
+        // `Text.fold` (run by the machine).
+        Instr::Prim {
+            op: PrimOp::Effect(_) | PrimOp::Text(TextNative::TextFold),
+            ..
+        }
+        | Instr::TailPrim {
+            op: PrimOp::Effect(_),
+            ..
+        } => None,
         Instr::Prim { op, .. } | Instr::Test { op, .. } | Instr::TailPrim { op, .. } => {
             Some(format!("{}:{op:?}", instr_name(instr)))
         }
@@ -449,7 +458,7 @@ mod tests {
     use crate::ir::PrimOp;
 
     #[test]
-    fn subset_accepts_closures_and_blocks_effects() {
+    fn subset_accepts_closures_and_effects() {
         use crate::effect::EffectOp;
         use crate::natives::TextNative;
         let none = Ops { start: 0, len: 0 };
@@ -483,11 +492,17 @@ mod tests {
             op: PrimOp::Text(TextNative::TextFold),
             args: none,
         };
-        assert_eq!(n1_blocker(&fold).as_deref(), Some("Prim:Text(TextFold)"));
+        assert_eq!(n1_blocker(&fold), None);
         let bind = Instr::TailPrim {
             op: PrimOp::Effect(EffectOp::Bind),
             args: none,
         };
-        assert_eq!(n1_blocker(&bind).as_deref(), Some("TailPrim:Effect(Bind)"));
+        assert_eq!(n1_blocker(&bind), None);
+        let run = Instr::Prim {
+            dst: 0,
+            op: PrimOp::Effect(EffectOp::Fold),
+            args: none,
+        };
+        assert_eq!(n1_blocker(&run), None);
     }
 }

@@ -1654,6 +1654,177 @@ architectures (Cranelift's x86 and arm64 backends are in the test build) and
 checks that the prologue is read on each and the bound covers the stack
 slots.
 
+## N4 as built (26 October 2026, D1285)
+
+**[ran]** Effects and handlers, in `crates/native/src/n1.rs`,
+`crates/rt/src/native_abi.rs` and `crates/rt/src/machine.rs` (their module
+comments have the details). `games/rogue` runs natively under `run
+--native` with every body but the entry compiled, which is what milestone
+M2 (`build --native games/rogue`, standalone S7) builds on.
+
+**Nested machine and tail requests.** Native code doesn't reimplement the
+effect runtime; the two runners call each other.
+
+- *Machine to native.* The plan's roots and islands are gone. Every body
+  `main`'s entry reaches (`census::island`) is compiled, except the entry
+  itself (glue the machine runs once). The machine hands a call over
+  wherever it would push a frame for a compiled body, whoever calls it: a
+  `Call` or exact `Apply` in any machine frame, a `TailCall` or exact
+  `TailApply` (after the same step and release as `replace`), and `enter`,
+  which is how the effect loop applies a continuation and the `IO` runner
+  steps a `Delay`. So the entry's lambdas (the rogue) and effectful glue
+  (AoC) need no special case. `enter` doesn't call native code itself: it
+  leaves the call to the run loop (`State::deferred`), so the function value
+  and whatever else its Rust callers hold are dropped first, as they are
+  when it pushes a frame. Without that, the allocation traces differed
+  (`dec`s of a partial application's arguments came after the body instead
+  of before).
+- *Native to machine.* What native code doesn't compile, the machine runs
+  for it, nested on top of what is pending (`machine::nested`; the
+  machine's frames are on the heap, so this nests in Rust by one call): the
+  effect natives other than `bind`'s common case (`foldComp` and its
+  variants, `translate`, `runPure`: the machine's own code, so every effect
+  value, count and allocation is the machine's), `Text.fold`, and a
+  function value with no native code (resumptions, `StateRun`/`StateK`,
+  `JumpK`, `DelayK`). `bind c k` is inline: `sw_bind` takes `c` apart, and
+  for `Done x` native code applies `k` to `x` exactly as `Apply` does, so a
+  compiled continuation is a direct call; otherwise the result is the node
+  `Bind c k`.
+- *Tail requests.* In a tail position, running the machine nested would
+  grow the native stack by a frame per handled operation, so a loop through
+  a handler would overflow. Instead native code returns a request
+  (`TailRequest`: an apply or an effect native, with the frame's closure,
+  which is dropped once the request has begun, as the machine drops a
+  popped frame's). Frames return as on an error exit until a caller that
+  isn't in a tail position performs it (`sw_perform`, at its own frame
+  count), or the crossing returns it and the machine performs it with the
+  frame's return. Effect loops run in constant native stack.
+- *Counting.* The machine's frame limit counts native frames below a
+  nested run (`frame_base`), and native code writes its step count to the
+  context before every helper that runs the machine and reads it back
+  after, so both runners count every step and frame by the machine's rules.
+- *Error exits across the nesting* (with N2b's order). After a failed run
+  the machine drops every frame's closure and pending return, outermost
+  first, then every register, outermost first. With nesting, the stack
+  alternates machine segments and native ones, so nothing is dropped where
+  it fails: each crossing's frames hand theirs to the runtime
+  (`sw_unwind`, as N2b built it), a failed nested run keeps its own frames
+  and registers rather than truncating them, and both go into one log on
+  the machine (`State::unwound`), innermost first. `release_failed` then
+  drops the machine's own frames, the logged frames last-in first, the
+  machine's registers, the logged registers likewise, and the tail
+  arguments. N2b's every-limit trace sweeps and N4's handler sweep agree
+  event for event.
+- *The stack bound* (N2b's rule that the frame counter must fire before
+  the stack check). Nesting puts runtime and machine frames between native
+  ones, which N2b's bound didn't allow for. Measured (`frames::NEST_ROOM`):
+  a recursion through `Text.fold` uses 2,104 bytes per counted frame, and a
+  handler resuming in a non-tail position 3,904 (two nestings per frame),
+  native frames included; handlers in other positions don't nest at all.
+  So a program that can nest (it reaches an effect native, `Text.fold`, or
+  a function value of one) allows 4 KiB more per frame (more than either measurement, native frames
+  included; 6 KiB would keep the rogue's 2,000,000 frames off the 16 GiB
+  stack, raising the stack to 32 GiB is the alternative); one that can't
+  keeps N2b's bound. The check is now made once, when the machine is given
+  native code (`NativeIslands::fits`), since every call can cross.
+- *No host addresses* (S4). The new helpers are linked by name like the
+  others, and the effect natives are passed as their place in
+  `EffectOp::ALL`.
+
+`run --native --verbose` reports, for the rogue, "running 241 of the 242
+bodies `main` reaches natively (compiled in 693 ms)", and for each AoC day
+all but the entry. Every AoC day on Matt's inputs prints the same answers
+natively as on the machine; wall times (load ~45, one run each) are about
+the same for the short days (0.25–0.35 s, mostly checking), day 4 0.99 →
+0.47 s, day 8 3.48 → 1.20 s, day 9 2.38 → 0.98 s.
+
+**Agreement** (`crates/native/tests/n4.rs`). A state-passing handler, `Fail`
+caught as a value, a handler resuming more than once (`Pick.all`, each
+resumption applied in a loop), a generator under a seeded state handler,
+the rogue's `seeded` around partial code (a `foldD`), and `IO` printed in a
+loop through the runner: the same output and the same allocation trace,
+event for event. Every `-- run:` line of `effect-runtime.sw`,
+`effect-handlers.sw` and `effect-state.sw` (resumptions stored, resumed many
+times, through nested handlers and translations; state-passing handlers
+every way they resume) lowered as an entry: the same value, the same
+effect counts, the same trace, every cell freed. Under every step limit
+and every frame limit up to the least that finishes, a program with a state
+handler, a caught failure, a resumption used twice and `seeded` around
+partial code stops where the machine does and frees everything. Effect
+loops 250,000 long (a state handler's jumps, a fold resuming in a tail
+position at the closed and the open row) under a frame limit of 100 on a
+16 MiB stack. The open-row loop does reach a tail request (a lazy
+resumption applied in a tail position; checked with a probe), but these
+loops also pass with tail requests turned off, since a lazy resumption
+returns to the handler's loop rather than nesting: no test yet shows a
+shape where nesting would pile up and the machine's own frames don't (a
+recursion whose tail position is a handler runs out of frames on the
+machine too). Two `n1.rs` tests that expected `Text.fold` to keep code on
+the machine now check that it runs natively.
+
+**Census** (`dev opcode-census`; `n1_blocker` now accepts every
+instruction, so "fits" is "compiled"):
+
+| Program | After N3 | After N4 |
+|---|---:|---:|
+| `Rogue.main` | 170/244 (43/54) | 244/244 (54/54) |
+| AoC days 1–9 | 45/56 … 92/105 | all (56, 59, 56, 52, 67, 68, 68, 97, 105) |
+
+**The rogue** (seeded with 12345 in place of `IO.randomSeed`, as
+`crates/cli/tests/build.rs` does): two key scripts piped to `run` and to
+`run --native`, 29 keys (38,451 bytes of output) and 188 keys with stairs
+(252,473 bytes): identical output, both exit 0.
+
+**The measurement** (Apple M4 Pro, release, load average 40–120 so wall
+times are rough; cycles and instructions from `/usr/bin/time -l`, best of
+3 by cycles; whole runs, which include about 1.07 G instructions of
+checking and lowering, and 0.29 G more for compiling with `--native`).
+"N4 before the merge" is this branch before main's S4, N2b and S6 came
+in; "N4" is after (S6's inline `Nat` division is most of the difference
+in `closures`).
+
+| Program | Runner | Cycles (G) | Instructions (G) | vs machine (cycles) |
+|---|---|---:|---:|---:|
+| `closures`, whole run | machine | 2.65 | 13.13 | 1× |
+| | `--native`, N4 before the merge | 1.51 | 5.15 | 1.7× (N3: 1.57, 5.18) |
+| | `--native`, N4 | 1.37 | 3.92 | **1.9×** (3.3× instructions) |
+| `Set` inserts | machine | 40.2 | 174.3 | 1× |
+| | `--native`, N4 before the merge | 10.3 | 41.6 | 3.7× (N3: 11.0, 42.1) |
+| | `--native`, N4 | 10.4 | 42.2 | **3.9×** |
+| `effects`, whole run | machine | 9.46 | 50.06 | 1× |
+| | `--native`, N4 before the merge | 7.90 | 40.21 | 1.26× (against 9.93 then) |
+| | `--native`, N4 | 7.93 | 39.81 | 1.19× (1.26× instructions) |
+
+`bench/native/effects.sw` at 1,000,000 of each: a state-passing handler
+counting (`bump`, resumed with the state plus one) and a reader (`ask`).
+N4 itself left closures and `Set` where N3 had them. The effects benchmark gains
+little because its time is the effect runtime's, which native code calls:
+each operation costs about 29,000 instructions on the machine for `bump`
+and 20,000 for `ask` (linear: measured at 100,000 and 300,000), and native
+code takes off only the handler's and the loop's own bodies (22,000 and
+16,500). **[inferred, not profiled]** That cost is in building and taking
+apart the effect runtime's values and handler records for each operation,
+which N4 deliberately leaves to the machine; it is the place to look before
+making handlers native.
+
+**S5 ported (after S5 merged).** Native code calls back into the machine
+(`machine::nested`, `machine::perform`) for effects, `Text.fold` and
+uncompiled function values; the standalone runtime library already links
+the machine (D1287), and the linker resolves the new helpers (`sw_bind`,
+`sw_effect`, `sw_fold`, `sw_tail_effect`, `sw_perform`) by name like the
+others. The crossing is per call, not per island root, so S5's shared
+`native_abi::Crossing` now holds N4's: `compiled`, `fits` and `call(code,
+env, args, run)`, the per-body entries (worked out from `functions` and
+`lambdas` and the image), the trampolines by number of arguments, and the
+stack floor fixed at the first crossing; `NEST_ROOM` and `level_bound`
+moved there with the other stack rules. The object exports the trampolines
+as `sw_cross_<n>` and lists them in `sw_trampolines`; the manifest
+(version 2) has `nests` and `n_trampolines` in place of the roots. Porting
+it found a bug the JIT had too: a program whose only one-argument
+application is an inline `bind`'s continuation had no `apply1` stub
+(`n4.rs` `a_bind_is_the_only_application`). The standalone rogue's numbers
+are in standalone-executables.md, S5.
+
 ## External review (25 October 2026)
 
 An external reviewer read this note. **Verdict:** sound and well evidenced

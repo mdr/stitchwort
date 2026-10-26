@@ -4,21 +4,24 @@
 //! The code is [`crate::n1`]'s, made by the same generator (`n1::emit`)
 //! into a `cranelift-object` module instead of the JIT, as
 //! position-independent code (§1.2: macOS can't relocate absolute addresses
-//! in the code). The code holds no host address (stage S4): what it needs
-//! of the runtime's memory it reaches through `Context::tables`, which the
-//! runtime builds from the image it rebuilds, and the helpers (`sw_ctor`
-//! and the rest) are left for the linker to resolve against the runtime
-//! library.
+//! in the code): every body `main` reaches but its entry (stage N4). The
+//! code holds no host address (stage S4): what it needs of the runtime's
+//! memory it reaches through `Context::tables`, which the runtime builds
+//! from the image it rebuilds, and the helpers (`sw_ctor` and the rest,
+//! with N4's `sw_effect`, `sw_fold`, `sw_perform` and the others that run
+//! the machine for native code) are left for the linker to resolve against
+//! the runtime library, which has the machine.
 //!
 //! The object describes the code to the runtime in data
 //! (`stitchwort_rt::native_aot`):
 //! - `sw_functions`: for each global, its code as a function value's (its
 //!   adapter, `value{g}`), or null: `Context::functions`;
 //! - `sw_lambdas`: for each lambda, its body, or null: `Context::lambdas`;
-//! - `sw_roots`: each island root's global, whether it checks its
-//!   arguments, and its trampoline (also exported as `sw_root_<global>`);
+//! - `sw_trampolines`: the crossing's trampolines, by number of arguments
+//!   (also exported as `sw_cross_<number>`);
 //! - `sw_native_manifest`, the one the runtime looks up: the image's hash,
-//!   the cache count, the counts of the three tables and pointers to them.
+//!   the cache count, the frames' bound and whether they nest, the counts of
+//!   the three tables and pointers to them.
 //!
 //! The pointers are data relocations, which the loader fills in.
 
@@ -29,22 +32,23 @@ use cranelift_object::{ObjectBuilder, ObjectModule, object};
 use stitchwort_rt::code::Image;
 use stitchwort_rt::ir::Program;
 use stitchwort_rt::native_abi as abi;
-use stitchwort_rt::native_aot::{Manifest, ManifestRoot, image_hash};
+use stitchwort_rt::native_aot::{Manifest, ManifestTrampoline, image_hash};
 
 use crate::n1::{self, Audit, Emitted, Options};
 
-/// A program's islands, compiled into an object.
+/// A program's bodies, compiled into an object.
 pub struct ObjectCode {
     /// The object: the code and its manifest. The caller adds the program
     /// (`sw_program`) and writes it.
     pub object: object::write::Object<'static>,
-    /// The island roots, by name.
-    pub roots: Vec<String>,
-    /// How many bodies were compiled, and in what time.
+    /// How many bodies were compiled, of how many `main` reaches (its entry
+    /// included), and in what time.
     pub bodies: usize,
+    pub reachable: usize,
     pub compile_time: Duration,
-    /// What runs on the machine although its root is compiled, and why
-    /// (function values the entry makes whose islands don't fit).
+    /// A bound on the stack the widest body uses.
+    pub max_frame: usize,
+    /// Why any body `main` reaches isn't compiled.
     pub notes: Vec<String>,
 }
 
@@ -53,20 +57,17 @@ impl ObjectCode {
     pub fn report(&self) -> Vec<String> {
         let mut report = self.notes.clone();
         report.push(format!(
-            "native: compiled {} as native code ({} bodies, in {:.1} ms)",
-            self.roots
-                .iter()
-                .map(|n| format!("`{n}`"))
-                .collect::<Vec<_>>()
-                .join(", "),
+            "native: compiled {} of the {} bodies `main` reaches (frames of at most {} bytes, in {:.1} ms)",
             self.bodies,
+            self.reachable,
+            self.max_frame,
             self.compile_time.as_secs_f64() * 1000.0
         ));
         report
     }
 }
 
-/// Compiles the islands of `program`'s entry (`image` is its compiled
+/// Compiles the bodies `program`'s entry reaches (`image` is its compiled
 /// image, which the runtime will rebuild) into an object for this machine,
 /// or says why the whole run stays on the machine. `options.stack_size`
 /// should be the stack the executable runs native code on.
@@ -140,25 +141,25 @@ pub fn compile_object(
             .map(|(code, &l)| (l as usize, functions[code])),
     )?;
 
-    let roots_id = module
-        .declare_data("sw_roots", Linkage::Local, false, false)
+    let trampolines_id = module
+        .declare_data("sw_trampolines", Linkage::Local, false, false)
         .map_err(|e| fail(e.to_string()))?;
-    let mut roots = DataDescription::new();
+    let mut data = DataDescription::new();
     let mut bytes = Vec::new();
-    for &(g, _) in &trampolines {
-        bytes.extend(ManifestRoot::bytes(g, plan.applying.contains(&g)));
+    for &(arity, _) in &trampolines {
+        bytes.extend(ManifestTrampoline::bytes(arity));
     }
-    roots.define(bytes.into_boxed_slice());
-    roots.set_align(8);
+    data.define(bytes.into_boxed_slice());
+    data.set_align(8);
     for (i, &(_, id)) in trampolines.iter().enumerate() {
-        let function = module.declare_func_in_data(id, &mut roots);
-        roots.write_function_addr(
-            (i * ManifestRoot::SIZE + ManifestRoot::TRAMPOLINE_AT) as u32,
+        let function = module.declare_func_in_data(id, &mut data);
+        data.write_function_addr(
+            (i * ManifestTrampoline::SIZE + ManifestTrampoline::TRAMPOLINE_AT) as u32,
             function,
         );
     }
     module
-        .define_data(roots_id, &roots)
+        .define_data(trampolines_id, &data)
         .map_err(|e| fail(e.to_string()))?;
 
     let manifest_id = module
@@ -170,6 +171,7 @@ pub fn compile_object(
             image_hash(image),
             n_caches as u64,
             max_frame as u64,
+            plan.nests,
             if functions_table.is_some() {
                 n_globals as u64
             } else {
@@ -188,7 +190,7 @@ pub fn compile_object(
     for (at, data) in [
         (Manifest::FUNCTIONS_AT, functions_table),
         (Manifest::LAMBDAS_AT, lambdas_table),
-        (Manifest::ROOTS_AT, Some(roots_id)),
+        (Manifest::TRAMPOLINES_AT, Some(trampolines_id)),
     ] {
         if let Some(data) = data {
             let value = module.declare_data_in_data(data, &mut manifest);
@@ -202,12 +204,10 @@ pub fn compile_object(
     let product = module.finish();
     Ok(ObjectCode {
         object: product.object,
-        roots: trampolines
-            .iter()
-            .map(|&(g, _)| program.globals[g as usize].name.to_string())
-            .collect(),
         bodies: plan.bodies.len(),
+        reachable: plan.reachable,
         compile_time: start.elapsed(),
+        max_frame,
         notes: plan.notes,
     })
 }

@@ -69,6 +69,27 @@ pub enum EffectOp {
 }
 
 impl EffectOp {
+    /// Every effect native, in a fixed order: native code names one by its
+    /// place here (`native_abi::sw_effect`), not by an address.
+    pub const ALL: [EffectOp; 8] = [
+        EffectOp::Bind,
+        EffectOp::Fold,
+        EffectOp::FoldLazy,
+        EffectOp::FoldIn,
+        EffectOp::FoldState,
+        EffectOp::FoldStateComp,
+        EffectOp::Translate,
+        EffectOp::RunPure,
+    ];
+
+    /// Its place in [`EffectOp::ALL`].
+    pub fn index(self) -> u32 {
+        EffectOp::ALL
+            .iter()
+            .position(|op| *op == self)
+            .expect("every effect native is listed") as u32
+    }
+
     pub fn arity(self) -> u32 {
         match self {
             EffectOp::RunPure => 1,

@@ -1,15 +1,16 @@
 //! Native code in a standalone executable (stage S5 of
 //! docs/proposals/standalone-executables.md): how the object `stitchwort
-//! build --native` writes describes its compiled islands to the runtime
+//! build --native` writes describes its compiled bodies to the runtime
 //! library that links it.
 //!
 //! The object defines `sw_native_manifest`, a [`Manifest`]: the hash of the
-//! image the code was compiled for ([`image_hash`]), the island roots and
-//! their trampolines, the code of each global and lambda as a function
-//! value's (`Context::functions` and `lambdas`), and how many `Apply`
-//! caches the code numbers. An object written without `--native` defines one
-//! too, with no roots ([`Manifest::empty_bytes`]), so the library always
-//! finds the symbol.
+//! image the code was compiled for ([`image_hash`]), the crossing's
+//! trampolines (one per number of arguments), the code of each global and
+//! lambda as a function value's (`Context::functions` and `lambdas`, which
+//! also say which bodies are compiled), how many `Apply` caches the code
+//! numbers, and its frames' bound. An object written without `--native`
+//! defines one too, with no code ([`Manifest::empty_bytes`]), so the
+//! library always finds the symbol.
 //!
 //! The runtime rebuilds the image from the embedded program, so the
 //! numbering the code bakes in (constants, operations, number tables) holds
@@ -23,8 +24,11 @@ use crate::code::Image;
 
 /// `Manifest::magic`: "swnative", little-endian.
 pub const MANIFEST_MAGIC: u64 = u64::from_le_bytes(*b"swnative");
-/// `Manifest::version`: the layout of [`Manifest`] and [`ManifestRoot`].
-pub const MANIFEST_VERSION: u64 = 1;
+/// `Manifest::version`: the layout of [`Manifest`] and
+/// [`ManifestTrampoline`]. Version 2 (stage N4): trampolines by number of
+/// arguments, called for any compiled body, where version 1 had one per
+/// island root.
+pub const MANIFEST_VERSION: u64 = 2;
 
 /// What `sw_native_manifest` holds. `repr(C)`, written by the compiler as
 /// bytes at the offsets of its fields (with relocations for the pointers),
@@ -40,17 +44,22 @@ pub struct Manifest {
     /// A bound on the stack one level of recursion of the code uses, in
     /// bytes, for the stack check behind the frame limit.
     pub max_frame: u64,
-    /// The length of `functions`: the program's globals, or 0 with no roots.
+    /// 1 if native frames may nest inside runs of the machine (an effect,
+    /// `Text.fold`), so each counted frame may take more stack
+    /// (`native_abi::level_bound`).
+    pub nests: u64,
+    /// The length of `functions`: the program's globals, or 0 with no code.
     pub n_globals: u64,
-    /// The length of `lambdas`: the image's lambdas, or 0 with no roots.
+    /// The length of `lambdas`: the image's lambdas, or 0 with no code.
     pub n_lambdas: u64,
-    pub n_roots: u64,
+    /// The length of `trampolines`: 0 with no code.
+    pub n_trampolines: u64,
     /// For each global, its compiled code as a function value's, or null
     /// (`Context::functions`).
     pub functions: *const *const u8,
     /// For each lambda, its compiled code, or null (`Context::lambdas`).
     pub lambdas: *const *const u8,
-    pub roots: *const ManifestRoot,
+    pub trampolines: *const ManifestTrampoline,
 }
 
 // SAFETY: a manifest is read-only data (the object's, for the process's
@@ -58,14 +67,13 @@ pub struct Manifest {
 #[allow(unsafe_code)]
 unsafe impl Sync for Manifest {}
 
-/// One island root of a [`Manifest`].
+/// One crossing trampoline of a [`Manifest`].
 #[repr(C)]
-pub struct ManifestRoot {
-    pub global: u64,
-    /// 1 if the island applies function values, so that the crossing must
-    /// check its arguments hold only compiled ones.
-    pub checks_arguments: u64,
-    /// `(context, arguments, result)` in the host's C calling convention.
+pub struct ManifestTrampoline {
+    /// How many arguments the bodies it calls take.
+    pub arity: u64,
+    /// `native_abi::Trampoline`: `(context, code, arguments, closure,
+    /// result)` in the host's C calling convention.
     pub trampoline: *const u8,
 }
 
@@ -74,15 +82,16 @@ impl Manifest {
     pub const IMAGE_HASH_AT: usize = std::mem::offset_of!(Manifest, image_hash);
     pub const N_CACHES_AT: usize = std::mem::offset_of!(Manifest, n_caches);
     pub const MAX_FRAME_AT: usize = std::mem::offset_of!(Manifest, max_frame);
+    pub const NESTS_AT: usize = std::mem::offset_of!(Manifest, nests);
     pub const N_GLOBALS_AT: usize = std::mem::offset_of!(Manifest, n_globals);
     pub const N_LAMBDAS_AT: usize = std::mem::offset_of!(Manifest, n_lambdas);
-    pub const N_ROOTS_AT: usize = std::mem::offset_of!(Manifest, n_roots);
+    pub const N_TRAMPOLINES_AT: usize = std::mem::offset_of!(Manifest, n_trampolines);
     pub const FUNCTIONS_AT: usize = std::mem::offset_of!(Manifest, functions);
     pub const LAMBDAS_AT: usize = std::mem::offset_of!(Manifest, lambdas);
-    pub const ROOTS_AT: usize = std::mem::offset_of!(Manifest, roots);
+    pub const TRAMPOLINES_AT: usize = std::mem::offset_of!(Manifest, trampolines);
 
     /// The manifest's bytes with `magic` and `version` filled in and every
-    /// other field 0 (no roots, null pointers): what an object without
+    /// other field 0 (no code, null pointers): what an object without
     /// native code holds, and what the compiler starts from.
     pub fn empty_bytes() -> Vec<u8> {
         let mut bytes = vec![0u8; Manifest::SIZE];
@@ -91,26 +100,29 @@ impl Manifest {
         bytes
     }
 
-    /// The manifest's bytes for `n_roots` roots compiled for an image of
-    /// hash `image_hash`, with `n_caches` caches, frames of at most
-    /// `max_frame` bytes, `n_globals` globals and `n_lambdas` lambdas; the
-    /// pointers are 0, for relocations to fill.
+    /// The manifest's bytes for code compiled for an image of hash
+    /// `image_hash`, with `n_caches` caches, frames of at most `max_frame`
+    /// bytes that may nest if `nests`, `n_globals` globals, `n_lambdas`
+    /// lambdas and `n_trampolines` trampolines; the pointers are 0, for
+    /// relocations to fill.
     pub fn bytes(
         image_hash: u64,
         n_caches: u64,
         max_frame: u64,
+        nests: bool,
         n_globals: u64,
         n_lambdas: u64,
-        n_roots: u64,
+        n_trampolines: u64,
     ) -> Vec<u8> {
         let mut bytes = Manifest::empty_bytes();
         for (at, value) in [
             (Manifest::IMAGE_HASH_AT, image_hash),
             (Manifest::N_CACHES_AT, n_caches),
             (Manifest::MAX_FRAME_AT, max_frame),
+            (Manifest::NESTS_AT, u64::from(nests)),
             (Manifest::N_GLOBALS_AT, n_globals),
             (Manifest::N_LAMBDAS_AT, n_lambdas),
-            (Manifest::N_ROOTS_AT, n_roots),
+            (Manifest::N_TRAMPOLINES_AT, n_trampolines),
         ] {
             bytes[at..at + 8].copy_from_slice(&value.to_le_bytes());
         }
@@ -118,15 +130,14 @@ impl Manifest {
     }
 }
 
-impl ManifestRoot {
-    pub const SIZE: usize = size_of::<ManifestRoot>();
-    pub const TRAMPOLINE_AT: usize = std::mem::offset_of!(ManifestRoot, trampoline);
+impl ManifestTrampoline {
+    pub const SIZE: usize = size_of::<ManifestTrampoline>();
+    pub const TRAMPOLINE_AT: usize = std::mem::offset_of!(ManifestTrampoline, trampoline);
 
-    /// A root's bytes, its trampoline 0 for a relocation to fill.
-    pub fn bytes(global: u32, checks_arguments: bool) -> Vec<u8> {
-        let mut bytes = vec![0u8; ManifestRoot::SIZE];
-        bytes[..8].copy_from_slice(&u64::from(global).to_le_bytes());
-        bytes[8..16].copy_from_slice(&u64::from(checks_arguments).to_le_bytes());
+    /// A trampoline's bytes, its address 0 for a relocation to fill.
+    pub fn bytes(arity: u32) -> Vec<u8> {
+        let mut bytes = vec![0u8; ManifestTrampoline::SIZE];
+        bytes[..8].copy_from_slice(&u64::from(arity).to_le_bytes());
         bytes
     }
 }
@@ -161,13 +172,15 @@ mod tests {
 
     #[test]
     fn the_layout_is_words_in_order() {
-        assert_eq!(Manifest::SIZE, 88);
-        assert_eq!(Manifest::ROOTS_AT, 80);
-        assert_eq!(ManifestRoot::SIZE, 24);
-        assert_eq!(ManifestRoot::TRAMPOLINE_AT, 16);
-        let bytes = Manifest::bytes(7, 1, 304, 2, 3, 4);
+        assert_eq!(Manifest::SIZE, 96);
+        assert_eq!(Manifest::TRAMPOLINES_AT, 88);
+        assert_eq!(ManifestTrampoline::SIZE, 16);
+        assert_eq!(ManifestTrampoline::TRAMPOLINE_AT, 8);
+        let bytes = Manifest::bytes(7, 1, 304, true, 2, 3, 4);
         assert_eq!(&bytes[..8], b"swnative");
+        assert_eq!(bytes[8], 2);
         assert_eq!(bytes[Manifest::IMAGE_HASH_AT], 7);
-        assert_eq!(bytes[Manifest::N_ROOTS_AT], 4);
+        assert_eq!(bytes[Manifest::NESTS_AT], 1);
+        assert_eq!(bytes[Manifest::N_TRAMPOLINES_AT], 4);
     }
 }

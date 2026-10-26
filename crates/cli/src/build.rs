@@ -9,11 +9,11 @@
 //! `main`, the machine and the host), using the system's C compiler as the
 //! linker. The executable needs neither `stitchwort` nor the source.
 //!
-//! With `--native` (stage S5), the island roots `main` calls are compiled
-//! too, where they fit, as `run --native` would compile them
-//! (`stitchwort_native::aot`), into the same object: the code, and
-//! `sw_native_manifest`, which tells the runtime library where it is. An
-//! object without native code has a manifest with no roots.
+//! With `--native` (stage S5), the bodies `main` reaches are compiled too
+//! (every one but the entry, since stage N4), as `run --native` would
+//! compile them (`stitchwort_native::aot`), into the same object: the code,
+//! and `sw_native_manifest`, which tells the runtime library where it is.
+//! An object without native code has a manifest with none.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -67,8 +67,8 @@ const DEAD_STRIP: &str = if cfg!(target_os = "macos") {
 /// namespace with a `main` is built), or the full name of a function in the
 /// project. `OUT` is, by default, the file's or folder's name, or the
 /// function's namespace's, in the current folder. `native`: with
-/// `--native`, `Some(verbose)`: the island roots `main` calls are compiled
-/// into the object where they fit, and with `verbose` it says on standard
+/// `--native`, `Some(verbose)`: the bodies `main` reaches are compiled
+/// into the object where they compile, and with `verbose` it says on standard
 /// error what was compiled, and why anything wasn't.
 pub fn build_executable(
     target: &str,
@@ -218,7 +218,7 @@ fn namespace_name(function: &str) -> String {
 }
 
 /// `build --native`: the object of [`finish_object`], with the native code
-/// of the island roots `main` calls, where they fit
+/// of the bodies `main` reaches, where they compile
 /// (`stitchwort_native::aot`), or with none if none does (D1287: the
 /// machine runs the rest). With `verbose`, says what was compiled and why
 /// anything wasn't.
@@ -255,7 +255,7 @@ fn native_object(_program: &stitchwort_rt::Program, _bytes: &[u8], _verbose: boo
 }
 
 /// The object file holding the encoded program, and no native code: see
-/// [`finish_object`]; its `sw_native_manifest` lists no roots
+/// [`finish_object`]; its `sw_native_manifest` lists no code
 /// (`stitchwort_rt::native_aot`).
 pub fn program_object(bytes: &[u8]) -> Vec<u8> {
     let format = if cfg!(target_os = "macos") {

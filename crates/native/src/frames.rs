@@ -24,11 +24,14 @@
 //! (stack slots, and two spill slots for each value), which is safe but far
 //! above the real size.
 //!
-//! Native frames never nest inside runtime helpers (a helper returns before
-//! compiled code goes on), so the stack a run uses is at most the frames
-//! pending times the widest body's bound, plus whatever a helper uses at
-//! the bottom (`HELPER_ROOM`) and what the host used above the crossing
-//! (`HOST_ROOM`).
+//! Since stage N4 native frames do nest inside runtime helpers: a helper
+//! that runs the machine for native code (an effect, `Text.fold`, a
+//! function value with no native code) can call native code again. Each
+//! such level has at least one counted native frame above it before it can
+//! nest again, so the stack a run uses is at most the frames pending times
+//! the widest body's bound and one level of nesting (`level_bound`), plus
+//! whatever a helper uses at the bottom (`HELPER_ROOM`) and what the host
+//! used above the first crossing (`HOST_ROOM`).
 
 use cranelift_codegen::CompiledCode;
 use cranelift_codegen::ir::Function;
@@ -36,7 +39,9 @@ use cranelift_codegen::isa::unwind::UnwindInst;
 // The rule for the stack check is the crossing's, in the runtime, which a
 // standalone executable's linked code shares (standalone-executables.md
 // S5).
-pub use stitchwort_rt::native_abi::{HELPER_ROOM, HOST_ROOM, counter_fires_first, floor_depth};
+pub use stitchwort_rt::native_abi::{
+    HELPER_ROOM, HOST_ROOM, NEST_ROOM, counter_fires_first, floor_depth, level_bound,
+};
 
 /// The page size Cranelift probes frames by (its default,
 /// `probestack_size_log2` 12).

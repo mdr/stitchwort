@@ -10,7 +10,7 @@ use stitchwort_rt::Program;
 use stitchwort_rt::code::{self, Image};
 use stitchwort_rt::native_abi::Context;
 use stitchwort_rt::native_aot::{
-    MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, ManifestRoot, image_hash,
+    MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, ManifestTrampoline, image_hash,
 };
 use stitchwort_rt::value::Value;
 
@@ -33,17 +33,17 @@ fn lowered(source: &str) -> (Program, Image) {
 }
 
 /// The trampoline of the manifests here, which the tests never call.
-extern "C" fn never(_: *mut Context, _: *mut Value, _: *mut Value) {
+extern "C" fn never(_: *mut Context, _: *const u8, _: *mut Value, _: u64, _: *mut Value) {
     unreachable!("a test called a trampoline")
 }
 
-/// A manifest of one root, global `global`, whose trampoline is never
-/// called (the checks come first), for an image of hash `hash`.
-fn manifest(hash: u64, globals: usize, lambdas: usize, global: u64) -> &'static Manifest {
-    let root = Box::leak(Box::new(ManifestRoot {
-        global,
-        checks_arguments: 0,
-        trampoline: never as *const u8,
+/// A manifest of one trampoline, at `trampoline` (`never`, which is never
+/// called: the checks come first, and no body is compiled), for an image of
+/// hash `hash`.
+fn manifest(hash: u64, globals: usize, lambdas: usize, trampoline: *const u8) -> &'static Manifest {
+    let trampoline = Box::leak(Box::new(ManifestTrampoline {
+        arity: 1,
+        trampoline,
     }));
     let functions = Box::leak(vec![std::ptr::null::<u8>(); globals].into_boxed_slice());
     let lambda_table = Box::leak(vec![std::ptr::null::<u8>(); lambdas].into_boxed_slice());
@@ -53,12 +53,13 @@ fn manifest(hash: u64, globals: usize, lambdas: usize, global: u64) -> &'static 
         image_hash: hash,
         n_caches: 0,
         max_frame: 0,
+        nests: 0,
         n_globals: globals as u64,
         n_lambdas: lambdas as u64,
-        n_roots: 1,
+        n_trampolines: 1,
         functions: functions.as_ptr(),
         lambdas: lambda_table.as_ptr(),
-        roots: root,
+        trampolines: trampoline,
     }))
 }
 
@@ -81,8 +82,12 @@ fn code_compiled_for_another_image_is_refused() {
         let hash = image_hash(&image);
         let globals = program.globals.len();
         let lambdas = image.lambda_code.len();
-        let why = islands(manifest(hash ^ 1, globals, lambdas, 0), &program, &image)
-            .expect_err("a mismatched hash is refused");
+        let why = islands(
+            manifest(hash ^ 1, globals, lambdas, never as *const u8),
+            &program,
+            &image,
+        )
+        .expect_err("a mismatched hash is refused");
         assert!(
             why.starts_with("its native code was compiled for another program image"),
             "{why}"
@@ -91,23 +96,41 @@ fn code_compiled_for_another_image_is_refused() {
         // A program that differs only in a constant has another image.
         let (other, other_image) = lowered(&SOURCE.replace("n + 1", "n + 2"));
         assert_ne!(image_hash(&other_image), hash);
-        assert!(islands(manifest(hash, globals, lambdas, 0), &other, &other_image).is_err());
+        assert!(
+            islands(
+                manifest(hash, globals, lambdas, never as *const u8),
+                &other,
+                &other_image
+            )
+            .is_err()
+        );
 
         // The same program lowered again has the same image, and is taken.
         let (again, again_image) = lowered(SOURCE);
         assert_eq!(image_hash(&again_image), hash);
         assert_eq!(
-            islands(manifest(hash, globals, lambdas, 0), &again, &again_image),
+            islands(
+                manifest(hash, globals, lambdas, never as *const u8),
+                &again,
+                &again_image
+            ),
             Ok(true)
         );
-        // But not with a root the program doesn't have.
-        let past = globals as u64;
-        assert!(islands(manifest(hash, globals, lambdas, past), &again, &again_image).is_err());
+        // But not with a trampoline missing.
+        let missing = std::ptr::null();
+        assert!(
+            islands(
+                manifest(hash, globals, lambdas, missing),
+                &again,
+                &again_image
+            )
+            .is_err()
+        );
     });
 }
 
 #[test]
-fn no_roots_is_no_native_code_and_a_foreign_manifest_is_refused() {
+fn no_trampolines_is_no_native_code_and_a_foreign_manifest_is_refused() {
     with_stack(STACK, || {
         let (program, image) = lowered(SOURCE);
         // The bytes as words, so aligned as a manifest is, and leaked.

@@ -28,6 +28,8 @@ libc = "0.2.190"
 # traces.
 stitchwort-driver.workspace = true
 stitchwort-rt = { workspace = true, features = ["alloc-trace"] }
+# N4 parses the effect examples' `-- run:` lines.
+stitchwort-syntax.workspace = true
 # The frame-size test compiles for x86-64 and arm64 whatever the host
 # (tests/frames.rs).
 cranelift-codegen = { version = "=0.136.2", features = ["x86", "arm64"] }

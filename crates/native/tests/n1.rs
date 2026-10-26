@@ -80,12 +80,12 @@ fn the_allocation_traces_are_the_same() {
     same_trace(SHAPES);
 }
 
-/// A root that applies a function value it's given: the island fits, but
-/// the call has a function in its arguments whose code isn't compiled (its
-/// island uses `Text.fold`, which runs on the machine's frames), so it runs
-/// on the machine.
+/// A function applying function values it's given, one of which uses
+/// `Text.fold` (which the machine runs for native code, stage N4): every
+/// body `main` reaches but its entry runs natively, with the same output
+/// and allocation trace. (Before N4, the call stayed on the machine.)
 #[test]
-fn a_function_value_from_outside_keeps_the_call_on_the_machine() {
+fn a_function_value_using_text_fold_runs_natively() {
     let source = r#"import Std (IO, List, Text)
 
 def applyAll: List (Text → Nat) → Text → Nat
@@ -95,25 +95,25 @@ def applyAll: List (Text → Nat) → Text → Nat
 def main(): {IO} () :=
   IO.print "${applyAll [t => Text.fold t 0 (c n => n + 1), t => 7] "hello"}"
 "#;
+    assert_eq!(agrees(source), "12\n");
+    same_trace(source);
     with_stack(STACK, move || {
         let (program, limits) = lowered(source);
-        let machine = on_machine(&program, limits);
-        let (native, notes) = native(&program, limits, false);
-        assert_eq!(native, machine);
-        assert_eq!(machine.0, "12\n");
+        let (_, notes) = native(&program, limits, false);
         assert!(
-            notes
+            !notes
                 .iter()
-                .any(|n| n.contains("was given a function value that isn't compiled")),
+                .any(|n| n.contains("which native code doesn't compile")),
             "{notes:#?}"
         );
     });
 }
 
-/// An island with an instruction native code doesn't compile keeps the
-/// whole run on the machine, and says why.
+/// `Text.fold` inside a recursive function: native code has the machine
+/// run it, and the machine calls the compiled lambda back. (Before N4, the
+/// whole run stayed on the machine.)
 #[test]
-fn an_island_outside_the_subset_runs_on_the_machine() {
+fn text_fold_in_a_recursion_runs_natively() {
     let source = r#"import Std (IO, List, Text)
 
 def count: List Text → Nat
@@ -123,18 +123,8 @@ def count: List Text → Nat
 def main(): {IO} () :=
   IO.print "${count ["hello", "you"]}"
 "#;
-    with_stack(STACK, move || {
-        let (program, limits) = lowered(source);
-        let (native, notes) = native(&program, limits, false);
-        assert_eq!(native, ("8\n".to_string(), Ok(())));
-        assert!(!ran_natively(&notes), "{notes:#?}");
-        assert!(
-            notes
-                .iter()
-                .any(|n| n.contains("which native code doesn't compile")),
-            "{notes:#?}"
-        );
-    });
+    assert_eq!(agrees(source), "8\n");
+    same_trace(source);
 }
 
 /// `run 3000` builds a list 3,000 deep and sums it twice, keeping it while

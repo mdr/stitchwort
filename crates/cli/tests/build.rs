@@ -519,8 +519,9 @@ fn the_terminal_is_put_back_after_q_and_after_ctrl_c() {
 
 // ------------------------------------------------------- build --native
 //
-// Stage S5: the island roots `main` calls compiled into the executable,
-// where they fit, with the machine for the rest (D1287). These need a
+// Stage S5: the bodies `main` reaches compiled into the executable, where
+// they compile (every one but the entry, since stage N4), with the machine
+// for the rest (D1287). These need a
 // `stitchwort` with the `native` feature, which the test tiers build
 // (`--features stitchwort-cli/native`).
 
@@ -533,21 +534,21 @@ fn native_bench(name: &str) -> String {
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
-/// The island roots' trampolines (`sw_root_<global>`) the executable `exe`
-/// defines: the native code linked into it.
+/// The crossing's trampolines (`sw_cross_<number of arguments>`) the
+/// executable `exe` defines: the native code linked into it.
 #[cfg(feature = "native")]
-fn native_roots(exe: &Path) -> Vec<String> {
+fn native_trampolines(exe: &Path) -> Vec<String> {
     use object::{Object as _, ObjectSymbol as _};
     let bytes = std::fs::read(exe).expect("read the executable");
     let file = object::File::parse(&*bytes).expect("parse the executable");
-    let mut roots: Vec<String> = file
+    let mut trampolines: Vec<String> = file
         .symbols()
         .filter_map(|symbol| symbol.name().ok())
         .map(|name| name.trim_start_matches('_').to_string())
-        .filter(|name| name.starts_with("sw_root_"))
+        .filter(|name| name.starts_with("sw_cross_"))
         .collect();
-    roots.sort();
-    roots
+    trampolines.sort();
+    trampolines
 }
 
 /// On macOS, `codesign -v` passes on `exe`.
@@ -598,7 +599,7 @@ fn native_same_as_run(dir: &Path, name: &str, source: &str, input: &[u8]) -> (Pa
 
 /// A native benchmark at its small size, `name` in bench/native: the same
 /// as `run --native` and `run`, printing `expected`, with native code
-/// linked in (every root compiles). One test each, so they run in parallel.
+/// linked in. One test each, so they run in parallel.
 #[cfg(feature = "native")]
 fn native_benchmark(name: &str, expected: &str) {
     if !have_cc() {
@@ -608,7 +609,10 @@ fn native_benchmark(name: &str, expected: &str) {
     let (exe, built) = native_same_as_run(&dir, name, &native_bench(name), b"");
     assert_eq!(text(&built.stdout), expected, "{name}");
     assert_eq!(built.status.code(), Some(0), "{name}");
-    assert!(!native_roots(&exe).is_empty(), "{name} has no native code");
+    assert!(
+        !native_trampolines(&exe).is_empty(),
+        "{name} has no native code"
+    );
 }
 
 #[cfg(feature = "native")]
@@ -635,41 +639,39 @@ fn native_closures_run_as_they_do_under_run() {
     native_benchmark("closures.sw", "36673290\n");
 }
 
-/// `--verbose` says which roots were compiled, and, where nothing fits, why
-/// the run stays on the machine; the executable then has no native code,
-/// and still runs.
+/// `--verbose` says how many bodies were compiled (every one `main`
+/// reaches but its entry, effects included since stage N4), and, where
+/// nothing compiles, why the run stays on the machine; the executable then
+/// has no native code, and still runs.
 #[cfg(feature = "native")]
 #[test]
-fn verbose_lists_the_islands_compiled() {
+fn verbose_says_what_was_compiled() {
     if !have_cc() {
         return;
     }
     let dir = work_dir("native-verbose");
-    std::fs::write(dir.join("micro_call.sw"), native_bench("micro_call.sw")).expect("write");
-    let output = stitchwort(
-        &dir,
-        &[
-            "build",
-            "micro_call.sw",
-            "--native",
-            "--verbose",
-            "--no-cache",
-        ],
-        b"",
-    );
-    assert!(output.status.success(), "{}", text(&output.stderr));
-    let said = text(&output.stderr);
+    let build_verbose = |name: &str, source: &str| {
+        std::fs::write(dir.join(name), source).expect("write");
+        let output = stitchwort(
+            &dir,
+            &["build", name, "--native", "--verbose", "--no-cache"],
+            b"",
+        );
+        assert!(output.status.success(), "{}", text(&output.stderr));
+        text(&output.stderr)
+    };
+    let said = build_verbose("micro_call.sw", &native_bench("micro_call.sw"));
     assert!(
-        said.starts_with("native: compiled `Main.outer` as native code (2 bodies, in "),
+        said.starts_with("native: compiled 2 of the 3 bodies `main` reaches (frames of at most "),
         "{said}"
     );
     assert_eq!(said.lines().count(), 1, "{said}");
-    assert_eq!(native_roots(&dir.join("micro_call")).len(), 1);
+    assert!(!native_trampolines(&dir.join("micro_call")).is_empty());
 
-    // A root whose island performs effects, which native code doesn't
-    // compile yet (stage N4).
-    std::fs::write(
-        dir.join("countdown.sw"),
+    // A function that performs effects, which native code runs through the
+    // machine linked in (stage N4).
+    let said = build_verbose(
+        "countdown.sw",
         "import Std (IO, Nat)\n\n\
          def countdown: Nat -> {IO} ()\n  \
            | 0 => IO.print \"go\"\n  \
@@ -677,30 +679,30 @@ fn verbose_lists_the_islands_compiled() {
              IO.print (Nat.toText (Succ n))\n    \
              countdown n\n\n\
          def main(): {IO} () := countdown 2\n",
-    )
-    .expect("write");
-    let output = stitchwort(
-        &dir,
-        &[
-            "build",
-            "countdown.sw",
-            "--native",
-            "--verbose",
-            "--no-cache",
-        ],
-        b"",
     );
-    assert!(output.status.success(), "{}", text(&output.stderr));
-    assert_eq!(
-        text(&output.stderr),
-        "native: `Main.countdown`'s island has `TailPrim:Effect(Bind)`, which native code \
-         doesn't compile (in Main.countdown)\n\
-         native: so the whole run is on the machine\n"
+    assert!(
+        said.starts_with("native: compiled 2 of the 3 bodies `main` reaches (frames of at most "),
+        "{said}"
     );
-    assert!(native_roots(&dir.join("countdown")).is_empty());
+    assert!(!native_trampolines(&dir.join("countdown")).is_empty());
     assert_eq!(
         text(&run_executable(&dir.join("countdown"), b"").stdout),
         "2\n1\ngo\n"
+    );
+
+    // Nothing but the entry: nothing to compile.
+    let said = build_verbose(
+        "hello.sw",
+        "import Std (IO)\n\ndef main(): {IO} () := IO.print \"hello\"\n",
+    );
+    assert_eq!(
+        said,
+        "native: nothing `main` reaches compiles, so the whole run is on the machine\n"
+    );
+    assert!(native_trampolines(&dir.join("hello")).is_empty());
+    assert_eq!(
+        text(&run_executable(&dir.join("hello"), b"").stdout),
+        "hello\n"
     );
 }
 
@@ -732,9 +734,6 @@ fn native_code_out_of_frames_reports_as_run_does() {
         return;
     }
     let dir = work_dir("native-frames");
-    // `main`'s entry calls `count`, so that it's an island root (after a
-    // first `print`, the call would be in the continuation, which runs on
-    // the machine).
     let source = "import Std (Nat)\n\n\
                   def count : Nat -> Nat\n  \
                     | 0      => 0\n  \
@@ -744,7 +743,7 @@ fn native_code_out_of_frames_reports_as_run_does() {
     std::fs::write(dir.join("runaway.sw"), source).expect("write the source");
     build(&dir, &["runaway.sw", "--native", "--no-cache"]);
     let exe = dir.join("runaway");
-    assert_eq!(native_roots(&exe).len(), 1, "`count` is compiled");
+    assert!(!native_trampolines(&exe).is_empty(), "`count` is compiled");
     let built = run_executable(&exe, b"");
     assert_eq!(built.status.code(), Some(2));
     assert_eq!(text(&built.stdout), "");
@@ -771,8 +770,8 @@ fn native_code_out_of_frames_reports_as_run_does() {
     }
 }
 
-/// The roguelike built with `--native` plays as under `run` (its islands
-/// mostly run on the machine until effects are compiled, stage N4).
+/// Milestone M2: the roguelike built with `--native` runs every body but
+/// its entry natively (stage N4), and plays as under `run`.
 #[cfg(feature = "native")]
 #[test]
 fn the_roguelike_built_native_plays_as_it_does_under_run() {
@@ -781,9 +780,33 @@ fn the_roguelike_built_native_plays_as_it_does_under_run() {
     }
     let dir = work_dir("rogue-native");
     let project = seeded_rogue(&dir);
-    build(&dir, &["rogue", "--native", "-o", "rogue-game"]);
+    let output = stitchwort(
+        &dir,
+        &[
+            "build",
+            "rogue",
+            "--native",
+            "--verbose",
+            "-o",
+            "rogue-game",
+        ],
+        b"",
+    );
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let said = text(&output.stderr);
+    let counts = said
+        .strip_prefix("native: compiled ")
+        .and_then(|rest| rest.split_once(" bodies `main` reaches"))
+        .and_then(|(counts, _)| counts.split_once(" of the "))
+        .map(|(compiled, reached)| (compiled.parse::<usize>(), reached.parse::<usize>()));
+    let Some((Ok(compiled), Ok(reached))) = counts else {
+        panic!("{said}");
+    };
+    assert_eq!(compiled + 1, reached, "every body but the entry: {said}");
+    assert_eq!(said.lines().count(), 1, "{said}");
     let exe = dir.join("rogue-game");
     assert_signed(&exe);
+    assert!(!native_trampolines(&exe).is_empty());
     let built = run_executable(&exe, b"jjlq");
     let ran = stitchwort(&project, &["run", "Rogue.main"], b"jjlq");
     assert_eq!(built.status.code(), Some(0), "{}", text(&built.stderr));

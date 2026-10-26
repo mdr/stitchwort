@@ -884,6 +884,29 @@ M1.**
     operations (`Bind`, `TailPrim:Effect(Bind)`, `Translate`, `FoldIn`,
     `RunPure`), so nothing compiles until N4.
   - **Linux x86-64: unverified** (no Linux machine in the lane).
+  - **After N4 (26 October 2026).** S5 was ported to N4's crossing
+    (native-compilation.md, "N4 as built"): every body `main` reaches but
+    the entry is compiled into the object, the machine linked in runs what
+    native code hands it (effects, `Text.fold`, function values without
+    code), and the manifest (version 2) lists trampolines by number of
+    arguments (`sw_cross_<n>`, `sw_trampolines`) and whether frames nest,
+    in place of the roots. `AotIslands` implements `compiled`, `fits` and
+    `call` over the shared `Crossing`. `--verbose` says ``native: compiled
+    241 of the 242 bodies `main` reaches (frames of at most 2760 bytes, in
+    254.6 ms)`` for the roguelike, whose test now checks that (every body
+    but the entry) and that its piped output equals `run`'s.
+
+    The seeded roguelike (release build, Apple M4 Pro, load 11–22; a
+    500-key piped game, 468,660 bytes of output, identical for both
+    binaries and `run`; best of 3):
+
+    | Binary | Wall | Cycles | Instructions | Size (stripped) | Build |
+    |---|---|---|---|---|---|
+    | `--native` | 0.12 s | 0.50 G | 2.81 G | 2,468,320 (2,080,080) | 1.09 s |
+    | machine only | 0.34 s | 1.36 G | 6.90 G | 1,497,800 (1,121,024) | 0.90 s |
+
+    2.7× fewer cycles (0.24 ms a key against 0.68 ms), for about 0.95 MB
+    more code.
 
 **S6. Every pure primitive through the runtime.**
 - **What:** `census::n1_blocker` admits `Prim`/`Test` of `Text`, `Int`,
@@ -903,8 +926,9 @@ kept as each lands, not tested at the end. N3's closure instructions must use
 
 **S7. The roguelike fully native. Milestone M2.**
 - **What:**
-  - `build --native games/rogue`, where `--verbose` must report that both
-    entry callees are native islands;
+  - `build --native games/rogue`, where `--verbose` must report that every
+    body but the entry is compiled (since N4 there are no islands; S5's
+    roguelike test checks this already);
   - fix what's left;
   - measure the binary size, build time, and time per turn for a scripted
     500-key game against the machine-only binary;
