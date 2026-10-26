@@ -1,6 +1,6 @@
 # Proposal: laws about `Float`'s rounding operations
 
-**Status:** proposed, 26 October 2026. A research and design note; nothing here changes the
+**Status:** accepted, 26 October 2026 (D1363 (d), D1368 (i); D1364–D1366 and D1369 as recommended). A research and design note; nothing here changes the
 compiler. Written against commit `50214b95`. Decisions D1363–D1366 and D1368–D1369 are
 [at the end](#11-decisions), each with a recommended option, for Matt to decide.
 
