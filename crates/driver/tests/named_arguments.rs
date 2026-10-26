@@ -27,7 +27,7 @@ use stitchwort_core::{DataId, DefId, Icit, Term};
 use stitchwort_driver::driver::{Session, par_map_with};
 use stitchwort_driver::rewind::Mark;
 use stitchwort_syntax::ast::{Clause, Decl, Expr, Pattern};
-use stitchwort_syntax::{SourceMap, Span, parse_module};
+use stitchwort_syntax::{SourceMap, Span, Tok, Token, lex, parse_module};
 
 const STACK: usize = 16 * 1024 * 1024;
 
@@ -336,10 +336,59 @@ fn parameters(ty: &Term) -> Vec<(Icit, Option<String>)> {
     out
 }
 
+/// `span`, widened to the whole of an interpolated text it is part of: the
+/// parser leaves out an empty first or last piece (`"${a} and ${b}"`), so
+/// such a text's span starts after its opening quote or ends before its
+/// closing `}"`.
+fn whole_text(tokens: &[Token], span: Span) -> Span {
+    let (mut start, mut end) = (span.start, span.end);
+    let (mut open, mut unopened) = (0, 0);
+    for t in tokens
+        .iter()
+        .filter(|t| t.span.start >= span.start && t.span.end <= span.end)
+    {
+        match t.tok {
+            Tok::StrStart(_) => open += 1,
+            Tok::StrEnd(_) if open > 0 => open -= 1,
+            Tok::StrEnd(_) => unopened += 1,
+            _ => {}
+        }
+    }
+    // The texts it opens and doesn't close end at later `StrEnd`s.
+    for t in tokens.iter().filter(|t| t.span.start >= span.end) {
+        if open == 0 {
+            break;
+        }
+        match t.tok {
+            Tok::StrStart(_) => open += 1,
+            Tok::StrEnd(_) => {
+                open -= 1;
+                end = t.span.end;
+            }
+            _ => {}
+        }
+    }
+    // And the texts it closes without opening start at earlier `StrStart`s.
+    for t in tokens.iter().rev().filter(|t| t.span.end <= span.start) {
+        if unopened == 0 {
+            break;
+        }
+        match t.tok {
+            Tok::StrEnd(_) => unopened += 1,
+            Tok::StrStart(_) => {
+                unopened -= 1;
+                start = t.span.start;
+            }
+            _ => {}
+        }
+    }
+    Span::new(span.file, start, end)
+}
+
 /// `text` with the explicit arguments of the calls in `walk` named, as far
 /// as `session` (the file loaded as written) knows their parameters' names;
 /// and how many arguments were named.
-fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
+fn named(session: &Session, text: &str, tokens: &[Token], walk: &Walk) -> (String, usize) {
     let g = &session.elab.globals;
     let by_path: BTreeMap<String, usize> = (0..g.defs.len())
         .map(|i| (g.defs[i].path.to_string(), i))
@@ -370,6 +419,7 @@ fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
                 // Already named: the rest of the call is left alone.
                 break;
             };
+            let span = whole_text(tokens, *span);
             let Some((_, name)) = explicit.next() else {
                 break;
             };
@@ -436,7 +486,10 @@ fn named_calls_keep_every_hash() {
         };
         let mut walk = Walk::default();
         module.decls.iter().for_each(|d| walk.decl(d));
-        let (rewritten, count) = named(session, &text, &walk);
+        let Ok(tokens) = lex(file, &text) else {
+            return (0, 0, Vec::new());
+        };
+        let (rewritten, count) = named(session, &text, &tokens, &walk);
         if count == 0 {
             return (1, 0, Vec::new());
         }
