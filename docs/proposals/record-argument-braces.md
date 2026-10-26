@@ -1,6 +1,6 @@
 # A record literal as a constructor's argument (D1370)
 
-**Status:** analysis, 26 October 2026, for SW-606. No code changed. The
+**Status:** decided, 26 October 2026: D1370 (a), keep today's rule (D1371 not needed). Analysis for SW-606. No code changed. The
 readings conflict, so the choice is the user's: decisions D1370 and D1371
 (§5).
 
