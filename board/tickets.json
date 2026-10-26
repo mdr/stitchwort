@@ -1,5 +1,5 @@
 {
-  "next": 648,
+  "next": 653,
   "tickets": [
     {
       "id": 13,
@@ -4905,7 +4905,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Tonight on a quiet machine: (1) small_programs_load_only_the_library_files_they_can_use fails on main (toolkit-only program also loads Decidable/Logic/Text Basics; passed at ~03:00 26 Oct, so a change since); (2) text_natives_are_bound_to_the_prelude after SW-577; (3) stale extract__results.js.snap; (4) re-time task test:merge on a quiet machine (63 s and 57 s under load today, budget 60 s); (5) with_every_native_off_float_runs_out_of_budget takes 32–48 s (daily tier)",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
@@ -5093,6 +5093,66 @@
     {
       "id": 647,
       "title": "Private app port (D1374, deferred by Matt 26 Oct): research what useful behaviour can be proved — plain-words theorem inventory; candidate real-world assumptions (per event: bubbles wholly inside recordings, blob ids distinct, transcripts inside; pair-level Compatible: same event id, shared recording ids extend one another, shared annotation ids same kind) checked against the app code; candidate theorems (no blob lost, all bubbles kept, re-sync harmless, devices agree) tested on random data; note for Matt before proving",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 648,
+      "title": "auto: E-AUTO-FALSE on literal-list membership prints the whole disjunction (1 = 13 ∨ … ∨ Void); for long lists say 'n is not in the list' instead (auto-depth lane, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 649,
+      "title": "auto: membership in a 1000-element literal list takes ~22 s (roughly quadratic); 100 elements is 0.21 s. Only if a program needs huge literal lists (auto-depth lane, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 650,
+      "title": "Test flakiness risk: auto_membership_speed.rs uses absolute wall-clock limits (100-element check < 5 s); may fail under machine load — consider relative-only or CPU-time limits",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 651,
+      "title": "Better error for a missing update lemma: rewrite T.f.update.g where g isn't a shared field gives E-NO-NAMESPACE ('T.f is a function, which has no namespace…'); the parked D1373 branch (worktree-agent-ac491657f1ca98e31) has an E-UNKNOWN-NAME fix listing existing lemmas — port that part alone",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 652,
+      "title": "Float model tests: check whether Berkeley TestFloat / UCBTest cases (Lean uses them) can be used to test Float.Model against the hardware (licence, format) — before float laws stages 3–4",
       "status": "backlog",
       "agent": "",
       "where": "",
