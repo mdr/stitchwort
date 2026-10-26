@@ -54,10 +54,7 @@ def main(): {IO} () :=
 
 /// The listing of `program`'s islands.
 fn listed(program: &Program, image: &Image, trace_refcounts: bool) -> String {
-    let options = Options {
-        trace_refcounts,
-        stack_size: Some(STACK),
-    };
+    let options = Options { trace_refcounts };
     listing(program, image, options).unwrap_or_else(|e| panic!("{e:#?}"))
 }
 

@@ -133,7 +133,10 @@ pub fn build_executable(
     discard(session);
     let bytes = stitchwort_rt::encode(&program, &limits);
     let object = match native {
-        Some(verbose) => native_object(&program, &limits, &bytes, verbose),
+        Some(verbose) => match native_object(&program, &limits, &bytes, verbose) {
+            Some(object) => object,
+            None => return ExitCode::FAILURE,
+        },
         None => program_object(&bytes),
     };
     match link(&object, &out) {
@@ -218,38 +221,39 @@ fn namespace_name(function: &str) -> String {
 }
 
 /// `build --native`: the object of [`finish_object`], with the native code
-/// of the bodies `main` reaches, where they compile
-/// (`stitchwort_native::aot`), or with none if none does (D1287: the
-/// machine runs the rest). With `verbose`, says what was compiled and why
-/// anything wasn't.
+/// of every body `main` reaches (`stitchwort_native::aot`), or, if any
+/// can't be compiled, `None`, having said why (stage NO5 of
+/// docs/proposals/native-only.md: the executable has no machine to fall
+/// back to). With `verbose`, says what was compiled.
 #[cfg(feature = "native")]
 fn native_object(
     program: &stitchwort_rt::Program,
     limits: &stitchwort_rt::Limits,
     bytes: &[u8],
     verbose: bool,
-) -> Vec<u8> {
+) -> Option<Vec<u8>> {
     let image = stitchwort_rt::code::compile(program);
     let options = stitchwort_native::n1::Options {
         trace_refcounts: false,
-        stack_size: Some(stitchwort_host::NATIVE_STACK),
     };
-    match stitchwort_native::aot::compile_object(program, &image, options) {
+    match stitchwort_native::aot::compile_object(program, &image, options, limits.frames as u64) {
         Ok(code) => {
             if verbose {
-                for line in code.report(limits.frames as u64, stitchwort_host::NATIVE_STACK) {
+                for line in code.report() {
                     eprintln!("{line}");
                 }
             }
-            finish_object(code.object, bytes)
+            Some(finish_object(code.object, bytes))
         }
         Err(why) => {
-            if verbose {
-                for line in why {
-                    eprintln!("{line}");
-                }
+            let mut lines = why.iter();
+            if let Some(message) = lines.next() {
+                eprintln!("error: {message}");
             }
-            program_object(bytes)
+            for note in lines {
+                eprintln!("  note: {note}");
+            }
+            None
         }
     }
 }
@@ -260,7 +264,7 @@ fn native_object(
     _limits: &stitchwort_rt::Limits,
     _bytes: &[u8],
     _verbose: bool,
-) -> Vec<u8> {
+) -> Option<Vec<u8>> {
     unreachable!("`build --native` is refused without the `native` feature")
 }
 

@@ -6,24 +6,30 @@
 #[cfg(unix)]
 pub mod terminal;
 
-/// The stack a natively compiled program runs on (64-bit targets only: it
-/// does not fit a 32-bit usize, as in the WebAssembly build): address space reserved,
-/// not memory until it's touched. Native frames are on it, and it's only a
-/// safety margin behind the frame limit (sized so the default 2,000,000
-/// frames of native frames up to 8 KiB fit, `stitchwort_native::frames`), which defines how deep a program
-/// may go (native-compilation.md §4.3).
+/// The stack `stitchwort run --native` runs on (64-bit targets only: it
+/// does not fit a 32-bit usize, as in the WebAssembly build): address space
+/// reserved, not memory until it's touched. It's the cap on a native run's
+/// stack (`stitchwort_rt::native_abi::STACK_CAP`, D1299 of
+/// docs/proposals/native-only.md), so it holds whatever stack the run sizes
+/// for its frames; a built executable reserves only that.
 #[cfg(target_pointer_width = "64")]
-pub const NATIVE_STACK: usize = 16 * 1024 * 1024 * 1024;
+pub const NATIVE_STACK: usize = 64 * 1024 * 1024 * 1024;
 
 /// Runs `f` on a new thread with `stack` bytes of stack, for a session whose
 /// limits are `Limits::for_stack` of the same size.
 pub fn with_stack<T: Send>(stack: usize, f: impl FnOnce() -> T + Send) -> T {
+    try_with_stack(stack, f).expect("can't start a thread")
+}
+
+/// [`with_stack`], or the error if the thread can't be started (the
+/// operating system refused the stack).
+pub fn try_with_stack<T: Send>(stack: usize, f: impl FnOnce() -> T + Send) -> std::io::Result<T> {
     std::thread::scope(|scope| {
-        std::thread::Builder::new()
+        let thread = std::thread::Builder::new()
             .stack_size(stack)
-            .spawn_scoped(scope, f)
-            .expect("can't start a thread")
+            .spawn_scoped(scope, f)?;
+        Ok(thread
             .join()
-            .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+            .unwrap_or_else(|panic| std::panic::resume_unwind(panic)))
     })
 }

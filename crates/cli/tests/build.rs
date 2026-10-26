@@ -639,10 +639,9 @@ fn native_closures_run_as_they_do_under_run() {
     native_benchmark("closures.sw", "36673290\n");
 }
 
-/// `--verbose` says how many bodies were compiled (every one `main`
-/// reaches but its entry, effects included since stage N4), and, where
-/// nothing compiles, why the run stays on the machine; the executable then
-/// has no native code, and still runs.
+/// `--verbose` says how many bodies were compiled: every one `main`
+/// reaches, effects included since stage N4 and the entry since stage NO4
+/// of docs/proposals/native-only.md.
 #[cfg(feature = "native")]
 #[test]
 fn verbose_says_what_was_compiled() {
@@ -752,6 +751,15 @@ fn native_code_out_of_frames_reports_as_run_does() {
         stderr.starts_with("[E-RESOURCE] Error: ran out of resources: "),
         "{stderr}"
     );
+    // The machine's note on where the recursion was deepest, from the
+    // frames that left native code with the error (stage NO5 of
+    // native-only.md), and the same count as the machine's.
+    assert!(
+        stderr.contains(
+            "\n  note: the recursion was deepest in `Main.count` (1999999 frames pending)\n"
+        ),
+        "{stderr}"
+    );
     for runner in [
         &["run", "--native", "--no-cache", "runaway.sw"][..],
         &["run", "--no-cache", "runaway.sw"],
@@ -803,10 +811,6 @@ fn the_roguelike_built_native_plays_as_it_does_under_run() {
         panic!("{said}");
     };
     assert_eq!(compiled, reached, "every body, the entry included: {said}");
-    // No note that the executable will run everything on the machine (its
-    // frame bound fits the stack): the guard `the_roguelike_runs_natively`
-    // checks under `run --native` too.
-    assert!(!said.contains("on the machine"), "{said}");
     assert_eq!(said.lines().count(), 1, "{said}");
     let exe = dir.join("rogue-game");
     assert_signed(&exe);
@@ -820,14 +824,13 @@ fn the_roguelike_built_native_plays_as_it_does_under_run() {
     assert_eq!(text(&built.stdout), text(&ran.stdout));
 }
 
-/// A guard (stage NO3 of docs/proposals/native-only.md): the roguelike's
-/// frame bound times its frame limit must fit the native stack, or the
-/// whole run silently falls back to the machine and every other test still
-/// passes. Under `run --native --verbose`, nothing ran on the machine and
-/// native code had the machine run nothing for it (no nested run); and
-/// `build --native --verbose` doesn't say the executable will fall back.
-/// The frames' bound and the limit are printed, so the margin is in the
-/// test's output.
+/// A guard (stage NO3 of docs/proposals/native-only.md, kept where NO5
+/// left something to check): `run --native` runs every body natively and
+/// the machine runs nothing, and the roguelike's frame bound times its
+/// frame limit is well under the cap on a native stack (D1299), so `build
+/// --native` sizes a stack for it rather than refusing. The frames' bound,
+/// the limit and the stack are printed, so the margin is in the test's
+/// output.
 #[cfg(feature = "native")]
 #[test]
 fn the_roguelike_runs_natively() {
@@ -840,7 +843,6 @@ fn the_roguelike_runs_natively() {
     );
     let said = text(&ran.stderr);
     assert_eq!(ran.status.code(), Some(0), "{said}");
-    assert!(!said.contains("on the machine"), "fell back: {said}");
     assert!(
         said.contains("native: the machine executed 0 instructions"),
         "{said}"
@@ -855,14 +857,16 @@ fn the_roguelike_runs_natively() {
         .and_then(|(bytes, _)| bytes.parse::<usize>().ok())
         .unwrap_or_else(|| panic!("no frame bound: {running}"));
     let limit = stitchwort_rt::Limits::from_core(Default::default()).frames;
-    let room = stitchwort_host::NATIVE_STACK
-        - stitchwort_rt::native_abi::HOST_ROOM
-        - stitchwort_rt::native_abi::HELPER_ROOM;
+    let stack = stitchwort_rt::native_abi::native_stack(limit as u64, bound)
+        .unwrap_or_else(|| panic!("over the cap: {running}"));
     println!(
-        "the roguelike's frames: at most {bound} bytes, {limit} of them: {} of {room} bytes",
-        bound * limit
+        "the roguelike's frames: at most {bound} bytes, {limit} of them: a stack of {stack} bytes, of the {} cap",
+        stitchwort_rt::native_abi::STACK_CAP
     );
-    assert!(bound * limit <= room, "{running}");
+    assert!(
+        stack as u64 <= stitchwort_rt::native_abi::STACK_CAP / 2,
+        "{running}"
+    );
 
     if !have_cc() {
         return;
@@ -881,5 +885,113 @@ fn the_roguelike_runs_natively() {
     );
     let said = text(&output.stderr);
     assert!(output.status.success(), "{said}");
-    assert!(!said.contains("on the machine"), "fell back: {said}");
+    assert!(
+        said.contains(&format!(", a stack of {} MiB, ", stack / (1024 * 1024))),
+        "{said}"
+    );
+}
+
+/// A recursive function whose frames, at the frame limit, need more stack
+/// than the cap (D1299 of docs/proposals/native-only.md): `build --native`
+/// fails, naming the limit and the widest function, and writes nothing,
+/// and `run --native` refuses it the same way; `run` (the machine) runs it.
+#[cfg(feature = "native")]
+#[test]
+fn a_program_over_the_stack_cap_fails_to_build() {
+    let dir = work_dir("native-cap");
+    // 400 arguments, each live across the call: frames of tens of KB.
+    let width = 400;
+    let names: Vec<String> = (0..width).map(|i| format!("a{i}")).collect();
+    let source = format!(
+        "import Std (IO, Nat)\n\n\
+         def wide: {}\n  \
+           | Zero, {} => a0\n  \
+           | Succ p, {} => 1 + wide p {}\n\n\
+         def main(): {{IO}} () := IO.print (Nat.toText (wide 3 {}))\n",
+        vec!["Nat"; width + 2].join(" → "),
+        names.join(", "),
+        names.join(", "),
+        names.join(" "),
+        vec!["7"; width].join(" "),
+    );
+    std::fs::write(dir.join("wide.sw"), source).expect("write the source");
+    let expected =
+        "error: the native stack would be too big: 2000000 frames (the frame limit) of up to ";
+    let note = "  note: split `Main.wide` into smaller functions, or run the program on the machine with `stitchwort run`\n";
+    let refused = |output: &Output| {
+        let said = text(&output.stderr);
+        assert_eq!(output.status.code(), Some(1), "{said}");
+        assert!(said.starts_with(expected), "{said}");
+        assert!(
+            said.contains(" bytes (`Main.wide`'s, the widest) need ")
+                && said.contains(" GiB, over the cap of 64 GiB\n"),
+            "{said}"
+        );
+        assert!(said.ends_with(note), "{said}");
+        assert_eq!(text(&output.stdout), "");
+    };
+    refused(&stitchwort(
+        &dir,
+        &["run", "--native", "--no-cache", "wide.sw"],
+        b"",
+    ));
+    let ran = stitchwort(&dir, &["run", "--no-cache", "wide.sw"], b"");
+    assert_eq!(text(&ran.stdout), "10\n", "{}", text(&ran.stderr));
+    if !have_cc() {
+        return;
+    }
+    refused(&stitchwort(
+        &dir,
+        &["build", "wide.sw", "--native", "--no-cache"],
+        b"",
+    ));
+    assert!(!dir.join("wide").exists(), "an executable was written");
+}
+
+/// A failed layout probe (forced by its test hook,
+/// `STITCHWORT_TEST_LAYOUT_PROBE_FAILS`): `build --native` fails with the
+/// probe's message and writes nothing, `run --native` refuses the run, and
+/// an executable built before refuses to start (stage NO5 of
+/// docs/proposals/native-only.md §4).
+#[cfg(feature = "native")]
+#[test]
+fn a_failed_layout_probe_fails_the_build() {
+    let dir = work_dir("native-probe");
+    std::fs::write(
+        dir.join("hello.sw"),
+        "import Std (IO)\n\ndef main(): {IO} () := IO.print \"hello\"\n",
+    )
+    .expect("write the source");
+    let probe = stitchwort_rt::native_abi::PROBE_FAILS;
+    let message = format!("the layout of values isn't as native code expects: forced by {probe}\n");
+    let with_probe_failing = |args: &[&str]| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
+        command.current_dir(&dir).args(args).env(probe, "1");
+        run_with_input(command, b"")
+    };
+    let ran = with_probe_failing(&["run", "--native", "--no-cache", "hello.sw"]);
+    assert_eq!(ran.status.code(), Some(1));
+    assert_eq!(text(&ran.stderr), format!("error: {message}"));
+    assert_eq!(text(&ran.stdout), "");
+    // The machine doesn't probe.
+    let ran = with_probe_failing(&["run", "--no-cache", "hello.sw"]);
+    assert_eq!(text(&ran.stdout), "hello\n");
+    if !have_cc() {
+        return;
+    }
+    let built = with_probe_failing(&["build", "hello.sw", "--native", "--no-cache"]);
+    assert_eq!(built.status.code(), Some(1));
+    assert_eq!(text(&built.stderr), format!("error: {message}"));
+    assert!(!dir.join("hello").exists(), "an executable was written");
+
+    build(&dir, &["hello.sw", "--native", "--no-cache"]);
+    let mut command = Command::new(dir.join("hello"));
+    command.env(probe, "1");
+    let started = run_with_input(command, b"");
+    assert_eq!(started.status.code(), Some(2));
+    assert_eq!(
+        text(&started.stderr),
+        format!("internal error: this executable can't run: {message}")
+    );
+    assert_eq!(text(&started.stdout), "");
 }

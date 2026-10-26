@@ -10,8 +10,9 @@
 //! strong count, the weak count, then the value (`RcInner` is `repr(C)`),
 //! and a slice's fat pointer as the address then the length. Those are facts
 //! about `std` rather than guarantees, so [`probe_layout`] checks every one
-//! at run time before any native code runs, and native code isn't used if
-//! one fails.
+//! at run time before any native code runs: `build --native` and `run
+//! --native` refuse to compile if one fails, and a built executable refuses
+//! to start.
 //!
 //! **The crossing** ([`NativeIslands`], [`NativeExecutor`]). Since stage
 //! NO4 of docs/proposals/native-only.md native code runs every body `main`
@@ -153,10 +154,23 @@ fn counts_at(at: u64) -> (u64, u64) {
 /// then no native code may run. Probed once per process: the probe's own
 /// values appear in an allocation trace running then, so a host that traces
 /// probes first.
+///
+/// A test hook: with `STITCHWORT_TEST_LAYOUT_PROBE_FAILS` set in the
+/// environment, the probe fails, so tests can show what `build --native`,
+/// `run --native` and a built executable do then (stage NO5 of
+/// docs/proposals/native-only.md).
 pub fn probe_layout() -> Result<(), String> {
+    if std::env::var_os(PROBE_FAILS).is_some() {
+        return Err(format!(
+            "the layout of values isn't as native code expects: forced by {PROBE_FAILS}"
+        ));
+    }
     static PROBED: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
     PROBED.get_or_init(probe).clone()
 }
+
+/// The environment variable that makes [`probe_layout`] fail, for tests.
+pub const PROBE_FAILS: &str = "STITCHWORT_TEST_LAYOUT_PROBE_FAILS";
 
 fn probe() -> Result<(), String> {
     let check = |ok: bool, what: &str| {
@@ -563,6 +577,13 @@ pub struct NativeRun<'a> {
     /// The function values put off dropping ([`sw_defer_fun`]), as words,
     /// the last put off last.
     pub deferred: Vec<u64>,
+    /// The body of each native frame that left with an error
+    /// ([`sw_unwind`]'s mode 2), innermost first: what the depth note counts,
+    /// as the machine counts its frames (`Machine::depth_report`).
+    pub bodies: Vec<u32>,
+    /// [`Context::stack_limit`]: the lowest stack address native code may
+    /// call from.
+    pub stack_floor: u64,
 }
 
 impl NativeRun<'_> {
@@ -587,10 +608,6 @@ impl NativeRun<'_> {
 /// A program's compiled code, wherever it is (JIT-compiled memory, or
 /// linked into a standalone executable): what [`NativeExecutor`] runs.
 pub trait NativeIslands {
-    /// Whether native code may run under this frame limit: `false` (with a
-    /// note why) if the native stack might not hold that many frames, and
-    /// the run stays on the machine.
-    fn fits(&self, frame_limit: u64) -> bool;
     /// The code's tables and the ways into it.
     fn crossing(&self) -> &Crossing;
 }
@@ -622,30 +639,28 @@ pub const HOST_ROOM: usize = 8 * 1024 * 1024;
 /// value, a big number's arithmetic, a native operation).
 pub const HELPER_ROOM: usize = 8 * 1024 * 1024;
 
-/// What nesting through the machine added to each counted frame on the
-/// native stack until stage NO4 of docs/proposals/native-only.md, when the
-/// machine still ran what native code didn't compile (measured at 3,904
-/// bytes at most per frame, aarch64). Since NO4 nothing nests: native code
-/// runs only when every body `main` reaches is compiled, so no code is
-/// given this room; NO5 deletes it.
-pub const NEST_ROOM: usize = 4 * 1024;
+/// The most stack a native run may reserve (D1299 of
+/// docs/proposals/native-only.md): `build --native` and `run --native` fail
+/// for a program whose frames, at its frame limit, would need more.
+pub const STACK_CAP: u64 = 64 * 1024 * 1024 * 1024;
 
-/// A bound on the stack one counted frame uses: a body (`max_frame`) and
-/// the nesting through the machine that can come with it ([`NEST_ROOM`]).
-pub fn level_bound(max_frame: usize) -> usize {
-    max_frame + NEST_ROOM
-}
-
-/// The bound on one counted frame of code whose frames are at most
-/// `max_frame` and which may nest inside runs of the machine (`nests`) or
-/// not: what [`Crossing::fits`] checks, for a `--verbose` note made before
-/// any run (`build --native`).
-pub fn level(max_frame: usize, nests: bool) -> usize {
-    if nests {
-        level_bound(max_frame)
-    } else {
-        max_frame
+/// The stack a native run reserves (§3 of docs/proposals/native-only.md):
+/// room for `frame_limit` frames of at most `max_frame` bytes each, and one
+/// more (the check runs before a call pushes its frame), so that the frame
+/// counter always fires before the stack-pointer check behind it
+/// ([`counter_fires_first`]), with the host's and the helpers' room, rounded
+/// up to a whole MiB. `None` if that passes [`STACK_CAP`].
+pub fn native_stack(frame_limit: u64, max_frame: usize) -> Option<usize> {
+    const MIB: u64 = 1024 * 1024;
+    let needed = frame_limit
+        .checked_add(1)?
+        .checked_mul(max_frame as u64)?
+        .checked_add((HOST_ROOM + HELPER_ROOM) as u64)?;
+    let rounded = needed.div_ceil(MIB).checked_mul(MIB)?;
+    if rounded > STACK_CAP {
+        return None;
     }
+    usize::try_from(rounded).ok()
 }
 
 /// How far below the crossing the stack-pointer check puts its floor, for
@@ -685,26 +700,17 @@ pub struct Crossing {
     step: Option<StepTrampoline>,
     /// What the code refers to by number ([`Context::tables`]).
     tables: TableStore,
-    /// The stack the code runs on, if known: native code then stops with
-    /// `E-RESOURCE` rather than run off its end (a safety margin, never the
-    /// limit).
-    pub stack_size: Option<usize>,
-    /// A bound on the stack one counted frame uses: the widest body, and
-    /// nesting through the machine if the code can nest ([`level_bound`]).
-    pub level: usize,
-    /// The lowest stack address native code may call from, fixed at the
-    /// first crossing (whose stack is the host's, near the top: every
-    /// crossing is from the runner).
-    stack_floor: std::cell::Cell<Option<u64>>,
+    /// A bound on the stack one counted frame uses: the widest body with
+    /// the runtime's frames that may come with it.
+    pub max_frame: usize,
     /// [`Context::resumes`].
     resumes: bool,
 }
 
 /// Where a [`Crossing`]'s code is and what it's like: its tables, its
-/// trampolines, a bound on its frames (`max_frame` bytes), whether they
-/// may nest inside runs of the machine (`nests`; none since NO4), and
-/// whether it has the effect runtime's bodies that run resumptions
-/// (`resumes`, [`Context::resumes`]).
+/// trampolines, a bound on its frames (`max_frame` bytes), and whether it
+/// has the effect runtime's bodies that run resumptions (`resumes`,
+/// [`Context::resumes`]).
 pub struct CrossingCode {
     pub functions: Box<[*const u8]>,
     pub lambdas: Box<[*const u8]>,
@@ -712,14 +718,12 @@ pub struct CrossingCode {
     pub apply: [ApplyTrampoline; 2],
     pub step: Option<StepTrampoline>,
     pub max_frame: usize,
-    pub nests: bool,
     pub resumes: bool,
 }
 
 impl Crossing {
-    /// The crossing for `code`, with `tables`, on a stack of `stack_size`
-    /// bytes if known.
-    pub fn new(code: CrossingCode, tables: TableStore, stack_size: Option<usize>) -> Crossing {
+    /// The crossing for `code`, with `tables`.
+    pub fn new(code: CrossingCode, tables: TableStore) -> Crossing {
         let CrossingCode {
             functions,
             lambdas,
@@ -727,7 +731,6 @@ impl Crossing {
             apply,
             step,
             max_frame,
-            nests,
             resumes,
         } = code;
         Crossing {
@@ -737,47 +740,20 @@ impl Crossing {
             apply,
             step,
             tables,
-            stack_size,
-            level: level(max_frame, nests),
-            stack_floor: std::cell::Cell::new(None),
+            max_frame,
             resumes,
         }
     }
 
-    /// [`NativeIslands::fits`], without the note: whether the frame counter
-    /// fires before the stack check could.
-    pub fn fits(&self, frame_limit: u64) -> bool {
-        self.stack_size
-            .is_none_or(|size| counter_fires_first(frame_limit, size, self.level))
-    }
-
     /// The context for a call from the runtime, with `run`'s counters.
     fn context(&self, run: &mut NativeRun<'_>) -> Context {
-        let stack_limit = match self.stack_floor.get() {
-            Some(floor) => floor,
-            None => {
-                let here = {
-                    let marker = 0u8;
-                    std::hint::black_box(&marker) as *const u8 as u64
-                };
-                let floor = match self.stack_size {
-                    Some(size) => match floor_depth(size, self.level) {
-                        Some(depth) => here.saturating_sub(depth as u64),
-                        None => u64::MAX,
-                    },
-                    None => 0,
-                };
-                self.stack_floor.set(Some(floor));
-                floor
-            }
-        };
         Context {
             steps: run.steps,
             step_limit: run.limits.steps,
             frames: run.frames,
             frame_limit: run.limits.frames as u64,
             error: OK,
-            stack_limit,
+            stack_limit: run.stack_floor,
             functions: self.functions.as_ptr(),
             lambdas: self.lambdas.as_ptr(),
             run: (run as *mut NativeRun<'_>).cast::<NativeRun<'static>>(),
@@ -896,32 +872,67 @@ pub struct NativeExecutor<'p> {
     /// The compiled code; dropped before the image its tables point into.
     code: Box<dyn NativeIslands>,
     /// The image the code was compiled for: its constants and number
-    /// tables are what the code's tables point at.
-    _image: Image,
+    /// tables are what the code's tables point at, and its bodies' numbers
+    /// name the functions in the depth note.
+    image: Image,
     globals: Vec<Option<Value>>,
     counts: EffectCounts,
     steps: u64,
     limits: Limits,
+    /// The stack native code runs on, in bytes ([`native_stack`]).
+    stack_size: usize,
+    /// [`NativeRun::stack_floor`], fixed at the first crossing, whose stack
+    /// is the host's, near the top: every crossing is from the runner.
+    stack_floor: Option<u64>,
+    /// The bodies with the most frames pending when the frame limit was
+    /// last hit, as the machine's `deepest`.
+    deepest: Vec<(u32, usize)>,
 }
 
 impl<'p> NativeExecutor<'p> {
     /// The executor for `program`, its compiled `image` and the `code`
-    /// compiled for that image.
+    /// compiled for that image, run on a stack of `stack_size` bytes (the
+    /// caller's thread has at least that many above where it calls from):
+    /// [`native_stack`] for `limits`, so that the frame counter fires first
+    /// and the stack-pointer check behind it never does.
     pub fn new(
         program: &'p Program,
         image: Image,
         code: Box<dyn NativeIslands>,
         limits: Limits,
+        stack_size: usize,
     ) -> NativeExecutor<'p> {
         NativeExecutor {
             globals: vec![None; program.globals.len()],
             program,
             code,
-            _image: image,
+            image,
             counts: EffectCounts::default(),
             steps: 0,
             limits,
+            stack_size,
+            stack_floor: None,
+            deepest: Vec::new(),
         }
+    }
+
+    /// [`NativeRun::stack_floor`]: `stack_size` less the host's and the
+    /// helpers' room and one frame below here, at the first crossing.
+    fn stack_floor(&mut self) -> u64 {
+        if let Some(floor) = self.stack_floor {
+            return floor;
+        }
+        let here = {
+            let marker = 0u8;
+            std::hint::black_box(&marker) as *const u8 as u64
+        };
+        let floor = match floor_depth(self.stack_size, self.code.crossing().max_frame) {
+            Some(depth) => here.saturating_sub(depth as u64),
+            // No room for even one frame: every call stops.
+            None => u64::MAX,
+        };
+        self.stack_floor = Some(floor);
+        floor
     }
 
     /// The effect runtime's work so far ([`crate::effect`]), for tests.
@@ -936,6 +947,7 @@ impl<'p> NativeExecutor<'p> {
         frames: u64,
         call: impl FnOnce(&Crossing, &mut NativeRun<'_>) -> Result<Value, ResourceError>,
     ) -> Result<Value, ResourceError> {
+        let stack_floor = self.stack_floor();
         let mut run = NativeRun {
             program: self.program,
             globals: &mut self.globals,
@@ -947,9 +959,17 @@ impl<'p> NativeExecutor<'p> {
             tail: Vec::new(),
             held: Vec::new(),
             deferred: Vec::new(),
+            bodies: Vec::new(),
+            stack_floor,
         };
         let out = call(self.code.crossing(), &mut run);
         self.steps = run.steps;
+        if matches!(out, Err(ResourceError::Depth)) {
+            // Out of frames (or, were the bound wrong, at the stack check
+            // behind them): the frames that left, by body, as the machine
+            // counts its own.
+            self.deepest = crate::machine::deepest(run.bodies.iter().copied());
+        }
         if out.is_err() {
             run.release_failed();
         }
@@ -1007,9 +1027,7 @@ impl crate::run::Executor for NativeExecutor<'_> {
     }
 
     fn depth_report(&self) -> Option<String> {
-        // Native frames aren't counted by body: stage NO5 adds the note,
-        // from the unwind.
-        None
+        crate::machine::depth_report(self.program, &self.image, &self.deepest)
     }
 }
 
@@ -1073,7 +1091,7 @@ pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
 /// what is kept here last first.
 /// `mode`: 0, a frame's registers (a segment); 1, a tail call's arguments;
 /// 2, a frame's closure (a group, even of no values: every leaving frame
-/// pushes one); 3, more for the last group (what the machine keeps in the
+/// pushes one), with the frame's `body` for the depth note; 3, more for the last group (what the machine keeps in the
 /// `Ret` of the frame that just left: an over-application's rest, a
 /// `Text.fold`'s function), or, if no frame has left yet (the call failed
 /// before its frame was pushed), dropped now, as the machine drops a
@@ -1084,7 +1102,13 @@ pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
 /// code doesn't use again.
 #[allow(unsafe_code)]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn sw_unwind(context: *mut Context, regs: *mut Value, n: u64, mode: u64) {
+pub unsafe extern "C" fn sw_unwind(
+    context: *mut Context,
+    regs: *mut Value,
+    n: u64,
+    mode: u64,
+    body: u64,
+) {
     // SAFETY: the caller's contract.
     let run = unsafe { &mut *(*context).run };
     let values: Vec<Value> = (0..n as usize)
@@ -1093,7 +1117,10 @@ pub unsafe extern "C" fn sw_unwind(context: *mut Context, regs: *mut Value, n: u
     match mode {
         0 => run.unwound.push(values),
         1 => run.tail.extend(values),
-        2 => run.held.push(values),
+        2 => {
+            run.held.push(values);
+            run.bodies.push(body as u32);
+        }
         _ => match run.held.last_mut() {
             Some(group) => group.extend(values),
             None => drop(values),

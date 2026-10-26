@@ -15,13 +15,11 @@
 
 mod common;
 
-use std::cell::RefCell;
 use std::path::Path;
-use std::rc::Rc;
 
 use common::*;
 use stitchwort_driver::driver::{Session, with_stack};
-use stitchwort_native::n1::{Options, factory};
+use stitchwort_native::n1::{Options, compile, stack_for};
 use stitchwort_rt::code;
 use stitchwort_rt::native_abi::NativeExecutor;
 use stitchwort_rt::value::Value;
@@ -413,15 +411,22 @@ fn effect_examples_agree_with_the_machine() {
                 // it equals the machine's, and the effect counts.
                 let run = |native: bool, trace: bool, expected: Option<&Value>| {
                     let (v, counts) = if native {
-                        let notes = Rc::new(RefCell::new(Vec::new()));
                         let options = Options {
                             trace_refcounts: trace,
-                            stack_size: Some(STACK),
                         };
                         let image = code::compile(&program);
-                        let islands = factory(options, notes.clone())(&program, &image)
-                            .unwrap_or_else(|| panic!("`{source}`: {:#?}", notes.borrow()));
-                        let mut e = NativeExecutor::new(&program, image, islands, limits);
+                        let islands = compile(&program, &image, options)
+                            .unwrap_or_else(|why| panic!("`{source}`: {why:#?}"));
+                        let stack =
+                            stack_for(limits.frames as u64, islands.max_frame, &islands.widest)
+                                .unwrap_or_else(|why| panic!("`{source}`: {why:#?}"));
+                        let mut e = NativeExecutor::new(
+                            &program,
+                            image,
+                            Box::new(islands),
+                            limits,
+                            stack.min(STACK),
+                        );
                         let v = e
                             .entry()
                             .unwrap_or_else(|e| panic!("`{source}` (native): {e}"));

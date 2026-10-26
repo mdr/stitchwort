@@ -17,7 +17,7 @@ use stitchwort_rt::native_abi::{
     self as abi, ApplyTrampoline, CrossingCode, EnterTrampoline, NativeIslands, StepTrampoline,
 };
 use stitchwort_rt::native_aot::{
-    FLAG_NESTS, FLAG_RESUMES, MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, image_hash,
+    FLAG_RESUMES, MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, image_hash,
 };
 
 /// The linked native code of one program.
@@ -46,10 +46,11 @@ unsafe fn table<T>(pointer: *const T, len: u64) -> &'static [T] {
 
 impl AotIslands {
     /// The code `manifest` describes, for `program` and its rebuilt
-    /// `image`, running on a stack of `stack_size` bytes: `Ok(None)` if the
-    /// executable has no native code (built without `--native`, or nothing
-    /// fitted), and an error if the code was compiled for another image
-    /// (never run it then: its numbering would be wrong).
+    /// `image`: `Ok(None)` if the executable has no native code (built
+    /// without `--native`), and an error if the code can't run: compiled for
+    /// another image (its numbering would be wrong), or for a layout of
+    /// values this runtime doesn't have (`abi::probe_layout`). The stack it
+    /// runs on is the manifest's `stack_size`, which the caller reserved.
     ///
     /// # Safety
     /// `manifest` is a manifest as the compiler writes it, whose tables
@@ -59,7 +60,6 @@ impl AotIslands {
         manifest: &'static Manifest,
         program: &Program,
         image: &Image,
-        stack_size: usize,
     ) -> Result<Option<AotIslands>, Mismatch> {
         if manifest.magic != MANIFEST_MAGIC || manifest.version != MANIFEST_VERSION {
             return Err(Mismatch(format!(
@@ -91,11 +91,9 @@ impl AotIslands {
                 image.lambda_code.len()
             )));
         }
-        if abi::probe_layout().is_err() {
-            // The same check `run --native` makes: the layout native code
-            // assumes doesn't hold, so the machine runs everything.
-            return Ok(None);
-        }
+        // The same check `build --native` made (stage NO5 of
+        // native-only.md): the layout native code assumes must hold here too.
+        abi::probe_layout().map_err(Mismatch)?;
         // SAFETY: the manifest's tables are as long as it says, and live
         // as long as the process (the caller's contract).
         let (functions, lambdas) = unsafe {
@@ -131,23 +129,15 @@ impl AotIslands {
                     apply,
                     step,
                     max_frame: manifest.max_frame as usize,
-                    nests: manifest.flags & FLAG_NESTS != 0,
                     resumes: manifest.flags & FLAG_RESUMES != 0,
                 },
                 abi::TableStore::new(program, image, manifest.n_caches as usize),
-                Some(stack_size),
             ),
         }))
     }
 }
 
 impl NativeIslands for AotIslands {
-    fn fits(&self, frame_limit: u64) -> bool {
-        // The executable has no `--verbose`, so a run left to the machine
-        // needs no note.
-        self.crossing.fits(frame_limit)
-    }
-
     fn crossing(&self) -> &abi::Crossing {
         // The tables and trampolines the manifest describes, linked into
         // this executable, for this image (checked in `new`).

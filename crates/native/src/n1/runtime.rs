@@ -64,7 +64,7 @@ use stitchwort_rt::native_abi::{
     VALUE_SIZE,
 };
 
-use super::{Helpers, Options, drop_deferred, drop_fun, fixed, flags, value_signature};
+use super::{Helpers, drop_deferred, drop_fun, fixed, flags, value_signature};
 
 /// The runtime bodies, declared.
 #[derive(Clone, Copy)]
@@ -147,7 +147,6 @@ struct Rt<'a, 'b> {
     /// The `Apply` sites compiled so far (each has a cache in the tables).
     caches: &'b mut u32,
     pointer: ir::Type,
-    options: Options,
     refs: BTreeMap<FuncId, FuncRef>,
     ctx: IrValue,
     frames: IrValue,
@@ -248,7 +247,8 @@ impl Rt<'_, '_> {
                     let at = self.addr(slot, 0);
                     let one = self.iconst(1);
                     let join = self.iconst(3);
-                    self.call(self.helpers.unwind, &[self.ctx, at, one, join]);
+                    let no_body = self.iconst(0);
+                    self.call(self.helpers.unwind, &[self.ctx, at, one, join, no_body]);
                 }
                 Hold::Fun(var) => self.drop_fun_var(var),
             }
@@ -296,15 +296,13 @@ impl Rt<'_, '_> {
             .b
             .ins()
             .icmp(IntCC::UnsignedGreaterThanOrEqual, self.frames, limit);
-        if self.options.stack_size.is_some() {
-            let sp = self.b.ins().get_stack_pointer(self.pointer);
-            let floor = self
-                .b
-                .ins()
-                .load(types::I64, flags(), self.ctx, Context::STACK_LIMIT_AT);
-            let low = self.b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
-            over = self.b.ins().bor(over, low);
-        }
+        let sp = self.b.ins().get_stack_pointer(self.pointer);
+        let floor = self
+            .b
+            .ins()
+            .load(types::I64, flags(), self.ctx, Context::STACK_LIMIT_AT);
+        let low = self.b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
+        over = self.b.ins().bor(over, low);
         let out = self.b.create_block();
         let fine = self.b.create_block();
         self.b.ins().brif(over, out, &[], fine, &[]);
@@ -550,7 +548,6 @@ pub(crate) struct Emit<'b> {
     pub(crate) apply_any: &'b BTreeMap<u32, FuncId>,
     pub(crate) runtime: Runtime,
     pub(crate) pointer: ir::Type,
-    pub(crate) options: Options,
     /// `Call`'s tag (`Shapes::call`), for a `translate`'s operation.
     pub(crate) call_tag: u32,
 }
@@ -577,7 +574,6 @@ fn begin<'a, 'b>(
         apply_any: emit.apply_any,
         caches,
         pointer: emit.pointer,
-        options: emit.options,
         refs: BTreeMap::new(),
         ctx: params[0],
         frames: params[1],

@@ -90,16 +90,7 @@ pub fn run_main_on(
     output: &mut impl Write,
     terminal: &mut dyn Terminal,
 ) -> Result<(), RunError> {
-    let result = run_inner(
-        program,
-        limits,
-        &Policy::default(),
-        None,
-        input,
-        output,
-        terminal,
-    )
-    .0;
+    let result = run_inner(program, limits, &Policy::default(), input, output, terminal).0;
     match result {
         Ok(_) => output.flush().map_err(RunError::Write),
         Err(e) => {
@@ -165,7 +156,7 @@ pub fn run_main_counting_on(
     output: &mut impl Write,
     terminal: &mut dyn Terminal,
 ) -> (Result<Outcome, RunError>, RouteCounts) {
-    run_inner(program, limits, policy, None, input, output, terminal)
+    run_inner(program, limits, policy, input, output, terminal)
 }
 
 /// What the runner runs the program's code with (stage NO4 of
@@ -195,28 +186,28 @@ pub trait Executor {
     fn depth_report(&self) -> Option<String>;
 }
 
-/// Makes native code for a compiled program (`crate::native_abi`), or
-/// `None` to run it all on the machine.
-pub type NativeFactory<'a> =
-    &'a mut dyn FnMut(&Program, &crate::code::Image) -> Option<Box<dyn NativeIslands>>;
-
-/// Runs `program` as [`run_main_on`] does, natively if `native` makes code
-/// for it (stage NO4 of docs/proposals/native-only.md: every body `main`
-/// reaches, its entry included, compiled, and the runner on a
-/// [`NativeExecutor`]), and otherwise on the machine. Flushes `output`.
+/// Runs `program` as [`run_main_on`] does, as native code: `code`, every
+/// body `main` reaches compiled for `image` (its entry included), with the
+/// runner on a [`NativeExecutor`] (stage NO4 of
+/// docs/proposals/native-only.md) and the machine running nothing. The code
+/// runs on a stack of `stack_size` bytes (`native_abi::native_stack`: the
+/// caller's thread has that many). Flushes `output`.
+#[allow(clippy::too_many_arguments)]
 pub fn run_main_native(
     program: &Program,
+    image: crate::code::Image,
+    code: Box<dyn NativeIslands>,
     limits: Limits,
-    native: NativeFactory<'_>,
+    stack_size: usize,
     input: &mut impl BufRead,
     output: &mut impl Write,
     terminal: &mut dyn Terminal,
 ) -> Result<(), RunError> {
-    let result = run_inner(
-        program,
+    let executor = NativeExecutor::new(program, image, code, limits, stack_size);
+    let result = run_on(
+        executor,
         limits,
         &Policy::default(),
-        Some(native),
         input,
         output,
         terminal,
@@ -235,21 +226,11 @@ fn run_inner(
     program: &Program,
     limits: Limits,
     policy: &Policy,
-    native: Option<NativeFactory<'_>>,
     input: &mut impl BufRead,
     output: &mut impl Write,
     terminal: &mut dyn Terminal,
 ) -> (Result<Outcome, RunError>, RouteCounts) {
     let image = crate::code::compile(program);
-    if let Some(native) = native
-        && let Some(code) = native(program, &image)
-    {
-        // The whole run native, or (below) none of it.
-        if code.fits(limits.frames as u64) {
-            let executor = NativeExecutor::new(program, image, code, limits);
-            return run_on(executor, limits, policy, input, output, terminal);
-        }
-    }
     let machine = Machine::with_image(program, image, limits);
     run_on(machine, limits, policy, input, output, terminal)
 }

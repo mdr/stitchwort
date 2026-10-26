@@ -13,11 +13,12 @@
 //!   any thread starts, so that Ctrl-C puts the terminal back.
 //! - It decodes the program and runs it as `run --native` does
 //!   ([`stitchwort_rt::run_main_native`]): natively, every body `main`
-//!   reaches, where `stitchwort build --native` compiled them (stage S5:
+//!   reaches, as `stitchwort build --native` compiled them (stage S5:
 //!   [`aot`], from the object's `sw_native_manifest`; stage NO4 of
-//!   native-only.md: the entry too), and otherwise on the machine. It runs on a thread with a big stack, with the
-//!   Unix terminal, standard input locked and a `BufWriter` on standard
-//!   output.
+//!   native-only.md: the entry too), on a thread with the stack the build
+//!   sized for them (stage NO5); or, built without `--native`, on the
+//!   machine. It runs with the Unix terminal, standard input locked and a
+//!   `BufWriter` on standard output.
 //! - It reports errors as `stitchwort run` does, without the excerpt of
 //!   `main`'s source, which the binary doesn't have (§2.4), and exits with
 //!   `run`'s statuses: 0, 1 for an unhandled `Fail`, 2 for a runtime error.
@@ -42,19 +43,32 @@ pub const EXIT_ERROR: i32 = 2;
 /// The exit status of a panic, as for a Rust program.
 pub const EXIT_PANIC: i32 = 101;
 
-/// Runs the encoded program `bytes` as `stitchwort run` runs a program, on a
-/// thread of [`stitchwort_host::NATIVE_STACK`] bytes, and reports how it
-/// ended on standard error. Returns the exit status. `manifest` describes
-/// the native code linked in, if any (`sw_native_manifest`).
+/// The stack an executable without native code runs the machine on: as
+/// `stitchwort run`'s.
+pub const MACHINE_STACK: usize = 64 * 1024 * 1024;
+
+/// Runs the encoded program `bytes` as `stitchwort run` runs a program, and
+/// reports how it ended on standard error. Returns the exit status.
+/// `manifest` describes the native code linked in, if any
+/// (`sw_native_manifest`): the program then runs on a thread with the stack
+/// the build sized for it, and if that can't be reserved, says so and exits
+/// with [`EXIT_ERROR`] before running anything.
 pub fn run_encoded(bytes: &'static [u8], manifest: Option<&'static Manifest>) -> i32 {
+    let native = manifest.filter(|manifest| !manifest.enter.is_null());
+    let stack = native.map_or(MACHINE_STACK, |manifest| manifest.stack_size as usize);
     let ran = std::panic::catch_unwind(|| {
-        stitchwort_host::with_stack(stitchwort_host::NATIVE_STACK, move || {
-            run_on_this_thread(bytes, manifest)
-        })
+        stitchwort_host::try_with_stack(stack, move || run_on_this_thread(bytes, manifest))
     });
-    // The panic's message was shown by the panic hook, after it put the
-    // terminal back.
-    ran.unwrap_or(EXIT_PANIC)
+    match ran {
+        Ok(Ok(status)) => status,
+        Ok(Err(e)) => {
+            eprintln!("error: this executable can't reserve its stack of {stack} bytes: {e}");
+            EXIT_ERROR
+        }
+        // The panic's message was shown by the panic hook, after it put the
+        // terminal back.
+        Err(_) => EXIT_PANIC,
+    }
 }
 
 fn run_on_this_thread(bytes: &[u8], manifest: Option<&'static Manifest>) -> i32 {
@@ -65,6 +79,23 @@ fn run_on_this_thread(bytes: &[u8], manifest: Option<&'static Manifest>) -> i32 
             return EXIT_ERROR;
         }
     };
+    // The native code linked in, if any, checked against the image the
+    // runtime rebuilt, before the program runs at all: a mismatch ends the
+    // process with nothing done.
+    let image = stitchwort_rt::code::compile(&program);
+    let native = match manifest {
+        // SAFETY: `manifest` is `sw_native_manifest`, as the compiler wrote
+        // it, with its tables and code linked into this executable.
+        #[allow(unsafe_code)]
+        Some(manifest) => match unsafe { aot::AotIslands::new(manifest, &program, &image) } {
+            Ok(islands) => islands.map(|islands| (islands, manifest.stack_size as usize)),
+            Err(aot::Mismatch(why)) => {
+                eprintln!("internal error: this executable can't run: {why}");
+                return EXIT_ERROR;
+            }
+        },
+        None => None,
+    };
     let mut input = io::stdin().lock();
     let mut output = BufWriter::new(io::stdout().lock());
     #[cfg(unix)]
@@ -74,36 +105,21 @@ fn run_on_this_thread(bytes: &[u8], manifest: Option<&'static Manifest>) -> i32 
     );
     #[cfg(not(unix))]
     let (mut terminal, restore) = (stitchwort_rt::host::NoTerminal, ());
-    // The native code linked in, if any, checked against the image the
-    // runtime rebuilt. The factory is called once, before the program runs
-    // at all, so a mismatch ends the process with nothing done: the program
-    // would run correctly on the machine, but the executable is broken.
-    let mut native = |program: &stitchwort_rt::Program, image: &stitchwort_rt::code::Image| {
-        let manifest = manifest?;
-        // SAFETY: `manifest` is `sw_native_manifest`, as the compiler wrote
-        // it, with its tables and code linked into this executable.
-        #[allow(unsafe_code)]
-        let islands = unsafe {
-            aot::AotIslands::new(manifest, program, image, stitchwort_host::NATIVE_STACK)
-        };
-        match islands {
-            Ok(islands) => islands.map(|islands| {
-                Box::new(islands) as Box<dyn stitchwort_rt::native_abi::NativeIslands>
-            }),
-            Err(aot::Mismatch(why)) => {
-                eprintln!("internal error: this executable can't run: {why}");
-                std::process::exit(EXIT_ERROR);
-            }
+    let result = match native {
+        Some((islands, stack_size)) => stitchwort_rt::run_main_native(
+            &program,
+            image,
+            Box::new(islands),
+            limits,
+            stack_size,
+            &mut input,
+            &mut output,
+            &mut terminal,
+        ),
+        None => {
+            stitchwort_rt::run_main_on(&program, limits, &mut input, &mut output, &mut terminal)
         }
     };
-    let result = stitchwort_rt::run_main_native(
-        &program,
-        limits,
-        &mut native,
-        &mut input,
-        &mut output,
-        &mut terminal,
-    );
     // Out of keys mode before an error is shown, so it's on the normal
     // screen.
     drop(restore);

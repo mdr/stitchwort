@@ -18,10 +18,10 @@
 //!   adapter, `value{g}`), or null: `Context::functions`;
 //! - `sw_lambdas`: for each lambda, its body, or null: `Context::lambdas`;
 //! - `sw_native_manifest`, the one the runtime looks up: the image's hash,
-//!   the cache count, the frames' bound and flags, the counts of the two
-//!   tables and pointers to them, and the trampolines into the entry, the
-//!   apply stubs and the effect runtime's loop (exported as
-//!   `sw_cross_enter` and the others).
+//!   the cache count, the frames' bound, the stack sized for them (stage NO5
+//!   of native-only.md) and flags, the counts of the two tables and pointers
+//!   to them, and the trampolines into the entry, the apply stubs and the
+//!   effect runtime's loop (exported as `sw_cross_enter` and the others).
 //!
 //! The pointers are data relocations, which the loader fills in.
 
@@ -31,8 +31,7 @@ use cranelift_module::{DataDescription, DataId, Linkage, Module, default_libcall
 use cranelift_object::{ObjectBuilder, ObjectModule, object};
 use stitchwort_rt::code::Image;
 use stitchwort_rt::ir::Program;
-use stitchwort_rt::native_abi as abi;
-use stitchwort_rt::native_aot::{FLAG_NESTS, FLAG_RESUMES, Manifest, image_hash};
+use stitchwort_rt::native_aot::{FLAG_RESUMES, Manifest, image_hash};
 
 use crate::n1::{self, Audit, Emitted, Options};
 
@@ -41,58 +40,46 @@ pub struct ObjectCode {
     /// The object: the code and its manifest. The caller adds the program
     /// (`sw_program`) and writes it.
     pub object: object::write::Object<'static>,
-    /// How many bodies were compiled, of how many `main` reaches (its entry
+    /// How many bodies were compiled (every one `main` reaches, its entry
     /// included), and in what time.
     pub bodies: usize,
-    pub reachable: usize,
     pub compile_time: Duration,
     /// A bound on the stack the widest body uses.
     pub max_frame: usize,
-    /// Whether the code's frames may nest inside runs of the machine
-    /// (`n1::Plan::nests`).
-    pub nests: bool,
-    /// Why any body `main` reaches isn't compiled.
-    pub notes: Vec<String>,
+    /// The stack the executable reserves for native code
+    /// (`n1::stack_for`).
+    pub stack_size: usize,
 }
 
 impl ObjectCode {
-    /// What `build --native --verbose` says: the notes, then what compiled,
-    /// then, if `frame_limit` frames may not fit a stack of `stack_size`
-    /// bytes, that the executable will run everything on the machine (the
-    /// crossing's own rule, `abi::Crossing::fits`, as `run --native` notes
-    /// it).
-    pub fn report(&self, frame_limit: u64, stack_size: usize) -> Vec<String> {
-        let mut report = self.notes.clone();
-        report.push(format!(
-            "native: compiled {} of the {} bodies `main` reaches (frames of at most {} bytes, in {:.1} ms)",
+    /// What `build --native --verbose` says: what compiled, and the stack.
+    pub fn report(&self) -> Vec<String> {
+        vec![format!(
+            "native: compiled {} of the {} bodies `main` reaches (frames of at most {} bytes, a stack of {} MiB, in {:.1} ms)",
             self.bodies,
-            self.reachable,
+            self.bodies,
             self.max_frame,
+            self.stack_size / (1024 * 1024),
             self.compile_time.as_secs_f64() * 1000.0
-        ));
-        let level = abi::level(self.max_frame, self.nests);
-        if !abi::counter_fires_first(frame_limit, stack_size, level) {
-            report.push(format!(
-                "native: the executable will run everything on the machine: {frame_limit} frames of up to {level} bytes may not fit the {stack_size}-byte stack"
-            ));
-        }
-        report
+        )]
     }
 }
 
 /// Compiles the bodies `program`'s entry reaches (`image` is its compiled
 /// image, which the runtime will rebuild) into an object for this machine,
-/// or says why the whole run stays on the machine. `options.stack_size`
-/// should be the stack the executable runs native code on.
+/// with a stack sized for `frame_limit` frames, or says why it can't (stage
+/// NO5 of native-only.md: there's no machine to fall back to): the
+/// message, then any notes.
 pub fn compile_object(
     program: &Program,
     image: &Image,
     options: Options,
+    frame_limit: u64,
 ) -> Result<ObjectCode, Vec<String>> {
-    abi::probe_layout().map_err(|e| vec![format!("native: {e}")])?;
+    n1::preflight()?;
     let plan = n1::plan(program, image)?;
     let start = Instant::now();
-    let fail = |e: String| vec![format!("native: compiling failed: {e}")];
+    let fail = |e: String| vec![format!("compiling to native code failed: {e}")];
     let isa = n1::host_isa(true).map_err(fail)?;
     let builder = ObjectBuilder::new(isa, "program", default_libcall_names())
         .map_err(|e| fail(e.to_string()))?;
@@ -106,6 +93,7 @@ pub fn compile_object(
         trampolines,
         n_caches,
         max_frame,
+        widest,
     } = n1::emit(
         &mut module,
         program,
@@ -115,6 +103,12 @@ pub fn compile_object(
         dump,
         &mut audit,
         true,
+    )?;
+
+    let stack_size = n1::stack_for(
+        frame_limit,
+        max_frame,
+        &n1::body_name(program, image, widest),
     )?;
 
     let n_globals = program.globals.len();
@@ -163,7 +157,8 @@ pub fn compile_object(
             image_hash(image),
             n_caches as u64,
             max_frame as u64,
-            if plan.nests { FLAG_NESTS } else { 0 } | if plan.effects { FLAG_RESUMES } else { 0 },
+            stack_size as u64,
+            if plan.effects { FLAG_RESUMES } else { 0 },
             if functions_table.is_some() {
                 n_globals as u64
             } else {
@@ -206,10 +201,8 @@ pub fn compile_object(
     Ok(ObjectCode {
         object: product.object,
         bodies: plan.bodies.len(),
-        reachable: plan.reachable,
         compile_time: start.elapsed(),
         max_frame,
-        nests: plan.nests,
-        notes: plan.notes,
+        stack_size,
     })
 }

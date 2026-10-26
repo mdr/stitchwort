@@ -24,12 +24,19 @@ fn the_object_exports_its_manifest_and_trampolines_and_its_code_is_relocatable()
         let image = code::compile(&program);
         let options = Options {
             trace_refcounts: false,
-            stack_size: Some(STACK),
         };
-        let compiled = compile_object(&program, &image, options).expect("compiles");
+        let frames = stitchwort_rt::Limits::from_core(Default::default()).frames as u64;
+        let compiled = compile_object(&program, &image, options, frames).expect("compiles");
         // Every body `main` reaches, its entry included (stage NO4 of
-        // native-only.md).
-        assert_eq!(compiled.bodies, compiled.reachable);
+        // native-only.md), on the stack sized for them (stage NO5).
+        assert_eq!(
+            compiled.bodies,
+            stitchwort_rt::census::island(&image, image.entry_code).len()
+        );
+        assert_eq!(
+            Some(compiled.stack_size),
+            stitchwort_rt::native_abi::native_stack(frames, compiled.max_frame)
+        );
         let bytes = compiled.object.write().expect("writes");
         let file = object::File::parse(&*bytes).expect("parses");
         let prefix = if cfg!(target_os = "macos") { "_" } else { "" };

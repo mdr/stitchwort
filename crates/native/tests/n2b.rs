@@ -12,13 +12,10 @@
 //! - The allocation trace of each error exit is event-identical to the
 //!   machine's.
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use stitchwort_core::ResourceError;
 use stitchwort_driver::driver::{Session, Tier, tier, with_stack};
 use stitchwort_native::frames;
-use stitchwort_native::n1::{Options, factory};
+use stitchwort_native::n1::{Options, compile, stack_for};
 use stitchwort_rt::host::{NoTerminal, RunError};
 use stitchwort_rt::{Limits, Program, alloc_trace, lower_main, run_main, run_main_native};
 
@@ -70,23 +67,40 @@ fn native_on(
     trace_refcounts: bool,
     stack: usize,
 ) -> (Ran, Vec<String>) {
-    let notes = Rc::new(RefCell::new(Vec::new()));
-    let options = Options {
-        trace_refcounts,
-        stack_size: Some(stack),
-    };
-    let mut make = factory(options, notes.clone());
+    let (output, result, notes) = native_run(program, limits, trace_refcounts, stack);
+    (ended(output, result), notes)
+}
+
+/// [`native_on`], with the error as it is.
+fn native_run(
+    program: &Program,
+    limits: Limits,
+    trace_refcounts: bool,
+    stack: usize,
+) -> (Vec<u8>, Result<(), RunError>, Vec<String>) {
+    let options = Options { trace_refcounts };
     let mut output = Vec::new();
+    // Compiled as `run --native` compiles it (stage NO5 of
+    // docs/proposals/native-only.md): every body or a refusal, and a stack
+    // sized for the frame limit, here at most the thread's `stack`.
+    let image = stitchwort_rt::code::compile(program);
+    let compiled = compile(program, &image, options).and_then(|islands| {
+        let sized = stack_for(limits.frames as u64, islands.max_frame, &islands.widest)?;
+        Ok((islands, sized))
+    });
+    let (islands, sized) = compiled.unwrap_or_else(|why| panic!("doesn't compile: {why:#?}"));
+    let notes = vec![islands.note()];
     let result = run_main_native(
         program,
+        image,
+        Box::new(islands),
         limits,
-        &mut make,
+        sized.min(stack),
         &mut "".as_bytes(),
         &mut output,
         &mut NoTerminal,
     );
-    let notes = notes.borrow().clone();
-    (ended(output, result), notes)
+    (output, result, notes)
 }
 
 fn native(program: &Program, limits: Limits, trace_refcounts: bool) -> (Ran, Vec<String>) {
@@ -95,7 +109,6 @@ fn native(program: &Program, limits: Limits, trace_refcounts: bool) -> (Ran, Vec
 
 fn ran_natively(notes: &[String]) -> bool {
     notes.iter().any(|n| n.starts_with("native: running "))
-        && !notes.iter().any(|n| n.contains("ran on the machine"))
 }
 
 /// The widest body's frame bound, from the note on what ran natively.
@@ -251,11 +264,14 @@ fn recursion_to_the_frame_limit_stops_at_the_counter() {
     }
 }
 
-/// With a stack too small for the frame limit to be sure of, the call stays
-/// on the machine (and says so), so the run is the machine's: it never
-/// reaches a stack it can't hold.
+/// The stack-pointer check behind the frame counter (stage NO5 of
+/// docs/proposals/native-only.md): a run sizes its stack so that the
+/// counter always fires first, but were that bound wrong, the check stops
+/// the run with the same clean out-of-frames error and depth note, never a
+/// crash. Here the stack is made too small on purpose; there's no machine
+/// to fall back to.
 #[test]
-fn a_stack_too_small_for_the_limit_keeps_the_run_on_the_machine() {
+fn a_stack_too_small_for_the_limit_stops_cleanly_at_the_stack_check() {
     let source = wide_recursion(12, 20_000);
     let host = 1024 * 1024 * 1024;
     with_stack(host, move || {
@@ -267,24 +283,27 @@ fn a_stack_too_small_for_the_limit_keeps_the_run_on_the_machine() {
         // Room for a tenth of the frames the run needs, under a limit that
         // the run reaches (2,000,000 is the default).
         let size = frames::HOST_ROOM + frames::HELPER_ROOM + bound * 2_000;
-        let (ran, notes) = native_on(&program, limits, false, size);
-        assert_eq!(ran, expected, "{notes:#?}");
-        assert!(
-            notes.iter().any(|n| n.contains("ran on the machine")),
-            "{notes:#?}"
-        );
+        let (output, result, notes) = native_run(&program, limits, false, size);
+        assert!(ran_natively(&notes), "{notes:#?}");
+        assert!(output.is_empty());
+        match result {
+            Err(RunError::Deep(report)) => assert!(
+                report.starts_with("`Main.deep` (") && report.ends_with(" frames pending)"),
+                "{report}"
+            ),
+            other => panic!("not out of frames with a note: {other:?}"),
+        }
         // Nor can a stack smaller than the rooms alone run anything.
         let (ran, notes) = native_on(&program, limits, false, 1024 * 1024);
-        assert_eq!(ran, expected, "{notes:#?}");
-        assert!(
-            notes.iter().any(|n| n.contains("ran on the machine")),
-            "{notes:#?}"
-        );
-        // A limit that does fit runs natively, on the same stack.
+        assert!(ran_natively(&notes), "{notes:#?}");
+        assert_eq!(ran.1, Err("out of frames".to_string()));
+        // A limit that does fit stops at the counter, on the same stack, as
+        // the machine does.
         let fits = (size - frames::HOST_ROOM - frames::HELPER_ROOM) as u64 / bound as u64 - 1;
         let (ran, notes) = native_on(&program, with_frames(limits, fits), false, size);
         assert!(ran_natively(&notes), "{notes:#?}");
         assert_eq!(ran.1, Err("out of frames".to_string()));
+        assert_eq!(ran, on_machine(&program, with_frames(limits, fits)));
     });
 }
 

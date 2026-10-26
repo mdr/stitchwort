@@ -237,27 +237,7 @@ impl<'p> Machine<'p> {
     /// the most pending calls, as "`List.append` (120000 calls), …". A
     /// function value that isn't a definition is "a lambda".
     pub fn depth_report(&self) -> Option<String> {
-        if self.st.deepest.is_empty() {
-            return None;
-        }
-        let name = |code: u32| -> String {
-            if let Some(g) = self.image.global_code.iter().position(|c| *c == Some(code)) {
-                return format!("`{}`", self.program.globals[g].name);
-            }
-            if code == self.image.entry_code {
-                return "the program's entry".to_string();
-            }
-            "an anonymous function".to_string()
-        };
-        let parts: Vec<String> = self
-            .st
-            .deepest
-            .iter()
-            // Only the ones with a real share (the entry has one frame).
-            .filter(|&&(_, count)| count * 10 >= self.st.deepest[0].1)
-            .map(|&(code, count)| format!("{} ({count} frames pending)", name(code)))
-            .collect();
-        Some(parts.join(", "))
+        depth_report(&self.program, &self.image, &self.st.deepest)
     }
 
     /// The compiled code it runs.
@@ -332,6 +312,47 @@ thread_local! {
 /// docs/proposals/native-only.md). In every build, since the test tiers run
 /// release binaries; an increment per instruction, in the machine's state,
 /// is little next to the instruction.
+/// The bodies with the most of `codes` (the pending frames' bodies, one
+/// each): the three with the most, and how many each has, most first.
+/// Shared with native code's executor, which counts the frames that left
+/// with the error (stage NO5 of docs/proposals/native-only.md).
+pub(crate) fn deepest(codes: impl IntoIterator<Item = u32>) -> Vec<(u32, usize)> {
+    let mut counts: stitchwort_core::collections::HashMap<u32, usize> = Default::default();
+    for code in codes {
+        *counts.entry(code).or_insert(0) += 1;
+    }
+    let mut counts: Vec<(u32, usize)> = counts.into_iter().collect();
+    counts.sort_by_key(|&(code, count)| (std::cmp::Reverse(count), code));
+    counts.truncate(3);
+    counts
+}
+
+/// [`Machine::depth_report`] for `deepest` ([`deepest`]) of `image`'s
+/// bodies.
+pub(crate) fn depth_report(
+    program: &Program,
+    image: &Image,
+    deepest: &[(u32, usize)],
+) -> Option<String> {
+    let &(_, most) = deepest.first()?;
+    let name = |code: u32| -> String {
+        if let Some(g) = image.global_code.iter().position(|c| *c == Some(code)) {
+            return format!("`{}`", program.globals[g].name);
+        }
+        if code == image.entry_code {
+            return "the program's entry".to_string();
+        }
+        "an anonymous function".to_string()
+    };
+    let parts: Vec<String> = deepest
+        .iter()
+        // Only the ones with a real share (the entry has one frame).
+        .filter(|&&(_, count)| count * 10 >= most)
+        .map(|&(code, count)| format!("{} ({count} frames pending)", name(code)))
+        .collect();
+    Some(parts.join(", "))
+}
+
 pub fn instructions_executed() -> u64 {
     EXECUTED.with(std::cell::Cell::get)
 }
@@ -395,14 +416,7 @@ impl State {
     /// the most.
     #[cold]
     fn note_deepest(&mut self) {
-        let mut counts: stitchwort_core::collections::HashMap<u32, usize> = Default::default();
-        for frame in &self.frames {
-            *counts.entry(frame.code).or_insert(0) += 1;
-        }
-        let mut counts: Vec<(u32, usize)> = counts.into_iter().collect();
-        counts.sort_by_key(|&(code, count)| (std::cmp::Reverse(count), code));
-        counts.truncate(3);
-        self.deepest = counts;
+        self.deepest = deepest(self.frames.iter().map(|frame| frame.code));
     }
 
     #[inline]
