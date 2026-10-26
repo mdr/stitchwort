@@ -3776,14 +3776,16 @@
     {
       "id": 544,
       "title": "bench/baseline.toml: check-closed-print/-dot/-eqeq/-list-eqeq flagged ~+28% steps on main (found by kernel args-first lane); find cause or re-record",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
-      "commits": []
+      "updated": "2026-10-26",
+      "commits": [
+        "f9063f98"
+      ]
     },
     {
       "id": 545,
