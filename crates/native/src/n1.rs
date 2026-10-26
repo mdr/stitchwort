@@ -997,10 +997,6 @@ impl Gen<'_, '_> {
         self.b.ins().iconst(types::I32, i64::from(n))
     }
 
-    fn address(&mut self, n: usize) -> IrValue {
-        self.b.ins().iconst(self.pointer, n as i64)
-    }
-
     /// The address of spill slot `i`.
     fn spill_address(&mut self, i: usize) -> IrValue {
         self.b
@@ -1993,7 +1989,21 @@ impl Gen<'_, '_> {
             }
             let regs = self.spill_address(0);
             let src = self.i32const(src);
-            let at = self.address(ops(self.code, fields).as_ptr() as usize);
+            // The pairs, written to the stack (not the image's operand list
+            // by address: the code holds no host address).
+            let list = ops(self.code, fields).to_vec();
+            let pairs_slot = self.b.create_sized_stack_slot(StackSlotData::new(
+                StackSlotKind::ExplicitSlot,
+                (list.len().max(1) * 4) as u32,
+                2,
+            ));
+            for (i, x) in list.iter().enumerate() {
+                let x = self.i32const(*x);
+                self.b
+                    .ins()
+                    .stack_store(self.pointer, x, pairs_slot, (i * 4) as i32);
+            }
+            let at = self.b.ins().stack_addr(self.pointer, pairs_slot, 0);
             let n = self.iconst(pairs.len() as u64);
             let token = self.i32const(token);
             self.call_helper(self.helpers.unpack, &[regs, src, at, n, token]);
