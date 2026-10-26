@@ -1,5 +1,5 @@
 {
-  "next": 545,
+  "next": 547,
   "tickets": [
     {
       "id": 13,
@@ -3477,15 +3477,17 @@
     },
     {
       "id": 521,
-      "title": "Live keys lanes 2-4: lane 2 merged (7ce810f9), lane 3 pane merged (20be392c); lane 4 rogue live doing",
-      "status": "doing",
+      "title": "Live keys lanes 2-4: live run (7ce810f9), terminal pane (20be392c), rogue plays live (bc69bd55)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "bc69bd55"
+      ]
     },
     {
       "id": 522,
@@ -3551,7 +3553,7 @@
     },
     {
       "id": 527,
-      "title": "Opaque defs lanes 3-4: lane 4 rogue on the stairs built (1cdab95d, branch, review); lane 3 messages doing (branch)",
+      "title": "Opaque defs lanes 3-4: lane 4 rogue on stairs (1cdab95d) + lane 3 messages (6f4741f5) built on branches, awaiting review",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -3779,6 +3781,30 @@
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 545,
+      "title": "Flaky merge-tier failure under load: stitchwort-cli::examples rejected_examples_fail_for_the_expected_reason (seen 3+ times overnight, passes on rerun)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 546,
+      "title": "Panic: match on Vec a (succ n) with only VCons arm -> fin_missing 'library built-in FSucc before its file loads' (registry.rs:512)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
       "commits": []
     }
   ]
