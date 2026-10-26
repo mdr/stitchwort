@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ soundness/literal-match-default-unlisted.sw:13:16 ]
+    │
+ 13 │     | _ => Inr rfl
+    │                ─┬─  
+    │                 ╰─── `kind n` and `0` aren't equal
+    │ 
+    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 2: number patterns only test values: an arm with a variable or `_` where the others have numbers knows only that `n` is none of those numbers, not what it is. To use the shape of `n`, match on `Zero` and `Succ` instead
+    │ 
+    │ Note 3: this statement is false; a counterexample:
+    │           n = 7
+    │         `n = 3 ∨ kind n = 0` is false
+────╯

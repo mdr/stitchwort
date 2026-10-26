@@ -133,7 +133,7 @@ pub(crate) fn rigid_head(g: &Globals, v: &Value) -> Option<Rigid> {
         Value::Pi(..) => Rigid::Pi,
         Value::Sort(_) => Rigid::Sort,
         Value::Eq(..) => Rigid::Eq,
-        Value::Neutral(Head::Var(_), _) => Rigid::Var,
+        Value::Neutral(Head::Var(_, _), _) => Rigid::Var,
         Value::Neutral(Head::Quot(QuotForm::Type), spine)
             if spine.len() == QuotForm::Type.arity() =>
         {
@@ -863,7 +863,7 @@ fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Re
     for elim in spine {
         match elim {
             Elim::App(arg, icit) => match force(g, arg.clone())? {
-                Value::Neutral(Head::Var(l), s) if s.is_empty() => {
+                Value::Neutral(Head::Var(l, _), s) if s.is_empty() => {
                     if renaming.insert(l, icits.len()).is_some() {
                         repeated.push(l);
                     }
@@ -983,7 +983,7 @@ fn rename(
             let (head, rest) = match head {
                 Head::Meta(_) => return Err(Fail::No),
                 Head::Def(id) => (Term::Def(id), &spine[..]),
-                Head::Var(l) => {
+                Head::Var(l, _) => {
                     let new = *renaming.get(&l).ok_or(Fail::No)?;
                     (Term::Var(dom - 1 - new), &spine[..])
                 }
@@ -1044,7 +1044,7 @@ fn prune(
     for elim in spine {
         match elim {
             Elim::App(v, _) => match force(g, v.clone())? {
-                Value::Neutral(Head::Var(l), s) if s.is_empty() && !levels.contains(&l) => {
+                Value::Neutral(Head::Var(l, _), s) if s.is_empty() && !levels.contains(&l) => {
                     levels.push(l);
                 }
                 _ => return Ok(None),
@@ -1602,6 +1602,7 @@ fn empty_row_done(g: &Globals, term: &Term) -> Option<Term> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use stitchwort_core::value::Apart;
     use stitchwort_core::{Icit, Sort};
     use stitchwort_syntax::{SourceMap, Span};
 
@@ -1633,7 +1634,7 @@ mod tests {
     }
 
     fn is_var(g: &Globals, v: &Value, level: usize) -> bool {
-        matches!(force(g, v.clone()).unwrap(), Value::Neutral(Head::Var(l), s) if l == level && s.is_empty())
+        matches!(force(g, v.clone()).unwrap(), Value::Neutral(Head::Var(l, _), s) if l == level && s.is_empty())
     }
 
     #[test]
@@ -1953,7 +1954,7 @@ mod tests {
         let x = Value::var(0);
         let applied = |args: Vec<usize>| {
             Value::Neutral(
-                Head::Var(0),
+                Head::Var(0, Apart::NONE),
                 args.into_iter()
                     .map(|l| Elim::App(Value::var(l), Icit::Explicit))
                     .collect(),
@@ -1965,7 +1966,7 @@ mod tests {
         assert!(!unify(&g, 3, &x, &Value::var(1)).unwrap());
         let stuck = |motive: Value| {
             Value::Neutral(
-                Head::Var(0),
+                Head::Var(0, Apart::NONE),
                 vec![Elim::J {
                     motive: Box::new(motive),
                     base: Box::new(ty()),

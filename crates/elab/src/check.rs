@@ -502,7 +502,7 @@ impl<'e> Ctx<'e> {
     pub fn fresh_meta(&self) -> Term {
         let mut term = Term::Meta(self.g().new_meta(self.span));
         for (level, value) in self.env.iter().enumerate() {
-            if matches!(value, Value::Neutral(Head::Var(l), s) if *l == level && s.is_empty()) {
+            if matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty()) {
                 term = Term::app(term, Term::Var(self.level() - 1 - level));
             }
         }
@@ -2218,7 +2218,9 @@ fn ignorable_arguments(cx: &Ctx, goal: &Value) -> Option<std::rc::Rc<[bool]>> {
         cx.env
             .iter()
             .enumerate()
-            .filter(|(l, v)| matches!(v, Value::Neutral(Head::Var(x), s) if x == l && s.is_empty()))
+            .filter(
+                |(l, v)| matches!(v, Value::Neutral(Head::Var(x, _), s) if x == l && s.is_empty()),
+            )
             .map(|(l, _)| ignorable[l])
             .collect(),
     )

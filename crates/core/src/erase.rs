@@ -57,19 +57,19 @@ use std::rc::Rc;
 use crate::check;
 use crate::globals::{Globals, State};
 use crate::term::DefId;
-use crate::value::{Head, Spine, Value};
+use crate::value::{Apart, Head, Spine, Value};
 
 /// The level of the placeholder's variable: never a real one.
 const ERASED: usize = usize::MAX - 1;
 
 /// What stands for an erased value: a variable no binder has.
 pub fn erased() -> Value {
-    Value::Neutral(Head::Var(ERASED), Spine::new())
+    Value::Neutral(Head::Var(ERASED, Apart::NONE), Spine::new())
 }
 
 /// Whether `value` is the placeholder (possibly applied to arguments).
 pub fn is_erased(value: &Value) -> bool {
-    matches!(value, Value::Neutral(Head::Var(ERASED), _))
+    matches!(value, Value::Neutral(Head::Var(ERASED, _), _))
 }
 
 /// Which parts of a definition are erased.

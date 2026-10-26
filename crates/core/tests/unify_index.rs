@@ -863,5 +863,5 @@ fn refined_types_are_quoted_at_the_branch_depth() {
     }));
     // `n` now stands for `Succ m`, and is no longer flexible.
     assert!(scope.flexible(&Value::var(0)).is_none());
-    assert!(matches!(&scope.env[3], Value::Neutral(Head::Var(3), _)));
+    assert!(matches!(&scope.env[3], Value::Neutral(Head::Var(3, _), _)));
 }

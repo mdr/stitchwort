@@ -80,7 +80,7 @@ use stitchwort_core::native::{self, Native};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::{self, Builtin};
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::{Head, eval, force, quote};
+use stitchwort_core::value::{Apart, Head, Spine, eval, force, quote};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{Decl, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span, ast};
@@ -3663,7 +3663,7 @@ fn canonical(
     let base = cx.level();
     let own = |cx: &Ctx, l: usize| {
         cx.lets[l].is_none()
-            && matches!(&cx.env[l], Value::Neutral(Head::Var(x), s) if *x == l && s.is_empty())
+            && matches!(&cx.env[l], Value::Neutral(Head::Var(x, _), s) if *x == l && s.is_empty())
     };
     // `p : a = b` in `Bool`, where `a` computes to `b` (it's `True`).
     let (a, b) = match force(g, cx.types[p].clone())? {
@@ -3974,13 +3974,12 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 // value, so it's substituted into the goal and the whole
                 // context (as the kernel does).
                 let value = Value::Ctor(*d, c, fields.clone().into());
-                let level = cx.level();
-                let mut env = kernel::substitute_folded(g, level, *x, &value, &cx.env)?;
+                let mut env = kernel::substitute_folded(g, &cx.env, *x, &value, &cx.env)?;
                 env[*x] = value.clone();
-                let refined = kernel::substitute_folded(g, level, *x, &value, &cx.types)?;
+                let refined = kernel::substitute_folded(g, &cx.env, *x, &value, &cx.types)?;
                 let branch_goal = kernel::substitute_folded(
                     g,
-                    level,
+                    &cx.env,
                     *x,
                     &value,
                     &[eval(g, &cx.env, &goal_term)?],
@@ -4065,13 +4064,12 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 // substituted into the goal and the whole context (as the
                 // kernel does).
                 let value = Value::Nat(Rc::new(key.clone()));
-                let level = cx.level();
-                let mut env = kernel::substitute_folded(g, level, *x, &value, &cx.env)?;
+                let mut env = kernel::substitute_folded(g, &cx.env, *x, &value, &cx.env)?;
                 env[*x] = value.clone();
-                let refined = kernel::substitute_folded(g, level, *x, &value, &cx.types)?;
+                let refined = kernel::substitute_folded(g, &cx.env, *x, &value, &cx.types)?;
                 let arm_goal = kernel::substitute_folded(
                     g,
-                    level,
+                    &cx.env,
                     *x,
                     &value,
                     &[eval(g, &cx.env, &goal_term)?],
@@ -4091,9 +4089,41 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     Err(e) => branch_failed(cx, e, &mut failed)?,
                 }
             }
-            // The default knows nothing new about the variable. If its type
-            // mentions it, the programmer may have expected otherwise.
-            let default = check_tree(cx, default, goal).map_err(|d| {
+            // The default knows only that the variable is none of the arms'
+            // numbers (as the kernel does: a number case on it with no
+            // others takes its default; docs/proposals/literal-match-facts.md).
+            // If its type mentions the variable, the programmer may have
+            // expected more.
+            let default = match &cx.env[*x] {
+                Value::Neutral(Head::Var(l, known), spine) if l == x && spine.is_empty() => {
+                    let mut numbers: Vec<BigUint> = arms.iter().map(|(k, _)| k.clone()).collect();
+                    numbers.extend(known.numbers(g).iter().cloned());
+                    numbers.sort_unstable();
+                    numbers.dedup();
+                    let value =
+                        Value::Neutral(Head::Var(*x, Apart::new(g, numbers.into())), Spine::new());
+                    let mut env = kernel::substitute_folded(g, &cx.env, *x, &value, &cx.env)?;
+                    env[*x] = value.clone();
+                    let refined = kernel::substitute_folded(g, &cx.env, *x, &value, &cx.types)?;
+                    let default_goal = kernel::substitute_folded(
+                        g,
+                        &cx.env,
+                        *x,
+                        &value,
+                        &[eval(g, &cx.env, &goal_term)?],
+                    )?
+                    .pop()
+                    .expect("one value in, one out");
+                    let saved_env = std::mem::replace(&mut cx.env, env);
+                    let saved_types = std::mem::replace(&mut cx.types, refined);
+                    let result = check_tree(cx, default, &default_goal);
+                    cx.env = saved_env;
+                    cx.types = saved_types;
+                    result
+                }
+                _ => check_tree(cx, default, goal),
+            };
+            let default = default.map_err(|d| {
                 let ix = cx.level() - 1 - x;
                 let mentioned = |v: &Value| cx.quote(v).is_ok_and(|t| t.mentions(ix));
                 let depends = mentioned(goal) || cx.types[*x + 1..].iter().any(mentioned);
@@ -4101,8 +4131,8 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     let n = cx.show(&Value::var(*x));
                     d.with_note(format!(
                         "number patterns only test values: an arm with a variable or `_` \
-                         where the others have numbers knows nothing about `{n}`, not even that \
-                         it's a different number. To use the shape of `{n}`, match on `Zero` and \
+                         where the others have numbers knows only that `{n}` is none of those \
+                         numbers, not what it is. To use the shape of `{n}`, match on `Zero` and \
                          `Succ` instead"
                     ))
                 } else {

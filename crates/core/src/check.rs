@@ -3,6 +3,7 @@
 //! Checking also completes terms: it fills in the type of each `a = b`, which
 //! evaluation needs.
 
+use num_bigint::BigUint;
 use std::rc::Rc;
 
 use stitchwort_syntax::{Diagnostic, Span};
@@ -14,7 +15,8 @@ use crate::term::{Branch, DataId, DefId, Icit, Name, NumArm, QuotForm, Sort, Ter
 use crate::termination;
 use crate::unify_index::{Constraint, Outcome, Reason, Scope, unify};
 use crate::value::{
-    Value, apply, conv, eval, force, force_ref, quot_value, quote, quote_folded, unused,
+    Apart, Head, Spine, Value, apply, conv, eval, force, force_ref, quot_value, quote,
+    quote_folded, unused,
 };
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -1097,13 +1099,12 @@ fn refine_branch(
     // solutions mention `x`, so only what was in scope before needs it.
     let fields: Vec<Value> = cx.env[base..].to_vec();
     let value = Value::Ctor(d, c, fields.into());
-    let level = cx.level();
-    let mut env = substitute(g, level, x, &value, &cx.env[..base])?;
+    let mut env = substitute_in(g, &cx.env, x, &value, &cx.env[..base])?;
     env[x] = value.clone();
     env.extend_from_slice(&cx.env[base..]);
-    let mut types = substitute(g, level, x, &value, &cx.types[..base])?;
+    let mut types = substitute_in(g, &cx.env, x, &value, &cx.types[..base])?;
     types.extend_from_slice(&cx.types[base..]);
-    let goal = substitute(g, level, x, &value, &[goal])?
+    let goal = substitute_in(g, &cx.env, x, &value, &[goal])?
         .pop()
         .expect("one value in, one out");
     cx.env = env;
@@ -1210,28 +1211,77 @@ fn check_num_case(
         ));
     }
     let goal_term = cx.quote_kept(goal)?;
-    let mut out = Vec::new();
-    for arm in arms {
-        let value = Value::Nat(arm.value.clone());
-        let level = cx.level();
-        let mut env = substitute(g, level, x, &value, &cx.env)?;
+    // Checks `body` with `value` substituted for `x` throughout the context
+    // and the goal.
+    let refined = |cx: &mut Ctx, value: Value, body: &Term| -> Result<Term> {
+        let mut env = substitute_in(g, &cx.env, x, &value, &cx.env)?;
         env[x] = value.clone();
-        let refined_types = substitute(g, level, x, &value, &cx.types)?;
-        let arm_goal = substitute(g, level, x, &value, &[eval(g, &cx.env, &goal_term)?])?
+        let refined_types = substitute_in(g, &cx.env, x, &value, &cx.types)?;
+        let goal = eval(g, &cx.env, &goal_term)?;
+        let refined_goal = substitute_in(g, &cx.env, x, &value, &[goal])?
             .pop()
             .expect("one value in, one out");
         let saved_env = std::mem::replace(&mut cx.env, env);
         let saved_types = std::mem::replace(&mut cx.types, refined_types);
-        let result = check(cx, &arm.body, &arm_goal);
+        let result = check(cx, body, &refined_goal);
         cx.env = saved_env;
         cx.types = saved_types;
+        result
+    };
+    let mut out = Vec::new();
+    for arm in arms {
+        let body = refined(cx, Value::Nat(arm.value.clone()), &arm.body)?;
         out.push(NumArm {
             value: arm.value.clone(),
-            body: Rc::new(result?),
+            body: Rc::new(body),
         });
     }
-    let default = check(cx, default, goal)?;
+    // The default is taken only for a number none of the arms has, so if
+    // `x` is still a variable, the default is checked with it known to be
+    // apart from those numbers (and any it was already known apart from).
+    // A number case on it with no other numbers then takes its default
+    // (`value::branch`; docs/proposals/literal-match-facts.md).
+    let default = match &cx.env[x] {
+        Value::Neutral(Head::Var(l, known), spine) if *l == x && spine.is_empty() => {
+            let mut numbers: Vec<BigUint> = arms.iter().map(|arm| (*arm.value).clone()).collect();
+            numbers.extend(known.numbers(g).iter().cloned());
+            numbers.sort_unstable();
+            numbers.dedup();
+            let apart = Apart::new(g, numbers.into());
+            refined(
+                cx,
+                Value::Neutral(Head::Var(x, apart), Spine::new()),
+                default,
+            )?
+        }
+        _ => check(cx, default, goal)?,
+    };
     Ok(Term::NumCase(ix, out.into(), Rc::new(default)))
+}
+
+/// [`substitute`], in a context whose environment is `env`: a variable
+/// known apart from some numbers there ([`Apart`]) stays so.
+pub fn substitute_in(
+    g: &Globals,
+    env: &[Value],
+    x: usize,
+    value: &Value,
+    values: &[Value],
+) -> budget::Result<Vec<Value>> {
+    let level = env.len();
+    let mut identity: Vec<Value> = env
+        .iter()
+        .enumerate()
+        .map(|(l, v)| match v {
+            Value::Neutral(Head::Var(at, _), spine) if *at == l && spine.is_empty() => v.clone(),
+            _ => Value::var(l),
+        })
+        .collect();
+    identity[x] = value.clone();
+    values
+        .iter()
+        .map(|v| eval(g, &identity, &quote_folded(g, level, v)?))
+        .collect()
 }
 
 /// Substitutes `value` for variable `x` in each of `values`, with `level`

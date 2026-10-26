@@ -568,7 +568,7 @@ pub fn folds_mul(g: &Globals, id: DefId, spine: &[Elim]) -> bool {
     match spine {
         [
             Elim::App(Value::Nat(k), _),
-            Elim::App(Value::Neutral(Head::Var(_), _), _),
+            Elim::App(Value::Neutral(Head::Var(..), _), _),
         ] => {
             !k.is_zero()
                 && g.builtins.native(id) == Some(Native::Mul)

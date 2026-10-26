@@ -233,7 +233,7 @@ impl Elaborator {
         if !self.is_interface(j) {
             return Ok(());
         }
-        let on_param = matches!(args.as_slice(), [a] if matches!(force(g, a.clone())?, Value::Neutral(Head::Var(0), s) if s.is_empty()));
+        let on_param = matches!(args.as_slice(), [a] if matches!(force(g, a.clone())?, Value::Neutral(Head::Var(0, _), s) if s.is_empty()));
         if !on_param {
             return Err(error(
                 "E-INTERFACE-SHAPE",
@@ -443,7 +443,7 @@ impl Elaborator {
         let mut position: Vec<Option<usize>> = vec![None; params.len()];
         for (k, a) in args.iter().enumerate() {
             match force(g, a.clone())? {
-                Value::Neutral(Head::Var(l), s) if s.is_empty() && position[l].is_none() => {
+                Value::Neutral(Head::Var(l, _), s) if s.is_empty() && position[l].is_none() => {
                     position[l] = Some(k);
                 }
                 _ => return Err(head_error()),
@@ -457,7 +457,7 @@ impl Elaborator {
                     let on_head = match force(g, dom.clone())? {
                         Value::Data(j, a) if self.is_interface(j) && a.len() == 1 => matches!(
                             force(g, a[0].clone())?,
-                            Value::Neutral(Head::Var(m), s) if s.is_empty() && position[m].is_some()
+                            Value::Neutral(Head::Var(m, _), s) if s.is_empty() && position[m].is_some()
                         ),
                         _ => false,
                     };
@@ -1158,7 +1158,8 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
             }
         }
         None => {
-            if let Value::Neutral(Head::Var(_), _) = force(g, arg.clone()).unwrap_or(arg.clone()) {
+            if let Value::Neutral(Head::Var(_, _), _) = force(g, arg.clone()).unwrap_or(arg.clone())
+            {
                 d = d.with_note(format!(
                     "`{}` is a type variable: ask for its instance with `[auto {dict}: {}]`",
                     cx.show(&arg),
@@ -1296,7 +1297,7 @@ fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
             }
             (Value::Nat(m), Value::Nat(n)) if m != n => return Ok(true),
             (Value::Sort(s), Value::Sort(t)) if s != t => return Ok(true),
-            (Value::Neutral(Head::Var(x), s), Value::Neutral(Head::Var(y), t))
+            (Value::Neutral(Head::Var(x, _), s), Value::Neutral(Head::Var(y, _), t))
                 if s.is_empty() && t.is_empty() && x != y =>
             {
                 return Ok(true);

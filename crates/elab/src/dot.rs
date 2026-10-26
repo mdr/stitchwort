@@ -86,7 +86,7 @@ fn step_value(g: &Globals, value: Value) -> Result<Step> {
         Value::Eq(..) => Step::Head(TyHead::Eq, None),
         Value::Neutral(Head::Def(id), _) => Step::Head(TyHead::Def(id), None),
         Value::Neutral(Head::Meta(_), _) => Step::Unknown,
-        Value::Neutral(Head::Var(_), _) => Step::Nothing("a type variable"),
+        Value::Neutral(Head::Var(_, _), _) => Step::Nothing("a type variable"),
         Value::Pi(..) => Step::Nothing("a function"),
         Value::Sort(_) => Step::Nothing("a type"),
         _ => Step::Nothing("not a type"),

@@ -300,7 +300,7 @@ fn boundary(
         )
     };
     match ty {
-        Value::Neutral(Head::Var(level), elims) if elims.is_empty() && *level < params => {
+        Value::Neutral(Head::Var(level, _), elims) if elims.is_empty() && *level < params => {
             Ok(Boundary::Param(*level))
         }
         Value::Data(d, args) => {

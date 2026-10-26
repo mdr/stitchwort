@@ -3,7 +3,9 @@
 **Status:** implemented (option B), 15 October 2026; see
 [As built](#as-built). Draft 1 was reviewed externally; the review
 recommended option B with corrections, which draft 2 adopted (see
-[Changes since draft 1](#changes-since-draft-1)).
+[Changes since draft 1](#changes-since-draft-1)). Since 26 October 2026
+(SW-533) the default knows the variable is none of the arms' numbers:
+[literal-match-facts.md](literal-match-facts.md).
 
 This note is meant to be read without knowing the codebase. The first section
 describes the parts of Stitchwort it touches.

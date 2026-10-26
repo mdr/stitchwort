@@ -333,7 +333,7 @@ fn j_with_reflexive_and_stuck_proofs() {
     let slow = reference::eval(g, &env, &j(Term::Var(0))).unwrap();
     assert_eq!(normal(g, 1, &fast), normal(g, 1, &slow));
     assert!(
-        matches!(fast, Value::Neutral(Head::Var(0), ref s) if matches!(s[..], [Elim::J { .. }]))
+        matches!(fast, Value::Neutral(Head::Var(0, _), ref s) if matches!(s[..], [Elim::J { .. }]))
     );
     // Stuck on an unsolved metavariable, then solved with `rfl`.
     let m = g.new_meta(span());

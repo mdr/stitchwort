@@ -66,11 +66,11 @@ impl Scope {
     /// stands for itself, and isn't rigid.
     pub fn flexible(&self, value: &Value) -> Option<usize> {
         match value {
-            Value::Neutral(Head::Var(l), spine)
+            Value::Neutral(Head::Var(l, _), spine)
                 if spine.is_empty() && *l < self.level() && !self.rigid.contains(l) =>
             {
                 match &self.env[*l] {
-                    Value::Neutral(Head::Var(l2), s) if l2 == l && s.is_empty() => Some(*l),
+                    Value::Neutral(Head::Var(l2, _), s) if l2 == l && s.is_empty() => Some(*l),
                     _ => None,
                 }
             }

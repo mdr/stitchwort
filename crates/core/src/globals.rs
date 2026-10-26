@@ -383,6 +383,12 @@ pub struct Globals {
     /// back what was there. Shared, so a guard can hold it while `Globals` is
     /// borrowed mutably.
     pub transparent: Transparency,
+    /// The sets of numbers a variable is known not to be, which
+    /// [`crate::value::Apart`] names: in a number case's default arm, the
+    /// matched variable is none of its arms' numbers
+    /// (docs/proposals/literal-match-facts.md). Only added to, so a name
+    /// never changes what it stands for. Each set is sorted.
+    pub apart_sets: RefCell<Vec<Rc<[num_bigint::BigUint]>>>,
 }
 
 /// The current transparency set ([`Globals::transparent`]).
@@ -566,6 +572,9 @@ impl Globals {
             glue,
             meta_epoch: _,
             transparent,
+            // Kept: a name never changes what it stands for, and a variable
+            // apart from some numbers only lives while a case is checked.
+            apart_sets: _,
         } = self;
         assert!(
             mark.defs <= defs.len() && mark.datas <= datas.len(),

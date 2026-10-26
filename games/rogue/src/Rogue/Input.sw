@@ -16,26 +16,22 @@ def commandOf (key: Key): Option Command :=
     | Printable char => commandOfChar char
     | _ => None
 
--- The command of a printable key: the one `keyCommands` lists for it, if any.
--- (A table rather than a `match` on characters, so that "no other key is a
--- command" can be proved: `onlyListedKeys`, Proofs/Input.sw.)
+-- The command of a printable key, if any.
 def commandOfChar (char: Char): Option Command :=
-  keyCommands.find ((entry: (Char, Command)) => entry.fst == char) |> .map (.snd)
-
-def keyCommands: List (Char, Command) := [
-  ('k', Move North),
-  ('w', Move North),
-  ('j', Move South),
-  ('s', Move South),
-  ('h', Move West),
-  ('a', Move West),
-  ('l', Move East),
-  ('d', Move East),
-  ('.', Wait),
-  ('>', Descend),
-  ('p', Drink),
-  ('q', Quit)
-]
+  match char with
+    | 'k' => Some (Move North)
+    | 'w' => Some (Move North)
+    | 'j' => Some (Move South)
+    | 's' => Some (Move South)
+    | 'h' => Some (Move West)
+    | 'a' => Some (Move West)
+    | 'l' => Some (Move East)
+    | 'd' => Some (Move East)
+    | '.' => Some Wait
+    | '>' => Some Descend
+    | 'p' => Some Drink
+    | 'q' => Some Quit
+    | _ => None
 
 -- The next key's command: `None` for a key that isn't one (`Unknown`
 -- included), and `Quit` at the end of the input.
