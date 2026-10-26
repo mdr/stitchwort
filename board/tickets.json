@@ -1,5 +1,5 @@
 {
-  "next": 601,
+  "next": 603,
   "tickets": [
     {
       "id": 13,
@@ -4509,8 +4509,32 @@
     },
     {
       "id": 600,
-      "title": "Daily tier after today's merges: fix daily-only failures (text_natives_are_bound_to_the_prelude after SW-577; stale extract__results.js.snap)",
+      "title": "Daily tier after today's merges: fix daily-only failures (text_natives_are_bound_to_the_prelude after SW-577; stale extract__results.js.snap) — lane stopped 26 Oct: its daily run hit ~50 GB RAM and locked the machine; rerun only after the memory guard",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 601,
+      "title": "Test memory guard: per-tier RSS cap on every test task (kill + report), corpus sweeps in a max-threads=1 test group, par_map pool cap (after 26 Oct OOM: daily run ~50 GB)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 602,
+      "title": "Investigate the corpus sweeps' memory: machine::examples_agree 21 GB, lower::every_example_lowers 20 GB, differential 8.6 GB in the 26 Oct daily run; only under the memory guard, with Matt's go-ahead",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
