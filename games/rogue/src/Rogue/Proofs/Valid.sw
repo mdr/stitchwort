@@ -36,7 +36,7 @@ theorem resolveValid (dice: Dice) (state: State) (command: Command) (valid: Vali
 }
 
 theorem stepValid (seed: Nat) (state: State) (command: Command) (valid: Valid state):
-    Valid (seeded seed (() => step state command)) := {
+    Valid (Random.withSeed seed (() => step state command)) := {
   outOfWalls = stepOutOfWalls seed state command valid.outOfWalls,
   atMost = stepAtMost seed state command valid.atMost,
   clear = stepClear seed state command valid.clear,

@@ -53,5 +53,5 @@ theorem resolveAtMost (dice: Dice) (state: State) (command: Command) (atMost: st
 
 -- Hit points never exceed the maximum after a turn, whatever the seed.
 theorem stepAtMost (seed: Nat) (state: State) (command: Command) (atMost: state.hitPoints ≤ maxHitPoints):
-    (seeded seed (() => step state command)).hitPoints ≤ maxHitPoints :=
+    (Random.withSeed seed (() => step state command)).hitPoints ≤ maxHitPoints :=
   resolveAtMost { seed = lcg seed / 65536 } state command atMost

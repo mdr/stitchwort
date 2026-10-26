@@ -117,7 +117,7 @@ theorem playerMovesClear (dice: Dice) (state: State) (direction: Direction) (cle
 theorem descendClear (dice: Dice) (state: State) (clear: Clear state.player state.monsters):
     let after := descend dice state
     Clear after.player after.monsters :=
-  let plan := seeded dice.seed (() => generateLevel (state.level.depth + 1))
+  let plan := Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))
   placeMonstersClear plan.level plan.level.start [] plan.monsters rfl
 
 theorem resolveClear (dice: Dice) (state: State) (command: Command) (clear: Clear state.player state.monsters):
@@ -143,6 +143,6 @@ theorem resolveClear (dice: Dice) (state: State) (command: Command) (clear: Clea
 
 -- No monster stands on the player's cell after a turn, whatever the seed.
 theorem stepClear (seed: Nat) (state: State) (command: Command) (clear: Clear state.player state.monsters):
-    let after := seeded seed (() => step state command)
+    let after := Random.withSeed seed (() => step state command)
     Clear after.player after.monsters :=
   resolveClear { seed = lcg seed / 65536 } state command clear

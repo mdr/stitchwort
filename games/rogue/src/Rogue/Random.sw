@@ -12,7 +12,7 @@ def lcg (seed: Nat): Nat := (seed * 1103515245 + 12345) % 2147483648
 
 -- Answers `next` from a generator started at `seed`: each answer is the top
 -- 15 bits of the generator's next state, which are the well-mixed ones.
-def seeded (seed: Nat) (prog: () → {Random | e} a): {e} a :=
+def Random.withSeed (seed: Nat) (prog: () → {Random | e} a): {e} a :=
   let run: Nat → {e} a :=
     handle prog() with
       | return result => _ => result

@@ -73,7 +73,7 @@ def healed (hitPoints: Nat): Nat :=
 -- Down the stairs: the next level is made now, from the turn's dice. The
 -- generator is opaque, so no proof about a turn looks inside it.
 def descend (dice: Dice) (state: State): State :=
-  let plan := seeded dice.seed (() => generateLevel (state.level.depth + 1))
+  let plan := Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))
   let arrived := arrive state plan
   { arrived | turn = state.turn + 1, message = "You go down the stairs to level ${plan.level.depth}." }
 

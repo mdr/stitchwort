@@ -27,7 +27,7 @@ theorem monstersTurnOutOfWalls (dice: Dice) (state: State) (inside: isWall state
 theorem descendOutOfWalls (dice: Dice) (state: State) (inside: isWall state.level state.player = False):
     let after := descend dice state
     isWall after.level after.player = False :=
-  startOnFloor (seeded dice.seed (() => generateLevel (state.level.depth + 1))).level
+  startOnFloor (Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))).level
 
 theorem resolveOutOfWalls (dice: Dice) (state: State) (command: Command) (inside: isWall state.level state.player = False):
     let after := resolve dice state command
@@ -52,6 +52,6 @@ theorem resolveOutOfWalls (dice: Dice) (state: State) (command: Command) (inside
 
 -- The player is never inside a wall after a turn, whatever the seed.
 theorem stepOutOfWalls (seed: Nat) (state: State) (command: Command) (inside: isWall state.level state.player = False):
-    let after := seeded seed (() => step state command)
+    let after := Random.withSeed seed (() => step state command)
     isWall after.level after.player = False :=
   resolveOutOfWalls { seed = lcg seed / 65536 } state command inside

@@ -28,7 +28,7 @@ def winningRoute: Text := Text.join [
 -- The game as `main` plays it, on scripted keys and the test seed: the
 -- frames drawn, and the final state.
 def simulateGame (keys: List Key): {Partial} Pair (List (List Text)) State :=
-  Terminal.simulate keys (() => seeded testSeed (() => playGame (newGame())))
+  Terminal.simulate keys (() => Random.withSeed testSeed (() => playGame (newGame())))
 
 def winningGame: {Partial} Pair (List (List Text)) State := simulateGame (keysOf winningRoute)
 
@@ -106,6 +106,6 @@ test "the first frame draws the first level" :=
     lines.drop levelRows == ["Level 1/3   HP 12/12   Potions 0   Blows 2-4   Turn 0", keysLine, "Find the amulet, 3 levels down."]
 
 test "the frame is the rendered text, coloured" :=
-  let state := seeded testSeed newGame
+  let state := Random.withSeed testSeed newGame
   (frame state).map Ansi.strip == render state ∧ frame state != render state
 test "the player is bold yellow" := paint '@' == "\u{1b}[1m\u{1b}[33m@\u{1b}[39m\u{1b}[22m"

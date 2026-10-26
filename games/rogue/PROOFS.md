@@ -40,7 +40,7 @@ A state is *valid* (`Valid`, Valid.sw) when:
 `play`, the loop the game runs, is now "repeat `playTurn` until the game
 is over", and `playTurn` (read one key; if it's a command, take the turn
 and draw the frame) is total, so it can be proved about. Under the test
-handlers (`Terminal.simulate` for keys and frames, `seeded` for dice):
+handlers (`Terminal.simulate` for keys and frames, `Random.withSeed` for dice):
 
 | Theorem | In plain words |
 |---|---|
@@ -62,7 +62,7 @@ any sequence of the turns it takes.
 | `hubJoins` | the corridors form a snake through all six rooms, so every room's middle can be reached from room 0's and back |
 | `generatedReachable` (Generated.sw) | **on every level the game generates, for every seed and depth**, the same: `generateLevel` as written, run under the seeded handler |
 | `generatedLaidOut` (Generated.sw) | whatever every roll gives, the level `generateLevel` makes is `layOut` of six rooms that fit, with entrance and exit below 6 (a statement about the generator alone, with no handler) |
-| `seededAlways` (Generated.sw) | what is true of every result a `{Random}` computation can give is true of its result under the seeded handler, for every seed |
+| `withSeedAlways` (Generated.sw) | what is true of every result a `{Random}` computation can give is true of its result under the seeded handler, for every seed |
 | `rollBelow` (Generated.sw) | a roll is below its bound: `roll most` under the seeded handler is at most `most` |
 
 It holds for *any* rooms, wherever they are and whatever their size: the
@@ -87,7 +87,7 @@ the proof is in three parts.
    is the level `layOut` makes from the six rooms those rolls give, with
    entrance `entrance % 6`; `roomFits` (for each room) and `Nat.modLt` give
    the hypotheses. The level isn't drawn: `layOut` stays opaque.
-2. The handler: `seededAlways`, by induction on the proof of `Always`
+2. The handler: `withSeedAlways`, by induction on the proof of `Always`
    (std's `Effect.AlwaysTree`, the same as data) with `match reify` to split
    the program on its first roll. About 10 lines, and the same shape would
    do for any handler that answers and resumes.
@@ -211,8 +211,8 @@ the pinned first map and the winning game (232 turns before levels were made on 
    generator: a property of every result (`Effect.Always`) needs no
    equation between computations, so `Effect.alwaysBind` is proved by
    induction with no axiom, and the generator theorems avoid `bindAssoc`.
-   An *equation* about a handled program (`seeded s (() => f (p())) = f
-   (seeded s p)`) would still need it.
+   An *equation* about a handled program (`Random.withSeed s (() => f (p())) = f
+   (Random.withSeed s p)`) would still need it.
 3. **Opacity is still something to discover by `E-RESOURCE`.** Two of the
    three failures above were a definition that was cheap to run and
    enormous to compare once its arguments were unknown (`layOut`'s

@@ -7,8 +7,8 @@ import Rogue (..)
 import Std (List, Nat)
 
 def replay (state: State) (turns: List (Nat, Command)): State :=
-  turns.foldLeft state (current turn => seeded turn.fst (() => step current turn.snd))
+  turns.foldLeft state (current turn => Random.withSeed turn.fst (() => step current turn.snd))
 
 theorem replayValid: (turns: List (Nat, Command)) → (state: State) → Valid state → Valid (replay state turns)
   | [], state, valid => valid
-  | Cons (seed, command) rest, state, valid => replayValid rest (seeded seed (() => step state command)) (stepValid seed state command valid)
+  | Cons (seed, command) rest, state, valid => replayValid rest (Random.withSeed seed (() => step state command)) (stepValid seed state command valid)

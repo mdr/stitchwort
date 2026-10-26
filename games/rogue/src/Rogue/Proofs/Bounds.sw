@@ -198,7 +198,7 @@ theorem resolveFramed (dice: Dice) (state: State) (command: Command) (framed: Fr
     | GaveUp => framed
 
 theorem stepFramed (seed: Nat) (state: State) (command: Command) (framed: Framed state.level):
-    Framed (seeded seed (() => step state command)).level :=
+    Framed (Random.withSeed seed (() => step state command)).level :=
   resolveFramed { seed = lcg seed / 65536 } state command framed
 
 -- A state of a real game: valid, on a framed level.
@@ -212,7 +212,7 @@ theorem startingSound (plan: Plan) (framed: Framed plan.level): Sound (startingS
 theorem replaySound: (turns: List (Nat, Command)) → (state: State) → Sound state → Sound (replay state turns)
   | [], state, sound => sound
   | Cons (seed, command) rest, state, sound =>
-    replaySound rest (seeded seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed seed state command sound.framed }
+    replaySound rest (Random.withSeed seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed seed state command sound.framed }
 
 -- In a sound state, `render` draws `@` at the player's row and column,
 -- with nothing assumed about where that is.

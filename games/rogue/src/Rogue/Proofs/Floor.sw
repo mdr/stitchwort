@@ -89,7 +89,7 @@ theorem playerMovesOnFloor (dice: Dice) (state: State) (direction: Direction) (o
 theorem descendOnFloor (dice: Dice) (state: State) (onFloor: OnFloor state.level state.monsters):
     let after := descend dice state
     OnFloor after.level after.monsters :=
-  let plan := seeded dice.seed (() => generateLevel (state.level.depth + 1))
+  let plan := Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))
   placeMonstersOnFloor plan.level plan.level.start [] plan.monsters Trivial
 
 theorem resolveOnFloor (dice: Dice) (state: State) (command: Command) (onFloor: OnFloor state.level state.monsters):
@@ -115,6 +115,6 @@ theorem resolveOnFloor (dice: Dice) (state: State) (command: Command) (onFloor: 
 
 -- No monster stands in a wall after a turn, whatever the seed.
 theorem stepOnFloor (seed: Nat) (state: State) (command: Command) (onFloor: OnFloor state.level state.monsters):
-    let after := seeded seed (() => step state command)
+    let after := Random.withSeed seed (() => step state command)
     OnFloor after.level after.monsters :=
   resolveOnFloor { seed = lcg seed / 65536 } state command onFloor

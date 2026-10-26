@@ -6,6 +6,6 @@
 namespace Rogue.Proofs
 import Rogue (..)
 
-theorem seededStep (seed: Nat) (state: State) (command: Command):
-    seeded seed (() => step state command) = resolve { seed = lcg seed / 65536 } state command :=
+theorem withSeedStep (seed: Nat) (state: State) (command: Command):
+    Random.withSeed seed (() => step state command) = resolve { seed = lcg seed / 65536 } state command :=
   rfl

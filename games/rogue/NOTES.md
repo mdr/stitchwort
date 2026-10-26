@@ -58,7 +58,7 @@ the familiar alternative. The error is clear, at least.
 
 The natural loop is `Partial` (a game ends when the player says so). But a
 handler can't go around partial code (chapter 8), and the game runs inside
-three handlers: `fromLines` (input), `seeded` (randomness) and, in tests,
+three handlers: `fromLines` (input), `Random.withSeed` (randomness) and, in tests,
 `IO.simulate`. So `play` takes a fuel argument:
 
 ```stitchwort
@@ -180,7 +180,7 @@ and seed, about `step` as the seeded handler runs it (Proofs/). That went far
 better than expected: about 240 lines, each lemma through in one or two attempts, and no axioms
 (`stitchwort axioms Rogue.Proofs.stepValid` prints nothing). What helped:
 
-- **Handlers compute.** `seeded seed (() => step state command)` is
+- **Handlers compute.** `Random.withSeed seed (() => step state command)` is
   *definitionally* `resolve { seed = lcg seed / 65536 } state command`, so
   `rfl` proves it and the theorems about `step` are one line each.
 - **`match h: cond with` on a `Bool` condition** generalises it in the goal,
@@ -282,7 +282,7 @@ generator under a handler of its own, so that the turn still drew one number:
 
 ```stitchwort
 def descend (dice: Dice) (state: State): State :=
-  let arrived := arrive state (seeded dice.seed (() => generateLevel depth))
+  let arrived := arrive state (Random.withSeed dice.seed (() => generateLevel depth))
   …
 ```
 
@@ -341,7 +341,7 @@ its own tests. So it's `fitsOnScreen area`, not `area.fits`.
 ## 5. An unexplained "recursed more deeply than allowed"
 
 To find the scripted winning route I wrote a throwaway bot (a search from
-the target each turn, run inside `seeded`). On level 2 it stopped with
+the target each turn, run inside `Random.withSeed`). On level 2 it stopped with
 
 ```text
 [E-RESOURCE] Error: ran out of resources: it recursed more deeply than allowed
@@ -379,7 +379,7 @@ throwaway `main` instead.
   in three lines. `arrive` re-checks the generator's placements with
   `pickFree`, so its theorems hold whatever the generator planned. No proof
   looks inside the generator.
-- **`seeded` in tests.** `seeded seed (() => generateLevel depth)` is the
+- **`Random.withSeed` in tests.** `Random.withSeed seed (() => generateLevel depth)` is the
   generator's output for a seed, in a pure test, so checking 40 seeds at
   every depth for reachability is a few lines.
 
@@ -422,14 +422,14 @@ lane 5), on handlers that run partial code
 `IO.randomSeed`, so each run is a different dungeon. The pure core, the
 generator and every proof are untouched, and `stitchwort axioms` reports
 no axioms for `stepValid`, `stepAtMost`, `stepOnFloor`, `stepOutOfWalls`,
-`stepClear`, `seededStep` and `startingValid`.
+`stepClear`, `withSeedStep` and `startingValid`.
 
 ## What got simpler
 
 - **No fuel.** `maxTurns`, its comment explaining why the loop wasn't
   `Partial`, the `| 0, state => state` case and the "ran out of turns"
   ending are gone. `play` is the loop as one would write it: `{Terminal,
-  Random, Partial}`, with `seeded` and `Terminal.toIO` wrapped round it
+  Random, Partial}`, with `Random.withSeed` and `Terminal.toIO` wrapped round it
   unchanged.
 - **No reading loop of our own.** Stage 1's `fromLines`/`nextFrom`/
   `readCommands` (with `linesPerCommand`, a second bound on blank lines)
@@ -460,7 +460,7 @@ no axioms for `stepValid`, `stepAtMost`, `stepOnFloor`, `stepOutOfWalls`,
 5. **Two generators.** The game keeps its own LCG (`Rogue.Random`) and only
    takes its seed from `IO.randomSeed` (cut to 31 bits). Moving to std's
    SplitMix64 would change every seeded value the tests pin (the 232-turn
-   route, the first map) and `seededStep`'s statement, for no gain in play.
+   route, the first map) and `withSeedStep`'s statement, for no gain in play.
 6. **On a terminal each line ends CR CR LF.** In the pseudo-terminal check,
    `Frame.ansi`'s CR LF arrives as `\r\r\n`: keys mode seems to leave the
    terminal's output translation of LF on. Harmless to the eye.
@@ -472,22 +472,22 @@ cold on a loaded machine.
 
 Stage 2's workaround is gone (docs/proposals/opaque-definitions.md §7).
 `generateLevel` is an `opaque def`, and `descend` makes the next level from
-the turn's dice under `seeded`, as the first design did:
+the turn's dice under `Random.withSeed`, as the first design did:
 
 ```stitchwort
 def descend (dice: Dice) (state: State): State :=
-  let plan := seeded dice.seed (() => generateLevel (state.level.depth + 1))
+  let plan := Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))
   …
 ```
 
 `State.below` and the up-front level making in `newGame` are removed
 (`newGame` is `startingState (generateLevel 1)`). Every theorem about a turn
 checks again with no `unfolding` anywhere: `stepValid`, `stepAtMost`,
-`stepOnFloor`, `stepOutOfWalls`, `stepClear`, `stepApart` and `seededStep`
+`stepOnFloor`, `stepOutOfWalls`, `stepClear`, `stepApart` and `withSeedStep`
 are word for word as before. What changed are the five `descend…` lemmas:
 they dropped the `match state.below` and gained the `dice` argument. The
 three that care about the new level apply the generic lemmas to
-`seeded dice.seed (() => generateLevel (state.level.depth + 1))`
+`Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))`
 (`startOnFloor`, `placeMonstersClear`, `placeMonstersApart`,
 `placeMonstersOnFloor`); the hit point ones are `rfl` and `atMost`.
 
