@@ -4841,7 +4841,7 @@
     {
       "id": 626,
       "title": "Float laws research note (D1362+): should std prove laws about rounding arithmetic? (Rocq Prim2SF, Flocq, Lean, Isabelle; options none / curated trusted laws / spec model + axioms / reference definitions)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
