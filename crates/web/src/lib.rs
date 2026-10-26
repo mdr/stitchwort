@@ -844,7 +844,7 @@ mod tests {
         let answer = test(source, "");
         assert!(
             answer.contains(
-                r#""detail":{"op":"==","left":"[1, 2, 4]","right":"[1, 2, 3]","difference":"first difference at index 2: 4 vs 3"},"part":{"text":"[1, 2, 4] == [1, 2, 3]","file":"#
+                r#""detail":{"op":"==","left":"[1, 2, 4]","right":"[1, 2, 3]","difference":"first difference at [2]: 4 vs 3"},"part":{"text":"[1, 2, 4] == [1, 2, 3]","file":"#
             ),
             "{answer}"
         );

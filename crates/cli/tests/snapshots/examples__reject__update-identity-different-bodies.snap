@@ -30,4 +30,5 @@ expression: output
     │         `setRef c x = setId c x` is false:
     │           left:  Dot 1 0
     │           right: Dot 0 1
+    │           first difference at .Dot.ref: 1 vs 0
 ────╯

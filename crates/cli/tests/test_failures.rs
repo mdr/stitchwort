@@ -91,6 +91,10 @@ def part1 (n: Nat): Nat := n + 1
 def nums (n: Nat): List Nat := [1, 2, n]
 
 type Point = { x: Nat, y: Nat }
+type Item = { id: Text, tags: List Nat }
+type Shape = | Circle (r: Nat) | Square (side: Nat)
+
+def item (n: Nat): Item := { id = "x", tags = [1, 2, n] }
 
 test "let block" :=
   let a := part1 1
@@ -116,6 +120,14 @@ test "long list, late difference" := List.range 1000 == List.append (List.range 
 test "long and" := List.range 1000 == List.range 1000 && List.range 300 == List.range 299
 test "unequal, so no difference" := nums 3 != nums 3
 test "and, a bracketed operand" := part1 1 == 2 && (nums 3).length == 2
+test "nested records in lists" := [item 3] == [item 4]
+test "second record, deep path" := [item 3, item 3] == [item 3, item 5]
+test "constructor mismatch" := [Shape.Circle 1] == [Shape.Square 1]
+test "constructor mismatch in a tuple" := (Option.Some 1, Option.Some 2) == (Option.Some 1, Option.None)
+test "constructor field" := Option.Some (item 3) == Option.Some (item 9)
+test "list length mismatch inside a record" := item 3 == { id = "x", tags = [1, 2, 3, 4] }
+test "tuple part" := (1, [2, 3], "a") == (1, [2, 4], "a")
+test "text in a record" := ({ id = "abc", tags = [] } : Item) == { id = "abd", tags = [] }
 test "text lines" := "one\ntwo\nthree" == "one\n2\nthree\nfour"
 test "a long frame, shown whole" := Text.join (List.replicate 30 (Text.join (List.replicate 30 "#.") ' ')) '\n' == Text.join (List.append (List.replicate 29 (Text.join (List.replicate 30 "#.") ' ')) ["end"]) '\n'
 "##;

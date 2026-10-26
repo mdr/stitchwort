@@ -18,7 +18,7 @@ expression: output
    │         `Text.fromList (List.reverse (Text.toList t)) = t` is false:
    │           left:  "ba"
    │           right: "ab"
-   │           first difference at index 0: 'b' vs 'a'
+   │           first difference at [0]: 'b' vs 'a'
 ───╯
 [E-REFL] Error: `rfl` can't prove this
    ╭─[ reject/counterexample-text.sw:9:52 ]

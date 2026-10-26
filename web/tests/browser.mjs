@@ -614,7 +614,7 @@ test "second part" := part1 1 == 2 && part1 2 == 4
   assert.equal(rows[0].detail, "left:  2\nright: 3");
   assert.equal(rows[1].text, "greater (`>` is False)");
   assert.equal(rows[1].detail, "left:  1\nright: 6");
-  assert.match(rows[2].detail, /^left:  \[0, 1, 2, [^]*…\nright: \[\]\nfirst difference at index 0: [^\n]*$/);
+  assert.match(rows[2].detail, /^left:  \[0, 1, 2, [^]*…\nright: \[\]\nfirst difference at \[0\]: [^\n]*$/);
   assert.ok(rows[2].detail.length < 4500, rows[2].detail.length);
   assert.equal(rows[3].detail, "left:  … (too large to show)\nright: []");
   assert.equal(rows[4].text, "not a comparison (evaluated to False)");

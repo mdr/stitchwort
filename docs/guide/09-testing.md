@@ -54,7 +54,7 @@ test "all small" := List.all (parse "1,2,3") (n => n < 3)
   ✗ parses the example  ran  (`==` is False)
       left:  [1, 2, 4]
       right: [1, 2, 3]
-      first difference at index 2: 4 vs 3
+      first difference at [2]: 4 vs 3
   ✗ both parts          ran  (`==` is False)
       left:  1
       right: 2
@@ -64,7 +64,7 @@ test "all small" := List.all (parse "1,2,3") (n => n < 3)
 4 test(s): 0 passed, 4 failed (0 from the cache)
 ```
 
-- **"parses the example"** shows both lists and the first index where they differ.
+- **"parses the example"** shows both lists and the path to the first difference (`[2]`; for nested values something like `[0].tags[2]`, with the two parts found there, or the two constructors if they differ).
 - **"both parts"** is an `&&` of comparisons: the failure names the first one that was false, with its text and position (`in:`).
 - **"sorted"** and **"all small"** are neither, so all the test can say is that the condition was `False`. When a test like that fails, rewrite it as a comparison to see the values: `parse "3,1,2" == [1, 2, 3]` would show what `parse` gave.
 
