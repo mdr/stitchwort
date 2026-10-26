@@ -1053,7 +1053,7 @@ Each route is judged on:
 | N0 | Spike: Cranelift as a dependency behind a Cargo feature (off in the wasm build). JIT one hand-built function on macOS arm64 and Linux x86-64. Measure the binary growth and compile time. **Check on macOS that JIT code runs in an unsigned development build, in a signed build, and in a hardened build** (and a notarised one, if we ship that), and what entitlement or `MAP_JIT` use each needs (§2.10). | It runs, in Nix, and `nix flake check` builds both with and without the feature; the three macOS cases are recorded |
 | N1 | Translate the core instructions: `Move`/`Take`/`Drop`, `Const`, `Call`/`TailCall`/`Return`, `Switch`/`Field`/`Unpack`, `Ctor`/`CtorReuse`, `Test`/`JumpIfFalse`/`Jump`, and `Nat` fast paths with runtime calls for the slow paths. **Frame and step counters**, counted as the machine counts them, so the speed measured includes the bookkeeping native code will really have. Whole reachable islands (§4.6): an entry point whose reach has an unsupported instruction runs wholly on the machine. A debug-only allocation trace (below). Behind `run --native`. | `micro_call`, `micro_tail` and the `Set` benchmark run and agree, **with counters in**; **first real speed measurement**, stop point at 3× |
 | N2 | Split in two (D1279). **N2a** (built, [below](#n2a-as-built-25-october-2026-d1279)): registers in machine registers, counters in registers. **N2b**: the big-stack thread and the full `E-RESOURCE` handling; tail calls between functions (`return_call`), with the tail-call tests below. | §6's stack-safety tests pass under `--native`, and the counter fires before the stack on every supported target |
-| N3 | The remaining instructions: closures, `Apply`/`Pap` (eval/apply), `Int`/`Text`/`NumSwitch`, `Captured`, `Global` constants. | Every function compiles; `machine.rs`'s differential tests pass under `--native` |
+| N3 | The remaining instructions: closures, `Apply`/`Pap` (eval/apply), `Int`/`Text`/`NumSwitch`, `Captured`, `Global` constants. Built, [below](#n3-as-built-26-october-2026-d1285). | Every function compiles; `machine.rs`'s differential tests pass under `--native` |
 | N4 | Effects: the effect loop calls compiled continuations; `Text.fold`; the `Delay` runner. | `effect_differential.rs` and the partial tests agree three ways |
 | N5 | Run the whole differential suite with `--native` added; fix what it finds. | All agree |
 | N6 | Make `--native` the default for `run` and `test` in the CLI (the machine stays as `--machine`, the playground's runner and the fallback); a benchmark in `bench/`. | Decision at the time, like D386 |
@@ -1402,6 +1402,170 @@ slots on entry; values live across calls spill too. Packing a value into
 fewer words, or inline allocation and freeing (item 3), are what's next on
 that front; item 2 (reuse across `rebuild`) and item 4 (mimalloc's
 `page_full_retain`) are unchanged by this stage.
+
+## N3 as built (26 October 2026, D1285)
+
+**[ran]** Closures, partial application, unknown calls, and the `Int` and
+`Text` instructions, in `crates/native/src/n1.rs` and
+`crates/rt/src/native_abi.rs` (their module comments have the details).
+Effects stay for N4.
+
+**Function values are the machine's.** A `Fun` is now `repr(u8)`, like
+`Value`: its variant byte, then a global's or lambda's index at byte 4, then
+a closure's captures (`Box<[Value]>`, address and length) at bytes 8–23.
+`probe_layout` checks it at run time with the rest. Native code reads the
+captures itself (`Captured` is a load and a clone), and makes closures and
+partial applications through the runtime (`sw_closure`, `sw_pap`), so the
+machine and native code pass function values to each other as they are.
+
+**Two calling conventions.** A global's body keeps N1's: the context, the
+frames pending, three words per argument, three words back, in Cranelift's
+`tail` convention. A lambda's body takes one more word last: the function
+value's `Rc` word, which it owns and drops when it returns, tail-calls or
+leaves by an error exit. Each global function that can be a value gets a
+tiny adapter with the lambda's signature (drop the value, `return_call` the
+body), so every function value, global or closure, is called the same way;
+direct calls never go through the adapter.
+
+**Apply: a fast path and one slow path, as the machine's eval/apply.** An
+`Apply` whose target is a closure or global taking exactly as many
+arguments as it passes, with nothing yet applied, is an indirect call. Each
+`Apply` keeps the last target it saw (`ApplyCache`), keyed by the first word
+of the `Fun` masked to its variant and index, so a hit is a compare and a
+call, and a miss one runtime lookup (`sw_apply_cached`). Everything else (a
+partial application to extend, too few arguments making a new partial
+application, too many applying the result to the rest, a native operation
+as a value, `DoneK`) goes to one shared stub per argument count
+(`apply{n}`). Its runtime half, `sw_apply_prepare`, does what the machine's
+`apply` and `enter` do, with the clones and drops in the same order; the
+stub then counts the step, checks the frame, and calls the code it was given
+(switching on its arity), looping on the arguments left over. A `TailApply`
+is a `return_call` to the target or to the stub, so tail applies don't grow
+the stack.
+
+**Islands.** The plan's old rule (every function value an island can make
+must be a compiled global taking as many arguments as each `Apply` passes)
+is gone: any function value works. The function values the entry body makes
+are compiled too when their islands fit ("guests"), so a root given the
+entry's lambdas runs natively. At the crossing, a root whose island applies
+function values is handed the call only if every function value in its
+arguments, inside data, captures and partial applications, has compiled
+code (`natively_callable`); otherwise that call runs on the machine and a
+note says why.
+
+**The cheap find** (the standalone note's S6). The `Int` instructions
+(`IntCase`, `IntOfNat`, `IntNegSucc`), `Text.chars`, `Unreachable`, and every
+`Prim`/`Test` the runtime already implements without frames, through the
+existing `sw_prim`, were a few dozen lines, so they came in with N3; `Int`
+comparisons and small `IntCase` are inline. Left out: the effect operations
+and `Text.fold` (which runs a function over the machine's frames).
+
+**Agreement** (`crates/native/tests/n3.rs`; the helpers both test files use
+are in `tests/common/`). Programs with `map` and `fold` over lambdas,
+closures capturing several values (one a list), partial applications of
+globals and closures, unknown functions under-, over- and exactly applied,
+function values in lists, continuation chains of closures, partial
+applications and over-applications, and the `Int` and `Text` operations
+with big integers: same output, the same allocation trace event for event,
+every cell freed. Function values cross both ways (the entry's closures and
+partial applications applied by a native root; a closure a native root
+returns applied by the machine). Tail applies of all three kinds run
+1,000,000 deep under a frame limit of 100 on a 64 MiB stack; turning the
+exact tail apply into a call overflows the stack, so the test does see it.
+Under every step limit and every frame limit up to the least that finishes,
+a program with closures live across calls, applies and tail applies stops
+where the machine does and frees every cell; dropping the closure's release
+from the error exits fails it (leaked at limit 22). Two `n1.rs` tests that
+expected function values and `Text` to stay on the machine now use
+`Text.fold` for that. One fix to the trace test along the way: the runtime
+keeps a per-thread cache of the ASCII `Char` cells (`prims::char_value`), so
+the first run on a thread allocated 128 cells the second didn't; the test
+now warms it first.
+
+Not done: running `machine.rs`'s differential tests under `--native` (the
+table's "done when"). There's no harness for it yet; the N5 run of the whole
+suite is where it belongs.
+
+**Census** (`dev opcode-census`, bodies whose own island fits, of those
+reachable; the standard library's in brackets):
+
+| Program | Before N3 | After N3 | What still blocks |
+|---|---:|---:|---|
+| `Rogue.main` | 86/244 (32/54) | 170/244 (43/54) | effects only: `Bind` 113, `Translate` 6, `FoldIn` 2, `RunPure` 1 |
+| AoC day 1 | 24/56 (14/26) | 45/56 (23/26) | effects only |
+| AoC day 2 | 20/59 (13/22) | 41/59 (17/22) | effects only |
+| AoC day 3 | 23/56 (15/25) | 43/56 (22/25) | effects only |
+| AoC day 4 | 21/52 (16/26) | 49/52 (26/26) | effects only |
+| AoC day 5 | 29/67 (21/32) | 47/67 (25/32) | effects only |
+| AoC day 6 | 42/68 (30/38) | 65/68 (38/38) | effects only |
+| AoC day 7 | 30/68 (20/36) | 60/68 (36/36) | effects only |
+| AoC day 8 | 60/97 (49/60) | 84/97 (56/60) | effects only |
+| AoC day 9 | 68/105 (53/65) | 92/105 (61/65) | effects only |
+| `set_nat`, `micro_call`, `micro_tail` | 15/16, 2/3, 1/2 | all | — |
+
+Every remaining blocker in these programs is an effect operation (`Prim` or
+`TailPrim` of `Effect`); `Text.fold` doesn't occur in them. But none of the
+real programs runs natively yet: the rogue's entry calls only lambdas, and
+the AoC entries call nothing directly (`main` is effectful glue), and the
+plan only takes `Call` targets of the entry as roots. Rogue's one big root
+(`lambda #159`, 242 bodies) is blocked by effects alone.
+
+**The measurement** (Apple M4 Pro, release; load average 42–71, so wall
+times are rough; cycles and instructions from `/usr/bin/time -l`, best of 3
+by cycles). `bench/native/closures.sw` at 1,000,000 elements: `List.range`,
+`List.map` with a lambda capturing two values, `List.filter` with a lambda,
+`List.foldLeft` with a lambda, `List.map` with a partial application, and
+`List.foldLeft` with a global function. "Work" is the run minus the same
+program at size 1 (parsing, checking and lowering the standard library: 0.54
+G cycles; native adds 0.13 G instructions for compiling, 10 ms).
+
+| Program | Runner | Wall s | Cycles (G) | Instructions (G) | vs machine (cycles) |
+|---|---|---:|---:|---:|---:|
+| `closures`, work | machine | 0.50 | 2.01 | 11.39 | 1× |
+| | `--native` | 0.26 | 1.00 | 3.47 | **2.0×** (3.3× instructions) |
+| `closures`, whole run | machine | 0.68 | 2.55 | 12.97 | 1× |
+| | `--native` | 0.44 | 1.57 | 5.18 | 1.6× |
+| `Set` inserts | machine | — | 39.9 | 171.7 | 1× |
+| | `--native`, N2a | — | 10.6 | 41.0 | 3.6× |
+| | `--native`, N3 | — | 11.0 | 42.1 | **3.6×** |
+| `micro_call` | `--native`, N3 | 0.17 | 0.62 | 2.88 | 5.8× (N2a 0.61, 2.88) |
+| `micro_tail` | `--native`, N3 | 0.13 | 0.43 | 2.08 | 5.7× (N2a 0.43, 2.08) |
+
+The micro benchmarks are unchanged to the instruction. `Set` inserts are
+about 1.1 G instructions (3%) above N2a; not investigated (the inserts apply
+`compare` through a dictionary, and that `Apply` now goes through the new
+cache check, which is a guess, not a measurement).
+
+**Where the closure benchmark's time goes** (macOS `sample`, 1 s of six
+runs back to back, samples mapped with `STITCHWORT_NATIVE_DUMP`'s
+addresses). About 22% of the samples are on one instruction: the return
+point of `List.map`'s non-tail recursive call (offset 0x394 of its code,
+the `sub sp` just after the `bl`). **[inferred]** That is the cost of a
+recursion a million frames deep coming back: the stack it returns into is
+cold, and the return predictor can't hold a million returns; the samples
+land on the first instruction after the return. About 9% is `Nat` `%`,
+which goes through `sw_prim`, `prims::eval` and `prims::div_fuel` every
+time (N1 has no inline `%`); about 14% is `mi_malloc`/`mi_free`/`Value`
+drop glue. The partial application `add offset`, applied once per element
+on the slow path, is about 8%: `sw_apply_prepare` (2.5%), a cache lookup
+that can't hit (1%), and **[inferred]** the `Vec` growth and `realloc` of
+merging its arguments (5%).
+
+**What N4 needs, for the rogue standalone:**
+1. **Effects.** `Prim:Effect` and `TailPrim:Effect` (`Bind` nearly
+   everywhere; `Translate`, `FoldIn`, `RunPure` in the rogue), which means
+   native code building and returning the machine's effect values and the
+   effect loop calling compiled continuations (which are now ordinary
+   compiled closures).
+2. **Roots beyond the entry's `Call`s.** The entry's lambdas (the rogue)
+   and effectful glue (AoC) are where the work starts, so the plan has to
+   take the function values the effect loop runs as roots too, not only the
+   entry's direct calls.
+3. `Text.fold` and the `Delay` runner (in none of the programs above, but
+   in the stage's scope).
+4. Cheap wins seen on the way, for N7–N8: an inline `Nat` `%` and `/`, and
+   applying a partial application to exactly the rest of its arguments
+   without building a merged `Vec` (a fast path beside the closure one).
 
 ## External review (25 October 2026)
 

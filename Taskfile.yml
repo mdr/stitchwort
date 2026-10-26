@@ -198,11 +198,11 @@ tasks:
       - for m in uniform typed; do echo "== noinline $m"; bench/native/handwritten/target/release/noinline $m 1000000; done
 
   native:bench:
-    desc: 'Native code (stage N1): the three bench/native programs at full size on the machine, --js and --native, best of 3 (a few minutes)'
+    desc: 'Native code (stages N1-N3): the bench/native programs at full size on the machine, --js and --native, best of 3 (a few minutes)'
     summary: |
       Builds `stitchwort` with the `native` feature, scales the programs of
       bench/native up to the sizes of docs/proposals/native-compilation.md
-      (1,000,000 keys; 20,000,000 calls and iterations) into
+      (1,000,000 keys and list elements; 20,000,000 calls and iterations) into
       target/native-bench, and prints the best of ROUNDS (default 3) wall
       times for each runner, with the load average. A measurement, not a test.
     vars:
