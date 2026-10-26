@@ -568,7 +568,9 @@ pub struct Elaborator {
     pub no_counterexamples: bool,
     /// Searches stop at their count of inputs, never at their wall-time
     /// limit: for the benchmarks, whose counts must be the same on every
-    /// run (a timed search tries as many inputs as the machine manages).
+    /// run (a timed search tries as many inputs as the machine manages), and
+    /// for tests, whose snapshots would lose a counterexample note under load.
+    /// `Elaborator::new` starts it from `STITCHWORT_UNTIMED_COUNTEREXAMPLES=1`.
     pub untimed_counterexamples: bool,
     /// What each counterexample search did, in this session.
     pub counterexample_log: RefCell<Vec<counterexample::SearchLog>>,
@@ -736,6 +738,10 @@ impl Elaborator {
         // elaborating; `STITCHWORT_GLUE=0` turns it off, for comparison.
         let e = Self {
             glue: std::env::var("STITCHWORT_GLUE").map_or(true, |v| v != "0"),
+            // `STITCHWORT_UNTIMED_COUNTEREXAMPLES=1` (set for the workspace's
+            // tests by `.cargo/config.toml`): see `untimed_counterexamples`.
+            untimed_counterexamples: std::env::var("STITCHWORT_UNTIMED_COUNTEREXAMPLES")
+                .is_ok_and(|v| v == "1"),
             ..Self::default()
         };
         // The names some syntax refers to, built once per process: built

@@ -912,3 +912,15 @@ mod clock {
         };
     }
 }
+
+#[cfg(test)]
+mod untimed_tests {
+    /// `.cargo/config.toml` sets `STITCHWORT_UNTIMED_COUNTEREXAMPLES` for every
+    /// test run, so no test's rendered diagnostics lose a counterexample note
+    /// to the wall-time limit under machine load. If this fails, the variable
+    /// no longer reaches the tests (a runner that ignores cargo's `[env]`).
+    #[test]
+    fn tests_run_with_untimed_searches() {
+        assert!(crate::Elaborator::new().untimed_counterexamples);
+    }
+}
