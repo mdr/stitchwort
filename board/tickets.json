@@ -3618,13 +3618,13 @@
     {
       "id": 532,
       "title": "Rogue proofs follow-up: std lemma 'roll n < n under seeded/any Random handler'; link goalReachable to generateLevel; positions stay inside 20x66 (PROOFS.md gaps 1-2; may need opaque defs)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -3746,13 +3746,13 @@
     {
       "id": 542,
       "title": "Standalone S6: pure prims via sw_prim (after S4)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
