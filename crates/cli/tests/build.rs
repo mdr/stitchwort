@@ -203,6 +203,57 @@ fn the_executable_is_named_after_its_file_and_signed() {
     }
 }
 
+/// On macOS, the executable `exe` links only libraries under `/usr/lib` and
+/// `/System`, never ones from the Nix store.
+fn assert_system_libraries_only(exe: &Path) {
+    if !cfg!(target_os = "macos") {
+        return;
+    }
+    let listed = match Command::new("otool").arg("-L").arg(exe).output() {
+        Ok(listed) => listed,
+        Err(e) => {
+            eprintln!("skipped the library check: no otool ({e})");
+            return;
+        }
+    };
+    let listed = text(&listed.stdout);
+    let libraries: Vec<&str> = listed
+        .lines()
+        .skip(1)
+        .filter_map(|line| line.split_whitespace().next())
+        .collect();
+    assert!(!libraries.is_empty(), "otool -L listed nothing: {listed}");
+    for library in libraries {
+        assert!(
+            library.starts_with("/usr/lib/") || library.starts_with("/System/"),
+            "{library} is not a system library: {listed}"
+        );
+    }
+}
+
+#[test]
+fn the_executable_links_only_system_libraries() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("system-libs");
+    std::fs::write(dir.join("echo.sw"), ECHO).expect("write the source");
+    build(&dir, &["echo.sw", "--no-cache"]);
+    assert_system_libraries_only(&dir.join("echo"));
+}
+
+#[cfg(feature = "native")]
+#[test]
+fn the_native_executable_links_only_system_libraries() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("system-libs-native");
+    std::fs::write(dir.join("echo.sw"), ECHO).expect("write the source");
+    build(&dir, &["echo.sw", "--native", "--no-cache"]);
+    assert_system_libraries_only(&dir.join("echo"));
+}
+
 /// An unhandled `Fail`: what was printed, then `error: <msg>`, and status 1.
 #[test]
 fn a_failing_program_fails_as_it_does_under_run() {
