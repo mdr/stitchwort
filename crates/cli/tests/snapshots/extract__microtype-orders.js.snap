@@ -930,7 +930,7 @@ const $Std$dOrd$d$gcompare = (v1) => {
   const v7 = v1.decLessEq;
   return v3;
 };
-const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
+const $Std$dOrd$dcompare = $Std$dOrd$d$gcompare;
 const $Std$dOrd$dfromCompare = (v1, v2) => ({ eq: v1, compare: v2, decLessThan: ((v6) => ((v7) => $Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Less" }))), decLessEq: ((v6) => ((v7) => $Std$dDecidable$dnot($Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Greater" })))) });
 const $Std$dText$dinstOrd = $Std$dOrd$dfromCompare($Std$dText$dinstDecEq, ($Std$dText$dcompare$c ??= ($p0) => ($p1) => $Std$dText$dcompare($p0, $p1)));
 const $Std$dShow$d$gtoText = (v1) => {
@@ -938,7 +938,7 @@ const $Std$dShow$d$gtoText = (v1) => {
   const v3 = v1.toSource;
   return v2;
 };
-const $Std$dShow$dtoText = (v1) => $Std$dShow$d$gtoText(v1);
+const $Std$dShow$dtoText = $Std$dShow$d$gtoText;
 const $Std$dShow$dfromText = (v1) => ({ toText: v1, toSource: v1 });
 const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
   let s4 = v4, s5 = v5, s6 = v6;
@@ -1195,7 +1195,7 @@ const $Std$dMap$dTree$dinsertWith = (v2, v3, v4, v5, v6) => {
       const v9 = v6.key;
       const v10 = v6.value;
       const v11 = v6.right;
-      return $Std$dMap$dTree$dinsertWith$d$gmatch1(v2, v3, v4, v5, v7, v8, v9, v10, v11, $Std$dOrd$dcompare(v2)(v4)(v9));
+      return $Std$dMap$dTree$dinsertWith$d$gmatch1(v2, v3, v4, v5, v7, v8, v9, v10, v11, $Std$dOrd$d$gcompare(v2)(v4)(v9));
     }
   }
   throw new Error("unreachable");
@@ -1233,7 +1233,7 @@ const $Std$dMap$dTree$dget = (v2, v3, v4) => {
         const v14 = v6;
         const v15 = v8;
         const v16 = v9;
-        const v17 = $Std$dOrd$dcompare(v2)(v3)(v7);
+        const v17 = $Std$dOrd$d$gcompare(v2)(v3)(v7);
         switch (v17.tag) {
           case "Less": {
             s2 = v12;
@@ -1303,7 +1303,7 @@ const $Std$dMap$dSpec$disLess$d$gmatch1 = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dSpec$disLess = (v1, v2, v3) => $Std$dMap$dSpec$disLess$d$gmatch1($Std$dOrd$dcompare(v1)(v2)(v3));
+const $Std$dMap$dSpec$disLess = (v1, v2, v3) => $Std$dMap$dSpec$disLess$d$gmatch1($Std$dOrd$d$gcompare(v1)(v2)(v3));
 const $Std$dMap$dSpec$dheadKey = (v2) => {
   switch (v2.tag) {
     case "Nil": {
@@ -1442,15 +1442,6 @@ const $Std$dMap$dRaw$dfromListChecked = (v2, v3, v4) => {
   throw new Error("unreachable");
 };
 const $Std$dMap$dRaw$dfromListFast = (v2, v3) => $Std$dMap$dRaw$dfromListChecked(v2, v3, $Std$dMap$dSpec$disAscending(v2, { tag: "None" }, v3));
-const $Std$dMap$draw = (v2, v3) => {
-  const v4 = v3;
-  return v4;
-};
-const $Std$dMap$dofRaw = (v2, v3) => v3;
-const $Std$dMap$dfromList = (v2, v3) => $Std$dMap$dofRaw(v2, $Std$dMap$dRaw$dfromListFast(v2, v3));
-const $Std$dMap$dtoList = (v2, v3) => $Std$dMap$dRaw$dtoList(v2, $Std$dMap$draw(v2, v3));
-const $Std$dMap$dget = (v2, v3, v4) => $Std$dMap$dRaw$dget(v2, v4, $Std$dMap$draw(v2, v3));
-const $Std$dMap$dinsert = (v2, v3, v4, v5) => $Std$dMap$dRaw$dinsert(v2, v4, v5, $Std$dMap$draw(v2, v3));
 const $Std$dText$dsameChar = (v0, v1) => $Std$dNat$dequal($Std$dChar$dtoNat(v0), $Std$dChar$dtoNat(v1));
 const $Std$dText$dstartsWithChars = (v0, v1) => {
   let s0 = v0, s1 = v1;
@@ -1509,6 +1500,15 @@ const $Std$dText$dcontainsChars = (v0, v1) => {
   }
 };
 const $Std$dText$dcontains = (t, needle) => ({ tag: t.includes(needle) ? "True" : "False" });
+const $Std$dMap$draw = (v2, v3) => {
+  const v4 = v3;
+  return v4;
+};
+const $Std$dMap$dofRaw = (v2, v3) => v3;
+const $Std$dMap$dfromList = (v2, v3) => $Std$dMap$dofRaw(v2, $Std$dMap$dRaw$dfromListFast(v2, v3));
+const $Std$dMap$dtoList = (v2, v3) => $Std$dMap$dRaw$dtoList(v2, $Std$dMap$draw(v2, v3));
+const $Std$dMap$dget = (v2, v3, v4) => $Std$dMap$dRaw$dget(v2, v4, $Std$dMap$draw(v2, v3));
+const $Std$dMap$dinsert = (v2, v3, v4, v5) => $Std$dMap$dRaw$dinsert(v2, v4, v5, $Std$dMap$draw(v2, v3));
 const $Main$dUserId$dvalue = (v0) => {
   const v1 = v0;
   return v1;
@@ -1517,11 +1517,7 @@ const $Main$dUserId$d$g$gmk$g0 = (v0, v1) => {
   const v2 = v1;
   return v2;
 };
-const $Main$dUserId$d$gdecEq = (v0, v1) => {
-  const v2 = v0;
-  const v3 = v1;
-  return $Std$dText$ddecEq(v2, v3);
-};
+const $Main$dUserId$d$gdecEq = $Std$dText$ddecEq;
 const $Main$dOrderId$dvalue = (v0) => {
   const v1 = v0;
   return v1;
@@ -1530,18 +1526,10 @@ const $Main$dOrderId$d$g$gmk$g0 = (v0, v1) => {
   const v2 = v1;
   return v2;
 };
-const $Main$dOrderId$d$gdecEq = (v0, v1) => {
-  const v2 = v0;
-  const v3 = v1;
-  return $Std$dText$ddecEq(v2, v3);
-};
-const $Main$dOrderId$d$ginstDecEq = ($Main$dOrderId$d$gdecEq$c ??= ($p0) => ($p1) => $Main$dOrderId$d$gdecEq($p0, $p1));
-const $Main$dOrderId$d$gcompare = (v0, v1) => {
-  const v2 = v0;
-  const v3 = v1;
-  return $Std$dText$dcompare(v2, v3);
-};
-const $Main$dOrderId$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dOrderId$d$ginstDecEq, ($Main$dOrderId$d$gcompare$c ??= ($p0) => ($p1) => $Main$dOrderId$d$gcompare($p0, $p1)));
+const $Main$dOrderId$d$gdecEq = $Std$dText$ddecEq;
+const $Main$dOrderId$d$ginstDecEq = $Std$dText$dinstDecEq;
+const $Main$dOrderId$d$gcompare = $Std$dText$dcompare;
+const $Main$dOrderId$d$ginstOrd = $Std$dText$dinstOrd;
 const $Main$dUserId$dinstShow = $Std$dShow$dfromText(((v0) => $Main$dUserId$dvalue(v0)));
 const $Main$dOrderId$dinstShow = $Std$dShow$dfromText(((v0) => $Main$dOrderId$dvalue(v0)));
 const $Main$dEmail$disValid = (v0) => $Std$dText$dcontains(v0, "@");
@@ -1550,12 +1538,12 @@ const $Main$dEmail$dvalue = (v0) => {
   return v1;
 };
 const $Main$dEmail$dparse = (v0) => $Std$dDecidable$delim($Std$dBool$ddecEq($Main$dEmail$disValid(v0), { tag: "True" }), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
-const $Main$dparseEmail = (v0) => $Main$dEmail$dparse(v0);
-const $Main$demailText = (v0) => $Main$dEmail$dvalue(v0);
-const $Main$downerOf = (v0, v1) => $Std$dMap$dget($Main$dOrderId$d$ginstOrd, v0, v1);
-const $Main$dassign = (v0, v1, v2) => $Std$dMap$dinsert($Main$dOrderId$d$ginstOrd, v0, v1, v2);
-const $Main$dordersOf = (v0, v1) => $Std$dList$dfilterMap$e($Std$dMap$dtoList($Main$dOrderId$d$ginstOrd, v0), ((v2) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Main$dUserId$d$gdecEq($Std$dPair$dsnd(v2), v1)), ((v3) => ({ tag: "Some", value: $Std$dPair$dfst(v2) })), ((v3) => ({ tag: "None" })))));
-const $Main$ddescribe = (v0, v1) => $Std$dText$dappend("order ", $Std$dText$dappend($Std$dShow$dtoText($Main$dOrderId$dinstShow)(v0), $Std$dText$dappend(" belongs to ", $Std$dShow$dtoText($Main$dUserId$dinstShow)(v1))));
+const $Main$dparseEmail = $Main$dEmail$dparse;
+const $Main$demailText = $Main$dEmail$dvalue;
+const $Main$downerOf = (v0, v1) => $Std$dMap$dget($Std$dText$dinstOrd, v0, v1);
+const $Main$dassign = (v0, v1, v2) => $Std$dMap$dinsert($Std$dText$dinstOrd, v0, v1, v2);
+const $Main$dordersOf = (v0, v1) => $Std$dList$dfilterMap$e($Std$dMap$dtoList($Std$dText$dinstOrd, v0), ((v2) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dText$ddecEq($Std$dPair$dsnd(v2), v1)), ((v3) => ({ tag: "Some", value: $Std$dPair$dfst(v2) })), ((v3) => ({ tag: "None" })))));
+const $Main$ddescribe = (v0, v1) => $Std$dText$dappend("order ", $Std$dText$dappend($Std$dShow$d$gtoText($Main$dOrderId$dinstShow)(v0), $Std$dText$dappend(" belongs to ", $Std$dShow$d$gtoText($Main$dUserId$dinstShow)(v1))));
 
 // A map that crosses is built and read by the library's own functions.
 const MAP_SHAPE = {
@@ -1715,6 +1703,6 @@ function enc$12(v) {
 
 // Definitions used as values, taking their arguments one at a time, each
 // made at its first use.
-var $Std$dText$ddecEq$c, $Std$dText$dcompare$c, $Main$dOrderId$d$gdecEq$c, $Main$dOrderId$d$gcompare$c;
+var $Std$dText$ddecEq$c, $Std$dText$dcompare$c;
 
 export { $$parseEmail as parseEmail, $$emailText as emailText, $$ownerOf as ownerOf, $$assign as assign, $$ordersOf as ordersOf, $$describe as describe };

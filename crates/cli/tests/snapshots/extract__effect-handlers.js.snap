@@ -1093,8 +1093,8 @@ const $Std$dAdd$d$gadd = (v1) => {
   const v3 = v1.add;
   return v3;
 };
-const $Std$dAdd$dzero = (v1) => $Std$dAdd$d$gzero(v1);
-const $Std$dAdd$dadd = (v1) => $Std$dAdd$d$gadd(v1);
+const $Std$dAdd$dzero = $Std$dAdd$d$gzero;
+const $Std$dAdd$dadd = $Std$dAdd$d$gadd;
 const $Std$dNat$dinstAdd = { zero: 0n, add: ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1)) };
 const $Std$dNat$dmin = (v0, v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, v1), ((v2) => v0), ((v2) => v1));
 const $Std$dEmpty$dabsurd = (v1) => {
@@ -1158,7 +1158,7 @@ const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dsum = (v1, v2) => $Std$dList$dfoldLeft$e(v2, $Std$dAdd$dzero(v1), $Std$dAdd$dadd(v1));
+const $Std$dList$dsum = (v1, v2) => $Std$dList$dfoldLeft$e(v2, $Std$dAdd$d$gzero(v1), $Std$dAdd$d$gadd(v1));
 const $Std$dList$dtake = (v1, v2) => {
   let s1 = v1, s2 = v2;
   let h$ = null, l$ = null, k$ = null;

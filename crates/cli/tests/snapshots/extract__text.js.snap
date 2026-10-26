@@ -1028,22 +1028,22 @@ const $Std$dText$ddrop = (t, n) => {
   return t.slice(i);
 };
 const $Std$dText$dcontains = (t, needle) => ({ tag: t.includes(needle) ? "True" : "False" });
-const $Main$dlen = (v0) => $Std$dText$dlength(v0);
-const $Main$dchars = (v0) => $Std$dText$dtoList(v0);
-const $Main$dfromChars = (v0) => $Std$dText$dfromList(v0);
+const $Main$dlen = $Std$dText$dlength;
+const $Main$dchars = $Std$dText$dtoList;
+const $Main$dfromChars = $Std$dText$dfromList;
 const $Main$decho = (v0) => v0;
 const $Main$dechoChar = (v0) => v0;
-const $Main$dcodeOf = (v0) => $Std$dChar$dtoNat(v0);
-const $Main$dcharOf = (v0) => $Std$dChar$dfromNat(v0);
+const $Main$dcodeOf = $Std$dChar$dtoNat;
+const $Main$dcharOf = $Std$dChar$dfromNat;
 const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Std$dText$ddecEq(v0, v1));
-const $Main$dorder = (v0, v1) => $Std$dText$dcompare(v0, v1);
-const $Main$djoin = (v0, v1) => $Std$dText$dappend(v0, v1);
+const $Main$dorder = $Std$dText$dcompare;
+const $Main$djoin = $Std$dText$dappend;
 const $Main$dsplit = (v0, v1) => $Std$dText$dsplit(v1, v0);
 const $Main$djoinOn = (v0, v1) => $Std$dText$djoin(v1, v0);
-const $Main$dtrim = (v0) => $Std$dText$dtrim(v0);
-const $Main$dtoNat = (v0) => $Std$dText$dtoNat(v0);
-const $Main$dfromNat = (v0) => $Std$dNat$dtoText(v0);
-const $Main$duncons = (v0) => $Std$dText$duncons(v0);
+const $Main$dtrim = $Std$dText$dtrim;
+const $Main$dtoNat = $Std$dText$dtoNat;
+const $Main$dfromNat = $Std$dNat$dtoText;
+const $Main$duncons = $Std$dText$duncons;
 const $Main$dtake = (v0, v1) => $Std$dText$dtake(v1, v0);
 const $Main$ddrop = (v0, v1) => $Std$dText$ddrop(v1, v0);
 const $Main$dcontains = (v0, v1) => $Std$dText$dcontains(v1, v0);
@@ -1117,7 +1117,7 @@ const $Main$dinitialsOf = (v0) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dinitials = (v0) => $Main$dinitialsOf(v0);
+const $Main$dinitials = $Main$dinitialsOf;
 const $Main$drename = (v0, v1) => {
   switch (v1.tag) {
     case "MkPerson": {
@@ -1141,7 +1141,7 @@ const $Main$dorEmpty = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dfirstOf = (v0) => $Std$dPair$dfst(v0);
+const $Main$dfirstOf = $Std$dPair$dfst;
 const $Main$dlocated = (v0) => {
   switch (v0.tag) {
     case "At": {
@@ -1153,8 +1153,8 @@ const $Main$dlocated = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dempty = (v0) => $Std$dText$disEmpty(v0);
-const $Main$dless = (v0, v1) => $Std$dText$dless(v0, v1);
+const $Main$dempty = $Std$dText$disEmpty;
+const $Main$dless = $Std$dText$dless;
 const $Main$dcodes = (v0) => $Std$dText$dfold(v0, { tag: "Nil" }, ((v1) => ((v2) => ({ tag: "Cons", head: $Std$dChar$dtoNat(v1), tail: v2 }))));
 const $Main$dmapList = (v2, v3) => {
   let s2 = v2, s3 = v3;

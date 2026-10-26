@@ -2025,6 +2025,14 @@ struct Gen<'g> {
     /// The curried forms of uncurried definitions used as values, by name
     /// (`f$c`, built at its first use and kept in a module variable).
     curried: RefCell<Vec<String>>,
+    /// The definitions generated so far, by JS name ([`Gen::share`]).
+    emitted: RefCell<HashMap<String, DefId>>,
+    /// The right-hand sides of the values generated so far, each with the
+    /// name of the first value that has it.
+    values: RefCell<HashMap<String, String>>,
+    /// Definitions that are, at run time, one generated before them: with
+    /// that one's JS name, which every use names instead ([`Gen::share`]).
+    aliases: RefCell<HashMap<DefId, String>>,
 }
 
 /// What the generator decides about a definition from its type.
@@ -2187,6 +2195,9 @@ impl<'g> Gen<'g> {
             hoisted: RefCell::new(Vec::new()),
             hoisting: Cell::new(false),
             curried: RefCell::new(Vec::new()),
+            emitted: RefCell::default(),
+            values: RefCell::default(),
+            aliases: RefCell::default(),
         })
     }
 
@@ -2264,6 +2275,15 @@ impl<'g> Gen<'g> {
     /// `$e`, which no definition's name has, since [`encode`] uses `$`
     /// only for its escapes, none of which is `$e`.
     fn js_name(&self, id: DefId, variant: bool) -> String {
+        if !variant && let Some(target) = self.aliases.borrow().get(&id) {
+            return target.clone();
+        }
+        self.own_name(id, variant)
+    }
+
+    /// The name `id` (or its variant) is declared under, even if it's an
+    /// alias ([`Gen::share`]).
+    fn own_name(&self, id: DefId, variant: bool) -> String {
         let name = def_name(&self.g.def(id).path);
         if variant { format!("{name}$e") } else { name }
     }
@@ -2375,12 +2395,78 @@ impl<'g> Gen<'g> {
     fn def(&self, id: DefId) -> Fallible<String> {
         let mut out = String::new();
         if self.used.borrow()[id.0] {
-            out.push_str(&self.def_with(id, false)?);
+            let text = self.def_with(id, false)?;
+            out.push_str(&self.share(id, text));
         }
         if self.empty.borrow()[id.0] {
             out.push_str(&self.def_with(id, true)?);
         }
         Ok(out)
+    }
+
+    /// `text`, the declaration `const f = …;` of `id`, unless `f` is, at run
+    /// time, a definition generated before it, `g`: then `const f = g;`,
+    /// and every later use of `f` names `g`. So a derived instance or
+    /// comparison that only passes its arguments on to another's (an
+    /// unboxed record's derived `Ord`, which compares its one field: SW-603)
+    /// is that one, the same JS object, and code that takes a dictionary
+    /// (`Map`, `List.distinct`) sees one instance rather than one per type:
+    /// its calls through the dictionary stay monomorphic for the engine.
+    ///
+    /// `f` is `g` when
+    ///
+    /// - `f` is a function that calls `g`, a function taking its arguments
+    ///   the same way, with its own parameters in order and nothing else
+    ///   (`(v0, v1) => g(v0, v1)`, through `const`s that rename them); or
+    /// - `f` is a value whose right-hand side is `g`'s, or `g` itself.
+    ///   Generated code is pure, and a module-level right-hand side refers
+    ///   only to module-level names, so the same text is the same value.
+    ///
+    /// Only a definition generated earlier is a `g`, so `const f = g;`
+    /// never reads `g` before it's defined.
+    fn share(&self, id: DefId, text: String) -> String {
+        let name = self.own_name(id, false);
+        let info = self.info(id);
+        let target = text
+            .strip_prefix(&format!("const {name} = "))
+            .and_then(|rest| rest.strip_suffix(";\n"))
+            .and_then(|rhs| match info.convention {
+                Convention::Function => {
+                    let target = forwards_to(rhs)?;
+                    let to = *self.emitted.borrow().get(target)?;
+                    let to_info = self.info(to);
+                    (to != id
+                        && to_info.convention == Convention::Function
+                        && to_info.uncurried == info.uncurried
+                        && runtime_params(&to_info.mask) == runtime_params(&info.mask))
+                    .then(|| target.to_string())
+                }
+                Convention::Value if !is_simple(rhs) => {
+                    if let Some(&to) = self.emitted.borrow().get(rhs)
+                        && self.info(to).convention == Convention::Value
+                    {
+                        return Some(rhs.to_string());
+                    }
+                    let mut values = self.values.borrow_mut();
+                    match values.get(rhs) {
+                        Some(first) => Some(first.clone()),
+                        None => {
+                            values.insert(rhs.to_string(), name.clone());
+                            None
+                        }
+                    }
+                }
+                _ => None,
+            });
+        self.emitted.borrow_mut().insert(name.clone(), id);
+        match target {
+            Some(target) => {
+                let out = format!("const {name} = {target};\n");
+                self.aliases.borrow_mut().insert(id, target);
+                out
+            }
+            None => text,
+        }
     }
 
     /// The declaration of `id`, or of its empty-row variant.
@@ -2467,7 +2553,7 @@ impl<'g> Gen<'g> {
         mask: &[bool],
         convention: Convention,
     ) -> Fallible<String> {
-        let name = self.js_name(id, variant);
+        let name = self.own_name(id, variant);
         let mut env = mask.to_vec();
         let uncurried = if variant {
             self.empty_info(id)
@@ -5350,6 +5436,56 @@ fn var(level: usize) -> String {
 
 /// How many of a definition's parameters, by erasure `mask`, are passed at
 /// run time.
+/// The function `rhs` calls, if `rhs` (a definition's generated right-hand
+/// side) only passes its parameters on to it, in order: `(v0, v1) =>
+/// g(v0, v1)`, or the same with `const`s renaming the parameters first
+/// (a match on an unboxed record's one field is such a `const`):
+///
+/// ```js
+/// (v0, v1) => {
+///   const v2 = v0;
+///   const v3 = v1;
+///   return g(v2, v3);
+/// }
+/// ```
+fn forwards_to(rhs: &str) -> Option<&str> {
+    let (params, body) = rhs.split_once(" => ")?;
+    let params: Vec<&str> = params
+        .strip_prefix('(')?
+        .strip_suffix(')')?
+        .split(", ")
+        .collect();
+    if !params.iter().all(|p| is_js_identifier(p)) {
+        return None;
+    }
+    // Each name in scope, with the parameter it is.
+    let mut names: HashMap<&str, &str> = params.iter().map(|p| (*p, *p)).collect();
+    let call = match body.strip_prefix("{\n").and_then(|b| b.strip_suffix('}')) {
+        Some(block) => {
+            let mut lines = block.lines().map(str::trim);
+            loop {
+                let line = lines.next()?;
+                if let Some(binding) = line.strip_prefix("const ") {
+                    let (x, value) = binding.strip_suffix(';')?.split_once(" = ")?;
+                    let param = *names.get(value)?;
+                    names.insert(x, param);
+                } else {
+                    let call = line.strip_prefix("return ")?.strip_suffix(';')?;
+                    if lines.any(|l| !l.is_empty()) {
+                        return None;
+                    }
+                    break call;
+                }
+            }
+        }
+        None => body,
+    };
+    let (head, args) = call.split_once('(')?;
+    let args: Vec<&str> = args.strip_suffix(')')?.split(", ").collect();
+    let passed: Option<Vec<&str>> = args.iter().map(|a| names.get(a).copied()).collect();
+    (is_js_identifier(head) && !names.contains_key(head) && passed? == params).then_some(head)
+}
+
 fn runtime_params(mask: &[bool]) -> usize {
     mask.iter().filter(|erased| !**erased).count()
 }
@@ -5938,7 +6074,7 @@ mod tests {
     use stitchwort_core::collections::HashMap;
 
     use super::{
-        IntNative, RUNTIME, TextNative, def_name, encode, info_name, int_native_js,
+        IntNative, RUNTIME, TextNative, def_name, encode, forwards_to, info_name, int_native_js,
         is_js_identifier, is_simple, mentions, native, native_js, text_native_js, uncurry_arrows,
         wrapper_name,
     };
@@ -6025,6 +6161,32 @@ mod tests {
         }
         for bad in ["", "1x", "x'", "x-y", "x y", "é"] {
             assert!(!is_js_identifier(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn finds_functions_that_only_pass_their_arguments_on() {
+        let block = "(v0, v1) => {\n  const v2 = v0;\n  const v3 = v1;\n  return $Std$dText$dcompare(v2, v3);\n}";
+        assert_eq!(forwards_to(block), Some("$Std$dText$dcompare"));
+        assert_eq!(
+            forwards_to("(v0) => $Main$dEmail$dvalue(v0)"),
+            Some("$Main$dEmail$dvalue")
+        );
+        for not in [
+            // Another order, another argument, fewer, or more.
+            "(v0, v1) => g(v1, v0)",
+            "(v0, v1) => g(v0, 1n)",
+            "(v0, v1) => g(v0)",
+            "(v0) => g(v0, v0)",
+            // Not just a call.
+            "(v0) => g(v0).x",
+            "(v0) => g(h(v0))",
+            "(v0) => (v1) => g(v0)(v1)",
+            "(v0) => {\n  const v1 = v0.id;\n  return g(v1);\n}",
+            "(v0) => {\n  const v1 = v0;\n  return g(v1);\n  h();\n}",
+            "(v0) => v0(v0)",
+        ] {
+            assert_eq!(forwards_to(not), None, "{not}");
         }
     }
 

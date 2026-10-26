@@ -904,7 +904,7 @@ const $Main$dapplyAll = (v0) => {
 const $Main$dclosures = (v0) => $Main$dapplyAll($Main$dadders({ tag: "Nil" }, v0));
 const $Main$dtwice = (v0) => $Std$dList$dappend((v0)({ tag: "Nil" }), (v0)({ tag: "Cons", head: 0n, tail: { tag: "Nil" } }));
 const $Main$dreused = (v0) => $Main$dtwice((($p2) => $Std$dList$dreverseOnto(v0, $p2)));
-const $Main$ddigits = (v0) => $Std$dNat$dtoText(v0);
+const $Main$ddigits = $Std$dNat$dtoText;
 
 function $$sumTo(arg0) {
   try {

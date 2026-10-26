@@ -960,12 +960,12 @@ const $Main$dRequired$dvalue = (v0) => {
   const v1 = v0;
   return v1;
 };
-const $Main$drequired = (v0) => $Main$dRequired$dvalue(v0);
+const $Main$drequired = $Main$dRequired$dvalue;
 const $Main$dCap$dcap = (v0) => {
   const v1 = v0;
   return v1;
 };
-const $Main$dcapOf = (v0) => $Main$dCap$dcap(v0);
+const $Main$dcapOf = $Main$dCap$dcap;
 
 function $$nickname(arg0) {
   try {

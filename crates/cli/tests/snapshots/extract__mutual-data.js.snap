@@ -875,7 +875,7 @@ const $Main$dflattenRose = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dflatten = (v0) => $Main$dflattenRose(v0);
+const $Main$dflatten = $Main$dflattenRose;
 const $Main$dechoRose = (v0) => v0;
 
 function $$size(arg0) {

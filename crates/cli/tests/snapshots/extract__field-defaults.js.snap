@@ -809,7 +809,7 @@ const $Main$dConfig$dcolour = (v0) => {
   return v1;
 };
 const $Main$dConfig$dcolour$ddefault = { tag: "Some", value: "blue" };
-const $Main$dcolourOf = (v0) => $Main$dConfig$dcolour(v0);
+const $Main$dcolourOf = $Main$dConfig$dcolour;
 const $Main$decho = (v0) => v0;
 const $Main$dRect$dwidth = (v0) => {
   const v1 = v0.width;
@@ -830,7 +830,7 @@ const $Main$dRect$darea = (v0) => {
   return v3;
 };
 const $Main$dRect$dheight$ddefault = (v0) => v0;
-const $Main$dRect$darea$ddefault = (v0, v1) => $Std$dNat$dmul(v0, v1);
+const $Main$dRect$darea$ddefault = $Std$dNat$dmul;
 const $Main$darea = (v0) => ({ tag: "Cons", head: $Main$dRect$dwidth(v0), tail: { tag: "Cons", head: $Main$dRect$dheight(v0), tail: { tag: "Cons", head: $Main$dRect$darea(v0), tail: { tag: "Nil" } } } });
 const $Main$dShape$dCircle$dlabel$ddefault = "circle";
 const $Main$dlabel = (v0) => {
@@ -860,7 +860,7 @@ const $Main$dBox$dlabel = (v1) => {
 };
 const $Main$dBox$dlabel$ddefault = "box";
 const $Main$dBox$dextra$ddefault = { tag: "Nil" };
-const $Main$dboxLabel = (v0) => $Main$dBox$dlabel(v0);
+const $Main$dboxLabel = $Main$dBox$dlabel;
 const $Main$dnested = (v0) => v0;
 
 function $$bounds(arg0) {
@@ -1026,7 +1026,7 @@ function dec$7(x) {
     const r2 = x.area;
     f2 = NAT.dec(r2);
   } else if ("area" in x) throw FAIL;
-  else { const v0 = f0; const v1 = f1; f2 = $Main$dRect$darea$ddefault(v0, v1); }
+  else { const v0 = f0; const v1 = f1; f2 = $Std$dNat$dmul(v0, v1); }
   const o = { width: f0, height: f1, area: f2 };
   return o;
 }

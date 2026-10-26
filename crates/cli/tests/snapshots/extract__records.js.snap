@@ -948,7 +948,7 @@ const $Main$dSized$dsize = (v0) => {
   const v2 = v0.size;
   return v2;
 };
-const $Main$dtotal = (v0) => $Main$dSized$dsize(v0);
+const $Main$dtotal = $Main$dSized$dsize;
 const $Main$dTeam$dlead = (v0) => {
   const v1 = v0.lead;
   const v2 = v0.size;

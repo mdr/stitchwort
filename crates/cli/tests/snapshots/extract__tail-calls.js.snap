@@ -789,7 +789,7 @@ const $Std$dOrd$d$gcompare = (v1) => {
   const v7 = v1.decLessEq;
   return v3;
 };
-const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
+const $Std$dOrd$dcompare = $Std$dOrd$d$gcompare;
 const $Std$dNat$dinstOrd = { eq: $Std$dNat$dinstDecEq, compare: ($Std$dNat$dcompare$c ??= ($p0) => ($p1) => $Std$dNat$dcompare($p0, $p1)), decLessThan: ($Std$dNat$ddecLessThan$c ??= ($p0) => ($p1) => $Std$dNat$ddecLessThan($p0, $p1)), decLessEq: ($Std$dNat$ddecLessEq$c ??= ($p0) => ($p1) => $Std$dNat$ddecLessEq($p0, $p1)) };
 const $Std$dList$dmap$e = (v4, v5) => {
   let s4 = v4, s5 = v5;
@@ -894,7 +894,7 @@ const $Main$dfirstAbove = (v0, v1) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dfirstOver = (v0, v1) => $Main$dfirstAbove(v0, v1);
+const $Main$dfirstOver = $Main$dfirstAbove;
 const $Main$dlookupIn$d$gmatch1 = (v0, v1, v2, v3) => {
   switch (v3.tag) {
     case "Less": {
@@ -952,7 +952,7 @@ const $Main$dlookupIn = (v0, v1) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dlookup = (v0, v1) => $Main$dlookupIn(v0, v1);
+const $Main$dlookup = $Main$dlookupIn;
 const $Main$dstepsFrom$d$gmatch1 = (v0, v1) => {
   if (v1 === 0n) {
     return v0;
@@ -1113,7 +1113,7 @@ const $Main$devenRounds = (v0, v1) => {
     }
   }
 };
-const $Main$drounds = (v0, v1) => $Main$devenRounds(v0, v1);
+const $Main$drounds = $Main$devenRounds;
 const $Main$dlookupLast = (v0) => $Main$dlookupIn(v0, $Std$dList$dmap$e($Std$dList$drange($Std$dNat$dadd(v0, 1n)), ((v1) => ({ tag: "MkPair", fst: v1, snd: "x" }))));
 
 function $$countDown(arg0) {

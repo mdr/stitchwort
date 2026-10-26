@@ -845,7 +845,7 @@ const $Main$dOrder$dlines = (v0) => {
 };
 const $Main$dtotal = (v0) => $Std$dList$dlength($Main$dOrder$dlines(v0));
 const $Main$dwithCoupon = (v0) => ({ id: $Main$dOrder$did(v0), lines: $Main$dOrder$dlines(v0), coupon: { tag: "Some", value: "SAVE" } });
-const $Main$dcountItems = (v0) => $Std$dList$dlength(v0);
+const $Main$dcountItems = $Std$dList$dlength;
 
 function $$area(arg0) {
   try {
