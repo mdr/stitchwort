@@ -3477,7 +3477,7 @@
     },
     {
       "id": 521,
-      "title": "Live keys lanes 2-4: lane 2 merged (7ce810f9); lane 3 terminal pane doing; lane 4 rogue live next",
+      "title": "Live keys lanes 2-4: lane 2 merged (7ce810f9), lane 3 pane merged (20be392c); lane 4 rogue live doing",
       "status": "doing",
       "agent": "",
       "where": "",
