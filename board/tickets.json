@@ -1,5 +1,5 @@
 {
-  "next": 616,
+  "next": 617,
   "tickets": [
     {
       "id": 13,
@@ -4656,7 +4656,7 @@
     {
       "id": 611,
       "title": "Pipe-style restyle (D1337): stage 1 rogue + AoC merged 6783dac6; stage 2 std + examples running",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4664,7 +4664,10 @@
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": [
-        "6783dac6"
+        "6783dac6",
+        "01326dca",
+        "cbdfa76d",
+        "03f62c24"
       ]
     },
     {
@@ -4706,6 +4709,18 @@
     {
       "id": 615,
       "title": "Private app port: once signature defaults (D1340) land, give makeRecording/makeBubble/… default values (None, [], 0.0, …) so tests pass only the data pertinent to each scenario (private work only)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 616,
+      "title": "Pipe vs prefix elaborate differently in effectful code: rewriting List.sum (List.map xs f) as xs.map f |> .sum changes the definition hash in examples main-fail, main-fail-ok, partial-map-self (f effectful) — find whether the terms differ in meaning (effect order) or only in shape; found by the restyle lane 26 Oct",
       "status": "backlog",
       "agent": "",
       "where": "",
