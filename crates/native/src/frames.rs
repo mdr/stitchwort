@@ -47,13 +47,28 @@ const GUARD: usize = 4096;
 
 /// A bound on the stack one call of the compiled `func` uses, in bytes.
 pub fn frame_bound(func: &Function, compiled: &CompiledCode) -> usize {
-    // Every parameter and result of the widest signature on the stack.
+    // What a tail call grows the frame by: its callee's stack arguments
+    // beyond the ones this body was given. Arguments are words; at least 4
+    // of a callee's go in registers (aarch64 has 8, x86-64 fewer but more
+    // than 4 in the `tail` convention), and at most 8 of this body's own.
+    let own_stack = func.signature.params.len().saturating_sub(8);
     let arguments = func
-        .dfg
-        .signatures
-        .values()
-        .chain(std::iter::once(&func.signature))
-        .map(|sig| (sig.params.len() + sig.returns.len()) * 8)
+        .layout
+        .blocks()
+        .flat_map(|block| func.layout.block_insts(block))
+        .filter(|inst| {
+            let op = func.dfg.insts[*inst].opcode();
+            op.is_call() && op.is_return()
+        })
+        .filter_map(|inst| func.dfg.call_signature(inst))
+        .map(|sig| {
+            func.dfg.signatures[sig]
+                .params
+                .len()
+                .saturating_sub(4)
+                .saturating_sub(own_stack)
+                * 8
+        })
         .max()
         .unwrap_or(0);
     // 16 for alignment.

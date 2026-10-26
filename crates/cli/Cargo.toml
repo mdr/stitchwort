@@ -27,6 +27,8 @@ lsp-server.workspace = true
 lsp-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# `program.o` for `stitchwort build` (docs/proposals/standalone-executables.md).
+object = { workspace = true, features = ["write"] }
 # Native code through Cranelift (docs/proposals/native-compilation.md):
 # only with the `native` feature, which is off by default.
 stitchwort-native = { workspace = true, optional = true }
@@ -44,6 +46,12 @@ alloc-trace = ["stitchwort-rt/alloc-trace"]
 
 [dev-dependencies]
 insta.workspace = true
+# Never used in code: depending on it builds the runtime library,
+# `libstitchwort_standalone.a`, beside the test binaries, where
+# `tests/build.rs` links the executables it builds against it.
+stitchwort-standalone.workspace = true
+# Reading back the `program.o` that `build` writes.
+object = { workspace = true, features = ["read_core", "macho", "elf"] }
 
 [target.'cfg(unix)'.dev-dependencies]
 # `run` in a pseudo-terminal (`tests/keys_mode.rs`): `openpty` is in `term`.

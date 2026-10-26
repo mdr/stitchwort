@@ -933,6 +933,75 @@ test("a long run streams its output, and Stop cancels it", async (page) => {
   assert.equal(await page.printed(), MAIN_OUTPUT);
 });
 
+// Run in terminal (docs/proposals/playground-live-keys.md): keys pressed in
+// the pane reach the running program one at a time, each answered by the
+// next frame, which replaces the last.
+const LIVE = `document.getElementById("live-screen")`;
+const WALK = readFileSync(join(here, "..", "..", "examples", "accept", "terminal-walk.sw"), "utf8");
+const liveScreen = (page) => page.ev(`${LIVE}.textContent`);
+const liveState = (page) => page.ev(`${LIVE}?.dataset.state ?? ""`);
+const liveStretches = (page) => page.ev(`Number(${LIVE}?.dataset.stretches ?? 0)`);
+
+/** Presses a key in the pane and waits for the program to answer: waiting again, or over. */
+async function liveKey(page, key, code, keyCode, options) {
+  const before = await liveStretches(page);
+  await page.key(key, code, keyCode, options);
+  await page.until(`Number(${LIVE}.dataset.stretches) > ${before} && ${LIVE}.dataset.state !== "running"`, 20000, `an answer to ${key}`);
+}
+
+/** Starts terminal-walk in the terminal, and waits for its first frame. */
+async function startWalk(page) {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(WALK);
+  await page.untilChecked();
+  await page.tab("run");
+  await page.click("#run-live");
+  await page.until(`${LIVE}?.dataset.state === "waiting"`, 20000, "the first frame");
+}
+
+/** The walk's screen with the @ at `column`, `row`. */
+const walkRoom = (column, row) => {
+  const rows = [0, 1, 2, 3].map((r) => "#" + (r === row ? ".".repeat(column) + "@" + ".".repeat(9 - column) : ".".repeat(10)) + "#");
+  return ["############", ...rows, "############", "hjkl or arrows to move, q to stop"].join("\n");
+};
+
+test("Run in terminal plays terminal-walk key by key, and ends with q", async (page) => {
+  await startWalk(page);
+  assert.equal(await liveScreen(page), walkRoom(0, 0));
+  await liveKey(page, "l", "KeyL", 76);
+  assert.equal(await liveScreen(page), walkRoom(1, 0));
+  await liveKey(page, "ArrowDown", "ArrowDown", 40);
+  assert.equal(await liveScreen(page), walkRoom(1, 1));
+  await liveKey(page, "j", "KeyJ", 74);
+  await liveKey(page, "ArrowLeft", "ArrowLeft", 37);
+  assert.equal(await liveScreen(page), walkRoom(0, 2));
+  await liveKey(page, "q", "KeyQ", 81);
+  assert.equal(await liveState(page), "finished");
+  // Keys mode ended, so the last words are on the normal screen.
+  assert.equal(await liveScreen(page), "The @ stopped at column 0, row 2.\n");
+  assert.equal(await page.ev(`document.getElementById("run").disabled`), false);
+});
+
+test("Ctrl-C stops a run in the terminal", async (page) => {
+  await startWalk(page);
+  await liveKey(page, "l", "KeyL", 76);
+  await liveKey(page, "c", "KeyC", 67, { modifiers: 2 });
+  assert.equal(await liveState(page), "interrupted");
+  assert.match(await page.runResult(), /Stopped by Ctrl-C/);
+  // The buttons are free again, and a scripted Run works afterwards.
+  assert.equal(await page.ev(`document.getElementById("run").disabled`), false);
+  await page.pick("ex-main");
+  await page.run();
+  assert.equal(await page.printed(), MAIN_OUTPUT);
+});
+
+test("Stop ends a run waiting in the terminal", async (page) => {
+  await startWalk(page);
+  await page.click(".runrow button:nth-child(2)");
+  await page.until(`${LIVE}.dataset.state === "stopped"`, 5000, "stopped");
+});
+
 test("a runaway run is stopped by the timeout, with its output", async (page) => {
   await page.open();
   await page.untilChecked();

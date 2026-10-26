@@ -15,6 +15,7 @@ stitchwort-js = { path = "crates/js" }
 stitchwort-rt = { path = "crates/rt" }
 stitchwort-driver = { path = "crates/driver" }
 stitchwort-host = { path = "crates/host" }
+stitchwort-standalone = { path = "crates/standalone" }
 stitchwort-fmt = { path = "crates/fmt" }
 stitchwort-native = { path = "crates/native" }
 
@@ -33,6 +34,9 @@ mimalloc = { version = "0.1.52", default-features = false }
 # rustyline and tempfile.
 nix = { version = "0.31.3", default-features = false, features = ["term", "signal"] }
 num-bigint = "0.5.1"
+# Writing `program.o` for `stitchwort build` (docs/proposals/standalone-
+# executables.md §4): the major version cranelift-object uses.
+object = { version = "0.40.0", default-features = false }
 num-traits = "0.2.19"
 rustix = { version = "1.1.5", features = ["termios"] }
 rustyline = "18.0.1"

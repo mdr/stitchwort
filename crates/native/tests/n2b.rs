@@ -23,7 +23,7 @@ use stitchwort_rt::host::{NoTerminal, RunError};
 use stitchwort_rt::{Limits, Program, alloc_trace, lower_main, run_main, run_main_native};
 
 /// The stack of the thread the tests run on, unless a test sizes its own.
-const STACK: usize = 4 * 1024 * 1024 * 1024;
+const STACK: usize = 16 * 1024 * 1024 * 1024;
 
 fn lowered(source: &str, stack: usize) -> (Program, Limits) {
     let mut session = Session::for_stack(stack);
@@ -577,4 +577,42 @@ fn tail_call_error_exits_make_the_machines_allocation_trace() {
             sweep_error_traces(name, &template.replace("{N}", "6"));
         }
     }
+}
+
+/// Closures (stage N3) whose captures own cells, applied exactly, partially
+/// and over-applied, nested, and tail-applied.
+const CLOSURES: &str = r#"import Std (IO, List)
+
+def total: List Nat → Nat
+  | [] => 0
+  | Cons x rest => x + total rest
+
+def capture (xs: List Nat) (k: Nat): Nat → Nat := x => x + k + total xs
+
+def pair (xs: List Nat) (ys: List Nat): Nat → Nat → Nat := a b => a + b + total xs + total ys
+
+def compose (f: Nat → Nat) (g: Nat → Nat) (x: Nat): Nat := f (g x)
+
+def viaTail (f: Nat → Nat) (x: Nat): Nat := f x
+
+def nest: Nat → List Nat → Nat
+  | Zero, xs => total xs
+  | Succ n, xs =>
+    let ys := [n, n + 1]
+    let f := capture ys n
+    let p := pair xs ys
+    let a := compose f (capture xs 1) n
+    let b := p 1 2
+    let c := viaTail (pair ys xs 3) 4
+    a + b + c + nest n ys
+
+def main(): {IO} () :=
+  IO.print "${nest 3 [1, 2]}"
+"#;
+
+/// The same for the error exits of closure bodies, the apply stubs and
+/// over-applications: closures drop before registers, as in the machine.
+#[test]
+fn closure_error_exits_make_the_machines_allocation_trace() {
+    sweep_error_traces("closures", CLOSURES);
 }

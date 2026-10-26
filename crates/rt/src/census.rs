@@ -29,7 +29,7 @@
 use std::collections::BTreeMap;
 
 use crate::code::{Code, Image, Instr, compile};
-use crate::ir::{GlobalKind, PrimOp, Program};
+use crate::ir::{GlobalKind, Program};
 
 /// The kind of an instruction, by name (`Call`, `Prim`, ...).
 pub fn instr_name(instr: &Instr) -> &'static str {
@@ -77,15 +77,23 @@ pub fn instr_name(instr: &Instr) -> &'static str {
 /// of a `Nat` comparison); the `Nat` match instructions `NatCase`, `NatPred`
 /// and `NumSwitch` (read from "`Nat` fast paths"); and, so that the `Set`
 /// benchmark fits (Matt's scope call from this census), `DropReuse`,
-/// `Global` and `Apply`/`TailApply`. Nothing else.
+/// `Global` and `Apply`/`TailApply`.
+///
+/// Stage N3 added the rest of the closure instructions (`Closure`,
+/// `Captured`, `Pap`, and every kind of application), every `Prim` and
+/// `Test` the machine computes with `prims::eval` (the `Text`, `Int`,
+/// `Float` and `Delay` operations: the standalone note's "cheap find"),
+/// the `Int` and `Text` match instructions, and `Unreachable`. What's left
+/// is what runs on the machine's frames: the effect runtime's natives
+/// (`Prim`/`TailPrim` of `Effect`, stage N4) and `Text.fold`.
 ///
 /// The compiler also checks things about an island as a whole that no one
-/// instruction shows (that an `Apply` can only meet a compiled global
-/// function taking as many arguments): see `stitchwort_native::n1`.
+/// instruction shows (that no native the machine runs on its frames is
+/// made a function value): see `stitchwort_native::n1`.
 ///
 /// Returns `None` if `instr` is in the subset, otherwise the blocker's key:
 /// the instruction's name, with the operation for a `Prim`, `TailPrim` or
-/// `Test` (`Prim:Int(IntAdd)`), since those are separate decisions.
+/// `Test` (`Prim:Effect(Bind)`), since those are separate decisions.
 pub fn n1_blocker(instr: &Instr) -> Option<String> {
     match instr {
         Instr::Move { .. }
@@ -114,12 +122,24 @@ pub fn n1_blocker(instr: &Instr) -> Option<String> {
         | Instr::DropReuse { .. }
         | Instr::Global { .. }
         | Instr::Apply { .. }
-        | Instr::TailApply { .. } => None,
-        Instr::Prim { op, .. } | Instr::Test { op, .. } if matches!(op, PrimOp::Nat(_)) => None,
+        | Instr::TailApply { .. }
+        // Stage N3: closures, and what the machine computes without frames.
+        | Instr::Closure { .. }
+        | Instr::Captured { .. }
+        | Instr::Pap { .. }
+        | Instr::IntCase { .. }
+        | Instr::IntOfNat { .. }
+        | Instr::IntNegSucc { .. }
+        | Instr::TextChars { .. }
+        | Instr::Unreachable => None,
+        Instr::Prim { op, .. } | Instr::Test { op, .. }
+            if crate::native_abi::applicable_native(*op) =>
+        {
+            None
+        }
         Instr::Prim { op, .. } | Instr::Test { op, .. } | Instr::TailPrim { op, .. } => {
             Some(format!("{}:{op:?}", instr_name(instr)))
         }
-        other => Some(instr_name(other).to_string()),
     }
 }
 
@@ -426,30 +446,48 @@ fn body_names(program: &Program, image: &Image) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::code::Ops;
+    use crate::ir::PrimOp;
 
     #[test]
-    fn subset_accepts_calls_and_apply_and_blocks_closures() {
+    fn subset_accepts_closures_and_blocks_effects() {
+        use crate::effect::EffectOp;
+        use crate::natives::TextNative;
+        let none = Ops { start: 0, len: 0 };
         let ok = Instr::Call {
             dst: 0,
             g: 0,
-            args: Ops { start: 0, len: 0 },
+            args: none,
         };
         assert_eq!(n1_blocker(&ok), None);
         let apply = Instr::Apply {
             dst: 0,
             f: 0,
-            args: Ops { start: 0, len: 0 },
+            args: none,
         };
         assert_eq!(n1_blocker(&apply), None);
         let closure = Instr::Closure {
             dst: 0,
             lambda: 0,
-            args: Ops { start: 0, len: 0 },
+            args: none,
         };
-        assert_eq!(n1_blocker(&closure).as_deref(), Some("Closure"));
-        assert_eq!(
-            n1_blocker(&Instr::Unreachable).as_deref(),
-            Some("Unreachable")
-        );
+        assert_eq!(n1_blocker(&closure), None);
+        assert_eq!(n1_blocker(&Instr::Unreachable), None);
+        let append = Instr::Prim {
+            dst: 0,
+            op: PrimOp::Text(TextNative::TextAppend),
+            args: none,
+        };
+        assert_eq!(n1_blocker(&append), None);
+        let fold = Instr::Prim {
+            dst: 0,
+            op: PrimOp::Text(TextNative::TextFold),
+            args: none,
+        };
+        assert_eq!(n1_blocker(&fold).as_deref(), Some("Prim:Text(TextFold)"));
+        let bind = Instr::TailPrim {
+            op: PrimOp::Effect(EffectOp::Bind),
+            args: none,
+        };
+        assert_eq!(n1_blocker(&bind).as_deref(), Some("TailPrim:Effect(Bind)"));
     }
 }

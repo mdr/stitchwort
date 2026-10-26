@@ -308,6 +308,9 @@ impl<'p> Machine<'p> {
         let result = pending.and_then(|p| run(&self.program, &self.image, &mut self.st, p));
         if result.is_err() {
             self.st.frames.clear();
+            if let Some(native) = &self.st.native {
+                native.release_unwound_frames();
+            }
             self.st.regs.clear();
             self.st.scratch.clear();
             if let Some(native) = &self.st.native {
@@ -929,7 +932,7 @@ fn state_fn(s: &Shapes, comp: bool, run: StateRun) -> Value {
 }
 
 /// The arity of a function value that isn't a partial application.
-fn arity(program: &Program, head: &Value) -> usize {
+pub(crate) fn arity(program: &Program, head: &Value) -> usize {
     let Value::Fun(fun) = head else {
         unreachable!("a function")
     };
@@ -1091,6 +1094,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                                 limits: st.limits,
                                 unwound: Vec::new(),
                                 tail: Vec::new(),
+                                held: Vec::new(),
                             };
                             let result = native.call(g, values, &mut run);
                             st.steps = run.steps;

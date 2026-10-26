@@ -15,6 +15,8 @@ use stitchwort_elab::project::FileModeContext;
 use stitchwort_fmt::Error as FmtError;
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 
+mod build;
+
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
 struct Cli {
@@ -197,20 +199,28 @@ enum Command {
     /// Run the language server, speaking LSP on standard input and output
     /// (docs/proposals/language-server.md)
     Lsp,
-    /// Extract a file's exports, or a namespace's, to JavaScript
+    /// Build a standalone executable that runs a file's `main`, a project
+    /// folder's (its one namespace with a `main`), or a function of the
+    /// project by its full name (`Rogue.main`), and needs neither
+    /// `stitchwort` nor the source. It links with the system's C compiler
+    /// (`$CC`, or `cc`). With --js, extract a file's exports, or a
+    /// namespace's, to JavaScript instead
     Build {
-        /// A file, or a namespace of the project
+        /// A file, a project folder, or the full name of a function in the
+        /// project; with --js, a file or a namespace of the project
         target: String,
         /// Generate an ES module and TypeScript declarations
-        #[arg(long, required = true)]
-        js: bool,
-        /// Output directory
-        #[arg(short, long, default_value = ".")]
-        out: PathBuf,
-        /// Also write a source map (`NAME.js.map`) from the generated
-        /// module to the `.sw` source, one entry per definition, and refer
-        /// to it from the module
         #[arg(long)]
+        js: bool,
+        /// The executable to write (default: the file's, folder's or
+        /// namespace's name, in this folder); with --js, the output
+        /// directory (default: this folder)
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+        /// With --js, also write a source map (`NAME.js.map`) from the
+        /// generated module to the `.sw` source, one entry per definition,
+        /// and refer to it from the module
+        #[arg(long, requires = "js")]
         source_map: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
@@ -422,12 +432,26 @@ fn run(cli: Cli) -> ExitCode {
         }
         Command::Build {
             target,
+            js: true,
             out,
             source_map,
             project,
             cache,
+        } => build(
+            &target,
+            out.as_deref().unwrap_or(Path::new(".")),
+            source_map,
+            project.as_deref(),
+            &cache,
+        ),
+        Command::Build {
+            target,
+            js: false,
+            out,
+            project,
+            cache,
             ..
-        } => build(&target, &out, source_map, project.as_deref(), &cache),
+        } => build::build_executable(&target, out.as_deref(), project.as_deref(), &cache),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -1027,8 +1051,9 @@ fn load_main(
     target: &str,
     project: Option<&Path>,
     cache: &CacheArgs,
-) -> Result<(Session, Main), ExitCode> {
+) -> Result<(Session, Main, usize), ExitCode> {
     let mut session = new_session(false);
+    let goals;
     let main = if is_file_target(target) {
         use_cache(&mut session, cache, Path::new("."));
         let mut reported = Vec::new();
@@ -1036,7 +1061,8 @@ fn load_main(
             return Err(ExitCode::FAILURE);
         }
         // What's finished can run; `main` can't if it isn't (`Session::main`).
-        report_goals(goals_open(&reported));
+        goals = goals_open(&reported);
+        report_goals(goals);
         session.main()
     } else {
         let Some(project) = locate_project(project, "run", "run hello.sw") else {
@@ -1071,7 +1097,8 @@ fn load_main(
             Ok(_) => {
                 let reported = std::mem::take(&mut session.warnings);
                 report(&session.sources, &reported);
-                report_goals(goals_open(&reported));
+                goals = goals_open(&reported);
+                report_goals(goals);
             }
             Err(diagnostics) => {
                 report(&session.sources, &diagnostics);
@@ -1087,7 +1114,7 @@ fn load_main(
             return Err(ExitCode::FAILURE);
         }
     };
-    Ok((session, main))
+    Ok((session, main, goals))
 }
 
 /// `run`: a file's `main`, or a function of the project by its full name.
@@ -1122,7 +1149,7 @@ fn run_target(
         None if reference => Runner::Reference,
         None => Runner::Machine,
     };
-    let (mut session, main) = match load_main(target, project, cache) {
+    let (mut session, main, _) = match load_main(target, project, cache) {
         Ok(loaded) => loaded,
         Err(code) => return code,
     };
@@ -1158,7 +1185,7 @@ fn opcode_census(
     project: Option<&Path>,
     cache: &CacheArgs,
 ) -> ExitCode {
-    let (session, main) = match load_main(target, project, cache) {
+    let (session, main, _) = match load_main(target, project, cache) {
         Ok(loaded) => loaded,
         Err(code) => return code,
     };
@@ -1177,6 +1204,12 @@ fn opcode_census(
         "bodies whose own island fits: {} of {} reachable",
         fitting.len(),
         census.bodies.len()
+    );
+    let is_std = |name: &str| name.starts_with("Std.");
+    println!(
+        "  of which the standard library's: {} of {} reachable",
+        fitting.iter().filter(|(name, _)| is_std(name)).count(),
+        census.bodies.iter().filter(|b| is_std(&b.name)).count()
     );
     for (name, size) in fitting.iter().take(5) {
         println!("  {name}: island of {size}");
@@ -1875,7 +1908,11 @@ fn build_namespace(
 /// `build` doesn't write JavaScript while goals are open: only checked code
 /// is built (D636). Says so if there are any.
 fn refuse_goals(reported: &[Diagnostic]) -> bool {
-    let goals = goals_open(reported);
+    refuse_open_goals(goals_open(reported))
+}
+
+/// [`refuse_goals`], given how many goals are open.
+fn refuse_open_goals(goals: usize) -> bool {
     if goals > 0 {
         let s = if goals == 1 { "" } else { "s" };
         eprintln!(

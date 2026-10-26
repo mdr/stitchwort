@@ -423,6 +423,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b533db1679b4b728568bd490da6533cf50974c48a4d7534e78f1e0e02bc39769"
 
 [[package]]
+name = "crc32fast"
+version = "1.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ba106e844045ddc02c20768ac4b0b7cb45f2cc2ecbd833ac9f5dacb183c2055"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "crossbeam-channel"
 version = "0.5.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -893,6 +902,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "object"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd229a0361b9d0d4396176e02d65897f487eebeab7caa6d443855ee152ca0b9c"
+dependencies = [
+ "crc32fast",
+ "hashbrown 0.17.1",
+ "indexmap",
+ "memchr",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1151,6 +1172,7 @@ dependencies = [
  "lsp-types",
  "mimalloc",
  "nix",
+ "object",
  "rustix",
  "rustyline",
  "serde",
@@ -1163,6 +1185,7 @@ dependencies = [
  "stitchwort-js",
  "stitchwort-native",
  "stitchwort-rt",
+ "stitchwort-standalone",
  "stitchwort-syntax",
 ]
 
@@ -1261,6 +1284,17 @@ dependencies = [
  "stitchwort-core",
  "stitchwort-driver",
  "stitchwort-elab",
+ "stitchwort-rt",
+ "stitchwort-syntax",
+]
+
+[[package]]
+name = "stitchwort-standalone"
+version = "0.1.0"
+dependencies = [
+ "mimalloc",
+ "nix",
+ "stitchwort-host",
  "stitchwort-rt",
  "stitchwort-syntax",
 ]

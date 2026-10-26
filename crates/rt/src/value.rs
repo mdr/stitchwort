@@ -69,7 +69,14 @@ impl std::ops::Deref for Fields {
 }
 
 /// A function value.
+///
+/// `repr(u8)`, so that native code can read it (stage N3 of
+/// docs/proposals/native-compilation.md): the variant is the first byte,
+/// in declaration order, and each variant's fields follow as a `repr(C)`
+/// struct's would (a `Global`'s index and a `Closure`'s lambda at byte 4, a
+/// `Closure`'s captures at byte 8). `native_abi::probe_layout` checks it.
 #[derive(Debug)]
+#[repr(u8)]
 pub enum Fun {
     /// A global function, or a native operation, with none of its arguments.
     Global(u32),
