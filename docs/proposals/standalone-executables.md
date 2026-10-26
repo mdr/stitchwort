@@ -764,6 +764,26 @@ M1.**
   `Module` wrapper, or check that `Gen::address` is gone. And a bench check
   that `task native:bench` is not slower beyond noise.
 - **Done when:** the JIT runs only through `Tables`, and the N1 tests pass.
+- **As built (26 October 2026):**
+  - `native_abi::Tables` is as above. `Numbering::of(image)` numbers the
+    operations (distinct `Prim`/`Test` operations, in order of first use)
+    and the number tables (each body's, in order), from the image alone, so
+    a runtime that rebuilds the image rebuilds the same tables.
+    `TableStore` owns the memory and frees it.
+  - `sw_prim`, `sw_test` and `sw_num_switch` take the context and a
+    number, and read the shapes, the operation or the table themselves.
+    Compiled code reads `tables.pool` (for a `Const` of a value in a cell)
+    and `tables.caches` (the `Apply` caches, numbered in the order the
+    sites are compiled) with `readonly`, movable loads, which Cranelift
+    shares and hoists. Traced `Unpack` stores its pairs on the stack.
+  - `Gen::address` is gone. `emit(module: &mut dyn Module, …)` makes every
+    body, adapter, `apply{n}` stub and trampoline; `compile` wraps it with
+    the JIT. Every `sw_*` helper is `#[unsafe(no_mangle)]`.
+  - The check: in debug builds, every function's integer constants are
+    audited against the host objects the code could name (the image, the
+    program, the helpers). `tests/relocatable.rs` checks that
+    `n1::listing`, the IR as text, is the same for the same program lowered
+    twice at other addresses.
 
 **S5. Object output and `build --native`.**
 - **Files:**

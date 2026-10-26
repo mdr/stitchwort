@@ -128,8 +128,8 @@ use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
 use stitchwort_rt::ir::{GlobalKind, PrimOp, Program};
 use stitchwort_rt::native_abi::{
     self as abi, ApplyPlan, Context, FUN_CAPTURES_AT, FUN_KEY_MASK, NativeIslands, NativeRun,
-    OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_FUN,
-    TAG_INT, TAG_NAT, TAG_TAG, VALUE_SIZE, WEAK_AT,
+    Numbering, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA,
+    TAG_FLOAT, TAG_FUN, TAG_INT, TAG_NAT, TAG_TAG, Tables, VALUE_SIZE, WEAK_AT,
 };
 use stitchwort_rt::natives::IntNative;
 use stitchwort_rt::value::Value;
@@ -178,13 +178,8 @@ pub struct Islands {
     /// value (a compiled function, or an applicable native), for the
     /// crossing's check of function values.
     callable: Box<[bool]>,
-    /// Operations the code passes to the runtime by address.
-    /// Boxed so each keeps its address while the vector grows.
-    #[allow(clippy::vec_box)]
-    _ops: Vec<Box<PrimOp>>,
-    /// Each `Apply`'s cache of its target, at the address its code reads.
-    #[allow(clippy::vec_box)]
-    _caches: Vec<Box<abi::ApplyCache>>,
+    /// What the code refers to by number (`Context::tables`).
+    tables: abi::TableStore,
     stack_size: Option<usize>,
     /// What happened at the crossing, for `--verbose`.
     notes: Rc<RefCell<Vec<String>>>,
@@ -251,6 +246,7 @@ impl NativeIslands for Islands {
             functions: self.functions.as_ptr(),
             lambdas: self.lambdas.as_ptr(),
             run: (run as *mut NativeRun<'_>).cast::<NativeRun<'static>>(),
+            tables: self.tables.tables(),
         };
         let mut args = ManuallyDrop::new(args);
         let mut out = MaybeUninit::<Value>::uninit();
@@ -418,13 +414,41 @@ fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>> {
 // --------------------------------------------------------------- compiling
 
 /// Compiles the islands of `program`'s entry (`image` is the machine's
-/// compiled image, which must outlive the result: the code refers to its
-/// constants and tables), or says why the run stays on the machine.
+/// compiled image, which must outlive the result: the tables point at its
+/// constants and number tables), or says why the run stays on the machine.
 pub fn compile(
     program: &Program,
     image: &Image,
     options: Options,
     notes: Rc<RefCell<Vec<String>>>,
+) -> Result<Islands, Vec<String>> {
+    compile_audited(
+        program,
+        image,
+        options,
+        notes,
+        &mut Audit::new(program, image, false),
+    )
+}
+
+/// The Cranelift IR of every function [`compile`] makes for `program`'s
+/// islands, as text: a function of the program alone, since the code holds
+/// no host address (stage S4 of docs/proposals/standalone-executables.md),
+/// so the same program lowered twice, at other addresses, gives the same
+/// text.
+pub fn listing(program: &Program, image: &Image, options: Options) -> Result<String, Vec<String>> {
+    let mut audit = Audit::new(program, image, true);
+    let notes = Rc::new(RefCell::new(Vec::new()));
+    compile_audited(program, image, options, notes, &mut audit)?;
+    Ok(audit.listing.unwrap_or_default())
+}
+
+fn compile_audited(
+    program: &Program,
+    image: &Image,
+    options: Options,
+    notes: Rc<RefCell<Vec<String>>>,
+    audit: &mut Audit,
 ) -> Result<Islands, Vec<String>> {
     abi::probe_layout().map_err(|e| vec![format!("native: {e}")])?;
     let plan = plan(program, image)?;
@@ -462,6 +486,183 @@ pub fn compile(
         builder.memory_provider(Box::new(provider));
     }
     let mut module = JITModule::new(builder);
+    let Emitted {
+        functions,
+        adapters,
+        lambda_of,
+        trampolines,
+        n_caches,
+    } = emit(&mut module, program, image, &plan, options, dump, audit)?;
+    module
+        .finalize_definitions()
+        .map_err(|e| fail(e.to_string()))?;
+
+    let mut table = vec![std::ptr::null::<u8>(); program.globals.len()].into_boxed_slice();
+    let mut callable = vec![false; program.globals.len()].into_boxed_slice();
+    for (g, global) in program.globals.iter().enumerate() {
+        if let Some((id, _)) = adapters.get(&(g as u32)) {
+            table[g] = module.get_finalized_function(*id);
+            callable[g] = true;
+            if dump {
+                eprintln!("@@ {:p} {}", table[g], global.name);
+            }
+        } else if let GlobalKind::Native(op) = global.kind {
+            callable[g] = abi::applicable_native(op);
+        }
+    }
+    let mut lambdas = vec![std::ptr::null::<u8>(); image.lambda_code.len()].into_boxed_slice();
+    for (&code, &l) in &lambda_of {
+        lambdas[l as usize] = module.get_finalized_function(functions[&code]);
+        if dump {
+            eprintln!("@@ {:p} lambda #{l}", lambdas[l as usize]);
+        }
+    }
+    let mut roots: Vec<Option<Root>> = (0..program.globals.len()).map(|_| None).collect();
+    for (g, id) in trampolines {
+        roots[g as usize] = Some(Root {
+            trampoline: trampoline(module.get_finalized_function(id)),
+            checks_arguments: plan.applying.contains(&g),
+            name: program.globals[g as usize].name.to_string(),
+        });
+    }
+    Ok(Islands {
+        _module: module,
+        roots,
+        functions: table,
+        lambdas,
+        callable,
+        tables: abi::TableStore::new(program, image, n_caches),
+        stack_size: options.stack_size,
+        notes,
+        bodies: plan.bodies.len(),
+        compile_time: start.elapsed(),
+    })
+}
+
+/// What [`emit`] declared in the module.
+struct Emitted {
+    /// Each body's function.
+    functions: BTreeMap<u32, FuncId>,
+    /// Each compiled global function's adapter (its entry as a function
+    /// value), and its body.
+    adapters: BTreeMap<u32, (FuncId, u32)>,
+    /// Which bodies are lambdas', and whose.
+    lambda_of: BTreeMap<u32, u32>,
+    /// `(global, trampoline)` of each root.
+    trampolines: Vec<(u32, FuncId)>,
+    /// How many `Apply` sites the code has, each with a cache in the
+    /// tables (`abi::Tables::caches`).
+    n_caches: usize,
+}
+
+/// The check that generated code holds no host address (stage S4 of
+/// docs/proposals/standalone-executables.md), run on each function before
+/// it's compiled: in debug builds (so every native test runs it), no
+/// integer constant may be an address in the host memory the code could
+/// otherwise have named: the image's constants, bodies, operand lists and
+/// tables, the program and its shapes and globals, and the runtime's
+/// helpers. Nothing in the generator makes a pointer constant
+/// (`Gen::address` is gone); this catches one coming back. [`listing`]
+/// also keeps each function's IR, for the test that it's the same text
+/// wherever the program is in memory.
+struct Audit {
+    /// Sorted, disjoint enough to search: `[start, end)` of each host
+    /// object. Empty in release builds.
+    host: Vec<(u64, u64)>,
+    listing: Option<String>,
+}
+
+impl Audit {
+    fn new(program: &Program, image: &Image, listing: bool) -> Audit {
+        let mut host = Vec::new();
+        if cfg!(debug_assertions) || listing {
+            fn span<T>(host: &mut Vec<(u64, u64)>, items: &[T]) {
+                // An empty slice's pointer is a dangling one (its
+                // alignment), not an object.
+                if size_of_val(items) > 0 {
+                    let start = items.as_ptr() as u64;
+                    host.push((start, start + size_of_val(items) as u64));
+                }
+            }
+            fn one<T>(host: &mut Vec<(u64, u64)>, item: &T) {
+                span(host, std::slice::from_ref(item));
+            }
+            one(&mut host, program);
+            one(&mut host, &program.shapes);
+            span(&mut host, &program.globals);
+            one(&mut host, image);
+            span(&mut host, &image.pool);
+            span(&mut host, &image.codes);
+            span(&mut host, &image.global_code);
+            span(&mut host, &image.lambda_code);
+            for code in &image.codes {
+                span(&mut host, &code.instrs);
+                span(&mut host, &code.ops);
+                span(&mut host, &code.tables);
+                span(&mut host, &code.num_tables);
+                for table in &code.tables {
+                    span(&mut host, table);
+                }
+            }
+            for (_, address) in helper_addresses() {
+                host.push((address as u64, address as u64 + 1));
+            }
+            host.sort_unstable();
+        }
+        Audit {
+            host,
+            listing: listing.then(String::new),
+        }
+    }
+
+    /// Checks `func`, and keeps its text for a listing.
+    fn function(&mut self, func: &ir::Function) -> Result<(), String> {
+        if let Some(listing) = &mut self.listing {
+            listing.push_str(&func.display().to_string());
+            listing.push('\n');
+        }
+        if self.host.is_empty() {
+            return Ok(());
+        }
+        for block in func.layout.blocks() {
+            for inst in func.layout.block_insts(block) {
+                if let ir::InstructionData::UnaryImm {
+                    opcode: ir::Opcode::Iconst,
+                    imm,
+                } = func.dfg.insts[inst]
+                {
+                    let n = imm.bits() as u64;
+                    // The last object starting at or before `n`.
+                    let i = self.host.partition_point(|(start, _)| *start <= n);
+                    if i > 0 && n < self.host[i - 1].1 {
+                        return Err(format!(
+                            "internal error: the code holds the host address {n:#x} ({})",
+                            func.dfg.display_inst(inst)
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Generates the code of `plan`'s bodies, the adapters and `Apply` stubs,
+/// and a trampoline for each root, into `module`: the code generator, apart
+/// from where the code goes (stage S4 of
+/// docs/proposals/standalone-executables.md), so the JIT and an object file
+/// get the same code. The code holds no host address: what it needs of the
+/// host's memory it reaches through `Context::tables`, by number.
+fn emit(
+    module: &mut dyn Module,
+    program: &Program,
+    image: &Image,
+    plan: &Plan,
+    options: Options,
+    dump: bool,
+    audit: &mut Audit,
+) -> Result<Emitted, Vec<String>> {
+    let fail = |e: String| vec![format!("native: compiling failed: {e}")];
     let frontend_config = module.target_config();
     let pointer = frontend_config.pointer_type();
     let call_conv = module.isa().default_call_conv();
@@ -537,9 +738,9 @@ pub fn compile(
             }
         }
     }
-    let helpers = Helpers::declare(&mut module, pointer, call_conv).map_err(fail)?;
-    let mut ops: Vec<Box<PrimOp>> = Vec::new();
-    let mut caches: Vec<Box<abi::ApplyCache>> = Vec::new();
+    let helpers = Helpers::declare(module, pointer, call_conv).map_err(fail)?;
+    let numbering = Numbering::of(image);
+    let mut caches = 0u32;
     let mut context = module.make_context();
     let mut builder_context = FunctionBuilderContext::new();
     for &code in &plan.bodies {
@@ -555,7 +756,7 @@ pub fn compile(
             let b = FunctionBuilder::new(&mut context.func, &mut builder_context);
             let mut generator = Gen {
                 b,
-                module: &mut module,
+                module: &mut *module,
                 program,
                 image,
                 code_index: code,
@@ -566,7 +767,7 @@ pub fn compile(
                 helpers: &helpers,
                 refs: BTreeMap::new(),
                 signatures: BTreeMap::new(),
-                ops: &mut ops,
+                numbering: &numbering,
                 caches: &mut caches,
                 pointer,
                 options,
@@ -595,6 +796,9 @@ pub fn compile(
                 context.func.display()
             );
         }
+        audit
+            .function(&context.func)
+            .map_err(|e| fail(format!("{} ({e})", body_name(program, image, code))))?;
         module
             .define_function(functions[&code], &mut context)
             .map_err(|e| fail(format!("{} ({e:?})", body_name(program, image, code))))?;
@@ -619,7 +823,7 @@ pub fn compile(
             let mut b = FunctionBuilder::new(&mut context.func, &mut builder_context);
             emit_adapter(
                 &mut b,
-                &mut module,
+                &mut *module,
                 &helpers,
                 functions[&code],
                 params,
@@ -628,6 +832,7 @@ pub fn compile(
             b.seal_all_blocks();
             b.finalize(frontend_config);
         }
+        audit.function(&context.func).map_err(fail)?;
         module
             .define_function(id, &mut context)
             .map_err(|e| fail(format!("adapter: {e:?}")))?;
@@ -641,7 +846,7 @@ pub fn compile(
             let mut b = FunctionBuilder::new(&mut context.func, &mut builder_context);
             emit_apply_any(
                 &mut b,
-                &mut module,
+                &mut *module,
                 &helpers,
                 n,
                 &arities,
@@ -657,6 +862,7 @@ pub fn compile(
         if dump {
             eprintln!("==== apply{n}\n{}", context.func.display());
         }
+        audit.function(&context.func).map_err(fail)?;
         module
             .define_function(id, &mut context)
             .map_err(|e| fail(format!("apply{n}: {e:?}")))?;
@@ -729,56 +935,19 @@ pub fn compile(
             b.seal_all_blocks();
             b.finalize(module.target_config());
         }
+        audit.function(&context.func).map_err(fail)?;
         module
             .define_function(id, &mut context)
             .map_err(|e| fail(format!("trampoline: {e:?}")))?;
         module.clear_context(&mut context);
         trampolines.push((g, id));
     }
-    module
-        .finalize_definitions()
-        .map_err(|e| fail(e.to_string()))?;
-
-    let mut table = vec![std::ptr::null::<u8>(); program.globals.len()].into_boxed_slice();
-    let mut callable = vec![false; program.globals.len()].into_boxed_slice();
-    for (g, global) in program.globals.iter().enumerate() {
-        if let Some((id, _)) = adapters.get(&(g as u32)) {
-            table[g] = module.get_finalized_function(*id);
-            callable[g] = true;
-            if dump {
-                eprintln!("@@ {:p} {}", table[g], global.name);
-            }
-        } else if let GlobalKind::Native(op) = global.kind {
-            callable[g] = abi::applicable_native(op);
-        }
-    }
-    let mut lambdas = vec![std::ptr::null::<u8>(); image.lambda_code.len()].into_boxed_slice();
-    for (&code, &l) in &lambda_of {
-        lambdas[l as usize] = module.get_finalized_function(functions[&code]);
-        if dump {
-            eprintln!("@@ {:p} lambda #{l}", lambdas[l as usize]);
-        }
-    }
-    let mut roots: Vec<Option<Root>> = (0..program.globals.len()).map(|_| None).collect();
-    for (g, id) in trampolines {
-        roots[g as usize] = Some(Root {
-            trampoline: trampoline(module.get_finalized_function(id)),
-            checks_arguments: plan.applying.contains(&g),
-            name: program.globals[g as usize].name.to_string(),
-        });
-    }
-    Ok(Islands {
-        _module: module,
-        roots,
-        functions: table,
-        lambdas,
-        callable,
-        _ops: ops,
-        _caches: caches,
-        stack_size: options.stack_size,
-        notes,
-        bodies: plan.bodies.len(),
-        compile_time: start.elapsed(),
+    Ok(Emitted {
+        functions,
+        adapters,
+        lambda_of,
+        trampolines,
+        n_caches: caches as usize,
     })
 }
 
@@ -865,7 +1034,7 @@ fn drop_fun(b: &mut FunctionBuilder<'_>, drop_words: FuncRef, fun: IrValue) {
 /// the constants' cache keeps it.
 fn emit_adapter(
     b: &mut FunctionBuilder<'_>,
-    module: &mut JITModule,
+    module: &mut dyn Module,
     helpers: &Helpers,
     body: FuncId,
     params: u32,
@@ -903,7 +1072,7 @@ fn emit_adapter(
 #[allow(clippy::too_many_arguments)]
 fn emit_apply_any(
     b: &mut FunctionBuilder<'_>,
-    module: &mut JITModule,
+    module: &mut dyn Module,
     helpers: &Helpers,
     n: u32,
     arities: &BTreeSet<u32>,
@@ -1166,7 +1335,11 @@ struct Helpers {
 }
 
 impl Helpers {
-    fn declare(module: &mut JITModule, pointer: ir::Type, cc: CallConv) -> Result<Helpers, String> {
+    fn declare(
+        module: &mut dyn Module,
+        pointer: ir::Type,
+        cc: CallConv,
+    ) -> Result<Helpers, String> {
         use types::{I32, I64};
         let p = pointer;
         let mut declare = |name: &str, params: &[ir::Type], returns: &[ir::Type]| {
@@ -1186,10 +1359,10 @@ impl Helpers {
             unpack: declare("sw_unpack", &[p, I32, p, I64, I32], &[])?,
             empty_cell: declare("sw_empty_cell", &[I64, I64], &[])?,
             drop_reuse: declare("sw_drop_reuse", &[p, p], &[])?,
-            prim: declare("sw_prim", &[p, p, p, I64, p], &[])?,
-            test: declare("sw_test", &[p, p, p, I64], &[I64])?,
+            prim: declare("sw_prim", &[p, I32, p, I64, p], &[])?,
+            test: declare("sw_test", &[p, I32, p, I64], &[I64])?,
             nat_pred: declare("sw_nat_pred", &[p, p], &[])?,
-            num_switch: declare("sw_num_switch", &[p, p], &[I64])?,
+            num_switch: declare("sw_num_switch", &[p, I32, p], &[I64])?,
             global: declare("sw_global", &[p, I32, p], &[I64])?,
             global_set: declare("sw_global_set", &[p, I32, p], &[])?,
             apply_cached: declare("sw_apply_cached", &[p, p, I64, p], &[I64])?,
@@ -1394,7 +1567,7 @@ enum Loc {
 
 struct Gen<'a, 'm> {
     b: FunctionBuilder<'a>,
-    module: &'m mut JITModule,
+    module: &'m mut dyn Module,
     program: &'m Program,
     image: &'m Image,
     code_index: u32,
@@ -1408,10 +1581,10 @@ struct Gen<'a, 'm> {
     helpers: &'m Helpers,
     refs: BTreeMap<FuncId, FuncRef>,
     signatures: BTreeMap<u32, SigRef>,
-    #[allow(clippy::vec_box)] // addresses stay put (`Islands::_ops`)
-    ops: &'m mut Vec<Box<PrimOp>>,
-    #[allow(clippy::vec_box)] // addresses stay put (`Islands::_caches`)
-    caches: &'m mut Vec<Box<abi::ApplyCache>>,
+    numbering: &'m Numbering,
+    /// How many `Apply` sites have been compiled: each has a cache, by
+    /// number, in the tables.
+    caches: &'m mut u32,
     pointer: ir::Type,
     options: Options,
     /// Each register's three words, as Cranelift variables, so that they
@@ -1454,6 +1627,12 @@ fn flags() -> MemFlagsData {
     MemFlagsData::trusted()
 }
 
+/// For loads of what doesn't change while compiled code runs (the context's
+/// tables): Cranelift may share them and move them out of loops.
+fn fixed() -> MemFlagsData {
+    MemFlagsData::trusted().with_readonly().with_can_move()
+}
+
 impl Gen<'_, '_> {
     fn func_ref(&mut self, id: FuncId) -> FuncRef {
         if let Some(r) = self.refs.get(&id) {
@@ -1476,10 +1655,6 @@ impl Gen<'_, '_> {
 
     fn i32const(&mut self, n: u32) -> IrValue {
         self.b.ins().iconst(types::I32, i64::from(n))
-    }
-
-    fn address(&mut self, n: usize) -> IrValue {
-        self.b.ins().iconst(self.pointer, n as i64)
     }
 
     /// The address of spill slot `i`.
@@ -1674,6 +1849,17 @@ impl Gen<'_, '_> {
             .collect()
     }
 
+    /// The field at `at` of the context's tables (`abi::Tables`): how
+    /// compiled code reaches the host's memory, which it holds no address
+    /// of (stage S4 of docs/proposals/standalone-executables.md).
+    fn tables_field(&mut self, at: i32) -> IrValue {
+        let tables = self
+            .b
+            .ins()
+            .load(self.pointer, fixed(), self.ctx, Context::TABLES_AT);
+        self.b.ins().load(self.pointer, fixed(), tables, at)
+    }
+
     fn ctx_load(&mut self, at: i32) -> IrValue {
         self.b.ins().load(types::I64, flags(), self.ctx, at)
     }
@@ -1828,13 +2014,6 @@ impl Gen<'_, '_> {
             .import_signature(value_signature(self.pointer, params));
         self.signatures.insert(params, s);
         s
-    }
-
-    fn op_address(&mut self, op: PrimOp) -> IrValue {
-        let boxed = Box::new(op);
-        let at = &*boxed as *const PrimOp as usize;
-        self.ops.push(boxed);
-        self.address(at)
     }
 
     /// The array of pointers to registers `regs`, for a helper.
@@ -2018,8 +2197,10 @@ impl Gen<'_, '_> {
                     Value::Float(x) => self.small(TAG_FLOAT, 0, x.to_bits()),
                     Value::Tag(t) => self.small(TAG_TAG, *t, 0),
                     _ => {
-                        let at = self.address(value as *const Value as usize);
-                        self.clone_from(Loc::Mem(at, 0))
+                        let pool = self.tables_field(Tables::POOL_AT);
+                        let at = i32::try_from(k as usize * VALUE_SIZE)
+                            .expect("the constant pool fits an offset");
+                        self.clone_from(Loc::Mem(pool, at))
                     }
                 };
                 self.assign(pc, dst, v);
@@ -2136,7 +2317,7 @@ impl Gen<'_, '_> {
                 let below = self.b.ins().iadd_imm_s(self.frames, -1);
                 let env = match self.env {
                     Some(env) => env,
-                    None => self.address(0),
+                    None => self.b.ins().iconst(self.pointer, 0),
                 };
                 let mut call_args = vec![self.ctx, below, env];
                 call_args.extend(fv.0);
@@ -2311,9 +2492,10 @@ impl Gen<'_, '_> {
                 switch.emit(&mut self.b, v.0[1], default);
                 self.b.switch_to_block(big);
                 self.b.set_cold_block(big);
-                let table = self.address(t as *const _ as usize);
+                let number = self.numbering.num_table(self.code_index, table);
+                let number = self.i32const(number);
                 let src = self.spill_value(0, v);
-                let r = self.call_helper(self.helpers.num_switch, &[table, src]);
+                let r = self.call_helper(self.helpers.num_switch, &[self.ctx, number, src]);
                 let mut switch = Switch::new();
                 let mut targets: Vec<u32> = t.big.iter().map(|(_, t)| *t).collect();
                 targets.sort_unstable();
@@ -2398,9 +2580,12 @@ impl Gen<'_, '_> {
         // This site's cache (`abi::ApplyCache`): a function value with the
         // same key as last time (the same global function, or a closure of
         // the same lambda) calls the same code, with no runtime call.
-        let cache = Box::new(abi::ApplyCache::new());
-        let cache_at = self.address(&*cache as *const abi::ApplyCache as usize);
-        self.caches.push(cache);
+        // Numbered in the order the sites are compiled; the caches are in
+        // the tables.
+        let offset = i32::try_from(*self.caches as usize * size_of::<abi::ApplyCache>())
+            .expect("the caches fit an offset");
+        *self.caches += 1;
+        let caches = self.tables_field(Tables::CACHES_AT);
         let is_fun = self.is_tag(v, TAG_FUN);
         let check = self.b.create_block();
         let cached = self.b.create_block();
@@ -2411,22 +2596,27 @@ impl Gen<'_, '_> {
         self.b.switch_to_block(check);
         let first = self.b.ins().load(types::I64, flags(), v.0[1], RC_VALUE_AT);
         let mine = self.b.ins().band_imm_s(first, FUN_KEY_MASK as i64);
-        let key = self
-            .b
-            .ins()
-            .load(types::I64, flags(), cache_at, abi::ApplyCache::KEY_AT);
+        let key = self.b.ins().load(
+            types::I64,
+            flags(),
+            caches,
+            offset + abi::ApplyCache::KEY_AT,
+        );
         let hit = self.b.ins().icmp(IntCC::Equal, key, mine);
         self.b.ins().brif(hit, cached, &[], miss, &[]);
         self.b.switch_to_block(cached);
-        let code = self
-            .b
-            .ins()
-            .load(self.pointer, flags(), cache_at, abi::ApplyCache::CODE_AT);
+        let code = self.b.ins().load(
+            self.pointer,
+            flags(),
+            caches,
+            offset + abi::ApplyCache::CODE_AT,
+        );
         self.b.ins().jump(after, &[code.into()]);
         self.b.switch_to_block(miss);
         self.b.set_cold_block(miss);
         let at = self.b.ins().stack_addr(self.pointer, self.fun, 0);
         self.store(Loc::Mem(at, 0), v);
+        let cache_at = self.b.ins().iadd_imm_s(caches, i64::from(offset));
         let n = self.iconst(u64::from(n));
         let target = self.call_helper(self.helpers.apply_cached, &[self.ctx, at, n, cache_at])[0];
         self.b.ins().jump(after, &[target.into()]);
@@ -2509,12 +2699,11 @@ impl Gen<'_, '_> {
             self.b.ins().jump(slow, &[]);
         }
         self.b.switch_to_block(slow);
-        let shapes = self.address(&self.program.shapes as *const _ as usize);
-        let op = self.op_address(op);
+        let op = self.i32const(self.numbering.op(op));
         let array = self.pointer_array(&o);
         let n = self.iconst(o.len() as u64);
         let out = self.spill_erased(o.len());
-        self.call_helper(self.helpers.prim, &[shapes, op, array, n, out]);
+        self.call_helper(self.helpers.prim, &[self.ctx, op, array, n, out]);
         let v = self.load(Loc::Mem(out, 0));
         self.assign(pc, dst, v);
         self.b.ins().jump(after, &[]);
@@ -2552,11 +2741,10 @@ impl Gen<'_, '_> {
             self.b.ins().jump(slow, &[]);
         }
         self.b.switch_to_block(slow);
-        let shapes = self.address(&self.program.shapes as *const _ as usize);
-        let op = self.op_address(op);
+        let op = self.i32const(self.numbering.op(op));
         let array = self.pointer_array(o);
         let n = self.iconst(o.len() as u64);
-        let r = self.call_helper(self.helpers.test, &[shapes, op, array, n])[0];
+        let r = self.call_helper(self.helpers.test, &[self.ctx, op, array, n])[0];
         let holds = self.b.ins().icmp_imm_u(IntCC::NotEqual, r, 0);
         self.b.ins().jump(after, &[holds.into()]);
         self.b.switch_to_block(after);
@@ -2587,7 +2775,21 @@ impl Gen<'_, '_> {
             }
             let regs = self.spill_address(0);
             let src = self.i32const(src);
-            let at = self.address(ops(self.code, fields).as_ptr() as usize);
+            // The pairs, written to the stack (not the image's operand list
+            // by address: the code holds no host address).
+            let list = ops(self.code, fields).to_vec();
+            let pairs_slot = self.b.create_sized_stack_slot(StackSlotData::new(
+                StackSlotKind::ExplicitSlot,
+                (list.len().max(1) * 4) as u32,
+                2,
+            ));
+            for (i, x) in list.iter().enumerate() {
+                let x = self.i32const(*x);
+                self.b
+                    .ins()
+                    .stack_store(self.pointer, x, pairs_slot, (i * 4) as i32);
+            }
+            let at = self.b.ins().stack_addr(self.pointer, pairs_slot, 0);
             let n = self.iconst(pairs.len() as u64);
             let token = self.i32const(token);
             self.call_helper(self.helpers.unpack, &[regs, src, at, n, token]);
@@ -2747,5 +2949,43 @@ pub fn factory(
             notes.borrow_mut().extend(why);
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A function returning the constant `n`.
+    fn returning(n: i64) -> ir::Function {
+        let mut signature = ir::Signature::new(CallConv::SystemV);
+        signature.returns.push(AbiParam::new(types::I64));
+        let mut func = ir::Function::with_name_signature(ir::UserFuncName::user(0, 0), signature);
+        let mut context = FunctionBuilderContext::new();
+        let mut b = FunctionBuilder::new(&mut func, &mut context);
+        let entry = b.create_block();
+        b.switch_to_block(entry);
+        let v = b.ins().iconst(types::I64, n);
+        b.ins().return_(&[v]);
+        b.seal_all_blocks();
+        let isa = cranelift_native::builder()
+            .expect("a supported machine")
+            .finish(settings::Flags::new(settings::builder()))
+            .expect("an ISA");
+        b.finalize(isa.frontend_config());
+        func
+    }
+
+    #[test]
+    fn the_audit_finds_a_host_address_in_the_code() {
+        let shapes = 0x1_2345_6000u64;
+        let mut audit = Audit {
+            host: vec![(0x1000_0000, 0x1000_0100), (shapes, shapes + 64)],
+            listing: None,
+        };
+        assert!(audit.function(&returning(shapes as i64 + 8)).is_err());
+        assert!(audit.function(&returning(0x1000_0000)).is_err());
+        assert!(audit.function(&returning(shapes as i64 + 64)).is_ok());
+        assert!(audit.function(&returning(42)).is_ok());
     }
 }
