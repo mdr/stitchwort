@@ -36,7 +36,7 @@ def main(): {IO, Fail} () :=
 def solvePart1 (ranges: List Range): Nat := ranges.sumBy sumOfIdsWrittenTwice
 
 -- The weighted sum is signed; it comes out as a natural number.
-def solvePart2 (ranges: List Range): Nat := Int.toNat (ranges.sumBy sumOfIdsWrittenRepeatedly)
+def solvePart2 (ranges: List Range): Nat := ranges.sumBy sumOfIdsWrittenRepeatedly |> .toNat
 
 -- An invalid id's digits are a block written several times: its template is the
 -- block's length and the number of copies. 121212 is the block 12 written 3
@@ -56,7 +56,7 @@ def RepetitionTemplate.largestBlock (template: RepetitionTemplate): Nat := Nat.p
 -- more digits written two or more times. Some may have no ids in the range;
 -- `RepetitionTemplate.sumIn` gives those 0.
 def allTemplatesForRange (range: Range): List RepetitionTemplate := Each.collect (() =>
-  let maxDigits := (Nat.digits range.to).length
+  let maxDigits := Nat.digits range.to |> .length
   let blockLength := each (List.between 1 maxDigits)
   let copies := each (List.between 2 maxDigits)
   require (blockLength * copies ≤ maxDigits)
@@ -73,7 +73,7 @@ def sumOfIdsWrittenTwice (range: Range): Nat :=
 -- Part 2: the ids in the range written two or more times, each counted once.
 -- 111111 has templates 1×6, 2×3 and 3×2 (block length × copies); the weights cancel the repeats.
 def sumOfIdsWrittenRepeatedly (range: Range): Int :=
-  (allTemplatesForRange range).sumBy (template =>
+  allTemplatesForRange range |> .sumBy (template =>
     let idsTotal := RepetitionTemplate.sumIn template range
     let weight := copiesWeight template.copies
     weight * idsTotal.toInt)

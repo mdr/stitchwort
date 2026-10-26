@@ -28,7 +28,7 @@ test "a turn without a distance" := parsed ["R"] == Err "line 1: expected a turn
 test "a blank line" := parsed ["L1", ""] == Err "line 2: expected a turn like L68, got ''"
 test "spaces around a turn" := parsed [" L68", "R5 "] == Ok [Left 68, Right 5]
 
-def after (t: Text): Option Nat := (Turn.parseOption t).map (turn => (startingDial.move turn).position.value)
+def after (t: Text): Option Nat := Turn.parseOption t |> .map (turn => startingDial.move turn |> .position |> .value)
 
 test "parseOption" := after "L68" == Some 82
 test "parse right" := after "R5" == Some 55

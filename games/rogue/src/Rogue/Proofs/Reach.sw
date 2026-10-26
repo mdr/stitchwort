@@ -216,7 +216,7 @@ theorem joinedTrans (level: Level) (origin: Position) (middle: Position) (target
     }
 
 -- The middle of room number `index`.
-def middleOf (rooms: List Area) (index: Nat): Position := (roomOf rooms index).middle
+def middleOf (rooms: List Area) (index: Nat): Position := roomOf rooms index |> .middle
 
 -- Each pair of rooms `roomLinks` names is joined, on a level with those corridors.
 theorem linkJoins (level: Level) (rooms: List Area) (extra: Nat) (wired: level.corridors = corridorsOf rooms extra) (first: Nat) (second: Nat)

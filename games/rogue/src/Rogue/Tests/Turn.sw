@@ -112,19 +112,19 @@ def chased (dice: Dice) (player: Position) (monster: Monster): List Position :=
 def goblinAt (position: Position): Monster := { kind = Goblin, position, hitPoints = 3 }
 
 test "a monster that sees the player closes in, unless it stumbles" :=
-  (List.range 20).all (seed => stumbles { seed } ∨ chased { seed } corner (goblinAt { row = 1, column = 4 }) == [{ row = 1, column = 3 }])
+  List.range 20 |> .all (seed => stumbles { seed } ∨ chased { seed } corner (goblinAt { row = 1, column = 4 }) == [{ row = 1, column = 3 }])
 test "most monsters don't stumble" := (List.range 20).count (seed => stumbles { seed }) < 8
 test "a chasing monster closes the longer gap first" :=
-  (List.range 20).all (seed => stumbles { seed } ∨ chased { seed } corner (goblinAt { row = 5, column = 2 }) == [{ row = 4, column = 2 }])
+  List.range 20 |> .all (seed => stumbles { seed } ∨ chased { seed } corner (goblinAt { row = 5, column = 2 }) == [{ row = 4, column = 2 }])
 test "a chasing monster goes round rock" :=
   let player: Position := { row = 1, column = 10 }
-  (List.range 20).all (seed => stumbles { seed } ∨ chased { seed } player (goblinAt { row = 3, column = 11 }) == [{ row = 3, column = 10 }])
+  List.range 20 |> .all (seed => stumbles { seed } ∨ chased { seed } player (goblinAt { row = 3, column = 11 }) == [{ row = 3, column = 10 }])
 test "a chasing monster follows the player down a corridor" :=
   let player: Position := { row = 3, column = 12 }
-  (List.range 20).all (seed => stumbles { seed } ∨ chased { seed } player (goblinAt { row = 3, column = 17 }) == [{ row = 3, column = 16 }])
+  List.range 20 |> .all (seed => stumbles { seed } ∨ chased { seed } player (goblinAt { row = 3, column = 17 }) == [{ row = 3, column = 16 }])
 test "a monster out of sight doesn't give chase" :=
   let far := goblinAt roomB.middle
-  let closer := (dice: Dice) => (chased dice corner far).all (position => position.distance corner < far.position.distance corner)
+  let closer := (dice: Dice) => chased dice corner far |> .all (position => position.distance corner < far.position.distance corner)
   (List.range 20).count (seed => closer { seed }) < 10
 test "a monster won't step onto another" :=
   let first := goblinAt { row = 1, column = 3 }
@@ -133,7 +133,7 @@ test "a monster won't step onto another" :=
   (after.monsters.map (.position)).dedup.length == 2
 test "monsters chase together without sharing a cell" :=
   let pack := [goblinAt { row = 1, column = 5 }, goblinAt { row = 2, column = 5 }, goblinAt { row = 1, column = 6 }]
-  (List.range 20).all (seed =>
+  List.range 20 |> .all (seed =>
     let after := resolve { seed } { quiet | monsters = pack } Wait
     after.monsters.map (.position) |> .dedup |> .length == 3)
 
@@ -157,7 +157,7 @@ test "monsters act while you drink" := (resolve lowRoll { facingGoblin | potions
 -- The damage left on an orc after one blow, for each of 40 rolls.
 def orcAfterBlows (state: State): List Nat :=
   let facingOrc := { state | monsters = [{ orcNextDoor | kind = Orc }] }
-  (List.range 40).map (seed => (resolve { seed } facingOrc (Move East)).monsters.map (.hitPoints) |> .headOr 0)
+  List.range 40 |> .map (seed => resolve { seed } facingOrc (Move East) |> .monsters |> .map (.hitPoints) |> .headOr 0)
 
 test "a sword raises the player's strength" :=
   let after := resolve lowRoll (lying Sword) (Move East)
@@ -204,6 +204,6 @@ test "other keys" := ['.', '>', 'p', 'q', 'x', ' '].map commandOfChar == [Some W
 
 test "the generator is the C example's" := lcg 1 == 1103527590
 test "seeded answers from the generator" := seeded 1 (() => [next(), next()]) == [lcg 1 / 65536, lcg (lcg 1) / 65536]
-test "roll stays in range" := seeded 3 (() => (List.range 50).map (_ => roll 4)) |> .all (number => number ≤ 4)
+test "roll stays in range" := seeded 3 (() => List.range 50 |> .map (_ => roll 4)) |> .all (number => number ≤ 4)
 test "the same seed gives the same game" := seeded 7 (() => step facingGoblin Wait) == seeded 7 (() => step facingGoblin Wait)
 test "a step is resolve with the seeded dice" := seeded 7 (() => step facingGoblin (Move East)) == resolve { seed = lcg 7 / 65536 } facingGoblin (Move East)

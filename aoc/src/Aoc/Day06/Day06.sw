@@ -37,7 +37,7 @@ type Operator =
 -- block has no + or *).
 type Problem = { operator: Option Operator, rowNumbers: List Nat, columnNumbers: List Nat }
 
-def parseWorksheet (lines: List Text): List Problem := (blocks lines).map parseProblem
+def parseWorksheet (lines: List Text): List Problem := blocks lines |> .map parseProblem
 
 def isBlank (column: List Char): Bool := column.all .isAsciiSpace
 
@@ -45,7 +45,7 @@ def isBlank (column: List Char): Bool := column.all .isAsciiSpace
 -- aren't blank. A short line reads as spaces past its end, and there are as
 -- many columns as the longest line is long.
 def blocks (lines: List Text): List (List (List Char)) :=
-  (lines.map .toList).transposeFill ' ' |> .splitBy isBlank
+  lines.map .toList |> .transposeFill ' ' |> .splitBy isBlank
 
 -- One block of columns, the last character of each being the operator row.
 def parseProblem (columns: List (List Char)): Problem :=
@@ -62,7 +62,7 @@ def Operator.parse: Char → Option Operator
   | _ => None
 
 -- The number written with these digits; spaces (and anything else) are skipped.
-def parseNumber (cells: List Char): Nat := Nat.fromDigits (cells.filterMap .digitValue)
+def parseNumber (cells: List Char): Nat := cells.filterMap .digitValue |> Nat.fromDigits
 
 def Operator.apply: Operator → List Nat → Nat
   | Add, numbers => numbers.sum
@@ -108,7 +108,7 @@ def worksheetError (lines: List Text): Option Text :=
 
 def isDigit (ch: Char): Bool := ch.digitValue.isSome
 
-def isOperator (ch: Char): Bool := (Operator.parse ch).isSome
+def isOperator (ch: Char): Bool := Operator.parse ch |> .isSome
 
 -- The first character of the row that is neither a space nor allowed.
 def characterError (row: Text) (lineNumber: Nat) (expected: Text) (allowed: Char → Bool): Option Text :=
@@ -119,9 +119,9 @@ def characterError (row: Text) (lineNumber: Nat) (expected: Text) (allowed: Char
 -- The first block of columns without exactly one operator, named by the
 -- column it starts at. Needs the rows to hold only operators and spaces.
 def blockError (lines: List Text): Option Text :=
-  (lines.map .toList).transposeFill ' ' |> .withIndex |> .splitBy (indexed => isBlank indexed.snd)
+  lines.map .toList |> .transposeFill ' ' |> .withIndex |> .splitBy (indexed => isBlank indexed.snd)
     |> .findMap (block =>
-      let operators := block.count (indexed => (indexed.snd.last.flatMap Operator.parse).isSome)
+      let operators := block.count (indexed => indexed.snd.last.flatMap Operator.parse |> .isSome)
       let start := block.headOr (0, []) |> .fst + 1
       if operators == 1 then None
       else if operators == 0 then Some "the problem starting at column ${start} has no operator"

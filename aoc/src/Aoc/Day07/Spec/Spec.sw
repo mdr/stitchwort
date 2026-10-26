@@ -66,4 +66,4 @@ def part1Spec (manifold: Manifold): Nat :=
   List.range manifold.rows.length |> .sumBy (r => List.range manifold.width |> .count (c => reached (timelines manifold) r c))
 
 -- Part 2: the timelines.
-def part2Spec (manifold: Manifold): Nat := (timelines manifold).length
+def part2Spec (manifold: Manifold): Nat := timelines manifold |> .length

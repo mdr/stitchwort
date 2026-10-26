@@ -61,7 +61,7 @@ def solvePart1 (tiles: List Tile): Nat := tiles.pairs |> .map pairArea |> larges
 
 -- The lines of the loop: from each red tile to the next, and from the last
 -- back to the first.
-def loopLines (tiles: List Tile): List (Tile, Tile) := List.zip tiles (List.append (List.drop tiles 1) (List.take tiles 1))
+def loopLines (tiles: List Tile): List (Tile, Tile) := tiles.zip (tiles.drop 1 |> .append (tiles.take 1))
 
 -- `value` is from `one` to `other`, in either order.
 def isBetween (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ value ≤ other) ∨ (other ≤ value ∧ value ≤ one)
@@ -90,7 +90,7 @@ def touchesRow (y: Nat) (line: (Tile, Tile)): Bool := isBetween line.fst.y line.
 
 -- The columns that matter, from the red tiles' columns: each of them and
 -- the one just right of it, in order, each once. (The same for rows.)
-def keyLines (values: List Nat): List Nat := List.append values (values.map Succ) |> .sort |> .dedup
+def keyLines (values: List Nat): List Nat := values.append (values.map Succ) |> .sort |> .dedup
 
 -- The floor through the key columns and rows: where each key column and
 -- row is (`columns`, `rows`), and how many tiles of each block of them are

@@ -292,7 +292,7 @@ theorem oneAfterTells (points: List Point) (j: Nat) (some: 0 < points.length):
 theorem lastNeededExists (points: List Point) (two: 2 ≤ points.length): Exists Nat (LastNeeded points) :=
   let n := points.length
   let some: 0 < n := omega
-  let total := (connectionOrder points).length
+  let total := connectionOrder points |> .length
   let first := Nat.firstFrom (oneAfter points) (Succ total) 0
   let atEnd: oneAfter points total = True :=
     (oneAfterTells points total some).backward

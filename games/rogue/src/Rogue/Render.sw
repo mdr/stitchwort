@@ -37,7 +37,7 @@ def frame (state: State): List Text :=
   let lines := render state
   (lines.take levelRows).map paintRow ++ lines.drop levelRows
 
-def paintRow (row: Text): Text := Text.fromList (row.toList.concatMap (char => (paint char).toList))
+def paintRow (row: Text): Text := row.toList.concatMap (char => paint char |> .toList) |> Text.fromList
 
 -- A cell's character, coloured by what it is: the player bold yellow,
 -- monsters red, items cyan, the stairs green, and rock as it is.

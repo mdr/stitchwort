@@ -36,7 +36,7 @@ def solvePart2 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage part2Batte
 def part2Batteries: Nat := 12
 
 -- The joltage of some batteries turned on: the number their digits spell, in order.
-def joltageOf (on: List Battery): Nat := Nat.fromDigits (on.map .toNat)
+def joltageOf (on: List Battery): Nat := on.map .toNat |> Nat.fromDigits
 
 -- The most joltage from turning on count batteries of the bank, or all of them if the bank has fewer.
 def maxJoltage (count: Nat) (bank: Bank): Nat := joltageOf (bank.best count)

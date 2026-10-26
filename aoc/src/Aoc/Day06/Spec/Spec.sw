@@ -36,13 +36,13 @@ import Std (Char, List, Nat, Text)
 def charAt (line: Text) (c: Nat): Char := line.toList.getOr ' ' c
 
 -- The widest line's length: only a bound on where problems can be.
-def gridWidth (lines: List Text): Nat := (lines.map Text.toList).maxLength
+def gridWidth (lines: List Text): Nat := lines.map Text.toList |> .maxLength
 
 -- Column c of the worksheet, top to bottom.
 def column (lines: List Text) (c: Nat): List Char := lines.map (line => charAt line c)
 
 -- A full column of only spaces.
-def blank (lines: List Text) (c: Nat): Bool := (column lines c).all Char.isAsciiSpace
+def blank (lines: List Text) (c: Nat): Bool := column lines c |> .all Char.isAsciiSpace
 
 -- Columns lo .. hi - 1 hold one problem.
 def isProblem (lines: List Text) (lo: Nat) (hi: Nat): Bool :=
@@ -53,15 +53,15 @@ def numberLines (lines: List Text): List Text := lines.init
 
 -- The + or * under the problem in the last line (the first, if there are several).
 def operatorOf (lines: List Text) (lo: Nat) (hi: Nat): Option Operator :=
-  (List.rangeFrom (hi - lo) lo).filterMap (c => lines.last.flatMap (bottom => Operator.parse (charAt bottom c))) |> .head
+  List.rangeFrom (hi - lo) lo |> .filterMap (c => lines.last.flatMap (bottom => Operator.parse (charAt bottom c))) |> .head
 
 -- Part 1: each number line, read across the problem's columns.
 def rowNumbers (lines: List Text) (lo: Nat) (hi: Nat): List Nat :=
-  (numberLines lines).map (line => parseNumber ((List.rangeFrom (hi - lo) lo).map (c => charAt line c)))
+  numberLines lines |> .map (line => List.rangeFrom (hi - lo) lo |> .map (c => charAt line c) |> parseNumber)
 
 -- Part 2: each of the problem's columns, right to left, read top to bottom.
 def columnNumbers (lines: List Text) (lo: Nat) (hi: Nat): List Nat :=
-  (List.rangeFrom (hi - lo) lo).reverse.map (c => parseNumber ((numberLines lines).map (line => charAt line c)))
+  List.rangeFrom (hi - lo) lo |> .reverse |> .map (c => numberLines lines |> .map (line => charAt line c) |> parseNumber)
 
 -- The answers of all the problems, added up.
 def grandTotal (lines: List Text) (answer: Nat → Nat → Nat): Nat :=
