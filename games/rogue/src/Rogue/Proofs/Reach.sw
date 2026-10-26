@@ -9,9 +9,9 @@
 -- included.
 --
 -- The proofs are about a `Level` whose corridors are `corridorsOf` (an
--- equation), not about `layOut` itself: checking against `layOut` directly
--- unfolded the drawing of its terrain and ran out of resources
--- (PROOFS.md).
+-- equation); only `goalReachable` unfolds the opaque `layOut`, and only to
+-- read off that equation. That it holds for the levels `generateLevel`
+-- makes, for every seed, is in Generated.sw.
 
 namespace Rogue.Proofs
 import Rogue (..)
@@ -254,7 +254,9 @@ theorem hubJoins (level: Level) (rooms: List Area) (extra: Nat) (wired: level.co
 -- into one attacks it, so they block nothing for good.
 theorem goalReachable (depth: Nat) (rooms: List Area) (entranceIndex: Nat) (exitIndex: Nat) (extra: Nat)
     (entranceSmall: entranceIndex < 6) (exitSmall: exitIndex < 6):
-    Reachable (layOut depth rooms entranceIndex exitIndex extra) (layOut depth rooms entranceIndex exitIndex extra).start (layOut depth rooms entranceIndex exitIndex extra).goal :=
+      Reachable (layOut depth rooms entranceIndex exitIndex extra) (layOut depth rooms entranceIndex exitIndex extra).start (layOut depth rooms entranceIndex exitIndex extra).goal
+    unfolding layOut
+:=
   let level := layOut depth rooms entranceIndex exitIndex extra
   let wired: level.corridors = corridorsOf rooms extra := rfl
   reachTrans level (middleOf rooms entranceIndex) (middleOf rooms 0) (middleOf rooms exitIndex)
