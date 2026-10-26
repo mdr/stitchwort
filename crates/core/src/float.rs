@@ -8,9 +8,9 @@
 //!
 //! Two kinds of definitions compute here:
 //!
-//! - **Primitives** ([`FloatOp`]): the rounding operations, `Float.add`,
-//!   `sub`, `mul`, `div`, `rem`, `floor`, `ceil`, `trunc`, `round`, `ofInt`
-//!   and `ofNat`, which have no body. They're admitted here once their types
+//! - **Primitives** ([`FloatOp`]): the rounding operations without a
+//!   definition yet, `Float.mul`, `div`, `rem`, `floor`, `ceil`, `trunc`,
+//!   `round`, `ofInt` and `ofNat`, which have no body. They're admitted here once their types
 //!   are checked to be exactly the ones [`Signature`] gives, as `Delay`'s
 //!   constants are (`partial.rs`). Applied to records whose bits are known
 //!   (to a known number, for the conversions), the evaluator computes the
@@ -23,18 +23,22 @@
 //!   definition to fall back to). `Float.toText` is a primitive too, with
 //!   no reduction rule at all: each runtime supplies it (§2.6, D688).
 //! - **Natives** ([`FloatNative`]): `neg`, `abs`, `isNaN`, `isFinite`,
-//!   `ieeeLt`, `ieeeLe`, `toInt` and `Float.decEq`, ordinary definitions
-//!   over the bits with an implementation here. As for
-//!   the number natives (`native.rs`), each must compute exactly the whole
-//!   term its definition does, proofs included, so that switching natives
-//!   off never changes which `rfl` proofs check (§3.4, D731). They fire only
+//!   `ieeeLt`, `ieeeLe`, `toInt`, `Float.decEq`, `add` and `sub`, ordinary
+//!   definitions over the bits with an implementation here. They fire only
+//!   while a program or test runs (`Erasure::program_running`): checking,
+//!   conversion included, always computes through the definitions, so no
+//!   float code here can make the kernel accept a false equation
+//!   (docs/proposals/float-laws.md §7). Each still computes exactly the
+//!   whole term its definition does, proofs included, so that a run
+//!   computes what was checked. They fire only
 //!   on records whose bits are known and valid, and return what the
 //!   definition computes there: a record built by `Float.make`, whose witness
 //!   is `Eq.refl True` on known bits whatever proof it was given; for
 //!   `decEq`, `Yes (Float.bitsExt x y rfl)` or `No (Float.bitsNe x y
 //!   (Nat.equalFalse m n rfl))`, with the arguments as given.
 //!
-//! Both are trusted (DESIGN.md §13). They rely on `Float` being exactly the
+//! The primitives' reduction rules are trusted (DESIGN.md §13); the natives
+//! are trusted only to make runs compute what was checked. They rely on `Float` being exactly the
 //! library's declaration (its `isValid` above all: the reducer's result is
 //! well typed only if `isValid k` computes to `True` for the bit patterns it
 //! makes), and on each native's definition being the one it was checked
@@ -106,6 +110,14 @@ pub const NATIVE_HASHES: &[(Builtin, &str)] = &[
         "26ec25a82920530a6b24bdb014dc38736381e6c4a3d5659167ca3bf154f7a383",
     ),
     (
+        Builtin::FloatAdd,
+        "ecbc1a16ce4a443d498b8dc4d3e07845c5103f077f44b2d110852c7a05aac27b",
+    ),
+    (
+        Builtin::FloatSub,
+        "4584095fca50e2822394adc8bbe773f33ef70cb515daa41e6e9006f5b3fd7e1d",
+    ),
+    (
         Builtin::FloatBitsExt,
         "89edffd7b5e9fb3ae8e3157f90cbe96893843a760424acb64cc9fcf26e499c25",
     ),
@@ -153,8 +165,6 @@ pub fn source(bits: u64) -> String {
 /// which has none and doesn't reduce.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum FloatOp {
-    Add,
-    Sub,
     Mul,
     Div,
     Rem,
@@ -197,9 +207,7 @@ impl Signature {
 }
 
 impl FloatOp {
-    pub const ALL: [FloatOp; 12] = [
-        FloatOp::Add,
-        FloatOp::Sub,
+    pub const ALL: [FloatOp; 10] = [
         FloatOp::Mul,
         FloatOp::Div,
         FloatOp::Rem,
@@ -219,8 +227,6 @@ impl FloatOp {
 
     pub fn builtin(self) -> Builtin {
         match self {
-            FloatOp::Add => Builtin::FloatAdd,
-            FloatOp::Sub => Builtin::FloatSub,
             FloatOp::Mul => Builtin::FloatMul,
             FloatOp::Div => Builtin::FloatDiv,
             FloatOp::Rem => Builtin::FloatRem,
@@ -240,9 +246,7 @@ impl FloatOp {
 
     pub fn signature(self) -> Signature {
         match self {
-            FloatOp::Add | FloatOp::Sub | FloatOp::Mul | FloatOp::Div | FloatOp::Rem => {
-                Signature::Binary
-            }
+            FloatOp::Mul | FloatOp::Div | FloatOp::Rem => Signature::Binary,
             FloatOp::Floor | FloatOp::Ceil | FloatOp::Trunc | FloatOp::Round => Signature::Unary,
             FloatOp::OfInt => Signature::OfInt,
             FloatOp::OfNat => Signature::OfNat,
@@ -263,8 +267,6 @@ impl FloatOp {
     /// caller makes a NaN result canonical.
     pub fn apply(self, a: f64, b: f64) -> f64 {
         match self {
-            FloatOp::Add => a + b,
-            FloatOp::Sub => a - b,
             FloatOp::Mul => a * b,
             FloatOp::Div => a / b,
             FloatOp::Rem => a % b,
@@ -474,10 +476,14 @@ pub enum FloatNative {
     IeeeLe,
     /// `Float.toInt x : Option Int`.
     ToInt,
+    /// `Float.add x y`, defined through `Float.Model`.
+    Add,
+    /// `Float.sub x y`, defined as `x + (-y)`.
+    Sub,
 }
 
 impl FloatNative {
-    pub const ALL: [FloatNative; 8] = [
+    pub const ALL: [FloatNative; 10] = [
         FloatNative::Neg,
         FloatNative::Abs,
         FloatNative::IsNaN,
@@ -486,6 +492,8 @@ impl FloatNative {
         FloatNative::IeeeLt,
         FloatNative::IeeeLe,
         FloatNative::ToInt,
+        FloatNative::Add,
+        FloatNative::Sub,
     ];
 
     pub fn builtin(self) -> Builtin {
@@ -498,6 +506,8 @@ impl FloatNative {
             FloatNative::IeeeLt => Builtin::FloatIeeeLt,
             FloatNative::IeeeLe => Builtin::FloatIeeeLe,
             FloatNative::ToInt => Builtin::FloatToInt,
+            FloatNative::Add => Builtin::FloatAdd,
+            FloatNative::Sub => Builtin::FloatSub,
         }
     }
 
@@ -507,7 +517,11 @@ impl FloatNative {
 
     pub fn arity(self) -> usize {
         match self {
-            FloatNative::DecEq | FloatNative::IeeeLt | FloatNative::IeeeLe => 2,
+            FloatNative::DecEq
+            | FloatNative::IeeeLt
+            | FloatNative::IeeeLe
+            | FloatNative::Add
+            | FloatNative::Sub => 2,
             _ => 1,
         }
     }
@@ -519,6 +533,17 @@ impl FloatNative {
             FloatNative::Neg => bits ^ SIGN,
             FloatNative::Abs => bits & !SIGN,
             _ => unreachable!("`{}` doesn't return a `Float`", self.name()),
+        }
+    }
+
+    /// `add` or `sub` on two operands' bits: the machine's double
+    /// arithmetic, the NaN canonical.
+    pub fn on_pair(self, a: u64, b: u64) -> u64 {
+        let (x, y) = (f64::from_bits(a), f64::from_bits(b));
+        match self {
+            FloatNative::Add => canonical_bits(x + y),
+            FloatNative::Sub => canonical_bits(x - y),
+            _ => unreachable!("`{}` isn't arithmetic on two doubles", self.name()),
         }
     }
 }
@@ -767,7 +792,7 @@ fn known_bits(
 /// all its arguments, and their bits are known: `None` otherwise (it's
 /// stuck, or its definition unfolds).
 pub fn run(g: &Globals, id: DefId, spine: &[Elim], force: Force) -> budget::Result<Option<Value>> {
-    let Some(def) = g.builtins.float_def(id) else {
+    let Some(def) = g.builtins.float_def(id, g.erasure.program_running()) else {
         return Ok(None);
     };
     let Some(data) = g.builtins.float.data else {
@@ -830,6 +855,9 @@ pub fn run(g: &Globals, id: DefId, spine: &[Elim], force: Force) -> budget::Resu
         FloatDef::Native(FloatNative::IeeeLe) => boolean(ieee_less(bits[0], bits[1], true)),
         FloatDef::Native(FloatNative::DecEq) => dec_eq(g, &args, bits[0], bits[1]),
         FloatDef::Native(FloatNative::ToInt) => to_int_value(g, bits[0]),
+        FloatDef::Native(n @ (FloatNative::Add | FloatNative::Sub)) => {
+            Some(float_value(data, n.on_pair(bits[0], bits[1])))
+        }
         FloatDef::Native(n) => Some(float_value(data, n.on_bits(bits[0]))),
     })
 }

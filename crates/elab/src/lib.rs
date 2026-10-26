@@ -2633,6 +2633,8 @@ impl Elaborator {
                 | Builtin::FloatIeeeLt
                 | Builtin::FloatIeeeLe
                 | Builtin::FloatToInt
+                | Builtin::FloatAdd
+                | Builtin::FloatSub
                 | Builtin::FloatBitsExt
                 | Builtin::FloatBitsNe),
             ) => stitchwort_core::float::register_def(&mut self.globals, id, b)?,

@@ -150,6 +150,10 @@ pub struct Builtins {
     /// while the number natives stay on (`disable_natives` turns both off).
     /// The float primitives' reduction rule is never off.
     pub disable_float_natives: bool,
+    /// The float natives fire outside a running program too: only for the
+    /// float gate, which compares them with their definitions as terms
+    /// after its program is checked. Never set while anything is checked.
+    pub float_natives_outside_runs: bool,
 }
 
 impl Builtins {
@@ -171,20 +175,28 @@ impl Builtins {
     }
 
     /// What the evaluator computes for float definition `id`: a primitive
-    /// always, a native unless natives are off.
+    /// always; a native only while a program `running`, and unless natives
+    /// are off. Checking computes the natives' definitions.
     #[inline]
-    pub fn float_def(&self, id: DefId) -> Option<crate::float::FloatDef> {
+    pub fn float_def(&self, id: DefId, running: bool) -> Option<crate::float::FloatDef> {
         if self.float_defs.is_empty() {
             return None;
         }
         match self.float_defs.get(&id).copied()? {
             crate::float::FloatDef::Native(_)
-                if self.disable_natives || self.disable_float_natives =>
+                if self.disable_natives
+                    || self.disable_float_natives
+                    || !(running || self.float_natives_outside_runs) =>
             {
                 None
             }
             def => Some(def),
         }
+    }
+
+    /// Whether `id` is a float primitive or has a float native.
+    pub fn float_bound(&self, id: DefId) -> bool {
+        self.float_defs.contains_key(&id)
     }
 
     /// Which float primitive `id` is, if it's one.

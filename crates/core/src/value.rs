@@ -1654,7 +1654,9 @@ fn unfold_now(g: &Globals, id: DefId, spine: Spine, glue: bool) -> Result<Contro
     if spine.len() == g.def(id).arity && erases_result(g, id) {
         return Ok(Control::Return(erased()));
     }
-    if g.builtins.float_def(id).is_some()
+    if g.builtins
+        .float_def(id, g.erasure.program_running())
+        .is_some()
         && let Some(value) = crate::float::run(g, id, &spine, force)?
     {
         return Ok(Control::Return(value));
@@ -2584,7 +2586,7 @@ pub fn opens_by_tree(g: &Globals, value: &Value) -> bool {
         && spine.len() == def.arity
         && spine.iter().all(|e| matches!(e, Elim::App(..)))
         && g.builtins.native(*id).is_none()
-        && g.builtins.float_def(*id).is_none()
+        && !g.builtins.float_bound(*id)
 }
 
 /// Where a case tree, walked with its environment, ends up.

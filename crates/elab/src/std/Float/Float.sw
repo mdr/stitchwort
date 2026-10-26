@@ -7,7 +7,10 @@
 --
 -- The exact operations (`neg`, `abs`, `isNaN`, `isFinite`, `==`, the
 -- order, the IEEE comparisons, `toInt`) are ordinary definitions over the
--- bits. The rounding ones (`add`, `sub`, `mul`, `div`, `rem`, `floor`,
+-- bits, and so are `add` and `sub`, through `Float.Model`
+-- (std/Float/Model.sw). The checker computes all of these through their
+-- definitions; only a running program or test uses the machine's doubles
+-- for them. The other rounding operations (`mul`, `div`, `rem`, `floor`,
 -- `ceil`, `trunc`, `round`, `ofInt`, `ofNat`) are primitives: the checker
 -- computes them on known doubles with Rust's `f64`, under the contract of
 -- docs/proposals/float.md §3.3, and otherwise they are unknown functions.
@@ -202,13 +205,23 @@ theorem Float.negNegFrom (x: Float): (b: Bool) → (e: Float.isNaN x = b) → Fl
 
 theorem Float.negNeg (x: Float): Float.neg (Float.neg x) = x := Float.negNegFrom x (Float.isNaN x) rfl
 
--- The rounding operations: primitives, with no definition. The kernel
+-- The double with bits `n`, or the NaN if they aren't a valid pattern.
+def Float.ofBitsFrom (n: Nat): (b: Bool) → Float.isValid n = b → Float
+  | True, h => Float.make n h
+  | False, _ => Float.nan
+
+def Float.ofBits (n: Nat): Float := Float.ofBitsFrom n (Float.isValid n) rfl
+
+-- `x + y`, exact then rounded (`Float.Model.addBits`). Stuck until both
+-- records are known, so `x + y` stays as written on unknowns.
+def Float.add: Float → Float → Float
+  | { bits = a, valid = p }, { bits = b, valid = q } => Float.ofBits (Float.Model.addBits a b)
+
+def Float.sub (x: Float) (y: Float): Float := Float.add x (Float.neg y)
+
+-- The other rounding operations: primitives, with no definition. The kernel
 -- computes them on known doubles (rounding to nearest, ties to even, the NaN
 -- canonical), and the runtime and JS use the machine's.
-def Float.add: Float → Float → Float
-
-def Float.sub: Float → Float → Float
-
 def Float.mul: Float → Float → Float
 
 def Float.div: Float → Float → Float

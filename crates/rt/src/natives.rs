@@ -649,8 +649,8 @@ impl Representation {
             use stitchwort_core::float::{FloatNative, FloatOp};
             for id in (0..g.defs.len()).map(DefId) {
                 let prim = match (g.builtins.float_primitive(id), g.builtins.float_native(id)) {
-                    (Some(FloatOp::Add), _) => FloatPrim::Add,
-                    (Some(FloatOp::Sub), _) => FloatPrim::Sub,
+                    (_, Some(FloatNative::Add)) => FloatPrim::Add,
+                    (_, Some(FloatNative::Sub)) => FloatPrim::Sub,
                     (Some(FloatOp::Mul), _) => FloatPrim::Mul,
                     (Some(FloatOp::Div), _) => FloatPrim::Div,
                     (Some(FloatOp::Rem), _) => FloatPrim::Rem,

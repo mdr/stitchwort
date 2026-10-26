@@ -386,8 +386,8 @@ fn float(s: &Shapes, f: FloatPrim, args: &[&Value]) -> Value {
     };
     let x = |i: usize| args[i].to_f64();
     match f {
-        FloatPrim::Add => Value::float(FloatOp::Add.apply(x(0), x(1))),
-        FloatPrim::Sub => Value::float(FloatOp::Sub.apply(x(0), x(1))),
+        FloatPrim::Add => Value::float(x(0) + x(1)),
+        FloatPrim::Sub => Value::float(x(0) - x(1)),
         FloatPrim::Mul => Value::float(FloatOp::Mul.apply(x(0), x(1))),
         FloatPrim::Div => Value::float(FloatOp::Div.apply(x(0), x(1))),
         FloatPrim::Rem => Value::float(FloatOp::Rem.apply(x(0), x(1))),

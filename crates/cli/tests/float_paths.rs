@@ -14,6 +14,12 @@
 //! its own: the Rust runtime against Node's `String(x)`, and `toSource`
 //! read back by the kernel.
 //!
+//! The kernels compute `+` and `-` through their definitions
+//! (std/Float/Model.sw), the float natives being off while checking and
+//! evaluating outside a run, so these tests compare those definitions with
+//! the hardware and Node; [`add_and_sub_round_like_the_hardware`] adds
+//! pairs built to land on rounding boundaries.
+//!
 //! The WebAssembly kernel is the playground's bundle in `web/pkg`, run by
 //! `web/tests/float-wasm.mjs` under Node. Build it first (`web/build.sh`, or
 //! its `cargo build --target wasm32-unknown-unknown` and `wasm-bindgen`
@@ -505,5 +511,158 @@ fn the_gate_passes_on_the_webassembly_kernel() {
         .expect("run node");
     let report = String::from_utf8_lossy(&out.stdout);
     assert!(out.status.success(), "{report}");
-    assert!(report.contains("1121 passed, 0 failed"), "{report}");
+    assert!(report.contains("1989 passed, 0 failed"), "{report}");
+}
+
+/// Pairs whose sum or difference lands on a rounding boundary
+/// (docs/proposals/float-laws.md §8): ties either way, results just under
+/// and over a power of two, overflow at exactly the halfway point past the
+/// largest double, subnormal results, and the sign of a zero result.
+fn boundary_pairs() -> Vec<(f64, f64)> {
+    let two = |k: i32| 2f64.powi(k);
+    let max = f64::MAX;
+    let tiny = f64::from_bits(1);
+    let min_normal = f64::MIN_POSITIVE;
+    let mut pairs = vec![
+        // Ties: to even, down and up.
+        (1.0, two(-53)),
+        (1.0, 3.0 * two(-53)),
+        (1.0 + two(-52), two(-53)),
+        (9007199254740992.0, 1.0),
+        (9007199254740992.0, 3.0),
+        (-1.0, -two(-53)),
+        // Just under and over powers of two.
+        (2.0 - two(-52), two(-53)),
+        (2.0 - two(-52), two(-54)),
+        (2.0, -two(-53)),
+        (2.0, -two(-52)),
+        (1.0, -two(-54)),
+        (1.0, -two(-53)),
+        (1.0, -(two(-53) + two(-105))),
+        (two(1023), two(1023) - two(970)),
+        // Overflow: halfway past the largest double goes to infinity, just
+        // below it stays.
+        (max, two(970)),
+        (max, two(969)),
+        (max, two(970) - two(917)),
+        (max, max),
+        (-max, -two(970)),
+        (-max, -two(969)),
+        // Subnormal results.
+        (tiny, tiny),
+        (min_normal, -tiny),
+        (min_normal, -min_normal),
+        (3.0 * tiny, -2.0 * tiny),
+        (1e-300, tiny),
+        (min_normal + tiny, -min_normal),
+        // The sign of a zero.
+        (0.0, 0.0),
+        (-0.0, -0.0),
+        (-0.0, 0.0),
+        (0.0, -0.0),
+        (1.5, -1.5),
+        (-1.5, 1.5),
+        (tiny, -tiny),
+        (-tiny, tiny),
+        (-0.0, tiny),
+        // Infinities and the NaN.
+        (f64::INFINITY, f64::NEG_INFINITY),
+        (f64::INFINITY, f64::INFINITY),
+        (f64::NEG_INFINITY, max),
+        (f64::NAN, 1.0),
+        // Cancellation, and operands far apart.
+        (1e16, 1.0),
+        (0.1, 0.2),
+        (1e308, -1e292),
+        (two(-1000), two(1000)),
+    ];
+    // Random operands of close magnitude, where rounding decides the most.
+    let mut seed = 0x9E37_79B9_7F4A_7C15u64;
+    let mut next = || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+    while pairs.len() < 200 {
+        let a = next();
+        let shift = (next() % 60) << 52;
+        let b = (a & !(0x7FF << 52)) | ((a & (0x7FF << 52)).saturating_sub(shift) & (0x7FF << 52));
+        let b = if next() % 2 == 0 { b ^ (1 << 63) } else { b };
+        let (x, y) = (f64::from_bits(a), f64::from_bits(b));
+        if x.is_finite() && y.is_finite() {
+            pairs.push((x, y));
+        }
+    }
+    pairs
+}
+
+/// `Float.add` and `Float.sub`, computed by the kernel through their
+/// definitions, give the machine's bits on [`boundary_pairs`], as do the
+/// Rust runtime and Node.
+#[test]
+fn add_and_sub_round_like_the_hardware() {
+    let pairs = boundary_pairs();
+    let bits = |x: f64| stitchwort_core::float::canonical_bits(x);
+    let mut src = String::from(
+        "import Std (Float, List, Nat, Text)\n\n\
+         def build (b: Nat) (h: Float.isValid b = True): Float := { bits = b, valid = h }\n\n\
+         def ofBits (b: Nat): Float := if h: Float.isValid b = True then build b h else Float.nan\n\n",
+    );
+    let mut items = Vec::new();
+    let mut expected = Vec::new();
+    for &(x, y) in &pairs {
+        let (a, b) = (bits(x), bits(y));
+        items.push(format!("(Float.add (ofBits {a}) (ofBits {b})).bits"));
+        items.push(format!("(Float.sub (ofBits {a}) (ofBits {b})).bits"));
+        expected.push(bits(x + y).to_string());
+        expected.push(bits(x - y).to_string());
+    }
+    let _ = writeln!(src, "def results: List Nat := [{}]\n", items.join(", "));
+    src.push_str(
+        "def main(): {IO} () := IO.print (results |> List.map (n => n.toText) |> Text.join '\\n')\n",
+    );
+    let dir = std::env::temp_dir().join(format!("stitchwort-float-round-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let path = dir.join("round.sw");
+    std::fs::write(&path, &src).expect("write source");
+
+    let mut session = Session::new();
+    session
+        .load("round.sw", &src)
+        .unwrap_or_else(|e| panic!("{e:?}"));
+    let expr = session
+        .parse_expression("expression", "results")
+        .expect("parses");
+    let (kernel, _) = session.elab.eval_expr(&expr).expect("evaluates");
+    let count = expected.len();
+    let paths = [
+        ("kernel", numbers("kernel", &kernel, count)),
+        (
+            "Rust runtime",
+            numbers("Rust runtime", &stitchwort_run(&path, false), count),
+        ),
+        ("Node", numbers("Node", &stitchwort_run(&path, true), count)),
+    ];
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut wrong = Vec::new();
+    for (name, results) in &paths {
+        for (i, (got, want)) in results.iter().zip(&expected).enumerate() {
+            if got != want {
+                let (x, y) = pairs[i / 2];
+                let op = if i % 2 == 0 { '+' } else { '-' };
+                wrong.push(format!(
+                    "{name}: {x:e} {op} {y:e} gave {}, the machine {}",
+                    shown(got),
+                    shown(want)
+                ));
+            }
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} disagreements:\n{}",
+        wrong.len(),
+        wrong[..wrong.len().min(20)].join("\n")
+    );
 }

@@ -55,6 +55,7 @@ pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
     ("Fail/Fail.sw", include_str!("std/Fail/Fail.sw")),
     ("Fin/Fin.sw", include_str!("std/Fin/Fin.sw")),
     ("Float/Float.sw", include_str!("std/Float/Float.sw")),
+    ("Float/Model.sw", include_str!("std/Float/Model.sw")),
     ("Int/Basics.sw", include_str!("std/Int/Basics.sw")),
     ("Int/Int.sw", include_str!("std/Int/Int.sw")),
     ("Int/Safe.sw", include_str!("std/Int/Safe.sw")),
