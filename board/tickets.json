@@ -1,5 +1,5 @@
 {
-  "next": 668,
+  "next": 669,
   "tickets": [
     {
       "id": 13,
@@ -4829,11 +4829,11 @@
     {
       "id": 625,
       "title": "std Float: no laws about rounding arithmetic are provable (add/sub/… are unknown functions in the logic, float.md 'no new propositional axioms'). Trigger: the private port needs 's <= s + d when 0 <= d' (monotone addition) and carries it as a hypothesis. Options: trusted law axioms (Rocq-style, tested against hardware), or bit-level reference definitions",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "D1361 (26 Oct): the private port carries AdditionMonotone as a hypothesis on mergeWellFormed/mergeIdempotent/… FOR NOW. Matt: 'remember to come back to this'. When the float-laws note (D1363+) is decided, revisit: discharge the hypothesis from std if laws land, and update the port's theorems + MAINTAINING draft.",
+      "body": "Stage 2 merged 26 Oct: Float.addMonotoneRight etc. proved, no axioms. D1361 revisit: discharge AdditionMonotone in the private port (separate ticket).",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
@@ -4973,7 +4973,7 @@
     {
       "id": 637,
       "title": "Float laws stage 2: the laws (units monotone, rounding monotone/identity, addMonotoneRight, addComm, subAddNeg, addNegZero); then discharge AdditionMonotone in the private port (D1361)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5338,6 +5338,18 @@
       "where": "",
       "labels": [],
       "body": "Duplicate of 511.",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 668,
+      "title": "Private app port (D1361 revisit): discharge the AdditionMonotone hypothesis with std Float.addMonotoneRight (float laws stage 2 merged 26 Oct) (private work only)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
