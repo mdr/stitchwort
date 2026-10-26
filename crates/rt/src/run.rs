@@ -41,9 +41,9 @@ use std::rc::Rc;
 use stitchwort_core::ResourceError;
 
 use crate::host::{NoTerminal, RunError, Terminal, read_all, read_bytes, read_line, write_text};
-use crate::ir::{MainRow, Program};
+use crate::ir::{MainRow, Program, Shapes};
 use crate::machine::{Limits, Machine};
-use crate::native_abi::NativeIslands;
+use crate::native_abi::{NativeExecutor, NativeIslands};
 use crate::value::{Delay, Fun, Value};
 
 pub use live::{Advanced, LimitScope, LiveLimits, LiveRun};
@@ -168,14 +168,42 @@ pub fn run_main_counting_on(
     run_inner(program, limits, policy, None, input, output, terminal)
 }
 
+/// What the runner runs the program's code with (stage NO4 of
+/// docs/proposals/native-only.md): the machine ([`Machine`]), or native
+/// code (`native_abi::NativeExecutor`). The runner steps the `Delay` that
+/// `main` returns and performs its operations; every function application
+/// that stepping needs, and every computation it takes apart, is the
+/// executor's. Each call starts from the runner, so nothing nests.
+pub trait Executor {
+    /// The value of the program's entry: `main ()`, a `Delay`.
+    fn entry(&mut self) -> Result<Value, ResourceError>;
+    /// `f` applied to `args`, as the machine's `apply` applies it.
+    fn call(&mut self, f: Value, args: Vec<Value>) -> Result<Value, ResourceError>;
+    /// Computation `c` run up to its first operation: `Done v`, or `Call o
+    /// rest` with whatever was pending in `c` inside `rest`
+    /// ([`Machine::step_comp`]).
+    fn step_comp(&mut self, c: Value) -> Result<Value, ResourceError>;
+    /// Starts a new stretch of steps (after an operation or a tick).
+    fn reset_steps(&mut self);
+    /// The program it runs.
+    fn program(&self) -> &Program;
+    fn shapes(&self) -> &Shapes {
+        &self.program().shapes
+    }
+    /// After the run stopped for recursing too deeply: which functions had
+    /// the most pending calls, if known.
+    fn depth_report(&self) -> Option<String>;
+}
+
 /// Makes native code for a compiled program (`crate::native_abi`), or
 /// `None` to run it all on the machine.
 pub type NativeFactory<'a> =
     &'a mut dyn FnMut(&Program, &crate::code::Image) -> Option<Box<dyn NativeIslands>>;
 
-/// Runs `program` as [`run_main_on`] does, with the native code `native`
-/// makes for it running the island roots the entry calls (stage N1 of
-/// docs/proposals/native-compilation.md). Flushes `output`.
+/// Runs `program` as [`run_main_on`] does, natively if `native` makes code
+/// for it (stage NO4 of docs/proposals/native-only.md: every body `main`
+/// reaches, its entry included, compiled, and the runner on a
+/// [`NativeExecutor`]), and otherwise on the machine. Flushes `output`.
 pub fn run_main_native(
     program: &Program,
     limits: Limits,
@@ -212,17 +240,34 @@ fn run_inner(
     output: &mut impl Write,
     terminal: &mut dyn Terminal,
 ) -> (Result<Outcome, RunError>, RouteCounts) {
-    let mut machine = Machine::new(program, limits);
+    let image = crate::code::compile(program);
     if let Some(native) = native
-        && let Some(islands) = native(program, machine.image())
+        && let Some(code) = native(program, &image)
     {
-        machine.set_native(islands);
+        // The whole run native, or (below) none of it.
+        if code.fits(limits.frames as u64) {
+            let executor = NativeExecutor::new(program, image, code, limits);
+            return run_on(executor, limits, policy, input, output, terminal);
+        }
     }
-    let delay = match machine.entry() {
+    let machine = Machine::with_image(program, image, limits);
+    run_on(machine, limits, policy, input, output, terminal)
+}
+
+/// [`run_inner`] on `executor`.
+fn run_on<E: Executor>(
+    mut executor: E,
+    limits: Limits,
+    policy: &Policy,
+    input: &mut impl BufRead,
+    output: &mut impl Write,
+    terminal: &mut dyn Terminal,
+) -> (Result<Outcome, RunError>, RouteCounts) {
+    let delay = match executor.entry() {
         Ok(delay) => delay,
-        Err(e) => return (Err(entry_error(&machine, e)), RouteCounts::default()),
+        Err(e) => return (Err(entry_error(&executor, e)), RouteCounts::default()),
     };
-    let mut runner = Runner::new(machine, limits, *policy, Box::new(terminal));
+    let mut runner = Runner::new(executor, limits, *policy, Box::new(terminal));
     let result = runner.run(delay, &mut Blocking(input), output);
     let result = result.map_err(|e| runner.explain(e));
     (result, runner.counts)
@@ -230,8 +275,8 @@ fn run_inner(
 
 /// Computing the entry failed with `e`: the error, naming the function that
 /// recursed too deeply if that was it.
-fn entry_error(machine: &Machine<'_>, e: ResourceError) -> RunError {
-    match (e, machine.depth_report()) {
+fn entry_error(executor: &impl Executor, e: ResourceError) -> RunError {
+    match (e, executor.depth_report()) {
         (ResourceError::Depth, Some(report)) => RunError::Deep(report),
         (e, _) => e.into(),
     }
@@ -405,8 +450,10 @@ enum Focus {
     Ret(Value),
 }
 
-struct Runner<'p, 't> {
-    m: Machine<'p>,
+struct Runner<'t, E> {
+    /// What runs the program's code: the machine, or native code
+    /// ([`Executor`]).
+    m: E,
     frames: Vec<Frame>,
     /// Where the `Map`, `Tie` and `Handle` frames are in `frames`, bottom
     /// first: the
@@ -448,13 +495,13 @@ enum Driven {
     Waiting,
 }
 
-impl<'p, 't> Runner<'p, 't> {
+impl<'t, E: Executor> Runner<'t, E> {
     fn new(
-        m: Machine<'p>,
+        m: E,
         limits: Limits,
         policy: Policy,
         terminal: Box<dyn Terminal + 't>,
-    ) -> Runner<'p, 't> {
+    ) -> Runner<'t, E> {
         Runner {
             m,
             frames: Vec::new(),

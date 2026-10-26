@@ -32,7 +32,6 @@ use stitchwort_core::{Limits as CoreLimits, ResourceError};
 use crate::code::{Image, Instr, MOVE, NO_REG, compile};
 use crate::effect::{EffectCounts, EffectOp, Handler, Resume, StateRun};
 use crate::ir::{GlobalId, GlobalKind, PrimOp, Program, Shapes};
-use crate::native_abi::{NativeIslands, NativeRun};
 use crate::natives::TextNative;
 use crate::prims;
 use crate::value::{Fields, Fun, Value};
@@ -129,34 +128,13 @@ pub(crate) struct State {
     scratch: Vec<Value>,
     /// The effect runtime's work so far.
     pub(crate) counts: EffectCounts,
-    /// Native code for some of the program's bodies (`crate::native_abi`),
-    /// if the run uses it. Shared, since native code calls back into the
-    /// machine (a nested run, [`nested`]), which can call native code again.
-    native: Option<Rc<dyn NativeIslands>>,
-    /// For each body (by code index): whether native code runs it, so that
-    /// every frame the machine would push for it is a call of native code
-    /// instead.
-    native_codes: Box<[bool]>,
-    /// Frames pending below the machine's own: native code's, under a
-    /// nested run ([`nested`]). The frame limit counts both.
-    frame_base: usize,
-    /// A call of native code `enter` decided on, which the run loop makes
-    /// before anything else: as a frame `enter` pushes runs only once its
-    /// Rust callers have returned (dropping the function value and whatever
-    /// else they hold), so does the native call, and the allocation traces
-    /// are the same.
-    deferred: Option<Box<Deferred>>,
-    /// What frames above the machine's own gave up in a failed run, until
-    /// it's dropped ([`State::release_failed`]).
-    unwound: Unwound,
     /// When the frame limit was hit: the codes with the most pending frames,
     /// and how many each had ([`Machine::depth_report`]).
     deepest: Vec<(u32, usize)>,
+    /// Instructions executed so far by [`run`], added to the thread's total
+    /// ([`instructions_executed`]) as each run ends.
+    executed: u64,
 }
-
-/// A native call `enter` put off ([`State::deferred`]): the body, the
-/// closure for a lambda's, the arguments and where the result goes.
-type Deferred = (u32, Option<Rc<Fun>>, Vec<Value>, Ret);
 
 /// The program a machine runs: borrowed, or shared with whatever else holds
 /// it (a live run that outlives its caller's borrow, [`crate::run::LiveRun`]).
@@ -199,10 +177,21 @@ impl<'p> Machine<'p> {
         Machine::holding(Held::Shared(program), limits)
     }
 
+    /// [`Machine::new`] with `image`, the program's compiled image
+    /// (`code::compile`), already made.
+    pub fn with_image(program: &'p Program, image: Image, limits: Limits) -> Machine<'p> {
+        Machine::holding_image(Held::Borrowed(program), image, limits)
+    }
+
     fn holding(program: Held<'p>, limits: Limits) -> Machine<'p> {
         // Built before `program` moves in.
+        let image = compile(&program);
+        Machine::holding_image(program, image, limits)
+    }
+
+    fn holding_image(program: Held<'p>, image: Image, limits: Limits) -> Machine<'p> {
         Machine {
-            image: compile(&program),
+            image,
             st: State {
                 regs: Vec::new(),
                 frames: Vec::new(),
@@ -211,12 +200,8 @@ impl<'p> Machine<'p> {
                 limits,
                 scratch: Vec::new(),
                 counts: EffectCounts::default(),
-                native: None,
-                native_codes: Box::default(),
-                frame_base: 0,
-                deferred: None,
-                unwound: Unwound::default(),
                 deepest: Vec::new(),
+                executed: 0,
             },
             program,
         }
@@ -280,19 +265,6 @@ impl<'p> Machine<'p> {
         &self.image
     }
 
-    /// Runs the bodies `native` has code for as native code, wherever the
-    /// machine would push a frame for one (`crate::native_abi`), unless the
-    /// native stack might not hold the frame limit (`NativeIslands::fits`).
-    pub fn set_native(&mut self, native: Box<dyn NativeIslands>) {
-        if !native.fits(self.st.limits.frames as u64) {
-            return;
-        }
-        self.st.native_codes = (0..self.image.codes.len() as u32)
-            .map(|code| native.compiled(code))
-            .collect();
-        self.st.native = Some(Rc::from(native));
-    }
-
     pub fn shapes(&self) -> &Shapes {
         &self.program.shapes
     }
@@ -342,6 +314,7 @@ impl<'p> Machine<'p> {
     /// are dropped.
     fn finish(&mut self, pending: Result<Pending>) -> Result<Value> {
         let result = pending.and_then(|p| run(&self.program, &self.image, &mut self.st, p));
+        count_instructions(std::mem::take(&mut self.st.executed));
         if result.is_err() {
             self.st.release_failed();
         }
@@ -349,50 +322,59 @@ impl<'p> Machine<'p> {
     }
 }
 
-/// What the frames above the machine's own gave up when a run failed:
-/// native frames' (`native_abi::sw_unwind`) and nested runs' (`nested`),
-/// innermost first, for [`State::release_failed`] to drop in the order the
-/// machine drops its own frames and registers.
-#[derive(Default)]
-struct Unwound {
-    /// Each frame's closure and pending return, a group per native frame or
-    /// nested run.
-    frames: Vec<UnwoundFrames>,
-    /// Registers, a vector per native frame or nested run, lowest first.
-    regs: Vec<Vec<Value>>,
-    /// A tail call's fetched arguments (the machine's `scratch`).
-    tail: Vec<Value>,
+thread_local! {
+    static EXECUTED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
-enum UnwoundFrames {
-    /// A native frame's closure and pending arguments.
-    Native(Vec<Value>),
-    /// A nested run's frames, outermost first.
-    Machine(Vec<Frame>),
+/// How many instructions the machine has executed on this thread so far,
+/// summed as each run ends: what `run --native --verbose` reports, which is
+/// 0 when the machine ran nothing (stage NO4 of
+/// docs/proposals/native-only.md). In every build, since the test tiers run
+/// release binaries; an increment per instruction, in the machine's state,
+/// is little next to the instruction.
+pub fn instructions_executed() -> u64 {
+    EXECUTED.with(std::cell::Cell::get)
+}
+
+/// Adds a run's instructions to the thread's total.
+fn count_instructions(n: u64) {
+    EXECUTED.with(|total| total.set(total.get() + n));
+}
+
+impl crate::run::Executor for Machine<'_> {
+    fn entry(&mut self) -> Result<Value> {
+        Machine::entry(self)
+    }
+
+    fn call(&mut self, f: Value, args: Vec<Value>) -> Result<Value> {
+        Machine::call(self, f, args)
+    }
+
+    fn step_comp(&mut self, c: Value) -> Result<Value> {
+        Machine::step_comp(self, c)
+    }
+
+    fn reset_steps(&mut self) {
+        Machine::reset_steps(self);
+    }
+
+    fn program(&self) -> &Program {
+        Machine::program(self)
+    }
+
+    fn depth_report(&self) -> Option<String> {
+        Machine::depth_report(self)
+    }
 }
 
 impl State {
-    /// After a failed run: drops everything pending as the machine alone
-    /// would, outermost first: every frame's closure and pending return
-    /// (its own frames, then those above them that native code and nested
-    /// runs gave up), then every register likewise, then a tail call's
-    /// fetched arguments.
+    /// After a failed run: drops everything pending, outermost first: every
+    /// frame's closure and pending return, then every register, then a
+    /// tail call's fetched arguments.
     fn release_failed(&mut self) {
-        let Unwound { frames, regs, tail } = std::mem::take(&mut self.unwound);
         self.frames.clear();
-        for group in frames.into_iter().rev() {
-            match group {
-                UnwoundFrames::Native(values) => drop(values),
-                UnwoundFrames::Machine(frames) => drop(frames),
-            }
-        }
         self.regs.clear();
-        for segment in regs.into_iter().rev() {
-            drop(segment);
-        }
         self.scratch.clear();
-        drop(tail);
-        self.deferred = None;
     }
 
     /// A function value for global `g` (a function or a native), or a
@@ -429,7 +411,7 @@ impl State {
         if self.steps > self.limits.steps {
             return Err(ResourceError::Work);
         }
-        if self.frame_base + self.frames.len() >= self.limits.frames {
+        if self.frames.len() >= self.limits.frames {
             self.note_deepest();
             return Err(ResourceError::Depth);
         }
@@ -582,20 +564,12 @@ impl State {
                 }
                 _ => {
                     let code = image.global_code[*g as usize].expect("a function has code");
-                    if self.native_codes.get(code as usize) == Some(&true) {
-                        self.defer(code, None, n, ret)?;
-                        return Ok(None);
-                    }
                     self.push(image, code, n, None, ret)?;
                     Ok(None)
                 }
             },
             Fun::Closure { lambda, .. } => {
                 let code = image.lambda_code[*lambda as usize];
-                if self.native_codes.get(code as usize) == Some(&true) {
-                    self.defer(code, Some(fun), n, ret)?;
-                    return Ok(None);
-                }
                 self.push(image, code, n, Some(fun.clone()), ret)?;
                 Ok(None)
             }
@@ -659,22 +633,6 @@ impl State {
         }
     }
 
-    /// Puts off a call of body `code`'s native code, with the `n` arguments
-    /// on top of the registers and, for a lambda's body, its closure
-    /// (`State::deferred`): counted as a frame now.
-    fn defer(&mut self, code: u32, env: Option<&Rc<Fun>>, n: usize, ret: Ret) -> Result<()> {
-        if let Err(e) = self.enter_frame() {
-            // Dropped as when the arguments were a vector passed here.
-            drop(ret);
-            let at = self.regs.len() - n;
-            self.regs.truncate(at);
-            return Err(e);
-        }
-        let args = self.take_args(n).collect();
-        self.deferred = Some(Box::new((code, env.cloned(), args, ret)));
-        Ok(())
-    }
-
     fn fold_start(
         &mut self,
         program: &Program,
@@ -704,95 +662,6 @@ impl State {
         self.regs.push(prims::char_value(&program.shapes, c));
         self.regs.push(acc);
         self.apply(program, image, f, 2, Ret::Fold(Box::new(fold)))
-    }
-
-    // ------------------------------------------------------- native code
-
-    /// A call of body `code`'s native code, its frame already counted
-    /// (`enter_frame`), with `args` and, for a lambda's body, its closure
-    /// `env`: the result for `ret`.
-    fn native_call(
-        &mut self,
-        program: &Program,
-        image: &Image,
-        code: u32,
-        env: Option<Rc<Fun>>,
-        args: Vec<Value>,
-        ret: Ret,
-    ) -> Result<Pending> {
-        let frames = (self.frame_base + self.frames.len() + 1) as u64;
-        let v = self.cross(program, image, code, env, args, frames)?;
-        Ok(Some((v, ret)))
-    }
-
-    /// [`State::replace`] for a body native code runs: the step, the top
-    /// frame's closure dropped and its registers released, then the native
-    /// call in its place, with the arguments in `scratch`. Its result goes
-    /// where the frame's would have.
-    fn native_replace(
-        &mut self,
-        program: &Program,
-        image: &Image,
-        code: u32,
-        env: Option<Rc<Fun>>,
-    ) -> Result<Pending> {
-        self.steps += 1;
-        if self.steps > self.limits.steps {
-            return Err(ResourceError::Work);
-        }
-        let mut frame = self.frames.pop().expect("a frame");
-        let base = frame.base as usize;
-        // As `replace` drops it: before the registers.
-        frame.env = None;
-        release(&mut self.regs, base);
-        let args = std::mem::take(&mut self.scratch);
-        let frames = (self.frame_base + self.frames.len() + 1) as u64;
-        let v = self.cross(program, image, code, env, args, frames)?;
-        Ok(Some((v, frame.ret)))
-    }
-
-    /// Hands a call to native code (`crate::native_abi`), with `frames`
-    /// pending, its own included.
-    fn cross(
-        &mut self,
-        program: &Program,
-        image: &Image,
-        code: u32,
-        env: Option<Rc<Fun>>,
-        args: Vec<Value>,
-        frames: u64,
-    ) -> Result<Value> {
-        let native = self.native.clone().expect("native code");
-        let mut run = NativeRun {
-            program,
-            image,
-            state: self as *mut State,
-            steps: self.steps,
-            frames,
-            limits: self.limits,
-            unwound: Vec::new(),
-            tail: Vec::new(),
-            held: Vec::new(),
-            nested_runs: 0,
-        };
-        let out = native.call(code, env, args, &mut run);
-        self.steps = run.steps;
-        crate::native_abi::count_nested_runs(run.nested_runs);
-        if out.is_err() {
-            // Innermost first, as the frames left.
-            let NativeRun {
-                unwound,
-                tail,
-                held,
-                ..
-            } = run;
-            self.unwound
-                .frames
-                .extend(held.into_iter().map(UnwoundFrames::Native));
-            self.unwound.regs.extend(unwound);
-            self.unwound.tail.extend(tail);
-        }
-        out
     }
 
     // ------------------------------------------------- the effect runtime
@@ -1123,85 +992,6 @@ pub(crate) fn state_step(counts: &mut EffectCounts, v: Value, resume: Rc<Resume>
     }
 }
 
-/// The function a function value calls: a partial application's head, or
-/// the value itself.
-fn head_of(f: &Value) -> &Value {
-    match f {
-        Value::Fun(fun) => match &**fun {
-            Fun::Pap { head, .. } => head,
-            _ => f,
-        },
-        _ => f,
-    }
-}
-
-/// What native code asks the machine to run for it ([`nested`]): what the
-/// machine runs on its frames, which native code doesn't compile. Since
-/// stage NO3 of docs/proposals/native-only.md, the effect runtime is all
-/// compiled, so only a body that isn't (none today: `census::n1_blocker`
-/// declines nothing) is left; NO4 removes this.
-pub(crate) enum Work {
-    /// A function value whose head has no native code, entered with
-    /// exactly the arguments its head takes (a partial application's joined
-    /// to the new ones). The function value is dropped once it's entered,
-    /// as `apply` drops it.
-    Enter(Value, Vec<Value>),
-}
-
-/// Runs `work` for native code to its value: a run of the machine nested
-/// on top of whatever is pending, with `frames` frames pending below it
-/// (native code's and the machine's), and the steps so far `steps`
-/// (updated). The machine's frames are on the heap, so the run nests in
-/// Rust only by this call; whatever it calls that has native code runs
-/// natively again. On an error, the frames and registers it pushed are kept
-/// for `State::release_failed`, to drop in the machine's order.
-pub(crate) fn nested(
-    crossing: &mut NativeRun<'_>,
-    frames: u64,
-    steps: &mut u64,
-    work: Work,
-) -> Result<Value> {
-    let (program, image) = (crossing.program, crossing.image);
-    crossing.nested_runs += 1;
-    // SAFETY: the machine's state, which the machine doesn't touch while
-    // native code runs (it's waiting in `State::cross`), and which only
-    // this nested run uses until it returns.
-    #[allow(unsafe_code)]
-    let st = unsafe { &mut *crossing.state };
-    let saved = st.frame_base;
-    let (frames_at, regs_at) = (st.frames.len(), st.regs.len());
-    st.frame_base = (frames as usize).saturating_sub(frames_at);
-    st.steps = *steps;
-    let begun = match work {
-        Work::Enter(f, args) => {
-            let n = st.put_args(args);
-            let pending = st.enter(program, image, head_of(&f), n, Ret::Host);
-            drop(f);
-            pending
-        }
-    };
-    let result = begun.and_then(|pending| run(program, image, st, pending));
-    if result.is_err() {
-        // Not dropped yet: kept for `release_failed`, after what native
-        // frames and runs above this one gave up, so the machine's order
-        // holds across the nesting.
-        let frames = st.frames.split_off(frames_at);
-        if !frames.is_empty() {
-            st.unwound.frames.push(UnwoundFrames::Machine(frames));
-        }
-        let regs = st.regs.split_off(regs_at);
-        if !regs.is_empty() {
-            st.unwound.regs.push(regs);
-        }
-        let scratch = std::mem::take(&mut st.scratch);
-        st.unwound.tail.extend(scratch);
-        st.deferred = None;
-    }
-    st.frame_base = saved;
-    *steps = st.steps;
-    result
-}
-
 /// Field `i` of a constructor's cell: moved out if this is the only
 /// reference to the cell, otherwise copied.
 pub(crate) fn field(mut fields: Fields, i: usize) -> Value {
@@ -1398,11 +1188,6 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
             }
         }
-        if let Some(deferred) = st.deferred.take() {
-            let (code, env, args, ret) = *deferred;
-            pending = st.native_call(program, image, code, env, args, ret)?;
-            continue;
-        }
         let top = st.frames.last().expect("a frame to run");
         let code = &image.codes[top.code as usize];
         let base = top.base as usize;
@@ -1442,6 +1227,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
         loop {
             let instr = code.instrs[pc];
             pc += 1;
+            st.executed += 1;
             match instr {
                 Instr::Move { dst, src } => {
                     let v = reg!(src).clone();
@@ -1475,14 +1261,6 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     save!();
                     st.enter_frame()?;
                     let callee = image.global_code[g as usize].expect("a function has code");
-                    // The crossing into native code (`crate::native_abi`).
-                    if st.native_codes.get(callee as usize) == Some(&true) {
-                        let values = args!(args);
-                        let to = u32::try_from(base + dst as usize).expect("fits");
-                        pending =
-                            st.native_call(program, image, callee, None, values, Ret::Reg(to))?;
-                        continue 'outer;
-                    }
                     let new_base = st.regs.len();
                     for r in ops!(args) {
                         let v = get!(*r);
@@ -1506,10 +1284,6 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     for r in ops!(args) {
                         let v = get!(*r);
                         st.scratch.push(v);
-                    }
-                    if st.native_codes.get(callee as usize) == Some(&true) {
-                        pending = st.native_replace(program, image, callee, None)?;
-                        continue 'outer;
                     }
                     st.replace(image, callee, None)?;
                     continue 'outer;
@@ -1584,13 +1358,6 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     // arguments it takes: its frame is pushed directly.
                     if let Some((callee, env)) = exact(program, image, &fv, args.len) {
                         st.enter_frame()?;
-                        if st.native_codes.get(callee as usize) == Some(&true) {
-                            let values = args!(args);
-                            drop(fv);
-                            pending =
-                                st.native_call(program, image, callee, env, values, Ret::Reg(to))?;
-                            continue 'outer;
-                        }
                         let new_base = st.regs.len();
                         for r in ops!(args) {
                             let v = get!(*r);
@@ -1622,11 +1389,6 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         for r in ops!(args) {
                             let v = get!(*r);
                             st.scratch.push(v);
-                        }
-                        if st.native_codes.get(callee as usize) == Some(&true) {
-                            drop(fv);
-                            pending = st.native_replace(program, image, callee, env)?;
-                            continue 'outer;
                         }
                         st.replace(image, callee, env)?;
                         continue 'outer;

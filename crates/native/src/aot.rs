@@ -4,7 +4,8 @@
 //! The code is [`crate::n1`]'s, made by the same generator (`n1::emit`)
 //! into a `cranelift-object` module instead of the JIT, as
 //! position-independent code (§1.2: macOS can't relocate absolute addresses
-//! in the code): every body `main` reaches but its entry (stage N4). The
+//! in the code): every body `main` reaches, its entry included (stage NO4
+//! of native-only.md). The
 //! code holds no host address (stage S4): what it needs of the runtime's
 //! memory it reaches through `Context::tables`, which the runtime builds
 //! from the image it rebuilds, and the helpers (`sw_ctor` and the rest,
@@ -16,11 +17,11 @@
 //! - `sw_functions`: for each global, its code as a function value's (its
 //!   adapter, `value{g}`), or null: `Context::functions`;
 //! - `sw_lambdas`: for each lambda, its body, or null: `Context::lambdas`;
-//! - `sw_trampolines`: the crossing's trampolines, by number of arguments
-//!   (also exported as `sw_cross_<number>`);
 //! - `sw_native_manifest`, the one the runtime looks up: the image's hash,
-//!   the cache count, the frames' bound and whether they nest, the counts of
-//!   the three tables and pointers to them.
+//!   the cache count, the frames' bound and flags, the counts of the two
+//!   tables and pointers to them, and the trampolines into the entry, the
+//!   apply stubs and the effect runtime's loop (exported as
+//!   `sw_cross_enter` and the others).
 //!
 //! The pointers are data relocations, which the loader fills in.
 
@@ -31,9 +32,7 @@ use cranelift_object::{ObjectBuilder, ObjectModule, object};
 use stitchwort_rt::code::Image;
 use stitchwort_rt::ir::Program;
 use stitchwort_rt::native_abi as abi;
-use stitchwort_rt::native_aot::{
-    FLAG_NESTS, FLAG_RESUMES, Manifest, ManifestTrampoline, image_hash,
-};
+use stitchwort_rt::native_aot::{FLAG_NESTS, FLAG_RESUMES, Manifest, image_hash};
 
 use crate::n1::{self, Audit, Emitted, Options};
 
@@ -155,27 +154,6 @@ pub fn compile_object(
             .map(|(code, &l)| (l as usize, functions[code])),
     )?;
 
-    let trampolines_id = module
-        .declare_data("sw_trampolines", Linkage::Local, false, false)
-        .map_err(|e| fail(e.to_string()))?;
-    let mut data = DataDescription::new();
-    let mut bytes = Vec::new();
-    for &(arity, _) in &trampolines {
-        bytes.extend(ManifestTrampoline::bytes(arity));
-    }
-    data.define(bytes.into_boxed_slice());
-    data.set_align(8);
-    for (i, &(_, id)) in trampolines.iter().enumerate() {
-        let function = module.declare_func_in_data(id, &mut data);
-        data.write_function_addr(
-            (i * ManifestTrampoline::SIZE + ManifestTrampoline::TRAMPOLINE_AT) as u32,
-            function,
-        );
-    }
-    module
-        .define_data(trampolines_id, &data)
-        .map_err(|e| fail(e.to_string()))?;
-
     let manifest_id = module
         .declare_data("sw_native_manifest", Linkage::Export, false, false)
         .map_err(|e| fail(e.to_string()))?;
@@ -196,7 +174,6 @@ pub fn compile_object(
             } else {
                 0
             },
-            trampolines.len() as u64,
         )
         .into_boxed_slice(),
     );
@@ -204,11 +181,21 @@ pub fn compile_object(
     for (at, data) in [
         (Manifest::FUNCTIONS_AT, functions_table),
         (Manifest::LAMBDAS_AT, lambdas_table),
-        (Manifest::TRAMPOLINES_AT, Some(trampolines_id)),
     ] {
         if let Some(data) = data {
             let value = module.declare_data_in_data(data, &mut manifest);
             manifest.write_data_addr(at as u32, value, 0);
+        }
+    }
+    for (at, function) in [
+        (Manifest::ENTER_AT, Some(trampolines.enter)),
+        (Manifest::APPLY1_AT, Some(trampolines.apply[0])),
+        (Manifest::APPLY2_AT, Some(trampolines.apply[1])),
+        (Manifest::STEP_AT, trampolines.step),
+    ] {
+        if let Some(function) = function {
+            let function = module.declare_func_in_data(function, &mut manifest);
+            manifest.write_function_addr(at as u32, function);
         }
     }
     module

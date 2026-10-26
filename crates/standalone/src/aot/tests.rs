@@ -9,9 +9,7 @@ use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_rt::Program;
 use stitchwort_rt::code::{self, Image};
 use stitchwort_rt::native_abi::Context;
-use stitchwort_rt::native_aot::{
-    MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, ManifestTrampoline, image_hash,
-};
+use stitchwort_rt::native_aot::{MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, image_hash};
 use stitchwort_rt::value::Value;
 
 const STACK: usize = 256 * 1024 * 1024;
@@ -32,19 +30,15 @@ fn lowered(source: &str) -> (Program, Image) {
     (program, image)
 }
 
-/// The trampoline of the manifests here, which the tests never call.
-extern "C" fn never(_: *mut Context, _: *const u8, _: *mut Value, _: u64, _: *mut Value) {
+/// The trampolines of the manifests here, which the tests never call.
+extern "C" fn never(_: *mut Context, _: *mut Value) {
     unreachable!("a test called a trampoline")
 }
 
-/// A manifest of one trampoline, at `trampoline` (`never`, which is never
-/// called: the checks come first, and no body is compiled), for an image of
-/// hash `hash`.
-fn manifest(hash: u64, globals: usize, lambdas: usize, trampoline: *const u8) -> &'static Manifest {
-    let trampoline = Box::leak(Box::new(ManifestTrampoline {
-        arity: 1,
-        trampoline,
-    }));
+/// A manifest whose trampolines are `never` (never called: the checks come
+/// first), the apply trampolines at `apply`, for an image of hash `hash`.
+fn manifest(hash: u64, globals: usize, lambdas: usize, apply: *const u8) -> &'static Manifest {
+    let enter = never as *const u8;
     let functions = Box::leak(vec![std::ptr::null::<u8>(); globals].into_boxed_slice());
     let lambda_table = Box::leak(vec![std::ptr::null::<u8>(); lambdas].into_boxed_slice());
     Box::leak(Box::new(Manifest {
@@ -56,10 +50,12 @@ fn manifest(hash: u64, globals: usize, lambdas: usize, trampoline: *const u8) ->
         flags: 0,
         n_globals: globals as u64,
         n_lambdas: lambdas as u64,
-        n_trampolines: 1,
         functions: functions.as_ptr(),
         lambdas: lambda_table.as_ptr(),
-        trampolines: trampoline,
+        enter,
+        apply1: apply,
+        apply2: apply,
+        step: std::ptr::null(),
     }))
 }
 
@@ -130,7 +126,7 @@ fn code_compiled_for_another_image_is_refused() {
 }
 
 #[test]
-fn no_trampolines_is_no_native_code_and_a_foreign_manifest_is_refused() {
+fn no_entry_is_no_native_code_and_a_foreign_manifest_is_refused() {
     with_stack(STACK, || {
         let (program, image) = lowered(SOURCE);
         // The bytes as words, so aligned as a manifest is, and leaked.
