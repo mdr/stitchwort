@@ -285,6 +285,11 @@ pub struct NativeRun<'a> {
     /// Frames pending, the island root's included.
     pub frames: u64,
     pub limits: Limits,
+    /// Values frames gave up on leaving with an error ([`sw_unwind`]), in
+    /// the order they left.
+    pub unwound: Vec<Vec<Value>>,
+    /// A tail call's arguments, dropped after the rest.
+    pub tail: Vec<Value>,
 }
 
 /// Native code for some of a program's functions: the machine calls it at
@@ -292,10 +297,11 @@ pub struct NativeRun<'a> {
 pub trait NativeIslands {
     /// Whether a call of global `g` from the entry body may run natively.
     fn is_root(&self, g: u32) -> bool;
-    /// Whether this call, with these arguments, runs natively. `false`
-    /// leaves it to the machine (an island that applies function values
-    /// can't take one from outside).
-    fn accepts(&self, g: u32, args: &[&Value]) -> bool;
+    /// Whether this call, with these arguments and under this frame limit,
+    /// runs natively. `false` leaves it to the machine (an island that
+    /// applies function values can't take one from outside; a frame limit
+    /// the native stack might not hold).
+    fn accepts(&self, g: u32, args: &[&Value], frame_limit: u64) -> bool;
     /// Runs `g` on `args`; the steps it takes are added to `run.steps`.
     fn call(
         &self,
@@ -303,6 +309,10 @@ pub trait NativeIslands {
         args: Vec<Value>,
         run: &mut NativeRun<'_>,
     ) -> Result<Value, ResourceError>;
+    /// After a failed run's registers are cleared: drops what native
+    /// frames gave up on leaving with an error, in the order the machine
+    /// would have dropped it.
+    fn release_unwound(&self) {}
 }
 
 /// Whether `v` holds a function value anywhere inside it.
@@ -368,16 +378,29 @@ pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
     std::mem::forget(Value::clone(&v));
 }
 
-/// Drops registers `n - 1` down to 0 of a frame, as the machine releases a
-/// frame (on the way out after an error).
+/// Takes the `n` values at `regs` off a frame that is leaving on an error,
+/// to be dropped when the machine clears its own registers: the machine
+/// keeps every frame's registers in one vector and drops them all at the
+/// end of a failed run, outermost frame first, each from its lowest register
+/// up. Frames leave innermost first, so each puts its values in a segment,
+/// and [`NativeIslands::release_unwound`] drops the segments last first.
+/// With `tail`, the values are a tail call's arguments, which the machine
+/// drops after all the registers.
 ///
 /// # Safety
-/// `regs` points at `n` initialised values.
+/// As [`sw_global`]; `regs` points at `n` initialised values, which native
+/// code doesn't use again.
 #[allow(unsafe_code)]
-pub unsafe extern "C" fn sw_release(regs: *mut Value, n: u64) {
-    for i in (0..n as usize).rev() {
-        // SAFETY: within the frame's registers.
-        drop(unsafe { std::mem::take(&mut *regs.add(i)) });
+pub unsafe extern "C" fn sw_unwind(context: *mut Context, regs: *mut Value, n: u64, tail: u64) {
+    // SAFETY: the caller's contract.
+    let run = unsafe { &mut *(*context).run };
+    let values: Vec<Value> = (0..n as usize)
+        .map(|i| unsafe { std::mem::take(&mut *regs.add(i)) })
+        .collect();
+    if tail != 0 {
+        run.tail.extend(values);
+    } else {
+        run.unwound.push(values);
     }
 }
 
