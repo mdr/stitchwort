@@ -4158,7 +4158,7 @@
     {
       "id": 573,
       "title": "Elaborator E-RESOURCE: 'x ∈ List.map xs f' (or ∉) inside a lambda passed to List.filter runs out of depth, e.g. List.filter ys (y => y ∈ List.map xs (n => n + 1)); fine with a variable, reverse or append on the right, or when Nat → Bool is expected (found in the private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4193,8 +4193,8 @@
     },
     {
       "id": 576,
-      "title": "js.flavor not built: microtypes (@[js.unboxed] type X = { value: Text }) appear in .d.ts as plain aliases (type CardId = string), so TS callers can mix id kinds (found in the private app port, 26 Oct)",
-      "status": "backlog",
+      "title": "js.flavor for microtypes — not needed (Matt, 26 Oct): the TS side already has flavours, so a plain string in the .d.ts is immediately compatible",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4206,7 +4206,7 @@
     {
       "id": 577,
       "title": "Std whitespace is ASCII-only: Char.isSpace / Text.trim know 6 characters, JS trim() 25 (NBSP, U+2000-200A, U+3000, BOM…); text apps need a Unicode-aware option (found in the private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4296,7 +4296,7 @@
     {
       "id": 584,
       "title": "Std: a differenceBy/unionBy combinator (xs ++ ys.filter (y => key y ∉ xs.map key)) with lemmas; the one-line generic definition hits E-RESOURCE today (see the ∈ List.map ticket) (found in the private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4374,7 +4374,7 @@
     {
       "id": 590,
       "title": "JS backend: equality on an @[js.unboxed] microtype goes through a general comparison wrapper instead of plain string ===; typed ids cost 7–17% in a real-world merge benchmark (private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4398,7 +4398,7 @@
     {
       "id": 592,
       "title": "simp / automatic case split over Boolean sub-terms (proof-automation.md: simp waited for a proof that needs it — found 26 Oct: the private app port keeps ~70 lines of helpers spelling out unfolded ∧/if chains over free Bools; std's Float.ltLeBools does the same)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
