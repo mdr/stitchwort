@@ -8,6 +8,7 @@
 //! likewise as `"goals": ["…", …]`. (The page checks
 //! before anything else, so it gets them from there.)
 
+mod live;
 mod project;
 
 use std::cell::RefCell;
