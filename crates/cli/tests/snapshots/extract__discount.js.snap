@@ -750,7 +750,7 @@ const $Std$dNat$ddecLessEq = (v0, v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0, 
 const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
 const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
 const $Main$dapplyDiscount = (v0, v1) => $Std$dNat$dsub(v0, $Std$dNat$ddiv($Std$dNat$dmul(v0, v1), 100n));
-const $Main$dperPerson = (v0, v1) => $Std$dNat$ddiv(v0, v1);
+const $Main$dperPerson = $Std$dNat$ddiv;
 
 function $$applyDiscount(arg0, arg1) {
   try {

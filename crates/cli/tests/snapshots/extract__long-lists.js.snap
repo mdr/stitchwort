@@ -909,7 +909,7 @@ const $Std$dOrd$d$gcompare = (v1) => {
   const v7 = v1.decLessEq;
   return v3;
 };
-const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
+const $Std$dOrd$dcompare = $Std$dOrd$d$gcompare;
 const $Std$dNat$dinstOrd = { eq: $Std$dNat$dinstDecEq, compare: ($Std$dNat$dcompare$c ??= ($p0) => ($p1) => $Std$dNat$dcompare($p0, $p1)), decLessThan: ($Std$dNat$ddecLessThan$c ??= ($p0) => ($p1) => $Std$dNat$ddecLessThan($p0, $p1)), decLessEq: ($Std$dNat$ddecLessEq$c ??= ($p0) => ($p1) => $Std$dNat$ddecLessEq($p0, $p1)) };
 const $Std$dList$dmap$e = (v4, v5) => {
   let s4 = v4, s5 = v5;
@@ -1215,7 +1215,7 @@ const $Std$dList$dmergeRuns = (v1, v2, v3) => {
 };
 const $Std$dList$dsortWith = (v1, v2) => $Std$dList$dmergeRuns(v2, { tag: "Nil" }, $Std$dList$dbuildRuns(v2, { tag: "Nil" }, v1));
 const $Std$dList$dsortBy = (v1, v2) => $Std$dList$dsortWith(v1, ((v3) => ((v4) => $Std$dOrdering$disLessEq((v2)(v3)(v4)))));
-const $Std$dList$dsort = (v1, v2) => $Std$dList$dsortBy(v2, $Std$dOrd$dcompare(v1));
+const $Std$dList$dsort = (v1, v2) => $Std$dList$dsortBy(v2, $Std$dOrd$d$gcompare(v1));
 const $Main$dsum = (v0) => $Std$dList$dfoldLeft$e(v0, 0n, ((v1) => ((v2) => $Std$dNat$dadd(v1, v2))));
 const $Main$dcount = (v0) => $Std$dList$dfoldLeft$e(v0, 0n, ((v1) => ((v2) => $Std$dNat$dadd(v1, 1n))));
 const $Main$dscrambled = (v0) => $Std$dList$dmap$e($Std$dList$drange(v0), ((v1) => $Std$dNat$dmod($Std$dNat$dmul(v1, 7919n), 100003n)));

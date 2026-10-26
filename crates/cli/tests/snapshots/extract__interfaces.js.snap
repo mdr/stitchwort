@@ -778,14 +778,14 @@ const $Main$dPretty$d$gpretty = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Main$dPretty$dpretty = (v1) => $Main$dPretty$d$gpretty(v1);
+const $Main$dPretty$dpretty = $Main$dPretty$d$gpretty;
 const $Main$dPretty$dinstNat = ((v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0, 0n)), ((v1) => "zero"), ((v1) => "some")));
-const $Main$dPretty$dinstList = (v1) => ((v2) => $Std$dText$dappend("[", $Std$dText$dappend($Std$dText$djoin($Std$dList$dmap$e(v2, $Main$dPretty$dpretty(v1)), { tag: "MkChar", code: 44n }), "]")));
+const $Main$dPretty$dinstList = (v1) => ((v2) => $Std$dText$dappend("[", $Std$dText$dappend($Std$dText$djoin($Std$dList$dmap$e(v2, $Main$dPretty$d$gpretty(v1)), { tag: "MkChar", code: 44n }), "]")));
 const $Main$dOrdered$d$gless = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Main$dOrdered$dless = (v1) => $Main$dOrdered$d$gless(v1);
+const $Main$dOrdered$dless = $Main$dOrdered$d$gless;
 const $Main$dOrdered$dinstNat = ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v0, 1n), v1)));
 const $Main$dsmallestOf = (v1, v2, v3) => {
   let s1 = v1, s2 = v2, s3 = v3;
@@ -798,7 +798,7 @@ const $Main$dsmallestOf = (v1, v2, v3) => {
       case "Cons": {
         const v4 = v3.head;
         const v5 = v3.tail;
-        if ($Main$dOrdered$dless(v1)(v4)(v2).tag === "True") {
+        if ($Main$dOrdered$d$gless(v1)(v4)(v2).tag === "True") {
           s1 = v1;
           s2 = v4;
           s3 = v5;
@@ -815,8 +815,8 @@ const $Main$dsmallestOf = (v1, v2, v3) => {
   }
 };
 const $Main$dflipped = ((v0) => ((v1) => $Std$dNat$dleq($Std$dNat$dadd(v1, 1n), v0)));
-const $Main$ddescribeAll = (v0) => $Main$dPretty$dpretty($Main$dPretty$dinstList($Main$dPretty$dinstNat))(v0);
-const $Main$ddescribeNested = (v0) => $Main$dPretty$dpretty($Main$dPretty$dinstList($Main$dPretty$dinstList($Main$dPretty$dinstNat)))(v0);
+const $Main$ddescribeAll = (v0) => $Main$dPretty$d$gpretty($Main$dPretty$dinstList($Main$dPretty$dinstNat))(v0);
+const $Main$ddescribeNested = (v0) => $Main$dPretty$d$gpretty($Main$dPretty$dinstList($Main$dPretty$dinstList($Main$dPretty$dinstNat)))(v0);
 const $Main$dsmallest = (v0) => $Main$dsmallestOf($Main$dOrdered$dinstNat, 1000n, v0);
 const $Main$dsmallestBy = (v0) => $Main$dsmallestOf($Main$dflipped, 0n, v0);
 

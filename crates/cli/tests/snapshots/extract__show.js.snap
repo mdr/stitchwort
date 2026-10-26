@@ -810,8 +810,8 @@ const $Std$dShow$d$gtoSource = (v1) => {
   const v3 = v1.toSource;
   return v3;
 };
-const $Std$dShow$dtoText = (v1) => $Std$dShow$d$gtoText(v1);
-const $Std$dShow$dtoSource = (v1) => $Std$dShow$d$gtoSource(v1);
+const $Std$dShow$dtoText = $Std$dShow$d$gtoText;
+const $Std$dShow$dtoSource = $Std$dShow$d$gtoSource;
 const $Std$dShow$dfromText = (v1) => ({ toText: v1, toSource: v1 });
 const $Std$dShow$descapeChar = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 92n), ((v3) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: v2 } })), ((v3) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), $Std$dChar$dtoNat(v0)), ((v4) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })), ((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 10n), ((v5) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: v2 } })), ((v5) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 9n), ((v6) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: v2 } })), ((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 13n), ((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: v2 } })), ((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))))))));
 const $Std$dShow$descapeBefore = (v0, v1, v2, v3) => {
@@ -1064,17 +1064,17 @@ const $Std$dShow$ditems = (v1, v2) => {
 const $Std$dShow$dlist = (v1, v2) => $Std$dText$dappend("[", $Std$dText$dappend($Std$dShow$ditems(v1, v2), "]"));
 const $Std$dNat$dinstShow = $Std$dShow$dfromText($Std$dNat$dtoText);
 const $Std$dText$dinstShow = { toText: $Std$dText$dtoText, toSource: $Std$dShow$dquoteText };
-const $Std$dList$dinstShow = (v1) => $Std$dShow$dfromText(((v2) => $Std$dShow$dlist(((v3) => $Std$dShow$dtoSource(v1)(v3)), v2)));
+const $Std$dList$dinstShow = (v1) => $Std$dShow$dfromText(((v2) => $Std$dShow$dlist(((v3) => $Std$dShow$d$gtoSource(v1)(v3)), v2)));
 const $Main$dShape$d$gshow = (v0) => {
   switch (v0.tag) {
     case "Circle": {
       const v1 = v0.radius;
-      return $Std$dText$dappend("Circle", $Std$dText$dappend(" ", $Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v1))));
+      return $Std$dText$dappend("Circle", $Std$dText$dappend(" ", $Std$dShow$darg($Std$dShow$d$gtoSource($Std$dNat$dinstShow)(v1))));
     }
     case "Rect": {
       const v1 = v0.w;
       const v2 = v0.h;
-      return $Std$dText$dappend("Rect", $Std$dText$dappend(" ", $Std$dText$dappend($Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v1)), $Std$dText$dappend(" ", $Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v2))))));
+      return $Std$dText$dappend("Rect", $Std$dText$dappend(" ", $Std$dText$dappend($Std$dShow$darg($Std$dShow$d$gtoSource($Std$dNat$dinstShow)(v1)), $Std$dText$dappend(" ", $Std$dShow$darg($Std$dShow$d$gtoSource($Std$dNat$dinstShow)(v2))))));
     }
     case "Dot": {
       return "Dot";
@@ -1086,12 +1086,12 @@ const $Main$dShape$d$ginstShow = { toText: $Main$dShape$d$gshow, toSource: $Main
 const $Main$dItem$d$gshow = (v0) => {
   const v1 = v0.name;
   const v2 = v0.price;
-  return $Std$dText$dappend("{ name = ", $Std$dText$dappend($Std$dShow$dtoSource($Std$dText$dinstShow)(v1), $Std$dText$dappend(", price = ", $Std$dText$dappend($Std$dShow$dtoSource($Std$dNat$dinstShow)(v2), " }"))));
+  return $Std$dText$dappend("{ name = ", $Std$dText$dappend($Std$dShow$d$gtoSource($Std$dText$dinstShow)(v1), $Std$dText$dappend(", price = ", $Std$dText$dappend($Std$dShow$d$gtoSource($Std$dNat$dinstShow)(v2), " }"))));
 };
 const $Main$dItem$d$ginstShow = { toText: $Main$dItem$d$gshow, toSource: $Main$dItem$d$gshow };
-const $Main$ddescribe = (v0) => $Std$dText$dappend($Std$dShow$dtoText($Main$dItem$d$ginstShow)({ name: "tea", price: v0 }), $Std$dText$dappend(" costs ", $Std$dShow$dtoText($Std$dNat$dinstShow)(v0)));
-const $Main$dnames = (v0) => $Std$dText$dappend($Std$dShow$dtoText($Std$dList$dinstShow($Std$dText$dinstShow))(v0), $Std$dText$dappend(" / ", $Std$dShow$dtoText($Std$dNat$dinstShow)($Std$dList$dlength(v0))));
-const $Main$dshapes = (v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0, 0n)), ((v1) => $Std$dShow$dtoText($Std$dList$dinstShow($Main$dShape$d$ginstShow))({ tag: "Cons", head: { tag: "Dot" }, tail: { tag: "Nil" } })), ((v1) => $Std$dShow$dtoText($Std$dList$dinstShow($Main$dShape$d$ginstShow))({ tag: "Cons", head: { tag: "Circle", radius: v0 }, tail: { tag: "Cons", head: { tag: "Rect", w: v0, h: v0 }, tail: { tag: "Nil" } } })));
+const $Main$ddescribe = (v0) => $Std$dText$dappend($Std$dShow$d$gtoText($Main$dItem$d$ginstShow)({ name: "tea", price: v0 }), $Std$dText$dappend(" costs ", $Std$dShow$d$gtoText($Std$dNat$dinstShow)(v0)));
+const $Main$dnames = (v0) => $Std$dText$dappend($Std$dShow$d$gtoText($Std$dList$dinstShow($Std$dText$dinstShow))(v0), $Std$dText$dappend(" / ", $Std$dShow$d$gtoText($Std$dNat$dinstShow)($Std$dList$dlength(v0))));
+const $Main$dshapes = (v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0, 0n)), ((v1) => $Std$dShow$d$gtoText($Std$dList$dinstShow($Main$dShape$d$ginstShow))({ tag: "Cons", head: { tag: "Dot" }, tail: { tag: "Nil" } })), ((v1) => $Std$dShow$d$gtoText($Std$dList$dinstShow($Main$dShape$d$ginstShow))({ tag: "Cons", head: { tag: "Circle", radius: v0 }, tail: { tag: "Cons", head: { tag: "Rect", w: v0, h: v0 }, tail: { tag: "Nil" } } })));
 
 function $$describe(arg0) {
   try {

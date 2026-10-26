@@ -825,7 +825,7 @@ const $Main$devenShift = (v0, v1) => {
     }
   }
 };
-const $Main$dshifted = (v0, v1) => $Main$devenShift(v0, v1);
+const $Main$dshifted = $Main$devenShift;
 const $Main$dten = $Main$disEven(10n);
 const $Main$dtenIsEven = (v0) => $Main$dten;
 const $Main$dinner = (v0, v1) => {

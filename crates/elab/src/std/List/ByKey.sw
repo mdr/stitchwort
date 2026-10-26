@@ -12,9 +12,10 @@
 
 -- The items of `xs` whose key isn't the key of any item of `ys`, in order,
 -- repeats kept: `[1, 12, 5].differenceBy [22] (n => n % 10)` is `[1, 5]`.
--- O(length xs × length ys).
+-- O(length xs × length ys). `ys`'s keys are listed once, not once per item.
 def List.differenceBy [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k): List a :=
-  List.filter xs (x => key x ∉ List.map ys key)
+  let keys := List.map ys key
+  List.filter xs (x => key x ∉ keys)
 
 -- `xs`, then the items of `ys` whose key isn't the key of any item of `xs`:
 -- `[1, 12].appendNewBy [21, 3, 32] (n => n % 10)` is `[1, 12, 3]`.

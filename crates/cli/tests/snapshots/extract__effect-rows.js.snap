@@ -967,7 +967,7 @@ const $Std$dShow$d$gtoText = (v1) => {
   const v3 = v1.toSource;
   return v2;
 };
-const $Std$dShow$dtoText = (v1) => $Std$dShow$d$gtoText(v1);
+const $Std$dShow$dtoText = $Std$dShow$d$gtoText;
 const $Std$dShow$descapeChar = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 92n), ((v3) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: v2 } })), ((v3) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), $Std$dChar$dtoNat(v0)), ((v4) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })), ((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 10n), ((v5) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: v2 } })), ((v5) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 9n), ((v6) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: v2 } })), ((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 13n), ((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: v2 } })), ((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))))))));
 const $Std$dShow$descapeBefore = (v0, v1, v2, v3) => {
   switch (v3.tag) {
@@ -1296,7 +1296,7 @@ const $Main$dpureDoubled = (v0) => $Main$dpureMap(v0, $Main$ddouble);
 const $Main$ddoubledEach = (v0) => $Std$dList$dmap$e(v0, ((v1) => $Std$dList$dmap$e(v1, $Main$ddouble)));
 const $Main$dtwice$e = (v3, v4) => (v3)((v3)(v4));
 const $Main$dtwiceDoubled = (v0) => $Main$dtwice$e($Main$ddouble, v0);
-const $Main$dparse = (v0) => $Std$dFail$dneed($Std$dText$dtoNat(v0), $Std$dText$dappend("not a number: ", $Std$dShow$dtoText($Std$dText$dinstShow)(v0)));
+const $Main$dparse = (v0) => $Std$dFail$dneed($Std$dText$dtoNat(v0), $Std$dText$dappend("not a number: ", $Std$dShow$d$gtoText($Std$dText$dinstShow)(v0)));
 const $Main$dparsed = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dmap({ tag: "Ops" }, { tag: "Total" }, v0, $Main$dparse)));
 const $Main$dCount$d$gelim = (v1, v2, v3) => {
   switch (v2.tag) {

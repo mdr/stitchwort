@@ -1014,7 +1014,7 @@ const $Std$dShow$d$gtoText = (v1) => {
   const v3 = v1.toSource;
   return v2;
 };
-const $Std$dShow$dtoText = (v1) => $Std$dShow$d$gtoText(v1);
+const $Std$dShow$dtoText = $Std$dShow$d$gtoText;
 const $Std$dShow$descapeChar = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 92n), ((v3) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: v2 } })), ((v3) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), $Std$dChar$dtoNat(v0)), ((v4) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })), ((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 10n), ((v5) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: v2 } })), ((v5) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 9n), ((v6) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: v2 } })), ((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 13n), ((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: v2 } })), ((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))))))));
 const $Std$dShow$descapeBefore = (v0, v1, v2, v3) => {
   switch (v3.tag) {
@@ -1211,8 +1211,8 @@ const $Std$dAdd$d$gadd = (v1) => {
   const v3 = v1.add;
   return v3;
 };
-const $Std$dAdd$dzero = (v1) => $Std$dAdd$d$gzero(v1);
-const $Std$dAdd$dadd = (v1) => $Std$dAdd$d$gadd(v1);
+const $Std$dAdd$dzero = $Std$dAdd$d$gzero;
+const $Std$dAdd$dadd = $Std$dAdd$d$gadd;
 const $Std$dNat$dinstAdd = { zero: 0n, add: ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1)) };
 const $Std$dOption$dorElse = (v1, v2) => {
   switch (v1.tag) {
@@ -1339,7 +1339,7 @@ const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
   }
 };
 const $Std$dList$dfoldRight = (v2, v3, v4, v5, v6) => $Std$dList$dfoldLeft(v2, v3, $Std$dList$dreverseOnto(v4, { tag: "Nil" }), v5, ((v7) => ((v8) => (v6)(v8)(v7))));
-const $Std$dList$dsumBy = (v2, v3, v4, v5, v6) => $Std$dList$dfoldLeft(v2, v3, v5, $Std$dAdd$dzero(v4), ((v7) => ((v8) => $Std$dEffect$dbindDv(v3, v2, (v6)(v8), ((v9) => $Std$dEffect$ddoneD(v3, v2, $Std$dAdd$dadd(v4)(v7)(v9)))))));
+const $Std$dList$dsumBy = (v2, v3, v4, v5, v6) => $Std$dList$dfoldLeft(v2, v3, v5, $Std$dAdd$d$gzero(v4), ((v7) => ((v8) => $Std$dEffect$dbindDv(v3, v2, (v6)(v8), ((v9) => $Std$dEffect$ddoneD(v3, v2, $Std$dAdd$d$gadd(v4)(v7)(v9)))))));
 const $Std$dList$dany = (v1, v2, v3, v4) => {
   switch (v3.tag) {
     case "Nil": {
@@ -1754,7 +1754,7 @@ const $Main$dtakeWhileOrder = (v0) => $Main$dtraced$e(((v1) => $Std$dList$dtakeW
 const $Main$dflatMapOrder = (v0) => $Main$dtraced$e(((v1) => $Std$dList$dflatMap({ tag: "Ops" }, { tag: "Total" }, v0, $Main$dtwiceSeen)));
 const $Main$dpartitionOrder = (v0) => $Main$dtraced$e(((v1) => $Std$dList$dpartition({ tag: "Ops" }, { tag: "Total" }, v0, $Main$dbig)));
 const $Main$dspanOrder = (v0) => $Main$dtraced$e(((v1) => $Std$dList$dspan({ tag: "Ops" }, { tag: "Total" }, v0, $Main$dbig)));
-const $Main$disSmall = (v0) => $Std$dEffect$dbind($Std$dFail$dneed($Std$dText$dtoNat(v0), $Std$dText$dappend("not a number: ", $Std$dShow$dtoText($Std$dText$dinstShow)(v0))), ((v1) => ({ tag: "Done", value: $Std$dNat$dleq(v1, 9n) })));
+const $Main$disSmall = (v0) => $Std$dEffect$dbind($Std$dFail$dneed($Std$dText$dtoNat(v0), $Std$dText$dappend("not a number: ", $Std$dShow$d$gtoText($Std$dText$dinstShow)(v0))), ((v1) => ({ tag: "Done", value: $Std$dNat$dleq(v1, 9n) })));
 const $Main$dfilterFirstBad = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dfilter({ tag: "Ops" }, { tag: "Total" }, v0, $Main$disSmall)));
 const $Main$dpartitionFirstBad = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dpartition({ tag: "Ops" }, { tag: "Total" }, v0, $Main$disSmall)));
 const $Main$dcountFirstBad = (v0) => $Std$dFail$dtoResult$e(((v1) => $Std$dList$dcount({ tag: "Ops" }, { tag: "Total" }, v0, $Main$disSmall)));
@@ -1982,9 +1982,9 @@ const $Main$dpureTakeWhile = (v1, v2) => {
 };
 const $Main$disBig = (v0) => $Std$dNat$dleq(5n, v0);
 const $Main$dtenfold = (v0) => $Std$dBool$difThenElse($Std$dNat$dleq(5n, v0), ((v1) => ({ tag: "Some", value: $Std$dNat$dmul(v0, 10n) })), ((v1) => ({ tag: "None" })));
-const $Main$dadd = (v0, v1) => $Std$dNat$dadd(v0, v1);
+const $Main$dadd = $Std$dNat$dadd;
 const $Main$dfiltered = (v0) => ({ tag: "MkPair", fst: $Std$dList$dfilter$e(v0, $Main$disBig), snd: $Main$dpureFilter(v0, $Main$disBig) });
-const $Main$dfolded = (v0) => ({ tag: "MkPair", fst: $Std$dList$dfoldLeft$e(v0, 0n, ($Main$dadd$c ??= ($p0) => ($p1) => $Main$dadd($p0, $p1))), snd: $Main$dpureFoldLeft(v0, 0n, ($Main$dadd$c ??= ($p0) => ($p1) => $Main$dadd($p0, $p1))) });
+const $Main$dfolded = (v0) => ({ tag: "MkPair", fst: $Std$dList$dfoldLeft$e(v0, 0n, ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1))), snd: $Main$dpureFoldLeft(v0, 0n, ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1))) });
 const $Main$danyAll = (v0) => ({ tag: "MkPair", fst: $Std$dList$dany$e(v0, $Main$disBig), snd: { tag: "MkPair", fst: $Main$dpureAny(v0, $Main$disBig), snd: { tag: "MkPair", fst: $Std$dList$dall$e(v0, $Main$disBig), snd: $Main$dpureAll(v0, $Main$disBig) } } });
 const $Main$dfound = (v0) => ({ tag: "MkPair", fst: $Std$dList$dfind$e(v0, $Main$disBig), snd: $Main$dpureFind(v0, $Main$disBig) });
 const $Main$dfilterMapped = (v0) => ({ tag: "MkPair", fst: $Std$dList$dfilterMap$e(v0, $Main$dtenfold), snd: $Main$dpureFilterMap(v0, $Main$dtenfold) });
@@ -2458,6 +2458,6 @@ function enc$19(v) {
 
 // Definitions used as values, taking their arguments one at a time, each
 // made at its first use.
-var $Std$dNat$dadd$c, $Main$daddSeen$c, $Main$dpushSeen$c, $Main$dadd$c;
+var $Std$dNat$dadd$c, $Main$daddSeen$c, $Main$dpushSeen$c;
 
 export { $$filterOrder as filterOrder, $$foldLeftOrder as foldLeftOrder, $$foldRightOrder as foldRightOrder, $$sumByOrder as sumByOrder, $$countOrder as countOrder, $$anyOrder as anyOrder, $$allOrder as allOrder, $$findOrder as findOrder, $$filterMapOrder as filterMapOrder, $$findMapOrder as findMapOrder, $$takeWhileOrder as takeWhileOrder, $$flatMapOrder as flatMapOrder, $$partitionOrder as partitionOrder, $$spanOrder as spanOrder, $$filterFirstBad as filterFirstBad, $$partitionFirstBad as partitionFirstBad, $$countFirstBad as countFirstBad, $$allFirstBad as allFirstBad, $$filtered as filtered, $$folded as folded, $$anyAll as anyAll, $$found as found, $$filterMapped as filterMapped, $$foundMap as foundMap, $$prefix as prefix };

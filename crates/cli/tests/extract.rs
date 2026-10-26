@@ -1723,43 +1723,44 @@ console.log("ok");
 /// `Text`, `Nat.decEq` and `Nat.compare` over `Nat`, not a `Decidable.elim`
 /// around the field's decision, nor `Ord.compare` reading the field's
 /// dictionary. The results are the field's.
+///
+/// Since those only pass their arguments on, they *are* the field's (SW-603):
+/// `const CardId.decEq = Text.decEq;`, and so the derived instances are the
+/// field's instances, the same JS objects, and code that takes the
+/// dictionary (`Map`, `List.distinct`) is passed `Text.instOrd` itself. Its
+/// calls through the dictionary then see one instance for `Text` and every
+/// microtype over it, and stay monomorphic for the engine.
 #[test]
 fn microtype_comparisons_are_their_fields() {
     let examples = examples();
     let session = example(&examples, "microtype-comparisons.sw");
     let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
         .expect("extraction succeeds");
-    let body = |name: &str| -> &str {
-        let start = output
-            .js
-            .find(&format!("const $Main${name} = "))
-            .unwrap_or_else(|| panic!("no `{name}` in:\n{}", output.js));
-        let rest = &output.js[start..];
-        &rest[..rest.find("\n};\n").expect("a block")]
-    };
-    for (name, call) in [
-        ("dCardId$d$gdecEq", "return $Std$dText$ddecEq(v2, v3);"),
-        ("dCardId$d$gcompare", "return $Std$dText$dcompare(v2, v3);"),
-        ("dCount$d$gdecEq", "return $Std$dNat$ddecEq(v2, v3);"),
-        ("dCount$d$gcompare", "return $Std$dNat$dcompare(v2, v3);"),
-        ("dEmail$d$gdecEq", "return $Std$dText$ddecEq(v2, v4);"),
-        ("dEmail$d$gcompare", "return $Std$dText$dcompare(v2, v4);"),
+    for (name, field) in [
+        ("CardId$d$gdecEq", "Text$ddecEq"),
+        ("CardId$d$gcompare", "Text$dcompare"),
+        ("CardId$d$ginstDecEq", "Text$dinstDecEq"),
+        ("CardId$d$ginstOrd", "Text$dinstOrd"),
+        ("Count$d$gdecEq", "Nat$ddecEq"),
+        ("Count$d$gcompare", "Nat$dcompare"),
+        ("Count$d$ginstDecEq", "Nat$dinstDecEq"),
+        ("Email$d$gdecEq", "Text$ddecEq"),
+        ("Email$d$gcompare", "Text$dcompare"),
+        ("Email$d$ginstDecEq", "Text$dinstDecEq"),
+        ("Email$d$ginstOrd", "Text$dinstOrd"),
     ] {
-        assert!(
-            body(name).ends_with(call),
-            "`{name}` isn't `{call}`:\n{}",
-            body(name)
-        );
+        let line = format!("const $Main$d{name} = $Std$d{field};\n");
+        assert!(output.js.contains(&line), "no `{line}` in:\n{}", output.js);
     }
-    // A comparison through an instance named in the code calls its
-    // `compare`.
-    assert!(
-        output
-            .js
-            .contains("const $Main$dorder = (v0, v1) => $Main$dCardId$d$gcompare(v0, v1);"),
-        "{}",
-        output.js
-    );
+    // Uses name the field's: a comparison through an instance named in the
+    // code calls its `compare`, and the library is passed `Text.instOrd`.
+    for line in [
+        "const $Main$dorder = $Std$dText$dcompare;",
+        "const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Std$dText$ddecEq(v0, v1));",
+        "const $Main$ddistinctIds = (v0) => $Std$dList$ddistinct($Std$dText$dinstOrd, v0);",
+    ] {
+        assert!(output.js.contains(line), "no `{line}` in:\n{}", output.js);
+    }
     let script = r#"
 import * as m from "./cmp.mjs";
 import assert from "node:assert/strict";

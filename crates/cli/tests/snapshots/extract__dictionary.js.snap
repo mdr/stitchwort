@@ -1047,7 +1047,7 @@ const $Std$dOrd$d$gcompare = (v1) => {
   const v7 = v1.decLessEq;
   return v3;
 };
-const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
+const $Std$dOrd$dcompare = $Std$dOrd$d$gcompare;
 const $Std$dOrd$dfromCompare = (v1, v2) => ({ eq: v1, compare: v2, decLessThan: ((v6) => ((v7) => $Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Less" }))), decLessEq: ((v6) => ((v7) => $Std$dDecidable$dnot($Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Greater" })))) });
 const $Std$dText$dinstOrd = $Std$dOrd$dfromCompare($Std$dText$dinstDecEq, ($Std$dText$dcompare$c ??= ($p0) => ($p1) => $Std$dText$dcompare($p0, $p1)));
 const $Std$dList$dmap$e = (v4, v5) => {
@@ -1280,7 +1280,7 @@ const $Std$dMap$dTree$dinsertWith = (v2, v3, v4, v5, v6) => {
       const v9 = v6.key;
       const v10 = v6.value;
       const v11 = v6.right;
-      return $Std$dMap$dTree$dinsertWith$d$gmatch1(v2, v3, v4, v5, v7, v8, v9, v10, v11, $Std$dOrd$dcompare(v2)(v4)(v9));
+      return $Std$dMap$dTree$dinsertWith$d$gmatch1(v2, v3, v4, v5, v7, v8, v9, v10, v11, $Std$dOrd$d$gcompare(v2)(v4)(v9));
     }
   }
   throw new Error("unreachable");
@@ -1318,7 +1318,7 @@ const $Std$dMap$dTree$dget = (v2, v3, v4) => {
         const v14 = v6;
         const v15 = v8;
         const v16 = v9;
-        const v17 = $Std$dOrd$dcompare(v2)(v3)(v7);
+        const v17 = $Std$dOrd$d$gcompare(v2)(v3)(v7);
         switch (v17.tag) {
           case "Less": {
             s2 = v12;
@@ -1430,7 +1430,7 @@ const $Std$dMap$dSpec$disLess$d$gmatch1 = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dSpec$disLess = (v1, v2, v3) => $Std$dMap$dSpec$disLess$d$gmatch1($Std$dOrd$dcompare(v1)(v2)(v3));
+const $Std$dMap$dSpec$disLess = (v1, v2, v3) => $Std$dMap$dSpec$disLess$d$gmatch1($Std$dOrd$d$gcompare(v1)(v2)(v3));
 const $Std$dMap$dSpec$dconsEntry = (v2, v3, v4) => {
   switch (v4.tag) {
     case "None": {
@@ -1762,6 +1762,16 @@ const $Std$dMap$dRaw$dmerge = (v4, v5, v6, v7, v8, v9) => $Std$dMap$dRaw$dfromSo
 const $Std$dMap$dRaw$disSmall = (v2, v4, v5) => $Std$dNat$dleq($Std$dNat$dmul($Std$dMap$dRaw$dsize(v2, v4), 8n), $Std$dMap$dRaw$dsize(v2, v5));
 const $Std$dMap$dRaw$dunionWith = (v2, v3, v4, v5) => $Std$dBool$difThenElse($Std$dMap$dRaw$disSmall(v2, v4, v5), ((v6) => $Std$dMap$dRaw$dfoldLeft(v2, ((v7) => ((v8) => ((v9) => $Std$dMap$dRaw$dinsertWith(v2, v3, v8, v9, v7)))), v5, v4)), ((v6) => $Std$dMap$dRaw$dmerge(v2, ((v7) => ((v8) => ((v9) => ({ tag: "Some", value: (v3)(v8)(v9) })))), ((v7) => ((v8) => ({ tag: "Some", value: v8 }))), ((v7) => ((v8) => ({ tag: "Some", value: v8 }))), v4, v5)));
 const $Std$dMap$dRaw$dunion = (v2, v3, v4) => $Std$dMap$dRaw$dunionWith(v2, ((v5) => ((v6) => v5)), v3, v4);
+const $Std$dText$dtake = (t, n) => {
+  if (n >= BigInt(t.length)) return t;
+  const count = Number(n);
+  let i = 0;
+  for (let k = 0; k < count && i < t.length; k++) {
+    const unit = t.charCodeAt(i);
+    i += unit >= 0xd800 && unit <= 0xdbff ? 2 : 1;
+  }
+  return t.slice(0, i);
+};
 const $Std$dMap$draw = (v2, v3) => {
   const v4 = v3;
   return v4;
@@ -1790,16 +1800,6 @@ const $Std$dMap$ddecEq$d$gmatch1 = (v2, v3, v4, v5) => {
   throw new Error("unreachable");
 };
 const $Std$dMap$ddecEq = (v2, v3, v4, v5) => $Std$dMap$ddecEq$d$gmatch1(v2, v4, v5, $Std$dList$ddecEq((($s2, $s3) => (($p4) => ($p5) => $Std$dPair$ddecEq($s2, $s3, $p4, $p5)))($Std$dDecEq$d$gdecide($Std$dOrd$d$geq(v2)), $Std$dDecEq$d$gdecide(v3)), $Std$dMap$dtoList(v2, v4), $Std$dMap$dtoList(v2, v5)));
-const $Std$dText$dtake = (t, n) => {
-  if (n >= BigInt(t.length)) return t;
-  const count = Number(n);
-  let i = 0;
-  for (let k = 0; k < count && i < t.length; k++) {
-    const unit = t.charCodeAt(i);
-    i += unit >= 0xd800 && unit <= 0xdbff ? 2 : 1;
-  }
-  return t.slice(0, i);
-};
 const $Main$dPerson$dage = (v0) => {
   const v1 = v0.name;
   const v2 = v0.age;

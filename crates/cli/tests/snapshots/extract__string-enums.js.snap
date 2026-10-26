@@ -883,7 +883,7 @@ const $Std$dOrd$d$gcompare = (v1) => {
   const v7 = v1.decLessEq;
   return v3;
 };
-const $Std$dOrd$dcompare = (v1) => $Std$dOrd$d$gcompare(v1);
+const $Std$dOrd$dcompare = $Std$dOrd$d$gcompare;
 const $Std$dOrd$dfromCompare = (v1, v2) => ({ eq: v1, compare: v2, decLessThan: ((v6) => ((v7) => $Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Less" }))), decLessEq: ((v6) => ((v7) => $Std$dDecidable$dnot($Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Greater" })))) });
 const $Std$dText$dinstOrd = $Std$dOrd$dfromCompare($Std$dText$dinstDecEq, ($Std$dText$dcompare$c ??= ($p0) => ($p1) => $Std$dText$dcompare($p0, $p1)));
 const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
@@ -1092,7 +1092,7 @@ const $Std$dMap$dTree$dinsertWith = (v2, v3, v4, v5, v6) => {
       const v9 = v6.key;
       const v10 = v6.value;
       const v11 = v6.right;
-      return $Std$dMap$dTree$dinsertWith$d$gmatch1(v2, v3, v4, v5, v7, v8, v9, v10, v11, $Std$dOrd$dcompare(v2)(v4)(v9));
+      return $Std$dMap$dTree$dinsertWith$d$gmatch1(v2, v3, v4, v5, v7, v8, v9, v10, v11, $Std$dOrd$d$gcompare(v2)(v4)(v9));
     }
   }
   throw new Error("unreachable");
@@ -1142,7 +1142,7 @@ const $Std$dMap$dSpec$disLess$d$gmatch1 = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dSpec$disLess = (v1, v2, v3) => $Std$dMap$dSpec$disLess$d$gmatch1($Std$dOrd$dcompare(v1)(v2)(v3));
+const $Std$dMap$dSpec$disLess = (v1, v2, v3) => $Std$dMap$dSpec$disLess$d$gmatch1($Std$dOrd$d$gcompare(v1)(v2)(v3));
 const $Std$dMap$dSpec$dheadKey = (v2) => {
   switch (v2.tag) {
     case "Nil": {

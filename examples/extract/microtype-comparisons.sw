@@ -3,7 +3,10 @@
 -- `Text.compare`, called directly, as `Text` itself does, rather than
 -- through a wrapper around the field's dictionary (SW-590). The same for a
 -- `Nat` field, whose order is a record of fields rather than
--- `Ord.fromCompare`, and for a field with a proof beside it.
+-- `Ord.fromCompare`, and for a field with a proof beside it. Since these
+-- only pass their arguments on, they are the field's functions and
+-- instances, the same JS objects: `Map` and `List.distinct` are passed
+-- `Text.instOrd` itself (SW-603).
 --
 -- run: same { value = "c1" } { value = "c1" }
 -- run: same { value = "c1" } { value = "c2" }

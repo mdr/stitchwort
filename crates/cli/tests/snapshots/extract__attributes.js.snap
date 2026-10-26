@@ -841,8 +841,8 @@ const $Std$dShow$d$gtoSource = (v1) => {
   const v3 = v1.toSource;
   return v3;
 };
-const $Std$dShow$dtoText = (v1) => $Std$dShow$d$gtoText(v1);
-const $Std$dShow$dtoSource = (v1) => $Std$dShow$d$gtoSource(v1);
+const $Std$dShow$dtoText = $Std$dShow$d$gtoText;
+const $Std$dShow$dtoSource = $Std$dShow$d$gtoSource;
 const $Std$dShow$dfromText = (v1) => ({ toText: v1, toSource: v1 });
 const $Std$dShow$descapeChar = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 92n), ((v3) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: v2 } })), ((v3) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), $Std$dChar$dtoNat(v0)), ((v4) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })), ((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 10n), ((v5) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: v2 } })), ((v5) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 9n), ((v6) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: v2 } })), ((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 13n), ((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: v2 } })), ((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))))))));
 const $Std$dShow$descapeBefore = (v0, v1, v2, v3) => {
@@ -1085,12 +1085,12 @@ const $Main$dShape$d$gshow = (v0) => {
     case "Circle": {
       const v1 = v0.radius;
       const v2 = v0.centerX;
-      return $Std$dText$dappend("Circle", $Std$dText$dappend(" ", $Std$dText$dappend($Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v1)), $Std$dText$dappend(" ", $Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v2))))));
+      return $Std$dText$dappend("Circle", $Std$dText$dappend(" ", $Std$dText$dappend($Std$dShow$darg($Std$dShow$d$gtoSource($Std$dNat$dinstShow)(v1)), $Std$dText$dappend(" ", $Std$dShow$darg($Std$dShow$d$gtoSource($Std$dNat$dinstShow)(v2))))));
     }
     case "Polygon": {
       const v1 = v0.sides;
       const v2 = v0.label;
-      return $Std$dText$dappend("Polygon", $Std$dText$dappend(" ", $Std$dText$dappend($Std$dShow$darg($Std$dShow$dtoSource($Std$dNat$dinstShow)(v1)), $Std$dText$dappend(" ", $Std$dShow$darg($Std$dShow$dtoSource($Std$dText$dinstShow)(v2))))));
+      return $Std$dText$dappend("Polygon", $Std$dText$dappend(" ", $Std$dText$dappend($Std$dShow$darg($Std$dShow$d$gtoSource($Std$dNat$dinstShow)(v1)), $Std$dText$dappend(" ", $Std$dShow$darg($Std$dShow$d$gtoSource($Std$dText$dinstShow)(v2))))));
     }
   }
   throw new Error("unreachable");
@@ -1132,8 +1132,8 @@ const $Main$dgrow = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dshapes = (v0) => $Std$dList$dreverse(v0);
-const $Main$ddescribe = (v0) => $Std$dShow$dtoText($Main$dShape$d$ginstShow)(v0);
+const $Main$dshapes = $Std$dList$dreverse;
+const $Main$ddescribe = (v0) => $Std$dShow$d$gtoText($Main$dShape$d$ginstShow)(v0);
 const $Main$dDrawing$dkind = (v0) => {
   const v1 = v0.kind;
   const v2 = v0.shapes;

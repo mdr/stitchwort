@@ -989,7 +989,7 @@ const $Std$dShow$d$gtoText = (v1) => {
   const v3 = v1.toSource;
   return v2;
 };
-const $Std$dShow$dtoText = (v1) => $Std$dShow$d$gtoText(v1);
+const $Std$dShow$dtoText = $Std$dShow$d$gtoText;
 const $Std$dShow$descapeChar = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 92n), ((v3) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: v2 } })), ((v3) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), $Std$dChar$dtoNat(v0)), ((v4) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })), ((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 10n), ((v5) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: v2 } })), ((v5) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 9n), ((v6) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: v2 } })), ((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 13n), ((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: v2 } })), ((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))))))));
 const $Std$dShow$descapeBefore = (v0, v1, v2, v3) => {
   switch (v3.tag) {
@@ -1309,7 +1309,7 @@ const $Std$dFail$dneed = (v1, v2) => {
 };
 const $Std$dFail$densure = (v0, v1) => $Std$dBool$difThenElse(v0, ((v2) => ({ tag: "Done", value: { tag: "UnitValue" } })), ((v2) => $Std$dFail$dfail(v1)));
 const $Std$dFail$dtoResult$e = (v3) => $Std$dEffect$dfoldComp(((v4) => ({ tag: "Ok", value: v4 })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Std$dFail$d$gelim($s1, $p2, $p3)))(((v4) => ((v5) => ({ tag: "Err", error: v4 })))), ((v4) => ((v5) => $Std$dEffect$dcallD$e($Std$dEffect$dsigInject($Std$dEffect$dsigId, v4), ((v6) => (v5)($Std$dEffect$dsigReply($Std$dEffect$dsigId, v4, v6))))))), (v3)({ tag: "UnitValue" }));
-const $Std$dText$dtoNatOrFail = (v0) => $Std$dFail$dneed($Std$dText$dtoNat($Std$dText$dtrim(v0)), $Std$dText$dappend("expected a whole number, got '", $Std$dText$dappend($Std$dShow$dtoText($Std$dText$dinstShow)(v0), "'")));
+const $Std$dText$dtoNatOrFail = (v0) => $Std$dFail$dneed($Std$dText$dtoNat($Std$dText$dtrim(v0)), $Std$dText$dappend("expected a whole number, got '", $Std$dText$dappend($Std$dShow$d$gtoText($Std$dText$dinstShow)(v0), "'")));
 const $Main$dRange$dfrom = (v0) => {
   const v1 = v0.from;
   const v2 = v0.to;
@@ -1323,26 +1323,26 @@ const $Main$dRange$dto = (v0) => {
 const $Main$dRange$dread$d$gmatch1 = (v0, v1) => {
   switch (v1.tag) {
     case "Nil": {
-      return $Std$dFail$dfail($Std$dText$dappend("expected a range like 11-22, got '", $Std$dText$dappend($Std$dShow$dtoText($Std$dText$dinstShow)(v0), "'")));
+      return $Std$dFail$dfail($Std$dText$dappend("expected a range like 11-22, got '", $Std$dText$dappend($Std$dShow$d$gtoText($Std$dText$dinstShow)(v0), "'")));
     }
     case "Cons": {
       const v2 = v1.head;
       const v3 = v1.tail;
       switch (v3.tag) {
         case "Nil": {
-          return $Std$dFail$dfail($Std$dText$dappend("expected a range like 11-22, got '", $Std$dText$dappend($Std$dShow$dtoText($Std$dText$dinstShow)(v0), "'")));
+          return $Std$dFail$dfail($Std$dText$dappend("expected a range like 11-22, got '", $Std$dText$dappend($Std$dShow$d$gtoText($Std$dText$dinstShow)(v0), "'")));
         }
         case "Cons": {
           const v4 = v3.head;
           const v5 = v3.tail;
           switch (v5.tag) {
             case "Nil": {
-              return $Std$dEffect$dbind($Std$dText$dtoNatOrFail(v2), ((v6) => $Std$dEffect$dbind($Std$dText$dtoNatOrFail(v4), ((v7) => $Std$dEffect$dbind($Std$dFail$densure($Std$dNat$dleq(v6, v7), $Std$dText$dappend("the range '", $Std$dText$dappend($Std$dShow$dtoText($Std$dText$dinstShow)(v0), "' ends before it starts"))), ((v8) => ({ tag: "Done", value: { from: v6, to: v7 } })))))));
+              return $Std$dEffect$dbind($Std$dText$dtoNatOrFail(v2), ((v6) => $Std$dEffect$dbind($Std$dText$dtoNatOrFail(v4), ((v7) => $Std$dEffect$dbind($Std$dFail$densure($Std$dNat$dleq(v6, v7), $Std$dText$dappend("the range '", $Std$dText$dappend($Std$dShow$d$gtoText($Std$dText$dinstShow)(v0), "' ends before it starts"))), ((v8) => ({ tag: "Done", value: { from: v6, to: v7 } })))))));
             }
             case "Cons": {
               const v6 = v5.head;
               const v7 = v5.tail;
-              return $Std$dFail$dfail($Std$dText$dappend("expected a range like 11-22, got '", $Std$dText$dappend($Std$dShow$dtoText($Std$dText$dinstShow)(v0), "'")));
+              return $Std$dFail$dfail($Std$dText$dappend("expected a range like 11-22, got '", $Std$dText$dappend($Std$dShow$d$gtoText($Std$dText$dinstShow)(v0), "'")));
             }
           }
           throw new Error("unreachable");

@@ -606,3 +606,63 @@ processes each running one function, so the typed and plain code share no JIT fe
 
 `examples/extract/microtype-comparisons.sw` and the `extract` test
 `microtype_comparisons_are_their_fields` check the generated calls and the results.
+
+## As built (instances that are the field's)
+
+Built in SW-603. After SW-590, a program with typed ids still measured them costing 13–16% in
+JS, in `Map`-, sort- and `distinct`-heavy code. The cause: each microtype had its own derived
+`Ord` and `DecEq` instance, a different JS object from `Text`'s, so the library's code that is
+passed the dictionary (`Map`'s tree walk, `List.sortOn`, `List.distinct`) saw one dictionary,
+and one `compare` closure, per id type, where the plain program passes `Text.instOrd`
+everywhere. Its calls through the dictionary became polymorphic for the engine, and the
+microtype's `compare` was one more call (`CardId.compare` → `Text.compare`). Pointing the
+built module's `CardId.instOrd` at `Text.instOrd` by hand removed the difference.
+
+The derived comparisons only pass their arguments on (SW-590), so the JS generator now makes
+them *be* the field's, and so the instances built from them too:
+
+```js
+// before
+const $Main$dCardId$d$gcompare = (v0, v1) => { const v2 = v0; const v3 = v1; return $Std$dText$dcompare(v2, v3); };
+const $Main$dCardId$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dCardId$d$ginstDecEq, ($Main$dCardId$d$gcompare$c ??= …));
+const $Main$dbyId = (v0) => $Std$dMap$dindexBy($Main$dCardId$d$ginstOrd, v0, …);
+// after
+const $Main$dCardId$d$gcompare = $Std$dText$dcompare;
+const $Main$dCardId$d$ginstOrd = $Std$dText$dinstOrd;
+const $Main$dbyId = (v0) => $Std$dMap$dindexBy($Std$dText$dinstOrd, v0, …);
+```
+
+As with SW-590 this is general, not special to microtypes (`crates/js`, `Gen::share`): a
+definition is declared as an earlier one, `const f = g;`, and every later use names `g`, when
+
+- `f` is a function whose generated body only passes its parameters to `g`, in order (through
+  `const`s that rename them, as a match on an unboxed record's one field is), and `g` takes
+  them the same way; or
+- `f` is a value whose generated right-hand side is the same text as an earlier value's, or is
+  that value's name. Generated code is pure, and a module-level right-hand side names only
+  module-level things, so the same text is the same value. After the first rule,
+  `CardId.instDecEq`'s right-hand side is `Text.instDecEq`'s, and then `CardId.instOrd`'s is
+  `Text.instOrd`'s.
+
+Only a definition generated before `f` is a `g`, so `const f = g;` never reads `g` before it's
+defined. Elsewhere it shortens projections and wrappers (`Ord.compare` is `Ord.%compare`,
+`Show.toText` is `Show.%toText`, `def add (a b: Int) := Int.add a b` is `Int.add`).
+
+The `.d.ts` boundary was already the field's: an unboxed id's decoder and encoder are a
+one-line wrapper around `TEXT.dec`/`TEXT.enc`, and lists and maps of ids crossed as fast as of
+`Text` (typed / plain 1.00 for `List.distinct`, 0.97 for `Map.indexBy`, both ways across the
+boundary).
+
+The benchmark (10,000 cards with two id types, `CardId` and `ColumnId`, against the same code
+on `Text`; Node 22; each cell the fastest run of 9 processes; *mixed* runs all three
+operations in the process first, as a program does, *solo* only the one):
+
+| typed / plain | before, mixed | after, mixed | before, solo | after, solo |
+|---|---|---|---|---|
+| `Map`: `indexBy`, `insert` and `get` on both ids | 1.11 | 0.99 | 1.14 | 1.01 |
+| `List.sortOn` each id | 1.14 | 0.99 | 1.14 | 1.04 |
+| `List.distinct` of each id | 1.15 | 1.04 | 1.17 | 1.02 |
+
+After the change the typed and plain programs' generated code is the same but for the record
+types' field accessors, so what remains is noise: a second run with 15 processes per cell gave
+0.97–1.01 in all six.

@@ -903,8 +903,8 @@ const $Main$dlatest = (v0) => {
   throw new Error("unreachable");
 };
 const $Main$dtotal = (v0) => $Std$dList$dfoldLeft$e(v0, 0.0, ((v1) => ((v2) => $Std$dFloat$dadd(v1, v2))));
-const $Main$dwholeMs = (v0) => $Std$dFloat$dtoInt(v0);
-const $Main$dfromCount = (v0) => $Std$dFloat$dofInt(v0);
+const $Main$dwholeMs = $Std$dFloat$dtoInt;
+const $Main$dfromCount = $Std$dFloat$dofInt;
 const $Main$dclamped = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v2, v0), ((v3) => v0), ((v3) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v1, v2), ((v4) => v1), ((v4) => v2))));
 
 function $$inWindow(arg0, arg1, arg2) {

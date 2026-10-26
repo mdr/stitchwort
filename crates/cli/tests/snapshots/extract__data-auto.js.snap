@@ -781,7 +781,7 @@ const $Main$dOrdered$d$gcompare = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Main$dOrdered$dcompare = (v1) => $Main$dOrdered$d$gcompare(v1);
+const $Main$dOrdered$dcompare = $Main$dOrdered$d$gcompare;
 const $Main$dOrdered$dinstNat = ($Std$dNat$dcompare$c ??= ($p0) => ($p1) => $Std$dNat$dcompare($p0, $p1));
 const $Main$ddescending = ((v0) => ((v1) => $Std$dNat$dcompare(v1, v0)));
 const $Main$dTree$dinsert$d$gmatch1 = (v1, v2, v3, v4, v5, v6) => {
@@ -816,7 +816,7 @@ const $Main$dTree$dinsert = (v1, v2, v3) => {
         const v10 = v5;
         const v11 = v6;
         const v12 = v3;
-        const v13 = $Main$dOrdered$dcompare(v1)(v3)(v5);
+        const v13 = $Main$dOrdered$d$gcompare(v1)(v3)(v5);
         switch (v13.tag) {
           case "Less": {
             const c1$ = { tag: "Node", left: null, key: v10, right: v11 };

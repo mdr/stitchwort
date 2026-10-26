@@ -818,7 +818,7 @@ const $Main$dparity$disEven = (v0) => {
     }
   }
 };
-const $Main$dparity = (v0) => $Main$dparity$disEven(v0);
+const $Main$dparity = $Main$dparity$disEven;
 
 function $$sumTo(arg0) {
   try {
