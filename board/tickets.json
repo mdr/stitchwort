@@ -3452,13 +3452,13 @@
     {
       "id": 519,
       "title": "Native N2b: big-stack sizing with counter-fires-first tests, tail-call shape tests, frame sizes, trace order on error paths (after N2a)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -3516,13 +3516,13 @@
     {
       "id": 524,
       "title": "Design note: goal read-back for match/rewrite without expanding stuck branches (opaque plan lane 6; D1280+)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
