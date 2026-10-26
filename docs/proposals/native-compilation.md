@@ -1775,23 +1775,29 @@ instruction, so "fits" is "compiled"):
 `run --native`, 29 keys (38,451 bytes of output) and 188 keys with stairs
 (252,473 bytes): identical output, both exit 0.
 
-**The measurement** (Apple M4 Pro, release, load average 40–52 so wall
+**The measurement** (Apple M4 Pro, release, load average 40–120 so wall
 times are rough; cycles and instructions from `/usr/bin/time -l`, best of
-3; whole runs, which include about 1.07 G instructions of checking and
-lowering, and 0.29 G more for compiling with `--native`).
+3 by cycles; whole runs, which include about 1.07 G instructions of
+checking and lowering, and 0.29 G more for compiling with `--native`).
+"N4 before the merge" is this branch before main's S4, N2b and S6 came
+in; "N4" is after (S6's inline `Nat` division is most of the difference
+in `closures`).
 
 | Program | Runner | Cycles (G) | Instructions (G) | vs machine (cycles) |
 |---|---|---:|---:|---:|
-| `closures`, whole run | machine | 2.59 | 13.14 | 1× |
-| | `--native`, N4 | 1.51 | 5.15 | 1.7× (N3: 1.57, 5.18) |
-| `Set` inserts | machine | 38.1 | 174.1 | 1× |
-| | `--native`, N4 | 10.3 | 41.6 | **3.7×** (N3: 11.0, 42.1) |
-| `effects`, whole run | machine | 9.93 | 50.17 | 1× |
-| | `--native`, N4 | 7.90 | 40.21 | 1.26× |
+| `closures`, whole run | machine | 2.65 | 13.13 | 1× |
+| | `--native`, N4 before the merge | 1.51 | 5.15 | 1.7× (N3: 1.57, 5.18) |
+| | `--native`, N4 | 1.37 | 3.92 | **1.9×** (3.3× instructions) |
+| `Set` inserts | machine | 40.2 | 174.3 | 1× |
+| | `--native`, N4 before the merge | 10.3 | 41.6 | 3.7× (N3: 11.0, 42.1) |
+| | `--native`, N4 | 10.4 | 42.2 | **3.9×** |
+| `effects`, whole run | machine | 9.46 | 50.06 | 1× |
+| | `--native`, N4 before the merge | 7.90 | 40.21 | 1.26× (against 9.93 then) |
+| | `--native`, N4 | 7.93 | 39.81 | 1.19× (1.26× instructions) |
 
 `bench/native/effects.sw` at 1,000,000 of each: a state-passing handler
 counting (`bump`, resumed with the state plus one) and a reader (`ask`).
-Closures and `Set` are where N3 left them. The effects benchmark gains
+N4 itself left closures and `Set` where N3 had them. The effects benchmark gains
 little because its time is the effect runtime's, which native code calls:
 each operation costs about 29,000 instructions on the machine for `bump`
 and 20,000 for `ask` (linear: measured at 100,000 and 300,000), and native
