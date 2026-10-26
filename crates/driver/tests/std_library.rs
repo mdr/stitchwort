@@ -555,8 +555,12 @@ fn small_programs_load_only_the_library_files_they_can_use() {
     // load `Mod/Mod.sw` (nor `Map`, `Set` or `Vec`).
     // `Result` is a core type, so the toolkit's dot calls (`.map`, `.flatMap`,
     // ...) may mean its functions too, and `Result/Result.sw` loads with it.
+    // The toolkit's lemmas use `DecEq.sound` and `DecEq.refl`
+    // (`Decidable/Decidable.sw`) and `↔` (`Logic/Logic.sw`).
     let toolkit = [
         "Bool/Bool.sw",
+        "Decidable/Decidable.sw",
+        "Logic/Logic.sw",
         "Nat/Arith.sw",
         "Option/Option.sw",
         "Ord/Ord.sw",
@@ -578,6 +582,7 @@ fn small_programs_load_only_the_library_files_they_can_use() {
         "Bool/Bool.sw",
         "Decidable/Decidable.sw",
         "Int/Basics.sw",
+        "Logic/Logic.sw",
         "Nat/Arith.sw",
         "Int/Int.sw",
         "Option/Option.sw",

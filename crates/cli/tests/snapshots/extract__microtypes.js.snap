@@ -1523,8 +1523,8 @@ const $Std$dMap$dofRaw = (v2, v3) => v3;
 const $Std$dMap$dfromList = (v2, v3) => $Std$dMap$dofRaw(v2, $Std$dMap$dRaw$dfromListFast(v2, v3));
 const $Std$dMap$dtoList = (v2, v3) => $Std$dMap$dRaw$dtoList(v2, $Std$dMap$draw(v2, v3));
 const $Std$dMap$dget = (v2, v3, v4) => $Std$dMap$dRaw$dget(v2, v4, $Std$dMap$draw(v2, v3));
-const $Std$dMap$dkeys = (v2, v3) => $Std$dList$dmap$e($Std$dMap$dtoList(v2, v3), $Std$dPair$dfst);
 const $Std$dMap$dinsertWith = (v2, v3, v4, v5, v6) => $Std$dMap$dRaw$dinsertWith(v2, v6, v4, v5, $Std$dMap$draw(v2, v3));
+const $Std$dMap$dkeys = (v2, v3) => $Std$dList$dmap$e($Std$dMap$dtoList(v2, v3), $Std$dPair$dfst);
 const $Main$dUserId$dvalue = (v0) => {
   const v1 = v0;
   return v1;

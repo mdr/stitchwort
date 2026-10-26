@@ -3030,7 +3030,9 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 /// against `List.map f xs = List.map g xs`.
 fn infer_expecting(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<(Term, Value)> {
     let key = match spine(expr).1.last() {
-        Some(Arg::Explicit(last)) => std::ptr::from_ref(*last) as usize,
+        Some(Arg::Explicit(last) | Arg::NamedExplicit(_, last)) => {
+            std::ptr::from_ref(*last) as usize
+        }
         _ => return infer(cx, expr),
     };
     if matches!(

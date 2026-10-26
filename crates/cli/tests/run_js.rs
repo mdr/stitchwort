@@ -321,6 +321,8 @@ def main () : {IO} () :=
 /// once, outside the adapter closure, not on every call of it. Purity hides
 /// this from the output, so this checks the generated JS: `slow n` is the
 /// argument of a binding wrapped around the closure, and is not inside it.
+/// `tagged` adds 1 so that it isn't `Nat.add` at run time, and its calls
+/// stay calls of it.
 #[test]
 fn supplied_arguments_of_an_adapter_are_computed_once() {
     let path = source_file(
@@ -329,7 +331,7 @@ fn supplied_arguments_of_an_adapter_are_computed_once() {
 import Std (Nat)
 
 def slow (n: Nat): Nat := n * n * n
-def tagged (k: Nat) (a: Type) (n: Nat): Nat := k + n
+def tagged (k: Nat) (a: Type) (n: Nat): Nat := k + n + 1
 def app2 (f: Type -> Nat -> Nat): Nat := f Nat 41
 
 export def total (n: Nat): Nat := app2 (tagged (slow n))
@@ -352,6 +354,7 @@ export def total (n: Nat): Nat := app2 (tagged (slow n))
         line.ends_with(")($Main$dslow(v0)));"),
         "the argument isn't bound outside the closure: {line}"
     );
+    assert_eq!(line.matches("$Main$dslow(").count(), 1, "{line}");
     assert!(line.contains("$Main$dtagged($s0, $p2)"), "{line}");
 }
 

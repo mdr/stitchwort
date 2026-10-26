@@ -38,7 +38,7 @@
 // every run (`stitchwort_core::collections`), and isn't benchmarked.
 #![allow(clippy::disallowed_types)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
 use stitchwort_syntax::{Comment, Lexed, Tok, Token, equivalence, lex_with_trivia};
@@ -696,15 +696,37 @@ impl<'a> Layout<'a> {
                     || (line.first() == h && tokens[h].tok != Tok::Pipe && line.src_col > 0)
             })
         };
-        // A header line further right than a header line above it belongs
-        // to the declaration like that line does, unless it sits inside a
-        // bracket the line above opened.
+        // The header tokens that start a parameter: those outside brackets
+        // before the header's first `:` outside brackets, after which the
+        // result type follows.
+        let mut starts_param: HashSet<usize> = HashSet::new();
+        if let Some((start, h)) = header {
+            let mut depth = 0i32;
+            for (j, t) in tokens.iter().enumerate().take(h).skip(start + 1) {
+                match t.tok {
+                    Tok::Colon if depth == 0 => break,
+                    Tok::LParen | Tok::LBracket | Tok::LBrace => {
+                        if depth == 0 {
+                            starts_param.insert(j);
+                        }
+                        depth += 1;
+                    }
+                    Tok::RParen | Tok::RBracket | Tok::RBrace => depth -= 1,
+                    _ => {}
+                }
+            }
+        }
+        // A line starting a parameter further right than a header line above
+        // it belongs to the declaration like that line does, unless it sits
+        // inside a bracket the line above opened. Lines inside a parameter
+        // and lines of the result type keep their nesting.
         for i in 0..lines.len() {
             if let Some(p) = parent[i]
                 && lines[i].closer_of.is_none()
                 && tcol[p] != 0
                 && in_header(i)
                 && in_header(p)
+                && starts_param.contains(&lines[i].first())
                 && !self.ends_with_opener(&lines[p])
             {
                 parent[i] = parent[p];
@@ -782,7 +804,7 @@ impl<'a> Layout<'a> {
             if let Some(open) = line.closer_of {
                 // D1012: the closer lines up with the line the bracket
                 // opened on.
-                indents[i] = if part(i) == Part::Main {
+                indents[i] = if part(i) == Part::Main && !in_header(i) {
                     body_base(&indents, open)
                 } else {
                     indents[open]
@@ -792,7 +814,7 @@ impl<'a> Layout<'a> {
             let (Some(p), Some(g)) = (parent[i], group_of[i]) else {
                 continue;
             };
-            let base = if part(i) == Part::Main {
+            let base = if part(i) == Part::Main && !in_header(i) {
                 body_base(&indents, p)
             } else {
                 indents[p]

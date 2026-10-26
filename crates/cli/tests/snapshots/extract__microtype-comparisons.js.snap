@@ -1076,6 +1076,38 @@ const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
     throw new Error("unreachable");
   }
 };
+const $Std$dList$ddecMem = (v1, v2, v3) => {
+  let s1 = v1, s2 = v2, s3 = v3;
+  for (;;) {
+    const v1 = s1, v2 = s2, v3 = s3;
+    switch (v3.tag) {
+      case "Nil": {
+        return { tag: "No" };
+      }
+      case "Cons": {
+        const v4 = v3.head;
+        const v5 = v3.tail;
+        const v8 = $Std$dDecEq$d$gdecide(v1)(v4)(v2);
+        const p1_1$ = v1;
+        const p2_2$ = v2;
+        const p3_3$ = v5;
+        switch (v8.tag) {
+          case "Yes": {
+            return { tag: "Yes" };
+          }
+          case "No": {
+            s1 = p1_1$;
+            s2 = p2_2$;
+            s3 = p3_3$;
+            continue;
+          }
+        }
+        throw new Error("unreachable");
+      }
+    }
+    throw new Error("unreachable");
+  }
+};
 const $Std$dMap$dTree$dsize = (v2) => {
   switch (v2.tag) {
     case "Tip": {
@@ -1567,38 +1599,6 @@ const $Std$dText$dcontainsChars = (v0, v1) => {
   }
 };
 const $Std$dText$dcontains = (t, needle) => ({ tag: t.includes(needle) ? "True" : "False" });
-const $Std$dList$ddecMem = (v1, v2, v3) => {
-  let s1 = v1, s2 = v2, s3 = v3;
-  for (;;) {
-    const v1 = s1, v2 = s2, v3 = s3;
-    switch (v3.tag) {
-      case "Nil": {
-        return { tag: "No" };
-      }
-      case "Cons": {
-        const v4 = v3.head;
-        const v5 = v3.tail;
-        const v8 = $Std$dDecEq$d$gdecide(v1)(v4)(v2);
-        const p1_1$ = v1;
-        const p2_2$ = v2;
-        const p3_3$ = v5;
-        switch (v8.tag) {
-          case "Yes": {
-            return { tag: "Yes" };
-          }
-          case "No": {
-            s1 = p1_1$;
-            s2 = p2_2$;
-            s3 = p3_3$;
-            continue;
-          }
-        }
-        throw new Error("unreachable");
-      }
-    }
-    throw new Error("unreachable");
-  }
-};
 const $Std$dMap$draw = (v2, v3) => {
   const v4 = v3;
   return v4;
