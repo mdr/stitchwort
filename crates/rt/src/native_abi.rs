@@ -787,12 +787,19 @@ pub unsafe extern "C" fn sw_nat_pred(src: *const Value, dst: *mut Value) {
 /// Where a `NumSwitch` on the value at `v` jumps.
 ///
 /// # Safety
-/// `table` points at a table of the image; `v` at a register.
+/// `context` is the running context and `table` a number table's number in
+/// its tables; `v` points at a register.
 #[allow(unsafe_code)]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn sw_num_switch(table: *const NumTable, v: *const Value) -> u64 {
-    // SAFETY: the caller's contract.
-    u64::from(crate::prims::num_switch(unsafe { &*table }, unsafe { &*v }))
+pub unsafe extern "C" fn sw_num_switch(
+    context: *const Context,
+    table: u32,
+    v: *const Value,
+) -> u64 {
+    // SAFETY: the caller's contract: the tables outlive the native call,
+    // and `table` is within them.
+    let table = unsafe { &**(*(*context).tables).num_tables.add(table as usize) };
+    u64::from(crate::prims::num_switch(table, unsafe { &*v }))
 }
 
 /// `Global g`: if its value is known (a constant computed, or a function

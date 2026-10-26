@@ -725,7 +725,7 @@ impl Helpers {
             prim: declare("sw_prim", &[p, I32, p, I64, p], &[])?,
             test: declare("sw_test", &[p, I32, p, I64], &[I64])?,
             nat_pred: declare("sw_nat_pred", &[p, p], &[])?,
-            num_switch: declare("sw_num_switch", &[p, p], &[I64])?,
+            num_switch: declare("sw_num_switch", &[p, I32, p], &[I64])?,
             global: declare("sw_global", &[p, I32, p], &[I64])?,
             global_set: declare("sw_global_set", &[p, I32, p], &[])?,
             apply_native: declare("sw_apply_native", &[p, p, p, I64, p], &[])?,
@@ -1719,9 +1719,10 @@ impl Gen<'_, '_> {
                 switch.emit(&mut self.b, v.0[1], default);
                 self.b.switch_to_block(big);
                 self.b.set_cold_block(big);
-                let table = self.address(t as *const _ as usize);
+                let number = self.numbering.num_table(self.code_index, table);
+                let number = self.i32const(number);
                 let src = self.spill_value(0, v);
-                let r = self.call_helper(self.helpers.num_switch, &[table, src]);
+                let r = self.call_helper(self.helpers.num_switch, &[self.ctx, number, src]);
                 let mut switch = Switch::new();
                 let mut targets: Vec<u32> = t.big.iter().map(|(_, t)| *t).collect();
                 targets.sort_unstable();
