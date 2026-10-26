@@ -32,8 +32,8 @@ pub const MANIFEST_MAGIC: u64 = u64::from_le_bytes(*b"swnative");
 pub const MANIFEST_VERSION: u64 = 3;
 
 /// A [`Manifest`]'s `flags`: native frames may nest inside runs of the
-/// machine (a state-passing handler, an effect native's function value),
-/// so each counted frame may take more stack (`native_abi::level_bound`).
+/// machine (a body native code calls that isn't compiled: none since stage
+/// NO3), so each counted frame may take more stack (`native_abi::level_bound`).
 pub const FLAG_NESTS: u64 = 1;
 /// A [`Manifest`]'s `flags`: the code has the effect runtime's bodies,
 /// which run eager resumptions (`native_abi::Context::resumes`).

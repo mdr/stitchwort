@@ -8,9 +8,8 @@
 //! code holds no host address (stage S4): what it needs of the runtime's
 //! memory it reaches through `Context::tables`, which the runtime builds
 //! from the image it rebuilds, and the helpers (`sw_ctor` and the rest,
-//! with N4's `sw_effect`, `sw_perform` and the others that run
-//! the machine for native code) are left for the linker to resolve against
-//! the runtime library, which has the machine.
+//! with the effect runtime's leaves) are left for the linker to resolve
+//! against the runtime library, which has the machine.
 //!
 //! The object describes the code to the runtime in data
 //! (`stitchwort_rt::native_aot`):
@@ -50,13 +49,20 @@ pub struct ObjectCode {
     pub compile_time: Duration,
     /// A bound on the stack the widest body uses.
     pub max_frame: usize,
+    /// Whether the code's frames may nest inside runs of the machine
+    /// (`n1::Plan::nests`).
+    pub nests: bool,
     /// Why any body `main` reaches isn't compiled.
     pub notes: Vec<String>,
 }
 
 impl ObjectCode {
-    /// What `build --native --verbose` says: the notes, then what compiled.
-    pub fn report(&self) -> Vec<String> {
+    /// What `build --native --verbose` says: the notes, then what compiled,
+    /// then, if `frame_limit` frames may not fit a stack of `stack_size`
+    /// bytes, that the executable will run everything on the machine (the
+    /// crossing's own rule, `abi::Crossing::fits`, as `run --native` notes
+    /// it).
+    pub fn report(&self, frame_limit: u64, stack_size: usize) -> Vec<String> {
         let mut report = self.notes.clone();
         report.push(format!(
             "native: compiled {} of the {} bodies `main` reaches (frames of at most {} bytes, in {:.1} ms)",
@@ -65,6 +71,12 @@ impl ObjectCode {
             self.max_frame,
             self.compile_time.as_secs_f64() * 1000.0
         ));
+        let level = abi::level(self.max_frame, self.nests);
+        if !abi::counter_fires_first(frame_limit, stack_size, level) {
+            report.push(format!(
+                "native: the executable will run everything on the machine: {frame_limit} frames of up to {level} bytes may not fit the {stack_size}-byte stack"
+            ));
+        }
         report
     }
 }
@@ -210,6 +222,7 @@ pub fn compile_object(
         reachable: plan.reachable,
         compile_time: start.elapsed(),
         max_frame,
+        nests: plan.nests,
         notes: plan.notes,
     })
 }

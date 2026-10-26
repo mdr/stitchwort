@@ -133,7 +133,7 @@ pub fn build_executable(
     discard(session);
     let bytes = stitchwort_rt::encode(&program, &limits);
     let object = match native {
-        Some(verbose) => native_object(&program, &bytes, verbose),
+        Some(verbose) => native_object(&program, &limits, &bytes, verbose),
         None => program_object(&bytes),
     };
     match link(&object, &out) {
@@ -223,7 +223,12 @@ fn namespace_name(function: &str) -> String {
 /// machine runs the rest). With `verbose`, says what was compiled and why
 /// anything wasn't.
 #[cfg(feature = "native")]
-fn native_object(program: &stitchwort_rt::Program, bytes: &[u8], verbose: bool) -> Vec<u8> {
+fn native_object(
+    program: &stitchwort_rt::Program,
+    limits: &stitchwort_rt::Limits,
+    bytes: &[u8],
+    verbose: bool,
+) -> Vec<u8> {
     let image = stitchwort_rt::code::compile(program);
     let options = stitchwort_native::n1::Options {
         trace_refcounts: false,
@@ -232,7 +237,7 @@ fn native_object(program: &stitchwort_rt::Program, bytes: &[u8], verbose: bool) 
     match stitchwort_native::aot::compile_object(program, &image, options) {
         Ok(code) => {
             if verbose {
-                for line in code.report() {
+                for line in code.report(limits.frames as u64, stitchwort_host::NATIVE_STACK) {
                     eprintln!("{line}");
                 }
             }
@@ -250,7 +255,12 @@ fn native_object(program: &stitchwort_rt::Program, bytes: &[u8], verbose: bool) 
 }
 
 #[cfg(not(feature = "native"))]
-fn native_object(_program: &stitchwort_rt::Program, _bytes: &[u8], _verbose: bool) -> Vec<u8> {
+fn native_object(
+    _program: &stitchwort_rt::Program,
+    _limits: &stitchwort_rt::Limits,
+    _bytes: &[u8],
+    _verbose: bool,
+) -> Vec<u8> {
     unreachable!("`build --native` is refused without the `native` feature")
 }
 

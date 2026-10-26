@@ -70,7 +70,8 @@ pub enum EffectOp {
 
 impl EffectOp {
     /// Every effect native, in a fixed order: native code names one by its
-    /// place here (`native_abi::sw_effect`), not by an address.
+    /// place here (`native_abi::sw_eff_begin`, `sw_eff_state`), not by an
+    /// address.
     pub const ALL: [EffectOp; 8] = [
         EffectOp::Bind,
         EffectOp::Fold,

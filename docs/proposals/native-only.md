@@ -650,6 +650,81 @@ runs on an executor; §1.6's estimate is for then.
   and the effects benchmark is measured against §1.6 (instructions per
   operation, recorded in this note).
 
+**NO3 as built** (26 October 2026). All three done-when checks hold:
+`n4.rs`'s `effect_examples_agree_with_the_machine` (every `-- run:` line of
+`effect-state.sw`, with the other two examples: value, counts, trace); zero
+nested runs on every native run of the `n4.rs` suite (checked in
+`common::native_on`, which all of n1–n4 use, and around each example's
+native run); and on the roguelike, by a new guard test
+(`build.rs`'s `the_roguelike_runs_natively`: `run --native --verbose` says
+no part ran on the machine and `0 nested runs`, and `build --native
+--verbose` doesn't say the executable will fall back). `sw_effect`,
+`sw_tail_effect`, `sw_perform`, `TailRequest` and `NativeOut` are deleted.
+Differences from the text above:
+- **A state-passing fold is a leaf, not a runtime body.** Its value is a
+  function of the state (a `StateRun`), so making it needs no loop:
+  `sw_eff_state` does what the machine's `effect` does for `FoldState` and
+  `FoldStateComp` (one shared `machine::state_handler`). The loop starts
+  when that function is applied: `sw_apply_prepare` plans a `StateRun` like
+  an eager `Resume` (`RESUME_CODE`), and `rt_resume` (mode 2) runs the rest
+  of the computation in `rt_loop` with the state in a loop variable.
+  `sw_eff_step` answers two more cases for a state loop, done (`STEP_STATE_DONE`)
+  and an operation (`STEP_STATE_CALL`, which makes `k` and the jump), and
+  `sw_state_step` is the jump test (one shared `machine::state_step`,
+  which the machine's `State::state_step` now calls too). A recorded jump
+  goes round the loop; anything else is the result.
+- **No tail requests remain**, so the apply stubs lost their `tail`
+  parameter, and `NativeIslands::call` returns the value. What native code
+  still can't run (a body that isn't compiled: none today) is a nested run.
+- **The frame bound.** `Plan::nests` is now "some body `main` reaches isn't
+  compiled", false for every program today, so `NEST_ROOM` is no longer
+  added: NO5's removal is brought forward in effect (the constant and
+  `level_bound` stay for that case until NO5 deletes them). The loop's
+  frame grew by the state's slots. On the roguelike, frames went from 4,272
+  bytes (8,368 with `NEST_ROOM`) to 4,520 bytes; 2,000,000 frames are 9.0
+  GB of the 17.2 GB above the floor, against 16.7 GB before.
+- **The `-- run:` lines don't reach the native fold.** Each is lowered as an
+  entry, and the entry inlines the call that holds the fold (`tallied
+  codes` and the rest), so the fold runs on the machine until NO4 compiles
+  the entry; only the resumptions they apply reach native code
+  (`sw_state_step`, 75 calls under lldb, `sw_eff_state` none). A new test,
+  `state_handlers_in_compiled_bodies_agree`, puts both folds in recursive
+  functions (not inlined), as a `Prim` and a `TailPrim`, with tail,
+  non-tail and stored resumptions, and checks output, trace and every
+  limit (`sw_eff_state` 424 calls, `sw_state_step` 1,961).
+  `effect_loops_run_in_constant_stack` gained a closed-row counter.
+- **`build --native --verbose`** says when the executable will run
+  everything on the machine (the crossing's own rule, from the frame bound
+  and the frame limit), so the guard can check the binary too.
+
+**Instructions per operation** (as for NO2: best of 3, a run less the same
+run with no operations, 1,000,000 operations, release build of `stitchwort`
+alone, aarch64 macOS; main is the commit before NO3, measured the same
+day). The closed-row rows call the handler from a recursive function, so
+its fold is in a compiled body; `bump` there is the state loop
+(`Counter.run: (prog: () → {Counter} a): Nat → a`, and the `let run` form
+of `effects.sw` at a closed row, which fuses the same way, within 0.5%).
+
+| Benchmark | Machine | Native, main | Native, NO3 |
+|---|---:|---:|---:|
+| `effects.sw`, 1,000,000 of each | 22,642 | 19,719 | 19,253 |
+| `ask` alone, open row (`{IO}`) | 18,273 | 16,588 | 16,202 |
+| `bump` alone, open row (`{IO}`) | 26,916 | 22,657 | 22,108 |
+| `ask` alone, closed row | 13,012 | 9,336 | 9,500 |
+| `bump` alone, closed row (a state loop) | 17,271 | 15,801 | 12,239 |
+
+The state loop costs 23% less than before NO3 (when the machine ran the
+whole loop in one nested run) and 29% less than on the machine. Against
+§1.6's estimate of 11,000–15,000: the closed-row state loop is inside it;
+the benchmark (open rows) is not, and won't be until NO4, for NO2's reason
+(the runner drives lazy resumptions on the machine). The closed-row `ask`
+is 1.8% above main (the loop's larger frame and the state's slots, carried
+on every iteration). D1297's check ("still above about 12,000 … and the
+profile shows allocation") can't be settled yet: the only native-only
+figure at or near it is the state loop's 12,239, and `sample` couldn't
+attach to the process in this environment, so there is no profile; it
+waits for NO4's open-row figures.
+
 **NO4. The entry and the runner on an executor.**
 - **What:** compile the entry body. Add the `Executor` trait (§2), with
   `Machine` and the native executor implementing it. Move the constants

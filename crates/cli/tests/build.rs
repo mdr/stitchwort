@@ -803,6 +803,10 @@ fn the_roguelike_built_native_plays_as_it_does_under_run() {
         panic!("{said}");
     };
     assert_eq!(compiled + 1, reached, "every body but the entry: {said}");
+    // No note that the executable will run everything on the machine (its
+    // frame bound fits the stack): the guard `the_roguelike_runs_natively`
+    // checks under `run --native` too.
+    assert!(!said.contains("on the machine"), "{said}");
     assert_eq!(said.lines().count(), 1, "{said}");
     let exe = dir.join("rogue-game");
     assert_signed(&exe);
@@ -814,4 +818,68 @@ fn the_roguelike_built_native_plays_as_it_does_under_run() {
     assert_eq!(text(&built.stderr), "");
     assert!(!built.stdout.is_empty());
     assert_eq!(text(&built.stdout), text(&ran.stdout));
+}
+
+/// A guard (stage NO3 of docs/proposals/native-only.md): the roguelike's
+/// frame bound times its frame limit must fit the native stack, or the
+/// whole run silently falls back to the machine and every other test still
+/// passes. Under `run --native --verbose`, nothing ran on the machine and
+/// native code had the machine run nothing for it (no nested run); and
+/// `build --native --verbose` doesn't say the executable will fall back.
+/// The frames' bound and the limit are printed, so the margin is in the
+/// test's output.
+#[cfg(feature = "native")]
+#[test]
+fn the_roguelike_runs_natively() {
+    let dir = work_dir("rogue-guard");
+    let project = seeded_rogue(&dir);
+    let ran = stitchwort(
+        &project,
+        &["run", "--native", "--verbose", "Rogue.main"],
+        b"jjlq",
+    );
+    let said = text(&ran.stderr);
+    assert_eq!(ran.status.code(), Some(0), "{said}");
+    assert!(!said.contains("on the machine"), "fell back: {said}");
+    assert!(
+        said.contains("native: 0 nested runs of the machine"),
+        "{said}"
+    );
+    let running = said
+        .lines()
+        .find(|line| line.starts_with("native: running "))
+        .unwrap_or_else(|| panic!("nothing ran natively: {said}"));
+    let bound = running
+        .split_once("(frames of at most ")
+        .and_then(|(_, rest)| rest.split_once(" bytes"))
+        .and_then(|(bytes, _)| bytes.parse::<usize>().ok())
+        .unwrap_or_else(|| panic!("no frame bound: {running}"));
+    let limit = stitchwort_rt::Limits::from_core(Default::default()).frames;
+    let room = stitchwort_host::NATIVE_STACK
+        - stitchwort_rt::native_abi::HOST_ROOM
+        - stitchwort_rt::native_abi::HELPER_ROOM;
+    println!(
+        "the roguelike's frames: at most {bound} bytes, {limit} of them: {} of {room} bytes",
+        bound * limit
+    );
+    assert!(bound * limit <= room, "{running}");
+
+    if !have_cc() {
+        return;
+    }
+    let output = stitchwort(
+        &dir,
+        &[
+            "build",
+            "rogue",
+            "--native",
+            "--verbose",
+            "-o",
+            "rogue-guard",
+        ],
+        b"",
+    );
+    let said = text(&output.stderr);
+    assert!(output.status.success(), "{said}");
+    assert!(!said.contains("on the machine"), "fell back: {said}");
 }
