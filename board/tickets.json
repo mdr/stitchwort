@@ -1,5 +1,5 @@
 {
-  "next": 596,
+  "next": 599,
   "tickets": [
     {
       "id": 13,
@@ -4235,7 +4235,7 @@
     {
       "id": 579,
       "title": "Private app port: layout as scanLeft + zipWith (D1312), after the adoption lane; generic lemmas the proofs need go to std via a public lane (scanLeft/zipWith/mapAccumLeft lemmas) (private work only)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4444,6 +4444,42 @@
       "id": 595,
       "title": "Private app port: restore the copied app tree and run the integration suites — at the END of the current round of changes (Matt, 26 Oct: 'maybe do that at the end of all our changes') (private work only)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 596,
+      "title": "Std: more list/option/map lemmas a real program needed (private app port, 26 Oct): List.get ↔ List.getOr (std has no List.get theorems), take of zipWith/map; Option.mapEqNone; List.Any p xs from x ∈ xs and p x; a filter dropping every element is Nil; Map.indexBy 'what it finds is an element' and 'a key of the list is found' (Prop forms)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 597,
+      "title": "alignWith lemmas only apply with arm functions left as _: restating the program's { a | f = … } in a proof yields a different hidden match, so it isn't equal to the program's (private app port, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 598,
+      "title": "Private app port: switch the three 'keep the other side's new items' sites to std List.appendNewBy (SW-584), re-benchmark typed ids after SW-590, rebuild dist + differential (private work only)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
