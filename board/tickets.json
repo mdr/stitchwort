@@ -1,5 +1,5 @@
 {
-  "next": 594,
+  "next": 595,
   "tickets": [
     {
       "id": 13,
@@ -4381,14 +4381,16 @@
     {
       "id": 590,
       "title": "JS backend: equality on an @[js.unboxed] microtype goes through a general comparison wrapper instead of plain string ===; typed ids cost 7–17% in a real-world merge benchmark (private app port, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "e3402db8"
+      ]
     },
     {
       "id": 591,
@@ -4417,6 +4419,18 @@
     {
       "id": 593,
       "title": "Effect representation change (native-only.md §1.5 / effect-runtime §9.11 B, both runners): D1297's trigger met after NO4 — effects.sw 15,488 instr/op, allocation+freeing 49% vs dispatch 14%. Deferred until NO5–NO7 finish (standalone binary first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 594,
+      "title": "JS codegen: a let-bound value used inside a lambda (e.g. c.id ∉ ids2 with ids2 from let) compiles to ((v4) => ((v5) => …))(x)(y), allocating a closure per element (found during SW-590)",
       "status": "backlog",
       "agent": "",
       "where": "",
