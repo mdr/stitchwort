@@ -4005,8 +4005,8 @@
     },
     {
       "id": 561,
-      "title": "Native-only NO2-NO7: run loop/folds/translate/resumptions; state handlers; entry + Executor; no fallback; binary without the machine; Linux (native-only.md §6)",
-      "status": "next",
+      "title": "Native-only NO2-NO7 (NO2 running): run loop/folds/translate/resumptions; state handlers; entry + Executor; no fallback; binary without the machine; Linux (native-only.md §6)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
