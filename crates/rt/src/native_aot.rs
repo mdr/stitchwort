@@ -27,8 +27,17 @@ pub const MANIFEST_MAGIC: u64 = u64::from_le_bytes(*b"swnative");
 /// `Manifest::version`: the layout of [`Manifest`] and
 /// [`ManifestTrampoline`]. Version 2 (stage N4): trampolines by number of
 /// arguments, called for any compiled body, where version 1 had one per
-/// island root.
-pub const MANIFEST_VERSION: u64 = 2;
+/// island root. Version 3 (stage NO2 of native-only.md): `flags`, where
+/// version 2 had `nests` (now [`FLAG_NESTS`]).
+pub const MANIFEST_VERSION: u64 = 3;
+
+/// A [`Manifest`]'s `flags`: native frames may nest inside runs of the
+/// machine (a state-passing handler, an effect native's function value),
+/// so each counted frame may take more stack (`native_abi::level_bound`).
+pub const FLAG_NESTS: u64 = 1;
+/// A [`Manifest`]'s `flags`: the code has the effect runtime's bodies,
+/// which run eager resumptions (`native_abi::Context::resumes`).
+pub const FLAG_RESUMES: u64 = 2;
 
 /// What `sw_native_manifest` holds. `repr(C)`, written by the compiler as
 /// bytes at the offsets of its fields (with relocations for the pointers),
@@ -44,10 +53,8 @@ pub struct Manifest {
     /// A bound on the stack one level of recursion of the code uses, in
     /// bytes, for the stack check behind the frame limit.
     pub max_frame: u64,
-    /// 1 if native frames may nest inside runs of the machine (an effect,
-    /// `Text.fold`), so each counted frame may take more stack
-    /// (`native_abi::level_bound`).
-    pub nests: u64,
+    /// What the code is like: [`FLAG_NESTS`] and [`FLAG_RESUMES`].
+    pub flags: u64,
     /// The length of `functions`: the program's globals, or 0 with no code.
     pub n_globals: u64,
     /// The length of `lambdas`: the image's lambdas, or 0 with no code.
@@ -82,7 +89,7 @@ impl Manifest {
     pub const IMAGE_HASH_AT: usize = std::mem::offset_of!(Manifest, image_hash);
     pub const N_CACHES_AT: usize = std::mem::offset_of!(Manifest, n_caches);
     pub const MAX_FRAME_AT: usize = std::mem::offset_of!(Manifest, max_frame);
-    pub const NESTS_AT: usize = std::mem::offset_of!(Manifest, nests);
+    pub const FLAGS_AT: usize = std::mem::offset_of!(Manifest, flags);
     pub const N_GLOBALS_AT: usize = std::mem::offset_of!(Manifest, n_globals);
     pub const N_LAMBDAS_AT: usize = std::mem::offset_of!(Manifest, n_lambdas);
     pub const N_TRAMPOLINES_AT: usize = std::mem::offset_of!(Manifest, n_trampolines);
@@ -102,14 +109,14 @@ impl Manifest {
 
     /// The manifest's bytes for code compiled for an image of hash
     /// `image_hash`, with `n_caches` caches, frames of at most `max_frame`
-    /// bytes that may nest if `nests`, `n_globals` globals, `n_lambdas`
+    /// bytes with `flags` (`FLAG_NESTS` and the others), `n_globals` globals, `n_lambdas`
     /// lambdas and `n_trampolines` trampolines; the pointers are 0, for
     /// relocations to fill.
     pub fn bytes(
         image_hash: u64,
         n_caches: u64,
         max_frame: u64,
-        nests: bool,
+        flags: u64,
         n_globals: u64,
         n_lambdas: u64,
         n_trampolines: u64,
@@ -119,7 +126,7 @@ impl Manifest {
             (Manifest::IMAGE_HASH_AT, image_hash),
             (Manifest::N_CACHES_AT, n_caches),
             (Manifest::MAX_FRAME_AT, max_frame),
-            (Manifest::NESTS_AT, u64::from(nests)),
+            (Manifest::FLAGS_AT, flags),
             (Manifest::N_GLOBALS_AT, n_globals),
             (Manifest::N_LAMBDAS_AT, n_lambdas),
             (Manifest::N_TRAMPOLINES_AT, n_trampolines),
@@ -176,11 +183,11 @@ mod tests {
         assert_eq!(Manifest::TRAMPOLINES_AT, 88);
         assert_eq!(ManifestTrampoline::SIZE, 16);
         assert_eq!(ManifestTrampoline::TRAMPOLINE_AT, 8);
-        let bytes = Manifest::bytes(7, 1, 304, true, 2, 3, 4);
+        let bytes = Manifest::bytes(7, 1, 304, FLAG_NESTS, 2, 3, 4);
         assert_eq!(&bytes[..8], b"swnative");
-        assert_eq!(bytes[8], 2);
+        assert_eq!(bytes[8], 3);
         assert_eq!(bytes[Manifest::IMAGE_HASH_AT], 7);
-        assert_eq!(bytes[Manifest::NESTS_AT], 1);
+        assert_eq!(bytes[Manifest::FLAGS_AT], 1);
         assert_eq!(bytes[Manifest::N_TRAMPOLINES_AT], 4);
     }
 }

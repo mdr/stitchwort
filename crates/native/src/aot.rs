@@ -32,7 +32,9 @@ use cranelift_object::{ObjectBuilder, ObjectModule, object};
 use stitchwort_rt::code::Image;
 use stitchwort_rt::ir::Program;
 use stitchwort_rt::native_abi as abi;
-use stitchwort_rt::native_aot::{Manifest, ManifestTrampoline, image_hash};
+use stitchwort_rt::native_aot::{
+    FLAG_NESTS, FLAG_RESUMES, Manifest, ManifestTrampoline, image_hash,
+};
 
 use crate::n1::{self, Audit, Emitted, Options};
 
@@ -171,7 +173,7 @@ pub fn compile_object(
             image_hash(image),
             n_caches as u64,
             max_frame as u64,
-            plan.nests,
+            if plan.nests { FLAG_NESTS } else { 0 } | if plan.effects { FLAG_RESUMES } else { 0 },
             if functions_table.is_some() {
                 n_globals as u64
             } else {

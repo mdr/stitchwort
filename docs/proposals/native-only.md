@@ -550,6 +550,97 @@ operations, NO2's and NO3's work.
   - the 250,000-long effect loops pass under a limit of 100 frames;
   - the nested-run counter is zero on these.
 
+**NO2 as built** (26 October 2026). All four done-when checks hold:
+`n4.rs`'s `effect_examples_agree_with_the_machine` (every `-- run:` line of
+`effect-runtime.sw`, `effect-handlers.sw` and `effect-state.sw`: value,
+counts, trace), `handlers_agree_with_the_machine` and
+`handler_traces_are_the_same` (the sweep at every limit),
+`effect_loops_run_in_constant_stack` (250,000 each, 100 frames), and zero
+nested runs on those loops (250,006 before). Differences from the text
+above:
+- **No per-op runtime bodies, and no `sw_resume`.** One leaf,
+  `sw_eff_begin`, does what the machine's `effect` does for the five ops
+  (one shared `machine::handler_for`, so they can't drift): it builds the
+  handler and the computation, and `rt_loop` starts on them. A `Prim` of
+  one calls `rt_loop`; a `TailPrim` releases the frame and `return_call`s
+  it with one fewer frame and the frame's closure, which the loop drops at
+  its first call or return, as the machine drops the popped frame. The
+  resumption a fold's `call o k` gets is made inside `sw_eff_step`, the
+  leaf that takes the computation apart each iteration (it does `eff_run`'s
+  and `eff_call`'s clones and drops in their order, and answers again,
+  apply, return, done, call or inject).
+- **The handler is one word.** Native code holds `Rc<Handler>` as a raw
+  pointer, and `pending` as a value in the loop's frame, instead of the
+  `EffRet` box.
+- **`rt_resume` is reached from the apply stub.** `sw_apply_prepare` plans
+  an eager `Resume` as `RESUME_CODE` (when the code has the runtime:
+  `Context::resumes`, the manifest's `FLAG_RESUMES`), and the stub calls
+  `rt_resume` with the value and the resumption, as a tail call if nothing
+  is left over. A lazy one is still a value from the leaf
+  (`machine::resume_lazily`, shared with the machine). The stubs gained a
+  parameter: a function value to drop once the callee is taken apart, which
+  is when the machine drops the resumption it applies (the trace showed the
+  difference: dropping it before the `rest` was taken apart moved one
+  `dec`).
+- **Error exits.** As planned, with NO1's extra case: a call that fails
+  gives the loop's handler (`sw_unwind_handler`: kept in the unwind log as a
+  resumption that nothing will run, since the log holds values), pending
+  list and a `translate`'s `k` to the callee's group, or drops them at once
+  if no frame has left. A callee's tail request (an effect native's
+  function value, still run by the machine) is performed in the body.
+- **The manifest has `flags`** (version 3): `FLAG_NESTS`, which was
+  `nests`, and `FLAG_RESUMES`.
+- **The frame bound.** Between two counted frames there can now be the loop
+  or `rt_resume` and a second stub (a stub applying a resumption with
+  arguments left over calls `rt_resume`, which applies the rest through
+  another). The bound adds the larger of the two bodies and a stub, in
+  place of the fold if that is larger. The loop and `rt_resume` together
+  are on the stack only when a `bind`'s continuation is itself a
+  resumption; the stack check behind the frame limit still stops that
+  cleanly. On the roguelike, frames went from 2,760 to 4,272 bytes. With
+  `NEST_ROOM` (still added, since `nests` remains for state handlers and
+  effect natives' function values) that is 8,368 bytes for each of the
+  2,000,000 frames, within 3% of the 16 GiB stack, so a little more would
+  make `fits` refuse and the whole run fall back to the machine (as a
+  first version did, at 4,800 bytes). NO5 removes `NEST_ROOM`.
+- **Which runs nest.** `runs_on_the_machine` now lists only `FoldState`,
+  `FoldStateComp` and effect natives' function values. The roguelike's and
+  the benchmark's handlers are all folds (`Counter.from` has an open row,
+  so it isn't a state loop), so they now nest nothing.
+
+**Nested runs, before and after NO2** (release `run --native`, the seeded
+roguelike as for NO1):
+
+| Run | Before | After |
+|---|---:|---:|
+| roguelike, keys `jjlq` | 13 | 0 |
+| roguelike, 27 keys | 74 | 0 |
+| `effects.sw`, 1,000 of each | 1,004 | 0 |
+| `effects.sw`, 1,000,000 of each | 1,000,004 | 0 |
+| `n4.rs`'s effect loops | 250,006 | 0 |
+
+**Instructions per operation** (best of 3, a run less the same run with no
+operations, release build, aarch64 macOS):
+
+| Benchmark | Machine | Native before NO2 | Native after NO2 |
+|---|---:|---:|---:|
+| `effects.sw`, 1,000,000 of each | 22,460 | 19,946 | 19,734 |
+| `ask` alone, open row (`{IO}`) | 18,195 | 16,871 | 16,696 |
+| `bump` alone, open row (`{IO}`) | 26,732 | 23,031 | 22,775 |
+| `ask` alone, closed row | 12,985 | 11,772 | 9,359 |
+
+The benchmark barely moves, and that's not the loop's cost. Its handlers
+have an open row (`{e}`, here `{IO}`), so their resumptions are lazy: the
+clause's `k v` gives back a `Bind (Done v) k′` cell, and the computation is
+run by the loop of whatever handles `e`, which is the runner's, on the
+machine, at the top (not a nested run). A `sample` of a 5,000,000-`ask` run
+shows `Machine::finish` → `machine::run` → `eff_run` → `apply` → `enter` →
+`cross` into native code for each operation. With a closed row
+(`Env.give: (prog: () → {Env} a): a`), where the fold resumes eagerly and
+`rt_loop` runs everything, an `ask` costs 20% less than before NO2 and 28%
+less than on the machine. The open-row figure moves at NO4, when the runner
+runs on an executor; §1.6's estimate is for then.
+
 **NO3. State-passing handlers.**
 - **What:** `FoldState`, `FoldStateComp`, `StateRun` and the jump test.
   `sw_effect`, `sw_tail_effect`, `sw_perform` and `TailRequest` lose their
