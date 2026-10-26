@@ -1,6 +1,6 @@
 # Default values for function parameters
 
-Status: proposed (D1340), for review. Decisions D1341 to D1352 in §10.
+Status: proposed (D1340), for review. Decisions D1345 to D1356 in §10.
 Nothing here is built.
 
 This note takes up the part of
@@ -168,19 +168,19 @@ test "recordings keep their order" :=
 ```
 
 - **`(x: T := e)` in a `def` or `theorem` header**, top-level or local, on
-  an explicit parameter (D1341).
+  an explicit parameter (D1345).
 - **A defaulted parameter is given by name only.** Positional arguments
-  skip it (D1345). So `makeRecording "a" 0.0` is an error with a fix, and
+  skip it (D1349). So `makeRecording "a" 0.0` is an error with a fix, and
   adding a default to a function never moves a positional argument.
 - **A written call fills every default it doesn't name**, at the end of the
   call, whether or not the call gives every required parameter: a bare
   `makeRecording` is `id => makeRecording id 0.0 1000.0 None [] None None None`,
-  so `["a", "b"].map makeRecording` works (D1346). Defaults never appear in
-  a function value's type (D1348).
+  so `["a", "b"].map makeRecording` works (D1350). Defaults never appear in
+  a function value's type (D1352).
 - **Each default is a helper definition**, as for fields: checked once at
   the declaration, for every value of the parameters before it; pure; it
-  may use those earlier parameters, implicit ones included (D1343, D1344,
-  D1349).
+  may use those earlier parameters, implicit ones included (D1347, D1348,
+  D1353).
 - **The call is an ordinary application** of the function to every
   argument, the helper calls included. The kernel, the machine and the
   native backend see nothing new.
@@ -206,7 +206,7 @@ def sumTo (n: Nat): Nat :=
 - **Not** a lambda's parameter, and **not** a function type. A lambda has no
   declaration to keep a default with, and the only way to call it by name
   is through a `let` or an annotation, whose signature is a type (§4.3 of
-  `named-arguments.md`); defaults aren't part of types (D1348). Both are
+  `named-arguments.md`); defaults aren't part of types (D1352). Both are
   `E-PARSE`, "only a definition's parameter or a field can have a default
   value".
 - **Not** parameters after the colon, which arms match: a default there
@@ -216,7 +216,7 @@ def sumTo (n: Nat): Nat :=
   interface's methods (`E-FIELD-DEFAULT`, as now), or a data type's
   parameters.
 - **Constructors** already have field defaults. Whether a constructor
-  *call* uses them is D1342 (§6.6).
+  *call* uses them is D1346 (§6.6).
 
 A defaulted parameter may come anywhere in the header, before or after
 required ones; since it is named-only (§6.2), its place affects no call.
@@ -257,7 +257,7 @@ As for fields (`named-arguments.md` §5.1 rules 2, 5, 8 and 9):
   type that mentions a definition being checked is now
   (`docs/syntax.md:107`) **[checked]**; that this error is the right one
   to reuse is **[inferred]**.
-- **Pure** (D1344): elaborated in the empty row, no `Partial`. An operation
+- **Pure** (D1348): elaborated in the empty row, no `Partial`. An operation
   is `E-ABILITY` and a `Partial` call `E-PARTIAL`, with the note "a
   parameter's default can't perform operations: it is computed at each call
   that leaves the parameter out".
@@ -281,11 +281,11 @@ one:
 
 1. **Fill slots as now** (D1112), except that a positional argument takes
    the first *required* explicit parameter still free: one without a
-   default (D1345). A named argument may fill any parameter, defaulted or
+   default (D1349). A named argument may fill any parameter, defaulted or
    not.
 2. **Fill the defaults.** Every defaulted parameter the call doesn't name
    gets its default: its helper applied to the earlier parameters it needs
-   (D1346). This happens at the end of every written call, including a bare
+   (D1350). This happens at the end of every written call, including a bare
    name (`makeRecording`), dot notation (`clip.trimmed`), a method section
    (`.trimmed`) and a pipe (`clip |> trimmed`).
 3. **Left-out required parameters** follow D1095, with each filled default
@@ -326,7 +326,7 @@ default wants.
 
 ### 6.2 Positional arguments skip defaulted parameters
 
-**Recommended (D1345): a defaulted parameter is given by name only.** This
+**Recommended (D1349): a defaulted parameter is given by name only.** This
 keeps D1097's rule 1 from `named-arguments.md` §5.4. Reasons:
 
 - **The arity of a call is visible.** With currying, a short call is a
@@ -362,7 +362,7 @@ def scaler (base: Nat) (factor: Nat := 1): Nat -> Nat := …
 scaler 5 3      -- (scaler 5 1) 3, or scaler 5 3?
 ```
 
-This is OCaml's ambiguity, made visible. **Recommended (D1347): an error.**
+This is OCaml's ambiguity, made visible. **Recommended (D1351): an error.**
 A positional argument written after the header's parameters are used up,
 in a call that left a defaulted parameter out, is `E-DEFAULT-POSITIONAL`:
 
@@ -389,7 +389,7 @@ has none, is unchanged.
   that type and those names; `g` has no defaults of its own.
 - **To pass the function with a default still open**, write the lambda:
   `start stop step => range start stop (step := step)`. No special syntax
-  (D1348). Lean's `@f` and Scala's `f _` are the precedents for a bare name
+  (D1352). Lean's `@f` and Scala's `f _` are the precedents for a bare name
   that doesn't fill; they exist mostly for implicit arguments, which
   Stitchwort fills the same way in both forms. If a real program needs it
   often, `(step := _)` could later mean "leave it open", but `_` means an
@@ -447,7 +447,7 @@ circle 1                 -- a Shape
 Circle 1                 -- today: a function waiting for `id`
 ```
 
-**Recommended (D1342): one rule.** A constructor call follows §6.1 too, with
+**Recommended (D1346): one rule.** A constructor call follows §6.1 too, with
 its field defaults as the defaults: `Circle 1` is a `Shape` with `id` its
 default, `Circle 1 (id := "a")` gives it, and `Circle 1 "a"` is
 `E-DEFAULT-POSITIONAL`. Patterns don't change: a constructor pattern still
@@ -511,7 +511,7 @@ A head with no defaults takes today's path, so no existing term changes.
 calls that pass every argument. Defaults are elaborator sugar, as named
 arguments and field defaults are.
 
-**Identity (D1349): defaults aren't part of the function's hash.** The
+**Identity (D1353): defaults aren't part of the function's hash.** The
 function's hash covers its type and body as now; each helper has its own
 hash; a call that relies on a default refers to the helper. So:
 
@@ -559,7 +559,7 @@ compiled like any other.
 
 An `export def` crosses as an uncurried function with the binder names as
 TypeScript parameter names (`named-arguments.md` §2.3) **[checked]**. Three
-ways to export defaulted parameters (D1351):
+ways to export defaulted parameters (D1355):
 
 (a) **A trailing options object** for the defaulted parameters, itself
 optional, decoded as a record with defaulted fields is (stage 2b): an absent
@@ -615,7 +615,7 @@ function's result has no defaults.
 - **Completion** after `(` already offers parameter names not yet given
   (stage 1b of `named-arguments.md`); defaulted ones show their default,
   `duration := 1000.0`.
-- **Printing terms (D1350).** In messages, hover and goals, an argument that
+- **Printing terms (D1354).** In messages, hover and goals, an argument that
   is exactly the call of that parameter's helper (with the captures the
   call would build) is left out, so the goal shows `range 0 10`, not
   `range 0 10 (range…step…default)`. The printed call elaborates back to
@@ -633,9 +633,9 @@ function's result has no defaults.
 | Stage | What | Lane | Size |
 |---|---|---|---|
 | 1 | `(x: T := e)` on explicit parameters of top-level and local `def` and `theorem` headers; helpers (shared with field defaults); metadata in `Def` and the check cache; calls per §6.1 to §6.5 (named-only, filling at the end of every call including bare names, dot, sections, pipes; lambda for left-out parameters); `E-DEFAULT-POSITIONAL`; the errors of §8.3; hover and completion show defaults; `export def` with a default is `E-EXPORT` ("not yet"); accept example with `makeRecording`, reject examples; `docs/syntax.md` | **Opus** (application spine in `named.rs`, `check.rs`, `dot.rs`, `pipe.rs`) | medium |
-| 1b | Printing: leave out helper calls (D1350) in messages, hover and goals | Sonnet | small |
-| 2 | JS: the options object (D1351), `.d.ts` snapshots under `tsc --strict --exactOptionalPropertyTypes`, decoder tests | Sonnet | small to medium |
-| 3 | Constructor calls use field defaults (D1342); update examples that apply constructors with defaulted fields | Sonnet | small |
+| 1b | Printing: leave out helper calls (D1354) in messages, hover and goals | Sonnet | small |
+| 2 | JS: the options object (D1355), `.d.ts` snapshots under `tsc --strict --exactOptionalPropertyTypes`, decoder tests | Sonnet | small to medium |
+| 3 | Constructor calls use field defaults (D1346); update examples that apply constructors with defaulted fields | Sonnet | small |
 
 Stage 1 alone covers the factory: `makeRecording "a" (duration := 500.0)`,
 `.map makeRecording`, dependent and `Option`/list defaults.
@@ -661,7 +661,7 @@ Stage 1 alone covers the factory: `makeRecording "a" (duration := 500.0)`,
 
 ## 10. Decisions for Matt
 
-**D1341. Where can a default be written?**
+**D1345. Where can a default be written?**
 (a) **[Recommended]** On explicit parameters of `def` and `theorem` headers,
 top-level and local; not on implicit or `auto` parameters, lambdas, function
 types or parameters after the colon (§5.1). (b) As (a), and on lambdas'
@@ -670,7 +670,7 @@ typed parameters too. (c) As (b), and in function types, like Lean's
 Reason: a default needs a declaration to belong to; (c) puts defaults in
 types, which `named-arguments.md` §1 rules out for names too.
 
-**D1342. Do constructor calls use field defaults?**
+**D1346. Do constructor calls use field defaults?**
 (a) **[Recommended]** Yes, by the same rule as `def`s (§6.6): `Circle 1`
 is a `Shape` with `id` its default, `Circle 1 "a"` is
 `E-DEFAULT-POSITIONAL`; patterns don't change. Built after `def` defaults
@@ -679,7 +679,7 @@ apply only to braces.
 Reason: one application rule; otherwise `circle 1` and `Circle 1` mean
 different things.
 
-**D1343. What may a default use?**
+**D1347. What may a default use?**
 (a) **[Recommended]** Earlier parameters, explicit, implicit and `auto`
 (so row variables in its type), and anything in scope at the declaration;
 checked for every value of the earlier parameters; not later parameters
@@ -688,7 +688,7 @@ parameters.
 Reason: dependent defaults (`height := width`, `Vec.replicate n 0`) are
 useful, and the field rules already keep them sound.
 
-**D1344. May a default perform operations?**
+**D1348. May a default perform operations?**
 (a) **[Recommended]** No: pure, no `Partial`, computed at each call that
 leaves the parameter out, which then can't be observed (§5.2, §5.3).
 (b) Yes, operations in the function's own row, run at the call after the
@@ -698,7 +698,7 @@ Reason: (a) matches field defaults and needs no run-order rules; (b) can be
 added later, without breaking anything, if a program needs a default like
 `now := Clock.now()`.
 
-**D1345. Can a positional argument fill a defaulted parameter?**
+**D1349. Can a positional argument fill a defaulted parameter?**
 (a) **[Recommended]** No: a defaulted parameter is given by name only;
 positional arguments fill the required parameters in order (§6.2).
 (b) Yes, in order, as Kotlin, Scala, Lean and JavaScript do; a default
@@ -707,7 +707,7 @@ Reason: with currying, (a) keeps a call's arity readable without knowing
 which parameters have defaults, and adding a default never moves an
 argument.
 
-**D1346. When is a default filled in?**
+**D1350. When is a default filled in?**
 (a) **[Recommended]** At the end of every written call that doesn't name
 the parameter, including a bare name, dot calls, sections and pipes; a
 required parameter left out before a filled default becomes a lambda's
@@ -719,7 +719,7 @@ so a trailing defaulted parameter can never be filled.
 Reason: (a) makes `xs.map makeRecording` and `range 0` the functions a
 reader expects, and needs no new idea beyond D1095.
 
-**D1347. A positional argument after the parameters run out, with a
+**D1351. A positional argument after the parameters run out, with a
 default left out** (`scaler 5 3`, where `scaler`'s result is a function).
 (a) **[Recommended]** `E-DEFAULT-POSITIONAL`, with notes to name the
 parameter or to bracket the call, `(scaler 5) 3` (§6.3). (b) Allowed: it
@@ -727,9 +727,9 @@ applies the result, `(scaler 5 1) 3`.
 Reason: (b) is OCaml's silent ambiguity; brackets make the intent
 explicit at no cost.
 
-**D1348. Function values and types.**
+**D1352. Function values and types.**
 (a) **[Recommended]** Defaults are never part of a type. The bare name is a
-function of the required parameters with defaults filled (D1346); to keep
+function of the required parameters with defaults filled (D1350); to keep
 a defaulted parameter open, write a lambda; no special syntax (§6.4).
 (b) As (a), plus a form that doesn't fill defaults (like Lean's `@f`).
 (c) Defaults in function types (Lean's `optParam`, TypeScript's `x?`), so
@@ -737,7 +737,7 @@ they survive `let` and parameters.
 Reason: types stay plain arrows, higher-order code is unchanged; (b) can be
 added if a program needs it often.
 
-**D1349. Is a default part of the function's identity?**
+**D1353. Is a default part of the function's identity?**
 (a) **[Recommended]** No, as D1099 decided for fields: each default is a
 helper, kept as metadata of the declaration; calls that leave the parameter
 out refer to it; changing a default changes exactly those calls' hashes
@@ -748,7 +748,7 @@ hover and the term is checked again at every call.
 Reason: precise test reruns, one place that defines each default, and the
 same design as field defaults.
 
-**D1350. How are filled defaults printed?**
+**D1354. How are filled defaults printed?**
 (a) **[Recommended]** Left out: in messages, hover and goals, an argument
 that is exactly its parameter's default call isn't shown, so goals read
 `range 0 10` (§8.4). (b) Shown as the helper call. (c) Shown as the
@@ -756,7 +756,7 @@ default's value, `range 0 10 1`.
 Reason: (a) prints what was written and elaborates back to the same term;
 (c) would suggest lemmas about `range a b 1` that don't match the goal.
 
-**D1351. JS: how does an exported function take defaulted parameters?**
+**D1355. JS: how does an exported function take defaulted parameters?**
 (a) **[Recommended]** A trailing optional options object holding the
 defaulted parameters, decoded like a record with defaulted fields (absent
 means the default, `undefined` means `None` for an `Option`, D1114) (§8.2).
@@ -765,7 +765,7 @@ means the default, `undefined` means `None` for an `Option`, D1114) (§8.2).
 Reason: named-only in Stitchwort is an options object in TypeScript, and it
 keeps `None` passable.
 
-**D1352. Staging.**
+**D1356. Staging.**
 (a) **[Recommended]** §9: stage 1 is `def` defaults with calls, errors,
 hover and completion (enough for `makeRecording`), with exports refused;
 then printing, then JS, then constructor calls. (b) Everything in one stage.
@@ -781,10 +781,10 @@ changing it.
 - **Named-only surprises people from Kotlin and Scala**, who expect
   `range 0 10 2` to work. The error says exactly what to write.
 - **Lemmas about default values** (`range a b 1`) don't match calls that
-  leave the parameter out (§7.4). D1350 (a) keeps goals in the call form,
+  leave the parameter out (§7.4). D1354 (a) keeps goals in the call form,
   which steers lemmas the right way.
 - **Hidden arguments in proofs.** A goal's printed call hides its defaults
-  (D1350). When a proof depends on a default's value, `unfold` of the
+  (D1354). When a proof depends on a default's value, `unfold` of the
   helper is needed; the hover on the call names it.
 - **Two kinds of defaults** (fields and parameters) with one set of rules
-  is the aim; D1342 (b) would leave a visible difference for constructors.
+  is the aim; D1346 (b) would leave a visible difference for constructors.
