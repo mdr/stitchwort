@@ -606,6 +606,23 @@ and, with interfaces, whether an instance for another namespace's type is
 the same question (an "orphan", §4.9.2). Refusing now keeps every answer
 open: all of them only turn errors into programs.
 
+**Use cases met so far** (for judging priority; each was written as a plain
+function instead):
+
+| Where | Wanted | Refused with | Written as |
+|---|---|---|---|
+| AoC 2025 day 2 | `Range.invalid`, `Range.repeated` on the imported `Aoc.Range` | `E-FOREIGN-NAMESPACE` | `invalidIds`, `repeated` |
+| Roguelike program | `List.pickFree` on std's `List`, so a pipeline reads left to right | `E-STD-NAMESPACE` | `pickFree choices player others` |
+| Roguelike tests (`Rogue.Tests`) | `Area.fits` on the program's own `Rogue.Area` | `E-FOREIGN-NAMESPACE` | `fitsOnScreen area` |
+| Roguelike proofs (`Rogue.Proofs`) | `level.goalReachable`, a property of `Rogue.Level` | `E-FOREIGN-NAMESPACE` | `GoalReachable level` |
+| A real-world TypeScript app's port | `text.isBlank` on std's `Text` | `E-STD-NAMESPACE` | `isBlank text` |
+
+Two kinds recur: helpers on **std types** from a program (closed by design,
+namespaces.md §4.3), and names on a program's **own types** from its tests
+and proofs, which live in a sibling namespace. The second kind needs less
+than general extensions: letting `P.Tests` and `P.Proofs` add to `P`'s types
+would cover every case met in tests and proofs.
+
 ### 4.8 Dot notation across files
 
 `x.f` with `x : T` looks for `f` in `T`'s namespace, which is every

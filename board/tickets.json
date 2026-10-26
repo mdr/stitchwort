@@ -3345,14 +3345,14 @@
     },
     {
       "id": 511,
-      "title": "Ponder dot-callable helpers on types a program doesn't own (extension methods): List.pickFree, Rogue.Tests adding Area.fits (NOTES stage 1 #3, stage 2 #3). Discuss with Matt",
+      "title": "Extension declarations: names on another namespace's type (multi-file.md §4.7, D8 deferred). Use cases listed there: AoC Range.invalid, List.pickFree, Area.fits from Rogue.Tests, Level.goalReachable from Rogue.Proofs, Text.isBlank in an app port",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "D1391 (26 Oct): keep on backlog; use cases added to multi-file.md §4.7 to judge priority. A narrower option covers every tests/proofs case: let P.Tests / P.Proofs add to P's types.",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -5297,11 +5297,11 @@
     {
       "id": 664,
       "title": "Design note: adding names to another namespace's type (Kotlin-style extensions; multi-file.md §4.7 D8 deferred). Triggers: rogue proofs want Level.goalReachable from Rogue.Proofs (E-FOREIGN-NAMESPACE); private port's isBlank (E-STD-NAMESPACE). Awaiting D1391",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Duplicate of 511.",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
@@ -5333,11 +5333,11 @@
     {
       "id": 667,
       "title": "Design note: adding names to another namespace's type (Kotlin-style extensions; multi-file.md §4.7 D8 deferred). Triggers: rogue proofs want Level.goalReachable from Rogue.Proofs (E-FOREIGN-NAMESPACE); private port's isBlank (E-STD-NAMESPACE). Awaiting D1391",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Duplicate of 511.",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
