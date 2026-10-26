@@ -3746,14 +3746,16 @@
     {
       "id": 542,
       "title": "Standalone S6: pure prims via sw_prim (after S4)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "a74db984"
+      ]
     },
     {
       "id": 543,
