@@ -1,5 +1,5 @@
 {
-  "next": 647,
+  "next": 648,
   "tickets": [
     {
       "id": 13,
@@ -4482,11 +4482,11 @@
     {
       "id": 597,
       "title": "alignWith lemmas only apply with arm functions left as _: restating the program's { a | f = … } in a proof yields a different hidden match, so it isn't equal to the program's (private app port, 26 Oct)",
-      "status": "review",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "PARKED (D1373, 26 Oct): fix on branch worktree-agent-ac491657f1ca98e31 (da92a677): one shared T.%update.f helper per field set, nested for independent fields, fallback to simultaneous match for dependent ones; makes restated updates equal so alignWith/update lemmas apply in proof bodies. Contradicts D1091's 'no updater functions'. Revisit only if a proof gets stuck. Also on the branch: better E-UNKNOWN-NAME for missing update lemmas.",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
@@ -5081,6 +5081,18 @@
     {
       "id": 646,
       "title": "A match inside a lambda (e.g. n => match n with …) restated in a proof body doesn't unify with the program's helper (placeholder vs finished helper); workarounds: restate in the statement, leave as _, or name it as a def (alignWith lane, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 647,
+      "title": "Private app port (D1374, deferred by Matt 26 Oct): research what useful behaviour can be proved — plain-words theorem inventory; candidate real-world assumptions (per event: bubbles wholly inside recordings, blob ids distinct, transcripts inside; pair-level Compatible: same event id, shared recording ids extend one another, shared annotation ids same kind) checked against the app code; candidate theorems (no blob lost, all bubbles kept, re-sync harmless, devices agree) tested on random data; note for Matt before proving",
       "status": "backlog",
       "agent": "",
       "where": "",
