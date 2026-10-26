@@ -1,5 +1,5 @@
 {
-  "next": 555,
+  "next": 556,
   "tickets": [
     {
       "id": 13,
@@ -3874,14 +3874,16 @@
     {
       "id": 551,
       "title": "Effect runtime option A: cut allocations in apply (arg Vecs, partial-application copies), continuation pops and closure envs; re-measure (effect-runtime.md §9.11; after N4 merges)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "5f7e54df"
+      ]
     },
     {
       "id": 552,
@@ -3912,6 +3914,18 @@
     {
       "id": 554,
       "title": "Nat division on a variable duplicates it (a / 2 -> Nat.divFuel a a 2), so normal forms of bit-twiddling code (Random.xorBits) grow ~4x per bit; differential test now skips them — consider a fuel-free division form",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 555,
+      "title": "Effect runtime option B: state loop at an open row (design note + soundness argument) — D1291 for Matt",
       "status": "backlog",
       "agent": "",
       "where": "",
