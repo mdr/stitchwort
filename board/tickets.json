@@ -1,5 +1,5 @@
 {
-  "next": 618,
+  "next": 619,
   "tickets": [
     {
       "id": 13,
@@ -4734,6 +4734,18 @@
       "id": 617,
       "title": "Private app port: D1341 — clamp each merged annotation's start into its recording (end of a shortened recording; recording start if before; 0..end of last if it had no recording; 0 if no recordings) + WellFormed fact 'annotations start within the recordings, or no recordings and all at 0', proved for every merge; tests; differential category; MAINTAINING note. After the restyle lane (private work only)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 618,
+      "title": "Private app port: D1343 — card ids distinct across the whole event: after merging groups, each card id kept only in the group the local copy has it in (else the remote's), removed elsewhere; converted slide cards go through the same step; WellFormed gains event-wide card-id distinctness, proved for well-formed inputs; tests incl. the moved-card case (A[X,Y]/B[] vs A[Y]/B[X]); differential category. After the D1341 clamp lane (private work only)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
