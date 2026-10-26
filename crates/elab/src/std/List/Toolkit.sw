@@ -958,20 +958,32 @@ theorem List.lengthZipWith3 (f: a → b → c → e): (xs: List a) → (ys: List
 @[noReceiver]
 def List.Mem (x: a) (xs: List a): Prop := List.Any (y => y = x) xs
 
+-- Decides `x ∈ xs` one element at a time from the front, so `x ∈ xs` is a
+-- `Bool` where one is expected (`if x ∈ seen`) and `if h: x ∈ xs` names
+-- the proof. Its type spells out `List.Mem`: `∈` there would make the type
+-- mention the instance itself.
+instance List.decMem [auto eq: DecEq a] (x: a): (xs: List a) → Decidable (List.Mem x xs)
+  | Nil => No (none => none)
+  | Cons y ys => Decidable.or (eq.decide y x) (List.decMem x ys)
+
+test "List.decMem" := 2 ∈ [1, 2, 3] ∧ 4 ∉ [1, 2, 3] ∧ 'a' ∉ []
+
+test "List.decMem on a variable" := List.all [3, 1] (x => x ∈ [1, 2, 3])
+
 -- No element of the first list is in the second.
-def List.Disjoint (xs: List a) (ys: List a): Prop := List.All (x => Not (List.Mem x ys)) xs
+def List.Disjoint (xs: List a) (ys: List a): Prop := List.All (x => x ∉ ys) xs
 
 -- No element occurs twice.
 def List.Distinct: List a → Prop
   | Nil => Unit
-  | Cons x xs => And (Not (List.Mem x xs)) (List.Distinct xs)
+  | Cons x xs => And (x ∉ xs) (List.Distinct xs)
 
 theorem List.distinctNil: List.Distinct (Nil: List a) := Trivial
 
-theorem List.distinctCons (x: a) (xs: List a) (h: Not (List.Mem x xs)) (d: List.Distinct xs): List.Distinct (Cons x xs) := Both h d
+theorem List.distinctCons (x: a) (xs: List a) (h: x ∉ xs) (d: List.Distinct xs): List.Distinct (Cons x xs) := Both h d
 
 -- An element of two lists joined is in one of them.
-theorem List.memAppend (x: a): (xs: List a) → (ys: List a) → List.Mem x (List.append xs ys) → Or (List.Mem x xs) (List.Mem x ys)
+theorem List.memAppend (x: a): (xs: List a) → (ys: List a) → x ∈ List.append xs ys → Or (x ∈ xs) (x ∈ ys)
   | Nil, ys, h => Inr h
   | Cons z zs, ys, Inl h => Inl (Inl h)
   | Cons z zs, ys, Inr h =>
@@ -980,39 +992,39 @@ theorem List.memAppend (x: a): (xs: List a) → (ys: List a) → List.Mem x (Lis
       | Inr m => Inr m
 
 -- And back: an element of either list is in the two joined.
-theorem List.memAppendLeft (x: a): (xs: List a) → (ys: List a) → List.Mem x xs → List.Mem x (List.append xs ys)
+theorem List.memAppendLeft (x: a): (xs: List a) → (ys: List a) → x ∈ xs → x ∈ List.append xs ys
   | Nil, ys, m => Void.exfalso m
   | Cons z zs, ys, Inl e => Inl e
   | Cons z zs, ys, Inr m => Inr (List.memAppendLeft x zs ys m)
 
-theorem List.memAppendRight (x: a): (xs: List a) → (ys: List a) → List.Mem x ys → List.Mem x (List.append xs ys)
+theorem List.memAppendRight (x: a): (xs: List a) → (ys: List a) → x ∈ ys → x ∈ List.append xs ys
   | Nil, ys, m => m
   | Cons z zs, ys, m => Inr (List.memAppendRight x zs ys m)
 
-theorem List.memAppendExample: List.Mem 3 (List.append [1, 2] [3]) := List.memAppendRight 3 [1, 2] [3] (Inl rfl)
+theorem List.memAppendExample: 3 ∈ List.append [1, 2] [3] := List.memAppendRight 3 [1, 2] [3] (Inl rfl)
 
 -- `f x` is in `List.map xs f` only if `x` is in `xs`, for an injective `f`.
-theorem List.memMapInjective (f: a → b) (inj: (x: a) → (y: a) → f x = f y → x = y) (x: a): (xs: List a) → List.Mem (f x) (List.map xs f) → List.Mem x xs
+theorem List.memMapInjective (f: a → b) (inj: (x: a) → (y: a) → f x = f y → x = y) (x: a): (xs: List a) → f x ∈ List.map xs f → x ∈ xs
   | Nil, h => h
   | Cons z zs, Inl h => Inl (inj z x h)
   | Cons z zs, Inr h => Inr (List.memMapInjective f inj x zs h)
 
 -- If `x` is in `xs`, `f x` is in `List.map xs f`.
-theorem List.memMap: (xs: List a) → (x: a) → List.Mem x xs → (f: a → b) → List.Mem (f x) (List.map xs f)
+theorem List.memMap: (xs: List a) → (x: a) → x ∈ xs → (f: a → b) → f x ∈ List.map xs f
   | Nil, x, h, f => h
   | Cons z zs, x, Inl h, f => Inl (Eq.cong f h)
   | Cons z zs, x, Inr h, f => Inr (List.memMap zs x h f)
 
 -- Use "some element satisfies `p`": take that element, know it is in the
 -- list, and carry on to the goal. (The library has no `Exists`.)
-theorem List.anyElim (p: a → Prop) (goal: Prop): (xs: List a) → List.Any p xs → ((x: a) → List.Mem x xs → p x → goal) → goal
+theorem List.anyElim (p: a → Prop) (goal: Prop): (xs: List a) → List.Any p xs → ((x: a) → x ∈ xs → p x → goal) → goal
   | Nil, h, k => Void.exfalso h
   | Cons z zs, Inl h, k => k z (Inl rfl) h
   | Cons z zs, Inr h, k => List.anyElim p goal zs h (x inZs px => k x (Inr inZs) px)
 
 -- And to prove it: an element of the list that satisfies `p`. (For the
 -- `Bool` `List.any`, `List.anyOfMem`.)
-theorem List.anyIntro (p: a → Prop) (x: a): (xs: List a) → List.Mem x xs → p x → List.Any p xs
+theorem List.anyIntro (p: a → Prop) (x: a): (xs: List a) → x ∈ xs → p x → List.Any p xs
   | Nil, m, px => Void.exfalso m
   | Cons z zs, Inl e, px => Inl (rewrite e in px)
   | Cons z zs, Inr m, px => Inr (List.anyIntro p x zs m px)
@@ -1021,13 +1033,13 @@ theorem List.anyIntroExample: List.Any (n => n > 2) [1, 2, 3] := List.anyIntro (
 
 -- What is in `List.map xs f` is `f x` for some `x` in `xs` (said with
 -- `List.Any`, which also says where `x` is: `Exists` wouldn't).
-theorem List.memMapAny: (xs: List a) → (f: a → b) → (y: b) → List.Mem y (List.map xs f) → List.Any (x => f x = y) xs
+theorem List.memMapAny: (xs: List a) → (f: a → b) → (y: b) → y ∈ List.map xs f → List.Any (x => f x = y) xs
   | Nil, f, y, h => h
   | Cons z zs, f, y, Inl h => Inl h
   | Cons z zs, f, y, Inr h => Inr (List.memMapAny zs f y h)
 
 -- What `(.filter p)` keeps was in the list, and passes `p`.
-theorem List.memFilter: (xs: List a) → (p: a → Bool) → (x: a) → List.Mem x (List.filter xs p) → And (List.Mem x xs) (p x = True)
+theorem List.memFilter: (xs: List a) → (p: a → Bool) → (x: a) → x ∈ List.filter xs p → And (x ∈ xs) (p x = True)
   | Nil, p, x, h => Void.exfalso h
   | Cons y ys, p, x, h =>
     match e: p y with
@@ -1042,12 +1054,12 @@ theorem List.memFilter: (xs: List a) → (p: a → Bool) → (x: a) → List.Mem
           | Both inYs px => Both (Inr inYs) px
 
 -- A `filter` that keeps nothing of the list is empty.
-theorem List.filterNone (p: a → Bool): (xs: List a) → ((x: a) → List.Mem x xs → p x = False) → List.filter xs p = Nil
+theorem List.filterNone (p: a → Bool): (xs: List a) → ((x: a) → x ∈ xs → p x = False) → List.filter xs p = Nil
   | Nil, h => rfl
   | Cons x xs, h => rewrite h x (Inl rfl) in List.filterNone p xs (y m => h y (Inr m))
 
 -- A `filter` that keeps all of the list is the list.
-theorem List.filterAll (p: a → Bool): (xs: List a) → ((x: a) → List.Mem x xs → p x = True) → List.filter xs p = xs
+theorem List.filterAll (p: a → Bool): (xs: List a) → ((x: a) → x ∈ xs → p x = True) → List.filter xs p = xs
   | Nil, h => rfl
   | Cons x xs, h => rewrite h x (Inl rfl) in Eq.cong (Cons x) (List.filterAll p xs (y m => h y (Inr m)))
 
@@ -1062,7 +1074,7 @@ theorem List.filterAllExample (xs: List Nat): List.filter (List.map xs Succ) (n 
 
 -- The run `List.rangeFrom c s` holds the numbers from `s` up to, not
 -- including, `s + c`.
-theorem List.memRangeFrom (x: Nat): (c: Nat) → (s: Nat) → List.Mem x (List.rangeFrom c s) → And (s ≤ x) (x < s + c)
+theorem List.memRangeFrom (x: Nat): (c: Nat) → (s: Nat) → x ∈ List.rangeFrom c s → And (s ≤ x) (x < s + c)
   | Zero, s, h => Void.exfalso h
   | Succ c, s, Inl q => rewrite <- q in Both (Nat.leRefl s) (Nat.ltAddSuccSelf s c)
   | Succ c, s, Inr m =>
@@ -1071,13 +1083,13 @@ theorem List.memRangeFrom (x: Nat): (c: Nat) → (s: Nat) → List.Mem x (List.r
 
 -- `List.between lo hi` holds the numbers from `lo` to `hi`, both included.
 -- The numbers are implicit, for use on a `List.Member`'s `isIn`.
-theorem List.memBetween [x lo hi: Nat] (h: List.Mem x (List.between lo hi)): And (lo ≤ x) (x ≤ hi) :=
+theorem List.memBetween [x lo hi: Nat] (h: x ∈ List.between lo hi): And (lo ≤ x) (x ≤ hi) :=
   match List.memRangeFrom x (hi + 1 - lo) lo h with
     | Both above below => Both above (Nat.ltCongRight x (hi + 1) (Succ hi) (Nat.addOne hi) (Nat.ltOfRunSub lo x (hi + 1) above below))
 
 -- The other way: every number from `s` up to, not including, `s + c` is in
 -- the run `List.rangeFrom c s`.
-theorem List.memRangeFromIntro (x: Nat): (c: Nat) → (s: Nat) → s ≤ x → x < s + c → List.Mem x (List.rangeFrom c s)
+theorem List.memRangeFromIntro (x: Nat): (c: Nat) → (s: Nat) → s ≤ x → x < s + c → x ∈ List.rangeFrom c s
   | Zero, s, lo, hi => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) hi) lo))
   | Succ c, s, lo, hi =>
     match e: Nat.leq (Succ s) x with
@@ -1085,20 +1097,20 @@ theorem List.memRangeFromIntro (x: Nat): (c: Nat) → (s: Nat) → s ≤ x → x
       | False => Inl (Nat.leAntisym s x lo (Nat.leqFalse (Succ s) x e))
 
 -- And for `List.between lo hi`: every number from `lo` to `hi`, both included.
-theorem List.memBetweenIntro (x: Nat) (lo: Nat) (hi: Nat) (above: lo ≤ x) (below: x ≤ hi): List.Mem x (List.between lo hi) :=
+theorem List.memBetweenIntro (x: Nat) (lo: Nat) (hi: Nat) (above: lo ≤ x) (below: x ≤ hi): x ∈ List.between lo hi :=
   List.memRangeFromIntro x (hi + 1 - lo) lo above
     (Nat.ltCongRight x (hi + 1) (lo + (hi + 1 - lo))
       (Eq.sym (Nat.addSubCancel lo (hi + 1) (Nat.leTrans lo x (hi + 1) above (Nat.leTrans x hi (hi + 1) below (Nat.leCongRight hi (Succ hi) (hi + 1) (Eq.sym (Nat.addOne hi)) (Nat.leSucc hi))))))
       (Nat.ltCongRight x (Succ hi) (hi + 1) (Eq.sym (Nat.addOne hi)) (Nat.leLessSucc x hi below)))
 
 -- A list's `flatMap`: an element of `f x` for an `x` of the list is in it.
-theorem List.memFlatMapIntro (f: a → List b) (x: a) (y: b): (xs: List a) → List.Mem x xs → List.Mem y (f x) → List.Mem y (List.flatMap xs f)
+theorem List.memFlatMapIntro (f: a → List b) (x: a) (y: b): (xs: List a) → x ∈ xs → y ∈ f x → y ∈ List.flatMap xs f
   | Nil, h, m => Void.exfalso h
   | Cons z zs, Inl h, m => List.anyAppendLeft (w => w = y) (f z) (List.concat (List.map zs f)) (rewrite h in m)
   | Cons z zs, Inr h, m => List.anyAppendRight (w => w = y) (f z) (List.concat (List.map zs f)) (List.memFlatMapIntro f x y zs h m)
 
 -- And back: what is in a `flatMap` is in `f x` for some `x` of the list.
-theorem List.memFlatMapElim (f: a → List b) (y: b): (xs: List a) → List.Mem y (List.flatMap xs f) → List.Any (x => List.Mem y (f x)) xs
+theorem List.memFlatMapElim (f: a → List b) (y: b): (xs: List a) → y ∈ List.flatMap xs f → List.Any (x => y ∈ f x) xs
   | Nil, h => h
   | Cons z zs, h =>
     match List.memAppend y (f z) (List.concat (List.map zs f)) h with
@@ -1126,7 +1138,7 @@ theorem List.consInjective (x: a) (ys: List a) (zs: List a) (p: Cons x ys = Cons
 
 -- A list starting with x isn't among lists that all start with y, a
 -- different element.
-theorem List.notMemMapCons (x: a) (y: a) (ne: Not (x = y)) (xs: List a): (ys: List (List a)) → Not (List.Mem (Cons x xs) (List.map ys (Cons y)))
+theorem List.notMemMapCons (x: a) (y: a) (ne: Not (x = y)) (xs: List a): (ys: List (List a)) → Cons x xs ∉ List.map ys (Cons y)
   | Nil, m => m
   | Cons z zs, Inl p => ne (Eq.sym (Eq.cong (.headOr x) p))
   | Cons z zs, Inr q => List.notMemMapCons x y ne xs zs q
@@ -1149,15 +1161,15 @@ theorem List.distinctRangeFrom: (c: Nat) → (s: Nat) → List.Distinct (List.ra
 theorem List.distinctBetween (lo: Nat) (hi: Nat): List.Distinct (List.between lo hi) := List.distinctRangeFrom (hi + 1 - lo) lo
 
 -- Every element of the list passes, given that each element that is in it does.
-theorem List.allOfMem (p: a → Prop): (xs: List a) → ((x: a) → List.Mem x xs → p x) → List.All p xs
+theorem List.allOfMem (p: a → Prop): (xs: List a) → ((x: a) → x ∈ xs → p x) → List.All p xs
   | Nil, h => Trivial
   | Cons z zs, h => Both (h z (Inl rfl)) (List.allOfMem p zs (x inZs => h x (Inr inZs)))
 
 -- A `flatMap` of distinct lists has no repeats if the list mapped over has none
 -- and the lists apart: `key` says which element of `xs` each result came from.
 theorem List.distinctFlatMap (f: a → List b) (key: b → a): (xs: List a) → List.Distinct xs →
-    ((x: a) → List.Mem x xs → List.Distinct (f x)) →
-    ((x: a) → List.Mem x xs → (y: b) → List.Mem y (f x) → key y = x) →
+    ((x: a) → x ∈ xs → List.Distinct (f x)) →
+    ((x: a) → x ∈ xs → (y: b) → y ∈ f x → key y = x) →
     List.Distinct (List.flatMap xs f)
   | Nil, d, distinctEach, keyed => Trivial
   | Cons x xs, Both notLater later, distinctEach, keyed =>
@@ -1165,8 +1177,8 @@ theorem List.distinctFlatMap (f: a → List b) (key: b → a): (xs: List a) → 
       (distinctEach x (Inl rfl))
       (List.distinctFlatMap f key xs later (z inXs => distinctEach z (Inr inXs)) (z inXs => keyed z (Inr inXs)))
       -- Nothing in `f x` is in a later `f z`: it would have key `x` and key `z`.
-      (List.allOfMem (y => Not (List.Mem y (List.flatMap xs f))) (f x) (y fromX inLater =>
-        List.anyElim (z => List.Mem y (f z)) Void xs (List.memFlatMapElim f y xs inLater)
+      (List.allOfMem (y => y ∉ List.flatMap xs f) (f x) (y fromX inLater =>
+        List.anyElim (z => y ∈ f z) Void xs (List.memFlatMapElim f y xs inLater)
           (z inXs fromZ =>
             notLater (rewrite Eq.trans (Eq.sym (keyed x (Inl rfl) y fromX)) (keyed z (Inr inXs) y fromZ) in inXs))))
 
@@ -1190,9 +1202,9 @@ theorem List.distinctMapConsExample: List.Distinct (List.append (List.map [Nil] 
     (List.distinctMap [Nil] (Both (m => m) Trivial) (Cons 1) (List.consInjective 1))
     (List.disjointMapCons [Nil] 0 1 (p => Nat.succNotZero 0 (Eq.sym p)) [Nil])
 
-theorem List.memBetweenIntroExample: List.Mem 3 (List.between 1 5) := List.memBetweenIntro 3 1 5 rfl rfl
+theorem List.memBetweenIntroExample: 3 ∈ List.between 1 5 := List.memBetweenIntro 3 1 5 rfl rfl
 
-theorem List.memFlatMapExample: List.Mem 20 (List.flatMap [1, 2] (x => [x, x * 10])) :=
+theorem List.memFlatMapExample: 20 ∈ List.flatMap [1, 2] (x => [x, x * 10]) :=
   List.memFlatMapIntro (x => [x, x * 10]) 2 20 [1, 2] (Inr (Inl rfl)) (Inr (Inl rfl))
 
 theorem List.distinctAppendExample: List.Distinct (List.append [1] [2]) :=
@@ -1204,7 +1216,7 @@ theorem List.distinctAppendExample: List.Distinct (List.append [1] [2]) :=
       | Inr v => v) Trivial)
 
 -- What `List.All` says of an element of the list.
-theorem List.allMem (p: a → Prop) (x: a): (xs: List a) → List.All p xs → List.Mem x xs → p x
+theorem List.allMem (p: a → Prop) (x: a): (xs: List a) → List.All p xs → x ∈ xs → p x
   | Nil, h, m => Void.exfalso m
   | Cons z zs, Both pz h, Inl e => rewrite <- e in pz
   | Cons z zs, Both pz h, Inr m => List.allMem p x zs h m
@@ -1213,7 +1225,7 @@ theorem List.allMem (p: a → Prop) (x: a): (xs: List a) → List.All p xs → L
 -- for code that finds records by an id.
 
 -- What `List.find` finds passes the test and is in the list.
-theorem List.findSome: (xs: List a) → (p: a → Bool) → (y: a) → List.find xs p = Some y → And (p y = True) (List.Mem y xs)
+theorem List.findSome: (xs: List a) → (p: a → Bool) → (y: a) → List.find xs p = Some y → And (p y = True) (y ∈ xs)
   | Nil, p, y, h => Void.exfalso (Option.noneNotSome y h)
   | Cons x xs, p, y, h =>
     match e: p x with
@@ -1223,7 +1235,7 @@ theorem List.findSome: (xs: List a) → (p: a → Bool) → (y: a) → List.find
           | Both py m => Both py (Inr m)
 
 -- `List.find` finds nothing only when no element passes.
-theorem List.findNoneNotMem: (xs: List a) → (p: a → Bool) → (x: a) → (px: p x = True) → List.Mem x xs → List.find xs p = None → Void
+theorem List.findNoneNotMem: (xs: List a) → (p: a → Bool) → (x: a) → (px: p x = True) → x ∈ xs → List.find xs p = None → Void
   | Nil, p, x, px, m, h => m
   | Cons z zs, p, x, px, Inl e, h => Option.someNotNone x (rewrite e, px at h)
   | Cons z zs, p, x, px, Inr m, h =>
@@ -1232,7 +1244,7 @@ theorem List.findNoneNotMem: (xs: List a) → (p: a → Bool) → (x: a) → (px
       | False => List.findNoneNotMem zs p x px m h
 
 -- An element that passes makes `List.any` true.
-theorem List.anyOfMem: (xs: List a) → (q: a → Bool) → (y: a) → (qy: q y = True) → List.Mem y xs → List.any xs q = True
+theorem List.anyOfMem: (xs: List a) → (q: a → Bool) → (y: a) → (qy: q y = True) → y ∈ xs → List.any xs q = True
   | Nil, q, y, qy, m => Void.exfalso m
   | Cons x xs, q, y, qy, Inl e => rewrite e, qy in rfl
   | Cons x xs, q, y, qy, Inr m =>
@@ -1241,7 +1253,7 @@ theorem List.anyOfMem: (xs: List a) → (q: a → Bool) → (y: a) → (qy: q y 
       | False => List.anyOfMem xs q y qy m
 
 -- And back: when `List.any` is true, some element of the list passes.
-theorem List.anyTrueElim: (xs: List a) → (p: a → Bool) → (goal: Prop) → List.any xs p = True → ((x: a) → List.Mem x xs → p x = True → goal) → goal
+theorem List.anyTrueElim: (xs: List a) → (p: a → Bool) → (goal: Prop) → List.any xs p = True → ((x: a) → x ∈ xs → p x = True → goal) → goal
   | Nil, p, goal, h, k => Void.exfalso (Bool.falseNotTrue h)
   | Cons z zs, p, goal, h, k =>
     match c: p z with
@@ -1255,7 +1267,7 @@ theorem List.findAny (xs: List a) (p: a → Bool) (q: a → Bool) (y: a) (qy: q 
 
 -- With distinct keys, finding by an element's key finds that element (and
 -- `List.findKey`, std/List/Sort.sw, says what is found has the key).
-theorem List.findKeyDistinct [auto eq: DecEq k] (key: a → k): (xs: List a) → List.Distinct (List.map xs key) → (x: a) → List.Mem x xs →
+theorem List.findKeyDistinct [auto eq: DecEq k] (key: a → k): (xs: List a) → List.Distinct (List.map xs key) → (x: a) → x ∈ xs →
     List.find xs (y => key y == key x) = Some x
   | Nil, d, x, m => Void.exfalso m
   | Cons z zs, Both notMem d, x, Inl e => rewrite e, DecEq.refl (key x) in rfl
@@ -1273,9 +1285,9 @@ theorem List.findKeyDistinctExample: List.find [(1, "a"), (2, "b")] (y => y.fst 
     (2, "b") (Inr (Inl rfl))
 
 -- A key of part of the list is a key of the list.
-theorem List.memMapOfSub (key: a → k) (s: List a) (xs: List a) (sub: (y: a) → List.Mem y s → List.Mem y xs) (z: k)
-    (m: List.Mem z (List.map s key)): List.Mem z (List.map xs key) :=
-  List.anyElim (y => key y = z) (List.Mem z (List.map xs key)) s (List.memMapAny s key z m)
+theorem List.memMapOfSub (key: a → k) (s: List a) (xs: List a) (sub: (y: a) → y ∈ s → y ∈ xs) (z: k)
+    (m: z ∈ List.map s key): z ∈ List.map xs key :=
+  List.anyElim (y => key y = z) (z ∈ List.map xs key) s (List.memMapAny s key z m)
     (y inS e => rewrite <- e in List.memMap xs y (sub y inS) key)
 
 -- Keeping some elements keeps their keys distinct.
@@ -1302,7 +1314,7 @@ theorem List.distinctFilter: (xs: List a) → (p: a → Bool) → List.Distinct 
 -- A key of a `filterMap`'s result is the key of an element it came from,
 -- when each result has the key of its element.
 theorem List.memMapFilterMap (f: a → Option b) (ka: a → k) (kb: b → k) (hk: (x: a) → (y: b) → f x = Some y → kb y = ka x) (z: k):
-    (xs: List a) → List.Mem z (List.map (List.filterMap xs f) kb) → List.Mem z (List.map xs ka)
+    (xs: List a) → z ∈ List.map (List.filterMap xs f) kb → z ∈ List.map xs ka
   | Nil, m => m
   | Cons x xs, m =>
     match e: f x with
@@ -1599,6 +1611,13 @@ theorem List.foldLeftMap: (xs: List a) → (z: c) → (f: c → b → c) → (g:
   | Nil, z, f, g => rfl
   | Cons x xs, z, f, g => List.foldLeftMap xs (f z (g x)) f g
 
+-- A fold over `zipWith` folds over the pairs, combining each as it goes.
+theorem List.foldLeftZipWith (g: a → b → c) (f: d → c → d): (xs: List a) → (ys: List b) → (z: d) →
+    List.foldLeft (List.zipWith xs ys g) z f = List.foldLeft (List.zip xs ys) z (acc p => f acc (g p.fst p.snd))
+  | Nil, ys, z => rfl
+  | Cons x xs, Nil, z => rfl
+  | Cons x xs, Cons y ys, z => List.foldLeftZipWith g f xs ys (f z (g x y))
+
 theorem List.anyMap: (xs: List a) → (p: b → Bool) → (f: a → b) → List.any (List.map xs f) p = List.any xs (x => p (f x))
   | Nil, p, f => rfl
   | Cons x xs, p, f => rewrite List.anyMap xs p f
@@ -1647,28 +1666,43 @@ theorem List.pairsMap: (xs: List a) → (f: a → b) → List.pairs (List.map xs
 
 -- Callbacks that agree on the list's elements (not everywhere, as for
 -- `List.mapCong`) give the same result.
-theorem List.mapCongMem: (xs: List a) → (f1: a → b) → (f2: a → b) → ((x: a) → (m: List.Mem x xs) → f1 x = f2 x) → List.map xs f1 = List.map xs f2
+theorem List.mapCongMem: (xs: List a) → (f1: a → b) → (f2: a → b) → ((x: a) → (m: x ∈ xs) → f1 x = f2 x) → List.map xs f1 = List.map xs f2
   | Nil, f1, f2, ef => rfl
   | Cons x xs, f1, f2, ef => rewrite ef x (Inl rfl), List.mapCongMem xs f1 f2 (y m => ef y (Inr m))
 
-theorem List.filterCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: List.Mem x xs) → p1 x = p2 x) → List.filter xs p1 = List.filter xs p2
+theorem List.filterCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: x ∈ xs) → p1 x = p2 x) → List.filter xs p1 = List.filter xs p2
   | Nil, p1, p2, ep => rfl
   | Cons x xs, p1, p2, ep => rewrite ep x (Inl rfl), List.filterCongMem xs p1 p2 (y m => ep y (Inr m))
 
-theorem List.anyCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: List.Mem x xs) → p1 x = p2 x) → List.any xs p1 = List.any xs p2
+theorem List.anyCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: x ∈ xs) → p1 x = p2 x) → List.any xs p1 = List.any xs p2
   | Nil, p1, p2, ep => rfl
   | Cons x xs, p1, p2, ep => rewrite ep x (Inl rfl), List.anyCongMem xs p1 p2 (y m => ep y (Inr m))
 
-theorem List.occurrencesCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: List.Mem x xs) → p1 x = p2 x) →
+theorem List.occurrencesCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: x ∈ xs) → p1 x = p2 x) →
     List.occurrences xs p1 = List.occurrences xs p2
   | Nil, p1, p2, ep => rfl
   | Cons x xs, p1, p2, ep => rewrite ep x (Inl rfl), List.occurrencesCongMem xs p1 p2 (y m => ep y (Inr m))
 
-theorem List.foldLeftCongMem: (xs: List a) → (z: b) → (f1: b → a → b) → (f2: b → a → b) → ((acc: b) → (x: a) → (m: List.Mem x xs) → f1 acc x = f2 acc x) →
+theorem List.foldLeftCongMem: (xs: List a) → (z: b) → (f1: b → a → b) → (f2: b → a → b) → ((acc: b) → (x: a) → (m: x ∈ xs) → f1 acc x = f2 acc x) →
     List.foldLeft xs z f1 = List.foldLeft xs z f2
   | Nil, z, f1, f2, ef => rfl
   | Cons x xs, z, f1, f2, ef =>
     Eq.trans (Eq.cong (t => List.foldLeft xs t f1) (ef z x (Inl rfl))) (List.foldLeftCongMem xs (f2 z x) f1 f2 (acc y m => ef acc y (Inr m)))
+
+theorem List.filterMapCongMem: (xs: List a) → (f1: a → Option b) → (f2: a → Option b) → ((x: a) → (m: x ∈ xs) → f1 x = f2 x) →
+    List.filterMap xs f1 = List.filterMap xs f2
+  | Nil, f1, f2, ef => rfl
+  | Cons x xs, f1, f2, ef => rewrite ef x (Inl rfl), List.filterMapCongMem xs f1 f2 (y m => ef y (Inr m))
+
+-- A `filterMap` that keeps every element, changed by `g`, is a `map`.
+theorem List.filterMapSomeMem (xs: List a) (f: a → Option b) (g: a → b) (h: (x: a) → x ∈ xs → f x = Some (g x)):
+    List.filterMap xs f = List.map xs g :=
+  Eq.trans (List.filterMapCongMem xs f (x => Some (g x)) h) (List.filterMapSome xs g)
+
+-- A `filterMap` that keeps every element as it is gives the list back.
+theorem List.filterMapAll (f: a → Option a): (xs: List a) → ((x: a) → x ∈ xs → f x = Some x) → List.filterMap xs f = xs
+  | Nil, h => rfl
+  | Cons x xs, h => rewrite h x (Inl rfl) in Eq.cong (Cons x) (List.filterMapAll f xs (y m => h y (Inr m)))
 
 -- Over a run of numbers, the facts are the run's bounds. `rewrite` tries a
 -- function's `…CongRange` lemma first, then `…CongMem`, then `…Cong`, and
@@ -1709,13 +1743,13 @@ theorem List.foldMaxGe: (xs: List Nat) → (start: Nat) → start ≤ List.foldL
   | Cons x xs, start => Nat.leTrans start (Nat.max start x) (List.foldLeft xs (Nat.max start x) Nat.max) (Nat.leMaxLeft start x) (List.foldMaxGe xs (Nat.max start x))
 
 -- Every element is at most the largest.
-theorem List.leFoldMax: (xs: List Nat) → (x: Nat) → (start: Nat) → List.Mem x xs → x ≤ List.foldLeft xs start Nat.max
+theorem List.leFoldMax: (xs: List Nat) → (x: Nat) → (start: Nat) → x ∈ xs → x ≤ List.foldLeft xs start Nat.max
   | Nil, x, start, m => Void.exfalso m
   | Cons y ys, x, start, Inl e => rewrite <- e in Nat.leTrans y (Nat.max start y) (List.foldLeft ys (Nat.max start y) Nat.max) (Nat.leMaxRight start y) (List.foldMaxGe ys (Nat.max start y))
   | Cons y ys, x, start, Inr m => List.leFoldMax ys x (Nat.max start y) m
 
 -- The largest is the start or one of the elements.
-theorem List.foldMaxMem: (xs: List Nat) → (start: Nat) → Or (List.foldLeft xs start Nat.max = start) (List.Mem (List.foldLeft xs start Nat.max) xs)
+theorem List.foldMaxMem: (xs: List Nat) → (start: Nat) → Or (List.foldLeft xs start Nat.max = start) (List.foldLeft xs start Nat.max ∈ xs)
   | Nil, start => Inl rfl
   | Cons y ys, start =>
     match List.foldMaxMem ys (Nat.max start y) with
@@ -1751,12 +1785,12 @@ theorem List.sumByRangeSplit (f: Nat → Nat) (t: Nat) (b: Nat) (tb: t ≤ b):
 -- sums of zero -----------------------------------------------------------------
 
 -- A sum of numbers is 0 only if each is.
-theorem List.sumByZeroElim: (xs: List a) → (f: a → Nat) → List.sumBy xs f = 0 → (x: a) → List.Mem x xs → f x = 0
+theorem List.sumByZeroElim: (xs: List a) → (f: a → Nat) → List.sumBy xs f = 0 → (x: a) → x ∈ xs → f x = 0
   | Nil, f, h, x, m => Void.exfalso m
   | Cons y ys, f, h, x, Inl e => rewrite <- e in (Nat.addEqZero (f y) (List.sumBy ys f) (Eq.trans (Eq.sym (List.sumByCons ys y f)) h)).left
   | Cons y ys, f, h, x, Inr m => List.sumByZeroElim ys f (Nat.addEqZero (f y) (List.sumBy ys f) (Eq.trans (Eq.sym (List.sumByCons ys y f)) h)).right x m
 
-theorem List.sumByZeroIntro: (xs: List a) → (f: a → Nat) → ((x: a) → List.Mem x xs → f x = 0) → List.sumBy xs f = 0
+theorem List.sumByZeroIntro: (xs: List a) → (f: a → Nat) → ((x: a) → x ∈ xs → f x = 0) → List.sumBy xs f = 0
   | Nil, f, h => rfl
   | Cons y ys, f, h => rewrite List.sumByCons ys y f, h y (Inl rfl), List.sumByZeroIntro ys f (x m => h x (Inr m)) in rfl
 
@@ -1791,7 +1825,7 @@ theorem List.countFilter (xs: List a) (p: a → Bool) (q: a → Bool) (h: (x: a)
 -- membership through zip, take, drop and filter ------------------------------
 
 -- Each pair of `List.zip xs ys` is an element of `xs` with one of `ys`.
-theorem List.memZip (p: (a, b)): (xs: List a) → (ys: List b) → List.Mem p (List.zip xs ys) → And (List.Mem p.fst xs) (List.Mem p.snd ys)
+theorem List.memZip (p: (a, b)): (xs: List a) → (ys: List b) → p ∈ List.zip xs ys → And (p.fst ∈ xs) (p.snd ∈ ys)
   | Nil, ys, m => Void.exfalso m
   | Cons x xs, Nil, m => Void.exfalso m
   | Cons x xs, Cons y ys, Inl e => rewrite <- e in Both (Inl rfl) (Inl rfl)
@@ -1799,19 +1833,19 @@ theorem List.memZip (p: (a, b)): (xs: List a) → (ys: List b) → List.Mem p (L
     match List.memZip p xs ys m with
       | Both inXs inYs => Both (Inr inXs) (Inr inYs)
 
-theorem List.memTake: (xs: List a) → (v: a) → (n: Nat) → List.Mem v (List.take xs n) → List.Mem v xs
+theorem List.memTake: (xs: List a) → (v: a) → (n: Nat) → v ∈ List.take xs n → v ∈ xs
   | xs, v, Zero, m => Void.exfalso m
   | Nil, v, Succ n, m => m
   | Cons x xs, v, Succ n, Inl e => Inl e
   | Cons x xs, v, Succ n, Inr m => Inr (List.memTake xs v n m)
 
-theorem List.memDrop: (xs: List a) → (v: a) → (n: Nat) → List.Mem v (List.drop xs n) → List.Mem v xs
+theorem List.memDrop: (xs: List a) → (v: a) → (n: Nat) → v ∈ List.drop xs n → v ∈ xs
   | xs, v, Zero, m => m
   | Nil, v, Succ n, m => m
   | Cons x xs, v, Succ n, m => Inr (List.memDrop xs v n m)
 
 -- What passes the test is kept.
-theorem List.memFilterIntro: (xs: List a) → (p: a → Bool) → (v: a) → List.Mem v xs → p v = True → List.Mem v (List.filter xs p)
+theorem List.memFilterIntro: (xs: List a) → (p: a → Bool) → (v: a) → v ∈ xs → p v = True → v ∈ List.filter xs p
   | Nil, p, v, m, h => m
   | Cons x xs, p, v, Inl e, h => rewrite <- e at h in (rewrite h in Inl e)
   | Cons x xs, p, v, Inr m, h =>
@@ -1828,27 +1862,27 @@ theorem List.filterOfMap: (xs: List a) → (q: b → Bool) → (g: a → b) → 
       | False => List.filterOfMap xs q g
 
 -- Each pair of `List.pairs xs` is two elements of `xs`.
-theorem List.memPairs (p: (a, a)): (xs: List a) → List.Mem p (List.pairs xs) → And (List.Mem p.fst xs) (List.Mem p.snd xs)
+theorem List.memPairs (p: (a, a)): (xs: List a) → p ∈ List.pairs xs → And (p.fst ∈ xs) (p.snd ∈ xs)
   | Nil, m => Void.exfalso m
   | Cons x xs, m =>
     match List.memAppend p (List.map xs (y => (x, y))) (List.pairs xs) m with
       | Inl first =>
-        List.anyElim (y => (x, y) = p) (And (List.Mem p.fst (Cons x xs)) (List.Mem p.snd (Cons x xs))) xs (List.memMapAny xs (y => (x, y)) p first)
+        List.anyElim (y => (x, y) = p) (And (p.fst ∈ Cons x xs) (p.snd ∈ Cons x xs)) xs (List.memMapAny xs (y => (x, y)) p first)
           (y inXs e => rewrite <- e in Both (Inl rfl) (Inr inXs))
       | Inr later =>
         match List.memPairs p xs later with
           | Both one other => Both (Inr one) (Inr other)
 
 -- The last element, if there is one, is an element.
-theorem List.lastMem: (xs: List a) → (x: a) → List.last xs = Some x → List.Mem x xs
+theorem List.lastMem: (xs: List a) → (x: a) → List.last xs = Some x → x ∈ xs
   | Nil, x, h => Void.exfalso (Option.noneNotSome x h)
   | Cons y Nil, x, h => Inl (Option.someInjective y x h)
   | Cons y (Cons z zs), x, h => Inr (List.lastMem (Cons z zs) x h)
 
-theorem List.lastMemExample: List.Mem 3 [1, 2, 3] := List.lastMem [1, 2, 3] 3 rfl
+theorem List.lastMemExample: 3 ∈ [1, 2, 3] := List.lastMem [1, 2, 3] 3 rfl
 
 -- `filterMap` keeps `y` when an element maps to `Some y` ...
-theorem List.memFilterMapIntro (f: a → Option b) (x: a) (y: b): (xs: List a) → List.Mem x xs → f x = Some y → List.Mem y (List.filterMap xs f)
+theorem List.memFilterMapIntro (f: a → Option b) (x: a) (y: b): (xs: List a) → x ∈ xs → f x = Some y → y ∈ List.filterMap xs f
   | Nil, m, e => Void.exfalso m
   | Cons z zs, Inl q, e => rewrite q, e in Inl rfl
   | Cons z zs, Inr m, e =>
@@ -1857,7 +1891,7 @@ theorem List.memFilterMapIntro (f: a → Option b) (x: a) (y: b): (xs: List a) �
       | Some w => Inr (List.memFilterMapIntro f x y zs m e)
 
 -- ... and keeps nothing else.
-theorem List.memFilterMapElim (f: a → Option b) (y: b): (xs: List a) → List.Mem y (List.filterMap xs f) → List.Any (x => f x = Some y) xs
+theorem List.memFilterMapElim (f: a → Option b) (y: b): (xs: List a) → y ∈ List.filterMap xs f → List.Any (x => f x = Some y) xs
   | Nil, m => m
   | Cons z zs, m =>
     match c: f z with
@@ -1885,7 +1919,7 @@ theorem List.allFilterMapElim (q: b → Prop) (f: a → Option b): (xs: List a) 
         match h with
           | Both hw rest => Both (y e => rewrite <- Option.someInjective w y e in hw) (List.allFilterMapElim q f zs rest)
 
-theorem List.memFilterMapExample: List.Mem 4 (List.filterMap [1, 2, 3] (x => if x == 2 then Some (x * 2) else None)) :=
+theorem List.memFilterMapExample: 4 ∈ List.filterMap [1, 2, 3] (x => if x == 2 then Some (x * 2) else None) :=
   List.memFilterMapIntro (x => if x == 2 then Some (x * 2) else None) 2 4 [1, 2, 3] (Inr (Inl rfl)) rfl
 
 -- `List.all` and `List.any` (the `Bool`s a program computes) are `List.All`
@@ -1923,11 +1957,11 @@ theorem List.anyOfAny (p: a → Bool): (xs: List a) → List.Any (x => p x = Tru
 theorem List.anyIff (xs: List a) (p: a → Bool): List.any xs p = True ↔ List.Any (x => p x = True) xs :=
   { forward = List.anyToAny p xs, backward = List.anyOfAny p xs }
 
--- Membership written with `any` and `==` is `List.Mem`. (`x ∈ xs` as a
+-- Membership written with `any` and `==` is `x ∈ xs`. (`x ∈ xs` as a
 -- `Bool` is `List.decMem`'s decision: `Decidable.toBoolSound` and
--- `Decidable.toBoolOf` take it to `List.Mem` and back.)
-theorem List.anyEqIff [auto eq: DecEq a] (x: a) (xs: List a): List.any xs (== x) = True ↔ List.Mem x xs := {
-  forward = h => List.anyTrueElim xs (== x) (List.Mem x xs) h (y m e => rewrite <- DecEq.sound y x e in m),
+-- `Decidable.toBoolOf` take it to the proposition and back.)
+theorem List.anyEqIff [auto eq: DecEq a] (x: a) (xs: List a): List.any xs (== x) = True ↔ x ∈ xs := {
+  forward = h => List.anyTrueElim xs (== x) (x ∈ xs) h (y m e => rewrite <- DecEq.sound y x e in m),
   backward = m => List.anyOfMem xs (== x) x (DecEq.refl x) m
 }
 
@@ -2016,7 +2050,7 @@ theorem List.getPast: (xs: List a) → (k: Nat) → List.length xs ≤ k → Lis
   | Cons x xs, Succ k, h => List.getPast xs k h
 
 -- What `get` finds is an element of the list.
-theorem List.memOfGet: (xs: List a) → (k: Nat) → (v: a) → List.get xs k = Some v → List.Mem v xs
+theorem List.memOfGet: (xs: List a) → (k: Nat) → (v: a) → List.get xs k = Some v → v ∈ xs
   | Nil, k, v, h => Void.exfalso (Option.noneNotSome v h)
   | Cons x xs, Zero, v, h => Inl (Option.someInjective x v h)
   | Cons x xs, Succ k, v, h => Inr (List.memOfGet xs k v h)
@@ -2069,6 +2103,23 @@ theorem List.getTakePast: (xs: List a) → (n: Nat) → (k: Nat) → n ≤ k →
   | Nil, Succ n, k, h => rfl
   | Cons x xs, Succ n, Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Cons x xs, Succ n, Succ k, h => List.getTakePast xs n k h
+
+-- Entry k of the running accumulations is the fold of the first k
+-- elements (`List.getOrScanLeft`, std/List/Index.sw, with a fallback).
+theorem List.getScanLeft (f: b → a → b): (xs: List a) → (z: b) → (k: Nat) → k ≤ List.length xs →
+    List.get (List.scanLeft xs z f) k = Some (List.foldLeft (List.take xs k) z f)
+  | Nil, z, Zero, h => rfl
+  | Nil, z, Succ k, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, z, Zero, h => rfl
+  | Cons x xs, z, Succ k, h => List.getScanLeft f xs (f z x) k h
+
+-- Element k of each element beside the running accumulations is `g` of
+-- element k and the fold of the elements before it, and nothing past the end.
+theorem List.getZipWithScanLeft (f: b → a → b) (g: a → b → c): (xs: List a) → (z: b) → (k: Nat) →
+    List.get (List.zipWith xs (List.scanLeft xs z f) g) k = Option.map (List.get xs k) (x => g x (List.foldLeft (List.take xs k) z f))
+  | Nil, z, k => rfl
+  | Cons x xs, z, Zero => rfl
+  | Cons x xs, z, Succ k => List.getZipWithScanLeft f g xs (f z x) k
 
 theorem List.getExample: List.get (List.append [1, 2] (List.map [3, 4] Succ)) 3 = Some 5 := rfl
 

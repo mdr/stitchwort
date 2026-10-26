@@ -64,7 +64,6 @@ pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
     ("List/Distinct.sw", include_str!("std/List/Distinct.sw")),
     ("List/Grid.sw", include_str!("std/List/Grid.sw")),
     ("List/Index.sw", include_str!("std/List/Index.sw")),
-    ("List/Mem.sw", include_str!("std/List/Mem.sw")),
     ("List/Positions.sw", include_str!("std/List/Positions.sw")),
     ("List/Sort.sw", include_str!("std/List/Sort.sw")),
     ("List/Toolkit.sw", include_str!("std/List/Toolkit.sw")),
