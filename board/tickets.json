@@ -1,5 +1,5 @@
 {
-  "next": 560,
+  "next": 562,
   "tickets": [
     {
       "id": 13,
@@ -3976,7 +3976,33 @@
     {
       "id": 559,
       "title": "Fully native binaries (D1294: no interpreter in the binary, build fails instead of falling back): design note docs/proposals/native-only.md (native effect runtime, entry glue, stack-depth check, build errors)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": [
+        "683ad0c9"
+      ]
+    },
+    {
+      "id": 560,
+      "title": "Native-only NO1: Text.fold as a runtime body, leaf helpers in apply stubs, nested-run counter (native-only.md §6)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 561,
+      "title": "Native-only NO2-NO7: run loop/folds/translate/resumptions; state handlers; entry + Executor; no fallback; binary without the machine; Linux (native-only.md §6)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
