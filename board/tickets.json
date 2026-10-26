@@ -3736,14 +3736,16 @@
     {
       "id": 541,
       "title": "Standalone S5: object output, build --native (after S4)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "fe009e14"
+      ]
     },
     {
       "id": 542,
@@ -3813,8 +3815,8 @@
     },
     {
       "id": 547,
-      "title": "Audit registry.ctor(Builtin::X) calls for library built-ins that may not be loaded (debug-build assert; found via fin_missing panic, 96eb85a8)",
-      "status": "backlog",
+      "title": "Audit registry.ctor(Builtin::X) for unloaded library built-ins: done, no further instances (static audit)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
