@@ -1309,9 +1309,9 @@
       "labels": [
         "proofs"
       ],
-      "body": "Trigger: Day 2 review suggestions C and D (weightedIds restating whole sums; writeTimesMul's 7-step regrouping; omega.md:625 lists Day 2's non-linear residue). Matt 23 Oct: backlog; each needs a proposal.",
+      "body": "Trigger found 26 Oct: the private app port keeps ~70 lines of helpers that restate a definition's unfolded ∧/if chain over free Booleans and list the cases by hand (std's Float.ltLeBools does the same); match e: on the goal doesn't work because hypotheses stop matching after unfolding (isZero b ∧ isZero a vs isZero a ∧ isZero b).",
       "created": "2026-10-23",
-      "updated": "2026-10-24",
+      "updated": "2026-10-26",
       "commits": [
         "dc87398c",
         "1c359b87",
