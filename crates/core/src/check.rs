@@ -1589,6 +1589,14 @@ pub fn set_unfolding(g: &mut Globals, id: DefId, unfolding: &[DefId]) {
     }
 }
 
+/// The transparency set member `id` of group `ids` is checked under, with its
+/// `unfolding` list checked first, as [`define_group`] will: for the
+/// elaborator, which elaborates the body under the same set
+/// (docs/proposals/opaque-definitions.md §6.4).
+pub fn transparency_set(g: &Globals, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
+    transparency(g, id, ids)
+}
+
 /// The transparency set member `id` of group `ids` is checked under, from its
 /// `unfolding` list (docs/proposals/opaque-definitions.md §6.4, §6.11), with
 /// the list checked first:

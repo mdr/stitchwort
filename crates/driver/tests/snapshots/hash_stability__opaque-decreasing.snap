@@ -1,0 +1,12 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.countDown d18566d5474341b5b3e770cc6d4b9a2e2babb1b69ffb57bfa2731fd3b40454c7
+Main.countDown.%step 45ab5ceaeaf5b869d20562c7e7d1d8034614ba032fec35530e900ff6cb496e12
+Main.countDown.%go dafc7e7fccc3ec15e3feb56a40569f258b00aa92c6af4f155ada8b6d9fe17f7d
+Main.countDown.%step.%respects 152df3e1bda26eb948988f4411c46c12d85bfc6f50a5385f079ccd7178148ff1
+Main.countDown.%irrel 6d5237e0e4c025d6614fd560d577de5bce4e7e22b2f3c1fd8f071c390e542bd4
+Main.countDown.unfold 61948f1eabe0b9daf8b7404aad47aa40211c6ca8aba959972465fb03fe833fbe
+Main.countDownZero 09270cf567178a97857e3659df4960b81440cc54dd01ea4aa78be9336e8f93cd
+Main.test "countDown runs" 19e440d05b2bfc49bf47da4fd71d5d7a5ce869ef1f42c95e9630bb611e532d13

@@ -837,6 +837,14 @@ pub enum Decl {
         /// well-founded recursive definition or theorem
         /// (docs/proposals/well-founded-recursion.md §6.1).
         decreasing: Option<Box<Expr>>,
+        /// `opaque def`: opaque to the checker, so other declarations see
+        /// its type and not its body (docs/proposals/opaque-definitions.md
+        /// §6.2).
+        opaque: bool,
+        /// `unfolding f, g` after the result type (and after `decreasing e`):
+        /// the opaque definitions whose bodies this one's body may use
+        /// (docs/proposals/opaque-definitions.md §6.3). Empty if not written.
+        unfolding: Vec<Name>,
         /// The attributes written before the declaration (before `export`,
         /// if it's there).
         attrs: Vec<Attribute>,

@@ -167,6 +167,8 @@ A definition can be **opaque to the checker** (`Def::opaque`, `check::mark_opaqu
 4. Each name in a list must be a final, opaque definition (`E-NOT-OPAQUE`; a failed one is `E-FAILED-DEPENDENCY`), not a member of the same group, which has no body yet (`E-UNFOLDING-GROUP`).
 5. **Running ignores it.** While a program runs every definition unfolds.
 
+The elaborator (`crates/elab/src/opaque.rs`; written `opaque def` and `unfolding f, g`, docs/syntax.md) agrees with the kernel: it elaborates each body under the set the kernel will check it under, with every type evaluated again under that set (`check::def_type`) and glued calls' kept unfoldings dropped when the set changes; a `match` or local definition lifted from a body with a list is opaque with the same list, and the body unfolds the ones admitted before it. Each opaque `f` with no list gets the theorem `f.unfold (x…): f x… = f.%body x…` (with the list `[f]`), where `f.%body` is a transparent copy of the body that stays folded, as a dictionary does, until something looks inside it; its proof is `rfl`, or for a case tree the same tree with `rfl` at each leaf (a `NumCase` split into the `Zero`/`Succ` cases it stands for). The check cache stores and replays the flag and the list.
+
 The flag and the list as written (each name as its declaration's hash, in the order of those hashes, once each) are part of the definition's hash ([below](#tests-and-content-hashes)); a transparent definition hashes as before.
 
 ### Groups of definitions
@@ -517,3 +519,4 @@ Inlining copies code: each inlined member or helper appears once per call site i
 | `E-BUILTIN` | A prelude type or definition the compiler implements natively, or `Effect.Delay` and its constants, doesn't have the expected shape |
 | `E-FAILED-DEPENDENCY` | A declaration uses one that has errors (reported only when that one's errors aren't) |
 | `E-NOT-OPAQUE` / `E-UNFOLDING-TRANSPARENT` / `E-UNFOLDING-GROUP` | An `unfolding` list naming a definition that isn't opaque; on a definition that isn't opaque itself; naming a definition checked in the same group ([opaque definitions](#opaque-definitions)) |
+| `E-NO-UNFOLD-EQUATION` | `f.unfold` named for an opaque `f` with an `unfolding` clause, which gets no equation: its statement may need what `f` unfolds ([opaque definitions](#opaque-definitions); docs/syntax.md, Opaque definitions) |

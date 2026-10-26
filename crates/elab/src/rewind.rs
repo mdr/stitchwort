@@ -184,6 +184,8 @@ impl Elaborator {
             body_type,
             local_keys,
             preadmitted,
+            owner_unfolding,
+            owner_helpers,
             local_helpers,
             helper_keys,
             local_metas,
@@ -273,6 +275,8 @@ impl Elaborator {
         *body_type.get_mut() = None;
         local_keys.get_mut().clear();
         preadmitted.get_mut().clear();
+        *owner_unfolding.get_mut() = None;
+        owner_helpers.get_mut().clear();
         *local_helpers = mark.local_helpers.clone();
         *helper_keys = mark.helper_keys.clone();
         local_metas.get_mut().clear();
