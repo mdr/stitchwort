@@ -907,6 +907,27 @@ M1.**
 
     2.7× fewer cycles (0.24 ms a key against 0.68 ms), for about 0.95 MB
     more code.
+  - **After NO6 of native-only.md (26 October 2026): no machine inside.**
+    A `--native` binary carries the tables and literals native code reads
+    (`stitchwort_rt::linked`) instead of the encoded program, and links
+    none of the machine, the bytecode compiler or the codec (`nm` checks it
+    on the roguelike); the manifest (version 6) names the library's way to
+    run the executable, so a machine-only binary also links no native
+    runtime. The same seeded roguelike, a 500-key piped game with other
+    keys than above (396,274 bytes of output, identical for both binaries
+    and `run`; Apple M4 Pro, load 10–25, best of 3), against main before
+    NO6 on the same keys:
+
+    | Binary | Wall | Cycles | Instructions | Size (stripped) | Build |
+    |---|---|---|---|---|---|
+    | `--native` | 0.10 s | 0.40 G | 2.29 G | 2,196,880 (1,847,456) | 1.29 s |
+    | `--native`, before NO6 | 0.11 s | 0.43 G | 2.29 G | 2,469,984 (2,080,640) | 1.45 s |
+    | machine only | 0.28 s | 1.09 G | 5.56 G | 1,447,152 (1,086,704) | 0.43 s |
+    | machine only, before NO6 | 0.27 s | 1.07 G | 5.58 G | 1,531,152 (1,154,480) | 0.46 s |
+
+    0.20 ms a key against 0.56 ms (wall), and the native binary is 233 KB
+    (11%) smaller than before; it is 0.76 MB larger than the machine-only
+    one. D1287's hybrid is superseded (D1294); NO7 records the rest.
 
 **S6. Every pure primitive through the runtime.**
 - **What:** `census::n1_blocker` admits `Prim`/`Test` of `Text`, `Int`,
