@@ -1,5 +1,5 @@
 {
-  "next": 619,
+  "next": 620,
   "tickets": [
     {
       "id": 13,
@@ -4745,6 +4745,18 @@
     {
       "id": 618,
       "title": "Private app port: D1343 — card ids distinct across the whole event: after merging groups, each card id kept only in the group the local copy has it in (else the remote's), removed elsewhere; converted slide cards go through the same step; WellFormed gains event-wide card-id distinctness, proved for well-formed inputs; tests incl. the moved-card case (A[X,Y]/B[] vs A[Y]/B[X]); differential category. After the D1341 clamp lane (private work only)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 619,
+      "title": "Private app port: methods sweep — move single-value helpers into their type's namespace with the value first (Recording.moveTo/moveBy/covers/positionOf/placeAt/shiftedTranscript, Transcript.shiftBy, Annotation.toCardGroup, Text.isBlank as local helper); list-of-recordings and merge-step functions stay free; theorems follow; no behaviour change, .d.ts identical, differential exits 0. After the D1341 clamp lane, before D1343 (private work only)",
       "status": "next",
       "agent": "",
       "where": "",
