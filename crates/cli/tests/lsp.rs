@@ -775,7 +775,9 @@ fn a_newer_edit_cancels_the_check_running() {
     client.change(&uri, 2, &format!("{text}\n-- one\n"));
     assert_eq!(client.diagnostics(&uri, 2), Vec::<Value>::new());
     let one = started.elapsed();
-    assert_eq!(cancellations.load(Ordering::SeqCst), 0, "nothing stale yet");
+    // Under load the opening check may still be running at the first edit and
+    // be cancelled by it; count only what the next two edits cancel.
+    let before = cancellations.load(Ordering::SeqCst);
 
     // An error, then (while its check is running) a fix.
     client.change(&uri, 3, &format!("{text}\ndef broken: Nat := \"a\"\n"));
@@ -785,7 +787,7 @@ fn a_newer_edit_cancels_the_check_running() {
     let found = client.diagnostics_checking(&uri, 4, Some(3));
     assert_eq!(found, Vec::<Value>::new());
     assert_eq!(
-        cancellations.load(Ordering::SeqCst),
+        cancellations.load(Ordering::SeqCst) - before,
         1,
         "the stale check should have been cancelled"
     );
