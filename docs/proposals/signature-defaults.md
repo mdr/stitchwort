@@ -19,37 +19,37 @@ are verbatim.
 
 ## 1. Why now
 
-A port's tests build values with factories like this one:
+A program's tests build values with factories like this one:
 
 ```
-def rec (id: Text) (start: Float) (duration: Float): Recording :=
-  { id = { value = id }, startTime = start, duration, mimeType = None, blobs = [], transcript = None, mediaSource = None, sourcePage = None }
+def booking (id: Text) (start: Float) (duration: Float): Booking :=
+  { id = { value = id }, start, duration, room = None, guests = [], notes = None }
 ```
 
 Each test passes every value, though most tests care about one or two.
-Matt: "This sort of factory is best spelled `makeRecording` and you can use
+Matt: "This sort of factory is best spelled `makeBooking` and you can use
 named/default arguments to give it useful default values (like None, []),
 and tests ideally specify just data that are pertinent to the scenario
 rather than every last dot and tittle." The call wanted is:
 
 ```
-makeRecording "a" (duration := 500.0)
+makeBooking "a" (duration := 30.0)
 ```
 
 Field defaults (`named-arguments.md` §5.1) don't fit this, for two
 reasons:
 
-- **The defaults belong to the factory, not the type.** `Recording` is a
+- **The defaults belong to the factory, not the type.** `Booking` is a
   domain type. Production code should give every field: a default of `None`
-  for `transcript` on the type itself would let production code leave it
+  for `notes` on the type itself would let production code leave it
   out by accident. The test file wants its own defaults, and different
   test files may want different ones.
 - **A factory does more than fill fields.** It wraps (`{ value = id }`),
   derives (an end time from start and duration) and names things the way the
   scenario talks about them. An options record for the factory would be a
-  second type mirroring `Recording`, written only to carry defaults.
+  second type mirroring `Booking`, written only to carry defaults.
 
-So the question is how to add `(duration: Float := 1000.0)` to a `def`'s
+So the question is how to add `(duration: Float := 60.0)` to a `def`'s
 header without the problems §5.4 worried about: defaults fighting currying,
 and defaults lost through function values.
 
@@ -148,34 +148,32 @@ What this tells us:
 ## 4. The design in one page
 
 ```
-def makeRecording (id: Text)
+def makeBooking (id: Text)
     (start: Float := 0.0)
-    (duration: Float := 1000.0)
-    (mimeType: Option Text := None)
-    (blobs: List Blob := [])
-    (transcript: Option Transcript := None)
-    (mediaSource: Option MediaSource := None)
-    (sourcePage: Option Text := None): Recording :=
-  { id = { value = id }, startTime = start, duration, mimeType, blobs, transcript, mediaSource, sourcePage }
+    (duration: Float := 60.0)
+    (room: Option Text := None)
+    (guests: List Guest := [])
+    (notes: Option Text := None): Booking :=
+  { id = { value = id }, start, duration, room, guests, notes }
 
-test "a short recording is skipped" :=
-  let short := makeRecording "a" (duration := 500.0)
-  skipped [short] == ["a"]
+test "a short booking is flagged" :=
+  let short := makeBooking "a" (duration := 30.0)
+  flagged [short] == ["a"]
 
-test "recordings keep their order" :=
-  let recordings := ["a", "b", "c"].map makeRecording
-  (recordings.map (r => r.id.value)) == ["a", "b", "c"]
+test "bookings keep their order" :=
+  let bookings := ["a", "b", "c"].map makeBooking
+  (bookings.map (b => b.id.value)) == ["a", "b", "c"]
 ```
 
 - **`(x: T := e)` in a `def` or `theorem` header**, top-level or local, on
   an explicit parameter (D1345).
 - **A defaulted parameter is given by name only.** Positional arguments
-  skip it (D1349). So `makeRecording "a" 0.0` is an error with a fix, and
+  skip it (D1349). So `makeBooking "a" 0.0` is an error with a fix, and
   adding a default to a function never moves a positional argument.
 - **A written call fills every default it doesn't name**, at the end of the
   call, whether or not the call gives every required parameter: a bare
-  `makeRecording` is `id => makeRecording id 0.0 1000.0 None [] None None None`,
-  so `["a", "b"].map makeRecording` works (D1350). Defaults never appear in
+  `makeBooking` is `id => makeBooking id 0.0 1000.0 None [] None None None`,
+  so `["a", "b"].map makeBooking` works (D1350). Defaults never appear in
   a function value's type (D1352).
 - **Each default is a helper definition**, as for fields: checked once at
   the declaration, for every value of the parameters before it; pure; it
@@ -265,7 +263,7 @@ As for fields (`named-arguments.md` §5.1 rules 2, 5, 8 and 9):
 ### 5.3 When a default is computed
 
 At each call that leaves the parameter out, as part of that call: the call
-`makeRecording "a"` is the term `makeRecording "a" (helper₁) (helper₂ …) …`.
+`makeBooking "a"` is the term `makeBooking "a" (helper₁) (helper₂ …) …`.
 Since a default is pure and terminates, whether it is computed once or per
 call can't be observed; "per call" is just what the term says, and it is
 what Scala, Kotlin, Swift and JavaScript do. There is no shared state to
@@ -286,7 +284,7 @@ one:
 2. **Fill the defaults.** Every defaulted parameter the call doesn't name
    gets its default: its helper applied to the earlier parameters it needs
    (D1350). This happens at the end of every written call, including a bare
-   name (`makeRecording`), dot notation (`clip.trimmed`), a method section
+   name (`makeBooking`), dot notation (`clip.trimmed`), a method section
    (`.trimmed`) and a pipe (`clip |> trimmed`).
 3. **Left-out required parameters** follow D1095, with each filled default
    counting as given: a required parameter left out *before* the last
@@ -343,8 +341,8 @@ keeps D1097's rule 1 from `named-arguments.md` §5.4. Reasons:
   change.
 - **Kotlin's corner disappears.** A default before a required parameter is
   no different from one after it.
-- **It's what the factory wants.** `makeRecording "a" 0.0 500.0` says less
-  than `makeRecording "a" (duration := 500.0)`.
+- **It's what the factory wants.** `makeBooking "a" 0.0 30.0` says less
+  than `makeBooking "a" (duration := 30.0)`.
 
 The cost is that `range 0 10 2` must be written `range 0 10 (step := 2)`,
 which Kotlin, Scala, Lean and JavaScript would all accept positionally.
@@ -632,13 +630,13 @@ function's result has no defaults.
 
 | Stage | What | Lane | Size |
 |---|---|---|---|
-| 1 | `(x: T := e)` on explicit parameters of top-level and local `def` and `theorem` headers; helpers (shared with field defaults); metadata in `Def` and the check cache; calls per §6.1 to §6.5 (named-only, filling at the end of every call including bare names, dot, sections, pipes; lambda for left-out parameters); `E-DEFAULT-POSITIONAL`; the errors of §8.3; hover and completion show defaults; `export def` with a default is `E-EXPORT` ("not yet"); accept example with `makeRecording`, reject examples; `docs/syntax.md` | **Opus** (application spine in `named.rs`, `check.rs`, `dot.rs`, `pipe.rs`) | medium |
+| 1 | `(x: T := e)` on explicit parameters of top-level and local `def` and `theorem` headers; helpers (shared with field defaults); metadata in `Def` and the check cache; calls per §6.1 to §6.5 (named-only, filling at the end of every call including bare names, dot, sections, pipes; lambda for left-out parameters); `E-DEFAULT-POSITIONAL`; the errors of §8.3; hover and completion show defaults; `export def` with a default is `E-EXPORT` ("not yet"); accept example with `makeBooking`, reject examples; `docs/syntax.md` | **Opus** (application spine in `named.rs`, `check.rs`, `dot.rs`, `pipe.rs`) | medium |
 | 1b | Printing: leave out helper calls (D1354) in messages, hover and goals | Sonnet | small |
 | 2 | JS: the options object (D1355), `.d.ts` snapshots under `tsc --strict --exactOptionalPropertyTypes`, decoder tests | Sonnet | small to medium |
 | 3 | Constructor calls use field defaults (D1346); update examples that apply constructors with defaulted fields | Sonnet | small |
 
-Stage 1 alone covers the factory: `makeRecording "a" (duration := 500.0)`,
-`.map makeRecording`, dependent and `Option`/list defaults.
+Stage 1 alone covers the factory: `makeBooking "a" (duration := 30.0)`,
+`.map makeBooking`, dependent and `Option`/list defaults.
 
 **Acceptance invariants**, each a test:
 
@@ -716,7 +714,7 @@ gives every required parameter; otherwise the defaulted parameters stay
 parameters of the partial application (so `xs.map (range 0)` would need
 `step` too). (c) OCaml's rule: when a later positional argument is applied,
 so a trailing defaulted parameter can never be filled.
-Reason: (a) makes `xs.map makeRecording` and `range 0` the functions a
+Reason: (a) makes `xs.map makeBooking` and `range 0` the functions a
 reader expects, and needs no new idea beyond D1095.
 
 **D1351. A positional argument after the parameters run out, with a
@@ -767,9 +765,9 @@ keeps `None` passable.
 
 **D1356. Staging.**
 (a) **[Recommended]** §9: stage 1 is `def` defaults with calls, errors,
-hover and completion (enough for `makeRecording`), with exports refused;
+hover and completion (enough for `makeBooking`), with exports refused;
 then printing, then JS, then constructor calls. (b) Everything in one stage.
-Reason: stage 1 is the part the port needs; the rest builds on it without
+Reason: stage 1 is the part the factories need; the rest builds on it without
 changing it.
 
 ## 11. Risks
