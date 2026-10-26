@@ -1,5 +1,5 @@
 {
-  "next": 646,
+  "next": 647,
   "tickets": [
     {
       "id": 13,
@@ -4482,7 +4482,7 @@
     {
       "id": 597,
       "title": "alignWith lemmas only apply with arm functions left as _: restating the program's { a | f = … } in a proof yields a different hidden match, so it isn't equal to the program's (private app port, 26 Oct)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5070,6 +5070,18 @@
       "id": 645,
       "title": "WebAssembly kernel float gate unverified after float laws stage 1 (web/pkg not built in the lane; expected count updated to 1,989 but never seen passing) — build web/pkg and run it",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 646,
+      "title": "A match inside a lambda (e.g. n => match n with …) restated in a proof body doesn't unify with the program's helper (placeholder vs finished helper); workarounds: restate in the statement, leave as _, or name it as a def (alignWith lane, 26 Oct)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
