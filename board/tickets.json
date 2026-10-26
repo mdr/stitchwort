@@ -516,17 +516,17 @@
     },
     {
       "id": 328,
-      "title": "Exploration: reimplement a real TS event-merge resolver in Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo); withStart removed; integration scripts updated for D1088 but the copied app tree is gone (D1111)",
+      "title": "Exploration: port a real-world TypeScript app's core logic to Stitchwort with proofs, exported as TS-usable JS (private code: nothing committed to this repo)",
       "status": "doing",
       "agent": "Opus",
-      "where": "23 Oct: D1088 done (model holds Map, no s parameter, Wire.sw deleted, export on Resolver.merge; 57 tests; differential identical; .d.ts: Event/Recording/Transcript lose the parameter). The private integration suites still reference the old module name. D1089 (Abort + names) running.",
+      "where": "Private work; status kept outside this repo.",
       "labels": [
         "design",
         "js"
       ],
       "body": "",
       "created": "2026-10-22",
-      "updated": "2026-10-23",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -911,7 +911,7 @@
     },
     {
       "id": 354,
-      "title": "Numerals can't be SafeNat/SafeInt: { bytes = 10 } with bytes: SafeNat is E-TYPE-MISMATCH (hit by the resolver port's tests; helper needed at every literal)",
+      "title": "Numerals can't be SafeNat/SafeInt: { bytes = 10 } with bytes: SafeNat is E-TYPE-MISMATCH (hit by the real-world TypeScript app port's tests; helper needed at every literal)",
       "status": "done",
       "agent": "",
       "where": "-",
@@ -920,14 +920,14 @@
       ],
       "body": "",
       "created": "2026-10-23",
-      "updated": "2026-10-24",
+      "updated": "2026-10-26",
       "commits": [
         "54d76feb"
       ]
     },
     {
       "id": 355,
-      "title": "Std: DecEq for Map (and Set), so records with Map fields derive == (resolver port hit E-INSTANCE-NONE; D700 a)",
+      "title": "Std: DecEq for Map (and Set), so records with Map fields derive == (the real-world TypeScript app port hit E-INSTANCE-NONE; D700 a)",
       "status": "done",
       "agent": "Sonnet",
       "where": "STOPPED: Map's tree shape makes equal-entries => equal-maps false; needs a canonical Map redesign. Port instead keeps a sorted entry list and converts at Wire (D700 b)",
@@ -936,7 +936,7 @@
       ],
       "body": "",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -1037,14 +1037,14 @@
       "title": "Build Float stage 1b: ieeeLt/ieeeLe, lawful Ord Float (totalOrder), conversions, * / %, rounding, printing (float.md §7.2)",
       "status": "done",
       "agent": "Opus",
-      "where": "worktree lane; resolver's Float switch waits on its comparisons",
+      "where": "worktree lane; the app port's Float switch waits on its comparisons",
       "labels": [
         "kernel",
         "js"
       ],
       "body": "",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-26",
       "commits": [
         "b64dd946",
         "f98ec0f7",
@@ -1126,9 +1126,9 @@
       "labels": [
         "syntax"
       ],
-      "body": "D1012 (Matt, 23 Oct): house style for multi-line brackets is a comma at the end of each line, no trailing comma (still accepted), closer in column 0. Today a closer in column 0 starts a new declaration (E-PARSE), contradicting docs/syntax.md:239. Stage A (Sonnet lane): parser fix + example + docs. Stage B (DeepSeek, after A merges): restyle the ~151 leading-comma lines in 25 public files. The private resolver's 63 lines are a separate, later step.",
+      "body": "D1012 (Matt, 23 Oct): house style for multi-line brackets is a comma at the end of each line, no trailing comma (still accepted), closer in column 0. Today a closer in column 0 starts a new declaration (E-PARSE), contradicting docs/syntax.md:239. Stage A (Sonnet lane): parser fix + example + docs. Stage B (DeepSeek, after A merges): restyle the ~151 leading-comma lines in 25 public files. The private app port's lines are a separate, later step.",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-26",
       "commits": [
         "98a1a2ab",
         "47eb0f7e"
@@ -1416,9 +1416,9 @@
       "labels": [
         "lang"
       ],
-      "body": "Design: docs/proposals/variant-fields.md §5 (SW-340, decisions D603-D605 settled). Never ticketed after feature 1 (SW-347); found 23 Oct when Matt asked why the resolver still hand-writes per-constructor getters. D1077 (Matt): build features 2 and 3, then convert the resolver.",
+      "body": "Design: docs/proposals/variant-fields.md §5 (SW-340, decisions D603-D605 settled). Never ticketed after feature 1 (SW-347); found 23 Oct when Matt asked why the private app port still hand-writes per-constructor getters. D1077 (Matt): build features 2 and 3, then convert the port.",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-26",
       "commits": [
         "ba40031c",
         "0607cddd"
@@ -1443,16 +1443,16 @@
     },
     {
       "id": 383,
-      "title": "Private resolver: use variant fields — done 23 Oct (getters deleted, named patterns; .d.ts identical; differential 0 unexplained)",
+      "title": "Private app port: use variant fields — done 23 Oct",
       "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "private"
       ],
-      "body": "Work copy only (~/stitchwort-event-resolver-work), handover untouched until Matt asks. After SW-382. Nothing committed to this repo.",
+      "body": "Private work only. Nothing committed to this repo.",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -1523,7 +1523,7 @@
     },
     {
       "id": 388,
-      "title": "Private resolver: Option chains rewritten with Abort, descriptive names — done 23 Oct (4 functions; .d.ts identical; differential identical)",
+      "title": "Private app port: Option chains rewritten with Abort, descriptive names — done 23 Oct",
       "status": "done",
       "agent": "Opus",
       "where": "",
@@ -1532,7 +1532,7 @@
       ],
       "body": "Work copy only; after D1088 (Map in the model, Wire.sw deleted) lands. Proofs adapted to Abort (D1055 made toOption equations plain). Style rule (Matt, 23 Oct): descriptive names in program code, not single letters.",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -2570,14 +2570,14 @@
     },
     {
       "id": 454,
-      "title": "std: fast Set-based List.distinct for ordered types + membership/Distinct theorems; resolver port moves to it (D1191; after rule E lands)",
+      "title": "std: fast Set-based List.distinct for ordered types + membership/Distinct theorems; the real-world TypeScript app port moves to it (D1191; after rule E lands)",
       "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": [
         "f0819921"
       ]
@@ -2708,14 +2708,14 @@
     },
     {
       "id": 464,
-      "title": "Private port: migrate the event resolver to rule E, then the Unicode/logic-notation house style; switch to std Map.indexBy (now stack-safe) and the D1191 distinct; private lane, work folder only; after rule E + notation build land. Rule E + std indexBy/distinct + sections DONE 25 Oct (57/57, .d.ts identical, 2224->2115 lines); remaining: Unicode style + Option.any/all rename after the std migration",
+      "title": "Private app port: migrate to rule E, then the Unicode/logic-notation house style, std Map.indexBy and the D1191 distinct (private work only). Rule E + indexBy/distinct DONE 25 Oct; remaining: Unicode style + Option.any/all rename",
       "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
