@@ -9,6 +9,7 @@ publish.workspace = true
 stitchwort-syntax.workspace = true
 stitchwort-core.workspace = true
 num-bigint.workspace = true
+smallvec.workspace = true
 
 [features]
 # The bring-up allocation trace (`alloc_trace`); off in release builds.

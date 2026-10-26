@@ -10,6 +10,9 @@
 //!   A call of a function value goes through `apply` (eval/apply): too few
 //!   arguments make a partial application; too many call it with as many
 //!   as it takes, then apply the result to the rest ([`Ret::Apply`]).
+//!   `apply`, `enter` and the effect natives take their arguments on top of
+//!   the registers, above the top frame's window, where a pushed frame's
+//!   window then starts: a call allocates no vector of arguments.
 //! - **Tail calls** replace the current frame, so a loop runs in constant
 //!   space.
 //! - **Returns.** Each frame says where its result goes ([`Ret`]): a
@@ -21,6 +24,8 @@
 //!   the reference evaluator, and running out is a [`ResourceError`].
 
 use std::rc::Rc;
+
+use smallvec::SmallVec;
 
 use stitchwort_core::{Limits as CoreLimits, ResourceError};
 
@@ -305,7 +310,7 @@ impl<'p> Machine<'p> {
     /// The value of the program's entry.
     pub fn entry(&mut self) -> Result<Value> {
         let code = self.image.entry_code;
-        let pushed = self.st.push(&self.image, code, Vec::new(), None, Ret::Host);
+        let pushed = self.st.push(&self.image, code, 0, None, Ret::Host);
         self.finish(pushed.map(|()| None))
     }
 
@@ -319,7 +324,7 @@ impl<'p> Machine<'p> {
                 let code = self.image.global_code[g.0 as usize].expect("a constant has code");
                 let pushed = self
                     .st
-                    .push(&self.image, code, Vec::new(), None, Ret::ConstHost(g.0));
+                    .push(&self.image, code, 0, None, Ret::ConstHost(g.0));
                 self.finish(pushed.map(|()| None))
             }
             _ => Ok(self.st.function_value(&self.program, g.0)),
@@ -327,10 +332,9 @@ impl<'p> Machine<'p> {
     }
 
     /// `f` applied to `args`.
-    pub fn call(&mut self, f: Value, args: Vec<Value>) -> Result<Value> {
-        let pending = self
-            .st
-            .apply(&self.program, &self.image, f, args, Ret::Host);
+    pub fn call(&mut self, f: Value, args: impl IntoIterator<Item = Value>) -> Result<Value> {
+        let n = self.st.put_args(args);
+        let pending = self.st.apply(&self.program, &self.image, f, n, Ret::Host);
         self.finish(pending)
     }
 
@@ -432,18 +436,38 @@ impl State {
         Ok(())
     }
 
-    /// Pushes a frame for `code` with arguments `args`.
+    /// Puts `args` on top of the registers, for `apply`, `enter` or
+    /// `effect`: how many.
+    fn put_args(&mut self, args: impl IntoIterator<Item = Value>) -> usize {
+        let before = self.regs.len();
+        self.regs.extend(args);
+        self.regs.len() - before
+    }
+
+    /// Takes the `n` arguments on top of the registers.
+    fn take_args(&mut self, n: usize) -> std::vec::Drain<'_, Value> {
+        let at = self.regs.len() - n;
+        self.regs.drain(at..)
+    }
+
+    /// Pushes a frame for `code` with the `n` arguments on top of the
+    /// registers, which become its first registers.
     fn push(
         &mut self,
         image: &Image,
         code: u32,
-        args: Vec<Value>,
+        n: usize,
         env: Option<Rc<Fun>>,
         ret: Ret,
     ) -> Result<()> {
-        self.enter_frame()?;
-        let base = self.regs.len();
-        self.regs.extend(args);
+        let base = self.regs.len() - n;
+        if let Err(e) = self.enter_frame() {
+            // Dropped as when the arguments were a vector passed here.
+            drop(ret);
+            drop(env);
+            self.regs.truncate(base);
+            return Err(e);
+        }
         self.regs.resize(
             base + image.codes[code as usize].regs as usize,
             Value::Erased,
@@ -479,14 +503,15 @@ impl State {
         Ok(())
     }
 
-    /// `f` applied to `args` (eval/apply): a value for `ret` now, or a
-    /// frame pushed that will return it there.
+    /// `f` applied to the `n` arguments on top of the registers
+    /// (eval/apply), which it takes: a value for `ret` now, or a frame
+    /// pushed that will return it there.
     fn apply(
         &mut self,
         program: &Program,
         image: &Image,
         f: Value,
-        args: Vec<Value>,
+        n: usize,
         ret: Ret,
     ) -> Result<Pending> {
         let Value::Fun(fun) = &f else {
@@ -497,38 +522,37 @@ impl State {
             _ => (&f, &[]),
         };
         let arity = arity(program, head);
-        let total = held.len() + args.len();
-        let mut all = if held.is_empty() {
-            args
-        } else {
-            let mut all = held.to_vec();
-            all.extend(args);
-            all
-        };
+        let total = held.len() + n;
+        let at = self.regs.len() - n;
+        if !held.is_empty() {
+            // The held arguments go below the new ones.
+            self.regs.extend(held.iter().cloned());
+            self.regs[at..].rotate_right(held.len());
+        }
         if total < arity {
             let pap = Fun::Pap {
                 head: head.clone(),
-                args: all.into(),
+                args: self.regs.drain(at..).collect(),
             };
             return Ok(Some((Value::Fun(Rc::new(pap)), ret)));
         }
         let ret = if total > arity {
-            let rest = all.split_off(arity);
+            let rest = self.regs.drain(at + arity..).collect();
             Ret::Apply(Box::new((rest, ret)))
         } else {
             ret
         };
-        self.enter(program, image, head, all, ret)
+        self.enter(program, image, head, arity, ret)
     }
 
-    /// Calls `head` (not a partial application) with exactly the arguments
-    /// it takes.
+    /// Calls `head` (not a partial application) with the `n` arguments on
+    /// top of the registers, exactly as many as it takes.
     fn enter(
         &mut self,
         program: &Program,
         image: &Image,
         head: &Value,
-        args: Vec<Value>,
+        n: usize,
         ret: Ret,
     ) -> Result<Pending> {
         let Value::Fun(fun) = head else {
@@ -538,50 +562,54 @@ impl State {
             Fun::Global(g) => match &program.globals[*g as usize].kind {
                 GlobalKind::Native(PrimOp::Text(TextNative::TextFold)) => {
                     // `Text.fold text initial f`.
-                    let mut args = args.into_iter();
+                    let mut args = self.take_args(n);
                     let (t, z, f) = (
                         args.next().expect("3"),
                         args.next().expect("3"),
                         args.next().expect("3"),
                     );
+                    drop(args);
                     self.fold_start(program, image, f, z, &t, ret)
                 }
-                GlobalKind::Native(PrimOp::Effect(op)) => {
-                    self.effect(program, image, *op, args, ret)
-                }
+                GlobalKind::Native(PrimOp::Effect(op)) => self.effect(program, image, *op, n, ret),
                 GlobalKind::Native(op) => {
-                    let refs: Vec<&Value> = args.iter().collect();
-                    Ok(Some((prims::eval(&program.shapes, *op, &refs), ret)))
+                    let at = self.regs.len() - n;
+                    let refs: SmallVec<[&Value; 4]> = self.regs[at..].iter().collect();
+                    let v = prims::eval(&program.shapes, *op, &refs);
+                    drop(refs);
+                    self.regs.truncate(at);
+                    Ok(Some((v, ret)))
                 }
                 _ => {
                     let code = image.global_code[*g as usize].expect("a function has code");
                     if self.native_codes.get(code as usize) == Some(&true) {
-                        self.enter_frame()?;
-                        self.deferred = Some(Box::new((code, None, args, ret)));
+                        self.defer(code, None, n, ret)?;
                         return Ok(None);
                     }
-                    self.push(image, code, args, None, ret)?;
+                    self.push(image, code, n, None, ret)?;
                     Ok(None)
                 }
             },
             Fun::Closure { lambda, .. } => {
                 let code = image.lambda_code[*lambda as usize];
                 if self.native_codes.get(code as usize) == Some(&true) {
-                    self.enter_frame()?;
-                    self.deferred = Some(Box::new((code, Some(fun.clone()), args, ret)));
+                    self.defer(code, Some(fun), n, ret)?;
                     return Ok(None);
                 }
-                self.push(image, code, args, Some(fun.clone()), ret)?;
+                self.push(image, code, n, Some(fun.clone()), ret)?;
                 Ok(None)
             }
-            Fun::DoneK => Ok(Some((Value::data_vec(program.shapes.done, args), ret))),
+            Fun::DoneK => {
+                let y = self.regs.pop().expect("one argument");
+                Ok(Some((Value::data(program.shapes.done, [y]), ret)))
+            }
             Fun::Resume(resume, lazy) => {
-                let y = args.into_iter().next().expect("one argument");
+                let y = self.regs.pop().expect("one argument");
                 self.resume(program, image, resume, *lazy, y, ret)
             }
             // A state-passing handler's loop, given the state.
             Fun::StateRun(run) => {
-                let state = args.into_iter().next().expect("one argument");
+                let state = self.regs.pop().expect("one argument");
                 let StateRun {
                     handler,
                     rest,
@@ -606,12 +634,14 @@ impl State {
                     state,
                     ret,
                 }));
-                self.apply(program, image, rest.clone(), vec![arg.clone()], after)
+                let rest = rest.clone();
+                self.regs.push(arg.clone());
+                self.apply(program, image, rest, 1, after)
             }
             // A state-passing handler's `k y`: the loop from `rest y`, as a
             // function of the state.
             Fun::StateK(resume) => {
-                let y = args.into_iter().next().expect("one argument");
+                let y = self.regs.pop().expect("one argument");
                 let Handler::State { comp, .. } = &*resume.handler else {
                     unreachable!("a state-passing handler's resumption")
                 };
@@ -624,20 +654,37 @@ impl State {
                 Ok(Some((state_fn(&program.shapes, *comp, run), ret)))
             }
             Fun::JumpK => {
-                let mut args = args.into_iter();
+                let mut args = self.take_args(n);
                 let (v, s) = (args.next().expect("2"), args.next().expect("2"));
+                drop(args);
                 Ok(Some((Value::Fun(Rc::new(Fun::Jumped(v, s))), ret)))
             }
             Fun::Jumped(..) => panic!("internal error: a jump applied"),
             // A resumption of a handler around partial code: `k y` is a
             // `Delay`, and runs nothing (the runner steps it).
             Fun::DelayK(capture) => {
-                let y = args.into_iter().next().expect("one argument");
+                let y = self.regs.pop().expect("one argument");
                 let resumed = crate::value::Delay::Resumed(capture.clone(), y);
                 Ok(Some((Value::Delay(Rc::new(resumed)), ret)))
             }
             Fun::Pap { .. } => unreachable!("a partial application's head"),
         }
+    }
+
+    /// Puts off a call of body `code`'s native code, with the `n` arguments
+    /// on top of the registers and, for a lambda's body, its closure
+    /// (`State::deferred`): counted as a frame now.
+    fn defer(&mut self, code: u32, env: Option<&Rc<Fun>>, n: usize, ret: Ret) -> Result<()> {
+        if let Err(e) = self.enter_frame() {
+            // Dropped as when the arguments were a vector passed here.
+            drop(ret);
+            let at = self.regs.len() - n;
+            self.regs.truncate(at);
+            return Err(e);
+        }
+        let args = self.take_args(n).collect();
+        self.deferred = Some(Box::new((code, env.cloned(), args, ret)));
+        Ok(())
     }
 
     fn fold_start(
@@ -666,8 +713,9 @@ impl State {
         };
         fold.end -= c.len_utf8();
         let f = fold.f.clone();
-        let args = vec![prims::char_value(&program.shapes, c), acc];
-        self.apply(program, image, f, args, Ret::Fold(Box::new(fold)))
+        self.regs.push(prims::char_value(&program.shapes, c));
+        self.regs.push(acc);
+        self.apply(program, image, f, 2, Ret::Fold(Box::new(fold)))
     }
 
     // ------------------------------------------------------- native code
@@ -777,13 +825,15 @@ impl State {
     ) -> Result<Pending> {
         match request {
             TailRequest::Apply { f, args, env } => {
-                let pending = self.enter(program, image, head_of(&f), args, ret);
+                let n = self.put_args(args);
+                let pending = self.enter(program, image, head_of(&f), n, ret);
                 drop(f);
                 drop(env);
                 pending
             }
             TailRequest::Effect { op, args, env } => {
-                let pending = self.effect(program, image, op, args, ret);
+                let n = self.put_args(args);
+                let pending = self.effect(program, image, op, n, ret);
                 drop(env);
                 pending
             }
@@ -792,18 +842,19 @@ impl State {
 
     // ------------------------------------------------- the effect runtime
 
-    /// One of the effect runtime's natives applied to `args`
-    /// ([`crate::effect`]): a value for `ret` now, or a frame pushed that
-    /// will return it there.
+    /// One of the effect runtime's natives applied to the `n` arguments on
+    /// top of the registers ([`crate::effect`]): a value for `ret` now, or a
+    /// frame pushed that will return it there.
     fn effect(
         &mut self,
         program: &Program,
         image: &Image,
         op: EffectOp,
-        args: Vec<Value>,
+        n: usize,
         ret: Ret,
     ) -> Result<Pending> {
         let s = &program.shapes;
+        let args: SmallVec<[Value; 4]> = self.take_args(n).collect();
         let mut args = args.into_iter();
         let mut arg = || args.next().expect("an effect native's arguments");
         match op {
@@ -814,7 +865,8 @@ impl State {
                     // invariant (docs/proposals/effect-runtime.md §9.1.4).
                     Value::Data(tag, fields) if tag == s.done => {
                         let x = field(fields, 0);
-                        self.apply(program, image, k, vec![x], ret)
+                        self.regs.push(x);
+                        self.apply(program, image, k, 1, ret)
                     }
                     c => {
                         self.counts.binds += 1;
@@ -928,18 +980,21 @@ impl State {
                         state,
                         ret,
                     }));
-                    return self.apply(program, image, k, vec![x], after);
+                    self.regs.push(x);
+                    return self.apply(program, image, k, 1, after);
                 }
                 return match &*handler {
                     Handler::Fold { done, .. } => {
                         let done = done.clone();
-                        self.apply(program, image, done, vec![field(fields, 0)], ret)
+                        self.regs.push(field(fields, 0));
+                        self.apply(program, image, done, 1, ret)
                     }
                     // `done v s`.
                     Handler::State { done, .. } => {
                         let done = done.clone();
                         let then = Ret::Apply(Box::new((vec![state], ret)));
-                        self.apply(program, image, done, vec![field(fields, 0)], then)
+                        self.regs.push(field(fields, 0));
+                        self.apply(program, image, done, 1, then)
                     }
                     Handler::RunPure => Ok(Some((field(fields, 0), ret))),
                     Handler::Translate { .. } | Handler::Step => {
@@ -988,7 +1043,8 @@ impl State {
                 self.counts.routes += 1;
                 let (call, lazy) = (call.clone(), *lazy);
                 let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), lazy)));
-                self.apply(program, image, call, vec![o, k], ret)
+                self.regs.extend([o, k]);
+                self.apply(program, image, call, 2, ret)
             }
             // `call o k jump s`, its result back to `Ret::Step`.
             Handler::State { call, .. } => {
@@ -998,19 +1054,15 @@ impl State {
                 let k = Value::Fun(Rc::new(Fun::StateK(resume.clone())));
                 let jump = Value::Fun(Rc::new(Fun::JumpK));
                 let then = Ret::Step(Box::new((resume, ret)));
-                self.apply(program, image, call, vec![o, k, jump, state], then)
+                self.regs.extend([o, k, jump, state]);
+                self.apply(program, image, call, 4, then)
             }
             Handler::Translate { inject, .. } => {
                 self.counts.routes += 1;
                 let inject = inject.clone();
                 let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, o.clone()), false)));
-                self.apply(
-                    program,
-                    image,
-                    inject,
-                    vec![o],
-                    Ret::Inject(Box::new((k, ret))),
-                )
+                self.regs.push(o);
+                self.apply(program, image, inject, 1, Ret::Inject(Box::new((k, ret))))
             }
             Handler::Step => {
                 let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), false)));
@@ -1050,10 +1102,14 @@ impl State {
             // `x => translate m (rest (reply o x))`.
             Handler::Translate { reply, .. } => {
                 let then = Ret::Then(Box::new((resume.rest.clone(), after)));
-                let args = vec![resume.op.clone(), y];
-                self.apply(program, image, reply.clone(), args, then)
+                self.regs.extend([resume.op.clone(), y]);
+                self.apply(program, image, reply.clone(), 2, then)
             }
-            _ => self.apply(program, image, resume.rest.clone(), vec![y], after),
+            _ => {
+                let rest = resume.rest.clone();
+                self.regs.push(y);
+                self.apply(program, image, rest, 1, after)
+            }
         }
     }
 
@@ -1102,7 +1158,8 @@ impl State {
             state,
             ret,
         }));
-        self.apply(program, image, rest, vec![y], after)
+        self.regs.push(y);
+        self.apply(program, image, rest, 1, after)
     }
 }
 
@@ -1159,10 +1216,14 @@ pub(crate) fn nested(
     st.frame_base = (frames as usize).saturating_sub(frames_at);
     st.steps = *steps;
     let begun = match work {
-        Work::Effect(op, args) => st.effect(program, image, op, args, Ret::Host),
+        Work::Effect(op, args) => {
+            let n = st.put_args(args);
+            st.effect(program, image, op, n, Ret::Host)
+        }
         Work::Fold(t, z, f) => st.fold_start(program, image, f, z, &t, Ret::Host),
         Work::Enter(f, args) => {
-            let pending = st.enter(program, image, head_of(&f), args, Ret::Host);
+            let n = st.put_args(args);
+            let pending = st.enter(program, image, head_of(&f), n, Ret::Host);
             drop(f);
             pending
         }
@@ -1248,7 +1309,8 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Ret::Apply(rest) => {
                     let (args, ret) = *rest;
-                    pending = st.apply(program, image, v, args, ret)?;
+                    let n = st.put_args(args);
+                    pending = st.apply(program, image, v, n, ret)?;
                     continue;
                 }
                 Ret::Fold(fold) => {
@@ -1267,7 +1329,8 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Ret::Then(then) => {
                     let (f, ret) = *then;
-                    pending = st.apply(program, image, f, vec![v], ret)?;
+                    st.regs.push(v);
+                    pending = st.apply(program, image, f, 1, ret)?;
                     continue;
                 }
                 Ret::Inject(inject) => {
@@ -1349,7 +1412,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         save!();
                         let code = image.global_code[g as usize].expect("a constant has code");
                         let to = u32::try_from(base + dst as usize).expect("registers fit");
-                        st.push(image, code, Vec::new(), None, Ret::Const { g, to })?;
+                        st.push(image, code, 0, None, Ret::Const { g, to })?;
                         continue 'outer;
                     }
                     let v = st.function_value(program, g);
@@ -1404,19 +1467,26 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     args,
                 } => {
                     save!();
-                    let args = args!(args);
+                    for r in ops!(args) {
+                        let v = get!(*r);
+                        st.regs.push(v);
+                    }
                     let to = u32::try_from(base + dst as usize).expect("fits");
-                    pending = st.effect(program, image, op, args, Ret::Reg(to))?;
+                    pending = st.effect(program, image, op, args.len as usize, Ret::Reg(to))?;
                     continue 'outer;
                 }
                 Instr::TailPrim {
                     op: PrimOp::Effect(op),
                     args,
                 } => {
-                    let args = args!(args);
+                    for r in ops!(args) {
+                        let v = get!(*r);
+                        st.scratch.push(v);
+                    }
                     let frame = st.frames.pop().expect("a frame");
                     release(&mut st.regs, base);
-                    pending = st.effect(program, image, op, args, frame.ret)?;
+                    st.regs.append(&mut st.scratch);
+                    pending = st.effect(program, image, op, args.len as usize, frame.ret)?;
                     continue 'outer;
                 }
                 Instr::TailPrim { op, .. } => {
@@ -1486,8 +1556,11 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         });
                         continue 'outer;
                     }
-                    let args = args!(args);
-                    pending = st.apply(program, image, fv, args, Ret::Reg(to))?;
+                    for r in ops!(args) {
+                        let v = get!(*r);
+                        st.regs.push(v);
+                    }
+                    pending = st.apply(program, image, fv, args.len as usize, Ret::Reg(to))?;
                     continue 'outer;
                 }
                 Instr::TailApply { f, args } => {
@@ -1505,10 +1578,14 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         st.replace(image, callee, env)?;
                         continue 'outer;
                     }
-                    let args = args!(args);
+                    for r in ops!(args) {
+                        let v = get!(*r);
+                        st.scratch.push(v);
+                    }
                     let frame = st.frames.pop().expect("a frame");
                     release(&mut st.regs, base);
-                    pending = st.apply(program, image, fv, args, frame.ret)?;
+                    st.regs.append(&mut st.scratch);
+                    pending = st.apply(program, image, fv, args.len as usize, frame.ret)?;
                     continue 'outer;
                 }
                 Instr::Closure { dst, lambda, args } => {

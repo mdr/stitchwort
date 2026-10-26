@@ -1300,6 +1300,7 @@ version = "0.1.0"
 dependencies = [
  "insta",
  "num-bigint",
+ "smallvec",
  "stitchwort-core",
  "stitchwort-driver",
  "stitchwort-elab",
