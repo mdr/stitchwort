@@ -1,5 +1,5 @@
 {
-  "next": 576,
+  "next": 579,
   "tickets": [
     {
       "id": 13,
@@ -3634,14 +3634,17 @@
     {
       "id": 533,
       "title": "Literal match catch-all arm gets no 'none of these' fact (rogue PROOFS.md: can't prove other keys give None)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "fac62de1",
+        "4767e7e9"
+      ]
     },
     {
       "id": 534,
@@ -4140,7 +4143,7 @@
     {
       "id": 572,
       "title": "Private app port follow-ups (after the catch-up): typed ids in the event model; a std function instead of a local whitespace helper; whether a time-mapping helper is still needed (private work only)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4176,6 +4179,42 @@
     {
       "id": 575,
       "title": "After SW-533 merges: AoC day 4 parseChar back to a match (docs/aoc-2025.md says it was changed to an if for the literal catch-all gap)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 576,
+      "title": "js.flavor not built: microtypes (@[js.unboxed] type X = { value: Text }) appear in .d.ts as plain aliases (type CardId = string), so TS callers can mix id kinds (found in the private app port, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 577,
+      "title": "Std whitespace is ASCII-only: Char.isSpace / Text.trim know 6 characters, JS trim() 25 (NBSP, U+2000-200A, U+3000, BOM…); text apps need a Unicode-aware option (found in the private app port, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 578,
+      "title": "Microtype friction: tests need { value = \"x\" } at every id, and a record as a constructor's first argument needs brackets (TextCard ({ … })) (found in the private app port, 26 Oct)",
       "status": "backlog",
       "agent": "",
       "where": "",
