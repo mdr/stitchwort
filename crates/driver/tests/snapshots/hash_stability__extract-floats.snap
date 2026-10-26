@@ -1,10 +1,11 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.identity 930e9719e4bd31e14a418cadf93cd1c703fc65bed995dea55f7f2e6166e40a4d
 Main.makeInfinity 0b237a47259d9d06cf24463bb176474979dc2330677244c67546428632086e0e
-Main.shift 4516f559fe22f9f38e910623af22798db65f2d5bfabb31d007725244b42bded1
+Main.shift f70396220a7f597c0c7c8a2fcaf0dd2714d091e83c9c33086daeaaee23757d24
 Main.sameDouble cc1a5f3b618b752875359239bf9dbb015c46c72c38a8e3df947a7000006868f0
 Main.tripleEquals 1ba0f44f8439cb19b637a97b2b899f63e4210825b9c74a2d30c902d66436406c
 Main.bits 833d2ecbb8be8caa56d410f6156c4f443d0fd5b38ace4d1951329db61bc7645d

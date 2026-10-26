@@ -111,11 +111,11 @@ pub const NATIVE_HASHES: &[(Builtin, &str)] = &[
     ),
     (
         Builtin::FloatAdd,
-        "ecbc1a16ce4a443d498b8dc4d3e07845c5103f077f44b2d110852c7a05aac27b",
+        "8e844daae72a5349c16404fa91cc72020cf516e3fce16c8952481bd4cbd6913c",
     ),
     (
         Builtin::FloatSub,
-        "4584095fca50e2822394adc8bbe773f33ef70cb515daa41e6e9006f5b3fd7e1d",
+        "cf5187adae645efa4c93c342eb45e708dc7dd5f84239e911bad646b8ca530268",
     ),
     (
         Builtin::FloatBitsExt,

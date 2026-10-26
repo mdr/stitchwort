@@ -3510,14 +3510,21 @@ fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Valu
         return Ok(None);
     }
     // What's left: an auto parameter anywhere in it rules propagation out.
-    let term = quote(g, base + written, &ty)?;
-    let mut rest = &term;
-    while let Term::Pi(_, icit, _, cod) = rest {
-        if *icit == Icit::Auto {
-            return Ok(None);
+    let mut rest = ty.clone();
+    let mut level = base + written;
+    loop {
+        match force(g, rest)? {
+            Value::Pi(_, Icit::Auto, _, _) => return Ok(None),
+            Value::Pi(_, _, _, cod) => {
+                rest = cod.apply(g, Value::var(level))?;
+                level += 1;
+            }
+            _ => break,
         }
-        rest = cod;
     }
+    // Calls stay folded: reading back their unfoldings can be costly, and a
+    // call mentions every variable its unfolding does.
+    let term = stitchwort_core::value::quote_folded(g, base + written, &ty)?;
     if (0..written).any(|i| term.mentions(i)) {
         return Ok(None);
     }
