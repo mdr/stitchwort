@@ -1,5 +1,5 @@
 {
-  "next": 573,
+  "next": 575,
   "tickets": [
     {
       "id": 13,
@@ -2708,8 +2708,8 @@
     },
     {
       "id": 464,
-      "title": "Private app port: catch up with main (D1307): Option.any/all rename (doesn't check today), Unicode operators, newer features; re-run tests/proofs/differential/.d.ts (private work only)",
-      "status": "doing",
+      "title": "Private app port: caught up with main (D1307) — checks again, Unicode operators, ∉ filters; tests/proofs/differential/.d.ts unchanged (private work only)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4140,7 +4140,31 @@
     {
       "id": 572,
       "title": "Private app port follow-ups (after the catch-up): typed ids in the event model; a std function instead of a local whitespace helper; whether a time-mapping helper is still needed (private work only)",
-      "status": "next",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 573,
+      "title": "Elaborator E-RESOURCE: 'x ∈ List.map xs f' (or ∉) inside a lambda passed to List.filter runs out of depth, e.g. List.filter ys (y => y ∈ List.map xs (n => n + 1)); fine with a variable, reverse or append on the right, or when Nat → Bool is expected (found in the private app port, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 574,
+      "title": "'n ∈ [literal]' as a Bool fails with E-AUTO-NONE once the list literal has 9+ elements (8 work; a named 9-element list works) (found in the private app port, 26 Oct)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
