@@ -3840,14 +3840,16 @@
     {
       "id": 549,
       "title": "Merge tier over 60 s budget at times (73-86 s under load): n2b tail_calls_of_every_shape_run_in_constant_stack (~10 s) and others; trim or move to daily",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "c898cf20"
+      ]
     },
     {
       "id": 550,
