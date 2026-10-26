@@ -32,7 +32,7 @@ use stitchwort_core::{Limits as CoreLimits, ResourceError};
 use crate::code::{Image, Instr, MOVE, NO_REG, compile};
 use crate::effect::{EffectCounts, EffectOp, Handler, Resume, StateRun};
 use crate::ir::{GlobalId, GlobalKind, PrimOp, Program, Shapes};
-use crate::native_abi::{NativeIslands, NativeOut, NativeRun, TailRequest};
+use crate::native_abi::{NativeIslands, NativeRun};
 use crate::natives::TextNative;
 use crate::prims;
 use crate::value::{Fields, Fun, Value};
@@ -710,8 +710,7 @@ impl State {
 
     /// A call of body `code`'s native code, its frame already counted
     /// (`enter_frame`), with `args` and, for a lambda's body, its closure
-    /// `env`: the result for `ret`, or what native code asked for in its
-    /// place (a tail request) begun.
+    /// `env`: the result for `ret`.
     fn native_call(
         &mut self,
         program: &Program,
@@ -722,10 +721,8 @@ impl State {
         ret: Ret,
     ) -> Result<Pending> {
         let frames = (self.frame_base + self.frames.len() + 1) as u64;
-        match self.cross(program, image, code, env, args, frames)? {
-            NativeOut::Value(v) => Ok(Some((v, ret))),
-            NativeOut::Tail(request) => self.perform(program, image, request, ret),
-        }
+        let v = self.cross(program, image, code, env, args, frames)?;
+        Ok(Some((v, ret)))
     }
 
     /// [`State::replace`] for a body native code runs: the step, the top
@@ -750,10 +747,8 @@ impl State {
         release(&mut self.regs, base);
         let args = std::mem::take(&mut self.scratch);
         let frames = (self.frame_base + self.frames.len() + 1) as u64;
-        match self.cross(program, image, code, env, args, frames)? {
-            NativeOut::Value(v) => Ok(Some((v, frame.ret))),
-            NativeOut::Tail(request) => self.perform(program, image, request, frame.ret),
-        }
+        let v = self.cross(program, image, code, env, args, frames)?;
+        Ok(Some((v, frame.ret)))
     }
 
     /// Hands a call to native code (`crate::native_abi`), with `frames`
@@ -766,7 +761,7 @@ impl State {
         env: Option<Rc<Fun>>,
         args: Vec<Value>,
         frames: u64,
-    ) -> Result<NativeOut> {
+    ) -> Result<Value> {
         let native = self.native.clone().expect("native code");
         let mut run = NativeRun {
             program,
@@ -775,7 +770,6 @@ impl State {
             steps: self.steps,
             frames,
             limits: self.limits,
-            request: None,
             unwound: Vec::new(),
             tail: Vec::new(),
             held: Vec::new(),
@@ -799,35 +793,6 @@ impl State {
             self.unwound.tail.extend(tail);
         }
         out
-    }
-
-    /// What native code asked the machine to do in a tail position
-    /// (`native_abi::TailRequest`), begun, its result for `ret`: as the
-    /// machine's `TailApply` or `TailPrim` would have, after popping the
-    /// frame. The frame's closure is dropped once it's begun, as the
-    /// machine drops the popped frame's.
-    fn perform(
-        &mut self,
-        program: &Program,
-        image: &Image,
-        request: TailRequest,
-        ret: Ret,
-    ) -> Result<Pending> {
-        match request {
-            TailRequest::Apply { f, args, env } => {
-                let n = self.put_args(args);
-                let pending = self.enter(program, image, head_of(&f), n, ret);
-                drop(f);
-                drop(env);
-                pending
-            }
-            TailRequest::Effect { op, args, env } => {
-                let n = self.put_args(args);
-                let pending = self.effect(program, image, op, n, ret);
-                drop(env);
-                pending
-            }
-        }
     }
 
     // ------------------------------------------------- the effect runtime
@@ -881,16 +846,7 @@ impl State {
                 )
             }
             EffectOp::FoldState | EffectOp::FoldStateComp => {
-                let (done, call, c) = (arg(), arg(), arg());
-                let comp = op == EffectOp::FoldStateComp;
-                let handler = Rc::new(Handler::State { done, call, comp });
-                let run = StateRun {
-                    handler,
-                    rest: Value::Erased,
-                    arg: c,
-                    pending: Value::Erased,
-                };
-                Ok(Some((state_fn(s, comp, run), ret)))
+                Ok(Some((state_handler(s, op, arg), ret)))
             }
         }
     }
@@ -1080,41 +1036,90 @@ impl State {
         resume: Rc<Resume>,
         ret: Ret,
     ) -> Result<Pending> {
-        let Value::Fun(mut f) = v else {
-            return Ok(Some((v, ret)));
-        };
-        if !matches!(&*f, Fun::Jumped(..)) {
-            return Ok(Some((Value::Fun(f), ret)));
-        }
-        let (y, state) = match Rc::get_mut(&mut f) {
-            Some(Fun::Jumped(y, state)) => (std::mem::take(y), std::mem::take(state)),
-            _ => match &*f {
-                Fun::Jumped(y, state) => (y.clone(), state.clone()),
-                _ => unreachable!("a jump"),
-            },
-        };
-        self.counts.jumps += 1;
-        let (handler, rest, pending) = match Rc::try_unwrap(resume) {
-            Ok(Resume {
+        match state_step(&mut self.counts, v, resume) {
+            StateStep::Value(v) => Ok(Some((v, ret))),
+            StateStep::Jump {
                 handler,
                 rest,
                 pending,
-                ..
-            }) => (handler, rest, pending),
-            Err(resume) => (
-                resume.handler.clone(),
-                resume.rest.clone(),
-                resume.pending.clone(),
-            ),
-        };
-        let after = Ret::Eff(Box::new(EffRet {
+                y,
+                state,
+                jumped,
+            } => {
+                let after = Ret::Eff(Box::new(EffRet {
+                    handler,
+                    pending,
+                    state,
+                    ret,
+                }));
+                self.regs.push(y);
+                let pending = self.apply(program, image, rest, 1, after);
+                // As before this was shared: the jump dropped last.
+                drop(jumped);
+                pending
+            }
+        }
+    }
+}
+
+/// What a state-passing handler's clause returned, for its loop
+/// ([`state_step`]).
+pub(crate) enum StateStep {
+    /// Not a jump: the handler's result.
+    Value(Value),
+    /// A jump `y s′`: the loop goes on from `rest y` with state `s′`; the
+    /// jump's own value (`jumped`) is dropped once that has begun.
+    Jump {
+        handler: Rc<Handler>,
+        rest: Value,
+        pending: Value,
+        y: Value,
+        state: Value,
+        jumped: Rc<Fun>,
+    },
+}
+
+/// A state-passing handler's clause returned `v` for the operation whose
+/// resumption is `resume`: a jump `v′ s′` goes on with the loop from `rest
+/// v′` with state `s′`, on no new frame; anything else is the handler's
+/// result. The values taken apart in the machine's order; shared with
+/// native code's `native_abi::sw_state_step` (stage NO3 of
+/// docs/proposals/native-only.md), so the two can't drift.
+pub(crate) fn state_step(counts: &mut EffectCounts, v: Value, resume: Rc<Resume>) -> StateStep {
+    let Value::Fun(mut f) = v else {
+        return StateStep::Value(v);
+    };
+    if !matches!(&*f, Fun::Jumped(..)) {
+        return StateStep::Value(Value::Fun(f));
+    }
+    let (y, state) = match Rc::get_mut(&mut f) {
+        Some(Fun::Jumped(y, state)) => (std::mem::take(y), std::mem::take(state)),
+        _ => match &*f {
+            Fun::Jumped(y, state) => (y.clone(), state.clone()),
+            _ => unreachable!("a jump"),
+        },
+    };
+    counts.jumps += 1;
+    let (handler, rest, pending) = match Rc::try_unwrap(resume) {
+        Ok(Resume {
             handler,
+            rest,
             pending,
-            state,
-            ret,
-        }));
-        self.regs.push(y);
-        self.apply(program, image, rest, 1, after)
+            ..
+        }) => (handler, rest, pending),
+        Err(resume) => (
+            resume.handler.clone(),
+            resume.rest.clone(),
+            resume.pending.clone(),
+        ),
+    };
+    StateStep::Jump {
+        handler,
+        rest,
+        pending,
+        y,
+        state,
+        jumped: f,
     }
 }
 
@@ -1131,18 +1136,16 @@ fn head_of(f: &Value) -> &Value {
 }
 
 /// What native code asks the machine to run for it ([`nested`]): what the
-/// machine runs on its frames, which native code doesn't compile.
+/// machine runs on its frames, which native code doesn't compile. Since
+/// stage NO3 of docs/proposals/native-only.md, the effect runtime is all
+/// compiled, so only a body that isn't (none today: `census::n1_blocker`
+/// declines nothing) is left; NO4 removes this.
 pub(crate) enum Work {
-    /// One of the effect runtime's natives, on its arguments.
-    Effect(EffectOp, Vec<Value>),
-    /// A function value native code has no code for (a resumption, a
-    /// native that runs on frames, a body that isn't compiled), entered
-    /// with exactly the arguments its head takes (a partial application's
-    /// joined to the new ones). The function value is dropped once it's
-    /// entered, as `apply` drops it.
+    /// A function value whose head has no native code, entered with
+    /// exactly the arguments its head takes (a partial application's joined
+    /// to the new ones). The function value is dropped once it's entered,
+    /// as `apply` drops it.
     Enter(Value, Vec<Value>),
-    /// A tail request a callee made, performed where the caller is.
-    Perform(TailRequest),
 }
 
 /// Runs `work` for native code to its value: a run of the machine nested
@@ -1170,17 +1173,12 @@ pub(crate) fn nested(
     st.frame_base = (frames as usize).saturating_sub(frames_at);
     st.steps = *steps;
     let begun = match work {
-        Work::Effect(op, args) => {
-            let n = st.put_args(args);
-            st.effect(program, image, op, n, Ret::Host)
-        }
         Work::Enter(f, args) => {
             let n = st.put_args(args);
             let pending = st.enter(program, image, head_of(&f), n, Ret::Host);
             drop(f);
             pending
         }
-        Work::Perform(request) => st.perform(program, image, request, Ret::Host),
     };
     let result = begun.and_then(|pending| run(program, image, st, pending));
     if result.is_err() {
@@ -1219,6 +1217,24 @@ pub(crate) fn pair(mut fields: Fields) -> (Value, Value) {
         Some(slice) => (std::mem::take(&mut slice[0]), std::mem::take(&mut slice[1])),
         None => (fields[0].clone(), fields[1].clone()),
     }
+}
+
+/// A state-passing handler's fold (`op`: `FoldState` or `FoldStateComp`)
+/// on the arguments `arg` gives in order (`done`, `call`, the computation):
+/// its function of the state, as the machine's `effect` makes it; shared
+/// with native code's `native_abi::sw_eff_state` (stage NO3 of
+/// docs/proposals/native-only.md), so the two can't drift.
+pub(crate) fn state_handler(s: &Shapes, op: EffectOp, mut arg: impl FnMut() -> Value) -> Value {
+    let (done, call, c) = (arg(), arg(), arg());
+    let comp = op == EffectOp::FoldStateComp;
+    let handler = Rc::new(Handler::State { done, call, comp });
+    let run = StateRun {
+        handler,
+        rest: Value::Erased,
+        arg: c,
+        pending: Value::Erased,
+    };
+    state_fn(s, comp, run)
 }
 
 /// A state-passing handler's function of the state, `Done` of it if the

@@ -14,6 +14,17 @@
 //!   rest of the computation (after a `translate`'s `reply`) called, then
 //!   `rt_loop` from its result, as a tail call.
 //!
+//! **State-passing handlers** (stage NO3). The loop also holds a state
+//! (`Erased` for the other handlers), as the machine's `EffRet` does. At an
+//! operation it calls `call o k jump s`, holding the resumption as the
+//! machine's `Ret::Step` does, and then the jump test (`abi::sw_state_step`):
+//! a jump goes on in the same loop, from `rest y` with the jump's state, on
+//! no new frame; anything else is the loop's value. At the end, `done x`,
+//! then its result applied to the state in a tail position. A handler's
+//! function of the state (`Fun::StateRun`) applied is `rt_resume`'s too:
+//! the loop from its computation (a tail call), or from `rest` applied to
+//! it. So the machine runs none of the effect runtime for native code.
+//!
 //! Neither pushes a frame or counts one; their calls count a step and a
 //! frame each as the machine's `apply` does, directly for a global function
 //! or a closure taking that many (the site's cache, as `Apply`'s), or
@@ -22,18 +33,21 @@
 //! counts are the machine's.
 //!
 //! **Error exits.** A call that fails gives up what this frame holds for
-//! it (the handler, the pending list, a `translate`'s `rest` or `k`) to the
-//! unwind log, joined to the group of the callee frame that just left, as
-//! the machine keeps those in that frame's `Ret` (`abi::sw_unwind`'s mode
-//! 3, `abi::sw_unwind_handler`); if no frame has left (out of steps or
-//! frames before the call), they're dropped at once, as the machine's `push`
-//! drops the `Ret` it never pushed. A callee's tail request is performed
-//! here, as a body performs one.
+//! it (the handler, the pending list, the state, a `translate`'s `rest` or
+//! `k`, a state-passing handler's resumption) to the unwind log, joined to
+//! the group of the callee frame that just left, as the machine keeps those
+//! in that frame's `Ret` (`abi::sw_unwind`'s mode 3,
+//! `abi::sw_unwind_handler`, `abi::sw_unwind_resume`); if no frame has left
+//! (out of steps or frames before the call), they're dropped at once, as
+//! the machine's `push` drops the `Ret` it never pushed.
 //!
 //! **A frame's closure.** Reached from a `TailPrim` (the loop) or a tail
 //! apply (a resumption), the body is given the leaving frame's closure
 //! (`env`, 0 for none), which the machine drops once the native has begun:
-//! at the first call or return.
+//! at the first call or return. The loop is also given a function value to
+//! drop just before it (an effect native's or a function of the state the
+//! loop was entered through), as the machine's `apply` drops the function
+//! value it was given once `enter` has begun.
 
 use std::collections::BTreeMap;
 
@@ -46,31 +60,42 @@ use cranelift_codegen::isa::CallConv;
 use cranelift_frontend::{FunctionBuilder, Switch, Variable};
 use cranelift_module::{FuncId, Module};
 use stitchwort_rt::native_abi::{
-    self as abi, Context, FUN_KEY_MASK, OUT_OF_FRAMES, OUT_OF_STEPS, RC_VALUE_AT, TAG_FUN,
-    TAIL_REQUEST, Tables, VALUE_SIZE,
+    self as abi, Context, FUN_KEY_MASK, OUT_OF_FRAMES, OUT_OF_STEPS, RC_VALUE_AT, TAG_FUN, Tables,
+    VALUE_SIZE,
 };
 
-use super::{Helpers, Options, drop_fun, fixed, flags, steps_in, steps_out, value_signature};
+use super::{Helpers, Options, drop_fun, fixed, flags, value_signature};
 
 /// The runtime bodies, declared.
 #[derive(Clone, Copy)]
 pub(crate) struct Runtime {
     pub(crate) run_loop: FuncId,
     pub(crate) resume: FuncId,
+    /// Whether the program may run a state-passing handler (stage NO3), so
+    /// that `rt_loop` needs its `call o k jump s`, through `apply4`;
+    /// otherwise that part of the loop is a trap, and no `apply4` is made
+    /// for it.
+    pub(crate) states: bool,
 }
 
 /// `rt_loop`'s signature: the context, the frames pending (the caller's:
-/// it has no frame of its own), the computation and the pending list
-/// (three words each, moved in), the handler's word and a leaving frame's
-/// closure (0 for none), both owned; returning three words.
+/// it has no frame of its own), the computation, the pending list and a
+/// state-passing handler's state (three words each, moved in; the state
+/// `Erased` for other handlers), the handler's word, a function value to
+/// drop and a leaving frame's closure (0 for none), all owned; returning
+/// three words. The function value and the closure are dropped at the
+/// loop's first call or return, in that order, as the machine drops the
+/// function value its `apply` was given and then the popped frame's
+/// closure once the loop has begun.
 pub(crate) fn loop_signature(pointer: ir::Type) -> ir::Signature {
     let mut signature = ir::Signature::new(CallConv::Tail);
     signature.params.push(AbiParam::new(pointer));
     signature.params.push(AbiParam::new(types::I64));
-    for _ in 0..6 {
+    for _ in 0..9 {
         signature.params.push(AbiParam::new(types::I64));
     }
     signature.params.push(AbiParam::new(types::I64));
+    signature.params.push(AbiParam::new(pointer));
     signature.params.push(AbiParam::new(pointer));
     for _ in 0..3 {
         signature.returns.push(AbiParam::new(types::I64));
@@ -103,6 +128,8 @@ pub(crate) fn resume_signature(pointer: ir::Type) -> ir::Signature {
 enum Hold {
     /// A handler's word.
     Handler(Variable),
+    /// A state-passing handler's resumption's word.
+    Resume(Variable),
     /// A value in a stack slot.
     Value(StackSlot),
     /// A function value's word, or 0.
@@ -124,8 +151,7 @@ struct Rt<'a, 'b> {
     refs: BTreeMap<FuncId, FuncRef>,
     ctx: IrValue,
     frames: IrValue,
-    /// Room for a function value (an apply's cache miss), or a performed
-    /// tail request's value.
+    /// Room for a function value (an apply's cache miss).
     scratch: StackSlot,
 }
 
@@ -204,6 +230,10 @@ impl Rt<'_, '_> {
                 Hold::Handler(var) => {
                     let word = self.b.use_var(var);
                     self.call(self.helpers.unwind_handler, &[self.ctx, word]);
+                }
+                Hold::Resume(var) => {
+                    let word = self.b.use_var(var);
+                    self.call(self.helpers.unwind_resume, &[self.ctx, word]);
                 }
                 Hold::Value(slot) => {
                     let at = self.addr(slot, 0);
@@ -408,8 +438,7 @@ impl Rt<'_, '_> {
             }
             None => self.iconst(0),
         };
-        let not_tail = self.iconst(0);
-        let mut call_args = vec![self.ctx, self.frames, drops, drop_env, not_tail];
+        let mut call_args = vec![self.ctx, self.frames, drops, drop_env];
         call_args.extend(fv);
         call_args.extend(args.iter().flatten());
         let r = self.call(self.apply_any[&n], &call_args);
@@ -434,7 +463,7 @@ impl Rt<'_, '_> {
         }
         self.leave();
 
-        // The value, or the callee's error or tail request.
+        // The value, or the callee's error.
         self.b.switch_to_block(returned);
         let r = self.b.block_params(returned).to_vec();
         let error = self
@@ -445,31 +474,9 @@ impl Rt<'_, '_> {
         for _ in 0..3 {
             self.b.append_block_param(ok, types::I64);
         }
-        let check = self.b.create_block();
-        let r_args: Vec<ir::BlockArg> = r.iter().map(|x| (*x).into()).collect();
-        self.b.ins().brif(error, check, &[], ok, &r_args);
-        self.b.switch_to_block(check);
-        self.b.set_cold_block(check);
-        let requested = self
-            .b
-            .ins()
-            .icmp_imm_u(IntCC::Equal, error, TAIL_REQUEST as i64);
-        let perform = self.b.create_block();
         let failed = self.b.create_block();
-        self.b.ins().brif(requested, perform, &[], failed, &[]);
-        self.b.switch_to_block(perform);
-        self.b.set_cold_block(perform);
-        let out = self.addr(self.scratch, 0);
-        steps_out(self.b, self.ctx);
-        self.call(self.helpers.perform, &[self.ctx, self.frames, out]);
-        steps_in(self.b, self.ctx);
-        let v = self.load(self.scratch, 0);
-        let error = self
-            .b
-            .ins()
-            .load(types::I64, flags(), self.ctx, Context::ERROR_AT);
-        let v_args: Vec<ir::BlockArg> = v.iter().map(|x| (*x).into()).collect();
-        self.b.ins().brif(error, failed, &[], ok, &v_args);
+        let r_args: Vec<ir::BlockArg> = r.iter().map(|x| (*x).into()).collect();
+        self.b.ins().brif(error, failed, &[], ok, &r_args);
         self.b.switch_to_block(failed);
         self.b.set_cold_block(failed);
         self.release(held);
@@ -481,8 +488,9 @@ impl Rt<'_, '_> {
     }
 
     /// `fv args` (all moved in) in a tail position: ends the block. The
-    /// leaving frame's closure `env` goes as for [`Rt::apply`].
-    fn tail_apply(&mut self, fv: Words, args: &[Words], env: Variable) {
+    /// function value `pre` and the leaving frame's closure `env` go as for
+    /// [`Rt::apply`].
+    fn tail_apply(&mut self, fv: Words, args: &[Words], pre: Variable, env: Variable) {
         let n = args.len() as u32;
         let target = self.target_of(fv, n);
         let exact = self.b.create_block();
@@ -493,6 +501,7 @@ impl Rt<'_, '_> {
         let unready = self.b.create_block();
         self.count_step(unready);
         self.check_frame(unready);
+        self.drop_fun_var(pre);
         self.drop_fun_var(env);
         let pushed = self.b.ins().iadd_imm_s(self.frames, 1);
         let mut call_args = vec![self.ctx, pushed];
@@ -509,16 +518,16 @@ impl Rt<'_, '_> {
             self.drop_value(*v);
         }
         self.drop_value(fv);
+        self.drop_fun_var(pre);
         self.drop_fun_var(env);
         self.leave();
 
-        // Through the stub, as a tail apply: it drops the closure once it
-        // has taken `fv` apart, or leaves it with a tail request.
+        // Through the stub, as a tail apply: it drops the function value and
+        // the closure once it has taken `fv` apart.
         self.b.switch_to_block(slow);
+        let drops = self.b.use_var(pre);
         let drop_env = self.b.use_var(env);
-        let tail = self.iconst(1);
-        let none = self.b.ins().iconst(self.pointer, 0);
-        let mut call_args = vec![self.ctx, self.frames, none, drop_env, tail];
+        let mut call_args = vec![self.ctx, self.frames, drops, drop_env];
         call_args.extend(fv);
         call_args.extend(args.iter().flatten());
         let apply = self.fref(self.apply_any[&n]);
@@ -568,6 +577,11 @@ fn begin<'a, 'b>(
     (rt, params)
 }
 
+/// A word-sized stack slot.
+fn word_slot(rt: &mut Rt<'_, '_>) -> StackSlot {
+    rt.b.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 8, 3))
+}
+
 /// `rt_loop` (`loop_signature`; the module comment).
 pub(crate) fn emit_loop(
     b: &mut FunctionBuilder<'_>,
@@ -578,15 +592,27 @@ pub(crate) fn emit_loop(
     let (mut rt, params) = begin(b, module, caches, emit);
     let c_slot = rt.slot(1);
     let pending_slot = rt.slot(1);
-    let out_slot = rt.slot(3);
+    let state_slot = rt.slot(1);
+    let out_slot = rt.slot(5);
     let k_slot = rt.slot(1);
     let cell_slot = rt.slot(2);
+    let word_at_slot = word_slot(&mut rt);
+    let jumped_slot = word_slot(&mut rt);
     let handler = rt.b.declare_var(types::I64);
+    let pre = rt.b.declare_var(rt.pointer);
     let env = rt.b.declare_var(rt.pointer);
+    let resume = rt.b.declare_var(types::I64);
+    let jumped = rt.b.declare_var(rt.pointer);
     rt.store(c_slot, 0, [params[2], params[3], params[4]]);
     rt.store(pending_slot, 0, [params[5], params[6], params[7]]);
-    rt.b.def_var(handler, params[8]);
-    rt.b.def_var(env, params[9]);
+    rt.store(state_slot, 0, [params[8], params[9], params[10]]);
+    rt.b.def_var(handler, params[11]);
+    rt.b.def_var(pre, params[12]);
+    rt.b.def_var(env, params[13]);
+    let zero = rt.iconst(0);
+    rt.b.def_var(resume, zero);
+    let none = rt.b.ins().iconst(rt.pointer, 0);
+    rt.b.def_var(jumped, none);
     let top = rt.b.create_block();
     rt.b.ins().jump(top, &[]);
 
@@ -596,17 +622,21 @@ pub(crate) fn emit_loop(
     rt.count_step(out_of_steps);
     let c_at = rt.addr(c_slot, 0);
     let pending_at = rt.addr(pending_slot, 0);
+    let state_at = rt.addr(state_slot, 0);
     let out_at = rt.addr(out_slot, 0);
+    let word_at = rt.b.ins().stack_addr(rt.pointer, word_at_slot, 0);
     let word = rt.b.use_var(handler);
     let action = rt.call(
         rt.helpers.eff_step,
-        &[rt.ctx, c_at, pending_at, word, out_at],
+        &[rt.ctx, c_at, pending_at, state_at, word, out_at, word_at],
     )[0];
     let applying = rt.b.create_block();
     let returning = rt.b.create_block();
     let done = rt.b.create_block();
     let calling = rt.b.create_block();
     let injecting = rt.b.create_block();
+    let state_done = rt.b.create_block();
+    let state_call = rt.b.create_block();
     let trap = rt.b.create_block();
     let mut switch = Switch::new();
     switch.set_entry(u128::from(abi::STEP_AGAIN), top);
@@ -615,23 +645,34 @@ pub(crate) fn emit_loop(
     switch.set_entry(u128::from(abi::STEP_DONE), done);
     switch.set_entry(u128::from(abi::STEP_CALL), calling);
     switch.set_entry(u128::from(abi::STEP_INJECT), injecting);
+    if emit.runtime.states {
+        switch.set_entry(u128::from(abi::STEP_STATE_DONE), state_done);
+        switch.set_entry(u128::from(abi::STEP_STATE_CALL), state_call);
+    }
     switch.emit(rt.b, action, trap);
     rt.b.switch_to_block(trap);
     rt.b.set_cold_block(trap);
     rt.b.ins().trap(TrapCode::unwrap_user(4));
 
+    // What the machine's `Ret::Eff` holds while a continuation runs.
+    let eff_ret = [
+        Hold::Handler(handler),
+        Hold::Value(pending_slot),
+        Hold::Value(state_slot),
+    ];
+
     // `Done x` with `k` pending: `k x`, its result the next computation.
     rt.b.switch_to_block(applying);
     let k = rt.load(out_slot, 0);
     let x = rt.load(out_slot, 1);
-    let held = [Hold::Handler(handler), Hold::Value(pending_slot)];
-    let v = rt.apply(k, &[x], &[], Some(env), &held);
+    let v = rt.apply(k, &[x], &[pre], Some(env), &eff_ret);
     rt.store(c_slot, 0, v);
     rt.b.ins().jump(top, &[]);
 
     // The loop's value.
     rt.b.switch_to_block(returning);
     let v = rt.load(out_slot, 0);
+    rt.drop_fun_var(pre);
     rt.drop_fun_var(env);
     rt.b.ins().return_(&v);
 
@@ -639,14 +680,14 @@ pub(crate) fn emit_loop(
     rt.b.switch_to_block(done);
     let f = rt.load(out_slot, 0);
     let x = rt.load(out_slot, 1);
-    rt.tail_apply(f, &[x], env);
+    rt.tail_apply(f, &[x], pre, env);
 
     // A fold's `call o k`.
     rt.b.switch_to_block(calling);
     let f = rt.load(out_slot, 0);
     let o = rt.load(out_slot, 1);
     let k = rt.load(out_slot, 2);
-    rt.tail_apply(f, &[o, k], env);
+    rt.tail_apply(f, &[o, k], pre, env);
 
     // A `translate`'s operation: `Call (inject o) k`.
     rt.b.switch_to_block(injecting);
@@ -654,7 +695,7 @@ pub(crate) fn emit_loop(
     let o = rt.load(out_slot, 1);
     let k = rt.load(out_slot, 2);
     rt.store(k_slot, 0, k);
-    let v = rt.apply(inject, &[o], &[], Some(env), &[Hold::Value(k_slot)]);
+    let v = rt.apply(inject, &[o], &[pre], Some(env), &[Hold::Value(k_slot)]);
     let k = rt.load(k_slot, 0);
     rt.store(cell_slot, 0, v);
     rt.store(cell_slot, 1, k);
@@ -666,6 +707,80 @@ pub(crate) fn emit_loop(
     let cell = rt.load(out_slot, 0);
     rt.b.ins().return_(&cell);
 
+    // A state-passing handler's `done x s` (stage NO3): `done x`, holding
+    // the state (the machine's `Ret::Apply`), then its result applied to
+    // the state in a tail position.
+    rt.b.switch_to_block(state_done);
+    if emit.runtime.states {
+        let f = rt.load(out_slot, 0);
+        let x = rt.load(out_slot, 1);
+        let v = rt.apply(f, &[x], &[pre], Some(env), &[Hold::Value(state_slot)]);
+        let s = rt.load(state_slot, 0);
+        rt.tail_apply(v, &[s], pre, env);
+    } else {
+        rt.b.set_cold_block(state_done);
+        rt.b.ins().trap(TrapCode::unwrap_user(4));
+    }
+
+    // A state-passing handler's `call o k jump s` (stage NO3), holding the
+    // resumption (the machine's `Ret::Step`), then the jump test
+    // (`sw_state_step`): a jump goes on with the loop from `rest y` and the
+    // jump's state; anything else is the loop's value.
+    rt.b.switch_to_block(state_call);
+    if emit.runtime.states {
+        let word = rt.b.ins().load(types::I64, flags(), word_at, 0);
+        rt.b.def_var(resume, word);
+        let call = rt.load(out_slot, 0);
+        let o = rt.load(out_slot, 1);
+        let k = rt.load(out_slot, 2);
+        let jump = rt.load(out_slot, 3);
+        let s = rt.load(out_slot, 4);
+        let v = rt.apply(
+            call,
+            &[o, k, jump, s],
+            &[pre],
+            Some(env),
+            &[Hold::Resume(resume)],
+        );
+        rt.store(k_slot, 0, v);
+        let v_at = rt.addr(k_slot, 0);
+        let word = rt.b.use_var(resume);
+        let out_at = rt.addr(out_slot, 0);
+        let state_at = rt.addr(state_slot, 0);
+        let pending_at = rt.addr(pending_slot, 0);
+        let handler_at = rt.b.ins().stack_addr(rt.pointer, word_at_slot, 0);
+        let jumped_at = rt.b.ins().stack_addr(rt.pointer, jumped_slot, 0);
+        let jumping = rt.call(
+            rt.helpers.state_step,
+            &[
+                rt.ctx, v_at, word, out_at, state_at, pending_at, handler_at, jumped_at,
+            ],
+        )[0];
+        let zero = rt.iconst(0);
+        rt.b.def_var(resume, zero);
+        let jump_block = rt.b.create_block();
+        let value_block = rt.b.create_block();
+        rt.b.ins().brif(jumping, jump_block, &[], value_block, &[]);
+
+        rt.b.switch_to_block(value_block);
+        let v = rt.load(out_slot, 0);
+        rt.b.ins().return_(&v);
+
+        rt.b.switch_to_block(jump_block);
+        let word = rt.b.ins().load(types::I64, flags(), handler_at, 0);
+        rt.b.def_var(handler, word);
+        let word = rt.b.ins().load(rt.pointer, flags(), jumped_at, 0);
+        rt.b.def_var(jumped, word);
+        let rest = rt.load(out_slot, 0);
+        let y = rt.load(out_slot, 1);
+        let v = rt.apply(rest, &[y], &[jumped], None, &eff_ret);
+        rt.store(c_slot, 0, v);
+        rt.b.ins().jump(top, &[]);
+    } else {
+        rt.b.set_cold_block(state_call);
+        rt.b.ins().trap(TrapCode::unwrap_user(4));
+    }
+
     // Out of steps: everything given up, dropped at once (no frame has
     // left), as the machine's `eff_run` drops what it holds.
     rt.b.switch_to_block(out_of_steps);
@@ -674,6 +789,8 @@ pub(crate) fn emit_loop(
         Hold::Value(c_slot),
         Hold::Handler(handler),
         Hold::Value(pending_slot),
+        Hold::Value(state_slot),
+        Hold::Fun(pre),
         Hold::Fun(env),
     ]);
     rt.leave();
@@ -691,19 +808,21 @@ pub(crate) fn emit_resume(
     let out_slot = rt.slot(5);
     let pending_slot = rt.slot(1);
     let rest_slot = rt.slot(1);
-    let handler_slot =
-        rt.b.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 8, 3));
+    let state_slot = rt.slot(1);
+    let handler_slot = word_slot(&mut rt);
     let handler = rt.b.declare_var(types::I64);
     let k = rt.b.declare_var(types::I64);
     let env = rt.b.declare_var(rt.pointer);
     rt.store(y_slot, 0, [params[2], params[3], params[4]]);
     rt.b.def_var(k, params[5]);
     rt.b.def_var(env, params[6]);
+    let zero = rt.iconst(0);
+    rt.store(state_slot, 0, [zero, zero, zero]);
     let y_at = rt.addr(y_slot, 0);
     let out_at = rt.addr(out_slot, 0);
     let handler_at = rt.b.ins().stack_addr(rt.pointer, handler_slot, 0);
     let word = rt.b.use_var(k);
-    let translating = rt.call(rt.helpers.resume_begin, &[word, y_at, out_at, handler_at])[0];
+    let mode = rt.call(rt.helpers.resume_begin, &[word, y_at, out_at, handler_at])[0];
     let word = rt.b.ins().load(types::I64, flags(), handler_at, 0);
     rt.b.def_var(handler, word);
     let pending = rt.load(out_slot, 0);
@@ -716,14 +835,31 @@ pub(crate) fn emit_resume(
     }
     let translate = rt.b.create_block();
     let plain = rt.b.create_block();
-    rt.b.ins().brif(translating, translate, &[], plain, &[]);
+    let state = rt.b.create_block();
+    let trap = rt.b.create_block();
+    let mut switch = Switch::new();
+    switch.set_entry(0, plain);
+    switch.set_entry(1, translate);
+    if emit.runtime.states {
+        switch.set_entry(2, state);
+    }
+    switch.emit(rt.b, mode, trap);
+    rt.b.switch_to_block(trap);
+    rt.b.set_cold_block(trap);
+    rt.b.ins().trap(TrapCode::unwrap_user(4));
+
+    // What the machine's `Ret::Eff` holds while the rest runs.
+    let eff_ret = [
+        Hold::Handler(handler),
+        Hold::Value(pending_slot),
+        Hold::Value(state_slot),
+    ];
 
     // `rest y`.
     rt.b.switch_to_block(plain);
     let rest = rt.load(rest_slot, 0);
     let y = rt.load(out_slot, 2);
-    let held = [Hold::Handler(handler), Hold::Value(pending_slot)];
-    let v = rt.apply(rest, &[y], &[k], Some(env), &held);
+    let v = rt.apply(rest, &[y], &[k], Some(env), &eff_ret);
     let v_args: Vec<ir::BlockArg> = v.iter().map(|x| (*x).into()).collect();
     rt.b.ins().jump(finish, &v_args);
 
@@ -736,25 +872,68 @@ pub(crate) fn emit_resume(
         Hold::Value(rest_slot),
         Hold::Handler(handler),
         Hold::Value(pending_slot),
+        Hold::Value(state_slot),
     ];
     let replied = rt.apply(reply, &[o, y], &[k], Some(env), &held);
     let rest = rt.load(rest_slot, 0);
-    let held = [Hold::Handler(handler), Hold::Value(pending_slot)];
-    let v = rt.apply(rest, &[replied], &[], None, &held);
+    let v = rt.apply(rest, &[replied], &[], None, &eff_ret);
     let v_args: Vec<ir::BlockArg> = v.iter().map(|x| (*x).into()).collect();
     rt.b.ins().jump(finish, &v_args);
+
+    // A state-passing handler's function of the state, given it (stage
+    // NO3, the machine's `enter` of a `StateRun`): the loop from the
+    // computation, or from `rest` applied to it, with the state.
+    rt.b.switch_to_block(state);
+    if emit.runtime.states {
+        let s = rt.load(out_slot, 3);
+        rt.store(state_slot, 0, s);
+        let rest = rt.load(rest_slot, 0);
+        let tag = rt.b.ins().band_imm_u(rest[0], 0xff);
+        let applying = rt.b.create_block();
+        let looping = rt.b.create_block();
+        rt.b.ins().brif(tag, applying, &[], looping, &[]);
+
+        // No `rest`: the loop from the computation, which drops the
+        // function of the state and the closure once it has begun.
+        rt.b.switch_to_block(looping);
+        let c = rt.load(out_slot, 2);
+        let pending = rt.load(pending_slot, 0);
+        let s = rt.load(state_slot, 0);
+        let word = rt.b.use_var(handler);
+        let pre = rt.b.use_var(k);
+        let drop_env = rt.b.use_var(env);
+        let run_loop = rt.fref(emit.runtime.run_loop);
+        let mut call_args = vec![rt.ctx, rt.frames];
+        call_args.extend(c);
+        call_args.extend(pending);
+        call_args.extend(s);
+        call_args.extend([word, pre, drop_env]);
+        rt.b.ins().return_call(run_loop, &call_args);
+
+        // `rest arg`, then the loop from its result.
+        rt.b.switch_to_block(applying);
+        let rest = rt.load(rest_slot, 0);
+        let arg = rt.load(out_slot, 2);
+        let v = rt.apply(rest, &[arg], &[k], Some(env), &eff_ret);
+        let v_args: Vec<ir::BlockArg> = v.iter().map(|x| (*x).into()).collect();
+        rt.b.ins().jump(finish, &v_args);
+    } else {
+        rt.b.set_cold_block(state);
+        rt.b.ins().trap(TrapCode::unwrap_user(4));
+    }
 
     // The loop from the result, with what was pending at the operation.
     rt.b.switch_to_block(finish);
     let v = rt.b.block_params(finish).to_vec();
     let pending = rt.load(pending_slot, 0);
+    let s = rt.load(state_slot, 0);
     let word = rt.b.use_var(handler);
     let none = rt.b.ins().iconst(rt.pointer, 0);
     let run_loop = rt.fref(emit.runtime.run_loop);
     let mut call_args = vec![rt.ctx, rt.frames];
     call_args.extend(v);
     call_args.extend(pending);
-    call_args.push(word);
-    call_args.push(none);
+    call_args.extend(s);
+    call_args.extend([word, none, none]);
     rt.b.ins().return_call(run_loop, &call_args);
 }

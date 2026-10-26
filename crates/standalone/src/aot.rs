@@ -17,9 +17,7 @@ use std::rc::Rc;
 use stitchwort_core::ResourceError;
 use stitchwort_rt::code::Image;
 use stitchwort_rt::ir::Program;
-use stitchwort_rt::native_abi::{
-    self as abi, CrossingCode, NativeIslands, NativeOut, NativeRun, Trampoline,
-};
+use stitchwort_rt::native_abi::{self as abi, CrossingCode, NativeIslands, NativeRun, Trampoline};
 use stitchwort_rt::native_aot::{
     FLAG_NESTS, FLAG_RESUMES, MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, image_hash,
 };
@@ -161,7 +159,7 @@ impl NativeIslands for AotIslands {
         env: Option<Rc<Fun>>,
         args: Vec<Value>,
         run: &mut NativeRun<'_>,
-    ) -> Result<NativeOut, ResourceError> {
+    ) -> Result<Value, ResourceError> {
         // SAFETY: the trampolines and the tables are those the manifest
         // describes, linked into this executable, for this image (checked
         // in `new`); the machine calls only compiled bodies.

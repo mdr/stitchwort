@@ -1,7 +1,10 @@
 //! Stage N4 of docs/proposals/native-compilation.md: effects and handlers.
 //! Native code builds the effect runtime's values as the machine does
-//! (`bind` inline, the other natives run by the machine for it), and the
-//! effect loop and the `IO` runner call compiled continuations. Programs
+//! (`bind` inline, and since docs/proposals/native-only.md's NO2 and NO3
+//! the effect runtime's loop, resumptions and state-passing handlers as
+//! runtime bodies and leaves, never a nested run of the machine: checked on
+//! every native run here), and the `IO` runner calls compiled
+//! continuations. Programs
 //! with state handlers, exceptions, `Random` under a seeded handler, a
 //! handler around partial code (`foldD`), resumptions used more than once,
 //! `IO` through the runner, and every `-- run:` line of the effect examples
@@ -23,7 +26,8 @@ use stitchwort_rt::value::Value;
 use stitchwort_rt::{Limits, Machine, MainRow, alloc_trace, lower_main};
 use stitchwort_syntax::parse_expression;
 
-/// A state-passing handler (each `bump` a jump of its loop), `Fail` caught
+/// A counter handled with an open row (a fold whose resumptions are lazy:
+/// `state_handlers_in_compiled_bodies_agree` has the loop), `Fail` caught
 /// as a value, a handler resuming more than once (`Pick`), a generator
 /// seeded by a state-passing handler of its own (`Random`, total), the
 /// roguelike's `seeded` around partial code (a `foldD`), and `IO` printed in
@@ -211,10 +215,84 @@ fn every_error_exit_in_a_handler_frees_everything() {
     });
 }
 
-/// Effect loops 250,000 long under a frame limit of 100, on a 64 MiB
-/// native stack: a state-passing handler's jumps, a fold whose clause
+/// State-passing handlers whose folds are in compiled bodies (stage NO3 of
+/// native-only.md): a fold at the closed empty row (`FoldStateComp`) and a
+/// handler for `{e}` used at the empty row (`FoldState`), each in a
+/// recursive function, which isn't inlined into the entry (a fold the entry
+/// inlines runs on the machine until NO4: `effect-state.sw`'s `-- run:`
+/// lines are such). Each is a `Prim` (the state applied after) and a
+/// `TailPrim` (the state's function returned), and its clauses resume in a
+/// tail position (a jump), in a non-tail one (`k s s′ + 1`) and stored for
+/// later. Native code gives the machine's output and trace, and stops where
+/// the machine does at every limit, freeing everything.
+const STATE_IN_BODIES: &str = r#"import Std (IO, Nat)
+
+ability Counter where
+  bump: () → {Counter} Nat
+  twice: () → {Counter} Nat
+  later: () → {Counter} Nat
+
+def Counter.closed (prog: () → {Counter} Nat): Nat → Nat :=
+  handle prog() with
+    | return x => s => x * 100 + s
+    | Counter.bump u, k => s => k s (s + 1)
+    | Counter.twice u, k => s => k s (s + 1) + 1
+    | Counter.later u, k => s =>
+      let resume := (v: Nat) => k v (s + v)
+      resume 7 + resume 1
+
+def Counter.from (init: Nat) (prog: () → {Counter | e} Nat): {e} Nat :=
+  let run: Nat → {e} Nat :=
+    handle prog() with
+      | return x => s => x * 100 + s
+      | Counter.bump u, k => s => k s (s + 1)
+      | Counter.twice u, k => s => k s (s + 1)
+      | Counter.later u, k => s => k (s * 2) (s + 2)
+  run init
+
+def counting: Nat → {Counter} Nat
+  | 0 => Counter.later()
+  | Succ n =>
+    let here := Counter.bump()
+    let more := if n % 3 == 0 then Counter.twice() else 0
+    here + more + counting n
+
+def closedAt: Nat → Nat → Nat
+  | 0, n => Counter.closed (() => counting n) 0
+  | Succ m, n => closedAt m n
+
+def closedFun (m: Nat) (n: Nat): Nat → Nat :=
+  match m with
+    | 0 => Counter.closed (() => counting n)
+    | Succ k => closedFun k n
+
+def openAt: Nat → Nat → Nat
+  | 0, n => Counter.from 3 (() => counting n)
+  | Succ m, n => openAt m n
+
+def main(): {IO} () :=
+  IO.print "${closedAt 0 4} ${closedFun 0 3 4} ${openAt 1 4}"
+"#;
+
+#[test]
+fn state_handlers_in_compiled_bodies_agree() {
+    let out = agrees(STATE_IN_BODIES);
+    assert!(!out.is_empty(), "{out}");
+    same_trace(STATE_IN_BODIES);
+    with_stack(STACK, || {
+        let (program, limits) = lowered(STATE_IN_BODIES);
+        let (least_steps, least_frames) = every_limit_agrees(&program, limits);
+        assert!(least_steps > 20, "{least_steps}");
+        assert!(least_frames > 3, "{least_frames}");
+    });
+}
+
+/// Effect loops 100,000 and 250,000 long under a frame limit of 100, on a 64 MiB
+/// native stack: a state-passing handler with a closed row (each `bump` a
+/// jump of its loop, natively since stage NO3 of native-only.md), the same
+/// with an open row (a fold whose resumptions are lazy), a fold whose clause
 /// resumes in a tail position, and the same with an open row (a lazy
-/// resumption, which native code reaches by a tail apply: a tail request).
+/// resumption, which native code reaches by a tail apply).
 #[test]
 fn effect_loops_run_in_constant_stack() {
     const SMALL: usize = 64 * 1024 * 1024;
@@ -225,6 +303,13 @@ ability Counter where
 
 def Counter.from (init: Nat) (prog: () → {Counter | e} a): {e} a :=
   let run: Nat → {e} a :=
+    handle prog() with
+      | return x => s => x
+      | Counter.bump u, k => s => k s (s + 1)
+  run init
+
+def Counter.alone (init: Nat) (prog: () → {Counter} a): a :=
+  let run: Nat → a :=
     handle prog() with
       | return x => s => x
       | Counter.bump u, k => s => k s (s + 1)
@@ -252,7 +337,7 @@ def asks: Nat → Nat → {Env} Nat
   | Succ n, acc => asks n (acc + Env.ask())
 
 def main(): {IO} () :=
-  IO.print "${Counter.from 0 (() => bumps 250000 0)} ${Env.give 3 (() => asks 250000 0)} ${Env.giveIn 2 (() => asks 250000 0)}"
+  IO.print "${Counter.alone 0 (() => bumps 100000 0)} ${Counter.from 0 (() => bumps 250000 0)} ${Env.give 3 (() => asks 250000 0)} ${Env.giveIn 2 (() => asks 250000 0)}"
 "#;
     with_stack(SMALL, move || {
         let (program, limits) = lowered_for(source, SMALL);
@@ -261,7 +346,10 @@ def main(): {IO} () :=
             ..limits
         };
         let machine = on_machine(&program, limits);
-        assert_eq!(machine, ("125000 750000 500000\n".to_string(), Ok(())));
+        assert_eq!(
+            machine,
+            ("50000 125000 750000 500000\n".to_string(), Ok(()))
+        );
         let (native, notes) = native_on(&program, limits, false, SMALL);
         assert!(ran_natively(&notes), "{notes:#?}");
         assert_eq!(native, machine);
@@ -353,7 +441,13 @@ fn effect_examples_agree_with_the_machine() {
                     (alloc_trace::finish(), counts)
                 };
                 let (on_machine, machine_counts) = traced(false);
+                let nested_before = stitchwort_rt::native_abi::nested_runs();
                 let (natively, native_counts) = traced(true);
+                assert_eq!(
+                    stitchwort_rt::native_abi::nested_runs() - nested_before,
+                    0,
+                    "{name}: `{source}`: native code nested a run of the machine"
+                );
                 assert_eq!(native_counts, machine_counts, "{name}: `{source}`");
                 assert_eq!(natively.leaks(), Vec::<u32>::new(), "{name}: `{source}`");
                 let (machine, native) = (on_machine.render(), natively.render());

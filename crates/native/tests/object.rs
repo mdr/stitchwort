@@ -2,7 +2,7 @@
 //! compiled into an object file (`aot::compile_object`), which `stitchwort
 //! build --native` links into an executable. The object exports the
 //! manifest and the crossing's trampolines, leaves the runtime's helpers
-//! (N4's, which run the machine for native code, among them) to the
+//! (the effect runtime's leaves among them) to the
 //! linker, and its code is position-independent: no absolute address in
 //! the text (§1.2: macOS can't relocate one, and the binary dies with
 //! `SIGBUS`). Running the linked code is tested in
@@ -50,14 +50,14 @@ fn the_object_exports_its_manifest_and_trampolines_and_its_code_is_relocatable()
         for trampoline in trampolines {
             assert!(trampoline.is_definition() && trampoline.is_global());
         }
-        // The helpers are the runtime library's, for the linker: those
-        // that run the machine for effects too.
+        // The helpers are the runtime library's, for the linker: the
+        // effect runtime's leaves too.
         for helper in [
             "sw_closure",
             "sw_apply_prepare",
             "sw_ctor",
             "sw_bind",
-            "sw_effect",
+            "sw_eff_step",
         ] {
             assert!(symbol(helper).is_undefined(), "{helper}");
         }
