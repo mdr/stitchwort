@@ -414,13 +414,41 @@ fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>> {
 // --------------------------------------------------------------- compiling
 
 /// Compiles the islands of `program`'s entry (`image` is the machine's
-/// compiled image, which must outlive the result: the code refers to its
-/// constants and tables), or says why the run stays on the machine.
+/// compiled image, which must outlive the result: the tables point at its
+/// constants and number tables), or says why the run stays on the machine.
 pub fn compile(
     program: &Program,
     image: &Image,
     options: Options,
     notes: Rc<RefCell<Vec<String>>>,
+) -> Result<Islands, Vec<String>> {
+    compile_audited(
+        program,
+        image,
+        options,
+        notes,
+        &mut Audit::new(program, image, false),
+    )
+}
+
+/// The Cranelift IR of every function [`compile`] makes for `program`'s
+/// islands, as text: a function of the program alone, since the code holds
+/// no host address (stage S4 of docs/proposals/standalone-executables.md),
+/// so the same program lowered twice, at other addresses, gives the same
+/// text.
+pub fn listing(program: &Program, image: &Image, options: Options) -> Result<String, Vec<String>> {
+    let mut audit = Audit::new(program, image, true);
+    let notes = Rc::new(RefCell::new(Vec::new()));
+    compile_audited(program, image, options, notes, &mut audit)?;
+    Ok(audit.listing.unwrap_or_default())
+}
+
+fn compile_audited(
+    program: &Program,
+    image: &Image,
+    options: Options,
+    notes: Rc<RefCell<Vec<String>>>,
+    audit: &mut Audit,
 ) -> Result<Islands, Vec<String>> {
     abi::probe_layout().map_err(|e| vec![format!("native: {e}")])?;
     let plan = plan(program, image)?;
@@ -464,7 +492,7 @@ pub fn compile(
         lambda_of,
         trampolines,
         n_caches,
-    } = emit(&mut module, program, image, &plan, options, dump)?;
+    } = emit(&mut module, program, image, &plan, options, dump, audit)?;
     module
         .finalize_definitions()
         .map_err(|e| fail(e.to_string()))?;
@@ -527,6 +555,94 @@ struct Emitted {
     n_caches: usize,
 }
 
+/// The check that generated code holds no host address (stage S4 of
+/// docs/proposals/standalone-executables.md), run on each function before
+/// it's compiled: in debug builds (so every native test runs it), no
+/// integer constant may be an address in the host memory the code could
+/// otherwise have named: the image's constants, bodies, operand lists and
+/// tables, the program and its shapes and globals, and the runtime's
+/// helpers. Nothing in the generator makes a pointer constant
+/// (`Gen::address` is gone); this catches one coming back. [`listing`]
+/// also keeps each function's IR, for the test that it's the same text
+/// wherever the program is in memory.
+struct Audit {
+    /// Sorted, disjoint enough to search: `[start, end)` of each host
+    /// object. Empty in release builds.
+    host: Vec<(u64, u64)>,
+    listing: Option<String>,
+}
+
+impl Audit {
+    fn new(program: &Program, image: &Image, listing: bool) -> Audit {
+        let mut host = Vec::new();
+        if cfg!(debug_assertions) || listing {
+            fn span<T>(host: &mut Vec<(u64, u64)>, items: &[T]) {
+                let start = items.as_ptr() as u64;
+                host.push((start, start + size_of_val(items).max(1) as u64));
+            }
+            fn one<T>(host: &mut Vec<(u64, u64)>, item: &T) {
+                span(host, std::slice::from_ref(item));
+            }
+            one(&mut host, program);
+            one(&mut host, &program.shapes);
+            span(&mut host, &program.globals);
+            one(&mut host, image);
+            span(&mut host, &image.pool);
+            span(&mut host, &image.codes);
+            span(&mut host, &image.global_code);
+            span(&mut host, &image.lambda_code);
+            for code in &image.codes {
+                span(&mut host, &code.instrs);
+                span(&mut host, &code.ops);
+                span(&mut host, &code.tables);
+                span(&mut host, &code.num_tables);
+                for table in &code.tables {
+                    span(&mut host, table);
+                }
+            }
+            for (_, address) in helper_addresses() {
+                host.push((address as u64, address as u64 + 1));
+            }
+            host.sort_unstable();
+        }
+        Audit {
+            host,
+            listing: listing.then(String::new),
+        }
+    }
+
+    /// Checks `func`, and keeps its text for a listing.
+    fn function(&mut self, func: &ir::Function) -> Result<(), String> {
+        if let Some(listing) = &mut self.listing {
+            listing.push_str(&func.display().to_string());
+            listing.push('\n');
+        }
+        if self.host.is_empty() {
+            return Ok(());
+        }
+        for block in func.layout.blocks() {
+            for inst in func.layout.block_insts(block) {
+                if let ir::InstructionData::UnaryImm {
+                    opcode: ir::Opcode::Iconst,
+                    imm,
+                } = func.dfg.insts[inst]
+                {
+                    let n = imm.bits() as u64;
+                    // The last object starting at or before `n`.
+                    let i = self.host.partition_point(|(start, _)| *start <= n);
+                    if i > 0 && n < self.host[i - 1].1 {
+                        return Err(format!(
+                            "internal error: the code holds the host address {n:#x} ({})",
+                            func.dfg.display_inst(inst)
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Generates the code of `plan`'s bodies, the adapters and `Apply` stubs,
 /// and a trampoline for each root, into `module`: the code generator, apart
 /// from where the code goes (stage S4 of
@@ -540,6 +656,7 @@ fn emit(
     plan: &Plan,
     options: Options,
     dump: bool,
+    audit: &mut Audit,
 ) -> Result<Emitted, Vec<String>> {
     let fail = |e: String| vec![format!("native: compiling failed: {e}")];
     let frontend_config = module.target_config();
@@ -675,6 +792,9 @@ fn emit(
                 context.func.display()
             );
         }
+        audit
+            .function(&context.func)
+            .map_err(|e| fail(format!("{} ({e})", body_name(program, image, code))))?;
         module
             .define_function(functions[&code], &mut context)
             .map_err(|e| fail(format!("{} ({e:?})", body_name(program, image, code))))?;
@@ -708,6 +828,7 @@ fn emit(
             b.seal_all_blocks();
             b.finalize(frontend_config);
         }
+        audit.function(&context.func).map_err(fail)?;
         module
             .define_function(id, &mut context)
             .map_err(|e| fail(format!("adapter: {e:?}")))?;
@@ -737,6 +858,7 @@ fn emit(
         if dump {
             eprintln!("==== apply{n}\n{}", context.func.display());
         }
+        audit.function(&context.func).map_err(fail)?;
         module
             .define_function(id, &mut context)
             .map_err(|e| fail(format!("apply{n}: {e:?}")))?;
@@ -809,6 +931,7 @@ fn emit(
             b.seal_all_blocks();
             b.finalize(module.target_config());
         }
+        audit.function(&context.func).map_err(fail)?;
         module
             .define_function(id, &mut context)
             .map_err(|e| fail(format!("trampoline: {e:?}")))?;
@@ -2822,5 +2945,43 @@ pub fn factory(
             notes.borrow_mut().extend(why);
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A function returning the constant `n`.
+    fn returning(n: i64) -> ir::Function {
+        let mut signature = ir::Signature::new(CallConv::SystemV);
+        signature.returns.push(AbiParam::new(types::I64));
+        let mut func = ir::Function::with_name_signature(ir::UserFuncName::user(0, 0), signature);
+        let mut context = FunctionBuilderContext::new();
+        let mut b = FunctionBuilder::new(&mut func, &mut context);
+        let entry = b.create_block();
+        b.switch_to_block(entry);
+        let v = b.ins().iconst(types::I64, n);
+        b.ins().return_(&[v]);
+        b.seal_all_blocks();
+        let isa = cranelift_native::builder()
+            .expect("a supported machine")
+            .finish(settings::Flags::new(settings::builder()))
+            .expect("an ISA");
+        b.finalize(isa.frontend_config());
+        func
+    }
+
+    #[test]
+    fn the_audit_finds_a_host_address_in_the_code() {
+        let shapes = 0x1_2345_6000u64;
+        let mut audit = Audit {
+            host: vec![(0x1000_0000, 0x1000_0100), (shapes, shapes + 64)],
+            listing: None,
+        };
+        assert!(audit.function(&returning(shapes as i64 + 8)).is_err());
+        assert!(audit.function(&returning(0x1000_0000)).is_err());
+        assert!(audit.function(&returning(shapes as i64 + 64)).is_ok());
+        assert!(audit.function(&returning(42)).is_ok());
     }
 }
