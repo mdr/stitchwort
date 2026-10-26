@@ -979,6 +979,18 @@ theorem List.memAppend (x: a): (xs: List a) → (ys: List a) → List.Mem x (Lis
       | Inl m => Inl (Inr m)
       | Inr m => Inr m
 
+-- And back: an element of either list is in the two joined.
+theorem List.memAppendLeft (x: a): (xs: List a) → (ys: List a) → List.Mem x xs → List.Mem x (List.append xs ys)
+  | Nil, ys, m => Void.exfalso m
+  | Cons z zs, ys, Inl e => Inl e
+  | Cons z zs, ys, Inr m => Inr (List.memAppendLeft x zs ys m)
+
+theorem List.memAppendRight (x: a): (xs: List a) → (ys: List a) → List.Mem x ys → List.Mem x (List.append xs ys)
+  | Nil, ys, m => m
+  | Cons z zs, ys, m => Inr (List.memAppendRight x zs ys m)
+
+theorem List.memAppendExample: List.Mem 3 (List.append [1, 2] [3]) := List.memAppendRight 3 [1, 2] [3] (Inl rfl)
+
 -- `f x` is in `List.map xs f` only if `x` is in `xs`, for an injective `f`.
 theorem List.memMapInjective (f: a → b) (inj: (x: a) → (y: a) → f x = f y → x = y) (x: a): (xs: List a) → List.Mem (f x) (List.map xs f) → List.Mem x xs
   | Nil, h => h
@@ -997,6 +1009,15 @@ theorem List.anyElim (p: a → Prop) (goal: Prop): (xs: List a) → List.Any p x
   | Nil, h, k => Void.exfalso h
   | Cons z zs, Inl h, k => k z (Inl rfl) h
   | Cons z zs, Inr h, k => List.anyElim p goal zs h (x inZs px => k x (Inr inZs) px)
+
+-- And to prove it: an element of the list that satisfies `p`. (For the
+-- `Bool` `List.any`, `List.anyOfMem`.)
+theorem List.anyIntro (p: a → Prop) (x: a): (xs: List a) → List.Mem x xs → p x → List.Any p xs
+  | Nil, m, px => Void.exfalso m
+  | Cons z zs, Inl e, px => Inl (rewrite e in px)
+  | Cons z zs, Inr m, px => Inr (List.anyIntro p x zs m px)
+
+theorem List.anyIntroExample: List.Any (n => n > 2) [1, 2, 3] := List.anyIntro (n => n > 2) 3 [1, 2, 3] (Inr (Inr (Inl rfl))) rfl
 
 -- What is in `List.map xs f` is `f x` for some `x` in `xs` (said with
 -- `List.Any`, which also says where `x` is: `Exists` wouldn't).
@@ -1019,6 +1040,25 @@ theorem List.memFilter: (xs: List a) → (p: a → Bool) → (x: a) → List.Mem
       | False =>
         match List.memFilter ys p x h with
           | Both inYs px => Both (Inr inYs) px
+
+-- A `filter` that keeps nothing of the list is empty.
+theorem List.filterNone (p: a → Bool): (xs: List a) → ((x: a) → List.Mem x xs → p x = False) → List.filter xs p = Nil
+  | Nil, h => rfl
+  | Cons x xs, h => rewrite h x (Inl rfl) in List.filterNone p xs (y m => h y (Inr m))
+
+-- A `filter` that keeps all of the list is the list.
+theorem List.filterAll (p: a → Bool): (xs: List a) → ((x: a) → List.Mem x xs → p x = True) → List.filter xs p = xs
+  | Nil, h => rfl
+  | Cons x xs, h => rewrite h x (Inl rfl) in Eq.cong (Cons x) (List.filterAll p xs (y m => h y (Inr m)))
+
+-- No successor is zero, and every one is at least 1.
+theorem List.filterNoneExample (xs: List Nat): List.filter (List.map xs Succ) (n => n == 0) = Nil :=
+  List.filterNone (n => n == 0) (List.map xs Succ) (n m =>
+    List.anyElim (x => Succ x = n) ((n == 0) = False) xs (List.memMapAny xs Succ n m) (x inXs e => rewrite <- e in rfl))
+
+theorem List.filterAllExample (xs: List Nat): List.filter (List.map xs Succ) (n => Nat.leq 1 n) = List.map xs Succ :=
+  List.filterAll (n => Nat.leq 1 n) (List.map xs Succ) (n m =>
+    List.anyElim (x => Succ x = n) (Nat.leq 1 n = True) xs (List.memMapAny xs Succ n m) (x inXs e => rewrite <- e in rfl))
 
 -- The run `List.rangeFrom c s` holds the numbers from `s` up to, not
 -- including, `s + c`.
@@ -1543,6 +1583,17 @@ theorem List.takeMap: (xs: List a) → (k: Nat) → (f: a → b) → List.take (
   | Nil, Succ k, f => rfl
   | Cons x xs, Succ k, f => rewrite List.takeMap xs k f
 
+-- The first `k` of two lists combined are the first `k` of each combined.
+theorem List.takeZipWith (f: a → b → c): (xs: List a) → (ys: List b) → (k: Nat) →
+    List.take (List.zipWith xs ys f) k = List.zipWith (List.take xs k) (List.take ys k) f
+  | xs, ys, Zero => rfl
+  | Nil, ys, Succ k => rfl
+  | Cons x xs, Nil, Succ k => rfl
+  | Cons x xs, Cons y ys, Succ k => Eq.cong (Cons (f x y)) (List.takeZipWith f xs ys k)
+
+theorem List.takeZipWithExample: List.take (List.zipWith [1, 2, 3] [10, 20, 30] Nat.add) 2 = List.zipWith [1, 2] [10, 20] Nat.add :=
+  List.takeZipWith Nat.add [1, 2, 3] [10, 20, 30] 2
+
 theorem List.foldLeftMap: (xs: List a) → (z: c) → (f: c → b → c) → (g: a → b) →
     List.foldLeft (List.map xs g) z f = List.foldLeft xs z (acc x => f acc (g x))
   | Nil, z, f, g => rfl
@@ -1941,3 +1992,86 @@ theorem List.lengthMapAccumLeft (xs: List a) (initial: s) (f: s → a → Pair s
   rewrite List.mapAccumLeftList xs initial f in List.lengthZipWithScanLeft (st x => Pair.fst (f st x)) (x st => Pair.snd (f st x)) xs initial
 
 theorem List.mapAccumLeftExample: List.mapAccumLeft [1, 2, 3] 0 (sum x => MkPair (sum + x) sum) = MkPair 6 [0, 1, 3] := rfl
+
+-- `List.get`, the element at an index if there is one: it is `Some` exactly
+-- within the list, what it finds is an element, and it goes through `map`,
+-- `zipWith`, `append` and `take`. (`List.getOrGet`, std/List/Index.sw, is
+-- `List.getOr` from it.)
+
+-- `get` finds something exactly when the index is within the list.
+theorem List.isSomeGet: (xs: List a) → (k: Nat) → Option.isSome (List.get xs k) = Nat.leq (Succ k) (List.length xs)
+  | Nil, k => rfl
+  | Cons x xs, Zero => rfl
+  | Cons x xs, Succ k => List.isSomeGet xs k
+
+theorem List.getInRange (xs: List a) (k: Nat): k < List.length xs ↔ Option.isSome (List.get xs k) = True := {
+  forward = h => Eq.trans (List.isSomeGet xs k) h,
+  backward = h => Eq.trans (Eq.sym (List.isSomeGet xs k)) h
+}
+
+-- Past the end, `get` finds nothing.
+theorem List.getPast: (xs: List a) → (k: Nat) → List.length xs ≤ k → List.get xs k = None
+  | Nil, k, h => rfl
+  | Cons x xs, Zero, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, Succ k, h => List.getPast xs k h
+
+-- What `get` finds is an element of the list.
+theorem List.memOfGet: (xs: List a) → (k: Nat) → (v: a) → List.get xs k = Some v → List.Mem v xs
+  | Nil, k, v, h => Void.exfalso (Option.noneNotSome v h)
+  | Cons x xs, Zero, v, h => Inl (Option.someInjective x v h)
+  | Cons x xs, Succ k, v, h => Inr (List.memOfGet xs k v h)
+
+theorem List.getMap: (xs: List a) → (f: a → b) → (k: Nat) → List.get (List.map xs f) k = Option.map (List.get xs k) f
+  | Nil, f, k => rfl
+  | Cons x xs, f, Zero => rfl
+  | Cons x xs, f, Succ k => List.getMap xs f k
+
+-- `zipWith` has `f x y` where both lists have an element, `x` and `y`.
+theorem List.getZipWith (f: a → b → c): (xs: List a) → (ys: List b) → (k: Nat) →
+    List.get (List.zipWith xs ys f) k = Option.flatMap (List.get xs k) (x => Option.map (List.get ys k) (f x))
+  | Nil, ys, k => rfl
+  | Cons x xs, Nil, Zero => rfl
+  | Cons x xs, Nil, Succ k =>
+    match c: List.get xs k with
+      | None => rfl
+      | Some u => rfl
+  | Cons x xs, Cons y ys, Zero => rfl
+  | Cons x xs, Cons y ys, Succ k => List.getZipWith f xs ys k
+
+-- `append`: the first list's element, else the second's, counting on from
+-- the end of the first.
+theorem List.getAppend: (xs: List a) → (ys: List a) → (k: Nat) →
+    List.get (List.append xs ys) k = Option.orElse (List.get xs k) (List.get ys (k - List.length xs))
+  | Nil, ys, k => rfl
+  | Cons x xs, ys, Zero => rfl
+  | Cons x xs, ys, Succ k => List.getAppend xs ys k
+
+theorem List.getAppendLeft: (xs: List a) → (ys: List a) → (k: Nat) → k < List.length xs → List.get (List.append xs ys) k = List.get xs k
+  | Nil, ys, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, ys, Zero, h => rfl
+  | Cons x xs, ys, Succ k, h => List.getAppendLeft xs ys k h
+
+theorem List.getAppendRight: (xs: List a) → (ys: List a) → (k: Nat) → List.length xs ≤ k →
+    List.get (List.append xs ys) k = List.get ys (k - List.length xs)
+  | Nil, ys, k, h => rfl
+  | Cons x xs, ys, Zero, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, ys, Succ k, h => List.getAppendRight xs ys k h
+
+-- `take n` keeps the elements before `n`, and nothing from `n` on.
+theorem List.getTake: (xs: List a) → (n: Nat) → (k: Nat) → k < n → List.get (List.take xs n) k = List.get xs k
+  | xs, Zero, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | Nil, Succ n, k, h => rfl
+  | Cons x xs, Succ n, Zero, h => rfl
+  | Cons x xs, Succ n, Succ k, h => List.getTake xs n k h
+
+theorem List.getTakePast: (xs: List a) → (n: Nat) → (k: Nat) → n ≤ k → List.get (List.take xs n) k = None
+  | xs, Zero, k, h => rfl
+  | Nil, Succ n, k, h => rfl
+  | Cons x xs, Succ n, Zero, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, Succ n, Succ k, h => List.getTakePast xs n k h
+
+theorem List.getExample: List.get (List.append [1, 2] (List.map [3, 4] Succ)) 3 = Some 5 := rfl
+
+-- For any list of successors, what `get` finds is not zero.
+theorem List.getMapExample (xs: List Nat) (k: Nat) (v: Nat) (h: List.get (List.map xs Succ) k = Some v): Not (v = 0) :=
+  Option.mapEqSome (List.get xs k) Succ v (Eq.trans (Eq.sym (List.getMap xs Succ k)) h) (u found e => rewrite <- e in Nat.succNotZero u)

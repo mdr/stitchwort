@@ -29,6 +29,28 @@ theorem List.getOrTake: (xs: List a) → (d: a) → (k: Nat) → (i: Nat) → i 
   | Cons x xs, d, Succ k, Zero, h => rfl
   | Cons x xs, d, Succ k, Succ i, h => List.getOrTake xs d k i h
 
+-- `getOr` is `List.get` with the fallback for `None` (`List.get`'s lemmas
+-- are in Toolkit.sw) ...
+theorem List.getOrGet: (xs: List a) → (d: a) → (k: Nat) → List.getOr xs d k = Option.getOrElse (List.get xs k) d
+  | Nil, d, k => rfl
+  | Cons x xs, d, Zero => rfl
+  | Cons x xs, d, Succ k => List.getOrGet xs d k
+
+-- ... so what `get` finds, `getOr` gives, whatever the fallback ...
+theorem List.getOrOfGet: (xs: List a) → (d: a) → (k: Nat) → (v: a) → List.get xs k = Some v → List.getOr xs d k = v
+  | Nil, d, k, v, h => Void.exfalso (Option.noneNotSome v h)
+  | Cons x xs, d, Zero, v, h => Option.someInjective x v h
+  | Cons x xs, d, Succ k, v, h => List.getOrOfGet xs d k v h
+
+-- ... and within the list, `get` finds what `getOr` gives.
+theorem List.getOfGetOr: (xs: List a) → (d: a) → (k: Nat) → k < List.length xs → List.get xs k = Some (List.getOr xs d k)
+  | Nil, d, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, d, Zero, h => rfl
+  | Cons x xs, d, Succ k, h => List.getOfGetOr xs d k h
+
+theorem List.getOrOfGetExample (xs: List Nat) (k: Nat) (v: Nat) (h: List.get xs k = Some v): List.getOr xs 0 k = List.getOr xs 1 k :=
+  Eq.trans (List.getOrOfGet xs 0 k v h) (Eq.sym (List.getOrOfGet xs 1 k v h))
+
 -- Lists of the same length that agree at every index are equal.
 theorem List.extGetOr (d: a): (xs: List a) → (ys: List a) → List.length xs = List.length ys →
     ((i: Nat) → i < List.length xs → List.getOr xs d i = List.getOr ys d i) → xs = ys
