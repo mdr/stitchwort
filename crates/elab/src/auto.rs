@@ -35,7 +35,7 @@
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, force};
-use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
+use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Term, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Elaborator;
@@ -44,8 +44,15 @@ use crate::interfaces::{self, Attempt};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
-/// How deep decision procedures may depend on each other.
-const MAX_DEPTH: usize = 8;
+/// What one level of dependence between decision procedures costs.
+const LEVEL: usize = 256;
+
+/// How deep decision procedures may depend on each other: eight levels. A
+/// procedure that needs the decision of a smaller part of its own proposition
+/// (`Decidable.or` on `a ∨ rest`, which membership in a literal list unfolds
+/// to) costs 1 instead of `LEVEL`, so such a chain may be a couple of
+/// thousand steps long and the search is still bounded.
+const MAX_DEPTH: usize = 8 * LEVEL;
 
 /// An auto argument still to be proved: the metavariable standing for it, its
 /// type, and the context it was created in.
@@ -306,7 +313,7 @@ fn lex_less(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<Term>> {
         cx.eval(&term)
     };
     let first = less_than(cx, &a1, &b1)?;
-    let found = attempt(cx, |cx| match prove(cx, &first, depth + 1) {
+    let found = attempt(cx, |cx| match prove(cx, &first, depth + LEVEL) {
         Ok(proof) => Ok(Some(proof)),
         Err(e) => give_up_on(e),
     })?;
@@ -318,7 +325,7 @@ fn lex_less(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<Term>> {
         if !cx.unify(&a1, &b1)? {
             return Ok(None);
         }
-        match prove(cx, &second, depth + 1) {
+        match prove(cx, &second, depth + LEVEL) {
             Ok(proof) => Ok(Some(Term::ctor(lex, 1, vec![Term::Refl, proof]))),
             Err(e) => give_up_on(e),
         }
@@ -575,8 +582,15 @@ fn instantiate(
             continue;
         }
         let found = match force(g, dom)? {
-            Value::Data(d, params) if d == decidable => decide(cx, &params[0], depth + 1),
-            dom if icit == Icit::Auto => prove(cx, &dom, depth + 1),
+            Value::Data(d, params) if d == decidable => {
+                let cost = if size(g, &params[0])? < size(g, prop)? {
+                    1
+                } else {
+                    LEVEL
+                };
+                decide(cx, &params[0], depth + cost)
+            }
+            dom if icit == Icit::Auto => prove(cx, &dom, depth + LEVEL),
             _ => return Ok(None),
         };
         let found = match found {
@@ -588,4 +602,22 @@ fn instantiate(
         }
     }
     Ok(Some(term))
+}
+
+/// The number of data types, constructors and equations in a proposition: a
+/// measure of whether one is part of another.
+fn size(g: &Globals, value: &Value) -> Result<usize> {
+    let sum = |parts: &[Value]| -> Result<usize> {
+        let mut total = 1;
+        for part in parts {
+            total += size(g, part)?;
+        }
+        Ok(total)
+    };
+    Ok(match force(g, value.clone())? {
+        Value::Data(_, parts) => sum(&parts)?,
+        Value::Ctor(_, _, fields) => sum(&fields)?,
+        Value::Eq(ty, x, y) => sum(&[(*ty).clone(), (*x).clone(), (*y).clone()])?,
+        _ => 1,
+    })
 }
