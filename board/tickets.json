@@ -4008,7 +4008,7 @@
     },
     {
       "id": 561,
-      "title": "Native-only NO3-NO7 (NO2 merged a5821e7c; NO3 running): state handlers; entry + Executor; no fallback; binary without the machine; Linux (native-only.md §6)",
+      "title": "Native-only NO4-NO7 (NO3 merged f78114ed; NO4 running): entry + Executor; no fallback; binary without the machine; Linux (native-only.md §6)",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -4017,7 +4017,8 @@
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": [
-        "a5821e7c"
+        "a5821e7c",
+        "f78114ed"
       ]
     },
     {
