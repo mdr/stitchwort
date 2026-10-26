@@ -1,5 +1,5 @@
 {
-  "next": 606,
+  "next": 607,
   "tickets": [
     {
       "id": 13,
@@ -4584,6 +4584,18 @@
     {
       "id": 605,
       "title": "run --native under Linux strict overcommit (mode 2) is refused: it reserves the full 64 GiB on the CLI thread; fix by sizing before the thread starts (needs the JIT code and terminal to be movable across threads) (NO6/NO7 open item)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 606,
+      "title": "Syntax: a record literal as a constructor's (or function's) first argument needs brackets — TextCard ({ … }) rather than TextCard { … } (found in the private app port, 26 Oct; split out of SW-578)",
       "status": "backlog",
       "agent": "",
       "where": "",
