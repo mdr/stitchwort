@@ -89,6 +89,13 @@ theorem Option.mapEqSome [goal: Prop]: (x: Option a) → (f: a → b) → (v: b)
   | Some u, f, v, h, use => use u rfl (Option.someInjective (f u) v h)
   | None, f, v, h, use => Void.exfalso (Option.noneNotSome v h)
 
+-- `map f x` is `None` exactly when `x` is.
+theorem Option.mapEqNone: (x: Option a) → (f: a → b) → Option.map x f = None ↔ x = None
+  | Some u, f => { forward = h => Void.exfalso (Option.someNotNone (f u) h), backward = h => Void.exfalso (Option.someNotNone u h) }
+  | None, f => { forward = h => rfl, backward = h => rfl }
+
+theorem Option.mapEqNoneExample (x: Option Nat) (h: Option.map x Succ = None): x = None := (Option.mapEqNone x Succ).forward h
+
 -- If `flatMap f x` is `Some v`, then `x` held some `u` with `f u = Some v`.
 theorem Option.flatMapEqSome [goal: Prop]: (x: Option a) → (f: a → Option b) → (v: b) → Option.flatMap x f = Some v → ((u: a) → x = Some u → f u = Some v → goal) → goal
   | Some u, f, v, h, use => use u rfl h

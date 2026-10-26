@@ -48,16 +48,6 @@ theorem List.memDifferenceBy [auto eq: DecEq k] (x: a) (xs: List a) (ys: List a)
       | Both inXs out => List.memFilterIntro xs (y => key y ∉ List.map ys key) x inXs (List.notInOfNotMem (key x) (List.map ys key) out)
 }
 
--- An element of two lists joined, from one of them.
-theorem List.memAppendLeft (x: a): (xs: List a) → (ys: List a) → x ∈ xs → x ∈ List.append xs ys
-  | Nil, ys, m => Void.exfalso m
-  | Cons z zs, ys, Inl e => Inl e
-  | Cons z zs, ys, Inr m => Inr (List.memAppendLeft x zs ys m)
-
-theorem List.memAppendRight (x: a): (xs: List a) → (ys: List a) → x ∈ ys → x ∈ List.append xs ys
-  | Nil, ys, m => m
-  | Cons z zs, ys, m => Inr (List.memAppendRight x zs ys m)
-
 -- What `appendNewBy` has: the items of `xs`, and those of `ys` whose key no
 -- item of `xs` has.
 theorem List.memAppendNewBy [auto eq: DecEq k] (x: a) (xs: List a) (ys: List a) (key: a → k):
@@ -89,16 +79,6 @@ theorem List.distinctKeysAppendNewBy [auto eq: DecEq k] (xs: List a) (ys: List a
   List.distinctMapAppend key xs (List.differenceBy ys xs key) dx
     (List.distinctMapFilter ys key (y => key y ∉ List.map xs key) dy)
     (List.disjointKeysDifferenceBy ys xs key)
-
--- A `filter` that keeps nothing of the list is empty.
-theorem List.filterNone (p: a → Bool): (xs: List a) → ((x: a) → x ∈ xs → p x = False) → List.filter xs p = Nil
-  | Nil, h => rfl
-  | Cons x xs, h => rewrite h x (Inl rfl) in List.filterNone p xs (y m => h y (Inr m))
-
--- A `filter` that keeps all of the list is the list.
-theorem List.filterAll (p: a → Bool): (xs: List a) → ((x: a) → x ∈ xs → p x = True) → List.filter xs p = xs
-  | Nil, h => rfl
-  | Cons x xs, h => rewrite h x (Inl rfl) in Eq.cong (Cons x) (List.filterAll p xs (y m => h y (Inr m)))
 
 -- `differenceBy` keeps nothing when every key of `xs` is a key of `ys` ...
 theorem List.differenceByCovered [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)

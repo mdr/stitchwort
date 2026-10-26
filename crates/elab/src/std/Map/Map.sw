@@ -744,6 +744,28 @@ theorem Map.memKeysIndexBy [auto ord: Ord k] (xs: List a) (key: a → k) (kk: k)
 
 theorem Map.getIndexByMemExample: Map.get (Map.indexBy ["ab", "c"] Text.length) 2 = Some "ab" := rfl
 
+-- Whatever the keys, what `indexBy` has under `kk` is an element of the
+-- list with key `kk` ...
+theorem Map.memOfGetIndexBy [auto ord: Ord k] (xs: List a) (key: a → k) (kk: k) (y: a) (h: Map.get (Map.indexBy xs key) kk = Some y):
+    y ∈ xs ∧ key y = kk :=
+  match List.findSome xs (x => Map.Spec.sameKey kk (key x)) y (Eq.trans (Eq.sym (Map.getIndexBy key kk xs)) h) with
+    | Both py m => Both m (Eq.sym (Map.Spec.sameKeySound kk (key y) py))
+
+-- ... and it has every element's key, under it an element with that key
+-- (the first, `Map.getIndexByEq`; with distinct keys the element itself,
+-- `Map.getIndexByMem`).
+theorem Map.getIndexByOfMem [auto ord: Ord k] (xs: List a) (key: a → k) (x: a) (m: x ∈ xs):
+    ∃ (y: a) => Map.get (Map.indexBy xs key) (key x) = Some y ∧ y ∈ xs ∧ key y = key x :=
+  match c: Map.get (Map.indexBy xs key) (key x) with
+    | Some y => Witness y (Both rfl (Map.memOfGetIndexBy xs key (key x) y c))
+    | None =>
+      Void.exfalso (List.findKeySome xs key (key x) (List.memMap xs x m key) (Eq.trans (Eq.sym (Map.getIndexByEq xs (key x) key)) c))
+
+-- Indexing words by length, any word's length finds a word of that length.
+theorem Map.getIndexByOfMemExample (words: List Text) (word: Text) (m: word ∈ words):
+    ∃ (y: Text) => Map.get (Map.indexBy words Text.length) (Text.length word) = Some y ∧ y ∈ words ∧ Text.length y = Text.length word :=
+  Map.getIndexByOfMem words Text.length word m
+
 theorem Map.getMapWithKey [auto ord: Ord k] (m: Map k v) (key: k) (f: k → v → w):
     Map.get (Map.mapWithKey m f) key = Option.map (Map.get m key) (f key) :=
   Map.indRaw [p := m' => Map.get (Map.mapWithKey m' f) key = Option.map (Map.get m' key) (f key)] (r => Map.Raw.getMapWithKey r key f) m
