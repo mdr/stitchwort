@@ -4144,8 +4144,8 @@
     },
     {
       "id": 572,
-      "title": "Private app port follow-ups (after the catch-up): typed ids in the event model; a std function instead of a local whitespace helper; whether a time-mapping helper is still needed (private work only)",
-      "status": "review",
+      "title": "Private app port: adopt typed ids (D1309), std trim for blank names (D1310), delete dead helper (D1311), dead-code sweep (private work only)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
