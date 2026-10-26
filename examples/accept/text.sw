@@ -36,13 +36,16 @@ def firstChar (text: Text): Nat := unconsCode (text.uncons)
 test "uncons" := firstChar "xyz" == 120
 test "uncons empty" := firstChar "" == 0
 
--- `trim` removes exactly space, \t, \n, \r, U+000B and U+000C.
+-- `trim` removes Unicode White_Space (Char.isWhitespace): ASCII space,
+-- \t, \n, \r, U+000B and U+000C, and also no-break space, U+3000 and the rest;
+-- not the byte-order mark.
 test "trim" := "  \t hi there \r\n".trim == "hi there"
 test "trim vt and ff" := "\u{B}\u{C}x\u{B}\u{C}".trim == "x"
 test "trim all" := " \n ".trim == ""
 test "trim nothing" := "".trim == ""
-test "no-break space stays" := "\u{A0}x".trim == "\u{A0}x"
-test "ideographic space stays" := "\u{3000}".trim == "\u{3000}"
+test "no-break space goes" := "\u{A0}x".trim == "x"
+test "ideographic space goes" := "\u{3000}".trim == ""
+test "byte-order mark stays" := "\u{FEFF}x".trim == "\u{FEFF}x"
 
 -- Numbers.
 def someIs (n: Nat): Option Nat → Bool
