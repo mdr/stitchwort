@@ -1,5 +1,5 @@
 {
-  "next": 636,
+  "next": 640,
   "tickets": [
     {
       "id": 13,
@@ -4841,7 +4841,7 @@
     {
       "id": 626,
       "title": "Float laws research note (D1362+): should std prove laws about rounding arithmetic? (Rocq Prim2SF, Flocq, Lean, Isabelle; options none / curated trusted laws / spec model + axioms / reference definitions)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4950,6 +4950,54 @@
       "id": 635,
       "title": "Abort.thenEqSome can't infer its step: the unifier can't solve ?t () against a call, so t must be written (() => helper …) (Abort-inversion lane, 26 Oct)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 636,
+      "title": "Float laws stage 1 (D1363/D1368): Float.Model with roundRatio/roundScaled, units; add and sub as definitions; kernel computes floats through definitions only (hardware only in program mode/runtimes); measure ms per op",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 637,
+      "title": "Float laws stage 2: the laws (units monotone, rounding monotone/identity, addMonotoneRight, addComm, subAddNeg, addNegZero); then discharge AdditionMonotone in the private port (D1361)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 638,
+      "title": "Float laws stage 3: mul, ofInt, ofNat via roundScaled",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 639,
+      "title": "Float laws stage 4: div (roundRatio), rem, floor, ceil, trunc, round as definitions; no float primitive left with a reduction rule",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
