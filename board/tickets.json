@@ -4781,7 +4781,7 @@
     {
       "id": 621,
       "title": "Signature defaults stage 1b: printing hides filled defaults (D1354)",
-      "status": "next",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4793,7 +4793,7 @@
     {
       "id": 622,
       "title": "Signature defaults stage 2: JS options object for exported defaults (D1355)",
-      "status": "next",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4805,7 +4805,7 @@
     {
       "id": 623,
       "title": "Signature defaults stage 3: constructor calls use field defaults (D1346)",
-      "status": "next",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4985,7 +4985,7 @@
     {
       "id": 638,
       "title": "Float laws stage 3: mul, ofInt, ofNat via roundScaled",
-      "status": "next",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4997,7 +4997,7 @@
     {
       "id": 639,
       "title": "Float laws stage 4: div (roundRatio), rem, floor, ceil, trunc, round as definitions; no float primitive left with a reduction rule",
-      "status": "next",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5021,7 +5021,7 @@
     {
       "id": 641,
       "title": "Print record updates as { x | f = s } in hover and goals instead of the hidden .%matchN helper (update-lemmas lane, 26 Oct)",
-      "status": "next",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5177,7 +5177,7 @@
     {
       "id": 654,
       "title": "task build doesn't build the runtime library, so build --native fails with 'can't find libstitchwort_standalone.a' until cargo build --release -p stitchwort-standalone is run (Matt compiling the roguelike, 26 Oct); make task build build both",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5189,7 +5189,7 @@
     {
       "id": 655,
       "title": "WebAssembly-kernel float tests (float_paths.rs: the_gate_passes_on_the_webassembly_kernel, the_four_paths_agree_on_canonical_bits) pass silently when web/pkg is missing or stale; add STITCHWORT_REQUIRE_WASM=1 in the merge/daily tiers to turn the skip into a failure (found 26 Oct: float stage 1 gate was never actually run)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
