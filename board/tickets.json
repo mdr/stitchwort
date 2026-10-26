@@ -1,5 +1,5 @@
 {
-  "next": 626,
+  "next": 627,
   "tickets": [
     {
       "id": 13,
@@ -4745,7 +4745,7 @@
     {
       "id": 618,
       "title": "Private app port: D1343 — card ids distinct across the whole event: after merging groups, each card id kept only in the group the local copy has it in (else the remote's), removed elsewhere; converted slide cards go through the same step; WellFormed gains event-wide card-id distinctness, proved for well-formed inputs; tests incl. the moved-card case (A[X,Y]/B[] vs A[Y]/B[X]); differential category. After the D1341 clamp lane (private work only)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4830,6 +4830,18 @@
       "id": 625,
       "title": "std Float: no laws about rounding arithmetic are provable (add/sub/… are unknown functions in the logic, float.md 'no new propositional axioms'). Trigger: the private port needs 's <= s + d when 0 <= d' (monotone addition) and carries it as a hypothesis. Options: trusted law axioms (Rocq-style, tested against hardware), or bit-level reference definitions",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 626,
+      "title": "Float laws research note (D1362+): should std prove laws about rounding arithmetic? (Rocq Prim2SF, Flocq, Lean, Isabelle; options none / curated trusted laws / spec model + axioms / reference definitions)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
