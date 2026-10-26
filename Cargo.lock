@@ -417,6 +417,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "cranelift-object"
+version = "0.136.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e1d0b304a1a852087669b13a26f341c1984c15ba0f4f2d9b3182e67e69782c4"
+dependencies = [
+ "anyhow",
+ "cranelift-codegen",
+ "cranelift-control",
+ "cranelift-module",
+ "gimli",
+ "log",
+ "object",
+ "target-lexicon",
+]
+
+[[package]]
 name = "cranelift-srcgen"
 version = "0.136.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1265,7 +1281,9 @@ dependencies = [
  "cranelift-jit",
  "cranelift-module",
  "cranelift-native",
+ "cranelift-object",
  "libc",
+ "object",
  "stitchwort-core",
  "stitchwort-driver",
  "stitchwort-rt",
@@ -1294,6 +1312,8 @@ version = "0.1.0"
 dependencies = [
  "mimalloc",
  "nix",
+ "stitchwort-core",
+ "stitchwort-driver",
  "stitchwort-host",
  "stitchwort-rt",
  "stitchwort-syntax",

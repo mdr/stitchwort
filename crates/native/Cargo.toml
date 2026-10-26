@@ -15,6 +15,9 @@ cranelift-frontend = "=0.136.2"
 cranelift-jit = "=0.136.2"
 cranelift-module = "=0.136.2"
 cranelift-native = "=0.136.2"
+# Object files for standalone executables (`aot`, standalone-executables.md
+# S5), in lockstep with the rest.
+cranelift-object = "=0.136.2"
 
 [target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
 # `MAP_JIT` and `pthread_jit_write_protect_np` (src/map_jit.rs).
@@ -25,6 +28,8 @@ libc = "0.2.190"
 # traces.
 stitchwort-driver.workspace = true
 stitchwort-rt = { workspace = true, features = ["alloc-trace"] }
+# Reading back the object `aot::compile_object` writes (tests/object.rs).
+object = { workspace = true, features = ["read_core", "macho", "elf"] }
 
 [lints]
 workspace = true

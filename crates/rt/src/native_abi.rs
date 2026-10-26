@@ -588,6 +588,85 @@ pub fn natively_callable(globals: &[bool], lambdas: &[*const u8], v: &Value) -> 
     true
 }
 
+// ------------------------------------------------------------ the crossing
+
+/// A root's trampoline: `(context, arguments, result)`, in the host's C
+/// calling convention, the arguments moved in, the result written.
+pub type Trampoline = extern "C" fn(*mut Context, *mut Value, *mut Value);
+
+/// How much of the stack [`CompiledCode::stack_size`] gives native code is kept
+/// back: what the host used above the crossing, and room at the bottom for
+/// the runtime's helpers.
+pub const STACK_SLACK: usize = 16 * 1024 * 1024;
+
+/// Compiled code, wherever it is (JIT-compiled memory, or linked into a
+/// standalone executable): what the crossing gives it in the [`Context`].
+pub struct CompiledCode {
+    /// For each global, its code as a function value's, or null.
+    pub functions: *const *const u8,
+    /// For each lambda, its code, or null.
+    pub lambdas: *const *const u8,
+    pub tables: *const Tables,
+    /// The stack the code runs on, if known: native code then stops with
+    /// `E-RESOURCE` rather than run off its end (a safety margin).
+    pub stack_size: Option<usize>,
+}
+
+impl CompiledCode {
+    /// Runs the island root whose trampoline is `trampoline` on `args`, as
+    /// the machine's `Call` hands it over (the module comment): the
+    /// counters go in and the steps come back in `run`, the arguments are
+    /// moved in and the result moved out. Shared by `run --native`'s JIT
+    /// and a standalone executable's linked code, so the two can't drift.
+    ///
+    /// # Safety
+    /// `trampoline` is a finished trampoline of this code, and `functions`,
+    /// `lambdas` and `tables` are the tables it was compiled against, valid
+    /// for the call.
+    #[allow(unsafe_code)]
+    pub unsafe fn call(
+        &self,
+        trampoline: Trampoline,
+        args: Vec<Value>,
+        run: &mut NativeRun<'_>,
+    ) -> Result<Value, ResourceError> {
+        let here = {
+            let marker = 0u8;
+            std::hint::black_box(&marker) as *const u8 as u64
+        };
+        let stack_limit = match self.stack_size {
+            Some(size) if size > STACK_SLACK => here.saturating_sub((size - STACK_SLACK) as u64),
+            _ => 0,
+        };
+        let mut context = Context {
+            steps: run.steps,
+            step_limit: run.limits.steps,
+            frames: run.frames,
+            frame_limit: run.limits.frames as u64,
+            error: OK,
+            stack_limit,
+            functions: self.functions,
+            lambdas: self.lambdas,
+            run: (run as *mut NativeRun<'_>).cast::<NativeRun<'static>>(),
+            tables: self.tables,
+        };
+        let mut args = std::mem::ManuallyDrop::new(args);
+        let mut out = MaybeUninit::<Value>::uninit();
+        trampoline(&mut context, args.as_mut_ptr(), out.as_mut_ptr());
+        // SAFETY: native code took the arguments (moved, as `Call` moves
+        // them into a frame), so the vector gives back only its buffer; it
+        // wrote a whole value to `out` (`Erased` after an error), which is
+        // now ours. `context.run` isn't used after the call.
+        let result = unsafe {
+            args.set_len(0);
+            std::mem::ManuallyDrop::drop(&mut args);
+            out.assume_init()
+        };
+        run.steps = context.steps;
+        context.result().map(|()| result)
+    }
+}
+
 // ------------------------------------------------------------ the helpers
 //
 // The runtime functions compiled code calls. Each takes raw pointers, which
