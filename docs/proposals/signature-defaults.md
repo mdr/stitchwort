@@ -1,6 +1,6 @@
 # Default values for function parameters
 
-Status: proposed (D1340), for review. Decisions D1345 to D1356 in §10.
+Status: accepted (D1340). Decisions D1345 to D1356 in §10 all taken as recommended (26 Oct 2026).
 Nothing here is built.
 
 This note takes up the part of
