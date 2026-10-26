@@ -42,10 +42,12 @@ pub const LIBRARY_VARIABLE: &str = "STITCHWORT_RUNTIME";
 
 /// The native libraries the runtime library needs on the link line: what
 /// `rustc --print native-static-libs` lists for it (on macOS, rustc 1.99:
-/// `-liconv -lSystem -lc -lm`). A test checks these against rustc's list for
-/// the standard library.
+/// `-liconv -lSystem -lc -lm`). On macOS `-liconv` is left out: nothing in
+/// the library uses an `iconv` symbol, and under Nix it would resolve to a
+/// `/nix/store` copy. A test checks these against rustc's list for the
+/// standard library.
 pub const NATIVE_LIBS: &[&str] = if cfg!(target_os = "macos") {
-    &["-liconv", "-lSystem", "-lc", "-lm"]
+    &["-lSystem", "-lc", "-lm"]
 } else {
     &[
         "-lgcc_s",
@@ -530,6 +532,9 @@ mod tests {
             .map(|(_, libs)| libs)
             .unwrap_or_else(|| panic!("rustc printed no list: {said}"));
         for lib in listed.split_whitespace() {
+            if cfg!(target_os = "macos") && lib == "-liconv" {
+                continue;
+            }
             assert!(
                 NATIVE_LIBS.contains(&lib),
                 "{lib} is missing from {NATIVE_LIBS:?}"
