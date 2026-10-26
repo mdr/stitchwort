@@ -247,9 +247,11 @@ pub(crate) fn body_name(program: &Program, image: &Image, code: u32) -> String {
 /// The targets native code is compiled for (§4 of
 /// docs/proposals/native-only.md, as stage S5 of
 /// standalone-executables.md): the ones Cranelift and the runtime support.
-pub const SUPPORTED_TARGETS: [&str; 4] = [
+pub const SUPPORTED_TARGETS: [&str; 6] = [
     "aarch64-apple-darwin",
     "x86_64-apple-darwin",
+    "aarch64-unknown-linux-musl",
+    "x86_64-unknown-linux-musl",
     "aarch64-unknown-linux-gnu",
     "x86_64-unknown-linux-gnu",
 ];
@@ -258,6 +260,7 @@ pub const SUPPORTED_TARGETS: [&str; 4] = [
 pub fn host_target() -> String {
     let os = match std::env::consts::OS {
         "macos" => "apple-darwin",
+        "linux" if cfg!(target_env = "musl") => "unknown-linux-musl",
         "linux" => "unknown-linux-gnu",
         other => other,
     };

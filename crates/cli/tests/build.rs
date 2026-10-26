@@ -203,6 +203,49 @@ fn the_executable_is_named_after_its_file_and_signed() {
     }
 }
 
+/// On Linux an executable, with native code or without, is static: its
+/// ELF headers name no interpreter (`PT_INTERP`) and no shared library
+/// (`DT_NEEDED`), so it runs on any Linux of its architecture.
+#[cfg(target_os = "linux")]
+#[test]
+fn the_executable_is_static_on_linux() {
+    use object::elf::{DT_NEEDED, FileHeader64, PT_INTERP};
+    use object::read::elf::{Dyn as _, FileHeader as _, ProgramHeader as _};
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("static");
+    std::fs::write(dir.join("echo.sw"), ECHO).expect("write the source");
+    let mut builds = vec![vec!["echo.sw", "-o", "machine"]];
+    if cfg!(feature = "native") {
+        builds.push(vec!["echo.sw", "--native", "-o", "native"]);
+    }
+    for args in builds {
+        build(&dir, &args);
+        let exe = dir.join(args[args.len() - 1]);
+        let data = std::fs::read(&exe).expect("read the executable");
+        let header = FileHeader64::<object::Endianness>::parse(&*data).expect("an ELF file");
+        let endian = header.endian().expect("its byte order");
+        for segment in header
+            .program_headers(endian, &*data)
+            .expect("its program headers")
+        {
+            assert_ne!(segment.p_type(endian), PT_INTERP, "{}", exe.display());
+            if let Some(entries) = segment.dynamic(endian, &*data).expect("its dynamic table") {
+                assert!(
+                    entries.iter().all(|entry| entry.tag(endian) != DT_NEEDED),
+                    "{} needs a shared library",
+                    exe.display()
+                );
+            }
+        }
+        assert_eq!(
+            text(&run_executable(&exe, b"x\n").stdout),
+            "got x\ndone, 0 left\n"
+        );
+    }
+}
+
 /// An unhandled `Fail`: what was printed, then `error: <msg>`, and status 1.
 #[test]
 fn a_failing_program_fails_as_it_does_under_run() {
