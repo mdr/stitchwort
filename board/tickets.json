@@ -3786,14 +3786,16 @@
     {
       "id": 545,
       "title": "Flaky merge-tier failure under load: stitchwort-cli::examples rejected_examples_fail_for_the_expected_reason (seen 3+ times overnight, passes on rerun)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "07ee29fc"
+      ]
     },
     {
       "id": 546,
