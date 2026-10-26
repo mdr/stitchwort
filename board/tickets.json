@@ -1,5 +1,5 @@
 {
-  "next": 563,
+  "next": 565,
   "tickets": [
     {
       "id": 13,
@@ -4016,6 +4016,30 @@
     {
       "id": 562,
       "title": "Revisit D1298: compile IO directly (native code calls the OS for print/read, no Delay value or Rust runner) instead of keeping the Rust IO runner in native binaries; Matt asked to revisit (26 Oct). Measure the runner's share on an IO-heavy program first (native-only.md §2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 563,
+      "title": "Roguelike: generator back to free {Random} style (Matt, 26 Oct: readability over the draw-then-plan split)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 564,
+      "title": "Revisit: prove the generation theorems (generatedReachable, generatedFramed, newGameSound, drawn*) over the free-style {Random} generator — e.g. a list handler + one seeded-equals-list lemma; blocked today by symbolic handler stepping (E-RESOURCE) and Effect.bindAssoc's axiom (PROOFS.md gaps #2-3). Matt asked to revisit, 26 Oct",
       "status": "backlog",
       "agent": "",
       "where": "",
