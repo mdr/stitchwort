@@ -1424,6 +1424,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
             // The definitions are elaborated on their own.
             Expr::LocalDefs { body, .. } => stack.push(body),
             Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => stack.extend(facts),
+            Expr::Cases { body, .. } => stack.extend(body.as_deref()),
             Expr::Calc { first, steps, .. } => {
                 stack.push(first);
                 for step in steps {

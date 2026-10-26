@@ -1051,7 +1051,7 @@ impl Search<'_, '_> {
 /// The kernel's context for `cx`'s variables. The kernel never sees a
 /// metavariable (it compares a solved one's head as it is), so what the
 /// variables' types and values mention is read back with them replaced.
-fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
+pub(crate) fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
     let zonked = |v: &Value| cx.eval(&cx.quote(v)?);
     let plain = |v: &Value| matches!(v, Value::Neutral(Head::Var(_, _), s) if s.is_empty());
     let env = cx

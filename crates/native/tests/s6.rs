@@ -18,7 +18,7 @@ const NAT_DIVISION: &str = r#"import Std (IO, List, Nat)
 
 def big: Nat := 100000000000 * 100000000000 * 1000 + 12345
 
-def cases: List (Pair Nat Nat) :=
+def divisions: List (Pair Nat Nat) :=
   [MkPair 0 1, MkPair 7 2, MkPair 7 7, MkPair 6 7, MkPair 18446744073709551615 3,
    MkPair 18446744073709551615 18446744073709551615, MkPair 100 1, MkPair big 7,
    MkPair 5 big, MkPair big big, MkPair big 1000000007, MkPair 1000 18446744073709551616]
@@ -31,7 +31,7 @@ def quotients: List (Pair Nat Nat) → Text
   | Cons (MkPair n d) rest => "${n / (d + 1)}:${n % (d + 1)};${divide (MkPair n d)} " ++ quotients rest
 
 def run (n: Nat): Text :=
-  quotients cases ++ "${List.foldLeft (List.range n) 0 (acc k => acc + (k * 31 + 7) % 13 + (k * 31 + 7) / 13)}"
+  quotients divisions ++ "${List.foldLeft (List.range n) 0 (acc k => acc + (k * 31 + 7) % 13 + (k * 31 + 7) / 13)}"
 
 def main(): {IO} () :=
   IO.print (run 200)

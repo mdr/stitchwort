@@ -40,6 +40,7 @@ mod module;
 mod named;
 mod nav;
 pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, std_source};
+mod cases;
 mod numbers;
 mod omega;
 mod omega_search;

@@ -53,6 +53,16 @@ theorem areaGrows (w: Nat) (h: Nat): (w + 1) * (h + 1) = w * h + w + h + 1 := ri
 theorem pairCount (n: Nat) (p: Nat) (twice: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [twice]
 -- end ring
 
+-- begin cases
+theorem orComm (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := cases
+
+theorem andLeft (a: Bool) (b: Bool) (h: (a ∧ b) = True): a = True := cases
+
+def clamp (lo: Nat) (hi: Nat) (x: Nat): Nat := if x < lo then lo else if hi < x then hi else x
+
+theorem clampBelow (lo: Nat) (hi: Nat) (x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi := cases
+-- end cases
+
 -- begin spec
 -- The specification: the plain recursive sum.
 def sumTo: Nat → Nat

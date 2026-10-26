@@ -377,7 +377,7 @@ fn lifted(
             .map_err(|d| in_context(cx, d, kind, alts, &levels))?;
         return lift::draft(cx, base, Vec::new(), body, goal, span);
     }
-    generalised(cx, columns, exprs, alts, &[], span, kind, goal, base)
+    generalised(cx, columns, exprs, alts, &[], span, kind, goal, base, None)
 }
 
 /// `b`, when `normal` is `Decidable.toBool {p} (Bool.decTrue b)`: the two
@@ -429,6 +429,40 @@ pub(crate) fn generalised_term(
     span: stitchwort_syntax::Span,
     goal: &Value,
 ) -> Result<Term> {
+    generalised_named(
+        cx,
+        term,
+        ty,
+        scrutinee_span,
+        None,
+        None,
+        alts,
+        absurd,
+        span,
+        goal,
+    )
+}
+
+/// Which variables in scope a generalised `match` leaves as they are, even
+/// if their types mention a scrutinee: the alternatives see them unrefined.
+pub(crate) type Skip = fn(&Ctx, usize) -> bool;
+
+/// [`generalised_term`], with the equation `name : term = s` bound in the
+/// alternatives when `name` is given, as `match name: e with` binds it, and
+/// the variables `skip` says left uncopied (`cases.rs`).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn generalised_named(
+    cx: &mut Ctx,
+    term: Term,
+    ty: Value,
+    scrutinee_span: stitchwort_syntax::Span,
+    name: Option<ast::Name>,
+    skip: Option<Skip>,
+    alts: &[Alt],
+    absurd: &[Vec<Pattern>],
+    span: stitchwort_syntax::Span,
+    goal: &Value,
+) -> Result<Term> {
     let base = cx.level();
     let mark = cx.mark();
     let result = (|| {
@@ -439,7 +473,7 @@ pub(crate) fn generalised_term(
             normal,
             ty,
             ty_term,
-            name: None,
+            name,
             span: scrutinee_span,
             alias: None,
         };
@@ -453,6 +487,7 @@ pub(crate) fn generalised_term(
             MatchKind::Match,
             goal,
             base,
+            skip,
         )
     })();
     cx.reset(mark);
@@ -470,6 +505,7 @@ fn generalised(
     kind: MatchKind,
     goal: &Value,
     base: usize,
+    skip: Option<Skip>,
 ) -> Result<Term> {
     let g = cx.g();
     let e = exprs.len();
@@ -505,6 +541,10 @@ fn generalised(
     let mut copied: Vec<usize> = Vec::new();
     let mut type_terms: Vec<Term> = Vec::new();
     for l in 0..base {
+        if skip.is_some_and(|skip| skip(cx, l)) {
+            type_terms.push(Term::Refl); // never copied, so never read
+            continue;
+        }
         let ty = quote(g, base, &cx.types[l])?;
         let free = free_levels(&ty, base);
         // A `let`-bound variable is copied too, as a plain hypothesis: in
@@ -581,7 +621,9 @@ fn generalised(
     };
     let goal_term = generalise.apply(g, &quote(g, base, goal)?)?;
     let motive = cx.eval(&goal_term)?;
-    check_motive(cx, base, &extra, &motive, span)?;
+    if skip.is_none() {
+        check_motive(cx, base, &extra, &motive, span)?;
+    }
     let levels: Vec<usize> = columns
         .iter()
         .map(|c| match c {

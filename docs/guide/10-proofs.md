@@ -247,6 +247,55 @@ theorem squareOfSum (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
 
 `(ring: a = b)` states the equation, so it can be given to `rewrite`: `rewrite (ring: i + (p + q) = i + p + q)`.
 
+## Proof by cases: `cases`
+
+Many facts about `Bool`s, `Option`s and `if`s hold because every case works out: check `a = True` and `a = False`, and each side computes to the same thing. `cases` does that for you. It finds what the goal is stuck on (`a` in `a ∨ b`, the `x < lo` in `clamp`'s `if`), splits on it as a `match` would, and keeps going until each case is closed: by computation, by a hypothesis that can't hold in that case (`h: (a ∧ b) = True` when `a = False`), by a hypothesis that is the goal, or, when nothing is left to split, by `omega`:
+
+<!-- snippet: proofs.sw#cases -->
+```stitchwort
+theorem orComm (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := cases
+
+theorem andLeft (a: Bool) (b: Bool) (h: (a ∧ b) = True): a = True := cases
+
+def clamp (lo: Nat) (hi: Nat) (x: Nat): Nat := if x < lo then lo else if hi < x then hi else x
+
+theorem clampBelow (lo: Nat) (hi: Nat) (x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi := cases
+```
+
+`cases in t` tries the proof `t` in each case first, for the cases that `cases` can't close alone. When a case can't be closed, the error names it by its splits and shows what that case knows:
+
+<!-- snippet: errors/cases.sw -->
+```stitchwort
+theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cases
+```
+
+<!-- output: check errors/cases.sw -->
+```
+[E-CASES] Error: `cases` can't close the case a = True, Nat.leq n 2 = False
+   ╭─[ errors/cases.sw:1:72 ]
+   │
+ 1 │ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cases
+   │                                                                        ──┬──
+   │                                                                          ╰──── this `cases`
+   │
+   │ Note 1: h: Nat.leq n 3 = True
+   │
+   │ Note 2: goal: False = True
+   │
+   │ Note 3: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis nor `omega` proves it; give this case's proof as `cases in t`
+   │
+   │ Note 4: 2 other cases were closed (1 by computation, 1 by contradiction)
+   │
+   │ Note 5: this statement is false; a counterexample:
+   │           a = True
+   │           n = 3
+   │         `(if a then Nat.leq n 3 else False) = True` holds
+   │         `n ≤ 2` is false
+───╯
+```
+
+Here the case `a = True` with `n ≤ 2` false is a real counterexample, `n = 3`: the hypothesis should say `n ≤ 2`. `cases` doesn't take apart lists or numbers, which is induction (written as recursion, above), and stops at 64 cases.
+
 ## Decisions and facts
 
 `Bool` and statements are different things. `n == 0` is a `Bool`, a value computed at run time. `n = 0` is a statement, a type whose values are proofs. A statement that can be **decided** (equations on types with `==`, comparisons on numbers) can be used as a condition, and then the branches know which way it went:

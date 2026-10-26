@@ -1529,6 +1529,35 @@ theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * mult
 
 Examples: `examples/accept/ring-basics.sw`, `examples/reject/ring-*.sw`.
 
+### `cases`
+
+`cases` is a proof by cases on whatever the goal is stuck on. The compiler finds the value a definition in the goal is waiting for (`a` in `a ∨ b`, `Float.isNaN x` inside `Float.ieeeLe x y`, `s` in `{ s | id = t }.ref`), splits on it as a `match` would, and goes on in each case until every case is closed:
+
+```
+theorem orComm (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := cases
+
+theorem andLeft (a: Bool) (b: Bool) (h: (a ∧ b) = True): a = True := cases
+
+theorem ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True := cases
+
+theorem parseSmallSome (s: Text) (t: Text) (v: Nat) (h: parseSmallOption s t = Some v): v <= 10 := cases
+```
+
+| form | meaning |
+|---|---|
+| `cases` | splits until each case is closed by computation, a contradiction, a hypothesis, or `omega` |
+| `cases in t` | the same, trying the proof `t` in each case first (before splitting it further) |
+
+`cases` and `cases in t` are a keyword and a term, like `omega`: a definition's body, a `calc` step's proof, or an argument whose type is fixed. Where nothing says what it proves (`let p := cases`) it is `E-CASES`. `cases` is a reserved word (the word `cases` stays free for `Text.split`). The proof it writes is the `match` you would have written, a case tree of `case` and `J`, and the kernel re-checks it; nothing new is trusted. Design and as built: [simp.md](proposals/simp.md) (stage 1).
+
+- **What it splits on.** The goal is computed as far as it goes, and `cases` looks for what it is stuck on: a variable or call of a type with two or more constructors (`Bool`, `Option`, `Ordering`, a variant type), taking the innermost one, so that `Float.isNaN x` is split rather than the `Nat.equal` it calls. A record is taken apart into its fields only when nothing else is left. It doesn't take apart recursive types (`List`, `Nat`: that's induction, written as recursion), propositions or indexed families. A hypothesis that says a stuck value is a constructor (`h: f x = True`, `h: parseSmallOption s t = Some v`) is split on too, after the goal; other hypotheses aren't looked at.
+- **Each case** gets the equation of its split, named `%case1`, `%case2`, … in messages, and the goal and every hypothesis that mentions the value are rewritten with the constructor, as a `match h: e with` does. Old copies of the rewritten hypotheses are hidden. A hypothesis `Some a = Some v` is turned into `a = v`, and `True = False` closes the case.
+- **Closing a case**, in this order: both sides compute to the same value (`rfl`); a hypothesis equates two different constructors; a hypothesis has the goal's type; `t`, for `cases in t`; and, when there is nothing left to split, `omega`. A goal that is itself a comparison (`Nat.leq a b = True`) is given to `omega` before it is split into `True = True` and `False = True`.
+- **Budget.** At most 64 cases. Past that it's `E-CASES-BUDGET`, naming the values it split on and the first case still open; prove a fact that decides several cases at once and give it as `cases in t`, or split by hand with `match`.
+- **When it fails** it is `E-CASES` for the first case nothing closed: the case is named by its splits (`a = True, Nat.leq n 2 = False`), the notes show that case's hypotheses and goal, and what the goal was stuck on when it stopped (`xs`, a `List`). With `cases in t`, it's `t`'s own error, with a note naming the case. Further notes count the other cases that failed and the ones that were closed, and how.
+
+Examples: `examples/accept/cases-bool.sw`, `examples/accept/cases-data.sw`, `examples/reject/cases-*.sw`.
+
 ### Numbers
 
 A non-negative numeric literal is a `Nat` or an `Int`, depending on what's expected (`Nat` if nothing says; a `Fin n` too, where one is expected, [below](#fin-literals), and a `SafeNat` or `SafeInt`, checked to be within 2^53 - 1, [Numbers in an `export`](#numbers-in-an-export)); a negative literal such as `-5` is always an `Int`, and `-0` is `0`. An arithmetic expression or comparison has one number type for all its operands, chosen by the first of these that applies: the expected type; a decimal or exponent literal (`Float`, below); an operand with no literal in it (when there's a prefix minus, only an `Int` or a `Float` one); a prefix minus (which makes it `Int`); any other operand; else `Nat` (D732). So `3 - 5 = -2` is on `Int`, and `x + 1` follows `x`. A `let` binding keeps its own type: `let m := 3 - 5` is a `Nat`, and `m + i` with `i: Int` is an error.

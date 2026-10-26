@@ -50,6 +50,7 @@ const TOKENS: &[&str] = &[
     "calc",
     "rewrite",
     "omega",
+    "cases",
     "ring",
     "opaque",
     "unfolding",
