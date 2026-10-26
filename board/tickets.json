@@ -3950,14 +3950,16 @@
     {
       "id": 557,
       "title": "Opaque definitions (D1292 approved): merge the 5-branch chain with main, re-test, merge",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "1b08e424"
+      ]
     },
     {
       "id": 558,
