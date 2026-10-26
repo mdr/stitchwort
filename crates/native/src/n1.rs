@@ -149,9 +149,6 @@ pub struct Islands {
     roots: Vec<Option<Root>>,
     /// For each global: its compiled code, or null (`Context::functions`).
     table: Box<[*const u8]>,
-    /// Each `Apply`'s cache of its target, at the address its code reads.
-    #[allow(clippy::vec_box)]
-    _caches: Vec<Box<abi::ApplyCache>>,
     /// What the code refers to by number (`Context::tables`).
     tables: abi::TableStore,
     stack_size: Option<usize>,
@@ -393,19 +390,11 @@ pub fn compile(
         builder.memory_provider(Box::new(provider));
     }
     let mut module = JITModule::new(builder);
-    let mut caches: Vec<Box<abi::ApplyCache>> = Vec::new();
     let Emitted {
         functions,
         trampolines,
-    } = emit(
-        &mut module,
-        program,
-        image,
-        &plan,
-        options,
-        dump,
-        &mut caches,
-    )?;
+        n_caches,
+    } = emit(&mut module, program, image, &plan, options, dump)?;
     module
         .finalize_definitions()
         .map_err(|e| fail(e.to_string()))?;
@@ -434,8 +423,7 @@ pub fn compile(
         _module: module,
         roots,
         table,
-        _caches: caches,
-        tables: abi::TableStore::new(program, image, 0),
+        tables: abi::TableStore::new(program, image, n_caches),
         stack_size: options.stack_size,
         notes,
         bodies: plan.bodies.len(),
@@ -449,6 +437,9 @@ struct Emitted {
     functions: BTreeMap<u32, FuncId>,
     /// `(global, trampoline)` of each root.
     trampolines: Vec<(u32, FuncId)>,
+    /// How many `Apply` sites the code has, each with a cache in the
+    /// tables (`abi::Tables::caches`).
+    n_caches: usize,
 }
 
 /// Generates the code of `plan`'s bodies, and a trampoline for each root,
@@ -463,7 +454,6 @@ fn emit(
     plan: &Plan,
     options: Options,
     dump: bool,
-    #[allow(clippy::vec_box)] caches: &mut Vec<Box<abi::ApplyCache>>,
 ) -> Result<Emitted, Vec<String>> {
     let fail = |e: String| vec![format!("native: compiling failed: {e}")];
     let frontend_config = module.target_config();
@@ -485,6 +475,7 @@ fn emit(
     }
     let helpers = Helpers::declare(module, pointer, call_conv).map_err(fail)?;
     let numbering = Numbering::of(image);
+    let mut caches = 0u32;
     let mut context = module.make_context();
     let mut builder_context = FunctionBuilderContext::new();
     for &code in &plan.bodies {
@@ -504,7 +495,7 @@ fn emit(
                 numbering: &numbering,
                 refs: BTreeMap::new(),
                 signatures: BTreeMap::new(),
-                caches: &mut *caches,
+                caches: &mut caches,
                 pointer,
                 options,
                 vars: Vec::new(),
@@ -623,6 +614,7 @@ fn emit(
     Ok(Emitted {
         functions,
         trampolines,
+        n_caches: caches as usize,
     })
 }
 
@@ -935,8 +927,9 @@ struct Gen<'a, 'm> {
     numbering: &'m Numbering,
     refs: BTreeMap<FuncId, FuncRef>,
     signatures: BTreeMap<u32, SigRef>,
-    #[allow(clippy::vec_box)] // addresses stay put (`Islands::_caches`)
-    caches: &'m mut Vec<Box<abi::ApplyCache>>,
+    /// How many `Apply` sites have been compiled: each has a cache, by
+    /// number, in the tables.
+    caches: &'m mut u32,
     pointer: ir::Type,
     options: Options,
     /// Each register's three words, as Cranelift variables, so that they
@@ -1825,14 +1818,18 @@ impl Gen<'_, '_> {
         let at = self.b.ins().stack_addr(self.pointer, self.fun, 0);
         self.store(Loc::Mem(at, 0), v);
         // This site's cache (`abi::ApplyCache`): the same function value as
-        // last time calls the same code, with no runtime call.
-        let cache = Box::new(abi::ApplyCache::new());
-        let cache_at = self.address(&*cache as *const abi::ApplyCache as usize);
-        self.caches.push(cache);
-        let key = self
-            .b
-            .ins()
-            .load(types::I64, flags(), cache_at, abi::ApplyCache::KEY_AT);
+        // last time calls the same code, with no runtime call. Numbered in
+        // the order the sites are compiled; the caches are in the tables.
+        let offset = i32::try_from(*self.caches as usize * size_of::<abi::ApplyCache>())
+            .expect("the caches fit an offset");
+        *self.caches += 1;
+        let caches = self.tables_field(Tables::CACHES_AT);
+        let key = self.b.ins().load(
+            types::I64,
+            flags(),
+            caches,
+            offset + abi::ApplyCache::KEY_AT,
+        );
         let is_fun = self.is_tag(v, abi::TAG_FUN);
         let same = self.b.ins().icmp(IntCC::Equal, key, v.0[1]);
         let hit = self.b.ins().band(is_fun, same);
@@ -1842,13 +1839,16 @@ impl Gen<'_, '_> {
         self.b.append_block_param(after, self.pointer);
         self.b.ins().brif(hit, cached, &[], miss, &[]);
         self.b.switch_to_block(cached);
-        let code = self
-            .b
-            .ins()
-            .load(self.pointer, flags(), cache_at, abi::ApplyCache::CODE_AT);
+        let code = self.b.ins().load(
+            self.pointer,
+            flags(),
+            caches,
+            offset + abi::ApplyCache::CODE_AT,
+        );
         self.b.ins().jump(after, &[code.into()]);
         self.b.switch_to_block(miss);
         self.b.set_cold_block(miss);
+        let cache_at = self.b.ins().iadd_imm_s(caches, i64::from(offset));
         let n = self.iconst(u64::from(n));
         let target = self.call_helper(self.helpers.apply_cached, &[self.ctx, at, n, cache_at])[0];
         self.b.ins().jump(after, &[target.into()]);
