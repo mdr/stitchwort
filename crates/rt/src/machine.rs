@@ -864,14 +864,12 @@ impl State {
                     }
                 }
             }
-            EffectOp::Fold | EffectOp::FoldLazy | EffectOp::FoldIn => {
-                let lazy = match op {
-                    EffectOp::FoldLazy => true,
-                    EffectOp::FoldIn => arg().tag() != Some(s.row_empty),
-                    _ => false,
-                };
-                let (done, call, c) = (arg(), arg(), arg());
-                let handler = Rc::new(Handler::Fold { done, call, lazy });
+            EffectOp::Fold
+            | EffectOp::FoldLazy
+            | EffectOp::FoldIn
+            | EffectOp::Translate
+            | EffectOp::RunPure => {
+                let (handler, c) = handler_for(s, op, arg);
                 self.eff_run(
                     program,
                     image,
@@ -893,36 +891,6 @@ impl State {
                     pending: Value::Erased,
                 };
                 Ok(Some((state_fn(s, comp, run), ret)))
-            }
-            EffectOp::Translate => {
-                let (m, c) = (arg(), arg());
-                let Value::Data(_, m) = m else {
-                    panic!("internal error: a `SigMap` that isn't `MkSigMap`")
-                };
-                let (inject, reply) = pair(m);
-                let handler = Rc::new(Handler::Translate { inject, reply });
-                self.eff_run(
-                    program,
-                    image,
-                    c,
-                    Value::Erased,
-                    handler,
-                    Value::Erased,
-                    ret,
-                )
-            }
-            EffectOp::RunPure => {
-                let c = arg();
-                let handler = Rc::new(Handler::RunPure);
-                self.eff_run(
-                    program,
-                    image,
-                    c,
-                    Value::Erased,
-                    handler,
-                    Value::Erased,
-                    ret,
-                )
             }
         }
     }
@@ -1075,11 +1043,8 @@ impl State {
         y: Value,
         ret: Ret,
     ) -> Result<Pending> {
-        let s = &program.shapes;
         if lazy {
-            self.counts.resumes += 1;
-            let k = Value::Fun(Rc::new(Fun::Resume(resume.clone(), false)));
-            let c = Value::data(s.bind_node, [Value::data(s.done, [y]), k]);
+            let c = resume_lazily(&program.shapes, &mut self.counts, resume, y);
             return Ok(Some((c, ret)));
         }
         let after = Ret::Eff(Box::new(EffRet {
@@ -1249,7 +1214,7 @@ pub(crate) fn field(mut fields: Fields, i: usize) -> Value {
 }
 
 /// The two fields of a constructor's cell, as [`field`] takes one.
-fn pair(mut fields: Fields) -> (Value, Value) {
+pub(crate) fn pair(mut fields: Fields) -> (Value, Value) {
     match Rc::get_mut(&mut fields.0) {
         Some(slice) => (std::mem::take(&mut slice[0]), std::mem::take(&mut slice[1])),
         None => (fields[0].clone(), fields[1].clone()),
@@ -1261,6 +1226,53 @@ fn pair(mut fields: Fields) -> (Value, Value) {
 fn state_fn(s: &Shapes, comp: bool, run: StateRun) -> Value {
     let f = Value::Fun(Rc::new(Fun::StateRun(Rc::new(run))));
     if comp { Value::data(s.done, [f]) } else { f }
+}
+
+/// The handler and the computation of `op` (`foldComp` and its lazy
+/// variants, `translate` or `runPure`) on the arguments `arg` gives in
+/// order, taken apart as the machine's `effect` takes them; shared with
+/// native code's `native_abi::sw_eff_begin` (stage NO2 of
+/// docs/proposals/native-only.md), so the two can't drift.
+pub(crate) fn handler_for(
+    s: &Shapes,
+    op: EffectOp,
+    mut arg: impl FnMut() -> Value,
+) -> (Rc<Handler>, Value) {
+    match op {
+        EffectOp::Fold | EffectOp::FoldLazy | EffectOp::FoldIn => {
+            let lazy = match op {
+                EffectOp::FoldLazy => true,
+                EffectOp::FoldIn => arg().tag() != Some(s.row_empty),
+                _ => false,
+            };
+            let (done, call, c) = (arg(), arg(), arg());
+            (Rc::new(Handler::Fold { done, call, lazy }), c)
+        }
+        EffectOp::Translate => {
+            let (m, c) = (arg(), arg());
+            let Value::Data(_, m) = m else {
+                panic!("internal error: a `SigMap` that isn't `MkSigMap`")
+            };
+            let (inject, reply) = pair(m);
+            (Rc::new(Handler::Translate { inject, reply }), c)
+        }
+        EffectOp::RunPure => (Rc::new(Handler::RunPure), arg()),
+        _ => unreachable!("an effect native that runs a loop"),
+    }
+}
+
+/// A lazy resumption `resume` called with `y`: `Bind (Done y) r`, `r` the
+/// same resumption, not lazy (the machine's `resume`, and native code's
+/// apply, `native_abi::sw_apply_prepare`).
+pub(crate) fn resume_lazily(
+    s: &Shapes,
+    counts: &mut EffectCounts,
+    resume: &Rc<Resume>,
+    y: Value,
+) -> Value {
+    counts.resumes += 1;
+    let k = Value::Fun(Rc::new(Fun::Resume(resume.clone(), false)));
+    Value::data(s.bind_node, [Value::data(s.done, [y]), k])
 }
 
 // The effect runtime's function values that only build a value (leaves:

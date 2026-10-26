@@ -53,7 +53,7 @@ fn manifest(hash: u64, globals: usize, lambdas: usize, trampoline: *const u8) ->
         image_hash: hash,
         n_caches: 0,
         max_frame: 0,
-        nests: 0,
+        flags: 0,
         n_globals: globals as u64,
         n_lambdas: lambdas as u64,
         n_trampolines: 1,

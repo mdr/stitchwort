@@ -65,7 +65,7 @@ use std::rc::Rc;
 use stitchwort_core::ResourceError;
 
 use crate::code::{Image, Instr, NO_REG, NumTable};
-use crate::effect::EffectOp;
+use crate::effect::{EffectOp, Handler, Resume};
 use crate::ir::{GlobalKind, PrimOp, Program, Shapes};
 use crate::machine::{Limits, State, Work, nested};
 use crate::value::{Fields, Fun, Value};
@@ -370,6 +370,11 @@ pub struct Context {
     /// What compiled code refers to by number ([`Tables`]): it holds no
     /// address of the host's, so the same code can go into an object file.
     pub tables: *const Tables,
+    /// 1 if the code has the effect runtime's bodies (stage NO2 of
+    /// docs/proposals/native-only.md): [`sw_apply_prepare`] then has an
+    /// eager resumption run by them ([`RESUME_CODE`]) rather than by the
+    /// machine.
+    pub resumes: u64,
 }
 
 impl Context {
@@ -735,18 +740,22 @@ pub struct Crossing {
     /// first crossing (whose stack is the host's, near the top): nested
     /// crossings are deeper, and mustn't move it.
     stack_floor: std::cell::Cell<Option<u64>>,
+    /// [`Context::resumes`].
+    resumes: bool,
 }
 
 /// Where a [`Crossing`]'s code is and what it's like: its tables, its
 /// trampolines as `(number of arguments, trampoline)`, a bound on its
 /// frames (`max_frame` bytes), and whether they may nest inside runs of
-/// the machine (`nests`).
+/// the machine (`nests`), and whether it has the effect runtime's bodies
+/// that run resumptions (`resumes`, [`Context::resumes`]).
 pub struct CrossingCode<'a> {
     pub functions: Box<[*const u8]>,
     pub lambdas: Box<[*const u8]>,
     pub trampolines: &'a [(u32, Trampoline)],
     pub max_frame: usize,
     pub nests: bool,
+    pub resumes: bool,
 }
 
 impl Crossing {
@@ -764,6 +773,7 @@ impl Crossing {
             trampolines,
             max_frame,
             nests,
+            resumes,
         } = code;
         let mut entries = vec![std::ptr::null::<u8>(); image.codes.len()].into_boxed_slice();
         for (g, entry) in functions.iter().enumerate() {
@@ -798,6 +808,7 @@ impl Crossing {
                 max_frame
             },
             stack_floor: std::cell::Cell::new(None),
+            resumes,
         }
     }
 
@@ -863,6 +874,7 @@ impl Crossing {
             lambdas: self.lambdas.as_ptr(),
             run: (run as *mut NativeRun<'_>).cast::<NativeRun<'static>>(),
             tables: self.tables.tables(),
+            resumes: u64::from(self.resumes),
         };
         let env = env.map_or(0, into_word);
         let mut args = std::mem::ManuallyDrop::new(args);
@@ -1453,6 +1465,15 @@ impl ApplyPlan {
 /// No code is at address 1.
 pub const FOLD_CODE: u64 = 1;
 
+/// An [`ApplyPlan`]'s `code` for an eager resumption (`Fun::Resume`, not
+/// lazy) applied to the plan's one value: the apply stub calls the
+/// effect runtime's `rt_resume` (stage NO2 of docs/proposals/native-only.md)
+/// with the value and the resumption, whose reference the plan's `env`
+/// holds, with no step or frame of its own, as the machine's `enter` runs
+/// `resume`. Only if the code has the runtime's bodies
+/// ([`Context::resumes`]). No code is at address 2.
+pub const RESUME_CODE: u64 = 2;
+
 /// `Apply` of the function value at `f` (taken) to the `n` values at
 /// `args` (moved), as the machine's `apply` and `enter` do it up to the
 /// frame: a partial application's arguments joined to the new ones (copies
@@ -1642,6 +1663,24 @@ pub unsafe extern "C" fn sw_apply_prepare(
             Fun::DelayK(capture) => {
                 let y = all.pop().expect("one argument");
                 value = Some(crate::machine::delay_k(capture, y));
+            }
+            // A lazy resumption suspends (a value now); an eager one is the
+            // effect runtime's `rt_resume` to run (stage NO2 of
+            // native-only.md), which takes this reference to it.
+            Fun::Resume(resume, true) => {
+                let y = all.pop().expect("one argument");
+                let counts = &mut run.state().counts;
+                value = Some(crate::machine::resume_lazily(
+                    &program.shapes,
+                    counts,
+                    resume,
+                    y,
+                ));
+            }
+            // SAFETY: the running context.
+            Fun::Resume(_, false) if unsafe { (*context).resumes } != 0 => {
+                code = RESUME_CODE as *const u8;
+                env = into_word(h.clone());
             }
             _ => {}
         }
@@ -1944,6 +1983,291 @@ pub unsafe extern "C" fn sw_text_last(
             unsafe { out.write(crate::prims::char_value(shapes, c)) };
             (end - c.len_utf8()) as u64
         }
+    }
+}
+
+// ------------------------------------- the effect runtime's leaves (NO2)
+//
+// Stage NO2 of docs/proposals/native-only.md: the run loop (`rt_loop`) and
+// an eager resumption (`rt_resume`) are native code, emitted by the compiler
+// (`stitchwort_native::n1`), and these are their leaves: they take values
+// apart and build them exactly as the machine's `eff_run`, `eff_call` and
+// `resume` do, in the same order, and never call program code. A handler is
+// held by native code as its `Rc`'s pointer word ([`Rc::into_raw`]), which
+// it owns.
+
+/// What [`sw_eff_step`] found, for `rt_loop` to do next.
+/// A `Bind` node: its continuation pushed, the loop goes on with its inner
+/// computation.
+pub const STEP_AGAIN: u64 = 0;
+/// `Done x` with a continuation pending: apply it (the first value) to `x`
+/// (the second), and go on with the result; the handler is still the loop's.
+pub const STEP_APPLY: u64 = 1;
+/// The loop's value (the first), the handler dropped.
+pub const STEP_RETURN: u64 = 2;
+/// A fold's `done x`: the first value applied to the second in a tail
+/// position, the handler dropped.
+pub const STEP_DONE: u64 = 3;
+/// A fold's `call o k`: the first value applied to the next two in a tail
+/// position, the handler gone into `k`.
+pub const STEP_CALL: u64 = 4;
+/// A `translate`'s operation: the first value (`inject`) applied to the
+/// second (`o`), then `Call` of the result and the third (`k`, which has
+/// the handler) is the loop's value.
+pub const STEP_INJECT: u64 = 5;
+
+/// The handler a native code word holds, taken.
+///
+/// # Safety
+/// `word` came from [`Rc::into_raw`] of a live handler, and native code
+/// gives the reference up.
+#[allow(unsafe_code)]
+unsafe fn handler_taken(word: u64) -> Rc<Handler> {
+    // SAFETY: the caller's contract.
+    unsafe { Rc::from_raw(word as *const Handler) }
+}
+
+/// One of the effect runtime's natives that runs a loop (`op`, its place
+/// in [`EffectOp::ALL`]: a fold, `translate` or `runPure`) on the values
+/// at `args` (moved): the computation to `c` (uninitialised), and the
+/// handler's word (owned by native code), as the machine's `effect` makes
+/// them.
+///
+/// # Safety
+/// `context` is the running context; `args` points at the op's values,
+/// which native code owns; `c` at space for one.
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sw_eff_begin(
+    context: *mut Context,
+    op: u32,
+    args: *mut Value,
+    c: *mut Value,
+) -> u64 {
+    let op = EffectOp::ALL[op as usize];
+    // SAFETY: the caller's contract.
+    let shapes = unsafe { &(*(*context).run).program.shapes };
+    let mut i = 0;
+    let (handler, comp) = crate::machine::handler_for(shapes, op, || {
+        // SAFETY: the caller's contract: the op's values, each read once.
+        let v = unsafe { args.add(i).read() };
+        i += 1;
+        v
+    });
+    // SAFETY: the caller's contract.
+    unsafe { c.write(comp) };
+    Rc::into_raw(handler) as u64
+}
+
+/// One step of the run loop (the machine's `eff_run`, and `eff_call` at an
+/// operation), on the computation at `c` (taken), with the pending list at
+/// `pending` (native code's; replaced) and the handler `handler` (native
+/// code's word): what to do next ([`STEP_AGAIN`] and the others), with the
+/// values for it written to `out` (room for three, uninitialised), and
+/// `c` the next computation for [`STEP_AGAIN`]. Where the handler is done
+/// with (every outcome but [`STEP_AGAIN`] and [`STEP_APPLY`]) it's taken,
+/// and the pending list is then `Erased`. The step itself is native code's
+/// to count; the effect counts are counted here.
+///
+/// # Safety
+/// `context` is the running context; `c` and `pending` point at values
+/// native code owns; `handler` is a handler's word native code owns; `out`
+/// at space for three values.
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sw_eff_step(
+    context: *mut Context,
+    c: *mut Value,
+    pending: *mut Value,
+    handler: u64,
+    out: *mut Value,
+) -> u64 {
+    // SAFETY: the caller's contract.
+    let run = unsafe { &mut *(*context).run };
+    let s = &run.program.shapes;
+    let counts = &mut run.state().counts;
+    counts.steps += 1;
+    let write = |i: usize, v: Value| {
+        // SAFETY: the caller's contract: room for three values.
+        unsafe { out.add(i).write(v) }
+    };
+    // SAFETY: the caller's contract.
+    let Value::Data(tag, fields) = (unsafe { c.read() }) else {
+        internal(format_args!("ran a value that isn't a computation"))
+    };
+    if tag == s.bind_node {
+        counts.pushes += 1;
+        let (inner, k) = crate::machine::pair(fields);
+        // SAFETY: the caller's contract: `pending` is taken and replaced.
+        unsafe {
+            let rest = pending.read();
+            pending.write(Value::data(0, [k, rest]));
+            c.write(inner);
+        }
+        return STEP_AGAIN;
+    }
+    // SAFETY: the caller's contract: taken, and replaced below.
+    let list = unsafe { pending.read() };
+    if tag == s.done {
+        if let Value::Data(_, cell) = list {
+            counts.pops += 1;
+            let (k, next) = crate::machine::pair(cell);
+            let x = crate::machine::field(fields, 0);
+            // SAFETY: as above.
+            unsafe { pending.write(next) };
+            write(0, k);
+            write(1, x);
+            return STEP_APPLY;
+        }
+        // SAFETY: as above (`Erased`).
+        unsafe { pending.write(list) };
+        // SAFETY: the caller's contract; the loop is done with it.
+        let handler = unsafe { handler_taken(handler) };
+        return match &*handler {
+            Handler::Fold { done, .. } => {
+                let done = done.clone();
+                write(0, done);
+                write(1, crate::machine::field(fields, 0));
+                STEP_DONE
+            }
+            Handler::RunPure => {
+                write(0, crate::machine::field(fields, 0));
+                STEP_RETURN
+            }
+            Handler::Translate { .. } | Handler::Step => {
+                write(0, Value::Data(tag, fields));
+                STEP_RETURN
+            }
+            Handler::State { .. } => internal(format_args!("ran a state-passing handler")),
+        };
+    }
+    debug_assert_eq!(tag, s.call);
+    // SAFETY: the caller's contract; the loop is done with it.
+    let handler = unsafe { handler_taken(handler) };
+    // SAFETY: as above.
+    unsafe { pending.write(Value::Erased) };
+    if let Handler::Step = &*handler
+        && matches!(list, Value::Erased)
+    {
+        // Nothing pending: the operation as it is (the machine's
+        // `eff_call`).
+        write(0, Value::Data(s.call, fields));
+        return STEP_RETURN;
+    }
+    let (o, rest) = crate::machine::pair(fields);
+    let resume = |handler, op| {
+        Rc::new(Resume {
+            handler,
+            rest,
+            pending: list,
+            op,
+        })
+    };
+    match &*handler {
+        Handler::Fold { call, lazy, .. } => {
+            counts.routes += 1;
+            let (call, lazy) = (call.clone(), *lazy);
+            let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), lazy)));
+            write(0, call);
+            write(1, o);
+            write(2, k);
+            STEP_CALL
+        }
+        Handler::Translate { inject, .. } => {
+            counts.routes += 1;
+            let inject = inject.clone();
+            let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, o.clone()), false)));
+            write(0, inject);
+            write(1, o);
+            write(2, k);
+            STEP_INJECT
+        }
+        Handler::Step => {
+            let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), false)));
+            write(0, Value::data(s.call, [o, k]));
+            STEP_RETURN
+        }
+        Handler::RunPure => internal(format_args!("an operation reached `runPure`")),
+        Handler::State { .. } => internal(format_args!("ran a state-passing handler")),
+    }
+}
+
+/// For `rt_resume`: an eager resumption (the function value whose `Rc`'s
+/// word is `k`, borrowed) called with the value at `y` (taken), taken apart
+/// as the machine's `resume` does: the handler's word (a new reference) to
+/// `handler`, and to `out` the pending list and `rest`, then for a
+/// `translate`'s (returning 1) `reply`, the operation and `y`, or otherwise
+/// (returning 0) `y`: copies, made in the machine's order.
+///
+/// # Safety
+/// `k` is the word of a live `Fun::Resume`; `y` points at a value native
+/// code owns; `out` at space for five values, `handler` for a word.
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sw_resume_begin(
+    k: u64,
+    y: *mut Value,
+    out: *mut Value,
+    handler: *mut u64,
+) -> u64 {
+    // SAFETY: the caller's contract: borrowed, so not dropped.
+    let k = std::mem::ManuallyDrop::new(unsafe { from_words(u64::from(TAG_FUN), k, 0) });
+    let Value::Fun(fun) = &*k else {
+        internal(format_args!("resumed a value that isn't a function"))
+    };
+    let Fun::Resume(resume, _) = &**fun else {
+        internal(format_args!("resumed a function that isn't a resumption"))
+    };
+    let write = |i: usize, v: Value| {
+        // SAFETY: the caller's contract: room for five values.
+        unsafe { out.add(i).write(v) }
+    };
+    // SAFETY: the caller's contract.
+    unsafe { handler.write(Rc::into_raw(resume.handler.clone()) as u64) };
+    write(0, resume.pending.clone());
+    // SAFETY: the caller's contract.
+    let y = unsafe { y.read() };
+    match &*resume.handler {
+        Handler::Translate { reply, .. } => {
+            write(1, resume.rest.clone());
+            write(2, reply.clone());
+            write(3, resume.op.clone());
+            write(4, y);
+            1
+        }
+        _ => {
+            write(1, resume.rest.clone());
+            write(2, y);
+            0
+        }
+    }
+}
+
+/// A handler native code holds (its word, given up) on a frame's error
+/// exit: kept with the last group of the unwind log, as the machine keeps
+/// it in the `Ret` of the frame that just left ([`sw_unwind`]'s mode 3), or
+/// dropped now if no frame has left. The log holds values, so it's kept as
+/// one: a resumption around it that nothing will run.
+///
+/// # Safety
+/// As [`sw_global`]; `handler` is a handler's word native code owns, and
+/// gives up.
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sw_unwind_handler(context: *mut Context, handler: u64) {
+    // SAFETY: the caller's contract.
+    let (run, handler) = unsafe { (&mut *(*context).run, handler_taken(handler)) };
+    match run.held.last_mut() {
+        Some(group) => {
+            let holder = Resume {
+                handler,
+                rest: Value::Erased,
+                pending: Value::Erased,
+                op: Value::Erased,
+            };
+            group.push(Value::Fun(Rc::new(Fun::Resume(Rc::new(holder), false))));
+        }
+        None => drop(handler),
     }
 }
 

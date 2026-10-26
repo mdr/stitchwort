@@ -356,10 +356,26 @@ fn effect_examples_agree_with_the_machine() {
                 let (natively, native_counts) = traced(true);
                 assert_eq!(native_counts, machine_counts, "{name}: `{source}`");
                 assert_eq!(natively.leaks(), Vec::<u32>::new(), "{name}: `{source}`");
-                assert!(
-                    on_machine.render() == natively.render(),
-                    "{name}: `{source}`: the traces differ"
-                );
+                let (machine, native) = (on_machine.render(), natively.render());
+                if machine != native {
+                    let first = machine
+                        .lines()
+                        .zip(native.lines())
+                        .position(|(a, b)| a != b)
+                        .unwrap_or(machine.lines().count().min(native.lines().count()));
+                    let window = |text: &str| {
+                        text.lines()
+                            .skip(first.saturating_sub(6))
+                            .take(14)
+                            .collect::<Vec<_>>()
+                            .join(" | ")
+                    };
+                    panic!(
+                        "{name}: `{source}`: the traces differ from event {first}:\n machine {}\n native  {}",
+                        window(&machine),
+                        window(&native)
+                    );
+                }
                 ran += 1;
             }
         }

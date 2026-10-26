@@ -20,7 +20,9 @@ use stitchwort_rt::ir::Program;
 use stitchwort_rt::native_abi::{
     self as abi, CrossingCode, NativeIslands, NativeOut, NativeRun, Trampoline,
 };
-use stitchwort_rt::native_aot::{MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, image_hash};
+use stitchwort_rt::native_aot::{
+    FLAG_NESTS, FLAG_RESUMES, MANIFEST_MAGIC, MANIFEST_VERSION, Manifest, image_hash,
+};
 use stitchwort_rt::value::{Fun, Value};
 
 /// The linked native code of one program.
@@ -131,7 +133,8 @@ impl AotIslands {
                     lambdas: lambdas.into(),
                     trampolines: &trampolines,
                     max_frame: manifest.max_frame as usize,
-                    nests: manifest.nests != 0,
+                    nests: manifest.flags & FLAG_NESTS != 0,
+                    resumes: manifest.flags & FLAG_RESUMES != 0,
                 },
                 abi::TableStore::new(program, image, manifest.n_caches as usize),
                 Some(stack_size),
