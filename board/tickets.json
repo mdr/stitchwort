@@ -4571,8 +4571,8 @@
     },
     {
       "id": 604,
-      "title": "Private app port: after typed-id perf round 2, re-benchmark typed ids vs plain (expect ≤3%) and rebuild dist + differential (private work only)",
-      "status": "next",
+      "title": "Private app port: std lemmas round 2, rewrite .orAbort/shared-field proofs with cases, re-benchmark typed ids, rebuild dist + differential (D1328; private work only)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
