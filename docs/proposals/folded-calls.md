@@ -693,6 +693,108 @@ the unfolded goal (D484) and so stay unfolded.
 re-recorded: its test isn't among this lane's targeted ones, and counts
 only fail it when they get worse.
 
+### As built (stage 4, opaque-definitions.md §9 lane 5)
+
+*Why now.* The roguelike's "generate on the stairs" lemma
+(opaque-definitions.md §2.3) got through the elaborator and then ran in the
+kernel for over a minute: its `conv` computed two copies of a generated
+level and compared them cell by cell, where the elaborator had matched the
+two calls of the generator by their arguments.
+
+*What changed.* The kernel checks a definition's body with gluing on, and
+`conv` compares two glued calls of the same definition by their arguments
+first: if each pair is convertible the calls are equal (congruence),
+otherwise they are compared by their unfoldings as before, since `f a` and
+`f b` can be equal with `a` and `b` different. The rule only ever answers
+"equal" where unfolding would, given the time; the elaborator's
+unification already did the same (stage 1).
+
+*Glued, not "same head before unfolding".* The two ways of doing this were
+to keep calls glued in the kernel, or to keep it unglued and notice two
+calls of the same definition before they unfold. The second has nowhere to
+happen: unglued evaluation unfolds a call as soon as it is made, so by the
+time `conv` sees two values the calls are gone, and noticing them would
+mean a term-level comparison before evaluation, new trusted code with its
+own rules for substitution and levels. Gluing reuses what stages 1 to 3
+built and the elaborator has exercised on everything since: `Value::Call`,
+`force`, and every kernel site that takes a value apart already forcing
+first (stage 1). So the trusted delta is small:
+
+- `check.rs` `admit_group`: the switch on around checking each body (4
+  lines). Only there: a type's value, which is kept (`Def::ty_value`), is
+  still made unglued, so nothing glued outlives the check. The kernel's
+  entry points are still entered with gluing off (debug-asserted), so
+  whether the kernel glues no longer depends on the elaborator's setting.
+- `value.rs` `conv`: the rule at the top of `conv_step` (12 lines), a
+  `same_spines` helper that the dictionary rule and the partially applied
+  definition rule now share (it replaces two copies of the same loop), and
+  `CallMemo` (below). About 75 lines of code added and 34 removed.
+
+A type without parameters (`theorem t: f 5 = f 5`) gains nothing: its value
+is `Def::ty_value`, already unfolded. Evaluating it again, glued, for the
+body made it work, but cost a second evaluation of every closed type
+(`check-list-rfl` +11% steps), so it isn't done.
+
+*The failure path.* When the arguments differ, the unfoldings usually
+contain the same arguments again (`next n = Succ n`): comparing `next^40 x`
+with `next^40 y` would compare each inner pair twice per level, 2^40 times
+in all. So each outermost `conv` keeps a record (`CallMemo`) of the pairs
+of calls it has met, by the addresses of their unfolding cells (shared by
+every copy of a call) and level: a pair whose arguments were found
+different isn't tried by its arguments again, and a pair found different
+outright (an argument pair compared by its own `conv`) is answered
+"different" at once. Both can only skip a shortcut or answer "different",
+never "equal", so neither can make the kernel accept anything. The record
+holds the values, so an address can't be reused while it lives; it's
+dropped when the outermost `conv` ends, and lookups don't depend on the
+map's order, so the resource counters stay deterministic (a test runs the
+same rejection twice and compares its steps). The rule and the record are
+among the shortcuts `set_shortcuts_disabled` turns off, so the
+`conv_shortcut` sweep checks that every rejected example gets the same
+diagnostics without them.
+
+*Tests.* `crates/core/tests/kernel.rs`, `same_call_*`: `mix 40 s = mix 40 s`
+and `mix 40 (konst s t) = mix 40 s` accepted within 100,000 steps, where the
+same definition under another name runs out (2^40 parts to compare);
+`konst 0 a = konst 0 b` and `mix 2 0 = mix 1 0` (different arguments, equal
+results) accepted; `konst a 0 = konst b 0` and `mix 3 s = mix 3 (Succ s)`
+rejected; `next^40 x = next^40 y` rejected within the budget, with the same
+steps twice. Each was checked to fail with the part it tests switched off.
+`examples/accept/kernel-same-call-arguments.sw` is the roguelike's shape in
+miniature (a level made from an unknown seed, reached two ways): 12 s
+before, 0.15 s after. Two existing tests changed: a kernel refusal in
+`quot.rs` (R5) now shows the written type, `AllTrue x y`, where it showed
+what it computes to, `Unit` (as stage 3 did for the elaborator's messages);
+and the three programs `check_work` listed as still computing `cost`
+(`if cost < 5`, `V cost`, `rfl : cost = cost`) no longer do, so they joined
+the ones whose checking mustn't grow with it. `check` prints exactly the
+same, with the same exit code, on all 846 files of `examples/accept`,
+`reject` and `soundness`.
+
+*Measured* (release, `--no-cache`, against `main` at `eb1476ca` built in
+the same directory, two runs each; the machine's load average was 20 to
+98, so times are rough and instructions are the dependable number):
+
+| | `main` | stage 4 |
+|---|---:|---:|
+| `aoc/` `check`, instructions | 63.20–63.25 G | 63.77–63.83 G (+0.9%) |
+| `aoc/` `check`, time | 5.0 s | 4.9–5.1 s |
+| `games/rogue` `test`, instructions | 126.38–126.40 G | 126.59–126.65 G (+0.2%) |
+| `games/rogue` `test`, time | 7.3–7.4 s | 7.4 s |
+| scratch rogue copy with stage 2's `descend` and its lemma, `check` | stopped after 90 s | 3.3 s (the lemma: about 3 ms in the kernel) |
+| peak memory (both projects) | 289 MB, 145 MB | the same |
+
+`task bench` (counts, against the same `main`): `check-closed-rfl`,
+`check-closed-if-less` and `check-closed-indexed` take 80% fewer steps, 68%
+fewer allocations and 95% less peak heap (130 MB → 6.3 MB): their types
+mention the expensive `cost`, which the kernel now compares as a call
+instead of computing. `check-closed-print`, `-dot`, `-eqeq` and
+`-list-eqeq` take 0.3% more steps and 1.6% more allocations,
+`check-number-dependent` 3.8% more steps (5,555 → 5,768); everything else
+is unchanged, and the `examples` total is 2,057 M steps on `main` and
+2,054 M with the new example added. The extra instructions on `aoc/` are
+the glued calls' cells and forcing in the kernel's own checking.
+
 ## 8. Risks
 
 - **A missed place in stage 1** shows up as a spurious "can't decide",
@@ -748,7 +850,8 @@ in `io.sw` (`NoOp` for `Effect.sigOp (MkSig NoOp NoRes)`) are accepted.
   as now, and only gets smaller terms. Or on: the kernel too compares two
   calls of the same definition by their arguments first (as it already does
   for dictionaries). [Off at first; revisit after stage 3 if the kernel's
-  conversion is still a large share.]
+  conversion is still a large share.] Revisited in stage 4: on while the
+  kernel checks a body ("As built (stage 4)" in §7).
 - **D484: What `rewrite` and the decision search see.** The unfolded goal,
   as today, so every existing proof keeps working and only the written-back
   terms and messages change. Or only the folded goal, as in Lean, where a

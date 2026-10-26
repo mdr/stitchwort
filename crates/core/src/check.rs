@@ -13,7 +13,9 @@ use crate::pretty;
 use crate::term::{Branch, DataId, DefId, Icit, Name, NumArm, QuotForm, Sort, Term};
 use crate::termination;
 use crate::unify_index::{Constraint, Outcome, Reason, Scope, unify};
-use crate::value::{Value, apply, conv, eval, force, force_ref, quot_value, quote, unused};
+use crate::value::{
+    Value, apply, conv, eval, force, force_ref, quot_value, quote, quote_folded, unused,
+};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -167,6 +169,13 @@ impl<'g> Ctx<'g> {
 
     fn quote(&self, value: &Value) -> Result<Term> {
         Ok(quote(self.g, self.level(), value)?)
+    }
+
+    /// [`quote_folded`]: glued calls kept as calls. Only for a term the
+    /// kernel evaluates again or checks, never one put in a checked term
+    /// (see "Read-backs that keep calls", by [`substitute`]).
+    fn quote_kept(&self, value: &Value) -> Result<Term> {
+        Ok(quote_folded(self.g, self.level(), value)?)
     }
 
     fn conv(&self, a: &Value, b: &Value) -> Result<bool> {
@@ -594,7 +603,7 @@ fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
     if let Value::Sort(s) = &*force_ref(cx.g, ty)? {
         return Ok(s.succ());
     }
-    let term = cx.quote(ty)?;
+    let term = cx.quote_kept(ty)?;
     Ok(check_type(cx, &term)?.1)
 }
 
@@ -889,7 +898,7 @@ fn check_case(
             ),
         ));
     }
-    let goal_term = cx.quote(goal)?;
+    let goal_term = cx.quote_kept(goal)?;
     if data.sort == Sort::Prop && sort_of(cx, goal)? != Sort::Prop {
         // Like Lean, propositions defined together never eliminate into
         // data: a deliberately conservative rule
@@ -1200,7 +1209,7 @@ fn check_num_case(
             "a number case's numbers aren't in strictly increasing order",
         ));
     }
-    let goal_term = cx.quote(goal)?;
+    let goal_term = cx.quote_kept(goal)?;
     let mut out = Vec::new();
     for arm in arms {
         let value = Value::Nat(arm.value.clone());
@@ -1228,7 +1237,8 @@ fn check_num_case(
 /// Substitutes `value` for variable `x` in each of `values`, with `level`
 /// variables in scope. Case branches use this to refine the whole context:
 /// with nested patterns, a variable matched later can appear in the type of
-/// one bound earlier (`rest : res o` after `o` is matched as `L o'`).
+/// one bound earlier (`rest : res o` after `o` is matched as `L o'`). Each
+/// value is read back with its glued calls kept (below).
 pub fn substitute(
     g: &Globals,
     level: usize,
@@ -1240,9 +1250,34 @@ pub fn substitute(
     env[x] = value.clone();
     values
         .iter()
-        .map(|v| eval(g, &env, &quote(g, level, v)?))
+        .map(|v| eval(g, &env, &quote_folded(g, level, v)?))
         .collect()
 }
+
+// Read-backs that keep calls (D1293, extending D483's arguments-first
+// comparison; docs/proposals/goal-readback.md §6).
+//
+// Four read-backs keep glued calls as calls (`quote_folded`): a case's goal
+// (`check_case`, `check_num_case`), a type whose universe is wanted
+// (`sort_of`), and every value refined on entering a branch (`substitute`).
+//
+// While a definition's body is checked the kernel evaluates with gluing on
+// (`admit_group`), so `f a` is a `Value::Call` until something looks
+// inside. Read back unfolded, it would be written out in full, untaken
+// branches and all, only to be evaluated again (or, in `sort_of`, checked).
+// Read back as the call `f a`, its arguments read back the same way, it is
+// convertible to the unfolded term: evaluated again, it is the same
+// definition applied to the same arguments, so it unfolds to the same value
+// whenever something looks inside, and `conv` compares it by its unfolding
+// whenever comparing the arguments doesn't already find two calls equal.
+// So no verdict changes, only how much is written out. A call that steps at
+// once is still read back unfolded (`quote_folded`).
+//
+// Only read-backs whose term is used up here: never one put in a checked
+// term (`Term::Eq`'s type, in `infer`), so checked terms and their hashes
+// don't change; and not `unify_index`'s searches for free variables, since
+// `konst x y` mentions `y` where its unfolding doesn't. Outside a body
+// (types, `declare_def`) there are no calls, and these read back as `quote`.
 
 /// Whether the types of the binders after binder `i` in a telescope (data
 /// parameters, or constructor fields) mention it. If not, checking doesn't
@@ -1300,7 +1335,7 @@ pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
 /// - Termination is decided for the whole group at once, from every call
 ///   between any two members.
 pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
-    debug_assert!(!g.glue.get(), "the kernel checks with gluing off (D483)");
+    debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
     // Refused before anything changes: an empty group, or an id that isn't
     // a definition at all.
     if members.is_empty() {
@@ -1403,7 +1438,18 @@ fn admit_group(g: &Globals, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
         let ty = def_type(g, def)?;
         // Checking keeps every location and lambda, so the checked body has
         // the same parameters; the termination checker refuses it if not.
-        checked.push(check(&mut cx, body, &ty)?);
+        // With gluing on, so that two calls of the same definition are
+        // compared by their arguments first (`value.rs`, `CallMemo`; D483).
+        // Only here: the values made here are dropped once the body is
+        // checked, where a type's value is kept (`Def::ty_value`, made
+        // unglued by `declare_def`; `def_type` above, unglued too). A type
+        // with parameters is a function type whose codomain is evaluated
+        // now, glued; one without (`f 5 = f 5`) was evaluated unglued, so
+        // its calls are already unfolded.
+        let was = g.glue.replace(true);
+        let result = check(&mut cx, body, &ty);
+        g.glue.set(was);
+        checked.push(result?);
     }
     let group: Vec<termination::Member> = ids
         .iter()
@@ -1433,7 +1479,7 @@ pub fn declare_def(
     export: bool,
     span: Span,
 ) -> Result<DefId> {
-    debug_assert!(!g.glue.get(), "the kernel checks with gluing off (D483)");
+    debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
     // A type is checked with every opaque definition hidden.
     let _set = g.transparent.set(Rc::default());
     let mut cx = Ctx::new(g, span);
@@ -1494,7 +1540,7 @@ pub fn declare_def(
 /// has been admitted against the old type; the body is then checked
 /// against this one, as always.
 pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
-    debug_assert!(!g.glue.get(), "the kernel checks with gluing off (D483)");
+    debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
     let _set = g.transparent.set(Rc::default());
     let span = g.defs[id.0].span;
     let mut cx = Ctx::new(g, span);

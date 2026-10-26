@@ -96,12 +96,9 @@ const CONSTANT: &[(&str, &str)] = &[
         "def b : Bool := List.any [1, 2] (n => n < cost)",
     ),
     ("test", "test \"length\" := cost == 200000"),
-];
-
-/// Programs that still compute `cost` while checking, because a type needs
-/// its value while the evaluator is strict (option (b) would change that):
-/// printed, to compare against.
-const STILL_COMPUTED: &[(&str, &str)] = &[
+    // Types that mention `cost` without needing its value. These used to
+    // compute it, in the kernel; it now compares `cost` with `cost` as a
+    // call, by its (no) arguments (docs/proposals/folded-calls.md, stage 4).
     // The branches assume a proof of `cost < 5`.
     ("if <", "def y : Nat := if cost < 5 then 1 else 2"),
     (
@@ -158,7 +155,7 @@ fn checking_does_not_compute_unneeded_values() {
 /// Where the type needs the value, it's computed as before.
 #[test]
 fn checking_computes_needed_values() {
-    for (name, small, large) in measured(NEEDED).into_iter().chain(measured(STILL_COMPUTED)) {
+    for (name, small, large) in measured(NEEDED) {
         assert!(
             large.steps > small.steps,
             "{name}: expected checking to compute `cost`"
