@@ -70,7 +70,7 @@ The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times
 | `elab` | `stitchwort-elab` unit tests, but for five slow `omega_search` ones | 4 s |
 | `effects` | `ability_errors`, `empty_row_kernel`, and the quick `effect_runtime` tests of `rt` and `cli` | 3 s |
 | `std` | the quick `std_library` tests (the loader, the index, cycles); not the sweeps | 3 s |
-| `rt` | `stitchwort-rt` unit tests, `tick_counts`, `machine` `library_tests_agree`, two quick `effect_runtime` tests, two quick `partial_handlers` tests, `live_run`, `linked` (the tables a `--native` executable carries) | 5 s |
+| `rt` | `stitchwort-rt` unit tests, `stitchwort-host` (the threads on mapped stacks), `tick_counts`, `machine` `library_tests_agree`, two quick `effect_runtime` tests, two quick `partial_handlers` tests, `live_run`, `linked` (the tables a `--native` executable carries) | 5 s |
 | `js` | `stitchwort-js` unit tests and five quick `extract` tests | 4 s |
 | `native` | `stitchwort-native`: the Cranelift spike (stage N0 of native-compilation.md) and stages N1 to N4 against the machine (`tests/n1.rs`, `n3.rs`: outputs, allocation traces, resource points, every error exit; `tests/n2b.rs`: frame sizing, tail-call shapes, error-exit traces; `tests/frames.rs`: the frame bound on both architectures; `tests/n4.rs`: handlers and every `-- run:` line of the effect examples; the ten-million-iteration tail test is left to the merge tier), that the generated code holds no host address (`tests/relocatable.rs`, stage S4 of standalone-executables.md), and the object `build --native` links (`tests/object.rs`, S5) | 7 s |
 | `lsp` | six quick `cli` `lsp` tests (hover, formatting, goals, navigation) | 3 s |
