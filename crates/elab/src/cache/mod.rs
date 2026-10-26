@@ -67,7 +67,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 12;
+pub const FORMAT: u32 = 13;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1216,6 +1216,13 @@ impl Elaborator {
         for data in &g.datas {
             *data_paths.entry(&data.path).or_default() += 1;
         }
+        // Each `unfolding` entry is written as a reference term. The term
+        // writer knows a term by its address, so these live as long as the
+        // encoding: a temporary would share its address with the next.
+        let unfolding_refs: Vec<Box<[Term]>> = g.defs[before.defs..]
+            .iter()
+            .map(|def| def.unfolding.iter().map(|&id| Term::Def(id)).collect())
+            .collect();
         let mut e = Encoding {
             out: Out {
                 g,
@@ -1271,6 +1278,14 @@ impl Elaborator {
             e.w.bool(def.theorem);
             e.w.bool(def.instance);
             e.w.bool(def.fold);
+            // Opacity, and the `unfolding` list as written, each name as a
+            // reference (docs/proposals/opaque-definitions.md §6.4).
+            e.w.bool(def.opaque);
+            let refs = &unfolding_refs[id.0 - before.defs];
+            e.w.usize(refs.len());
+            for reference in refs.iter() {
+                e.term(reference);
+            }
             e.span(def.span);
             e.term(&def.ty);
             e.term(def.body().expect("checked above"));
@@ -1800,6 +1815,9 @@ struct DefEntry {
     theorem: bool,
     instance: bool,
     fold: bool,
+    opaque: bool,
+    /// Its `unfolding` list as written.
+    unfolding: Vec<DefId>,
     span: Span,
     ty: Term,
     body: Term,
@@ -2202,6 +2220,18 @@ impl Elaborator {
                 theorem: body.r.bool()?,
                 instance: body.r.bool()?,
                 fold: body.r.bool()?,
+                opaque: body.r.bool()?,
+                unfolding: {
+                    let k = body.count()?;
+                    let mut unfolding = Vec::with_capacity(k);
+                    for _ in 0..k {
+                        match body.term()? {
+                            Term::Def(id) => unfolding.push(id),
+                            _ => return bad("an `unfolding` entry that isn't a definition"),
+                        }
+                    }
+                    unfolding
+                },
                 span: body.span()?,
                 ty: body.term()?,
                 body: body.term()?,
@@ -2434,6 +2464,13 @@ impl Elaborator {
                 if defs[m].group != def.group {
                     return bad("members disagree about their group");
                 }
+                // What it unfolds must be final first, as what its body
+                // names must.
+                for id in &defs[m].unfolding {
+                    if id.0 >= base_defs {
+                        needs_defs.insert(id.0 - base_defs);
+                    }
+                }
                 codec::references(
                     &defs[m].body,
                     &mut |id| {
@@ -2643,6 +2680,12 @@ impl Elaborator {
                 }
                 if def.instance {
                     kernel::mark_instance(&mut self.globals, id);
+                }
+                if def.opaque {
+                    kernel::mark_opaque(&mut self.globals, id);
+                }
+                if !def.unfolding.is_empty() {
+                    kernel::set_unfolding(&mut self.globals, id, &def.unfolding);
                 }
                 next_def += 1;
                 continue;

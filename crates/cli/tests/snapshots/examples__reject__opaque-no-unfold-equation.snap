@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NO-UNFOLD-EQUATION] Error: `start` has no `unfold` equation
+    ╭─[ reject/opaque-no-unfold-equation.sw:11:39 ]
+    │
+ 11 │ theorem startItself: start = start := start.unfold
+    │                                       ──────┬─────  
+    │                                             ╰─────── `start.unfold` can't be stated without unfolding `Code`
+    │ 
+    │ Note: prove what you need in a theorem with `unfolding start`
+────╯

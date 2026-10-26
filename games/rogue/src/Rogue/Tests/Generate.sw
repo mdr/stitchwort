@@ -66,7 +66,7 @@ test "different seeds make different levels" := (seeds.map (seed => (planned see
 
 -- Monsters and items are placed where they may stand
 
-def arrived (plan: Plan): State := startingState plan []
+def arrived (plan: Plan): State := startingState plan
 
 test "no monster is placed in a wall or on the player" :=
   plans.all (plan =>
@@ -101,9 +101,9 @@ test "a sword on each level above the bottom" :=
 
 -- A new game
 
-test "a new game starts on the first level, with the two below made" :=
+test "a new game starts on the first level" :=
   let state := seeded testSeed newGame
-  state.level.depth == 1 ∧ state.below.map (plan => plan.level.depth) == [2, 3] ∧ state.player == state.level.start
+  state.level.depth == 1 ∧ state.player == state.level.start
 
 -- Placing by hand
 

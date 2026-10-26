@@ -105,7 +105,9 @@ fn unfold(g: &Globals, id: DefId, ty: Option<Ty>) -> Result<Option<Ty>> {
     let stripped = strip(&term);
     let (_, args) = stripped.spine();
     let def = g.def(id);
-    if let Some(body) = def.body()
+    // Not an opaque definition's hidden body
+    // (docs/proposals/opaque-definitions.md §6.4).
+    if let Some(body) = stitchwort_core::value::body_seen(g, id)
         && def.arity == args.len()
     {
         let inner = Term::peel_lams_rc(body, def.arity);
@@ -250,7 +252,7 @@ pub(crate) fn infer_dot(
 ) -> Result<(Term, Value)> {
     if let Some(id) = helper(cx, recv, field) {
         cx.e.note_dot(field, id);
-        let head = (Term::Def(id), cx.g().def(id).ty_value.clone());
+        let head = (Term::Def(id), crate::kernel::def_ty(cx.g(), id)?);
         return crate::check::apply_args(cx, head, args);
     }
     let (rterm, rty) = infer_receiver(cx, recv, field)?;
@@ -332,6 +334,17 @@ fn helper_owner(cx: &Ctx, recv: &Expr) -> Option<String> {
 /// Finds `T.f` for the receiver's type `ty`: the first head in the view
 /// whose namespace has an `f`.
 fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, DefId, String)> {
+    // `f.unfold` for an opaque `f` that has none, read as a field of `f`
+    // (docs/proposals/opaque-definitions.md §6.3).
+    if let Expr::Var(owner) = recv {
+        let name = AstName {
+            text: format!("{}.{}", owner.text, field.text),
+            span: owner.span.to(field.span),
+        };
+        if let Some(d) = crate::opaque::no_unfold_equation(cx.e, &name) {
+            return Err(d);
+        }
+    }
     let g = cx.g();
     let mut tried: Vec<TyHead> = Vec::new();
     loop {
@@ -531,7 +544,7 @@ pub(crate) fn section_partial(
             _ => return Ok(None),
         }
     }
-    let head = (Term::Def(f), g.def(f).ty_value.clone());
+    let head = (Term::Def(f), crate::kernel::def_ty(g, f)?);
     let snapshot = crate::undo::Snapshot::take(cx);
     let attempt = (|| -> Result<Option<Term>> {
         let (term, ty) = apply_args(cx, head, &args)?;
@@ -853,7 +866,7 @@ pub(crate) fn prefix_form<'a>(
     if let Some(rec) = cx.decreasing_rec(Some(f)) {
         return Ok(Some((rec, full)));
     }
-    Ok(Some(((Term::Def(f), g.def(f).ty_value.clone()), full)))
+    Ok(Some(((Term::Def(f), crate::kernel::def_ty(g, f)?), full)))
 }
 
 /// `T.f` applied with the receiver as its first explicit argument, and the
@@ -904,7 +917,7 @@ fn call(
                     other => other,
                 })
                 .collect();
-            let head = (Term::Def(f), g.def(f).ty_value.clone());
+            let head = (Term::Def(f), crate::kernel::def_ty(g, f)?);
             return crate::named::apply_slots(cx, head, &slots);
         }
         ordered = (slots.into_iter())
@@ -920,7 +933,7 @@ fn call(
     // The implicit arguments before the receiver, then the receiver,
     // compared with its parameter before the written arguments are checked.
     let mut term = Term::Def(f);
-    let mut ty = g.def(f).ty_value.clone();
+    let mut ty = crate::kernel::def_ty(g, f)?;
     loop {
         let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? else {
             unreachable!("the receiver's parameter is in the signature");
@@ -1166,7 +1179,7 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
             return Ok(Some(Ty::Term(term, env)));
         }
     }
-    let mut ty = g.def(id).ty_value.clone();
+    let mut ty = crate::kernel::def_ty(g, id)?;
     let mut level = cx.level();
     loop {
         match force(g, ty)? {

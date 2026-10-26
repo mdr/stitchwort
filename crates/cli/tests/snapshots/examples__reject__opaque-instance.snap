@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: an instance can't be `opaque`
+   ╭─[ reject/opaque-instance.sw:8:8 ]
+   │
+ 8 │ opaque instance Box.instShow: Show Box := { show = box => box.contents.show }
+   │        ────┬───  
+   │            ╰───── an instance can't be `opaque`
+   │ 
+   │ Note: an instance is used by taking it apart, which needs its body
+───╯

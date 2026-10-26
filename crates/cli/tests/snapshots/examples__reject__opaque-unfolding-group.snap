@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNFOLDING-GROUP] Error: `isOdd` can't unfold `isEven`: they are checked together, so neither has a body yet
+    ╭─[ reject/opaque-unfolding-group.sw:12:15 ]
+    │
+ 12 │     unfolding isEven
+    │               ───┬──  
+    │                  ╰──── `isEven` is in the same group
+    │ 
+    │ Note: prove what needs the body in a theorem after both
+────╯

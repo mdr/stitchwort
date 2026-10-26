@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a theorem can't be `opaque`
+   ╭─[ reject/opaque-theorem.sw:7:8 ]
+   │
+ 7 │ opaque theorem oneIsOne: 1 = 1 := rfl
+   │        ───┬───  
+   │           ╰───── a theorem can't be `opaque`
+   │ 
+   │ Note 1: a theorem already stays folded where it's used
+   │ 
+   │ Note 2: to use an opaque definition's body in its proof, write `unfolding f` after its type
+───╯

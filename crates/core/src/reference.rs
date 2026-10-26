@@ -32,7 +32,7 @@ pub fn eval(g: &Globals, env: &[Value], term: &Term) -> Result<Value> {
         Term::Var(ix) => env[env.len() - 1 - ix].clone(),
         Term::Def(id) => {
             let def = g.def(*id);
-            match &def.body {
+            match seen(g, *id) {
                 Some(body) if def.arity == 0 && !folds(g, *id) => eval(g, &[], body)?,
                 _ => Value::Neutral(Head::Def(*id), Spine::new()),
             }
@@ -245,6 +245,9 @@ pub fn force(g: &Globals, value: Value) -> Result<Value> {
 }
 
 fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
+    if crate::value::hidden(g, id) {
+        return Ok(Value::Neutral(Head::Def(id), spine.into()));
+    }
     if let Some(value) = crate::float::run(g, id, &spine, force)? {
         return Ok(value);
     }
@@ -280,6 +283,15 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
     Ok(Value::Neutral(Head::Def(id), spine.into()))
 }
 
+/// Definition `id`'s body, unless it's opaque and hidden now
+/// ([`crate::value::hidden`]).
+fn seen(g: &Globals, id: DefId) -> Option<&Rc<Term>> {
+    g.def(id)
+        .body
+        .as_ref()
+        .filter(|_| !crate::value::hidden(g, id))
+}
+
 /// Whether a dictionary (`Def::fold`) or a theorem stays folded when it has
 /// all its arguments, except while a program runs.
 fn folds(g: &Globals, id: DefId) -> bool {
@@ -301,7 +313,7 @@ fn is_folded(g: &Globals, value: &Value) -> bool {
     matches!(value, Value::Neutral(Head::Def(id), spine)
         if (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
             && spine.len() == g.def(*id).arity
-            && g.def(*id).body.is_some())
+            && seen(g, *id).is_some())
 }
 
 /// A dictionary or theorem left folded (or a definition folded on a
@@ -311,7 +323,7 @@ fn unfold_folded(g: &Globals, value: Value) -> Result<Value> {
     if let Value::Neutral(Head::Def(id), spine) = &value
         && (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
         && spine.len() == g.def(*id).arity
-        && let Some(body) = g.def(*id).body.clone()
+        && let Some(body) = seen(g, *id).cloned()
     {
         let args: Option<Vec<Value>> = spine
             .iter()
