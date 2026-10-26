@@ -4179,7 +4179,7 @@
     {
       "id": 574,
       "title": "auto stops at depth 8 (MAX_DEPTH, crates/elab/src/auto.rs), so 'n ∈ [literal]' as a Bool fails with E-AUTO-NONE at 9+ elements (found in the private app port and the roguelike's key proofs, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
