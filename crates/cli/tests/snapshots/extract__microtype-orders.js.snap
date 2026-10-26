@@ -1520,7 +1520,7 @@ const $Main$dUserId$d$g$gmk$g0 = (v0, v1) => {
 const $Main$dUserId$d$gdecEq = (v0, v1) => {
   const v2 = v0;
   const v3 = v1;
-  return $Std$dDecidable$delim($Std$dText$ddecEq(v2, v3), ((v4) => ({ tag: "Yes" })), ((v4) => ({ tag: "No" })));
+  return $Std$dText$ddecEq(v2, v3);
 };
 const $Main$dOrderId$dvalue = (v0) => {
   const v1 = v0;
@@ -1533,13 +1533,13 @@ const $Main$dOrderId$d$g$gmk$g0 = (v0, v1) => {
 const $Main$dOrderId$d$gdecEq = (v0, v1) => {
   const v2 = v0;
   const v3 = v1;
-  return $Std$dDecidable$delim($Std$dText$ddecEq(v2, v3), ((v4) => ({ tag: "Yes" })), ((v4) => ({ tag: "No" })));
+  return $Std$dText$ddecEq(v2, v3);
 };
 const $Main$dOrderId$d$ginstDecEq = ($Main$dOrderId$d$gdecEq$c ??= ($p0) => ($p1) => $Main$dOrderId$d$gdecEq($p0, $p1));
 const $Main$dOrderId$d$gcompare = (v0, v1) => {
   const v2 = v0;
   const v3 = v1;
-  return $Std$dOrd$dcompare($Std$dText$dinstOrd)(v2)(v3);
+  return $Std$dText$dcompare(v2, v3);
 };
 const $Main$dOrderId$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dOrderId$d$ginstDecEq, ($Main$dOrderId$d$gcompare$c ??= ($p0) => ($p1) => $Main$dOrderId$d$gcompare($p0, $p1)));
 const $Main$dUserId$dinstShow = $Std$dShow$dfromText(((v0) => $Main$dUserId$dvalue(v0)));

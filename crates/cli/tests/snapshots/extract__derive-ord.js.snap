@@ -1452,7 +1452,7 @@ const $Main$dItem$d$gdecEq = (v0, v1) => {
   const v3 = v0.price;
   const v5 = v1.name;
   const v6 = v1.price;
-  return $Std$dDecidable$delim($Std$dText$ddecEq(v2, v5), ((v8) => $Std$dDecidable$delim($Std$dNat$ddecEq(v3, v6), ((v9) => ({ tag: "Yes" })), ((v9) => ({ tag: "No" })))), ((v8) => ({ tag: "No" })));
+  return $Std$dDecidable$delim($Std$dText$ddecEq(v2, v5), ((v8) => $Std$dNat$ddecEq(v3, v6)), ((v8) => ({ tag: "No" })));
 };
 const $Main$dItem$d$ginstDecEq = ($Main$dItem$d$gdecEq$c ??= ($p0) => ($p1) => $Main$dItem$d$gdecEq($p0, $p1));
 const $Main$dItem$d$gshow = (v0) => {
@@ -1466,7 +1466,7 @@ const $Main$dItem$d$gcompare = (v0, v1) => {
   const v3 = v0.price;
   const v5 = v1.name;
   const v6 = v1.price;
-  return $Std$dOrdering$dandThen($Std$dOrd$dcompare($Std$dText$dinstOrd)(v2)(v5), $Std$dOrd$dcompare($Std$dNat$dinstOrd)(v3)(v6));
+  return $Std$dOrdering$dandThen($Std$dText$dcompare(v2, v5), $Std$dNat$dcompare(v3, v6));
 };
 const $Main$dItem$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dItem$d$ginstDecEq, ($Main$dItem$d$gcompare$c ??= ($p0) => ($p1) => $Main$dItem$d$gcompare($p0, $p1)));
 const $Main$dShape$d$gtag = (v0) => {
@@ -1564,7 +1564,7 @@ const $Main$dShape$d$gdecEq = (v0, v1) => {
         }
         case "Circle": {
           const v3 = v1.radius;
-          return $Std$dDecidable$delim($Std$dNat$ddecEq(v2, v3), ((v4) => ({ tag: "Yes" })), ((v4) => ({ tag: "No" })));
+          return $Std$dNat$ddecEq(v2, v3);
         }
         case "Group": {
           const v3 = v1.first;
@@ -1588,7 +1588,7 @@ const $Main$dShape$d$gdecEq = (v0, v1) => {
         case "Group": {
           const v4 = v1.first;
           const v5 = v1.rest;
-          return $Std$dDecidable$delim($Main$dShape$d$gdecEq(v2, v4), ((v6) => $Std$dDecidable$delim($Main$dShape$d$gdecEq(v3, v5), ((v7) => ({ tag: "Yes" })), ((v7) => ({ tag: "No" })))), ((v6) => ({ tag: "No" })));
+          return $Std$dDecidable$delim($Main$dShape$d$gdecEq(v2, v4), ((v6) => $Main$dShape$d$gdecEq(v3, v5)), ((v6) => ({ tag: "No" })));
         }
       }
       throw new Error("unreachable");
@@ -1642,7 +1642,7 @@ const $Main$dShape$d$gcompare = (v0, v1) => {
         }
         case "Circle": {
           const v3 = v1.radius;
-          return $Std$dOrd$dcompare($Std$dNat$dinstOrd)(v2)(v3);
+          return $Std$dNat$dcompare(v2, v3);
         }
         case "Group": {
           const v3 = v1.first;
