@@ -4913,7 +4913,7 @@
     {
       "id": 632,
       "title": "fmt --check fails on 74 files in examples/ and std (65 already on main before the header fix): reformat them all and add fmt --check over std+examples to the merge tier so it stays clean",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
