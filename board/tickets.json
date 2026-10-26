@@ -1,5 +1,5 @@
 {
-  "next": 633,
+  "next": 636,
   "tickets": [
     {
       "id": 13,
@@ -4349,7 +4349,7 @@
     {
       "id": 587,
       "title": "Inversion for Abort blocks: a generated lemma (or simp via Abort.toOptionThen / Option.flatMapEqSome) for 'this .orAbort chain returned Some'; today each proof walks one step per .orAbort by hand (found in the private app port, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4914,6 +4914,42 @@
       "id": 632,
       "title": "fmt --check fails on 74 files in examples/ and std (65 already on main before the header fix): reformat them all and add fmt --check over std+examples to the merge tier so it stays clean",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 633,
+      "title": "Bug: in an Abort block, a pipe chain after an effect-polymorphic call fails with E-ABILITY: xs.find p |> .orAbort, (xs.find p).orAbort, xs.map f |> .head |> .orAbort (xs.head |> .orAbort and a separate let work). Found by the Abort-inversion lane, 26 Oct",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 634,
+      "title": "Bug: a failing last term in a proof continuation (Eq.cong Some (omega)) is reported as E-REWRITE-NOTHING against an unsolved ?19 goal instead of the real error (Abort-inversion lane, 26 Oct)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 635,
+      "title": "Abort.thenEqSome can't infer its step: the unifier can't solve ?t () against a call, so t must be written (() => helper …) (Abort-inversion lane, 26 Oct)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
