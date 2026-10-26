@@ -4434,14 +4434,16 @@
     {
       "id": 594,
       "title": "JS codegen: a let-bound value used inside a lambda (e.g. c.id ∉ ids2 with ids2 from let) compiles to ((v4) => ((v5) => …))(x)(y), allocating a closure per element (found during SW-590)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "c204df82"
+      ]
     },
     {
       "id": 595,
