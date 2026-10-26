@@ -4158,14 +4158,16 @@
     {
       "id": 573,
       "title": "Elaborator E-RESOURCE: 'x ∈ List.map xs f' (or ∉) inside a lambda passed to List.filter runs out of depth, e.g. List.filter ys (y => y ∈ List.map xs (n => n + 1)); fine with a variable, reverse or append on the right, or when Nat → Bool is expected (found in the private app port, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "3f110699"
+      ]
     },
     {
       "id": 574,
@@ -4298,14 +4300,16 @@
     {
       "id": 584,
       "title": "Std: a differenceBy/unionBy combinator (xs ++ ys.filter (y => key y ∉ xs.map key)) with lemmas; the one-line generic definition hits E-RESOURCE today (see the ∈ List.map ticket) (found in the private app port, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "d96b7386"
+      ]
     },
     {
       "id": 585,
