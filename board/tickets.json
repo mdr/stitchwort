@@ -1,5 +1,5 @@
 {
-  "next": 605,
+  "next": 606,
   "tickets": [
     {
       "id": 13,
@@ -4009,7 +4009,7 @@
     {
       "id": 561,
       "title": "Native-only NO7 (NO6 merged 9d109d27): Linux (native-only.md §6)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4022,7 +4022,10 @@
         "ecffde0e",
         "ee8524bc",
         "9d109d27",
-        "abf390d6"
+        "abf390d6",
+        "d9b63f4b",
+        "38edaa8e",
+        "90ae309f"
       ]
     },
     {
@@ -4567,6 +4570,18 @@
       "id": 604,
       "title": "Private app port: after typed-id perf round 2, re-benchmark typed ids vs plain (expect ≤3%) and rebuild dist + differential (private work only)",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 605,
+      "title": "run --native under Linux strict overcommit (mode 2) is refused: it reserves the full 64 GiB on the CLI thread; fix by sizing before the thread starts (needs the JIT code and terminal to be movable across threads) (NO6/NO7 open item)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
