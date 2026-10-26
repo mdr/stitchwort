@@ -106,7 +106,7 @@ pub fn build_executable(
     #[cfg(not(feature = "native"))]
     if native.is_some() {
         eprintln!(
-            "error: this `stitchwort` was built without native code; build it with `--features native`"
+            "error: this `stitchwort` was built without native code; build it with `task build`"
         );
         return ExitCode::FAILURE;
     }
@@ -488,8 +488,7 @@ fn find_library() -> Result<PathBuf, String> {
     }
     Err(format!(
         "error: can't find the runtime library ({LIBRARY}): it isn't at {} or {}\n  \
-         note: build it with `cargo build --release -p stitchwort-standalone` (it goes beside \
-         `target/release/stitchwort`), or set {LIBRARY_VARIABLE} to its path\n",
+         note: build it with `task build` (it goes beside `target/release/stitchwort`), or set {LIBRARY_VARIABLE} to its path\n",
         candidates[0].display(),
         candidates[1].display()
     ))

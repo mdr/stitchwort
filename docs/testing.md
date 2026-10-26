@@ -155,6 +155,8 @@ A bring-up tool for native compilation (`docs/proposals/native-compilation.md`, 
 
 ## Browser tests
 
+**The WebAssembly float tests.** `crates/cli/tests/float_paths.rs` runs the float gate on the playground's bundle in `web/pkg`. When the bundle is missing or built from other sources, those tests skip (a pass), so lanes work without a web build. With `STITCHWORT_REQUIRE_WASM=1` they fail instead, naming `web/build.sh`; `task test:daily` sets it and builds `web/pkg` first when it is out of date. The merge tier leaves it unset.
+
 `web/test.sh` builds the playground into `web/pkg/`, then runs `web/tests/browser.mjs` with Node: it serves `web/` itself (on a port the system picks), starts headless Chrome with a temporary profile, drives the page over the DevTools protocol, and stops Chrome at the end. Each test has a fresh tab with empty storage.
 
 ```sh

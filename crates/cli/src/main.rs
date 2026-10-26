@@ -506,9 +506,7 @@ fn native_spike(rounds: u64, memory: Option<&str>) -> ExitCode {
 
 #[cfg(not(feature = "native"))]
 fn native_spike(_rounds: u64, _memory: Option<&str>) -> ExitCode {
-    eprintln!(
-        "error: this `stitchwort` was built without native code; build it with `--features native`"
-    );
+    eprintln!("error: this `stitchwort` was built without native code; build it with `task build`");
     ExitCode::FAILURE
 }
 
@@ -1162,7 +1160,7 @@ fn run_target(
     #[cfg(not(feature = "native"))]
     if native.is_some() {
         eprintln!(
-            "error: this `stitchwort` was built without native code; build it with `--features native`"
+            "error: this `stitchwort` was built without native code; build it with `task build`"
         );
         return ExitCode::FAILURE;
     }

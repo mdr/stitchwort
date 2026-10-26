@@ -9,7 +9,7 @@ nix build                       # the command-line tool, as result/bin/stitchwor
 nix run . -- check hello.sw     # or run it without installing
 
 nix develop                     # a shell with cargo, node and the rest
-cargo build --release -p stitchwort-cli   # target/release/stitchwort
+task build   # target/release/stitchwort, with native code and its runtime library
 ```
 
 Put `result/bin` or `target/release` on your `PATH`. The rest of this guide calls the command `stitchwort`.
