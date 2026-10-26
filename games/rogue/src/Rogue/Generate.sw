@@ -19,7 +19,9 @@ type Plan = { level: Level, monsters: List Monster, items: List Item }
 -- The level at `depth`. Its rooms are joined in a snake through the
 -- sections (top row left to right, bottom row right to left), and sometimes
 -- by one more corridor, so every room can be reached from every other.
-def generateLevel (depth: Nat): {Random} Plan :=
+-- Opaque: no proof needs to look inside the generator, and turns run it on
+-- an unknown seed (see `descend`).
+opaque def generateLevel (depth: Nat): {Random} Plan :=
   let rooms := (List.range 6).map randomRoom
   let room := (index: Nat) => roomOf rooms index
   let entranceIndex := roll 5
@@ -122,21 +124,14 @@ def placeItems (level: Level) (start: Position) (placed: List Item): List Item �
     if isWall level item.position ∨ item.position == start ∨ isStairs level item.position ∨ (itemAt item.position placed).isSome then placeItems level start placed rest
     else placeItems level start (placed ++ [item]) rest
 
--- A new game, on the first level. Every level is made now, at the edge,
--- rather than when the player goes down: `resolve` is pure, and the
--- generator run inside it by a handler of its own made the checker unfold
--- the generator in every proof about a turn (NOTES.md, stage 2).
-def newGame(): {Random} State :=
-  let first := generateLevel 1
-  let deeper := (List.between 2 deepest).map generateLevel
-  startingState first deeper
+-- A new game, on the first level. Deeper levels are made on the stairs.
+def newGame(): {Random} State := startingState (generateLevel 1)
 
-def startingState (plan: Plan) (deeper: List Plan): State := arrive (freshState plan deeper) plan
+def startingState (plan: Plan): State := arrive (freshState plan) plan
 
 -- The player before arriving on the first level.
-def freshState (plan: Plan) (deeper: List Plan): State := {
+def freshState (plan: Plan): State := {
   level = plan.level,
-  below = deeper,
   player = plan.level.start,
   hitPoints = maxHitPoints,
   potions = 0,
