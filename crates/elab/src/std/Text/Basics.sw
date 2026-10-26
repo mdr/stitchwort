@@ -4,7 +4,7 @@
 -- trims text doesn't also load the lemmas in `Text.sw`.
 
 -- The number of scalar values.
-def Text.length (text: Text): Nat := List.length (Text.toList text)
+def Text.length (text: Text): Nat := text.toList.length
 
 def Text.isEmpty: Text → Bool
   | MkText Nil => True
@@ -20,7 +20,7 @@ def Text.foldChars (f: Char → b → b) (initial: b): List Char → b
   | Cons char chars => f char (Text.foldChars f initial chars)
 
 -- `Text.fold "abc" initial f` is `f 'a' (f 'b' (f 'c' initial))`.
-def Text.fold (text: Text) (initial: b) (f: Char → b → b): b := Text.foldChars f initial (Text.toList text)
+def Text.fold (text: Text) (initial: b) (f: Char → b → b): b := Text.foldChars f initial text.toList
 
 -- ASCII whitespace: exactly space, tab, line feed, vertical tab, form feed and
 -- carriage return. For layout-sensitive parsing; `Char.isWhitespace` is the
@@ -34,7 +34,7 @@ def Char.isAsciiSpaceCode: Nat → Bool
   | 32 => True
   | _ => False
 
-def Char.isAsciiSpace (char: Char): Bool := Char.isAsciiSpaceCode (Char.toNat char)
+def Char.isAsciiSpace (char: Char): Bool := char.toNat |> Char.isAsciiSpaceCode
 
 -- The non-ASCII `White_Space` code points below U+2000: U+0085, U+00A0, U+1680.
 def Char.isWhitespaceLow: Nat → Bool
@@ -63,7 +63,7 @@ def Char.isWhitespaceCode (code: Nat): Bool :=
   if Nat.leq 8192 code then (if Nat.leq code 8202 then True else Char.isWhitespaceHigh code)
   else (if Nat.leq code 32 then Char.isAsciiSpaceCode code else Char.isWhitespaceLow code)
 
-def Char.isWhitespace (char: Char): Bool := Char.isWhitespaceCode (Char.toNat char)
+def Char.isWhitespace (char: Char): Bool := char.toNat |> Char.isWhitespaceCode
 
 def Text.dropSpaces: List Char → List Char
   | Nil => Nil
@@ -92,8 +92,8 @@ def Text.toInt: Text → Option Int
   | MkText Nil => None
   | MkText (Cons char chars) =>
     if Nat.equal (Char.toNat char) 45
-    then Option.map (Text.toNat (MkText chars)) (n => Int.neg (OfNat n))
-    else Option.map (Text.toNat (MkText (Cons char chars))) OfNat
+    then Text.toNat (MkText chars) |> .map (n => Int.neg (OfNat n))
+    else Text.toNat (MkText (Cons char chars)) |> .map OfNat
 
 -- Splitting and joining
 
@@ -123,7 +123,7 @@ def Text.splitTexts: Pair (List Char) (List (List Char)) → List Text
 
 -- The fields between separators, keeping empty ones: splitting "a,,b" on
 -- ',' gives ["a", "", "b"], and splitting "" gives [""].
-def Text.split (text: Text) (separator: Char): List Text := Text.splitTexts (Text.splitChars separator (Text.toList text))
+def Text.split (text: Text) (separator: Char): List Text := Text.splitChars separator text.toList |> Text.splitTexts
 
 -- The texts with `separator` between them. `Text.join (Text.split text separator) separator = text`.
 def Text.join: List Text → (separator: Char) → Text
@@ -166,4 +166,4 @@ def Text.wordsFinish: Pair (List Char) (List (List Char)) → List Text
 -- `"a  b".words` is `["a", "b"]`, where `"a  b".split ' '` is `["a", "", "b"]`;
 -- `"".words` and `"  ".words` are `[]`. Splits on any whitespace, not only
 -- spaces.
-def Text.words (text: Text): List Text := Text.wordsFinish (Text.wordsChars (Text.toList text))
+def Text.words (text: Text): List Text := Text.wordsChars text.toList |> Text.wordsFinish

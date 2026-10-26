@@ -246,7 +246,7 @@ def Key.bytes: Key → List Nat
 
 -- Every key in `bytes`, in order, as many as are complete. For tests and
 -- for reading a whole input at once.
-def Key.all (bytes: List Nat): List Key := Key.allWithin (List.length bytes) bytes
+def Key.all (bytes: List Nat): List Key := Key.allWithin bytes.length bytes
 
 -- At most `limit` keys (each key takes at least one byte, so the length is
 -- enough).

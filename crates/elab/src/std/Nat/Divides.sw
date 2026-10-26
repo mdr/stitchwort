@@ -52,7 +52,7 @@ theorem Nat.dividesLe (d: Nat) (n: Nat) (hn: 1 ≤ n) (h: Nat.divides d n = True
 -- The positive divisors of `n`, ascending: `Nat.divisors 12` is
 -- `[1, 2, 3, 4, 6, 12]`. Every number divides 0, so there is no list to give:
 -- `Nat.divisors 0` is `[]`. `n` is the main value: `n.divisors`.
-def Nat.divisors (n: Nat): List Nat := List.filter (List.rangeFrom n 1) (divisor => Nat.divides divisor n)
+def Nat.divisors (n: Nat): List Nat := List.rangeFrom n 1 |> .filter (divisor => Nat.divides divisor n)
 
 test "Nat.divisors" := Nat.divisors 12 == [1, 2, 3, 4, 6, 12] ∧ Nat.divisors 1 == [1] ∧ Nat.divisors 13 == [1, 13]
 test "Nat.divisors of zero" := Nat.divisors 0 == Nil

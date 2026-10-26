@@ -8,7 +8,7 @@
 
 -- The length of the longest row (0 for no rows). A right fold, so it runs
 -- as a loop (stack-safe on many rows); `List.maxLengthCons` is its step.
-def List.maxLength (rows: List (List a)): Nat := List.foldRight rows 0 (row m => Nat.max (List.length row) m)
+def List.maxLength (rows: List (List a)): Nat := rows.foldRight 0 (row m => Nat.max row.length m)
 
 theorem List.maxLengthCons (rows: List (List a)) (row: List a): List.maxLength (Cons row rows) = Nat.max (List.length row) (List.maxLength rows) :=
   List.foldRightCons rows row 0 (r m => Nat.max (List.length r) m)
@@ -18,8 +18,8 @@ theorem List.maxLengthCons (rows: List (List a)) (row: List a): List.maxLength (
 -- transposed. `[[1], [2, 3]].transposeFill 0` is `[[1, 2], [0, 3]]`.
 -- (`List.transpose` stops at the first row's length instead.)
 def List.transposeFill (rows: List (List a)) (fill: a): List (List a) :=
-  let width := List.maxLength rows
-  List.transpose (List.map rows (row => List.padRight row width fill))
+  let width := rows.maxLength
+  rows.map (row => row.padRight width fill) |> List.transpose
 
 -- Lemmas.
 

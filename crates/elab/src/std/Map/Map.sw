@@ -51,7 +51,7 @@ def Map.get [auto ord: Ord k] (m: Map k v) (key: k): Option v :=
   Quot.lift (Map.Raw.get key) (a b same => Map.Raw.getRespects key a b same) m.raw
 
 -- The value at `key`, or `fallback`.
-def Map.getOr [auto ord: Ord k] (m: Map k v) (fallback: v) (key: k): v := Option.getOrElse (Map.get m key) fallback
+def Map.getOr [auto ord: Ord k] (m: Map k v) (fallback: v) (key: k): v := m.get key |> .getOrElse fallback
 
 def Map.contains [auto ord: Ord k] (m: Map k v) (key: k): Bool := match Map.get m key with
   | Some _ => True
@@ -60,11 +60,11 @@ def Map.contains [auto ord: Ord k] (m: Map k v) (key: k): Bool := match Map.get 
 -- The number of entries, O(1).
 def Map.size (m: Map k v [ord := o]): Nat := Quot.lift Map.Raw.size (a b same => Map.Raw.sizeRespects a b same) m.raw
 
-def Map.isEmpty (m: Map k v [ord := o]): Bool := Nat.equal (Map.size m) 0
+def Map.isEmpty (m: Map k v [ord := o]): Bool := Nat.equal m.size 0
 
-def Map.keys (m: Map k v [ord := o]): List k := List.map (Map.toList m) Pair.fst
+def Map.keys (m: Map k v [ord := o]): List k := m.toList.map Pair.fst
 
-def Map.values (m: Map k v [ord := o]): List v := List.map (Map.toList m) Pair.snd
+def Map.values (m: Map k v [ord := o]): List v := m.toList.map Pair.snd
 
 -- Left fold over the entries in key order: `f (f initial k1 v1) k2 v2`.
 def Map.foldLeft (m: Map k v [ord := o]) (initial: b) (f: b → k → v → b): b :=
@@ -187,7 +187,7 @@ def Map.counts [auto ord: Ord k] (xs: List k): Map k Nat := List.foldLeft xs Map
 -- More looking up
 
 -- The first entry, in key order, for which `p` holds.
-def Map.find (m: Map k v [ord := o]) (p: k → v → Bool): Option (k, v) := List.find (Map.toList m) (e => p e.fst e.snd)
+def Map.find (m: Map k v [ord := o]) (p: k → v → Bool): Option (k, v) := m.toList.find (e => p e.fst e.snd)
 
 -- The entry with the smallest key, O(log n).
 def Map.min (m: Map k v [ord := o]): Option (k, v) := Quot.lift Map.Raw.min (a b same => Map.Raw.minRespects a b same) m.raw
@@ -242,21 +242,21 @@ def Map.partition [auto ord: Ord k] (m: Map k v) (p: k → v → Bool): (Map k v
 -- Every key changed by `f`, into a map ordered by `j`'s ordering; where two
 -- keys go to one, the later (larger) key's value wins.
 def Map.mapKeys [auto ord: Ord j] (m: Map k v [ord := o]) (f: k → j): Map j v :=
-  Map.fromList (List.map (Map.toList m) (e => (f e.fst, e.snd)))
+  m.toList.map (e => (f e.fst, e.snd)) |> Map.fromList
 
 -- More reading
 
 -- Right fold over the entries in key order: `f k1 v1 (f k2 v2 initial)`.
-def Map.foldRight (m: Map k v [ord := o]) (initial: b) (f: k → v → b → b): b := List.foldRight (Map.toList m) initial (e acc => f e.fst e.snd acc)
+def Map.foldRight (m: Map k v [ord := o]) (initial: b) (f: k → v → b → b): b := m.toList.foldRight initial (e acc => f e.fst e.snd acc)
 
 -- Whether some entry satisfies `p`.
-def Map.any (m: Map k v [ord := o]) (p: k → v → Bool): Bool := List.any (Map.toList m) (e => p e.fst e.snd)
+def Map.any (m: Map k v [ord := o]) (p: k → v → Bool): Bool := m.toList.any (e => p e.fst e.snd)
 
 -- Whether every entry satisfies `p`.
-def Map.all (m: Map k v [ord := o]) (p: k → v → Bool): Bool := List.all (Map.toList m) (e => p e.fst e.snd)
+def Map.all (m: Map k v [ord := o]) (p: k → v → Bool): Bool := m.toList.all (e => p e.fst e.snd)
 
 -- The number of entries satisfying `p`.
-def Map.count (m: Map k v [ord := o]) (p: k → v → Bool): Nat := List.count (Map.toList m) (e => p e.fst e.snd)
+def Map.count (m: Map k v [ord := o]) (p: k → v → Bool): Nat := m.toList.count (e => p e.fst e.snd)
 
 -- The entries with `lo <= key < hi`.
 def Map.range [auto ord: Ord k] (m: Map k v) (lo: k) (hi: k): Map k v :=
@@ -975,6 +975,6 @@ test "map: range" := Map.keys (Map.range Map.example2 2 6) == [2, 3, 5] ∧ Map.
 
 -- Each element of a list by its position, counting from 0, for lookup in
 -- O(log n): `Map.byPosition ["a", "b"]` maps 0 to "a" and 1 to "b".
-def Map.byPosition (xs: List a): Map Nat a := Map.fromList (List.withIndex xs)
+def Map.byPosition (xs: List a): Map Nat a := xs.withIndex |> Map.fromList
 
 test "map: byPosition" := Map.toList (Map.byPosition ["a", "b"]) == [(0, "a"), (1, "b")] ∧ Map.get (Map.byPosition ["a", "b"]) 2 == None
