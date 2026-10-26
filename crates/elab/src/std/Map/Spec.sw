@@ -910,7 +910,7 @@ theorem Map.Spec.mergeAscending [auto ord: Ord k] (both: k → v → w → Optio
 theorem Map.Spec.mergeAscendingCons [auto ord: Ord k] (both: k → v → w → Option x) (onlyLeft: k → v → Option x) (onlyRight: k → w → Option x)
     (kx: k) (vx: v) (xs: List (k, v))
     (tail: (lo: Option k) → (ys: List (k, w)) → Map.Spec.Ascending ord lo xs → Map.Spec.Ascending ord lo ys →
-      Map.Spec.Ascending ord lo (Map.Spec.merge both onlyLeft onlyRight xs ys)):
+    Map.Spec.Ascending ord lo (Map.Spec.merge both onlyLeft onlyRight xs ys)):
     (lo: Option k) → (ys: List (k, w)) → Map.Spec.Ascending ord lo (Cons (kx, vx) xs) → Map.Spec.Ascending ord lo ys →
     Map.Spec.Ascending ord lo (Map.Spec.merge both onlyLeft onlyRight (Cons (kx, vx) xs) ys)
   | lo, Nil, ax, ay => Map.Spec.mapMaybeAscending ord onlyLeft lo (Cons (kx, vx) xs) ax

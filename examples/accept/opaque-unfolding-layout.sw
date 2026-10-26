@@ -6,12 +6,12 @@ import Std (Nat)
 opaque def double (n: Nat): Nat := n + n
 
 theorem ownLine (n: Nat): double n = n + n
-  unfolding double
-  := rfl
+    unfolding double
+    := rfl
 
 theorem typeOnItsOwnLine (n: Nat):
-  double n = n + n
-  unfolding double
-  := rfl
+    double n = n + n
+    unfolding double
+    := rfl
 
 theorem sameLine (n: Nat): double n = n + n unfolding double := rfl

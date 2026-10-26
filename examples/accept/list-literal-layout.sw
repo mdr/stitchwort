@@ -6,8 +6,10 @@
 -- in, however far left it starts. A trailing comma is also allowed in lists,
 -- tuples and records, in expressions and patterns.
 def example: List Text := [
-  "a", "b",
-  "c", "d",
+  "a",
+  "b",
+  "c",
+  "d",
   "e"
 ]
 
@@ -35,30 +37,33 @@ def pair: (Nat, Nat) := (
 )
 
 -- Leading commas still work.
-def leading: List Text :=
-  [ "a", "b"
-  , "c", "d"
-  , "e" ]
+def leading: List Text := [
+  "a",
+  "b",
+  "c",
+  "d",
+  "e"
+]
 
-def trailing: List Text := ["a", "b",]
+def trailing: List Text := ["a", "b"]
 
-def pairTrailing: (Nat, Nat) := (1, 2,)
+def pairTrailing: (Nat, Nat) := (1, 2)
 
-type Pet = { name: Text, age: Nat, }
+type Pet = { name: Text, age: Nat }
 
-def bob: Pet := { name = "Bob", age = 3, }
+def bob: Pet := { name = "Bob", age = 3 }
 
 def first: List Nat → Nat
-  | [x, y,] => x + y
+  | [x, y] => x + y
   | _ => 0
 
 def firstName: Pet → Text
-  | { name, age, } => name
+  | { name, age } => name
 
-def closer: List Nat :=
-  [ 1
-  , 2
-  ]
+def closer: List Nat := [
+  1,
+  2
+]
 
 test "layout" := example.length == 5
 test "leading" := leading.length == 5

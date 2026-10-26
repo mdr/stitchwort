@@ -690,7 +690,7 @@ theorem List.allSortWith (le: a → a → Bool) (p: a → Prop) (xs: List a) (a:
 
 theorem List.pushRunSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) → (y: a) → p x → p y → le x y = False → le y x = True)
     (run: List a): (c: List (Option (List a))) → List.All p run → List.RunsAll p c → List.Sorted le run → List.RunsSorted le c →
-      List.RunsSorted le (List.pushRun le run c)
+    List.RunsSorted le (List.pushRun le run c)
   | Nil, a, ha, s, h => Both s Trivial
   | Cons None rest, a, ha, s, h => Both s h
   | Cons (Some r) rest, a, Both ar ha, s, Both sr h =>
@@ -706,7 +706,7 @@ theorem List.buildRunsSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: 
 
 theorem List.mergeRunsSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) → (y: a) → p x → p y → le x y = False → le y x = True)
     (acc: List a): (c: List (Option (List a))) → List.All p acc → List.RunsAll p c → List.Sorted le acc → List.RunsSorted le c →
-      List.Sorted le (List.mergeRuns le acc c)
+    List.Sorted le (List.mergeRuns le acc c)
   | Nil, a, ha, s, h => s
   | Cons None rest, a, ha, s, h => List.mergeRunsSortedOn le p tot acc rest a ha s h
   | Cons (Some r) rest, a, Both ar ha, s, Both sr h =>

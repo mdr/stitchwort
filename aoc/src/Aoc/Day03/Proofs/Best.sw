@@ -203,7 +203,7 @@ theorem bestOptimalStep (k: Nat) (d: Battery) (rest: Bank) (y: Battery) (s: Bank
 
 -- 4. Whichever k batteries you turn on, they produce no more than maxJoltage.
 theorem maxJoltageIsLargest (k: Nat) (bank: Bank) (on: List Battery)
-      (turnsOn: TurnsOn k bank on):
+    (turnsOn: TurnsOn k bank on):
     joltageOf on ≤ maxJoltage k bank := bestOptimal k bank on turnsOn.left turnsOn.right
 
 -- 5. The headline, in the puzzle's words. When the bank has at least k

@@ -25,7 +25,7 @@ test "Nat.iterate dot" := (2: Nat).iterate (x => Text.append x "!") "hi" == "hi!
 -- Needs `DecEq` to see that nothing changed. A simulation reads:
 -- `Nat.iterateUntilStable grid step size proof`.
 def Nat.iterateUntilStable [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
-      (shrinks: (y: a) → Not (step y = y) → measure (step y) < measure y): a
+    (shrinks: (y: a) → Not (step y = y) → measure (step y) < measure y): a
     decreasing measure x
 :=
   if h: step x = x
@@ -58,8 +58,8 @@ theorem Nat.iterateUntilStableStep [auto eq: DecEq a] (x: a) (step: a → a) (me
 
 -- What it returns is a fixed point: `step` leaves it alone.
 theorem Nat.iterateUntilStableFixed [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
-      (shrinks: (y: a) → Not (step y = y) → measure (step y) < measure y):
-      step (Nat.iterateUntilStable x step measure shrinks) = Nat.iterateUntilStable x step measure shrinks
+    (shrinks: (y: a) → Not (step y = y) → measure (step y) < measure y):
+    step (Nat.iterateUntilStable x step measure shrinks) = Nat.iterateUntilStable x step measure shrinks
     decreasing measure x
 :=
   rewrite Nat.iterateUntilStable.unfold x step measure shrinks in

@@ -211,9 +211,9 @@ theorem corridorJoins (level: Level) (origin: Position) (target: Position)
 
 theorem joinedTrans (level: Level) (origin: Position) (middle: Position) (target: Position)
     (first: Joined level origin middle) (second: Joined level middle target): Joined level origin target := {
-      there = reachTrans level origin middle target first.there second.there,
-      back = reachTrans level target middle origin second.back first.back
-    }
+  there = reachTrans level origin middle target first.there second.there,
+  back = reachTrans level target middle origin second.back first.back
+}
 
 -- The middle of room number `index`.
 def middleOf (rooms: List Area) (index: Nat): Position := roomOf rooms index |> .middle
@@ -255,7 +255,7 @@ theorem hubJoins (level: Level) (rooms: List Area) (extra: Nat) (wired: level.co
 -- into one attacks it, so they block nothing for good.
 theorem goalReachable (depth: Nat) (rooms: List Area) (entranceIndex: Nat) (exitIndex: Nat) (extra: Nat)
     (entranceSmall: entranceIndex < 6) (exitSmall: exitIndex < 6):
-      Reachable (layOut depth rooms entranceIndex exitIndex extra) (layOut depth rooms entranceIndex exitIndex extra).start (layOut depth rooms entranceIndex exitIndex extra).goal
+    Reachable (layOut depth rooms entranceIndex exitIndex extra) (layOut depth rooms entranceIndex exitIndex extra).start (layOut depth rooms entranceIndex exitIndex extra).goal
     unfolding layOut
 :=
   let level := layOut depth rooms entranceIndex exitIndex extra
