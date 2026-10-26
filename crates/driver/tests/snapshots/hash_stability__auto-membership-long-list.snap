@@ -1,0 +1,14 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.inList 79650438ca097171f952b6c409589cf9308b2376d6caf909413ccf6a92812412
+Main.inList20 aab0f306a1833616fa28434b08a5be6c7641b7a391424e0405a7e9e99b3f41f9
+Main.inList100 99e29a7985acba6d4a405e3e751403946b5c77e16b68768c47c468355f4dd127
+Main.test "9 elements" bee3ec448d1052e1f37b40e3c9ceae74da46cd4d1dc4e563e9dd917d260c26b2
+Main.test "20 elements" d99e2aa1b739331d88df854cf3a799b88e94008f14a1fe4e1b61303fff453a5c
+Main.test "100 elements" 187e0a7e0a522b0499af2c341de9e1ccf8edcf4ee505d393d8ec1417c8d9de94
+Main.classify b13d53a992b8da19348164dc6c8d6139a133c4746d4d78c9e62e2b45edba59ea
+Main.test "classify" d99b8be75e527e652aeca7102f0ba608017abdfda218aa6f5579d25816493580
+Main.named 9a4cb9a63bb84a10d854db3212bb3607641cff866274671b742ce8fc498ecdbb
+Main.test "named" e33d02a2713fec4b43e381c16fe4ebc9f910a63f47f42da1b27f540fa0b27baa
