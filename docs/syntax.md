@@ -667,6 +667,37 @@ def parse (t: Text): Option Int := toOption (() => turn t)
 - The operation is `Abort.stop: () -> {Abort} Empty`, for handlers of your own. Its result is `Std.Empty`, a `Type` with no values (`Empty.absurd: Empty -> a`), so no handler can resume it. (`Void` is a proposition, and an operation's result must be a type.) `abort()` is `Empty.absurd (stop())`.
 - `Abort.toOption (() => need o) = o` and `Abort.orElse d (() => need o) = o.getOrElse d` hold for every `o`, by `rfl` on each case (`Abort.toOptionNeed`, `Abort.orElseNeed`).
 
+#### Proofs about a block that gave `Some`
+
+A proof that knows `h: toOption (block) = Some v` (or `parse t = Some v`, for a `parse` defined as one) reads off what each step gave with one lemma per step, each continuing from the last one's `rest` (`examples/accept/abort-inversion.sw`):
+
+```
+def pickOrder (warehouse: Warehouse) (order: Order): Option Pick :=
+  toOption (() =>
+    let onHand := warehouse.stock.get order.item |> .orAbort
+    let label := warehouse.locations.get order.item |> .orAbort
+    let bin := warehouse.bins.get label |> .orAbort
+    ensure (order.quantity <= onHand)
+    { item = order.item, bin, quantity = order.quantity, left = onHand - order.quantity })
+
+theorem pickStock (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrder warehouse order = Some pick):
+    warehouse.stock.get order.item = Some (pick.quantity + pick.left) :=
+  Abort.needEqSome h (onHand foundStock rest =>
+    Abort.needEqSome rest (label foundLabel rest =>
+      Abort.needEqSome rest (bin foundBin rest =>
+        Abort.ensureEqSome rest (enough picked =>
+          rewrite foundStock, <- Option.someInjective _ _ picked in
+            rewrite (omega: order.quantity + (onHand - order.quantity) = onHand) in rfl))))
+```
+
+- `Abort.needEqSome h use`: the block starts with `need x` (or `x.orAbort`). `use` gets the value `u`, `x = Some u`, and `toOption` of the rest of the block (with `u` for the step) `= Some v`.
+- `Abort.ensureEqSome h use`: the block starts with `ensure ok`. `use` gets `ok = True` and the rest.
+- `Abort.thenEqSome (() => t) h use`: the block starts with any `{Abort}` computation `t`, such as a call to a function of your own. `use` gets its value `u`, `toOption (() => t) = Some u` and the rest. `t` must be given: it can't be found from `h` (`E-TYPE-MISMATCH`).
+- Each is stated with `[goal: Prop]`, as `Option.flatMapEqSome` is, and the rest of the block is found from `h`'s type by unification, so nothing about the program is written twice. Pure `let`s between steps have already been substituted. The last step of a block has no rest: `rewrite Abort.toOptionNeed at rest` turns `toOption (() => need x) = Some v` into `x = Some v`, and a block that ends in a value leaves `Some e = Some v`, for `Option.someInjective`.
+- The other way, every step succeeding gives the result by computing: with the steps' equations, `rewrite foundStock, foundLabel, foundBin, enough in rfl` proves `pickOrder warehouse order = Some …`.
+- [`cases`](#cases) takes a block apart too (`h: parseSmallOption s t = Some v`), when it can close every case by itself; these lemmas name what each step gave, for a proof that goes on from there.
+- For `Fail.toResult (block) = Ok v`, the same with `Fail.needEqOk` (`need x msg`, `x.orFail msg`), `Fail.ensureEqOk`, `Fail.orFailEqOk` (`r.orFail`, for a `Result`: `r = Ok u`) and `Fail.thenEqOk`, closing with `Result.okInjective`. `Fail.toOption` is `toResult` with the message dropped (`Fail.toOptionToResult`).
+
 ### `Fail` and `Result`
 
 `Std.Fail` (`crates/elab/src/std/Fail/Fail.sw`) is `Abort` with a message: code that may fail says `{Fail}`, and a failure says why ([proposals/errors.md](proposals/errors.md)). `Result a e = Ok (value: a) | Err (error: e)` is in the prelude, next to `Option`, so `Ok` and `Err` need no import, and results compare with `==`.
@@ -690,7 +721,7 @@ def parse (t: Text): Result Int Text := toResult (() => turn t)
 - With `Abort`: `Abort.orFail msg prog` turns giving up into failing with `msg`, and `Fail.toAbort prog` turns failing into giving up (the message is dropped).
 - `List.map: List a -> (a -> {e} b) -> {e} List b` takes a function that may perform abilities, such as `Fail`: `t.split ',' |> .map Range.parse` fails at the first piece that isn't a range. With a pure function the row is empty and it is the plain `map`.
 - `Text.toNatOrFail` and `Text.toIntOrFail` trim the text, read it, and otherwise fail with `expected a whole number, got 't'`, quoting the text as given. Messages start in lowercase, say what was expected and then what was found, and quote the found text in single quotes, which shows stray spaces.
-- On `Result` (`import Std (Result)`, or by dot notation): `map`, `mapError`, `flatMap`, `toOption`, `getOrElse`, `isOk` and `traverse` (each element through a function, stopping at the first `Err`), and `Option.toResult o err`. A `Result` crosses to JavaScript as `{ $tag: "Ok"; value } | { $tag: "Err"; error }` (`examples/extract/results.sw`).
+- On `Result` (`import Std (Result)`, or by dot notation): `map`, `mapError`, `flatMap`, `toOption`, `getOrElse`, `isOk` and `traverse` (each element through a function, stopping at the first `Err`), and `Option.toResult o err`. Lemmas: `Result.okInjective`, `Result.flatMapEqOk` (`r` held some `u`, passed to a continuation that gives the goal). A `Result` crosses to JavaScript as `{ $tag: "Ok"; value } | { $tag: "Err"; error }` (`examples/extract/results.sw`).
 - The operation is `Fail.stop: Text -> {Fail} Empty`, for handlers of your own; `fail msg` is `Empty.absurd (stop msg)`.
 - **`main` may leave `Fail` unhandled:** `def main(): {IO, Fail} () := …` (or `{Fail} ()`, or `{IO, Fail, Partial} ()`) runs under `stitchwort run`, `run --reference`, `run --js` and in the playground. The runner performs `Fail.stop` itself, as it performs `IO.print`: what was printed before stays, `error: <message>` goes to standard error (the playground shows it below the output), and the exit status is 1. Runtime errors (`E-IO`, `E-RESOURCE`) exit with 2. A handler still can't go around partial code, so only `main` can leave a partial computation's `Fail` unhandled (`examples/accept/main-fail.sw`, `main-fail-partial.sw`).
 - Proofs, each by `rfl` on each case: `Fail.toResultPure` (`toResult (() => v) = Ok v`), `Fail.toResultFail` (`Err msg`), `Fail.toResultNeed` (`toResult (() => need o msg) = Option.toResult o msg`), `Fail.toResultEnsure`, `Fail.toResultOrFail` (`toResult (() => r.orFail) = r`), `Fail.toOptionNeed` and `Abort.orFailNeed`. About any computation, each by `match reify` ([Proofs about effectful code](#proofs-about-effectful-code)): `Fail.toResultThen t k` (`toResult (() => k (t ())) = Result.flatMap (toResult t) (x => toResult (() => k x))`), `Fail.toOptionThen` (the same with `toOption` and `Option.flatMap`), `Fail.toOptionToResult t` (`toOption t = (toResult t).toOption`), `Abort.toOptionThen`, and `Fail.toResultMap f xs` (`toResult (() => xs.map f) = Result.traverse xs (x => toResult (() => f x))`).

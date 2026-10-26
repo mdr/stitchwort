@@ -538,6 +538,9 @@ fn unify_step(
             true
         }
         (Value::Lam(_, i, b), other) | (other, Value::Lam(_, i, b)) => {
+            if !can_apply(other) {
+                return Ok(false);
+            }
             work.push(Task::Values(
                 level + 1,
                 b.apply(g, fresh.clone())?,
@@ -759,12 +762,22 @@ fn spine_pairs(level: usize, s1: &[Elim], s2: &[Elim]) -> Option<Vec<Task>> {
     Some(pairs)
 }
 
+/// Whether `v` can be applied to an argument. A comparison of values of
+/// different types (the last arguments [`first_order`] pairs up, say) can
+/// put a function against a constructor, which is simply unequal.
+fn can_apply(v: &Value) -> bool {
+    matches!(v, Value::Lam(..) | Value::Neutral(..) | Value::Call(..))
+}
+
 /// Eta for definitions: pushes both sides applied to a fresh variable, or
 /// returns `false` if neither is a partially applied definition.
 fn push_eta(g: &Globals, level: usize, a: &Value, b: &Value, work: &mut Vec<Task>) -> Result<bool> {
     let Some(icit) = underapplied(g, a).or_else(|| underapplied(g, b)) else {
         return Ok(false);
     };
+    if !can_apply(a) || !can_apply(b) {
+        return Ok(false);
+    }
     let fresh = Value::var(level);
     work.push(Task::Values(
         level + 1,

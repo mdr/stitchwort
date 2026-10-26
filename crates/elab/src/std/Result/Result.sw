@@ -45,6 +45,13 @@ theorem Result.mapMap (f: a → b) (g: b → c): (r: Result a e) → Result.map 
   | Ok x => rfl
   | Err m => rfl
 
+theorem Result.okInjective (x: a) (y: a) (h: (Ok x: Result a e) = Ok y): x = y := Eq.cong (.getOrElse x) h
+
+-- If `flatMap f r` is `Ok v`, then `r` held some `u` with `f u = Ok v`.
+theorem Result.flatMapEqOk [goal: Prop]: (r: Result a e) → (f: a → Result b e) → (v: b) → Result.flatMap r f = Ok v → ((u: a) → r = Ok u → f u = Ok v → goal) → goal
+  | Ok u, f, v, h, use => use u rfl h
+  | Err m, f, v, h, use => Void.exfalso (Result.errNotOk m v h)
+
 -- The values done so far go in front of what the rest gives.
 theorem Result.traverseLoopDone (f: a → Result b e): (xs: List a) → (done: List b) →
     Result.traverseLoop f done xs = Result.map (Result.traverseLoop f Nil xs) (ys => List.reverseOnto done ys)
