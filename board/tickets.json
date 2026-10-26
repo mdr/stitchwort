@@ -4829,11 +4829,11 @@
     {
       "id": 625,
       "title": "std Float: no laws about rounding arithmetic are provable (add/sub/… are unknown functions in the logic, float.md 'no new propositional axioms'). Trigger: the private port needs 's <= s + d when 0 <= d' (monotone addition) and carries it as a hypothesis. Options: trusted law axioms (Rocq-style, tested against hardware), or bit-level reference definitions",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "D1361 (26 Oct): the private port carries AdditionMonotone as a hypothesis on mergeWellFormed/mergeIdempotent/… FOR NOW. Matt: 'remember to come back to this'. When the float-laws note (D1363+) is decided, revisit: discharge the hypothesis from std if laws land, and update the port's theorems + MAINTAINING draft.",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
