@@ -172,7 +172,7 @@ test "bookings keep their order" :=
   adding a default to a function never moves a positional argument.
 - **A written call fills every default it doesn't name**, at the end of the
   call, whether or not the call gives every required parameter: a bare
-  `makeBooking` is `id => makeBooking id 0.0 1000.0 None [] None None None`,
+  `makeBooking` is `id => makeBooking id 0.0 60.0 None [] None None None`,
   so `["a", "b"].map makeBooking` works (D1350). Defaults never appear in
   a function value's type (D1352).
 - **Each default is a helper definition**, as for fields: checked once at
@@ -601,7 +601,7 @@ function's result has no defaults.
 | A default that performs an operation or calls something `Partial` | `E-ABILITY` / `E-PARTIAL`, with the note of §5.2 |
 | A default that assumes an earlier default was used | its own error (`E-REFL`, `E-TYPE-MISMATCH`), note: "a default must work for any values of the earlier parameters" |
 | A written argument that doesn't fit because a left-out parameter is its default (§5.2) | `E-TYPE-MISMATCH`, note naming the parameter and its default value |
-| A name the function doesn't have | `E-UNKNOWN-NAME` as now, listing parameters with their kinds and defaults: `(id)`, `(duration := 1000.0)` |
+| A name the function doesn't have | `E-UNKNOWN-NAME` as now, listing parameters with their kinds and defaults: `(id)`, `(duration := 60.0)` |
 | A call used as a value where a function is expected, or the reverse | `E-TYPE-MISMATCH` with today's "still waiting for" note, which also lists the defaults that were filled: "`range 0` is a function still waiting for `stop`; `step` is its default, `1`" |
 | A default that names the function or its cycle | `E-MUTUAL-SIGNATURE`, with a note |
 
@@ -612,7 +612,7 @@ function's result has no defaults.
   a call's head says which defaults the call used.
 - **Completion** after `(` already offers parameter names not yet given
   (stage 1b of `named-arguments.md`); defaulted ones show their default,
-  `duration := 1000.0`.
+  `duration := 60.0`.
 - **Printing terms (D1354).** In messages, hover and goals, an argument that
   is exactly the call of that parameter's helper (with the captures the
   call would build) is left out, so the goal shows `range 0 10`, not
