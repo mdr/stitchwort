@@ -1,5 +1,5 @@
 {
-  "next": 608,
+  "next": 610,
   "tickets": [
     {
       "id": 13,
@@ -4572,7 +4572,7 @@
     {
       "id": 604,
       "title": "Private app port: std lemmas round 2, rewrite .orAbort/shared-field proofs with cases, re-benchmark typed ids, rebuild dist + differential (D1328; private work only)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4609,6 +4609,30 @@
       "id": 607,
       "title": "Private app port: handover update bundle (in the work folder) + a prompt for the consuming agent to refresh its resolver sources and Stitchwort, regenerate the TS and recheck the integration; after the cases/std step (Matt, 26 Oct; private work only)",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 608,
+      "title": "cases follow-ups from a real program (26 Oct): (1) cases in t can't use a case's own split equations to fill t's holes, and those equations can't be named (E-UNSOLVED) — blocks Option-chain inversions; (2) hypotheses that are functions (∀ y, lookup = Some y → …) aren't applied, search runs into the 64-case budget; (3) splits goal atoms before following the hypothesis chain, descending into Float internals (820 ms then budget); (4) an unfolded Bool test is split as two independent atoms with impossible combinations left open; (5) decEq x x = No not treated as a contradiction; (6) one t must serve every case — a rewrite that finds nothing is an error where rfl would do; (7) cases as a bare function argument needs brackets",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 609,
+      "title": "Std gaps (private app port, 26 Oct): filterMap congruence that only needs to hold on the list's members, and 'filterMap returning every member gives the list back'; a fold-over-zipWith lemma (for get/getOr-based start-time proofs)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
