@@ -1,5 +1,5 @@
 {
-  "next": 607,
+  "next": 608,
   "tickets": [
     {
       "id": 13,
@@ -4597,6 +4597,18 @@
       "id": 606,
       "title": "Syntax: a record literal as a constructor's (or function's) first argument needs brackets — TextCard ({ … }) rather than TextCard { … } (found in the private app port, 26 Oct; split out of SW-578)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 607,
+      "title": "Private app port: handover update bundle (in the work folder) + a prompt for the consuming agent to refresh its resolver sources and Stitchwort, regenerate the TS and recheck the integration; after the cases/std step (Matt, 26 Oct; private work only)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
