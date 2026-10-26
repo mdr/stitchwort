@@ -1,5 +1,5 @@
 {
-  "next": 591,
+  "next": 592,
   "tickets": [
     {
       "id": 13,
@@ -4348,8 +4348,8 @@
     },
     {
       "id": 589,
-      "title": "Std lemma lane candidates are ready: float order, sortWith on a subset, alignWith, distinct, list/Bool-Prop bridge, scanLeft/zipWith (D1312) — group into one public std lane when approved",
-      "status": "backlog",
+      "title": "Std lemmas lane (D1313): float order, sortWith on a subset, alignWith, distinct, list lemmas + Bool/Prop bridge, scanLeft/zipWith/mapAccumLeft",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4362,6 +4362,18 @@
       "id": 590,
       "title": "JS backend: equality on an @[js.unboxed] microtype goes through a general comparison wrapper instead of plain string ===; typed ids cost 7–17% in a real-world merge benchmark (private app port, 26 Oct)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 591,
+      "title": "Private app port: remove six stale workarounds (D1314) (private work only)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
