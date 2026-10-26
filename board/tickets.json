@@ -1,5 +1,5 @@
 {
-  "next": 632,
+  "next": 633,
   "tickets": [
     {
       "id": 13,
@@ -4889,7 +4889,7 @@
     {
       "id": 630,
       "title": "fmt: a def with a multi-line header (parameter defaults) gets its body re-indented 6 columns with the closing } at column 4; hand-written column-0 body is rewritten (found by the factory-defaults lane, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4901,6 +4901,18 @@
     {
       "id": 631,
       "title": "Daily tier (tonight, quiet machine): small_programs_load_only_the_library_files_they_can_use fails on main (toolkit-only program also loads Decidable/Logic/Text Basics); plus text_natives_are_bound_to_the_prelude and stale extract__results.js.snap",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 632,
+      "title": "fmt --check fails on 74 files in examples/ and std (65 already on main before the header fix): reformat them all and add fmt --check over std+examples to the merge tier so it stays clean",
       "status": "next",
       "agent": "",
       "where": "",
