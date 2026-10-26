@@ -1,5 +1,5 @@
 {
-  "next": 571,
+  "next": 572,
   "tickets": [
     {
       "id": 13,
@@ -3634,13 +3634,13 @@
     {
       "id": 533,
       "title": "Literal match catch-all arm gets no 'none of these' fact (rogue PROOFS.md: can't prove other keys give None)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
@@ -4112,6 +4112,18 @@
     {
       "id": 570,
       "title": "Proofs through a handler step symbolically and run out of resources (rogue: generator under seeded; the reason turns use one next() + index-hashed Dice). Find what the checker needs so effectful code is provable as written (rogue PROOFS.md 'Tried')",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 571,
+      "title": "Roguelike per-turn Dice is a provability workaround: step calls next() once and derives every roll by index hashing (dice.upTo (3*index+1) …, Dice.upTo = lcg(lcg(seed+index*7919)), Turn.sw/Random.sw) instead of calling roll freely. Why: then seeded seed (step s c) = resolve dice s c by rfl (Proofs/Step.sw), so all core invariants (walls, HP, occupancy, stepValid, replayValid) are proved about pure resolve for every seed. Free roll would lose them until proofs through a handler stop stepping symbolically into E-RESOURCE (see the handler-stepping ticket; Effect.bindAssoc axiom). Idea (untested): state invariants for any answers to roll rather than via seeded. Revert to free roll once provable (D1305, Matt 26 Oct)",
       "status": "backlog",
       "agent": "",
       "where": "",
