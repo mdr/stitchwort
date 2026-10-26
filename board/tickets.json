@@ -1,5 +1,5 @@
 {
-  "next": 603,
+  "next": 605,
   "tickets": [
     {
       "id": 13,
@@ -4491,7 +4491,7 @@
     {
       "id": 598,
       "title": "Private app port: switch the three 'keep the other side's new items' sites to std List.appendNewBy (SW-584), re-benchmark typed ids after SW-590, rebuild dist + differential (private work only)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4543,6 +4543,30 @@
       "id": 602,
       "title": "Investigate the corpus sweeps' memory: machine::examples_agree 21 GB, lower::every_example_lowers 20 GB, differential 8.6 GB in the 26 Oct daily run; only under the memory guard, with Matt's go-ahead",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 603,
+      "title": "JS perf round 2 for typed ids: a microtype's Ord instance passed as a dictionary (Map, sort, distinct) is still slower than its field's (+13-16% in the private port after SW-590); std List.differenceBy rebuilds the key list per item",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 604,
+      "title": "Private app port: after typed-id perf round 2, re-benchmark typed ids vs plain (expect ≤3%) and rebuild dist + differential (private work only)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
