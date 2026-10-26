@@ -107,7 +107,7 @@ use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
 use stitchwort_rt::ir::{GlobalKind, PrimOp, Program};
 use stitchwort_rt::native_abi::{
     self as abi, Context, NativeIslands, NativeRun, Numbering, OUT_OF_FRAMES, OUT_OF_STEPS,
-    OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_INT, TAG_NAT, TAG_TAG,
+    OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_INT, TAG_NAT, TAG_TAG, Tables,
     VALUE_SIZE, WEAK_AT,
 };
 use stitchwort_rt::value::Value;
@@ -974,6 +974,12 @@ fn flags() -> MemFlagsData {
     MemFlagsData::trusted()
 }
 
+/// For loads of what doesn't change while compiled code runs (the context's
+/// tables): Cranelift may share them and move them out of loops.
+fn fixed() -> MemFlagsData {
+    MemFlagsData::trusted().with_readonly().with_can_move()
+}
+
 impl Gen<'_, '_> {
     fn func_ref(&mut self, id: FuncId) -> FuncRef {
         if let Some(r) = self.refs.get(&id) {
@@ -1192,6 +1198,17 @@ impl Gen<'_, '_> {
             .into_iter()
             .map(|r| self.operand(r))
             .collect()
+    }
+
+    /// The field at `at` of the context's tables (`abi::Tables`): how
+    /// compiled code reaches the host's memory, which it holds no address
+    /// of (stage S4 of docs/proposals/standalone-executables.md).
+    fn tables_field(&mut self, at: i32) -> IrValue {
+        let tables = self
+            .b
+            .ins()
+            .load(self.pointer, fixed(), self.ctx, Context::TABLES_AT);
+        self.b.ins().load(self.pointer, fixed(), tables, at)
     }
 
     fn ctx_load(&mut self, at: i32) -> IrValue {
@@ -1495,8 +1512,10 @@ impl Gen<'_, '_> {
                     Value::Float(x) => self.small(TAG_FLOAT, 0, x.to_bits()),
                     Value::Tag(t) => self.small(TAG_TAG, *t, 0),
                     _ => {
-                        let at = self.address(value as *const Value as usize);
-                        self.clone_from(Loc::Mem(at, 0))
+                        let pool = self.tables_field(Tables::POOL_AT);
+                        let at = i32::try_from(k as usize * VALUE_SIZE)
+                            .expect("the constant pool fits an offset");
+                        self.clone_from(Loc::Mem(pool, at))
                     }
                 };
                 self.assign(pc, dst, v);
