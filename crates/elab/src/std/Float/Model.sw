@@ -21,7 +21,13 @@ def Float.Model.pow2From: Nat → Nat → Nat
       let half: Nat := Float.Model.pow2From fuel (Nat.divFuel k k 2)
       if Nat.equal (k - Nat.divFuel k k 2 * 2) 0 then half * half else half * half * 2
 
-def Float.Model.pow2 (k: Nat): Nat := Float.Model.pow2From 16 k
+-- 2^k, split on `k`'s size first, so that for an unknown `k` it stays a call
+-- instead of unfolding into its squarings.
+def Float.Model.pow2 (k: Nat): Nat := Float.Model.pow2When (Nat.leq k 65535) k
+
+def Float.Model.pow2When: Bool → Nat → Nat
+  | True, k => Float.Model.pow2From 16 k
+  | False, k => Nat.pow 2 k
 
 -- The number of binary digits of `n` (0 for 0), one halving at a time.
 def Float.Model.bitLengthSlow: Nat → Nat → Nat
@@ -43,9 +49,14 @@ def Float.Model.bitLengthBy: List Nat → Nat → Nat → Nat
     if Nat.equal high 0 then Float.Model.bitLengthBy rest (Nat.divFuel width width 2) n
     else width + Float.Model.bitLengthBy rest (Nat.divFuel width width 2) high
 
--- The number of binary digits of `n`: one step per power of `n`'s size
--- below 2^8192, and correct beyond it too.
-def Float.Model.bitLength (n: Nat): Nat := Float.Model.bitLengthBy (Float.Model.squaresFrom 13 2 Nil) 4096 n
+-- The number of binary digits of `n`: by halving below 2^16, otherwise one
+-- step per power of `n`'s size below 2^8192 (and correct beyond it too).
+-- Split on the size first, so that for an unknown `n` it stays a call.
+def Float.Model.bitLength (n: Nat): Nat := Float.Model.bitLengthWhen (Nat.leq n 65535) n
+
+def Float.Model.bitLengthWhen: Bool → Nat → Nat
+  | True, n => Float.Model.bitLengthSlow 16 n
+  | False, n => Float.Model.bitLengthBy (Float.Model.squaresFrom 13 2 Nil) 4096 n
 
 -- The sign bit is set: `signBit` of `-0.0` is `True`.
 def Float.Model.signBit (bits: Nat): Bool := Nat.leq 9223372036854775808 bits
@@ -119,7 +130,7 @@ def Float.Model.scaleDown (d: Nat): Int → Nat
 -- division's remainder gives the location.
 def Float.Model.roundMagnitude (negative: Bool) (n: Nat) (den: Nat) (s: Int): Nat :=
   let c: Int := Int.subNatNat (Float.Model.bitLength den + 53) (Float.Model.bitLength n)
-  let wide: Bool := Nat.leq (Float.Model.pow2 53 * Float.Model.scaleDown den c) (Float.Model.scaleUp n c)
+  let wide: Bool := Nat.leq (Float.Model.scaleDown den c * Float.Model.pow2 53) (Float.Model.scaleUp n c)
   let exponent: Nat := Int.toNat (Int.sub s (if wide then Int.sub c (OfNat 1) else c))
   let shift: Int := Int.sub s (OfNat exponent)
   let top: Nat := Float.Model.scaleUp n shift
