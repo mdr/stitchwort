@@ -5148,6 +5148,23 @@ fn float_native_js(op: FloatPrim, native_int: bool, native_text: bool) -> String
              : a !== a ? (b !== b ? \"Equal\" : \"Greater\") : b !== b ? \"Less\"\n    \
              : Object.is(a, b) ? \"Equal\" : Object.is(a, -0) ? \"Less\" : \"Greater\",\n})"
             .into(),
+        // The same order's `<=` and `<`: JS's where it is ordered and the two
+        // differ; otherwise (equal numbers, the zeros, or a NaN) the NaN is
+        // greatest and equal to itself, and `-0` is below `0`.
+        FloatPrim::Leq => format!(
+            "(a) => (b) => {}",
+            boolean(
+                "(a < b || (a > b ? false : a !== a ? b !== b : b !== b || \
+                 !Object.is(a, 0) || Object.is(b, 0)))"
+            )
+        ),
+        FloatPrim::Less => format!(
+            "(a) => (b) => {}",
+            boolean(
+                "(a < b || (a > b ? false : a !== a ? false : b !== b || \
+                 (Object.is(a, -0) && Object.is(b, 0))))"
+            )
+        ),
         FloatPrim::FromBits => "fromCanonicalBits".into(),
         FloatPrim::Bits => "toCanonicalBits".into(),
     }

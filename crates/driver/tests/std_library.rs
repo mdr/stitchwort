@@ -671,17 +671,21 @@ fn no_library_file_declares_a_decision_procedure() {
     // binds a native to it. The same holds for `Map`'s and `Set`'s equality
     // (docs/proposals/map-equality.md §8.3): an equation between maps or sets
     // needs their file loaded. So does `List.decMem` (D1201), which decides
-    // `List.Mem`, declared in std/List/Toolkit.sw.
+    // `List.Mem`, declared in std/List/Toolkit.sw. And `Float.decLessEq` and
+    // `Float.decLessThan`, which decide `Float.LessEq` and `Float.LessThan`,
+    // what `x <= y` and `x < y` on `Float` are, declared beside them.
     assert_eq!(
         session.elab.library_decision_procedures(),
         [
+            "Std.Float.decEqFrom",
+            "Std.Float.decEq",
+            "Std.Float.decLessEq",
+            "Std.Float.decLessThan",
+            "Std.List.decMem",
             "Std.Map.decEq",
             "Std.Map.decEq.%match1",
             "Std.Set.decEq",
-            "Std.Set.decEq.%match1",
-            "Std.Float.decEqFrom",
-            "Std.Float.decEq",
-            "Std.List.decMem"
+            "Std.Set.decEq.%match1"
         ],
         "every `Decidable` procedure stays in the core (D58), so `auto` never \
          depends on what is loaded"

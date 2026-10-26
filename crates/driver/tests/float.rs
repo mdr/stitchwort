@@ -137,15 +137,15 @@ fn the_fingerprint_changes_with_the_toolchain_and_target() {
     );
 }
 
-/// `Float.ieeeEq` and `Float.compare`, natives in the runtimes only, are the
-/// definitions their natives were written for. If this fails, check the JS
-/// and Rust natives (crates/js, crates/rt/src/prims.rs) still compute what
-/// they do, then update the hashes in crates/rt/src/natives.rs.
+/// `Float.ieeeEq`, `Float.compare`, `Float.leq` and `Float.less`, natives in
+/// the runtimes only, are the definitions their natives were written for. If
+/// this fails, check the JS and Rust natives (crates/js, crates/rt/src/prims.rs)
+/// still compute what they do, then update the hashes in crates/rt/src/natives.rs.
 #[test]
 fn the_runtime_float_natives_are_bound() {
     let session = loaded();
     let bindings = stitchwort_rt::natives::bind_float_natives(&session.elab.globals).unwrap();
-    assert_eq!(bindings.len(), 2);
+    assert_eq!(bindings.len(), 4);
     for b in &bindings {
         assert!(b.bound, "{}: {:?}", b.name, b.hash);
     }

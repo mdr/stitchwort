@@ -16,6 +16,50 @@ in [Appendix A](#appendix-a-snippets-run)), **[cited]** (read in the source link
 not re-read here), **[inferred]** (my reading, not stated anywhere), **[unverified]** (from
 memory, not re-checked).
 
+## As built (`<` and `<=` on `Float` as natives)
+
+A port that moved its time comparisons from `Float.ieeeLe`/`ieeeLt` to `<=`/`<` and `sortOn
+.startTime` measured about 6% slower in JS. `Float.compare` already had a native, but `x <= y`
+went through `Ord.fromCompare`'s decider: `toBool(Ord.decLessEq(Float.instOrd)(x)(y))`, a
+curried call to `Decidable.not(Ordering.decEq(compare(x, y), Greater))`, three objects per
+comparison. And against a literal (`t < 10.0`) the search decided the computed proposition,
+`Int.less` of two order keys, so JS built `bigint` keys from the bits.
+
+- `Float.instOrd` is a record, as `Int.instOrd` is, with the relations `Float.LessEq x y :=
+  Float.leq x y = True` and `Float.LessThan x y := Float.less x y = True`, where `Float.leq` and
+  `Float.less` are `Int.leq`/`Int.less` of the order keys, decided by `Float.decLessEq` and
+  `Float.decLessThan` (`Bool.decTrue`). Its laws are `Int`'s through the key, as before; the
+  four relation laws are `Int.lessOfCompare` and its siblings on the keys.
+- `Float.leq` and `Float.less` have natives in the runtimes only, bound by hash like
+  `Float.compare` (`crates/rt/src/natives.rs`, `FloatPrim::Leq`/`Less`): in JS, `a < b`, then `a
+  > b`, and only on neither (equal numbers, the zeros or a NaN) the NaN and sign cases.
+- Where a `Bool` is wanted, `Float.decLessEq x y` is written `Float.leq x y`, as `Int`'s and
+  `Nat`'s decisions are (`bind::comparison`); and `Float.LessEq x y` as written is decided by
+  `Float.decLessEq` before any search (`bind::float_decider`), so a literal operand changes
+  nothing. `x <= y` is `$Std$dFloat$dleq(x, y)`, the same shape as `ieeeLe`.
+- `sortOn`, `sort` and `Map Float` are passed `Float.instOrd`, whose `compare` is
+  `Float.compare`'s native, as before; what they cost beyond that is the library's curried
+  comparator chain (`sortWith` → `sortBy` → `Ord.compare`), the same for every key type.
+
+Node 22, 10,000 random millisecond times, each cell the fastest of 9 processes running one
+function (filters 3,000 times, sorts 60 times):
+
+| | before | after |
+|---|---|---|
+| `filter (t => t <= limit)` | 525 ms | 177 ms |
+| `filter (t => Float.ieeeLe t limit)` | 175 ms | 174 ms |
+| `filter (t => t < limit)` | 440 ms | 174 ms |
+| `filter (t => Float.ieeeLt t limit)` | 176 ms | 175 ms |
+| `sortWith (a b => a.startTime <= b.startTime)` | 283 ms | 112 ms |
+| `sortWith (a b => Float.ieeeLe a.startTime b.startTime)` | 110 ms | 109 ms |
+| `sortOn .startTime` | 177 ms | 176 ms |
+
+The four paths test (`crates/cli/tests/float_paths.rs`) now also checks `<` and `<=` as `Bool`s
+and against literals, `Float.less`, `Float.leq`, `Ord.compare`, and six sorts (`sort`, `sortOn`,
+`sortWith` by `<=` and `<`, forwards and backwards), the last also against Rust's
+`f64::total_cmp`; `examples/extract/float-order.sw` and the `extract` test
+`float_order_is_native` check the generated calls.
+
 ## As built (stage 1b)
 
 Stage 1b is built as §7.2 defines it: the rest of D687's operations, `Ord Float`, the IEEE

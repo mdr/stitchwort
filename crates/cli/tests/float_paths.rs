@@ -2,10 +2,13 @@
 //! the native kernel, the WebAssembly kernel, the Rust runtime and Node
 //! compute the same canonical bits for every operation the kernel computes
 //! (the primitives `+ - * / %`, `floor`, `ceil`, `trunc`, `round`, `ofInt`
-//! and `ofNat`; `neg`, `abs`, `isNaN`, `isFinite`, `toInt`, `==`, `<`, `<=`,
-//! `Float.compare`, `Float.ieeeEq`, `ieeeLt`, `ieeeLe`; the record's
-//! constructor and `.bits`), on every pair from an edge set and some random
-//! patterns, and on literal expressions. Results are compared as canonical
+//! and `ofNat`; `neg`, `abs`, `isNaN`, `isFinite`, `toInt`, `==`, `<`, `<=`
+//! (in an `if`, as a `Bool`, and against literals), `Float.compare`,
+//! `Ord.compare`, `Float.less`, `Float.leq`, `Float.ieeeEq`, `ieeeLt`,
+//! `ieeeLe`; the record's constructor and `.bits`), on every pair from an
+//! edge set and some random patterns, on literal expressions, and in sorting
+//! them (`sort`, `sortOn`, `sortWith` by `<=` and `<`, each checked against
+//! `f64::total_cmp` too). Results are compared as canonical
 //! bit patterns, shown in hex, never as JSON numbers (which would hide `-0`
 //! and lose `NaN`). `toText`, which only the runtimes compute, has a test of
 //! its own: the Rust runtime against Node's `String(x)`, and `toSource`
@@ -117,7 +120,8 @@ const LITERALS: &[&str] = &[
 /// folded.
 fn program(values: &[u64]) -> (String, usize) {
     let mut src = String::from(
-        "import Std (Float, Int, List, Nat, Text)\n\n\
+        "import Std (Float, Int, List, Nat, Ord, Text)\n\n\
+         type Timed = { startTime: Float, tag: Nat }\n\n\
          def build (b: Nat) (h: Float.isValid b = True): Float := { bits = b, valid = h }\n\n\
          def ofBits (b: Nat): Float := if h: Float.isValid b = True then build b h else Float.nan\n\n\
          def flag (b: Bool): Nat := if b then 1 else 0\n\n\
@@ -143,6 +147,10 @@ fn program(values: &[u64]) -> (String, usize) {
         items.push(format!("(Float.round v{i}).bits"));
         items.push(format!("code (Float.toInt v{i})"));
         items.push(format!("(backAgain v{i}).bits"));
+        // Against literals and a named constant: the operand isn't bound.
+        items.push(format!("flag (v{i} < 1.5)"));
+        items.push(format!("flag (0.0 <= v{i})"));
+        items.push(format!("flag (Float.nan <= v{i})"));
         for j in 0..values.len() {
             items.push(format!("(Float.add v{i} v{j}).bits"));
             items.push(format!("(Float.sub v{i} v{j}).bits"));
@@ -156,19 +164,50 @@ fn program(values: &[u64]) -> (String, usize) {
             items.push(format!("order (Float.compare v{i} v{j})"));
             items.push(format!("less v{i} v{j}"));
             items.push(format!("lessEq v{i} v{j}"));
+            items.push(format!("flag (v{i} < v{j})"));
+            items.push(format!("flag (v{i} <= v{j})"));
+            items.push(format!("flag (Float.less v{i} v{j})"));
+            items.push(format!("flag (Float.leq v{i} v{j})"));
+            items.push(format!("order (Ord.compare v{i} v{j})"));
         }
     }
     for literal in LITERALS {
         items.push(format!("(({literal}): Float).bits"));
     }
+    let all: Vec<String> = (0..values.len()).map(|i| format!("v{i}")).collect();
+    let _ = writeln!(src, "def values: List Float := [{}]\n", all.join(", "));
+    src.push_str(
+        "def timed: List Timed := values.map (t => { startTime = t, tag = t.bits })\n\n\
+         def bitsOf (xs: List Float): List Nat := xs.map (x => x.bits)\n\n",
+    );
     let _ = writeln!(src, "def results: List Nat := [{}]\n", items.join(", "));
-    src.push_str("def main(): {IO} () := IO.print (results |> List.map (n => n.toText) |> Text.join '\\n')\n");
-    (src, items.len())
+    let _ = writeln!(
+        src,
+        "def sorted: List Nat := List.concat [{}]\n",
+        SORTED.join(", ")
+    );
+    src.push_str(
+        "def main(): {IO} () := IO.print (List.append results sorted |> List.map (n => n.toText) |> Text.join '\\n')\n",
+    );
+    (src, items.len() + SORTED.len() * values.len())
 }
 
-/// Per value: its bits and the 10 unary results; per pair, 12 results.
-const PER_VALUE: usize = 11;
-const PER_PAIR: usize = 12;
+/// The values sorted by the total order, as bits, after the program's
+/// `results`: through the dictionary (`sort`, and `sortOn` a record's field,
+/// which carries the bits as its `tag`) and by `<=` and `<` directly,
+/// forwards and backwards.
+const SORTED: [&str; 6] = [
+    "bitsOf values.sort",
+    "bitsOf values.reverse.sort",
+    "List.sortOn timed .startTime |> List.map (e => e.tag)",
+    "List.sortOn timed.reverse .startTime |> List.map (e => e.tag)",
+    "bitsOf (List.sortWith values (a b => a <= b))",
+    "bitsOf (List.sortWith values.reverse (a b => a < b))",
+];
+
+/// Per value: its bits and the 13 unary results; per pair, 17 results.
+const PER_VALUE: usize = 14;
+const PER_PAIR: usize = 17;
 
 /// What each path computed, as numbers (in decimal: an `Option Int` from
 /// `toInt` can be beyond 128 bits).
@@ -267,7 +306,7 @@ fn the_four_paths_agree_on_canonical_bits() {
         .load("paths.sw", &source)
         .unwrap_or_else(|e| panic!("{e:?}"));
     let expr = session
-        .parse_expression("expression", "results")
+        .parse_expression("expression", "List.append results sorted")
         .expect("parses");
     let (kernel, _) = session.elab.eval_expr(&expr).expect("evaluates");
     let mut paths = vec![("native kernel", numbers("native kernel", &kernel, count))];
@@ -278,7 +317,7 @@ fn the_four_paths_agree_on_canonical_bits() {
             .arg(wasm_script())
             .args(["evaluate"])
             .arg(&path)
-            .arg("results")
+            .arg("List.append results sorted")
             .output()
             .expect("run node");
         assert!(
@@ -323,6 +362,15 @@ fn the_four_paths_agree_on_canonical_bits() {
     for (k, bits) in values.iter().enumerate() {
         let stride = PER_VALUE + PER_PAIR * values.len();
         assert_eq!(base[k * stride], bits.to_string(), "value {k}");
+    }
+    // And every sort is IEEE 754's totalOrder, by Rust's `f64::total_cmp`
+    // (one NaN, so no payloads to tell apart).
+    let mut expected = values.clone();
+    expected.sort_by(|a, b| f64::from_bits(*a).total_cmp(&f64::from_bits(*b)));
+    let expected: Vec<String> = expected.iter().map(u64::to_string).collect();
+    let sorts = &base[count - SORTED.len() * values.len()..];
+    for (sort, got) in SORTED.iter().zip(sorts.chunks(values.len())) {
+        assert_eq!(got, &expected[..], "{sort}");
     }
     eprintln!(
         "{count} results agree on {} paths: {}",

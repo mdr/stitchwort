@@ -270,11 +270,37 @@ theorem Float.orderKeyInjective (x: Float) (y: Float) (e: Float.orderKey x = Flo
 -- use. `-0.0 < 0.0`, and the NaN is above everything, equal to itself.
 def Float.compare (x: Float) (y: Float): Ordering := Int.compare (Float.orderKey x) (Float.orderKey y)
 
-instance Float.instOrd: Ord Float :=
-  Ord.fromCompare Float.compare
-    (x y h => Float.orderKeyInjective x y (Int.compareEqual (Float.orderKey x) (Float.orderKey y) h))
-    (x y => Int.compareFlip (Float.orderKey x) (Float.orderKey y))
-    (x y z => Int.compareTrans (Float.orderKey x) (Float.orderKey y) (Float.orderKey z))
+-- The total order's `<=` and `<` as `Bool`s, what `x <= y` and `x < y` on
+-- `Float` compute (not JS's: `Float.ieeeLe` and `Float.ieeeLt`).
+def Float.leq (x: Float) (y: Float): Bool := Int.leq (Float.orderKey x) (Float.orderKey y)
+
+def Float.less (x: Float) (y: Float): Bool := Int.less (Float.orderKey x) (Float.orderKey y)
+
+def Float.LessEq (x: Float) (y: Float): Prop := Float.leq x y = True
+
+def Float.LessThan (x: Float) (y: Float): Prop := Float.less x y = True
+
+instance Float.decLessEq (x: Float) (y: Float): Decidable (Float.LessEq x y) := Bool.decTrue (Float.leq x y)
+
+instance Float.decLessThan (x: Float) (y: Float): Decidable (Float.LessThan x y) := Bool.decTrue (Float.less x y)
+
+-- A record, not `Ord.fromCompare`, so that `<=` and `<` decide by
+-- `Float.leq` and `Float.less` directly (one native call each in the
+-- runtimes) rather than through `Float.compare`'s `Ordering`.
+instance Float.instOrd: Ord Float := {
+  compare = Float.compare,
+  lessThan = Float.LessThan,
+  lessEq = Float.LessEq,
+  decLessThan = Float.decLessThan,
+  decLessEq = Float.decLessEq,
+  equal = x y h => Float.orderKeyInjective x y (Int.compareEqual (Float.orderKey x) (Float.orderKey y) h),
+  flip = x y => Int.compareFlip (Float.orderKey x) (Float.orderKey y),
+  trans = x y z => Int.compareTrans (Float.orderKey x) (Float.orderKey y) (Float.orderKey z),
+  lessThanOf = x y => Int.lessOfCompare (Float.orderKey x) (Float.orderKey y),
+  lessThanTo = x y => Int.compareOfLess (Float.orderKey x) (Float.orderKey y),
+  lessEqOf = x y => Int.leOfCompare (Float.orderKey x) (Float.orderKey y),
+  lessEqTo = x y => Int.compareOfLe (Float.orderKey x) (Float.orderKey y)
+}
 
 -- JavaScript's `<` and `<=`: false when either is the NaN, and `0.0` and
 -- `-0.0` are equal. Port `a > b` as `Float.ieeeLt b a` (docs/syntax.md).
