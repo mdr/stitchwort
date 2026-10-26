@@ -218,7 +218,40 @@ impl Elaborator {
         }
         let (log, note) = self.search_counterexample(def, ON_FAILURE);
         self.counterexample_log.borrow_mut().push(log);
-        note
+        note.map(|note| self.with_opaque_counterexample_note(def, note))
+    }
+
+    /// The search runs the program, so it uses the real body of an opaque
+    /// definition the statement mentions; the proof can't, unless the theorem
+    /// unfolds it (docs/proposals/opaque-definitions.md §6.10).
+    fn with_opaque_counterexample_note(&self, def: DefId, note: String) -> String {
+        let g = &self.globals;
+        let Ok(statement) = quote(g, 0, &g.def(def).ty_value) else {
+            return note;
+        };
+        let ids: Vec<DefId> = crate::opaque::declined_in(g, [&statement])
+            .into_iter()
+            .filter(|id| !g.def(def).unfolding.contains(id))
+            .collect();
+        if ids.is_empty() {
+            return note;
+        }
+        let names: Vec<String> = ids
+            .iter()
+            .map(|id| format!("`{}`", g.def(*id).name))
+            .collect();
+        let (are, its) = if ids.len() == 1 {
+            ("is", "its")
+        } else {
+            ("are", "their")
+        };
+        let clause: Vec<String> = ids.iter().map(|id| g.def(*id).name.to_string()).collect();
+        format!(
+            "{note}\nthe search ran the real code, but {} {are} opaque, so a proof can't use \
+             {its} body unless the theorem says `unfolding {}`",
+            names.join(", "),
+            clause.join(", ")
+        )
     }
 
     /// Searches the statement of theorem `def`, whether its proof checked

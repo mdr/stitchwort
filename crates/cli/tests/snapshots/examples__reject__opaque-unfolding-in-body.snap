@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected an expression, but found `unfolding`
+   ╭─[ reject/opaque-unfolding-in-body.sw:9:3 ]
+   │
+ 9 │   unfolding double
+   │   ────┬────  
+   │       ╰────── expected an expression, but found `unfolding`
+   │ 
+   │ Note: `unfolding f` goes in a declaration's header, after its result type and before `:=` or the arms: `theorem t: … unfolding f := …`; it can't be written in a body
+───╯

@@ -9,5 +9,9 @@ expression: output
    │                                      ─┬─  
    │                                       ╰─── `double 3` and `6` aren't equal
    │ 
-   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: `double` is opaque, so its body isn't used here
+   │ 
+   │ Note 3: add `unfolding double` after this declaration's signature, or rewrite with `double.unfold`
 ───╯

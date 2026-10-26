@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/opaque-note-counterexample.sw:9:52 ]
+   │
+ 9 │ theorem doubleIsSucc (n: Nat): double n = n + 1 := rfl
+   │                                                    ─┬─  
+   │                                                     ╰─── `double n` and `n + 1` aren't equal
+   │ 
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: `double` is opaque, so its body isn't used here
+   │ 
+   │ Note 3: add `unfolding double` after this declaration's signature, or rewrite with `double.unfold`
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           n = 0
+   │         `double n = n + 1` is false:
+   │           left:  0
+   │           right: 1
+   │         the search ran the real code, but `double` is opaque, so a proof can't use its body unless the theorem says `unfolding double`
+───╯

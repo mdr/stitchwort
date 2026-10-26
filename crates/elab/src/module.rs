@@ -408,7 +408,13 @@ impl Elaborator {
                 kernel::abandon_pending(&mut self.globals);
                 // Running out of resources is reported where it happened
                 // only as precisely as the declaration.
+                let too_large = self.globals.budget.take_too_large();
                 for (position, d) in &mut diagnostics[before..] {
+                    if d.code == "E-RESOURCE" && d.message.ends_with("too large to show") {
+                        for note in self.too_large_notes(&component, too_large) {
+                            d.notes.push(note);
+                        }
+                    }
                     if d.labels.is_empty() {
                         let span = decl_spans[*position];
                         *d = d.clone().with_label(span, "while checking this");
@@ -544,6 +550,54 @@ impl Elaborator {
         if let Some((_, d)) = diagnostics.iter_mut().find(|(_, d)| d.severity == wanted) {
             d.notes.push(note);
         }
+    }
+
+    /// Notes for "a value was too large to show" while checking `component`:
+    /// the declaration, the definition the value was a call of (`head`, an
+    /// index recorded where the reading-back gave up), and the opaque
+    /// definitions the declaration unfolds, whose bodies were computed with.
+    fn too_large_notes(&self, component: &[usize], head: Option<usize>) -> Vec<String> {
+        let g = &self.globals;
+        let mut notes = Vec::new();
+        let names: Vec<String> = component
+            .iter()
+            .map(|i| format!("`{}`", self.module.items[*i].name))
+            .collect();
+        notes.push(format!("it happened while checking {}", names.join(", ")));
+        if let Some(head) = head.filter(|h| *h < g.defs.len()) {
+            let name = &g.defs[head].name;
+            if !name.contains('%') {
+                notes.push(format!(
+                    "the value being shown was a call of `{name}`, computed far enough to be \
+                     very large"
+                ));
+            }
+        }
+        let mut unfolded: Vec<String> = Vec::new();
+        for i in component {
+            if let Some((Global::Def(id), _)) = self.named(&self.module.items[*i].name) {
+                for u in g.def(*id).unfolding.iter() {
+                    let name = &g.def(*u).name;
+                    if !name.contains('%') && !unfolded.contains(&format!("`{name}`")) {
+                        unfolded.push(format!("`{name}`"));
+                    }
+                }
+            }
+        }
+        if !unfolded.is_empty() {
+            let (bodies, were) = if unfolded.len() == 1 {
+                ("its opaque body was", "it")
+            } else {
+                ("their opaque bodies were", "they")
+            };
+            notes.push(format!(
+                "it unfolds {}, so {bodies} computed here, and {were} may produce the large \
+                 value; a statement about a smaller part of the result, or a lemma proved \
+                 once and rewritten with, avoids computing the whole value",
+                unfolded.join(", ")
+            ));
+        }
+        notes
     }
 
     /// Notes the declarations of `component`, unfinished, as such for the

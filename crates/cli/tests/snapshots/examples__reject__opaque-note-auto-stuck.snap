@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-STUCK] Error: can't decide `three n ≠ 0` here
+    ╭─[ reject/opaque-note-auto-stuck.sw:10:28 ]
+    │
+ 10 │ def ratio (n: Nat): Nat := n / three n
+    │                            ─────┬─────  
+    │                                 ╰─────── it involves values that aren't known here, and computing it doesn't settle it
+    │ 
+    │ Note 1: establish it first, with `if h: … then … else …`
+    │ 
+    │ Note 2: `three` is opaque, so its body isn't used here
+    │ 
+    │ Note 3: make this an `opaque def` and add `unfolding three` after its signature, or rewrite with `three.unfold`
+────╯

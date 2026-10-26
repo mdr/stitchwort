@@ -112,6 +112,48 @@ fn printing_too_large_a_value_is_an_error() {
     assert_eq!(error.code, "E-RESOURCE");
 }
 
+/// "A value was too large to show" in a theorem that unfolds an opaque
+/// definition names the theorem and the definition it unfolds, so the
+/// reader knows where the large value came from
+/// (docs/proposals/opaque-definitions.md §6.10).
+#[test]
+fn a_value_too_large_to_show_names_the_declaration_and_what_it_unfolds() {
+    let mut session = Session::new();
+    session
+        .load(
+            "big.sw",
+            "import Std (List, Nat)\n\n\
+             def replicate : Nat -> a -> List a\n  | Zero,   x => Nil\n  \
+             | Succ n, x => Cons x (replicate n x)\n\n\
+             opaque def big (n: Nat): List Nat := replicate 500 n\n",
+        )
+        .expect("checks");
+    session.elab.limits = Limits {
+        size: 100,
+        ..Limits::default()
+    };
+    let diagnostics = session
+        .load(
+            "use.sw",
+            "theorem t (n: Nat): big n = big n unfolding big := rewrite Eq.refl (big n) in rfl\n",
+        )
+        .unwrap_err();
+    let resource = diagnostics
+        .iter()
+        .find(|d| d.code == "E-RESOURCE")
+        .unwrap_or_else(|| panic!("{diagnostics:?}"));
+    assert!(
+        resource.message.ends_with("too large to show"),
+        "{resource:?}"
+    );
+    let notes = resource.notes.join("\n");
+    assert!(notes.contains("while checking `t`"), "{notes}");
+    assert!(
+        notes.contains("it unfolds `big`, so its opaque body was computed here"),
+        "{notes}"
+    );
+}
+
 /// A program that exercises the elaborator's searches and retries: `auto`
 /// arguments, `if h :`, `==` through decision procedures, text, abilities
 /// with handlers, and proofs by computation.

@@ -1,0 +1,18 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INDEX-STUCK] Error: can't tell whether `VNil` can be here
+    ╭─[ reject/opaque-note-index-stuck.sw:12:3 ]
+    │
+ 12 │ ╭─▶   | VNil      => 0
+ 13 │ ├─▶   | VCons _ _ => 1
+    │ │                        
+    │ ╰──────────────────────── the argument has type `Vec a (succ n)`; matching `VNil` needs `succ n = 0`
+    │     
+    │     Note 1: `succ` is opaque, so its body isn't used here
+    │     
+    │     Note 2: make this an `opaque def` and add `unfolding succ` after its signature, or rewrite with `succ.unfold`
+    │     
+    │     Note 3: matching works when each index is a variable or built from constructors
+────╯

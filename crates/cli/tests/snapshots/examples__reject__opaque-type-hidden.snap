@@ -11,5 +11,9 @@ expression: output
     │                            │  
     │                            ╰── expected `Code`, but this has type `Nat`
     │ 
-    │ Note: a numeral can only be the prelude's `Nat` or `Int`
+    │ Note 1: `Code` is opaque, so its body isn't used here
+    │ 
+    │ Note 2: add `unfolding Code` after this declaration's signature, or rewrite with `Code.unfold`
+    │ 
+    │ Note 3: a numeral can only be the prelude's `Nat` or `Int`
 ────╯

@@ -741,6 +741,16 @@ impl<'t> Parser<'t> {
             .get(self.pos)
             .is_some_and(|t| t.tok == Tok::FatArrow);
         let diagnostic = error(self.here(), format!("expected {expected}, but {found}"));
+        if self
+            .tokens
+            .get(self.pos)
+            .is_some_and(|t| t.tok == Tok::KwUnfolding)
+        {
+            return diagnostic.with_note(
+                "`unfolding f` goes in a declaration's header, after its result type and before \
+                 `:=` or the arms: `theorem t: … unfolding f := …`; it can't be written in a body",
+            );
+        }
         if found_arrow {
             return diagnostic.with_note(
                 "to pass a lambda as an argument, put it in brackets: `List.map xs (x => …)`",
@@ -1681,11 +1691,15 @@ impl<'t> Parser<'t> {
 
     /// Whether the next token can't start a line of a block, but ends it, and
     /// the blocks around it, for an enclosing construct: a `|` (the next arm
-    /// of a definition), `where` or `:=` (after a type that's a block).
+    /// of a definition), `where`, `:=`, `decreasing` or `unfolding` (after a
+    /// type that's a block).
     fn ends_blocks(&self) -> bool {
-        self.tokens
-            .get(self.pos)
-            .is_some_and(|t| matches!(t.tok, Tok::Pipe | Tok::KwWhere | Tok::ColonEq))
+        self.tokens.get(self.pos).is_some_and(|t| {
+            matches!(
+                t.tok,
+                Tok::Pipe | Tok::KwWhere | Tok::ColonEq | Tok::KwDecreasing | Tok::KwUnfolding
+            )
+        })
     }
 
     fn statement(&mut self) -> Result<Stmt> {
@@ -4216,6 +4230,18 @@ mod tests {
             &module.decls[0],
             Decl::Signature { theorem: true, opaque: false, unfolding, .. } if unfolding.len() == 1
         ));
+        // A type that starts on its own line is a block; the clause on a line
+        // at the block's column still ends it.
+        for source in [
+            "theorem t:\n  f 1 = 1\n  unfolding f\n  := rfl\n",
+            "opaque def g (n: Nat):\n  Nat\n  decreasing n\n  unfolding f\n  := n\n",
+        ] {
+            let module = parse(source);
+            assert!(
+                matches!(&module.decls[0], Decl::Signature { unfolding, .. } if unfolding.len() == 1),
+                "{source}"
+            );
+        }
         for (source, message) in [
             (
                 "opaque theorem t: 1 = 1 := rfl\n",
