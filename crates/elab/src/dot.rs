@@ -812,7 +812,7 @@ pub(crate) fn prefix_form<'a>(
             Arg::Piped(_) | Arg::Default(_) => return Ok(None),
         }
     }
-    let key = call_key(recv, field);
+    let key = call_key(cx, recv, field);
     let cached = cx.e.dot_heads.borrow().get(&key).copied();
     let (owner, f) = if let Some(found) = cached {
         found
@@ -1225,7 +1225,7 @@ pub(crate) fn infer_call(
     field: &AstName,
     args: &[Arg],
 ) -> Result<(Term, Value)> {
-    if has_failed(cx, call_key(recv, field)) {
+    if has_failed(cx, call_key(cx, recv, field)) {
         return infer_dot(cx, recv, field, args);
     }
     let Some((head, full)) = prefix_form(cx, recv, field, args)? else {
@@ -1234,7 +1234,7 @@ pub(crate) fn infer_call(
     let snapshot = crate::undo::Snapshot::take(cx);
     match crate::check::apply_args(cx, head, &full) {
         Err(e) if !crate::undo::fatal(&e) => {
-            mark_failed(cx, call_key(recv, field));
+            mark_failed(cx, call_key(cx, recv, field));
             // The call is wrong either way: say so as dot notation does
             // (it names the receiver's parameter).
             snapshot.restore(cx);
@@ -1244,12 +1244,18 @@ pub(crate) fn infer_call(
     }
 }
 
-/// Which dot call: the receiver expression (by address and span) and the
-/// field's span.
-pub(crate) type CallKey = (usize, Span, Span);
+/// Which dot call: the receiver expression (by address and span), the
+/// field's span, and the generated-source epoch the address belongs to
+/// (`Elaborator::source_epoch`).
+pub(crate) type CallKey = (usize, Span, Span, usize);
 
-fn call_key(recv: &Expr, field: &AstName) -> CallKey {
-    (std::ptr::from_ref(recv) as usize, recv.span(), field.span)
+fn call_key(cx: &Ctx, recv: &Expr, field: &AstName) -> CallKey {
+    (
+        std::ptr::from_ref(recv) as usize,
+        recv.span(),
+        field.span,
+        cx.e.source_epoch.get(),
+    )
 }
 
 /// The metavariable state, which a failure is only valid in.
@@ -1266,4 +1272,30 @@ fn mark_failed(cx: &Ctx, key: CallKey) {
 fn has_failed(cx: &Ctx, key: CallKey) -> bool {
     let (m, t) = state(cx);
     cx.e.dot_failed.borrow().contains(&(key, m, t))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Elaborator;
+    use stitchwort_syntax::SourceMap;
+
+    /// A receiver at the same address and spans is a different call once
+    /// the generated source before it has ended.
+    #[test]
+    fn call_key_differs_across_generated_source() {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test", "x");
+        let recv = stitchwort_syntax::parse_expression(file, "x").expect("parses");
+        let field = AstName {
+            text: "f".into(),
+            span: recv.span(),
+        };
+        let e = Elaborator::new();
+        let cx = Ctx::from_parts(&e, vec![], vec![], vec![], recv.span());
+        let before = call_key(&cx, &recv, &field);
+        assert_eq!(before, call_key(&cx, &recv, &field));
+        e.source_epoch.set(e.source_epoch.get() + 1);
+        assert_ne!(before, call_key(&cx, &recv, &field));
+    }
 }
