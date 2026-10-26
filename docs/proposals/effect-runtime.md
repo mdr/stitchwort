@@ -1616,7 +1616,7 @@ loop's own work, beyond the constant cost of the general path (§9.1):
    operation costs 23,900 instructions and 4,600 cycles, 16% less
    **[checked]**.
 
-**Options** (for review; none is done):
+**Options** (for review; A is built, below):
 
 - **A. Fewer allocations on the generic paths.** This is mechanical and
   doesn't change meaning: `apply` and `enter` take their arguments as a
@@ -1650,6 +1650,44 @@ None of these is a bug. They are constant factors, and they compound.
 Recommended order: A first (mechanical; it also speeds up pure code that
 applies closures), then measure, then decide whether B is worth a design
 note.
+
+**Option A as built.** One of its four parts is kept. Measured per
+operation, 100k to 1M, median of 5 runs, with base and new runs
+interleaved (Apple M4 Pro, other work running) **[checked]**:
+
+| per operation | `bump` before | after | `ask` before | after |
+|---|---|---|---|---|
+| instructions | 28,871 | 26,724 (−7.4%) | 20,095 | 18,179 (−9.5%) |
+| cycles | 5,418 | 5,327 (−1.7%) | 3,740 | 3,490 (−6.7%) |
+| heap allocations (bytes) | 69 (3,880) | 45 (2,776) | 51 (2,848) | 31 (1,888) |
+
+- *Kept: arguments on the register stack.* `apply`, `enter` and the
+  effect natives take their arguments on top of the registers, where a
+  pushed frame's window then starts. A partial application's held
+  arguments are cloned in below the new ones, so applying one allocates
+  nothing either: this also covers the second part, copying the held
+  arguments. A first try with a `SmallVec` of arguments cut the same 24
+  allocations but cost 10% more cycles (moving and draining the inline
+  vector), so it wasn't kept. On the machine at full size: `closures`
+  13.14 to 12.66 G instructions (−3.6%), `set_nat` 180.2 to 176.8 G
+  (−1.9%, cycles unchanged), the AoC `check` unchanged.
+- *Not kept: moving a uniquely held partial application's arguments*
+  instead of cloning them. No gain (`bump` +0.3% instructions), and it
+  would change the allocation trace (fewer `inc` and `dec` events).
+- *Not kept: reusing `Ret::Eff`'s boxes* (a small pool in the machine).
+  +0.6% instructions and +3.5% cycles for `bump`: mimalloc's own free
+  list is faster than the pool. Truly unboxing the loop's state needs
+  either a stack of `EffRet`s beside the frames (which changes the order
+  in which a failed run drops values, and so the traces the native
+  agreement tests compare) or room for it in every `Frame` (bigger frames
+  for all code). Up to about 7 boxes per `bump` could go, so 1–2% at
+  most **[inferred]**.
+- *Nothing to do: closures.* `Closure` and `Pap` collect exactly sized
+  vectors, so turning them into `Box<[Value]>` doesn't copy; the
+  constructors build their `Rc<[Value]>` directly. A closure is still two
+  blocks (the `Rc<Fun>` and its captures), but native code reads the
+  captures through that layout (`native_abi`), so that is a change to the
+  native ABI.
 
 ## Appendix A. Benchmark and prototype files
 
