@@ -4206,14 +4206,16 @@
     {
       "id": 577,
       "title": "Std whitespace is ASCII-only: Char.isSpace / Text.trim know 6 characters, JS trim() 25 (NBSP, U+2000-200A, U+3000, BOM…); text apps need a Unicode-aware option (found in the private app port, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "fc434b72"
+      ]
     },
     {
       "id": 578,
