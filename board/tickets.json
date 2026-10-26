@@ -1,5 +1,5 @@
 {
-  "next": 615,
+  "next": 616,
   "tickets": [
     {
       "id": 13,
@@ -4695,6 +4695,18 @@
       "id": 614,
       "title": "Signature defaults (D1340): default values for function parameters — design note revisiting named-arguments.md §5.4 / D1097 (trigger: test factories in the private port), stop for review",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 615,
+      "title": "Private app port: once signature defaults (D1340) land, give makeRecording/makeBubble/… default values (None, [], 0.0, …) so tests pass only the data pertinent to each scenario (private work only)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
