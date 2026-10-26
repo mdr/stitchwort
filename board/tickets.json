@@ -4673,7 +4673,7 @@
     {
       "id": 612,
       "title": "JS: Ord Float (Float.compare, <=, sortOn on Float) goes through the dictionary and BigInt keys — 6% slower than native in the private port; native compare + std Ord.leTrans (running)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
