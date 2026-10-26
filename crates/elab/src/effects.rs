@@ -575,6 +575,37 @@ pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
     })
 }
 
+/// The result type `t` of a computation type written as a term (`Comp ops
+/// res t`, `Delay ops res t`, `CompIn e t` or `CompD d e t`), keeping how
+/// `t` is written.
+pub(crate) fn comp_result_term(cx: &Ctx, term: &Rc<Term>) -> Option<Rc<Term>> {
+    let comp = data(cx, Builtin::Comp).ok()?;
+    if let Term::Data(d, args) = term.strip_loc() {
+        return (*d == comp && args.len() == 3).then(|| args[2].clone());
+    }
+    let mut args: Vec<Rc<Term>> = Vec::new();
+    let mut head = term.clone();
+    while let Term::App(f, a, _) = head.strip_loc() {
+        args.push(a.clone());
+        head = f.clone();
+    }
+    let Term::Def(id) = head.strip_loc() else {
+        return None;
+    };
+    let g = cx.g();
+    let arity = if Some(*id) == g.registry.def(Builtin::CompIn) {
+        2
+    } else if Some(*id) == g.registry.def(Builtin::CompD)
+        || Some(*id) == g.builtins.primitive_id(Primitive::Delay)
+    {
+        3
+    } else {
+        return None;
+    };
+    // `args` is last first.
+    (args.len() == arity).then(|| args[0].clone())
+}
+
 fn ability_name(cx: &Ctx, label: &Label) -> String {
     if label.ability == REC {
         return "Partial".to_string();

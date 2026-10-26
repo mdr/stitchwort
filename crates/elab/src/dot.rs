@@ -1185,6 +1185,8 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
             term = cod;
         }
         if left == 0 && !matches!(term.strip_loc(), Term::Pi(..)) {
+            // A call that performs operations: the receiver is what it returns.
+            let term = crate::effects::comp_result_term(cx, &term).unwrap_or(term);
             return Ok(Some(Ty::Term(term, env)));
         }
     }
@@ -1202,7 +1204,14 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
                 ty = cod.apply(g, Value::var(level))?;
                 level += 1;
             }
-            other => return Ok((explicit == 0).then_some(Ty::Value(other))),
+            other if explicit == 0 => {
+                let value = match crate::effects::comp_parts(cx, &other)? {
+                    Some((_, value)) => value,
+                    None => other,
+                };
+                return Ok(Some(Ty::Value(value)));
+            }
+            _ => return Ok(None),
         }
     }
 }
