@@ -4655,7 +4655,7 @@
     },
     {
       "id": 611,
-      "title": "Pipe-style restyle (D1337): stage 1 rogue + AoC (running); stage 2 std + examples",
+      "title": "Pipe-style restyle (D1337): stage 1 rogue + AoC merged 6783dac6; stage 2 std + examples running",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -4663,7 +4663,9 @@
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "6783dac6"
+      ]
     },
     {
       "id": 612,
