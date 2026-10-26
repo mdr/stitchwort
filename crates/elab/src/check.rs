@@ -615,6 +615,10 @@ pub(crate) enum Arg<'a> {
     NamedExplicit(&'a AstName, &'a Expr),
     /// The value piped in by `|>`, already elaborated (`pipe.rs`).
     Piped(&'a Piped),
+    /// A parameter's default, for a call that leaves it out
+    /// (`defaults::apply`): its helper applied to the arguments before it,
+    /// put in its place before any later argument is elaborated.
+    Default(crate::defaults::DefaultRef),
 }
 
 /// An argument as written.
@@ -630,12 +634,39 @@ pub(crate) fn arg_of(arg: &Expr) -> Arg<'_> {
 pub(crate) fn spine(expr: &Expr) -> (&Expr, Vec<Arg<'_>>) {
     let mut args = Vec::new();
     let mut head = expr;
+    loop {
+        match head {
+            Expr::App(f, a) => {
+                args.push(arg_of(a));
+                head = f;
+            }
+            Expr::Bracketed(call, _) => head = call,
+            _ => break,
+        }
+    }
+    args.reverse();
+    (head, args)
+}
+
+/// `(f a) b`, where `f` has parameter defaults: the bracketed call, to be
+/// finished (its defaults filled) before it's applied to the arguments
+/// after it (docs/proposals/signature-defaults.md §6.3).
+fn finished_call<'a>(cx: &Ctx, expr: &'a Expr) -> Option<(&'a Expr, Vec<Arg<'a>>)> {
+    let mut args = Vec::new();
+    let mut head = expr;
     while let Expr::App(f, a) = head {
         args.push(arg_of(a));
         head = f;
     }
+    let Expr::Bracketed(call, _) = head else {
+        return None;
+    };
+    let Expr::Var(name) = spine(call).0 else {
+        return None;
+    };
+    crate::defaults::of_name(cx, &name.text)?;
     args.reverse();
-    (head, args)
+    Some((call, args))
 }
 
 /// The left side of `x |> f`, elaborated, as `f`'s first argument.
@@ -820,9 +851,14 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             unreachable!("these may perform operations, so they're handled above")
         }
         Expr::Var(_) | Expr::App(..) => {
+            if let Some((call, args)) = finished_call(cx, expr) {
+                let head = infer(cx, call)?;
+                return apply_args(cx, head, &args);
+            }
             let (head, args) = spine(expr);
             infer_app(cx, head, &args)
         }
+        Expr::Bracketed(call, _) => infer(cx, call),
         Expr::Pipe(value, f) => {
             crate::pipe::infer_pipe(cx, value, f).map_err(|e| crate::pipe::compared_pipe_note(e, f))
         }
@@ -1032,13 +1068,33 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
 }
 
 /// Infers a function on its own, ready to be applied (a name, without
-/// inserting its implicit arguments).
+/// inserting its implicit arguments, or filling its parameters' defaults:
+/// the caller applies it to the call's arguments).
 pub(crate) fn infer_head(cx: &mut Ctx, head: &Expr) -> Result<(Term, Value)> {
-    infer_app(cx, head, &[])
+    infer_app_with(cx, head, &[], false)
 }
 
 /// Infers an application `head args`.
 pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
+    infer_app_with(cx, head, args, true)
+}
+
+/// `head` applied to `args`, where `head` is a definition or a local
+/// definition: with `fill`, a defaulted parameter `args` don't name gets its
+/// default (docs/proposals/signature-defaults.md §6.1).
+fn apply_named_head(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    fill: bool,
+) -> Result<(Term, Value)> {
+    match crate::defaults::of_head(cx, &head.0) {
+        Some(defaults) if fill => crate::defaults::apply(cx, head, defaults, args),
+        _ => apply_args(cx, head, args),
+    }
+}
+
+fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result<(Term, Value)> {
     let g = cx.g();
     if let Expr::Field(recv, field) = head {
         return crate::dot::infer_call(cx, recv, field, args);
@@ -1049,7 +1105,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
     };
     if let Some(head) = cx.local(&name.text)? {
         cx.note_local_use(name, &head.1);
-        return apply_args(cx, head, args);
+        return apply_named_head(cx, head, args, fill);
     }
     if let Some(level) = cx.lookup(&name.text) {
         let head = (Term::Var(cx.level() - 1 - level), cx.types[level].clone());
@@ -1060,7 +1116,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
         return Err(d);
     }
     if let Some(fields) = as_fields(cx, name) {
-        return infer_app(cx, &fields, args);
+        return infer_app_with(cx, &fields, args, fill);
     }
     if let Some(form) = crate::quot::head_form(cx, &name.text) {
         return crate::quot::elaborate(cx, form, args, None);
@@ -1095,7 +1151,7 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
         None => Err(cx.e.not_found(name)),
         Some((Global::Def(id), _)) => {
             let head = (Term::Def(*id), crate::kernel::def_ty(g, *id)?);
-            apply_args(cx, head, args)
+            apply_named_head(cx, head, args, fill)
         }
         // The parameters, then the indices: one telescope; `auto` parameters
         // are found (docs/proposals/interfaces.md §7.5).
@@ -1174,6 +1230,7 @@ fn ctor_args<'a>(args: &[Arg<'a>]) -> Vec<CtorArg<'a>> {
             Arg::Named(n, e) => CtorArg::Named(n, e),
             Arg::NamedExplicit(n, e) => CtorArg::NamedExplicit(n, e),
             Arg::Piped(_) => unreachable!("`|>` applies a constructor as a function"),
+            Arg::Default(_) => unreachable!("a constructor's fields aren't filled by default"),
         })
         .collect()
 }
@@ -1478,6 +1535,13 @@ fn apply_args_postponing(
                 }
                 ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &piped.term))?;
                 term = Term::app(term, piped.term.clone());
+            }
+            Arg::Default(default) => {
+                (term, ty) = insert_with(cx, term, ty, supply)?;
+                let (_, cod) = function_parts(cx, &ty)?;
+                let value = crate::defaults::helper_call(cx, *default, &term)?;
+                ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
+                term = Term::app(term, value);
             }
             Arg::Explicit(value) => {
                 (term, ty) = insert_with(cx, term, ty, supply)?;
@@ -1948,7 +2012,7 @@ fn total_lambda_note(
 fn only_lambdas_depend_on_it(rest: &Term, args: &[Arg]) -> bool {
     let mut explicit = args
         .iter()
-        .filter(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
+        .filter(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_) | Arg::Default(_)));
     let mut ty = rest;
     let mut under = 0;
     while let Term::Pi(_, icit, dom, cod) = ty.strip_loc() {
@@ -2952,7 +3016,7 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     }
     match compare(cx, term, &found, expected) {
         Err(e) if e.code == "E-TYPE-MISMATCH" && matches!(expr, Expr::App(..)) => {
-            Err(awaiting_note(cx, e, &found, expected))
+            Err(awaiting_note(cx, e, expr, &found, expected))
         }
         result => result,
     }
@@ -2984,7 +3048,13 @@ fn infer_expecting(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<(Term,
 /// A call that is still a function where something else is expected (a
 /// partial application, or a call with parameters left out): the note
 /// names what it's waiting for (docs/proposals/named-arguments.md §6.3).
-fn awaiting_note(cx: &Ctx, e: Diagnostic, found: &Value, expected: &Value) -> Diagnostic {
+fn awaiting_note(
+    cx: &Ctx,
+    e: Diagnostic,
+    expr: &Expr,
+    found: &Value,
+    expected: &Value,
+) -> Diagnostic {
     let g = cx.g();
     let is_function =
         |v: &Value| matches!(force(g, v.clone()), Ok(Value::Pi(_, Icit::Explicit, ..)));
@@ -3014,8 +3084,14 @@ fn awaiting_note(cx: &Ctx, e: Diagnostic, found: &Value, expected: &Value) -> Di
     } else {
         format!("{} more arguments", explicit.len())
     };
+    let filled = crate::defaults::filled_by_call(cx, expr);
+    let filled = if filled.is_empty() {
+        String::new()
+    } else {
+        format!("; {}", filled.join("; "))
+    };
     e.with_note(format!(
-        "this expression is a function still waiting for {waiting}"
+        "this expression is a function still waiting for {waiting}{filled}"
     ))
 }
 
@@ -3158,6 +3234,10 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
         let Some(head) = known_head(cx, head) else {
             return Ok(None);
         };
+        // A call that fills defaults is elaborated the ordinary way.
+        if crate::defaults::of_head(cx, &head.0).is_some() {
+            return Ok(None);
+        }
         // Named arguments in their places; a call with a parameter left
         // out (a function) or arguments that don't match is elaborated
         // the ordinary way.
@@ -3414,7 +3494,7 @@ fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Valu
         let stop = |x: &Name, icit: Icit| match arg {
             Arg::Named(name, _) => icit.is_implicit() && **x == *name.text,
             Arg::NamedExplicit(..) => icit == Icit::Explicit,
-            Arg::Explicit(_) | Arg::Piped(_) => icit == Icit::Explicit,
+            Arg::Explicit(_) | Arg::Piped(_) | Arg::Default(_) => icit == Icit::Explicit,
         };
         let Some(Value::Pi(_, icit, _, cod)) = implicits(cx, &mut ty, &mut supply, written, stop)?
         else {

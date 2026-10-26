@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/param-default-commits-named.sw:11:46 ]
+    │
+ 11 │ def withTwo: Vec Nat 3 -> Nat := pair (ys := two)
+    │                                              ─┬─  
+    │                                               ╰─── expected `Vec Nat 3`, but this has type `Vec Nat 2`
+    │ 
+    │ Note 1: this call leaves out `xs`, so it must work for every value of it
+    │ 
+    │ Note 2: `n` is left out, so it is its default value, `3`; give `(n := …)` to use another
+────╯

@@ -21,6 +21,8 @@ pub(super) enum Param {
         ty: Expr,
         implicit: bool,
         auto: bool,
+        /// `(x: A := v)`: a default value, on an explicit parameter.
+        default: Option<Box<Expr>>,
         span: Span,
     },
     /// `()`: a parameter of type `()` that isn't used. It's matched by `_`
@@ -42,6 +44,10 @@ pub(super) fn misplaced_attributes(first: &Attribute, what: &str) -> Diagnostic 
 pub(super) const ATTRIBUTE_PLACES: &str = "attributes go before a data type's `type`, after a \
      constructor's `|`, or before a field's name: `@[js.tag \"type\"]`, \
      `| @[js.name \"CIRCLE\"] Circle`, `(@[js.name \"center_x\"] centerX: Nat)`";
+
+/// `E-PARSE` for a default value where none may be written.
+pub(super) const DEFAULT_PLACES: &str =
+    "only a definition's parameter or a field can have a default value";
 
 impl Parser<'_> {
     /// The attribute groups at `self.pos`, `@[a, b "x"] @[c]`, if any, in
@@ -282,6 +288,7 @@ impl Parser<'_> {
         if self.peek() == Some(&Tok::KwDecreasing) && !unfolding.is_empty() {
             return Err(error(self.here(), "`decreasing` goes before `unfolding`"));
         }
+        let defaults = take_defaults(&mut params);
         let (ty, header) = lower_header(params, result);
         let mut decls = vec![Decl::Signature {
             name: name.clone(),
@@ -293,6 +300,7 @@ impl Parser<'_> {
             decreasing,
             opaque,
             unfolding,
+            defaults,
             attrs: Vec::new(),
             span,
         }];
@@ -410,6 +418,7 @@ impl Parser<'_> {
                 ty: b.ty,
                 implicit: auto,
                 auto,
+                default: None,
             })
             .collect();
         let result = sort.unwrap_or(Expr::Type(0, name.span));
@@ -426,6 +435,7 @@ impl Parser<'_> {
                 decreasing: None,
                 opaque: false,
                 unfolding: Vec::new(),
+                defaults: Vec::new(),
                 attrs: Vec::new(),
                 span: start.to(name.span),
             },
@@ -484,6 +494,7 @@ impl Parser<'_> {
                 ty,
                 implicit,
                 auto: true,
+                default: None,
                 span: start.to(end),
             });
         }
@@ -511,14 +522,18 @@ impl Parser<'_> {
         }
         self.bump();
         let ty = self.expr()?;
-        if self.peek() == Some(&Tok::ColonEq) {
-            return Err(
-                error(self.here(), "a parameter can't have a default value").with_note(
-                    "only a record's or a constructor's fields can: take the options as a \
-                     record, `{ step: Nat := 1, … }`, and leave out fields when calling",
-                ),
-            );
-        }
+        let default = if self.peek() == Some(&Tok::ColonEq) {
+            if implicit {
+                return Err(error(self.here(), DEFAULT_PLACES).with_note(
+                    "an implicit or `auto` parameter is found by unification or by search; give \
+                     one at a call with `[x := …]`",
+                ));
+            }
+            self.bump();
+            Some(self.expr()?)
+        } else {
+            None
+        };
         if self.peek() != Some(&closing) {
             return Err(self.unexpected(&format!("`{close}` to close the parameter `{written}`")));
         }
@@ -528,6 +543,7 @@ impl Parser<'_> {
             ty,
             implicit,
             auto,
+            default: default.map(Box::new),
             span: start.to(end),
         })
     }
@@ -684,6 +700,7 @@ impl Parser<'_> {
 /// own.
 fn lower_header(params: Vec<Param>, result: Expr) -> (Expr, Vec<Pattern>) {
     let mut patterns = Vec::new();
+    debug_assert!(header_defaults(&params).is_empty(), "defaults taken first");
     for param in &params {
         match param {
             Param::Named {
@@ -706,6 +723,7 @@ fn lower_header(params: Vec<Param>, result: Expr) -> (Expr, Vec<Pattern>) {
                 implicit,
                 auto,
                 span,
+                default: _,
             } => {
                 let span = span.to(cod.span());
                 Expr::Pi {
@@ -719,6 +737,36 @@ fn lower_header(params: Vec<Param>, result: Expr) -> (Expr, Vec<Pattern>) {
             }
         });
     (ty, patterns)
+}
+
+/// The header's default values, as `Decl::Signature::defaults` holds them,
+/// taken out of `params`: empty if none has one.
+fn take_defaults(params: &mut [Param]) -> Vec<Option<Expr>> {
+    if header_defaults(params).is_empty() {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    for param in params {
+        match param {
+            Param::Named { names, default, .. } => {
+                let default = default.take().map(|d| *d);
+                out.extend(names.iter().map(|_| default.clone()));
+            }
+            Param::Unit(_) => out.push(None),
+        }
+    }
+    out
+}
+
+/// The header's parameters that have default values.
+fn header_defaults(params: &[Param]) -> Vec<&Expr> {
+    params
+        .iter()
+        .filter_map(|p| match p {
+            Param::Named { default, .. } => default.as_deref(),
+            Param::Unit(_) => None,
+        })
+        .collect()
 }
 
 /// `E-DUPLICATE-PARAMETER`: the header's parameters, and the implicit and

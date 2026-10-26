@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: only a definition's parameter or a field can have a default value
+   ╭─[ reject/param-default-lambda.sw:5:38 ]
+   │
+ 5 │ def addOne: Nat -> Nat := (x: Nat := 0) => x + 1
+   │                                      ┬  
+   │                                      ╰── only a definition's parameter or a field can have a default value
+   │ 
+   │ Note: a lambda has no declaration to keep a default with: define the function with `def` to give its parameters defaults
+───╯

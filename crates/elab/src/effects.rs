@@ -2024,12 +2024,20 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
     // put it: up to the last one given, or, if it leaves a parameter out,
     // up to that parameter, since the rest is inside the function it
     // becomes (docs/proposals/named-arguments.md §4.5 R3).
-    let named = args
-        .iter()
-        .any(|a| matches!(a, Expr::NamedArg(.., Bracket::Round)));
+    // A function with parameter defaults reaches the defaulted parameters
+    // too (docs/proposals/signature-defaults.md §6.1).
+    let defaults = match head {
+        Expr::Var(name) => crate::defaults::of_name(cx, &name.text),
+        _ => None,
+    };
+    let named = defaults.is_some()
+        || args
+            .iter()
+            .any(|a| matches!(a, Expr::NamedArg(.., Bracket::Round)));
     args.reverse();
-    let reached =
-        |ty: &Value| crate::named::reached(cx, ty, expr, &args, extra).unwrap_or(explicit);
+    let reached = |ty: &Value| {
+        crate::named::reached(cx, ty, expr, &args, extra, defaults.clone()).unwrap_or(explicit)
+    };
     Ok(match head {
         Expr::Var(name) => match head_type(cx, name) {
             // An operation on its own is a function value.
@@ -2843,7 +2851,7 @@ fn comp_app(
     // the missing ones (R3).
     let written_args = crate::check::args_of(&owned);
     let head_ty = ty.clone();
-    let planned = plan_call(cx, &ty, &written_args)?;
+    let planned = plan_call(cx, &term, &ty, &written_args)?;
     let snapshot = crate::undo::Snapshot::take(cx);
     let span = head.span();
     let apply = |cx: &mut Ctx,
@@ -2882,7 +2890,7 @@ fn comp_app(
             // Names behind a type that computes once these arguments are
             // given: the rest is matched against the call so far.
             match later {
-                Some(later) => planned = plan_call(cx, &ty, &later)?,
+                Some(later) => planned = plan_call(cx, &term, &ty, &later)?,
                 None => break rest,
             }
         };
@@ -3000,15 +3008,17 @@ impl Stages {
     }
 }
 
-/// The arguments of a call `written` applied to a function of type `ty`, as
-/// [`comp_app`] applies them: those up to the first parameter left out, in
-/// parameter order; the slots from there on (`named::plan`); and, for a call
-/// whose names are behind a type that computes once the first are given
-/// (`named::split`), the rest of the written arguments, to plan against the
-/// type of the call so far.
+/// The arguments of a call `written` applied to `head`, a function of type
+/// `ty`, as [`comp_app`] applies them: those up to the first parameter left
+/// out, in parameter order, with the defaults of those it leaves out that
+/// have one (docs/proposals/signature-defaults.md §6.1); the slots from
+/// there on (`named::plan`); and, for a call whose names are behind a type
+/// that computes once the first are given (`named::split`), the rest of the
+/// written arguments, to plan against the type of the call so far.
 #[allow(clippy::type_complexity)]
 fn plan_call<'a>(
     cx: &Ctx,
+    head: &Term,
     ty: &Value,
     written: &[crate::check::Arg<'a>],
 ) -> Result<(
@@ -3016,10 +3026,14 @@ fn plan_call<'a>(
     Vec<crate::named::Slot<'a>>,
     Option<Vec<crate::check::Arg<'a>>>,
 )> {
-    if !crate::named::any(written) {
+    let defaults = crate::defaults::of_head(cx, head);
+    if !crate::named::any(written) && defaults.is_none() {
         return Ok((written.to_vec(), Vec::new(), None));
     }
-    let sig = crate::named::signature(cx, ty)?;
+    let mut sig = crate::named::signature(cx, ty)?;
+    if let Some(defaults) = defaults {
+        sig = sig.with_defaults(defaults);
+    }
     if let Some((first, rest)) = crate::named::split(cx, &sig, written)? {
         return Ok((first, Vec::new(), Some(rest)));
     }

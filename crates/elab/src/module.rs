@@ -1395,10 +1395,13 @@ impl Elaborator {
                         && !reported.contains(&dep.item)
                     {
                         reported.push(dep.item);
-                        diagnostics.push((
-                            items[i].position,
-                            self.mutual_signature(i, dep.item, dep.span),
-                        ));
+                        let d = if in_default(items[i].decl, dep.span) {
+                            let names = &self.module.items;
+                            default_uses(&names[i].name, &names[dep.item].name, dep.span)
+                        } else {
+                            self.mutual_signature(i, dep.item, dep.span)
+                        };
+                        diagnostics.push((items[i].position, d));
                         refused = true;
                     }
                 }
@@ -2088,6 +2091,60 @@ fn body_binders<'a>(ty: &'a Expr, equations: &[Decl]) -> Vec<&'a str> {
     names
 }
 
+/// The error for a default of `name`'s that uses `other`: itself, or one
+/// defined together with it.
+pub(crate) fn default_uses(name: &str, other: &str, span: Span) -> Diagnostic {
+    Diagnostic::error(
+        "E-MUTUAL-SIGNATURE",
+        format!("`{name}`'s default uses `{other}`"),
+    )
+    .with_label(span, format!("`{other}` is used here"))
+    .with_note(
+        "a parameter's default is checked from the header, before the body, so it can't use \
+         the definition, or one defined together with it",
+    )
+}
+
+/// Whether `span` is inside one of signature `decl`'s default values.
+fn in_default(decl: &Decl, span: Span) -> bool {
+    let Decl::Signature { defaults, .. } = decl else {
+        return false;
+    };
+    defaults.iter().flatten().any(|d| {
+        let at = d.span();
+        at.file == span.file && at.start <= span.start && span.end <= at.end
+    })
+}
+
+/// The walk of a header's default values, each with the parameters before
+/// it bound.
+fn defaults_work<'a>(ty: &'a Expr, defaults: &'a [Option<Expr>]) -> Vec<Work<'a>> {
+    let mut names: Vec<&str> = Vec::new();
+    let mut ty = ty;
+    while names.len() < defaults.len() {
+        match ty {
+            Expr::Pi { names: ns, cod, .. } => {
+                names.extend(ns.iter().map(|n| n.text.as_str()));
+                ty = cod;
+            }
+            Expr::Arrow(_, cod) => {
+                names.push("_");
+                ty = cod;
+            }
+            _ => break,
+        }
+    }
+    let mut work = Vec::new();
+    for (k, default) in defaults.iter().enumerate() {
+        let Some(default) = default else { continue };
+        let before = &names[..k.min(names.len())];
+        work.extend(before.iter().map(|x| Work::Bind(x)));
+        work.push(Work::Expr(default));
+        work.extend(before.iter().rev().map(|x| Work::Unbind(x)));
+    }
+    work
+}
+
 /// One step of the walk in [`free_names`].
 #[derive(Clone)]
 enum Work<'a> {
@@ -2111,8 +2168,16 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
         out.extend(refs.into_iter().map(|r| (r, in_header)));
     };
     match decl {
-        Decl::Signature { ty, unfolding, .. } => {
+        Decl::Signature {
+            ty,
+            unfolding,
+            defaults,
+            ..
+        } => {
             add(free_names(vec![Work::Expr(ty)]), true);
+            // Defaults are checked before the body, from the header alone
+            // (docs/proposals/signature-defaults.md §5.2).
+            add(free_names(defaults_work(ty, defaults)), true);
             // What it unfolds is used by its body
             // (docs/proposals/opaque-definitions.md §6.11, rule 2).
             add(
@@ -2189,6 +2254,11 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
 /// The references an expression makes (for `eval` and the REPL).
 pub(crate) fn expr_refs(expr: &Expr) -> Vec<Ref<'_>> {
     free_names(vec![Work::Expr(expr)])
+}
+
+/// The names a header's default values use, other than its parameters.
+pub(crate) fn default_refs<'a>(ty: &'a Expr, defaults: &'a [Option<Expr>]) -> Vec<Ref<'a>> {
+    free_names(defaults_work(ty, defaults))
 }
 
 /// The library's `Float`, which a decimal literal refers to.
@@ -2353,7 +2423,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             | Expr::Seq(a, b) => {
                 then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]);
             }
-            Expr::Neg(a, _) => stack.push(Work::Expr(a)),
+            Expr::Neg(a, _) | Expr::Bracketed(a, _) => stack.push(Work::Expr(a)),
             Expr::Lam(names, body, _) => {
                 let (bind, unbind) = binds(names);
                 let mut steps = bind;
@@ -2555,10 +2625,11 @@ fn local_name(def: &ast::LocalDef) -> Option<&str> {
 /// The walk of a local definition: its type, then each equation with its
 /// variables bound.
 fn local_def_work(def: &ast::LocalDef) -> Vec<Work<'_>> {
-    let Decl::Signature { ty, .. } = &def.signature else {
+    let Decl::Signature { ty, defaults, .. } = &def.signature else {
         return Vec::new();
     };
     let mut work = vec![Work::Expr(ty)];
+    work.extend(defaults_work(ty, defaults));
     let binders = body_binders(ty, &def.equations);
     for eq in &def.equations {
         let Decl::Equation { patterns, rhs, .. } = eq else {

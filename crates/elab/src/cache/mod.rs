@@ -62,12 +62,12 @@ use crate::records::RecordInfo;
 use crate::scope::ScopeOp;
 use crate::{Elaborator, Global};
 use codec::{Bad, Read, ReadRefs, Reader, Refs, TermWriter, Terms, Writer, bad};
-use stitchwort_core::globals::{FieldDefault, FieldDefaults};
+use stitchwort_core::globals::{FieldDefault, FieldDefaults, ParamDefaults};
 use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 13;
+pub const FORMAT: u32 = 14;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1439,6 +1439,30 @@ impl Elaborator {
                 }
             }
         }
+        // Parameters' defaults (docs/proposals/signature-defaults.md §7.3):
+        // for each definition with any, its header's length and, for each
+        // parameter, its helper and what the helper takes.
+        let param_defaults: Vec<(DefId, &ParamDefaults)> = defs
+            .clone()
+            .map(DefId)
+            .filter_map(|id| g.def(id).param_defaults.as_deref().map(|t| (id, t)))
+            .collect();
+        e.w.usize(param_defaults.len());
+        for (id, table) in param_defaults {
+            e.def(id);
+            e.w.usize(table.header);
+            e.w.usize(table.params.len());
+            for param in &table.params {
+                e.w.bool(param.is_some());
+                if let Some(param) = param {
+                    e.def(param.helper);
+                    e.w.usize(param.captures.len());
+                    for &l in &param.captures {
+                        e.w.usize(l);
+                    }
+                }
+            }
+        }
         // `js_repr`: how the unit's attributed data types cross the JS
         // boundary (docs/proposals/attributes.md §6.5). Not hashed, so
         // only this table carries it; it travels with the type's unit.
@@ -1868,6 +1892,7 @@ struct Tables {
     members: Vec<String>,
     records: Vec<(DataId, RecordInfo)>,
     field_defaults: Vec<(DataId, FieldDefaults)>,
+    param_defaults: Vec<(DefId, ParamDefaults)>,
     /// How attributed data types cross the JS boundary.
     js_repr: Vec<(DataId, JsRepr)>,
     interfaces: Vec<(DataId, InterfaceInfo)>,
@@ -2744,6 +2769,9 @@ impl Elaborator {
         for (d, table) in t.field_defaults {
             self.globals.datas[d.0].defaults = Some(Rc::new(table));
         }
+        for (id, table) in t.param_defaults {
+            self.globals.defs[id.0].param_defaults = Some(Rc::new(table));
+        }
         for (d, repr) in t.js_repr {
             self.globals.datas[d.0].js = Some(Rc::new(repr));
         }
@@ -2831,6 +2859,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         members: Vec::new(),
         records: Vec::new(),
         field_defaults: Vec::new(),
+        param_defaults: Vec::new(),
         js_repr: Vec::new(),
         interfaces: Vec::new(),
         instances: Vec::new(),
@@ -2889,6 +2918,25 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
             ctors.push(fields);
         }
         t.field_defaults.push((d, ctors));
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        let id = b.def()?;
+        let header = b.count()?;
+        let m = b.count()?;
+        let mut params = Vec::with_capacity(m);
+        for _ in 0..m {
+            params.push(if b.r.bool()? {
+                let helper = b.def()?;
+                let c = b.count()?;
+                let captures = (0..c).map(|_| b.r.usize()).collect::<Read<_>>()?;
+                Some(FieldDefault { helper, captures })
+            } else {
+                None
+            });
+        }
+        t.param_defaults
+            .push((id, ParamDefaults { header, params }));
     }
     let n = b.count()?;
     for _ in 0..n {

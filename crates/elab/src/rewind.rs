@@ -189,6 +189,7 @@ impl Elaborator {
             local_helpers,
             helper_keys,
             local_metas,
+            local_defaults,
             goals,
             proof_holes,
             hole_log: _,
@@ -280,6 +281,7 @@ impl Elaborator {
         *local_helpers = mark.local_helpers.clone();
         *helper_keys = mark.helper_keys.clone();
         local_metas.get_mut().clear();
+        local_defaults.get_mut().clear();
         *goals.get_mut() = Default::default();
         proof_holes.get_mut().clear();
         cong_candidates.get_mut().clear();

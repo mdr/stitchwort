@@ -1545,9 +1545,10 @@ impl<'t> Parser<'t> {
         let (binder, default) = self.binder_with_default()?;
         if let Some(default) = default {
             return Err(
-                error(default.span(), "only a field can have a default value").with_note(
-                    "a record's fields, `{ step: Nat := 1 }`, and a constructor's, \
-                 `| Circle (id: Text := \"a\")`, can have one",
+                error(default.span(), declarations::DEFAULT_PLACES).with_note(
+                    "a definition's explicit parameters, `def range (step: Nat := 1)`, a \
+                     record's fields, `{ step: Nat := 1 }`, and a constructor's, \
+                     `| Circle (id: Text := \"a\")`, can have one; a function type can't",
                 ),
             );
         }
@@ -2018,9 +2019,15 @@ impl<'t> Parser<'t> {
                 // `(x: A)`, `(x y: A)`: parameters with a written type, as in
                 // a definition's header.
                 Some(Tok::LParen) if self.annotated_param_ahead() => {
-                    let Param::Named { names, ty, .. } = self.header_param()? else {
+                    let Param::Named {
+                        names, ty, default, ..
+                    } = self.header_param()?
+                    else {
                         unreachable!("an annotated parameter is a named one")
                     };
+                    if let Some(default) = default {
+                        return Err(lambda_default(&default));
+                    }
                     for name in names {
                         params.push(LamParam::Typed(name, Mode::Explicit, ty.clone()));
                     }
@@ -2916,7 +2923,13 @@ impl<'t> Parser<'t> {
     fn app(&mut self) -> Result<Expr> {
         // A section's arguments are its own: `.drop 1` is `x => x.drop 1`.
         let section = self.peek() == Some(&Tok::Dot);
+        let start = self.here();
+        let bracketed = self.peek() == Some(&Tok::LParen);
         let mut expr = self.atom(true)?;
+        if bracketed && matches!(expr, Expr::App(..)) && self.starts_atom() {
+            let end = self.tokens[self.pos - 1].span;
+            expr = Expr::Bracketed(Box::new(expr), start.to(end));
+        }
         if let Expr::CtorFields { ctor, .. } = &expr
             && self.starts_atom()
         {
@@ -3630,6 +3643,14 @@ fn describe(tok: &Tok) -> String {
         Tok::DotDot => "`..`".into(),
         Tok::At => "`@[`".into(),
     }
+}
+
+/// `E-PARSE`: a lambda's parameter with a default value.
+fn lambda_default(default: &Expr) -> Diagnostic {
+    error(default.span(), declarations::DEFAULT_PLACES).with_note(
+        "a lambda has no declaration to keep a default with: define the function with `def` \
+         to give its parameters defaults",
+    )
 }
 
 fn error(span: Span, message: impl Into<String>) -> Diagnostic {

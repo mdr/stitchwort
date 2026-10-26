@@ -889,6 +889,10 @@ impl Elaborator {
         if let Ok(key) = self.declaration_key(name) {
             self.scope.insert(&key, Global::Def(f), name.span, false);
         }
+        if let Err(d) = self.param_defaults(signature, f) {
+            out.push((item, d));
+            return out;
+        }
         self.module.phase = crate::module::Phase::Body;
         self.local_helpers.clear();
         self.preadmitted.borrow_mut().clear();

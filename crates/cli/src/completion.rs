@@ -22,6 +22,8 @@ pub struct Parameter {
     pub name: String,
     pub implicit: bool,
     pub ty: String,
+    /// Its default value, as printed (`(step: Nat := 1)`).
+    pub default: Option<String>,
 }
 
 const KEYWORDS: &[&str] = &[
@@ -209,10 +211,15 @@ pub fn parameters(ty: &str) -> Vec<Parameter> {
             if name.is_empty() || name.starts_with('_') || !name.chars().all(is_name_char) {
                 return None;
             }
+            let (ty, default) = match ty.split_once(" := ") {
+                Some((ty, default)) => (ty, Some(default.trim().to_string())),
+                None => (ty, None),
+            };
             Some(Parameter {
                 name: name.to_string(),
                 implicit,
                 ty: ty.trim().to_string(),
+                default,
             })
         })
         .collect()
@@ -272,6 +279,19 @@ mod tests {
                 ("xs", false, "Vec Nat n"),
                 ("f", false, "Nat -> Nat")
             ]
+        );
+    }
+
+    #[test]
+    fn reads_a_parameters_default() {
+        let got = parameters("(start: Nat) -> (step: Nat := start + 1) -> List Nat");
+        let defaults: Vec<(&str, &str, Option<&str>)> = got
+            .iter()
+            .map(|p| (p.name.as_str(), p.ty.as_str(), p.default.as_deref()))
+            .collect();
+        assert_eq!(
+            defaults,
+            [("start", "Nat", None), ("step", "Nat", Some("start + 1"))]
         );
     }
 }

@@ -60,6 +60,11 @@ pub enum Expr {
     Type(u32, Span),
     Prop(Span),
     App(Box<Expr>, Box<Expr>),
+    /// `(f a) b`: a call in brackets, applied to more arguments. The
+    /// brackets finish the call, so a function with parameter defaults has
+    /// them filled before `b` (docs/proposals/signature-defaults.md §6.3).
+    /// Only the head of an application is one.
+    Bracketed(Box<Expr>, Span),
     /// `x y => body`
     Lam(Vec<Name>, Box<Expr>, Span),
     /// `(x: A) => body`, `[a: Type] => body` or `[auto h: P] => body`: a
@@ -382,6 +387,7 @@ impl Expr {
             | Expr::Hole(span)
             | Expr::Goal(span)
             | Expr::Ann(_, _, span)
+            | Expr::Bracketed(_, span)
             | Expr::Neg(_, span)
             | Expr::List(_, span)
             | Expr::Unit(span)
@@ -859,6 +865,11 @@ pub enum Decl {
         /// the opaque definitions whose bodies this one's body may use
         /// (docs/proposals/opaque-definitions.md §6.3). Empty if not written.
         unfolding: Vec<Name>,
+        /// The default values of the header's parameters, `(step: Nat := 1)`:
+        /// empty when none has one, otherwise one entry per binder the
+        /// header's parameters make, in order (each name of `(a b: T)` its
+        /// own, `()` one), so its length is how many there are.
+        defaults: Vec<Option<Expr>>,
         /// The attributes written before the declaration (before `export`,
         /// if it's there).
         attrs: Vec<Attribute>,

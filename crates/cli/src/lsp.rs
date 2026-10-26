@@ -375,7 +375,10 @@ impl Main<'_> {
             .filter(|p| p.implicit == call.implicit && !call.given.contains(&p.name))
             .map(|p| lsp_types::CompletionItem {
                 insert_text: Some(format!("{} := ", p.name)),
-                detail: Some(p.ty),
+                detail: Some(match &p.default {
+                    Some(default) => format!("{} := {default}", p.name),
+                    None => p.ty,
+                }),
                 kind: Some(lsp_types::CompletionItemKind::VARIABLE),
                 label: p.name,
                 ..Default::default()

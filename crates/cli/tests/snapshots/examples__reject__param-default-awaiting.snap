@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/param-default-awaiting.sw:8:26 ]
+   │
+ 8 │ def numbers: List Nat := range 0
+   │                          ───┬───  
+   │                             ╰───── expected `List Nat`, but this has type `Nat → List Nat`
+   │ 
+   │ Note: this expression is a function still waiting for `stop`; `step` is its default, `1`
+───╯

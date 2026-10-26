@@ -102,6 +102,9 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
         // arguments, it fills the first explicit parameter they don't
         // (docs/proposals/named-arguments.md §4.4).
         args.insert(0, Arg::Piped(&piped));
+        if let Some(defaults) = crate::defaults::of_head(cx, &known.0) {
+            return crate::defaults::apply(cx, known, defaults, &args);
+        }
         return apply_args(cx, known, &args);
     }
     let call = match head {

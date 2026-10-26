@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EXPORT] Error: `range` can't be exported yet
+   ╭─[ reject/param-default-export.sw:6:57 ]
+   │
+ 6 │ export def range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat := [start, stop, step]
+   │                                                         ┬  
+   │                                                         ╰── a parameter with a default value
+   │ 
+   │ Note: an exported function's parameters can't have default values yet; export a function without them that calls this one
+───╯
