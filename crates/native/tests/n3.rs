@@ -10,7 +10,7 @@
 mod common;
 
 use common::*;
-use stitchwort_driver::driver::with_stack;
+use stitchwort_driver::driver::{Tier, tier, with_stack};
 use stitchwort_rt::Limits;
 
 /// `map` and `fold` with lambdas; closures capturing several values (one a
@@ -179,17 +179,23 @@ def main(): {IO} () :=
 /// native frame per apply would reach its safety margin.
 #[test]
 fn tail_applies_run_in_constant_stack() {
-    const SMALL: usize = 64 * 1024 * 1024;
-    let source = tails(1_000_000);
-    with_stack(SMALL, move || {
-        let (program, limits) = lowered_for(&source, SMALL);
+    // The full size in the daily and full tiers; in merge and the lanes a
+    // quarter of the applies on 18 MiB (16 MiB of it the crossing's fixed room, so 2 MiB to run in), which a frame
+    // per apply (16 bytes at least) still overruns.
+    let (applies, stack) = match tier() {
+        Tier::Lane | Tier::Merge => (250_000, 18 * 1024 * 1024),
+        Tier::Daily | Tier::Full => (1_000_000, 64 * 1024 * 1024),
+    };
+    let source = tails(applies);
+    with_stack(stack, move || {
+        let (program, limits) = lowered_for(&source, stack);
         let limits = Limits {
             frames: 100,
             ..limits
         };
         let machine = on_machine(&program, limits);
-        assert_eq!(machine, ("6000001\n".to_string(), Ok(())));
-        let (native, notes) = native_on(&program, limits, false, SMALL);
+        assert_eq!(machine, (format!("{}\n", 6 * applies + 1), Ok(())));
+        let (native, notes) = native_on(&program, limits, false, stack);
         assert!(ran_natively(&notes), "{notes:#?}");
         assert_eq!(native, machine);
     });

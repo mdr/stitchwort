@@ -34,7 +34,9 @@ What only the full tier runs: the AoC project in the std_library, rewind and che
 | `extract` `run_lines_*`, `random_inputs_*`; `rt` `machine` `aoc_agrees` (days) | every 2nd | every 8th |
 | `cli` `examples` (every folder), `cli` `check_cache` projects | all (projects: every 4th) | every 4th (projects: every 16th); all of those matching `EXAMPLES` when it's set |
 
-When the daily tier grows past 5 minutes, cut it from nextest's own times (`target/nextest/daily/junit.xml`, or the `SLOW` lines): give the slowest sweep a larger stride, or move a test to full only, rather than re-running to see.
+When the daily tier grows past 5 minutes, cut it from nextest's own times (`target/nextest/daily/junit.xml`, or the `SLOW` lines): give the slowest sweep a larger stride, or move a test to full only, rather than re-running to see. The merge tier likewise (`target/nextest/merge/junit.xml`); on a loaded machine compare tests with each other, not with the budget.
+
+**Sizes that depend on the tier.** Besides the sampled sweeps, the constant-stack tests scale with the tier: `n2b` `tail_calls_of_every_shape_run_in_constant_stack` runs 10 million iterations on a 64 MiB stack in daily and full, and 1 million on 20 MiB in merge and the lanes; `n3` `tail_applies_run_in_constant_stack` runs 1,000,000 tail applies on 64 MiB in daily and full, 250,000 on 18 MiB in merge and the lanes. The native crossing reserves 16 MiB of any stack (`HOST_ROOM` and `HELPER_ROOM`, `crates/rt/src/native_abi.rs`), so the smaller stacks leave 4 MiB and 2 MiB to run in, which a leak of 8 (or 16) bytes an iteration still overruns: the same point, with a tenth of the work.
 
 ### Lane areas
 
@@ -204,6 +206,6 @@ A binary's tests already share the machine through libtest's test threads and `p
 - Every test is its own process, so statics, thread-locals and `OnceLock`s are never shared between tests, and pid-named temp directories are unique per test. State shared through the file system is not: `crates/cli/tests/lsp.rs` rebuilds one AoC copy under `CARGO_TARGET_TMPDIR` in each test, so those tests are in the `lsp-aoc-copy` test group (`max-threads = 1`). A new test that shares files between tests needs a group too.
 - Tests that rely on one process holding a lock (`SPAWN` in `crates/cli/tests/run.rs` and `aoc_answers.rs`, which guards the fork/exec race on pipe descriptors) still work: the race is within a process.
 - Nextest does not run doctests. `stitchwort-partial-model` has three (`src/typed.rs`, two `compile_fail`), so the check runs `cargo test --doc --workspace` after nextest.
-- Per-test times: the `daily` and `full` profiles write a JUnit report with the time of every test to `target/nextest/daily/junit.xml` (or `full/`), and nextest flags tests over 60 s (120 s in full) as SLOW while running. Under plain `cargo test`, the `finished in` line per binary is what there is.
+- Per-test times: the `merge`, `daily` and `full` profiles write a JUnit report with the time of every test to `target/nextest/daily/junit.xml` (or `merge/`, `full/`), and nextest flags tests over 60 s (120 s in full) as SLOW while running. Under plain `cargo test`, the `finished in` line per binary is what there is.
 - `conv_shortcut` now checks its examples on the `par_map` pool (the shortcut switch is thread-local): 107 s down to 17 s alone.
 

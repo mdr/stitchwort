@@ -16,7 +16,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use stitchwort_core::ResourceError;
-use stitchwort_driver::driver::{Session, with_stack};
+use stitchwort_driver::driver::{Session, Tier, tier, with_stack};
 use stitchwort_native::frames;
 use stitchwort_native::n1::{Options, factory};
 use stitchwort_rt::host::{NoTerminal, RunError};
@@ -434,14 +434,23 @@ def main(): {IO} () :=
 /// least limits are in the next test.
 #[test]
 fn tail_calls_of_every_shape_run_in_constant_stack() {
-    const SMALL: usize = 64 * 1024 * 1024;
+    // Ten million iterations on 64 MiB in the daily and full tiers; in merge
+    // and the lanes a million on 20 MiB (16 MiB of it the crossing's fixed room, so 4 MiB to run
+    // in), which a leak of even 8 bytes an
+    // iteration still overruns.
+    const BIG: usize = 64 * 1024 * 1024;
+    let (long, long_stack): (&str, usize) = match tier() {
+        Tier::Lane | Tier::Merge => ("1000000", 20 * 1024 * 1024),
+        Tier::Daily | Tier::Full => ("10000000", BIG),
+    };
     for (name, template) in tail_shapes() {
-        for (iterations, check_machine) in [("200000", true), ("10000000", false)] {
+        for (iterations, check_machine, stack) in [("200000", true, BIG), (long, false, long_stack)]
+        {
             let source = template.replace("{N}", iterations);
-            with_stack(SMALL, move || {
-                let (program, limits) = lowered(&source, SMALL);
+            with_stack(stack, move || {
+                let (program, limits) = lowered(&source, stack);
                 let limits = with_frames(limits, 1000);
-                let (ran, notes) = native_on(&program, limits, false, SMALL);
+                let (ran, notes) = native_on(&program, limits, false, stack);
                 assert!(ran_natively(&notes), "{name}: {notes:#?}");
                 assert!(ran.1.is_ok(), "{name} at {iterations}: {ran:?}");
                 if check_machine {
