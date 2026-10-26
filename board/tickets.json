@@ -3477,14 +3477,14 @@
     },
     {
       "id": 521,
-      "title": "Live keys lanes 2-4: live run in crates/web + worker; terminal pane (80x24 pre, escape subset, key table, keyboard exit); rogue live in playground (after lane 1)",
+      "title": "Live keys lanes 2-4: lane 2 merged (7ce810f9); lane 3 terminal pane doing; lane 4 rogue live next",
       "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
