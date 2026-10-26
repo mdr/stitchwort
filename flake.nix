@@ -299,8 +299,7 @@
       );
 
       devShells = forAllSystems (pkgs: {
-        default = pkgs.mkShell (
-        {
+        default = pkgs.mkShell {
           packages = [
             (toolchainFor pkgs)
             pkgs.cargo-insta # snapshot tests for example programs
@@ -321,13 +320,9 @@
 
             # Nix
             pkgs.nixfmt
-          ]
-          ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
-            pkgs.file # what the static-executable checks show
           ];
-        }
-        // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (muslEnv pkgs)
-      );
+          env = pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (muslEnv pkgs);
+        };
       });
 
       formatter = forAllSystems (pkgs: pkgs.nixfmt);
