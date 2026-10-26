@@ -332,9 +332,13 @@ fn a_lambda_capturing_variables() {
 import Std (Nat, Text, Int)
 def scale (a: Nat) (b: Nat) (xs: List Nat): List Nat := xs.map (x => a * x + b)
 
+-- The fold is in a pure function: an unannotated lambda inside `main`'s
+-- `{IO}` takes the ambient row, so `foldLeft` there would be called at `{IO}`.
+def total (k: Nat) (xs: List Nat): Nat := xs.foldLeft 0 (acc x => acc + x + k)
+
 def main(): {IO} () :=
   let k := 3
-  IO.print (Nat.toText ((scale k 1 [1, 2]).foldLeft 0 (acc x => acc + x + k)))
+  IO.print (Nat.toText (total k (scale k 1 [1, 2])))
 "#));
 }
 
