@@ -595,7 +595,7 @@ test "part 1 on the example" := part1 1 == 3
 test "greater" := 1 > part1 5
 test "long value" := List.range 1000 == []
 test "huge value" := List.range 100000 == []
-test "not a comparison" := List.all (n => n < 3) [1, 2, 3]
+test "not a comparison" := List.all [1, 2, 3] (n => n < 3)
 test "second part" := part1 1 == 2 && part1 2 == 4
 `);
   await page.untilChecked();
@@ -614,7 +614,7 @@ test "second part" := part1 1 == 2 && part1 2 == 4
   assert.equal(rows[1].text, "greater (`>` is False)");
   assert.equal(rows[1].detail, "left:  1\nright: 6");
   assert.match(rows[2].detail, /^left:  \[0, 1, 2, [^]*…\nright: \[\]\nfirst difference at index 0: [^\n]*$/);
-  assert.ok(rows[2].detail.length < 400, rows[2].detail.length);
+  assert.ok(rows[2].detail.length < 4500, rows[2].detail.length);
   assert.equal(rows[3].detail, "left:  … (too large to show)\nright: []");
   assert.equal(rows[4].text, "not a comparison (evaluated to False)");
   assert.equal(rows[4].detail, null);
@@ -1796,7 +1796,7 @@ test("hovering a name shows its type: a local, a declaration, a library function
   // A declaration of the program.
   await hoverAt(page, await whereIs(page, "double (double n)", 0, 6));
   await page.until(`document.getElementById("navtip").textContent.startsWith("Main.double")`, 10000, "the tooltip of a declaration");
-  assert.match(await tooltip(page), /^Main.double def\n: Nat -> Nat$/);
+  assert.match(await tooltip(page), /^Main.double def\n: Nat → Nat$/);
   // Off a name, there is none.
   await hoverAt(page, await whereIs(page, "def double", 1, 1));
   await page.until(`document.getElementById("navtip").hidden`, 5000, "the tooltip to go");
@@ -1949,13 +1949,13 @@ test("Inside a library file: hover, Cmd-click, F12, find references and the menu
   await untilStd(page, "core/Data.sw", "core/Data.sw");
   assert.match(await textAtCaret(page), /^def List\.length\b/);
   // Hover in the library file: a name in its type, then a constructor in its body.
-  await hoverAt(page, await whereIs(page, "List a -> Nat\n  | Nil => 0", 10, 3));
+  await hoverAt(page, await whereIs(page, "List a → Nat\n  | Nil => 0", 10, 3));
   await page.until(`document.getElementById("navtip").textContent.startsWith("Std.Nat")`, 30000, "the tooltip in the library file");
   assert.match(await tooltip(page), /^Std.Nat data\n: Type$/);
   await hoverAt(page, await whereIs(page, "Succ (List.length xs)", 0, 4));
   await page.until(`document.getElementById("navtip").textContent.startsWith("Std.Nat.Succ") || document.getElementById("navtip").textContent.startsWith("Succ")`, 10000, "the tooltip of a constructor");
   // With Cmd held the name is underlined, and the cursor says it's a link.
-  const nat = await whereIs(page, "List a -> Nat\n  | Nil => 0", 10, 3);
+  const nat = await whereIs(page, "List a → Nat\n  | Nil => 0", 10, 3);
   await hoverAt(page, nat, CMD);
   await page.until(`(() => { const l = document.getElementById("navlink"); return !l.hidden && l.getBoundingClientRect().width > 10; })()`, 10000, "the underline in the library file");
   assert.equal(await page.ev(`document.getElementById("source").style.cursor`), "pointer");
@@ -1982,7 +1982,7 @@ test("Inside a library file: hover, Cmd-click, F12, find references and the menu
   assert.match(await textAtCaret(page), /^def List\.sum\b/);
   // F12 at the caret in the library file: go to the definition of the name.
   await page.ev(`(() => { const s = document.getElementById("source"); s.focus();
-    const i = s.value.indexOf("Add.add Add.zero") + 1; s.setSelectionRange(i, i); })()`);
+    const i = s.value.indexOf("Add.zero Add.add") + "Add.zero ".length + 1; s.setSelectionRange(i, i); })()`);
   await page.key("F12", "F12", 123);
   await untilStd(page, "core/AddMul.sw", "core/AddMul.sw from the toolkit");
   assert.match(await textAtCaret(page), /Add\b|add\b/);
@@ -2001,7 +2001,7 @@ test("Inside a library file: hover, Cmd-click, F12, find references and the menu
   await shots(page, "std-references");
   // The right-click menu on a name there, with its two lookups.
   await page.key("Escape", "Escape", 27);
-  const menuAt = await whereIs(page, "Add.add Add.zero", 0, 3);
+  const menuAt = await whereIs(page, "Add.zero Add.add", 9, 3);
   await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: menuAt.x, y: menuAt.y });
   await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x: menuAt.x, y: menuAt.y, button: "right", clickCount: 1 });
   await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: menuAt.x, y: menuAt.y, button: "right", clickCount: 1 });

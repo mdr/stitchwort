@@ -14,6 +14,7 @@
 pub mod alloc_trace;
 pub mod census;
 pub mod code;
+pub mod codec;
 pub mod effect;
 pub mod erasure;
 pub mod fusion;
@@ -32,6 +33,7 @@ pub mod specialise;
 mod validate;
 pub mod value;
 
+pub use codec::{CodecError, decode, encode};
 pub use ir::{MainRow, Program};
 pub use lower::{lower_definitions, lower_global, lower_main};
 pub use machine::{Limits, Machine};

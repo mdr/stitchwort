@@ -19,12 +19,8 @@ use super::{
     run_by_line_of, split_goals, test_answer,
 };
 
-/// The project's name in messages: errors show `aoc/src/Aoc/Day02/Day02.sw`,
-/// as the CLI does in the project's parent folder.
-const PROJECT: &str = "aoc";
-
 /// The tests run on threads with a big stack: the AoC proofs need more than
-/// the 2 MiB a test thread has (in WebAssembly they fit its 128 KiB guard).
+/// the 2 MiB a test thread has (in WebAssembly they fit its 256 KiB guard).
 #[cfg(test)]
 const TEST_STACK: usize = 256 * 1024 * 1024;
 
@@ -104,9 +100,11 @@ fn target_of(targets: &str) -> Target {
     }
 }
 
-/// A file's path within the project, from its display name.
-fn project_path(name: &str) -> &str {
-    name.strip_prefix(PROJECT)
+/// A file's path within the project, from its display name. Messages show
+/// `aoc/src/Aoc/Day02/Day02.sw`, as the CLI does in the project's parent
+/// folder: the project's name (`project`, as the page gives it) and the path.
+fn project_path<'a>(project: &str, name: &'a str) -> &'a str {
+    name.strip_prefix(project)
         .and_then(|rest| rest.strip_prefix('/'))
         .unwrap_or(name)
 }
@@ -114,7 +112,7 @@ fn project_path(name: &str) -> &str {
 /// `"diagnostics": [...]`: one entry per diagnostic, with its severity, code
 /// and the primary span's file (path within the project), line and column,
 /// both counted from 1, the column in characters.
-fn diagnostics_json(session: &Session, diagnostics: &[&Diagnostic]) -> String {
+fn diagnostics_json(project: &str, session: &Session, diagnostics: &[&Diagnostic]) -> String {
     let each: Vec<String> = diagnostics
         .iter()
         .map(|d| {
@@ -130,7 +128,7 @@ fn diagnostics_json(session: &Session, diagnostics: &[&Diagnostic]) -> String {
                 let column = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
                 format!(
                     r#","file":{},"line":{line},"column":{column}"#,
-                    json_string(project_path(&file.name))
+                    json_string(project_path(project, &file.name))
                 )
             });
             format!(
@@ -150,7 +148,7 @@ fn diagnostics_json(session: &Session, diagnostics: &[&Diagnostic]) -> String {
 
 /// `{"ok": false, "errors": "…", "warnings": […], "diagnostics": […]}` for
 /// the diagnostics of a load that failed.
-fn failed(session: &Session, diagnostics: Vec<Diagnostic>) -> String {
+fn failed(project: &str, session: &Session, diagnostics: Vec<Diagnostic>) -> String {
     let (goals, others) = split_goals(diagnostics.clone());
     let (warnings, errors): (Vec<_>, Vec<_>) =
         others.iter().partition(|d| d.severity == Severity::Warning);
@@ -183,27 +181,41 @@ fn failed(session: &Session, diagnostics: Vec<Diagnostic>) -> String {
         r#"{{"ok":false,"errors":{}{warnings_field}{},{}}}"#,
         json_string(&text),
         goals_field(session, &goals),
-        diagnostics_json(session, &all)
+        diagnostics_json(project, session, &all)
     )
 }
 
 /// Loads the project's files for `target`, or gives the answer for a load
 /// that fails.
-fn load(paths: &[String], texts: &[String], targets: &str) -> Result<Loaded, String> {
+fn load(
+    project: &str,
+    paths: &[String],
+    texts: &[String],
+    targets: &str,
+) -> Result<Loaded, String> {
     let mut session = new_session(paths, texts, false);
-    match session.load_project_sources(PROJECT, pairs(paths, texts), &target_of(targets)) {
+    match session.load_project_sources(project, pairs(paths, texts), &target_of(targets)) {
         Ok(loaded) => Ok(Loaded {
             session,
             checked: loaded.checked,
         }),
-        Err(diagnostics) => Err(failed(&session, diagnostics)),
+        Err(diagnostics) => Err(failed(project, &session, diagnostics)),
     }
 }
 
 /// [`load`], shared by the read-only users (`check_project`, `test_project`
 /// and `extract_project`), as `load_shared` is for single files.
-fn load_shared(paths: &[String], texts: &[String], targets: &str) -> Result<Rc<Loaded>, String> {
-    let key = (paths.to_vec(), texts.to_vec(), targets.to_string());
+fn load_shared(
+    project: &str,
+    paths: &[String],
+    texts: &[String],
+    targets: &str,
+) -> Result<Rc<Loaded>, String> {
+    let key = (
+        paths.to_vec(),
+        texts.to_vec(),
+        format!("{project}:{targets}"),
+    );
     LAST.with(|last| {
         let mut last = last.borrow_mut();
         if let Some((cached_key, cached)) = last.as_ref()
@@ -211,7 +223,7 @@ fn load_shared(paths: &[String], texts: &[String], targets: &str) -> Result<Rc<L
         {
             return cached.clone();
         }
-        let loaded = load(paths, texts, targets).map(Rc::new);
+        let loaded = load(project, paths, texts, targets).map(Rc::new);
         *last = Some((key, loaded.clone()));
         loaded
     })
@@ -221,11 +233,11 @@ fn load_shared(paths: &[String], texts: &[String], targets: &str) -> Result<Rc<L
 /// "namespaces": [{"name": …, "files": [paths], "uses": [names]}]}`, or the
 /// errors that stop that (a file with no namespace, a clash).
 #[wasm_bindgen]
-pub fn outline_project(paths: Vec<String>, texts: Vec<String>) -> String {
+pub fn outline_project(project: &str, paths: Vec<String>, texts: Vec<String>) -> String {
     let mut session = new_session(&paths, &texts, false);
-    let analysis = analyse(&mut session, PROJECT, pairs(&paths, &texts));
+    let analysis = analyse(&mut session, project, pairs(&paths, &texts));
     if !analysis.diagnostics.is_empty() {
-        return failed(&session, analysis.diagnostics);
+        return failed(project, &session, analysis.diagnostics);
     }
     let each: Vec<String> = analysis
         .namespaces
@@ -234,7 +246,7 @@ pub fn outline_project(paths: Vec<String>, texts: Vec<String>) -> String {
             let files: Vec<String> = ns
                 .files
                 .iter()
-                .map(|id| json_string(project_path(&session.sources.get(*id).name)))
+                .map(|id| json_string(project_path(project, &session.sources.get(*id).name)))
                 .collect();
             let mut uses: Vec<&str> = ns.edges.iter().map(|e| e.target.as_str()).collect();
             uses.sort();
@@ -256,8 +268,13 @@ pub fn outline_project(paths: Vec<String>, texts: Vec<String>) -> String {
 /// "warnings"?, "diagnostics"}` or `{"ok": false, "errors", "warnings"?,
 /// "diagnostics"}`.
 #[wasm_bindgen]
-pub fn check_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> String {
-    match load_shared(&paths, &texts, targets) {
+pub fn check_project(
+    project: &str,
+    paths: Vec<String>,
+    texts: Vec<String>,
+    targets: &str,
+) -> String {
+    match load_shared(project, &paths, &texts, targets) {
         Ok(loaded) => {
             let checked: Vec<String> = loaded.checked.iter().map(|n| json_string(n)).collect();
             let (goals, warned) = split_goals(loaded.session.warnings.clone());
@@ -281,7 +298,7 @@ pub fn check_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> S
                 r#"{{"ok":true,"checked":[{}]{warnings}{},{}}}"#,
                 checked.join(","),
                 goals_field(&loaded.session, &goals),
-                diagnostics_json(&loaded.session, &all)
+                diagnostics_json(project, &loaded.session, &all)
             )
         }
         Err(failed) => failed,
@@ -292,21 +309,32 @@ pub fn check_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> S
 /// `targets` (empty for the whole project) and what they use, with paths
 /// within the project. Not cached.
 #[wasm_bindgen]
-pub fn check_index_project(paths: Vec<String>, texts: Vec<String>, targets: &str) -> String {
+pub fn check_index_project(
+    project: &str,
+    paths: Vec<String>,
+    texts: Vec<String>,
+    targets: &str,
+) -> String {
     let mut session = new_session(&paths, &texts, true);
-    let loaded = session.load_project_sources(PROJECT, pairs(&paths, &texts), &target_of(targets));
+    let loaded = session.load_project_sources(project, pairs(&paths, &texts), &target_of(targets));
     let ok = loaded.is_ok();
     let mut reported = std::mem::take(&mut session.warnings);
     if let Err(errors) = loaded {
         reported.extend(errors);
     }
-    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), &format!("{PROJECT}/"), &reported)
+    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), &format!("{project}/"), &reported)
 }
 
 /// [`super::test`] for a project: each result also has its `namespace`.
 #[wasm_bindgen]
-pub fn test_project(paths: Vec<String>, texts: Vec<String>, targets: &str, known: &str) -> String {
-    match load_shared(&paths, &texts, targets) {
+pub fn test_project(
+    project: &str,
+    paths: Vec<String>,
+    texts: Vec<String>,
+    targets: &str,
+    known: &str,
+) -> String {
+    match load_shared(project, &paths, &texts, targets) {
         Ok(loaded) => test_answer(&loaded.session, known, true),
         Err(failed) => failed,
     }
@@ -316,13 +344,14 @@ pub fn test_project(paths: Vec<String>, texts: Vec<String>, targets: &str, known
 /// loading `targets`, with no namespace open, so it uses full names.
 #[wasm_bindgen]
 pub fn evaluate_project(
+    project: &str,
     paths: Vec<String>,
     texts: Vec<String>,
     targets: &str,
     imports: &str,
     expr: &str,
 ) -> String {
-    let mut session = match load(&paths, &texts, targets) {
+    let mut session = match load(project, &paths, &texts, targets) {
         Ok(loaded) => loaded.session,
         Err(failed) => return failed,
     };
@@ -332,8 +361,13 @@ pub fn evaluate_project(
 /// [`super::extract`] for one namespace of a project, as `build --js NS`
 /// does.
 #[wasm_bindgen]
-pub fn extract_project(paths: Vec<String>, texts: Vec<String>, namespace: &str) -> String {
-    let loaded = match load_shared(&paths, &texts, namespace) {
+pub fn extract_project(
+    project: &str,
+    paths: Vec<String>,
+    texts: Vec<String>,
+    namespace: &str,
+) -> String {
+    let loaded = match load_shared(project, &paths, &texts, namespace) {
         Ok(loaded) => loaded,
         Err(failed) => return failed,
     };
@@ -350,25 +384,26 @@ pub fn extract_project(paths: Vec<String>, texts: Vec<String>, namespace: &str) 
 /// The project's session with the namespace of `name` loaded, and `name`'s
 /// `main`; or the answer for a project that doesn't load.
 fn load_main(
+    project: &str,
     paths: &[String],
     texts: &[String],
     name: &str,
 ) -> Result<(Session, stitchwort_driver::run::Main), String> {
     let mut session = new_session(paths, texts, false);
-    let analysis: Analysis = analyse(&mut session, PROJECT, pairs(paths, texts));
+    let analysis: Analysis = analyse(&mut session, project, pairs(paths, texts));
     if !analysis.diagnostics.is_empty() {
-        return Err(failed(&session, analysis.diagnostics));
+        return Err(failed(project, &session, analysis.diagnostics));
     }
     let Some(namespace) = namespace_of(&analysis, name).map(str::to_string) else {
-        let d = run_unknown_namespace(PROJECT, name, &analysis);
-        return Err(failed(&session, vec![d]));
+        let d = run_unknown_namespace(project, name, &analysis);
+        return Err(failed(project, &session, vec![d]));
     };
     if let Err(diagnostics) =
-        session.load_analysis(PROJECT, analysis, &Target::Namespaces(vec![namespace]))
+        session.load_analysis(project, analysis, &Target::Namespaces(vec![namespace]))
     {
-        return Err(failed(&session, diagnostics));
+        return Err(failed(project, &session, diagnostics));
     }
-    match session.main_named(name, PROJECT) {
+    match session.main_named(name, project) {
         Ok(main) => Ok((session, main)),
         Err(error) => Err(failure(&rendered(&session, &[error]))),
     }
@@ -378,11 +413,12 @@ fn load_main(
 /// with the full name `name`.
 #[wasm_bindgen]
 pub fn start_live_project(
+    project: &str,
     paths: Vec<String>,
     texts: Vec<String>,
     name: &str,
 ) -> Result<super::live::LiveSession, String> {
-    let (session, main) = load_main(&paths, &texts, name)?;
+    let (session, main) = load_main(project, &paths, &texts, name)?;
     super::live::live_from(session, main)
 }
 
@@ -390,6 +426,7 @@ pub fn start_live_project(
 /// name `name` (as `stitchwort run NAME` does), after loading its namespace.
 #[wasm_bindgen]
 pub fn run_project_streaming(
+    project: &str,
     paths: Vec<String>,
     texts: Vec<String>,
     name: &str,
@@ -397,7 +434,7 @@ pub fn run_project_streaming(
     max_output: usize,
     sink: &OutputSink,
 ) -> String {
-    let (session, main) = match load_main(&paths, &texts, name) {
+    let (session, main) = match load_main(project, &paths, &texts, name) {
         Ok(loaded) => loaded,
         Err(failure) => return failure,
     };
@@ -423,6 +460,8 @@ pub fn run_project_streaming(
 mod tests {
     use super::*;
     use std::path::Path;
+
+    const PROJECT: &str = "aoc";
 
     /// The `.sw` files under `aoc/src`, and the example and puzzle inputs
     /// under `aoc/examples` and `aoc/inputs`, as (path within the project,
@@ -500,7 +539,7 @@ mod tests {
                 "namespace B\n\nimport A (two)\n\ndef f (xs: List Nat): Nat := two + xs.length\n"
                     .to_string(),
             ];
-            let index = check_index_project(paths, texts, "");
+            let index = check_index_project(PROJECT, paths, texts, "");
             assert!(
                 index.starts_with(r#"{"version":2,"errors":false,"ok":true,"files":["#),
                 "{index}"
@@ -518,7 +557,7 @@ mod tests {
 
     fn every_aoc_day_body() {
         let (paths, texts) = aoc_files();
-        let outline = outline_project(paths.clone(), texts.clone());
+        let outline = outline_project(PROJECT, paths.clone(), texts.clone());
         assert!(
             outline.starts_with(r#"{"ok":true,"namespaces":["#),
             "{outline}"
@@ -529,13 +568,13 @@ mod tests {
             ),
             "{outline}"
         );
-        let whole = check_project(paths.clone(), texts.clone(), "");
+        let whole = check_project(PROJECT, paths.clone(), texts.clone(), "");
         assert!(whole.starts_with(r#"{"ok":true,"checked":["#), "{whole}");
         for day in 1..=6 {
             let targets = day_targets(&outline, day);
-            let checked = check_project(paths.clone(), texts.clone(), &targets);
+            let checked = check_project(PROJECT, paths.clone(), texts.clone(), &targets);
             assert!(checked.starts_with(r#"{"ok":true"#), "day {day}: {checked}");
-            let tests = test_project(paths.clone(), texts.clone(), &targets, "");
+            let tests = test_project(PROJECT, paths.clone(), texts.clone(), &targets, "");
             assert!(tests.starts_with(r#"{"ok":true,"tests":["#), "day {day}");
             assert!(!tests.contains(r#""passed":false"#), "day {day}: {tests}");
             assert!(tests.contains(r#""namespace":"Aoc.Day"#), "day {day}");
@@ -589,7 +628,7 @@ mod tests {
             .position(|p| p == "src/Aoc/Common/Range.sw")
             .expect("the shared file");
         texts[at].push_str("\ndef broken : Nat := rfl\n");
-        let answer = check_project(paths, texts, "Aoc.Day02");
+        let answer = check_project(PROJECT, paths, texts, "Aoc.Day02");
         assert!(
             answer.starts_with(r#"{"ok":false,"errors":"[E-"#),
             "{answer}"
@@ -610,6 +649,7 @@ mod tests {
     fn evaluate_body() {
         let (paths, texts) = aoc_files();
         let value = evaluate_project(
+            PROJECT,
             paths.clone(),
             texts.clone(),
             "Aoc.Day02,Aoc.Day02.Tests",
@@ -622,6 +662,7 @@ mod tests {
         );
         // An import of the project's namespaces gives short names.
         let short = evaluate_project(
+            PROJECT,
             paths.clone(),
             texts.clone(),
             "Aoc.Day02,Aoc.Day02.Tests",
@@ -632,7 +673,7 @@ mod tests {
             short.starts_with(r#"{"ok":true,"value":"1227775554""#),
             "{short}"
         );
-        let nothing = extract_project(paths, texts, "Aoc.Day02");
+        let nothing = extract_project(PROJECT, paths, texts, "Aoc.Day02");
         assert!(nothing.starts_with(r#"{"ok":true,"js":"#), "{nothing}");
     }
 }

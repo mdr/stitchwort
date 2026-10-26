@@ -184,7 +184,7 @@ fn long_list_literals() {
     });
 }
 
-/// The same under a small stack guard (the playground's is 128 KiB, but its
+/// The same under a small stack guard (the playground's is 256 KiB, but its
 /// frames are smaller than native ones; see `crates/web/build.rs`), where a
 /// single chain of a few hundred elements runs out.
 #[test]

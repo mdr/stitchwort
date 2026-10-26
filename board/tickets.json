@@ -1,5 +1,5 @@
 {
-  "next": 544,
+  "next": 545,
   "tickets": [
     {
       "id": 13,
@@ -3452,7 +3452,7 @@
     {
       "id": 519,
       "title": "Native N2b: big-stack sizing with counter-fires-first tests, tail-call shape tests, frame sizes, trace order on error paths (after N2a)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3478,7 +3478,7 @@
     {
       "id": 521,
       "title": "Live keys lanes 2-4: live run in crates/web + worker; terminal pane (80x24 pre, escape subset, key table, keyboard exit); rogue live in playground (after lane 1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3503,7 +3503,7 @@
     },
     {
       "id": 523,
-      "title": "Kernel: compare same-definition calls by arguments first, fall back to unfolding (opaque plan lane 5; folded-calls stage 4)",
+      "title": "Kernel: compare same-definition calls by arguments first (glued in kernel, CallMemo) [built e73cbd47, awaiting review]",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -3528,7 +3528,7 @@
     {
       "id": 525,
       "title": "Opaque defs lane 1: kernel opacity (Def flag, per-declaration transitive unfolding set, neutral heads, groups unfold together D1267, hashing, E-NOT-OPAQUE) — branch, morning review",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3540,7 +3540,7 @@
     {
       "id": 526,
       "title": "Opaque defs lane 2: surface opaque def / unfolding, f.unfold generation (lazy), docs — after lane 1",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3602,14 +3602,16 @@
     {
       "id": 531,
       "title": "Playground browser tests: 3 failures (arrow in tooltip, failed-comparison example, library tooltip timeout); per-project error path prefix; 256 KiB guard docs",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "39bf3840"
+      ]
     },
     {
       "id": 532,
@@ -3674,31 +3676,35 @@
     {
       "id": 537,
       "title": "Standalone S1: codec for the lowered program (crates/rt/src/codec.rs)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "f6a29967"
+      ]
     },
     {
       "id": 538,
       "title": "Standalone S2: terminal host code into crates/host",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-25",
-      "commits": []
+      "commits": [
+        "78c67af0"
+      ]
     },
     {
       "id": 539,
       "title": "Standalone S3: runtime staticlib + stitchwort build (machine only) — M1: build games/rogue plays (after S1, S2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -3746,6 +3752,18 @@
     {
       "id": 543,
       "title": "Standalone S7: roguelike fully native — M2 (after N4, S5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-25",
+      "updated": "2026-10-25",
+      "commits": []
+    },
+    {
+      "id": 544,
+      "title": "bench/baseline.toml: check-closed-print/-dot/-eqeq/-list-eqeq flagged ~+28% steps on main (found by kernel args-first lane); find cause or re-record",
       "status": "backlog",
       "agent": "",
       "where": "",
