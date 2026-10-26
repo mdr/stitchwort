@@ -1184,6 +1184,12 @@ fn opcode_census(
         fitting.len(),
         census.bodies.len()
     );
+    let is_std = |name: &str| name.starts_with("Std.");
+    println!(
+        "  of which the standard library's: {} of {} reachable",
+        fitting.iter().filter(|(name, _)| is_std(name)).count(),
+        census.bodies.iter().filter(|b| is_std(&b.name)).count()
+    );
     for (name, size) in fitting.iter().take(5) {
         println!("  {name}: island of {size}");
     }

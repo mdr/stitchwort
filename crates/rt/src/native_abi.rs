@@ -39,6 +39,16 @@
 //! - **Constants** are the machine's: native code reads and fills the
 //!   machine's cache of global values, so a constant is computed once per
 //!   run whichever runner needs it first.
+//! - **Function values** (stage N3) cross both ways as they are: a `Fun`
+//!   is `repr(u8)` too (its variant byte first, a global's or lambda's
+//!   index at byte 4, a closure's captures at bytes 8–23), so native code
+//!   reads a closure's captures and keys its apply caches on the first word
+//!   (`fun_key`). A root whose island applies function values is handed a
+//!   call only if every function value in its arguments has compiled code
+//!   ([`natively_callable`]); native code applies a function value through
+//!   the code [`Context`] lists for each global and lambda, or through
+//!   [`sw_apply_prepare`], which does what the machine's `apply` does. A
+//!   function value native code returns is the machine's to apply.
 
 use std::mem::MaybeUninit;
 use std::rc::Rc;
@@ -87,6 +97,16 @@ pub const LEN_AT: i32 = 16;
 pub const STRONG_AT: i32 = 0;
 pub const WEAK_AT: i32 = 8;
 pub const RC_VALUE_AT: i32 = 16;
+
+/// A function value's variant ([`Fun`] is `repr(u8)`): its first byte.
+pub const FUN_GLOBAL: u8 = 0;
+pub const FUN_CLOSURE: u8 = 1;
+/// In a [`Fun`]: where a `Closure`'s captures are (a slice's address, then
+/// its length). A `Global`'s index and a `Closure`'s lambda are at byte 4.
+pub const FUN_CAPTURES_AT: i32 = 8;
+/// What [`ApplyCache`] keys on: a function value's first word (its variant
+/// and its index or lambda), without the padding bytes between them.
+pub const FUN_KEY_MASK: u64 = 0xffff_ffff_0000_00ff;
 
 /// The words of a value, as native code holds it.
 #[allow(unsafe_code)]
@@ -208,6 +228,7 @@ fn probe() -> Result<(), String> {
         "a text's address and length",
     )?;
     check(counts_at(tw[1]).0 == 2, "a text's count")?;
+    probe_functions()?;
     for v in [&tags[2].0, &tags[4].0, &tags[9].0, &tags[10].0] {
         let copy = v.clone();
         let ok = counts_at(words(v)[1]).0 == 2;
@@ -218,6 +239,76 @@ fn probe() -> Result<(), String> {
         )?;
     }
     Ok(())
+}
+
+/// The facts about [`Fun`]'s layout that native code relies on: the
+/// variant byte, a `Global`'s index, a `Closure`'s lambda and captures, as
+/// [`ApplyCache`]'s key and `Captured` read them.
+#[allow(unsafe_code)]
+fn probe_functions() -> Result<(), String> {
+    let check = |ok: bool, what: &str| {
+        if ok {
+            Ok(())
+        } else {
+            Err(format!(
+                "the layout of function values isn't as native code expects: {what}"
+            ))
+        }
+    };
+    let closure = Value::Fun(Rc::new(Fun::Closure {
+        lambda: 0x1234_5678,
+        captures: vec![Value::Nat(5), Value::Nat(6), Value::Nat(7)].into(),
+    }));
+    let global = Value::Fun(Rc::new(Fun::Global(0x0abc_def0)));
+    let pap = Value::Fun(Rc::new(Fun::Pap {
+        head: global.clone(),
+        args: vec![Value::Nat(1)].into(),
+    }));
+    // The address of a function value's `Fun`.
+    let at = |v: &Value| words(v)[1] + RC_VALUE_AT as u64;
+    // SAFETY: each address is a live `Rc<Fun>`'s value (`probe` checked
+    // that an owning value keeps its allocation's address at byte 8), and a
+    // `Fun` is at least 24 bytes.
+    let (first, captures, len) = unsafe {
+        let base = at(&closure) as *const u8;
+        (
+            base.cast::<u64>().read(),
+            base.add(FUN_CAPTURES_AT as usize).cast::<u64>().read(),
+            base.add(FUN_CAPTURES_AT as usize + 8).cast::<u64>().read(),
+        )
+    };
+    check(first as u8 == FUN_CLOSURE, "a closure's variant")?;
+    check(
+        first & FUN_KEY_MASK == fun_key(FUN_CLOSURE, 0x1234_5678),
+        "a closure's lambda",
+    )?;
+    let Value::Fun(f) = &closure else {
+        unreachable!("a function")
+    };
+    let Fun::Closure { captures: c, .. } = &**f else {
+        unreachable!("a closure")
+    };
+    check(
+        captures == c.as_ptr() as u64 && len == 3,
+        "a closure's captures",
+    )?;
+    // SAFETY: as above.
+    let first = unsafe { (at(&global) as *const u64).read() };
+    check(
+        first & FUN_KEY_MASK == fun_key(FUN_GLOBAL, 0x0abc_def0),
+        "a global function's index",
+    )?;
+    // SAFETY: as above.
+    let first = unsafe { (at(&pap) as *const u8).read() };
+    check(
+        first != FUN_GLOBAL && first != FUN_CLOSURE,
+        "a partial application's variant",
+    )
+}
+
+/// [`ApplyCache`]'s key for a function value of `variant` and `index`.
+const fn fun_key(variant: u8, index: u32) -> u64 {
+    variant as u64 | (index as u64) << 32
 }
 
 // ------------------------------------------------------------ the context
@@ -250,8 +341,13 @@ pub struct Context {
     /// The lowest stack address native code may call from: a safety margin
     /// behind the frame limit, never the limit itself (§4.3). 0 for none.
     pub stack_limit: u64,
-    /// Each global's compiled code, or null: for `Apply`.
+    /// For `Apply`: each global function's compiled code as a function
+    /// value's (the entry that takes the function value last, and drops
+    /// it), or null.
     pub functions: *const *const u8,
+    /// For `Apply`: each lambda's compiled code (taking its closure last),
+    /// or null.
+    pub lambdas: *const *const u8,
     /// The run this is part of.
     pub run: *mut NativeRun<'static>,
 }
@@ -305,18 +401,41 @@ pub trait NativeIslands {
     ) -> Result<Value, ResourceError>;
 }
 
-/// Whether `v` holds a function value anywhere inside it.
-pub fn holds_function(v: &Value) -> bool {
+/// Whether native code could apply every function value inside `v`: each
+/// is a global that `globals` (by global) says it can apply (a compiled
+/// function, or an applicable native), a closure of a compiled lambda
+/// (`lambdas`, by lambda, null for none) whose captures are callable too,
+/// `y => Done y`, or a partial application of one of those to callable
+/// values. A `Delay` is opaque to native code (it only builds them; the
+/// runner steps them), so what's inside it doesn't matter.
+pub fn natively_callable(globals: &[bool], lambdas: &[*const u8], v: &Value) -> bool {
     let mut pending = vec![v];
     while let Some(v) = pending.pop() {
         match v {
-            Value::Fun(_) => return true,
             Value::Data(_, fields) => pending.extend(fields.iter()),
-            Value::Delay(_) => return true,
+            Value::Fun(fun) => match &**fun {
+                Fun::Global(g) => {
+                    if !globals[*g as usize] {
+                        return false;
+                    }
+                }
+                Fun::Closure { lambda, captures } => {
+                    if lambdas[*lambda as usize].is_null() {
+                        return false;
+                    }
+                    pending.extend(captures.iter());
+                }
+                Fun::Pap { head, args } => {
+                    pending.push(head);
+                    pending.extend(args.iter());
+                }
+                Fun::DoneK => {}
+                _ => return false,
+            },
             _ => {}
         }
     }
-    false
+    true
 }
 
 // ------------------------------------------------------------ the helpers
@@ -626,18 +745,12 @@ pub unsafe extern "C" fn sw_num_switch(table: *const NumTable, v: *const Value) 
 pub unsafe extern "C" fn sw_global(context: *mut Context, g: u32, out: *mut Value) -> u64 {
     // SAFETY: the context's run outlives the native call.
     let run = unsafe { &mut *(*context).run };
-    let g = g as usize;
-    if let Some(v) = &run.globals[g] {
-        unsafe { out.write(v.clone()) };
-        return 1;
+    if run.globals[g as usize].is_none()
+        && let GlobalKind::Constant { .. } = run.program.globals[g as usize].kind
+    {
+        return 0;
     }
-    let v = match &run.program.globals[g].kind {
-        GlobalKind::Constant { .. } => return 0,
-        GlobalKind::Native(op) if op.arity() == 0 => Value::Erased,
-        _ => Value::Fun(Rc::new(Fun::Global(g as u32))),
-    };
-    run.globals[g] = Some(v.clone());
-    unsafe { out.write(v) };
+    unsafe { out.write(function_value(run, g)) };
     1
 }
 
@@ -652,9 +765,10 @@ pub unsafe extern "C" fn sw_global_set(context: *mut Context, g: u32, v: *const 
     run.globals[g as usize] = Some(unsafe { (*v).clone() });
 }
 
-/// Whether a native operation can be applied by [`sw_apply_native`]: it
-/// computes a value from its arguments (not an effect runtime native or
-/// `Text.fold`, which the machine runs on its frames).
+/// Whether a native operation can be applied by native code (through
+/// [`sw_apply_prepare`]): it computes a value from its arguments (not an
+/// effect runtime native or `Text.fold`, which the machine runs on its
+/// frames).
 pub fn applicable_native(op: PrimOp) -> bool {
     !matches!(
         op,
@@ -662,63 +776,51 @@ pub fn applicable_native(op: PrimOp) -> bool {
     )
 }
 
-/// What `Apply` of the function value at `f` to `n` arguments calls: the
-/// compiled code of a global function that takes `n`, or 0 for a native
-/// operation that takes `n` ([`sw_apply_native`]). Island admission makes
-/// sure it's one of those (the native crate's module comment); anything
-/// else is an internal error.
-///
-/// # Safety
-/// As [`sw_global`]; `f` points at a live value.
-#[allow(unsafe_code)]
-pub unsafe extern "C" fn sw_apply_target(context: *mut Context, f: *const Value, n: u64) -> u64 {
-    // SAFETY: as for `sw_global`.
-    let (run, functions) = unsafe { (&*(*context).run, (*context).functions) };
-    let f = unsafe { &*f };
-    if let Value::Fun(fun) = f
-        && let Fun::Global(g) = **fun
-    {
-        match &run.program.globals[g as usize].kind {
-            GlobalKind::Function { params, .. } if u64::from(*params) == n => {
-                // SAFETY: the table has an entry for every global.
-                let code = unsafe { *functions.add(g as usize) };
-                if !code.is_null() {
-                    return code as u64;
-                }
-            }
-            GlobalKind::Native(op) if u64::from(op.arity()) == n && applicable_native(*op) => {
-                return 0;
-            }
-            _ => {}
-        }
-    }
-    eprintln!("internal error: native code applied {f:?} to {n} arguments, outside its island");
+/// Stops the process on a broken invariant of native code (a helper can't
+/// unwind into compiled code).
+fn internal(what: std::fmt::Arguments<'_>) -> ! {
+    eprintln!("internal error: native code {what}");
     std::process::abort();
 }
 
+/// Global `g`'s value, if it's known: the cached value, or for a function
+/// or a native a new function value, kept (the machine's `function_value`).
+fn function_value(run: &mut NativeRun<'_>, g: u32) -> Value {
+    if let Some(v) = &run.globals[g as usize] {
+        return v.clone();
+    }
+    let v = match &run.program.globals[g as usize].kind {
+        GlobalKind::Native(op) if op.arity() == 0 => Value::Erased,
+        _ => Value::Fun(Rc::new(Fun::Global(g))),
+    };
+    run.globals[g as usize] = Some(v.clone());
+    v
+}
+
 /// One `Apply`'s cache of its last target (the native crate's module
-/// comment): the function value last applied there, which it keeps alive
-/// so that its address can't be reused for another, and that address and
-/// its compiled code. Compiled code compares a function value's address
-/// with `key` and, if they're the same, calls `code` without asking the
-/// runtime. `repr(C)`: compiled code reads `key` and `code` at
+/// comment): the key of the function value last applied there whose code
+/// takes exactly the arguments the site passes (a global function's index,
+/// or a closure's lambda, with the variant: [`FUN_KEY_MASK`]), and that
+/// code. Compiled code compares a function value's first word with `key`
+/// and, if they're the same, calls `code` without asking the runtime.
+/// Keyed by code rather than by the value, so it keeps nothing alive.
+/// `repr(C)`: compiled code reads `key` and `code` at
 /// [`ApplyCache::KEY_AT`] and [`ApplyCache::CODE_AT`].
 #[repr(C)]
 pub struct ApplyCache {
     pub key: u64,
     pub code: u64,
-    pub keep: Value,
 }
 
 impl ApplyCache {
     pub const KEY_AT: i32 = std::mem::offset_of!(ApplyCache, key) as i32;
     pub const CODE_AT: i32 = std::mem::offset_of!(ApplyCache, code) as i32;
 
+    /// Empty: no function value's key is all ones.
     pub fn new() -> ApplyCache {
         ApplyCache {
-            key: 0,
+            key: u64::MAX,
             code: 0,
-            keep: Value::Erased,
         }
     }
 }
@@ -729,10 +831,16 @@ impl Default for ApplyCache {
     }
 }
 
-/// [`sw_apply_target`], keeping a compiled target in `cache`.
+/// What `Apply` of the function value at `f` to `n` arguments calls
+/// directly, as the machine's `exact` decides: for a closure or a global
+/// function taking exactly `n`, its compiled code (the entry taking the
+/// function value last), kept in `cache`. 0 for anything else (a partial
+/// application, a native, another number of arguments), which goes through
+/// [`sw_apply_prepare`].
 ///
 /// # Safety
-/// As [`sw_apply_target`]; `cache` points at a live cache.
+/// `context` is the running context; `f` points at a live value; `cache`
+/// at a live cache.
 #[allow(unsafe_code)]
 pub unsafe extern "C" fn sw_apply_cached(
     context: *mut Context,
@@ -740,53 +848,281 @@ pub unsafe extern "C" fn sw_apply_cached(
     n: u64,
     cache: *mut ApplyCache,
 ) -> u64 {
-    // SAFETY: the caller's contract.
-    let code = unsafe { sw_apply_target(context, f, n) };
-    if code != 0 {
-        let (f, cache) = unsafe { (&*f, &mut *cache) };
-        cache.keep = f.clone();
-        cache.key = words(f)[1];
-        cache.code = code;
+    // SAFETY: the caller's contract; the tables have an entry for every
+    // global and every lambda.
+    let (program, functions, lambdas) = unsafe {
+        (
+            (*(*context).run).program,
+            (*context).functions,
+            (*context).lambdas,
+        )
+    };
+    let Value::Fun(fun) = (unsafe { &*f }) else {
+        return 0;
+    };
+    let (key, code) = match &**fun {
+        Fun::Global(g) => match program.globals[*g as usize].kind {
+            GlobalKind::Function { params, .. } if u64::from(params) == n => {
+                (fun_key(FUN_GLOBAL, *g), unsafe {
+                    *functions.add(*g as usize)
+                })
+            }
+            _ => return 0,
+        },
+        Fun::Closure { lambda, .. } if u64::from(program.lambdas[*lambda as usize].params) == n => {
+            (fun_key(FUN_CLOSURE, *lambda), unsafe {
+                *lambdas.add(*lambda as usize)
+            })
+        }
+        _ => return 0,
+    };
+    if code.is_null() {
+        return 0;
     }
-    code
+    let cache = unsafe { &mut *cache };
+    cache.key = key;
+    cache.code = code as u64;
+    code as u64
 }
 
-/// `Apply` of the native operation at `f` (taken) to the `n` values at
-/// `args` (moved): its value, written to `out` (uninitialised), as the
-/// machine's eval/apply computes it.
+/// The machine's eval/apply step for native code ([`sw_apply_prepare`]),
+/// written to a stack slot of compiled code: either a value now (`code` 0,
+/// the value in `value`), or compiled code to call with the first `arity`
+/// values after the header and the word `env` last. Either way, the `rest`
+/// values after those are an over-application's, for the result to be
+/// applied to next. `cap` is how many values there is room for after the
+/// header (set by compiled code).
+#[repr(C)]
+pub struct ApplyPlan {
+    pub code: u64,
+    pub env: u64,
+    pub arity: u64,
+    pub rest: u64,
+    pub cap: u64,
+    pub value: MaybeUninit<Value>,
+}
+
+impl ApplyPlan {
+    pub const CODE_AT: i32 = std::mem::offset_of!(ApplyPlan, code) as i32;
+    pub const ENV_AT: i32 = std::mem::offset_of!(ApplyPlan, env) as i32;
+    pub const ARITY_AT: i32 = std::mem::offset_of!(ApplyPlan, arity) as i32;
+    pub const REST_AT: i32 = std::mem::offset_of!(ApplyPlan, rest) as i32;
+    pub const CAP_AT: i32 = std::mem::offset_of!(ApplyPlan, cap) as i32;
+    pub const VALUE_AT: i32 = std::mem::offset_of!(ApplyPlan, value) as i32;
+    /// Where the values start.
+    pub const ARGS_AT: i32 = std::mem::size_of::<ApplyPlan>() as i32;
+}
+
+/// `Apply` of the function value at `f` (taken) to the `n` values at
+/// `args` (moved), as the machine's `apply` and `enter` do it up to the
+/// frame: a partial application's arguments joined to the new ones (copies
+/// of its own), then a new partial application if they're too few;
+/// otherwise the head's arguments split from the rest, and the head
+/// entered: a native's value computed (or `Done` made), or the code to call
+/// (a global function's, or a closure's with a new reference to the closure
+/// as `env`). The function value is dropped last, as `apply` drops it.
+/// Writes an [`ApplyPlan`] at `plan`; `args` may point into it (every
+/// argument is read before anything is written).
+///
+/// Island admission and the crossing make sure that every function value
+/// native code meets can be applied here ([`natively_callable`]); anything
+/// else is an internal error.
 ///
 /// # Safety
-/// As [`sw_global`]; `f` and `args` point at values native code owns, `out`
-/// at space for one.
+/// `context` is the running context; `f` and `args` point at values native
+/// code owns; `plan` at an `ApplyPlan` header followed by room for its
+/// `cap` values.
 #[allow(unsafe_code)]
-pub unsafe extern "C" fn sw_apply_native(
+pub unsafe extern "C" fn sw_apply_prepare(
     context: *mut Context,
     f: *mut Value,
     args: *mut Value,
     n: u64,
-    out: *mut Value,
+    plan: *mut ApplyPlan,
 ) {
-    // SAFETY: as for `sw_global`; the values are moved out and not used
+    // SAFETY: the caller's contract; the values are moved out and not used
     // again by the caller.
-    let run = unsafe { &*(*context).run };
+    let (run, functions, lambdas) =
+        unsafe { (&*(*context).run, (*context).functions, (*context).lambdas) };
+    let program = run.program;
     let f = unsafe { f.read() };
     let args: Vec<Value> = (0..n as usize)
         .map(|i| unsafe { args.add(i).read() })
         .collect();
     let Value::Fun(fun) = &f else {
-        unreachable!("checked by sw_apply_target")
+        internal(format_args!("applied {f:?}, which isn't a function"))
     };
-    let Fun::Global(g) = **fun else {
-        unreachable!("checked by sw_apply_target")
+    let (head, held): (&Value, &[Value]) = match &**fun {
+        Fun::Pap { head, args } => (head, args),
+        _ => (&f, &[]),
     };
-    let GlobalKind::Native(op) = run.program.globals[g as usize].kind else {
-        unreachable!("checked by sw_apply_target")
+    let arity = crate::machine::arity(program, head);
+    let total = held.len() + args.len();
+    let mut all = if held.is_empty() {
+        args
+    } else {
+        let mut all = held.to_vec();
+        all.extend(args);
+        all
     };
-    let v = {
-        let refs: Vec<&Value> = args.iter().collect();
-        crate::prims::eval(&run.program.shapes, op, &refs)
-    };
-    drop(args);
+    let mut code: *const u8 = std::ptr::null();
+    let mut env = 0u64;
+    let mut value = None;
+    let mut rest = Vec::new();
+    if total < arity {
+        value = Some(Value::Fun(Rc::new(Fun::Pap {
+            head: head.clone(),
+            args: std::mem::take(&mut all).into(),
+        })));
+    } else {
+        if total > arity {
+            rest = all.split_off(arity);
+        }
+        let Value::Fun(h) = head else {
+            unreachable!("a function")
+        };
+        match &**h {
+            Fun::Global(g) => match program.globals[*g as usize].kind {
+                GlobalKind::Native(op) if applicable_native(op) => {
+                    let v = {
+                        let refs: Vec<&Value> = all.iter().collect();
+                        crate::prims::eval(&program.shapes, op, &refs)
+                    };
+                    drop(std::mem::take(&mut all));
+                    value = Some(v);
+                }
+                GlobalKind::Function { .. } => {
+                    // SAFETY: the table has an entry for every global.
+                    code = unsafe { *functions.add(*g as usize) };
+                }
+                _ => internal(format_args!(
+                    "applied `{}`",
+                    program.globals[*g as usize].name
+                )),
+            },
+            Fun::Closure { lambda, .. } => {
+                // SAFETY: the table has an entry for every lambda.
+                code = unsafe { *lambdas.add(*lambda as usize) };
+                let closure = std::mem::ManuallyDrop::new(Value::Fun(h.clone()));
+                env = words(&closure)[1];
+            }
+            Fun::DoneK => {
+                value = Some(Value::data_vec(
+                    program.shapes.done,
+                    std::mem::take(&mut all),
+                ));
+            }
+            _ => internal(format_args!("applied {head:?}")),
+        }
+        if value.is_none() && code.is_null() {
+            internal(format_args!("applied {head:?}, which isn't compiled"));
+        }
+    }
+    let exact = all.len();
+    let after = rest.len();
+    // SAFETY: the caller's contract: room for `cap` values after the
+    // header, checked.
+    unsafe {
+        if exact + after > (*plan).cap as usize {
+            internal(format_args!(
+                "applied {f:?} to more arguments than it made room for"
+            ));
+        }
+        let to = plan
+            .cast::<u8>()
+            .add(ApplyPlan::ARGS_AT as usize)
+            .cast::<Value>();
+        for (i, v) in all.into_iter().chain(rest).enumerate() {
+            to.add(i).write(v);
+        }
+        (*plan).code = code as u64;
+        (*plan).env = env;
+        (*plan).arity = if code.is_null() { 0 } else { exact as u64 };
+        (*plan).rest = after as u64;
+        if let Some(v) = value {
+            (*plan).value.write(v);
+        }
+    }
     drop(f);
-    unsafe { out.write(v) };
+}
+
+/// `Closure`: a closure of `lambda` capturing the `n` values at `args`
+/// (moved), put in `out` (uninitialised).
+///
+/// # Safety
+/// As [`sw_ctor`].
+#[allow(unsafe_code)]
+pub unsafe extern "C" fn sw_closure(lambda: u32, args: *mut Value, n: u64, out: *mut Value) {
+    // SAFETY: the caller's contract.
+    let captures: Box<[Value]> = (0..n as usize)
+        .map(|i| unsafe { args.add(i).read() })
+        .collect();
+    unsafe { out.write(Value::Fun(Rc::new(Fun::Closure { lambda, captures }))) };
+}
+
+/// `Pap`: global `g` (a function or a native) with the `n` values at `args`
+/// (moved), put in `out` (uninitialised).
+///
+/// # Safety
+/// As [`sw_global`] and [`sw_ctor`].
+#[allow(unsafe_code)]
+pub unsafe extern "C" fn sw_pap(
+    context: *mut Context,
+    g: u32,
+    args: *mut Value,
+    n: u64,
+    out: *mut Value,
+) {
+    // SAFETY: the caller's contract.
+    let held: Box<[Value]> = (0..n as usize)
+        .map(|i| unsafe { args.add(i).read() })
+        .collect();
+    let run = unsafe { &mut *(*context).run };
+    let head = function_value(run, g);
+    unsafe { out.write(Value::Fun(Rc::new(Fun::Pap { head, args: held }))) };
+}
+
+/// `IntCase` of a value that isn't a small `Int`: 1 if it's negative.
+///
+/// # Safety
+/// `v` points at a live value.
+#[allow(unsafe_code)]
+pub unsafe extern "C" fn sw_int_negative(v: *const Value) -> u64 {
+    // SAFETY: the caller's contract.
+    match unsafe { &*v } {
+        Value::Int(i) => u64::from(*i < 0),
+        Value::BigInt(i) => u64::from(i.sign() == num_bigint::Sign::Minus),
+        other => internal(format_args!("matched {other:?} as an `Int`")),
+    }
+}
+
+/// [`sw_unary`]'s operations: the machine's `IntOfNat`, `IntNegSucc` and
+/// `TextChars`.
+pub const UNARY_INT_OF_NAT: u32 = 0;
+pub const UNARY_INT_NEG_SUCC: u32 = 1;
+pub const UNARY_TEXT_CHARS: u32 = 2;
+
+/// One of the machine's one-operand instructions ([`UNARY_INT_OF_NAT`] and
+/// so on) on the value at `src`, written to register `dst`.
+///
+/// # Safety
+/// `context` is the running context; both point at registers.
+#[allow(unsafe_code)]
+pub unsafe extern "C" fn sw_unary(
+    context: *mut Context,
+    op: u32,
+    src: *const Value,
+    dst: *mut Value,
+) {
+    // SAFETY: the caller's contract.
+    unsafe {
+        let shapes = &(*(*context).run).program.shapes;
+        let src = &*src;
+        let v = match op {
+            UNARY_INT_OF_NAT => crate::prims::int_to_nat(src),
+            UNARY_INT_NEG_SUCC => crate::prims::int_neg_succ(src),
+            _ => crate::prims::chars(shapes, crate::prims::text_of(src)),
+        };
+        *dst = v;
+    }
 }

@@ -4,156 +4,11 @@
 //! make the same allocation trace event for event, and run out of frames
 //! and steps at exactly the machine's points (D1253).
 
-use std::cell::RefCell;
-use std::path::Path;
-use std::rc::Rc;
+mod common;
 
-use stitchwort_core::ResourceError;
-use stitchwort_driver::driver::{Session, with_stack};
-use stitchwort_native::n1::{Options, factory};
-use stitchwort_rt::host::{NoTerminal, RunError};
-use stitchwort_rt::{Limits, Program, alloc_trace, lower_main, run_main, run_main_native};
-
-const STACK: usize = 512 * 1024 * 1024;
-
-fn bench(name: &str) -> String {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../bench/native")
-        .join(name);
-    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
-}
-
-/// `source` checked and its `main` lowered, with the default limits.
-fn lowered(source: &str) -> (Program, Limits) {
-    let mut session = Session::for_stack(STACK);
-    session
-        .load("test.sw", source)
-        .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
-    let main = session.main().expect("`main` has the right type");
-    let program = lower_main(
-        &session.elab.globals,
-        session.elab.limits,
-        main.term(),
-        main.row,
-    )
-    .expect("lowers");
-    (program, Limits::from_core(session.elab.limits))
-}
-
-/// How a run ended: what it printed, and the error if any.
-type Ran = (String, Result<(), String>);
-
-fn ended(output: Vec<u8>, result: Result<(), RunError>) -> Ran {
-    (
-        String::from_utf8(output).expect("text"),
-        result.map_err(|e| match e {
-            RunError::Resource(ResourceError::Work) => "out of steps".to_string(),
-            RunError::Resource(ResourceError::Depth) | RunError::Deep(_) => {
-                "out of frames".to_string()
-            }
-            other => other.to_string(),
-        }),
-    )
-}
-
-fn on_machine(program: &Program, limits: Limits) -> Ran {
-    let mut output = Vec::new();
-    let result = run_main(program, limits, &mut "".as_bytes(), &mut output);
-    ended(output, result)
-}
-
-/// The run with native code, and the notes on what ran natively.
-fn native(program: &Program, limits: Limits, trace_refcounts: bool) -> (Ran, Vec<String>) {
-    let notes = Rc::new(RefCell::new(Vec::new()));
-    let options = Options {
-        trace_refcounts,
-        stack_size: Some(STACK),
-    };
-    let mut make = factory(options, notes.clone());
-    let mut output = Vec::new();
-    let result = run_main_native(
-        program,
-        limits,
-        &mut make,
-        &mut "".as_bytes(),
-        &mut output,
-        &mut NoTerminal,
-    );
-    let notes = notes.borrow().clone();
-    (ended(output, result), notes)
-}
-
-fn ran_natively(notes: &[String]) -> bool {
-    notes.iter().any(|n| n.starts_with("native: running "))
-}
-
-/// Native code prints what the machine prints, and did run.
-fn agrees(source: &str) -> String {
-    let source = source.to_string();
-    with_stack(STACK, move || {
-        let (program, limits) = lowered(&source);
-        let machine = on_machine(&program, limits);
-        let (native, notes) = native(&program, limits, false);
-        assert!(ran_natively(&notes), "nothing ran natively: {notes:#?}");
-        assert_eq!(native, machine, "{notes:#?}");
-        machine.0
-    })
-}
-
-/// The allocation traces of the machine and native code (counting through
-/// the runtime), each from the start of its run, are the same text, and
-/// native code frees every cell.
-fn same_trace(source: &str) {
-    let source = source.to_string();
-    with_stack(STACK, move || {
-        let (program, limits) = lowered(&source);
-        // Out of the traces (its own values would be in the first).
-        stitchwort_rt::native_abi::probe_layout().expect("the layout is as expected");
-        let trace = |native_code: bool| {
-            alloc_trace::start();
-            let ran = if native_code {
-                let (ran, notes) = native(&program, limits, true);
-                assert!(ran_natively(&notes), "nothing ran natively: {notes:#?}");
-                ran
-            } else {
-                on_machine(&program, limits)
-            };
-            (ran, alloc_trace::finish())
-        };
-        let (machine_ran, machine) = trace(false);
-        // Counting inline, as `run --native` does, the trace sees only the
-        // cells made and freed: the same cells, and every one freed.
-        alloc_trace::start();
-        let (inline_ran, notes) = native(&program, limits, false);
-        let inline = alloc_trace::finish();
-        assert!(ran_natively(&notes), "nothing ran natively: {notes:#?}");
-        assert_eq!(inline_ran, machine_ran);
-        assert_eq!(inline.count("alloc"), machine.count("alloc"));
-        assert_eq!(inline.leaks(), Vec::<u32>::new(), "inline counting leaked");
-        let (native_ran, native) = trace(true);
-        assert_eq!(native_ran, machine_ran);
-        assert!(machine.count("alloc") > 0, "the program allocates nothing");
-        assert_eq!(native.leaks(), Vec::<u32>::new(), "native code leaked");
-        let (machine, native) = (machine.render(), native.render());
-        // For reading the two side by side.
-        if let Ok(dir) = std::env::var("N1_TRACE_DIR") {
-            std::fs::write(format!("{dir}/machine.trace"), &machine).expect("writes");
-            std::fs::write(format!("{dir}/native.trace"), &native).expect("writes");
-        }
-        if machine != native {
-            let first = machine
-                .lines()
-                .zip(native.lines())
-                .position(|(a, b)| a != b)
-                .unwrap_or(machine.lines().count().min(native.lines().count()));
-            panic!(
-                "the traces differ from event {first}: machine {:?}, native {:?}",
-                machine.lines().nth(first),
-                native.lines().nth(first)
-            );
-        }
-    });
-}
+use common::*;
+use stitchwort_driver::driver::with_stack;
+use stitchwort_rt::{Limits, alloc_trace};
 
 #[test]
 fn the_benchmarks_agree_with_the_machine() {
@@ -226,53 +81,57 @@ fn the_allocation_traces_are_the_same() {
 }
 
 /// A root that applies a function value it's given: the island fits, but
-/// the call has a function in its arguments, so it runs on the machine.
+/// the call has a function in its arguments whose code isn't compiled (its
+/// island uses `Text.fold`, which runs on the machine's frames), so it runs
+/// on the machine.
 #[test]
 fn a_function_value_from_outside_keeps_the_call_on_the_machine() {
-    let source = r#"import Std (IO, List)
+    let source = r#"import Std (IO, List, Text)
 
-def applyAll: List (Nat → Nat) → Nat → Nat
-  | [], x => x
-  | Cons f rest, x => applyAll rest (f x)
+def applyAll: List (Text → Nat) → Text → Nat
+  | [], t => 0
+  | Cons f rest, t => f t + applyAll rest t
 
 def main(): {IO} () :=
-  IO.print "${applyAll [n => n + 3, n => n + 3] 4}"
+  IO.print "${applyAll [t => Text.fold t 0 (c n => n + 1), t => 7] "hello"}"
 "#;
     with_stack(STACK, move || {
         let (program, limits) = lowered(source);
         let machine = on_machine(&program, limits);
         let (native, notes) = native(&program, limits, false);
         assert_eq!(native, machine);
-        assert_eq!(machine.0, "10\n");
+        assert_eq!(machine.0, "12\n");
         assert!(
             notes
                 .iter()
-                .any(|n| n.contains("was given a function value")),
+                .any(|n| n.contains("was given a function value that isn't compiled")),
             "{notes:#?}"
         );
     });
 }
 
-/// An island with an instruction outside N1 keeps the whole run on the
-/// machine, and says why.
+/// An island with an instruction native code doesn't compile keeps the
+/// whole run on the machine, and says why.
 #[test]
 fn an_island_outside_the_subset_runs_on_the_machine() {
-    let source = r#"import Std (IO, Text)
+    let source = r#"import Std (IO, List, Text)
 
-def shout: Nat → Text → Text
-  | Zero, t => t
-  | Succ k, t => shout k (t ++ "!")
+def count: List Text → Nat
+  | [] => 0
+  | Cons t rest => Text.fold t 0 (c n => n + 1) + count rest
 
 def main(): {IO} () :=
-  IO.print (shout 1 "hi")
+  IO.print "${count ["hello", "you"]}"
 "#;
     with_stack(STACK, move || {
         let (program, limits) = lowered(source);
         let (native, notes) = native(&program, limits, false);
-        assert_eq!(native, ("hi!\n".to_string(), Ok(())));
+        assert_eq!(native, ("8\n".to_string(), Ok(())));
         assert!(!ran_natively(&notes), "{notes:#?}");
         assert!(
-            notes.iter().any(|n| n.contains("which N1 doesn't compile")),
+            notes
+                .iter()
+                .any(|n| n.contains("which native code doesn't compile")),
             "{notes:#?}"
         );
     });

@@ -1,4 +1,4 @@
-//! Stages N1 and N2a of docs/proposals/native-compilation.md: the machine's
+//! Stages N1, N2a and N3 of docs/proposals/native-compilation.md: the machine's
 //! bytecode (`stitchwort_rt::code`) translated instruction by instruction to
 //! machine code with Cranelift, for whole reachable islands, behind `run
 //! --native`.
@@ -14,24 +14,45 @@
 //! glue builds the `Delay` the runner steps, which N1 doesn't compile). Each
 //! function the entry body calls is an island root; its island is every
 //! body it can call or make a function value of (`census::island`). The run
-//! uses native code only if every root's island fits: every instruction in
-//! the N1 subset (`census::n1_blocker`, which the census also uses), and,
-//! where an island applies function values, every function value it can
-//! make is a compiled global function taking as many arguments as each
-//! `Apply` passes, and no native operation is made a value. Otherwise the
-//! whole run stays on the machine, with notes saying why. Function values
-//! can also come in as a root's arguments: for an island with an `Apply`,
-//! the crossing checks the arguments hold none, and a call that has one
-//! runs on the machine instead.
+//! uses native code only if every root's island fits: every instruction is
+//! one native code compiles (`census::n1_blocker`, which the census also
+//! uses: everything but the effect operations and `Text.fold`), and, where
+//! an island applies function values, no native operation it can make a
+//! value of lacks a native implementation. Otherwise the whole run stays on
+//! the machine, with notes saying why. The function values the entry body
+//! makes (lambdas, partial applications) are compiled too when their islands
+//! fit ("guests"). Function values also come in as a root's arguments: for
+//! an island with an `Apply`, the crossing checks that every function value
+//! in the arguments (inside data, closures' captures and partial
+//! applications) has compiled code (`native_abi::natively_callable`), and a
+//! call with one that hasn't runs on the machine instead.
 //!
-//! **Frames.** A compiled body is one function in Cranelift's `tail` calling
-//! convention: the context, the frames pending (its own included), then
-//! each argument as its value's three words; it returns its result's three
-//! words. Calls are direct calls; a self tail call is a jump back to the
-//! top, any other tail call a `return_call`; `Apply` looks its target up
-//! through the runtime, and each `Apply` keeps the last one it found
-//! (`native_abi::ApplyCache`): applying the same function value again calls
-//! the same code without asking.
+//! **Frames.** A compiled global body is one function in Cranelift's `tail`
+//! calling convention: the context, the frames pending (its own included),
+//! then each argument as its value's three words; it returns its result's
+//! three words. Calls are direct calls; a self tail call is a jump back to
+//! the top, any other tail call a `return_call`.
+//!
+//! **Closures** (stage N3). A lambda's body, and an adapter per global
+//! function (`value{g}`, which drops the function value and tail-calls the
+//! body), take the same arguments plus one more word last: the function
+//! value's `Rc` (a closure's captures), owned by the callee and released
+//! when the body returns, tail-calls or leaves by an exit; `Captured` loads
+//! from it. These are the "value convention", the code
+//! `native_abi::Context::functions` and `lambdas` list. `Closure` and `Pap`
+//! make values through the runtime (`sw_closure`, `sw_pap`). `Apply` of a
+//! function value to exactly its arity with nothing yet applied is the fast
+//! path: each `Apply` keeps the last target it found (`native_abi::ApplyCache`,
+//! keyed by the `Fun`'s variant and index, the value's first word masked),
+//! and a hit is an indirect call, a miss one runtime lookup. Everything else
+//! (a partial application to extend, under-application making a new one,
+//! over-application applying the result to the rest, a native operation,
+//! `DoneK`) goes through one shared stub per argument count (`apply{n}`):
+//! `sw_apply_prepare` does what the machine's `apply` and `enter` do, the
+//! clones and drops in the machine's order, then the stub counts the step,
+//! checks the frame and calls the code it was given, looping on any
+//! arguments left over. A `TailApply` is a `return_call` (to the target, or
+//! to the stub), so tail applies run in constant stack.
 //!
 //! **Registers** (stage N2a). Each bytecode register is three Cranelift
 //! variables, one per word of its value, so Cranelift keeps them in machine
@@ -106,9 +127,11 @@ use stitchwort_rt::census::{island, n1_blocker};
 use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
 use stitchwort_rt::ir::{GlobalKind, PrimOp, Program};
 use stitchwort_rt::native_abi::{
-    self as abi, Context, NativeIslands, NativeRun, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS,
-    RC_VALUE_AT, STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_INT, TAG_NAT, TAG_TAG, VALUE_SIZE, WEAK_AT,
+    self as abi, ApplyPlan, Context, FUN_CAPTURES_AT, FUN_KEY_MASK, NativeIslands, NativeRun,
+    OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA, TAG_FLOAT, TAG_FUN,
+    TAG_INT, TAG_NAT, TAG_TAG, VALUE_SIZE, WEAK_AT,
 };
+use stitchwort_rt::natives::IntNative;
 use stitchwort_rt::value::Value;
 
 /// How to compile.
@@ -146,8 +169,15 @@ pub struct Islands {
     _module: JITModule,
     /// For each global: its trampoline, if it's an island root.
     roots: Vec<Option<Root>>,
-    /// For each global: its compiled code, or null (`Context::functions`).
-    table: Box<[*const u8]>,
+    /// For each global: its compiled code as a function value's, or null
+    /// (`Context::functions`).
+    functions: Box<[*const u8]>,
+    /// For each lambda: its compiled code, or null (`Context::lambdas`).
+    lambdas: Box<[*const u8]>,
+    /// For each global: whether native code can apply it as a function
+    /// value (a compiled function, or an applicable native), for the
+    /// crossing's check of function values.
+    callable: Box<[bool]>,
     /// Operations the code passes to the runtime by address.
     /// Boxed so each keeps its address while the vector grows.
     #[allow(clippy::vec_box)]
@@ -181,9 +211,13 @@ impl NativeIslands for Islands {
 
     fn accepts(&self, g: u32, args: &[&Value]) -> bool {
         let root = self.roots[g as usize].as_ref().expect("a root");
-        if root.checks_arguments && args.iter().any(|v| abi::holds_function(v)) {
+        if root.checks_arguments
+            && !args
+                .iter()
+                .all(|v| abi::natively_callable(&self.callable, &self.lambdas, v))
+        {
             self.notes.borrow_mut().push(format!(
-                "native: `{}` was given a function value, so this call ran on the machine",
+                "native: `{}` was given a function value that isn't compiled, so this call ran on the machine",
                 root.name
             ));
             return false;
@@ -214,7 +248,8 @@ impl NativeIslands for Islands {
             frame_limit: run.limits.frames as u64,
             error: abi::OK,
             stack_limit,
-            functions: self.table.as_ptr(),
+            functions: self.functions.as_ptr(),
+            lambdas: self.lambdas.as_ptr(),
             run: (run as *mut NativeRun<'_>).cast::<NativeRun<'static>>(),
         };
         let mut args = ManuallyDrop::new(args);
@@ -243,26 +278,96 @@ struct Plan {
     bodies: BTreeSet<u32>,
     /// The roots whose islands apply function values.
     applying: BTreeSet<u32>,
+    /// Function values the entry body makes whose islands don't fit, so
+    /// that a root given one runs on the machine.
+    notes: Vec<String>,
 }
 
 /// The names of the image's bodies, for notes.
 fn body_name(program: &Program, image: &Image, code: u32) -> String {
-    match image.global_code.iter().position(|c| *c == Some(code)) {
-        Some(g) => program.globals[g].name.to_string(),
+    if let Some(g) = image.global_code.iter().position(|c| *c == Some(code)) {
+        return program.globals[g].name.to_string();
+    }
+    match image.lambda_code.iter().position(|c| *c == code) {
+        Some(l) => format!("lambda #{l}"),
         None => format!("body #{code}"),
     }
 }
 
-/// Which island roots fit N1 (the module comment), or why the run stays on
+/// Why the island of `code` (named `name` in notes) doesn't fit N1, if it
+/// doesn't, and whether it applies function values.
+fn check_island(program: &Program, image: &Image, code: u32, name: &str) -> (Vec<String>, bool) {
+    let reach = island(image, code);
+    let mut blockers: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut applies = false;
+    let mut native_values = BTreeSet::new();
+    for &c in &reach {
+        for instr in &image.codes[c as usize].instrs {
+            if let Some(key) = n1_blocker(instr) {
+                blockers
+                    .entry(key)
+                    .or_default()
+                    .insert(body_name(program, image, c));
+            }
+            match instr {
+                Instr::Apply { .. } | Instr::TailApply { .. } => applies = true,
+                Instr::Global { g, .. } | Instr::Pap { g, .. } => {
+                    if let GlobalKind::Native(op) = &program.globals[*g as usize].kind
+                        && op.arity() > 0
+                        && !abi::applicable_native(*op)
+                    {
+                        native_values.insert(program.globals[*g as usize].name.to_string());
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    let mut why = Vec::new();
+    for (key, places) in &blockers {
+        let places: Vec<&str> = places.iter().map(String::as_str).collect();
+        why.push(format!(
+            "native: `{name}`'s island has `{key}`, which native code doesn't compile (in {})",
+            places.join(", ")
+        ));
+    }
+    if applies {
+        for value in &native_values {
+            why.push(format!(
+                "native: `{name}`'s island applies function values and makes `{value}`, which runs on the machine's frames, one"
+            ));
+        }
+    }
+    (why, applies)
+}
+
+/// Which island roots fit (the module comment), or why the run stays on
 /// the machine.
 fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>> {
     let mut roots = Vec::new();
+    // The bodies of the function values the entry body makes, which it may
+    // pass to a root.
+    let mut guests = BTreeSet::new();
     for instr in &image.codes[image.entry_code as usize].instrs {
-        if let Instr::Call { g, .. } = instr
-            && let Some(code) = image.global_code[*g as usize]
-            && !roots.contains(&(*g, code))
-        {
-            roots.push((*g, code));
+        match instr {
+            Instr::Call { g, .. } => {
+                if let Some(code) = image.global_code[*g as usize]
+                    && !roots.contains(&(*g, code))
+                {
+                    roots.push((*g, code));
+                }
+            }
+            Instr::Closure { lambda, .. } => {
+                guests.insert(image.lambda_code[*lambda as usize]);
+            }
+            Instr::Pap { g, .. } | Instr::Global { g, .. } => {
+                if let GlobalKind::Function { .. } = program.globals[*g as usize].kind
+                    && let Some(code) = image.global_code[*g as usize]
+                {
+                    guests.insert(code);
+                }
+            }
+            _ => {}
         }
     }
     if roots.is_empty() {
@@ -274,77 +379,40 @@ fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>> {
     let mut bodies = BTreeSet::new();
     let mut applying = BTreeSet::new();
     for &(g, code) in &roots {
-        let reach = island(image, code);
-        let root = &program.globals[g as usize].name;
-        let mut blockers: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-        let mut apply_arities = BTreeSet::new();
-        let mut value_arities: BTreeMap<u32, String> = BTreeMap::new();
-        let mut native_values = BTreeSet::new();
-        for &c in &reach {
-            for instr in &image.codes[c as usize].instrs {
-                if let Some(key) = n1_blocker(instr) {
-                    blockers
-                        .entry(key)
-                        .or_default()
-                        .insert(body_name(program, image, c));
-                }
-                match instr {
-                    Instr::Apply { args, .. } | Instr::TailApply { args, .. } => {
-                        apply_arities.insert(args.len);
-                    }
-                    Instr::Global { g: v, .. } => match &program.globals[*v as usize].kind {
-                        GlobalKind::Function { params, .. } => {
-                            value_arities
-                                .insert(*params, program.globals[*v as usize].name.to_string());
-                        }
-                        GlobalKind::Native(op) if op.arity() > 0 => {
-                            let name = program.globals[*v as usize].name.to_string();
-                            if abi::applicable_native(*op) {
-                                value_arities.insert(op.arity(), name);
-                            } else {
-                                native_values.insert(name);
-                            }
-                        }
-                        _ => {}
-                    },
-                    _ => {}
-                }
-            }
+        let (blocked, applies) =
+            check_island(program, image, code, &program.globals[g as usize].name);
+        why.extend(blocked);
+        if applies {
+            applying.insert(g);
         }
-        for (key, places) in &blockers {
-            let places: Vec<&str> = places.iter().map(String::as_str).collect();
-            why.push(format!(
-                "native: `{root}`'s island has `{key}`, which N1 doesn't compile (in {})",
-                places.join(", ")
+        bodies.extend(island(image, code));
+    }
+    if !why.is_empty() {
+        why.push("native: so the whole run is on the machine".to_string());
+        return Err(why);
+    }
+    let mut notes = Vec::new();
+    for code in guests {
+        if bodies.contains(&code) {
+            continue;
+        }
+        let name = body_name(program, image, code);
+        let (blocked, _) = check_island(program, image, code, &name);
+        if blocked.is_empty() {
+            bodies.extend(island(image, code));
+        } else {
+            notes.extend(blocked);
+            notes.push(format!(
+                "native: so a root given `{name}` as a value runs on the machine"
             ));
         }
-        if !apply_arities.is_empty() {
-            applying.insert(g);
-            for name in &native_values {
-                why.push(format!(
-                    "native: `{root}`'s island applies function values and makes `{name}`, which runs on the machine's frames, one"
-                ));
-            }
-            for (arity, name) in &value_arities {
-                if apply_arities.iter().any(|n| n != arity) {
-                    why.push(format!(
-                        "native: `{root}`'s island may apply `{name}` (taking {arity}) to another number of arguments"
-                    ));
-                }
-            }
-        }
-        bodies.extend(reach);
     }
-    if why.is_empty() {
-        Ok(Plan {
-            roots,
-            bodies,
-            applying,
-        })
-    } else {
-        why.push("native: so the whole run is on the machine".to_string());
-        Err(why)
-    }
+    Ok(Plan {
+        roots,
+        bodies,
+        applying,
+        notes,
+    })
 }
 
 // --------------------------------------------------------------- compiling
@@ -360,6 +428,7 @@ pub fn compile(
 ) -> Result<Islands, Vec<String>> {
     abi::probe_layout().map_err(|e| vec![format!("native: {e}")])?;
     let plan = plan(program, image)?;
+    notes.borrow_mut().extend(plan.notes.iter().cloned());
     let dump = std::env::var_os("STITCHWORT_NATIVE_DUMP").is_some();
     let start = Instant::now();
     let fail = |e: String| vec![format!("native: compiling failed: {e}")];
@@ -397,18 +466,76 @@ pub fn compile(
     let pointer = frontend_config.pointer_type();
     let call_conv = module.isa().default_call_conv();
 
+    // Which bodies are lambdas' (they take their closure last).
+    let lambda_of: BTreeMap<u32, u32> = image
+        .lambda_code
+        .iter()
+        .enumerate()
+        .filter(|(_, code)| plan.bodies.contains(code))
+        .map(|(l, code)| (*code, l as u32))
+        .collect();
     // Every body, declared first so that they can call each other.
     let mut functions: BTreeMap<u32, FuncId> = BTreeMap::new();
     for &code in &plan.bodies {
         let params = image.codes[code as usize].params;
+        let signature = if lambda_of.contains_key(&code) {
+            value_signature(pointer, params)
+        } else {
+            body_signature(pointer, params)
+        };
         let id = module
-            .declare_function(
-                &format!("body{code}"),
-                Linkage::Local,
-                &body_signature(pointer, params),
-            )
+            .declare_function(&format!("body{code}"), Linkage::Local, &signature)
             .map_err(|e| fail(e.to_string()))?;
         functions.insert(code, id);
+    }
+    // Each compiled global function's entry as a function value: it takes
+    // the function value last, as a lambda's body takes its closure, so
+    // that `Apply` calls both the same way.
+    let mut adapters: BTreeMap<u32, (FuncId, u32)> = BTreeMap::new();
+    for (g, global) in program.globals.iter().enumerate() {
+        if let GlobalKind::Function { params, .. } = global.kind
+            && let Some(code) = image.global_code[g]
+            && plan.bodies.contains(&code)
+        {
+            let id = module
+                .declare_function(
+                    &format!("value{g}"),
+                    Linkage::Local,
+                    &value_signature(pointer, params),
+                )
+                .map_err(|e| fail(e.to_string()))?;
+            adapters.insert(g as u32, (id, code));
+        }
+    }
+    // The arities `Apply` may call, and the shared slow path of `Apply`
+    // for each number of arguments a site passes.
+    let arities: BTreeSet<u32> = plan
+        .bodies
+        .iter()
+        .filter(|code| lambda_of.contains_key(code))
+        .map(|code| image.codes[*code as usize].params)
+        .chain(
+            adapters
+                .values()
+                .map(|(_, code)| image.codes[*code as usize].params),
+        )
+        .collect();
+    let mut apply_any: BTreeMap<u32, FuncId> = BTreeMap::new();
+    for &code in &plan.bodies {
+        for instr in &image.codes[code as usize].instrs {
+            if let Instr::Apply { args, .. } | Instr::TailApply { args, .. } = instr
+                && !apply_any.contains_key(&args.len)
+            {
+                let id = module
+                    .declare_function(
+                        &format!("apply{}", args.len),
+                        Linkage::Local,
+                        &apply_signature(pointer, args.len),
+                    )
+                    .map_err(|e| fail(e.to_string()))?;
+                apply_any.insert(args.len, id);
+            }
+        }
     }
     let helpers = Helpers::declare(&mut module, pointer, call_conv).map_err(fail)?;
     let mut ops: Vec<Box<PrimOp>> = Vec::new();
@@ -416,7 +543,13 @@ pub fn compile(
     let mut context = module.make_context();
     let mut builder_context = FunctionBuilderContext::new();
     for &code in &plan.bodies {
-        context.func.signature = body_signature(pointer, image.codes[code as usize].params);
+        let params = image.codes[code as usize].params;
+        let lambda = lambda_of.get(&code).copied();
+        context.func.signature = if lambda.is_some() {
+            value_signature(pointer, params)
+        } else {
+            body_signature(pointer, params)
+        };
         context.func.name = ir::UserFuncName::user(0, functions[&code].as_u32());
         {
             let b = FunctionBuilder::new(&mut context.func, &mut builder_context);
@@ -427,7 +560,9 @@ pub fn compile(
                 image,
                 code_index: code,
                 code: &image.codes[code as usize],
+                lambda,
                 functions: &functions,
+                apply_any: &apply_any,
                 helpers: &helpers,
                 refs: BTreeMap::new(),
                 signatures: BTreeMap::new(),
@@ -446,6 +581,7 @@ pub fn compile(
                 trap: Block::from_u32(0),
                 ctx: IrValue::from_u32(0),
                 frames: IrValue::from_u32(0),
+                env: None,
             };
             generator.body();
             generator.b.seal_all_blocks();
@@ -473,6 +609,57 @@ pub fn compile(
                 .collect();
             eprintln!("---- bytes\n.byte {}", bytes.join(","));
         }
+        module.clear_context(&mut context);
+    }
+    for (&g, &(id, code)) in &adapters {
+        let params = image.codes[code as usize].params;
+        context.func.signature = value_signature(pointer, params);
+        context.func.name = ir::UserFuncName::user(2, g);
+        {
+            let mut b = FunctionBuilder::new(&mut context.func, &mut builder_context);
+            emit_adapter(
+                &mut b,
+                &mut module,
+                &helpers,
+                functions[&code],
+                params,
+                pointer,
+            );
+            b.seal_all_blocks();
+            b.finalize(frontend_config);
+        }
+        module
+            .define_function(id, &mut context)
+            .map_err(|e| fail(format!("adapter: {e:?}")))?;
+        module.clear_context(&mut context);
+    }
+    let cap = arities.iter().copied().max().unwrap_or(0);
+    for (&n, &id) in &apply_any {
+        context.func.signature = apply_signature(pointer, n);
+        context.func.name = ir::UserFuncName::user(3, n);
+        {
+            let mut b = FunctionBuilder::new(&mut context.func, &mut builder_context);
+            emit_apply_any(
+                &mut b,
+                &mut module,
+                &helpers,
+                n,
+                &arities,
+                // Every count the plan holds: a partial application's held
+                // arguments (fewer than its head takes) and the new ones.
+                n + cap,
+                pointer,
+                options,
+            );
+            b.seal_all_blocks();
+            b.finalize(frontend_config);
+        }
+        if dump {
+            eprintln!("==== apply{n}\n{}", context.func.display());
+        }
+        module
+            .define_function(id, &mut context)
+            .map_err(|e| fail(format!("apply{n}: {e:?}")))?;
         module.clear_context(&mut context);
     }
 
@@ -553,15 +740,23 @@ pub fn compile(
         .map_err(|e| fail(e.to_string()))?;
 
     let mut table = vec![std::ptr::null::<u8>(); program.globals.len()].into_boxed_slice();
-    for (g, code) in image.global_code.iter().enumerate() {
-        if let Some(code) = code
-            && let Some(id) = functions.get(code)
-            && matches!(program.globals[g].kind, GlobalKind::Function { .. })
-        {
+    let mut callable = vec![false; program.globals.len()].into_boxed_slice();
+    for (g, global) in program.globals.iter().enumerate() {
+        if let Some((id, _)) = adapters.get(&(g as u32)) {
             table[g] = module.get_finalized_function(*id);
+            callable[g] = true;
             if dump {
-                eprintln!("@@ {:p} {}", table[g], program.globals[g].name);
+                eprintln!("@@ {:p} {}", table[g], global.name);
             }
+        } else if let GlobalKind::Native(op) = global.kind {
+            callable[g] = abi::applicable_native(op);
+        }
+    }
+    let mut lambdas = vec![std::ptr::null::<u8>(); image.lambda_code.len()].into_boxed_slice();
+    for (&code, &l) in &lambda_of {
+        lambdas[l as usize] = module.get_finalized_function(functions[&code]);
+        if dump {
+            eprintln!("@@ {:p} lambda #{l}", lambdas[l as usize]);
         }
     }
     let mut roots: Vec<Option<Root>> = (0..program.globals.len()).map(|_| None).collect();
@@ -575,7 +770,9 @@ pub fn compile(
     Ok(Islands {
         _module: module,
         roots,
-        table,
+        functions: table,
+        lambdas,
+        callable,
         _ops: ops,
         _caches: caches,
         stack_size: options.stack_size,
@@ -594,9 +791,9 @@ fn trampoline(pointer: *const u8) -> Trampoline {
     unsafe { std::mem::transmute::<*const u8, Trampoline>(pointer) }
 }
 
-/// A body's signature: the context, the frames pending with its own (the
-/// module comment), and three words per argument, returning three words, in
-/// the `tail` convention.
+/// A global body's signature: the context, the frames pending with its own
+/// (the module comment), and three words per argument, returning three
+/// words, in the `tail` convention.
 fn body_signature(pointer: ir::Type, params: u32) -> ir::Signature {
     let mut signature = ir::Signature::new(CallConv::Tail);
     signature.params.push(AbiParam::new(pointer));
@@ -608,6 +805,310 @@ fn body_signature(pointer: ir::Type, params: u32) -> ir::Signature {
         signature.returns.push(AbiParam::new(types::I64));
     }
     signature
+}
+
+/// How a function value is called (a lambda's body, a global function's
+/// adapter): a body's signature, then the function value's address word
+/// (its `Rc`'s, which the callee owns: a closure's, for `Captured`, or a
+/// global function's, which its adapter drops; 0 for none).
+fn value_signature(pointer: ir::Type, params: u32) -> ir::Signature {
+    let mut signature = body_signature(pointer, params);
+    signature.params.push(AbiParam::new(pointer));
+    signature
+}
+
+/// `Apply`'s slow path for `n` arguments ([`emit_apply_any`]): the context,
+/// the frames pending without the callee, a closure to drop once the
+/// function value is taken apart (a tail apply's own, or 0), the function
+/// value, and the arguments, three words each; returning three words.
+fn apply_signature(pointer: ir::Type, n: u32) -> ir::Signature {
+    let mut signature = ir::Signature::new(CallConv::Tail);
+    signature.params.push(AbiParam::new(pointer));
+    signature.params.push(AbiParam::new(types::I64));
+    signature.params.push(AbiParam::new(pointer));
+    for _ in 0..(n + 1) * 3 {
+        signature.params.push(AbiParam::new(types::I64));
+    }
+    for _ in 0..3 {
+        signature.returns.push(AbiParam::new(types::I64));
+    }
+    signature
+}
+
+/// Drops the function value whose address word is `fun` (not 0), inline:
+/// its count goes down, and the runtime frees it if this was the last.
+/// Function values aren't in the allocation trace, so this is inline under
+/// the trace too (what freeing one releases goes through the runtime).
+fn drop_fun(b: &mut FunctionBuilder<'_>, drop_words: FuncRef, fun: IrValue) {
+    let strong = b.ins().load(types::I64, flags(), fun, STRONG_AT);
+    let last = b.ins().icmp_imm_u(IntCC::Equal, strong, 1);
+    let free = b.create_block();
+    let keep = b.create_block();
+    let after = b.create_block();
+    b.ins().brif(last, free, &[], keep, &[]);
+    b.switch_to_block(free);
+    let tag = b.ins().iconst(types::I64, i64::from(TAG_FUN));
+    let zero = b.ins().iconst(types::I64, 0);
+    b.ins().call(drop_words, &[tag, fun, zero]);
+    b.ins().jump(after, &[]);
+    b.switch_to_block(keep);
+    let fewer = b.ins().iadd_imm_s(strong, -1);
+    b.ins().store(flags(), fewer, fun, STRONG_AT);
+    b.ins().jump(after, &[]);
+    b.switch_to_block(after);
+}
+
+/// A global function's entry as a function value (`value_signature`):
+/// drops the function value it was called through, then is the body. The
+/// machine drops it at the same point (after pushing the frame, before the
+/// body runs); a global's function value is never freed there anyway, as
+/// the constants' cache keeps it.
+fn emit_adapter(
+    b: &mut FunctionBuilder<'_>,
+    module: &mut JITModule,
+    helpers: &Helpers,
+    body: FuncId,
+    params: u32,
+    pointer: ir::Type,
+) {
+    let entry = b.create_block();
+    b.append_block_params_for_function_params(entry);
+    b.switch_to_block(entry);
+    let all = b.block_params(entry).to_vec();
+    let fun = all[all.len() - 1];
+    let drop_words = module.declare_func_in_func(helpers.drop_words, b.func);
+    let is_fun = b.ins().icmp_imm_u(IntCC::NotEqual, fun, 0);
+    let dropping = b.create_block();
+    let call = b.create_block();
+    b.ins().brif(is_fun, dropping, &[], call, &[]);
+    b.switch_to_block(dropping);
+    drop_fun(b, drop_words, fun);
+    b.ins().jump(call, &[]);
+    b.switch_to_block(call);
+    let callee = module.declare_func_in_func(body, b.func);
+    let args = &all[..2 + params as usize * 3];
+    let _ = pointer;
+    b.ins().return_call(callee, args);
+}
+
+/// `Apply`'s slow path for `n` arguments (`apply_signature`): the
+/// machine's eval/apply. Each step is the runtime's `sw_apply_prepare` on a
+/// plan in this frame (`ApplyPlan`, with room for `cap` values): a value
+/// now (a partial application, a native's result, `Done`), or code to call
+/// with a frame, counted as the machine's `enter` counts it. Then any
+/// over-application's other arguments are applied to the result, the same
+/// way, until none are left. A last call with nothing left over is a tail
+/// call, so a tail apply stays in constant stack. Running out of steps or
+/// frames, or a callee's error, releases what the plan holds.
+#[allow(clippy::too_many_arguments)]
+fn emit_apply_any(
+    b: &mut FunctionBuilder<'_>,
+    module: &mut JITModule,
+    helpers: &Helpers,
+    n: u32,
+    arities: &BTreeSet<u32>,
+    cap: u32,
+    pointer: ir::Type,
+    options: Options,
+) {
+    let prepare = module.declare_func_in_func(helpers.apply_prepare, b.func);
+    let release = module.declare_func_in_func(helpers.release, b.func);
+    let drop_words = module.declare_func_in_func(helpers.drop_words, b.func);
+    let slot = |b: &mut FunctionBuilder<'_>, size: usize| {
+        b.create_sized_stack_slot(StackSlotData::new(
+            StackSlotKind::ExplicitSlot,
+            size as u32,
+            3,
+        ))
+    };
+    let fun_slot = slot(b, VALUE_SIZE);
+    let in_slot = slot(b, VALUE_SIZE * (n as usize).max(1));
+    let plan_slot = slot(b, ApplyPlan::ARGS_AT as usize + VALUE_SIZE * cap as usize);
+
+    let entry = b.create_block();
+    b.append_block_params_for_function_params(entry);
+    b.switch_to_block(entry);
+    let params = b.block_params(entry).to_vec();
+    let (ctx, frames, drop_env) = (params[0], params[1], params[2]);
+    let fun_at = b.ins().stack_addr(pointer, fun_slot, 0);
+    for w in 0..3 {
+        b.ins()
+            .store(flags(), params[3 + w], fun_at, (w * 8) as i32);
+    }
+    let in_at = b.ins().stack_addr(pointer, in_slot, 0);
+    for i in 0..n as usize * 3 {
+        b.ins().store(flags(), params[6 + i], in_at, (i * 8) as i32);
+    }
+    let plan = b.ins().stack_addr(pointer, plan_slot, 0);
+    let cap_value = b.ins().iconst(types::I64, i64::from(cap));
+    b.ins().store(flags(), cap_value, plan, ApplyPlan::CAP_AT);
+    let count = b.ins().iconst(types::I64, i64::from(n));
+    b.ins().call(prepare, &[ctx, fun_at, in_at, count, plan]);
+    // A tail apply's own closure, dropped as the machine drops its frame's:
+    // after the function value is taken apart.
+    let dropping = b.create_block();
+    let dispatch = b.create_block();
+    b.ins().brif(drop_env, dropping, &[], dispatch, &[]);
+    b.switch_to_block(dropping);
+    drop_fun(b, drop_words, drop_env);
+    b.ins().jump(dispatch, &[]);
+
+    // What the plan says.
+    b.switch_to_block(dispatch);
+    let code = b.ins().load(pointer, flags(), plan, ApplyPlan::CODE_AT);
+    let enter = b.create_block();
+    let ready = b.create_block();
+    b.ins().brif(code, enter, &[], ready, &[]);
+
+    // A value now: the result, or applied to what's left.
+    let again = b.create_block();
+    for _ in 0..3 {
+        b.append_block_param(again, types::I64);
+    }
+    b.switch_to_block(ready);
+    let v: Vec<IrValue> = (0..3)
+        .map(|w| {
+            b.ins()
+                .load(types::I64, flags(), plan, ApplyPlan::VALUE_AT + 8 * w)
+        })
+        .collect();
+    let rest = b.ins().load(types::I64, flags(), plan, ApplyPlan::REST_AT);
+    let done = b.create_block();
+    let v_args: Vec<ir::BlockArg> = v.iter().map(|x| (*x).into()).collect();
+    b.ins().brif(rest, again, &v_args, done, &[]);
+    b.switch_to_block(done);
+    b.ins().return_(&v);
+
+    // The result applied to the rest of an over-application.
+    b.switch_to_block(again);
+    let v = b.block_params(again).to_vec();
+    for (w, x) in v.iter().enumerate() {
+        b.ins().store(flags(), *x, fun_at, (w * 8) as i32);
+    }
+    let arity = b.ins().load(types::I64, flags(), plan, ApplyPlan::ARITY_AT);
+    let rest = b.ins().load(types::I64, flags(), plan, ApplyPlan::REST_AT);
+    let skip = b.ins().imul_imm_s(arity, VALUE_SIZE as i64);
+    let from = b.ins().iadd(plan, skip);
+    let from = b.ins().iadd_imm_s(from, i64::from(ApplyPlan::ARGS_AT));
+    b.ins().call(prepare, &[ctx, fun_at, from, rest, plan]);
+    b.ins().jump(dispatch, &[]);
+
+    // Code to call: a step and a frame, as the machine's `enter_frame`.
+    b.switch_to_block(enter);
+    let out_of_steps = b.create_block();
+    let counted = b.create_block();
+    let left = b.ins().get_pinned_reg(types::I64);
+    let none_left = b.ins().icmp_imm_u(IntCC::Equal, left, 0);
+    b.ins().brif(none_left, out_of_steps, &[], counted, &[]);
+    b.switch_to_block(counted);
+    let fewer = b.ins().iadd_imm_s(left, -1);
+    b.ins().set_pinned_reg(fewer);
+    let limit = b
+        .ins()
+        .load(types::I64, flags(), ctx, Context::FRAME_LIMIT_AT);
+    let mut over = b
+        .ins()
+        .icmp(IntCC::UnsignedGreaterThanOrEqual, frames, limit);
+    if options.stack_size.is_some() {
+        let sp = b.ins().get_stack_pointer(pointer);
+        let floor = b
+            .ins()
+            .load(types::I64, flags(), ctx, Context::STACK_LIMIT_AT);
+        let low = b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
+        over = b.ins().bor(over, low);
+    }
+    let out_of_frames = b.create_block();
+    let entering = b.create_block();
+    b.ins().brif(over, out_of_frames, &[], entering, &[]);
+    b.switch_to_block(entering);
+    let pushed = b.ins().iadd_imm_s(frames, 1);
+    let arity = b.ins().load(types::I64, flags(), plan, ApplyPlan::ARITY_AT);
+    let trap = b.create_block();
+    let failed = b.create_block();
+    let mut switch = Switch::new();
+    let mut arms = Vec::new();
+    for &k in arities {
+        let arm = b.create_block();
+        switch.set_entry(u128::from(k), arm);
+        arms.push((k, arm));
+    }
+    switch.emit(b, arity, trap);
+    for (k, arm) in arms {
+        b.switch_to_block(arm);
+        let mut call_args = vec![ctx, pushed];
+        for i in 0..k as i32 * 3 {
+            call_args.push(
+                b.ins()
+                    .load(types::I64, flags(), plan, ApplyPlan::ARGS_AT + 8 * i),
+            );
+        }
+        call_args.push(b.ins().load(pointer, flags(), plan, ApplyPlan::ENV_AT));
+        let signature = b.import_signature(value_signature(pointer, k));
+        let rest = b.ins().load(types::I64, flags(), plan, ApplyPlan::REST_AT);
+        let tail = b.create_block();
+        let call = b.create_block();
+        b.ins().brif(rest, call, &[], tail, &[]);
+        b.switch_to_block(tail);
+        b.ins().return_call_indirect(signature, code, &call_args);
+        b.switch_to_block(call);
+        let called = b.ins().call_indirect(signature, code, &call_args);
+        let r: Vec<ir::BlockArg> = b
+            .inst_results(called)
+            .to_vec()
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
+        b.ins().brif(error, failed, &[], again, &r);
+    }
+    b.switch_to_block(trap);
+    b.set_cold_block(trap);
+    b.ins().trap(TrapCode::unwrap_user(4));
+
+    // Out of steps or frames before the call: the plan's values and closure
+    // released.
+    let release_all = b.create_block();
+    b.switch_to_block(out_of_steps);
+    b.set_cold_block(out_of_steps);
+    let over = b.ins().iconst(types::I64, -1);
+    b.ins().set_pinned_reg(over);
+    let error = b.ins().iconst(types::I64, OUT_OF_STEPS as i64);
+    b.ins().store(flags(), error, ctx, Context::ERROR_AT);
+    b.ins().jump(release_all, &[]);
+    b.switch_to_block(out_of_frames);
+    b.set_cold_block(out_of_frames);
+    let error = b.ins().iconst(types::I64, OUT_OF_FRAMES as i64);
+    b.ins().store(flags(), error, ctx, Context::ERROR_AT);
+    b.ins().jump(release_all, &[]);
+    b.switch_to_block(release_all);
+    b.set_cold_block(release_all);
+    let arity = b.ins().load(types::I64, flags(), plan, ApplyPlan::ARITY_AT);
+    let rest = b.ins().load(types::I64, flags(), plan, ApplyPlan::REST_AT);
+    let all = b.ins().iadd(arity, rest);
+    let values = b.ins().iadd_imm_s(plan, i64::from(ApplyPlan::ARGS_AT));
+    b.ins().call(release, &[values, all]);
+    let env = b.ins().load(pointer, flags(), plan, ApplyPlan::ENV_AT);
+    let dropping = b.create_block();
+    let gone = b.create_block();
+    b.ins().brif(env, dropping, &[], gone, &[]);
+    b.switch_to_block(dropping);
+    drop_fun(b, drop_words, env);
+    b.ins().jump(gone, &[]);
+    b.switch_to_block(gone);
+    let zero = b.ins().iconst(types::I64, 0);
+    b.ins().return_(&[zero, zero, zero]);
+
+    // A callee's error, with an over-application's rest still held.
+    b.switch_to_block(failed);
+    b.set_cold_block(failed);
+    let arity = b.ins().load(types::I64, flags(), plan, ApplyPlan::ARITY_AT);
+    let rest = b.ins().load(types::I64, flags(), plan, ApplyPlan::REST_AT);
+    let skip = b.ins().imul_imm_s(arity, VALUE_SIZE as i64);
+    let from = b.ins().iadd(plan, skip);
+    let from = b.ins().iadd_imm_s(from, i64::from(ApplyPlan::ARGS_AT));
+    b.ins().call(release, &[from, rest]);
+    let zero = b.ins().iconst(types::I64, 0);
+    b.ins().return_(&[zero, zero, zero]);
 }
 
 // ----------------------------------------------------------------- helpers
@@ -629,8 +1130,12 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_num_switch", abi::sw_num_switch as *const u8),
         ("sw_global", abi::sw_global as *const u8),
         ("sw_global_set", abi::sw_global_set as *const u8),
-        ("sw_apply_native", abi::sw_apply_native as *const u8),
         ("sw_apply_cached", abi::sw_apply_cached as *const u8),
+        ("sw_apply_prepare", abi::sw_apply_prepare as *const u8),
+        ("sw_closure", abi::sw_closure as *const u8),
+        ("sw_pap", abi::sw_pap as *const u8),
+        ("sw_int_negative", abi::sw_int_negative as *const u8),
+        ("sw_unary", abi::sw_unary as *const u8),
         ("sw_free_emptied", abi::sw_free_emptied as *const u8),
     ]
 }
@@ -651,8 +1156,12 @@ struct Helpers {
     num_switch: FuncId,
     global: FuncId,
     global_set: FuncId,
-    apply_native: FuncId,
     apply_cached: FuncId,
+    apply_prepare: FuncId,
+    closure: FuncId,
+    pap: FuncId,
+    int_negative: FuncId,
+    unary: FuncId,
     free_emptied: FuncId,
 }
 
@@ -683,8 +1192,12 @@ impl Helpers {
             num_switch: declare("sw_num_switch", &[p, p], &[I64])?,
             global: declare("sw_global", &[p, I32, p], &[I64])?,
             global_set: declare("sw_global_set", &[p, I32, p], &[])?,
-            apply_native: declare("sw_apply_native", &[p, p, p, I64, p], &[])?,
             apply_cached: declare("sw_apply_cached", &[p, p, I64, p], &[I64])?,
+            apply_prepare: declare("sw_apply_prepare", &[p, p, p, I64, p], &[])?,
+            closure: declare("sw_closure", &[I32, p, I64, p], &[])?,
+            pap: declare("sw_pap", &[p, I32, p, I64, p], &[])?,
+            int_negative: declare("sw_int_negative", &[p], &[I64])?,
+            unary: declare("sw_unary", &[p, I32, p, p], &[])?,
             free_emptied: declare("sw_free_emptied", &[I64, I64, I64], &[])?,
         })
     }
@@ -736,6 +1249,7 @@ fn successors(code: &Code, pc: usize) -> Vec<usize> {
             vec![pc + 1, target as usize]
         }
         Instr::NatCase { zero, .. } => vec![pc + 1, zero as usize],
+        Instr::IntCase { neg, .. } => vec![pc + 1, neg as usize],
         Instr::Switch { table, .. } => {
             let mut t: Vec<usize> = code.tables[table as usize]
                 .iter()
@@ -885,7 +1399,12 @@ struct Gen<'a, 'm> {
     image: &'m Image,
     code_index: u32,
     code: &'m Code,
+    /// The lambda whose body this is, if it's a lambda's: it takes its
+    /// closure last (`value_signature`).
+    lambda: Option<u32>,
     functions: &'m BTreeMap<u32, FuncId>,
+    /// `Apply`'s slow path, by the number of arguments (`emit_apply_any`).
+    apply_any: &'m BTreeMap<u32, FuncId>,
     helpers: &'m Helpers,
     refs: BTreeMap<FuncId, FuncRef>,
     signatures: BTreeMap<u32, SigRef>,
@@ -920,6 +1439,11 @@ struct Gen<'a, 'm> {
     /// The frames pending, this one's included: an argument, so the count
     /// lives in a register and a return needs no decrement.
     frames: IrValue,
+    /// In a lambda's body, its closure's address word: owned by the frame
+    /// as the machine's frame owns its `env`, and dropped where the machine
+    /// drops it (after the registers on a return; before them on a tail
+    /// call; with them on an error exit).
+    env: Option<IrValue>,
 }
 
 const fn spill_at(i: usize) -> i32 {
@@ -1164,6 +1688,12 @@ impl Gen<'_, '_> {
     /// live in variables, so each exit releases its own), and returns.
     /// Otherwise continues.
     fn exit_if(&mut self, cond: IrValue, live: &Regs, error: Option<u64>) {
+        self.exit_with(cond, live, error, &[]);
+    }
+
+    /// [`Gen::exit_if`], also dropping `extra`, values held outside the
+    /// registers (an `Apply`'s function value).
+    fn exit_with(&mut self, cond: IrValue, live: &Regs, error: Option<u64>, extra: &[Val]) {
         let exit = self.b.create_block();
         let fine = self.b.create_block();
         self.b.ins().brif(cond, exit, &[], fine, &[]);
@@ -1191,19 +1721,36 @@ impl Gen<'_, '_> {
             let count = self.iconst(regs.len() as u64);
             self.call_helper(self.helpers.release, &[at, count]);
         }
+        for v in extra {
+            self.drop_value(*v);
+        }
+        self.drop_env();
         let zero = self.iconst(0);
         self.b.ins().return_(&[zero, zero, zero]);
         self.b.switch_to_block(fine);
     }
 
+    /// In a lambda's body, drops its closure (the frame's `env`).
+    fn drop_env(&mut self) {
+        if let Some(env) = self.env {
+            let drop_words = self.func_ref(self.helpers.drop_words);
+            drop_fun(&mut self.b, drop_words, env);
+        }
+    }
+
     /// A frame entered: a step, out of steps if over the limit (`live`
     /// as for [`Gen::exit_if`]).
     fn count_step(&mut self, live: &Regs) {
+        self.count_step_with(live, &[]);
+    }
+
+    /// [`Gen::count_step`], with `extra` as for [`Gen::exit_with`].
+    fn count_step_with(&mut self, live: &Regs, extra: &[Val]) {
         // The steps left are in the pinned register: none left means this
         // step is one over the limit.
         let left = self.b.ins().get_pinned_reg(types::I64);
         let over = self.b.ins().icmp_imm_u(IntCC::Equal, left, 0);
-        self.exit_if(over, live, Some(OUT_OF_STEPS));
+        self.exit_with(over, live, Some(OUT_OF_STEPS), extra);
         let left = self.b.ins().iadd_imm_s(left, -1);
         self.b.ins().set_pinned_reg(left);
     }
@@ -1212,6 +1759,11 @@ impl Gen<'_, '_> {
     /// the limit allows (or at the stack's safety margin). The frames
     /// pending with the new one, which the callee is given.
     fn push_frame(&mut self, live: &Regs) -> IrValue {
+        self.push_frame_with(live, &[])
+    }
+
+    /// [`Gen::push_frame`], with `extra` as for [`Gen::exit_with`].
+    fn push_frame_with(&mut self, live: &Regs, extra: &[Val]) -> IrValue {
         let frames = self.frames;
         let limit = self.ctx_load(Context::FRAME_LIMIT_AT);
         let over = self
@@ -1223,9 +1775,9 @@ impl Gen<'_, '_> {
             let floor = self.ctx_load(Context::STACK_LIMIT_AT);
             let low = self.b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
             let either = self.b.ins().bor(over, low);
-            self.exit_if(either, live, Some(OUT_OF_FRAMES));
+            self.exit_with(either, live, Some(OUT_OF_FRAMES), extra);
         } else {
-            self.exit_if(over, live, Some(OUT_OF_FRAMES));
+            self.exit_with(over, live, Some(OUT_OF_FRAMES), extra);
         }
         self.b.ins().iadd_imm_s(frames, 1)
     }
@@ -1266,13 +1818,14 @@ impl Gen<'_, '_> {
         self.blocks[&(pc as usize)]
     }
 
-    fn signature(&mut self, params: u32) -> SigRef {
+    /// How a function value taking `params` is called (`value_signature`).
+    fn value_sig(&mut self, params: u32) -> SigRef {
         if let Some(s) = self.signatures.get(&params) {
             return *s;
         }
         let s = self
             .b
-            .import_signature(body_signature(self.pointer, params));
+            .import_signature(value_signature(self.pointer, params));
         self.signatures.insert(params, s);
         s
     }
@@ -1312,7 +1865,9 @@ impl Gen<'_, '_> {
                 Instr::Ctor { args, .. }
                 | Instr::CtorReuse { args, .. }
                 | Instr::Apply { args, .. }
-                | Instr::TailApply { args, .. } => args.len as usize,
+                | Instr::TailApply { args, .. }
+                | Instr::Closure { args, .. }
+                | Instr::Pap { args, .. } => args.len as usize,
                 _ => 0,
             })
             .max()
@@ -1387,7 +1942,12 @@ impl Gen<'_, '_> {
         self.b.switch_to_block(entry);
         self.ctx = self.b.block_params(entry)[0];
         self.frames = self.b.block_params(entry)[1];
-        let args: Vec<IrValue> = self.b.block_params(entry)[2..].to_vec();
+        let mut args: Vec<IrValue> = self.b.block_params(entry)[2..].to_vec();
+        if self.lambda.is_some() {
+            // The closure, last; a lambda's body never jumps back to its
+            // top (only a global's own tail call does), so it stays put.
+            self.env = args.pop();
+        }
         let args: Vec<ir::BlockArg> = args.into_iter().map(Into::into).collect();
         self.b.ins().jump(self.top, &args);
 
@@ -1481,9 +2041,12 @@ impl Gen<'_, '_> {
                 self.assign(pc, dst, Val([r[0], r[1], r[2]]));
             }
             Instr::TailCall { g, args } => {
+                // As the machine's `replace`: the step, then this frame's
+                // closure dropped, then its registers.
                 self.count_step(&self.full[pc].clone());
                 let values = self.operands(args);
                 let left = self.without_moved(&self.full[pc], ops(code, args));
+                self.drop_env();
                 self.release(&left);
                 let callee = self.image.global_code[g as usize].expect("a function has code");
                 let words: Vec<IrValue> = Self::words(&values).collect();
@@ -1499,35 +2062,46 @@ impl Gen<'_, '_> {
                 return false;
             }
             Instr::Apply { dst, f, args } => {
-                // As the machine: the function value taken, then a frame
-                // for compiled code (`exact`), or a native's value computed
-                // with no frame (eval/apply).
+                // As the machine: the function value taken; then for a
+                // closure or a global function taking exactly these
+                // arguments (`exact`), a frame for its code, which is given
+                // the function value; anything else goes through eval/apply
+                // (`emit_apply_any`).
                 let (fv, target) = self.apply_target(f, args.len);
-                let compiled = self.b.create_block();
-                let native = self.b.create_block();
+                let exact = self.b.create_block();
+                let slow = self.b.create_block();
                 let after = self.b.create_block();
-                self.b.ins().brif(target, compiled, &[], native, &[]);
+                self.b.ins().brif(target, exact, &[], slow, &[]);
 
-                self.b.switch_to_block(compiled);
-                self.drop_value(fv);
+                self.b.switch_to_block(exact);
                 let live = self.without_moved(&self.full[pc], &[f]);
-                self.count_step(&live);
-                let frames = self.push_frame(&live);
+                self.count_step_with(&live, &[fv]);
+                let frames = self.push_frame_with(&live, &[fv]);
                 let values = self.operands(args);
                 let live = self.without_moved(&live, ops(code, args));
-                let sig = self.signature(args.len);
+                let sig = self.value_sig(args.len);
                 let mut call_args = vec![self.ctx, frames];
                 call_args.extend(Self::words(&values));
+                call_args.push(fv.0[1]);
                 let call = self.b.ins().call_indirect(sig, target, &call_args);
                 let r = self.b.inst_results(call).to_vec();
                 self.after_call(&live);
                 self.assign(pc, dst, Val([r[0], r[1], r[2]]));
                 self.b.ins().jump(after, &[]);
 
-                self.b.switch_to_block(native);
+                self.b.switch_to_block(slow);
                 let values = self.operands(args);
-                let v = self.apply_native(&values);
-                self.assign(pc, dst, v);
+                let live = self.without_moved(&self.full[pc], &[f]);
+                let live = self.without_moved(&live, ops(code, args));
+                let apply = self.func_ref(self.apply_any[&args.len]);
+                let none = self.iconst(0);
+                let mut call_args = vec![self.ctx, self.frames, none];
+                call_args.extend(fv.0);
+                call_args.extend(Self::words(&values));
+                let call = self.b.ins().call(apply, &call_args);
+                let r = self.b.inst_results(call).to_vec();
+                self.after_call(&live);
+                self.assign(pc, dst, Val([r[0], r[1], r[2]]));
                 self.b.ins().jump(after, &[]);
                 self.b.switch_to_block(after);
             }
@@ -1535,39 +2109,94 @@ impl Gen<'_, '_> {
                 let (fv, target) = self.apply_target(f, args.len);
                 let taken = self.without_moved(&self.full[pc], &[f]);
                 let left = self.without_moved(&taken, ops(code, args));
-                let compiled = self.b.create_block();
-                let native = self.b.create_block();
-                self.b.ins().brif(target, compiled, &[], native, &[]);
+                let exact = self.b.create_block();
+                let slow = self.b.create_block();
+                self.b.ins().brif(target, exact, &[], slow, &[]);
 
-                self.b.switch_to_block(compiled);
-                self.drop_value(fv);
-                self.count_step(&taken);
+                // As the machine's `replace`, as for `TailCall`.
+                self.b.switch_to_block(exact);
+                self.count_step_with(&taken, &[fv]);
                 let values = self.operands(args);
+                self.drop_env();
                 self.release(&left);
-                let sig = self.signature(args.len);
+                let sig = self.value_sig(args.len);
                 let mut call_args = vec![self.ctx, self.frames];
                 call_args.extend(Self::words(&values));
+                call_args.push(fv.0[1]);
                 self.b.ins().return_call_indirect(sig, target, &call_args);
 
-                self.b.switch_to_block(native);
+                // As the machine: this frame popped and its registers
+                // released, then eval/apply with the frames below, which
+                // drops this frame's closure once it has taken the function
+                // value apart (as the machine drops the popped frame).
+                self.b.switch_to_block(slow);
                 let values = self.operands(args);
-                for (i, v) in values.iter().enumerate() {
-                    let at = self.temp_address(i * VALUE_SIZE);
-                    self.store(Loc::Mem(at, 0), *v);
-                }
                 self.release(&left);
-                let v = self.apply_native_stored(values.len());
-                self.b.ins().return_(&v.0);
+                let apply = self.func_ref(self.apply_any[&args.len]);
+                let below = self.b.ins().iadd_imm_s(self.frames, -1);
+                let env = match self.env {
+                    Some(env) => env,
+                    None => self.address(0),
+                };
+                let mut call_args = vec![self.ctx, below, env];
+                call_args.extend(fv.0);
+                call_args.extend(Self::words(&values));
+                self.b.ins().return_call(apply, &call_args);
                 return false;
             }
             Instr::Return { src } => {
+                // As the machine: the registers released, then the frame's
+                // closure.
                 let v = self.load(Loc::Reg(src));
                 let mut left = self.full[pc].clone();
                 left.remove(src);
                 self.release(&left);
+                self.drop_env();
                 self.b.ins().return_(&v.0);
                 return false;
             }
+            Instr::Captured { dst, i } => {
+                let env = self.env.expect("a capture is in a lambda's body");
+                let captures =
+                    self.b
+                        .ins()
+                        .load(self.pointer, flags(), env, RC_VALUE_AT + FUN_CAPTURES_AT);
+                let v = self.clone_from(Loc::Mem(captures, (i as usize * VALUE_SIZE) as i32));
+                self.assign(pc, dst, v);
+            }
+            Instr::Closure { dst, lambda, args } => {
+                let values = self.operands(args);
+                let lambda = self.i32const(lambda);
+                let v = self.made(self.helpers.closure, &[lambda], &values);
+                self.assign(pc, dst, v);
+            }
+            Instr::Pap { dst, g, args } => {
+                let values = self.operands(args);
+                let g = self.i32const(g);
+                let v = self.made(self.helpers.pap, &[self.ctx, g], &values);
+                self.assign(pc, dst, v);
+            }
+            Instr::IntCase { src, neg } => {
+                let v = self.load(Loc::Reg(src));
+                let int = self.is_tag(v, TAG_INT);
+                let small = self.b.create_block();
+                let big = self.b.create_block();
+                let neg = self.block_of(neg);
+                let next = self.block_of(pc as u32 + 1);
+                self.b.ins().brif(int, small, &[], big, &[]);
+                self.b.switch_to_block(small);
+                let negative = self.b.ins().icmp_imm_s(IntCC::SignedLessThan, v.0[1], 0);
+                self.b.ins().brif(negative, neg, &[], next, &[]);
+                self.b.switch_to_block(big);
+                self.b.set_cold_block(big);
+                let at = self.spill_value(0, v);
+                let r = self.call_helper(self.helpers.int_negative, &[at])[0];
+                self.b.ins().brif(r, neg, &[], next, &[]);
+                return false;
+            }
+            Instr::IntOfNat { dst, src } => self.unary(pc, dst, src, abi::UNARY_INT_OF_NAT),
+            Instr::IntNegSucc { dst, src } => self.unary(pc, dst, src, abi::UNARY_INT_NEG_SUCC),
+            Instr::TextChars { dst, src } => self.unary(pc, dst, src, abi::UNARY_TEXT_CHARS),
             Instr::Prim { dst, op, args } => self.prim(pc, dst, op, args),
             Instr::Test { op, args, target } => {
                 let o = ops(code, args).to_vec();
@@ -1761,28 +2390,32 @@ impl Gen<'_, '_> {
         self.b.switch_to_block(after);
     }
 
-    /// `Apply`'s function value, taken from `f` (moved or cloned) and kept
-    /// in the `fun` slot, and its compiled code, or 0 for a native.
+    /// `Apply`'s function value, taken from `f` (moved or cloned), and the
+    /// code to call it with directly (a closure or a global function that
+    /// takes exactly `n`: the machine's `exact`), or 0 for eval/apply.
     fn apply_target(&mut self, f: Reg, n: u32) -> (Val, IrValue) {
         let v = self.operand(f);
-        let at = self.b.ins().stack_addr(self.pointer, self.fun, 0);
-        self.store(Loc::Mem(at, 0), v);
-        // This site's cache (`abi::ApplyCache`): the same function value as
-        // last time calls the same code, with no runtime call.
+        // This site's cache (`abi::ApplyCache`): a function value with the
+        // same key as last time (the same global function, or a closure of
+        // the same lambda) calls the same code, with no runtime call.
         let cache = Box::new(abi::ApplyCache::new());
         let cache_at = self.address(&*cache as *const abi::ApplyCache as usize);
         self.caches.push(cache);
-        let key = self
-            .b
-            .ins()
-            .load(types::I64, flags(), cache_at, abi::ApplyCache::KEY_AT);
-        let is_fun = self.is_tag(v, abi::TAG_FUN);
-        let same = self.b.ins().icmp(IntCC::Equal, key, v.0[1]);
-        let hit = self.b.ins().band(is_fun, same);
+        let is_fun = self.is_tag(v, TAG_FUN);
+        let check = self.b.create_block();
         let cached = self.b.create_block();
         let miss = self.b.create_block();
         let after = self.b.create_block();
         self.b.append_block_param(after, self.pointer);
+        self.b.ins().brif(is_fun, check, &[], miss, &[]);
+        self.b.switch_to_block(check);
+        let first = self.b.ins().load(types::I64, flags(), v.0[1], RC_VALUE_AT);
+        let mine = self.b.ins().band_imm_s(first, FUN_KEY_MASK as i64);
+        let key = self
+            .b
+            .ins()
+            .load(types::I64, flags(), cache_at, abi::ApplyCache::KEY_AT);
+        let hit = self.b.ins().icmp(IntCC::Equal, key, mine);
         self.b.ins().brif(hit, cached, &[], miss, &[]);
         self.b.switch_to_block(cached);
         let code = self
@@ -1792,6 +2425,8 @@ impl Gen<'_, '_> {
         self.b.ins().jump(after, &[code.into()]);
         self.b.switch_to_block(miss);
         self.b.set_cold_block(miss);
+        let at = self.b.ins().stack_addr(self.pointer, self.fun, 0);
+        self.store(Loc::Mem(at, 0), v);
         let n = self.iconst(u64::from(n));
         let target = self.call_helper(self.helpers.apply_cached, &[self.ctx, at, n, cache_at])[0];
         self.b.ins().jump(after, &[target.into()]);
@@ -1799,23 +2434,32 @@ impl Gen<'_, '_> {
         (v, self.b.block_params(after)[0])
     }
 
-    /// The native in the `fun` slot applied to `values` (moved).
-    fn apply_native(&mut self, values: &[Val]) -> Val {
+    /// A value made by `helper` from `values` (moved): the helper takes
+    /// `first`, then the values' address and count, then where to put it.
+    fn made(&mut self, helper: FuncId, first: &[IrValue], values: &[Val]) -> Val {
         for (i, v) in values.iter().enumerate() {
             let at = self.temp_address(i * VALUE_SIZE);
             self.store(Loc::Mem(at, 0), *v);
         }
-        self.apply_native_stored(values.len())
+        let fields = self.temp_address(0);
+        let out = self.temp_address(values.len() * VALUE_SIZE);
+        let n = self.iconst(values.len() as u64);
+        let mut args = first.to_vec();
+        args.extend([fields, n, out]);
+        self.call_helper(helper, &args);
+        self.load(Loc::Mem(out, 0))
     }
 
-    /// The native in the `fun` slot applied to the `n` values in the temps.
-    fn apply_native_stored(&mut self, n: usize) -> Val {
-        let f = self.b.ins().stack_addr(self.pointer, self.fun, 0);
-        let args = self.temp_address(0);
-        let out = self.temp_address(n * VALUE_SIZE);
-        let count = self.iconst(n as u64);
-        self.call_helper(self.helpers.apply_native, &[self.ctx, f, args, count, out]);
-        self.load(Loc::Mem(out, 0))
+    /// One of the machine's one-operand instructions (`abi::sw_unary`),
+    /// reading `src` (borrowed) and writing `dst`.
+    fn unary(&mut self, pc: usize, dst: Reg, src: Reg, op: u32) {
+        let v = self.load(Loc::Reg(src));
+        let from = self.spill_value(0, v);
+        let to = self.spill_erased(1);
+        let op = self.i32const(op);
+        self.call_helper(self.helpers.unary, &[self.ctx, op, from, to]);
+        let r = self.load(Loc::Mem(to, 0));
+        self.assign(pc, dst, r);
     }
 
     fn prim(&mut self, pc: usize, dst: Reg, op: PrimOp, args: Ops) {
@@ -1882,16 +2526,21 @@ impl Gen<'_, '_> {
         let slow = self.b.create_block();
         let after = self.b.create_block();
         self.b.append_block_param(after, types::I8);
+        // Numbers that fit a word are compared inline, as the machine's
+        // `Test` compares them.
         let cc = match op {
-            PrimOp::Nat(Native::Leq) => Some(IntCC::UnsignedLessThanOrEqual),
-            PrimOp::Nat(Native::EqNat) => Some(IntCC::Equal),
+            PrimOp::Nat(Native::Leq) => Some((IntCC::UnsignedLessThanOrEqual, TAG_NAT)),
+            PrimOp::Nat(Native::EqNat) => Some((IntCC::Equal, TAG_NAT)),
+            PrimOp::IntEqual => Some((IntCC::Equal, TAG_INT)),
+            PrimOp::Int(IntNative::IntLess) => Some((IntCC::SignedLessThan, TAG_INT)),
+            PrimOp::Int(IntNative::IntLeq) => Some((IntCC::SignedLessThanOrEqual, TAG_INT)),
             _ => None,
         };
-        if let (Some(cc), [a, b]) = (cc, o) {
+        if let (Some((cc, tag)), [a, b]) = (cc, o) {
             let a = self.load(Loc::Reg(*a));
             let b = self.load(Loc::Reg(*b));
-            let na = self.is_tag(a, TAG_NAT);
-            let nb = self.is_tag(b, TAG_NAT);
+            let na = self.is_tag(a, tag);
+            let nb = self.is_tag(b, tag);
             let both = self.b.ins().band(na, nb);
             let small = self.b.create_block();
             self.b.ins().brif(both, small, &[], slow, &[]);

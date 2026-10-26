@@ -896,7 +896,7 @@ fn state_fn(s: &Shapes, comp: bool, run: StateRun) -> Value {
 }
 
 /// The arity of a function value that isn't a partial application.
-fn arity(program: &Program, head: &Value) -> usize {
+pub(crate) fn arity(program: &Program, head: &Value) -> usize {
     let Value::Fun(fun) = head else {
         unreachable!("a function")
     };
