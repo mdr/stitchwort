@@ -74,9 +74,14 @@ impl Unfolding {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug)]
 pub enum Head {
-    Var(usize),
+    /// A variable, by level, with the numbers it's known not to be: in a
+    /// number case's default arm, the matched variable is none of the arms'
+    /// numbers ([`Apart`]). That's a fact about the variable, not part of
+    /// it: two `Var`s of the same level are the same variable, so they're
+    /// equal and hash alike whatever each knows.
+    Var(usize, Apart),
     Def(DefId),
     Meta(usize),
     /// A quotient form (docs/proposals/map-equality.md §7), its arguments
@@ -87,6 +92,76 @@ pub enum Head {
     /// `Quot.mk` is never a constructor (`Value::Ctor`), so nothing that
     /// takes constructors apart (a `case`, index unification) sees inside it.
     Quot(QuotForm),
+}
+
+impl PartialEq for Head {
+    fn eq(&self, other: &Head) -> bool {
+        match (self, other) {
+            (Head::Var(a, _), Head::Var(b, _)) => a == b,
+            (Head::Def(a), Head::Def(b)) => a == b,
+            (Head::Meta(a), Head::Meta(b)) => a == b,
+            (Head::Quot(a), Head::Quot(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Head {}
+
+impl std::hash::Hash for Head {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            Head::Var(l, _) => l.hash(state),
+            Head::Def(d) => d.hash(state),
+            Head::Meta(m) => m.hash(state),
+            Head::Quot(q) => q.hash(state),
+        }
+    }
+}
+
+/// The numbers a variable is known not to be (docs/proposals/
+/// literal-match-facts.md): nothing, or a set in [`Globals::apart_sets`].
+///
+/// A number case's default arm is taken only for a number none of its arms
+/// has, so there the matched variable is checked as a `Var` apart from them.
+/// A number case on such a variable (or on `k` plus one) whose numbers it is
+/// known not to be takes its default: a proof that matches a character
+/// against `'k'`, `'j'` and `_` has the program's own match on `'k'`, `'j'`
+/// and `_` reach its `_` arm in the proof's `_` arm.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Apart(u32);
+
+impl Apart {
+    /// Nothing known.
+    pub const NONE: Apart = Apart(0);
+
+    /// The set `numbers` (sorted, without duplicates), named in `g`.
+    pub fn new(g: &Globals, numbers: Rc<[BigUint]>) -> Apart {
+        let mut sets = g.apart_sets.borrow_mut();
+        sets.push(numbers);
+        Apart(u32::try_from(sets.len()).expect("fewer than 2^32 number cases"))
+    }
+
+    /// The numbers, sorted; empty for [`Apart::NONE`].
+    pub fn numbers(self, g: &Globals) -> Rc<[BigUint]> {
+        match self.0 {
+            0 => Rc::from([]),
+            i => g.apart_sets.borrow()[i as usize - 1].clone(),
+        }
+    }
+
+    /// Whether a number case on `k + x`, for `x` known not to be these
+    /// numbers, can take none of `arms` (sorted): each is below `k`, or `k`
+    /// plus one of these.
+    pub fn excludes(self, g: &Globals, k: &BigUint, arms: &[crate::term::NumArm]) -> bool {
+        if self == Apart::NONE {
+            return false;
+        }
+        let numbers = self.numbers(g);
+        arms.iter()
+            .all(|arm| *arm.value < *k || numbers.binary_search(&(&*arm.value - k)).is_ok())
+    }
 }
 
 /// The representative of a `Quot.mk` value, if `value` is one.
@@ -351,7 +426,7 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
             {
                 pending.push(value);
             }
-            pending.push(Value::Neutral(Head::Var(0), spine));
+            pending.push(Value::Neutral(Head::Var(0, Apart::NONE), spine));
         }
         Value::Neutral(_, spine) => {
             // Only the last owner takes the eliminations apart.
@@ -394,12 +469,12 @@ impl Closure {
 /// A placeholder for a value that's never looked at: an environment entry the
 /// body doesn't mention.
 pub fn unused() -> Value {
-    Value::Neutral(Head::Var(usize::MAX), Spine::new())
+    Value::Neutral(Head::Var(usize::MAX, Apart::NONE), Spine::new())
 }
 
 impl Value {
     pub fn var(level: usize) -> Value {
-        Value::Neutral(Head::Var(level), Spine::new())
+        Value::Neutral(Head::Var(level, Apart::NONE), Spine::new())
     }
 }
 
@@ -1491,8 +1566,11 @@ fn branch(
                 // `k + x` is at least `k`, so if every arm's number is below
                 // `k`, it can't be any of them. Otherwise it depends on `x`
                 // (failing to show `x` is some number never means it isn't).
-                (k, Some(_)) => match arms.last() {
+                // Likewise if `x` is a variable known not to be the number
+                // each arm's is `k` short of (`Apart`).
+                (k, Some(base)) => match arms.last() {
                     Some(last) if *last.value < k => default.clone(),
+                    _ if apart_of(&base).excludes(g, &k, arms) => default.clone(),
                     _ => return Ok(stuck_tree(stuck)),
                 },
             };
@@ -1531,6 +1609,15 @@ fn branch(
     };
     env.extend(fields);
     Ok(Control::Tree(body, env, stuck))
+}
+
+/// What `value` is known not to be: something only for a variable on its
+/// own ([`Apart`]).
+pub fn apart_of(value: &Value) -> Apart {
+    match value {
+        Value::Neutral(Head::Var(_, apart), spine) if spine.is_empty() => *apart,
+        _ => Apart::NONE,
+    }
 }
 
 /// A case tree that can't take a step: its definition stays folded.
@@ -1989,7 +2076,7 @@ fn visit(
         }
         Value::Neutral(head, spine) => {
             let head = match head {
-                Head::Var(l) => SpineHead::Term(Term::Var(level - 1 - l)),
+                Head::Var(l, _) => SpineHead::Term(Term::Var(level - 1 - l)),
                 Head::Def(id) => SpineHead::Term(Term::Def(id)),
                 Head::Meta(m) => SpineHead::Term(Term::Meta(m)),
                 Head::Quot(form) => SpineHead::Quot(form, quot_args_in(form, &spine)),

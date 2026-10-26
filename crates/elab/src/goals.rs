@@ -119,7 +119,8 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     let mut term = Term::Meta(m);
     let mut context = Vec::new();
     for (level, value) in cx.env.iter().enumerate() {
-        let own = matches!(value, Value::Neutral(Head::Var(l), s) if *l == level && s.is_empty());
+        let own =
+            matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
         if own {
             term = Term::app(term, Term::Var(cx.level() - 1 - level));
         }

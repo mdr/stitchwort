@@ -69,7 +69,7 @@ pub(crate) fn unknown_type(cx: &Ctx, expr: &Expr) -> Term {
 }
 
 fn is_var(value: &Value, level: usize) -> bool {
-    matches!(value, Value::Neutral(Head::Var(l), s) if *l == level && s.is_empty())
+    matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty())
 }
 
 /// The variable an unnamed scrutinee names, if it's one a case split hasn't

@@ -1053,7 +1053,7 @@ impl Search<'_, '_> {
 /// variables' types and values mention is read back with them replaced.
 fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
     let zonked = |v: &Value| cx.eval(&cx.quote(v)?);
-    let plain = |v: &Value| matches!(v, Value::Neutral(Head::Var(_), s) if s.is_empty());
+    let plain = |v: &Value| matches!(v, Value::Neutral(Head::Var(_, _), s) if s.is_empty());
     let env = cx
         .env
         .iter()

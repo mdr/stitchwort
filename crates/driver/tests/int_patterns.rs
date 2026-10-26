@@ -484,7 +484,7 @@ fn the_sign_is_known_and_the_magnitude_is_not() {
         let pos = Value::Ctor(d, 0, vec![Value::var(0)].into());
         let (v, nf) = run4(g, f, &[pos], 1, "OfNat m");
         assert!(
-            matches!(v, Value::Neutral(Head::Def(_) | Head::Var(_), _)),
+            matches!(v, Value::Neutral(Head::Def(_) | Head::Var(_, _), _)),
             "zeroOrOther (OfNat m) = {nf} isn't stuck"
         );
         let big = Value::Ctor(d, 1, vec![nat(BIG as u128)].into());

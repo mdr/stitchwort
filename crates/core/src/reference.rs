@@ -385,6 +385,14 @@ fn eval_tree(
             } else if arms.iter().all(|a| *a.value < k) {
                 // `k + x` is at least `k`.
                 default
+            } else if let Some(Value::Neutral(Head::Var(_, apart), spine)) = &base
+                && spine.is_empty()
+                && arms.iter().all(|a| {
+                    *a.value < k || apart.numbers(g).binary_search(&(&*a.value - &k)).is_ok()
+                })
+            {
+                // `x` is a variable known not to be any arm's number less `k`.
+                default
             } else {
                 return Ok(None);
             };
@@ -498,7 +506,7 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
         Value::Refl => Term::Refl,
         Value::Neutral(head, spine) => {
             let (mut term, rest) = match head {
-                Head::Var(l) => (Term::Var(level - 1 - l), &spine[..]),
+                Head::Var(l, _) => (Term::Var(level - 1 - l), &spine[..]),
                 Head::Def(id) => (Term::Def(id), &spine[..]),
                 Head::Meta(m) => (Term::Meta(m), &spine[..]),
                 Head::Quot(form) => quote_quot(g, level, form, &spine)?,

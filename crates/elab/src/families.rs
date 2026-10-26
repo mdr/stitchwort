@@ -609,7 +609,7 @@ fn fin_missing(cx: &Ctx, x: usize, d: DataId, c: usize) -> Result<Option<FinMiss
             value = force(g, last.clone())?;
         }
         if count > below
-            && let Value::Neutral(Head::Var(l), spine) = &value
+            && let Value::Neutral(Head::Var(l, _), spine) = &value
             && *l == x
             && spine.is_empty()
         {
@@ -694,12 +694,12 @@ fn enter(
     }
     let goal = scope.extra.pop().expect("the goal");
     let value = Value::Ctor(d, c, scope.env[base..].to_vec().into());
-    let mut env = kernel::substitute_folded(g, level, x, &value, &scope.env[..base])?;
+    let mut env = kernel::substitute_folded(g, &scope.env, x, &value, &scope.env[..base])?;
     env[x] = value.clone();
     env.extend_from_slice(&scope.env[base..]);
-    let mut types = kernel::substitute_folded(g, level, x, &value, &scope.types[..base])?;
+    let mut types = kernel::substitute_folded(g, &scope.env, x, &value, &scope.types[..base])?;
     types.extend_from_slice(&scope.types[base..]);
-    let goal = kernel::substitute_folded(g, level, x, &value, &[goal])?
+    let goal = kernel::substitute_folded(g, &scope.env, x, &value, &[goal])?
         .pop()
         .expect("one value in, one out");
     cx.env = env;

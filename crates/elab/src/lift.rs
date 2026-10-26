@@ -176,7 +176,7 @@ pub(crate) fn spine(env: &[Value], lets: &[Option<Rc<LetDef>>]) -> Vec<usize> {
 }
 
 fn is_var(value: &Value, level: usize) -> bool {
-    matches!(value, Value::Neutral(Head::Var(l), s) if *l == level && s.is_empty())
+    matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty())
 }
 
 /// Rebuilds `term` (in a context of `depth` variables) with each free

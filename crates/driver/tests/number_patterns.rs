@@ -20,7 +20,7 @@ use stitchwort_core::hash::def_hash;
 use stitchwort_core::native::{as_nat, nat_value};
 use stitchwort_core::reference;
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::{self, Elim, Head, Value};
+use stitchwort_core::value::{self, Apart, Elim, Head, Value};
 use stitchwort_core::{BigUint, DataId, DefId, Globals, Icit, Term};
 use stitchwort_driver::driver::{Session, par_map, with_stack};
 use stitchwort_syntax::{SourceMap, Span};
@@ -137,7 +137,7 @@ fn the_kernel_refines_each_arm_and_nothing_else() {
         )),
         "E-TYPE-MISMATCH"
     );
-    // The default knows nothing: `Shape n` doesn't compute.
+    // In the default, `Shape n` is `Bool` (below), not `Nat`.
     assert_eq!(
         define(g, ty, |_| body(vec![(404, Term::Var(0))], Term::Var(0))),
         "E-TYPE-MISMATCH"
@@ -170,6 +170,61 @@ fn the_kernel_refines_each_arm_and_nothing_else() {
             Term::Refl
         ))),
         "E-REFL"
+    );
+}
+
+/// The default is checked with the variable apart from the arms' numbers
+/// (docs/proposals/literal-match-facts.md): a number case on it with no
+/// other numbers takes its default there, and one with another number is
+/// still stuck.
+#[test]
+fn the_kernel_checks_the_default_apart_from_the_numbers() {
+    let mut session = session_with(SHAPE);
+    let g = &mut session.elab.globals;
+    let shape = def(g, "Shape");
+    let bool_data = g.find_data("Bool").unwrap();
+    let false_ = || Term::Ctor(bool_data, 0, Vec::new());
+    // (n : Nat) -> Shape n -> Bool
+    let ty = pi(
+        nat_ty(g),
+        pi(
+            Term::app(Term::Def(shape), Term::Var(0)),
+            Term::Data(bool_data, Vec::new()),
+        ),
+    );
+    let body = |arms: Vec<(u64, Term)>, default: Term| lam(lam(num_case(1, arms, default)));
+    // In the default, `s : Shape n` is a `Bool`.
+    assert_eq!(
+        define(g, ty.clone(), |_| body(vec![(404, false_())], Term::Var(0))),
+        "ok"
+    );
+    assert_eq!(
+        define(g, ty.clone(), |_| body(
+            vec![(3, false_()), (404, false_())],
+            Term::Var(0)
+        )),
+        "ok"
+    );
+    // Not when 404 isn't among the numbers: `Shape n` may still be `Nat`.
+    assert_eq!(
+        define(g, ty.clone(), |_| body(vec![(405, false_())], Term::Var(0))),
+        "E-TYPE-MISMATCH"
+    );
+    // A number case nested in the default, on the same variable: its own
+    // default knows both cases' numbers, whichever has 404.
+    assert_eq!(
+        define(g, ty.clone(), |_| body(
+            vec![(404, false_())],
+            num_case(1, vec![(7, false_())], Term::Var(0))
+        )),
+        "ok"
+    );
+    assert_eq!(
+        define(g, ty, |_| body(
+            vec![(7, false_())],
+            num_case(1, vec![(404, false_())], Term::Var(0))
+        )),
+        "ok"
     );
 }
 
@@ -389,6 +444,27 @@ fn evaluation_follows_the_table() {
         g.solve_meta(m2, id);
         let applied = Value::Neutral(Head::Meta(m2), vec![Elim::App(n(4), Icit::Explicit)].into());
         assert_eq!(call_both(g, hit, &plus(400, applied)), t);
+        // A variable known apart from some numbers
+        // (docs/proposals/literal-match-facts.md): the default when the
+        // number is one of them, stuck otherwise.
+        let apart = |numbers: &[u64]| {
+            let numbers: Vec<BigUint> = numbers.iter().map(|&k| BigUint::from(k)).collect();
+            Value::Neutral(
+                Head::Var(0, Apart::new(g, numbers.into())),
+                stitchwort_core::value::Spine::new(),
+            )
+        };
+        assert_eq!(call_both(g, hit, &apart(&[404])), f);
+        assert_eq!(call_both(g, hit, &apart(&[3, 404, 1000])), f);
+        stuck(&apart(&[]));
+        stuck(&apart(&[403, 405]));
+        // `k + x`: apart from the number less `k`.
+        assert_eq!(call_both(g, hit, &plus(4, apart(&[400]))), f);
+        stuck(&plus(4, apart(&[404])));
+        // Still the variable: equal to it whatever it's known apart from.
+        assert!(value::conv(g, 1, &apart(&[404]), &x).unwrap());
+        assert!(value::conv(g, 1, &apart(&[404]), &apart(&[7])).unwrap());
+        assert!(!value::conv(g, 1, &apart(&[404]), &n(405)).unwrap());
     });
 }
 
@@ -776,13 +852,27 @@ fn every_number_case_in_the_examples_has_an_expansion_that_checks() {
     with_stack(STACK, || {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/accept");
         let mut expanded = 0;
-        for name in ["number-patterns.sw", "nested-patterns.sw"] {
+        for name in [
+            "number-patterns.sw",
+            "nested-patterns.sw",
+            "literal-match-facts.sw",
+        ] {
             let text = std::fs::read_to_string(root.join(name)).unwrap();
             let mut session = Session::eager();
             load(&mut session, &text);
             let g = &mut session.elab.globals;
             for i in 0..g.defs.len() {
                 let id = DefId(i);
+                // A number case in another's default on the same variable,
+                // which the expansion can't follow: there the variable is
+                // already `k + p`, and a `case` on it learns nothing about
+                // `p`. (Each default of the expansion still has the
+                // variable a number, or `k + p` past every number, so what
+                // the default knows holds there; the oracle just can't
+                // check it.)
+                if &*g.def(id).name == "kindNested" {
+                    continue;
+                }
                 let small = g.def(id).body().is_some_and(|b| {
                     has_num_case(b)
                         && b.subterms().all(|(t, _)| match t {
