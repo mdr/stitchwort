@@ -1,5 +1,5 @@
 {
-  "next": 600,
+  "next": 601,
   "tickets": [
     {
       "id": 13,
@@ -4410,7 +4410,7 @@
     {
       "id": 592,
       "title": "split stage 1 (D1317–D1319): automatic case splitting on goal and constructor-kind hypotheses, omega at leaves; simp deferred (docs/proposals/simp.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4499,6 +4499,18 @@
       "id": 599,
       "title": "Std Toolkit.sw can't write membership as ∈ (the loader reports List/Mem.sw and List/Toolkit.sw need each other), so it spells List.Mem x xs while other files use ∈ (found 26 Oct, D1323 lane)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 600,
+      "title": "Daily tier after today's merges: fix daily-only failures (text_natives_are_bound_to_the_prelude after SW-577; stale extract__results.js.snap)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
