@@ -1,5 +1,5 @@
 {
-  "next": 660,
+  "next": 661,
   "tickets": [
     {
       "id": 13,
@@ -5165,11 +5165,11 @@
     {
       "id": 653,
       "title": "Rogue: prove goal reachability for the real {Random} generateLevel without reshaping it (Matt, 26 Oct) — exploration lane: any-handler statement / Random program logic / seeded; stop with a note if the language needs a change",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "D1377 yes (26 Oct): Effect.Always / AlwaysTree in std. generatedReachable, generatedFramed, newGameSound proved for the real {Random} generator.",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
@@ -5237,6 +5237,18 @@
     {
       "id": 659,
       "title": "Re-record benchmarks native vs JS vs interpreter on a quiet machine (D1380: not yet, Matt 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 660,
+      "title": "Rogue generator proof names each of the first 35 rolls as an argument (checker computes that far before comparing); cleaner with induction over a reified computation (proof-reification.md stage R3) — revisit when R3 lands",
       "status": "backlog",
       "agent": "",
       "where": "",
