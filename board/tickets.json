@@ -1,5 +1,5 @@
 {
-  "next": 627,
+  "next": 628,
   "tickets": [
     {
       "id": 13,
@@ -4506,7 +4506,7 @@
     {
       "id": 599,
       "title": "Std Toolkit.sw can't write membership as ∈ (the loader reports List/Mem.sw and List/Toolkit.sw need each other), so it spells List.Mem x xs while other files use ∈ (found 26 Oct, D1323 lane)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4632,7 +4632,7 @@
     {
       "id": 609,
       "title": "Std gaps (private app port, 26 Oct): filterMap congruence that only needs to hold on the list's members, and 'filterMap returning every member gives the list back'; a fold-over-zipWith lemma (for get/getOr-based start-time proofs)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4709,7 +4709,7 @@
     {
       "id": 615,
       "title": "Private app port: once signature defaults (D1340) land, give makeRecording/makeBubble/… default values (None, [], 0.0, …) so tests pass only the data pertinent to each scenario (private work only)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4769,7 +4769,7 @@
     {
       "id": 620,
       "title": "Signature defaults stage 1 (D1356): def/theorem parameter defaults, calls per signature-defaults.md §6 (named-only, filled at end of every call, committed before argument elaboration), errors, hover/completion, exports refused",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4842,6 +4842,18 @@
       "id": 626,
       "title": "Float laws research note (D1362+): should std prove laws about rounding arithmetic? (Rocq Prim2SF, Flocq, Lean, Isabelle; options none / curated trusted laws / spec model + axioms / reference definitions)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 627,
+      "title": "Signature defaults stage 1 follow-ups: spec text (bare f equals the required-params lambda only by eta, rule 3 kept; lambda-making calls keep their annotation so hashes differ); text literals count as simple (no let) incl. field defaults; hover on a call says which defaults it used; x |> r.g unreduced application; single-let binding on the lambda path; defaults in decreasing recursive calls; passed_args aware of defaults; retype_total helper alignment for effect-generic defs; lifted local f.go called from outside has no defaults",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
