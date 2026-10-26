@@ -4557,14 +4557,17 @@
     {
       "id": 603,
       "title": "JS perf round 2 for typed ids: a microtype's Ord instance passed as a dictionary (Map, sort, distinct) is still slower than its field's (+13-16% in the private port after SW-590); std List.differenceBy rebuilds the key list per item",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "50ad5b64",
+        "9cbe66fb"
+      ]
     },
     {
       "id": 604,
