@@ -1,5 +1,5 @@
 {
-  "next": 593,
+  "next": 594,
   "tickets": [
     {
       "id": 13,
@@ -4008,7 +4008,7 @@
     },
     {
       "id": 561,
-      "title": "Native-only NO4-NO7 (NO3 merged f78114ed; NO4 running): entry + Executor; no fallback; binary without the machine; Linux (native-only.md §6)",
+      "title": "Native-only NO5-NO7 (NO4 merged ecffde0e; NO5 running): no fallback; binary without the machine; Linux (native-only.md §6)",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -4018,7 +4018,8 @@
       "updated": "2026-10-26",
       "commits": [
         "a5821e7c",
-        "f78114ed"
+        "f78114ed",
+        "ecffde0e"
       ]
     },
     {
@@ -4405,6 +4406,18 @@
       "id": 592,
       "title": "split stage 1 (D1317–D1319): automatic case splitting on goal and constructor-kind hypotheses, omega at leaves; simp deferred (docs/proposals/simp.md)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 593,
+      "title": "Effect representation change (native-only.md §1.5 / effect-runtime §9.11 B, both runners): D1297's trigger met after NO4 — effects.sw 15,488 instr/op, allocation+freeing 49% vs dispatch 14%. Deferred until NO5–NO7 finish (standalone binary first)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
