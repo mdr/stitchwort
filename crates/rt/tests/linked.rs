@@ -6,7 +6,7 @@
 use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_rt::code::{self, Image};
 use stitchwort_rt::linked::{Linked, Outline, decode, encode};
-use stitchwort_rt::native_abi::Numbering;
+use stitchwort_rt::native_abi::{Numbering, TableStore};
 use stitchwort_rt::shared::NumTable;
 use stitchwort_rt::value::Value;
 use stitchwort_rt::{Limits, Program};
@@ -176,5 +176,29 @@ fn corrupt_and_truncated_tables_give_errors_not_panics() {
         longer.push(0);
         assert!(decode(&longer).is_err());
         assert!(decode(b"SWRT").is_err());
+    });
+}
+
+/// The tables keep their own copy of the shapes, so what later happens to
+/// the `Program` they were made from doesn't reach them. `run --native`
+/// moves the program after compiling it; with the tables pointing into the
+/// program, it read the stale stack slot the program had left, which Linux
+/// reused (a wrong `None` tag, then a trap; stage NO7 of
+/// docs/proposals/native-only.md).
+#[test]
+fn the_tables_keep_their_own_shapes() {
+    with_stack(STACK, || {
+        let (mut program, image, _) = lowered(SOURCE);
+        let expected = format!("{:?}", program.shapes);
+        let store = TableStore::new(&program, &image, 0);
+        // As if the program's old place were reused.
+        program.shapes.none = u32::MAX;
+        program.shapes.cons = u32::MAX;
+        drop(program);
+        // SAFETY: the store's tables, and what they point to, live as long
+        // as the store.
+        #[allow(unsafe_code)]
+        let shapes = unsafe { format!("{:?}", *(*store.tables()).shapes) };
+        assert_eq!(shapes, expected);
     });
 }

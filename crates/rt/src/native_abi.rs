@@ -488,13 +488,16 @@ impl Numbering {
     }
 }
 
-/// The memory a [`Tables`] points into that it owns (the number tables'
-/// addresses, the operations, the caches); the pool, the number tables and
-/// the shapes are the image's and the program's (`run --native`) or the
+/// The memory a [`Tables`] points into that it owns (a copy of the
+/// shapes, the number tables' addresses, the operations, the caches); the
+/// pool and the number tables are the image's (`run --native`) or the
 /// executable's tables (`crate::linked::LinkedTables`), which must outlive
-/// it.
+/// it. The shapes are copied because they sit inside the `Program`, which
+/// moves: `run --native` read the copy left behind in a returned stack
+/// frame, which Linux overwrote (stage NO7 of docs/proposals/native-only.md).
 pub struct TableStore {
     tables: *mut Tables,
+    shapes: *mut Shapes,
     num_tables: *mut [*const NumTable],
     ops: *mut [PrimOp],
     caches: *mut [ApplyCache],
@@ -521,8 +524,9 @@ impl TableStore {
 
     /// The tables for compiled code whose constant pool is `pool`, whose
     /// number tables are `num_tables` and operations `ops` (both in
-    /// [`Numbering`]'s order), with `n_caches` `Apply` sites. `shapes`,
-    /// `pool` and `num_tables` must outlive the store, and not move.
+    /// [`Numbering`]'s order), with `n_caches` `Apply` sites. `pool` and
+    /// `num_tables` must outlive the store, and not move; `shapes` is
+    /// copied.
     pub fn from_parts<'t>(
         shapes: &Shapes,
         pool: &[Value],
@@ -539,6 +543,7 @@ impl TableStore {
         let num_tables = Box::into_raw(num_tables);
         let ops = Box::into_raw(ops);
         let caches = Box::into_raw(caches);
+        let shapes = Box::into_raw(Box::new(*shapes));
         let tables = Box::into_raw(Box::new(Tables {
             pool: pool.as_ptr(),
             shapes,
@@ -549,6 +554,7 @@ impl TableStore {
         }));
         TableStore {
             tables,
+            shapes,
             num_tables,
             ops,
             caches,
@@ -568,6 +574,7 @@ impl Drop for TableStore {
         // no compiled code runs once the store is dropped.
         unsafe {
             drop(Box::from_raw(self.tables));
+            drop(Box::from_raw(self.shapes));
             drop(Box::from_raw(self.num_tables));
             drop(Box::from_raw(self.ops));
             drop(Box::from_raw(self.caches));
