@@ -129,8 +129,9 @@ default-filter = "binary(aoc_answers) & test(/^day/)"
 
 [profile.lane-cli]
 # Also `stitchwort build` (crates/standalone, `build.rs`), but for the
-# roguelike's test, which checks the game twice.
-default-filter = "package(stitchwort-standalone) | (package(stitchwort-cli) & (binary(session) | binary(keys_mode) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)) | (kind(bin) & test(/^build::/)) | (binary(build) & !test(=the_roguelike_plays_as_it_does_under_run))))"
+# roguelike's tests (built with and without --native), which check the game
+# twice each.
+default-filter = "package(stitchwort-standalone) | (package(stitchwort-cli) & (binary(session) | binary(keys_mode) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)) | (kind(bin) & test(/^build::/)) | (binary(build) & !test(/^the_roguelike_(built_native_)?plays_as_it_does_under_run$/))))"
 
 # With NAME (EXAMPLES): only the examples whose names contain it.
 [profile.lane-hashes]

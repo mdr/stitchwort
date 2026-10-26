@@ -1,4 +1,4 @@
-//! `stitchwort build`: standalone executables (stage S3 of
+//! `stitchwort build`: standalone executables (stages S3 and S5 of
 //! docs/proposals/standalone-executables.md). A built executable must do
 //! exactly what `stitchwort run` does: the same output, errors and exit
 //! statuses, and the terminal put back however it ends.
@@ -9,8 +9,11 @@
 //! `STITCHWORT_RUNTIME` overrides that. Each test needs a C compiler to link
 //! with (`$CC`, or `cc`), and is skipped with a note without one.
 //!
-//! The roguelike's test checks the whole game twice (about 2 s), so it's
-//! left out of the lane tier (`.config/nextest.toml`); the rest are quick.
+//! The roguelike's tests (with and without `--native`) each check the whole
+//! game twice (about 2 s), so they're left out of the lane tier
+//! (`.config/nextest.toml`); the rest are quick.
+//! The `--native` tests need a `stitchwort` with the `native` feature, which
+//! the test tiers build.
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -512,4 +515,280 @@ fn the_terminal_is_put_back_after_q_and_after_ctrl_c() {
     s.assert_restored();
     s.wait_for_screen(pty::LEAVE_SCREEN);
     assert!(!s.screen().contains("not reached"));
+}
+
+// ------------------------------------------------------- build --native
+//
+// Stage S5: the island roots `main` calls compiled into the executable,
+// where they fit, with the machine for the rest (D1287). These need a
+// `stitchwort` with the `native` feature, which the test tiers build
+// (`--features stitchwort-cli/native`).
+
+/// A file of bench/native.
+#[cfg(feature = "native")]
+fn native_bench(name: &str) -> String {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../bench/native")
+        .join(name);
+    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+}
+
+/// The island roots' trampolines (`sw_root_<global>`) the executable `exe`
+/// defines: the native code linked into it.
+#[cfg(feature = "native")]
+fn native_roots(exe: &Path) -> Vec<String> {
+    use object::{Object as _, ObjectSymbol as _};
+    let bytes = std::fs::read(exe).expect("read the executable");
+    let file = object::File::parse(&*bytes).expect("parse the executable");
+    let mut roots: Vec<String> = file
+        .symbols()
+        .filter_map(|symbol| symbol.name().ok())
+        .map(|name| name.trim_start_matches('_').to_string())
+        .filter(|name| name.starts_with("sw_root_"))
+        .collect();
+    roots.sort();
+    roots
+}
+
+/// On macOS, `codesign -v` passes on `exe`.
+#[cfg(feature = "native")]
+fn assert_signed(exe: &Path) {
+    if cfg!(target_os = "macos") {
+        match Command::new("codesign").arg("-v").arg(exe).output() {
+            Ok(verified) => assert!(verified.status.success(), "{}", text(&verified.stderr)),
+            Err(e) => eprintln!("skipped the signature check: no codesign ({e})"),
+        }
+    }
+}
+
+/// Builds `source` as `name` in `dir` with `--native`, and checks that the
+/// executable's output, errors and exit status on `input` are those of
+/// `run --native` and of `run`, and that it's signed. Returns the
+/// executable and what it did.
+#[cfg(feature = "native")]
+fn native_same_as_run(dir: &Path, name: &str, source: &str, input: &[u8]) -> (PathBuf, Output) {
+    std::fs::write(dir.join(name), source).expect("write the source");
+    build(dir, &[name, "--native", "--no-cache", "-o", "program"]);
+    let exe = dir.join("program");
+    let built = run_executable(&exe, input);
+    for runner in [
+        &["run", "--native", "--no-cache", name][..],
+        &["run", "--no-cache", name],
+    ] {
+        let ran = stitchwort(dir, runner, input);
+        assert_eq!(
+            text(&built.stdout),
+            text(&ran.stdout),
+            "standard output, {runner:?}"
+        );
+        assert_eq!(
+            text(&built.stderr),
+            text(&ran.stderr),
+            "standard error, {runner:?}"
+        );
+        assert_eq!(
+            built.status.code(),
+            ran.status.code(),
+            "exit status, {runner:?}"
+        );
+    }
+    assert_signed(&exe);
+    (exe, built)
+}
+
+/// A native benchmark at its small size, `name` in bench/native: the same
+/// as `run --native` and `run`, printing `expected`, with native code
+/// linked in (every root compiles). One test each, so they run in parallel.
+#[cfg(feature = "native")]
+fn native_benchmark(name: &str, expected: &str) {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir(&format!("native-{name}"));
+    let (exe, built) = native_same_as_run(&dir, name, &native_bench(name), b"");
+    assert_eq!(text(&built.stdout), expected, "{name}");
+    assert_eq!(built.status.code(), Some(0), "{name}");
+    assert!(!native_roots(&exe).is_empty(), "{name} has no native code");
+}
+
+#[cfg(feature = "native")]
+#[test]
+fn native_micro_call_runs_as_it_does_under_run() {
+    native_benchmark("micro_call.sw", "20000\n");
+}
+
+#[cfg(feature = "native")]
+#[test]
+fn native_micro_tail_runs_as_it_does_under_run() {
+    native_benchmark("micro_tail.sw", "499500\n");
+}
+
+#[cfg(feature = "native")]
+#[test]
+fn native_set_nat_runs_as_it_does_under_run() {
+    native_benchmark("set_nat.sw", "1000\n");
+}
+
+#[cfg(feature = "native")]
+#[test]
+fn native_closures_run_as_they_do_under_run() {
+    native_benchmark("closures.sw", "36673290\n");
+}
+
+/// `--verbose` says which roots were compiled, and, where nothing fits, why
+/// the run stays on the machine; the executable then has no native code,
+/// and still runs.
+#[cfg(feature = "native")]
+#[test]
+fn verbose_lists_the_islands_compiled() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("native-verbose");
+    std::fs::write(dir.join("micro_call.sw"), native_bench("micro_call.sw")).expect("write");
+    let output = stitchwort(
+        &dir,
+        &[
+            "build",
+            "micro_call.sw",
+            "--native",
+            "--verbose",
+            "--no-cache",
+        ],
+        b"",
+    );
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    let said = text(&output.stderr);
+    assert!(
+        said.starts_with("native: compiled `Main.outer` as native code (2 bodies, in "),
+        "{said}"
+    );
+    assert_eq!(said.lines().count(), 1, "{said}");
+    assert_eq!(native_roots(&dir.join("micro_call")).len(), 1);
+
+    // A root whose island performs effects, which native code doesn't
+    // compile yet (stage N4).
+    std::fs::write(
+        dir.join("countdown.sw"),
+        "import Std (IO, Nat)\n\n\
+         def countdown: Nat -> {IO} ()\n  \
+           | 0 => IO.print \"go\"\n  \
+           | Succ n =>\n    \
+             IO.print (Nat.toText (Succ n))\n    \
+             countdown n\n\n\
+         def main(): {IO} () := countdown 2\n",
+    )
+    .expect("write");
+    let output = stitchwort(
+        &dir,
+        &[
+            "build",
+            "countdown.sw",
+            "--native",
+            "--verbose",
+            "--no-cache",
+        ],
+        b"",
+    );
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    assert_eq!(
+        text(&output.stderr),
+        "native: `Main.countdown`'s island has `TailPrim:Effect(Bind)`, which native code \
+         doesn't compile (in Main.countdown)\n\
+         native: so the whole run is on the machine\n"
+    );
+    assert!(native_roots(&dir.join("countdown")).is_empty());
+    assert_eq!(
+        text(&run_executable(&dir.join("countdown"), b"").stdout),
+        "2\n1\ngo\n"
+    );
+}
+
+/// An unhandled `Fail`: as under `run`, built with `--native`.
+#[cfg(feature = "native")]
+#[test]
+fn a_failing_program_built_native_fails_as_it_does_under_run() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("native-fail");
+    let (_, failed) = native_same_as_run(
+        &dir,
+        "fail.sw",
+        include_str!("../../../examples/accept/main-fail.sw"),
+        b"",
+    );
+    assert_eq!(failed.status.code(), Some(1));
+    assert!(text(&failed.stderr).starts_with("error: "));
+}
+
+/// Recursion past the frame limit in native code: as under `run` (the
+/// out-of-frames report without the excerpt of `main`'s source, which the
+/// executable doesn't have).
+#[cfg(feature = "native")]
+#[test]
+fn native_code_out_of_frames_reports_as_run_does() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("native-frames");
+    // `main`'s entry calls `count`, so that it's an island root (after a
+    // first `print`, the call would be in the continuation, which runs on
+    // the machine).
+    let source = "import Std (Nat)\n\n\
+                  def count : Nat -> Nat\n  \
+                    | 0      => 0\n  \
+                    | Succ n => 1 + count n\n\n\
+                  def main () : {IO} () :=\n  \
+                    IO.print (Nat.toText (count (5 * 1000 * 1000)))\n";
+    std::fs::write(dir.join("runaway.sw"), source).expect("write the source");
+    build(&dir, &["runaway.sw", "--native", "--no-cache"]);
+    let exe = dir.join("runaway");
+    assert_eq!(native_roots(&exe).len(), 1, "`count` is compiled");
+    let built = run_executable(&exe, b"");
+    assert_eq!(built.status.code(), Some(2));
+    assert_eq!(text(&built.stdout), "");
+    let stderr = text(&built.stderr);
+    assert!(
+        stderr.starts_with("[E-RESOURCE] Error: ran out of resources: "),
+        "{stderr}"
+    );
+    for runner in [
+        &["run", "--native", "--no-cache", "runaway.sw"][..],
+        &["run", "--no-cache", "runaway.sw"],
+    ] {
+        let ran = stitchwort(&dir, runner, b"");
+        assert_eq!(ran.status.code(), Some(2), "{runner:?}");
+        assert_eq!(text(&ran.stdout), text(&built.stdout), "{runner:?}");
+        // The same message and notes as `run`'s report.
+        let ran_stderr = text(&ran.stderr);
+        for line in stderr.lines() {
+            let line = line
+                .trim_start_matches("[E-RESOURCE] Error: ")
+                .trim_start_matches("  note: ");
+            assert!(ran_stderr.contains(line), "{line:?} isn't in {ran_stderr}");
+        }
+    }
+}
+
+/// The roguelike built with `--native` plays as under `run` (its islands
+/// mostly run on the machine until effects are compiled, stage N4).
+#[cfg(feature = "native")]
+#[test]
+fn the_roguelike_built_native_plays_as_it_does_under_run() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("rogue-native");
+    let project = seeded_rogue(&dir);
+    build(&dir, &["rogue", "--native", "-o", "rogue-game"]);
+    let exe = dir.join("rogue-game");
+    assert_signed(&exe);
+    let built = run_executable(&exe, b"jjlq");
+    let ran = stitchwort(&project, &["run", "Rogue.main"], b"jjlq");
+    assert_eq!(built.status.code(), Some(0), "{}", text(&built.stderr));
+    assert_eq!(ran.status.code(), Some(0), "{}", text(&ran.stderr));
+    assert_eq!(text(&built.stderr), "");
+    assert!(!built.stdout.is_empty());
+    assert_eq!(text(&built.stdout), text(&ran.stdout));
 }

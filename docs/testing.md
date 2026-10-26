@@ -20,6 +20,7 @@ Tests are only useful while they aren't friction, so they run in four tiers, eac
 Two things make a tier, and the tasks set both:
 
 - **Which tests run** is a [nextest profile](https://nexte.st/docs/configuration/) of the tier's name in `.config/nextest.toml`, through its `default-filter` (a [filterset](https://nexte.st/docs/filtersets/)): `merge`, `daily`, `full`, and `lane-AREA` for each lane area. A filter on the command line is intersected with it (`task test:merge -- -E 'package(stitchwort-core)'`).
+- **The CLI is built with native code**: the tasks and the flake pass `--features stitchwort-cli/native` (Taskfile.yml `TEST_FEATURES`), so that `crates/cli/tests/build.rs` tests `build --native`; the default `stitchwort` leaves Cranelift out.
 - **How much of a corpus a sweep covers** is the environment variable `STITCHWORT_TIER` (`lane`, `merge`, `daily` or `full`; unset means `daily`), read by `stitchwort_driver::driver::tier()`. A corpus sweep (a test that checks every example, std file or AoC day) takes `tier_sample(items, daily_stride)`: a fixed sample, every `daily_stride`-th item in sorted order in the daily tier, every `4 × daily_stride`-th in merge and lane, and all of them in full. A test or part of one that only the full tier runs asks `full_tier(name)`, which prints what was skipped.
 
 Both are needed: a profile can only include or leave out a whole test, and the sweeps are single tests whose cost is the size of the corpus. The profiles keep the lists of what runs in one file that nextest checks; the environment variable keeps each sweep's sample next to the code that knows what is in its corpus. A sweep's assertion about how much it covered (say, "more than 1,000 arguments named") scales with the sample, and is exactly the old one in the full tier.
@@ -48,11 +49,11 @@ When the daily tier grows past 5 minutes, cut it from nextest's own times (`targ
 | `std` | the quick `std_library` tests (the loader, the index, cycles); not the sweeps | 3 s |
 | `rt` | `stitchwort-rt` unit tests, `tick_counts`, `machine` `library_tests_agree`, two quick `effect_runtime` tests, two quick `partial_handlers` tests, `live_run` | 5 s |
 | `js` | `stitchwort-js` unit tests and five quick `extract` tests | 4 s |
-| `native` | `stitchwort-native`: the Cranelift spike (stage N0 of native-compilation.md) and stages N1, N2a and N2b against the machine (`tests/n1.rs`: outputs, allocation traces, resource points, every error exit; `tests/n2b.rs`: frame sizing, tail-call shapes, error-exit traces; `tests/frames.rs`: the frame bound on both architectures; the ten-million-iteration tail test is left to the merge tier), and that the generated code holds no host address (`tests/relocatable.rs`, stage S4 of standalone-executables.md) | 5 s |
+| `native` | `stitchwort-native`: the Cranelift spike (stage N0 of native-compilation.md) and stages N1, N2a and N2b against the machine (`tests/n1.rs`: outputs, allocation traces, resource points, every error exit; `tests/n2b.rs`: frame sizing, tail-call shapes, error-exit traces; `tests/frames.rs`: the frame bound on both architectures; the ten-million-iteration tail test is left to the merge tier), that the generated code holds no host address (`tests/relocatable.rs`, stage S4 of standalone-executables.md), and the object `build --native` links (`tests/object.rs`, S5) | 5 s |
 | `lsp` | six quick `cli` `lsp` tests (hover, formatting, goals, navigation) | 3 s |
 | `fmt` | `stitchwort-fmt` (not `repo` or `fuzz`) and the `cli` `fmt` tests | 2 s |
 | `aoc` | every AoC day on its real input (`aoc_answers` `dayNN`) | 6 s |
-| `cli` | `cli` `session`, `keys_mode` (`run` in a pseudo-terminal), `run` but for its five slowest, and `stitchwort build`: `crates/standalone`, and `build` but for the roguelike's test (merge runs that too) | 4 s |
+| `cli` | `cli` `session`, `keys_mode` (`run` in a pseudo-terminal), `run` but for its five slowest, and `stitchwort build`: `crates/standalone`, and `build` (with and without `--native`) but for the roguelike's two tests (merge runs those too) | 12 s at load 70 (`build --native`'s `set_nat` the longest) |
 | `hashes` | `hash_stability` `examples`, `projects` and `prelude`; `NAME=` keeps only the examples whose names contain it | 6 s |
 | `examples` | `cli` `examples`: a quarter of each folder, or with `NAME=synonym` every example whose name contains it | 7 s (2 s with `NAME`) |
 | `bench` | the `stitchwort-bench` unit tests and the quick `check_work` tests | 6 s |
@@ -110,7 +111,7 @@ Lanes working on std: set `STITCHWORT_STD_DIR` in the shell for the session, bui
 The tiers are above; `task --list` has the rest. By hand, or for what has no task:
 
 ```sh
-cargo nextest run --release --profile merge    # a tier without Task (set STITCHWORT_TIER to match)
+cargo nextest run --release --workspace --features stitchwort-cli/native --profile merge    # a tier without Task (set STITCHWORT_TIER to match)
 cargo insta review                             # after changing an error message
 cargo llvm-cov --workspace --summary-only      # coverage per file
 cargo mutants --package stitchwort-core --test-workspace=true --jobs 6   # slow: minutes to an hour

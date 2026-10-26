@@ -222,6 +222,16 @@ enum Command {
         /// and refer to it from the module
         #[arg(long, requires = "js")]
         source_map: bool,
+        /// Compile the functions `main` calls to native code in the
+        /// executable, where they and everything they reach compile, as
+        /// `run --native` does; the rest runs on the machine. Needs a build
+        /// with the `native` feature
+        #[arg(long, conflicts_with = "js")]
+        native: bool,
+        /// With --native, say on standard error what was compiled, and why
+        /// anything wasn't
+        #[arg(long, requires = "native")]
+        verbose: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -437,6 +447,7 @@ fn run(cli: Cli) -> ExitCode {
             source_map,
             project,
             cache,
+            ..
         } => build(
             &target,
             out.as_deref().unwrap_or(Path::new(".")),
@@ -448,10 +459,18 @@ fn run(cli: Cli) -> ExitCode {
             target,
             js: false,
             out,
+            native,
+            verbose,
             project,
             cache,
             ..
-        } => build::build_executable(&target, out.as_deref(), project.as_deref(), &cache),
+        } => build::build_executable(
+            &target,
+            out.as_deref(),
+            project.as_deref(),
+            native.then_some(verbose),
+            &cache,
+        ),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }

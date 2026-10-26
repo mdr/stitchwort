@@ -605,6 +605,219 @@ pub fn natively_callable(globals: &[bool], lambdas: &[*const u8], v: &Value) -> 
     true
 }
 
+// ------------------------------------------------------------ the crossing
+
+/// A root's trampoline: `(context, arguments, result)`, in the host's C
+/// calling convention, the arguments moved in, the result written.
+pub type Trampoline = extern "C" fn(*mut Context, *mut Value, *mut Value);
+
+/// What the host (the driver, the machine, the CLI) may have used above
+/// the crossing into native code.
+pub const HOST_ROOM: usize = 8 * 1024 * 1024;
+/// What a runtime helper may use at the bottom of the stack (freeing a
+/// value, a big number's arithmetic, a native operation).
+pub const HELPER_ROOM: usize = 8 * 1024 * 1024;
+
+/// How far below the crossing the stack-pointer check puts its floor, for
+/// a stack of `stack_size` bytes and bodies of at most `max_frame`: the
+/// whole stack less the host's and helpers' room and one more frame (the
+/// check runs before a call pushes its frame). `None` if the stack is too
+/// small for that.
+pub fn floor_depth(stack_size: usize, max_frame: usize) -> Option<usize> {
+    stack_size.checked_sub(HOST_ROOM + HELPER_ROOM + max_frame)
+}
+
+/// Whether the frame counter always fires before the stack-pointer check:
+/// `frame_limit` frames of at most `max_frame` fit above the floor.
+pub fn counter_fires_first(frame_limit: u64, stack_size: usize, max_frame: usize) -> bool {
+    floor_depth(stack_size, max_frame)
+        .is_some_and(|depth| frame_limit.saturating_mul(max_frame as u64) <= depth as u64)
+}
+
+/// What frames leaving on an error gave up ([`sw_unwind`]): their
+/// registers (a segment each), a tail call's arguments, and their closures
+/// and pending arguments (a group each).
+type Unwound = (Vec<Vec<Value>>, Vec<Value>, Vec<Vec<Value>>);
+
+/// Why the crossing leaves a call to the machine.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Declined {
+    /// The arguments hold a function value that has no compiled code.
+    FunctionValue,
+    /// The frame limit's frames might not fit the stack, so the stack
+    /// check could fire before the frame counter.
+    Stack,
+}
+
+/// Compiled islands, wherever their code is (JIT-compiled memory, or
+/// linked into a standalone executable): the tables the code is given in
+/// the [`Context`], and the crossing itself (the module comment). Shared by
+/// `run --native`'s JIT and a standalone executable's linked code, so the
+/// two can't drift.
+pub struct Crossing {
+    /// For each global: its code as a function value's, or null
+    /// ([`Context::functions`]).
+    pub functions: Box<[*const u8]>,
+    /// For each lambda: its code, or null ([`Context::lambdas`]).
+    pub lambdas: Box<[*const u8]>,
+    /// For each global: whether native code can apply it as a function
+    /// value (a compiled function, or an applicable native), for the
+    /// check of function values.
+    pub callable: Box<[bool]>,
+    /// What the code refers to by number ([`Context::tables`]).
+    pub tables: TableStore,
+    /// The stack the code runs on, if known: native code then stops with
+    /// `E-RESOURCE` rather than run off its end (a safety margin, never the
+    /// limit).
+    pub stack_size: Option<usize>,
+    /// A bound on the stack one level of recursion uses.
+    pub max_frame: usize,
+    /// Values frames gave up on leaving with an error, until the machine
+    /// has cleared its own registers ([`sw_unwind`]).
+    unwound: std::cell::RefCell<Unwound>,
+}
+
+impl Crossing {
+    /// The crossing for code with these tables. `callable` is worked out
+    /// from `functions` and the program's natives.
+    pub fn new(
+        program: &Program,
+        functions: Box<[*const u8]>,
+        lambdas: Box<[*const u8]>,
+        tables: TableStore,
+        stack_size: Option<usize>,
+        max_frame: usize,
+    ) -> Crossing {
+        let callable = program
+            .globals
+            .iter()
+            .enumerate()
+            .map(|(g, global)| match global.kind {
+                GlobalKind::Native(op) => applicable_native(op),
+                _ => functions.get(g).is_some_and(|code| !code.is_null()),
+            })
+            .collect();
+        Crossing {
+            functions,
+            lambdas,
+            callable,
+            tables,
+            stack_size,
+            max_frame,
+            unwound: std::cell::RefCell::new((Vec::new(), Vec::new(), Vec::new())),
+        }
+    }
+
+    /// Whether a call of a root with these arguments, under this frame
+    /// limit, may run natively (`checks_arguments`: the root's island
+    /// applies function values).
+    pub fn admits(
+        &self,
+        checks_arguments: bool,
+        args: &[&Value],
+        frame_limit: u64,
+    ) -> Result<(), Declined> {
+        if checks_arguments
+            && !args
+                .iter()
+                .all(|v| natively_callable(&self.callable, &self.lambdas, v))
+        {
+            return Err(Declined::FunctionValue);
+        }
+        // The frame counter must fire before the stack check could:
+        // otherwise this call stays on the machine.
+        if let Some(size) = self.stack_size
+            && !counter_fires_first(frame_limit, size, self.max_frame)
+        {
+            return Err(Declined::Stack);
+        }
+        Ok(())
+    }
+
+    /// Runs the island root whose trampoline is `trampoline` on `args`, as
+    /// the machine's `Call` hands it over (the module comment): the
+    /// counters go in and the steps come back in `run`, the arguments are
+    /// moved in and the result moved out, and what frames leaving on an
+    /// error gave up is kept for [`Crossing::release_unwound`].
+    ///
+    /// # Safety
+    /// `trampoline` is a finished trampoline of the code these tables are
+    /// for, which stays mapped.
+    #[allow(unsafe_code)]
+    pub unsafe fn call(
+        &self,
+        trampoline: Trampoline,
+        args: Vec<Value>,
+        run: &mut NativeRun<'_>,
+    ) -> Result<Value, ResourceError> {
+        let here = {
+            let marker = 0u8;
+            std::hint::black_box(&marker) as *const u8 as u64
+        };
+        let stack_limit = match self.stack_size {
+            Some(size) => match floor_depth(size, self.max_frame) {
+                Some(depth) => here.saturating_sub(depth as u64),
+                None => u64::MAX,
+            },
+            None => 0,
+        };
+        let mut context = Context {
+            steps: run.steps,
+            step_limit: run.limits.steps,
+            frames: run.frames,
+            frame_limit: run.limits.frames as u64,
+            error: OK,
+            stack_limit,
+            functions: self.functions.as_ptr(),
+            lambdas: self.lambdas.as_ptr(),
+            run: (run as *mut NativeRun<'_>).cast::<NativeRun<'static>>(),
+            tables: self.tables.tables(),
+        };
+        let mut args = std::mem::ManuallyDrop::new(args);
+        let mut out = MaybeUninit::<Value>::uninit();
+        trampoline(&mut context, args.as_mut_ptr(), out.as_mut_ptr());
+        // SAFETY: native code took the arguments (moved, as `Call` moves
+        // them into a frame), so the vector gives back only its buffer; it
+        // wrote a whole value to `out` (`Erased` after an error), which is
+        // now ours. `context.run` isn't used after the call.
+        let result = unsafe {
+            args.set_len(0);
+            std::mem::ManuallyDrop::drop(&mut args);
+            out.assume_init()
+        };
+        run.steps = context.steps;
+        {
+            let mut unwound = self.unwound.borrow_mut();
+            unwound.0.append(&mut run.unwound);
+            unwound.1.append(&mut run.tail);
+            unwound.2.append(&mut run.held);
+        }
+        context.result().map(|()| result)
+    }
+
+    /// [`NativeIslands::release_unwound`].
+    pub fn release_unwound(&self) {
+        // Last frame out first, each from its lowest register up, then a
+        // tail call's arguments (the machine's `regs.clear()`, then
+        // `scratch.clear()`).
+        let (mut segments, tail, _) = std::mem::take(&mut *self.unwound.borrow_mut());
+        while let Some(segment) = segments.pop() {
+            drop(segment);
+        }
+        drop(tail);
+    }
+
+    /// [`NativeIslands::release_unwound_frames`].
+    pub fn release_unwound_frames(&self) {
+        // The machine's `frames.clear()`: each frame's closure and pending
+        // arguments, outermost (last to leave) first.
+        let mut held = std::mem::take(&mut self.unwound.borrow_mut().2);
+        while let Some(group) = held.pop() {
+            drop(group);
+        }
+    }
+}
+
 // ------------------------------------------------------------ the helpers
 //
 // The runtime functions compiled code calls. Each takes raw pointers, which
