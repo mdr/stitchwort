@@ -4913,7 +4913,7 @@
     {
       "id": 632,
       "title": "fmt --check fails on 74 files in examples/ and std (65 already on main before the header fix): reformat them all and add fmt --check over std+examples to the merge tier so it stays clean",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -4925,7 +4925,7 @@
     {
       "id": 633,
       "title": "Bug: in an Abort block, a pipe chain after an effect-polymorphic call fails with E-ABILITY: xs.find p |> .orAbort, (xs.find p).orAbort, xs.map f |> .head |> .orAbort (xs.head |> .orAbort and a separate let work). Found by the Abort-inversion lane, 26 Oct",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
