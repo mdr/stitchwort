@@ -38,6 +38,27 @@ When the daily tier grows past 5 minutes, cut it from nextest's own times (`targ
 
 **Sizes that depend on the tier.** Besides the sampled sweeps, the constant-stack tests scale with the tier: `n2b` `tail_calls_of_every_shape_run_in_constant_stack` runs 10 million iterations on a 64 MiB stack in daily and full, and 1 million on 20 MiB in merge and the lanes; `n3` `tail_applies_run_in_constant_stack` runs 1,000,000 tail applies on 64 MiB in daily and full, 250,000 on 18 MiB in merge and the lanes. The native crossing reserves 16 MiB of any stack (`HOST_ROOM` and `HELPER_ROOM`, `crates/rt/src/native_abi.rs`), so the smaller stacks leave 4 MiB and 2 MiB to run in, which a leak of 8 (or 16) bytes an iteration still overruns: the same point, with a tenth of the work.
 
+### Memory
+
+Several worktrees test on one 48 GB Mac at once, and a tier that runs away can lock the machine up (it did, 26 Oct 2026: the daily tier at about 50 GB). Three things bound it.
+
+**A cap on every test task.** Each task that runs tests (`test:lane`, `test:merge`, `test:daily`, `test:full`, `test:one`, `test:affected`, the `snap:*` tasks, `guide:update`, `bench`) runs its command under `dev/memguard`. About twice a second it sums the memory of the command's whole process tree (the physical footprint on macOS, as `top` shows it; RSS on Linux), leaving out the compiler and linker when cargo builds first. Past the cap, it prints the cap, the total and the five biggest processes with their command lines (a nextest child's names its test: `…/deps/examples-… --exact accepted_examples_check`), kills the tree (SIGTERM, then SIGKILL two seconds later) and exits 137, so the task fails.
+
+| Tier | Cap | Measured peak |
+|---|---|---|
+| lane | 3 GB | up to 0.7 GB (`aoc`, `hashes`, `examples`, `std`, `core`) |
+| merge | 3 GB | 1.7 GB |
+| daily, `test:one`, `test:affected`, `guide:update`, `bench` | 16 GB | not measured |
+| full, `snap:*` | 16 GB | not measured |
+
+The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times them. The caps are the `MEM_CAP_*` variables at the top of `Taskfile.yml`. `STITCHWORT_MEM_CAP_GB` overrides any of them for one run (`STITCHWORT_MEM_CAP_GB=24 task test:full`; `0` for no cap), and `STITCHWORT_MEM_REPORT=1` prints the peak and the biggest processes at the peak when the command ends, for measuring a tier. A kill means a test regressed, or the cap is out of date: look at the named test before raising the cap. `ulimit -v` is no use here (macOS doesn't enforce it), hence the polling.
+
+**One corpus sweep at a time.** A corpus sweep checks every example, std file or AoC day (or its tier's sample) on a thread pool of its own (`par_map` in `crates/driver/src/driver.rs`). The sweeps are in the nextest test group `corpus-sweeps` (`max-threads = 1`, in `.config/nextest.toml`, for every profile), so no two sweeps' pools hold memory together; other tests run beside the one. A new test that runs `par_map` over a corpus belongs in the group's filter. `cargo nextest show-config test-groups --profile daily` lists the members.
+
+**The pools' size.** `par_map` runs `STITCHWORT_TEST_THREADS` threads (default: the cores, at most 8). A thread's stack is reserved, not used, so a thread costs what its session holds: about 10 MB in `cli` `examples`, about 50 MB in `hash_stability` `examples` (lane sample, 1 thread against 8). Set `STITCHWORT_TEST_THREADS=2` to shrink every sweep's pool.
+
+**Daily and full are run only by the orchestrator, on a quiet machine**, never by a lane: they are the tiers with the large caps, and two of them at once, or one beside other worktrees' builds, can still fill the machine. Lanes run `test:lane` and the named tests they changed (`test:one`).
+
 ### Lane areas
 
 `task test:lane AREA=…` runs the nextest profile `lane-AREA`. Each is a handful of fast tests, chosen so the whole run (with nix and nextest starting) stays under 10 s; the times are from 25 Oct 2026.
