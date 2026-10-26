@@ -4400,7 +4400,7 @@
     {
       "id": 592,
       "title": "simp / automatic case split over Boolean sub-terms (proof-automation.md: simp waited for a proof that needs it — found 26 Oct: the private app port keeps ~70 lines of helpers spelling out unfolded ∧/if chains over free Bools; std's Float.ltLeBools does the same)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
