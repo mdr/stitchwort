@@ -1,5 +1,5 @@
 {
-  "next": 612,
+  "next": 614,
   "tickets": [
     {
       "id": 13,
@@ -4657,6 +4657,30 @@
       "id": 611,
       "title": "Pipe-style restyle (D1337): stage 1 rogue + AoC (running); stage 2 std + examples",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 612,
+      "title": "JS: Ord Float (Float.compare, <=, sortOn on Float) goes through the dictionary and BigInt keys — 6% slower than native in the private port; native compare + std Ord.leTrans (running)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 613,
+      "title": "Private app port: differential harness category for -0/NaN comparison differences (D1335/D1336) so check.sh switched passes; then the pipe restyle (private work only)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
