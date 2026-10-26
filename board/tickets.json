@@ -4242,14 +4242,16 @@
     {
       "id": 580,
       "title": "Std: lemmas for IEEE float comparison (Float.ieeeLt/ieeeLe asymmetry, transitivity, totality on non-NaN, ieeeLe ⇒ not NaN); std has only Float.ieeeLtLe, so users re-prove them via a hand-made rank into Nat (found in the private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "c16897c7"
+      ]
     },
     {
       "id": 581,
@@ -4266,26 +4268,30 @@
     {
       "id": 582,
       "title": "Std: List.sortWith sortedness lemma assuming totality only on the list's elements (List.All p xs), not on every value; users re-prove merge sort against std internals (found in the private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "c16897c7"
+      ]
     },
     {
       "id": 583,
       "title": "Std: elimination lemmas for Option.alignWith (all three arms give p ⇒ result has p; None only when both None) (found in the private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "c16897c7"
+      ]
     },
     {
       "id": 584,
@@ -4302,26 +4308,30 @@
     {
       "id": 585,
       "title": "Std: List.distinct lemmas (distinct xs = xs when xs has no repeats; distinct (xs ++ ys) = xs when ys ⊆ xs) instead of statements over the internal distinctLoop (found in the private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "c16897c7"
+      ]
     },
     {
       "id": 586,
       "title": "Std: general list lemmas users keep re-proving (last mem, filterMap mem/all, Set.contains mono, find on distinct keys, Option.orElse self, Map.indexBy found/keys) and a Bool all/any ↔ Prop All/Any bridge (found in the private app port, 26 Oct)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "c16897c7"
+      ]
     },
     {
       "id": 587,
@@ -4350,14 +4360,16 @@
     {
       "id": 589,
       "title": "Std lemmas lane (D1313): float order, sortWith on a subset, alignWith, distinct, list lemmas + Bool/Prop bridge, scanLeft/zipWith/mapAccumLeft",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "c16897c7"
+      ]
     },
     {
       "id": 590,
