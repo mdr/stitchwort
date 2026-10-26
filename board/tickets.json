@@ -1,5 +1,5 @@
 {
-  "next": 662,
+  "next": 665,
   "tickets": [
     {
       "id": 13,
@@ -5225,11 +5225,11 @@
     {
       "id": 658,
       "title": "Native executables: fully static on Linux via musl — D1382",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Merged 26 Oct. D1383 (musl bundled in the runtime library) and D1384 (whole Linux workspace builds for musl) accepted as implementation details.",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
@@ -5262,6 +5262,42 @@
       "id": 661,
       "title": "Rogue: rename seeded → Random.withSeed (D1390, 26 Oct); with the proof-statement readability pass",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 662,
+      "title": "Static Linux executables: run on real x86-64 hardware; under Rosetta the static machine-only binary was 1.8x slower than glibc (1,373 vs 768 ms) — unexplained (musl lane, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 663,
+      "title": "nix crate under musl: tcgetattr reads 13 never-written c_cc bytes (UB, harmless); report upstream",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 664,
+      "title": "Design note: adding names to another namespace's type (Kotlin-style extensions; multi-file.md §4.7 D8 deferred). Triggers: rogue proofs want Level.goalReachable from Rogue.Proofs (E-FOREIGN-NAMESPACE); private port's isBlank (E-STD-NAMESPACE). Awaiting D1391",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],

@@ -10,8 +10,9 @@
 version: '3'
 
 vars:
-  # The release CLI the AoC and `.sw` tasks run.
-  SW: '{{.ROOT_DIR}}/target/release/stitchwort'
+  # The release CLI the AoC and `.sw` tasks run (on Linux the devShell sets
+  # CARGO_BUILD_TARGET, the musl target, which cargo puts in its own folder).
+  SW: '{{.ROOT_DIR}}/target/{{if .CARGO_BUILD_TARGET}}{{.CARGO_BUILD_TARGET}}/{{end}}release/stitchwort'
   # The tests build `stitchwort` with native code, so that `build --native`
   # is tested (crates/cli/tests/build.rs); the default binary leaves it out.
   # The flake's test check passes the same.

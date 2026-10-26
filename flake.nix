@@ -37,7 +37,43 @@
         );
 
       # Rust toolchain (version, components and wasm target pinned in rust-toolchain.toml)
-      toolchainFor = pkgs: pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+      # On Linux, also the musl target, which the runtime library of
+      # `stitchwort build` is built for, so executables link statically.
+      toolchainFor =
+        pkgs:
+        let
+          toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+        in
+        if pkgs.stdenv.hostPlatform.isLinux then
+          toolchain.override {
+            targets = [
+              "wasm32-unknown-unknown"
+              (muslTarget pkgs)
+            ];
+          }
+        else
+          toolchain;
+
+      # The Rust target of this system's musl, as `aarch64-unknown-linux-musl`.
+      muslTarget = pkgs: "${pkgs.stdenv.hostPlatform.parsed.cpu.name}-unknown-linux-musl";
+
+      # On Linux, cargo builds for musl (docs/proposals/standalone-
+      # executables.md, "Static Linux executables"): `stitchwort` and the
+      # runtime library it links executables with, with musl's own C
+      # compiler for mimalloc and as the linker.
+      muslEnv =
+        pkgs:
+        let
+          target = muslTarget pkgs;
+          variable = builtins.replaceStrings [ "-" ] [ "_" ] target;
+          cc = pkgs.pkgsStatic.stdenv.cc;
+        in
+        {
+          CARGO_BUILD_TARGET = target;
+          "CC_${variable}" = "${cc}/bin/${cc.targetPrefix}cc";
+          "AR_${variable}" = "${cc}/bin/${cc.targetPrefix}ar";
+          "CARGO_TARGET_${nixpkgs.lib.toUpper variable}_LINKER" = "${cc}/bin/${cc.targetPrefix}cc";
+        };
 
       # Builds and checks for the Rust workspace
       buildsFor =
@@ -82,7 +118,8 @@
             pname = "stitchwort";
             version = "0.1.0";
             strictDeps = true;
-          };
+          }
+          // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (muslEnv pkgs);
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
           # `stitchwort build` links executables against the runtime library
           # (crates/standalone), which it looks for in `../lib/stitchwort/`
@@ -93,7 +130,7 @@
             if [ -e $out/lib/libstitchwort_standalone.a ]; then
               mv $out/lib/libstitchwort_standalone.a $out/lib/stitchwort/
             else
-              cp ''${CARGO_TARGET_DIR:-target}/release/libstitchwort_standalone.a $out/lib/stitchwort/
+              cp ''${CARGO_TARGET_DIR:-target}/''${CARGO_BUILD_TARGET:+$CARGO_BUILD_TARGET/}release/libstitchwort_standalone.a $out/lib/stitchwort/
             fi
           '';
           nextestArgs = commonArgs // {
@@ -284,6 +321,7 @@
             # Nix
             pkgs.nixfmt
           ];
+          env = pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (muslEnv pkgs);
         };
       });
 

@@ -212,9 +212,21 @@ impl Session {
         );
         assert_eq!(after.input_flags, self.before.input_flags);
         assert_eq!(after.output_flags, self.before.output_flags);
-        assert_eq!(after.control_chars, self.before.control_chars);
+        assert_eq!(
+            after.control_chars[..KERNEL_CONTROL_CHARS],
+            self.before.control_chars[..KERNEL_CONTROL_CHARS]
+        );
     }
 }
+
+/// How many control characters the kernel keeps. Linux keeps 19 (its
+/// `NCCS`), fewer than the C library's array holds; musl's `tcgetattr`
+/// leaves the rest as it found them.
+const KERNEL_CONTROL_CHARS: usize = if cfg!(target_os = "linux") {
+    19
+} else {
+    nix::libc::NCCS
+};
 
 pub fn is_keys_mode(t: &Termios) -> bool {
     !t.local_flags.contains(LocalFlags::ICANON)

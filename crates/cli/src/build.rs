@@ -8,7 +8,9 @@
 //! `sw_run_machine` to run it. Then it links that with the runtime library,
 //! `libstitchwort_standalone.a` (`crates/standalone`, which has C `main`,
 //! the machine and the host), using the system's C compiler as the linker.
-//! The executable needs neither `stitchwort` nor the source.
+//! The executable needs neither `stitchwort` nor the source. A
+//! `stitchwort` built for musl links it statically, with musl inside the
+//! runtime library, so it runs on any Linux of its architecture.
 //!
 //! With `--native` (stage S5), every body `main` reaches is compiled
 //! instead, as `run --native` would compile it (`stitchwort_native::aot`),
@@ -45,9 +47,13 @@ pub const LIBRARY_VARIABLE: &str = "STITCHWORT_RUNTIME";
 /// `-liconv -lSystem -lc -lm`). On macOS `-liconv` is left out: nothing in
 /// the library uses an `iconv` symbol, and under Nix it would resolve to a
 /// `/nix/store` copy. A test checks these against rustc's list for the
-/// standard library.
+/// standard library. On musl the library holds musl's C library and
+/// unwinder itself (crates/standalone/build.rs), and needs only the C
+/// compiler's `libgcc` (musl's `long double` arithmetic).
 pub const NATIVE_LIBS: &[&str] = if cfg!(target_os = "macos") {
     &["-lSystem", "-lc", "-lm"]
+} else if cfg!(target_env = "musl") {
+    &["-lgcc"]
 } else {
     &[
         "-lgcc_s",
@@ -66,6 +72,21 @@ const DEAD_STRIP: &str = if cfg!(target_os = "macos") {
     "-Wl,-dead_strip"
 } else {
     "-Wl,--gc-sections"
+};
+
+/// The linker flags before the inputs. On musl: a static executable, with
+/// no C library or start files but the ones inside the runtime library,
+/// whose `crt1.o` defines `_start`; and the table of unwind information
+/// that unwinding a panic looks up, which `gcc` leaves out of static links.
+const LINK_FLAGS: &[&str] = if cfg!(target_env = "musl") {
+    &[
+        "-static",
+        "-nostdlib",
+        "-Wl,-u,_start",
+        "-Wl,--eh-frame-hdr",
+    ]
+} else {
+    &[]
 };
 
 /// `build TARGET [-o OUT]`: `TARGET` is a file, a project folder (whose one
@@ -389,6 +410,7 @@ fn link(object: &[u8], out: &Path) -> Result<(), String> {
         .unwrap_or_else(|| "cc".into());
     let mut command = Command::new(&cc);
     command
+        .args(LINK_FLAGS)
         .arg(&object_path)
         .arg(&library)
         .args(NATIVE_LIBS)
@@ -510,12 +532,20 @@ mod tests {
 
     /// `NATIVE_LIBS` has every library rustc says a static library of the
     /// standard library needs (the runtime library's other dependencies
-    /// need none of their own). Skipped without `rustc`.
+    /// need none of their own); on musl, rustc lists only the C library and
+    /// unwinder, which the runtime library holds. Skipped without `rustc`.
     #[test]
     fn the_native_libraries_are_the_ones_rustc_lists() {
         let dir = TempDir::new().expect("a temporary folder");
         std::fs::write(dir.path.join("empty.rs"), "").expect("write");
-        let printed = Command::new("rustc")
+        let mut rustc = Command::new("rustc");
+        if cfg!(target_env = "musl") {
+            rustc.arg(format!(
+                "--target={}-unknown-linux-musl",
+                std::env::consts::ARCH
+            ));
+        }
+        let printed = rustc
             .args(["--crate-type", "staticlib", "--print", "native-static-libs"])
             .arg("-o")
             .arg(dir.path.join("libempty.a"))
@@ -531,6 +561,11 @@ mod tests {
             .find_map(|line| line.split_once("native-static-libs: "))
             .map(|(_, libs)| libs)
             .unwrap_or_else(|| panic!("rustc printed no list: {said}"));
+        if cfg!(target_env = "musl") {
+            // The two the runtime library holds itself.
+            assert_eq!(listed.trim(), "-lunwind -lc");
+            return;
+        }
         for lib in listed.split_whitespace() {
             if cfg!(target_os = "macos") && lib == "-liconv" {
                 continue;
