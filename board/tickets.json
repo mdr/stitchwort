@@ -1,5 +1,5 @@
 {
-  "next": 547,
+  "next": 548,
   "tickets": [
     {
       "id": 13,
@@ -3798,6 +3798,20 @@
     {
       "id": 546,
       "title": "Panic: match on Vec a (succ n) with only VCons arm -> fin_missing 'library built-in FSucc before its file loads' (registry.rs:512)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": [
+        "96eb85a8"
+      ]
+    },
+    {
+      "id": 547,
+      "title": "Audit registry.ctor(Builtin::X) calls for library built-ins that may not be loaded (debug-build assert; found via fin_missing panic, 96eb85a8)",
       "status": "backlog",
       "agent": "",
       "where": "",
