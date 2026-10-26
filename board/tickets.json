@@ -3734,13 +3734,13 @@
     {
       "id": 541,
       "title": "Standalone S5: object output, build --native (after S4)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-26",
       "commits": []
     },
     {
