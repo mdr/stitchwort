@@ -3720,14 +3720,16 @@
     {
       "id": 540,
       "title": "Standalone S4: code generator free of host addresses (Tables)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "804ccdd2"
+      ]
     },
     {
       "id": 541,
