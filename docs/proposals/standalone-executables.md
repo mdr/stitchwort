@@ -520,10 +520,21 @@ def playOn (seed: Nat): {IO, Partial} State :=
 - **Out of scope:** this plan builds for the host only. A `--target` flag
   can come later, with libraries per target and probably `zig cc` or lld as
   the linker.
-- **Supported hosts for this plan:**
-  - macOS arm64, where the experiment ran;
-  - Linux x86-64: not tried for this note. S5's tests must run there before
-    it counts as supported.
+- **Supported hosts for this plan** (`n1::SUPPORTED_TARGETS`; as of NO7 of
+  native-only.md, 26 October 2026):
+
+  | Host | Object | Status | Evidence |
+  |---|---|---|---|
+  | macOS arm64 | Mach-O, signed by the linker | tested | every tier, on the M4 Pro |
+  | Linux aarch64 | ELF | tested | NO7: the `native` lane and every `build` test, natively in a NixOS VM, under overcommit modes 0 and 1 |
+  | Linux x86-64 | ELF | tested under emulation | NO7: the same tests through Rosetta in that VM; all pass but `link_failures_are_explained`, which Rosetta's `posix_spawn` breaks. Not run on x86-64 hardware |
+  | macOS x86-64 | Mach-O | untested | no Intel Mac |
+  | Windows | COFF | unsupported | see below |
+
+  On Linux the executable links the C library dynamically, so it runs
+  where the loader it names exists (a nix devShell's links the nix store's
+  `ld-linux`); a static or musl link, for one binary across distributions,
+  isn't done.
 - **Windows:** COFF objects are supported, but the terminal host is Unix
   only (`cfg(unix)`), as for `run`.
 - **Constraints on the code:**
@@ -883,7 +894,8 @@ M1.**
     its one root, `Std.Terminal.toIO`, is blocked only by the effect
     operations (`Bind`, `TailPrim:Effect(Bind)`, `Translate`, `FoldIn`,
     `RunPure`), so nothing compiles until N4.
-  - **Linux x86-64: unverified** (no Linux machine in the lane).
+  - **Linux x86-64: unverified** (no Linux machine in the lane; NO7 of
+    native-only.md later ran it, see below).
   - **After N4 (26 October 2026).** S5 was ported to N4's crossing
     (native-compilation.md, "N4 as built"): every body `main` reaches but
     the entry is compiled into the object, the machine linked in runs what
@@ -928,6 +940,16 @@ M1.**
     0.20 ms a key against 0.56 ms (wall), and the native binary is 233 KB
     (11%) smaller than before; it is 0.76 MB larger than the machine-only
     one. D1287's hybrid is superseded (D1294); NO7 records the rest.
+  - **On Linux, after NO7 of native-only.md (26 October 2026).** The S5 and
+    NO5–NO6 tests pass on Linux aarch64 (natively, in a NixOS VM) and
+    x86-64 (through Rosetta); the platform table in §7.1 has the details.
+    Linux needed two fixes: stacks mapped with `MAP_NORESERVE` (glibc's
+    thread stacks are accounted memory, and the default overcommit
+    heuristic refused `run --native`'s 64 GiB), and the native tables'
+    own copy of the shapes (`run --native` had read a stale one). The same
+    500-key game on aarch64 Linux: 0.132 s natively against 0.345 s on the
+    machine, 1,915,848 bytes stripped against 1,129,384 (macOS, same keys:
+    0.124 s and 0.295 s, 1,830,976 and 1,086,736 bytes).
 
 **S6. Every pure primitive through the runtime.**
 - **What:** `census::n1_blocker` admits `Prim`/`Test` of `Text`, `Int`,
