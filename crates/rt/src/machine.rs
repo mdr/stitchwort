@@ -601,7 +601,7 @@ impl State {
             }
             Fun::DoneK => {
                 let y = self.regs.pop().expect("one argument");
-                Ok(Some((Value::data(program.shapes.done, [y]), ret)))
+                Ok(Some((done_k(&program.shapes, y), ret)))
             }
             Fun::Resume(resume, lazy) => {
                 let y = self.regs.pop().expect("one argument");
@@ -642,30 +642,18 @@ impl State {
             // function of the state.
             Fun::StateK(resume) => {
                 let y = self.regs.pop().expect("one argument");
-                let Handler::State { comp, .. } = &*resume.handler else {
-                    unreachable!("a state-passing handler's resumption")
-                };
-                let run = StateRun {
-                    handler: resume.handler.clone(),
-                    rest: resume.rest.clone(),
-                    arg: y,
-                    pending: resume.pending.clone(),
-                };
-                Ok(Some((state_fn(&program.shapes, *comp, run), ret)))
+                Ok(Some((state_k(&program.shapes, resume, y), ret)))
             }
             Fun::JumpK => {
                 let mut args = self.take_args(n);
                 let (v, s) = (args.next().expect("2"), args.next().expect("2"));
                 drop(args);
-                Ok(Some((Value::Fun(Rc::new(Fun::Jumped(v, s))), ret)))
+                Ok(Some((jump_k(v, s), ret)))
             }
             Fun::Jumped(..) => panic!("internal error: a jump applied"),
-            // A resumption of a handler around partial code: `k y` is a
-            // `Delay`, and runs nothing (the runner steps it).
             Fun::DelayK(capture) => {
                 let y = self.regs.pop().expect("one argument");
-                let resumed = crate::value::Delay::Resumed(capture.clone(), y);
-                Ok(Some((Value::Delay(Rc::new(resumed)), ret)))
+                Ok(Some((delay_k(capture, y), ret)))
             }
             Fun::Pap { .. } => unreachable!("a partial application's head"),
         }
@@ -791,9 +779,11 @@ impl State {
             unwound: Vec::new(),
             tail: Vec::new(),
             held: Vec::new(),
+            nested_runs: 0,
         };
         let out = native.call(code, env, args, &mut run);
         self.steps = run.steps;
+        crate::native_abi::count_nested_runs(run.nested_runs);
         if out.is_err() {
             // Innermost first, as the frames left.
             let NativeRun {
@@ -1180,8 +1170,6 @@ fn head_of(f: &Value) -> &Value {
 pub(crate) enum Work {
     /// One of the effect runtime's natives, on its arguments.
     Effect(EffectOp, Vec<Value>),
-    /// `Text.fold text initial f`.
-    Fold(Value, Value, Value),
     /// A function value native code has no code for (a resumption, a
     /// native that runs on frames, a body that isn't compiled), entered
     /// with exactly the arguments its head takes (a partial application's
@@ -1206,6 +1194,7 @@ pub(crate) fn nested(
     work: Work,
 ) -> Result<Value> {
     let (program, image) = (crossing.program, crossing.image);
+    crossing.nested_runs += 1;
     // SAFETY: the machine's state, which the machine doesn't touch while
     // native code runs (it's waiting in `State::cross`), and which only
     // this nested run uses until it returns.
@@ -1220,7 +1209,6 @@ pub(crate) fn nested(
             let n = st.put_args(args);
             st.effect(program, image, op, n, Ret::Host)
         }
-        Work::Fold(t, z, f) => st.fold_start(program, image, f, z, &t, Ret::Host),
         Work::Enter(f, args) => {
             let n = st.put_args(args);
             let pending = st.enter(program, image, head_of(&f), n, Ret::Host);
@@ -1273,6 +1261,43 @@ fn pair(mut fields: Fields) -> (Value, Value) {
 fn state_fn(s: &Shapes, comp: bool, run: StateRun) -> Value {
     let f = Value::Fun(Rc::new(Fun::StateRun(Rc::new(run))));
     if comp { Value::data(s.done, [f]) } else { f }
+}
+
+// The effect runtime's function values that only build a value (leaves:
+// they call no program code), shared by `State::enter` and native code's
+// apply (`native_abi::sw_apply_prepare`), so the two can't drift.
+
+/// `DoneK y`: `Done y`.
+pub(crate) fn done_k(s: &Shapes, y: Value) -> Value {
+    Value::data(s.done, [y])
+}
+
+/// A state-passing handler's `k y` (`StateK`): the loop from `rest y`, as a
+/// function of the state.
+pub(crate) fn state_k(s: &Shapes, resume: &Resume, y: Value) -> Value {
+    let Handler::State { comp, .. } = &*resume.handler else {
+        unreachable!("a state-passing handler's resumption")
+    };
+    let run = StateRun {
+        handler: resume.handler.clone(),
+        rest: resume.rest.clone(),
+        arg: y,
+        pending: resume.pending.clone(),
+    };
+    state_fn(s, *comp, run)
+}
+
+/// A state-passing handler's `jump v s` (`JumpK`): the jump, for its loop
+/// to find (`state_step`).
+pub(crate) fn jump_k(v: Value, s: Value) -> Value {
+    Value::Fun(Rc::new(Fun::Jumped(v, s)))
+}
+
+/// A resumption of a handler around partial code (`DelayK`): `k y` is a
+/// `Delay`, and runs nothing (the runner steps it).
+pub(crate) fn delay_k(capture: &Rc<crate::run::Capture>, y: Value) -> Value {
+    let resumed = crate::value::Delay::Resumed(capture.clone(), y);
+    Value::Delay(Rc::new(resumed))
 }
 
 /// The arity of a function value that isn't a partial application.

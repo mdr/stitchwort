@@ -25,7 +25,7 @@
 //! above the real size.
 //!
 //! Since stage N4 native frames do nest inside runtime helpers: a helper
-//! that runs the machine for native code (an effect, `Text.fold`, a
+//! that runs the machine for native code (an effect, a
 //! function value with no native code) can call native code again. Each
 //! such level has at least one counted native frame above it before it can
 //! nest again, so the stack a run uses is at most the frames pending times

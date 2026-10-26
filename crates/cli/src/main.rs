@@ -1626,6 +1626,7 @@ fn run_main_native(
         stack_size: Some(stitchwort_host::NATIVE_STACK),
     };
     let mut factory = stitchwort_native::n1::factory(options, notes.clone());
+    let nested_before = stitchwort_rt::native_abi::nested_runs();
     let result = stitchwort_rt::run_main_native(
         &program,
         stitchwort_rt::Limits::from_core(session.elab.limits),
@@ -1638,6 +1639,10 @@ fn run_main_native(
         for note in notes.borrow().iter() {
             eprintln!("{note}");
         }
+        eprintln!(
+            "native: {} nested runs of the machine",
+            stitchwort_rt::native_abi::nested_runs() - nested_before
+        );
     }
     result
 }

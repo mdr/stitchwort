@@ -50,7 +50,7 @@
 //!   has the machine enter what has no native code. A function value native
 //!   code returns is the machine's to apply.
 //! - **Back into the machine** (stage N4). What native code doesn't compile
-//!   (the effect runtime's natives but `bind`'s common case, `Text.fold`,
+//!   (the effect runtime's natives but `bind`'s common case, and
 //!   function values without native code) the machine runs for it, nested
 //!   on top of whatever is pending (`machine::nested`), counting on from
 //!   native code's counters. In a tail position native code leaves it as a
@@ -562,6 +562,28 @@ pub struct NativeRun<'a> {
     /// Each native frame's closure and pending arguments, as it left: the
     /// machine keeps them in its frames, which it clears before registers.
     pub held: Vec<Vec<Value>>,
+    /// How many times native code had the machine run something for it in
+    /// this crossing (`machine::nested`): what the native-only stages
+    /// (docs/proposals/native-only.md) bring to zero. Added to the thread's
+    /// total ([`nested_runs`]) when the crossing ends. In every build, not
+    /// only debug ones, since the test tiers run release binaries; an
+    /// increment per nested run is nothing next to the run.
+    pub nested_runs: u64,
+}
+
+thread_local! {
+    static NESTED_RUNS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// How many nested runs of the machine native code has asked for on this
+/// thread so far ([`NativeRun::nested_runs`], summed as each crossing ends).
+pub fn nested_runs() -> u64 {
+    NESTED_RUNS.with(std::cell::Cell::get)
+}
+
+/// Adds a crossing's nested runs to the thread's total.
+pub(crate) fn count_nested_runs(n: u64) {
+    NESTED_RUNS.with(|total| total.set(total.get() + n));
 }
 
 impl NativeRun<'_> {
@@ -643,8 +665,8 @@ pub const HOST_ROOM: usize = 8 * 1024 * 1024;
 pub const HELPER_ROOM: usize = 8 * 1024 * 1024;
 
 /// What nesting through the machine may add to each counted frame on the
-/// native stack (stage N4): a helper that runs the machine (`sw_fold`,
-/// `sw_apply_prepare`, `sw_perform`, `sw_effect`), the machine's `nested`
+/// native stack (stage N4): a helper that runs the machine
+/// (`sw_apply_prepare`, `sw_perform`, `sw_effect`; `sw_fold` until NO1), the machine's `nested`
 /// and `run`, its way back (`State::cross`, [`Crossing::call`]) and a
 /// trampoline. Measured on the release build (aarch64, 26 October 2026),
 /// as the stack address at each nested run: a recursion through
@@ -931,8 +953,12 @@ pub unsafe extern "C" fn sw_inc(w0: u64, w1: u64, w2: u64) {
 /// drops what is kept here last first.
 /// `mode`: 0, a frame's registers (a segment); 1, a tail call's arguments;
 /// 2, a frame's closure (a group, even of no values: every leaving frame
-/// pushes one); 3, more for the last group (pending arguments of the frame
-/// that just left).
+/// pushes one); 3, more for the last group (what the machine keeps in the
+/// `Ret` of the frame that just left: an over-application's rest, a
+/// `Text.fold`'s function), or, if no frame has left yet (the call failed
+/// before its frame was pushed, or in a nested run of the machine, which
+/// keeps its own), dropped now, as the machine drops a `Ret` it never
+/// pushed.
 ///
 /// # Safety
 /// As [`sw_global`]; `regs` points at `n` initialised values, which native
@@ -949,11 +975,10 @@ pub unsafe extern "C" fn sw_unwind(context: *mut Context, regs: *mut Value, n: u
         0 => run.unwound.push(values),
         1 => run.tail.extend(values),
         2 => run.held.push(values),
-        _ => run
-            .held
-            .last_mut()
-            .expect("a frame left before")
-            .extend(values),
+        _ => match run.held.last_mut() {
+            Some(group) => group.extend(values),
+            None => drop(values),
+        },
     }
 }
 
@@ -1274,8 +1299,8 @@ pub unsafe extern "C" fn sw_global_set(context: *mut Context, g: u32, v: *const 
 
 /// Whether a native operation can be applied by native code (through
 /// [`sw_apply_prepare`]): it computes a value from its arguments (not an
-/// effect runtime native or `Text.fold`, which the machine runs on its
-/// frames).
+/// effect runtime native, which the machine runs on its frames, or
+/// `Text.fold`, which calls its function: [`FOLD_CODE`]).
 pub fn applicable_native(op: PrimOp) -> bool {
     !matches!(
         op,
@@ -1420,6 +1445,13 @@ impl ApplyPlan {
     /// Where the values start.
     pub const ARGS_AT: i32 = std::mem::size_of::<ApplyPlan>() as i32;
 }
+
+/// An [`ApplyPlan`]'s `code` for `Text.fold` applied as a function value:
+/// the apply stub calls the compiled `Text.fold` (`rt_text_fold`) on the
+/// plan's three values, with no step or frame of its own, as the machine's
+/// `enter` runs `fold_start` (stage NO1 of docs/proposals/native-only.md).
+/// No code is at address 1.
+pub const FOLD_CODE: u64 = 1;
 
 /// `Apply` of the function value at `f` (taken) to the `n` values at
 /// `args` (moved), as the machine's `apply` and `enter` do it up to the
@@ -1573,6 +1605,12 @@ pub unsafe extern "C" fn sw_apply_prepare(
                     drop(std::mem::take(&mut all));
                     value = Some(v);
                 }
+                GlobalKind::Native(PrimOp::Text(crate::natives::TextNative::TextFold)) => {
+                    // The compiled `Text.fold` (stage NO1 of
+                    // native-only.md), called with no frame of its own, as
+                    // the machine's `enter` runs it.
+                    code = FOLD_CODE as *const u8;
+                }
                 GlobalKind::Function { .. } => {
                     // SAFETY: the table has an entry for every global.
                     code = unsafe { *functions.add(*g as usize) };
@@ -1587,11 +1625,23 @@ pub unsafe extern "C" fn sw_apply_prepare(
                     env = words(&closure)[1];
                 }
             }
+            // The effect runtime's leaves: a value now, as `enter` makes it.
             Fun::DoneK => {
-                value = Some(Value::data_vec(
-                    program.shapes.done,
-                    std::mem::take(&mut all),
-                ));
+                let y = all.pop().expect("one argument");
+                value = Some(crate::machine::done_k(&program.shapes, y));
+            }
+            Fun::StateK(resume) => {
+                let y = all.pop().expect("one argument");
+                value = Some(crate::machine::state_k(&program.shapes, resume, y));
+            }
+            Fun::JumpK => {
+                let s = all.pop().expect("two arguments");
+                let v = all.pop().expect("two arguments");
+                value = Some(crate::machine::jump_k(v, s));
+            }
+            Fun::DelayK(capture) => {
+                let y = all.pop().expect("one argument");
+                value = Some(crate::machine::delay_k(capture, y));
             }
             _ => {}
         }
@@ -1768,8 +1818,9 @@ pub unsafe extern "C" fn sw_unary(
 //
 // What native code doesn't compile, it has the machine run, nested on top
 // of whatever is pending (`machine::nested`): the effect runtime's natives
-// other than `bind`'s common case, `Text.fold`, and (in `sw_apply_prepare`)
-// function values without native code. The machine runs them as it always
+// other than `bind`'s common case, and (in `sw_apply_prepare`) function
+// values without native code. (`Text.fold` is compiled since stage NO1 of
+// docs/proposals/native-only.md, with `sw_text_last` its only helper.) The machine runs them as it always
 // does, on its own frames and with its own counting, so the effect values
 // are the same; whatever it calls that has native code runs natively. Each
 // of these is given the frames pending (the caller's own included), and
@@ -1856,25 +1907,43 @@ pub unsafe extern "C" fn sw_effect(
     }
 }
 
-/// `Text.fold text initial f` on the three values at `args` (moved, in that
-/// order), run by the machine; its value to `out`.
+/// For the compiled `Text.fold` (stage NO1 of docs/proposals/native-only.md),
+/// a leaf: the last character of the text at `t` (borrowed) before byte
+/// `end` (`u64::MAX` for the whole text), as the machine's `fold_step`
+/// takes it, written to `out` as a `Char` (`prims::char_value`); returns
+/// where it starts, the next call's `end`. `u64::MAX`, with nothing
+/// written, if there is none left.
 ///
 /// # Safety
-/// As [`sw_effect`], with three values.
+/// `context` is the running context; `t` points at a `Text`; `out` at space
+/// for a value.
 #[allow(unsafe_code)]
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn sw_fold(
+pub unsafe extern "C" fn sw_text_last(
     context: *mut Context,
-    frames: u64,
-    args: *mut Value,
+    t: *const Value,
+    end: u64,
     out: *mut Value,
-) {
+) -> u64 {
     // SAFETY: the caller's contract.
-    unsafe {
-        let (t, z, f) = (args.read(), args.add(1).read(), args.add(2).read());
-        let run = &mut *(*context).run;
-        let result = nested(run, frames, &mut (*context).steps, Work::Fold(t, z, f));
-        deliver(context, result, out);
+    let (shapes, text) = unsafe {
+        (
+            &(*(*context).run).program.shapes,
+            crate::prims::text_of(&*t),
+        )
+    };
+    let end = if end == u64::MAX {
+        text.len()
+    } else {
+        end as usize
+    };
+    match text[..end].chars().next_back() {
+        None => u64::MAX,
+        Some(c) => {
+            // SAFETY: the caller's contract.
+            unsafe { out.write(crate::prims::char_value(shapes, c)) };
+            (end - c.len_utf8()) as u64
+        }
     }
 }
 
