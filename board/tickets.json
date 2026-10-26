@@ -1,5 +1,5 @@
 {
-  "next": 655,
+  "next": 660,
   "tickets": [
     {
       "id": 13,
@@ -5009,7 +5009,7 @@
     {
       "id": 640,
       "title": "Bug (latent): elaborator caches dot-call lookups by receiver memory address + spans (dot_heads, dot.rs:1240); freed generated source can reuse an address and hit a wrong lookup (x.id resolving as x.ref). Update-lemma generation clears entries as a workaround; key the cache on something stable",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5069,11 +5069,11 @@
     {
       "id": 645,
       "title": "WebAssembly kernel float gate unverified after float laws stage 1 (web/pkg not built in the lane; expected count updated to 1,989 but never seen passing) — build web/pkg and run it",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Passed 26 Oct: 1,989/1,989 after web/build.sh.",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
@@ -5178,6 +5178,66 @@
       "id": 654,
       "title": "task build doesn't build the runtime library, so build --native fails with 'can't find libstitchwort_standalone.a' until cargo build --release -p stitchwort-standalone is run (Matt compiling the roguelike, 26 Oct); make task build build both",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 655,
+      "title": "WebAssembly-kernel float tests (float_paths.rs: the_gate_passes_on_the_webassembly_kernel, the_four_paths_agree_on_canonical_bits) pass silently when web/pkg is missing or stale; add STITCHWORT_REQUIRE_WASM=1 in the merge/daily tiers to turn the skip into a failure (found 26 Oct: float stage 1 gate was never actually run)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 656,
+      "title": "Debug builds: bind.rs:222/:278 call reg.def(Builtin::FloatLessEq / FloatDecLessEq) before the library may be loaded, tripping registry.rs:543's debug assert; use loaded_def (wasm float lane, 26 Oct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 657,
+      "title": "Native executables: macOS links only libSystem (no /nix/store libiconv) — D1381",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 658,
+      "title": "Native executables: fully static on Linux via musl — D1382",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 659,
+      "title": "Re-record benchmarks native vs JS vs interpreter on a quiet machine (D1380: not yet, Matt 26 Oct)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
