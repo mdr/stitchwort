@@ -2422,7 +2422,7 @@ const agree = (name, ...args) => {
 
 // Where JS strings and Stitchwort text disagree, and ordinary characters.
 const awkward = ["a", "Z", "0", "7", "9", " ", ",", "\t", "\n", "\v", "\f", "\r", "\0", "\u{E9}", "\u{301}",
-  "\u{A0}", "\u{2028}", "\u{FEFF}", "\u{D7FF}", "\u{E000}", "\u{FDD0}", "\u{FFFE}", "\u{FFFF}", "\u{10000}",
+  "\u{85}", "\u{A0}", "\u{3000}", "\u{2028}", "\u{FEFF}", "\u{D7FF}", "\u{E000}", "\u{FDD0}", "\u{FFFE}", "\u{FFFF}", "\u{10000}",
   "\u{1F600}", "\u{1F601}", "\u{10FFFF}"];
 // Every text up to four characters over these, and pairs up to two.
 const small = ["a", ",", " ", "7", "\u{E000}", "\u{1F600}", "\u{1F601}"];

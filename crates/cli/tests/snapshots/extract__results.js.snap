@@ -870,25 +870,6 @@ const $Std$dList$dappend = (v1, v2) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dreverseOnto = (v1, v2) => {
-  let s1 = v1, s2 = v2;
-  for (;;) {
-    const v1 = s1, v2 = s2;
-    switch (v1.tag) {
-      case "Nil": {
-        return v2;
-      }
-      case "Cons": {
-        const v3 = v1.head;
-        const v4 = v1.tail;
-        s1 = v4;
-        s2 = { tag: "Cons", head: v3, tail: v2 };
-        continue;
-      }
-    }
-    throw new Error("unreachable");
-  }
-};
 const $Std$dNat$dequal = (m, n) => ({ tag: m === n ? "True" : "False" });
 const $Std$dChar$dtoNat = (v0) => {
   switch (v0.tag) {
@@ -1194,88 +1175,6 @@ const $Std$dList$dmap = (v1, v2, v4, v5) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dChar$disAsciiSpaceCode = (v0) => {
-  switch (v0) {
-    case 9n: {
-      return { tag: "True" };
-    }
-    case 10n: {
-      return { tag: "True" };
-    }
-    case 11n: {
-      return { tag: "True" };
-    }
-    case 12n: {
-      return { tag: "True" };
-    }
-    case 13n: {
-      return { tag: "True" };
-    }
-    case 32n: {
-      return { tag: "True" };
-    }
-  }
-  return { tag: "False" };
-};
-const $Std$dChar$disWhitespaceLow = (v0) => {
-  switch (v0) {
-    case 133n: {
-      return { tag: "True" };
-    }
-    case 160n: {
-      return { tag: "True" };
-    }
-    case 5760n: {
-      return { tag: "True" };
-    }
-  }
-  return { tag: "False" };
-};
-const $Std$dChar$disWhitespaceHigh = (v0) => {
-  switch (v0) {
-    case 8232n: {
-      return { tag: "True" };
-    }
-    case 8233n: {
-      return { tag: "True" };
-    }
-    case 8239n: {
-      return { tag: "True" };
-    }
-    case 8287n: {
-      return { tag: "True" };
-    }
-    case 12288n: {
-      return { tag: "True" };
-    }
-  }
-  return { tag: "False" };
-};
-const $Std$dChar$disWhitespaceCode = (v0) => $Std$dBool$difThenElse($Std$dNat$dleq(8192n, v0), ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, 8202n), ((v2) => ({ tag: "True" })), ((v2) => $Std$dChar$disWhitespaceHigh(v0)))), ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, 32n), ((v2) => $Std$dChar$disAsciiSpaceCode(v0)), ((v2) => $Std$dChar$disWhitespaceLow(v0)))));
-const $Std$dChar$disWhitespace = (v0) => $Std$dChar$disWhitespaceCode($Std$dChar$dtoNat(v0));
-const $Std$dText$ddropSpaces = (v0) => {
-  let s0 = v0;
-  for (;;) {
-    const v0 = s0;
-    switch (v0.tag) {
-      case "Nil": {
-        return { tag: "Nil" };
-      }
-      case "Cons": {
-        const v1 = v0.head;
-        const v2 = v0.tail;
-        if ($Std$dChar$disWhitespace(v1).tag === "True") {
-          s0 = v2;
-          continue;
-        } else {
-          return { tag: "Cons", head: v1, tail: v2 };
-        }
-      }
-    }
-    throw new Error("unreachable");
-  }
-};
-const $Std$dText$dtrim = (v0) => textOfChars($Std$dList$dreverseOnto($Std$dText$ddropSpaces($Std$dList$dreverseOnto($Std$dText$ddropSpaces($Std$dText$dtoList(v0)), { tag: "Nil" })), { tag: "Nil" }));
 const $Std$dText$dtoNat = (t) => {
   if (t === "") return { tag: "None" };
   for (let i = 0; i < t.length; i++) {
@@ -1283,6 +1182,17 @@ const $Std$dText$dtoNat = (t) => {
     if (unit < 48 || unit > 57) return { tag: "None" };
   }
   return { tag: "Some", value: BigInt(t) };
+};
+const $Std$dText$dtrim = (t) => {
+  const space = (u) =>
+    (u >= 9 && u <= 13) || u === 32 || u === 0x85 || u === 0xa0 || u === 0x1680 ||
+    (u >= 0x2000 && u <= 0x200a) || u === 0x2028 || u === 0x2029 || u === 0x202f ||
+    u === 0x205f || u === 0x3000;
+  let start = 0;
+  let end = t.length;
+  while (start < end && space(t.charCodeAt(start))) start++;
+  while (end > start && space(t.charCodeAt(end - 1))) end--;
+  return t.slice(start, end);
 };
 const $Std$dText$dsplit = (t, s) => listOf(t.split(encodeChar(s)));
 const $Std$dFail$d$gelim = (v1, v2, v3) => {

@@ -98,7 +98,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextTrim,
         TextNative::TextTrim,
-        "ec78b83ebc8635cb689fec17a0d5bc87423a45979d3b4496a68fe995afc37124",
+        "579048d18336dd30785965eb0c89f7804d796003518cefd73a5b808c47718574",
     ),
     (
         Builtin::TextTake,
