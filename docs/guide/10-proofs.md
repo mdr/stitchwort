@@ -417,7 +417,7 @@ A proof is only as good as what it assumes. Stitchwort has one axiom, `Quot.soun
 
 <!-- output: axioms proofs.sw sumFastIsSum -->
 ```text
-
+no axioms are used
 ```
 
 Nothing: the proof assumes nothing. Function extensionality (two functions that agree on every input are equal) is a theorem, proved from `Quot.sound`, so a proof that uses it shows the axiom:

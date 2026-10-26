@@ -404,6 +404,143 @@ fn has_case(term: &Term) -> bool {
     false
 }
 
+/// The opaque definitions that stay folded in `terms` (read back from the
+/// values of a failing comparison): each has a body, but the declaration
+/// being checked may not use it ([`stitchwort_core::value::hidden`]). In
+/// order of first appearance. Only called on the error path
+/// (docs/proposals/opaque-definitions.md §6.10); a generated helper
+/// (`f.%body`, `f.unfold`, a lifted helper) is never named.
+pub(crate) fn declined_in<'t>(
+    g: &Globals,
+    terms: impl IntoIterator<Item = &'t Term>,
+) -> Vec<DefId> {
+    if !g.defs.iter().any(|d| d.opaque) {
+        return Vec::new();
+    }
+    let mut found = Vec::new();
+    let mut pending: Vec<&Term> = terms.into_iter().collect();
+    pending.reverse();
+    while let Some(term) = pending.pop() {
+        if let Term::Def(id) = term {
+            let def = g.def(*id);
+            if def.opaque
+                && def.body().is_some()
+                && !def.name.contains('%')
+                && stitchwort_core::value::hidden(g, *id)
+                && !found.contains(id)
+            {
+                found.push(*id);
+            }
+        }
+        let first = pending.len();
+        term.for_each_child(|t, _| pending.push(t));
+        pending[first..].reverse();
+    }
+    found
+}
+
+/// Of the opaque definitions declined in `terms` ([`declined_in`]), those
+/// whose body applies `pattern`'s head function: where a `rewrite` rule
+/// that found nothing may have its pattern, hidden.
+pub(crate) fn declined_holding(g: &Globals, terms: &[Term], pattern: &Term) -> Vec<DefId> {
+    let Term::Def(head) = pattern.strip_loc().spine().0.strip_loc() else {
+        return Vec::new();
+    };
+    declined_in(g, terms)
+        .into_iter()
+        .filter(|id| {
+            let Some(body) = g.def(*id).body() else {
+                return false;
+            };
+            let mut pending: Vec<&Term> = vec![body];
+            while let Some(term) = pending.pop() {
+                if matches!(term, Term::Def(d) if d == head) {
+                    return true;
+                }
+                term.for_each_child(|t, _| pending.push(t));
+            }
+            false
+        })
+        .collect()
+}
+
+impl Elaborator {
+    /// Whether the declaration being checked may have an `unfolding` clause:
+    /// it is a theorem or an `opaque def`. True if it isn't known.
+    pub(crate) fn current_may_unfold(&self) -> bool {
+        let Some(item) = self.module.item else {
+            return true;
+        };
+        let mut found = false;
+        for (id, owner) in &self.module.def_items {
+            let def = self.globals.def(*id);
+            if *owner == item && !def.name.contains('%') {
+                if def.theorem || def.opaque {
+                    return true;
+                }
+                found = true;
+            }
+        }
+        !found
+    }
+}
+
+/// The two notes of §6.10 for the opaque definitions `ids` that were
+/// declined: which are opaque, and the fixes (`unfolding f`, or `rewrite
+/// f.unfold` where `f` has that equation).
+pub(crate) fn opaque_notes(e: &Elaborator, ids: &[DefId]) -> Vec<String> {
+    if ids.is_empty() {
+        return Vec::new();
+    }
+    let g = &e.globals;
+    let quoted: Vec<String> = ids
+        .iter()
+        .map(|id| format!("`{}`", g.def(*id).name))
+        .collect();
+    let list = join_and(&quoted, "and");
+    let first = if ids.len() == 1 {
+        format!("{list} is opaque, so its body isn't used here")
+    } else {
+        format!("{list} are opaque, so their bodies aren't used here")
+    };
+    let unfolding = join_and(
+        &ids.iter()
+            .map(|id| format!("`unfolding {}`", g.def(*id).name))
+            .collect::<Vec<_>>(),
+        "and",
+    );
+    let equations: Vec<String> = ids
+        .iter()
+        .filter_map(|id| {
+            let name = format!("{}.unfold", g.def(*id).name);
+            g.defs
+                .iter()
+                .any(|d| d.theorem && d.name.as_ref() == name.as_str())
+                .then(|| format!("`{name}`"))
+        })
+        .collect();
+    // A transparent `def` can't have the clause (`E-UNFOLDING-TRANSPARENT`).
+    let add = if e.current_may_unfold() {
+        format!("add {unfolding} after this declaration's signature")
+    } else {
+        format!("make this an `opaque def` and add {unfolding} after its signature")
+    };
+    let second = if equations.is_empty() {
+        add
+    } else {
+        format!("{add}, or rewrite with {}", join_and(&equations, "or"))
+    };
+    vec![first, second]
+}
+
+fn join_and(items: &[String], word: &str) -> String {
+    match items {
+        [] => String::new(),
+        [one] => one.clone(),
+        [init @ .., last] => format!("{} {word} {last}", init.join(", ")),
+    }
+}
+
 /// `E-NO-UNFOLD-EQUATION` if `name` is `f.unfold` for an opaque `f` with an
 /// `unfolding` clause, which has no equation (§6.3).
 pub(crate) fn no_unfold_equation(e: &Elaborator, name: &ast::Name) -> Option<Diagnostic> {

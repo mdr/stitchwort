@@ -61,6 +61,16 @@ pub fn value(g: &Globals, names: &[Name], value: &Value) -> String {
     }
 }
 
+/// How a definition's name reads in a message: the generated transparent
+/// copy `f.%body` (docs/proposals/opaque-definitions.md §6.3) is "the body
+/// of `f`", in parentheses so `(body of f) x` still reads as a call.
+fn def_display(name: &str) -> String {
+    match name.strip_suffix(".%body") {
+        Some(owner) => format!("(body of {owner})"),
+        None => name.to_string(),
+    }
+}
+
 /// The longest a term may be in a message before its inner parts are
 /// shown as `…`.
 const MESSAGE_LIMIT: usize = 240;
@@ -259,7 +269,7 @@ impl<'g> Printer<'g> {
                     .map_or_else(|| format!("?{ix}"), |l| names[l].to_string());
                 (name, Prec::Atom)
             }
-            Term::Def(id) => (self.g.def(*id).name.to_string(), Prec::Atom),
+            Term::Def(id) => (def_display(&self.g.def(*id).name), Prec::Atom),
             Term::Sort(Sort::Prop) => ("Prop".into(), Prec::Atom),
             Term::Sort(Sort::Type(0)) => ("Type".into(), Prec::Atom),
             Term::Sort(Sort::Type(i)) => (format!("Type {i}"), Prec::App),

@@ -140,10 +140,9 @@ theorem placeMonstersApart (level: Level) (start: Position):
         placeMonstersApart level start (placed ++ [{ monster | position }]) rest joined
       | None => placeMonstersApart level start placed rest apart
 
-theorem descendApart (state: State) (apart: Apart state.monsters): Apart (descend state).monsters :=
-  match below: state.below with
-    | Cons plan deeper => placeMonstersApart plan.level plan.level.start [] plan.monsters Trivial
-    | [] => apart
+theorem descendApart (dice: Dice) (state: State) (apart: Apart state.monsters): Apart (descend dice state).monsters :=
+  let plan := seeded dice.seed (() => generateLevel (state.level.depth + 1))
+  placeMonstersApart plan.level plan.level.start [] plan.monsters Trivial
 
 theorem resolveApart (dice: Dice) (state: State) (command: Command) (apart: Apart state.monsters): Apart (resolve dice state command).monsters :=
   match phase: state.phase with
@@ -158,7 +157,7 @@ theorem resolveApart (dice: Dice) (state: State) (command: Command) (apart: Apar
             | False => monstersTurnApart dice (drink state) apart
         | Descend =>
           match stairs: isStairs state.level state.player with
-            | True => descendApart state apart
+            | True => descendApart dice state apart
             | False => apart
     | Won => apart
     | Died => apart

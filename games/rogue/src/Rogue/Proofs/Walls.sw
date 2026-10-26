@@ -22,11 +22,9 @@ theorem monstersTurnOutOfWalls (dice: Dice) (state: State) (inside: isWall state
     isWall (monstersTurn dice state).level (monstersTurn dice state).player = False :=
   rewrite monstersTurnLevel dice state, monstersTurnPlayer dice state in inside
 
-theorem descendOutOfWalls (state: State) (inside: isWall state.level state.player = False):
-    isWall (descend state).level (descend state).player = False :=
-  match below: state.below with
-    | Cons plan deeper => startOnFloor plan.level
-    | [] => inside
+theorem descendOutOfWalls (dice: Dice) (state: State) (inside: isWall state.level state.player = False):
+    isWall (descend dice state).level (descend dice state).player = False :=
+  startOnFloor (seeded dice.seed (() => generateLevel (state.level.depth + 1))).level
 
 theorem resolveOutOfWalls (dice: Dice) (state: State) (command: Command) (inside: isWall state.level state.player = False):
     isWall (resolve dice state command).level (resolve dice state command).player = False :=
@@ -42,7 +40,7 @@ theorem resolveOutOfWalls (dice: Dice) (state: State) (command: Command) (inside
             | False => monstersTurnOutOfWalls dice (drink state) inside
         | Descend =>
           match stairs: isStairs state.level state.player with
-            | True => descendOutOfWalls state inside
+            | True => descendOutOfWalls dice state inside
             | False => inside
     | Won => inside
     | Died => inside

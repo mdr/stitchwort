@@ -60,7 +60,7 @@ Greeted 2 people
 | `stitchwort test FILE` | Checks the file, then runs its tests. Results are cached: a test runs again only when something it depends on changes. |
 | `stitchwort run FILE` | Checks the file, then runs its `main` on the fast runtime, with standard input and output. `--reference` runs it on the type checker's own evaluator, and `--js` compiles it to JavaScript and runs it with Node ([chapter 11](11-running-and-shipping.md)). |
 | `stitchwort fmt FILE…` | Formats files in place, in the house style. `--check` only lists the files that would change. |
-| `stitchwort axioms FILE NAME` | Lists the axioms a theorem or definition depends on ([chapter 10](10-proofs.md)). |
+| `stitchwort axioms FILE NAME...` | Lists the axioms a theorem or definition depends on ([chapter 10](10-proofs.md)). |
 | `stitchwort eval FILE EXPR` | Evaluates an expression in the context of a file. |
 | `stitchwort repl [FILE]` | An interactive session. |
 | `stitchwort build --js FILE -o DIR` | Writes an ES module and its TypeScript declarations for the file's `export`s. |

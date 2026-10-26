@@ -794,6 +794,7 @@ fn index_stuck(
             subject(cx, x)
         ),
     );
+    let d = cx.with_opaque_notes(d, &[&k.lhs, &k.rhs]);
     // `a + k` with `a` unknown: on the constructor's side, declare `Succ a`;
     // on the scrutinee's, match on `a` first.
     if let Some((a, n)) = plus(cx, &k.rhs) {

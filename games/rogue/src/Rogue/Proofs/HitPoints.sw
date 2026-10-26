@@ -28,10 +28,8 @@ theorem playerMovesAtMost (dice: Dice) (state: State) (direction: Direction) (at
         | True => atMost
         | False => rewrite enterHitPoints state (state.player.toward direction) in atMost
 
-theorem descendAtMost (state: State) (atMost: state.hitPoints ≤ maxHitPoints): (descend state).hitPoints ≤ maxHitPoints :=
-  match below: state.below with
-    | Cons plan deeper => atMost
-    | [] => atMost
+theorem descendAtMost (dice: Dice) (state: State) (atMost: state.hitPoints ≤ maxHitPoints): (descend dice state).hitPoints ≤ maxHitPoints :=
+  atMost
 
 theorem resolveAtMost (dice: Dice) (state: State) (command: Command) (atMost: state.hitPoints ≤ maxHitPoints):
     (resolve dice state command).hitPoints ≤ maxHitPoints :=
@@ -47,7 +45,7 @@ theorem resolveAtMost (dice: Dice) (state: State) (command: Command) (atMost: st
             | False => monstersTurnAtMost dice (drink state) (healedAtMost state.hitPoints)
         | Descend =>
           match stairs: isStairs state.level state.player with
-            | True => descendAtMost state atMost
+            | True => descendAtMost dice state atMost
             | False => atMost
     | Won => atMost
     | Died => atMost

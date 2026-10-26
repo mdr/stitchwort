@@ -1799,6 +1799,11 @@ fn quote_as(g: &Globals, level: usize, value: &Value, folded: bool) -> Result<Te
     let mut tasks = vec![QuoteTask::Visit(level, value.clone())];
     let mut done: Vec<Term> = Vec::new();
     let mut size = 0u64;
+    // If it gets too large: which definition's call the whole value was.
+    let root_def = match value {
+        Value::Neutral(Head::Def(id), _) | Value::Call(id, ..) => Some(id.0),
+        _ => None,
+    };
     let limit = g.budget.size_limit();
     let rc = |t: Term| Rc::new(t);
     while let Some(task) = tasks.pop() {
@@ -1807,6 +1812,7 @@ fn quote_as(g: &Globals, level: usize, value: &Value, folded: bool) -> Result<Te
                 g.budget.step()?;
                 size += 1;
                 if size > limit {
+                    g.budget.set_too_large(root_def);
                     return Err(ResourceError::Size);
                 }
                 visit(g, level, value, folded, &mut tasks, &mut done)?;
