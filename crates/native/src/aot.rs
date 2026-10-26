@@ -8,7 +8,7 @@
 //! code holds no host address (stage S4): what it needs of the runtime's
 //! memory it reaches through `Context::tables`, which the runtime builds
 //! from the image it rebuilds, and the helpers (`sw_ctor` and the rest,
-//! with N4's `sw_effect`, `sw_fold`, `sw_perform` and the others that run
+//! with N4's `sw_effect`, `sw_perform` and the others that run
 //! the machine for native code) are left for the linker to resolve against
 //! the runtime library, which has the machine.
 //!

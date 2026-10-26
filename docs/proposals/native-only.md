@@ -488,6 +488,56 @@ show that work left the machine.
   pass. A recursion through `Text.fold` to the frame limit fails exactly
   where the machine does, with zero nested runs.
 
+**NO1 as built** (26 October 2026). Done as planned, with these
+differences from the text above:
+- **The counter is in every build, not only debug ones.** The test tiers
+  run release binaries, so a debug-only field would be missing exactly
+  where the tests read it. It's `NativeRun::nested_runs` (one increment per
+  `machine::nested` call), added to a per-thread total when each crossing
+  ends (`native_abi::nested_runs()`), and `run --native --verbose` prints
+  it as "native: N nested runs of the machine".
+- **`Text.fold` as a function value is compiled too.** `sw_apply_prepare`
+  plans a `Text.fold` head as `FOLD_CODE`, and the apply stub calls
+  `rt_text_fold` with no step or frame of its own, as the machine's
+  `enter` runs `fold_start`. So `Text.fold` never runs on the machine, and
+  `runs_on_the_machine` (which sets `nests`, and with it `NEST_ROOM` in
+  the frame bound) no longer lists it.
+- **`rt_text_fold` calls the function directly when it can.** `f` doesn't
+  change during a fold, so it's looked up once (`sw_apply_cached`); a
+  global function or closure taking two is then called directly, with the
+  step and frame counted as `apply2` would, and anything else goes through
+  `apply2`. The characters come from one leaf, `sw_text_last`.
+- **The leaf function values are made in `sw_apply_prepare`, not
+  dispatched in the stub's IR.** The stub's slow path calls
+  `sw_apply_prepare` anyway, and it already made `DoneK`'s value; it now
+  makes `StateK`'s, `JumpK`'s and `DelayK`'s with the same functions the
+  machine's `enter` uses (`machine::done_k`, `state_k`, `jump_k`,
+  `delay_k`), so they can't drift.
+- **"Joined to its callee's group" needs one more case (§1.4, error
+  exits).** If the call fails before its frame is pushed (out of steps or
+  frames in `apply2`), the machine's `push` drops the `Ret` at once, and
+  no group exists to join. `sw_unwind`'s mode 3 now drops the values at
+  once when no frame has left yet, rather than panicking. Before a direct
+  call, `rt_text_fold` drops the character, the value so far and `f`, in
+  the machine's order.
+- **The frame bound adds `rt_text_fold`'s frame** (368 bytes on aarch64)
+  to each level when a program uses `Text.fold`: body or adapter, a stub,
+  and the fold.
+
+**Nested runs, before and after NO1** (release `run --native`, seeded
+roguelike):
+
+| Run | Before | After |
+|---|---:|---:|
+| roguelike, keys `jjlq` | 78 | 13 |
+| roguelike, 27 keys | 216 | 82 |
+| `effects.sw`, 1,000 of each | 1,004 | 1,004 |
+| `effects.sw`, 1,000,000 of each | 1,000,004 | 1,000,004 |
+
+The roguelike uses no `Text.fold`; its drop is the leaf function values
+(`StateK`, `JumpK`, `DelayK`). The effects benchmark's runs are effect
+operations, NO2's and NO3's work.
+
 **NO2. The run loop, folds, `translate`, `runPure` and resumptions.**
 - **What:** `rt_loop`, `rt_resume`, `sw_resume` and the per-op runtime
   bodies, for `Fold`, `FoldLazy`, `FoldIn`, `Translate` and `RunPure`.

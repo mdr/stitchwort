@@ -109,9 +109,9 @@ def main(): {IO} () :=
     });
 }
 
-/// `Text.fold` inside a recursive function: native code has the machine
-/// run it, and the machine calls the compiled lambda back. (Before N4, the
-/// whole run stayed on the machine.)
+/// `Text.fold` inside a recursive function: compiled (stage NO1 of
+/// native-only.md; from N4 to NO1 the machine ran it, calling the compiled
+/// lambda back). (Before N4, the whole run stayed on the machine.)
 #[test]
 fn text_fold_in_a_recursion_runs_natively() {
     let source = r#"import Std (IO, List, Text)
@@ -125,6 +125,82 @@ def main(): {IO} () :=
 "#;
     assert_eq!(agrees(source), "8\n");
     same_trace(source);
+}
+
+/// The nested runs of the machine a native run of `program` asks for
+/// (`native_abi::nested_runs`), and how it ended.
+fn nested_runs(program: &stitchwort_rt::Program, limits: Limits) -> (Ran, u64) {
+    let before = stitchwort_rt::native_abi::nested_runs();
+    let (ran, notes) = native(program, limits, false);
+    assert!(ran_natively(&notes), "{notes:#?}");
+    (ran, stitchwort_rt::native_abi::nested_runs() - before)
+}
+
+/// A recursion through `Text.fold` (stage NO1 of native-only.md): each
+/// level's function is a closure called from the compiled `Text.fold`, on a
+/// character that isn't ASCII (a new cell each time). It runs out of frames
+/// (and of steps) exactly where the machine does, with the same output and
+/// freeing every cell at every limit, and never has the machine run
+/// anything for it.
+#[test]
+fn a_recursion_through_text_fold_stops_where_the_machine_does() {
+    let source = r#"import Std (IO, Text)
+
+def depth: Nat → Nat
+  | Zero => 0
+  | Succ n => Text.fold "é" 1 (c acc => acc + depth n)
+
+def main(): {IO} () :=
+  IO.print "${depth 20}"
+"#;
+    assert_eq!(agrees(source), "20\n");
+    same_trace(source);
+    with_stack(STACK, move || {
+        let (program, limits) = lowered(source);
+        let (least_steps, least_frames) = every_limit_agrees(&program, limits);
+        assert!(least_frames > 40, "{least_frames}");
+        assert!(least_steps > 40, "{least_steps}");
+        let (ran, nested) = nested_runs(&program, limits);
+        assert_eq!(ran.1, Ok(()));
+        assert_eq!(nested, 0);
+        // One frame short: out of frames on both, with no nested run.
+        let short = Limits {
+            frames: least_frames as usize - 1,
+            ..limits
+        };
+        let (ran, nested) = nested_runs(&program, short);
+        assert_eq!(ran, on_machine(&program, short));
+        assert_eq!(ran.1, Err("out of frames".to_string()));
+        assert_eq!(nested, 0);
+    });
+}
+
+/// `Text.fold` as a function value, applied through the apply stub
+/// (`abi::FOLD_CODE`), and with a partial application as its function (its
+/// calls through `apply2`): compiled, with the machine's output, trace and
+/// limits, and no nested run.
+#[test]
+fn text_fold_as_a_function_value_runs_natively() {
+    let source = r#"import Std (IO, List, Text)
+
+def step (k: Nat) (c: Char) (acc: Nat): Nat := acc * k + 1
+
+def withFold (fold: Text → Nat → (Char → Nat → Nat) → Nat) (t: Text): Nat :=
+  fold t 0 (step 2) + fold t 1 (c acc => acc + 3)
+
+def main(): {IO} () :=
+  IO.print "${withFold Text.fold "añb" + List.length (List.map [step 3, step 4] (Text.fold "xy" 0))}"
+"#;
+    let printed = agrees(source);
+    assert_eq!(printed, format!("{}\n", 7 + 10 + 2));
+    same_trace(source);
+    with_stack(STACK, move || {
+        let (program, limits) = lowered(source);
+        every_limit_agrees(&program, limits);
+        let (ran, nested) = nested_runs(&program, limits);
+        assert_eq!(ran.1, Ok(()));
+        assert_eq!(nested, 0);
+    });
 }
 
 /// `run 3000` builds a list 3,000 deep and sums it twice, keeping it while

@@ -19,9 +19,13 @@
 //! entry, the effect loop applying a continuation, the `IO` runner, a
 //! machine frame (`native_abi::NativeIslands`). The other way, what native
 //! code doesn't compile it has the machine run for it, nested: the effect
-//! runtime's natives other than `bind`'s common case, `Text.fold`, and a
-//! function value with no native code (the effect runtime's resumptions and
-//! the like, natives that run on frames). In a tail position that is a
+//! runtime's natives other than `bind`'s common case, and a function value
+//! with no native code (the effect runtime's resumptions and the like,
+//! natives that run on frames). (Since stage NO1 of
+//! docs/proposals/native-only.md, `Text.fold` is a runtime body,
+//! `rt_text_fold`, and the effect runtime's leaf function values, `DoneK`,
+//! `StateK`, `JumpK` and `DelayK`, are made by `sw_apply_prepare` itself;
+//! `native_abi::nested_runs` counts what is still run nested.) In a tail position that is a
 //! *tail request* (`native_abi::TailRequest`): the frame returns, and the
 //! nearest caller that isn't in a tail position (or the machine, at the
 //! crossing) has the machine perform it there, so a tail position stays
@@ -227,6 +231,10 @@ pub(crate) struct Plan {
     /// native code ([`runs_on_the_machine`]), so native frames may nest
     /// inside runs of the machine.
     pub(crate) nests: bool,
+    /// Whether anything `main` reaches uses `Text.fold` (a `Prim`, or its
+    /// function value), so the module needs the compiled `Text.fold`
+    /// ([`emit_text_fold`]).
+    pub(crate) folds: bool,
     /// Why any body doesn't.
     pub(crate) notes: Vec<String>,
 }
@@ -276,6 +284,12 @@ pub(crate) fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>
             .instrs
             .iter()
             .any(|instr| runs_on_the_machine(program, instr))
+    });
+    let folds = reach.iter().any(|&code| {
+        image.codes[code as usize]
+            .instrs
+            .iter()
+            .any(|instr| uses_text_fold(program, instr))
     });
     for code in reach {
         if code == image.entry_code {
@@ -331,18 +345,31 @@ pub(crate) fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>
         bodies,
         reachable,
         nests,
+        folds,
         notes,
     })
 }
 
+/// Whether `instr` is `Text.fold`, or makes its function value.
+fn uses_text_fold(program: &Program, instr: &Instr) -> bool {
+    let fold = PrimOp::Text(TextNative::TextFold);
+    match instr {
+        Instr::Prim { op, .. } | Instr::TailPrim { op, .. } => *op == fold,
+        Instr::Global { g, .. } | Instr::Pap { g, .. } => {
+            matches!(program.globals[*g as usize].kind, GlobalKind::Native(op) if op == fold)
+        }
+        _ => false,
+    }
+}
+
 /// Whether `instr` has the machine run something for native code (and so
 /// can nest native frames inside a run of the machine): an effect native,
-/// `Text.fold`, or a function value of one of those (which only the
-/// machine can apply). Everything else `main` reaches is compiled, so a
-/// program with none of these never nests.
+/// or its function value (which only the machine can apply). Everything
+/// else `main` reaches is compiled (`Text.fold` too, since stage NO1 of
+/// docs/proposals/native-only.md), so a program with none of these never
+/// nests.
 fn runs_on_the_machine(program: &Program, instr: &Instr) -> bool {
-    let on_frames =
-        |op: PrimOp| matches!(op, PrimOp::Effect(_) | PrimOp::Text(TextNative::TextFold));
+    let on_frames = |op: PrimOp| matches!(op, PrimOp::Effect(_));
     match instr {
         Instr::Prim { op, .. } | Instr::TailPrim { op, .. } => on_frames(*op),
         Instr::Global { g, .. } | Instr::Pap { g, .. } => {
@@ -711,6 +738,22 @@ pub(crate) fn emit(
             }
         }
     }
+    // The compiled `Text.fold`, which applies its function through `apply2`.
+    let text_fold = if plan.folds {
+        if let std::collections::btree_map::Entry::Vacant(slot) = apply_any.entry(2) {
+            let id = module
+                .declare_function("apply2", Linkage::Local, &apply_signature(pointer, 2))
+                .map_err(|e| fail(e.to_string()))?;
+            slot.insert(id);
+        }
+        Some(
+            module
+                .declare_function("rt_text_fold", Linkage::Local, &body_signature(pointer, 3))
+                .map_err(|e| fail(e.to_string()))?,
+        )
+    } else {
+        None
+    };
     let helpers = Helpers::declare(module, pointer, call_conv).map_err(fail)?;
     let numbering = Numbering::of(image);
     let mut caches = 0u32;
@@ -738,6 +781,7 @@ pub(crate) fn emit(
                 lambda,
                 functions: &functions,
                 apply_any: &apply_any,
+                text_fold,
                 helpers: &helpers,
                 refs: BTreeMap::new(),
                 signatures: BTreeMap::new(),
@@ -833,10 +877,12 @@ pub(crate) fn emit(
                 n,
                 &arities,
                 // Every count the plan holds: a partial application's held
-                // arguments (fewer than its head takes) and the new ones.
-                n + cap,
+                // arguments (fewer than its head takes) and the new ones
+                // (`Text.fold`'s three, if it may be applied).
+                n + if text_fold.is_some() { cap.max(3) } else { cap },
                 pointer,
                 options,
+                text_fold,
             );
             b.seal_all_blocks();
             b.finalize(frontend_config);
@@ -850,6 +896,35 @@ pub(crate) fn emit(
             .map_err(|e| fail(format!("apply{n}: {e:?}")))?;
         if let Some(compiled) = context.compiled_code() {
             stub_frame = stub_frame.max(frames::frame_bound(&context.func, compiled));
+        }
+        module.clear_context(&mut context);
+    }
+    let mut fold_frame = 0;
+    if let Some(id) = text_fold {
+        context.func.signature = body_signature(pointer, 3);
+        context.func.name = ir::UserFuncName::user(4, 0);
+        {
+            let mut b = FunctionBuilder::new(&mut context.func, &mut builder_context);
+            emit_text_fold(
+                &mut b,
+                &mut *module,
+                &helpers,
+                apply_any[&2],
+                pointer,
+                options,
+            );
+            b.seal_all_blocks();
+            b.finalize(frontend_config);
+        }
+        if dump {
+            eprintln!("==== rt_text_fold\n{}", context.func.display());
+        }
+        audit.function(&context.func).map_err(fail)?;
+        module
+            .define_function(id, &mut context)
+            .map_err(|e| fail(format!("rt_text_fold: {e:?}")))?;
+        if let Some(compiled) = context.compiled_code() {
+            fold_frame = frames::frame_bound(&context.func, compiled);
         }
         module.clear_context(&mut context);
     }
@@ -933,12 +1008,15 @@ pub(crate) fn emit(
     }
     // A Stitchwort frame can be a body (an adapter tail-calls it, taking its
     // place), reached through an apply stub that may stay on the stack while
-    // it runs: the bound for one level of recursion is the larger of body and
-    // adapter, and a stub.
+    // it runs, and through the compiled `Text.fold` (stage NO1 of
+    // native-only.md: one runtime frame per level): the bound for one level
+    // of recursion is the larger of body and adapter, a stub, and the fold.
     if dump {
-        eprintln!("frames: bodies {max_frame}, adapters {adapter_frame}, apply stubs {stub_frame}");
+        eprintln!(
+            "frames: bodies {max_frame}, adapters {adapter_frame}, apply stubs {stub_frame}, fold {fold_frame}"
+        );
     }
-    let max_frame = max_frame.max(adapter_frame) + stub_frame;
+    let max_frame = max_frame.max(adapter_frame) + stub_frame + fold_frame;
     Ok(Emitted {
         functions,
         adapters,
@@ -1105,6 +1183,7 @@ fn emit_apply_any(
     cap: u32,
     pointer: ir::Type,
     options: Options,
+    text_fold: Option<FuncId>,
 ) {
     let prepare = module.declare_func_in_func(helpers.apply_prepare, b.func);
     let release = module.declare_func_in_func(helpers.release, b.func);
@@ -1169,6 +1248,15 @@ fn emit_apply_any(
     let code = b.ins().load(pointer, flags(), plan, ApplyPlan::CODE_AT);
     let enter = b.create_block();
     let ready = b.create_block();
+    let folding = b.create_block();
+    if text_fold.is_some() {
+        let is_fold = b
+            .ins()
+            .icmp_imm_u(IntCC::Equal, code, abi::FOLD_CODE as i64);
+        let other = b.create_block();
+        b.ins().brif(is_fold, folding, &[], other, &[]);
+        b.switch_to_block(other);
+    }
     b.ins().brif(code, enter, &[], ready, &[]);
 
     // A value now: the result, or applied to what's left.
@@ -1284,6 +1372,44 @@ fn emit_apply_any(
     b.set_cold_block(trap);
     b.ins().trap(TrapCode::unwrap_user(4));
 
+    // `Text.fold` applied (its three values first in the plan): the
+    // compiled one, with no step or frame of its own, as the machine's
+    // `enter` runs `fold_start`; in a tail position if nothing is left
+    // over, else its value applied to the rest, as for a call.
+    b.switch_to_block(folding);
+    match text_fold {
+        Some(fold) => {
+            let fold = module.declare_func_in_func(fold, b.func);
+            let mut call_args = vec![ctx, frames];
+            for i in 0..9 {
+                call_args.push(
+                    b.ins()
+                        .load(types::I64, flags(), plan, ApplyPlan::ARGS_AT + 8 * i),
+                );
+            }
+            let rest = b.ins().load(types::I64, flags(), plan, ApplyPlan::REST_AT);
+            let tail = b.create_block();
+            let call = b.create_block();
+            b.ins().brif(rest, call, &[], tail, &[]);
+            b.switch_to_block(tail);
+            b.ins().return_call(fold, &call_args);
+            b.switch_to_block(call);
+            let called = b.ins().call(fold, &call_args);
+            let r: Vec<ir::BlockArg> = b
+                .inst_results(called)
+                .to_vec()
+                .into_iter()
+                .map(Into::into)
+                .collect();
+            let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
+            b.ins().brif(error, failed, &[], again, &r);
+        }
+        None => {
+            b.set_cold_block(folding);
+            b.ins().trap(TrapCode::unwrap_user(4));
+        }
+    }
+
     // Out of steps or frames before the call: the plan's values and closure
     // released.
     let release_all = b.create_block();
@@ -1387,6 +1513,241 @@ fn emit_apply_any(
     b.ins().return_(&[zero, zero, zero]);
 }
 
+/// The compiled `Text.fold text initial f` (stage NO1 of
+/// docs/proposals/native-only.md), a runtime body with a global body's
+/// signature (`body_signature`, three values, all moved in), but the frames
+/// pending are the caller's: like the machine's `fold_start` and
+/// `fold_step`, it counts no step and pushes no frame itself. It loops over
+/// the characters from the last (each made by the leaf `sw_text_last`),
+/// applying `f` to the character and the value so far as the machine's
+/// `apply` does, with the step and the frame counted for each call: directly
+/// if `f` is a global function or a closure taking two (`sw_apply_cached`,
+/// once, since `f` doesn't change), otherwise through `apply2`. What the
+/// machine keeps in `Ret::Fold` while a call runs (`f`, and the text) lives
+/// in this frame instead.
+///
+/// The way out on an error is the machine's for a `Ret`: out of steps or
+/// frames before a call, the character, the value so far and then `f` are
+/// dropped at once (`push` drops its `Ret` and arguments; `f`'s last copy
+/// is `apply`'s, dropped after them). A callee's error leaves `f` with the
+/// callee's group in the unwind log, where the machine has it in the
+/// callee frame's `Ret` (`sw_unwind`'s mode 3). The text isn't in the
+/// allocation trace, so it's dropped whenever. A callee's tail request is
+/// performed here, as a body performs one (`Gen::call_result`).
+fn emit_text_fold(
+    b: &mut FunctionBuilder<'_>,
+    module: &mut dyn Module,
+    helpers: &Helpers,
+    apply2: FuncId,
+    pointer: ir::Type,
+    options: Options,
+) {
+    let text_last = module.declare_func_in_func(helpers.text_last, b.func);
+    let apply_cached = module.declare_func_in_func(helpers.apply_cached, b.func);
+    let drop_words = module.declare_func_in_func(helpers.drop_words, b.func);
+    let unwind = module.declare_func_in_func(helpers.unwind, b.func);
+    let perform = module.declare_func_in_func(helpers.perform, b.func);
+    let apply = module.declare_func_in_func(apply2, b.func);
+    let slot = |b: &mut FunctionBuilder<'_>, size: usize| {
+        b.create_sized_stack_slot(StackSlotData::new(
+            StackSlotKind::ExplicitSlot,
+            size as u32,
+            3,
+        ))
+    };
+    let t_slot = slot(b, VALUE_SIZE);
+    let f_slot = slot(b, VALUE_SIZE);
+    let c_slot = slot(b, VALUE_SIZE);
+    let out_slot = slot(b, VALUE_SIZE);
+    let cache_slot = slot(b, size_of::<abi::ApplyCache>());
+
+    let entry = b.create_block();
+    b.append_block_params_for_function_params(entry);
+    b.switch_to_block(entry);
+    let params = b.block_params(entry).to_vec();
+    let (ctx, frames) = (params[0], params[1]);
+    let (t, z, f) = (&params[2..5], &params[5..8], &params[8..11]);
+    let t_at = b.ins().stack_addr(pointer, t_slot, 0);
+    let f_at = b.ins().stack_addr(pointer, f_slot, 0);
+    for w in 0..3 {
+        b.ins().store(flags(), t[w], t_at, (w * 8) as i32);
+        b.ins().store(flags(), f[w], f_at, (w * 8) as i32);
+    }
+    let cache_at = b.ins().stack_addr(pointer, cache_slot, 0);
+    let two = b.ins().iconst(types::I64, 2);
+    let call = b.ins().call(apply_cached, &[ctx, f_at, two, cache_at]);
+    let target = b.inst_results(call)[0];
+    let looping = b.create_block();
+    b.append_block_param(looping, types::I64);
+    for _ in 0..3 {
+        b.append_block_param(looping, types::I64);
+    }
+    let whole = b.ins().iconst(types::I64, -1);
+    b.ins().jump(
+        looping,
+        &[whole.into(), z[0].into(), z[1].into(), z[2].into()],
+    );
+
+    // The next character from the end, if any.
+    b.switch_to_block(looping);
+    let p = b.block_params(looping).to_vec();
+    let (end, acc) = (p[0], [p[1], p[2], p[3]]);
+    let c_at = b.ins().stack_addr(pointer, c_slot, 0);
+    let call = b.ins().call(text_last, &[ctx, t_at, end, c_at]);
+    let next = b.inst_results(call)[0];
+    let none_left = b.ins().icmp_imm_u(IntCC::Equal, next, -1);
+    let finish = b.create_block();
+    let got = b.create_block();
+    b.ins().brif(none_left, finish, &[], got, &[]);
+    b.switch_to_block(got);
+    let c: Vec<IrValue> = (0..3)
+        .map(|w| b.ins().load(types::I64, flags(), c_at, 8 * w))
+        .collect();
+    let direct = b.create_block();
+    let slow = b.create_block();
+    b.ins().brif(target, direct, &[], slow, &[]);
+
+    let returned = b.create_block();
+    for _ in 0..3 {
+        b.append_block_param(returned, types::I64);
+    }
+    // `f`'s copy for the call, which the callee owns.
+    let inc_f = |b: &mut FunctionBuilder<'_>| {
+        let strong = b.ins().load(types::I64, flags(), f[1], STRONG_AT);
+        let strong = b.ins().iadd_imm_s(strong, 1);
+        b.ins().store(flags(), strong, f[1], STRONG_AT);
+    };
+
+    // A step and a frame, as the machine's `enter_frame`, then the call.
+    b.switch_to_block(direct);
+    let out_of_steps = b.create_block();
+    let counted = b.create_block();
+    let left = b.ins().get_pinned_reg(types::I64);
+    let no_steps = b.ins().icmp_imm_u(IntCC::Equal, left, 0);
+    b.ins().brif(no_steps, out_of_steps, &[], counted, &[]);
+    b.switch_to_block(counted);
+    let fewer = b.ins().iadd_imm_s(left, -1);
+    b.ins().set_pinned_reg(fewer);
+    let limit = b
+        .ins()
+        .load(types::I64, flags(), ctx, Context::FRAME_LIMIT_AT);
+    let mut over = b
+        .ins()
+        .icmp(IntCC::UnsignedGreaterThanOrEqual, frames, limit);
+    if options.stack_size.is_some() {
+        let sp = b.ins().get_stack_pointer(pointer);
+        let floor = b
+            .ins()
+            .load(types::I64, flags(), ctx, Context::STACK_LIMIT_AT);
+        let low = b.ins().icmp(IntCC::UnsignedLessThan, sp, floor);
+        over = b.ins().bor(over, low);
+    }
+    let out_of_frames = b.create_block();
+    let entering = b.create_block();
+    b.ins().brif(over, out_of_frames, &[], entering, &[]);
+    b.switch_to_block(entering);
+    inc_f(b);
+    let pushed = b.ins().iadd_imm_s(frames, 1);
+    let mut call_args = vec![ctx, pushed];
+    call_args.extend(&c);
+    call_args.extend(acc);
+    call_args.push(f[1]);
+    let signature = b.import_signature(value_signature(pointer, 2));
+    let call = b.ins().call_indirect(signature, target, &call_args);
+    let r: Vec<ir::BlockArg> = b.inst_results(call).iter().map(|x| (*x).into()).collect();
+    b.ins().jump(returned, &r);
+
+    // Anything else: the machine's eval/apply, in the stub.
+    b.switch_to_block(slow);
+    inc_f(b);
+    let none = b.ins().iconst(pointer, 0);
+    let not_tail = b.ins().iconst(types::I64, 0);
+    let mut call_args = vec![ctx, frames, none, not_tail];
+    call_args.extend(f);
+    call_args.extend(&c);
+    call_args.extend(acc);
+    let call = b.ins().call(apply, &call_args);
+    let r: Vec<ir::BlockArg> = b.inst_results(call).iter().map(|x| (*x).into()).collect();
+    b.ins().jump(returned, &r);
+
+    // The value so far, or the callee's error or tail request.
+    b.switch_to_block(returned);
+    let r = b.block_params(returned).to_vec();
+    let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
+    let check = b.create_block();
+    b.ins().brif(
+        error,
+        check,
+        &[],
+        looping,
+        &[next.into(), r[0].into(), r[1].into(), r[2].into()],
+    );
+    b.switch_to_block(check);
+    b.set_cold_block(check);
+    let requested = b.ins().icmp_imm_u(IntCC::Equal, error, TAIL_REQUEST as i64);
+    let performing = b.create_block();
+    let failed = b.create_block();
+    b.ins().brif(requested, performing, &[], failed, &[]);
+    b.switch_to_block(performing);
+    b.set_cold_block(performing);
+    let out_at = b.ins().stack_addr(pointer, out_slot, 0);
+    steps_out(b, ctx);
+    b.ins().call(perform, &[ctx, frames, out_at]);
+    steps_in(b, ctx);
+    let error = b.ins().load(types::I64, flags(), ctx, Context::ERROR_AT);
+    let v: Vec<IrValue> = (0..3)
+        .map(|w| b.ins().load(types::I64, flags(), out_at, 8 * w))
+        .collect();
+    b.ins().brif(
+        error,
+        failed,
+        &[],
+        looping,
+        &[next.into(), v[0].into(), v[1].into(), v[2].into()],
+    );
+
+    // The callee failed: `f` with its group, as the machine has it in the
+    // callee frame's `Ret::Fold`.
+    b.switch_to_block(failed);
+    b.set_cold_block(failed);
+    let one = b.ins().iconst(types::I64, 1);
+    let join = b.ins().iconst(types::I64, 3);
+    b.ins().call(unwind, &[ctx, f_at, one, join]);
+    b.ins().call(drop_words, t);
+    let zero = b.ins().iconst(types::I64, 0);
+    b.ins().return_(&[zero, zero, zero]);
+
+    // Out of steps or frames before the call: as the machine's `push`.
+    let unready = b.create_block();
+    b.switch_to_block(out_of_steps);
+    b.set_cold_block(out_of_steps);
+    let over = b.ins().iconst(types::I64, -1);
+    b.ins().set_pinned_reg(over);
+    let error = b.ins().iconst(types::I64, OUT_OF_STEPS as i64);
+    b.ins().store(flags(), error, ctx, Context::ERROR_AT);
+    b.ins().jump(unready, &[]);
+    b.switch_to_block(out_of_frames);
+    b.set_cold_block(out_of_frames);
+    let error = b.ins().iconst(types::I64, OUT_OF_FRAMES as i64);
+    b.ins().store(flags(), error, ctx, Context::ERROR_AT);
+    b.ins().jump(unready, &[]);
+    b.switch_to_block(unready);
+    b.set_cold_block(unready);
+    b.ins().call(drop_words, &c);
+    b.ins().call(drop_words, &acc);
+    b.ins().call(drop_words, f);
+    b.ins().call(drop_words, t);
+    let zero = b.ins().iconst(types::I64, 0);
+    b.ins().return_(&[zero, zero, zero]);
+
+    // No character left: `f` and the text dropped, as the machine drops the
+    // `Fold` before delivering the value.
+    b.switch_to_block(finish);
+    b.ins().call(drop_words, f);
+    b.ins().call(drop_words, t);
+    b.ins().return_(&acc);
+}
+
 // ----------------------------------------------------------------- helpers
 
 /// The runtime's helpers: `(name, address)`.
@@ -1416,7 +1777,7 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_free_emptied", abi::sw_free_emptied as *const u8),
         ("sw_bind", abi::sw_bind as *const u8),
         ("sw_effect", abi::sw_effect as *const u8),
-        ("sw_fold", abi::sw_fold as *const u8),
+        ("sw_text_last", abi::sw_text_last as *const u8),
         ("sw_tail_effect", abi::sw_tail_effect as *const u8),
         ("sw_perform", abi::sw_perform as *const u8),
     ]
@@ -1448,7 +1809,7 @@ struct Helpers {
     free_emptied: FuncId,
     bind: FuncId,
     effect: FuncId,
-    fold: FuncId,
+    text_last: FuncId,
     tail_effect: FuncId,
     perform: FuncId,
 }
@@ -1494,7 +1855,7 @@ impl Helpers {
             free_emptied: declare("sw_free_emptied", &[I64, I64, I64], &[])?,
             bind: declare("sw_bind", &[p, p, p, p], &[I64])?,
             effect: declare("sw_effect", &[p, I64, I32, p, I64, p], &[])?,
-            fold: declare("sw_fold", &[p, I64, p, p], &[])?,
+            text_last: declare("sw_text_last", &[p, p, I64, p], &[I64])?,
             tail_effect: declare("sw_tail_effect", &[p, I32, p, I64, I64], &[])?,
             perform: declare("sw_perform", &[p, I64, p], &[])?,
         })
@@ -1714,6 +2075,8 @@ struct Gen<'a, 'm> {
     functions: &'m BTreeMap<u32, FuncId>,
     /// `Apply`'s slow path, by the number of arguments (`emit_apply_any`).
     apply_any: &'m BTreeMap<u32, FuncId>,
+    /// The compiled `Text.fold` (`emit_text_fold`), if anything uses it.
+    text_fold: Option<FuncId>,
     helpers: &'m Helpers,
     refs: BTreeMap<FuncId, FuncRef>,
     signatures: BTreeMap<u32, SigRef>,
@@ -3056,22 +3419,24 @@ impl Gen<'_, '_> {
         }
     }
 
-    /// `Text.fold text initial f` (the registers `args`, read), run by the
-    /// machine (`abi::sw_fold`), on copies taken in order, as the machine's
-    /// `Prim` takes them.
+    /// `Text.fold text initial f` (the registers `args`, read): the
+    /// compiled one (`emit_text_fold`), called with this frame's count, on
+    /// copies taken in order, as the machine's `Prim` takes them.
     fn text_fold(&mut self, pc: usize, dst: Reg, args: Ops) {
         let o = ops(self.code, args).to_vec();
-        for (i, r) in o.iter().enumerate() {
+        let mut call_args = vec![self.ctx, self.frames];
+        for r in &o {
             let v = self.clone_from(Loc::Reg(*r & !MOVE));
-            let at = self.temp_address(i * VALUE_SIZE);
-            self.store(Loc::Mem(at, 0), v);
+            call_args.extend(v.0);
         }
-        let at = self.temp_address(0);
-        let out = self.temp_address(3 * VALUE_SIZE);
         let live = self.full[pc].clone();
-        self.machine_call(self.helpers.fold, &[self.ctx, self.frames, at, out]);
-        self.after_machine(&live);
-        let v = self.load(Loc::Mem(out, 0));
+        let fold = self
+            .text_fold
+            .expect("the plan has `Text.fold` where a body uses it");
+        let fold = self.func_ref(fold);
+        let call = self.b.ins().call(fold, &call_args);
+        let r = self.b.inst_results(call).to_vec();
+        let v = self.call_result(&live, &r);
         self.assign(pc, dst, v);
     }
 

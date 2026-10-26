@@ -625,3 +625,34 @@ def main(): {IO} () :=
 fn closure_error_exits_make_the_machines_allocation_trace() {
     sweep_error_traces("closures", CLOSURES);
 }
+
+/// `Text.fold`, compiled (stage NO1 of native-only.md), whose function
+/// recurses: its accumulator, its characters (new cells each time: none is
+/// ASCII, whose cells the runtime keeps) and the callers' registers are
+/// live wherever a limit stops the run, in the `Prim` and applied as a
+/// function value.
+const FOLDS: &str = r#"import Std (IO, List, Text)
+
+def total: List Nat → Nat
+  | [] => 0
+  | Cons x rest => x + total rest
+
+def walk: Nat → List Nat → Nat
+  | Zero, xs => total xs
+  | Succ n, xs =>
+    let ys := [n, n + 1]
+    let grown := Text.fold "ñé" xs (c acc => Cons (walk n ys) acc)
+    total grown + total ys
+
+def viaValue (fold: Text → List Nat → (Char → List Nat → List Nat) → List Nat) (xs: List Nat): Nat :=
+  total (fold "éñ" xs (c acc => Cons (walk 1 acc) acc))
+
+def main(): {IO} () :=
+  IO.print "${walk 3 [1, 2] + viaValue Text.fold [3]}"
+"#;
+
+/// The same for the compiled `Text.fold`'s error exits.
+#[test]
+fn text_fold_error_exits_make_the_machines_allocation_trace() {
+    sweep_error_traces("folds", FOLDS);
+}
