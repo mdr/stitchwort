@@ -1611,6 +1611,13 @@ theorem List.foldLeftMap: (xs: List a) → (z: c) → (f: c → b → c) → (g:
   | Nil, z, f, g => rfl
   | Cons x xs, z, f, g => List.foldLeftMap xs (f z (g x)) f g
 
+-- A fold over `zipWith` folds over the pairs, combining each as it goes.
+theorem List.foldLeftZipWith (g: a → b → c) (f: d → c → d): (xs: List a) → (ys: List b) → (z: d) →
+    List.foldLeft (List.zipWith xs ys g) z f = List.foldLeft (List.zip xs ys) z (acc p => f acc (g p.fst p.snd))
+  | Nil, ys, z => rfl
+  | Cons x xs, Nil, z => rfl
+  | Cons x xs, Cons y ys, z => List.foldLeftZipWith g f xs ys (f z (g x y))
+
 theorem List.anyMap: (xs: List a) → (p: b → Bool) → (f: a → b) → List.any (List.map xs f) p = List.any xs (x => p (f x))
   | Nil, p, f => rfl
   | Cons x xs, p, f => rewrite List.anyMap xs p f
@@ -1681,6 +1688,21 @@ theorem List.foldLeftCongMem: (xs: List a) → (z: b) → (f1: b → a → b) �
   | Nil, z, f1, f2, ef => rfl
   | Cons x xs, z, f1, f2, ef =>
     Eq.trans (Eq.cong (t => List.foldLeft xs t f1) (ef z x (Inl rfl))) (List.foldLeftCongMem xs (f2 z x) f1 f2 (acc y m => ef acc y (Inr m)))
+
+theorem List.filterMapCongMem: (xs: List a) → (f1: a → Option b) → (f2: a → Option b) → ((x: a) → (m: x ∈ xs) → f1 x = f2 x) →
+    List.filterMap xs f1 = List.filterMap xs f2
+  | Nil, f1, f2, ef => rfl
+  | Cons x xs, f1, f2, ef => rewrite ef x (Inl rfl), List.filterMapCongMem xs f1 f2 (y m => ef y (Inr m))
+
+-- A `filterMap` that keeps every element, changed by `g`, is a `map`.
+theorem List.filterMapSomeMem (xs: List a) (f: a → Option b) (g: a → b) (h: (x: a) → x ∈ xs → f x = Some (g x)):
+    List.filterMap xs f = List.map xs g :=
+  Eq.trans (List.filterMapCongMem xs f (x => Some (g x)) h) (List.filterMapSome xs g)
+
+-- A `filterMap` that keeps every element as it is gives the list back.
+theorem List.filterMapAll (f: a → Option a): (xs: List a) → ((x: a) → x ∈ xs → f x = Some x) → List.filterMap xs f = xs
+  | Nil, h => rfl
+  | Cons x xs, h => rewrite h x (Inl rfl) in Eq.cong (Cons x) (List.filterMapAll f xs (y m => h y (Inr m)))
 
 -- Over a run of numbers, the facts are the run's bounds. `rewrite` tries a
 -- function's `…CongRange` lemma first, then `…CongMem`, then `…Cong`, and
@@ -2081,6 +2103,23 @@ theorem List.getTakePast: (xs: List a) → (n: Nat) → (k: Nat) → n ≤ k →
   | Nil, Succ n, k, h => rfl
   | Cons x xs, Succ n, Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Cons x xs, Succ n, Succ k, h => List.getTakePast xs n k h
+
+-- Entry k of the running accumulations is the fold of the first k
+-- elements (`List.getOrScanLeft`, std/List/Index.sw, with a fallback).
+theorem List.getScanLeft (f: b → a → b): (xs: List a) → (z: b) → (k: Nat) → k ≤ List.length xs →
+    List.get (List.scanLeft xs z f) k = Some (List.foldLeft (List.take xs k) z f)
+  | Nil, z, Zero, h => rfl
+  | Nil, z, Succ k, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, z, Zero, h => rfl
+  | Cons x xs, z, Succ k, h => List.getScanLeft f xs (f z x) k h
+
+-- Element k of each element beside the running accumulations is `g` of
+-- element k and the fold of the elements before it, and nothing past the end.
+theorem List.getZipWithScanLeft (f: b → a → b) (g: a → b → c): (xs: List a) → (z: b) → (k: Nat) →
+    List.get (List.zipWith xs (List.scanLeft xs z f) g) k = Option.map (List.get xs k) (x => g x (List.foldLeft (List.take xs k) z f))
+  | Nil, z, k => rfl
+  | Cons x xs, z, Zero => rfl
+  | Cons x xs, z, Succ k => List.getZipWithScanLeft f g xs (f z x) k
 
 theorem List.getExample: List.get (List.append [1, 2] (List.map [3, 4] Succ)) 3 = Some 5 := rfl
 
