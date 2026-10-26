@@ -20,5 +20,5 @@ expression: output
    │         `xs = []` is false:
    │           left:  [0]
    │           right: []
-   │           first difference at index 0: right ends, left has 0 (left has 1 element, right has 0 elements)
+   │           first difference at [0]: right ends, left has 0 (left has 1 element, right has 0 elements)
 ───╯

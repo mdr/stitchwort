@@ -485,7 +485,7 @@ error[E-TYPE-MISMATCH]: type mismatch
            `List.reverse (xs ++ ys) = List.reverse xs ++ List.reverse ys` is false:
              left:  [1, 0]
              right: [0, 1]
-             first difference at index 0: 1 vs 0
+             first difference at [0]: 1 vs 0
 ```
 
 With hypotheses, the note lists them as holding (`b <= a` holds); with a type parameter,
@@ -677,7 +677,7 @@ and with proofs erased if that doesn't give data (a definition by well-founded r
    │         `List.reverse (List.append xs ys) = List.append (List.reverse xs) (List.reverse ys)` is false:
    │           left:  [1, 0]
    │           right: [0, 1]
-   │           first difference at index 0: 1 vs 0
+   │           first difference at [0]: 1 vs 0
 ```
 
 With a type parameter the first line ends `(with a := Nat)`; a hypothesis that held is a

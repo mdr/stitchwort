@@ -18,4 +18,5 @@ expression: output
    │         `swap point = point` is false:
    │           left:  { x = 1, y = 0 }
    │           right: { x = 0, y = 1 }
+   │           first difference at .x: 1 vs 0
 ───╯

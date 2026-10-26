@@ -49,48 +49,6 @@ pub fn cut_to(text: &str, limit: usize) -> String {
     cut
 }
 
-/// The items of a list or the characters of a text, each printed, and the
-/// noun for what they are.
-fn items(g: &Globals, term: &Term) -> Option<(&'static str, Vec<String>)> {
-    let is = |b: Builtin, d| g.registry.is_data(b, d);
-    let char_of = |t: &Term| -> Option<char> {
-        match t.strip_loc() {
-            Term::Ctor(d, 0, args) if is(Builtin::Char, *d) && args.len() == 2 => {
-                match args[0].strip_loc() {
-                    Term::Nat(k) => char::from_u32(u32::try_from(k.as_ref().clone()).ok()?),
-                    _ => None,
-                }
-            }
-            _ => None,
-        }
-    };
-    let mut out = Vec::new();
-    let (noun, mut rest) = match term.strip_loc() {
-        Term::Ctor(d, 0, args) if is(Builtin::Text, *d) && args.len() == 1 => {
-            ("character", args[0].strip_loc())
-        }
-        t @ Term::Ctor(d, _, _) if is(Builtin::List, *d) => ("element", t),
-        _ => return None,
-    };
-    loop {
-        match rest {
-            Term::Chars(chars) => {
-                out.extend(chars.as_slice().iter().map(|c| format!("{c:?}")));
-                return Some((noun, out));
-            }
-            Term::Ctor(d, 0, _) if is(Builtin::List, *d) => return Some((noun, out)),
-            Term::Ctor(d, 1, args) if is(Builtin::List, *d) => {
-                out.push(match char_of(&args[0]) {
-                    Some(c) => format!("{c:?}"),
-                    None => stitchwort_core::pretty::term(g, &[], &args[0]),
-                });
-                rest = args[1].strip_loc();
-            }
-            _ => return None,
-        }
-    }
-}
-
 /// The characters of a text.
 fn text_chars(g: &Globals, term: &Term) -> Option<Vec<char>> {
     let is = |b: Builtin, d| g.registry.is_data(b, d);
@@ -166,52 +124,258 @@ fn line_diff(g: &Globals, left: &Term, right: &Term) -> Option<String> {
     Some(out)
 }
 
-/// Where two lists, or two texts, first differ, in words.
+/// Where two values first differ, in words: the path to the first
+/// difference (`[0].d[2]`: element 0, its field `d`, element 2 of that) and
+/// the two parts found there, each cut to [`SHOWN_ITEM`] characters. Lists
+/// and texts are walked by index, records by field name, tuples by position
+/// and other constructors by name and then field; a constructor mismatch
+/// names the two constructors. A `Map`, number or other built-in value is
+/// compared whole. `None` when the values are equal, or are a single
+/// number, character or the like (the whole values already say it). Two
+/// texts of several lines are followed by which lines differ.
 pub fn first_difference(g: &Globals, left: &Term, right: &Term) -> Option<String> {
-    let first = first_item_difference(g, left, right);
+    let first = walk(g, left, right, &mut String::new(), 0).and_then(|found| found.render());
     match (first, line_diff(g, left, right)) {
         (Some(first), Some(lines)) => Some(format!("{first}\n{lines}")),
         (first, lines) => first.or(lines),
     }
 }
 
-fn first_item_difference(g: &Globals, left: &Term, right: &Term) -> Option<String> {
-    let (noun, a) = items(g, left)?;
-    let (other, b) = items(g, right)?;
-    if noun != other {
+/// The most levels of nesting walked; deeper than that is compared whole.
+const WALK_DEPTH: usize = 200;
+
+/// A point where two values differ.
+struct Found {
+    path: String,
+    left: String,
+    right: String,
+    /// What is said after the two parts.
+    note: Option<String>,
+    /// A message that is the whole of what's said, in place of the parts.
+    whole: Option<String>,
+}
+
+impl Found {
+    fn parts(path: &str, left: String, right: String) -> Found {
+        Found {
+            path: path.to_string(),
+            left,
+            right,
+            note: None,
+            whole: None,
+        }
+    }
+
+    fn render(self) -> Option<String> {
+        let at = if self.path.is_empty() {
+            "the top".to_string()
+        } else {
+            self.path.clone()
+        };
+        if let Some(whole) = self.whole {
+            return Some(format!("first difference at {at}: {whole}"));
+        }
+        // A bare number, character or the like at the top: the sides above
+        // say it all.
+        if self.path.is_empty() && self.note.is_none() {
+            return None;
+        }
+        let mut out = format!("first difference at {at}: {} vs {}", self.left, self.right);
+        if let Some(note) = self.note {
+            out.push_str(&format!(" ({note})"));
+        }
+        Some(out)
+    }
+}
+
+fn short(s: &str) -> String {
+    if s.chars().count() > SHOWN_ITEM {
+        let mut cut: String = s.chars().take(SHOWN_ITEM).collect();
+        cut.push('…');
+        cut
+    } else {
+        s.to_string()
+    }
+}
+
+fn count(noun: &str, n: usize) -> String {
+    format!("{n} {noun}{}", if n == 1 { "" } else { "s" })
+}
+
+/// The elements of a list (not a text), as terms, if it is a plain chain of
+/// `Cons`.
+fn list_terms<'a>(g: &Globals, term: &'a Term) -> Option<Vec<&'a Term>> {
+    let is = |b: Builtin, d| g.registry.is_data(b, d);
+    let mut out = Vec::new();
+    let mut rest = term.strip_loc();
+    loop {
+        match rest {
+            Term::Ctor(d, 0, _) if is(Builtin::List, *d) => return Some(out),
+            Term::Ctor(d, 1, args) if is(Builtin::List, *d) && args.len() == 2 => {
+                out.push(args[0].strip_loc());
+                rest = args[1].strip_loc();
+            }
+            _ => return None,
+        }
+    }
+}
+
+/// The parts of a tuple, `(a, b, c)` being `MkPair a (MkPair b c)`.
+fn tuple_terms<'a>(g: &Globals, term: &'a Term) -> Option<Vec<&'a Term>> {
+    let is = |b: Builtin, d| g.registry.is_data(b, d);
+    let mut out = Vec::new();
+    let mut rest = term.strip_loc();
+    while let Term::Ctor(d, 0, args) = rest
+        && is(Builtin::Pair, *d)
+        && args.len() == 2
+    {
+        out.push(args[0].strip_loc());
+        rest = args[1].strip_loc();
+    }
+    if out.is_empty() {
         return None;
     }
-    let short = |s: &String| -> String {
-        if s.chars().count() > SHOWN_ITEM {
-            let mut cut: String = s.chars().take(SHOWN_ITEM).collect();
-            cut.push('…');
-            cut
-        } else {
-            s.clone()
-        }
+    out.push(rest);
+    Some(out)
+}
+
+/// Whether a value of data type `d` is compared whole: a number, character,
+/// text, float, map.
+fn is_whole(g: &Globals, d: stitchwort_core::DataId) -> bool {
+    use Builtin::*;
+    [Nat, Int, SafeNat, SafeInt, Text, Char, Map, Float]
+        .iter()
+        .any(|b| g.registry.is_data(*b, d))
+}
+
+fn print(g: &Globals, term: &Term) -> String {
+    stitchwort_core::pretty::term(g, &[], term)
+}
+
+fn walk(g: &Globals, left: &Term, right: &Term, path: &mut String, depth: usize) -> Option<Found> {
+    let (left, right) = (left.strip_loc(), right.strip_loc());
+    let leaf = |path: &String| -> Option<Found> {
+        let (a, b) = (print(g, left), print(g, right));
+        (a != b).then(|| Found::parts(path, short(&a), short(&b)))
     };
-    let count = |n: usize| format!("{n} {noun}{}", if n == 1 { "" } else { "s" });
-    let at = (0..a.len().min(b.len())).find(|&i| a[i] != b[i]);
-    Some(match at {
-        Some(i) => format!(
-            "first difference at index {i}: {} vs {}",
-            short(&a[i]),
-            short(&b[i])
-        ),
-        None if a.len() < b.len() => format!(
-            "first difference at index {}: left ends, right has {} (left has {}, right has {})",
-            a.len(),
-            short(&b[a.len()]),
-            count(a.len()),
-            count(b.len())
-        ),
-        None if b.len() < a.len() => format!(
-            "first difference at index {}: right ends, left has {} (left has {}, right has {})",
-            b.len(),
-            short(&a[b.len()]),
-            count(a.len()),
-            count(b.len())
-        ),
-        None => return None,
-    })
+    if depth > WALK_DEPTH {
+        return leaf(path);
+    }
+    // Lists, then texts.
+    if let (Some(a), Some(b)) = (list_terms(g, left), list_terms(g, right)) {
+        let mark = path.len();
+        let n = a.len().min(b.len());
+        for i in 0..n {
+            path.push_str(&format!("[{i}]"));
+            let found = walk(g, a[i], b[i], path, depth + 1);
+            path.truncate(mark);
+            if found.is_some() {
+                return found;
+            }
+        }
+        let (ended, extra, side) = match a.len().cmp(&b.len()) {
+            std::cmp::Ordering::Less => ("left ends", b[n], "right"),
+            std::cmp::Ordering::Greater => ("right ends", a[n], "left"),
+            std::cmp::Ordering::Equal => return None,
+        };
+        return Some(Found {
+            path: format!("{path}[{n}]"),
+            left: String::new(),
+            right: String::new(),
+            note: None,
+            whole: Some(format!(
+                "{ended}, {side} has {} (left has {}, right has {})",
+                short(&print(g, extra)),
+                count("element", a.len()),
+                count("element", b.len()),
+            )),
+        });
+    }
+    if let (Some(a), Some(b)) = (text_chars(g, left), text_chars(g, right)) {
+        let c = |ch: char| format!("{ch:?}");
+        let n = a.len().min(b.len());
+        if let Some(i) = (0..n).find(|&i| a[i] != b[i]) {
+            return Some(Found::parts(&format!("{path}[{i}]"), c(a[i]), c(b[i])));
+        }
+        let (ended, extra, side) = match a.len().cmp(&b.len()) {
+            std::cmp::Ordering::Less => ("left ends", b[n], "right"),
+            std::cmp::Ordering::Greater => ("right ends", a[n], "left"),
+            std::cmp::Ordering::Equal => return None,
+        };
+        return Some(Found {
+            path: format!("{path}[{n}]"),
+            left: String::new(),
+            right: String::new(),
+            note: None,
+            whole: Some(format!(
+                "{ended}, {side} has {} (left has {}, right has {})",
+                c(extra),
+                count("character", a.len()),
+                count("character", b.len()),
+            )),
+        });
+    }
+    let (Term::Ctor(d, c, a), Term::Ctor(d2, c2, b)) = (left, right) else {
+        return leaf(path);
+    };
+    if d != d2 || is_whole(g, *d) {
+        return leaf(path);
+    }
+    let data = g.data(*d);
+    if c != c2 {
+        // Two bare constructors as the whole values (`False` and `True`):
+        // the sides above say it all.
+        if path.is_empty() && a.is_empty() && b.is_empty() {
+            return None;
+        }
+        return Some(Found {
+            path: path.clone(),
+            left: short(&print(g, left)),
+            right: short(&print(g, right)),
+            note: Some(format!(
+                "different constructors: {} and {}",
+                data.ctors.get(*c)?.name,
+                data.ctors.get(*c2)?.name
+            )),
+            whole: None,
+        });
+    }
+    let mark = path.len();
+    // Tuples are walked by position, all the way along.
+    if let (Some(a), Some(b)) = (tuple_terms(g, left), tuple_terms(g, right))
+        && a.len() == b.len()
+    {
+        for i in 0..a.len() {
+            path.push_str(&format!(".{i}"));
+            let found = walk(g, a[i], b[i], path, depth + 1);
+            path.truncate(mark);
+            if found.is_some() {
+                return found;
+            }
+        }
+        return None;
+    }
+    let ctor = data.ctors.get(*c)?;
+    if a.len() != b.len() || a.len() != ctor.fields.len() {
+        return leaf(path);
+    }
+    for i in 0..a.len() {
+        if ctor.field_erased.get(i) == Some(&true) {
+            continue;
+        }
+        let field = &ctor.fields[i].0;
+        if data.record {
+            path.push_str(&format!(".{field}"));
+        } else if field.is_empty() || field.starts_with('_') {
+            path.push_str(&format!(".{}.{i}", ctor.name));
+        } else {
+            path.push_str(&format!(".{}.{field}", ctor.name));
+        }
+        let found = walk(g, &a[i], &b[i], path, depth + 1);
+        path.truncate(mark);
+        if found.is_some() {
+            return found;
+        }
+    }
+    None
 }

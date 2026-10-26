@@ -55,7 +55,7 @@ When a test fails, `stitchwort test` and the playground's Tests tab say why, as 
   ✗ parses the example  ran  (`==` is False)
       left:  [1, 2, 4]
       right: [1, 2, 3]
-      first difference at index 2: 4 vs 3
+      first difference at [2]: 4 vs 3
 ```
 
 The comparison can be the last line of a block of `let`s, or an operand of `&&`: the first operand that is false is the one shown, with its text and where it is:

@@ -17,5 +17,5 @@ expression: output
    │         `List.append xs ys = List.append ys xs` is false:
    │           left:  [0, 1]
    │           right: [1, 0]
-   │           first difference at index 0: 0 vs 1
+   │           first difference at [0]: 0 vs 1
 ───╯

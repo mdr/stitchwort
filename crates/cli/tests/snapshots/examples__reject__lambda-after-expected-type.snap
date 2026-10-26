@@ -20,5 +20,5 @@ expression: output
     │         `List.map xs (x => x + 1) = List.map xs (x => x)` is false:
     │           left:  [1]
     │           right: [0]
-    │           first difference at index 0: 1 vs 0
+    │           first difference at [0]: 1 vs 0
 ────╯
