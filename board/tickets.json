@@ -4355,14 +4355,16 @@
     {
       "id": 588,
       "title": "Test failures should show the field path to the first difference inside records (e.g. [0].d[2]: 3 vs 4); today the record text is truncated before the difference (found in the private app port, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
       "updated": "2026-10-26",
-      "commits": []
+      "commits": [
+        "cb35d5ba"
+      ]
     },
     {
       "id": 589,
