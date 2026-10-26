@@ -1,5 +1,5 @@
 {
-  "next": 614,
+  "next": 615,
   "tickets": [
     {
       "id": 13,
@@ -4643,7 +4643,7 @@
     },
     {
       "id": 610,
-      "title": "Private app port: restyle — pipe flow (x.f a |> .g) + per-event queries (D1339: Event.bubbleIds/annotationIds/recordingIds/bubbleIndex/annotationIndex, no get prefix; program uses the indexes; layout lists use rs.map .id); after the WellFormed lane (private work only)",
+      "title": "Private app port: restyle — pipe flow + per-event queries (D1339) + test factories renamed makeRecording/makeBubble/… with tests giving only pertinent data (switch to signature defaults once they exist); after the WellFormed lane (private work only)",
       "status": "next",
       "agent": "",
       "where": "",
@@ -4682,6 +4682,18 @@
     {
       "id": 613,
       "title": "Private app port: WellFormed contract (D1338: promote+rename Settled, theorems over well-formed inputs) + differential category for -0/NaN; then the pipe restyle (private work only)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-26",
+      "updated": "2026-10-26",
+      "commits": []
+    },
+    {
+      "id": 614,
+      "title": "Signature defaults (D1340): default values for function parameters — design note revisiting named-arguments.md §5.4 / D1097 (trigger: test factories in the private port), stop for review",
       "status": "doing",
       "agent": "",
       "where": "",
