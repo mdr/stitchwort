@@ -129,7 +129,9 @@ test "list length mismatch inside a record" := item 3 == { id = "x", tags = [1, 
 test "tuple part" := (1, [2, 3], "a") == (1, [2, 4], "a")
 test "text in a record" := ({ id = "abc", tags = [] } : Item) == { id = "abd", tags = [] }
 test "text lines" := "one\ntwo\nthree" == "one\n2\nthree\nfour"
-test "a long frame, shown whole" := Text.join (List.replicate 30 (Text.join (List.replicate 30 "#.") ' ')) '\n' == Text.join (List.append (List.replicate 29 (Text.join (List.replicate 30 "#.") ' ')) ["end"]) '\n'
+test "a game frame, shown as lines" := Text.join ["+--------+", "|  .  @  |", "|  .     |", "+--------+"] '\n' == Text.join ["+--------+", "|  .     |", "|  .  @  |", "+--------+"] '\n'
+test "long text, excerpt" := Text.join (List.replicate 20 "abc") ' ' == Text.join (List.append (List.replicate 10 "abc") (List.replicate 10 "abd")) ' '
+test "a long frame, shown whole" :=Text.join (List.replicate 30 (Text.join (List.replicate 30 "#.") ' ')) '\n' == Text.join (List.append (List.replicate 29 (Text.join (List.replicate 30 "#.") ' ')) ["end"]) '\n'
 "##;
 
 #[test]

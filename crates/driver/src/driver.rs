@@ -9,7 +9,7 @@ use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::value::{eval, force};
 use stitchwort_core::{Globals, Limits, ResourceError, Term, Value};
 use stitchwort_elab::project::{FileModeContext, SourceUnit};
-use stitchwort_elab::shown::{SHOWN_SIDE, SHOWN_SIDE_NODES, cut_to, first_difference};
+use stitchwort_elab::shown::{SHOWN_SIDE, SHOWN_SIDE_NODES, cut_to, first_difference, text_lines};
 use stitchwort_elab::{Elaborator, LibraryIndex, prelude};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{
@@ -796,6 +796,10 @@ pub struct Comparison {
     pub op: &'static str,
     pub left: String,
     pub right: String,
+    /// A side that is a text of several lines, shown as its lines (see
+    /// [`text_lines`]), for showing in place of the quoted text.
+    pub left_lines: Option<String>,
+    pub right_lines: Option<String>,
     /// For two lists or two texts that aren't equal, where they first differ.
     pub difference: Option<String>,
 }
@@ -1361,10 +1365,13 @@ impl Session {
             ("==" | "=", Some(l), Some(r)) => first_difference(g, l, r),
             _ => None,
         };
+        let lines = |term: &Option<Term>| term.as_ref().and_then(|t| text_lines(g, t, SHOWN_SIDE));
         Comparison {
             op,
             left,
             right,
+            left_lines: lines(&left_term),
+            right_lines: lines(&right_term),
             difference,
         }
     }
