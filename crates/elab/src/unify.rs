@@ -888,6 +888,11 @@ fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Re
                 {
                     icits.push(*icit);
                 }
+                // The only value of its type (`()`, say): the solution
+                // ignores it, so `?t () = f x` gives `?t := _ => f x`.
+                Value::Ctor(d, _, fields) if fields.is_empty() && has_one_value(g, d) => {
+                    icits.push(*icit);
+                }
                 _ => return Ok(false),
             },
             Elim::J { .. } => return Ok(false),
@@ -911,6 +916,13 @@ fn solve(g: &Globals, level: usize, m: usize, spine: &[Elim], rhs: &Value) -> Re
     let value = eval(g, &[], &solution)?;
     g.solve_meta(m, value);
     Ok(true)
+}
+
+/// Whether data type `d` has exactly one value: one constructor, without
+/// fields or indices (`()`).
+fn has_one_value(g: &Globals, d: stitchwort_core::DataId) -> bool {
+    let data = g.data(d);
+    data.indices.is_empty() && data.ctors.len() == 1 && data.ctors[0].fields.is_empty()
 }
 
 type Renamed<T> = std::result::Result<T, Fail>;

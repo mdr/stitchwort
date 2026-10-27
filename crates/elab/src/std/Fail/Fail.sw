@@ -183,8 +183,8 @@ theorem Fail.orFailEqOk [goal: Prop] [r: Result a Text] [k: a → {Fail} b] [v: 
     | Ok u => use u rfl h
 
 -- A block starting with any computation `t` gave `Ok v`: so did `t`. `t` is
--- given, as a thunk.
-theorem Fail.thenEqOk [goal: Prop] (t: () → {Fail} a) [k: a → {Fail} b] [v: b]
+-- found from `h`.
+theorem Fail.thenEqOk [goal: Prop] [t: () → {Fail} a] [k: a → {Fail} b] [v: b]
     (h: Fail.toResult (() => k (t ())) = Ok v)
     (use: (u: a) → Fail.toResult t = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal :=
   Result.flatMapEqOk (Fail.toResult t) (x => Fail.toResult (() => k x)) v (rewrite Fail.toResultThen t k at h) use

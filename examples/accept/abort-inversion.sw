@@ -47,7 +47,7 @@ theorem pickOrderSome (warehouse: Warehouse) (order: Order) (onHand: Nat) (label
   rewrite foundStock, foundLabel, foundBin, enough in rfl
 
 -- A step that is a call to another `{Abort}` function: `Abort.thenEqSome`
--- is given the call, and says it gave `Some`.
+-- says it gave `Some`.
 def binFor (warehouse: Warehouse) (item: Text): {Abort} Bin :=
   let label := warehouse.locations.get item |> .orAbort
   warehouse.bins.get label |> .orAbort
@@ -61,7 +61,7 @@ def pickFromBin (warehouse: Warehouse) (order: Order): Option (Pair Bin Nat) :=
 
 theorem pickFromBinFound (warehouse: Warehouse) (order: Order) (picked: Pair Bin Nat)
     (h: pickFromBin warehouse order = Some picked): toOption (() => binFor warehouse order.item) = Some picked.fst :=
-  Abort.thenEqSome (() => binFor warehouse order.item) h (found foundBin rest =>
+  Abort.thenEqSome h (found foundBin rest =>
     Abort.needEqSome rest (onHand foundStock rest =>
       Abort.ensureEqSome rest (enough result =>
         rewrite foundBin, <- Option.someInjective _ _ result in rfl)))
@@ -88,6 +88,23 @@ theorem pickOrFailEnough (warehouse: Warehouse) (order: Order) (pick: Pick) (h: 
       Fail.needEqOk rest (bin foundBin rest =>
         Fail.ensureEqOk rest (enough picked =>
           rewrite foundStock, <- Result.okInjective _ _ picked in omega))))
+
+-- A step that is a call to another `{Fail}` function: `Fail.thenEqOk`.
+def binOrFail (warehouse: Warehouse) (item: Text): {Fail} Bin :=
+  let label := warehouse.locations.get item |> .orFail "${item} has no bin"
+  warehouse.bins.get label |> .orFail "no bin ${label}"
+
+def pickFromBinOrFail (warehouse: Warehouse) (order: Order): Result (Pair Bin Nat) Text :=
+  Fail.toResult (() =>
+    let bin := binOrFail warehouse order.item
+    let onHand := warehouse.stock.get order.item |> .orFail "no stock of ${order.item}"
+    (bin, onHand))
+
+theorem pickFromBinOrFailFound (warehouse: Warehouse) (order: Order) (picked: Pair Bin Nat)
+    (h: pickFromBinOrFail warehouse order = Ok picked): Fail.toResult (() => binOrFail warehouse order.item) = Ok picked.fst :=
+  Fail.thenEqOk h (found foundBin rest =>
+    Fail.needEqOk rest (onHand foundStock result =>
+      rewrite foundBin, <- Result.okInjective _ _ result in rfl))
 
 def warehouse: Warehouse := {
   stock = Map.fromList [("bolt", 40), ("nut", 5)],

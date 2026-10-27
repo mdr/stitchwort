@@ -701,7 +701,7 @@ theorem pickStock (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrd
 
 - `Abort.needEqSome h use`: the block starts with `need x` (or `x.orAbort`). `use` gets the value `u`, `x = Some u`, and `toOption` of the rest of the block (with `u` for the step) `= Some v`.
 - `Abort.ensureEqSome h use`: the block starts with `ensure ok`. `use` gets `ok = True` and the rest.
-- `Abort.thenEqSome (() => t) h use`: the block starts with any `{Abort}` computation `t`, such as a call to a function of your own. `use` gets its value `u`, `toOption (() => t) = Some u` and the rest. `t` must be given: it can't be found from `h` (`E-TYPE-MISMATCH`).
+- `Abort.thenEqSome h use`: the block starts with any `{Abort}` computation `t`, such as a call to a function of your own. `use` gets its value `u`, `toOption (() => t) = Some u` and the rest.
 - Each is stated with `[goal: Prop]`, as `Option.flatMapEqSome` is, and the rest of the block is found from `h`'s type by unification, so nothing about the program is written twice. Pure `let`s between steps have already been substituted. The last step of a block has no rest: `rewrite Abort.toOptionNeed at rest` turns `toOption (() => need x) = Some v` into `x = Some v`, and a block that ends in a value leaves `Some e = Some v`, for `Option.someInjective`.
 - The other way, every step succeeding gives the result by computing: with the steps' equations, `rewrite foundStock, foundLabel, foundBin, enough in rfl` proves `pickOrder warehouse order = Some …`.
 - [`cases`](#cases) takes a block apart too (`h: parseSmallOption s t = Some v`), when it can close every case by itself; these lemmas name what each step gave, for a proof that goes on from there.
