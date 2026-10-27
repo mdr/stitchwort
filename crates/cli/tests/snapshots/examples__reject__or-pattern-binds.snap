@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OR-PATTERN-BINDS] Error: an or-pattern can't bind names
+   ╭─[ reject/or-pattern-binds.sw:6:12 ]
+   │
+ 6 │     | Some x | None => 0
+   │            ┬  
+   │            ╰── `x` is bound here
+   │ 
+   │ Note: write `_` for a part that isn't used, or match each alternative in an arm of its own
+───╯

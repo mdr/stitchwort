@@ -745,6 +745,9 @@ pub enum Pattern {
         rest: bool,
         span: Span,
     },
+    /// `p | q | …`: matches if any alternative does. The alternatives bind
+    /// no variables; an arm with one is checked as one arm per alternative.
+    Or(Vec<Pattern>, Span),
 }
 
 impl Decl {
@@ -774,7 +777,8 @@ impl Pattern {
             | Pattern::Cons(_, _, span)
             | Pattern::Named(_, _, span)
             | Pattern::Record { span, .. }
-            | Pattern::CtorFields { span, .. } => *span,
+            | Pattern::CtorFields { span, .. }
+            | Pattern::Or(_, span) => *span,
         }
     }
 }

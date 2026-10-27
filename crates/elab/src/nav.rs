@@ -1306,6 +1306,9 @@ impl Walk<'_> {
                             then(&mut stack, vec![Work::Pattern(a), Work::Pattern(b)]);
                         }
                         Pattern::Named(_, p, _) => then(&mut stack, vec![Work::Pattern(p)]),
+                        Pattern::Or(alternatives, _) => {
+                            then(&mut stack, alternatives.iter().map(Work::Pattern).collect());
+                        }
                         Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => {
                             then(
                                 &mut stack,
@@ -1527,6 +1530,7 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
             fields.iter().for_each(|(_, p)| pattern_binders(p, out))
         }
         Pattern::Named(_, p, _) => pattern_binders(p, out),
+        Pattern::Or(alternatives, _) => alternatives.iter().for_each(|p| pattern_binders(p, out)),
         Pattern::Wildcard(_)
         | Pattern::Absurd(_)
         | Pattern::Num(..)

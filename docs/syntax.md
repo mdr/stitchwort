@@ -90,6 +90,22 @@ def get: (xs: List a) -> (i: Nat) -> [auto ok: i < List.length xs] -> a
 
 List patterns: `[]` is `Nil`, and `[p, q, r]` is `Cons p (Cons q (Cons r Nil))`, by identity with the library's `List` (a user's own `Cons` doesn't change it), wherever a pattern is allowed (arms, `match`, `let`, lambdas). Each element is a pattern; a constructor element takes its arguments without brackets (`[Some a, None]`), and `(-k)` works as in tuples. A list pattern may end in a rest: `[x, y, ..rest]` is `Cons x (Cons y rest)`, where `rest` is any pattern (`..rest`, `.._`); `..` must be last and appears once, and `[..p]` is just `p` (`examples/accept/list-rest-patterns.sw`). There is no `x :: xs` form, and list expressions have no `..` spread (use `++` or `Cons`). A list pattern is refutable like `Cons`, so in `let` the pattern must still cover the type (`let [a, b] := xs` is `E-LET-REFUTABLE`). A missing case is reported as the constructor that lacks it (see `examples/reject/list-pattern-missing-longer.sw`).
 
+Or-patterns: `p | q | …` matches if any alternative does, in arms and `match` alike.
+
+```
+def commandOfChar (char: Char): Option Command :=
+  match char with
+    | 'k' | 'w' => Some (Move North)
+    | 'j' | 's' => Some (Move South)
+    | _ => None
+
+def warm: Colour -> Bool
+  | Red | Yellow => True
+  | Green | Blue => False
+```
+
+The alternatives are on one line: a `|` that starts a line starts the next arm. With several patterns, `|` binds tighter than `,`, so `| 0 | 1, Red => …` is `(0 | 1), Red`; brackets put an or-pattern inside another pattern, `Some ('a' | 'b')`, `(0 | 1, x)`, `[_, 'a' | 'b']`. An alternative can't bind a variable (`_` is fine), as in Scala: `| Some x | None => …` is `E-OR-PATTERN-BINDS`; match the alternatives in arms of their own instead. An arm with an or-pattern is checked as one arm per alternative, in order, with the same body: so coverage counts each alternative, and a `_` arm after `| 'k' | 'w'` knows the value is neither (`examples/accept/or-patterns.sw`, `examples/reject/or-pattern-binds.sw`).
+
 ### Declaration order
 
 Declarations can be written in any order: every top-level name (definitions, data types and their constructors, abilities and their operations) is visible throughout its module. So `main` can come first and its helpers below it. The compiler checks each declaration after the ones it refers to, and otherwise in source order; errors are reported, and tests run, in source order. Definitions that refer to each other are checked together, and their termination is decided together (docs/proposals/mutual-recursion.md):
