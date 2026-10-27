@@ -2801,7 +2801,7 @@ impl Elaborator {
             self.globals.datas[d.0].defaults = Some(Rc::new(table));
         }
         for (id, table) in t.param_defaults {
-            self.globals.defs[id.0].param_defaults = Some(Rc::new(table));
+            self.globals.set_param_defaults(id, table);
         }
         for (id, shown) in t.update_shown {
             self.globals.defs[id.0].update_shown = Some(Rc::new(shown));

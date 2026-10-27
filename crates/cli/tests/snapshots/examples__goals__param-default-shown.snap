@@ -3,26 +3,26 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `rangeGoal`
-    ╭─[ goals/param-default-shown.sw:12:63 ]
+    ╭─[ goals/param-default-shown.sw:11:63 ]
     │
- 12 │ theorem rangeGoal (a: Nat) (b: Nat): range a b = [a, b, 1] := ?
+ 11 │ theorem rangeGoal (a: Nat) (b: Nat): range a b = [a, b, 1] := ?
     │                                                               ┬  
     │                                                               ╰── a: Nat
     │                                                                   b: Nat
-    │                                                                   ⊢ range a b (step := 1) = [a, b, 1]
+    │                                                                   ⊢ range a b = [a, b, 1]
 ────╯
 [GOAL] Goal: in `scaledGoal`
-    ╭─[ goals/param-default-shown.sw:14:54 ]
+    ╭─[ goals/param-default-shown.sw:13:54 ]
     │
- 14 │ theorem scaledGoal (a: Nat): scaled a = a + a * 2 := ?
+ 13 │ theorem scaledGoal (a: Nat): scaled a = a + a * 2 := ?
     │                                                      ┬  
     │                                                      ╰── a: Nat
     │                                                          ⊢ scaled a = a + (a * 2)
 ────╯
 [E-REFL] Error: `rfl` can't prove this
-    ╭─[ goals/param-default-shown.sw:16:64 ]
+    ╭─[ goals/param-default-shown.sw:15:64 ]
     │
- 16 │ theorem rangeShape (a: Nat) (b: Nat): range a b = [a, b, 2] := rfl
+ 15 │ theorem rangeShape (a: Nat) (b: Nat): range a b = [a, b, 2] := rfl
     │                                                                ─┬─  
     │                                                                 ╰─── `range a b` and `[a, b, 2]` aren't equal
     │ 
@@ -39,9 +39,9 @@ expression: output
     │           first difference at [2]: 1 vs 2
 ────╯
 [E-REFL] Error: `rfl` can't prove this
-    ╭─[ goals/param-default-shown.sw:18:47 ]
+    ╭─[ goals/param-default-shown.sw:17:47 ]
     │
- 18 │ theorem scaledShape (a: Nat): scaled a = a := rfl
+ 17 │ theorem scaledShape (a: Nat): scaled a = a := rfl
     │                                               ─┬─  
     │                                                ╰─── `scaled a` and `a` aren't equal
     │ 
@@ -56,9 +56,9 @@ expression: output
     │           right: 1
 ────╯
 [GOAL] Goal: in `outer`
-    ╭─[ goals/param-default-shown.sw:23:52 ]
+    ╭─[ goals/param-default-shown.sw:22:52 ]
     │
- 23 │   def innerGoal (m: Nat): inner m = m + (k + m) := ?
+ 22 │   def innerGoal (m: Nat): inner m = m + (k + m) := ?
     │                                                    ┬  
     │                                                    ╰── k: Nat
     │                                                        m: Nat

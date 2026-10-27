@@ -746,10 +746,12 @@ function's result has no defaults.
   calls). As built: a given defaulted argument is shown by name,
   `range 0 10 (step := 2)`, and a positional argument after a call that
   left a default out follows it in brackets, `(scaler 5) x` (§6.3). A
-  default whose helper takes nothing is a constant, computed before a goal
-  is shown, so a goal read from a value has its value there, shown by name:
-  `range a b (step := 1)`. Hover on a call's head lists the defaults the
-  call used: "`step` left out: its default `1`".
+  default whose helper takes nothing is a constant, and stays folded as a
+  named constant does, so a goal read from a value shows `range a b` too;
+  the helper alone, outside a call (`Vec Nat n` with `n` left out), is
+  shown as its value, `Vec Nat 3`. Field defaults' helpers still unfold at
+  once, so a record goal shows the value, `{ width = w, indent = 2 }`.
+  Hover on a call's head lists the defaults the call used: "`step` left out: its default `1`".
 - **The formatter** keeps `(x: T := e)` as written, as it does for fields
   (`crates/fmt/tests/golden/field-defaults.*`); a golden test with a
   multi-line header is enough.

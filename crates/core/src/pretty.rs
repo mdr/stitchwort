@@ -270,6 +270,15 @@ impl<'g> Printer<'g> {
                     .map_or_else(|| format!("?{ix}"), |l| names[l].to_string());
                 (name, Prec::Atom)
             }
+            // A constant parameter default's helper, outside the call it
+            // fills, is shown as its value: `Vec Nat 3`.
+            Term::Def(id)
+                if self.g.def(*id).param_default
+                    && self.g.def(*id).arity == 0
+                    && let Some(body) = self.g.def(*id).body() =>
+            {
+                self.go(names, body)
+            }
             Term::Def(id) => (def_display(&self.g.def(*id).name), Prec::Atom),
             Term::Sort(Sort::Prop) => ("Prop".into(), Prec::Atom),
             Term::Sort(Sort::Type(0)) => ("Type".into(), Prec::Atom),

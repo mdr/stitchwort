@@ -166,7 +166,7 @@ impl Elaborator {
         let owner = def.name.clone();
         let telescope = telescope(&def.ty);
         let table = self.header_helpers(&owner, &telescope, front, defaults)?;
-        self.globals.defs[id.0].param_defaults = Some(Rc::new(table));
+        self.globals.set_param_defaults(id, table);
         Ok(())
     }
 

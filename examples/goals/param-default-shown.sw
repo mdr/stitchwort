@@ -2,8 +2,7 @@
 -- A call that leaves a defaulted parameter out is shown as written, without
 -- the argument its default fills: `range a b`, `scaled a`
 -- (docs/proposals/signature-defaults.md §8.4). A default that is a constant
--- is computed before the goal is shown, so there it is named:
--- `range a b (step := 1)`.
+-- stays folded, as a named constant does, so it isn't shown either.
 
 def range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat := [start, stop, step]
 

@@ -110,6 +110,11 @@ pub struct Def {
     /// never reads it; the elaborator fills calls that leave a defaulted
     /// parameter out with its helper.
     pub param_defaults: Option<Rc<ParamDefaults>>,
+    /// It's the helper of a definition's parameter default. A constant one
+    /// stays folded while gluing, as a constant written in the source does,
+    /// so a call that left the default out reads back as written. Set with
+    /// the owner's [`Def::param_defaults`]; never hashed.
+    pub param_default: bool,
     /// For the helper a record update `{ x | f = s }` of a type with several
     /// constructors is lifted to: how the printer shows a call of it, as the
     /// update. Only messages read it, so it isn't hashed.
@@ -516,6 +521,15 @@ impl Globals {
 
     pub fn data(&self, id: DataId) -> &Data {
         &self.datas[id.0]
+    }
+
+    /// Gives definition `id` its parameter defaults `table`, marking each
+    /// default's helper ([`Def::param_default`]).
+    pub fn set_param_defaults(&mut self, id: DefId, table: ParamDefaults) {
+        for default in table.params.iter().flatten() {
+            self.defs[default.helper.0].param_default = true;
+        }
+        self.defs[id.0].param_defaults = Some(Rc::new(table));
     }
 
     /// The full logical name of a declaration named `name` in the module
