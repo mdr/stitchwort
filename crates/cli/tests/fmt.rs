@@ -154,6 +154,7 @@ fn the_repository_sources_are_formatted() {
         "examples/projects/goals",
         "games",
         "aoc",
+        "aoc-2024",
         "crates/elab/src/std",
     ]);
     let output = stitchwort(&root, &args, None);
