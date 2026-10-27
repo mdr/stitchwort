@@ -5021,7 +5021,7 @@
     {
       "id": 641,
       "title": "Print record updates as { x | f = s } in hover and goals instead of the hidden .%matchN helper (update-lemmas lane, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
