@@ -1035,15 +1035,16 @@ fn eval_step(g: &Globals, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> R
             let def = g.def(*id);
             match body_seen(g, *id) {
                 Some(_) if def.arity == 0 && erases_result(g, *id) => Control::Return(erased()),
-                // While gluing, a constant written in the source is kept as
-                // a call with no arguments: read back by name, unfolded when
-                // forced. One the compiler made (a `%` in its name) isn't.
+                // While gluing, a constant written in the source, or a
+                // parameter default's helper, is kept as a call with no
+                // arguments: read back by name, unfolded when forced. Other
+                // ones the compiler made (a `%` in their name) aren't.
                 Some(_)
                     if def.arity == 0
                         && !folds(g, *id)
                         && g.glue.get()
                         && glues(g, *id)
-                        && !def.name.contains('%') =>
+                        && (def.param_default || !def.name.contains('%')) =>
                 {
                     Control::Return(Value::Call(*id, Spine::new(), Rc::default()))
                 }
