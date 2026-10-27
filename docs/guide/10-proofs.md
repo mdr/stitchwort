@@ -159,7 +159,7 @@ A step with no proof is proved by computing.
 
 ## Arithmetic: `omega`
 
-For statements in linear arithmetic over `Nat` (`+`, `-`, comparisons, multiplication by a constant), `omega` finds the proof itself, using every fact in scope:
+For statements in linear arithmetic over `Nat` (`+`, `-`, comparisons, multiplication, division and remainder by a constant), `omega` finds the proof itself, using every fact in scope:
 
 <!-- snippet: proofs.sw#omega -->
 ```stitchwort

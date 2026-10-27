@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `n / 2 < n`
+   ╭─[ reject/omega-division-false.sw:6:41 ]
+   │
+ 6 │ theorem halfLess (n: Nat): n / 2 < n := omega
+   │                                         ──┬──  
+   │                                           ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │ 
+   │ Note 1: facts: `(n / 2) * 2 ≤ n` (what `n / 2` is), `n ≤ (n / 2) * 2 + 1` (what `n / 2` is)
+   │ 
+   │ Note 2: atoms: `n / 2`, `n`
+   │ 
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): n / 2 = 0, n = 0
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           n = 0
+   │         `n / 2 < n` is false
+───╯

@@ -40,8 +40,11 @@
 //! holds the atom's own term), whose rows always hold and whose two cases
 //! the certificate may split on (`Cases`); `Not (a = b)` facts have cases
 //! too (`FNe`). `x * y` and `y * x` are two atoms with the fact
-//! `Nat.mulComm x y` between them. A goal that isn't arithmetic is proved by
-//! refuting the facts (`Void.exfalso`/`Void.absurd`). Anything else is an atom: two
+//! `Nat.mulComm x y` between them. `x / k` for a number `k > 0` (as
+//! `Nat.divFuel x x k`, which it computes to) is an atom `q` with the facts
+//! `q * k <= x` and `x < (q + 1) * k` (`Nat.divFuelLe`, `Nat.divFuelBound`);
+//! `x % k` computes to `x - q * k`, a subtraction atom over it. A goal that
+//! isn't arithmetic is proved by refuting the facts (`Void.exfalso`/`Void.absurd`). Anything else is an atom: two
 //! subterms are one atom if they're the same term, or if a bounded
 //! conversion check says so; an inconclusive check keeps them apart. A
 //! metavariable inside an atom is solved by unifying the atom with the first
@@ -94,6 +97,8 @@ const LIBRARY: &[&str] = &[
     "Std.Nat.max",
     "Std.Nat.min",
     "Std.Nat.mulComm",
+    "Std.Nat.divFuelLe",
+    "Std.Nat.divFuelBound",
 ];
 
 pub(crate) static LIBRARY_NAMES: LazyLock<Vec<ast::Name>> = LazyLock::new(|| {
@@ -248,6 +253,10 @@ struct Lib {
     max: DefId,
     min: DefId,
     mul_comm: DefId,
+    div_fuel_le: DefId,
+    div_fuel_bound: DefId,
+    succ_not_zero: DefId,
+    le_refl: DefId,
     // The core's.
     leq: DefId,
     sub: DefId,
@@ -258,6 +267,8 @@ struct Lib {
     absurd: DefId,
     add: DefId,
     mul: DefId,
+    div: DefId,
+    div_fuel: DefId,
     ite: DefId,
     to_bool: DefId,
     not: DefId,
@@ -338,6 +349,10 @@ impl Lib {
             max: def("Std.Nat.max")?,
             min: def("Std.Nat.min")?,
             mul_comm: def("Std.Nat.mulComm")?,
+            div_fuel_le: def("Std.Nat.divFuelLe")?,
+            div_fuel_bound: def("Std.Nat.divFuelBound")?,
+            succ_not_zero: def("Std.Nat.succNotZero")?,
+            le_refl: def("Std.Nat.leRefl")?,
             leq: builtin_def(cx, Builtin::Leq)?,
             sub: builtin_def(cx, Builtin::Sub)?,
             nat_equal: builtin_def(cx, Builtin::EqNat)?,
@@ -347,6 +362,8 @@ impl Lib {
             absurd: builtin_def(cx, Builtin::VoidAbsurd)?,
             add: builtin_def(cx, Builtin::Add)?,
             mul: builtin_def(cx, Builtin::Mul)?,
+            div: builtin_def(cx, Builtin::Div)?,
+            div_fuel: builtin_def(cx, Builtin::DivFuel)?,
             ite: builtin_def(cx, Builtin::IfThenElse)?,
             to_bool: builtin_def(cx, Builtin::ToBool)?,
             not: builtin_def(cx, Builtin::Not)?,
@@ -703,7 +720,7 @@ fn unsupported_goal(cx: &Ctx, goal: &Value, span: Span) -> Diagnostic {
     Diagnostic::error("E-OMEGA", format!("`omega` can't prove `{}`", cx.show(goal)))
         .with_label(span, "unsupported structure: this goal isn't linear arithmetic on `Nat`")
         .with_note(
-            "`omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s built from `+`, `-`, numbers, multiplication by a number, `Nat.max` and `Nat.min`, `Void`, and `Not`, `&&` and `Nat.leq … = True`/`False` around them",
+            "`omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.max` and `Nat.min`, `Void`, and `Not`, `&&` and `Nat.leq … = True`/`False` around them",
         )
 }
 
@@ -995,11 +1012,23 @@ struct Atom {
     unsupported: Option<&'static str>,
 }
 
+/// A division atom found while quoting: atom `q` is `numerator / divisor`
+/// for a positive number `divisor`.
+#[derive(Clone)]
+struct Division {
+    q: usize,
+    numerator: Value,
+    quoted: NTerm,
+    divisor: BigUint,
+}
+
 #[derive(Default)]
 struct Quoter {
     atoms: Vec<Atom>,
     /// What the operation atoms are, each atom at most once.
     ops: Vec<Op>,
+    /// The division atoms, each at most once.
+    divisions: Vec<Division>,
     /// The atoms that are products of two unknowns, with their factors.
     products: Vec<(usize, Value, Value)>,
 }
@@ -1094,7 +1123,41 @@ impl Quoter {
             }
             return Ok(Ok(NTerm::V(t)));
         }
+        if let Some((numerator, divisor)) = self.division(cx, lib, &base)? {
+            let q = self.atom(cx, base, None)?;
+            if !self.divisions.iter().any(|d| d.q == q)
+                && let Ok(quoted) = self.quote(cx, lib, &numerator, span)?
+            {
+                self.divisions.push(Division {
+                    q,
+                    numerator,
+                    quoted,
+                    divisor,
+                });
+            }
+            return Ok(Ok(NTerm::V(q)));
+        }
         Ok(Ok(NTerm::V(self.atom(cx, base, None)?)))
+    }
+
+    /// `x / k` for a number `k > 0`: `Nat.div x k`, or `Nat.divFuel x x k`,
+    /// which it computes to.
+    fn division(&self, cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<(Value, BigUint)>> {
+        let (numerator, divisor) =
+            if let Some([fuel, n, d]) = call_args(value, lib.div_fuel).as_deref() {
+                if !crate::matching::same(&cx.quote(fuel)?, &cx.quote(n)?) {
+                    return Ok(None);
+                }
+                (n.clone(), d.clone())
+            } else if let Some([n, d, _]) = call_args(value, lib.div).as_deref() {
+                (n.clone(), d.clone())
+            } else {
+                return Ok(None);
+            };
+        Ok(match force(cx.g(), divisor)? {
+            Value::Nat(k) if *k != BigUint::default() => Some((numerator, (*k).clone())),
+            _ => None,
+        })
     }
 
     /// `a - b`, `Nat.max a b` or `Nat.min a b`, including `max` and `min`
@@ -1413,6 +1476,27 @@ fn linear(
             b,
         });
     }
+    // What each division atom `q = x / k` is: `q * k ≤ x` and
+    // `x < (q + 1) * k`. Quoting these may find more divisions.
+    let mut next_division = 0;
+    while next_division < quoter.divisions.len() {
+        let division = quoter.divisions[next_division].clone();
+        next_division += 1;
+        for fact in division_facts(cx, lib, &quoter, &division)? {
+            let Ok(a) = quoter.quote(cx, lib, &fact.a, span)? else {
+                continue;
+            };
+            let Ok(b) = quoter.quote(cx, lib, &fact.b, span)? else {
+                continue;
+            };
+            quoted.push(Quoted {
+                fact,
+                t: None,
+                a,
+                b,
+            });
+        }
+    }
     // What each operation atom is, proved by `rfl`: the environment holds
     // the atom's own term.
     for op in quoter.ops.clone() {
@@ -1555,22 +1639,72 @@ fn linear(
     )
 }
 
+/// The facts saying what `division`'s atom `q = x / k` is, from
+/// `Nat.divFuelLe x x k` and `Nat.divFuelBound x x k`.
+fn division_facts(cx: &Ctx, lib: &Lib, quoter: &Quoter, division: &Division) -> Result<Vec<Fact>> {
+    let number = |k: BigUint| (nat_term(k.clone()), Value::Nat(Rc::new(k)));
+    let numerator = both(cx, &division.numerator)?;
+    let divisor = number(division.divisor.clone());
+    let low = lemma(
+        cx,
+        lib.div_fuel_le,
+        &[numerator.clone(), numerator.clone(), divisor.clone()],
+    )?;
+    let nonzero = lemma(cx, lib.succ_not_zero, &[number(&division.divisor - 1u32)])?;
+    let enough_fuel = lemma(cx, lib.le_refl, std::slice::from_ref(&numerator))?;
+    let high = lemma(
+        cx,
+        lib.div_fuel_bound,
+        &[numerator.clone(), numerator, divisor, nonzero, enough_fuel],
+    )?;
+    let origin = format!("what `{}` is", atom_name(cx, quoter, division.q));
+    let mut reader = Reader {
+        lib,
+        facts: Vec::new(),
+        skipped: Vec::new(),
+    };
+    for (proof, prop) in [low, high] {
+        reader.read(cx, proof, &prop, &origin, 0)?;
+    }
+    Ok(reader.facts)
+}
+
 /// Atom `i` as a message shows it: an operation by its name (`Nat.max a b`
-/// rather than the `if` it computes to), anything else as the compiler
+/// rather than the `if` it computes to, `x % k` rather than
+/// `x - x / k * k`), a division as `x / k`, anything else as the compiler
 /// prints it.
 fn atom_name(cx: &Ctx, quoter: &Quoter, i: usize) -> String {
-    let Some(op) = quoter.ops.iter().find(|o| o.t == i) else {
-        return cx.show(&quoter.atoms[i].value);
-    };
     let arg = |t: &NTerm| {
         let s = render(cx, quoter, t);
         if s.contains(' ') { format!("({s})") } else { s }
     };
+    if let Some(division) = quoter.divisions.iter().find(|d| d.q == i) {
+        return format!("{} / {}", arg(&division.quoted), division.divisor);
+    }
+    let Some(op) = quoter.ops.iter().find(|o| o.t == i) else {
+        return cx.show(&quoter.atoms[i].value);
+    };
     match op.kind {
-        OpKind::Sub => format!("{} - {}", arg(&op.a), arg(&op.b)),
+        OpKind::Sub => match remainder(cx, quoter, op) {
+            Some(divisor) => format!("{} % {divisor}", arg(&op.a)),
+            None => format!("{} - {}", arg(&op.a), arg(&op.b)),
+        },
         OpKind::Max => format!("Nat.max {} {}", arg(&op.a), arg(&op.b)),
         OpKind::Min => format!("Nat.min {} {}", arg(&op.a), arg(&op.b)),
     }
+}
+
+/// `k` when the subtraction `op` is `x - x / k * k`, which `x % k` computes to.
+fn remainder<'q>(cx: &Ctx, quoter: &'q Quoter, op: &Op) -> Option<&'q BigUint> {
+    let NTerm::MulRight(q, k) = &op.b else {
+        return None;
+    };
+    let NTerm::V(q) = **q else {
+        return None;
+    };
+    let division = quoter.divisions.iter().find(|d| d.q == q)?;
+    let same_numerator = render(cx, quoter, &division.quoted) == render(cx, quoter, &op.a);
+    (division.divisor == *k && same_numerator).then_some(&division.divisor)
 }
 
 /// A quoted term as a message shows it: `k * x`, `x + 1`, atoms as the
@@ -1725,15 +1859,15 @@ fn failed(
     for s in skipped {
         d = d.with_note(format!("unsupported structure: {s}"));
     }
-    // A division by a variable or literal shows as its fuel function, which
+    // A division by anything but a number shows as its fuel function, which
     // omega treats as an unknown number: std has the facts about it.
-    if quoter
-        .atoms
-        .iter()
-        .any(|atom| cx.show(&atom.value).starts_with("Nat.divFuel"))
-    {
+    let opaque_division = quoter.atoms.iter().enumerate().any(|(i, atom)| {
+        !quoter.divisions.iter().any(|d| d.q == i)
+            && cx.show(&atom.value).starts_with("Nat.divFuel")
+    });
+    if opaque_division {
         d = d.with_note(
-            "a division is an unknown number to `omega`; hint its facts: `omega [Nat.divLe n k]` (`n / k ≤ n`), `Nat.divLt n k` (`n / k < n`, for `0 < n` and `1 < k`) or `Nat.divMulLe n k`",
+            "a division by anything but a number is an unknown number to `omega`; hint its facts: `omega [Nat.divLe n k]` (`n / k ≤ n`), `Nat.divLt n k` (`n / k < n`, for `0 < n` and `1 < k`) or `Nat.divMulLe n k`",
         );
     }
     d

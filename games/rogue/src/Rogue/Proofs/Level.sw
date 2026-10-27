@@ -11,7 +11,7 @@ namespace Rogue.Proofs
 import Rogue (..)
 import Std (Bool, Decidable, Eq, List, Nat, Option, Void)
 
-theorem halfAtMost (n: Nat): n / 2 ≤ n := omega [Nat.divMulLe n 2 (twoIsZero => omega)]
+theorem halfAtMost (n: Nat): n / 2 ≤ n := omega
 
 -- The middle of an area is in it.
 theorem middleInside (area: Area): area.contains area.middle = True :=
