@@ -4191,7 +4191,7 @@
     {
       "id": 575,
       "title": "After SW-533 merges: AoC day 4 parseChar back to a match (docs/aoc-2025.md says it was changed to an if for the literal catch-all gap)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5129,7 +5129,7 @@
     {
       "id": 650,
       "title": "Test flakiness risk: auto_membership_speed.rs uses absolute wall-clock limits (100-element check < 5 s); may fail under machine load — consider relative-only or CPU-time limits",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5393,7 +5393,7 @@
     {
       "id": 672,
       "title": "Error spans on interpolated strings with an empty first/last piece stop short of the closing }\" (parser drops the empty piece); test rewriter works around it (daily-fix lane, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
