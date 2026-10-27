@@ -18,9 +18,11 @@
 //!   reference it makes that resolves to a pending name names a file to
 //!   load. A dot call `x.f` names every file with an `f` in a namespace
 //!   whose type is in the core, loaded, or loading with it ([`DotTarget`]):
-//!   only those can be `x`'s type. A file's own references name the files
-//!   it needs, found the same way, once, when the index is built. Files
-//!   load in a canonical order (dependency order, ties by path).
+//!   only those can be `x`'s type. Where `x` is a variable whose written
+//!   type has a data type `T` at its head, `x.f` names only `T.f`'s file.
+//!   A file's own references name the files it needs, found the same way,
+//!   once, when the index is built. Files load in a canonical order
+//!   (dependency order, ties by path).
 //! - **A request for a file that is loading is a cycle**, reported as an
 //!   internal error naming both files, never a hang or a silent skip.
 //!
@@ -818,8 +820,9 @@ impl Elaborator {
     }
 
     /// Notes the library files a reference needs: the file that owns the
-    /// library name it resolves to, and for dot notation (whose target
-    /// depends on a type the pre-pass doesn't know) the field, which
+    /// library name it resolves to, and for dot notation the file of
+    /// `T.field` where the receiver's written type is the data type `T`, or
+    /// else (the type isn't known before checking) the field, which
     /// [`LibraryIndex::resolve_needs`] turns into files.
     ///
     /// A file is noted whether or not it is loaded already, so what a
@@ -830,7 +833,19 @@ impl Elaborator {
     pub(crate) fn note_library_use(&self, index: &LibraryIndex, r: &Ref<'_>, needs: &mut Needs) {
         let (n, mut fields) = match r {
             Ref::Name(n) => (n, Vec::new()),
-            Ref::Dot(n, field) => (n, vec![field.clone()]),
+            Ref::Dot(n, field, receiver) => {
+                if let Some(namespace) = receiver.and_then(|head| self.data_namespace(head)) {
+                    // The receiver's type is the data type `T`, whose dot
+                    // calls mean `T.field` and nothing else.
+                    if let Some(f) = index.owner(&format!("{namespace}.{field}"))
+                        && f != 0
+                    {
+                        needs.files.insert(f);
+                    }
+                    return;
+                }
+                (n, vec![field.clone()])
+            }
         };
         if fields.is_empty()
             && let Resolved::Found {
@@ -855,6 +870,21 @@ impl Elaborator {
             if !index.dot_targets(&field).is_empty() {
                 needs.dots.insert(field);
             }
+        }
+    }
+
+    /// The key of the data type `head` names, loaded or not: the namespace
+    /// a dot call on a value of that type looks in. `None` for anything
+    /// else, a definition of a type say, which dot calls may unfold.
+    fn data_namespace(&self, head: &stitchwort_syntax::ast::Name) -> Option<String> {
+        match self.resolve(&head.text) {
+            Resolved::Found {
+                global: Global::Data(_) | Global::Pending(_, PendingKind::Data),
+                rest,
+                key,
+                ..
+            } if rest.is_empty() => Some(key.to_string()),
+            _ => None,
         }
     }
 

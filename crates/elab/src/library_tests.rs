@@ -92,7 +92,7 @@ fn units(index: &LibraryIndex, f: usize) -> Vec<Unit> {
         for (r, _) in decl_refs(decl, equations) {
             let (n, mut fields) = match &r {
                 Ref::Name(n) => (n, Vec::new()),
-                Ref::Dot(n, field) => (n, vec![field.clone()]),
+                Ref::Dot(n, field, _) => (n, vec![field.clone()]),
             };
             if fields.is_empty()
                 && let Resolved::Found { key, rest, .. } = scratch.resolve(&n.text)
