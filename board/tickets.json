@@ -5525,7 +5525,7 @@
     {
       "id": 683,
       "title": "Warn when a match arm can never match because earlier arms cover it (duplicate '\\''k'\\'' arm accepted silently; found by the or-patterns lane, 27 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
