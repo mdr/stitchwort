@@ -144,29 +144,15 @@ test "pipes" := wordLengths "the  quick fox" == [3, 5, 3]
 
 A line may start with `|>` to continue the expression on the line above.
 
-`|>` binds more loosely than everything except `->`, including `==`. This catches everyone at least once:
+`|>` binds tighter than comparisons, `∧` and `∨`, and looser than `++`, arithmetic and application, as in Elixir and Gleam. So a comparison after a pipeline compares its result, and a pipe after `∧` takes only its own side:
 
-<!-- snippet: errors/pipe-precedence.sw -->
+<!-- snippet: functions.sw#pipe-precedence -->
 ```stitchwort
-import Std (List)
-
-test "evens" := [1, 2, 3, 4] |> List.filter (n => n % 2 == 0) == [2, 4]
+test "compare a pipeline" := [1, 2, 3, 4] |> List.filter (n => n % 2 == 0) == [2, 4]
+test "a pipe after ∧" := wordLengths "" == [] ∧ ["a", "b"] |> .length == 2
 ```
 
-<!-- output: check errors/pipe-precedence.sw -->
-```text
-[E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ errors/pipe-precedence.sw:3:46 ]
-   │
- 3 │ test "evens" := [1, 2, 3, 4] |> List.filter (n => n % 2 == 0) == [2, 4]
-   │                                              ───────┬───────
-   │                                                     ╰───────── this is a function, but the expected type is `List ?0`
-   │
-   │ Note: `|>` binds looser than `==`, so `x |> f == y` pipes `x` into the whole comparison `f == y`; to compare the result of the pipe, write brackets: `(x |> f) == y`
-───╯
-```
-
-The test reads as `[1, 2, 3, 4] |> (List.filter (…) == [2, 4])`. Bracket the pipeline, `([1, 2, 3, 4] |> List.filter (…)) == [2, 4]`, or use dot notation, `[1, 2, 3, 4].filter (…) == [2, 4]`. A pipe into a [section](#sections) is the exception: `[1, 2, 3, 4] |> .filter (…) == [2, 4]` means `[1, 2, 3, 4].filter (…) == [2, 4]`, since a section takes the rest of its expression.
+The second test is `(wordLengths "" == []) ∧ ((["a", "b"] |> .length) == 2)`. To pipe the result of a comparison, bracket it: `(a == b) |> f`.
 
 ## Sections
 

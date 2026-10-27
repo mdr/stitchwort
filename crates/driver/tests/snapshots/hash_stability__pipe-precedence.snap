@@ -1,0 +1,14 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.inc b64f3067c458c3ff8187530de2e4f55b191a8a8c57eb859b4b8cc9c7ec3e214c
+Main.test "named function then compare" 8fef162df5ff03a658537050b1c9195b844c3ac6783d96aa03a17fd8fdc8eb87
+Main.test "pipe then compare" 2f87a44c506921f6aaf06eb7bad4c691f0d7bafd73baaf5e39e2070e09587cf1
+Main.allFour 98f624f9956f8713d9367d54fb3140c4b575dca77d85acf39eba2894c329223a
+Main.test "conjunction then pipe" 847c5ceb75c7b0d34a37dde6ca3bbca6edfbbece4f8f2bb38cde7a939c75eeed
+Main.test "both sides" 2240d8d5a16aa91ca21b4d838ed1e0c3ee8d4961caad9e8f8fbbe0418b5fcc5f
+Main.describe 4b6c4fd6b2949e9aa2be975c5be96e725d21002e8479a8ebe5a0bf9f2ee447f7
+Main.test "bracketed comparison" 6c8b620d87ba9c9a50d8b82f958c97674502e14f2399c2d1644d6de5705efbff
+Main.test "multi-line" 43d95a2f9d7bbc1d3691d8135f45fa1c396ab6de1c2e3db21ab58a4da5c01d72
+Main.lengthOfPipe de23601b0b7fc056f5d9b7712b96113c684766cf2ba39c01ed4209958c94caa7

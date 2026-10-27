@@ -1,9 +1,9 @@
 -- Pipe forward `|>`. `x |> f a b` is `f x a b`: the value on the left becomes
 -- the FIRST argument, as with dot notation (`x.f a b`), which is why the
--- library puts the main argument first (`List.map xs f`). `|>` is the loosest
--- operator except `->`, and groups to the left, so a pipeline reads top to
--- bottom. The left side is checked, and run, before the arguments on the
--- right.
+-- library puts the main argument first (`List.map xs f`). `|>` binds tighter
+-- than comparisons, `∧` and `∨`, looser than `++`, arithmetic and application,
+-- and groups to the left, so a pipeline reads top to bottom. The left side is
+-- checked, and run, before the arguments on the right.
 
 import Std (IO, List, Nat, Pair)
 
@@ -38,7 +38,7 @@ test "sorted and doubled" := sortedDoubled == [2, 4, 6]
 test "precedence" := (1 + 2 |> n => n == 3)
 test "left associative" := ([3, 1, 2] |> List.sort |> List.sum) == 6
 
--- `|>` is looser than `=`, so a comparison on the result needs brackets.
+-- Brackets around a pipeline before a comparison are allowed, not needed.
 test "brackets" := ([1, 2, 3] |> List.sum) == 6
 
 -- Dot notation on the left of a pipe.
