@@ -47,7 +47,7 @@ def names (people: List Person): List Text :=
 
 `let nameOf := (person: Person) => person.name` works, and so does `people.map (person => person.name)`, where the type comes from `people`.
 
-A lambda bound by `let` with no type written is taken to be pure. If its body performs an ability ([chapter 8](08-abilities.md)), write its type: `let next: () -> {Ask} Nat := () => ask() + n`.
+A lambda bound by `let` with no type written may perform abilities ([chapter 8](08-abilities.md)): its body works out which. `let next := () => ask() + n` has type `() -> {Ask} Nat`, and each call `next()` asks again, so it can be called only where `Ask` is allowed.
 
 ## Type parameters
 

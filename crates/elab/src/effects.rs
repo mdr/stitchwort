@@ -1276,6 +1276,21 @@ pub fn settle_empty(cx: &Ctx, ty: &Value) -> Result<()> {
     Ok(())
 }
 
+/// Closes `row`, the row a lambda's body worked out, if it has abilities
+/// and ends in an unknown: the row is the abilities the body performs, as
+/// if written. A row with no abilities is left for the lambda's uses, or
+/// defaulting, to settle.
+pub fn close_inferred_row(cx: &Ctx, row: &Value) -> Result<()> {
+    if let Some(row) = decode_row_value(cx, row)?
+        && !row.labels.is_empty()
+        && let Some(tail) = &row.tail
+        && is_unknown(cx, tail)?
+    {
+        cx.unify(tail, &crate::rows::empty_row_in(cx)?)?;
+    }
+    Ok(())
+}
+
 /// If `row` ends in an unknown, adds `extra` to it, keeping it open for
 /// more (the unknown becomes `extra` and a fresh unknown). Returns the
 /// wider row.

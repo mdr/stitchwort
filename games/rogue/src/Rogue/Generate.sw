@@ -25,10 +25,11 @@ type Plan = { level: Level, monsters: List Monster, items: List Item }
 opaque def generateLevel (depth: Nat): {Random} Plan :=
   let rooms := List.range 6 |> .map roomFrom
   let entranceIndex := roll 5
-  let exitIndex := (entranceIndex + 1 + roll 4) % 6
+  let awayFromEntrance := () => (entranceIndex + 1 + roll 4) % 6
+  let exitIndex := awayFromEntrance ()
   let extra := roll 2
   let level := layOut depth rooms entranceIndex exitIndex extra
-  let monsters := List.range (monsterCount depth) |> .map (_ => monsterFrom depth rooms entranceIndex)
+  let monsters := List.range (monsterCount depth) |> .map (_ => monsterFrom depth (roomOf rooms (awayFromEntrance ())))
   let potions := List.range potionCount |> .map (_ => itemFrom Potion rooms)
   let swords := if depth < deepest then [itemFrom Sword rooms] else []
   let amulets := if depth < deepest then [] else [({ loot = Amulet, position = level.goal }: Item)]
@@ -96,9 +97,8 @@ def kindFor (depth: Nat) (chance: Nat): Kind :=
     | 2 => if chance < 4 then Goblin else if chance < 9 then Orc else Troll
     | _ => if chance < 2 then Goblin else if chance < 6 then Orc else Troll
 
--- A monster somewhere in a room other than the entrance.
-def monsterFrom (depth: Nat) (rooms: List Area) (entranceIndex: Nat): {Random} Monster :=
-  let room := roomOf rooms ((entranceIndex + 1 + roll 4) % 6)
+-- A monster somewhere in `room`.
+def monsterFrom (depth: Nat) (room: Area): {Random} Monster :=
   let kind := kindFor depth (roll 9)
   { kind, position = spotIn room, hitPoints = kind.startingHitPoints }
 

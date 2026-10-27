@@ -955,14 +955,28 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let icit = mode_icit(*mode);
             let (dom, _) = check_type(cx, ann)?;
             let dom = cx.eval(&dom)?;
+            let (row, row_value) = inferred_row(cx)?;
             let mark = cx.mark();
             cx.bind(&name.text, dom.clone());
-            let inferred = infer(cx, body).and_then(|(term, ty)| {
-                let (term, ty) = insert(cx, term, ty)?;
-                Ok((term, cx.quote_folded(&ty)?))
+            // A body that may perform abilities is checked against a
+            // computation whose row it works out.
+            let inferred = effects::may_perform(cx, body).and_then(|performs| {
+                if performs {
+                    let result = cx.fresh_meta();
+                    let cod = cx.eval(&inferred_comp(cx, &row_value, result)?)?;
+                    let term = check(cx, body, &cod)?;
+                    Ok((term, cx.quote_folded(&cod)?, true))
+                } else {
+                    let (term, ty) = infer(cx, body)?;
+                    let (term, ty) = insert(cx, term, ty)?;
+                    Ok((term, cx.quote_folded(&ty)?, false))
+                }
             });
             cx.reset(mark);
-            let (body, cod) = inferred?;
+            let (body, cod, performs) = inferred?;
+            if performs {
+                settle_inferred_row(cx, &row, &row_value)?;
+            }
             let x: Name = name.text.as_str().into();
             let lam = Term::Lam(x.clone(), icit, Rc::new(body));
             let cod = Closure {
@@ -1218,39 +1232,98 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
 /// `(x1: ?a1) -> … -> (xn: ?an) -> ?b`, with each type a fresh
 /// metavariable, for parameters named `names`.
 fn fresh_function_type(cx: &mut Ctx, names: &[Name]) -> Result<Term> {
+    Ok(fresh_function_type_in(cx, names, None)?.term)
+}
+
+/// A function type of unknowns, and whether its result is a computation.
+struct FreshFunctionType {
+    term: Term,
+    result_performs: bool,
+}
+
+/// [`fresh_function_type`], for a lambda with body `body` if given: if the
+/// body may perform abilities (with the parameters in scope), the result
+/// is `CompIn row ?b`.
+fn fresh_function_type_in(
+    cx: &mut Ctx,
+    names: &[Name],
+    body: Option<(&Expr, &Value)>,
+) -> Result<FreshFunctionType> {
     let Some((name, rest)) = names.split_first() else {
-        return Ok(cx.fresh_meta());
+        let result = cx.fresh_meta();
+        return Ok(match body {
+            Some((body, row)) if effects::may_perform(cx, body)? => FreshFunctionType {
+                term: inferred_comp(cx, row, result)?,
+                result_performs: true,
+            },
+            _ => FreshFunctionType {
+                term: result,
+                result_performs: false,
+            },
+        });
     };
     let dom = cx.fresh_meta();
     let mark = cx.mark();
     let dom_value = cx.eval(&dom)?;
     cx.bind_hidden(name.clone(), dom_value);
-    let cod = fresh_function_type(cx, rest)?;
+    let cod = fresh_function_type_in(cx, rest, body);
     cx.reset(mark);
-    Ok(Term::Pi(
-        name.clone(),
-        Icit::Explicit,
-        Rc::new(dom),
-        Rc::new(cod),
+    let cod = cod?;
+    Ok(FreshFunctionType {
+        term: Term::Pi(
+            name.clone(),
+            Icit::Explicit,
+            Rc::new(dom),
+            Rc::new(cod.term),
+        ),
+        result_performs: cod.result_performs,
+    })
+}
+
+/// A row unknown for the result of a lambda whose body may perform
+/// abilities, made outside its parameters, as a row doesn't depend on
+/// their values.
+fn inferred_row(cx: &Ctx) -> Result<(Term, Value)> {
+    let row = cx.fresh_meta();
+    let value = cx.eval(&row)?;
+    Ok((row, value))
+}
+
+/// `CompIn row result`.
+fn inferred_comp(cx: &Ctx, row: &Value, result: Term) -> Result<Term> {
+    let comp_in = builtin_def(cx, Builtin::CompIn)?;
+    Ok(Term::app(
+        Term::app(Term::Def(comp_in), cx.quote(row)?),
+        result,
     ))
+}
+
+/// After a lambda's body was checked against a result in `row`: the row
+/// is closed at the abilities the body performs, and noted, so that a row
+/// still unknown is the empty one if nothing else settles it.
+fn settle_inferred_row(cx: &Ctx, row: &Term, value: &Value) -> Result<()> {
+    effects::close_inferred_row(cx, value)?;
+    let row_type = Value::Data(builtin_data(cx, Builtin::Row)?, Vec::new());
+    crate::rows::note_row_meta(cx, &row_type, row);
+    Ok(())
 }
 
 /// A lambda with no expected type: checked against a function type whose
 /// parameter and result types are unknowns, for its body, its patterns
-/// and its later uses to work out.
+/// and its later uses to work out. A body that may perform abilities
+/// works out the row of its result too.
 fn infer_lambda(cx: &mut Ctx, lambda: &Expr, names: &[Name]) -> Result<(Term, Value)> {
-    let ty = fresh_function_type(cx, names)?;
-    let ty = cx.eval(&ty)?;
-    let term = check(cx, lambda, &ty).map_err(|e| {
-        if e.code == "E-ABILITY" {
-            e.with_note(
-                "a lambda with no type written or expected is pure: to let it perform \
-                 abilities, write its type, as in `let next: () → {Ask} Nat := () => …`",
-            )
-        } else {
-            e
-        }
-    })?;
+    let (row, row_value) = inferred_row(cx)?;
+    let body = match lambda {
+        Expr::Lam(_, body, _) => Some((&**body, &row_value)),
+        _ => None,
+    };
+    let fresh = fresh_function_type_in(cx, names, body)?;
+    let ty = cx.eval(&fresh.term)?;
+    let term = check(cx, lambda, &ty)?;
+    if fresh.result_performs {
+        settle_inferred_row(cx, &row, &row_value)?;
+    }
     note_parameter_metas(cx, &ty)?;
     // Annotated for the kernel, which doesn't infer a lambda's type.
     let ann = Term::Ann(Rc::new(term), Rc::new(cx.quote_folded(&ty)?));

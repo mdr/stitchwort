@@ -332,7 +332,8 @@ its own tests. So it's `fitsOnScreen area`, not `area.fits`.
 - `let player := { row = 1, column = 10 }` needs `: Position`, though only
   one record type in scope has those fields.
 - `let awayFromEntrance := () => room (…roll 4…)` is `E-CANNOT-INFER` ("add
-  a type annotation"); I inlined it.
+  a type annotation"); I inlined it. Fixed: a lambda's body now works out
+  its abilities, and `generateLevel` has `awayFromEntrance` back.
 - `playGame newGame()` is `(playGame newGame)()`, reported as "this isn't a
   function … its type is `Rogue.State`"; it needs `playGame (newGame())`.
 - `List.lookup` takes the equality decision as an argument
