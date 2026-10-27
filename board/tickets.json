@@ -213,7 +213,7 @@
     {
       "id": 116,
       "title": "Recursive calls used as induction hypotheses must be fully applied",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -222,7 +222,7 @@
       ],
       "body": "In a structural proof, passing the recursive call along un-applied (`... ih ...`) fails; the user writes out the lambda wrapper `(c2 a2 g1 g2 g3 y2 s2 g4 g5 g6 => pickBest k ih w more c2 a2 g1 g2 g3 y2 s2 g4 g5 g6)` (aoc/src/Aoc/Day03/Proofs/Best.sw:165; docs/aoc-2025.md:1208, 1308). Investigate whether eta-expanding a partially applied recursive call is sound for the termination checker (the kernel sees an arity-short occurrence) and if so do it automatically. The first step is that investigation.\n\nDone when: either the wrapper in `pickBest` (Best.sw:165) is removable and Day 3 still checks, or the ticket records why it can't be done (and docs/syntax.md says so). 23 Oct: the Day 3 wrapper it cites is now at aoc/src/Aoc/Day03/Proofs/Best.sw:189 (was :165); still needed (E-TERMINATION … takes 13 arguments; it's given 4).\n\n24 Oct 2026 (board review): checked, still current: the wrapper is at aoc/src/Aoc/Day03/Proofs/Best.sw:185-186.",
       "created": "2026-10-19",
-      "updated": "2026-10-24",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -4093,13 +4093,13 @@
     {
       "id": 567,
       "title": "omega: an '_' argument stays a metavariable, so the same term written with '_' and in full are different atoms (rogue PROOFS.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -4949,13 +4949,13 @@
     {
       "id": 635,
       "title": "Abort.thenEqSome can't infer its step: the unifier can't solve ?t () against a call, so t must be written (() => helper …) (Abort-inversion lane, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
