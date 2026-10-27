@@ -615,6 +615,39 @@ fn small_programs_load_only_the_library_files_they_can_use() {
 }
 
 #[test]
+fn a_dot_call_on_a_variable_of_a_written_data_type_loads_only_that_types_function() {
+    let text = ["Text/Basics.sw".to_string(), "Text/Text.sw".to_string()];
+    // `xs.length` with `(xs: List Nat)` is the core's `List.length`, not
+    // `Text.length`: nothing loads.
+    assert!(std_loaded_by("def n (xs: List Nat): Nat := xs.length\n").is_empty());
+    assert!(
+        std_loaded_by("def n: (xs: List Nat) → xs.length = xs.length := xs => rfl\n").is_empty()
+    );
+    assert!(
+        std_loaded_by("def n (xs: List Nat): Nat :=\n  let ys: List Nat := xs\n  ys.length\n")
+            .is_empty()
+    );
+    // A list-only program: the toolkit, whose `List.padRight` calls
+    // `xs.length`, without `Text`.
+    let padded = std_loaded_by("def p (xs: List Nat): List Nat := xs.padRight 5 0\n");
+    assert!(
+        padded.contains(&"List/Toolkit.sw".to_string()),
+        "{padded:?}"
+    );
+    assert!(!padded.iter().any(|f| text.contains(f)), "{padded:?}");
+    // `t.length` with `(t: Text)` loads the file declaring `Text.length`.
+    let written = std_loaded_by("def n (t: Text): Nat := t.length\n");
+    assert!(written.contains(&text[0]), "{written:?}");
+    // Where the receiver's type isn't written, every `length` it could
+    // mean loads.
+    let unwritten = std_loaded_by("def n (ts: List Text): List Nat := ts.map (t => t.length)\n");
+    assert!(unwritten.contains(&text[0]), "{unwritten:?}");
+    // Nor where the written type is a definition, which dot calls unfold.
+    let nickname = std_loaded_by("def Line: Type := Text\ndef n (l: Line): Nat := l.length\n");
+    assert!(nickname.contains(&text[0]), "{nickname:?}");
+}
+
+#[test]
 fn int_only_programs_dont_load_the_list_toolkit() {
     // SW-322: the `List.sumBy` lemmas about `Int` are in `Int/Sums.sw`, so
     // `Int/Int.sw` doesn't pull in `List/Toolkit.sw`.

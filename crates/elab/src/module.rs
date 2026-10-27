@@ -1043,7 +1043,7 @@ impl Elaborator {
             let mut add = |r: Ref<'_>, in_header: bool| {
                 let (n, mut fields) = match r {
                     Ref::Name(n) => (n, Vec::new()),
-                    Ref::Dot(n, field) => (n, vec![field]),
+                    Ref::Dot(n, field, _) => (n, vec![field]),
                 };
                 if fields.is_empty()
                     && let crate::scope::Resolved::Found { global, rest, .. } =
@@ -1211,7 +1211,7 @@ impl Elaborator {
         let mut found = false;
         for (r, _) in decl_refs(item.decl, item.equations) {
             let n = match r {
-                Ref::Name(n) | Ref::Dot(n, _) => n,
+                Ref::Name(n) | Ref::Dot(n, _, _) => n,
             };
             if let crate::scope::Resolved::Found { global, key, .. } = self.resolve(&n.text)
                 && (global == wanted || members.as_ref().is_some_and(|m| key.starts_with(m)))
@@ -2122,6 +2122,74 @@ fn body_binders<'a>(ty: &'a Expr, equations: &[Decl]) -> Vec<&'a str> {
     names
 }
 
+/// The types as written of a signature's explicit parameters that its
+/// equations' patterns stand for, in order: `None` where a type has one of
+/// the signature's own binders at its head, since an equation may name that
+/// binder differently.
+fn explicit_param_types<'a>(ty: &'a Expr, equations: &[Decl]) -> Vec<Option<&'a Expr>> {
+    let arity = match equations.first() {
+        Some(Decl::Equation { patterns, .. }) => patterns.len(),
+        _ => 0,
+    };
+    let mut binders: Vec<&str> = Vec::new();
+    let mut types = Vec::new();
+    let known = |dom: &'a Expr, binders: &[&str]| {
+        type_head(dom)
+            .filter(|head| !binders.contains(&head_variable(&head.text)))
+            .map(|_| dom)
+    };
+    let mut ty = ty;
+    loop {
+        match ty {
+            Expr::Pi {
+                names: ns,
+                implicit: true,
+                cod,
+                ..
+            } => {
+                binders.extend(ns.iter().map(|n| n.text.as_str()));
+                ty = cod;
+            }
+            Expr::Pi {
+                names: ns,
+                dom,
+                cod,
+                ..
+            } if types.len() + ns.len() <= arity => {
+                types.extend(ns.iter().map(|_| known(dom, &binders)));
+                binders.extend(ns.iter().map(|n| n.text.as_str()));
+                ty = cod;
+            }
+            Expr::Arrow(dom, cod) if types.len() < arity => {
+                types.push(known(dom, &binders));
+                ty = cod;
+            }
+            _ => break,
+        }
+    }
+    types
+}
+
+/// An equation's patterns as walk steps: a variable in the place of a
+/// parameter whose type is written is bound with that type.
+fn equation_patterns<'a>(patterns: &'a [Pattern], types: &[Option<&'a Expr>]) -> Vec<Work<'a>> {
+    patterns
+        .iter()
+        .enumerate()
+        .map(
+            |(k, pattern)| match (pattern, types.get(k).copied().flatten()) {
+                (Pattern::Var(x), Some(ty)) => Work::BindTyped(&x.text, ty),
+                _ => Work::Pattern(pattern),
+            },
+        )
+        .collect()
+}
+
+/// The variable a name starts with: `p` in `p.name`.
+fn head_variable(name: &str) -> &str {
+    name.split_once('.').map_or(name, |(first, _)| first)
+}
+
 /// The error for a default of `name`'s that uses `other`: itself, or one
 /// defined together with it.
 pub(crate) fn default_uses(name: &str, other: &str, span: Span) -> Diagnostic {
@@ -2184,6 +2252,8 @@ enum Work<'a> {
     /// (for the rest of the walk).
     Pattern(&'a Pattern),
     Bind(&'a str),
+    /// A variable bound with its type as written.
+    BindTyped(&'a str, &'a Expr),
     Unbind(&'a str),
     /// A name that's a reference.
     Name(&'a ast::Name),
@@ -2216,12 +2286,13 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                 false,
             );
             let binders = body_binders(ty, equations);
+            let param_types = explicit_param_types(ty, equations);
             for eq in equations {
                 let Decl::Equation { patterns, rhs, .. } = eq else {
                     continue;
                 };
                 let mut work: Vec<Work> = binders.iter().map(|x| Work::Bind(x)).collect();
-                work.extend(patterns.iter().map(Work::Pattern));
+                work.extend(equation_patterns(patterns, &param_types));
                 work.extend(rhs.iter().map(Work::Expr));
                 add(free_names(work), false);
             }
@@ -2300,10 +2371,11 @@ pub(crate) static FLOAT_TYPE: std::sync::LazyLock<ast::Name> =
     });
 
 /// A reference the pre-pass finds: a name, or dot notation's `.field`
-/// (with where it's written).
+/// (with where it's written, and the name at the head of the receiver's
+/// type where that is written: `List` for `xs.length` with `(xs: List a)`).
 pub(crate) enum Ref<'a> {
     Name(&'a ast::Name),
-    Dot(&'a ast::Name, String),
+    Dot(&'a ast::Name, String, Option<&'a ast::Name>),
 }
 
 /// A reference no declaration can have: a `rewrite` is here. A program's
@@ -2359,7 +2431,9 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
 fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
     let mut stack: Vec<Work> = work;
     stack.reverse();
-    let mut bound: HashMap<&str, usize> = HashMap::default();
+    // Each variable's bindings in scope, innermost last, with the name at the
+    // head of its type where that's written and isn't itself a variable.
+    let mut bound: HashMap<&str, Vec<Option<&ast::Name>>> = HashMap::default();
     let mut out = Vec::new();
     // Pushes steps to run in the order given.
     fn then<'a>(stack: &mut Vec<Work<'a>>, steps: Vec<Work<'a>>) {
@@ -2368,32 +2442,50 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
     while let Some(step) = stack.pop() {
         let expr = match step {
             Work::Bind(x) => {
-                *bound.entry(x).or_default() += 1;
+                bound.entry(x).or_default().push(None);
+                continue;
+            }
+            Work::BindTyped(x, ty) => {
+                let head = type_head(ty).filter(|head| {
+                    !bound
+                        .get(head_variable(&head.text))
+                        .is_some_and(|bindings| !bindings.is_empty())
+                });
+                bound.entry(x).or_default().push(head);
                 continue;
             }
             Work::Unbind(x) => {
-                if let Some(count) = bound.get_mut(x) {
-                    *count = count.saturating_sub(1);
+                if let Some(bindings) = bound.get_mut(x) {
+                    bindings.pop();
                 }
                 continue;
             }
             Work::Name(n) => {
-                let is_bound = |x: &str| bound.get(x).copied().unwrap_or(0) > 0;
-                if is_bound(&n.text) {
+                let binding = |x: &str| bound.get(x).and_then(|bindings| bindings.last().copied());
+                if binding(&n.text).is_some() {
                     continue;
                 }
-                match n.text.split_once('.') {
-                    // `p.name`, with `p` local: dot notation.
-                    Some((first, rest)) if is_bound(first) => {
-                        out.extend(rest.split('.').map(|f| Ref::Dot(n, f.to_string())));
+                // `p.name`, with `p` local: dot notation. Only the first
+                // field's receiver has a written type.
+                match n
+                    .text
+                    .split_once('.')
+                    .and_then(|(first, rest)| Some((binding(first)?, rest)))
+                {
+                    Some((head, rest)) => {
+                        out.extend(
+                            rest.split('.')
+                                .enumerate()
+                                .map(|(k, f)| Ref::Dot(n, f.to_string(), head.filter(|_| k == 0))),
+                        );
                     }
-                    _ => out.push(Ref::Name(n)),
+                    None => out.push(Ref::Name(n)),
                 }
                 continue;
             }
             Work::Pattern(p) => {
                 match p {
-                    Pattern::Var(x) => *bound.entry(&x.text).or_default() += 1,
+                    Pattern::Var(x) => bound.entry(&x.text).or_default().push(None),
                     Pattern::Ctor(n, args, _) => {
                         out.push(Ref::Name(n));
                         then(&mut stack, args.iter().map(Work::Pattern).collect());
@@ -2444,7 +2536,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             | Expr::Unit(_) => {}
             Expr::Binary(BinOp::In(_), a, b) => {
                 out.extend(MEMBERSHIP.iter().map(Ref::Name));
-                out.push(Ref::Dot(&MEMBERSHIP[0], "contains".to_string()));
+                out.push(Ref::Dot(&MEMBERSHIP[0], "contains".to_string(), None));
                 then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]);
             }
             Expr::App(a, b)
@@ -2465,7 +2557,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 then(&mut stack, steps);
             }
             Expr::TypedLam(name, _, ty, body, _) => {
-                let (bind, unbind) = binds(std::slice::from_ref(name));
+                let (bind, unbind) = typed_binds(std::slice::from_ref(name), ty);
                 let mut steps = vec![Work::Expr(ty)];
                 steps.extend(bind);
                 steps.push(Work::Expr(body));
@@ -2475,7 +2567,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             Expr::Pi {
                 names, dom, cod, ..
             } => {
-                let (bind, unbind) = binds(names);
+                let (bind, unbind) = typed_binds(names, dom);
                 let mut steps = vec![Work::Expr(dom)];
                 steps.extend(bind);
                 steps.push(Work::Expr(cod));
@@ -2513,7 +2605,14 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 );
             }
             Expr::Field(e, field) => {
-                out.push(Ref::Dot(field, field.text.clone()));
+                // A local variable's written type, when `e` is just that.
+                let receiver = match &**e {
+                    Expr::Var(n) => bound
+                        .get(n.text.as_str())
+                        .and_then(|bindings| bindings.last().copied().flatten()),
+                    _ => None,
+                };
+                out.push(Ref::Dot(field, field.text.clone(), receiver));
                 stack.push(Work::Expr(e));
             }
             // What the proof `omega` writes refers to (crates/elab/src/omega.rs).
@@ -2572,7 +2671,10 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 let mut steps: Vec<Work> = ty.iter().map(|t| Work::Expr(t)).collect();
                 steps.extend([
                     Work::Expr(value),
-                    Work::Bind(&name.text),
+                    match ty {
+                        Some(ty) => Work::BindTyped(&name.text, ty),
+                        None => Work::Bind(&name.text),
+                    },
                     Work::Expr(body),
                     Work::Unbind(&name.text),
                 ]);
@@ -2627,7 +2729,9 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                                 Pattern::Var(x) => Some(x.text.as_str()),
                                 _ => None,
                             };
+                            let mut arg_vars = Vec::new();
                             if arg_var.is_none() {
+                                pattern_binders(arg, &mut arg_vars);
                                 steps.push(Work::Pattern(arg));
                             }
                             steps.extend(arg_var.map(Work::Bind));
@@ -2637,6 +2741,7 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                                 Work::Unbind(&k.text),
                             ]);
                             steps.extend(arg_var.map(Work::Unbind));
+                            steps.extend(arg_vars.into_iter().map(Work::Unbind));
                         }
                     }
                 }
@@ -2664,6 +2769,7 @@ fn local_def_work(def: &ast::LocalDef) -> Vec<Work<'_>> {
     let mut work = vec![Work::Expr(ty)];
     work.extend(defaults_work(ty, defaults));
     let binders = body_binders(ty, &def.equations);
+    let param_types = explicit_param_types(ty, &def.equations);
     for eq in &def.equations {
         let Decl::Equation { patterns, rhs, .. } = eq else {
             continue;
@@ -2673,7 +2779,7 @@ fn local_def_work(def: &ast::LocalDef) -> Vec<Work<'_>> {
             pattern_binders(p, &mut vars);
         }
         work.extend(binders.iter().map(|x| Work::Bind(x)));
-        work.extend(patterns.iter().map(Work::Pattern));
+        work.extend(equation_patterns(patterns, &param_types));
         work.extend(rhs.iter().map(Work::Expr));
         work.extend(vars.into_iter().map(Work::Unbind));
         work.extend(binders.iter().map(|x| Work::Unbind(x)));
@@ -2690,6 +2796,15 @@ pub(crate) fn local_refs(def: &ast::LocalDef) -> Vec<String> {
             Ref::Dot(..) => None,
         })
         .collect()
+}
+
+/// Binding `names`, all of type `ty` as written, around a part of an
+/// expression: the steps before it and after it.
+fn typed_binds<'a>(names: &'a [ast::Name], ty: &'a Expr) -> (Vec<Work<'a>>, Vec<Work<'a>>) {
+    (
+        names.iter().map(|n| Work::BindTyped(&n.text, ty)).collect(),
+        names.iter().map(|n| Work::Unbind(&n.text)).collect(),
+    )
 }
 
 /// Binding `names` around a part of an expression: the steps before it and
