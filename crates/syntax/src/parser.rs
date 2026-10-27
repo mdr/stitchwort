@@ -3239,15 +3239,18 @@ impl<'t> Parser<'t> {
     }
 
     /// `"a${x}b${y}c"`: text pieces joined with `++`, each interpolation
-    /// becoming `Std.Show.toText e`. Empty pieces are left out.
+    /// becoming `Std.Show.toText e`. Empty pieces are left out; the whole
+    /// is wrapped so its span runs from the opening quote to the closing one.
     fn interpolated_str(&mut self) -> Result<Expr> {
         let token = self.bump();
+        let open = token.span;
         let (mut text, mut text_span) = match &token.tok {
             Tok::StrStart(text) => (text.clone(), token.span),
             _ => unreachable!("called at a StrStart"),
         };
         let mut items = Vec::new();
         let mut first = true;
+        let close;
         loop {
             if !text.is_empty() {
                 items.push(Expr::Str(text, text_span));
@@ -3283,6 +3286,7 @@ impl<'t> Parser<'t> {
             text = piece;
             self.bump();
             if end {
+                close = next.span;
                 if !text.is_empty() {
                     items.push(Expr::Str(text, text_span));
                 }
@@ -3294,7 +3298,7 @@ impl<'t> Parser<'t> {
         for lhs in items {
             expr = Expr::Binary(BinOp::Append, Box::new(lhs), Box::new(expr));
         }
-        Ok(expr)
+        Ok(Expr::Interpolated(Box::new(expr), open.to(close)))
     }
 
     fn atom_base(&mut self) -> Result<Expr> {
@@ -4873,6 +4877,28 @@ mod tests {
         // The tuple's span covers its brackets.
         let e = rhs("def f : Nat := (1, 2, 3)\n");
         assert_eq!((e.span().start, e.span().end), (15, 24));
+    }
+
+    #[test]
+    fn an_interpolated_text_spans_its_quotes() {
+        for literal in [
+            "\"${a}\"",
+            "\"${a} and ${b}\"",
+            "\"x ${a}\"",
+            "\"${a} x\"",
+            "\"x ${a} y\"",
+            "\"${\"${a}\"}\"",
+        ] {
+            let source = format!("def f : Text := {literal}\n");
+            let e = rhs(&source);
+            assert!(matches!(e, Expr::Interpolated(..)), "{literal}: {e:?}");
+            let span = e.span();
+            assert_eq!(
+                &source[span.start as usize..span.end as usize],
+                literal,
+                "{literal}"
+            );
+        }
     }
 
     #[test]

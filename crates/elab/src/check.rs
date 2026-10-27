@@ -707,6 +707,13 @@ pub(crate) fn infer_unrun(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
 }
 
 fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    // The pieces are elaborated under the whole literal's span, so errors
+    // point at all of it; the pieces' own span is still noted.
+    if let Expr::Interpolated(text, _) = expr {
+        let (term, ty) = infer_inner(cx, text)?;
+        cx.e.note_expr(cx, text.span(), &ty);
+        return Ok((term, ty));
+    }
     // Code that performs operations, in a pure context: it may only perform
     // what it handles itself.
     if effects::may_perform(cx, expr)? {
@@ -859,6 +866,11 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             infer_app(cx, head, &args)
         }
         Expr::Bracketed(call, _) => infer(cx, call),
+        Expr::Interpolated(text, _) => {
+            let (term, ty) = infer_value(cx, text)?;
+            cx.e.note_expr(cx, text.span(), &ty);
+            Ok((term, ty))
+        }
         Expr::Pipe(value, f) => {
             crate::pipe::infer_pipe(cx, value, f).map_err(|e| crate::pipe::compared_pipe_note(e, f))
         }
@@ -2435,6 +2447,11 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 }
 
 fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    if let Expr::Interpolated(text, _) = expr {
+        let term = check_inner(cx, text, expected)?;
+        cx.e.note_expr(cx, text.span(), expected);
+        return Ok(term);
+    }
     let g = cx.g();
     let expected = force(g, expected.clone())?;
     if cx.e.divergence_case_body() {
