@@ -5741,7 +5741,7 @@
     {
       "id": 701,
       "title": "Investigate: out-of-scope names (List.length tail, holds level head) in a goal, and rewrite failing once the goal expanded the lemma's function (D1416, AoC 2024 day 2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
