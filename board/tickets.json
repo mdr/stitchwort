@@ -5633,7 +5633,7 @@
     {
       "id": 692,
       "title": "std order-independence lemmas: List.sumByPerm, countPerm, sort equal for permutations via Ord (no transitivity/antisymmetry arguments), removeFirst; Map.getOrCounts stated with xs.count (== key) (AoC 2024 day 1 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
