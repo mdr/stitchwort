@@ -331,6 +331,42 @@ fn helper_owner(cx: &Ctx, recv: &Expr) -> Option<String> {
     }
 }
 
+/// `T.f.update.g` where there's no such lemma: `T.f` is a definition (key
+/// `owner`), so `.update` is part of a name, not dot notation.
+fn no_update_lemma(cx: &Ctx, recv: &Expr, field: &AstName, owner: &str) -> Diagnostic {
+    let shown_owner = scope::display(owner);
+    let prefix = format!("{owner}.update.");
+    let mut lemmas: Vec<String> =
+        cx.e.helper_keys
+            .iter()
+            .filter(|k| k.starts_with(&prefix))
+            .map(|k| format!("`{}`", scope::display(k)))
+            .collect();
+    lemmas.sort();
+    let note = if lemmas.is_empty() {
+        format!(
+            "update lemmas `T.f.update.g` exist for each shared field `f` of a data type \
+             that isn't a record, and `{shown_owner}` isn't one"
+        )
+    } else {
+        format!(
+            "the update lemmas for `{shown_owner}` are {}, one for each shared field holding \
+             data whose type mentions no other field",
+            lemmas.join(", ")
+        )
+    };
+    let span = match recv {
+        Expr::Var(n) => n.span.to(field.span),
+        _ => field.span,
+    };
+    Diagnostic::error(
+        "E-UNKNOWN-NAME",
+        format!("unknown name `{shown_owner}.update…`"),
+    )
+    .with_label(span, "no such update lemma")
+    .with_note(note)
+}
+
 /// Finds `T.f` for the receiver's type `ty`: the first head in the view
 /// whose namespace has an `f`.
 fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, DefId, String)> {
@@ -369,6 +405,10 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
                          `(p: Person) => p.{}`, or write the function's full name",
                         field.text, field.text
                     )));
+            }
+            Step::Nothing(_) if field.text == "update" && helper_owner(cx, recv).is_some() => {
+                let owner = helper_owner(cx, recv).expect("just checked");
+                return Err(no_update_lemma(cx, recv, field, &owner));
             }
             Step::Nothing(what) => {
                 return Err(cx
