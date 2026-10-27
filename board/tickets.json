@@ -5729,7 +5729,7 @@
     {
       "id": 700,
       "title": "std: List.zipWithNext, Bool List.chain with tail/dropLast lemmas, List.countMono (countP_mono_left), List.anyCong/allCong (D1416, AoC 2024 day 2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
