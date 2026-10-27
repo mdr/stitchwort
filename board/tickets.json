@@ -1,5 +1,5 @@
 {
-  "next": 699,
+  "next": 703,
   "tickets": [
     {
       "id": 13,
@@ -5705,6 +5705,54 @@
     {
       "id": 698,
       "title": "Research: a std parser-combinator library for puzzle input (audit effect languages and FP libraries; design note for review) (Matt 27 Oct)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 699,
+      "title": "Termination: a list rebuilt from its own pattern parts (Cons next (Cons after more) inside Cons level (Cons next …)) counts as smaller; the error names the argument that really doesn't shrink (D1416, AoC 2024 day 2)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 700,
+      "title": "std: List.zipWithNext, Bool List.chain with tail/dropLast lemmas, List.countMono (countP_mono_left), List.anyCong/allCong (D1416, AoC 2024 day 2)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 701,
+      "title": "Investigate: out-of-scope names (List.length tail, holds level head) in a goal, and rewrite failing once the goal expanded the lemma's function (D1416, AoC 2024 day 2)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 702,
+      "title": "Goals print &&, ||, <, <= as written and names relative to the open namespace; == stays expanded (D1417, AoC 2024 day 2)",
       "status": "doing",
       "agent": "",
       "where": "",
