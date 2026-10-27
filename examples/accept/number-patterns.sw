@@ -82,7 +82,7 @@ test "h 404" := h 404 == 0
 test "h 405" := h 405 == 403
 
 -- A first equation that matches everything wins: `constant` doesn't look at
--- its argument, and the second equation is never used.
+-- its argument, and the second equation is never used (`W-REDUNDANT`).
 def constant: Nat → Nat
   | n => 1
   | 404 => 2

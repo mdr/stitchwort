@@ -5,7 +5,7 @@ These `.sw` files are the main test suite. `cargo test` runs every one of them
 
 | Directory | Expectation |
 |---|---|
-| `accept/` | Must type-check without errors. |
+| `accept/` | Must type-check without errors. One that declares a warning on a leading `-- expect-warning: W-CODE` line must report it, and its warnings are snapshot-tested. |
 | `reject/` | Must fail with the error code the file declares. The error messages are snapshot-tested, so changes to them show up in review. |
 | `extract/` | Must type-check, and their exports are extracted to JS. Each `-- run: f args` line is evaluated by both the reference evaluator and the generated JS under Node, and the results must agree (`crates/cli/tests/extract.rs`). |
 | `goals/` | Must report open goals (`?`), and no errors unless the file declares one with `-- expect-error:` (a hole beside an error). The rendered goals are snapshot-tested. Their tests (of what's finished) must pass. |

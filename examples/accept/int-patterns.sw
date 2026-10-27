@@ -40,7 +40,8 @@ def zeroOrOther: Int → Bool
 
 theorem negativeIsOther (k: Nat): zeroOrOther (NegSucc k) = False := rfl
 
--- `0` and `-0` are one key; the first row with it wins.
+-- `0` and `-0` are one key; the first row with it wins, and the
+-- second warns `W-REDUNDANT`.
 def zeros: Int → Nat
   | 0 => 1
   | (-0) => 2
@@ -92,7 +93,7 @@ theorem mixedPos: mixed 4 = 14 := rfl
 
 theorem mixedNeg: mixed (-7) = 99 := rfl
 
--- A catch-all before a literal makes the literal's row unreachable.
+-- A catch-all before a literal makes the literal's row unreachable (`W-REDUNDANT`).
 def shadowed: Int → Nat
   | _ => 1
   | 5 => 2
