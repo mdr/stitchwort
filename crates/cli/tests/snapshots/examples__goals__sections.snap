@@ -1,0 +1,33 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `summary`
+    ╭─[ goals/sections.sw:16:3 ]
+    │
+ 16 │   ?
+    │   ┬  
+    │   ╰── xs: List Nat
+    │       items: List Item
+    │       id: Nat
+    │       n: Nat
+    │       matching: Nat := List.count xs (== id)
+    │       flipped: Nat := List.count xs (id ==)
+    │       others: Nat := List.count xs (!= id)
+    │       next: List Nat := List.map xs (+ 1)
+    │       doubled: List Nat := List.map xs (n * 2 +)
+    │       small: List Nat := List.filter xs (< n)
+    │       large: List Nat := List.filter xs (n <)
+    │       total: Nat := List.foldLeft xs 0 (+)
+    │       found: List Item := List.filter items (x => Decidable.toBool (Nat.decEq x.id id))
+    │       ⊢ Nat
+────╯
+[GOAL] Goal: in `countBelow`
+    ╭─[ goals/sections.sw:18:75 ]
+    │
+ 18 │ theorem countBelow (xs: List Nat) (n: Nat): xs.count (< n) ≤ xs.length := ?
+    │                                                                           ┬  
+    │                                                                           ╰── xs: List Nat
+    │                                                                               n: Nat
+    │                                                                               ⊢ Nat.leq (List.count xs (< n)) (List.length xs) = True
+────╯

@@ -480,19 +480,29 @@ impl<'g> Printer<'g> {
                     (format!("{dom} {arrow} {cod}"), Prec::Arrow)
                 }
             }
+            // An operator section or a bare operator is shown as written:
+            // `(== id)`, `(k +)`, `(&&)`.
+            Term::Lam(..) if let Some(section) = self.section(names, term) => (section, Prec::Atom),
             // Nested lambdas are one run: `x y => body`. A lambda is a whole
             // expression only; everywhere else it gets brackets, since it
             // prints at the loosest precedence (docs/proposals/lambda-syntax.md §8.3).
             // Implicit and auto parameters are written as such (§4.3), with
             // their types left to be worked out, since a lambda doesn't
-            // record them: `[a: _] x => x`.
+            // record them: `[a: _] x => x`. A section's hidden parameter,
+            // where the lambda isn't shown as the section, gets a readable
+            // name; a section inside the run ends it.
             Term::Lam(x, icit, b) => {
-                let mut params = vec![lambda_param(x, *icit)];
-                names.push(x.clone());
+                let x = readable(x, names);
+                let mut params = vec![lambda_param(&x, *icit)];
+                names.push(x);
                 let mut body = &**b;
                 while let Term::Lam(y, icit, inner) = body.strip_loc() {
-                    params.push(lambda_param(y, *icit));
-                    names.push(y.clone());
+                    if self.section(names, body).is_some() {
+                        break;
+                    }
+                    let y = readable(y, names);
+                    params.push(lambda_param(&y, *icit));
+                    names.push(y);
                     body = inner;
                 }
                 let body = self.print(names, body, Prec::Arrow);
@@ -634,22 +644,7 @@ impl<'g> Printer<'g> {
                         let result = self.print(names, result, Prec::App);
                         return (format!("{row} {result}"), Prec::App);
                     }
-                    let infix = match self.g.registry.def_builtin(*id) {
-                        Some(Builtin::Add) => Some(("+", Prec::Add)),
-                        Some(Builtin::Sub) => Some(("-", Prec::Add)),
-                        Some(Builtin::Mul) => Some(("*", Prec::Mul)),
-                        Some(Builtin::Div) => Some(("/", Prec::Mul)),
-                        Some(Builtin::Mod) => Some(("%", Prec::Mul)),
-                        Some(Builtin::IntAdd) => Some(("+", Prec::Add)),
-                        Some(Builtin::IntSub) => Some(("-", Prec::Add)),
-                        Some(Builtin::IntMul) => Some(("*", Prec::Mul)),
-                        Some(Builtin::IntDiv) => Some(("/", Prec::Mul)),
-                        Some(Builtin::IntMod) => Some(("%", Prec::Mul)),
-                        Some(Builtin::LessEq) => Some((self.sym("≤", "<="), Prec::Eq)),
-                        Some(Builtin::LessThan) => Some(("<", Prec::Eq)),
-                        _ => None,
-                    };
-                    if let (Some((op, prec)), [lhs, rhs]) = (infix, &args[..]) {
+                    if let (Some((op, prec)), [lhs, rhs]) = (self.infix(*id), &args[..]) {
                         // `+`, `-`, `*`, `/` and `%` associate left;
                         // comparisons don't associate.
                         let (left, right) = match prec {
@@ -733,6 +728,137 @@ impl<'g> Printer<'g> {
         // `!` binds more loosely than application: `¬p x` is `¬(p x)`.
         let p = self.print(names, prop, Prec::App);
         (format!("{}{p}", self.sym("¬", "!")), Prec::Neg)
+    }
+
+    /// The operator a call of `id` is shown with, and its precedence.
+    fn infix(&self, id: DefId) -> Option<(&'static str, Prec)> {
+        match self.g.registry.def_builtin(id)? {
+            Builtin::Add | Builtin::IntAdd => Some(("+", Prec::Add)),
+            Builtin::Sub | Builtin::IntSub => Some(("-", Prec::Add)),
+            Builtin::Mul | Builtin::IntMul => Some(("*", Prec::Mul)),
+            Builtin::Div | Builtin::IntDiv => Some(("/", Prec::Mul)),
+            Builtin::Mod | Builtin::IntMod => Some(("%", Prec::Mul)),
+            Builtin::LessEq => Some((self.sym("≤", "<="), Prec::Eq)),
+            Builtin::LessThan => Some(("<", Prec::Eq)),
+            _ => None,
+        }
+    }
+
+    /// A section's lambda as written: `(== id)` for `%section => %section
+    /// == id`, `(k +)` for `%section => k + %section`, and `(&&)` for a bare
+    /// operator's `%left %right => %left && %right`.
+    fn section(&self, names: &mut Vec<Name>, term: &Term) -> Option<String> {
+        let Term::Lam(x, Icit::Explicit, body) = term.strip_loc() else {
+            return None;
+        };
+        let is_var = |t: &Term, ix: usize| matches!(t.strip_loc(), Term::Var(i) if *i == ix);
+        match &**x {
+            SECTION => {
+                let (op, operand, lhs, rhs) = self.operation(body)?;
+                names.push(x.clone());
+                // `(- 1)` is the number, so `x - 1` isn't a section.
+                let text = if is_var(lhs, 0) && !rhs.mentions(0) && op != "-" {
+                    Some(format!("({op} {})", self.print(names, rhs, operand)))
+                } else if is_var(rhs, 0) && !lhs.mentions(0) {
+                    Some(format!("({} {op})", self.print(names, lhs, operand)))
+                } else {
+                    None
+                };
+                names.pop();
+                text
+            }
+            LEFT => {
+                let Term::Lam(y, Icit::Explicit, body) = body.strip_loc() else {
+                    return None;
+                };
+                if &**y != RIGHT {
+                    return None;
+                }
+                let (op, _, lhs, rhs) = self.operation(body)?;
+                (is_var(lhs, 1) && is_var(rhs, 0)).then(|| format!("({op})"))
+            }
+            _ => None,
+        }
+    }
+
+    /// The operator, the precedence its operand in a section is printed at,
+    /// and the two operands of an operation a section can write. Besides the
+    /// operators printed everywhere, these include the `Bool` ones as they
+    /// are elaborated: `a == b` is `Decidable.toBool {a = b} d`, `a != b`
+    /// the same with `Not (a = b)`, `a < b` on `Nat` is `Nat.leq (Succ a)
+    /// b`, and `a <= b` is `Nat.leq a b`.
+    fn operation<'t>(&self, term: &'t Term) -> Option<(&'static str, Prec, &'t Term, &'t Term)> {
+        if let Term::Eq(_, a, b) = term.strip_loc() {
+            return Some(("=", Prec::Add, a, b));
+        }
+        let (head, args) = full_spine(term);
+        let Term::Def(id) = head else {
+            return None;
+        };
+        let reg = &self.g.registry;
+        if reg.loaded_def(Builtin::ToBool) == Some(*id) {
+            let [(prop, Icit::Implicit), (_, Icit::Explicit)] = args[..] else {
+                return None;
+            };
+            if let Term::Eq(_, a, b) = prop.strip_loc() {
+                return Some(("==", Prec::Add, a, b));
+            }
+            if let Some(Term::Eq(_, a, b)) = self.negated(prop).map(Term::strip_loc) {
+                return Some(("!=", Prec::Add, a, b));
+            }
+            return None;
+        }
+        let explicit: Vec<&Term> = args
+            .iter()
+            .filter(|(_, icit)| *icit == Icit::Explicit)
+            .map(|(arg, _)| *arg)
+            .collect();
+        let [lhs, rhs] = explicit[..] else {
+            return None;
+        };
+        // An operand binds one step tighter than the operator.
+        if let Some((op, prec)) = self.infix(*id) {
+            let operand = match prec {
+                Prec::Add => Prec::Mul,
+                Prec::Mul => Prec::Neg,
+                _ => Prec::Add,
+            };
+            return Some((op, operand, lhs, rhs));
+        }
+        let op = match reg.def_builtin(*id)? {
+            Builtin::Leq => match lhs.strip_loc() {
+                Term::Ctor(d, 1, m) if is(self.g, Builtin::Nat, *d) && m.len() == 1 => {
+                    return Some(("<", Prec::Add, &m[0], rhs));
+                }
+                _ => "<=",
+            },
+            Builtin::IntLeq | Builtin::FloatLeq => "<=",
+            Builtin::IntLess | Builtin::FloatLess => "<",
+            Builtin::Append | Builtin::TextAppend => "++",
+            _ => return None,
+        };
+        Some((op, Prec::Add, lhs, rhs))
+    }
+
+    /// `p`, if `prop` is `Not p` or what it computes to, `p → Void`.
+    fn negated<'t>(&self, prop: &'t Term) -> Option<&'t Term> {
+        match prop.strip_loc() {
+            Term::Pi(_, Icit::Explicit, p, void)
+                if !void.mentions(0)
+                    && matches!(void.strip_loc(), Term::Data(d, _) if is(self.g, Builtin::Void, *d)) =>
+            {
+                Some(p)
+            }
+            prop => match explicit_spine(prop) {
+                (Term::Def(id), args) if self.g.registry.is_def(Builtin::Not, *id) => {
+                    match args[..] {
+                        [p] => Some(p),
+                        _ => None,
+                    }
+                }
+                _ => None,
+            },
+        }
     }
 
     /// The element and the list of `List.Mem x xs`.
@@ -1123,6 +1249,34 @@ impl<'g> Printer<'g> {
 /// `%base`) or a field's new value (`%new%f`).
 fn is_update_let(x: &str) -> bool {
     x == "%record" || x == "%base" || x.starts_with("%new%")
+}
+
+/// The hidden parameter of an operator section, `(== id)`.
+const SECTION: &str = "%section";
+
+/// The hidden parameters of a bare operator, `(&&)`.
+const LEFT: &str = "%left";
+const RIGHT: &str = "%right";
+
+/// A lambda's parameter `x` as shown: a section's hidden parameter, in a
+/// lambda not shown as the section, gets a name that `names` doesn't use.
+fn readable(x: &Name, names: &[Name]) -> Name {
+    let base = match &**x {
+        SECTION | LEFT => "x",
+        RIGHT => "y",
+        _ => return x.clone(),
+    };
+    (0..)
+        .map(|k| {
+            if k == 0 {
+                base.to_string()
+            } else {
+                format!("{base}{k}")
+            }
+        })
+        .find(|candidate| !names.iter().any(|n| **n == **candidate))
+        .expect("some name is free")
+        .into()
 }
 
 fn is_atomic(term: &Term) -> bool {
