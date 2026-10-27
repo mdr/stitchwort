@@ -3309,14 +3309,14 @@
     },
     {
       "id": 508,
-      "title": "Consider how tightly |> should bind relative to ∧/∨/==: rogue had 'a ∧ xs.filter p |> .length == 4' pipe the whole conjunction, error pointed at the filter (NOTES stage 3 #3)",
-      "status": "backlog",
+      "title": "Pipe precedence: |> binds tighter than comparisons, =, ∧/∨ and <->, looser than ++, arithmetic and application (D1408, Matt 27 Oct; research note pipe-precedence-research.md)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -4081,13 +4081,13 @@
     {
       "id": 566,
       "title": "Warn when a |> pipe's right side is a comparison: '|>' binds looser than '=', so 'xs.map f |> .getOr d i = y' silently means piping into the equation (rogue PROOFS.md)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Superseded by D1408 (27 Oct): |> now binds tighter than comparisons, so a comparison on a pipe's right side applies to the piped result.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
