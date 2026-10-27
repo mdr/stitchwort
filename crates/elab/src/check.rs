@@ -493,6 +493,43 @@ impl<'e> Ctx<'e> {
         pretty::value_for_message_hidden(self.g(), &self.names, value)
     }
 
+    /// `d` with a note saying the sides are different updates, for two
+    /// sides that print alike but whose values, as shown or computed, call
+    /// two different helpers of updates (each prints as `{ x | f = s }`).
+    /// Error path only.
+    pub fn with_alike_updates_note(&self, d: Diagnostic, values: &[&Value]) -> Diagnostic {
+        let g = self.g();
+        let level = self.level();
+        let mut helpers: Vec<stitchwort_core::DefId> = Vec::new();
+        for value in values {
+            let terms = [
+                stitchwort_core::value::quote_folded(g, level, value),
+                quote(g, level, value),
+            ];
+            for term in terms.iter().flatten() {
+                for (t, _) in term.subterms() {
+                    if let Term::Def(id) = t
+                        && g.def(*id).update_shown.is_some()
+                        && !helpers.contains(id)
+                    {
+                        helpers.push(*id);
+                    }
+                }
+            }
+        }
+        if helpers.len() < 2 {
+            return d;
+        }
+        d.with_note(
+            "these are different updates that print alike: each `{ x | f = s }` is made into a \
+             hidden function of its own, and two are equal only when they replace the same \
+             fields with the same values and neither calls the definition it's written in \
+             (here they may differ in a part shown as `…`, or one may be in a recursive \
+             definition); to prove something about both, name the update as a `def` and use \
+             it in both places",
+        )
+    }
+
     pub fn error(
         &self,
         code: &'static str,
@@ -553,6 +590,8 @@ impl<'e> Ctx<'e> {
                  `[brackets]` (an implicit argument, or a proof such as `d != 0`; proofs of the \
                  same statement aren't interchangeable)",
             )
+        } else if expected_shown == found_shown {
+            self.with_alike_updates_note(d, &[expected, found])
         } else {
             d
         };
@@ -4363,6 +4402,7 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     } else {
         (label, false)
     };
+    let alike = !hidden && (shown_a == shown_b || normal_a == normal_b || written_equal(&label));
     let mut error = cx.error("E-REFL", "`rfl` can't prove this", label);
     if hidden {
         error = error.with_note(
@@ -4372,6 +4412,10 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
         );
     } else if let Some(computed) = computed {
         error = error.with_note(computed);
+    }
+    // Both sides still print the same, as written or computed.
+    if alike {
+        error = cx.with_alike_updates_note(error, &[a, b]);
     }
     let error =
         error.with_note("`rfl` proves `a = b` only when both sides compute to the same value");
