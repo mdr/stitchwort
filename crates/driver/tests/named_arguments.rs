@@ -594,11 +594,11 @@ fn changing_a_default_changes_only_the_literals_that_use_it() {
         .collect();
     assert_eq!(
         changed,
-        BTreeSet::from(["Main.RangeOptions.start.default", "Main.leavesStartOut"]),
+        BTreeSet::from(["Main.RangeOptions.start%default", "Main.leavesStartOut"]),
         "before: {before:#?}\nafter: {after:#?}"
     );
-    assert!(before.contains_key("Main.RangeOptions.step.default"));
-    assert!(before.contains_key("Main.Shape.Circle.id.default"));
+    assert!(before.contains_key("Main.RangeOptions.step%default"));
+    assert!(before.contains_key("Main.Shape.Circle.id%default"));
 }
 
 /// A literal that gives every field, and a named construction that does,

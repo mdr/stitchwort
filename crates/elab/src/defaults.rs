@@ -5,8 +5,8 @@
 //! leave out a field that has one.
 //!
 //! Each default becomes a generated definition, a *helper*, elaborated once
-//! the type is admitted: `RangeOptions.step.default`, or
-//! `Shape.Circle.id.default` for a constructor's field. Its parameters are
+//! the type is admitted: `RangeOptions.step%default`, or
+//! `Shape.Circle.id%default` for a constructor's field. Its parameters are
 //! the type's parameters and earlier fields the default needs: the
 //! variables its elaborated value and its type mention, closed under the
 //! variables their types mention (§5.1 rule 5), in context order, which
@@ -22,7 +22,7 @@
 //! into variables). Leaving a field out commits to its default (rule 3): a
 //! later field is checked against the type the default gives.
 //!
-//! The helpers' names contain two dots, which source can't write, so they
+//! The helpers' names contain a `%`, which source can't write, so they
 //! are kept out of the name table; [`FieldDefault`]s, kept per declaration
 //! (`Data::defaults`, and in the check cache), are how a
 //! literal finds them. Defaults aren't part of the type's hash (D1099): a
@@ -116,9 +116,9 @@ impl Elaborator {
         let np = data.params.len();
         let field = ctor.fields[i].0.clone();
         let label: Name = if data.record {
-            format!("{}.{field}.default", data.name)
+            format!("{}.{field}%default", data.name)
         } else {
-            format!("{}.{}.{field}.default", data.name, ctor.name)
+            format!("{}.{}.{field}%default", data.name, ctor.name)
         }
         .into();
         // Each variable of the context: its name and type, in the context of

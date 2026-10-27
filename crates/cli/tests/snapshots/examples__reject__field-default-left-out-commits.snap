@@ -7,7 +7,7 @@ expression: output
     │
  15 │ def made: Sized := { cells = threeCells }
     │                              ─────┬────  
-    │                                   ╰────── expected `Vec Bool Sized.size.default`, but this has type `Vec Bool 3`
+    │                                   ╰────── expected `Vec Bool 0`, but this has type `Vec Bool 3`
     │ 
     │ Note: `size` is left out, so it is its default value, `0`; give `size` to use another
 ────╯
