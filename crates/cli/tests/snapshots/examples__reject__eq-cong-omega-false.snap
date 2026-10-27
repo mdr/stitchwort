@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `n + 1 = n + 2`
+   ╭─[ reject/eq-cong-omega-false.sw:7:17 ]
+   │
+ 7 │   Eq.cong Some (omega)
+   │                 ──┬──  
+   │                   ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │ 
+   │ Note 1: facts: none in scope
+   │ 
+   │ Note 2: atoms: `n`
+   │ 
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): n = 0
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           n = 0
+   │         `Some (n + 1) = Some (n + 2)` is false:
+   │           left:  Some 1
+   │           right: Some 2
+   │           first difference at .Some.value: 1 vs 2
+───╯
