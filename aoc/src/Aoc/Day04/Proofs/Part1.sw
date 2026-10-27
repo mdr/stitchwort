@@ -15,7 +15,7 @@ import Std (Bool, Eq, List, Nat, Vec)
 theorem rollsCells (rows: Vec (Vec Cell w) h): countRolls rows = List.sumBy (List.range h) (r => List.sumBy (List.range w) (c => (rowsCells rows r c).count)) :=
   let gap := Vec.replicate w Floor
   calc countRolls rows
-    _ = List.sumBy (List.range h) (r => Vec.sumBy (Vec.getOr rows gap r) Cell.count) := Vec.sumByGetOr rows gap (row => Vec.sumBy row Cell.count)
+    _ = List.sumBy (List.range h) (r => Vec.sumBy (Vec.getOr rows r gap) Cell.count) := Vec.sumByGetOr rows gap (row => Vec.sumBy row Cell.count)
     _ = List.sumBy (List.range h) (r => List.sumBy (List.range w) (c => (rowsCells rows r c).count))
       := rewrite Vec.sumByGetOr _ Floor Cell.count
 

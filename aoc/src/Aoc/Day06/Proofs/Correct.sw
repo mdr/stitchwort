@@ -24,12 +24,12 @@ theorem isProblemRun (lines: List Text) (lo: Nat) (hi: Nat): isProblem lines lo 
 -- The program's columns are the worksheet's columns, cell by cell.
 theorem columnsAre (lines: List Text):
     List.transposeFill (List.map lines Text.toList) ' ' = (List.range (gridWidth lines)).map (column lines) :=
-  rewrite List.transposeFillColumns (List.map lines Text.toList) ' ', List.mapMap lines (.getOr ' ' _) Text.toList
+  rewrite List.transposeFillColumns (List.map lines Text.toList) ' ', List.mapMap lines (.getOr _ ' ') Text.toList
 
 -- Past a bound on every line's length, every column is blank.
-theorem blankPast (w: Nat): (lines: List Text) → ((r: Nat) → List.length (List.getOr (List.map lines Text.toList) Nil r) ≤ w) → blank lines w = True
+theorem blankPast (w: Nat): (lines: List Text) → ((r: Nat) → List.length (List.getOr (List.map lines Text.toList) r Nil) ≤ w) → blank lines w = True
   | Nil, h => rfl
-  | Cons l rest, h => rewrite List.getOrPast (Text.toList l) ' ' w (h 0) in blankPast w rest (r => h (Succ r))
+  | Cons l rest, h => rewrite List.getOrPast (Text.toList l) w ' ' (h 0) in blankPast w rest (r => h (Succ r))
 
 -- One problem's block of columns, as the program reads it, against the
 -- spec's reading of the same cells. `Cons c cs` are the problem's columns.

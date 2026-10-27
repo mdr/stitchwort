@@ -129,7 +129,7 @@ def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
 -- `Boxes`).
 def solvePart2 (boxes: Boxes): Option Nat :=
   (lastJoin (Circuits.separate boxes.points.length) boxes.pairs).map (((first, second)) =>
-    (boxes.points.getOr origin first).x * (boxes.points.getOr origin second).x)
+    (boxes.points.getOr first origin).x * (boxes.points.getOr second origin).x)
 
 -- Every box number is in range, so this default is never used.
 def origin: Point := { x = 0, y = 0, z = 0 }

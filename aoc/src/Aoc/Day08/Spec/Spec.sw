@@ -25,7 +25,7 @@ import Aoc.Day08 (..)
 import Std (Iff, List, Nat, Ord, Ordering)
 
 -- Box number i.
-def boxAt (points: List Point) (i: Nat): Point := points.getOr origin i
+def boxAt (points: List Point) (i: Nat): Point := points.getOr i origin
 
 -- Every pair of the boxes 0 to n - 1: box i with box j, for i < j.
 def allPairs (n: Nat): List (Nat, Nat) := List.range n |> .pairs
@@ -78,7 +78,7 @@ def LastNeeded (points: List Point) (k: Nat): Prop :=
   And (OneCircuit points.length (firstConnections (Succ k) points)) (Not (OneCircuit points.length (firstConnections k points)))
 
 -- Connection number k.
-def connectionAt (points: List Point) (k: Nat): (Nat, Nat) := connectionOrder points |> .getOr (0, 0) k
+def connectionAt (points: List Point) (k: Nat): (Nat, Nat) := connectionOrder points |> .getOr k (0, 0)
 
 -- The product of the X coordinates of a pair's two boxes.
 def xProduct (points: List Point) (pair: (Nat, Nat)): Nat := (boxAt points pair.fst).x * (boxAt points pair.snd).x

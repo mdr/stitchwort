@@ -51,7 +51,7 @@ def labelCount (c: Circuits) (n: Nat) (label: Nat): Nat := List.count (List.map 
 -- The histogram of the labels.
 def labelCounts (c: Circuits) (n: Nat): Map Nat Nat := Map.counts (List.map (List.range n) c.labelOf)
 
-theorem getOrLabelCounts (c: Circuits) (n: Nat) (label: Nat): Map.getOr (labelCounts c n) 0 label = labelCount c n label :=
+theorem getOrLabelCounts (c: Circuits) (n: Nat) (label: Nat): Map.getOr (labelCounts c n) label 0 = labelCount c n label :=
   rewrite Map.getOrCounts label (List.map (List.range n) c.labelOf), Map.Spec.sameKeyDecide label _ in rfl
 
 -- Each entry of the histogram is a label and its count.
@@ -72,7 +72,7 @@ theorem countOfMem (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.
 -- The histogram's keys are the labels.
 theorem keyOfLabel (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.range n) c.labelOf)):
     List.Mem label (Map.keys (labelCounts c n)) :=
-  let positive: 0 < Map.getOr (labelCounts c n) 0 label := rewrite getOrLabelCounts c n label in countOfMem c n label m
+  let positive: 0 < Map.getOr (labelCounts c n) label 0 := rewrite getOrLabelCounts c n label in countOfMem c n label m
   match g: Map.get (labelCounts c n) label with
     | None => Void.exfalso (Bool.falseNotTrue positive)
     | Some v => List.memMap (Map.toList (labelCounts c n)) (label, v) ((Map.memToList (labelCounts c n) label v).backward g) Pair.fst

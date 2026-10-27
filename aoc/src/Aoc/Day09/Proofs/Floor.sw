@@ -17,7 +17,7 @@ import Aoc.Day09.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, List, Nat, PrefixSums, Void)
 
 -- The key tile at key column c and key row r.
-def keyTile (floor: Floor) (c: Nat) (r: Nat): Tile := { x = List.getOr floor.columns 0 c, y = List.getOr floor.rows 0 r }
+def keyTile (floor: Floor) (c: Nat) (r: Nat): Tile := { x = List.getOr floor.columns c 0, y = List.getOr floor.rows r 0 }
 
 -- The floor's cells.
 def floorCells (tiles: List Tile): List (List Nat) :=
@@ -51,9 +51,9 @@ theorem cellAt (tiles: List Tile) (r: Nat) (c: Nat) (hr: r < List.length (Floor.
     PrefixSums.cell (floorCells tiles) r c = outsideFlag (redOrGreen tiles (keyTile (Floor.of tiles) c r)) :=
   let floor := Floor.of tiles
   let lines := loopLines tiles
-  let y := List.getOr floor.rows 0 r
-  rewrite List.getOrMapLt floor.rows 0 Nil r hr (y => Floor.outsideRow (List.filter lines (touchesRow y)) floor.columns y),
-    List.getOrMapLt floor.columns 0 0 c hc (x => if isRedOrGreen (List.filter lines (touchesRow y)) { x, y } then 0 else 1),
+  let y := List.getOr floor.rows r 0
+  rewrite List.getOrMapLt floor.rows r 0 Nil hr (y => Floor.outsideRow (List.filter lines (touchesRow y)) floor.columns y),
+    List.getOrMapLt floor.columns c 0 0 hc (x => if isRedOrGreen (List.filter lines (touchesRow y)) { x, y } then 0 else 1),
     isRedOrGreenNear tiles (keyTile floor c r)
     in rfl
 
@@ -64,10 +64,10 @@ theorem outsideFlagZero: (b: Bool) → outsideFlag b = 0 → b = True
 
 -- Every row of the floor is as long as the key columns.
 theorem lengthCellRow (tiles: List Tile) (r: Nat) (hr: r < List.length (Floor.of tiles).rows):
-    List.length (List.getOr (floorCells tiles) Nil r) = List.length (Floor.of tiles).columns :=
+    List.length (List.getOr (floorCells tiles) r Nil) = List.length (Floor.of tiles).columns :=
   let floor := Floor.of tiles
   let lines := loopLines tiles
-  rewrite List.getOrMapLt floor.rows 0 Nil r hr (y => Floor.outsideRow (List.filter lines (touchesRow y)) floor.columns y)
+  rewrite List.getOrMapLt floor.rows r 0 Nil hr (y => Floor.outsideRow (List.filter lines (touchesRow y)) floor.columns y)
     in List.lengthMap floor.columns _
 
 -- 3. The program's test of a rectangle -----------------------------------------
