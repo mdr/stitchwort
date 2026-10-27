@@ -21,7 +21,7 @@ test "a constructor is a function" := [1, 2].map Some == [Some 1, Some 2]
 
 A lambda passed as an argument needs brackets: `map (n => n * n) xs`. Without them, `map n => …` would be a lambda with two parameters, the first called `map`. The compiler warns about this (`W-LAMBDA-SHADOW`) when the first parameter hides a function in scope.
 
-A lambda's parameter types usually come from where it is used. When nothing says what they are, annotate the parameter:
+A lambda's parameter types come from where it is passed or, for one bound by `let`, from its body and how it is used afterwards: `let step := x => x + 1` needs no annotation. Looking something up with `.` needs the type at that point, though, so here `person` must be annotated:
 
 <!-- snippet: errors/unknown-receiver.sw -->
 ```stitchwort
@@ -34,16 +34,20 @@ def names (people: List Person): List Text :=
 
 <!-- output: check errors/unknown-receiver.sw -->
 ```text
-[E-CANNOT-INFER] Error: can't work out the type of this function
-   ╭─[ errors/unknown-receiver.sw:4:17 ]
+[E-CANNOT-INFER] Error: can't tell what `person` is, so can't look up `.name`
+   ╭─[ errors/unknown-receiver.sw:4:27 ]
    │
  4 │   let nameOf := person => person.name
-   │                 ──────────┬──────────
-   │                           ╰──────────── add a type annotation: `(…: T)`
+   │                           ─────┬─────
+   │                                ╰─────── its type isn't known yet here
+   │
+   │ Note: `.name` is looked up in the namespace of the value's type, so that type must be known where it's used: annotate it, as in `(p: Person) => p.name`, or write the function's full name
 ───╯
 ```
 
 `let nameOf := (person: Person) => person.name` works, and so does `people.map (person => person.name)`, where the type comes from `people`.
+
+A lambda bound by `let` with no type written is taken to be pure. If its body performs an ability ([chapter 8](08-abilities.md)), write its type: `let next: () -> {Ask} Nat := () => ask() + n`.
 
 ## Type parameters
 
