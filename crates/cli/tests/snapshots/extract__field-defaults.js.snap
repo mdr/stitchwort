@@ -728,11 +728,11 @@ const info$Main$dJob = datatype("Job");
 const info$Main$dBox = datatype("Box");
 const OPTION_SHAPE = { info: info$Std$dOption, none: "None", some: "Some", key: "value" };
 define(info$Main$dRangeOptions, [
-  ["%mk", [["start", NAT, false, "start", () => $Main$dRangeOptions$dstart$ddefault], ["stop", NAT], ["step", NAT, false, "step", () => $Main$dRangeOptions$dstep$ddefault]]],
+  ["%mk", [["start", NAT, false, "start", () => $Main$dRangeOptions$dstart$gdefault], ["stop", NAT], ["step", NAT, false, "step", () => $Main$dRangeOptions$dstep$gdefault]]],
 ], true, [
 ]);
 define(info$Main$dConfig, [
-  ["%mk", [["colour", option(TEXT), false, "colour", () => $Main$dConfig$dcolour$ddefault], ["nick", option(TEXT), true]]],
+  ["%mk", [["colour", option(TEXT), false, "colour", () => $Main$dConfig$dcolour$gdefault], ["nick", option(TEXT), true]]],
 ], true, [
 ]);
 define(info$Std$dOption, [
@@ -740,11 +740,11 @@ define(info$Std$dOption, [
   ["Some", [["value", param(0)]]],
 ]);
 define(info$Main$dRect, [
-  ["%mk", [["width", NAT], ["height", NAT, false, "height", (o) => { const v0 = o.width; return $Main$dRect$dheight$ddefault(v0); }], ["area", NAT, false, "area", (o) => { const v0 = o.width; const v1 = o.height; return $Main$dRect$darea$ddefault(v0, v1); }]]],
+  ["%mk", [["width", NAT], ["height", NAT, false, "height", (o) => { const v0 = o.width; return $Main$dRect$dheight$gdefault(v0); }], ["area", NAT, false, "area", (o) => { const v0 = o.width; const v1 = o.height; return $Main$dRect$darea$gdefault(v0, v1); }]]],
 ], true, [
 ]);
 define(info$Main$dShape, [
-  ["Circle", [["radius", NAT], ["label", TEXT, false, "label", () => $Main$dShape$dCircle$dlabel$ddefault]]],
+  ["Circle", [["radius", NAT], ["label", TEXT, false, "label", () => $Main$dShape$dCircle$dlabel$gdefault]]],
   ["Dot", []],
 ]);
 define(info$Main$dJob, [
@@ -752,7 +752,7 @@ define(info$Main$dJob, [
 ], true, [
 ]);
 define(info$Main$dBox, [
-  ["%mk", [["item", param(0)], ["label", TEXT, false, "label", () => $Main$dBox$dlabel$ddefault], ["extra", list(param(0)), false, "extra", () => $Main$dBox$dextra$ddefault]]],
+  ["%mk", [["item", param(0)], ["label", TEXT, false, "label", () => $Main$dBox$dlabel$gdefault], ["extra", list(param(0)), false, "extra", () => $Main$dBox$dextra$gdefault]]],
 ], true, [
 ]);
 
@@ -799,8 +799,8 @@ const $Main$dRangeOptions$dstep = (v0) => {
   const v3 = v0.step;
   return v3;
 };
-const $Main$dRangeOptions$dstart$ddefault = 0n;
-const $Main$dRangeOptions$dstep$ddefault = 1n;
+const $Main$dRangeOptions$dstart$gdefault = 0n;
+const $Main$dRangeOptions$dstep$gdefault = 1n;
 const $Main$dbounds = (v0) => ({ tag: "Cons", head: $Main$dRangeOptions$dstart(v0), tail: { tag: "Cons", head: $Main$dRangeOptions$dstop(v0), tail: { tag: "Cons", head: $Main$dRangeOptions$dstep(v0), tail: { tag: "Nil" } } } });
 const $Main$dwiden = (v0) => ({ start: $Main$dRangeOptions$dstart(v0), stop: $Std$dNat$dadd($Main$dRangeOptions$dstop(v0), 10n), step: $Main$dRangeOptions$dstep(v0) });
 const $Main$dConfig$dcolour = (v0) => {
@@ -808,7 +808,7 @@ const $Main$dConfig$dcolour = (v0) => {
   const v2 = v0.nick;
   return v1;
 };
-const $Main$dConfig$dcolour$ddefault = { tag: "Some", value: "blue" };
+const $Main$dConfig$dcolour$gdefault = { tag: "Some", value: "blue" };
 const $Main$dcolourOf = $Main$dConfig$dcolour;
 const $Main$decho = (v0) => v0;
 const $Main$dRect$dwidth = (v0) => {
@@ -829,10 +829,10 @@ const $Main$dRect$darea = (v0) => {
   const v3 = v0.area;
   return v3;
 };
-const $Main$dRect$dheight$ddefault = (v0) => v0;
-const $Main$dRect$darea$ddefault = $Std$dNat$dmul;
+const $Main$dRect$dheight$gdefault = (v0) => v0;
+const $Main$dRect$darea$gdefault = $Std$dNat$dmul;
 const $Main$darea = (v0) => ({ tag: "Cons", head: $Main$dRect$dwidth(v0), tail: { tag: "Cons", head: $Main$dRect$dheight(v0), tail: { tag: "Cons", head: $Main$dRect$darea(v0), tail: { tag: "Nil" } } } });
-const $Main$dShape$dCircle$dlabel$ddefault = "circle";
+const $Main$dShape$dCircle$dlabel$gdefault = "circle";
 const $Main$dlabel = (v0) => {
   switch (v0.tag) {
     case "Circle": {
@@ -858,8 +858,8 @@ const $Main$dBox$dlabel = (v1) => {
   const v4 = v1.extra;
   return v3;
 };
-const $Main$dBox$dlabel$ddefault = "box";
-const $Main$dBox$dextra$ddefault = { tag: "Nil" };
+const $Main$dBox$dlabel$gdefault = "box";
+const $Main$dBox$dextra$gdefault = { tag: "Nil" };
 const $Main$dboxLabel = $Main$dBox$dlabel;
 const $Main$dnested = (v0) => v0;
 
@@ -965,7 +965,7 @@ function dec$1(x) {
     const r0 = x.start;
     f0 = NAT.dec(r0);
   } else if ("start" in x) throw FAIL;
-  else { f0 = $Main$dRangeOptions$dstart$ddefault; }
+  else { f0 = $Main$dRangeOptions$dstart$gdefault; }
   if (!hasOwn(x, "stop")) throw FAIL;
   const r1 = x.stop;
   const f1 = NAT.dec(r1);
@@ -974,7 +974,7 @@ function dec$1(x) {
     const r2 = x.step;
     f2 = NAT.dec(r2);
   } else if ("step" in x) throw FAIL;
-  else { f2 = $Main$dRangeOptions$dstep$ddefault; }
+  else { f2 = $Main$dRangeOptions$dstep$gdefault; }
   const o = { start: f0, stop: f1, step: f2 };
   return o;
 }
@@ -994,7 +994,7 @@ function dec$4(x) {
     const r0 = x.colour;
     f0 = (r0 === undefined ? { tag: "None" } : r0 === null ? fail() : { tag: "Some", value: TEXT.dec(r0) });
   } else if ("colour" in x) throw FAIL;
-  else { f0 = $Main$dConfig$dcolour$ddefault; }
+  else { f0 = $Main$dConfig$dcolour$gdefault; }
   let r1;
   if (hasOwn(x, "nick")) r1 = x.nick; else if ("nick" in x) throw FAIL;
   const f1 = (r1 === undefined ? { tag: "None" } : r1 === null ? fail() : { tag: "Some", value: TEXT.dec(r1) });
@@ -1020,7 +1020,7 @@ function dec$7(x) {
     const r1 = x.height;
     f1 = NAT.dec(r1);
   } else if ("height" in x) throw FAIL;
-  else { const v0 = f0; f1 = $Main$dRect$dheight$ddefault(v0); }
+  else { const v0 = f0; f1 = $Main$dRect$dheight$gdefault(v0); }
   let f2;
   if (hasOwn(x, "area")) {
     const r2 = x.area;
@@ -1043,7 +1043,7 @@ function dec$8(x) {
         const r1 = x.label;
         f1 = TEXT.dec(r1);
       } else if ("label" in x) throw FAIL;
-      else { f1 = $Main$dShape$dCircle$dlabel$ddefault; }
+      else { f1 = $Main$dShape$dCircle$dlabel$gdefault; }
       const o = { tag: "Circle", radius: f0, label: f1 };
       return o;
     }
@@ -1150,13 +1150,13 @@ function dec$12(x) {
     const r1 = x.label;
     f1 = TEXT.dec(r1);
   } else if ("label" in x) throw FAIL;
-  else { f1 = $Main$dBox$dlabel$ddefault; }
+  else { f1 = $Main$dBox$dlabel$gdefault; }
   let f2;
   if (hasOwn(x, "extra")) {
     const r2 = x.extra;
     f2 = dec$13(r2);
   } else if ("extra" in x) throw FAIL;
-  else { f2 = $Main$dBox$dextra$ddefault; }
+  else { f2 = $Main$dBox$dextra$gdefault; }
   const o = { item: f0, label: f1, extra: f2 };
   depth--;
   done.set(x, o);
@@ -1207,13 +1207,13 @@ function dec$14(x) {
     const r1 = x.label;
     f1 = TEXT.dec(r1);
   } else if ("label" in x) throw FAIL;
-  else { f1 = $Main$dBox$dlabel$ddefault; }
+  else { f1 = $Main$dBox$dlabel$gdefault; }
   let f2;
   if (hasOwn(x, "extra")) {
     const r2 = x.extra;
     f2 = dec$15(r2);
   } else if ("extra" in x) throw FAIL;
-  else { f2 = $Main$dBox$dextra$ddefault; }
+  else { f2 = $Main$dBox$dextra$gdefault; }
   const o = { item: f0, label: f1, extra: f2 };
   depth--;
   done.set(x, o);
