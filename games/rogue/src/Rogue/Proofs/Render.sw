@@ -19,10 +19,10 @@ theorem glyphAtPlayer (state: State) (terrain: Char): glyphAt (marksIn state sta
 
 -- Among the monsters' marks on a cell's row, the first in the cell's column
 -- is the glyph of the monster `monsterAt` finds there.
-theorem findMonsterMark (position: Position) (found: Monster) (rest: List (Nat, Char)):
+theorem lookupMonsterMark (position: Position) (found: Monster) (rest: List (Nat, Char)):
     (monsters: List Monster) → monsterAt position monsters = Some found →
-    (List.append (monsters.filterMap (monster => if monster.position.row == position.row then Some (monster.position.column, monster.kind.glyph) else None)) rest).find (mark => mark.fst == position.column)
-      = Some (position.column, found.kind.glyph)
+    (List.append (monsters.filterMap (monster => if monster.position.row == position.row then Some (monster.position.column, monster.kind.glyph) else None)) rest).lookup position.column
+      = Some found.kind.glyph
   | [], located => Void.exfalso (Option.noneNotSome found located)
   | Cons monster others, located =>
     match same: monster.position == position with
@@ -32,8 +32,8 @@ theorem findMonsterMark (position: Position) (found: Monster) (rest: List (Nat, 
         rewrite here, natEqSelf position.row, natEqSelf position.column, itIs in rfl
       | False =>
         match sameRow: monster.position.row == position.row with
-          | True => rewrite columnDiffers monster.position position same sameRow in findMonsterMark position found rest others located
-          | False => findMonsterMark position found rest others located
+          | True => rewrite columnDiffers monster.position position same sameRow in lookupMonsterMark position found rest others located
+          | False => lookupMonsterMark position found rest others located
 
 -- A monster's cell, unless the player stands there, shows that monster.
 theorem glyphAtMonster (state: State) (position: Position) (found: Monster) (located: monsterAt position state.monsters = Some found)
@@ -41,8 +41,8 @@ theorem glyphAtMonster (state: State) (position: Position) (found: Monster) (loc
     glyphAt (marksIn state position.row) position.column terrain = found.kind.glyph :=
   let items := state.items.filterMap (item => if item.position.row == position.row then Some (item.position.column, item.loot.glyph) else None)
   match sameRow: state.player.row == position.row with
-    | True => rewrite columnDiffers state.player position notPlayer sameRow, findMonsterMark position found items state.monsters located in rfl
-    | False => rewrite findMonsterMark position found items state.monsters located in rfl
+    | True => rewrite columnDiffers state.player position notPlayer sameRow, lookupMonsterMark position found items state.monsters located in rfl
+    | False => rewrite lookupMonsterMark position found items state.monsters located in rfl
 
 -- The character `render` draws at a cell of the level is `glyphAt` of what
 -- stands on the cell's row, over the terrain there (for a cell the terrain

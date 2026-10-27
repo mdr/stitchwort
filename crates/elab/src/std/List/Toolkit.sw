@@ -296,10 +296,10 @@ theorem List.partitionExample: List.partition [1, 5, 2, 7] (x => x > 4) = MkPair
 
 test "List.partition" := List.partition [1, 5, 2, 7] (x => x > 4) == MkPair [5, 7] [1, 2] ∧ List.partition (Nil: List Nat) (x => x > 4) == MkPair Nil Nil
 
--- The value for the first pair whose key is equal, given a decision for equality.
-def List.lookup: List (Pair k v) → (key: k) → (decEq: (x: k) → (y: k) → Decidable (x = y)) → Option v
-  | Nil, key, decEq => None
-  | Cons (MkPair k v) rest, key, decEq => if Decidable.toBool (decEq key k) then Some v else List.lookup rest key decEq
+-- The value for the first pair whose key equals `key`.
+def List.lookup [auto eq: DecEq k]: List (Pair k v) → (key: k) → Option v
+  | Nil, key => None
+  | Cons (MkPair entryKey value) rest, key => if entryKey == key then Some value else rest.lookup key
 
 -- `List.padRight xs n x` is `xs` followed by enough copies of `x` to make it
 -- n long (it is `xs` itself when that is already n long or longer).

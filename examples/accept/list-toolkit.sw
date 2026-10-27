@@ -85,9 +85,9 @@ test "not elem" := ¬(List.elem [1, 2, 3] 5 Nat.decEq)
 
 theorem partitioned: [1, 2, 3, 4].partition (x => Nat.leq x 2) = MkPair [1, 2] [3, 4] := rfl
 
-theorem looked: List.lookup [MkPair 1 10, MkPair 2 20] 2 Nat.decEq = Some 20 := rfl
+theorem looked: List.lookup [MkPair 1 10, MkPair 2 20] 2 = Some 20 := rfl
 
-theorem lookedMissing: List.lookup [MkPair 1 10, MkPair 2 20] 3 Nat.decEq = None := rfl
+theorem lookedMissing: List.lookup [MkPair 1 10, MkPair 2 20] 3 = None := rfl
 
 test "min" := Nat.min 3 5 == 3
 test "max" := Nat.max 3 5 == 5
