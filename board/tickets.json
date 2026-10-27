@@ -1,5 +1,5 @@
 {
-  "next": 698,
+  "next": 699,
   "tickets": [
     {
       "id": 13,
@@ -5693,6 +5693,18 @@
     {
       "id": 697,
       "title": "AoC 2024 day 2: solve, prove against a puzzle-literal spec, log language gaps in aoc/NOTES-2024.md (Matt 27 Oct)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 698,
+      "title": "Research: a std parser-combinator library for puzzle input (audit effect languages and FP libraries; design note for review) (Matt 27 Oct)",
       "status": "doing",
       "agent": "",
       "where": "",
