@@ -1960,6 +1960,8 @@ export def area: Shape -> Nat
   const slugOf = (title) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const dayNumber = (day) => String(day.open.match(/Day(\d+)\.sw$/)?.[1] ?? "").padStart(2, "0");
   /** A project entry's part of its link: `2025/day02` for a day of Advent of Code, else the slug of its title. */
+  /** A project entry's name: `2024 / Day 1` for a day with a year, else its title. */
+  const dayName = (day) => (day.year ? `${day.year} / ${day.title}` : day.title);
   const daySlug = (name, day) => (name === "aoc" ? `${day.year}/day${dayNumber(day)}` : slugOf(day.title));
 
   /** The fragment for a dropdown value, without the `#`. */
@@ -2015,7 +2017,7 @@ export def area: Shape -> Nat
     manifest.days.forEach((day, i) => {
       const label = day.year ? `${manifest.title} ${day.year}` : manifest.title;
       if (!groups.has(label)) groups.set(label, el("optgroup", { label }));
-      groups.get(label).append(el("option", { value: `${manifest.name}:${i}` }, day.title));
+      groups.get(label).append(el("option", { value: `${manifest.name}:${i}` }, dayName(day)));
     });
     picker.append(...groups.values());
     if (project?.name === manifest.name) picker.value = `${manifest.name}:${project.day}`;
@@ -2137,7 +2139,7 @@ export def area: Shape -> Nat
     setStatus(checked.ok && openGoals
       ? (openGoals === 1 ? "1 goal open" : `${openGoals} goals open`)
       : checked.ok
-      ? (day ? `${day.title}${day.namespaces.length > 1 ? " and its proofs" : ""} checked by the kernel` : "Checked by the kernel")
+      ? (day ? `${dayName(day)}${day.namespaces.length > 1 ? " and its proofs" : ""} checked by the kernel` : "Checked by the kernel")
       : "Doesn’t check", checked.ok ? "" : "bad");
     /** The errors, with links to their files in a project. */
     const errorsOf = (answer) => project ? projectErrorsView(answer) : [...goalsView(answer.goals), ...errorsView(answer.errors, answer.warnings)];
