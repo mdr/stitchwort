@@ -619,9 +619,10 @@ theorem Map.getOrFoldCount [auto ord: Ord k]: (m: Map k Nat) → (key: k) → (x
     Eq.trans (Map.getOrFoldCount (Map.insertWith m x 1 Nat.add) key rest)
       (Eq.cong (n => List.foldLeft rest n (n2 y => Nat.succIf n2 (Map.Spec.sameKey key y))) (Map.getOrCountStep m key x))
 
--- `counts`: how many elements compare equal to `key`.
-theorem Map.getOrCounts [auto ord: Ord k] (key: k) (xs: List k): Map.getOr (Map.counts xs) key 0 = List.count xs (x => Map.Spec.sameKey key x) :=
-  Map.getOrFoldCount Map.empty key xs
+-- `counts`: how many elements equal `key`.
+theorem Map.getOrCounts [auto ord: Ord k] (key: k) (xs: List k): (Map.counts xs).getOr key 0 = xs.count (== key) :=
+  Eq.trans (Map.getOrFoldCount Map.empty key xs)
+    (List.countCongMem xs (x => Map.Spec.sameKey key x) (== key) (x m => Map.Spec.sameKeyDecide key x))
 
 theorem Map.countsFoldPositive [auto ord: Ord k]: (xs: List k) → (m: Map k Nat) → (key: k) → ((n: Nat) → Map.get m key = Some n → 0 < n) →
     (n: Nat) → Map.get (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add)) key = Some n → 0 < n

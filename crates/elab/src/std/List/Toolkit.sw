@@ -656,6 +656,12 @@ theorem Add.addSwap [auto add: Add a] (w: a) (x: a) (y: a) (z: a): (w + x) + (y 
     _ = w + (y + (x + z)) := Eq.cong (t => w + t) (add.assoc y x z)
     _ = (w + y) + (x + z) := Eq.sym (add.assoc w y (x + z))
 
+theorem Add.addLeftComm [auto add: Add a] (x: a) (y: a) (z: a): x + (y + z) = y + (x + z) :=
+  calc x + (y + z)
+    _ = (x + y) + z := Eq.sym (add.assoc x y z)
+    _ = (y + x) + z := Eq.cong (t => t + z) (add.comm x y)
+    _ = y + (x + z) := add.assoc y x z
+
 theorem List.sumByFrom [auto add: Add b]: (xs: List a) → (z: b) → (f: a → b) → List.foldLeft xs z (acc x => acc + f x) = z + List.sumBy xs f
   | Nil, z, f => Eq.sym (Add.addZero z)
   | Cons x xs, z, f =>

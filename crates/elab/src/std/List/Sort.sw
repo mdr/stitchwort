@@ -588,6 +588,33 @@ theorem List.sortSorted [auto ord: Ord a] (xs: List a):
     List.Sorted (x y => Ordering.isLessEq (Ord.compare x y)) (List.sort xs) :=
   List.sortBySorted Ord.compare Ord.leTotal xs
 
+-- `isLessEq` is "not `Greater`".
+theorem Ordering.notGreaterOfIsLessEq (c: Ordering) (h: Ordering.isLessEq c = True): Not (c = Greater) :=
+  e => Bool.falseNotTrue (rewrite e at h)
+
+theorem Ordering.isLessEqOfNotGreater: (c: Ordering) → Not (c = Greater) → Ordering.isLessEq c = True
+  | Less, n => rfl
+  | Equal, n => rfl
+  | Greater, n => Void.exfalso (n rfl)
+
+-- The test `List.sort` sorts by is transitive, and holds both ways round
+-- only for equal values, by the `Ord`'s laws.
+theorem Ord.isLessEqTrans [auto ord: Ord a] (x: a) (y: a) (z: a)
+    (h1: Ordering.isLessEq (Ord.compare x y) = True) (h2: Ordering.isLessEq (Ord.compare y z) = True):
+    Ordering.isLessEq (Ord.compare x z) = True :=
+  Ordering.isLessEqOfNotGreater (Ord.compare x z)
+    (Ordering.notGreaterTrans (Ord.compare x y) (Ord.compare y z) (Ord.compare x z) (ord.trans x y z)
+      (e => Eq.cong (w => Ord.compare w z) (ord.equal x y e))
+      (e => Eq.sym (Eq.cong (w => Ord.compare x w) (ord.equal y z e)))
+      (Ordering.notGreaterOfIsLessEq (Ord.compare x y) h1) (Ordering.notGreaterOfIsLessEq (Ord.compare y z) h2))
+
+theorem Ord.isLessEqAntisymm [auto ord: Ord a] (x: a) (y: a)
+    (h1: Ordering.isLessEq (Ord.compare x y) = True) (h2: Ordering.isLessEq (Ord.compare y x) = True): x = y :=
+  match e: Ord.compare x y with
+    | Equal => ord.equal x y e
+    | Less => Void.exfalso (Bool.falseNotTrue (rewrite ord.flip x y, e at h2))
+    | Greater => Void.exfalso (Bool.falseNotTrue h1)
+
 -- Sorted by one test is sorted by another that agrees with it.
 theorem List.leHeadCong (le1: a → a → Bool) (le2: a → a → Bool) (h: (x: a) → (y: a) → le1 x y = le2 x y) (z: a):
     (xs: List a) → List.LeHead le1 z xs → List.LeHead le2 z xs
@@ -975,6 +1002,95 @@ theorem List.sortedPermEq [auto eq: DecEq a] (le: a → a → Bool) (trans: (x: 
         (q => Nat.addCancelLeft (Bool.toNat (q x)) (List.occurrences xs q) (List.occurrences ys q)
           (Eq.trans (p q) (Eq.cong (t => Bool.toNat (q t) + List.occurrences ys q) (Eq.sym same))))
     rewrite same, rest in rfl
+
+-- A list sorted by an `Ord` is the sort of any list with the same elements.
+theorem List.sortOfSorted [auto ord: Ord a] (xs: List a) (ys: List a)
+    (sorted: List.Sorted (x y => Ordering.isLessEq (Ord.compare x y)) ys) (same: List.Perm ys xs): ys = xs.sort :=
+  List.sortedPermEq (x y => Ordering.isLessEq (Ord.compare x y)) Ord.isLessEqTrans Ord.isLessEqAntisymm ys xs.sort sorted (List.sortSorted xs)
+    (List.permTrans ys xs xs.sort same (List.permSym xs.sort xs (List.sortPerm xs)))
+
+-- Lists with the same elements sort to the same list.
+theorem List.sortEqOfPerm [auto ord: Ord a] (xs: List a) (ys: List a) (same: List.Perm xs ys): xs.sort = ys.sort :=
+  List.sortOfSorted ys xs.sort (List.sortSorted xs) (List.permTrans xs.sort xs ys (List.sortPerm xs) same)
+
+test "List.sort by Ord.reverse" := List.sort [ord := Ord.reverse] [1, 3, 2, 3] == [3, 3, 2, 1]
+
+-- For numbers, sorted by `Nat.leq`.
+theorem List.sortOfSortedNat (xs: List Nat) (ys: List Nat) (sorted: List.Sorted Nat.leq ys) (same: List.Perm ys xs): ys = xs.sort :=
+  List.sortOfSorted xs ys (List.sortedCong Nat.leq (x y => Ordering.isLessEq (Nat.compare x y)) (x y => Eq.sym (Nat.compareLeq x y)) ys sorted) same
+
+-- The list without its first `x`, or the list itself if `x` isn't in it
+-- (Haskell's `Data.List.delete`).
+def List.removeFirst [auto eq: DecEq a]: List a → a → List a
+  | Nil, x => Nil
+  | Cons y ys, x => if y == x then ys else Cons y (ys.removeFirst x)
+
+test "List.removeFirst" := [1, 2, 1].removeFirst 1 == [2, 1] ∧ [1, 2].removeFirst 3 == [1, 2] ∧ [3, 1, 2].removeFirst 2 == [3, 1]
+
+-- Without `x` in the list, nothing is taken out.
+theorem List.removeFirstAbsent [auto eq: DecEq a]: (xs: List a) → (x: a) → Not (List.Mem x xs) → xs.removeFirst x = xs
+  | Nil, x, n => rfl
+  | Cons y ys, x, n =>
+    match e: y == x with
+      | True => Void.exfalso (n (Inl (DecEq.sound y x e)))
+      | False => rewrite List.removeFirstAbsent ys x (m => n (Inr m)) in rfl
+
+-- With `x` in the list, `x` and the rest are the list in another order.
+theorem List.occurrencesRemoveFirst [auto eq: DecEq a]: (ys: List a) → (x: a) → List.Mem x ys → (p: a → Bool) →
+    List.occurrences ys p = Bool.toNat (p x) + List.occurrences (ys.removeFirst x) p
+  | Nil, x, m, p => Void.exfalso m
+  | Cons y ys, x, m, p =>
+    match e: y == x with
+      | True => rewrite DecEq.sound y x e in rfl
+      | False =>
+        let later: List.Mem x ys :=
+          match m with
+            | Inl same => Void.exfalso (DecEq.soundFalse y x e same)
+            | Inr rest => rest
+        rewrite List.occurrencesRemoveFirst ys x later p in Nat.addLeftComm (Bool.toNat (p y)) (Bool.toNat (p x)) _
+
+theorem List.permRemoveFirst [auto eq: DecEq a] (ys: List a) (x: a) (m: List.Mem x ys): List.Perm (Cons x (ys.removeFirst x)) ys :=
+  p => Eq.sym (List.occurrencesRemoveFirst ys x m p)
+
+theorem List.lengthRemoveFirst [auto eq: DecEq a] (ys: List a) (x: a) (m: List.Mem x ys): List.length ys = Succ (List.length (ys.removeFirst x)) :=
+  Eq.sym (List.permLength (Cons x (ys.removeFirst x)) ys (List.permRemoveFirst ys x m))
+
+-- Taking the same element off the front of one list and out of the other
+-- leaves a permutation.
+theorem List.permRemoveFirstOfCons [auto eq: DecEq a] (x: a) (xs: List a) (ys: List a) (same: List.Perm (Cons x xs) ys):
+    List.Perm xs (ys.removeFirst x) :=
+  p =>
+    Nat.addCancelLeft (Bool.toNat (p x)) (List.occurrences xs p) (List.occurrences (ys.removeFirst x) p)
+      (Eq.trans (same p) (List.occurrencesRemoveFirst ys x (List.memPerm (Cons x xs) ys same x (Inl rfl)) p))
+
+theorem List.sumByRemoveFirst [auto eq: DecEq a] [auto add: Add b]: (ys: List a) → (x: a) → List.Mem x ys → (f: a → b) →
+    List.sumBy ys f = f x + List.sumBy (ys.removeFirst x) f
+  | Nil, x, m, f => Void.exfalso m
+  | Cons y ys, x, m, f =>
+    match e: y == x with
+      | True => rewrite List.sumByCons ys y f, DecEq.sound y x e in rfl
+      | False =>
+        let later: List.Mem x ys :=
+          match m with
+            | Inl same => Void.exfalso (DecEq.soundFalse y x e same)
+            | Inr rest => rest
+        rewrite List.sumByCons ys y f, List.sumByCons (ys.removeFirst x) y f, List.sumByRemoveFirst ys x later f in Add.addLeftComm (f y) (f x) _
+
+-- Sums and counts are the same in any order.
+theorem List.sumByPerm [auto eq: DecEq a] [auto add: Add b]: (xs: List a) → (ys: List a) → List.Perm xs ys → (f: a → b) →
+    List.sumBy xs f = List.sumBy ys f
+  | Nil, Nil, same, f => rfl
+  | Nil, Cons y ys, same, f => Void.exfalso (Nat.zeroNotSucc (List.length ys) (List.permLength Nil (Cons y ys) same))
+  | Cons x xs, ys, same, f =>
+    let found: List.Mem x ys := List.memPerm (Cons x xs) ys same x (Inl rfl)
+    rewrite List.sumByCons xs x f, List.sumByPerm xs (ys.removeFirst x) (List.permRemoveFirstOfCons x xs ys same) f, List.sumByRemoveFirst ys x found f
+      in rfl
+
+theorem List.sumPerm [auto eq: DecEq a] [auto add: Add a] (xs: List a) (ys: List a) (same: List.Perm xs ys): List.sum xs = List.sum ys :=
+  List.sumByPerm xs ys same (x => x)
+
+theorem List.countPerm (xs: List a) (ys: List a) (same: List.Perm xs ys) (p: a → Bool): List.count xs p = List.count ys p :=
+  rewrite List.countOccurrences xs p, List.countOccurrences ys p in same p
 
 theorem List.findKeyExample: List.find [MkPair "a" 1, MkPair "b" 2, MkPair "b" 3] (x => Pair.fst x == "b") = Some (MkPair "b" 2) := rfl
 
