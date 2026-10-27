@@ -2,14 +2,16 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-TERMINATION] Error: `sumWith` is used here without all its arguments
-    ╭─[ reject/partial-recursive-call.sw:10:29 ]
+[E-TERMINATION] Error: can't show that `sumFrom` terminates
+    ╭─[ reject/partial-recursive-call.sw:12:29 ]
     │
- 10 │   | Succ n, acc => applyTo (sumWith n) (acc + Succ n)
-    │                             ────┬────  
-    │                                 ╰────── `sumWith` takes 2 arguments; it's given 1
+ 12 │   | acc, Succ n => applyTo (sumFrom (acc + 1)) n
+    │                             ────────┬───────  
+    │                                     ╰───────── this recursive call might not terminate: no argument is known to be smaller
     │ 
-    │ Note 1: write `x => sumWith n x` so the call can be checked
+    │ Note 1: `sumFrom` is given 1 of its 2 arguments here; the rest are whatever it's applied to later, which isn't known to be smaller, so an argument that gets smaller must be among the ones given
     │ 
-    │ Note 2: a recursive call must be given all the arguments, so the termination checker can see what each one is
+    │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
 ────╯

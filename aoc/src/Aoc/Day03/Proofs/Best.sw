@@ -181,9 +181,7 @@ theorem pickBest (k: Nat) (ih: BestBelow k): (w: Nat) → (xs: Bank) → (c: Bat
   | Succ w, Nil, c, after, h1, h2, hsa, y, s, hk, Inl (Both e hs) => pickBase k ih c after h2 y s hk e hs
   | Succ w, Nil, c, after, h1, h2, hsa, y, s, hk, Inr (Both g hlen) => Void.exfalso g
   | Succ w, Cons x more, c, after, h1, h2, hsa, y, s, hk, cand =>
-    pickBestStep k w x more c after
-      (c2 a2 g1 g2 g3 y2 s2 g5 g6 => pickBest k ih w more c2 a2 g1 g2 g3 y2 s2 g5 g6)
-      omega h2 hsa y s hk cand
+    pickBestStep k w x more c after (pickBest k ih w more) omega h2 hsa y s hk cand
 
 theorem bestOptimal: (k: Nat) → BestBelow k
   | Zero, bank, Nil, h, hk => rfl
@@ -192,7 +190,7 @@ theorem bestOptimal: (k: Nat) → BestBelow k
   | Succ k, Nil, Cons y s, h, hk => Void.exfalso h
   | Succ k, Cons d rest, Nil, h, hk => omega
   | Succ k, Cons d rest, Cons y s, h, hk =>
-    bestOptimalStep k d rest y s (l t g gk => bestOptimal k l t g gk) h omega
+    bestOptimalStep k d rest y s (bestOptimal k) h omega
 
 theorem bestOptimalStep (k: Nat) (d: Battery) (rest: Bank) (y: Battery) (s: Bank) (ih: BestBelow k)
     (h: List.Subsequence (Cons y s) (Cons d rest)) (hk: s.length = k):

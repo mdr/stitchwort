@@ -57,6 +57,7 @@ mod rewind;
 mod rewrite;
 mod ring;
 mod rows;
+mod saturate;
 mod scope;
 mod shared;
 pub mod shown;
