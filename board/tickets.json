@@ -5621,7 +5621,7 @@
     {
       "id": 691,
       "title": "Constant default helpers stay folded, so goals read range a b rather than range a b (step := 1) (D1411, Matt 27 Oct; D1354)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
