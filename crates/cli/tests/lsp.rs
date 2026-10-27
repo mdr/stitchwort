@@ -1663,6 +1663,71 @@ fn parameter_defaults_show_in_hover_and_completion() {
 }
 
 #[test]
+fn hover_on_a_call_lists_the_defaults_it_used() {
+    let dir = temp_dir("param-defaults-used");
+    let file = dir.join("used.sw");
+    let text = "def range (start: Nat) (stop: Nat) (step: Nat := 1) (label: Text := \"r\"): List Nat := [start, stop, step]\n\
+                def scaled (start: Nat) (factor: Nat := start * 2): Nat := start + factor\n\
+                def a: List Nat := range 0 10 (label := \"a\")\n\
+                def b: Nat := scaled 3\n\
+                def c: List Nat := range 0 10 (step := 2) (label := \"c\")\n\
+                def d: List Nat := 0 |> range 10\n\
+                theorem e (a: Nat) (b: Nat): range a b = [a, b, 1] := rfl\n\
+                type Clip = { length: Nat }\n\
+                def Clip.trimmed (clip: Clip) (by: Nat := 1): Nat := clip.length - by\n\
+                def f (clip: Clip): Nat := clip.trimmed\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let hover_at = |client: &mut Client, line: u32, word: &str| {
+        let at = text.lines().nth(line as usize).unwrap().find(word).unwrap() + 1;
+        let hover = client.at("textDocument/hover", &uri, line, at as u32);
+        hover["contents"]["value"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string()
+    };
+    // Each default the call didn't name, with its value as written.
+    let shown = hover_at(&mut client, 2, "range");
+    assert!(
+        shown.contains("`step` left out: its default `1`"),
+        "{shown}"
+    );
+    assert!(!shown.contains("`label` left out"), "{shown}");
+    // A default that uses an earlier parameter, in its name.
+    let shown = hover_at(&mut client, 3, "scaled");
+    assert!(
+        shown.contains("`factor` left out: its default `start * 2`"),
+        "{shown}"
+    );
+    // A call that names every default used none.
+    let shown = hover_at(&mut client, 4, "range");
+    assert!(!shown.contains("left out"), "{shown}");
+    // A piped call, and one in a theorem's statement.
+    let shown = hover_at(&mut client, 5, "range");
+    assert!(
+        shown.contains("`step` left out: its default `1`"),
+        "{shown}"
+    );
+    assert!(
+        shown.contains("`label` left out: its default `\"r\"`"),
+        "{shown}"
+    );
+    let shown = hover_at(&mut client, 6, "range");
+    assert!(
+        shown.contains("`step` left out: its default `1`"),
+        "{shown}"
+    );
+    // A dot call.
+    let shown = hover_at(&mut client, 9, "trimmed");
+    assert!(shown.contains("`by` left out: its default `1`"), "{shown}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn record_updates_hover_as_written() {
     let dir = temp_dir("record-update-hover");
     let file = dir.join("updates.sw");

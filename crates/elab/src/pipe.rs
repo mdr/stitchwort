@@ -83,6 +83,9 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
         // (docs/proposals/named-arguments.md §4.4).
         args.insert(0, Arg::Piped(&piped));
         if let Some(defaults) = crate::defaults::of_head(cx, &known.0) {
+            if let Expr::Var(name) = head {
+                crate::defaults::note_left_out(cx, name.span, &known, &args);
+            }
             return crate::defaults::apply(cx, known, defaults, &args);
         }
         return apply_args(cx, known, &args);

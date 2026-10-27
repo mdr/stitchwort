@@ -67,7 +67,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 15;
+pub const FORMAT: u32 = 16;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1676,6 +1676,17 @@ impl Elaborator {
                     e.span(*at);
                     e.str(ty);
                 }
+                let mut used: Vec<(&Span, &String)> = nav
+                    .call_defaults
+                    .iter()
+                    .filter(|(at, _)| own(&at.file))
+                    .collect();
+                used.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
+                e.w.usize(used.len());
+                for (at, text) in used {
+                    e.span(*at);
+                    e.str(text);
+                }
                 let mut types: Vec<(&(FileId, u32), &String)> = nav
                     .local_types
                     .iter()
@@ -1944,6 +1955,7 @@ enum Target {
 struct NavEntry {
     refs: Vec<(Span, String, Target, GlobalEntry, Option<String>)>,
     exprs: Vec<(Span, String)>,
+    call_defaults: Vec<(Span, String)>,
     local_types: Vec<(Span, String)>,
     locals: Vec<(Span, String, Span)>,
     binders: Vec<(Span, String, Span)>,
@@ -2842,6 +2854,9 @@ impl Elaborator {
             for (at, ty) in entry.exprs {
                 nav.expr_types.insert(at, ty);
             }
+            for (at, used) in entry.call_defaults {
+                nav.call_defaults.insert(at, used);
+            }
             for (at, ty) in entry.local_types {
                 nav.local_types.insert((at.file, at.start), ty);
             }
@@ -3132,6 +3147,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         let mut nav = NavEntry {
             refs: Vec::new(),
             exprs: Vec::new(),
+            call_defaults: Vec::new(),
             local_types: Vec::new(),
             locals: Vec::new(),
             binders: Vec::new(),
@@ -3153,6 +3169,10 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         let n = b.count()?;
         for _ in 0..n {
             nav.exprs.push((b.span()?, b.string()?));
+        }
+        let n = b.count()?;
+        for _ in 0..n {
+            nav.call_defaults.push((b.span()?, b.string()?));
         }
         let n = b.count()?;
         for _ in 0..n {

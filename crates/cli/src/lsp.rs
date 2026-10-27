@@ -821,6 +821,9 @@ fn hover(r: &LiveRef) -> Hover {
         text.push_str(&format!("```stitchwort\n{ty}\n```\n"));
     }
     text.push_str(&format!("{} `{}`", r.kind, r.name));
+    if let Some(defaults) = &r.defaults {
+        text.push_str(&format!("\n\n{defaults}"));
+    }
     Hover {
         contents: HoverContents::Markup(MarkupContent {
             kind: MarkupKind::Markdown,

@@ -10,7 +10,7 @@ use std::rc::Rc;
 use num_bigint::BigUint;
 
 use crate::budget::Result;
-use crate::globals::Globals;
+use crate::globals::{CallDefaults, DefaultCall, Globals};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
 use crate::value::{Value, quote, quote_folded};
@@ -510,6 +510,12 @@ impl<'g> Printer<'g> {
             Term::Meta(m) => (format!("?{m}"), Prec::Atom),
             Term::App(..) if let Some(shown) = self.label(names, term) => shown,
             Term::App(..) if let Some(shown) = self.update(names, term) => (shown, Prec::Atom),
+            Term::App(..)
+                if !self.show_hidden.get()
+                    && let Some(shown) = self.call_with_defaults(names, term) =>
+            {
+                shown
+            }
             // Asked for the hidden arguments: shown even where the call has a
             // notation of its own, such as the proof in `c % 7` (SW-323).
             Term::App(..) if self.show_hidden.get() && has_hidden_argument(term) => {
@@ -756,13 +762,135 @@ impl<'g> Printer<'g> {
             _ => false,
         })?;
         let name = label.name.to_string();
-        let rest: Vec<&Term> = args[label.levels.len()..]
+        let params = &args[label.levels.len()..];
+        let defaults = label.defaults.clone();
+        let rest: Vec<&Term> = params
             .iter()
             .filter(|(_, icit)| *icit == Icit::Explicit)
             .map(|(a, _)| *a)
             .collect();
         drop(labels);
+        if !self.show_hidden.get()
+            && let Some(defaults) = defaults
+            && let Some(shown) = self.defaulted(names, name.clone(), params, &defaults)
+        {
+            return Some(shown);
+        }
         Some(self.applied(names, name, rest.into_iter()))
+    }
+
+    /// A call of a definition with parameter defaults, as written
+    /// ([`Printer::defaulted`]).
+    fn call_with_defaults(&self, names: &mut Vec<Name>, term: &Term) -> Option<(String, Prec)> {
+        let (head, args) = full_spine(term);
+        let Term::Def(id) = head else {
+            return None;
+        };
+        let def = self.g.def(*id);
+        let table = def.param_defaults.as_ref()?;
+        let mut ty = def.ty.strip_loc();
+        let mut params = Vec::with_capacity(table.header);
+        for default in table.params.iter().take(table.header) {
+            let Term::Pi(x, _, _, cod) = ty else {
+                return None;
+            };
+            let call = default.as_ref().map(|d| DefaultCall {
+                head: Term::Def(d.helper),
+                levels: Vec::new(),
+                captures: d.captures.clone(),
+            });
+            params.push((x.clone(), call));
+            ty = cod.strip_loc();
+        }
+        let defaults = CallDefaults {
+            header: table.header,
+            params,
+        };
+        let head = def_display(&def.name);
+        self.defaulted(names, head, &args, &defaults)
+    }
+
+    /// `head` applied to `args`, the parameters of a function with
+    /// `defaults`, as the call is written: an argument that is exactly its
+    /// default's call is left out, and one given to a defaulted parameter
+    /// is named, `(step := 2)`. Arguments past the header follow a call
+    /// that left a default out in brackets, `(scaler 5) x`. `None` if no
+    /// argument is a defaulted parameter's.
+    fn defaulted(
+        &self,
+        names: &mut Vec<Name>,
+        head: String,
+        args: &[(&Term, Icit)],
+        defaults: &CallDefaults,
+    ) -> Option<(String, Prec)> {
+        let header = defaults.header.min(args.len());
+        let defaulted = |p: usize| defaults.params.get(p).and_then(|(_, d)| d.as_ref());
+        if !(0..header).any(|p| defaulted(p).is_some()) {
+            return None;
+        }
+        let left_out: Vec<bool> = (0..header)
+            .map(|p| defaulted(p).is_some_and(|d| self.is_default_call(names, d, args[p].0, args)))
+            .collect();
+        let mut text = head;
+        let mut any = false;
+        for (p, (arg, icit)) in args[..header].iter().enumerate() {
+            if *icit != Icit::Explicit || left_out[p] {
+                continue;
+            }
+            text.push(' ');
+            if defaulted(p).is_some() {
+                let x = &defaults.params[p].0;
+                let shown = self.print(names, arg, Prec::Arrow);
+                text.push_str(&format!("({x} := {shown})"));
+            } else {
+                text.push_str(&self.print(names, arg, Prec::Atom));
+            }
+            any = true;
+        }
+        let rest: Vec<&Term> = args[header..]
+            .iter()
+            .filter(|(_, icit)| *icit == Icit::Explicit)
+            .map(|(a, _)| *a)
+            .collect();
+        if rest.is_empty() {
+            return Some((text, if any { Prec::App } else { Prec::Atom }));
+        }
+        // A positional argument after a call that left a default out
+        // applies its result only in brackets.
+        if left_out.contains(&true) {
+            text = format!("({text})");
+        }
+        Some(self.applied(names, text, rest.into_iter()))
+    }
+
+    /// Whether `arg` is exactly `default`'s call, given `args`, the
+    /// parameters of the call it's an argument of.
+    fn is_default_call(
+        &self,
+        names: &[Name],
+        default: &DefaultCall,
+        arg: &Term,
+        args: &[(&Term, Icit)],
+    ) -> bool {
+        let (head, given) = full_spine(arg);
+        let same_head = match (&default.head, head) {
+            (Term::Def(a), Term::Def(b)) => a == b,
+            (Term::Meta(a), Term::Meta(b)) => a == b,
+            _ => false,
+        };
+        if !same_head || given.len() != default.levels.len() + default.captures.len() {
+            return false;
+        }
+        let depth = names.len();
+        let (outer, taken) = given.split_at(default.levels.len());
+        let outer_alike = default.levels.iter().zip(outer).all(|(level, (arg, _))| {
+            matches!(arg.strip_loc(), Term::Var(ix) if *ix < depth && depth - 1 - ix == *level)
+        });
+        outer_alike
+            && default.captures.iter().zip(taken).all(|(&p, (arg, _))| {
+                args.get(p)
+                    .is_some_and(|(param, _)| crate::value::same_term(param, arg))
+            })
     }
 
     /// A call of an update's helper (`Def::update_shown`), as the update:
@@ -1014,6 +1142,18 @@ fn has_hidden_argument(term: &Term) -> bool {
         head = f.strip_loc();
     }
     false
+}
+
+/// A call's head and all its arguments, each with how it's applied.
+fn full_spine(term: &Term) -> (&Term, Vec<(&Term, Icit)>) {
+    let mut args = Vec::new();
+    let mut head = term.strip_loc();
+    while let Term::App(f, a, icit) = head {
+        args.push((a.as_ref(), *icit));
+        head = f.strip_loc();
+    }
+    args.reverse();
+    (head, args)
 }
 
 fn explicit_spine(term: &Term) -> (&Term, Vec<&Term>) {

@@ -1144,15 +1144,20 @@ pub(crate) fn infer_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term
 
 /// `head` applied to `args`, where `head` is a definition or a local
 /// definition: with `fill`, a defaulted parameter `args` don't name gets its
-/// default (docs/proposals/signature-defaults.md §6.1).
+/// default (docs/proposals/signature-defaults.md §6.1). Its name is written
+/// at `at`.
 fn apply_named_head(
     cx: &mut Ctx,
     head: (Term, Value),
     args: &[Arg],
     fill: bool,
+    at: Span,
 ) -> Result<(Term, Value)> {
     match crate::defaults::of_head(cx, &head.0) {
-        Some(defaults) if fill => crate::defaults::apply(cx, head, defaults, args),
+        Some(defaults) if fill => {
+            crate::defaults::note_left_out(cx, at, &head, args);
+            crate::defaults::apply(cx, head, defaults, args)
+        }
         _ => apply_args(cx, head, args),
     }
 }
@@ -1168,7 +1173,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
     };
     if let Some(head) = cx.local(&name.text)? {
         cx.note_local_use(name, &head.1);
-        return apply_named_head(cx, head, args, fill);
+        return apply_named_head(cx, head, args, fill, name.span);
     }
     if let Some(level) = cx.lookup(&name.text) {
         let head = (Term::Var(cx.level() - 1 - level), cx.types[level].clone());
@@ -1214,7 +1219,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         None => Err(cx.e.not_found(name)),
         Some((Global::Def(id), _)) => {
             let head = (Term::Def(*id), crate::kernel::def_ty(g, *id)?);
-            apply_named_head(cx, head, args, fill)
+            apply_named_head(cx, head, args, fill, name.span)
         }
         // The parameters, then the indices: one telescope; `auto` parameters
         // are found (docs/proposals/interfaces.md §7.5).

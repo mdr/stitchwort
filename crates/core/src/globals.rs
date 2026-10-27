@@ -477,6 +477,30 @@ pub struct PrintLabel {
     pub head: Term,
     pub name: Name,
     pub levels: Vec<usize>,
+    /// The local definition's parameter defaults, if it has any.
+    pub defaults: Option<Rc<CallDefaults>>,
+}
+
+/// How the printer finds the defaults a call filled: an argument that is
+/// exactly its parameter's default call is left out (`range a b`), and a
+/// defaulted parameter's given argument is shown by name (`(step := 2)`).
+#[derive(Clone, Debug)]
+pub struct CallDefaults {
+    /// How many of the function's parameters are its header's.
+    pub header: usize,
+    /// Each of the header's parameters: its name, and the call its default
+    /// fills it with, if it has one.
+    pub params: Vec<(Name, Option<DefaultCall>)>,
+}
+
+/// The call a parameter's default fills it with: `head` applied to the
+/// variables at `levels` (by level, outermost first), then to the
+/// function's parameters at `captures` (by index).
+#[derive(Clone, Debug)]
+pub struct DefaultCall {
+    pub head: Term,
+    pub levels: Vec<usize>,
+    pub captures: Vec<usize>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]

@@ -743,7 +743,13 @@ function's result has no defaults.
   call would build) is left out, so the goal shows `range 0 10`, not
   `range 0 10 (range…step…default)`. The printed call elaborates back to
   the same term for the same declaration, with the same defaults. `show` on values is unaffected (values have no helper
-  calls).
+  calls). As built: a given defaulted argument is shown by name,
+  `range 0 10 (step := 2)`, and a positional argument after a call that
+  left a default out follows it in brackets, `(scaler 5) x` (§6.3). A
+  default whose helper takes nothing is a constant, computed before a goal
+  is shown, so a goal read from a value has its value there, shown by name:
+  `range a b (step := 1)`. Hover on a call's head lists the defaults the
+  call used: "`step` left out: its default `1`".
 - **The formatter** keeps `(x: T := e)` as written, as it does for fields
   (`crates/fmt/tests/golden/field-defaults.*`); a golden test with a
   multi-line header is enough.

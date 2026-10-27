@@ -53,6 +53,9 @@ pub(crate) struct Recorder {
     /// The printed type of the expression written at a span (the last one
     /// elaborated there), for hovering over a selection.
     pub(crate) expr_types: HashMap<Span, String>,
+    /// For hover on the head of a call that left defaulted parameters out,
+    /// by the head's span: the defaults it used.
+    pub(crate) call_defaults: HashMap<Span, String>,
 }
 
 impl Recorder {
@@ -120,6 +123,11 @@ impl Recorder {
             self.expr_types
                 .iter()
                 .map(|(at, ty)| format!("nav expr {} {ty}", span(*at))),
+        );
+        lines.extend(
+            self.call_defaults
+                .iter()
+                .map(|(at, used)| format!("nav defaults {} {used:?}", span(*at))),
         );
         lines.push(format!("nav pending {}", self.pending.len()));
         lines.sort();
@@ -207,6 +215,9 @@ pub struct NavRef {
     pub dot: Option<String>,
     pub target: NavTarget,
     pub ty: Option<String>,
+    /// For the head of a call that left defaulted parameters out: the
+    /// defaults it used, "`step` left out: its default `1`".
+    pub defaults: Option<String>,
 }
 
 pub enum NavTarget {
@@ -312,6 +323,16 @@ impl Elaborator {
             nav.borrow_mut().generated -= 1;
         }
         out
+    }
+
+    /// The defaults a call whose head is written at `at` used, for hover.
+    pub(crate) fn note_call_defaults(&self, at: Span, used: String) {
+        if let Some(nav) = &self.nav {
+            let mut nav = nav.borrow_mut();
+            if nav.generated == 0 {
+                nav.call_defaults.insert(at, used);
+            }
+        }
     }
 
     /// `name`, written, resolved to a declaration.
@@ -660,6 +681,7 @@ impl Elaborator {
                 dot: noted.dot.clone(),
                 target: NavTarget::Symbol(index),
                 ty: symbols[index].ty.clone(),
+                defaults: nav.call_defaults.get(at).cloned(),
             });
         }
         for local in &nav.locals {
@@ -674,6 +696,7 @@ impl Elaborator {
                     .local_types
                     .get(&(local.span.file, local.span.start))
                     .cloned(),
+                defaults: nav.call_defaults.get(&local.span).cloned(),
             });
         }
         // Each declaration's own name refers to it, for hover and definition there.
@@ -689,6 +712,7 @@ impl Elaborator {
                 dot: Some(last.to_string()),
                 target: NavTarget::Symbol(i),
                 ty: symbols[i].ty.clone(),
+                defaults: None,
             });
         }
         // In `def Pt.sum`, the `Pt` is a reference to the type (when it's
@@ -732,6 +756,7 @@ impl Elaborator {
                 dot: None,
                 target: NavTarget::Symbol(index),
                 ty: symbols[index].ty.clone(),
+                defaults: None,
             });
         }
         // The same for a declaration outside the outline (the library's: only
@@ -755,6 +780,7 @@ impl Elaborator {
                 dot: Some(last.to_string()),
                 target: NavTarget::Symbol(i),
                 ty: symbol.ty.clone(),
+                defaults: None,
             });
         }
         // A local variable's binder refers to itself (a record field is a declaration, above).
@@ -770,6 +796,7 @@ impl Elaborator {
                     span: binder.span,
                 },
                 ty: None,
+                defaults: None,
             });
         }
         refs.sort_by_key(|r| (r.span.file.index(), r.span.start, r.span.end));
@@ -878,7 +905,7 @@ impl Elaborator {
 
     /// The value of definition `id`'s parameter `i`'s default, if it has
     /// one: its helper's body, in the names of the parameters it takes.
-    fn param_default_shown(&self, id: DefId, i: usize) -> Option<String> {
+    pub(crate) fn param_default_shown(&self, id: DefId, i: usize) -> Option<String> {
         let g = &self.globals;
         let table = g.def(id).param_defaults.clone()?;
         let default = table.params.get(i)?.as_ref()?;
