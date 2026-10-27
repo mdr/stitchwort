@@ -933,6 +933,7 @@ fn call(
     if receiver_place(cx, &params, owner)?.is_none() {
         return Err(no_receiver(cx, recv, field, owner, f, key, &params));
     }
+    let rterm = crate::check::without_inferred_annotation(recv, rterm);
     // Named arguments (docs/proposals/named-arguments.md §4.4): the receiver
     // fills the first explicit parameter, then the arguments fill theirs. If
     // that leaves nothing out before the last one given and names no
