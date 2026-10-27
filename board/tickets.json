@@ -3298,7 +3298,7 @@
     {
       "id": 507,
       "title": "Or-patterns ('k' | 'w' => …) — backlog, from the roguelike's key handling (NOTES stage 1 #9)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
