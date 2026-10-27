@@ -29,16 +29,12 @@ def parseReport (line: Text): {Fail} Report :=
   Fail.ensure (levels != []) "expected levels like '7 6 4 2 1', got an empty line"
   { levels }
 
--- Each level paired with the next one.
-def steps (levels: List Nat): List (Nat, Nat) := levels.zip levels.tailOf
-
 -- From `lower` to `higher` is a rise of one to three.
 def risesGently (lower: Nat) (higher: Nat): Bool := lower < higher && higher <= lower + 3
 
 -- Every step rises gently, or every step falls gently.
 def isSafe (report: Report): Bool :=
-  let reportSteps := steps report.levels
-  reportSteps.all (step => risesGently step.fst step.snd) || reportSteps.all (step => risesGently step.snd step.fst)
+  report.levels.chain risesGently || report.levels.chain (level next => risesGently next level)
 
 -- The report with one level taken out, for each level in turn.
 def withoutOneLevel (report: Report): List Report :=

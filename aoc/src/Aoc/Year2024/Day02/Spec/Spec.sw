@@ -5,21 +5,16 @@ namespace Aoc.Year2024.Day02.Spec
 import Aoc.Year2024.Day02 (..)
 import Std (List, Nat)
 
--- `holds` is true of every level and the level after it.
-def everyAdjacentPair (holds: Nat → Nat → Bool): List Nat → Bool
-  | Nil => True
-  | Cons level Nil => True
-  | Cons level (Cons next rest) => holds level next && everyAdjacentPair holds (Cons next rest)
+-- "The levels are either all increasing or all decreasing": each level
+-- against the next.
+def allIncreasing (levels: List Nat): Bool := levels.chain (level next => level < next)
 
--- "The levels are either all increasing or all decreasing."
-def allIncreasing (levels: List Nat): Bool := everyAdjacentPair (level next => level < next) levels
-
-def allDecreasing (levels: List Nat): Bool := everyAdjacentPair (level next => level > next) levels
+def allDecreasing (levels: List Nat): Bool := levels.chain (level next => level > next)
 
 -- "Any two adjacent levels differ by at least one and at most three."
 def differByOneToThree (level: Nat) (next: Nat): Bool := 1 <= Nat.absDiff level next && Nat.absDiff level next <= 3
 
-def adjacentDifferByOneToThree (levels: List Nat): Bool := everyAdjacentPair differByOneToThree levels
+def adjacentDifferByOneToThree (levels: List Nat): Bool := levels.chain differByOneToThree
 
 -- "A report only counts as safe if both of the following are true."
 def safe (report: Report): Bool :=

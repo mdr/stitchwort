@@ -130,6 +130,87 @@ def List.zipWith3: List a → List b → List c → (f: a → b → c → d) →
   | Cons x xs, Cons y ys, Nil, f => Nil
   | Cons x xs, Cons y ys, Cons z zs, f => Cons (f x y z) (List.zipWith3 xs ys zs f)
 
+-- Each element paired with the next: `[1, 2, 3].zipWithNext` is
+-- `[(1, 2), (2, 3)]`, empty for fewer than two elements.
+def List.zipWithNext: List a → List (Pair a a)
+  | Nil => Nil
+  | Cons x Nil => Nil
+  | Cons x (Cons next rest) => Cons (MkPair x next) (List.zipWithNext (Cons next rest))
+
+theorem List.zipWithNextExample: List.zipWithNext [1, 2, 3] = [MkPair 1 2, MkPair 2 3] := rfl
+
+-- One pair fewer than there are elements.
+theorem List.lengthZipWithNext: (xs: List a) → List.length (List.zipWithNext xs) = List.length xs - 1
+  | Nil => rfl
+  | Cons x Nil => rfl
+  | Cons x (Cons next rest) => rewrite List.lengthZipWithNext (Cons next rest)
+
+-- The list zipped with its own tail.
+theorem List.zipWithNextZip: (xs: List a) → List.zipWithNext xs = List.zip xs (List.tailOf xs)
+  | Nil => rfl
+  | Cons x Nil => rfl
+  | Cons x (Cons next rest) => rewrite List.zipWithNextZip (Cons next rest)
+
+-- Whether `holds` is true of each element and the next:
+-- `[1, 2, 4].chain (x y => x < y)` is true. True for fewer than two elements.
+-- `List.Sorted le xs` says the same as a `Prop` (`List.sortedOfChain`).
+def List.chain: List a → (holds: a → a → Bool) → Bool
+  | Nil, holds => True
+  | Cons x Nil, holds => True
+  | Cons x (Cons next rest), holds => holds x next ∧ List.chain (Cons next rest) holds
+
+theorem List.chainEmpty (holds: a → a → Bool): List.chain Nil holds = True := rfl
+
+theorem List.chainSingle (x: a) (holds: a → a → Bool): List.chain [x] holds = True := rfl
+
+theorem List.chainCons (x: a) (next: a) (rest: List a) (holds: a → a → Bool):
+    List.chain (Cons x (Cons next rest)) holds = (holds x next ∧ List.chain (Cons next rest) holds) := rfl
+
+-- `holds` is true of every pair `zipWithNext` gives.
+theorem List.chainZipWithNext: (xs: List a) → (holds: a → a → Bool) →
+    List.chain xs holds = (List.zipWithNext xs |> .all (pair => holds pair.fst pair.snd))
+  | Nil, holds => rfl
+  | Cons x Nil, holds => rfl
+  | Cons x (Cons next rest), holds => rewrite List.chainZipWithNext (Cons next rest) holds in rfl
+
+-- Without the first element, it still holds.
+theorem List.chainTail: (xs: List a) → (holds: a → a → Bool) → List.chain xs holds = True → List.chain (List.tailOf xs) holds = True
+  | Nil, holds, chained => rfl
+  | Cons x Nil, holds, chained => rfl
+  | Cons x (Cons next rest), holds, chained => Bool.andRight _ _ chained
+
+-- Without the last element (`List.init`), it still holds.
+theorem List.chainInit: (xs: List a) → (holds: a → a → Bool) → List.chain xs holds = True → List.chain (List.init xs) holds = True
+  | Nil, holds, chained => rfl
+  | Cons x rest, holds, chained => List.chainInitCons x rest holds chained
+
+theorem List.chainInitCons: (x: a) → (rest: List a) → (holds: a → a → Bool) →
+    List.chain (Cons x rest) holds = True → List.chain (List.init (Cons x rest)) holds = True
+  | x, Nil, holds, chained => rfl
+  | x, Cons next Nil, holds, chained => rfl
+  | x, Cons next (Cons after more), holds, chained =>
+    let first := Bool.andLeft _ _ chained
+    let kept := List.chainInitCons next (Cons after more) holds (Bool.andRight _ _ chained)
+    Bool.andIntro _ _ first kept
+
+-- Tests that agree on every pair give the same answer.
+theorem List.chainCong: (xs: List a) → (holds1: a → a → Bool) → (holds2: a → a → Bool) → ((x: a) → (y: a) → holds1 x y = holds2 x y) →
+    List.chain xs holds1 = List.chain xs holds2
+  | Nil, holds1, holds2, eh => rfl
+  | Cons x Nil, holds1, holds2, eh => rfl
+  | Cons x (Cons next rest), holds1, holds2, eh => rewrite eh x next, List.chainCong (Cons next rest) holds1 holds2 eh
+
+-- Both tests hold of every pair when each one does.
+theorem List.chainAnd: (xs: List a) → (holds1: a → a → Bool) → (holds2: a → a → Bool) →
+    List.chain xs (x y => holds1 x y ∧ holds2 x y) = (List.chain xs holds1 ∧ List.chain xs holds2)
+  | Nil, holds1, holds2 => rfl
+  | Cons x Nil, holds1, holds2 => rfl
+  | Cons x (Cons next rest), holds1, holds2 =>
+    rewrite List.chainAnd (Cons next rest) holds1 holds2 in cases
+
+test "List.zipWithNext" := List.zipWithNext [1, 2, 3] == [MkPair 1 2, MkPair 2 3] ∧ List.zipWithNext [7] == Nil ∧ List.zipWithNext (Nil: List Nat) == Nil
+test "List.chain" := List.chain [1, 2, 4] (x y => x < y) ∧ ¬(List.chain [1, 3, 2] (x y => x < y)) ∧ List.chain [5] (x y => x < y)
+
 -- The first n elements (all of them if there are fewer).
 def List.take: List a → Nat → List a
   | xs, Zero => Nil
@@ -931,6 +1012,14 @@ theorem List.findCong: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) �
   | Nil, p1, p2, ep => rfl
   | Cons x xs, p1, p2, ep => rewrite ep x, List.findCong xs p1 p2 ep
 
+theorem List.anyCong: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → p1 x = p2 x) → List.any xs p1 = List.any xs p2
+  | Nil, p1, p2, ep => rfl
+  | Cons x xs, p1, p2, ep => rewrite ep x, List.anyCong xs p1 p2 ep
+
+theorem List.allCong: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → p1 x = p2 x) → List.all xs p1 = List.all xs p2
+  | Nil, p1, p2, ep => rfl
+  | Cons x xs, p1, p2, ep => rewrite ep x, List.allCong xs p1 p2 ep
+
 theorem List.occurrencesCong: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → p1 x = p2 x) →
     List.occurrences xs p1 = List.occurrences xs p2
   | Nil, p1, p2, ep => rfl
@@ -1718,6 +1807,10 @@ theorem List.anyCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) 
   | Nil, p1, p2, ep => rfl
   | Cons x xs, p1, p2, ep => rewrite ep x (Inl rfl), List.anyCongMem xs p1 p2 (y m => ep y (Inr m))
 
+theorem List.allCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: x ∈ xs) → p1 x = p2 x) → List.all xs p1 = List.all xs p2
+  | Nil, p1, p2, ep => rfl
+  | Cons x xs, p1, p2, ep => rewrite ep x (Inl rfl), List.allCongMem xs p1 p2 (y m => ep y (Inr m))
+
 theorem List.occurrencesCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: x ∈ xs) → p1 x = p2 x) →
     List.occurrences xs p1 = List.occurrences xs p2
   | Nil, p1, p2, ep => rfl
@@ -1761,6 +1854,11 @@ theorem List.anyCongRange (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat
     (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
     List.any (List.rangeFrom c s) p1 = List.any (List.rangeFrom c s) p2 :=
   List.anyCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
+
+theorem List.allCongRange (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
+    (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
+    List.all (List.rangeFrom c s) p1 = List.all (List.rangeFrom c s) p2 :=
+  List.allCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
 theorem List.occurrencesCongRange (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
     (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):

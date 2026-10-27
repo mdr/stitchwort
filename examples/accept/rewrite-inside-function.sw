@@ -47,3 +47,10 @@ theorem totalCong (f1: Nat → Nat) (f2: Nat → Nat) (xs: List Nat) (ef: (x: Na
 
 theorem totalled (xs: List Nat): total (x => x * 1) xs = total (x => x) xs :=
   rewrite Nat.mulOne _
+
+-- Under `List.all` and `List.any`, by `List.allCong` and `List.anyCong`.
+theorem allAdded (xs: List Nat): List.all xs (x => Nat.leq (x + 0) 5) = List.all xs (x => Nat.leq x 5) :=
+  rewrite Nat.addZero _
+
+theorem anyAdded (xs: List Nat): List.any xs (x => Nat.leq (x + 0) 5) = List.any xs (x => Nat.leq x 5) :=
+  rewrite Nat.addZero _
