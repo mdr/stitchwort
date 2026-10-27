@@ -1176,7 +1176,12 @@ impl Quoter {
     }
 
     /// The atom `value` is, adding it if it's new.
-    fn atom(&mut self, cx: &mut Ctx, value: Value, unsupported: Option<&'static str>) -> Result<usize> {
+    fn atom(
+        &mut self,
+        cx: &mut Ctx,
+        value: Value,
+        unsupported: Option<&'static str>,
+    ) -> Result<usize> {
         let term = cx.quote(&value)?;
         if let Some(i) = self
             .atoms
