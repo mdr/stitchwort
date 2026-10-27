@@ -3881,6 +3881,28 @@ fn annotate(cx: &Ctx, term: Term, ty: &Value) -> Result<Term> {
     })
 }
 
+/// `term`, inferred from `expr`, without the annotation [`annotate`] put on
+/// a constructor: for a receiver or piped value passed as an explicit
+/// argument, where the parameter's type is known, so it elaborates as the
+/// same argument checked in prefix form does. An annotation written in the
+/// source stays.
+pub(crate) fn without_inferred_annotation(expr: &Expr, term: Term) -> Term {
+    if matches!(expr, Expr::Ann(..)) {
+        return term;
+    }
+    let span = match &term {
+        Term::Loc(span, _) => Some(*span),
+        _ => None,
+    };
+    match term.strip_loc() {
+        Term::Ann(inner, _) if matches!(inner.strip_loc(), Term::Ctor(..)) => match span {
+            Some(span) => Term::Loc(span, inner.clone()),
+            None => (**inner).clone(),
+        },
+        _ => term,
+    }
+}
+
 /// `Pair A B` for `(A, B)`: each component must be a type in `Type`, as
 /// `Pair`'s parameters are (a proposition can't be a component).
 fn type_tuple(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {

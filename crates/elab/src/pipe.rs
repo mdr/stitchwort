@@ -79,7 +79,7 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
         infer(cx, value)?
     };
     let (term, ty) = insert(cx, term, ty)?;
-    let piped = Piped {
+    let mut piped = Piped {
         term,
         ty,
         span: f.span(),
@@ -88,6 +88,8 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
     if let Expr::Lam(..) | Expr::TypedLam(..) = f {
         return lambda(cx, f, piped);
     }
+    // An explicit argument: as `f value` would elaborate it.
+    piped.term = crate::check::without_inferred_annotation(value, piped.term);
     if let Some(known) = known_head(cx, head) {
         if let Expr::Var(name) = head {
             if let Some(level) = cx.lookup(&name.text) {

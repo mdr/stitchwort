@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Box 4019c98ee9492e753907edce8381340acc13f3a25bb6335176b70b6246e96d39
 data Main.Labelled 74fb30619891dea2e97f844874efae6209f817ec8b34b8d71af9385d5036aeef
@@ -31,7 +31,7 @@ Main.pairDone 6707ef80c863e5958763d93af35bd1995cdae501bb21cd38646019dbba07f495
 Main.passOn 4481b321b35b690cef5c788ac7e4c2e2d4d1ed94be567ee598b154de87376658
 Main.directDone be2317c31409093b6f6d7f8279df8e4fcd95246b471288b148309bc186713356
 Main.directComputes 9ea2a0b802bc124121e48e7812a3a6176fd34e5abfa699231bc6a201fc54b771
-Main.pipedDone be2317c31409093b6f6d7f8279df8e4fcd95246b471288b148309bc186713356
+Main.pipedDone cd1219b0b58eaa6ed91fb3f298fc7d250daa89f3d101f897da579e95e9f8eb0f
 Main.pipedComputes 9ea2a0b802bc124121e48e7812a3a6176fd34e5abfa699231bc6a201fc54b771
 Main.dotDone 65b12e0343af45ded3150514146346e0d5bfba1dcfc8eb065720cfe8005034ce
 Main.dotComputes decddf19abbc60299d6f57f976cb34452e7abd8f627bf7149f2d91259420bec7
