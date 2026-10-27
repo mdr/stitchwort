@@ -9,9 +9,10 @@
 //! are left out (D179), as for `DecEq`. It's derived where `DecEq` is, with
 //! `Ord` for the data fields instead (a field of type `T` itself is a
 //! recursive call), and `[auto ord: Ord a]` for each parameter that's a type
-//! the fields use; `Ord`'s `eq` is `T`'s own `DecEq` instance, so a type
-//! without a derived one gets no `Ord` either. Why not is kept for the note
-//! when an `Ord` is needed for `T`.
+//! the fields use; `Ord`'s `eq` is `T`'s own `DecEq` instance. When `T`'s
+//! module declares that instance by hand, `Ord` is derived once the instance
+//! is checked (`derive_pending_ord`), so it is known to whatever is checked
+//! after it. Why not is kept for the note when an `Ord` is needed for `T`.
 //!
 //! The laws are put together from lemmas in the core, proved once
 //! (`Ordering.thenEqual`, `Ordering.thenFlip`, `Ord.thenTrans`, …): each
@@ -45,7 +46,8 @@ use stitchwort_syntax::Span;
 use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
 
 use crate::derive::{Field, Plan, fields_equal};
-use crate::{Elaborator, Result, interfaces};
+use crate::module::Status;
+use crate::{Elaborator, Global, Result, interfaces};
 
 type Definition = (Decl, Vec<Decl>);
 
@@ -69,14 +71,59 @@ impl Elaborator {
             return Ok(());
         }
         if self.declares_instance_of(dec_eq) {
+            if let Some(item) = self.module.item {
+                self.module.ord_after_dec_eq.insert(item, d);
+            }
             self.no_ord.insert(
                 d,
-                "its module's own `DecEq` instance, which `Ord` needs, isn't known yet when it's \
-                 declared; declare an `Ord` instance too"
+                "its module's own `DecEq` instance, which `Ord` needs, uses this, so it isn't \
+                 checked yet here; declare an `Ord` instance too"
                     .into(),
             );
             return Ok(());
         }
+        self.derive_ord_with_eq(d)
+    }
+
+    /// After the items of `component` are checked: `Ord` for each data type
+    /// whose own `DecEq` instance is among them, if that instance checked.
+    pub(crate) fn derive_pending_ord(&mut self, component: &[usize]) -> Result<()> {
+        let Some(dec_eq) = interfaces::dec_eq(self) else {
+            return Ok(());
+        };
+        for &instance in component {
+            let info = &self.module.items[instance];
+            if !info.instance || info.interface != Some(Global::Data(dec_eq)) {
+                continue;
+            }
+            let Some(Global::Unchecked(data_item)) = info.head else {
+                continue;
+            };
+            let Some(d) = self.module.ord_after_dec_eq.remove(&data_item) else {
+                continue;
+            };
+            if self.module.items[instance].status != Status::Checked {
+                let why = format!(
+                    "`Ord` needs `==`, and its module's own `DecEq` instance `{}` didn't check",
+                    self.module.items[instance].name
+                );
+                self.no_ord.insert(d, why);
+                continue;
+            }
+            self.no_ord.remove(&d);
+            let item = self.module.item.replace(data_item);
+            let result = self.unnoted(|e| e.derive_ord_with_eq(d));
+            self.module.item = item;
+            result?;
+        }
+        Ok(())
+    }
+
+    /// `Ord` for `d`, using its `DecEq` instance, which is known by now.
+    fn derive_ord_with_eq(&mut self, d: DataId) -> Result<()> {
+        let Some(ord) = interfaces::ord(self) else {
+            return Ok(());
+        };
         let plan = match self.field_plan(d, ord, "`Ord`")? {
             Ok(plan) => plan,
             Err(why) => {

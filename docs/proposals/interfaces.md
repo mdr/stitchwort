@@ -2494,12 +2494,19 @@ What differs from the text above, or wasn't settled by it:
    types with one constructor have no tags.
 4. **`Ord` needs `T`'s `DecEq`** (its `eq`, found by `Ord.fromCompare`).
    So `Ord` isn't derived where `DecEq` isn't (the note gives `==`'s
-   reason), nor where the module declares its own `DecEq` for `T`: that
+   reason). Where the module declares its own `DecEq` for `T`, that
    instance isn't checked yet when `T` is declared (it depends on `T`), so
-   the note asks for an `Ord` instance as well. Otherwise the reasons are
-   derived `DecEq`'s, with "has no `Ord` instance" for a data field
-   (`derive-ord-none.sw`: a field whose type has its own `DecEq` and no
-   `Ord`). `E-INSTANCE-NONE` for `Ord` of a function type now says
+   `Ord` is derived right after the instance is checked, with it as `eq`
+   (`derive-ord-own-deceq.sw`). Definitions and tests are checked after
+   the module's instances, and an instance that mentions `Ord` after that
+   `DecEq` instance, so they find it; what the `DecEq` instance itself
+   uses doesn't, and the note says so. The field-by-field order always
+   agrees with a hand-written `==`: `DecEq` decides `x = y`, so an `==`
+   that ignored a field couldn't prove its `Yes` (`deceq-ignores-field.sw`),
+   and the laws are proved from the fields' `Ord`s alone. Otherwise the
+   reasons are derived `DecEq`'s, with "has no `Ord` instance" for a data
+   field (`derive-ord-none.sw`: a field whose type has its own `DecEq` and
+   no `Ord`, a record around a quotient). `E-INSTANCE-NONE` for `Ord` of a function type now says
    "functions can't be ordered" (`ord-none.sw`'s snapshot gained the note).
 5. **A module's own instance replaces the derived one** by names, as for
    `DecEq` and `Show`; the library's types are skipped.

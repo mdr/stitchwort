@@ -51,7 +51,7 @@ use stitchwort_syntax::ast::{self, BinOp, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{Diagnostic, FileId, Severity, Span};
 
 use crate::project::SourceUnit;
-use crate::{Elaborator, Global, RESERVED, error, goals};
+use crate::{Elaborator, Global, RESERVED, error, goals, interfaces};
 
 /// What a declaration of the module is.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -178,6 +178,9 @@ pub(crate) struct ModuleState {
     pub def_items: HashMap<DefId, usize>,
     /// The key of every name the module declares.
     pub names: HashSet<String>,
+    /// Data types (by item) whose `Ord` is derived once their module's own
+    /// `DecEq` instance is checked.
+    pub ord_after_dec_eq: HashMap<usize, DataId>,
 }
 
 impl ModuleState {
@@ -441,6 +444,16 @@ impl Elaborator {
                 if component.len() == 1 {
                     self.note_counterexample(&items[component[0]], &mut diagnostics[before..]);
                 }
+            }
+            // A data type's `Ord`, waiting for its module's own `DecEq`
+            // instance, once that instance is checked.
+            if !self.module.ord_after_dec_eq.is_empty() {
+                let saved = self.globals.budget.start(self.limits);
+                if let Err(d) = self.glued(|e| e.derive_pending_ord(&component)) {
+                    diagnostics.push((position, d));
+                }
+                self.globals.budget.restore(saved);
+                self.clear_metas();
             }
         }
         self.clear_metas();
@@ -1153,6 +1166,23 @@ impl Elaborator {
                 speculative: Some("it may use instances".to_string()),
             });
         };
+        // A data type's own `DecEq` instance, without an own `Ord` one: its
+        // `Ord` is derived once the instance is checked.
+        let dec_eq = interfaces::dec_eq(self).map(Global::Data);
+        let ord = interfaces::ord(self).map(Global::Data);
+        let derives_ord: Vec<usize> = instances
+            .iter()
+            .copied()
+            .filter(|&y| {
+                let item = &self.module.items[y];
+                dec_eq.is_some()
+                    && item.interface == dec_eq
+                    && matches!(item.head, Some(Global::Unchecked(_)))
+                    && !self.module.items.iter().any(|other| {
+                        other.instance && other.interface == ord && other.head == item.head
+                    })
+            })
+            .collect();
         // Between instances: by the interfaces their declarations mention,
         // and their interfaces' superclasses.
         for &y in &instances {
@@ -1165,7 +1195,9 @@ impl Elaborator {
                     continue;
                 }
                 let mentions = self.mentions_global(x, &items[x], wanted)
-                    || self.is_super_of(self.module.items[x].interface, wanted, items);
+                    || self.is_super_of(self.module.items[x].interface, wanted, items)
+                    || derives_ord.contains(&y)
+                        && ord.is_some_and(|ord| self.mentions_global(x, &items[x], ord));
                 if mentions {
                     add(self, &reached, x, y);
                 }
