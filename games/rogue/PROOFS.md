@@ -227,10 +227,6 @@ the pinned first map and the winning game (232 turns before levels were made on 
    character is none of them, and the game's `match` is back. A proof still
    needs an arm per character, as the program has.
 5. **Small things met on the way** (each cost a few minutes):
-   - `unfolding` after a signature that spans lines must be indented
-     *less* than the type's continuation lines (as in docs/syntax.md);
-     at the same indentation it's read as part of the type, and the error
-     is "expected an expression, but found `unfolding`".
    - `then` can't be a parameter name (it's a keyword); the error says
      "expected a parameter's name, but found `then`", which is clear.
    - An `And` proof has no `.snd` (its fields are `left` and `right`); `And.right p`
