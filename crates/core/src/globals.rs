@@ -110,7 +110,22 @@ pub struct Def {
     /// never reads it; the elaborator fills calls that leave a defaulted
     /// parameter out with its helper.
     pub param_defaults: Option<Rc<ParamDefaults>>,
+    /// For the helper a record update `{ x | f = s }` of a type with several
+    /// constructors is lifted to: how the printer shows a call of it, as the
+    /// update. Only messages read it, so it isn't hashed.
+    pub update_shown: Option<Rc<UpdateShown>>,
     pub span: Span,
+}
+
+/// How a call of an update's helper is shown (see [`Def::update_shown`]):
+/// the record updated and each field's new value, in the order written, as
+/// terms in the helper's parameters (all explicit, the innermost last).
+#[derive(Clone, Debug)]
+pub struct UpdateShown {
+    /// How many parameters the helper takes.
+    pub params: usize,
+    pub base: Term,
+    pub fields: Vec<(Name, Term)>,
 }
 
 /// A definition's parameter defaults: one entry per parameter of its type,

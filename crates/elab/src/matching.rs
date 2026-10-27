@@ -685,6 +685,7 @@ fn check_motive(
         lets: cx.lets.clone(),
         order: cx.order.clone(),
         local: None,
+        update: None,
     };
     let Ok(ty) = cx.e.lifted_type(&draft) else {
         return Ok(()); // something isn't known yet: checked when it's admitted

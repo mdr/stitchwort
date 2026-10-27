@@ -1661,3 +1661,31 @@ fn parameter_defaults_show_in_hover_and_completion() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn record_updates_hover_as_written() {
+    let dir = temp_dir("record-update-hover");
+    let file = dir.join("updates.sw");
+    let text = "type Shape =\n  | Dot (ref: Nat) (id: Text)\n  | Circle (ref: Nat) (id: Text) (radius: Nat)\n\
+                type Player = { name: Text, gold: Nat }\n\
+                def renamed (shape: Shape) (newId: Text) (same: ({ shape | id = newId }) = shape): ({ shape | id = newId }) = shape := same\n\
+                def paid (player: Player) (amount: Nat) (same: ({ player | gold = amount }) = player): ({ player | gold = amount }) = player := same\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    // The use of `same` that ends each line: its type shows the update, not
+    // a hidden helper or every field of the record.
+    for (line, expected) in [
+        (4, "{ shape | id = newId } = shape"),
+        (5, "{ player | gold = amount } = player"),
+    ] {
+        let at = text.lines().nth(line).unwrap().len() - 2;
+        let hover = client.at("textDocument/hover", &uri, line as u32, at as u32);
+        let shown = hover["contents"]["value"].as_str().unwrap_or_default();
+        assert!(shown.contains(expected), "{hover}");
+    }
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}

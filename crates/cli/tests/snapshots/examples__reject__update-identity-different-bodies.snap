@@ -5,26 +5,15 @@ expression: output
 [E-REFL] Error: `rfl` can't prove this
     ╭─[ reject/update-identity-different-bodies.sw:14:66 ]
     │
- 11 │ def setRef (c: Shape) (x: Nat): Shape := { c | ref = x }
-    │                                          ───────┬───────  
-    │                                                 ╰───────── this `match`
- 12 │ def setId (c: Shape) (x: Nat): Shape := { c | id = x }
-    │                                         ───────┬──────  
-    │                                                ╰──────── this `match`
-    │ 
  14 │ theorem different (c: Shape) (x: Nat): setRef c x = setId c x := rfl
     │                                                                  ─┬─  
     │                                                                   ╰─── `setRef c x` and `setId c x` aren't equal
     │ 
-    │ Note 1: computing both sides gives `(match …) c x` and `(match …) c x`
+    │ Note 1: computing both sides gives `{ c | ref = x }` and `{ c | id = x }`
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
     │ 
-    │ Note 3: `(match …)` is a `match` written inside `setRef` and `setId`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
-    │ 
-    │ Note 4: two different `(match …)` appear here, which print alike but are different hidden functions; two such functions are equal only when they split the same value and every branch gives the same result, and neither calls the definition it's written in; to prove something about both, name the step as a `def` and use it in both places
-    │ 
-    │ Note 5: this statement is false; a counterexample:
+    │ Note 3: this statement is false; a counterexample:
     │           c = Dot 0 0
     │           x = 1
     │         `setRef c x = setId c x` is false:

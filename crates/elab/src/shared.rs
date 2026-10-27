@@ -699,7 +699,29 @@ fn update_match(
         span,
         kind: MatchKind::Match,
     };
-    Elaborator::unnoted_in(cx, |cx| crate::matching::check_match(cx, &expr, ty))
+    let new_values: Vec<(Name, usize)> = fields
+        .iter()
+        .filter_map(|(field, _)| {
+            let level = cx.lookup(&new_name(&field.text))?;
+            Some((field.text.as_str().into(), level))
+        })
+        .collect();
+    let term = Elaborator::unnoted_in(cx, |cx| crate::matching::check_match(cx, &expr, ty))?;
+    // The helper the `match` is lifted to is shown as the update.
+    if let (Term::Meta(meta), _) = term.spine()
+        && let Some(draft) =
+            cx.e.drafts
+                .borrow_mut()
+                .iter_mut()
+                .rev()
+                .find(|draft| draft.meta == *meta)
+    {
+        draft.update = Some(crate::lift::UpdateDraft {
+            base: base_level,
+            fields: new_values,
+        });
+    }
+    Ok(term)
 }
 
 /// Refuses an update of the shared fields `named` of `d` unless, in every

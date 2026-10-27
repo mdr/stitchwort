@@ -1,0 +1,26 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/update-helpers-print-alike.sw:17:56 ]
+    │
+ 17 │ theorem same (c: Shape): outline c = outlineAgain c := rfl
+    │                                                        ─┬─  
+    │                                                         ╰─── `outline c` and `outlineAgain c` aren't equal
+    │ 
+    │ Note 1: computing both sides gives `{ c | points = … }` and `{ c | points = … }`
+    │ 
+    │ Note 2: these are different updates that print alike: each `{ x | f = s }` is made into a hidden function of its own, and two are equal only when they replace the same fields with the same values and neither calls the definition it's written in (here they may differ in a part shown as `…`, or one may be in a recursive definition); to prove something about both, name the update as a `def` and use it in both places
+    │ 
+    │ Note 3: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 4: this statement is false; a counterexample:
+    │           c = Dot 0 []
+    │         `outline c = outlineAgain c` is false:
+    │           left:  Dot 0 [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, …
+    │           right: Dot 0 [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, …
+    │           first difference at .Dot.points[89]: 90 vs 91
+    │           left:  […, 87, 88, 89, 90]
+    │           right: […, 87, 88, 89, 91]
+────╯

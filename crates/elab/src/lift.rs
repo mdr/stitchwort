@@ -32,7 +32,7 @@ use std::rc::Rc;
 
 use crate::kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
-use stitchwort_core::globals::State;
+use stitchwort_core::globals::{State, UpdateShown};
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{Head, eval, quote_folded};
 use stitchwort_core::{DefId, Globals, Icit, Name, Term, Value};
@@ -81,6 +81,16 @@ pub(crate) struct Draft {
     pub order: Vec<usize>,
     /// For a local definition, what it is; `None` for a `match`.
     pub local: Option<LocalDraft>,
+    /// For the `match` of a record update, what it updates, so a call of
+    /// the helper is shown as the update.
+    pub update: Option<UpdateDraft>,
+}
+
+/// A record update's `match` (`shared.rs`): the variable of the record
+/// updated and of each field's new value, by level, in the order written.
+pub(crate) struct UpdateDraft {
+    pub base: usize,
+    pub fields: Vec<(Name, usize)>,
 }
 
 /// A local definition being lifted (`local.rs`).
@@ -158,6 +168,7 @@ pub(crate) fn draft(
         lets: cx.lets.clone(),
         order: cx.order.clone(),
         local: None,
+        update: None,
     });
     Ok(call)
 }
@@ -571,6 +582,10 @@ impl Elaborator {
                 // Opaque with its owner's `unfolding` clause, if it has one
                 // (`opaque.rs`).
                 self.opaque_helper(id);
+                if let Some(update) = &d.update {
+                    let shown = self.update_shown(d, &ordered[i], update);
+                    self.globals.defs[id.0].update_shown = shown.map(Rc::new);
+                }
                 let g = &self.globals;
                 let mut call = Term::Def(id);
                 for (arg, icit) in args {
@@ -643,6 +658,57 @@ impl Elaborator {
             .collect();
         self.arounds.borrow_mut().clear();
         Ok((joined, resolved))
+    }
+
+    /// How a call of an update's helper, which takes `captures`, is shown
+    /// (`Def::update_shown`); `None` if the update's variables can't all be
+    /// written in the helper's parameters.
+    fn update_shown(
+        &self,
+        draft: &Draft,
+        captures: &[usize],
+        update: &UpdateDraft,
+    ) -> Option<UpdateShown> {
+        let in_helper = |level: usize| self.in_helper(draft, captures, level).ok();
+        let fields = update
+            .fields
+            .iter()
+            .map(|(field, level)| Some((field.clone(), in_helper(*level)?)))
+            .collect::<Option<Vec<_>>>()?;
+        Some(UpdateShown {
+            params: captures.len(),
+            base: in_helper(update.base)?,
+            fields,
+        })
+    }
+
+    /// The variable at `level` of `draft`'s context as a term in the
+    /// parameters of its helper, which takes `captures`: a captured variable
+    /// is its parameter, and a `let` the helper re-creates is its value.
+    fn in_helper(&self, draft: &Draft, captures: &[usize], level: usize) -> Result<Term> {
+        let params = captures.len();
+        // The variable itself, or one the `match` added that the call
+        // passes it for (a scrutinee bound by a `let`).
+        let passes_it = |c: usize| {
+            c == level
+                || (c >= draft.base
+                    && level < draft.base
+                    && matches!(draft.extra[c - draft.base].strip_loc(),
+                        Term::Var(ix) if draft.base - 1 - ix == level))
+        };
+        if let Some(position) = captures.iter().position(|&c| passes_it(c)) {
+            return Ok(Term::Var(params - 1 - position));
+        }
+        let Some(def) = draft.lets.get(level).and_then(Option::as_ref) else {
+            return Err(Diagnostic::error(
+                "E-MALFORMED",
+                "internal error: an update's variable is neither captured nor a `let`",
+            ));
+        };
+        let value = self.unrefine_as(draft, &def.value, level, &|_| false, true)?;
+        replace(&self.globals, &value, level, &|l| {
+            self.in_helper(draft, captures, l)
+        })
     }
 
     /// Declares the helper for `draft`, of type `ty`, as `key`.
