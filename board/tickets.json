@@ -1,5 +1,5 @@
 {
-  "next": 677,
+  "next": 678,
   "tickets": [
     {
       "id": 13,
@@ -5442,6 +5442,18 @@
       "id": 676,
       "title": "Or-patterns that bind variables (Rust-style: every alternative binds the same names, https://doc.rust-lang.org/reference/patterns.html#or-patterns). D1401 (Matt, 27 Oct): or-patterns ship without binding first; consider binding when a program needs it",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 677,
+      "title": "Effect inference for let-bound lambdas: an unannotated lambda's result row is an unknown solved by its body (one effect, several, calls to function values), defaulting to pure (D1402, Matt 27 Oct: try it and see)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
