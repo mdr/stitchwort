@@ -1,5 +1,5 @@
 {
-  "next": 675,
+  "next": 676,
   "tickets": [
     {
       "id": 13,
@@ -4721,7 +4721,7 @@
     {
       "id": 616,
       "title": "Pipe vs prefix elaborate differently in effectful code: rewriting List.sum (List.map xs f) as xs.map f |> .sum changes the definition hash in examples main-fail, main-fail-ok, partial-map-self (f effectful) — find whether the terms differ in meaning (effect order) or only in shape; found by the restyle lane 26 Oct",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5418,6 +5418,18 @@
       "id": 674,
       "title": "Eq.cong f (omega) can't succeed: the argument is checked before it is matched against the goal, so omega sees only unknowns (?8 n x = ?9 n x) even for true statements; found with the misreported-error fix, 27 Oct",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 675,
+      "title": "Dot call on an annotated receiver with an effectful function fails: (([\"1\"]: List Text).map Text.toNatOrFail |> .sum) gives 'Effect.Comp has no field or function sum'; the prefix form works (pipe-vs-prefix lane, 27 Oct)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
