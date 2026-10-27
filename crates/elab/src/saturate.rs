@@ -41,6 +41,11 @@ pub fn saturate(g: &Globals, members: &[(DefId, Term)]) -> Result<(Members, Vec<
         .iter()
         .map(|(id, body)| (*id, entry_params(body)))
         .collect();
+    // A partial occurrence is given at least one argument and lacks at
+    // least one, so members with fewer than two parameters have none.
+    if params.iter().all(|(_, params)| params.len() < 2) {
+        return Ok((members.to_vec(), Vec::new()));
+    }
     let mut saturator = Saturator {
         g,
         params: &params,
