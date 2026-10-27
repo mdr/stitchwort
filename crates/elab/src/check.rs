@@ -1589,6 +1589,39 @@ fn apply_args_postponing(
                     postponed.push((*value, dom, placeholder, id));
                     continue;
                 }
+                // A proof found from its goal (`omega`, `rfl`, `rewrite …`)
+                // whose goal has unknowns that fails in place is checked
+                // again once the application's type has been compared with
+                // the type expected of it, as a lambda is above:
+                // `Eq.cong Some (omega)` against `Some a = Some b`.
+                if expecting.is_some()
+                    && goal_directed(cx, value)
+                    && only_lambdas_depend_on_it(&cod.body, &[])
+                    && crate::interfaces::unsolved_in(cx, &dom)?.is_some()
+                {
+                    let snapshot = crate::undo::Snapshot::take(cx);
+                    match check_arg(cx, &term, value, &dom) {
+                        Ok(value) => {
+                            ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
+                            term = Term::app(term, value);
+                        }
+                        Err(e) if crate::undo::fatal(&e) => return Err(e),
+                        Err(e) => {
+                            snapshot.restore(cx);
+                            first_error.get_or_insert(e);
+                            let meta = cx.fresh_meta();
+                            let placeholder = cx.eval(&meta)?;
+                            ty = cod.apply(cx.g(), placeholder.clone())?;
+                            let id = match meta.spine().0 {
+                                Term::Meta(m) => *m,
+                                _ => unreachable!("a fresh metavariable is headed by one"),
+                            };
+                            term = Term::app(term, meta);
+                            after_expected.push((*value, dom, placeholder, id));
+                        }
+                    }
+                    continue;
+                }
                 let next_is_unit = matches!(args.get(i + 1), Some(Arg::Explicit(Expr::Unit(_))));
                 let value = check_arg(cx, &term, value, &dom)
                     .map_err(|e| unit_call_hint(cx, &term, value, &dom, next_is_unit, e))?;
@@ -1634,6 +1667,22 @@ fn apply_args_postponing(
     }
     let own = own_dictionaries(&term);
     Ok((term, found_dictionaries(cx, &own, ty)?))
+}
+
+/// Whether `expr` is a proof found from the goal it's checked against
+/// (`omega`, `ring`, `cases`, `rewrite`, `calc`, `rfl`), so it can only
+/// succeed once that goal is known.
+fn goal_directed(cx: &Ctx, expr: &Expr) -> bool {
+    match expr {
+        Expr::Bracketed(inner, _) => goal_directed(cx, inner),
+        Expr::Omega { .. }
+        | Expr::Ring { .. }
+        | Expr::Cases { .. }
+        | Expr::Rewrite { .. }
+        | Expr::Calc { .. } => true,
+        Expr::Var(name) => name.text == "rfl" && cx.lookup("rfl").is_none(),
+        _ => false,
+    }
 }
 
 /// The items of a list literal checked against `elem`, in order, or when
