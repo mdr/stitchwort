@@ -1,6 +1,9 @@
 //! Runs every example program under `examples/` through the compiler.
 //!
 //! - `accept/` and `extract/`: must check without errors, and their tests must pass.
+//!   One that declares a warning on a `-- expect-warning: <CODE>` line at the
+//!   top of the file must report it, and its rendered warnings are
+//!   snapshot-tested.
 //! - `reject/` and `soundness/`: must fail with the error code declared on a
 //!   `-- expect-error: <CODE>` line at the top of the file. Failing with any other
 //!   code (or panicking) is a test failure. The rendered errors are snapshot-tested.
@@ -22,6 +25,7 @@ use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
 
 const KNOWN_GAP: &str = "-- known-gap";
 const EXPECT_ERROR: &str = "-- expect-error:";
+const EXPECT_WARNING: &str = "-- expect-warning:";
 
 struct Example {
     /// Path relative to `examples/`, e.g. `reject/non-positive.sw`.
@@ -32,10 +36,19 @@ struct Example {
 impl Example {
     /// The error code declared in the file's leading comment lines.
     fn expected_error(&self) -> Option<&str> {
+        self.declared(EXPECT_ERROR)
+    }
+
+    /// The warning code declared in the file's leading comment lines.
+    fn expected_warning(&self) -> Option<&str> {
+        self.declared(EXPECT_WARNING)
+    }
+
+    fn declared(&self, prefix: &str) -> Option<&str> {
         self.text
             .lines()
             .take_while(|line| line.starts_with("--"))
-            .find_map(|line| line.strip_prefix(EXPECT_ERROR))
+            .find_map(|line| line.strip_prefix(prefix))
             .map(str::trim)
     }
 }
@@ -116,10 +129,14 @@ fn accepted_examples_check() {
         .into_iter()
         .chain(examples("extract"))
         .collect();
-    let failures: Vec<String> = par_map(STACK, &all, accepted_example)
-        .into_iter()
-        .flatten()
-        .collect();
+    let results = par_map(STACK, &all, accepted_example);
+    let mut failures = Vec::new();
+    for (example, (failed, warnings)) in all.iter().zip(results) {
+        failures.extend(failed);
+        if let Some(warnings) = warnings {
+            insta::assert_snapshot!(snapshot_name(example), warnings);
+        }
+    }
     assert!(
         failures.is_empty(),
         "these examples should check but don't:\n\n{}",
@@ -127,8 +144,9 @@ fn accepted_examples_check() {
     );
 }
 
-/// The failures (if any) of one accepted example, rendered.
-fn accepted_example(example: &Example) -> Vec<String> {
+/// The failures (if any) of one accepted example, rendered, and its rendered
+/// warnings if it declares one.
+fn accepted_example(example: &Example) -> (Vec<String>, Option<String>) {
     let mut failures = Vec::new();
     let mut session = untimed(Session::for_stack(STACK));
     if let Err(diagnostics) = session.load(&example.name, &example.text) {
@@ -137,8 +155,14 @@ fn accepted_example(example: &Example) -> Vec<String> {
             example.name,
             rendered(&session.sources, &diagnostics)
         ));
-        return failures;
+        return (failures, None);
     }
+    let warnings = example.expected_warning().map(|expected| {
+        if !session.warnings.iter().any(|d| d.code == expected) {
+            failures.push(format!("{} doesn't warn {expected}\n", example.name));
+        }
+        rendered(&session.sources, &session.warnings)
+    });
     // An open goal (`?`) isn't an error, but what has one isn't checked.
     let goals: Vec<Diagnostic> = session
         .warnings
@@ -152,7 +176,7 @@ fn accepted_example(example: &Example) -> Vec<String> {
             example.name,
             rendered(&session.sources, &goals)
         ));
-        return failures;
+        return (failures, warnings);
     }
     // Their tests must pass too.
     for result in session.run_tests(&Cache::disabled()) {
@@ -163,7 +187,7 @@ fn accepted_example(example: &Example) -> Vec<String> {
             ));
         }
     }
-    failures
+    (failures, warnings)
 }
 
 /// Everything a load reported (errors, warnings and goals), and whether

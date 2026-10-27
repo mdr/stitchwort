@@ -52,6 +52,7 @@ mod probe;
 pub mod project;
 mod quot;
 mod records;
+mod redundant;
 mod reify;
 mod rewind;
 mod rewrite;
@@ -676,6 +677,7 @@ fn expand_or_patterns<'a>(rows: &[Row<'a>]) -> Vec<Row<'a>> {
         for alternative in alternatives.into_iter().rev() {
             let mut one = row.clone();
             one.span = alternative.span();
+            one.alternatives.push(alternative.span());
             one.pats[j] = alternative;
             pending.push(one);
         }
@@ -694,6 +696,8 @@ struct Row<'a> {
     /// `None` for an equation with an absurd pattern `()`.
     rhs: Option<&'a Expr>,
     span: Span,
+    /// The spans of the or-pattern alternatives the row was expanded to.
+    alternatives: Vec<Span>,
 }
 
 /// A compiled pattern match, before its right-hand sides are checked.
@@ -706,6 +710,8 @@ enum Tree<'a> {
         canon: Vec<usize>,
         rhs: Option<&'a Expr>,
         span: Span,
+        /// The spans of the or-pattern alternatives that chose the arm.
+        alternatives: Vec<Span>,
     },
     /// The variable at `level` has a type with no values.
     Absurd { level: usize, span: Span },
@@ -3038,6 +3044,7 @@ impl Elaborator {
                 canon: Vec::new(),
                 rhs: first_rhs,
                 span: first_span,
+                alternatives: Vec::new(),
             }
         } else {
             let rows: Vec<Row> = equations
@@ -3063,9 +3070,12 @@ impl Elaborator {
                     written: written_names(patterns),
                     rhs,
                     span,
+                    alternatives: Vec::new(),
                 })
                 .collect();
-            self.compile(&rows, cx.level(), &columns, &column_types, span)?
+            let tree = self.compile(&rows, cx.level(), &columns, &column_types, span)?;
+            self.warn_redundant(&rows, &tree);
+            tree
         };
         let mut term = families::warn_unreachable(cx, |cx| {
             let start = columns.first().copied().unwrap_or(cx.level());
@@ -3151,6 +3161,7 @@ impl Elaborator {
                 canon,
                 rhs: first.rhs,
                 span: first.span,
+                alternatives: first.alternatives.clone(),
             });
         };
 
@@ -3231,6 +3242,7 @@ impl Elaborator {
                     written: row.written.clone(),
                     rhs: row.rhs,
                     span: row.span,
+                    alternatives: row.alternatives.clone(),
                 });
             }
             let other_family = || -> Result<bool> {
@@ -3968,6 +3980,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             canon,
             rhs,
             span,
+            ..
         } => {
             families::reached(cx, *span);
             let Some(rhs) = rhs else {

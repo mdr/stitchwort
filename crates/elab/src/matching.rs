@@ -112,6 +112,7 @@ fn compile<'a>(
         written: crate::written_names(pats),
         rhs: None,
         span,
+        alternatives: Vec::new(),
     });
     let rows: Vec<Row> = alts
         .iter()
@@ -135,12 +136,15 @@ fn compile<'a>(
             written: crate::written_names(&alt.patterns),
             rhs: Some(&alt.body),
             span: alt.span,
+            alternatives: Vec::new(),
         })
         .chain(absurd_rows)
         .collect();
     let types: Vec<Option<Value>> = columns.iter().map(|l| Some(cx.types[*l].clone())).collect();
-    cx.e.compile(&rows, cx.level(), columns, &types, span)
-        .map_err(|d| in_context(cx, d, kind, alts, columns))
+    let tree = (cx.e.compile(&rows, cx.level(), columns, &types, span))
+        .map_err(|d| in_context(cx, d, kind, alts, columns))?;
+    cx.e.warn_redundant(&rows[..alts.len()], &tree);
+    Ok(tree)
 }
 
 /// A coverage error as the construct being matched words it: the same for

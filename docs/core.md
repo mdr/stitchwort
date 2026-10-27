@@ -507,6 +507,7 @@ Inlining copies code: each inlined member or helper appears once per call site i
 | `E-IMPLICIT-FIELD` | An automatic implicit field of a constructor whose type would mention a written field: write it out, after that field |
 | `E-RECORD-INDICES` | A record declared with indices |
 | `W-UNREACHABLE` | A warning: an equation whose constructor can never match the indices there; it's dropped unchecked |
+| `W-REDUNDANT` | A warning: an arm, or an alternative of an or-pattern, that is never chosen because earlier arms (or alternatives) match every value it matches; it points at the earlier arm that does when one alone does. The standard library may have none |
 | `W-RECORD-ARGUMENT` | A warning: `C { f = … }` on a one-field constructor whose field holds a record that has a field `f` too names `C`'s own field; `C ({ … })` matches the record's |
 | `E-UNSUPPORTED` | Not implemented yet |
 | `E-ABILITY` | An operation or effectful call where its ability isn't allowed, or a malformed `ability` |

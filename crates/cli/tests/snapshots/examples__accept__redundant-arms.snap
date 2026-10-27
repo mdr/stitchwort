@@ -1,0 +1,53 @@
+---
+source: crates/cli/tests/examples.rs
+expression: warnings
+---
+[W-REDUNDANT] Warning: this arm can never be chosen: earlier arms match everything it matches
+    ╭─[ accept/redundant-arms.sw:14:5 ]
+    │
+ 12 │   | 'k' => 1
+    │     ─┬─  
+    │      ╰─── this arm matches everything it does
+    │ 
+ 14 │   | 'k' => 3
+    │     ─┬─  
+    │      ╰─── never chosen
+────╯
+[W-REDUNDANT] Warning: this arm can never be chosen: earlier arms match everything it matches
+    ╭─[ accept/redundant-arms.sw:21:5 ]
+    │
+ 20 │   | _ => False
+    │     ┬  
+    │     ╰── this arm matches everything it does
+ 21 │   | Blue => False
+    │     ──┬─  
+    │       ╰─── never chosen
+────╯
+[W-REDUNDANT] Warning: this alternative can never be chosen: earlier arms or alternatives match everything it matches
+    ╭─[ accept/redundant-arms.sw:26:5 ]
+    │
+ 25 │   | 'h' => 0
+    │     ─┬─  
+    │      ╰─── this arm matches everything it does
+ 26 │   | 'h' | 'j' => 1
+    │     ─┬─  
+    │      ╰─── never chosen
+────╯
+[W-REDUNDANT] Warning: this alternative can never be chosen: earlier arms or alternatives match everything it matches
+    ╭─[ accept/redundant-arms.sw:27:11 ]
+    │
+ 27 │   | 'l' | 'l' => 2
+    │     ─┬─   ─┬─  
+    │      ╰───────── this alternative matches everything it does
+    │            │   
+    │            ╰─── never chosen
+────╯
+[W-REDUNDANT] Warning: this arm can never be chosen: earlier arms match everything it matches
+    ╭─[ accept/redundant-arms.sw:36:7 ]
+    │
+ 36 │     | False, _ => 4
+    │       ────┬───  
+    │           ╰───── never chosen
+    │ 
+    │ Note: the earlier arms together cover it
+────╯
