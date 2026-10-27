@@ -4781,7 +4781,7 @@
     {
       "id": 621,
       "title": "Signature defaults stage 1b: printing hides filled defaults (D1354)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
