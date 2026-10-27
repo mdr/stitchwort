@@ -1125,7 +1125,8 @@ fn target_within(cx: &Ctx, recv: &Expr, field: &AstName, depth: usize) -> Result
 
 /// The type of the receiver `recv`, when it can be read off without
 /// elaborating it: a variable's, a literal's (`" 4".toNatOrFail`), that of
-/// either side of `a ++ b` (`(s ++ "").toNatOrFail`), or a call's result
+/// either side of `a ++ b` (`(s ++ "").toNatOrFail`), an annotation's
+/// ([`annotation_type`]), or a call's result
 /// ([`call_result`]). A literal's is the type `infer` gives it with nothing
 /// expected, so the call found is the one dot notation makes.
 fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
@@ -1142,6 +1143,7 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
         // A list literal is a `List` (its element type doesn't matter for
         // finding the namespace), as `infer` makes it.
         Expr::List(..) => return Ok(data(crate::check::builtin_data(cx, Builtin::List)?)),
+        Expr::Ann(_, ty, _) => return annotation_type(cx, ty),
         Expr::Binary(stitchwort_syntax::ast::BinOp::Append, a, b) if depth > 0 => {
             return match receiver_type(cx, a, depth - 1)? {
                 Some(ty) => Ok(Some(ty)),
@@ -1167,6 +1169,35 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
             _ => return Ok(None),
         }
     }))
+}
+
+/// The type written in the annotation `(e: T)`, when its head is a global
+/// name: a data type (applied to anything), or a definition without
+/// parameters (a nickname such as `type Grid := …`). The same head dot
+/// notation finds from the elaborated annotation.
+fn annotation_type(cx: &Ctx, ty: &Expr) -> Result<Option<Ty>> {
+    let mut head = ty;
+    let mut applied = false;
+    while let Expr::App(f, _) = head {
+        head = f;
+        applied = true;
+    }
+    let Expr::Var(name) = head else {
+        return Ok(None);
+    };
+    if cx.lookup(&name.text).is_some() || cx.local(&name.text)?.is_some() {
+        return Ok(None);
+    }
+    let g = cx.g();
+    Ok(match cx.e.named(&name.text) {
+        Some((Global::Data(d), _)) => Some(Ty::Value(Value::Data(*d, Vec::new()))),
+        Some((Global::Def(id), _))
+            if !applied && !matches!(&g.def(*id).ty_value, Value::Pi(..)) =>
+        {
+            Some(Ty::Term(Rc::new(Term::Def(*id)), Vec::new()))
+        }
+        _ => None,
+    })
 }
 
 /// The result type of the call `expr` (`f x`, `x.f`, `x.f y`), when it can be

@@ -58,3 +58,39 @@ def pureDot: Nat := [1, 2, 3].map (n => n + 1) |> .sum
     }
     assert_eq!(checked, 4);
 }
+
+/// A receiver with a written annotation, in an effectful definition: the
+/// dot call before `|>` runs first, so `.sum` is looked up on its value's
+/// type, and the pipe has the prefix call's hash.
+#[test]
+fn annotated_receiver_pipe_has_the_prefix_hash() {
+    let text = r#"
+import Std (Fail, List, Text)
+
+def annotatedPrefix(): {Fail} Nat := List.sum (List.map (["1", " 2 ", "3"]: List Text) Text.toNatOrFail)
+def annotatedDotPipe(): {Fail} Nat := (["1", " 2 ", "3"]: List Text).map Text.toNatOrFail |> .sum
+"#;
+    let by_name = hashes_by_name(text);
+    assert_eq!(by_name["annotatedPrefix"], by_name["annotatedDotPipe"]);
+}
+
+/// The annotated pipe computes what the prefix call does.
+#[test]
+fn annotated_receiver_pipe_runs_as_the_prefix_call() {
+    let text = r#"
+import Std (IO, Fail, List, Text)
+
+def main(): {IO, Fail} () :=
+  let piped := (["1", " 2 ", "3"]: List Text).map Text.toNatOrFail |> .sum
+  let prefix := List.sum (List.map (["1", " 2 ", "3"]: List Text) Text.toNatOrFail)
+  IO.print "${piped} ${prefix}"
+"#;
+    let mut session = Session::new();
+    if let Err(errors) = session.load("pipe-forms-run.sw", text) {
+        panic!("{errors:#?}");
+    }
+    let main = session.main().unwrap();
+    let mut output = Vec::new();
+    session.run_main(&main, &mut &b""[..], &mut output).unwrap();
+    assert_eq!(String::from_utf8(output).unwrap(), "6 6\n");
+}
