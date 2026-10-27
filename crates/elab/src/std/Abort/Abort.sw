@@ -104,8 +104,8 @@ theorem Abort.ensureEqSome [goal: Prop] [ok: Bool] [k: () → {Abort} b] [v: b]
     | True => use rfl h
 
 -- A block starting with any computation `t` gave `Some v`: so did `t`. `t`
--- is given, as a thunk: `Abort.thenEqSome (() => binFor item) h (bin found rest => …)`.
-theorem Abort.thenEqSome [goal: Prop] (t: () → {Abort} a) [k: a → {Abort} b] [v: b]
+-- is found from `h`: `Abort.thenEqSome h (bin found rest => …)`.
+theorem Abort.thenEqSome [goal: Prop] [t: () → {Abort} a] [k: a → {Abort} b] [v: b]
     (h: Abort.toOption (() => k (t ())) = Some v)
     (use: (u: a) → Abort.toOption t = Some u → Abort.toOption (() => k u) = Some v → goal): goal :=
   Option.flatMapEqSome (Abort.toOption t) (x => Abort.toOption (() => k x)) v (rewrite Abort.toOptionThen t k at h) use
