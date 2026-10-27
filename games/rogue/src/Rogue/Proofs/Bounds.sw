@@ -68,7 +68,7 @@ theorem roomFits (index: Nat) (small: index < 6) (downRoll: Nat) (acrossRoll: Na
 
 -- So does any room picked from them by number.
 theorem getOrFits (fallback: Area) (fallbackFits: OnMap fallback):
-    (rooms: List Area) → ((area: Area) → List.Mem area rooms → OnMap area) → (index: Nat) → OnMap (rooms.getOr fallback index)
+    (rooms: List Area) → ((area: Area) → List.Mem area rooms → OnMap area) → (index: Nat) → OnMap (rooms.getOr index fallback)
   | [], fit, index => fallbackFits
   | Cons room rest, fit, Zero => fit room (Inl rfl)
   | Cons room rest, fit, Succ index => getOrFits fallback fallbackFits rest (area listed => fit area (Inr listed)) index
@@ -134,9 +134,9 @@ theorem terrainRows (level: Level): (drawTerrain level).length = levelRows :=
   Eq.trans (List.lengthMap (List.range levelRows) (row => List.range levelColumns |> .map (column => terrainAt level { row, column })))
     (List.lengthRangeFrom levelRows 0)
 
-theorem terrainColumns (level: Level) (row: Nat) (small: row < levelRows): ((drawTerrain level).getOr [] row).length = levelColumns :=
+theorem terrainColumns (level: Level) (row: Nat) (small: row < levelRows): ((drawTerrain level).getOr row []).length = levelColumns :=
   let cellsOf: Nat → List Char := index => List.range levelColumns |> .map (column => terrainAt level { row = index, column })
-  let picked: (drawTerrain level).getOr [] row = cellsOf (row + 0) := List.getOrMapRange cellsOf [] levelRows 0 row small
+  let picked: (drawTerrain level).getOr row [] = cellsOf (row + 0) := List.getOrMapRange cellsOf [] levelRows 0 row small
   let counted: (cellsOf (row + 0)).length = levelColumns :=
     Eq.trans (List.lengthMap (List.range levelColumns) (column => terrainAt level { row = row + 0, column })) (List.lengthRangeFrom levelColumns 0)
   Eq.trans (Eq.cong List.length picked) counted
@@ -145,7 +145,7 @@ theorem terrainColumns (level: Level) (row: Nat) (small: row < levelRows): ((dra
 -- floor cell is among them.
 type Framed (level: Level): Prop = {
   rows: level.terrain.length = levelRows,
-  columns: (row: Nat) → row < levelRows → (level.terrain.getOr [] row).length = levelColumns,
+  columns: (row: Nat) → row < levelRows → (level.terrain.getOr row []).length = levelColumns,
   floor: (position: Position) → isWall level position = False → OnScreen position
 }
 
@@ -217,19 +217,19 @@ theorem replaySound: (turns: List (Nat, Command)) → (state: State) → Sound s
 -- In a sound state, `render` draws `@` at the player's row and column,
 -- with nothing assumed about where that is.
 theorem drawnPlayer (state: State) (sound: Sound state):
-    render state |> .getOr "" state.player.row |> .toList |> .getOr ' ' state.player.column = '@' :=
+    render state |> .getOr state.player.row "" |> .toList |> .getOr state.player.column ' ' = '@' :=
   let onScreen := sound.framed.floor state.player sound.valid.outOfWalls
   let tall: state.player.row < state.level.terrain.length := rewrite sound.framed.rows in onScreen.low
-  let wide: state.player.column < (state.level.terrain.getOr [] state.player.row).length :=
+  let wide: state.player.column < (state.level.terrain.getOr state.player.row []).length :=
     rewrite sound.framed.columns state.player.row onScreen.low in onScreen.narrow
   renderPlayer state tall wide
 
 -- And each monster's letter at its row and column.
 theorem drawnMonster (state: State) (sound: Sound state) (monster: Monster) (listed: List.Mem monster state.monsters):
-    render state |> .getOr "" monster.position.row |> .toList |> .getOr ' ' monster.position.column = monster.kind.glyph :=
+    render state |> .getOr monster.position.row "" |> .toList |> .getOr monster.position.column ' ' = monster.kind.glyph :=
   let onFloor := List.allMem ((other: Monster) => isWall state.level other.position = False) monster state.monsters sound.valid.onFloor listed
   let onScreen := sound.framed.floor monster.position onFloor
   let tall: monster.position.row < state.level.terrain.length := rewrite sound.framed.rows in onScreen.low
-  let wide: monster.position.column < (state.level.terrain.getOr [] monster.position.row).length :=
+  let wide: monster.position.column < (state.level.terrain.getOr monster.position.row []).length :=
     rewrite sound.framed.columns monster.position.row onScreen.low in onScreen.narrow
   renderEveryMonster state sound.valid monster listed tall wide

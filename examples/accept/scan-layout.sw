@@ -26,13 +26,13 @@ theorem layoutIds (start: Nat) (items: List Item): List.map (layout start items)
     items start (offset item => offset + item.size)
 
 theorem layoutStart (start: Nat) (items: List Item) (k: Nat) (h: k < List.length items):
-    (List.getOr (layout start items) blank k).start = start + List.sumBy (List.take items k) (item => item.size) :=
+    (List.getOr (layout start items) k blank).start = start + List.sumBy (List.take items k) (item => item.size) :=
   rewrite List.getOrZipWithScanLeft (offset item => offset + item.size) (item offset => moveTo offset item) blank blank items start k h in
   List.sumByFrom (List.take items k) start (item => item.size)
 
 theorem layoutContiguous (start: Nat) (items: List Item) (k: Nat) (h: Succ k < List.length items):
-    (List.getOr (layout start items) blank (Succ k)).start
-      = (List.getOr (layout start items) blank k).start + (List.getOr items blank k).size :=
+    (List.getOr (layout start items) (Succ k) blank).start
+      = (List.getOr (layout start items) k blank).start + (List.getOr items k blank).size :=
   rewrite List.getOrZipWithScanLeft (offset item => offset + item.size) (item offset => moveTo offset item) blank blank items start (Succ k) h,
     List.getOrZipWithScanLeft (offset item => offset + item.size) (item offset => moveTo offset item) blank blank items start k omega,
     List.foldLeftTakeSucc (offset item => offset + item.size) blank items start k omega in

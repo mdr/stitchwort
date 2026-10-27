@@ -159,19 +159,19 @@ theorem periodDvd (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (j: Nat) (hp0: Per
 -- (4) Blocks are periods -----------------------------------------------------
 
 -- The digit at position i (0 past the end).
-def digitAt (ds: List Nat) (i: Nat): Nat := List.getOr ds 0 i
+def digitAt (ds: List Nat) (i: Nat): Nat := List.getOr ds i 0
 
 -- Digits that are their first k digits written n times: each digit is the
 -- one at its position within the first k.
 theorem writtenBlock (ds: List Nat) (k: Nat) (n: Nat) [auto hk: k ≠ 0] (hn: 1 ≤ n) (e: k * n = ds.length) (hw: writtenAs ds k n = True)
     (j: Nat) (hj: j < ds.length): digitAt ds j = digitAt ds (j % k) :=
-  calc List.getOr ds 0 j
-    _ = List.getOr (List.concat (List.replicate n (List.take ds k))) 0 j
-      := Eq.cong (l => List.getOr l 0 j) (Eq.sym (DecEq.sound (List.concat (List.replicate n (List.take ds k))) ds hw))
-    _ = List.getOr (List.take ds k) 0 (j % k)
+  calc List.getOr ds j 0
+    _ = List.getOr (List.concat (List.replicate n (List.take ds k))) j 0
+      := Eq.cong (l => List.getOr l j 0) (Eq.sym (DecEq.sound (List.concat (List.replicate n (List.take ds k))) ds hw))
+    _ = List.getOr (List.take ds k) (j % k) 0
       := List.getOrConcatReplicate (List.take ds k) 0 k (List.lengthTake ds k (omega [Nat.leMulPos k n hn])) n j
         omega
-    _ = List.getOr ds 0 (j % k) := List.getOrTake ds 0 k (j % k) (Nat.modLess j k hk)
+    _ = List.getOr ds (j % k) 0 := List.getOrTake ds k (j % k) 0 (Nat.modLess j k hk)
 
 theorem writtenPeriod (ds: List Nat) (hl: ds.length ≠ 0) (k: Nat) (n: Nat) [auto hk: k ≠ 0] (hn: 1 ≤ n) (e: k * n = ds.length)
     (hw: writtenAs ds k n = True): Period (digitAt ds) ds.length hl k :=
@@ -200,10 +200,10 @@ theorem periodWritten (ds: List Nat) (hl: ds.length ≠ 0) (k: Nat) (n: Nat) [au
   Decidable.toBoolOf (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate n (List.take ds k))) ds)
     (List.extGetOr 0 (List.concat (List.replicate n (List.take ds k))) ds omega
       (i hi =>
-        calc List.getOr (List.concat (List.replicate n (List.take ds k))) 0 i
-          _ = List.getOr (List.take ds k) 0 (i % k) := List.getOrConcatReplicate (List.take ds k) 0 k ht n i omega
-          _ = List.getOr ds 0 (i % k) := List.getOrTake ds 0 k (i % k) (Nat.modLess i k hk)
-          _ = List.getOr ds 0 i
+        calc List.getOr (List.concat (List.replicate n (List.take ds k))) i 0
+          _ = List.getOr (List.take ds k) (i % k) 0 := List.getOrConcatReplicate (List.take ds k) 0 k ht n i omega
+          _ = List.getOr ds (i % k) 0 := List.getOrTake ds k (i % k) 0 (Nat.modLess i k hk)
+          _ = List.getOr ds i 0
             := Eq.sym (periodBlock ds hl k hp i omega)))
 
 -- (5) One id -----------------------------------------------------------------

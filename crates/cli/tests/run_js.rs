@@ -663,11 +663,11 @@ fn std_folds_over_long_lists_are_stack_safe() {
         ),
         (
             "indexedFirst",
-            "Map.getOr (Map.map (Map.indexBy (input n) (x => x % 1000)) (x => x)) 0 7",
+            "Map.getOr (Map.map (Map.indexBy (input n) (x => x % 1000)) (x => x)) 7 0",
         ),
         (
             "grouped",
-            "List.foldLeft (Map.getOr (Map.groupBy (input n) (x => x % 10)) [] 3) 0 (acc x => acc * 3 + x) % 1000003",
+            "List.foldLeft (Map.getOr (Map.groupBy (input n) (x => x % 10)) 3 []) 0 (acc x => acc * 3 + x) % 1000003",
         ),
         (
             "summed",
@@ -676,7 +676,7 @@ fn std_folds_over_long_lists_are_stack_safe() {
         ("setSize", "Set.size (Set.fromList (input n))"),
         (
             "counted",
-            "Map.getOr (Map.counts (List.map (input n) (x => x % 7))) 0 3",
+            "Map.getOr (Map.counts (List.map (input n) (x => x % 7))) 3 0",
         ),
         ("listRight", "List.foldRight (input n) 0 (x acc => x + acc)"),
         (

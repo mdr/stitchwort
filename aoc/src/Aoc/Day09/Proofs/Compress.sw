@@ -128,13 +128,13 @@ theorem keyLinesHas (values: List Nat) (v: Nat) (m: Or (List.Mem v values) (List
 -- On a sorted list holding u and v, the elements at their positions, the
 -- lower position first, are the smaller and the larger of them.
 theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs):
-    And (And (List.getOr xs 0 (Nat.min (List.indexOf xs u) (List.indexOf xs v)) = Nat.min u v)
-        (List.getOr xs 0 (Nat.max (List.indexOf xs u) (List.indexOf xs v)) = Nat.max u v))
+    And (And (List.getOr xs (Nat.min (List.indexOf xs u) (List.indexOf xs v)) 0 = Nat.min u v)
+        (List.getOr xs (Nat.max (List.indexOf xs u) (List.indexOf xs v)) 0 = Nat.max u v))
       (Nat.max (List.indexOf xs u) (List.indexOf xs v) < List.length xs) :=
   let i := List.indexOf xs u
   let j := List.indexOf xs v
-  let atI: List.getOr xs 0 i = u := List.getOrIndexOf xs 0 u mu
-  let atJ: List.getOr xs 0 j = v := List.getOrIndexOf xs 0 v mv
+  let atI: List.getOr xs i 0 = u := List.getOrIndexOf xs 0 u mu
+  let atJ: List.getOr xs j 0 = v := List.getOrIndexOf xs 0 v mv
   let iIn: i < List.length xs := List.indexOfLt xs u mu
   let jIn: j < List.length xs := List.indexOfLt xs v mv
   match e: Nat.leq i j with
@@ -148,7 +148,7 @@ theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (m
 -- The elements from one position to the other lie from the smaller value to the larger.
 theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs)
     (k: Nat) (lo: Nat.min (List.indexOf xs u) (List.indexOf xs v) ≤ k) (hi: k ≤ Nat.max (List.indexOf xs u) (List.indexOf xs v)):
-    And (Nat.min u v ≤ List.getOr xs 0 k) (List.getOr xs 0 k ≤ Nat.max u v) :=
+    And (Nat.min u v ≤ List.getOr xs k 0) (List.getOr xs k 0 ≤ Nat.max u v) :=
   match axisEnds xs s u v mu mv with
     | Both (Both atMin atMax) maxIn =>
       let up := List.sortedGetOrLe xs 0 s (Nat.min (List.indexOf xs u) (List.indexOf xs v)) k lo (omega)
@@ -158,7 +158,7 @@ theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) 
 -- And every element of the list from the smaller value to the larger is at
 -- such a position: what holds at each holds for it.
 theorem axisCovers (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs) (p: Nat → Prop)
-    (each: (k: Nat) → Nat.min (List.indexOf xs u) (List.indexOf xs v) ≤ k → k ≤ Nat.max (List.indexOf xs u) (List.indexOf xs v) → p (List.getOr xs 0 k))
+    (each: (k: Nat) → Nat.min (List.indexOf xs u) (List.indexOf xs v) ≤ k → k ≤ Nat.max (List.indexOf xs u) (List.indexOf xs v) → p (List.getOr xs k 0))
     (w: Nat) (mw: List.Mem w xs) (lo: Nat.min u v ≤ w) (hi: w ≤ Nat.max u v): p w :=
   match axisEnds xs s u v mu mv with
     | Both (Both atMin atMax) maxIn =>
@@ -200,7 +200,7 @@ theorem allKeysIsSpec (tiles: List Tile) (a: Tile) (b: Tile) (ma: List.Mem a til
                   rewrite redOrGreenSame tiles x y keyX keyY sx sy in
                     axisCovers rows sr a.y b.y keyAy keyBy (w => redOrGreen tiles { x = keyX, y = w } = True)
                       (r rlo rhi =>
-                        axisCovers columns sc a.x b.x keyAx keyBx (v => redOrGreen tiles { x = v, y = List.getOr rows 0 r } = True)
+                        axisCovers columns sc a.x b.x keyAx keyBx (v => redOrGreen tiles { x = v, y = List.getOr rows r 0 } = True)
                           (c clo chi => List.allBetweenElim _ _ _ (List.allBetweenElim _ _ _ keys r rlo rhi) c clo chi)
                           keyX (keyLinesHas (columnsOf tiles) keyX keyXIn) keyXLo (omega))
                       keyY (keyLinesHas (rowsOf tiles) keyY keyYIn) keyYLo (omega))))))
@@ -210,4 +210,4 @@ theorem allKeysIsSpec (tiles: List Tile) (a: Tile) (b: Tile) (ma: List.Mem a til
         List.allBetweenIntro _ _ _ (c clo chi =>
           let yIn := axisInside rows sr a.y b.y keyAy keyBy r rlo rhi
           let xIn := axisInside columns sc a.x b.x keyAx keyBx c clo chi
-          List.allBetweenElim _ _ _ (List.allBetweenElim _ _ _ spec (List.getOr rows 0 r) yIn.left yIn.right) (List.getOr columns 0 c) xIn.left xIn.right)))
+          List.allBetweenElim _ _ _ (List.allBetweenElim _ _ _ spec (List.getOr rows r 0) yIn.left yIn.right) (List.getOr columns c 0) xIn.left xIn.right)))

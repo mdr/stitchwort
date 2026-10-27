@@ -828,15 +828,15 @@ For puzzles over a grid of rows. A row of a known width is a `Vec a width`. The 
 - `List.transposeFill rows fill`: pads every row with `fill` to the longest row's length (`List.maxLength rows`), then transposes, so no column loses a cell. `List.transpose` keeps only as many columns as the first row is long.
 - These are in `std/Vec/Grid.sw` and `std/List/Grid.sw` (`tabulate` is in `Vec.sw`). A program loads those files only if it uses one of these names.
 
-The lemmas read a result one index at a time with `Vec.getOr v d i` (element i, or `d` past the end; it is `List.getOr v.toList d i`), which is the form a proof about one column rewrites with. `i < n` is the row's width. The left neighbour is written `Vec.getOr (VCons pad row) pad i`: at `Succ c` it computes to `getOr pad c row`, and at 0 it is `pad`.
+The lemmas read a result one index at a time with `Vec.getOr v i d` (element i, or `d` past the end; it is `List.getOr v.toList i d`), which is the form a proof about one column rewrites with. `i < n` is the row's width. The left neighbour is written `Vec.getOr (VCons pad row) i pad`: at `Succ c` it computes to `Vec.getOr row c pad`, and at 0 it is `pad`.
 
-- `Vec.getOrShiftRight v d fill i (h: i < n)`: index i of `v.shiftRight fill` is `Vec.getOr (VCons fill v) d i`.
+- `Vec.getOrShiftRight v i d fill (h: i < n)`: index i of `v.shiftRight fill` is `Vec.getOr (VCons fill v) i d`.
 - `Vec.getOrShiftLeft v fill i`: index i of `v.shiftLeft fill` is index `Succ i` of `v`, with `fill` as the default, at every i. `Vec.getOrShiftLeftLt` takes any default and needs `i < n`.
-- `Vec.getOrAround v d pad i (h: i < n) f`: index i is `f` of indices i - 1, i and `Succ i`, read with default `pad`.
+- `Vec.getOrAround v i d pad (h: i < n) f`: index i is `f` of indices i - 1, i and `Succ i`, read with default `pad`.
 - `Vec.getTabulate` (`Vec.get (Vec.tabulate n f) i = f i`) and `Vec.getOrTabulate d n f i h` (`= f (Fin.ofNatLt n i h)`).
 - `Vec.getOrZipWith` and `Vec.getOrZipWith3`: index i is `f` of index i of each input, when `f` maps the defaults to the default; `Vec.getOrMap` the same for `map` (default `f d`). `Vec.getOrReplicate`: copies of x read with default x are x. `Vec.getOrPast`: past the end, `getOr` gives the default. `Vec.getOrGet`: in range it is `Vec.get`. `Vec.headOrGetOr`: `headOr d v` is index 0.
 - `Vec.extGetOr u d v h`: vectors equal at every index are equal. `Vec.sumByGetOr v d f`: `v.sumBy f` is the sum of `f` of index i over `List.range n`.
-- `List.transposeFillCell rows fill c r`: row r of column c is `List.getOr row fill c` of row r, with no bounds on r or c (cells past the ends are `fill` on both sides). `List.transposeFillColumns` states the whole result as columns read by index. `List.getOrTransposeFill` gives column c as a list. `List.lengthTransposeFill`, `List.lengthColumnTransposeFill` and `List.lengthLeMaxLength` give the lengths.
+- `List.transposeFillCell rows fill c r`: row r of column c is `List.getOr row c fill` of row r, with no bounds on r or c (cells past the ends are `fill` on both sides). `List.transposeFillColumns` states the whole result as columns read by index. `List.getOrTransposeFill` gives column c as a list. `List.lengthTransposeFill`, `List.lengthColumnTransposeFill` and `List.lengthLeMaxLength` give the lengths.
 
 ## `decreasing`
 

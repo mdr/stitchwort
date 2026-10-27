@@ -181,7 +181,7 @@ theorem countNotOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelle
 theorem lastJoinFinds (points: List Point): (ps: List (Nat, Nat)) → (k: Nat) → (done: List (Nat, Nat)) → (c: Circuits) →
     Labelled points.length done c → Counted points.length c → List.all ps (boxesBelow points.length) = True →
     OneCircuit points.length (List.append done (List.take ps (Succ k))) → Not (OneCircuit points.length (List.append done (List.take ps k))) →
-    lastJoin c (List.map ps (connectionKey points)) = Some ((List.getOr ps (0, 0) k).fst, (List.getOr ps (0, 0) k).snd)
+    lastJoin c (List.map ps (connectionKey points)) = Some ((List.getOr ps k (0, 0)).fst, (List.getOr ps k (0, 0)).snd)
   | Nil, Zero, done, c, inv, counted, ok, after, before => Void.exfalso (before after)
   | Nil, Succ k, done, c, inv, counted, ok, after, before => Void.exfalso (before after)
   | Cons (f, s) ps, k, done, c, inv, counted, ok, after, before =>
