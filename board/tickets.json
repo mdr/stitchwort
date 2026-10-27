@@ -4093,7 +4093,7 @@
     {
       "id": 567,
       "title": "omega: an '_' argument stays a metavariable, so the same term written with '_' and in full are different atoms (rogue PROOFS.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
