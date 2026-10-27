@@ -5657,7 +5657,7 @@
     {
       "id": 694,
       "title": "Fill _ arguments before checking a lambda argument: List.sumByCong left _ _ (id => rewrite …) fails against ?18 … = ?19 … (AoC 2024 day 1)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5669,7 +5669,7 @@
     {
       "id": 695,
       "title": "One AoC project: aoc/ with Aoc.Common shared and Aoc.Year2025.DayNN / Aoc.Year2024.DayNN, inputs/<year>/, playground bundles both years (D1413 + naming, D1414; Matt 27 Oct)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
