@@ -1,7 +1,7 @@
 /target
 /result*
 /.direnv
-/.stitchwort
+.stitchwort/
 node_modules/
 *.snap.new
 mutants.out*
