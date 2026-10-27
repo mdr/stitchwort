@@ -291,7 +291,7 @@
     {
       "id": 183,
       "title": "Derived Ord when a module writes its own DecEq (D209 option b)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
