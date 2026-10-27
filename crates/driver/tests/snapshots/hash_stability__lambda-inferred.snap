@@ -1,0 +1,12 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.roll b64f3067c458c3ff8187530de2e4f55b191a8a8c57eb859b4b8cc9c7ec3e214c
+Main.test "unit parameter".%match1 c86eeff910bbb579e208a9afa70b0ad00c39505260be48f25cfa4cd84f00a3c8
+Main.test "unit parameter" ffe2161020c3f5bfb4342d1d2dcf39371080cc42d793ab27f1db3794057a7351
+Main.test "fixed by the use" a44f83203f3e9b3d0b1c2923bdb8e602eab7a2e1482cfb34a7b28c3c8bff8973
+Main.test "fixed by the body" bad5eabcc4d710ebaba065c55187b27ea4dc52c9aaec1b0df691792fb315eaee
+Main.test "several parameters" f78741ed55a6f2e1b454199cc936f08b8a081ff8514104b1b3dac4ef52a01120
+Main.test "used twice" 4833b9a4817cf967cf5c44d947b0e54472a36088bfc1d4fefedf67756f353233
+Main.test "passed on" 6281da3c87c6dd7d59dacaa339704848e9d345007dba161562ff75b16ec85097

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ABILITY] Error: this may perform `Ask`, which isn't allowed here
+   ╭─[ reject/lambda-inferred-effectful.sw:9:21 ]
+   │
+ 9 │   let next := () => ask() + n
+   │                     ────┬────  
+   │                         ╰────── `Ask` isn't in the abilities of the enclosing function or handler
+   │ 
+   │ Note 1: add `Ask` to the function's type (`-> {Ask …} …`), or handle it
+   │ 
+   │ Note 2: a lambda with no type written or expected is pure: to let it perform abilities, write its type, as in `let next: () → {Ask} Nat := () => …`
+───╯

@@ -96,13 +96,13 @@ theorem actAllApart (dice: Dice) (level: Level) (player: Position):
   | index, outcome, [], apart => rewrite <- List.appendNil outcome.moved in apart
   | index, outcome, Cons monster waiting, apart =>
     match next: monster.position.isNextTo player with
-      | True => actAllApart dice level player (index + 1) (outcome.add monster _ _) waiting (apartStay outcome.moved monster monster rfl waiting apart)
+      | True => actAllApart dice level player (index + 1) _ waiting (apartStay outcome.moved monster monster rfl waiting apart)
       | False =>
         match picked: pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) with
           | Some destination =>
             let vacant := pickFreeVacant level player (outcome.moved ++ waiting) (monsterChoices dice index player monster) destination picked
-            actAllApart dice level player (index + 1) (outcome.add { monster | position = destination } 0 []) waiting (apartMove outcome.moved monster destination waiting apart vacant)
-          | None => actAllApart dice level player (index + 1) (outcome.add { monster | position = monster.position } 0 []) waiting (apartStay outcome.moved monster { monster | position = monster.position } rfl waiting apart)
+            actAllApart dice level player (index + 1) _ waiting (apartMove outcome.moved monster destination waiting apart vacant)
+          | None => actAllApart dice level player (index + 1) _ waiting (apartStay outcome.moved monster { monster | position = monster.position } rfl waiting apart)
 
 theorem monstersTurnApart (dice: Dice) (state: State) (apart: Apart state.monsters): Apart (monstersTurn dice state).monsters :=
   match phase: state.phase with
