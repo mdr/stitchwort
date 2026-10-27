@@ -4232,9 +4232,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             // The variable as the default arm shows it: `n✝` unless that arm
             // names it.
             let default_name = match &**default {
-                Tree::Leaf { aliases, .. } => {
-                    aliases.iter().find(|(_, l)| l == x).map(|(n, _)| n.to_string())
-                }
+                Tree::Leaf { aliases, .. } => aliases
+                    .iter()
+                    .find(|(_, l)| l == x)
+                    .map(|(n, _)| n.to_string()),
                 _ => None,
             }
             .or_else(|| cx.name_of_level(*x).map(str::to_string))
