@@ -45,7 +45,8 @@ use stitchwort_syntax::ast::{BinOp, Bracket, Clause, Expr, Mode, Name as AstName
 
 use crate::Global;
 use crate::check::{
-    Ctx, Result, builtin_data, builtin_def, check, check_if, check_type, infer, infer_head, insert,
+    Arg, Ctx, Result, builtin_data, builtin_def, check, check_if, check_type, infer, infer_head,
+    insert,
 };
 
 /// An ability declared with `ability`.
@@ -2127,6 +2128,65 @@ enum HeadType {
     Other,
 }
 
+/// `play start ()`, an effectful call applied one argument at a time, where
+/// `start` is a function: the `()` was meant for `start` (`play (start ())`)
+/// when `play` doesn't take a function there (the error is about `start`), or
+/// when it does and what it returns isn't a function (the error is about the
+/// `()`). `callee_ty` is the type of what `given[i]` was applied to.
+fn unit_call_hint(
+    cx: &Ctx,
+    head: &Expr,
+    callee_ty: &Value,
+    given: &[Arg],
+    i: usize,
+    e: Diagnostic,
+) -> Diagnostic {
+    let Expr::Var(function) = head else {
+        return e;
+    };
+    let name = match (
+        e.code,
+        i.checked_sub(1).map(|p| &given[p]),
+        &given[i],
+        given.get(i + 1),
+    ) {
+        (
+            "E-NOT-A-FUNCTION",
+            Some(Arg::Explicit(Expr::Var(name))),
+            Arg::Explicit(Expr::Unit(_)),
+            _,
+        ) => name,
+        (
+            "E-TYPE-MISMATCH",
+            _,
+            Arg::Explicit(Expr::Var(name)),
+            Some(Arg::Explicit(Expr::Unit(_))),
+        ) if !takes_function(cx, callee_ty) => name,
+        _ => return e,
+    };
+    let ty = match head_type(cx, name) {
+        HeadType::Typed(ty) => ty,
+        HeadType::Def(id) => match crate::kernel::def_ty(cx.g(), id) {
+            Ok(ty) => ty,
+            Err(_) => return e,
+        },
+        _ => return e,
+    };
+    if !matches!(force(cx.g(), ty), Ok(Value::Pi(_, Icit::Explicit, ..))) {
+        return e;
+    }
+    e.with_note(crate::check::unit_call_note(&function.text, &name.text))
+}
+
+/// Whether `ty` is a function whose first parameter is a function.
+fn takes_function(cx: &Ctx, ty: &Value) -> bool {
+    let g = cx.g();
+    match force(g, ty.clone()) {
+        Ok(Value::Pi(_, _, dom, _)) => matches!(force(g, (*dom).clone()), Ok(Value::Pi(..))),
+        _ => false,
+    }
+}
+
 fn head_type(cx: &Ctx, name: &AstName) -> HeadType {
     if let Ok(Some((_, ty))) = cx.local(&name.text) {
         return HeadType::Typed(ty);
@@ -2930,10 +2990,12 @@ fn comp_app(
                 // checked after it: `List.map (e => e.value) xs`.
                 (term, ty) = crate::check::apply_args(cx, (term, ty), given)?;
             } else {
-                for arg in given {
+                for (i, arg) in given.iter().enumerate() {
                     (term, ty) = run_stage(cx, row, bound, span, term, ty)?;
+                    let callee_ty = ty.clone();
                     (term, ty) =
-                        crate::check::apply_args(cx, (term, ty), std::slice::from_ref(arg))?;
+                        crate::check::apply_args(cx, (term, ty), std::slice::from_ref(arg))
+                            .map_err(|e| unit_call_hint(cx, &head, &callee_ty, given, i, e))?;
                 }
             }
             // Names behind a type that computes once these arguments are

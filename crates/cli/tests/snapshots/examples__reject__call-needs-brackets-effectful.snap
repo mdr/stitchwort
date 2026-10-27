@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/call-needs-brackets-effectful.sw:10:29 ]
+    │
+ 10 │ def go (): {IO} Nat := play start ()
+    │                             ──┬──  
+    │                               ╰──── expected `Nat`, but this has type `() → {IO} Nat`
+    │ 
+    │ Note: did you mean `play (start ())`? Without brackets, `play start ()` passes `start` itself to `play` and then applies the result to `()`
+────╯

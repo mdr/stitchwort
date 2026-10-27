@@ -21,9 +21,7 @@ def marksIn (state: State) (row: Nat): List (Nat, Char) :=
   player ++ monsters ++ items
 
 def glyphAt (marks: List (Nat, Char)) (column: Nat) (terrain: Char): Char :=
-  match marks.find (mark => mark.fst == column) with
-    | Some (_, glyph) => glyph
-    | None => terrain
+  marks.lookup column |> .getOrElse terrain
 
 def statusLine (state: State): Text :=
   "Level ${state.level.depth}/${deepest}   HP ${state.hitPoints}/${maxHitPoints}   Potions ${state.potions}   Blows 2-${state.strength}   Turn ${state.turn}"
