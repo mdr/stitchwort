@@ -179,6 +179,88 @@ fn is_var(value: &Value, level: usize) -> bool {
     matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty())
 }
 
+/// A comparison that holds if the helpers not lifted yet that it meets turn
+/// out equal to what they were compared with: compared again, with the
+/// context it was made in, once they're lifted.
+pub(crate) struct AwaitingHelpers {
+    env: Vec<Value>,
+    types: Vec<Value>,
+    names: Vec<Name>,
+    span: Span,
+    found: Value,
+    expected: Value,
+    failure: Failure,
+}
+
+/// The error a comparison kept by [`await_helpers`] gives if it fails.
+#[derive(Clone, Copy)]
+pub(crate) enum Failure {
+    /// `found`, where `expected` is expected.
+    Mismatch,
+    /// `rfl` for `found = expected`.
+    Refl,
+}
+
+/// After `found` failed to unify with `expected`: whether they unify when
+/// the drafts' frozen metavariables are taken as equal to what they meet.
+/// If so, what that solved stays solved, and the comparison is kept, to be
+/// made again once the drafts are lifted
+/// ([`Elaborator::compare_awaiting_helpers`]); otherwise nothing changes.
+pub(crate) fn await_helpers(
+    cx: &mut Ctx,
+    found: &Value,
+    expected: &Value,
+    failure: Failure,
+) -> Result<bool> {
+    let drafted: HashSet<usize> = cx.e.drafts.borrow().iter().map(|d| d.meta).collect();
+    if drafted.is_empty() {
+        return Ok(false);
+    }
+    let snapshot = crate::undo::Snapshot::take(cx);
+    if crate::unify::unify_awaiting_helpers(cx.g(), cx.level(), found, expected, drafted)? {
+        cx.e.awaiting_helpers.borrow_mut().push(AwaitingHelpers {
+            env: cx.env.clone(),
+            types: cx.types.clone(),
+            names: cx.names.clone(),
+            span: cx.span,
+            found: found.clone(),
+            expected: expected.clone(),
+            failure,
+        });
+        return Ok(true);
+    }
+    snapshot.restore(cx);
+    Ok(false)
+}
+
+/// Whether `term` mentions the frozen metavariable of a helper not lifted
+/// yet.
+pub(crate) fn mentions_draft(cx: &Ctx, term: &Term) -> bool {
+    let drafts = cx.e.drafts.borrow();
+    !drafts.is_empty()
+        && term
+            .subterms()
+            .any(|(t, _)| matches!(t, Term::Meta(m) if drafts.iter().any(|d| d.meta == *m)))
+}
+
+impl Elaborator {
+    /// Makes again the comparisons [`await_helpers`] kept, now that the
+    /// helpers are lifted: one that fails is an error.
+    pub(crate) fn compare_awaiting_helpers(&self) -> Result<()> {
+        let awaiting = std::mem::take(&mut *self.awaiting_helpers.borrow_mut());
+        for item in awaiting {
+            let mut cx = Ctx::from_parts(self, item.env, item.types, item.names, item.span);
+            if !crate::undo::unify(&mut cx, &item.found, &item.expected)? {
+                return Err(match item.failure {
+                    Failure::Mismatch => cx.mismatch(&item.expected, &item.found),
+                    Failure::Refl => crate::check::refl_error(&cx, &item.found, &item.expected),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Rebuilds `term` (in a context of `depth` variables) with each free
 /// variable, by level, replaced by `f(level)`: a term in the target context.
 /// A case split's variable must be replaced by a variable.

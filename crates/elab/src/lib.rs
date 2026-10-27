@@ -328,6 +328,9 @@ pub struct Elaborator {
     /// Row comparisons put aside until more is known (`unify_postponing`),
     /// retried with the obligations.
     row_constraints: RefCell<Vec<rows::Postponed>>,
+    /// Comparisons that met a helper not lifted yet, compared again once it
+    /// is (`lift::await_helpers`).
+    awaiting_helpers: RefCell<Vec<lift::AwaitingHelpers>>,
     /// Metavariables that literals made `Nat` in the current declaration.
     defaulted: RefCell<Vec<numbers::Defaulted>>,
     /// The characters whose patterns became number patterns (by span), so
@@ -1007,6 +1010,7 @@ impl Elaborator {
         self.obligations.borrow_mut().clear();
         self.row_metas.borrow_mut().clear();
         self.row_constraints.borrow_mut().clear();
+        self.awaiting_helpers.borrow_mut().clear();
         self.defaulted.borrow_mut().clear();
         self.instance_steps.borrow_mut().clear();
     }
@@ -1014,6 +1018,7 @@ impl Elaborator {
     /// Proves outstanding auto arguments, then substitutes metavariable
     /// solutions into `term`, failing if any are unsolved.
     fn finish(&self, term: &Term, level: usize) -> Result<Term> {
+        self.compare_awaiting_helpers()?;
         let stuck = self.solve_obligations_until_stuck()?;
         self.settle_rows(stuck)?;
         self.zonk(term, level)
