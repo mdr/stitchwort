@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use crate::kernel;
 use stitchwort_core::chars::{self as compact, Chars};
+use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
 use stitchwort_core::{DataId, Globals, Icit, Name, Sort, Term, Value, pretty};
@@ -1884,6 +1885,32 @@ fn expects_total_result(cx: &mut Ctx, dom: &Value) -> bool {
     result.unwrap_or(false)
 }
 
+/// Whether the function type `dom` ends in a `Delay` over signatures that
+/// aren't a row of abilities (`Effect.pfix`'s `Delay (Plus (Rec req) op) …`):
+/// the callback builds that computation as a value, so it must finish.
+fn builds_delay_value(cx: &mut Ctx, dom: &Value) -> bool {
+    let g = cx.g();
+    let Some(delay) = g.builtins.primitive_id(Primitive::Delay) else {
+        return false;
+    };
+    let mark = cx.mark();
+    let result = (|| -> Result<bool> {
+        let mut ty = force(g, dom.clone())?;
+        if !matches!(ty, Value::Pi(..)) {
+            return Ok(false);
+        }
+        while let Value::Pi(x, _, d, c) = ty {
+            let v = Value::var(cx.level());
+            cx.bind_hidden(x, (*d).clone());
+            ty = force(g, c.apply(g, v)?)?;
+        }
+        Ok(matches!(&ty, Value::Neutral(Head::Def(d), _) if *d == delay)
+            && crate::effects::comp_parts(cx, &ty)?.is_none())
+    })();
+    cx.reset(mark);
+    result.unwrap_or(false)
+}
+
 /// Whether `ty` is a function type whose result is a partial computation.
 fn gives_partial_result(cx: &mut Ctx, ty: &Value) -> bool {
     let g = cx.g();
@@ -1998,6 +2025,13 @@ fn total_lambda_note(
     };
     if !expects_total_result(cx, dom) {
         return e;
+    }
+    if builds_delay_value(cx, dom) {
+        e.notes.clear();
+        return e.with_note(format!(
+            "`{helper}`'s callback builds a partial computation and returns it as a value: \
+             building it must finish, so the callback can't run anything that might not"
+        ));
     }
     let param = cx.show(dom);
     if param.contains('?') {
