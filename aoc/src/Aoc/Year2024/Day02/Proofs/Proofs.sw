@@ -76,15 +76,10 @@ theorem adjacentWithoutLast (holds: Nat → Nat → Bool): (levels: List Nat) �
     everyAdjacentPair holds levels = True → everyAdjacentPair holds (levels.removeAt (levels.length - 1)) = True
   | Nil, all => rfl
   | Cons level Nil, all => rfl
-  | Cons level (Cons next more), all => adjacentWithoutLastOf holds level next more all
-
-theorem adjacentWithoutLastOf (holds: Nat → Nat → Bool): (level: Nat) → (next: Nat) → (more: List Nat) →
-    everyAdjacentPair holds (Cons level (Cons next more)) = True →
-    everyAdjacentPair holds ((Cons level (Cons next more)).removeAt (Succ more.length)) = True
-  | level, next, Nil, all => rfl
-  | level, next, Cons after rest, all =>
+  | Cons level (Cons next Nil), all => rfl
+  | Cons level (Cons next (Cons after more)), all =>
     let first := Bool.andLeft _ _ all
-    let kept := adjacentWithoutLastOf holds next after rest (Bool.andRight _ _ all)
+    let kept := adjacentWithoutLast holds (Cons next (Cons after more)) (Bool.andRight _ _ all)
     cases
 
 -- Whatever keeps every adjacent pair of a list keeps a safe report safe.

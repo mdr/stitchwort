@@ -27,7 +27,9 @@
 //!   variable itself counts, not some other function that happens to return
 //!   the same type; and the constructor of such a descendant's match, applied
 //!   to exactly the fields that match bound (in the branch where `m` is
-//!   `Succ n`, `Succ n` *is* `m`).
+//!   `Succ n`, `Succ n` *is* `m`), each field possibly rebuilt the same way
+//!   (in the branch for `Cons x (Cons y (Cons z more))`, `Cons y (Cons z
+//!   more)` is the tail).
 //! - **`≤`**: parameter `i` itself, or the constructor of a match on parameter
 //!   `i` itself, rebuilt exactly as above. Both are equal to the parameter.
 //! - **unknown**: anything else, including lambda-bound variables, other
@@ -46,6 +48,12 @@
 //! the callee's entry arity's arguments, so that the call's graph says what
 //! every parameter is given. A bare or partial occurrence is refused, with a
 //! suggestion to write `x => f a x` (§6.3).
+//!
+//! **A lifted `match` occurring exactly once, in another member, is
+//! inlined** there: its body is walked at that occurrence, with each
+//! parameter standing for its argument, rather than being a call of its own.
+//! So it sees the patterns around the place it's written: in it, `Cons y
+//! more` rebuilt from the fields of an enclosing pattern is still that part.
 
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -154,13 +162,17 @@ fn check_members(
         infos.push(MemberInfo { name, params, span });
         trees.push((tree, tree_span));
     }
+    let inlined = inlined(&ids, &infos, &trees);
     let mut calls = Vec::new();
-    for (from, (tree, tree_span)) in trees.into_iter().enumerate() {
+    let mut matched_params = Vec::new();
+    for (from, &(tree, tree_span)) in trees.iter().enumerate() {
         let params = &infos[from].params;
         let mut walker = Walker {
             g,
             members: &ids,
             infos: &infos,
+            trees: &trees,
+            inlined: &inlined,
             from,
             vars: params
                 .iter()
@@ -170,14 +182,19 @@ fn check_members(
                     param: Some(i),
                     smaller_than: None,
                     recursive_fn: false,
+                    alias: None,
                 })
                 .collect(),
             calls: Vec::new(),
             matched: Vec::new(),
+            matched_params: vec![false; params.len()],
             span: tree_span,
         };
-        walker.walk(tree)?;
+        if !inlined[from] {
+            walker.walk(tree)?;
+        }
         calls.extend(walker.calls);
+        matched_params.push(walker.matched_params);
     }
 
     let mut group = sct::Group::new(infos.iter().map(|m| m.params.len()).collect());
@@ -188,11 +205,61 @@ fn check_members(
     }
     match group.check(&g.budget, max_graphs) {
         Ok(Outcome::Terminates) => Ok(()),
-        Ok(Outcome::NoDescent { path, graph }) => {
-            Err(no_descent(&infos, &calls, &path, graph.entries()))
-        }
+        Ok(Outcome::NoDescent { path, graph }) => Err(no_descent(
+            g,
+            &infos,
+            &matched_params,
+            &inlined,
+            &calls,
+            &path,
+            graph.entries(),
+        )),
         Err(e) => Err(inconclusive(e, &infos)),
     }
+}
+
+/// Which members are inlined: lifted `match`es (`f.%match1`) occurring
+/// exactly once in the group's bodies, in another member, except that where
+/// following those occurrences leads round a cycle, the first member on it
+/// isn't. Inlining any member would be as sound; definitions written as such
+/// are left as calls so that messages go round them as written.
+fn inlined(ids: &[DefId], infos: &[MemberInfo], trees: &[(&Term, Span)]) -> Vec<bool> {
+    let mut occurrences: Vec<Vec<usize>> = vec![Vec::new(); ids.len()];
+    for (from, (tree, _)) in trees.iter().enumerate() {
+        for (term, _) in tree.subterms() {
+            if let Term::Def(id) = term
+                && let Some(to) = ids.iter().position(|m| m == id)
+            {
+                occurrences[to].push(from);
+            }
+        }
+    }
+    let mut inlined: Vec<bool> = occurrences
+        .iter()
+        .enumerate()
+        .map(|(m, from)| {
+            let lifted = infos[m]
+                .name
+                .rsplit('.')
+                .next()
+                .is_some_and(|last| last.starts_with("%match"));
+            lifted && matches!(from[..], [from] if from != m)
+        })
+        .collect();
+    for m in 0..ids.len() {
+        let mut at = m;
+        for _ in 0..ids.len() {
+            if !inlined[at] {
+                break;
+            }
+            at = occurrences[at][0];
+            if at == m {
+                inlined[m] = false;
+                break;
+            }
+        }
+    }
+    inlined
 }
 
 /// A call from one member to another (or itself): an arc `(caller position,
@@ -203,6 +270,10 @@ struct Call {
     to: usize,
     arcs: Vec<(usize, usize, Label)>,
     span: Span,
+    /// The arguments given for the callee's parameters, and the names in
+    /// scope, for the error.
+    args: Vec<Term>,
+    names: Vec<Name>,
 }
 
 struct Info {
@@ -213,6 +284,9 @@ struct Info {
     smaller_than: Option<usize>,
     /// This variable is a recursive function field of a matched constructor.
     recursive_fn: bool,
+    /// For a parameter of an inlined member, the variable its argument is
+    /// equal to ([`Walker::rebuilt`]).
+    alias: Option<(usize, Pins)>,
 }
 
 /// Walks the body of member `from`, recording its calls.
@@ -221,6 +295,10 @@ struct Walker<'a> {
     /// The group's members, by position.
     members: &'a [DefId],
     infos: &'a [MemberInfo<'a>],
+    /// Each member's body after its parameters, and its span.
+    trees: &'a [(&'a Term, Span)],
+    /// Which members are walked where they occur ([`inlined`]).
+    inlined: &'a [bool],
     from: usize,
     /// The variables in scope, indexed by de Bruijn level.
     vars: Vec<Info>,
@@ -228,6 +306,9 @@ struct Walker<'a> {
     /// The case branches we're inside: the variable matched (a level), and
     /// the constructor and the levels of its fields in this branch.
     matched: Vec<Matched>,
+    /// Which of the member's parameters are matched on, directly or through
+    /// their parts.
+    matched_params: Vec<bool>,
     span: Span,
 }
 
@@ -250,6 +331,31 @@ fn is_recursive_fn(g: &Globals, ty: &Term, d: DataId) -> bool {
         ty = cod.strip_loc();
     }
     arrows > 0 && matches!(ty, Term::Data(d2, _) if g.data(d).group.contains(d2))
+}
+
+/// Which arguments of a rebuilt term's type are known to be those of the
+/// matched value's type.
+#[derive(Clone, Copy)]
+enum Pins {
+    All,
+    Indices,
+    Nothing,
+}
+
+/// Whether field type `ty` is a data type with variable `ix` as one of the
+/// arguments `pins` says are known.
+fn pins_var(g: &Globals, ty: &Term, ix: usize, pins: Pins) -> bool {
+    let Term::Data(d, args) = ty.strip_loc() else {
+        return false;
+    };
+    let first = match pins {
+        Pins::All => 0,
+        Pins::Indices => g.data(*d).params.len(),
+        Pins::Nothing => return false,
+    };
+    args.iter()
+        .skip(first)
+        .any(|a| matches!(a.strip_loc(), Term::Var(i) if *i == ix))
 }
 
 impl Walker<'_> {
@@ -275,7 +381,7 @@ impl Walker<'_> {
             | Term::Meta(_) => {}
             Term::Def(id) => {
                 if let Some(to) = self.member(*id) {
-                    self.call(to, &[])?;
+                    self.occurrence(to, &[])?;
                 }
             }
             Term::App(..) => {
@@ -285,7 +391,7 @@ impl Walker<'_> {
                 {
                     // One call for the whole spine; the head isn't walked
                     // again, or it would count as a bare reference too.
-                    self.call(to, &args)?;
+                    self.occurrence(to, &args)?;
                 } else {
                     self.walk(head)?;
                 }
@@ -327,6 +433,7 @@ impl Walker<'_> {
                     param,
                     smaller_than,
                     recursive_fn: false,
+                    alias: None,
                 });
                 let result = self.walk(body);
                 self.vars.pop();
@@ -335,6 +442,9 @@ impl Walker<'_> {
             Term::Case(ix, d, branches) => {
                 let scrutinee = &self.vars[self.vars.len() - 1 - ix];
                 let source = scrutinee.param.or(scrutinee.smaller_than);
+                if let Some(i) = source {
+                    self.matched_params[i] = true;
+                }
                 let level = self.vars.len();
                 let g = self.g;
                 for (c, branch) in branches.iter().enumerate() {
@@ -389,14 +499,19 @@ impl Walker<'_> {
     }
 
     /// Records an occurrence of member `to` applied to `args`: a call, if
-    /// it's given all of `to`'s parameters. Arguments beyond them get no
-    /// entry in the graph (the caller still walks them).
-    fn call(&mut self, to: usize, args: &[&Term]) -> Result<(), Diagnostic> {
+    /// it's given all of `to`'s parameters, or its body walked here if it's
+    /// inlined. Arguments beyond them get no entry in the graph (the caller
+    /// still walks them).
+    fn occurrence(&mut self, to: usize, args: &[&Term]) -> Result<(), Diagnostic> {
         let arity = self.infos[to].params.len();
         if args.len() < arity {
             return Err(self.unsaturated(to, args));
         }
-        let arcs = args[..arity]
+        let args = &args[..arity];
+        if self.inlined[to] {
+            return self.inline(to, args);
+        }
+        let arcs = args
             .iter()
             .enumerate()
             .filter_map(|(j, arg)| self.relate(arg).map(|(i, label)| (i, j, label)))
@@ -406,8 +521,46 @@ impl Walker<'_> {
             to,
             arcs,
             span: self.span,
+            args: args.iter().map(|a| (*a).clone()).collect(),
+            names: self.vars.iter().map(|info| info.name.clone()).collect(),
         });
         Ok(())
+    }
+
+    /// Walks the body of member `to` where it's applied to `args`: each
+    /// parameter is as small as its argument, and equal to the variable the
+    /// argument is, if any.
+    fn inline(&mut self, to: usize, args: &[&Term]) -> Result<(), Diagnostic> {
+        let params: Vec<Info> = args
+            .iter()
+            .zip(&self.infos[to].params)
+            .map(|(arg, (x, _))| {
+                let (param, smaller_than) = match self.relate(arg) {
+                    Some((i, Label::Le)) => (Some(i), None),
+                    Some((i, Label::Lt)) => (None, Some(i)),
+                    None => (None, None),
+                };
+                let recursive_fn = match arg.strip_loc() {
+                    Term::Var(ix) => self.vars[self.vars.len() - 1 - ix].recursive_fn,
+                    _ => false,
+                };
+                Info {
+                    name: x.clone(),
+                    param,
+                    smaller_than,
+                    recursive_fn,
+                    alias: self.rebuilt(arg),
+                }
+            })
+            .collect();
+        let depth = self.vars.len();
+        self.vars.extend(params);
+        let (tree, span) = self.trees[to];
+        let saved = std::mem::replace(&mut self.span, span);
+        let result = self.walk(tree);
+        self.span = saved;
+        self.vars.truncate(depth);
+        result
     }
 
     /// The parameter `arg` is related to, and how, if it's one of: a
@@ -434,19 +587,66 @@ impl Walker<'_> {
                     None
                 }
             }
+            Term::Ctor(..) => related(&self.vars[self.rebuilt(arg)?.0]),
+            _ => None,
+        }
+    }
+
+    /// The level of the variable `term` is equal to: a variable itself, or a
+    /// constructor applied to exactly the fields an enclosing match bound for
+    /// it, each of which may itself be rebuilt. So in the branch for
+    /// `Cons x (Cons y (Cons z more))`, `Cons y (Cons z more)` is the first
+    /// match's tail. An inlined member's parameter is its argument's variable.
+    ///
+    /// A field pinned by a later field's type (`n` in `VCons (x: a) (xs: Vec
+    /// a n)`) may be any term, if the later field is rebuilt: the body has
+    /// type-checked, so the later field's type, and with it the pinned field,
+    /// equals the matched one's. The elaborator often fills such a field with
+    /// what the match's index unification solved it to, `Succ m` rather than
+    /// `n`. A variable's type is known exactly, so it pins through any
+    /// argument of its type; a rebuilt constructor's indices are known only
+    /// if its result's indices don't depend on the parameters (which come
+    /// from wherever it's used), and its parameters not at all.
+    fn rebuilt(&self, term: &Term) -> Option<(usize, Pins)> {
+        let resolve = |level: usize| self.vars[level].alias.map_or(level, |(l, _)| l);
+        match term.strip_loc() {
+            Term::Var(ix) => {
+                let level = self.vars.len().checked_sub(ix + 1)?;
+                Some(self.vars[level].alias.unwrap_or((level, Pins::All)))
+            }
             Term::Ctor(d, c, args) => {
-                let fields: Option<Vec<usize>> = args
-                    .iter()
-                    .map(|a| match a.strip_loc() {
-                        Term::Var(ix) => level.checked_sub(ix + 1),
-                        _ => None,
-                    })
-                    .collect();
-                let fields = fields?;
+                let data = self.g.data(*d);
+                let ctor = &data.ctors[*c];
+                let fields: Vec<Option<(usize, Pins)>> =
+                    args.iter().map(|a| self.rebuilt(a)).collect();
                 let m = self.matched.iter().rev().find(|m| {
-                    m.data == *d && m.ctor == *c && m.fields.clone().eq(fields.iter().copied())
+                    let field = |j: usize| match fields[j] {
+                        Some((level, pins)) if level == resolve(m.fields.start + j) => Some(pins),
+                        _ => None,
+                    };
+                    m.data == *d
+                        && m.ctor == *c
+                        && m.fields.len() == fields.len()
+                        && (0..fields.len()).all(|j| {
+                            field(j).is_some()
+                                || (j + 1..fields.len()).any(|k| {
+                                    field(k).is_some_and(|pins| {
+                                        pins_var(self.g, &ctor.fields[k].1, k - 1 - j, pins)
+                                    })
+                                })
+                        })
                 })?;
-                related(&self.vars[m.scrutinee])
+                let n = ctor.fields.len();
+                let free_of_params = ctor
+                    .result
+                    .iter()
+                    .all(|r| (0..data.params.len()).all(|p| !r.mentions(n + p)));
+                let pins = if free_of_params {
+                    Pins::Indices
+                } else {
+                    Pins::Nothing
+                };
+                Some((resolve(m.scrutinee), pins))
             }
             _ => None,
         }
@@ -466,6 +666,7 @@ impl Walker<'_> {
                 param: None,
                 smaller_than,
                 recursive_fn: *recursive_fn,
+                alias: None,
             });
         }
         let result = self.walk(body);
@@ -538,7 +739,10 @@ impl Walker<'_> {
 /// The error for a cycle of calls (`path`, composing to `entries`) in which
 /// no parameter gets smaller.
 fn no_descent(
+    g: &Globals,
     members: &[MemberInfo],
+    matched_params: &[Vec<bool>],
+    inlined: &[bool],
     calls: &[Call],
     path: &[sct::CallId],
     entries: &[Option<sct::Arc>],
@@ -564,7 +768,8 @@ fn no_descent(
         }
     };
     let mut diagnostic = Diagnostic::error("E-TERMINATION", message);
-    let single = members.len() == 1;
+    // Inlined members make no calls of their own.
+    let single = inlined.iter().filter(|inlined| !**inlined).count() == 1;
     let mut labelled: Vec<sct::CallId> = Vec::new();
     for &c in path {
         if labelled.contains(&c) {
@@ -585,7 +790,8 @@ fn no_descent(
                 )
             }
         } else {
-            describe(from, to, call.from == call.to, &call.arcs)
+            not_smaller(g, from, to, &matched_params[call.to], call)
+                .unwrap_or_else(|| describe(from, to, call.from == call.to, &call.arcs))
         };
         // In a group, say where each call goes.
         let call_to = if single {
@@ -657,19 +863,6 @@ fn describe(
     same: bool,
     arcs: &[(usize, usize, Label)],
 ) -> String {
-    let position = |params: &Params, i: usize| {
-        let (x, icit) = &params[i];
-        if *icit == Icit::Explicit {
-            let n = params[..i]
-                .iter()
-                .filter(|(_, icit)| *icit == Icit::Explicit)
-                .count()
-                + 1;
-            format!("{} argument", ordinal(n))
-        } else {
-            format!("implicit argument `{x}`")
-        }
-    };
     let parts: Vec<String> = arcs
         .iter()
         .filter(|(i, j, label)| *label == Label::Lt || shown(from, to, *i, *j))
@@ -697,6 +890,80 @@ fn describe(
         "no argument is known to be smaller".to_string()
     } else {
         parts.join(", ")
+    }
+}
+
+/// For a call in which no argument gets smaller, what it passes where the
+/// callee matches, since those are the arguments that could have. `None` if
+/// some argument gets smaller, or the callee matches on none.
+fn not_smaller(
+    g: &Globals,
+    from: &MemberInfo,
+    to: &MemberInfo,
+    matched: &[bool],
+    call: &Call,
+) -> Option<String> {
+    if call.arcs.iter().any(|(_, _, label)| *label == Label::Lt) {
+        return None;
+    }
+    let same = call.from == call.to;
+    let parts: Vec<String> = (0..to.params.len())
+        .filter(|&j| matched[j])
+        .map(|j| {
+            // The argument as written, unless it's one a partial call
+            // leaves to whatever the result is applied to.
+            let arg = pretty::term_for_message(g, &call.names, &call.args[j]);
+            let theirs = if arg == "_" {
+                position(&to.params, j)
+            } else {
+                format!("{}, `{arg}`,", position(&to.params, j))
+            };
+            let arc = call.arcs.iter().find(|(_, to, _)| *to == j);
+            match (arc, same) {
+                (Some(&(i, _, _)), true) if i == j => format!("the {theirs} stays the same"),
+                (Some(&(i, _, _)), true) => {
+                    format!("the {theirs} is what the {} was", position(&from.params, i))
+                }
+                (Some(&(i, _, _)), false) => format!(
+                    "`{}`'s {theirs} is `{}`'s {}",
+                    to.name,
+                    from.name,
+                    position(&from.params, i)
+                ),
+                (None, true) => {
+                    let (x, _) = &from.params[j];
+                    if x.starts_with(['_', '%']) {
+                        format!("the {theirs} isn't seen as smaller")
+                    } else {
+                        format!("the {theirs} isn't seen as smaller than `{x}`")
+                    }
+                }
+                (None, false) => format!(
+                    "`{}`'s {theirs} isn't seen as smaller than any of `{}`'s arguments",
+                    to.name, from.name
+                ),
+            }
+        })
+        .collect();
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join("; "))
+    }
+}
+
+/// How a message refers to parameter `i`.
+fn position(params: &Params, i: usize) -> String {
+    let (x, icit) = &params[i];
+    if *icit == Icit::Explicit {
+        let n = params[..i]
+            .iter()
+            .filter(|(_, icit)| *icit == Icit::Explicit)
+            .count()
+            + 1;
+        format!("{} argument", ordinal(n))
+    } else {
+        format!("implicit argument `{x}`")
     }
 }
 

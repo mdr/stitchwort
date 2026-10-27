@@ -7,7 +7,7 @@ expression: output
     │
  12 │   | acc, Succ n => applyTo (sumFrom (acc + 1)) n
     │                             ────────┬───────  
-    │                                     ╰───────── this recursive call might not terminate: no argument is known to be smaller
+    │                                     ╰───────── this recursive call might not terminate: the 2nd argument isn't seen as smaller
     │ 
     │ Note 1: `sumFrom` is given 1 of its 2 arguments here; the rest are whatever it's applied to later, which isn't known to be smaller, so an argument that gets smaller must be among the ones given
     │ 

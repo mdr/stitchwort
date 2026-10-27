@@ -7,7 +7,7 @@ expression: output
    │
  8 │   | Succ n => b n (a (Succ n))
    │                    ────┬────  
-   │                        ╰────── this call to `a` might not terminate: the 1st argument stays the same
+   │                        ╰────── this call to `a` might not terminate: the 1st argument, `Succ n`, stays the same
    │ 
    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
    │ 

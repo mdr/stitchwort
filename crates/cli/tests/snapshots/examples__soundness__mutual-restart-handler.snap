@@ -11,7 +11,7 @@ expression: output
     │ 
  22 │ def again (c: Comp PingOp PingRes Nat): Prop := bad c
     │                                                 ──┬──  
-    │                                                   ╰──── then this call to `bad`: `bad`'s 1st argument is `again`'s 1st argument
+    │                                                   ╰──── then this call to `bad`: `bad`'s 1st argument, `c`, is `again`'s 1st argument
     │ 
     │ Note 1: going round `bad` → `again` → `bad`, over and over: the 1st argument stays the same, so no argument keeps getting smaller
     │ 

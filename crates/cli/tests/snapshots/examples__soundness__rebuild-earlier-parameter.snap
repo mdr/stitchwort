@@ -7,7 +7,7 @@ expression: output
    │
  6 │   | Succ n, m => loop (Succ n) m
    │                  ───────┬───────  
-   │                         ╰───────── this recursive call might not terminate: the 1st argument stays the same, the 2nd argument stays the same
+   │                         ╰───────── this recursive call might not terminate: the 1st argument, `Succ n`, stays the same
    │ 
    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
    │ 
