@@ -4,8 +4,8 @@
 -- the product of the three largest (`threeLargestPerm`). Part1.sw uses both.
 --
 -- The argument:
---   1. Sorting, largest first, gives one list for any order of the sizes:
---      two sorted lists with the same elements are equal (`List.sortedPermEq`).
+--   1. Sorting, largest first, gives one list for any order of the sizes
+--      (`List.sortEqOfPerm`, by `Ord.reverse`).
 --   2. Two lists without repeats and with the same members are the same
 --      elements in another order (`List.permOfSameMembers`).
 --   3. The histogram's keys are the labels, without repeats (a map's keys
@@ -19,29 +19,14 @@
 namespace Aoc.Day08.Proofs
 import Aoc.Day08 (..)
 import Aoc.Day08.Spec (..)
-import Std (And, Bool, DecEq, Eq, List, Map, Nat, Ordering, Pair, Void)
+import Std (And, Bool, DecEq, Eq, List, Map, Nat, Ord, Pair, Void)
 
 -- Order makes no difference to the three largest ----------------------------
 
--- `x` may come before `y`, largest first.
-def atLeast (x: Nat) (y: Nat): Bool := Nat.leq y x
-
-theorem atLeastTrans (x: Nat) (y: Nat) (z: Nat) (h1: atLeast x y = True) (h2: atLeast y z = True): atLeast x z = True := omega
-
-theorem atLeastAntisymm (x: Nat) (y: Nat) (h1: atLeast x y = True) (h2: atLeast y x = True): x = y := omega
-
--- Sorting largest first sorts by `atLeast`.
-theorem sortedLargestFirst (xs: List Nat): List.Sorted atLeast (List.sortBy xs (a b => Nat.compare b a)) :=
-  List.sortedCong (a b => Ordering.isLessEq (Nat.compare b a)) atLeast (a b => Nat.compareLeq b a) (List.sortBy xs (a b => Nat.compare b a))
-    (List.sortBySorted (a b => Nat.compare b a) (a b h => rewrite Nat.compareLeq a b in rewrite Nat.compareLeq b a at h in omega) xs)
-
--- The three largest of the same sizes in any order.
+-- The three largest of the same sizes in any order: sorting largest first is
+-- sorting by the reverse order.
 theorem threeLargestPerm (xs: List Nat) (ys: List Nat) (p: List.Perm xs ys): threeLargestProduct xs = threeLargestProduct ys :=
-  let sortX := List.sortBy xs (a b => Nat.compare b a)
-  let sortY := List.sortBy ys (a b => Nat.compare b a)
-  Eq.cong (sorted => List.product (List.take sorted 3))
-    (List.sortedPermEq atLeast atLeastTrans atLeastAntisymm sortX sortY (sortedLargestFirst xs) (sortedLargestFirst ys)
-      (List.permTrans sortX xs sortY (List.sortByPerm xs _) (List.permTrans xs ys sortY p (List.permSym sortY ys (List.sortByPerm ys _)))))
+  Eq.cong (sorted => List.product (List.take sorted 3)) (List.sortEqOfPerm [ord := Ord.reverse] xs ys p)
 
 -- The histogram's keys --------------------------------------------------------
 
@@ -52,7 +37,7 @@ def labelCount (c: Circuits) (n: Nat) (label: Nat): Nat := List.count (List.map 
 def labelCounts (c: Circuits) (n: Nat): Map Nat Nat := Map.counts (List.map (List.range n) c.labelOf)
 
 theorem getOrLabelCounts (c: Circuits) (n: Nat) (label: Nat): Map.getOr (labelCounts c n) label 0 = labelCount c n label :=
-  rewrite Map.getOrCounts label (List.map (List.range n) c.labelOf), Map.Spec.sameKeyDecide label _ in rfl
+  Map.getOrCounts label (List.map (List.range n) c.labelOf)
 
 -- Each entry of the histogram is a label and its count.
 theorem entryCount (c: Circuits) (n: Nat): (e: (Nat, Nat)) → List.Mem e (Map.toList (labelCounts c n)) → e.snd = labelCount c n e.fst

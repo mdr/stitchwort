@@ -27,6 +27,14 @@ def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a → b)
   lessEqTo = x y h => ord.lessEqTo (key x) (key y) h
 }
 
+-- The opposite order, largest first (Haskell's `Down`, Rust's `Reverse`):
+-- `List.sort [ord := Ord.reverse] xs` sorts in descending order.
+def Ord.reverse [auto ord: Ord a]: Ord a :=
+  Ord.fromCompare [decEq := ord.eq] (x y => Ord.compare y x)
+    (x y h => Eq.sym (ord.equal y x h))
+    (x y => ord.flip y x)
+    (x y z h1 h2 => ord.trans z y x h2 h1)
+
 -- The larger, and the smaller (the first, if they're equal).
 def Ord.max [auto ord: Ord a] (x: a) (y: a): a := match Ord.compare x y with
   | Less => y

@@ -71,6 +71,9 @@ They also can't be dot-called: `List` is a std namespace a program can't add
 to (`E-STD-NAMESPACE`, rogue's NOTES item 3), so it's
 `sumByPerm f xs ys same`, not `xs.sumByPerm …`.
 
+Fixed: std has `List.removeFirst` with its lemmas, `List.sumByPerm` (any
+`Add`), `List.sumPerm` and `List.countPerm`; `Proofs/Perm.sw` is gone.
+
 ### 3. No "same elements, same sort" lemma
 
 Showing that a list lines up only one way took `List.sortedPermEq`, which
@@ -87,6 +90,10 @@ theorem List.sortUnique (xs ys: List Nat) (sorted: List.Sorted Nat.leq ys) (same
 Mathlib's [`List.eq_of_perm_of_sorted`](https://florisvandoorn.com/LeanCourse25/docs/Mathlib/Data/List/Sort.html)
 takes the order's antisymmetry as an instance (`IsAntisymm`), so the caller
 passes no lemmas; `sortedPermEq` takes them as arguments every time.
+
+Fixed: std has `List.sortEqOfPerm`, `List.sortOfSorted` (and
+`List.sortOfSortedNat` for `Nat.leq`), which take the laws from the `Ord`
+instance, and `Ord.reverse` for largest-first sorts (2025's day 8).
 
 ### 4. Holes in a congruence lemma aren't filled before its proof argument
 
@@ -120,6 +127,9 @@ needs a second rewrite, `Map.Spec.sameKeyDecide`, to reach `xs.count (== key)`,
 which is how a spec says it. 2025's day 8 does the same two-step. A
 companion `Map.getOrCountsEq: … = xs.count (== key)` would make part 2's proof
 one rewrite.
+
+Fixed: `Map.getOrCounts` is now stated as
+`(Map.counts xs).getOr key 0 = xs.count (== key)`.
 
 ### 7. `Ok { … }` reads the braces as `Ok`'s own fields
 

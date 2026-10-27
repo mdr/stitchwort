@@ -387,8 +387,8 @@ Also built: `getInsertWithOther`, `getAlterOther`, `getAdjustOther`, `getOrCount
 `getMapKeys`, `getMapWithKey`, `getIntersectWith`, `getDifference`, `minToList`, `maxToList`,
 `belowToList`, `aboveToList`, `Set.containsInsertOther` and the general `Map.getFold`.
 `Set.containsFromList` states membership with `List.any (x => Map.Spec.sameKey key x) xs`,
-`Map.getOrCounts` and `Map.getGroupBy` likewise compare keys with `Map.Spec.sameKey` (by the
-ordering's `compare`).
+`Map.getGroupBy` likewise compares keys with `Map.Spec.sameKey` (by the ordering's `compare`);
+`Map.getOrCounts` is stated with `==`: `(Map.counts xs).getOr key 0 = xs.count (== key)`.
 
 ### 4.5 JS boundary (D744)
 
