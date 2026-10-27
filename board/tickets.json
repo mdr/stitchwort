@@ -5081,7 +5081,7 @@
     {
       "id": 646,
       "title": "A match inside a lambda (e.g. n => match n with …) restated in a proof body doesn't unify with the program's helper (placeholder vs finished helper); workarounds: restate in the statement, leave as _, or name it as a def (alignWith lane, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
