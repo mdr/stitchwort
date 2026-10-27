@@ -145,9 +145,9 @@ fn the_terminal_operations_print_the_same_both_ways() {
 #[test]
 fn a_project_function_prints_the_same_both_ways() {
     let aoc = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
-    let input = std::fs::read(aoc.join("examples/day04.txt")).expect("the example input");
+    let input = std::fs::read(aoc.join("examples/2025/day04.txt")).expect("the example input");
     let args: [&std::ffi::OsStr; 3] = [
-        "Aoc.Day04.main".as_ref(),
+        "Aoc.Year2025.Day04.main".as_ref(),
         "--project".as_ref(),
         aoc.as_os_str(),
     ];

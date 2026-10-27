@@ -51,8 +51,8 @@ namespace it just checked and check it again.
 ### 1.1 Today
 
 - Errors appear after you save, about 0.2 s later for a small namespace
-  (measured: `check --index - --project . Aoc.Day05`, warm cache, 0.15 s)
-  and 0.7 s for `Aoc.Day04.Proofs` after an edit to it. A full index of
+  (measured: `check --index - --project . Aoc.Year2025.Day05`, warm cache, 0.15 s)
+  and 0.7 s for `Aoc.Year2025.Day04.Proofs` after an edit to it. A full index of
   `aoc` runs after that, 0.7 s warm.
 - Go to definition, hover, references, outline and workspace symbols answer
   from the last saved index. After you add a line, positions below it are
@@ -278,13 +278,13 @@ keystroke. **[Write entries only when the text equals the file on disk]**
 Three levels, each a stage. The numbers say where each pays off.
 
 **How long namespaces take to check** (measured, `STITCHWORT_TIMINGS`,
-`--no-cache`, elaboration plus kernel): `Aoc.Day04.Proofs` 1.37 s,
-`Aoc.Day02.Proofs` 0.95 s, `Aoc.Day07.Proofs` 0.20 s, `Aoc.Day03.Proofs`
-0.12 s, every other `aoc` namespace under 0.1 s (`Aoc.Day05` 0.04 s).
+`--no-cache`, elaboration plus kernel): `Aoc.Year2025.Day04.Proofs` 1.37 s,
+`Aoc.Year2025.Day02.Proofs` 0.95 s, `Aoc.Year2025.Day07.Proofs` 0.20 s, `Aoc.Year2025.Day03.Proofs`
+0.12 s, every other `aoc` namespace under 0.1 s (`Aoc.Year2025.Day05` 0.04 s).
 
 **How long single declarations take:** of 690 `aoc` declarations, the
 median is 0.1 ms, 90% take under 4 ms, 99% under 100 ms, and the slowest,
-`Aoc.Day02.Proofs.dividesOfWritten`, 259 ms.
+`Aoc.Year2025.Day02.Proofs.dividesOfWritten`, 259 ms.
 
 ### 4.1 Level 1: the edited namespace, in memory (stage 1)
 
@@ -293,13 +293,13 @@ imports (from memory, already checked) and N last. To re-check, it
 rewinds the session to just before N and checks N again from the current
 text. The fixed costs of a fresh process disappear: the core (about 60 ms)
 and parsing the whole project (about 60 ms; `check-cache.md`, stage 2
-measurements). So a namespace like `Aoc.Day05` re-checks in about 40 ms
+measurements). So a namespace like `Aoc.Year2025.Day05` re-checks in about 40 ms
 instead of 150 ms, and the two big proof namespaces in about 1–1.4 s
 (estimates, from the timings above).
 
 If you then edit a file of another namespace M, the server rebuilds the
 session in the order "M's imports, then M", from the disk cache. That costs
-about what a scoped warm check costs today (0.15 s for `Aoc.Day05`), once
+about what a scoped warm check costs today (0.15 s for `Aoc.Year2025.Day05`), once
 per switch.
 
 **Dependents.** After N checks, the namespaces that import N are
@@ -506,7 +506,7 @@ day, medium about a day, large several lanes. Estimates.
 | 2 | `?` goal holes and the context-at-position recording; hover on a hole | Medium | §5.2's example prints its goal in the CLI and the editor |
 | 3 | Completion (dot, prefix, names, auto-import), signature help, the add-import action with machine-readable fixes | Medium–large | Completion after `xs.` in `aoc` lists `List`'s functions |
 | 4 | Test lenses, rename, semantic colouring, inlay hints (off by default) | Medium | Each works in VS Code on `aoc` |
-| 5 | Level-2 re-checking within a namespace, and early cutoff | Large | Editing a leaf proof in `Aoc.Day04.Proofs` re-checks in under 0.3 s |
+| 5 | Level-2 re-checking within a namespace, and early cutoff | Large | Editing a leaf proof in `Aoc.Year2025.Day04.Proofs` re-checks in under 0.3 s |
 | 6 | The playground shares the session engine | Medium | The playground re-checks without starting a fresh session |
 
 Stages 2 and 3 can run in parallel after stage 1. Stage 0a is worth doing
@@ -579,7 +579,7 @@ now whatever happens to the rest.
   has none.
 - **Kernel time.** Every re-check runs the kernel (D277, option A). In the
   big proof namespaces that's about a quarter of the time (372 of 1,369 ms
-  for `Aoc.Day04.Proofs`). If D277 ever chooses B for interactive runs,
+  for `Aoc.Year2025.Day04.Proofs`). If D277 ever chooses B for interactive runs,
   the server is where it would pay.
 
 ## 9. Critical self-review
@@ -763,7 +763,7 @@ pause before a check starts. The default is 100 ms; the tests use 0.
 | `workspace/didChangeWatchedFiles` | Reads the file from disk again, unless it's open. The server doesn't register for this notification itself; a client may send it. |
 | `textDocument/publishDiagnostics` (sent) | With the document's `version` for open files, and none for others. Sent for a file when its diagnostics change, or when the version they're for changes. `code` is the error code (`E-TYPE-MISMATCH`), `source` is `stitchwort`. The message is the main text, then the first label and the notes (`Note: …`), one per line, as the extension showed them. Other labels are `relatedInformation`. Diagnostics with no place go on the project's `stitchwort.yaml`. |
 | `textDocument/definition` | One `Location`, or `null`. |
-| `textDocument/hover` | Markdown: the type in a `stitchwort` code block, then the kind and the full name (``def `Aoc.Day01.parseTurns` ``, `local` for a local). The range is the name's. |
+| `textDocument/hover` | Markdown: the type in a `stitchwort` code block, then the kind and the full name (``def `Aoc.Year2025.Day01.parseTurns` ``, `local` for a local). The range is the name's. |
 | `textDocument/references` | Every use in the project, sorted by file and position, plus the declaration if `includeDeclaration`. |
 | `textDocument/documentSymbol` | `DocumentSymbol`s nested by container (a type's constructors and fields under it). `detail` is the type, or the kind when there's no type. |
 | `workspace/symbol` | Ranked as the extension ranked them: the exact short name first, then a part of the full name, then the letters in order. A flat list of `SymbolInformation`. |
@@ -827,7 +827,7 @@ aren't shifted by the edit's line delta (see "Not done" below).
   `load_all_libraries` before the first mark. Loaded on demand, a library
   file that a namespace uses is unloaded whenever that namespace is
   rewound (§"As built" 0b), then loaded again from the cache. That runs
-  the kernel again: `Mod` made re-checking `Aoc.Day01` take 140 ms instead
+  the kernel again: `Mod` made re-checking `Aoc.Year2025.Day01` take 140 ms instead
   of 28. Since the library never changes after that, the library files'
   answers are computed once (`index_data_of(…, library: false)` from then
   on), which cut publishing from 50 ms to 11 ms. A file on its own still
@@ -853,15 +853,15 @@ and the two files are edited in turn, six rounds each:
 
 | Edited | First edit | Then (6 rounds) | Of which: checking the namespace / publishing |
 |---|---|---|---|
-| `Aoc.Day01` (`Day01.sw`) | 66–105 ms | 41–47 ms | 28 ms / 11 ms |
-| `Aoc.Day04.Proofs` (`Proofs/Core.sw`) | 589–629 ms | 586–641 ms | 550 ms / 30 ms (more files) |
+| `Aoc.Year2025.Day01` (`Day01.sw`) | 66–105 ms | 41–47 ms | 28 ms / 11 ms |
+| `Aoc.Year2025.Day04.Proofs` (`Proofs/Core.sw`) | 589–629 ms | 586–641 ms | 550 ms / 30 ms (more files) |
 
 So the target of §7 (under 0.3 s for all but the two big proof
-namespaces) is met. `Aoc.Day04.Proofs` takes as long as checking it does,
+namespaces) is met. `Aoc.Year2025.Day04.Proofs` takes as long as checking it does,
 which is what stage 5 is for. Other numbers:
 
 - Cancellation (`a_newer_edit_cancels_the_check_running`): one check of
-  `Aoc.Day04.Proofs` took 657 ms. An edit sent a quarter of the way into
+  `Aoc.Year2025.Day04.Proofs` took 657 ms. An edit sent a quarter of the way into
   the next check got its diagnostics 639 ms after it was sent. Without
   cancelling, that would be about 1.1 s.
 - Memory: 348 MB resident for the test process after these rounds, against
@@ -886,8 +886,8 @@ which is what stage 5 is for. Other numbers:
   and hover type equal the extension's lookups (`refAt`, `targetOf`,
   `hoverOf`) done on `check --index` JSON. The outlines are equal, the
   references to `Turn` are equal, and workspace symbols are checked. Then
-  an unsaved edit breaks `Aoc.Day01`: it gets `E-TYPE-MISMATCH`, and
-  `Aoc.Day01.Proofs`, which uses it, gets `E-NAMESPACE-FAILED`. Undoing
+  an unsaved edit breaks `Aoc.Year2025.Day01`: it gets `E-TYPE-MISMATCH`, and
+  `Aoc.Year2025.Day01.Proofs`, which uses it, gets `E-NAMESPACE-FAILED`. Undoing
   the edit clears them.
 - **Cancellation.** An error edit, then before its check can finish, a
   fixing edit. No diagnostics are ever published for the error's version,

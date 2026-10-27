@@ -2,10 +2,10 @@
 
 **Date:** 22 October 2026. **Ticket:** SW-316. **Step 3 of 3** for day 8: the community audit
 ([aoc-day08-community.md](aoc-day08-community.md), SW-308) came first, then the program and proof
-(SW-198, `aoc/src/Aoc/Day08/`), and now this note: what we had to add, rewrite or work around, and
+(SW-198, `aoc/src/Aoc/Year2025/Day08/`), and now this note: what we had to add, rewrite or work around, and
 what to add to the language or the standard library ("Std") as a result.
 
-Inputs: the program `aoc/src/Aoc/Day08/Day08.sw`; the proofs in `aoc/src/Aoc/Day08/Proofs/`
+Inputs: the program `aoc/src/Aoc/Year2025/Day08/Day08.sw`; the proofs in `aoc/src/Aoc/Year2025/Day08/Proofs/`
 (Spec 94 lines, Labels 221, Part1 147, Part2 378); the two lanes' running list of friction (20
 items, in the session scratchpad, quoted below as "friction 1" to "friction 20"); the day 8
 commits `160ab3c4`, `be9956bc`, `92603a54`, `6d386e5b`, `dd264045`; `docs/aoc-2025.md`; the
@@ -19,7 +19,7 @@ Labels, as in the comparison notes:
 - **[unverified]**: believed, but not confirmed.
 
 Measurements: `target/release/stitchwort` from the main checkout (built 21:45 on 22 October, after
-the day 8 proof commit; Std is built into the binary), `run` on `aoc/inputs/day08.txt`, wall-clock
+the day 8 proof commit; Std is built into the binary), `run` on `aoc/inputs/2025/day08.txt`, wall-clock
 seconds, one run each unless stated, so read them to about ±15%. Scratch programs:
 `/private/tmp/claude-501/-Users-matt-repos-misc-funlang/63e6bfc9-6f2e-43e5-9da9-a59432a877ec/scratchpad/day8-gaps/proj/src/`
 (`G0.sw` to `G6.sw`, using the community note's `Common.sw`).
@@ -93,7 +93,7 @@ For comparison: day 7's part 1 proof was 387 lines and part 2's 69 (community no
 ### 3.2 File-private helpers (SW-150)
 
 - **Day 8:** the 17 generic lemmas of §4.3 and the program-specific helpers (`relabel`, `moved`,
-  `boxesBelow`, `memSnoc`) all join the public namespace `Aoc.Day08.Proofs`.
+  `boxesBelow`, `memSnoc`) all join the public namespace `Aoc.Year2025.Day08.Proofs`.
 - **Recurs:** every proved day has helpers of this kind. SW-150 was opened for day 2's
   `twice*`/`window*` lemmas.
 - **What others do:** Lean `private theorem`, Agda `private` blocks (SW-150's description).

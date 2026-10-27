@@ -399,7 +399,7 @@ impl LiveProject {
         // never unloads one: loaded on demand, a library file a namespace
         // uses would be loaded again (from the check cache, but running the
         // kernel) each time the namespace is re-checked; `Mod` made
-        // re-checking `Aoc.Day01` take 140 ms instead of 30. Loading them
+        // re-checking `Aoc.Year2025.Day01` take 140 ms instead of 30. Loading them
         // all changes nothing a check reports (`tests/std_library.rs`).
         let library = session.elab.load_all_libraries();
         let base = session.mark();

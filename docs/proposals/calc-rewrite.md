@@ -1118,8 +1118,8 @@ which contains the scrutinee as written.
 - Changing one branch to a wrong argument is rejected:
 
   ```
-  expected `Nat.leq c (Pair.fst (Aoc.Day03.Bank.best.pick w more c after)) = True`,
-  but this has type `Nat.leq x (Pair.fst (Aoc.Day03.Bank.best.pick w more x after)) = True`
+  expected `Nat.leq c (Pair.fst (Aoc.Year2025.Day03.Bank.best.pick w more c after)) = True`,
+  but this has type `Nat.leq x (Pair.fst (Aoc.Year2025.Day03.Bank.best.pick w more x after)) = True`
   ```
 
 - Checking the project took 0.36 s before and after.

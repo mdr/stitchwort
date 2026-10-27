@@ -1,9 +1,9 @@
 # AoC 2025 day 4: community solutions in other languages
 
-**Date:** 22 October 2026. **Our version:** `aoc/src/Aoc/Day04/Day04.sw` (program: the grid as a
+**Date:** 22 October 2026. **Our version:** `aoc/src/Aoc/Year2025/Day04/Day04.sw` (program: the grid as a
 `Vec` of `Vec` cells, so it is rectangular by its type; a round removes every accessible roll by
 adding the three rows column by column and walking along the row, `peelRow`; part 2 is `sweep`,
-which goes down the grid and only looks again at rows that changed) and `aoc/src/Aoc/Day04/Proofs/`
+which goes down the grid and only looks again at rows that changed) and `aoc/src/Aoc/Year2025/Day04/Proofs/`
 (both parts correct for every grid, against a spec stated by position). `docs/aoc-2025.md` §6 and
 "Day 4 (October 2026)" describe the program and the proofs. This note looks at what other people
 wrote for 2025 day 4, in the wild, and asks what that suggests for Stitchwort. It follows the shape
@@ -122,7 +122,7 @@ patterns.
 | 17 | Dyalog APL, K, Q, J, Goal, Uiua | [voidhawk42](https://www.reddit.com/r/adventofcode/comments/1pdr8x6/2025_day_4_solutions/ns7cd89/), light_switchy, Radiadorineitor, ap29600, gyorokpeter, 0rac1e, jpjacobs_, anaseto, oantolin, Andreasnl, lost_in_a_forest | 1–10 | stencil over 3 by 3 windows, `5>+/,⍵`, until stable | `f←{⍵-⍵∧{5>+/,⍵}⌺3 3⊢⍵}; +/,p-f⍣≡p` (voidhawk42, the whole of both parts); Uiua `F ← ×⊸⬚0⧈(≤4⧻⊚)[3_3 1_1 1_1]` (Andreasnl); Goal `nbsum:2{+(x+0,-1_x)+1_x,0}/`: a separable window sum, rows then columns, like ours **[cited]** | no |
 | 18 | Mathematica, Julia, Raku | birdnardo, WolfRushHour, sauntcartas, Aspen138 | 5–30 | `ListConvolve` with kernel `{{1,1,1},{1,100,1},{1,1,1}}`: a cell is a removable roll when the sum is 100 to 103; Julia `OffsetArrays` | `NestWhile[f, {map, 0}, UnsameQ, 2]`; Raku `@board[(... max 0) .. (... min ...); ...].sum < 5` | no |
 | 19 | Common Lisp, Scheme, Janet | dijotal, dzecniv, runnerx4, veydar_, onrustigescheikundig | 10–50 | lists of coordinates (20 s for part 2), a hash table, a `grid-directions-with-diagonals` library | veydar_ wraps the in-place removal in a **generator** and takes until zero: `(take-until \|(= 0 $) (extractor g))`; dijotal's one "fun" bug: a destructive `delete-if` "removing your nextdoor neighbor before asking you how many neighbors you have" **[cited]** | no |
-| — | Stitchwort | `aoc/src/Aoc/Day04/Day04.sw` + `Proofs/` | 60 (program) + 28 (tests); 893 (proofs, 132 theorems; 1,262 lines with comments) | `Vec` grid, `peelRow` per row, `sweep` with per-row marks, fuel = rolls | `type Grid = { height, width, rows: Vec (Vec Cell width) height }`; parse refuses a ragged grid | **yes**: both parts, every grid, against a position-by-position spec; the order-independence core argument |
+| — | Stitchwort | `aoc/src/Aoc/Year2025/Day04/Day04.sw` + `Proofs/` | 60 (program) + 28 (tests); 893 (proofs, 132 theorems; 1,262 lines with comments) | `Vec` grid, `peelRow` per row, `sweep` with per-row marks, fuel = rolls | `type Grid = { height, width, rows: Vec (Vec Cell width) height }`; parse refuses a ragged grid | **yes**: both parts, every grid, against a position-by-position spec; the order-independence core argument |
 | — | Stitchwort, community shapes | scratch `sets.sw`, `wl.sw`, `worklist.sw`, `around.sw` | 25–45 | set rounds; worklist; fuel unfold; `Vec.around` | §4 | no |
 
 Also read and not tabled: Haskell (MyEternalSadness, vitelaSensei, stanosphere, Mysterious_Remote584,
@@ -366,8 +366,8 @@ the files:
 **Where ours stands.** 893 lines of proof (1,262 with comments) and 132 theorems, for two
 statements: part 1 right, part 2 right. The cost is in `Window.sw` (the stencil equals the
 neighbours: 220 lines), `Sweep.sw` (the marked sweep removes only accessible rolls and ends
-stable: 239 lines) and `Core.sw` (the core argument: 172 lines). `check Aoc.Day04.Proofs`
-takes 0.9 s; `test Aoc.Day04.Tests` takes 5.8 s, mostly the real input in the checking
+stable: 239 lines) and `Core.sw` (the core argument: 172 lines). `check Aoc.Year2025.Day04.Proofs`
+takes 0.9 s; `test Aoc.Year2025.Day04.Tests` takes 5.8 s, mostly the real input in the checking
 evaluator **[checked]**.
 
 ### 3.6 Speed of the obvious programs
@@ -377,7 +377,7 @@ each, on a laptop that was also running other work **[checked: `scripts/r.sh`, `
 
 | Program | `stitchwort run` | `run --js` |
 |---|---:|---:|
-| Committed `Aoc.Day04.main` | 0.61 s | 0.45 s |
+| Committed `Aoc.Year2025.Day04.main` | 0.61 s | 0.45 s |
 | `around.sw` (committed with `around`) | 0.38 s | 0.39 s |
 | Set rounds (`sets.sw`, mstksg's shape) | 16.7 s | 3.5 s |
 | Set worklist (`wl.sw`, glguy's shape) | 1.65 s | 0.75 s |
@@ -504,7 +504,7 @@ Why this order:
 | D425 | Start a shared `Grid` (rows of cells, neighbours, parse) in the library now? | [no; wait until days 6–8 show what is common; day 7's `Manifold` pads rows, day 4 refuses ragged ones] |
 | D426 | Add non-square tests to `Day04/Tests/Examples.sw` (`["@@@@@"]` is (5, 5); the same as five rows of `@`)? | [yes; two lines, with SW-224] |
 | D427 | Record on SW-112 (native `Array`) that day 4 doesn't need it (Set worklist 1.65 s, committed program 0.61 s) and that, if built, the array should carry its length in the type (`Array a n`), as bjornestol's Array bookkeeping shows? | [yes; add the note, keep the ticket in the backlog] |
-| D428 | Refresh the stale day 4 timings (5.1 s) in `docs/aoc-2025.md` and SW-112 (now 0.6 s `run`, 5.8 s for `test Aoc.Day04.Tests`)? | [yes; with SW-224] |
+| D428 | Refresh the stale day 4 timings (5.1 s) in `docs/aoc-2025.md` and SW-112 (now 0.6 s `run`, 5.8 s for `test Aoc.Year2025.Day04.Tests`)? | [yes; with SW-224] |
 
 Parked and relevant, not re-proposed: SW-235 (`withIndex`, `dropWhile`, ...) would shorten the
 set parser in `sets.sw`; SW-237 (pattern guards) would flatten glguy's three-way `part2'` and our

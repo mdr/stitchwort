@@ -1,4 +1,4 @@
--- Day 5's lemmas from aoc/src/Aoc/Day05/Proofs/Part2.sw, rewritten with `omega`.
+-- Day 5's lemmas from aoc/src/Aoc/Year2025/Day05/Proofs/Part2.sw, rewritten with `omega`.
 
 import Std (Nat, Bool, Void, List, Eq)
 

@@ -1,8 +1,8 @@
 # AoC 2025 day 5: community solutions in other languages
 
-**Date:** 22 October 2026. **Our version:** `aoc/src/Aoc/Day05/Day05.sw` (program: sort the
+**Date:** 22 October 2026. **Our version:** `aoc/src/Aoc/Year2025/Day05/Day05.sw` (program: sort the
 ranges by start, fold them into a list of merged ranges, add up the sizes), and
-`aoc/src/Aoc/Day05/Proofs/Part2.sw` (for every database, `solvePart2 db = countFresh db`, where
+`aoc/src/Aoc/Year2025/Day05/Proofs/Part2.sw` (for every database, `solvePart2 db = countFresh db`, where
 `countFresh` counts the ids from 0 to the largest end that some range holds, as the puzzle
 reads). `docs/aoc-2025.md` §7 and "Day 5 (October 2026)" describe the program and the proof. This
 note looks at what other people wrote for 2025 day 5, in the wild, and asks what that suggests for
@@ -133,7 +133,7 @@ the patterns.
 | 18 | F# | [lboshuizen](https://github.com/lboshuizen/aoc25/blob/HEAD/Day05.fs), [spencerwi](https://github.com/spencerwi/AdventOfCode2025/blob/HEAD/day5/Lib.fs), [mattgallagher92](https://github.com/mattgallagher92/advent-of-code/blob/HEAD/2025/Day05.fs), [jrmcnair](https://github.com/jrmcnair/advent-of-code/blob/HEAD/2025/Day5.fs) | 15–70 | lboshuizen: sort, `fold` with a `when` guard, 15 lines; spencerwi: `tryMergeWith` with six overlap cases written out; a type `MergedRangesPuzzleInput` "to let the compiler ensure that we merge before running parts 1 or 2" | lboshuizen: `\| (alo, ahi) :: rest when lo <= ahi + 1L -> …`; `_.startInclusive` property shorthand | no |
 | 19 | Koka, Roc | [junpls](https://github.com/junpls/aoc25/blob/HEAD/day05.kk), [arnemart](https://github.com/arnemart/aoc/blob/HEAD/2025/05/5.roc) | 38, 45 | Koka: **running mark with `var res` and `var largest`** over `ranges.sort()`; Roc: a `List.walk` that clips each range to start after the previous end | Koka `sort()` on pairs is the default order; Roc `Str.to_u64 s ?? 0` (a bad line becomes 0) | no |
 | 20 | Gleam, Elixir, Clojure | [tilltheis](https://github.com/tilltheis/adventofcode-2025-gleam/blob/HEAD/src/day05.gleam), [Zenor27](https://github.com/Zenor27/AOC2025/blob/HEAD/src/days/day05/day05.gleam), [bmatcuk](https://github.com/bmatcuk/adventofcode2025/blob/HEAD/day05/src/day05.gleam), [lasseebert](https://github.com/lasseebert/advent_of_code_2025/blob/HEAD/lib/advent/day_05.ex), [narimiran](https://github.com/narimiran/aoc2025/blob/HEAD/clojure/src/day05.clj), [genmeblog](https://github.com/genmeblog/advent-of-code/blob/HEAD/src/advent_of_code_2025/day05.clj) | 24–83 | sort and fold | tilltheis: `range_inclusive` returns `Error(Nil)` for `from > to`; genmeblog merges with `(<= a na b)`, so touching ranges stay apart (the count is the same) | no |
-| — | Stitchwort | `aoc/src/Aoc/Day05/Day05.sw` + `Proofs/Part2.sw` | 25 (program) + 23 (tests); 162 (proofs; 214 lines, 20 theorems) | sort by start, fold into merged ranges, latest first | parse by classifying each line; `Range` from `Aoc.Common`; `solvePart1` is the puzzle's sentence | **yes**: `solvePart2Correct`, for every database, against a puzzle-literal brute force; no axiom, total |
+| — | Stitchwort | `aoc/src/Aoc/Year2025/Day05/Day05.sw` + `Proofs/Part2.sw` | 25 (program) + 23 (tests); 162 (proofs; 214 lines, 20 theorems) | sort by start, fold into merged ranges, latest first | parse by classifying each line; `Range` from `Aoc.Common`; `solvePart1` is the puzzle's sentence | **yes**: `solvePart2Correct`, for every database, against a puzzle-literal brute force; no axiom, total |
 | — | Stitchwort, community shapes | scratch `variants.sw`, `exhaustive.sw`, `edge.sw` | 4–7 per shape | running mark, end-sorted fold, sweep, derived-`Ord` merge | §4 | no (agree with the brute force on 4,096 small lists) |
 
 Also in the count, and not in the table because they repeat these patterns: Lean ianclement's
@@ -451,7 +451,7 @@ was also running other work):
 
 | Program | `stitchwort run` | `run --js` |
 |---|---:|---:|
-| Committed program (`Aoc.Day05.main`) | 0.30 s | 0.31 s **[checked]** |
+| Committed program (`Aoc.Year2025.Day05.main`) | 0.30 s | 0.31 s **[checked]** |
 | All four variants in one file (`variants.sw`, each part 2 once) | 0.15 s | 0.34 s **[checked]** |
 | sondr3_, Haskell, part 2 | 23 µs (parser 417 µs, part 1 266 µs) **[cited]** | |
 | lboshuizen, F# | 3 ms **[cited]** | |

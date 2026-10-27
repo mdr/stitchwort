@@ -1999,15 +1999,15 @@ are small); "callee islands" is the entry's direct callees that fit.
 
 | Program | Reachable bodies | Bodies with a fitting island | Callee islands fitting | Top blockers (bodies containing it) |
 |---|---:|---:|---:|---|
-| `Aoc.Day01.main` | 54 | 17 | 0 of 4 | Closure 14, `Text` prims 8, Captured 8, Global 8 |
-| `Aoc.Day02.main` | 59 | 13 | 0 of 2 | Closure 20, Captured 17, `Effect` tail prims 12, `Text` prims 7 |
-| `Aoc.Day03.main` | 54 | 16 | 0 of 4 | Closure 15, Captured 12, `Effect` tail prims 10, `Text` prims 9 |
-| `Aoc.Day04.main` | 52 | 14 | 0 of 5 | Closure 11, `Text` prims 8, Apply 8, Captured 7 |
-| `Aoc.Day05.main` | 65 | 19 | 0 of 4 | Closure 21, Captured 17, `Effect` tail prims 16, `Text` prims 14 |
-| `Aoc.Day06.main` | 68 | 36 | 0 of 5 | Closure 12, `Text` prims 10, Captured 10, Apply 8 |
-| `Aoc.Day07.main` | 69 | 21 | 0 of 5 | Closure 14, Captured 13, Apply 10, `Text` prims 9 |
-| `Aoc.Day08.main` | 95 | 35 | 0 of 4 | Closure 17, Captured 12, Global 12, Apply 12 |
-| `Aoc.Day09.main` | 103 | 43 | 0 of 4 | Closure 18, Captured 15, Apply 14, Global 13 |
+| `Aoc.Year2025.Day01.main` | 54 | 17 | 0 of 4 | Closure 14, `Text` prims 8, Captured 8, Global 8 |
+| `Aoc.Year2025.Day02.main` | 59 | 13 | 0 of 2 | Closure 20, Captured 17, `Effect` tail prims 12, `Text` prims 7 |
+| `Aoc.Year2025.Day03.main` | 54 | 16 | 0 of 4 | Closure 15, Captured 12, `Effect` tail prims 10, `Text` prims 9 |
+| `Aoc.Year2025.Day04.main` | 52 | 14 | 0 of 5 | Closure 11, `Text` prims 8, Apply 8, Captured 7 |
+| `Aoc.Year2025.Day05.main` | 65 | 19 | 0 of 4 | Closure 21, Captured 17, `Effect` tail prims 16, `Text` prims 14 |
+| `Aoc.Year2025.Day06.main` | 68 | 36 | 0 of 5 | Closure 12, `Text` prims 10, Captured 10, Apply 8 |
+| `Aoc.Year2025.Day07.main` | 69 | 21 | 0 of 5 | Closure 14, Captured 13, Apply 10, `Text` prims 9 |
+| `Aoc.Year2025.Day08.main` | 95 | 35 | 0 of 4 | Closure 17, Captured 12, Global 12, Apply 12 |
+| `Aoc.Year2025.Day09.main` | 103 | 43 | 0 of 4 | Closure 18, Captured 15, Apply 14, Global 13 |
 | `Rogue.main` | 109 | 37 | 1 of 11 | Closure 26, Captured 26, Global 24, TailApply 14 |
 
 Over the ten (bodies containing each blocker family, summed):

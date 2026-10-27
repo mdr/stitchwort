@@ -8,8 +8,8 @@ which vary by under 0.1% between runs) are the steadier measure.
 ## Problem
 
 `STITCHWORT_TIMINGS=1 stitchwort check --no-cache` in `aoc/` put
-`Aoc.Day02.Proofs` (about 375 ms elaboration, 165 ms kernel, 437,000 core
-term nodes) and `Aoc.Day04.Proofs` (340 ms, 135 ms, 230,000 nodes) at about
+`Aoc.Year2025.Day02.Proofs` (about 375 ms elaboration, 165 ms kernel, 437,000 core
+term nodes) and `Aoc.Year2025.Day04.Proofs` (340 ms, 135 ms, 230,000 nodes) at about
 56% of all the time spent in units. Every other namespace takes under
 120 ms. The question was what in them is slow, and what can be made faster
 for every proof.
@@ -30,12 +30,12 @@ The slowest, before the changes below:
 
 | declaration | elab ms | kernel ms | steps | nodes |
 |---|---:|---:|---:|---:|
-| `Aoc.Day02.Proofs.twiceTerms` | 120.0 | 44.1 | 2,950,848 | 148,682 |
-| `Aoc.Day04.Proofs.passRow` | 56.3 | 17.7 | 1,275,341 | 30,313 |
-| `Aoc.Day04.Proofs.mixStep` | 24.1 | 13.3 | 678,256 | 19,853 |
-| `Aoc.Day04.Proofs.part2Correct` | 25.8 | 8.0 | 703,589 | 15,384 |
-| `Aoc.Day04.Proofs.roundCount` | 16.4 | 10.4 | 596,810 | 26,607 |
-| `Aoc.Day02.Proofs.dividesOfWritten` | 17.3 | 7.0 | 643,716 | 16,498 |
+| `Aoc.Year2025.Day02.Proofs.twiceTerms` | 120.0 | 44.1 | 2,950,848 | 148,682 |
+| `Aoc.Year2025.Day04.Proofs.passRow` | 56.3 | 17.7 | 1,275,341 | 30,313 |
+| `Aoc.Year2025.Day04.Proofs.mixStep` | 24.1 | 13.3 | 678,256 | 19,853 |
+| `Aoc.Year2025.Day04.Proofs.part2Correct` | 25.8 | 8.0 | 703,589 | 15,384 |
+| `Aoc.Year2025.Day04.Proofs.roundCount` | 16.4 | 10.4 | 596,810 | 26,607 |
+| `Aoc.Year2025.Day02.Proofs.dividesOfWritten` | 17.3 | 7.0 | 643,716 | 16,498 |
 
 The time goes with the size of the elaborated terms: the slow declarations
 are the big ones, and one declaration, `twiceTerms`, is a third of all the
@@ -136,8 +136,8 @@ elaborated terms are the same (same node counts and depths; `check_work`'s
 
 | | before | after |
 |---|---:|---:|
-| `Aoc.Day02.Proofs` (elab + kernel) | 555 ms | 454 ms |
-| `Aoc.Day04.Proofs` | 472 ms | 400 ms |
+| `Aoc.Year2025.Day02.Proofs` (elab + kernel) | 555 ms | 454 ms |
+| `Aoc.Year2025.Day04.Proofs` | 472 ms | 400 ms |
 | all units | 1,572 ms | 1,286 ms |
 | wall | 1,630 ms | 1,319 ms |
 | instructions retired | 25.30 G | 16.84 G |
@@ -165,7 +165,7 @@ while loading the library. The differences the tests compare are unchanged
 | Fix | Expected gain | Size and risk |
 |---|---|---|
 | **Keep calls folded** (glued values, or the cheaper "stay folded when the unfolding is stuck", docs/proposals/checker-evaluation.md §9.3): hidden arguments and helper types keep `invalid r` instead of its unfolding | Cause 1 is 81% of the nodes, and most of the profile above scales with nodes: a guess of 40–60% off these two namespaces | Large: the kernel's evaluator and conversion (and the elaborator's unifier and `rewrite`, which match on normal forms) must unfold folded calls on demand everywhere they look inside a value (numbers, `Pi`, `Eq`); a design note first |
-| **`Nat.pow b (Succ e) = Nat.pow b e * b`** (cause 3): done (SW-252) | `twiceTerms` 148,682 → 50,906 nodes (89 → 38 ms elab), `Aoc.Day02.Proofs` 436,564 → 334,324 nodes | Eight std proofs restated (`Nat.powAdd`, `Nat.powSuccPos`, `Nat.powTenPredLe` and five in `Nat/Digits.sw`, where `Nat.shiftDigitArith` now says `a * (p * 10)`); `Nat.powSucc` gives the old `b * b^e` form; the AoC proofs needed no change |
+| **`Nat.pow b (Succ e) = Nat.pow b e * b`** (cause 3): done (SW-252) | `twiceTerms` 148,682 → 50,906 nodes (89 → 38 ms elab), `Aoc.Year2025.Day02.Proofs` 436,564 → 334,324 nodes | Eight std proofs restated (`Nat.powAdd`, `Nat.powSuccPos`, `Nat.powTenPredLe` and five in `Nat/Digits.sw`, where `Nat.shiftDigitArith` now says `a * (p * 10)`); `Nat.powSucc` gives the old `b * b^e` form; the AoC proofs needed no change |
 | **Kernel case refinement re-quotes only what mentions the variable** (`check::substitute`) | Up to 6% here | Small, but in the kernel; a value has no cheap "mentions" test (closures capture the whole context), so it needs care |
 | **`rewrite` builds the kernel context once per rewrite chain**, not per step (`kernel_context` quotes every context type) | Up to 2.5% | Small |
 | **`twiceTerms` with a written helper lemma** instead of the `match` (cause 5) | Most of its 131 ms | A proof edit; only worth it if folding isn't done |

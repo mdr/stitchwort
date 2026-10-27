@@ -60,7 +60,7 @@ that needs no kernel change keeps the trusted part unchanged.
 the repository):
 
 ```
-namespace Aoc.Day01
+namespace Aoc.Year2025.Day01
 
 type Turn =
   | Left (distance: Nat)
@@ -1726,7 +1726,7 @@ nothing here depends on how families are checked.
 ## 13. Risks
 
 1. **Proofs that spell out decision terms** (`Decidable.toBoolSound (Nat.decEq a 1) …`
-   in `aoc/src/Aoc/Day04/Proofs/Part1.sw:125`; `List.decEq (a b => Nat.decEq a b)`
+   in `aoc/src/Aoc/Year2025/Day04/Proofs/Part1.sw:125`; `List.decEq (a b => Nat.decEq a b)`
    in `Day02/Proofs/Repeated.sw:229, 290`, **checked**). After stage 2,
    `a == 1` on `Nat` is projected (§5.13) to `Nat.decEq a 1`, today's
    term; `==` on lists becomes `List.instDecEq`'s `decide`, which

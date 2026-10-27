@@ -23,7 +23,7 @@ machine (load average about 14; release CLI; §A.1):
 | Run | Wall time | Instructions |
 |---|---|---|
 | `check` on the whole `aoc` project | 2.77 s | 42.2 G |
-| `check Aoc.Day05` (one namespace and what it imports) | 0.39 s | 5.9 G |
+| `check Aoc.Year2025.Day05` (one namespace and what it imports) | 0.39 s | 5.9 G |
 | `check` on a one-line file (core only) | 0.08 s | 1.1 G |
 
 The VS Code extension runs `stitchwort check --index - --project <root>` in a
@@ -329,8 +329,8 @@ admission about 19%. The last column is what stage 2 measured
 | Scenario | Today | With option A (estimate) | Measured (stage 2) |
 |---|---|---|---|
 | Full `aoc` check, nothing changed (VS Code save with no edit, gate-style re-run) | 2.8 s | **0.6–0.8 s**: kernel ~0.5 s, plus core 0.08 s, plus reading and decoding | **0.65 s** (1.65 s with `--no-cache`); kernel 0.44 s of it |
-| Edit one leaf namespace (such as `Aoc.Day07.Proofs`) | 2.8 s | ~0.7 s, plus that namespace's own elaboration (a whole day's namespace is ~0.3 s) | 0.68 s (a comment in `Aoc/Day05/Day05.sw`, which re-elaborates `Aoc.Day05` and the two namespaces that use it) |
-| Edit `Aoc.Common`, which everything imports | 2.8 s | 2.8 s (all dependents re-elaborate); with early cutoff (D280) and a comment-only edit, ~0.7 s | 1.08 s (a comment; not everything imports it, and `Aoc.Day04.Proofs`, one of the two big ones, doesn't) |
+| Edit one leaf namespace (such as `Aoc.Year2025.Day07.Proofs`) | 2.8 s | ~0.7 s, plus that namespace's own elaboration (a whole day's namespace is ~0.3 s) | 0.68 s (a comment in `Aoc/Year2025/Day05/Day05.sw`, which re-elaborates `Aoc.Year2025.Day05` and the two namespaces that use it) |
+| Edit `Aoc.Common`, which everything imports | 2.8 s | 2.8 s (all dependents re-elaborate); with early cutoff (D280) and a comment-only edit, ~0.7 s | 1.08 s (a comment; not everything imports it, and `Aoc.Year2025.Day04.Proofs`, one of the two big ones, doesn't) |
 | A first run, cold | 2.8 s | 2.8 s plus writing entries (estimate 2–5%) | 1.76 s, 6% more than `--no-cache` |
 | (For comparison) option B, nothing changed | 2.8 s | ~0.15–0.25 s | not built; about 0.2 s by the timings (the 0.65 s less the kernel's 0.44 s) |
 
@@ -554,7 +554,7 @@ in turn. The machine was loaded (load average 7–15). `STITCHWORT_TIMINGS`
 | `check` one line, core only | 0.094 s | 0.093 s | 0.094 s |
 | `check` one line using `Std.List.sort` | 0.258 s | 0.271 s | 0.141 s |
 | `check` on `aoc` | 1.910 s | 1.936 s | 1.624 s |
-| `run Aoc.Day04.main` | 0.611 s | 0.654 s | 0.424 s |
+| `run Aoc.Year2025.Day04.main` | 0.611 s | 0.654 s | 0.424 s |
 
 On `aoc` the warm run saves about 0.29 s, 15%, which matches the library
 share in §A.1. Writing the entries costs about 1–7% on a cold run. A
@@ -594,7 +594,7 @@ still checks every declaration loaded (option A; D277 stays open, and
   the name and key of every namespace it depends on, in canonical order.
   That last part is the Merkle chain. The driver's hash
   (`Session::namespace_sources`, `crates/driver/src/project.rs`) covers
-  each of the namespace's files (its name, such as `aoc/src/Aoc/Day05/Day05.sw`,
+  each of the namespace's files (its name, such as `aoc/src/Aoc/Year2025/Day05/Day05.sw`,
   and its text), the sorted names of all the project's namespaces, and
   `stitchwort.yaml`. The whole library is in the key rather than the
   files the namespace loads, because which files those are is only known
@@ -609,14 +609,14 @@ still checks every declaration loaded (option A; D277 stays open, and
   exports something to JavaScript, or has validators, isn't cached (none of
   the examples or `aoc` does).
 - **Files.** Spans name their file as `std:List/Sort.sw` or as
-  `project:src/Aoc/Day05/Day05.sw`, the path in the project.
+  `project:src/Aoc/Year2025/Day05/Day05.sw`, the path in the project.
 - **Navigation targets by declaration** (§4.3). A reference whose target
   is in another unit's file (another namespace's, or the library's) keeps
   the key of the declaration it leads to, and replay looks up where that
   declaration is now. A target in the unit's own files is kept as a span.
   Library entries do the same.
 - **Eviction (D283)** as for library files: one entry per unit, which is
-  `ns.Aoc.Day05` (or `ns.Aoc.Day05+nav`). A whole-project check and a
+  `ns.Aoc.Year2025.Day05` (or `ns.Aoc.Year2025.Day05+nav`). A whole-project check and a
   namespace-scoped one give a namespace the same key, so they share
   entries and don't evict each other's.
 - **The test cache** now does the same. A result's file name has the test
@@ -625,7 +625,7 @@ still checks every declaration loaded (option A; D277 stays open, and
   and modes. The first write of a run deletes other builds' results more
   than a day old.
 - **Timings.** `STITCHWORT_TIMINGS` shows a namespace from the cache as
-  `Aoc.Day05 (cached)`. The library files it loads are rows of their own,
+  `Aoc.Year2025.Day05 (cached)`. The library files it loads are rows of their own,
   as before.
 - **`stitchwort test`** from a warm cache loads every namespace from the
   check cache, and the tests' content hashes are the same, so every
@@ -670,15 +670,15 @@ before (see below). The statistics count late misses, and the
 differential tests check there are none.
 
 **SW-255: one cache, different targets.** `stitchwort check` (the whole
-project) and then `stitchwort run Aoc.Day07.main` from the same cache
-reported every name of `Aoc.Day07` as defined twice (days 3, 4, 6 and 7).
+project) and then `stitchwort run Aoc.Year2025.Day07.main` from the same cache
+reported every name of `Aoc.Year2025.Day07` as defined twice (days 3, 4, 6 and 7).
 Two faults together:
 
 1. The needs an entry kept depended on what was loaded when it was
    written. The dependency pass noted a library file only for a name that
    was still pending, so in a whole project check, where earlier days had
    already loaded `std/Fin/Fin.sw` and `std/Vec/Vec.sw`,
-   `Aoc.Day07`'s entry didn't list them. `run` checks only `Aoc.Day07` and
+   `Aoc.Year2025.Day07`'s entry didn't list them. `run` checks only `Aoc.Year2025.Day07` and
    what it imports, so replay didn't load them, and the entry's
    dependency `Std.Fin` wasn't there: a late miss. Now a name in a loaded
    library file counts too (`note_library_use`, by `LibraryIndex::owner`),
@@ -747,7 +747,7 @@ order of their short names' `followers`.
   diagnostics and the exit status) is byte for byte the same with
   `--no-cache`, cold and warm: always for every fourth example project,
   and in the slow tier for all of them and for `aoc`, both the whole
-  project and `Aoc.Day05` on its own (the editor's save path) from the
+  project and `Aoc.Year2025.Day05` on its own (the editor's save path) from the
   whole project's entries. Also: a warm `stitchwort test` reports every
   result from the cache and every namespace `(cached)`. And (SW-255)
   `check`, `check B`, `run`, and `test` in pairs, sharing one cache, each
@@ -765,28 +765,28 @@ was loaded (load average 14 to 26), so the absolute times are rough.
 | Run | `--no-cache` | Cold (writing) | Warm |
 |---|---|---|---|
 | `check` on `aoc` | 1.654 s | 1.758 s | **0.649 s** |
-| `check`, after a comment in `Aoc/Day05/Day05.sw` | | | 0.679 s |
+| `check`, after a comment in `Aoc/Year2025/Day05/Day05.sw` | | | 0.679 s |
 | `check`, after a comment in `Aoc/Common/Range.sw` (`Aoc.Common`) | | | 1.081 s |
-| `run Aoc.Day04.main < inputs/day04.txt` | 0.570 s | | **0.204 s** |
+| `run Aoc.Year2025.Day04.main < inputs/2025/day04.txt` | 0.570 s | | **0.204 s** |
 | `check --index - --project aoc` (VS Code, opening) | 1.841 s | | **0.766 s** |
-| `check --index - --project aoc Aoc.Day05` (VS Code, each save) | 0.332 s | | **0.207 s** |
-| the same, after a comment in `Aoc/Day05/Day05.sw` | | | 0.207 s |
+| `check --index - --project aoc Aoc.Year2025.Day05` (VS Code, each save) | 0.332 s | | **0.207 s** |
+| the same, after a comment in `Aoc/Year2025/Day05/Day05.sw` | | | 0.207 s |
 
 Where a warm whole-project check goes (`STITCHWORT_TIMINGS`, three runs:
 0.63 s, 0.63 s, 0.70 s wall): the kernel re-checking everything is 435 to
 493 ms; the core prelude about 60 ms; parsing and printing about 60 ms;
 reading and decoding the entries the rest (130 to 144 ms of "elab",
 including the core). The two big proof namespaces are most of the kernel
-time: `Aoc.Day02.Proofs` 188 ms and `Aoc.Day04.Proofs` 145 ms. So option
+time: `Aoc.Year2025.Day02.Proofs` 188 ms and `Aoc.Year2025.Day04.Proofs` 145 ms. So option
 B (D277) would take a warm check from about 0.65 s to about 0.2 s.
 
-A namespace-scoped warm check (`Aoc.Day05`, 0.17 s with timings on) is
+A namespace-scoped warm check (`Aoc.Year2025.Day05`, 0.17 s with timings on) is
 now mostly fixed costs: the core (about 60 ms) and parsing the whole
 project (about 60 ms).
 
 **Sizes.** `aoc`'s namespace entries take 5.0 MB (5.3 MB with
 navigation), from 432 KB of source. Most of it is the two big proof
-namespaces: `Aoc.Day02.Proofs` 2.4 MB and `Aoc.Day04.Proofs` 1.4 MB. The
+namespaces: `Aoc.Year2025.Day02.Proofs` 2.4 MB and `Aoc.Year2025.Day04.Proofs` 1.4 MB. The
 `Tests` namespaces are 80 to 95 KB each, since they hold the puzzle input
 they `include`. With the library files' entries, a cache with and without
 navigation comes to 12.4 MB.
@@ -824,7 +824,7 @@ the last commit before the rename, exported to a scratch folder.
 | Command | real | max RSS | instructions retired |
 |---|---|---|---|
 | `check` (whole `aoc` project) | 2.77 s | 112 MB | 42.2 G |
-| `check Aoc.Day05` | 0.39 s | 44 MB | 5.9 G |
+| `check Aoc.Year2025.Day05` | 0.39 s | 44 MB | 5.9 G |
 | `check` one-line file | 0.08 s | 24 MB | 1.1 G |
 
 **Profile.** I used `/usr/bin/sample` at 1 ms over a whole-project `check`,
@@ -974,9 +974,9 @@ check agreed within about 5%; the table uses the first.
 | Command | wall | elab | kernel | outside the units | nodes | decls |
 |---|---|---|---|---|---|---|
 | `check` (whole `aoc`) | 1,894 | 1,289 | 532 | 74 | 1,101,469 | 2,204 |
-| `check Aoc.Day05` | 516 | 329 | 151 | 37 | 298,011 | 1,271 |
+| `check Aoc.Year2025.Day05` | 516 | 329 | 151 | 37 | 298,011 | 1,271 |
 | `check` one-line file | 70 | 39 | 12 | 18 | 21,680 | 432 |
-| `run Aoc.Day04.main` | 563 | 254 | 75 | 235 (the program running) | 124,529 | 1,186 |
+| `run Aoc.Year2025.Day04.main` | 563 | 254 | 75 | 235 (the program running) | 124,529 | 1,186 |
 
 Where the full check's time and terms come from:
 
@@ -997,16 +997,16 @@ Where the full check's time and terms come from:
   project) agrees with the measured 0.53 s.
 - **The library share is bigger.** Library files are 460 ms of 1,820 (25%),
   not ~13%, and the core prelude adds 60 ms. For a small target the library
-  dominates: `check Aoc.Day05` spends 418 of 480 ms in library files (87%),
-  and `run Aoc.Day04.main` 267 of 328 ms (81%). Stage 1 (library files
+  dominates: `check Aoc.Year2025.Day05` spends 418 of 480 ms in library files (87%),
+  and `run Aoc.Year2025.Day04.main` 267 of 328 ms (81%). Stage 1 (library files
   only) is therefore worth more than §9 says. If replay re-admits the
-  library in the kernel (137 ms for Day 5), `check Aoc.Day05` would take
+  library in the kernel (137 ms for Day 5), `check Aoc.Year2025.Day05` would take
   about 0.23 s instead of 0.52 s, and Day 4's `run` about 0.36 s instead of
   0.56 s, of which 0.23 s is the program.
-- **The cost is concentrated.** `Aoc.Day02.Proofs` (537 ms, 437k nodes) and
-  `Aoc.Day04.Proofs` (487 ms, 230k nodes) together are 1,025 ms of 1,820:
+- **The cost is concentrated.** `Aoc.Year2025.Day02.Proofs` (537 ms, 437k nodes) and
+  `Aoc.Year2025.Day04.Proofs` (487 ms, 230k nodes) together are 1,025 ms of 1,820:
   56% of all unit time. The other project namespaces are each under 120 ms
-  (`Aoc.Day07.Proofs` is the next, 120 ms). So §8's "edit one leaf
+  (`Aoc.Year2025.Day07.Proofs` is the next, 120 ms). So §8's "edit one leaf
   namespace, ~0.7 s" holds for most namespaces but not these two, where it
   is about 1.2 s even with a perfect cache.
 - **One library outlier.** `std/Mod/Mod.sw` is 12 KB of source, 167,748

@@ -525,7 +525,7 @@ mod tests {
     #[test]
     fn a_function_builds_to_its_namespaces_name() {
         assert_eq!(namespace_name("Rogue.main"), "rogue");
-        assert_eq!(namespace_name("Aoc.Day05.main"), "day05");
+        assert_eq!(namespace_name("Aoc.Year2025.Day05.main"), "day05");
         assert_eq!(namespace_name("main"), "main");
     }
 

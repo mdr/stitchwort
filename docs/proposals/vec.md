@@ -66,7 +66,7 @@ their sources. Anything not checked against a source is marked **unverified**.
 - **Lists** have the toolkit (`map`, `zipWith3`, `sumBy`, `getOr`, `transpose`, …) and, since
   day 6, lemmas about them by index (`List.getOrMap`, `List.getOrZipWith3`, `List.mapGetOr`,
   `List.sumByGetOr`).
-- **Day 4** (`aoc/src/Aoc/Day04/`) is `Grid = List (List Nat)` of 0/1. Part 1 is proved for
+- **Day 4** (`aoc/src/Aoc/Year2025/Day04/`) is `Grid = List (List Nat)` of 0/1. Part 1 is proved for
   every rectangular grid (`part1Correct lines w rect`), the rectangle being a precondition on
   `List Text`. Part 2 isn't proved (its approach, D123, is parked).
 

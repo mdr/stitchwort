@@ -50,7 +50,7 @@ are to commit `f58a061` (§10 and the day 4 re-measurement: `1e60e6d`).
 
 - **The AoC project goes into the Example dropdown** as a group, "Advent of
   Code 2025", with one entry per day. Choosing "Day 2" opens the one shared
-  `aoc` project at `Aoc/Day02/Day02.sw`. The single-file examples work
+  `aoc` project at `Aoc/Year2025/Day02/Day02.sw`. The single-file examples work
   exactly as today.
 - **Above the editor, a row of file tabs** shows the files the chosen day
   is made of: its program, its proofs, and the shared files they use
@@ -70,8 +70,8 @@ are to commit `f58a061` (§10 and the day 4 re-measurement: `1e60e6d`).
   1.3 s. That's fast enough not to make proofs opt-in. Everything checks
   and every test passes in WebAssembly, under the playground's tight stack
   limit.
-- **Run** calls `Aoc.DayNN.main`, with the input box filled from the
-  committed example input (`aoc/examples/dayNN.txt`). The private puzzle
+- **Run** calls `Aoc.Year2025.DayNN.main`, with the input box filled from the
+  committed example input (`aoc/examples/2025/dayNN.txt`). The private puzzle
   inputs (`aoc/inputs/`) are never bundled; you can paste your own.
 - **Edits are saved per file** in the browser's storage, marked on their
   tab, and can be reset to the bundled version, per file or all at once. If
@@ -123,7 +123,7 @@ are to commit `f58a061` (§10 and the day 4 re-measurement: `1e60e6d`).
   (removed in `32cb955`). Checked. This proposal reuses that shape.
 - **The project** (`aoc/`): `stitchwort.yaml` says `sources: [src]`; 15
   files, 2,537 lines; 13 namespaces: `Aoc.Common`, `Aoc.Common.Proofs`,
-  `Aoc.Day01` to `Aoc.Day06`, and `Aoc.DayNN.Proofs` for days 1, 2, 3, 5
+  `Aoc.Year2025.Day01` to `Aoc.Year2025.Day06`, and `Aoc.Year2025.DayNN.Proofs` for days 1, 2, 3, 5
   and 6. Days 2 and 5 import `Aoc.Common`. Each day has a committed example
   input in `aoc/examples/`; `aoc/inputs/` is in `.gitignore`. Checked.
 
@@ -140,10 +140,10 @@ New functions beside today's, which stay as they are for single files:
 | `test_project(paths, texts, targets, known)` | as `test`, each result with its `namespace` | `test NS` |
 | `evaluate_project(paths, texts, targets, expr)` | as `evaluate` | (`eval` is file-only today) |
 | `extract_project(paths, texts, namespace)` | as `extract` | `build --js NS` |
-| `run_project_streaming(paths, texts, name, input, maxOutput, sink)` | as `run_streaming` | `run Aoc.Day02.main` |
+| `run_project_streaming(paths, texts, name, input, maxOutput, sink)` | as `run_streaming` | `run Aoc.Year2025.Day02.main` |
 
 - **Files** are two arrays of the same length: paths within the project
-  (`src/Aoc/Day02/Day02.sw`) and texts. wasm-bindgen passes a JavaScript
+  (`src/Aoc/Year2025/Day02/Day02.sw`) and texts. wasm-bindgen passes a JavaScript
   array of strings as a Rust `Vec<String>`; measured: my prototype used
   exactly this. No JSON parser is needed in the WebAssembly (today's API
   has none either).
@@ -182,14 +182,14 @@ can't silently drift from what the CLI reads.
 
 Errors already render with the project's paths, the same text the CLI
 prints. Measured, with a syntax error put into `Common/Range.sw` and
-`Aoc.Day02` checked:
+`Aoc.Year2025.Day02` checked:
 
 ```
 [E-PARSE] Error: expected the end of the declaration, but found `match`
    ╭─[ aoc/src/Aoc/Common/Range.sw:9:3 ]
 ...
-[E-NAMESPACE-FAILED] Error: namespace Aoc.Common has errors, so Aoc.Day02 isn't checked
-    ╭─[ aoc/src/Aoc/Day02/Day02.sw:23:8 ]
+[E-NAMESPACE-FAILED] Error: namespace Aoc.Common has errors, so Aoc.Year2025.Day02 isn't checked
+    ╭─[ aoc/src/Aoc/Year2025/Day02/Day02.sw:23:8 ]
 ```
 
 For the page to jump to an error, each answer with errors or warnings also
@@ -230,7 +230,7 @@ while on day 2 is still there on day 5. (D109.)
 | 4. One editor, files separated by marker lines | As the Go playground does with its `-- name --` lines (txtar) [G1] | No new UI at all | Line numbers in errors stop matching the editor; the files aren't independent; long scrolling |
 
 **Recommended: option 1 (D110).** The tabs are the files of the day's
-namespaces (`Aoc.Day02`, `Aoc.Day02.Proofs`) and of every namespace they
+namespaces (`Aoc.Year2025.Day02`, `Aoc.Year2025.Day02.Proofs`) and of every namespace they
 use, from `outline_project`, in this order: the program file first, then
 the day's proofs, then shared files, each group by path. A file that
 differs from the bundled version shows a dot; a file with errors shows a red mark.
@@ -238,7 +238,7 @@ The tab row scrolls sideways inside itself on a phone, so the page never
 does. "Other files" lists the rest of the project, by path; choosing one
 opens it as an extra tab until another day is chosen.
 
-**Which file opens first:** the day's program, `Aoc/DayNN/DayNN.sw` (D109).
+**Which file opens first:** the day's program, `Aoc/Year2025/DayNN/DayNN.sw` (D109).
 
 ### 3.3 Editing
 
@@ -253,7 +253,7 @@ and not needed here.
 ## 4. Check, Tests, Evaluate, JavaScript and Run on a project
 
 - **As you type** (after the same 250 ms pause as today), the page checks
-  the day's target: `Aoc.DayNN` and `Aoc.DayNN.Proofs` (where it exists),
+  the day's target: `Aoc.Year2025.DayNN` and `Aoc.Year2025.DayNN.Proofs` (where it exists),
   and so everything they use. Proofs are included, not opt-in (D111):
   measured at 1.1 s for day 2 and at most 0.26 s for the others (§7). The
   status says what was checked, as in "Day 2 and its proofs checked by the
@@ -263,7 +263,7 @@ and not needed here.
   another day.
 - **Check tab errors** are grouped by file, each with a link that opens the
   file's tab and puts the caret at the line. An `E-NAMESPACE-FAILED`
-  ("Aoc.Common has errors, so Aoc.Day02 isn't checked") is listed after the
+  ("Aoc.Common has errors, so Aoc.Year2025.Day02 isn't checked") is listed after the
   error that caused it.
 - **Tests** runs the tests of the day's target, grouped by namespace as
   `stitchwort test NS` prints them (`main.rs:366-374`), with the same
@@ -272,7 +272,7 @@ and not needed here.
   `lib.rs:69-117`). Day 2's tests take 7.5 to 8.7 s the first time
   (measured), under the 60 s limit, and are cached after.
 - **Evaluate**: the expression is evaluated after loading the day's target.
-  Measured: full names work (`Aoc.Day02.solvePart1 Aoc.Day02.exampleRanges`
+  Measured: full names work (`Aoc.Year2025.Day02.solvePart1 Aoc.Year2025.Day02.exampleRanges`
   gives `1227775554`); short names don't (`E-UNKNOWN-NAME`), because
   loading a project leaves no namespace open (`project.rs:141`).
   Evaluating *inside* the open file's namespace, so short names work, needs
@@ -282,7 +282,7 @@ and not needed here.
   `build --js NS` does (`Session::extract_namespace`, `driver.rs:361`). No
   AoC day exports anything today, so it will mostly say "Nothing is
   exported".
-- **Run** runs `Aoc.DayNN.main` (the button's tooltip says so), in the
+- **Run** runs `Aoc.Year2025.DayNN.main` (the button's tooltip says so), in the
   separate run worker as today. The input box starts with the day's
   example input and is saved per day (§6). The 15 s run limit stays
   (D113).
@@ -295,7 +295,7 @@ the page's files the same way, `flake.nix:104-112`) gains a step:
 ```
 web/pkg/projects/aoc/manifest.json
 web/pkg/projects/aoc/src/Aoc/Common/Range.sw   … every .sw under aoc/src
-web/pkg/projects/aoc/examples/day01.txt        … every example input
+web/pkg/projects/aoc/examples/2025/day01.txt        … every example input
 ```
 
 ```json
@@ -304,18 +304,18 @@ web/pkg/projects/aoc/examples/day01.txt        … every example input
   "title": "Advent of Code 2025",
   "files": ["src/Aoc/Common/Proofs/Range.sw", "src/Aoc/Common/Range.sw", "…"],
   "days": [
-    { "title": "Day 1", "open": "src/Aoc/Day01/Day01.sw",
-      "namespaces": ["Aoc.Day01", "Aoc.Day01.Proofs"],
-      "main": "Aoc.Day01.main", "input": "examples/day01.txt" }
+    { "title": "Day 1", "open": "src/Aoc/Year2025/Day01/Day01.sw",
+      "namespaces": ["Aoc.Year2025.Day01", "Aoc.Year2025.Day01.Proofs"],
+      "main": "Aoc.Year2025.Day01.main", "input": "examples/2025/day01.txt" }
   ]
 }
 ```
 
-- **Days come from the folder layout**: each `src/Aoc/DayNN/DayNN.sw` is a
-  day, with `Aoc.DayNN.Proofs` if `src/Aoc/DayNN/Proofs/` exists, and its
-  example input if `examples/dayNN.txt` exists. This follows the layout
+- **Days come from the folder layout**: each `src/Aoc/Year2025/DayNN/DayNN.sw` is a
+  day, with `Aoc.Year2025.DayNN.Proofs` if `src/Aoc/Year2025/DayNN/Proofs/` exists, and its
+  example input if `examples/2025/dayNN.txt` exists. This follows the layout
   rule already in place (folders match namespaces, programs in
-  `Aoc.DayNN`, proofs in `Aoc.DayNN.Proofs`). A day without an example
+  `Aoc.Year2025.DayNN`, proofs in `Aoc.Year2025.DayNN.Proofs`). A day without an example
   input gets an empty input box.
 - **Never the puzzle inputs**: only `aoc/src` and `aoc/examples` are
   copied, by name; `aoc/inputs/` is not read. A browser test checks that
@@ -335,10 +335,10 @@ web/pkg/projects/aoc/examples/day01.txt        … every example input
 ## 6. Saved edits
 
 - **Keys**: one per edited file,
-  `stitchwort.project.aoc.file.src/Aoc/Day02/Day02.sw`, holding the text
+  `stitchwort.project.aoc.file.src/Aoc/Year2025/Day02/Day02.sw`, holding the text
   and a short hash of the bundled text it was edited from. A file whose
   text is back to the bundled one has its key removed. The Run input is
-  saved per day (`stitchwort.project.aoc.input.Aoc.Day02.main`); the
+  saved per day (`stitchwort.project.aoc.input.Aoc.Year2025.Day02.main`); the
   chosen day and open file are saved too.
 - **Reset**: "Reset this file" and "Reset the project" (with a
   confirmation) in a small menu by the tabs.
@@ -376,17 +376,17 @@ stack guard (`crates/web/build.rs:18`).
 | Target | Native | WebAssembly |
 |---|---|---|
 | `Aoc.Common` | 0.10 s | 0.19 s |
-| `Aoc.Day01` / `Aoc.Day01.Proofs` | 0.12 / 0.20 s | 0.14 / 0.25 s |
-| `Aoc.Day02` / `Aoc.Day02.Proofs` | 0.15 / 0.90 s | 0.20 / 1.14 s |
-| `Aoc.Day03` / `Aoc.Day03.Proofs` | 0.15 / 0.23 s | 0.17 / 0.26 s |
-| `Aoc.Day04` (no proofs) | 0.10 s | 0.11 s |
-| `Aoc.Day05` / `Aoc.Day05.Proofs` | 0.16 / 0.18 s | 0.18 / 0.22 s |
-| `Aoc.Day06` / `Aoc.Day06.Proofs` | 0.15 / 0.15 s | 0.17 / 0.18 s |
+| `Aoc.Year2025.Day01` / `Aoc.Year2025.Day01.Proofs` | 0.12 / 0.20 s | 0.14 / 0.25 s |
+| `Aoc.Year2025.Day02` / `Aoc.Year2025.Day02.Proofs` | 0.15 / 0.90 s | 0.20 / 1.14 s |
+| `Aoc.Year2025.Day03` / `Aoc.Year2025.Day03.Proofs` | 0.15 / 0.23 s | 0.17 / 0.26 s |
+| `Aoc.Year2025.Day04` (no proofs) | 0.10 s | 0.11 s |
+| `Aoc.Year2025.Day05` / `Aoc.Year2025.Day05.Proofs` | 0.16 / 0.18 s | 0.18 / 0.22 s |
+| `Aoc.Year2025.Day06` / `Aoc.Year2025.Day06.Proofs` | 0.15 / 0.15 s | 0.17 / 0.18 s |
 | the whole project | 1.02 s | 1.28 s |
 | a one-line single file | | 0.03 s |
 
 **Tests** (all pass in both): about 0.15 to 0.25 s per target, except day 2:
-`Aoc.Day02` 5.7 s native, 7.5 s WebAssembly; `Aoc.Day02.Proofs` 6.7 s
+`Aoc.Year2025.Day02` 5.7 s native, 7.5 s WebAssembly; `Aoc.Year2025.Day02.Proofs` 6.7 s
 native, 8.7 s WebAssembly.
 
 **Runs**, example input: 0.13 to 0.24 s in WebAssembly, printing the same
@@ -633,7 +633,7 @@ depend on anything that exists only in one browser.
 | D112 | Does the WebAssembly read `stitchwort.yaml`? | No: it gets the `.sw` files; the build step refuses anything but `sources: [src]` (saves 0.75 MB of WebAssembly) |
 | D113 | Change the 15 s run limit for real puzzle inputs? | No: every day fits with its real input; the slowest, day 4, takes 6.8 s in WebAssembly since its speed-up (measured) |
 | D114 | A saved edit when the bundled file changes? | Keep the edit, show a banner offering the new version; no merging |
-| D115 | Scope of the first version | No adding, renaming or deleting files; Evaluate takes full names (`Aoc.Day02.solvePart1 …`); short names in the open file's namespace later |
+| D115 | Scope of the first version | No adding, renaming or deleting files; Evaluate takes full names (`Aoc.Year2025.Day02.solvePart1 …`); short names in the open file's namespace later |
 | D116 | Is this designed only for `aoc/`? | Build it for any project listed in the build step, but bundle only `aoc/` for now; the day list is AoC-specific (from the folder layout), other projects would list their `main`s |
 | D118 | Where and when to host the playground publicly? | **Agreed (Matt, 20 Oct 2026):** GitHub Pages, as a backlog task, not until Stitchwort is further along (§10.6) |
 | D119 | Keep the example inputs (copied from the puzzle text) in the repository and the bundle? | **Decided (Matt, 20 Oct 2026):** keep them, and commit and bundle Matt's real puzzle inputs too; AoC's request doesn't persuade us. Supersedes the 'never published' guards in §5 and §10.3 |
@@ -701,8 +701,8 @@ the note:
   had them the other way).
 - **Reset the whole project** asks with an inline "Reset every file? Yes,
   reset / No" rather than `window.confirm`, so it works in the headless tests.
-- **Evaluate prefill**: day 2 gets `Aoc.Day02.solvePart1
-  Aoc.Day02.exampleRanges`; other days get `Aoc.DayNN.example`.
+- **Evaluate prefill**: day 2 gets `Aoc.Year2025.Day02.solvePart1
+  Aoc.Year2025.Day02.exampleRanges`; other days get `Aoc.Year2025.DayNN.example`.
 - **Rust test stack.** The AoC proofs need more stack than a 2 MiB test
   thread gives, so the `crates/web` project tests run on a 256 MiB thread with
   limits to match; in WebAssembly the real guard (256 KiB now; 128 KiB when measured) is enough, as

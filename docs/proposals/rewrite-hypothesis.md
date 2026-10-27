@@ -115,7 +115,7 @@ theorem Nat.nonzeroOfPos (d: Nat) (h: 1 <= d): d != 0 := e => Bool.falseNotTrue 
 ```
 
 The same shape, "a hypothesis about `y`, an equation `y = 0`, so `False = True`", appears at
-`Nat/Arith.sw:381`, `Nat/Divides.sw:44`, `aoc/src/Aoc/Day02/Proofs/Part2.sw:484` and `:510`
+`Nat/Arith.sw:381`, `Nat/Divides.sw:44`, `aoc/src/Aoc/Year2025/Day02/Proofs/Part2.sw:484` and `:510`
 **[checked]**. The last one, in `writtenOfDivides`, transports an unnamed fact:
 
 ```
@@ -126,7 +126,7 @@ The same shape, "a hypothesis about `y`, an equation `y = 0`, so `False = True`"
 
 ### 1.2 Day 2, `sumIdsEq`: a hypothesis in a contradiction
 
-`aoc/src/Aoc/Day02/Proofs/Repeated.sw:224` **[checked]**, inside a `match t: Nat.leq from y`
+`aoc/src/Aoc/Year2025/Day02/Proofs/Repeated.sw:224` **[checked]**, inside a `match t: Nat.leq from y`
 branch where `t: Nat.leq from y = False`, and the lambda gets `hx1: from <= x` and `e: y = x`:
 
 ```
@@ -182,7 +182,7 @@ The same pattern is at `Part2.sw:162`, `:389`, `:468` and `:506` **[checked]**.
 
 ### 1.4 Day 3, `pickSub`: already fixable today
 
-`aoc/src/Aoc/Day03/Proofs/Best.sw:73-94` **[checked]**. The notes say `pickSub` "needed `J` to
+`aoc/src/Aoc/Year2025/Day03/Proofs/Best.sw:73-94` **[checked]**. The notes say `pickSub` "needed `J` to
 move [a hypothesis] across `pickStep` and a helper that cases on the `Decidable` itself
 (`pickSubStep`), since `match e:` too only generalises the goal" (docs/aoc-2025.md, day 3
 **[checked]**). Two things have changed since:
@@ -422,7 +422,7 @@ hypothesis `h: 1 <= n` that doesn't mention `d` (a sketch, not output):
   implicit way.
 - **`match e:`.** Unaffected. It already refines hypotheses (§1.4).
 - **Parsing.** `at`, like `in`, becomes special only where a rule can end. It is used as a name
-  today: `aoc/src/Aoc/Day07/Proofs/Part1.sw:253` defines `let at: …` and `:299` writes
+  today: `aoc/src/Aoc/Year2025/Day07/Proofs/Part1.sw:253` defines `let at: …` and `:299` writes
   `rewrite at b hb2 in …` **[checked]**. That still parses (there `at` begins the rule, which
   isn't a place a rule can end). Passing a variable called `at` as an argument inside a rule
   needs brackets, `rewrite f (at) at h`, as `in` does today.
@@ -484,7 +484,7 @@ Built as §4 describes, with these details.
 **Syntax.** `rewrite p, <- q at h in t`, `rewrite p at h`, `rewrite p at <any expression>`.
 `at` ends a rule only outside brackets, after the rule's first token, and not after a `.`
 (a field `r.at`); `in` ends the target the same way. So `rewrite at b hb2 in …` in
-`aoc/src/Aoc/Day07/Proofs/Part1.sw` (a lemma called `at`) still parses, as does
+`aoc/src/Aoc/Year2025/Day07/Proofs/Part1.sw` (a lemma called `at`) still parses, as does
 `rewrite p (at) at h` (`crates/syntax/src/parser.rs`, `ends_rewrite_rule`; parser test
 `rewrite_at_takes_a_target_before_the_body`). The AST has a `target` field on
 `Expr::Rewrite`.
@@ -522,9 +522,9 @@ different shape from the one wanted (`Nat.digitsNonEmpty x` is about
 | `crates/elab/src/std/List/Sort.sw` | 5 | `at` on the fact (`t`, `f`, a lemma call); the one at `firstFromAtLeast`'s `t` branch is left, as it changes one `s` of `s <= s` |
 | `crates/elab/src/std/Nat/Digits.sw` | 6 | the `digitsFuel*` lemmas: goal `rewrite … in` (the facts' inferred types don't show the rewritten list) |
 | `crates/elab/src/std/List/Toolkit.sw` | 1 | `nonSepCons`: `rewrite h in hc` |
-| `aoc/src/Aoc/Day02/Proofs/Repeated.sw` | 4 | §1.2 and §1.3 (`rewrite <- e at hx1` inline, under `Eq.sym`), and `twiceBlockLength` |
-| `aoc/src/Aoc/Day02/Proofs/Part2.sw` | 6 | §1.1 and §1.3, `rewrite e at rest`, `rewrite <- Nat.mulComm n t, <- eK at Nat.dividesMul n t`, and `smallestIsPeriod` as a goal rewrite |
-| `aoc/src/Aoc/Day03/Proofs/Best.sw` | 1 | `pickSub` matches like `pickGe` (§1.4); `pickSubStep` is gone |
+| `aoc/src/Aoc/Year2025/Day02/Proofs/Repeated.sw` | 4 | §1.2 and §1.3 (`rewrite <- e at hx1` inline, under `Eq.sym`), and `twiceBlockLength` |
+| `aoc/src/Aoc/Year2025/Day02/Proofs/Part2.sw` | 6 | §1.1 and §1.3, `rewrite e at rest`, `rewrite <- Nat.mulComm n t, <- eK at Nat.dividesMul n t`, and `smallestIsPeriod` as a goal rewrite |
+| `aoc/src/Aoc/Year2025/Day03/Proofs/Best.sw` | 1 | `pickSub` matches like `pickGe` (§1.4); `pickSubStep` is gone |
 
 Left alone, as §6 says: the `J`s that change one occurrence (`Repeated.sw` `twiceAbove`,
 `Part2.sw` `repAbove`), those that build an equation from `rfl`, and the ones in `core.sw`

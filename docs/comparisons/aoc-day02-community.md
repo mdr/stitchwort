@@ -1,8 +1,8 @@
 # AoC 2025 day 2: community solutions in other languages
 
-**Date:** 21 October 2026. **Our version:** `aoc/src/Aoc/Day02/Day02.sw` (program: an
+**Date:** 21 October 2026. **Our version:** `aoc/src/Aoc/Year2025/Day02/Day02.sw` (program: an
 arithmetic series per block length and repeat count, with computed Möbius-style weights for
-part 2), `aoc/src/Aoc/Day02/Proofs/` (both parts proved equal to the puzzle's own method for
+part 2), `aoc/src/Aoc/Year2025/Day02/Proofs/` (both parts proved equal to the puzzle's own method for
 every input). **Earlier comparison:** [comparisons/aoc-day02-general/](../../comparisons/aoc-day02-general/README.md)
 is a Lean 4 prototype of *our* part 2 proof (SW-159), which the Stitchwort proof then followed
 (SW-166). This note looks at what other people wrote for 2025 day 2, in the wild, and asks what
@@ -137,7 +137,7 @@ after it) repeat the patterns.
 | 28 | Elixir | [nikola-benes](https://github.com/nikola-benes/aoc2025elixir/blob/HEAD/02.exs), [freddydumont](https://github.com/freddydumont/aoc2025-elixir/blob/HEAD/lib/02_gift_shop/gift_shop.ex) | 33, 54 | generate with `Stream.iterate` + `String.duplicate` + `Stream.uniq`; brute force with an interpolated regex | "Try to be clever in both parts" **[cited]** | no |
 | 29 | Chez Scheme | [erickalkman](https://gitlab.com/erickalkman/aoc2025/-/blob/main/day02.sls) (megathread: onrustigescheikundig) | 64 | **closed form** with a Gauss sum per block size; part 2 by a correction table | `overcount-correction-factor` for block counts 2..20: `2 1 3 1 4 0 5 1 6 -1 …`; "apparently this is the negative of the Möbius function"; about 100 µs **[cited: megathread]** | no |
 | 30 | Clojure, Elm, Admiran | [CodeFarmer](https://github.com/CodeFarmer/aoc-2025/blob/HEAD/src/aoc_2025/day_2.clj), [albertdahlin](https://github.com/albertdahlin/advent-of-code/blob/HEAD/elm/src/Y25/D02.elm), [caseyWebb](https://github.com/caseyWebb/advent/blob/HEAD/2025/src/Day02.elm), [taolson](https://github.com/taolson/advent-of-code/blob/master/2025/day02.am) | 21–92 | brute force (first three), generate with `nub` (taolson) | `(apply str (repeat …))`; Elm example in a `"""` string; `elm/parser`; taolson: "Went from 3.5s to 0.006s" after switching from brute force **[cited: megathread]** | no |
-| — | Stitchwort | `aoc/src/Aoc/Day02/Day02.sw` + `Proofs/` | 28 (program) + 35 (tests); 873 (proofs) | **closed form**, computed weights | `repeated r k n` (one arithmetic series), `weighted`, `plus`/`minus`/`weightFuel`; brute force kept as a cross-check test; `include` tests on the real input | yes: `part1Correct`, `part2Correct` for every input; 99 theorems, checked in 1.1 s |
+| — | Stitchwort | `aoc/src/Aoc/Year2025/Day02/Day02.sw` + `Proofs/` | 28 (program) + 35 (tests); 873 (proofs) | **closed form**, computed weights | `repeated r k n` (one arithmetic series), `weighted`, `plus`/`minus`/`weightFuel`; brute force kept as a cross-check test; `include` tests on the real input | yes: `part1Correct`, `part2Correct` for every input; 99 theorems, checked in 1.1 s |
 | — | Stitchwort, brute force | scratch `brute.sw` | 19 | brute force | `t.take half == t.drop half`; rotation test via `Text.contains` | no |
 
 Also read, and not in the table because they repeat these patterns: Haskell glebec (part 1
@@ -445,7 +445,7 @@ solver-backed attempt at exactly these theorems didn't finish.
 
 | Program | Command | Time |
 |---|---|---|
-| Committed closed form (`Aoc.Day02.main`) | `stitchwort run` | 0.49 s **[checked]** |
+| Committed closed form (`Aoc.Year2025.Day02.main`) | `stitchwort run` | 0.49 s **[checked]** |
 | Same | `stitchwort run --js` | 0.53 s **[checked]** |
 | Brute force, all 1,917,096 ids in one list (scratch `brute.sw`) | `stitchwort run` | `E-RESOURCE: … recursed more deeply than allowed` after 3.2 s **[checked]** |
 | Same | `stitchwort run --js` | 77 s, right answers **[checked]** |

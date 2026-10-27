@@ -1,6 +1,6 @@
 //! Every solved Advent of Code day, run on the real puzzle input (committed,
-//! D119), must print the known answers. A new day adds one test here, and
-//! its answers to [`ANSWERS`].
+//! in `aoc/inputs/YYYY/`), must print the known answers. A new day adds one
+//! test here, and its answers to [`ANSWERS`].
 
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -14,17 +14,18 @@ use std::sync::Mutex;
 /// that inherited the read end kept it open, and the write succeeded.
 static SPAWN: Mutex<()> = Mutex::new(());
 
-/// Each day's answers: the day, part 1 and part 2.
-const ANSWERS: &[(&str, &str, &str)] = &[
-    ("01", "1076", "6379"),
-    ("02", "16793817782", "27469417404"),
-    ("03", "17263", "170731717900423"),
-    ("04", "1397", "8758"),
-    ("05", "525", "333892124923577"),
-    ("06", "4722948564882", "9581313737063"),
-    ("07", "1594", "15650261281478"),
-    ("08", "42315", "8079278220"),
-    ("09", "4756718172", "1665679194"),
+/// Each day's answers: the year, the day, part 1 and part 2.
+const ANSWERS: &[(&str, &str, &str, &str)] = &[
+    ("2024", "01", "2066446", "24931009"),
+    ("2025", "01", "1076", "6379"),
+    ("2025", "02", "16793817782", "27469417404"),
+    ("2025", "03", "17263", "170731717900423"),
+    ("2025", "04", "1397", "8758"),
+    ("2025", "05", "525", "333892124923577"),
+    ("2025", "06", "4722948564882", "9581313737063"),
+    ("2025", "07", "1594", "15650261281478"),
+    ("2025", "08", "42315", "8079278220"),
+    ("2025", "09", "4756718172", "1665679194"),
 ];
 
 /// Spawns `command` while holding [`SPAWN`].
@@ -37,21 +38,21 @@ fn aoc_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc")
 }
 
-/// Runs day `day` on its real input, with the cache arguments `cache`: it
-/// must print exactly the known answers.
-fn check_with(day: &str, cache: &[&str]) {
-    let (_, part1, part2) = ANSWERS
+/// Runs day `day` of `year` on its real input, with the cache arguments
+/// `cache`: it must print exactly the known answers.
+fn check_with(year: &str, day: &str, cache: &[&str]) {
+    let (_, _, part1, part2) = ANSWERS
         .iter()
-        .find(|(d, _, _)| *d == day)
+        .find(|(y, d, _, _)| *y == year && *d == day)
         .expect("the day's answers");
     let dir = aoc_dir();
-    let input = std::fs::File::open(dir.join(format!("inputs/day{day}.txt")))
+    let input = std::fs::File::open(dir.join(format!("inputs/{year}/day{day}.txt")))
         .expect("open the puzzle input");
     let output = spawn(
         Command::new(env!("CARGO_BIN_EXE_stitchwort"))
             .arg("run")
             .args(cache)
-            .arg(format!("Aoc.Day{day}.main"))
+            .arg(format!("Aoc.Year{year}.Day{day}.main"))
             .current_dir(&dir)
             .stdin(Stdio::from(input))
             .stdout(Stdio::piped())
@@ -60,62 +61,70 @@ fn check_with(day: &str, cache: &[&str]) {
     .wait_with_output()
     .expect("run stitchwort");
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(output.status.success(), "day {day} failed:\n{stderr}");
+    assert!(
+        output.status.success(),
+        "{year} day {day} failed:\n{stderr}"
+    );
     let stdout = String::from_utf8(output.stdout).expect("output is UTF-8");
     assert_eq!(
         stdout,
         format!("Part 1: {part1}\nPart 2: {part2}\n"),
-        "day {day}:\n{stderr}"
+        "{year} day {day}:\n{stderr}"
     );
 }
 
-fn check(day: &str) {
-    check_with(day, &["--no-cache"]);
+fn check(year: &str, day: &str) {
+    check_with(year, day, &["--no-cache"]);
 }
 
 #[test]
-fn day01() {
-    check("01");
+fn year2024_day01() {
+    check("2024", "01");
 }
 
 #[test]
-fn day02() {
-    check("02");
+fn year2025_day01() {
+    check("2025", "01");
 }
 
 #[test]
-fn day03() {
-    check("03");
+fn year2025_day02() {
+    check("2025", "02");
 }
 
 #[test]
-fn day04() {
-    check("04");
+fn year2025_day03() {
+    check("2025", "03");
 }
 
 #[test]
-fn day05() {
-    check("05");
+fn year2025_day04() {
+    check("2025", "04");
 }
 
 #[test]
-fn day06() {
-    check("06");
+fn year2025_day05() {
+    check("2025", "05");
 }
 
 #[test]
-fn day07() {
-    check("07");
+fn year2025_day06() {
+    check("2025", "06");
 }
 
 #[test]
-fn day08() {
-    check("08");
+fn year2025_day07() {
+    check("2025", "07");
 }
 
 #[test]
-fn day09() {
-    check("09");
+fn year2025_day08() {
+    check("2025", "08");
+}
+
+#[test]
+fn year2025_day09() {
+    check("2025", "09");
 }
 
 /// Each day run from the check cache a whole project `check` wrote, as
@@ -144,8 +153,8 @@ fn every_day_from_the_whole_projects_cache() {
         "check failed:\n{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    for (day, _, _) in ANSWERS {
-        check_with(day, &["--cache-dir", cache_dir]);
+    for (year, day, _, _) in ANSWERS {
+        check_with(year, day, &["--cache-dir", cache_dir]);
     }
     let _ = std::fs::remove_dir_all(&cache);
 }

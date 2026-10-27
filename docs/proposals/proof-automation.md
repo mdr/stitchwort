@@ -223,7 +223,7 @@ Chosen as the trigger cases and the clearest examples of each kind, **not at ran
 is the unbiased sample. Line counts are body lines **[run]**; the "after" forms are sketches
 in the proposed syntax, not checked **[inferred]**.
 
-**1. `writeTimesMul`** (`aoc/src/Aoc/Day02/Proofs/Repeated.sw:67`), ring. 10 lines → 2.
+**1. `writeTimesMul`** (`aoc/src/Aoc/Year2025/Day02/Proofs/Repeated.sw:67`), ring. 10 lines → 2.
 
 ```
 -- before
@@ -270,7 +270,7 @@ two facts that matter and nothing else.
 `Nat.mulSucc` and `Nat.powAdd` apply inside `i => …`, which is the step that needs
 `List.sumByCong` today. `multiplier` in the list means "unfold it" (both sides).
 
-**3. `weightedIds`** (`aoc/src/Aoc/Day02/Proofs/Part2.sw:395`), the review's trigger. 15
+**3. `weightedIds`** (`aoc/src/Aoc/Year2025/Day02/Proofs/Part2.sw:395`), the review's trigger. 15
 lines → 1, plus a three-line library lemma.
 
 ```
@@ -308,7 +308,7 @@ The first step of today's `calc` exists only to turn `Succ j` into `j + 1` so th
 `List.rangeFromAppend` matches; a `List.rangeFromSuccEnd` (`rangeFrom (Succ n) s = append
 (rangeFrom n s) [s + n]`, one line from `rangeFromAppend`) is the better rule.
 
-**5. `blockColumns`** (`aoc/src/Aoc/Day06/Proofs/Correct.sw:42`). 2 lines → 1.
+**5. `blockColumns`** (`aoc/src/Aoc/Year2025/Day06/Proofs/Correct.sw:42`). 2 lines → 1.
 
 ```
 -- before

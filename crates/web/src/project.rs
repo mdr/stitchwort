@@ -50,7 +50,7 @@ thread_local! {
 }
 
 /// The project's source files as (path, text) pairs. Unequal arrays use the
-/// shorter. Other files (`inputs/day01.txt`) are for `include`: see
+/// shorter. Other files (`inputs/2025/day01.txt`) are for `include`: see
 /// [`new_session`].
 fn pairs(paths: &[String], texts: &[String]) -> Vec<(String, String)> {
     paths
@@ -101,7 +101,7 @@ fn target_of(targets: &str) -> Target {
 }
 
 /// A file's path within the project, from its display name. Messages show
-/// `aoc/src/Aoc/Day02/Day02.sw`, as the CLI does in the project's parent
+/// `aoc/src/Aoc/Year2025/Day02/Day02.sw`, as the CLI does in the project's parent
 /// folder: the project's name (`project`, as the page gives it) and the path.
 fn project_path<'a>(project: &str, name: &'a str) -> &'a str {
     name.strip_prefix(project)
@@ -464,7 +464,7 @@ mod tests {
     const PROJECT: &str = "aoc";
 
     /// The `.sw` files under `aoc/src`, and the example and puzzle inputs
-    /// under `aoc/examples` and `aoc/inputs`, as (path within the project,
+    /// under `aoc/examples` and `aoc/inputs` (by year), as (path within the project,
     /// text): the bundle, as `web/bundle-projects.sh` makes it.
     fn aoc_files() -> (Vec<String>, Vec<String>) {
         fn walk(dir: &Path, root: &Path, out: &mut Vec<(String, String)>) {
@@ -510,14 +510,14 @@ mod tests {
     ];
 
     fn example(day: u32) -> String {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc/examples");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc/examples/2025");
         std::fs::read_to_string(root.join(format!("day{day:02}.txt"))).expect("an example input")
     }
 
-    /// What the page does for a day: its namespaces are `Aoc.DayNN`, with
-    /// `Aoc.DayNN.Tests` and `Aoc.DayNN.Proofs` if the outline has them.
+    /// What the page does for a day of 2025: its namespaces are `Aoc.Year2025.DayNN`, with
+    /// `.Tests` and `.Proofs` under it if the outline has them.
     fn day_targets(outline: &str, day: u32) -> String {
-        let program = format!("Aoc.Day{day:02}");
+        let program = format!("Aoc.Year2025.Day{day:02}");
         let mut targets = vec![program.clone()];
         for extra in ["Tests", "Proofs"] {
             let name = format!("{program}.{extra}");
@@ -564,7 +564,7 @@ mod tests {
         );
         assert!(
             outline.contains(
-                r#"{"name":"Aoc.Day02","files":["src/Aoc/Day02/Day02.sw"],"uses":["Aoc.Common"#
+                r#"{"name":"Aoc.Year2025.Day02","files":["src/Aoc/Year2025/Day02/Day02.sw"],"uses":["Aoc.Common"#
             ),
             "{outline}"
         );
@@ -577,10 +577,13 @@ mod tests {
             let tests = test_project(PROJECT, paths.clone(), texts.clone(), &targets, "");
             assert!(tests.starts_with(r#"{"ok":true,"tests":["#), "day {day}");
             assert!(!tests.contains(r#""passed":false"#), "day {day}: {tests}");
-            assert!(tests.contains(r#""namespace":"Aoc.Day"#), "day {day}");
+            assert!(
+                tests.contains(r#""namespace":"Aoc.Year2025.Day"#),
+                "day {day}"
+            );
             // `Tests/Input.sw` includes the real input from the bundle.
             assert!(tests.contains("real input"), "day {day}: {tests}");
-            let main = format!("Aoc.Day{day:02}.main");
+            let main = format!("Aoc.Year2025.Day{day:02}.main");
             let mut out = String::new();
             let answer =
                 run_project_streaming_for_test(&paths, &texts, &main, &example(day), &mut out);
@@ -628,7 +631,7 @@ mod tests {
             .position(|p| p == "src/Aoc/Common/Range.sw")
             .expect("the shared file");
         texts[at].push_str("\ndef broken : Nat := rfl\n");
-        let answer = check_project(PROJECT, paths, texts, "Aoc.Day02");
+        let answer = check_project(PROJECT, paths, texts, "Aoc.Year2025.Day02");
         assert!(
             answer.starts_with(r#"{"ok":false,"errors":"[E-"#),
             "{answer}"
@@ -638,7 +641,11 @@ mod tests {
             answer.contains(r#""file":"src/Aoc/Common/Range.sw","line":"#),
             "{answer}"
         );
-        assert!(answer.contains(r#""code":"E-NAMESPACE-FAILED","file":"src/Aoc/Day02/Day02.sw""#));
+        assert!(
+            answer.contains(
+                r#""code":"E-NAMESPACE-FAILED","file":"src/Aoc/Year2025/Day02/Day02.sw""#
+            )
+        );
     }
 
     #[test]
@@ -652,9 +659,9 @@ mod tests {
             PROJECT,
             paths.clone(),
             texts.clone(),
-            "Aoc.Day02,Aoc.Day02.Tests",
+            "Aoc.Year2025.Day02,Aoc.Year2025.Day02.Tests",
             "",
-            "Aoc.Day02.solvePart1 Aoc.Day02.Tests.exampleRanges",
+            "Aoc.Year2025.Day02.solvePart1 Aoc.Year2025.Day02.Tests.exampleRanges",
         );
         assert!(
             value.starts_with(r#"{"ok":true,"value":"1227775554""#),
@@ -665,15 +672,15 @@ mod tests {
             PROJECT,
             paths.clone(),
             texts.clone(),
-            "Aoc.Day02,Aoc.Day02.Tests",
-            "import Aoc.Day02 (solvePart1)\nimport Aoc.Day02.Tests (exampleRanges)",
+            "Aoc.Year2025.Day02,Aoc.Year2025.Day02.Tests",
+            "import Aoc.Year2025.Day02 (solvePart1)\nimport Aoc.Year2025.Day02.Tests (exampleRanges)",
             "solvePart1 exampleRanges",
         );
         assert!(
             short.starts_with(r#"{"ok":true,"value":"1227775554""#),
             "{short}"
         );
-        let nothing = extract_project(PROJECT, paths, texts, "Aoc.Day02");
+        let nothing = extract_project(PROJECT, paths, texts, "Aoc.Year2025.Day02");
         assert!(nothing.starts_with(r#"{"ok":true,"js":"#), "{nothing}");
     }
 }

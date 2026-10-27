@@ -287,7 +287,7 @@ gives `E-RESOURCE` at 100,000 characters".
 
 - Profile: build with `CARGO_PROFILE_RELEASE_DEBUG=line-tables-only`, then
   `nix shell nixpkgs#samply -c samply record --save-only --unstable-presymbolicate -o p.json.gz
-  -- ../target/release/stitchwort run Aoc.Day04.main < inputs/day04.txt` from `aoc/`, and open it with
+  -- ../target/release/stitchwort run Aoc.Year2025.Day04.main < inputs/2025/day04.txt` from `aoc/`, and open it with
   `samply load p.json.gz`.
 - Counters: a scratch patch adding thread-local counts to `value::run`, `enter`, `unfold` and
   `branch`, printed by `run_main` when an environment variable is set. Not committed; easy to
@@ -300,7 +300,7 @@ gives `E-RESOURCE` at 100,000 characters".
 
 ## 8. Checking proofs (SW-154, 20 October 2026)
 
-`stitchwort check Aoc.Day02.Proofs` took 8.9–9.6 s (from 0.55 s before the day 2 part 2
+`stitchwort check Aoc.Year2025.Day02.Proofs` took 8.9–9.6 s (from 0.55 s before the day 2 part 2
 proof). Profiled with samply as in section 7 plus a scratch per-declaration timer.
 
 **What the time was** (20,807 samples): the kernel's check 42%, the elaborator 55%; inside
@@ -332,7 +332,7 @@ second, against 44 million a second for plain computation like `threeChecked`).
 
 | | before | after |
 |---|---:|---:|
-| `check Aoc.Day02.Proofs` | 8.9 s | 3.7 s |
+| `check Aoc.Year2025.Day02.Proofs` | 8.9 s | 3.7 s |
 | `check` (whole AoC project) | 9.0 s | 3.8 s |
 | empty file | 0.15 s | 0.12 s |
 

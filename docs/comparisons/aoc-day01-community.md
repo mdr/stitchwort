@@ -1,7 +1,7 @@
 # AoC 2025 day 1: community solutions in other languages
 
-**Date:** 21 October 2026. **Our version:** `aoc/src/Aoc/Day01/Day01.sw` (program),
-`aoc/src/Aoc/Day01/Proofs/Part2.sw` (part 2 proved for any dial). **Earlier comparison:**
+**Date:** 21 October 2026. **Our version:** `aoc/src/Aoc/Year2025/Day01/Day01.sw` (program),
+`aoc/src/Aoc/Year2025/Day01/Proofs/Part2.sw` (part 2 proved for any dial). **Earlier comparison:**
 [aoc-day01.md](aoc-day01.md) ported *our* proof to Lean 4, Agda and Idris 2. This note
 looks at what other people actually wrote for 2025 day 1, in the wild, and asks what that
 suggests for Stitchwort.
@@ -148,7 +148,7 @@ fetched files]**. "Proofs" means theorems in the file, not tests.
 | 23 | Koka | [junpls](https://github.com/junpls/aoc25/blob/HEAD/day01.kk) | 52 | parser combinators (`many`, `one-of`, `pint`); local `var` in a pure function; `part-two-sneaky` = brute force | no |
 | 24 | Gleam | [Zenor27](https://github.com/Zenor27/AOC2025/blob/HEAD/src/days/day01/day01.gleam) | 79 | `case s { "L" <> n -> … }`; `use rotations <- result.try(…)`; truncating `%` handled by hand | no |
 | 25 | Roc | [mpizenberg](https://github.com/mpizenberg/aoc-2025/blob/HEAD/roc/day01.roc) | 71 | `\\` multi-line example in the file; `var $pos` + `for`; `?` on parse failure; prints demo answers beside real ones | no |
-| — | Stitchwort | `aoc/src/Aoc/Day01/Day01.sw` + `Proofs/Part2.sw` | 53 + 141 | `Dial` record with a range proof; `scanLeft`/`count`/`zipWith`/`sum` pipelines; tests on the example and the real input; full part 2 proof | yes, for any dial |
+| — | Stitchwort | `aoc/src/Aoc/Year2025/Day01/Day01.sw` + `Proofs/Part2.sw` | 53 + 141 | `Dial` record with a range proof; `scanLeft`/`count`/`zipWith`/`sum` pipelines; tests on the example and the real input; full part 2 proof | yes, for any dial |
 | — | Stitchwort, short | scratch `run.sw` | 13 | signed `Int` turns, Euclidean `%`, the same pipelines | no |
 
 All rows are **[checked]**: I fetched and read each file (tarballs from GitHub, or `gh api`
@@ -533,7 +533,7 @@ force isn't needed there.
 
 ## 4. Side by side: the shortest Stitchwort
 
-This is the scratch `run.sw`, which prints 1076 and 6379 on `aoc/inputs/day01.txt`
+This is the scratch `run.sw`, which prints 1076 and 6379 on `aoc/inputs/2025/day01.txt`
 **[checked]**. It follows mstksg and glguy, not our committed shape (it has no `Dial` type
 and no `solvePart1`/`solvePart2`, so it isn't a proposal to change Day01.sw):
 

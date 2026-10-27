@@ -39,7 +39,7 @@ evaluates). A Linux-only failure would show in the `build` job.
 The whole `nix build .#playground` output: `index.html`,
 `playground-worker.js` and `pkg/` (the WebAssembly, its bindings,
 `version.json` and `pkg/projects/aoc/`). `pkg/projects/aoc/` includes the
-**real puzzle inputs** (`inputs/day*.txt`, D119). Once public, they are
+**real puzzle inputs** (`inputs/YYYY/day*.txt`, D119). Once public, they are
 public; the Advent of Code FAQ asks people not to publish them (see
 `docs/proposals/playground-projects.md` §10.3, [A1]). Decide before the first
 run whether that is acceptable.
@@ -190,7 +190,7 @@ under any path, such as `/stitchwort/`):
 | `#example/abilities-and-handlers` | Abilities and handlers |
 | `#example/input-and-output-main` | Input and output: main |
 | `#example/extract-to-javascript` | Extract to JavaScript |
-| `#aoc/dayNN` (`#aoc/day01` and so on) | The AoC project at that day's program, as the dropdown's "Day N" does |
+| `#aoc/YYYY/dayNN` (`#aoc/2025/day01`, `#aoc/2024/day01` and so on) | The AoC project at that day's program, as the dropdown's "Day N" under "Advent of Code YYYY" does |
 
 An example's slug is its dropdown name in lowercase, with each run of other
 characters as one `-`. Choosing an entry updates the address bar

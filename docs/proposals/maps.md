@@ -96,7 +96,7 @@ Evidence from the code that uses maps today (`grep` over `aoc/` and `examples/`)
   word counts use `insertWith Nat.add word 1` [checked: `examples/accept/map-set.sw:9-10`]. The
   usual names are Scala's `groupBy` and a `counts` / `fromListWith`.
 - **AoC day 8** keeps `labels: Map Nat Nat` and relabels with `Map.map` on every join
-  [checked: `aoc/src/Aoc/Day08/Day08.sw:77`, `:93`]. Its proofs had to restate facts about
+  [checked: `aoc/src/Aoc/Year2025/Day08/Day08.sw:77`, `:93`]. Its proofs had to restate facts about
   `fromList` of a range by hand (`lookupBelow`, `lookupRange`, through `Map.lookupLast`)
   [checked: `Day08/Proofs/Labels.sw:85-107`].
 - **Earlier AoC notes** wanted a set of grid positions with ~8 million membership tests (day 4)

@@ -1,6 +1,6 @@
 # AoC 2025 day 6: community solutions in other languages
 
-**Date:** 22 October 2026. **Our version:** `aoc/src/Aoc/Day06/Day06.sw` (program: pad the lines,
+**Date:** 22 October 2026. **Our version:** `aoc/src/Aoc/Year2025/Day06/Day06.sw` (program: pad the lines,
 transpose into columns, split at the blank columns; each block of columns is one problem with
 both readings, its rows and its columns), with `Proofs/Spec.sw` (the puzzle read cell by cell
 over the lines), `Proofs/Grid.sw` (padding and blocks) and `Proofs/Correct.sw` (both printed
@@ -91,7 +91,7 @@ The main findings:
 6. **Our proof is shorter than it needs to be written, in one place.** The last two theorems
    restate a three-line sum three times. With `_` holes and `_ = _ :=` in `calc`, which the
    checker already accepts, `part1Correct` and `part2Correct` shrink from 33 lines to 9, and
-   `Correct.sw` from 189 to 165 (169 with the two comments kept), with `check Aoc.Day06.Proofs`
+   `Correct.sw` from 189 to 165 (169 with the two comments kept), with `check Aoc.Year2025.Day06.Proofs`
    still passing **[checked: `proj/`; I also checked that a wrong term in the same place is
    rejected]**. This is tidying, not a language gap.
 
@@ -126,7 +126,7 @@ after it) repeat the patterns.
 | 12 | Gleam, Elixir, Clojure, Elm | [tilltheis](https://github.com/tilltheis/adventofcode-2025-gleam/blob/HEAD/src/day06.gleam), [Zenor27](https://github.com/Zenor27/AOC2025/blob/HEAD/src/days/day06/day06.gleam), [nikola-benes](https://github.com/nikola-benes/aoc2025elixir/blob/HEAD/06_2.exs), [lasseebert](https://github.com/lasseebert/advent_of_code_2025/blob/HEAD/lib/advent/day_06.ex), [tschady](https://github.com/tschady/advent-of-code/blob/HEAD/src/aoc/2025/d06.clj), [caseyWebb](https://github.com/caseyWebb/advent/blob/HEAD/2025/src/Day06.elm) and 10 more | 10–154 | transpose and `list.chunk` / `chunk_by` / `partition-by` | nikola-benes: `Enum.split(-1)` takes the operator line off, `fn "+" -> &Enum.sum/1; "*" -> &Enum.product/1 end`, 15 lines; tilltheis hand-writes `list_split_last` | no |
 | 13 | Roc, Koka | [arnemart](https://github.com/arnemart/aoc/blob/HEAD/2025/06/6.roc), [charlespierce](https://github.com/charlespierce/advent-code-2025/blob/HEAD/Solutions/Day06.roc), [wiseodd](https://github.com/wiseodd/aoc-2025/blob/HEAD/roc/day_06.roc), [junpls](https://github.com/junpls/aoc25/blob/HEAD/day06.kk) | 39–138 | split off the operator line; a Koka loop with `var`s | arnemart's `[.. as n, o] -> (n, split_line o)` (a pattern for "all but the last, and the last"); Roc's `Str.split_last`; junpls's `var current-op := '+'` loop | no |
 | 14 | BQN | [RubenVerg](https://github.com/RubenVerg/aoc2025/blob/HEAD/6.bqn) | 4 | partition by the blank columns | 3 lines for both parts | no |
-| — | Stitchwort | `aoc/src/Aoc/Day06/Day06.sw` + `Proofs/` | 36 (program) + 23 (tests); 33 + 34 + 136 (proofs, 26 theorems) | pad, transpose, `splitBy` the blank columns; one block, two readings | `Operator` type; the spec is cell by cell over the lines; `Nat.isRun`, `List.splitByRuns` link the blocks to the spec's column numbers | **yes**: `part1Correct`, `part2Correct`, for every input |
+| — | Stitchwort | `aoc/src/Aoc/Year2025/Day06/Day06.sw` + `Proofs/` | 36 (program) + 23 (tests); 33 + 34 + 136 (proofs, 26 theorems) | pad, transpose, `splitBy` the blank columns; one block, two readings | `Operator` type; the spec is cell by cell over the lines; `Nat.isRun`, `List.splitByRuns` link the blocks to the spec's column numbers | **yes**: `part1Correct`, `part2Correct`, for every input |
 | — | Stitchwort, community shape | scratch `sw/haskell.sw` (cinx16 and glguy) | about 20 | transpose the words / transpose the characters, split at blank columns | one-line `words`; no padding | no |
 
 Also read, and not in the table because they repeat these patterns: Lean LeanSerra, RussellEmerine,
@@ -233,7 +233,7 @@ the padded example and fails the trimmed one:
 silently; I hit the day's bug myself, and wrote the example as a list of strings.)
 
 The committed program is right on the trimmed example: the padding is exactly there for this,
-and `proj/src/Aoc/Day06/Tests/Trimmed.sw` passes both parts on it **[checked]**. The spec reads a
+and `proj/src/Aoc/Year2025/Day06/Tests/Trimmed.sw` passes both parts on it **[checked]**. The spec reads a
 missing cell as a space, so the theorem covers every input including trimmed ones.
 
 What padding costs us today: `paddedGrid`, `gridWidth`, `widen` (5 code lines in `Day06.sw`),
@@ -367,7 +367,7 @@ were avoidable (finding 6). The `*Congr` lemmas (`sumByCongr` ×4, `mapCongr` ×
 
 | Program | `stitchwort run` | `run --js` |
 |---|---:|---:|
-| Committed `Aoc.Day06.main` | 0.15 s | 0.26 s **[checked]** |
+| Committed `Aoc.Year2025.Day06.main` | 0.15 s | 0.26 s **[checked]** |
 | `sw/haskell.sw` (cinx16's shape) | 0.22 s | 0.25 s **[checked]** |
 | onrustigescheikundig (Chez Scheme) | 890 µs, 380 µs **[cited]** | |
 | G_de_Volpiano (Haskell) | 375 µs, 8.25 ms **[cited]** | |

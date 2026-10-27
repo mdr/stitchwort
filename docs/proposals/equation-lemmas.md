@@ -48,7 +48,7 @@ references were checked at commit `cc5df60`. Labels, as in the other notes:
 
 ## 0. Summary
 
-- **The problem as reported** (`aoc/src/Aoc/Day07/Proofs/Part1.sw:61-70`,
+- **The problem as reported** (`aoc/src/Aoc/Year2025/Day07/Proofs/Part1.sw:61-70`,
   `docs/aoc-2025.md`, day 7 pain point 2): `reach` has a `match` inside one of its arms. The
   compiler turns that `match` into a generated function, `reach.%match1`, whose name source
   can't write. The proof copied the `match` into a named `leftReach` and proved an equation
@@ -248,7 +248,7 @@ Two consequences matter here:
 ## 3. Day 7, reproduced
 
 All runs below are in a copy of `aoc/` with theorems appended to `Part1.sw` (or the step
-edited), checked with `stitchwort check Aoc.Day07.Proofs`. Messages are abridged where marked.
+edited), checked with `stitchwort check Aoc.Year2025.Day07.Proofs`. Messages are abridged where marked.
 
 ### 3.1 The workaround as committed
 
@@ -286,7 +286,7 @@ theorem r5 …: reach (Cons line rest) c (Succ k) d = (if charAt line c == '^' t
 [E-REFL] Error: `rfl` can't prove this
   Note 1: computing both sides gives
     `if Decidable.toBool (Char.decEqFrom (List.getOr … c …) '^' (Nat.decEq … 94)) then if (match …) c d k rest then True else … else …`
-    and `if Decidable.toBool (…) then if Aoc.Day07.Proofs.leftReach rest k d c then True else … else …`
+    and `if Decidable.toBool (…) then if Aoc.Year2025.Day07.Proofs.leftReach rest k d c then True else … else …`
 ```
 
 **[run: r5]**
@@ -335,9 +335,9 @@ taken from a `let` **[run: r8]**:
 ```
 [E-TYPE-MISMATCH] Error: type mismatch
  463 │     | False => n => hr
-     │                    ╰── expected `Aoc.Day07.Proofs.reach rest c k d = True`, but this has type
+     │                    ╰── expected `Aoc.Year2025.Day07.Proofs.reach rest c k d = True`, but this has type
          `(if Decidable.toBool (Char.decEqFrom (List.getOr … c …) '^' (Nat.decEq … 94)) then if (match …) c d k rest then True else
-           Aoc.Day07.Proofs.reach rest (c + 1) k d else Aoc.Day07.Proofs.reach rest c k d) = True`
+           Aoc.Year2025.Day07.Proofs.reach rest (c + 1) k d else Aoc.Year2025.Day07.Proofs.reach rest c k d) = True`
 ```
 
 This is exactly the day 7 step with the workaround removed and nothing else changed (`V0`:
@@ -355,8 +355,8 @@ hc`, `V1`) fails in the `False` branch the other way round **[run: V1]**:
 ```
 [E-TYPE-MISMATCH] Error: type mismatch
      ╰── expected `(if List.getOr False c beams then if Decidable.toBool (Char.decEqFrom … … …) then if (match …) c d k rest then True
-           else … else Aoc.Day07.Proofs.reach rest c k d else False) = True`,
-         but this has type `(if List.getOr False c beams then Aoc.Day07.Proofs.reach rest c k d else False) = True`
+           else … else Aoc.Year2025.Day07.Proofs.reach rest c k d else False) = True`,
+         but this has type `(if List.getOr False c beams then Aoc.Year2025.Day07.Proofs.reach rest c k d else False) = True`
 ```
 
 `hc` (a lambda's variable) *was* refined; the explicit argument `reach (Cons line rest) c
@@ -410,9 +410,9 @@ lines (the full diff):
 ```
 
 `stitchwort check` of the whole `aoc` project passes, and `stitchwort test --no-cache
-Aoc.Day07.Proofs` runs 17 tests, 17 passed **[run: V2]**. The first `_` is solved by
+Aoc.Year2025.Day07.Proofs` runs 17 tests, 17 passed **[run: V2]**. The first `_` is solved by
 unification to `reach.%match1 c d k rest`, which the proof never writes. The file is 14 lines
-shorter and the copy that could drift is gone. Checking `Aoc.Day07.Proofs` took 0.58 to
+shorter and the copy that could drift is gone. Checking `Aoc.Year2025.Day07.Proofs` took 0.58 to
 0.61 s against 0.64 to 0.66 s with the workaround (three runs each, release build, this
 machine) **[run]**.
 
@@ -722,7 +722,7 @@ Recommended: D226 to D230 as below; D231 to D233 not now.
 
 **Stage 1: day 7 and documentation (small; mechanical edits).**
 
-- Replace `leftReach`/`reachStep` in `aoc/src/Aoc/Day07/Proofs/Part1.sw` with the §3.4 shape.
+- Replace `leftReach`/`reachStep` in `aoc/src/Aoc/Year2025/Day07/Proofs/Part1.sw` with the §3.4 shape.
 - `docs/aoc-2025.md` day 7 pain point 2: correct it (the condition does refine a hypothesis
   that isn't a `let`; the workaround is gone), pointing here.
 - `docs/syntax.md`, after "`match`": a short "Proving things about a definition with an inner
@@ -731,7 +731,7 @@ Recommended: D226 to D230 as below; D231 to D233 not now.
   `def` and use `owner.name`.
 
 Acceptance: `Part1.sw` has no `leftReach` or `reachStep`; `stitchwort check` of the `aoc`
-project passes; `stitchwort test --no-cache Aoc.Day07.Proofs` passes 17 of 17.
+project passes; `stitchwort test --no-cache Aoc.Year2025.Day07.Proofs` passes 17 of 17.
 
 **Stage 2: names and messages (small to medium; elaborator only).**
 
@@ -794,11 +794,11 @@ or D233 if repeating a definition's `match` in statements becomes common.
 
 Stages 1 and 2 (D226 to D230), 21 October 2026, on ticket SW-194. D231 to D233 are not built.
 
-- **D226.** `leftReach` and `reachStep` are gone from `aoc/src/Aoc/Day07/Proofs/Part1.sw`.
+- **D226.** `leftReach` and `reachStep` are gone from `aoc/src/Aoc/Year2025/Day07/Proofs/Part1.sw`.
   The second direction of `fallKeeps` keeps `let hr := Bool.andRight … hc` (no `Eq.trans`),
   passes `_` for the inner `match` operand of `orCases`, and uses `hr` in both branches;
   SW-193 makes the `let` form work, so it is the §3.4 diff with the `let` kept rather than
-  inlined. `stitchwort check` of `aoc/` passes and `Aoc.Day07.Proofs` runs 17 tests, 17
+  inlined. `stitchwort check` of `aoc/` passes and `Aoc.Year2025.Day07.Proofs` runs 17 tests, 17
   passed. `docs/aoc-2025.md` day 7 pain point 2 is corrected (the pain-point header says so).
 - **D227.** `docs/syntax.md`, after `match`: "Proving things about a definition with an
   inner `match`" (arms compute; match on the condition; `_` for the inner `match`'s part; split
@@ -900,7 +900,7 @@ Stages 1 and 2 (D226 to D230), 21 October 2026, on ticket SW-194. D231 to D233 a
   <https://dafny.org/dafny/Compilation/Boogie>; reference manual (Reveal statement, Opaque
   block): <https://dafny.org/dafny/DafnyRef/DafnyRef>
 - Stitchwort (repository paths, for the owner; a reviewer doesn't need them):
-  - `aoc/src/Aoc/Day07/Proofs/Part1.sw`, `docs/aoc-2025.md` (day 7)
+  - `aoc/src/Aoc/Year2025/Day07/Proofs/Part1.sw`, `docs/aoc-2025.md` (day 7)
   - `docs/core.md`, `docs/syntax.md`, `DESIGN.md`,
     `docs/proposals/syntax-conveniences.md` (§2, §4), `docs/proposals/calc-rewrite.md`
   - `crates/elab/src/{matching.rs, lift.rs, lib.rs, check.rs}`,

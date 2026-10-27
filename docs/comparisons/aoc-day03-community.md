@@ -1,8 +1,8 @@
 # AoC 2025 day 3: community solutions in other languages
 
-**Date:** 21 October 2026. **Our version:** `aoc/src/Aoc/Day03/Day03.sw` (program: the greedy
+**Date:** 21 October 2026. **Our version:** `aoc/src/Aoc/Year2025/Day03/Day03.sw` (program: the greedy
 "leftmost largest digit in the window that still leaves room", for any k), and
-`aoc/src/Aoc/Day03/Proofs/Best.sw` (for every k and every bank, the answer is a subsequence of
+`aoc/src/Aoc/Year2025/Day03/Proofs/Best.sw` (for every k and every bank, the answer is a subsequence of
 the bank with `min k (length)` digits, and no k digits taken in order make a larger number).
 `docs/aoc-2025.md` §5 and "Day 3 (October 2026)" describe the program and the proof. This note
 looks at what other people wrote for 2025 day 3, in the wild, and asks what that suggests for
@@ -131,7 +131,7 @@ repeat the patterns.
 | 23 | Gleam | [Zenor27](https://github.com/Zenor27/AOC2025/blob/HEAD/src/days/day03/day03.gleam), [bmatcuk](https://github.com/bmatcuk/adventofcode2025/blob/HEAD/day03/src/day03.gleam), [tilltheis](https://github.com/tilltheis/adventofcode-2025-gleam/blob/HEAD/src/day03.gleam), [houli](https://github.com/houli/advent-of-code-2025/blob/HEAD/src/day3.gleam), [bucsi](https://github.com/bucsi/aoc/blob/HEAD/solutions_gleam/src/aoc_2025/day_3.gleam) | 48–95 | stack (Zenor27); greedy (others); `list.combination_pairs` for part 1 (Zenor27, bucsi) | `[#(_, remains), .._] if remains < remaining`; `undigits` vendored "Deprecated so I vendored it" **[cited]** | no |
 | 24 | Roc, Elm, Admiran | [arnemart](https://github.com/arnemart/aoc/blob/HEAD/2025/03/3.roc), [0xErwin1](https://github.com/0xErwin1/advent-of-code/blob/HEAD/2025/day_3/main.roc), [albertdahlin](https://github.com/albertdahlin/advent-of-code/blob/HEAD/elm/src/Y25/D03.elm), [caseyWebb](https://github.com/caseyWebb/advent/blob/HEAD/2025/src/Day03.elm), [maxhille](https://github.com/maxhille/aoc-2025/blob/HEAD/days/Day03.elm), [taolson](https://github.com/taolson/advent-of-code/blob/HEAD/2025/day03.am) | 26–100 | greedy; look-ahead skip (taolson) | `List.drop_last` (Roc); `indexedFindLastMax` on the reversed list (caseyWebb); elm-test on 3121910778619; taolson: `= go r' n ds, if canSkip & hasBetter`, "The first version of this used memoization" **[cited]** | no |
 | 25 | Chez Scheme | [erickalkman](https://gitlab.com/erickalkman/aoc2025/-/blob/main/day03.sls) (megathread: onrustigescheikundig) | 49 | **search** over a digit-to-positions map, 9 down to 1 | "the first successful result of which must be the maximum" **[cited: megathread]**; about 2 ms | no |
-| — | Stitchwort | `aoc/src/Aoc/Day03/Day03.sw` + `Proofs/Best.sw` | 25 (program) + 9 (tests); 133 (proofs; 241 lines, 22 theorems since SW-243) | greedy window, leftmost largest (`if c < x`) | `pick` as a local definition; banks of `Fin 10` digits; `Nat.fromDigits`; the example and real-input answers as tests | **yes**: `bestSub`, `bestLength`, `bestOptimal`, `bestIsLargest`, numeric, for every k and bank; 16 theorems, checked in about 0.5 s |
+| — | Stitchwort | `aoc/src/Aoc/Year2025/Day03/Day03.sw` + `Proofs/Best.sw` | 25 (program) + 9 (tests); 133 (proofs; 241 lines, 22 theorems since SW-243) | greedy window, leftmost largest (`if c < x`) | `pick` as a local definition; banks of `Fin 10` digits; `Nat.fromDigits`; the example and real-input answers as tests | **yes**: `bestSub`, `bestLength`, `bestOptimal`, `bestIsLargest`, numeric, for every k and bank; 16 theorems, checked in about 0.5 s |
 | — | Stitchwort, three community shapes | scratch `dp.sw`, `greedy.sw`, `stack.sw` | 16–22 | DP fold, greedy, stack | §4 | no |
 
 Also read, and not in the table because they repeat these patterns: Lean frutjus part 1 and
@@ -425,7 +425,7 @@ that was also running other work):
 
 | Program | `stitchwort run` | `run --js` |
 |---|---:|---:|
-| Committed greedy (`Aoc.Day03.main`) | 0.74 s | 0.55 s **[checked]** |
+| Committed greedy (`Aoc.Year2025.Day03.main`) | 0.74 s | 0.55 s **[checked]** |
 | DP fold (`dp.sw`) | 1.56 s | 0.49 s **[checked]** |
 | danvk's greedy (`greedy.sw`) | 1.00 s | 0.50 s **[checked]** |
 | bramhaag's stack (`stack.sw`) | 0.81 s | 0.51 s **[checked]** |

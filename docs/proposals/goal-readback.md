@@ -259,7 +259,7 @@ Two variants of (d) I measured to choose its parameters:
 | cap 100,000, first scratch version (each overflow's size counted again by walking the term) | elaborates, 28–33 s |
 | cap 100,000, sizes counted while reading back (the row in the table above) | elaborates, 18.7–18.8 s |
 | cap 100,000, plus remembering "too big" per call cell across read-backs | elaborates, 28 s (on the first version; 33 s without it): the kept calls are mostly fresh cells, so little is remembered |
-| cap 10,000 | elaborates, 9.3 s; **but AoC fails**: `Aoc/Day08/Proofs/Part2.sw:287`, a `rewrite` whose target lies in an unfolding of more than 10,000 nodes (200 calls kept folded across AoC) |
+| cap 10,000 | elaborates, 9.3 s; **but AoC fails**: `Aoc/Year2025/Day08/Proofs/Part2.sw:287`, a `rewrite` whose target lies in an unfolding of more than 10,000 nodes (200 calls kept folded across AoC) |
 | cap 1,000 | rogue2q fails (2 errors) |
 | a call's overflow aborts the enclosing call's read-back too (shared budget) | rogue2q 7.5 s, but breaks the repro: which call is kept then depends on where the budget ran out |
 | version that may keep a call that steps at once (`grow x 17`) | later *folded* read-backs re-expand it (`quote_folded` looks through such calls), and the repro hits the size limit again in `check_tree` |

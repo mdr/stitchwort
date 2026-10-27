@@ -90,14 +90,14 @@ The rules:
 - **File names and folders mean nothing.** `range.sw` could be called
   `helpers.sw` and nothing would change. A file's namespace comes from its
   first line, not its path. (The `aoc/` project, by convention, keeps folders matching namespaces:
-  `Aoc.Day02.Tests` and `Aoc.Day02.Proofs` live in `src/Aoc/Day02/Tests/` and `.../Proofs/`, and hold the tests and theorems that
-  `Aoc.Day02` leaves out so that running the day does not check them.)
+  `Aoc.Year2025.Day02.Tests` and `Aoc.Year2025.Day02.Proofs` live in `src/Aoc/Year2025/Day02/Tests/` and `.../Proofs/`, and hold the tests and theorems that
+  `Aoc.Year2025.Day02` leaves out so that running the day does not check them.)
 - **Every declaration of a namespace is visible to all its files by short
   name**, in any order. Definitions in different files can call each other,
   including mutual recursion.
 - **A name declared twice in one namespace is `E-DUPLICATE`**, naming both
   places and both files when they differ.
-- **Dotted names make separate namespaces.** `namespace Aoc.Day05` is a
+- **Dotted names make separate namespaces.** `namespace Aoc.Year2025.Day05` is a
   namespace; it does not make the names of `Aoc` visible. Import them or
   write them qualified.
 - **Library names are reserved.** `namespace Std` is `E-STD-NAMESPACE`. A
@@ -267,7 +267,7 @@ stitchwort test path/file.sw      -- file mode
 ```
 
 `check` accepts several names at once. `test` and `run` take a single target.
-A namespace target may be dotted, as in `check Aoc.Day05`. On success `check` prints one line to standard error, `checked 39 namespaces of aoc` (a file: `checked path/file.sw`); errors print as before and the exit status is unchanged.
+A namespace target may be dotted, as in `check Aoc.Year2025.Day05`. On success `check` prints one line to standard error, `checked 43 namespaces of aoc` (a file: `checked path/file.sw`); errors print as before and the exit status is unchanged.
 
 `stitchwort test Day05` runs the tests of `Day05`, of every namespace under
 it (`Day05.Tests`, `Day05.Proofs`), and of every namespace they depend on,

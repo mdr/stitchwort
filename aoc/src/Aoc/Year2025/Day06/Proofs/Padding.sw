@@ -1,0 +1,44 @@
+-- Day 6, proved: the program keeps its promise that a short line reads as
+-- ending in spaces. Two worksheets with the same cells (`column` reads a
+-- space past a line's end) parse to the same problems
+-- (`parseWorksheetSameCells`), so spaces added to the end of any lines change
+-- nothing (`parseWorksheetPadded`), however many on each.
+
+namespace Aoc.Year2025.Day06.Proofs
+import Aoc.Year2025.Day06 (..)
+import Aoc.Year2025.Day06.Spec (..)
+import Std (Eq, List, Nat, Text)
+
+-- From column s on, past every line's end, every column is blank.
+theorem blankFrom (lines: List Text): (m: Nat) → (s: Nat) → gridWidth lines ≤ s →
+    List.all ((List.rangeFrom m s).map (column lines)) isBlank = True
+  | Zero, s, h => rfl
+  | Succ m, s, h =>
+    rewrite blankPast s lines (r => Nat.leTrans _ _ _ (List.lengthLeMaxLength (lines.map Text.toList) r) h) in
+      blankFrom lines m (Succ s) (omega)
+
+-- The blocks, read over any number of columns from the widest line's length on.
+theorem blocksOver (lines: List Text) (n: Nat) (h: gridWidth lines ≤ n):
+    blocks lines = List.splitBy ((List.range n).map (column lines)) isBlank :=
+  calc blocks lines
+    _ = List.splitBy ((List.range (gridWidth lines)).map (column lines)) isBlank := rewrite columnsAre lines
+    _ = List.splitBy ((List.rangeFrom (gridWidth lines + (n - gridWidth lines)) 0).map (column lines)) isBlank
+      := rewrite List.rangeFromAppend (gridWidth lines) (n - gridWidth lines) 0, List.mapAppend (List.range (gridWidth lines)) (List.rangeFrom (n - gridWidth lines) (gridWidth lines)) (column lines) in
+        Eq.sym (List.splitByAppendSeparators _ isBlank _ (blankFrom lines (n - gridWidth lines) (gridWidth lines) (Nat.leRefl (gridWidth lines))))
+    _ = List.splitBy ((List.range n).map (column lines)) isBlank := rewrite Nat.addSubCancel (gridWidth lines) n h
+
+-- Two worksheets with the same cells, column by column, parse to the same
+-- problems, whatever their lines' lengths.
+theorem parseWorksheetSameCells (lines: List Text) (other: List Text) (same: (c: Nat) → column other c = column lines c):
+    parseWorksheet other = parseWorksheet lines :=
+  rewrite blocksOver other (Nat.max (gridWidth lines) (gridWidth other)) (Nat.leMaxRight (gridWidth lines) (gridWidth other)),
+    blocksOver lines (Nat.max (gridWidth lines) (gridWidth other)) (Nat.leMaxLeft (gridWidth lines) (gridWidth other)),
+    same _
+
+-- So spaces on the end of the lines, `spaces line` of them on each, change no
+-- problem: a short line reads as ending in spaces.
+theorem parseWorksheetPadded (lines: List Text) (spaces: Text → Nat):
+    parseWorksheet (lines.map (line => line ++ Text.fromList (List.replicate (spaces line) ' '))) = parseWorksheet lines :=
+  parseWorksheetSameCells lines _ (c =>
+    rewrite List.mapMap lines (line => charAt line c) (line => line ++ Text.fromList (List.replicate (spaces line) ' ')),
+      List.getOrAppendReplicate _ ' ' (spaces _) c)

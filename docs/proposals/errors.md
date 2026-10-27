@@ -13,7 +13,7 @@ input:
 def parseRanges (t: Text): List Range := t.trim.split ',' |> .filterMap Range.parse
 ```
 
-(`aoc/src/Aoc/Day02/Day02.sw:106`). `filterMap` keeps the pieces that
+(`aoc/src/Aoc/Year2025/Day02/Day02.sw:106`). `filterMap` keeps the pieces that
 `Range.parse` (`aoc/src/Aoc/Common/Range.sw:9-12`) reads and drops the others
 without telling anyone. So `11-22,bad` gives one range, and `11-22, 33-33` also
 gives one range: `" 33"` isn't a number, so the second range is lost. Both runs
@@ -377,7 +377,7 @@ def parseRanges (t: Text): {Fail} (List Range) := t.trim.split ',' |> .mapIn Ran
 ```
 
 ```
-$ echo '11-22,bad' | stitchwort run Aoc.Day02.main
+$ echo '11-22,bad' | stitchwort run Aoc.Year2025.Day02.main
 error: expected a range like 11-22, got 'bad'
 $ echo $?
 1

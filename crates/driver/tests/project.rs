@@ -751,7 +751,7 @@ fn wildcard_refusals_in_a_project() {
     assert!(found[0].message.contains("is part of namespace Lib"));
     // Only the start of namespace names.
     let found = errors(&[
-        ("d5.sw", "namespace Aoc.Day05\n\ndef y: Nat := 1\n"),
+        ("d5.sw", "namespace Aoc.Year2025.Day05\n\ndef y: Nat := 1\n"),
         ("day.sw", &day("import Aoc (..)")),
     ]);
     assert!(

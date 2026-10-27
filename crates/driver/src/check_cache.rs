@@ -4,7 +4,7 @@
 //!
 //! - **Names.** An entry's file is `{fingerprint}-{unit}-{key}`: the
 //!   compiler build, the unit (a library file, `std.List.Toolkit`, or a
-//!   project namespace, `ns.Aoc.Day05`; `+nav` when navigation is
+//!   project namespace, `ns.Aoc.Year2025.Day05`; `+nav` when navigation is
 //!   recorded), and the entry's key in hex.
 //! - **The header.** `check/header` holds the directory's random salt
 //!   (§3.1), made the first time the directory is used. Every entry

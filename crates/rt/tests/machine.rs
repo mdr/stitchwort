@@ -218,14 +218,15 @@ fn aoc() -> Session {
 
 /// The answers each AoC day prints on its real input, as
 /// `crates/cli/tests/aoc_answers.rs` checks `stitchwort run` prints them.
-const AOC_ANSWERS: &[(&str, &str, &str)] = &[
-    ("01", "1076", "6379"),
-    ("02", "16793817782", "27469417404"),
-    ("03", "17263", "170731717900423"),
-    ("04", "1397", "8758"),
-    ("05", "525", "333892124923577"),
-    ("06", "4722948564882", "9581313737063"),
-    ("07", "1594", "15650261281478"),
+const AOC_ANSWERS: &[(&str, &str, &str, &str)] = &[
+    ("2025", "01", "1076", "6379"),
+    ("2025", "02", "16793817782", "27469417404"),
+    ("2025", "03", "17263", "170731717900423"),
+    ("2025", "04", "1397", "8758"),
+    ("2025", "05", "525", "333892124923577"),
+    ("2025", "06", "4722948564882", "9581313737063"),
+    ("2025", "07", "1594", "15650261281478"),
+    ("2024", "01", "2066446", "24931009"),
 ];
 
 /// Every AoC day, on its real input, prints the known answers on the
@@ -244,14 +245,14 @@ fn aoc_agrees() {
         });
         eprintln!("{ran} AoC tests agree");
         // A corpus sweep: every other day below the full tier.
-        for (day, part1, part2) in tier_sample(AOC_ANSWERS.iter().collect(), 2) {
-            let name = format!("Aoc.Day{day}.main");
+        for (year, day, part1, part2) in tier_sample(AOC_ANSWERS.iter().collect(), 2) {
+            let name = format!("Aoc.Year{year}.Day{day}.main");
             let main = session
                 .main_named(&name, "aoc")
                 .unwrap_or_else(|e| panic!("{name}: {e:?}"));
             let program = lowered(&session, &main, &name);
             let limits = Limits::from_core(session.elab.limits);
-            let input = std::fs::read(root().join(format!("aoc/inputs/day{day}.txt")))
+            let input = std::fs::read(root().join(format!("aoc/inputs/{year}/day{day}.txt")))
                 .expect("the puzzle input");
             let start = std::time::Instant::now();
             let got = machine(&program, limits, &input);
@@ -262,7 +263,7 @@ fn aoc_agrees() {
                 "{name} on the machine"
             );
             same_both_ways(&session, &main, &program, &input, &name);
-            let example = std::fs::read(root().join(format!("aoc/examples/day{day}.txt")))
+            let example = std::fs::read(root().join(format!("aoc/examples/{year}/day{day}.txt")))
                 .expect("the example input");
             same_both_ways(&session, &main, &program, &example, &name);
         }

@@ -5,7 +5,7 @@ decisions are D505–D507 (§8).
 
 ## 1. The short answer
 
-AoC day 1 (`aoc/src/Aoc/Day01/Day01.sw`) reads:
+AoC day 1 (`aoc/src/Aoc/Year2025/Day01/Day01.sw`) reads:
 
 ```
 def zerosLandedOn (startingDial: Dial n) (turns: List Turn): Nat :=
@@ -41,8 +41,8 @@ def zerosPassed (startingDial: Dial n) (turns: List Turn): Nat :=
 ```
 
 (Checked with `target/release/stitchwort` built 22 October, on a scratch copy
-of `aoc/`: `run Aoc.Day01.main`, `check`, `test Aoc.Day01.Proofs`,
-`test Aoc.Day01.Tests`.)
+of `aoc/`: `run Aoc.Year2025.Day01.main`, `check`, `test Aoc.Year2025.Day01.Proofs`,
+`test Aoc.Year2025.Day01.Tests`.)
 
 Day 1 spells out `Dial.` only because the SW-262 rewrite that introduced the
 `Dial` record replaced the old bare names with qualified ones
@@ -219,7 +219,7 @@ equal; `crates/core/src/value.rs`, "Eta: `f` and `x => f x` are equal"), so
 
 But *equal* isn't *the same term*, and one place in the checker compares terms
 as written. Rewriting day 4's `next.any Pair.snd` to `next.any .snd` broke
-`Aoc/Day04/Proofs/Part2.sw` line 137:
+`Aoc/Year2025/Day04/Proofs/Part2.sw` line 137:
 
 ```
 match e: Vec.any Pair.snd next with
