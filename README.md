@@ -4,6 +4,9 @@ A small, total, dependently-typed functional language, for fun and exploring
 ideas. See [DESIGN.md](DESIGN.md) for where it's going, and
 [docs/core.md](docs/core.md) for what's implemented.
 
+Try it in the browser: the [playground](https://mdr.github.io/stitchwort/), with a
+[language guide](https://mdr.github.io/stitchwort/guide/guide.html).
+
 ```sh
 nix develop                     # or `direnv allow`
 
