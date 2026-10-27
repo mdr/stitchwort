@@ -421,7 +421,7 @@ fn update_lemmas() {
         .find(|l| l.contains("-> Main.Shape.id.update.id [theorem]"))
         .unwrap_or_else(|| panic!("no hover on the lemma in\n{all}"));
     assert!(
-        found.contains(": (x: Shape) → (id: Text) → ") && found.ends_with(").id = id"),
+        found.contains(": (x: Shape) → (id: Text) → ") && found.ends_with("{ x | id = id }.id = id"),
         "{found}"
     );
 }
