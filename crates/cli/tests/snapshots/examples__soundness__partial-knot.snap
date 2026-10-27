@@ -9,5 +9,5 @@ expression: output
     │                                                   ───────────┬──────────  
     │                                                              ╰──────────── `bad` is `Partial`: it might not finish
     │ 
-    │ Note: code whose type doesn't say `Partial` must finish, so it can't run anything that might not; if this is a function's body, add `Partial` to its type (`-> {Partial} …`); if it is a callback, the function taking it must allow a partial callback
+    │ Note: `Effect.pfix`'s callback builds a partial computation and returns it as a value: building it must finish, so the callback can't run anything that might not
 ────╯
