@@ -4781,13 +4781,13 @@
     {
       "id": 621,
       "title": "Signature defaults stage 1b: printing hides filled defaults (D1354)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
