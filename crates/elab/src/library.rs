@@ -179,8 +179,8 @@ pub struct LibraryIndex {
 /// clear of `Mod.size`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DotTarget {
-    /// The file declaring `T`: `None` if no file declares a name `T` (the
-    /// built-in `Eq`, say), and then the target counts as always reachable.
+    /// The file declaring `T`: `None` for the built-in `Eq`, which no file
+    /// declares, and then the target counts as always reachable.
     pub namespace: Option<usize>,
     /// The file declaring `T.f`.
     pub file: usize,
@@ -194,6 +194,9 @@ pub(crate) struct Needs {
     pub files: BTreeSet<usize>,
     pub dots: BTreeSet<String>,
 }
+
+/// The namespace of the built-in equality's dot calls (`dot.rs`).
+const EQ_NAMESPACE: &str = "Std.Eq";
 
 static STANDARD: OnceLock<Result<Arc<LibraryIndex>, String>> = OnceLock::new();
 
@@ -255,10 +258,14 @@ impl LibraryIndex {
         let mut dots_by_short: HashMap<String, Vec<DotTarget>> = HashMap::default();
         for (f, file) in parsed.iter().enumerate().skip(1) {
             for name in file.names.iter().filter(|n| n.kind == PendingKind::Def) {
-                let namespace = name
-                    .key
-                    .rsplit_once('.')
-                    .and_then(|(ns, _)| owner.get(ns).copied());
+                let ns = name.key.rsplit_once('.').map(|(ns, _)| ns);
+                let namespace = ns.and_then(|ns| owner.get(ns).copied());
+                // A dot call looks in the namespace of a declared type or of
+                // the built-in equality: `Ring.lookup`, in a namespace that
+                // names no type, is no dot call's target.
+                if namespace.is_none() && ns != Some(EQ_NAMESPACE) {
+                    continue;
+                }
                 let target = DotTarget { namespace, file: f };
                 let targets = dots_by_short.entry(scope::short(&name.key).to_string());
                 let targets = targets.or_default();
