@@ -235,9 +235,6 @@ the pinned first map and the winning game (232 turns before levels were made on 
      `xs.map f |> .getOr d i = y` checks, but means "pipe into the
      equation"; it was only caught when the lemma was used. A warning for
      `|>` whose right side is a comparison would catch it.
-   - An `_` for an argument passed to `omega` stays a metavariable, so the
-     same term written with `_` and in full are different atoms; the
-     monsters' event text had to be written out in full.
    - Pattern lambdas (`((row, chars)) => …`) can't take a type annotation;
      a typed `let` works.
    - A hypothesis named `at` broke `rewrite … at in …` with "the line
