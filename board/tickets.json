@@ -1,5 +1,5 @@
 {
-  "next": 684,
+  "next": 690,
   "tickets": [
     {
       "id": 13,
@@ -3310,7 +3310,7 @@
     {
       "id": 508,
       "title": "Pipe precedence: |> binds tighter than comparisons, =, ∧/∨ and <->, looser than ++, arithmetic and application (D1408, Matt 27 Oct; research note pipe-precedence-research.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5526,6 +5526,78 @@
       "id": 683,
       "title": "Warn when a match arm can never match because earlier arms cover it (duplicate '\\''k'\\'' arm accepted silently; found by the or-patterns lane, 27 Oct)",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 684,
+      "title": "Fuzzing: one long run of the existing fuzzers (syntax and formatter at millions of cases via FUZZ_CASES, kernel with more cases) with fresh seeds, on a quiet machine; report anything found (27 Oct discussion)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 685,
+      "title": "Elaborator fuzzing stage 1: mutate the example corpus (syntax fuzzer's generator) and run full checks; oracles: no panic, no E-INTERNAL, kernel never rejects an elaborated term, finishes within budget, cold and warm cache agree. Small fixed run in the daily tier, long run on demand (27 Oct discussion)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 686,
+      "title": "Elaborator fuzzing stage 2: meaning-preserving rewrites over every accepted example (prefix/dot/pipe, positional/named, local renames, reformat, unused definitions, declaration order); oracle: still accepted with the same hashes. Generalises pipe_forms, named_arguments and fmt_hashes (27 Oct discussion)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 687,
+      "title": "Soundness fuzzing: mutate proofs in examples, AoC and rogue (change constants, swap lemmas, drop hypotheses); an accepted mutated theorem must have no counterexample (counterexample search as oracle); plus automated attempts to prove Void, as the 19 Oct pilot did by hand (27 Oct discussion)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 688,
+      "title": "Generated well-typed programs: a type-directed generator of random programs (data, functions, matches, effects) that must be accepted, run differentially on reference, rt, JS and native (run_reference/run_js harnesses) (27 Oct discussion)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 689,
+      "title": "Coverage-guided fuzzing: cargo fuzz (libFuzzer) targets for parse, check and format, structure-aware inputs; needs nightly and long runs (27 Oct discussion)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],

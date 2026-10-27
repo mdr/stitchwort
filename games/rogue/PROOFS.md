@@ -231,10 +231,6 @@ the pinned first map and the winning game (232 turns before levels were made on 
      "expected a parameter's name, but found `then`", which is clear.
    - An `And` proof has no `.snd` (its fields are `left` and `right`); `And.right p`
      works.
-   - `|>` binds looser than `=`, so a theorem statement written
-     `xs.map f |> .getOr i d = y` checks, but means "pipe into the
-     equation"; it was only caught when the lemma was used. A warning for
-     `|>` whose right side is a comparison would catch it.
    - Pattern lambdas (`((row, chars)) => …`) can't take a type annotation;
      a typed `let` works.
    - A hypothesis named `at` broke `rewrite … at in …` with "the line
