@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `shown`
+    ╭─[ goals/match-unnamed-fields.sw:15:24 ]
+    │
+ 15 │     | Cons next Nil => ?
+    │                        ┬  
+    │                        ╰── all: next = True
+    │                            next: Bool
+    │                            ⊢ next = True
+────╯
+[GOAL] Goal: in `shown`
+    ╭─[ goals/match-unnamed-fields.sw:16:16 ]
+    │
+ 16 │     | other => ?
+    │                ┬  
+    │                ╰── all: (if next✝ then allTrue (Cons head✝ tail✝) else False) = True
+    │                    next✝: Bool
+    │                    head✝: Bool
+    │                    tail✝: List Bool
+    │                    ⊢ (if next✝ then allTrue (Cons head✝ tail✝) else False) = True
+────╯
