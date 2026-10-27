@@ -886,6 +886,7 @@ fn replace_occurrences(
     check_motive(cx, rule, place, &motive, &equation.carrier, from, lhs)?;
     match round_trip(cx, &motive, lhs, &proof_value, goal, remaining)? {
         Some(true) => {}
+        Some(false) if round_trip_awaiting_helpers(cx, &motive, lhs, &proof_value, goal)? => {}
         Some(false) => {
             return Err(round_trip_error(cx, rule, place, lhs, first.as_ref()));
         }
@@ -1010,7 +1011,18 @@ impl Search<'_, '_> {
             if !has_carrier(cx, &mut self.kcx.borrow_mut(), &candidate, self.carrier)? {
                 return Ok(false);
             }
-            cx.unify(&value, self.lhs)
+            if crate::undo::unify(cx, &value, self.lhs)? {
+                return Ok(true);
+            }
+            // A `match` in the rule not lifted yet: an occurrence if it turns
+            // out to be the same as the one here.
+            Ok(crate::lift::mentions_draft(cx, &self.lhs_term.borrow())
+                && crate::lift::await_helpers(
+                    cx,
+                    &value,
+                    self.lhs,
+                    crate::lift::Failure::Mismatch,
+                )?)
         });
         self.remaining.set(remaining);
         match outcome {
@@ -1254,6 +1266,24 @@ fn round_trip(
         let back = apply(g, apply(g, motive, lhs.clone())?, proof.clone())?;
         cx.unify(&back, goal)
     })
+}
+
+/// [`round_trip`] for a left side with a `match` not lifted yet: whether the
+/// motive gives the goal back if that `match` is the same as the one it
+/// replaced, which is checked once it is lifted (`lift::await_helpers`).
+fn round_trip_awaiting_helpers(
+    cx: &mut Ctx,
+    motive: &Term,
+    lhs: &Value,
+    proof: &Value,
+    goal: &Value,
+) -> Result<bool> {
+    if !crate::lift::mentions_draft(cx, &cx.quote(lhs)?) {
+        return Ok(false);
+    }
+    let g = cx.g();
+    let back = apply(g, apply(g, cx.eval(motive)?, lhs.clone())?, proof.clone())?;
+    crate::lift::await_helpers(cx, &back, goal, crate::lift::Failure::Mismatch)
 }
 
 /// A term for a message. An unknown the rule left open is shown as `?3`,

@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use stitchwort_core::budget::{ResourceError, Result};
-use stitchwort_core::collections::HashMap;
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::native;
 use stitchwort_core::value::{
     Closure, Elim, Head, Relation, apply_icit, call_args, eval, expand_step, force, force_solved,
@@ -56,6 +56,32 @@ thread_local! {
     /// as it stands: a body that then fails may check with `e` total
     /// (docs/proposals/partial-stage-3.md §2.2, D1215).
     static RIGID_DIVERGENCE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// While [`unify_awaiting_helpers`] runs: the frozen metavariables of the
+    /// helpers not lifted yet, taken as equal to whatever they meet.
+    static AWAITED_HELPERS: RefCell<Option<HashSet<usize>>> = const { RefCell::new(None) };
+}
+
+/// [`unify`], except that a helper's frozen metavariable in `awaited` (a
+/// `match` or local definition not lifted yet) is taken as equal to
+/// whatever it is compared with. If that succeeds, the comparison holds only
+/// once the helpers are lifted: the caller compares again then.
+pub fn unify_awaiting_helpers(
+    g: &Globals,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    awaited: HashSet<usize>,
+) -> Result<bool> {
+    let saved = AWAITED_HELPERS.with(|h| h.replace(Some(awaited)));
+    let result = unify(g, level, a, b);
+    AWAITED_HELPERS.with(|h| h.replace(saved));
+    result
+}
+
+/// Whether `m` is a helper's frozen metavariable that
+/// [`unify_awaiting_helpers`] is taking as equal to anything.
+fn awaited_helper(m: usize) -> bool {
+    AWAITED_HELPERS.with(|h| h.borrow().as_ref().is_some_and(|set| set.contains(&m)))
 }
 
 /// Notes that a computation with a variable divergence couldn't be compared
@@ -599,7 +625,9 @@ fn unify_step(
         (Value::Neutral(Head::Meta(m), _), _) | (_, Value::Neutral(Head::Meta(m), _))
             if g.meta_frozen(*m) =>
         {
-            false
+            let awaited =
+                |v: &Value| matches!(v, Value::Neutral(Head::Meta(m), _) if awaited_helper(*m));
+            awaited(&a) || awaited(&b)
         }
         (Value::Neutral(Head::Meta(m), spine), other)
         | (other, Value::Neutral(Head::Meta(m), spine)) => {

@@ -2738,9 +2738,14 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         (Expr::Var(name), Value::Eq(_, a, b))
             if name.text == "rfl" && cx.lookup("rfl").is_none() =>
         {
-            if cx.unify(a, b)? {
+            if crate::undo::unify(cx, a, b)?
+                || crate::lift::await_helpers(cx, a, b, crate::lift::Failure::Refl)?
+            {
                 Ok(Term::Refl)
             } else {
+                // The message shows the sides as the failed comparison left
+                // them.
+                cx.unify(a, b)?;
                 Err(refl_error(cx, a, b))
             }
         }
@@ -3272,6 +3277,11 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
     // compute to a `Comp`: decided later (docs/proposals/effect-polymorphism.md
     // §5.C.1, step 5).
     if crate::rows::postpone(cx, found, expected)? {
+        return Ok(term);
+    }
+    // A `match` not lifted yet, against the same `match` elsewhere (a
+    // finished helper's call): compared again once it is lifted.
+    if crate::lift::await_helpers(cx, found, expected, crate::lift::Failure::Mismatch)? {
         return Ok(term);
     }
     // The message shows the types as the failed comparison left them, as it
@@ -4173,7 +4183,7 @@ fn written_equal(label: &str) -> bool {
 /// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of
 /// `check`, whose stack frame is on every recursion).
 #[inline(never)]
-fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
+pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     let (shown_a, shown_b) = (cx.show(a), cx.show(b));
     // What the sides compute to: their normal forms, calls unfolded.
     let (normal_a, normal_b) = if cx.g().glue.get() {
