@@ -1040,8 +1040,13 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
         println!("  {mark} {:width$}  {how}{why}", result.name);
         if let Some(detail) = &result.detail {
             if let Some(c) = &detail.comparison {
-                println!("      left:  {}", c.left);
-                println!("      right: {}", c.right);
+                // A text of several lines is shown as its lines, under the label.
+                let side = |label: &str, shown: &str, lines: &Option<String>| match lines {
+                    Some(lines) => println!("      {label} {}", lines.replace('\n', "\n        ")),
+                    None => println!("      {label} {shown}"),
+                };
+                side("left: ", &c.left, &c.left_lines);
+                side("right:", &c.right, &c.right_lines);
                 if let Some(difference) = &c.difference {
                     println!("      {}", difference.replace('\n', "\n      "));
                 }

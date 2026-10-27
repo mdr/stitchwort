@@ -10,7 +10,7 @@ pub const SHOWN: usize = 200;
 /// The most characters of a failing test's side shown (a whole screenful of a
 /// text, or a few hundred numbers), where `SHOWN` is for the short mentions in
 /// other messages.
-pub const SHOWN_SIDE: usize = 4000;
+pub const SHOWN_SIDE: usize = 8000;
 
 /// The most nodes quoted to show one side of a failing test: a text of a
 /// screenful is a few thousand characters, each several nodes.
@@ -24,6 +24,14 @@ pub const SHOWN_LINE: usize = 120;
 
 /// The most characters of an item shown where two lists first differ.
 pub const SHOWN_ITEM: usize = 40;
+
+/// How many characters of a text are shown on each side of where two texts
+/// first differ.
+pub const EXCERPT_CHARS: usize = 20;
+
+/// How many elements of a list are shown on each side of where two lists
+/// first differ.
+pub const EXCERPT_ELEMENTS: usize = 3;
 
 /// The most nodes of a value's term that are quoted to show it.
 pub const SHOWN_NODES: u64 = 8000;
@@ -84,6 +92,44 @@ fn text_chars(g: &Globals, term: &Term) -> Option<Vec<char>> {
             _ => return None,
         }
     }
+}
+
+/// A text of more than one line, shown as its lines: a count, then each line
+/// after a `| ` margin, with control characters escaped. Lines stop once
+/// they pass `limit` characters in all, with a count of the rest. `None` for
+/// a value that isn't a text of more than one line.
+pub fn text_lines(g: &Globals, term: &Term, limit: usize) -> Option<String> {
+    let text: String = text_chars(g, term)?.into_iter().collect();
+    if !text.contains('\n') {
+        return None;
+    }
+    let lines: Vec<&str> = text.split('\n').collect();
+    let mut out = format!("text of {} lines", lines.len());
+    let mut used = 0;
+    for (shown, line) in lines.iter().enumerate() {
+        if used > limit {
+            out.push_str(&format!("\n… and {} more lines", lines.len() - shown));
+            break;
+        }
+        let line = escape_controls(line);
+        used += line.chars().count() + 1;
+        out.push_str("\n| ");
+        out.push_str(&line);
+    }
+    Some(out)
+}
+
+/// `line` with its control characters (tab, escape, …) written as escapes.
+fn escape_controls(line: &str) -> String {
+    line.chars()
+        .map(|c| {
+            if c.is_control() {
+                c.escape_default().to_string()
+            } else {
+                c.to_string()
+            }
+        })
+        .collect()
 }
 
 /// A line diff of two texts of more than one line: which lines differ, up to
@@ -153,6 +199,11 @@ struct Found {
     note: Option<String>,
     /// A message that is the whole of what's said, in place of the parts.
     whole: Option<String>,
+    /// Where it is in a text of several lines: its line and column.
+    place: Option<(usize, usize)>,
+    /// A few elements or characters of each side around it, for a value too
+    /// long to see it in at a glance.
+    excerpt: Option<(String, String)>,
 }
 
 impl Found {
@@ -163,6 +214,15 @@ impl Found {
             right,
             note: None,
             whole: None,
+            place: None,
+            excerpt: None,
+        }
+    }
+
+    fn ended(path: String, whole: String) -> Found {
+        Found {
+            whole: Some(whole),
+            ..Found::parts(&path, String::new(), String::new())
         }
     }
 
@@ -172,20 +232,66 @@ impl Found {
         } else {
             self.path.clone()
         };
-        if let Some(whole) = self.whole {
-            return Some(format!("first difference at {at}: {whole}"));
-        }
-        // A bare number, character or the like at the top: the sides above
-        // say it all.
-        if self.path.is_empty() && self.note.is_none() {
-            return None;
-        }
-        let mut out = format!("first difference at {at}: {} vs {}", self.left, self.right);
-        if let Some(note) = self.note {
-            out.push_str(&format!(" ({note})"));
+        let at = match self.place {
+            Some((line, column)) => format!("{at} (line {line}, column {column})"),
+            None => at,
+        };
+        let mut out = if let Some(whole) = self.whole {
+            format!("first difference at {at}: {whole}")
+        } else {
+            // A bare number, character or the like at the top: the sides
+            // above say it all.
+            if self.path.is_empty() && self.note.is_none() {
+                return None;
+            }
+            let mut out = format!("first difference at {at}: {} vs {}", self.left, self.right);
+            if let Some(note) = self.note {
+                out.push_str(&format!(" ({note})"));
+            }
+            out
+        };
+        if let Some((left, right)) = self.excerpt {
+            out.push_str(&format!("\n  left:  {left}\n  right: {right}"));
         }
         Some(out)
     }
+}
+
+/// The characters of a text around index `at`, quoted, with `…` where
+/// the text goes on.
+fn text_excerpt(chars: &[char], at: usize) -> String {
+    let start = at.saturating_sub(EXCERPT_CHARS);
+    let end = (at + EXCERPT_CHARS).min(chars.len());
+    let middle: String = chars[start.min(end)..end].iter().collect();
+    format!(
+        "{}{middle:?}{}",
+        if start > 0 { "…" } else { "" },
+        if end < chars.len() { "…" } else { "" }
+    )
+}
+
+/// The elements of a list around index `at`, as a list, with `…` where the
+/// list goes on.
+fn list_excerpt(g: &Globals, elements: &[&Term], at: usize) -> String {
+    let start = at.saturating_sub(EXCERPT_ELEMENTS);
+    let end = (at + EXCERPT_ELEMENTS + 1).min(elements.len());
+    let mut shown: Vec<String> = elements[start.min(end)..end]
+        .iter()
+        .map(|element| short(&print(g, element)))
+        .collect();
+    if start > 0 {
+        shown.insert(0, "…".to_string());
+    }
+    if end < elements.len() {
+        shown.push("…".to_string());
+    }
+    format!("[{}]", shown.join(", "))
+}
+
+/// Whether a text or list of `length` is long enough that where it differs
+/// is shown with an excerpt.
+fn excerpted(length: usize, window: usize) -> bool {
+    length > 2 * window + 1
 }
 
 fn short(s: &str) -> String {
@@ -265,12 +371,17 @@ fn walk(g: &Globals, left: &Term, right: &Term, path: &mut String, depth: usize)
     if let (Some(a), Some(b)) = (list_terms(g, left), list_terms(g, right)) {
         let mark = path.len();
         let n = a.len().min(b.len());
+        let long = excerpted(a.len().max(b.len()), EXCERPT_ELEMENTS);
+        let excerpt = |at: usize| (list_excerpt(g, &a, at), list_excerpt(g, &b, at));
         for i in 0..n {
             path.push_str(&format!("[{i}]"));
             let found = walk(g, a[i], b[i], path, depth + 1);
             path.truncate(mark);
-            if found.is_some() {
-                return found;
+            if let Some(mut found) = found {
+                if long && found.excerpt.is_none() {
+                    found.excerpt = Some(excerpt(i));
+                }
+                return Some(found);
             }
         }
         let (ended, extra, side) = match a.len().cmp(&b.len()) {
@@ -278,42 +389,56 @@ fn walk(g: &Globals, left: &Term, right: &Term, path: &mut String, depth: usize)
             std::cmp::Ordering::Greater => ("right ends", a[n], "left"),
             std::cmp::Ordering::Equal => return None,
         };
-        return Some(Found {
-            path: format!("{path}[{n}]"),
-            left: String::new(),
-            right: String::new(),
-            note: None,
-            whole: Some(format!(
+        let mut found = Found::ended(
+            format!("{path}[{n}]"),
+            format!(
                 "{ended}, {side} has {} (left has {}, right has {})",
                 short(&print(g, extra)),
                 count("element", a.len()),
                 count("element", b.len()),
-            )),
-        });
+            ),
+        );
+        if long {
+            found.excerpt = Some(excerpt(n));
+        }
+        return Some(found);
     }
     if let (Some(a), Some(b)) = (text_chars(g, left), text_chars(g, right)) {
         let c = |ch: char| format!("{ch:?}");
         let n = a.len().min(b.len());
-        if let Some(i) = (0..n).find(|&i| a[i] != b[i]) {
-            return Some(Found::parts(&format!("{path}[{i}]"), c(a[i]), c(b[i])));
-        }
-        let (ended, extra, side) = match a.len().cmp(&b.len()) {
-            std::cmp::Ordering::Less => ("left ends", b[n], "right"),
-            std::cmp::Ordering::Greater => ("right ends", a[n], "left"),
-            std::cmp::Ordering::Equal => return None,
+        let at = (0..n).find(|&i| a[i] != b[i]).unwrap_or(n);
+        let mut found = if at < n {
+            Found::parts(&format!("{path}[{at}]"), c(a[at]), c(b[at]))
+        } else {
+            let (ended, extra, side) = match a.len().cmp(&b.len()) {
+                std::cmp::Ordering::Less => ("left ends", b[n], "right"),
+                std::cmp::Ordering::Greater => ("right ends", a[n], "left"),
+                std::cmp::Ordering::Equal => return None,
+            };
+            Found::ended(
+                format!("{path}[{n}]"),
+                format!(
+                    "{ended}, {side} has {} (left has {}, right has {})",
+                    c(extra),
+                    count("character", a.len()),
+                    count("character", b.len()),
+                ),
+            )
         };
-        return Some(Found {
-            path: format!("{path}[{n}]"),
-            left: String::new(),
-            right: String::new(),
-            note: None,
-            whole: Some(format!(
-                "{ended}, {side} has {} (left has {}, right has {})",
-                c(extra),
-                count("character", a.len()),
-                count("character", b.len()),
-            )),
-        });
+        if a.contains(&'\n') || b.contains(&'\n') {
+            // Texts of several lines: the line and column, as the line diff
+            // after shows the lines around it.
+            let before = &a[..at];
+            let line = before.iter().filter(|&&ch| ch == '\n').count() + 1;
+            let line_start = before
+                .iter()
+                .rposition(|&ch| ch == '\n')
+                .map_or(0, |p| p + 1);
+            found.place = Some((line, at - line_start + 1));
+        } else if excerpted(a.len().max(b.len()), EXCERPT_CHARS) {
+            found.excerpt = Some((text_excerpt(&a, at), text_excerpt(&b, at)));
+        }
+        return Some(found);
     }
     let (Term::Ctor(d, c, a), Term::Ctor(d2, c2, b)) = (left, right) else {
         return leaf(path);
@@ -329,15 +454,12 @@ fn walk(g: &Globals, left: &Term, right: &Term, path: &mut String, depth: usize)
             return None;
         }
         return Some(Found {
-            path: path.clone(),
-            left: short(&print(g, left)),
-            right: short(&print(g, right)),
             note: Some(format!(
                 "different constructors: {} and {}",
                 data.ctors.get(*c)?.name,
                 data.ctors.get(*c2)?.name
             )),
-            whole: None,
+            ..Found::parts(path, short(&print(g, left)), short(&print(g, right)))
         });
     }
     let mark = path.len();
