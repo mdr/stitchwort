@@ -19,14 +19,10 @@ def commandOf (key: Key): Option Command :=
 -- The command of a printable key, if any.
 def commandOfChar (char: Char): Option Command :=
   match char with
-    | 'k' => Some (Move North)
-    | 'w' => Some (Move North)
-    | 'j' => Some (Move South)
-    | 's' => Some (Move South)
-    | 'h' => Some (Move West)
-    | 'a' => Some (Move West)
-    | 'l' => Some (Move East)
-    | 'd' => Some (Move East)
+    | 'k' | 'w' => Some (Move North)
+    | 'j' | 's' => Some (Move South)
+    | 'h' | 'a' => Some (Move West)
+    | 'l' | 'd' => Some (Move East)
     | '.' => Some Wait
     | '>' => Some Descend
     | 'p' => Some Drink

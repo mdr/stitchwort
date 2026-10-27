@@ -329,7 +329,31 @@ fn has_absurd(p: &Pattern) -> bool {
         Pattern::Cons(a, b, _) => has_absurd(a) || has_absurd(b),
         Pattern::Record { fields, .. } => fields.iter().any(|(_, p)| has_absurd(p)),
         Pattern::CtorFields { fields, .. } => fields.iter().any(|(_, p)| has_absurd(p)),
+        Pattern::Or(alternatives, _) => alternatives.iter().any(has_absurd),
         _ => false,
+    }
+}
+
+/// The first variable a pattern binds, if any (a punned record field is
+/// one).
+fn first_bound(p: &Pattern) -> Option<&Name> {
+    match p {
+        Pattern::Var(name) => Some(name),
+        Pattern::Ctor(_, args, _) => args.iter().find_map(first_bound),
+        Pattern::Tuple(a, b, _) | Pattern::Cons(a, b, _) => {
+            first_bound(a).or_else(|| first_bound(b))
+        }
+        Pattern::Named(_, p, _) => first_bound(p),
+        Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => {
+            fields.iter().find_map(|(_, p)| first_bound(p))
+        }
+        Pattern::Or(alternatives, _) => alternatives.iter().find_map(first_bound),
+        Pattern::Wildcard(_)
+        | Pattern::Absurd(_)
+        | Pattern::Num(..)
+        | Pattern::NegNum(..)
+        | Pattern::Char(..)
+        | Pattern::Nil(_) => None,
     }
 }
 
@@ -796,7 +820,7 @@ impl<'t> Parser<'t> {
             if self.peek() == Some(&Tok::RParen) && items.len() >= 2 {
                 break;
             }
-            items.push(self.tuple_component()?);
+            items.push(self.tuple_item()?);
         }
         let end = self.expect(Tok::RParen, "`)`")?.span;
         let mut last = items.pop().expect("two components");
@@ -811,6 +835,18 @@ impl<'t> Parser<'t> {
         Ok(last)
     }
 
+    /// A component of a tuple pattern, or several, `p | q`.
+    fn tuple_item(&mut self) -> Result<Pattern> {
+        let first = self.tuple_component()?;
+        self.alternatives(first, Self::tuple_component)
+    }
+
+    /// An element of a list pattern, or several, `p | q`.
+    fn list_item(&mut self) -> Result<Pattern> {
+        let first = self.list_component()?;
+        self.alternatives(first, Self::list_component)
+    }
+
     /// A component of a list pattern: a constructor's arguments run to the
     /// next `,` or `]`; `-k` is allowed, as in a tuple.
     fn list_component(&mut self) -> Result<Pattern> {
@@ -818,7 +854,7 @@ impl<'t> Parser<'t> {
             let start = self.here();
             let name = self.ctor_name()?;
             return self.ctor_args(name, start, |t| {
-                matches!(t, Some(Tok::Comma | Tok::RBracket) | None)
+                matches!(t, Some(Tok::Comma | Tok::RBracket | Tok::Pipe) | None)
             });
         }
         self.tuple_component()
@@ -833,7 +869,7 @@ impl<'t> Parser<'t> {
             let start = self.here();
             let name = self.ctor_name()?;
             return self.ctor_args(name, start, |t| {
-                matches!(t, Some(Tok::Comma | Tok::RParen) | None)
+                matches!(t, Some(Tok::Comma | Tok::RParen | Tok::Pipe) | None)
             });
         }
         if self.peek() != Some(&Tok::Minus) {
@@ -1088,7 +1124,7 @@ impl<'t> Parser<'t> {
                             tail = Some(self.pattern()?);
                             break;
                         }
-                        items.push(self.list_component()?);
+                        items.push(self.list_item()?);
                         if !self.eat(&Tok::Comma) {
                             break;
                         }
@@ -1119,7 +1155,7 @@ impl<'t> Parser<'t> {
                 // `(-k)`: a negative number pattern, only in brackets (a
                 // tuple's included: `(-k, p)`).
                 self.bump();
-                let inner = self.tuple_component()?;
+                let inner = self.tuple_item()?;
                 if self.peek() == Some(&Tok::Comma) {
                     return self.tuple_pattern(inner, span);
                 }
@@ -1134,8 +1170,9 @@ impl<'t> Parser<'t> {
                 let pattern = if self.ctor_ahead() {
                     let name = self.ctor_name()?;
                     let first = self.ctor_args(name, span, |t| {
-                        matches!(t, Some(Tok::RParen | Tok::Comma) | None)
+                        matches!(t, Some(Tok::RParen | Tok::Comma | Tok::Pipe) | None)
                     })?;
+                    let first = self.alternatives(first, Self::tuple_component)?;
                     if self.peek() == Some(&Tok::Comma) {
                         // `(Some a, b)`: a constructor as a tuple's first component.
                         return self.tuple_pattern(first, span);
@@ -1144,6 +1181,7 @@ impl<'t> Parser<'t> {
                     with_span(first, span.to(end))
                 } else {
                     let inner = self.pattern()?;
+                    let inner = self.alternatives(inner, Self::tuple_component)?;
                     if self.peek() == Some(&Tok::Comma) {
                         return self.tuple_pattern(inner, span);
                     }
@@ -1984,16 +2022,61 @@ impl<'t> Parser<'t> {
 
     /// A pattern of a `match` alternative: what may stand inside brackets in
     /// an equation, so a constructor's arguments need no parentheses
-    /// (`Cons x Nil`).
+    /// (`Cons x Nil`); or several, `p | q`.
     fn alt_pattern(&mut self) -> Result<Pattern> {
+        let first = self.alt_pattern_one()?;
+        self.alternatives(first, Self::alt_pattern_one)
+    }
+
+    fn alt_pattern_one(&mut self) -> Result<Pattern> {
         if self.ctor_ahead() {
             let start = self.here();
             let name = self.ctor_name()?;
             return self.ctor_args(name, start, |t| {
-                matches!(t, Some(Tok::Comma | Tok::Arrow | Tok::FatArrow) | None)
+                matches!(
+                    t,
+                    Some(Tok::Comma | Tok::Arrow | Tok::FatArrow | Tok::Pipe) | None
+                )
             });
         }
         self.tuple_component()
+    }
+
+    /// Whether a `|` between alternatives of an or-pattern is next: one on
+    /// the same line, since a `|` that starts a line starts the next arm.
+    fn or_bar_ahead(&self) -> bool {
+        self.peek() == Some(&Tok::Pipe) && !self.tokens[self.pos].line_start
+    }
+
+    /// `first | q | …`, each further alternative parsed by `next`; just
+    /// `first` if no `|` follows. No alternative may bind a variable.
+    fn alternatives(
+        &mut self,
+        first: Pattern,
+        next: fn(&mut Self) -> Result<Pattern>,
+    ) -> Result<Pattern> {
+        if !self.or_bar_ahead() {
+            return Ok(first);
+        }
+        let mut alternatives = vec![first];
+        while self.or_bar_ahead() {
+            self.bump();
+            alternatives.push(next(self)?);
+        }
+        if let Some(name) = alternatives.iter().find_map(first_bound) {
+            return Err(Diagnostic::error(
+                "E-OR-PATTERN-BINDS",
+                "an or-pattern can't bind names",
+            )
+            .with_label(name.span, format!("`{}` is bound here", name.text))
+            .with_note(
+                "write `_` for a part that isn't used, or match each alternative in an arm of its own",
+            ));
+        }
+        let span = alternatives[0]
+            .span()
+            .to(alternatives[alternatives.len() - 1].span());
+        Ok(Pattern::Or(alternatives, span))
     }
 
     /// `x (a, b) => body`, once `lambda_ahead` has said this is one. Out of
@@ -4657,6 +4740,86 @@ mod tests {
         assert_eq!(outer.len(), 2);
         assert_eq!(match_parts(&outer[0].body).1.len(), 2);
         assert!(is_num(&outer[1].body, 3));
+    }
+
+    /// The alternatives of an or-pattern.
+    fn or_alternatives(p: &Pattern) -> &[Pattern] {
+        let Pattern::Or(alternatives, _) = p else {
+            panic!("expected an or-pattern, got {p:?}");
+        };
+        alternatives
+    }
+
+    #[test]
+    fn parses_or_patterns() {
+        // On one line, one arm; a `|` that starts a line starts the next.
+        let e = rhs(
+            "def f (c : Char) : Nat :=\n  match c with\n    | 'k' | 'w' => 1\n    | Red | Green _ => 2\n    | _ => 3\n",
+        );
+        let (_, alts) = match_parts(&e);
+        assert_eq!(alts.len(), 3);
+        let first = or_alternatives(&alts[0].patterns[0]);
+        assert!(matches!(
+            first,
+            [Pattern::Char('k', _), Pattern::Char('w', _)]
+        ));
+        assert!(matches!(
+            or_alternatives(&alts[1].patterns[0]),
+            [Pattern::Ctor(_, none, _), Pattern::Ctor(_, one, _)] if none.is_empty() && one.len() == 1
+        ));
+        assert!(matches!(alts[2].patterns[0], Pattern::Wildcard(_)));
+
+        // `|` binds tighter than `,`.
+        let e =
+            rhs("def f (a : Nat) (b : Nat) : Nat := match a, b with | 0 | 1, Red | Green => 0\n");
+        let (_, alts) = match_parts(&e);
+        assert_eq!(alts.len(), 1);
+        assert_eq!(or_alternatives(&alts[0].patterns[0]).len(), 2);
+        assert_eq!(or_alternatives(&alts[0].patterns[1]).len(), 2);
+
+        // Nested in brackets, a tuple and a list.
+        let e = rhs(
+            "def f (p : Nat) : Nat := match p with | Some ('a' | 'b') => 0 | (0 | 1, _) => 1 | [_, 'x' | 'y'] => 2\n",
+        );
+        let (_, alts) = match_parts(&e);
+        let Pattern::Ctor(_, args, _) = &alts[0].patterns[0] else {
+            panic!("{:?}", alts[0].patterns[0])
+        };
+        assert_eq!(or_alternatives(&args[0]).len(), 2);
+        let Pattern::Tuple(a, _, _) = &alts[1].patterns[0] else {
+            panic!("{:?}", alts[1].patterns[0])
+        };
+        assert_eq!(or_alternatives(a).len(), 2);
+        let Pattern::Cons(_, rest, _) = &alts[2].patterns[0] else {
+            panic!("{:?}", alts[2].patterns[0])
+        };
+        assert!(matches!(&**rest, Pattern::Cons(x, _, _) if or_alternatives(x).len() == 2));
+
+        // In a definition's arms.
+        let module = parse("def f: Colour -> Nat\n  | Red | Blue => 1\n  | _ => 2\n");
+        let arms: Vec<&Pattern> = module
+            .decls
+            .iter()
+            .filter_map(|d| match d {
+                Decl::Equation { patterns, .. } => Some(&patterns[0]),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(arms.len(), 2);
+        assert_eq!(or_alternatives(arms[0]).len(), 2);
+    }
+
+    #[test]
+    fn rejects_binding_in_or_patterns() {
+        for text in [
+            "def f (o : Nat) : Nat := match o with | Some x | None => 0\n",
+            "def f (o : Nat) : Nat := match o with | Some (x | 0) => 0\n",
+            "def f (o : Nat) : Nat := match o with | { name } | _ => 0\n",
+        ] {
+            let error = rhs_of(text).unwrap_err();
+            assert_eq!(error.code, "E-OR-PATTERN-BINDS", "{text}");
+        }
+        assert!(rhs_of("def f (o : Nat) : Nat := match o with | Some _ | None => 0\n").is_ok());
     }
 
     #[test]

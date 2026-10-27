@@ -64,18 +64,7 @@ theorem listedKey (char: Char) (yes: Decidable.IsYes (List.decMem char commandKe
 -- `commandOfChar` takes its `_` arm too.
 theorem onlyListedKeys (char: Char) (command: Command) (found: commandOfChar char = Some command): char ∈ commandKeys :=
   match char with
-    | 'k' => listedKey char Trivial
-    | 'w' => listedKey char Trivial
-    | 'j' => listedKey char Trivial
-    | 's' => listedKey char Trivial
-    | 'h' => listedKey char Trivial
-    | 'a' => listedKey char Trivial
-    | 'l' => listedKey char Trivial
-    | 'd' => listedKey char Trivial
-    | '.' => listedKey char Trivial
-    | '>' => listedKey char Trivial
-    | 'p' => listedKey char Trivial
-    | 'q' => listedKey char Trivial
+    | 'k' | 'w' | 'j' | 's' | 'h' | 'a' | 'l' | 'd' | '.' | '>' | 'p' | 'q' => listedKey char Trivial
     | _ => Void.exfalso (Option.noneNotSome command found)
 
 -- And no other key at all: a key that is a command is an arrow, or one of

@@ -631,6 +631,7 @@ pub(crate) fn written_names(patterns: &[Pattern]) -> Vec<&str> {
                 fields.iter().for_each(|(_, p)| walk(p, out))
             }
             Pattern::Named(_, p, _) => walk(p, out),
+            Pattern::Or(alternatives, _) => alternatives.iter().for_each(|p| walk(p, out)),
             Pattern::Wildcard(_)
             | Pattern::Absurd(_)
             | Pattern::Num(..)
@@ -642,6 +643,37 @@ pub(crate) fn written_names(patterns: &[Pattern]) -> Vec<&str> {
     let mut out = Vec::new();
     patterns.iter().for_each(|p| walk(p, &mut out));
     out
+}
+
+/// The rows with their or-patterns expanded: a row with `p | q` in a column
+/// is a row with `p` there, then one with `q`, each spanning its
+/// alternative, with the same right-hand side. An or-pattern inside a
+/// constructor's argument is expanded when the split brings it to a column.
+fn expand_or_patterns<'a>(rows: &[Row<'a>]) -> Vec<Row<'a>> {
+    let mut expanded = Vec::new();
+    let mut pending: Vec<Row<'a>> = rows.iter().rev().cloned().collect();
+    while let Some(row) = pending.pop() {
+        let Some(j) = row.pats.iter().position(|p| matches!(**p, Pattern::Or(..))) else {
+            expanded.push(row);
+            continue;
+        };
+        let alternatives: Vec<Pat<'a>> = match &row.pats[j] {
+            Cow::Borrowed(Pattern::Or(alternatives, _)) => {
+                alternatives.iter().map(Cow::Borrowed).collect()
+            }
+            Cow::Owned(Pattern::Or(alternatives, _)) => {
+                alternatives.iter().cloned().map(Cow::Owned).collect()
+            }
+            _ => unreachable!("an or-pattern"),
+        };
+        for alternative in alternatives.into_iter().rev() {
+            let mut one = row.clone();
+            one.span = alternative.span();
+            one.pats[j] = alternative;
+            pending.push(one);
+        }
+    }
+    expanded
 }
 
 /// One equation during pattern-match compilation: the patterns still to be
@@ -3035,6 +3067,12 @@ impl Elaborator {
         span: Span,
     ) -> Result<Tree<'a>> {
         self.globals.budget.nesting(check::PASS)?;
+        if rows
+            .iter()
+            .any(|row| row.pats.iter().any(|p| matches!(**p, Pattern::Or(..))))
+        {
+            return self.compile(&expand_or_patterns(rows), depth, columns, types, span);
+        }
         let first = &rows[0];
         if let Some(j) = first
             .pats
@@ -3345,6 +3383,7 @@ impl Elaborator {
     ) -> Result<Option<CtorPattern<'a>>> {
         match &**pattern {
             Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => Ok(None),
+            Pattern::Or(..) => unreachable!("`compile` expands or-patterns before it splits"),
             Pattern::Named(_, _, span) => Err(error(
                 "E-ARITY",
                 *span,

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches characters other than 'a' and 'b'
+   ╭─[ reject/or-pattern-missing-case.sw:5:3 ]
+   │
+ 5 │   | 'a' | 'b' => True
+   │   ─────────┬─────────  
+   │            ╰─────────── missing case: no arm matches characters other than 'a' and 'b'
+   │ 
+   │ Note: add an arm with a variable or `_` in that position
+───╯

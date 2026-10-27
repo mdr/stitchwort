@@ -115,6 +115,7 @@ impl Walk {
                 self.pattern(b);
             }
             Pattern::Named(_, p, _) => self.pattern(p),
+            Pattern::Or(alternatives, _) => alternatives.iter().for_each(|p| self.pattern(p)),
             Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => {
                 for (name, p) in fields {
                     self.bound.insert(name.text.clone());
