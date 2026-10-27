@@ -3216,13 +3216,13 @@
     {
       "id": 501,
       "title": "Goals: keep zero-argument constants folded (maxHitPoints prints as 12, dungeon as a list); one spot in eval_step, measure AoC check and examples before/after",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -3358,13 +3358,13 @@
     {
       "id": 512,
       "title": "std List.mapWithIndex ((index, x) => …): rogue's withIndex.map with triple-bracket pair lambdas (NOTES stage 1 #10)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -4721,13 +4721,13 @@
     {
       "id": 616,
       "title": "Pipe vs prefix elaborate differently in effectful code: rewriting List.sum (List.map xs f) as xs.map f |> .sum changes the definition hash in examples main-fail, main-fail-ok, partial-map-self (f effectful) — find whether the terms differ in meaning (effect order) or only in shape; found by the restyle lane 26 Oct",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -5057,13 +5057,13 @@
     {
       "id": 644,
       "title": "Std gap: a fold over zip that uses only each pair's first element equals the fold over the first list (trigger: the private port's layoutStartFold stays a hand induction, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
