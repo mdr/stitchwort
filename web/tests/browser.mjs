@@ -329,7 +329,7 @@ test("direct links open the dropdown's entries, and follow it", async (page) => 
   await page.untilStatus(dayStatus(1), 60000);
   assert.equal(await page.ev(`document.getElementById("example").value`), "aoc:0");
   await page.ev(`(() => { ${blank} location.hash = "#aoc/2024/day01"; })()`);
-  await page.untilStatus(dayStatus(1), 60000);
+  await page.untilStatus(dayStatus(1, 2024), 60000);
   assert.equal(await page.ev(`document.getElementById("example").value`), "aoc:9");
   // An unknown fragment gives the default example, with a notice.
   await page.ev(`(() => { ${blank} location.hash = "#example/nonsense"; })()`);
@@ -1556,7 +1556,7 @@ const AOC_DAYS = [
   { year: 2024, day: 1, example: answers(11, 31), puzzle: answers(2066446, 24931009) }
 ];
 /** Every day has proofs. */
-const dayStatus = (day) => `Day ${day} and its proofs checked by the kernel`;
+const dayStatus = (day, year = 2025) => `${year} / Day ${day} and its proofs checked by the kernel`;
 const DAY2 = "src/Aoc/Year2025/Day02/Day02.sw";
 const DAY2_TABS = ["Day02.sw", "Tests/BruteForce.sw", "Tests/Examples.sw", "Tests/Input.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Proofs/Templates.sw", "Common/Lines.sw", "Common/Proofs/Range.sw", "Common/Range.sw", "Spec/Spec.sw"];
 
@@ -1564,10 +1564,12 @@ const DAY2_TABS = ["Day02.sw", "Tests/BruteForce.sw", "Tests/Examples.sw", "Test
 const fileTabs = (page) => page.ev(`[...document.querySelectorAll("#filetabs button")].map((b) => b.firstChild.textContent)`);
 /** Opens the dropdown's `index`th day, day `day` of its year, and waits for it to check; its tabs are those of
  *  its namespaces. */
-async function openEntry(page, index, day) {
+async function openEntry(page, index, day, year) {
   await page.pick(`aoc:${index}`);
-  await page.untilStatus(dayStatus(day), 60000);
+  await page.untilStatus(dayStatus(day, year), 60000);
 }
+/** The text the closed picker shows. */
+const pickerLabel = (page) => page.ev(`document.getElementById("example").selectedOptions[0].textContent`);
 /** Opens a day of 2025. */
 const openDay = (page, day) => openEntry(page, day - 1, day);
 const openTab = (page, label) => page.ev(`[...document.querySelectorAll("#filetabs button")].find((b) => b.firstChild.textContent === ${JSON.stringify(label)}).click()`);
@@ -1588,10 +1590,17 @@ test("the AoC days are listed, and a day opens its program with its files as tab
     return groups.length > 0 && groups.map((g) => ({ label: g.label, days: [...g.children].map((o) => o.textContent) })); })()`,
     10000, "the AoC groups");
   assert.deepEqual(years, [
-    { label: "Advent of Code 2025", days: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7", "Day 8", "Day 9"] },
-    { label: "Advent of Code 2024", days: ["Day 1"] }
+    { label: "Advent of Code 2025", days: [1, 2, 3, 4, 5, 6, 7, 8, 9].map((day) => `2025 / Day ${day}`) },
+    { label: "Advent of Code 2024", days: ["2024 / Day 1"] }
   ]);
+  // The closed picker and the status name the year.
+  await openEntry(page, 9, 1, 2024);
+  assert.equal(await pickerLabel(page), "2024 / Day 1");
+  assert.equal(await page.status(), "2024 / Day 1 and its proofs checked by the kernel");
+  await shots(page, "year-label-2024");
   await openDay(page, 2);
+  assert.equal(await pickerLabel(page), "2025 / Day 2");
+  assert.equal(await page.status(), "2025 / Day 2 and its proofs checked by the kernel");
   assert.equal(await page.ev(`document.getElementById("filebar").hidden`), false);
   await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`, 10000, "day 2's tabs");
   assert.deepEqual(await fileTabs(page), DAY2_TABS);
@@ -1617,7 +1626,7 @@ test("every day checks, with its proofs, and runs on its example and on its puzz
   for (const [index, { year, day, example, puzzle }] of AOC_DAYS.entries()) {
     const name = `${year} day ${day}`;
     const file = `${year}/day0${day}.txt`;
-    await openEntry(page, index, day);
+    await openEntry(page, index, day, year);
     const input = await page.until(`document.getElementById("run-input")?.value || (document.getElementById("run").click(), false)`, 10000, "the input");
     assert.equal(input, await page.ev(`fetch("pkg/projects/aoc/examples/${file}").then((r) => r.text())`), `${name}: the input box has the example`);
     assert.equal(await page.ev(`document.getElementById("run").title`), `Run Aoc.Year${year}.Day0${day}.main (Ctrl+Enter)`);
@@ -1798,9 +1807,9 @@ test("Evaluate takes full names in a project", async (page) => {
 test("the roguelike is a second project: it checks with its proofs, plays on keys typed in the input box, and tests", async (page) => {
   await page.open();
   await page.untilChecked();
-  const groups = await page.until(`[...document.querySelectorAll("#example optgroup")].length === 2 &&
-    [...document.querySelectorAll("#example optgroup")].map((g) => [g.label, [...g.children].map((o) => o.value + "=" + o.textContent)])`, 10000, "both groups");
-  assert.deepEqual(groups[1], ["Roguelike", ["rogue:0=Play", "rogue:1=Play (scripted)"]]);
+  const groups = await page.until(`[...document.querySelectorAll("#example optgroup")].length === 3 &&
+    [...document.querySelectorAll("#example optgroup")].map((g) => [g.label, [...g.children].map((o) => o.value + "=" + o.textContent)])`, 10000, "every group");
+  assert.deepEqual(groups[2],["Roguelike", ["rogue:0=Play", "rogue:1=Play (scripted)"]]);
   // The bundle is the sources alone.
   const manifest = await page.ev(`fetch("pkg/projects/rogue/manifest.json").then((r) => r.json())`);
   assert.ok(manifest.files.length > 15 && manifest.files.every((p) => /^src\/.*\.sw$/.test(p)), manifest.files.join());
