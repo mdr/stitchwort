@@ -269,11 +269,17 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
                 Term::Ctor(unit, trivial, Vec::new()),
             ))
         }
-        Value::Ctor(_, _, _) => Err(cx.error(
-            "E-AUTO-FALSE",
-            format!("`{shown}` is false"),
-            "this needs a proof that can't exist",
-        )),
+        Value::Ctor(_, _, _) => {
+            let message = match not_in_list(cx, &goal)? {
+                Some(message) => message,
+                None => format!("`{shown}` is false"),
+            };
+            Err(cx.error(
+                "E-AUTO-FALSE",
+                message,
+                "this needs a proof that can't exist",
+            ))
+        }
         _ => Err(cx.with_opaque_notes(
             cx.error(
                 "E-AUTO-STUCK",
@@ -287,6 +293,60 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             &[&goal],
         )),
     }
+}
+
+/// The fewest items a list written out has for a false membership in it to
+/// be reported as such, not as the disjunction it computes to.
+const LISTED_MEMBERSHIP: usize = 3;
+
+/// The most items of that list the message shows.
+const LISTED_SHOWN: usize = 10;
+
+/// For a membership in a list written out, which computes to
+/// `y1 = x ∨ y2 = x ∨ … ∨ Void`: "`x` is not in the list `[y1, y2, …]`".
+/// `None` for any other goal, or a list shorter than [`LISTED_MEMBERSHIP`].
+fn not_in_list(cx: &Ctx, goal: &Value) -> Result<Option<String>> {
+    let (Some(or), Some(void)) = (
+        cx.g().registry.data(Builtin::Or),
+        cx.g().registry.data(Builtin::Void),
+    ) else {
+        return Ok(None);
+    };
+    let mut value: Option<String> = None;
+    let mut items: Vec<String> = Vec::new();
+    let mut rest = goal.clone();
+    loop {
+        match force(cx.g(), rest)? {
+            Value::Data(d, params) if d == void && params.is_empty() => break,
+            Value::Data(d, params) if d == or && params.len() == 2 => {
+                let Value::Eq(_, item, sought) = force(cx.g(), params[0].clone())? else {
+                    return Ok(None);
+                };
+                let sought = cx.show(&sought);
+                if value.as_ref().is_some_and(|v| *v != sought) {
+                    return Ok(None);
+                }
+                value = Some(sought);
+                items.push(cx.show(&item));
+                rest = params[1].clone();
+            }
+            _ => return Ok(None),
+        }
+    }
+    let Some(value) = value.filter(|_| items.len() >= LISTED_MEMBERSHIP) else {
+        return Ok(None);
+    };
+    let count = items.len();
+    let mut shown: Vec<String> = items.into_iter().take(LISTED_SHOWN).collect();
+    let mut size = String::new();
+    if count > LISTED_SHOWN {
+        shown.push("…".to_string());
+        size = format!(" ({count} items)");
+    }
+    Ok(Some(format!(
+        "`{value}` is not in the list `[{}]`{size}",
+        shown.join(", ")
+    )))
 }
 
 /// A proof of `Nat.LexLess a1 a2 b1 b2`, what a recursive call of a

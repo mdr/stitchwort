@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AUTO-FALSE] Error: `1 = 13 ∨ 2 = 13 ∨ 3 = 13 ∨ 4 = 13 ∨ 5 = 13 ∨ 6 = 13 ∨ 7 = 13 ∨ 8 = 13 ∨ 9 = 13 ∨ 10 = 13 ∨ 11 = 13 ∨ 12 = 13 ∨ Void` is false
+[E-AUTO-FALSE] Error: `13` is not in the list `[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, …]` (12 items)
    ╭─[ reject/auto-membership-absent.sw:7:17 ]
    │
  7 │ def use: Nat := inList 13
