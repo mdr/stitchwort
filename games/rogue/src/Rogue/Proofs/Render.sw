@@ -17,17 +17,6 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Text, Void)
 theorem glyphAtPlayer (state: State) (terrain: Char): glyphAt (marksIn state state.player.row) state.player.column terrain = '@' :=
   rewrite natEqSelf state.player.row, natEqSelf state.player.column in rfl
 
-theorem lengthWithIndexFrom: (start: Nat) → (xs: List a) → (List.withIndexFrom start xs).length = xs.length
-  | start, [] => rfl
-  | start, Cons x xs => Eq.cong Succ (lengthWithIndexFrom (Succ start) xs)
-
--- The `index`th of a list mapped with its indices.
-theorem getOrMapIndexed (f: Pair Nat a → b) (fallback: b) (d: a):
-    (start: Nat) → (xs: List a) → (index: Nat) → index < xs.length →
-    ((List.withIndexFrom start xs).map f).getOr fallback index = f (MkPair (start + index) (xs.getOr d index))
-  | start, [], index, inside => Void.exfalso (Bool.falseNotTrue inside)
-  | start, Cons x xs, Zero, inside => rewrite Nat.addZero start in rfl
-  | start, Cons x xs, Succ index, inside => rewrite Nat.addSucc start index in getOrMapIndexed f fallback d (Succ start) xs index inside
 -- Among the monsters' marks on a cell's row, the first in the cell's column
 -- is the glyph of the monster `monsterAt` finds there.
 theorem findMonsterMark (position: Position) (found: Monster) (rest: List (Nat, Char)):
@@ -66,18 +55,17 @@ theorem renderCell (state: State) (position: Position) (tall: position.row < sta
   let row := position.row
   let column := position.column
   let chars := terrain.getOr [] row
-  let drawCell: List (Nat, Char) → (Nat, Char) → Char := marks => ((column, char)) => glyphAt marks column char
-  let drawRow: (Nat, List Char) → Text := ((row, chars)) =>
+  let drawRow: Nat → List Char → Text := row chars =>
     let marks := marksIn state row
-    chars.withIndex.map (drawCell marks) |> Text.fromList
-  let rows := terrain.withIndex.map drawRow
-  let long: row < rows.length := rewrite List.lengthMap terrain.withIndex drawRow, lengthWithIndexFrom 0 terrain in tall
+    chars.mapWithIndex (glyphAt marks) |> Text.fromList
+  let rows := terrain.mapWithIndex drawRow
+  let long: row < rows.length := rewrite List.lengthMapWithIndex terrain drawRow in tall
   let first: (render state).getOr "" row = rows.getOr "" row :=
     List.getOrAppendLeft rows "" row [statusLine state, keysLine, state.message] long
-  let second: rows.getOr "" row = drawRow (0 + row, chars) := getOrMapIndexed drawRow "" [] 0 terrain row tall
-  let third: (chars.withIndex.map (drawCell (marksIn state (0 + row)))).getOr ' ' column = glyphAt (marksIn state (0 + row)) (0 + column) (chars.getOr ' ' column) :=
-    getOrMapIndexed (drawCell (marksIn state (0 + row))) ' ' ' ' 0 chars column wide
-  rewrite first, second in rewrite third, zeroPlus row, zeroPlus column in rfl
+  let second: rows.getOr "" row = drawRow row chars := List.getOrMapWithIndex terrain [] "" row tall drawRow
+  let third: (chars.mapWithIndex (glyphAt (marksIn state row))).getOr ' ' column = glyphAt (marksIn state row) column (chars.getOr ' ' column) :=
+    List.getOrMapWithIndex chars ' ' ' ' column wide (glyphAt (marksIn state row))
+  rewrite first, second in rewrite third in rfl
 
 -- `render` draws `@` at the player's row and column.
 theorem renderPlayer (state: State) (tall: state.player.row < state.level.terrain.length)

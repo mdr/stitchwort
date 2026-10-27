@@ -1499,6 +1499,10 @@ def List.withIndexFrom (i: Nat): List a → List (Pair Nat a)
 -- (Rust's `enumerate`): `["a", "b"].withIndex` is `[(0, "a"), (1, "b")]`.
 def List.withIndex (xs: List a): List (Pair Nat a) := List.withIndexFrom 0 xs
 
+-- `f` of each element's index and the element:
+-- `["a", "b"].mapWithIndex (index x => "${index}${x}")` is `["0a", "1b"]`.
+def List.mapWithIndex (xs: List a) (f: Nat → a → {e} b): {e} List b := xs.withIndex.map (pair => f pair.fst pair.snd)
+
 -- One step of `List.findMap`: the `Some` found, or else the search of the
 -- rest, which runs only then. The rest is a function of no arguments so that
 -- an effectful `f` isn't called after the first `Some`; a function of its
@@ -1574,6 +1578,8 @@ test "List.dropRight" := [1, 2, 3, 4].dropRight 1 == [1, 2, 3] ∧ [1, 2].dropRi
 test "List.tails" := [1, 2].tails == [[1, 2], [2], Nil] ∧ (Nil: List Nat).tails == [Nil]
 test "List.findIndex" := [5, 6, 7].findIndex (x => Nat.leq 6 x) == Some 1 ∧ [5].findIndex (x => Nat.leq 10 x) == None
 test "List.withIndex" := ["a", "b"].withIndex == [MkPair 0 "a", MkPair 1 "b"] ∧ (Nil: List Nat).withIndex == Nil
+test "List.mapWithIndex" := ["a", "b"].mapWithIndex (index x => "${index}${x}") == ["0a", "1b"] ∧ (Nil: List Nat).mapWithIndex (index x => index + x) == Nil
+test "List.mapWithIndex is withIndex then map" := [5, 6, 7].mapWithIndex (index x => index * x) == [5, 6, 7].withIndex.map (((index, x)) => index * x)
 test "List.findMap" := [1, 2, 3, 4].findMap (x => if Nat.leq 3 x then Some (x * 10) else None) == Some 30 ∧ [1].findMap (x => (None: Option Nat)) == None
 test "List.findMap is the head of filterMap" :=
   [1, 2, 3, 4].findMap (x => if Nat.leq 3 x then Some (x * 10) else None) == ([1, 2, 3, 4].filterMap (x => if Nat.leq 3 x then Some (x * 10) else None)).head ∧
@@ -1617,6 +1623,27 @@ theorem List.foldLeftZipWith (g: a → b → c) (f: d → c → d): (xs: List a)
   | Nil, ys, z => rfl
   | Cons x xs, Nil, z => rfl
   | Cons x xs, Cons y ys, z => List.foldLeftZipWith g f xs ys (f z (g x y))
+
+-- A fold over `zip xs ys` whose step uses only each pair's first element is
+-- the fold over `xs`, when `ys` is at least as long.
+theorem List.foldLeftZipLeft (step: c → Pair a b → c) (f: c → a → c) (same: (acc: c) → (x: a) → (y: b) → step acc (MkPair x y) = f acc x):
+    (xs: List a) → (ys: List b) → (z: c) → List.length xs ≤ List.length ys → List.foldLeft (List.zip xs ys) z step = List.foldLeft xs z f
+  | Nil, ys, z, le => rfl
+  | Cons x xs, Nil, z, le => Void.exfalso (Bool.falseNotTrue le)
+  | Cons x xs, Cons y ys, z, le => rewrite same z x y in List.foldLeftZipLeft step f same xs ys (f z x) le
+
+theorem List.foldRightZipLeft (step: Pair a b → c → c) (f: a → c → c) (same: (x: a) → (y: b) → (acc: c) → step (MkPair x y) acc = f x acc):
+    (xs: List a) → (ys: List b) → (z: c) → List.length xs ≤ List.length ys → List.foldRight (List.zip xs ys) z step = List.foldRight xs z f
+  | Nil, ys, z, le => rfl
+  | Cons x xs, Nil, z, le => Void.exfalso (Bool.falseNotTrue le)
+  | Cons x xs, Cons y ys, z, le =>
+    calc List.foldRight (Cons (MkPair x y) (List.zip xs ys)) z step
+      _ = step (MkPair x y) (List.foldRight (List.zip xs ys) z step) := List.foldRightCons (List.zip xs ys) (MkPair x y) z step
+      _ = f x (List.foldRight (List.zip xs ys) z step) := same x y (List.foldRight (List.zip xs ys) z step)
+      _ = f x (List.foldRight xs z f) := rewrite List.foldRightZipLeft step f same xs ys z le
+      _ = List.foldRight (Cons x xs) z f := Eq.sym (List.foldRightCons xs x z f)
+
+test "List.foldLeftZipLeft" := List.foldLeft (List.zip [1, 2, 3] ["a", "b", "c", "d"]) 0 (acc pair => acc + pair.fst) == 6
 
 theorem List.anyMap: (xs: List a) → (p: b → Bool) → (f: a → b) → List.any (List.map xs f) p = List.any xs (x => p (f x))
   | Nil, p, f => rfl
@@ -2059,6 +2086,36 @@ theorem List.getMap: (xs: List a) → (f: a → b) → (k: Nat) → List.get (Li
   | Nil, f, k => rfl
   | Cons x xs, f, Zero => rfl
   | Cons x xs, f, Succ k => List.getMap xs f k
+
+-- Each element with its index: as long as the list, and element k is the
+-- list's element k with k (counted from `start`).
+theorem List.lengthWithIndexFrom: (start: Nat) → (xs: List a) → List.length (List.withIndexFrom start xs) = List.length xs
+  | start, Nil => rfl
+  | start, Cons x xs => Eq.cong Succ (List.lengthWithIndexFrom (Succ start) xs)
+
+theorem List.lengthWithIndex (xs: List a): List.length (List.withIndex xs) = List.length xs := List.lengthWithIndexFrom 0 xs
+
+theorem List.getWithIndexFrom: (start: Nat) → (xs: List a) → (k: Nat) →
+    List.get (List.withIndexFrom start xs) k = Option.map (List.get xs k) (x => MkPair (start + k) x)
+  | start, Nil, k => rfl
+  | start, Cons x xs, Zero => rewrite Nat.addZero start in rfl
+  | start, Cons x xs, Succ k => rewrite Nat.addSucc start k in List.getWithIndexFrom (Succ start) xs k
+
+theorem List.getWithIndex (xs: List a) (k: Nat): List.get (List.withIndex xs) k = Option.map (List.get xs k) (x => MkPair k x) :=
+  List.getWithIndexFrom 0 xs k
+
+-- `mapWithIndex` keeps the length, and element k is `f k` of the list's
+-- element k.
+theorem List.lengthMapWithIndex (xs: List a) (f: Nat → a → b): List.length (List.mapWithIndex xs f) = List.length xs :=
+  Eq.trans (List.lengthMap (List.withIndex xs) (pair => f pair.fst pair.snd)) (List.lengthWithIndex xs)
+
+theorem List.getMapWithIndex (xs: List a) (f: Nat → a → b) (k: Nat): List.get (List.mapWithIndex xs f) k = Option.map (List.get xs k) (f k) :=
+  let mapped: List.get (List.mapWithIndex xs f) k = Option.map (Option.map (List.get xs k) (x => MkPair k x)) (pair => f pair.fst pair.snd) :=
+    rewrite <- List.getWithIndex xs k in List.getMap (List.withIndex xs) (pair => f pair.fst pair.snd) k
+  rewrite mapped in
+    match List.get xs k with
+      | None => rfl
+      | Some x => rfl
 
 -- `zipWith` has `f x y` where both lists have an element, `x` and `y`.
 theorem List.getZipWith (f: a → b → c): (xs: List a) → (ys: List b) → (k: Nat) →
