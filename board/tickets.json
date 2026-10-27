@@ -3358,7 +3358,7 @@
     {
       "id": 512,
       "title": "std List.mapWithIndex ((index, x) => …): rogue's withIndex.map with triple-bracket pair lambdas (NOTES stage 1 #10)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5057,7 +5057,7 @@
     {
       "id": 644,
       "title": "Std gap: a fold over zip that uses only each pair's first element equals the fold over the first list (trigger: the private port's layoutStartFold stays a hand induction, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
