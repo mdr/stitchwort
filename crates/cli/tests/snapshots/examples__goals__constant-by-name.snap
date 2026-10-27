@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `healedAtMost`
+    ╭─[ goals/constant-by-name.sw:11:3 ]
+    │
+ 11 │   ?
+    │   ┬  
+    │   ╰── hitPoints: Nat
+    │       rooms: List Nat
+    │       same: rooms = startingRooms
+    │       ⊢ Nat.leq (healed hitPoints) maxHitPoints = True
+────╯
