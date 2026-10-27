@@ -5513,7 +5513,7 @@
     {
       "id": 682,
       "title": "getOr argument order: Map/List/Vec/Map.Raw getOr take receiver, key/index, then fallback, as Lean's getD (D1406, Matt 27 Oct; research note getor-research.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
