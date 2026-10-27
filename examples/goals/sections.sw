@@ -1,7 +1,7 @@
 -- Operator sections and bare operators are shown as written: `(== id)`,
 -- `(id ==)`, `(+ 1)`, `(< n)`, `(+)`. A method section that takes a whole
 -- expression is a lambda, with its parameter named.
-type Item : Type = { name: Text, id: Nat }
+type Item: Type = { name: Text, id: Nat }
 
 def summary (xs: List Nat) (items: List Item) (id: Nat) (n: Nat): Nat :=
   let matching := xs.count (== id)
