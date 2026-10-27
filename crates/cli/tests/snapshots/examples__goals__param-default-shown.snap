@@ -1,0 +1,66 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `rangeGoal`
+    ╭─[ goals/param-default-shown.sw:12:63 ]
+    │
+ 12 │ theorem rangeGoal (a: Nat) (b: Nat): range a b = [a, b, 1] := ?
+    │                                                               ┬  
+    │                                                               ╰── a: Nat
+    │                                                                   b: Nat
+    │                                                                   ⊢ range a b (step := 1) = [a, b, 1]
+────╯
+[GOAL] Goal: in `scaledGoal`
+    ╭─[ goals/param-default-shown.sw:14:54 ]
+    │
+ 14 │ theorem scaledGoal (a: Nat): scaled a = a + a * 2 := ?
+    │                                                      ┬  
+    │                                                      ╰── a: Nat
+    │                                                          ⊢ scaled a = a + (a * 2)
+────╯
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ goals/param-default-shown.sw:16:64 ]
+    │
+ 16 │ theorem rangeShape (a: Nat) (b: Nat): range a b = [a, b, 2] := rfl
+    │                                                                ─┬─  
+    │                                                                 ╰─── `range a b` and `[a, b, 2]` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `[a, b, 1]`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: this statement is false; a counterexample:
+    │           a = 0
+    │           b = 0
+    │         `range a b = [a, b, 2]` is false:
+    │           left:  [0, 0, 1]
+    │           right: [0, 0, 2]
+    │           first difference at [2]: 1 vs 2
+────╯
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ goals/param-default-shown.sw:18:47 ]
+    │
+ 18 │ theorem scaledShape (a: Nat): scaled a = a := rfl
+    │                                               ─┬─  
+    │                                                ╰─── `scaled a` and `a` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `a + (a * 2)`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: this statement is false; a counterexample:
+    │           a = 1
+    │         `scaled a = a` is false:
+    │           left:  3
+    │           right: 1
+────╯
+[GOAL] Goal: in `outer`
+    ╭─[ goals/param-default-shown.sw:23:52 ]
+    │
+ 23 │   def innerGoal (m: Nat): inner m = m + (k + m) := ?
+    │                                                    ┬  
+    │                                                    ╰── k: Nat
+    │                                                        m: Nat
+    │                                                        ⊢ inner m = m + (k + m)
+────╯

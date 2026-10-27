@@ -36,8 +36,8 @@ use stitchwort_core::collections::HashSet;
 use stitchwort_core::globals::ParamDefaults;
 use stitchwort_core::value::{eval, force, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
-use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Decl, Expr};
+use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Arg, Ctx, check, implicit_arg};
 use crate::module::Phase;
@@ -1100,6 +1100,18 @@ pub(crate) fn filled_by_call(cx: &Ctx, expr: &Expr) -> Vec<String> {
             _ => return Vec::new(),
         },
     };
+    left_out(cx, &head, &args)
+        .into_iter()
+        .map(|(x, r)| match default_value(cx, r) {
+            Some(value) => format!("`{x}` is its default, `{value}`"),
+            None => format!("`{x}` is its default"),
+        })
+        .collect()
+}
+
+/// The defaulted parameters of `head` that a call with `args` doesn't
+/// name, each with its default.
+fn left_out(cx: &Ctx, head: &(Term, Value), args: &[Arg]) -> Vec<(Name, DefaultRef)> {
     let Some(defaults) = of_head(cx, &head.0) else {
         return Vec::new();
     };
@@ -1117,15 +1129,33 @@ pub(crate) fn filled_by_call(cx: &Ctx, expr: &Expr) -> Vec<String> {
         .filter(|&i| defaults.defaulted[i])
         .filter_map(|i| {
             let x = &sig.params.get(i)?.name;
-            if given.contains(&&**x) {
-                return None;
-            }
-            Some(match default_value(cx, defaults.arg(i)) {
-                Some(value) => format!("`{x}` is its default, `{value}`"),
-                None => format!("`{x}` is its default"),
-            })
+            (!given.contains(&&**x)).then(|| (x.clone(), defaults.arg(i)))
         })
         .collect()
+}
+
+/// For hover on the head of a call written at `at`, `head` applied to
+/// `args`: each default the call used, "`step` left out: its default `1`".
+pub(crate) fn note_left_out(cx: &Ctx, at: Span, head: &(Term, Value), args: &[Arg]) {
+    if cx.e.nav.is_none() {
+        return;
+    }
+    let lines: Vec<String> = left_out(cx, head, args)
+        .into_iter()
+        .map(|(x, r)| {
+            let value = match r.of {
+                DefaultsOf::Def(id) => cx.e.param_default_shown(id, r.param),
+                DefaultsOf::Local(_) => default_value(cx, r),
+            };
+            match value {
+                Some(value) => format!("`{x}` left out: its default `{value}`"),
+                None => format!("`{x}` left out: its default"),
+            }
+        })
+        .collect();
+    if !lines.is_empty() {
+        cx.e.note_call_defaults(at, lines.join("\n\n"));
+    }
 }
 
 /// The defaults of local definition `signature`, whose key is `key`, once
@@ -1204,6 +1234,7 @@ pub(crate) fn local_defaults(
             (&earlier, &later),
         )?);
     }
+    label_defaults(cx, h.clone(), &telescope[..header], &params);
     cx.e.local_defaults.borrow_mut().insert(
         local_head,
         Rc::new(LocalDefaults {
@@ -1215,6 +1246,51 @@ pub(crate) fn local_defaults(
         }),
     );
     Ok(())
+}
+
+/// Gives the printer's label of a local definition's calls, `head`, its
+/// defaults `params`, so a call shows without the arguments they fill.
+/// `header` is its header's parameters.
+fn label_defaults(
+    cx: &Ctx,
+    head: Term,
+    header: &[(Name, Term, Icit)],
+    params: &[Option<LocalDefault>],
+) {
+    let level = cx.level();
+    let call = |default: &LocalDefault| -> Option<stitchwort_core::globals::DefaultCall> {
+        let (helper, outer) = app_spine(&default.helper);
+        let levels = outer
+            .iter()
+            .map(|(arg, _)| match arg.strip_loc() {
+                Term::Var(ix) => level.checked_sub(ix + 1),
+                _ => None,
+            })
+            .collect::<Option<Vec<usize>>>()?;
+        Some(stitchwort_core::globals::DefaultCall {
+            head: helper,
+            levels,
+            captures: default.captures.iter().map(|(p, _)| *p).collect(),
+        })
+    };
+    let shown = stitchwort_core::globals::CallDefaults {
+        header: header.len(),
+        params: header
+            .iter()
+            .zip(params)
+            .map(|((x, _, _), default)| (x.clone(), default.as_ref().and_then(call)))
+            .collect(),
+    };
+    let shown = Rc::new(shown);
+    let g = cx.g();
+    let mut labels = g.print_labels.borrow_mut();
+    if let Some(label) = labels.iter_mut().rev().find(|l| match (&l.head, &head) {
+        (Term::Meta(a), Term::Meta(b)) => a == b,
+        (Term::Def(a), Term::Def(b)) => a == b,
+        _ => false,
+    }) {
+        label.defaults = Some(shown);
+    }
 }
 
 /// The helper of the default `value` of parameter `i` of a local

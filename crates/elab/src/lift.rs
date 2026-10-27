@@ -611,6 +611,7 @@ impl Elaborator {
                                 head: Term::Def(id),
                                 name: local.name.as_str().into(),
                                 levels: ordered[i].clone(),
+                                defaults: None,
                             },
                         );
                     }

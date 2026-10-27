@@ -1,0 +1,77 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/param-default-shown.sw:13:67 ]
+    │
+ 13 │ theorem leftOut (a: Nat) (b: Nat): range (a + 1) b = [a, b, 1] := rfl
+    │                                                                   ─┬─  
+    │                                                                    ╰─── `range (a + 1) b` and `[a, b, 1]` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `[a + 1, b, 1]`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: this statement is false; a counterexample:
+    │           a = 0
+    │           b = 0
+    │         `range (a + 1) b = [a, b, 1]` is false:
+    │           left:  [1, 0, 1]
+    │           right: [0, 0, 1]
+    │           first difference at [0]: 1 vs 0
+────╯
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/param-default-shown.sw:15:71 ]
+    │
+ 15 │ theorem given (a: Nat) (b: Nat): range a b (step := 3) = [a, b, 1] := rfl
+    │                                                                       ─┬─  
+    │                                                                        ╰─── `range a b (step := 3)` and `[a, b, 1]` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `[a, b, 3]`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: this statement is false; a counterexample:
+    │           a = 0
+    │           b = 0
+    │         `range a b (step := 3) = [a, b, 1]` is false:
+    │           left:  [0, 0, 3]
+    │           right: [0, 0, 1]
+    │           first difference at [2]: 3 vs 1
+────╯
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/param-default-shown.sw:17:64 ]
+    │
+ 17 │ theorem laterGiven (a: Nat) (x: Nat): mix a (late := x) = a := rfl
+    │                                                                ─┬─  
+    │                                                                 ╰─── `mix a (late := x)` and `a` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `a + a + x`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: this statement is false; a counterexample:
+    │           a = 0
+    │           x = 1
+    │         `mix a (late := x) = a` is false:
+    │           left:  1
+    │           right: 0
+────╯
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/param-default-shown.sw:19:53 ]
+    │
+ 19 │ theorem resultApplied (x: Nat): (scaler 5) x = x := rfl
+    │                                                     ─┬─  
+    │                                                      ╰─── `(scaler 5) x` and `x` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `5 * x`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: this statement is false; a counterexample:
+    │           x = 1
+    │         `(scaler 5) x = x` is false:
+    │           left:  5
+    │           right: 1
+────╯

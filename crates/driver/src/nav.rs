@@ -78,6 +78,9 @@ pub struct Ref {
     pub range: Range,
     pub target: RefTarget,
     pub ty: Option<String>,
+    /// For the head of a call that left defaulted parameters out: the
+    /// defaults it used.
+    pub defaults: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -349,6 +352,7 @@ pub fn index_data_of(
             range: at,
             target,
             ty: r.ty.clone(),
+            defaults: r.defaults.clone(),
         });
     }
 

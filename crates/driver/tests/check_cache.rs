@@ -274,12 +274,14 @@ fn the_cache_replays_opaque_definitions() {
 
 /// Parameter defaults are replayed from the cache: the defaulting table of
 /// each definition, and calls in a namespace checked afresh against a
-/// cached one that leave a defaulted parameter out.
+/// cached one that leave a defaulted parameter out; with navigation, the
+/// defaults each call used, for hover.
 #[test]
 fn the_cache_replays_parameter_defaults() {
     let source = examples_dir().join("projects/accept/param-defaults-across-namespaces");
     let project = Source::Project("param-defaults-across-namespaces".into(), source.clone());
     assert_cache_changes_nothing(&project, false);
+    assert_cache_changes_nothing(&project, true);
 
     let copy = temp_dir("param-defaults-project");
     std::fs::create_dir_all(copy.join("src")).unwrap();

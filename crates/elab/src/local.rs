@@ -233,6 +233,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
             head: Term::Meta(meta),
             name: name.text.as_str().into(),
             levels,
+            defaults: None,
         });
         elaborated.push((i, ty, value, meta, call));
     }
@@ -377,6 +378,7 @@ pub(crate) fn admitted_call(
         head: Term::Def(id),
         name: name.into(),
         levels: captures.iter().map(|(l, _, _)| *l).collect(),
+        defaults: None,
     });
     Ok((term, ty))
 }
@@ -407,6 +409,7 @@ pub(crate) fn draft(
         head: Term::Meta(meta),
         name: name.into(),
         levels,
+        defaults: None,
     });
     e.drafts.borrow_mut().push(Draft {
         meta,

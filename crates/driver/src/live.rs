@@ -63,6 +63,9 @@ pub struct LiveRef {
     /// For a function, its parameters with their names
     /// (`(low: Nat) -> [n: Nat] -> Nat`).
     pub signature: Option<String>,
+    /// For the head of a call that left defaulted parameters out: the
+    /// defaults it used, "`step` left out: its default `1`".
+    pub defaults: Option<String>,
 }
 
 /// A declaration of a file, for its outline.
@@ -268,6 +271,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             kind,
             ty,
             signature,
+            defaults: r.defaults.clone(),
         });
     }
     // The outline: the program's declarations, by file.

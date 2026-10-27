@@ -260,6 +260,7 @@ pub(crate) fn infer_dot(
     let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
     let (owner, f, key) = find(cx, recv, field, start)?;
     cx.e.note_dot(field, f);
+    note_left_out(cx, field, f, args)?;
     // A recursive call of a definition with `decreasing` passes its proof
     // by name, which only the prefix form takes.
     if cx.decreasing_rec(Some(f)).is_some() {
@@ -277,6 +278,16 @@ pub(crate) fn infer_dot(
     let (term, ty) = call(cx, recv, field, owner, f, &key, rterm, rty, args)?;
     let own = crate::check::own_dictionaries(&term);
     Ok((term, crate::check::found_dictionaries(cx, &own, ty)?))
+}
+
+/// For hover on `field`, a dot call of `f` with `args`: the defaults it
+/// used.
+fn note_left_out(cx: &Ctx, field: &AstName, f: DefId, args: &[Arg]) -> Result<()> {
+    if cx.e.nav.is_some() && cx.g().def(f).param_defaults.is_some() {
+        let head = (Term::Def(f), crate::kernel::def_ty(cx.g(), f)?);
+        crate::defaults::note_left_out(cx, field.span, &head, args);
+    }
+    Ok(())
 }
 
 /// The receiver `recv` of `recv.field`, inferred: as a computation that's
@@ -907,6 +918,7 @@ pub(crate) fn prefix_form<'a>(
         full.extend(written.iter().map(|e| Arg::Explicit(e)));
     }
     cx.e.note_dot(field, f);
+    note_left_out(cx, field, f, args)?;
     // A recursive call of a definition with `decreasing` (`decreasing.rs`).
     if let Some(rec) = cx.decreasing_rec(Some(f)) {
         return Ok(Some((rec, full)));
