@@ -2,14 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
-   ╭─[ reject/local-lemma-owner-cycle.sw:8:26 ]
+[E-MUTUAL-SIGNATURE] Error: `fz`'s type refers to a definition that isn't finished
+   ╭─[ reject/local-lemma-owner-cycle.sw:8:3 ]
    │
  8 │   theorem fz: f 0 = 0 := rfl
-   │                          ─┬─  
-   │                           ╰─── `f 0` and `0` aren't equal
+   │   ─────────┬─────────  
+   │            ╰─────────── here
    │ 
-   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 1: the kernel's reason: this refers to `cycleTy.f`, which isn't finished
    │ 
-   │ Note 2: `f` calls `cycleTy`, so it's defined together with `cycleTy` and doesn't compute while `cycleTy` is checked; a fact about it needs `cycleTy` finished: state it as a top-level theorem about `cycleTy.f`
+   │ Note 2: a local definition is made into a top-level one, whose type can only mention finished definitions: not the definition it's in, nor a local definition that calls that
 ───╯
