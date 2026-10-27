@@ -17,6 +17,7 @@ static SPAWN: Mutex<()> = Mutex::new(());
 /// Each day's answers: the year, the day, part 1 and part 2.
 const ANSWERS: &[(&str, &str, &str, &str)] = &[
     ("2024", "01", "2066446", "24931009"),
+    ("2024", "02", "534", "577"),
     ("2025", "01", "1076", "6379"),
     ("2025", "02", "16793817782", "27469417404"),
     ("2025", "03", "17263", "170731717900423"),
@@ -80,6 +81,11 @@ fn check(year: &str, day: &str) {
 #[test]
 fn year2024_day01() {
     check("2024", "01");
+}
+
+#[test]
+fn year2024_day02() {
+    check("2024", "02");
 }
 
 #[test]

@@ -189,3 +189,202 @@ Nothing slow. `check --counterexamples` found no false theorems.
 4. `%section` in error messages (item 5).
 5. `Map.getOrCounts` in `sameKey` form (item 6).
 6. `Ok { … }` (item 7): clear message, small cost.
+
+## Day 2: Red-Nosed Reports
+
+One report of levels per line. A report is safe if its levels are all
+increasing or all decreasing, and adjacent levels differ by one to three.
+Part 1 counts the safe reports; part 2 also counts those that one removed
+level makes safe (the "Problem Dampener"; part 2's wording from the public
+copy at <https://github.com/romellem/advent-of-code/blob/master/2024/2/README.md>).
+Answers on Matt's input: 534 and 577 (cross-checked with a Python one-liner;
+the example gives 2 and 4).
+
+The program checked and passed its tests on the first try:
+
+```stitchwort
+def steps (levels: List Nat): List (Nat, Nat) := levels.zip levels.tailOf
+
+def risesGently (lower: Nat) (higher: Nat): Bool := lower < higher && higher <= lower + 3
+
+def isSafe (report: Report): Bool :=
+  let reportSteps := steps report.levels
+  reportSteps.all (step => risesGently step.fst step.snd) || reportSteps.all (step => risesGently step.snd step.fst)
+
+def withoutOneLevel (report: Report): List Report :=
+  List.range report.levels.length |> .map (index => { levels = report.levels.removeAt index })
+
+def isSafeWithDampener (report: Report): Bool := isSafe report || (withoutOneLevel report |> .any isSafe)
+```
+
+The spec (`Spec/Spec.sw`) says it the puzzle's way: `allIncreasing`,
+`allDecreasing` and `adjacentDifferByOneToThree` (with `Nat.absDiff`) over
+every adjacent pair, and "safe, or some `removeAt index` is safe" for part 2.
+Proved for every list of reports (`Aoc.Year2024.Day02.Proofs`, about 120
+lines, no axioms):
+
+- `part1Correct`, `part2Correct`: both parts count the reports the spec
+  calls safe (through `isSafeCorrect`: one "rises gently" check per direction
+  is the spec's monotonic-and-small-steps pair of rules).
+- `safeWithoutFirst`, `safeWithoutLast`: removing the first or the last level
+  of a safe report leaves it safe.
+- `dampenerAloneSuffices`: so for a report with any levels, "safe, or safe
+  with one level removed" is just "safe with one level removed".
+- `part2AtLeastPart1`.
+
+Nothing attempted was left unproved. `cases` closed every Boolean and
+arithmetic step, `absDiff` included, which made this much cheaper than
+expected.
+
+### 1. Recursion on a nested pattern isn't seen as smaller
+
+```stitchwort
+theorem adjacentWithoutLast (holds: Nat → Nat → Bool): (levels: List Nat) → …
+  | Cons level (Cons next (Cons after more)), all =>
+    let kept := adjacentWithoutLast holds (Cons next (Cons after more)) (Bool.andRight _ _ all)
+```
+
+```text
+[E-TERMINATION] Error: can't show that `Aoc.Year2024.Day02.Proofs.adjacentWithoutLast` terminates
+  this call to `Aoc.Year2024.Day02.Proofs.adjacentWithoutLast` might not terminate: the 1st argument stays the same
+  Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+```
+
+`Cons next (Cons after more)` is exactly the tail of the matched list, but
+it's rebuilt, so it doesn't count; and the message talks only about the 1st
+argument (`holds`, which never changes), not the list. Moving the inner match
+into a nested `match rest with` gave a longer and harder message ("going
+round `adjacentWithoutLastOf` → this `match` → this `match` → …: the 1st
+argument stays the same, so no argument keeps getting smaller", although the
+3rd argument shrinks each time). What worked: a second lemma that takes
+`level`, `next` and `more` separately and recurses on `more`. Lean and
+Haskell have as-patterns, which name the sub-term so the call passes it
+unchanged: `| a :: rest@(b :: c :: more) => … f rest`
+([Lean reference](https://lean-lang.org/doc/reference/latest/Terms/Pattern-Matching):
+"`x@e` … matches the pattern `e` and binds its value to the identifier
+`x`"). Fix: treat a constructor rebuilt from exactly a sub-pattern's parts as
+that sub-term, or add as-patterns; and name the argument that fails to
+shrink, not the first one that stays the same.
+
+### 2. Goals print `&&` and `<` desugared
+
+The goal for one step of `allRiseGently`:
+
+```text
+⊢ List.all (Aoc.Year2024.Day02.steps (Cons level (Cons next rest))) (step => if Nat.leq (Succ step.fst) step.snd then Nat.leq step.snd (step.fst + 3) else False) = (if if Nat.leq (Succ level) next then Aoc.Year2024.Day02.Spec.allIncreasing (Cons next rest) else False then if if Nat.leq 1 (level - next + (next - level)) then …
+```
+
+`a && b` shows as `if a then b else False`, `a < b` as `Nat.leq (Succ a) b`,
+`absDiff` inlined, and names in full (`Aoc.Year2024.Day02.Spec.`). It took a
+minute to see the source in it each time. Lean prints `a && b`, `a < b` and
+short names. Fix: print `Bool.and`/`or` and `Nat.leq (Succ a) b` back in
+source form, and names relative to the open namespace.
+
+### 3. `rewrite` misses a lemma once the goal has unfolded it
+
+Part 2's proof first said `rewrite …, isSafeCorrect _`, to turn
+`isSafe { levels = report.levels.removeAt index }` into `safe { … }` inside
+the `any`:
+
+```text
+[E-REWRITE-CONG] Error: `rewrite` can't go inside the function passed to `List.all`: there is no `List.allCong`
+  looking for `Aoc.Year2024.Day02.isSafe ?18`, which is in the goal only inside a function passed to `List.all`, where it uses the function's variable
+```
+
+The proof never mentions `List.all`: the goal had already unfolded `isSafe`
+to its body (`List.all (List.zip …)`), so the only `isSafe` left was one the
+error invented. What worked: `List.anyCongMem` written out, with the two
+functions spelled in full. Lean's `rw` works on the goal as written and
+unfolds only when asked (`unfold`, `simp only [isSafe]`). Fix: keep a
+definition folded in the goal until a rewrite or `cases` needs it unfolded;
+and add `List.anyCong`/`List.allCong` beside `anyCongMem`.
+
+### 4. A name in the error that isn't in scope
+
+An intermediate attempt (a `match rest with` under `| Cons level rest`)
+failed with
+
+```text
+`Aoc.Year2024.Day02.Spec.everyAdjacentPair holds (Cons level (List.removeAt [next] (List.length tail)))` and `True` aren't equal
+```
+
+and a `cases` failure listing `holds level head = True`. Neither `tail` nor
+`head` is a name in the proof: the match had refined `rest` but the length
+computed from it kept a variable from somewhere else (`List.length`'s own
+pattern?). Didn't dig: the restructured lemma (item 1) avoided it. Worth a
+look: either goals keep unrefined copies of a matched variable, or the
+printer shows internal binder names.
+
+### 5. No `List.removeAt`
+
+Removing the level at an index had no std function: Lean has
+[`List.eraseIdx`](https://leanprover-community.github.io/mathlib4_docs/Init/Data/List/Basic.html#List.eraseIdx),
+Scala `xs.patch(i, Nil, 1)`. Added `List.removeAt` to `List/Toolkit.sw`
+(recursive, so proofs about it compute; the prelude hash snapshot gains one
+line).
+
+### 6. No count monotonicity lemma
+
+`part2AtLeastPart1` needed "counting with a weaker test counts at least as
+many", which std doesn't have (`countAtLeast`, 8 lines, induction with
+`List.countCons` and `omega`). Lean has
+[`List.countP_mono_left`](https://leanprover-community.github.io/mathlib4_docs/Init/Data/List/Count.html)
+(`(∀ x ∈ l, p x → q x) → countP p l ≤ countP q l`).
+It belongs beside `List.countCongMem`.
+
+### 7. No adjacent-pairs function or predicate
+
+The program pairs each level with the next by `levels.zip levels.tailOf`
+(finding `tailOf`, not `tail`, took a grep), and the spec wrote its own
+`everyAdjacentPair` recursion, with its own drop-first and drop-last lemmas.
+Kotlin has `zipWithNext`, Scala `sliding(2)`, and Lean `List.IsChain`, with
+[`IsChain.tail` and `IsChain.dropLast`](https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/List/Chain.html),
+exactly the two lemmas written here; `List.Sorted le` is this predicate
+already, for an order. Fix: std `List.zipWithNext` and a Bool
+`List.chain holds xs` with those lemmas, which `Sorted` could then be.
+
+### 8. Small ones
+
+- `report.withoutOneLevel` with `withoutOneLevel` defined beside `Report`:
+
+  ```text
+  [E-UNKNOWN-FIELD] Error: `Aoc.Year2024.Day02.Report` has no field or function `withoutOneLevel`
+    Note: its fields are `levels`
+  ```
+
+  Dot calls look in `Report`'s own namespace only (as in Lean). The note
+  could add "`withoutOneLevel report` is in scope". Wrote the plain call.
+- `levels |> everyAdjacentPair (level next => level < next)` fails: `|>`
+  passes the first argument (as in Elixir; F# and Elm pass the last). The
+  message says so clearly. Wrote the plain call.
+- `keeps (…) levels cases` at the end of a line, before a line `cases`, gave
+  "`[E-PARSE] Error: a block must end with an expression, not let`" pointing
+  at the `let`; `(cases)` in brackets works. The message didn't say the
+  `cases` was the problem.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache` (whole project) | 5.0 s |
+| `stitchwort check` (warm) | 1.15 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day02.Proofs` | 0.60 s |
+| `stitchwort test Aoc.Year2024.Day02 --no-cache` (26 tests) | 0.64 s |
+| `stitchwort run Aoc.Year2024.Day02.main` on the input (1,000 lines) | 0.24 s |
+| the same on 10,000 lines (input repeated) | 0.38 s |
+| the same on 100,000 lines | 2.0 s |
+
+Nothing slow.
+
+### Ranked
+
+1. Nested-pattern recursion and its message (item 1): cost the most time.
+2. Desugared goals (item 2): every goal read was slower for it.
+3. `rewrite` against an unfolded goal (item 3).
+4. Stray names in goals (item 4): possibly a bug.
+5. No adjacent-pairs function or `Chain` (item 7).
+6. No count monotonicity lemma (item 6).
+7. `List.removeAt` (item 5): added.
+8. The small ones (item 8).

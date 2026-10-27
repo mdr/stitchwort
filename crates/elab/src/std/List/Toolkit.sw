@@ -1478,6 +1478,13 @@ def List.span (xs: List a) (p: a → {e} Bool): {e} Pair (List a) (List a) := Li
 -- The first `n` elements and the rest: `xs.splitAt 2` is `(xs.take 2, xs.drop 2)`.
 def List.splitAt (xs: List a) (n: Nat): Pair (List a) (List a) := MkPair (List.take xs n) (List.drop xs n)
 
+-- Without the element at `index`, counting from 0 (the same list if there is
+-- none): `[1, 2, 3].removeAt 1` is `[1, 3]`.
+def List.removeAt: List a → Nat → List a
+  | Nil, index => Nil
+  | Cons x xs, Zero => xs
+  | Cons x xs, Succ index => Cons x (List.removeAt xs index)
+
 -- Without the last `n` elements (all of them if there are fewer).
 def List.dropRight (xs: List a) (n: Nat): List a := List.take xs (List.length xs - n)
 
