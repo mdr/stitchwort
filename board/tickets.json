@@ -5381,7 +5381,7 @@
     {
       "id": 671,
       "title": "Library loader resolves dot calls without types, so xs.length in a std file makes list programs load Text/Basics (false dependency; List.padRight worked around with List.length xs). Use parameter type annotations when resolving dot calls — pipe-flow restyle makes dot calls the norm in std (daily-fix lane, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
