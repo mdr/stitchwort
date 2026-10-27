@@ -46,7 +46,7 @@ use crate::kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::{HashKey, State};
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DataId, DefId};
+use stitchwort_core::{DataId, DefId, ResourceError};
 use stitchwort_syntax::ast::{self, BinOp, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{Diagnostic, FileId, Severity, Span};
 
@@ -192,6 +192,14 @@ struct Item<'m> {
     decl: &'m Decl,
     equations: &'m [Decl],
     position: usize,
+}
+
+/// Whether an `E-RESOURCE` message is for running out of evaluation steps
+/// or of recursion depth.
+fn is_steps_or_depth(message: &str) -> bool {
+    [ResourceError::Work, ResourceError::Depth]
+        .iter()
+        .any(|e| message.ends_with(&e.to_string()))
 }
 
 impl Elaborator {
@@ -409,11 +417,18 @@ impl Elaborator {
                 // Running out of resources is reported where it happened
                 // only as precisely as the declaration.
                 let too_large = self.globals.budget.take_too_large();
+                let ran_out_in = self.globals.budget.take_ran_out_in();
                 for (position, d) in &mut diagnostics[before..] {
                     if d.code == "E-RESOURCE" && d.message.ends_with("too large to show") {
                         for note in self.too_large_notes(&component, too_large) {
                             d.notes.push(note);
                         }
+                    }
+                    if d.code == "E-RESOURCE"
+                        && is_steps_or_depth(&d.message)
+                        && let Some(note) = self.ran_out_note(ran_out_in)
+                    {
+                        d.notes.push(note);
                     }
                     if d.labels.is_empty() {
                         let span = decl_spans[*position];
@@ -550,6 +565,22 @@ impl Elaborator {
         if let Some((_, d)) = diagnostics.iter_mut().find(|(_, d)| d.severity == wanted) {
             d.notes.push(note);
         }
+    }
+
+    /// Names the definition being unfolded when checking ran out of steps or
+    /// frames; a function the compiler made is named by the definition it
+    /// was made for.
+    fn ran_out_note(&self, definition: Option<usize>) -> Option<String> {
+        let name = &self.globals.defs.get(definition?)?.name;
+        let shown = crate::scope::display(name);
+        Some(match shown.split_once(".%") {
+            None if !shown.contains('%') => format!("it ran out while unfolding `{shown}`"),
+            Some((owner, _)) if !owner.contains('%') => format!(
+                "it ran out while unfolding a function the compiler made for `{owner}`, \
+                 such as an inner `match`"
+            ),
+            _ => return None,
+        })
     }
 
     /// Notes for "a value was too large to show" while checking `component`:

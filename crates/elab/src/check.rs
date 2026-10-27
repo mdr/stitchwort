@@ -3301,7 +3301,7 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
     match result {
         Ok(term) => Ok(Some(Ok(term))),
         Err(e) if crate::undo::fatal(&e) => Err(e),
-        Err(_) => {
+        Err(propagated) => {
             snapshot.restore(cx);
             let off = &cx.e.no_propagation;
             off.set(off.get() + 1);
@@ -3312,9 +3312,35 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
             })();
             let off = &cx.e.no_propagation;
             off.set(off.get() - 1);
-            Ok(Some(old))
+            // Both fail inside the same lambda argument: the first knew what
+            // the lambda must prove, where the second only had unknowns.
+            match old {
+                Err(old)
+                    if !crate::undo::fatal(&old) && in_same_lambda(args, &propagated, &old) =>
+                {
+                    Ok(Some(Err(propagated)))
+                }
+                old => Ok(Some(old)),
+            }
         }
     }
+}
+
+/// Whether the errors `first` and `second` both point inside the same
+/// lambda among `args`.
+fn in_same_lambda(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bool {
+    let (Some(first), Some(second)) = (first.labels.first(), second.labels.first()) else {
+        return false;
+    };
+    let inside = |outer: Span, inner: Span| {
+        outer.file == inner.file && outer.start <= inner.start && inner.end <= outer.end
+    };
+    args.iter().any(|arg| match arg {
+        Arg::Explicit(lambda @ (Expr::Lam(..) | Expr::TypedLam(..))) => {
+            inside(lambda.span(), first.span) && inside(lambda.span(), second.span)
+        }
+        _ => false,
+    })
 }
 
 /// [`propagate`] for an effectful call (`effects::comp_app`): `head`, a

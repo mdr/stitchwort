@@ -154,6 +154,29 @@ fn a_value_too_large_to_show_names_the_declaration_and_what_it_unfolds() {
     );
 }
 
+/// A proof that runs out of steps names the definition it was unfolding,
+/// so the reader knows which computation was too long.
+#[test]
+fn running_out_of_steps_names_the_definition_being_unfolded() {
+    let mut session = Session::new();
+    session.elab.limits = Limits {
+        work: 5_000,
+        ..Limits::default()
+    };
+    let source =
+        format!("{REPLICATE}\ntheorem long : List.length (replicate 10000 1) = 10000 := rfl\n");
+    let diagnostics = session.load("work.sw", &source).unwrap_err();
+    let resource = diagnostics
+        .iter()
+        .find(|d| d.code == "E-RESOURCE")
+        .unwrap_or_else(|| panic!("{diagnostics:?}"));
+    let notes = resource.notes.join("\n");
+    assert!(
+        notes.contains("it ran out while unfolding `replicate`"),
+        "{resource:?}"
+    );
+}
+
 /// A program that exercises the elaborator's searches and retries: `auto`
 /// arguments, `if h :`, `==` through decision procedures, text, abilities
 /// with handlers, and proofs by computation.

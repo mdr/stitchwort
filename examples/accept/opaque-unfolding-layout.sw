@@ -15,3 +15,11 @@ theorem typeOnItsOwnLine (n: Nat):
     := rfl
 
 theorem sameLine (n: Nat): double n = n + n unfolding double := rfl
+
+theorem paramsOnTwoLines (n: Nat)
+    (m: Nat):
+      double n =
+        n + n
+      unfolding double
+:=
+  rfl

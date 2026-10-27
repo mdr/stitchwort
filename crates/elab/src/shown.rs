@@ -245,7 +245,7 @@ fn is_whole(g: &Globals, d: stitchwort_core::DataId) -> bool {
     use Builtin::*;
     [Nat, Int, SafeNat, SafeInt, Text, Char, Map, Float]
         .iter()
-        .any(|b| g.registry.is_data(*b, d))
+        .any(|b| g.registry.loaded_data(*b).is_some_and(|loaded| loaded == d))
 }
 
 fn print(g: &Globals, term: &Term) -> String {

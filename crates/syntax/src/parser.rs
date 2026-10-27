@@ -2328,7 +2328,10 @@ impl<'t> Parser<'t> {
         }
         let word = |p: &Self, w: &str| matches!(p.peek(), Some(Tok::Lower(x)) if x == w);
         let target = if word(self, "at") {
-            self.bump();
+            let at = self.bump().span;
+            if self.peek().is_none_or(|t| *t == Tok::KwIn) || self.is_stop(self.pos) {
+                return Err(rewrite_at_without_target(at));
+            }
             self.rewrite_rule = Some(self.pos);
             self.rewrite_at = false;
             let target = self.append_expr();
@@ -3654,6 +3657,19 @@ fn lambda_default(default: &Expr) -> Diagnostic {
     error(default.span(), declarations::DEFAULT_PLACES).with_note(
         "a lambda has no declaration to keep a default with: define the function with `def` \
          to give its parameters defaults",
+    )
+}
+
+/// `rewrite h at in t`: the `at` after a rule starts the hypothesis to
+/// rewrite, so a hypothesis called `at` can't be an argument of the rule.
+fn rewrite_at_without_target(at: Span) -> Diagnostic {
+    error(
+        at,
+        "`at` after a `rewrite` rule names the hypothesis to rewrite, but no hypothesis follows it",
+    )
+    .with_note(
+        "`at` is reserved after a rule, so a hypothesis called `at` can't be passed to the rule: \
+         give the hypothesis another name",
     )
 }
 
