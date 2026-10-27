@@ -163,7 +163,7 @@ underscores. TypeScript itself needs none of this ([§3.5](#35-typescript)).
 `| Cons (head: a) (tail: List a)` (`CtorDecl.fields: Vec<Binder>`,
 `crates/syntax/src/ast.rs:672`) **[checked]**, so every field already has a
 name to use. Implicit fields are written in square brackets,
-`| Chain [a b c: Nat] (first: …) (next: …)` (`aoc/src/Aoc/Day08/Proofs/Spec.sw:52`)
+`| Chain [a b c: Nat] (first: …) (next: …)` (`aoc/src/Aoc/Year2025/Day08/Proofs/Spec.sw:52`)
 **[checked]**.
 
 **Records** are one-constructor data types with a flag, and get literals,

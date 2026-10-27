@@ -485,7 +485,7 @@ Quot.sound
 
 The [aoc/](../../aoc/) project solves Advent of Code puzzles and proves the answers right. Day 1 turns a dial numbered 0 to 99, starting at 50, and part 2 asks how many clicks land on 0 during a list of turns. The program counts them with arithmetic, one turn at a time:
 
-<!-- snippet: ../../../aoc/src/Aoc/Day01/Day01.sw@zerosPassed,Dial.zerosDuring -->
+<!-- snippet: ../../../aoc/src/Aoc/Year2025/Day01/Day01.sw@zerosPassed,Dial.zerosDuring -->
 ```stitchwort
 def zerosPassed (turns: List Turn) (startingDial: Dial n): Nat :=
   turns
@@ -500,14 +500,14 @@ def Dial.zerosDuring [n: Nat] (dial: Dial n): Turn → Nat
 
 That arithmetic is easy to get wrong. The specification, in its own namespace, says what the puzzle says: turn the dial one click at a time, and count the clicks that land on 0:
 
-<!-- snippet: ../../../aoc/src/Aoc/Day01/Spec/Spec.sw -->
+<!-- snippet: ../../../aoc/src/Aoc/Year2025/Day01/Spec/Spec.sw -->
 ```stitchwort
 -- Day 1, part 2 as the puzzle states it: turn the dial one click at a time, and
 -- count the positions after each click that are 0. The proofs (Proofs/Part2.sw)
 -- and the tests (Tests/Spec.sw) compare the program's arithmetic count with it.
 
-namespace Aoc.Day01.Spec
-import Aoc.Day01 (..)
+namespace Aoc.Year2025.Day01.Spec
+import Aoc.Year2025.Day01 (..)
 import Std (List, Nat)
 
 -- The specification of part 2: turn the dial one click at a time, and count
@@ -516,9 +516,9 @@ def zerosPassedSpec (turns: List Turn) (startingDial: Dial n): Nat :=
   turns |> .concatMap Turn.clicks |> zerosLandedOn startingDial
 ```
 
-The theorem, in `Aoc.Day01.Proofs`, says they agree for a dial of any size, any start and any turns, and so for the puzzle's answer:
+The theorem, in `Aoc.Year2025.Day01.Proofs`, says they agree for a dial of any size, any start and any turns, and so for the puzzle's answer:
 
-<!-- snippet: ../../../aoc/src/Aoc/Day01/Proofs/Part2.sw@zerosPassedCorrect,part2Puzzle -->
+<!-- snippet: ../../../aoc/src/Aoc/Year2025/Day01/Proofs/Part2.sw@zerosPassedCorrect,part2Puzzle -->
 ```stitchwort
 theorem zerosPassedCorrect [n: Nat] (startingDial: Dial n) (turns: List Turn): zerosPassed turns startingDial = zerosPassedSpec turns startingDial :=
   zerosPassedFrom startingDial turns
@@ -527,13 +527,13 @@ theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec turns
   zerosPassedCorrect startingDial turns
 ```
 
-The proof ([Proofs/Part2.sw](../../aoc/src/Aoc/Day01/Proofs/Part2.sw)) is about 130 lines: induction on the turns, a lemma for one turn split into clicks, and arithmetic lemmas about one click, with `calc`, `rewrite` and `omega` doing the steps. The day is laid out the way the other days are:
+The proof ([Proofs/Part2.sw](../../aoc/src/Aoc/Year2025/Day01/Proofs/Part2.sw)) is about 130 lines: induction on the turns, a lemma for one turn split into clicks, and arithmetic lemmas about one click, with `calc`, `rewrite` and `omega` doing the steps. The day is laid out the way the other days are:
 
-- `Aoc/Day01/Day01.sw`, namespace `Aoc.Day01`: the program, `parseTurns`, `solvePart1`, `solvePart2` and `main`;
-- `Spec/Spec.sw`, `Aoc.Day01.Spec`: the specification, written the way the puzzle states it;
-- `Proofs/`, `Aoc.Day01.Proofs`: the theorems, about the parsed model of the input rather than its text;
-- `Tests/`, `Aoc.Day01.Tests`: the puzzle's example, edge cases, and the real input through `include`.
+- `Aoc/Year2025/Day01/Day01.sw`, namespace `Aoc.Year2025.Day01`: the program, `parseTurns`, `solvePart1`, `solvePart2` and `main`;
+- `Spec/Spec.sw`, `Aoc.Year2025.Day01.Spec`: the specification, written the way the puzzle states it;
+- `Proofs/`, `Aoc.Year2025.Day01.Proofs`: the theorems, about the parsed model of the input rather than its text;
+- `Tests/`, `Aoc.Year2025.Day01.Tests`: the puzzle's example, edge cases, and the real input through `include`.
 
-`stitchwort run Aoc.Day01.main` checks only the program; `stitchwort test Aoc.Day01` checks the proofs and runs the tests. [docs/aoc-2025.md](../aoc-2025.md) describes each day's proofs and what was hard about them.
+`stitchwort run Aoc.Year2025.Day01.main` checks only the program; `stitchwort test Aoc.Year2025.Day01` checks the proofs and runs the tests. [docs/aoc-2025.md](../aoc-2025.md) describes each day's proofs and what was hard about them.
 
 More: [syntax.md](../syntax.md) sections [Goals](../syntax.md#goals-), [`calc`](../syntax.md#calc), [`rewrite`](../syntax.md#rewrite), [`omega`](../syntax.md#omega), [`ring`](../syntax.md#ring), [`match`](../syntax.md#match), [Proofs about effectful code](../syntax.md#proofs-about-effectful-code); the design notes [calc-rewrite.md](../proposals/calc-rewrite.md), [omega.md](../proposals/omega.md), [proof-reification.md](../proposals/proof-reification.md) and [indexed-families.md](../proposals/indexed-families.md).

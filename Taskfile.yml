@@ -283,7 +283,7 @@ tasks:
   # ------------------------------------------------------- Advent of Code
 
   aoc:check:
-    desc: 'Check the AoC project (aoc/), or the namespaces after -- (task aoc:check -- Aoc.Day05)'
+    desc: 'Check the AoC project (aoc/), or the namespaces after -- (task aoc:check -- Aoc.Year2025.Day05)'
     deps: [build]
     dir: aoc
     cmds:
@@ -297,13 +297,15 @@ tasks:
       - '{{.SW}} test {{.CLI_ARGS}}'
 
   aoc:run:
-    desc: 'Run one AoC day on its puzzle input (task aoc:run DAY=05), compiled to JS'
+    desc: 'Run one AoC day on its puzzle input (task aoc:run DAY=05, or YEAR=2024 DAY=01), compiled to JS'
     requires:
       vars: [DAY]
+    vars:
+      YEAR: '{{.YEAR | default "2025"}}'
     deps: [build]
     dir: aoc
     cmds:
-      - '{{.SW}} run --js Aoc.Day{{.DAY}}.main < {{.AOC_INPUTS | default "inputs"}}/day{{.DAY}}.txt'
+      - '{{.SW}} run --js Aoc.Year{{.YEAR}}.Day{{.DAY}}.main < {{.AOC_INPUTS | default "inputs"}}/{{.YEAR}}/day{{.DAY}}.txt'
 
   rogue:run:
     desc: 'Play the roguelike (games/rogue/) in the terminal: arrows or h/j/k/l move, q quits'

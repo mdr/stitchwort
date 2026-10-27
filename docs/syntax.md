@@ -1234,10 +1234,10 @@ theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := rfl
 
 ### `include`
 
-`include "path"` is a `Text` with the contents of a file, read when the program is checked: `(include "../../../../inputs/day04.txt").lines` is the lines of a puzzle input. The path is a literal in quotes, written like an argument (put it in brackets before a `.`, as above).
+`include "path"` is a `Text` with the contents of a file, read when the program is checked: `(include "../../../../../inputs/2025/day04.txt").lines` is the lines of a puzzle input. The path is a literal in quotes, written like an argument (put it in brackets before a `.`, as above).
 
 - **Relative to the file that has the `include`**, with `/` between names, `..` for the folder above, whatever folder `stitchwort` runs from. It must stay inside the project folder (for a file run on its own, the file's folder); a path above it, or an absolute one, is `E-INCLUDE-OUTSIDE`.
-- **The contents are what is hashed, not the path.** The text becomes a literal in the definition, so editing the file reruns exactly the tests that use it, and moving or renaming it, with the same text, changes nothing. Tests in `aoc/src/Aoc/DayNN/Tests/Input.sw` use it to check each day's answers on the committed puzzle input.
+- **The contents are what is hashed, not the path.** The text becomes a literal in the definition, so editing the file reruns exactly the tests that use it, and moving or renaming it, with the same text, changes nothing. Tests in `aoc/src/Aoc/Year2025/DayNN/Tests/Input.sw` use it to check each day's answers on the committed puzzle input.
 - **Errors.** `E-INCLUDE-MISSING` names the file tried (from the project folder); `E-INCLUDE-NOT-TEXT` is a file that isn't UTF-8; `E-INCLUDE-OUTSIDE` includes a path that leaves the project folder, by `..` or through a symlink; `E-INCLUDE-UNAVAILABLE` is anywhere there are no files to read: a single file in the playground (its projects read the bundled files).
 - The text is one compact literal like any other, so a 20 KB input costs no more to check or hash than a 20 KB string.
 
@@ -1422,7 +1422,7 @@ The condition may be written `a <= b` or `Nat.leq a b`: they are the same `Bool`
 - *Split its scrutinee to make it compute.* The generated function unfolds once its own scrutinee is a constructor, so `match c with | Zero => … | Succ b => …` turns the hidden operand into `False` or `reach rest b k d`.
 - *To state something about it, name it.* Writing the same `match` in a lemma makes a second generated function, which is a different definition. Two such functions are compared by their bodies (the same scrutinee, and the same result in every branch), but not when one calls the definition it's written in, as `reach`'s does, so a lemma about a recursive definition's inner `match` still needs it named (SW-386, D1091). Make the `match` a local `def` in the arm and refer to it from outside as `owner.name` ([Local definitions](#local-definitions)).
 
-Example: `examples/accept/match-inner-match-proof.sw`; a real proof is `fallKeeps` in `aoc/src/Aoc/Day07/Proofs/Part1.sw`. Design: [proposals/equation-lemmas.md](proposals/equation-lemmas.md).
+Example: `examples/accept/match-inner-match-proof.sw`; a real proof is `fallKeeps` in `aoc/src/Aoc/Year2025/Day07/Proofs/Part1.sw`. Design: [proposals/equation-lemmas.md](proposals/equation-lemmas.md).
 
 A scrutinee that performs abilities runs once, in order from left to right, before any branch is chosen. Branches may perform abilities too, if the ability row of the definition allows them.
 

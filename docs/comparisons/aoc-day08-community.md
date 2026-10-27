@@ -6,7 +6,7 @@ others, then solve and prove, then a gap analysis). The puzzle background is in
 `docs/aoc-2025.md` "Day 8: junction boxes": 1,000 points in 3D, join the 1,000 closest pairs
 (by squared distance) into circuits, multiply the three biggest circuit sizes (part 1); keep
 joining until one circuit is left and multiply the x coordinates of the last pair (part 2).
-The input is `aoc/inputs/day08.txt`. This note follows the shape and method of
+The input is `aoc/inputs/2025/day08.txt`. This note follows the shape and method of
 [aoc-day07-community.md](aoc-day07-community.md) and
 [aoc-day03-community.md](aoc-day03-community.md).
 
@@ -21,7 +21,7 @@ Scratch files for every Stitchwort claim are in
 `/private/tmp/claude-501/-Users-matt-repos-misc-funlang/63e6bfc9-6f2e-43e5-9da9-a59432a877ec/scratchpad/day8-community/proj/src/`
 (`Common.sw`, `B1.sw` to `B6.sw`), run with `target/release/stitchwort` built from this
 worktree at `9f7a9fe5` (`nix develop -c cargo build --release -p stitchwort-cli`, 24 s), on the
-committed `aoc/inputs/day08.txt`. Timings are wall-clock seconds from `/usr/bin/time`, one run
+committed `aoc/inputs/2025/day08.txt`. Timings are wall-clock seconds from `/usr/bin/time`, one run
 each, on the machine that built it, so read them to a factor of about 1.5. Fetched solutions are in
 `gh/`, the megathread data in `arctic/`, the scripts in `scripts/`, all beside `proj/`.
 
@@ -443,7 +443,7 @@ theorem connected_refl (uf : UnionFind) (i : Nat) : Connected uf i i := rfl
 
 ### 5.2 Micro-benchmarks
 
-All on `aoc/inputs/day08.txt` (1,000 points), `target/release/stitchwort run` unless marked, one run
+All on `aoc/inputs/2025/day08.txt` (1,000 points), `target/release/stitchwort run` unless marked, one run
 each, wall-clock seconds, including about 0.15 s of start-up **[checked: scratch files in
 `proj/src/`, `scripts/rb.sh`]**.
 
@@ -539,7 +539,7 @@ to 100 lines, `docs/aoc-2025.md`'s "worth proving" list). Rough sizes **[inferre
 |---|---|---|
 | D542 | Day 8 program shape: sort all 499,500 pairs by `(d², i, j)` and fold into a `Map` (labels, or parent pointers), part 2 by continuing the same fold; no `Array`, no heap, no partial sort, no Prim. | [yes; labels `Map` first, parent `Map` in reserve] |
 | D543 | Proof spec level: the full connectivity spec (`Joined` closure, label theorem, `part1Correct`, `part2Correct`), against the cheaper counting-only version (C) or the refinement to a naive model (A). And ties: break them by `(d², i, j)` in the spec, and count a "connection" inside one circuit as one of the `k`. | [full spec, ties by `(d², i, j)`; start with C as a stage if the full one slips] |
-| D544 | Library additions with the day: `List.pairs` (with `length = n(n-1)/2`) and the `Map.map`/`Map.fromList` `get` lemmas; leave `Set.partition`/`unions`/`disjoint`, `Array` (SW-112), heaps and graph code for later. Also add `aoc/examples/day08.txt` (the 20-point example, expected 40 and 25,272). | [yes] |
+| D544 | Library additions with the day: `List.pairs` (with `length = n(n-1)/2`) and the `Map.map`/`Map.fromList` `get` lemmas; leave `Set.partition`/`unions`/`disjoint`, `Array` (SW-112), heaps and graph code for later. Also add `aoc/examples/2025/day08.txt` (the 20-point example, expected 40 and 25,272). | [yes] |
 
 ---
 

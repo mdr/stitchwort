@@ -8,7 +8,7 @@ measure and milliseconds are the minimum of three runs.*
 
 ## 1. The problem, in one example
 
-`Aoc.Day02.Proofs.invalidCorrect` is one written line:
+`Aoc.Year2025.Day02.Proofs.invalidCorrect` is one written line:
 
 ```
 theorem invalidCorrect (r: Range): invalid r = List.sum (List.filter repeats r.ids) :=
@@ -33,8 +33,8 @@ counter that counts the nodes inside each outermost hidden argument:
 
 | unit | nodes | in hidden arguments |
 |---|---:|---:|
-| `Aoc.Day02.Proofs` | 436,564 | 368,589 (84%) |
-| `Aoc.Day04.Proofs` | 229,927 | 167,105 (73%) |
+| `Aoc.Year2025.Day02.Proofs` | 436,564 | 368,589 (84%) |
+| `Aoc.Year2025.Day04.Proofs` | 229,927 | 167,105 (73%) |
 | library files (std) | 116,040 | 53,308 (46%) |
 | `core` | 20,144 | 4,706 (23%) |
 | whole AoC project | 910,998 | 642,805 (71%) |
@@ -265,9 +265,9 @@ Nothing else changed.
 |---|---:|---:|---:|
 | nodes, whole project | 910,998 | 674,808 | −26% |
 | nodes in hidden arguments | 642,805 | 406,615 | −37% |
-| `Aoc.Day02.Proofs` nodes | 436,564 | 244,681 | −44% |
-| `Aoc.Day04.Proofs` nodes | 229,927 | 197,561 | −14% |
-| `Aoc.Day02.Proofs` elab + kernel | 448 ms | 350 ms | −22% |
+| `Aoc.Year2025.Day02.Proofs` nodes | 436,564 | 244,681 | −44% |
+| `Aoc.Year2025.Day04.Proofs` nodes | 229,927 | 197,561 | −14% |
+| `Aoc.Year2025.Day02.Proofs` elab + kernel | 448 ms | 350 ms | −22% |
 | `twiceTerms` nodes | 148,682 | 65,707 | −56% |
 | `twiceTerms` elab + kernel | 130 ms | 82 ms | −37% |
 | instructions retired (3 runs each) | 16.85–16.86 G | 14.92–14.94 G | −11.4% |
@@ -293,8 +293,8 @@ with `E-AUTO-STUCK`). For the large declarations that still checked:
 
 | declaration | nodes before → after | ms before → after | steps before → after |
 |---|---|---|---|
-| `Aoc.Day04.Proofs.passRow` | 30,313 → 1,186 | 57 → 12 | 1,215,049 → 316,228 |
-| `Aoc.Day04.Proofs.mixStep` | 19,853 → 5,171 | 30 → 8 | 648,201 → 194,784 |
+| `Aoc.Year2025.Day04.Proofs.passRow` | 30,313 → 1,186 | 57 → 12 | 1,215,049 → 316,228 |
+| `Aoc.Year2025.Day04.Proofs.mixStep` | 19,853 → 5,171 | 30 → 8 | 648,201 → 194,784 |
 
 **What to expect from (b)** *(an estimate, not measured)*: after the `calc`
 fix, 406,615 of the project's 674,808 nodes (60%) are still in hidden
@@ -322,8 +322,8 @@ eat into the smaller namespaces' gains.
    | | before | after | change |
    |---|---:|---:|---:|
    | nodes, whole project | 829,962 | 649,587 | −22% |
-   | `Aoc.Day02.Proofs` nodes | 334,324 | 199,033 | −40% |
-   | `Aoc.Day04.Proofs` nodes | 244,238 | 211,425 | −13% |
+   | `Aoc.Year2025.Day02.Proofs` nodes | 334,324 | 199,033 | −40% |
+   | `Aoc.Year2025.Day04.Proofs` nodes | 244,238 | 211,425 | −13% |
    | `twiceTerms` nodes | 50,906 | 23,371 | −54% |
    | `twiceTerms` elab + kernel | 54 ms | 38 ms | −29% |
    | elab + kernel, whole project | 1,228 ms | 1,117 ms | −9% |
@@ -399,9 +399,9 @@ for the next stages.
 | | `main` | stage 1 (off) | stage 1, `STITCHWORT_GLUE=1` |
 |---|---:|---:|---:|
 | nodes, whole project | 850,922 | 850,922 | 850,863 |
-| `Aoc.Day02.Proofs` nodes | 198,294 | 198,294 | 198,274 |
-| `Aoc.Day04.Proofs` nodes | 211,425 | 211,425 | 211,425 |
-| `Aoc.Day01.Proofs` nodes | 43,671 | 43,671 | 43,671 |
+| `Aoc.Year2025.Day02.Proofs` nodes | 198,294 | 198,294 | 198,274 |
+| `Aoc.Year2025.Day04.Proofs` nodes | 211,425 | 211,425 | 211,425 |
+| `Aoc.Year2025.Day01.Proofs` nodes | 43,671 | 43,671 | 43,671 |
 | `std/Mod/Mod.sw` nodes | 170,195 | 170,195 | 170,195 |
 | instructions retired | 18.80–18.83 G | 19.05–19.06 G (+1.3%) | 19.65 G (+4.5%) |
 | peak memory | 102 MB | 102 MB | 102 MB |
@@ -494,14 +494,14 @@ stage 1 left it changed them in three ways, and each is now put back:
   Without gluing, `Succ` of a number is a number (`native::ctor`), so
   `List.length [x]` reads back as `1`. With gluing the inner `length`
   is a call when the `Succ` is built, so it read back as `Succ 0`
-  (`Aoc.Day07.Proofs.countsAre`'s `rewrite` motive). `quote` now unfolds
+  (`Aoc.Year2025.Day07.Proofs.countsAre`'s `rewrite` motive). `quote` now unfolds
   calls under a chain of `Succ`s and rebuilds it with `native::ctor`
   (`value.rs` `succ_unglued`). This never happens without gluing, so the
   kernel is unaffected.
 
 *The one difference left.* Two tests of `examples/accept/io.sw`
 ("abort outside simulate …") and the lifted helpers
-`Aoc.Day04.Tests.ran.%match1` and `Aoc.Day07.Tests.ran.%match1` (their
+`Aoc.Year2025.Day04.Tests.ran.%match1` and `Aoc.Year2025.Day07.Tests.ran.%match1` (their
 types) come out slightly different. On `main` their terms contain the
 redex `Effect.sigOp (MkSig NoOp NoRes)`; with gluing it is reduced to
 `NoOp`. The row's operations are built as `sigOp e` while `e` is still an
@@ -525,8 +525,8 @@ the same directory):
 - The AoC project checks, with the same (empty) output. Every
   definition's type and body (a scratch test dumping the core terms of
   the whole project) is identical except the two helpers above: the
-  `STITCHWORT_TIMINGS` node totals differ by 16 for `Aoc.Day04.Tests` and
-  for `Aoc.Day07.Tests`, and by nothing for any other unit.
+  `STITCHWORT_TIMINGS` node totals differ by 16 for `Aoc.Year2025.Day04.Tests` and
+  for `Aoc.Year2025.Day07.Tests`, and by nothing for any other unit.
 - The library: the core and every library file, loaded eagerly, give
   identical terms for all 2,359 definitions. So `hash_stability`'s
   `prelude`, `projects` and every example other than `io` are unchanged.
@@ -647,10 +647,10 @@ times are rough):
 |---|---:|---:|---:|
 | nodes, whole project | 1,746,822 | 877,646 | −50% |
 | nodes, library files | 488,029 | 293,159 | −40% |
-| `Aoc.Day01.Proofs` nodes | 205,716 | 37,882 | −82% |
-| `Aoc.Day02.Proofs` nodes | 83,578 | 57,475 | −31% |
-| `Aoc.Day04.Proofs` nodes | 182,208 | 124,328 | −32% |
-| `Aoc.Day08.Proofs` nodes | 647,418 | 237,642 | −63% |
+| `Aoc.Year2025.Day01.Proofs` nodes | 205,716 | 37,882 | −82% |
+| `Aoc.Year2025.Day02.Proofs` nodes | 83,578 | 57,475 | −31% |
+| `Aoc.Year2025.Day04.Proofs` nodes | 182,208 | 124,328 | −32% |
+| `Aoc.Year2025.Day08.Proofs` nodes | 647,418 | 237,642 | −63% |
 | `std/Mod/Mod.sw` nodes | 161,082 | 12,819 | −92% |
 | evaluation steps, all declarations | 261.96 M | 243.60 M | −7% |
 | instructions retired (3 runs each, interleaved) | 110.86–110.93 G | 101.42–102.03 G | −8% |
@@ -669,17 +669,17 @@ gone from the project, so these are today's largest):
 
 | declaration | nodes | steps |
 |---|---|---|
-| `Aoc.Day08.Proofs.part1Correct` | 228,888 → 58,870 | 7.92 M → 4.92 M |
-| `Aoc.Day01.Proofs.leftMirror` | 155,967 → 27,199 | 3.55 M → 1.15 M |
-| `Aoc.Day08.Proofs.lastNeededExists` | 140,405 → 28,100 | 9.85 M → 6.82 M |
-| `Aoc.Day08.Proofs.part2Correct` | 58,080 → 19,554 | 1.03 M → 0.51 M |
+| `Aoc.Year2025.Day08.Proofs.part1Correct` | 228,888 → 58,870 | 7.92 M → 4.92 M |
+| `Aoc.Year2025.Day01.Proofs.leftMirror` | 155,967 → 27,199 | 3.55 M → 1.15 M |
+| `Aoc.Year2025.Day08.Proofs.lastNeededExists` | 140,405 → 28,100 | 9.85 M → 6.82 M |
+| `Aoc.Year2025.Day08.Proofs.part2Correct` | 58,080 → 19,554 | 1.03 M → 0.51 M |
 | `Std.Mod.addAssoc` | 28,209 → 1,247 | 520 k → 82 k |
-| `Aoc.Day04.Proofs.passRow` | 21,263 → 17,514 | 1.18 M → 0.97 M |
-| `Aoc.Day04.Proofs.mixStep` | 13,794 → 10,768 | 455 k → 367 k |
-| `Aoc.Day04.Proofs.settleEnds` | 15,520 → 10,787 | 927 k → 838 k |
+| `Aoc.Year2025.Day04.Proofs.passRow` | 21,263 → 17,514 | 1.18 M → 0.97 M |
+| `Aoc.Year2025.Day04.Proofs.mixStep` | 13,794 → 10,768 | 455 k → 367 k |
+| `Aoc.Year2025.Day04.Proofs.settleEnds` | 15,520 → 10,787 | 927 k → 838 k |
 
 25 of 2,791 declarations got slightly bigger (at most 1,374 → 1,478
-nodes, `Aoc.Day06.Problem`): a call written out can be longer than a small
+nodes, `Aoc.Year2025.Day06.Problem`): a call written out can be longer than a small
 unfolding. Four `Std.Nat` lemmas take 20–37% more steps
 (`modModOfMul` 30.8 k → 39.7 k, the others under 25 k): a folded solution,
 evaluated again, is a new call whose unfolding is computed again where the

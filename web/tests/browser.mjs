@@ -307,11 +307,11 @@ test("direct links open the dropdown's entries, and follow it", async (page) => 
   const hash = () => page.ev(`location.hash`);
   const length = () => page.ev(`history.length`);
   const blank = `document.getElementById("status").textContent = "(changed)";`;
-  await page.open({ hash: "#aoc/day02" });
+  await page.open({ hash: "#aoc/2025/day02" });
   await page.untilStatus(dayStatus(2), 60000);
   assert.equal(await page.ev(`document.getElementById("example").value`), "aoc:1");
   assert.equal(await sourceText(page), await bundled(page, DAY2), "Day 2's program is open");
-  assert.equal(await hash(), "#aoc/day02");
+  assert.equal(await hash(), "#aoc/2025/day02");
   // Picking another entry updates the address bar, without a history entry.
   const before = await length();
   await page.pick("ex-division");
@@ -319,15 +319,18 @@ test("direct links open the dropdown's entries, and follow it", async (page) => 
   assert.equal(await hash(), "#example/safe-division");
   await page.pick("aoc:2");
   await page.untilStatus(dayStatus(3), 60000);
-  assert.equal(await hash(), "#aoc/day03");
+  assert.equal(await hash(), "#aoc/2025/day03");
   assert.equal(await length(), before, "no history entries are added");
   // Editing the fragment switches the entry.
   await page.ev(`(() => { ${blank} location.hash = "#example/proofs-about-lists"; })()`);
   await page.untilChecked();
   assert.equal(await page.ev(`document.getElementById("example").value`), "ex-lists");
-  await page.ev(`(() => { ${blank} location.hash = "#aoc/day01"; })()`);
+  await page.ev(`(() => { ${blank} location.hash = "#aoc/2025/day01"; })()`);
   await page.untilStatus(dayStatus(1), 60000);
   assert.equal(await page.ev(`document.getElementById("example").value`), "aoc:0");
+  await page.ev(`(() => { ${blank} location.hash = "#aoc/2024/day01"; })()`);
+  await page.untilStatus(dayStatus(1), 60000);
+  assert.equal(await page.ev(`document.getElementById("example").value`), "aoc:9");
   // An unknown fragment gives the default example, with a notice.
   await page.ev(`(() => { ${blank} location.hash = "#example/nonsense"; })()`);
   await page.untilChecked();
@@ -338,7 +341,7 @@ test("direct links open the dropdown's entries, and follow it", async (page) => 
 });
 
 test("an unknown link at the start gives the default example and a notice", async (page) => {
-  await page.open({ hash: "#aoc/day99" });
+  await page.open({ hash: "#aoc/2025/day99" });
   await page.untilChecked();
   assert.equal(await page.ev(`document.getElementById("example").value`), "ex-lists");
   assert.match(await page.ev(`document.getElementById("link-notice").textContent`), /No such link/);
@@ -1537,27 +1540,36 @@ test("dragging the editor's corner resizes it", async (page) => {
 
 // The AoC project (docs/proposals/playground-projects.md) -----------------------
 
-/** What each day prints for its example input, and for its real input (the CLI's answers). */
-const AOC_EXAMPLE = ["Part 1: 3\nPart 2: 6\n", "Part 1: 1227775554\nPart 2: 4174379265\n", "Part 1: 357\nPart 2: 3121910778619\n",
-                     "Part 1: 13\nPart 2: 43\n", "Part 1: 3\nPart 2: 14\n", "Part 1: 4277556\nPart 2: 3263827\n",
-                     "Part 1: 21\nPart 2: 40\n", "Part 1: 20\nPart 2: 25272\n", "Part 1: 50\nPart 2: 24\n"];
-const AOC_PUZZLE = ["Part 1: 1076\nPart 2: 6379\n", "Part 1: 16793817782\nPart 2: 27469417404\n",
-                    "Part 1: 17263\nPart 2: 170731717900423\n", "Part 1: 1397\nPart 2: 8758\n",
-                    "Part 1: 525\nPart 2: 333892124923577\n", "Part 1: 4722948564882\nPart 2: 9581313737063\n",
-                    "Part 1: 1594\nPart 2: 15650261281478\n", "Part 1: 42315\nPart 2: 8079278220\n",
-                    "Part 1: 4756718172\nPart 2: 1665679194\n"];
+/** The days in the dropdown's order (2025, then 2024), with what each prints for its example input and for
+ *  its real input (the CLI's answers). */
+const answers = (part1, part2) => `Part 1: ${part1}\nPart 2: ${part2}\n`;
+const AOC_DAYS = [
+  { year: 2025, day: 1, example: answers(3, 6), puzzle: answers(1076, 6379) },
+  { year: 2025, day: 2, example: answers(1227775554, 4174379265), puzzle: answers(16793817782, 27469417404) },
+  { year: 2025, day: 3, example: answers(357, 3121910778619), puzzle: answers(17263, 170731717900423) },
+  { year: 2025, day: 4, example: answers(13, 43), puzzle: answers(1397, 8758) },
+  { year: 2025, day: 5, example: answers(3, 14), puzzle: answers(525, 333892124923577) },
+  { year: 2025, day: 6, example: answers(4277556, 3263827), puzzle: answers(4722948564882, 9581313737063) },
+  { year: 2025, day: 7, example: answers(21, 40), puzzle: answers(1594, 15650261281478) },
+  { year: 2025, day: 8, example: answers(20, 25272), puzzle: answers(42315, 8079278220) },
+  { year: 2025, day: 9, example: answers(50, 24), puzzle: answers(4756718172, 1665679194) },
+  { year: 2024, day: 1, example: answers(11, 31), puzzle: answers(2066446, 24931009) }
+];
 /** Every day has proofs. */
 const dayStatus = (day) => `Day ${day} and its proofs checked by the kernel`;
-const DAY2 = "src/Aoc/Day02/Day02.sw";
+const DAY2 = "src/Aoc/Year2025/Day02/Day02.sw";
 const DAY2_TABS = ["Day02.sw", "Tests/BruteForce.sw", "Tests/Examples.sw", "Tests/Input.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Proofs/Templates.sw", "Common/Lines.sw", "Common/Proofs/Range.sw", "Common/Range.sw", "Spec/Spec.sw"];
 
 /** The labels of the file tabs. */
 const fileTabs = (page) => page.ev(`[...document.querySelectorAll("#filetabs button")].map((b) => b.firstChild.textContent)`);
-/** Opens a day and waits for it to check; its tabs are those of its namespaces. */
-async function openDay(page, day) {
-  await page.pick(`aoc:${day - 1}`);
+/** Opens the dropdown's `index`th day, day `day` of its year, and waits for it to check; its tabs are those of
+ *  its namespaces. */
+async function openEntry(page, index, day) {
+  await page.pick(`aoc:${index}`);
   await page.untilStatus(dayStatus(day), 60000);
 }
+/** Opens a day of 2025. */
+const openDay = (page, day) => openEntry(page, day - 1, day);
 const openTab = (page, label) => page.ev(`[...document.querySelectorAll("#filetabs button")].find((b) => b.firstChild.textContent === ${JSON.stringify(label)}).click()`);
 const sourceText = (page) => page.ev(`document.getElementById("source").value`);
 /** The bundled text of a file, fetched as the page does. */
@@ -1571,9 +1583,14 @@ test("the AoC days are listed, and a day opens its program with its files as tab
   await page.open();
   await page.untilChecked();
   assert.equal(await page.ev(`document.getElementById("filebar").hidden`), true, "no file tabs for a single file");
-  const days = await page.until(`(() => { const g = document.querySelector("#example optgroup"); return g && { label: g.label,
-    days: [...g.children].map((o) => o.textContent) }; })()`, 10000, "the AoC group");
-  assert.deepEqual(days, { label: "Advent of Code 2025", days: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7", "Day 8", "Day 9"] });
+  const years = await page.until(`(() => { const groups = [...document.querySelectorAll("#example optgroup")]
+    .filter((g) => g.label.startsWith("Advent of Code"));
+    return groups.length > 0 && groups.map((g) => ({ label: g.label, days: [...g.children].map((o) => o.textContent) })); })()`,
+    10000, "the AoC groups");
+  assert.deepEqual(years, [
+    { label: "Advent of Code 2025", days: ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7", "Day 8", "Day 9"] },
+    { label: "Advent of Code 2024", days: ["Day 1"] }
+  ]);
   await openDay(page, 2);
   assert.equal(await page.ev(`document.getElementById("filebar").hidden`), false);
   await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`, 10000, "day 2's tabs");
@@ -1584,7 +1601,7 @@ test("the AoC days are listed, and a day opens its program with its files as tab
   // Switching tabs shows another file of the day.
   await openTab(page, "Proofs/Part1.sw");
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Proofs/Part1.sw"`);
-  assert.equal(await sourceText(page), await bundled(page, "src/Aoc/Day02/Proofs/Part1.sw"));
+  assert.equal(await sourceText(page), await bundled(page, "src/Aoc/Year2025/Day02/Proofs/Part1.sw"));
   assert.equal(await page.status(), dayStatus(2), "still checked");
   await assertAligned(page, "day 2 proofs tab");
   // Another day has its own files as tabs.
@@ -1597,21 +1614,22 @@ test("the AoC days are listed, and a day opens its program with its files as tab
 test("every day checks, with its proofs, and runs on its example and on its puzzle input", async (page) => {
   await page.open();
   await page.untilChecked();
-  for (let day = 1; day <= 9; day++) {
-    await openDay(page, day);
+  for (const [index, { year, day, example, puzzle }] of AOC_DAYS.entries()) {
+    const name = `${year} day ${day}`;
+    const file = `${year}/day0${day}.txt`;
+    await openEntry(page, index, day);
     const input = await page.until(`document.getElementById("run-input")?.value || (document.getElementById("run").click(), false)`, 10000, "the input");
-    assert.equal(input, await page.ev(`fetch("pkg/projects/aoc/examples/day0${day}.txt").then((r) => r.text())`), `day ${day}: the input box has the example`);
-    assert.equal(await page.ev(`document.getElementById("run").title`), `Run Aoc.Day0${day}.main (Ctrl+Enter)`);
+    assert.equal(input, await page.ev(`fetch("pkg/projects/aoc/examples/${file}").then((r) => r.text())`), `${name}: the input box has the example`);
+    assert.equal(await page.ev(`document.getElementById("run").title`), `Run Aoc.Year${year}.Day0${day}.main (Ctrl+Enter)`);
     await page.run(30000);
-    assert.equal(await page.printed(), AOC_EXAMPLE[day - 1], `day ${day} on its example`);
+    assert.equal(await page.printed(), example, `${name} on its example`);
     // The puzzle input, chosen next to the example.
-    await page.ev(`(() => { const s = document.getElementById("input-choice"); s.value = "inputs/day0${day}.txt";
+    await page.ev(`(() => { const s = document.getElementById("input-choice"); s.value = "inputs/${file}";
       s.dispatchEvent(new Event("change")); })()`);
-    const puzzle = await page.ev(`fetch("pkg/projects/aoc/inputs/day0${day}.txt").then((r) => r.text())`);
-    await page.until(`document.getElementById("run-input").value === ${JSON.stringify(puzzle)}`, 10000, "the puzzle input");
+    const puzzleInput = await page.ev(`fetch("pkg/projects/aoc/inputs/${file}").then((r) => r.text())`);
+    await page.until(`document.getElementById("run-input").value === ${JSON.stringify(puzzleInput)}`, 10000, "the puzzle input");
     await page.run(60000);
-    assert.equal(await page.printed(), AOC_PUZZLE[day - 1], `day ${day} on its puzzle input`);
-  }
+    assert.equal(await page.printed(), puzzle, `${name} on its puzzle input`);  }
 }, { ms: 360000 });
 
 test("the AoC tests are grouped by namespace, and cached on the next visit", async (page) => {
@@ -1627,7 +1645,7 @@ test("the AoC tests are grouped by namespace, and cached on the next visit", asy
              rows: [...o.querySelectorAll("ul.tests li")].map((li) => li.textContent) };
   })()`, 60000, "the tests");
   const first = await results();
-  assert.equal(first.groups[0], "Aoc.Day03.Tests");
+  assert.equal(first.groups[0], "Aoc.Year2025.Day03.Tests");
   assert.ok(first.rows.length >= 2 && first.rows.every((r) => r.startsWith("✓")), first.rows.join("\n"));
   assert.doesNotMatch(first.summary, /failed, [1-9]|[1-9]\d* failed/);
   // `Tests/Input.sw` reads the bundled puzzle input through `include` (SW-187).
@@ -1760,7 +1778,7 @@ test("Evaluate takes full names in a project", async (page) => {
   await page.untilChecked();
   await openDay(page, 2);
   await page.tab("eval");
-  assert.equal(await page.until(`document.getElementById("eval-input")?.value`, 10000), "Aoc.Day02.solvePart1 Aoc.Day02.Tests.exampleRanges");
+  assert.equal(await page.until(`document.getElementById("eval-input")?.value`, 10000), "Aoc.Year2025.Day02.solvePart1 Aoc.Year2025.Day02.Tests.exampleRanges");
   await page.until(`document.querySelector(".result")?.textContent.startsWith("1227775554")`, 30000, "the value");
   // A short name isn't in scope.
   await page.ev(`(() => { const i = document.getElementById("eval-input"); i.value = "solvePart1";
@@ -1769,9 +1787,9 @@ test("Evaluate takes full names in a project", async (page) => {
   // An import of the project's namespace gives it.
   const submit = (text) => page.ev(`(() => { const i = document.getElementById("eval-input"); i.value = ${JSON.stringify(text)};
     i.form.requestSubmit(); })()`);
-  await submit("import Aoc.Day02 (solvePart1)");
-  await page.until(`document.getElementById("eval-imports").textContent === "import Aoc.Day02 (solvePart1)"`, 30000, "the import");
-  await submit("solvePart1 Aoc.Day02.Tests.exampleRanges");
+  await submit("import Aoc.Year2025.Day02 (solvePart1)");
+  await page.until(`document.getElementById("eval-imports").textContent === "import Aoc.Year2025.Day02 (solvePart1)"`, 30000, "the import");
+  await submit("solvePart1 Aoc.Year2025.Day02.Tests.exampleRanges");
   await page.until(`document.querySelector(".result")?.textContent.startsWith("1227775554")`, 30000, "the value through an import");
 }, { ms: 120000 });
 
@@ -1940,7 +1958,7 @@ test("only the listed folders are bundled: sources, examples and puzzle inputs",
   const listed = [...manifest.files, ...manifest.data, ...manifest.days.flatMap((d) => d.inputs.map((i) => i.path))];
   assert.ok(listed.length > 15);
   for (const path of listed) {
-    assert.match(path, /^(src\/.*\.sw|examples\/[^/]*\.txt|inputs\/[^/]*\.txt)$/, path);
+    assert.match(path, /^(src\/.*\.sw|examples\/\d{4}\/[^/]*\.txt|inputs\/\d{4}\/[^/]*\.txt)$/, path);
   }
   for (const path of listed) assert.equal(await page.ev(`fetch("pkg/projects/aoc/${path}").then((r) => r.status)`), 200, path);
   // The project's config and anything else of aoc/ isn't served.

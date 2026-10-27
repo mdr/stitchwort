@@ -1,6 +1,6 @@
 # AoC 2025 day 7: community solutions in other languages
 
-**Date:** 22 October 2026. **Ticket:** SW-247 (D413). **Our version:** `aoc/src/Aoc/Day07/Day07.sw`
+**Date:** 22 October 2026. **Ticket:** SW-247 (D413). **Our version:** `aoc/src/Aoc/Year2025/Day07/Day07.sw`
 (program: a `Manifold` record with `start: Fin width` and rows `Vec Bool width`; part 1 carries a
 flag per column down the rows, part 2 works up from the bottom row, one count per column), with
 `Proofs/Spec.sw` (the timelines as explicit lists of splitters), `Proofs/Part1.sw`,
@@ -20,7 +20,7 @@ Labels, as before:
 Scratch files for every Stitchwort claim are in
 `/private/tmp/claude-501/-Users-matt-repos-misc-funlang/63e6bfc9-6f2e-43e5-9da9-a59432a877ec/scratchpad/day7-community/sw/`,
 run with the main checkout's `target/release/stitchwort` (built 22 Oct 2026, 09:03) against the
-committed `aoc/inputs/day07.txt` and `aoc/examples/day07.txt`. Fetched solutions are in `gh/`
+committed `aoc/inputs/2025/day07.txt` and `aoc/examples/2025/day07.txt`. Fetched solutions are in `gh/`
 beside it, the megathread data in `arctic/`, the scripts in `scripts/`.
 
 ## 1. Summary
@@ -143,7 +143,7 @@ the others are listed after it.
 | 22 | Reddit, bottom-up | [thraya](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nsylukn/) (Haskell) | inline | **bottom-up with a window**: `foldr go (repeat 1) ll` | `[ if b == '^' then x + z else y \| ((_,x):(b,y):(_,z):_) <- tails $ zip (wrap '?' qq) (wrap 1 nn) ]`; part 1 a `State` fold with `go (_:'\|':_:aa) (_:'^':_:xx)` | no |
 | 23 | Reddit, bags | [lboshuizen](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nsq6048/) (F#), [pianomanDylan](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nsrjkao/) (Scala), [Stano95](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nstie8c/), [vanZuider](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nsrekan/) (Haskell), [bmatcuk](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nsrlovt/), [tymscar](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nssnc34/) (Gleam) | inline | a map or set of columns, one fold | pianomanDylan: "Used the `Semigroup` type-class from Cats to handle the Map merge operation. No DFS, no graph, no cache, just iteration and simple addition"; tymscar: "a fold inside a fold" **[cited]** | no |
 | 24 | Reddit, array languages | [anaseto](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nsq7jw7/) and [oantolin](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/ntf4zy8/) (Goal), [ap29600](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nsqt518/) (K), [Daniikk1012](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nsq80xu/) (BQN), [Andreasnl](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nsq5a4o/), [aurele](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nssmrwe/) (Uiua), [light_switchy](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nsvhh0x/), [voidhawk42](https://www.reddit.com/r/adventofcode/comments/1pg9w66/2025_day_7_solutions/nsq5u7k/) (APL) | 1–5 | the row step as a scan or reduce with whole-row shifts | oantolin's whole answer: `ans:{t:{(-i)+x+(»i)+«i:x*y}\s:~"."=""\=-read[x];(+//(1_s)&(-1_t);+/*\|t)}`; ap29600 "simple DP, reminds me of the idiom for pascal's triangle in k"; anaseto "Part 2 is actually shorter and simpler than part 1, as it is just a simple fold instead of a scan" **[cited]** | no |
-| — | Stitchwort | `aoc/src/Aoc/Day07/Day07.sw` + `Proofs/` + `Tests/` | 47 (program); 38 + 9 (tests) | part 1 flags down, part 2 counts up, S anywhere | `Manifold` with `start: Fin width` and `Vec Bool width` rows; edges proved; tests include both edges and merging beams | **yes**: `part1Correct`, `part2Correct`, `part2Distinct`, for every manifold; Spec 79 + Part1 387 + Part2 69 + Distinct 74 lines |
+| — | Stitchwort | `aoc/src/Aoc/Year2025/Day07/Day07.sw` + `Proofs/` + `Tests/` | 47 (program); 38 + 9 (tests) | part 1 flags down, part 2 counts up, S anywhere | `Manifold` with `start: Fin width` and `Vec Bool width` rows; edges proved; tests include both edges and merging beams | **yes**: `part1Correct`, `part2Correct`, `part2Distinct`, for every manifold; Spec 79 + Part1 387 + Part2 69 + Distinct 74 lines |
 | — | Stitchwort, scratch | `shifts.sw`, `mapbag.sw`, `sets.sw`, `windows.sw`, `findstart.sw`, `shiftproof.sw` | 21–54 | the community's shapes | §4 | `shiftproof.sw` checks the part 2 column step |
 
 Fetched and only skimmed, because they repeat these patterns: Casper-Guo (Scala), ryoung786 and
@@ -212,7 +212,7 @@ something else]**.
 
 **[checked: from the `'S'` search in `gh/`; the counts are rough, a file may do two things.]** On
 our input S is in the first line, in column 71 (the middle of 141), and every other line has no
-splitter **[checked: `awk` on `aoc/inputs/day07.txt`]**, so all of these assumptions hold on it.
+splitter **[checked: `awk` on `aoc/inputs/2025/day07.txt`]**, so all of these assumptions hold on it.
 
 **Stitchwort today.** `parseManifold` finds the first S anywhere (`findStart`, `startFrom`,
 `firstFound`, `columnOf`: 16 code lines), takes the rows below it, and turns S's column into a
@@ -329,7 +329,7 @@ measures what that buys.
 | `fromMaybe 1` at the bottom, "leaving the map" is one timeline | mstksg, beefyhalo (`1 : cur`, `cur ++ [1]`), **ours** |
 
 The puzzle says nothing about a splitter beside the edge, and the real input never has one (the
-first and last columns of every line of `aoc/inputs/day07.txt` are `.`, **[checked: `awk`]**), so every
+first and last columns of every line of `aoc/inputs/2025/day07.txt` are `.`, **[checked: `awk`]**), so every
 solution above is right on the real input. For a splitter in the last column, the beam that leaves
 is one more timeline in part 2 on our reading of the puzzle (D219); solutions that drop it
 under-count. Ours counts it and the proof says so: `Spec.sw`'s `timelinesFrom` makes the left

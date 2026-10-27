@@ -291,7 +291,7 @@ rough size, and what others do.
   that makes no requests but calls a looping function passes "every request
   decreases" vacuously (partial.md §10.2). Today `decreasing` already
   covers the useful cases: AoC day 4's `settleRows` is total by a measure
-  (`aoc/src/Aoc/Day04/Day04.sw:99`).
+  (`aoc/src/Aoc/Year2025/Day04/Day04.sw:99`).
 - **Size.** Large.
 - **Others.** F\*: "it should be impossible to turn a `e:Dv t` into a term
   of type `Tot t`" ([F\* book](https://fstar-lang.org/tutorial/book/part4/part4_div.html)).

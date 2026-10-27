@@ -246,18 +246,18 @@ stitchwort check --no-cache` on `aoc/`, elaboration + kernel ms]:
 
 | Namespace | ms |
 |---|---|
-| `Aoc.Day05` / `Aoc.Day07` (programs) | 3 / 2 |
-| `Aoc.Day05.Proofs` | 19 |
-| `Aoc.Day07.Proofs` | 100 |
-| `Aoc.Day04.Proofs` | 406 |
-| `Aoc.Day08.Proofs` | 804 |
+| `Aoc.Year2025.Day05` / `Aoc.Year2025.Day07` (programs) | 3 / 2 |
+| `Aoc.Year2025.Day05.Proofs` | 19 |
+| `Aoc.Year2025.Day07.Proofs` | 100 |
+| `Aoc.Year2025.Day04.Proofs` | 406 |
+| `Aoc.Year2025.Day08.Proofs` | 804 |
 | whole project, `--no-cache` (wall) | 2420 |
 | whole project, warm cache (wall) | 830 |
 
 So in most namespaces the goal follows typing within the server's
 100 ms debounce (`lsp.rs:61`) [checked] plus a few tens of ms. In the big
 proof namespaces it lags by up to about a second; one theorem alone,
-`Aoc.Day08.Proofs.lastNeededExists`, takes 330 ms [run]. Re-checking only
+`Aoc.Year2025.Day08.Proofs.lastNeededExists`, takes 330 ms [run]. Re-checking only
 the edited declaration (stage 5, level 2) is what fixes that; goal holes
 don't make it worse (a `?` is cheaper to check than the proof it
 replaces) [inferred].

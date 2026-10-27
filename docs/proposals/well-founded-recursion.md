@@ -97,8 +97,8 @@ This note can be read without knowing type theory. Code references were checked 
 | `crates/elab/src/std/Nat/Digits.sw:7` | `Nat.digitsFuel` (`Nat.digits`) | `n + 1` | `digitsFuelSmall`, `digitsFuelBig`, `digitsFuelIndep` (the fuel doesn't matter), and an `n < f` hypothesis plus `Nat.leTrans` glue in six more (`Digits.sw:45-201`) |
 | `crates/elab/src/std/List/Toolkit.sw:738` | `List.chunksOfFuel` | one unit per element | none proved yet |
 | `crates/elab/src/std/List/Toolkit.sw:222` | `List.transposeN` | the number of columns | none; see below |
-| `aoc/src/Aoc/Day02/Day02.sw:61` | `weightFuel` | `n + 1`, recursion on divisors, *through a lambda* | in `Day02/Proofs/Part2.sw` (15 mentions) |
-| `aoc/src/Aoc/Day04/Day04.sw:123` | `settleMarked` | the number of rolls | `settleEnds` (`Proofs/Part2.sw:124`), using `fewerRolls` |
+| `aoc/src/Aoc/Year2025/Day02/Day02.sw:61` | `weightFuel` | `n + 1`, recursion on divisors, *through a lambda* | in `Day02/Proofs/Part2.sw` (15 mentions) |
+| `aoc/src/Aoc/Year2025/Day04/Day04.sw:123` | `settleMarked` | the number of rolls | `settleEnds` (`Proofs/Part2.sw:124`), using `fewerRolls` |
 
 **[checked]**, by `grep -rn -i fuel crates/elab/src/std aoc` (122 lines in 8 files).
 
@@ -1198,7 +1198,7 @@ doesn't do); not until hand-written ones get tedious.
 
 ### 3a.5 Day 2 before and after
 
-**Before** (`aoc/src/Aoc/Day02/Day02.sw:37-70`) **[checked]**: two `Nat` weights, `plus` and
+**Before** (`aoc/src/Aoc/Year2025/Day02/Day02.sw:37-70`) **[checked]**: two `Nat` weights, `plus` and
 `minus`, computed together by `weightFuel: Nat -> Bool -> Nat -> Nat` with fuel `Succ n`, a
 `divisorWeights` helper, and `invalid r := weighted plus r - weighted minus r`. The proofs
 (`Proofs/Part2.sw:255-323`) need `weightFuelEnough` (more fuel doesn't change it), `belowFuel`
@@ -1330,7 +1330,7 @@ congruence lemmas) and `docs/syntax.md`. Acceptance, in `examples/accept/` and `
 
 **Stage 3c: day 2 on `Int` (std and AoC; medium, mostly proofs).** The library rows of 3a.5's
 tables, then the program, `Part2.sw` and `Part1.sw`'s cast as sketched. Acceptance: no fuel in
-`aoc/src/Aoc/Day02/`; `part2Correct` and part 1's theorem check; the tests pass.
+`aoc/src/Aoc/Year2025/Day02/`; `part2Correct` and part 1's theorem check; the tests pass.
 
 **Stage 3b: `List.attach` (library; small).** `List.Mem`, `List.Member`, `List.attach`,
 `List.attachFrom`, the `attachFrom` lemmas first and then those of 3a.3. Acceptance: a recursive

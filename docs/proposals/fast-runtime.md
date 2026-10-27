@@ -787,12 +787,12 @@ caching a checked prelude across runs) would now gain more than the machine.
 All on `447b340`, Apple M4 Pro, other lanes running (load average 7–14). `/usr/bin/time -p`.
 Scratch files under the session scratchpad (`fast-runtime/`), not committed.
 
-**Day 4**, `aoc/` with `inputs/day04.txt`, output `Part 1: 1397`, `Part 2: 8758` everywhere:
+**Day 4**, `aoc/` with `inputs/2025/day04.txt`, output `Part 1: 1397`, `Part 2: 8758` everywhere:
 
 | Command | real | user |
 |---|---:|---:|
-| `stitchwort run Aoc.Day04.main` | 5.48 | 5.33 |
-| `stitchwort run --js Aoc.Day04.main` | 0.61 | 0.57 |
+| `stitchwort run Aoc.Year2025.Day04.main` | 5.48 | 5.33 |
+| `stitchwort run --js Aoc.Year2025.Day04.main` | 0.61 | 0.57 |
 | `node run.mjs` (the generated files, kept with `STITCHWORT_RUN_JS_DIR`) | 0.27 | 0.28 |
 | `qjs` (QuickJS 2026-06-04), `--stack-size 60000000`, `ulimit -s 65520` | 3.52 | 2.32 |
 | `qjs` (quickjs-ng 0.17.0), same | 2.37 | 2.34 |

@@ -160,7 +160,7 @@ The rules, in brief (the full set is in [projects.md](../projects.md)):
 - A namespace uses another by importing from it or writing a full name. Namespaces can't depend on each other in a cycle; definitions within one namespace can.
 - `Std`, the library's namespaces (`List`, `Text`, …) and `Main` are reserved as namespace names.
 - There is no `private`: anything can be named from anywhere.
-- Files and folders mean nothing to the compiler. The convention, followed by `aoc/`, is a folder per namespace: `Aoc.Day01` in `src/Aoc/Day01/`, with `Aoc.Day01.Tests` and `Aoc.Day01.Proofs` in subfolders.
+- Files and folders mean nothing to the compiler. The convention, followed by `aoc/`, is a folder per namespace: `Aoc.Year2025.Day01` in `src/Aoc/Year2025/Day01/`, with `Aoc.Year2025.Day01.Tests` and `Aoc.Year2025.Day01.Proofs` in subfolders.
 
 ## The standard library
 

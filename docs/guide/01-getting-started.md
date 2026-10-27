@@ -124,7 +124,7 @@ stitchwort run Shop.Report.main        # a function, by its full name
 stitchwort fmt                         # format every source file
 ```
 
-Running a function checks only its namespace and what it depends on. That's why tests and proofs usually live in namespaces of their own (`Shop.Tests`, `Aoc.Day01.Proofs`): `stitchwort run` doesn't have to check them.
+Running a function checks only its namespace and what it depends on. That's why tests and proofs usually live in namespaces of their own (`Shop.Tests`, `Aoc.Year2025.Day01.Proofs`): `stitchwort run` doesn't have to check them.
 
 ## The playground
 

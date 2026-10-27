@@ -1917,7 +1917,7 @@ export def area: Shape -> Nat
     showEntryLink(id);
     store(`${keysOf(name)}open`, project.open);
     evalImports = [];
-    evalInput = day.evalInput ?? (day.main === "Aoc.Day02.main" ? "Aoc.Day02.solvePart1 Aoc.Day02.Tests.exampleRanges" : `${day.main.replace(/main$/, "Tests.example")}`);
+    evalInput = day.evalInput ?? (day.main === "Aoc.Year2025.Day02.main" ? "Aoc.Year2025.Day02.solvePart1 Aoc.Year2025.Day02.Tests.exampleRanges" : `${day.main.replace(/main$/, "Tests.example")}`);
     // The Run input: what was saved for this day, else the day's first
     // bundled input (the example).
     inputChoice.replaceChildren(el("option", { value: "" }, "Input…"),
@@ -1954,17 +1954,20 @@ export def area: Shape -> Nat
 
   // Direct links to the Example dropdown's entries: `#example/<slug>`, the
   // slug being the entry's name in lowercase with runs of other characters
-  // as `-` (`#example/proofs-about-lists`), and `#aoc/dayNN` (`#aoc/day02`).
+  // as `-` (`#example/proofs-about-lists`), and `#aoc/YYYY/dayNN`
+  // (`#aoc/2025/day02`).
   const linkNotice = document.getElementById("link-notice");
   const slugOf = (title) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const dayNumber = (day) => String(day.open.match(/Day(\d+)\.sw$/)?.[1] ?? "").padStart(2, "0");
+  /** A project entry's part of its link: `2025/day02` for a day of Advent of Code, else the slug of its title. */
+  const daySlug = (name, day) => (name === "aoc" ? `${day.year}/day${dayNumber(day)}` : slugOf(day.title));
 
   /** The fragment for a dropdown value, without the `#`. */
   function hashFor(id) {
     const name = projectOfId(id);
     if (name) {
       const day = project?.name === name ? project.manifest.days[Number(id.slice(name.length + 1))] : null;
-      return day ? (name === "aoc" ? `aoc/day${dayNumber(day)}` : `${name}/${slugOf(day.title)}`) : null;
+      return day ? `${name}/${daySlug(name, day)}` : null;
     }
     const ex = document.getElementById(id);
     return ex ? `example/${slugOf(ex.dataset.title)}` : null;
@@ -1973,12 +1976,12 @@ export def area: Shape -> Nat
   /** The dropdown value a fragment names, or null (also for anything but plain tokens). */
   async function idForHash(hash) {
     if (!/^[A-Za-z0-9\/._-]+$/.test(hash)) return null;
-    const [kind, name, ...rest] = hash.split("/");
-    if (rest.length) return null;
-    if (kind === "example") return examples.find((ex) => slugOf(ex.dataset.title) === name)?.id ?? null;
+    const [kind, ...rest] = hash.split("/");
+    const name = rest.join("/");
+    if (kind === "example") return rest.length === 1 ? examples.find((ex) => slugOf(ex.dataset.title) === name)?.id ?? null : null;
     if (PROJECT_NAMES.includes(kind)) {
       const manifest = await fetchManifest(kind);
-      const i = manifest?.days.findIndex((day) => (kind === "aoc" ? `day${dayNumber(day)}` : slugOf(day.title)) === name) ?? -1;
+      const i = manifest?.days.findIndex((day) => daySlug(kind, day) === name) ?? -1;
       return i >= 0 ? `${kind}:${i}` : null;
     }
     return null;
@@ -2004,12 +2007,17 @@ export def area: Shape -> Nat
     await loadExample(id);
   }
 
-  /** Adds the project's days to the Example dropdown. */
+  /** Adds the project's days to the Example dropdown: one group per year
+   *  for days that name one ("Advent of Code 2025"), else one group. */
   function addProjectGroup(manifest) {
     if (!manifest) return;
-    const group = el("optgroup", { label: manifest.title });
-    manifest.days.forEach((day, i) => group.append(el("option", { value: `${manifest.name}:${i}` }, day.title)));
-    picker.append(group);
+    const groups = new Map();
+    manifest.days.forEach((day, i) => {
+      const label = day.year ? `${manifest.title} ${day.year}` : manifest.title;
+      if (!groups.has(label)) groups.set(label, el("optgroup", { label }));
+      groups.get(label).append(el("option", { value: `${manifest.name}:${i}` }, day.title));
+    });
+    picker.append(...groups.values());
     if (project?.name === manifest.name) picker.value = `${manifest.name}:${project.day}`;
   }
 

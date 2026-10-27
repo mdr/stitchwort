@@ -14,7 +14,7 @@ theorem rangeIn (from: Nat) (to: Nat) (y: Nat) (h1: from ≤ y) (h2: y ≤ to): 
   omega
 
 -- Counting the ids that ranges hold, for example to show that disjoint ranges
--- add up (day 5 uses these in `Aoc.Day05.solvePart2Correct`).
+-- add up (day 5 uses these in `Aoc.Year2025.Day05.solvePart2Correct`).
 
 theorem containsLo (r: Range) (id: Nat) (h: r.contains id = True): r.from ≤ id := Nat.betweenLo r.from r.to id h
 

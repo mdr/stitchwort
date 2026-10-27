@@ -147,7 +147,7 @@ fn the_index_is_the_same_from_the_cache_for_aoc() {
     assert!(whole > 10, "{whole} namespaces cached");
     // A namespace on its own, from the entries the whole project wrote:
     // nothing more is written.
-    assert_index_unchanged(&aoc, &cache, &["Aoc.Day05"]);
+    assert_index_unchanged(&aoc, &cache, &["Aoc.Year2025.Day05"]);
     assert_eq!(namespace_entries(&cache), whole);
     let _ = std::fs::remove_dir_all(&cache);
 }

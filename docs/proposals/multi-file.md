@@ -115,7 +115,7 @@ here and reviewed.
 
 | | Decision | Design | Status |
 |---|---|---|---|
-| D1 | The namespace line | `namespace Day05` or `namespace Aoc.Day05` (capitalised components). **Exactly one, at the top** (after comments, before imports). §4.2 | Matt (the line); Rec. (placement details) |
+| D1 | The namespace line | `namespace Day05` or `namespace Aoc.Year2025.Day05` (capitalised components). **Exactly one, at the top** (after comments, before imports). §4.2 | Matt (the line); Rec. (placement details) |
 | D2 | A project file without one | **Error**, `E-NO-NAMESPACE`. No default namespace. §4.2 | Matt |
 | D3 | File mode | `run`, `check` or `test` of `path/file.sw` loads that file and `Std` only, inside a project or not. A namespace line is optional there; imports of anything but `Std` are `E-FILE-MODE`; `run` needs a runnable `main`. A standalone reading: it can differ from the project's (§4.3). | Matt |
 | D4 | `stitchwort.yaml` | One key for now, `sources` (default `[src]`); unknown keys are errors. Parsed with **`serde-saphyr`**, strictly. §4.1 | Matt |
@@ -339,7 +339,7 @@ def main () : {IO} () := …
 
 - **Syntax:** `namespace` followed by a namespace path: one or more
   components separated by `.`, each starting with a capital letter, as for
-  any namespace (namespaces.md §4.13). `namespace Aoc.Day05` is fine.
+  any namespace (namespaces.md §4.13). `namespace Aoc.Year2025.Day05` is fine.
 - **Where:** the first thing in the file, after comments and blank lines,
   before any `import`. **Exactly one per file.** A second one, or one after
   an import or declaration, is `E-PARSE` with a note.
@@ -351,7 +351,7 @@ def main () : {IO} () := …
   prefixing declarations. The header has no `end`, so the two never look
   alike to the parser: a `namespace` line at the top without a matching
   `end` is the header; any later one must be a block. Not proposed now.
-- **Dotted names don't open their parents.** In `namespace Aoc.Day05`, the
+- **Dotted names don't open their parents.** In `namespace Aoc.Year2025.Day05`, the
   names of `Aoc` are not visible by short name; they're imported like any
   other namespace's. Each namespace is self-contained, which keeps "where
   does this name come from" answerable from the file alone. Kotlin's

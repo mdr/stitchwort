@@ -1617,8 +1617,8 @@ mod tests {
 
     #[test]
     fn subsequence_ignores_case() {
-        assert!(subsequence("dfp", "Aoc.Day01.findPassword"));
-        assert!(!subsequence("zz", "Aoc.Day01.findPassword"));
+        assert!(subsequence("dfp", "Aoc.Year2025.Day01.findPassword"));
+        assert!(!subsequence("zz", "Aoc.Year2025.Day01.findPassword"));
     }
 
     #[test]

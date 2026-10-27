@@ -1105,8 +1105,8 @@ library crate as `aot/swrt/`.
 
 **[ran]** Nothing was left to admit. N3 had admitted every `Prim` and `Test`
 except the effect operations and `Text.fold`, the `Int` instructions and
-`Text.chars`. `stitchwort dev opcode-census` on `Rogue.main`, `Aoc.Day01` to
-`Aoc.Day09` (project `aoc/`) and `bench/native/*.sw` lists no blocker but
+`Text.chars`. `stitchwort dev opcode-census` on `Rogue.main`, `Aoc.Year2025.Day01` to
+`Aoc.Year2025.Day09` (project `aoc/`) and `bench/native/*.sw` lists no blocker but
 `Prim:Effect` and `TailPrim:Effect` (the only `TailPrim`s the lowering emits
 are effect ones), so the census is unchanged: rogue 170 of 244 bodies
 (standard library 43 of 54), AoC days 1 to 9: 45/56, 41/59, 43/56, 49/52,

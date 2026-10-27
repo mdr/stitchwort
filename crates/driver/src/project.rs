@@ -19,7 +19,7 @@ pub enum Target {
     Everything,
     Namespaces(Vec<String>),
     /// Each name's namespace (if there is one) and every namespace under it
-    /// (`Aoc.Day01` and `Aoc.Day01.Tests`), and what they use.
+    /// (`Aoc.Year2025.Day01` and `Aoc.Year2025.Day01.Tests`), and what they use.
     Subtrees(Vec<String>),
 }
 
@@ -420,7 +420,7 @@ pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, Str
 pub struct ParsedFile {
     /// Its path within the project.
     pub path: String,
-    /// Its name in messages (`aoc/src/Aoc/Day01.sw`).
+    /// Its name in messages (`aoc/src/Aoc/Year2025/Day01/Day01.sw`).
     pub display: String,
     pub id: FileId,
     pub text: String,

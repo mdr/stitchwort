@@ -197,7 +197,7 @@ There is no visibility control (no `private`), so any field of a library record,
   a sorted list. One extraction example compares `Map.toList a == Map.toList b` by hand
   [checked: `examples/extract/dictionary.sw:56-57`].
 - **Proofs.** AoC day 8 keeps `Circuits = { labels: Map Nat Nat, count: Nat }`
-  [checked: `aoc/src/Aoc/Day08/Day08.sw:77`]. `joinSame: c.join f s = c` works only because that
+  [checked: `aoc/src/Aoc/Year2025/Day08/Day08.sw:77`]. `joinSame: c.join f s = c` works only because that
   path leaves the map syntactically untouched [checked: `Proofs/Labels.sw:128-129`]. A theorem
   like "inserting the stored value changes nothing" can't be stated with `=` at all.
 - **Maps can't nest recursively today.** `type Tree = { label: Text, children: Map Text Tree }` is
@@ -2032,7 +2032,7 @@ Stitchwort (commit `1786944e`): `crates/core/src/{check.rs,unify_index.rs,value.
 `crates/elab/src/std/core/{DecEq.sw,Ord.sw,CompareData.sw}`, `std/Map/Map.sw`, `std/Set/Set.sw`,
 `std/Decidable/Decidable.sw`, `docs/core.md`, `docs/syntax.md`, `DESIGN.md`,
 `docs/proposals/{maps,float,integers,proof-irrelevance,calc-rewrite}.md`,
-`aoc/src/Aoc/Day08/{Day08.sw,Proofs/Labels.sw}`, `examples/extract/dictionary.sw`. Draft 3
+`aoc/src/Aoc/Year2025/Day08/{Day08.sw,Proofs/Labels.sw}`, `examples/extract/dictionary.sw`. Draft 3
 (commit `0805af8a`) additionally read `crates/core/src/{erase.rs,check.rs,term.rs,hash.rs}`,
 `crates/rt/src/{erasure.rs,lower.rs,machine.rs}`, `crates/js/src/lib.rs`,
 `crates/elab/src/std/core/Equality.sw`, `std/Map/Map.sw` (as changed by stage 0) and

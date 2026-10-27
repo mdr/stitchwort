@@ -51,13 +51,15 @@ task bench                      # benchmarks, compared with bench/baseline.toml
 A local VS Code syntax-colouring extension for `.sw` files is in
 [`editors/vscode/`](editors/vscode/README.md).
 
-## Advent of Code 2025
+## Advent of Code
 
-Solutions with proofs are in [`aoc/`](aoc/), with notes in
-[docs/aoc-2025.md](docs/aoc-2025.md). Puzzle inputs aren't included; put
-yours in `aoc/inputs/dayNN.txt` and run
-`cd aoc && cargo run --release -- run --js Aoc.Day01.main < inputs/day01.txt`
-(`aoc/` is a project with one namespace per day, `Aoc.Day01` to `Aoc.Day05`).
+Solutions with proofs are in [`aoc/`](aoc/), one project for every year:
+2025 in `Aoc.Year2025` (notes in [docs/aoc-2025.md](docs/aoc-2025.md)),
+2024 in `Aoc.Year2024` (notes in [aoc/NOTES-2024.md](aoc/NOTES-2024.md)),
+and helpers they share in `Aoc.Common`. Each day is a namespace, such as
+`Aoc.Year2025.Day01`, in a folder of the same name. The puzzle inputs are in
+`aoc/inputs/YYYY/dayNN.txt`; run a day with
+`cd aoc && cargo run --release -- run --js Aoc.Year2025.Day01.main < inputs/2025/day01.txt`.
 
 ## Licence
 

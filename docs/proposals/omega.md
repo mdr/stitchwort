@@ -415,7 +415,7 @@ unchanged.
   note:  budget exhausted: the search may make 20000 rows and 6 levels of case splits; nothing is claimed about the goal
 ```
 
-**Day 5** (`omega-day05.sw` against `aoc/src/Aoc/Day05/Proofs/Part2.sw`, non-blank lines of
+**Day 5** (`omega-day05.sw` against `aoc/src/Aoc/Year2025/Day05/Proofs/Part2.sw`, non-blank lines of
 each theorem; `aoc/` itself is unchanged):
 
 | lemma | lines before | after | arithmetic lemma calls before | after |
@@ -508,7 +508,7 @@ mentions of the linear-order lemma names (`Nat.leTrans`, `leRefl`, `leSucc`, `le
 `addSuccLeSucc`, `succNotZero`, `zeroNotSucc`, `succInjective`, `zeroLe`, `leLessSucc`, the
 `max`/`min` order lemmas, `predLeSucc`, `leMulPos`, `mulOne`, `mulZero`) outside comments, including the
 ones now written as facts inside `omega [...]`. Check time is the `STITCHWORT_TIMINGS=1
-stitchwort check --no-cache Aoc.DayNN.Proofs` row for the namespace, elaboration plus kernel,
+stitchwort check --no-cache Aoc.Year2025.DayNN.Proofs` row for the namespace, elaboration plus kernel,
 median of five runs on one machine, so differences under about 5% are noise.
 
 | Day | lines before → after | lemma calls before → after | `omega` | check ms before → after |
@@ -748,7 +748,7 @@ splits), 3.2 ms and 121,000 steps. `Omega/Sound.sw` now checks in about 16 ms (e
    in the annotation.
 
 Per day, as in "Stage 1 on AoC" (non-blank non-comment lines of `Proofs/`; check time is the
-`Aoc.DayNN.Proofs` row of `STITCHWORT_TIMINGS=1 stitchwort check --no-cache`, elaboration +
+`Aoc.Year2025.DayNN.Proofs` row of `STITCHWORT_TIMINGS=1 stitchwort check --no-cache`, elaboration +
 kernel, median of five runs, both columns with this branch's compiler). "Lemma calls" now
 counts the stage-1 list **plus** the lemmas stage 2 covers (`addSubCancel`, `subEqZero`,
 `subSuccRight`, `addSub`, `subLe`, `leSubAdd`, `addSubLe`, `maxLeft/Right`, `minLeft/Right`,
@@ -842,7 +842,7 @@ three numbers written out.
 
 Counts at `610b8d5a` **[checked: grep]**: the twenty most common arithmetic lemmas
 (`Nat.leTrans`, `Nat.addOne`, `Nat.leqFalse`, `Nat.addSub`, `Nat.addComm` and so on) are
-called 43 times in `aoc/src/Aoc/Day02/Proofs/Part2.sw`, 25 in `Day02/Proofs/Repeated.sw`,
+called 43 times in `aoc/src/Aoc/Year2025/Day02/Proofs/Part2.sw`, 25 in `Day02/Proofs/Repeated.sw`,
 16 in `Common/Proofs/Range.sw`, 15 in `Day03/Proofs/Best.sw`, 12 in `Day07/Proofs/Part1.sw`,
 and 97 in the library's own `Nat/Arith.sw`. `Nat.addOne` alone is used 32 times.
 
@@ -1584,7 +1584,7 @@ so the check is computed twice, once by each side, as for `auto` today
 Line counts are non-blank lines of the theorem. "After" is a sketch, not run; the stage needed
 is given for each.
 
-### 7.1 Day 5 (`aoc/src/Aoc/Day05/Proofs/Part2.sw`)
+### 7.1 Day 5 (`aoc/src/Aoc/Year2025/Day05/Proofs/Part2.sw`)
 
 **`absorbLo`** (stage 1): 9 lines → 6. Shown in §6.1; the `True` arm's three-line `calc`
 becomes `omega`.

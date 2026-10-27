@@ -73,7 +73,7 @@ the type of the index is the proof. `Vec.get` and its lemmas (`getMap`,
 [checked: `std/Vec/Vec.sw`]. It has `toNat`, `ofNatLt`, `ofNat [auto i < n]`,
 `Show`, `DecEq` and `Ord`, and no arithmetic. It's used 76 times, mostly in
 the library and examples; in AoC only by day 4's parse proof
-(`Aoc/Day04/Proofs/Parse.sw`, through `Fin.ofNatLt` and `Fin.toNatOfNatLt`).
+(`Aoc/Year2025/Day04/Proofs/Parse.sw`, through `Fin.ofNatLt` and `Fin.toNatOfNatLt`).
 
 **Interfaces.** `+` and `*` mean `Add.add` and `Mul.mul` for every type, and
 the instances carry laws [checked: `std/core.sw`, D187]:
@@ -233,7 +233,7 @@ it (as Agda and Idris's `Data.Fin.Arith` do), but nothing needs it yet.
 ### 5.1 Representation and speed
 
 A record, as `Dial` already is (`type Dial (highest: Nat) = { position: Nat,
-inRange: position <= highest }`, [checked: `Aoc/Day01/Day01.sw`]): a native
+inRange: position <= highest }`, [checked: `Aoc/Year2025/Day01/Day01.sw`]): a native
 number plus a proof that is erased at run time [checked: docs/core.md,
 "Running a program"]. Arithmetic is native `Nat` arithmetic and one `%`.
 

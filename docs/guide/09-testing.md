@@ -101,21 +101,21 @@ For your own abilities, the handler you'd write anyway is usually the test's han
 
 ## Organising tests
 
-In a single file, tests sit beside the code. In a project, put them in a namespace of their own, as the shop project does (`Shop.Tests`) and as `aoc/` does (`Aoc.Day01.Tests`). `stitchwort test Shop` runs the tests of `Shop`, every namespace under it, and every namespace those use; `stitchwort run` doesn't check them.
+In a single file, tests sit beside the code. In a project, put them in a namespace of their own, as the shop project does (`Shop.Tests`) and as `aoc/` does (`Aoc.Year2025.Day01.Tests`). `stitchwort test Shop` runs the tests of `Shop`, every namespace under it, and every namespace those use; `stitchwort run` doesn't check them.
 
 A test with a puzzle input can read the file at check time with `include "path"`, which is a `Text` literal with the file's contents. Editing the file reruns exactly the tests that include it:
 
-<!-- snippet: ../../../aoc/src/Aoc/Day01/Tests/Input.sw -->
+<!-- snippet: ../../../aoc/src/Aoc/Year2025/Day01/Tests/Input.sw -->
 ```stitchwort
--- The real puzzle input (aoc/inputs/day01.txt, committed, D119), through
+-- The real puzzle input (aoc/inputs/2025/day01.txt, committed), through
 -- `include`: the answers are checked on it when the tests run, and editing
 -- the input reruns exactly these tests.
-namespace Aoc.Day01.Tests
-import Aoc.Day01 (..)
+namespace Aoc.Year2025.Day01.Tests
+import Aoc.Year2025.Day01 (..)
 import Std (Fail)
 
-test "real input, part 1" := solvePart1 (Fail.orElse [] (() => parseTurns (include "../../../../inputs/day01.txt").lines)) == 1076
-test "real input, part 2" := solvePart2 (Fail.orElse [] (() => parseTurns (include "../../../../inputs/day01.txt").lines)) == 6379
+test "real input, part 1" := solvePart1 (Fail.orElse [] (() => parseTurns (include "../../../../../inputs/2025/day01.txt").lines)) == 1076
+test "real input, part 2" := solvePart2 (Fail.orElse [] (() => parseTurns (include "../../../../../inputs/2025/day01.txt").lines)) == 6379
 ```
 
 ## Tests and proofs

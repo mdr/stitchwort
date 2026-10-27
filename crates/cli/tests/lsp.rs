@@ -435,9 +435,9 @@ fn aoc_navigation_matches_check_index() {
     let index = IndexJson::of(&project);
     let mut client = Client::start();
     let files = [
-        "src/Aoc/Day01/Day01.sw",
-        "src/Aoc/Day01/Proofs/Part2.sw",
-        "src/Aoc/Day05/Day05.sw",
+        "src/Aoc/Year2025/Day01/Day01.sw",
+        "src/Aoc/Year2025/Day01/Proofs/Part2.sw",
+        "src/Aoc/Year2025/Day05/Day05.sw",
     ];
     let first = uri(&project.join(files[0]));
     client.open(
@@ -446,7 +446,7 @@ fn aoc_navigation_matches_check_index() {
     );
     assert_eq!(client.diagnostics(&first, 1), Vec::<Value>::new());
     // Wait for the rest of the project (checked in the background, after
-    // the namespaces that use `Aoc.Day01`).
+    // the namespaces that use `Aoc.Year2025.Day01`).
     let last = uri(&project.join(files[1]));
     client.diagnostics(&last, 0);
 
@@ -567,8 +567,8 @@ fn aoc_navigation_matches_check_index() {
     assert_eq!(found[0]["name"], "parseTurns", "{found}");
     assert_eq!(place(&project, &found[0]["location"]), files[0]);
 
-    // An edit that breaks `Aoc.Day01`, unsaved: its diagnostics, and its
-    // dependents' (`Aoc.Day01.Proofs` can't be checked).
+    // An edit that breaks `Aoc.Year2025.Day01`, unsaved: its diagnostics, and its
+    // dependents' (`Aoc.Year2025.Day01.Proofs` can't be checked).
     let broken = text.replace(
         "def solvePart1 (turns: List Turn): Nat :=",
         "def solvePart1 (turns: List Turn): Text :=",
@@ -599,7 +599,7 @@ fn aoc_navigation_matches_check_index() {
 fn workspace_symbols_cover_namespaces_not_checked_yet() {
     let project = aoc();
     let mut client = Client::start();
-    let path = "src/Aoc/Day01/Day01.sw";
+    let path = "src/Aoc/Year2025/Day01/Day01.sw";
     let first = uri(&project.join(path));
     client.open(
         &first,
@@ -613,13 +613,13 @@ fn workspace_symbols_cover_namespaces_not_checked_yet() {
     assert_eq!(found[0]["kind"], 12, "a function: {found:?}");
     assert_eq!(
         place(&project, &found[0]["location"]),
-        "src/Aoc/Day08/Day08.sw"
+        "src/Aoc/Year2025/Day08/Day08.sw"
     );
     // A dotted declaration is at its last component.
     let found = client.request("workspace/symbol", json!({"query": "Boxes.of"}));
     let found = found.as_array().unwrap();
     assert_eq!(found[0]["name"], "of", "{found:?}");
-    let text = std::fs::read_to_string(project.join("src/Aoc/Day08/Day08.sw")).unwrap();
+    let text = std::fs::read_to_string(project.join("src/Aoc/Year2025/Day08/Day08.sw")).unwrap();
     let line = text
         .lines()
         .position(|l| l.starts_with("def Boxes.of"))
@@ -761,7 +761,7 @@ fn implicit_lambda_parameters_hover_with_their_types() {
 #[test]
 fn a_newer_edit_cancels_the_check_running() {
     let project = aoc();
-    let path = project.join("src/Aoc/Day04/Proofs/Rounds.sw");
+    let path = project.join("src/Aoc/Year2025/Day04/Proofs/Rounds.sw");
     let text = std::fs::read_to_string(&path).unwrap();
     let uri = uri(&path);
     let options = Options::new(STACK);
@@ -795,7 +795,7 @@ fn a_newer_edit_cancels_the_check_running() {
 }
 
 /// The time from an edit to its diagnostics on `aoc`, for a leaf added to
-/// `Aoc.Day01` and to `Aoc.Day04.Proofs` (`cargo test --release -p
+/// `Aoc.Year2025.Day01` and to `Aoc.Year2025.Day04.Proofs` (`cargo test --release -p
 /// stitchwort-cli --test lsp -- --ignored --nocapture`).
 #[test]
 #[ignore]
@@ -805,8 +805,11 @@ fn latency_on_aoc() {
     let mut results: BTreeMap<&str, Vec<Duration>> = BTreeMap::new();
     let mut version = 1;
     let paths = [
-        ("Aoc.Day01", "src/Aoc/Day01/Day01.sw"),
-        ("Aoc.Day04.Proofs", "src/Aoc/Day04/Proofs/Rounds.sw"),
+        ("Aoc.Year2025.Day01", "src/Aoc/Year2025/Day01/Day01.sw"),
+        (
+            "Aoc.Year2025.Day04.Proofs",
+            "src/Aoc/Year2025/Day04/Proofs/Rounds.sw",
+        ),
     ];
     for (_, path) in paths {
         let uri = uri(&project.join(path));

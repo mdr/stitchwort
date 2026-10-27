@@ -62,7 +62,7 @@ Decisions for Matt are in §8 (D1013 to D1022). §7 lists the stages.
   and nothing else. There is only one comment form, the `--` line comment.
   There are no block or doc comments in the language (docs/syntax.md:11).
   By convention, a doc comment is a run of `--` lines directly above a
-  declaration with no blank line between (`aoc/src/Aoc/Day04/Day04.sw:29-30`).
+  declaration with no blank line between (`aoc/src/Aoc/Year2025/Day04/Day04.sw:29-30`).
 - **The AST keeps spans but not every token.** `Expr` has no node for
   brackets: `(a)` and `a` parse the same (`crates/syntax/src/ast.rs:24-140`).
   Nested tuples become `Tuple(a, Tuple(b, c))`, and block lines become
@@ -195,7 +195,7 @@ grep-based). **Bold "D…"** marks a choice for Matt.
 | # | Rule | Before | After | Evidence / note |
 |---|---|---|---|---|
 | R1 | Indent unit is 2 spaces. Arms at +2 from the declaration, header continuation lines at +4 | `def f (x: Nat): Nat` / `      \| Zero => 0` | `def f (x: Nat): Nat` / `  \| Zero => 0` | 6,720 lines at 2, 2,451 at 4; header continuation at 4, e.g. `crates/elab/src/std/List/Sort.sw:39-41` |
-| R2 | Block lines (`let`, statements) at the block's column. A body on the next line after `:=` or `=>` is at +2 | `:=` / `    let x := 1` / `    x` | `:=` / `  let x := 1` / `  x` | `aoc/src/Aoc/Day04/Day04.sw:72-74` |
+| R2 | Block lines (`let`, statements) at the block's column. A body on the next line after `:=` or `=>` is at +2 | `:=` / `    let x := 1` / `    x` | `:=` / `  let x := 1` / `  x` | `aoc/src/Aoc/Year2025/Day04/Day04.sw:72-74` |
 | R3 | No space before `:`, one after: `(x: Nat)`, `def f: T`, `match h: e` | `(p : x = y) : y = x` | `(p: x = y): y = x` | ~3,081 `):` against 17 `) :` (`std/core/Equality.sw:11`) |
 | R4 | One space around `:=`, `=>`, `->`, `=` and binary operators; one between application arguments | `f  x  :=x+1` | `f x := x + 1` | |
 | R5 | No spaces inside `(` `)` and `[` `]`; one space inside `{ }` on one line | `( a, b )`, `{a = 1}` | `(a, b)`, `{ a = 1 }` | records `{ name = "Alice", age = 30 }` |

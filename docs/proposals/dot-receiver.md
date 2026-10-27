@@ -404,7 +404,7 @@ Measured with the code-navigation index over `crates/elab/src/std/`,
    need their arguments swapped (std 663, aoc 661, examples 67). 642 of the
    aoc ones are in `Proofs/` folders, mostly `List.sumBy` (365),
    `List.getOr` (188), `List.map` (166) and `List.take` (94). Another ~47 are
-   in `Aoc.Day06.Proofs`, which the index tool couldn't load (appendix D).
+   in `Aoc.Year2025.Day06.Proofs`, which the index tool couldn't load (appendix D).
    Partial applications used as values become method sections. Dot calls
    (273) and pipes (51) into these functions keep their text and meaning.
    The one pipe whose meaning changes is `5 |> Nat.add 1` (commutative).
@@ -465,7 +465,7 @@ There are also 277 theorems with two or more such parameters (`Eq.trans`,
 **Existing dot calls to these functions (20, all right under A):**
 `[1, 2].zip [3, 4]` (×5: `examples/accept/dot-prefix.sw:13`,
 `eqeq-containers.sw:27`, `list-toolkit.sw:29,101`); `.zipWith` (×2:
-`list-toolkit.sw:31`, `aoc/src/Aoc/Day01/Day01.sw:44`); `.zipWith3` (×5,
+`list-toolkit.sw:31`, `aoc/src/Aoc/Year2025/Day01/Day01.sw:44`); `.zipWith3` (×5,
 `list-toolkit.sw:33–41`); `xs.append …` (×4: `implicits.sw:28`,
 `match.sw:30`, `mutual-data.sw:131`, `tests.sw:7`); `"…".less "…"` (×5,
 `text.sw:9–15`). Under B all 20 change meaning, and under C all 20 are
@@ -544,8 +544,8 @@ reorders or that takes one argument, so none changes meaning except
   before that isn't a capitalised namespace path. It counts as a pipe when
   `|>` is the token before the qualified name. Definition sites are
   excluded.
-- **Not covered**: `Aoc.Day06.Proofs` could not be indexed. `stitchwort
-  check Aoc.Day06.Proofs --index …` panics with "internal error: applying a
+- **Not covered**: `Aoc.Year2025.Day06.Proofs` could not be indexed. `stitchwort
+  check Aoc.Year2025.Day06.Proofs --index …` panics with "internal error: applying a
   data type" (`crates/core/src/value.rs:480`). Its grep count of prefix calls
   to `List.map`, `sumBy`, `getOr` and similar functions is about 47, and it
   has no dot calls to the 95 functions. The counts are heuristic to within a

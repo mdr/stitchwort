@@ -268,7 +268,7 @@ type says where `map` comes from, which is the point of it. Every precedent wher
 need an import (Rust traits, Scala and Kotlin extensions) is about methods defined
 *away from* the type by someone else; `Std.List`'s functions are the type's own, like Rust's
 inherent methods. The AoC style leans on pipes (`turns |> .scanLeft … |> .count …`,
-`aoc/src/Aoc/Day01/Day01.sw:35-38`), and requiring `import Std (List)` for those adds a
+`aoc/src/Aoc/Year2025/Day01/Day01.sw:35-38`), and requiring `import Std (List)` for those adds a
 line that says only what the types already say. B's loading advantage is real, but it's an
 implementation matter: the loader can be made exact by indexing `(namespace, member)`
 instead of the last name component (std-library.md's "tightened" note), with no change in
@@ -392,11 +392,11 @@ an upper bound, some are compiler sources]**. The playground bundles `aoc/` as i
 **A typical AoC program, before and after:**
 
 ```
--- before: aoc/src/Aoc/Day01/Day01.sw
-namespace Aoc.Day01
+-- before: aoc/src/Aoc/Year2025/Day01/Day01.sw
+namespace Aoc.Year2025.Day01
 
 -- after
-namespace Aoc.Day01
+namespace Aoc.Year2025.Day01
 import Std (Int, IO, List)
 ```
 
@@ -407,7 +407,7 @@ operation of the ability, so it comes with `IO` (§3).
 **A proof file, before and after:**
 
 ```
--- before: aoc/src/Aoc/Day02/Proofs/Part1.sw
+-- before: aoc/src/Aoc/Year2025/Day02/Proofs/Part1.sw
 import Std (Eq)
 
 -- after
@@ -427,7 +427,7 @@ machine, five runs each unless noted, while other lanes were running **[checked]
 | One reference into each of the 12 library files | 0.42–0.44 s | 35 MB |
 | `examples/accept/list-patterns.sw` (3 runs) | 0.09–0.11 s | 22 MB |
 | `examples/accept/pipe.sw` (3 runs) | 0.32–0.47 s | 31 MB |
-| `aoc` namespace `Aoc.Day01` (3 runs) | 0.41 s | 42 MB |
+| `aoc` namespace `Aoc.Year2025.Day01` (3 runs) | 0.41 s | 42 MB |
 | all of `aoc` (1 run) | 2.50 s | 109 MB |
 
 What follows **[estimate: arithmetic on the table]**:
@@ -440,7 +440,7 @@ What follows **[estimate: arithmetic on the table]**:
   cost about 0.01 s.
 - **So the functions/proofs split (§4.2) is the cost lever.** An AoC program like Day 1
   (0.41 s, most of it library) could drop to roughly the core's 0.1 s plus its own code,
-  if what it loads is functions only. The proof files (`Aoc.DayNN.Proofs`) would keep
+  if what it loads is functions only. The proof files (`Aoc.Year2025.DayNN.Proofs`) would keep
   today's cost, since they use the lemmas.
 - **Dot notation's over-approximation adds to this** (`xs.map` loads every file with a
   `map`). With functions files, the over-approximation loads only small files, so
@@ -738,7 +738,7 @@ import gives the usual error (`E-IMPORT-UNKNOWN`, with the same notes), and a re
 `W-IMPORT-TWICE`; the names that were fine are kept. A declaration typed in is still not
 accepted. There was no `:imports` command and the REPL has no other meta-commands beyond
 `:t` and `:q`, so none was added. The CLI REPL loads one file, so it has no project
-namespaces; the playground's Evaluate tab does, for a project's own (`import Aoc.Day02
+namespaces; the playground's Evaluate tab does, for a project's own (`import Aoc.Year2025.Day02
 (solvePart1)`). The Evaluate tab keeps the `import` lines entered in a list above the input,
 checks each one when it is entered (`evaluate` takes the imports so far and an expression,
 which may be empty to only check them), and forgets them when the example or day changes.

@@ -572,7 +572,7 @@ field (`type Dial (highest: Nat) = { position: Nat, inRange: position <= highest
   elaborator; no kernel change, since it's a record), and it makes the common case read like a
   refinement type. Risk: a second way to write what records already say. **Verdict: yes, small.**
 - **Contracts** (`requires`/`ensures` clauses) would be a second specification language beside
-  types and theorems. Our AoC layout (plain program in `Aoc/DayNN/`, theorems in `Aoc.DayNN.Proofs`) already keeps specs
+  types and theorems. Our AoC layout (plain program in `Aoc/Year2025/DayNN/`, theorems in `Aoc.Year2025.DayNN.Proofs`) already keeps specs
   apart from code, and Dafny's own AoC proofs read like ours in structure **[checked:
   aoc-day03/05-community]**. **Verdict: no.**
 

@@ -51,13 +51,13 @@ There are no lemmas over `collectIn` at an open row: an equation between two `{e
 
 ## Day 2
 
-`templatesSum` (aoc/src/Aoc/Day02/Proofs/Repeated.sw) keeps its statement, so Part1.sw and Part2.sw are unchanged. The proof is now: `collectEach` for the block length, `List.sumByFlatMap`, then for each block length `collectEach` for the copies, `List.sumByFlatMap`, and for each template `collectRequire` and the one-template fact; finally `between` becomes `rangeFrom`. The tight-bounds version needed the arithmetic of `size / k` (eight helper theorems: `predLe`, `copiesLe`, `copiesGt`, `copiesNo`, `blockTooLong`, `copiesRun`, `copiesRow`, `rowOfBlock`); the loose bounds and `require` state the fit directly, as the grid in the statement does, so none are needed. Repeated.sw went from 506 to 428 lines: templatesSum and its helpers from 120 lines to 42.
+`templatesSum` (aoc/src/Aoc/Year2025/Day02/Proofs/Repeated.sw) keeps its statement, so Part1.sw and Part2.sw are unchanged. The proof is now: `collectEach` for the block length, `List.sumByFlatMap`, then for each block length `collectEach` for the copies, `List.sumByFlatMap`, and for each template `collectRequire` and the one-template fact; finally `between` becomes `rangeFrom`. The tight-bounds version needed the arithmetic of `size / k` (eight helper theorems: `predLe`, `copiesLe`, `copiesGt`, `copiesNo`, `blockTooLong`, `copiesRun`, `copiesRow`, `rowOfBlock`); the loose bounds and `require` state the fit directly, as the grid in the statement does, so none are needed. Repeated.sw went from 506 to 428 lines: templatesSum and its helpers from 120 lines to 42.
 
 The answers are unchanged: Part 1 16793817782, Part 2 27469417404.
 
 ## Costs
 
-Run time of `Aoc.Day02.main`, wall-clock seconds, release build, median of 3. The real input is 28 ranges and runs in about the CLI's start-up time, so the input repeated 300 times (8,400 ranges) is shown as well. The "flatMap, loose bounds" row is a control: the same loose bounds and test, written with `List.flatMap` and `if`, so the difference between it and `Each` is the ability's own overhead.
+Run time of `Aoc.Year2025.Day02.main`, wall-clock seconds, release build, median of 3. The real input is 28 ranges and runs in about the CLI's start-up time, so the input repeated 300 times (8,400 ranges) is shown as well. The "flatMap, loose bounds" row is a control: the same loose bounds and test, written with `List.flatMap` and `if`, so the difference between it and `Each` is the ability's own overhead.
 
 | `allTemplatesForRange` | rt, real | JS, real | rt, ×300 | JS, ×300 |
 |---|---|---|---|---|
