@@ -4949,7 +4949,7 @@
     {
       "id": 635,
       "title": "Abort.thenEqSome can't infer its step: the unifier can't solve ?t () against a call, so t must be written (() => helper …) (Abort-inversion lane, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
