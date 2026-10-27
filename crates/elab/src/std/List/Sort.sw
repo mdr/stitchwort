@@ -626,6 +626,17 @@ theorem List.sortedCong (le1: a → a → Bool) (le2: a → a → Bool) (h: (x: 
   | Nil, p => p
   | Cons x xs, Both p q => Both (List.leHeadCong le1 le2 h x xs p) (List.sortedCong le1 le2 h xs q)
 
+-- `Sorted le xs` is `xs.chain le = True`, both ways.
+theorem List.sortedOfChain (le: a → a → Bool): (xs: List a) → List.chain xs le = True → List.Sorted le xs
+  | Nil, chained => Trivial
+  | Cons x Nil, chained => Both Trivial Trivial
+  | Cons x (Cons next rest), chained => Both (Bool.andLeft _ _ chained) (List.sortedOfChain le (Cons next rest) (Bool.andRight _ _ chained))
+
+theorem List.chainOfSorted (le: a → a → Bool): (xs: List a) → List.Sorted le xs → List.chain xs le = True
+  | Nil, sorted => rfl
+  | Cons x Nil, sorted => rfl
+  | Cons x (Cons next rest), Both first sorted => Bool.andIntro _ _ first (List.chainOfSorted le (Cons next rest) sorted)
+
 -- For numbers, that's `Nat.leq`.
 theorem List.sortSortedNat (xs: List Nat): List.Sorted Nat.leq (List.sort xs) :=
   List.sortedCong (x y => Ordering.isLessEq (Nat.compare x y)) Nat.leq Nat.compareLeq (List.sort [ord := Nat.instOrd] xs) (List.sortSorted [ord := Nat.instOrd] xs)
@@ -1430,6 +1441,18 @@ theorem List.sumBySub (xs: List a) (f: a → Nat) (g: a → Nat) (h: (x: a) → 
 -- Counting with tests that agree on the list's elements (SW-198, day 8).
 theorem List.countCongMem (xs: List a) (p1: a → Bool) (p2: a → Bool) (ep: (x: a) → (m: List.Mem x xs) → p1 x = p2 x): List.count xs p1 = List.count xs p2 :=
   rewrite List.countOccurrences xs p1, List.countOccurrences xs p2 in List.occurrencesCongMem xs p1 p2 ep
+
+-- Counting with a test that passes wherever another does, on the list's
+-- elements, counts at least as many.
+theorem List.countLeMem: (xs: List a) → (p: a → Bool) → (q: a → Bool) → ((x: a) → (m: List.Mem x xs) → p x = True → q x = True) →
+    List.count xs p ≤ List.count xs q
+  | Nil, p, q, weaker => Nat.leRefl 0
+  | Cons x rest, p, q, weaker =>
+    let below := List.countLeMem rest p q (y m => weaker y (Inr m))
+    rewrite List.countCons rest x p, List.countCons rest x q in
+    match passes: p x with
+      | True => rewrite weaker x (Inl rfl) passes in omega
+      | False => omega
 
 -- `all` is "no element fails", so a permutation keeps it.
 theorem List.allNotAny: (xs: List a) → (p: a → Bool) → List.all xs p = ¬(List.any xs (x => ¬(p x)))

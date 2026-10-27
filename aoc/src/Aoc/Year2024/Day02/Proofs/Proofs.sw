@@ -5,7 +5,7 @@
 namespace Aoc.Year2024.Day02.Proofs
 import Aoc.Year2024.Day02 (..)
 import Aoc.Year2024.Day02.Spec (..)
-import Std (Bool, List, Nat)
+import Std (Bool, Eq, List, Nat)
 
 -- One step rises gently: it increases, by one to three.
 theorem risesGentlyUp (level: Nat) (next: Nat): risesGently level next = (level < next && differByOneToThree level next) := cases
@@ -13,36 +13,21 @@ theorem risesGentlyUp (level: Nat) (next: Nat): risesGently level next = (level 
 -- One step falls gently: it decreases, by one to three.
 theorem risesGentlyDown (level: Nat) (next: Nat): risesGently next level = (level > next && differByOneToThree level next) := cases
 
--- Four conditions regrouped.
-theorem shuffle (a: Bool) (b: Bool) (c: Bool) (d: Bool): ((a && b) && (c && d)) = ((a && c) && (b && d)) := cases
-
 -- Every step rises gently: the levels are all increasing, and adjacent ones
 -- differ by one to three.
-theorem allRiseGently: (levels: List Nat) →
-    (steps levels).all (step => risesGently step.fst step.snd) = (allIncreasing levels && adjacentDifferByOneToThree levels)
-  | Nil => rfl
-  | Cons level Nil => rfl
-  | Cons level (Cons next rest) =>
-    calc (steps (Cons level (Cons next rest))).all (step => risesGently step.fst step.snd)
-      _ = (risesGently level next && (steps (Cons next rest)).all (step => risesGently step.fst step.snd)) := rfl
-      _ = ((level < next && differByOneToThree level next) && (allIncreasing (Cons next rest) && adjacentDifferByOneToThree (Cons next rest)))
-        := rewrite risesGentlyUp level next, allRiseGently (Cons next rest) in rfl
-      _ = (allIncreasing (Cons level (Cons next rest)) && adjacentDifferByOneToThree (Cons level (Cons next rest)))
-        := shuffle _ _ _ _
+theorem allRiseGently (levels: List Nat):
+    levels.chain risesGently = (allIncreasing levels && adjacentDifferByOneToThree levels) :=
+  Eq.trans
+    (List.chainCong levels risesGently (level next => level < next && differByOneToThree level next) risesGentlyUp)
+    (List.chainAnd levels (level next => level < next) differByOneToThree)
 
 -- Every step falls gently: all decreasing, and adjacent ones differ by one to
 -- three.
-theorem allFallGently: (levels: List Nat) →
-    (steps levels).all (step => risesGently step.snd step.fst) = (allDecreasing levels && adjacentDifferByOneToThree levels)
-  | Nil => rfl
-  | Cons level Nil => rfl
-  | Cons level (Cons next rest) =>
-    calc (steps (Cons level (Cons next rest))).all (step => risesGently step.snd step.fst)
-      _ = (risesGently next level && (steps (Cons next rest)).all (step => risesGently step.snd step.fst)) := rfl
-      _ = ((level > next && differByOneToThree level next) && (allDecreasing (Cons next rest) && adjacentDifferByOneToThree (Cons next rest)))
-        := rewrite risesGentlyDown level next, allFallGently (Cons next rest) in rfl
-      _ = (allDecreasing (Cons level (Cons next rest)) && adjacentDifferByOneToThree (Cons level (Cons next rest)))
-        := shuffle _ _ _ _
+theorem allFallGently (levels: List Nat):
+    levels.chain (level next => risesGently next level) = (allDecreasing levels && adjacentDifferByOneToThree levels) :=
+  Eq.trans
+    (List.chainCong levels (level next => risesGently next level) (level next => level > next && differByOneToThree level next) risesGentlyDown)
+    (List.chainAnd levels (level next => level > next) differByOneToThree)
 
 -- The program's check is the puzzle's rules.
 theorem isSafeCorrect (report: Report): isSafe report = safe report :=
@@ -55,59 +40,32 @@ theorem part1Correct (reports: List Report): solvePart1 reports = safeReports re
 -- With the dampener, the program's check is the puzzle's rule.
 theorem isSafeWithDampenerCorrect (report: Report): isSafeWithDampener report = safeWithDampener report :=
   let removed := (index: Nat) => ({ levels = report.levels.removeAt index }: Report)
-  let indices := List.range report.levels.length
-  rewrite isSafeCorrect report, List.anyMap indices isSafe removed,
-    List.anyCongMem indices (index => isSafe (removed index)) (index => safe (removed index)) (index _ => isSafeCorrect (removed index))
-    in rfl
+  rewrite isSafeCorrect report, List.anyMap (List.range report.levels.length) isSafe removed, isSafeCorrect (removed _) in rfl
 
 -- Part 2 counts the reports that are safe with the dampener.
 theorem part2Correct (reports: List Report): solvePart2 reports = safeReportsWithDampener reports :=
   List.countCongMem reports isSafeWithDampener safeWithDampener (report _ => isSafeWithDampenerCorrect report)
 
--- Removing the first level keeps every adjacent pair that remains.
-theorem adjacentWithoutFirst (holds: Nat → Nat → Bool): (levels: List Nat) →
-    everyAdjacentPair holds levels = True → everyAdjacentPair holds levels.tailOf = True
-  | Nil, all => rfl
-  | Cons level Nil, all => rfl
-  | Cons level (Cons next more), all => Bool.andRight _ _ all
-
--- Removing the last level does too.
-theorem adjacentWithoutLast (holds: Nat → Nat → Bool): (levels: List Nat) →
-    everyAdjacentPair holds levels = True → everyAdjacentPair holds (levels.removeAt (levels.length - 1)) = True
-  | Nil, all => rfl
-  | Cons level Nil, all => rfl
-  | Cons level (Cons next more), all => adjacentWithoutLastOf holds level next more all
-
-theorem adjacentWithoutLastOf (holds: Nat → Nat → Bool): (level: Nat) → (next: Nat) → (more: List Nat) →
-    everyAdjacentPair holds (Cons level (Cons next more)) = True →
-    everyAdjacentPair holds ((Cons level (Cons next more)).removeAt (Succ more.length)) = True
-  | level, next, Nil, all => rfl
-  | level, next, Cons after rest, all =>
-    let first := Bool.andLeft _ _ all
-    let kept := adjacentWithoutLastOf holds next after rest (Bool.andRight _ _ all)
-    cases
-
 -- Whatever keeps every adjacent pair of a list keeps a safe report safe.
 theorem safeKept (shrink: List Nat → List Nat)
-    (keeps: (holds: Nat → Nat → Bool) → (levels: List Nat) → everyAdjacentPair holds levels = True → everyAdjacentPair holds (shrink levels) = True)
+    (keeps: (levels: List Nat) → (holds: Nat → Nat → Bool) → levels.chain holds = True → (shrink levels).chain holds = True)
     (levels: List Nat) (wasSafe: safe { levels } = True): safe { levels = shrink levels } = True :=
-  let differences := keeps differByOneToThree levels (Bool.andRight _ _ wasSafe)
+  let differences := keeps levels differByOneToThree (Bool.andRight _ _ wasSafe)
   match increasing: allIncreasing levels with
     | True =>
-      let stillIncreasing := keeps (level next => level < next) levels increasing
+      let stillIncreasing := keeps levels (level next => level < next) increasing
       cases
     | False =>
-      let stillDecreasing := keeps (level next => level > next) levels (cases)
+      let stillDecreasing := keeps levels (level next => level > next) (cases)
       cases
 
 -- Removing the first level of a safe report leaves it safe.
 theorem safeWithoutFirst (level: Nat) (rest: List Nat) (wasSafe: safe { levels = Cons level rest } = True): safe { levels = rest } = True :=
-  safeKept List.tailOf adjacentWithoutFirst (Cons level rest) wasSafe
+  safeKept List.tailOf List.chainTail (Cons level rest) wasSafe
 
 -- Removing the last level of a safe report leaves it safe.
-theorem safeWithoutLast (report: Report) (wasSafe: safe report = True):
-    safe { levels = report.levels.removeAt (report.levels.length - 1) } = True :=
-  safeKept (levels => levels.removeAt (levels.length - 1)) adjacentWithoutLast report.levels wasSafe
+theorem safeWithoutLast (report: Report) (wasSafe: safe report = True): safe { levels = report.levels.init } = True :=
+  safeKept List.init List.chainInit report.levels wasSafe
 
 -- So the dampener alone finds every report that was safe already: for a
 -- report with any levels, "safe, or safe with one level removed" is just "safe
@@ -121,16 +79,6 @@ theorem dampenerAloneSuffices (level: Nat) (rest: List Nat):
       cases
     | False => rfl
 
--- Counting what passes a weaker check counts at least as many.
-theorem countAtLeast (p: a → Bool) (q: a → Bool) (weaker: (x: a) → p x = True → q x = True): (xs: List a) → xs.count p ≤ xs.count q
-  | Nil => Nat.leRefl 0
-  | Cons x rest =>
-    let below := countAtLeast p q weaker rest
-    rewrite List.countCons rest x p, List.countCons rest x q in
-    match passes: p x with
-      | True => rewrite weaker x passes in omega
-      | False => omega
-
 -- The dampener only adds safe reports: part 2's answer is at least part 1's.
 theorem part2AtLeastPart1 (reports: List Report): solvePart1 reports ≤ solvePart2 reports :=
-  countAtLeast isSafe isSafeWithDampener (report wasSafe => rewrite wasSafe in rfl) reports
+  List.countLeMem reports isSafe isSafeWithDampener (report _ wasSafe => rewrite wasSafe in rfl)

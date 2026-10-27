@@ -299,6 +299,13 @@ unfolds only when asked (`unfold`, `simp only [isSafe]`). Fix: keep a
 definition folded in the goal until a rewrite or `cases` needs it unfolded;
 and add `List.anyCong`/`List.allCong` beside `anyCongMem`.
 
+Fixed: std has `List.anyCong`, `List.allCong`, `List.allCongMem` and
+`List.allCongRange`, so `rewrite` goes inside `List.all` as it does inside
+`List.any`; part 2's proof is now `rewrite …, isSafeCorrect (removed _)`,
+with no congruence lemma written out. Still open: `isSafeCorrect _` (the
+whole record left to `rewrite`) reports `E-REWRITE-NOTHING`, since the
+search looks for `isSafe`'s body.
+
 ### 4. A name in the error that isn't in scope
 
 An intermediate attempt (a `match rest with` under `| Cons level rest`)
@@ -332,6 +339,9 @@ many", which std doesn't have (`countAtLeast`, 8 lines, induction with
 (`(∀ x ∈ l, p x → q x) → countP p l ≤ countP q l`).
 It belongs beside `List.countCongMem`.
 
+Fixed: std has `List.countLeMem` (beside `List.countCongMem`, named like
+`List.sumByLe`); `countAtLeast` is gone.
+
 ### 7. No adjacent-pairs function or predicate
 
 The program pairs each level with the next by `levels.zip levels.tailOf`
@@ -342,6 +352,16 @@ Kotlin has `zipWithNext`, Scala `sliding(2)`, and Lean `List.IsChain`, with
 exactly the two lemmas written here; `List.Sorted le` is this predicate
 already, for an order. Fix: std `List.zipWithNext` and a Bool
 `List.chain holds xs` with those lemmas, which `Sorted` could then be.
+
+Fixed: std has `List.zipWithNext` (with `List.lengthZipWithNext` and
+`List.zipWithNextZip`, its relation to `zip` with `tailOf`) and the Bool
+`xs.chain holds`, with `List.chainTail`, `List.chainInit`,
+`List.chainEmpty`, `List.chainSingle`, `List.chainZipWithNext`,
+`List.chainCong` and `List.chainAnd`; `List.sortedOfChain` and
+`List.chainOfSorted` relate it to `List.Sorted`. The program is
+`report.levels.chain risesGently || …`, the spec's `allIncreasing` is
+`levels.chain (level next => level < next)`, and `steps`,
+`everyAdjacentPair` and the three drop-first and drop-last lemmas are gone.
 
 ### 8. Small ones
 
