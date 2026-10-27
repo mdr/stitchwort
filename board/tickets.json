@@ -1,5 +1,5 @@
 {
-  "next": 683,
+  "next": 684,
   "tickets": [
     {
       "id": 13,
@@ -5021,13 +5021,13 @@
     {
       "id": 641,
       "title": "Print record updates as { x | f = s } in hover and goals instead of the hidden .%matchN helper (update-lemmas lane, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -5514,6 +5514,18 @@
       "id": 682,
       "title": "getOr argument order: Map/List/Vec/Map.Raw getOr take receiver, key/index, then fallback, as Lean's getD (D1406, Matt 27 Oct; research note getor-research.md)",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 683,
+      "title": "Warn when a match arm can never match because earlier arms cover it (duplicate '\\''k'\\'' arm accepted silently; found by the or-patterns lane, 27 Oct)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
