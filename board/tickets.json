@@ -1,5 +1,5 @@
 {
-  "next": 690,
+  "next": 691,
   "tickets": [
     {
       "id": 13,
@@ -5598,6 +5598,18 @@
       "id": 689,
       "title": "Coverage-guided fuzzing: cargo fuzz (libFuzzer) targets for parse, check and format, structure-aware inputs; needs nightly and long runs (27 Oct discussion)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 690,
+      "title": "AoC 2024 day 1 in Stitchwort: solve, prove against a puzzle-literal spec, log language gaps (Matt 27 Oct: explore gaps)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
