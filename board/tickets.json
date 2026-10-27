@@ -3321,8 +3321,8 @@
     },
     {
       "id": 509,
-      "title": "Inference gaps from the roguelike: record literal needs a type when one record type fits; let-bound lambda E-CANNOT-INFER; '_' for an inline record in a proof (NOTES stage 1 #15, stage 2 #4)",
-      "status": "doing",
+      "title": "Inference gap from the roguelike: a record literal needs a type when one record type fits (design question). Done 27 Oct: let-bound lambdas inferred; '_' for an inline record in a proof",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
