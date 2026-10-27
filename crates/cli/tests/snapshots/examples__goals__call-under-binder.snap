@@ -1,0 +1,12 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `shown`
+   ╭─[ goals/call-under-binder.sw:7:75 ]
+   │
+ 7 │ theorem shown (xs: List Nat): xs.any isSmall = xs.any (n => isSmall n) := ?
+   │                                                                           ┬  
+   │                                                                           ╰── xs: List Nat
+   │                                                                               ⊢ List.any xs isSmall = List.any xs (n => isSmall n)
+───╯

@@ -14,5 +14,5 @@ expression: output
    │                                                                    ne: x ≠ y
    │                                                                    out: y ∉ xs
    │                                                                    np: ¬p
-   │                                                                    ⊢ (x ∈ xs ↔ p) ∧ (∃ (n: Nat) => Nat.leq n x = True ∨ n = y)
+   │                                                                    ⊢ (x ∈ xs ↔ p) ∧ (∃ (n: Nat) => n ≤ x ∨ n = y)
 ───╯

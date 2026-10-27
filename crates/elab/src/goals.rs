@@ -46,8 +46,6 @@ pub(crate) struct Pending {
     context: Vec<Entry>,
     /// What the hole is in: "`addZero`".
     owner: String,
-    /// Shown with calls kept folded, also under binders (`display_goal`).
-    glued: bool,
 }
 
 #[derive(Clone)]
@@ -147,8 +145,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     cx.e.goals.borrow_mut().pending.push(Pending {
         span: cx.span,
         meta: m,
-        expected: shown.clone().unwrap_or_else(|| expected.clone()),
-        glued: shown.is_some(),
+        expected: shown.unwrap_or_else(|| expected.clone()),
         names: cx.names.clone(),
         context,
         owner: cx.e.goal_owner(),
@@ -266,11 +263,11 @@ impl Elaborator {
         let printed: Vec<(Span, Diagnostic)> = pending
             .iter()
             .map(|p| {
-                let was = p.glued.then(|| g.glue.replace(self.glue));
+                // With gluing, as while checking: calls stay folded, also
+                // under binders.
+                let was = g.glue.replace(self.glue);
                 let printed = self.print_goal(p);
-                if let Some(was) = was {
-                    g.glue.set(was);
-                }
+                g.glue.set(was);
                 (p.span, printed)
             })
             .collect();
