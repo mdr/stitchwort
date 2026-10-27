@@ -5453,7 +5453,7 @@
     {
       "id": 677,
       "title": "Effect inference for let-bound lambdas: an unannotated lambda's result row is an unknown solved by its body (one effect, several, calls to function values), defaulting to pure (D1402, Matt 27 Oct: try it and see)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5465,7 +5465,7 @@
     {
       "id": 678,
       "title": "List.lookup uses the DecEq instance instead of an explicit decEq argument (rogue NOTES §4)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5477,7 +5477,7 @@
     {
       "id": 679,
       "title": "Error for f g() (parsed as (f g)()): suggest f (g()) (rogue NOTES §4)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5489,7 +5489,7 @@
     {
       "id": 680,
       "title": "Failing == in tests cuts long values off; show the whole value or the first difference (rogue NOTES §6)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5501,7 +5501,7 @@
     {
       "id": 681,
       "title": "omega: division (and maybe remainder) by a literal, instead of an opaque Nat.divFuel atom (rogue NOTES §2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
