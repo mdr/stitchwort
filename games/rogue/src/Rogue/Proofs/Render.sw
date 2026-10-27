@@ -48,29 +48,29 @@ theorem glyphAtMonster (state: State) (position: Position) (found: Monster) (loc
 -- stands on the cell's row, over the terrain there (for a cell the terrain
 -- covers, as every made level's terrain covers the level).
 theorem renderCell (state: State) (position: Position) (tall: position.row < state.level.terrain.length)
-    (wide: position.column < (state.level.terrain.getOr [] position.row).length):
-    render state |> .getOr "" position.row |> .toList |> .getOr ' ' position.column =
-      glyphAt (marksIn state position.row) position.column ((state.level.terrain.getOr [] position.row).getOr ' ' position.column) :=
+    (wide: position.column < (state.level.terrain.getOr position.row []).length):
+    render state |> .getOr position.row "" |> .toList |> .getOr position.column ' ' =
+      glyphAt (marksIn state position.row) position.column ((state.level.terrain.getOr position.row []).getOr position.column ' ') :=
   let terrain := state.level.terrain
   let row := position.row
   let column := position.column
-  let chars := terrain.getOr [] row
+  let chars := terrain.getOr row []
   let drawRow: Nat → List Char → Text := row chars =>
     let marks := marksIn state row
     chars.mapWithIndex (glyphAt marks) |> Text.fromList
   let rows := terrain.mapWithIndex drawRow
   let long: row < rows.length := rewrite List.lengthMapWithIndex terrain drawRow in tall
-  let first: (render state).getOr "" row = rows.getOr "" row :=
-    List.getOrAppendLeft rows "" row [statusLine state, keysLine, state.message] long
-  let second: rows.getOr "" row = drawRow row chars := List.getOrMapWithIndex terrain [] "" row tall drawRow
-  let third: (chars.mapWithIndex (glyphAt (marksIn state row))).getOr ' ' column = glyphAt (marksIn state row) column (chars.getOr ' ' column) :=
-    List.getOrMapWithIndex chars ' ' ' ' column wide (glyphAt (marksIn state row))
+  let first: (render state).getOr row "" = rows.getOr row "" :=
+    List.getOrAppendLeft rows row "" [statusLine state, keysLine, state.message] long
+  let second: rows.getOr row "" = drawRow row chars := List.getOrMapWithIndex terrain row [] "" tall drawRow
+  let third: (chars.mapWithIndex (glyphAt (marksIn state row))).getOr column ' ' = glyphAt (marksIn state row) column (chars.getOr column ' ') :=
+    List.getOrMapWithIndex chars column ' ' ' ' wide (glyphAt (marksIn state row))
   rewrite first, second in rewrite third in rfl
 
 -- `render` draws `@` at the player's row and column.
 theorem renderPlayer (state: State) (tall: state.player.row < state.level.terrain.length)
-    (wide: state.player.column < (state.level.terrain.getOr [] state.player.row).length):
-    render state |> .getOr "" state.player.row |> .toList |> .getOr ' ' state.player.column = '@' :=
+    (wide: state.player.column < (state.level.terrain.getOr state.player.row []).length):
+    render state |> .getOr state.player.row "" |> .toList |> .getOr state.player.column ' ' = '@' :=
   rewrite renderCell state state.player tall wide in glyphAtPlayer state _
 
 -- And a monster's glyph at each monster's cell: the first monster there, if
@@ -78,15 +78,15 @@ theorem renderPlayer (state: State) (tall: state.player.row < state.level.terrai
 -- player stands there (which a valid state never has either).
 theorem renderMonster (state: State) (position: Position) (found: Monster) (located: monsterAt position state.monsters = Some found)
     (notPlayer: (state.player == position) = False) (tall: position.row < state.level.terrain.length)
-    (wide: position.column < (state.level.terrain.getOr [] position.row).length):
-    render state |> .getOr "" position.row |> .toList |> .getOr ' ' position.column = found.kind.glyph :=
+    (wide: position.column < (state.level.terrain.getOr position.row []).length):
+    render state |> .getOr position.row "" |> .toList |> .getOr position.column ' ' = found.kind.glyph :=
   rewrite renderCell state position tall wide in glyphAtMonster state position found located notPlayer _
 
 -- In a valid state every monster is drawn at its cell: no other monster
 -- shares it (`Apart`), and the player is never on it (`Clear`).
 theorem renderEveryMonster (state: State) (valid: Valid state) (monster: Monster) (listed: List.Mem monster state.monsters)
-    (tall: monster.position.row < state.level.terrain.length) (wide: monster.position.column < (state.level.terrain.getOr [] monster.position.row).length):
-    render state |> .getOr "" monster.position.row |> .toList |> .getOr ' ' monster.position.column = monster.kind.glyph :=
+    (tall: monster.position.row < state.level.terrain.length) (wide: monster.position.column < (state.level.terrain.getOr monster.position.row []).length):
+    render state |> .getOr monster.position.row "" |> .toList |> .getOr monster.position.column ' ' = monster.kind.glyph :=
   let located := monsterAtOwnCell monster state.monsters valid.apart listed
   let notPlayer: (state.player == monster.position) = False :=
     match same: state.player == monster.position with

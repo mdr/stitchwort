@@ -51,7 +51,7 @@ def corridorsOf (rooms: List Area) (extra: Nat): List Area :=
   (roomLinks extra).flatMap (((first, second)) => corridorBetween (roomOf rooms first).middle (roomOf rooms second).middle)
 
 -- Room number `index`.
-def roomOf (rooms: List Area) (index: Nat): Area := rooms.getOr (rooms.headOr fallbackRoom) index
+def roomOf (rooms: List Area) (index: Nat): Area := rooms.getOr index (rooms.headOr fallbackRoom)
 
 -- Never used: `rooms` always has six.
 def fallbackRoom: Area := { corner = { row = 1, column = 1 }, down = 0, across = 0 }

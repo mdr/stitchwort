@@ -356,7 +356,7 @@ to record the new cells; rewriting it as one `foldLeft` over the
 neighbours made it run, with the same result as before on level 1. `dedup`
 alone isn't it (`(List.range 5000).dedup` is fine in a test), so I don't know
 what recursed; perhaps something about running under a handler. The error
-doesn't say which function was deep. (In the same bot, `Map.getOr` takes the
+doesn't say which function was deep. (In the same bot, `Map.getOr` then took the
 fallback before the key, so `distances.getOr key 100000` type-checked and
 returned the key: a `Nat`-for-`Nat` slip that named arguments would catch.)
 
