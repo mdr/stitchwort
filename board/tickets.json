@@ -1,5 +1,5 @@
 {
-  "next": 696,
+  "next": 697,
   "tickets": [
     {
       "id": 13,
@@ -5670,6 +5670,18 @@
       "id": 695,
       "title": "One AoC project: aoc/ with Aoc.Common shared and Aoc.Year2025.DayNN / Aoc.Year2024.DayNN, inputs/<year>/, playground bundles both years (D1413 + naming, D1414; Matt 27 Oct)",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 696,
+      "title": "Playground names the year with the day: picker label and status line read 2024 / Day 1 (D1415, Matt 27 Oct)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
