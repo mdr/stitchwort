@@ -1,5 +1,5 @@
 {
-  "next": 676,
+  "next": 677,
   "tickets": [
     {
       "id": 13,
@@ -291,7 +291,7 @@
     {
       "id": 183,
       "title": "Derived Ord when a module writes its own DecEq (D209 option b)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -300,7 +300,7 @@
       ],
       "body": "Problem (D209, Matt, 21 Oct): a hand-written `DecEq` for T currently blocks the derived `Ord` (E-INSTANCE-NONE with a note; see crates/elab/src/derive_ord.rs:12, :53-64). Option b: derive `Ord` after the module's own instances are checked, using the hand-written `DecEq` as `eq`.\n\nCaveat: if that `==` ignores a field, the field-by-field `Ord` breaks the laws (a proof fails to check, with a confusing error). First step: detect that case (the law proof failing for a derived Ord) and design a clear message.\n\nDone when: a type with a hand-written `DecEq` gets a derived `Ord` (accept example), and the lawless case gives a clear error (reject example).\n\nHistory: D209 (option a: block it, is today's behaviour).\n",
       "created": "2026-10-21",
-      "updated": "2026-10-21",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -3298,13 +3298,13 @@
     {
       "id": 507,
       "title": "Or-patterns ('k' | 'w' => …) — backlog, from the roguelike's key handling (NOTES stage 1 #9)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -3322,13 +3322,13 @@
     {
       "id": 509,
       "title": "Inference gaps from the roguelike: record literal needs a type when one record type fits; let-bound lambda E-CANNOT-INFER; '_' for an inline record in a proof (NOTES stage 1 #15, stage 2 #4)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -5081,13 +5081,13 @@
     {
       "id": 646,
       "title": "A match inside a lambda (e.g. n => match n with …) restated in a proof body doesn't unify with the program's helper (placeholder vs finished helper); workarounds: restate in the statement, leave as _, or name it as a def (alignWith lane, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -5430,6 +5430,18 @@
       "id": 675,
       "title": "Dot call on an annotated receiver with an effectful function fails: (([\"1\"]: List Text).map Text.toNatOrFail |> .sum) gives 'Effect.Comp has no field or function sum'; the prefix form works (pipe-vs-prefix lane, 27 Oct)",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-27",
+      "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 676,
+      "title": "Or-patterns that bind variables (Rust-style: every alternative binds the same names, https://doc.rust-lang.org/reference/patterns.html#or-patterns). D1401 (Matt, 27 Oct): or-patterns ship without binding first; consider binding when a program needs it",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
