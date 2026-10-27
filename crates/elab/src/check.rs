@@ -458,14 +458,19 @@ impl<'e> Ctx<'e> {
     }
 
     pub fn show(&self, value: &Value) -> String {
-        pretty::value_for_message(self.g(), &self.names, value)
+        pretty::value_for_message_in(self.g(), self.e, &self.names, value)
+    }
+
+    /// [`Ctx::show`] for one side of an equation written `a = b`.
+    pub fn show_side(&self, value: &Value) -> String {
+        pretty::side_for_message_in(self.g(), self.e, &self.names, value)
     }
 
     /// [`Ctx::show`], but with calls unfolded: what `value` computes to,
     /// for a message that says so.
     pub fn show_unfolded(&self, value: &Value) -> String {
         match quote(self.g(), self.level(), value) {
-            Ok(term) => pretty::term_for_message(self.g(), &self.names, &term),
+            Ok(term) => pretty::term_for_message_in(self.g(), self.e, &self.names, &term),
             Err(_) => "…".into(),
         }
     }
@@ -490,7 +495,7 @@ impl<'e> Ctx<'e> {
 
     /// [`Ctx::show`], with the arguments the compiler fills in.
     pub fn show_hidden(&self, value: &Value) -> String {
-        pretty::value_for_message_hidden(self.g(), &self.names, value)
+        pretty::value_for_message_hidden_in(self.g(), self.e, &self.names, value)
     }
 
     /// `d` with a note saying the sides are different updates, for two
@@ -2076,7 +2081,7 @@ fn local_signature(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
             let mut shown = Vec::new();
             let mut ty = def.ty.strip_loc();
             while let Term::Pi(x, icit, dom, cod) = ty {
-                let dom = pretty::term_for_message(g, &names, dom);
+                let dom = pretty::term_for_message_in(g, cx.e, &names, dom);
                 shown.push(match (&**x, icit) {
                     ("" | "_", Icit::Explicit) => dom,
                     (x, Icit::Explicit) => format!("({x}: {dom})"),
@@ -2085,7 +2090,7 @@ fn local_signature(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
                 names.push(x.clone());
                 ty = cod.strip_loc();
             }
-            shown.push(pretty::term_for_message(g, &names, ty));
+            shown.push(pretty::term_for_message_in(g, cx.e, &names, ty));
             return e.with_note(format!(
                 "`{}` is a local definition with the signature `{}`; its leading parameters \
                  are the variables it uses, in the order they are written (the header's \
@@ -4356,7 +4361,7 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
     if !same(ga, a)? || !same(gb, b)? {
         return None;
     }
-    let show = |t: &Term| pretty::term_for_message(cx.g(), &cx.names, t);
+    let show = |t: &Term| pretty::term_for_message_in(cx.g(), cx.e, &cx.names, t);
     Some((show(ga), show(gb)))
 }
 

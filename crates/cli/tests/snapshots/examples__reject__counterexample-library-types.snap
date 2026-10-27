@@ -9,7 +9,7 @@ expression: output
    │                                                             ─┬─  
    │                                                              ╰─── `Float.ieeeEq x x` and `True` aren't equal
    │ 
-   │ Note 1: computing the left side gives `if Bool.not (Nat.equal x.bits 9221120237041090560) then if Nat.equal x.bits x.bits then True else if if … then … else … then if … then … else … else False else False`
+   │ Note 1: computing the left side gives `not (Nat.equal x.bits 9221120237041090560) && (Nat.equal x.bits x.bits || (Nat.equal x.bits 0 || Nat.equal x.bits 9223372036854775808) && (Nat.equal x.bits 0 || Nat.equal x.bits 9223372036854775808))`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
    │ 
@@ -24,7 +24,7 @@ expression: output
     │
  10 │ theorem belowFour (i: Fin 5): Fin.toNat i < 4 := rfl
     │                                                  ─┬─  
-    │                                                   ╰─── `Nat.leq (Fin.toNat i) 3` and `True` aren't equal
+    │                                                   ╰─── `Fin.toNat i <= 3` and `True` aren't equal
     │ 
     │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
     │ 

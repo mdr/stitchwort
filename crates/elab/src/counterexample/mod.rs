@@ -348,7 +348,7 @@ impl Elaborator {
                 .iter()
                 .map(|(x, _)| x.clone())
                 .collect();
-            stitchwort_core::pretty::term_for_message(g, &names, term)
+            stitchwort_core::pretty::term_for_message_in(g, self, &names, term)
         };
         let mut ty = force(g, g.def(def).ty_value.clone()).map_err(|e| e.to_string())?;
         let mut position = 0;

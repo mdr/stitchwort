@@ -9,7 +9,7 @@ expression: output
    │                                   ┬  
    │                                   ╰── looking for `d`
    │ 
-   │ Note 1: `h`: `Nat.leq 1 n = True`
+   │ Note 1: `h`: `1 ≤ n`
    │ 
    │ Note 2: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
    │ 
@@ -19,7 +19,7 @@ expression: output
    │           d = 0
    │           n = 1
    │         `d = 0` holds
-   │         `Nat.leq 1 n = True` holds
+   │         `1 ≤ n` holds
    │         `d = 0` holds
    │         `Void` is false
 ───╯

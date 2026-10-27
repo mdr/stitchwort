@@ -10,5 +10,5 @@ expression: output
     │   ╰── hitPoints: Nat
     │       rooms: List Nat
     │       same: rooms = startingRooms
-    │       ⊢ Nat.leq (healed hitPoints) maxHitPoints = True
+    │       ⊢ healed hitPoints ≤ maxHitPoints
 ────╯

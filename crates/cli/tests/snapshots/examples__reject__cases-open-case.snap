@@ -2,14 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-CASES] Error: `cases` can't close the case a = True, Nat.leq n 2 = False
+[E-CASES] Error: `cases` can't close the case a = True, (n <= 2) = False
    ╭─[ reject/cases-open-case.sw:6:79 ]
    │
  6 │ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ Nat.leq n 3) = True): n <= 2 := cases
    │                                                                               ──┬──  
    │                                                                                 ╰──── this `cases`
    │ 
-   │ Note 1: h: Nat.leq n 3 = True
+   │ Note 1: h: n ≤ 3
    │ 
    │ Note 2: goal: False = True
    │ 
@@ -20,6 +20,6 @@ expression: output
    │ Note 5: this statement is false; a counterexample:
    │           a = True
    │           n = 3
-   │         `(if a then Nat.leq n 3 else False) = True` holds
+   │         `(a && n <= 3) = True` holds
    │         `n ≤ 2` is false
 ───╯

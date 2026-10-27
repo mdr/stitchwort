@@ -9,7 +9,7 @@ expression: output
    │                                                   ─┬─  
    │                                                    ╰─── `chunks xs` and `1` aren't equal
    │ 
-   │ Note 1: computing the left side gives `Decidable.elim (Bool.decTrue (Nat.leq (List.length xs) 11)) (_ => 1) (_ => 2)`
+   │ Note 1: computing the left side gives `Decidable.elim (Bool.decTrue (List.length xs <= 11)) (_ => 1) (_ => 2)`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
    │ 

@@ -1289,14 +1289,14 @@ fn round_trip_awaiting_helpers(
 /// A term for a message. An unknown the rule left open is shown as `?3`,
 /// not applied to every variable in scope as it is made.
 fn written(cx: &Ctx, term: &Term) -> String {
-    stitchwort_core::pretty::term_for_message(cx.g(), &cx.names, &tidy(cx, term))
+    stitchwort_core::pretty::term_for_message_in(cx.g(), cx.e, &cx.names, &tidy(cx, term))
 }
 
 /// Whether [`written`] shortens `term` (to `…` inside).
 fn shortened(cx: &Ctx, term: &Term) -> bool {
     let tidy = tidy(cx, term);
-    let short = stitchwort_core::pretty::term_for_message(cx.g(), &cx.names, &tidy);
-    short != stitchwort_core::pretty::term(cx.g(), &cx.names, &tidy)
+    let short = stitchwort_core::pretty::term_for_message_in(cx.g(), cx.e, &cx.names, &tidy);
+    short != stitchwort_core::pretty::term_in(cx.g(), cx.e, &cx.names, &tidy)
 }
 
 /// `term` with each unknown the rule left open bare, as [`written`] shows it.

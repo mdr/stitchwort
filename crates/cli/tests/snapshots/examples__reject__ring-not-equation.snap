@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-RING] Error: `ring` can't prove `Nat.leq a (a + b) = True`
+[E-RING] Error: `ring` can't prove `a ≤ a + b`
    ╭─[ reject/ring-not-equation.sw:5:44 ]
    │
  5 │ theorem le (a: Nat) (b: Nat): a ≤ a + b := ring
