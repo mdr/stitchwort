@@ -3649,13 +3649,13 @@
     {
       "id": 534,
       "title": "rewrite error when a hypothesis is named 'at' doesn't mention the name (rogue PROOFS.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -4069,13 +4069,13 @@
     {
       "id": 565,
       "title": "E-RESOURCE should name the definition being unfolded when resources ran out (rogue PROOFS.md gap 3: two of three generator-proof failures were found by trial and error)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -4117,13 +4117,13 @@
     {
       "id": 569,
       "title": "'unfolding' after a multi-line signature at the type's indentation gives 'expected an expression, but found unfolding'; say it must be indented less (rogue PROOFS.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -4191,13 +4191,13 @@
     {
       "id": 575,
       "title": "After SW-533 merges: AoC day 4 parseChar back to a match (docs/aoc-2025.md says it was changed to an if for the literal catch-all gap)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -4937,13 +4937,13 @@
     {
       "id": 634,
       "title": "Bug: a failing last term in a proof continuation (Eq.cong Some (omega)) is reported as E-REWRITE-NOTHING against an unsolved ?19 goal instead of the real error (Abort-inversion lane, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -5105,13 +5105,13 @@
     {
       "id": 648,
       "title": "auto: E-AUTO-FALSE on literal-list membership prints the whole disjunction (1 = 13 ∨ … ∨ Void); for long lists say 'n is not in the list' instead (auto-depth lane, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -5129,25 +5129,25 @@
     {
       "id": 650,
       "title": "Test flakiness risk: auto_membership_speed.rs uses absolute wall-clock limits (100-element check < 5 s); may fail under machine load — consider relative-only or CPU-time limits",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
       "id": 651,
       "title": "Better error for a missing update lemma: rewrite T.f.update.g where g isn't a shared field gives E-NO-NAMESPACE ('T.f is a function, which has no namespace…'); the parked D1373 branch (worktree-agent-ac491657f1ca98e31) has an E-UNKNOWN-NAME fix listing existing lemmas — port that part alone",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -5309,25 +5309,25 @@
     {
       "id": 665,
       "title": "Static Linux executables: run on real x86-64 hardware; under Rosetta the static machine-only binary was 1.8x slower than glibc (1,373 vs 768 ms), unexplained (musl lane, 26 Oct)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Duplicate of 662.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
       "id": 666,
       "title": "nix crate under musl: tcgetattr reads 13 never-written c_cc bytes (UB, harmless); report upstream",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Duplicate of 663.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
@@ -5381,25 +5381,25 @@
     {
       "id": 671,
       "title": "Library loader resolves dot calls without types, so xs.length in a std file makes list programs load Text/Basics (false dependency; List.padRight worked around with List.length xs). Use parameter type annotations when resolving dot calls — pipe-flow restyle makes dot calls the norm in std (daily-fix lane, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
       "id": 672,
       "title": "Error spans on interpolated strings with an empty first/last piece stop short of the closing }\" (parser drops the empty piece); test rewriter works around it (daily-fix lane, 26 Oct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-27",
       "commits": []
     },
     {
