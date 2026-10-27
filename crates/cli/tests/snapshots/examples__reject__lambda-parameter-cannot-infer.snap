@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CANNOT-INFER] Error: can't work out the type of this function's parameter `x`
+   ╭─[ reject/lambda-parameter-cannot-infer.sw:5:15 ]
+   │
+ 5 │   let same := x => x
+   │               ───┬──  
+   │                  ╰──── add a type annotation: `(x: T)`
+   │ 
+   │ Note: without an annotation, a parameter's type comes from its pattern, the function's body or how the function is used, and none of them fixes it here
+───╯

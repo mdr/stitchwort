@@ -498,6 +498,10 @@ pub struct Elaborator {
     /// `E-UNSOLVED` suggests `?` for them (D641). Cleared with the
     /// metavariables.
     pub(crate) proof_holes: RefCell<stitchwort_core::collections::HashSet<usize>>,
+    /// The metavariables standing for the types of an unannotated lambda's
+    /// parameters, with the parameters' names, for messages. Cleared with
+    /// the metavariables.
+    pub(crate) parameter_metas: RefCell<HashMap<usize, String>>,
     /// While a `rewrite` rule is elaborated (`rewrite.rs`), each `_` it
     /// makes: the metavariable, the number of variables in scope, and the
     /// type expected there, so `rewrite` can prove the premises left open.
@@ -1035,6 +1039,7 @@ impl Elaborator {
         self.flush_navigation();
         self.flush_goals();
         self.proof_holes.borrow_mut().clear();
+        self.parameter_metas.borrow_mut().clear();
         self.globals.clear_metas();
         self.drafts.borrow_mut().clear();
         self.local_metas.borrow_mut().clear();
@@ -1148,6 +1153,19 @@ impl Elaborator {
                 if self.has_goal_at(self.globals.metas.borrow()[m].span) =>
             {
                 goals::open_goal(self.globals.metas.borrow()[m].span)
+            }
+            unify::ZonkError::Unsolved(m) if self.parameter_metas.borrow().contains_key(&m) => {
+                let span = self.globals.metas.borrow()[m].span;
+                let name = self.parameter_metas.borrow()[&m].clone();
+                Diagnostic::error(
+                    "E-CANNOT-INFER",
+                    format!("can't work out the type of this function's parameter `{name}`"),
+                )
+                .with_label(span, format!("add a type annotation: `({name}: T)`"))
+                .with_note(
+                    "without an annotation, a parameter's type comes from its pattern, the \
+                     function's body or how the function is used, and none of them fixes it here",
+                )
             }
             unify::ZonkError::Unsolved(m) => {
                 let span = self.globals.metas.borrow()[m].span;

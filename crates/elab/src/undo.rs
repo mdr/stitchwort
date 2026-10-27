@@ -106,6 +106,9 @@ impl Snapshot {
                 .borrow_mut()
                 .retain(|h, _| h.before(self.metas));
             cx.e.proof_holes.borrow_mut().retain(|m| *m < self.metas);
+            cx.e.parameter_metas
+                .borrow_mut()
+                .retain(|m, _| *m < self.metas);
         }
         cx.e.obligations.borrow_mut().truncate(self.obligations);
         cx.e.row_metas.borrow_mut().truncate(self.row_metas);

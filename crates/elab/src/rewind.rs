@@ -193,6 +193,7 @@ impl Elaborator {
             local_defaults,
             goals,
             proof_holes,
+            parameter_metas,
             hole_log: _,
             cong_candidates,
             result_heads,
@@ -287,6 +288,7 @@ impl Elaborator {
         local_defaults.get_mut().clear();
         *goals.get_mut() = Default::default();
         proof_holes.get_mut().clear();
+        parameter_metas.get_mut().clear();
         cong_candidates.get_mut().clear();
         result_heads.get_mut().truncate(defs);
         performs.get_mut().retain(|(id, ..), _| id.0 < defs);

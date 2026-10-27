@@ -943,11 +943,10 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Lam(..) if expr.section_name().is_some() => {
             Err(crate::dot::section_unknown(cx, expr))
         }
-        Expr::Lam(..) => Err(cx.error(
-            "E-CANNOT-INFER",
-            "can't work out the type of this function",
-            "add a type annotation: `(…: T)`",
-        )),
+        Expr::Lam(names, ..) => {
+            let names: Vec<Name> = names.iter().map(|name| name.text.as_str().into()).collect();
+            infer_lambda(cx, expr, &names)
+        }
         // `(x: A) => body`, `[a: Type] => body`, `[auto h: P] => body`:
         // the parameter's type is written, so the function's type follows
         // from the body's, with the parameter's mode (§4.3 of
@@ -1234,6 +1233,46 @@ fn fresh_function_type(cx: &mut Ctx, names: &[Name]) -> Result<Term> {
         Rc::new(dom),
         Rc::new(cod),
     ))
+}
+
+/// A lambda with no expected type: checked against a function type whose
+/// parameter and result types are unknowns, for its body, its patterns
+/// and its later uses to work out.
+fn infer_lambda(cx: &mut Ctx, lambda: &Expr, names: &[Name]) -> Result<(Term, Value)> {
+    let ty = fresh_function_type(cx, names)?;
+    let ty = cx.eval(&ty)?;
+    let term = check(cx, lambda, &ty).map_err(|e| {
+        if e.code == "E-ABILITY" {
+            e.with_note(
+                "a lambda with no type written or expected is pure: to let it perform \
+                 abilities, write its type, as in `let next: () → {Ask} Nat := () => …`",
+            )
+        } else {
+            e
+        }
+    })?;
+    note_parameter_metas(cx, &ty)?;
+    // Annotated for the kernel, which doesn't infer a lambda's type.
+    let ann = Term::Ann(Rc::new(term), Rc::new(cx.quote_folded(&ty)?));
+    Ok((ann, ty))
+}
+
+/// Records each parameter type of `ty` still unknown after checking the
+/// lambda, so that if nothing works it out, the error names the parameter.
+fn note_parameter_metas(cx: &mut Ctx, ty: &Value) -> Result<()> {
+    let g = cx.g();
+    let mut level = cx.level();
+    let mut rest = force(g, ty.clone())?;
+    while let Value::Pi(name, _, dom, cod) = rest {
+        if let Value::Neutral(Head::Meta(m), _) = force(g, (*dom).clone())? {
+            cx.e.parameter_metas
+                .borrow_mut()
+                .insert(m, name.to_string());
+        }
+        rest = force(g, cod.apply(g, Value::var(level))?)?;
+        level += 1;
+    }
+    Ok(())
 }
 
 fn ctor_args<'a>(args: &[Arg<'a>]) -> Vec<CtorArg<'a>> {
@@ -1591,17 +1630,18 @@ fn apply_args_postponing(
                     continue;
                 }
                 let next_is_unit = matches!(args.get(i + 1), Some(Arg::Explicit(Expr::Unit(_))));
-                // A proof found from its goal (`omega`, `rfl`, `rewrite …`)
-                // that fails in place while its goal has unknowns is checked
-                // again once the application's type has been compared with
-                // the type expected of it, as a lambda is above:
-                // `Eq.cong Some (omega)` against `Some a = Some b`. Whether
-                // the goal has unknowns is only asked after a failure: it
-                // reads the whole goal back, which can be large.
-                let snapshot = (expecting.is_some()
-                    && goal_directed(cx, value)
-                    && only_lambdas_depend_on_it(&cod.body, &[]))
-                .then(|| crate::undo::Snapshot::take(cx));
+                // An argument that fails in place while its type has
+                // unknowns is checked again once the application's type has
+                // been compared with the type expected of it, as a lambda is
+                // above: a proof found from its goal, as in
+                // `Eq.cong Some (omega)` against `Some a = Some b`, or a
+                // proof about a `_` that only the expected type fixes, as in
+                // `walk _ rest (snocStep moved)` against
+                // `P (walk outcome (Cons x rest))`. Whether the type has
+                // unknowns is only asked after a failure: it reads the whole
+                // type back, which can be large.
+                let snapshot = (expecting.is_some() && only_lambdas_depend_on_it(&cod.body, &[]))
+                    .then(|| crate::undo::Snapshot::take(cx));
                 let value = match check_arg(cx, &term, value, &dom) {
                     Ok(value) => value,
                     Err(e) if crate::undo::fatal(&e) => return Err(e),
@@ -1668,22 +1708,6 @@ fn apply_args_postponing(
     }
     let own = own_dictionaries(&term);
     Ok((term, found_dictionaries(cx, &own, ty)?))
-}
-
-/// Whether `expr` is a proof found from the goal it's checked against
-/// (`omega`, `ring`, `cases`, `rewrite`, `calc`, `rfl`), so it can only
-/// succeed once that goal is known.
-fn goal_directed(cx: &Ctx, expr: &Expr) -> bool {
-    match expr {
-        Expr::Bracketed(inner, _) => goal_directed(cx, inner),
-        Expr::Omega { .. }
-        | Expr::Ring { .. }
-        | Expr::Cases { .. }
-        | Expr::Rewrite { .. }
-        | Expr::Calc { .. } => true,
-        Expr::Var(name) => name.text == "rfl" && cx.lookup("rfl").is_none(),
-        _ => false,
-    }
 }
 
 /// The items of a list literal checked against `elem`, in order, or when

@@ -53,13 +53,13 @@ theorem actAllOnFloor (dice: Dice) (level: Level) (player: Position):
   | index, outcome, [], moved, rest => moved
   | index, outcome, Cons monster waiting, moved, Both inside rest =>
     match next: monster.position.isNextTo player with
-      | True => actAllOnFloor dice level player (index + 1) (outcome.add monster _ _) waiting (onFloorSnoc level monster inside outcome.moved moved) rest
+      | True => actAllOnFloor dice level player (index + 1) _ waiting (onFloorSnoc level monster inside outcome.moved moved) rest
       | False =>
         match picked: pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) with
           | Some destination =>
             let fresh := pickFreeOnFloor level player (outcome.moved ++ waiting) (monsterChoices dice index player monster) destination picked
-            actAllOnFloor dice level player (index + 1) (outcome.add { monster | position = destination } 0 []) waiting (onFloorSnoc level { monster | position = destination } fresh outcome.moved moved) rest
-          | None => actAllOnFloor dice level player (index + 1) (outcome.add { monster | position = monster.position } 0 []) waiting (onFloorSnoc level { monster | position = monster.position } inside outcome.moved moved) rest
+            actAllOnFloor dice level player (index + 1) _ waiting (onFloorSnoc level { monster | position = destination } fresh outcome.moved moved) rest
+          | None => actAllOnFloor dice level player (index + 1) _ waiting (onFloorSnoc level { monster | position = monster.position } inside outcome.moved moved) rest
 
 theorem monstersTurnOnFloor (dice: Dice) (state: State) (onFloor: OnFloor state.level state.monsters):
     let after := monstersTurn dice state

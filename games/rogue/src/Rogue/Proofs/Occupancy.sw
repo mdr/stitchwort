@@ -81,13 +81,13 @@ theorem actAllClear (dice: Dice) (level: Level) (player: Position):
     let away := clearHead player monster waiting clear
     let rest := clearTail player monster waiting clear
     match next: monster.position.isNextTo player with
-      | True => actAllClear dice level player (index + 1) (outcome.add monster _ _) waiting (clearSnoc player monster away outcome.moved moved) rest
+      | True => actAllClear dice level player (index + 1) _ waiting (clearSnoc player monster away outcome.moved moved) rest
       | False =>
         match picked: pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) with
           | Some destination =>
             let fresh := pickFreeAway level player (outcome.moved ++ waiting) (monsterChoices dice index player monster) destination picked
-            actAllClear dice level player (index + 1) (outcome.add { monster | position = destination } 0 []) waiting (clearSnoc player { monster | position = destination } fresh outcome.moved moved) rest
-          | None => actAllClear dice level player (index + 1) (outcome.add { monster | position = monster.position } 0 []) waiting (clearSnoc player { monster | position = monster.position } away outcome.moved moved) rest
+            actAllClear dice level player (index + 1) _ waiting (clearSnoc player { monster | position = destination } fresh outcome.moved moved) rest
+          | None => actAllClear dice level player (index + 1) _ waiting (clearSnoc player { monster | position = monster.position } away outcome.moved moved) rest
 
 theorem monstersTurnClear (dice: Dice) (state: State) (clear: Clear state.player state.monsters):
     let after := monstersTurn dice state
