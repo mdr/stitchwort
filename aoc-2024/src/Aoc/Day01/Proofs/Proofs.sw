@@ -26,8 +26,7 @@ theorem part1AnyOrder (lists: LocationLists) (left: List Nat) (right: List Nat)
 
 -- Part 2 is the similarity score.
 theorem part2Correct (lists: LocationLists): solvePart2 lists = similarityScore lists :=
-  List.sumByCong lists.left (id => id * Map.getOr (Map.counts lists.right) id 0) (id => id * lists.right.count (== id))
-    (id => rewrite Map.getOrCounts id lists.right in rfl)
+  List.sumByCong lists.left _ _ (id => rewrite Map.getOrCounts id lists.right in rfl)
 
 -- And the order the ids come in makes no difference to part 2.
 theorem part2AnyOrder (lists: LocationLists) (left: List Nat) (right: List Nat)
@@ -36,5 +35,5 @@ theorem part2AnyOrder (lists: LocationLists) (left: List Nat) (right: List Nat)
   rewrite part2Correct { left = left, right = right }, part2Correct lists in
   calc similarityScore { left = left, right = right }
     _ = left.sumBy (id => id * lists.right.count (== id))
-      := List.sumByCong left (id => id * right.count (== id)) (id => id * lists.right.count (== id)) (id => rewrite List.countPerm right lists.right sameRight (== id) in rfl)
+      := List.sumByCong left _ _ (id => rewrite List.countPerm right lists.right sameRight (== id) in rfl)
     _ = similarityScore lists := List.sumByPerm left lists.left sameLeft (id => id * lists.right.count (== id))
