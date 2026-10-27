@@ -7,9 +7,9 @@ import Std (Ansi, Char, List, Option, Text)
 import Std.Ansi.Colour (Red, Green, Yellow, Cyan)
 
 def render (state: State): List Text :=
-  let map := state.level.terrain.withIndex.map (((row, chars)) =>
+  let map := state.level.terrain.mapWithIndex (row chars =>
     let marks := marksIn state row
-    chars.withIndex.map (((column, char)) => glyphAt marks column char) |> Text.fromList)
+    chars.mapWithIndex (glyphAt marks) |> Text.fromList)
   map ++ [statusLine state, keysLine, state.message]
 
 -- What stands on a row, by column: the player first, then monsters, then

@@ -187,6 +187,26 @@ theorem List.getOrMapLt: (xs: List a) → (d: a) → (e: b) → (i: Nat) → i <
   | Cons x xs, d, e, Zero, h, f => rfl
   | Cons x xs, d, e, Succ i, h, f => List.getOrMapLt xs d e i h f
 
+-- Element i of each element with its index (counted from `start`), and of
+-- `mapWithIndex`, inside the list.
+theorem List.getOrWithIndexFrom (d: a) (fallback: Pair Nat a): (start: Nat) → (xs: List a) → (i: Nat) → i < List.length xs →
+    List.getOr (List.withIndexFrom start xs) fallback i = MkPair (start + i) (List.getOr xs d i)
+  | start, Nil, i, h => Void.exfalso (Bool.falseNotTrue h)
+  | start, Cons x xs, Zero, h => rewrite Nat.addZero start in rfl
+  | start, Cons x xs, Succ i, h => rewrite Nat.addSucc start i in List.getOrWithIndexFrom d fallback (Succ start) xs i h
+
+theorem List.getOrWithIndex (xs: List a) (d: a) (fallback: Pair Nat a) (i: Nat) (h: i < List.length xs):
+    List.getOr (List.withIndex xs) fallback i = MkPair i (List.getOr xs d i) :=
+  List.getOrWithIndexFrom d fallback 0 xs i h
+
+theorem List.getOrMapWithIndex (xs: List a) (d: a) (e: b) (i: Nat) (h: i < List.length xs) (f: Nat → a → b):
+    List.getOr (List.mapWithIndex xs f) e i = f i (List.getOr xs d i) :=
+  let long: i < List.length (List.withIndex xs) := rewrite List.lengthWithIndex xs in h
+  Eq.trans (List.getOrMapLt (List.withIndex xs) (MkPair 0 d) e i long (pair => f pair.fst pair.snd))
+    (Eq.cong (pair => f pair.fst pair.snd) (List.getOrWithIndex xs d (MkPair 0 d) i h))
+
+test "List.getOrMapWithIndex" := List.getOr ([5, 6, 7].mapWithIndex (index x => index * x)) 0 2 == 14
+
 -- Entry k of the running accumulations is the fold of the first k elements.
 theorem List.getOrScanLeft (f: b → a → b) (d: b): (xs: List a) → (z: b) → (k: Nat) → k ≤ List.length xs →
     List.getOr (List.scanLeft xs z f) d k = List.foldLeft (List.take xs k) z f
