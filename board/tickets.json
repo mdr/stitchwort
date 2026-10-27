@@ -3216,7 +3216,7 @@
     {
       "id": 501,
       "title": "Goals: keep zero-argument constants folded (maxHitPoints prints as 12, dungeon as a list); one spot in eval_step, measure AoC check and examples before/after",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
