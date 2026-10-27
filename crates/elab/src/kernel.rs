@@ -37,14 +37,17 @@ pub fn without_glue<T>(g: &Globals, f: impl FnOnce() -> T) -> T {
 }
 
 pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
-    unglued(g, |g| k::define_def(g, id, body))
-        .map_err(|d| crate::goals::unfinished_dependency(g, [body], &[HashKey::Def(id)], d))
+    define_group(g, &[(id, body.clone())])
 }
 
+/// Defines a group, with every partial occurrence of a member first applied
+/// to all its parameters (`saturate.rs`).
 pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
-    unglued(g, |g| k::define_group(g, members)).map_err(|d| {
+    let (members, expanded) = crate::saturate::saturate(g, members)?;
+    unglued(g, |g| k::define_group(g, &members)).map_err(|d| {
         let own: Vec<HashKey> = members.iter().map(|(id, _)| HashKey::Def(*id)).collect();
-        crate::goals::unfinished_dependency(g, members.iter().map(|(_, t)| t), &own, d)
+        let d = crate::goals::unfinished_dependency(g, members.iter().map(|(_, t)| t), &own, d);
+        crate::saturate::explain(d, &expanded)
     })
 }
 

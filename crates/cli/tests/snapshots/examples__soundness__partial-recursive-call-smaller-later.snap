@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `bad` terminates
+    ╭─[ soundness/partial-recursive-call-smaller-later.sw:12:27 ]
+    │
+ 12 │   | Zero,   m => applyTo (bad m) m
+    │                           ──┬──  
+    │                             ╰──── this recursive call might not terminate: the 1st argument is what the 2nd argument was
+    │ 
+    │ Note 1: `bad` is given 1 of its 2 arguments here; the rest are whatever it's applied to later, which isn't known to be smaller, so an argument that gets smaller must be among the ones given
+    │ 
+    │ Note 2: making this call twice in a row, over and over, no argument is known to get smaller
+    │ 
+    │ Note 3: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 4: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+────╯
