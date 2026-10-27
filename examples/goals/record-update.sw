@@ -16,6 +16,6 @@ theorem renamedTwice (shape: Shape) (other: Shape) (newId: Text) (newRef: Nat):
     ({ pick shape other | id = newId, ref = newRef }) = { other | ref = newRef, id = newId } :=
   ?
 
-theorem paid (player: Player) (amount: Nat) (same: { player | gold = amount } = player):
+theorem paid (player: Player) (amount: Nat) (same: {player | gold = amount} = player):
     ({ player | gold = amount, hitPoints = 3 }) = { player | hitPoints = 3 } :=
   ?
