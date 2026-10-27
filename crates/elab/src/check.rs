@@ -1498,7 +1498,10 @@ fn apply_args_postponing(
         _ => None,
     };
     let mut after_expected = Vec::new();
+    // The argument just passed, when it was a name given as a function.
+    let mut function_name: Option<&AstName> = None;
     for (i, arg) in args.iter().enumerate() {
+        let previous_function_name = function_name.take();
         match arg {
             Arg::Explicit(value @ Expr::Lam(..)) => {
                 (term, ty) = insert_with(cx, term, ty, supply)?;
@@ -1597,7 +1600,9 @@ fn apply_args_postponing(
             }
             Arg::Explicit(value) => {
                 (term, ty) = insert_with(cx, term, ty, supply)?;
-                let (dom, cod) = function_parts(cx, &ty)?;
+                let (dom, cod) = function_parts(cx, &ty).map_err(|e| {
+                    not_a_function_hint(cx, &term, previous_function_name, value, e)
+                })?;
                 // `pair (Point 1 "p" 10) m`, where `m: Mark Int Nat`: the
                 // constructor's number would be defaulted to a `Nat` before
                 // `m` said what the parameter is, so it's checked last, as a
@@ -1666,6 +1671,14 @@ fn apply_args_postponing(
                         continue;
                     }
                 };
+                if let Arg::Explicit(Expr::Var(name)) = arg
+                    && matches!(
+                        force(cx.g(), dom.clone())?,
+                        Value::Pi(_, Icit::Explicit, ..)
+                    )
+                {
+                    function_name = Some(name);
+                }
                 ty = cod.apply_lazy(cx.g(), || eval(cx.g(), &cx.env, &value))?;
                 term = Term::app(term, value);
             }
@@ -1865,15 +1878,46 @@ fn unit_call_hint(
     if matches!(force(cx.g(), dom.clone()), Ok(Value::Pi(..))) {
         return e;
     }
-    let function = match head.spine().0.strip_loc() {
-        Term::Def(id) => cx.g().def(*id).name.to_string(),
-        Term::Var(ix) => cx.names[cx.level() - 1 - ix].to_string(),
-        _ => return e,
+    match called_name(cx, head) {
+        Some(function) => e.with_note(unit_call_note(&function, &arg.text)),
+        None => e,
+    }
+}
+
+/// `apply start ()`, where `apply` takes a function and `start` is one: the
+/// call to `apply` isn't a function, so the `()` was meant for `start`
+/// (`apply (start ())`).
+fn not_a_function_hint(
+    cx: &Ctx,
+    head: &Term,
+    previous_function_name: Option<&AstName>,
+    value: &Expr,
+    e: Diagnostic,
+) -> Diagnostic {
+    let (Some(arg), Expr::Unit(_), "E-NOT-A-FUNCTION") = (previous_function_name, value, e.code)
+    else {
+        return e;
     };
-    e.with_note(format!(
-        "did you mean `{function} ({} ())`? Without brackets, `{function} {} ()` passes `{}` itself to `{function}` and then applies the result to `()`",
-        arg.text, arg.text, arg.text
-    ))
+    match called_name(cx, head) {
+        Some(function) => e.with_note(unit_call_note(&function, &arg.text)),
+        None => e,
+    }
+}
+
+/// The name of the definition or local variable an application calls.
+fn called_name(cx: &Ctx, head: &Term) -> Option<String> {
+    match head.spine().0.strip_loc() {
+        Term::Def(id) => Some(cx.g().def(*id).name.to_string()),
+        Term::Var(ix) => Some(cx.names[cx.level() - 1 - ix].to_string()),
+        _ => None,
+    }
+}
+
+/// The note suggesting `function (arg ())` for `function arg ()`.
+pub(crate) fn unit_call_note(function: &str, arg: &str) -> String {
+    format!(
+        "did you mean `{function} ({arg} ())`? Without brackets, `{function} {arg} ()` passes `{arg}` itself to `{function}` and then applies the result to `()`"
+    )
 }
 
 /// When the function given a partial argument was checked with its
