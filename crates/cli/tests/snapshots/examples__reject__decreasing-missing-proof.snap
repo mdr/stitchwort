@@ -9,7 +9,7 @@ expression: output
     │        ───────────────────┬──────────────────  
     │                           ╰──────────────────── this recursive call
     │ 
-    │ Note 1: in scope: `big: Nat.leq n 9 = False`
+    │ Note 1: in scope: `big: (n <= 9) = False`
     │ 
     │ Note 2: give a proof with `[decreasing := …]`, or test it with `if h: n / 10 < n then … else …`
 ────╯

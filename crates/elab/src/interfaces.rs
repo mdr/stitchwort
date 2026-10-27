@@ -371,7 +371,7 @@ impl Elaborator {
             ty = cod.apply(g, Value::var(level))?;
         }
         let names: Vec<Name> = params.iter().map(|(x, _, _)| x.clone()).collect();
-        let show = |v: &Value| pretty::value_for_message(g, &names, v);
+        let show = |v: &Value| pretty::value_for_message_in(g, self, &names, v);
         // The result as written, for the synonym note.
         let mut written = &def.ty;
         while let Term::Pi(_, _, _, cod) = written.strip_loc() {
@@ -731,7 +731,7 @@ impl Elaborator {
                             format!(
                                 "{} {}",
                                 g.data(d).name,
-                                pretty::value_for_message(g, &names, v)
+                                pretty::value_for_message_in(g, self, &names, v)
                             )
                         };
                         let param = |n: &Name, d: DataId, v: &Value| {

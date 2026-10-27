@@ -7,7 +7,7 @@ expression: output
    │
  7 │ theorem rangeOrdered (r: Range): r.lo ≤ r.hi := rfl
    │                                                 ─┬─  
-   │                                                  ╰─── `Nat.leq r.lo r.hi` and `True` aren't equal
+   │                                                  ╰─── `r.lo <= r.hi` and `True` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

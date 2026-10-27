@@ -271,14 +271,14 @@ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cas
 
 <!-- output: check errors/cases.sw -->
 ```
-[E-CASES] Error: `cases` can't close the case a = True, Nat.leq n 2 = False
+[E-CASES] Error: `cases` can't close the case a = True, (n <= 2) = False
    ╭─[ errors/cases.sw:1:72 ]
    │
  1 │ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cases
    │                                                                        ──┬──
    │                                                                          ╰──── this `cases`
    │
-   │ Note 1: h: Nat.leq n 3 = True
+   │ Note 1: h: n ≤ 3
    │
    │ Note 2: goal: False = True
    │
@@ -289,7 +289,7 @@ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cas
    │ Note 5: this statement is false; a counterexample:
    │           a = True
    │           n = 3
-   │         `(if a then Nat.leq n 3 else False) = True` holds
+   │         `(a && n <= 3) = True` holds
    │         `n ≤ 2` is false
 ───╯
 ```
@@ -346,8 +346,8 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
    │               ┬
    │               ╰── limit: Nat
    │                   n: Nat
-   │                   fits: Nat.leq n limit = True
-   │                   ⊢ Nat.leq n limit = True
+   │                   fits: n ≤ limit
+   │                   ⊢ n ≤ limit
 ───╯
 [GOAL] Goal: in `clampToAtMost`
    ╭─[ errors/split-goals.sw:8:16 ]
@@ -356,13 +356,13 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
    │                ┬
    │                ╰── limit: Nat
    │                    n: Nat
-   │                    fits: Nat.leq n limit = False
-   │                    ⊢ Nat.leq limit limit = True
+   │                    fits: (n <= limit) = False
+   │                    ⊢ limit ≤ limit
 ───╯
 2 goals open: the declarations with them, and what uses them, aren't finished, so they aren't checked
 ```
 
-On `Nat`, the statement `a <= b` computes to `Nat.leq a b = True`, and goals are shown computed. In the `True` branch the goal is then exactly `fits`, and in the `False` branch it is `limit <= limit`, which `Nat.leRefl limit` proves.
+On `Nat`, the statement `a <= b` computes to `Nat.leq a b = True`, and goals are shown computed: that is shown as `a ≤ b`, and the `Bool` `Nat.leq a b` alone as `a <= b`. In the `True` branch the goal is then exactly `fits`, and in the `False` branch it is `limit <= limit`, which `Nat.leRefl limit` proves.
 
 ## Membership, "if and only if", "there exists"
 

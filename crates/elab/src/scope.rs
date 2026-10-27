@@ -23,6 +23,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use stitchwort_core::collections::{HashMap, HashSet};
+use stitchwort_core::pretty::{Declaration, NameScope};
 use stitchwort_syntax::ast::{self, Import};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -1112,6 +1113,26 @@ impl Elaborator {
         }
     }
 
+    /// The key of `declaration`: its kernel name, with `Std.` for the
+    /// library's.
+    fn declaration_key_of(&self, declaration: Declaration) -> String {
+        let (name, path) = match declaration {
+            Declaration::Def(id) => {
+                let def = self.globals.def(id);
+                (&def.name, &def.path)
+            }
+            Declaration::Data(d) => {
+                let data = self.globals.data(d);
+                (&data.name, &data.path)
+            }
+        };
+        if path.starts_with("Std.") {
+            path.to_string()
+        } else {
+            name.to_string()
+        }
+    }
+
     /// `E-AMBIGUOUS`, where an ambiguous name is used.
     pub(crate) fn ambiguous(&self, name: &ast::Name, keys: &[String], level: Level) -> Diagnostic {
         let shown: Vec<String> = keys
@@ -1669,6 +1690,29 @@ impl Elaborator {
 }
 
 /// The target of the alias `key`, if it is one.
+/// Printed terms name declarations as the module being checked would write
+/// them, from its namespace and the current file's imports.
+impl NameScope for Elaborator {
+    fn names(&self, written: &str, declaration: Declaration) -> bool {
+        let Resolved::Found {
+            global, key, rest, ..
+        } = self.resolve_any(written)
+        else {
+            return false;
+        };
+        if !rest.is_empty() {
+            return false;
+        }
+        match (global, declaration) {
+            (Global::Def(a), Declaration::Def(b)) => a == b,
+            (Global::Data(a), Declaration::Data(b)) => a == b,
+            (Global::Def(_) | Global::Data(_), _) => false,
+            // Not checked yet, or not loaded: by key.
+            _ => key == self.declaration_key_of(declaration),
+        }
+    }
+}
+
 fn alias_target(key: &str) -> Option<String> {
     let path = key.strip_prefix("Std.")?;
     ALIASES

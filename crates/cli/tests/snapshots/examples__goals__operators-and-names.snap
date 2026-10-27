@@ -1,0 +1,44 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `onNat`
+    ╭─[ goals/operators-and-names.sw:11:92 ]
+    │
+ 11 │ theorem onNat (a: Nat) (b: Nat): (a < b && b <= a + 3 || a > b) = (gentle a b || b < a) := ?
+    │                                                                                            ┬  
+    │                                                                                            ╰── a: Nat
+    │                                                                                                b: Nat
+    │                                                                                                ⊢ (a < b && b <= a + 3 || b < a) = (gentle a b || b < a)
+────╯
+[GOAL] Goal: in `onInt`
+    ╭─[ goals/operators-and-names.sw:13:85 ]
+    │
+ 13 │ theorem onInt (a: Int) (b: Int) (h: a < b) (k: a <= b): (a < b && a <= b) = True := ?
+    │                                                                                     ┬  
+    │                                                                                     ╰── a: Int
+    │                                                                                         b: Int
+    │                                                                                         h: a < b
+    │                                                                                         k: a ≤ b
+    │                                                                                         ⊢ (a < b && a <= b) = True
+────╯
+[GOAL] Goal: in `throughOrd`
+    ╭─[ goals/operators-and-names.sw:15:102 ]
+    │
+ 15 │ theorem throughOrd [t: Type] [auto ord: Ord t] (a: t) (b: t) (h: a < b): (a <= b || a < b) = True := ?
+    │                                                                                                      ┬  
+    │                                                                                                      ╰── t: Type
+    │                                                                                                          ord: Ord t
+    │                                                                                                          a: t
+    │                                                                                                          b: t
+    │                                                                                                          h: a < b
+    │                                                                                                          ⊢ (a <= b || a < b) = True
+────╯
+[GOAL] Goal: in `hidden`
+    ╭─[ goals/operators-and-names.sw:17:81 ]
+    │
+ 17 │ theorem hidden (count: Nat): count + Demo.Ops.count = Demo.Ops.count + count := ?
+    │                                                                                 ┬  
+    │                                                                                 ╰── count: Nat
+    │                                                                                     ⊢ count + Demo.Ops.count = 3 + count
+────╯

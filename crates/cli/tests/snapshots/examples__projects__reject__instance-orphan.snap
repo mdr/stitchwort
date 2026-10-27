@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-INSTANCE-ORPHAN] Error: `Geometry.Area Nat` must be declared in `Geometry` (which owns `Geometry.Area`) or `Std` (which owns `Nat`)
+[E-INSTANCE-ORPHAN] Error: `Area Nat` must be declared in `Geometry` (which owns `Geometry.Area`) or `Std` (which owns `Nat`)
    ╭─[ instance-orphan/src/report.sw:6:10 ]
    │
  6 │ instance instArea: Area Nat :=
    │          ────┬───  
-   │              ╰───── `Geometry.Area Nat` must be declared in `Geometry` (which owns `Geometry.Area`) or `Std` (which owns `Nat`)
+   │              ╰───── `Area Nat` must be declared in `Geometry` (which owns `Geometry.Area`) or `Std` (which owns `Nat`)
    │ 
-   │ Note: this is `Report`; a named alternative (a `def` of type `Geometry.Area Nat`) can be declared here and passed by name
+   │ Note: this is `Report`; a named alternative (a `def` of type `Area Nat`) can be declared here and passed by name
 ───╯

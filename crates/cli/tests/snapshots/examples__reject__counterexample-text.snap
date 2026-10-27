@@ -25,7 +25,7 @@ expression: output
    │
  9 │ theorem asciiOnly (c: Char): Char.toNat c < 128 := rfl
    │                                                    ─┬─  
-   │                                                     ╰─── `Nat.leq (Char.toNat c) 127` and `True` aren't equal
+   │                                                     ╰─── `Char.toNat c <= 127` and `True` aren't equal
    │ 
    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
    │ 

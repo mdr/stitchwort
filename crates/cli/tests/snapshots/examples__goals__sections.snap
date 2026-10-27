@@ -29,5 +29,5 @@ expression: output
     │                                                                           ┬  
     │                                                                           ╰── xs: List Nat
     │                                                                               n: Nat
-    │                                                                               ⊢ Nat.leq (List.count xs (< n)) (List.length xs) = True
+    │                                                                               ⊢ List.count xs (< n) ≤ List.length xs
 ────╯

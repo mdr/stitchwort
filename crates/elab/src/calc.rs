@@ -189,7 +189,7 @@ fn ordering(cx: &Ctx, which: Builtin, a: Term, b: Term) -> Result<Term> {
 
 /// A term as written, for messages (orders print as `a <= b`).
 fn written(cx: &Ctx, term: &Term) -> String {
-    stitchwort_core::pretty::term_for_message(cx.g(), &cx.names, term)
+    stitchwort_core::pretty::term_for_message_in(cx.g(), cx.e, &cx.names, term)
 }
 
 /// A step's proof, checked against its line's proposition. A proof that
@@ -249,8 +249,8 @@ fn by_computation(cx: &mut Ctx, step: &CalcStep, prop: &Value, line: &str) -> Re
     error = match &computed {
         Value::Eq(_, a, b) => error.with_note(format!(
             "the line says `{line}`, which computes to `{} = {}`",
-            cx.show(a),
-            cx.show(b)
+            cx.show_side(a),
+            cx.show_side(b)
         )),
         other => error.with_note(format!("computing it gives `{}`", cx.show(other))),
     };

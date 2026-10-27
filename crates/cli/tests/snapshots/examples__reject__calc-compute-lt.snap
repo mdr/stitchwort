@@ -9,7 +9,7 @@ expression: output
    │     ──┬──  
    │       ╰──── `n < n` doesn't hold by computation
    │ 
-   │ Note 1: the line says `n < n`, which computes to `Nat.leq (Succ n) n = True`
+   │ Note 1: the line says `n < n`, which computes to `(n < n) = True`
    │ 
    │ Note 2: a step without `:=` must hold by computation alone
    │ 

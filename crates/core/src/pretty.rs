@@ -4,28 +4,50 @@
 //! too deeply to reach with the stack the operation may use is shown as `…`
 //! (docs/proposals/stack-safe-evaluation.md).
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use num_bigint::BigUint;
 
 use crate::budget::Result;
+use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, Globals};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
 use crate::value::{Value, quote, quote_folded};
 
+/// A declaration a printed name stands for.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Declaration {
+    Def(DefId),
+    Data(DataId),
+}
+
+/// The names in scope where a term is printed, so that a declaration is
+/// shown by the shortest name that means it there: `everyAdjacentPair`
+/// inside its namespace, `Spec.everyAdjacentPair` beside it.
+pub trait NameScope {
+    /// Whether `written` names `declaration` here.
+    fn names(&self, written: &str, declaration: Declaration) -> bool;
+}
+
 /// Prints `term`, whose free variables are named by `names` (outermost first).
 pub fn term(g: &Globals, names: &[Name], term: &Term) -> String {
     let mut names = names.to_vec();
-    Printer::new(g).print(&mut names, term, Prec::Arrow)
+    Printer::new(g, None).print(&mut names, term, Prec::Arrow)
+}
+
+/// [`term`], with names as `scope` writes them.
+pub fn term_in(g: &Globals, scope: &dyn NameScope, names: &[Name], term: &Term) -> String {
+    let mut names = names.to_vec();
+    Printer::new(g, Some(scope)).print(&mut names, term, Prec::Arrow)
 }
 
 /// Prints `term` with ASCII operators (`&&`, `!=`, `->`), for text inside
 /// exported JavaScript, where the reader writes `!=` and not `≠` (D1223).
 pub fn term_ascii(g: &Globals, names: &[Name], term: &Term) -> String {
     let mut names = names.to_vec();
-    let printer = Printer::new(g);
+    let printer = Printer::new(g, None);
     printer.ascii.set(true);
     printer.print(&mut names, term, Prec::Arrow)
 }
@@ -42,7 +64,7 @@ pub fn value_ascii(g: &Globals, names: &[Name], value: &Value) -> String {
 /// print: for showing a result, where `…` would hide part of it.
 pub fn term_in_full(g: &Globals, names: &[Name], term: &Term) -> Result<String> {
     let mut names = names.to_vec();
-    let printer = Printer::new(g);
+    let printer = Printer::new(g, None);
     let text = printer.print(&mut names, term, Prec::Arrow);
     if printer.elided.get() {
         return Err(g.budget.too_deep(PASS));
@@ -83,20 +105,46 @@ const MESSAGE_LIMIT: usize = 240;
 /// docs/proposals/folded-calls.md, stage 3). Setting
 /// `STITCHWORT_FULL_TERMS` shows everything.
 pub fn value_for_message(g: &Globals, names: &[Name], value: &Value) -> String {
-    let Ok(t) = quote_folded(g, names.len(), value) else {
-        return "…".into();
-    };
-    term_for_message(g, names, &t)
+    value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow)
+}
+
+/// [`value_for_message`], with names as `scope` writes them.
+pub fn value_for_message_in(
+    g: &Globals,
+    scope: &dyn NameScope,
+    names: &[Name],
+    value: &Value,
+) -> String {
+    value_within(g, Some(scope), names, value, MESSAGE_LIMIT, Prec::Arrow)
 }
 
 /// [`value_for_message`], showing the arguments the compiler fills in, for
 /// two types that print the same without them.
 pub fn value_for_message_hidden(g: &Globals, names: &[Name], value: &Value) -> String {
+    value_hidden(g, None, names, value)
+}
+
+/// [`value_for_message_hidden`], with names as `scope` writes them.
+pub fn value_for_message_hidden_in(
+    g: &Globals,
+    scope: &dyn NameScope,
+    names: &[Name],
+    value: &Value,
+) -> String {
+    value_hidden(g, Some(scope), names, value)
+}
+
+fn value_hidden(
+    g: &Globals,
+    scope: Option<&dyn NameScope>,
+    names: &[Name],
+    value: &Value,
+) -> String {
     let Ok(t) = quote_folded(g, names.len(), value) else {
         return "…".into();
     };
     let mut ns = names.to_vec();
-    let printer = Printer::new(g);
+    let printer = Printer::new(g, scope);
     printer.show_hidden.set(true);
     let text = printer.print(&mut ns, &t, Prec::Arrow);
     if text.chars().count() <= MESSAGE_LIMIT * 2 {
@@ -109,35 +157,77 @@ pub fn value_for_message_hidden(g: &Globals, names: &[Name], value: &Value) -> S
 
 /// [`value_for_message`], for a term.
 pub fn term_for_message(g: &Globals, names: &[Name], term_: &Term) -> String {
-    term_within(g, names, term_, MESSAGE_LIMIT)
+    term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow)
+}
+
+/// [`term_for_message`], with names as `scope` writes them.
+pub fn term_for_message_in(
+    g: &Globals,
+    scope: &dyn NameScope,
+    names: &[Name],
+    term_: &Term,
+) -> String {
+    term_within(g, Some(scope), names, term_, MESSAGE_LIMIT, Prec::Arrow)
 }
 
 /// The longest a term may be in a goal (docs/proposals/lsp-goal-holes.md
 /// §3.3): a goal is the one place the whole term matters.
 const GOAL_LIMIT: usize = 4000;
 
-/// [`value_for_message`], with the larger limit of a goal's types.
-pub fn value_for_goal(g: &Globals, names: &[Name], value: &Value) -> String {
+/// [`value_for_message_in`], with the larger limit of a goal's types.
+pub fn value_for_goal(g: &Globals, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
+    value_within(g, Some(scope), names, value, GOAL_LIMIT, Prec::Arrow)
+}
+
+/// [`value_for_message_in`] for one side of an equation shown as `a = b`:
+/// in brackets if it's an operation that binds more loosely than `=`
+/// (`(n < n) = True`).
+pub fn side_for_message_in(
+    g: &Globals,
+    scope: &dyn NameScope,
+    names: &[Name],
+    value: &Value,
+) -> String {
+    value_within(g, Some(scope), names, value, MESSAGE_LIMIT, Prec::Add)
+}
+
+/// [`term_within`] for a value, with calls shown as written.
+fn value_within(
+    g: &Globals,
+    scope: Option<&dyn NameScope>,
+    names: &[Name],
+    value: &Value,
+    limit: usize,
+    prec: Prec,
+) -> String {
     let Ok(t) = quote_folded(g, names.len(), value) else {
         return "…".into();
     };
-    term_within(g, names, &t, GOAL_LIMIT)
+    term_within(g, scope, names, &t, limit, prec)
 }
 
-/// [`term_for_message`], with a result longer than `limit` characters
-/// shortened.
-fn term_within(g: &Globals, names: &[Name], term_: &Term, limit: usize) -> String {
+/// [`term_for_message`] at precedence `prec`, with a result longer than
+/// `limit` characters shortened.
+fn term_within(
+    g: &Globals,
+    scope: Option<&dyn NameScope>,
+    names: &[Name],
+    term_: &Term,
+    limit: usize,
+    prec: Prec,
+) -> String {
     note_failed_mention(g, term_);
-    let full = term(g, names, term_);
+    let mut ns = names.to_vec();
+    let full = Printer::new(g, scope).print(&mut ns, term_, prec);
     if full.chars().count() <= limit || std::env::var_os("STITCHWORT_FULL_TERMS").is_some() {
         return full;
     }
     // Reprint with less and less depth until it fits.
     for depth in (1..=10).rev() {
         let mut ns = names.to_vec();
-        let printer = Printer::new(g);
+        let printer = Printer::new(g, scope);
         printer.max_depth.set(Some(depth));
-        let text = printer.print(&mut ns, term_, Prec::Arrow);
+        let text = printer.print(&mut ns, term_, prec);
         if text.chars().count() <= limit {
             return text;
         }
@@ -178,10 +268,15 @@ struct Printer<'g> {
     /// Write the operators in ASCII (`&&`, `!=`, `->`), for text a
     /// JavaScript developer reads (D1223).
     ascii: Cell<bool>,
+    /// The names in scope, to shorten declarations' names by; without it,
+    /// names are written from the root.
+    scope: Option<&'g dyn NameScope>,
+    /// What `scope` said each written name means, by declaration.
+    meant: RefCell<HashMap<(Declaration, String), bool>>,
 }
 
 impl<'g> Printer<'g> {
-    fn new(g: &'g Globals) -> Self {
+    fn new(g: &'g Globals, scope: Option<&'g dyn NameScope>) -> Self {
         Printer {
             g,
             elided: Cell::new(false),
@@ -189,7 +284,52 @@ impl<'g> Printer<'g> {
             depth: Cell::new(0),
             show_hidden: Cell::new(false),
             ascii: Cell::new(false),
+            scope,
+            meant: RefCell::new(HashMap::default()),
         }
+    }
+
+    /// `full`, the name of `declaration` from the root, as its shortest
+    /// trailing part that means `declaration` in the scope, skipping a part
+    /// whose first component is a variable in `names` (which would mean the
+    /// variable). `full` if no shorter part does, or there is no scope.
+    fn short_name(&self, names: &[Name], full: &str, declaration: Declaration) -> String {
+        let Some(scope) = self.scope else {
+            return full.to_string();
+        };
+        if full.contains('%') {
+            return full.to_string();
+        }
+        let parts: Vec<&str> = full.split('.').collect();
+        for start in (1..parts.len()).rev() {
+            if names.iter().any(|x| **x == *parts[start]) {
+                continue;
+            }
+            let written = parts[start..].join(".");
+            let meant = *self
+                .meant
+                .borrow_mut()
+                .entry((declaration, written.clone()))
+                .or_insert_with(|| scope.names(&written, declaration));
+            if meant {
+                return written;
+            }
+        }
+        full.to_string()
+    }
+
+    /// Definition `id`'s name, as [`Printer::short_name`] writes it.
+    fn def_name(&self, names: &[Name], id: DefId) -> String {
+        let name = &self.g.def(id).name;
+        if name.contains('%') {
+            return def_display(name);
+        }
+        self.short_name(names, name, Declaration::Def(id))
+    }
+
+    /// Data type `d`'s name, as [`Printer::short_name`] writes it.
+    fn data_name(&self, names: &[Name], d: DataId) -> String {
+        self.short_name(names, &self.g.data(d).name, Declaration::Data(d))
     }
 
     /// `unicode`, or `ascii` when printing for JavaScript.
@@ -279,7 +419,7 @@ impl<'g> Printer<'g> {
             {
                 self.go(names, body)
             }
-            Term::Def(id) => (def_display(&self.g.def(*id).name), Prec::Atom),
+            Term::Def(id) => (self.def_name(names, *id), Prec::Atom),
             Term::Sort(Sort::Prop) => ("Prop".into(), Prec::Atom),
             Term::Sort(Sort::Type(0)) => ("Type".into(), Prec::Atom),
             Term::Sort(Sort::Type(i)) => (format!("Type {i}"), Prec::App),
@@ -357,7 +497,7 @@ impl<'g> Printer<'g> {
                 // An `auto` parameter given by name, `Map Nat Nat [ord := o]`
                 // (docs/proposals/interfaces.md §7.5).
                 let data = self.g.data(*d);
-                let mut text = data.name.to_string();
+                let mut text = self.data_name(names, *d);
                 for (k, arg) in args.iter().enumerate() {
                     text.push(' ');
                     if data.auto_params.get(k) == Some(&true) {
@@ -369,11 +509,10 @@ impl<'g> Printer<'g> {
                 }
                 (text, Prec::App)
             }
-            Term::Data(d, args) => self.applied(
-                names,
-                self.g.data(*d).name.to_string(),
-                args.iter().map(|a| &**a),
-            ),
+            Term::Data(d, args) => {
+                let name = self.data_name(names, *d);
+                self.applied(names, name, args.iter().map(|a| &**a))
+            }
             Term::Ctor(d, 0, _) if is(self.g, Builtin::UnitType, *d) => ("()".into(), Prec::Atom),
             // A double with known bits and the standard witness, as its
             // literal: `1.5`, `-0.0`, `Float.nan`.
@@ -620,6 +759,9 @@ impl<'g> Printer<'g> {
                         let arg = self.print(names, arg, Prec::Atom);
                         return (format!("{arg}.{field}"), Prec::Atom);
                     }
+                    if let Some(shown) = self.bool_logic(names, term) {
+                        return shown;
+                    }
                     // `if c then a else b`.
                     if self.g.registry.is_def(Builtin::IfThenElse, *id)
                         && let [cond, then, otherwise] = &args[..]
@@ -643,6 +785,13 @@ impl<'g> Printer<'g> {
                     {
                         let result = self.print(names, result, Prec::App);
                         return (format!("{row} {result}"), Prec::App);
+                    }
+                    if let Some((op, lhs, rhs)) =
+                        self.comparison(term).or_else(|| self.relation(term))
+                    {
+                        let lhs = self.print(names, lhs, Prec::Add);
+                        let rhs = self.print(names, rhs, Prec::Add);
+                        return (format!("{lhs} {op} {rhs}"), Prec::Eq);
                     }
                     if let (Some((op, prec)), [lhs, rhs]) = (self.infix(*id), &args[..]) {
                         // `+`, `-`, `*`, `/` and `%` associate left;
@@ -677,6 +826,17 @@ impl<'g> Printer<'g> {
             Term::Case(ix, _, _) | Term::NumCase(ix, _, _) => {
                 let scrutinee = self.print(names, &Term::Var(*ix), Prec::Atom);
                 (format!("case {scrutinee} of …"), Prec::Arrow)
+            }
+            // `a < b` and `a <= b` as propositions on `Nat`, `Int` and
+            // `Float` compute to the `Bool` comparison being `True`.
+            Term::Eq(_, a, b)
+                if self.is_ctor(b, Builtin::True)
+                    && let Some((op, lhs, rhs)) = self.comparison(a) =>
+            {
+                let op = if op == "<" { op } else { self.sym("≤", "<=") };
+                let lhs = self.print(names, lhs, Prec::Add);
+                let rhs = self.print(names, rhs, Prec::Add);
+                (format!("{lhs} {op} {rhs}"), Prec::Eq)
             }
             Term::Eq(_, a, b) => {
                 let lhs = self.print(names, a, Prec::Add);
@@ -738,8 +898,129 @@ impl<'g> Printer<'g> {
             Builtin::Mul | Builtin::IntMul => Some(("*", Prec::Mul)),
             Builtin::Div | Builtin::IntDiv => Some(("/", Prec::Mul)),
             Builtin::Mod | Builtin::IntMod => Some(("%", Prec::Mul)),
-            Builtin::LessEq => Some((self.sym("≤", "<="), Prec::Eq)),
-            Builtin::LessThan => Some(("<", Prec::Eq)),
+            Builtin::LessEq | Builtin::IntLessEq | Builtin::FloatLessEq => {
+                Some((self.sym("≤", "<="), Prec::Eq))
+            }
+            Builtin::LessThan | Builtin::IntLessThan | Builtin::FloatLessThan => {
+                Some(("<", Prec::Eq))
+            }
+            _ => None,
+        }
+    }
+
+    /// Whether `t` is the constructor `ctor` with no fields.
+    fn is_ctor(&self, t: &Term, ctor: Builtin) -> bool {
+        matches!(t.strip_loc(), Term::Ctor(d, c, fields)
+            if fields.is_empty() && self.g.registry.ctor(ctor) == Some((*d, *c)))
+    }
+
+    /// `a && b` and `a || b` on `Bool`s, as they elaborate: `if a then b
+    /// else False` and `if a then True else b`, each branch a lambda whose
+    /// body doesn't use its parameter.
+    fn bool_logic(&self, names: &mut Vec<Name>, term: &Term) -> Option<(String, Prec)> {
+        let (head, args) = full_spine(term);
+        let Term::Def(id) = head else {
+            return None;
+        };
+        if !self.g.registry.is_def(Builtin::IfThenElse, *id) {
+            return None;
+        }
+        let [
+            (ty, Icit::Implicit),
+            (cond, Icit::Explicit),
+            (then, Icit::Explicit),
+            (otherwise, Icit::Explicit),
+        ] = args[..]
+        else {
+            return None;
+        };
+        if !matches!(ty.strip_loc(), Term::Data(d, ps) if ps.is_empty() && is(self.g, Builtin::Bool, *d))
+        {
+            return None;
+        }
+        let branch = |t: &Term| match t.strip_loc() {
+            Term::Lam(x, Icit::Explicit, body) if !body.mentions(0) => {
+                Some((x.clone(), body.clone()))
+            }
+            _ => None,
+        };
+        let (then, otherwise) = (branch(then)?, branch(otherwise)?);
+        // `||` and `&&` group to the right.
+        let (op, prec, left, (x, rhs)) = if self.is_ctor(&otherwise.1, Builtin::False) {
+            ("&&", Prec::And, Prec::Eq, then)
+        } else if self.is_ctor(&then.1, Builtin::True) {
+            ("||", Prec::Or, Prec::And, otherwise)
+        } else {
+            return None;
+        };
+        let lhs = self.print(names, cond, left);
+        names.push(x);
+        let rhs = self.print(names, &rhs, prec);
+        names.pop();
+        Some((format!("{lhs} {op} {rhs}"), prec))
+    }
+
+    /// The operator and operands of a `Bool` comparison, as `<` and `<=`
+    /// elaborate: on `Nat`, `Nat.leq (Succ a) b` and `Nat.leq a b`; on `Int`
+    /// and `Float`, `Int.less a b`, `Int.leq a b` and `Float`'s alike; and
+    /// through an `Ord` dictionary, `Decidable.toBool (Ord.decLessThan d a
+    /// b)` and `Decidable.toBool (Ord.decLessEq d a b)`.
+    fn comparison<'t>(&self, term: &'t Term) -> Option<(&'static str, &'t Term, &'t Term)> {
+        let (head, args) = explicit_spine(term.strip_loc());
+        let Term::Def(id) = head else {
+            return None;
+        };
+        if self.g.registry.loaded_def(Builtin::ToBool) == Some(*id) {
+            let [decision] = args[..] else {
+                return None;
+            };
+            return match self.ord_call(decision)? {
+                ("decLessThan", lhs, rhs) => Some(("<", lhs, rhs)),
+                ("decLessEq", lhs, rhs) => Some(("<=", lhs, rhs)),
+                _ => None,
+            };
+        }
+        let [lhs, rhs] = args[..] else {
+            return None;
+        };
+        let op = match self.g.registry.def_builtin(*id)? {
+            Builtin::Leq => match lhs.strip_loc() {
+                Term::Ctor(d, 1, m) if is(self.g, Builtin::Nat, *d) && m.len() == 1 => {
+                    return Some(("<", &m[0], rhs));
+                }
+                _ => "<=",
+            },
+            Builtin::IntLeq | Builtin::FloatLeq => "<=",
+            Builtin::IntLess | Builtin::FloatLess => "<",
+            _ => return None,
+        };
+        Some((op, lhs, rhs))
+    }
+
+    /// The operator and operands of `a < b` or `a <= b` as propositions
+    /// through an `Ord` dictionary: `Ord.lessThan d a b`, `Ord.lessEq d a b`.
+    fn relation<'t>(&self, term: &'t Term) -> Option<(&'static str, &'t Term, &'t Term)> {
+        match self.ord_call(term)? {
+            ("lessThan", lhs, rhs) => Some(("<", lhs, rhs)),
+            ("lessEq", lhs, rhs) => Some((self.sym("≤", "<="), lhs, rhs)),
+            _ => None,
+        }
+    }
+
+    /// A call of a member of the library's `Ord` on two operands: the
+    /// member's name and the operands. The member is a method, taking its
+    /// dictionary as an `auto` argument (`Ord.lessThan a b`), or the
+    /// dictionary's field, taking it first (`Ord.%lessThan d a b`).
+    fn ord_call<'t>(&self, term: &'t Term) -> Option<(&'g str, &'t Term, &'t Term)> {
+        let (head, args) = explicit_spine(term.strip_loc());
+        let Term::Def(id) = head else {
+            return None;
+        };
+        let g: &'g Globals = self.g;
+        let member = g.def(*id).path.strip_prefix("Std.Ord.")?;
+        match (member.strip_prefix('%'), &args[..]) {
+            (Some(field), [_, lhs, rhs]) => Some((field, *lhs, *rhs)),
+            (None, [lhs, rhs]) => Some((member, *lhs, *rhs)),
             _ => None,
         }
     }
@@ -791,6 +1072,9 @@ impl<'g> Printer<'g> {
         if let Term::Eq(_, a, b) = term.strip_loc() {
             return Some(("=", Prec::Add, a, b));
         }
+        if let Some((op, lhs, rhs)) = self.comparison(term) {
+            return Some((op, Prec::Add, lhs, rhs));
+        }
         let (head, args) = full_spine(term);
         let Term::Def(id) = head else {
             return None;
@@ -826,14 +1110,6 @@ impl<'g> Printer<'g> {
             return Some((op, operand, lhs, rhs));
         }
         let op = match reg.def_builtin(*id)? {
-            Builtin::Leq => match lhs.strip_loc() {
-                Term::Ctor(d, 1, m) if is(self.g, Builtin::Nat, *d) && m.len() == 1 => {
-                    return Some(("<", Prec::Add, &m[0], rhs));
-                }
-                _ => "<=",
-            },
-            Builtin::IntLeq | Builtin::FloatLeq => "<=",
-            Builtin::IntLess | Builtin::FloatLess => "<",
             Builtin::Append | Builtin::TextAppend => "++",
             _ => return None,
         };
@@ -941,7 +1217,7 @@ impl<'g> Printer<'g> {
             header: table.header,
             params,
         };
-        let head = def_display(&def.name);
+        let head = self.def_name(names, *id);
         self.defaulted(names, head, &args, &defaults)
     }
 

@@ -9,7 +9,7 @@ expression: output
    │                                           ─┬─  
    │                                            ╰─── `wrap n` and `n` aren't equal
    │ 
-   │ Note 1: computing the left side gives `Decidable.elim (Bool.decTrue (Nat.leq n 18446744073709551615)) (_ => n) (_ => 0)`
+   │ Note 1: computing the left side gives `Decidable.elim (Bool.decTrue (n <= 18446744073709551615)) (_ => n) (_ => 0)`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
    │ 

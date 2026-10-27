@@ -283,7 +283,7 @@ impl Elaborator {
 
     fn print_goal(&self, p: &Pending) -> Diagnostic {
         let g = &self.globals;
-        let show = |v: &Value| pretty::value_for_goal(g, &p.names, v);
+        let show = |v: &Value| pretty::value_for_goal(g, self, &p.names, v);
         let mut lines: Vec<String> = p
             .context
             .iter()

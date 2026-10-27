@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AUTO-NONE] Error: no way to decide `N.Token`
+[E-AUTO-NONE] Error: no way to decide `Token`
    ╭─[ auto-sibling/src/b.sw:4:20 ]
    │
  4 │ def client: Nat := needsToken
