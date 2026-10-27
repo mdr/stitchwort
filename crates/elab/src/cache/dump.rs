@@ -219,6 +219,14 @@ pub fn canonical_dump(e: &Elaborator) -> String {
         if let Some(table) = &def.param_defaults {
             let _ = write!(out, "\n  param defaults {table:?}");
         }
+        if let Some(shown) = &def.update_shown {
+            let _ = write!(out, "\n  update shown {} ", shown.params);
+            term(&mut out, &shown.base);
+            for (field, value) in &shown.fields {
+                let _ = write!(out, " {field} = ");
+                term(&mut out, value);
+            }
+        }
         out.push('\n');
     }
     for (i, data) in g.datas.iter().enumerate() {

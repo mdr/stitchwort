@@ -5,6 +5,7 @@
 //! (docs/proposals/stack-safe-evaluation.md).
 
 use std::cell::Cell;
+use std::rc::Rc;
 
 use num_bigint::BigUint;
 
@@ -385,6 +386,9 @@ impl<'g> Printer<'g> {
             }
             // A record, as a literal: `{ name = "A", age = 3 }`.
             Term::Ctor(d, 0, args) if self.g.data(*d).record => {
+                if let Some(update) = self.record_update(names, *d, args) {
+                    return (update, Prec::Atom);
+                }
                 let fields: Vec<String> = self.g.data(*d).ctors[0]
                     .fields
                     .iter()
@@ -486,6 +490,14 @@ impl<'g> Printer<'g> {
                 names.truncate(names.len() - params.len());
                 (format!("{} => {body}", params.join(" ")), Prec::Arrow)
             }
+            // A `let` an update binds its record or a new value with is
+            // shown as the update written, with the value in place.
+            Term::Let(x, _, v, b, _)
+                if is_update_let(x)
+                    && let Ok(body) = b.instantiate(self.g, v) =>
+            {
+                self.go(names, &body)
+            }
             // The annotation isn't shown, as for `Ann`.
             Term::Let(x, _, v, b, _) => {
                 let value = self.print(names, v, Prec::Arrow);
@@ -497,6 +509,7 @@ impl<'g> Printer<'g> {
             Term::Meta(_) if let Some(name) = self.label(names, term) => name,
             Term::Meta(m) => (format!("?{m}"), Prec::Atom),
             Term::App(..) if let Some(shown) = self.label(names, term) => shown,
+            Term::App(..) if let Some(shown) = self.update(names, term) => (shown, Prec::Atom),
             // Asked for the hidden arguments: shown even where the call has a
             // notation of its own, such as the proof in `c % 7` (SW-323).
             Term::App(..) if self.show_hidden.get() && has_hidden_argument(term) => {
@@ -752,6 +765,112 @@ impl<'g> Printer<'g> {
         Some(self.applied(names, name, rest.into_iter()))
     }
 
+    /// A call of an update's helper (`Def::update_shown`), as the update:
+    /// `{ x | f = s, g = t }`.
+    fn update(&self, names: &mut Vec<Name>, term: &Term) -> Option<String> {
+        let (head, args) = term.spine();
+        let Term::Def(id) = head else {
+            return None;
+        };
+        let shown = self.g.def(*id).update_shown.clone()?;
+        if args.len() != shown.params {
+            return None;
+        }
+        // A term in the helper's parameters, with the call's arguments in
+        // place of them.
+        let depth = names.len();
+        let filled = |template: &Term| -> Option<Term> {
+            let mut term = template.shift(self.g, depth, shown.params).ok()?;
+            for (inner, arg) in args.iter().enumerate().rev() {
+                term = term
+                    .instantiate(self.g, &arg.shift(self.g, inner, 0).ok()?)
+                    .ok()?;
+            }
+            Some(term)
+        };
+        let base = filled(&shown.base)?;
+        let mut fields = Vec::new();
+        for (field, value) in &shown.fields {
+            fields.push((field.to_string(), filled(value)?));
+        }
+        let base = self.print(names, &base, Prec::Arrow);
+        let fields: Vec<String> = fields
+            .iter()
+            .map(|(field, value)| format!("{field} = {}", self.print(names, value, Prec::Arrow)))
+            .collect();
+        Some(format!("{{ {base} | {} }}", fields.join(", ")))
+    }
+
+    /// A value of record `d` whose fields `args` are, except some, those
+    /// fields of one record `x`, as the update that makes it:
+    /// `{ x | f = s }`. An update of a record elaborates to exactly this, and
+    /// a literal written so can't be told from it once evaluated. The `x`
+    /// most fields are taken from is the one shown; `None` unless at least
+    /// one field is taken from it and at least one isn't.
+    fn record_update(&self, names: &mut Vec<Name>, d: DataId, args: &[Rc<Term>]) -> Option<String> {
+        let fields = &self.g.data(d).ctors[0].fields;
+        if fields.len() != args.len() {
+            return None;
+        }
+        // For each field, the record it's taken from, if it's `x.f` for its
+        // own `f`, printed to compare.
+        let taken_from: Vec<Option<String>> = fields
+            .iter()
+            .zip(args)
+            .map(|((field, _), arg)| {
+                let (head, explicit) = explicit_spine(arg);
+                let Term::Def(id) = head else {
+                    return None;
+                };
+                let [record] = &explicit[..] else {
+                    return None;
+                };
+                (self.projection_of(*id) == Some((d, field.to_string())))
+                    .then(|| self.print(names, record, Prec::Arrow))
+            })
+            .collect();
+        let base = taken_from
+            .iter()
+            .flatten()
+            .max_by_key(|candidate| {
+                taken_from
+                    .iter()
+                    .filter(|other| other.as_ref() == Some(*candidate))
+                    .count()
+            })?
+            .clone();
+        let replaced: Vec<String> = fields
+            .iter()
+            .zip(args)
+            .zip(&taken_from)
+            .filter(|(_, from)| from.as_ref() != Some(&base))
+            .map(|(((field, _), arg), _)| {
+                format!("{field} = {}", self.print(names, arg, Prec::Arrow))
+            })
+            .collect();
+        if replaced.is_empty() {
+            return None;
+        }
+        Some(format!("{{ {base} | {} }}", replaced.join(", ")))
+    }
+
+    /// The record type and field of a projection `R.f`, if `id` is one of a
+    /// record's.
+    fn projection_of(&self, id: DefId) -> Option<(DataId, String)> {
+        let field = self.projection_field(id)?;
+        let mut ty = self.g.def(id).ty.strip_loc();
+        while let Term::Pi(_, Icit::Implicit, _, b) = ty {
+            ty = b.strip_loc();
+        }
+        match ty {
+            Term::Pi(_, Icit::Explicit, dom, _) => match dom.strip_loc() {
+                Term::Data(d, _) if self.g.data(*d).record => Some((*d, field)),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     /// The field name of a projection `R.f`, if `id` is one: a record's
     /// generated projection, a data type's generated accessor for a shared
     /// field (docs/proposals/variant-fields.md §9.3), such as the prelude's
@@ -861,6 +980,12 @@ impl<'g> Printer<'g> {
         }
         (text, if any { Prec::App } else { Prec::Atom })
     }
+}
+
+/// Whether `x` names a `let` a record update binds: its record (`%record`,
+/// `%base`) or a field's new value (`%new%f`).
+fn is_update_let(x: &str) -> bool {
+    x == "%record" || x == "%base" || x.starts_with("%new%")
 }
 
 fn is_atomic(term: &Term) -> bool {

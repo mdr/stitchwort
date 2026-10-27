@@ -285,6 +285,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
                 theorem,
                 whole,
             }),
+            update: None,
         });
     }
     Ok(())
@@ -426,6 +427,7 @@ pub(crate) fn draft(
             theorem: false,
             whole: span,
         }),
+        update: None,
     });
     Ok(call)
 }

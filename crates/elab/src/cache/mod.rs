@@ -62,12 +62,12 @@ use crate::records::RecordInfo;
 use crate::scope::ScopeOp;
 use crate::{Elaborator, Global};
 use codec::{Bad, Read, ReadRefs, Reader, Refs, TermWriter, Terms, Writer, bad};
-use stitchwort_core::globals::{FieldDefault, FieldDefaults, ParamDefaults};
+use stitchwort_core::globals::{FieldDefault, FieldDefaults, ParamDefaults, UpdateShown};
 use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 14;
+pub const FORMAT: u32 = 15;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1463,6 +1463,24 @@ impl Elaborator {
                 }
             }
         }
+        // How the unit's update helpers are shown: each one's parameter
+        // count, record and new values.
+        let update_shown: Vec<(DefId, &UpdateShown)> = defs
+            .clone()
+            .map(DefId)
+            .filter_map(|id| g.def(id).update_shown.as_deref().map(|s| (id, s)))
+            .collect();
+        e.w.usize(update_shown.len());
+        for (id, shown) in update_shown {
+            e.def(id);
+            e.w.usize(shown.params);
+            e.term(&shown.base);
+            e.w.usize(shown.fields.len());
+            for (field, value) in &shown.fields {
+                e.str(field);
+                e.term(value);
+            }
+        }
         // `js_repr`: how the unit's attributed data types cross the JS
         // boundary (docs/proposals/attributes.md §6.5). Not hashed, so
         // only this table carries it; it travels with the type's unit.
@@ -1893,6 +1911,7 @@ struct Tables {
     records: Vec<(DataId, RecordInfo)>,
     field_defaults: Vec<(DataId, FieldDefaults)>,
     param_defaults: Vec<(DefId, ParamDefaults)>,
+    update_shown: Vec<(DefId, UpdateShown)>,
     /// How attributed data types cross the JS boundary.
     js_repr: Vec<(DataId, JsRepr)>,
     interfaces: Vec<(DataId, InterfaceInfo)>,
@@ -2772,6 +2791,9 @@ impl Elaborator {
         for (id, table) in t.param_defaults {
             self.globals.defs[id.0].param_defaults = Some(Rc::new(table));
         }
+        for (id, shown) in t.update_shown {
+            self.globals.defs[id.0].update_shown = Some(Rc::new(shown));
+        }
         for (d, repr) in t.js_repr {
             self.globals.datas[d.0].js = Some(Rc::new(repr));
         }
@@ -2860,6 +2882,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         records: Vec::new(),
         field_defaults: Vec::new(),
         param_defaults: Vec::new(),
+        update_shown: Vec::new(),
         js_repr: Vec::new(),
         interfaces: Vec::new(),
         instances: Vec::new(),
@@ -2937,6 +2960,25 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         }
         t.param_defaults
             .push((id, ParamDefaults { header, params }));
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        let id = b.def()?;
+        let params = b.count()?;
+        let base = b.term()?;
+        let m = b.count()?;
+        let mut fields = Vec::with_capacity(m);
+        for _ in 0..m {
+            fields.push((b.str()?, b.term()?));
+        }
+        t.update_shown.push((
+            id,
+            UpdateShown {
+                params,
+                base,
+                fields,
+            },
+        ));
     }
     let n = b.count()?;
     for _ in 0..n {

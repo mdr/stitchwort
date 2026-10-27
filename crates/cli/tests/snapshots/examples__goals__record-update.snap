@@ -1,0 +1,34 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `renamedKeepsRef`
+    ╭─[ goals/record-update.sw:13:3 ]
+    │
+ 13 │   ?
+    │   ┬  
+    │   ╰── shape: Shape
+    │       newId: Text
+    │       ⊢ { shape | id = Text.append newId "!" }.ref = shape.ref
+────╯
+[GOAL] Goal: in `renamedTwice`
+    ╭─[ goals/record-update.sw:17:3 ]
+    │
+ 17 │   ?
+    │   ┬  
+    │   ╰── shape: Shape
+    │       other: Shape
+    │       newId: Text
+    │       newRef: Nat
+    │       ⊢ { pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }
+────╯
+[GOAL] Goal: in `paid`
+    ╭─[ goals/record-update.sw:21:3 ]
+    │
+ 21 │   ?
+    │   ┬  
+    │   ╰── player: Player
+    │       amount: Nat
+    │       same: { player | gold = amount } = player
+    │       ⊢ { player | hitPoints = 3, gold = amount } = { player | hitPoints = 3 }
+────╯

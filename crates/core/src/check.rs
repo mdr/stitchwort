@@ -1584,6 +1584,7 @@ pub fn declare_def(
         validators: Vec::new(),
         run_body: None,
         param_defaults: None,
+        update_shown: None,
         span,
     });
     Ok(DefId(g.defs.len() - 1))
