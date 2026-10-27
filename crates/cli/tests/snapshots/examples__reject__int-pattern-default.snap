@@ -7,7 +7,7 @@ expression: output
     │
  13 │   | x => False
     │          ──┬──  
-    │            ╰──── expected `R (OfNat n)`, but this has type `Bool`
+    │            ╰──── expected `R (OfNat n✝)`, but this has type `Bool`
     │ 
-    │ Note: number patterns only test values: an arm with a variable or `_` where the others have numbers knows only that `n` is none of those numbers, not what it is. To use the shape of `n`, match on `Zero` and `Succ` instead
+    │ Note: number patterns only test values: an arm with a variable or `_` where the others have numbers knows only that `n✝` is none of those numbers, not what it is. To use the shape of `n✝`, match on `Zero` and `Succ` instead
 ────╯

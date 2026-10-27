@@ -3994,6 +3994,24 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             for (x, level) in aliases {
                 cx.alias(x, *level);
             }
+            // The tree's variables this arm's patterns don't name are shown
+            // as `head✝`: another arm's name, or the field's, can't be used
+            // here.
+            let saved_names = cx.names.clone();
+            for level in cx.tree_start.min(cx.level())..cx.level() {
+                let own = matches!(&cx.env[level],
+                    Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
+                let name = &cx.names[level];
+                if own
+                    && cx.lets[level].is_none()
+                    && !name.starts_with('%')
+                    && !name.ends_with('✝')
+                    && &**name != "_"
+                    && cx.name_of_level(level).is_none()
+                {
+                    cx.names[level] = format!("{name}✝").into();
+                }
+            }
             let order = written_order(cx, aliases, written);
             let saved_order = std::mem::replace(&mut cx.order, order);
             let result = canonical(cx, canon, goal, &mut |cx, goal, wrapped| {
@@ -4008,6 +4026,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 in_tree.unwrap_or_else(|| check(cx, rhs, goal))
             });
             cx.reset(mark);
+            cx.names = saved_names;
             cx.order = saved_order;
             result
         }
@@ -4210,6 +4229,16 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     Err(e) => branch_failed(cx, e, &mut failed)?,
                 }
             }
+            // The variable as the default arm shows it: `n✝` unless that arm
+            // names it.
+            let default_name = match &**default {
+                Tree::Leaf { aliases, .. } => {
+                    aliases.iter().find(|(_, l)| l == x).map(|(n, _)| n.to_string())
+                }
+                _ => None,
+            }
+            .or_else(|| cx.name_of_level(*x).map(str::to_string))
+            .unwrap_or_else(|| format!("{}✝", cx.names[*x]));
             // The default knows only that the variable is none of the arms'
             // numbers (as the kernel does: a number case on it with no
             // others takes its default; docs/proposals/literal-match-facts.md).
@@ -4249,7 +4278,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 let mentioned = |v: &Value| cx.quote(v).is_ok_and(|t| t.mentions(ix));
                 let depends = mentioned(goal) || cx.types[*x + 1..].iter().any(mentioned);
                 if depends && ["E-TYPE-MISMATCH", "E-NOT-EMPTY", "E-REFL"].contains(&d.code) {
-                    let n = cx.show(&Value::var(*x));
+                    let n = default_name;
                     d.with_note(format!(
                         "number patterns only test values: an arm with a variable or `_` \
                          where the others have numbers knows only that `{n}` is none of those \

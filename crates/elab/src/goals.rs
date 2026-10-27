@@ -134,6 +134,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         }
         let name = match cx.name_of_level(level) {
             Some(n) => n.to_string(),
+            None if name.ends_with('✝') => name.to_string(),
             None => format!("{name}✝"),
         };
         context.push(Entry {
