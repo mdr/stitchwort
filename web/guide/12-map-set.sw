@@ -7,7 +7,7 @@ def wordCounts (words: List Text): Map Text Nat := Map.counts words
 
 test "counting" := (wordCounts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
 test "lookup" := (wordCounts ["b", "a", "b"]).get "b" == Some 2
-test "a missing key" := (wordCounts ["a"]).getOr 0 "z" == 0
+test "a missing key" := (wordCounts ["a"]).getOr "z" 0 == 0
 
 -- Update with `insertWith`, which says how to combine with an old value.
 def tally (m: Map Text Nat) (word: Text): Map Text Nat := m.insertWith word 1 Nat.add
