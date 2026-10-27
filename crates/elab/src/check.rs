@@ -1904,8 +1904,10 @@ fn builds_delay_value(cx: &mut Ctx, dom: &Value) -> bool {
             cx.bind_hidden(x, (*d).clone());
             ty = force(g, c.apply(g, v)?)?;
         }
-        Ok(matches!(&ty, Value::Neutral(Head::Def(d), _) if *d == delay)
-            && crate::effects::comp_parts(cx, &ty)?.is_none())
+        Ok(
+            matches!(&ty, Value::Neutral(Head::Def(d), _) if *d == delay)
+                && crate::effects::comp_parts(cx, &ty)?.is_none(),
+        )
     })();
     cx.reset(mark);
     result.unwrap_or(false)
