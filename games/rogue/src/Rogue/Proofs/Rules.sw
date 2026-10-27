@@ -47,7 +47,7 @@ theorem actAllDamage (dice: Dice) (level: Level) (player: Position):
   | index, outcome, Cons monster waiting =>
     match next: monster.position.isNextTo player with
       | True =>
-        let rest := actAllDamage dice level player (index + 1) (outcome.add monster (1 + dice.upTo (3 * index + 1) (monster.kind.strength - 1)) ["The ${monster.kind.name} hits you for ${1 + dice.upTo (3 * index + 1) (monster.kind.strength - 1)}."]) waiting
+        let rest := actAllDamage dice level player (index + 1) (outcome.add monster _ _) waiting
         omega [rest, blowAtMost dice (3 * index + 1) monster.kind]
       | False =>
         let destination := pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) |> .getOrElse monster.position

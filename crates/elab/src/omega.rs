@@ -44,8 +44,10 @@
 //! refuting the facts (`Void.exfalso`/`Void.absurd`). Anything else is an atom: two
 //! subterms are one atom if they're the same term, or if a bounded
 //! conversion check says so; an inconclusive check keeps them apart. A
-//! metavariable inside an atom is part of the atom; one in the goal's
-//! arithmetic is an error.
+//! metavariable inside an atom is solved by unifying the atom with the first
+//! earlier one of the same head that it fits (the goal's are quoted first);
+//! if none fits, it stays part of the atom. One in the goal's arithmetic is
+//! an error.
 //!
 //! **Emitting** (§6.8): every fact is a candidate, but only the facts and
 //! atoms the certificate uses are written, renumbered. Before returning, the
@@ -1008,7 +1010,7 @@ struct Unknown;
 impl Quoter {
     fn quote(
         &mut self,
-        cx: &Ctx,
+        cx: &mut Ctx,
         lib: &Lib,
         value: &Value,
         span: Span,
@@ -1174,7 +1176,7 @@ impl Quoter {
     }
 
     /// The atom `value` is, adding it if it's new.
-    fn atom(&mut self, cx: &Ctx, value: Value, unsupported: Option<&'static str>) -> Result<usize> {
+    fn atom(&mut self, cx: &mut Ctx, value: Value, unsupported: Option<&'static str>) -> Result<usize> {
         let term = cx.quote(&value)?;
         if let Some(i) = self
             .atoms
@@ -1195,6 +1197,26 @@ impl Quoter {
                 return Ok(i);
             }
         }
+        // An unknown (`_`) in either atom is solved by unifying it with the
+        // first earlier atom of the same shape that it fits; the goal's atoms
+        // come first.
+        for i in 0..self.atoms.len() {
+            let earlier = &self.atoms[i].term;
+            if !(has_meta(&term) || has_meta(earlier)) || !same_shape(earlier, &term) {
+                continue;
+            }
+            let _op = cx.g().budget.operation(Limits {
+                work: 1_000_000,
+                stack: 128 * 1024,
+                size: 10_000,
+                frames: 10_000,
+            });
+            let snapshot = crate::undo::Snapshot::take(cx);
+            if cx.unify(&self.atoms[i].value, &value) == Ok(true) {
+                return Ok(i);
+            }
+            snapshot.restore(cx);
+        }
         self.atoms.push(Atom {
             value,
             term,
@@ -1202,6 +1224,17 @@ impl Quoter {
         });
         Ok(self.atoms.len() - 1)
     }
+}
+
+/// Whether `term` mentions a metavariable.
+fn has_meta(term: &Term) -> bool {
+    term.subterms().any(|(t, _)| matches!(t, Term::Meta(_)))
+}
+
+/// Whether `a` and `b` apply the same head to as many arguments.
+fn same_shape(a: &Term, b: &Term) -> bool {
+    let ((head_a, args_a), (head_b, args_b)) = (a.spine(), b.spine());
+    args_a.len() == args_b.len() && crate::matching::same(head_a, head_b)
 }
 
 /// A fact with its sides quoted (and, for an operation, its atom `t`).
