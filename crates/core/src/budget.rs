@@ -151,6 +151,9 @@ pub struct Budget {
     too_large: Cell<Option<usize>>,
     /// The definition whose case tree the reference evaluator last entered.
     entered: Cell<usize>,
+    /// The definition last entered when the operation ran out of steps or
+    /// frames, for whoever reports it ([`Budget::take_ran_out_in`]).
+    ran_out_in: Cell<Option<usize>>,
     /// The host's cancellation flag, if it installed one.
     cancel: RefCell<Option<Arc<AtomicBool>>>,
     /// Whether the flag is being watched: only a check the host can cancel
@@ -176,6 +179,7 @@ impl Default for Budget {
             deepest: RefCell::new(Vec::new()),
             too_large: Cell::new(None),
             entered: Cell::new(usize::MAX),
+            ran_out_in: Cell::new(None),
             cancel: RefCell::new(None),
             watching: Cell::new(false),
             cancelled: Cell::new(false),
@@ -233,6 +237,7 @@ impl Budget {
             limits: self.limits.replace(Some(limits)),
             exhausted: self.exhausted.replace(None),
         };
+        self.entered.set(usize::MAX);
         if self.cancel_requested() {
             self.exhausted.set(Some(ResourceError::Cancelled));
         }
@@ -367,6 +372,7 @@ impl Budget {
         if cap < outer && self.exhausted.get() == Some(ResourceError::Work) && self.work.get() > cap
         {
             self.exhausted.set(None);
+            self.ran_out_in.set(None);
             self.limit.set(outer);
             self.arm();
             *remaining = 0;
@@ -453,6 +459,20 @@ impl Budget {
         Some(self.entered.get()).filter(|id| *id != usize::MAX)
     }
 
+    /// Notes the definition last entered as where the operation ran out,
+    /// unless it had already run out.
+    fn note_ran_out(&self) {
+        if self.exhausted.get().is_none() {
+            self.ran_out_in.set(self.last_entered());
+        }
+    }
+
+    /// The definition being unfolded when an operation last ran out of
+    /// steps or frames, if known. Clears it.
+    pub fn take_ran_out_in(&self) -> Option<usize> {
+        self.ran_out_in.take()
+    }
+
     /// Records which definitions the pending frames belong to, for
     /// whoever reports the recursion limit ([`Budget::take_deepest`]).
     pub fn set_deepest(&self, deepest: Vec<(usize, usize)>) {
@@ -482,6 +502,7 @@ impl Budget {
     #[inline]
     pub fn frames(&self, frames: usize) -> Result<()> {
         if frames > self.frame_limit.get() {
+            self.note_ran_out();
             let e = self.exhausted.get().unwrap_or(ResourceError::Depth);
             self.exhausted.set(Some(e));
             self.work_limit.set(0);
@@ -502,6 +523,7 @@ impl Budget {
 
     #[cold]
     fn run_out(&self, work: u64) -> ResourceError {
+        self.note_ran_out();
         let e = self.exhausted.get().unwrap_or(if work > self.limit.get() {
             ResourceError::Work
         } else {
