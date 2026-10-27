@@ -5417,7 +5417,7 @@
     {
       "id": 674,
       "title": "Eq.cong f (omega) can't succeed: the argument is checked before it is matched against the goal, so omega sees only unknowns (?8 n x = ?9 n x) even for true statements; found with the misreported-error fix, 27 Oct",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
