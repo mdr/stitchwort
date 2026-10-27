@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.sumTo c6d2d1f6fd2df68a3f45dc15edbf98ebb6717ee04ac9a7a87aaaa1990da9efc5
 Main.sumTo.go adc00b5c86b42d51a407cb253b15a50a6c85cf218b65519e5d384bf9340377f4
@@ -15,7 +15,7 @@ Main.evenOdd.isOdd a0f0bb70240f857f68e792ff96e6261a21e4f5733981db31261ec9a9ab30f
 Main.test "evenOdd" bc1218b67c9dc53df4ec898cb025ceeceeaa267b399c4eb7c5e9566547c4c587
 Main.sumTo2 36a86e08021a3c5bbd277de5a91a4699e28f1a5c57adc6a6f250b65ad6fac50b
 Main.sumTo2.go adc00b5c86b42d51a407cb253b15a50a6c85cf218b65519e5d384bf9340377f4
-Main.sumTo2.goZero d3e2b61e25713c4e06e2fef81c229b96ce92e1220819c1f2bef5a0f0c08059d6
+Main.sumTo2.goZero d7ab708c6d1fd355675eb0e813b28e2adc57d47feee26931ec2ae69adb32c524
 Main.test "sumTo2" 038d240324f639d949ac64be2f361b43fec0d6f6b593eed238c858cbc7b1a299
 Main.count 3de01c3e804bbb9853ce81561d2edf7fce2a1bd27d4f47687e76f1414521e389
 Main.count.go 0a826be2accaad5d48314a64b4de5703d7481d4dfdbceae545dc6d6d77431fbb

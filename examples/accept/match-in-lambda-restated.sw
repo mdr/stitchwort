@@ -24,4 +24,4 @@ theorem labelThenSuccRewritten (xs: List Nat):
 -- Under `rfl`, with the binders renamed.
 theorem labelRefl (xs: List Nat): label xs = xs.map (m => match m with | Zero => 1 | Succ j => j) :=
   let ys := xs
-  (rfl : label ys = ys.map (m => match m with | Zero => 1 | Succ j => j))
+  (rfl: label ys = ys.map (m => match m with | Zero => 1 | Succ j => j))
