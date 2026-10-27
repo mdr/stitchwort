@@ -2423,7 +2423,9 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             | Expr::Seq(a, b) => {
                 then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]);
             }
-            Expr::Neg(a, _) | Expr::Bracketed(a, _) => stack.push(Work::Expr(a)),
+            Expr::Neg(a, _) | Expr::Bracketed(a, _) | Expr::Interpolated(a, _) => {
+                stack.push(Work::Expr(a))
+            }
             Expr::Lam(names, body, _) => {
                 let (bind, unbind) = binds(names);
                 let mut steps = bind;

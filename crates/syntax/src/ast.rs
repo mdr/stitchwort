@@ -99,6 +99,9 @@ pub enum Expr {
     Pipe(Box<Expr>, Box<Expr>),
     /// A prefix minus: `-e`.
     Neg(Box<Expr>, Span),
+    /// `"a${x}b"`: a text with interpolations, its pieces joined with `++`,
+    /// spanning the whole literal, quotes included.
+    Interpolated(Box<Expr>, Span),
     /// `if c then a else b`, or with a binder, `if h : P then a else b`, where
     /// `h` is a proof of `P` in `a` and of `Not P` in `b`.
     If {
@@ -389,6 +392,7 @@ impl Expr {
             | Expr::Ann(_, _, span)
             | Expr::Bracketed(_, span)
             | Expr::Neg(_, span)
+            | Expr::Interpolated(_, span)
             | Expr::List(_, span)
             | Expr::Unit(span)
             | Expr::Tuple(_, _, span)
@@ -451,9 +455,11 @@ fn has_nested(expr: &Expr) -> bool {
         | Expr::Binary(_, a, b)
         | Expr::Pipe(a, b)
         | Expr::Seq(a, b) => nested(a) || nested(b),
-        Expr::Lam(_, b, _) | Expr::NamedArg(_, b, _, _) | Expr::Neg(b, _) | Expr::Effect(_, b) => {
-            nested(b)
-        }
+        Expr::Lam(_, b, _)
+        | Expr::NamedArg(_, b, _, _)
+        | Expr::Neg(b, _)
+        | Expr::Interpolated(b, _)
+        | Expr::Effect(_, b) => nested(b),
         Expr::Pi { dom, cod, .. } => nested(dom) || nested(cod),
         Expr::Ann(e, t, _) | Expr::Tuple(e, t, _) => nested(e) || nested(t),
         Expr::TypedLam(_, _, t, b, _) => nested(t) || nested(b),
@@ -533,9 +539,11 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             take(a);
             take(b);
         }
-        Expr::Lam(_, b, _) | Expr::NamedArg(_, b, _, _) | Expr::Neg(b, _) | Expr::Effect(_, b) => {
-            take(b)
-        }
+        Expr::Lam(_, b, _)
+        | Expr::NamedArg(_, b, _, _)
+        | Expr::Neg(b, _)
+        | Expr::Interpolated(b, _)
+        | Expr::Effect(_, b) => take(b),
         Expr::Pi { dom, cod, .. } => {
             take(dom);
             take(cod);

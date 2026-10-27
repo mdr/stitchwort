@@ -1935,6 +1935,7 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
         Ok(false)
     };
     Ok(match expr {
+        Expr::Interpolated(text, _) => may_perform_at(cx, text, expected)?,
         Expr::Var(_) | Expr::App(..) => call_performs(cx, expr, 0)?,
         // `x |> y => body` runs `body`; `x |> y z => …` is a function.
         Expr::Pipe(value, f) => {
@@ -2243,6 +2244,7 @@ fn comp_check_in(
 ) -> Result<Term> {
     cx.g().budget.nesting(crate::check::PASS)?;
     match expr {
+        Expr::Interpolated(text, _) => comp_check_in(cx, text, row, t, as_written),
         Expr::LocalDefs { defs, body, .. } => {
             crate::local::around(cx, defs, |cx| comp_check_in(cx, body, row, t, as_written))
         }
@@ -2596,6 +2598,7 @@ fn run_scrutinees(
 pub fn comp_infer(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)> {
     cx.g().budget.nesting(crate::check::PASS)?;
     match expr {
+        Expr::Interpolated(text, _) => comp_infer(cx, text, row),
         Expr::LocalDefs { defs, body, .. } => {
             crate::local::around(cx, defs, |cx| comp_infer(cx, body, row))
         }

@@ -71,7 +71,9 @@ def gridOf (lines: List Text): Option Grid :=
 def parseLine (line: Text): List Cell := line.toList.map parseChar
 
 -- `findStray` has checked that anything but @ is a `.`.
-def parseChar (ch: Char): Cell := if ch == '@' then Roll else Floor
+def parseChar: Char → Cell
+  | '@' => Roll
+  | _ => Floor
 
 def Grid.rolls (grid: Grid): Nat := countRolls grid.rows
 

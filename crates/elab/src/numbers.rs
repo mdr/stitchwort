@@ -1396,6 +1396,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
             }
             Expr::Neg(a, _)
             | Expr::Bracketed(a, _)
+            | Expr::Interpolated(a, _)
             | Expr::NamedArg(_, a, _, _)
             | Expr::Field(a, _) => stack.push(a),
             Expr::Lam(_, body, _) => stack.push(body),

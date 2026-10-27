@@ -1340,7 +1340,9 @@ impl Walk<'_> {
                 | Expr::Binary(_, a, b)
                 | Expr::Pipe(a, b)
                 | Expr::Seq(a, b) => then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]),
-                Expr::Neg(a, _) | Expr::Bracketed(a, _) => stack.push(Work::Expr(a)),
+                Expr::Neg(a, _) | Expr::Bracketed(a, _) | Expr::Interpolated(a, _) => {
+                    stack.push(Work::Expr(a))
+                }
                 Expr::Lam(names, body, _) => {
                     let mut steps: Vec<Work> = names.iter().map(Work::Bind).collect();
                     steps.push(Work::Expr(body));

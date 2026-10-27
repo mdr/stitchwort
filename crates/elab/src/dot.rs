@@ -1093,7 +1093,7 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
     let data = |d: DataId| Some(Ty::Value(Value::Data(d, Vec::new())));
     let name = match recv {
         Expr::Var(name) => name,
-        Expr::Str(..) | Expr::Include(..) => {
+        Expr::Str(..) | Expr::Include(..) | Expr::Interpolated(..) => {
             return Ok(data(crate::check::builtin_data(cx, Builtin::Text)?));
         }
         Expr::Char(..) => return Ok(data(crate::check::builtin_data(cx, Builtin::Char)?)),
