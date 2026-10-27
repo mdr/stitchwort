@@ -1567,8 +1567,8 @@ theorem Map.Raw.getRespects [auto ord: Ord k] (key: k) (m: Map.Raw k v) (n: Map.
     Map.Raw.get key m = Map.Raw.get key n :=
   Eq.trans (Map.Raw.getToList key m) (Eq.trans (Eq.cong (Map.Tree.lookupList key) h) (Eq.sym (Map.Raw.getToList key n)))
 
-theorem Map.Raw.getOrRespects [auto ord: Ord k] (d: v) (key: k) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):
-    Map.Raw.getOr d key m = Map.Raw.getOr d key n :=
+theorem Map.Raw.getOrRespects [auto ord: Ord k] (key: k) (d: v) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):
+    Map.Raw.getOr m key d = Map.Raw.getOr n key d :=
   Eq.cong (.getOrElse d) (Map.Raw.getRespects key m n h)
 
 theorem Map.Raw.containsRespects [auto ord: Ord k] (key: k) (m: Map.Raw k v) (n: Map.Raw k v) (h: Map.Raw.Equiv m n):

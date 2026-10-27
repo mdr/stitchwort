@@ -51,7 +51,7 @@ def Map.get [auto ord: Ord k] (m: Map k v) (key: k): Option v :=
   Quot.lift (Map.Raw.get key) (a b same => Map.Raw.getRespects key a b same) m.raw
 
 -- The value at `key`, or `fallback`.
-def Map.getOr [auto ord: Ord k] (m: Map k v) (fallback: v) (key: k): v := m.get key |> .getOrElse fallback
+def Map.getOr [auto ord: Ord k] (m: Map k v) (key: k) (fallback: v): v := m.get key |> .getOrElse fallback
 
 def Map.contains [auto ord: Ord k] (m: Map k v) (key: k): Bool := match Map.get m key with
   | Some _ => True
@@ -601,7 +601,7 @@ theorem Map.getFromListWith [auto ord: Ord k] (xs: List (k, v)) (key: k) (f: v �
   Map.getFoldInsertWith Map.empty key xs f
 
 theorem Map.getOrCountStep [auto ord: Ord k] (m: Map k Nat) (key: k) (x: k):
-    Map.getOr (Map.insertWith m x 1 Nat.add) 0 key = Nat.succIf (Map.getOr m 0 key) (Map.Spec.sameKey key x) :=
+    Map.getOr (Map.insertWith m x 1 Nat.add) key 0 = Nat.succIf (Map.getOr m key 0) (Map.Spec.sameKey key x) :=
   match e: Ord.compare key x with
     | Equal =>
       rewrite ord.equal key x e, Map.getInsertWith m x 1 Nat.add in
@@ -612,15 +612,15 @@ theorem Map.getOrCountStep [auto ord: Ord k] (m: Map k Nat) (key: k) (x: k):
     | Greater => rewrite Map.getInsertWithOther m x 1 key (Map.Spec.notEqualOfCompare key x (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) Nat.add in rfl
 
 theorem Map.getOrFoldCount [auto ord: Ord k]: (m: Map k Nat) → (key: k) → (xs: List k) →
-    Map.getOr (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add)) 0 key
-      = List.foldLeft xs (Map.getOr m 0 key) (n x => Nat.succIf n (Map.Spec.sameKey key x))
+    Map.getOr (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add)) key 0
+      = List.foldLeft xs (Map.getOr m key 0) (n x => Nat.succIf n (Map.Spec.sameKey key x))
   | m, key, Nil => rfl
   | m, key, Cons x rest =>
     Eq.trans (Map.getOrFoldCount (Map.insertWith m x 1 Nat.add) key rest)
       (Eq.cong (n => List.foldLeft rest n (n2 y => Nat.succIf n2 (Map.Spec.sameKey key y))) (Map.getOrCountStep m key x))
 
 -- `counts`: how many elements compare equal to `key`.
-theorem Map.getOrCounts [auto ord: Ord k] (key: k) (xs: List k): Map.getOr (Map.counts xs) 0 key = List.count xs (x => Map.Spec.sameKey key x) :=
+theorem Map.getOrCounts [auto ord: Ord k] (key: k) (xs: List k): Map.getOr (Map.counts xs) key 0 = List.count xs (x => Map.Spec.sameKey key x) :=
   Map.getOrFoldCount Map.empty key xs
 
 theorem Map.countsFoldPositive [auto ord: Ord k]: (xs: List k) → (m: Map k Nat) → (key: k) → ((n: Nat) → Map.get m key = Some n → 0 < n) →
@@ -892,7 +892,7 @@ def Map.example: Map Nat Text := Map.fromList [(3, "c"), (1, "a"), (2, "b")]
 
 test "map: toList is in key order" := Map.toList Map.example == [(1, "a"), (2, "b"), (3, "c")]
 test "map: get" := Map.get Map.example 2 == Some "b" ∧ Map.get Map.example 4 == None
-test "map: getOr" := Map.getOr Map.example "?" 4 == "?"
+test "map: getOr" := Map.getOr Map.example 4 "?" == "?"
 test "map: contains" := Map.contains Map.example 1 ∧ ¬(Map.contains Map.example 0)
 test "map: insert replaces" := Map.toList (Map.insert Map.example 2 "B") == [(1, "a"), (2, "B"), (3, "c")]
 test "map: insertWith counts" :=

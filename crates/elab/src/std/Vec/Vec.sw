@@ -114,11 +114,11 @@ def Vec.get: Vec a n → Fin n → a
 -- to be longer than 2, or with the proof passed by name.
 def Vec.getLt (v: Vec a n) (i: Nat) [auto ok: i < n]: a := Vec.get v (Fin.ofNatLt n i ok)
 
--- The element at a `Nat` index, or `d` past the end: `Vec.getOr [7, 8] 0 1`
--- is 8 and `Vec.getOr [7, 8] 0 5` is 0. No proof that the index is in range,
+-- The element at a `Nat` index, or `d` past the end: `Vec.getOr [7, 8] 1 0`
+-- is 8 and `Vec.getOr [7, 8] 5 0` is 0. No proof that the index is in range,
 -- so a proof about one column of a grid can read every row at it. It is
 -- `List.getOr` of the `toList`; the lemmas below give it for each operation.
-def Vec.getOr (v: Vec a n) (d: a) (i: Nat): a := List.getOr (Vec.toList v) d i
+def Vec.getOr (v: Vec a n) (i: Nat) (d: a): a := List.getOr (Vec.toList v) i d
 
 -- Whether some element satisfies `p`.
 def Vec.any: Vec a n → (p: a → Bool) → Bool
@@ -263,9 +263,9 @@ theorem Vec.traverseOptionGet (f: a → Option b): (v: Vec a n) → (out: Vec b 
 -- Lemmas: `get`.
 
 -- `get` is `List.getOr` on the list, whatever the default.
-theorem Vec.getToList: (v: Vec a n) → (d: a) → (i: Fin n) → List.getOr (Vec.toList v) d (Fin.toNat i) = Vec.get v i
-  | VCons x xs, d, FZero => rfl
-  | VCons x xs, d, FSucc i => Vec.getToList xs d i
+theorem Vec.getToList: (v: Vec a n) → (i: Fin n) → (d: a) → List.getOr (Vec.toList v) (Fin.toNat i) d = Vec.get v i
+  | VCons x xs, FZero, d => rfl
+  | VCons x xs, FSucc i, d => Vec.getToList xs i d
 
 theorem Vec.getReplicate (x: a): (n: Nat) → (i: Fin n) → Vec.get (Vec.replicate n x) i = x
   | _, FZero => rfl
@@ -305,33 +305,33 @@ theorem Vec.ext: (u: Vec a n) → (v: Vec a n) → ((i: Fin n) → Vec.get u i =
 -- index, past the end too, unless they say `i < n`.
 
 -- In range, `getOr` is `get`, whatever the default.
-theorem Vec.getOrGet (v: Vec a n) (d: a) (i: Fin n): Vec.getOr v d (Fin.toNat i) = Vec.get v i := Vec.getToList v d i
+theorem Vec.getOrGet (v: Vec a n) (i: Fin n) (d: a): Vec.getOr v (Fin.toNat i) d = Vec.get v i := Vec.getToList v i d
 
 -- Past the end, `getOr` is the default.
-theorem Vec.getOrPast (v: Vec a n) (d: a) (i: Nat) (h: n ≤ i): Vec.getOr v d i = d :=
-  List.getOrPast (Vec.toList v) d i (rewrite Vec.lengthToList v in h)
+theorem Vec.getOrPast (v: Vec a n) (i: Nat) (d: a) (h: n ≤ i): Vec.getOr v i d = d :=
+  List.getOrPast (Vec.toList v) i d (rewrite Vec.lengthToList v in h)
 
 -- `headOr` is index 0.
-theorem Vec.headOrGetOr: (v: Vec a n) → (d: a) → Vec.headOr v d = Vec.getOr v d 0
+theorem Vec.headOrGetOr: (v: Vec a n) → (d: a) → Vec.headOr v d = Vec.getOr v 0 d
   | VNil, d => rfl
   | VCons x xs, d => rfl
 
 -- Copies of x, read with x as the default, are x everywhere.
-theorem Vec.getOrReplicate (x: a): (n: Nat) → (i: Nat) → Vec.getOr (Vec.replicate n x) x i = x
+theorem Vec.getOrReplicate (x: a): (n: Nat) → (i: Nat) → Vec.getOr (Vec.replicate n x) i x = x
   | Zero, i => rfl
   | Succ k, Zero => rfl
   | Succ k, Succ i => Vec.getOrReplicate x k i
 
-theorem Vec.getOrMap: (v: Vec a n) → (d: a) → (i: Nat) → (f: a → b) → Vec.getOr (Vec.map v f) (f d) i = f (Vec.getOr v d i)
-  | VNil, d, i, f => rfl
-  | VCons x xs, d, Zero, f => rfl
-  | VCons x xs, d, Succ i, f => Vec.getOrMap xs d i f
+theorem Vec.getOrMap: (v: Vec a n) → (i: Nat) → (d: a) → (f: a → b) → Vec.getOr (Vec.map v f) i (f d) = f (Vec.getOr v i d)
+  | VNil, i, d, f => rfl
+  | VCons x xs, Zero, d, f => rfl
+  | VCons x xs, Succ i, d, f => Vec.getOrMap xs i d f
 
 -- `zipWith`, with defaults that `f` maps to the default (`f d1 d2 = d`,
 -- often `rfl`).
 theorem Vec.getOrZipWith (f: a → b → c) (d1: a) (d2: b) (d: c) (hd: f d1 d2 = d):
     (u: Vec a n) → (v: Vec b n) → (i: Nat) →
-    Vec.getOr (Vec.zipWith u v f) d i = f (Vec.getOr u d1 i) (Vec.getOr v d2 i)
+    Vec.getOr (Vec.zipWith u v f) i d = f (Vec.getOr u i d1) (Vec.getOr v i d2)
   | VNil, VNil, i => Eq.sym hd
   | VCons x xs, VCons y ys, Zero => rfl
   | VCons x xs, VCons y ys, Succ i => Vec.getOrZipWith f d1 d2 d hd xs ys i
@@ -339,24 +339,24 @@ theorem Vec.getOrZipWith (f: a → b → c) (d1: a) (d2: b) (d: c) (hd: f d1 d2 
 -- `zipWith3`, with defaults that `f` maps to the default.
 theorem Vec.getOrZipWith3 (f: a → b → c → r) (d1: a) (d2: b) (d3: c) (d: r) (hd: f d1 d2 d3 = d):
     (u: Vec a n) → (v: Vec b n) → (w: Vec c n) → (i: Nat) →
-    Vec.getOr (Vec.zipWith3 u v w f) d i = f (Vec.getOr u d1 i) (Vec.getOr v d2 i) (Vec.getOr w d3 i)
+    Vec.getOr (Vec.zipWith3 u v w f) i d = f (Vec.getOr u i d1) (Vec.getOr v i d2) (Vec.getOr w i d3)
   | VNil, VNil, VNil, i => Eq.sym hd
   | VCons x xs, VCons y ys, VCons z zs, Zero => rfl
   | VCons x xs, VCons y ys, VCons z zs, Succ i => Vec.getOrZipWith3 f d1 d2 d3 d hd xs ys zs i
 
 -- `tabulate` at an index in range.
 theorem Vec.getOrTabulate (d: a): (n: Nat) → (f: Fin n → a) → (i: Nat) → (h: i < n) →
-    Vec.getOr (Vec.tabulate n f) d i = f (Fin.ofNatLt n i h)
+    Vec.getOr (Vec.tabulate n f) i d = f (Fin.ofNatLt n i h)
   | Zero, f, i, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ k, f, Zero, h => rfl
   | Succ k, f, Succ i, h => Vec.getOrTabulate d k (j => f (FSucc j)) i h
 
 -- A sum over the elements is a sum over the indices 0, 1, …, n - 1.
-theorem Vec.sumByGetOr (v: Vec a n) (d: a) (f: a → Nat): Vec.sumBy v f = List.sumBy (List.range n) (i => f (Vec.getOr v d i)) :=
+theorem Vec.sumByGetOr (v: Vec a n) (d: a) (f: a → Nat): Vec.sumBy v f = List.sumBy (List.range n) (i => f (Vec.getOr v i d)) :=
   calc Vec.sumBy v f
     _ = List.sumBy (Vec.toList v) f := Vec.sumByToList v f
-    _ = List.sumBy (List.range (List.length (Vec.toList v))) (i => f (Vec.getOr v d i)) := List.sumByGetOr (Vec.toList v) d f
-    _ = List.sumBy (List.range n) (i => f (Vec.getOr v d i)) := rewrite Vec.lengthToList v
+    _ = List.sumBy (List.range (List.length (Vec.toList v))) (i => f (Vec.getOr v i d)) := List.sumByGetOr (Vec.toList v) d f
+    _ = List.sumBy (List.range n) (i => f (Vec.getOr v i d)) := rewrite Vec.lengthToList v
 
 -- Counting lemmas. A count is the list's count, a sum of 1s and 0s, and a
 -- count of the indices 0, 1, …, n - 1 whose element satisfies `p`; it is at
@@ -368,9 +368,9 @@ theorem Vec.countToList (v: Vec a n) (p: a → Bool): Vec.count v p = List.count
 theorem Vec.countSumBy (v: Vec a n) (p: a → Bool): Vec.count v p = Vec.sumBy v (x => Bool.toNat (p x)) :=
   rewrite Vec.countToList v p, Vec.sumByToList v (x => Bool.toNat (p x)) in List.countSumBy (Vec.toList v) p
 
-theorem Vec.countGetOr (v: Vec a n) (d: a) (p: a → Bool): Vec.count v p = List.count (List.range n) (i => p (Vec.getOr v d i)) :=
+theorem Vec.countGetOr (v: Vec a n) (d: a) (p: a → Bool): Vec.count v p = List.count (List.range n) (i => p (Vec.getOr v i d)) :=
   rewrite Vec.countSumBy v p, Vec.sumByGetOr v d (x => Bool.toNat (p x)) in
-    Eq.sym (List.countSumBy (List.range n) (i => p (Vec.getOr v d i)))
+    Eq.sym (List.countSumBy (List.range n) (i => p (Vec.getOr v i d)))
 
 theorem Vec.countLe: (v: Vec a n) → (p: a → Bool) → Vec.count v p ≤ n
   | VNil, p => rfl
@@ -381,7 +381,7 @@ theorem Vec.countLe: (v: Vec a n) → (p: a → Bool) → Vec.count v p ≤ n
         | False => omega [Vec.countLe xs p]
 
 -- Vectors that agree at every index are equal (one default for both).
-theorem Vec.extGetOr (u: Vec a n) (d: a) (v: Vec a n) (h: (i: Nat) → Vec.getOr u d i = Vec.getOr v d i): u = v :=
+theorem Vec.extGetOr (u: Vec a n) (d: a) (v: Vec a n) (h: (i: Nat) → Vec.getOr u i d = Vec.getOr v i d): u = v :=
   Vec.toListInjective u v
     (List.extGetOr d (Vec.toList u) (Vec.toList v) (rewrite Vec.lengthToList u, Vec.lengthToList v in rfl) (i hi => h i))
 
@@ -389,7 +389,7 @@ def Vec.example: Vec Nat 3 := VCons 1 (VCons 2 (VCons 3 VNil))
 
 theorem Vec.getLtExample: Vec.getLt Vec.example 2 = 3 := rfl
 
-theorem Vec.getOrExample: Vec.getOr Vec.example 0 2 = 3 := rfl
+theorem Vec.getOrExample: Vec.getOr Vec.example 2 0 = 3 := rfl
 
 test "head and tail" := Vec.head Vec.example == 1 ∧ Vec.head (Vec.tail Vec.example) == 2
 test "length" := Vec.length Vec.example == 3
@@ -408,11 +408,11 @@ test "get" := Vec.get Vec.example (FSucc FZero) == 2 ∧ Vec.getLt Vec.example 0
 test "count" := Vec.count Vec.example (> 1) == 2 ∧ Vec.count Vec.example (> 3) == 0
 test "count none" := Vec.count (VNil: Vec Nat 0) (> 1) == 0
 test "count all" := Vec.count Vec.example (> 0) == 3
-test "getOr" := Vec.getOr Vec.example 0 1 == 2 ∧ Vec.getOr Vec.example 0 3 == 0
+test "getOr" := Vec.getOr Vec.example 1 0 == 2 ∧ Vec.getOr Vec.example 3 0 == 0
 test "getOr of map, zipWith and replicate" :=
-  Vec.getOr (Vec.map Vec.example (* 10)) 0 1 == 20
-    ∧ Vec.getOr (Vec.zipWith Vec.example Vec.example (+)) 0 2 == 6
-    ∧ Vec.getOr (Vec.replicate 3 'x') 'x' 5 == 'x'
+  Vec.getOr (Vec.map Vec.example (* 10)) 1 0 == 20
+    ∧ Vec.getOr (Vec.zipWith Vec.example Vec.example (+)) 2 0 == 6
+    ∧ Vec.getOr (Vec.replicate 3 'x') 5 'x' == 'x'
 test "tabulate" := Vec.toList (Vec.tabulate 4 (i => Fin.toNat i * 10)) == [0, 10, 20, 30]
 test "tabulate none" := Vec.toList (Vec.tabulate 0 Fin.toNat) == []
 

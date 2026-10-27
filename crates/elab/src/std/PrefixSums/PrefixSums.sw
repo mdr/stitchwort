@@ -11,7 +11,7 @@
 type PrefixSums = { sums: Map Nat (Map Nat Nat) }
 
 -- The cells of rows of numbers, row r and column c; 0 outside them.
-def PrefixSums.cell (rows: List (List Nat)) (r: Nat) (c: Nat): Nat := rows.getOr Nil r |> .getOr 0 c
+def PrefixSums.cell (rows: List (List Nat)) (r: Nat) (c: Nat): Nat := rows.getOr r Nil |> .getOr c 0
 
 -- The sum of the block of rows `top` up to, not including, `bottom`, and
 -- columns `left` up to, not including, `right`, cell by cell: what
@@ -35,7 +35,7 @@ def PrefixSums.table (above: List Nat): List (List Nat) → List (List Nat)
   | Cons sums rest => Cons above (PrefixSums.table (List.zipWith above sums Nat.add) rest)
 
 -- Entry (r, c) of the table.
-def PrefixSums.at (prefix: PrefixSums) (r: Nat) (c: Nat): Nat := prefix.sums.getOr Map.empty r |> .getOr 0 c
+def PrefixSums.at (prefix: PrefixSums) (r: Nat) (c: Nat): Nat := prefix.sums.getOr r Map.empty |> .getOr c 0
 
 -- The sum of the cells of rows `top` up to, not including, `bottom`, and
 -- columns `left` up to, not including, `right`. Inside the grid (`bottom` at

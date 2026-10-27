@@ -5,7 +5,7 @@
 -- load, so that those don't load Omega.
 
 -- The element at `x`'s position is `x`.
-theorem List.getOrIndexOf [auto eq: DecEq a]: (xs: List a) → (d: a) → (x: a) → List.Mem x xs → List.getOr xs d (List.indexOf xs x) = x
+theorem List.getOrIndexOf [auto eq: DecEq a]: (xs: List a) → (d: a) → (x: a) → List.Mem x xs → List.getOr xs (List.indexOf xs x) d = x
   | Nil, d, x, m => Void.exfalso m
   | Cons y ys, d, x, m =>
     match e: y == x with
@@ -28,21 +28,21 @@ theorem List.indexOfLt [auto eq: DecEq a]: (xs: List a) → (x: a) → List.Mem 
 
 -- Running sums from `start`: entry c is `start` plus the first c elements.
 theorem List.getOrScanAdd: (row: List Nat) → (start: Nat) → (c: Nat) → c ≤ List.length row →
-    List.getOr (List.scanLeft row start Nat.add) 0 c = start + List.sumBy (List.range c) (i => List.getOr row 0 i)
+    List.getOr (List.scanLeft row start Nat.add) c 0 = start + List.sumBy (List.range c) (i => List.getOr row i 0)
   | Nil, start, Zero, h => Eq.sym (Nat.addZero start)
   | Nil, start, Succ c, h => Void.exfalso (Bool.falseNotTrue h)
   | Cons x xs, start, Zero, h => Eq.sym (Nat.addZero start)
   | Cons x xs, start, Succ c, h =>
-    rewrite List.getOrScanAdd xs (Nat.add start x) c h, List.sumByRangeSucc (i => List.getOr (Cons x xs) 0 i) c in omega
+    rewrite List.getOrScanAdd xs (Nat.add start x) c h, List.sumByRangeSucc (i => List.getOr (Cons x xs) i 0) c in omega
 
 -- In a sorted list of numbers, an element is at most every later one.
 theorem List.sortedGetOrLe: (xs: List Nat) → (d: Nat) → List.Sorted Nat.leq xs → (i: Nat) → (j: Nat) → i ≤ j → j < List.length xs →
-    List.getOr xs d i ≤ List.getOr xs d j
+    List.getOr xs i d ≤ List.getOr xs j d
   | Nil, d, s, i, j, h, lt => Void.exfalso (Bool.falseNotTrue lt)
   | Cons x rest, d, s, Zero, Zero, h, lt => Nat.leRefl x
   | Cons x Nil, d, s, Zero, Succ j, h, lt => Void.exfalso (Bool.falseNotTrue lt)
   | Cons x (Cons y ys), d, Both first s, Zero, Succ j, h, lt =>
-    Nat.leTrans x y (List.getOr (Cons y ys) d j) first (List.sortedGetOrLe (Cons y ys) d s 0 j rfl lt)
+    Nat.leTrans x y (List.getOr (Cons y ys) j d) first (List.sortedGetOrLe (Cons y ys) d s 0 j rfl lt)
   | Cons x rest, d, s, Succ i, Zero, h, lt => Void.exfalso (Bool.falseNotTrue h)
   | Cons x rest, d, Both first s, Succ i, Succ j, h, lt => List.sortedGetOrLe rest d s i j h lt
 
@@ -50,10 +50,10 @@ theorem List.sortedGetOrLe: (xs: List Nat) → (d: Nat) → List.Sorted Nat.leq 
 -- j (i <= j) is the element at a position from i to j: so anything true of
 -- those elements is true of it.
 theorem List.sortedBetween (d: Nat) (p: Nat → Prop) (xs: List Nat) (s: List.Sorted Nat.leq xs) (i: Nat) (j: Nat) (ij: i ≤ j) (jIn: j < List.length xs)
-    (each: (k: Nat) → i ≤ k → k ≤ j → p (List.getOr xs d k))
-    (v: Nat) (m: List.Mem v xs) (above: List.getOr xs d i ≤ v) (below: v ≤ List.getOr xs d j): p v :=
+    (each: (k: Nat) → i ≤ k → k ≤ j → p (List.getOr xs k d))
+    (v: Nat) (m: List.Mem v xs) (above: List.getOr xs i d ≤ v) (below: v ≤ List.getOr xs j d): p v :=
   let k := List.indexOf xs v
-  let at: List.getOr xs d k = v := List.getOrIndexOf xs d v m
+  let at: List.getOr xs k d = v := List.getOrIndexOf xs d v m
   let kIn: k < List.length xs := List.indexOfLt xs v m
   match ki: Nat.leq i k with
     | True =>
@@ -62,11 +62,11 @@ theorem List.sortedBetween (d: Nat) (p: Nat → Prop) (xs: List Nat) (s: List.So
         -- Past j: the element at j is at most v and at least it, so v is it.
         | False =>
           let up := List.sortedGetOrLe xs d s j k (omega) kIn
-          rewrite (omega [up, at, below]: v = List.getOr xs d j) in each j ij (Nat.leRefl j)
+          rewrite (omega [up, at, below]: v = List.getOr xs j d) in each j ij (Nat.leRefl j)
     -- Before i: the same, at i.
     | False =>
       let down := List.sortedGetOrLe xs d s k i (omega) (omega)
-      rewrite (omega [down, at, above]: v = List.getOr xs d i) in each i (Nat.leRefl i) ij
+      rewrite (omega [down, at, above]: v = List.getOr xs i d) in each i (Nat.leRefl i) ij
 
 theorem List.allBetweenElim (q: Nat → Bool) (lo: Nat) (hi: Nat) (h: List.all (List.between lo hi) q = True) (k: Nat) (lk: lo ≤ k) (kh: k ≤ hi): q k = True :=
   List.allRangeElim q (hi + 1 - lo) lo h k lk (omega)

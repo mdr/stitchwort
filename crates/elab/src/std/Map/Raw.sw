@@ -662,8 +662,7 @@ def Map.Raw.singleton [auto ord: Ord k] (key: k) (value: v): Map.Raw k v := Map.
 def Map.Raw.get [auto ord: Ord k] (key: k) (m: Map.Raw k v): Option v := Map.Tree.get key m.tree
 
 -- The value at `key`, or `d`.
-@[noReceiver]
-def Map.Raw.getOr [auto ord: Ord k] (d: v) (key: k) (m: Map.Raw k v): v := Option.getOrElse (Map.Raw.get key m) d
+def Map.Raw.getOr [auto ord: Ord k] (m: Map.Raw k v) (key: k) (d: v): v := Option.getOrElse (Map.Raw.get key m) d
 
 @[noReceiver]
 def Map.Raw.contains [auto ord: Ord k] (key: k) (m: Map.Raw k v): Bool := match Map.Raw.get key m with
@@ -818,7 +817,7 @@ def Map.Raw.example: Map.Raw Nat Text := Map.Raw.fromList [(3, "c"), (1, "a"), (
 
 test "raw map: toList is in key order" := Map.Raw.toList Map.Raw.example == [(1, "a"), (2, "b"), (3, "c")]
 test "raw map: get" := Map.Raw.get 2 Map.Raw.example == Some "b" ∧ Map.Raw.get 4 Map.Raw.example == None
-test "raw map: getOr" := Map.Raw.getOr "?" 4 Map.Raw.example == "?"
+test "raw map: getOr" := Map.Raw.getOr Map.Raw.example 4 "?" == "?"
 test "raw map: contains" := Map.Raw.contains 1 Map.Raw.example ∧ ¬(Map.Raw.contains 0 Map.Raw.example)
 test "raw map: insert replaces" := Map.Raw.toList (Map.Raw.insert 2 "B" Map.Raw.example) == [(1, "a"), (2, "B"), (3, "c")]
 test "raw map: insertWith counts" :=
