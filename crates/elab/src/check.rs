@@ -1819,7 +1819,13 @@ fn apply_args_postponing(
             force(cx.g(), ty.clone())?,
             Value::Pi(_, Icit::Implicit | Icit::Auto, ..)
         );
-        if implicit_next || !crate::undo::unify(cx, &ty, expected)? {
+        // Unknowns that only the arguments of a call can fix, as the
+        // functions in `List.sumBy xs ?f` with its `Add` dictionary still
+        // unknown, are solved from them if the plain comparison fails.
+        if implicit_next
+            || !(crate::undo::unify(cx, &ty, expected)?
+                || crate::undo::unify_solving_arguments(cx, &ty, expected)?)
+        {
             return Err(first_error.take().expect("set when the lambda was put off"));
         }
         // With the expected type compared, a lambda that still fails is

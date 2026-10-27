@@ -167,6 +167,14 @@ pub(crate) fn unify(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
     Ok(transaction(cx, |cx| Ok(cx.unify(a, b)?.then_some(())))?.is_some())
 }
 
+/// [`crate::unify::unify_solving_arguments`], undoing what it solved if it fails.
+pub(crate) fn unify_solving_arguments(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
+    Ok(transaction(cx, |cx| {
+        Ok(crate::unify::unify_solving_arguments(cx.g(), cx.level(), a, b)?.then_some(()))
+    })?
+    .is_some())
+}
+
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;

@@ -59,6 +59,20 @@ thread_local! {
     /// While [`unify_awaiting_helpers`] runs: the frozen metavariables of the
     /// helpers not lifted yet, taken as equal to whatever they meet.
     static AWAITED_HELPERS: RefCell<Option<HashSet<usize>>> = const { RefCell::new(None) };
+    /// While [`unify_solving_arguments`] runs.
+    static SOLVING_ARGUMENTS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// [`unify`], except that two calls of the same definition whose arguments
+/// unify only by solving metavariables are equal with those solutions,
+/// rather than compared by their unfoldings. `List.sumBy xs ?f` with an
+/// unknown `Add` dictionary unfolds to a fold stuck on that dictionary, so
+/// only its arguments can say `?f` is the function `List.sumBy xs g` has.
+pub fn unify_solving_arguments(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    let saved = SOLVING_ARGUMENTS.with(|s| s.replace(true));
+    let result = unify(g, level, a, b);
+    SOLVING_ARGUMENTS.with(|s| s.set(saved));
+    result
 }
 
 /// [`unify`], except that a helper's frozen metavariable in `awaited` (a
@@ -737,7 +751,7 @@ fn same_arguments_solving_nothing(
     if !same_arguments(g, level, s1, s2)? {
         return Ok(false);
     }
-    if g.meta_trail.borrow().len() > trail {
+    if g.meta_trail.borrow().len() > trail && !SOLVING_ARGUMENTS.with(std::cell::Cell::get) {
         undo_since(g, trail);
         return Ok(false);
     }
