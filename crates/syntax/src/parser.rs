@@ -2553,9 +2553,6 @@ impl<'t> Parser<'t> {
         if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
             self.logic_chain(&mut lhs)?;
         }
-        if self.at_pipe() {
-            self.pipe_chain(&mut lhs)?;
-        }
         if self.peek() == Some(&Tok::Iff) {
             self.iff(&mut lhs)?;
         }
@@ -2569,8 +2566,8 @@ impl<'t> Parser<'t> {
         Ok(lhs)
     }
 
-    /// `p <-> q`, after `p`: `Iff p q` (D1202). Looser than `&&`, `||` and
-    /// `|>`, tighter than `->`, and not associative, as in Rocq. The right
+    /// `p <-> q`, after `p`: `Iff p q` (D1202). Looser than `&&` and `||`,
+    /// tighter than `->`, and not associative, as in Rocq. The right
     /// side may be an `exists`. Out of line, as `logic_chain` is.
     #[inline(never)]
     fn iff(&mut self, operand: &mut Expr) -> Result<()> {
@@ -2581,9 +2578,6 @@ impl<'t> Parser<'t> {
             let mut rhs = self.cmp_expr()?;
             if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
                 self.logic_chain(&mut rhs)?;
-            }
-            if self.at_pipe() {
-                self.pipe_chain(&mut rhs)?;
             }
             rhs
         };
@@ -2830,14 +2824,16 @@ impl<'t> Parser<'t> {
             .is_some_and(|t| t.tok == Tok::PipeGt && (!self.is_stop(self.pos) || t.line_start))
     }
 
-    /// `x |> f a |> g`: the loosest operator, grouping to the left, so a
-    /// pipeline reads top to bottom. A line may start with `|>` to continue
-    /// the expression, if it's indented at least as far as the line the
-    /// expression starts on. The right side is an operand at the level of
-    /// `||` (an application, usually), or a lambda, whose body takes the rest
-    /// of the pipeline: `x |> y => f y |> g` is `x |> y => (f y |> g)`,
-    /// which means the same as `(x |> y => f y) |> g`. Out of line and in a
-    /// loop, as `logic_chain` is.
+    /// `x |> f a |> g`: tighter than comparisons, `in`, `&&` and `||`,
+    /// looser than `++`, grouping to the left, so a pipeline reads top to
+    /// bottom and `xs |> List.sum == 6` compares the sum. A line may start
+    /// with `|>` to continue the expression, if it's indented at least as
+    /// far as the line the expression starts on. The right side is an
+    /// operand at the level of `++` (an application, usually), or a lambda,
+    /// whose body takes the rest of the expression: `x |> y => f y |> g` is
+    /// `x |> y => (f y |> g)`, which means the same as
+    /// `(x |> y => f y) |> g`. Out of line and in a loop, as `logic_chain`
+    /// is.
     #[inline(never)]
     fn pipe_chain(&mut self, operand: &mut Expr) -> Result<()> {
         let mut lhs = std::mem::replace(operand, Expr::Prop(Span::NOWHERE));
@@ -2859,10 +2855,7 @@ impl<'t> Parser<'t> {
                 self.lambda(start)?
             } else {
                 let section = self.peek() == Some(&Tok::Dot);
-                let mut rhs = self.cmp_expr()?;
-                if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-                    self.logic_chain(&mut rhs)?;
-                }
+                let mut rhs = self.append_expr()?;
                 if section {
                     sections::widen(&mut rhs);
                 }
@@ -2887,10 +2880,13 @@ impl<'t> Parser<'t> {
     }
 
     /// `a = b`, `a != b`, `a == b`, `a < b`, `a <= b`, `a > b`, `a >= b`: not
-    /// associative.
+    /// associative. Each operand may be a pipeline.
     fn cmp_expr(&mut self) -> Result<Expr> {
         let lhs_start = self.pos;
-        let lhs = self.append_expr()?;
+        let mut lhs = self.append_expr()?;
+        if self.at_pipe() {
+            self.pipe_chain(&mut lhs)?;
+        }
         if matches!(self.peek(), Some(Tok::KwIn | Tok::NotIn)) {
             return self.membership(lhs, lhs_start);
         }
@@ -2907,7 +2903,10 @@ impl<'t> Parser<'t> {
             _ => return Ok(lhs),
         };
         self.bump();
-        let rhs = self.append_expr()?;
+        let mut rhs = self.append_expr()?;
+        if self.at_pipe() {
+            self.pipe_chain(&mut rhs)?;
+        }
         Ok(binary(op, flip, lhs, rhs))
     }
 
@@ -2935,7 +2934,10 @@ impl<'t> Parser<'t> {
                  it: `(!x) in xs`",
             ));
         }
-        let rhs = self.append_expr()?;
+        let mut rhs = self.append_expr()?;
+        if self.at_pipe() {
+            self.pipe_chain(&mut rhs)?;
+        }
         let member = Expr::Binary(BinOp::In(op), Box::new(lhs), Box::new(rhs));
         if !negated {
             return Ok(member);
@@ -5542,27 +5544,57 @@ mod tests {
     }
 
     #[test]
-    fn pipe_is_looser_than_every_operator_but_the_arrow() {
+    fn pipe_is_tighter_than_comparisons_and_looser_than_append() {
         let cases = [
             ("x |> f", "(|> x f)"),
             ("x |> f a b", "(|> x ((f a) b))"),
             ("a + b |> f", "(|> (Add a b) f)"),
             ("a ++ b |> f", "(|> (Append a b) f)"),
-            ("a || b |> f", "(|> (Or a b) f)"),
-            ("a && b |> f", "(|> (And a b) f)"),
-            ("a = b |> f", "(|> (Eq a b) f)"),
-            ("x |> f a == y", "(|> x (EqEq (f a) y))"),
-            ("x |> f || y", "(|> x (Or f y))"),
+            ("x |> f ++ y", "(|> x (Append f y))"),
+            ("a || b |> f", "(Or a (|> b f))"),
+            ("a && b |> f", "(And a (|> b f))"),
+            ("a = b |> f", "(Eq a (|> b f))"),
+            ("a == b |> f", "(EqEq a (|> b f))"),
+            ("(a == b) |> f", "(|> (EqEq a b) f)"),
+            ("x |> f a == y", "(EqEq (|> x (f a)) y)"),
+            ("xs |> List.sum == 6", "(EqEq (|> xs List.sum) 6)"),
+            ("xs |> List.sum = 6", "(Eq (|> xs List.sum) 6)"),
+            ("x |> f < y |> g", "(Lt (|> x f) (|> y g))"),
+            ("x |> f || y", "(Or (|> x f) y)"),
+            ("x |> f && y", "(And (|> x f) y)"),
+            ("a && xs |> f == 4", "(And a (EqEq (|> xs f) 4))"),
             ("x |> f |> g", "(|> (|> x f) g)"),
             ("x |> f |> g |> h", "(|> (|> (|> x f) g) h)"),
             ("x |> f -> T", "(-> (|> x f) T)"),
             ("A -> x |> f", "(-> A (|> x f))"),
+            ("x |> f <-> y", "((Std.Iff (|> x f)) y)"),
             ("(x |> f) = y", "(Eq (|> x f) y)"),
             ("x |> (f = y)", "(|> x (Eq f y))"),
             ("[a |> f, b]", "[(|> a f) b]"),
         ];
         for (text, want) in cases {
             assert_eq!(pipe_shape(text), want, "{text}");
+        }
+    }
+
+    #[test]
+    fn a_theorem_statement_compares_the_pipeline() {
+        for (source, want) in [
+            ("theorem t: xs |> .length = n := rfl\n", "(Eq xs.length n)"),
+            (
+                "theorem t: xs |> List.length = n := rfl\n",
+                "(Eq (|> xs List.length) n)",
+            ),
+            (
+                "theorem t:\n  xs\n    |> .map f\n    |> .length = n\n  := rfl\n",
+                "(Eq (xs.map f).length n)",
+            ),
+        ] {
+            let module = parse(source);
+            let Decl::Signature { ty, .. } = &module.decls[0] else {
+                panic!("expected a theorem: {source}");
+            };
+            assert_eq!(pshape(ty), want, "{source}");
         }
     }
 
@@ -5675,8 +5707,11 @@ mod tests {
                 "(.a && .b)",
                 "(\\%section (And %section.a (\\%section %section.b)))",
             ),
-            // After `|>` the section is the call it stands for.
+            // After `|>` the section is the call it stands for, and a
+            // comparison after it compares the result.
             ("xs |> .sum == 6", "(EqEq xs.sum 6)"),
+            ("a && xs |> .length == 4", "(And a (EqEq xs.length 4))"),
+            ("xs |> .show ++ y", "(Append xs.show y)"),
         ];
         for (text, want) in cases {
             assert_eq!(section_shape(text), want, "{text}");
@@ -5768,6 +5803,15 @@ mod tests {
             "(let y (|> x f) (|> y g))"
         );
         assert_eq!(pipe_body("  x + 1\n  |> f"), "(|> (Add x 1) f)");
+        // A comparison on the last line compares the pipeline's result.
+        assert_eq!(
+            pipe_body("  x\n    |> f\n    |> g == y"),
+            "(EqEq (|> (|> x f) g) y)"
+        );
+        assert_eq!(
+            pipe_body("  x\n    |> .map f\n    |> .sum = y"),
+            "(Eq (x.map f).sum y)"
+        );
     }
 
     #[test]

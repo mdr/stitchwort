@@ -72,6 +72,11 @@ def wordLengths (line: Text): List Nat :=
 test "pipes" := wordLengths "the  quick fox" == [3, 5, 3]
 -- end pipes
 
+-- begin pipe-precedence
+test "compare a pipeline" := [1, 2, 3, 4] |> List.filter (n => n % 2 == 0) == [2, 4]
+test "a pipe after ∧" := wordLengths "" == [] ∧ ["a", "b"] |> .length == 2
+-- end pipe-precedence
+
 -- begin sections
 def distances (points: List Point): List Nat := points.map .manhattan
 

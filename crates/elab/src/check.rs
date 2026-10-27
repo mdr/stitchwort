@@ -911,9 +911,7 @@ fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             cx.e.note_expr(cx, text.span(), &ty);
             Ok((term, ty))
         }
-        Expr::Pipe(value, f) => {
-            crate::pipe::infer_pipe(cx, value, f).map_err(|e| crate::pipe::compared_pipe_note(e, f))
-        }
+        Expr::Pipe(value, f) => crate::pipe::infer_pipe(cx, value, f),
         Expr::NamedArg(_, _, _, Bracket::Square) => Err(cx.error(
             "E-PARSE",
             "a named implicit argument must follow a function",
@@ -3289,7 +3287,7 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         && !matches!(&**f, Expr::Lam(..) | Expr::TypedLam(..))
     {
         let call = crate::pipe::as_call((**value).clone(), f);
-        return fallback(cx, &call, expected).map_err(|e| crate::pipe::compared_pipe_note(e, f));
+        return fallback(cx, &call, expected);
     }
     if cx.e.no_propagation.get() == 0
         && let Some(found) = propagate(cx, expr, expected)?
