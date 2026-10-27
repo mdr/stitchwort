@@ -5753,7 +5753,7 @@
     {
       "id": 702,
       "title": "Goals print &&, ||, <, <= as written and names relative to the open namespace; == stays expanded (D1417, AoC 2024 day 2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
