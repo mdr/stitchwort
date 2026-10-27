@@ -531,7 +531,7 @@ theorem Float.Theory.isEvenOfZero (n: Nat) (e: n - Nat.divFuel n n 2 * 2 = 0): F
 -- An even significand makes an even pattern.
 theorem Float.Theory.evenShift (e: Nat) (q: Nat) (h: Float.Theory.IsEven q): Float.Theory.IsEven (e * 4503599627370496 + q) :=
   Float.Theory.isEvenOf (e * 4503599627370496 + q) (e * 2251799813685248 + Nat.divFuel q q 2)
-    (omega [Nat.equalSound (q - Nat.divFuel q q 2 * 2) 0 h, Nat.divFuelLe q q 2])
+    (omega [Nat.equalSound (q - Nat.divFuel q q 2 * 2) 0 h])
 
 -- What `roundsUp` decides: down when below halfway, or at it with `q`
 -- even; up when above, or at it with `q` odd.
@@ -544,11 +544,7 @@ theorem Float.Theory.locateDown (q: Nat) (rem: Nat) (b: Nat) (pos: 0 < b) (h: Fl
         | True =>
           Inr (Both (omega [Nat.equalSound (2 * rem) b c1])
             (Float.Theory.isEvenOfZero q
-              (omega [
-                Nat.equalFalse (q - Nat.divFuel q q 2 * 2) 1 h,
-                Nat.divFuelBound q q 2 (Nat.nonzeroOfPos 2 rfl) (Nat.leRefl q),
-                Nat.divFuelLe q q 2
-              ])))
+              (omega [Nat.equalFalse (q - Nat.divFuel q q 2 * 2) 1 h])))
         | False =>
           match c2: Nat.leq (2 * rem) b with
             | True => Inl (omega [c2, Nat.equalFalse (2 * rem) b c1])
@@ -563,7 +559,7 @@ theorem Float.Theory.locateUp (q: Nat) (rem: Nat) (b: Nat) (h: Float.Model.round
         | True =>
           Inr (Both (omega [Nat.equalSound (2 * rem) b c1])
             (Float.Theory.isEvenOf (Succ q) (Succ (Nat.divFuel q q 2))
-              (omega [Nat.equalSound (q - Nat.divFuel q q 2 * 2) 1 h, Nat.divFuelLe q q 2])))
+              (omega [Nat.equalSound (q - Nat.divFuel q q 2 * 2) 1 h])))
         | False =>
           match c2: Nat.leq (2 * rem) b with
             | True => Void.exfalso (Bool.falseNotTrue h)

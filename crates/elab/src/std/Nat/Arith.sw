@@ -238,8 +238,9 @@ theorem Nat.divLeOfLtMul (n: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0] (h: n < S
         (Nat.leTrans (Succ b * d) ((n / d) * d) n (Nat.leMulRight (Succ b) (n / d) d (Nat.leqFalse (n / d) b f)) (Nat.divMulLe n d ok)))))
 
 -- Dividing never makes a number bigger, and makes it smaller when the number
--- is positive and the divisor is at least 2. For `omega`, give the instance
--- as a hint: `omega [Nat.divLe n 2]`.
+-- is positive and the divisor is at least 2. `omega` knows division by a
+-- number itself; for a division by a variable, give the instance as a hint:
+-- `omega [Nat.divLe n k]`.
 theorem Nat.divLe (n: Nat) (k: Nat) [auto ok: k ≠ 0]: n / k ≤ n :=
   Nat.leTrans (n / k) ((n / k) * k) n (Nat.leMulPos (n / k) k (Nat.nonzeroPos k ok)) (Nat.divMulLe n k ok)
 

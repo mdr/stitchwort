@@ -2,18 +2,18 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `Nat.divFuel n n 2 ≤ n`
-   ╭─[ reject/omega-division-hint.sw:5:37 ]
+[E-OMEGA] Error: `omega` can't prove `Nat.divFuel n n k ≤ n`
+   ╭─[ reject/omega-division-hint.sw:6:62 ]
    │
- 5 │ theorem half (n: Nat): n / 2 ≤ n := omega
-   │                                     ──┬──  
-   │                                       ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 6 │ theorem divLeSelf (n: Nat) (k: Nat) (h: k ≠ 0): n / k ≤ n := omega
+   │                                                              ──┬──  
+   │                                                                ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
-   │ Note 1: facts: none in scope
+   │ Note 1: facts: `k ≠ 0` (h)
    │ 
-   │ Note 2: atoms: `Nat.divFuel n n 2`, `n`
+   │ Note 2: atoms: `Nat.divFuel n n k`, `n`, `k`
    │ 
-   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): Nat.divFuel n n 2 = 1, n = 0
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): Nat.divFuel n n k = 1, n = 0, k = 0
    │ 
-   │ Note 4: a division is an unknown number to `omega`; hint its facts: `omega [Nat.divLe n k]` (`n / k ≤ n`), `Nat.divLt n k` (`n / k < n`, for `0 < n` and `1 < k`) or `Nat.divMulLe n k`
+   │ Note 4: a division by anything but a number is an unknown number to `omega`; hint its facts: `omega [Nat.divLe n k]` (`n / k ≤ n`), `Nat.divLt n k` (`n / k < n`, for `0 < n` and `1 < k`) or `Nat.divMulLe n k`
 ───╯
