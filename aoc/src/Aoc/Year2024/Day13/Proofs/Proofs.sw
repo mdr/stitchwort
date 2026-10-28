@@ -14,7 +14,7 @@ theorem part1Correct (machines: List Machine): solvePart1 machines = part1 machi
 
 -- The puzzle doesn't rule out buttons along the same line; this assumes
 -- every machine's buttons aren't.
-theorem part2Correct (machines: List Machine) (nonzero: (machine: Machine) → machine ∈ machines → determinant machine ≠ 0):
+theorem part2Correct (machines: List Machine) (nonzero: (machine: Machine) → machine ∈ machines → machine.determinant ≠ 0):
     Part2Answer machines (solvePart2 machines) :=
-  Witness (machine => fewestTokens (corrected machine))
-    (Both (machine member => rewrite <- correctedIsSpec machine in fewestTokensCorrect (corrected machine) (nonzero machine member)) rfl)
+  Witness (machine => machine.corrected.fewestTokens)
+    (Both (machine member => rewrite <- correctedIsSpec machine in fewestTokensCorrect machine.corrected (nonzero machine member)) rfl)

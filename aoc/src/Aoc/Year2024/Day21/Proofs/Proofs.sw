@@ -15,20 +15,20 @@ import Std (And, Exists, List, Nat)
 
 -- Some presses as many as the program's length type the code.
 theorem lengthAchieved (robots: Nat) (code: Code):
-    Exists (List DirectionKey) (presses => And (Types robots code presses) (presses.length = shortestLength (robotCosts robots) code)) :=
+    Exists (List DirectionKey) (presses => And (Types robots code presses) (presses.length = (robotCosts robots).shortestLength code)) :=
   Witness (pressesFor robots code) (Both (pressesForTypes robots code) (pressesForLength robots code))
 
 -- No presses shorter than the program's length type the code. Proved for
 -- no robots (`shortestWithoutRobots`); for more, it needs `CheapestWalks`
 -- at their levels (`optimalIfCheapestWalks`).
 def Optimal (robots: Nat): Prop :=
-  (code: Code) → (presses: List DirectionKey) → Types robots code presses → shortestLength (robotCosts robots) code ≤ presses.length
+  (code: Code) → (presses: List DirectionKey) → Types robots code presses → (robotCosts robots).shortestLength code ≤ presses.length
 
-theorem shortestIfOptimal (robots: Nat) (optimal: Optimal robots) (code: Code): Shortest robots code (shortestLength (robotCosts robots) code) :=
+theorem shortestIfOptimal (robots: Nat) (optimal: Optimal robots) (code: Code): Shortest robots code ((robotCosts robots).shortestLength code) :=
   Both (lengthAchieved robots code) (presses types => optimal code presses types)
 
 theorem complexitiesAnswer (robots: Nat) (optimal: Optimal robots) (codes: List Code): Answer robots codes (complexities robots codes) :=
-  Witness (shortestLength (robotCosts robots)) (Both (code member => shortestIfOptimal robots optimal code) rfl)
+  Witness (robotCosts robots).shortestLength (Both (code member => shortestIfOptimal robots optimal code) rfl)
 
 theorem part1Correct (optimal: Optimal 2) (codes: List Code): Answer 2 codes (solvePart1 codes) := complexitiesAnswer 2 optimal codes
 

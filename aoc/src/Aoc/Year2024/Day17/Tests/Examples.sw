@@ -95,7 +95,7 @@ test "shifting by a huge count" := Nat.shiftRight 5 1000000000000 == 0
 test "bits" := [0, 1, 2, 3, 4].map (Nat.testBit 10) == [False, True, False, True, False]
 
 test "combo operands agree with the spec" :=
-  List.range 10 |> .all (operand => (comboOperand operand |> .map (Registers.value { a = 10, b = 20, c = 30 })) == comboValue { a = 10, b = 20, c = 30 } operand)
+  List.range 10 |> .all (operand => (Combo.decode operand |> .map (Registers.value { a = 10, b = 20, c = 30 })) == comboValue { a = 10, b = 20, c = 30 } operand)
 
 -- Parsing.
 test "parse" := parsed example == Ok (debuggerOf 729 0 0 [0, 1, 5, 4, 3, 0])

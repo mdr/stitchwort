@@ -218,7 +218,7 @@ test "a bad number" := parsed "p=1,4 v=3,x\n" == Err "line 1, column 11: expecte
 def ran (lines: List Text): Pair (List Text) (Result Bool Text) :=
   IO.simulate lines (() => Result.map (Fail.toResult (() => solveIn exampleSpace)) (unit => True))
 
-def sizeFrom (args: List Text): Result (Nat, Nat) Text := Fail.toResult (() => spaceFrom args) |> .map (space => (space.width, space.height))
+def sizeFrom (args: List Text): Result (Nat, Nat) Text := Fail.toResult (() => Space.fromArgs args) |> .map (space => (space.width, space.height))
 
 test "the space from the arguments" :=
   sizeFrom [] == Ok (101, 103) && sizeFrom ["11", "7"] == Ok (11, 7)

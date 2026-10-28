@@ -99,9 +99,9 @@ def Warehouse.move (warehouse: Warehouse) (direction: Direction): Warehouse :=
 def Warehouse.moveAll (warehouse: Warehouse) (moves: List Direction): Warehouse := moves.foldLeft warehouse Warehouse.move
 
 -- 100 times the distance from the top edge plus the distance from the left.
-def gps (box: Position): Int := 100 * box.row + box.column
+def Position.gps (box: Position): Int := 100 * box.row + box.column
 
-def Warehouse.gpsSum (warehouse: Warehouse): Int := warehouse.boxes.toList.sumBy gps
+def Warehouse.gpsSum (warehouse: Warehouse): Int := warehouse.boxes.toList.sumBy .gps
 
 def solvePart1 (document: Document): Int := document.warehouse.moveAll document.moves |> .gpsSum
 

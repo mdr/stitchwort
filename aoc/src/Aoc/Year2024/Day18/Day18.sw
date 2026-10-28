@@ -130,7 +130,7 @@ def MemorySpace.graph (memory: MemorySpace): Graph Position := {
       memory.safeListed next (memory.moveSafe position direction next moved))
 }
 
-def start: Position := { x = 0, y = 0 }
+def Position.start: Position := { x = 0, y = 0 }
 
 -- The bottom right corner.
 def MemorySpace.exit (memory: MemorySpace): Position := { x = memory.size - 1, y = memory.size - 1 }
@@ -138,7 +138,7 @@ def MemorySpace.exit (memory: MemorySpace): Position := { x = memory.size - 1, y
 -- The fewest steps from the start to each position reachable from it, by
 -- breadth-first search; none if the start is corrupted.
 def MemorySpace.fromStart (memory: MemorySpace): Map Position Nat :=
-  if memory.isSafe start then memory.graph.breadthFirst [start] else Map.empty
+  if memory.isSafe Position.start then memory.graph.breadthFirst [Position.start] else Map.empty
 
 def MemorySpace.fewestSteps (memory: MemorySpace): Option Nat := memory.fromStart.get memory.exit
 

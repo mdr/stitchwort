@@ -1,4 +1,4 @@
--- The search's three steps, one per branch of `largestFrom`.
+-- The search's three steps, one per branch of `Links.largestFrom`.
 
 namespace Aoc.Year2024.Day23.Proofs
 import Aoc.Year2024.Day23 (..)
@@ -6,16 +6,16 @@ import Std (Bool, Decidable, Eq, Nat, Option, Set, Void)
 
 -- Too few candidates left to beat `best`.
 theorem largestPruned (links: Links) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
-    (pruned: clique.size + candidates.size ≤ best.size): largestFrom links clique candidates best = best :=
-  rewrite largestFrom.unfold links clique candidates best in
+    (pruned: clique.size + candidates.size ≤ best.size): links.largestFrom clique candidates best = best :=
+  rewrite Links.largestFrom.unfold links clique candidates best in
   match fits: Nat.leq (clique.size + candidates.size) best.size with
     | True => rfl
     | False => Void.exfalso (omega [pruned, fits])
 
 -- No candidates left, and the clique beats `best`.
 theorem largestDone (links: Links) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
-    (beats: best.size < clique.size + candidates.size) (found: candidates.popMin = None): largestFrom links clique candidates best = clique :=
-  rewrite largestFrom.unfold links clique candidates best, found in
+    (beats: best.size < clique.size + candidates.size) (found: candidates.popMin = None): links.largestFrom clique candidates best = clique :=
+  rewrite Links.largestFrom.unfold links clique candidates best, found in
   match fits: Nat.leq (clique.size + candidates.size) best.size with
     | True => Void.exfalso (omega [beats, fits])
     | False => rfl
@@ -24,9 +24,9 @@ theorem largestDone (links: Links) (clique: Set Computer) (candidates: Set Compu
 theorem largestStep (links: Links) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
     (beats: best.size < clique.size + candidates.size) (candidate: Computer) (others: Set Computer)
     (found: candidates.popMin = Some (candidate, others)):
-    largestFrom links clique candidates best
-      = largestFrom links clique others (largestFrom links (clique.insert candidate) (neighbours links candidate |> .intersect others) best) :=
-  rewrite largestFrom.unfold links clique candidates best, found in
+    links.largestFrom clique candidates best
+      = links.largestFrom clique others (links.largestFrom (clique.insert candidate) (links.neighbours candidate |> .intersect others) best) :=
+  rewrite Links.largestFrom.unfold links clique candidates best, found in
   match fits: Nat.leq (clique.size + candidates.size) best.size with
     | True => Void.exfalso (omega [beats, fits])
     | False =>

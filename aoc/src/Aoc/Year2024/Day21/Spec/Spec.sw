@@ -77,8 +77,9 @@ def Shortest (robots: Nat) (code: Code) (length: Nat): Prop :=
 
 -- "The complexity of a single code ... the result of multiplying these two
 -- values", summed over the codes, given each code's shortest length. The
--- numeric part ("ignoring leading zeroes") is the program's `numericPart`.
-def complexitySum (codes: List Code) (shortest: Code → Nat): Nat := codes.sumBy (code => shortest code * numericPart code)
+-- numeric part ("ignoring leading zeroes") is the program's
+-- `Code.numericPart`.
+def complexitySum (codes: List Code) (shortest: Code → Nat): Nat := codes.sumBy (code => shortest code * Code.numericPart code)
 
 -- "What is the sum of the complexities of the five codes on your list?",
 -- with `robots` robots on directional keypads: two in part 1, 25 in part 2.

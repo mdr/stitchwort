@@ -32,12 +32,12 @@ test "example, part 2" := solvePart2 example == "co,de,ka,ta"
 -- "In this example, there are 12 such sets of three inter-connected
 -- computers".
 test "example, every set of three" :=
-  listed (setsOfThree example.links)
+  listed example.links.setsOfThree
     == ["aq,cg,yn", "aq,vc,wq", "co,de,ka", "co,de,ta", "co,ka,ta", "de,ka,ta", "kh,qp,ub", "qp,td,wh", "tb,vc,wq", "tc,td,wh", "td,wh,yn", "ub,vc,wq"]
 
 -- "That narrows the list down to 7 sets".
 test "example, the sets with a t" :=
-  listed (setsOfThree example.links |> .filter mightBeChiefs)
+  listed (example.links.setsOfThree |> .filter mightBeChiefs)
     == ["co,de,ta", "co,ka,ta", "de,ka,ta", "qp,td,wh", "tb,vc,wq", "tc,td,wh", "td,wh,yn"]
 
 -- The spec's sets of three, by brute force over every three computers.
@@ -49,11 +49,11 @@ def specSetsOfThree (network: Network): Set (Set Computer) :=
     |> .filter (set => set.size == 3 && set.all (one => set.all (other => one == other || connected network one other)))
 
 test "example, the spec's sets of three agree" :=
-  specSetsOfThree example == setsOfThree example.links && (specSetsOfThree example |> .filter hasT |> .size) == 7
+  specSetsOfThree example == example.links.setsOfThree && (specSetsOfThree example |> .filter hasT |> .size) == 7
 
 -- "Each computer in this set has a connection to every other computer in
 -- the set".
-test "example, the largest set" := largestClique example.links == setOf "co,de,ka,ta"
+test "example, the largest set" := example.links.largestClique == setOf "co,de,ka,ta"
 
 test "connections go both ways" := connected example "tc" "kh" && connected example "kh" "tc" && !connected example "kh" "co"
 

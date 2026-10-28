@@ -194,7 +194,7 @@ test "pushing a chain into a wall" := (warehouseOf "@OOO#").move Right == wareho
 test "a chain stops at the first gap" := boxesOf ((warehouseOf "@OO.O#").move Right) == [at 0 2, at 0 3, at 0 4]
 test "pushing up" := boxesOf ((warehouseOf ".\nO\n@").move Up) == [at 0 0]
 test "pushing up into a wall" := (warehouseOf "#\nO\n@").move Up == warehouseOf "#\nO\n@"
-test "the GPS of a box" := gps (at 1 4) == 104
+test "the GPS of a box" := (at 1 4).gps == 104
 
 -- Edge cases, part 2.
 def wideOf (rows: Text): Warehouse := (warehouseOf rows).widen
@@ -217,7 +217,7 @@ test "a push up beside a wall moves" := (stacked [at 0 1]).moveWide Up |> .robot
 test "the right half of a box is pushed too" :=
   let warehouse := { wideOf "..\nO.\n.@" | robot = at 2 1 }
   boxesOf (warehouse.moveWide Up) == [at 0 0]
-test "the GPS of a wide box is its left half's" := gps (at 1 5) == 105
+test "the GPS of a wide box is its left half's" := (at 1 5).gps == 105
 
 -- Parsing.
 test "parse" :=

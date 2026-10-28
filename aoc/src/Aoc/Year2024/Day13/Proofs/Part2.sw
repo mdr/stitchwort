@@ -1,7 +1,7 @@
 -- Part 2: for a machine whose buttons don't move the claw along the same
--- line, `fewestTokens` is the fewest tokens of any presses that win, or
--- `None` when none do (`fewestTokensCorrect`). The spec's part 2 has only
--- one answer (`part2AnswerUnique`).
+-- line, `Machine.fewestTokens` is the fewest tokens of any presses that
+-- win, or `None` when none do (`fewestTokensCorrect`). The spec's part 2
+-- has only one answer (`part2AnswerUnique`).
 
 namespace Aoc.Year2024.Day13.Proofs
 import Aoc.Year2024.Day13 (..)
@@ -14,9 +14,9 @@ theorem noneNotSome (value: a) (h: None = Some value): Void := Bool.falseNotTrue
 
 -- Cramer's rule's presses cost the fewest tokens, as they are the only
 -- presses that win; when it finds none, none win.
-theorem cramerFewest (machine: Machine) (nonzero: determinant machine ≠ 0):
-    IsFewest machine ((onlyPresses machine nonzero).map (((aPresses, bPresses)) => tokens aPresses bPresses)) :=
-  match found: onlyPresses machine nonzero with
+theorem cramerFewest (machine: Machine) (nonzero: machine.determinant ≠ 0):
+    IsFewest machine ((machine.onlyPresses nonzero).map (((aPresses, bPresses)) => tokens aPresses bPresses)) :=
+  match found: machine.onlyPresses nonzero with
     | Some (aPresses, bPresses) =>
       Both (Witness aPresses (Witness bPresses (Both (onlyPressesWins machine nonzero aPresses bPresses found) (costIsTokens aPresses bPresses))))
         (otherA otherB otherWon =>
@@ -30,12 +30,12 @@ theorem cramerFewest (machine: Machine) (nonzero: determinant machine ≠ 0):
           | True => Void.exfalso (noneNotSome _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero aPresses bPresses winning)))
           | False => rfl)
 
-theorem fewestTokensCorrect (machine: Machine) (nonzero: determinant machine ≠ 0): IsFewest machine (fewestTokens machine) :=
-  match Int.decEq (determinant machine) 0 with
+theorem fewestTokensCorrect (machine: Machine) (nonzero: machine.determinant ≠ 0): IsFewest machine machine.fewestTokens :=
+  match Int.decEq machine.determinant 0 with
     | Yes isZero => Void.exfalso (nonzero isZero)
     | No proof => cramerFewest machine proof
 
-theorem correctedIsSpec (machine: Machine): corrected machine = correctedMachine machine := rfl
+theorem correctedIsSpec (machine: Machine): machine.corrected = correctedMachine machine := rfl
 
 -- A machine that can be won isn't unwinnable.
 theorem winsAgainst (machine: Machine) (tokens: Nat) (fewest: Fewest machine tokens) (unwinnable: Unwinnable machine): Void :=

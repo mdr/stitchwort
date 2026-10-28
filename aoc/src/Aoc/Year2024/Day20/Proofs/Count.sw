@@ -142,7 +142,7 @@ theorem countedComplete (racetrack: Racetrack) (startOnTrack: onTrack racetrack 
 -- picoseconds saving at least `threshold`.
 theorem countCheatsCorrect (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True)
     (endOnTrack: onTrack racetrack racetrack.end = True) (length: Nat) (threshold: Nat):
-    IsCount racetrack length threshold (countCheats length threshold racetrack) :=
+    IsCount racetrack length threshold (racetrack.countCheats length threshold) :=
   match honestFound: racetrack.fromStart.get racetrack.end with
     | Some honest =>
       Witness (counted racetrack racetrack.fromStart racetrack.toEnd honest length threshold)

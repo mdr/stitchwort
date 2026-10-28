@@ -16,9 +16,9 @@ import Std.Parse (int, nat, text)
 
 -- The space is the puzzle's, 101 tiles wide and 103 tall, unless the
 -- arguments give a width and a height: `-- 11 7` for the example's.
-def main(): {IO, Fail} () := solveIn (spaceFrom IO.args())
+def main(): {IO, Fail} () := solveIn (Space.fromArgs IO.args())
 
-def spaceFrom (args: List Text): {Fail} Space :=
+def Space.fromArgs (args: List Text): {Fail} Space :=
   let usage := "expected no arguments, or a width and a height above 0, such as `11 7`"
   match args with
     | Nil => Space.of 101 103

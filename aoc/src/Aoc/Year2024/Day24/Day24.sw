@@ -146,7 +146,7 @@ def fromBits: List Bool → Nat
 
 -- The bits on the z wires, lowest first, a missing z wire counting as 0,
 -- if every z wire has a value.
-def zBits (device: Device) (values: Values): Option (List Bool) :=
+def Device.zBits (device: Device) (values: Values): Option (List Bool) :=
   let wires := device.wires
   List.range (bitCount Wire.zBit wires)
     |> .map (bit => if wires.contains (Z bit) then values.get (Z bit) else Some False)
@@ -156,7 +156,7 @@ def Device.settled (device: Device): Values := settle (Map.fromList device.initi
 
 -- The number on the z wires once the gates settle, unless one of them
 -- gets no value.
-def solvePart1 (device: Device): Option Nat := zBits device device.settled |> .map fromBits
+def solvePart1 (device: Device): Option Nat := device.zBits device.settled |> .map fromBits
 
 -- Part 2. The device should be a ripple-carry adder: bit 0 is a half
 -- adder, x00 XOR y00 -> z00 and x00 AND y00 -> the carry, and each later

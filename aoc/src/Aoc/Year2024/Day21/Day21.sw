@@ -84,7 +84,7 @@ def NumericKey.digit (key: NumericKey): Option Nat :=
     | Enter => None
 
 -- The code's digits read as a number: 29 for 029A.
-def numericPart (code: Code): Nat := code.foldLeft 0 (number key => key.digit.fold number (digit => 10 * number + digit))
+def Code.numericPart (code: Code): Nat := code.foldLeft 0 (number key => key.digit.fold number (digit => 10 * number + digit))
 
 type Position = { row: Nat, column: Nat }
 
@@ -96,7 +96,7 @@ type Keypad (k: Type) = { place: k → Position, gap: Position }
 -- +---+---+---+
 -- | < | v | > |
 -- +---+---+---+
-def directionalKeypad: Keypad DirectionKey := {
+def Keypad.directional: Keypad DirectionKey := {
   place = key =>
     match key with
       | Arrow Up => { row = 0, column = 1 }
@@ -116,7 +116,7 @@ def directionalKeypad: Keypad DirectionKey := {
 -- +---+---+---+
 --     | 0 | A |
 --     +---+---+
-def numericKeypad: Keypad NumericKey := {
+def Keypad.numeric: Keypad NumericKey := {
   place = key =>
     match key with
       | Digit7 => { row = 0, column = 0 }
@@ -151,7 +151,7 @@ def alongThenAcross (from: Position) (to: Position): List Direction :=
 -- The ways to move the arm between two keys: all the moves across, then
 -- all along, or the other way round. The gap is in a corner, so a way
 -- passes over it only if it turns there; those are left out.
-def routes (keypad: Keypad k) (from: k) (to: k): List (List Direction) :=
+def Keypad.routes (keypad: Keypad k) (from: k) (to: k): List (List Direction) :=
   let start := keypad.place from
   let end := keypad.place to
   let acrossTurn: Position := { row = start.row, column = end.column }
@@ -165,10 +165,10 @@ def routes (keypad: Keypad k) (from: k) (to: k): List (List Direction) :=
 type Costs = DirectionKey → DirectionKey → Nat
 
 -- On your own keypad, one press.
-def yourCosts: Costs := from to => 1
+def Costs.yours: Costs := from to => 1
 
 -- Your presses to press `keys` in turn on a keypad whose arm aims at A.
-def sequenceCost (costs: Costs) (keys: List DirectionKey): Nat :=
+def Costs.sequenceCost (costs: Costs) (keys: List DirectionKey): Nat :=
   Cons Activate keys |> .zipWithNext |> .sumBy (((from, to)) => costs from to)
 
 -- The keys to press on the driving keypad to take a route and press the
@@ -176,13 +176,13 @@ def sequenceCost (costs: Costs) (keys: List DirectionKey): Nat :=
 def routeKeys (route: List Direction): List DirectionKey := List.append (route.map Arrow) [Activate]
 
 -- Your presses to take a route and press the key at its end.
-def routeCost (costs: Costs) (route: List Direction): Nat := sequenceCost costs (routeKeys route)
+def Costs.routeCost (costs: Costs) (route: List Direction): Nat := costs.sequenceCost (routeKeys route)
 
 -- The route costing the fewest of your presses.
-def cheapestRoute (costs: Costs) (choices: List (List Direction)): List Direction := choices.minBy (routeCost costs) |> .getOrElse []
+def Costs.cheapestRoute (costs: Costs) (choices: List (List Direction)): List Direction := choices.minBy costs.routeCost |> .getOrElse []
 
 -- What the cheapest route costs.
-def cheapestCost (costs: Costs) (choices: List (List Direction)): Nat := routeCost costs (cheapestRoute costs choices)
+def Costs.cheapestCost (costs: Costs) (choices: List (List Direction)): Nat := costs.routeCost (costs.cheapestRoute choices)
 
 def directionKeys: List DirectionKey := [Arrow Up, Arrow Down, Arrow Left, Arrow Right, Activate]
 
@@ -195,30 +195,30 @@ def DirectionKey.index (key: DirectionKey): Nat :=
     | Activate => 4
 
 -- The same costs, worked out once for every pair of keys.
-def tabulate (costs: Costs): Costs :=
+def Costs.tabulate (costs: Costs): Costs :=
   let table := directionKeys.map (from => directionKeys.map (to => costs from to))
   from to => table.getOr from.index [] |> .getOr to.index 0
 
 -- The costs one keypad further from yours: the cheapest route on that
 -- keypad, typed on the one before it.
-def nextCosts (costs: Costs): Costs :=
-  tabulate (from to => cheapestCost costs (routes directionalKeypad from to))
+def Costs.next (costs: Costs): Costs :=
+  Costs.tabulate (from to => costs.cheapestCost (Keypad.directional.routes from to))
 
 -- The costs on the directional keypad that drives the door's robot, with
 -- `robots` robots on directional keypads.
-def robotCosts (robots: Nat): Costs := Nat.iterate robots nextCosts yourCosts
+def robotCosts (robots: Nat): Costs := Nat.iterate robots Costs.next Costs.yours
 
 -- The fewest presses you need for the door's robot to type `code`.
-def shortestLength (costs: Costs) (code: Code): Nat :=
+def Costs.shortestLength (costs: Costs) (code: Code): Nat :=
   Cons Enter code
     |> .zipWithNext
-    |> .sumBy (((from, to)) => cheapestCost costs (routes numericKeypad from to))
+    |> .sumBy (((from, to)) => costs.cheapestCost (Keypad.numeric.routes from to))
 
 -- The sum of the codes' complexities with `robots` robots on directional
 -- keypads.
 def complexities (robots: Nat) (codes: List Code): Nat :=
   let costs := robotCosts robots
-  codes.sumBy (code => shortestLength costs code * numericPart code)
+  codes.sumBy (code => costs.shortestLength code * Code.numericPart code)
 
 def solvePart1 (codes: List Code): Nat := complexities 2 codes
 
