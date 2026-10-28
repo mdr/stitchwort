@@ -2616,3 +2616,289 @@ Release build, on a machine with a load average around 30:
    texts (item 4). Fix: hide internal namespaces; add `List.joinWith`.
 8. `Parse.line` counts columns past the line break (item 1). Fix: report
    line 2.
+
+## Day 10: Hoof It
+
+A 40 by 40 topographic map of heights 0 to 9. "A hiking trail is any path
+that starts at height 0, ends at height 9, and always increases by a height
+of exactly 1 at each step", with no diagonal steps. A trailhead is "any
+position that starts one or more hiking trails". Part 1 sums each
+trailhead's score, "the number of 9-height positions reachable from that
+trailhead via a hiking trail"; part 2 sums each trailhead's rating, "the
+number of distinct hiking trails which begin at that trailhead" (part 2's
+wording from the public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/master/2024/day-10/README.txt>).
+The small examples have impassable `.` tiles; the real map has none.
+Answers on Matt's input: 461 and 875 (cross-checked with an independent
+Python script, `/usr/bin/python3 -I`, that lists every trail by depth-first
+search and counts distinct (start, end) pairs and distinct trails; it also
+gives 36 and 81 on the larger example, and 13 and 227 on the rating
+examples). The map has 175 trailheads. Compiler built from `main` at
+b3ceb57e, 28 October 2026.
+
+### The program
+
+```stitchwort
+def tile(): {Parse} (Option Nat) :=
+  Parse.oneOf [
+    () => Some digit().toNat,
+    () =>
+      char '.'
+      None
+  ]
+
+def parseMap (input: Text): {Fail} TopographicMap :=
+  let rows := Parse.all input (() => Parse.grid tile)
+  let width := rows.headOr [] |> .length
+  rows.withIndex |> .map (((row, tiles)) =>
+    Fail.ensure (tiles.length == width) "line ${row + 1}: expected ${width} tiles, as on the first line, got ${tiles.length}")
+  { rows }
+
+def TopographicMap.uphill (map: TopographicMap) (position: Position): List Position :=
+  position.neighbours |> .filter (map.isOneHigher position)
+
+def TopographicMap.trailEnds (map: TopographicMap): (steps: Nat) → (position: Position) → List Position
+  | Zero, position => if map.heightAt position == Some 9 then [position] else Nil
+  | Succ steps, position => map.uphill position |> .flatMap (map.trailEnds steps)
+
+def TopographicMap.score (map: TopographicMap) (trailhead: Position): Nat := map.trailEnds 9 trailhead |> .distinct |> .length
+
+def TopographicMap.rating (map: TopographicMap) (trailhead: Position): Nat := map.trailEnds 9 trailhead |> .length
+
+def solvePart1 (map: TopographicMap): Nat := map.trailheads |> .sumBy map.score
+
+def solvePart2 (map: TopographicMap): Nat := map.trailheads |> .sumBy map.rating
+```
+
+The domain model is the rows of heights, `Option Nat` per tile (`None` for
+`.`); `heightAt` is `None` off the map too. `trailEnds` is a plain search:
+from a trailhead it takes nine steps, each to a neighbour one higher, and
+gives the end of every trail, once per trail. A score is the number of
+distinct ends, a rating the number of ends. Since every trail has exactly
+ten positions, the step count is the recursion's measure and termination is
+structural. No memoisation was needed: the search only follows trails, and
+the whole input has 875 of them.
+
+`neighbours` is up, left, right and down, with none above row 0 or left of
+column 0 (`Position` is `Nat`s). It is split into `above`, `leftOf` and
+`rightAndBelow` so the proofs can name the parts (item 4).
+
+### Proved, for every map
+
+The spec (`Spec/Spec.sw`) is the puzzle's words over the program's
+`heightAt` and `positions`. `isOrthogonalStep` is one column apart in the
+same row or one row apart in the same column; `increasesByOne` is the next
+height being the last plus 1; `isHikingTrail path` is "starts at height 0"
+(`path.head`), "ends at height 9" (`path.last`) and every step of
+`path.zipWithNext` both. To count trails the spec needs a finite set of
+candidates: `pathsOf map n` is every list of `n` positions on the map, and
+`trailsFrom start` is `start` followed by each of `pathsOf map 9`, kept if
+`isHikingTrail`. `trailheads` keeps the positions with at least one trail,
+`score` counts the positions at height 9 that some trail from the
+trailhead ends at, and `rating` is `trailsFrom`'s length.
+
+Proved (`Proofs/Proofs.sw`, 257 lines, and `Proofs/Steps.sw`, 169 lines):
+
+- `part1Correct`: `solvePart1 map = part1 map`.
+- `part2Correct`: `solvePart2 map = part2 map`.
+- `trailsAreCandidates`: every hiking trail starts at a position on the map
+  and is in `trailsFrom` of its start, so the spec's ten positions miss
+  none; `emptyIsNoTrail` covers the empty path.
+- `pathsDistinct`: `pathsOf` lists each path once, so the spec counts
+  distinct trails.
+
+The steps:
+
+- `memUphill`: a position is in `uphill from` exactly when it is on the map
+  and `isStep from` it (`neighbourOrthogonal` and `orthogonalNeighbour`, by
+  cases on the edges); `uphillPerm`: `uphill` is the spec's steps among
+  `positions`, in another order (std's `permOfSameMembers`, with
+  `neighboursDistinct` and `positionsDistinct`).
+- `positionsComplete`: every position with a height is in `positions`.
+- `trailCons`: `isHikingTrail (Cons start rest)` is a height-0 start and
+  `climbs start rest`, a recursive form of the rest of the check
+  (`endsAndSteps`).
+- `countTrailEnds`: the number of `pathsOf map steps` that climb from a
+  position is the number of ends the search finds; induction on `steps`,
+  through `countSumBy`, `sumByFlatMap`, `sumByFilter`, the permutation
+  (`sumByPerm`) and a `lengthFlatMap`.
+- `memTrailEnds`: a position is a search end exactly when some climb ends
+  there.
+- `scoreCorrect` and `ratingCorrect` per trailhead, then
+  `sumOverTrailheads`: the program sums over the 0s, the spec over the
+  positions with a trail; a 0 with no trail adds 0 to both.
+
+Breaking the program (ends at height 8, or `.take 3` of `uphill`) makes
+the proofs fail. Nothing is unproved. The spec itself can't run on any map
+with a trail (item 5), so the tests check `isHikingTrail` on the puzzle's
+drawn trails instead.
+
+### 1. Std.Parse: none
+
+`Parse.grid tile` with `Parse.oneOf` read the map first time, and the
+messages read well: `line 2, column 3: expected a digit or '.' or the end
+of the line, got 'x'`, and on empty input `line 1, column 1: expected a
+digit or '.', got the end of the input`. The row-length check is outside
+the grammar, as on day 8, so its message has no column.
+
+### 2. Missing std
+
+- `List.forEach` (or any way to run a `{Fail}` check on each element):
+  `parseMap` checks each row with `rows.withIndex |> .map (… =>
+  Fail.ensure …)` and drops the `List ()`, with no warning. Scala has
+  `List.foreach`
+  (<https://www.scala-lang.org/api/current/scala/collection/immutable/List.html>),
+  Haskell `mapM_`
+  (<https://hackage.haskell.org/package/base/docs/Data-Foldable.html#v:mapM_>).
+- Lemmas written here: `lengthFlatMap` (length of a `flatMap` is the
+  `sumBy` of the lengths), `lengthFilter` (length of a `filter` is the
+  `count`), `countNone` and `countFalse` (a count where nothing passes is
+  0), `anyEmpty`. Lean's core has `List.length_flatMap`
+  (<https://github.com/leanprover/lean4/blob/master/src/Init/Data/List/Lemmas.lean>),
+  `List.countP_eq_length_filter` and `List.countP_eq_zero`
+  (<https://github.com/leanprover/lean4/blob/master/src/Init/Data/List/Count.lean>).
+
+None added (the `List/Toolkit.sw` split is in progress in another lane).
+Fix: add the five lemmas and `List.forEach` to std.
+
+### 3. Proofs: `omega` reads neither `||`, `==` nor a literal record's field
+
+`isOrthogonalStep` is `&&`, `||` and `==` on `Nat`s. Once the positions
+were concrete, `omega` couldn't prove it:
+
+```text
+[E-OMEGA] Error: `omega` can't prove `((Decidable.toBool (Nat.decEq (Succ (previous + 1)) previous) || Decidable.toBool (Nat.decEq (previous + 1) (Succ previous))) || Decidable.toBool (Nat.decEq (Succ previous) previous) && False) = True`
+  unsupported structure: this goal isn't linear arithmetic on `Nat`
+```
+
+And with `Not (first.row = second.row)`, the positions literal records,
+it treats the projections as unknowns:
+
+```text
+[E-OMEGA] Error: `omega` can't prove `Void`
+  an integer model of the arithmetic abstraction satisfies the facts
+  Note 1: facts: `{ row = 1, column = 0 }.row = { row = 0, column = 1 }.row` (h)
+```
+
+So `Orthogonal`, a `Prop` copy of the spec's step, with `orthogonalIntro`
+and `orthogonalElim` to convert (about 30 lines of `Bool.orElim`,
+`Bool.andLeft` and `DecEq.sound`), and `rowsApart`/`columnsApart` take the
+four `Nat`s rather than two positions. Lean's `omega` splits disjunctions
+in the context (its `splitDisjunctions` option, on by default;
+<https://github.com/leanprover/lean4/blob/master/src/Init/Tactics.lean>).
+Fix: let `omega` read `||` and `Nat` `==` in `Bool` goals and facts, and
+reduce projections of record literals before abstracting atoms.
+
+### 4. Proofs: membership in a list the checker hasn't unfolded
+
+`orthogonalNeighbour` shows a position is in `from.neighbours`, which was
+`above ++ left ++ [right, below]` written with local `let … := match …`.
+`List.memAppendRight _ _ _ (List.memAppendRight _ _ _ (Inl rfl))` got
+
+```text
+[E-TYPE-MISMATCH] Error: type mismatch
+  `rfl` proves an equation, but the expected type is `?10 row column toRow toColumn rows right`
+```
+
+The holes for the lists weren't filled from the goal, so `∈` didn't
+unfold to `Or`. Naming the parts as definitions (`above`, `leftOf`,
+`rightAndBelow`) and passing them explicitly worked. Then a `match` on
+`toColumn + 1` (after `rewrite`) didn't reduce, since `+ 1` isn't `Succ`
+to the matcher; the arm was split on `Zero` and `Succ previous` instead,
+with `omega` for `previous = toColumn`. Fix: solve list holes from the
+goal by unfolding it; reduce `n + 1` to `Succ n` when matching.
+
+### 5. The spec can't run
+
+`pathsOf map 9` is every list of nine positions: for the 8 by 8 example,
+64^9. So `part1` and `part2` were never run, unlike day 9's spec, and an
+error in them would only show in a proof. The tests check `isHikingTrail`
+on the three trails drawn in the puzzle and on near misses, and
+`pathsOf map 2` on a two-tile map. Laziness wouldn't help, since the spec
+filters every candidate. What I did instead: the proof of
+`trailsAreCandidates` and `pathsDistinct`, which show the candidates are
+neither too few nor repeated. Fix: none needed in the language; noting
+that a literal spec of "count distinct paths" is a proof-only object.
+
+### 6. Inference and elaboration
+
+- `if (trailsFrom map start).length >= 1 then … else Add.zero` in a lambda
+  elaborated as a decidable `Prop` (`Decidable.elim (Nat.decLessThan 0 …)`),
+  while the same `>= 1` in the spec's `.filter` is a `Bool`, so
+  `List.sumByFilter`'s statement didn't match my `sumByCong` lambda; the
+  message elided both sides with `…`. Named it `startsTrail`, a `Bool`
+  `def`.
+- `List.sumByZero xs : List.sumBy xs (x => Add.zero) = Add.zero` doesn't
+  check as `List.sumBy xs (x => 0) = 0`:
+
+  ```text
+  [E-TYPE-MISMATCH] Error: type mismatch
+    expected `List.sumBy xs (x => 0) = 0`, but this has type `List.sumBy xs (x => Add.zero) = Add.zero`
+  ```
+
+  though `(Add.zero: Nat) = 0` is `rfl` (both checked in a probe). Perhaps
+  the instance is still unknown when the types are compared (speculative).
+  Used `List.sumByZeroIntro`.
+- `Ok { rows = … }` in a test is an `E-UNKNOWN-FIELD` (`` `Ok` has no
+  field `rows` ``), day 1's item 7 again; the message now says to write
+  `Ok ({ … })`, which worked.
+- A multi-line `rewrite a, b, c` with `in` alone on the next line is
+  `[E-PARSE] Error: expected an expression, but found `in``; `in` must end
+  the last rule's line.
+
+Fix: elaborate `if` on a `Bool`-valued comparison as `Bool`; unfold
+instance fields when comparing; allow `in` on its own line.
+
+### 7. What went well
+
+The proofs took about an hour and a half and were mostly right first
+time: `positionsComplete`, `memUphill`, `uphillPerm`, `scoreCorrect` and
+`climbsPaths` checked on their first run. Std had what the counting
+needed: `permOfSameMembers` (two lists without repeats and the same
+members are a permutation), `sumByPerm`, `distinctFlatMap`,
+`sumByFilter`, `memDistinct` and `distinctNoRepeats`. `match step: isStep
+map from next with` substitutes into the goal, so the arms needed no
+`rewrite` (one I added anyway was an `E-REWRITE-NOTHING` whose note said
+the goal already held by computing). `rewrite … at hypothesis` was the easy
+way to move between `trail` and `Cons start rest`.
+
+### Performance
+
+`stitchwort run` on the input takes 0.77 s, against 0.62 s on the example
+(loading and checking), so about 0.15 s of work. The Python script takes
+0.04 s. The machine (`machine aoc_agrees`, which passed, with all 476 AoC
+tests agreeing) runs `main` on the input in 0.57 s, more than `run`'s
+0.15 s of work after loading, as on day 9; I didn't look into why.
+
+### Size and time
+
+Release build, on a machine with a load average around 22:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day10.Proofs` | 2.8 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day10` | 1.7 s |
+| `stitchwort test --no-cache Aoc.Year2024.Day10` (34 tests) | 2.6 s |
+| `stitchwort test Aoc.Year2024.Day10` (warm) | 2.2 s |
+| `stitchwort run Aoc.Year2024.Day10.main` on the input | 1.4 s (0.77 s user) |
+| `stitchwort check --no-cache` (whole project) | 20 s |
+| `main` on the input, on the machine (`machine aoc_agrees`) | 0.57 s |
+
+99 lines of program, 60 of spec, 426 of proofs, 173 of tests.
+
+### Ranked
+
+1. `omega` can't read `||`, `Nat` `==`, or a literal record's fields
+   (item 3). Fix: support them, as Lean's `omega` splits disjunctions.
+2. Membership proofs in lists the checker won't unfold, and matches stuck
+   on `n + 1` (item 4). Fix: fill list holes by unfolding the goal; reduce
+   `n + 1` to `Succ n`.
+3. `if` on a comparison is a `Prop`, `filter`'s is a `Bool`; `Add.zero`
+   and `0` don't match inside a lemma's type (item 6). Fix: elaborate
+   comparisons in `if` as `Bool`; unfold instances when comparing.
+4. Missing `length`/`count` lemmas and `List.forEach` (item 2). Fix: add
+   them to std.
+5. The literal spec can't run (item 5). Fix: none; the candidate theorems
+   stand in for running it.
+6. `in` can't start a line after a multi-line `rewrite` (item 6). Fix:
+   allow it.
