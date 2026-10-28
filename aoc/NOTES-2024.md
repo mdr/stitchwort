@@ -1659,7 +1659,6 @@ def canMake (operators: List Operator) (first: Nat) (target: Nat): List Nat → 
           else target == 0
         | Concatenate =>
           let place := placeValue last
-          let nonzero := placeValueNonzero last
           target % place == last && canMake operators first (target / place) earlier)
 
 def couldBeTrue (operators: List Operator) (equation: Equation): Bool :=
@@ -1678,7 +1677,7 @@ def solvePart2 (equations: List Equation): Nat := calibrationResult [Add, Multip
 `canMake` works backwards from the test value: the last operator is undone,
 which prunes almost every branch (a subtraction that would go below 0, a
 division with a remainder, a value that doesn't end in the last number's
-digits). `placeValue n` is `Nat.pow 10 (Nat.digits n).length`. It printed
+digits). `placeValue n` is `Nat.pow 10 (Nat.digitCount n)`. It printed
 the right answers on the first run.
 
 Because `%` and `/` need a proof that the divisor isn't 0, the program had to
@@ -1769,6 +1768,15 @@ Stitchwort's way paid off here: it made the program handle a 0 in the input
 `omega` (`0 < d`, or `1 ≤ d`, proves `d ≠ 0`) and unfold a definition one
 step.
 
+Fixed: `auto` proves `d ≠ 0` from a fact `0 < d`, `1 ≤ d` or `k + 1 ≤ d` in
+scope, and, in a module that loads `omega`'s library (any that uses `omega`,
+`rewrite` or `cases`, or a std file that does), proves an arithmetic goal it
+can't decide by `omega` over the facts in scope, with a small search budget
+(`h: a < b` gives `b - a ≠ 0`). Unfolding needed nothing new: `auto` already
+unfolds a definition to match a decision procedure, and what was missing was
+one for powers, `Nat.decPowSuccNotZero` (`Nat.pow (Succ b) e ≠ 0`). The
+program's `placeValueNonzero` and its two `let nonzero` lines are gone.
+
 ### 3. Missing std
 
 - `Nat.digitCount` (or a place value): `(Nat.digits n).length` is written
@@ -1789,6 +1797,13 @@ step.
   are `Nat.ofDigits_append` and `Nat.lt_base_pow_length_digits`
   (<https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Nat/Digits/Defs.html>),
   little-endian where std's digits are most significant first.
+
+Fixed: std has `Nat.digitCount` with `Nat.digitCountPos` (`0 < Nat.digitCount
+n`), used here and in 2025 day 2's proofs in place of their own; and
+`List.anyFlatMap`, `List.anyOr`, `List.anyComm`, `List.reverseReverse`,
+`List.reverseCons` (with `List.reverseOntoTwice` and `List.reverseOntoAppend`)
+and `List.sumByFilterMono`, which the proofs now use. The power operator is
+still missing.
 
 ### 4. Holes left for the proof argument
 

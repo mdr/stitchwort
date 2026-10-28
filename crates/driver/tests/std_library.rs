@@ -711,10 +711,14 @@ fn no_library_file_declares_a_decision_procedure() {
     // needs their file loaded. So does `List.decMem` (D1201), which decides
     // `List.Mem`, declared beside it in std/List/Toolkit.sw. And `Float.decLessEq` and
     // `Float.decLessThan`, which decide `Float.LessEq` and `Float.LessThan`,
-    // what `x <= y` and `x < y` on `Float` are, declared beside them.
+    // what `x <= y` and `x < y` on `Float` are, declared beside them. And
+    // `Nat.decPowSuccNotZero`, which decides `Nat.pow (Succ b) e ≠ 0`: only a
+    // goal that is or unfolds to a `Nat.pow` matches it, and `Nat.pow` is
+    // declared beside it in std/Nat/Arith.sw.
     assert_eq!(
         session.elab.library_decision_procedures(),
         [
+            "Std.Nat.decPowSuccNotZero",
             "Std.List.decMem",
             "Std.Float.decEqFrom",
             "Std.Float.decEq",

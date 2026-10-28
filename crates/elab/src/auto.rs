@@ -290,17 +290,17 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
                 return Ok(proof);
             }
             Err(cx.with_opaque_notes(
-            cx.error(
-                "E-AUTO-STUCK",
-                format!("can't decide `{shown}` here"),
-                // Not "it depends on run-time values": `most + 1 ≠ 0` before
-                // `Nat.decAddSuccNotZero` holds for every `most`, but
-                // didn't compute (games/rogue/NOTES.md §2).
-                "it involves values that aren't known here, and computing it doesn't settle it",
-            )
-            .with_note("establish it first, with `if h: … then … else …`"),
-            &[&goal],
-        ))
+                cx.error(
+                    "E-AUTO-STUCK",
+                    format!("can't decide `{shown}` here"),
+                    // Not "it depends on run-time values": `most + 1 ≠ 0` before
+                    // `Nat.decAddSuccNotZero` holds for every `most`, but
+                    // didn't compute (games/rogue/NOTES.md §2).
+                    "it involves values that aren't known here, and computing it doesn't settle it",
+                )
+                .with_note("establish it first, with `if h: … then … else …`"),
+                &[&goal],
+            ))
         }
     }
 }
