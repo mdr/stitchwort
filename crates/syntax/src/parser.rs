@@ -2410,6 +2410,7 @@ impl<'t> Parser<'t> {
 
     #[inline(never)]
     fn rewrite_body(&mut self, start: Span) -> Result<Expr> {
+        let column = self.tokens[self.pos - 1].column;
         let mut rules: Vec<RewriteRule> = Vec::new();
         loop {
             let rule_start = self.here();
@@ -2448,7 +2449,14 @@ impl<'t> Parser<'t> {
         } else {
             None
         };
-        let body = if self.peek() == Some(&Tok::KwIn) {
+        // `in` may also start a line of its own, at the `rewrite`'s column or
+        // right of it, where the enclosing block's column would end the
+        // expression: no statement starts with `in`.
+        let own_line = self
+            .tokens
+            .get(self.pos)
+            .is_some_and(|t| t.tok == Tok::KwIn && t.line_start && t.column >= column);
+        let body = if self.peek() == Some(&Tok::KwIn) || own_line {
             let first = self.bump().span;
             let body_start = self.pos;
             let body = self.expr()?;
@@ -6407,6 +6415,34 @@ mod tests {
         };
         assert_eq!(rules.len(), 1);
         assert!(body.is_none());
+    }
+
+    #[test]
+    fn rewrite_in_can_start_its_own_line() {
+        let body = |text: &str| {
+            let expr = rhs(text);
+            let Expr::Rewrite { rules, body, .. } = &expr else {
+                panic!("expected a rewrite");
+            };
+            (rules.len(), body.clone())
+        };
+        for text in [
+            "def f (a: Nat): a = a :=\n  rewrite p,\n    q x\n  in t\n",
+            "def f (a: Nat): a = a :=\n  rewrite p, q x\n  in t\n",
+            "def f (a: Nat): a = a :=\n  rewrite p, q x\n    in t\n",
+            "def f (a: Nat): a = a :=\n  rewrite p at h\n  in t\n",
+        ] {
+            let (rules, body) = body(text);
+            assert!(rules >= 1, "{text}");
+            assert!(
+                matches!(body.as_deref(), Some(Expr::Var(n)) if n.text == "t"),
+                "{text}"
+            );
+        }
+        // Left of the `rewrite`, an `in` isn't its.
+        assert!(
+            parse_module_text("def f (a: Nat): a = a :=\n  g\n    rewrite p\n  in t\n").is_err()
+        );
     }
 
     #[test]

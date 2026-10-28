@@ -497,6 +497,38 @@ theorem List.countAppend (xs: List a) (ys: List a) (p: a → Bool): List.count (
       (Eq.trans (Eq.cong (n => n + List.occurrences ys p) (Eq.sym (List.countOccurrences xs p)))
         (Eq.cong (n => List.count xs p + n) (Eq.sym (List.countOccurrences ys p)))))
 
+-- The length of a `filter` is the `count` with the same test.
+theorem List.lengthFilter: (xs: List a) → (p: a → Bool) → List.length (List.filter xs p) = List.count xs p
+  | Nil, p => rfl
+  | Cons x rest, p =>
+    rewrite List.countCons rest x p, <- List.lengthFilter rest p in
+      match keep: p x with
+        | True => rfl
+        | False => rfl
+
+theorem List.countFalse: (xs: List a) → List.count xs (x => False) = 0
+  | Nil => rfl
+  | Cons x rest => List.countFalse rest
+
+-- A count where no element passes is 0.
+theorem List.countNone: (xs: List a) → (p: a → Bool) → ((x: a) → x ∈ xs → p x = False) → List.count xs p = 0
+  | Nil, p, none => rfl
+  | Cons x rest, p, none =>
+    rewrite List.countCons rest x p, none x (Inl rfl), List.countNone rest p (y member => none y (Inr member)) in rfl
+
+theorem List.anyEmpty: (xs: List a) → (p: a → Bool) → List.length xs = 0 → List.any xs p = False
+  | Nil, p, empty => rfl
+  | Cons x rest, p, empty => Void.exfalso (Nat.succNotZero (List.length rest) empty)
+
+-- The length of a `flatMap` is the sum of the lengths of the lists it joins.
+theorem List.lengthFlatMap (f: a → List b): (xs: List a) → List.length (List.flatMap xs f) = List.sumBy xs (x => List.length (f x))
+  | Nil => rfl
+  | Cons x rest =>
+    rewrite List.sumByCons rest x (x => List.length (f x)), <- List.lengthFlatMap f rest in
+      List.lengthAppend (f x) (List.flatMap rest f)
+
+theorem List.lengthFlatMapExample: List.length (List.flatMap [1, 2, 3] (n => List.replicate n n)) = 6 := rfl
+
 theorem List.scanLeftCons: (xs: List a) → (z: b) → (f: b → a → b) → List.scanLeft xs z f = Cons z (List.drop (List.scanLeft xs z f) 1)
   | Nil, z, f => rfl
   | Cons x xs, z, f => rfl

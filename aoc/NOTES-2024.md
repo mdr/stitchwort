@@ -2769,6 +2769,11 @@ the grammar, as on day 8, so its message has no column.
 None added (the `List/Toolkit.sw` split is in progress in another lane).
 Fix: add the five lemmas and `List.forEach` to std.
 
+Fixed: std has `List.forEach` (`f` on each element for what it performs,
+returning `()`), which `parseMap` now uses, and `List.lengthFlatMap`,
+`List.lengthFilter`, `List.countFalse`, `List.countNone` and
+`List.anyEmpty` (List/Lemmas.sw); the local copies are gone.
+
 ### 3. Proofs: `omega` reads neither `||`, `==` nor a literal record's field
 
 `isOrthogonalStep` is `&&`, `||` and `==` on `Nat`s. Once the positions
@@ -2856,6 +2861,24 @@ that a literal spec of "count distinct paths" is a proof-only object.
 
 Fix: elaborate `if` on a `Bool`-valued comparison as `Bool`; unfold
 instance fields when comparing; allow `in` on its own line.
+
+Fixed: an `if` on a decided proposition whose branches don't use its proof
+is the `Bool` `if` on the decision's `Bool`, the same term `.filter` gets,
+so `List.sumByFilter`'s statement matches `if (trailsFrom map start).length
+>= 1 then … else Add.zero`. Where a branch uses the proof (an `auto`
+argument such as `Fin.ofNat i` under `if i < n`) it stays a decided `if`.
+
+Fixed: `List.sumByZero xs` checks as `List.sumBy xs (x => 0) = 0`. The
+cause wasn't the instance field: the lemma's `Add c` dictionary is fixed
+only by the expected type, and two calls of one definition are compared by
+their arguments only when that solves nothing, so the comparison went into
+the unfoldings (`Add.zero ?add` against `0`), failed, and was undone, `c`
+with it, leaving the dictionary unready. A failed comparison now keeps what
+it learnt, finds the dictionaries that made ready, and compares again,
+undoing all of it if that fails too.
+
+Fixed: `in` may start a line of its own after a `rewrite`'s rules, at the
+`rewrite`'s column or right of it.
 
 ### 7. What went well
 

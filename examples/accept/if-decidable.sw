@@ -1,6 +1,7 @@
 -- `if` on a proposition: `if x < y then a else b` means
 -- `if _: x < y then a else b`, using the decision procedure `auto` finds.
 -- A `Bool` condition is read as a `Bool`, as always.
+import Std (Fin, List)
 
 def smaller (x: Nat) (y: Nat): Nat := if x < y then x else y
 
@@ -50,3 +51,15 @@ def describe (n: Nat): Text := if 100 ≤ n then "big" else "small"
 
 test "describe, big" := describe 150 == "big"
 test "describe, small" := describe 3 == "small"
+
+-- When neither branch uses the proof, the condition is the comparison's
+-- `Bool`, the same term a `Bool` test gets, so a lemma stated with a `Bool`
+-- test (`List.sumByFilter`) matches the `if`.
+theorem filterSum (xs: List (List Nat)) (f: List Nat → Nat):
+    List.sumBy (List.filter xs (ys => ys.length >= 1)) f = List.sumBy xs (ys => if ys.length >= 1 then f ys else 0) :=
+  List.sumByFilter xs f (ys => ys.length >= 1)
+
+-- A branch that uses the proof keeps it: `Fin.ofNat` finds `i < n`.
+def below (n: Nat) (i: Nat): Option (Fin n) := if i < n then Some (Fin.ofNat i) else None
+
+test "below" := (below 3 1).isSome ∧ (below 3 3).isNone

@@ -37,7 +37,7 @@ def tile(): {Parse} (Option Nat) :=
 def parseMap (input: Text): {Fail} TopographicMap :=
   let rows := Parse.all input (() => Parse.grid tile)
   let width := rows.headOr [] |> .length
-  rows.withIndex |> .map (((row, tiles)) =>
+  rows.withIndex |> .forEach (((row, tiles)) =>
     Fail.ensure (tiles.length == width) "line ${row + 1}: expected ${width} tiles, as on the first line, got ${tiles.length}")
   { rows }
 

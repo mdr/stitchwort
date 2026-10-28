@@ -30,6 +30,14 @@ def List.map: List a → (f: a → {e} b) → {e} List b
   | Nil, f => Nil
   | Cons x xs, f => Cons (f x) (List.map xs f)
 
+-- `f` on each element, in order, for what it performs: `rows.forEach (row =>
+-- Fail.ensure …)` checks every row, stopping at the first that fails.
+def List.forEach: List a → (f: a → {e} ()) → {e} ()
+  | Nil, f => ()
+  | Cons x xs, f =>
+    f x
+    List.forEach xs f
+
 -- One step of `List.filter`: `x` in front of the filtered rest, or not. A
 -- function of its own so the recursive call is written once: with an `if`
 -- around it in both branches, a condition the checker can't decide (one on
