@@ -1188,11 +1188,15 @@ pub(crate) fn refold(
     lets: &[Around],
 ) -> std::result::Result<Term, ZonkError> {
     let mut term = term;
-    for (slot, normal) in lets {
+    for (slot, scope, normal) in lets {
+        // A normal form that mentions variables not in scope can't occur.
+        let Some(by) = level.checked_sub(*scope) else {
+            continue;
+        };
         // The value, moved under `under` more binders, is compared without
         // making the moved copy.
         let hook = |t: &Term, under: usize| {
-            crate::matching::same_shifted(normal, t, level - slot + under, 0)
+            crate::matching::same_shifted(normal, t, by + under, 0)
                 .then(|| Term::Var(level + under - 1 - slot))
         };
         match fold_back(g, &term, 0, &hook) {
@@ -1355,11 +1359,14 @@ pub(crate) fn worth_folding(normal: &Term) -> bool {
     !matches!(normal.strip_loc(), Term::Var(_) | Term::Nat(_))
 }
 
-/// A `let` that `term` is inside, in [`zonk_in`]: its level, and its value
-/// as a normal form in the context before it. A `let` may appear twice,
-/// with its value read back folded and unfolded ([`both_forms`]), since a
-/// solution may hold either.
-pub(crate) type Around = (usize, Rc<Term>);
+/// A `let` that `term` is inside, in [`zonk_in`]: its level, how many
+/// variables its value's normal form is in, and that normal form. That's
+/// the context before the `let`, unless a case split has replaced a
+/// variable its value uses by a constructor whose fields are bound after
+/// the `let`: then it's a context that has those fields too. A `let` may
+/// appear twice, with its value read back folded and unfolded
+/// ([`both_forms`]), since a solution may hold either.
+pub(crate) type Around = (usize, usize, Rc<Term>);
 
 /// `value` read back folded and, if that differs, unfolded: the forms of a
 /// `let`'s value that [`refold`] looks for. A solution is written folded
@@ -1541,7 +1548,7 @@ fn zonk_changed(
                 go(b, level + 1)?
             } else {
                 let mut inner = lets.to_vec();
-                inner.extend(normals.into_iter().map(|n| (level, Rc::new(n))));
+                inner.extend(normals.into_iter().map(|n| (level, level, Rc::new(n))));
                 zonk_changed(g, level + 1, b, keep, &inner)?.map(Rc::new)
             };
             match (a2, v2, b2) {
@@ -1715,6 +1722,30 @@ mod tests {
 
     fn is_var(g: &Globals, v: &Value, level: usize) -> bool {
         matches!(force(g, v.clone()).unwrap(), Value::Neutral(Head::Var(l, _), s) if l == level && s.is_empty())
+    }
+
+    /// A `let` at level 0 whose value, after a case split, mentions the
+    /// variable at level 1 (a constructor's field bound after it): its
+    /// normal form is in a context of two variables, and folds back to the
+    /// `let` only where both are in scope.
+    #[test]
+    fn a_let_whose_value_mentions_a_later_variable_folds_back_where_it_is_in_scope() {
+        let g = globals();
+        let pair =
+            |a: usize, b: usize| Term::Eq(None, Rc::new(Term::Var(a)), Rc::new(Term::Var(b)));
+        // `level 1 = level 0`, in a context of two variables.
+        let lets: Vec<Around> = vec![(0, 2, Rc::new(pair(0, 1)))];
+        let folded = |term: Term, level: usize| refold(&g, term, level, &lets).ok().unwrap();
+        assert!(matches!(folded(pair(0, 1), 2), Term::Var(1)));
+        assert!(matches!(folded(pair(1, 2), 3), Term::Var(2)));
+        // Under a binder of its own.
+        let under = Term::Lam("y".into(), Icit::Explicit, Rc::new(pair(1, 2)));
+        assert!(matches!(
+            folded(under, 2),
+            Term::Lam(_, _, ref body) if matches!(**body, Term::Var(2))
+        ));
+        // With only the `let` in scope, nothing is folded.
+        assert!(matches!(folded(pair(0, 0), 1), Term::Eq(..)));
     }
 
     #[test]

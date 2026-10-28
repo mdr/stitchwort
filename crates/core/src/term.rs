@@ -452,11 +452,7 @@ impl Term {
     /// under `by` new binders.
     pub fn shift(&self, g: &Globals, by: usize, cutoff: usize) -> Result<Term> {
         self.map_vars(g, cutoff, &|ix, cutoff| {
-            if ix >= cutoff {
-                ix.wrapping_add(by)
-            } else {
-                ix
-            }
+            if ix >= cutoff { ix + by } else { ix }
         })
     }
 

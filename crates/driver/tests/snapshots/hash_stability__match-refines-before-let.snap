@@ -1,0 +1,21 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.viaValue dca50f98e39b9416d91dfce6048c5705978bf8025245e98cc2c146510a02734a
+Main.viaValue.%match1 7f736222a6ccf5b941b221af8ae1d0b1c929088e2e36beb3ff2181e1ae2f412d
+Main.viaValue.%match3 4200b40cf2f47d151f5fbfda9a04a322c33511662c03a55c0fc224cc61d29cda
+Main.viaValue.%match2 036470051191066b94fd23a05cd6cd289265c7e5f3e44752e3a37b5e9b59d613
+Main.viaFunction 92c198ce3c5e3c4ba74985dadc1d2515134794adbe422a9b0b443fd111595ef4
+Main.viaFunction.%match1 7f736222a6ccf5b941b221af8ae1d0b1c929088e2e36beb3ff2181e1ae2f412d
+Main.viaFunction.%match3 de303e4553b50ffd85cd0ae2f70ca9f3bdd7b448b5bdd2d1a12e592e57ecb9c5
+Main.viaFunction.%match2 be5b64c0754ea5becd093fa78bb69a4a591fcf02a710b9ddc47b1225f4636141
+Main.viaType 0ad6eefe40cc564cdff58d5c4037dc5d23d2ea9128fdfb52a8cbba8451e9116d
+Main.viaType.%match2 704dbe7bb7ab8182304c04e16fea2a6ec86abe4fdc55fe46f57faad620422e52
+Main.viaType.%match1 b4fe949494f4551d551b91f878c9a74035bdb104cfae7c59119800644d63b052
+Main.Box 50280d4b32e67bab0ebf30042a82e3430a0add4d771d8b72e7ad253b96edf403
+Main.test "the let's value, in the branch" 771c5560fe49f22c6b591270944612e858235b9efc48ac8a73e76fd9c8eb6eb8
+Main.test "the let's value, in the other branch" 9531fa3135877690df117d1033ea0a623d62ecf810d7e2085d34fd9c880b41e7
+Main.test "the inner match's other arm" 1d34f9d758c4fcd2434f921db158ed59e362dcfd2fd3b0ea71062176382af559
+Main.test "a let of two arguments" 389e82124b4422aeee3a7a914b3aae5cd0f2443a5c2c3eb81f2fd3462cca45c5
+Main.test "the let's type" 4a7399e2e6d22fc7813475d45ea527e48d0d54c4042ec8154700faab87745589
