@@ -123,14 +123,12 @@ def Garden.fill (garden: Garden) (plant: Char) (stack: List Position) (visited: 
   match stack with
     | Nil => members
     | Cons position rest =>
-      match taken: visited.contains position with
-        | True => Garden.fill garden plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
-        | False =>
-          match grows: garden.plantAt position == Some plant with
-            | True =>
-              Garden.fill garden plant (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members)
-                [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant (DecEq.sound _ _ grows) taken)]
-            | False => Garden.fill garden plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
+      if fresh: visited.contains position = False then
+        if grows: garden.plantAt position = Some plant then
+          Garden.fill garden plant (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members)
+            [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)]
+        else Garden.fill garden plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
+      else Garden.fill garden plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
 
 -- The region containing `start`: the plots joined to it.
 def Garden.regionOf (garden: Garden) (start: Position): List Position :=
