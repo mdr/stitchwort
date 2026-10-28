@@ -6221,7 +6221,7 @@
     {
       "id": 742,
       "title": "Design note: keep definitions folded (written, on branch worktree-agent-a4d41ce184555fffb, docs/proposals/folded-goals.md; awaiting review)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
