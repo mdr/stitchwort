@@ -37,6 +37,9 @@ pub struct RowMeta {
     /// A divergence unknown (docs/proposals/partial-stage-3.md), defaulted
     /// to `Total` rather than to the empty row.
     divergence: bool,
+    /// Set to the empty row before the end of the declaration
+    /// ([`settling_empty`]), and so reported as defaulted.
+    settled_empty: bool,
 }
 
 /// A row comparison put aside, with the context it was made in.
@@ -85,7 +88,52 @@ pub(crate) fn note_row_meta(cx: &Ctx, ty: &Value, meta: &Term) {
         meta: meta.clone(),
         span: cx.span,
         divergence,
+        settled_empty: false,
     });
+}
+
+/// The row unknown of `item`, as it now stands.
+fn row_meta_value(e: &Elaborator, item: &RowMeta) -> Result<Value> {
+    let cx = Ctx::from_parts(
+        e,
+        item.env.clone(),
+        item.types.clone(),
+        item.names.clone(),
+        item.span,
+    );
+    Ok(force(cx.g(), cx.eval(&item.meta)?)?)
+}
+
+/// Runs `settle`, which sets row unknowns to the empty row before the end of
+/// the declaration, and marks the row unknowns it set, so that an error found
+/// later explains them as defaulted ones are.
+pub(crate) fn settling_empty(cx: &Ctx, settle: impl FnOnce() -> Result<()>) -> Result<()> {
+    let metas = cx.e.row_metas.borrow().clone();
+    let mut unsolved = Vec::new();
+    for (i, item) in metas.iter().enumerate() {
+        if !item.divergence
+            && matches!(
+                row_meta_value(cx.e, item)?,
+                Value::Neutral(Head::Meta(_), _)
+            )
+        {
+            unsolved.push(i);
+        }
+    }
+    settle()?;
+    for i in unsolved {
+        if is_empty_row(cx.g(), &row_meta_value(cx.e, &metas[i])?)
+            && let Some(item) = cx.e.row_metas.borrow_mut().get_mut(i)
+        {
+            item.settled_empty = true;
+        }
+    }
+    Ok(())
+}
+
+/// Whether `value`, forced, is the empty row.
+fn is_empty_row(g: &Globals, value: &Value) -> bool {
+    matches!(value, Value::Ctor(d, c, _) if Some((*d, *c)) == g.registry.ctor(Builtin::RowEmpty))
 }
 
 /// Why a row couldn't be built.
@@ -256,7 +304,10 @@ impl Elaborator {
                 }
                 None => {
                     self.row_constraints.borrow_mut().extend(still);
-                    return Err(cx.mismatch(&b, &a));
+                    return Err(explain_defaulted(
+                        cx.mismatch(&b, &a),
+                        &self.settled_early()?,
+                    ));
                 }
             }
         }
@@ -277,7 +328,7 @@ impl Elaborator {
     /// itself never guesses a row (SW-430).
     pub(crate) fn settle_rows(&self, stuck: Option<stitchwort_syntax::Diagnostic>) -> Result<()> {
         while self.retry_rows()? {}
-        let defaulted = self.default_rows()?;
+        let mut defaulted = self.default_rows()?;
         if !defaulted.is_empty() {
             let after = self.solve_obligations().and_then(|()| {
                 while self.retry(0, true)? {}
@@ -297,10 +348,24 @@ impl Elaborator {
             let d = cx
                 .mismatch(b, a)
                 .with_note("a row variable's row couldn't be worked out here");
+            defaulted.extend(self.settled_early()?);
             return Err(explain_defaulted(d, &defaulted));
         }
         self.row_metas.borrow_mut().clear();
         Ok(())
+    }
+
+    /// Where each row unknown set to the empty row by [`settling_empty`] was
+    /// made, if it's still the empty row.
+    fn settled_early(&self) -> Result<Vec<Span>> {
+        let metas = self.row_metas.borrow().clone();
+        let mut spans = Vec::new();
+        for item in metas.iter().filter(|item| item.settled_empty) {
+            if is_empty_row(&self.globals, &row_meta_value(self, item)?) {
+                spans.push(item.span);
+            }
+        }
+        Ok(spans)
     }
 
     /// Sets each row unknown made for an implicit row parameter, and still
@@ -439,15 +504,18 @@ fn explain_defaulted(
     d: stitchwort_syntax::Diagnostic,
     defaulted: &[Span],
 ) -> stitchwort_syntax::Diagnostic {
+    const NOTE: &str = "nothing said which abilities this call may perform, so its row defaulted \
+                        to the empty row (pure); give the callback's type, or annotate the \
+                        result, if it was meant to perform something";
     let Some(first) = defaulted.first() else {
         return d;
     };
+    // An error explained once already (when it was found) isn't again.
+    if d.notes.iter().any(|note| note == NOTE) {
+        return d;
+    }
     d.with_label(*first, "the row of this call was set to the empty row")
-        .with_note(
-            "nothing said which abilities this call may perform, so its row defaulted to the \
-             empty row (pure); give the callback's type, or annotate the result, if it was meant \
-             to perform something",
-        )
+        .with_note(NOTE)
 }
 
 /// `unify::row_rule`, one test per row of its table, against the unifier

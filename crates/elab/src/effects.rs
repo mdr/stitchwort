@@ -1301,7 +1301,7 @@ pub fn settle_let_lambda(cx: &Ctx, value: &Expr, ty: Value) -> Result<Value> {
     }
     // The row is made outside the parameters, so it's settled where the
     // lambda stands.
-    settle_empty(cx, &rest)?;
+    crate::rows::settling_empty(cx, || settle_empty(cx, &rest))?;
     cx.eval(&cx.quote(&ty)?)
 }
 
