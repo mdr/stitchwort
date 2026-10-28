@@ -2204,6 +2204,7 @@ Release build, on a machine busy with other work:
 | `stitchwort test --no-cache Aoc.Year2024.Day08` (28 tests) | 4.2 s |
 | `stitchwort test Aoc.Year2024.Day08` (warm) | 2.1 s |
 | `stitchwort run Aoc.Year2024.Day08.main` on the input | 0.67 s |
+| `stitchwort check --no-cache` (whole project) | 14 s |
 
 101 lines of program, 55 of spec, 625 of proofs, 149 of tests.
 
