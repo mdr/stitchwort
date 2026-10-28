@@ -63,6 +63,7 @@ mod scope;
 mod shared;
 pub mod shown;
 pub mod timings;
+pub use kernel::take_rejections as take_kernel_rejections;
 pub use library::{EMBEDDED_LIBRARY_FILES, LibraryIndex};
 pub mod std_dir;
 pub use rewind::Mark;
