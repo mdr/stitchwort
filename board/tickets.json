@@ -7502,9 +7502,9 @@
     {
       "id": 842,
       "title": "Messages: a parse error's 'got' shows the next token; E-MATCH-MOTIVE / E-ARITY name the unfolded definition",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "worktree",
       "labels": [
         "bug"
       ],
@@ -7516,9 +7516,9 @@
     {
       "id": 843,
       "title": "A hang (time budget) should name the declaration being checked",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "worktree",
       "labels": [
         "tooling"
       ],
@@ -7656,9 +7656,9 @@
     {
       "id": 852,
       "title": "E-INTERNAL is shared by a user-facing error ('X is internal to the standard library') and compiler-bug errors; give the user-facing one its own code",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "worktree",
       "labels": [
         "bug"
       ],
@@ -7705,7 +7705,7 @@
     {
       "id": 855,
       "title": "Negative arguments, stage 3: f !x as f (!x) under the same whitespace rule",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7714,7 +7714,11 @@
       "body": "D1471 (Matt, 28 Oct): '!' follows the '-' rule, as a separate small change after stages 1-2. docs/proposals/negative-arguments.md §8 stage 3.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "a221db37",
+        "be2b990b",
+        "d8d11dc4"
+      ]
     },
     {
       "id": 856,
@@ -7733,7 +7737,7 @@
     {
       "id": 857,
       "title": "Check that no lane-* nextest profile selects zero tests",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7742,7 +7746,11 @@
       "body": "From the SW-848 lane: lane-aoc silently ran 0 tests after the aoc_answers tests were renamed to yearYYYY_dayNN. Add a cheap check (a task or a test in the merge tier) that runs 'cargo nextest list --profile lane-X' for every lane-* profile and fails if one lists 0 tests. All 16 lanes list >0 today (28 Oct).",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "a8e344b3",
+        "c50910fc",
+        "5997efaa"
+      ]
     },
     {
       "id": 858,
@@ -7774,14 +7782,14 @@
     },
     {
       "id": 860,
-      "title": "Negative arguments: the D1467 note on E-TYPE-MISMATCH for one argument too many, and a test for the new colouring",
+      "title": "Negative and ! arguments follow-ups: note on E-TYPE-MISMATCH for one argument too many, colouring test, f ! a reject example, f ¬x",
       "status": "next",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "syntax"
       ],
-      "body": "From the SW-854 lane: (1) the note for an unbracketed negative argument is added to E-NOT-A-FUNCTION and the constructor arity error only; 'f a -1' where f takes one argument fewer can surface as E-TYPE-MISMATCH at the result with no note (no case built yet). (2) No test covers the new glued-numeral colouring in the VS Code grammar or the playground tokenizer (web/index.html); add a grammar test or a case in web/tests/browser.mjs.",
+      "body": "From the SW-854 lane: (1) the note for an unbracketed negative argument is added to E-NOT-A-FUNCTION and the constructor arity error only; 'f a -1' where f takes one argument fewer can surface as E-TYPE-MISMATCH at the result with no note (no case built yet). (2) No test covers the new glued-numeral colouring in the VS Code grammar or the playground tokenizer (web/index.html); add a grammar test or a case in web/tests/browser.mjs.\n\n(3) From SW-855: a reject example for 'f ! a' and 'f!a' (only parser unit tests cover them), and a test that 'f ¬x' (same Bang token) reads as f (¬x).\n",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
