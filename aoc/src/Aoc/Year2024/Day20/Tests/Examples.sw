@@ -33,7 +33,7 @@ def at (row: Nat) (column: Nat): Position := { row, column }
 
 -- The cheats of up to `length` picoseconds saving exactly `saving`.
 def savingExactly (length: Nat) (input: Text) (saving: Nat): Nat :=
-  countCheats length saving (racetrack input) - countCheats length (saving + 1) (racetrack input)
+  (racetrack input).countCheats length saving - (racetrack input).countCheats length (saving + 1)
 
 -- "There are 14 cheats that save 2 picoseconds", and so on.
 test "example, part 1, by saving" :=
@@ -59,7 +59,7 @@ test "a U-turn round one wall" :=
   solvePart1 1 (racetrack uTurn) == 2 && savingExactly 2 uTurn 4 == 1 && savingExactly 2 uTurn 2 == 1 && solvePart2 1 (racetrack uTurn) == 4
 test "a wall two thick needs three picoseconds" :=
   let thick := "######\n#S##E#\n#.##.#\n#....#\n######\n"
-  countCheats 2 1 (racetrack thick) == 0 && countCheats 3 1 (racetrack thick) == 2 && savingExactly 3 thick 4 == 1
+  (racetrack thick).countCheats 2 1 == 0 && (racetrack thick).countCheats 3 1 == 2 && savingExactly 3 thick 4 == 1
 test "a short row is walled beyond its end" := solvePart1 1 (racetrack "#####\n#S#E#\n#.#.\n#...#\n#####\n") == 2
 
 test "the search's times" :=

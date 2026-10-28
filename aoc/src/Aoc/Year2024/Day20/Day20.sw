@@ -150,12 +150,12 @@ def cheatsFrom (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: 
     | None => 0
 
 -- How many cheats of up to `length` picoseconds save at least `threshold`.
-def countCheats (length: Nat) (threshold: Nat) (racetrack: Racetrack): Nat :=
+def Racetrack.countCheats (racetrack: Racetrack) (length: Nat) (threshold: Nat): Nat :=
   let fromStart := racetrack.fromStart
   match fromStart.get racetrack.end with
     | Some honest => racetrack.track.toList |> .sumBy (cheatsFrom fromStart racetrack.toEnd honest length threshold)
     | None => 0
 
-def solvePart1 (threshold: Nat) (racetrack: Racetrack): Nat := countCheats 2 threshold racetrack
+def solvePart1 (threshold: Nat) (racetrack: Racetrack): Nat := racetrack.countCheats 2 threshold
 
-def solvePart2 (threshold: Nat) (racetrack: Racetrack): Nat := countCheats 20 threshold racetrack
+def solvePart2 (threshold: Nat) (racetrack: Racetrack): Nat := racetrack.countCheats 20 threshold
