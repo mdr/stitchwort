@@ -1,5 +1,5 @@
 {
-  "next": 823,
+  "next": 825,
   "tickets": [
     {
       "id": 13,
@@ -7238,6 +7238,30 @@
       "where": "",
       "labels": [],
       "body": "2024 day 9 Proofs/Part2.sw lines 55, 64, 78 write FreeSpace.moveFile free file instead. Docs say such lambdas wait for later arguments. Also day 3 proofs: a let-bound lambda over a (index, instruction) pair can't use instruction.result.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 823,
+      "title": "Design note for D1445: may spec/proof/test files add functions to a program's types, and how far would they leak into other scopes",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 824,
+      "title": "Design note for D1446: functions on type aliases; why dot syntax loses the alias after inference (experiment with glued calls in dot.rs step_value)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
