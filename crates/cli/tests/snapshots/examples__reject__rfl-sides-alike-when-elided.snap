@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/rfl-sides-alike-when-elided.sw:11:316 ]
+    │
+ 11 │         List.foldLeft (List.range n) 0 (acc x => acc + (x * c + (c + (x + 1)))) + List.foldLeft (List.range n) 0 (acc x => acc + (x * c + (c + (x + 2)))) + List.foldLeft (List.range n) 0 (acc x => acc + (x * c + (c + (x + 3)))) + List.foldLeft (List.range n) 0 (acc x => acc + (x * x + (c * x + (x + (c + 8))))) := rfl
+    │                                                                                                                                                                                                                                                                                                                            ─┬─  
+    │                                                                                                                                                                                                                                                                                                                             ╰─── `List.foldLeft (List.range n) 0 (acc x => acc + …) + List.foldLeft (List.range n) 0 (acc x => acc + …) + List.foldLeft (List.range n) 0 (acc x => acc + (… + …)) + List.foldLeft (List.range n) 0 (acc x => acc + (x * x + (… + …)))` and `List.foldLeft (List.range n) 0 (acc x => acc + …) + List.foldLeft (List.range n) 0 (acc x => acc + …) + List.foldLeft (List.range n) 0 (acc x => acc + (… + …)) + List.foldLeft (List.range n) 0 (acc x => acc + (x * x + (… + …)))` aren't equal
+    │ 
+    │ Note 1: computing both sides gives `List.foldLeft (List.rangeFrom n 0) 0 (acc x => …) + List.foldLeft (List.rangeFrom n 0) 0 (acc x => …) + List.foldLeft (List.rangeFrom n 0) 0 (acc x => acc + …) + List.foldLeft (List.rangeFrom n 0) 0 (acc x => acc + (… + …))` and `List.foldLeft (List.rangeFrom n 0) 0 (acc x => …) + List.foldLeft (List.rangeFrom n 0) 0 (acc x => …) + List.foldLeft (List.rangeFrom n 0) 0 (acc x => acc + …) + List.foldLeft (List.rangeFrom n 0) 0 (acc x => acc + (… + …))`
+    │ 
+    │ Note 2: they first differ at `c + 7` against `c + 8`, in `List.foldLeft (List.rangeFrom n 0) 0 (acc x => acc + (x * x + (c * x + (x + (c + 7)))))`
+    │ 
+    │ Note 3: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 4: this statement is false; a counterexample:
+    │           n = 1
+    │           c = 0
+    │         `… + … + List.foldLeft … 0 … + List.foldLeft (List.range n) 0 (acc x => …) = … + … + List.foldLeft … 0 … + List.foldLeft (List.range n) 0 (acc x => …)` is false:
+    │           left:  13
+    │           right: 14
+────╯

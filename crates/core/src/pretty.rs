@@ -155,6 +155,91 @@ fn value_hidden(
     text
 }
 
+/// Where two terms first differ, printed: the two differing parts (each
+/// with the operator or call around it when the parts are as small as a
+/// variable or a number), and the nearest call around them, if any.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Difference {
+    pub left: String,
+    pub right: String,
+    pub within: Option<String>,
+}
+
+/// The longest each part of a [`Difference`] may be.
+const DIFFERENCE_LIMIT: usize = 100;
+
+/// The first place, reading left to right, where `a` and `b` differ outside
+/// the arguments the compiler fills in. `None` if that's their outermost
+/// layer (which any printing shows), if they differ only in those
+/// arguments, or if they're too deeply nested to compare.
+pub fn first_difference(g: &Globals, names: &[Name], a: &Term, b: &Term) -> Option<Difference> {
+    difference(g, None, names, a, b)
+}
+
+/// [`first_difference`], with names as `scope` writes them.
+pub fn first_difference_in(
+    g: &Globals,
+    scope: &dyn NameScope,
+    names: &[Name],
+    a: &Term,
+    b: &Term,
+) -> Option<Difference> {
+    difference(g, Some(scope), names, a, b)
+}
+
+fn difference(
+    g: &Globals,
+    scope: Option<&dyn NameScope>,
+    names: &[Name],
+    a: &Term,
+    b: &Term,
+) -> Option<Difference> {
+    let found = match first_mismatch(g, a, b, true, &mut Path::new(names)) {
+        Ok(Some(found)) if !found.outermost => found,
+        _ => return None,
+    };
+    let show =
+        |names: &[Name], t: &Term| term_within(g, scope, names, t, DIFFERENCE_LIMIT, Prec::Arrow);
+    let Mismatch {
+        mut left,
+        mut right,
+        mut names,
+        mut calls,
+        ..
+    } = found;
+    // A variable or a constant reads better with the operation it's in.
+    if is_small(&left)
+        && is_small(&right)
+        && let Some(call) = calls.pop()
+    {
+        (left, right, names) = (call.left, call.right, call.names);
+    }
+    // The nearest call around it that isn't an operator (`+`, `&&`) or a
+    // whole side.
+    let printer = Printer::new(g, scope);
+    let operator =
+        |id: DefId| printer.infix(id).is_some() || g.registry.is_def(Builtin::IfThenElse, id);
+    let within = calls
+        .into_iter()
+        .rev()
+        .find(|call| {
+            !call.outermost && matches!(full_spine(&call.left).0, Term::Def(id) if !operator(*id))
+        })
+        .map(|call| show(&call.names, &call.left));
+    Some(Difference {
+        left: show(&names, &left),
+        right: show(&names, &right),
+        within,
+    })
+}
+
+/// Whether `a` and `b` differ, but only in the arguments the compiler fills
+/// in: implicit and `auto` arguments.
+pub fn differ_only_in_hidden(g: &Globals, a: &Term, b: &Term) -> bool {
+    let compare = |explicit_only| first_mismatch(g, a, b, explicit_only, &mut Path::new(&[]));
+    matches!(compare(true), Ok(None)) && matches!(compare(false), Ok(Some(_)))
+}
+
 /// [`value_for_message`], for a term.
 pub fn term_for_message(g: &Globals, names: &[Name], term_: &Term) -> String {
     term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow)
@@ -1553,6 +1638,244 @@ fn readable(x: &Name, names: &[Name]) -> Name {
         .find(|candidate| !names.iter().any(|n| **n == **candidate))
         .expect("some name is free")
         .into()
+}
+
+/// Two corresponding calls around the place being compared, with the names
+/// in scope there.
+#[derive(Clone)]
+struct CallPair {
+    left: Term,
+    right: Term,
+    names: Vec<Name>,
+    /// Whether these are the whole terms compared, under their binders.
+    outermost: bool,
+}
+
+/// Where [`first_mismatch`] is: the names in scope, the calls around it
+/// (outermost first), and how many layers in it is, not counting binders.
+struct Path {
+    names: Vec<Name>,
+    calls: Vec<CallPair>,
+    depth: usize,
+}
+
+impl Path {
+    fn new(names: &[Name]) -> Path {
+        Path {
+            names: names.to_vec(),
+            calls: Vec::new(),
+            depth: 0,
+        }
+    }
+}
+
+/// Two corresponding parts that differ at their outermost layer.
+struct Mismatch {
+    left: Term,
+    right: Term,
+    names: Vec<Name>,
+    calls: Vec<CallPair>,
+    /// Whether these are the whole terms compared, under their binders.
+    outermost: bool,
+}
+
+/// Too deeply nested to compare with the stack left.
+struct TooDeep;
+
+type Compared = std::result::Result<Option<Mismatch>, TooDeep>;
+
+/// `term` without the source locations and type annotations around it.
+fn bare(term: &Term) -> &Term {
+    let mut term = term;
+    while let Term::Loc(_, t) | Term::Ann(t, _) = term {
+        term = t;
+    }
+    term
+}
+
+/// The first place, in printing order, where `a` and `b` differ; with
+/// `explicit_only`, implicit and `auto` arguments aren't compared. A number
+/// and the `Succ` it stands for are alike.
+fn first_mismatch(
+    g: &Globals,
+    a: &Term,
+    b: &Term,
+    explicit_only: bool,
+    path: &mut Path,
+) -> Compared {
+    path.depth += 1;
+    let found = mismatch_within(g, a, b, explicit_only, path);
+    path.depth -= 1;
+    found
+}
+
+/// [`first_mismatch`], one layer in.
+fn mismatch_within(
+    g: &Globals,
+    a: &Term,
+    b: &Term,
+    explicit_only: bool,
+    path: &mut Path,
+) -> Compared {
+    if g.budget.stack_exhausted() {
+        return Err(TooDeep);
+    }
+    let (a, b) = (bare(a), bare(b));
+    let here = |path: &Path| {
+        Ok(Some(Mismatch {
+            left: a.clone(),
+            right: b.clone(),
+            names: path.names.clone(),
+            calls: path.calls.clone(),
+            outermost: path.depth == 1,
+        }))
+    };
+    // Each pair in turn, stopping at the first that differs.
+    let pairs = |path: &mut Path, pairs: &mut dyn Iterator<Item = (&Term, &Term)>| -> Compared {
+        for (x, y) in pairs {
+            if let Some(found) = first_mismatch(g, x, y, explicit_only, path)? {
+                return Ok(Some(found));
+            }
+        }
+        Ok(None)
+    };
+    // A body under binders, at the same layer: `x => f x` against `x => g x`
+    // differ at their outermost layer, which any printing shows.
+    let under = |path: &mut Path, binders: &[Name], x: &Term, y: &Term| -> Compared {
+        path.names.extend(binders.iter().cloned());
+        path.depth -= 1;
+        let found = first_mismatch(g, x, y, explicit_only, path);
+        path.depth += 1;
+        path.names.truncate(path.names.len() - binders.len());
+        found
+    };
+    let same = match (a, b) {
+        (Term::Var(i), Term::Var(j)) => i == j,
+        (Term::Def(x), Term::Def(y)) => x == y,
+        (Term::Sort(s), Term::Sort(t)) => s == t,
+        (Term::Meta(m), Term::Meta(n)) => m == n,
+        (Term::Nat(m), Term::Nat(n)) => m == n,
+        (Term::Chars(x), Term::Chars(y)) => x.as_slice() == y.as_slice(),
+        (Term::Refl, Term::Refl) => true,
+        (Term::Nat(n), Term::Ctor(d, c, fields)) | (Term::Ctor(d, c, fields), Term::Nat(n)) => {
+            let ctor = Some((*d, *c));
+            let registry = &g.registry;
+            if n.bits() == 0 {
+                ctor == registry.loaded_ctor(Builtin::Zero)
+            } else if ctor == registry.loaded_ctor(Builtin::Succ)
+                && let [field] = &fields[..]
+            {
+                let pred = Term::Nat(Rc::new(n.as_ref() - 1u32));
+                return if matches!(a, Term::Nat(_)) {
+                    first_mismatch(g, &pred, field, explicit_only, path)
+                } else {
+                    first_mismatch(g, field, &pred, explicit_only, path)
+                };
+            } else {
+                false
+            }
+        }
+        (Term::Data(d, xs), Term::Data(e, ys)) if d == e && xs.len() == ys.len() => {
+            return pairs(path, &mut xs.iter().zip(ys).map(|(x, y)| (&**x, &**y)));
+        }
+        (Term::Ctor(d, c, xs), Term::Ctor(e, k, ys))
+            if d == e && c == k && xs.len() == ys.len() =>
+        {
+            return pairs(path, &mut xs.iter().zip(ys).map(|(x, y)| (&**x, &**y)));
+        }
+        (Term::App(..), Term::App(..)) => {
+            let ((f, xs), (h, ys)) = (full_spine(a), full_spine(b));
+            let shape = xs.len() == ys.len() && xs.iter().zip(&ys).all(|(x, y)| x.1 == y.1);
+            if !shape || first_mismatch(g, f, h, explicit_only, path)?.is_some() {
+                return here(path);
+            }
+            path.calls.push(CallPair {
+                left: a.clone(),
+                right: b.clone(),
+                names: path.names.clone(),
+                outermost: path.depth == 1,
+            });
+            let found = pairs(
+                path,
+                &mut xs
+                    .iter()
+                    .zip(&ys)
+                    .filter(|(x, _)| !(explicit_only && x.1.is_implicit()))
+                    .map(|(x, y)| (x.0, y.0)),
+            );
+            path.calls.pop();
+            return found;
+        }
+        (Term::Lam(x, i, body), Term::Lam(_, j, other)) if i == j => {
+            return under(path, std::slice::from_ref(x), body, other);
+        }
+        (Term::Pi(x, i, s, t), Term::Pi(_, j, u, v)) if i == j => {
+            if let Some(found) = first_mismatch(g, s, u, explicit_only, path)? {
+                return Ok(Some(found));
+            }
+            return under(path, std::slice::from_ref(x), t, v);
+        }
+        (Term::Let(x, _, v, body, _), Term::Let(_, _, w, other, _)) => {
+            if let Some(found) = first_mismatch(g, v, w, explicit_only, path)? {
+                return Ok(Some(found));
+            }
+            return under(path, std::slice::from_ref(x), body, other);
+        }
+        (Term::Eq(_, x, y), Term::Eq(_, u, v)) => {
+            return pairs(path, &mut [(&**x, &**u), (&**y, &**v)].into_iter());
+        }
+        (Term::J(m, x, p), Term::J(n, y, q)) => {
+            return pairs(
+                path,
+                &mut [(&**m, &**n), (&**x, &**y), (&**p, &**q)].into_iter(),
+            );
+        }
+        (Term::Quot(f, xs, _), Term::Quot(h, ys, _)) if f == h && xs.len() == ys.len() => {
+            let skip = if explicit_only { f.implicit() } else { 0 };
+            return pairs(
+                path,
+                &mut xs.iter().zip(ys).skip(skip).map(|(x, y)| (&**x, &**y)),
+            );
+        }
+        (Term::Case(ix, d, xs), Term::Case(iy, e, ys))
+            if ix == iy && d == e && xs.len() == ys.len() =>
+        {
+            for (x, y) in xs.iter().zip(ys.iter()) {
+                match (&x.body, &y.body) {
+                    (None, None) => {}
+                    (Some(s), Some(t)) if x.names.len() == y.names.len() => {
+                        if let Some(found) = under(path, &x.names, s, t)? {
+                            return Ok(Some(found));
+                        }
+                    }
+                    _ => return here(path),
+                }
+            }
+            true
+        }
+        (Term::NumCase(ix, xs, s), Term::NumCase(iy, ys, t))
+            if ix == iy
+                && xs.len() == ys.len()
+                && xs.iter().zip(ys.iter()).all(|(x, y)| x.value == y.value) =>
+        {
+            let arms = xs.iter().zip(ys.iter()).map(|(x, y)| (&*x.body, &*y.body));
+            return pairs(path, &mut arms.chain([(&**s, &**t)]));
+        }
+        _ => false,
+    };
+    if same { Ok(None) } else { here(path) }
+}
+
+/// A variable, a definition's name, or a few constructors around those, such
+/// as `2` or `True`.
+fn is_small(term: &Term) -> bool {
+    fn within(term: &Term, layers: usize) -> bool {
+        match bare(term) {
+            Term::Ctor(_, _, fields) => layers > 0 && fields.iter().all(|f| within(f, layers - 1)),
+            term => is_atomic(term),
+        }
+    }
+    within(term, 4)
 }
 
 fn is_atomic(term: &Term) -> bool {
