@@ -52,18 +52,15 @@ def Network.links (network: Network): Links :=
 
 def neighbours (links: Links) (computer: Computer): Set Computer := links.getOr computer Set.empty
 
--- Every set of three different computers, each connected to the other two:
--- a computer, one of its neighbours, and a neighbour of both.
+-- The sets of `first`, one of its neighbours, and a neighbour of both.
+def setsWith (links: Links) (first: Computer): List (Set Computer) :=
+  let firstNeighbours := neighbours links first
+  firstNeighbours.toList.flatMap (second =>
+    neighbours links second |> .intersect firstNeighbours |> .toList |> .map (third => Set.fromList [first, second, third]))
+
+-- Every set of three different computers, each connected to the other two.
 def setsOfThree (links: Links): Set (Set Computer) :=
-  links.toList
-    |> .flatMap ((((first, firstNeighbours)) =>
-      firstNeighbours.toList.flatMap (second =>
-        neighbours links second
-          |> .intersect firstNeighbours
-          |> .toList
-          |> .map (third => Set.fromList [first, second, third]))))
-    |> Set.fromList
-    |> .filter (set => set.size == 3)
+  links.keySet.toList.flatMap (setsWith links) |> Set.fromList |> .filter (set => set.size == 3)
 
 -- Whether a computer's name starts with t, as the Chief Historian's does.
 def mightBeChiefs (set: Set Computer): Bool := set.any (computer => computer.startsWith "t")

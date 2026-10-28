@@ -13,9 +13,6 @@ import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Option, Or, Pair, Set,
 def startingAt (network: Network) (one: Computer): List (Computer, Computer) :=
   network.bothWays.filter ((pair: (Computer, Computer)) => Map.Spec.sameKey one pair.fst)
 
-theorem sameKeySelf (computer: Computer): Map.Spec.sameKey computer computer = True :=
-  rewrite Map.Spec.sameKeyDecide computer computer in DecEq.refl computer
-
 theorem neighboursGet (links: Links) (one: Computer): neighbours links one = (Map.get links one).getOrElse Set.empty := rfl
 
 -- A computer's neighbours are the far ends of the connections starting at
@@ -46,9 +43,9 @@ theorem neighboursIff (network: Network) (one: Computer) (other: Computer):
                 rewrite Map.Spec.sameKeySound one start starts, Map.Spec.sameKeySound other x same, <- far in inBoth)),
   backward = inBoth =>
     rewrite neighboursStartingAt network one other in
-      List.anyOfMem ((startingAt network one).map Pair.snd) (x => Map.Spec.sameKey other x) other (sameKeySelf other)
+      List.anyOfMem ((startingAt network one).map Pair.snd) (x => Map.Spec.sameKey other x) other (sameKeyRefl other)
         (List.memMap (startingAt network one) (one, other)
-          (List.memFilterIntro network.bothWays ((pair: (Computer, Computer)) => Map.Spec.sameKey one pair.fst) (one, other) inBoth (sameKeySelf one)) Pair.snd)
+          (List.memFilterIntro network.bothWays ((pair: (Computer, Computer)) => Map.Spec.sameKey one pair.fst) (one, other) inBoth (sameKeyRefl one)) Pair.snd)
 }
 
 -- The connections both ways round are the map's, read either way.
