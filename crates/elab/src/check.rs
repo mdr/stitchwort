@@ -503,7 +503,7 @@ impl<'e> Ctx<'e> {
     pub fn differ_only_in_hidden(&self, a: &Value, b: &Value) -> bool {
         let g = self.g();
         let level = self.level();
-        let folded = |v| stitchwort_core::value::quote_folded(g, level, v).ok();
+        let folded = |v| stitchwort_core::value::quote_shown(g, level, v).ok();
         let normal = |v| quote(g, level, v).ok();
         [(folded(a), folded(b)), (normal(a), normal(b))]
             .iter()
@@ -540,7 +540,7 @@ impl<'e> Ctx<'e> {
         let mut helpers: Vec<stitchwort_core::DefId> = Vec::new();
         for value in values {
             let terms = [
-                stitchwort_core::value::quote_folded(g, level, value),
+                stitchwort_core::value::quote_shown(g, level, value),
                 quote(g, level, value),
             ];
             for term in terms.iter().flatten() {

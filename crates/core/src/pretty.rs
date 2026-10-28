@@ -14,7 +14,7 @@ use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, Globals};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
-use crate::value::{Value, quote, quote_folded};
+use crate::value::{Value, quote, quote_shown};
 
 /// A declaration a printed name stands for.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -101,7 +101,7 @@ const MESSAGE_LIMIT: usize = 240;
 /// Prints `value` for an error message: like [`value`], but a result longer
 /// than [`MESSAGE_LIMIT`] characters has its inner parts replaced by `…`,
 /// keeping the outermost layers. Calls are shown as written
-/// (`List.length xs`), not as what they compute to ([`quote_folded`];
+/// (`List.length xs`), not as what they compute to ([`quote_shown`];
 /// docs/proposals/folded-calls.md, stage 3). Setting
 /// `STITCHWORT_FULL_TERMS` shows everything.
 pub fn value_for_message(g: &Globals, names: &[Name], value: &Value) -> String {
@@ -140,7 +140,7 @@ fn value_hidden(
     names: &[Name],
     value: &Value,
 ) -> String {
-    let Ok(t) = quote_folded(g, names.len(), value) else {
+    let Ok(t) = quote_shown(g, names.len(), value) else {
         return "…".into();
     };
     let mut ns = names.to_vec();
@@ -285,7 +285,7 @@ fn value_within(
     limit: usize,
     prec: Prec,
 ) -> String {
-    let Ok(t) = quote_folded(g, names.len(), value) else {
+    let Ok(t) = quote_shown(g, names.len(), value) else {
         return "…".into();
     };
     term_within(g, scope, names, &t, limit, prec)
