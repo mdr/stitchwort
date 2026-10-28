@@ -1,5 +1,5 @@
 {
-  "next": 821,
+  "next": 823,
   "tickets": [
     {
       "id": 13,
@@ -7197,7 +7197,7 @@
     {
       "id": 819,
       "title": "… same review: AoC 2024 days 13–24",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7214,6 +7214,30 @@
       "where": "",
       "labels": [],
       "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 821,
+      "title": "Dot syntax loses type aliases and nicknames: an element of List Code (Code an alias) is seen as List; FreeSpace.of's result is seen as Map; so x.f can't find Code.f / FreeSpace.f",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Namespacing review 28 Oct: day 21 codes.sumBy (code => code.numericPart) fails with \"List has no field or function numericPart\"; 2025 day 3 banks |> .sumBy (.maxJoltage 2) with Bank := List Battery fails the same way (day 3 left unnamespaced); 2024 day 9 proofs: free from FreeSpace.of is seen as Map. Works on a parameter declared with the alias. Look-up should try the alias's namespace before unfolding it.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 822,
+      "title": "A lambda argument isn't postponed when a later argument fixes its type, in day 9's proofs (List.mapZipWithScanLeft … (file free => (free.moveFile file).snd) …): E-CANNOT-INFER on free",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "2024 day 9 Proofs/Part2.sw lines 55, 64, 78 write FreeSpace.moveFile free file instead. Docs say such lambdas wait for later arguments. Also day 3 proofs: a let-bound lambda over a (index, instruction) pair can't use instruction.result.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
