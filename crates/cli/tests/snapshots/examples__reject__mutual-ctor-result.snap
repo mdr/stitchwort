@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MUTUAL-KIND] Error: `pick`, `SameP` and `noAB` refer to each other, but data types and definitions can't be defined together
+    ╭─[ reject/mutual-ctor-result.sw:8:5 ]
+    │
+  8 │ def pick (h: SameP A B → Void): P := A
+    │     ──┬─  
+    │       ╰─── `pick` is defined here
+    │ 
+ 10 │ type SameP (x: P): P → Prop =
+    │      ──┬──  
+    │        ╰──── `SameP` is defined here
+    │ 
+ 13 │ theorem noAB: SameP A B → Void
+    │         ──┬─  
+    │           ╰─── `noAB` is defined here
+    │ 
+    │ Note 1: `pick` uses `SameP`, which uses `pick`
+    │ 
+    │ Note 2: a data type's constructors can't use a definition that's being defined with it, and a definition can't use a data type before its constructors are finished
+────╯

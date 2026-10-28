@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MUTUAL-PARAMETERS] Error: `Vec` and `Box` are defined together, so they must have the same parameters
+   ╭─[ reject/mutual-ctor-result-data.sw:8:6 ]
+   │
+ 4 │ type Vec (a: Type): Nat → Type =
+   │      ─┬─  
+   │       ╰─── `Vec` has (a: Type)
+   │ 
+ 8 │ type Box: Type 1 =
+   │      ─┬─  
+   │       ╰─── `Box` has no parameters
+   │ 
+   │ Note: data types that refer to each other share one list of parameters: write the same parameters, with the same names, for each
+───╯
