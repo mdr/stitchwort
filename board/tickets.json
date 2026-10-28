@@ -7621,7 +7621,7 @@
     {
       "id": 850,
       "title": "A cycle between a type's constructor and a later declaration gives E-INTERNAL 'is used before it's checked'",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7630,7 +7630,10 @@
       "body": "Found by the SW-685 elaborator fuzzer (oracle 2, no E-INTERNAL). Seeds/cases: default 0x5eede1ab00000685 case 5981 (accept/quot-forms.sw); 0x2 case 3085 (accept/index-proof-conflict-data.sw); 0xabcdef cases 568 and 1084. All the same shape after reduction: a type's constructor (or an index type) names a later declaration that in turn names the type, so the declarations form a cycle the order check doesn't catch. Minimal input:\n\ndef Q: Type := List T\ntype T: Q → Type =\n  | A: T Nil\n\ngives '[E-INTERNAL] internal error: `Q` is used before it's checked', 'this is a bug in the compiler'. Variants: 'type Vec (a: Type): Nat → Type = | VCons (x: a) (xs: Vec a n): Box a (Succ n)' followed by 'type Box: Type 1 = | Mk [a: Type] (xs: List a) (rest: Vec)' (E-INTERNAL on Box); a theorem 'noAB: SameP A B → Void' used by an earlier type's constructor and mentioning that type (E-INTERNAL on noAB). Expected: an ordinary cyclic-dependency error (the code for mutually recursive declarations that aren't declared together) at the use.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "69e4100b",
+        "29375dcf"
+      ]
     },
     {
       "id": 851,
