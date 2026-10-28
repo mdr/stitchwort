@@ -1,5 +1,5 @@
 {
-  "next": 707,
+  "next": 711,
   "tickets": [
     {
       "id": 13,
@@ -5802,6 +5802,42 @@
       "id": 706,
       "title": "rewrite: look for the lemma's left side in the goal as written first (isSafe r as a call), fall back to the computed-goal search; measure on AoC and std proofs first (D1422; revisits D484; trigger: AoC 2024 day 2 rewrite isSafeCorrect _)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 707,
+      "title": "AoC 2024 day 4: solve, prove against a puzzle-literal spec, log language gaps (overnight 27–28 Oct)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 708,
+      "title": "AoC 2024 day 3: solve with Std.Parse once stage 1 lands, prove, log gaps (overnight)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 709,
+      "title": "Error messages from AoC 2024 day 2: dot call on a function outside the type's namespace suggests the plain call; a tactic word at line end before a new line reports the tactic, not the next line (overnight)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
