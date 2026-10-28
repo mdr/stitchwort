@@ -3661,7 +3661,7 @@
     {
       "id": 535,
       "title": "Pattern lambdas can't take a type annotation (rogue PROOFS.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
