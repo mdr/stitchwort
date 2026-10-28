@@ -1,5 +1,5 @@
 {
-  "next": 844,
+  "next": 846,
   "tickets": [
     {
       "id": 13,
@@ -6775,7 +6775,7 @@
     {
       "id": 788,
       "title": "let as an expression: (let x := e; body) (D1425 yes, D1453 ';' separator)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree-agent-a231c49f17b476653",
       "labels": [
@@ -6784,7 +6784,11 @@
       "body": "(let x := … in …) was a parse error ('expected an expression, but found let'); let is only a block statement today.\n\nD1425 (Matt, 28 Oct 2026): yes, add let as an expression (Lean's inline have).\nD1453 (Matt, 28 Oct 2026): spell it (let x := e; body), not 'in': 'in' is already membership (docs/syntax.md:1264), so (let found := x in xs in …) would be ambiguous.\n\nScope: parser (same tree as a block let, so the elaborator's 'later lines know the value' rule applies unchanged), formatter, docs/syntax.md, accept/reject examples (incl. a proof-valued let and a value using 'in').",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "f91bdafd",
+        "1cd54b63",
+        "24826225"
+      ]
     },
     {
       "id": 789,
@@ -7353,7 +7357,7 @@
     {
       "id": 832,
       "title": "Type mismatch with an alias hides the difference: 'expected Quot Bool BoolEq, but this has type Q' (soundness/quot-relation-mismatch since alias names are kept); show the unfolded form beside the alias when the two sides differ only after unfolding",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "worktree-agent-a7885eb4a489477b6",
       "labels": [],
@@ -7500,6 +7504,34 @@
         "tooling"
       ],
       "body": "From SW-808 (day 22), not yet reproduced: a long-running check gives no hint which declaration it's in.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 844,
+      "title": "Allow expression let as a |> stage (xs |> let y := 1; List.map ...)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "SW-788 allows (let x := e; body) wherever a lambda is a whole expression except after |>, where pipe_chain (crates/syntax/src/parser.rs) calls lambda_ahead/lambda explicitly. 'xs |> let y := 1; List.map (x => x + y)' is E-PARSE 'expected an expression, but found let'. Decide whether it should work; low priority, brackets work.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 845,
+      "title": "Mismatch alias notes: nested aliases (List Q vs List Other) and Prop aliases get no unfolded note",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "SW-832 adds a note only when a top-level folded call (type alias) faces a non-call of the same head. Not covered: an alias nested inside the printed type, and Prop aliases (unfolding to an equation, skipped to avoid noise on b <= c vs b < c). Also: nullary aliases (def Q: Type := Quot Bool AllTrue) print unfolded already in this tree, so soundness/quot-relation-mismatch never printed Q; the ticket's quoted message does not reproduce.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
