@@ -21,7 +21,7 @@ theorem enabledAfterDont (earlier: List Instruction): enabledAfter (List.append 
 -- One step of the fold, from a tally that agrees with the spec on the
 -- instructions before.
 theorem stepAgrees (earlier: List Instruction) (total: Nat): (instruction: Instruction) →
-    step { enabled = enabledAfter earlier, total } instruction =
+    Tally.step { enabled = enabledAfter earlier, total } instruction =
       { enabled = enabledAfter (List.append earlier [instruction]), total = total + (if enabledAfter earlier then result instruction else 0) }
   | Mul left right =>
     rewrite enabledAfterMul earlier left right in
@@ -46,12 +46,12 @@ def enabledResult (instructions: List Instruction) (index: Nat): Nat :=
 -- After the first k instructions, the fold's tally is the spec's: enabled
 -- as the most recent do() or don't() says, and the enabled results so far.
 theorem tallyAfter (instructions: List Instruction): (k: Nat) → k ≤ instructions.length →
-    List.foldLeft (instructions.take k) ({ enabled = True, total = 0 }: Tally) step =
+    List.foldLeft (instructions.take k) Tally.start Tally.step =
       { enabled = enabledAfter (instructions.take k), total = List.range k |> .sumBy (enabledResult instructions) }
   | Zero, inRange => rfl
   | Succ k, inRange =>
     let before := tallyAfter instructions k (Nat.leTrans k (Succ k) instructions.length (Nat.leSucc k) inRange)
-    rewrite List.foldLeftTakeSucc step Do instructions ({ enabled = True, total = 0 }: Tally) k inRange,
+    rewrite List.foldLeftTakeSucc Tally.step Do instructions Tally.start k inRange,
       before,
       stepAgrees (instructions.take k) (List.range k |> .sumBy (enabledResult instructions)) (instructions.getOr k Do),
       List.takeSucc Do instructions k inRange,
@@ -68,17 +68,17 @@ theorem enabledResultsByIndex (instructions: List Instruction):
 
 -- Part 2 adds up just the enabled results.
 theorem part2Correct (instructions: List Instruction): solvePart2 instructions = enabledResults instructions :=
-  let start: Tally := { enabled = True, total = 0 }
+  let start := Tally.start
   let all := instructions.length
   calc solvePart2 instructions
-    _ = (List.foldLeft (instructions.take all) start step).total :=
-      Eq.cong (taken => (List.foldLeft taken start step).total) (Eq.sym (List.takeAll instructions all (Nat.leRefl all)))
+    _ = (List.foldLeft (instructions.take all) start Tally.step).total :=
+      Eq.cong (taken => (List.foldLeft taken start Tally.step).total) (Eq.sym (List.takeAll instructions all (Nat.leRefl all)))
     _ = List.sumBy (List.range all) (enabledResult instructions) := Eq.cong Tally.total (tallyAfter instructions all (Nat.leRefl all))
     _ = enabledResults instructions := Eq.sym (enabledResultsByIndex instructions)
 
 -- With `mul` enabled and no `don't()` to come, the fold adds every result.
 theorem foldWithoutDont: (instructions: List Instruction) → (total: Nat) → instructions.any isDont = False →
-    List.foldLeft instructions ({ enabled = True, total }: Tally) step = { enabled = True, total = total + instructions.sumBy result }
+    List.foldLeft instructions ({ enabled = True, total }: Tally) Tally.step = { enabled = True, total = total + instructions.sumBy result }
   | Nil, total, noDont => rewrite Nat.addZero total in rfl
   | Cons (Mul left right) rest, total, noDont =>
     rewrite foldWithoutDont rest (total + left * right) noDont, List.sumByCons rest (Mul left right) result,
@@ -94,7 +94,7 @@ theorem part2WithoutDont (instructions: List Instruction) (noDont: instructions.
   rewrite foldWithoutDont instructions 0 noDont in cases
 
 -- One step adds at most the instruction's result.
-theorem stepAtMost (tally: Tally): (instruction: Instruction) → (step tally instruction).total ≤ tally.total + result instruction
+theorem stepAtMost (tally: Tally): (instruction: Instruction) → (Tally.step tally instruction).total ≤ tally.total + result instruction
   | Mul left right =>
     match enabled: tally.enabled with
       | True => cases
@@ -104,14 +104,14 @@ theorem stepAtMost (tally: Tally): (instruction: Instruction) → (step tally in
 
 -- The fold adds at most every result.
 theorem foldAtMost: (instructions: List Instruction) → (tally: Tally) →
-    (List.foldLeft instructions tally step).total ≤ tally.total + instructions.sumBy result
+    (List.foldLeft instructions tally Tally.step).total ≤ tally.total + instructions.sumBy result
   | Nil, tally => cases
   | Cons instruction rest, tally =>
-    let afterRest := foldAtMost rest (step tally instruction)
+    let afterRest := foldAtMost rest (Tally.step tally instruction)
     let afterFirst := stepAtMost tally instruction
     rewrite List.sumByCons rest instruction result in omega
 
 -- Part 2 is never more than part 1.
 theorem part2AtMostPart1 (instructions: List Instruction): solvePart2 instructions ≤ solvePart1 instructions :=
-  let bound := foldAtMost instructions ({ enabled = True, total = 0 }: Tally)
+  let bound := foldAtMost instructions Tally.start
   omega

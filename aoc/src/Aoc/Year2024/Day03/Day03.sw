@@ -53,11 +53,13 @@ def solvePart1 (instructions: List Instruction): Nat := instructions.sumBy resul
 -- Part 2's running state: whether `mul` is enabled, and the sum so far.
 type Tally = { enabled: Bool, total: Nat }
 
-def step (tally: Tally): Instruction → Tally
+-- `mul` starts enabled.
+def Tally.start: Tally := { enabled = True, total = 0 }
+
+def Tally.step (tally: Tally): Instruction → Tally
   | Mul left right => if tally.enabled then { tally | total = tally.total + left * right } else tally
   | Do => { tally | enabled = True }
   | Dont => { tally | enabled = False }
 
--- `mul` starts enabled.
 def solvePart2 (instructions: List Instruction): Nat :=
-  instructions.foldLeft ({ enabled = True, total = 0 }: Tally) step |> .total
+  instructions.foldLeft Tally.start Tally.step |> .total
