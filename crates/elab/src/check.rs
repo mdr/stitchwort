@@ -641,8 +641,40 @@ impl<'e> Ctx<'e> {
             Some(note) => d.with_note(note),
             None => d,
         };
+        let d = match self.alias_note(expected, found) {
+            Some(note) => d.with_note(note),
+            None => d,
+        };
         let d = self.with_opaque_notes(d, &[expected, found]);
         self.unrefined_hint(d, expected, found)
+    }
+
+    /// SW-832: a side that is a definition kept folded in the message (an
+    /// alias, `Q` for `Quot Bool AllTrue`) hides the difference when its
+    /// unfolding has the same head as the other side, which is not itself a
+    /// kept call: the two then differ in arguments that only the unfolded
+    /// form shows. So say what the alias is. When the heads differ
+    /// (`expected Nat, but this has type MyList`), the alias isn't what the
+    /// mismatch is about; and when both sides are kept calls (`b ≤ c`
+    /// against `b < c`), both names are already in the message. No note
+    /// then.
+    fn alias_note(&self, expected: &Value, found: &Value) -> Option<String> {
+        let g = self.g();
+        let (fe, ff) = (
+            force(g, expected.clone()).ok()?,
+            force(g, found.clone()).ok()?,
+        );
+        if !same_type_head(&fe, &ff) {
+            return None;
+        }
+        let (alias, unfolded) = match (expected, found) {
+            (Value::Call(..), Value::Call(..)) => return None,
+            (Value::Call(..), _) => (expected, &fe),
+            (_, Value::Call(..)) => (found, &ff),
+            _ => return None,
+        };
+        let (shown, full) = (self.show(alias), self.show_unfolded(unfolded));
+        (shown != full).then(|| format!("`{shown}` is `{full}`"))
     }
 
     /// D230: inside a generalised `match`, a mismatch whose types still
@@ -745,6 +777,21 @@ impl<'e> Ctx<'e> {
             return false;
         };
         quote(g, level, &value).is_ok_and(|t| crate::matching::same(&t, refined))
+    }
+}
+
+/// Whether two forced types are built by the same outermost former (the
+/// same data type, both functions, the same stuck head, …), so that they
+/// differ only in what's inside. `=` is left out: a proposition such as
+/// `b <= c` (which unfolds to an equation) is printed in its own notation, and
+/// naming its unfolding would only add noise.
+fn same_type_head(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Sort(_), Value::Sort(_)) => true,
+        (Value::Pi(..), Value::Pi(..)) => true,
+        (Value::Data(x, _), Value::Data(y, _)) => x == y,
+        (Value::Neutral(x, _), Value::Neutral(y, _)) => x == y,
+        _ => false,
     }
 }
 
