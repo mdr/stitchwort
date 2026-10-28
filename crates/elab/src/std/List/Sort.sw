@@ -221,6 +221,14 @@ theorem List.sumByAdd [auto add: Add c]: (xs: List a) → (f: a → c) → (g: a
           (Eq.sym (Eq.trans (Eq.cong (t => t + List.sumBy (Cons x xs) g) (List.sumByCons xs x f))
             (Eq.cong (t => (f x + List.sumBy xs f) + t) (List.sumByCons xs x g))))))
 
+-- A double sum of two terms is two double sums.
+theorem List.sumByNestedAdd (xs: List a) (ys: List b) (f: a → b → Nat) (g: a → b → Nat):
+    List.sumBy xs (x => List.sumBy ys (y => f x y + g x y))
+      = List.sumBy xs (x => List.sumBy ys (y => f x y)) + List.sumBy xs (x => List.sumBy ys (y => g x y)) :=
+  Eq.trans
+    (List.sumByCong xs _ _ (x => List.sumByAdd ys (y => f x y) (y => g x y)))
+    (List.sumByAdd xs (x => List.sumBy ys (y => f x y)) (x => List.sumBy ys (y => g x y)))
+
 theorem List.sumBySwap [auto add: Add c] (ys: List b): (xs: List a) → (h: a → b → c) →
     List.sumBy xs (x => List.sumBy ys (y => h x y)) = List.sumBy ys (y => List.sumBy xs (x => h x y))
   | Nil, h => Eq.sym (List.sumByZero ys)
@@ -1461,6 +1469,20 @@ theorem List.allNotAny: (xs: List a) → (p: a → Bool) → List.all xs p = ¬(
     match e: p x with
       | True => List.allNotAny xs p
       | False => rfl
+
+-- "No x is related to any y" read either way round.
+theorem List.allNotAnyComm (related: a → b → Bool): (xs: List a) → (ys: List b) →
+    List.all xs (x => ¬(List.any ys (y => related x y))) = List.all ys (y => ¬(List.any xs (x => related x y)))
+  | Nil, ys => Eq.sym (List.allTrue ys (y => True) (y => rfl))
+  | Cons x xs, ys =>
+    let unfolded := List.allCong ys (y => ¬(List.any (Cons x xs) (x2 => related x2 y))) (y => ¬(related x y) ∧ ¬(List.any xs (x2 => related x2 y)))
+      (y =>
+        match r: related x y with
+          | True => rfl
+          | False => rfl)
+    rewrite unfolded, List.allAnd ys (y => ¬(related x y)) (y => ¬(List.any xs (x2 => related x2 y))), <- List.allNotAnyComm related xs ys,
+      List.allNotAny ys (y => ¬(related x y))
+      in rewrite List.anyCong ys (y => ¬(¬(related x y))) (y => related x y) (y => cases) in rfl
 
 theorem List.allPerm (xs: List a) (ys: List a) (h: List.Perm xs ys) (p: a → Bool): List.all xs p = List.all ys p :=
   rewrite List.allNotAny xs p, List.allNotAny ys p, List.anyPerm xs ys h (x => ¬(p x)) in rfl
