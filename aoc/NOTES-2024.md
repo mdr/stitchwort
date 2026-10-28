@@ -3910,3 +3910,362 @@ Release build, on a machine with a load average around 25 to 30:
    `labelWhole` expectation count at the furthest point its parser
    reached.
 10. No `import ... as` for clashing names (item 2). Fix: add an alias form.
+
+## Day 16: Reindeer Maze
+
+A maze of walls (`#`) and open tiles. "The Reindeer start on the Start
+Tile (marked S) facing East and need to reach the End Tile (marked E).
+They can move forward one tile at a time (increasing their score by 1
+point), but never into a wall (#). They can also rotate clockwise or
+counterclockwise 90 degrees at a time (increasing their score by 1000
+points)." Part 1: "What is the lowest score a Reindeer could possibly
+get?" Part 2: "you'll need to determine which tiles are part of any best
+path through the maze, including the S and E tiles ... How many tiles are
+part of at least one of the best paths through the maze?" (part 2's
+wording from the public copy at
+<https://gitea.baerentsen.space/FrederikBaerentsen/AdventOfCode/src/branch/master/2024/16/16.md>).
+
+**The real input is pending from Matt**: his repository
+(<https://github.com/mdr/aoc-2024>) stops at day 10, so there is no
+`inputs/2024/day16.txt`, no `Tests/Input.sw`, and the day isn't registered
+in `aoc_answers.rs` or `machine.rs` yet. `examples/2024/day16.txt` is the
+second example. The tests are the puzzle's two examples (7036 and 45;
+11048 and 64) and edge cases, all cross-checked with an independent Python
+script (`/usr/bin/python3 -I`: `heapq` Dijkstra over (row, column,
+direction), part 2 by walking back along predecessor edges whose costs add
+up, not by a second search). For performance, a second script generated a
+141 by 141 maze (a recursive-backtracker maze with 1500 random walls
+knocked out, so there are many paths; not committed); the program and
+Python agree on it (116428 and 444). This is the first shortest-path day.
+Compiler built from `main` at f06e8931, 28 October 2026.
+
+### The program
+
+```stitchwort
+def tile(): {Parse} Tile :=
+  Parse.pick [("#", Wall), (".", Floor), ("S", Start), ("E", End)]
+
+def parseMaze (input: Text): {Fail} Maze :=
+  let rows := Parse.all input (() => Parse.grid tile)
+  let width := rows.headOr [] |> .length
+  rows.withIndex |> .forEach (((row, tiles)) =>
+    Fail.ensure (tiles.length == width) "line ${row + 1}: expected ${width} tiles, as on the first line, got ${tiles.length}")
+  let tiles :=
+    rows.withIndex
+      |> .flatMap (((row, line)) => line.withIndex |> .map (((column, kind)) => (({ row, column }: Position), kind)))
+  {
+    openTiles = tiles.filter (entry => entry.snd != Wall) |> .map (entry => entry.fst) |> Set.fromList,
+    start = onlyTile tiles Start "S",
+    end = onlyTile tiles End "E"
+  }
+
+type Graph (s: Type) = {
+  edges: s → List (s, Nat),
+  within: s → Bool,
+  states: List s,
+  listed: (state: s) → within state = True → state ∈ states
+}
+
+def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat): (popped: Option (Nat, s)) →
+    queue.min = popped → Map s Nat
+    decreasing (graph.unsettled settled, queue.size)
+  | None, found => settled
+  | Some (cost, state), found =>
+    let rest := queue.remove (cost, state)
+    if fresh: settled.contains state = False then
+      if within: graph.within state = True then
+        let pushed := pushEdges cost (graph.edges state) rest
+        Graph.searchFrom graph pushed (settled.insert state cost) pushed.min rfl
+          [decreasing := Nat.LexLess.First (unsettledInsert graph settled state cost (graph.listed state within) fresh)]
+      else Graph.searchFrom graph rest settled rest.min rfl [decreasing := Nat.LexLess.Second rfl (sizeRemoveMin queue (cost, state) found)]
+    else Graph.searchFrom graph rest settled rest.min rfl [decreasing := Nat.LexLess.Second rfl (sizeRemoveMin queue (cost, state) found)]
+
+def Maze.fromStart (maze: Maze): Map Reindeer Nat := (maze.graph False).distances [(maze.startReindeer, 0)]
+
+def Maze.toEnd (maze: Maze): Map Reindeer Nat := (maze.graph True).distances (maze.endReindeer |> .map (reindeer => (reindeer, 0)))
+
+def Maze.lowestScore (maze: Maze) (fromStart: Map Reindeer Nat): Option Nat := maze.endReindeer.filterMap fromStart.get |> .minimum
+
+def tilesScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: Nat): Set Position :=
+  fromStart.toList
+    |> .filter (entry => toEnd.get entry.fst |> .map (rest => entry.snd + rest == best) |> .getOrElse False)
+    |> .map (entry => entry.fst.position)
+    |> Set.fromList
+
+def solvePart1 (maze: Maze): Nat := maze.lowestScore maze.fromStart |> .getOrElse 0
+
+def solvePart2 (maze: Maze): Nat := maze.bestTiles.size
+```
+
+The domain model is the set of open tiles (S, E and `.`), the start and
+the end. A state is a `Reindeer`: a position and the direction it faces.
+`Maze.after` lists the moves out of a state with their costs (forward
+onto an open tile for 1, each quarter turn for 1000); `Maze.before` lists
+the moves into one, the forward move undone by a step the opposite way.
+
+The search is Dijkstra's algorithm over any `Graph`, written once and
+used twice: forward from S, and backward from the four ways of standing on
+E. The priority queue is a `Set (Nat, s)` of (cost, state) pairs: `Set.min`
+is the next pair to look at, since pairs order by cost first. A popped
+state already settled is dropped (lazy deletion, no decrease-key). Part 1
+is the least forward score over the four ways of standing on E. Part 2
+counts the tiles where, standing some way, the forward score and the
+backward score add up to part 1's answer.
+
+The search terminates without fuel: `decreasing (graph.unsettled settled,
+queue.size)`, lexicographic. Settling a state shrinks the number of states
+not yet settled; dropping a popped pair shrinks the queue. The first needs
+the graph's states to be finite, so `Graph` carries a list of its states
+and a quick test for them, with a proof field tying the two; the search
+checks `within` at run time, a check only the termination proof needs
+(the correctness proof shows it never fails). `queue.min` is passed in
+with its equation (`popped`, `found`) rather than matched inside, so
+proofs can step through the search (item 3). The termination lemmas, 73
+lines, are in the program file.
+
+### Proved, for every maze whose S and E are open tiles
+
+The spec (`Spec/Spec.sw`) is in the puzzle's words over the program's
+`isOpen`, `step` and quarter turns: a `Move` is `Forward`, `Clockwise` or
+`Counterclockwise` with its points; `move` is `None` into a wall; `follow`
+lists how the reindeer stands before each move and after the last;
+`score` is the sum of the points. `IsPath maze moves standings` is moves
+from S facing east, never into a wall, ending on E. `IsLowestScore maze
+best`: some path scores `best` and none scores less. `OnBestPath maze best
+tile`: some path scoring `best` stands on the tile. `CountsBestTiles maze
+best count`: a set of exactly those tiles has `count` members.
+
+Proved (`Proofs/`, 1035 lines in 6 files):
+
+- `distancesCorrect` (Search.sw), for any graph, any sources and any
+  property `reach` that holds at each source and along each edge: every
+  state the search settles is `reach`ed for its cost (soundness), each
+  source is settled for no more than its starting cost, and each edge out
+  of a settled state leads to a state settled for no more than the two
+  costs together (closure, from which optimality follows by induction on
+  any path). The invariant (`SearchState`) has five parts: queued pairs
+  and settled states are reached; each source and each edge out of a
+  settled state is pending (queued, or its end settled for no more);
+  nothing settled costs more than anything queued; and queued states are
+  within the graph. `skipKeeps` and `settleKeeps` show each step keeps it,
+  the second through `minLeast`: the least pair costs no more than any
+  other (from `Map.toListSorted`).
+- Moves.sw: the forward graph's edges are exactly the puzzle's moves with
+  their points (`afterSound`, `afterComplete`), and the backward graph's
+  are the moves into a state from an open tile (`beforeSound`,
+  `beforeComplete`).
+- `part1Correct` (Part1.sw): with some path from S to E, `IsLowestScore
+  maze (solvePart1 maze)`. Soundness: the least is the score of moves the
+  search reached, which `follow` turns into a path. Optimality
+  (`boundAlong`): along any moves the search's bound grows by at most
+  their score.
+- `part2Correct` (Part2.sw): with lowest score `best`, `CountsBestTiles
+  maze best (solvePart2 maze)`. A counted tile has a path through it,
+  joined from moves to it and moves from it (`joinedPath`); a tile on a
+  best path splits that path where the reindeer stands there
+  (`followSplits`), its forward and backward scores are at most the two
+  parts' (`boundAlong`, `boundToEnd`) and at least `best` together, so
+  they add up to it.
+
+Breaking the program (a turn costing 999 in `turns`, queued pairs costing
+one more in `pushEdges`, or `>=` for `==` in `tilesScoring`) makes the
+proofs fail. Not proved: parsing (as on other days), and that S and E are
+open, which `parseMaze` ensures since neither is a wall; the theorems take
+both as hypotheses. With no path to E the spec has no lowest score, so
+part 1 assumes one; the program answers 0 then (tested).
+
+### 1. Std.Parse: none
+
+`Parse.grid tile` with a `Parse.pick` of the four tiles read the maze
+first time, and the message is good: `line 2, column 3: expected '#' or
+'.' or 'S' or 'E' or the end of the line, got 'x'`. As on days 8, 10 and
+12, the row-length check and turning rows into positions are by hand;
+finding the one S and the one E is a helper (`onlyTile`). Fix: a
+grid-to-map builder (day 12's `Map.byGridPosition`).
+
+### 2. Missing std
+
+- **A priority queue.** `Set (Nat, s)` with `Set.min` and `Set.remove`
+  worked, as `Data.Set` does in Haskell, whose `minView` "retrieves the
+  minimal key of the set, and the set stripped of that element"
+  (<https://hackage-content.haskell.org/package/containers-0.8.1/docs/Data-Set.html>).
+  Std has no `Set.popMin` (one call for `min` and `remove`), no
+  decrease-key queue such as Haskell's `psqueues`, whose stated uses
+  include "Pathfinding algorithms, such as Dijkstra's and A*"
+  (<https://hackage.haskell.org/package/psqueues>), and no heap: Scala has
+  `mutable.PriorityQueue`
+  (<https://www.scala-lang.org/api/current/scala/collection/mutable/PriorityQueue.html>),
+  Rust's `BinaryHeap` documentation has a Dijkstra example
+  (<https://doc.rust-lang.org/std/collections/binary_heap/index.html>),
+  and Lean's Batteries has a max-heap `BinaryHeap`
+  (<https://github.com/leanprover-community/batteries/blob/main/Batteries/Data/BinaryHeap/Basic.lean>).
+- **Graph search.** No shortest paths, nor breadth-first search (day 12's
+  fill was by hand too). `Graph`, `searchFrom` and `distancesCorrect` here
+  are generic and could move to std as they are, with the proof: callers
+  supply only their `reach` and its two closure properties.
+- **Lemmas about `Set.min`**: that it is in the set (`containsMin`), no
+  greater than any member (`minLeast`), `None` only for an empty set
+  (`missingOfMinNone`), and that removing it shrinks the set
+  (`sizeRemoveMin`). Std's `Set.minToList` and `Map.toListSorted` were
+  enough to prove them, in about 60 lines.
+- **`Map` membership after `insert`** (`containsInsertSame`,
+  `containsInsertKeeps`, `getInsertCases`, `getInsertKeeps`,
+  `getOfContains`): std has `Set.containsInsertMono` but not the `Map`
+  forms.
+- **`List.minimum` lemmas** (`minimumLeast`, `minimumMember`,
+  `minimumSome`; day 13 wanted them too), **`memMapElim`** (a member of a
+  mapped list is an image) and **`anyMember`** (`List.Any` gives a
+  member). `countLe` and `countFewer` are copied from day 12's program for
+  the termination measure.
+
+None added to std (the `List` lemma files are another lane's). Fix: add
+`Set.popMin` and the `Set.min` lemmas, the `Map` insert lemmas, the
+`List.minimum` lemmas and `memMapElim`, and move the generic search.
+
+### 3. Confusing errors
+
+- A dependent `match` on `queue.min` inside the search couldn't be stepped
+  through in a proof. The first program matched `match popped: queue.min
+  with` and used `popped` in its `decreasing` proofs; a proof that unfolds
+  it and matches the same way gave
+
+  ```text
+  [E-MATCH-MOTIVE] Error: generalising this `match`'s scrutinee makes its type ill-formed
+    Note 1: a top-level helper with a written signature can always do what this `match` would: define one and call it
+    Note 2: checking the type it would have: `rfl` can't prove this
+  ```
+
+  The note is right, and is what I did: `searchFrom` takes the popped pair
+  and its equation as arguments, matches on the argument, and each
+  recursive call passes `pushed.min rfl`. Then each step was a three-line
+  lemma (`searchEmpty`, `searchSkip`, `searchSettle`). Day 12 met the
+  same wall with a `Bool`. Fix: generalise the equation with the
+  scrutinee, or generate per-arm equations as Lean does.
+- A `match` refines the goal and hypotheses, but not terms that appear
+  later, so an equation can come out half refined. In `followSplits`,
+  after `rewrite <- here` in a branch, the goal was
+
+  ```text
+  expected `(match …) maze rest (move maze reindeer way) = final maze next rest`, but this has type `final maze next rest = (match …) maze rest (move maze reindeer way)`
+  ```
+
+  The right-hand side, from the theorem's statement, had been refined;
+  the left, put there by the `rewrite`, had not. I bridged with a lemma,
+  `finalCons`, in whichever direction the error showed. Fix: refine terms
+  produced inside the branch too, or say which side is unrefined.
+- Constructors aren't imported by name: `import Aoc.Year2024.Day16.Spec
+  (Clockwise, Counterclockwise, Forward, Move, …)` gave ``[E-IMPORT-UNKNOWN]
+  Error: `Aoc.Year2024.Day16.Spec` has no `Clockwise` `` for each;
+  importing `Move` brings them. Fix: a note saying a constructor comes
+  with its type.
+- A type written on a `let` is computed before `rewrite` sees it:
+  `let member: List.Mem x (List.map (Cons (key, unit) rest) Pair.fst) :=
+  rewrite <- entries in …` gave ``[E-REWRITE-NOTHING] Error: `rewrite`
+  found no `Cons (key, unit) rest` in the goal`` with ``goal: `key =
+  (other, otherState) ∨ List.Any …` ``. What I did: `rewrite entries at
+  member` on the hypothesis instead. Fix: rewrite the type as written.
+- Clear ones: ``[E-STD-NAMESPACE] Error: `Map` is a namespace of the
+  standard library, which a program can't add to`` (I named the lemmas
+  without the prefix), and ``[E-UNIVERSE] Error: `if` can't choose between
+  proofs yet``, whose note says to `match` on the `Bool` instead.
+
+### 4. Inference
+
+- A lambda before the argument that fixes its type:
+  `memMapElim (entry => entry.fst.position) tile (fromStart.toList.filter
+  passes) listed` gave ``can't tell what `entry` is, so can't look up
+  `.fst` ``. Annotated `(entry: (Reindeer, Nat))`, three times.
+- `_` for a predicate isn't solved from a hypothesis's type: `anyMember _
+  maze.endReindeer (List.memFilterMapElim …)` gave ``expected `… ∨ … ∨
+  …`, but this has type `List.Any (x => Map.get (Maze.fromStart maze) x =
+  Some best) (Maze.endReindeer maze)` ``: the expected `List.Any ?p` over
+  four literals was unfolded into a disjunction before `?p` was solved
+  (day 13's item 3). Wrote the predicate out.
+- `ring` is a keyword again (renamed a test's maze `loop`).
+
+### 5. Performance
+
+On the generated 141 by 141 maze (10141 open tiles, 40564 states)
+`stitchwort run` takes 10.7 s user; Python takes 0.07 s. Loading is 0.6
+s, parsing 0.35 s, and one search about 2.2 s (throwaway mains, not
+committed). Part 1 runs one search; part 2 runs the search from S again
+and the one back from E, then filters the 40564 settled states, since
+each part takes the parsed maze alone. Each pop is a `Set.min`, a
+`Set.remove` and a `Map.contains`; each settle three `Set.insert`s and a
+`Map.insert`, all balanced-tree operations on records compared field by
+field. Not pursued further. Fix: a `Set.popMin` (one walk instead of
+two), and let `main` share the forward search between the parts.
+
+### 6. Proofs
+
+Proving Dijkstra correct was smaller than feared: Search.sw is 213 lines
+and its invariant checked almost first time. What made it work:
+
+- Proving it once, generically, for any `reach` closed under the sources
+  and the edges. Soundness then needs nothing about the maze but its two
+  closure properties, and optimality is an induction on any path using
+  only the closure the search returns. The same proof serves the search
+  back from E. Isabelle's AFP has a verified Dijkstra (Nordhoff and
+  Lammich, 2012), built on a refinement framework
+  (<https://www.isa-afp.org/entries/Dijkstra_Shortest_Path.html>); here
+  the invariant is proved directly about the program.
+- Day 12's lexicographic measure, `(unsettled, queue size)`. The
+  correctness proof recurses with the program's own measure and the same
+  `decreasing` proofs. Lean's `termination_by` is the same idea
+  (<https://lean-lang.org/doc/reference/latest/Definitions/Recursive-Definitions/#well-founded-recursion>).
+  What's awkward is finiteness: the measure needs a list of every state,
+  so `Graph` carries one with a proof field, and the program checks
+  `within` at run time only so the measure can drop. A std notion of a
+  finite universe, or a measure on `Set` size bounded by a universe
+  `Set`, would remove both.
+- The std lemmas that would have made it easier: the `Set.min` lemmas
+  (item 2), the only reasoning about the queue's order; the pair-order
+  fact that `Ordering.andThen first second = Less` means `first` isn't
+  `Greater` (`notGreaterOfThen`); and a `Set.popMin` with a lemma that
+  its rest holds exactly the other members, which would replace
+  `containsOfRemove` and `containsRemoveKeeps`.
+- No record eta (day 5): every lemma about a `Reindeer` matches `{
+  position, facing }` first so `{ reindeer | position = … }` computes.
+- `rewrite … at h` on a hypothesis, then `match`, was the reliable way to
+  use `Map.toList` equations (item 3).
+
+### Size and time
+
+Release build, load average around 40:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day16.Proofs` | 2.9 s user (3.5 s) |
+| `stitchwort check --no-cache Aoc.Year2024.Day16` | 1.6 s user (1.7 s) |
+| `stitchwort test --no-cache Aoc.Year2024.Day16` (24 tests) | 3.3 s user (4.7 s) |
+| `stitchwort test Aoc.Year2024.Day16` (warm) | 0.8 s user (1.0 s) |
+| `stitchwort run Aoc.Year2024.Day16.main` on the second example | 0.71 s user |
+| `stitchwort run Aoc.Year2024.Day16.main` on a generated 141 by 141 maze | 10.7 s user |
+
+289 lines of program (73 of them termination lemmas), 69 of spec, 1035 of
+proofs, 134 of tests.
+
+### Ranked
+
+1. The real input is pending: Matt's repository has no day 16. Fix: add
+   his input, its tests and its two answer entries when he has it.
+2. No priority queue or graph search in std (item 2). Fix: add
+   `Set.popMin`, and move this day's generic `Graph` search and its proof
+   to std.
+3. A dependent `match` on `queue.min` can't be stepped through in a proof
+   (item 3). Fix: generalise the equation with the scrutinee, or generate
+   per-arm equations.
+4. 10.7 s on a 141 by 141 maze against Python's 0.07 s, with the forward
+   search run twice (item 5). Fix: `Set.popMin`, and share the search
+   between the parts.
+5. Half-refined equations inside a `match` branch (item 3). Fix: refine
+   terms produced in the branch too.
+6. Missing `Set.min`, `Map` insert and `List.minimum` lemmas (item 2).
+   Fix: add them to std's `Set`, `Map` and `List` files.
+7. Termination needs a list of every state and a run-time `within` check
+   (item 6). Fix: a std finite-universe measure.
+8. Lambdas before the argument fixing their type, and `_` predicates
+   unsolved against a literal list (item 4). Fix: elaborate lambdas after
+   the other arguments; don't unfold `List.Any` while solving.
+9. Constructor imports say only "has no `Clockwise`" (item 3). Fix: note
+   that constructors come with their type.
