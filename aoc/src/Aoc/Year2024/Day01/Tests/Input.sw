@@ -5,7 +5,7 @@ import Aoc.Year2024.Day01 (..)
 import Std (Fail)
 
 def inputLists: LocationLists :=
-  Fail.orElse { left = [], right = [] } (() => parseLocationLists (include "../../../../../inputs/2024/day01.txt").lines)
+  Fail.orElse { left = [], right = [] } (() => parseLocationLists (include "../../../../../inputs/2024/day01.txt"))
 
 test "real input, part 1" := solvePart1 inputLists == 2066446
 test "real input, part 2" := solvePart2 inputLists == 24931009

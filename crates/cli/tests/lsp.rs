@@ -370,6 +370,13 @@ impl IndexJson {
             f < file || (f == file && pos(r, 2) <= (line, ch))
         });
         let r = refs.get(i)?;
+        // Of two references with the same range, the local one, as the
+        // server picks: a punned field `{ x }` is a field and a use of `x`.
+        let r = refs[i..]
+            .iter()
+            .take_while(|s| s["file"] == r["file"] && s["range"] == r["range"])
+            .find(|s| s["binder"].is_object())
+            .unwrap_or(r);
         (r["file"].as_u64() == Some(file as u64) && pos(r, 0) <= (line, ch)).then_some(r)
     }
 

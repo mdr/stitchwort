@@ -3,12 +3,16 @@
 
 namespace Aoc.Common.Tests
 import Aoc.Common (..)
-import Std (Fail, List)
+import Std (Fail, List, Parse)
 
-test "parseOption" := Range.parseOption "3-5" == Some ({ from = 3, to = 5 })
-test "parseOption junk" := Range.parseOption "4-x" == None
-test "parse spaces" := Fail.toResult (() => Range.parse " 3 - 5 ") == Ok ({ from = 3, to = 5 })
-test "parse junk" := Fail.toResult (() => Range.parse "4-x") == Err "expected a range like 11-22, got '4-x'"
+-- One range read from `text`.
+def parsed (text: Text): Result Range Text := Fail.toResult (() => Parse.line text range)
+
+test "range" := parsed "3-5" == Ok ({ from = 3, to = 5 })
+test "range spaces" := parsed " 3 - 5 " == Ok ({ from = 3, to = 5 })
+test "range junk" := parsed "4-x" == Err "column 3: expected a number"
+test "range backwards" := parsed "5-3" == Err "column 4: the range 5-3 ends before it starts"
+test "spacedNat" := Fail.toResult (() => Parse.line " 12 " spacedNat) == Ok 12
 test "contains" := (Range.contains { from = 3, to = 5 } 3, Range.contains { from = 3, to = 5 } 5, Range.contains { from = 3, to = 5 } 6) == (True, True, False)
 test "size" := Range.size { from = 3, to = 5 } == 3
 test "ids" := Range.ids { from = 3, to = 5 } == [3, 4, 5]

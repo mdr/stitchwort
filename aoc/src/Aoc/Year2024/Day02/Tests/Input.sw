@@ -5,7 +5,7 @@ import Aoc.Year2024.Day02 (..)
 import Std (Fail)
 
 def inputReports: List Report :=
-  Fail.orElse [] (() => parseReports (include "../../../../../inputs/2024/day02.txt").lines)
+  Fail.orElse [] (() => parseReports (include "../../../../../inputs/2024/day02.txt"))
 
 test "real input, part 1" := solvePart1 inputReports == 534
 test "real input, part 2" := solvePart2 inputReports == 577

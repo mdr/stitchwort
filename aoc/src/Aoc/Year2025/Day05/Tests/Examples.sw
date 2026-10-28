@@ -5,7 +5,7 @@ namespace Aoc.Year2025.Day05.Tests
 import Aoc.Year2025.Day05 (..)
 import Std (Fail, List, Text)
 
-def example: List Text := """
+def example: Text := """
   3-5
   10-14
   16-20
@@ -17,9 +17,9 @@ def example: List Text := """
   11
   17
   32
-  """.lines
+  """
 
-def parsed (lines: List Text): Result Database Text := Fail.toResult (() => parseDatabase lines)
+def parsed (input: Text): Result Database Text := Fail.toResult (() => parseDatabase input)
 
 def exampleDatabase: Database := Fail.orElse emptyDatabase (() => parseDatabase example)
 
@@ -38,7 +38,8 @@ test "same start, shorter second range" := merge [{ from = 1, to = 9 }, { from =
 test "duplicate range" := solvePart2 { fresh = [{ from = 2, to = 4 }, { from = 2, to = 4 }], available = [] } == 3
 test "singleton range" := merge [{ from = 5, to = 5 }] == [{ from = 5, to = 5 }]
 
-test "a line that is neither a range nor an id" := parsed ["3-5", "x-7", "", "1"] == Err "line 2: expected a range like 11-22, got 'x-7'"
-test "a bad id" := parsed ["3-5", "", "1", "two"] == Err "line 4: expected a whole number, got 'two'"
-test "no blank line" := parsed ["3-5", "4-6"] == Err "expected a blank line between the ranges and the ids, got none"
-test "spaces around lines" := parsed [" 3 - 5 ", " ", " 4 "] == Ok ({ fresh = [{ from = 3, to = 5 }], available = [4] })
+test "a line that is neither a range nor an id" := parsed "3-5\nx-7\n\n1\n" == Err "line 2, column 1: expected a number or a line break"
+test "a bad id" := parsed "3-5\n\n1\ntwo\n" == Err "line 4, column 1: expected a number or the end"
+test "no blank line" := parsed "3-5\n4-6\n" == Err "line 3, column 1: expected a number or a line break"
+test "a backwards range" := parsed "5-3\n\n1\n" == Err "line 1, column 4: the range 5-3 ends before it starts"
+test "spaces around numbers" := parsed " 3 - 5 \n\n 4 \n" == Ok ({ fresh = [{ from = 3, to = 5 }], available = [4] })

@@ -3,9 +3,9 @@
 
 namespace Aoc.Year2025.Day01.Tests
 import Aoc.Year2025.Day01 (..)
-import Std (Fail, Int, List, Mod, Nat, Option, Text)
+import Std (Fail, Int, List, Mod, Nat, Option, Parse, Text)
 
-def example: List Text := """
+def example: Text := """
   L68
   L30
   R48
@@ -16,23 +16,25 @@ def example: List Text := """
   L99
   R14
   L82
-  """.lines
+  """
 
 def exampleTurns: List Turn := Fail.orElse [] (() => parseTurns example)
 
-def parsed (lines: List Text): Result (List Turn) Text := Fail.toResult (() => parseTurns lines)
+def parsed (input: Text): Result (List Turn) Text := Fail.toResult (() => parseTurns input)
 
 test "example" := (solvePart1 exampleTurns, solvePart2 exampleTurns) == (3, 6)
-test "a line that isn't a turn" := parsed ["L68", "L30", "X12"] == Err "line 3: expected a turn like L68, got 'X12'"
-test "a turn without a distance" := parsed ["R"] == Err "line 1: expected a turn like L68, got 'R'"
-test "a blank line" := parsed ["L1", ""] == Err "line 2: expected a turn like L68, got ''"
-test "spaces around a turn" := parsed [" L68", "R5 "] == Ok [Left 68, Right 5]
+test "a line that isn't a turn" := parsed "L68\nL30\nX12" == Err "line 3, column 1: expected a turn like L68"
+test "a turn without a distance" := parsed "R" == Err "line 1, column 2: expected a number"
+test "a blank line" := parsed "L1\n\n" == Err "line 2, column 1: expected a turn like L68"
+test "spaces around a turn" := parsed " L68\nR5 \n" == Ok [Left 68, Right 5]
 
-def after (t: Text): Option Nat := Turn.parseOption t |> .map (turn => startingDial.move turn |> .position |> .value)
+-- Where one turn, read from `line`, leaves the starting dial.
+def after (line: Text): Option Nat :=
+  Fail.toOption (() => Parse.line line turn) |> .map (turn => startingDial.move turn |> .position |> .value)
 
-test "parseOption" := after "L68" == Some 82
-test "parse right" := after "R5" == Some 55
-test "parseOption junk" := after "X5" == None
+test "turn" := after "L68" == Some 82
+test "turn right" := after "R5" == Some 55
+test "turn junk" := after "X5" == None
 
 def zerosFrom (x: Int) (t: Turn): Nat := Dial.zerosDuring ({ position = Mod.ofInt x }: Dial 100) t
 

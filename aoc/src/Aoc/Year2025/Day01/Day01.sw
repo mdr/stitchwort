@@ -13,18 +13,17 @@
 -- (Tests/); `run` checks neither.
 
 namespace Aoc.Year2025.Day01
-import Aoc.Common (parseLines)
-import Std (Fail, IO, Int, List, Mod)
-import Std.Fail (fail, need)
+import Std (Fail, IO, Int, List, Mod, Parse)
+import Std.Parse (label, nat, pick, spaces)
 
 def main(): {IO, Fail} () :=
-  let turns := parseTurns IO.readAllLines()
+  let turns := parseTurns IO.readAll()
   IO.print "Part 1: ${solvePart1 turns}"
   IO.print "Part 2: ${solvePart2 turns}"
 
 -- One turn per line. Spaces around a turn are allowed; anything else fails,
--- naming the line.
-def parseTurns (lines: List Text): {Fail} (List Turn) := parseLines lines Turn.parse
+-- naming the line and column.
+def parseTurns (input: Text): {Fail} (List Turn) := Parse.eachLine input turn
 
 def solvePart1 (turns: List Turn): Nat := zerosLandedOn turns startingDial
 
@@ -55,13 +54,12 @@ type Turn =
   | Right (distance: Nat)
 
 -- "L68" is `Left 68`; " R5 " is `Right 5`.
-def Turn.parse (line: Text): {Fail} Turn :=
-  match line.trim.uncons with
-    | Some ('L', rest) => Left (need rest.toNat "expected a turn like L68, got '${line}'")
-    | Some ('R', rest) => Right (need rest.toNat "expected a turn like L68, got '${line}'")
-    | _ => fail "expected a turn like L68, got '${line}'"
-
-def Turn.parseOption (line: Text): Option Turn := Fail.toOption (() => Turn.parse line)
+def turn(): {Parse} Turn :=
+  spaces()
+  let direction := label "a turn like L68" (() => pick [("L", Left), ("R", Right)])
+  let distance := nat()
+  spaces()
+  direction distance
 
 -- A turn, one click at a time: `Left 3` is three `Left 1`s. Only the
 -- specification of part 2 and its proofs (`Aoc.Year2025.Day01.Proofs`) use it; it stays

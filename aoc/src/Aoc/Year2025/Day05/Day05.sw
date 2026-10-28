@@ -16,12 +16,12 @@
 -- range holds. The tests are in `Aoc.Year2025.Day05.Tests` (Tests/). `run` checks neither.
 
 namespace Aoc.Year2025.Day05
-import Aoc.Common (Range, parseLines, parseLinesFrom)
-import Std (Fail, IO, Nat, Text)
-import Std.Fail (fail)
+import Aoc.Common (Range, range, spacedNat)
+import Std (Fail, IO, Nat, Parse, Text)
+import Std.Parse (blankLine, lines)
 
 def main(): {IO, Fail} () :=
-  let database := parseDatabase IO.readAllLines()
+  let database := parseDatabase IO.readAll()
   IO.print "Part 1: ${solvePart1 database}"
   IO.print "Part 2: ${solvePart2 database}"
 
@@ -33,15 +33,14 @@ type Database = { fresh: List Range, available: List Nat }
 def emptyDatabase: Database := { fresh = [], available = [] }
 
 -- Ranges, one per line; a blank line; then ids, one per line. Spaces around a
--- line are allowed. Anything else fails, naming the line.
-def parseDatabase (lines: List Text): {Fail} Database :=
-  let ranges := lines.takeWhile (.trim ≠ "")
-  match lines.drop ranges.length with
-    | Nil => fail "expected a blank line between the ranges and the ids, got none"
-    | Cons _ ids => {
-      fresh = parseLines ranges Range.parse,
-      available = parseLinesFrom ids (ranges.length + 2) Text.toNatOrFail
-    }
+-- number are allowed. Anything else fails, naming the line and column.
+def parseDatabase (input: Text): {Fail} Database := Parse.all input database
+
+def database(): {Parse} Database :=
+  let fresh := lines range
+  blankLine()
+  let available := lines spacedNat
+  { fresh, available }
 
 -- Part 1: the available ids that are fresh.
 def solvePart1 (db: Database): Nat :=

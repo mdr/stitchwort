@@ -22,12 +22,12 @@
 -- The tests are in `Aoc.Year2025.Day09.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Year2025.Day09
-import Aoc.Common (parseLines)
-import Std (Fail, IO, List, Nat, PrefixSums, Text)
-import Std.Fail (fail)
+import Aoc.Common (spacedNat)
+import Std (Fail, IO, List, Nat, Parse, PrefixSums, Text)
+import Std.Parse (char)
 
 def main(): {IO, Fail} () :=
-  let tiles := parseTiles IO.readAllLines()
+  let tiles := parseTiles IO.readAll()
   IO.print "Part 1: ${solvePart1 tiles}"
   IO.print "Part 2: ${solvePart2 tiles}"
 
@@ -35,14 +35,15 @@ def main(): {IO, Fail} () :=
 type Tile = { x: Nat, y: Nat }
 
 -- One red tile per line, in the order the loop joins them. Spaces around a
--- line or a number are allowed; anything else fails, naming the line.
-def parseTiles (lines: List Text): {Fail} (List Tile) := parseLines lines parseTile
+-- number are allowed; anything else fails, naming the line and column.
+def parseTiles (input: Text): {Fail} (List Tile) := Parse.eachLine input redTile
 
 -- "7,1" is `{ x = 7, y = 1 }`.
-def parseTile (line: Text): {Fail} Tile :=
-  match line.split ',' |> .map .trim.toNat with
-    | [Some x, Some y] => { x, y }
-    | _ => fail "expected a red tile like 7,1, got '${line}'"
+def redTile(): {Parse} Tile :=
+  let x := spacedNat()
+  char ','
+  let y := spacedNat()
+  { x, y }
 
 -- The number of tiles in the rectangle with these two tiles as opposite
 -- corners, both included.

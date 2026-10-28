@@ -9,12 +9,11 @@
 -- `Aoc.Year2024.Day01.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day01
-import Aoc.Common (parseLines)
-import Std (Fail, IO, List, Map, Nat, Text)
-import Std.Fail (fail)
+import Aoc.Common (spacedNat)
+import Std (Fail, IO, List, Map, Nat, Parse, Text)
 
 def main(): {IO, Fail} () :=
-  let lists := parseLocationLists IO.readAllLines()
+  let lists := parseLocationLists IO.readAll()
   IO.print "Part 1: ${solvePart1 lists}"
   IO.print "Part 2: ${solvePart2 lists}"
 
@@ -22,15 +21,17 @@ def main(): {IO, Fail} () :=
 type LocationLists = { left: List Nat, right: List Nat }
 
 -- One pair of ids per line, separated by spaces: "3   4". Anything else fails,
--- naming the line.
-def parseLocationLists (lines: List Text): {Fail} LocationLists :=
-  let (left, right) := parseLines lines parseIdPair |> .unzip
+-- naming the line and column.
+def parseLocationLists (input: Text): {Fail} LocationLists :=
+  let (left, right) := Parse.eachLine input idPair |> .unzip
   { left, right }
 
-def parseIdPair (line: Text): {Fail} (Nat, Nat) :=
-  match line.words.map Text.toNat with
-    | [Some left, Some right] => (left, right)
-    | _ => fail "expected two location ids like '3   4', got '${line}'"
+-- "3   4" is (3, 4). Two numbers next to each other must have spaces
+-- between them, or they would be one number.
+def idPair(): {Parse} (Nat, Nat) :=
+  let left := spacedNat()
+  let right := spacedNat()
+  (left, right)
 
 -- Part 1: the lists in increasing order, paired up, and the distances added.
 def solvePart1 (lists: LocationLists): Nat :=
