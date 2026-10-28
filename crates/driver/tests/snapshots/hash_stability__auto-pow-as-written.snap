@@ -1,0 +1,12 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.halveThenDivide 8f9ca2beeae7f8559a492f74b5510969f032697221eb6b8a5d29646bd929a97e
+Main.remainderBy 434e35fce0dbc763b2ac66afadf725495f94a41cf2f103ff1bc496d7e06ce5e3
+Main.needsNonzero 01a41c0bbdf03d0af355a1a953aed397dfa4520c1e4f5b66a1cf0878b931bab3
+Main.passesNonzero ad0fdc1f7af3e5c760adcdee5b631a30750fbfc1b35939ec40e01db0fa2a3397
+Main.halfDivided 17193c5b883b5676a5db5bc4b12aaa6d92a67d36e4ae11cb1523c4445474f3e5
+Main.test "halveThenDivide" e9e4bd7996c0139e5ee9e58abf1f96db0053d00ef971c14de66a2907ca49dd22
+Main.test "remainderBy" 6eb767902842c79fc92888a7afde9310023d060f85a2ad45a080579048a0bf4d
+Main.test "passesNonzero" 20beabe75146bb0a67c9a22c72b7bcdfedcc8b3493e2c7521004be7197b90e8a

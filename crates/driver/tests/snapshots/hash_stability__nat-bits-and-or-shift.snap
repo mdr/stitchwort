@@ -1,0 +1,12 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.mask 6516beec0aa328070b227f13e5a501d73a37e2d64c638011cd4a73b8f542dfb9
+Main.setBit a1181a322eb6a32b80e8f935c2e0dcbae96c9bbddc4b93b4e673dde8c532fd54
+Main.maskBit 17a76eaddca4f9a422d680a9194cd9326e66333dd0510547dccc66f352f44c25
+Main.setKeeps 728affc422a21c1585d330c2eae4ff3e3e0fb5e56d76e2243528696b1c8559eb
+Main.shiftBack f2e7ab26d26eb1cc24b07a5a2844eaf3b82dc67808fce0af1f7bcc4c27cc6230
+Main.test "mask" 3d71a15cea6da18ad388a979dc0c164bbdf391f53621985215a5a1a0964e5e9a
+Main.test "setBit" f3b5c82ae174786dcd566ab423172cbac6768d0174c50e5e8b97173d7262efda
+Main.test "shiftLeft" 56735f5db4193677cdd2d7efca9c7cb2ec50bbd4cca968621793844f9c0c4819
