@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/rfl-computed-differ-in-elided-part.sw:12:74 ]
+    │
+ 12 │     (List.range 4 |> .all (p c)) = (p c 0 && p c 1 && p c 2 && p c 3) := rfl
+    │                                                                          ─┬─  
+    │                                                                           ╰─── `List.all (List.range 4) (p c)` and `p c 0 && p c 1 && p c 2 && p c 3` aren't equal
+    │ 
+    │ Note 1: computing both sides gives `Decidable.toBool (Nat.decEq (c + 1) (c * 0 + (c + 7))) && Decidable.toBool (Nat.decEq (1 * c + (c + 2)) (Succ (… + …))) && Decidable.toBool (Nat.decEq (… + …) (4 + …)) && Decidable.toBool (Nat.decEq … …) && True` and `Decidable.toBool (Nat.decEq (c + 1) (c * 0 + (c + 7))) && Decidable.toBool (Nat.decEq (1 * c + (c + 2)) (Succ (… + …))) && Decidable.toBool (Nat.decEq (… + …) (4 + …)) && Decidable.toBool (Nat.decEq (… + …) (9 + …))`
+    │ 
+    │ Note 2: they first differ at `Decidable.toBool (Nat.decEq (3 * c + (c + 4)) (9 + (c * 3 + (3 + (c + 7))))) && True` against `Decidable.toBool (Nat.decEq (3 * c + (c + 4)) (9 + (c * 3 + (3 + (c + 7)))))`
+    │ 
+    │ Note 3: `rfl` proves `a = b` only when both sides compute to the same value
+────╯

@@ -498,6 +498,38 @@ impl<'e> Ctx<'e> {
         pretty::value_for_message_hidden_in(self.g(), self.e, &self.names, value)
     }
 
+    /// Whether `a` and `b` differ only in arguments the compiler fills in,
+    /// as shown (calls folded) or as computed. Error path only.
+    pub fn differ_only_in_hidden(&self, a: &Value, b: &Value) -> bool {
+        let g = self.g();
+        let level = self.level();
+        let folded = |v| stitchwort_core::value::quote_folded(g, level, v).ok();
+        let normal = |v| quote(g, level, v).ok();
+        [(folded(a), folded(b)), (normal(a), normal(b))]
+            .iter()
+            .any(|pair| match pair {
+                (Some(x), Some(y)) => pretty::differ_only_in_hidden(g, x, y),
+                _ => false,
+            })
+    }
+
+    /// Where what `a` and `b` compute to first differ, as a note. Error
+    /// path only.
+    pub fn first_difference_note(&self, a: &Value, b: &Value) -> Option<String> {
+        let g = self.g();
+        let level = self.level();
+        let (x, y) = (quote(g, level, a).ok()?, quote(g, level, b).ok()?);
+        let found = pretty::first_difference_in(g, self.e, &self.names, &x, &y)?;
+        let within = found
+            .within
+            .map(|call| format!(", in `{call}`"))
+            .unwrap_or_default();
+        Some(format!(
+            "they first differ at `{}` against `{}`{within}",
+            found.left, found.right
+        ))
+    }
+
     /// `d` with a note saying the sides are different updates, for two
     /// sides that print alike but whose values, as shown or computed, call
     /// two different helpers of updates (each prints as `{ x | f = s }`).
@@ -572,11 +604,11 @@ impl<'e> Ctx<'e> {
                 )
                 .with_note("`Type n` lives in `Type (n+1)`; allowing `Type: Type` would make the logic inconsistent");
         }
-        // Two types that print the same differ in something the compiler
-        // fills in (an implicit argument, a proof): show those.
+        // Two types that print the same may differ only in something the
+        // compiler fills in (an implicit argument, a proof): show those.
         let (expected_shown, found_shown, hidden) = if expected_shown == found_shown {
             let (e, f) = (self.show_hidden(expected), self.show_hidden(found));
-            if e != f {
+            if e != f && self.differ_only_in_hidden(expected, found) {
                 (e, f, true)
             } else {
                 (expected_shown, found_shown, false)
@@ -596,6 +628,10 @@ impl<'e> Ctx<'e> {
                  same statement aren't interchangeable)",
             )
         } else if expected_shown == found_shown {
+            let d = match self.first_difference_note(expected, found) {
+                Some(note) => d.with_note(note),
+                None => d,
+            };
             self.with_alike_updates_note(d, &[expected, found])
         } else {
             d
@@ -4365,15 +4401,6 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
     Some((show(ga), show(gb)))
 }
 
-/// Whether a label "`a` and `b` aren't equal" has the same text for both.
-fn written_equal(label: &str) -> bool {
-    label
-        .strip_suffix("` aren't equal")
-        .and_then(|l| l.strip_prefix('`'))
-        .and_then(|l| l.split_once("` and `"))
-        .is_some_and(|(a, b)| a == b)
-}
-
 /// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of
 /// `check`, whose stack frame is on every recursion).
 #[inline(never)]
@@ -4394,21 +4421,14 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
         (false, false) => None,
     };
     let written = written_sides(cx, a, b);
-    let (label, computed) = match written {
-        Some((wa, wb)) => (
-            format!("`{wa}` and `{wb}` aren't equal"),
-            computed(&wa, &wb),
-        ),
-        None => (
-            format!("`{shown_a}` and `{shown_b}` aren't equal"),
-            computed(&shown_a, &shown_b),
-        ),
-    };
-    // Both sides print the same: they differ in what the compiler fills in
-    // (`Int.modNat x 3 [ok := p]` with two different proofs `p`).
-    let (label, hidden) = if shown_a == shown_b || written_equal(&label) {
+    let (side_a, side_b) = written.unwrap_or_else(|| (shown_a.clone(), shown_b.clone()));
+    let label = format!("`{side_a}` and `{side_b}` aren't equal");
+    let computed = computed(&side_a, &side_b);
+    // Both sides print the same, and differ only in what the compiler fills
+    // in (`Int.modNat x 3 [ok := p]` with two different proofs `p`).
+    let (label, hidden) = if shown_a == shown_b || side_a == side_b {
         let (ha, hb) = (cx.show_hidden(a), cx.show_hidden(b));
-        if ha != hb {
+        if ha != hb && cx.differ_only_in_hidden(a, b) {
             (format!("`{ha}` and `{hb}` aren't equal"), true)
         } else {
             (label, false)
@@ -4416,7 +4436,12 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     } else {
         (label, false)
     };
-    let alike = !hidden && (shown_a == shown_b || normal_a == normal_b || written_equal(&label));
+    let alike = !hidden && (shown_a == shown_b || normal_a == normal_b || side_a == side_b);
+    // Whether a printed pair may hide where the sides differ: the same text,
+    // or parts shown as `…`.
+    let unclear = |x: &str, y: &str| x == y || x.contains('…') || y.contains('…');
+    let difference = !hidden
+        && (unclear(&side_a, &side_b) || computed.is_some() && unclear(&normal_a, &normal_b));
     let mut error = cx.error("E-REFL", "`rfl` can't prove this", label);
     if hidden {
         error = error.with_note(
@@ -4426,6 +4451,9 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
         );
     } else if let Some(computed) = computed {
         error = error.with_note(computed);
+    }
+    if difference && let Some(note) = cx.first_difference_note(a, b) {
+        error = error.with_note(note);
     }
     // Both sides still print the same, as written or computed.
     if alike {

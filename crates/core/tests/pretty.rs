@@ -332,3 +332,103 @@ fn prints_implicit_and_auto_lambda_parameters() {
     let k = lam("x", Icit::Explicit, lam("y", Icit::Explicit, v(1)));
     assert_eq!(show(&p, &[], &k), "x y => x");
 }
+
+fn difference(p: &Prelude, names: &[&str], a: &Term, b: &Term) -> Option<pretty::Difference> {
+    let names: Vec<_> = names.iter().map(|n| (*n).into()).collect();
+    pretty::first_difference(&p.g, &names, a, b)
+}
+
+/// `f`, a function of two numbers that nothing unfolds.
+fn opaque_function(p: &mut Prelude) -> Term {
+    let nat = p.nat_ty();
+    Term::Def(declare(
+        &mut p.g,
+        "f",
+        arrow(nat.clone(), arrow(nat.clone(), nat)),
+    ))
+}
+
+#[test]
+fn finds_where_two_terms_first_differ() {
+    let mut p = Prelude::new();
+    let f = opaque_function(&mut p);
+    let (x, y) = (v(1), v(0));
+    let side = |last: Term| {
+        p.plus(
+            app(f.clone(), [p.plus(x.clone(), p.num(1)), last]),
+            y.clone(),
+        )
+    };
+    let a = side(p.plus(x.clone(), p.num(2)));
+    let b = side(p.plus(p.num(2), x.clone()));
+    // A variable against a number is shown with the `+` around each, and
+    // the call they're in.
+    assert_eq!(
+        difference(&p, &["x", "y"], &a, &b),
+        Some(pretty::Difference {
+            left: "x + 2".into(),
+            right: "2 + x".into(),
+            within: Some("f (x + 1) (x + 2)".into()),
+        })
+    );
+    // Under a binder, by the binder's name.
+    let a = lam("z", p.plus(v(0), app(f.clone(), [v(0), p.num(1)])));
+    let b = lam("z", p.plus(v(0), app(f.clone(), [v(0), v(1)])));
+    let found = difference(&p, &["x", "y"], &a, &b).expect("a difference");
+    assert_eq!(
+        (found.left.as_str(), found.right.as_str()),
+        ("f z 1", "f z y")
+    );
+    assert_eq!(found.within, None);
+}
+
+#[test]
+fn reports_no_difference_where_the_terms_differ_at_the_top_or_not_at_all() {
+    let mut p = Prelude::new();
+    let f = opaque_function(&mut p);
+    let call = |a: Term| app(f.clone(), [a, p.num(0)]);
+    // Different heads: what any printing shows.
+    assert_eq!(
+        difference(&p, &["x"], &call(v(0)), &p.plus(v(0), p.num(0))),
+        None
+    );
+    // A number and the `Succ`s it stands for are alike.
+    let three = Term::Nat(Rc::new(3u32.into()));
+    assert_eq!(difference(&p, &["x"], &call(three), &call(p.num(3))), None);
+}
+
+#[test]
+fn tells_apart_terms_that_differ_only_in_implicit_arguments() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let g = Term::Def(declare(
+        &mut p.g,
+        "g",
+        ipi("n", nat.clone(), arrow(nat.clone(), nat)),
+    ));
+    let call = |hidden: Term, shown: Term| {
+        Term::App(
+            Rc::new(Term::App(
+                Rc::new(g.clone()),
+                Rc::new(hidden),
+                Icit::Implicit,
+            )),
+            Rc::new(shown),
+            Icit::Explicit,
+        )
+    };
+    let only_hidden = |a: &Term, b: &Term| pretty::differ_only_in_hidden(&p.g, a, b);
+    assert!(only_hidden(&call(p.num(1), v(0)), &call(p.num(2), v(0))));
+    // Also differing in an explicit argument.
+    assert!(!only_hidden(
+        &call(p.num(1), v(0)),
+        &call(p.num(2), p.num(0))
+    ));
+    // Not differing at all.
+    assert!(!only_hidden(&call(p.num(1), v(0)), &call(p.num(1), v(0))));
+    // The explicit difference is found past the implicit one.
+    let a = p.plus(call(p.num(1), v(0)), v(0));
+    let b = p.plus(call(p.num(2), p.plus(v(0), p.num(1))), v(0));
+    let found = difference(&p, &["x"], &a, &b).expect("a difference");
+    assert_eq!((found.left.as_str(), found.right.as_str()), ("x", "x + 1"));
+}
