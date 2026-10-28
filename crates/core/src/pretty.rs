@@ -897,7 +897,7 @@ impl<'g> Printer<'g> {
                         let rhs = self.print(names, rhs, Prec::Add);
                         return (format!("{lhs} {op} {rhs}"), Prec::Eq);
                     }
-                    if let (Some((op, prec)), [lhs, rhs]) = (self.infix(*id), &args[..]) {
+                    if let Some((op, prec, lhs, rhs)) = self.arithmetic(*id, &args) {
                         // `+`, `-`, `*`, `/` and `%` associate left;
                         // comparisons don't associate.
                         let (left, right) = match prec {
@@ -1008,6 +1008,33 @@ impl<'g> Printer<'g> {
             Builtin::LessThan | Builtin::IntLessThan | Builtin::FloatLessThan => {
                 Some(("<", Prec::Eq))
             }
+            _ => None,
+        }
+    }
+
+    /// The operator, its precedence and the operands of a call of `id` on
+    /// the explicit arguments `args` shown as an operator: a built-in one
+    /// ([`Printer::infix`]), or the library's `Add` or `Mul` method, taking
+    /// its dictionary as an `auto` argument (`Add.add x y`), or the
+    /// dictionary's field, taking it first (`Add.%add d x y`).
+    fn arithmetic<'t>(
+        &self,
+        id: DefId,
+        args: &[&'t Term],
+    ) -> Option<(&'static str, Prec, &'t Term, &'t Term)> {
+        if let (Some((op, prec)), [lhs, rhs]) = (self.infix(id), args) {
+            return Some((op, prec, lhs, rhs));
+        }
+        let path = &self.g.def(id).path;
+        let (op, prec, field) = match path.strip_prefix("Std.")? {
+            "Add.add" => ("+", Prec::Add, false),
+            "Add.%add" => ("+", Prec::Add, true),
+            "Mul.mul" => ("*", Prec::Mul, false),
+            "Mul.%mul" => ("*", Prec::Mul, true),
+            _ => return None,
+        };
+        match (field, args) {
+            (true, [_, lhs, rhs]) | (false, [lhs, rhs]) => Some((op, prec, lhs, rhs)),
             _ => None,
         }
     }

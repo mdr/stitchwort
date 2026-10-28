@@ -387,6 +387,7 @@ struct Equation {
 
 /// An unknown of a rule that may stand for a proof: a `_` written in it, or
 /// an explicit argument left off its end.
+#[derive(Clone)]
 struct Premise {
     /// The metavariable, applied to the variables in scope.
     meta: Term,
@@ -404,6 +405,20 @@ impl Equation {
     fn open(&self, lhs: &Term) -> bool {
         lhs.subterms()
             .any(|(t, _)| matches!(t, Term::Meta(m) if *m >= self.rule_metas))
+    }
+
+    /// The equation with what has been solved since it was made computed
+    /// in its sides and carrier.
+    fn refreshed(&self, cx: &Ctx) -> Result<Equation> {
+        let refresh = |v: &Value| crate::interfaces::refresh(cx, v);
+        Ok(Equation {
+            carrier: refresh(&self.carrier)?,
+            lhs: refresh(&self.lhs)?,
+            rhs: refresh(&self.rhs)?,
+            to_lhs: self.to_lhs.clone(),
+            rule_metas: self.rule_metas,
+            premises: self.premises.clone(),
+        })
     }
 }
 
@@ -707,6 +722,7 @@ fn rewrite_once(
             &current,
             Shape::Whole(&current_term),
             0,
+            false,
             remaining,
         )?;
         stats.add(&replaced.stats);
@@ -720,16 +736,14 @@ fn rewrite_once(
         again = Some(Snapshot::take(cx));
         equation = elaborate_rule(cx, rule, place)?;
     }
-    let replaced = replace_occurrences(
-        cx,
-        rule,
-        place,
-        &equation,
-        &current,
-        Shape::Whole(&current_term),
-        0,
-        remaining,
-    )?;
+    let shape = Shape::Whole(&current_term);
+    let replaced = if steps.is_empty() {
+        replace_solving_instances(cx, rule, place, &equation, &current, shape, 0, remaining)?
+    } else {
+        replace_occurrences(
+            cx, rule, place, &equation, &current, shape, 0, false, remaining,
+        )?
+    };
     let found = replaced.stats;
     stats.add(&found);
     match replaced.step {
@@ -813,6 +827,7 @@ fn replace_occurrences(
     goal: &Value,
     shape: Shape,
     recent: usize,
+    by_instances: bool,
     remaining: &mut u64,
 ) -> Result<Replaced> {
     let g = cx.g();
@@ -832,6 +847,7 @@ fn replace_occurrences(
         lhs_term: RefCell::new(lhs_term),
         key,
         recent,
+        by_instances,
         rule_metas: equation.rule_metas,
         remaining: Cell::new(*remaining),
         stats: RefCell::new(Stats::default()),
@@ -855,7 +871,9 @@ fn replace_occurrences(
     let first = search.first.take();
     drop(search);
     let searched = searched?;
-    if found.matched == 0 {
+    // Searching by instances only solves the rule's unknowns: the equation
+    // is then computed again and searched for as usual.
+    if found.matched == 0 || by_instances {
         return Ok(Replaced {
             step: None,
             stats: found,
@@ -911,6 +929,45 @@ fn replace_occurrences(
     })
 }
 
+/// [`replace_occurrences`], and if nothing matched, once more after the
+/// rule's instances are found: a left side stuck on an instance its unknown
+/// type leaves open, as `List.sumBy xs (x => ?f x + ?g x)` is on its `Add`,
+/// matches nothing, but an occurrence's type fixes the instance, and the
+/// rule, computed again with it, is searched for as usual.
+#[allow(clippy::too_many_arguments)]
+fn replace_solving_instances(
+    cx: &mut Ctx,
+    rule: &RewriteRule,
+    place: Place,
+    equation: &Equation,
+    goal: &Value,
+    shape: Shape,
+    recent: usize,
+    remaining: &mut u64,
+) -> Result<Replaced> {
+    let replaced = replace_occurrences(
+        cx, rule, place, equation, goal, shape, recent, false, remaining,
+    )?;
+    if replaced.step.is_some() || !equation.open(&cx.quote(&equation.lhs)?) {
+        return Ok(replaced);
+    }
+    let attempt = Snapshot::take(cx);
+    let solved = replace_occurrences(
+        cx, rule, place, equation, goal, shape, recent, true, remaining,
+    )?;
+    if solved.stats.matched > 0 {
+        let refreshed = equation.refreshed(cx)?;
+        let again = replace_occurrences(
+            cx, rule, place, &refreshed, goal, shape, recent, false, remaining,
+        )?;
+        if again.step.is_some() {
+            return Ok(again);
+        }
+    }
+    attempt.restore(cx);
+    Ok(replaced)
+}
+
 /// The occurrence search over one goal term.
 struct Search<'a, 'e> {
     cx: RefCell<&'a mut Ctx<'e>>,
@@ -927,6 +984,11 @@ struct Search<'a, 'e> {
     /// Above 0, only occurrences that mention one of the last `recent`
     /// variables of `cx` are selected.
     recent: usize,
+    /// Whether candidates are compared with the left side as it computes
+    /// once the instances the candidate's type fixes are found, and also by
+    /// the arguments of calls of the same definition
+    /// ([`crate::unify::unify_solving_arguments`]).
+    by_instances: bool,
     /// Metavariables from this index on were made for the rule.
     rule_metas: usize,
     remaining: Cell<u64>,
@@ -1010,6 +1072,16 @@ impl Search<'_, '_> {
             let value = eval(g, &cx.env, &candidate)?;
             if !has_carrier(cx, &mut self.kcx.borrow_mut(), &candidate, self.carrier)? {
                 return Ok(false);
+            }
+            if self.by_instances {
+                // The candidate's type has fixed the carrier: the rule's
+                // instances whose types are now known are found, and the
+                // projections stuck on them compute.
+                let only: Vec<usize> = (self.rule_metas..g.metas.borrow().len()).collect();
+                cx.e.solve_ready_instances_keeping(&[], Some(&only))?;
+                let lhs = crate::interfaces::refresh(cx, self.lhs)?;
+                return Ok(crate::undo::unify(cx, &value, &lhs)?
+                    || crate::undo::unify_solving_arguments(cx, &value, &lhs)?);
             }
             if crate::undo::unify(cx, &value, self.lhs)? {
                 return Ok(true);

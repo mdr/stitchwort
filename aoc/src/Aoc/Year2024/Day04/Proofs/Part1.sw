@@ -125,19 +125,12 @@ theorem programLines (grid: Grid):
     _ = List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 0 2 0 3 0 + readsAt grid r c 3 0 2 0 1 0 0 0))
         + List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 1 2 2 3 3 + readsAt grid r c 3 3 2 2 1 1 0 0))
         + List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 3 1 2 2 1 3 0 + readsAt grid r c 3 0 2 1 1 2 0 3))
-      := rewrite List.sumByAdd (List.range tall)
-          (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 0 2 0 3 0 + readsAt grid r c 3 0 2 0 1 0 0 0)
-            + List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 1 2 2 3 3 + readsAt grid r c 3 3 2 2 1 1 0 0))
-          (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 3 1 2 2 1 3 0 + readsAt grid r c 3 0 2 1 1 2 0 3)),
-        List.sumByAdd (List.range tall)
-          (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 0 2 0 3 0 + readsAt grid r c 3 0 2 0 1 0 0 0))
-          (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 1 2 2 3 3 + readsAt grid r c 3 3 2 2 1 1 0 0)) in rfl
+      := rewrite List.sumByAdd (List.range tall) _ _, List.sumByAdd (List.range tall) _ _ in rfl
     _ = everywhere grid 0 0 1 0 2 0 3 0 + everywhere grid 3 0 2 0 1 0 0 0
         + (everywhere grid 0 0 1 1 2 2 3 3 + everywhere grid 3 3 2 2 1 1 0 0)
         + (everywhere grid 0 3 1 2 2 1 3 0 + everywhere grid 3 0 2 1 1 2 0 3)
-      := rewrite List.sumByNestedAdd (List.range tall) (List.range wide) (r c => readsAt grid r c 0 0 1 0 2 0 3 0) (r c => readsAt grid r c 3 0 2 0 1 0 0 0),
-        List.sumByNestedAdd (List.range tall) (List.range wide) (r c => readsAt grid r c 0 0 1 1 2 2 3 3) (r c => readsAt grid r c 3 3 2 2 1 1 0 0),
-        List.sumByNestedAdd (List.range tall) (List.range wide) (r c => readsAt grid r c 0 3 1 2 2 1 3 0) (r c => readsAt grid r c 3 0 2 1 1 2 0 3) in rfl
+      := rewrite List.sumByNestedAdd (List.range tall) (List.range wide) _ _, List.sumByNestedAdd (List.range tall) (List.range wide) _ _,
+        List.sumByNestedAdd (List.range tall) (List.range wide) _ _ in rfl
   rewrite <- across, <- through in rfl
 
 -- Past the last row, and past the longest row, there are no letters.

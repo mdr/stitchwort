@@ -42,6 +42,7 @@ pub(crate) struct Snapshot {
     local_keys: usize,
     local_types: usize,
     goals: usize,
+    branch_errors: usize,
 }
 
 impl Snapshot {
@@ -61,6 +62,7 @@ impl Snapshot {
             local_keys: cx.e.local_keys.borrow().len(),
             local_types: cx.e.pending_local_types(),
             goals: cx.e.pending_goals(),
+            branch_errors: cx.e.branch_errors.borrow().len(),
         }
     }
 
@@ -123,6 +125,8 @@ impl Snapshot {
         cx.e.local_keys.borrow_mut().truncate(self.local_keys);
         cx.e.drop_local_types_since(self.local_types);
         cx.e.drop_goals_since(self.goals);
+        // The errors of other bad branches of an attempt undone here.
+        cx.e.branch_errors.borrow_mut().truncate(self.branch_errors);
         cx.reset(self.mark);
         cx.span = self.span;
     }

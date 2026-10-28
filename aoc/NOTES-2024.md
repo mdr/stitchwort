@@ -869,6 +869,13 @@ double sums (`sumBy2Add`), applied with explicit functions. Fix: unify the
 rule's pattern with the goal before resolving `auto` instances (the goal's
 `+` fixes `c = Nat`).
 
+Fixed: when a rule with holes matches nothing, an occurrence's type fixes
+the carrier, the instances it determines are found, and the rule is
+searched for again, also inside functions. The original line now checks,
+and `programLines` splits its sums with `List.sumByAdd (List.range tall) _
+_` and `List.sumByNestedAdd … _ _` instead of writing the functions out.
+Errors print `Add.%add d x y` and `Mul.%mul d x y` as `x + y` and `x * y`.
+
 ### 6. `rewrite` with `_` rewrites one instance
 
 `rewrite <- List.getOrGet rows _ []` turned `Option.getOrElse (List.get rows r) []`
@@ -1812,6 +1819,14 @@ were still unsolved inside the lambda:
 Day 1's item 4 again. Written out, both functions, and `Nat.zeroLe`'s
 argument, it checked. Fix: unify the result type with the goal before
 checking the arguments.
+
+Fixed, as far as it can be: the two `_`s were already filled (the lambda is
+checked again once the call's type meets the goal); the `rewrite` error was
+left over from the first try against `?14 … ≤ ?13 …`, which was undone but
+its arm's error kept, and is no longer reported. The `E-UNSOLVED` was the
+real failure: `0 ≤ n` computes to `True = True` whatever `n` is, so the
+goal says nothing about `Nat.zeroLe`'s argument, which stays written out.
+`sumFilterMore` now leaves both functions as `_`.
 
 ### 5. Goals unfold too far, and a `match` in a statement is opaque
 

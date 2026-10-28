@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+assertion_line: 430
+expression: output
+---
+[E-UNSOLVED] Error: can't work out an implicit argument
+    ╭─[ reject/zero-le-hole.sw:15:27 ]
+    │
+ 15 │     | False => Nat.zeroLe _)
+    │                           ┬  
+    │                           ╰── the compiler couldn't work out what goes here
+    │ 
+    │ Note: supply it explicitly with `f [x := …]`, or add a type annotation
+────╯
