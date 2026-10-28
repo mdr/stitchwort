@@ -29,6 +29,15 @@ def same (value: a): a := value
 
 def viaSame (code: Code): Nat := (same code).numericPart
 
+-- A constant of type `List Code`, and a function's `List Code` result.
+def someCodes: List Code := [[1, 2], [3]]
+
+def constantParts: List Nat := someCodes.map .numericPart
+
+def codesOf (digits: List Nat): List Code := digits.map (digit => [digit])
+
+def resultParts (digits: List Nat): List Nat := (codesOf digits).map .numericPart
+
 -- The underlying type's functions, once `Code` has no `length`.
 def digitCount (code: Code): Nat := code.length
 
@@ -47,5 +56,7 @@ test "annotated" := totalAnnotated [[1, 2], [3]] == 15
 test "section" := totalScaled [[1, 2], [3]] == 30
 test "map" := parts [[4, 2]] == [42]
 test "generic" := viaSame [7] == 7
+test "constant" := constantParts == [12, 3]
+test "result" := resultParts [4, 5] == [4, 5]
 test "underlying" := digitCount [1, 2, 3] == 3
 test "scan" := steps [1, 2] == [[], [1], [2, 1]]

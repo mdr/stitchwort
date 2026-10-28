@@ -936,9 +936,11 @@ the types as written.
 
 **An alias's functions are found where the value's type mentions the
 alias** ([alias-functions.md](alias-functions.md)). An inferred type keeps
-the aliases it came from: inside a definition, a parameter's type is as
-written (`codes: List Code` stays `List Code`), and a metavariable solved
-from it keeps the alias (the element type of `List Code` is `Code`). So
+the aliases it came from: a definition's type is as written, both for its
+parameters inside its body and wherever it's used (`codes: List Code`, a
+parameter or a constant, stays `List Code`; so does a function's result
+type), and a metavariable solved from one keeps the alias (the element
+type of `List Code` is `Code`). So
 `codes.sumBy (code => code.numericPart)`, `codes |> .sumBy (.scaled 2)` and
 a value through a generic function or `List.scanLeft` find `Code`'s
 functions. A value whose type never mentions the alias, a hand-written
