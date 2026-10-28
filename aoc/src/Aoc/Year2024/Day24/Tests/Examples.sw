@@ -159,3 +159,11 @@ test "the repaired adder adds" :=
   let broken := withSwaps 16 [("z03", "g03"), ("p07", "t07"), ("c11", "t11"), ("p13", "z13")]
   let fixed := applySwaps broken.gates (repair 4 16 broken.gates [] |> .getOrElse [])
   sumOf 16 broken.gates 4660 22136 != Some 26796 && sumOf 16 fixed 4660 22136 == Some 26796
+
+-- Three-bit adders where none of the swaps suggested for the first fault
+-- leads anywhere, so the swap comes from the wires of the faulty bit.
+test "four swaps crowded into three bits" :=
+  solvePart2 (withSwaps 3 [("p01", "g01"), ("z00", "c01"), ("z03", "z01"), ("z02", "c00")]) == Some "c00,c01,g01,p01,z00,z01,z02,z03"
+
+test "four swaps crowded into three bits, another" :=
+  solvePart2 (withSwaps 3 [("z03", "c00"), ("p01", "g01"), ("t01", "z01"), ("c01", "z00")]) == Some "c00,c01,g01,p01,t01,z00,z01,z03"

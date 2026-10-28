@@ -31,12 +31,12 @@ theorem repairSound (bits: Nat): (budget: Nat) → (gates: List Gate) → (swaps
   | Zero, gates, swaps, result, found =>
     match checked: checkAdder gates bits with
       | Passes carry => repairDone bits 0 gates swaps result found
-      | Faulty fixes => Void.exfalso (Option.noneNotSome result found)
+      | Faulty fixes suspects => Void.exfalso (Option.noneNotSome result found)
   | Succ fewer, gates, swaps, result, found =>
     match checked: checkAdder gates bits with
       | Passes carry => repairDone bits (Succ fewer) gates swaps result found
-      | Faulty fixes =>
-        match findMapSome (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix])) result fixes found with
+      | Faulty fixes suspects =>
+        match findMapSome (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix])) result (swapsToTry fixes suspects) found with
           | Witness fix fixed =>
             match repairSound bits fewer (swapOutputs gates fix) (List.append swaps [fix]) result fixed with
               | Witness more (Both isResult (Both short adder)) =>

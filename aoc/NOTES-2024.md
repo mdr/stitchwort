@@ -7656,6 +7656,18 @@ answer that also adds, and three `None`s on 3- to 8-bit adders where the
 swaps crowd a few bits. Part 1 agreed with Python every time. Compiler
 built from `main` at 0e5d0d5e, 28 October 2026.
 
+Fixed (SW-830): when every suggested swap at a faulty bit fails, `repair`
+falls back to every pair among the outputs of the gates at that bit (its
+partial, generated, sum, passed and carry-out gates, the carry from below
+and the bit's z wire), still checked by `isAdder` and still within the
+budget of four; `Faulty` carries these `suspects`. On 120 generated cases
+(40 each: swaps within bits of a 45-bit adder, swaps anywhere in a 45-bit
+adder, and 3- to 45-bit adders with swaps anywhere; a Python generator
+outside the repository, answers checked by adding random numbers) the hits
+went from 116 to 117: a 32-bit case now works, and 3 `None`s remain, all
+on adders with swaps spread across bits. Two 3-bit regression tests are
+hand-sized. A 45-bit adder takes 1 to 3 s, up to 5.5 s (3.3 s before).
+
 ### The program
 
 ```stitchwort
@@ -7704,14 +7716,14 @@ def solvePart1 (device: Device): Option Nat := zBits device device.settled |> .m
 
 type BitCheck =
   | Passes (carry: Wire)
-  | Faulty (fixes: List (Wire, Wire))
+  | Faulty (fixes: List (Wire, Wire)) (suspects: List Wire)
 
 def repair (budget: Nat) (bits: Nat) (gates: List Gate) (swaps: List (Wire, Wire)): Option (List (Wire, Wire)) :=
   match checkAdder gates bits with
-    | Faulty fixes =>
+    | Faulty fixes suspects =>
       match budget with
         | Zero => None
-        | Succ fewer => fixes.findMap (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix]))
+        | Succ fewer => (swapsToTry fixes suspects).findMap (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix]))
     | Passes carry => if isAdder gates bits then Some swaps else None
 
 def solvePart2 (device: Device): Option Text :=
