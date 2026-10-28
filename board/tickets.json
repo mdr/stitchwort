@@ -1,5 +1,5 @@
 {
-  "next": 757,
+  "next": 759,
   "tickets": [
     {
       "id": 13,
@@ -6329,7 +6329,7 @@
     {
       "id": 751,
       "title": "Day 10 findings: list membership holes fill by unfolding; match on n + 1 reduces as Succ n; if-comparisons as Bool consistently; Add.zero vs 0 when comparing; List.forEach and length/count lemmas; 'in' on its own line after a multi-line rewrite",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6353,7 +6353,7 @@
     {
       "id": 753,
       "title": "Move List.sumByCongRange and List.countCongMem (and the five small lemmas they need) to List/Toolkit.sw beside sumBy/count, so rewrite/decreasing find them wherever those functions are used; sort programs then check ~1.1M steps (from 4.1M). After the day 10 lane (List/Lemmas.sw) merges; fix the two stale comments too",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6390,6 +6390,30 @@
       "id": 756,
       "title": "Guide's errors/decreasing.sw now checks (decreasing tries omega); rewrite the example and text",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 757,
+      "title": "Map.insertWith costs ~1.6 µs per insert (most of AoC 2024 day 11 part 2); profile Map/Ord dispatch on the machine and speed it up",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 758,
+      "title": "Day 11 findings: E-ARITY should name the definition that unfolded to add arguments; rewrite occurrence selection (focus one part); DecEq.sound note blames match instead of the unknown instance; occurrencesFlatMap/permFlatMap/sumBy-one=length lemmas; Parse's next in scope unimported",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
