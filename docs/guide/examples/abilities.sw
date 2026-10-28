@@ -1,7 +1,8 @@
 -- Chapter 8: abilities and handlers.
-import Std (Abort, Each, Fail, IO, List, Nat, Option, Result, Text)
+import Std (Abort, Each, Fail, IO, List, Nat, Option, Parse, Result, Text)
 import Std.Effect (Effects)
 import Std.Fail (fail, need, ensure, toResult)
+import Std.Parse (char, nat)
 
 -- begin declare
 ability Log where
@@ -107,6 +108,23 @@ def triples (n: Nat): List (Nat, Nat, Nat) := Each.collect (() =>
 
 test "pythagorean triples" := triples 13 == [(3, 4, 5), (5, 12, 13), (6, 8, 10)]
 -- end each
+
+-- begin parse
+type Box = { x: Nat, y: Nat, z: Nat }
+
+def box(): {Parse} Box :=
+  let x := nat()
+  char ','
+  let y := nat()
+  char ','
+  let z := nat()
+  { x, y, z }
+
+def parseBoxes (input: Text): {Fail} (List Box) := Parse.eachLine input box
+
+test "boxes" := toResult (() => parseBoxes "162,817,812\n57,618,57\n") == Ok [{ x = 162, y = 817, z = 812 }, { x = 57, y = 618, z = 57 }]
+test "a bad box" := toResult (() => parseBoxes "162,817,812\n57,6x8,57\n") == Err "line 2, column 5: expected ','"
+-- end parse
 
 -- begin effects-parameter
 type Hooks (e: Effects) = {

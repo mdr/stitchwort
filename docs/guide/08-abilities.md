@@ -213,6 +213,30 @@ def triples (n: Nat): List (Nat, Nat, Nat) := Each.collect (() =>
 test "pythagorean triples" := triples 13 == [(3, 4, 5), (5, 12, 13), (6, 8, 10)]
 ```
 
+## Parsing: `Parse`
+
+A parser from `Std.Parse` is direct-style code with the `Parse` ability. It reads tokens with `nat()`, `char ','`, `text "p="` and the like, and chooses with `oneOf`, `optional` and `many`. A runner gives it the input: `Parse.eachLine` parses each line on its own (the one to reach for when there's a record per line), and `Parse.all` parses the whole input, for input with sections. Either turns a failure into a `Fail` that names the line and column:
+
+<!-- snippet: abilities.sw#parse -->
+```stitchwort
+type Box = { x: Nat, y: Nat, z: Nat }
+
+def box(): {Parse} Box :=
+  let x := nat()
+  char ','
+  let y := nat()
+  char ','
+  let z := nat()
+  { x, y, z }
+
+def parseBoxes (input: Text): {Fail} (List Box) := Parse.eachLine input box
+
+test "boxes" := toResult (() => parseBoxes "162,817,812\n57,618,57\n") == Ok [{ x = 162, y = 817, z = 812 }, { x = 57, y = 618, z = 57 }]
+test "a bad box" := toResult (() => parseBoxes "162,817,812\n57,6x8,57\n") == Err "line 2, column 5: expected ','"
+```
+
+A choice always backs up: when one alternative fails, the next starts from the same place. An error names the furthest point any alternative reached, and everything expected there. A parser fails with `Parse.fail`, `Parse.ensure` or `Parse.need`, and `Parse.fromFail (() => word.toNatOrFail)` runs a `Fail` helper inside a parser. `examples/accept/parse-basics.sw` shows the rest: keyword tables, grids, nested input.
+
 ## `IO` and `main`
 
 `IO` has three operations: `IO.print` (writes a line), `IO.readLine()` (the next line, or `None` at the end of the input) and `IO.readAll()` (the rest of the input). `IO.readAllLines()` is the input as a list of lines.
@@ -254,4 +278,4 @@ To test code that performs `IO`, handle it: `IO.simulate` runs a computation aga
 
 Before the kernel sees a program, a computation with abilities is translated into ordinary data: a tree of operations, each with the rest of the computation as a function ([core.md, Abilities](../core.md#abilities)). A handler is a fold over that tree, so the kernel's usual termination check is what shows that handlers finish. A use of an effect-polymorphic function with a pure callback is plain pure code. A pure function stays pure: a handler used inside it doesn't show in its type, so `collectLog` can be called from a test.
 
-More: [syntax.md, Abilities](../syntax.md#abilities), [`Abort`](../syntax.md#abort), [`Fail` and `Result`](../syntax.md#fail-and-result), [`Each`](../syntax.md#each), and the design notes [abilities.md](../proposals/abilities.md), [effect-polymorphism.md](../proposals/effect-polymorphism.md) and [errors.md](../proposals/errors.md).
+More: [syntax.md, Abilities](../syntax.md#abilities), [`Abort`](../syntax.md#abort), [`Fail` and `Result`](../syntax.md#fail-and-result), [`Each`](../syntax.md#each), and the design notes [abilities.md](../proposals/abilities.md), [effect-polymorphism.md](../proposals/effect-polymorphism.md), [errors.md](../proposals/errors.md) and [parser-combinators.md](../proposals/parser-combinators.md).
