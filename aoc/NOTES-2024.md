@@ -2917,20 +2917,21 @@ after blinking 25 times?"; part 2: "How many stones would you have after
 blinking a total of 75 times?" (part 2's wording from the public copy at
 <https://github.com/RobUrsem/AdventOfCode2024/blob/1d92fdb7a5c926295cff6a8bfee6e262cfd56bf6/11/day11.txt>).
 
-**The input is not Matt's.** `mdr/aoc-2024` stops at day 10 (its last
-commit, 17 December 2024, is "day 10"; there is no `Aoc2024/Day11`), so
-there was no day 11 input of his to use. `aoc/inputs/2024/day11.txt` is a
-stand-in: the first line of a public file,
-<https://github.com/davidasensio/AdventCalendar/blob/28ecafdc2958ce4eaf5eedb52180463b66ea2f54/src/main/resources/2024/Day11.txt>
-(`5688 62084 2 3248809 179 79 0 172169`). To switch to Matt's own input,
-replace that file and the answers in `Tests/Input.sw`,
-`crates/cli/tests/aoc_answers.rs` and `crates/rt/tests/machine.rs`.
+**The real input is pending from Matt.** `mdr/aoc-2024` stops at day 10
+(its last commit, 17 December 2024, is "day 10"; there is no
+`Aoc2024/Day11`), so there is no day 11 input of his yet. Until it comes,
+day 11 has no `aoc/inputs/2024/day11.txt`, no real-input tests and no entry
+in `crates/cli/tests/aoc_answers.rs` or `crates/rt/tests/machine.rs`; when
+it does, add the file, a `Tests/Input.sw` as other days have, and those two
+entries.
 
-Answers on the stand-in: 186175 and 220566831337810 (cross-checked with an
-independent Python script, `/usr/bin/python3 -I`, that splits the decimal
-string and counts with a `Counter`; it also gives the example's six lines,
-55312 after 25 blinks, and 65601038650482 after 75). After 75 blinks the
-stand-in's 220 trillion stones show only 3792 different numbers. Compiler
+The example's answers are checked: its six lines, 55312 after 25 blinks,
+and 65601038650482 after 75, all agreeing with an independent Python script
+(`/usr/bin/python3 -I`) that splits the decimal string and counts with a
+`Counter`. The timings below are on a generated line of 8 stones
+(`4186027 69222 0 8 977 8629 632510 81`, not committed), on which the
+program and the Python script agree (199514 and 236970341363826); after 75
+blinks its 237 trillion stones show only 3764 different numbers. Compiler
 built from `main` at 64fbe366, 28 October 2026.
 
 ### The program
@@ -2962,7 +2963,7 @@ def solvePart2 (stones: List Nat): Nat := countAfter 75 stones
 ```
 
 The domain model is the list of numbers. The line grows by about half
-again per blink, so part 2's literal list would have 2 * 10^14 elements;
+again per blink, so part 2's literal list would have over 10^14 elements;
 the program never builds it. It keeps how many stones show each number
 (`Map Nat Nat`, starting from std's `Map.counts`), and a blink changes each
 number once and adds its count to whatever it becomes. Splitting divides by
@@ -3084,22 +3085,23 @@ annotations, and `blinks.iterate blinkCounts (Map.counts stones) |>
 
 ### 5. Performance
 
-Interpreted, `run` on the input takes 1.65 s, against 0.52 s on the
-example (loading and checking), and 0.60 s for parsing alone; part 1 alone
-is 0.64 s. So part 1 is about 0.04 s of work and part 2 about 1.0 s. The
-Python script does both, and a second count, in 0.11 s. A version with the
-digits counted by repeated multiplication instead of `Nat.digitCount`'s
-digit list ran part 2 alone in 1.51 s against about 1.6 s, so the time is
-the map: 75 blinks of about 3800 numbers is some 570,000 `insertWith`s,
-about 1.6 µs each, through a balanced tree that compares through the `Ord`
-instance. `--js` takes 1.24 s, Node's start included. On the machine, a
-`stitchwort build` executable (no loading) takes 1.32 to 1.38 s on the
-input and 0.02 s on the example: slower than the interpreter's 1.0 s of
-work, which I didn't look into. `machine aoc_agrees` passed (496 AoC
-tests agree), but its merge-tier sample of days doesn't include day 11,
-so it ran neither day 11's `main` nor its timing.
+All on the generated line of 8 stones (user time). Interpreted, `run`
+takes 1.52 s, against 0.54 s on the example (loading and checking), and
+0.54 s for parsing alone; part 1 alone is 0.58 s. So part 1 is about
+0.04 s of work and part 2 about 0.95 s. The Python script does both, and a
+second count, in 0.09 s. A version with the digits counted by repeated
+multiplication instead of `Nat.digitCount`'s digit list ran part 2 alone in
+1.43 s against about 1.5 s, so the time is the map: 75 blinks of up to
+about 3800 numbers is some 500,000 `insertWith`s, nearly 2 µs each,
+through a balanced tree that compares through the `Ord` instance. `--js`
+takes 0.86 s, Node's start included. On the machine, a `stitchwort build`
+executable (no loading) takes 1.13 to 1.18 s, against 0.02 s on the
+example: slower than the interpreter's 0.95 s of work, which I didn't look
+into. `machine aoc_agrees` passed (496 AoC tests agree), but day 11 has no
+entry in its answer list, so it ran neither day 11's `main` nor its
+timing.
 
-What I did instead: nothing; 1.7 s is fine. A hash map, or an `IntMap`
+What I did instead: nothing; 1.5 s is fine. A hash map, or an `IntMap`
 (Haskell's `Data.IntMap`) keyed by `Nat`, would be the fix if a day needs
 it.
 
@@ -3172,17 +3174,17 @@ Release build, on a machine with a load average around 25:
 | --- | --- |
 | `stitchwort check --no-cache Aoc.Year2024.Day11.Proofs` | 2.0 s |
 | `stitchwort check --no-cache Aoc.Year2024.Day11` | 1.7 s |
-| `stitchwort test --no-cache Aoc.Year2024.Day11` (24 tests) | 4.2 s |
-| `stitchwort run Aoc.Year2024.Day11.main` on the input | 1.65 s |
+| `stitchwort test --no-cache Aoc.Year2024.Day11` (20 tests) | 1.9 s |
+| `stitchwort run Aoc.Year2024.Day11.main` on the generated line | 1.52 s |
 | `stitchwort check --no-cache` (whole project) | 15 s |
-| `main` on the input, on the machine (`stitchwort build`) | 1.32 s |
+| `main` on the generated line, on the machine (`stitchwort build`) | 1.13 s |
 
-49 lines of program, 40 of spec, 224 of proofs, 64 of tests.
+49 lines of program, 40 of spec, 224 of proofs, 49 of tests.
 
 ### Ranked
 
-1. The input isn't Matt's: his repository has no day 11. Fix: replace
-   `aoc/inputs/2024/day11.txt` and the four answer places with his own.
+1. The real input is pending: Matt's repository has no day 11. Fix: add
+   his input, its tests and its two answer entries when he has it.
 2. A `def` that unfolds to a function type adds arguments to a theorem's
    arms, and `E-ARITY` doesn't say so (item 3). Fix: name the definition
    that unfolded and the extra argument in the message.
