@@ -815,3 +815,44 @@ fn the_arguments_after_a_double_dash_are_the_programs() {
         assert_eq!(run_with(&["--native"], &["--", "x", "y"]), "x|y\n");
     }
 }
+
+/// SW-863: the list builders run in constant stack, so a list longer than the
+/// 2,000,000-frame limit goes through them (calls modulo a constructor are
+/// loops on the fast runtime, `stitchwort_rt::trmc`, and in the JS
+/// generator's loops). A frame per element would be `E-RESOURCE` here. A
+/// callback that performs abilities in a row such as `{IO}` isn't covered:
+/// it still uses a frame per element on the fast runtime.
+#[test]
+fn list_builders_run_on_two_million_elements() {
+    let path = source_file(
+        "builders-deep.sw",
+        "import Std (List, Nat)\n\
+         def inc(x: Nat): Nat := x + 1\n\
+         def even(x: Nat): Bool := if x % 2 == 0 then True else False\n\
+         def n(xs: List Nat): Text := Nat.toText (List.length xs)\n\
+         def main(): {IO} () :=\n  \
+           let xs := List.range 2100000\n  \
+           let _ := IO.print (n (List.map xs inc))\n  \
+           let _ := IO.print (n (List.filter xs even))\n  \
+           let _ := IO.print (n (xs ++ xs))\n  \
+           IO.print (n (List.concat [xs, xs]))\n",
+    );
+    let want = "2100000\n1050000\n4200000\n4200000\n";
+    let run_with = |flags: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(["run", "--no-cache"])
+            .args(flags)
+            .arg(&path)
+            .output()
+            .expect("run stitchwort");
+        assert!(output.status.success(), "{flags:?}: {}", stderr(&output));
+        String::from_utf8(output.stdout).unwrap()
+    };
+    assert_eq!(run_with(&[]), want);
+    if Command::new("node").arg("--version").output().is_ok() {
+        assert_eq!(run_with(&["--js"]), want);
+    }
+    if cfg!(feature = "native") {
+        assert_eq!(run_with(&["--native"]), want);
+    }
+}
