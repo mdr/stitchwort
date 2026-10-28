@@ -575,25 +575,22 @@ fn small_programs_load_only_the_library_files_they_can_use() {
         std_loaded_by("def t (xs: List Nat): Nat := xs.foldLeft 0 (a b => a + b)\n"),
         toolkit
     );
-    // `List/Sort.sw`'s lemmas use `Decidable.toBoolSound` and friends, and
-    // its counting lemmas are proved by `ring`, which needs `Std.Ring` (and
-    // the `Int` files that `Ring/Sound.sw` builds on). They also use the
-    // toolkit's and the `Option` helpers' lemmas.
+    // The sort's lemmas are in `List/SortLemmas.sw`, so neither they nor
+    // `ring` (`Std.Ring` and the `Int` files under it) load. The congruence
+    // lemmas `List.sumByCongRange` and `List.countCongMem` stay in
+    // `List/Sort.sw` and use `List.sumByCons` and `List.countOccurrences`,
+    // so the toolkit's lemmas load, with what they use.
     let sort = [
         "Bool/Bool.sw",
         "Decidable/Decidable.sw",
-        "Int/Basics.sw",
         "Logic/Logic.sw",
         "Nat/Arith.sw",
-        "Int/Int.sw",
         "Option/Option.sw",
         "Option/Lemmas.sw",
         "Ord/Ord.sw",
         "Result/Result.sw",
         "List/Toolkit.sw",
         "List/Lemmas.sw",
-        "Ring/Ring.sw",
-        "Ring/Sound.sw",
         "List/Sort.sw",
     ];
     assert_eq!(
