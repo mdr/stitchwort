@@ -1,5 +1,5 @@
 {
-  "next": 715,
+  "next": 719,
   "tickets": [
     {
       "id": 13,
@@ -5813,7 +5813,7 @@
     {
       "id": 707,
       "title": "AoC 2024 day 4: solve, prove against a puzzle-literal spec, log language gaps (overnight 27–28 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5885,6 +5885,54 @@
     {
       "id": 714,
       "title": "std: DecEq instance for () (Unit), so tests can compare Ok () (Std.Parse stage 1 finding)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 715,
+      "title": "std list lemmas from AoC 2024 day 4: getDrop, getZipWith3 in Option form, sums over zips as sums over indices, range-sum extend/shift, (Some x == Some y) = (x == y), step lemmas for all/any over cons; plus DecEq for () (overnight)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 716,
+      "title": "rfl error: when both sides print alike, show the first differing subterm, and only say 'differ only in arguments the compiler fills in' when true (AoC 2024 day 4)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 717,
+      "title": "Goals show a proof-valued let by its type, not its proof term (no Omega.proveEq or Effect.doneD in goals) (AoC 2024 day 4)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 718,
+      "title": "rewrite: a hole can stand for an auto instance argument (List.sumByAdd _ _ fails with Add.%add ?58 …); no internal names in its error (AoC 2024 day 4)",
       "status": "next",
       "agent": "",
       "where": "",
