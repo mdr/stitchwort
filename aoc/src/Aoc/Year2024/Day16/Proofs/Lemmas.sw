@@ -100,3 +100,15 @@ theorem getOfContains [auto ord: Ord k] (m: Map k v) (key: k) (there: m.contains
   match found: m.get key with
     | Some value => Witness value rfl
     | None => Void.exfalso (Bool.falseNotTrue there)
+
+-- A set with no least key holds nothing.
+theorem missingOfMinNone [auto ord: Ord k] (set: Set k) (empty: set.min = None) (key: k): set.contains key = False :=
+  match there: set.contains key with
+    | False => rfl
+    | True =>
+      let member := Map.memKeysOfContains set.items key there
+      match entries: Map.toList set.items with
+        | Nil => Void.exfalso member
+        | Cons entry rest =>
+          let first: set.min = Some entry.fst := rewrite Map.minToList set.items, entries in rfl
+          Void.exfalso (Option.someNotNone entry.fst (Eq.trans (Eq.sym first) empty))

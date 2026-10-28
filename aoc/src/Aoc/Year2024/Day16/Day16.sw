@@ -235,9 +235,9 @@ def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (s
 def Graph.search [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat): Map s Nat :=
   Graph.searchFrom graph queue settled queue.min rfl
 
--- The least cost to each state reachable from one of the sources.
-def Graph.distances [auto ord: Ord s] (graph: Graph s) (sources: List s): Map s Nat :=
-  graph.search (sources |> .map (source => (0, source)) |> Set.fromList) Map.empty
+-- The least cost to each state reachable from one of the sources, each
+-- given with the cost of starting there.
+def Graph.distances [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)): Map s Nat := graph.search (pushEdges 0 sources Set.empty) Map.empty
 
 theorem directionsComplete: (facing: Direction) → facing ∈ directions
   | East => Inl rfl
@@ -262,10 +262,10 @@ def Maze.graph (maze: Maze) (backwards: Bool): Graph Reindeer := {
 }
 
 -- The lowest score from the start to each reachable way of standing.
-def Maze.fromStart (maze: Maze): Map Reindeer Nat := (maze.graph False).distances [maze.startReindeer]
+def Maze.fromStart (maze: Maze): Map Reindeer Nat := (maze.graph False).distances [(maze.startReindeer, 0)]
 
 -- The lowest score from each way of standing to the end, facing any way.
-def Maze.toEnd (maze: Maze): Map Reindeer Nat := (maze.graph True).distances maze.endReindeer
+def Maze.toEnd (maze: Maze): Map Reindeer Nat := (maze.graph True).distances (maze.endReindeer |> .map (reindeer => (reindeer, 0)))
 
 -- The lowest score at the end, facing any way, from the start's scores.
 def Maze.lowestScore (maze: Maze) (fromStart: Map Reindeer Nat): Option Nat := maze.endReindeer.filterMap fromStart.get |> .minimum
