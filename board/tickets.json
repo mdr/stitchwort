@@ -7558,9 +7558,9 @@
     {
       "id": 846,
       "title": "Dot on a postponed lambda's parameter fails in AoC 2024 day 9 proofs: the parameter's type is the unfolded Map, not the nickname FreeSpace",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "worktree",
       "labels": [
         "bug"
       ],
