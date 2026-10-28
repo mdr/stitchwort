@@ -688,11 +688,11 @@ theorem Map.Raw.popMinFromToList (m: Map.Raw k v [ord := o]):
     Option.map (Map.Raw.popMinFrom m popped found) (view => (view.fst, Map.Raw.toList view.snd)) = Map.Spec.uncons (Map.Raw.toList m)
   | None, found =>
     let same: Option.map (Map.Raw.popMinFrom m None found) (view => (view.fst, Map.Raw.toList view.snd))
-        = Option.map (Map.Tree.popMin m.tree) (view => (view.fst, Map.Tree.toListOnto view.snd Nil)) := rewrite found in rfl
+      = Option.map (Map.Tree.popMin m.tree) (view => (view.fst, Map.Tree.toListOnto view.snd Nil)) := rewrite found in rfl
     Eq.trans same (Map.Tree.popMinOnto m.tree)
   | Some (smallest, rest), found =>
     let same: Option.map (Map.Raw.popMinFrom m (Some (smallest, rest)) found) (view => (view.fst, Map.Raw.toList view.snd))
-        = Option.map (Map.Tree.popMin m.tree) (view => (view.fst, Map.Tree.toListOnto view.snd Nil)) := rewrite found in rfl
+      = Option.map (Map.Tree.popMin m.tree) (view => (view.fst, Map.Tree.toListOnto view.snd Nil)) := rewrite found in rfl
     Eq.trans same (Map.Tree.popMinOnto m.tree)
 
 theorem Map.Raw.popMinToList (m: Map.Raw k v [ord := o]):

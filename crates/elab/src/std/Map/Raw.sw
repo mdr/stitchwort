@@ -778,11 +778,14 @@ def Map.Raw.popMinFrom (m: Map.Raw k v [ord := o]):
     (popped: Option ((k, v), Map.Tree k v)) → Map.Tree.popMin m.tree = popped → Option ((k, v), Map.Raw k v [ord := o])
   | None, found => None
   | Some (smallest, rest), found =>
-    Some (smallest, {
-      tree = rest,
-      ordered = Map.Tree.popMinOrdered o m.tree smallest rest m.ordered found,
-      sized = Map.Tree.popMinSized m.tree smallest rest m.sized found
-    })
+    Some (
+      smallest,
+      {
+        tree = rest,
+        ordered = Map.Tree.popMinOrdered o m.tree smallest rest m.ordered found,
+        sized = Map.Tree.popMinSized m.tree smallest rest m.sized found
+      }
+    )
 
 -- The smallest entry and the map without it, in one walk.
 def Map.Raw.popMin (m: Map.Raw k v [ord := o]): Option ((k, v), Map.Raw k v [ord := o]) :=
