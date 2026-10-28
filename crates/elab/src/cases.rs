@@ -553,7 +553,7 @@ fn family(
     ))
 }
 
-fn is_proposition(cx: &Ctx, goal: &Value) -> Result<bool> {
+pub(crate) fn is_proposition(cx: &Ctx, goal: &Value) -> Result<bool> {
     let g = cx.g();
     Ok(match force(g, goal.clone())? {
         Value::Eq(..) => true,

@@ -461,6 +461,59 @@ def main(): {IO} () := IO.print (Nat.toText (loop 3000000 0))
     assert_eq!(out, "6000000\n");
 }
 
+/// `List.length` runs as a loop (`List.lengthOnto`), so a list longer than
+/// the frame limit has a length.
+#[test]
+fn list_length_doesnt_grow_the_stack() {
+    let (out, result) = on_the_machine(
+        r#"
+import Std (Nat, Text)
+
+def build: Nat -> List Nat -> List Nat
+  | 0, acc => acc
+  | Succ n, acc => build n (Cons n acc)
+
+def main(): {IO} () := IO.print (Nat.toText (build 100000 []).length)
+"#,
+        Limits {
+            steps: u64::MAX,
+            frames: 100,
+        },
+    );
+    assert_eq!(result, Ok(()));
+    assert_eq!(out, "100000\n");
+}
+
+/// A `let` used in a `match` arm inside a lambda is computed once, as a
+/// closure's capture would be, not once per call of the lambda: the helper
+/// the `match` is lifted to takes its value. Counted in steps: twenty
+/// computations of `slow` would take far more than the limit.
+#[test]
+fn a_let_in_a_lifted_match_is_computed_once() {
+    let (out, result) = on_the_machine(
+        r#"
+import Std (List, Nat, Text)
+
+def slow (n: Nat): Nat := List.range n |> .sumBy (i => i % 7)
+
+def total (n: Nat) (flag: Option Nat): Nat :=
+  let big := slow n
+  List.range 20 |> .sumBy (i =>
+    match flag with
+      | Some first => big + i + first
+      | None => 0)
+
+def main(): {IO} () := IO.print (Nat.toText (total 20000 (Some 1)))
+"#,
+        Limits {
+            steps: 500_000,
+            frames: 1_000_000,
+        },
+    );
+    assert_eq!(result, Ok(()));
+    assert_eq!(out, "1200150\n");
+}
+
 /// `Text.take`, `Text.drop` and `Text.contains` count Unicode scalar values,
 /// not bytes, and agree with their definitions on the edge cases: empty
 /// texts, astral characters, characters either side of the surrogates,

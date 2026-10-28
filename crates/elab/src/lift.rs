@@ -34,8 +34,8 @@ use crate::kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::{State, UpdateShown};
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::{Head, eval, quote_folded};
-use stitchwort_core::{DefId, Globals, Icit, Name, Term, Value};
+use stitchwort_core::value::{Head, eval, force, quote_folded};
+use stitchwort_core::{DefId, Globals, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Elaborator;
@@ -74,7 +74,9 @@ pub(crate) struct Draft {
     /// definition's captures keep their kind (§2.1).
     pub kinds: Vec<Icit>,
     /// Which variables of the context are `let`s, with their types and
-    /// values (`Ctx::lets`): the helper re-creates those it uses.
+    /// values (`Ctx::lets`): the helper re-creates those it uses, and a
+    /// `match`'s helper also takes those it can as parameters, for the
+    /// runtimes to use instead ([`Elaborator::run_body`]).
     pub lets: Vec<Option<Rc<LetDef>>>,
     /// The order the captures are taken in, from where it was written
     /// (`Ctx::order`).
@@ -433,6 +435,34 @@ pub(crate) fn uses(
     }
 }
 
+/// Whether a value of type `ty` (in a context of `level` variables) is
+/// erased when running: a type, or a proof. Its shape decides it (under any
+/// parameters, an equation, a sort or a data type), or else the kernel's
+/// inference of its sort.
+fn erased_type(e: &Elaborator, draft: &Draft, level: usize, ty: &Value) -> Result<bool> {
+    let g = &e.globals;
+    let (mut at, mut result) = (level, ty.clone());
+    loop {
+        match force(g, result)? {
+            Value::Pi(_, _, _, codomain) => {
+                result = codomain.apply(g, Value::var(at))?;
+                at += 1;
+            }
+            Value::Sort(_) | Value::Eq(..) => return Ok(true),
+            Value::Data(d, _) => return Ok(g.data(d).sort == Sort::Prop),
+            _ => break,
+        }
+    }
+    let cx = Ctx::from_parts(
+        e,
+        draft.env[..level].to_vec(),
+        draft.types[..level].to_vec(),
+        draft.names[..level].to_vec(),
+        draft.span,
+    );
+    crate::cases::is_proposition(&cx, ty)
+}
+
 /// The metavariables `term` mentions.
 fn metas(term: &Term, out: &mut BTreeSet<usize>) {
     for (t, _) in term.subterms() {
@@ -623,6 +653,9 @@ impl Elaborator {
             for &(i, id) in &members {
                 let (_, lam, _) = self.parts(&drafts[i], &ordered[i], &|_| false, true)?;
                 bodies.push((id, lam));
+                if let Some(run) = self.run_body(&drafts[i], &ordered[i])? {
+                    self.pending_run_bodies.push((id, run));
+                }
             }
             let ids: HashSet<DefId> = members.iter().map(|(_, id)| *id).collect();
             let pending = bodies.iter().any(|(_, body)| {
@@ -651,6 +684,7 @@ impl Elaborator {
                 for (_, id) in &members {
                     self.opaque_helper_admitted(*id);
                 }
+                self.set_run_bodies()?;
             }
         }
         let resolved = resolved
@@ -892,23 +926,27 @@ impl Elaborator {
         }
         // A local definition's parameters are its leading lambdas; a
         // `match`'s helper takes none of its own.
-        self.recreate(draft, &t, 0, draft.local.is_some(), keep)
+        self.recreate(draft, &t, 0, draft.local.is_some(), &BTreeSet::new(), keep)
     }
 
     /// [`Elaborator::unrefine_body`]'s walk down the case tree of `term`
     /// (under `under` binders of its own), through leading lambdas if
-    /// `params`.
+    /// `params`. The `let`s in `passed` aren't re-created: they stay
+    /// variables of the draft's context.
     fn recreate(
         &self,
         draft: &Draft,
         term: &Term,
         under: usize,
         params: bool,
+        passed: &BTreeSet<usize>,
         keep: &dyn Fn(usize) -> bool,
     ) -> Result<Term> {
         self.globals.budget.nesting(crate::check::PASS)?;
-        let go =
-            |t: &Term, under, params| self.recreate(draft, t, under, params, keep).map(Rc::new);
+        let go = |t: &Term, under, params| {
+            self.recreate(draft, t, under, params, passed, keep)
+                .map(Rc::new)
+        };
         Ok(match term {
             Term::Loc(span, t) => Term::Loc(*span, go(t, under, params)?),
             Term::Lam(x, i, b) if params => Term::Lam(x.clone(), *i, go(b, under + 1, true)?),
@@ -941,17 +979,19 @@ impl Elaborator {
                     .collect::<Result<_>>()?,
                 go(default, under, false)?,
             ),
-            leaf => self.with_lets(draft, leaf, under, keep)?,
+            leaf => self.with_lets(draft, leaf, under, passed, keep)?,
         })
     }
 
     /// `leaf` (in the draft's context and `under` binders of the helper's
-    /// own) inside the `let`s of the draft's context it uses.
+    /// own) inside the `let`s of the draft's context it uses, except those
+    /// in `passed`.
     fn with_lets(
         &self,
         draft: &Draft,
         leaf: &Term,
         under: usize,
+        passed: &BTreeSet<usize>,
         keep: &dyn Fn(usize) -> bool,
     ) -> Result<Term> {
         let g = &self.globals;
@@ -963,6 +1003,7 @@ impl Elaborator {
                     && let Some(ix) = ix.checked_sub(binders)
                     && let Some(level) = depth.checked_sub(ix + 1)
                     && draft.lets.get(level).is_some_and(Option::is_some)
+                    && !passed.contains(&level)
                 {
                     out.push(level);
                 }
@@ -1026,6 +1067,9 @@ impl Elaborator {
         // point reads them (each variable's computed once, when needed).
         let mut parts: Vec<(Term, Term)> = Vec::new();
         let mut types: Vec<Vec<Option<Term>>> = Vec::new();
+        // The `let`s each helper may take as parameters, and its body with
+        // none re-created, where they're found.
+        let mut passable: Vec<(BTreeSet<usize>, Option<Term>)> = Vec::new();
         for d in drafts {
             let n = d.env.len();
             parts.push((
@@ -1033,6 +1077,12 @@ impl Elaborator {
                 self.unrefine(d, &d.goal, n, &in_batch)?,
             ));
             types.push(vec![None; n]);
+            let lets = self.passable_lets(d)?;
+            let plain = match lets.is_empty() {
+                true => None,
+                false => Some(self.unrefine_as(d, &d.body, n, &in_batch, true)?),
+            };
+            passable.push((lets, plain));
         }
         let spines: Vec<Vec<usize>> = drafts
             .iter()
@@ -1048,6 +1098,11 @@ impl Elaborator {
                 let mut found = BTreeSet::new();
                 uses(&parts[i].0, n, &calls, &mut found);
                 uses(&parts[i].1, n, &calls, &mut found);
+                if let (lets, Some(plain)) = &passable[i] {
+                    let mut used_lets = BTreeSet::new();
+                    uses(plain, n, &calls, &mut used_lets);
+                    found.extend(used_lets.intersection(lets));
+                }
                 let mut work: Vec<usize> = found.iter().copied().collect();
                 let mut done = BTreeSet::new();
                 while let Some(l) = work.pop() {
@@ -1127,6 +1182,89 @@ impl Elaborator {
             out.push(ordered);
         }
         Ok((out, Unrefined { parts, types }))
+    }
+
+    /// The `let`s of the context a `match` is in that its helper takes as
+    /// parameters when it uses them, so that the runtimes use the value
+    /// the owner computed, as a closure would, rather than computing it on
+    /// every call ([`Elaborator::run_body`]). Only a helper whose result is
+    /// kept when running needs them, and only `let`s whose values are; a
+    /// local definition's parameters are as written, so it takes none.
+    fn passable_lets(&self, draft: &Draft) -> Result<BTreeSet<usize>> {
+        let g = &self.globals;
+        let mut out = BTreeSet::new();
+        if draft.local.is_some() || draft.lets.iter().all(Option::is_none) {
+            return Ok(out);
+        }
+        let goal = eval(g, &draft.env, &draft.goal)?;
+        if erased_type(self, draft, draft.env.len(), &goal)? {
+            return Ok(out);
+        }
+        for level in 0..draft.base.min(draft.lets.len()) {
+            if draft.lets[level].is_some() && !erased_type(self, draft, level, &draft.types[level])?
+            {
+                out.insert(level);
+            }
+        }
+        Ok(out)
+    }
+
+    /// What the runtimes run for `draft`'s helper, which takes `captures`,
+    /// if it takes any `let`s as parameters: its body with those `let`s
+    /// read from the parameters instead of re-created. The kernel checks it
+    /// against the helper's type ([`Elaborator::set_run_bodies`]).
+    fn run_body(&self, draft: &Draft, captures: &[usize]) -> Result<Option<Term>> {
+        let passed: BTreeSet<usize> = captures
+            .iter()
+            .copied()
+            .filter(|&l| draft.lets.get(l).is_some_and(Option::is_some))
+            .collect();
+        if passed.is_empty() {
+            return Ok(None);
+        }
+        let g = &self.globals;
+        let n = draft.env.len();
+        let keep = |_| false;
+        let body = self.unrefine_as(draft, &draft.body, n, &keep, true)?;
+        let body = self.recreate(draft, &body, 0, false, &passed, &keep)?;
+        let k = captures.len();
+        let mut lam = replace(
+            g,
+            &body,
+            n,
+            &|l| match captures.iter().position(|c| *c == l) {
+                Some(p) => Ok(Term::Var(k - 1 - p)),
+                None => Err(Diagnostic::error(
+                    "E-MALFORMED",
+                    "internal error: a lifted term uses a variable it doesn't capture",
+                )),
+            },
+        )?;
+        for &l in captures.iter().rev() {
+            lam = Term::Lam(draft.names[l].clone(), Icit::Explicit, Rc::new(lam));
+        }
+        Ok(Some(lam))
+    }
+
+    /// Gives each final helper waiting for one its run body
+    /// ([`Elaborator::run_body`]). One the kernel refuses, because checking
+    /// it needs a `let`'s value and not just its type, keeps running its own
+    /// body, which computes the `let` again.
+    pub(crate) fn set_run_bodies(&mut self) -> Result<()> {
+        for (id, body) in std::mem::take(&mut self.pending_run_bodies) {
+            match self.globals.def(id).state() {
+                State::Final => {
+                    if let Err(e) = kernel::set_run_body(&mut self.globals, id, &body)
+                        && crate::undo::fatal(&e)
+                    {
+                        return Err(e);
+                    }
+                }
+                State::Pending => self.pending_run_bodies.push((id, body)),
+                _ => {}
+            }
+        }
+        Ok(())
     }
 
     /// The positions in `spine` (the frozen metavariable's arguments) of

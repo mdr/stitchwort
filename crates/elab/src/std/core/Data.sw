@@ -68,6 +68,13 @@ type List (a: Type): Type =
   | Nil
   | Cons (head: a) (tail: List a)
 
+-- `n` plus the length of `xs`, counted in a loop: what the runtimes run for
+-- `List.length`, so a long list doesn't run out of stack
+-- (`List.lengthOntoEq` proves them equal).
+def List.lengthOnto: List a → Nat → Nat
+  | Nil, n => n
+  | Cons x xs, n => List.lengthOnto xs (Succ n)
+
 -- `a` is bound automatically, as an implicit argument: `List.length: [a: Type] -> ...`.
 def List.length: List a → Nat
   | Nil => 0

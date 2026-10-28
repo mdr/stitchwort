@@ -61,6 +61,9 @@ def Option.map4 (f: a → b → c → d → e): Option a → Option b → Option
 
 -- Takes the option apart: `none` for `None`, else `some` of the value.
 -- `x.fold 0 (v => v + 1)` is `0` for `None` and `v + 1` for `Some v`.
+-- `none` is an argument, so one that performs runs whatever `x` is:
+-- `x.fold (Fail.fail message) (v => v)` always fails, where
+-- `Fail.need x message` fails only for `None`.
 def Option.fold: Option a → (none: b) → (some: a → b) → b
   | None, none, some => none
   | Some x, none, some => some x
