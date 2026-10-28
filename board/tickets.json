@@ -7516,7 +7516,7 @@
     {
       "id": 843,
       "title": "A hang (time budget) should name the declaration being checked",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7525,7 +7525,10 @@
       "body": "From SW-808 (day 22), not yet reproduced: a long-running check gives no hint which declaration it's in.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "5f44e035",
+        "f436c016"
+      ]
     },
     {
       "id": 844,
@@ -7786,9 +7789,9 @@
     {
       "id": 860,
       "title": "Negative and ! arguments follow-ups: note on E-TYPE-MISMATCH for one argument too many, colouring test, f ! a reject example, f ¬x",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "worktree",
       "labels": [
         "syntax"
       ],
