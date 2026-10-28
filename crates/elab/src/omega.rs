@@ -810,8 +810,9 @@ fn prove_goal(
                 }
                 // By cases on `p`: `True` is done, `False` leaves `q`.
                 (Some(true), Some(BoolForm::Or(p, q))) => {
-                    let sides =
-                        |cx: &Ctx| -> Result<Vec<Term>> { Ok(vec![cx.quote_folded(&p)?, cx.quote_folded(&q)?]) };
+                    let sides = |cx: &Ctx| -> Result<Vec<Term>> {
+                        Ok(vec![cx.quote_folded(&p)?, cx.quote_folded(&q)?])
+                    };
                     return by_cases(
                         cx,
                         lib,
@@ -841,8 +842,9 @@ fn prove_goal(
                 }
                 // By cases on `p`: `False` is done, `True` leaves `q`.
                 (Some(false), Some(BoolForm::And(p, q))) => {
-                    let sides =
-                        |cx: &Ctx| -> Result<Vec<Term>> { Ok(vec![cx.quote_folded(&p)?, cx.quote_folded(&q)?]) };
+                    let sides = |cx: &Ctx| -> Result<Vec<Term>> {
+                        Ok(vec![cx.quote_folded(&p)?, cx.quote_folded(&q)?])
+                    };
                     return by_cases(
                         cx,
                         lib,
@@ -1052,7 +1054,10 @@ fn prove_or(
                 ((*l).clone(), None)
             }
             Value::Eq(ty, x, y) if is_data(cx, &ty, lib.nat)? => {
-                let equal = apps(Term::Def(lib.nat_equal), vec![cx.quote_folded(&x)?, cx.quote_folded(&y)?]);
+                let equal = apps(
+                    Term::Def(lib.nat_equal),
+                    vec![cx.quote_folded(&x)?, cx.quote_folded(&y)?],
+                );
                 (cx.eval(&equal)?, Some((x, y)))
             }
             _ => continue,
@@ -2386,7 +2391,14 @@ fn split_first(
         return Ok(match &d.bools {
             Some((p, q)) => apps(
                 Term::Def(lib.or_elim),
-                vec![cx.quote_folded(p)?, cx.quote_folded(q)?, goal_term, d.proof, left, right],
+                vec![
+                    cx.quote_folded(p)?,
+                    cx.quote_folded(q)?,
+                    goal_term,
+                    d.proof,
+                    left,
+                    right,
+                ],
             ),
             None => {
                 let implicit = |t: Term, arg: Term| Term::app_icit(t, arg, Icit::Implicit);
