@@ -3036,6 +3036,9 @@ impl<'t> Parser<'t> {
             }
             expr = Expr::App(Box::new(expr), Box::new(arg));
         }
+        if self.peek() == Some(&Tok::KwCases) && self.peek_at(1) == Some(&Tok::KwIn) {
+            return Err(self.cases_in_argument());
+        }
         Ok(expr)
     }
 
@@ -3107,6 +3110,27 @@ impl<'t> Parser<'t> {
                     | Tok::Question
             )
         ) || (self.peek() == Some(&Tok::Dot) && self.section_at(self.pos))
+            || self.bare_cases()
+    }
+
+    /// Whether the next token is a `cases` with no `in` after it, which is
+    /// a whole term and so can be an argument, as `omega` can.
+    fn bare_cases(&self) -> bool {
+        self.peek() == Some(&Tok::KwCases) && self.peek_at(1) != Some(&Tok::KwIn)
+    }
+
+    /// `f cases in t`: a `cases in` as an argument, whose body would take
+    /// the rest of the line.
+    #[inline(never)]
+    fn cases_in_argument(&self) -> Diagnostic {
+        error(
+            self.tokens[self.pos].span,
+            "`cases in …` as an argument needs brackets",
+        )
+        .with_note(
+            "the body of `cases in` runs to the end of the expression, so as an argument \
+             it's written `(cases in t)`",
+        )
     }
 
     /// Whether the next tokens are `()` written right after the name or field
@@ -3462,6 +3486,10 @@ impl<'t> Parser<'t> {
                     facts: std::mem::take(facts),
                     span: span.to(*list_span),
                 })
+            }
+            Some(Tok::KwCases) if self.bare_cases() => {
+                self.bump();
+                Ok(Expr::Cases { body: None, span })
             }
             Some(Tok::Underscore) => {
                 self.bump();
