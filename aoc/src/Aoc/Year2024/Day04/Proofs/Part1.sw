@@ -266,9 +266,9 @@ theorem specDirections (grid: Grid):
     _ = List.sumBy directions (inDirection grid)
       := List.sumBySwap directions (List.range tall) (r direction => List.sumBy (List.range wide) (c => Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c direction)))
     _ = inDirection grid { down = Back, across = Back } + inDirection grid { down = Back, across = Stay }
-        + inDirection grid { down = Back, across = Ahead } + inDirection grid { down = Stay, across = Back }
-        + inDirection grid { down = Stay, across = Ahead } + inDirection grid { down = Ahead, across = Back }
-        + inDirection grid { down = Ahead, across = Stay } + inDirection grid { down = Ahead, across = Ahead }
+      + inDirection grid { down = Back, across = Ahead } + inDirection grid { down = Stay, across = Back }
+      + inDirection grid { down = Stay, across = Ahead } + inDirection grid { down = Ahead, across = Back }
+      + inDirection grid { down = Ahead, across = Stay } + inDirection grid { down = Ahead, across = Ahead }
 
 -- Part 1 is right for every grid: the printed answer is the number of
 -- positions and directions from which the letters spell XMAS.
