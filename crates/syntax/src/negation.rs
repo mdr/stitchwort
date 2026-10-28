@@ -51,18 +51,31 @@ pub fn opens_atom(tok: &Tok) -> bool {
     )
 }
 
-/// An argument minus: the `-` at `i` follows a closing token, has a space
-/// (or a line break) before it and none after it, and is followed by an atom:
-/// `f -2`, `f -x`. The token-level test only. The parser adds that the `-`
-/// isn't at a statement stop, so a block line `-y` stays a new statement.
+/// An argument minus: the `-` at `i` is an argument prefix (below), as in
+/// `f -2`, `f -x`.
 pub fn argument_minus(tokens: &[Token], i: usize) -> bool {
+    tokens.get(i).is_some_and(|t| t.tok == Tok::Minus) && argument_prefix(tokens, i)
+}
+
+/// An argument `!` (stage 3, D1471): the `!` at `i`, under the `-` rule, as in
+/// `f !x`. `x !in xs` is not one: `!in` is its own token, `NotIn`.
+pub fn argument_bang(tokens: &[Token], i: usize) -> bool {
+    tokens.get(i).is_some_and(|t| t.tok == Tok::Bang) && argument_prefix(tokens, i)
+}
+
+/// An argument prefix: the `-` or `!` at `i` follows a closing token, has a
+/// space (or a line break) before it and none after it, and is followed by an
+/// atom: `f -2`, `f -x`, `f !x`. The token-level test only. The parser adds
+/// that it isn't at a statement stop, so a block line `-y` or `!c` stays a
+/// new statement.
+pub fn argument_prefix(tokens: &[Token], i: usize) -> bool {
     let (Some(minus), Some(next)) = (tokens.get(i), tokens.get(i + 1)) else {
         return false;
     };
     let Some(before) = i.checked_sub(1).map(|j| &tokens[j]) else {
         return false;
     };
-    minus.tok == Tok::Minus
+    matches!(minus.tok, Tok::Minus | Tok::Bang)
         && closes_operand(&before.tok)
         && (minus.line_start || before.span.end != minus.span.start)
         && !next.line_start

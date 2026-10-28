@@ -17,7 +17,7 @@ use crate::ast::{
     Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
-use crate::negation::{argument_minus, negative_numeral};
+use crate::negation::{argument_bang, argument_minus, argument_prefix, negative_numeral};
 use crate::stack::StackLimit;
 use crate::{Diagnostic, FileId, Span};
 
@@ -3348,7 +3348,7 @@ impl<'t> Parser<'t> {
             )
         ) || (self.peek() == Some(&Tok::Dot) && self.section_at(self.pos))
             || self.bare_cases()
-            || self.argument_minus_at(self.pos)
+            || self.argument_prefix_at(self.pos)
     }
 
     /// Whether the `-` at token `i` is an argument minus (`f -2`): the
@@ -3356,6 +3356,13 @@ impl<'t> Parser<'t> {
     /// stays a new statement.
     fn argument_minus_at(&self, i: usize) -> bool {
         argument_minus(self.tokens, i) && !self.is_stop(i)
+    }
+
+    /// Whether the `-` or `!` at token `i` is an argument prefix (`f -2`,
+    /// `f !x`), by the one shared test, and not at a statement stop, so a
+    /// block line `!c` stays a new statement.
+    fn argument_prefix_at(&self, i: usize) -> bool {
+        argument_prefix(self.tokens, i) && !self.is_stop(i)
     }
 
     /// Whether the next token is a `cases` with no `in` after it, which is
@@ -3681,10 +3688,23 @@ impl<'t> Parser<'t> {
         Ok(Expr::Neg(Box::new(operand), span, form))
     }
 
+    /// An argument `!` (`f !x`): `Std.Bool.not` of one atom with its dots and
+    /// `()` calls, as any argument takes them.
+    #[inline(never)]
+    fn bang_atom(&mut self) -> Result<Expr> {
+        if !argument_bang(self.tokens, self.pos) {
+            return Err(self.unexpected_name("an expression"));
+        }
+        let start = self.bump().span;
+        let operand = self.atom(false)?;
+        Ok(prefix_op(true, start, operand))
+    }
+
     fn atom_base(&mut self) -> Result<Expr> {
         let span = self.here();
         match self.peek() {
             Some(Tok::Minus) => self.negative_atom(),
+            Some(Tok::Bang) => self.bang_atom(),
             Some(Tok::Lower(_)) => Ok(Expr::Var(self.lower_q("an expression")?)),
             Some(Tok::Upper(_)) => Ok(Expr::Var(self.upper_q("an expression")?)),
             Some(Tok::Num(n)) => {
@@ -5434,6 +5454,32 @@ mod tests {
     }
 
     #[test]
+    fn a_block_line_starting_with_a_bang_is_a_new_statement() {
+        let e = rhs_of("def g (c : Bool) (d : Bool) : Bool :=\n  let y := c\n  !d\n").unwrap();
+        let Expr::Let { value, body, .. } = &e else {
+            panic!("{e:?}")
+        };
+        assert_eq!(shape(value), "c");
+        assert_eq!(shape(body), "(Std.Bool.not d)");
+        // An indented line continues the one above: an argument.
+        let e = rhs_of("def g (f : Bool -> Bool) (x : Bool) : Bool :=\n  f\n    !x\n").unwrap();
+        assert_eq!(shape(&e), "(f (Std.Bool.not x))");
+    }
+
+    #[test]
+    fn x_not_in_xs_is_not_an_argument_bang() {
+        let e = rhs_of("def g (x : Nat) (xs : List Nat) : Bool := x !in xs\n").unwrap();
+        assert!(matches!(e, Expr::App(..)), "{e:?}");
+        assert!(format!("{e:?}").contains("In("), "{e:?}");
+        let e = rhs_of("def g (f : Nat -> Bool) (x : Nat) (xs : List Nat) : Bool := f x !in xs\n")
+            .unwrap();
+        assert!(format!("{e:?}").contains("In("), "{e:?}");
+        // `!` after an operand with a space on both sides, or none before it.
+        assert!(rhs_of("def g (f : Bool -> Bool) (a : Bool) : Bool := f ! a\n").is_err());
+        assert!(rhs_of("def g (f : Bool -> Bool) (a : Bool) : Bool := f!a\n").is_err());
+    }
+
+    #[test]
     fn a_negative_argument_in_a_constructor_pattern() {
         let text =
             "def h (o : Option Int) : Int :=\n  match o with\n    | Some -1 => 0\n    | _ => 1\n";
@@ -5489,6 +5535,10 @@ mod tests {
             ("!a > b", format!("(Lt b ({n} a))")),
             ("!a = b", format!("(Eq ({n} a) b)")),
             ("f (!a)", format!("(f ({n} a))")),
+            ("f !a", format!("(f ({n} a))")),
+            ("f !x.done", format!("(f ({n} x.done))")),
+            ("f !g x", format!("((f ({n} g)) x)")),
+            ("f !a !b", format!("((f ({n} a)) ({n} b))")),
             ("a != b", "(Ne a b)".to_string()),
         ];
         for (text, want) in cases {
