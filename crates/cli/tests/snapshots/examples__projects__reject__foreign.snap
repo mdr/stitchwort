@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-FOREIGN-NAMESPACE] Error: `Range` belongs to namespace Lib, and Day can't add to it
-   ╭─[ foreign/src/day.sw:6:5 ]
+[E-FOREIGN-NAMESPACE] Error: `Lib` is a namespace of the project, and Day can't add to it
+   ╭─[ foreign/src/day.sw:4:5 ]
    │
- 6 │ def Range.extra (r: Range): Nat := 1
-   │     ─────┬─────  
-   │          ╰─────── `Range` here means `Lib.Range`
+ 4 │ def Lib.Range.extra (r: Lib.Range): Nat := 1
+   │     ───────┬───────  
+   │            ╰───────── `Lib` here means the namespace `Lib`
    │ 
-   │ Note: name it in Day without the `Range.` prefix, e.g. `extra`
+   │ Note: to add `extra` to `Lib.Range`, import the type with `import Lib (Range)` and write `Range.extra`
 ───╯

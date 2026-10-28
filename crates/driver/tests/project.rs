@@ -150,10 +150,10 @@ test \"field\" := (holder 3).r.size == 3
 #[test]
 fn foreign_namespace() {
     let day = |body: &str| format!("namespace Day\n\nimport Lib (Range)\n\n{body}\n");
-    // A qualifier that is another namespace's type.
+    // A type declared in another namespace's type.
     let found = errors(&[
         ("lib.sw", LIB),
-        ("day.sw", &day("def Range.extra (r: Range): Nat := 1")),
+        ("day.sw", &day("type Range.Extra = { n: Nat }")),
     ]);
     assert_eq!(codes(&found), ["E-FOREIGN-NAMESPACE"]);
     assert!(
@@ -727,19 +727,47 @@ fn a_wildcard_brings_every_file_of_the_namespace() {
 }
 
 #[test]
-fn adding_through_a_wildcard_is_foreign() {
-    let found = errors(&[
+fn adding_through_a_wildcard_is_an_extension() {
+    let session = load(&[
         ("lib.sw", LIB),
         (
             "day.sw",
-            "namespace Day\n\nimport Lib (..)\n\ndef Range.extra (r: Range): Nat := 1\n",
+            "namespace Day\n\nimport Lib (..)\n\ndef Range.extra (r: Range): Nat := r.size + 1\n\ntest \"extra\" := (Range.parse 3).extra == 4\n",
         ),
     ]);
-    assert_eq!(codes(&found), ["E-FOREIGN-NAMESPACE"]);
-    assert!(
-        found[0].message.contains("belongs to namespace Lib"),
-        "{found:#?}"
-    );
+    passes(&session);
+    def_hash_of(&session, "Day.Range.extra");
+}
+
+/// Whether `x.f` finds a function another namespace adds to `x`'s type
+/// depends on the file's own imports, not on which namespaces the command
+/// loaded (docs/proposals/extending-types.md §4).
+#[test]
+fn extensions_dont_depend_on_what_is_loaded() {
+    let grid = "namespace P\n\ntype Grid = { width: Nat }\n";
+    let spec = "namespace P.Spec\n\nimport P (Grid)\n\ndef Grid.probe (grid: Grid): Nat := grid.width + 1\n";
+    let proofs = "namespace P.Proofs\n\nimport P (Grid)\nimport P.Spec (..)\n\ntest \"probe\" := ({ width = 1 }: Grid).probe == 2\n";
+    // `Q` sorts after `P.Spec`, so `check` loads P.Spec first.
+    let q = "namespace Q\n\nimport P (Grid)\n\ndef use (grid: Grid): Nat := grid.probe\n";
+    let files = [
+        ("grid.sw", grid),
+        ("spec.sw", spec),
+        ("proofs.sw", proofs),
+        ("q.sw", q),
+    ];
+    for target in [Target::Everything, Target::Namespaces(vec!["Q".into()])] {
+        let (_, result) = load_target(&files, &target);
+        let found: Vec<Diagnostic> = result
+            .err()
+            .expect("Q doesn't see P.Spec's `Grid.probe`")
+            .into_iter()
+            .filter(|d| d.severity == Severity::Error)
+            .collect();
+        assert_eq!(codes(&found), ["E-UNKNOWN-FIELD"]);
+    }
+    let (session, result) = load_target(&files, &Target::Namespaces(vec!["P.Proofs".into()]));
+    result.expect("P.Proofs imports P.Spec");
+    passes(&session);
 }
 
 #[test]

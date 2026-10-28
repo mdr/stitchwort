@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `P.Grid` has no field or function `probe`
+   ╭─[ extension-in-owner/src/grid.sw:6:35 ]
+   │
+ 6 │ def use (grid: Grid): Nat := grid.probe
+   │                                   ──┬──  
+   │                                     ╰──── looked in `P.Grid`
+   │ 
+   │ Note: its fields are `width`
+───╯
+[E-NAMESPACE-FAILED] Error: namespace P has errors, so P.Spec isn't checked
+   ╭─[ extension-in-owner/src/spec.sw:4:8 ]
+   │
+ 4 │ import P (Grid)
+   │        ┬  
+   │        ╰── `P.Spec` uses `P` here
+───╯

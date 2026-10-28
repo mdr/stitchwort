@@ -857,6 +857,34 @@ impl Elaborator {
             }
         }
         self.add_file_imports(files, &file_starts, true, &mut import_errors);
+        // Functions for other namespaces' types, found now that the imports
+        // that name the types are in place. Each was registered under the
+        // key it has as an extension (`P.Spec.Grid.probe`).
+        for (index, item) in items.iter().enumerate() {
+            if left_out.contains(&index) {
+                continue;
+            }
+            let Some(main) = declared_names(item.decl).0 else {
+                continue;
+            };
+            self.module.file = Some(self.module.items[index].file);
+            let Some(target) = self.extension_target(&main) else {
+                continue;
+            };
+            match self.check_extension(item.decl, &main, &target) {
+                Ok(()) => match self.declaration_key(&main) {
+                    Ok(key) => self.scope.add_extension(&key, &target),
+                    Err(d) => {
+                        diagnostics.push((item.position, d));
+                        self.module.items[index].status = Status::Failed;
+                    }
+                },
+                Err(d) => {
+                    diagnostics.push((item.position, d));
+                    self.module.items[index].status = Status::Failed;
+                }
+            }
+        }
         // Whether a signature's result is the library's `Decidable`, by what
         // its head means here, not how it's spelt.
         let decidable = self.globals.registry.data(Builtin::Decidable);
@@ -932,6 +960,9 @@ impl Elaborator {
                     continue;
                 }
                 self.scope.insert(&key, Global::Failed, name.span, false);
+                if let Some(target) = self.extension_target(name) {
+                    self.scope.add_extension(&key, &target);
+                }
                 self.module.names.insert(key);
             }
         }

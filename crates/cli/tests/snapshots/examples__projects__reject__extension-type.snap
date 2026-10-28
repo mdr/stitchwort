@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-FOREIGN-NAMESPACE] Error: `Grid` belongs to namespace P, and P.Spec can add only functions to it
+   ╭─[ extension-type/src/spec.sw:5:6 ]
+   │
+ 5 │ type Grid.Cell = { row: Nat }
+   │      ────┬────  
+   │          ╰────── `Grid` here means `P.Grid`
+   │ 
+   │ Note: a namespace can add functions and theorems to another namespace's type, but not types; name it in P.Spec without the `Grid.` prefix, e.g. `Cell`
+───╯

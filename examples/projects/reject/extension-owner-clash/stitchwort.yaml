@@ -1,0 +1,3 @@
+# expect-error: E-EXTENSION-CLASH
+# P.Spec adds a `Grid.probe`, but P's `Grid` has one of its own.
+sources: [src]

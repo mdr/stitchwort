@@ -248,6 +248,16 @@ fn a_namespace_checked_alone_has_the_same_hashes() {
         let prelude = Session::new();
         let base = lines(&prelude, 0, 0);
         let base: stitchwort_core::collections::HashSet<&str> = base.lines().collect();
+        // Whether a declaration's name is in `namespace` itself, not in a
+        // namespace under it (`P.Spec.f` isn't `P`'s).
+        let belongs = |declared: &str, namespace: &str| {
+            let longest = loaded
+                .checked
+                .iter()
+                .filter(|q| declared.starts_with(&format!("{q}.")))
+                .max_by_key(|q| q.len());
+            longest.is_some_and(|q| q == namespace)
+        };
         for namespace in &loaded.checked {
             let mut alone = Session::new();
             alone
@@ -261,18 +271,14 @@ fn a_namespace_checked_alone_has_the_same_hashes() {
                     "{name}: `{line}` differs when {namespace} is checked alone"
                 );
                 let declared = line.strip_prefix("data ").unwrap_or(line);
-                if declared.starts_with(&format!("{namespace}.")) {
+                if belongs(declared, namespace) {
                     own += 1;
                 }
             }
             let expected = all
                 .iter()
                 .filter(|l| !base.contains(*l))
-                .filter(|l| {
-                    l.strip_prefix("data ")
-                        .unwrap_or(l)
-                        .starts_with(&format!("{namespace}."))
-                })
+                .filter(|l| belongs(l.strip_prefix("data ").unwrap_or(l), namespace))
                 .count();
             assert_eq!(
                 own, expected,

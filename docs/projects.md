@@ -107,9 +107,25 @@ The rules:
   as `namespace Main` or `namespace Main.Extra`, is `E-NAMESPACE-RESERVED`,
   because `Main` is the implicit namespace of a file without a namespace
   line.
-- **You can't add to another namespace.** In namespace `Day02`, writing
-  `def Range.invalid …` for an `Aoc.Range` is `E-FOREIGN-NAMESPACE`. Give
-  the function a name in `Day02` instead.
+- **A namespace may add functions to another namespace's type.** In
+  namespace `Aoc.Year2025.Day02`, with `Aoc.Range` imported, `def
+  Range.invalid (range: Range) …` declares an *extension*. It belongs to the
+  namespace that wrote it: its full name is `Aoc.Year2025.Day02.Range.invalid`.
+  `range.invalid` and `Range.invalid range` find it only in that namespace's
+  own files and in files that import that namespace with `(..)`. Imports
+  aren't passed on, and importing names by name doesn't bring extensions.
+  The type's own namespace, other namespaces and `Std` don't see it, whatever
+  else the command loaded; the full name works anywhere. Details:
+  - The type's own function comes first, so a type whose namespace already
+    has `Range.invalid` makes the extension `E-EXTENSION-CLASH`, where the
+    extension is declared.
+  - A namespace's own extension comes before an imported one. Two imported
+    extensions of the same name are `E-AMBIGUOUS` where one is used.
+  - Only functions and theorems can be added: `type Range.Part …` there is
+    `E-FOREIGN-NAMESPACE`, and so is writing another namespace's name as the
+    qualifier (`def Aoc.Range.invalid`; write `Range.invalid`).
+  - `Std`'s types stay closed: `def List.sum2 …` is `E-STD-NAMESPACE`.
+  Design: [extending-types.md](proposals/extending-types.md).
 
 A sibling file's declarations are visible without an import:
 
@@ -292,7 +308,8 @@ the working directory. `--cache-dir` overrides both.
 | `E-NAMESPACE-CYCLE` | Namespaces depend on each other in a cycle. |
 | `E-NAMESPACE-RESERVED` | A namespace's first component is a library namespace or `Main`. |
 | `E-NAMESPACE-CLASH` | A dotted namespace name is also a type declared in its parent namespace. |
-| `E-FOREIGN-NAMESPACE` | A file adds a declaration to another namespace. |
+| `E-FOREIGN-NAMESPACE` | A file adds something other than a function to another namespace's type, or names another namespace as a declaration's qualifier. |
+| `E-EXTENSION-CLASH` | A function added to another namespace's type has the name of one of the type's own. |
 | `E-NAMESPACE-FAILED` | A namespace wasn't checked because a namespace it depends on has errors. |
 | `E-NAMESPACE-UNKNOWN` | A command named a namespace the project doesn't have. |
 | `E-IMPORT-WILDCARD` | `import N (..)` names the file's own namespace, `Std`, or a part of a namespace instead of a whole one. |
@@ -307,4 +324,4 @@ also covers `(..)` written twice for the same namespace.
 
 ## Not yet
 
-Adding definitions to another namespace waits for its own design, and interface features beyond the current design (see [syntax.md](syntax.md#interfaces)) are not designed yet.
+Instances for another namespace's type (orphan instances) aren't decided, and interface features beyond the current design (see [syntax.md](syntax.md#interfaces)) are not designed yet.

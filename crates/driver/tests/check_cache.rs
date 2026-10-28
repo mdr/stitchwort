@@ -272,6 +272,19 @@ fn the_cache_replays_opaque_definitions() {
     assert_cache_changes_nothing(&project, true);
 }
 
+/// Functions a namespace adds to another namespace's type are replayed with
+/// the keys they stand for (docs/proposals/extending-types.md), whatever
+/// the sample.
+#[test]
+fn the_cache_replays_extensions() {
+    let project = Source::Project(
+        "extension-visibility".into(),
+        examples_dir().join("projects/accept/extension-visibility"),
+    );
+    assert_cache_changes_nothing(&project, false);
+    assert_cache_changes_nothing(&project, true);
+}
+
 /// Parameter defaults are replayed from the cache: the defaulting table of
 /// each definition, and calls in a namespace checked afresh against a
 /// cached one that leave a defaulted parameter out; with navigation, the

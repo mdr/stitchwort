@@ -1,6 +1,4 @@
--- Can't add to Lib's type from another namespace.
+-- Can't add to Lib's type by writing Lib's name: the note says how.
 namespace Day
 
-import Lib (Range)
-
-def Range.extra (r: Range): Nat := 1
+def Lib.Range.extra (r: Lib.Range): Nat := 1

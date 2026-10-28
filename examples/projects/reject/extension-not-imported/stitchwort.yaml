@@ -1,0 +1,4 @@
+# expect-error: E-UNKNOWN-FIELD
+# Q imports P's `Grid` but not P.Spec, so it doesn't see P.Spec's
+# `Grid.probe`, though P.Spec is checked before Q.
+sources: [src]

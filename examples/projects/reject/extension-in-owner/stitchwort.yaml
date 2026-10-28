@@ -1,0 +1,3 @@
+# expect-error: E-UNKNOWN-FIELD
+# The type's own namespace doesn't see a function P.Spec adds to it.
+sources: [src]
