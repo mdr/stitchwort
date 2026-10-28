@@ -1,5 +1,5 @@
 {
-  "next": 863,
+  "next": 868,
   "tickets": [
     {
       "id": 13,
@@ -7444,9 +7444,9 @@
     {
       "id": 838,
       "title": "E-ABILITY: in a function taking g: Nat → {e} Nat, a match inside a lambda passed to map whose arms call g is refused (adversarial review t13.sw, scratchpad/adv)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
       "labels": [],
       "body": "",
       "created": "2026-10-28",
@@ -7831,13 +7831,84 @@
     {
       "id": 862,
       "title": "Elaborator calls of the kernel's value::conv on values that may hold solved metavariables",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
       "labels": [
         "bug"
       ],
       "body": "From SW-851 (28 Oct): value::conv compares metas by number and never follows a solution (crates/core/src/value.rs:102), which broke adder.sw until effects.rs switched to unification (same_results). Check the other elaborator calls: partial.rs:726, 776-777, lib.rs:1973, 3845, congruence.rs:550. Also: same_results compares at cx.level() + RESULTS_SLACK (1<<16) because performs_after (effects.rs ~2389) walks a function type's parameters without binding them in cx; better to bind them, then drop the slack. And comp_result_term / is_comp_type still treat any Comp as a computation regardless of its results (SW-851 lane's note).",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 863,
+      "title": "List builders (map, filter, append, …) overflow the stack on 3M items",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
+      "labels": [
+        "bug",
+        "stdlib"
+      ],
+      "body": "From SW-816 (AoC 2024 day 24 findings). Reproduce with a 3,000,000-element list through List.map / filter / append (and the other builders) on the interpreter, and native/JS if they differ; make them stack-safe (tail-recursive accumulate+reverse in std, or the runtime's loop), keeping hashes/proofs about them working.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 864,
+      "title": "Std additions from the AoC findings tickets: implement the small library items still missing",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "Sweep SW-741, 758, 762, 771, 808, 809, 816 for small std items (functions and lemmas). Several are already done (Text.padLeft, Option.toList, List.allSome, Char.isAsciiLowercase, natAbsMul/natAbsZero, List.minimum, Nat.gcd lemmas). Implement the remaining ones that are plain additions (e.g. Set membership Iff lemmas, low-bits xor lemmas in Nat/Bits.sw, Int (d*a)/d = a if missing, occurrencesFlatMap/permFlatMap/sumBy-one=length, Set.popMin if straightforward); skip anything that needs a design choice and list it.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 865,
+      "title": "Triage the five older agent worktrees with unmerged work (report only)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "a4d41ce1 folded goals (SW-742), a5e6df84 nested data types (SW-833), a8049d1c tail-resumptive handlers (SW-737), ac491657 SW-597 parked fix, af7e83c7 type-alias functions note (no ticket). For each: what it holds, how far behind main, whether its content is already on main, whether it still applies; recommend keep/merge/delete. Delete nothing.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 866,
+      "title": "Docs sweep: stale file:line pointers, renamed codes and test names, proposal status lines",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "Janitorial: find file:line references in docs/ that no longer point at what they describe (spot-check the most-cited files), names changed on 28 Oct (E-STD-INTERNAL, aoc_answers yearYYYY_dayNN, lane tier contents), and proposal Status lines for work that has since landed. Fix what's clearly stale; list anything unclear.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 867,
+      "title": "Clippy and dead-code pass: remove unused code and stale allow attributes, no behaviour change",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "Janitorial: look for #[allow(dead_code)], #[allow(unused…)] and clippy allows that are no longer needed, unused functions/imports, and commented-out code; remove them with no behaviour change (hashes and snapshots unchanged).",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
