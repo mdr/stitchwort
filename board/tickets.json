@@ -1,5 +1,5 @@
 {
-  "next": 706,
+  "next": 707,
   "tickets": [
     {
       "id": 13,
@@ -5796,6 +5796,18 @@
       "body": "",
       "created": "2026-10-27",
       "updated": "2026-10-27",
+      "commits": []
+    },
+    {
+      "id": 706,
+      "title": "rewrite: look for the lemma's left side in the goal as written first (isSafe r as a call), fall back to the computed-goal search; measure on AoC and std proofs first (D1422; revisits D484; trigger: AoC 2024 day 2 rewrite isSafeCorrect _)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
       "commits": []
     }
   ]
