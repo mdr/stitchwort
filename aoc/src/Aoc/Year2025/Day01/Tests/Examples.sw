@@ -30,7 +30,7 @@ test "spaces around a turn" := parsed " L68\nR5 \n" == Ok [Left 68, Right 5]
 
 -- Where one turn, read from `line`, leaves the starting dial.
 def after (line: Text): Option Nat :=
-  Fail.toOption (() => Parse.line line turn) |> .map (turn => startingDial.move turn |> .position |> .value)
+  Fail.toOption (() => Parse.line line turn) |> .map (turn => Dial.start.move turn |> .position |> .value)
 
 test "turn" := after "L68" == Some 82
 test "turn right" := after "R5" == Some 55

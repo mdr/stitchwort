@@ -51,8 +51,8 @@ theorem zerosPassedCorrect [n: Nat] (startingDial: Dial n) (turns: List Turn): z
   zerosPassedFrom startingDial turns
 
 -- And so for the puzzle's answer.
-theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec turns startingDial :=
-  zerosPassedCorrect startingDial turns
+theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec turns Dial.start :=
+  zerosPassedCorrect Dial.start turns
 
 -- A turn ends where its clicks, one at a time, do: moving by 1 and then by `k`
 -- is moving by `1 + k`, which is `Succ k`.
