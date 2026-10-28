@@ -24,7 +24,7 @@ import Std (And, Bool, Eq, List, Nat, Ord, Ordering, Pair, Void)
 theorem closestFirstIsOrder (points: List Point): closestFirst points = List.map (connectionOrder points) (connectionKey points) :=
   calc closestFirst points
     _ = List.sort (List.map (allPairs points.length) (connectionKey points)) :=
-      rewrite List.withIndexRange points origin, List.pairsMap (List.range points.length) (i => (i, List.getOr points i origin)),
+      rewrite List.withIndexRange points Point.origin, List.pairsMap (List.range points.length) (i => (i, List.getOr points i Point.origin)),
         List.mapMap (List.pairs (List.range points.length)) _ _
         in rfl
     _ = List.map (connectionOrder points) (connectionKey points) := Eq.sym (List.sortOnMap (allPairs points.length) (connectionKey points))
