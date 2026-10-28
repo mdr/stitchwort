@@ -124,7 +124,7 @@ theorem tileScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (bes
             (And (toEnd.get reindeer = Some second) (And (first + second = best) (reindeer.position = tile)))))) :=
   let passes := (entry: (Reindeer, Nat)) => toEnd.get entry.fst |> .map (rest => entry.snd + rest == best) |> .getOrElse False
   let listed := (containsFromListIff _ tile).forward there
-  Exists.elim (memMapElim ((entry: (Reindeer, Nat)) => entry.fst.position) tile (fromStart.toList.filter passes) listed) (entry both =>
+  Exists.elim (memMapElim (entry => entry.fst.position) tile (fromStart.toList.filter passes) listed) (entry both =>
     let (Both kept passed) := List.memFilter fromStart.toList passes entry (And.left both)
     match entry with
       | (reindeer, first) =>
@@ -173,7 +173,7 @@ theorem bestTilesCorrect (maze: Maze) (startOpen: maze.isOpen maze.start = True)
         Exists.elim onPath (moves rest =>
           Exists.elim rest (standings parts =>
             let (Both path (Both scored member)) := parts
-            Exists.elim (memMapElim ((standing: Reindeer) => standing.position) tile standings member) (reindeer standingThere =>
+            Exists.elim (memMapElim (standing => standing.position) tile standings member) (reindeer standingThere =>
               let (Both stands at) := standingThere
               Exists.elim (followSplits maze (startingReindeer maze) moves standings (And.left path) reindeer stands) (before rest2 =>
                 Exists.elim rest2 (after split =>
@@ -183,7 +183,7 @@ theorem bestTilesCorrect (maze: Maze) (startOpen: maze.isOpen maze.start = True)
                     let holds := finalHolds maze (startingReindeer maze) startOpen before reindeer reached
                     let fromStartBound := boundAlong maze maze.fromStart closedForward (startingReindeer maze) 0
                       (startBounds maze.startReindeer 0 (Inl rfl)) before reindeer reached
-                    let toEndBound := boundToEnd maze maze.toEnd (standing listed => endBounds standing 0 (List.memMap maze.endReindeer standing listed ((way: Reindeer) => (way, 0))))
+                    let toEndBound := boundToEnd maze maze.toEnd (standing listed => endBounds standing 0 (List.memMap maze.endReindeer standing listed (way => (way, 0))))
                       closedBackward reindeer holds after last (Eq.trans remaining ended) atEnd
                     Exists.elim fromStartBound (first firstBoth =>
                       Exists.elim toEndBound (second secondBoth =>

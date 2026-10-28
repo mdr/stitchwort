@@ -1,12 +1,11 @@
 -- expect-error: E-CANNOT-INFER
--- A lambda isn't checked after the later arguments when a later argument's
--- type depends on it: here `same`'s type mentions `f`, so `p => p.name` is
--- checked where it is, before `ann` has fixed `p`'s type.
+-- A lambda checked after the later arguments, because its parameter type
+-- isn't known where it is, still fails when none of them fixes that type:
+-- `same`'s type mentions `f`, and `rfl` proves it whatever `f` is, so `p`'s
+-- type is never known. The error is the one checking it in place gave.
 
 type Person = { name: Text }
 
-def ann: Person := { name = "Ann" }
+def applyChecked (f: a → Text) (same: f = f): Text := "checked"
 
-def applyChecked (f: a → Text) (same: f = f) (x: a): Text := f x
-
-def name: Text := applyChecked (p => p.name) Refl ann
+def name: Text := applyChecked (p => p.name) rfl

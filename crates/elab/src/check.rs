@@ -1535,13 +1535,14 @@ pub(crate) type Supply = std::collections::VecDeque<Term>;
 /// An argument that is a lambda (or a method section) whose parameter type
 /// isn't known yet when it's reached is checked after the later arguments,
 /// which may fix that type: `List.map (p => p.name) people`. Only the
-/// checking order changes; the term's arguments stay in place. Not when a
-/// later argument's type depends on it (it would see only a placeholder). A
-/// section is always postponed then; a plain lambda only if checking it in
-/// place fails, so what already worked is elaborated as before. (A later
-/// argument that's a lambda too is postponed along with it, so those whose
-/// types mention a postponed lambda are fine.) If the
-/// application fails anyway, the error is the one checking it in place gave.
+/// checking order changes; the term's arguments stay in place. A section is
+/// always postponed then, unless a later parameter's type depends on it; a
+/// plain lambda, or a section with such a dependent, only if checking it in
+/// place fails, so what already worked is elaborated as before. A dependent
+/// parameter's type holds a placeholder for the lambda until it's checked,
+/// which the argument given may solve, as in `memMapElim (e => e.fst) y xs
+/// listed` with `listed: y ∈ xs.map (e => e.fst)`. If the application fails
+/// anyway, the error is the one checking it in place gave.
 pub(crate) fn apply_args_with(
     cx: &mut Ctx,
     head: (Term, Value),
@@ -1665,9 +1666,10 @@ fn apply_args_postponing(
                 let later = args[i + 1..]
                     .iter()
                     .any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
-                let postponable = later
-                    && only_lambdas_depend_on_it(&cod.body, &args[i + 1..])
-                    && unknown_domain(cx, &dom)?;
+                // Later parameters whose types mention it see the
+                // placeholder, which their arguments may solve.
+                let dependents = !only_lambdas_depend_on_it(&cod.body, &args[i + 1..]);
+                let postponable = later && unknown_domain(cx, &dom)?;
                 // Where the application's expected type is known, a lambda
                 // whose type has unknowns that fails in place is checked
                 // again once the application's type has been compared with
@@ -1691,7 +1693,7 @@ fn apply_args_postponing(
                     }
                 } else if !postponable {
                     Some(check_arg(cx, &term, value, &dom)?)
-                } else if value.section_name().is_some() {
+                } else if value.section_name().is_some() && !dependents {
                     None
                 } else {
                     let snapshot = crate::undo::Snapshot::take(cx);
