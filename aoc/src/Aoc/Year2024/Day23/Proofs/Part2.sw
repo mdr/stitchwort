@@ -20,7 +20,7 @@ import Std (And, Bool, Eq, Exists, Iff, List, Nat, Not, Option, Or, Set, Void)
 def Clique (network: Network) (set: Set Computer): Prop :=
   ((member: Computer) → set.contains member = True → network.links.keySet.contains member = True)
     ∧ ((one: Computer) → (other: Computer) → set.contains one = True → set.contains other = True → Not (one = other) →
-      (neighbours network.links one).contains other = True)
+      (network.links.neighbours one).contains other = True)
 
 -- Each candidate has links, isn't in the clique yet, and is a neighbour of
 -- all of it.
@@ -28,12 +28,12 @@ def Candidates (network: Network) (clique: Set Computer) (candidates: Set Comput
   (candidate: Computer) → candidates.contains candidate = True →
     network.links.keySet.contains candidate = True
       ∧ clique.contains candidate = False
-      ∧ ((member: Computer) → clique.contains member = True → (neighbours network.links candidate).contains member = True)
+      ∧ ((member: Computer) → clique.contains member = True → (network.links.neighbours candidate).contains member = True)
 
 -- Every computer in `small` is in `big`.
 def Within (small: Set Computer) (big: Set Computer): Prop := (key: Computer) → small.contains key = True → big.contains key = True
 
--- What `largestFrom` returns: a clique, no smaller than `best`, and no
+-- What `Links.largestFrom` returns: a clique, no smaller than `best`, and no
 -- smaller than any clique holding `clique` within `clique` and the
 -- candidates.
 def Answers (network: Network) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer) (result: Set Computer): Prop :=
@@ -96,20 +96,20 @@ theorem othersIntro (candidates: Set Computer) (candidate: Computer) (others: Se
 -- A candidate added to the clique keeps it a clique.
 theorem cliqueInsert (network: Network) (clique: Set Computer) (candidate: Computer) (cliqueOk: Clique network clique)
     (candidateLinked: network.links.keySet.contains candidate = True)
-    (candidateNeighbours: (member: Computer) → clique.contains member = True → (neighbours network.links candidate).contains member = True):
+    (candidateNeighbours: (member: Computer) → clique.contains member = True → (network.links.neighbours candidate).contains member = True):
     Clique network (clique.insert candidate) :=
   Both
     (member held =>
       insertElim clique candidate member (network.links.keySet.contains member = True) held (same => rewrite same in candidateLinked)
         (inClique => cliqueOk.left member inClique))
     (one other heldOne heldOther different =>
-      insertElim clique candidate one ((neighbours network.links one).contains other = True) heldOne
+      insertElim clique candidate one ((network.links.neighbours one).contains other = True) heldOne
         (oneIs =>
-          insertElim clique candidate other ((neighbours network.links one).contains other = True) heldOther
+          insertElim clique candidate other ((network.links.neighbours one).contains other = True) heldOther
             (otherIs => Void.exfalso (different (Eq.trans oneIs (Eq.sym otherIs))))
             (otherInClique => rewrite oneIs in candidateNeighbours other otherInClique))
         (oneInClique =>
-          insertElim clique candidate other ((neighbours network.links one).contains other = True) heldOther
+          insertElim clique candidate other ((network.links.neighbours one).contains other = True) heldOther
             (otherIs => rewrite otherIs in linkedSymmetric network candidate one (candidateNeighbours one oneInClique))
             (otherInClique => cliqueOk.right one other oneInClique otherInClique different)))
 
@@ -117,15 +117,15 @@ theorem cliqueInsert (network: Network) (clique: Set Computer) (candidate: Compu
 -- candidates are the candidates.
 theorem candidatesNarrowed (network: Network) (clique: Set Computer) (candidates: Set Computer) (candidate: Computer) (others: Set Computer)
     (candidatesOk: Candidates network clique candidates) (othersAre: others = candidates.remove candidate):
-    Candidates network (clique.insert candidate) (neighbours network.links candidate |> .intersect others) :=
+    Candidates network (clique.insert candidate) (network.links.neighbours candidate |> .intersect others) :=
   key held =>
-    let (Both neighbour inOthers) := intersectElim (neighbours network.links candidate) others key held
+    let (Both neighbour inOthers) := intersectElim (network.links.neighbours candidate) others key held
     let (Both wasCandidate notCandidate) := othersElim candidates candidate others othersAre key inOthers
     let (Both keyLinked (Both keyOutside keyNeighbours)) := candidatesOk key wasCandidate
     Both keyLinked
       (Both (rewrite Set.containsInsertOther clique candidate key notCandidate in keyOutside)
         (member inserted =>
-          insertElim clique candidate member ((neighbours network.links key).contains member = True) inserted
+          insertElim clique candidate member ((network.links.neighbours key).contains member = True) inserted
             (memberIs => rewrite memberIs in linkedSymmetric network candidate key neighbour)
             (inClique => keyNeighbours member inClique)))
 
@@ -134,9 +134,9 @@ theorem candidatesNarrowed (network: Network) (clique: Set Computer) (candidates
 theorem withinWithCandidate (network: Network) (clique: Set Computer) (candidates: Set Computer) (candidate: Computer) (others: Set Computer)
     (othersAre: others = candidates.remove candidate) (other: Set Computer) (otherOk: Clique network other) (has: other.contains candidate = True)
     (within: Within other (clique.union candidates)):
-    Within other ((clique.insert candidate).union (neighbours network.links candidate |> .intersect others)) :=
+    Within other ((clique.insert candidate).union (network.links.neighbours candidate |> .intersect others)) :=
   key held =>
-    let narrowed := neighbours network.links candidate |> .intersect others
+    let narrowed := network.links.neighbours candidate |> .intersect others
     unionElim clique candidates key (((clique.insert candidate).union narrowed).contains key = True) (within key held)
       (inClique => Set.containsUnionLeft (clique.insert candidate) narrowed key (Set.containsInsertMono clique candidate key inClique))
       (wasCandidate =>
@@ -146,7 +146,7 @@ theorem withinWithCandidate (network: Network) (clique: Set Computer) (candidate
             let inOthers := othersIntro candidates candidate others othersAre key wasCandidate same
             let neighbour := otherOk.right candidate key has held (isSame => same (Eq.sym isSame))
             Set.containsUnionRight (clique.insert candidate) narrowed key
-              (rewrite Set.containsIntersect (neighbours network.links candidate) key others, neighbour, inOthers in rfl))
+              (rewrite Set.containsIntersect (network.links.neighbours candidate) key others, neighbour, inOthers in rfl))
 
 -- A clique without the candidate is within the clique and the other
 -- candidates.
@@ -163,7 +163,7 @@ theorem withinWithoutCandidate (clique: Set Computer) (candidates: Set Computer)
 
 theorem largestFromAnswers (network: Network) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
     (cliqueOk: Clique network clique) (candidatesOk: Candidates network clique candidates) (bestOk: Clique network best):
-    Answers network clique candidates best (largestFrom network.links clique candidates best)
+    Answers network clique candidates best (network.links.largestFrom clique candidates best)
     decreasing candidates.size
 :=
   match fits: Nat.leq (clique.size + candidates.size) best.size with
@@ -185,17 +185,17 @@ theorem largestFromAnswers (network: Network) (clique: Set Computer) (candidates
           let (Both least othersAre) := Set.popMinSome candidates candidate others found
           let (Both candidateLinked (Both candidateOutside candidateNeighbours)) :=
             candidatesOk candidate (Set.containsMin candidates candidate least)
-          let narrowed := neighbours network.links candidate |> .intersect others
+          let narrowed := network.links.neighbours candidate |> .intersect others
           let withinOthers: narrowed.size ≤ others.size :=
-            Set.sizeSubset others narrowed (key held => (intersectElim (neighbours network.links candidate) others key held).right)
+            Set.sizeSubset others narrowed (key held => (intersectElim (network.links.neighbours candidate) others key held).right)
           let fewer := Set.sizePopMin candidates candidate others found
-          let withIt := largestFrom network.links (clique.insert candidate) narrowed best
+          let withIt := network.links.largestFrom (clique.insert candidate) narrowed best
           let withItOk: Answers network (clique.insert candidate) narrowed best withIt :=
             largestFromAnswers network (clique.insert candidate) narrowed best
               (cliqueInsert network clique candidate cliqueOk candidateLinked candidateNeighbours)
               (candidatesNarrowed network clique candidates candidate others candidatesOk othersAre) bestOk
               [decreasing := omega [withinOthers, fewer]]
-          let restOk: Answers network clique others withIt (largestFrom network.links clique others withIt) :=
+          let restOk: Answers network clique others withIt (network.links.largestFrom clique others withIt) :=
             largestFromAnswers network clique others withIt cliqueOk
               (key held => candidatesOk key (othersElim candidates candidate others othersAre key held).left) withItOk.left
               [decreasing := omega [fewer]]
@@ -232,12 +232,12 @@ theorem specOfClique (network: Network) (set: Set Computer) (clique: Clique netw
     (one other heldOne heldOther different => (linkedIff network one other).forward (clique.right one other heldOne heldOther different))
 
 -- "the largest set of computers that are all connected to each other".
-theorem largestCorrect (network: Network): IsLargest network (largestClique network.links) :=
+theorem largestCorrect (network: Network): IsLargest network (network.links.largestClique) :=
   let answers := largestFromAnswers network Set.empty network.links.keySet Set.empty (emptyClique network) (allCandidates network) (emptyClique network)
-  Both (specOfClique network (largestClique network.links) answers.left)
+  Both (specOfClique network (network.links.largestClique) answers.left)
     (other otherSpec =>
       let otherOk := cliqueOfSpec network other otherSpec
       answers.right.right other otherOk (key held => Void.exfalso (Bool.falseNotTrue held))
         (key held => Set.containsUnionRight Set.empty network.links.keySet key (otherOk.left key held)))
 
-theorem part2Correct (network: Network): IsPart2 network (solvePart2 network) := Witness (largestClique network.links) (Both (largestCorrect network) rfl)
+theorem part2Correct (network: Network): IsPart2 network (solvePart2 network) := Witness (network.links.largestClique) (Both (largestCorrect network) rfl)

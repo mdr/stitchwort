@@ -50,29 +50,29 @@ def Network.bothWays (network: Network): List (Computer, Computer) :=
 def Network.links (network: Network): Links :=
   network.bothWays |> Map.groupBy Pair.fst |> .map (pairs => pairs.map Pair.snd |> Set.fromList)
 
-def neighbours (links: Links) (computer: Computer): Set Computer := links.getOr computer Set.empty
+def Links.neighbours (links: Links) (computer: Computer): Set Computer := links.getOr computer Set.empty
 
 -- The sets of `first`, one of its neighbours, and a neighbour of both.
-def setsWith (links: Links) (first: Computer): List (Set Computer) :=
-  let firstNeighbours := neighbours links first
+def Links.setsWith (links: Links) (first: Computer): List (Set Computer) :=
+  let firstNeighbours := links.neighbours first
   firstNeighbours.toList.flatMap (second =>
-    neighbours links second |> .intersect firstNeighbours |> .toList |> .map (third => Set.fromList [first, second, third]))
+    links.neighbours second |> .intersect firstNeighbours |> .toList |> .map (third => Set.fromList [first, second, third]))
 
 -- Every set of three different computers, each connected to the other two.
-def setsOfThree (links: Links): Set (Set Computer) :=
-  links.keySet.toList.flatMap (setsWith links) |> Set.fromList |> .filter (set => set.size == 3)
+def Links.setsOfThree (links: Links): Set (Set Computer) :=
+  links.keySet.toList.flatMap links.setsWith |> Set.fromList |> .filter (set => set.size == 3)
 
 -- Whether a computer's name starts with t, as the Chief Historian's does.
 def mightBeChiefs (set: Set Computer): Bool := set.any (computer => computer.startsWith "t")
 
-def solvePart1 (network: Network): Nat := setsOfThree network.links |> .filter mightBeChiefs |> .size
+def solvePart1 (network: Network): Nat := network.links.setsOfThree |> .filter mightBeChiefs |> .size
 
 -- The larger of `best` and the largest set of computers all connected to
 -- each other made of `clique` and some of `candidates`, each of which is
 -- connected to all of `clique`. Each candidate in turn is either in the set
 -- (and then only its neighbours stay candidates) or not. A search that
 -- can't beat `best`, with too few candidates left, stops.
-def largestFrom (links: Links) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer): Set Computer
+def Links.largestFrom (links: Links) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer): Set Computer
     decreasing candidates.size
 :=
   if clique.size + candidates.size ≤ best.size then best
@@ -83,19 +83,19 @@ def largestFrom (links: Links) (clique: Set Computer) (candidates: Set Computer)
         -- Always true (`Set.sizePopMin`); the test puts it in scope for the
         -- recursive calls.
         if fewer: others.size < candidates.size then
-          let narrowed := neighbours links candidate |> .intersect others
+          let narrowed := links.neighbours candidate |> .intersect others
           let withinOthers: narrowed.size ≤ others.size :=
             Set.sizeSubset others narrowed (key inside =>
-              Bool.andRight _ _ (Eq.trans (Eq.sym (Set.containsIntersect (neighbours links candidate) key others)) inside))
-          let withIt := largestFrom links (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
-          largestFrom links clique others withIt
+              Bool.andRight _ _ (Eq.trans (Eq.sym (Set.containsIntersect (links.neighbours candidate) key others)) inside))
+          let withIt := links.largestFrom (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
+          links.largestFrom clique others withIt
         else best
 
 -- The largest set of computers that are all connected to each other.
-def largestClique (links: Links): Set Computer := largestFrom links Set.empty links.keySet Set.empty
+def Links.largestClique (links: Links): Set Computer := links.largestFrom Set.empty links.keySet Set.empty
 
 -- "the name of every computer at the LAN party, sorted alphabetically, then
 -- joined together with commas".
 def password (party: Set Computer): Text := party.toList.sort.joinWith ","
 
-def solvePart2 (network: Network): Text := largestClique network.links |> password
+def solvePart2 (network: Network): Text := network.links.largestClique |> password
