@@ -11,7 +11,7 @@ expression: output
    │ 
    │ Note: if you meant to pass a lambda to `map`, put it in brackets: `map (x => …)`; otherwise rename the parameter
 ───╯
-[W-LAMBDA-SHADOW] Warning: this lambda's first parameter `map` hides the function `map`
+[W-LAMBDA-SHADOW] Warning: this lambda's first parameter `map` hides the function `List.map`
    ╭─[ reject/lambda-forgotten-brackets.sw:7:39 ]
    │
  7 │ def bump (xs: List Nat) : List Nat := map x => x + 1

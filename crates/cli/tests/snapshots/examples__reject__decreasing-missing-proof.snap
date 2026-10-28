@@ -2,14 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-DECREASING] Error: can't show `n / 10 < n` here, which `decreasing n` needs for this call
-    ╭─[ reject/decreasing-missing-proof.sw:10:8 ]
+[E-DECREASING] Error: can't show `n - step < n` here, which `decreasing n` needs for this call
+    ╭─[ reject/decreasing-missing-proof.sw:11:8 ]
     │
- 10 │   then digitsOnto (n / 10) (Cons (n % 10) acc)
-    │        ───────────────────┬──────────────────  
-    │                           ╰──────────────────── this recursive call
+ 11 │   then countDown (n - step) step (Cons n acc)
+    │        ──────────────────┬──────────────────  
+    │                          ╰──────────────────── this recursive call
     │ 
     │ Note 1: in scope: `big: (n <= 9) = False`
     │ 
-    │ Note 2: give a proof with `[decreasing := …]`, or test it with `if h: n / 10 < n then … else …`
+    │ Note 2: give a proof with `[decreasing := …]`, or test it with `if h: n - step < n then … else …`
 ────╯

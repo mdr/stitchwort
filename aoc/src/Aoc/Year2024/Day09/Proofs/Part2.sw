@@ -78,18 +78,6 @@ theorem movedBlocks (diskMap: List Nat): (compactFiles diskMap).flatMap blocksOf
       (List.mapZipWithScanLeft blocksOfFile blocksOfFile (file free => (moveFile free file).snd) (file free => moveFileBlocks free file)
         layout.fst.reverse initial (free file => (moveFile free file).fst))
 
--- Counting in a `flatMap` over a list reversed onto `acc`.
-theorem occurrencesFlatMapReverseOnto (f: a → List b) (p: b → Bool): (xs: List a) → (acc: List a) →
-    ((List.reverseOnto xs acc).flatMap f).occurrences p = (xs.flatMap f).occurrences p + (acc.flatMap f).occurrences p
-  | Nil, acc => rfl
-  | Cons x rest, acc =>
-    rewrite occurrencesFlatMapReverseOnto f p rest (Cons x acc), List.occurrencesAppend (f x) (acc.flatMap f) p,
-      List.occurrencesAppend (f x) (rest.flatMap f) p in omega
-
--- A `flatMap` over the list reversed has the same elements.
-theorem permFlatMapReverse (f: a → List b) (xs: List a): List.Perm (xs.reverse.flatMap f) (xs.flatMap f) :=
-  p => Eq.trans (occurrencesFlatMapReverseOnto f p xs Nil) (Nat.addZero ((xs.flatMap f).occurrences p))
-
 theorem fileBlocksReplicate: (n: Nat) → (id: Nat) → fileBlocks (List.replicate n (Some id)) = List.replicate n id
   | Zero, id => rfl
   | Succ n, id => Eq.cong (Cons id) (fileBlocksReplicate n id)
@@ -112,7 +100,7 @@ theorem layoutBlocks: (id: Nat) → (position: Nat) → (diskMap: List Nat) →
 -- Part 2 keeps the file blocks: after the moves, the disk holds the same
 -- file blocks as before, in some order.
 theorem part2KeepsBlocks (diskMap: List Nat): List.Perm ((compactFiles diskMap).flatMap blocksOfFile) (fileBlocks (blocks diskMap)) :=
-  rewrite movedBlocks diskMap, <- layoutBlocks 0 0 diskMap in permFlatMapReverse blocksOfFile (filesOf diskMap)
+  rewrite movedBlocks diskMap, <- layoutBlocks 0 0 diskMap in List.permFlatMapReverse blocksOfFile (filesOf diskMap)
 
 -- One block's part of the program's checksum.
 def blockChecksum (pair: (Nat, Option Nat)): Nat := pair.snd.map (id => pair.fst * id) |> .getOrElse 0

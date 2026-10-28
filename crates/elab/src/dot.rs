@@ -11,6 +11,8 @@
 
 use std::rc::Rc;
 
+use stitchwort_core::partial::Primitive;
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Term, Value};
 use stitchwort_syntax::ast::{Bracket, Expr, Name as AstName, SECTION};
@@ -640,13 +642,36 @@ fn section_unknown_name(cx: &Ctx, field: &AstName) -> Diagnostic {
     ))
 }
 
-/// The namespaces tried, for messages: "`Price` or `Nat`".
+/// The namespaces tried, for messages: "`Price` or `Nat`". The types the
+/// compiler writes for a computation's result (`CompD d e t` for `{e} t`)
+/// are left out, unless nothing else was tried.
 fn tried_list(cx: &Ctx, tried: &[TyHead]) -> String {
-    let names: Vec<String> = tried
+    let shown: Vec<TyHead> = tried
+        .iter()
+        .copied()
+        .filter(|h| !is_computation_head(cx, *h))
+        .collect();
+    let shown = if shown.is_empty() { tried } else { &shown };
+    let names: Vec<String> = shown
         .iter()
         .map(|h| format!("`{}`", scope::display(&namespace(cx, *h))))
         .collect();
     names.join(" or ")
+}
+
+/// Whether `h` is one of the definitions a computation's type is written
+/// with: `CompIn`, `CompD` or `Delay`.
+fn is_computation_head(cx: &Ctx, h: TyHead) -> bool {
+    let TyHead::Def(id) = h else {
+        return false;
+    };
+    let g = cx.g();
+    [
+        g.registry.def(Builtin::CompIn),
+        g.registry.def(Builtin::CompD),
+        g.builtins.primitive_id(Primitive::Delay),
+    ]
+    .contains(&Some(id))
 }
 
 /// The view reached a definition that can't be unfolded further.
@@ -714,6 +739,15 @@ fn unknown_member(cx: &Ctx, recv: &Expr, field: &AstName, tried: &[TyHead]) -> D
             format!("its fields are {}", fields.join(", "))
         });
     }
+    if let Some(full) = elsewhere_taking(cx, field, tried) {
+        let owner = scope::display(&ns);
+        let owner = owner.rsplit('.').next().unwrap_or(owner);
+        let call = match recv {
+            Expr::Var(n) if n.text != SECTION => format!("`{full} {} …`", n.text),
+            _ => format!("`|> {full} …`"),
+        };
+        d = d.with_note(format!("`{full}` takes a `{owner}` first: write {call}"));
+    }
     if let Some(place) = in_scope_taking(cx, field, tried) {
         let owner = scope::display(&ns);
         let owner = owner.rsplit('.').next().unwrap_or(owner);
@@ -731,6 +765,42 @@ fn unknown_member(cx: &Ctx, recv: &Expr, field: &AstName, tried: &[TyHead]) -> D
         ));
     }
     d
+}
+
+/// A definition `U.field` in another namespace whose first explicit
+/// parameter's type has one of `tried` as a head, so `x |> U.field` would
+/// take the receiver: `Text.joinWith` for `.joinWith` on a `List`. The
+/// first such name in order, as written in messages.
+fn elsewhere_taking(cx: &Ctx, field: &AstName, tried: &[TyHead]) -> Option<String> {
+    let suffix = format!(".{}", field.text);
+    let tried_namespaces: Vec<String> = tried.iter().map(|h| namespace(cx, *h)).collect();
+    let g = cx.g();
+    let level = cx.level();
+    let mut found: Vec<String> =
+        cx.e.scope
+            .keys()
+            .filter_map(|key| {
+                let owner = key.strip_suffix(&suffix)?;
+                if owner.contains('%')
+                    || tried_namespaces.iter().any(|ns| ns == owner)
+                    || cx.e.helper_keys.contains(key)
+                {
+                    return None;
+                }
+                let Some((Global::Def(f), _)) = cx.e.scope.get(key) else {
+                    return None;
+                };
+                let all = params(g, f);
+                let depth = all.iter().position(|p| p.icit == Icit::Explicit)?;
+                let env: Vec<Value> = (0..depth).map(|j| Value::var(level + j)).collect();
+                let takes = heads(g, Ty::Term(all[depth].ty.clone(), env))
+                    .is_ok_and(|hs| hs.iter().any(|h| tried.contains(h)));
+                takes.then(|| scope::display(key).to_string())
+            })
+            .collect();
+    found.sort();
+    found.dedup();
+    found.into_iter().next()
 }
 
 /// Whether the bare name `field` is a definition in scope (not a local
