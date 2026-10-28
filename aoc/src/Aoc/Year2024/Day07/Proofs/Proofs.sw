@@ -70,7 +70,7 @@ theorem canMakeReaches (operators: List Operator) (first: Nat): (reversed: List 
 
 -- The program's check is the puzzle's "could possibly be true", for any
 -- operators.
-theorem couldBeTrueCorrect (operators: List Operator) (equation: Equation): couldBeTrue operators equation = couldPossiblyBeTrue operators equation :=
+theorem couldBeTrueCorrect (operators: List Operator) (equation: Equation): equation.couldBeTrue operators = couldPossiblyBeTrue operators equation :=
   match numbers: equation.numbers with
     | Nil => rfl
     | Cons first rest =>
@@ -80,7 +80,7 @@ theorem couldBeTrueCorrect (operators: List Operator) (equation: Equation): coul
 -- So the program's total is the total calibration result.
 theorem calibrationResultCorrect (operators: List Operator) (equations: List Equation):
     calibrationResult operators equations = totalCalibrationResult operators equations :=
-  rewrite List.filterCongMem equations (couldBeTrue operators) (couldPossiblyBeTrue operators) (equation listed => couldBeTrueCorrect operators equation)
+  rewrite List.filterCongMem equations (.couldBeTrue operators) (couldPossiblyBeTrue operators) (equation listed => couldBeTrueCorrect operators equation)
     in rfl
 
 theorem part1Correct (equations: List Equation): solvePart1 equations = part1 equations := calibrationResultCorrect [Add, Multiply] equations
@@ -98,7 +98,7 @@ theorem reachesMore (fewer: List Operator) (more: List Operator) (included: (ope
 
 -- An equation that could be true with fewer operators could be with more.
 theorem couldBeTrueMore (fewer: List Operator) (more: List Operator) (included: (operator: Operator) → operator ∈ fewer → operator ∈ more)
-    (equation: Equation): couldBeTrue fewer equation = True → couldBeTrue more equation = True :=
+    (equation: Equation): equation.couldBeTrue fewer = True → equation.couldBeTrue more = True :=
   match numbers: equation.numbers with
     | Nil => holds => holds
     | Cons first rest =>
@@ -107,7 +107,7 @@ theorem couldBeTrueMore (fewer: List Operator) (more: List Operator) (included: 
 
 -- Part 2 adds an operator, so its total is at least part 1's.
 theorem part2AtLeastPart1 (equations: List Equation): solvePart1 equations ≤ solvePart2 equations :=
-  List.sumByFilterMono (couldBeTrue [Add, Multiply]) (couldBeTrue [Add, Multiply, Concatenate]) (equation => equation.testValue) equations
+  List.sumByFilterMono (.couldBeTrue [Add, Multiply]) (.couldBeTrue [Add, Multiply, Concatenate]) (equation => equation.testValue) equations
     (couldBeTrueMore [Add, Multiply] [Add, Multiply, Concatenate] (operator has =>
       match has with
         | Inl same => Inl same

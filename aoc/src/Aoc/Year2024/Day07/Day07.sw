@@ -60,14 +60,14 @@ def canMake (operators: List Operator) (first: Nat) (target: Nat): List Nat → 
 
 -- Whether some choice of the operators between the numbers makes the test
 -- value.
-def couldBeTrue (operators: List Operator) (equation: Equation): Bool :=
+def Equation.couldBeTrue (equation: Equation) (operators: List Operator): Bool :=
   match equation.numbers with
     | Nil => False
     | Cons first rest => canMake operators first equation.testValue rest.reverse
 
 -- The sum of the test values of the equations that could be true.
 def calibrationResult (operators: List Operator) (equations: List Equation): Nat :=
-  equations.filter (couldBeTrue operators) |> .sumBy (equation => equation.testValue)
+  equations.filter (.couldBeTrue operators) |> .sumBy (equation => equation.testValue)
 
 def solvePart1 (equations: List Equation): Nat := calibrationResult [Add, Multiply] equations
 
