@@ -1600,16 +1600,17 @@ theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * mult
 |---|---|
 | `ring` | proves the goal `a = b` |
 | `ring [h1, h2]` | the same, using the equations `h1: l1 = r1`, `h2: l2 = r2` (any proofs): it proves `a + r1 + r2 = b + l1 + l2`, or the same with some `l`s and `r`s swapped, and cancels |
+| `ring [4 * h1, -h2, c * h3]` | with coefficients: `a - b` must be `4 * (l1 - r1) - (l2 - r2) + c * (l3 - r3)` as polynomials |
 | `(ring: a = b)` | states what it proves, for `rewrite` or anywhere the expected type isn't known |
 
 `ring` is a keyword and a term, like `omega`: a definition's body, a `calc` step's proof, an argument whose type is fixed (`Nat.leCongRight x y z ring h`), or `rewrite (ring: i + (p + q) = i + p + q)`. Where nothing says what it proves (`let p := ring`) it is `E-RING`. The proof it writes is `Std.Ring.proveNat env a b rfl` (or `proveInt`, or `proveNatWith`/`proveIntWith` with the hypotheses), where `a` and `b` are the sides as syntax over numbered atoms; `rfl` is the kernel computing both normal forms and finding them the same. `Std.Ring`'s soundness theorems are proved, with no axioms, so nothing new is trusted. Design and as built: [proof-automation.md](proposals/proof-automation.md) §6.2.
 
 - **Arithmetic.** `+`, `*`, numbers and `Succ`; at `Int` also `-`, negation, `x.toInt` (so `(x + y).toInt` is `x.toInt + y.toInt`) and literals like `-3`. `Nat.pow e n` with a number `n` is multiplied out; with an unknown exponent it is an atom, but a call that computes to arithmetic is read as what it computes to, so `Nat.pow 10 (Succ k)` is `Nat.pow 10 k * 10`.
 - **Atoms.** Anything else is an unknown: `List.length xs`, `f x`, `multiplier k n`, `x / 2`, `x % 10`, and `a - b` between `Nat`s (truncated subtraction isn't a ring operation; `omega` knows about it). Two atoms are the same if they're the same term or the compiler can quickly show they compute to the same value, as for `omega`.
-- **Hypotheses** must be equations of the goal's type. With up to six, each is tried both ways round; with more, only as written. A hypothesis is added once: `ring [h]` doesn't use `2 * h`.
-- **When it fails** it is `E-RING`, with both sides' normal forms (highest degree first, in the program's own names) and what the left side has more or less of; with hypotheses, the sides are the ones with the hypotheses added. A note names each atom that looks like it should have been arithmetic (`a - b`, `x / 2`, a power with an unknown exponent), and when the statement is false for small values the counterexample note shows them.
+- **Hypotheses** must be equations of the goal's type. Each entry is a hypothesis with an optional coefficient in front, any `Nat` or `Int` expression of the goal's type (`4 * h`, `x * h`, `(a - b) * h`), and an optional `-` (`-h`, `-4 * h`), which uses it turned round; an entry may also be a sum or difference of these (`3 * h1 - h2`). Coefficients multiply (`2 * (x * h)` is `2 * x` times `h`). With `ring [c * h]`, `h: l = r` is used as `c * l = c * r` (`Std.Ring.scaleNat`, `scaleInt`), so the check is that `a - b` is the combination `Σ cᵢ (lᵢ - rᵢ)`, as in Mathlib's `linear_combination`. An entry with no `-` written is tried both ways round, with up to six such entries; with more, only as written. An entry with a `-` is used as written.
+- **When it fails** it is `E-RING`, with both sides' normal forms (highest degree first, in the program's own names) and what the left side has more or less of; with hypotheses, the sides are the ones with the hypotheses added, and a last note shows what is left over: the goal's left minus its right, minus the combination, which has to be 0. A note names each atom that looks like it should have been arithmetic (`a - b`, `x / 2`, a power with an unknown exponent), and when the statement is false for small values the counterexample note shows them.
 
-Examples: `examples/accept/ring-basics.sw`, `examples/reject/ring-*.sw`.
+Examples: `examples/accept/ring-basics.sw`, `examples/accept/ring-coefficients.sw`, `examples/reject/ring-*.sw`.
 
 ### `cases`
 

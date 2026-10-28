@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RING] Error: `ring` can't prove `4 * a = 8 * b`
+   ╭─[ reject/ring-coefficient-wrong.sw:5:71 ]
+   │
+ 5 │ theorem halfScaled (a: Int) (b: Int) (h: a = 2 * b): 4 * a = 8 * b := ring [2 * h]
+   │                                                                       ──────┬─────  
+   │                                                                             ╰─────── the two sides are different polynomials
+   │ 
+   │ Note 1: with the hypotheses `l = r` added, each times its coefficient, the left side plus every `r` against the right side plus every `l`:
+   │ 
+   │ Note 2: left:  4 * a + 4 * b
+   │ 
+   │ Note 3: right: 2 * a + 8 * b
+   │ 
+   │ Note 4: the left side has `2 * a` more and `4 * b` less
+   │ 
+   │ Note 5: left over: `2 * a - 4 * b`, the goal's left minus its right, minus each coefficient times its hypothesis's `l - r`; it has to be 0
+───╯

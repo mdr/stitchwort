@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RING] Error: `ring` can't prove `a - b = 0`
+   ╭─[ reject/ring-coefficient-sign.sw:5:62 ]
+   │
+ 5 │ theorem wrongSign (a: Int) (b: Int) (h: a = b): a - b = 0 := ring [-h]
+   │                                                              ────┬────  
+   │                                                                  ╰────── the two sides are different polynomials
+   │ 
+   │ Note 1: with the hypotheses `l = r` added, each times its coefficient, the left side plus every `r` against the right side plus every `l`:
+   │ 
+   │ Note 2: left:  2 * a - b
+   │ 
+   │ Note 3: right: b
+   │ 
+   │ Note 4: the left side has `2 * a` more and `2 * b` less
+   │ 
+   │ Note 5: left over: `2 * a - 2 * b`, the goal's left minus its right, minus each coefficient times its hypothesis's `l - r`; it has to be 0
+───╯

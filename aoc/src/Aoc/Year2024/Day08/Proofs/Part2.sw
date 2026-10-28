@@ -48,13 +48,7 @@ theorem divideByFacts (difference: Position) (goal: Prop) (rowTimes: Nat) (colum
     let rowSign := Int.sign difference.row
     let columnSign := Int.sign difference.column
     let scaled: scale * (s * rowSign * step.row + t * columnSign * step.column) = scale * 1 :=
-      ring [
-        bezout,
-        Eq.sym (Eq.cong ((x: Int) => s * x) (natAbsSign difference.row)),
-        Eq.sym (Eq.cong ((x: Int) => t * x) (natAbsSign difference.column)),
-        Eq.cong ((x: Int) => s * rowSign * x) rowLaw,
-        Eq.cong ((x: Int) => t * columnSign * x) columnLaw
-      ]
+      ring [bezout, s * natAbsSign difference.row, t * natAbsSign difference.column, s * rowSign * rowLaw, t * columnSign * columnLaw]
     use scale (omega) (Eq.sym rowLaw) (Eq.sym columnLaw) (s * rowSign) (t * columnSign) (mulCancel scale _ 1 (omega) scaled)
 
 -- The step to grid points from `start` towards `end`: `end - start` is a
@@ -91,8 +85,7 @@ theorem onLineOfCross (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (s: I
     And (pr = fr + er * (s * (pr - fr) + t * (pc - fc))) (pc = fc + ec * (s * (pr - fr) + t * (pc - fc))) :=
   let crossScaled: scale * ((pc - fc) * er - (pr - fr) * ec) = scale * 0 := rewrite secondRow, secondColumn at cross in ring [cross]
   let parallel := mulCancel scale ((pc - fc) * er - (pr - fr) * ec) 0 nonzero crossScaled
-  Both (ring [Eq.sym (Eq.cong ((x: Int) => (pr - fr) * x) bezout), Eq.sym (Eq.cong ((x: Int) => t * x) parallel)])
-    (ring [Eq.sym (Eq.cong ((x: Int) => (pc - fc) * x) bezout), Eq.cong ((x: Int) => s * x) parallel])
+  Both (ring [(pr - fr) * bezout, t * parallel]) (ring [(pc - fc) * bezout, s * parallel])
 
 -- `|x * y| = |x| * |y|`.
 theorem natAbsMul: (x: Int) → (y: Int) → Int.natAbs (x * y) = Int.natAbs x * Int.natAbs y
@@ -139,7 +132,7 @@ theorem harmonicsOfSteps (city: City) (start: Position) (end: Position) (point: 
     let step := stepToward start end
     List.memFlatMapIntro ((count: Nat) => [start.plus (step.times count.toInt), start.minus (step.times count.toInt)]) (Succ count) point
       (List.range (Nat.max city.height city.width)) (List.memRangeFromIntro (Succ count) (Nat.max city.height city.width) 0 (omega) (omega))
-      (Inr (Inl (positionEq (start.minus (step.times (Succ count).toInt)) point (ring [Eq.sym rowAt]) (ring [Eq.sym columnAt]))))
+      (Inr (Inl (positionEq (start.minus (step.times (Succ count).toInt)) point (ring [rowAt]) (ring [columnAt]))))
 
 theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firstOn: city.contains first = True) (distinct: Not (first = second))
     (point: Position) (inside: city.contains point = True):

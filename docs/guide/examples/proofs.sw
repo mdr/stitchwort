@@ -1,5 +1,5 @@
 -- Chapter 10: proofs.
-import Std (Eq, Exists, Fail, Fin, Iff, List, Nat, Option, Quot, Vec)
+import Std (Eq, Exists, Fail, Fin, Iff, Int, List, Nat, Option, Quot, Vec)
 import Std.Exists (Witness)
 
 -- begin rfl
@@ -56,6 +56,14 @@ theorem areaGrows (w: Nat) (h: Nat): (w + 1) * (h + 1) = w * h + w + h + 1 := ri
 
 theorem pairCount (n: Nat) (p: Nat) (twice: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [twice]
 -- end ring
+
+-- begin ring-coefficients
+theorem scaledUp (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [4 * half]
+
+theorem bothScaled (x: Int) (y: Int) (k: Int) (sum: x + y = 10) (gap: x - y = 2): 2 * k * x = 12 * k := ring [k * sum, k * gap]
+
+theorem turnedRound (a: Int) (b: Int) (h: a = b + 1): b - a = -1 := ring [-h]
+-- end ring-coefficients
 
 -- begin cases
 theorem orComm (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := cases

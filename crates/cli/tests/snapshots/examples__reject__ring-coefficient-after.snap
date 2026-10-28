@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RING] Error: `ring` takes equations between `Int`s, and this is `Nat`
+   ╭─[ reject/ring-coefficient-after.sw:5:77 ]
+   │
+ 5 │ theorem afterwards (a: Int) (b: Int) (h: a = b): 2 * a = 2 * b := ring [h * 2]
+   │                                                                             ┬  
+   │                                                                             ╰── not an equation of the goal's type
+   │ 
+   │ Note 1: each hypothesis of `ring [h1, h2]` proves `l = r` between `Int`s, like the goal
+   │ 
+   │ Note 2: a coefficient goes before its hypothesis: `c * h`
+───╯

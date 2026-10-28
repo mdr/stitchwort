@@ -2123,6 +2123,14 @@ coefficients: `linear_combination (h1 + h2) / 2`
 (<https://leanprover-community.github.io/mathlib4_docs/Mathlib/Tactic/LinearCombination.html>).
 Fix: coefficients in `ring [4 * h1 - x * h2]`.
 
+Fixed: `ring [4 * h1, -h2, x * h3]` takes coefficients, any `Int` or `Nat`
+expression, and a failure shows what is left over. Every
+`Eq.cong ((x: Int) => c * x) h` is now `c * h`, the squared cross product
+is `(ur * vc - uc * vr) * cross`, and the `Eq.sym`s went (a hypothesis
+without a `-` is still tried both ways round). `Proofs/` went from 601
+lines to 592 (`Part1.sw` 147 to 145, `Part2.sw` 238 to 231, `Gcd.sw` 37,
+the same length with shorter lines).
+
 ### 3. Terms that print the same but aren't, around `/` and `%`
 
 `(n - f) % 3` carries a hidden proof that 3 isn't 0. With
