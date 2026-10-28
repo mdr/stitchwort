@@ -1,5 +1,5 @@
 {
-  "next": 787,
+  "next": 808,
   "tickets": [
     {
       "id": 13,
@@ -6754,6 +6754,300 @@
       "where": "",
       "labels": [],
       "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 787,
+      "title": "Consider D1424: Nat addition recursing on its second argument (as Lean's)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Today 1 + c computes but c + 1 doesn't; day 4 needed Nat.addComm rewrites in 5 of 8 directions, days 12 and 15 hit it too. Changes how every + computes: proofs and hashes need re-checking. Rec: yes, as one measured lane.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 788,
+      "title": "Consider D1425: let inside parentheses as an expression (Lean's inline have)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "(let x := … in …) is a parse error today. Rec: yes.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 789,
+      "title": "Consider D1426: Record eta in the kernel, or a generated T.ext lemma per record",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "p = { row = p.row, column = p.column } isn't true by computation; roguelike, day 5 and day 6 hit it. Lean and Agda have kernel eta. Rec: kernel record eta after a short design note (trusted code).",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 790,
+      "title": "Consider D1427: Handler note: steps C then A first, decide B (evidence passing) after measuring",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Design note docs/proposals/tail-resumptive-handlers.md on branch worktree-agent-a8049d1cc701aac1f (SW-737). Rec: yes.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 791,
+      "title": "Consider D1428: Tail-resumptive clauses detected automatically, or marked like Koka's fun",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "The compiler already detects them in state handlers; Effekt detects them too. Rec: automatically.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 792,
+      "title": "Consider D1429: If B goes ahead, limit in-place clauses to empty-row handlers at first",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Avoids the subtle part Koka first got wrong; still covers the parser's handler and every state loop. Rec: yes.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 793,
+      "title": "Consider D1430: auto's omega step import-dependent, or always load omega (~0.1 s per program)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "h: a < b proves b - a ≠ 0 in one module but not another, depending on imports. Rec: keep import-dependent; E-AUTO-STUCK suggests importing/using omega.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 794,
+      "title": "Consider D1431: rewrite/match keep the goal folded when nothing is lost, falling back to unfolded",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Folded goals note on branch worktree-agent-a4d41ce184555fffb (SW-742; stage 1 merged). Lean's simpler rule breaks std and ~55 AoC proofs. Rec: yes.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 795,
+      "title": "Consider D1432: rewrite searches the folded goal to fill a rule's unknown arguments when nothing is found",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Only turns today's failures into successes. Rec: yes.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 796,
+      "title": "Consider D1433: rewrite f (a definition name) means unfold f one step, as Lean's rw [f]",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Instead of a new unfold f in e form. Rec: yes, no new keyword.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 797,
+      "title": "Consider D1434: Print a statement's match as a match in goals, not owner.%match1",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Rec: yes, shortened like other long terms.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 798,
+      "title": "Consider D1435: Transparency levels (Lean's reducible/default/all) now?",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Rec: no; with D1431's fallback nothing needs them.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 799,
+      "title": "Consider D1436: Inputs for AoC 2024 days 11+",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "mdr/aoc-2024 has inputs for days 1–10 only; days 11 onwards are examples-only (no inputs/ file, no answer entries). Rec: Matt adds inputs when convenient.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 800,
+      "title": "Consider D1437: A decide proof form for Bool truth tables (Lean's decide)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Day 12 wrote two 16-case truth tables by hand. Rec: yes, limited to a few Bool variables.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 801,
+      "title": "Consider D1438: Define != as !(==) for every type",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Day 12 needed a lemma connecting Bool != and ==; day 19 tripped on != meaning a proposition in statements but a Bool elsewhere. Changes hashes. Rec: yes.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 802,
+      "title": "Consider D1439: Per-branch equation lemmas for recursive functions (as Lean)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "A recursive function matching on a Bool or queue.min and keeping the equation can't be unfolded in proofs; days 12 and 16 got E-MATCH-MOTIVE. Rec: yes, after a short design note.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 803,
+      "title": "Consider D1440: Definitional proof irrelevance in the kernel",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Day 13 changed its program around \"yes y and yes h aren't equal\"; ring treats x % d from two places as different because of hidden proofs (day 13, Int lemmas). Rec: yes, after a design note (trusted code).",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 804,
+      "title": "Consider D1441: Import aliases (import … as)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Day 13's spec and program both define fewestTokens, so proofs wrote one by its full name. Rec: yes, import Aoc.Year2024.Day13.Spec as Spec.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 805,
+      "title": "Consider D1442: Infer a record literal's type from its field names",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Reverses the rule \"no type is guessed from the field names\". Built on branch record-literal-inference: exactly one record type in scope with exactly those fields. Rec: yes as built.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 806,
+      "title": "Consider D1443: Compare terms up to a match arm's equation everywhere in the arm",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Day 16 needed a bridging lemma; workaround rewrite moved in rfl; Lean behaves as Stitchwort does today. Rec: no; have the error suggest the workaround.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 807,
+      "title": "Consider D1444: Derive a list of all values (with completeness proof) for constructor-only types",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Like Haskell's Enum/Bounded and Lean's Fintype, beside derived DecEq/Ord. Day 21 wrote 11-deep membership proofs by hand; gives decide something to range over. Rec: yes.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
