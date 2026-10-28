@@ -6447,3 +6447,378 @@ Release build, load average 25 to 44:
    name the `match` that already rewrote it.
 9. `omega` needs `Nat.absDiff` unfolded by hand (item 6). Fix: teach
    `omega` `Nat.absDiff`.
+
+## Day 21: Keypad Conundrum
+
+Door codes, one per line (`029A`), to type on a numeric keypad ("789,
+456, 123, and finally an empty gap followed by 0A"). Its robot is driven
+from a directional keypad ("a gap / ^ (up) / A (activate) on the first row
+and < (left) / v (down) / > (right) on the second row"), whose robot is
+driven from another, and so on up to the directional keypad you press.
+"All robots will initially aim at the keypad's A key", and "if a robot arm
+is ever aimed at a gap ... the robot will panic unrecoverably". A code's
+complexity is "the length of the shortest sequence of button presses you
+need to type on your directional keypad" times "the numeric part of the
+code (ignoring leading zeroes)". Part 1 has "two directional keypads that
+robots are using"; part 2 "25 directional keypads that robots are using"
+(part 2's wording from the public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/master/2024/day-21/README.txt>).
+Both ask "What is the sum of the complexities of the five codes on your
+list?"
+
+**The real input is pending from Matt**: his repository
+(<https://github.com/mdr/aoc-2024>) stops at day 10, so there is no
+`inputs/2024/day21.txt`, no `Tests/Input.sw`, and the day isn't registered
+in `aoc_answers.rs` or `machine.rs` yet. `examples/2024/day21.txt` is the
+puzzle's five codes: part 1 is 126384 (lengths 68, 60, 68, 64, 64, as the
+puzzle says); part 2 is 154115708116294, which the puzzle doesn't give.
+Both were cross-checked with an independent Python script (`/usr/bin/python3
+-I`, not committed): a memoised recursion over every shortest monotone
+path (not only the two L-shaped ones the program tries), and a
+breadth-first search over every robot's arm, which agrees with the
+recursion for 0 to 3 robots on the example and on 60 generated codes of
+the real form (three digits, then A). On 200 generated codes the program
+and Python agree on both parts (7246384 and 8888059871115452). Compiler
+built from `main` at 3519d534, 28 October 2026.
+
+### The program
+
+```stitchwort
+type DirectionKey =
+  | Arrow (direction: Direction)
+  | Activate
+
+type NumericKey =
+  | Digit0
+  ...
+  | Digit9
+  | Enter
+
+type Code = List NumericKey
+
+def numericKey(): {Parse} NumericKey :=
+  label "a key (0 to 9 or A)" (() =>
+    pick [
+      ("0", Digit0),
+      ...
+      ("A", Enter)
+    ])
+
+def codes(): {Parse} (List Code) := lines (() => many1 numericKey)
+
+def parseCodes (input: Text): {Fail} (List Code) := Parse.all input codes
+
+type Position = { row: Nat, column: Nat }
+
+-- Where a keypad's keys are, and its gap, which is in a corner.
+type Keypad (k: Type) = { place: k → Position, gap: Position }
+
+def routes (keypad: Keypad k) (from: k) (to: k): List (List Direction) :=
+  let start := keypad.place from
+  let end := keypad.place to
+  let acrossTurn: Position := { row = start.row, column = end.column }
+  let alongTurn: Position := { row = end.row, column = start.column }
+  List.append
+    (if acrossTurn == keypad.gap then [] else [acrossThenAlong start end])
+    (if alongTurn == keypad.gap then [] else [alongThenAcross start end])
+
+type Costs = DirectionKey → DirectionKey → Nat
+
+def yourCosts: Costs := from to => 1
+
+def sequenceCost (costs: Costs) (keys: List DirectionKey): Nat :=
+  Cons Activate keys |> .zipWithNext |> .sumBy (((from, to)) => costs from to)
+
+def routeKeys (route: List Direction): List DirectionKey := List.append (route.map Arrow) [Activate]
+
+def routeCost (costs: Costs) (route: List Direction): Nat := sequenceCost costs (routeKeys route)
+
+def cheapestRoute (costs: Costs) (choices: List (List Direction)): List Direction := choices.minBy (routeCost costs) |> .getOrElse []
+
+def cheapestCost (costs: Costs) (choices: List (List Direction)): Nat := routeCost costs (cheapestRoute costs choices)
+
+def tabulate (costs: Costs): Costs :=
+  let table := directionKeys.map (from => directionKeys.map (to => costs from to))
+  from to => table.getOr from.index [] |> .getOr to.index 0
+
+def nextCosts (costs: Costs): Costs :=
+  tabulate (from to => cheapestCost costs (routes directionalKeypad from to))
+
+def robotCosts (robots: Nat): Costs := Nat.iterate robots nextCosts yourCosts
+
+def shortestLength (costs: Costs) (code: Code): Nat :=
+  Cons Enter code
+    |> .zipWithNext
+    |> .sumBy (((from, to)) => cheapestCost costs (routes numericKeypad from to))
+
+def complexities (robots: Nat) (codes: List Code): Nat :=
+  let costs := robotCosts robots
+  codes.sumBy (code => shortestLength costs code * numericPart code)
+
+def solvePart1 (codes: List Code): Nat := complexities 2 codes
+
+def solvePart2 (codes: List Code): Nat := complexities 25 codes
+```
+
+The domain model: a `DirectionKey` (an `Arrow` of a `Direction`, or
+`Activate`), an eleven-constructor `NumericKey`, and a `Keypad` record of
+each key's `place` and the `gap`, with the two keypads drawn in comments
+above their definitions. `main` is `parseCodes`, then `solvePart1` and
+`solvePart2`; both are `complexities` with the robot count as a parameter.
+
+The memo is a cost table built level by level. `robotCosts 0` is your own
+keypad (one press a key); `nextCosts` gives the costs one keypad further
+out: moving that keypad's arm from `from` to `to` and pressing it costs the
+cheaper of its two L-shaped routes (all the moves across then along, or
+the reverse, leaving out one that turns at the gap), typed on the keypad
+before. Every route ends in A, so each is typed from A, and the cost of a
+sequence is a sum over each key and the next. `tabulate` evaluates the 25
+costs once per level into a list of lists; without it the costs are
+closures calling the level before, and the example's run didn't finish in
+30 s (it takes 0.43 s with it). A test runs 100 robots (the length for
+029A is a 41-digit number).
+
+### Proved, for every code and number of robots
+
+The spec (`Spec/Spec.sw`) is the puzzle's mechanics. The keypads are their
+rows of keys, `None` for the gap (`numericRows`, `directionalRows`), with
+A's place as each robot's start. `moved` moves an arm a row or column (none
+off the top or left); `operate rows aim presses` is the keys a robot
+presses: an arrow moves its arm, which must land on a key (a gap or off
+the keypad is `None`, the panic), and A presses the key aimed at. `typed
+robots presses` passes your presses through `robots` directional keypads,
+then the numeric one. `Types robots code presses` is `typed robots presses
+= Some code`; `Shortest robots code length` is "some presses of that
+length type the code, and all presses that type it are at least that
+long"; `Answer robots codes answer` is "the sum of each code's shortest
+length times its numeric part". The numeric part is the program's
+`numericPart`, read from the code's digits.
+
+Proved (`Proofs/`, 561 lines in 6 files):
+
+- `pressesForTypes` and `pressesForLength` (Typing.sw, Presses.sw): for
+  every number of robots and every code, `pressesFor robots code` (the
+  cheapest route between each key and the next, then A, on each keypad,
+  out to yours) types the code and has `shortestLength (robotCosts robots)
+  code` presses. Together, `lengthAchieved`: the program's length is
+  achieved. This needs, for every pair of keys on both keypads, that each
+  candidate route walks from one to the other without aiming at the gap;
+  `numericFits` and `directionalFits` check that by computing (`fits ... =
+  True := rfl`), and `fitted` turns the check into facts about any pair.
+- `optimalIfCheapestWalks` (Lower.sw): no presses shorter than the
+  program's length type the code, provided the walk fact `CheapestWalks`
+  holds on the numeric keypad at the door's level and on the directional
+  keypads at the levels before it: every walk of an arm from a key to a
+  key, of any shape and length, never aiming at a gap, costs (typed with
+  that level's costs) at least the program's cheapest route between those
+  keys. The proof: any presses on a keypad are walks each ended by an A,
+  and the keypad driving them is back on A after each, so they cost at
+  least the cheapest routes between the keys pressed (`walksCost`); down
+  the chain that bounds each keypad's cost by the one before, out to your
+  presses (`throughRobotsCost`).
+- `numericWalksYours`, `directionalWalksYours` (Direct.sw): the walk fact
+  when you press the keys yourself, every press costing one. A walk has at
+  least as many moves as the distance along rows and columns between its
+  ends (`walkDistance`), every candidate route has exactly that many (also
+  checked in `fits`), and a key has one place (`numericPlaceOf`, a case
+  split on the row and column). So `shortestWithoutRobots` and
+  `answerWithoutRobots`: with no robots on directional keypads, the
+  program's length is the spec's shortest and the sum of complexities is
+  the puzzle's answer, for every code.
+- `part1Correct` and `part2Correct` (Proofs.sw): `Answer 2 codes
+  (solvePart1 codes)` and `Answer 25 codes (solvePart2 codes)`, assuming
+  `Optimal 2` and `Optimal 25`.
+
+Not proved: the walk fact past your own keypad, so optimality with one
+robot or more. With robots, a press's cost depends on the key pressed
+before, so a walk's cost is a tour of the arrow keys it uses, from A and
+back to A. The usual argument is that a walk that turns more than once, or
+detours, costs more than an L-shaped route: it uses at least the same
+arrow keys, at least as many times, and every extra change of key costs at
+least what the L-route's single turn saves. As a proof, that needs a
+property of the cost table that `nextCosts` preserves at every level and
+that bounds a tour's cost by the keys it visits (a triangle inequality on
+`costs`, and that leaving A for an arrow and coming back is no cheaper
+than passing through another arrow, or similar), then an argument over
+arbitrary walks, with the gap's forced orders as separate cases. The
+tables have no closed form past level 1, so this can't be checked once by
+computing, as `fits` is. What I did instead: `walksCost` and
+`throughRobotsCost` reduce optimality to exactly that per-level fact, and
+the test "the walk fact for walks of up to six moves, one to three robots"
+checks it for every walk of up to six moves from every key on both keypads
+at levels 1 to 3. The brute-force search in the tests (breadth first over
+every robot's arm and the keys typed so far, through the spec's `moved`
+and `keyAt`) agrees with the program for 0 to 3 robots on short codes and
+0 to 2 on the example's.
+
+Breaking the program makes the proofs fail: letting a route turn at the
+gap fails `numericFits` and `directionalFits`; costing your own presses at
+2 fails `yourPressesLength`, `routeCostYours` and `throughRobotsCost`.
+
+### 1. Std.Parse
+
+- `pick` of eleven one-character keys lists them all in its message:
+  `expected '0' or '1' or '2' or '3' or '4' or '5' or '6' or '7' or '8' or
+  '9' or 'A' or the end of the line, got 'B'`. Wrapped in `label "a key (0
+  to 9 or A)"`, it is `line 1, column 3: expected a key (0 to 9 or A) or
+  the end of the line, got 'B'`, and an empty input `line 1, column 1:
+  expected a key (0 to 9 or A), got the end of the input`. `label` composed
+  with `pick` first time. Fine as it is.
+
+### 2. Missing std
+
+- No way to enumerate a finite type. The proofs check facts for every pair
+  of keys by computing over a list, then need every key to be in it:
+  `everyNumericKey` is eleven arms of `Inr (Inr (… (Inl rfl)))`, eleven
+  deep at the end, and `tabulateSame` is 25 arms of `rfl`. Haskell derives
+  `Enum` and `Bounded` for a type of nullary constructors ("the first and
+  last constructors listed in the data declaration are the bounds",
+  <https://www.haskell.org/onlinereport/haskell2010/haskellch11.html>), and
+  Lean's `decide` proves a goal by evaluating its `Decidable` instance
+  (<https://lean-lang.org/doc/reference/latest/Tactic-Proofs/Tactic-Reference/#decide>).
+  What I did: wrote the lists, the membership proofs and the 25 arms by
+  hand.
+- No array or total map keyed by a finite type for the cost table:
+  `tabulate` is a list of lists read with `getOr` and an `index` function,
+  with a default of 0 off the end that only the proofs show is never used.
+- No `List.isEmpty` without `DecEq` (day 19): `choices != []` on `List a`
+  gave ``[E-AUTO-NONE] Error: no way to decide `choices ≠ []` ``. Wrote a
+  two-arm `hasSome`.
+- Lemmas written in `Lemmas.sw`: `allMember` (`List.all` is true of each
+  member; std's `List.allMem` is about the `Prop` `List.All`),
+  `minByStepPasses` (`List.minBy`'s result passes a test every element
+  passes), `sumByPairs` (a `zipWithNext` sum as a recursion from the first
+  key), `costFromAppend`, `flatMapSome` and `flatMapIntoSome`.
+
+### 3. Confusing errors
+
+- The `!=` note's own advice is a parse error in a theorem's type.
+  `(choices: List (List Direction)) → (choices != []) = True → …` gave
+  ``[E-NOT-A-TYPE] Error: in a statement, `!=` is the proposition, not a
+  `Bool` `` with ``Note: for the `Bool` that `!=` computes, ascribe it:
+  `((x != y): Bool)`; or compare with `==` instead, as `(x == y) = False`
+  ``. Following the first suggestion, `… → ((choices != []): Bool) = True
+  → …`, gave ``[E-PARSE] Error: a lambda doesn't take a result type``.
+  What I did: named the test (`hasSome`). Fix: parse the ascription there,
+  or put the `==` suggestion first.
+- `type Keypad k = { place: k → Position, gap: Position }` gave
+  ``[E-PARSE] Error: expected the end of the declaration, but found `k` ``.
+  The parameter needs a binder, `type Keypad (k: Type) = …`; docs/syntax.md
+  says so, the message doesn't. Fix: a note showing `(k: Type)`.
+- `rewrite <- throughRobotsLast level presses in through`, meant to rewrite
+  the hypothesis `through`, rewrote the goal and gave ``[E-REWRITE-NOTHING]
+  Error: `rewrite` found no `Option.flatMap (throughRobots level presses)
+  (operate directionalRows directionalStart)` in the goal``. Correct, and
+  `rewrite … at through in …` exists (docs/syntax.md), but the message
+  doesn't mention it. What I did: `Eq.trans (Eq.sym …) through`. Fix: when
+  the goal lacks the pattern and a hypothesis has it, suggest `at`.
+- Clear ones: `Some { aim | row = aim.row - 1 }` (``braces after `Some`
+  name its fields; an update isn't one of them``, with the bracketed fix);
+  `theorem fitted …: Fitted k` (``is declared as a theorem, but its type
+  isn't a proposition``, ``Note: remove `theorem` ``); and
+  `E-REWRITE-NOTHING` after a `match` that had already replaced the term,
+  whose note says so ("this `match` replaced `Ord.%compare ord (key best)
+  (key next)` with `Less`"), so the arms needed no rewrite at all.
+
+### 4. Inference
+
+- A record literal in a tuple in a list literal, `[(acrossThenAlong start
+  end, { row = start.row, column = end.column }), …] |> .filter
+  (((route, corner)) => corner != keypad.gap)`, gave ``[E-CANNOT-INFER]
+  Error: can't tell which record type this literal is``: the later
+  comparison with a `Position` doesn't reach it (day 15's item again).
+  What I did: `let acrossTurn: Position := …` and two `if`s, which read
+  better anyway.
+- `cheapestRoute costs routes |> routeCost costs` is a type error: `|>`
+  passes the first argument (day 2's item), so it fed the route to
+  `costs`. Scala's `pipe` takes a function (`def pipe[B](f: A => B): B`,
+  <https://www.scala-lang.org/api/current/scala/util/ChainingOps.html>),
+  so the same line there needs a lambda too. What I did: a `cheapestCost`
+  function.
+- Good: `allMember _ keys pairs from (every from)` found the predicate
+  from the hypothesis' type, and `Bool.andLeft _ _ checked` its operands.
+
+### 5. Performance
+
+On the example `stitchwort run` takes 0.43 s user, about the cost of
+loading (day 19's example takes 0.36 s); 200 generated codes take 0.45 s.
+The Python cross-check, brute force and recursion together, takes 0.18 s.
+The table is the whole story: 25 levels of 25 entries, each the cheaper of
+two routes of a few keys. Without `tabulate` the costs are closures that
+call the previous level's closure for every pair, so the work multiplies
+at each level, and the example didn't finish in 30 s. That is the expected
+cost of not memoising. Fix: none needed in the language; a std total map
+over a finite key type would make the table one line.
+
+The tests are the slow part: the bounded walk-fact test enumerates every
+list of up to six moves (5461) from each of 16 keys at three levels, about
+2 s; seven moves took 6.5 s, past the lane budget.
+
+### 6. Proofs
+
+Soundness checked first or second time per file: 561 lines in all, every
+lemma short. What made it work:
+
+- Computing the finite facts. `fits` checks, for all 121 numeric and 25
+  directional pairs, that each candidate route walks from one key to the
+  other without aiming at a gap and is as short as can be; `rfl` proves
+  it, and `fitted` turns it into a record of facts for any pair, used for
+  both keypads by one generic `drivingKeysType`. Without it, the gap
+  reasoning would have been a case split per pair.
+- `match name: e with` refining both the goal and the hypotheses: the
+  `operate` lemmas never `rewrite`, and the `None` arms close with
+  `Option.noneNotSome` on the refined hypothesis.
+- The program's route choice, `cheapestRoute`, is one of the candidates,
+  so the witness presses and the cost are both about `routeKeys
+  (cheapestRoute …)`, and only `minByStepPasses` was needed about
+  `List.minBy`.
+- `throughRobotsLast`: the spec passes presses from your keypad inwards,
+  while the witness is built from the door outwards (`yourPresses` expands
+  the door's keypad first), so one lemma reorders `typed` to peel the
+  robot nearest the door. With it both inductions are on the level.
+
+Friction: the 25-arm `tabulateSame` and the hand-written membership proofs
+(item 2), and `fits` being a `Bool` read back through `Bool.andLeft`,
+`Bool.andRight` and `allMember` chains. Optimality is the real gap: the
+reduction to `CheapestWalks` is 103 lines and the level-0 case 102, but
+the fact itself at level 1 and up is about every walk under a cost table
+with no closed form (see "Not proved" above).
+
+### Size and time
+
+Release build, load average around 25:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day21.Proofs` | 1.3 s user (3.6 s) |
+| `stitchwort check --no-cache Aoc.Year2024.Day21` | 1.0 s user (2.3 s) |
+| `stitchwort test --no-cache Aoc.Year2024.Day21` (23 tests) | 5.3 s user (6.5 s) |
+| `stitchwort test Aoc.Year2024.Day21` (warm) | 0.7 s user (1.4 s) |
+| `stitchwort run Aoc.Year2024.Day21.main` on the example | 0.43 s user |
+| `stitchwort run Aoc.Year2024.Day21.main` on 200 generated codes | 0.45 s user |
+
+225 lines of program, 87 of spec, 561 of proofs, 149 of tests.
+
+### Ranked
+
+1. The real input is pending: Matt's repository has no day 21. Fix: add
+   his input, its tests and its two answer entries when he has it.
+2. Optimality with robots isn't proved: it is reduced to the walk fact per
+   level (`optimalIfCheapestWalks`) and proved with no robots, but the
+   walk fact past level 0 needs an invariant of the cost tables (item 6).
+   Fix: find a property `nextCosts` preserves that bounds every walk's
+   cost; until then `part1Correct` and `part2Correct` assume `Optimal`.
+3. No enumeration of a finite type: membership proofs eleven constructors
+   deep and a 25-arm lemma (item 2). Fix: derive a complete list and its
+   membership lemma for types of nullary constructors, as Haskell derives
+   `Enum` and `Bounded`, or a `decide` for statements over them.
+4. The `!=` note suggests `((x != y): Bool)` first, which is a parse error
+   after a `→` binder (item 3). Fix: parse it there, or lead with `(x ==
+   y) = False`.
+5. Record literals inside tuples aren't inferred from later use (item 4).
+   Fix: carry the expected type into the tuple from the later comparison.
+6. `type Keypad k = …` is a bare parse error (item 3). Fix: a note showing
+   `type Keypad (k: Type) = …`.
+7. A `rewrite … in` meant for a hypothesis doesn't suggest `at` (item 3).
+   Fix: mention `at h` when the goal lacks the pattern but `h` has it.
+8. No `List.isEmpty` without `DecEq` (item 2, day 19 again). Fix: add it.
