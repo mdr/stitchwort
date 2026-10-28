@@ -7860,7 +7860,7 @@
     {
       "id": 864,
       "title": "Std additions from the AoC findings tickets: implement the small library items still missing",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7869,14 +7869,17 @@
       "body": "Sweep SW-741, 758, 762, 771, 808, 809, 816 for small std items (functions and lemmas). Several are already done (Text.padLeft, Option.toList, List.allSome, Char.isAsciiLowercase, natAbsMul/natAbsZero, List.minimum, Nat.gcd lemmas). Implement the remaining ones that are plain additions (e.g. Set membership Iff lemmas, low-bits xor lemmas in Nat/Bits.sw, Int (d*a)/d = a if missing, occurrencesFlatMap/permFlatMap/sumBy-one=length, Set.popMin if straightforward); skip anything that needs a design choice and list it.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "02b5fcd7",
+        "85f15629"
+      ]
     },
     {
       "id": 865,
       "title": "Triage the five older agent worktrees with unmerged work (report only)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
       "labels": [
         "tooling"
       ],
