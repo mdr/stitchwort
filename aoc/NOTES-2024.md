@@ -1479,6 +1479,19 @@ What worked: a lemma over any `keep` (`filterSame`), then instantiated, and
 with itself before unfolding it; and an error should never fail to print
 (shorten the term, as other messages do).
 
+Fixed: neither conversion nor printing was the cause. After the
+application, the search for `auto` dictionaries read the result type back
+as a normal form, unfolding `keeps` into millions of nodes. It now reads back
+at most 100,000 nodes of a normal form and otherwise keeps calls as calls
+(`interfaces.rs`, `scanned`). Conversion already compares two calls of
+the same definition by their arguments first, and messages already
+shorten what they show. `stepA2` checks, and `filterSame` is gone:
+`trapSetsSame` applies `Set.containsFilter` to the program's filter.
+`rewrite` there, and `match patrolled: lab.patrol` against
+`solvePart2 lab = None`, still run out: both work on the goal's normal form
+by design (the `match` has to find `lab.patrol` inside `solvePart2`), which
+is Day 2's item 3.
+
 ### 4. Goals unfold too far
 
 - `(lab.withObstruction blocker).ahead guard = lab.ahead guard` isn't `rfl`:
