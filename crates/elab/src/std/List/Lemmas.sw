@@ -6,6 +6,12 @@ theorem List.lengthAppend: (xs: List a) → (ys: List a) → List.length (List.a
   | Nil, ys => rfl
   | Cons x xs, ys => Eq.cong Succ (List.lengthAppend xs ys)
 
+-- Splitting a list at `n` and joining the parts gives it back.
+theorem List.appendTakeDrop: (xs: List a) → (n: Nat) → List.append (List.take xs n) (List.drop xs n) = xs
+  | xs, Zero => rfl
+  | Nil, Succ n => rfl
+  | Cons x xs, Succ n => Eq.cong (Cons x) (List.appendTakeDrop xs n)
+
 theorem List.scanLeftNil: List.scanLeft Nil 5 (acc x => acc + x) = [5] := rfl
 
 theorem List.scanLeftSums: List.scanLeft [1, 2, 3] 0 (acc x => acc + x) = [0, 1, 3, 6] := rfl

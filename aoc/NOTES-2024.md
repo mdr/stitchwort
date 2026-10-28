@@ -2902,3 +2902,303 @@ Release build, on a machine with a load average around 22:
    stand in for running it.
 6. `in` can't start a line after a multi-line `rewrite` (item 6). Fix:
    allow it.
+
+## Day 11: Plutonian Pebbles
+
+A line of numbered stones. "Every time you blink, the stones each
+simultaneously change according to the first applicable rule": 0 becomes 1;
+"a number that has an even number of digits ... is replaced by two stones.
+The left half of the digits are engraved on the new left stone, and the
+right half of the digits are engraved on the new right stone. (The new
+numbers don't keep extra leading zeroes: 1000 would become stones 10 and
+0.)"; otherwise the number is multiplied by 2024. "No matter how the stones
+change, their order is preserved". Part 1: "How many stones will you have
+after blinking 25 times?"; part 2: "How many stones would you have after
+blinking a total of 75 times?" (part 2's wording from the public copy at
+<https://github.com/RobUrsem/AdventOfCode2024/blob/1d92fdb7a5c926295cff6a8bfee6e262cfd56bf6/11/day11.txt>).
+
+**The real input is pending from Matt.** `mdr/aoc-2024` stops at day 10
+(its last commit, 17 December 2024, is "day 10"; there is no
+`Aoc2024/Day11`), so there is no day 11 input of his yet. Until it comes,
+day 11 has no `aoc/inputs/2024/day11.txt`, no real-input tests and no entry
+in `crates/cli/tests/aoc_answers.rs` or `crates/rt/tests/machine.rs`; when
+it does, add the file, a `Tests/Input.sw` as other days have, and those two
+entries.
+
+The example's answers are checked: its six lines, 55312 after 25 blinks,
+and 65601038650482 after 75, all agreeing with an independent Python script
+(`/usr/bin/python3 -I`) that splits the decimal string and counts with a
+`Counter`. The timings below are on a generated line of 8 stones
+(`4186027 69222 0 8 977 8629 632510 81`, not committed), on which the
+program and the Python script agree (199514 and 236970341363826); after 75
+blinks its 237 trillion stones show only 3764 different numbers. Compiler
+built from `main` at 64fbe366, 28 October 2026.
+
+### The program
+
+```stitchwort
+def parseStones (input: Text): {Fail} (List Nat) := Parse.all input (() => sepBy1 nat spaces1)
+
+def changeStone (stone: Nat): List Nat :=
+  if stone == 0 then [1]
+  else
+    let digitCount := stone.digitCount
+    if digitCount % 2 == 0 then
+      let place := Nat.pow 10 (digitCount / 2)
+      [stone / place, stone % place]
+    else [stone * 2024]
+
+def addStones (counts: Map Nat Nat) (stones: List Nat) (count: Nat): Map Nat Nat :=
+  stones.foldLeft counts (counts stone => counts.insertWith stone count Nat.add)
+
+def blinkCounts (counts: Map Nat Nat): Map Nat Nat :=
+  counts.foldLeft Map.empty (blinked stone count => addStones blinked (changeStone stone) count)
+
+def countAfter (blinks: Nat) (stones: List Nat): Nat :=
+  blinks.iterate blinkCounts (Map.counts stones) |> .values |> .sum
+
+def solvePart1 (stones: List Nat): Nat := countAfter 25 stones
+
+def solvePart2 (stones: List Nat): Nat := countAfter 75 stones
+```
+
+The domain model is the list of numbers. The line grows by about half
+again per blink, so part 2's literal list would have over 10^14 elements;
+the program never builds it. It keeps how many stones show each number
+(`Map Nat Nat`, starting from std's `Map.counts`), and a blink changes each
+number once and adds its count to whatever it becomes. Splitting divides by
+10 to the half of `Nat.digitCount` (std); the spec instead takes the halves
+of the digit list, and the proofs show the two agree.
+
+### Proved, for every line of stones
+
+The spec (`Spec/Spec.sw`) is the puzzle's words: `change` takes
+`Nat.digits stone`, and for an even count makes two stones from
+`Nat.fromDigits` of its `take` and `drop` at half (which is what drops the
+right half's leading zeros); `blink` is `flatMap change`, keeping the
+order; `blinkTimes n` is `n` blinks; `part1` and `part2` are
+`(blinkTimes 25 stones).length` and `(blinkTimes 75 stones).length`. The
+spec runs: the tests check it against the example's six lines and 55312.
+
+Proved (`Proofs/`, 224 lines in four files):
+
+- `part1Correct`, `part2Correct`: `solvePart1 stones = part1 stones`, and
+  the same for part 2, both from
+- `countCorrect`: `countAfter blinks stones = (blinkTimes blinks
+  stones).length`, for every number of blinks (Counting.sw). The invariant
+  is `Represents counts stones`: for every weight `w: Nat → Nat`, the
+  map's entries weigh (count times `w` of the number) what the list's
+  `sumBy w` does. `weighInsertWith` follows `Map.Spec.insertWith` (std
+  states `Map.insertWith` on the sorted entry list), `weighAddStones` and
+  `weighFold` follow the folds, and `representsBlink` instantiates the
+  invariant at `w' x = (change x).sumBy w`, which is what makes one blink
+  of the counts stand for one blink of the line, through std's
+  `sumByFlatMap`. At the end, the weight 1 gives the sum of the counts on
+  one side and the length on the other.
+- `orderIrrelevant`, `countOrderIrrelevant`: lines that are permutations
+  of each other (`List.Perm`) are still permutations after any number of
+  blinks (`blinkTimesPerm`), so they end with as many stones, by the spec
+  and by the program (Order.sw; std's `sumByPerm` does the work).
+- `changeAgrees`: `changeStone stone = change stone`, the lists equal, for
+  every stone (Split.sw). It rests on `recombine`: `fromDigits (left half) *
+  10^(length of right half) + fromDigits (right half) = stone`, for any
+  split point, from std's `fromDigitsAppend` and `fromDigitsDigits`. With
+  an even digit count the right half has half the digits
+  (`rightHalfLength`, `omega` with `/ 2` and `% 2`) and is below 10 to
+  that (`rightHalfSmall`), so std's `divUnique` and `modUnique` give
+  `splitLeft` (`stone / place` is the left half) and `splitRight`
+  (`stone % place` is the right half).
+- `leftStoneDigits`: for a stone of at least 1 with an even digit count,
+  `Nat.digits (stone / place)` is exactly the left half of the digits: the
+  left stone loses no digits, since its first one isn't 0.
+
+Breaking the program (`* 2023`, the halves swapped, or `count + 1` in
+`blinkCounts`) makes the proofs fail. `countCorrect` and
+`countOrderIrrelevant` use `Quot.sound` (through `Map`); `changeAgrees`
+uses no axioms.
+
+Not proved: the right stone's digits are the right half's with leading
+zeros dropped (`Nat.digits (stone % place)` against a `dropWhile`). The
+spec already says it with `fromDigits`, which is what the puzzle's
+"1000 would become stones 10 and 0" means, so I stopped at the numbers.
+
+### 1. Std.Parse: none
+
+`Parse.all input (() => sepBy1 nat spaces1)` read the line first time, and
+the messages were the ones I guessed in the tests before running them:
+`line 1, column 1: expected a number, got the end of the input` and
+`line 1, column 4: expected a number, got 'x'`. Two spaces between numbers
+are allowed (`spaces1`).
+
+### 2. Missing std
+
+- No `List.appendTakeDrop` (`take xs n ++ drop xs n = xs`) for lists; only
+  `Text.takeDropChars` for characters. Added to `List/Lemmas.sw`.
+- `Nat.digitsTake` but no `Nat.digitsDrop` (a suffix of digits is
+  digits). Added next to it in `Nat/Digits.sw`.
+- No `occurrencesFlatMap` (`(xs.flatMap f).occurrences p = xs.sumBy (x =>
+  (f x).occurrences p)`) or `List.permFlatMap`, and no `sumBy (x => 1) =
+  length`; day 10 wrote a `lengthFlatMap` of its own too. Written in the
+  proofs, not std, since `sumByPerm` lives in `List/Sort.sw`, which another
+  lane is splitting.
+- Nothing about a `Map`'s values summed after `insertWith`. `weigh` and
+  `weighInsertWith` (13 lines over `Map.Spec.insertWith`) did it; std's
+  `Map.toListInsertWith` and `Map.foldLeftToList` made it a list proof.
+
+### 3. Confusing errors
+
+- A `def` whose body is a function type counts as more arguments when it
+  is a theorem's result. `representsAfter: ... → Represents counts stones
+  → Represents (...) (...)`, where `Represents` is `(weight: Nat → Nat) →
+  ...`, and `blinkTimesPerm` ending in `List.Perm ...`, both gave:
+
+  ```text
+  [E-ARITY] Error: this arm has 4 pattern(s), but `representsAfter` takes more arguments after the colon
+  ```
+
+  Nothing says the extra argument comes from unfolding `Represents`. I
+  added a fifth pattern (`weight`, or `p` for `Perm`) to every arm and
+  applied the hypothesis to it.
+- `DecEq.sound _ _ even` on a `Nat` `==`:
+
+  ```text
+  [E-TYPE-MISMATCH] Error: type mismatch
+    expected `Decidable.toBool (DecEq.%decide (?4 stone zero even) (Nat.digitCount stone % 2) 0) = True`, but this has type `Decidable.toBool (Nat.decEq (Nat.digitCount stone % 2) 0) = True`
+  ```
+
+  The note blamed the `match` ("a term written out inside a branch ...
+  isn't refined by the `match`") and suggested `_` for the arguments,
+  which I had written. The real cause is the unsolved instance `?4`:
+  writing the arguments, `DecEq.sound (stone.digitCount % 2) 0 even`,
+  worked.
+- `W-LAMBDA-SHADOW`: a lambda parameter called `next` "hides the function
+  `next`", which is the `Parse` ability's operation, in scope from
+  `import Std (Parse)` though the file imports only `nat`, `sepBy1` and
+  `spaces1` from `Std.Parse` (day 9's item 2 again). Renamed it `blinked`.
+
+### 4. Inference
+
+Nothing went wrong. `Map.empty` as `foldLeft`'s start and the
+three-parameter lambda (`blinked stone count => ...`) needed no
+annotations, and `blinks.iterate blinkCounts (Map.counts stones) |>
+.values |> .sum` inferred `Map Nat Nat` throughout.
+
+### 5. Performance
+
+All on the generated line of 8 stones (user time). Interpreted, `run`
+takes 1.52 s, against 0.54 s on the example (loading and checking), and
+0.54 s for parsing alone; part 1 alone is 0.58 s. So part 1 is about
+0.04 s of work and part 2 about 0.95 s. The Python script does both, and a
+second count, in 0.09 s. A version with the digits counted by repeated
+multiplication instead of `Nat.digitCount`'s digit list ran part 2 alone in
+1.43 s against about 1.5 s, so the time is the map: 75 blinks of up to
+about 3800 numbers is some 500,000 `insertWith`s, nearly 2 µs each,
+through a balanced tree that compares through the `Ord` instance. `--js`
+takes 0.86 s, Node's start included. On the machine, a `stitchwort build`
+executable (no loading) takes 1.13 to 1.18 s, against 0.02 s on the
+example: slower than the interpreter's 0.95 s of work, which I didn't look
+into. `machine aoc_agrees` passed (496 AoC tests agree), but day 11 has no
+entry in its answer list, so it ran neither day 11's `main` nor its
+timing.
+
+What I did instead: nothing; 1.5 s is fine. A hash map, or an `IntMap`
+(Haskell's `Data.IntMap`) keyed by `Nat`, would be the fix if a day needs
+it.
+
+### 6. Proofs
+
+The proofs took about an hour, and most checked first time:
+`weighInsertWith`, the folds, `countCorrect`, `blinkPerm` and
+`digitsOfLeading` all did. The difficulty was choosing the invariant, not
+proving it. The obvious one, "the map's count at each number is the list's
+count of that number", says nothing about the sum of the values without
+facts about distinct keys, and turning per-number counts into a sum of
+`(change x).sumBy w` over the line needs the counts for every function,
+not every predicate. Quantifying over weights (`Represents`) makes the
+blink step one instantiation. The friction was elsewhere:
+
+- `rewrite <- rightHalfLength stone even` (`length (drop half) = half`)
+  rewrote `half` inside the `drop half` too:
+
+  ```text
+  [E-TYPE-MISMATCH] Error: type mismatch
+    expected `List.foldLeft (List.drop (Nat.digitsAcc stone []) (List.length (List.drop (Nat.digits stone) (… / 2)))) 0 (acc digit => acc * 10 + digit) < …`
+  ```
+
+  `Nat.ltCongRight` and `Eq.cong` at the one place worked. Lean's answer
+  to a `rw` that hits the wrong place is conversion mode, "a more precise
+  tool", which focuses on one part of the goal first
+  (<https://lean-lang.org/theorem_proving_in_lean4/conv.html>).
+- In `changeAgrees`, `rewrite splitLeft ..., splitRight ...` failed on the
+  second rule:
+
+  ```text
+  [E-REWRITE-NOTHING] Error: `rewrite` found no `stone % Nat.pow 10 (Nat.digitCount stone / 2)` in the goal
+    Note 1: goal after the rule before this one: `[Nat.fromDigits (List.take … …), stone - (… * …)] = …`
+  ```
+
+  `%` computes to `stone - (stone / place) * place`, and the first rule
+  rewrote the `/` inside it. Rewriting `%` first worked. The notes say
+  what happened (the goal after the first rule shows the `-`), so this was
+  quick to fix.
+- `omega` handled `/ 2` and `% 2` by literals (`rightHalfLength`, `1 ≤
+  half`) and a power as an atom (`powTenNotZero`), as Lean's `omega` does.
+
+### 7. Comparisons
+
+- Haskell's `Data.Map.Strict.insertWith` ("Insert with a function,
+  combining new value and old value") and `fromListWith` are the same
+  operations as `Map.insertWith` and `Map.counts`
+  (<https://hackage-content.haskell.org/package/containers-0.8.1/docs/Data-Map-Strict.html>);
+  the program reads the same in Haskell.
+- Scala's `groupMapReduce(key)(f)(reduce)` counts in one call,
+  `stones.groupMapReduce(identity)(_ => 1L)(_ + _)`
+  (<https://www.scala-lang.org/api/3.1.0/scala/collection/IterableOps.html>);
+  Stitchwort's `Map.counts` covers the start, but a blink is a fold.
+- Lean defines `List.Perm` inductively (`Init/Data/List/Basic`) and proves
+  `List.perm_iff_count`: `l₁.Perm l₂ ↔ ∀ a, count a l₁ = count a l₂`
+  (<https://lean-lang.org/doc/api/Init/Data/List/Perm.html>). Stitchwort's
+  `List.Perm` is defined by counting (`occurrences` of every predicate), so
+  `blinkPerm` was two rewrites and `sumByPerm`.
+- Mathlib's `Nat.digits` is little-endian ("the digits, in little-endian
+  order"), with `Nat.ofDigits_digits` as the round trip
+  (<https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Nat/Digits/Defs.html>).
+  Std's are most significant first, so "the left half" is `take`, which
+  suited this puzzle.
+
+### Size and time
+
+Release build, on a machine with a load average around 25:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day11.Proofs` | 2.0 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day11` | 1.7 s |
+| `stitchwort test --no-cache Aoc.Year2024.Day11` (20 tests) | 1.9 s |
+| `stitchwort run Aoc.Year2024.Day11.main` on the generated line | 1.52 s |
+| `stitchwort check --no-cache` (whole project) | 15 s |
+| `main` on the generated line, on the machine (`stitchwort build`) | 1.13 s |
+
+49 lines of program, 40 of spec, 224 of proofs, 49 of tests.
+
+### Ranked
+
+1. The real input is pending: Matt's repository has no day 11. Fix: add
+   his input, its tests and its two answer entries when he has it.
+2. A `def` that unfolds to a function type adds arguments to a theorem's
+   arms, and `E-ARITY` doesn't say so (item 3). Fix: name the definition
+   that unfolded and the extra argument in the message.
+3. `rewrite` changes every occurrence, including inside the term being
+   protected, and inside what `%` computes to (item 6). Fix: an occurrence
+   selector (`rewrite ... at 1`) or a `conv`-like focus.
+4. `DecEq.sound _ _ h` fails on an unsolved instance with a note about the
+   `match` (item 3). Fix: solve the instance from `h`'s type, or say the
+   instance is unknown.
+5. Part 2 spends about 1.6 µs per `Map.insertWith` (item 5). Fix: a
+   `Nat`-keyed map (as Haskell's `IntMap`), or cheaper `Ord` dispatch.
+6. Missing `occurrencesFlatMap`, `permFlatMap`, `sumBy (x => 1) = length`
+   (item 2). Fix: add them to std's `List/Lemmas.sw` once `List/Sort.sw`
+   is split.
+7. The `Parse` ability's `next` shadows a lambda parameter without an
+   import (item 3). Fix: as day 9's item 2, scope ability operations by
+   import.
