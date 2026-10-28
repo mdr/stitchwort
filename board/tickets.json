@@ -6293,7 +6293,7 @@
     {
       "id": 748,
       "title": "Folded read-back keeps unfolding after a call that steps at once (value.rs:2065): if True then concatenate a b else 0 prints as List.foldLeft … (folded-goals note stage 1)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
