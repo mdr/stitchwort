@@ -35,7 +35,7 @@ mod inputs;
 use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{eval, force, quote};
+use stitchwort_core::value::{eval, force, quote, quote_at_most};
 use stitchwort_core::{BigUint, DefId, Globals, Icit, Limits, Name, Sort, Term, Value};
 
 use crate::check::{Ctx, builtin_data, builtin_def};
@@ -87,6 +87,23 @@ const OUT_OF_STEPS: usize = 50;
 /// The size the random inputs grow to (§5.1): a random list is up to this
 /// long, a random number up to this large (or at a machine word's edge).
 pub const RANDOM_SIZE: usize = 40;
+
+/// The most nodes the checker reads back of a part of the statement (a
+/// hypothesis, an input's type, the conclusion) in normal form.
+const STATEMENT_NODES: u64 = 100_000;
+
+/// The normal form of `value`, a part of the statement, or why the search
+/// won't run on it: past [`STATEMENT_NODES`], reading it back would build a
+/// huge term only to give up at the budget's size limit.
+fn statement_part(cx: &Ctx, value: &Value) -> Result<Term, String> {
+    match quote_at_most(cx.g(), cx.level(), value, STATEMENT_NODES) {
+        Ok(Some(term)) => Ok(term),
+        Ok(None) => Err(format!(
+            "the statement's normal form has more than {STATEMENT_NODES} nodes"
+        )),
+        Err(e) => Err(stitchwort_syntax::Diagnostic::from(e).message),
+    }
+}
 
 /// The most rounds of shrinking (§5.5).
 const SHRINK_ROUNDS: usize = 200;
@@ -369,7 +386,7 @@ impl Elaborator {
                 cod.apply(g, nat_ty.clone())
             } else if is_erased {
                 // A hypothesis: decided, and assumed from here on.
-                let prop = cx.quote(&dom).map_err(failed)?;
+                let prop = statement_part(&cx, &dom)?;
                 let decision = crate::bind::decide(&mut cx, &prop)
                     .and_then(|d| d.term(&cx))
                     .map_err(|e| format!("nothing decides `{}`: {}", cx.show(&dom), e.message))?;
@@ -405,7 +422,7 @@ impl Elaborator {
                 if matches!(dom, Value::Pi(..)) {
                     return Err(format!("`{x}` is a function"));
                 }
-                let ty_term = cx.quote(&dom).map_err(failed)?;
+                let ty_term = statement_part(&cx, &dom)?;
                 if (0..cx.level()).any(|ix| ty_term.mentions(ix)) {
                     return Err(format!("the type of `{x}` depends on another parameter"));
                 }
@@ -421,7 +438,7 @@ impl Elaborator {
             };
             ty = force(g, next.map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
         }
-        let conclusion = cx.quote(&ty).map_err(failed)?;
+        let conclusion = statement_part(&cx, &ty)?;
         let shown_conclusion = if erased.len() == written_binders.len() {
             shown_written(written_binders.len(), &written_conclusion)
         } else {

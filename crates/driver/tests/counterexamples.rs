@@ -140,6 +140,14 @@ fn out_of_scope_statements_are_not_searched() {
 }
 
 #[test]
+fn a_statement_with_a_huge_normal_form_is_not_searched() {
+    let log = only("reject/lemma-on-large-normal-form.sw");
+    let why = log.out_of_scope.as_deref().unwrap_or_default();
+    assert!(why.contains("more than 100000 nodes"), "{log:?}");
+    assert_eq!(log.tried, 0, "{log:?}");
+}
+
+#[test]
 fn a_counterexample_at_a_goal() {
     let log = only("goals/counterexample-at-hole.sw");
     assert_eq!(found(&log), ["n = 1"]);
