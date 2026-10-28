@@ -6178,7 +6178,7 @@
       "id": 738,
       "title": "Std.Parse: write runFrom's span/next/literal clauses naturally again (the runtime now loops through match arms)",
       "status": "next",
-      "agent": "",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "body": "",
@@ -7488,8 +7488,8 @@
     {
       "id": 841,
       "title": "Set.sizeIntersect lemmas (size of intersect ≤ each side; with containsIntersect)",
-      "status": "backlog",
-      "agent": "",
+      "status": "next",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "stdlib"
@@ -7502,8 +7502,8 @@
     {
       "id": 842,
       "title": "Messages: a parse error's 'got' shows the next token; E-MATCH-MOTIVE / E-ARITY name the unfolded definition",
-      "status": "backlog",
-      "agent": "",
+      "status": "next",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug"
@@ -7516,8 +7516,8 @@
     {
       "id": 843,
       "title": "A hang (time budget) should name the declaration being checked",
-      "status": "backlog",
-      "agent": "",
+      "status": "next",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
@@ -7656,8 +7656,8 @@
     {
       "id": 852,
       "title": "E-INTERNAL is shared by a user-facing error ('X is internal to the standard library') and compiler-bug errors; give the user-facing one its own code",
-      "status": "backlog",
-      "agent": "",
+      "status": "next",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug"
@@ -7719,8 +7719,8 @@
     {
       "id": 856,
       "title": "Task entry to run the elaborator fuzzer in release with FUZZ_CASES/FUZZ_SEED",
-      "status": "backlog",
-      "agent": "",
+      "status": "next",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
@@ -7775,8 +7775,8 @@
     {
       "id": 860,
       "title": "Negative arguments: the D1467 note on E-TYPE-MISMATCH for one argument too many, and a test for the new colouring",
-      "status": "backlog",
-      "agent": "",
+      "status": "next",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "syntax"
