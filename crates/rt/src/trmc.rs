@@ -78,9 +78,16 @@ pub fn apply(program: &mut Program) {
             continue;
         };
         let params = members[0].params;
-        for member in members {
+        for (n, member) in members.into_iter().enumerate() {
+            // A copy of a helper is numbered by its global, so names are
+            // unique.
+            let name = if n == 0 {
+                format!("{}[cells]", member.name)
+            } else {
+                format!("{}[cells#{}]", member.name, count + twins.len())
+            };
             twins.push(Global {
-                name: format!("{}[cells]", member.name).into(),
+                name: name.into(),
                 def: member.def,
                 kind: GlobalKind::Function {
                     params: member.params + 2,
@@ -397,14 +404,21 @@ impl Cx<'_> {
         // The call's variables become the copy's parameters after the
         // helper's others.
         let mut vars = Vec::new();
+        let mut bound = Vec::new();
         for a in &call_args {
-            slots(a, &mut vars);
+            slots(a, &mut vars, &mut bound);
         }
         let extra = u32::try_from(vars.len()).expect("slots fit");
+        // Variables the call's arguments bind themselves get new locals after
+        // the helper's.
+        let local_base = body.frame + extra;
         let to_param = |s: Slot| {
-            params - 1
-                + u32::try_from(vars.iter().position(|v| *v == s).expect("a variable"))
-                    .expect("fits")
+            if let Some(j) = vars.iter().position(|v| *v == s) {
+                params - 1 + u32::try_from(j).expect("fits")
+            } else {
+                let j = bound.iter().position(|v| *v == s).expect("a variable");
+                local_base + u32::try_from(j).expect("fits")
+            }
         };
         let call_there: Vec<Expr> = call_args
             .iter()
@@ -467,7 +481,7 @@ impl Cx<'_> {
             def: global.def,
             params: new_params,
             expr: shift(&copy, new_params, 2),
-            frame: body.frame + extra + 2,
+            frame: body.frame + extra + 2 + u32::try_from(bound.len()).expect("slots fit"),
         });
         self.specialised.insert(key, at);
         Some((at, passed(args)))
@@ -475,8 +489,10 @@ impl Cx<'_> {
 }
 
 /// Whether `body`, of `helper` with `params` parameters, calls `helper`
-/// only with parameter `k` passed on as it is, and doesn't refer to it
-/// otherwise.
+/// only with parameter `k` passed on as it is. A reference to `k` that is
+/// not a call's argument isn't checked here; the specialised copy binds `k`
+/// to the call, so such a reference would read the call's result, and the
+/// final check on the result rejects what that leaves unsound.
 fn passes_on(body: &Expr, helper: GlobalId, k: Slot, params: u32) -> bool {
     let mut ok = true;
     each(body, &mut |e| match e {
@@ -531,15 +547,29 @@ fn each(e: &Expr, f: &mut impl FnMut(&Expr)) {
     }
 }
 
-/// Adds to `out` the slots `e` reads that it doesn't have yet.
-fn slots(e: &Expr, out: &mut Vec<Slot>) {
-    each(e, &mut |e| {
-        if let Expr::Local(s) = e
-            && !out.contains(s)
-        {
-            out.push(*s);
+/// Adds to `free` the slots `e` reads that it doesn't bind itself, and to
+/// `bound` those it binds, that they don't have yet.
+fn slots(e: &Expr, free: &mut Vec<Slot>, bound: &mut Vec<Slot>) {
+    let mut read = Vec::new();
+    each(e, &mut |e| match e {
+        Expr::Local(s) if !read.contains(s) => read.push(*s),
+        Expr::Let(s, _, _) if !bound.contains(s) => bound.push(*s),
+        Expr::Match(_, _, arms) => {
+            for arm in arms {
+                for (_, s) in &arm.fields {
+                    if !bound.contains(s) {
+                        bound.push(*s);
+                    }
+                }
+            }
         }
+        _ => {}
     });
+    for s in read {
+        if !bound.contains(&s) && !free.contains(&s) {
+            free.push(s);
+        }
+    }
 }
 
 /// `e` with each slot renamed by `slot` and each call rebuilt by `call`

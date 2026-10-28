@@ -179,6 +179,9 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
     };
     optimize(&mut program, types);
     crate::trmc::apply(&mut program);
+    program
+        .validate()
+        .map_err(|e| internal(format!("the program isn't well formed after loops: {e}")))?;
     Ok(program)
 }
 

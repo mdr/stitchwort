@@ -428,3 +428,29 @@ def main(): {IO} () := IO.print (Nat.toText (List.sum (List.map [1, 2, 3] step))
     );
     insta::assert_snapshot!(ir);
 }
+
+/// Loops built around a call whose arguments bind variables of their own
+/// (`examples/accept/trmc-argument-binders.sw`) are well formed, and no two
+/// globals share a name.
+#[test]
+fn loops_over_arguments_that_bind_are_well_formed() {
+    with_stack(STACK, || {
+        let path = root().join("examples/accept/trmc-argument-binders.sw");
+        let text = std::fs::read_to_string(&path).expect("read example");
+        let mut session = Session::for_stack(STACK);
+        session
+            .load("trmc-argument-binders.sw", &text)
+            .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
+        let main = session.main().expect("main");
+        let g = &session.elab.globals;
+        let program = lower_main(g, session.elab.limits, main.term(), main.row)
+            .unwrap_or_else(|e| panic!("lowering main: {e:?}"));
+        well_formed(&program, "trmc-argument-binders.sw");
+        let mut names: Vec<&str> = program.globals.iter().map(|g| &*g.name).collect();
+        assert!(names.iter().any(|n| n.contains("[cells]")), "{names:?}");
+        let count = names.len();
+        names.sort();
+        names.dedup();
+        assert_eq!(names.len(), count, "two globals share a name");
+    });
+}
