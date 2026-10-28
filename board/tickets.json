@@ -1,5 +1,5 @@
 {
-  "next": 772,
+  "next": 774,
   "tickets": [
     {
       "id": 13,
@@ -6497,7 +6497,7 @@
     {
       "id": 765,
       "title": "Day 13/14 small fixes: warn on a match whose expression isn't in the goal; () for Unit proofs; labelWhole at the furthest point; Int div/natAbs/mod lemmas, List.minimum, List.allDistinct, find-over-range least; IO.args",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6521,7 +6521,7 @@
     {
       "id": 767,
       "title": "Set.difference/union fold over the small side (day 15: 19.8 s -> 0.97 s by hand); Set size lemmas (disjoint union, injective map, removing a subset, pigeonhole); Set.map/foldLeft membership lemmas; Set.removeAll; grid cells with positions",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6570,6 +6570,30 @@
       "id": 771,
       "title": "Day 16 findings: Set.popMin and the generic Dijkstra + proof into std (after the Set lane); share part 1's search with part 2; E-MATCH-MOTIVE on a match keeping its equation (queue.min); rewrite-introduced terms not refined by match; lambdas inferred after other arguments; importing a constructor by name note",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 772,
+      "title": "AoC 2024 day 19 (examples only; input pending from Matt): towel patterns, solve, prove, log gaps",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 773,
+      "title": "Day 16 small findings: Set.popMin; lambda arguments inferred after the arguments that fix their type; note when importing a constructor by name; terms a rewrite adds inside a match branch refined by the match",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
