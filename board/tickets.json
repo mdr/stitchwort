@@ -1,5 +1,5 @@
 {
-  "next": 840,
+  "next": 844,
   "tickets": [
     {
       "id": 13,
@@ -7059,7 +7059,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: low-bits xor lemmas into Nat/Bits.sw (f7264e47; Nat.xorMod, Nat.xorDiv at Nat/Bits.sw:73-80).\n- SPLIT: 'f -2' message -> SW-840 (reproduced); hangs name their declaration -> SW-843.\n- DUPLICATE: array with constant-time indexing -> SW-112.\n- OPEN here: built-in Nat xor/and/or/shifts in the runtime (4.3 µs per xor); lazy unfolding when comparing large closed definitions (130,321-element list hangs); omega facts for % by a literal; rewrite notes print % not Nat.divFuel.\n",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
@@ -7071,7 +7071,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Char.isAsciiLowercase (f7264e47; std/Text/Basics.sw:40). Set membership Iff lemmas largely exist (Set/Spec.sw: containsToList, memToList, extIff, containsUnion, containsIntersect).\n- SPLIT: Set.sizeIntersect lemmas -> SW-841.\n- DUPLICATE: 'match found:' stepping -> SW-802 (D1439); dependent if choosing between proofs -> SW-373.\n- OPEN here: a 100-line theorem 16 s vs 2.2 s with let-bound proofs moved out (why?); lambda needing a later argument for pair.fst gives a same-type mismatch message (may be fixed by the SW-822 lane).\n",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
@@ -7163,7 +7163,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Text.padLeft, Option.toList, list-of-options sequence as List.allSome (f7264e47). Ok { … } bracket hint: E-UNKNOWN-FIELD note 2 already says write Ok ({ … }) (checked).\n- SPLIT: parse 'got' next token; E-MATCH-MOTIVE/E-ARITY naming the unfolded definition -> SW-842.\n- NOT REPRODUCED: user constructors And/Or beside the prelude's (type T = | And | Or with p ∧ q checks fine); needs the day's exact case.\n- OPEN here: repair misses in 4/110 generated adders (AoC program); omega given goals expanded into Nat.divFuel; --no-cache for the project only; searching lemmas by type; List builders (map, filter, append, …) overflow the stack on 3M items.\n",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
@@ -7444,6 +7444,62 @@
       "where": "",
       "labels": [],
       "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 840,
+      "title": "Message: 'f -2' (negative literal as an argument) says 'expected Int, but this has type Int → Int'; suggest f (-2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From SW-808 (day 22). Reproduced 28 Oct on main: def f (n: Int): Int := n; def g: Int := f -2 gives E-TYPE-MISMATCH at f with only the Int-arithmetic note. Add a note suggesting brackets, f (-2), when the left operand of binary - is a function that takes the right operand's type.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 841,
+      "title": "Set.sizeIntersect lemmas (size of intersect ≤ each side; with containsIntersect)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "From SW-809 (day 23). Set.intersect exists (std/Set/Set.sw:46) and Set.containsIntersect (Set/Spec.sw:220), but there is no size lemma for intersect.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 842,
+      "title": "Messages: a parse error's 'got' shows the next token; E-MATCH-MOTIVE / E-ARITY name the unfolded definition",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From SW-816 (day 24), not yet reproduced. Two message improvements reported by the day 24 lane; check the day's notes for the exact cases first.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 843,
+      "title": "A hang (time budget) should name the declaration being checked",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From SW-808 (day 22), not yet reproduced: a long-running check gives no hint which declaration it's in.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
