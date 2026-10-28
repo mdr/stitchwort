@@ -6641,7 +6641,7 @@
     {
       "id": 777,
       "title": "Day 18 small findings: pattern let in a definition breaks its unfolding equation (names %step); 'if h: a < b = True' guard errors should suggest the form without = True",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6665,7 +6665,7 @@
     {
       "id": 779,
       "title": "Day 19 findings: List.startsWith/stripPrefix/isEmpty with prefix lemmas; dropAppend, countFlatMap; '= if …' in a theorem type parse error; Map.getOr vs Option.getOrElse naming; evaluator small-closure call speed",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
