@@ -1,5 +1,5 @@
 {
-  "next": 861,
+  "next": 862,
   "tickets": [
     {
       "id": 13,
@@ -6177,11 +6177,11 @@
     {
       "id": 738,
       "title": "Std.Parse: write runFrom's span/next/literal clauses naturally again (the runtime now loops through match arms)",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": "worktree",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [],
-      "body": "",
+      "body": "\n\n28 Oct lane: workaround kept, no change. The natural form (23632129 shape: let/match with k inside the arm) is still worse on the interpreter: a Parse.next loop over 160,000 chars takes 1.49 GB / 9.4 s natural vs 1.01 GB / 2.2 s workaround; a mixed span/literal/next loop of 100,000 is 19.8 s vs 11.2 s (loaded machine). So the runtime still doesn't treat k inside a match arm of a state-handler clause as a tail jump (2b541087). Blocked on the runtime ticket below.\n",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
@@ -7796,13 +7796,30 @@
     {
       "id": 860,
       "title": "Negative and ! arguments follow-ups: note on E-TYPE-MISMATCH for one argument too many, colouring test, f ! a reject example, f ¬x",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
         "syntax"
       ],
       "body": "From the SW-854 lane: (1) the note for an unbracketed negative argument is added to E-NOT-A-FUNCTION and the constructor arity error only; 'f a -1' where f takes one argument fewer can surface as E-TYPE-MISMATCH at the result with no note (no case built yet). (2) No test covers the new glued-numeral colouring in the VS Code grammar or the playground tokenizer (web/index.html); add a grammar test or a case in web/tests/browser.mjs.\n\n(3) From SW-855: a reject example for 'f ! a' and 'f!a' (only parser unit tests cover them), and a test that 'f ¬x' (same Bang token) reads as f (¬x).\n",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": [
+        "74b47978",
+        "4b9142a6"
+      ]
+    },
+    {
+      "id": 861,
+      "title": "Runtime: a state-handler clause that resumes k inside a match arm isn't run as a loop (k not in tail position), so Std.Parse needs its pair-returning workaround",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "From SW-738 (28 Oct): Std.Parse's span/next/literal return a pair so runFrom resumes with k step.fst step.snd, because with k inside a match arm (23632129's form) each operation keeps a frame (2b541087). Measured 28 Oct on the interpreter: Parse.next over 160,000 chars, natural form 1.49 GB / 9.4 s vs 1.01 GB / 2.2 s. Make the fusion/loop recognise a resume in tail position inside match arms (crates/rt/src/fusion.rs 'State-passing handlers run as a loop'; docs/proposals/parser-combinators.md §7.5), then do SW-738. Also noted: memory grows with input in both forms on a plain next loop (~5.8 KB/char with the workaround), worth understanding.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
