@@ -24,7 +24,7 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::force;
 use stitchwort_core::{DefId, Icit, Sort, Term, Value};
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::ast::{BinOp, Expr, Name as AstName};
+use stitchwort_syntax::ast::{BinOp, Expr};
 
 use crate::check::{Result, builtin_ctor, builtin_data, builtin_def, check, check_type};
 use crate::{Ctx, Global};
@@ -177,11 +177,39 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
         Logic::And(a, b) | Logic::Or(a, b) => (a, b),
     };
     let and = matches!(logic, Logic::And(..));
-    let lhs = a;
     let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+    let constant = |cx: &mut Ctx, which| -> Result<Term> {
+        let (d, c) = builtin_ctor(cx, which)?;
+        Ok(Term::Ctor(d, c, Vec::new()))
+    };
+    short_circuit(
+        cx,
+        and,
+        a,
+        what,
+        bool_ty,
+        &mut |cx| bool_operand(cx, b, what),
+        &constant,
+    )
+}
+
+/// `a && b` (if `and`) or `a || b`, with `a` a condition and branches of
+/// type `result`: `rhs` elaborates `b`, and `constant` the `True` or `False`
+/// branch, each under the branch's binder. The `Bool` reading has `Bool`
+/// branches; a `b` that performs operations has computations as branches.
+pub(crate) fn short_circuit(
+    cx: &mut Ctx,
+    and: bool,
+    a: &Expr,
+    what: &str,
+    result: Term,
+    rhs: &mut dyn FnMut(&mut Ctx) -> Result<Term>,
+    constant: &dyn Fn(&mut Ctx, Builtin) -> Result<Term>,
+) -> Result<Term> {
+    let lhs = a;
     let unit = Value::Data(builtin_data(cx, Builtin::Unit)?, Vec::new());
     let ite = builtin_def(cx, Builtin::IfThenElse)?;
-    let ite = Term::app_icit(Term::Def(ite), bool_ty.clone(), Icit::Implicit);
+    let ite = Term::app_icit(Term::Def(ite), result.clone(), Icit::Implicit);
     // `b` is checked as the branch of `if a` that needs it: assuming `a`
     // (in `a && b`) or `Not a` (in `a || b`) when `a` is a proposition, so
     // `n != 0 && len % n == 0` finds `%`'s proof; or, for a `Bool` `a`, an
@@ -190,8 +218,8 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
         Condition::Bool(a) => {
             crate::probe::record_truth(cx, lhs, &a);
             let mark = cx.mark();
-            cx.bind("_", unit);
-            let b = bool_operand(cx, b, what);
+            cx.bind("_", unit.clone());
+            let b = rhs(cx);
             cx.reset(mark);
             (ite, a, b?)
         }
@@ -208,8 +236,8 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
             let before = cx.e.obligations.borrow().len();
             let first = crate::undo::attempt(cx, |cx| {
                 let mark = cx.mark();
-                cx.bind("_", unit);
-                let b = bool_operand(cx, b, what);
+                cx.bind("_", unit.clone());
+                let b = rhs(cx);
                 cx.reset(mark);
                 b
             })?;
@@ -229,7 +257,7 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
                     let assumption = assumption(cx, &prop, and)?;
                     let mark = cx.mark();
                     cx.bind("_", assumption);
-                    let b = bool_operand(cx, b, what);
+                    let b = rhs(cx);
                     cx.reset(mark);
                     b?
                 }
@@ -242,7 +270,7 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
                 }
                 let head = Term::app_icit(
                     Term::app_icit(Term::Def(elim), prop, Icit::Implicit),
-                    bool_ty,
+                    result,
                     Icit::Implicit,
                 );
                 (head, decision.term(cx)?, b)
@@ -258,15 +286,11 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
             }
         }
     };
-    let constant = |cx: &Ctx, which| -> Result<Term> {
-        let (d, c) = builtin_ctor(cx, which)?;
-        Ok(Term::Ctor(d, c, Vec::new()))
-    };
-    let (then, otherwise) = if and {
-        (b, constant(cx, Builtin::False)?)
-    } else {
-        (constant(cx, Builtin::True)?, b)
-    };
+    let mark = cx.mark();
+    cx.bind("_", unit.clone());
+    let fixed = constant(cx, if and { Builtin::False } else { Builtin::True });
+    cx.reset(mark);
+    let (then, otherwise) = if and { (b, fixed?) } else { (fixed?, b) };
     let branch = |body| Term::Lam("_".into(), Icit::Explicit, Rc::new(body));
     Ok(Term::app(
         Term::app(Term::app(head, a), branch(then)),
@@ -370,30 +394,4 @@ pub(crate) fn check_against(cx: &mut Ctx, logic: Logic, expected: &Value) -> Res
         _ => infer(cx, logic)?,
     };
     crate::check::compare(cx, term, &found, expected)
-}
-
-/// The `Bool` reading as an `if`, for operands that perform operations:
-/// `a && b` is `if a then (if b then True else False) else False`, and
-/// `a || b` is `if a then True else (if b then True else False)`. The inner
-/// `if` makes `b` a condition, as `a` is.
-pub(crate) fn as_if(op: BinOp, a: &Expr, b: &Expr) -> Expr {
-    let span = a.span().to(b.span());
-    let constant = |which: &str| {
-        Expr::Var(AstName {
-            text: format!("Std.Bool.{which}"),
-            span,
-        })
-    };
-    let ite = |cond: Expr, then: Expr, otherwise: Expr| Expr::If {
-        binder: None,
-        cond: Box::new(cond),
-        then: Box::new(then),
-        otherwise: Box::new(otherwise),
-        span,
-    };
-    let b = ite(b.clone(), constant("True"), constant("False"));
-    match op {
-        BinOp::And => ite(a.clone(), b, constant("False")),
-        _ => ite(a.clone(), constant("True"), b),
-    }
 }
