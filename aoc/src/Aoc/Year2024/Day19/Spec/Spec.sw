@@ -21,7 +21,7 @@ def arrangements (patterns: List Pattern) (design: Design): List (List Pattern) 
   towelLists patterns design.length |> .filter (towels => towels.concat == design)
 
 -- "Not all designs will be possible with the available towel patterns."
-def possible (patterns: List Pattern) (design: Design): Bool := arrangements patterns design != []
+def possible (patterns: List Pattern) (design: Design): Bool := !(arrangements patterns design).isEmpty
 
 -- "all of the different ways ... designs can be made".
 def ways (patterns: List Pattern) (design: Design): Nat := (arrangements patterns design).length

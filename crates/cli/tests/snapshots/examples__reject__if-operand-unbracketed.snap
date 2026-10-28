@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected an expression, but found `if`
+   ╭─[ reject/if-operand-unbracketed.sw:4:44 ]
+   │
+ 4 │ def bonus (big: Bool) (n: Nat): Nat := n + if big then 10 else 0
+   │                                            ─┬  
+   │                                             ╰── expected an expression, but found `if`
+   │ 
+   │ Note: an `if` inside an expression goes in brackets: `a + (if c then x else y)`; only after `=` or another comparison can it be written without them
+───╯

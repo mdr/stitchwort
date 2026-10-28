@@ -254,6 +254,30 @@ def List.elem: List a → (target: a) → (decEq: (x: a) → (y: a) → Decidabl
 -- membership).
 def List.contains [auto eq: DecEq a] (xs: List a) (x: a): Bool := List.any xs (member => member == x)
 
+-- Whether the list has no elements.
+def List.isEmpty: List a → Bool
+  | Nil => True
+  | Cons x xs => False
+
+-- Whether `xs` begins with `prefix`. Every list starts with `[]`.
+def List.startsWith [auto eq: DecEq a]: (xs: List a) → (prefix: List a) → Bool
+  | xs, Nil => True
+  | Nil, Cons p ps => False
+  | Cons x xs, Cons p ps => x == p && List.startsWith xs ps
+
+-- The rest of `xs` after `prefix`, or `None` if `xs` doesn't start with it.
+-- The empty prefix gives `Some xs`.
+def List.stripPrefix [auto eq: DecEq a]: (xs: List a) → (prefix: List a) → Option (List a)
+  | xs, Nil => Some xs
+  | Nil, Cons p ps => None
+  | Cons x xs, Cons p ps => if x == p then List.stripPrefix xs ps else None
+
+test "List.isEmpty" := List.isEmpty (Nil: List Nat) ∧ ¬(List.isEmpty [3])
+test "List.startsWith" := List.startsWith [1, 2, 3] [1, 2] ∧ List.startsWith [1, 2] [] ∧ ¬(List.startsWith [1, 2] [1, 3]) ∧ ¬(List.startsWith [1] [1, 2])
+test "List.stripPrefix" :=
+  List.stripPrefix [1, 2, 3] [1, 2] == Some [3] ∧ List.stripPrefix [1, 2] [] == Some [1, 2] ∧ List.stripPrefix [1, 2] [2] == None
+    ∧ List.stripPrefix [1] [1, 2] == None
+
 -- One step of `List.partition`: `x` onto the kept or the dropped side of
 -- `sides` (each reversed). A function of its own so the recursive call is
 -- written once, as for `List.filterStep`.

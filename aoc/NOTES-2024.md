@@ -5665,6 +5665,13 @@ add a `Nat.partitionPoint` with `firstBlockedCorrect` as its lemma,
   message names an internal `%step` and doesn't say what is stuck. What I
   did: no pattern `let` in the body (and then `/ 2`, item 6). Fix: erase
   matches on proofs in `f.unfold`, or say which `match` is stuck.
+
+  Fixed: outside a proof, a pattern `let` (or lambda parameter) on the one
+  constructor of a proposition whose fields are named proofs, as `Both`
+  is, binds its names to the fields' accessors (`And.left`, `And.right`)
+  instead of a `match`, as a tuple or record pattern already did; the
+  first `firstBlocked` and its one-step lemma check as written
+  (`examples/accept/let-proof-pattern-unfold.sw`).
 - Before that, `rewrite apart in rfl` on the same goal gave
   ``[E-REWRITE-MOTIVE] Error: replacing `Succ low < high` everywhere in the
   goal doesn't give a valid proposition`` (`apart` was written `Nat.leq
@@ -5677,6 +5684,11 @@ add a `Nat.partitionPoint` with `firstBlockedCorrect` as its lemma,
   is on `Prop` because of this": in an `if` guard, `<` is the
   proposition. `if apart: Succ low < high then` works, but neither error
   says so. Fix: a note suggesting the guard without `= True`.
+
+  Fixed: both errors now note "in `if apart: …` the guard is already a
+  proposition: write `if apart: a < b then` for `a < b`, without `= True`"
+  (`examples/reject/if-guard-equals-true.sw`,
+  `examples/reject/if-guard-bracketed-true.sw`).
 - A `match` refines hypotheses through definitions, so a term built later
   in the branch no longer fits. With `answer: solvePart1 … = Some fewest`,
   `match startSafe: memory.isSafe start with` turned `answer` (and a `let`
@@ -5945,6 +5957,16 @@ patterns) at the end of line 1. Fine as it is.
 - Missing list lemmas: `(start ++ rest).drop start.length = rest`
   (`dropAppend`) and counting over a `flatMap` (`countFlatMap`, the
   `count` twin of `List.lengthFlatMap`). Both in Lemmas.sw.
+
+  Fixed: std has `List.isEmpty`, `List.startsWith` and `List.stripPrefix`
+  (List/Toolkit.sw), and in List/Lemmas.sw `List.countFlatMap` and
+  `List.dropAppend` beside `List.lengthFlatMap`, the prefix lemmas above
+  as `List.startsWithAppend`, `List.startsWithSplit`,
+  `List.startsWithLength`, `List.appendEqDrop` and `List.appendNotEq`,
+  and `List.stripPrefixAppend`, `List.stripPrefixStartsWith` and
+  `List.isEmptyEqNil`. The program uses `List.startsWith`, the spec's
+  `possible` is `!(arrangements patterns design).isEmpty`, and
+  `Proofs/Lemmas.sw` is gone.
 - No memo table needed: the table of suffix counts is the recursion's
   result, so neither a `Map` memo nor a `State` effect came up. In Scala
   the usual memo is `mutable.Map.getOrElseUpdate`
@@ -5975,6 +5997,12 @@ patterns) at the end of line 1. Fine as it is.
   design pattern then … else 0 :=` gave ``[E-PARSE] Error: expected an
   expression, but found `if` ``. Bracketed it. Fix: allow it, or say to
   bracket an `if` that is an operand.
+
+  Fixed: an `if` can be the right-hand side of `=` or another comparison,
+  running to the end of the expression as an `if` does anywhere else
+  (`examples/accept/equals-if.sw`; `matchingAfter` now reads `= if …`).
+  Elsewhere, as in `n + if …`, the error notes that an `if` inside an
+  expression goes in brackets (`examples/reject/if-operand-unbracketed.sw`).
 - Clear ones: ``unknown name `Eq.cong` `` with ``Note: `Eq` is `Std.Eq`;
   add `import Std (Eq)` ``, and ``[E-REWRITE-NO-GOAL] Error: `rewrite`
   needs to know what it has to prove`` on an unannotated `let`, whose note

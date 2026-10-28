@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/if-guard-bracketed-true.sw:5:33 ]
+   │
+ 5 │   if apart: (Succ low < high) = True then low else high
+   │              ───────┬───────    ──┬─  
+   │                     ╰───────────────── this comparison is on `Prop` because of this
+   │                                   │   
+   │                                   ╰─── expected `Prop`, but this has type `Bool`
+   │ 
+   │ Note: in `if apart: …` the guard is already a proposition: write `if apart: a < b then` for `a < b`, without `= True`
+───╯

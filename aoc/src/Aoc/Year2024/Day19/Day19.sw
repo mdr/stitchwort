@@ -10,7 +10,7 @@
 -- `Aoc.Year2024.Day19.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day19
-import Std (DecEq, Fail, IO, List, Nat, Parse, Text)
+import Std (Fail, IO, List, Nat, Parse, Text)
 import Std.Parse (blankLine, lines, many1, pick, sepBy1, text)
 
 def main(): {IO, Fail} () :=
@@ -45,12 +45,6 @@ def onsen(): {Parse} Onsen :=
 
 def parseOnsen (input: Text): {Fail} Onsen := Parse.all input onsen
 
--- Whether `whole` begins with `start`.
-def startsWith [auto decEq: DecEq a]: (whole: List a) → (start: List a) → Bool
-  | whole, Nil => True
-  | Nil, Cons first rest => False
-  | Cons wholeFirst wholeRest, Cons first rest => wholeFirst == first && startsWith wholeRest rest
-
 -- The number of ways to make each suffix of `design`, longest first: the
 -- design itself, then without its first stripe, and so on down to the empty
 -- suffix, made one way (with no towels). A suffix is made by a first towel
@@ -61,7 +55,7 @@ def waysForSuffixes (patterns: List Pattern): (design: Design) → List Nat
   | Cons first rest =>
     let later := waysForSuffixes patterns rest
     let ways := patterns.sumBy (pattern =>
-      if startsWith (Cons first rest) pattern then later.getOr (pattern.length - 1) 0 else 0)
+      if (Cons first rest).startsWith pattern then later.getOr (pattern.length - 1) 0 else 0)
     Cons ways later
 
 -- The number of different ways to make `design`.

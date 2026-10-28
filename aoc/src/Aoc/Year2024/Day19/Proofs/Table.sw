@@ -18,15 +18,15 @@ theorem tableCorrect (patterns: List Pattern) (striped: Striped patterns): (desi
   | Cons first rest, Zero, inside, Succ count, enough =>
     rewrite matchingSucc patterns count (Cons first rest) in
       List.sumByCongMem patterns
-        (pattern => if startsWith (Cons first rest) pattern then (waysForSuffixes patterns rest).getOr (pattern.length - 1) 0 else 0)
-        (pattern => if startsWith (Cons first rest) pattern then matching patterns count ((Cons first rest).drop pattern.length) else 0)
+        (pattern => if (Cons first rest).startsWith pattern then (waysForSuffixes patterns rest).getOr (pattern.length - 1) 0 else 0)
+        (pattern => if (Cons first rest).startsWith pattern then matching patterns count ((Cons first rest).drop pattern.length) else 0)
         (pattern member =>
           match pattern with
             | Nil => Void.exfalso (Bool.falseNotTrue (striped Nil member))
             | Cons stripe others =>
-              match starts: startsWith (Cons first rest) (Cons stripe others) with
+              match starts: (Cons first rest).startsWith (Cons stripe others) with
                 | True =>
-                  tableCorrect patterns striped rest others.length (omega [startsWithLength (Cons first rest) (Cons stripe others) starts]) count
+                  tableCorrect patterns striped rest others.length (omega [List.startsWithLength (Cons first rest) (Cons stripe others) starts]) count
                     (omega [enough])
                 | False => rfl)
 

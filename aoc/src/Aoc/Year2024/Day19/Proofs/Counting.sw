@@ -21,26 +21,26 @@ def matching (patterns: List Pattern) (count: Nat) (design: Design): Nat :=
 -- towels make the rest.
 theorem matchingAfter (patterns: List Pattern) (count: Nat) (design: Design) (pattern: Pattern):
     (towelLists patterns count).count (towels => List.append pattern towels.concat == design)
-      = (if startsWith design pattern then matching patterns count (design.drop pattern.length) else 0) :=
-  match starts: startsWith design pattern with
+      = if design.startsWith pattern then matching patterns count (design.drop pattern.length) else 0 :=
+  match starts: design.startsWith pattern with
     | True =>
       List.countCongMem (towelLists patterns count) (towels => List.append pattern towels.concat == design)
-        (towels => towels.concat == design.drop pattern.length) (towels member => appendEqDrop design pattern starts towels.concat)
+        (towels => towels.concat == design.drop pattern.length) (towels member => List.appendEqDrop design pattern starts towels.concat)
     | False =>
       List.countNone (towelLists patterns count) (towels => List.append pattern towels.concat == design)
-        (towels member => appendNotEq design pattern starts towels.concat)
+        (towels member => List.appendNotEq design pattern starts towels.concat)
 
 theorem matchingSucc (patterns: List Pattern) (count: Nat) (design: Design):
     matching patterns (Succ count) design
       = Bool.toNat (Nil == design)
-        + patterns.sumBy (pattern => if startsWith design pattern then matching patterns count (design.drop pattern.length) else 0) :=
+        + patterns.sumBy (pattern => if design.startsWith pattern then matching patterns count (design.drop pattern.length) else 0) :=
   rewrite List.countCons (patterns.flatMap (first => towelLists patterns count |> .map (Cons first))) Nil (towels => towels.concat == design),
-    countFlatMap (first => towelLists patterns count |> .map (Cons first)) (towels => towels.concat == design) patterns
+    List.countFlatMap (first => towelLists patterns count |> .map (Cons first)) (towels => towels.concat == design) patterns
     in
   Eq.cong (Nat.add (Bool.toNat (Nil == design)))
     (List.sumByCongMem patterns
       (first => (towelLists patterns count |> .map (Cons first)).count (towels => towels.concat == design))
-      (pattern => if startsWith design pattern then matching patterns count (design.drop pattern.length) else 0)
+      (pattern => if design.startsWith pattern then matching patterns count (design.drop pattern.length) else 0)
       (pattern member =>
         rewrite List.countMap (towelLists patterns count) (towels => towels.concat == design) (Cons pattern) in
           matchingAfter patterns count design pattern))
@@ -51,7 +51,7 @@ theorem matchingEmpty (patterns: List Pattern) (striped: Striped patterns): (cou
   | Zero => rfl
   | Succ count =>
     rewrite matchingSucc patterns count Nil,
-      List.sumByZeroIntro patterns (pattern => if startsWith Nil pattern then matching patterns count (List.drop Nil pattern.length) else 0)
+      List.sumByZeroIntro patterns (pattern => if List.startsWith Nil pattern then matching patterns count (List.drop Nil pattern.length) else 0)
         (pattern member =>
           match pattern with
             | Nil => Void.exfalso (Bool.falseNotTrue (striped Nil member))

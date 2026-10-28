@@ -3324,6 +3324,12 @@ fn check_if_in(
             let (prop, sort) = check_type(cx, cond).map_err(|e| {
                 if e.code == "E-NOT-A-TYPE" {
                     e.with_note("`if h: P` needs a proposition `P`; for a `Bool`, write `if c then … else …`")
+                } else if is_true_test(cond) {
+                    e.with_note(format!(
+                        "in `if {}: …` the guard is already a proposition: write `if {}: a < b then` \
+                         for `a < b`, without `= True`",
+                        h.text, h.text
+                    ))
                 } else {
                     e
                 }
@@ -3340,6 +3346,15 @@ fn check_if_in(
                 cx, &h.text, prop, decision, result_ty, &branch, then, otherwise,
             )
         }
+    }
+}
+
+/// Whether `cond` is `… = True`, an `if h:` guard written as a `Bool` test.
+fn is_true_test(cond: &Expr) -> bool {
+    match cond {
+        Expr::Binary(BinOp::Eq, _, rhs) => matches!(&**rhs, Expr::Var(x) if x.text == "True"),
+        Expr::Bracketed(inner, _) => is_true_test(inner),
+        _ => false,
     }
 }
 

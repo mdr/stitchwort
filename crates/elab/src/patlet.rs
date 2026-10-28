@@ -14,19 +14,27 @@
 //! `let` per level. `%p` can't be written, and as a `let` it never appears
 //! in a computed type, so diagnostics don't show it.
 //!
+//! A constructor pattern of a one-constructor proposition whose fields are
+//! all named proofs, `let (Both below above) := e`, binds the same way,
+//! through the fields' accessors (`And.left`, `And.right`): the rest of the
+//! block, and so a definition's unfolding equation, computes even when the
+//! proof `e` doesn't reduce to `Both`.
+//!
 //! In a proof (the expected type is evidently a proposition), the `match`
 //! is kept: there, splitting `e` into a pair refines the goal, which is what
 //! a proof by `let (a, b) := p` wants (`examples/accept/let-patterns.sw`,
-//! `swapTwice`). Patterns with anything but variables, `_`, tuples and
-//! records stay `match`es.
+//! `swapTwice`). Patterns with anything but variables, `_`, tuples, records
+//! and such constructors stay `match`es.
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::force;
-use stitchwort_core::{DefId, Icit, Name, Sort, Term, Value};
+use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{Expr, MatchKind, Pattern};
 
 use crate::check::{Ctx, Result, builtin_data, builtin_def, check, infer, insert};
+use crate::scope::Resolved;
+use crate::{Elaborator, Global};
 
 /// The patterns with their scrutinees, and the rest, of a pattern `let` or
 /// pattern lambda that can be projections. A lambda's patterns are all
@@ -52,7 +60,10 @@ fn parts(expr: &Expr) -> Option<(Vec<(&Pattern, &Expr)>, &Expr)> {
     }
     let mut out = Vec::new();
     for (s, pattern) in scrutinees.iter().zip(&alt.patterns) {
-        let top = matches!(pattern, Pattern::Tuple(..) | Pattern::Record { .. });
+        let top = matches!(
+            pattern,
+            Pattern::Tuple(..) | Pattern::Record { .. } | Pattern::Ctor(..)
+        );
         if s.name.is_some() || !top || !simple(pattern) {
             return None;
         }
@@ -66,14 +77,67 @@ fn simple(p: &Pattern) -> bool {
         Pattern::Var(_) | Pattern::Wildcard(_) => true,
         Pattern::Tuple(a, b, _) => simple(a) && simple(b),
         Pattern::Record { fields, .. } => fields.iter().all(|(_, p)| simple(p)),
+        Pattern::Ctor(_, args, _) => args.iter().all(simple),
         _ => false,
+    }
+}
+
+/// The data type of constructor `name` and each field's accessor, if it's
+/// the only constructor of a proposition without indices whose fields are
+/// all explicit and have accessors (named proofs, as `And`'s are).
+fn proof_ctor(cx: &Ctx, name: &str) -> Option<(DataId, Vec<DefId>)> {
+    let Resolved::Found {
+        global: Global::Ctor(d, 0),
+        rest,
+        ..
+    } = cx.e.resolve(name)
+    else {
+        return None;
+    };
+    let data = cx.g().data(d);
+    let single = data.ctors.len() == 1 && data.indices.is_empty();
+    if !rest.is_empty() || data.sort != Sort::Prop || !single {
+        return None;
+    }
+    let ctor = &data.ctors[0];
+    if ctor.implicit.iter().any(|&i| i) {
+        return None;
+    }
+    let key = cx.e.data_key(d);
+    let accessors = ctor
+        .fields
+        .iter()
+        .map(
+            |(f, _)| match cx.e.scope.get(&Elaborator::member_key(&key, f)) {
+                Some((Global::Def(id), _)) => Some(id),
+                _ => None,
+            },
+        )
+        .collect::<Option<Vec<_>>>()?;
+    Some((d, accessors))
+}
+
+/// Whether every constructor pattern in `p` is one [`proof_ctor`] accepts,
+/// with an argument per field.
+fn projectable(cx: &Ctx, p: &Pattern) -> bool {
+    match p {
+        Pattern::Tuple(a, b, _) => projectable(cx, a) && projectable(cx, b),
+        Pattern::Record { fields, .. } => fields.iter().all(|(_, p)| projectable(cx, p)),
+        Pattern::Ctor(n, args, _) => {
+            proof_ctor(cx, &n.text).is_some_and(|(_, fields)| fields.len() == args.len())
+                && args.iter().all(|p| projectable(cx, p))
+        }
+        _ => true,
     }
 }
 
 /// Whether `expr`, checked against `goal`, is a pattern `let` made into
 /// projections.
 pub(crate) fn applies(cx: &Ctx, expr: &Expr, goal: &Value) -> Result<bool> {
-    Ok(parts(expr).is_some() && !proposition(cx, goal)?)
+    let Some((patterns, _)) = parts(expr) else {
+        return Ok(false);
+    };
+    Ok(patterns.iter().all(|(p, _)| projectable(cx, p)) && !proposition(cx, goal)?)
 }
 
 /// Whether `ty` is evidently a proposition: an equation, a data type in
@@ -208,7 +272,37 @@ fn destructure(
             }
             Ok(())
         }
-        _ => unreachable!("only tuples and records are destructured"),
+        Pattern::Ctor(n, args, span) => {
+            let (data, accessors) = proof_ctor(cx, &n.text).expect("checked by `applies`");
+            cx.e.ctor_named(&n.text, n.span)?;
+            let params = match ty {
+                Value::Data(d, params) if d == data => params,
+                other => {
+                    let mut params = Vec::new();
+                    for _ in 0..g.data(data).params.len() {
+                        let meta = cx.fresh_meta();
+                        params.push(cx.eval(&meta)?);
+                    }
+                    let expected = Value::Data(data, params.clone());
+                    if !cx.unify(&other, &expected)? {
+                        let saved = std::mem::replace(&mut cx.span, *span);
+                        let e = cx.mismatch(&other, &expected);
+                        cx.span = saved;
+                        return Err(e);
+                    }
+                    params
+                }
+            };
+            for (def, p) in accessors.into_iter().zip(args) {
+                if matches!(p, Pattern::Wildcard(_)) {
+                    continue;
+                }
+                let (term, ty) = project(cx, def, &params, level)?;
+                component(cx, p, term, ty, lets)?;
+            }
+            Ok(())
+        }
+        _ => unreachable!("only tuples, records and proof constructors are destructured"),
     }
 }
 

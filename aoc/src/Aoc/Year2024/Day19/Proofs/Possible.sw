@@ -48,8 +48,8 @@ theorem towelsAtMostStripes (patterns: List Pattern) (striped: Striped patterns)
   | Cons first rest, Both firstMember restFrom =>
     omega [List.lengthAppend first rest.concat, striped first firstMember, towelsAtMostStripes patterns striped rest restFrom]
 
--- Whether a list of lists has any.
-def hasSome (lists: List (List Pattern)): Bool := lists != []
+-- Whether a list of lists has any (as `possible` asks).
+def hasSome (lists: List (List Pattern)): Bool := !lists.isEmpty
 
 theorem someMember: (lists: List (List Pattern)) → hasSome lists = True → Exists (List Pattern) (list => list ∈ lists)
   | Nil, some => Void.exfalso (Bool.falseNotTrue some)
