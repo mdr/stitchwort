@@ -15,7 +15,7 @@ def orderedOneWay (precedes: Nat → Nat → Bool) (update: Update): Bool :=
 -- once sorted every page is ordered before every later one, so the order is
 -- transitive.
 def rulesOrderPages (precedes: Nat → Nat → Bool) (update: Update): Bool :=
-  update.pages.distinct.length == update.pages.length && orderedOneWay precedes update && inOrder precedes (reorder precedes update).pages
+  update.pages.distinct.length == update.pages.length && orderedOneWay precedes update && inOrder precedes (update.reorder precedes).pages
 
 test "real input, part 1" := solvePart1 inputQueue == 4569
 test "real input, part 2" := solvePart2 inputQueue == 6456

@@ -47,9 +47,9 @@ test "example, part 2" := solvePart2 exampleQueue == 123
 test "example, which updates are in order" :=
   exampleQueue.updates.map (update => inOrder examplePrecedes update.pages) == [True, True, True, False, False, False]
 test "example, reordered" :=
-  exampleQueue.updates.map (update => (reorder examplePrecedes update).pages) |> .drop 3 ==
+  exampleQueue.updates.map (update => (update.reorder examplePrecedes).pages) |> .drop 3 ==
     [[97, 75, 47, 61, 53], [61, 29, 13], [97, 75, 47, 29, 13]]
-test "example, middle pages" := exampleQueue.updates.map middlePage == [61, 53, 29, 47, 13, 75]
+test "example, middle pages" := exampleQueue.updates.map .middlePage == [61, 53, 29, 47, 13, 75]
 
 test "parse" := parsed "1|2\n3|4\n\n1,2,3\n4\n" ==
   Ok ({ rules = [{ before = 1, after = 2 }, { before = 3, after = 4 }], updates = [{ pages = [1, 2, 3] }, { pages = [4] }] }: PrintQueue)
@@ -76,7 +76,7 @@ test "a rule about a missing page" := inOrder (precedesIn [{ before = 1, after =
 test "one page" := inOrder (precedesIn [{ before = 1, after = 1 }]) [1]
 test "no pages" := inOrder (precedesIn [{ before = 1, after = 2 }]) []
 test "reorder: a chain" :=
-  (reorder (precedesIn [{ before = 3, after = 2 }, { before = 2, after = 1 }, { before = 3, after = 1 }]) { pages = [1, 2, 3] }).pages == [3, 2, 1]
-test "reorder: pages no rule mentions keep their order" := (reorder (precedesIn []) { pages = [5, 4, 6] }).pages == [5, 4, 6]
-test "middle of one page" := middlePage { pages = [7] } == 7
-test "middle of three" := middlePage { pages = [1, 2, 3] } == 2
+  (Update.reorder { pages = [1, 2, 3] } (precedesIn [{ before = 3, after = 2 }, { before = 2, after = 1 }, { before = 3, after = 1 }])).pages == [3, 2, 1]
+test "reorder: pages no rule mentions keep their order" := (Update.reorder { pages = [5, 4, 6] } (precedesIn [])).pages == [5, 4, 6]
+test "middle of one page" := Update.middlePage { pages = [7] } == 7
+test "middle of three" := Update.middlePage { pages = [1, 2, 3] } == 2

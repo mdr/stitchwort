@@ -23,7 +23,7 @@ def rightOrder (rules: List Rule) (update: Update): Bool := rules.all (followsRu
 
 -- "What do you get if you add up the middle page number from those
 -- correctly-ordered updates?"
-def middlesOfOrdered (queue: PrintQueue): Nat := queue.updates.filter (rightOrder queue.rules) |> .sumBy middlePage
+def middlesOfOrdered (queue: PrintQueue): Nat := queue.updates.filter (rightOrder queue.rules) |> .sumBy .middlePage
 
 -- "Use the page ordering rules to put the page numbers in the right order":
 -- the same pages, in the right order.
@@ -36,7 +36,7 @@ def CorrectOrdering (rules: List Rule) (update: Update) (ordered: Update): Prop 
 def middlesOfReordered (queue: PrintQueue) (ordering: Update → Update): Nat :=
   queue.updates.filter (update => !(rightOrder queue.rules update))
     |> .map ordering
-    |> .sumBy middlePage
+    |> .sumBy .middlePage
 
 -- Whether there is a rule X|Y with these pages.
 def ruleSays (rules: List Rule) (x: Nat) (y: Nat): Bool := rules.any (rule => rule.before == x && rule.after == y)
