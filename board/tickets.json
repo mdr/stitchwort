@@ -1,5 +1,5 @@
 {
-  "next": 857,
+  "next": 858,
   "tickets": [
     {
       "id": 13,
@@ -7586,7 +7586,7 @@
     {
       "id": 848,
       "title": "Lane tier: task test:lane AREA=aoc runs 0 tests (filter test(/^day/) predates the yearYYYY_dayNN names)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7596,7 +7596,10 @@
       "body": "Found by the SW-822 lane, confirmed 28 Oct: .config/nextest.toml:136 [profile.lane-aoc] default-filter = \"binary(aoc_answers) & test(/^day/)\", but aoc_answers tests are now year2024_day01 …, plus every_day_from_the_whole_projects_cache. Pick a handful of fast days that fit the lane's 10 s budget (measure) and match them by name; update the table in docs/testing.md.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "fe42264c",
+        "d2e096c6"
+      ]
     },
     {
       "id": 849,
@@ -7713,6 +7716,20 @@
         "tooling"
       ],
       "body": "From the SW-849 lane: 'task test:one -- fuzz_elab' matches nothing because fuzz_elab is #[ignore]d; running it needs 'cargo nextest run -p stitchwort-driver --test fuzz_elab --run-ignored all', and 4200 cases in a debug build took over 10 minutes. Add a Taskfile entry (e.g. task fuzz:elab CASES=… SEED=…) using the release profile, and document it in docs/testing.md.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 857,
+      "title": "Check that no lane-* nextest profile selects zero tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From the SW-848 lane: lane-aoc silently ran 0 tests after the aoc_answers tests were renamed to yearYYYY_dayNN. Add a cheap check (a task or a test in the merge tier) that runs 'cargo nextest list --profile lane-X' for every lane-* profile and fails if one lists 0 tests. All 16 lanes list >0 today (28 Oct).",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
