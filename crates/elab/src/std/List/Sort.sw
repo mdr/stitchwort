@@ -24,15 +24,6 @@ def Nat.keepIf (x: Nat): Bool → Nat
   | True => x
   | False => 0
 
-theorem List.sumByCongRange [auto add: Add c] (f: Nat → c) (g: Nat → c): (c: Nat) → (s: Nat) → ((x: Nat) → s ≤ x → x < s + c → f x = g x) →
-    List.sumBy (List.rangeFrom c s) f = List.sumBy (List.rangeFrom c s) g
-  | Zero, s, h => rfl
-  | Succ c, s, h =>
-    Eq.trans (List.sumByCons (List.rangeFrom c (Succ s)) s f)
-      (Eq.trans (Eq.cong (t => t + List.sumBy (List.rangeFrom c (Succ s)) f) (h s (Nat.leRefl s) (Nat.ltAddSuccSelf s c)))
-        (Eq.trans (Eq.cong (t => g s + t) (List.sumByCongRange f g c (Succ s) (x hx1 hx2 => h x (Nat.leTrans s (Succ s) x (Nat.leSucc s) hx1) (Nat.ltAddSucc s c x hx2))))
-          (Eq.sym (List.sumByCons (List.rangeFrom c (Succ s)) s g))))
-
 -- The first number of the run `start .. start + count - 1` that passes `passes` (`start + count` if
 -- none does): a least witness, found by computation. Nothing before it passes,
 -- and if some `k` of the run passes, so does it, and it is at most `k`.
@@ -120,10 +111,6 @@ def List.removeFirst [auto eq: DecEq a]: List a → a → List a
   | Cons y ys, x => if y == x then ys else Cons y (ys.removeFirst x)
 
 test "List.removeFirst" := [1, 2, 1].removeFirst 1 == [2, 1] ∧ [1, 2].removeFirst 3 == [1, 2] ∧ [3, 1, 2].removeFirst 2 == [3, 1]
-
--- Counting with tests that agree on the list's elements (SW-198, day 8).
-theorem List.countCongMem (xs: List a) (p1: a → Bool) (p2: a → Bool) (ep: (x: a) → (m: List.Mem x xs) → p1 x = p2 x): List.count xs p1 = List.count xs p2 :=
-  rewrite List.countOccurrences xs p1, List.countOccurrences xs p2 in List.occurrencesCongMem xs p1 p2 ep
 
 -- Sorting commutes with `map` when the comparison of the mapped elements is
 -- that of the elements (SW-198, day 8): sorting pairs by a key, then taking
