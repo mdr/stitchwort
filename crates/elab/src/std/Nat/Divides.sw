@@ -66,3 +66,14 @@ theorem Nat.divLt (n: Nat) (k: Nat) [auto ok: k ≠ 0] (h0: 0 < n) (h1: 1 < k): 
   match n with
     | Zero => Void.exfalso (Bool.falseNotTrue h0)
     | Succ m => Nat.divLtSucc m k h1
+
+-- The greatest common divisor, by Euclid's algorithm: `Nat.gcd 12 18` is 6,
+-- and `Nat.gcd n 0` is `n`, so `Nat.gcd 0 0` is 0.
+def Nat.gcd (a: Nat) (b: Nat): Nat
+    decreasing b
+:=
+  match b with
+    | Zero => a
+    | Succ c => Nat.gcd (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)]
+
+test "Nat.gcd" := Nat.gcd 12 18 == 6 ∧ Nat.gcd 18 12 == 6 ∧ Nat.gcd 7 0 == 7 ∧ Nat.gcd 0 7 == 7 ∧ Nat.gcd 0 0 == 0 ∧ Nat.gcd 17 5 == 1

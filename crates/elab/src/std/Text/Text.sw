@@ -225,3 +225,13 @@ test "trim removes Unicode White_Space" := Text.trim "\u{A0}\u{3000}x y\u{85}\u{
 test "trim keeps the byte order mark" := Text.length (Text.trim "\u{FEFF}x\u{FEFF}") == 3
 test "words splits on Unicode White_Space" := "a\u{A0}b\u{3000}c".words == ["a", "b", "c"]
 test "isAsciiSpace is ASCII only" := Char.isAsciiSpace ' ' ∧ ¬(Char.isAsciiSpace '\u{A0}') ∧ Char.isWhitespace '\u{A0}' ∧ ¬(Char.isWhitespace '\u{FEFF}')
+
+-- ASCII letters, `a` to `z` and `A` to `Z`, and those or a digit.
+def Char.isAsciiLetter (char: Char): Bool :=
+  let code := char.toNat
+  (97 <= code && code <= 122) || (65 <= code && code <= 90)
+
+def Char.isAsciiAlphanumeric (char: Char): Bool := char.isAsciiLetter || char.digitValue.isSome
+
+test "Char.isAsciiLetter" := Char.isAsciiLetter 'a' ∧ Char.isAsciiLetter 'Z' ∧ ¬(Char.isAsciiLetter '0') ∧ ¬(Char.isAsciiLetter '.') ∧ ¬(Char.isAsciiLetter 'é')
+test "Char.isAsciiAlphanumeric" := Char.isAsciiAlphanumeric 'q' ∧ Char.isAsciiAlphanumeric '7' ∧ ¬(Char.isAsciiAlphanumeric '#')
