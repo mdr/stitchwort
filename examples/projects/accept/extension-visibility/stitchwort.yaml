@@ -1,0 +1,4 @@
+# A namespace adds functions to another namespace's type. Its own files and
+# the files that import it with `(..)` find them with dot notation and as
+# `Grid.probe`; anyone can write the full name.
+sources: [src]

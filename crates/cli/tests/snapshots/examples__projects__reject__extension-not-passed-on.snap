@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `P.Grid` has no field or function `probe`
+   ╭─[ extension-not-passed-on/src/tests.sw:6:35 ]
+   │
+ 6 │ def two (grid: Grid): Nat := grid.probe
+   │                                   ──┬──  
+   │                                     ╰──── looked in `P.Grid`
+   │ 
+   │ Note 1: its fields are `width`
+   │ 
+   │ Note 2: `P.Spec` adds `Grid.probe`; import it with `import P.Spec (..)`
+───╯

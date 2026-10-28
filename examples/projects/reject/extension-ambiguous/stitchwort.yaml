@@ -1,0 +1,4 @@
+# expect-error: E-AMBIGUOUS
+# Two namespaces both add `Grid.probe`, which is fine until a file that
+# imports both with `(..)` uses it.
+sources: [src]

@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `grid.probe` could mean `A.Grid.probe` or `B.Grid.probe`
+   ╭─[ extension-ambiguous/src/c.sw:9:30 ]
+   │
+ 9 │ def dot (grid: Grid): Nat := grid.probe
+   │                              ─────┬────  
+   │                                   ╰────── two imported namespaces add this function
+   │ 
+   │ Note: both come in through `(..)` imports; write the one you mean in full, e.g. `A.Grid.probe grid …`
+───╯
+[E-AMBIGUOUS] Error: `Grid.probe` could mean `A.Grid.probe` or `B.Grid.probe`
+    ╭─[ extension-ambiguous/src/c.sw:11:36 ]
+    │
+ 11 │ def qualified (grid: Grid): Nat := Grid.probe grid
+    │                                    ─────┬────  
+    │                                         ╰────── write `A.Grid.probe` or `B.Grid.probe` in full
+────╯

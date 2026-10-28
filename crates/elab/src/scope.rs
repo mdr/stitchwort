@@ -122,6 +122,9 @@ pub struct Scope {
     /// Each file's `import N (..)`: short name to keys, each with the span
     /// of the import that brought it. Empty for a program without `(..)`.
     wildcards: Vec<BTreeMap<String, Vec<(String, Span)>>>,
+    /// Each file's `(..)` imports of project namespaces: the namespaces
+    /// whose extensions it sees.
+    extenders: Vec<BTreeSet<String>>,
     /// The files (of the current module) with a `(..)` import that failed
     /// with an error of its own, so the uses of names in them aren't
     /// reported again as unknown.
@@ -135,6 +138,13 @@ pub struct Scope {
     /// constructors, operations, record fields and interface methods. A
     /// prelude type's are usable through its default name (D260).
     members: HashSet<String>,
+    /// Extensions: functions one project namespace adds to another's type
+    /// (`def Grid.probe` in `P.Spec`, for `P.Grid`). By the key each would
+    /// have in the type's namespace (`P.Grid.probe`), the extensions' own
+    /// keys (`P.Spec.Grid.probe`).
+    extensions: HashMap<String, Vec<String>>,
+    /// The reverse: an extension's key to the key it extends.
+    extended: HashMap<String, String>,
     /// While a library file loads: its own index entries are out of the way,
     /// so it can declare the names the index promised.
     pub(crate) loading: Option<usize>,
@@ -157,6 +167,7 @@ pub(crate) enum ScopeOp {
 pub(crate) struct SavedImports {
     imports: Vec<HashMap<String, Vec<(String, Span)>>>,
     wildcards: Vec<BTreeMap<String, Vec<(String, Span)>>>,
+    extenders: Vec<BTreeSet<String>>,
     wildcard_failed: BTreeSet<usize>,
     import_failed: HashSet<String>,
 }
@@ -378,6 +389,7 @@ impl Scope {
         SavedImports {
             imports: std::mem::take(&mut self.imports),
             wildcards: std::mem::take(&mut self.wildcards),
+            extenders: std::mem::take(&mut self.extenders),
             wildcard_failed: std::mem::take(&mut self.wildcard_failed),
             import_failed: std::mem::take(&mut self.import_failed),
         }
@@ -386,6 +398,7 @@ impl Scope {
     pub(crate) fn restore_imports(&mut self, saved: SavedImports) {
         self.imports = saved.imports;
         self.wildcards = saved.wildcards;
+        self.extenders = saved.extenders;
         self.wildcard_failed = saved.wildcard_failed;
         self.import_failed = saved.import_failed;
     }
@@ -435,6 +448,7 @@ impl Scope {
     pub fn clear_imports(&mut self) {
         self.imports.clear();
         self.wildcards.clear();
+        self.extenders.clear();
         self.import_failed.clear();
         self.wildcard_failed.clear();
     }
@@ -442,6 +456,34 @@ impl Scope {
     /// The key of the library's root name `x`, or of the alias.
     pub(crate) fn std_root_key(&self, x: &str) -> Option<&str> {
         self.std_root.get(x).map(String::as_str)
+    }
+
+    /// Records that `key` is an extension standing for `target`, a key in
+    /// another namespace's type's namespace.
+    pub(crate) fn add_extension(&mut self, key: &str, target: &str) {
+        if self.extended.contains_key(key) {
+            return;
+        }
+        self.extended.insert(key.to_string(), target.to_string());
+        self.extensions
+            .entry(target.to_string())
+            .or_default()
+            .push(key.to_string());
+    }
+
+    /// The extensions of `target`, by key.
+    pub(crate) fn extensions_of(&self, target: &str) -> &[String] {
+        self.extensions.get(target).map_or(&[], Vec::as_slice)
+    }
+
+    /// The key the extension `key` stands for, if it is one.
+    pub(crate) fn extended(&self, key: &str) -> Option<&str> {
+        self.extended.get(key).map(String::as_str)
+    }
+
+    /// Every extension and the key it stands for (for the check cache).
+    pub(crate) fn all_extended(&self) -> impl Iterator<Item = (&String, &String)> {
+        self.extended.iter()
     }
 
     /// Every key, for suggestions.
@@ -470,6 +512,11 @@ impl Scope {
                 .map(|(k, v)| format!("std_root {k} {v}")),
         );
         lines.extend(self.members.iter().map(|k| format!("member {k}")));
+        lines.extend(
+            self.extended
+                .iter()
+                .map(|(k, target)| format!("extension {k} {target}")),
+        );
         lines.sort();
         for line in lines {
             let _ = writeln!(out, "{line}");
@@ -693,6 +740,23 @@ impl Elaborator {
                     level: Level::Qualified,
                     rest: rest[k + 1..].iter().map(|s| s.to_string()).collect(),
                 };
+            }
+            // A function another namespace adds to the type, as `x.f` finds
+            // it.
+            match self.visible_extension(&key) {
+                Extension::Found(ext) => {
+                    if let Some((key, global, span)) = self.scope.entry(&ext) {
+                        return Resolved::Found {
+                            global,
+                            span,
+                            key,
+                            level: Level::Qualified,
+                            rest: rest[k + 1..].iter().map(|s| s.to_string()).collect(),
+                        };
+                    }
+                }
+                Extension::Ambiguous(keys) => return Resolved::Ambiguous(keys, Level::Qualified),
+                Extension::Missing => {}
             }
         }
         // Nor a namespace inside it (`Nat.Divides…`).
@@ -930,6 +994,12 @@ impl Elaborator {
             }
             return Err(refuse(STD));
         }
+        // A function for another project namespace's type is an extension,
+        // declared in this namespace under the type's short name.
+        if let Some(target) = self.extension_target(name) {
+            let ty = &target[..target.len() - rest.len() - 1];
+            return Ok(format!("{root}{}.{rest}", short(ty)));
+        }
         // In a namespace, a declaration can't go in another's
         // (docs/proposals/multi-file.md §4.8, §11 P8), nor use its own
         // namespace's name as a qualifier.
@@ -977,9 +1047,7 @@ impl Elaborator {
                         name.span,
                         format!("`{first}` here means the namespace `{first}`"),
                     )
-                    .with_note(format!(
-                        "declarations go in the file's own namespace: write `{rest}`"
-                    )));
+                    .with_note(self.unqualified_advice(written, rest)));
                 }
                 _ => {}
             }
@@ -997,6 +1065,172 @@ impl Elaborator {
         Ok(format!("{base}.{rest}"))
     }
 
+    /// For a declaration written with a namespace's full name (`def
+    /// P.Grid.probe` in `P.Spec`), how to write it instead: for a function
+    /// on a type, the type's short name and the function's (imported first
+    /// if this file doesn't see the type by that name); otherwise without
+    /// the namespace.
+    fn unqualified_advice(&self, written: &str, rest: &str) -> String {
+        let Some((within, last)) = rest.rsplit_once('.') else {
+            return format!("declarations go in the file's own namespace: write `{rest}`");
+        };
+        let ty_written = &written[..written.len() - last.len() - 1];
+        if let Resolved::Found {
+            key, global, rest, ..
+        } = self.resolve(ty_written)
+            && rest.is_empty()
+            && self.is_type_former(global)
+        {
+            let ty = short(key);
+            let owner = self.longest_namespace(key, false);
+            let sees = matches!(
+                self.resolve_short(ty, false),
+                Resolved::Found { key: k, .. } if k == key
+            );
+            return match owner {
+                Some(owner)
+                    if !sees && owner.as_str() != self.current_namespace().unwrap_or("") =>
+                {
+                    format!(
+                        "to add `{last}` to `{key}`, import the type with `import {owner} ({ty})` \
+                         and write `{ty}.{last}`"
+                    )
+                }
+                _ => format!("write `{ty}.{last}`"),
+            };
+        }
+        if self.scope.is_namespace(&format!("{}{within}", self.root())) {
+            return format!("declarations go in the file's own namespace: write `{rest}`");
+        }
+        format!("declarations go in the file's own namespace: write `{last}`")
+    }
+
+    /// The key that a declaration written `T.f` stands for, if it adds `f`
+    /// to a type `T` of another project namespace (docs/proposals/
+    /// extending-types.md §6): `T.f`'s key in `T`'s namespace. Such a
+    /// declaration is an extension, declared in this file's namespace.
+    pub(crate) fn extension_target(&self, name: &ast::Name) -> Option<String> {
+        if self.loading_prelude || self.root().is_empty() {
+            return None;
+        }
+        let (first, rest) = name.text.split_once('.')?;
+        let Resolved::Found { key, global, .. } = self.resolve_short(first, false) else {
+            return None;
+        };
+        if key.starts_with("Std.") || !self.is_type_former(global) {
+            return None;
+        }
+        let owner = self.longest_namespace(key, false)?;
+        (Some(owner.as_str()) != self.current_namespace()).then(|| format!("{key}.{rest}"))
+    }
+
+    /// Whether `decl`, written `name`, may add `target` to another project
+    /// namespace's type: it's a function or theorem, and the type's own
+    /// namespace has no `f` (that one always wins, so the clash is an error
+    /// here, where the type's namespace is already checked).
+    pub(crate) fn check_extension(
+        &self,
+        decl: &ast::Decl,
+        name: &ast::Name,
+        target: &str,
+    ) -> Result<()> {
+        let ns = self.current_namespace().unwrap_or("");
+        let (first, _) = name.text.split_once('.').unwrap_or((&name.text, ""));
+        let ty = &target[..target.len() - (name.text.len() - first.len())];
+        let owner = self.longest_namespace(ty, false).unwrap_or_default();
+        if !matches!(decl, ast::Decl::Signature { .. }) {
+            return Err(Diagnostic::error(
+                "E-FOREIGN-NAMESPACE",
+                format!(
+                    "`{first}` belongs to namespace {owner}, and {ns} can add only functions to it"
+                ),
+            )
+            .with_label(name.span, format!("`{first}` here means `{ty}`"))
+            .with_note(format!(
+                "a namespace can add functions and theorems to another namespace's type, \
+                 but not types; name it in {ns} without the `{first}.` prefix, e.g. `{}`",
+                short(&name.text)
+            )));
+        }
+        if let Some((_, span)) = self.scope.get(target) {
+            let mut d = Diagnostic::error(
+                "E-EXTENSION-CLASH",
+                format!("`{ty}` already has a `{}`", short(target)),
+            )
+            .with_label(
+                name.span,
+                format!("this would add a second `{first}.{}`", short(target)),
+            )
+            .with_note(format!(
+                "`{target}` is declared in namespace {owner}, and a type's own functions come \
+                 first: give this one another name"
+            ));
+            if span.file == name.span.file {
+                d = d.with_label(span, "declared here");
+            }
+            return Err(d);
+        }
+        Ok(())
+    }
+
+    /// The extension `T.f` means here, `target` being `T.f`'s key in `T`'s
+    /// namespace (docs/proposals/extending-types.md §6): this namespace's
+    /// own, else the one from a namespace this file imports with `(..)`
+    /// (imports aren't passed on). Two of those are ambiguous.
+    pub(crate) fn visible_extension(&self, target: &str) -> Extension {
+        let all = self.scope.extensions_of(target);
+        if all.is_empty() || self.loading_prelude {
+            return Extension::Missing;
+        }
+        let own = self.current_namespace();
+        let extender = |key: &str| self.longest_namespace(key, false);
+        if let Some(key) = all
+            .iter()
+            .find(|k| own.is_some() && extender(k).as_deref() == own)
+        {
+            return Extension::Found(key.clone());
+        }
+        let Some(imported) = self.scope.extenders.get(self.current_file()) else {
+            return Extension::Missing;
+        };
+        let mut seen: Vec<String> = all
+            .iter()
+            .filter(|k| extender(k).is_some_and(|ns| imported.contains(&ns)))
+            .cloned()
+            .collect();
+        match seen.len() {
+            0 => Extension::Missing,
+            1 => Extension::Found(seen.remove(0)),
+            _ => {
+                seen.sort();
+                Extension::Ambiguous(seen)
+            }
+        }
+    }
+
+    /// The namespaces that add `target` to its type and that this file
+    /// doesn't see, for suggesting an import.
+    pub(crate) fn hidden_extenders(&self, target: &str) -> Vec<String> {
+        let mut out: Vec<String> = self
+            .scope
+            .extensions_of(target)
+            .iter()
+            .filter_map(|k| self.longest_namespace(k, false))
+            .collect();
+        out.sort();
+        out.dedup();
+        out
+    }
+}
+
+/// What `T.f` means as an extension ([`Elaborator::visible_extension`]).
+pub(crate) enum Extension {
+    Found(String),
+    Ambiguous(Vec<String>),
+    Missing,
+}
+
+impl Elaborator {
     /// The key of data type `d`.
     pub(crate) fn data_key(&self, d: stitchwort_core::DataId) -> String {
         let data = self.globals.data(d);
@@ -1483,6 +1717,12 @@ impl Elaborator {
             Some(WildcardSource::Names(names)) => {
                 if self.scope.wildcards.len() <= file {
                     self.scope.wildcards.resize_with(file + 1, BTreeMap::new);
+                }
+                if self.project_namespaces.contains(k) {
+                    if self.scope.extenders.len() <= file {
+                        self.scope.extenders.resize_with(file + 1, BTreeSet::new);
+                    }
+                    self.scope.extenders[file].insert(k.to_string());
                 }
                 let table = &mut self.scope.wildcards[file];
                 let twice = names.first().is_some_and(|x| {

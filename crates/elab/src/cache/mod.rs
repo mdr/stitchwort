@@ -67,7 +67,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 16;
+pub const FORMAT: u32 = 17;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1598,6 +1598,19 @@ impl Elaborator {
         for k in helpers {
             e.str(k);
         }
+        // The extensions the namespace declares (a library file has none).
+        let own = self.current_namespace().filter(|_| !unit.library);
+        let mut extensions: Vec<(&String, &String)> = self
+            .scope
+            .all_extended()
+            .filter(|(k, _)| own.is_some() && self.longest_namespace(k, false).as_deref() == own)
+            .collect();
+        extensions.sort();
+        e.w.usize(extensions.len());
+        for (k, target) in extensions {
+            e.str(k);
+            e.str(target);
+        }
 
         // The tests, in the order they run.
         e.w.usize(tests.len());
@@ -1932,6 +1945,8 @@ struct Tables {
     abilities: Vec<AbilityInfo>,
     lifted: Vec<(DefId, Span)>,
     helper_keys: Vec<String>,
+    /// Extensions, and the keys they stand for.
+    extensions: Vec<(String, String)>,
     tests: Vec<TestEntry>,
     warnings: Vec<Diagnostic>,
     nav: Option<NavEntry>,
@@ -2818,6 +2833,9 @@ impl Elaborator {
         self.no_ord.extend(no_ord);
         self.lifted.extend(t.lifted);
         self.helper_keys.extend(t.helper_keys);
+        for (key, target) in t.extensions {
+            self.scope.add_extension(&key, &target);
+        }
         for test in t.tests {
             self.tests.push(crate::TestDecl {
                 library: false,
@@ -2905,6 +2923,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
         abilities: Vec::new(),
         lifted: Vec::new(),
         helper_keys: Vec::new(),
+        extensions: Vec::new(),
         tests: Vec::new(),
         warnings: Vec::new(),
         nav: None,
@@ -3111,6 +3130,10 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Tables> {
     let n = b.count()?;
     for _ in 0..n {
         t.helper_keys.push(b.string()?);
+    }
+    let n = b.count()?;
+    for _ in 0..n {
+        t.extensions.push((b.string()?, b.string()?));
     }
     let n = b.count()?;
     for _ in 0..n {

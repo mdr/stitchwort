@@ -512,10 +512,23 @@ fn find_in_view(
                     return Ok((h, info.projections[i], shown_key));
                 }
                 // A local definition is never found by dot notation (§3.6).
-                let found = match cx.e.helper_keys.contains(&key) {
+                let mut found = match cx.e.helper_keys.contains(&key) {
                     true => None,
                     false => cx.e.scope.get(&key),
                 };
+                let mut shown_key = shown_key;
+                if found.is_none() {
+                    match cx.e.visible_extension(&key) {
+                        scope::Extension::Found(ext) => {
+                            found = cx.e.scope.get(&ext);
+                            shown_key = scope::display(&ext).to_string();
+                        }
+                        scope::Extension::Ambiguous(keys) => {
+                            return Err(ambiguous_extension(cx, recv, field, &keys));
+                        }
+                        scope::Extension::Missing => {}
+                    }
+                }
                 match found {
                     Some((Global::Def(id), _)) => return Ok((h, id, shown_key)),
                     Some((Global::Unchecked(item), _)) => {
@@ -727,6 +740,31 @@ fn is_computation_head(cx: &Ctx, h: TyHead) -> bool {
     .contains(&Some(id))
 }
 
+/// `E-AMBIGUOUS`: two namespaces this file imports with `(..)` each add
+/// `.field` to the receiver's type.
+fn ambiguous_extension(cx: &Ctx, recv: &Expr, field: &AstName, keys: &[String]) -> Diagnostic {
+    let shown_keys: Vec<String> = keys
+        .iter()
+        .map(|k| format!("`{}`", scope::display(k)))
+        .collect();
+    let call = match recv {
+        Expr::Var(n) if written(n) => format!("`{}.{}`", n.text, field.text),
+        _ => format!("`.{}`", field.text),
+    };
+    let example = match recv {
+        Expr::Var(n) if written(n) => format!("`{} {} …`", scope::display(&keys[0]), n.text),
+        _ => format!("`|> {} …`", scope::display(&keys[0])),
+    };
+    cx.error(
+        "E-AMBIGUOUS",
+        format!("{call} could mean {}", shown_keys.join(" or ")),
+        "two imported namespaces add this function",
+    )
+    .with_note(format!(
+        "both come in through `(..)` imports; write the one you mean in full, e.g. {example}"
+    ))
+}
+
 /// The view reached a definition that can't be unfolded further.
 fn blocked(cx: &Ctx, recv: &Expr, field: &AstName, tried: &[TyHead]) -> Diagnostic {
     let last = tried.last().expect("a head was tried");
@@ -797,6 +835,27 @@ fn unknown_member(
         } else {
             format!("its fields are {}", fields.join(", "))
         });
+    }
+    // An extension in a namespace this file doesn't import.
+    let hidden: Vec<String> = tried
+        .iter()
+        .flat_map(|h| {
+            let target = format!("{}.{}", namespace(cx, *h), field.text);
+            cx.e.hidden_extenders(&target)
+                .into_iter()
+                .map(move |ns| (ns, target.clone()))
+        })
+        .map(|(ns, target)| {
+            let ty = target.rsplit_once('.').map_or(target.as_str(), |(t, _)| t);
+            let owner = scope::short(ty);
+            format!(
+                "`{ns}` adds `{owner}.{}`; import it with `import {ns} (..)`",
+                field.text
+            )
+        })
+        .collect();
+    if let Some(first) = hidden.first() {
+        return d.with_note(first.clone());
     }
     if let Some((full, param_heads)) = elsewhere_taking(cx, field, tried) {
         let call = match recv {
@@ -1003,7 +1062,9 @@ pub(crate) fn receiver_not_first(cx: &Ctx, f: DefId, span: Span) -> Result<Optio
     } else {
         def.name.to_string()
     };
-    let Some((owner_key, name)) = path.rsplit_once('.') else {
+    // An extension is looked up in the namespace of the type it extends.
+    let target = cx.e.scope.extended(&path).unwrap_or(&path);
+    let Some((owner_key, name)) = target.rsplit_once('.') else {
         return Ok(None);
     };
     // A generated definition (`IO.%elim`) isn't written by anyone.

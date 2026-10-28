@@ -31,7 +31,7 @@ theorem taken: (a: Cell) → (n: Nat) → Cell.count a - Cell.count (keep a (n +
 -- Part 1 is right for every grid: the printed answer is the number of rolls
 -- with fewer than four rolls around them.
 theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
-  let cells := cellsOf grid
+  let cells := grid.cells
   let below := (r: Nat) => (c: Nat) => (h: grid.height ≤ r) => rowsCellsBelow grid.rows r c h
   let right := (r: Nat) => (c: Nat) => (h: grid.width ≤ c) => rowsCellsRight grid.rows r c h
   let a := (r: Nat) => (c: Nat) => (cells r c).count
@@ -47,6 +47,6 @@ theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
         (r => List.sumBy (List.range grid.width) (c => k r c))
         (r => List.sumByLe (List.range grid.width) (c => a r c) (c => k r c) (c => keepLe (cells r c) (window cells r c))),
         List.sumBySub _ (c => a _ c) (c => k _ c) (c => keepLe (cells _ c) (window cells _ c))
-    _ = sum2 (r c => Bool.toNat (accessible grid cells r c))
+    _ = sum2 (r c => Bool.toNat (grid.accessible cells r c))
       := rewrite windowIsNeighbours grid cells below right _ _, taken _ _
-    _ = part1Spec grid := Eq.sym (countPositionsSum grid (r c => accessible grid cells r c))
+    _ = part1Spec grid := Eq.sym (countPositionsSum grid (r c => grid.accessible cells r c))

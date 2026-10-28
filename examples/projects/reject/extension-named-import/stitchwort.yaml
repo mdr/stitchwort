@@ -1,0 +1,4 @@
+# expect-error: E-UNKNOWN-FIELD
+# Importing names from P.Spec doesn't bring its functions on other
+# namespaces' types: only `(..)` does.
+sources: [src]

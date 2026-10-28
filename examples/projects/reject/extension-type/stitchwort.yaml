@@ -1,0 +1,3 @@
+# expect-error: E-FOREIGN-NAMESPACE
+# A namespace can add functions to another namespace's type, not types.
+sources: [src]

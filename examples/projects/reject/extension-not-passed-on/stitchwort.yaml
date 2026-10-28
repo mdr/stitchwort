@@ -1,0 +1,4 @@
+# expect-error: E-UNKNOWN-FIELD
+# P.Tests imports P.Proofs, which imports P.Spec: imports aren't passed
+# on, so P.Tests doesn't see P.Spec's `Grid.probe`.
+sources: [src]
