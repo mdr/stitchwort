@@ -37,7 +37,7 @@ type Point = { x: Nat, y: Nat, z: Nat }
 -- about them in Proofs/, assume `pairs` is `closestFirst points`. A `Boxes`
 -- written out by hand with other pairs gets answers that mean nothing: with
 -- no pairs, part 2 of two boxes is `None`; a pair naming a box past the end
--- reads that box as `origin`.
+-- reads that box as `Point.origin`.
 type Boxes = { points: List Point, pairs: List Connection }
 
 def parseBoxes (input: Text): {Fail} Boxes := Boxes.of (parsePoints input)
@@ -130,17 +130,18 @@ def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
 -- one circuit (one point, or none). For `boxes` built by `Boxes.of` (see
 -- `Boxes`).
 def solvePart2 (boxes: Boxes): Option Nat :=
-  (lastJoin (Circuits.separate boxes.points.length) boxes.pairs).map (((first, second)) =>
-    (boxes.points.getOr first origin).x * (boxes.points.getOr second origin).x)
+  Circuits.separate boxes.points.length
+    |> .lastJoin boxes.pairs
+    |> .map (((first, second)) => (boxes.points.getOr first Point.origin).x * (boxes.points.getOr second Point.origin).x)
 
 -- Every box number is in range, so this default is never used.
-def origin: Point := { x = 0, y = 0, z = 0 }
+def Point.origin: Point := { x = 0, y = 0, z = 0 }
 
 -- The pair that leaves one circuit, joining the pairs in order from the
 -- circuits given.
-def lastJoin (circuits: Circuits): List Connection → Option (Nat, Nat)
+def Circuits.lastJoin (circuits: Circuits): List Connection → Option (Nat, Nat)
   | Nil => None
   | Cons connection rest =>
     let joined := circuits.connect connection
     if circuits.count > 1 ∧ joined.count == 1 then Some (connection.first, connection.second)
-    else lastJoin joined rest
+    else joined.lastJoin rest

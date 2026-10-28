@@ -114,11 +114,11 @@ def fall (row: Vec Bool w) (beams: Vec Bool w): Vec Bool w :=
     (hit.shiftRight False) (hit.shiftLeft False) (pass left right => pass ∨ (left ∨ right))
 
 -- Part 2: the timelines of a particle starting at S.
-def solvePart2 (manifold: Manifold): Nat := timelineCounts manifold |> .get manifold.start
+def solvePart2 (manifold: Manifold): Nat := manifold.timelineCounts |> .get manifold.start
 
 -- For each column, the timelines of a particle falling into it from the row
 -- of S.
-def timelineCounts (manifold: Manifold): Vec Nat manifold.width :=
+def Manifold.timelineCounts (manifold: Manifold): Vec Nat manifold.width :=
   manifold.rows.foldRight (Vec.replicate manifold.width 1) splitRow
 
 -- A row's timeline counts, given the counts of the row below it: a column

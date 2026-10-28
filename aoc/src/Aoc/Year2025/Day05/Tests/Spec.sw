@@ -5,4 +5,4 @@ import Aoc.Year2025.Day05 (..)
 import Aoc.Year2025.Day05.Spec (..)
 import Std (Fail)
 
-test "example brute force" := countFresh (Fail.orElse emptyDatabase (() => parseDatabase example)) == 14
+test "example brute force" := countFresh (Fail.orElse Database.empty (() => parseDatabase example)) == 14

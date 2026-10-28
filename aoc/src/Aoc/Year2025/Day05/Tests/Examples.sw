@@ -21,7 +21,7 @@ def example: Text := """
 
 def parsed (input: Text): Result Database Text := Fail.toResult (() => parseDatabase input)
 
-def exampleDatabase: Database := Fail.orElse emptyDatabase (() => parseDatabase example)
+def exampleDatabase: Database := Fail.orElse Database.empty (() => parseDatabase example)
 
 test "example parse" := exampleDatabase.available == [1, 5, 8, 11, 17, 32]
 

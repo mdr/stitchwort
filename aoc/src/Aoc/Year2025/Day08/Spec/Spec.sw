@@ -25,7 +25,7 @@ import Aoc.Year2025.Day08 (..)
 import Std (Iff, List, Nat, Ord, Ordering)
 
 -- Box number i.
-def boxAt (points: List Point) (i: Nat): Point := points.getOr i origin
+def boxAt (points: List Point) (i: Nat): Point := points.getOr i Point.origin
 
 -- Every pair of the boxes 0 to n - 1: box i with box j, for i < j.
 def allPairs (n: Nat): List (Nat, Nat) := List.range n |> .pairs

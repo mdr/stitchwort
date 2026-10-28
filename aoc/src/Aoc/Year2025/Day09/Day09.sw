@@ -70,7 +70,7 @@ def isBetween (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ v
 def isBetweenHalfOpen (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ value < other) ∨ (other ≤ value ∧ value < one)
 
 -- The tile is on the line (a red tile at either end, or a green tile).
-def isOnLine (tile: Tile) (line: (Tile, Tile)): Bool :=
+def Tile.isOnLine (tile: Tile) (line: (Tile, Tile)): Bool :=
   isBetween line.fst.x line.snd.x tile.x ∧ isBetween line.fst.y line.snd.y tile.y
 
 -- The line runs down a column right of the tile, across the tile's row:
@@ -83,7 +83,7 @@ def crossesRightOf (tile: Tile) (line: (Tile, Tile)): Bool :=
 -- The tile is red or green, if `lines` are the lines of the loop that touch
 -- its row (the others are no nearer to it than its row is).
 def isRedOrGreen (lines: List (Tile, Tile)) (tile: Tile): Bool :=
-  lines.any (isOnLine tile) ∨ lines.count (crossesRightOf tile) % 2 == 1
+  lines.any tile.isOnLine ∨ lines.count (crossesRightOf tile) % 2 == 1
 
 -- The line touches row y.
 def touchesRow (y: Nat) (line: (Tile, Tile)): Bool := isBetween line.fst.y line.snd.y y

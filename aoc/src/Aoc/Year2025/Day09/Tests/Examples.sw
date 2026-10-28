@@ -53,7 +53,7 @@ test "example reversed" := (solvePart1 example.reverse, solvePart2 example.rever
 
 test "loop lines" := loopLines [tile 1 1, tile 6 1, tile 6 4] == [(tile 1 1, tile 6 1), (tile 6 1, tile 6 4), (tile 6 4, tile 1 1)]
 test "is between" := isBetween 3 7 5 ∧ isBetween 7 3 5 ∧ isBetween 3 3 3 ∧ ¬(isBetween 3 7 8) ∧ ¬(isBetween 7 3 2)
-test "is on line" := isOnLine (tile 4 1) (tile 1 1, tile 6 1) ∧ isOnLine (tile 6 1) (tile 1 1, tile 6 1) ∧ ¬(isOnLine (tile 4 2) (tile 1 1, tile 6 1))
+test "is on line" := (tile 4 1).isOnLine (tile 1 1, tile 6 1) ∧ (tile 6 1).isOnLine (tile 1 1, tile 6 1) ∧ ¬((tile 4 2).isOnLine (tile 1 1, tile 6 1))
 test "crosses right of" :=
   crossesRightOf (tile 2 2) (tile 6 1, tile 6 4) ∧ crossesRightOf (tile 2 1) (tile 6 4, tile 6 1) ∧ ¬(crossesRightOf (tile 2 4) (tile 6 1, tile 6 4))
     ∧ ¬(crossesRightOf (tile 6 2) (tile 6 1, tile 6 4)) ∧ ¬(crossesRightOf (tile 2 1) (tile 1 1, tile 6 1))

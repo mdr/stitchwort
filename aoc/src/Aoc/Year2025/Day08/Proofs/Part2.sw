@@ -9,7 +9,7 @@
 --      with itself, and joining two circuits takes one such box away.
 --   2. So the count is 1 exactly when all the boxes are in one circuit
 --      (`countOneOf`, `oneCircuitOfCount`), by the label theorem.
---   3. `lastJoin` walks the connections in order and stops at the first
+--   3. `Circuits.lastJoin` walks the connections in order and stops at the first
 --      after which the count is 1 (`lastJoinFinds`): before connection k
 --      the boxes weren't all in one circuit, after it they are.
 --   4. All the connections together join every pair of boxes, so the first
@@ -177,11 +177,11 @@ theorem countNotOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelle
 -- Part 2 ------------------------------------------------------------------------
 
 -- Walking the connections `ps` after `done`: if connection k of `ps` is the
--- last needed, `lastJoin` stops there.
+-- last needed, `Circuits.lastJoin` stops there.
 theorem lastJoinFinds (points: List Point): (ps: List (Nat, Nat)) → (k: Nat) → (done: List (Nat, Nat)) → (c: Circuits) →
     Labelled points.length done c → Counted points.length c → List.all ps (boxesBelow points.length) = True →
     OneCircuit points.length (List.append done (List.take ps (Succ k))) → Not (OneCircuit points.length (List.append done (List.take ps k))) →
-    lastJoin c (List.map ps (connectionKey points)) = Some ((List.getOr ps k (0, 0)).fst, (List.getOr ps k (0, 0)).snd)
+    c.lastJoin (List.map ps (connectionKey points)) = Some ((List.getOr ps k (0, 0)).fst, (List.getOr ps k (0, 0)).snd)
   | Nil, Zero, done, c, inv, counted, ok, after, before => Void.exfalso (before after)
   | Nil, Succ k, done, c, inv, counted, ok, after, before => Void.exfalso (before after)
   | Cons (f, s) ps, k, done, c, inv, counted, ok, after, before =>

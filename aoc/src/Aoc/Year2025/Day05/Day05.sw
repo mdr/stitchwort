@@ -30,7 +30,7 @@ type Database = { fresh: List Range, available: List Nat }
 
 -- No ranges and no ids: what the tests fall back on when a parse fails, so that
 -- a failed parse fails the test.
-def emptyDatabase: Database := { fresh = [], available = [] }
+def Database.empty: Database := { fresh = [], available = [] }
 
 -- Ranges, one per line; a blank line; then ids, one per line. Spaces around a
 -- number are allowed. Anything else fails, naming the line and column.

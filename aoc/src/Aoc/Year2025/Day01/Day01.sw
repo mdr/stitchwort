@@ -25,15 +25,15 @@ def main(): {IO, Fail} () :=
 -- naming the line and column.
 def parseTurns (input: Text): {Fail} (List Turn) := Parse.eachLine input turn
 
-def solvePart1 (turns: List Turn): Nat := zerosLandedOn turns startingDial
+def solvePart1 (turns: List Turn): Nat := zerosLandedOn turns Dial.start
 
-def solvePart2 (turns: List Turn): Nat := zerosPassed turns startingDial
+def solvePart2 (turns: List Turn): Nat := zerosPassed turns Dial.start
 
 -- The dial: where it points, on a dial of `n` positions.
 type Dial (n: Nat) = { position: Mod n }
 
 -- The puzzle's dial: 100 positions, 0 to 99, at 50.
-def startingDial: Dial 100 := { position = Mod.ofNat 50 }
+def Dial.start: Dial 100 := { position = Mod.ofNat 50 }
 
 -- Part 1: the positions after each turn that are 0.
 def zerosLandedOn (turns: List Turn) (startingDial: Dial n): Nat :=

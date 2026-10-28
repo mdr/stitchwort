@@ -21,7 +21,7 @@ theorem splitRowAt (row: Vec Bool w) (below: Vec Nat w) (c: Nat):
       | False => rfl
       | True => Vec.getOrAround below c 2 1 (setInside row c e) (l _ r => l + r)
 
--- The counts below the rows `ls`, as `timelineCounts` works them out.
+-- The counts below the rows `ls`, as `Manifold.timelineCounts` works them out.
 def countsBelow (w: Nat) (ls: List (Vec Bool w)): Vec Nat w := List.foldRight ls (Vec.replicate w 1) splitRow
 
 -- One row up: a column's count from the counts below, against the
@@ -48,5 +48,5 @@ theorem countsAre (w: Nat): (ls: List (Vec Bool w)) → (r: Nat) → (c: Nat) �
 -- Part 2 is right: for every manifold, the printed answer is the number of
 -- timelines of the particle from S.
 theorem part2Correct (manifold: Manifold): solvePart2 manifold = part2Spec manifold :=
-  rewrite <- Vec.getOrGet (timelineCounts manifold) manifold.start 1 in
+  rewrite <- Vec.getOrGet manifold.timelineCounts manifold.start 1 in
     countsAre manifold.width manifold.rows 0 manifold.start.toNat

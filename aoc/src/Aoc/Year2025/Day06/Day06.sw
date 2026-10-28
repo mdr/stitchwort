@@ -37,7 +37,7 @@ type Operator =
 -- block has no + or *).
 type Problem = { operator: Option Operator, rowNumbers: List Nat, columnNumbers: List Nat }
 
-def parseWorksheet (lines: List Text): List Problem := blocks lines |> .map parseProblem
+def parseWorksheet (lines: List Text): List Problem := blocks lines |> .map Problem.parse
 
 def isBlank (column: List Char): Bool := column.all .isAsciiSpace
 
@@ -48,7 +48,7 @@ def blocks (lines: List Text): List (List (List Char)) :=
   lines.map .toList |> .transposeFill ' ' |> .splitBy isBlank
 
 -- One block of columns, the last character of each being the operator row.
-def parseProblem (columns: List (List Char)): Problem :=
+def Problem.parse (columns: List (List Char)): Problem :=
   let rows := columns.transpose
   {
     operator = columns.findMap (.last.flatMap Operator.parse),
