@@ -3793,11 +3793,17 @@ impl Elaborator {
             (Global::Unchecked(item), ..) => Err(self.unchecked(&used, item)),
             (Global::Failed, ..) => Err(module::failed_name(&used)),
             (Global::Pending(file, _), ..) => Err(self.unloaded(&used, file)),
-            _ => Err(error(
-                "E-NOT-A-CONSTRUCTOR",
-                span,
-                format!("`{ctor}` isn't a constructor"),
-            )),
+            _ => {
+                let error = error(
+                    "E-NOT-A-CONSTRUCTOR",
+                    span,
+                    format!("`{ctor}` isn't a constructor"),
+                );
+                Err(match self.hiding_note(ctor) {
+                    Some(note) => error.with_note(note),
+                    None => error,
+                })
+            }
         }
     }
 }

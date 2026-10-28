@@ -278,9 +278,7 @@ impl Elaborator {
         for (name, _) in fields {
             if !explicit.iter().any(|&i| *ctor.fields[i].0 == *name.text) {
                 let names: Vec<&ast::Name> = fields.iter().map(|(n, _)| n).collect();
-                return Err(
-                    self.unknown_ctor_field(d, c, &explicit, name, &names, held, "match")
-                );
+                return Err(self.unknown_ctor_field(d, c, &explicit, name, &names, held, "match"));
             }
             if let Some(first) = seen.iter().find(|s| s.text == name.text) {
                 return Err(error(

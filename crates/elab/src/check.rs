@@ -1564,11 +1564,15 @@ fn ctor_fill<'a>(
         let given = (args.iter())
             .filter(|a| !matches!(a, CtorArg::Named(..)))
             .count();
-        return Err(cx.error(
+        let error = cx.error(
             "E-NOT-A-FUNCTION",
             format!("`{}` takes {wanted} argument(s)", ctor.name),
             format!("it's given {given}"),
-        ));
+        );
+        return Err(match cx.e.hiding_note(&ctor.name) {
+            Some(note) => error.with_note(note),
+            None => error,
+        });
     }
     Ok(assigned
         .into_iter()
