@@ -6617,7 +6617,7 @@
     {
       "id": 775,
       "title": "Graph search into std: Graph, Dijkstra + correctness, a BFS with a plain queue, a generic shortest-path bound, Nat.partitionPoint; days 16/18 use it; day 18 takes size from IO.args (after the day 16 findings lane merges)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
