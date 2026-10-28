@@ -1,5 +1,5 @@
 {
-  "next": 733,
+  "next": 735,
   "tickets": [
     {
       "id": 13,
@@ -5932,8 +5932,8 @@
     },
     {
       "id": 718,
-      "title": "rewrite: a hole can stand for an auto instance argument (List.sumByAdd _ _ fails with Add.%add ?58 …); no internal names in its error (AoC 2024 day 4)",
-      "status": "next",
+      "title": "rewrite and placeholders: a hole can stand for an auto instance argument (List.sumByAdd _ _), and _ arguments are filled from the goal before a proof argument (List.sumByLe xs _ _ (…), days 4 and 7); no internal names in errors",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6065,7 +6065,7 @@
     {
       "id": 729,
       "title": "std from AoC 2024 day 6: Set.below/above lemmas (largest key below, nothing in between), Nat.pigeonhole and 'a repeated state never ends' lemma",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6102,6 +6102,30 @@
       "id": 732,
       "title": "Runtime: fused state-passing handlers should treat a resumption in a match arm as tail position (fusion.rs tail stops at match), so handlers don't leak a frame per operation; and the ~12 µs per handler-passing operation cost (Std.Parse findings)",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 733,
+      "title": "AoC 2024 day 8: solve, prove, log gaps (overnight)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 734,
+      "title": "std from AoC 2024 day 7: Nat.digitCount (+ positivity), List.anyFlatMap, anyOr, anyComm, reverseReverse, reverseCons, sum-over-filter monotonicity; auto proves a divisor ≠ 0 from facts in scope (omega over hypotheses)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
