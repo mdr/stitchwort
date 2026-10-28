@@ -1302,6 +1302,49 @@ impl Elaborator {
         }
     }
 
+    /// Which declaration `written` found, where, and the other
+    /// declarations of that short name (a library one it hides, or
+    /// constructors of other types).
+    pub(crate) fn hiding_note(&self, written: &str) -> Option<String> {
+        let Resolved::Found { key, .. } = self.resolve(written) else {
+            return None;
+        };
+        let x = short(key);
+        let library = self.scope.std_root_key(x).filter(|other| *other != key);
+        let mut others: Vec<String> = self
+            .scope
+            .followers
+            .get(x)
+            .into_iter()
+            .flatten()
+            .filter(|other| *other != key)
+            .map(|other| format!("`{}`", display(other)))
+            .collect();
+        others.dedup();
+        if library.is_none() && others.is_empty() {
+            return None;
+        }
+        let place = match parent(key) {
+            Some(namespace) => format!(", declared in `{}`", display(namespace)),
+            None => String::new(),
+        };
+        let mut note = format!("`{written}` here means `{}`{place}", display(key));
+        if let Some(library) = library {
+            note.push_str(&format!(
+                "; it hides the library's `{}`, which is written `Std.{}`",
+                display(library),
+                display(library)
+            ));
+        }
+        if !others.is_empty() {
+            note.push_str(&format!(
+                "; other constructors named `{x}`: {}",
+                others.join(", ")
+            ));
+        }
+        Some(note)
+    }
+
     /// Why `name` doesn't name one declaration: it's ambiguous, followed by
     /// something its declaration doesn't have, or unknown.
     pub(crate) fn not_found(&self, name: &ast::Name) -> Diagnostic {

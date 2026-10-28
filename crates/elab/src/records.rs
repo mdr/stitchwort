@@ -273,13 +273,12 @@ impl Elaborator {
             .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
             .collect();
         let argument = self.record_argument(d, c, &explicit, ty)?;
+        let held = self.held_data(d, c, &explicit, ty)?;
         let mut seen: Vec<&ast::Name> = Vec::new();
         for (name, _) in fields {
             if !explicit.iter().any(|&i| *ctor.fields[i].0 == *name.text) {
                 let names: Vec<&ast::Name> = fields.iter().map(|(n, _)| n).collect();
-                return Err(
-                    self.unknown_ctor_field(d, c, &explicit, name, &names, argument, "match")
-                );
+                return Err(self.unknown_ctor_field(d, c, &explicit, name, &names, held, "match"));
             }
             if let Some(first) = seen.iter().find(|s| s.text == name.text) {
                 return Err(error(
@@ -364,6 +363,21 @@ impl Elaborator {
         explicit: &[usize],
         ty: Option<&Value>,
     ) -> Result<Option<DataId>> {
+        Ok(self
+            .held_data(d, c, explicit, ty)?
+            .filter(|&r| self.globals.data(r).record))
+    }
+
+    /// The data type of constructor `c`'s one explicit field, if it has
+    /// exactly one, its type (where the pattern's type `ty` is known) is a
+    /// data type, and that has one constructor.
+    fn held_data(
+        &self,
+        d: DataId,
+        c: usize,
+        explicit: &[usize],
+        ty: Option<&Value>,
+    ) -> Result<Option<DataId>> {
         let g = &self.globals;
         let [only] = explicit else {
             return Ok(None);
@@ -373,7 +387,7 @@ impl Elaborator {
             return Ok(None);
         };
         Ok(match force(g, field_ty.clone())? {
-            Value::Data(r, _) if g.data(r).record => Some(r),
+            Value::Data(r, _) if g.data(r).ctors.len() == 1 => Some(r),
             _ => None,
         })
     }
@@ -424,9 +438,14 @@ impl Elaborator {
         if let Some(r) = argument
             && names.iter().all(|n| record_has(g, r, &n.text))
         {
+            let braces = if g.data(r).record {
+                "({ … })".to_string()
+            } else {
+                format!("({} {{ … }})", g.data(r).ctors[0].name)
+            };
             e = e.with_note(format!(
                 "braces right after a constructor name its own fields; to {verb} the `{}` \
-                 it holds, write `{} ({{ … }})`",
+                 it holds, write `{} {braces}`",
                 g.data(r).name,
                 ctor.name
             ));
@@ -466,11 +485,11 @@ pub(crate) fn ctor_fields(
     let mut seen: Vec<&ast::Name> = Vec::new();
     for (name, _) in fields {
         if !explicit.iter().any(|&i| *ctor.fields[i].0 == *name.text) {
-            let argument = cx.e.record_argument(d, c, &explicit, expected)?;
+            let held = cx.e.held_data(d, c, &explicit, expected)?;
             let names: Vec<&ast::Name> = fields.iter().map(|(n, _)| n).collect();
             return Err(cx
                 .e
-                .unknown_ctor_field(d, c, &explicit, name, &names, argument, "build"));
+                .unknown_ctor_field(d, c, &explicit, name, &names, held, "build"));
         }
         if let Some(first) = seen.iter().find(|s| s.text == name.text) {
             return Err(error(
