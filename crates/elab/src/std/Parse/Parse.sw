@@ -604,7 +604,8 @@ def Parse.Failure.expectations (failure: Parse.Failure) (endOfInput: Text): List
 
 -- What was found `failure.offset` characters into `chars`, for "got 'x'":
 -- as many characters as the longest text expected there, up to a line
--- break, as Megaparsec shows; a line break is `lineBreak`, and past the
+-- break, as Megaparsec shows, then on to the end of a word they stop in;
+-- a line break is `lineBreak`, and past the
 -- last character is `endOfInput`.
 def Parse.Failure.found (failure: Parse.Failure) (chars: List Char) (endOfInput: Text) (lineBreak: Text): Text :=
   let rest := chars.drop failure.offset
@@ -613,8 +614,10 @@ def Parse.Failure.found (failure: Parse.Failure) (chars: List Char) (endOfInput:
     | Cons char after =>
       if char == '\n' ∨ char == '\r' then lineBreak
       else if failure.width > 1 then
-        let shown := rest.take failure.width |> .takeWhile (shownChar => shownChar ≠ '\n' ∧ shownChar ≠ '\r') |> Text.fromList
-        "'${shown}'"
+        let head := rest.take failure.width |> .takeWhile (shownChar => shownChar ≠ '\n' ∧ shownChar ≠ '\r')
+        let endsInWord := head.length == failure.width ∧ head.last.any Char.isAsciiAlphanumeric
+        let tail := if endsInWord then rest.drop failure.width |> .takeWhile Char.isAsciiAlphanumeric else []
+        "'${Text.fromList (head ++ tail)}'"
       else if char == '\t' then "a tab"
       else "'${char}'"
 
@@ -902,6 +905,9 @@ test "Parse: pick, error" := Parse.Tests.lineResult "X" (() => Parse.pick [("L",
 test "Parse: pick, error, longer words" :=
   Parse.Tests.lineResult "mul ( 1,2)" (() => Parse.pick [("mul(", 1), ("do()", 2), ("don't()", 3)]) ==
     Err "column 1: expected 'mul(' or 'do()' or 'don't()', got 'mul ( 1'"
+-- The word a short look stops inside is shown whole.
+test "Parse: found, to the end of the word" :=
+  Parse.Tests.lineError "ab OR cd" (() => Parse.text "ab: ") == "column 1: expected 'ab: ', got 'ab OR'"
 test "Parse: pick, first word first" := Parse.Tests.lineResult "<=" (() => Parse.pick [("<=", 0), ("<", 1)]) == Ok 0
 
 test "Parse: optional" := Parse.Tests.lineResult "+5" (() =>
