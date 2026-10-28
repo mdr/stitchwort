@@ -3,7 +3,11 @@
 **Status:** approved design, 28 October 2026 (SW-840). Nothing is implemented.
 Matt accepted the recommendations for D1461, D1462, D1467 and D1469 to D1472
 on 28 October (§7): option (b), the whitespace rule, with `!` as a separate
-ticket. D1468 (editor colouring) is still open.
+ticket. Later the same day he decided D1474 (a `-` glued to a numeral is
+part of the number, so `-1.abs` is `(-1).abs`), D1468 (colour it as a
+number) and, after the independent review
+([negative-arguments-review.md](negative-arguments-review.md)), D1490 to
+D1492. §7 lists them all; §8 is the plan as revised by the review.
 
 Labels, as in the other notes:
 
@@ -56,7 +60,9 @@ The reasons:
    **[checked]**). So `a -b` checks under the old rule only if `a` is a
    number, and under the new rule only if `a` is a function. A program whose
    meaning would change fails to check under one rule or the other, and the
-   new rule's error can say why (§4.2.4) **[inferred]**.
+   new rule's error can say why (§4.2.4) **[inferred]**. This is about the
+   argument rule only: D1474, decided later, does silently change
+   `-<float>.f` (§4.2, "No silent changes").
 3. **Stitchwort already uses spacing this way.** `p.name` is a field access
    but `f p .name` passes a method section, and `f()` is a call but `f ()`
    passes the unit (docs/syntax.md:19, 1340 **[checked]**). `f -x` against
@@ -420,6 +426,27 @@ argument_minus(i) :=
     && tokens[i+1] is an opening token
 ```
 
+In the parser the rule applies only where `peek()` returns the `-`, that is,
+not at a stop (`is_stop`, `parser.rs:654-672`): a line at the block's column,
+a `calc` step or the end of a rewrite rule is a new statement, so a block
+line `-y` after `let y := x + 1` stays the block's result, as today
+(review finding 1). A line break counts as a space only on a *continuation*
+line (D1469). The formatter has no block columns, so the shared token-level
+predicate is the formatter's whole test and the parser adds the stop check
+on top. The closing tokens are one shared list, including `?` and `cases`
+(review finding 7). Unlike GHC proposal #229, keywords such as `then` are
+not closing tokens: what counts is whether the `-` comes after an atom.
+
+**Negative numerals (D1474, D1490).** A `-` glued to a numeral is part of
+the number unless a closing token touches it on the left, so the negative
+numeral is one atom everywhere: `-1.abs` is `(-1).abs`, `-3.sub 5` is
+`(-3).sub 5`, and `f -1.abs` is `f ((-1).abs)`. `x-1.abs` stays
+`x - (1.abs)`, `- 1.abs` (a space after) stays `-(1.abs)`, and `-x.abs`
+stays `-(x.abs)`: only numerals are affected. This brings back a split by
+the following token (`f -1.abs` against `f -x.abs`), which the docs state in
+one line. Rust, Kotlin and Swift read `-1.f` as `-(1.f)`, and Rust and
+Kotlin both lint that reading as confusing (review finding 4).
+
 **Parsing rule.** `starts_atom` is also true at an argument minus. In `app`'s
 argument loop, an argument minus is consumed and the argument is
 `Expr::Neg(atom)`, where `atom` is what `self.atom(false)` reads: one atom
@@ -476,7 +503,15 @@ after the change, and the reverse holds too **[inferred]**. The exception is a
 left operand whose type is still unknown when it's checked (a hole `_`, or a
 lambda parameter with no expected type): the elaborator could solve it either
 way. Even then the program fails somewhere, because today's reading needed a
-number **[inferred]**.
+number **[inferred]**; the review's tests found the new reading fails there.
+
+The guarantee covers the argument rule only. D1474 changes `-(N.f)` into
+`(-N).f`, and for a `Float` both can check: `-2.5.floor` is `-2.0` today and
+`-3.0` after, and `-2.5.abs` goes from `-2.5` to `2.5`. Matt accepted this
+(D1491): no tracked `.sw` file has the form, the new reading is the one
+people expect, and the docs state it. Integer numerals can't change
+silently, because a numeral receiver is a `Nat` today and negating the
+result fails (`-5.natAbs`, `-3.sub 5`).
 
 **Formatter.** `roles` (`layout.rs:178-197`) must give an argument minus the
 role `Unary`, using the same predicate as the parser, so `f -2` is never
@@ -512,6 +547,16 @@ removes no brackets, so `f (-2)` and `f -2` both stay as written (D1472).
 4. `f -g x` (example 14) with `g` a function: the type mismatch on `-g` gets
    "`-g` negates `g` alone here; for `-(g x)` write `f (-(g x))`".
 
+The elaborator has no source text, so it can't quote the head "as written":
+`called_name` (`check.rs:2197-2203`) names only a definition or a variable,
+and `xs.length -1` or `(f x) -1` have neither. The note therefore names the
+argument, which is available as the `Expr`: "`-1` here is a negative
+argument (a space before the `-`, none after); to subtract, put a space
+after the `-` as well". Too many arguments is two error sites, not one: a
+definition's extra argument is the `E-NOT-A-FUNCTION` from `function_parts`
+(`check.rs:2533`, pipes too), and a constructor's is "`Some` takes 1
+argument(s) … it's given 2" (`check.rs:1615`). Both get the note.
+
 For the hint to tell `n -1` from `n (-1)`, the parser has to record that the
 negation was an unbracketed argument. The simplest way is a flag on
 `Expr::Neg`. There are 28 uses of `Expr::Neg` across 10 files, most of them
@@ -531,11 +576,19 @@ the new tree with no work. `nav.rs` already handles `Expr::Neg`. Recovery
 the end of a line, so spaced after) is still binary and gives the same "missing
 operand" error as today.
 
-**Highlighters.** No change is needed: `-` stays an operator and digits stay
-numbers. Optionally, the TextMate grammar and the playground tokenizer could
-colour an argument minus before a digit as part of the number
-(`(?<=[\s(\[,])-[0-9]+`). That would make `f -2` and `n -1` look different
-from `n - 1` (D1468 recommends against it for now).
+**Highlighters (D1468).** A `-` glued to a numeral, with no closing
+character touching it on the left, is coloured as part of the number. In
+the TextMate grammar that is a negative lookbehind, which also covers
+`x*-1`, `:=-1`, column 0 and floats:
+
+```
+(?<![A-Za-z0-9_')\]}"])-[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?
+```
+
+Its one known miss is a keyword glued to the minus (`then-1`), which
+`stitchwort fmt` spaces anyway. The playground's tokenizer
+(`web/index.html:2300-2420`) knows the previous token and whether it
+touches, so it applies the rule exactly.
 
 ### 4.3 Option (c): negative literals only
 
@@ -701,6 +754,8 @@ lexer tokenizes.
   no brackets (D1472).
 - Notes on the new mistakes (D1467).
 - `!` follows in a separate small change (D1471).
+- A `-` glued to a numeral is part of the number, so `-1.abs` is `(-1).abs`
+  (D1474, D1490), and editors colour it as a number (D1468).
 
 Why (b) and not the others:
 
@@ -730,6 +785,22 @@ mean `n - 1`. In the corpus that style doesn't appear at all, the formatter
 would never produce it, and the new note says what to write.
 
 ## 7. Decisions for Matt
+
+Decided 28 October 2026: D1461, D1462, D1467, D1469 to D1472 as
+recommended below; D1468 **yes** (against the recommendation below, which
+assumed a highlighter couldn't follow the rule; the review showed it can);
+and these, raised after the note:
+
+- **D1474.** A `-` glued to a numeral is part of the number unless a closing
+  token touches it on the left: `-1.abs` is `(-1).abs`, alone and as an
+  argument. **Yes.**
+- **D1490.** The negative numeral is one atom everywhere, so `-3.sub 5` is
+  `(-3).sub 5`. **Yes.**
+- **D1491.** Accept the silent change to `-<float>.f` (`-2.5.floor`: `-2.0`
+  to `-3.0`), stated in the docs and tested, with no warning. **Yes.**
+- **D1492.** Build stages 1 and 2 in one lane. **Yes.**
+
+The questions as first put:
 
 - **D1461.** Adopt the whitespace rule (§4.2): an argument minus (a space or
   line break before the `-`, none after, after an operand) starts a negative
@@ -769,84 +840,123 @@ would never produce it, and the new note says what to write.
 
 ## 8. Implementation plan
 
-For option (b) with the recommendations above. Each stage is a lane with its
-own tests. Stages 1 and 2 must merge together, or 2 right after 1, because
-until stage 2 the formatter would rewrite `f -2` to `f - 2` or refuse the
-file.
+Revised after the review ([negative-arguments-review.md](negative-arguments-review.md)).
+Stages 1 and 2 are **one lane** (D1492): on its own, stage 1's accept
+example would fail `crates/cli/tests/fmt_repo.rs`, because today's
+formatter writes `f -2` as `f - 2`, a different tree under the new parser,
+and refuses the file. Stage 3 (`!`) is a separate ticket.
 
-**Stage 1: parser and messages** (Sonnet; it touches the parser and the
-elaborator).
+**Stages 1 and 2: parser, messages and formatter** (Sonnet).
 
-- `crates/syntax/src/parser.rs`: add `fn argument_minus_at(&self, i: usize)
-  -> bool` next to `unit_call` and `section_at`, with the predicate from
-  §4.2. In `starts_atom`, add `|| self.argument_minus_at(self.pos)`. In
-  `atom` (or at the top of `app`'s argument loop), on an argument minus:
-  consume it, read `self.atom(false)`, and return
-  `Expr::Neg(operand, span, NegForm::Argument)`. In `ctor_args` (patterns),
-  accept an argument minus followed by a numeral as `Pattern::NegNum`.
-- `crates/syntax/src/ast.rs`: give `Expr::Neg` a third field (`bool` or a
-  two-variant enum, `Operand` / `Argument`), or a module-level side table.
-  Update the 28 uses, in `syntax`, `elab` (`check.rs`, `effects.rs`,
-  `numbers.rs`, `ring.rs`, `autobind.rs`, `module.rs`, `nav.rs`) and
-  `driver/tests/named_arguments.rs`.
-- `crates/elab/src/check.rs`: in `not_a_function_hint` and the
-  too-many-arguments path, when the argument is `Neg(_, _, Argument)`, add
-  the D1467 note, naming the head as written. In `numbers.rs`, the mismatch
-  on a function operand of an argument minus gets the "negates `g` alone"
-  note.
-- Tests:
-  - `parser.rs` `prefix_minus_precedence`: change `f -x` to
-    `(f (- x))` and `f -5` to `(f (- 5))`. Add `f -x.abs`,
-    `f -2 * 3` → `(Mul (f (- 2)) 3)`, `f -g x` → `((f (- g)) x)`, `f 1 -2`,
-    `f -(a * 2)`, `n-1` → `(Sub n 1)`, `n- 1` → `(Sub n 1)`, `n - 1`,
-    `x - -y`, `[1, -2]`, `f --x` (a comment), `f -` at the end of a line
-    (binary, parse error), the continuation-line case, and `f "a" -1`,
-    `(f x) -1`, `xs.length -1`.
-  - The pattern tests: `Some -1`, `Cons -1 rest`, `Some -x` (an error, as
-    `(-x)` is today).
-  - The recovery parser: a half-typed `f -` gives today's error.
-  - `examples/accept/negative-arguments.sw`: `f -2`, `f -x`, `f -x.abs`,
-    `g 1 -2`, `xs.map (x => clamp x -1 1)`, `Some -1` in a pattern, with
-    `test`s that the values are right and `theorem`s that `f -2 = f (-2)` by
-    `rfl`.
-  - `examples/reject/negative-argument-not-a-function.sw` (`n -1`,
-    `n: Nat`: `E-NOT-A-FUNCTION` and the note),
-    `negative-argument-too-many.sw` (`g x -1` with `g` of one parameter),
-    `negative-argument-function-operand.sw` (`f -g x`). Each has an
-    `expect-error` line and a snapshot of the message.
-  - A hash test that `def a: Int := f -2` and `def a: Int := f (-2)` give the
-    same hash.
-- Docs: docs/syntax.md:1114 (the `-e` row: replace "Not an argument …"),
-  1115 and 94 (patterns), the operator sections paragraph (1368 is
-  unchanged but should mention `f -1`), docs/guide/04-functions.md:128, and a
-  pointer from docs/proposals/integers.md:704-708 to this note.
+Parser (`crates/syntax/src/parser.rs`):
 
-**Stage 2: formatter** (DeepSeek, from a precise spec; small).
+- Put the token-level predicate (§4.2) in `stitchwort_syntax` as a public
+  function on `&[Token]`, with one shared list of closing tokens (including
+  `?` and `cases`), so the parser and formatter can't drift apart.
+- `argument_minus_at(i)`: the predicate, and only where `peek()` returns
+  the `-` (not at a stop: block column, `calc` step, rewrite-rule end). In
+  `starts_atom`, add `|| self.argument_minus_at(self.pos)`. On an argument
+  minus, consume it, read `self.atom(false)`, and return
+  `Expr::Neg(operand, span, NegForm::Argument)`.
+- Negative numerals (D1474, D1490): in `unary`, a `-` glued to a `Num` or
+  `Float` token, with no closing token touching it on the left, makes
+  `Neg(Num)` the *base* of `atom`'s field and `()` loop
+  (`parser.rs:3380-3420`), not `prefix_op(…, self.unary())`. The
+  argument-minus path uses the same base when the next token is a numeral.
+  `add_expr` already takes the tight `x-1`, so `x-1.abs` stays
+  `x - (1.abs)`. Don't merge `-1` into one lexer token: the formatter's
+  `- -x` rule would then glue `- -1` into the comment `--1`.
+- `ctor_args` (patterns): an argument minus followed by a numeral is
+  `Pattern::NegNum`, so `Some -1` and `Cons -1 rest` work (D1470).
+- `crates/syntax/src/ast.rs`: a `NegForm` (`Operand` / `Argument`) on
+  `Expr::Neg`; update its 28 uses (`syntax`, `elab`'s `check.rs`,
+  `effects.rs`, `numbers.rs`, `ring.rs`, `autobind.rs`, `module.rs`,
+  `nav.rs`, and `driver/tests/named_arguments.rs`).
 
-- `crates/fmt/src/layout.rs` `roles`: an argument minus (the same predicate;
-  it can be moved into `stitchwort_syntax` as a public function on
-  `&[Token]`, so that parser and formatter can't drift apart) is
-  `Role::Unary`.
-- `crates/fmt/src/spacing.rs` `gap`: the gap before an argument minus is
-  `Gap::Kept(spaced)`, which is always a space.
-- Tests: a golden pair `crates/fmt/tests/golden/negative-arguments.{before,after}.sw`
-  with `f -2`, `f   -x` (spaces collapse to one, the minus stays glued),
-  `f (-2)` (kept), `n-1` → `n - 1`, `n -  1` → `n - 1`, and the continuation
-  line. Extend the formatter fuzz test (`crates/fmt/tests/fuzz.rs`) to
-  generate argument minuses. `fmt_repo.rs` should still pass with no file
-  changes.
+Messages (`crates/elab/src/check.rs`, D1467): when the offending argument is
+`Neg(_, _, Argument)`, add "`-1` here is a negative argument (a space
+before the `-`, none after); to subtract, put a space after the `-` as
+well", naming the argument, not the head. Two sites: `not_a_function_hint`
+for `E-NOT-A-FUNCTION` from `function_parts` (definitions, pipes), and the
+constructor arity error ("`Some` takes 1 argument(s)", `check.rs:1615`). In
+`numbers.rs`, the mismatch on a function operand of an argument minus
+(`f -g x`) gets "`-g` negates `g` alone here; for `-(g x)` write
+`f (-(g x))`".
 
-**Stage 3: `!` arguments** (D1471; DeepSeek).
+Formatter (`crates/fmt`):
 
-- `parser.rs`: an argument `!` (the same spacing predicate) starts an atom,
-  read as `prefix_op(true, …)` of one atom. Update `bang_precedence` and the
-  syntax.md `!a` row ("not an argument …"). Add an accept example and a
-  formatter golden case (`f !x` stays).
+- `layout.rs` `roles`: an argument minus (the shared predicate) is
+  `Role::Unary`; `spacing.rs` `gap`: the gap before it is `Gap::Kept`.
+- A line-start `-` with a space after it, after an operand, keeps its gap
+  (or is `Binary`): today `    - y` is glued to `    -y`, which would become
+  an argument minus and make the formatter refuse the file (review 3b).
+- After a prefix minus, keep the gap when the next tokens are a numeral and
+  a glued `.`: today `- 1.abs` is glued to `-1.abs`, which under D1474 is a
+  different program (review 3c).
 
-**Checks for every stage:** `task test:lane AREA=syntax` (and `elab`,
-`fmt`), `task test:one` for the new tests, then the merge tier. Stage 1
-also runs the daily tier's hash-stability check, which should show no
-change: no existing definition's tree changes (§5).
+Highlighting (D1468): the TextMate number rule in
+`editors/vscode/syntaxes/stitchwort.tmLanguage.json` gets the negative
+lookbehind from §4.2, and the playground tokenizer (`web/index.html`,
+around 2300-2420) applies the rule from the previous token. This part can
+be a separate small ticket if the lane runs long.
+
+Tests:
+
+- `parser.rs` `prefix_minus_precedence`: `f -x` → `(f (- x))`, `f -5` →
+  `(f (- 5))`; add `f -x.abs`, `f -2 * 3` → `(Mul (f (- 2)) 3)`, `f -g x`
+  → `((f (- g)) x)`, `f 1 -2`, `f -(a * 2)`, `n-1`, `n- 1`, `n - 1`,
+  `x - -y`, `[1, -2]`, `f --x` (a comment), `f -` at the end of a line
+  (binary, parse error), `f "a" -1`, `(f x) -1`, `xs.length -1`, `f() -1`,
+  `f -()`.
+- Blocks: a block line `-y` stays the block's result; an indented `-y`
+  continuing the line above is an argument.
+- Numerals: `-1.abs` → `(- 1).abs`, `f -1.abs`, `x-1.abs`, `- 1.abs`,
+  `-x.abs` (unchanged), `-1.5.abs`, `- -1.abs` → `-((-1).abs)`,
+  `x - -1.abs`, `-3.sub 5`, `(-0e-400).bits`, `--1` (a comment), `1e-5`.
+- Sections, pipes and other forms: `(.fst -1)` (now `x => x.fst (-1)`;
+  mention it in the docs beside `(.fst + 1)`), `xs |> .drop -1`,
+  `x |> f -1`, `(let x := f -1; x)`, `(let x := 1; -x)` (prefix),
+  `"${n -1}"`.
+- Patterns: `Some -1`, `Cons -1 rest`, `Some -x` (an error, as `(-x)` is).
+- The recovery parser: a half-typed `f -` gives today's error.
+- `examples/accept/negative-arguments.sw`: `f -2`, `f -x`, `f -x.abs`,
+  `g 1 -2`, `xs.map (x => clamp x -1 1)`, `Some -1` in a pattern,
+  `-5.natAbs`, `-3.sub 5 == -8`, the `Float` cases `-2.5.floor == -3.0` and
+  `-2.5.abs == 2.5`, with `test`s of the values and a `theorem` that
+  `f -2 = f (-2)` by `rfl`.
+- `examples/reject/`: `negative-argument-not-a-function.sw` (`n -1`),
+  `negative-argument-too-many.sw` (`g x -1`, one parameter),
+  `negative-argument-constructor.sw` (`Some 5 -1`),
+  `negative-argument-function-operand.sw` (`f -g x`), each with
+  `expect-error` and a snapshot.
+- Formatter golden pair `crates/fmt/tests/golden/negative-arguments.{before,after}.sw`:
+  `f -2`, `f   -x` (one space, minus stays glued), `f (-2)` (kept), `n-1` →
+  `n - 1`, `n -  1` → `n - 1`, the continuation line, the line-start
+  `    - y`, and `- 1.abs` (kept). Extend `crates/fmt/tests/fuzz.rs` to
+  generate argument minuses.
+- A hash test that `f -2` and `f (-2)` give the same hash.
+
+Docs: docs/syntax.md:1114 (the `-e` row: replace "Not an argument …", and
+add "`-1.abs` is `(-1).abs`; `-x.abs` is `-(x.abs)`" and the `Float`
+consequence), 1115 and 94 (patterns), the numeric-literals paragraph
+(1650), the operator-sections paragraph (`(.fst -1)`),
+docs/guide/04-functions.md:128, and a pointer from
+docs/proposals/integers.md:704-708 to this note. The AoC notes that record
+the old mistake (aoc/NOTES-2024.md, Days 14 and 22) can say it's fixed.
+
+**Stage 3: `!` arguments** (D1471, SW-855; small).
+
+- `parser.rs`: an argument `!` (the same predicate and the same stop check:
+  `examples/accept/terminal-ops.sw:59` has a block line starting `!c…`)
+  starts an atom, read as `prefix_op(true, …)` of one atom. Update
+  `bang_precedence` and the syntax.md `!a` row. Add an accept example, a
+  block-line test, and a formatter golden case (`f !x` stays).
+
+**Checks.** The lane runs the lane tier only: `task test:lane AREA=syntax`,
+`AREA=fmt` and `AREA=elab`, and `task test:one -- NAME` for the tests it
+touched. The orchestrator runs the merge tier on `main` after merging; the
+hash-stability check there should show no change, since no existing
+definition's tree changes (§5).
 
 ## Sources
 
