@@ -1,5 +1,5 @@
 {
-  "next": 764,
+  "next": 767,
   "tickets": [
     {
       "id": 13,
@@ -6401,7 +6401,7 @@
     {
       "id": 757,
       "title": "Map.insertWith costs ~1.6 µs per insert (most of AoC 2024 day 11 part 2); profile Map/Ord dispatch on the machine and speed it up",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6425,7 +6425,7 @@
     {
       "id": 759,
       "title": "AoC 2024 day 14 (examples only; input pending from Matt): solve, prove, log gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6437,7 +6437,7 @@
     {
       "id": 760,
       "title": "Day 11/12 small fixes: E-ARITY names the definition that unfolded; DecEq.sound note names the unknown instance; E-NOT-A-TYPE points at the != operator; dot syntax for a recursive call with a termination proof; std List.contains, count/sum lemmas (countLe, countFewer, sumByCongMem, memLeSumBy, anyEqual, occurrencesFlatMap, permFlatMap, sumBy one = length)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6473,6 +6473,42 @@
     {
       "id": 763,
       "title": "Bench examples entry: peak memory 215 MB (898 files) -> 1.17 GB (1045 files); find which examples or changes drive the peak",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 764,
+      "title": "AoC 2024 day 16 (examples only; input pending from Matt): Dijkstra, solve, prove, log gaps",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 765,
+      "title": "Day 13/14 small fixes: warn on a match whose expression isn't in the goal; () for Unit proofs; labelWhole at the furthest point; Int div/natAbs/mod lemmas, List.minimum, List.allDistinct, find-over-range least; IO.args",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 766,
+      "title": "Regression: row-stuck-callback lost its empty-row label and note after the day 11/12 fixes merged",
       "status": "doing",
       "agent": "",
       "where": "",
