@@ -5541,21 +5541,21 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "\nD1466 (Matt, 28 Oct 2026): not at this time.",
       "created": "2026-10-27",
-      "updated": "2026-10-27",
+      "updated": "2026-10-28",
       "commits": []
     },
     {
       "id": 685,
       "title": "Elaborator fuzzing stage 1: mutate the example corpus (syntax fuzzer's generator) and run full checks; oracles: no panic, no E-INTERNAL, kernel never rejects an elaborated term, finishes within budget, cold and warm cache agree. Small fixed run in the daily tier, long run on demand (27 Oct discussion)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree (starting)",
       "labels": [],
-      "body": "",
+      "body": "D1465 (Matt, 28 Oct 2026): start now, on Sonnet.\n\nScope: mutate examples/accept and examples/reject (reuse the syntax fuzzer's generator, crates/syntax/tests/fuzz.rs; prefer token-level edits so a useful share parses) and run full checks. Oracles: (1) no panic; (2) no E-INTERNAL; (3) the kernel never rejects an elaborated term; (4) finishes within a time or step budget (hangs are found and named); (5) cold and warm check cache agree. Small fixed-seed run in the daily tier; long run with FUZZ_CASES. Failures print input, seed and generator state and save the input. Each distinct bug found becomes a backlog ticket with a minimal reproduction, not a fix in this lane. Out of scope: SW-686 rewrites, SW-687 proof mutation.",
       "created": "2026-10-27",
-      "updated": "2026-10-27",
+      "updated": "2026-10-28",
       "commits": []
     },
     {
