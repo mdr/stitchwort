@@ -18,14 +18,14 @@ def exampleReports: List Report := Fail.orElse [] (() => parseReports example)
 
 def parsed (input: Text): Result (List Report) Text := Fail.toResult (() => parseReports input)
 
-def safe (levels: List Nat): Bool := isSafe { levels }
+def safe (levels: List Nat): Bool := Report.isSafe { levels }
 
-def safeWithDampener (levels: List Nat): Bool := isSafeWithDampener { levels }
+def safeWithDampener (levels: List Nat): Bool := Report.isSafeWithDampener { levels }
 
 test "example, part 1" := solvePart1 exampleReports == 2
 test "example, part 2" := solvePart2 exampleReports == 4
-test "each example report, part 1" := exampleReports.map isSafe == [True, False, False, False, False, True]
-test "each example report, part 2" := exampleReports.map isSafeWithDampener == [True, False, False, True, True, True]
+test "each example report, part 1" := exampleReports.map .isSafe == [True, False, False, False, False, True]
+test "each example report, part 2" := exampleReports.map .isSafeWithDampener == [True, False, False, True, True, True]
 test "parse a report" := parsed "7 6 4 2 1" == Ok [{ levels = [7, 6, 4, 2, 1] }]
 test "parse extra spaces" := parsed "  1   3 " == Ok [{ levels = [1, 3] }]
 test "a level that isn't a number" := parsed "1 2\n1 x 3" == Err "line 2, column 3: expected a number or the end of the line, got 'x'"
