@@ -1,7 +1,7 @@
 # Negative arguments: should `f -2` mean `f (-2)`? (D1460)
 
 **Status:** research note, 28 October 2026 (SW-840). Nothing is implemented.
-The decisions are D1461 to D1467 (§7).
+The decisions are D1461, D1462, D1467 to D1472 (§7).
 
 Labels, as in the other notes:
 
@@ -444,12 +444,12 @@ restriction to numerals as `(-k)`. An arm's top-level `| -1 =>` already works.
 | 7 | `[1, -2]` | unchanged: after `,` the `-` is prefix |
 | 8 | `-x.y` | unchanged: `-(x.y)` |
 | 9 | `\| -1 => …` | unchanged |
-| 10 | `\| Some -1 => …` | `Some (-1)` (D1464) |
+| 10 | `\| Some -1 => …` | `Some (-1)` (D1470) |
 | 11 | `x - -y` | unchanged: loose binary, then prefix |
 | 12 | `n-1` | unchanged: tight infix is subtraction |
 | 13 | `n -1`, `n: Nat` | `n (-1)`: `E-NOT-A-FUNCTION`, with the new note |
 | 14 | `f -g x` | `f (-g) x` (D1462) |
-| 15 | `f` / indented `-x` | `f (-x)` (D1463) |
+| 15 | `f` / indented `-x` | `f (-x)` (D1469) |
 
 Unchanged as well: `-x` at the start of an operand, `then -n`, `(-x)`,
 `(- 1)` (still the number, not a section: syntax.md:1368), `rewrite <- h`
@@ -483,7 +483,7 @@ also subtraction). The gap before it should be `Kept`, like `f()`, because
 spacing changes meaning there. The gap after it is already `Rule(false)` for
 `Unary`. The re-parse check would catch a mistake, but it would then refuse
 to format the file, so the role has to be right. The formatter adds and
-removes no brackets, so `f (-2)` and `f -2` both stay as written (D1466).
+removes no brackets, so `f (-2)` and `f -2` both stay as written (D1472).
 `n-1` becomes `n - 1` as today, which has the same meaning under (b).
 
 **Errors for the new mistakes.**
@@ -600,7 +600,7 @@ highlighters don't change.
 - **(h) All prefix operators.** A general version of (b), as in Swift: the
   same rule for `!`. `!` has no binary meaning (`!=` is its own token), so
   `f !x` is unambiguous and could simply become `f (!x)`. This is a
-  sub-question of (b) (D1465), not a separate option.
+  sub-question of (b) (D1471), not a separate option.
 
 ### 4.6 Comparison
 
@@ -660,7 +660,7 @@ brackets: 151 `(-k)` with a numeral `k`, in 31 files (mostly
 (`Float.ieeeRank (-Float.infinity)`, `crates/elab/src/std/Float/Float.sw:362`;
 `Float.toSource (-Float.infinity)`, `examples/accept/float-operations.sw:67`).
 These are counts of what the change would allow, not of changes: the formatter
-leaves them as written (D1466).
+leaves them as written (D1472).
 
 **Outside `.sw` files.**
 
@@ -693,12 +693,12 @@ lexer tokenizes.
 - The argument minus negates one atom with its dots and `()` calls, like any
   argument (D1462).
 - A line break counts as a space, so a continuation line that starts with a
-  glued `-x` after an operand is an argument (D1463).
-- `Some -1` works in patterns, numerals only, like `(-k)` (D1464).
+  glued `-x` after an operand is an argument (D1469).
+- `Some -1` works in patterns, numerals only, like `(-k)` (D1470).
 - The formatter keeps the spacing of an argument minus and adds or removes
-  no brackets (D1466).
+  no brackets (D1472).
 - Notes on the new mistakes (D1467).
-- `!` follows in a separate small change (D1465).
+- `!` follows in a separate small change (D1471).
 
 Why (b) and not the others:
 
@@ -738,19 +738,19 @@ would never produce it, and the new note says what to write.
   `()` calls, as any argument does (`f -x.abs` is `f (-(x.abs))`,
   `f -g x` is `f (-g) x`, `f -2 * 3` is `(f (-2)) * 3`). This is GHC's, Elm's
   and Roc's choice. **[rec: yes]**
-- **D1463.** A line break before the `-` counts as a space, so in a
+- **D1469.** A line break before the `-` counts as a space, so in a
   continued application an indented line starting `-x` is a negative
   argument (`f` / `  -x` is `f (-x)`). The alternative is to refuse it with
   an error, like a method section at the start of a line (docs/syntax.md:1342).
   The corpus has no case either way. **[rec: count it as a space. That's one
   rule, and the formatter writes a continued subtraction as `- 1`.]**
-- **D1464.** Patterns: allow `Some -1` (and `Cons -1 rest`) as a
+- **D1470.** Patterns: allow `Some -1` (and `Cons -1 rest`) as a
   constructor's argument, numerals only, as `(-k)` is. It's a parse error
   today, so nothing changes meaning. **[rec: yes, in the same change]**
-- **D1465.** `!`: make `f !x` mean `f (!x)` under the same rule. It's a
+- **D1471.** `!`: make `f !x` mean `f (!x)` under the same rule. It's a
   syntax error today and `!` has no binary meaning, so nothing is ambiguous.
   **[rec: yes, as a separate small ticket after `-`]**
-- **D1466.** The formatter keeps an argument minus as written (a space
+- **D1472.** The formatter keeps an argument minus as written (a space
   before, none after, with the gap before it `Kept`) and adds or removes no
   brackets, so `f (-2)` and `f -2` both stay. It doesn't rewrite the 153
   bracketed arguments in the corpus. **[rec: yes]**
@@ -834,7 +834,7 @@ elaborator).
   generate argument minuses. `fmt_repo.rs` should still pass with no file
   changes.
 
-**Stage 3: `!` arguments** (D1465; DeepSeek).
+**Stage 3: `!` arguments** (D1471; DeepSeek).
 
 - `parser.rs`: an argument `!` (the same spacing predicate) starts an atom,
   read as `prefix_op(true, …)` of one atom. Update `bang_precedence` and the
