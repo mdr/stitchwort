@@ -1,5 +1,5 @@
 {
-  "next": 739,
+  "next": 740,
   "tickets": [
     {
       "id": 13,
@@ -5933,7 +5933,7 @@
     {
       "id": 718,
       "title": "rewrite and placeholders: a hole can stand for an auto instance argument (List.sumByAdd _ _), and _ arguments are filled from the goal before a proof argument (List.sumByLe xs _ _ (…), days 4 and 7); no internal names in errors",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6077,7 +6077,7 @@
     {
       "id": 730,
       "title": "Misleading E-EFFECT-ESCAPE on a pure let lambda in a {Fail} body; a lambda with a return type gives 'block must end with an expression' (AoC 2024 day 6)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6160,8 +6160,8 @@
     },
     {
       "id": 737,
-      "title": "Design note: tail-resumptive handler clauses run in place (Koka-style), skipping re-performing handlers; findAll costs ~12 µs/char on the machine vs 0.2 µs in JS",
-      "status": "doing",
+      "title": "Design note: tail-resumptive handler clauses (written, on branch worktree-agent-a8049d1cc701aac1f, docs/proposals/tail-resumptive-handlers.md; awaiting review)",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6174,6 +6174,18 @@
       "id": 738,
       "title": "Std.Parse: write runFrom's span/next/literal clauses naturally again (the runtime now loops through match arms)",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 739,
+      "title": "AoC 2024 day 9: solve, prove, log gaps (overnight)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
