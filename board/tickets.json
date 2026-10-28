@@ -1,5 +1,5 @@
 {
-  "next": 742,
+  "next": 743,
   "tickets": [
     {
       "id": 13,
@@ -6089,7 +6089,7 @@
     {
       "id": 731,
       "title": "A lemma application ran out of resources ('a value was too large to show') on Set.containsFilter with the program's filter; compare the term with itself before unfolding, and always shorten error terms (AoC 2024 day 6)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6125,7 +6125,7 @@
     {
       "id": 734,
       "title": "std from AoC 2024 day 7: Nat.digitCount (+ positivity), List.anyFlatMap, anyOr, anyComm, reverseReverse, reverseCons, sum-over-filter monotonicity; auto proves a divisor ≠ 0 from facts in scope (omega over hypotheses)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6149,7 +6149,7 @@
     {
       "id": 736,
       "title": "Split List/Toolkit.sw: lemmas into their own file(s) so programs calling List.range etc. don't check ~2,400 lines of lemmas (bench check-closed tracks toolkit size); after the day-7 std lemma lane merges",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6210,6 +6210,18 @@
       "id": 741,
       "title": "Day 8 findings: ring [h] with coefficients (linear_combination); compare ignoring proof args of / and %; lambda param types in proof args (Eq.cong (x => 4*x) h); rfl on same-body lifted matches; auto: Nat.toInt g ≠ 0 from g != 0; let after rewrite … in; std gcd/Int/subset-size lemmas, List.each/contains",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 742,
+      "title": "Design note: keep definitions folded until asked (goals, rewrite and match unfold too far: AoC 2024 days 2, 6, 7; rewrite reads the goal back fully, matching.rs unfolds to find the scrutinee)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
