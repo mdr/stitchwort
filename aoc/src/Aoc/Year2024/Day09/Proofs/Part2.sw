@@ -113,3 +113,30 @@ theorem layoutBlocks: (id: Nat) → (position: Nat) → (diskMap: List Nat) →
 -- file blocks as before, in some order.
 theorem part2KeepsBlocks (diskMap: List Nat): List.Perm ((compactFiles diskMap).flatMap blocksOfFile) (fileBlocks (blocks diskMap)) :=
   rewrite movedBlocks diskMap, <- layoutBlocks 0 0 diskMap in permFlatMapReverse blocksOfFile (filesOf diskMap)
+
+-- One block's part of the program's checksum.
+def blockChecksum (pair: (Nat, Option Nat)): Nat := pair.snd.map (id => pair.fst * id) |> .getOrElse 0
+
+-- Free blocks add nothing to the checksum; they shift what follows.
+theorem checksumSkipFree (rest: List (Option Nat)): (free: Nat) → (from: Nat) →
+    (List.withIndexFrom from (List.replicate free None ++ rest)).sumBy blockChecksum = (List.withIndexFrom (free + from) rest).sumBy blockChecksum
+  | Zero, from => rfl
+  | Succ free, from =>
+    rewrite List.sumByCons (List.withIndexFrom (Succ from) (List.replicate free None ++ rest)) (MkPair from None) blockChecksum,
+      checksumSkipFree rest free (Succ from), (omega: free + Succ from = Succ free + from) in rfl
+
+-- A file's blocks add their positions times its number.
+theorem checksumFileRun (id: Nat): (length: Nat) → (from: Nat) →
+    (List.withIndexFrom from (List.replicate length (Some id))).sumBy blockChecksum = (List.rangeFrom length from).sumBy (position => position * id)
+  | Zero, from => rfl
+  | Succ length, from =>
+    rewrite List.sumByCons (List.withIndexFrom (Succ from) (List.replicate length (Some id))) (MkPair from (Some id)) blockChecksum,
+      List.sumByCons (List.rangeFrom length (Succ from)) from (position => position * id), checksumFileRun id length (Succ from) in rfl
+
+-- A file's part of the checksum is the puzzle's checksum of a disk with just
+-- that file, where it is.
+theorem fileChecksumCorrect (file: File):
+    fileChecksum file = filesystemChecksum (List.replicate file.span.start None ++ List.replicate file.span.length (Some file.id)) :=
+  rewrite <- checksumCorrect (List.replicate file.span.start None ++ List.replicate file.span.length (Some file.id)) in
+    Eq.sym (Eq.trans (checksumSkipFree (List.replicate file.span.length (Some file.id)) file.span.start 0)
+      (rewrite Nat.addZero file.span.start in checksumFileRun file.id file.span.length file.span.start))

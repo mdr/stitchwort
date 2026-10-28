@@ -125,7 +125,7 @@ def compactFiles (diskMap: List Nat): List File :=
   let layout := layoutFrom 0 0 diskMap
   layout.fst.reverse.mapAccumLeft (FreeSpace.of (joinTouching layout.snd)) moveFile |> .snd
 
--- A file's part of the checksum.
-def fileChecksum (file: File): Nat := List.range file.span.length |> .sumBy (offset => (file.span.start + offset) * file.id)
+-- A file's part of the checksum: its blocks' positions times its number.
+def fileChecksum (file: File): Nat := List.rangeFrom file.span.length file.span.start |> .sumBy (position => position * file.id)
 
 def solvePart2 (diskMap: List Nat): Nat := compactFiles diskMap |> .sumBy fileChecksum
