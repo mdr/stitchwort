@@ -367,6 +367,53 @@ theorem Set.containsInsertElim [auto ord: Ord k] (s: Set k) (key: k) (other: k) 
     | Yes same => Inl same
     | No different => Inr (rewrite Set.containsInsertOther s key other different at held)
 
+-- The same facts as `Iff`s, for a proof that goes from membership in one
+-- direction or the other: each says what holding the key means for the sets
+-- the operation was made from.
+theorem Set.containsInsertIff [auto ord: Ord k] (s: Set k) (key: k) (other: k):
+    Iff (Set.contains (Set.insert s key) other = True) (Or (other = key) (Set.contains s other = True)) := {
+  forward = Set.containsInsertElim s key other,
+  backward = either =>
+    match either with
+      | Inl same => rewrite same in Set.containsInsert key s
+      | Inr held => Set.containsInsertMono s key other held
+}
+
+theorem Set.containsUnionIff [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
+    Iff (Set.contains (Set.union a b) key = True) (Or (Set.contains a key = True) (Set.contains b key = True)) := {
+  forward = h =>
+    Bool.orElim (Set.contains a key) (Set.contains b key) (Or (Set.contains a key = True) (Set.contains b key = True))
+      (rewrite Set.containsUnion a key b at h) (inA => Inl inA) (inB => Inr inB),
+  backward = either =>
+    match either with
+      | Inl inA => rewrite Set.containsUnion a key b in Bool.orLeft _ _ inA
+      | Inr inB => rewrite Set.containsUnion a key b in Bool.orRight _ _ inB
+}
+
+theorem Set.containsIntersectIff [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
+    Iff (Set.contains (Set.intersect a b) key = True) (And (Set.contains a key = True) (Set.contains b key = True)) := {
+  forward = h =>
+    let both := rewrite Set.containsIntersect a key b at h in h
+    Both (Bool.andLeft _ _ both) (Bool.andRight _ _ both),
+  backward = (Both inA inB) => rewrite Set.containsIntersect a key b in Bool.andIntro _ _ inA inB
+}
+
+theorem Set.containsDifferenceIff [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
+    Iff (Set.contains (Set.difference a b) key = True) (And (Set.contains a key = True) (Set.contains b key = False)) := {
+  forward = h =>
+    let both := rewrite Set.containsDifference a key b at h in h
+    Both (Bool.andLeft _ _ both) (Bool.notTrue _ (Bool.andRight _ _ both)),
+  backward = (Both inA outB) => rewrite Set.containsDifference a key b in Bool.andIntro _ _ inA (Bool.notOfFalse _ outB)
+}
+
+theorem Set.containsFilterIff [auto ord: Ord k] (s: Set k) (key: k) (p: k → Bool):
+    Iff (Set.contains (Set.filter s p) key = True) (And (Set.contains s key = True) (p key = True)) := {
+  forward = h =>
+    let both := rewrite Set.containsFilter s key p at h in h
+    Both (Bool.andLeft _ _ both) (Bool.andRight _ _ both),
+  backward = (Both inS kept) => rewrite Set.containsFilter s key p in Bool.andIntro _ _ inS kept
+}
+
 -- Removing each of `keys` leaves what the set held and `keys` doesn't.
 theorem Set.containsFoldRemove [auto ord: Ord k]: (keys: List k) → (s: Set k) → (key: k) →
     Iff (Set.contains (List.foldLeft keys s Set.remove) key = True) (And (Set.contains s key = True) (Not (List.Mem key keys)))
