@@ -608,6 +608,10 @@ fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
         // quote of its sides can be exponentially larger than their values,
         // which share.
         Value::Eq(..) => return Ok(Sort::Prop),
+        // A data type lives in its declared universe whatever its arguments
+        // are, so they aren't quoted: an argument can be a list whose
+        // normal form is enormous.
+        Value::Data(d, _) => return Ok(cx.g.data(*d).sort),
         _ => {}
     }
     let term = cx.quote_kept(ty)?;
