@@ -1,0 +1,25 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-NOTHING] Error: `rewrite` found no `isBig n` in the type of `found`
+    ╭─[ reject/rewrite-refined-by-match.sw:14:50 ]
+    │
+ 12 │   match c: isBig n with
+    │            ───┬───  
+    │               ╰───── this `match` replaced `isBig n` with `False`
+    │ 
+ 14 │     | False => Option.someInjective _ _ (rewrite c at found)
+    │                                                  ┬  
+    │                                                  ╰── looking for `isBig n`
+    │ 
+    │ Note 1: `found`: `Some n = Some m`
+    │ 
+    │ Note 2: the search compares what terms compute to: it looked for `11 <= n`, what `isBig n` computes to, in what the type of `found` computes to
+    │ 
+    │ Note 3: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
+    │ 
+    │ Note 4: to replace the right side by the left, write `rewrite <- …`
+    │ 
+    │ Note 5: inside the `match`, `isBig n` is replaced with `False` in the goal, in the hypotheses and in the `let`-bound lemmas from before the `match`, so `found` is already refined: use it as it is
+────╯

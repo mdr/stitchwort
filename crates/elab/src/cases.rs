@@ -400,34 +400,46 @@ struct CtorEquation {
 }
 
 fn ctor_equations(cx: &Ctx) -> Result<Vec<CtorEquation>> {
-    let g = cx.g();
     let mut out = Vec::new();
     for level in visible(cx) {
-        let Value::Eq(ty, l, r) = force(g, cx.types[level].clone())? else {
-            continue;
-        };
-        let (Value::Ctor(d, c1, f1), Value::Ctor(d2, c2, f2)) =
-            (force(g, (*l).clone())?, force(g, (*r).clone())?)
-        else {
-            continue;
-        };
-        if d != d2 || g.data(d).sort == Sort::Prop || !g.data(d).indices.is_empty() {
-            continue;
-        }
-        out.push(CtorEquation {
-            level,
-            ty: (*ty).clone(),
-            d,
-            left: (c1, f1.to_vec()),
-            right: (c2, f2.to_vec()),
-        });
+        out.extend(ctor_equation(cx, level)?);
     }
     Ok(out)
 }
 
-/// `Void.exfalso` (or `Void.absurd`, for a goal that isn't a proposition)
-/// of `J (y q => D y) Trivial h`, where `D` is a helper that is `Unit` at
-/// `h`'s left constructor and `Void` at the others.
+/// The variable at `level`, if its type equates two constructors of a data
+/// type that isn't a proposition or an indexed family.
+fn ctor_equation(cx: &Ctx, level: usize) -> Result<Option<CtorEquation>> {
+    let g = cx.g();
+    let Value::Eq(ty, l, r) = force(g, cx.types[level].clone())? else {
+        return Ok(None);
+    };
+    let (Value::Ctor(d, c1, f1), Value::Ctor(d2, c2, f2)) =
+        (force(g, (*l).clone())?, force(g, (*r).clone())?)
+    else {
+        return Ok(None);
+    };
+    if d != d2 || g.data(d).sort == Sort::Prop || !g.data(d).indices.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(CtorEquation {
+        level,
+        ty: (*ty).clone(),
+        d,
+        left: (c1, f1.to_vec()),
+        right: (c2, f2.to_vec()),
+    }))
+}
+
+/// A proof of `goal` from the variable at `level`, when its type equates
+/// two different constructors (an argument matched by `()`).
+pub(crate) fn refute_equation(cx: &mut Ctx, level: usize, goal: &Value) -> Result<Option<Term>> {
+    match ctor_equation(cx, level)? {
+        Some(eq) if eq.left.0 != eq.right.0 => contradiction(cx, eq, goal).map(Some),
+        _ => Ok(None),
+    }
+}
+
 fn by_contradiction(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     let Some(eq) = ctor_equations(cx)?
         .into_iter()
@@ -435,6 +447,13 @@ fn by_contradiction(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     else {
         return Ok(None);
     };
+    contradiction(cx, eq, goal).map(Some)
+}
+
+/// `Void.exfalso` (or `Void.absurd`, for a goal that isn't a proposition)
+/// of `J (y q => D y) Trivial h`, where `D` is a helper that is `Unit` at
+/// `h`'s left constructor and `Void` at the others.
+fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
     let g = cx.g();
     let h = Term::Var(cx.level() - 1 - eq.level);
     let bool_data = builtin_data(cx, Builtin::Bool)?;
@@ -495,10 +514,10 @@ fn by_contradiction(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     } else {
         (builtin_def(cx, Builtin::VoidAbsurd)?, goal_term)
     };
-    Ok(Some(Term::app(
+    Ok(Term::app(
         Term::app_icit(Term::Def(via), implicit, Icit::Implicit),
         void_proof,
-    )))
+    ))
 }
 
 /// `y q => helper … y`, a motive for `J` along an equation `l = y` of type

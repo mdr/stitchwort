@@ -321,17 +321,6 @@ theorem moveWideSeparate (warehouse: Warehouse) (direction: Direction) (separate
                     Bool.trueNotFalse
                       (Eq.trans (Eq.sym (And.right clearNext (next.step Left) boxed (Inr (Inl (stepLeftRight next))))) stays))))))
 
-def tileCode: WideTile → Nat
-  | WideWall => 0
-  | BoxLeft => 1
-  | BoxRight => 2
-  | WideRobot => 3
-  | WideFloor => 4
-
--- Different tiles are different.
-theorem tilesDiffer (tile: WideTile) (other: WideTile) (same: tile = other) (codes: Not (tileCode tile = tileCode other)): Void :=
-  codes (Eq.cong tileCode same)
-
 -- "Boxes are now twice as wide": with nothing overlapping, every `[` has
 -- its `]`.
 theorem wholeOfSeparate (warehouse: Warehouse) (separate: WideSeparate warehouse): Whole warehouse :=
@@ -352,33 +341,33 @@ theorem wholeOfSeparate (warehouse: Warehouse) (separate: WideSeparate warehouse
     {
       forward = isLeft =>
         match atRobot: position == warehouse.robot with
-          | True => Void.exfalso (tilesDiffer _ _ isLeft (omega))
+          | True => cases
           | False =>
             match wall: warehouse.walls.contains position with
-              | True => Void.exfalso (tilesDiffer _ _ isLeft (omega))
+              | True => cases
               | False =>
                 match boxed: warehouse.boxes.contains position with
                   | True => rightOfBox rfl
                   | False =>
                     match boxedLeft: warehouse.boxes.contains (position.step Left) with
-                      | True => Void.exfalso (tilesDiffer _ _ isLeft (omega))
-                      | False => Void.exfalso (tilesDiffer _ _ isLeft (omega)),
+                      | True => cases
+                      | False => cases,
       backward = isRight =>
         match rightAtRobot: right == warehouse.robot with
-          | True => Void.exfalso (tilesDiffer _ _ isRight (omega))
+          | True => cases
           | False =>
             match rightWall: warehouse.walls.contains right with
-              | True => Void.exfalso (tilesDiffer _ _ isRight (omega))
+              | True => cases
               | False =>
                 match rightBoxed: warehouse.boxes.contains right with
-                  | True => Void.exfalso (tilesDiffer _ _ isRight (omega))
+                  | True => cases
                   | False =>
                     match boxedLeft: warehouse.boxes.contains (right.step Left) with
-                      | False => Void.exfalso (tilesDiffer _ _ isRight (omega))
+                      | False => cases
                       | True =>
                         let boxed: warehouse.boxes.contains position = True := rewrite stepRightLeft position at boxedLeft
                         let notRobot: (position == warehouse.robot) = False :=
-                          Bool.falseOfNotTrue (position == warehouse.robot) (atRobot =>
+                          Bool.falseOfNotTrue _ (atRobot =>
                             Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite DecEq.sound position warehouse.robot atRobot at boxed)) robotNotBoxed))
                         rewrite notRobot, offWalls position boxed position (Inl rfl), boxed in rfl
     }

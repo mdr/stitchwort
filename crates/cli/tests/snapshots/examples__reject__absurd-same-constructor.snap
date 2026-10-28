@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-EMPTY] Error: `Robot = Robot` has values, so this argument can't be `()`
+   ╭─[ reject/absurd-same-constructor.sw:8:5 ]
+   │
+ 8 │   | ()
+   │     ─┬  
+   │      ╰── `Robot = Robot` has values, so this argument can't be `()`
+   │ 
+   │ Note: this statement is false:
+   │       `Robot = Robot` holds
+   │       `Void` is false
+───╯

@@ -777,7 +777,7 @@ fn rewrite_once(
         Place::Goal => holds_by_computing(cx, &goal_value, remaining)?,
         Place::Target(_) | Place::Inside => false,
     };
-    Err(nothing_found(
+    let error = nothing_found(
         cx,
         rule,
         Searched {
@@ -790,7 +790,48 @@ fn rewrite_once(
         &equation.lhs,
         &goal_value,
         &found,
-    ))
+    );
+    Err(replaced_by_match(cx, &equation.lhs, place, error))
+}
+
+/// `error` with a label and a note when the rule's left side is the
+/// scrutinee of an enclosing `match`, which already replaced it in the goal
+/// and in every hypothesis that mentioned it.
+fn replaced_by_match(cx: &Ctx, lhs: &Value, place: Place, error: Diagnostic) -> Diagnostic {
+    let g = cx.g();
+    let level = cx.level();
+    let Ok(lhs_term) = cx.quote(lhs) else {
+        return error;
+    };
+    for (base, needle, span, var) in cx.scrutinees.iter().rev() {
+        let Ok(needle) = needle.shift(g, level - base, 0) else {
+            continue;
+        };
+        if !crate::matching::same(&needle, &lhs_term) {
+            continue;
+        }
+        let with = match cx.refined_value(*var) {
+            Some(value) => format!("`{value}`"),
+            None => "a variable".to_string(),
+        };
+        let shown_lhs = shown(cx, lhs);
+        let rest = match place {
+            Place::Target(Some(name)) => {
+                format!(", so `{name}` is already refined: use it as it is")
+            }
+            _ => String::new(),
+        };
+        return error
+            .with_label(
+                *span,
+                format!("this `match` replaced `{shown_lhs}` with {with}"),
+            )
+            .with_note(format!(
+                "inside the `match`, `{shown_lhs}` is replaced with {with} in the goal, in the \
+                 hypotheses and in the `let`-bound lemmas from before the `match`{rest}"
+            ));
+    }
+    error
 }
 
 /// Where [`replace_occurrences`] searches: the whole of the goal (or a
