@@ -785,14 +785,41 @@ What the numbers say:
 
 **Not built.**
 
-- *`Int` atoms* (item 6 of the ranking, about 4 AoC sites, all in Day 2: `weightsOne`'s
-  `d + (1 - d) = 1`, `divisorWeightsTop`, `divisorWeightsAll`, one `Int.mulZero`). It needs
-  `Int` syntax, `Int` facts and goals over the environment's `Int` list (no non-negativity),
-  their linear forms and a second `linEval`: a second soundness layer for four one-line
-  lemma calls. Left for a later lane; the environment and rows already have the `Int` side.
+- *`Int` atoms*: built later, below ("As built: `Int`").
 - *`/` and `%` by literals* and *`if`/`||` facts*: no AoC site (as the ranking said).
 - *Splits on combinations of atoms* (`omega-rational-model.sw`'s `x - z`) and a smaller
   budget for the D547 `auto` fallback: unchanged from 1b.
+
+## As built: `Int`
+
+`omega` works on `Int` as Lean's does: one problem over integers, where a `Nat` inside
+`Nat.toInt` keeps its non-negativity (Lean: "Given `x ≥ y` for `x : Nat`, replace it with
+`(x : Int) ≥ (y : Int)`" and, for "each new atom `a` of the form `((x : Nat) : Int)`, the
+fact that `0 ≤ a`", <https://lean-lang.org/doc/api/Lean/Elab/Tactic/Omega.html>,
+<https://lean-lang.org/doc/api/Lean/Elab/Tactic/Omega/Frontend.html>). Here a `Nat` atom is
+the same atom inside an `Int` term, so `NatNonneg` covers it; `Int` atoms get no bound.
+
+**Library** (`std/Omega/Omega.sw`): `Omega.ITerm` (`IV`, `IOfNat t` with `t` an `NTerm`,
+`INegSucc t`, `IAdd`, `INeg`, `IMulLeft k`/`IMulRight k` for an `Int` number `k`, and
+`ISubNat a b` for `Int.subNatNat`, which `n.toInt - 1` computes to), its meaning and
+linear form over the environment's `Int` list; facts `FILe`/`FINotLe` (`Int.leq a b =
+True`/`False`), `FILt`/`FINotLt` (`Int.less`), `FIEq`, and `FINe` with the cases `a < b`,
+`b < a`; goals `GILe`, `GILt`, `GINotLe`, `GINotLt`. The rows, the checker and the
+certificate steps are unchanged: an `Int` fact `a < b` is the row of `a + 1 <= b`.
+
+**Proof** (`std/Omega/Sound.sw`): `Omega.ilinEval` (an `Int` term's linear form means the
+term), `Omega.ileRowHolds`, and `Int`'s order by cases down to `Nat`
+(`intLeqOfLess`, `intLeqOfNotLeq`, `intLeqOfNotLess`, `intLeAntisym`, `intSubNonneg`);
+`factRowsHold`, `factCases` and `prove` gain the new constructors, and `Omega.proveIntEq`
+proves an equation from two refutations. Still no assumption or extensionality.
+
+**Compiler** (`omega.rs`): `quote_int` mirrors what `Int` arithmetic computes to; `x / k`
+and `x % k` on `Int` for a nonzero number are atoms with the facts from `Int.divAddMod`,
+`Int.modNonneg` and `Int.modLtAbs`; the search (`omega_search.rs`) adds `x >= 0` only for
+`Nat` atoms. Not covered: `Int.natAbs`, `Int.toNat`, `Int.sign`, `max`/`min` on `Int`
+(atoms). Cost: loading the bigger library adds about 16 ms to a program's first `omega`
+(0.386 s to 0.402 s for a one-line file); the AoC days that use `omega` most check in the
+same time as before, within noise.
 
 ## 0. Summary
 

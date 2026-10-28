@@ -55,8 +55,7 @@ theorem divideByFacts (difference: Position) (goal: Prop) (rowTimes: Nat) (colum
         Eq.cong ((x: Int) => s * rowSign * x) rowLaw,
         Eq.cong ((x: Int) => t * columnSign * x) columnLaw
       ]
-    use scale (z => omega [Int.ofNatInjective (Succ below) 0 z]) (Eq.sym rowLaw) (Eq.sym columnLaw) (s * rowSign) (t * columnSign)
-      (mulCancel scale _ 1 (z => omega [Int.ofNatInjective (Succ below) 0 z]) scaled)
+    use scale (omega) (Eq.sym rowLaw) (Eq.sym columnLaw) (s * rowSign) (t * columnSign) (mulCancel scale _ 1 (omega) scaled)
 
 -- The step to grid points from `start` towards `end`: `end - start` is a
 -- nonzero multiple of it, and its parts are coprime (some whole combination
@@ -176,7 +175,7 @@ theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firs
                 | True =>
                   let rowStill := DecEq.sound step.row 0 still
                   let columnMoves: Not (step.column = 0) := z =>
-                    omega [rewrite rowStill, z, Int.mulZero s, Int.mulZero t at bezout in Int.ofNatInjective 0 1 bezout]
+                    omega [rewrite rowStill, z, Int.mulZero s, Int.mulZero t at bezout in bezout]
                   let below :=
                     stepsBound first.column point.column step.column steps city.width firstColumn pointColumn firstColumnAt pointColumnAt
                       firstColumnBelow pointColumnBelow (And.right both) columnMoves

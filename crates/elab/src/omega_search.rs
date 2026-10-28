@@ -3,7 +3,8 @@
 //! answer here can lose a proof or waste time, never prove something false.
 //!
 //! The input is a list of rows `0 <= c + Σ a_i * x_i` over `n` atoms, each
-//! from a source (a fact's row, the goal's negation, or `x_i >= 0`). The
+//! from a source (a fact's row, the goal's negation, or `x_i >= 0` for a
+//! `Nat` atom; an `Int` atom has no bound). The
 //! search is Fourier–Motzkin: equalities (a row and its exact negation) are
 //! used first to eliminate a variable, then variables are eliminated by
 //! adding every lower bound to every upper bound, with every new row divided
@@ -664,11 +665,13 @@ impl Search<'_> {
 }
 
 /// One refutation problem: the input rows, each with its source, over `n`
-/// atoms, and the facts with cases.
+/// atoms, and the facts with cases. `ints[j]` says atom `j` is an `Int`,
+/// which may be negative.
 pub(crate) struct Problem {
     pub n: usize,
     pub rows: Vec<(Source, Row)>,
     pub cases: Vec<Case>,
+    pub ints: Vec<bool>,
 }
 
 /// A fact with two cases (`Std.Omega.Fact.left`/`right`): `t = a - b`, `max`,
@@ -713,7 +716,7 @@ fn holds_all(rows: &[Row], model: &[Rat]) -> bool {
 /// Refutes `problem`: the rows connected to the goal's negation first (with
 /// every closed row), then each other group of rows sharing atoms on its
 /// own, since a contradiction among facts unrelated to the goal proves it
-/// too. Each attempt adds `x >= 0` for its atoms. A failure reports the
+/// too. Each attempt adds `x >= 0` for its `Nat` atoms. A failure reports the
 /// goal's attempt, with every attempt's model merged.
 pub(crate) fn refute(problem: &Problem, limits: Limits) -> Result<Cert, Failure> {
     let n = problem.n;
@@ -809,6 +812,9 @@ pub(crate) fn refute(problem: &Problem, limits: Limits) -> Result<Cert, Failure>
         atoms.sort_unstable();
         atoms.dedup();
         for j in atoms {
+            if problem.ints.get(j) == Some(&true) {
+                continue;
+            }
             let mut row = Row::zero(n);
             row.a[j] = 1;
             match search.push(Node::Source(Source::NonNeg(j)), row) {
@@ -969,6 +975,7 @@ mod tests {
             n,
             rows,
             cases: Vec::new(),
+            ints: vec![false; n],
         }
     }
 
@@ -997,6 +1004,16 @@ mod tests {
     fn needs_nonnegativity() {
         // |- x <= x + y: negation x - (x + y) - 1 = -y - 1 >= 0.
         let p = problem(2, &[], Some(row(-1, &[0, -1])));
+        assert!(proves(&p));
+    }
+
+    #[test]
+    fn int_atoms_have_no_bound() {
+        // |- x <= x + y holds for a `Nat` y, not for an `Int` one.
+        let mut p = problem(2, &[], Some(row(-1, &[0, -1])));
+        p.ints = vec![false, true];
+        assert!(matches!(refute(&p, LIMITS), Err(Failure::Integer(_))));
+        p.ints = vec![true, false];
         assert!(proves(&p));
     }
 

@@ -79,11 +79,11 @@ pub const FLOAT_DATA_HASH: &str =
 pub const NATIVE_HASHES: &[(Builtin, &str)] = &[
     (
         Builtin::FloatNeg,
-        "8269f240d1db39ea2fc08c794460c436857b193de69f0f6aefc34d527913d151",
+        "6674286bce5962048e58f1d650ee1c064e3a19f86c0c33c9eb6511189cd70f78",
     ),
     (
         Builtin::FloatAbs,
-        "db48205e1c4a858a182e6b7239e67ffa9c0c014d6196eb1b4e33f22b0e235542",
+        "3e9e590fca43e107783d58a5dd216a929a99f57677b186dab959e1b4284dc399",
     ),
     (
         Builtin::FloatIsNaN,
@@ -115,7 +115,7 @@ pub const NATIVE_HASHES: &[(Builtin, &str)] = &[
     ),
     (
         Builtin::FloatSub,
-        "20e11d17ee7a71c5e68935f9d15c9c1c92de999180021bac9579d1294b718c1e",
+        "dcbbee4e09896affacc8a2f6fe16b3b16c916410ec00eee2a29580e82832eb4d",
     ),
     (
         Builtin::FloatBitsExt,

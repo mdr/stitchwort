@@ -1,16 +1,12 @@
 -- Integer facts the proofs need that std doesn't have: no zero divisors,
--- cancelling a nonzero factor, squares, and exact division. `omega` doesn't
--- work on `Int`, so each is by cases on the constructors, down to `Nat`.
+-- cancelling a nonzero factor, and squares. Products of unknowns aren't
+-- linear, so these are by cases on the constructors, down to `Nat`.
 
 namespace Aoc.Year2024.Day08.Proofs
 import Std (And, Eq, Int, Nat, Or, Void)
 
 -- `a - b = 0` means `a = b`.
-theorem subEqZero (a: Int) (b: Int) (h: a - b = 0): a = b :=
-  calc a
-    _ = (a - b) + b := ring
-    _ = 0 + b := rewrite h
-    _ = b := ring
+theorem subEqZero (a: Int) (b: Int) (h: a - b = 0): a = b := omega
 
 -- `0 * n` is the only way to get 0 from naturals.
 theorem natMulEqZero: (m: Nat) → (n: Nat) → m * n = 0 → Or (m = 0) (n = 0)
@@ -18,9 +14,7 @@ theorem natMulEqZero: (m: Nat) → (n: Nat) → m * n = 0 → Or (m = 0) (n = 0)
   | Succ m, Zero, h => Inr rfl
   | Succ m, Succ n, h => omega [Nat.leMulPos (Succ m) (Succ n) (omega)]
 
-theorem negOfNatZero: (k: Nat) → Int.neg (OfNat k) = 0 → k = 0
-  | Zero, h => rfl
-  | Succ k, h => Void.exfalso (Int.negSuccNotOfNat k 0 h)
+theorem negOfNatZero (k: Nat) (h: Int.neg (OfNat k) = 0): k = 0 := omega
 
 -- No zero divisors.
 theorem mulEqZero: (a: Int) → (b: Int) → a * b = 0 → Or (a = 0) (b = 0)
@@ -75,12 +69,3 @@ theorem squaresEq (x: Int) (y: Int) (h: x * x = y * y): Or (x = y) (x + y = 0) :
   match mulEqZero (x - y) (x + y) (ring [h]) with
     | Inl z => Inl (subEqZero x y z)
     | Inr z => Inr z
-
--- Dividing a multiple of 3 by 3.
-theorem modThreeMul: (k: Int) → (3 * k) % 3 = 0
-  | OfNat n => Eq.cong OfNat (omega)
-  | NegSucc n => Eq.cong OfNat (omega)
-
-theorem divThreeMul: (k: Int) → (3 * k) / 3 = k
-  | OfNat n => Eq.cong OfNat (omega)
-  | NegSucc n => Eq.cong NegSucc (omega)

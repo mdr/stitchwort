@@ -6,6 +6,11 @@
 -- compiler's `omega` (milestone 1b) finds the certificate and writes the
 -- `Omega.prove` application; nothing here is trusted beyond the kernel.
 --
+-- `Int` facts and goals are written over `Int` syntax (`ITerm`), whose
+-- `Nat` parts (`OfNat t`) are `Nat` syntax: a `Nat` atom inside an `Int`
+-- term is the same atom, with `0 <= x` available, and an `Int` atom has no
+-- bound.
+--
 -- Rows are `0 <= c + Σ a_i * nat_i + Σ b_j * int_j` with `Int` coefficients.
 -- Coefficient lists grow to cover every index the syntax mentions (adding two
 -- lists keeps the longer one, `NV i` has a list of length `i + 1`), so no
@@ -14,16 +19,17 @@
 
 import Omega.Env (MkEnv)
 import Omega.NTerm (NV, NLit, NAdd, NSucc, MulLeft, MulRight)
-import Omega.Fact (FLe, FLt, FEq, FNotLe, FNotLt, FSub, FMax, FMin, FNe)
-import Omega.Goal (GLe, GLt, GVoid)
+import Omega.ITerm (IV, IOfNat, INegSucc, IAdd, INeg, IMulLeft, IMulRight, ISubNat)
+import Omega.Fact (FLe, FLt, FEq, FNotLe, FNotLt, FSub, FMax, FMin, FNe, FILe, FINotLe, FILt, FINotLt, FIEq, FINe)
+import Omega.Goal (GLe, GLt, GVoid, GILe, GILt, GINotLe, GINotLt)
 import Omega.Row (MkRow)
 import Omega.Step (Input, NegGoal, NatNonneg, Combine, Divide)
 import Omega.Cert (Close, Then, Split, Cases)
 
 -- Syntax and meaning
 
--- The atoms' values: `Nat` atoms and (from stage 2) `Int` atoms, each
--- numbered from 0 in its own list.
+-- The atoms' values: `Nat` atoms and `Int` atoms, each numbered from 0 in
+-- its own list.
 type Omega.Env: Type =
   | MkEnv (nats: List Nat) (ints: List Int)
 
@@ -32,6 +38,11 @@ def Omega.natAt: Nat → List Nat → Nat
   | i, Nil => 0
   | Zero, Cons x xs => x
   | Succ i, Cons x xs => Omega.natAt i xs
+
+def Omega.intAt: Nat → List Int → Int
+  | i, Nil => OfNat 0
+  | Zero, Cons x xs => x
+  | Succ i, Cons x xs => Omega.intAt i xs
 
 -- `Nat`-valued syntax. Each node means what the surface syntax computes to,
 -- so a quoted term converts with the term it quotes: `MulLeft 3 (NV 0)` is
@@ -55,6 +66,32 @@ def Omega.NTerm.eval (env: Omega.Env): Omega.NTerm → Nat
   | MulLeft k t => k * Omega.NTerm.eval env t
   | MulRight t k => Omega.NTerm.eval env t * k
 
+-- `Int`-valued syntax, mirroring what `Int` arithmetic computes to: `x - y`
+-- is `x + Int.neg y`, a literal or `n.toInt` is `OfNat n`, `-1` is
+-- `NegSucc 0`, and `n.toInt - 1` is `Int.subNatNat n 1` (which `OfNat n +
+-- NegSucc 0` steps to). `IMulLeft k t` is `k * t` and `IMulRight t k` is
+-- `t * k`, for a number `k`.
+type Omega.ITerm: Type =
+  | IV (i: Nat)
+  | IOfNat (t: Omega.NTerm)
+  | INegSucc (t: Omega.NTerm)
+  | IAdd (a: Omega.ITerm) (b: Omega.ITerm)
+  | INeg (a: Omega.ITerm)
+  | IMulLeft (k: Int) (t: Omega.ITerm)
+  | IMulRight (t: Omega.ITerm) (k: Int)
+  | ISubNat (a: Omega.NTerm) (b: Omega.NTerm)
+
+@[noReceiver]
+def Omega.ITerm.eval (env: Omega.Env): Omega.ITerm → Int
+  | IV i => Omega.intAt i (Omega.Env.ints env)
+  | IOfNat t => OfNat (Omega.NTerm.eval env t)
+  | INegSucc t => NegSucc (Omega.NTerm.eval env t)
+  | IAdd a b => Int.add (Omega.ITerm.eval env a) (Omega.ITerm.eval env b)
+  | INeg a => Int.neg (Omega.ITerm.eval env a)
+  | IMulLeft k t => Int.mul k (Omega.ITerm.eval env t)
+  | IMulRight t k => Int.mul (Omega.ITerm.eval env t) k
+  | ISubNat a b => Int.subNatNat (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)
+
 -- A hypothesis. `FNotLe` and `FNotLt` quote `Not (a <= b)` and `Not (a < b)`
 -- directly; other forms (`Nat.leq a b = False`, `(p && q) = True`) reach
 -- these through bridge lemmas (`Nat.leqFalse`, `Bool.andLeft`, ...).
@@ -65,6 +102,11 @@ def Omega.NTerm.eval (env: Omega.Env): Omega.NTerm → Nat
 -- `Nat.min`. Each gives rows that always hold (`a - b <= a`, ...) and two
 -- cases a certificate may split on (`Cases`); `FNe`, `Not (a = b)`, gives
 -- only the cases.
+--
+-- The `Int` facts say what `Int`'s comparisons compute: `FILe a b` is
+-- `Int.leq a b = True` (which `a <= b` is), `FINotLe a b` is `Int.leq a b =
+-- False`, `FILt`/`FINotLt` the same for `Int.less` (`a < b`), and `FINe a b`,
+-- `Not (a = b)`, has the cases `a < b` and `b < a`.
 type Omega.Fact: Type =
   | FLe (a: Omega.NTerm) (b: Omega.NTerm)
   | FLt (a: Omega.NTerm) (b: Omega.NTerm)
@@ -75,6 +117,12 @@ type Omega.Fact: Type =
   | FMax (t: Omega.NTerm) (a: Omega.NTerm) (b: Omega.NTerm)
   | FMin (t: Omega.NTerm) (a: Omega.NTerm) (b: Omega.NTerm)
   | FNe (a: Omega.NTerm) (b: Omega.NTerm)
+  | FILe (a: Omega.ITerm) (b: Omega.ITerm)
+  | FINotLe (a: Omega.ITerm) (b: Omega.ITerm)
+  | FILt (a: Omega.ITerm) (b: Omega.ITerm)
+  | FINotLt (a: Omega.ITerm) (b: Omega.ITerm)
+  | FIEq (a: Omega.ITerm) (b: Omega.ITerm)
+  | FINe (a: Omega.ITerm) (b: Omega.ITerm)
 
 @[noReceiver]
 def Omega.Fact.holds (env: Omega.Env): Omega.Fact → Prop
@@ -87,24 +135,40 @@ def Omega.Fact.holds (env: Omega.Env): Omega.Fact → Prop
   | FMax t a b => Omega.NTerm.eval env t = Nat.max (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)
   | FMin t a b => Omega.NTerm.eval env t = Nat.min (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)
   | FNe a b => Not (Omega.NTerm.eval env a = Omega.NTerm.eval env b)
+  | FILe a b => Int.leq (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = True
+  | FINotLe a b => Int.leq (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = False
+  | FILt a b => Int.less (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = True
+  | FINotLt a b => Int.less (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = False
+  | FIEq a b => Omega.ITerm.eval env a = Omega.ITerm.eval env b
+  | FINe a b => Not (Omega.ITerm.eval env a = Omega.ITerm.eval env b)
 
 -- The facts' proofs, as `Both h1 (Both h2 Trivial)`.
 def Omega.Facts.holds (env: Omega.Env): List Omega.Fact → Prop
   | Nil => Unit
   | Cons f fs => And (Omega.Fact.holds env f) (Omega.Facts.holds env fs)
 
--- The goal. An equation is two `GLe` goals (`Omega.proveEq`); `GVoid` says
--- the facts contradict each other.
+-- The goal. An equation is two `GLe` goals (`Omega.proveEq`), or two `GILe`
+-- goals on `Int` (`Omega.proveIntEq`); `GVoid` says the facts contradict
+-- each other. The `Int` goals are what `Int`'s comparisons compute, as for
+-- the facts.
 type Omega.Goal: Type =
   | GLe (a: Omega.NTerm) (b: Omega.NTerm)
   | GLt (a: Omega.NTerm) (b: Omega.NTerm)
   | GVoid
+  | GILe (a: Omega.ITerm) (b: Omega.ITerm)
+  | GILt (a: Omega.ITerm) (b: Omega.ITerm)
+  | GINotLe (a: Omega.ITerm) (b: Omega.ITerm)
+  | GINotLt (a: Omega.ITerm) (b: Omega.ITerm)
 
 @[noReceiver]
 def Omega.Goal.holds (env: Omega.Env): Omega.Goal → Prop
   | GLe a b => Omega.NTerm.eval env a ≤ Omega.NTerm.eval env b
   | GLt a b => Omega.NTerm.eval env a < Omega.NTerm.eval env b
   | GVoid => Void
+  | GILe a b => Int.leq (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = True
+  | GILt a b => Int.less (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = True
+  | GINotLe a b => Int.leq (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = False
+  | GINotLt a b => Int.less (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) = False
 
 -- Rows
 
@@ -171,11 +235,27 @@ def Omega.NTerm.lin: Omega.NTerm → Omega.Row
   | MulLeft k t => Omega.Row.scale (OfNat k) (Omega.NTerm.lin t)
   | MulRight t k => Omega.Row.scale (OfNat k) (Omega.NTerm.lin t)
 
+def Omega.ITerm.lin: Omega.ITerm → Omega.Row
+  | IV i => MkRow (OfNat 0) Nil (Omega.unit i)
+  | IOfNat t => Omega.NTerm.lin t
+  | INegSucc t => Omega.Row.sub (MkRow (NegSucc 0) Nil Nil) (Omega.NTerm.lin t)
+  | IAdd a b => Omega.Row.add (Omega.ITerm.lin a) (Omega.ITerm.lin b)
+  | INeg a => Omega.Row.scale (NegSucc 0) (Omega.ITerm.lin a)
+  | IMulLeft k t => Omega.Row.scale k (Omega.ITerm.lin t)
+  | IMulRight t k => Omega.Row.scale k (Omega.ITerm.lin t)
+  | ISubNat a b => Omega.Row.sub (Omega.NTerm.lin a) (Omega.NTerm.lin b)
+
 -- The convention (docs/proposals/omega.md §6.3), all through this one row:
 -- `a <= b` is `b - a >= 0`; `a < b` is `Succ a <= b`; `Not (a <= b)` is
 -- `Succ b <= a`; `Not (a < b)` is `b <= a`; `a = b` is both `a <= b` and
 -- `b <= a`.
 def Omega.leRow (a: Omega.NTerm) (b: Omega.NTerm): Omega.Row := Omega.Row.sub (Omega.NTerm.lin b) (Omega.NTerm.lin a)
+
+-- The same on `Int`, where `a < b` gives the row of `a + 1 <= b`.
+def Omega.ileRow (a: Omega.ITerm) (b: Omega.ITerm): Omega.Row := Omega.Row.sub (Omega.ITerm.lin b) (Omega.ITerm.lin a)
+
+-- `a + 1`
+def Omega.ITerm.succ (a: Omega.ITerm): Omega.ITerm := IAdd a (IOfNat (NLit 1))
 
 def Omega.Fact.rows: Omega.Fact → List Omega.Row
   | FLe a b => [Omega.leRow a b]
@@ -187,6 +267,12 @@ def Omega.Fact.rows: Omega.Fact → List Omega.Row
   | FMax t a b => [Omega.leRow a t, Omega.leRow b t]
   | FMin t a b => [Omega.leRow t a, Omega.leRow t b]
   | FNe a b => []
+  | FILe a b => [Omega.ileRow a b]
+  | FINotLe a b => [Omega.ileRow (Omega.ITerm.succ b) a]
+  | FILt a b => [Omega.ileRow (Omega.ITerm.succ a) b]
+  | FINotLt a b => [Omega.ileRow b a]
+  | FIEq a b => [Omega.ileRow a b, Omega.ileRow b a]
+  | FINe a b => []
 
 -- Whether a fact has cases, and what each case adds, as facts: `a - b` is
 -- `t` with `t + b = a` when `b <= a`, and 0 when `a < b`; `max` and `min`
@@ -196,6 +282,7 @@ def Omega.Fact.splits: Omega.Fact → Bool
   | FMax t a b => True
   | FMin t a b => True
   | FNe a b => True
+  | FINe a b => True
   | f => False
 
 def Omega.Fact.left: Omega.Fact → List Omega.Fact
@@ -203,6 +290,7 @@ def Omega.Fact.left: Omega.Fact → List Omega.Fact
   | FMax t a b => [FLe a b, FEq t b]
   | FMin t a b => [FLe a b, FEq t a]
   | FNe a b => [FLt a b]
+  | FINe a b => [FILt a b]
   | f => []
 
 def Omega.Fact.right: Omega.Fact → List Omega.Fact
@@ -210,6 +298,7 @@ def Omega.Fact.right: Omega.Fact → List Omega.Fact
   | FMax t a b => [FLt b a, FEq t a]
   | FMin t a b => [FLt b a, FEq t b]
   | FNe a b => [FLt b a]
+  | FINe a b => [FILt b a]
   | f => []
 
 -- The input rows: each fact's rows, in order (an equation gives two).
@@ -217,12 +306,16 @@ def Omega.Facts.rows: List Omega.Fact → List Omega.Row
   | Nil => Nil
   | Cons f fs => List.append (Omega.Fact.rows f) (Omega.Facts.rows fs)
 
--- The goal's negation: `Not (a <= b)` for `GLe`, `Not (a < b)` for `GLt`;
--- nothing for `GVoid`.
+-- The goal's negation: `Not (a <= b)` for `GLe`, `Not (a < b)` for `GLt`,
+-- the other truth value for an `Int` goal; nothing for `GVoid`.
 def Omega.Goal.negRow: Omega.Goal → Option Omega.Row
   | GLe a b => Some (Omega.leRow (NSucc b) a)
   | GLt a b => Some (Omega.leRow b a)
   | GVoid => None
+  | GILe a b => Some (Omega.ileRow (Omega.ITerm.succ b) a)
+  | GILt a b => Some (Omega.ileRow b a)
+  | GINotLe a b => Some (Omega.ileRow a b)
+  | GINotLt a b => Some (Omega.ileRow (Omega.ITerm.succ a) b)
 
 -- Certificates
 
@@ -470,3 +563,22 @@ test "check refuses: Cases using the other case's row" := Bool.not (Omega.check 
   (Cases 0
     (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
     (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))))
+
+-- `Int` atoms have no bound: `NatNonneg 1` is `Nat` atom 1, so the `Int` atom
+-- `y` in `x ≤ x + y` doesn't cancel.
+test "check refuses: NatNonneg for an Int atom" := Bool.not (Omega.check [] (GILe (IV 0) (IAdd (IV 0) (IV 1)))
+  (Then NegGoal (Then (NatNonneg 1) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2)))))
+
+test "check accepts: a fact bounding the Int atom" := Omega.check [FILe (IOfNat (NLit 0)) (IV 1)] (GILe (IV 0) (IAdd (IV 0) (IV 1)))
+  (Then NegGoal (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
+
+-- A `Nat` atom inside `OfNat` keeps its bound.
+test "check: NatNonneg inside OfNat" := Omega.check [] (GILe (IV 0) (IAdd (IV 0) (IOfNat (NV 0))))
+  (Then NegGoal (Then (NatNonneg 0) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
+
+-- `x ≤ y` and `x ≠ y` give `x < y`: the left case (`x < y`) meets the goal's
+-- negation, the right (`y < x`) meets `x ≤ y`.
+test "check: Cases on an Int inequation" := Omega.check [FILe (IV 0) (IV 1), FINe (IV 0) (IV 1)] (GILt (IV 0) (IV 1))
+  (Then (Input 0) (Then NegGoal (Cases 1
+    (Then (Combine [MkPair 1 1, MkPair 1 2]) (Close 3))
+    (Then (Combine [MkPair 1 0, MkPair 1 2]) (Close 3)))))

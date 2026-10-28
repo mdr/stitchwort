@@ -43,6 +43,10 @@ theorem chain (a: Nat) (b: Nat) (c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 1
 theorem roomForOne (x: Nat) (y: Nat) (before: x < y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
 
 theorem twiceIsDouble (n: Nat): double n = 2 * n := omega
+
+theorem stepBack (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := omega
+
+theorem thirdOfTriple (k: Int): (3 * k) / 3 = k := omega
 -- end omega
 
 -- begin ring
