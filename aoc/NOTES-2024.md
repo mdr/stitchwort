@@ -3210,3 +3210,353 @@ Release build, on a machine with a load average around 25:
 7. The `Parse` ability's `next` shadows a lambda parameter without an
    import (item 3). Fix: as day 9's item 2, scope ability operations by
    import.
+
+## Day 13: Claw Contraption
+
+Claw machines, each with two buttons. "It costs 3 tokens to push the A
+button and 1 token to push the B button", each button moves the claw "a
+specific amount to the right (along the X axis) and a specific amount
+forward (along the Y axis)", and "to win the prize, the claw must be
+positioned exactly above the prize on both the X and Y axes". Part 1:
+"each button would need to be pressed no more than 100 times to win a
+prize ... What is the fewest tokens you would have to spend to win all
+possible prizes?" Part 2: "the position of every prize is actually
+10000000000000 higher on both the X and Y axis!", with the same question
+and no limit on presses (part 2's wording from the public copy at
+<https://github.com/RobUrsem/AdventOfCode2024/blob/902b2370d8aaf06d7190ce4a64d870a30fdbcf47/13/day13.txt>).
+Part 1 calls the limit an estimate ("You estimate that..."); the spec
+takes it as the rule, as part 1's answer needs.
+
+**The real input is pending from Matt.** `mdr/aoc-2024` stops at day 10,
+so day 13 has no `aoc/inputs/2024/day13.txt`, no `Tests/Input.sw` and no
+entry in `crates/cli/tests/aoc_answers.rs` or `crates/rt/tests/machine.rs`;
+add those when the input comes.
+
+The example's answers are checked: 480 for part 1 (280 and 200 for the
+first and third machines), and for part 2 only the second and fourth
+machines can be won, for 875318608908. Both agree with an independent
+Python script (`/usr/bin/python3 -I`): part 1 by trying every press count
+from 0 to 100, part 2 by Cramer's rule in exact fractions (`Fraction`).
+The timings below are on 320 machines that script generated (buttons 10
+to 99 along each axis, a third with prizes reachable in part 1, a third
+reachable in part 2; not committed), on which the program and the script
+agree: 20815 and 15537437117353. Compiler built from `main` at 880db192,
+28 October 2026.
+
+### The program
+
+```stitchwort
+type Offset = { x: Int, y: Int }
+
+type Machine = { buttonA: Offset, buttonB: Offset, prize: Offset }
+
+def offset (sign: Text): {Parse} Offset :=
+  text "X${sign}"
+  let x := nat()
+  text ", Y${sign}"
+  let y := nat()
+  { x = x.toInt, y = y.toInt }
+
+def clawMachine(): {Parse} Machine :=
+  text "Button A: "
+  let buttonA := offset "+"
+  newline()
+  text "Button B: "
+  let buttonB := offset "+"
+  newline()
+  text "Prize: "
+  let prize := offset "="
+  { buttonA, buttonB, prize }
+
+def parseMachines (input: Text): {Fail} (List Machine) := Parse.all input (() => sections clawMachine)
+
+def onlyPresses (machine: Machine) (nonzero: determinant machine ≠ 0): Option (Nat, Nat) :=
+  let prize := machine.prize
+  let aPresses := (prize.x * machine.buttonB.y - prize.y * machine.buttonB.x) / determinant machine
+  let bPresses := (machine.buttonA.x * prize.y - machine.buttonA.y * prize.x) / determinant machine
+  Option.map2 (a b => (a, b)) aPresses.toNatChecked bPresses.toNatChecked |> .filter (((a, b)) => wins machine a b)
+
+def fewestTokensWithin (limit: Nat) (machine: Machine): Option Nat :=
+  if nonzero: determinant machine ≠ 0 then
+    onlyPresses machine nonzero
+      |> .filter (((aPresses, bPresses)) => aPresses ≤ limit && bPresses ≤ limit)
+      |> .map (((aPresses, bPresses)) => tokens aPresses bPresses)
+  else searchTokens limit machine
+
+def fewestTokens (machine: Machine): Option Nat :=
+  if nonzero: determinant machine ≠ 0 then
+    onlyPresses machine nonzero |> .map (((aPresses, bPresses)) => tokens aPresses bPresses)
+  else collinearTokens machine
+
+def solvePart1 (machines: List Machine): Nat := machines.sumBy (machine => fewestTokensWithin 100 machine |> .getOrElse 0)
+
+def solvePart2 (machines: List Machine): Nat := machines.sumBy (machine => corrected machine |> fewestTokens |> .getOrElse 0)
+```
+
+`main` is `parseMachines IO.readAll()` and the two prints. The domain
+model is `Int` throughout: Cramer's rule subtracts. With a nonzero
+determinant `ax * by - ay * bx` the two equations have one solution, and
+`onlyPresses` divides for it and checks it: the check (`wins`) is what
+rejects a solution that isn't whole, since `/` rounds; `toNatChecked`
+rejects a negative one. `/` found the `nonzero` parameter as its proof
+with nothing written.
+
+The determinant is 0 when the buttons move the claw along the same line
+(or one doesn't move it), and the puzzle doesn't rule that out. Then a
+prize on that line can have many winning press counts. Part 1 tries every
+count up to 100 (`searchTokens`, the spec's own search). Part 2 can't, so
+`collinearTokens` uses a swap: if `p` presses of A move the claw as far
+as `q` of B, swapping them keeps a win and changes the cost by `q - 3p`,
+so the cheapest win presses A fewer than `p` times or B fewer than `q`
+times, and `p` is at most B's larger coordinate (and `q` A's). It tries
+those counts of one button and works out the other (`pressesToCover`),
+about 200 tries per machine. That reasoning isn't proved; it is tested
+against `searchTokens` on twelve machines along the same line, including
+zero buttons, a prize off the line, and either button cheaper per step.
+
+### Proved
+
+The spec (`Spec/Spec.sw`) is the puzzle's words: `cost` is 3 per A press
+and 1 per B press, `winsPrize` is the two equations, and `winningCosts`
+lists the cost of every winning pair of press counts from 0 to 100 (a
+`flatMap` over `List.range 101`), whose `minimum` is `fewestTokens` and
+whose sum over the machines, with 0 for those that can't be won, is
+`part1`. Part 2 has infinitely many press counts, so its spec is a
+statement: `Fewest machine tokens` says some presses win for `tokens` and
+no winning presses cost less, `Unwinnable` that no presses win, and
+`Part2Answer machines answer` that `answer` is the sum, over the machines
+with their prizes moved (`correctedMachine`), of what some function that
+is right about every machine says each costs.
+
+Proved (`Proofs/`, 289 lines in five files), with no axioms
+(`stitchwort axioms`):
+
+- `part1Correct`: `solvePart1 machines = part1 machines`, for every list
+  of machines, whatever their determinants, from `withinCorrect`
+  (`fewestTokensWithin 100 machine = fewestTokens machine`, the spec's).
+  With a zero determinant the program's search is the spec's
+  (`searchIsSpec`, by `rfl`). Otherwise `cramerWithinCosts`: when Cramer's
+  presses win within 100, every cost the spec lists is theirs and theirs
+  is listed, so the minimum is theirs (`minimumAllEqual`); otherwise
+  nothing is listed (`minimumEmpty`).
+- `part2Correct`: `Part2Answer machines (solvePart2 machines)`, for
+  machines whose determinants are all nonzero (an explicit hypothesis),
+  from `fewestTokensCorrect`: `fewestTokens machine` is `Some` of the
+  fewest tokens, or `None` and the machine can't be won.
+- `part2AnswerUnique`: the spec's part 2 has one answer, so
+  `part2Correct` pins `solvePart2` down (`fewestUnique` per machine).
+- Under them (`Cramer.sw`): `onlyPressesFinds`, any presses that win are
+  the ones `onlyPresses` finds, and `onlyPressesWins`, those win. The
+  first is the algebra: `aTimesDeterminant` (A's presses times the
+  determinant are Cramer's numerator) is `ring [by * alongX, bx *
+  alongY]`, then `mulDivCancel` (`(d * a) / d = a` for `d ≠ 0`, in
+  `Lemmas.sw`).
+
+Breaking the program (B's numerator negated, `<` for `≤` at the limit, 2
+tokens for A) makes the proofs fail.
+
+Not proved: part 2 with a zero determinant. The proof would need the
+swap argument above: that two wins differ by a multiple of `(p, -q)` with
+`p` and `q` coprime, which is gcd reasoning (day 8 has some in
+`Proofs/Gcd.sw`), and an induction swapping presses down to the cheapest.
+I estimate 200 lines or more, against a case real inputs may never have,
+so I stopped at the hypothesis and the tests. Whether Matt's input has
+such a machine is unknown until it comes.
+
+### 1. Std.Parse: one message
+
+The grammar read the example first time, `text "X${sign}"` sharing the
+offset grammar between "X+94" and "X=8400". A minus sign gives `line 1,
+column 11: expected 'X+', got 'X-'`, and a missing prize `line 3, column 1:
+expected 'Prize: ', got the end of the input`; both good. A missing blank
+line between machines doesn't mention the blank line:
+
+```text
+line 4, column 1: expected the end of the input, got 'B'
+```
+
+for `...Prize: X=5, Y=6\nButton A: ...`. `sections` tries `blankLine`
+after the prize line; it reads the line break and fails on 'B', but
+`blankLine` is a `labelWhole`, so its expectation is placed where it
+started, one character before `Parse.all`'s own "end of the input",
+which is further and wins. What I did instead: nothing; the test records
+the message.
+
+### 2. Missing std
+
+- `(d * a) / d = a` for a nonzero `Int` `d`, Lean's
+  `Int.mul_ediv_cancel_left` (`{a : Int} (b : Int) (H : a ≠ 0) : a * b /
+  a = b`, <https://lean-lang.org/doc/api/Init/Data/Int/DivMod/Bootstrap.html>).
+  `Lemmas.sw` proves it from `Int.divAddMod` and the remainder's bounds:
+  `quotientOfMultiple` and `smallMultiple` (a multiple of `d` from 0 to
+  below `|d|` is 0), 20 lines.
+- Day 8's `natAbsMul` and `natAbsZero` are in `Aoc.Year2024.Day08.Proofs`;
+  day 13 imports them from there (it checks day 8's proofs too, 2.7 s
+  without the cache).
+- No lemmas about `List.minimum`: `minimumAllEqual` (a list holding
+  `least` and nothing else has least `least`) and `minimumEmpty` are in
+  `Lemmas.sw`, with `minSelf` (`Ord.min n n = n`, by `cases`).
+- No `import ... as`: the spec's `fewestTokens` and the program's clash in
+  the tests, and `import Aoc.Year2024.Day13.Spec as Spec` gives `[E-PARSE]
+  Error: expected `(` and the names to import, but found `as``. I wrote
+  `Aoc.Year2024.Day13.Spec.fewestTokens` in full.
+
+No std file was changed.
+
+### 3. Confusing errors
+
+- `ring` said two equal-looking atoms differ:
+
+  ```text
+  [E-RING] Error: `ring` can't prove `d * a % d = d * (a - (d * a / d))`
+    Note 5: left over: `d * (d * a / d) - d * (d * a / d) + (d * a % d) - (d * a % d)`, the goal's left minus its right, minus each coefficient times its hypothesis's `l - r`; it has to be 0
+  ```
+
+  for `ring [Int.divAddMod (d * a) d]`, whose `d * (d * a / d) + d * a %
+  d = d * a` is what the goal needs. Probably (not checked in the
+  compiler) the `/` in `divAddMod`'s statement carries its own `auto`
+  proof of `d ≠ 0` and mine carries `nonzero`, and `ring` compares atoms
+  with their proofs. The evidence: the same step with the quotient and
+  remainder as variables (`quotientOfMultiple`) checked first time. The
+  message should say the atoms differ in a hidden argument.
+- Elaborating `List.anyElim _ _ (List.range 101) ...` unfolded `List.Any`
+  over the concrete 101-element range:
+
+  ```text
+  [E-TYPE-MISMATCH] Error: type mismatch
+    expected `?14 machine tokensSpent listed 0 ∨ ?14 machine tokensSpent listed 1 ∨ ?14 machine tokensSpent listed 2 ∨ … ∨ …`, but this has type `List.Any (x => tokensSpent ∈ List.map (List.filter (List.range 101) ...
+  ```
+
+  I gave the predicate and the goal explicitly (`WinWithin`, a `def` for
+  the existential, and `costsAfter` for the inner list).
+- `match` on an expression written as in the program didn't find it in
+  the goal: `match aChecked: Int.toNatChecked ((prize.x * ... - ...) /
+  determinant machine) with` left the goal unchanged in every arm,
+  because the goal shows `determinant` unfolded and `-` as `+ Int.neg`.
+  No error said the scrutinee wasn't found; only the goals did. `cases`
+  then gave `[E-CASES] Error: `cases` found nothing to split on, and
+  nothing closes the goal` for the implication, and on the `if`,
+  `[E-CASES-BUDGET] Error: `cases` made more than 64 cases without closing
+  them all`, having split on the buttons' coordinates. What I did instead
+  is under item 6.
+- `rewrite withinCorrect machine` inside `sumByCong`'s function:
+  `[E-REWRITE-BUDGET] Error: `rewrite` couldn't decide whether a part of
+  the goal is the rule's left side`, "comparing them by computing ran out
+  of budget". `Eq.cong (result => Option.getOrElse result 0)
+  (withinCorrect machine)` worked.
+- `W-LAMBDA-SHADOW`: the parser `machine` "hides" every `machine =>`
+  lambda in the proofs (imported by `(..)`). Renamed it `clawMachine`.
+
+### 4. Inference
+
+Nothing went wrong in the program: it checked first time, including the
+`auto` proof for `/ determinant machine` from the `nonzero` parameter,
+`Option.map2 (a b => (a, b))`, and the record update `{ machine | prize =
+... }`. In the proofs, `_` for a `List.Any` predicate or a motive failed
+as in item 3; `DecEq.sound _ _ (Bool.andLeft _ _ won)` on an `Int` `==`
+worked, unlike day 11's `Nat` case.
+
+### 5. Performance
+
+Running is all loading: `run` on the 320 generated machines takes 0.29 s
+(user), the same as on the example (0.33 s); the Python script takes
+0.16 s. Part 2's numbers reach about 10^15, and `Int` is arbitrary
+precision, so nothing overflows; Cramer's rule is a few multiplications
+per machine.
+
+Checking the proofs was the slow part: 25 s at first, all in `Part1.sw`.
+A `match` in a proof whose goal mentions `winningCosts machine` makes the
+goal compute, and the spec's list unfolds to 101 `filterStep`s (the goals
+showed `List.filterStep 0 (List.filterStep 1 (...`). Stating the lemmas
+for any list `costs` with the two membership facts (`cramerWithinCosts`,
+`withinCosts`), and applying them to `winningCosts` once at the end,
+brought it to 7 s.
+
+### 6. Proofs
+
+The algebra was easy; the plumbing around `if` and `match` was not.
+
+- `ring` with coefficients did Cramer's elimination first time:
+  `aTimesDeterminant` is `ring [machine.buttonB.y * alongX,
+  machine.buttonB.x * alongY]`, the second hypothesis needing a minus,
+  which `ring` found itself ("also tried the other way round"). This is
+  Lean's `linear_combination` ("attempts to prove an (in)equality goal by
+  exhibiting it as a specified linear combination",
+  <https://leanprover-community.github.io/mathlib4_docs/Mathlib/Tactic/LinearCombination.html>).
+- `omega` handled `Int.natAbs` and `Nat.toInt` as atoms with their facts:
+  `smallMultiple`'s steps, `ofNatAbs`'s impossible case, and the press
+  bounds from `List.memRangeFrom`.
+- No proof irrelevance by computation. The program's `if nonzero: ...`
+  passes the proof into `onlyPresses`, so a lemma "an `if h: p` takes its
+  first branch" can't be `rfl`:
+
+  ```text
+  [E-REFL] Error: `rfl` can't prove this
+    `yes y` and `yes h` aren't equal
+  ```
+
+  In Lean "any two proofs of the same proposition are completely
+  interchangeable"
+  (<https://lean-lang.org/doc/reference/latest/The-Type-System/Propositions/>).
+  What worked: `match Int.decEq (determinant machine) 0 with`, which is
+  the `if`'s own decision, so the goal computes into the right branch,
+  with the proof inside it. Every Cramer lemma takes the proof as a
+  parameter, so whichever proof arrives is fine.
+- Taking apart `onlyPresses`'s result: its first version was a `match`
+  on the pair of `toNatChecked`s and an `if wins`, and I found no way to
+  invert `onlyPresses machine nonzero = Some (a, b)` (item 3). I rewrote
+  it as `Option.map2 ... |> .filter (... => wins machine a b)`, so std's
+  `Option.filterEqSome` gives the win in one line. The new form reads as
+  well, but this is reshaping the program for the proof: a way to invert
+  a `match` in a hypothesis would remove the need. In Lean, "split at h
+  will split the hypothesis h"
+  (<https://lean-lang.org/doc/reference/latest/Tactic-Proofs/Tactic-Reference/>).
+
+### 7. Comparisons
+
+- Lean's `linear_combination` and `ring [c * h]`: item 6.
+- Lean's `Int.mul_ediv_cancel_left`: item 2.
+- Lean's definitional proof irrelevance and `split at h`: item 6.
+
+### Size and time
+
+Release build, on a machine with a load average around 25 to 30:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day13.Proofs` | 7.2 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day13` | 0.6 s |
+| `stitchwort test --no-cache Aoc.Year2024.Day13` (25 tests) | 7.7 s |
+| `stitchwort run Aoc.Year2024.Day13.main` on the example | 0.33 s |
+| `stitchwort run Aoc.Year2024.Day13.main` on 320 generated machines | 0.29 s |
+| `stitchwort check` (whole project, cached) | 8.1 s |
+
+126 lines of program, 62 of spec, 289 of proofs, 95 of tests.
+
+### Ranked
+
+1. The real input is pending: Matt's repository has no day 13. Fix: add
+   his input, its tests and its two answer entries when he has it.
+2. Part 2 is proved only for nonzero determinants, which the puzzle
+   doesn't promise (Proved). Fix: prove the swap argument over day 8's
+   gcd lemmas, or, if Matt's input has none, leave the hypothesis.
+3. A `match` in a proof computes the whole goal, unfolding a concrete
+   spec list into 101 steps: 25 s of checking (item 5). Fix: refine only
+   the scrutinee's occurrences without normalising the rest.
+4. No proof irrelevance by computation, and no way to invert a `match` in
+   a hypothesis (item 6). Fix: make proofs of a proposition
+   definitionally equal, and add a `split at h`.
+5. Unification unfolds `List.Any` over a concrete list into a disjunction
+   (item 3). Fix: don't unfold a definition over a literal list while
+   solving a metavariable.
+6. `ring` reports equal-looking atoms as different (item 3). Fix: say
+   the atoms differ in a hidden argument, or compare proofs as equal.
+7. `match` on an expression not in the goal says nothing (item 3). Fix:
+   warn when a named `match` replaces nothing.
+8. Missing `Int.mulDivCancel`, `List.minimum` lemmas, and day 8's `Int`
+   lemmas live in day 8 (item 2). Fix: move them to std's `Int` and
+   `List` files.
+9. `sections` doesn't name the missing blank line (item 1). Fix: let a
+   `labelWhole` expectation count at the furthest point its parser
+   reached.
+10. No `import ... as` for clashing names (item 2). Fix: add an alias form.
