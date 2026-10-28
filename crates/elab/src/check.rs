@@ -1790,7 +1790,11 @@ fn apply_args_postponing(
                 // Later parameters whose types mention it see the
                 // placeholder, which their arguments may solve.
                 let dependents = !only_lambdas_depend_on_it(&cod.body, &args[i + 1..]);
-                let postponable = later && unknown_domain(cx, &dom)?;
+                let parameters = match value {
+                    Expr::Lam(names, ..) => names.len(),
+                    _ => 1,
+                };
+                let postponable = later && unknown_domain(cx, &dom, parameters)?;
                 // Where the application's expected type is known, a lambda
                 // whose type has unknowns that fails in place is checked
                 // again once the application's type has been compared with
@@ -2476,15 +2480,25 @@ fn only_lambdas_depend_on_it(rest: &Term, args: &[Arg]) -> bool {
     true
 }
 
-fn unknown_domain(cx: &Ctx, ty: &Value) -> Result<bool> {
+fn unknown_domain(cx: &Ctx, ty: &Value, parameters: usize) -> Result<bool> {
     let g = cx.g();
-    Ok(match force(g, ty.clone())? {
-        Value::Pi(_, _, dom, _) => {
-            matches!(force(g, (*dom).clone())?, Value::Neutral(Head::Meta(_), _))
+    let mut ty = force(g, ty.clone())?;
+    if matches!(ty, Value::Neutral(Head::Meta(_), _)) {
+        return Ok(true);
+    }
+    // Any of the first `parameters` parameters, not only the first: in
+    // `(n acc => …)` against `Nat -> b -> c` with `b` still unknown, `n`'s
+    // type is known and `acc`'s is not (SW-822).
+    for i in 0..parameters {
+        let Value::Pi(_, _, dom, cod) = ty else {
+            return Ok(false);
+        };
+        if matches!(force(g, (*dom).clone())?, Value::Neutral(Head::Meta(_), _)) {
+            return Ok(true);
         }
-        Value::Neutral(Head::Meta(_), _) => true,
-        _ => false,
-    })
+        ty = force(g, cod.apply(g, Value::var(cx.level() + i))?)?;
+    }
+    Ok(false)
 }
 
 /// The domain and codomain of `ty`, a function type with an explicit
