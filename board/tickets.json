@@ -6774,14 +6774,14 @@
     },
     {
       "id": 788,
-      "title": "Consider D1425: let inside parentheses as an expression (Lean's inline have)",
-      "status": "backlog",
+      "title": "let as an expression: (let x := e; body) (D1425 yes, D1453 ';' separator)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
-        "decision"
+        "syntax"
       ],
-      "body": "(let x := … in …) is a parse error today. Rec: yes.",
+      "body": "(let x := … in …) was a parse error ('expected an expression, but found let'); let is only a block statement today.\n\nD1425 (Matt, 28 Oct 2026): yes, add let as an expression (Lean's inline have).\nD1453 (Matt, 28 Oct 2026): spell it (let x := e; body), not 'in': 'in' is already membership (docs/syntax.md:1264), so (let found := x in xs in …) would be ambiguous.\n\nScope: parser (same tree as a block let, so the elaborator's 'later lines know the value' rule applies unchanged), formatter, docs/syntax.md, accept/reject examples (incl. a proof-valued let and a value using 'in').",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
