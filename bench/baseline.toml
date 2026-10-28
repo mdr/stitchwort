@@ -44,8 +44,8 @@ time_ms = 41.8
 [text-nat-to-text]
 steps = 18268014
 visits = 18
-allocations = 6397542
-peak_bytes = 8383
+allocations = 6397544
+peak_bytes = 11455
 time_ms = 395.9
 
 [run-prints]
@@ -142,8 +142,8 @@ time_ms = 0.8
 [text-literal-walk]
 steps = 1400141
 visits = 31
-allocations = 633541
-peak_bytes = 2501
+allocations = 633554
+peak_bytes = 5573
 time_ms = 33.9
 
 [run-proof-fields]
