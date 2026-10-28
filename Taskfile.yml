@@ -85,6 +85,32 @@ tasks:
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} {{.CLI_ARGS}}'
 
+  test:lanes-nonempty:
+    desc: Fail if any `lane-*` nextest profile selects no tests (lists only, runs nothing)
+    summary: |
+      A lane filter that matches nothing passes silently (lane-aoc once did).
+      This lists each `[profile.lane-*]` in .config/nextest.toml with
+      `cargo nextest list` (never runs a test) and fails, naming the profile,
+      if one selects zero tests. New lane profiles are covered automatically.
+      About 1 s per profile once the binaries are built, so it is in the daily
+      tier, not the merge tier.
+    cmds:
+      - |
+        status=0; err=$(mktemp)
+        for profile in $(grep -oE '^\[profile\.lane-[A-Za-z0-9_-]+\]' .config/nextest.toml | sed -E 's/^\[profile\.(.*)\]$/\1/'); do
+          if ! out=$(cargo nextest list --release --workspace {{.TEST_FEATURES}} --profile "$profile" --message-format json 2>"$err"); then
+            echo "FAIL: cargo nextest list failed for profile $profile" >&2; head -n 8 "$err" >&2
+            status=1
+            continue
+          fi
+          n=$(printf '%s' "$out" | jq '[.["rust-suites"][]?.testcases | to_entries[] | select(.value["filter-match"].status == "matches")] | length')
+          if [ "$n" -eq 0 ]; then
+            echo "FAIL: nextest profile $profile selects no tests; check its default-filter in .config/nextest.toml" >&2
+            status=1
+          fi
+        done
+        rm -f "$err"; exit $status
+
   test:merge:
     desc: Merge tier, under 60 s; run after every merge
     summary: |
@@ -112,6 +138,7 @@ tasks:
     cmds:
       - task: web:pkg
       - cargo fmt --check
+      - task: test:lanes-nonempty
       - cargo clippy --release --all-targets -- --deny warnings
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --profile daily {{.CLI_ARGS}}'
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test --release --doc --workspace'
