@@ -46,7 +46,7 @@ test "example, part 2" := solvePart2 exampleCodes == 154115708116294
 
 -- "68 * 29, 60 * 980, 68 * 179, 64 * 456, and 64 * 379".
 test "example, the shortest lengths" := ["029A", "980A", "179A", "456A", "379A"].map (lengthFor 2) == [68, 60, 68, 64, 64]
-test "example, the numeric parts" := exampleCodes.map Code.numericPart == [29, 980, 179, 456, 379]
+test "example, the numeric parts" := exampleCodes.map .numericPart == [29, 980, 179, 456, 379]
 
 -- "three shortest possible sequences ... <A^A>^^AvvvA, <A^A^>^AvvvA, and
 -- <A^A^^>AvvvA", and the puzzle's sequences one and two keypads further out.

@@ -27,9 +27,9 @@ def main(): {IO, Fail} () :=
 -- naming the line and column.
 def parseBanks (input: Text): {Fail} (List Bank) := Parse.eachLine input bank
 
-def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage 2)
+def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (.maxJoltage 2)
 
-def solvePart2 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage part2Batteries)
+def solvePart2 (banks: List Bank): Nat := banks |> .sumBy (.maxJoltage part2Batteries)
 
 -- Part 2 turns on exactly this many batteries of each bank.
 def part2Batteries: Nat := 12
@@ -38,7 +38,7 @@ def part2Batteries: Nat := 12
 def joltageOf (on: List Battery): Nat := on.map .toNat |> Nat.fromDigits
 
 -- The most joltage from turning on count batteries of the bank, or all of them if the bank has fewer.
-def maxJoltage (count: Nat) (bank: Bank): Nat := joltageOf (bank.best count)
+def Bank.maxJoltage (bank: Bank) (count: Nat): Nat := joltageOf (bank.best count)
 
 -- A battery, labelled with its joltage rating, a digit.
 def Battery: Type := Fin 10

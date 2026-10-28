@@ -17,8 +17,8 @@ def banksOf (input: Text): Result (List Bank) Text := Fail.toResult (() => parse
 def exampleBanks: List Bank := Fail.orElse [] (() => parseBanks example)
 
 test "example" := (solvePart1 exampleBanks, solvePart2 exampleBanks) == (357, 3121910778619)
-test "banks part 1" := exampleBanks.map (maxJoltage 2) == [98, 89, 78, 92]
-test "banks part 2" := exampleBanks.map (maxJoltage 12) == [987654321111, 811111111119, 434234234278, 888911112111]
+test "banks part 1" := exampleBanks.map (.maxJoltage 2) == [98, 89, 78, 92]
+test "banks part 2" := exampleBanks.map (.maxJoltage 12) == [987654321111, 811111111119, 434234234278, 888911112111]
 
 test "parse" := banksOf " 100200300400 " == Ok [[1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0]]
 test "a bank that isn't a row of numbers" := banksOf "123456789012\n1234567x9012" == Err "line 2, column 8: expected a digit or the end of the line, got 'x'"
@@ -39,4 +39,4 @@ test "too short" := Bank.best [1, 2] 5 == [1, 2]
 test "pick none" := Bank.best [1, 2, 3] 0 == []
 
 -- The same tie, checked when the file is checked.
-theorem leftmostLargest: maxJoltage 2 [2, 7, 5, 7, 3] = 77 := rfl
+theorem leftmostLargest: Bank.maxJoltage [2, 7, 5, 7, 3] 2 = 77 := rfl

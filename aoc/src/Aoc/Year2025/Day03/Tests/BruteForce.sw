@@ -1,6 +1,6 @@
 -- Cross-check against brute force: for each example bank, try every choice of
 -- k batteries, and take the largest number. For banks of at least k batteries,
--- that is what `maxJoltage k` computes greedily (a shorter bank has no choice
+-- that is what `bank.maxJoltage k` computes greedily (a shorter bank has no choice
 -- of k, and brute force gives 0), and it is also proved (`Aoc.Year2025.Day03.Proofs`,
 -- Proofs/Best.sw). Kept apart from the program, so `stitchwort run Aoc.Year2025.Day03.main` doesn't check it.
 
@@ -18,6 +18,6 @@ def bruteForce (k: Nat) (bank: Bank): Nat :=
   choices k bank |> .map joltageOf |> .foldLeft 0 Nat.max
 
 test "choices" := choices 2 [1, 2, 3] == [[1, 2], [1, 3], [2, 3]]
-test "brute force, 2 batteries" := exampleBanks.all (b => maxJoltage 2 b == bruteForce 2 b)
-test "brute force, 3 batteries" := exampleBanks.all (b => maxJoltage 3 b == bruteForce 3 b)
-test "brute force, 12 batteries" := exampleBanks.all (b => maxJoltage 12 b == bruteForce 12 b)
+test "brute force, 2 batteries" := exampleBanks.all (b => b.maxJoltage 2 == bruteForce 2 b)
+test "brute force, 3 batteries" := exampleBanks.all (b => b.maxJoltage 3 == bruteForce 3 b)
+test "brute force, 12 batteries" := exampleBanks.all (b => b.maxJoltage 12 == bruteForce 12 b)

@@ -62,7 +62,7 @@ theorem filesMoveLeft (diskMap: List Nat):
   let initial := FreeSpace.of (joinTouching layout.snd)
   rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile in
     allZipWith MovedLeft (file free => (FreeSpace.moveFile free file).snd) (file free => moveFileLeft free file) layout.fst.reverse
-      (List.scanLeft layout.fst.reverse initial (free file => (FreeSpace.moveFile free file).fst))
+      (List.scanLeft layout.fst.reverse initial (free file => (free.moveFile file).fst))
 
 theorem moveFileBlocks (free: FreeSpace) (file: File): blocksOfFile (free.moveFile file).snd = blocksOfFile file :=
   match fit: free.leftmostFit file.span.length file.span.start with

@@ -13,8 +13,8 @@ import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 --   3. `bestOptimal`: no k batteries of `bank`, taken in order, make a
 --      larger joltage.
 --   4. `maxJoltageIsLargest`: so no k batteries make more joltage than
---      `maxJoltage k bank`.
---   5. `maxJoltageIsMaximum`, the headline: `maxJoltage k bank` is the
+--      `bank.maxJoltage k`.
+--   5. `maxJoltageIsMaximum`, the headline: `bank.maxJoltage k` is the
 --      largest joltage from turning on exactly k batteries of the bank.
 -- The optimality argument: every choice starts with some digit y inside the
 -- window that `pick` scans (it must leave k - 1 digits after it). If y is
@@ -199,19 +199,19 @@ theorem bestOptimalStep (k: Nat) (d: Battery) (rest: Bank) (y: Battery) (s: Bank
   pickBest k ih (rest.length - k) rest d rest omega enough (List.subsequenceRefl rest) y s hk
     (Or.andWith omega h)
 
--- 4. Whichever k batteries you turn on, they produce no more than maxJoltage.
+-- 4. Whichever k batteries you turn on, they produce no more than `bank.maxJoltage k`.
 theorem maxJoltageIsLargest (k: Nat) (bank: Bank) (on: List Battery)
     (turnsOn: TurnsOn k bank on):
-    joltageOf on ≤ maxJoltage k bank := bestOptimal k bank on turnsOn.left turnsOn.right
+    joltageOf on ≤ bank.maxJoltage k := bestOptimal k bank on turnsOn.left turnsOn.right
 
 -- 5. The headline, in the puzzle's words. When the bank has at least k
--- batteries, `maxJoltage k bank` is the largest joltage you can get by
+-- batteries, `bank.maxJoltage k` is the largest joltage you can get by
 -- turning on exactly k of them: some k batteries of the bank, turned on in
 -- order, do produce it (the ones `Bank.best bank k` picks), and no k batteries
 -- of the bank produce more.
 theorem maxJoltageIsMaximum (k: Nat) (bank: Bank) (enough: k ≤ bank.length):
-    (TurnsOn k bank (bank.best k) ∧ joltageOf (bank.best k) = maxJoltage k bank)
-      ∧ ((on: List Battery) → TurnsOn k bank on → joltageOf on ≤ maxJoltage k bank) :=
+    (TurnsOn k bank (bank.best k) ∧ joltageOf (bank.best k) = bank.maxJoltage k)
+      ∧ ((on: List Battery) → TurnsOn k bank on → joltageOf on ≤ bank.maxJoltage k) :=
   Both
     (Both
       (Both (bestSub k bank) (omega [bestLength k bank]))

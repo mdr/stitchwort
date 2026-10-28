@@ -218,7 +218,7 @@ def Costs.shortestLength (costs: Costs) (code: Code): Nat :=
 -- keypads.
 def complexities (robots: Nat) (codes: List Code): Nat :=
   let costs := robotCosts robots
-  codes.sumBy (code => costs.shortestLength code * Code.numericPart code)
+  codes.sumBy (code => costs.shortestLength code * code.numericPart)
 
 def solvePart1 (codes: List Code): Nat := complexities 2 codes
 
