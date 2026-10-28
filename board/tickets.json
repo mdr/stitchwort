@@ -1,5 +1,5 @@
 {
-  "next": 713,
+  "next": 715,
   "tickets": [
     {
       "id": 13,
@@ -5789,13 +5789,13 @@
     {
       "id": 705,
       "title": "Std.Parse stage 1: core parsing library as a single {Parse} effect (fail/ensure/need, Parse.fromFail bridge), always-backtracking choice, fuel-bounded many that fails on a parser reading nothing, furthest-point errors (D1418, D1419, D1423)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-27",
-      "updated": "2026-10-27",
+      "updated": "2026-10-28",
       "commits": []
     },
     {
@@ -5825,7 +5825,7 @@
     {
       "id": 708,
       "title": "AoC 2024 day 3: solve with Std.Parse once stage 1 lands, prove, log gaps (overnight)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5861,6 +5861,30 @@
     {
       "id": 712,
       "title": "AoC 2024 day 5: solve with Std.Parse once stage 1 lands, prove, log gaps (overnight)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 713,
+      "title": "Std.Parse stage 2: rewrite the AoC parsers (2025 and 2024) with Std.Parse where it reads better; answers and error meanings unchanged (overnight)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 714,
+      "title": "std: DecEq instance for () (Unit), so tests can compare Ok () (Std.Parse stage 1 finding)",
       "status": "next",
       "agent": "",
       "where": "",
