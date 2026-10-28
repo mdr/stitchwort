@@ -1,5 +1,5 @@
 {
-  "next": 833,
+  "next": 834,
   "tickets": [
     {
       "id": 13,
@@ -7317,7 +7317,7 @@
     {
       "id": 829,
       "title": "Design note: nested data types (Packets (items: List Packet)), from SW-704",
-      "status": "review",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7358,6 +7358,20 @@
       "where": "",
       "labels": [],
       "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 833,
+      "title": "Consider D1448–D1452: nested data types (note on branch worktree-agent-a5e6df84938efc2a5, docs/proposals/nested-data-types.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "D1448 positivity check through List's fields (Rocq) vs Lean's mutual translation [rec: positivity check]; D1449 generated induction principle per nested type [rec: yes]; D1450 auto proves list-member-smaller in decreasing [rec: yes]; D1451 keep Map/Set nesting refused [rec: yes]; D1452 allow earlier field as index, List (Tree n) [rec: allow]. Not urgent: needed only for tree-shaped input (AoC 2022 day 13, 2021 day 18). D1448 gates stage 1.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
