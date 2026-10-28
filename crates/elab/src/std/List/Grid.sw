@@ -3,8 +3,65 @@
 -- column loses a cell (Python's `zip_longest(*rows, fillvalue=...)`). The
 -- lemmas read the result cell by cell: row r, column c of the input is row c,
 -- column r of the output, `(.getOr c fill)` of row r, past the ends too.
--- A file of its own, so that programs using only the toolkit don't check
--- these.
+-- And every cell with its row and column (`gridCells`). A file of its own,
+-- so that programs using only the toolkit don't check these.
+
+-- Every cell with its row and column, counting from 0, row by row:
+-- `[['a', 'b'], ['c']].gridCells` is `[((0, 0), 'a'), ((0, 1), 'b'), ((1, 0), 'c')]`.
+def List.gridCells (rows: List (List a)): List ((Nat, Nat), a) :=
+  rows.withIndex |> .flatMap (((row, cells)) => cells.withIndex |> .map (((column, cell)) => ((row, column), cell)))
+
+-- What `get` finds is somewhere in the list.
+theorem List.getOfMem: (xs: List a) → (x: a) → x ∈ xs → ∃ (k: Nat) => List.get xs k = Some x
+  | Nil, x, member => Void.exfalso member
+  | Cons first rest, x, Inl same => Witness Zero (rewrite same in rfl)
+  | Cons first rest, x, Inr later =>
+    match List.getOfMem rest x later with
+      | Witness k found => Witness (Succ k) found
+
+-- `withIndex` pairs `x` with `i` exactly when `x` is element `i`.
+theorem List.memWithIndex (xs: List a) (i: Nat) (x: a): Iff ((i, x) ∈ xs.withIndex) (List.get xs i = Some x) := {
+  forward = member =>
+    match List.getOfMem xs.withIndex (i, x) member with
+      | Witness k found =>
+        match c: List.get xs k with
+          | None => Void.exfalso (Option.noneNotSome (i, x) (rewrite List.getWithIndex xs k, c at found))
+          | Some y =>
+            let same: (k, y) = (i, x) := Option.someInjective (k, y) (i, x) (rewrite List.getWithIndex xs k, c at found)
+            rewrite <- Eq.cong Pair.fst same, <- Eq.cong Pair.snd same in c,
+  backward = found => List.memOfGet xs.withIndex i (i, x) (rewrite List.getWithIndex xs i, found in rfl)
+}
+
+-- A grid has `cell` at `(row, column)` exactly when row `row` is some list
+-- of cells whose element `column` is `cell`.
+theorem List.memGridCells (rows: List (List a)) (row: Nat) (column: Nat) (cell: a):
+    Iff (((row, column), cell) ∈ rows.gridCells) (∃ (cells: List a) => List.get rows row = Some cells ∧ List.get cells column = Some cell) := {
+  forward = member =>
+    List.anyElim _ _ rows.withIndex (List.memFlatMapElim _ ((row, column), cell) rows.withIndex member)
+      (pair inRows inCells =>
+        match pair with
+          | (r, cells) =>
+            List.anyElim _ _ cells.withIndex (List.memMapAny cells.withIndex _ ((row, column), cell) inCells)
+              (entry inColumns same =>
+                match entry with
+                  | (c, x) =>
+                    let rowSame: r = row := Eq.cong (e => e.fst.fst) same
+                    let columnSame: c = column := Eq.cong (e => e.fst.snd) same
+                    let cellSame: x = cell := Eq.cong Pair.snd same
+                    Witness cells
+                      (Both (rewrite <- rowSame in (List.memWithIndex rows r cells).forward inRows)
+                        (rewrite <- columnSame, <- cellSame in (List.memWithIndex cells c x).forward inColumns)))),
+  backward = found =>
+    match found with
+      | Witness cells (Both rowFound cellFound) =>
+        List.memFlatMapIntro _ (row, cells) ((row, column), cell) rows.withIndex ((List.memWithIndex rows row cells).backward rowFound)
+          (List.memMap cells.withIndex (column, cell) ((List.memWithIndex cells column cell).backward cellFound)
+            ((entry: (Nat, a)) => ((row, entry.fst), entry.snd)))
+}
+
+test "gridCells" :=
+  [['a', 'b'], ['c']].gridCells == [((0, 0), 'a'), ((0, 1), 'b'), ((1, 0), 'c')]
+    ∧ (Nil: List (List Nat)).gridCells == [] ∧ [[], [7]].gridCells == [((1, 0), 7)]
 
 -- The length of the longest row (0 for no rows). A right fold, so it runs
 -- as a loop (stack-safe on many rows); `List.maxLengthCons` is its step.

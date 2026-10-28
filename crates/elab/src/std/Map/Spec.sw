@@ -910,9 +910,10 @@ def Map.Spec.nonEmpty: List a → Option (List a)
 -- `filterMap` take the entries in key order, combine them in one pass
 -- (`Map.Spec.merge`, `Map.Spec.mapMaybe`, `List.filter`), and build a balanced
 -- tree from the sorted result in one more (`Map.Raw.fromSorted`): O(n + m).
--- When the first map is much smaller than the second, `union`, `unionWith`,
--- `intersectWith` and `difference` work key by key instead, O(n log m)
--- (`Map.Raw.isSmall`).
+-- When one map is much smaller than the other, `union`, `unionWith` and
+-- `difference` work key by key over the smaller one instead, O(n log m)
+-- for its n keys, and so does `intersectWith` when the first map is the
+-- smaller (`Map.Raw.isSmall`).
 
 -- `rest`, with `(key, value)` in front if there is a value. (A function of
 -- its own, like `List.filterStep`, so the rest is written once.)
@@ -1509,6 +1510,7 @@ def Map.Raw.isSmall (a: Map.Raw k v [ord := o]) (b: Map.Raw k w [ord := o]): Boo
 @[noReceiver]
 def Map.Raw.unionWith [auto ord: Ord k] (f: v → v → v) (a: Map.Raw k v) (b: Map.Raw k v): Map.Raw k v :=
   if Map.Raw.isSmall a b then Map.Raw.foldLeft (acc key value => Map.Raw.insertWith f key value acc) b a
+  else if Map.Raw.isSmall b a then Map.Raw.foldLeft (acc key value => Map.Raw.insertWith (new old => f old new) key value acc) a b
   else Map.Raw.merge (key x y => Some (f x y)) (key x => Some x) (key y => Some y) a b
 
 -- Both maps' entries; where both have a key, the first map's value.
@@ -1523,6 +1525,7 @@ def Map.Raw.intersectWith [auto ord: Ord k] (f: v → w → x) (a: Map.Raw k v) 
 -- The entries of `a` whose keys aren't in `b`.
 def Map.Raw.difference [auto ord: Ord k] (a: Map.Raw k v) (b: Map.Raw k w): Map.Raw k v :=
   if Map.Raw.isSmall a b then Map.Raw.mapMaybe (key value => if Map.Raw.contains key b then None else Some value) a
+  else if Map.Raw.isSmall b a then Map.Raw.foldLeft (acc key value => Map.Raw.remove key acc) a b
   else Map.Raw.merge (key x y => None) (key x => Some x) (key y => None) a b
 
 -- What they do to the entries.
@@ -1545,7 +1548,18 @@ theorem Map.Raw.toListUnionWith [auto ord: Ord k] (f: v → v → v) (a: Map.Raw
           ((l: List (k, v)) (key: k) (value: v) => Map.Spec.insertWith f key value l)
           (m key value => Map.Raw.toListInsertWith f key value m) b (Map.Raw.toList a))
         (Map.Spec.foldInsertWith f None (Map.Raw.toList a) (Map.Raw.toList b) (Map.Raw.toListSorted a))
-    | False => Map.Raw.toListMerge (key x y => Some (f x y)) (key x => Some x) (key y => Some y) a b
+    | False =>
+      match d: Map.Raw.isSmall b a with
+        | True =>
+          rewrite Map.Raw.foldLeftToList (acc key value => Map.Raw.insertWith (new old => f old new) key value acc) a b in
+          Eq.trans
+            (Eq.trans
+              (Map.Raw.toListFold (acc key value => Map.Raw.insertWith (new old => f old new) key value acc)
+                ((l: List (k, v)) (key: k) (value: v) => Map.Spec.insertWith (new old => f old new) key value l)
+                (m key value => Map.Raw.toListInsertWith (new old => f old new) key value m) a (Map.Raw.toList b))
+              (Map.Spec.foldInsertWith (new old => f old new) None (Map.Raw.toList b) (Map.Raw.toList a) (Map.Raw.toListSorted b)))
+            (Map.Spec.unionWithFlip f (Map.Raw.toList a) (Map.Raw.toList b) (Map.Raw.toListSorted a) (Map.Raw.toListSorted b))
+        | False => Map.Raw.toListMerge (key x y => Some (f x y)) (key x => Some x) (key y => Some y) a b
 
 theorem Map.Raw.toListUnion [auto ord: Ord k] (a: Map.Raw k v) (b: Map.Raw k v):
     Map.Raw.toList (Map.Raw.union a b) = Map.Spec.union (Map.Raw.toList a) (Map.Raw.toList b) :=
@@ -1560,6 +1574,27 @@ theorem Map.Spec.mergeExt [auto ord: Ord k] (both: k → v → w → Option x) (
     zs = Map.Spec.merge both onlyLeft onlyRight xs ys :=
   Map.Spec.extLookup None zs (Map.Spec.merge both onlyLeft onlyRight xs ys) az (Map.Spec.mergeAscending both onlyLeft onlyRight None xs ys ax ay)
     (key => Eq.trans (same key) (Eq.sym (Map.Spec.lookupMerge both onlyLeft onlyRight key None xs ys ax ay)))
+
+theorem Option.mergeFlip (f: v → v → v): (a: Option v) → (b: Option v) → Option.merge b a (new old => f old new) = Option.merge a b f
+  | Some x, Some y => rfl
+  | Some x, None => rfl
+  | None, Some y => rfl
+  | None, None => rfl
+
+-- Merging sorted lists the other way round, with `f`'s arguments swapped,
+-- gives the same entries.
+theorem Map.Spec.unionWithFlip [auto ord: Ord k] (f: v → v → v) (xs: List (k, v)) (ys: List (k, v))
+    (ax: Map.Spec.Sorted ord xs) (ay: Map.Spec.Sorted ord ys):
+    Map.Spec.unionWith (new old => f old new) ys xs = Map.Spec.unionWith f xs ys :=
+  Map.Spec.mergeExt (key x y => Some (f x y)) (key x => Some x) (key y => Some y) xs ys
+    (Map.Spec.unionWith (new old => f old new) ys xs) ax ay
+    (Map.Spec.mergeAscending (key x y => Some (f y x)) (key x => Some x) (key y => Some y) None ys xs ay ax)
+    (key =>
+      Eq.trans
+        (Map.Spec.lookupMerge (key2 x y => Some (f y x)) (key2 x => Some x) (key2 y => Some y) key None ys xs ay ax)
+        (Eq.trans (Map.Spec.mergeAtUnionWith (new old => f old new) key (Map.Tree.lookupList key ys) (Map.Tree.lookupList key xs))
+          (Eq.trans (Option.mergeFlip f (Map.Tree.lookupList key xs) (Map.Tree.lookupList key ys))
+            (Eq.sym (Map.Spec.mergeAtUnionWith f key (Map.Tree.lookupList key xs) (Map.Tree.lookupList key ys))))))
 
 theorem Map.Raw.containsIsSome [auto ord: Ord k] (key: k) (m: Map.Raw k v): Map.Raw.contains key m = Option.isSome (Map.Raw.get key m) :=
   match c: Map.Raw.get key m with
@@ -1607,7 +1642,40 @@ theorem Map.Raw.toListDifference [auto ord: Ord k] (a: Map.Raw k v) (b: Map.Raw 
             (Map.Spec.mergeAtDifferenceStep key (Map.Raw.contains key b) (Map.Tree.lookupList key (Map.Raw.toList a))
               (Map.Tree.lookupList key (Map.Raw.toList b))
               (Eq.trans (Map.Raw.containsIsSome key b) (Eq.cong Option.isSome (Map.Raw.getToList key b)))))
-    | False => Map.Raw.toListMerge (key x y => None) (key x => Some x) (key y => None) a b
+    | False =>
+      match d: Map.Raw.isSmall b a with
+        | True =>
+          rewrite Map.Raw.foldLeftToList (acc key value => Map.Raw.remove key acc) a b in
+          Map.Spec.mergeExt (key x y => None) (key x => Some x) (key y => None) (Map.Raw.toList a) (Map.Raw.toList b)
+            (Map.Raw.toList (Map.Spec.foldLeft (acc key value => Map.Raw.remove key acc) a (Map.Raw.toList b)))
+            (Map.Raw.toListSorted a) (Map.Raw.toListSorted b)
+            (Map.Raw.toListSorted (Map.Spec.foldLeft (acc key value => Map.Raw.remove key acc) a (Map.Raw.toList b)))
+            (key =>
+              Eq.trans (Eq.sym (Map.Raw.getToList key (Map.Spec.foldLeft (acc key2 value => Map.Raw.remove key2 acc) a (Map.Raw.toList b))))
+                (Eq.trans (Map.Raw.getFoldRemove key a (Map.Raw.toList b))
+                  (rewrite Map.Raw.getToList key a in
+                    Eq.sym (Map.Spec.mergeAtDifference key (Map.Tree.lookupList key (Map.Raw.toList a)) (Map.Tree.lookupList key (Map.Raw.toList b))))))
+        | False => Map.Raw.toListMerge (key x y => None) (key x => Some x) (key y => None) a b
+
+-- Removing each key of a list: what is left is what the list doesn't have.
+theorem Map.Raw.getFoldRemove [auto ord: Ord k] (key: k): (m: Map.Raw k v) → (ys: List (k, w)) →
+    Map.Raw.get key (Map.Spec.foldLeft (acc key2 value => Map.Raw.remove key2 acc) m ys)
+      = Option.filter (Map.Raw.get key m) (value => ¬(Option.isSome (Map.Tree.lookupList key ys)))
+  | m, Nil =>
+    match c: Map.Raw.get key m with
+      | None => rfl
+      | Some value => rfl
+  | m, Cons (kk, vv) rest =>
+    rewrite Map.Raw.getFoldRemove key (Map.Raw.remove kk m) rest in
+    match e: Ord.compare key kk with
+      | Equal =>
+        let gone: Map.Raw.get key (Map.Raw.remove kk m) = None := rewrite ord.equal key kk e in Map.Raw.getRemove kk m
+        rewrite gone in
+        match c: Map.Raw.get key m with
+          | None => rfl
+          | Some value => rfl
+      | Less => rewrite Map.Raw.getRemoveOther kk key (Map.Spec.notEqualOfCompare key kk (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) m in rfl
+      | Greater => rewrite Map.Raw.getRemoveOther kk key (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) m in rfl
 
 -- What `get` finds after each.
 
@@ -1834,19 +1902,23 @@ test "raw map: filter keeps none, or all" :=
 test "raw map: union" := Map.Raw.toList (Map.Raw.union (Map.Raw.singleton 1 "x") Map.Raw.example) == [(1, "x"), (2, "b"), (3, "c")]
 test "raw map: mapMaybe" :=
   Map.Raw.toList (Map.Raw.mapMaybe (key value => if Nat.leq 2 key then Some (key * 2) else None) Map.Raw.example) == [(2, 4), (3, 6)]
--- Both ways of combining: inserting a much smaller map's entries, and merging
--- the entry lists.
-test "raw map: unionWith, small first map and merged" :=
+-- Each way of combining: inserting or removing a much smaller map's entries,
+-- whichever side it is, and merging the entry lists.
+test "raw map: unionWith, small first map, small second map and merged" :=
   Map.Raw.toList (Map.Raw.unionWith Nat.sub (Map.Raw.singleton 3 100) Map.Raw.example9)
       == [(1, 10), (2, 20), (3, 70), (4, 40), (5, 50), (6, 60), (7, 70), (8, 80), (9, 90)]
     ∧ Map.Raw.toList (Map.Raw.unionWith Nat.sub Map.Raw.example9 (Map.Raw.singleton 3 1))
       == [(1, 10), (2, 20), (3, 29), (4, 40), (5, 50), (6, 60), (7, 70), (8, 80), (9, 90)]
+    ∧ Map.Raw.toList (Map.Raw.unionWith Nat.sub Map.Raw.example9 (Map.Raw.fromList [(3, 1), (12, 5)]))
+      == [(1, 10), (2, 20), (3, 29), (4, 40), (5, 50), (6, 60), (7, 70), (8, 80), (9, 90), (12, 5)]
 test "raw map: intersectWith, small first map and merged" :=
   Map.Raw.toList (Map.Raw.intersectWith Nat.sub (Map.Raw.fromList [(3, 100), (12, 1)]: Map.Raw Nat Nat) Map.Raw.example9) == [(3, 70)]
     ∧ Map.Raw.toList (Map.Raw.intersectWith Nat.sub Map.Raw.example9 (Map.Raw.fromList [(3, 1), (12, 1)])) == [(3, 29)]
-test "raw map: difference, small first map and merged" :=
+test "raw map: difference, small first map, small second map and merged" :=
   Map.Raw.keys (Map.Raw.difference (Map.Raw.fromList [(3, 100), (12, 1)]: Map.Raw Nat Nat) Map.Raw.example9) == [12]
     ∧ Map.Raw.keys (Map.Raw.difference Map.Raw.example9 (Map.Raw.fromList [(3, 1), (12, 1)])) == [1, 2, 4, 5, 6, 7, 8, 9]
+    ∧ Map.Raw.keys (Map.Raw.difference Map.Raw.example9 (Map.Raw.singleton 3 1)) == [1, 2, 4, 5, 6, 7, 8, 9]
+    ∧ Map.Raw.keys (Map.Raw.difference Map.Raw.example9 (Map.Raw.singleton 12 1)) == [1, 2, 3, 4, 5, 6, 7, 8, 9]
 test "raw map: fromListFast, ascending or not" :=
   Map.Spec.isAscending None [(1, "a"), (2, "b"), (5, "e")] ∧ ¬(Map.Spec.isAscending None [(1, "a"), (1, "b")])
     ∧ ¬(Map.Spec.isAscending None [(2, "b"), (1, "a")])

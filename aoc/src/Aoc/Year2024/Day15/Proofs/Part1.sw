@@ -89,7 +89,7 @@ theorem moveSeparate (warehouse: Warehouse) (direction: Direction) (separate: Se
 -- A line of boxes is no longer than the boxes there are.
 theorem lineAtMostBoxes (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length):
     length ≤ warehouse.boxes.size :=
-  countAtMostSize (i => ahead warehouse.robot direction (i + 1)) length warehouse.boxes (And.left line)
+  Set.countAtMostSize (i => ahead warehouse.robot direction (i + 1)) length warehouse.boxes (And.left line)
     (i j below belowJ same => omega [aheadInjective warehouse.robot direction (i + 1) (j + 1) same])
 
 -- With a line of boxes in front of the robot, `firstFree` finds the
@@ -210,7 +210,7 @@ theorem lineExists (warehouse: Warehouse) (direction: Direction): ∃ (length: N
     | Inr full =>
       Void.exfalso
         (omega [
-          countAtMostSize (i => ahead next direction i) (warehouse.boxes.size + 1) warehouse.boxes full
+          Set.countAtMostSize (i => ahead next direction i) (warehouse.boxes.size + 1) warehouse.boxes full
             (i j below belowJ same => aheadInjective next direction i j same)
         ])
 

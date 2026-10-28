@@ -62,11 +62,9 @@ def document(): {Parse} (List (List Tile), List Direction) :=
 
 -- The positions of every `wanted` tile, row by row.
 def positionsOf (rows: List (List Tile)) (wanted: Tile): List Position :=
-  rows.withIndex
-    |> .flatMap (((row, tiles)) =>
-      tiles.withIndex
-        |> .filter (((column, here)) => here == wanted)
-        |> .map (((column, here)) => ({ row = row.toInt, column = column.toInt }: Position)))
+  rows.gridCells
+    |> .filter (((position, here)) => here == wanted)
+    |> .map ((((row, column), here)) => ({ row = row.toInt, column = column.toInt }: Position))
 
 def parseDocument (input: Text): {Fail} Document :=
   let (rows, moves) := Parse.all input document
@@ -149,7 +147,7 @@ def Warehouse.moveWide (warehouse: Warehouse) (direction: Direction): Warehouse 
   match warehouse.gather direction Set.empty [next] (2 * warehouse.boxes.size + 1) with
     | Some group =>
       let moved := group.map (box => box.step direction)
-      { warehouse | boxes = moved.union (group.foldLeft warehouse.boxes Set.remove), robot = next }
+      { warehouse | boxes = warehouse.boxes.difference group |> .union moved, robot = next }
     | None => warehouse
 
 def Warehouse.moveAllWide (warehouse: Warehouse) (moves: List Direction): Warehouse := moves.foldLeft warehouse Warehouse.moveWide

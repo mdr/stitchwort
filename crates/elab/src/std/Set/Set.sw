@@ -37,8 +37,9 @@ def Set.foldLeft (set: Set k [ord := o]) (initial: b) (f: b → k → b): b := s
 -- The keys for which `p` holds.
 def Set.filter [auto ord: Ord k] (set: Set k) (p: k → Bool): Set k := { items = Map.filter set.items (key unit => p key) }
 
--- The keys of both. O(n + m), or O(n log m) when `a` is much smaller
--- (likewise `intersect` and `difference`; see `Map.union`).
+-- The keys of both. O(n + m), or O(n log m) when one set, of n keys, is
+-- much smaller (likewise `difference`, and `intersect` when `a` is the
+-- smaller; see `Map.union`).
 def Set.union [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.union a.items b.items }
 
 -- The keys of `a` that are also in `b`.
