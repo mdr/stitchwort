@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `grow` terminates
+    ╭─[ soundness/termination-list-pattern-grown.sw:10:17 ]
+    │
+ 10 │       | True => grow (Cons p (Cons p ps))
+    │                 ───────────┬───────────  
+    │                            ╰───────────── this recursive call might not terminate: the 1st argument, `Cons p (Cons p (Cons head✝ tail✝))`, isn't seen as smaller
+    │ 
+    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+────╯
