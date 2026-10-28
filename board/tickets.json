@@ -3346,13 +3346,13 @@
     {
       "id": 511,
       "title": "Extension declarations: names on another namespace's type (multi-file.md §4.7, D8 deferred). Use cases listed there: AoC Range.invalid, List.pickFree, Area.fits from Rogue.Tests, Level.goalReachable from Rogue.Proofs, Text.isBlank in an app port",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "D1391 (26 Oct): keep on backlog; use cases added to multi-file.md §4.7 to judge priority. A narrower option covers every tests/proofs case: let P.Tests / P.Proofs add to P's types.",
       "created": "2026-10-25",
-      "updated": "2026-10-26",
+      "updated": "2026-10-28",
       "commits": []
     },
     {
@@ -7221,7 +7221,7 @@
     {
       "id": 821,
       "title": "Dot syntax loses type aliases and nicknames: an element of List Code (Code an alias) is seen as List; FreeSpace.of's result is seen as Map; so x.f can't find Code.f / FreeSpace.f",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
