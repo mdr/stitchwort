@@ -240,6 +240,7 @@ shapes!(
     read_bytes,
     write,
     random_seed,
+    args,
     console_record,
     stop,
 );

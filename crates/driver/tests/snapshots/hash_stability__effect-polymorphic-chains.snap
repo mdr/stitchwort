@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Book 5753b66a2dcca5e7fe7dcca4eb183771742bc40310d1b0200c43be25e94dbced
@@ -33,7 +32,7 @@ Main.totalPagesOfLongBooks b7de6e216d35e6e84e851723a8272cf29cbf673d4a3e8b406a831
 Main.longBookOrFail 9838a4d6db1e4aab841eb2c3bab15005029776698ea75af407ab2902dd590cf8
 Main.availableTitleOrFail 228243a40836e069f7d299ff81a4d93d75489f640c15072bb1f08f5df8591a98
 Main.biggestShelfOrFail c0dda5d02d7ebb025d239a0f1d511d4cba679b919f9c3a759e19a9d5ca19155d
-Main.firstLongBookLogged 6247e5216ce65455c686980f03148f669e54fda95035482f3f004386c32aea2d
+Main.firstLongBookLogged dba6aaf8e593c21840fb88475a208a876c16db278303f23210156409625b8842
 Main.novel 99cecf1b9f2f9f2d72bd99bd4d9b8d281907567234c201deb871db47fae4c5ff
 Main.guide 5da79ca5c2fdc4566c4facf8e862f37fd0b4efec2e9f0ec868ecfdf75fd9b2cd
 Main.atlas ba2c7c867bb4ff88189c399bc39fbe229ced43c6c479bbc38a9cf0ce1af3a780
@@ -54,5 +53,5 @@ Main.test "orFail's message" eb65e4608ec5e930037acd33b768361675492af006a2382febb
 Main.test "filter and map, then orFail" b02a09c5b1649c23a2d78c721771e4a9704501a19bab489bfd23b15acf6f1834
 Main.test "fold in a map, then orFail" ce881d73da4e781ce1d921350afa7fa0ef52390446e4dc311ddd45cdf7692035
 Main.test "every shelf empty" 7ed82b8340209624316b83ee0ce74b358984c29d62f956173d9d90b1efd9212c
-Main.test "callback runs first, in order" 1623ccbb26d7c1da96feeea5fcbb9bf08de8ee2c49fc58cd251f7a6790fb61c8
-Main.test "callback runs for every book when none is found" 40508c26e0a6af12fea89099d5b68332a48622971bb572969c27628f77b18570
+Main.test "callback runs first, in order" f6fd94240aea4ca56104025ec2902ec4286455565b60553915889c7c0888e6a4
+Main.test "callback runs for every book when none is found" cdddd4a53add16756baa8bc76813d4558db7062ca65fa9f4cdc34a0a66177b48

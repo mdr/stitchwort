@@ -215,12 +215,23 @@ unsafe extern "C" {
 
 /// The executable's entry point.
 #[cfg(not(test))]
-#[allow(unsafe_code)]
+#[allow(unsafe_code, clippy::not_unsafe_ptr_arg_deref)]
 #[unsafe(no_mangle)]
 pub extern "C" fn main(
-    _argc: std::ffi::c_int,
-    _argv: *const *const std::ffi::c_char,
+    argc: std::ffi::c_int,
+    argv: *const *const std::ffi::c_char,
 ) -> std::ffi::c_int {
+    // The arguments after the executable's name, for `IO.args`.
+    let count = usize::try_from(argc).unwrap_or(0);
+    let args = (1..count)
+        .map(|i| {
+            // SAFETY: C `main` is given `argc` valid, nul-terminated strings
+            // in `argv`.
+            let arg = unsafe { std::ffi::CStr::from_ptr(*argv.add(i)) };
+            arg.to_string_lossy().into_owned()
+        })
+        .collect();
+    stitchwort_rt::host::set_args(args);
     // Rust's own start-up, which a C `main` skips, ignores `SIGPIPE`, so that
     // writing to a closed pipe is an error the program sees (`E-IO`) rather
     // than the end of the process; `stitchwort run` behaves so.

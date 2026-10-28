@@ -92,9 +92,9 @@ test "everyone in the middle is a safety factor of 0" := exampleSpace.safetyFact
 test "an empty quadrant makes 0" := exampleSpace.safetyFactor [tile 0 0, tile 10 0, tile 0 6] == 0
 test "one robot in each quadrant" := exampleSpace.safetyFactor [tile 0 0, tile 10 0, tile 0 6, tile 10 6, tile 10 6] == 2
 
-test "no overlap" := noOverlap [tile 0 0, tile 1 0, tile 0 1]
-test "an overlap" := !noOverlap [tile 0 0, tile 1 0, tile 0 0]
-test "no robots don't overlap" := noOverlap []
+test "no overlap" := [tile 0 0, tile 1 0, tile 0 1].allDistinct
+test "an overlap" := ![tile 0 0, tile 1 0, tile 0 0].allDistinct
+test "no robots don't overlap" := ([]: List Position).allDistinct
 test "a robot already in place" := solvePart2 exampleSpace [robotAt 0 0 1 1] == Some 0
 test "the period is width times height" := exampleSpace.period == 77 && puzzleSpace.period == 10403
 
@@ -213,9 +213,18 @@ test "a negative position" := parsed "p=-1,4 v=3,-3\n" == Err "line 1, column 3:
 test "a missing velocity" := parsed "p=1,4\n" == Err "line 1, column 6: expected ' v=', got the end of the line"
 test "a bad number" := parsed "p=1,4 v=3,x\n" == Err "line 1, column 11: expected a number, got 'x'"
 
--- What the example's `main` prints and how it ends, for some input lines.
+-- What `main` prints on the example's space and how it ends, for some
+-- input lines.
 def ran (lines: List Text): Pair (List Text) (Result Bool Text) :=
-  IO.simulate lines (() => Result.map (Fail.toResult mainExample) (unit => True))
+  IO.simulate lines (() => Result.map (Fail.toResult (() => solveIn exampleSpace)) (unit => True))
+
+def sizeFrom (args: List Text): Result (Nat, Nat) Text := Fail.toResult (() => spaceFrom args) |> .map (space => (space.width, space.height))
+
+test "the space from the arguments" :=
+  sizeFrom [] == Ok (101, 103) && sizeFrom ["11", "7"] == Ok (11, 7)
+    && sizeFrom ["11"] == Err "expected no arguments, or a width and a height above 0, such as `11 7`"
+    && sizeFrom ["0", "7"] == Err "expected no arguments, or a width and a height above 0, such as `11 7`"
+    && sizeFrom ["11", "x"] == Err "expected no arguments, or a width and a height above 0, such as `11 7`"
 
 test "main on the example" := ran (example.lines) == MkPair ["Part 1: 12", "Part 2: 1"] (Ok True)
 test "main with a robot outside the space" := ran ["p=0,0 v=1,1", "p=11,0 v=1,1"] == MkPair [] (Err "line 2: the robot starts outside the space")

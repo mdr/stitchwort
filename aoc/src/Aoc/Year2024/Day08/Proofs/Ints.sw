@@ -49,10 +49,6 @@ theorem mulSelf: (x: Int) → x * x = OfNat (Int.natAbs x * Int.natAbs x)
   | OfNat n => rfl
   | NegSucc n => rfl
 
-theorem natAbsZero: (x: Int) → Int.natAbs x = 0 → x = 0
-  | OfNat n, h => Eq.cong OfNat h
-  | NegSucc n, h => Void.exfalso (omega [h])
-
 theorem natMulSelfZero (n: Nat) (h: n * n = 0): n = 0 :=
   match natMulEqZero n n h with
     | Inl z => z
@@ -62,7 +58,7 @@ theorem natMulSelfZero (n: Nat) (h: n * n = 0): n = 0 :=
 theorem sumSquaresZero (x: Int) (y: Int) (h: x * x + y * y = 0): And (x = 0) (y = 0) :=
   let natural: Int.natAbs x * Int.natAbs x + Int.natAbs y * Int.natAbs y = 0 :=
     Int.ofNatInjective _ 0 (rewrite mulSelf x, mulSelf y at h in h)
-  Both (natAbsZero x (natMulSelfZero (Int.natAbs x) (omega))) (natAbsZero y (natMulSelfZero (Int.natAbs y) (omega)))
+  Both (Int.natAbsZero x (natMulSelfZero (Int.natAbs x) (omega))) (Int.natAbsZero y (natMulSelfZero (Int.natAbs y) (omega)))
 
 -- Equal squares: the same number, or its negation.
 theorem squaresEq (x: Int) (y: Int) (h: x * x = y * y): Or (x = y) (x + y = 0) :=

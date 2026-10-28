@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: warnings
+---
+[W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
+    ╭─[ accept/match-not-in-goal.sw:12:12 ]
+    │
+ 12 │   match h: n * 2 with
+    │            ──┬──  
+    │              ╰──── looked for `n * 2`
+    │ 
+    │ Note 1: in the goal `n + n = n + n`
+    │ 
+    │ Note 2: the search compares what terms compute to: write the expression as the goal shows it
+────╯

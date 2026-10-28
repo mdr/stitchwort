@@ -885,3 +885,20 @@ fn the_random_seed_is_fresh_each_run() {
         .collect();
     assert!(seeds[0] != seeds[1] || seeds[1] != seeds[2], "{seeds:?}");
 }
+
+/// `IO.args` gives the arguments after `--` under Node.
+#[test]
+fn the_arguments_after_a_double_dash_are_the_programs() {
+    let path = source_file(
+        "args.sw",
+        "import Std (IO, List, Text)\ndef main () : {IO} () := IO.print (Text.joinWith (IO.args ()) \"|\")\n",
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["run", "--no-cache", "--js"])
+        .arg(&path)
+        .args(["--", "1", "two words", "--js"])
+        .output()
+        .expect("run stitchwort");
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    assert_eq!(text(&output.stdout), "1|two words|--js\n");
+}

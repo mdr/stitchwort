@@ -2822,6 +2822,12 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                 Err(cx.mismatch(&expected, &found))
             }
         }
+        // `()` where a proof of the proposition `Unit` is wanted is its one
+        // proof, `Trivial`.
+        (Expr::Unit(_), Value::Data(d, _)) if g.registry.is_data(Builtin::Unit, *d) => {
+            let (unit, trivial) = builtin_ctor(cx, Builtin::Trivial)?;
+            Ok(Term::Ctor(unit, trivial, Vec::new()))
+        }
         (Expr::Hole(_), _) => {
             let hole = cx.fresh_meta();
             if let Some(log) = cx.e.hole_log.borrow_mut().as_mut() {

@@ -1,0 +1,9 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.distinctNil 063fea010a81687517290fe5044cf55726eafd58188fa2991d28d94a1192576d
+Main.unitDirect 232e131489271c1263f65f83d762dd9670252dbb9991d8f55c731f2350346a92
+Main.bothUnit 0b2d733c2c79d77bf86d97ace70f3b04c46c99cd2163fde62f4830ce82c25d43
+Main.unitValue 3a2765aabdb20afe413963d745978abe4d79a92f753d87de5082d727fc96bccc
+Main.test "the unit value is still a value" f072c3e79746f34019673fff9008b81e78143e02b101bf747778274a0b99ceae

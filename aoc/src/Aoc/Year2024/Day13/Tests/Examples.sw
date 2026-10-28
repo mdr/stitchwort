@@ -55,7 +55,7 @@ test "a minus sign" :=
     == Err "line 1, column 11: expected 'X+', got 'X-'"
 test "a missing blank line" :=
   parsed "Button A: X+1, Y+2\nButton B: X+3, Y+4\nPrize: X=5, Y=6\nButton A: X+1, Y+2\n"
-    == Err "line 4, column 1: expected the end of the input, got 'B'"
+    == Err "line 4, column 1: expected a blank line or the end of the input, got 'B'"
 test "a missing prize" := parsed "Button A: X+1, Y+2\nButton B: X+3, Y+4\n" == Err "line 3, column 1: expected 'Prize: ', got the end of the input"
 
 -- One solution, but negative, not whole, or over 100 presses.

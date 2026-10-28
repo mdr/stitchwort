@@ -39,7 +39,7 @@ theorem divideByFacts (difference: Position) (goal: Prop) (rowTimes: Nat) (colum
         s * (difference.divideBy divisor).row + t * (difference.divideBy divisor).column = 1 → goal) →
       goal
   | Zero, rows, columns, bezout, use =>
-    Void.exfalso (nonzero (Both (natAbsZero difference.row (omega [rows])) (natAbsZero difference.column (omega [columns]))))
+    Void.exfalso (nonzero (Both (Int.natAbsZero difference.row (omega [rows])) (Int.natAbsZero difference.column (omega [columns]))))
   | Succ below, rows, columns, bezout, use =>
     let scale := (Succ below).toInt
     let step := difference.divideBy (Succ below)
@@ -87,13 +87,6 @@ theorem onLineOfCross (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (s: I
   let parallel := mulCancel scale ((pc - fc) * er - (pr - fr) * ec) 0 nonzero crossScaled
   Both (ring [(pr - fr) * bezout, t * parallel]) (ring [(pc - fc) * bezout, s * parallel])
 
--- `|x * y| = |x| * |y|`.
-theorem natAbsMul: (x: Int) → (y: Int) → Int.natAbs (x * y) = Int.natAbs x * Int.natAbs y
-  | OfNat m, OfNat n => rfl
-  | OfNat m, NegSucc n => Int.natAbsNeg (OfNat (m * Succ n))
-  | NegSucc m, OfNat n => Int.natAbsNeg (OfNat (Succ m * n))
-  | NegSucc m, NegSucc n => rfl
-
 -- Two numbers below `n` are less than `n` apart.
 theorem natAbsFrom (p: Nat) (a: Nat) (n: Nat) (below: p < n) (aBelow: a < n): (gap: Nat) → a - p = gap → Int.natAbs (Int.subNatNatFrom p a gap) < n
   | Zero, e => omega
@@ -115,8 +108,8 @@ theorem stepsBound (fr: Int) (pr: Int) (er: Int) (k: Int) (n: Nat) (a: Nat) (p: 
     (aBelow: a < n) (pBelow: p < n) (on: pr = fr + er * k) (nonzero: Not (er = 0)):
     Int.natAbs k < n :=
   let gap: Int.natAbs (er * k) < n := rewrite (ring [on]: er * k = pr - fr), toAt, fromAt in natAbsDiffLt p a n pBelow aBelow
-  let positive: Not (Int.natAbs er = 0) := z => nonzero (natAbsZero er z)
-  omega [natAbsMul er k, Nat.leMulPos (Int.natAbs k) (Int.natAbs er) (omega)]
+  let positive: Not (Int.natAbs er = 0) := z => nonzero (Int.natAbsZero er z)
+  omega [Int.natAbsMul er k, Nat.leMulPos (Int.natAbs k) (Int.natAbs er) (omega)]
 
 -- A point a whole number of steps from `start`, within the map's reach, is
 -- among the harmonics.

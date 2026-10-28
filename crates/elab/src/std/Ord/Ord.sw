@@ -48,6 +48,9 @@ def Ord.min [auto ord: Ord a] (x: a) (y: a): a := match Ord.compare x y with
 theorem Ord.compareSelf [auto ord: Ord a] (x: a): Ord.compare x x = Equal :=
   Ordering.flipSelf (Ord.compare x x) (ord.flip x x)
 
+-- The smaller of a value and itself is that value.
+theorem Ord.minSelf [auto ord: Ord a] (x: a): Ord.min x x = x := rewrite Ord.compareSelf x in rfl
+
 -- `c3` isn't `Greater` when `c1` and `c2` aren't, given what `Ord`'s laws
 -- say of three comparisons `x y`, `y z` and `x z`: `Less` is transitive,
 -- and an `Equal` makes two of them the same.

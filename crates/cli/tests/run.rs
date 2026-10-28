@@ -789,3 +789,29 @@ fn the_random_seed_is_fresh_each_run() {
         .collect();
     assert!(seeds[0] != seeds[1] || seeds[1] != seeds[2], "{seeds:?}");
 }
+
+/// `IO.args` gives the arguments after `--`, flags among them; `run`'s own
+/// flags come before it. On the machine and as native code.
+#[test]
+fn the_arguments_after_a_double_dash_are_the_programs() {
+    let path = source_file(
+        "args.sw",
+        "import Std (IO, List, Text)\ndef main () : {IO} () := IO.print (Text.joinWith (IO.args ()) \"|\")\n",
+    );
+    let run_with = |flags: &[&str], args: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(["run", "--no-cache"])
+            .args(flags)
+            .arg(&path)
+            .args(args)
+            .output()
+            .expect("run stitchwort");
+        assert!(output.status.success(), "{}", stderr(&output));
+        String::from_utf8(output.stdout).unwrap()
+    };
+    assert_eq!(run_with(&[], &[]), "\n");
+    assert_eq!(run_with(&[], &["--", "11", "a b", "--js"]), "11|a b|--js\n");
+    if cfg!(feature = "native") {
+        assert_eq!(run_with(&["--native"], &["--", "x", "y"]), "x|y\n");
+    }
+}
