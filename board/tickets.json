@@ -6041,7 +6041,7 @@
     {
       "id": 727,
       "title": "Std.Parse messages from stage 2: say what was found (got 'x' / the end of the line); expectations from attempts that didn't fail are hints that fail/ensure replace; Parse.token or spacedNat; blankLine allows spaces; Parse.line allows one final line break; spaces1; grid allowing empty input and short rows",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
