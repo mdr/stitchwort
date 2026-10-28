@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a lambda doesn't take a result type
+   ╭─[ reject/lambda-result-type.sw:8:32 ]
+   │
+ 8 │   let doubled := (ys: List Nat): List Nat => ys.map (y => y * 2)
+   │                                ┬  
+   │                                ╰── a lambda doesn't take a result type
+   │ 
+   │ Note: write the parameters' types only, `(x: A) => body`; to give the result's type too, annotate the body, `(x: A) => (body: B)`, or the `let`, `let f: A → B := x => body`
+───╯

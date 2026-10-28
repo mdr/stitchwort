@@ -59,14 +59,11 @@ def parseLab (lines: List Text): {Fail} Lab :=
       |> .map (((index, line)) => Fail.context "line ${index + 1}" (() => parseRow width line))
       |> .withIndex
       |> .flatMap (((row, rowCells)) => rowCells.withIndex.map (((column, cell)) => (({ row, column }: Position), cell)))
-  match positionsOf cells GuardStart with
-    | [start] => { height = lines.length, width, obstructions = Set.fromList (positionsOf cells Obstruction), start }
+  let positionsOf := (wanted: Cell) => cells.filter (cell => cell.snd == wanted) |> .map (cell => cell.fst)
+  match positionsOf GuardStart with
+    | [start] => { height = lines.length, width, obstructions = Set.fromList (positionsOf Obstruction), start }
     | [] => Fail.fail "expected a guard (^) on the map, found none"
     | _ => Fail.fail "expected one guard (^) on the map, found several"
-
--- The positions of the cells that are `wanted`.
-def positionsOf (cells: List (Position, Cell)) (wanted: Cell): List Position :=
-  cells.filter (cell => cell.snd == wanted) |> .map (cell => cell.fst)
 
 def parseRow (width: Nat) (line: Text): {Fail} (List Cell) :=
   Fail.ensure (line.length == width) "expected ${width} characters, as on the first line, got ${line.length}"

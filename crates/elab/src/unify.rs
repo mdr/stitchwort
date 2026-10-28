@@ -1093,6 +1093,19 @@ fn rename_spine(go: &dyn Fn(&Value) -> Renamed<Term>, head: Term, spine: &[Elim]
     Ok(term)
 }
 
+/// `value`, with `level` variables in scope, as a term over only the first
+/// `keep` of them, or `None` if it mentions a later one. An unknown applied
+/// to a later variable is pruned, so that its solution can't mention it.
+pub(crate) fn strengthen(
+    g: &Globals,
+    level: usize,
+    keep: usize,
+    value: &Value,
+) -> Result<Option<Term>> {
+    let renaming: HashMap<usize, usize> = (0..keep).map(|l| (l, l)).collect();
+    settle(rename(g, usize::MAX, &renaming, keep, level, value, false))
+}
+
 /// Pruning: `?m2 spine` appears in a solution, but some of its arguments are
 /// variables the solution can't mention. If the spine is distinct variables,
 /// `?m2` can't depend on those positions in any solution, so solve it as a new

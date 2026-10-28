@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-EFFECT-ESCAPE] Error: the result's type depends on the result of an operation
+    ╭─[ reject/effect-escape-dependent-type.sw:19:3 ]
+    │
+ 19 │ ╭─▶   let answer := payload (ask ())
+ 20 │ ├─▶   0
+    │ │         
+    │ ╰───────── here
+    │     
+    │     Note: return the value together with what its type depends on, as a dependent pair
+────╯

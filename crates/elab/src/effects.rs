@@ -1277,6 +1277,34 @@ pub fn settle_empty(cx: &Ctx, ty: &Value) -> Result<()> {
     Ok(())
 }
 
+/// The type of `value`, bound by `let`, of type `ty`: when `value` is a
+/// lambda whose result is a computation in a row still unknown (its body
+/// only calls effect-polymorphic functions with pure callbacks), the row
+/// is the empty one, so the function is pure and its calls are plain
+/// calls, as a definition's would be.
+pub fn settle_let_lambda(cx: &Ctx, value: &Expr, ty: Value) -> Result<Value> {
+    if !matches!(value, Expr::Lam(..) | Expr::TypedLam(..)) {
+        return Ok(ty);
+    }
+    let g = cx.g();
+    let mut level = cx.level();
+    let mut rest = force(g, ty.clone())?;
+    while let Value::Pi(_, _, _, cod) = rest {
+        rest = force(g, cod.apply(g, Value::var(level))?)?;
+        level += 1;
+    }
+    let Some((row, _)) = comp_parts(cx, &rest)? else {
+        return Ok(ty);
+    };
+    if !unknown_bare(cx, &row)? {
+        return Ok(ty);
+    }
+    // The row is made outside the parameters, so it's settled where the
+    // lambda stands.
+    settle_empty(cx, &rest)?;
+    cx.eval(&cx.quote(&ty)?)
+}
+
 /// Closes `row`, the row a lambda's body worked out, if it has abilities
 /// and ends in an unknown: the row is the abilities the body performs, as
 /// if written. A row with no abilities is left for the lambda's uses, or
@@ -2361,6 +2389,7 @@ fn comp_check_in(
                 None => {
                     let (term, ty) = infer(cx, value)?;
                     let (term, ty) = insert(cx, term, ty)?;
+                    let ty = settle_let_lambda(cx, value, ty)?;
                     written = crate::dot::written_of(cx, &term)?;
                     (term, ty, false)
                 }
@@ -3503,23 +3532,69 @@ fn run_argument(
     }))
 }
 
+/// The error for a result type `ty` that mentions one of the innermost
+/// `count` variables, the results of operations run first; `None` if it
+/// doesn't. An unknown in `ty` applied to those variables is pruned so that
+/// it can't mention them, and only a type that still mentions one escapes.
+fn escapes(cx: &Ctx, ty: &Value, count: usize) -> Result<Option<Diagnostic>> {
+    let level = cx.level();
+    let quoted = cx.quote(ty)?;
+    if !(0..count).any(|i| quoted.mentions(i)) {
+        return Ok(None);
+    }
+    if crate::unify::strengthen(cx.g(), level, level - count, ty)?.is_some() {
+        return Ok(None);
+    }
+    let quoted = cx.quote(ty)?;
+    let error = cx.error(
+        "E-EFFECT-ESCAPE",
+        "the result's type depends on the result of an operation",
+        "here",
+    );
+    Ok(Some(
+        if (0..count).any(|i| mentions_outside_unknowns(&quoted, i)) {
+            error.with_note(
+                "return the value together with what its type depends on, as a dependent pair",
+            )
+        } else {
+            error.with_note(
+                "an unknown part of the type could depend on it: give the type, as `(e: T)`",
+            )
+        },
+    ))
+}
+
+/// Whether variable `ix` occurs free in `term` other than as an argument of
+/// an unknown.
+fn mentions_outside_unknowns(term: &Term, ix: usize) -> bool {
+    let mut pending = vec![(term, 0)];
+    while let Some((t, under)) = pending.pop() {
+        match t {
+            Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) if *i == ix + under => {
+                return true;
+            }
+            _ => {}
+        }
+        let mut head = t;
+        while let Term::App(f, ..) | Term::Loc(_, f) = head {
+            head = f;
+        }
+        if matches!(head, Term::Meta(_)) {
+            continue;
+        }
+        t.for_each_child(|child, binders| pending.push((child, under + binders)));
+    }
+    false
+}
+
 /// Wraps `result : Comp row ty` in a `bind` for each of `bound` (run in
 /// order). `ty` can't mention the variables bound.
 fn wrap(cx: &mut Ctx, row: &Row, bound: Vec<Bound>, mut result: Term, ty: &Value) -> Result<Term> {
-    let quoted = cx.quote(ty)?;
-    if (0..bound.len()).any(|i| quoted.mentions(i)) {
+    if let Some(error) = escapes(cx, ty, bound.len())? {
         if let Some(first) = bound.first() {
             cx.reset(first.mark);
         }
-        return Err(cx
-            .error(
-                "E-EFFECT-ESCAPE",
-                "the result's type depends on the result of an operation",
-                "here",
-            )
-            .with_note(
-                "return the value together with what its type depends on, as a dependent pair",
-            ));
+        return Err(error);
     }
     for b in bound.into_iter().rev() {
         cx.reset(b.mark);
@@ -3790,13 +3865,9 @@ fn op_call(
     let mark = cx.mark();
     cx.bind("%op", dom.clone());
     let (inner, result_ty) = make(cx, Term::Var(0))?;
-    if cx.quote(&result_ty)?.mentions(0) {
+    if let Some(error) = escapes(cx, &result_ty, 1)? {
         cx.reset(mark);
-        return Err(cx.error(
-            "E-EFFECT-ESCAPE",
-            "the result's type depends on the result of an operation",
-            "here",
-        ));
+        return Err(error);
     }
     cx.reset(mark);
     let lam = Term::Lam("%op".into(), Icit::Explicit, Rc::new(inner));
@@ -3925,6 +3996,7 @@ pub fn pure_let(
         None => {
             let (term, ty) = infer(cx, value)?;
             let (term, ty) = insert(cx, term, ty)?;
+            let ty = settle_let_lambda(cx, value, ty)?;
             let written = crate::dot::written_of(cx, &term)?;
             let ty_term = cx.quote(&ty)?;
             (term, ty, ty_term, written)

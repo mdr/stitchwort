@@ -1514,10 +1514,20 @@ Day 2's item 3 (keep definitions folded until asked) is the common fix.
   lambda's call seems to count as an operation. Fix: treat a `let` lambda
   that performs nothing as pure, and don't suggest a dependent pair unless a
   type really mentions the result.
+
+  Fixed: a `let` lambda whose body performs nothing (its calls of
+  `filter`/`map` take pure callbacks) is a pure function, so its calls are
+  plain calls. The error came from `Set.fromList`'s unfilled `Ord` argument,
+  made while the call's result was in scope: an unknown is no longer taken
+  to depend on that result, and the dependent-pair note is only given when
+  the type itself mentions it. `parseLab` uses the `let` lambda again.
 - A lambda with a return type, `(wanted: Cell): List Position => …`, is
   "`a block must end with an expression, not let`", pointing at the `let`.
   Fix: say lambdas don't take a return type (or allow one, as Scala and Lean
   do).
+
+  Fixed: it's now "a lambda doesn't take a result type", at the `:`, with a
+  note to annotate the body, `(x: A) => (body: B)`, or the `let`.
 - `Some { row = row - 1, column }` (day 1's item 7): six times today.
 
 ### 6. `cases` gaps
