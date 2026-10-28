@@ -7620,3 +7620,394 @@ Release build, load average 8 to 14:
    proof for its decreasing measure (item 2). Fix: add it.
 8. No lowercase test on `Char` (item 1). Fix: `Char.isAsciiLowercase`
    beside `isAsciiLetter`.
+
+## Day 24: Crossed Wires
+
+A device of AND, OR and XOR gates joined by named wires. The input lists
+the wires that start with a value (`x00: 1`), a blank line, then the gates
+(`x00 AND y00 -> z00`). "Gates wait until both inputs are received before
+producing output"; "AND gates output 1 if both inputs are 1", "OR gates
+output 1 if one or both inputs is 1", "XOR gates output 1 if the inputs
+are different". Part 1: "combining the bits on all wires starting with z.
+z00 is the least significant bit". Part 2: the device is "trying to add
+two binary numbers" from the x and y wires onto the z wires, but "exactly
+four pairs of gates whose output wires have been swapped"; the answer is
+"the names of the eight wires involved in a swap", sorted and joined with
+commas (part 2's wording from the public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/master/2024/day-24/README.txt>).
+
+**The real input is pending from Matt**: his repository
+(<https://github.com/mdr/aoc-2024>) stops at day 10, so there is no
+`inputs/2024/day24.txt`, no `Tests/Input.sw`, and the day isn't registered
+in `aoc_answers.rs` or `machine.rs` yet. `examples/2024/day24.txt` is the
+puzzle's larger example: part 1 is 2024, as the puzzle says (the small
+example's 4 is a test). Part 2 has no example of its own that this program
+can run: the puzzle's part 2 example is a device that ANDs, not adds, and
+the program answers "no four swaps make an adder" for the larger example.
+Part 2 is tested instead on ripple-carry adders the tests generate, with
+swaps planted, and was cross-checked against an independent Python
+generator (`/usr/bin/python3 -I`, not committed) that builds adders of 1
+to 45 bits with randomly named internal wires and plants four random
+swaps: with the four swaps inside bits (the shape the puzzle's inputs are
+reported to have), the program found the planted swaps in 40 cases of 40;
+with the swaps anywhere among a 45-bit adder's outputs, 39 of 40 (one
+`None`); on a mix of 3- to 45-bit adders, 26 of 30, plus one different
+answer that also adds, and three `None`s on 3- to 8-bit adders where the
+swaps crowd a few bits. Part 1 agreed with Python every time. Compiler
+built from `main` at 0e5d0d5e, 28 October 2026.
+
+### The program
+
+```stitchwort
+type Wire =
+  | X (bit: Nat)
+  | Y (bit: Nat)
+  | Z (bit: Nat)
+  | Other (name: Text)
+
+type Operation =
+  | And
+  | Or
+  | Xor
+
+type Gate = { left: Wire, operation: Operation, right: Wire, output: Wire }
+
+type Device = { initial: List (Wire, Bool), gates: List Gate }
+
+def wireName(): {Parse} Wire := takeWhile1 "a wire name" Char.isAsciiAlphanumeric |> Wire.ofName
+
+def gateLine(): {Parse} Gate :=
+  let left := wireName()
+  text " "
+  let operation := label "AND, OR or XOR" (() => pick [("AND", And), ("OR", Or), ("XOR", Xor)])
+  text " "
+  let right := wireName()
+  text " -> "
+  let output := wireName()
+  { left, operation, right, output }
+
+def deviceInput(): {Parse} Device :=
+  let initial := section initialValue
+  let gates := lines gateLine
+  { initial, gates }
+
+def parseDevice (input: Text): {Fail} Device := Parse.all input deviceInput
+
+def settle (values: Values) (waiting: List Gate): Values
+    decreasing waiting.length
+:=
+  let stillWaiting := waiting.filter (gate => ¬(gate.ready values))
+  if fewer: stillWaiting.length < waiting.length then settle (fireAll values (waiting.filter (gate => gate.ready values))) stillWaiting
+  else values
+
+def solvePart1 (device: Device): Option Nat := zBits device device.settled |> .map fromBits
+
+type BitCheck =
+  | Passes (carry: Wire)
+  | Faulty (fixes: List (Wire, Wire))
+
+def repair (budget: Nat) (bits: Nat) (gates: List Gate) (swaps: List (Wire, Wire)): Option (List (Wire, Wire)) :=
+  match checkAdder gates bits with
+    | Faulty fixes =>
+      match budget with
+        | Zero => None
+        | Succ fewer => fixes.findMap (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix]))
+    | Passes carry => if isAdder gates bits then Some swaps else None
+
+def solvePart2 (device: Device): Option Text :=
+  repair 4 device.inputBits device.gates [] |> .map swapNames
+```
+
+The domain model: a `Wire` is a bit of x, y or z (`x07` parses as `X 7`)
+or any other name, so the adder check matches on bit numbers, not text;
+`Wire.name` prints it back for the answer. `main` is `parseDevice`, then
+`solvePart1` and `solvePart2`, each an `Option`: part 1 has no number when
+a z wire gets no value (a gate in a loop never fires), part 2 none when no
+four swaps make an adder.
+
+Part 1 is `settle`: in rounds, every waiting gate whose inputs both have
+values fires into a `Map Wire Bool`, until a round fires nothing. The
+rounds stop because the waiting list shrinks each time, so gates in a loop
+just wait, with no fuel or cycle check. A z wire below the highest that no
+gate mentions counts as 0.
+
+Part 2 checks the gates against the ripple-carry adder, a bit at a time:
+bit 0 should be `x00 XOR y00 -> z00` and `x00 AND y00 -> carry`, each later
+bit `x XOR y -> partial`, `x AND y -> generated`, `partial XOR carry -> z`,
+`partial AND carry -> passed`, `generated OR passed -> next carry`, and the
+last carry the top z wire. Gates are found by operation and inputs, not by
+output name, so a swapped output shows up where its wire is used. The
+first bit that fails gives a short list of candidate swaps (the gate that
+should be the z wire's and the z wire, or, when a gate with the expected
+two inputs is missing, the wire its partner gate has instead), and
+`repair` tries each in turn, backtracking through `findMap`, with a budget
+of four. A first version that took the first candidate without
+backtracking, and trusted the wrong input when a gate was missing, failed
+8 of 40 Python cases. At the end `isAdder` also requires each wire to be
+the output of at most one gate, none to output onto an x or y wire, and no
+z wire above the top bit.
+
+### Proved, for every device
+
+The spec (`Spec/Spec.sw`, 55 lines) is the puzzle's words. `gateOutput`
+is the three rules as quoted. `Carries device wire value` is inductive: a
+wire carries a value if it starts with it, or if a gate outputs onto it
+and both its inputs carry values. `Outputs device number` is "bit `bit` of
+the number is what the z wire of that bit carries", and 0 where there's no
+such wire. `Adds bits gates` is "for any x and y below 2^bits, the gates
+with x and y on the x and y wires output x + y". `WellFormed` is "each
+wire is connected to at most one gate output", and the starting wires
+aren't outputs.
+
+Proved (`Proofs/`, 860 lines in 8 files):
+
+- `part1Sound` (Part1.sw): for every device, the number part 1 returns is
+  one the device outputs. `settle` only ever records values the spec says
+  wires carry.
+- `part1Correct` (Proofs.sw, with Complete.sw and Unique.sw): for a
+  well-formed device, `solvePart1 device = Some number` if and only if the
+  device outputs `number`. `carriesUnique`: in a well-formed device a wire
+  carries at most one value, loops included (induction on both
+  derivations). `settledComplete`: every value a wire carries, `settle`
+  finds (when the rounds stop, every gate has fired or has an input with no
+  value). So `part1Complete`, and `None` means the device outputs nothing.
+- `shapeAdds` (Adder.sw, from Sums.sw): gates that pass `checkAdder` with
+  no z wire above the top bit add, for every number of bits. Sums.sw is
+  the arithmetic: bit `bit` of x + y is the XOR of the two input bits and
+  the carry into it (`sumBit`), the carry defined by the
+  generated-or-passed recurrence (`carryFrom`). Adder.sw walks the checks
+  bit by bit, showing the partial, generated, passed and carry wires carry
+  what the arithmetic says.
+- `part2Sound` and `part2Correct` (Part2.sw): for every device, part 2's
+  answer is the names of at most four swaps after which the gates are
+  well wired and add; and, end to end, the device with those swaps applied
+  and any x and y as wide as its x wires gives `solvePart1 … = Some (x +
+  y)` (`wellFormedInputs` shows such a device is well formed, so
+  `part1Complete` applies).
+
+Not proved: that the swaps found are the only ones (the puzzle promises
+one answer; the tests show swaps that change nothing, such as a full
+adder's generated and passed wires, which an OR doesn't tell apart), and
+that `repair` finds swaps whenever four exist, which the Python runs show
+is false for some swaps crowded into small adders (above). The parser
+isn't proved.
+
+Breaking the program makes the proofs fail: making OR an AND fails
+`applyIsGateOutput` (``[E-CASES] Error: `cases` can't close the case left
+= False, right = True``); checking the sum bit's gate as an XOR where an
+OR belongs, or dropping `zWithin` from `isAdder`, fails Adder.sw and
+Part2.sw with type mismatches.
+
+### 1. Std.Parse
+
+- `section initialValue` then `lines gateLine` read the two blocks with no
+  blank-line handling of my own, and `label` around `pick` gave clean
+  messages: `line 1, column 6: expected 0 or 1, got '2'` and `line 3,
+  column 5: expected AND, OR or XOR, got 'N'`.
+- One odd message: a gate line with no blank line before it gives `line
+  2, column 4: expected ': ' or a blank line before this line, got ' O'`.
+  The "got" shows two characters, as wide as the expected `': '`, which
+  reads like the input was `' O'` rather than ` OR`. Fix: show the next
+  character, or the rest of the token.
+- `takeWhile1 "a wire name" Char.isAsciiAlphanumeric |> Wire.ofName` maps
+  a parser's result with `|>` directly; nice.
+
+### 2. Missing std
+
+- No `Text.padLeft` (std has `Text.padRight`). Wire names need two digits;
+  I wrote `twoDigits`. Haskell has `justifyRight :: Int -> Char -> Text ->
+  Text`, "Right-justify a string to the given length, using the specified
+  fill character on the left"
+  (<https://hackage-content.haskell.org/package/text-2.1.4/docs/Data-Text.html>).
+  Fix: add `Text.padLeft`.
+- No `List (Option a) → Option (List a)` (all the values, or none). I
+  wrote `allSome`. Haskell's `sequenceA :: Applicative f => t (f a) -> f
+  (t a)` does it for `Maybe`, where "Nothing ... will short circuit"
+  (<https://hackage-content.haskell.org/package/base-4.22.0.0/docs/Data-Traversable.html>).
+  Fix: add `List.allSome` (or a traverse) with its lemma; I needed
+  `allSomeMap` (all options `Some` gives `Some` of the values) for part 1's
+  completeness.
+- No `Option.toList`; I used `.fold [] (other => [other])`.
+- Lemmas written in `Lemmas.sw`: `testBitSmall`, `testBitAbove`,
+  `toNatSmall` (bits of numbers below a power of two), `fromBitsLow`,
+  `fromBitsHigh` (`Nat.testBit` of a number built from bits),
+  `findMapSome` (what `List.findMap` found came from some element),
+  `lookupLastMem` (what `Map.lookupLast` finds is one of the pairs),
+  `allMember`, `filterNoLonger`, `rangeBits`, `rangeBitsBeyond`, the
+  `countFrom` family for `bitCount`, and in Complete.sw
+  `lookupLastFound` (a key among the pairs is found by
+  `Map.lookupLast`). I first wrote `compareSelf` and `lessNotGreater`
+  too, then found std's `Ord.compareSelf` and `Ordering.lessNotGreater`
+  by grepping the std sources; with no search by type, a lemma is easy
+  to miss.
+
+### 3. Confusing errors
+
+- A constructor named like a prelude type hides it. With `Operation`'s
+  `And` and `Or` in scope (the spec imports the program's types), `p ∧ q`
+  written as `And p q` in a type gave ``[E-NOT-A-FUNCTION] Error: `And`
+  takes 0 argument(s)``, and later `Or (gate ∈ waiting) (…)` gave
+  ``[E-NOT-A-FUNCTION] Error: `Or` takes 0 argument(s)``; importing `Std
+  (And)` explicitly gave ``[E-NOT-A-CONSTRUCTOR] Error: `And` isn't a
+  constructor``. Neither message says which `And` it found. What I did:
+  the notation `∧`, `∨`, `∉`, which doesn't go through the names. In Lean
+  a constructor's name is in its type's namespace (`Color.rgb`), usable
+  bare only after `open Color`
+  (<https://lean-lang.org/doc/reference/latest/Error-Explanations/lean___unknownIdentifier/>),
+  so this clash doesn't arise unless asked for. Fix: say which `And` was
+  found and where it came from, and that the prelude's is hidden.
+- Two `Carries`, the program's `BitCheck` constructor and the spec's
+  relation: ``[E-AMBIGUOUS] Error: `Carries` could mean
+  `Aoc.Year2024.Day24.BitCheck.Carries` or
+  `Aoc.Year2024.Day24.Spec.Carries` ``. Clear; renamed the constructor
+  `Passes`.
+- ``[E-PARSE] Error: braces after `Outputs` name its fields, and take no
+  further arguments`` for `Outputs { initial = …, gates } (x + y)`, and
+  ``[E-UNKNOWN-FIELD]`` (`Ok` has no field `initial`) for `Ok { initial =
+  …, gates = … }` in a test. Braces after a name are a constructor's named
+  fields, so a record literal argument needs brackets: `Outputs ({ … })`.
+  The first message is clear; the second points at the field, not at the
+  missing brackets. Fix: in the second, add the first's note.
+- ``[E-UNIVERSE] Error: `if` can't choose between proofs yet`` when a
+  proof did `if isAdder gates bits then … else …`. What I did: `match
+  adder: isAdder gates bits with | True => … | False => …`.
+- ``[E-MATCH-MOTIVE] Error: generalising this `match`'s scrutinee makes its
+  type ill-formed`` on a `match ready: …` over the unfolded well-founded
+  `settle`, when `settle` matched on a list of ready gates. What I did:
+  rewrote `settle` in the guard form other days use (`if fewer: … < …
+  then`), with `settleMore` and `settleDone` as its two equations.
+- When a theorem's result type is a definition that unfolds to a function
+  (`Sound values` is "every recorded value is carried"), its pattern arms
+  need patterns for the extra arguments, and the error is ``[E-ARITY]``
+  with no mention of the unfolding. What I did: wrote the extra patterns.
+- `W-LAMBDA-SHADOW` warned that parser functions named `gate` and `wire`
+  were hidden by lambda parameters of the same names elsewhere. Useful;
+  renamed them `gateLine` and `wireName`.
+- Clear ones: `E-REWRITE-NOTHING` after `rewrite isSwaps in …` showed the
+  goal already computed to `Text.joinWith (List.mergeRuns …)`, so `swaps`
+  was gone; `Eq.cong swapNames isSwaps` did it. Another
+  `E-REWRITE-NOTHING`, on `rewrite <- List.mapAppend …` with `_` arguments
+  to `List.memAppend`, showed the goal as `List.append (?99 …) (?100 …)`:
+  the holes weren't solved yet, and naming the two lists fixed it.
+
+### 4. Inference
+
+- `|>` passes the first argument (day 2's item): `repair … |> .getOrElse
+  [] |> applySwaps broken.gates` passed the gates as the swaps. What I did:
+  `applySwaps broken.gates (repair … |> .getOrElse [])`.
+- Good: the gate record literal `{ left, operation, right, output }` from
+  the result type; `Bool.andLeft _ _ adder` and `DecEq.sound _ _ …` found
+  their operands; recursion through the `findMap` lambda in `repair` was
+  accepted as structural on the budget.
+
+### 5. Performance
+
+On the example `stitchwort run` takes 0.79 s user; a generated 45-bit
+adder with four swaps (the size of a real input, 222 gates) about 0.9 s.
+Both are mostly loading: day 21 runs in 0.39 s. The `Map` of wire values
+and `List.find` lookups of gates by inputs are fine at this size; part 2
+re-checks the adder from bit 0 after each swap, at most four times per
+branch.
+
+`check --no-cache` of the program takes 2.5 s user against day 21's 0.9
+s. Bisecting the file: using `Map` at all costs about 1.3 s (a file with
+only `def empty: Map Nat Bool := Map.empty` takes 1.39 s with `--no-cache`,
+0.48 s with the cache), and the line using `List.allDistinct` another 0.8
+s. So `--no-cache` checks the std modules a file uses, not just the file.
+That is what the flag says ("check everything"), but it makes the
+per-day times below hard to compare. Fix: none needed; a flag that skips
+only the project's cache would give comparable numbers.
+
+### 6. Proofs
+
+860 lines, and the adder theorem, the hard part, went more smoothly than
+expected. What made it work:
+
+- Splitting the arithmetic from the gates. Sums.sw proves bit `bit` of x +
+  y from bits and carries alone, and checked first time; Adder.sw then
+  only has to show each wire carries the arithmetic's value.
+- `match name: e with` refining hypotheses: `fullAdderCarries` is six
+  nested matches on `outputOf` results, each arm getting the found gate
+  from the refined `checkFullAdder` hypothesis, with no `rewrite`.
+- Guarded well-founded recursion: `settle`'s `if fewer:` gives two
+  equations, `settleMore` and `settleDone`, and every `settle` proof
+  (`settleSound`, `settleKeeps`, `settleCovers`) is by the same
+  `decreasing waiting.length` as the program.
+- Std's `Map.getInsertCases`, `Map.getFromList`,
+  `Map.containsInsertKeeps`, `List.memFilter`, `List.memMapElim`,
+  `List.distinctMapAppend` and `List.allDistinctCorrect` were all there.
+
+Friction:
+
+- Goals and refined hypotheses show compiled internals: after a match
+  inside `checkFullAdder`, the hypothesis reads `checkFullAdder.%match1 …`
+  with `Decidable.toBool (Wire.%decEq …)`, and `Nat.testBit` shows as
+  `Nat.divFuel (Nat.shiftRight first bit) … 2 * 2`. Readable enough to
+  work from, but long.
+- `omega` gave up on `testBit (1 + 2 * rest) 0` because the goal had been
+  computed into `Nat.divFuel` internals: ``[E-OMEGA] Error: `omega` can't
+  prove `(2 * (fromBits rest) + 1) - ((if 1 <= … Nat.divFuel …`` ``. What
+  I did: wrote `fromBits` as `bit.toNat + fromBits rest * 2` and used
+  `Nat.modAddMul`. Fix: keep `Nat.testBit` and `%` folded for `omega`.
+- `bit + 1` doesn't compute to `Succ bit` (`+` recurses on its first
+  argument), so the bit-by-bit inductions need `rewrite (omega: bit + 1 =
+  Succ bit)` at each step.
+- `List.all` over a literal list (`[gate.left, gate.right,
+  gate.output].all …`) computes to a chain of `&&`, so `allMember` needed
+  the list written out to apply.
+- `Z bit ∈ device.wires` in a `match there:` is the `Bool` test, not the
+  `Prop`; the proof needed `match List.decMem (Z bit) device.wires with |
+  Yes there | No absent` to get the membership.
+
+Lean has the same adder theorem in its library: `BitVec.add_eq_adc`
+states `x + y = (x.adc y false).snd`, `adc` documented as "Bitwise
+addition implemented via a ripple carry adder", and `getLsbD_add` is the
+bit-by-bit sum, `(x + y).getLsbD i = (x.getLsbD i ^^ (y.getLsbD i ^^ carry
+i x y false))`
+(<https://lean-lang.org/doc/api/Init/Data/BitVec/Bitblast.html>). Sums.sw
+is that lemma over `Nat` and `Nat.testBit`, written here because std has
+no bit vectors.
+
+### Size and time
+
+Release build, load average around 4:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day24.Proofs` | 2.8 s user (2.9 s) |
+| `stitchwort check --no-cache Aoc.Year2024.Day24` | 2.5 s user (2.5 s) |
+| `stitchwort test --no-cache Aoc.Year2024.Day24` (31 tests) | 3.6 s user (4.5 s) |
+| `stitchwort test Aoc.Year2024.Day24` (warm) | 0.9 s user (1.1 s) |
+| `stitchwort run Aoc.Year2024.Day24.main` on the example | 0.79 s user |
+| `stitchwort run Aoc.Year2024.Day24.main` on a generated 45-bit adder | about 0.9 s user |
+
+280 lines of program, 55 of spec, 860 of proofs, 161 of tests.
+
+### Ranked
+
+1. The real input is pending: Matt's repository has no day 24. Fix: add
+   his input, its tests and its two answer entries when he has it, and
+   check part 2 finds an answer on it (it is sound, not complete: see
+   2).
+2. Part 2's repair isn't complete: it returned `None` for 4 of 110
+   generated adders with four planted swaps, all with swaps crowded
+   together or spread at random rather than within bits. Fix: on `None`,
+   widen the candidates at the first fault (every gate output in that
+   bit), still checked by `isAdder`, so soundness keeps its proof.
+3. A constructor named `And` or `Or` hides the prelude's, and the errors
+   don't say which was found (item 3). Fix: name the found declaration
+   and its namespace in `E-NOT-A-FUNCTION` and `E-NOT-A-CONSTRUCTOR`.
+4. `omega` fails on goals computed into `Nat.divFuel` (item 6). Fix: keep
+   `Nat.testBit`, `/` and `%` folded when handing a goal to `omega`.
+5. No `Text.padLeft`, no `List (Option a) → Option (List a)`, no
+   `Option.toList` (item 2). Fix: add them, the second with its lemma.
+6. `E-MATCH-MOTIVE` on a match over an unfolded well-founded definition,
+   and `E-ARITY` when a result type unfolds to a function, don't explain
+   what unfolded (item 3). Fix: a note naming the unfolded definition.
+7. `Ok { … }` gives `E-UNKNOWN-FIELD` without the bracket hint `Outputs {
+   … }` gets (item 3). Fix: the same note in both.
+8. The parse message `got ' O'` shows as many characters as were
+   expected (item 1). Fix: show the next character or token.
+9. `--no-cache` times include checking the std modules used, so they
+   aren't comparable between days (item 5). Fix: a flag to skip only the
+   project cache.
