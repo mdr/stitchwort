@@ -188,3 +188,52 @@ theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firs
                   omega))
         harmonicsOfSteps city first second point steps (And.left both) (And.right both) bound
     })
+
+-- Part 2 counts the puzzle's antinodes, for every city whose antennas are
+-- on the map.
+theorem part2Correct (city: City) (onMap: (antenna: Antenna) → antenna ∈ city.antennas → city.contains antenna.position = True):
+    solvePart2 city = part2 city :=
+  Eq.cong Set.size
+    (locationsCorrect city (((start, end)) => city.harmonics start end) (point first second => inLine point first second)
+      (first second firstIn secondIn same point inside =>
+        harmonicsCorrect city first.position second.position (onMap first firstIn) (Decidable.toBoolSound _ (Bool.andRight _ _ same)) point
+          inside))
+
+-- A point is in line with itself and any other.
+theorem inLineSelf (point: Position) (other: Position): inLine point point other = True :=
+  rewrite (ring: (point.row - point.row) * (other.column - point.column) - (point.column - point.column) * (other.row - point.row) = 0) in rfl
+
+-- "Some of the new antinodes will occur at the position of each antenna
+-- (unless that antenna is the only one of its frequency)": an antenna with
+-- another of its frequency is a part 2 antinode.
+theorem antennasAreAntinodes (city: City) (onMap: (antenna: Antenna) → antenna ∈ city.antennas → city.contains antenna.position = True)
+    (first: Antenna) (second: Antenna) (firstIn: first ∈ city.antennas) (secondIn: second ∈ city.antennas) (same: sameFrequency first second = True):
+    (antinodeLocations city (isHarmonicAntinode city)).contains first.position = True :=
+  let inner :=
+    List.anyOfMem city.antennas (other => sameFrequency first other && inLine first.position first.position other.position) second
+      (Bool.andIntro _ _ same (inLineSelf first.position second.position)) secondIn
+  rewrite Set.containsFilter (Set.fromList (positions city)) first.position (isHarmonicAntinode city),
+    Set.containsFromList first.position (positions city) in
+  Bool.andIntro _ _ (positionsOnMap city first.position (onMap first firstIn))
+    (List.anyOfMem city.antennas
+      (one => city.antennas.any (other => sameFrequency one other && inLine first.position one.position other.position)) first inner firstIn)
+
+-- Part 2's antinodes include part 1's: in line with two antennas, one twice
+-- as far as the other, is in line with two antennas.
+theorem part2IncludesPart1 (city: City):
+    (antinodeLocations city (isAntinode city)).isSubset (antinodeLocations city (isHarmonicAntinode city)) = True :=
+  Set.isSubsetIntro _ _ (key has =>
+    let both := rewrite Set.containsFilter (Set.fromList (positions city)) key (isAntinode city) at has in has
+    rewrite Set.containsFilter (Set.fromList (positions city)) key (isHarmonicAntinode city) in
+    Bool.andIntro _ _ (Bool.andLeft _ _ both)
+      (List.anyTrueElim city.antennas (one => city.antennas.any (other => sameFrequency one other && (inLine key one.position other.position && twiceAsFar key one.position other.position))) _
+        (Bool.andRight _ _ both)
+        (first firstIn inner =>
+          List.anyTrueElim city.antennas (other => sameFrequency first other && (inLine key first.position other.position && twiceAsFar key first.position other.position)) _
+            inner
+            (second secondIn pair =>
+              let holds := Bool.andRight _ _ pair
+              List.anyOfMem city.antennas (one => city.antennas.any (other => sameFrequency one other && inLine key one.position other.position)) first
+                (List.anyOfMem city.antennas (other => sameFrequency first other && inLine key first.position other.position) second
+                  (Bool.andIntro _ _ (Bool.andLeft _ _ pair) (Bool.andLeft _ _ holds)) secondIn)
+                firstIn))))
