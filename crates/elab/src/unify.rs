@@ -1106,6 +1106,28 @@ pub(crate) fn strengthen(
     settle(rename(g, usize::MAX, &renaming, keep, level, value, false))
 }
 
+/// Prunes variable `level` from `value`'s spine, when `value` is an unknown
+/// applied to distinct variables (`?m e g xs k`): `?m` is solved as a new
+/// unknown applied to the others, so its solution can't mention `level`.
+/// Anything else is left alone.
+pub(crate) fn prune_variable(g: &Globals, value: &Value, level: usize) -> Result<()> {
+    let Value::Neutral(Head::Meta(m), spine) = force(g, value.clone())? else {
+        return Ok(());
+    };
+    let mut renaming = HashMap::default();
+    for elim in &spine {
+        if let Elim::App(v, _) = elim
+            && let Value::Neutral(Head::Var(l, _), s) = force(g, v.clone())?
+            && s.is_empty()
+            && l != level
+        {
+            renaming.insert(l, l);
+        }
+    }
+    prune(g, m, &spine, &renaming)?;
+    Ok(())
+}
+
 /// Pruning: `?m2 spine` appears in a solution, but some of its arguments are
 /// variables the solution can't mention. If the spine is distinct variables,
 /// `?m2` can't depend on those positions in any solution, so solve it as a new

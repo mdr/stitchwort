@@ -1406,6 +1406,22 @@ pub fn settle_empty(cx: &Ctx, ty: &Value) -> Result<()> {
     Ok(())
 }
 
+/// Before a case split on variable `level`, with `goal` a computation whose
+/// row is still unknown: the unknown (and its divergence index) can't depend
+/// on `level`, so the split's substitution leaves it as it is. Otherwise
+/// each arm's row would be the unknown applied to that arm's constructor
+/// (`?e k` becoming `?e 0`), which can't be solved as the row of the
+/// abilities the arm performs (SW-838). A row is an index programs can't
+/// compute, so no solution needs the matched value.
+pub fn unpin_row(cx: &Ctx, goal: &Value, level: usize) -> Result<()> {
+    if let Some((row, _)) = comp_parts(cx, goal)? {
+        for v in row.tail.iter().chain(&row.div) {
+            crate::unify::prune_variable(cx.g(), v, level)?;
+        }
+    }
+    Ok(())
+}
+
 /// The type of `value`, bound by `let`, of type `ty`: when `value` is a
 /// lambda whose result is a computation in a row still unknown (its body
 /// only calls effect-polymorphic functions with pure callbacks), the row
