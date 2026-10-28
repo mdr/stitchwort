@@ -30,11 +30,11 @@ type Cells = Nat → Nat → Cell
 
 -- The grid's cells: row r (counted from 0, and a row of floor past the last),
 -- then cell c of it (floor past the last).
-def cellsOf (grid: Grid): Cells :=
+def Grid.cells (grid: Grid): Cells :=
   r c => grid.rows |> .getOr r (Vec.replicate grid.width Floor) |> .getOr c Floor
 
 -- How many positions (r, c) of the grid satisfy `p`.
-def countPositions (grid: Grid) (p: Nat → Nat → Bool): Nat :=
+def Grid.countPositions (grid: Grid) (p: Nat → Nat → Bool): Nat :=
   List.range grid.height |> .sumBy (r => List.range grid.width |> .count (c => p r c))
 
 -- Positions (r, c) and (r2, c2) are next to each other: different, with
@@ -43,27 +43,27 @@ def adjacent (r: Nat) (c: Nat) (r2: Nat) (c2: Nat): Bool :=
   Nat.absDiff r r2 ≤ 1 ∧ Nat.absDiff c c2 ≤ 1 ∧ not (r == r2 ∧ c == c2)
 
 -- How many positions next to (r, c) hold rolls.
-def neighbours (grid: Grid) (cells: Cells) (r: Nat) (c: Nat): Nat :=
-  countPositions grid (r2 c2 => adjacent r c r2 c2 ∧ cells r2 c2 == Roll)
+def Grid.neighbours (grid: Grid) (cells: Cells) (r: Nat) (c: Nat): Nat :=
+  grid.countPositions (r2 c2 => adjacent r c r2 c2 ∧ cells r2 c2 == Roll)
 
 -- Position (r, c) holds a roll that a forklift can access.
-def accessible (grid: Grid) (cells: Cells) (r: Nat) (c: Nat): Bool :=
-  cells r c == Roll ∧ neighbours grid cells r c < 4
+def Grid.accessible (grid: Grid) (cells: Cells) (r: Nat) (c: Nat): Bool :=
+  cells r c == Roll ∧ grid.neighbours cells r c < 4
 
 -- Part 1: the accessible rolls.
-def part1Spec (grid: Grid): Nat := countPositions grid (r c => accessible grid (cellsOf grid) r c)
+def part1Spec (grid: Grid): Nat := grid.countPositions (r c => grid.accessible grid.cells r c)
 
 -- The rolls on the grid.
-def rollCount (grid: Grid) (cells: Cells): Nat := countPositions grid (r c => cells r c == Roll)
+def Grid.rollCount (grid: Grid) (cells: Cells): Nat := grid.countPositions (r c => cells r c == Roll)
 
 -- One round: every accessible roll is removed, all at once.
-def removeAccessible (grid: Grid) (cells: Cells): Cells :=
-  r c => if accessible grid cells r c then Floor else cells r c
+def Grid.removeAccessible (grid: Grid) (cells: Cells): Cells :=
+  r c => if grid.accessible cells r c then Floor else cells r c
 
 -- n rounds.
-def rounds (grid: Grid) (n: Nat) (cells: Cells): Cells := Nat.iterate n (removeAccessible grid) cells
+def Grid.rounds (grid: Grid) (n: Nat) (cells: Cells): Cells := Nat.iterate n grid.removeAccessible cells
 
 -- Part 2: the rolls removed by as many rounds as there are rolls.
 def part2Spec (grid: Grid): Nat :=
-  let start := rollCount grid (cellsOf grid)
-  start - rollCount grid (rounds grid start (cellsOf grid))
+  let start := grid.rollCount grid.cells
+  start - grid.rollCount (grid.rounds start grid.cells)

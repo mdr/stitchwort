@@ -28,7 +28,7 @@ theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (List.he
       rewrite rowsCellsBelow rows r c past, List.getOrPast lines r "" past
 
 theorem gridOfCells (lines: List Text) (grid: Grid) (h: Grid.of lines = Some grid) (r: Nat) (c: Nat):
-    cellsOf grid r c = List.getOr (parseLine (List.getOr lines r "")) c Floor :=
+    grid.cells r c = List.getOr (parseLine (List.getOr lines r "")) c Floor :=
   let width := Text.length (List.headOr lines "")
   let f := (line: Text) => Vec.ofList width (parseLine line)
   let g := (rows: Vec (Vec Cell width) lines.length) => ({ height = lines.length, width, rows }: Grid)
@@ -39,7 +39,7 @@ theorem gridOfCells (lines: List Text) (grid: Grid) (h: Grid.of lines = Some gri
       rewrite <- same in parsedCell lines rows e r c
 
 theorem parseGridCells (lines: List Text) (grid: Grid) (h: parseGrid lines = Ok grid) (r: Nat) (c: Nat):
-    cellsOf grid r c = List.getOr (parseLine (List.getOr lines r "")) c Floor :=
+    grid.cells r c = List.getOr (parseLine (List.getOr lines r "")) c Floor :=
   match e: findStray lines with
     | Some (row, column, ch) => Void.exfalso (Bool.falseNotTrue (Eq.cong Result.isOk h))
     | None => gridOfCells lines grid (Eq.trans (Eq.sym (Result.toOptionToResult _ (Grid.of lines))) (Eq.cong Result.toOption h)) r c

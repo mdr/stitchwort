@@ -1,8 +1,8 @@
 # Adding functions to another namespace's type
 
 **Status:** design note, 28 October 2026. Open question: may a file other
-than the one declaring a type add functions to that type's namespace? No
-implementation. Code references checked at `9f9220ce`.
+than the one declaring a type add functions to that type's namespace? Option
+(c) chosen and implemented. Code references checked at `9f9220ce`.
 
 **The short answer.** Allow it from any project namespace, but make the added
 function **belong to the namespace that wrote it**: `grid.probe` finds it only

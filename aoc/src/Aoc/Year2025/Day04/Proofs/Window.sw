@@ -8,7 +8,7 @@ import Aoc.Year2025.Day04 (..)
 import Aoc.Year2025.Day04.Spec (..)
 import Std (And, Bool, DecEq, Eq, List, Nat, Vec, Void)
 
--- Rows of any size as cells by position, as `cellsOf` reads a grid's.
+-- Rows of any size as cells by position, as `Grid.cells` reads a grid's.
 def rowsCells (rows: Vec (Vec Cell w) h): Cells :=
   r c => rows |> Vec.getOr r (Vec.replicate w Floor) |> Vec.getOr c Floor
 
@@ -195,7 +195,7 @@ theorem selfNear (r: Nat) (c: Nat) (x: Nat) (y: Nat) (h: (r == x ∧ c == y) = T
 
 -- A count over the grid's positions is a sum of 1s and 0s.
 theorem countPositionsSum (grid: Grid) (p: Nat → Nat → Bool):
-    countPositions grid p = List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => Bool.toNat (p x y))) :=
+    grid.countPositions p = List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => Bool.toNat (p x y))) :=
   rewrite List.countSumBy _ _
 
 -- The sum over the grid's positions that picks out (r, c) itself.
@@ -252,7 +252,7 @@ theorem windowRows (cells: Cells) (r: Nat) (c: Nat): window cells r c = rowSum c
 -- are floor off the grid.
 theorem windowIsNeighbours (grid: Grid) (cells: Cells) (below: (r: Nat) → (c: Nat) → grid.height ≤ r → cells r c = Floor)
     (right: (r: Nat) → (c: Nat) → grid.width ≤ c → cells r c = Floor) (r: Nat) (c: Nat):
-    window cells r c = neighbours grid cells r c + (cells r c).count :=
+    window cells r c = grid.neighbours cells r c + (cells r c).count :=
   let adj := (x: Nat) => (y: Nat) => Bool.toNat (adjacent r c x y ∧ cells x y == Roll)
   let self := (x: Nat) => (y: Nat) => Bool.toNat ((r == x ∧ c == y) ∧ cells x y == Roll)
   calc window cells r c
@@ -264,5 +264,5 @@ theorem windowIsNeighbours (grid: Grid) (cells: Cells) (below: (r: Nat) → (c: 
     _ = List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => adj x y))
         + List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => self x y))
       := List.sumByAdd (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => adj x y)) (x => List.sumBy (List.range grid.width) (y => self x y))
-    _ = neighbours grid cells r c + (cells r c).count
+    _ = grid.neighbours cells r c + (cells r c).count
       := rewrite selfSum grid cells below right r c, countPositionsSum grid (x y => adjacent r c x y ∧ cells x y == Roll)
