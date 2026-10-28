@@ -61,24 +61,24 @@ def Wire.name (wire: Wire): Text :=
     | Z bit => "z${twoDigits bit}"
     | Other name => name
 
-def wire(): {Parse} Wire := takeWhile1 "a wire name" Char.isAsciiAlphanumeric |> Wire.ofName
+def wireName(): {Parse} Wire := takeWhile1 "a wire name" Char.isAsciiAlphanumeric |> Wire.ofName
 
 -- `x00: 1`.
 def initialValue(): {Parse} (Wire, Bool) :=
-  let name := wire()
+  let name := wireName()
   text ": "
   let value := label "0 or 1" (() => pick [("0", False), ("1", True)])
   (name, value)
 
 -- `x00 AND y00 -> z00`.
 def gateLine(): {Parse} Gate :=
-  let left := wire()
+  let left := wireName()
   text " "
   let operation := label "AND, OR or XOR" (() => pick [("AND", And), ("OR", Or), ("XOR", Xor)])
   text " "
-  let right := wire()
+  let right := wireName()
   text " -> "
-  let output := wire()
+  let output := wireName()
   { left, operation, right, output }
 
 def deviceInput(): {Parse} Device :=
@@ -107,34 +107,15 @@ def Gate.ready (gate: Gate) (values: Values): Bool := (gate.fire values).isSome
 def fireAll (values: Values) (ready: List Gate): Values :=
   ready.foldLeft values (settled gate => settled.insert gate.output ((gate.fire values).getOrElse False))
 
--- Filtering keeps at most what there was.
-theorem filterNoLonger: (xs: List a) → (p: a → Bool) → (xs.filter p).length ≤ xs.length
-  | Nil, p => rfl
-  | Cons x rest, p =>
-    match p x with
-      | True => filterNoLonger rest p
-      | False => omega [filterNoLonger rest p]
-
--- If some of `xs` pass `p`, fewer than all of them fail it.
-theorem filterNotShorter: (xs: List a) → (p: a → Bool) → (first: a) → (rest: List a) → xs.filter p = Cons first rest →
-    (xs.filter (x => ¬(p x))).length < xs.length
-  | Nil, p, first, rest, passed => Void.exfalso (List.nilNotCons first rest passed)
-  | Cons x more, p, first, rest, passed =>
-    match passes: p x with
-      | True => omega [filterNoLonger more (x => ¬(p x))]
-      | False => filterNotShorter more p first rest passed
-
 -- The gates settle a round at a time: every gate whose inputs both have
 -- values fires, and the rest wait, until none is ready. Gates in a loop
 -- never are, so they wait for ever, and the rounds stop.
 def settle (values: Values) (waiting: List Gate): Values
     decreasing waiting.length
 :=
-  match ready: waiting.filter (gate => gate.ready values) with
-    | Nil => values
-    | Cons first rest =>
-      settle (fireAll values (Cons first rest)) (waiting.filter (gate => ¬(gate.ready values)))
-        [decreasing := filterNotShorter waiting (gate => gate.ready values) first rest ready]
+  let stillWaiting := waiting.filter (gate => ¬(gate.ready values))
+  if fewer: stillWaiting.length < waiting.length then settle (fireAll values (waiting.filter (gate => gate.ready values))) stillWaiting
+  else values
 
 def Device.wires (device: Device): List Wire :=
   List.append (device.initial.map (.fst)) (device.gates.flatMap (gate => [gate.left, gate.right, gate.output]))
@@ -161,14 +142,14 @@ def allSome: List (Option a) → Option (List a)
 -- The number with these bits, lowest first.
 def fromBits: List Bool → Nat
   | Nil => 0
-  | Cons bit rest => bit.toNat + 2 * fromBits rest
+  | Cons bit rest => bit.toNat + fromBits rest * 2
 
 -- The bits on the z wires, lowest first, a missing z wire counting as 0,
 -- if every z wire has a value.
 def zBits (device: Device) (values: Values): Option (List Bool) :=
   let wires := device.wires
   List.range (bitCount Wire.zBit wires)
-    |> .map (bit => if Z bit ∈ wires then values.get (Z bit) else Some False)
+    |> .map (bit => if wires.contains (Z bit) then values.get (Z bit) else Some False)
     |> allSome
 
 def Device.settled (device: Device): Values := settle (Map.fromList device.initial) device.gates
