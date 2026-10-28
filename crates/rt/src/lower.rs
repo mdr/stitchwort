@@ -251,6 +251,7 @@ fn shapes(g: &Globals) -> Result<Shapes> {
         write: ctor(Builtin::IoWrite, 1)?,
         console_record: nth(Builtin::Console, 0, 4)?,
         random_seed: ctor(Builtin::RandomSeed, 1)?,
+        args: ctor(Builtin::Args, 1)?,
         stop: match g.registry.loaded_data(Builtin::Fail) {
             Some(d) => shape(g, d, 0, 1)?,
             None => u32::MAX,

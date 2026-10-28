@@ -395,3 +395,21 @@ fn the_random_seed_is_fresh_each_run() {
         assert!(seeds[0] != seeds[1] || seeds[1] != seeds[2], "{seeds:?}");
     }
 }
+
+/// `IO.args` gives the arguments after `--`, in the reference evaluator and
+/// on the machine.
+#[test]
+fn the_arguments_after_a_double_dash_are_the_programs() {
+    let path = source_file(
+        "args.sw",
+        "import Std (IO, List, Text)\ndef main () : {IO} () := IO.print (Text.joinWith (IO.args ()) \"|\")\n",
+    );
+    for reference in [false, true] {
+        let args = ["--", "1", "two words"].map(std::ffi::OsStr::new);
+        let mut all = vec![path.as_os_str()];
+        all.extend(args);
+        let output = run_args(&all, reference, b"");
+        assert!(output.status.success(), "{}", text(&output.stderr));
+        assert_eq!(text(&output.stdout), "1|two words\n");
+    }
+}

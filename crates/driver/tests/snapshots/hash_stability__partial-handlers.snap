@@ -34,4 +34,4 @@ Main.test "stopping drops the loop" d5dbd8c23e7e045c5839055582c7b6f0445cedd2a0df
 Main.test "a seeded loop" d05f711dce7ae6dcbd3223add51de1e5e26eb9ac2e453fcea7a89e3e2e313e05
 Main.test "the same seed, the same rolls" b23d83ce8aaca576a3e59b23f55fc7798277f2bb73c4e88bfa47745c7a482b88
 Main.showResult e43c7ae55b7c80a4265441fa93ca7b0bb8a92baa732919a0546ae09682fa8ce7
-Main.main 1e26e9b846a61f9c947b8516dce85c9a1c369cd0bed53b2652498459d7f725b2
+Main.main 60794a3e3ea0a05db526423b1b65379ac7773a77ff6fb5f310fccadd557088ab

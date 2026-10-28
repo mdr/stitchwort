@@ -216,6 +216,20 @@ pub fn set_random_source(source: fn() -> u64) {
     let _ = RANDOM_SOURCE.set(source);
 }
 
+/// The program's arguments, for `IO.args`: the runner sets them once,
+/// before the run.
+static ARGS: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+
+/// Sets the arguments [`args`] gives. Only the first call has an effect.
+pub fn set_args(args: Vec<String>) {
+    let _ = ARGS.set(args);
+}
+
+/// The program's arguments, after its name: none unless the runner set them.
+pub fn args() -> &'static [String] {
+    ARGS.get().map_or(&[], Vec::as_slice)
+}
+
 /// A fresh 64-bit number for `IO.randomSeed`. By default it is the output of
 /// a hasher keyed by `std`'s `RandomState`, whose keys the standard library
 /// takes from the operating system's entropy (`getrandom` on Linux,

@@ -121,7 +121,8 @@ pub struct Shapes {
     /// `MkSigMap inject reply`.
     pub sig_map: u32,
     /// `IO`'s `%print text`, `%readLine u`, `%readAll u`, `%console u`,
-    /// `%keysMode on`, `%readBytes u`, `%write text`, `%randomSeed u`.
+    /// `%keysMode on`, `%readBytes u`, `%write text`, `%randomSeed u`,
+    /// `%args u`.
     pub print: u32,
     pub read_line: u32,
     pub read_all: u32,
@@ -130,6 +131,7 @@ pub struct Shapes {
     pub read_bytes: u32,
     pub write: u32,
     pub random_seed: u32,
+    pub args: u32,
     /// `Console`'s one constructor, `IO.console`'s reply: four fields.
     pub console_record: u32,
     /// `Fail`'s `%stop msg`, if `Fail`'s library file has loaded;

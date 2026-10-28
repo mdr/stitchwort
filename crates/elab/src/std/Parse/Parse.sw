@@ -404,7 +404,7 @@ def Parse.sections (parser: () → {Parse} a): {Parse} (List a) := Parse.sepBy1 
 
 -- `parser` on a line after the first of a `section`. If it fails, a blank
 -- line before this line is also expected there: the section may have ended.
--- At the end of the input, where there is no line, a blank line is.
+-- Where the line starts, that is a blank line, as `blankLine` expects there.
 def Parse.sectionLine (parser: () → {Parse} a): {Parse} a :=
   let start := Parse.mark()
   handle parser() with
@@ -417,7 +417,7 @@ def Parse.sectionLine (parser: () → {Parse} a): {Parse} a :=
     | Parse.note problem, k => k (Parse.note problem)
     | Parse.stop u, k =>
       let here := Parse.mark()
-      Parse.note (Expected (if here.left == 0 ∧ here.offset == start.offset then "a blank line" else "a blank line before this line"))
+      Parse.note (Expected (if here.offset == start.offset then "a blank line" else "a blank line before this line"))
       Empty.absurd Parse.stop()
     | Parse.fatal message, k => Empty.absurd (Parse.fatal message)
 
@@ -525,23 +525,40 @@ def Parse.label (what: Text) (parser: () → {Parse} a): {Parse} a :=
       Parse.expected what
     | Parse.fatal message, k => Empty.absurd (Parse.fatal message)
 
--- `parser`, but if it fails anywhere, it backs up and fails with "expected
--- `what`" where it started, dropping what it expected inside: for a short
--- token, such as a blank line, that reads best as one thing.
+-- `parser`, but if it fails anywhere, it fails with "expected `what`" at
+-- the furthest point it read to, dropping what it expected inside, and
+-- backs up: for a short token, such as a blank line, that reads best as one
+-- thing. Reported there, it outranks what is expected nearer the start, as
+-- Megaparsec keeps the error that got furthest.
 def Parse.labelWhole (what: Text) (parser: () → {Parse} a): {Parse} a :=
   let start := Parse.mark()
-  handle parser() with
-    | return value => value
-    | Parse.span passes, k => k (Parse.span passes)
-    | Parse.next passes, k => k (Parse.next passes)
-    | Parse.literal chars, k => k (Parse.literal chars)
-    | Parse.mark u, k => k Parse.mark()
-    | Parse.reset at, k => k (Parse.reset at)
-    | Parse.note problem, k => k ()
-    | Parse.stop u, k =>
-      Parse.reset start
-      Parse.expected what
-    | Parse.fatal message, k => Empty.absurd (Parse.fatal message)
+  let further := (furthest: Parse.Mark) =>
+    let here := Parse.mark()
+    if here.offset > furthest.offset then here else furthest
+  let go: Parse.Mark → {Parse} a :=
+    handle parser() with
+      | return value => furthest => value
+      | Parse.span passes, k => furthest =>
+        let read := Parse.span passes
+        k read (further furthest)
+      | Parse.next passes, k => furthest =>
+        let read := Parse.next passes
+        k read (further furthest)
+      | Parse.literal chars, k => furthest =>
+        let read := Parse.literal chars
+        k read (further furthest)
+      | Parse.mark u, k => furthest => k Parse.mark() furthest
+      | Parse.reset at, k => furthest =>
+        Parse.reset at
+        k () furthest
+      | Parse.note problem, k => furthest => k () furthest
+      | Parse.stop u, k => furthest =>
+        Parse.reset furthest
+        Parse.note (Expected what)
+        Parse.reset start
+        Empty.absurd Parse.stop()
+      | Parse.fatal message, k => furthest => Empty.absurd (Parse.fatal message)
+  go start
 
 -- `body` with `self` for its nested parser, at most `fuel` levels deep.
 def Parse.recursiveFuel (fuel: Nat) (body: (() → {Parse} a) → {Parse} a): {Parse} a :=
@@ -872,8 +889,8 @@ test "Parse: newline, error" := Parse.Tests.lineError "x" Parse.newline == "colu
 test "Parse: blankLine" := Parse.Tests.lineError "\n\n" Parse.blankLine == ""
 test "Parse: blankLine, error" := Parse.Tests.lineError "x" Parse.blankLine == "column 1: expected a blank line, got 'x'"
 test "Parse: blankLine, spaces" := Parse.Tests.lineError "\n \t\n" Parse.blankLine == ""
--- A blank line that fails part way is reported where it starts.
-test "Parse: blankLine, a line that is not blank" := Parse.Tests.lineError "\n x\n" Parse.blankLine == "column 1: expected a blank line, got a line break"
+-- A blank line that fails part way is reported where it got to.
+test "Parse: blankLine, a line that is not blank" := Parse.Tests.lineError "\n x\n" Parse.blankLine == "line 2, column 2: expected a blank line, got 'x'"
 test "Parse: lineEnd" := Parse.Tests.lineResult "1\n2" (() => Parse.sepBy1 (() => Parse.nat()) Parse.lineEnd) == Ok [1, 2]
 test "Parse: lineEnd, error" := Parse.Tests.lineError "x" Parse.lineEnd == "column 1: expected the end of the line, got 'x'"
 test "Parse: end" := Parse.Tests.lineError "" Parse.end == ""
@@ -938,6 +955,11 @@ test "Parse: sepBy1, error" := Parse.Tests.lineResult "1,2," (() => Parse.sepBy1
 test "Parse: lines" := Parse.Tests.allResult "1\n2\n" (() => Parse.lines Parse.nat) == Ok [1, 2]
 test "Parse: lines, error" := Parse.Tests.allResult "1\n2\nx\n" (() => Parse.lines Parse.nat) == Err "line 3, column 1: expected a number or the end of the input, got 'x'"
 test "Parse: sections" := Parse.Tests.allResult "1\n2\n\n3\n" (() => Parse.sections (() => Parse.lines Parse.nat)) == Ok [[1, 2], [3]]
+-- A missing blank line is expected where the next section starts, with the
+-- end of the input.
+test "Parse: sections, no blank line" :=
+  Parse.Tests.allResult "1,2\n3,4\n" (() => Parse.sections (() => Parse.sepBy1 Parse.nat (() => Parse.char ','))) ==
+    Err "line 2, column 1: expected a blank line or the end of the input, got '3'"
 test "Parse: grid" :=
   Parse.Tests.allResult "@.\n.@\n" (() => Parse.grid (() => Parse.pick [("@", True), (".", False)])) == Ok [[True, False], [False, True]]
 test "Parse: grid, error" :=

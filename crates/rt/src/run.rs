@@ -1058,6 +1058,12 @@ impl<'t, E: Executor> Runner<'t, E> {
             Value::Tag(s.unit)
         } else if tag == s.random_seed {
             Value::Nat(crate::host::random_seed())
+        } else if tag == s.args {
+            let mut list = Value::Tag(s.nil);
+            for arg in crate::host::args().iter().rev() {
+                list = Value::data(s.cons, [Value::Text(arg.clone().into()), list]);
+            }
+            list
         } else {
             panic!("internal error: an unknown `IO` operation {io:?}")
         })

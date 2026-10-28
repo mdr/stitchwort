@@ -336,6 +336,7 @@ impl Shapes {
             ctor_of(Builtin::RandomSeed)?.1,
             &["randomSeedUnit"],
         )?;
+        ctor("args", io, ctor_of(Builtin::Args)?.1, &["argsUnit"])?;
         // `Fail`'s one operation, once its library file has loaded: a `main`
         // that may fail loads it.
         if let Some(fail) = g.registry.loaded_data(Builtin::Fail) {
@@ -420,6 +421,8 @@ import { execFileSync as __execFileSync } from "node:child_process";
   const terminalState = __wt.workerData.terminalState;
   // `stty -g` as it was before the run, if standard input is a terminal.
   const savedSettings = __wt.workerData.savedSettings;
+  // The program's arguments, for `IO.args`.
+  const programArgs = __wt.workerData.programArgs;
 
   // Reading or writing failed: E-IO.
   class IoError extends Error {}
@@ -699,6 +702,13 @@ import { execFileSync as __execFileSync } from "node:child_process";
         for (const byte of bytes) seed = (seed << 8n) | BigInt(byte);
         return seed;
       }
+      case SHAPE.args: {
+        let list = { tag: SHAPE.nil };
+        for (let i = programArgs.length - 1; i >= 0; i--) {
+          list = { tag: SHAPE.cons, [SHAPE.head]: programArgs[i], [SHAPE.tail]: list };
+        }
+        return list;
+      }
       default:
         throw new Error("internal error: an unknown `IO` operation");
     }
@@ -964,6 +974,8 @@ import { isatty } from "node:tty";
 import { spawnSync } from "node:child_process";
 
 const errorFile = process.argv[2];
+// The program's arguments, after the error file.
+const programArgs = process.argv.slice(3);
 
 // The terminal (docs/proposals/terminal-io.md §4.7, §5). Keys mode is the
 // worker's, through `stty`; this thread owns the size, and puts the terminal
@@ -1008,7 +1020,7 @@ for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
 }
 
 const worker = new Worker(new URL("./program.mjs", import.meta.url), {
-  workerData: { errorFile, terminalState, savedSettings },
+  workerData: { errorFile, terminalState, savedSettings, programArgs },
   resourceLimits: { stackSizeMb: @STACK_MB@ },
 });
 let failed = false;

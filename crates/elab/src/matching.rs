@@ -23,7 +23,7 @@ use std::rc::Rc;
 use crate::kernel;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{Head, quote};
-use stitchwort_core::{Name, Term, Value};
+use stitchwort_core::{Name, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
 
@@ -575,6 +575,11 @@ fn generalised(
             .with_label(s.span, "this scrutinee"));
         }
     }
+    let not_found = if skip.is_none() {
+        not_found(cx, &exprs, &copied, &type_terms, goal, base)?
+    } else {
+        Vec::new()
+    };
     // Bind the scrutinees' variables, then the copies.
     let mut extra = Vec::new();
     for s in &exprs {
@@ -602,9 +607,11 @@ fn generalised(
     }
     // The equations, after the motive is built: `h : e = s`, about the
     // original expression.
+    let mut equations = Vec::new();
     for (i, s) in exprs.iter().enumerate() {
         if let Some(h) = &s.name {
             let depth = cx.level();
+            equations.push((i, depth));
             let shift = |t: &Term| t.shift(g, depth - base, 0);
             let eq = Term::Eq(
                 Some(Rc::new(shift(&s.ty_term)?)),
@@ -648,7 +655,74 @@ fn generalised(
     let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, &motive));
     cx.scrutinees.truncate(known);
     let body = body.map_err(|d| in_context(cx, d, kind, alts, &levels))?;
+    if !not_found.is_empty() {
+        let used = free_levels(&body, depth);
+        let mut warnings = cx.e.lambda_warnings.borrow_mut();
+        for (i, warning) in not_found {
+            let unused = (equations.iter()).any(|&(j, level)| j == i && !used.contains(&level));
+            let span = warning.labels.first().map(|l| l.span);
+            let warned = (warnings.iter())
+                .any(|w| w.code == warning.code && w.labels.first().map(|l| l.span) == span);
+            if unused && !warned {
+                warnings.push(warning);
+            }
+        }
+    }
     lift::draft(cx, base, extra, body, &motive, span)
+}
+
+/// The warnings for the named expression scrutinees that occur neither in
+/// the goal nor in a hypothesis, by index: such a `match` replaces nothing,
+/// so every alternative has the goal unchanged. Each is given only if the
+/// alternatives don't use its equation either, and only in a proof, whose
+/// goal is a proposition. The note shows the goal as the occurrence test
+/// saw it.
+fn not_found(
+    cx: &Ctx,
+    exprs: &[Scrut],
+    copied: &[usize],
+    type_terms: &[Term],
+    goal: &Value,
+    base: usize,
+) -> Result<Vec<(usize, Diagnostic)>> {
+    let g = cx.g();
+    let mut goal_normal = None;
+    let mut out = Vec::new();
+    if !crate::patlet::proposition(cx, goal)? {
+        return Ok(out);
+    }
+    for (i, s) in exprs.iter().enumerate() {
+        if s.name.is_none()
+            || matches!(s.normal.strip_loc(), Term::Var(_))
+            || copied.iter().any(|&l| occurs(&s.normal, &type_terms[l]))
+        {
+            continue;
+        }
+        let goal_normal = match &goal_normal {
+            Some(term) => term,
+            None => goal_normal.insert(quote(g, base, goal)?),
+        };
+        if occurs(&s.normal, goal_normal) {
+            continue;
+        }
+        let shown = pretty::term_for_message_in(g, cx.e, &cx.names, &s.normal);
+        let goal_shown = pretty::term_for_message_in(g, cx.e, &cx.names, goal_normal);
+        out.push((
+            i,
+            Diagnostic::warning(
+                "W-MATCH-NOT-FOUND",
+                "this `match` didn't find its expression in the goal, so every arm has the \
+                 goal unchanged",
+            )
+            .with_label(s.span, format!("looked for `{shown}`"))
+            .with_note(format!("in the goal `{goal_shown}`"))
+            .with_note(
+                "the search compares what terms compute to: write the expression as the goal \
+                 shows it",
+            ),
+        ));
+    }
+    Ok(out)
 }
 
 fn scrutinee_name(_: &Scrut) -> Name {

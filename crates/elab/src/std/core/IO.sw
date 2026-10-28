@@ -29,6 +29,7 @@ ability IO where
   readBytes: () → {IO} (Option (List Nat)) -- the bytes of one read; None at end of input
   write: Text → {IO} () -- the text with no line ending, then flush
   randomSeed: () → {IO} Nat -- a fresh 64-bit number each run, from the host's entropy; 0 in `IO.simulate`
+  args: () → {IO} (List Text) -- the arguments after the program's name; none in `IO.simulate`
 
 -- The first line of scripted input, if there is one.
 def IO.nextLine: List Text → Option Text
@@ -65,8 +66,8 @@ def IO.noConsole: Console := { inputIsTerminal = False, outputIsTerminal = False
 -- each `IO.print` and `IO.write` payload, in order, with the result. A
 -- payload is one entry even if it contains a line feed: a real interpreter
 -- writes each `print` payload followed by a line ending. `IO.console` says
--- there's no terminal (`IO.noConsole`), `IO.keysMode` does nothing, and
--- `IO.randomSeed` gives 0. The payloads are collected in reverse and turned
+-- there's no terminal (`IO.noConsole`), `IO.keysMode` does nothing,
+-- `IO.randomSeed` gives 0 and `IO.args` gives no arguments. The payloads are collected in reverse and turned
 -- round at the end, so a long run doesn't build a deep chain of pending
 -- pairs.
 def IO.simulateWith (seed: Nat) (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
@@ -81,6 +82,7 @@ def IO.simulateWith (seed: Nat) (input: List Text) (prog: () → {IO | e} a): {e
       | IO.readBytes u, k => ins out => k (IO.bytesOf ins) Nil out
       | IO.write t, k => ins out => k() ins (Cons t out)
       | IO.randomSeed u, k => ins out => k seed ins out
+      | IO.args u, k => ins out => k Nil ins out
   run input Nil
 
 -- `IO.simulateWith 0`: `IO.randomSeed` gives 0.

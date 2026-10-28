@@ -3775,6 +3775,11 @@ started, one character before `Parse.all`'s own "end of the input",
 which is further and wins. What I did instead: nothing; the test records
 the message.
 
+Fixed: `labelWhole` reports its label at the furthest point its parser
+read to, as Megaparsec keeps the error that got furthest, so a missing
+blank line is `line 4, column 1: expected a blank line or the end of the
+input, got 'B'`.
+
 ### 2. Missing std
 
 - `(d * a) / d = a` for a nonzero `Int` `d`, Lean's
@@ -3795,6 +3800,11 @@ the message.
   `Aoc.Year2024.Day13.Spec.fewestTokens` in full.
 
 No std file was changed.
+
+Fixed: std has `Int.mulDivCancel`, `Int.natAbsMul` and `Int.natAbsZero`
+(Int/Lemmas.sw), and `List.minimumAllEqual` and `List.minimumEmpty` for
+any `Ord` (List/Lemmas.sw), with `Ord.minSelf`. `Proofs/Lemmas.sw` is gone,
+and days 8 and 13 use std's.
 
 ### 3. Confusing errors
 
@@ -3839,6 +3849,10 @@ No std file was changed.
   (withinCorrect machine)` worked.
 - `W-LAMBDA-SHADOW`: the parser `machine` "hides" every `machine =>`
   lambda in the proofs (imported by `(..)`). Renamed it `clawMachine`.
+
+Fixed: a named `match` whose expression is in neither the goal nor a
+hypothesis, and whose arms don't use its equation, warns
+(`W-MATCH-NOT-FOUND`), showing the goal as the search saw it.
 
 ### 4. Inference
 
@@ -4137,6 +4151,14 @@ missing velocity.
   Lemmas.sw. Not added to std: another lane is adding count lemmas to
   `List/Lemmas.sw`, and the other two are one-liners.
 
+Fixed: `IO.args()` gives the arguments after `--`, on every runner and in
+built executables: `stitchwort run Aoc.Year2024.Day14.main -- 11 7` runs
+the example, and `main` without arguments uses 101 by 103; `mainExample`
+is gone. std has `List.allDistinct` with `List.allDistinctCorrect`
+(List/Distinct.sw), which replace `noOverlap` and `Overlap.sw`, and
+`List.findRangeFirst`, `List.findRangeSome` and `List.findRangeNone`
+(List/Lemmas.sw), which replace `Search.sw`.
+
 ### 3. Confusing errors
 
 - A proof of `List.Distinct Nil`, which computes to `Unit`, written `()`:
@@ -4185,6 +4207,8 @@ missing velocity.
   `a * b = 0` (day 11's item 3 again): `this arm has 4 pattern(s), but
   `mulNeZero` takes more arguments after the colon`.
 
+Fixed: `()` where a proof of `Unit` is expected is `Trivial`.
+
 ### 4. Inference
 
 - `auto` doesn't look into the fields of a record in scope:
@@ -4230,6 +4254,11 @@ spread over the moves and the set.
 - The periodicity, the least-second search and its `None` case went
   through as planned, most lemmas first or second time; the friction was
   in items 3 and 4, not in the mathematics.
+
+Fixed: the `Int.modNat` lemmas (`Int.modNatModAdd`, `Int.modNatAddMulInt`
+and the rest) are in `Int/Int.sw`, beside `Int.modNatAddMul`, and
+Int/Lemmas.sw has the `%` forms for any nonzero divisor, `Int.modModAdd`
+and `Int.modAddMul`, through `Int.divModUnique`.
 
 ### 7. Comparisons
 

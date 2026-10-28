@@ -1106,6 +1106,61 @@ theorem List.findNoneNotMem: (xs: List a) → (p: a → Bool) → (x: a) → (px
       | True => Option.someNotNone z h
       | False => List.findNoneNotMem zs p x px m h
 
+-- `List.find` over `List.range`: what it finds is the least number that
+-- passes, and when it finds nothing, no number in the range passes.
+
+-- No number from `start` up to the one found passes.
+theorem List.findRangeFirst (passes: Nat → Bool): (count: Nat) → (start: Nat) → (found: Nat) →
+    (List.rangeFrom count start).find passes = Some found → (earlier: Nat) → start ≤ earlier → earlier < found → passes earlier = False
+  | Zero, start, found, h, earlier, low, high => Void.exfalso (Option.noneNotSome found h)
+  | Succ count, start, found, h, earlier, low, high =>
+    match c: passes start with
+      | True =>
+        let same: start = found := Option.someInjective start found h
+        Void.exfalso (Nat.lessIrrefl earlier (Nat.leTrans (Succ earlier) found earlier high (rewrite <- same in low)))
+      | False =>
+        match e: earlier == start with
+          | True => rewrite DecEq.sound earlier start e in c
+          | False =>
+            let later: Succ start ≤ earlier := Nat.leNeSucc start earlier low (p => DecEq.soundFalse earlier start e (Eq.sym p))
+            List.findRangeFirst passes count (Succ start) found h earlier later high
+
+-- What is found passes, is in the range, and no smaller number passes.
+theorem List.findRangeSome (passes: Nat → Bool) (count: Nat) (found: Nat) (h: (List.range count).find passes = Some found):
+    And (passes found = True) (And (found < count) ((earlier: Nat) → earlier < found → passes earlier = False)) :=
+  match List.findSome (List.range count) passes found h with
+    | Both foundPasses member =>
+      Both foundPasses
+        (Both (And.right (List.memRangeFrom found count 0 member))
+          (earlier before => List.findRangeFirst passes count 0 found h earlier (Nat.zeroLe earlier) before))
+
+-- Finding nothing means no number in the range passes.
+theorem List.findRangeNone (passes: Nat → Bool) (count: Nat) (h: (List.range count).find passes = None) (n: Nat) (below: n < count):
+    passes n = False :=
+  match c: passes n with
+    | True => Void.exfalso (List.findNoneNotMem (List.range count) passes n c (List.memRangeFromIntro n count 0 (Nat.zeroLe n) below) h)
+    | False => rfl
+
+test "List.findRangeSome" := List.range 10 |> .find (n => n * n > 20) == Some 5
+
+-- `List.minimum`: the least of a list that holds `least` and nothing else
+-- is `least`, and an empty list has none.
+
+-- Folding `Ord.min` from `least` over elements that are all `least`.
+theorem List.foldMinAll [auto ord: Ord a] (least: a): (xs: List a) → ((x: a) → x ∈ xs → x = least) → List.foldLeft xs least Ord.min = least
+  | Nil, all => rfl
+  | Cons x rest, all =>
+    rewrite all x (Inl rfl), Ord.minSelf least in List.foldMinAll least rest (y member => all y (Inr member))
+
+theorem List.minimumAllEqual [auto ord: Ord a] (least: a): (xs: List a) → least ∈ xs → ((x: a) → x ∈ xs → x = least) → List.minimum xs = Some least
+  | Nil, member, all => Void.exfalso member
+  | Cons x rest, member, all =>
+    rewrite all x (Inl rfl) in Eq.cong Some (List.foldMinAll least rest (y member => all y (Inr member)))
+
+theorem List.minimumEmpty [auto ord: Ord a]: (xs: List a) → ((x: a) → x ∈ xs → Void) → List.minimum xs = None
+  | Nil, none => rfl
+  | Cons x rest, none => Void.exfalso (none x (Inl rfl))
+
 -- An element that passes makes `List.any` true.
 theorem List.anyOfMem: (xs: List a) → (q: a → Bool) → (y: a) → (qy: q y = True) → y ∈ xs → List.any xs q = True
   | Nil, q, y, qy, m => Void.exfalso m

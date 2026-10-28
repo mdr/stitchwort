@@ -151,6 +151,10 @@ enum Command {
         alloc_trace: Option<PathBuf>,
         #[command(flatten)]
         cache: CacheArgs,
+        /// The program's arguments, after `--`, which `IO.args` gives:
+        /// `stitchwort run Main.main -- 11 7`
+        #[arg(last = true, value_name = "ARGS")]
+        args: Vec<String>,
     },
     /// List the axioms definitions or theorems depend on, directly or
     /// through what they use, one per line, sorted (today only `Quot.sound`).
@@ -409,15 +413,19 @@ fn run(cli: Cli) -> ExitCode {
             project,
             alloc_trace,
             cache,
-        } => run_target(
-            &target,
-            js,
-            reference,
-            native.then_some(verbose),
-            alloc_trace.as_deref(),
-            project.as_deref(),
-            &cache,
-        ),
+            args,
+        } => {
+            stitchwort_rt::host::set_args(args);
+            run_target(
+                &target,
+                js,
+                reference,
+                native.then_some(verbose),
+                alloc_trace.as_deref(),
+                project.as_deref(),
+                &cache,
+            )
+        }
         Command::Axioms {
             target,
             names,
@@ -1754,6 +1762,7 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
     let status = match std::process::Command::new("node")
         .arg(&launcher)
         .arg(&error_file)
+        .args(stitchwort_rt::host::args())
         .spawn()
         .and_then(|mut node| {
             #[cfg(unix)]

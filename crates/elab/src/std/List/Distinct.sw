@@ -218,6 +218,53 @@ theorem List.distinctSnoc [auto ord: Ord a] (xs: List a) (y: a) (out: Not (List.
 theorem List.distinctAppendSeenExample (xs: List Nat): List.distinct (List.append xs xs) = List.distinct xs :=
   List.distinctAppendSeen xs xs (y m => m)
 
+-- Whether no element appears twice: `List.Distinct` as a `Bool`
+-- (`List.allDistinctCorrect`). A `Set` holds what has been seen, so it is
+-- O(n log n) and stops at the first repeat.
+@[noReceiver]
+def List.allDistinctFrom [auto ord: Ord a] (seen: Set a): List a → Bool
+  | Nil => True
+  | Cons x rest => if Set.contains seen x then False else List.allDistinctFrom (Set.insert seen x) rest
+
+def List.allDistinct [auto ord: Ord a] (xs: List a): Bool := List.allDistinctFrom Set.empty xs
+
+-- What has been seen is not ahead in a list that passes.
+theorem List.allDistinctSeenNotAhead [auto ord: Ord a] (seen: Set a) (x: a) (isSeen: Set.contains seen x = True):
+    (xs: List a) → List.allDistinctFrom seen xs = True → Not (List.Mem x xs)
+  | Nil, ok, member => member
+  | Cons next rest, ok, member =>
+    match c: Set.contains seen next with
+      | True => Bool.falseNotTrue ok
+      | False =>
+        match member with
+          | Inl same => Bool.falseNotTrue (Eq.trans (Eq.sym c) (rewrite same in isSeen))
+          | Inr later => List.allDistinctSeenNotAhead (Set.insert seen next) x (Set.containsInsertMono seen next x isSeen) rest ok later
+
+-- Passing means no repeats.
+theorem List.allDistinctFromSound [auto ord: Ord a]: (seen: Set a) → (xs: List a) → List.allDistinctFrom seen xs = True → List.Distinct xs
+  | seen, Nil, ok => Trivial
+  | seen, Cons next rest, ok =>
+    match c: Set.contains seen next with
+      | True => Void.exfalso (Bool.falseNotTrue ok)
+      | False =>
+        Both (List.allDistinctSeenNotAhead (Set.insert seen next) next (Set.containsInsert next seen) rest ok)
+          (List.allDistinctFromSound (Set.insert seen next) rest ok)
+
+-- No repeats, and nothing seen already, passes.
+theorem List.allDistinctFromComplete [auto ord: Ord a]: (seen: Set a) → (xs: List a) → List.Distinct xs →
+    ((x: a) → List.Mem x xs → Set.contains seen x = False) → List.allDistinctFrom seen xs = True
+  | seen, Nil, distinct, unseen => rfl
+  | seen, Cons next rest, distinct, unseen =>
+    rewrite unseen next (Inl rfl)
+    in List.allDistinctFromComplete (Set.insert seen next) rest (And.right distinct) (x member =>
+      rewrite Set.containsInsertOther seen next x (same => And.left distinct (rewrite <- same in member))
+      in unseen x (Inr member))
+
+theorem List.allDistinctCorrect [auto ord: Ord a] (xs: List a): List.allDistinct xs = True ↔ List.Distinct xs := {
+  forward = ok => List.allDistinctFromSound Set.empty xs ok,
+  backward = distinct => List.allDistinctFromComplete Set.empty xs distinct (x member => rfl)
+}
+
 test "List.distinct" := [3, 1, 3, 2, 1].distinct == [3, 1, 2]
 test "List.distinct empty" := (Nil: List Nat).distinct == Nil
 test "List.distinct all repeats" := [4, 4, 4].distinct == [4]
@@ -225,4 +272,5 @@ test "List.distinct already distinct keeps the order" := [2, 5, 1].distinct == [
 test "List.distinct keeps first occurrences in order" := ["b", "a", "b", "c", "a"].distinct == ["b", "a", "c"]
 -- (Here rather than in std/Text/Text.sw: this file needs that one, through `Set`.)
 test "List.distinct texts" := ["a", "b", "a"].distinct == ["a", "b"]
+test "List.allDistinct" := [3, 1, 2].allDistinct && ![3, 1, 3].allDistinct && (Nil: List Nat).allDistinct
 test "List.distinct agrees with distinctEq" := [5, 2, 5, 9, 2, 0].distinct == [5, 2, 5, 9, 2, 0].distinctEq

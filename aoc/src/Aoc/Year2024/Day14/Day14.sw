@@ -5,20 +5,30 @@
 -- share a tile (taken as the sign of the Christmas tree picture).
 --
 --   $ cd aoc && stitchwort run Aoc.Year2024.Day14.main < inputs/2024/day14.txt
---   $ cd aoc && stitchwort run Aoc.Year2024.Day14.mainExample < examples/2024/day14.txt
+--   $ cd aoc && stitchwort run Aoc.Year2024.Day14.main -- 11 7 < examples/2024/day14.txt
 --
 -- The proofs are in `Aoc.Year2024.Day14.Proofs` (Proofs/) and the tests in
 -- `Aoc.Year2024.Day14.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day14
-import Std (Fail, IO, Int, List, Nat, Option, Parse, Set, Text)
+import Std (Fail, IO, Int, List, Nat, Option, Parse, Text)
 import Std.Parse (int, nat, text)
 
--- The puzzle's space, 101 tiles wide and 103 tall.
-def main(): {IO, Fail} () := solveIn (Space.of 101 103)
+-- The space is the puzzle's, 101 tiles wide and 103 tall, unless the
+-- arguments give a width and a height: `-- 11 7` for the example's.
+def main(): {IO, Fail} () := solveIn (spaceFrom IO.args())
 
--- The example's space, 11 by 7.
-def mainExample(): {IO, Fail} () := solveIn (Space.of 11 7)
+def spaceFrom (args: List Text): {Fail} Space :=
+  let usage := "expected no arguments, or a width and a height above 0, such as `11 7`"
+  match args with
+    | Nil => Space.of 101 103
+    | Cons widthText (Cons heightText Nil) =>
+      let width := widthText.toNat |> .getOrElse 0
+      let height := heightText.toNat |> .getOrElse 0
+      if widthPositive: width ≠ 0 then
+        if heightPositive: height ≠ 0 then { width, height, widthPositive, heightPositive } else Fail.fail usage
+      else Fail.fail usage
+    | _ => Fail.fail usage
 
 def solveIn (space: Space): {IO, Fail} () :=
   let robots := parseRobots IO.readAll()
@@ -94,19 +104,10 @@ def Space.safetyFactor (space: Space) (positions: List Position): Nat :=
 
 def solvePart1 (space: Space) (robots: List Robot): Nat := space.positionsAfter 100 robots |> space.safetyFactor
 
--- Whether no two positions are the same and none is in `seen`, stopping at
--- the first repeat.
-def noOverlapFrom (seen: Set Position): List Position → Bool
-  | Nil => True
-  | Cons position rest => if seen.contains position then False else noOverlapFrom (seen.insert position) rest
-
--- Whether no two robots share a tile.
-def noOverlap (positions: List Position): Bool := noOverlapFrom Set.empty positions
-
 -- How long the search runs: after `width * height` seconds every robot is
 -- back where it started.
 def Space.period (space: Space): Nat := space.width * space.height
 
 -- The first second at which no two robots share a tile, if there is one.
 def solvePart2 (space: Space) (robots: List Robot): Option Nat :=
-  List.range space.period |> .find (seconds => space.positionsAfter seconds robots |> noOverlap)
+  List.range space.period |> .find (seconds => space.positionsAfter seconds robots |> .allDistinct)

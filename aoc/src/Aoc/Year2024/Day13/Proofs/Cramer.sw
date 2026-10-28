@@ -31,9 +31,9 @@ theorem bTimesDeterminant (machine: Machine) (aPresses: Nat) (bPresses: Nat) (wo
 theorem onlyPressesFinds (machine: Machine) (nonzero: determinant machine ≠ 0) (aPresses: Nat) (bPresses: Nat)
     (won: wins machine aPresses bPresses = True): onlyPresses machine nonzero = Some (aPresses, bPresses) :=
   let aQuotient: (machine.prize.x * machine.buttonB.y - machine.prize.y * machine.buttonB.x) / determinant machine = aPresses.toInt :=
-    rewrite <- aTimesDeterminant machine aPresses bPresses won in mulDivCancel (determinant machine) aPresses.toInt nonzero
+    rewrite <- aTimesDeterminant machine aPresses bPresses won in Int.mulDivCancel (determinant machine) aPresses.toInt [ok := nonzero]
   let bQuotient: (machine.buttonA.x * machine.prize.y - machine.buttonA.y * machine.prize.x) / determinant machine = bPresses.toInt :=
-    rewrite <- bTimesDeterminant machine aPresses bPresses won in mulDivCancel (determinant machine) bPresses.toInt nonzero
+    rewrite <- bTimesDeterminant machine aPresses bPresses won in Int.mulDivCancel (determinant machine) bPresses.toInt [ok := nonzero]
   rewrite aQuotient, bQuotient, won in rfl
 
 -- The presses `onlyPresses` finds win.

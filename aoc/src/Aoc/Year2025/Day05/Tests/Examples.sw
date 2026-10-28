@@ -38,7 +38,7 @@ test "same start, shorter second range" := merge [{ from = 1, to = 9 }, { from =
 test "duplicate range" := solvePart2 { fresh = [{ from = 2, to = 4 }, { from = 2, to = 4 }], available = [] } == 3
 test "singleton range" := merge [{ from = 5, to = 5 }] == [{ from = 5, to = 5 }]
 
-test "a line that is neither a range nor an id" := parsed "3-5\nx-7\n\n1\n" == Err "line 2, column 1: expected a number or a blank line before this line, got 'x'"
+test "a line that is neither a range nor an id" := parsed "3-5\nx-7\n\n1\n" == Err "line 2, column 1: expected a number or a blank line, got 'x'"
 test "a bad id" := parsed "3-5\n\n1\ntwo\n" == Err "line 4, column 1: expected a number or the end of the input, got 't'"
 test "no blank line" := parsed "3-5\n4-6\n" == Err "line 3, column 1: expected a number or a blank line, got the end of the input"
 test "a backwards range" := parsed "5-3\n\n1\n" == Err "line 1, column 4: the range 5-3 ends before it starts"

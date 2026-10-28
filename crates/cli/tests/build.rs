@@ -179,6 +179,37 @@ fn an_io_program_runs_as_it_does_under_run() {
     assert_eq!(first.status.code(), Some(0));
 }
 
+/// `IO.args` gives an executable's arguments after its name, as `run` gives
+/// those after `--`.
+#[test]
+fn an_executable_gets_its_arguments() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("args");
+    std::fs::write(
+        dir.join("args.sw"),
+        "import Std (IO, List, Text)\ndef main () : {IO} () := IO.print (Text.joinWith (IO.args ()) \"|\")\n",
+    )
+    .expect("write the source");
+    build(&dir, &["args.sw", "--no-cache", "-o", "program"]);
+    let built = run_with_input(
+        {
+            let mut command = Command::new(dir.join("program"));
+            command.args(["1", "two words"]);
+            command
+        },
+        b"",
+    );
+    assert_eq!(text(&built.stdout), "1|two words\n");
+    let ran = stitchwort(
+        &dir,
+        &["run", "--no-cache", "args.sw", "--", "1", "two words"],
+        b"",
+    );
+    assert_eq!(text(&ran.stdout), text(&built.stdout));
+}
+
 /// The executable is named after the file by default, and signed on macOS,
 /// where an unsigned one would be killed (§7.2).
 #[test]

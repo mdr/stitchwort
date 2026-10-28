@@ -439,6 +439,7 @@ builtins! {
     IoWrite = "%write": Ctor(Builtin::Io),
     Console = "Console": Data,
     RandomSeed = "%randomSeed": Ctor(Builtin::Io),
+    Args = "%args": Ctor(Builtin::Io),
     Simulate = "IO.simulate": Def,
     // `Fail` (std/Fail/Fail.sw): a `main` may leave it unhandled, and the
     // runners perform `stop` themselves, as they perform `print`

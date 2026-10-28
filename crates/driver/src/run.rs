@@ -28,7 +28,7 @@ use stitchwort_core::value::{eval, expand_step, force};
 use stitchwort_core::{DataId, ResourceError, Term, Value, native};
 use stitchwort_rt::MainRow;
 pub use stitchwort_rt::host::{ConsoleInfo, NoTerminal, Terminal};
-use stitchwort_rt::host::{random_seed, read_all, read_bytes, read_line, write_text};
+use stitchwort_rt::host::{args, random_seed, read_all, read_bytes, read_line, write_text};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::driver::Session;
@@ -70,6 +70,8 @@ pub enum Event {
     Write(String),
     /// `randomSeed`, and what it gave.
     RandomSeed(u64),
+    /// `args`, and what it gave.
+    Args(Vec<String>),
     /// A tick: one recursive call.
     Tick,
 }
@@ -669,6 +671,15 @@ impl Session {
                 trace(Event::RandomSeed(seed));
                 native::nat_value(seed.into())
             }
+            Value::Ctor(d, c, _) if d == s.io && c == s.args => {
+                let args = args();
+                trace(Event::Args(args.to_vec()));
+                let mut list = Value::Ctor(s.list, 0, Vec::new().into());
+                for arg in args.iter().rev() {
+                    list = Value::Ctor(s.list, 1, [s.text(arg), list].into());
+                }
+                list
+            }
             _ => unreachable!("an `IO` or `Fail` operation"),
         })
     }
@@ -695,6 +706,7 @@ struct Shapes {
     true_: usize,
     false_: usize,
     random_seed: usize,
+    args: usize,
     /// `Fail`, once its library file has loaded: a `main` that may fail
     /// loads it.
     fail: Option<DataId>,
@@ -725,6 +737,7 @@ impl Shapes {
             true_: ctor(Builtin::True),
             false_: ctor(Builtin::False),
             random_seed: ctor(Builtin::RandomSeed),
+            args: ctor(Builtin::Args),
             fail: r.loaded_data(Builtin::Fail),
             unit: data(Builtin::UnitType),
             maybe: data(Builtin::Option),
