@@ -597,6 +597,41 @@ theorem Map.getInsertWithOther [auto ord: Ord k] (m: Map k v) (key: k) (value: v
     Map.get (Map.insertWith m key value f) other = Map.get m other :=
   Map.indRaw [p := m' => Map.get (Map.insertWith m' key value f) other = Map.get m' other] (r => Map.Raw.getInsertWithOther f key value other ne r) m
 
+-- What a map holds after an insert: the new entry, or what it held before.
+theorem Map.getInsertCases [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k) (found: v)
+    (there: Map.get (Map.insert m key value) other = Some found): Or (And (other = key) (found = value)) (Map.get m other = Some found) :=
+  match same: other == key with
+    | True =>
+      let equal := DecEq.sound other key same
+      Inl (Both equal (Option.someInjective _ _ (Eq.trans (Eq.sym there) (rewrite equal in Map.getInsert key value m))))
+    | False => Inr (Eq.trans (Eq.sym (Map.getInsertOther key value other (DecEq.soundFalse other key same) m)) there)
+
+-- Inserting a key not there keeps every entry.
+theorem Map.getInsertKeeps [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (fresh: Map.contains m key = False) (other: k) (found: v)
+    (there: Map.get m other = Some found): Map.get (Map.insert m key value) other = Some found :=
+  match same: other == key with
+    | True =>
+      let equal := DecEq.sound other key same
+      Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) (rewrite <- equal in Map.containsOfGet m other found there)))
+    | False => Eq.trans (Map.getInsertOther key value other (DecEq.soundFalse other key same) m) there
+
+-- A key `contains` finds has a value.
+theorem Map.getOfContains [auto ord: Ord k] (m: Map k v) (key: k) (there: Map.contains m key = True): Exists v (value => Map.get m key = Some value) :=
+  match found: Map.get m key with
+    | Some value => Witness value rfl
+    | None => Void.exfalso (Bool.falseNotTrue there)
+
+-- A key just inserted is there.
+theorem Map.containsInsertSame [auto ord: Ord k] (m: Map k v) (key: k) (value: v): Map.contains (Map.insert m key value) key = True :=
+  rewrite Map.getInsert key value m in rfl
+
+-- Inserting keeps the keys already there.
+theorem Map.containsInsertKeeps [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k) (there: Map.contains m other = True):
+    Map.contains (Map.insert m key value) other = True :=
+  match same: other == key with
+    | True => rewrite DecEq.sound other key same in Map.containsInsertSame m key value
+    | False => rewrite Map.getInsertOther key value other (DecEq.soundFalse other key same) m in there
+
 theorem Map.getRemove [auto ord: Ord k] (m: Map k v) (key: k): Map.get (Map.remove m key) key = None :=
   Map.indRaw [p := m' => Map.get (Map.remove m' key) key = None] (r => Map.Raw.getRemove key r) m
 

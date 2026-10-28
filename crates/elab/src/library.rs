@@ -60,6 +60,7 @@ pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
     ("Float/Float.sw", include_str!("std/Float/Float.sw")),
     ("Float/Model.sw", include_str!("std/Float/Model.sw")),
     ("Float/Theory.sw", include_str!("std/Float/Theory.sw")),
+    ("Graph/Search.sw", include_str!("std/Graph/Search.sw")),
     ("Int/Basics.sw", include_str!("std/Int/Basics.sw")),
     ("Int/Int.sw", include_str!("std/Int/Int.sw")),
     ("Int/Lemmas.sw", include_str!("std/Int/Lemmas.sw")),
@@ -90,6 +91,10 @@ pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
     (
         "Nat/IterateRepeat.sw",
         include_str!("std/Nat/IterateRepeat.sw"),
+    ),
+    (
+        "Nat/PartitionPoint.sw",
+        include_str!("std/Nat/PartitionPoint.sw"),
     ),
     ("Nat/Pigeonhole.sw", include_str!("std/Nat/Pigeonhole.sw")),
     ("Omega/Omega.sw", include_str!("std/Omega/Omega.sw")),
