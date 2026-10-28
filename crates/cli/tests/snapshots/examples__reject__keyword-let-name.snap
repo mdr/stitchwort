@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a pattern or `=`, but found the keyword `with`
+   ╭─[ reject/keyword-let-name.sw:4:7 ]
+   │
+ 4 │   let with := n + n
+   │       ──┬─  
+   │         ╰─── expected a pattern or `=`, but found the keyword `with`
+   │ 
+   │ Note: `with` is a keyword, so it can't be used as a name
+───╯

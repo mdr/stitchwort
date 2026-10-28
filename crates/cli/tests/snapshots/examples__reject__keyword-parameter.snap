@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a parameter's name, but found the keyword `then`
+   ╭─[ reject/keyword-parameter.sw:3:29 ]
+   │
+ 3 │ def pick (condition: Bool) (then: Nat): Nat := then
+   │                             ──┬─  
+   │                               ╰─── expected a parameter's name, but found the keyword `then`
+   │ 
+   │ Note: `then` is a keyword, so it can't be used as a name
+───╯

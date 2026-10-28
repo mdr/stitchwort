@@ -3465,6 +3465,14 @@ fn decide_to_bool(
             e.notes[0] = "a `Bool` is expected here, and a proposition is turned into one only \
                           if it has a decision procedure: an `instance` returning `Decidable …`"
                 .into();
+            // A variable the compiler made (holding what an operation run
+            // first returned) has no name to show.
+            if let Term::Var(ix) = term.strip_loc()
+                && let Some(level) = cx.names.len().checked_sub(ix + 1)
+                && cx.names[level].starts_with('%')
+            {
+                e.message = "no way to decide this proposition".into();
+            }
             return Err(e.with_label(expr.span(), "this is a proposition, and nothing decides it"));
         }
         Err(e) => return Err(e),

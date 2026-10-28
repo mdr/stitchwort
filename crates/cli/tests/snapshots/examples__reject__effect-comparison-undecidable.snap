@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-NONE] Error: no way to decide this proposition
+   ╭─[ reject/effect-comparison-undecidable.sw:9:42 ]
+   │
+ 9 │ def short(): {Parse} () := Parse.ensure (same (Parse.mark().offset ≤ 3)) "too long"
+   │                                          ──────────────┬──────────────  
+   │                                                        ╰──────────────── this is a proposition, and nothing decides it
+   │ 
+   │ Note: a `Bool` is expected here, and a proposition is turned into one only if it has a decision procedure: an `instance` returning `Decidable …`
+───╯

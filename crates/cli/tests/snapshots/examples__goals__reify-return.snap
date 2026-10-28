@@ -12,7 +12,7 @@ expression: output
    │                       t: () → {Fail} a
    │                       k: a → {Fail} b
    │                       y: a
-   │                       ⊢ Fail.toResult (%arg0 => k y) = Result.flatMap (Fail.toResult (() => Done y)) (x => Fail.toResult (%arg0 => k x))
+   │                       ⊢ Fail.toResult (arg => k y) = Result.flatMap (Fail.toResult (() => Done y)) (x => Fail.toResult (arg => k x))
 ───╯
 [GOAL] Goal: in `toResultThen`
     ╭─[ goals/reify-return.sw:10:27 ]
@@ -38,5 +38,5 @@ expression: output
     │                         x: a
     │                         xs: List a
     │                         y: b
-    │                         ⊢ Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => k (Effect.runPure (Call o (y => Done y))))) (Effect.bind (List.map xs f) (%9 => Done (Cons y %9))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (%arg0 => f z))) (tail => Cons y tail))
+    │                         ⊢ Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => k (Effect.runPure (Call o (y => Done y))))) (Effect.bind (List.map xs f) (x1 => Done (Cons y x1))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (arg => f z))) (tail => Cons y tail))
 ────╯
