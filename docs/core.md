@@ -472,6 +472,8 @@ As built (SW-40, Oct 2026), three more kinds of call are turns of the loop:
 
 Inlining copies code: each inlined member or helper appears once per call site in the loop (the generated `Show.escapeChars` is about 170 lines). Still a frame per call: recursion that isn't in tail position (`List.length`, `x + inner xs xss`), tail calls through a function that isn't inlined (`Option.flatMap`'s argument, `Effect.bind`'s continuation, SW-396), cycles of three or more members that don't call each other directly, and a lifted `match` itself, which calls its owner rather than looping (it's only called from the owner, whose loop inlines it).
 
+The interpreter (`stitchwort run`) makes the same functions loops in its IR (`crates/rt/src/trmc.rs`), for calls modulo a constructor only: a function whose branches build a constructor around one call to itself (or to a copy of a helper that gets the call as an argument, `List.concat`'s `append xs (concat xss)`) runs in destination-passing style, filling each cell's hole as it makes the next, so `List.map`, `filter`, `append`, `concat`, `flatMap`, `zip`, `take` and `range` use no frame per element. Only a function in which every call to itself is such a turn is changed, and each branch ends in a value or in a call that can't come back to it; an effectful `map` (generic over its row) keeps its recursive call inside a continuation and is not.
+
 ## Error codes
 
 | Code | Meaning |

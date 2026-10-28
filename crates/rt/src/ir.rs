@@ -310,6 +310,26 @@ pub enum PrimOp {
     /// `bind`, `foldComp`, `translate` and `runPure` ([`crate::effect`]).
     /// They call functions, so the machine runs them on its frames.
     Effect(EffectOp),
+    /// The cells of a call modulo a constructor ([`crate::trmc`]).
+    Hole(HoleOp),
+}
+
+/// The operations on a chain of constructor cells that a loop links one
+/// cell at a time. A cell with a hole is not visible to the program until
+/// the loop has filled the hole and returned it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HoleOp {
+    /// A new cell with one field, a hole: the head of a chain, which
+    /// `Take` reads the chain back from.
+    New,
+    /// `Fill cell i v`: puts `v` in field `i` of `cell`, which is a hole.
+    Fill,
+    /// `Take cell`: field 0 of the head of a chain, the chain.
+    Take,
+}
+
+impl HoleOp {
+    pub const ALL: [HoleOp; 3] = [HoleOp::New, HoleOp::Fill, HoleOp::Take];
 }
 
 impl PrimOp {
@@ -354,6 +374,11 @@ impl PrimOp {
             },
             PrimOp::Float(op) => op.arity(),
             PrimOp::Effect(op) => op.arity(),
+            PrimOp::Hole(op) => match op {
+                HoleOp::New => 0,
+                HoleOp::Fill => 3,
+                HoleOp::Take => 1,
+            },
         }
     }
 
@@ -369,6 +394,7 @@ impl PrimOp {
             PrimOp::Delay(prim) => prim.name().to_string(),
             PrimOp::Float(op) => format!("Float{op:?}"),
             PrimOp::Effect(op) => format!("Effect{op:?}"),
+            PrimOp::Hole(op) => format!("Hole{op:?}"),
         }
     }
 }

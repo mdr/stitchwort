@@ -60,7 +60,7 @@ const DEPTH: u32 = 12;
 const COPY_SIZE: usize = 200;
 const COPIES: usize = 64;
 /// The deepest body the passes here take on.
-const MAX_NESTING: usize = 1000;
+pub(crate) const MAX_NESTING: usize = 1000;
 
 /// The data types the rules need to recognise.
 #[derive(Clone, Copy, Debug)]
@@ -259,7 +259,7 @@ impl Cx {
 // ------------------------------------------------------------- measuring
 
 /// How deeply `e` nests, found without recursing.
-fn nesting<'a>(e: &'a Expr) -> usize {
+pub(crate) fn nesting<'a>(e: &'a Expr) -> usize {
     let mut max = 0;
     let mut stack = vec![(e, 1)];
     while let Some((e, d)) = stack.pop() {
@@ -306,7 +306,7 @@ fn nesting<'a>(e: &'a Expr) -> usize {
 }
 
 /// How big `e` is: its nodes.
-fn size(e: &Expr) -> usize {
+pub(crate) fn size(e: &Expr) -> usize {
     1 + match e {
         Expr::Local(_)
         | Expr::Captured(_)
@@ -396,7 +396,7 @@ fn closures(e: &Expr, f: &mut impl FnMut(LambdaId)) {
 }
 
 /// How many times `e` reads slot `s`.
-fn reads(e: &Expr, s: Slot) -> usize {
+pub(crate) fn reads(e: &Expr, s: Slot) -> usize {
     let all = |a: &[Expr]| a.iter().map(|x| reads(x, s)).sum::<usize>();
     match e {
         Expr::Local(t) => usize::from(*t == s),

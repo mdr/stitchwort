@@ -2,44 +2,70 @@
 source: crates/rt/tests/alloc_trace.rs
 expression: trace.render()
 ---
-alloc #0 tag=1 arity=2
+alloc #0 tag=0 arity=1
+inc #0
 alloc #1 tag=1 arity=2
+inc #1
+dec #0
 alloc #2 tag=1 arity=2
-reuse #0 tag=1 arity=2
-reuse #1 tag=1 arity=2
-reuse #2 tag=1 arity=2
-alloc #3 tag=0 arity=1
-dec #3
-free #3
-alloc #4 tag=0 arity=1
-alloc #5 tag=0 arity=1
-dec #4
-free #4
-dec #2
-free #2
+inc #2
 dec #1
-free #1
+alloc #3 tag=1 arity=2
+inc #3
+dec #2
+dec #3
+inc #1
 dec #0
 free #0
+dec #1
+alloc #4 tag=0 arity=1
+inc #4
+reuse #1 tag=1 arity=2
+inc #1
+dec #4
+reuse #2 tag=1 arity=2
+inc #2
+dec #1
+reuse #3 tag=1 arity=2
+inc #3
+dec #2
+dec #3
+inc #1
+dec #4
+free #4
+dec #1
+alloc #5 tag=0 arity=1
 dec #5
 free #5
 alloc #6 tag=0 arity=1
 alloc #7 tag=0 arity=1
-alloc #8 tag=1 arity=2
-inc #8
-dec #8
-inc #8
-dec #8
-inc #7
-dec #8
-free #8
-dec #7
-inc #6
-dec #6
-dec #7
-free #7
 dec #6
 free #6
+dec #1
+free #1
+dec #2
+free #2
+dec #3
+free #3
+dec #7
+free #7
+alloc #8 tag=0 arity=1
 alloc #9 tag=0 arity=1
+alloc #10 tag=1 arity=2
+inc #10
+dec #10
+inc #10
+dec #10
+inc #9
+dec #10
+free #10
+dec #9
+inc #8
+dec #8
 dec #9
 free #9
+dec #8
+free #8
+alloc #11 tag=0 arity=1
+dec #11
+free #11

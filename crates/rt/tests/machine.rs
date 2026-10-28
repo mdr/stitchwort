@@ -484,6 +484,122 @@ def main(): {IO} () := IO.print (Nat.toText (build 100000 []).length)
     assert_eq!(out, "100000\n");
 }
 
+/// The list functions that build their result around a call to themselves
+/// (`map`, `filter`, `append`, `concat` and `flatMap` through it, `zip`,
+/// `take`, `range`) run as loops, so a list
+/// longer than the default frame limit (2,000,000) goes through each.
+#[test]
+fn list_builders_dont_grow_the_stack() {
+    let (out, result) = on_the_machine(
+        r#"
+import Std (List, Nat, Text)
+
+def count (xs: List a): Nat := xs.length
+
+def mapped (xs: List Nat): List Nat := xs.map (x => x + 1)
+def kept (xs: List Nat): List Nat := xs.filter (x => x % 3 != 0)
+def joined (xs: List Nat): List Nat := xs ++ xs
+def single (x: Nat): List Nat := [x, x]
+def flat (xs: List Nat): List Nat := xs.flatMap single
+def wrapped (xs: List Nat): List (List Nat) := xs.map single
+def concatenated (xss: List (List Nat)): List Nat := List.concat xss
+def zipped (xs: List Nat): List (Pair Nat Nat) := List.zip xs xs
+def taken (xs: List Nat): List Nat := xs.take 2500000
+
+def main(): {IO} () :=
+  let xs := List.range 3000000
+  IO.print (Text.join [
+    Nat.toText (count xs),
+    Nat.toText (count (mapped xs)),
+    Nat.toText (count (kept xs)),
+    Nat.toText (count (joined xs)),
+    Nat.toText (count (flat xs)),
+    Nat.toText (count (concatenated (wrapped xs))),
+    Nat.toText (count (zipped xs)),
+    Nat.toText (count (taken xs))
+  ] ' ')
+"#,
+        Limits {
+            steps: u64::MAX,
+            frames: Limits::default().frames,
+        },
+    );
+    assert_eq!(result, Ok(()));
+    assert_eq!(
+        out,
+        "3000000 3000000 2000000 6000000 6000000 6000000 3000000 2500000\n"
+    );
+}
+
+/// The values a loop of cells builds are immutable to the program: a list
+/// from `map` is shared and used as often as any other, and matching on it,
+/// taking it apart and building from it behave as before.
+#[test]
+fn a_list_built_as_a_loop_is_an_ordinary_value() {
+    let (out, result) = both_ways(
+        r#"
+import Std (List, Nat, Text)
+
+def double (xs: List Nat): List Nat := xs.map (x => x * 2)
+def evens (xs: List Nat): List Nat := xs.filter (x => x % 4 == 0)
+def tree: Nat -> List Nat -> List (List Nat)
+  | 0, xs => []
+  | Succ n, xs => Cons (double xs) (tree n (evens xs))
+def show (xs: List Nat): Text := Text.join (xs.map Nat.toText) ','
+
+def main(): {IO} () :=
+  let base := List.range 12
+  let doubled := double base
+  let both := doubled ++ doubled
+  IO.print (Text.join [show doubled, show both, show (evens doubled),
+    show (List.concat (tree 3 base)), show (List.zip doubled base |> .map (p => p.fst + p.snd))] ' ')
+"#,
+        b"",
+    );
+    assert_eq!(result, Ok(()));
+    assert!(out.starts_with("0,2,4,6,8,10,12,14,16,18,20,22 "), "{out}");
+}
+
+/// `map` with a callback that performs an operation, under a handler that
+/// resumes twice, gives each resumption its own list: the effectful `map`
+/// is not run as a loop of cells, and the pure one's cells are not shared
+/// between the two runs.
+#[test]
+fn map_under_a_handler_that_resumes_twice() {
+    let (out, result) = both_ways(
+        r#"
+import Std (List, Nat, Text)
+
+ability Choose where
+  choose: () → {Choose} Bool
+
+def allResults (prog: () → {Choose | e} a): {e} List a :=
+  handle prog() with
+    | return x => [x]
+    | choose u, k => List.append (k True) (k False)
+
+def pick (x: Nat): {Choose} Nat := if choose() then x else x + 100
+
+def weigh (xs: List Nat): Nat := xs.foldLeft 0 (total x => total * 1000 + x)
+
+def twice (xs: List Nat): List Nat := xs.map (x => x * 2)
+
+def main(): {IO} () :=
+  let results := allResults (u => List.range 3 |> .map pick)
+  let again := allResults (u => twice (List.range 3 |> .map pick))
+  let shown := (xs: List (List Nat)) => Text.join (xs.map (ys => Nat.toText (weigh ys))) ','
+  IO.print (Text.join [shown results, shown again] ' ')
+"#,
+        b"",
+    );
+    assert_eq!(result, Ok(()));
+    assert_eq!(
+        out,
+        "1002,1102,101002,101102,100001002,100001102,100101002,100101102 \
+         2004,2204,202004,202204,200002004,200002204,200202004,200202204\n"
+    );
+}
+
 /// A `let` used in a `match` arm inside a lambda is computed once, as a
 /// closure's capture would be, not once per call of the lambda: the helper
 /// the `match` is lifted to takes its value. Counted in steps: twenty
@@ -656,7 +772,7 @@ def main(): {IO} () :=
 }
 
 /// `map` builds each new cell in the one it takes apart, when that one is
-/// uniquely owned: its code (the empty-row variant, for a pure callback)
+/// uniquely owned: its code (the loop of the empty-row variant, for a pure callback)
 /// reuses the cell.
 #[test]
 fn map_reuses_its_cells() {
@@ -675,7 +791,7 @@ fn map_reuses_its_cells() {
         let map = program
             .globals
             .iter()
-            .position(|g| &*g.name == "Std.List.map[empty]")
+            .position(|g| &*g.name == "Std.List.map[empty][cells]")
             .expect("map is used");
         let code = &image.codes[image.global_code[map].expect("map has code") as usize];
         assert!(
