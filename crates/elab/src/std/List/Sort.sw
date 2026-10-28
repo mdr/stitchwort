@@ -1459,8 +1459,8 @@ theorem List.countLeMem: (xs: List a) → (p: a → Bool) → (q: a → Bool) �
     let below := List.countLeMem rest p q (y m => weaker y (Inr m))
     rewrite List.countCons rest x p, List.countCons rest x q in
     match passes: p x with
-      | True => rewrite weaker x (Inl rfl) passes in omega
-      | False => omega
+      | True => rewrite weaker x (Inl rfl) passes in below
+      | False => Nat.leTrans _ _ _ below (Nat.leAddLeft (Bool.toNat (q x)) (List.count rest q))
 
 -- `all` is "no element fails", so a permutation keeps it.
 theorem List.allNotAny: (xs: List a) → (p: a → Bool) → List.all xs p = ¬(List.any xs (x => ¬(p x)))
