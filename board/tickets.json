@@ -7463,14 +7463,15 @@
     },
     {
       "id": 840,
-      "title": "Message: 'f -2' (negative literal as an argument) says 'expected Int, but this has type Int → Int'; suggest f (-2)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "title": "Research: should f -2 parse as f (-2)? Survey languages and approaches, recommend (D1460)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree (starting)",
       "labels": [
-        "bug"
+        "design",
+        "syntax"
       ],
-      "body": "From SW-808 (day 22). Reproduced 28 Oct on main: def f (n: Int): Int := n; def g: Int := f -2 gives E-TYPE-MISMATCH at f with only the Int-arithmetic note. Add a note suggesting brackets, f (-2), when the left operand of binary - is a function that takes the right operand's type.",
+      "body": "D1460 (Matt, 28 Oct 2026): run an Opus research lane surveying other languages and approaches, ending in a recommendation; replaces the original 'add a hint for f -2' (D1456 dropped).\n\nToday: 'f -2' is 'f - 2' (docs/syntax.md:1114; docs/proposals/integers.md:704-708 kept it 'as today'), and gives 'expected Int, but this has type Int → Int'. Corpus check 28 Oct: no .sw file writes subtraction as 'x -y' (space before '-', none after), excluding keywords and strings. Candidate: whitespace rule (GHC LexicalNegation / F# / Swift / Elm).",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
