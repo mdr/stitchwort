@@ -7357,14 +7357,18 @@
     {
       "id": 832,
       "title": "Type mismatch with an alias hides the difference: 'expected Quot Bool BoolEq, but this has type Q' (soundness/quot-relation-mismatch since alias names are kept); show the unfolded form beside the alias when the two sides differ only after unfolding",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree-agent-a7885eb4a489477b6",
       "labels": [],
       "body": "",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "6dd39022",
+        "c51b511b",
+        "07cd7f4a"
+      ]
     },
     {
       "id": 833,
@@ -7531,7 +7535,7 @@
       "labels": [
         "bug"
       ],
-      "body": "SW-832 adds a note only when a top-level folded call (type alias) faces a non-call of the same head. Not covered: an alias nested inside the printed type, and Prop aliases (unfolding to an equation, skipped to avoid noise on b <= c vs b < c). Also: nullary aliases (def Q: Type := Quot Bool AllTrue) print unfolded already in this tree, so soundness/quot-relation-mismatch never printed Q; the ticket's quoted message does not reproduce.",
+      "body": "SW-832 adds a note only when a top-level folded call (type alias) faces a non-call of the same head. Not covered: an alias nested inside the printed type (List Q vs List Other), and Prop aliases (unfolding to an equation, skipped to avoid noise on b <= c vs b < c).\n",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
