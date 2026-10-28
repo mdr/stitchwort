@@ -6,7 +6,6 @@
 namespace Aoc.Year2024.Day20.Proofs
 import Aoc.Year2024.Day20 (..)
 import Aoc.Year2024.Day20.Spec (..)
-import Aoc.Year2024.Day16.Proofs (anyMember)
 import Std (And, Bool, Eq, Exists, List, Nat, Option, Void)
 
 -- The program's move is the puzzle's.
@@ -65,7 +64,7 @@ theorem directionsComplete: (direction: Direction) → direction ∈ directions
 theorem edgesSound (racetrack: Racetrack) (position: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ racetrack.edges position):
     And (Exists Direction (direction => moveTo racetrack position direction = Some next)) (weight = 1) :=
   let found := List.memFilterMapElim (direction => racetrack.move position direction |> .map (other => (other, 1))) (next, weight) directions edge
-  Exists.elim (anyMember (direction => (racetrack.move position direction |> .map (other => (other, 1))) = Some (next, weight)) directions found)
+  Exists.elim (List.anyMember (direction => (racetrack.move position direction |> .map (other => (other, 1))) = Some (next, weight)) directions found)
     (direction both =>
       match moved: racetrack.move position direction with
         | None => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))

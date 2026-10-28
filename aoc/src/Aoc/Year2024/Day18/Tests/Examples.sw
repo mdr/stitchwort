@@ -82,8 +82,7 @@ test "fewest steps to each position" :=
   let memory := MemorySpace.after 2 [at 1 0] 1
   (memory.fromStart.toList |> .map (entry => (entry.fst, entry.snd))) == [(at 0 0, 0), (at 0 1, 1), (at 1 1, 2)]
 
-test "binary search" :=
-  firstBlocked (count => 5 ≤ count) 0 20 == 5 && firstBlocked (count => 1 ≤ count) 0 1 == 1 && firstBlocked (count => 19 ≤ count) 0 20 == 19
+test "the first count that blocks" := Nat.partitionPoint 0 26 (reachable 7 (bytes example)) == 21
 test "reachable" := reachable 7 (bytes example) 20 && !reachable 7 (bytes example) 21
 
 test "parse" := parsed "5,4\n4,2\n" == Ok [at 5 4, at 4 2]

@@ -4950,6 +4950,21 @@ and `Map.popMinSpec`. The search pops with it: `searchFrom` takes
 `queue.popMin` and its equation, and the program's `containsMin` and
 `sizeRemoveMin` are gone.
 
+Fixed: the search is in std (`crates/elab/src/std/Graph/Search.sw`,
+loaded only by programs that use it): `Graph`, `Graph.distances` and
+`Graph.distancesCorrect`, with the spec `Graph.SearchResult` and, over
+walks (lists of edges), `Graph.Shortest` and `Graph.boundAlong`, so "no
+path costs less" is proved once (`Graph.distancesShortest`). The day
+turns its moves into walks (`movesWalk`, `movesWalkBack`) and uses
+`Graph.boundAlong` for both of its bounds. The `Map` insert lemmas are in
+std's `Map` (`Map.getInsertCases`, `Map.getInsertKeeps`,
+`Map.getOfContains`, `Map.containsInsertSame`, `Map.containsInsertKeeps`),
+the `Set` ones in `Set` (`Set.missingOfMinNone`, `Set.containsOfRemove`),
+and `memMapElim` and `anyMember` in `List`; `countLe` and `countFewer`
+were std's `List.countLeMem` and `List.countLtMem`. Only the
+`List.minimum` lemmas stay in the day's `Proofs/Lemmas.sw`. The run time
+is unchanged (6.4 s user on the generated maze, both).
+
 ### 3. Confusing errors
 
 - A dependent `match` on `queue.min` inside the search couldn't be stepped
@@ -5075,6 +5090,14 @@ and its invariant checked almost first time. What made it work:
   `within` at run time only so the measure can drop. A std notion of a
   finite universe, or a measure on `Set` size bounded by a universe
   `Set`, would remove both.
+
+  Fixed: std's `Graph` has `edges`, `states` and `listed`, a proof that
+  every edge leads to a listed state. The search carries, as an erased
+  argument, the proof that every queued state is listed or a source, so
+  there is no `within` and no run-time check, and the sources needn't be
+  listed. The maze's graph has no moves out of a wall tile
+  (`Maze.moves`), which is what makes every edge lead to a listed way of
+  standing.
 - The std lemmas that would have made it easier: the `Set.min` lemmas
   (item 2), the only reasoning about the queue's order; the pair-order
   fact that `Ordering.andThen first second = Less` means `first` isn't
@@ -5670,6 +5693,21 @@ add a `Nat.partitionPoint` with `firstBlockedCorrect` as its lemma,
 `List.containsTakeMono`, and `Set.containsFromList` stated with
 `List.contains`.
 
+Fixed: the search is std's (`Graph/Search.sw`), with a breadth-first
+search beside Dijkstra's, `Graph.breadthFirst`, levels of plain lists and
+a `Map` of what is settled, proved against the same spec
+(`Graph.breadthFirstCorrect`, `Graph.breadthFirstShortest`) directly, not
+derived from Dijkstra's; part 1 uses it. The binary search is std's
+`Nat.partitionPoint low high p`, the first number from `low` before
+`high` at which `p` fails, as Rust's `partition_point`, with
+`Nat.partitionPointBounds` (for any `p`: it fails there and holds just
+before) and `Nat.partitionPointSpec` (for a `p` that holds up to a point:
+it holds before and fails after); `firstBlocked` and its lemmas are gone,
+and part 2 searches counts 0 to the number of bytes in one go, without
+trying the two ends first. `IO.args` exists, so `main` takes the size and
+the number of bytes (`-- 7 12` for the example), and `mainExample` is
+gone. `containsTakeMono` and the `Set.fromList` lemma are still the day's.
+
 ### 3. Confusing errors
 
 - A pattern `let` on a proof inside a definition stays in its unfolding
@@ -5745,6 +5783,13 @@ check to 2.8 s, so the time went on the checker computing through
 `reachable`, which is the whole search, while comparing terms. Day 16's
 proofs take 3.0 s. Fix: compare by name before unfolding a large
 definition, or report what a slow check spent its time on.
+
+Fixed: both. With std's breadth-first search and one binary search of
+about 12 halvings, the generated input takes 1.35 s user, against 1.84 s
+before (load average about 10); std's Dijkstra in its place takes 1.63
+s, and the example's whole run, mostly loading, 0.87 s. The checker now
+writes omega certificates and `let` types folded, so `reachable` is a
+plain `def` again and the proofs check in 3.3 s user.
 
 ### 6. Proofs
 
@@ -6258,6 +6303,14 @@ check the rectangle as day 16's does.
   `Map.keysDistinct` made that cheap.
 - `Nat.absDiff` exists, and the `- n` saturating subtraction made the
   diamond's clipping at row and column 0 free.
+
+Fixed (in part): the search is std's (`Graph/Search.sw`), so the day no
+longer imports day 16. Its graph needs no `within`: `listed` is that each
+edge leads onto track (`Racetrack.edgeOnTrack`, in the program), and
+`Graph.distancesCorrect` no longer asks for the sources or the edges to
+stay within. `memMapElim` and `anyMember` are std's `List` lemmas.
+`boundFrom` and `boundTo` are still the day's own inductions over moves,
+not std's `Graph.boundAlong` over walks.
 
 ### 3. Confusing errors
 

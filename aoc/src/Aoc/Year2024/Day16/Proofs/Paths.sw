@@ -131,16 +131,3 @@ theorem followSplits (maze: Maze): (reindeer: Reindeer) → (moves: List Move) �
                           (Both (rewrite split in rfl)
                             (Both (Eq.trans (finalCons maze reindeer way next moved before) reached)
                               remaining)))))
-
--- A member of a mapped list is the image of a member.
-theorem memMapElim (f: a → b) (y: b): (xs: List a) → y ∈ xs.map f → Exists a (x => And (x ∈ xs) (f x = y))
-  | Nil, member => Void.exfalso member
-  | Cons x rest, Inl here => Witness x (Both (Inl rfl) here)
-  | Cons x rest, Inr later =>
-    Exists.elim (memMapElim f y rest later) (found both => Witness found (Both (Inr (And.left both)) (And.right both)))
-
--- `Any` gives a member.
-theorem anyMember (p: a → Prop): (xs: List a) → List.Any p xs → Exists a (x => And (x ∈ xs) (p x))
-  | Nil, none => Void.exfalso none
-  | Cons x rest, Inl here => Witness x (Both (Inl rfl) here)
-  | Cons x rest, Inr later => Exists.elim (anyMember p rest later) (found both => Witness found (Both (Inr (And.left both)) (And.right both)))

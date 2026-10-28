@@ -5,26 +5,30 @@
 -- through.
 --
 --   $ cd aoc && stitchwort run Aoc.Year2024.Day18.main < inputs/2024/day18.txt
---   $ cd aoc && stitchwort run Aoc.Year2024.Day18.mainExample < examples/2024/day18.txt
+--   $ cd aoc && stitchwort run Aoc.Year2024.Day18.main -- 7 12 < examples/2024/day18.txt
 --
 -- The proofs are in `Aoc.Year2024.Day18.Proofs` (Proofs/) and the tests in
 -- `Aoc.Year2024.Day18.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day18
-import Aoc.Year2024.Day16 (Graph)
-import Std (Bool, Fail, IO, List, Map, Nat, Option, Parse, Set, Text)
+import Std (Bool, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
 import Std.Parse (nat, text)
 
--- The puzzle's memory space, 71 positions each way, after 1024 bytes.
-def main(): {IO, Fail} () := solveIn 71 1024
-
--- The example's memory space, 7 positions each way, after 12 bytes.
-def mainExample(): {IO, Fail} () := solveIn 7 12
-
-def solveIn (size: Nat) (fallen: Nat): {IO, Fail} () :=
+-- The memory space is the puzzle's, 71 positions each way, after 1024
+-- bytes, unless the arguments give a size and a number of bytes: `-- 7 12`
+-- for the example's.
+def main(): {IO, Fail} () :=
+  let (size, fallen) := sizesFrom IO.args()
   let bytes := parseBytes IO.readAll()
   IO.print "Part 1: ${solvePart1 size fallen bytes |> .fold "none" Nat.toText}"
   IO.print "Part 2: ${solvePart2 size bytes |> .fold "none" (byte => "${byte.x},${byte.y}")}"
+
+def sizesFrom (args: List Text): {Fail} (Nat, Nat) :=
+  let usage := "expected no arguments, or a size and a number of bytes, such as `7 12`"
+  match args with
+    | Nil => (71, 1024)
+    | Cons sizeText (Cons fallenText Nil) => (Fail.need sizeText.toNat usage, Fail.need fallenText.toNat usage)
+    | _ => Fail.fail usage
 
 -- `x` positions from the left edge, `y` from the top.
 type Position = { x: Nat, y: Nat }
@@ -94,13 +98,36 @@ theorem MemorySpace.safeListed (memory: MemorySpace): (position: Position) → m
       (List.range memory.size) (List.memRangeFromIntro x memory.size 0 rfl (omega [xInside]))
       (List.memMap (List.range memory.size) y (List.memRangeFromIntro y memory.size 0 rfl (omega [yInside])) (row => ({ x, y = row }: Position)))
 
--- The memory space as a graph for day 16's search: safe positions, each a
--- step from its safe neighbours.
+-- Moves lead to safe positions.
+theorem MemorySpace.moveSafe (memory: MemorySpace) (position: Position) (direction: Direction) (next: Position)
+    (moved: memory.move position direction = Some next): memory.isSafe next = True :=
+  match stepped: position.step direction with
+    | None => Void.exfalso (Option.noneNotSome next moved)
+    | Some found =>
+      match safe: memory.isSafe found with
+        | False => Void.exfalso (Option.noneNotSome next moved)
+        | True => rewrite <- Option.someInjective _ _ moved in safe
+
+-- Each edge is a move, costing one.
+theorem MemorySpace.edgesSound (memory: MemorySpace) (position: Position) (next: Position) (weight: Nat)
+    (edge: (next, weight) ∈ memory.edges position): And (Exists Direction (direction => memory.move position direction = Some next)) (weight = 1) :=
+  let found := List.memFilterMapElim (direction => memory.move position direction |> .map (other => (other, 1))) (next, weight) directions edge
+  Exists.elim (List.anyMember (direction => (memory.move position direction |> .map (other => (other, 1))) = Some (next, weight)) directions found)
+    (direction both =>
+      match moved: memory.move position direction with
+        | None => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
+        | Some other =>
+          let same := Option.someInjective _ _ (And.right both)
+          Both (Witness direction (Eq.trans moved (Eq.cong Some (Eq.cong Pair.fst same)))) (Eq.sym (Eq.cong Pair.snd same)))
+
+-- The memory space as a graph for std's search: safe positions, each a step
+-- from its safe neighbours.
 def MemorySpace.graph (memory: MemorySpace): Graph Position := {
   edges = memory.edges,
-  within = memory.isSafe,
   states = memory.positions,
-  listed = position => memory.safeListed position
+  listed = position next weight edge =>
+    Exists.elim (And.left (memory.edgesSound position next weight edge)) (direction moved =>
+      memory.safeListed next (memory.moveSafe position direction next moved))
 }
 
 def start: Position := { x = 0, y = 0 }
@@ -108,31 +135,23 @@ def start: Position := { x = 0, y = 0 }
 -- The bottom right corner.
 def MemorySpace.exit (memory: MemorySpace): Position := { x = memory.size - 1, y = memory.size - 1 }
 
--- The fewest steps from the start to each position reachable from it; none
--- if the start is corrupted.
+-- The fewest steps from the start to each position reachable from it, by
+-- breadth-first search; none if the start is corrupted.
 def MemorySpace.fromStart (memory: MemorySpace): Map Position Nat :=
-  if memory.isSafe start then memory.graph.distances [(start, 0)] else Map.empty
+  if memory.isSafe start then memory.graph.breadthFirst [start] else Map.empty
 
 def MemorySpace.fewestSteps (memory: MemorySpace): Option Nat := memory.fromStart.get memory.exit
 
 -- Whether the exit can be reached once the first `fallen` bytes have
 -- fallen.
-opaque def reachable (size: Nat) (bytes: List Position) (fallen: Nat): Bool := (MemorySpace.after size bytes fallen).fewestSteps.isSome
-
--- A binary search for a count `blocked` holds for, just after one it
--- fails for, given that it fails at `low` and holds at `high`.
-def firstBlocked (blocked: Nat → Bool) (low: Nat) (high: Nat): Nat
-    decreasing high - low :=
-  if apart: Succ low < high then
-    let middle := (low + high) / 2
-    if blocked middle then firstBlocked blocked low middle [decreasing := omega [apart]]
-    else firstBlocked blocked middle high [decreasing := omega [apart]]
-  else high
+def reachable (size: Nat) (bytes: List Position) (fallen: Nat): Bool := (MemorySpace.after size bytes fallen).fewestSteps.isSome
 
 def solvePart1 (size: Nat) (fallen: Nat) (bytes: List Position): Option Nat := (MemorySpace.after size bytes fallen).fewestSteps
 
--- A binary search over how many bytes have fallen: the exit can't become
--- reachable again once it isn't.
+-- A binary search for the first number of bytes fallen that leaves no way
+-- through (the exit can't become reachable again once it isn't); none if
+-- that is before any byte falls, or never.
 def solvePart2 (size: Nat) (bytes: List Position): Option Position :=
-  let blocked := (fallen: Nat) => !reachable size bytes fallen
-  if blocked 0 || !blocked bytes.length then None else bytes.get (firstBlocked blocked 0 bytes.length - 1)
+  match Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) with
+    | Zero => None
+    | Succ index => bytes.get index

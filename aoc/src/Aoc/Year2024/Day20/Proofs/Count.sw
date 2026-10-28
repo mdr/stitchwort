@@ -8,7 +8,6 @@
 namespace Aoc.Year2024.Day20.Proofs
 import Aoc.Year2024.Day20 (..)
 import Aoc.Year2024.Day20.Spec (..)
-import Aoc.Year2024.Day16.Proofs (memMapElim)
 import Std (And, Bool, Eq, Exists, Iff, List, Map, Nat, Option, Set, Void)
 
 -- The cheats from `start` that the program counts.
@@ -70,7 +69,7 @@ theorem distinctCounted (racetrack: Racetrack) (fromStart: Map Position Nat) (to
     (start member cheat inStart =>
       match got: fromStart.get start with
         | Some before =>
-          Exists.elim (memMapElim _ cheat _ inStart)
+          Exists.elim (List.memMapElim _ cheat _ inStart)
             (end both => rewrite <- And.right both in rfl)
         | None => Void.exfalso inStart)
 
@@ -93,7 +92,7 @@ theorem countedSound (racetrack: Racetrack) (startOnTrack: onTrack racetrack rac
         | None => Void.exfalso inStart
         | Some before =>
           let inList := inStart
-          Exists.elim (memMapElim _ cheat _ inList) (end both =>
+          Exists.elim (List.memMapElim _ cheat _ inList) (end both =>
             let (Both endMember made) := both
             let (Both aroundMember saves) := List.memFilter (start.around length) (savesFrom toEnd honest threshold start before) end endMember
             match gotAfter: toEnd.get end with

@@ -7,7 +7,7 @@
 namespace Aoc.Year2024.Day16.Proofs
 import Aoc.Year2024.Day16 (..)
 import Aoc.Year2024.Day16.Spec (..)
-import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Or, Set, Void)
+import Std (And, Bool, DecEq, Eq, Exists, Graph, Iff, List, Map, Nat, Option, Or, Set, Void)
 
 -- From `reindeer`, on an open tile, some moves end on the end tile,
 -- scoring `cost`.
@@ -40,49 +40,65 @@ def endSources (maze: Maze): List (Reindeer, Nat) := maze.endReindeer.map (reind
 -- A source of the search back is a way of standing on the end tile, at 0.
 theorem endSource (maze: Maze) (source: Reindeer) (start: Nat) (member: (source, start) ∈ endSources maze):
     And (source.position = maze.end) (start = 0) :=
-  Exists.elim (memMapElim (reindeer => (reindeer, 0)) (source, start) maze.endReindeer member) (reindeer both =>
+  Exists.elim (List.memMapElim (reindeer => (reindeer, 0)) (source, start) maze.endReindeer member) (reindeer both =>
     rewrite <- Eq.cong Pair.fst (And.right both), <- Eq.cong Pair.snd (And.right both) in Both (listedAtEnd maze reindeer (And.left both)) rfl)
 
 -- The search back from the end, on a maze whose E is open.
 theorem toEndCorrect (maze: Maze) (endOpen: maze.isOpen maze.end = True):
-    SearchResult (maze.graph True) (endSources maze) (ReachesEnd maze) maze.toEnd :=
-  distancesCorrect (maze.graph True) (endSources maze) (ReachesEnd maze)
+    Graph.SearchResult (maze.graph True) (endSources maze) (ReachesEnd maze) maze.toEnd :=
+  Graph.distancesCorrect (maze.graph True) (endSources maze) (ReachesEnd maze)
     (source start member =>
       let (Both atEnd isZero) := endSource maze source start member
       let holds: maze.holds source = True := rewrite atEnd in endOpen
       rewrite isZero in Both holds (Witness Nil (Witness source (Both rfl (Both atEnd rfl)))))
-    (source start member => rewrite And.left (endSource maze source start member) in endOpen)
     (state cost reaches previous weight edge =>
       let (Both holds onward) := reaches
-      Exists.elim (beforeSound maze state holds previous weight edge) (way both =>
+      let before := And.right (edgeHolds maze True state previous weight edge)
+      Exists.elim (beforeSound maze state holds previous weight before) (way both =>
         Exists.elim onward (moves rest =>
           Exists.elim rest (last parts =>
             let (Both ended (Both atEnd scored)) := parts
-            Both (beforeHolds maze state holds previous weight edge)
+            Both (beforeHolds maze state holds previous weight before)
               (Witness (Cons way moves)
                 (Witness last
                   (Both (Eq.trans (finalCons maze previous way state (And.left both) moves) ended)
                     (Both atEnd (rewrite scoreCons way moves, scored, And.right both in omega)))))))))
-    (state holds previous weight edge => beforeHolds maze state holds previous weight edge)
+
+-- Moves from an open tile are a walk back in the maze's graph, from where
+-- they end, scoring the same.
+theorem movesWalkBack (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (moves: List Move) → (last: Reindeer) →
+    final maze reindeer moves = Some last →
+    Exists (List (Reindeer, Nat)) (path => And ((maze.graph True).Walk last path reindeer) (Graph.cost path = score moves))
+  | reindeer, holds, Nil, last, ended => Witness Nil (Both (Eq.sym (Option.someInjective _ _ ended)) rfl)
+  | reindeer, holds, Cons way rest, last, ended =>
+    match moved: move maze reindeer way with
+      | None => Void.exfalso (Option.noneNotSome last ended)
+      | Some next =>
+        let nextHolds := moveHolds maze reindeer holds way next moved
+        Exists.elim (movesWalkBack maze next nextHolds rest last ended) (path both =>
+          Witness (path ++ [(reindeer, way.points)])
+            (Both
+              (Graph.walkSnoc (maze.graph True) last path next (And.left both) reindeer way.points
+                (edgeOfMove maze True next nextHolds reindeer way.points (beforeComplete maze reindeer holds way next moved)))
+              (omega [
+                Graph.costAppend path [(reindeer, way.points)],
+                Graph.costCons reindeer way.points Nil,
+                Graph.costNil [s := Reindeer],
+                scoreCons way rest,
+                And.right both
+              ])))
 
 -- Moves from an open tile to the end score at least the search back's
 -- bound there.
 theorem boundToEnd (maze: Maze) (result: Map Reindeer Nat)
-    (sourcesBound: (reindeer: Reindeer) → reindeer ∈ maze.endReindeer → Bound result 0 reindeer)
+    (sourcesBound: (reindeer: Reindeer) → reindeer ∈ maze.endReindeer → Graph.Bound result 0 reindeer)
     (closed: (state: Reindeer) → (cost: Nat) → result.get state = Some cost → (previous: Reindeer) → (weight: Nat) →
-      (previous, weight) ∈ maze.before state → Bound result (cost + weight) previous):
-    (reindeer: Reindeer) → maze.holds reindeer = True → (moves: List Move) → (last: Reindeer) → final maze reindeer moves = Some last →
-      last.position = maze.end → Bound result (score moves) reindeer
-  | reindeer, holds, Nil, last, ended, atEnd =>
-    rewrite <- Option.someInjective _ _ ended at atEnd in boundWeaken result 0 (score Nil) reindeer (sourcesBound reindeer (endListed maze reindeer atEnd)) (omega)
-  | reindeer, holds, Cons way rest, last, ended, atEnd =>
-    match moved: move maze reindeer way with
-      | None => Void.exfalso (Option.noneNotSome last ended)
-      | Some next =>
-        let later := boundToEnd maze result sourcesBound closed next (moveHolds maze reindeer holds way next moved) rest last ended atEnd
-        Exists.elim later (found both =>
-          let stepped := closed next found (And.left both) reindeer way.points (beforeComplete maze reindeer holds way next moved)
-          boundWeaken result (found + way.points) (score (Cons way rest)) reindeer stepped (rewrite scoreCons way rest in omega [And.right both]))
+      (previous, weight) ∈ (maze.graph True).edges state → Graph.Bound result (cost + weight) previous)
+    (reindeer: Reindeer) (holds: maze.holds reindeer = True) (moves: List Move) (last: Reindeer) (ended: final maze reindeer moves = Some last)
+    (atEnd: last.position = maze.end): Graph.Bound result (score moves) reindeer :=
+  Exists.elim (movesWalkBack maze reindeer holds moves last ended) (path both =>
+    let along := Graph.boundAlong (maze.graph True) result closed last 0 (sourcesBound last (endListed maze last atEnd)) path reindeer (And.left both)
+    Graph.boundWeaken result (0 + Graph.cost path) (score moves) reindeer along (omega [And.right both]))
 
 -- Moves from the start to a way of standing, then from there to the end,
 -- make a path standing there.
@@ -124,7 +140,7 @@ theorem tileScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (bes
             (And (toEnd.get reindeer = Some second) (And (first + second = best) (reindeer.position = tile)))))) :=
   let passes := (entry: (Reindeer, Nat)) => toEnd.get entry.fst |> .map (rest => entry.snd + rest == best) |> .getOrElse False
   let listed := (containsFromListIff _ tile).forward there
-  Exists.elim (memMapElim (entry => entry.fst.position) tile (fromStart.toList.filter passes) listed) (entry both =>
+  Exists.elim (List.memMapElim (entry => entry.fst.position) tile (fromStart.toList.filter passes) listed) (entry both =>
     let (Both kept passed) := List.memFilter fromStart.toList passes entry (And.left both)
     match entry with
       | (reindeer, first) =>
@@ -149,7 +165,7 @@ theorem bestTilesCorrect (maze: Maze) (startOpen: maze.isOpen maze.start = True)
     (lowest: IsLowestScore maze best) (tile: Position): Iff (maze.bestTiles.contains tile = True) (OnBestPath maze best tile) :=
   let reachable: Exists (List Move) (moves => Exists (List Reindeer) (standings => IsPath maze moves standings)) :=
     Exists.elim (And.left lowest) (moves rest => Exists.elim rest (standings both => Witness moves (Witness standings (And.left both))))
-  let (Both reachedAll (Both startBounds closedForward)) := fromStartCorrect maze startOpen
+  let (Both reachedAll (Both startBounds closedForward)) := fromStartCorrect maze
   let (Both reachesAll (Both endBounds closedBackward)) := toEndCorrect maze endOpen
   Exists.elim (lowestScoreCorrect maze startOpen reachable) (found both =>
     let same := lowestUnique maze found best (And.right both) lowest
@@ -173,7 +189,7 @@ theorem bestTilesCorrect (maze: Maze) (startOpen: maze.isOpen maze.start = True)
         Exists.elim onPath (moves rest =>
           Exists.elim rest (standings parts =>
             let (Both path (Both scored member)) := parts
-            Exists.elim (memMapElim (standing => standing.position) tile standings member) (reindeer standingThere =>
+            Exists.elim (List.memMapElim (standing => standing.position) tile standings member) (reindeer standingThere =>
               let (Both stands at) := standingThere
               Exists.elim (followSplits maze (startingReindeer maze) moves standings (And.left path) reindeer stands) (before rest2 =>
                 Exists.elim rest2 (after split =>
@@ -181,7 +197,7 @@ theorem bestTilesCorrect (maze: Maze) (startOpen: maze.isOpen maze.start = True)
                   Exists.elim (pathEnds maze moves standings path) (last ending =>
                     let (Both ended atEnd) := ending
                     let holds := finalHolds maze (startingReindeer maze) startOpen before reindeer reached
-                    let fromStartBound := boundAlong maze maze.fromStart closedForward (startingReindeer maze) 0
+                    let fromStartBound := boundAlong maze maze.fromStart closedForward (startingReindeer maze) startOpen 0
                       (startBounds maze.startReindeer 0 (Inl rfl)) before reindeer reached
                     let toEndBound := boundToEnd maze maze.toEnd (standing listed => endBounds standing 0 (List.memMap maze.endReindeer standing listed (way => (way, 0))))
                       closedBackward reindeer holds after last (Eq.trans remaining ended) atEnd
