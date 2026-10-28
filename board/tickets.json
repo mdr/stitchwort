@@ -1,5 +1,5 @@
 {
-  "next": 825,
+  "next": 827,
   "tickets": [
     {
       "id": 13,
@@ -7245,7 +7245,7 @@
     {
       "id": 823,
       "title": "Design note for D1445: may spec/proof/test files add functions to a program's types, and how far would they leak into other scopes",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7257,7 +7257,31 @@
     {
       "id": 824,
       "title": "Design note for D1446: functions on type aliases; why dot syntax loses the alias after inference (experiment with glued calls in dot.rs step_value)",
-      "status": "review",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 825,
+      "title": "D1445: let any project namespace add functions to project types, owned by the adding namespace and visible where it is imported (docs/proposals/extending-types.md option c)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 826,
+      "title": "D1446: alias functions found by dot after inference: glued call in dot lookup, glued parameter types stored at declaration (docs/proposals/alias-functions.md)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
