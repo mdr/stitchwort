@@ -112,14 +112,15 @@ def solvePart1 (document: Document): Int := document.warehouse.moveAll document.
 -- The cells a box covers: where it is, and the cell to the right.
 def cellsOf (box: Position): List Position := [box, box.step Right]
 
+-- Where a tile's left half is in the map twice as wide.
+def Position.widen (position: Position): Position := { position | column = 2 * position.column }
+
 -- The warehouse twice as wide: each tile becomes two, the robot the left.
-def Warehouse.widen (warehouse: Warehouse): Warehouse :=
-  let wide := (position: Position) => ({ position | column = 2 * position.column }: Position)
-  {
-    walls = warehouse.walls.toList.flatMap (wall => cellsOf (wide wall)) |> Set.fromList,
-    boxes = warehouse.boxes.map wide,
-    robot = wide warehouse.robot
-  }
+def Warehouse.widen (warehouse: Warehouse): Warehouse := {
+  walls = warehouse.walls.toList.flatMap (wall => cellsOf wall.widen) |> Set.fromList,
+  boxes = warehouse.boxes.map Position.widen,
+  robot = warehouse.robot.widen
+}
 
 -- The boxes covering `cell`.
 def Warehouse.boxesAt (warehouse: Warehouse) (cell: Position): List Position :=

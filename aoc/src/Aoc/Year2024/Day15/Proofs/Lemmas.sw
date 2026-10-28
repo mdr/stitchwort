@@ -55,6 +55,12 @@ theorem decideAhead (start: Position) (direction: Direction) (count: Nat) (posit
                 (List.memRangeFromIntro i count 0 (omega) (omega))))
             found))
 
+-- A `Bool` that can't be `True` is `False`.
+theorem falseOf (value: Bool) (refute: value = True → Void): value = False :=
+  match held: value with
+    | True => Void.exfalso (refute rfl)
+    | False => rfl
+
 -- Positions with the same row and column are equal.
 theorem positionEq: (position: Position) → (other: Position) → position.row = other.row → position.column = other.column → position = other
   | { row, column }, { row = otherRow, column = otherColumn }, rows, columns => rewrite rows, columns in rfl

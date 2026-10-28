@@ -1,3 +1,9 @@
+-- Part 2's move: `gather` collects a group of boxes that move only into
+-- free cells (`gatherOk`), so a blocked move moves nothing
+-- (`blockedMovesNothing`), and with nothing overlapping before a move
+-- nothing overlaps after it (`moveWideSeparate`), which makes every box
+-- whole (`wholeOfSeparate`).
+
 namespace Aoc.Year2024.Day15.Proofs
 import Aoc.Year2024.Day15 (..)
 import Aoc.Year2024.Day15.Spec (..)
@@ -192,12 +198,6 @@ theorem blockedMovesNothing (warehouse: Warehouse) (direction: Direction) (separ
             match frontOrOwn box direction cell moved with
               | Inl front => Bool.trueNotFalse (Eq.trans (Eq.sym wallCell) (And.left (And.right (ok box held) cell front)))
               | Inr own => Bool.trueNotFalse (Eq.trans (Eq.sym wallCell) (And.left separate box (And.left (ok box held)) cell own)))
-
--- A `Bool` that can't be `True` is `False`.
-theorem falseOf (value: Bool) (refute: value = True → Void): value = False :=
-  match held: value with
-    | True => Void.exfalso (refute rfl)
-    | False => rfl
 
 -- The boxes after a move of `group`: each moved box, or a box that stayed.
 theorem movedOrStayed (warehouse: Warehouse) (direction: Direction) (group: Set Position) (position: Position)

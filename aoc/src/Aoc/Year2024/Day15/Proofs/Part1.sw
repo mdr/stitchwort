@@ -151,7 +151,7 @@ theorem pushedBackward (warehouse: Warehouse) (direction: Direction) (length: Na
             let atFree: position = free := rewrite same, <- last, aheadAddOne warehouse.robot direction (i + 1) in rfl
             rewrite atFree in Set.containsInsert free warehouse.boxes
           | No inside => Set.containsInsertMono warehouse.boxes free position
-              (rewrite same, <- aheadAddOne warehouse.robot direction (i + 1) in And.left line (i + 1) (omega))
+            (rewrite same, <- aheadAddOne warehouse.robot direction (i + 1) in And.left line (i + 1) (omega))
     | Inr (Both boxed notLine) =>
       match DecEq.decide position next with
         | Yes atNext =>
