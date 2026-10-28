@@ -1,5 +1,5 @@
 {
-  "next": 724,
+  "next": 727,
   "tickets": [
     {
       "id": 13,
@@ -5861,7 +5861,7 @@
     {
       "id": 712,
       "title": "AoC 2024 day 5: solve with Std.Parse once stage 1 lands, prove, log gaps (overnight)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5993,6 +5993,42 @@
     {
       "id": 723,
       "title": "std: List.takeSucc (take (k+1) = take k ++ [getOr k]) and lastSnoc (AoC 2024 day 3)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 724,
+      "title": "a || b inside an effect-polymorphic lambda elaborates to if b then True else False, so the same text in a statement and a proof isn't equal by rfl; use plain Bool.or when the row is Total (AoC 2024 day 5)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 725,
+      "title": "std: Pair equality as && of components (Pair.eqAnd), allTrue/anyFalse/allAnd lemmas (AoC 2024 day 5)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 726,
+      "title": "Error for a keyword used as a parameter name (test) says it's a keyword (AoC 2024 day 5)",
       "status": "next",
       "agent": "",
       "where": "",
