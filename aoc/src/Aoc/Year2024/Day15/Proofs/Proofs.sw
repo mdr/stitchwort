@@ -10,11 +10,11 @@
 -- Part 2 (Part2.sw, Widen.sw): a blocked move moves nothing
 -- (`blockedMovesNothing`), walls never move (`moveAllWideWalls`), and from
 -- a widened warehouse where nothing overlaps, after every move the robot
--- is on no wall or box and every box is whole (`part2Whole`).
+-- is on no wall or box, every box is whole (`part2Whole`), and the number
+-- of boxes is the same (`part2Count`).
 --
--- Not proved: that part 2 keeps the number of boxes, and that an unblocked
--- part 2 move moves exactly the boxes the puzzle pushes. NOTES-2024.md
--- says why.
+-- Not proved: that an unblocked part 2 move moves exactly the boxes the
+-- puzzle pushes. NOTES-2024.md says why.
 
 namespace Aoc.Year2024.Day15.Proofs
 import Aoc.Year2024.Day15 (..)

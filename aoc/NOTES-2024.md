@@ -3419,6 +3419,10 @@ into a `Map Position Char` is a `withIndex`/`flatMap` by hand; std has
 nothing for a grid. Fix: a
 `Map.byGridPosition` (or `Parse.gridMap`).
 
+Fixed: std has `List.gridCells` (`std/List/Grid.sw`), every cell of a list of
+rows with its `(row, column)`, and `List.memGridCells`; `parseGarden` maps
+it to `Position`s, and day 6's `parseLab` does the same.
+
 ### 2. Missing std
 
 - `List.contains` with `DecEq`: tests and the spec write
@@ -4442,6 +4446,11 @@ Not proved:
   on a box that stayed, from `gatherOk`), but std has no size lemmas for
   `Set.union`, `Set.map` or removing a subset, and building them from
   `Set.toList` lengths and `List.Perm` is about 150 lines (item 2).
+  Fixed: proved with the new std size lemmas: `moveWideCount` (with
+  nothing overlapping, a move keeps the number of boxes),
+  `moveAllWideCount`, and `part2Count` (widening a warehouse where nothing
+  overlaps, then every move, keeps its number of boxes;
+  `Set.sizeMapInjective` covers the widening).
 - That an unblocked part 2 move moves exactly the `MustMove` boxes.
   `gatherOk` gives one direction (every box that must move is gathered);
   the other needs a second invariant (every gathered box is reached from
@@ -4466,6 +4475,10 @@ Days 6, 12 and 15 all number a grid's cells by hand
 (`rows.withIndex |> .flatMap (... tiles.withIndex ...)`). What I did:
 `positionsOf rows wanted` in the program, 8 lines.
 
+Fixed: std has `List.gridCells` (`std/List/Grid.sw`), each cell with its
+`(row, column)`, and `List.memGridCells`; `positionsOf` is a filter and a
+map over it, and days 6 and 12 use it too.
+
 ### 2. Missing std
 
 - No size lemmas for sets beyond `Map.sizeInsert` and `Map.sizeRemove`:
@@ -4488,6 +4501,18 @@ Days 6, 12 and 15 all number a grid's cells by hand
   `Char`s and uses `Text.fromList`.
 
 No std file was changed.
+
+Fixed: `Set/Spec.sw` has the size lemmas `Set.sizeUnionDisjoint`,
+`Set.sizeMapInjective`, `Set.sizeDifferenceSubset` (with `Set.sizeSubset`),
+`Set.sizeInsertNew`, `Set.sizeRemovePresent`, `Set.sizePositive` and the
+pigeonhole `Set.countAtMostSize`, all through a new `Set.induction`; and
+the membership lemmas `Set.foldLeftToList`, `Set.memToList`,
+`Set.containsMap`, `Set.mapInsert`, `Set.containsFoldRemove`,
+`Set.containsFoldInsertMap` and `Set.containsInsertElim`. Day 15's local
+copies are gone (`Lemmas.sw` keeps only facts about positions), and
+`Bool.falseOfNotTrue` replaces its `falseOf`. `Set.difference` is the
+`removeAll`, now fast when the set removed is small (item 5), so the
+program uses it again.
 
 ### 3. Confusing errors
 
@@ -4554,6 +4579,16 @@ taken from hundreds cost hundreds of steps each move. Haskell's
 m being the smaller set's size
 (<https://hackage-content.haskell.org/package/containers-0.8.1/docs/Data-Set.html>).
 What I did: the fold and the argument order above; part 1 needed nothing.
+
+Fixed: `Map.Raw.unionWith` and `Map.Raw.difference` also work key by key
+when the second map is the much smaller one (inserting or removing its
+entries in the first), so both are O(n log m) for a small side n either
+way. The program is back to `warehouse.boxes.difference group |> .union
+moved`. On a regenerated 50 by 50 warehouse with 20,000 moves (same
+recipe; 753 boxes), the whole run took 19.95 s of CPU with that form
+before the change and 1.12 s after (the fold form: 1.25 s). A 1,000,000-key
+`Set Nat` minus a 10-key set, 20 times, went from about 13 s to too little
+to measure beside the 9 s it takes to build the big set.
 
 ### 6. Proofs
 

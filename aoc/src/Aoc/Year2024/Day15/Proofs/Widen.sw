@@ -17,12 +17,12 @@ theorem wideWall (warehouse: Warehouse) (cell: Position) (held: warehouse.widen.
   List.anyElim _ _ warehouse.walls.toList
     (List.memFlatMapElim ((wall: Position) => cellsOf wall.widen) cell warehouse.walls.toList
       (fromListElim (warehouse.walls.toList.flatMap (wall => cellsOf wall.widen)) cell held))
-    (wall member half => Witness wall (Both (Iff.forward (memToList warehouse.walls wall) member) half))
+    (wall member half => Witness wall (Both (Iff.forward (Set.memToList warehouse.walls wall) member) half))
 
 -- Each box of the wide warehouse is a box of the narrow one, widened.
 theorem wideBox (warehouse: Warehouse) (box: Position) (held: warehouse.widen.boxes.contains box = True):
     ∃ (narrow: Position) => warehouse.boxes.contains narrow = True ∧ narrow.widen = box :=
-  Iff.forward (containsMap warehouse.boxes Position.widen box) held
+  Iff.forward (Set.containsMap warehouse.boxes Position.widen box) held
 
 -- The two cells a tile becomes are in its row, at twice its column or one
 -- more.
@@ -48,7 +48,7 @@ theorem widenSeparate (warehouse: Warehouse) (separate: Separate warehouse): Wid
   let robot := warehouse.robot
   Both
     (box held cell own =>
-      falseOf _ (wallHeld =>
+      Bool.falseOfNotTrue _ (wallHeld =>
         match wideWall warehouse cell wallHeld with
           | Witness wall (Both isWall wallHalf) =>
             match wideBox warehouse box held with
@@ -57,26 +57,26 @@ theorem widenSeparate (warehouse: Warehouse) (separate: Separate warehouse): Wid
                 Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite <- atWall at isWall)) (boxesOffWalls narrow isBox))))
     (Both
       (box held =>
-        falseOf _ (rightHeld =>
+        Bool.falseOfNotTrue _ (rightHeld =>
           match wideBox warehouse box held with
             | Witness narrow (Both isBox same) =>
               match wideBox warehouse (box.step Right) rightHeld with
                 | Witness other (Both otherBox otherSame) =>
                   Void.exfalso (omega [Eq.cong (here => here.column) same, Eq.cong (here => here.column) otherSame])))
       (Both
-        (falseOf _ (wallHeld =>
+        (Bool.falseOfNotTrue _ (wallHeld =>
           match wideWall warehouse robot.widen wallHeld with
             | Witness wall (Both isWall wallHalf) =>
               let atWall := sameTile robot wall robot.widen (Inl rfl) wallHalf
               Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite <- atWall at isWall)) robotOffWalls)))
         (Both
-          (falseOf _ (boxHeld =>
+          (Bool.falseOfNotTrue _ (boxHeld =>
             match wideBox warehouse robot.widen boxHeld with
               | Witness narrow (Both isBox same) =>
                 let atRobot :=
                   positionEq narrow robot (Eq.cong (here => here.row) same) (omega [Eq.cong (here => here.column) same])
                 Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite atRobot at isBox)) robotNotBoxed)))
-          (falseOf _ (leftHeld =>
+          (Bool.falseOfNotTrue _ (leftHeld =>
             match wideBox warehouse (robot.widen.step Left) leftHeld with
               | Witness narrow (Both isBox same) => Void.exfalso (omega [Eq.cong (here => here.column) same]))))))
 
@@ -86,3 +86,13 @@ theorem part2Whole (warehouse: Warehouse) (moves: List Direction) (separate: Sep
     And (WideSeparate (warehouse.widen.moveAllWide moves)) (Whole (warehouse.widen.moveAllWide moves)) :=
   Both (moveAllWideSeparate warehouse.widen moves (widenSeparate warehouse separate))
     (moveAllWideWhole warehouse.widen moves (widenSeparate warehouse separate))
+
+-- Widening sends different positions to different places.
+theorem widenInjective (position: Position) (other: Position) (same: position.widen = other.widen): position = other :=
+  positionEq position other (Eq.cong (here => here.row) same) (omega [Eq.cong (here => here.column) same])
+
+-- Widening keeps the number of boxes, and so does every move after it.
+theorem part2Count (warehouse: Warehouse) (moves: List Direction) (separate: Separate warehouse):
+    boxCount (warehouse.widen.moveAllWide moves) = boxCount warehouse :=
+  Eq.trans (moveAllWideCount warehouse.widen moves (widenSeparate warehouse separate))
+    (Set.sizeMapInjective warehouse.boxes Position.widen (x y inX inY same => widenInjective x y same))

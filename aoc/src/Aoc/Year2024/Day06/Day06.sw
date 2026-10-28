@@ -57,8 +57,8 @@ def parseLab (lines: List Text): {Fail} Lab :=
     lines
       |> .withIndex
       |> .map (((index, line)) => Fail.context "line ${index + 1}" (() => parseRow width line))
-      |> .withIndex
-      |> .flatMap (((row, rowCells)) => rowCells.withIndex.map (((column, cell)) => (({ row, column }: Position), cell)))
+      |> .gridCells
+      |> .map ((((row, column), cell)) => (({ row, column }: Position), cell))
   let positionsOf := (wanted: Cell) => cells.filter (cell => cell.snd == wanted) |> .map (cell => cell.fst)
   match positionsOf GuardStart with
     | [start] => { height = lines.length, width, obstructions = Set.fromList (positionsOf Obstruction), start }

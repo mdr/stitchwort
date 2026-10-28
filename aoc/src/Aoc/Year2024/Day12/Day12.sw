@@ -38,9 +38,7 @@ def parseGarden (input: Text): {Fail} Garden :=
   let width := rows.headOr [] |> .length
   rows.withIndex |> .map (((row, plants)) =>
     Fail.ensure (plants.length == width) "line ${row + 1}: expected ${width} plots, as on the first line, got ${plants.length}")
-  let plots :=
-    rows.withIndex
-      |> .flatMap (((row, plants)) => plants.withIndex |> .map (((column, plant)) => (({ row, column }: Position), plant)))
+  let plots := rows.gridCells |> .map ((((row, column), plant)) => (({ row, column }: Position), plant))
   { plots = Map.fromList plots }
 
 -- The plant at `position`; `None` off the map.

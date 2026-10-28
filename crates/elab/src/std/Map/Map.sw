@@ -158,8 +158,9 @@ def Map.liftBinary [auto ord: Ord k] (op: Map.Raw k v [ord := ord] → Map.Raw k
 }
 
 -- Both maps' entries; where both have a key, the first map's value.
--- O(n + m) by merging the entry lists, or O(n log m) when the first map is
--- much smaller (likewise `unionWith`, `intersectWith` and `difference`).
+-- O(n + m) by merging the entry lists, or O(n log m) when one map, of n
+-- entries, is much smaller (likewise `unionWith` and `difference`, and
+-- `intersectWith` when the first map is the smaller).
 def Map.union [auto ord: Ord k] (a: Map k v) (b: Map k v): Map k v := Map.liftBinary Map.Raw.union Map.Raw.unionRespects a b
 
 -- More building

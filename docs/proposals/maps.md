@@ -429,7 +429,11 @@ it is ordered and sized come from the list being ascending). So:
 - `Map.union`, `unionWith`, `intersectWith`, `difference`, and `Set.union`, `intersect`,
   `difference`, are O(n + m). When the first map is much smaller (8 × its size ≤ the second's)
   they instead insert or look up its entries in the second map, O(n log m), so a small update to
-  a big map isn't O(m).
+  a big map isn't O(m). `union`, `unionWith` and `difference` do the same when the second map is
+  the much smaller one, inserting or removing its entries in the first. (Haskell's `Data.Set` gets
+  O(m log(n/m + 1)) for both, citing Blelloch, Ferizovic and Sun's join-based algorithms,
+  <https://hackage-content.haskell.org/package/containers-0.8.1/docs/Data-Set.html>; folding over the smaller side keeps the proofs to the
+  per-key `insert` and `remove` lemmas.)
 - `Map.filter` and `Map.filterMap` (through `Map.Raw.mapMaybe`) are O(n): filter the entry list,
   rebuild.
 - `Map.fromList` checks in one pass whether the keys are strictly ascending, and if so builds the
