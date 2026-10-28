@@ -15,7 +15,7 @@ import Std (Eq, List, Nat, Option, Void)
 -- `costs`, costs at least the program's cheapest route between the keys.
 def CheapestWalks (keypad: Keypad k) (rows: List (List (Option k))) (costs: Costs): Prop :=
   (start: Position) → (from: k) → keyAt rows start = Some from → (route: List Direction) → (end: Position) →
-    walk rows start route = Some end → (to: k) → keyAt rows end = Some to → cheapestBetween keypad costs from to ≤ routeCost costs route
+    walk rows start route = Some end → (to: k) → keyAt rows end = Some to → cheapestBetween keypad costs from to ≤ costs.routeCost route
 
 -- A walk, then more of it.
 theorem walkAppend (rows: List (List (Option k))): (aim: Position) → (route: List Direction) → (more: List Direction) →
@@ -68,7 +68,7 @@ theorem walksCost (keypad: Keypad k) (rows: List (List (Option k))) (costs: Cost
 -- Your presses cost at least what the keys they make the robot `level`
 -- keypads away press cost, with the walk fact at each level before.
 theorem throughRobotsCost:
-    (level: Nat) → (walks: (below: Nat) → below < level → CheapestWalks directionalKeypad directionalRows (robotCosts below)) →
+    (level: Nat) → (walks: (below: Nat) → below < level → CheapestWalks Keypad.directional directionalRows (robotCosts below)) →
       (presses: List DirectionKey) → (keys: List DirectionKey) → throughRobots level presses = Some keys →
       costFrom (robotCosts level) Activate keys ≤ presses.length
   | Zero, walks, presses, keys, through => rewrite <- Option.someInjective presses keys through, costFromOnes Activate presses in omega
@@ -79,25 +79,25 @@ theorem throughRobotsCost:
       | Some driving =>
         let operated: operate directionalRows directionalStart driving = Some keys := via
         let pressedBound :=
-          walksCost directionalKeypad directionalRows (robotCosts level) (walks level (omega)) driving directionalStart Activate rfl Nil directionalStart rfl keys
+          walksCost Keypad.directional directionalRows (robotCosts level) (walks level (omega)) driving directionalStart Activate rfl Nil directionalStart rfl keys
             operated
         let drivingBound := throughRobotsCost level (below lower => walks below (omega [lower])) presses driving before
         let same :=
-          costFromCong (nextCosts (robotCosts level)) (cheapestBetween directionalKeypad (robotCosts level)) (nextCostsCheapest (robotCosts level))
+          costFromCong ((robotCosts level).next) (cheapestBetween Keypad.directional (robotCosts level)) (nextCostsCheapest (robotCosts level))
             Activate keys
-        rewrite Nat.iterateSuccLast nextCosts level yourCosts in omega [pressedBound, drivingBound, same]
+        rewrite Nat.iterateSuccLast Costs.next level Costs.yours in omega [pressedBound, drivingBound, same]
 
 -- With the walk fact on each directional keypad between you and the door,
 -- and on the numeric one, the program's length is the least.
-theorem optimalIfCheapestWalks (robots: Nat) (walks: (level: Nat) → level < robots → CheapestWalks directionalKeypad directionalRows (robotCosts level))
-    (numericWalks: CheapestWalks numericKeypad numericRows (robotCosts robots)): Optimal robots :=
+theorem optimalIfCheapestWalks (robots: Nat) (walks: (level: Nat) → level < robots → CheapestWalks Keypad.directional directionalRows (robotCosts level))
+    (numericWalks: CheapestWalks Keypad.numeric numericRows (robotCosts robots)): Optimal robots :=
   code presses types =>
     let typedVia: (throughRobots robots presses |> .flatMap (operate numericRows numericStart)) = Some code := rewrite <- typedThrough robots presses in types
     match before: throughRobots robots presses with
       | None => Void.exfalso (Option.noneNotSome code typedVia)
       | Some driving =>
-        let pressedBound := walksCost numericKeypad numericRows (robotCosts robots) numericWalks driving numericStart Enter rfl Nil numericStart rfl code typedVia
+        let pressedBound := walksCost Keypad.numeric numericRows (robotCosts robots) numericWalks driving numericStart Enter rfl Nil numericStart rfl code typedVia
         let drivingBound := throughRobotsCost robots walks presses driving before
-        let same: shortestLength (robotCosts robots) code = costFrom (cheapestBetween numericKeypad (robotCosts robots)) Enter code :=
-          sumByPairs (cheapestBetween numericKeypad (robotCosts robots)) Enter code
+        let same: (robotCosts robots).shortestLength code = costFrom (cheapestBetween Keypad.numeric (robotCosts robots)) Enter code :=
+          sumByPairs (cheapestBetween Keypad.numeric (robotCosts robots)) Enter code
         omega [same, pressedBound, drivingBound]

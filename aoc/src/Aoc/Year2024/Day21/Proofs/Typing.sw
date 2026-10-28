@@ -42,13 +42,13 @@ def fits [auto decEq: DecEq k] (keys: List k) (keypad: Keypad k) (rows: List (Li
   keys.all (to => keyAt rows (keypad.place to) == Some to)
     && keys.all (from =>
       keys.all (to =>
-        (routes keypad from to != []) && (routes keypad from to).all (routeFits rows (keypad.place from) (keypad.place to))))
+        (keypad.routes from to != []) && (keypad.routes from to).all (routeFits rows (keypad.place from) (keypad.place to))))
 
 def numericKeys: List NumericKey := [Digit0, Digit1, Digit2, Digit3, Digit4, Digit5, Digit6, Digit7, Digit8, Digit9, Enter]
 
-theorem numericFits: fits numericKeys numericKeypad numericRows = True := rfl
+theorem numericFits: fits numericKeys Keypad.numeric numericRows = True := rfl
 
-theorem directionalFits: fits directionKeys directionalKeypad directionalRows = True := rfl
+theorem directionalFits: fits directionKeys Keypad.directional directionalRows = True := rfl
 
 theorem everyNumericKey: (key: NumericKey) → key ∈ numericKeys
   | Digit0 => Inl rfl
@@ -76,24 +76,24 @@ type Fitted (k: Type) = {
   rows: List (List (Option k)),
   onKey: (to: k) → keyAt rows (keypad.place to) = Some to,
   cheapestWalks: (costs: Costs) → (from: k) → (to: k) →
-    walk rows (keypad.place from) (cheapestRoute costs (routes keypad from to)) = Some (keypad.place to),
+    walk rows (keypad.place from) (costs.cheapestRoute (keypad.routes from to)) = Some (keypad.place to),
   cheapestLength: (costs: Costs) → (from: k) → (to: k) →
-    (cheapestRoute costs (routes keypad from to)).length = distance (keypad.place from) (keypad.place to)
+    (costs.cheapestRoute (keypad.routes from to)).length = distance (keypad.place from) (keypad.place to)
 }
 
 -- The cheapest of a non-empty list of routes passes a test they all pass.
 theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool): (choices: List (List Direction)) → ((choices != []): Bool) = True →
-    List.all choices passes = True → passes (cheapestRoute costs choices) = True
+    List.all choices passes = True → passes (costs.cheapestRoute choices) = True
   | Nil, some, all => Void.exfalso (Bool.falseNotTrue some)
-  | Cons first others, some, all => minByStepPasses (routeCost costs) passes first (Bool.andLeft _ _ all) others (Bool.andRight _ _ all)
+  | Cons first others, some, all => minByStepPasses costs.routeCost passes first (Bool.andLeft _ _ all) others (Bool.andRight _ _ all)
 
 theorem cheapestFits [auto decEq: DecEq k] (keys: List k) (every: (key: k) → key ∈ keys) (keypad: Keypad k) (rows: List (List (Option k)))
     (checked: fits keys keypad rows = True) (costs: Costs) (from: k) (to: k):
-    routeFits rows (keypad.place from) (keypad.place to) (cheapestRoute costs (routes keypad from to)) = True :=
+    routeFits rows (keypad.place from) (keypad.place to) (costs.cheapestRoute (keypad.routes from to)) = True :=
   let pairs := Bool.andRight _ _ checked
   let fromChecked := allMember _ keys pairs from (every from)
   let pairChecked := allMember _ keys fromChecked to (every to)
-  cheapestPasses costs (routeFits rows (keypad.place from) (keypad.place to)) (routes keypad from to) (Bool.andLeft _ _ pairChecked)
+  cheapestPasses costs (routeFits rows (keypad.place from) (keypad.place to)) (keypad.routes from to) (Bool.andLeft _ _ pairChecked)
     (Bool.andRight _ _ pairChecked)
 
 def fitted [auto decEq: DecEq k] (keys: List k) (every: (key: k) → key ∈ keys) (keypad: Keypad k) (rows: List (List (Option k)))
@@ -105,16 +105,16 @@ def fitted [auto decEq: DecEq k] (keys: List k) (every: (key: k) → key ∈ key
   cheapestLength = costs from to => DecEq.sound _ _ (Bool.andRight _ _ (cheapestFits keys every keypad rows checked costs from to))
 }
 
-def numericFitted: Fitted NumericKey := fitted numericKeys everyNumericKey numericKeypad numericRows numericFits
+def numericFitted: Fitted NumericKey := fitted numericKeys everyNumericKey Keypad.numeric numericRows numericFits
 
-def directionalFitted: Fitted DirectionKey := fitted directionKeys everyDirectionKey directionalKeypad directionalRows directionalFits
+def directionalFitted: Fitted DirectionKey := fitted directionKeys everyDirectionKey Keypad.directional directionalRows directionalFits
 
 -- A robot driven by `drivingKeys` presses the keys, its arm first on `from`.
 theorem drivingKeysType (fit: Fitted k) (costs: Costs): (from: k) → (keys: List k) →
     operate fit.rows (fit.keypad.place from) (drivingKeys fit.keypad costs from keys) = Some keys
   | from, Nil => rfl
   | from, Cons to rest =>
-    let route := cheapestRoute costs (routes fit.keypad from to)
+    let route := costs.cheapestRoute (fit.keypad.routes from to)
     rewrite List.appendAssoc (route.map Arrow) [Activate] (drivingKeys fit.keypad costs to rest),
       operateArrows fit.rows (fit.keypad.place from) route (Cons Activate (drivingKeys fit.keypad costs to rest)),
       fit.cheapestWalks costs from to,
@@ -147,10 +147,10 @@ theorem throughRobotsLast: (robots: Nat) → (presses: List DirectionKey) →
 theorem yourPressesThrough: (level: Nat) → (keys: List DirectionKey) → throughRobots level (yourPresses level keys) = Some keys
   | Zero, keys => rfl
   | Succ level, keys =>
-    let driving := drivingKeys directionalKeypad (robotCosts level) Activate keys
+    let driving := drivingKeys Keypad.directional (robotCosts level) Activate keys
     rewrite throughRobotsLast level (yourPresses level driving), yourPressesThrough level driving in
       drivingKeysType directionalFitted (robotCosts level) Activate keys
 
 theorem pressesForTypes (robots: Nat) (code: Code): Types robots code (pressesFor robots code) :=
-  rewrite typedThrough robots (pressesFor robots code), yourPressesThrough robots (drivingKeys numericKeypad (robotCosts robots) Enter code) in
+  rewrite typedThrough robots (pressesFor robots code), yourPressesThrough robots (drivingKeys Keypad.numeric (robotCosts robots) Enter code) in
     drivingKeysType numericFitted (robotCosts robots) Enter code

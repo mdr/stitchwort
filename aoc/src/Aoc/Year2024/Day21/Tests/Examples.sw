@@ -39,14 +39,14 @@ def pressesOf (characters: Text): List DirectionKey :=
 
 def exampleCodes: List Code := ["029A", "980A", "179A", "456A", "379A"].map codeOf
 
-def lengthFor (robots: Nat) (code: Text): Nat := shortestLength (robotCosts robots) (codeOf code)
+def lengthFor (robots: Nat) (code: Text): Nat := (robotCosts robots).shortestLength (codeOf code)
 
 test "example, part 1" := solvePart1 exampleCodes == 126384
 test "example, part 2" := solvePart2 exampleCodes == 154115708116294
 
 -- "68 * 29, 60 * 980, 68 * 179, 64 * 456, and 64 * 379".
 test "example, the shortest lengths" := ["029A", "980A", "179A", "456A", "379A"].map (lengthFor 2) == [68, 60, 68, 64, 64]
-test "example, the numeric parts" := exampleCodes.map numericPart == [29, 980, 179, 456, 379]
+test "example, the numeric parts" := exampleCodes.map Code.numericPart == [29, 980, 179, 456, 379]
 
 -- "three shortest possible sequences ... <A^A>^^AvvvA, <A^A^>^AvvvA, and
 -- <A^A^^>AvvvA", and the puzzle's sequences one and two keypads further out.
@@ -63,14 +63,14 @@ test "the spec panics off the keypad" := typed 0 (pressesOf ">A") == None && typ
 
 -- The program's own press sequence types each code and is as long as it says.
 test "example, the program's sequences type the codes" :=
-  exampleCodes.all (code => typed 2 (pressesFor 2 code) == Some code && (pressesFor 2 code).length == shortestLength (robotCosts 2) code)
+  exampleCodes.all (code => typed 2 (pressesFor 2 code) == Some code && (pressesFor 2 code).length == (robotCosts 2).shortestLength code)
 
 test "more robots" := [0, 1, 3, 10].map (robots => lengthFor robots "029A") == [12, 28, 164, 94910]
-test "an empty code needs no presses" := lengthFor 2 "" == 0 && numericPart [] == 0
+test "an empty code needs no presses" := lengthFor 2 "" == 0 && Code.numericPart [] == 0
 test "pressing A again and again" := lengthFor 25 "AAA" == 3
 test "repeated digits" := lengthFor 2 "00A" == 29
 test "the far corner" := lengthFor 2 "7A" == 52 && lengthFor 3 "70A" == 149
-test "leading zeroes are ignored" := numericPart (codeOf "007A") == 7
+test "leading zeroes are ignored" := (codeOf "007A").numericPart == 7
 
 -- 100 robots: far past 64 bits.
 test "lengths beyond 64 bits" := lengthFor 100 "029A" == 39623698645360671878530501931953158941494
@@ -116,7 +116,7 @@ def bruteForce (robots: Nat) (code: Code): Option Nat :=
   if code == [] then Some 0 else searchFrom code 200 0 [start] (Set.fromList [stateKey start])
 
 test "brute force agrees on the example codes, up to two robots" :=
-  [0, 1, 2].all (robots => exampleCodes.all (code => bruteForce robots code == Some (shortestLength (robotCosts robots) code)))
+  [0, 1, 2].all (robots => exampleCodes.all (code => bruteForce robots code == Some ((robotCosts robots).shortestLength code)))
 
 test "brute force agrees on short codes, up to three robots" :=
   [0, 1, 2, 3].all (robots =>
@@ -136,12 +136,12 @@ def cheapestWalksUpTo (keys: List k) (keypad: Keypad k) (rows: List (List (Optio
     moveLists count |> .all (route =>
       walk rows (keypad.place from) route
         |> .flatMap (keyAt rows)
-        |> .all (to => cheapestBetween keypad costs from to <= routeCost costs route)))
+        |> .all (to => cheapestBetween keypad costs from to <= costs.routeCost route)))
 
 test "the walk fact for walks of up to six moves, one to three robots" :=
   [1, 2, 3].all (level =>
-    cheapestWalksUpTo numericKeys numericKeypad numericRows (robotCosts level) 6
-      && cheapestWalksUpTo directionKeys directionalKeypad directionalRows (robotCosts level) 6)
+    cheapestWalksUpTo numericKeys Keypad.numeric numericRows (robotCosts level) 6
+      && cheapestWalksUpTo directionKeys Keypad.directional directionalRows (robotCosts level) 6)
 
 test "parse" := parsed "029A\n980A\n179A\n456A\n379A\n" == Ok exampleCodes
 test "parse without a final line break" := parsed "029A\n1A" == Ok [codeOf "029A", codeOf "1A"]
