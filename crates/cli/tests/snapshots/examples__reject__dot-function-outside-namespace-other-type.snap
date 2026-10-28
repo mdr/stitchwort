@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Report` has no field or function `size`
+   ╭─[ reject/dot-function-outside-namespace-other-type.sw:9:44 ]
+   │
+ 9 │ def sizeOf (report: Report): Nat := report.size
+   │                                            ──┬─  
+   │                                              ╰─── looked in `Report`
+   │ 
+   │ Note: its fields are `levels`
+───╯

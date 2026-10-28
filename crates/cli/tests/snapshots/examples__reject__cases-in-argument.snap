@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: `cases in …` as an argument needs brackets
+   ╭─[ reject/cases-in-argument.sw:9:29 ]
+   │
+ 9 │   let right := andRight a b cases in both
+   │                             ──┬──  
+   │                               ╰──── `cases in …` as an argument needs brackets
+   │ 
+   │ Note: the body of `cases in` runs to the end of the expression, so as an argument it's written `(cases in t)`
+───╯

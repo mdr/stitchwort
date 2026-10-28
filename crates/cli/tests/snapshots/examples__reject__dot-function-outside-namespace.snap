@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Report` has no field or function `withoutFirst`
+    ╭─[ reject/dot-function-outside-namespace.sw:10:48 ]
+    │
+ 10 │ def shorter (report: Report): Report := report.withoutFirst
+    │                                                ──────┬─────  
+    │                                                      ╰─────── looked in `Report`
+    │ 
+    │ Note 1: its fields are `levels`
+    │ 
+    │ Note 2: `withoutFirst` is in scope but isn't in `Report`'s namespace: write `withoutFirst report`
+────╯

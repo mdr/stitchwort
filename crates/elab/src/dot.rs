@@ -531,7 +531,7 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
                         Some(next) => ty = next,
                         None => return Err(blocked(cx, recv, field, &tried)),
                     },
-                    _ => return Err(unknown_member(cx, field, &tried)),
+                    _ => return Err(unknown_member(cx, recv, field, &tried)),
                 }
             }
         }
@@ -669,7 +669,7 @@ fn blocked(cx: &Ctx, recv: &Expr, field: &AstName, tried: &[TyHead]) -> Diagnost
 
 /// `E-UNKNOWN-FIELD`: the type has no field or function `field`. Lists a
 /// record's fields, and near misses among the namespace's functions.
-fn unknown_member(cx: &Ctx, field: &AstName, tried: &[TyHead]) -> Diagnostic {
+fn unknown_member(cx: &Ctx, recv: &Expr, field: &AstName, tried: &[TyHead]) -> Diagnostic {
     let g = cx.g();
     let last = *tried.last().expect("a head was tried");
     let ns = namespace(cx, last);
@@ -714,7 +714,64 @@ fn unknown_member(cx: &Ctx, field: &AstName, tried: &[TyHead]) -> Diagnostic {
             format!("its fields are {}", fields.join(", "))
         });
     }
+    if let Some(place) = in_scope_taking(cx, field, tried) {
+        let owner = scope::display(&ns);
+        let owner = owner.rsplit('.').next().unwrap_or(owner);
+        let argument = match recv {
+            Expr::Var(n) => n.text.to_string(),
+            _ => "…".to_string(),
+        };
+        let call = match place {
+            None => format!("`{} {argument}`", field.text),
+            Some(name) => format!("`{} …` with `{argument}` as its `{name}`", field.text),
+        };
+        d = d.with_note(format!(
+            "`{}` is in scope but isn't in `{owner}`'s namespace: write {call}",
+            field.text
+        ));
+    }
     d
+}
+
+/// Whether the bare name `field` is a definition in scope (not a local
+/// variable) with an explicit parameter whose type has one of `tried` as a
+/// head, so that the plain call could take the receiver: `Some(None)` if
+/// that's its first explicit parameter, else `Some` of the parameter's name.
+fn in_scope_taking(cx: &Ctx, field: &AstName, tried: &[TyHead]) -> Option<Option<String>> {
+    if cx.lookup(&field.text).is_some() {
+        return None;
+    }
+    let scope::Resolved::Found {
+        global: Global::Def(f),
+        rest,
+        ..
+    } = cx.e.resolve(&field.text)
+    else {
+        return None;
+    };
+    // Not the definition being checked: the plain call would be recursion.
+    let module = &cx.e.module;
+    if !rest.is_empty()
+        || (module.item.is_some() && module.def_items.get(&f) == module.item.as_ref())
+    {
+        return None;
+    }
+    let g = cx.g();
+    let level = cx.level();
+    let all = params(g, f);
+    let explicit = all
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.icit == Icit::Explicit);
+    for (k, (depth, p)) in explicit.enumerate() {
+        let env: Vec<Value> = (0..depth).map(|j| Value::var(level + j)).collect();
+        let takes = heads(g, Ty::Term(p.ty.clone(), env))
+            .is_ok_and(|hs| hs.iter().any(|h| tried.contains(h)));
+        if takes {
+            return Some((k > 0).then(|| p.name.to_string()));
+        }
+    }
+    None
 }
 
 /// A parameter of `T.f`, from its signature as written.
