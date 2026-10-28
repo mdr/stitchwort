@@ -73,13 +73,6 @@ theorem settleCovers (device: Device) (values: Values) (waiting: List Gate)
       rewrite settleMore values waiting fewer in
         settleCovers device next (waiting.filter (gate => ¬(gate.ready values))) nextCovered gate wired [decreasing := fewer]
 
--- `Ord.compare` finds a value equal to itself.
-theorem compareSelf [auto ord: Ord k] (key: k): Ord.compare key key = Equal :=
-  match same: Ord.compare key key with
-    | Equal => rfl
-    | Less => Void.exfalso (lessNotGreater (Eq.trans (Eq.sym same) (rewrite ord.flip key key, same in rfl)))
-    | Greater => Void.exfalso (lessNotGreater (Eq.trans (Eq.sym (rewrite ord.flip key key, same in rfl)) same))
-
 -- A key among the pairs is found by `Map.lookupLast`.
 theorem lookupLastFound [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, v)) → (key, value) ∈ pairs → ∃ (found: v) => Map.lookupLast key pairs = Some found
   | Nil, member => Void.exfalso member
@@ -88,7 +81,7 @@ theorem lookupLastFound [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, 
       | Some laterValue => Witness laterValue rfl
       | None =>
         match member with
-          | Inl same => Witness otherValue (rewrite Eq.cong Pair.fst same, compareSelf key in rfl)
+          | Inl same => Witness otherValue (rewrite Eq.cong Pair.fst same, Ord.compareSelf key in rfl)
           | Inr inRest =>
             match lookupLastFound key value rest inRest with
               | Witness found isFound => Void.exfalso (Option.noneNotSome found (Eq.trans (Eq.sym later) isFound))

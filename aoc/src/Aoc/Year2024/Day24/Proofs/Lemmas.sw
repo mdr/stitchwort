@@ -26,13 +26,6 @@ theorem filterNoLonger: (xs: List a) → (keep: a → Bool) → (xs.filter keep)
       | True => filterNoLonger rest keep
       | False => omega [filterNoLonger rest keep]
 
-def isLess (ordering: Ordering): Bool :=
-  match ordering with
-    | Less => True
-    | _ => False
-
-theorem lessNotGreater (same: Less = Greater): Void := Bool.trueNotFalse (Eq.cong isLess same)
-
 -- What `Map.lookupLast` finds is one of the pairs.
 theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, v)) → Map.lookupLast key pairs = Some value → (key, value) ∈ pairs
   | Nil, found => Void.exfalso (Option.noneNotSome value found)
