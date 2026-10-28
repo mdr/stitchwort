@@ -550,30 +550,139 @@ pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
                 _ => None,
             }
         }
-        Value::Data(d, args) if d == comp => {
-            decode(cx, &args[0])?.map(|row| (row, args[2].clone()))
-        }
+        Value::Data(d, args) if d == comp => match decode(cx, &args[0])? {
+            Some(row) if fits_row(cx, &row, &args[1])? => Some((row, args[2].clone())),
+            _ => None,
+        },
         Value::Neutral(Head::Def(d), spine) if Some(d) == delay && spine.len() == 3 => {
             let arg = |i: usize| match &spine[i] {
                 Elim::App(v, _) => Some(v.clone()),
                 Elim::J { .. } => None,
             };
-            match (arg(0), arg(2)) {
-                (Some(op), Some(t)) => decode(cx, &op)?.map(|row| {
-                    (
+            match (arg(0), arg(1), arg(2)) {
+                (Some(op), Some(res), Some(t)) => match decode(cx, &op)? {
+                    Some(row) if fits_row(cx, &row, &res)? => Some((
                         Row {
                             partial: true,
                             div: None,
                             ..row
                         },
                         t,
-                    )
-                }),
+                    )),
+                    _ => None,
+                },
                 _ => None,
             }
         }
         _ => None,
     })
+}
+
+/// Whether `res_arg`, the second argument of a `Comp ops res t` (or `Delay`)
+/// whose `ops` decodes to `row`, is the results of that row's operations,
+/// [`res`] of it. The two are written separately, so a type can pair a
+/// row's operations with other results (`Comp NoOp r Nat`, `r` a variable):
+/// that's a data type like any other, not a computation in the row, since
+/// what computation mode builds for the row has the row's own results and
+/// the kernel would refuse it (SW-851). While `res_arg` still has an
+/// unknown in it, it's taken to be the row's, as before. A row with a
+/// partial group's private recursion signature ([`REC`]) is one only the
+/// elaborator writes, while describing the group, so it's taken as it is.
+fn fits_row(cx: &Ctx, row: &Row, res_arg: &Value) -> Result<bool> {
+    if row.labels.iter().any(|l| l.ability == REC) {
+        return Ok(true);
+    }
+    let own = res(cx, row)?;
+    if stitchwort_core::value::conv(cx.g(), cx.level(), res_arg, &own)? {
+        return Ok(true);
+    }
+    let quoted = cx.quote(res_arg)?;
+    Ok(quoted.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))
+}
+
+/// Whether `ty`, a computation type [`comp_parts`] read a row from, has
+/// results that aren't yet known to be the row's own: they have an unknown
+/// in them (`Comp NoOp ?r Nat`).
+pub(crate) fn results_unsettled(cx: &Ctx, ty: &Value) -> Result<bool> {
+    Ok(match written_results(cx, ty)? {
+        Some((_, written, own)) => {
+            !stitchwort_core::value::conv(cx.g(), cx.level(), &written, &own)?
+        }
+        None => false,
+    })
+}
+
+/// Before code is elaborated in computation mode against `ty`, a
+/// computation type [`comp_parts`] read a row from: solves an unknown in its
+/// results (`Comp NoOp ?r Nat`) with the row's own, since what computation
+/// mode builds has the row's results (SW-851). False, with nothing solved,
+/// if they can't be made the same.
+pub(crate) fn settle_results(cx: &mut Ctx, ty: &Value) -> Result<bool> {
+    let Some((_, written, own)) = written_results(cx, ty)? else {
+        return Ok(true);
+    };
+    Ok(
+        stitchwort_core::value::conv(cx.g(), cx.level(), &written, &own)?
+            || crate::undo::unify(cx, &written, &own)?,
+    )
+}
+
+/// If `ty` is a `Comp ops res t` or a `Delay ops res t` whose `ops` is a
+/// row's: that row, `res` as written, and the row's own results.
+fn written_results(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value, Value)>> {
+    let Ok(comp) = data(cx, Builtin::Comp) else {
+        return Ok(None);
+    };
+    let delay = cx.g().builtins.primitive_id(Primitive::Delay);
+    let (op, written) = match force(cx.g(), ty.clone())? {
+        Value::Data(d, args) if d == comp => (args[0].clone(), args[1].clone()),
+        Value::Neutral(Head::Def(d), spine) if Some(d) == delay && spine.len() == 3 => {
+            match (&spine[0], &spine[1]) {
+                (Elim::App(o, _), Elim::App(r, _)) => (o.clone(), r.clone()),
+                _ => return Ok(None),
+            }
+        }
+        _ => return Ok(None),
+    };
+    // A row with the private recursion signature is taken as it is
+    // ([`fits_row`]).
+    let Some(row) = decode(cx, &op)?.filter(|row| row.labels.iter().all(|l| l.ability != REC))
+    else {
+        return Ok(None);
+    };
+    let own = res(cx, &row)?;
+    Ok(Some((row, written, own)))
+}
+
+/// Notes for a mismatch against `expected` when it's a `Comp` (or `Delay`)
+/// whose operations are a row's but whose results aren't that row's
+/// ([`fits_row`]): why it isn't a computation in that row, and how to write
+/// one.
+pub(crate) fn foreign_results_notes(cx: &Ctx, expected: &Value) -> Result<Vec<String>> {
+    let Some((row, written, own)) = written_results(cx, expected)? else {
+        return Ok(Vec::new());
+    };
+    if fits_row(cx, &row, &written)? {
+        return Ok(Vec::new());
+    }
+    let parts: Vec<String> = row.labels.iter().map(|l| ability_name(cx, l)).collect();
+    let text = match &row.tail {
+        Some(tail) if parts.is_empty() => format!("{{{}}}", cx.show(tail)),
+        Some(tail) => format!("{{{} | {}}}", parts.join(", "), cx.show(tail)),
+        None => format!("{{{}}}", parts.join(", ")),
+    };
+    Ok(vec![
+        format!(
+            "its operations are the row `{text}`'s, but what they give back is `{}`, not \
+             the row's `{}`: so it isn't a computation in `{text}`, and a value here isn't \
+             made into one",
+            cx.show(&written),
+            cx.show(&own),
+        ),
+        "for a computation in a row, write the row and let the `Comp` be made from it: \
+         `{e} a` for any row, `{} a` for the empty one"
+            .to_string(),
+    ])
 }
 
 /// The result type `t` of a computation type written as a term (`Comp ops
