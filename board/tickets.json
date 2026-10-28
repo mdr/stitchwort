@@ -1,5 +1,5 @@
 {
-  "next": 740,
+  "next": 742,
   "tickets": [
     {
       "id": 13,
@@ -6113,7 +6113,7 @@
     {
       "id": 733,
       "title": "AoC 2024 day 8: solve, prove, log gaps (overnight)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6186,6 +6186,30 @@
       "id": 739,
       "title": "AoC 2024 day 9: solve, prove, log gaps (overnight)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 740,
+      "title": "omega handles Int atoms (AoC 2024 day 8: every Int inequality became a case split to Nat)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 741,
+      "title": "Day 8 findings: ring [h] with coefficients (linear_combination); compare ignoring proof args of / and %; lambda param types in proof args (Eq.cong (x => 4*x) h); rfl on same-body lifted matches; auto: Nat.toInt g ≠ 0 from g != 0; let after rewrite … in; std gcd/Int/subset-size lemmas, List.each/contains",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
