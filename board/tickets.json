@@ -6737,7 +6737,7 @@
     {
       "id": 785,
       "title": "Day 21 small findings: != note suggests a form that doesn't parse after a binder; expected type into tuple components (record literal); 'type Keypad k' note showing (k: Type); rewrite … in suggests 'at h' when only a hypothesis has the pattern; pick error lists every key",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
