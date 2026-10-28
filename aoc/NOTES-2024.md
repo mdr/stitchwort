@@ -5067,3 +5067,258 @@ proofs, 134 of tests.
    the other arguments; don't unfold `List.Any` while solving.
 9. Constructor imports say only "has no `Clockwise`" (item 3). Fix: note
    that constructors come with their type.
+
+## Day 19: Linen Layout
+
+Towel patterns, each a sequence of coloured stripes ("white (w), blue (u),
+black (b), red (r), or green (g)"), on one line separated by commas; a
+blank line; then the designs, one per line. "You can use any towels you
+want, but all of the towels' stripes must exactly match the desired
+design." Part 1: "How many designs are possible?" Part 2: "What do you get
+if you add up the number of different ways you could make each design?"
+(part 2's wording from the public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/master/2024/day-19/README.txt>).
+
+**The real input is pending from Matt**: his repository
+(<https://github.com/mdr/aoc-2024>) stops at day 10, so there is no
+`inputs/2024/day19.txt`, no `Tests/Input.sw`, and the day isn't registered
+in `aoc_answers.rs` or `machine.rs` yet. `examples/2024/day19.txt` is the
+puzzle's example (6 and 16). The tests are the example and edge cases, all
+cross-checked with an independent Python script (`/usr/bin/python3 -I`: a
+memoised recursion from the front of each design with
+`str.startswith(pattern, start)`, not a table of suffixes). For
+performance, a second script generated 450 patterns (every w-free pattern
+of up to four stripes, and random ones with w only inside and never
+doubled, so a design containing "ww" is impossible) and 400 designs of 60
+to 64 stripes (not committed). The program and Python agree on it (266 and
+136028840268015961186, past 2^64; `Nat` is arbitrary precision). This is
+the first dynamic-programming day. Compiler built from `main` at a34721f9,
+28 October 2026.
+
+### The program
+
+```stitchwort
+def stripe(): {Parse} Stripe := pick [("w", White), ("u", Blue), ("b", Black), ("r", Red), ("g", Green)]
+
+def onsen(): {Parse} Onsen :=
+  let patterns := sepBy1 (() => many1 stripe) (() => text ", ")
+  blankLine()
+  let designs := lines (() => many1 stripe)
+  { patterns, designs }
+
+def parseOnsen (input: Text): {Fail} Onsen := Parse.all input onsen
+
+def startsWith [auto decEq: DecEq a]: (whole: List a) → (start: List a) → Bool
+  | whole, Nil => True
+  | Nil, Cons first rest => False
+  | Cons wholeFirst wholeRest, Cons first rest => wholeFirst == first && startsWith wholeRest rest
+
+def waysForSuffixes (patterns: List Pattern): (design: Design) → List Nat
+  | Nil => [1]
+  | Cons first rest =>
+    let later := waysForSuffixes patterns rest
+    let ways := patterns.sumBy (pattern =>
+      if startsWith (Cons first rest) pattern then later.getOr (pattern.length - 1) 0 else 0)
+    Cons ways later
+
+def waysToMake (patterns: List Pattern) (design: Design): Nat := waysForSuffixes patterns design |> .headOr 0
+
+def solvePart1 (onsen: Onsen): Nat := onsen.designs.count (design => waysToMake onsen.patterns design > 0)
+
+def solvePart2 (onsen: Onsen): Nat := onsen.designs.sumBy (waysToMake onsen.patterns)
+```
+
+The domain model is a `Stripe` type of five colours; a `Pattern` and a
+`Design` are lists of stripes, so the proofs reason about lists rather
+than `Text`. The memo is the table itself: `waysForSuffixes` recurses down
+the design and returns the number of ways for every suffix, longest first,
+ending with the empty suffix's one way. A suffix's count adds up, over the
+patterns it starts with, the count of what follows that pattern, which is
+already in the table `pattern.length - 1` entries along. No `Map`, no
+state, no fuel: plain structural recursion, a fold from the end in all but
+name. Part 1 counts the designs with a positive count.
+
+### Proved, for every onsen whose patterns each have a stripe
+
+The spec (`Spec/Spec.sw`) is the literal reading. `towelLists patterns
+count` is every list of at most `count` towels, each with any of the
+patterns. `arrangements patterns design` keeps those whose stripes, laid
+end to end (`towels.concat`), are the design, among lists of up to
+`design.length` towels. `possible` is "some arrangement", `ways` the
+number of arrangements; `part1` counts the possible designs and `part2`
+sums the ways.
+
+Proved (`Proofs/`, 261 lines in 6 files):
+
+- `matchingSucc` (Counting.sw): the lists of at most `count + 1` towels
+  making a design are the empty list, if the design is empty, and, for
+  each pattern the design starts with, that towel followed by a list of at
+  most `count` towels making the rest. This is the classic recurrence,
+  derived from the spec's enumeration rather than assumed.
+- `tableCorrect` (Table.sw): entry `index` of the program's table is the
+  number of lists of at most `count` towels making the suffix after
+  `index` stripes, for any `count` at least that suffix's length. From it,
+  `waysCorrect`: `waysToMake patterns design = ways patterns design`.
+- `part1Correct` and `part2Correct` (Proofs.sw): `solvePart1 onsen =
+  part1 onsen` and `solvePart2 onsen = part2 onsen`.
+- `possibleIff` (Possible.sw): `possible patterns design = True` exactly
+  when some list of towels of the patterns, of any length, makes the
+  design. This justifies the spec's bound: every towel has a stripe, so no
+  arrangement has more towels than the design has stripes.
+
+All take `Striped patterns` (every pattern has at least one stripe). With
+an empty pattern the puzzle's count is infinite (any number of empty
+towels can be slipped in), and the program would be wrong; the puzzle has
+none, and the parser can't produce one (`many1 stripe`), though parsing
+isn't proved, as on other days. Breaking the program (`[0]` for the empty
+suffix, `pattern.length` for `pattern.length - 1`, or `> 1` in part 1)
+makes the proofs fail. Nothing asked for is left unproved.
+
+### 1. Std.Parse: none
+
+`sepBy1`, `many1`, `pick`, `text ", "`, `blankLine` and `lines` composed
+first time, and the messages are good: `"r, x"` gives `line 1, column 4:
+expected 'w' or 'u' or 'b' or 'r' or 'g', got 'x'`, and no designs gives
+`line 3, column 1: expected 'w' or 'u' or 'b' or 'r' or 'g', got the end
+of the input`. A missing blank line (`"r, wr\nrwr\n"`) gives `line 2,
+column 1: expected a blank line, got 'r'`, without offering `, ` (more
+patterns) at the end of line 1. Fine as it is.
+
+### 2. Missing std
+
+- No prefix test on lists. `Text` has `startsWith` and `stripPrefix`, but
+  `List` has neither (Haskell's `Data.List` has `isPrefixOf` and
+  `stripPrefix`,
+  <https://hackage.haskell.org/package/base/docs/Data-List.html#v:isPrefixOf>;
+  Scala has `Seq.startsWith`,
+  <https://github.com/scala/scala/blob/2.13.x/src/library/scala/collection/Seq.scala>;
+  Lean has `List.isPrefixOf`,
+  <https://leanprover-community.github.io/mathlib4_docs/Init/Data/List/Basic.html#List.isPrefixOf>).
+  What I did: a generic `startsWith` in the program, with its lemmas in
+  `Proofs/Lemmas.sw` (`startsWithAppend`, `startsWithSplit`,
+  `startsWithLength`, and the `==`-on-`append` facts `appendEqDrop` and
+  `appendNotEq`). Not added to std, to keep this lane off the std hashes.
+- No `List.isEmpty`: `!(arrangements patterns design).isEmpty` gave
+  ``[E-UNKNOWN-FIELD] Error: `List` has no field or function `isEmpty` ``
+  (`Text.isEmpty` exists; Haskell has `null`, Scala `isEmpty`). Wrote `!=
+  []`.
+- Missing list lemmas: `(start ++ rest).drop start.length = rest`
+  (`dropAppend`) and counting over a `flatMap` (`countFlatMap`, the
+  `count` twin of `List.lengthFlatMap`). Both in Lemmas.sw.
+- No memo table needed: the table of suffix counts is the recursion's
+  result, so neither a `Map` memo nor a `State` effect came up. In Scala
+  the usual memo is `mutable.Map.getOrElseUpdate`
+  (<https://github.com/scala/scala/blob/2.13.x/src/library/scala/collection/mutable/Map.scala>);
+  here the pure table is as short, and it is what the proof is about.
+- Naming: `Map.getOr` beside `Option.getOrElse`. In throwaway timing code
+  I wrote `getOrElse` on a `Map` and got ``[E-UNKNOWN-FIELD] Error: `Map`
+  has no field or function `getOrElse` ``.
+
+### 3. Confusing errors
+
+- `!=` means two things: in a theorem's statement, `(xs.length > 0) = (xs
+  != [])` elaborated `>` as a `Bool` but `!=` as the `Prop` `xs ≠ []`, so
+  `rfl` on `Nil` gave ``[E-REFL] Error: `rfl` can't prove this``, ``
+  `0 < List.length xs` and `xs ≠ []` aren't equal``, with ``Note 1:
+  computing both sides gives `False = True` and `[] ≠ []` ``, which reads
+  as if one side computed to `False = True`. The spec's `!=`, in a `def`
+  returning `Bool`, is the `Bool`, so the lemma couldn't be applied to it
+  either: ``expected `(1 <= ways onsen.patterns design) =
+  Decidable.toBool (Decidable.not (List.decEq (x y => List.decEq (x y => …)
+  x y) (List.filter …) []))` ``, the spec's `!=` shown fully unfolded. What
+  I did: stated the lemma about `possible` itself (`possibleWays`, a
+  `match` on `arrangements patterns design`), and in Possible.sw named the
+  test (`hasSome lists := lists != []`) so lemma types match the spec's by
+  unfolding. Fix: read `!=` as a `Bool` wherever `==` would be one, or say
+  which reading was chosen.
+- `if` isn't an operand of `=` in a theorem's type: `… = if startsWith
+  design pattern then … else 0 :=` gave ``[E-PARSE] Error: expected an
+  expression, but found `if` ``. Bracketed it. Fix: allow it, or say to
+  bracket an `if` that is an operand.
+- Clear ones: ``unknown name `Eq.cong` `` with ``Note: `Eq` is `Std.Eq`;
+  add `import Std (Eq)` ``, and ``[E-REWRITE-NO-GOAL] Error: `rewrite`
+  needs to know what it has to prove`` on an unannotated `let`, whose note
+  suggests the ascription.
+
+### 4. Inference: none
+
+`Bool.andLeft _ _ starts` and `DecEq.sound _ _ made` were solved, the
+derived `DecEq` for `List Stripe` was found by `auto`, and every lambda's
+parameter type was known.
+
+### 5. Performance
+
+On the generated input (450 patterns, 400 designs of 60 to 64 stripes),
+`stitchwort run` takes 8.1 s user; Python takes 0.21 s. Throwaway mains
+(not committed) split it: loading and parsing 0.87 s; part 2 alone 4.45
+s, so each part spends about 3.6 s, and both build the same tables, since
+each part takes the parsed onsen alone. The work is 400 × 62 × 450, about
+11 million calls of the `sumBy` lambda, most failing `startsWith` on the
+first stripe: about 0.33 µs each. A `Stripe`-only `startsWith` by `match`
+instead of the generic `DecEq` one was no faster (4.34 s), so the
+dictionary isn't the cost. Grouping the patterns by first stripe in a
+`Map Stripe (List Pattern)` halved part 2 (2.21 s); not adopted, to keep
+the program the puzzle's shape and the proof short. The `Nat` sums past
+2^64 cost nothing visible. Fix: faster calls of small closures in the
+evaluator, and let `main` share work between the parts.
+
+### 6. Proofs
+
+Smaller and easier than expected: 261 lines, and every file checked on
+the first or second try; most errors were missing imports. What made it
+work:
+
+- A spec whose enumeration has the recurrence's shape. `towelLists` adds
+  one towel at the front per step, so counting over it splits by the first
+  towel (`countFlatMap`, `List.countMap`), and `matchingSucc` is the
+  recurrence. The bound is the design's length, and Possible.sw proves it
+  loses nothing.
+- Proving the table for every `count` at least the suffix's length, not
+  exactly the length, so the induction never needs "lists longer than the
+  design make nothing". Plain structural recursion on the design was
+  enough, including the recursive call inside the `List.sumByCongMem`
+  lambda.
+- `match starts: startsWith (Cons first rest) (Cons stripe others) with`
+  refined the `if` in the goal, so the `False` arm is `rfl`.
+
+Friction: the `!=` reading (item 3), and `Striped` as a hypothesis on
+every theorem, because `List Pattern` can hold an empty pattern. A
+non-empty list type (Haskell's `NonEmpty`,
+<https://hackage.haskell.org/package/base/docs/Data-List-NonEmpty.html>)
+would make that a fact of the type; Stitchwort's std has none.
+
+### Size and time
+
+Release build, load average around 20:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day19.Proofs` | 1.0 s user (1.7 s) |
+| `stitchwort check --no-cache Aoc.Year2024.Day19` | 0.8 s user (0.9 s) |
+| `stitchwort test --no-cache Aoc.Year2024.Day19` (19 tests) | 1.1 s user (1.3 s) |
+| `stitchwort test Aoc.Year2024.Day19` (warm) | 0.4 s user (0.4 s) |
+| `stitchwort run Aoc.Year2024.Day19.main` on the example | 0.36 s user |
+| `stitchwort run Aoc.Year2024.Day19.main` on the generated input | 8.1 s user |
+
+72 lines of program, 34 of spec, 261 of proofs, 64 of tests.
+
+### Ranked
+
+1. The real input is pending: Matt's repository has no day 19. Fix: add
+   his input, its tests and its two answer entries when he has it.
+2. `!=` is a `Prop` in a theorem's statement and a `Bool` in a `def`, and
+   the error shows it unfolded (item 3). Fix: one reading, the `Bool`,
+   wherever `==` is a `Bool`.
+3. 8.1 s against Python's 0.21 s, with both parts building the same
+   tables (item 5). Fix: faster small-closure calls in the evaluator;
+   share work between the parts in `main`.
+4. No `List.startsWith`, `List.stripPrefix` or `List.isEmpty` (item 2).
+   Fix: add them to std's List toolkit, with the prefix lemmas from
+   Lemmas.sw.
+5. `dropAppend` and `countFlatMap` missing from std (item 2). Fix: add
+   them beside `List.lengthFlatMap`.
+6. Every theorem assumes `Striped patterns` (item 6). Fix: a std non-empty
+   list type that `many1` could return.
+7. `= if …` is a parse error (item 3). Fix: parse `if` as an operand, or
+   name the fix in the message.
+8. `Map.getOr` beside `Option.getOrElse` (item 2). Fix: one name for both.
