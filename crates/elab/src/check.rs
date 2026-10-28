@@ -3656,9 +3656,38 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     }
     match compare(cx, term, &found, expected) {
         Err(e) if e.code == "E-TYPE-MISMATCH" && matches!(expr, Expr::App(..)) => {
-            Err(awaiting_note(cx, e, expr, &found, expected))
+            let e = awaiting_note(cx, e, expr, &found, expected);
+            Err(extra_negative_argument_note(cx, e, expr, &found, expected))
         }
         result => result,
+    }
+}
+
+/// An application whose last argument is an unbracketed negative argument
+/// (`k x -1`), checked against a function type, where the application itself
+/// isn't a function: the `-1` was meant as a subtraction, or the function has
+/// one parameter fewer than the call supposes (D1467). The error is a
+/// mismatch at the result, not `E-NOT-A-FUNCTION`, so it gets the same note.
+fn extra_negative_argument_note(
+    cx: &Ctx,
+    e: Diagnostic,
+    expr: &Expr,
+    found: &Value,
+    expected: &Value,
+) -> Diagnostic {
+    let g = cx.g();
+    let is_function =
+        |v: &Value| matches!(force(g, v.clone()), Ok(Value::Pi(_, Icit::Explicit, ..)));
+    if !is_function(expected) || is_function(found) {
+        return e;
+    }
+    let Some(Arg::Explicit(last) | Arg::NamedExplicit(_, last)) = spine(expr).1.last().copied()
+    else {
+        return e;
+    };
+    match negative_argument_note(last) {
+        Some(note) => e.with_note(note),
+        None => e,
     }
 }
 

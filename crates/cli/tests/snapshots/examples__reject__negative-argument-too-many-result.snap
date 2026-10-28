@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/negative-argument-too-many-result.sw:7:38 ]
+   │
+ 7 │ def h (x: Int): Int -> Int -> Int := k x -1
+   │                                      ───┬──  
+   │                                         ╰──── expected `Int → Int → Int`, but this has type `Int`
+   │ 
+   │ Note: `-1` here is a negative argument (a space before the `-`, none after it); to subtract, put a space after the `-` as well
+───╯

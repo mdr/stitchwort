@@ -187,6 +187,11 @@ tasks:
       - '[[ -d editors/vscode/node_modules ]] || npm ci --prefix editors/vscode'
       - node --test "editors/vscode/test/*.test.js"
 
+  test:colour:
+    desc: The playground tokenizer's colouring tests (node --test; no browser)
+    cmds:
+      - node --test web/tests/colour.test.mjs
+
   board:test:
     desc: The board's tests (node --test)
     dir: board

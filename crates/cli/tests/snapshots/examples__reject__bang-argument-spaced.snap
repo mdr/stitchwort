@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected the end of the declaration, but found `!`
+   ╭─[ reject/bang-argument-spaced.sw:4:46 ]
+   │
+ 4 │ def g (f: Bool -> Bool) (a: Bool): Bool := f ! a
+   │                                              ┬  
+   │                                              ╰── expected the end of the declaration, but found `!`
+───╯
