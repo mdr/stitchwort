@@ -1,5 +1,5 @@
 {
-  "next": 828,
+  "next": 832,
   "tickets": [
     {
       "id": 13,
@@ -3661,13 +3661,13 @@
     {
       "id": 535,
       "title": "Pattern lambdas can't take a type annotation (rogue PROOFS.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-25",
-      "updated": "2026-10-25",
+      "updated": "2026-10-28",
       "commits": []
     },
     {
@@ -5405,13 +5405,13 @@
     {
       "id": 673,
       "title": "Latent scoping bug: after a match refines a variable, a let's value can mention a variable bound later (Float.Theory.roundsToFinite: h1 at level 17 quoted at level 11); index arithmetic underflows and wraps (release silently, debug now explicitly at value.rs:2081, term.rs shift, lift.rs:222). Represent later-bound variables properly in the lift code (debug-builtins lane, 26 Oct)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-28",
       "commits": []
     },
     {
@@ -5969,11 +5969,11 @@
     {
       "id": 721,
       "title": "Untyped record literal as an argument before the argument that fixes its type (foldLeft { enabled = True, total = 0 } step) can't be inferred; postpone it (AoC 2024 day 3)",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Duplicate of SW-817 (decision: postpone record literals as lambdas are postponed).",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
@@ -7294,6 +7294,54 @@
       "id": 827,
       "title": "Fix stitchwort-cli project test rogue_goals_keep_the_dungeon_folded: goals print isStairs where Rogue.isStairs expected (failing on main since earlier today)",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 828,
+      "title": "Error messages from AoC findings: which And/Or a user constructor hides; Ok { … } bracket hint; parse 'got' shows next token; goals print % not Nat.divFuel",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 829,
+      "title": "Design note: nested data types (Packets (items: List Packet)), from SW-704",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 830,
+      "title": "Day 24 part 2: on a dead end try every gate output in the faulty bit (misses 4/110 generated adders)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 831,
+      "title": "std additions: Text.padLeft, Option.toList, List.allSome, Char.isAsciiLowercase, day 22 xor lemmas into Nat/Bits.sw (DeepSeek)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
