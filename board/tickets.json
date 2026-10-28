@@ -1,5 +1,5 @@
 {
-  "next": 835,
+  "next": 837,
   "tickets": [
     {
       "id": 13,
@@ -7379,7 +7379,31 @@
     {
       "id": 834,
       "title": "Interpreter: tail recursion modulo constructor (and addition), as the JS backend and OCaml's [@tail_mod_cons]: List.map/filter/append/… on 3M items without hitting the 2M frame cap",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 835,
+      "title": "Check the interpreter's hole filling (prims.rs fill: ptr::write through Rc::as_ptr) under Miri; if it is UB, rework (e.g. Rc::get_mut_unchecked's contract, or a cell type with interior mutability)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 836,
+      "title": "rt tests aoc_agrees and every_aoc_main_lowers fail: 'program nested too deeply for the type checker' while lowering (predates TRMC)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
