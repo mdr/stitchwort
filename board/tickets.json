@@ -6305,7 +6305,7 @@
     {
       "id": 749,
       "title": "AoC 2024 day 11: solve, prove, log gaps (overnight)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6341,7 +6341,7 @@
     {
       "id": 752,
       "title": "ring [c * h] with coefficients, like Mathlib's linear_combination (AoC 2024 day 8)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
