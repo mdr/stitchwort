@@ -1,5 +1,5 @@
 {
-  "next": 827,
+  "next": 828,
   "tickets": [
     {
       "id": 13,
@@ -7269,7 +7269,7 @@
     {
       "id": 825,
       "title": "D1445: let any project namespace add functions to project types, owned by the adding namespace and visible where it is imported (docs/proposals/extending-types.md option c)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7281,6 +7281,18 @@
     {
       "id": 826,
       "title": "D1446: alias functions found by dot after inference: glued call in dot lookup, glued parameter types stored at declaration (docs/proposals/alias-functions.md)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 827,
+      "title": "Fix stitchwort-cli project test rogue_goals_keep_the_dungeon_folded: goals print isStairs where Rogue.isStairs expected (failing on main since earlier today)",
       "status": "doing",
       "agent": "",
       "where": "",
