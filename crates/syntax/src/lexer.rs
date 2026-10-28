@@ -47,6 +47,8 @@ pub enum Tok {
     LBracket,
     RBracket,
     Comma,
+    /// `;`, which ends the value of an expression `let`: `(let x := e; body)`.
+    Semi,
     Colon,
     /// `:=`
     ColonEq,
@@ -567,6 +569,7 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                 b'}' => Tok::RBrace,
                 b']' => Tok::RBracket,
                 b',' => Tok::Comma,
+                b';' => Tok::Semi,
                 b'.' if bytes.get(i) == Some(&b'.') => {
                     i += 1;
                     Tok::DotDot
@@ -1248,7 +1251,15 @@ mod tests {
         assert_eq!(tokens("\tx"), Err("E-PARSE"));
         assert_eq!(tokens("a ∀ b"), Err("E-PARSE"));
         assert_eq!(tokens("a ⊆ b"), Err("E-PARSE"));
-        assert_eq!(tokens("a ; b"), Err("E-PARSE"));
+        assert_eq!(tokens("a # b"), Err("E-PARSE"));
+        assert_eq!(
+            tokens("a; b"),
+            Ok(vec![
+                Tok::Lower("a".into()),
+                Tok::Semi,
+                Tok::Lower("b".into())
+            ])
+        );
     }
 
     #[test]

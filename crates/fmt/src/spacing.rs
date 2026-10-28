@@ -87,6 +87,13 @@ pub(crate) fn gap(pair: &Pair) -> Gap {
     if *left == KwExists {
         return Gap::Rule(true);
     }
+    // `(let x := e; body)`: the `;` touches the value, a space follows.
+    if *right == Semi {
+        return Gap::Rule(false);
+    }
+    if *left == Semi {
+        return Gap::Rule(true);
+    }
     // R6: `a, b`.
     if *right == Comma {
         return Gap::Rule(false);
