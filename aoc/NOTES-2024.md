@@ -3560,3 +3560,327 @@ proofs, 158 of tests.
 7. Corners cost 1.9 s on a 140 by 140 grid (item 5). Fix: none needed
    yet; a faster `Map` lookup on records would help.
 8. Dot calls refused with `[decreasing := …]` (item 3). Fix: allow them.
+
+## Day 14: Restroom Redoubt
+
+Robots, each with a position `p=x,y` and a velocity `v=x,y` in "tiles per
+second", in "a space which is 101 tiles wide and 103 tiles tall" (11 by 7
+in the example). "When a robot would run into an edge of the space they're
+in, they instead teleport to the other side, effectively wrapping around
+the edges." Part 1: "count the number of robots in each quadrant after 100
+seconds. Robots that are exactly in the middle (horizontally or vertically)
+don't count as being in any quadrant", and multiply the four counts (the
+"safety factor"). Part 2: the robots "should have a hard-coded Easter egg:
+very rarely, most of the robots should arrange themselves into a picture of
+a Christmas tree. What is the fewest number of seconds that must elapse for
+the robots to display the Easter egg?" (part 2's wording from the public
+copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/main/2024/day-14/README.txt>).
+
+**The real input is pending from Matt.** `mdr/aoc-2024` stops at day 10,
+so there is no `aoc/inputs/2024/day14.txt`, no `Tests/Input.sw` and no
+entry in `crates/cli/tests/aoc_answers.rs` or `crates/rt/tests/machine.rs`;
+when the input comes, add those.
+
+**Part 2's criterion is a choice.** The puzzle doesn't say what the picture
+looks like. This solution takes it to be every robot on a different tile,
+a heuristic other solvers used ("look for all unique positions? Which
+works somehow?", <https://elixirforum.com/t/advent-of-code-2024-day-14/68091>).
+The proofs are about
+that criterion: the answer is the least second at which no two robots share
+a tile. Nothing proves that this is the picture of a tree.
+
+The example's answers are 12 and 1 (two robots share `3,0` at second 0;
+none share a tile at second 1), on 11 by 7, agreeing with an independent
+Python script (`/usr/bin/python3 -I`, positions `(x + t*vx) % w` and a
+`set` per second). `main` uses the puzzle's 101 by 103; `mainExample` uses
+11 by 7, since a program can't take arguments:
+
+```
+$ stitchwort run Aoc.Year2024.Day14.mainExample < examples/2024/day14.txt
+Part 1: 12
+Part 2: 1
+```
+
+The timings are on a generated input of 500 robots on 101 by 103 (not
+committed), built in Python with all positions distinct first at second
+7037; the program and the Python script agree (213181710 and 7037).
+Compiler built from `main` at c17208db, 28 October 2026.
+
+### The program
+
+```stitchwort
+type Position = { x: Nat, y: Nat }
+type Velocity = { x: Int, y: Int }
+type Robot = { position: Position, velocity: Velocity }
+type Space = { width: Nat, height: Nat, widthPositive: width ≠ 0, heightPositive: height ≠ 0 }
+
+def robotLine(): {Parse} Robot :=
+  text "p="
+  let x := nat()
+  text ","
+  let y := nat()
+  text " v="
+  let dx := int()
+  text ","
+  let dy := int()
+  { position = { x, y }, velocity = { x = dx, y = dy } }
+
+def parseRobots (input: Text): {Fail} (List Robot) := Parse.eachLine input robotLine
+
+def wrap (size: Nat) [auto ok: size ≠ 0] (coordinate: Int): Nat := Int.modNat coordinate size
+
+def Space.positionAfter (space: Space) (seconds: Nat) (robot: Robot): Position := {
+  x = wrap space.width [ok := space.widthPositive] (robot.position.x.toInt + seconds.toInt * robot.velocity.x),
+  y = wrap space.height [ok := space.heightPositive] (robot.position.y.toInt + seconds.toInt * robot.velocity.y)
+}
+
+def Space.quadrantOf (space: Space) (position: Position): Option Quadrant :=
+  let middleColumn := space.width / 2
+  let middleRow := space.height / 2
+  if position.x == middleColumn || position.y == middleRow then None
+  else if position.y < middleRow then Some (if position.x < middleColumn then TopLeft else TopRight)
+  else Some (if position.x < middleColumn then BottomLeft else BottomRight)
+
+def Space.safetyFactor (space: Space) (positions: List Position): Nat :=
+  let inQuadrants := positions.filterMap space.quadrantOf
+  quadrants.map (quadrant => inQuadrants.count (== quadrant)) |> .product
+
+def solvePart1 (space: Space) (robots: List Robot): Nat := space.positionsAfter 100 robots |> space.safetyFactor
+
+def noOverlapFrom (seen: Set Position): List Position → Bool
+  | Nil => True
+  | Cons position rest => if seen.contains position then False else noOverlapFrom (seen.insert position) rest
+
+def solvePart2 (space: Space) (robots: List Robot): Option Nat :=
+  List.range space.period |> .find (seconds => space.positionsAfter seconds robots |> noOverlap)
+```
+
+Positions are `Nat`s, velocities `Int`s. A robot jumps straight to
+`position + seconds * velocity`, wrapped with std's `Int.modNat` (the
+Euclidean remainder as a `Nat`), so the program never steps. The space
+carries the proofs that its sides aren't 0, which `Int.modNat` needs;
+`Space.of 101 103` finds them by `auto`. Part 2 tries the seconds from 0
+to `width * height - 1` (`Space.period`, 10403 for the puzzle) and stops at
+the first with no shared tile; the overlap check stops at the first
+repeat. `main` also fails on a robot outside the space (`line 2: the robot
+starts outside the space`), which the proofs assume.
+
+### Proved, for every list of robots that start inside the space
+
+The spec (`Spec/Spec.sw`) is the puzzle's words, run literally: `forward`
+and `backward` move one tile, teleporting at the edges; `move` takes
+`|v|` such tiles one at a time; `second` moves both coordinates; `after`
+iterates seconds. A tile is in the left half when more tiles lie to its
+right than to its left (`x < width - 1 - x`), in the right half when fewer
+do, and the middle column has as many each side; the same for rows. The
+safety factor multiplies the four counts. `isPicture` is the criterion:
+`List.Distinct` of the robots' positions after that many seconds.
+
+Proved (`Proofs/`, 303 lines in six files):
+
+- `afterCorrect`: `after space seconds robot = space.positionAfter seconds
+  robot`: moving one tile at a time for `seconds` seconds is the jump, with
+  wrap-around, for negative velocities and velocities past the width too
+  (Moves.sw). It rests on `forwardWrap` and `backwardWrap` (one tile is
+  `+ 1` or `- 1`, then `Int.modNat`) and `iterateWrap` (a step that adds
+  `d` and wraps, taken `n` times, adds `n * d` and wraps), whose induction
+  is std's `Int.modNatModAdd` plus a `ring` step (Lemmas.sw).
+- `periodic`: `positionAfter (seconds + width * height) = positionAfter
+  seconds`, and `periodicLaps` for any number of laps: std's
+  `Int.modNatAddMulInt` after `ring` regroups `(t + w*h) * v` as `t*v + w *
+  (h*v)`. The period is `width * height`, which for coprime sides such as
+  101 and 103 is their lcm, 10403; it holds for any sides.
+- `part1Correct`: `solvePart1 space robots = part1 space robots` for spaces
+  of odd width and height, as the puzzle's are. It goes through
+  `safetyFactorCorrect` (Quadrants.sw): each quadrant's agreement
+  (`topLeftAgrees` and three more) is one `cases`, splitting the `if`s and
+  closing 16 cases by `omega` with `/ 2` and `% 2`; `countQuadrant` turns
+  the program's count over `filterMap` into the spec's filtered length.
+- `part2First`: if `solvePart2` gives `Some found`, the spec's robots are
+  all on different tiles after `found` seconds, and at no earlier second.
+  `noOverlapCorrect` shows the `Set` loop decides `List.Distinct`
+  (Overlap.sw); `findRangeSome` shows `List.find` over `List.range` finds
+  the least (Search.sw).
+- `part2Never`: if it gives `None`, no second at all has them on different
+  tiles: second `s` looks like second `s % (width * height)`, which was
+  searched.
+
+Breaking the program (forgetting the middle row, `+ 1` on a move,
+searching one second fewer) makes the proofs fail. The odd sizes matter:
+for an even width the program leaves column `width / 2` out of the right
+half, while the spec has no middle column (`topLeftAgrees` still checks
+without the hypothesis; the right and bottom halves need it). Not proved,
+as above: anything about a tree.
+
+### 1. Std.Parse: none
+
+`text "p="`, `nat()`, `int()` (std has `Parse.int`, an optional `-` then
+digits) under `Parse.eachLine` read the example first time. The messages
+are good: `line 1, column 3: expected a number, got '-'` for a negative
+position, `line 1, column 6: expected ' v=', got the end of the line` for a
+missing velocity.
+
+### 2. Missing std
+
+- No program arguments: `IO` has `readAll` and friends but no `args`, so
+  the space's size can't be given on the command line. Two mains,
+  `main` (101 by 103) and `mainExample` (11 by 7). Haskell has `getArgs ::
+  IO [String]`
+  (<https://hackage.haskell.org/package/base/docs/System-Environment.html>).
+- No `Bool` test for "no repeats": `List.Distinct` is a `Prop`, and
+  `List.distinct` builds the list without repeats (comparing lengths would
+  not stop early). Lean has `List.Nodup` with a `Decidable` instance,
+  `List.nodupDecidable`
+  (<https://lean-lang.org/doc/api/Init/Data/List/Basic.html>). Wrote
+  `noOverlapFrom` with a `Set` and its three lemmas (Overlap.sw, 42 lines,
+  following std's `List.distinctLoopFrom`).
+- Nothing says `List.find` over `List.range` finds the least: std's
+  `List.findSome` gives membership only. `findRangeFirst`, `findRangeSome`
+  and `findRangeNone` (Search.sw, 31 lines).
+- Smaller: `count (filterMap f xs) (== q) = count xs (x => f x == Some q)`
+  (`countFilterMap`), `a ≠ 0 → b ≠ 0 → a * b ≠ 0` (`mulNeZero`) and
+  `Int.modNat x.toInt size = x` below `size` (`modNatSmall`), in
+  Lemmas.sw. Not added to std: another lane is adding count lemmas to
+  `List/Lemmas.sw`, and the other two are one-liners.
+
+### 3. Confusing errors
+
+- A proof of `List.Distinct Nil`, which computes to `Unit`, written `()`:
+
+  ```text
+  [E-TYPE-MISMATCH] Error: type mismatch
+     │   | seen, Nil, ok => ()
+     │                      ─┬
+     │                       ╰── expected `Unit`, but this has type `()`
+  ```
+
+  `()` is the unit value in programs; in a proof it has to be `Trivial`.
+  The message reads as if the two were different things with the same
+  meaning.
+- `omega` computed `Nat.toInt (Succ x) - 1` into std's internals before
+  looking at it:
+
+  ```text
+  [E-OMEGA] Error: `omega` can't prove `Int.subNatNatFrom (Succ x) 1 (0 - x) = x.toInt`
+     │ Note 2: atoms: `Int.subNatNatFrom (Succ x) 1 (0 - x)`, `x`, `n`
+  ```
+
+  The same statement about a variable `y` with `0 < y` is one `omega`
+  (`toIntPred`), applied to `Succ x`.
+- `rewrite <- negSuccIs steps` (`NegSucc steps = (Succ steps).toInt * -1`)
+  found nothing, because the goal's `x.toInt + NegSucc steps` had been
+  computed to `Int.subNatNatFrom x (Succ steps) (Succ steps - x)`:
+
+  ```text
+  [E-REWRITE-NOTHING] Error: `rewrite` found no `Nat.toInt (Succ steps) * -1` in the goal
+     │ Note 2: the search compares what terms compute to: it looked for `NegSucc (steps * 1)`, what `Nat.toInt (Succ steps) * -1` computes to, in what the goal computes to
+  ```
+
+  `Eq.trans` with an `Eq.cong` over the distance did it.
+- Hypotheses are shown computed, so after a `match` on
+  `seen.contains next` the hypothesis `ok` showed `Set.insert` unfolded:
+  `ok: noOverlapFrom { items = { raw = Quot.lift (rawMap => Quot.mk {
+  tree = Map.Tree.insertWith (new old => new) next () rawMap.tree, ...`
+  for 400 characters, instead of `noOverlapFrom (seen.insert next) rest`.
+- `.sortBy (position => position.y * 11 + position.x)` (Scala's `sortBy`
+  takes a key) gave `` `+` gives a `Nat` or an `Int` ... but `Position →
+  Ordering` is expected here ``, pointing at the key's arithmetic.
+  Stitchwort's `sortBy` takes a comparison and `sortOn` the key, as in
+  Haskell; nothing pointed at `sortOn`. Used `sortOn`.
+- A theorem ending in `a * b ≠ 0` takes one more argument, the proof of
+  `a * b = 0` (day 11's item 3 again): `this arm has 4 pattern(s), but
+  `mulNeZero` takes more arguments after the colon`.
+
+### 4. Inference
+
+- `auto` doesn't look into the fields of a record in scope:
+  `Int.modNat coordinate space.width` couldn't find `space.widthPositive`,
+  so every use says `[ok := space.widthPositive]`; the program and proofs
+  have 14 such `[ok := …]` annotations, and the lemmas take the proof as
+  an explicit parameter.
+- `seconds % space.period` in a theorem's statement: `can't decide
+  `Space.period space ≠ 0` here`. A `let ok: space.period ≠ 0 :=
+  periodPositive space` before it, or a parameter, fixed it.
+- `f a -1` is `f a - 1`, as in Haskell; `(-1)` needed.
+- `test` is a keyword, so a predicate parameter can't be called `test`;
+  the message says so.
+
+### 5. Performance
+
+On the generated 500 robots (user time): `stitchwort run` 4.81 s, of which
+about 0.5 s is loading (the example takes 0.51 s), so about 4.3 s for 7037
+seconds of searching (3.5 million robot moves and up to as many `Set`
+insertions, stopping at the first repeat each second). Python takes 0.32 s.
+Not pursued: the jump formula already avoids stepping, and the time is
+spread over the moves and the set.
+
+### 6. Proofs
+
+- `Int` modulo by a variable size: `omega` handles `%` only by a constant,
+  so every step about wrapping went through std's lemmas, which were
+  there: `Int.modNatModAdd` (wrapping before adding changes nothing) and
+  `Int.modNatAddMulInt` (adding a multiple of the size, negative too,
+  changes nothing). They are in `Mod/Mod.sw` though they are about `Int`,
+  and are for `Int.modNat` with a `Nat` size; there are none for `Int %
+  Int` with a variable divisor. Lean's core has the `%` forms,
+  `Int.emod_add_emod` and `Int.add_mul_emod_self_right`
+  (<https://lean-lang.org/doc/api/Init/Data/Int/DivMod/Bootstrap.html>).
+  Using `Int.modNat` was the right call: positions stay `Nat`s, and
+  `Int.modNat x (Succ n)` computes, so `forwardWrap` is `Nat.modSelf` and
+  `Nat.modSmall` after matching the size against `Succ n`.
+- `ring` did the `Int` regrouping with `Nat.toInt` of sums and products
+  inside (`(t + w*h).toInt * v = t.toInt * v + w.toInt * (h.toInt * v)`),
+  first time.
+- `cases` proved each quadrant agreement alone (16 cases: 8 by computation,
+  the rest by `omega` with `/ 2` and `% 2`).
+- The periodicity, the least-second search and its `None` case went
+  through as planned, most lemmas first or second time; the friction was
+  in items 3 and 4, not in the mathematics.
+
+### 7. Comparisons
+
+- Stitchwort's `Int` `%` is Euclidean, never negative for a nonzero
+  divisor, as Lean's is (`Int.emod`,
+  <https://lean-lang.org/doc/reference/latest/Basic-Types/Integers/>), so
+  `(x + t * v) % width` needs no fixing up. Scala's `%` is Java's
+  truncating remainder, `-4 % 3 == -1`, and needs `Math.floorMod`
+  (<https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Math.html>);
+  Haskell needs `mod` (flooring), not `rem`
+  (<https://hackage.haskell.org/package/base/docs/Prelude.html>).
+- Lean's `List.Nodup` is decidable in core; Stitchwort's `List.Distinct`
+  is not (item 2).
+
+### Size and time
+
+Release build, load average around 12:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day14.Proofs` | 2.0 s user (2.7 s) |
+| `stitchwort check --no-cache Aoc.Year2024.Day14` | 1.8 s user (2.3 s) |
+| `stitchwort test --no-cache Aoc.Year2024.Day14` (37 tests) | 1.9 s user (2.0 s) |
+| `stitchwort run Aoc.Year2024.Day14.mainExample` on the example | 0.51 s user |
+| `stitchwort run Aoc.Year2024.Day14.main` on 500 generated robots | 4.81 s user |
+| `stitchwort check` (whole aoc project, 91 namespaces) | 15.0 s user (15.5 s) |
+
+112 lines of program, 70 of spec, 303 of proofs, 222 of tests.
+
+### Ranked
+
+1. No program arguments (item 2). Fix: `IO.args`.
+2. `()` refused where `Unit` is expected in proofs (item 3). Fix: accept
+   `()` as `Trivial`, or say "write `Trivial`".
+3. `omega` and `rewrite` see std's internals for `Succ x` and `NegSucc`
+   arithmetic (item 3). Fix: normalise `Nat.toInt (Succ x)` to `x.toInt
+   + 1` and `NegSucc n` to `-(n.toInt) - 1` before abstracting atoms.
+4. No `Bool` "no repeats" with its `Prop` (item 2). Fix:
+   `List.allDistinct` with `allDistinct xs = True ↔ List.Distinct xs`.
+5. `auto` ignores proof fields of records in scope (item 4). Fix: search
+   the fields of local records.
+6. `Int.modNat` lemmas live in `Mod/Mod.sw`; no `Int %` lemmas for a
+   variable divisor (item 6). Fix: move them to `Int/`, add `%` versions.
+7. Hypotheses shown fully computed, `Set.insert` as `Quot.lift …` (item
+   3). Fix: show hypotheses as refined but not computed.
+8. No least-element lemma for `List.find` over `List.range` (item 2). Fix:
+   add `findRangeSome` and `findRangeNone` to std.
