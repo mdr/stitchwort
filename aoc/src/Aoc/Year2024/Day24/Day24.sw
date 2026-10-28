@@ -71,7 +71,7 @@ def initialValue(): {Parse} (Wire, Bool) :=
   (name, value)
 
 -- `x00 AND y00 -> z00`.
-def gate(): {Parse} Gate :=
+def gateLine(): {Parse} Gate :=
   let left := wire()
   text " "
   let operation := label "AND, OR or XOR" (() => pick [("AND", And), ("OR", Or), ("XOR", Xor)])
@@ -81,12 +81,12 @@ def gate(): {Parse} Gate :=
   let output := wire()
   { left, operation, right, output }
 
-def device(): {Parse} Device :=
+def deviceInput(): {Parse} Device :=
   let initial := section initialValue
-  let gates := lines gate
+  let gates := lines gateLine
   { initial, gates }
 
-def parseDevice (input: Text): {Fail} Device := Parse.all input device
+def parseDevice (input: Text): {Fail} Device := Parse.all input deviceInput
 
 -- What a gate outputs for its two inputs.
 def Operation.apply (operation: Operation) (left: Bool) (right: Bool): Bool :=
@@ -198,11 +198,11 @@ def partnerOf (gates: List Gate) (operation: Operation) (input: Wire): Option Wi
     |> .find (gate => gate.operation == operation ∧ (gate.left == input ∨ gate.right == input))
     |> .map (gate => if gate.left == input then gate.right else gate.left)
 
--- What checking a bit found: it is right and carries on this wire, or it
+-- What checking a bit found: it passes and carries on this wire, or it
 -- is faulty, with the swaps that might fix it, most likely first (none if
 -- no swap explains the fault).
 type BitCheck =
-  | Carries (carry: Wire)
+  | Passes (carry: Wire)
   | Faulty (fixes: List (Wire, Wire))
 
 -- The two inputs of a gate doing `operation` should be `trusted` and
@@ -217,7 +217,7 @@ def missingInput (gates: List Gate) (operation: Operation) (trusted: Wire) (susp
 -- Bit 0, the half adder.
 def checkHalfAdder (gates: List Gate): BitCheck :=
   match (outputOf gates Xor (X 0) (Y 0), outputOf gates And (X 0) (Y 0)) with
-    | (Some sum, Some carry) => if sum == Z 0 then Carries carry else Faulty [(sum, Z 0)]
+    | (Some sum, Some carry) => if sum == Z 0 then Passes carry else Faulty [(sum, Z 0)]
     | _ => Faulty []
 
 -- A later bit, the full adder, with the carry from below on `carry`.
@@ -226,7 +226,7 @@ def checkFullAdder (gates: List Gate) (bit: Nat) (carry: Wire): BitCheck :=
     | (Some partial, Some generated) =>
       match (outputOf gates Xor partial carry, outputOf gates And partial carry) with
         | (Some sum, Some passed) =>
-          if sum == Z bit then outputOf gates Or generated passed |> .fold (missingInput gates Or generated passed) Carries
+          if sum == Z bit then outputOf gates Or generated passed |> .fold (missingInput gates Or generated passed) Passes
           else Faulty [(sum, Z bit)]
         | (Some sum, None) => missingInput gates And carry partial
         | (None, _) => missingInput gates Xor carry partial
@@ -236,19 +236,19 @@ def checkFullAdder (gates: List Gate) (bit: Nat) (carry: Wire): BitCheck :=
 -- into `bit` on `carry`: an adder, or the first fault found.
 def checkFrom (gates: List Gate) (remaining: Nat) (bit: Nat) (carry: Wire): BitCheck :=
   match remaining with
-    | Zero => if carry == Z bit then Carries carry else Faulty [(carry, Z bit)]
+    | Zero => if carry == Z bit then Passes carry else Faulty [(carry, Z bit)]
     | Succ fewer =>
       match checkFullAdder gates bit carry with
-        | Carries next => checkFrom gates fewer (bit + 1) next
+        | Passes next => checkFrom gates fewer (bit + 1) next
         | fault => fault
 
--- The verdict on a `bits`-bit adder: `Carries (Z bits)` if it is one.
+-- The verdict on a `bits`-bit adder: `Passes (Z bits)` if it is one.
 def checkAdder (gates: List Gate) (bits: Nat): BitCheck :=
   match bits with
     | Zero => Faulty []
     | Succ higher =>
       match checkHalfAdder gates with
-        | Carries carry => checkFrom gates higher 1 carry
+        | Passes carry => checkFrom gates higher 1 carry
         | fault => fault
 
 -- The gates with the outputs `first` and `second` swapped.
@@ -274,7 +274,7 @@ def zWithin (gates: List Gate) (bits: Nat): Bool :=
 
 -- A `bits`-bit ripple-carry adder, wired once per wire.
 def isAdder (gates: List Gate) (bits: Nat): Bool :=
-  wellWired gates ∧ zWithin gates bits ∧ checkAdder gates bits == Carries (Z bits)
+  wellWired gates ∧ zWithin gates bits ∧ checkAdder gates bits == Passes (Z bits)
 
 -- Swaps after `swaps` that make the gates an adder, at most `budget` more:
 -- try each fix for the first fault in turn, and go on from there.
@@ -284,7 +284,7 @@ def repair (budget: Nat) (bits: Nat) (gates: List Gate) (swaps: List (Wire, Wire
       match budget with
         | Zero => None
         | Succ fewer => fixes.findMap (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix]))
-    | Carries carry => if isAdder gates bits then Some swaps else None
+    | Passes carry => if isAdder gates bits then Some swaps else None
 
 -- The swaps' wires, sorted by name and joined with commas.
 def swapNames (swaps: List (Wire, Wire)): Text :=
