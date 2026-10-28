@@ -3211,10 +3211,19 @@ fn check_if_in(
             let cond = match crate::logic::condition(cx, cond, "if")? {
                 crate::logic::Condition::Bool(cond) => cond,
                 crate::logic::Condition::Decided { prop, decision } => {
+                    let as_bool = decision.clone();
                     let decision = decision.term(cx)?;
-                    return decided_if(
-                        cx, "_", prop, decision, result_ty, &branch, then, otherwise,
-                    );
+                    let decided = decided_if(
+                        cx,
+                        "_",
+                        prop.clone(),
+                        decision,
+                        result_ty.clone(),
+                        &branch,
+                        then,
+                        otherwise,
+                    )?;
+                    return unused_proof_if(cx, decided, as_bool, prop, result_ty);
                 }
             };
             let unit = Value::Data(unit_data, Vec::new());
@@ -3254,6 +3263,66 @@ fn check_if_in(
             )
         }
     }
+}
+
+/// `if c then a else b` on a decided proposition `c` whose branches don't
+/// use the proof: `ifThenElse` on the decision's `Bool`, the term a `Bool`
+/// is expected (`filter (x => x < k)`) gives, so lemmas stated with a
+/// `Bool` test match. `decided` (the `elimDec` form) where a branch uses
+/// the proof (an `auto` argument found from it) or may yet.
+fn unused_proof_if(
+    cx: &mut Ctx,
+    decided: Term,
+    decision: crate::bind::Decision,
+    prop: Term,
+    result_ty: Term,
+) -> Result<Term> {
+    let Term::App(rest, otherwise, _) = &decided else {
+        return Ok(decided);
+    };
+    let Term::App(_, then, _) = &**rest else {
+        return Ok(decided);
+    };
+    let level = cx.level();
+    let zonked = |cx: &Ctx, branch: &Term| -> Result<Term> {
+        crate::unify::zonk_in(cx.g(), level, branch, &|_| true, &[]).map_err(|e| match e {
+            crate::unify::ZonkError::Resource(e) => Diagnostic::from(e),
+            crate::unify::ZonkError::Unsolved(_) => {
+                unreachable!("every unsolved metavariable is kept")
+            }
+        })
+    };
+    let uses_proof = |branch: &Term| match branch.strip_loc() {
+        Term::Lam(_, _, body) => body.mentions(0),
+        _ => true,
+    };
+    let mut branches = [zonked(cx, then)?, zonked(cx, otherwise)?];
+    // An unsolved metavariable is applied to the proof, as to every
+    // variable in scope. Instances whose type is known are found now, so
+    // that one that doesn't use the proof doesn't count as using it.
+    if branches.iter().any(uses_proof) {
+        let unsolved: Vec<usize> = (branches.iter())
+            .flat_map(|b| b.subterms().map(|(t, _)| t))
+            .filter_map(|t| match t {
+                Term::Meta(m) => Some(*m),
+                _ => None,
+            })
+            .collect();
+        if unsolved.is_empty() || !cx.e.solve_ready_instances_keeping(&[], Some(&unsolved))? {
+            return Ok(decided);
+        }
+        branches = [zonked(cx, then)?, zonked(cx, otherwise)?];
+        if branches.iter().any(uses_proof) {
+            return Ok(decided);
+        }
+    }
+    let cond = decision.into_bool(cx, prop)?;
+    let ite = builtin_def(cx, Builtin::IfThenElse)?;
+    let head = Term::app_icit(Term::Def(ite), result_ty, Icit::Implicit);
+    Ok(Term::app(
+        Term::app(Term::app(head, cond), (**then).clone()),
+        (**otherwise).clone(),
+    ))
 }
 
 /// `elimDec decision (name => then) (name => otherwise)`, where `decision`
@@ -3503,6 +3572,28 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
         if crate::undo::unify(cx, &found, &expected)? {
             return Ok(term);
         }
+    }
+    // A dictionary whose type only this comparison fixes (`List.sumByZero xs`
+    // against `List.sumBy xs (x => 0) = 0`: only the expected type says the
+    // sum is of `Nat`s). Two calls of one definition are compared by their
+    // arguments only if that solves nothing, so the dictionary is compared
+    // inside its unfolding (`Add.zero ?add` against `0`), fails, and the
+    // types it learnt are undone with the rest. Kept here, they make the
+    // dictionary ready to find; all of it is undone unless the comparison
+    // then succeeds.
+    if !cx.e.interfaces.is_empty()
+        && crate::undo::transaction(cx, |cx| {
+            cx.unify(found, expected)?;
+            if !cx.e.solve_ready_instances()? {
+                return Ok(None);
+            }
+            let found = crate::interfaces::refresh(cx, found)?;
+            let expected = crate::interfaces::refresh(cx, expected)?;
+            Ok(cx.unify(&found, &expected)?.then_some(()))
+        })?
+        .is_some()
+    {
+        return Ok(term);
     }
     // An effectful function whose row lists the same abilities in a
     // different order, or a total one where a partial one is expected.

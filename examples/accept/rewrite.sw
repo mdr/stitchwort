@@ -95,3 +95,9 @@ theorem inCalc (a: Nat) (n: Nat): a + Succ n = Succ (n + a) :=
   calc a + Succ n
     _ = Succ (a + n) := rewrite Nat.addSucc a n
     _ = Succ (n + a) := rewrite Nat.addComm a n
+
+-- `in` may start its own line, at the `rewrite`'s column or right of it.
+theorem inOwnLine (a: Nat) (b: Nat) (c: Nat) (h: a = b) (k: b = c): a + 0 = c + 0 :=
+  rewrite h,
+    k
+  in rfl

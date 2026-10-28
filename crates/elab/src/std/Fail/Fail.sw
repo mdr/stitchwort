@@ -221,5 +221,8 @@ test "Fail: toAbort" := Abort.toOption (() => Fail.toAbort (() => (Fail.fail "x"
 test "Fail: map" := Fail.toResult (() => List.map ["1", " 2 ", "3"] Text.toNatOrFail) == Ok [1, 2, 3]
 test "Fail: map fails at the first bad element" :=
   Fail.toResult (() => List.map ["1", "x", "-3"] Text.toNatOrFail) == Err "expected a whole number, got 'x'"
+test "Fail: forEach" := Fail.toResult (() => List.forEach [1, 2] (n => Fail.ensure (n < 3) "${n}")) == Ok ()
+test "Fail: forEach fails at the first bad element" :=
+  Fail.toResult (() => List.forEach [1, 5, 7] (n => Fail.ensure (n < 3) "${n}")) == Err "5"
 test "Fail: toNatOrFail" := Fail.toResult (() => Text.toNatOrFail " 1x") == Err "expected a whole number, got ' 1x'"
 test "Fail: toIntOrFail" := Fail.toResult (() => Text.toIntOrFail " -12 ") == Ok (-12)
