@@ -688,16 +688,49 @@ fn fill(fields: &Fields, i: usize, value: Value) {
         .cast::<Value>()
         .cast_mut()
         .wrapping_add(i);
-    // SAFETY: the cell is reachable only from the loop that made it: its
-    // previous cell, the loop's registers and the registers of the call it
-    // is passed to. That loop is the only code running, so nothing reads
-    // the hole or the rest of the cell during the write, and no reference
-    // into the field outlives this call. The hole holds `Erased`, which
-    // owns nothing, so overwriting it without dropping it leaks nothing.
-    // `Rc<[Value]>` has no interior mutability, so this relies on there
-    // being no live shared reference to the field, not on the type.
+    // SAFETY: this is the rule of `Rc::get_mut_unchecked`: other `Rc`s to the
+    // allocation may exist, but none may be dereferenced or have an active
+    // borrow for the duration of the write. Here the cell is reachable only
+    // from the loop that made it (its previous cell, the loop's registers
+    // and the registers of the call it is passed to), and that loop is the
+    // only code running, so no reference into the field is live during the
+    // write. The pointer comes from `Rc::as_ptr`, which is derived from the
+    // allocation's raw pointer without going through `Deref`, so it keeps
+    // write provenance. The hole holds `Erased`, which owns nothing, so
+    // overwriting it without dropping it leaks nothing. Miri accepts this
+    // under Stacked and Tree Borrows (`hole_tests`).
     unsafe {
         debug_assert!(matches!(*hole, Value::Erased));
         std::ptr::write(hole, value);
+    }
+}
+
+#[cfg(test)]
+mod hole_tests {
+    use super::*;
+
+    /// The loop's pattern: a cell linked into its predecessor is then filled
+    /// through the loop's own handle, while the list's head is borrowed.
+    /// Small enough for Miri (`cargo miri test -p stitchwort-rt --lib
+    /// hole_tests`, also with `MIRIFLAGS=-Zmiri-tree-borrows`).
+    #[test]
+    fn a_cell_filled_after_it_is_linked_is_an_ordinary_list() {
+        let first = Value::data(1, [Value::Nat(1), Value::Erased]);
+        let mut last = first.clone();
+        for n in 2..5 {
+            let cell = Value::data(1, [Value::Nat(n), Value::Erased]);
+            fill_hole(&last, &Value::Nat(1), cell.clone());
+            let _view: &Value = &first;
+            last = cell;
+        }
+        fill_hole(&last, &Value::Nat(1), Value::Tag(0));
+        let mut seen = vec![];
+        let mut at = &first;
+        while let Value::Data(_, fields) = at {
+            let Value::Nat(n) = fields[0] else { panic!() };
+            seen.push(n);
+            at = &fields[1];
+        }
+        assert_eq!(seen, [1, 2, 3, 4]);
     }
 }
