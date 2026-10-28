@@ -2177,8 +2177,11 @@ avoided reasoning about a pair inside an `Option`.
 `stitchwort run` on the input takes 0.85 s, against 0.53 s on the example
 (loading and checking): about 0.16 s for part 1 and 0.15 s for part 2.
 Plain recursion over the 94,500-block lists (`fillFront`, `blocksFrom`) had
-no stack trouble. The fast Python takes 0.04 s user, the literal Python
-(a block at a time over a list) 24 s.
+no stack trouble. The machine (`machine aoc_agrees`, which passed, with all
+423 AoC tests agreeing) runs `main` on the input in 1.0 s, more than `run`'s
+0.3 s of work after loading, where day 7's was faster on the machine
+(0.14 s); I didn't look into why. The fast Python takes 0.04 s user, the
+literal Python (a block at a time over a list) 24 s.
 
 The spec is far slower, since each move walks the disk and part 1 makes
 23,434 moves. Both parts against the spec on the first 99 digits (454
@@ -2198,6 +2201,7 @@ Release build, on a machine with a load average around 30:
 | `stitchwort test Aoc.Year2024.Day09` (warm) | 0.5 s |
 | `stitchwort run Aoc.Year2024.Day09.main` on the input | 0.85 s |
 | `stitchwort check --no-cache` (whole project) | 13.5 s |
+| `main` on the input, on the machine (`machine aoc_agrees`) | 1.0 s |
 
 131 lines of program, 86 of spec, 356 of proofs, 92 of tests.
 
