@@ -5717,13 +5717,13 @@
     {
       "id": 699,
       "title": "Termination: a list rebuilt from its own pattern parts (Cons next (Cons after more) inside Cons level (Cons next …)) counts as smaller; the error names the argument that really doesn't shrink (D1416, AoC 2024 day 2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-27",
-      "updated": "2026-10-27",
+      "updated": "2026-10-28",
       "commits": []
     },
     {
