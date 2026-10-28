@@ -1,5 +1,5 @@
 {
-  "next": 784,
+  "next": 785,
   "tickets": [
     {
       "id": 13,
@@ -6713,6 +6713,18 @@
     {
       "id": 783,
       "title": "AoC 2024 day 22 (examples only; input pending from Matt): monkey market secret numbers, solve, prove, log gaps",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 784,
+      "title": "AoC 2024 day 23 (examples only; input pending from Matt): LAN party triangles and largest clique, solve, prove, log gaps",
       "status": "doing",
       "agent": "",
       "where": "",
