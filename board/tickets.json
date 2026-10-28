@@ -6389,7 +6389,7 @@
     {
       "id": 756,
       "title": "Guide's errors/decreasing.sw now checks (decreasing tries omega); rewrite the example and text",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
