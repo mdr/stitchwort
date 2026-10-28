@@ -593,11 +593,33 @@ fn fits_row(cx: &Ctx, row: &Row, res_arg: &Value) -> Result<bool> {
         return Ok(true);
     }
     let own = res(cx, row)?;
-    if stitchwort_core::value::conv(cx.g(), cx.level(), res_arg, &own)? {
-        return Ok(true);
+    Ok(same_results(cx, res_arg, &own)?.unwrap_or(true))
+}
+
+/// How far above `cx.level()` [`same_results`] compares. Some callers of
+/// [`comp_parts`] look at a type under binders they haven't added to `cx`
+/// ([`performs_after`] walks a function type's parameters), so its values
+/// can mention variables at `cx.level()` and above; a comparison whose
+/// fresh variables start this far up can't confuse one with them.
+const RESULTS_SLACK: usize = 1 << 16;
+
+/// Whether the results `written` in a computation type are `own`, a row's:
+/// `None` while either has an unknown in it. Compared by unification, which
+/// sees a solved unknown as its solution, with nothing to solve: the
+/// kernel's conversion compares unknowns by their numbers, so to it
+/// `PlusRes IO.res (rowRes ?e)` with `?e` solved as `e` isn't
+/// `PlusRes IO.res (rowRes e)` (`accept/adder.sw`).
+fn same_results(cx: &Ctx, written: &Value, own: &Value) -> Result<Option<bool>> {
+    let g = cx.g();
+    let level = cx.level() + RESULTS_SLACK;
+    let unknown = |v: &Value| -> Result<bool> {
+        let t = stitchwort_core::value::quote(g, level, v)?;
+        Ok(t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))
+    };
+    if unknown(written)? || unknown(own)? {
+        return Ok(None);
     }
-    let quoted = cx.quote(res_arg)?;
-    Ok(quoted.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))
+    Ok(Some(crate::unify::unify(g, level, written, own)?))
 }
 
 /// Whether `ty`, a computation type [`comp_parts`] read a row from, has
@@ -605,9 +627,7 @@ fn fits_row(cx: &Ctx, row: &Row, res_arg: &Value) -> Result<bool> {
 /// in them (`Comp NoOp ?r Nat`).
 pub(crate) fn results_unsettled(cx: &Ctx, ty: &Value) -> Result<bool> {
     Ok(match written_results(cx, ty)? {
-        Some((_, written, own)) => {
-            !stitchwort_core::value::conv(cx.g(), cx.level(), &written, &own)?
-        }
+        Some((_, written, own)) => same_results(cx, &written, &own)?.is_none(),
         None => false,
     })
 }
@@ -621,10 +641,10 @@ pub(crate) fn settle_results(cx: &mut Ctx, ty: &Value) -> Result<bool> {
     let Some((_, written, own)) = written_results(cx, ty)? else {
         return Ok(true);
     };
-    Ok(
-        stitchwort_core::value::conv(cx.g(), cx.level(), &written, &own)?
-            || crate::undo::unify(cx, &written, &own)?,
-    )
+    Ok(match same_results(cx, &written, &own)? {
+        Some(same) => same,
+        None => crate::undo::unify(cx, &written, &own)?,
+    })
 }
 
 /// If `ty` is a `Comp ops res t` or a `Delay ops res t` whose `ops` is a
