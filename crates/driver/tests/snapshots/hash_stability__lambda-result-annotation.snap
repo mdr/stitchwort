@@ -1,0 +1,8 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.viaBody b5509da839ea09581d724011c9194953759a2c02d8c60469b0d5401a356ea677
+Main.viaLet 547906e583393397f3a19bfe63641019c4da831d6572e8b1e3cdce8c3a2536c0
+Main.test "via body" 065488d57048fa94b040921cc0cef0e57c38892e0527dd569ca51b01c6ea340f
+Main.test "via let" a2613d968d1a4a51a41e9614192693572820b102c49f93772c633e7eccdffdfa

@@ -2563,6 +2563,9 @@ impl<'t> Parser<'t> {
         if self.lambda_ahead()? {
             return self.lambda(start);
         }
+        if let Some(colon) = self.lambda_result_type_ahead() {
+            return Err(lambda_result_type(self.tokens[colon].span));
+        }
         if self.peek() == Some(&Tok::KwExists) {
             return self.exists_expr();
         }
@@ -2747,6 +2750,52 @@ impl<'t> Parser<'t> {
             && i < self.tokens.len()
             && self.tokens[i].tok == Tok::FatArrow
             && !self.is_stop(i))
+    }
+
+    /// The `:` of a lambda written with a result type, `(x: A): B => body`:
+    /// a run of parameters ending in a bracketed one, then `:`, then a `=>`
+    /// later in the expression. Nothing is consumed.
+    #[inline(never)]
+    fn lambda_result_type_ahead(&self) -> Option<usize> {
+        let mut i = self.pos;
+        let mut bracketed_last = false;
+        while i < self.tokens.len() && !self.is_stop(i) {
+            match &self.tokens[i].tok {
+                Tok::Lower(w) if !w.contains('.') => {
+                    i += 1;
+                    bracketed_last = false;
+                }
+                Tok::Underscore => {
+                    i += 1;
+                    bracketed_last = false;
+                }
+                Tok::LParen | Tok::LBracket => match self.matching[i] {
+                    NO_PARTNER => return None,
+                    close => {
+                        i = close as usize + 1;
+                        bracketed_last = true;
+                    }
+                },
+                _ => break,
+            }
+        }
+        if !bracketed_last || self.tokens.get(i).map(|t| &t.tok) != Some(&Tok::Colon) {
+            return None;
+        }
+        let colon = i;
+        i += 1;
+        while i < self.tokens.len() && !self.is_stop(i) {
+            match &self.tokens[i].tok {
+                Tok::FatArrow => return Some(colon),
+                Tok::ColonEq => return None,
+                Tok::LParen | Tok::LBracket | Tok::LBrace => match self.matching[i] {
+                    NO_PARTNER => return None,
+                    close => i = close as usize + 1,
+                },
+                _ => i += 1,
+            }
+        }
+        None
     }
 
     /// Whether the `[` at token `i` opens an implicit binder: `[name+ :`
@@ -3799,6 +3848,14 @@ fn lambda_default(default: &Expr) -> Diagnostic {
     error(default.span(), declarations::DEFAULT_PLACES).with_note(
         "a lambda has no declaration to keep a default with: define the function with `def` \
          to give its parameters defaults",
+    )
+}
+
+/// `E-PARSE`: a lambda written with a result type, `(x: A): B => body`.
+fn lambda_result_type(colon: Span) -> Diagnostic {
+    error(colon, "a lambda doesn't take a result type").with_note(
+        "write the parameters' types only, `(x: A) => body`; to give the result's type too, \
+         annotate the body, `(x: A) => (body: B)`, or the `let`, `let f: A → B := x => body`",
     )
 }
 
@@ -5487,6 +5544,26 @@ mod tests {
         assert!(rhs_of("def f : Nat := a + x => e\n").is_err());
         // An unclosed bracket isn't skipped over.
         assert!(rhs_of("def f : Nat := (a, b => e\n").is_err());
+    }
+
+    #[test]
+    fn a_lambda_takes_no_result_type() {
+        for text in [
+            "def f : Nat := (x: Nat): Nat => x\n",
+            "def f : Nat := a (x: Nat): List (Nat) => x\n",
+            "def f : Nat :=\n  let g := (x: Nat): Nat => x\n  g 1\n",
+        ] {
+            let message = error_text(text);
+            assert!(
+                message.contains("doesn't take a result type"),
+                "{text}: {message}"
+            );
+        }
+        // An annotated body is still a lambda.
+        assert!(matches!(
+            rhs("def f : Nat := (x: Nat) => (x: Nat)\n"),
+            Expr::TypedLam(..)
+        ));
     }
 
     #[test]
