@@ -1682,7 +1682,29 @@ impl Elaborator {
             .filter(|m| edit_distance(m, &item.text) <= 2)
             .collect();
         near.sort_unstable();
-        if let Some(m) = near.first() {
+        // A constructor of a type in the namespace: it comes with its type.
+        let suffix = format!(".{}", item.text);
+        let mut types: Vec<&str> = self
+            .scope
+            .entries
+            .iter()
+            .filter(|(_, (g, _))| {
+                matches!(
+                    g,
+                    Global::Ctor(..) | Global::Pending(_, crate::library::PendingKind::Ctor)
+                )
+            })
+            .filter_map(|(k, _)| k.strip_prefix(&prefix)?.strip_suffix(&suffix))
+            .filter(|t| !t.contains('.'))
+            .collect();
+        types.sort_unstable();
+        if let Some(t) = types.first() {
+            d = d.with_note(format!(
+                "`{}` is a constructor of `{t}`, and constructors come with their type: import `{t}` instead, as in `import {} ({t})`",
+                item.text,
+                display(namespace)
+            ));
+        } else if let Some(m) = near.first() {
             d = d.with_note(format!("did you mean `{m}`?"));
         }
         d
