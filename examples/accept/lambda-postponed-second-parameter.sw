@@ -12,8 +12,6 @@ def Acc.add (acc: Acc) (n: Nat): Acc := { total = acc.total + n }
 def combine (n: Nat) (f: Nat -> b -> c) (xs: List b): List c := List.map xs (x => f n x)
 def accs: List Acc := [{ total = 5 }, { total = 7 }]
 
-
 def sums: List Nat := combine 1 (n acc => n + acc.total) accs
 
 test "the second parameter's type comes from a later argument" := sums == [6, 8]
-

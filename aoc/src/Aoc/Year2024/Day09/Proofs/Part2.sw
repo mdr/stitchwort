@@ -52,7 +52,7 @@ theorem eachFileOnce (diskMap: List Nat): (compactFiles diskMap).map .idAndLengt
   let layout := layoutFrom 0 0 diskMap
   let initial := FreeSpace.of (joinTouching layout.snd)
   rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile in
-    List.mapZipWithScanLeft File.idAndLength File.idAndLength (file free => (free.moveFile file).snd) (file free => moveFileKeeps free file)
+    List.mapZipWithScanLeft File.idAndLength File.idAndLength (file free => (FreeSpace.moveFile free file).snd) (file free => moveFileKeeps free file)
       layout.fst.reverse initial (free file => (FreeSpace.moveFile free file).fst)
 
 -- Each file moves left or stays.
