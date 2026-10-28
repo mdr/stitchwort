@@ -7488,9 +7488,9 @@
     {
       "id": 841,
       "title": "Set.sizeIntersect lemmas (size of intersect ≤ each side; with containsIntersect)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "worktree",
       "labels": [
         "stdlib"
       ],
@@ -7502,13 +7502,13 @@
     {
       "id": 842,
       "title": "Messages: a parse error's 'got' shows the next token; E-MATCH-MOTIVE / E-ARITY name the unfolded definition",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
         "bug"
       ],
-      "body": "From SW-816 (day 24), not yet reproduced. Two message improvements reported by the day 24 lane; check the day's notes for the exact cases first.",
+      "body": "From SW-816 (day 24), not yet reproduced. Two message improvements reported by the day 24 lane; check the day's notes for the exact cases first.\n\n28 Oct lane: not reproducible on main, no change. (1) The 'got' text was Std.Parse's Failure.found, fixed in 7ab25266 (test 'Parse: found, to the end of the word'); the compiler parser's unexpected/unexpected_name already describe the token at the error. (2) E-ARITY names the user's definition and the head as written (unfolded_arguments_note, examples/reject/arity-unfolded-result.sw, after SW-758). E-MATCH-MOTIVE names no definition except possibly inside the kernel's appended reason; no case found. Reopen with the original day 24 source if it recurs.\n",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
@@ -7656,7 +7656,7 @@
     {
       "id": 852,
       "title": "E-INTERNAL is shared by a user-facing error ('X is internal to the standard library') and compiler-bug errors; give the user-facing one its own code",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7665,7 +7665,10 @@
       "body": "Found by the SW-685 fuzzer lane, 28 Oct: crates/driver/tests/fuzz_elab.rs has to exclude the user-facing E-INTERNAL by message (USER_INTERNAL, 'is internal to the standard library', used by examples/reject/row-internal-*.sw). A distinct code (e.g. E-PRIVATE-STD) would let tooling and the fuzzer treat E-INTERNAL as always a compiler bug. Snapshots of row-internal-* change.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "95c1026c",
+        "991e8b53"
+      ]
     },
     {
       "id": 853,
@@ -7723,9 +7726,9 @@
     {
       "id": 856,
       "title": "Task entry to run the elaborator fuzzer in release with FUZZ_CASES/FUZZ_SEED",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "worktree",
       "labels": [
         "tooling"
       ],
