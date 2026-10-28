@@ -309,6 +309,7 @@
             pkgs.cargo-nextest # runs the test tiers (.config/nextest.toml)
             pkgs.go-task # `task`: the menu of what to run (Taskfile.yml)
             pkgs.python3 # dev/memguard, which every test task runs under
+            pkgs.jq # task test:lanes-nonempty reads `cargo nextest list` JSON
 
             # Browser playground: Rust -> WASM
             pkgs.wasm-bindgen-cli

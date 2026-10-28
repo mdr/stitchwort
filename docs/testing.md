@@ -13,6 +13,8 @@ Tests are only useful while they aren't friction, so they run in four tiers, eac
 | daily | `task test:daily` | under 5 minutes | a daily checkpoint; `nix flake check` runs the same | rustfmt, clippy, every test with each corpus sweep on a fixed sample, the doctests, `builtins` in the debug profile, the board's tests |
 | full | `task test:full` | tens of minutes | only when Matt asks | every test, every sweep over the whole corpus, the full-only tests |
 
+`task test:lanes-nonempty` fails, naming the profile, if any `[profile.lane-*]` in `.config/nextest.toml` selects no tests (a filter that matches nothing passes silently; `lane-aoc` once did). It runs `cargo nextest list` (nothing is run) for each lane profile it finds in the file, so a new one is covered at once; it costs about 1 s per profile with the binaries built (about 13 s for all), so `task test:daily` runs it, not the merge tier (it is not part of `nix flake check`). A filter naming a binary that does not exist is already a nextest config error.
+
 `task test:one -- FILTER` runs the tests matching a nextest filter (a name substring, or `-E 'binary(lsp)'`), at the daily sample. `task test:gate` is `nix flake check` (the daily tier in the Nix sandbox, plus a build from clean), and `task test:full:nix` builds `.#stitchwort-full` (the full tier in the sandbox; only when Matt asks).
 
 ### How a tier is chosen
