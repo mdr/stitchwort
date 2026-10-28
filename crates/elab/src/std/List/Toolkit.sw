@@ -130,6 +130,14 @@ def List.zipWith3: List a → List b → List c → (f: a → b → c → d) →
   | Cons x xs, Cons y ys, Nil, f => Nil
   | Cons x xs, Cons y ys, Cons z zs, f => Cons (f x y z) (List.zipWith3 xs ys zs f)
 
+-- Combines four lists up to the shortest list's length.
+def List.zipWith4: List a → List b → List c → List d → (f: a → b → c → d → e) → List e
+  | Nil, ys, zs, ws, f => Nil
+  | Cons x xs, Nil, zs, ws, f => Nil
+  | Cons x xs, Cons y ys, Nil, ws, f => Nil
+  | Cons x xs, Cons y ys, Cons z zs, Nil, f => Nil
+  | Cons x xs, Cons y ys, Cons z zs, Cons w ws, f => Cons (f x y z w) (List.zipWith4 xs ys zs ws f)
+
 -- Each element paired with the next: `[1, 2, 3].zipWithNext` is
 -- `[(1, 2), (2, 3)]`, empty for fewer than two elements.
 def List.zipWithNext: List a → List (Pair a a)

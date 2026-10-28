@@ -415,3 +415,273 @@ Nothing slow.
 6. No count monotonicity lemma (item 6).
 7. `List.removeAt` (item 5): added.
 8. The small ones (item 8).
+
+## Day 4: Ceres Search
+
+A word search. Part 1 counts every XMAS, "horizontal, vertical, diagonal,
+written backwards, or even overlapping other words". Part 2 counts the X-MAS:
+"two `MAS` in the shape of an `X` ... Within the `X`, each `MAS` can be
+written forwards or backwards" (part 2's wording is from the public copy at
+<https://github.com/romellem/advent-of-code/blob/master/2024/4/README.md>).
+Answers on Matt's input: 2524 and 1873, cross-checked with a Python script
+that tries every position and direction. The example gives 18 and 9, and so
+do the puzzle's two dotted diagrams, which are tests too.
+
+The grid is `{ rows: List (List Char) }`. Any character is a letter, so the
+puzzle's diagrams (with `.` for irrelevant letters) parse as they are, and
+rows may differ in length. Every line of four cells is four lists read side by
+side, and `zipWith4` stops at the shortest, so a line that would leave the grid
+is never read:
+
+```stitchwort
+def countXmas (first: List Char) (second: List Char) (third: List Char) (fourth: List Char): Nat :=
+  List.zipWith4 first second third fourth spellsXmas |> .count (found => found)
+
+def countAcross (row: List Char): Nat := countXmas row (row.drop 1) (row.drop 2) (row.drop 3)
+
+def countThrough (first: List Char) (second: List Char) (third: List Char) (fourth: List Char): Nat :=
+  countXmas first second third fourth
+    + countXmas first (second.drop 1) (third.drop 2) (fourth.drop 3)
+    + countXmas (first.drop 3) (second.drop 2) (third.drop 1) fourth
+
+def solvePart1 (grid: Grid): Nat :=
+  let rows := grid.rows
+  let through := List.zipWith4 rows (rows.drop 1) (rows.drop 2) (rows.drop 3) countThrough |> .sum
+  rows.sumBy countAcross + through
+
+def countCrosses (above: List Char) (middle: List Char) (below: List Char): Nat :=
+  let downRight := List.zipWith3 above (middle.drop 1) (below.drop 2) spellsMas
+  let downLeft := List.zipWith3 (above.drop 2) (middle.drop 1) below spellsMas
+  List.zipWith downRight downLeft (one other => one ∧ other) |> .count (found => found)
+```
+
+The program checked, and passed its tests on the first run, apart from one
+test that was wrong itself.
+
+The spec (`Spec/Spec.sw`) states it the puzzle's way, position by position:
+`letterAt grid r c: Option Char`; a `Direction` is a `Step` (`Back`, `Stay`,
+`Ahead`) down and one across, and `directions` lists the eight; `moved start
+step distance` is `None` before 0; part 1 counts the (position, direction)
+pairs whose letters `spells ['X', 'M', 'A', 'S']`, and part 2 counts the
+positions where `[letter one step towards the start corner, centre, letter one
+step towards the end corner]` is MAS or SAM on both diagonals. Proved for
+every grid, ragged ones included (`Aoc.Year2024.Day04.Proofs`, no axioms):
+
+- `part1Correct`: `solvePart1 grid = part1Spec grid`. The program's side
+  (`programLines`) turns each `zipWith4` into a sum over indices; the spec's
+  side (`specDirections`) widens both ranges by 3 and swaps the sums to put
+  the directions outside; then the eight directions (`rightward`, `leftward`,
+  ..., `upRight`) each equal one of the program's eight readings, the four
+  backward ones three rows or columns on (`sumShift`).
+- `part2Correct`: `solvePart2 grid = part2Spec grid`, the same way, shifted
+  by one row and one column to the centre.
+
+Lines: program 72, spec 85, `Proofs/` 642 (68 theorems: 28 in
+`Proofs/Lists.sw` are general list and sum lemmas, 26 for part 1, 14 for part
+2), tests 100. Most of the effort was the part 1 assembly.
+Sabotage: `fourth == 'S'` for `'X'` in `spellsXmas`, and `'S'` for `'M'` in
+`spellsMas`, each fail the proofs (in `at4Spells` and `masOrNone`).
+
+The symmetry theorems (the count is the same with the word reversed, or the
+grid transposed) weren't attempted: the direct proof against the spec was
+done first, and makes them unnecessary for correctness.
+
+### 1. The proof found a bug the tests had written down as right
+
+The first part 2 program took the columns of three rows and then three
+columns at a time:
+
+```stitchwort
+let columns := List.zipWith3 above middle below (top centre bottom => (top, centre, bottom))
+List.zipWith3 columns (columns.drop 1) (columns.drop 2) isCross |> .count (found => found)
+```
+
+`zipWith3` stops at the shortest row, so in rows `M.S`, `.A`, `M.S` the cross
+centred on the `A` is lost: its block includes the missing cell at the end of
+the middle row, which isn't one of the cross's letters. I had written that as
+a test, `part2 ["M.S", ".A", "M.S"] == 0` ("a cross cut short"). The spec
+says 1, and setting up the proof made that plain: the program read nine cells
+and the spec five. The program now zips just the five cells of the X (the two
+diagonals of three), which reads more like the puzzle, and the test says 1.
+Puzzle inputs are rectangular, so the answers were never affected. This
+isn't reshaping the program for the proof: on the grids that parsing accepts,
+the two programs differed.
+
+### 2. `+` recurses on its first argument, so `c + 1` doesn't compute
+
+`Nat.add` is `| Zero, n => n | Succ m, n => Succ (Nat.add m n)`, so `1 + c`
+computes to `Succ c` and `c + 1` doesn't. The spec's `Ahead => Some (start +
+distance)` is the natural way to write it, but every proof about an `Ahead`
+direction then needs `rewrite Nat.addZero c, Nat.addComm c 1, Nat.addComm c 2,
+Nat.addComm c 3` (five of the eight directions, and part 2's corners) before
+`cases` can finish. `getDrop` (below) is stated as `k + j` for the same
+reason. Lean's `Nat.add` recurses on the second argument
+([Prelude](https://github.com/leanprover/lean4/blob/master/src/Init/Prelude.lean):
+`| a, Nat.succ b => Nat.succ (Nat.add a b)`), so `n + 1` computes there.
+Fix: recurse on the second argument (`x + 1` is far more common in specs
+than `1 + x`), or let conversion use `Nat.addComm` for literals.
+
+### 3. `rfl` errors that print both sides the same
+
+A wrong offset in `throughSum` (`… 1 1 0 1` for `… 1 1 0 0`) gave
+
+```text
+[E-REFL] Error: `rfl` can't prove this
+  `List.foldLeft (List.rangeFrom n 0) 0 (acc x => acc + (… + …)) + List.foldLeft (List.rangeFrom n 0) 0 (acc x => acc + (… + …)) + List.foldLeft (List.rangeFrom n 0) 0 (acc x => acc + (Bool.toNat … + Bool.toNat …))` and `List.foldLeft (List.rangeFrom n 0) 0 (acc x => acc + (… + …)) + List.foldLeft (List.rangeFrom n 0) 0 (acc x => acc + (… + …)) + List.foldLeft (List.rangeFrom n 0) 0 (acc x => acc + (Bool.toNat … + Bool.toNat …))` aren't equal
+```
+
+The two strings are identical: the difference is inside an `…`. The first try
+at `rightward` (item 4) was nearly as bad (one more `&& …` on one side), and `programLines`' row step gave
+
+```text
+Note 1: the two sides differ only in arguments the compiler fills in, shown here in `[brackets]` (an implicit argument, or a proof such as `d != 0`; proofs of the same statement aren't interchangeable)
+```
+
+when they differed in `Option.getOrElse (List.get grid.rows (Succ x)) []`
+against `List.getOr grid.rows (Succ x) []` (item 6), visible further along the
+same printed line. What worked: proving the step as a separate pointwise
+lemma, whose smaller terms printed in full. Fix: elide only what the two sides
+share, and print the first subterm where they differ, as Lean's `rfl` failure
+shows the two goals and `decide`/`simp` failures name the subterm; and check
+that the "differ only in arguments the compiler fills in" note is true before
+giving it.
+
+### 4. `xs.all p` over a literal list isn't the `&&` of its elements
+
+The spec's `List.range 4 |> .all (distance => …)` computes to
+`p 0 && p 1 && p 2 && p 3 && True` (the `True` of `all`'s `Nil` case), and
+`d && True` is `if d then True else False`, which isn't `d` by computation.
+So `spells … = (p 0 ∧ p 1 ∧ p 2 ∧ p 3)` is not `rfl`; the error was item 3's,
+with the extra `&& …` the only difference. `cases` proves it. Fix: a better
+message (item 3) would have made this a minute's work; std could also state
+`List.allCons`-style lemmas so a proof can avoid relying on computation.
+
+### 5. `rewrite` with a hole can't solve an instance argument
+
+```stitchwort
+rewrite acrossSum grid _ wide (rowFits grid _), List.sumByAdd (List.range wide) _ _, …
+```
+
+```text
+[E-REWRITE-NOTHING] Error: `rewrite` found no `List.sumBy (List.range (width grid + 3)) (x => Add.%add ?58 ?59 ?60)` in the goal
+```
+
+`List.sumByAdd` is generic in `[auto add: Add c]`, and with both functions
+left as `_` the `Add` instance stays a hole (`?58`), so nothing matches. It
+also prints `Add.%add`, an internal name. What worked: a Nat-only lemma for
+double sums (`sumBy2Add`), applied with explicit functions. Fix: unify the
+rule's pattern with the goal before resolving `auto` instances (the goal's
+`+` fixes `c = Nat`).
+
+### 6. `rewrite` with `_` rewrites one instance
+
+`rewrite <- List.getOrGet rows _ []` turned `Option.getOrElse (List.get rows r) []`
+back into `List.getOr rows r []` for `r` but not for `1 + r`, `2 + r` and
+`3 + r`: the hole is filled by the first match, then only that instance is
+rewritten. Writing the rule four times worked. This is how Lean's `rw`
+behaves too, but Lean has `simp only [List.getOr_eq]` for "every instance";
+here the symptom was item 3's misleading note. Fix: a `rewrite all` (or
+`simp`-like) form, or a note when a rule with holes matched once and other
+instances remain.
+
+### 7. Missing list lemmas
+
+Written in `Proofs/Lists.sw` (228 lines), all general:
+
+- `getDrop`: `(xs.drop k).get j = xs.get (k + j)`. Lean has
+  [`List.getElem?_drop`](https://lean-lang.org/doc/api/Init/Data/List/Nat/TakeDrop.html)
+  (`@[simp]`).
+- `getZipWith3` in `Option` form (std's `getOrZipWith3` needs equal lengths),
+  `lengthZipWith3Le`, and `zipWith3`/`zipWith4` with an empty list.
+- `sumByZipWith`, `sumByZipWith3`, `sumByZipWith4`: a sum over lists zipped
+  in step is a sum over indices up to any bound (with `at2`/`at3`/`at4`, 0
+  where an element is missing). These are what every grid-by-lists proof
+  needs; 2025's day 4 has the `Vec` versions.
+- `sumRangeExtend` (a sum over a longer range whose extra terms are 0) and
+  `sumShift` (a sum over `n + k` indices whose first k terms are 0 is a sum
+  from k), each a few lines on top of `List.sumByRangeSplit`,
+  `List.sumByZeroIntro` and `List.sumByRangeOffset`.
+- `someEq`: `(Some x == Some y) = (x == y)` doesn't hold by computation
+  (`Option.decEq` wraps the answer in `Option.decSome`), so it needs a
+  two-line lemma about `Option.decSome`.
+
+Fix: move these to `List/Index.sw` and `List/Toolkit.sw`; make
+`Option.decSome`'s `toBool` reduce (or add `Option.someEq`).
+
+### 8. A `let` inside parentheses doesn't parse
+
+```stitchwort
+(c early => spellsShort grid r c { … } (let short: Nat.leq 3 c = False := omega in rewrite short in rfl))
+```
+
+```text
+[E-PARSE] Error: expected an expression, but found `let`
+```
+
+A `let` is only allowed at the start of a block, so a one-off fact for an
+argument needs the argument on its own indented lines (as in `specCrosses`'
+`c early =>` arguments). Lean writes `(have h : … := by omega; …)` inline.
+Fix: allow `let … in …` (or `let …; …`) as an expression. In the end `cases`
+did these steps with no fact at all.
+
+### 9. Goals show the proof terms of `let`s
+
+The goal shown for a `?` lists every `let` in scope with its value, and for
+a proof that is the whole term:
+
+```text
+tallSplit: height grid + 3 = height grid + 2 + 1 := Omega.proveEq (MkEnv [List.length grid.rows] []) [] (NAdd (NV 0) (NLit 3)) (NAdd (NAdd (NV 0) (NLit 2)) (NLit 1)) (Then NegGoal (Close 0)) (Then NegGoal (Close 0)) rfl rfl Trivial
+```
+
+and `across` in `programLines` printed as a 40-line `J`/`Eq.trans` term. One
+step's message also showed `Effect.doneD (?83 grid) (?82 grid) (countThrough …)`,
+an internal wrapper. Lean shows a `have`'s type only. Fix: print the type,
+not the value, of a `let` whose type is a proposition.
+
+### 10. What went well
+
+`cases` did most of the work. It closed every pointwise fact about letters
+(`at4Spells`, `masOrNone`, `crossAtTop`, the "no XMAS starts in the first
+three columns" steps) by splitting on `Option`s, `Nat.leq` and the
+characters' `Nat.decEq`, without help. A `Back` step from `3 + c` computes
+(`(3 + c) - 1` is `2 + c`), so each backward direction was a three-line
+`sumShift`. `rewrite` under `List.sumBy`'s binder (`rewrite acrossSum grid _
+wide (rowFits grid _)`) worked first time. The proof time was in finding the
+right statements, not in fighting the checker, except for items 3 to 6.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache` (whole project) | 6.0 s (5.0 s before day 4) |
+| `stitchwort check` (warm) | 1.4 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day04.Proofs` | 1.7 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day04` | 0.32 s |
+| `stitchwort test --no-cache Aoc.Year2024.Day04` (33 tests) | 1.8 s |
+| `stitchwort test Aoc.Year2024.Day04` (warm) | 0.53 s |
+| `stitchwort run Aoc.Year2024.Day04.main` on the input (140 by 140) | 0.23 s |
+| the same on a random 443 by 443 grid (10 times the cells) | 0.57 s |
+| the same on a random 1,400 by 1,400 grid (100 times) | 3.9 s |
+
+The large grids' answers match the Python script. The spec run on the real
+input as a test took about 0.5 s more (not kept: the proofs cover it).
+
+### Ranked
+
+1. The proof caught a real difference between program and spec (item 1):
+   worth recording as the payoff, not a gap.
+2. `rfl` errors that print both sides the same, and the wrong
+   "compiler fills in" note (item 3): cost the most time.
+3. `c + 1` doesn't compute (item 2): rewrites in every `Ahead` proof.
+4. Holes and instances in `rewrite` (items 5 and 6).
+5. Missing list lemmas: `getDrop`, sums over zipped lists, range shifts,
+   `Some x == Some y` (item 7).
+6. `xs.all p` ends in `&& True` (item 4).
+7. Proof terms in goals (item 9).
+8. No inline `let` (item 8).
+9. `List.zipWith4` was missing; added to `List/Toolkit.sw` beside
+   `zipWith3` (Haskell's `Data.List` has
+   [`zipWith4` to `zipWith7`](https://hackage.haskell.org/package/base/docs/Data-List.html)).
+   The prelude hash snapshot gains one line.
