@@ -461,7 +461,7 @@ Numbers are provisional.
 
 - (a) **[Recommended]** Every proof, in any file. The proof-only rule is
   what protects the runtime; users need it for their own abilities.
-- (b) Std only, at first (`E-INTERNAL`, as D1122's names); users rewrite
+- (b) Std only, at first (`E-STD-INTERNAL`, as D1122's names); users rewrite
   with std's lemmas.
 
 **D1145: how fine the proof-only check is.**
@@ -663,7 +663,7 @@ declaration's result is not erased, or a body-less expression (a `test`).
 `Elaborator::unknown` then reports `E-PROOF-ONLY`, "`Effect.Comp.Done` takes
 a computation apart, so it can only be used in a proof", with notes saying
 where it is allowed and to use a handler instead. I chose `E-PROOF-ONLY`
-(not `E-INTERNAL`) because the names are usable in proofs, as `reify` is, and
+(not `E-STD-INTERNAL`) because the names are usable in proofs, as `reify` is, and
 the test is the same one (`body_erased`, the kernel's own `result_erased`),
 so the two errors read alike.
 

@@ -324,7 +324,7 @@ There is no `effect_rows` test binary; the row examples
 Before merging it as the real change it would need: a unit test of `lift`'s
 new case (closed into open with the same abilities; different order; more
 abilities; partial), an example where `e` turns out non-empty and a law still
-applies (`Each`-style), a test that `widenIn` is `E-INTERNAL` from a program,
+applies (`Each`-style), a test that `widenIn` is `E-STD-INTERNAL` from a program,
 and the R1 note's limit bullet updated.
 
 ## 6. What stays open, with any option except C and D

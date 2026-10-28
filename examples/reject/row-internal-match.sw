@@ -1,4 +1,4 @@
--- expect-error: E-INTERNAL
+-- expect-error: E-STD-INTERNAL
 -- Matching on a row's constructors is refused too (D1122).
 import Std.Effect (Effects)
 import Std.Effect.Effects (Empty, Ops)

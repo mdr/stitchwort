@@ -1,4 +1,4 @@
--- expect-error: E-INTERNAL
+-- expect-error: E-STD-INTERNAL
 -- A program can't take a row apart, so an effect-polymorphic function can't
 -- behave differently in the empty row (D1122): `Effect.rowOp` is internal to
 -- the standard library.

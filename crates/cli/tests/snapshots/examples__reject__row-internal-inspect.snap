@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-INTERNAL] Error: `Effect.rowOp` is internal to the standard library
+[E-STD-INTERNAL] Error: `Effect.rowOp` is internal to the standard library
    ╭─[ reject/row-internal-inspect.sw:7:66 ]
    │
  7 │ def operationsOf [e: Effect.Effects] (f: Nat → {e} Nat): Type := Effect.rowOp e

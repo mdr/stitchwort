@@ -68,10 +68,6 @@ const CACHE_EVERY: usize = 10;
 /// `E-NONEXHAUSTIVE`, `E-RESOURCE`, `E-BUILTIN`, `E-UNFOLDING-*`,
 /// `E-NOT-OPAQUE`, `E-FAILED-DEPENDENCY`) are verdicts on the program that
 /// the user can cause.
-/// The text of the one `E-INTERNAL` the elaborator gives a user (naming a
-/// standard library definition a program mustn't touch), which isn't a bug.
-const USER_INTERNAL: &str = "is internal to the standard library";
-
 const BAD_KERNEL_CODES: &[&str] = &[
     "E-MALFORMED",
     "E-TYPE-MISMATCH",
@@ -562,7 +558,7 @@ fn check(text: &str, cache: Option<&Path>) -> Report {
     };
     let internal = diagnostics
         .iter()
-        .filter(|d| d.code.contains("INTERNAL") && !d.message.ends_with(USER_INTERNAL))
+        .filter(|d| d.code.contains("INTERNAL") && d.code != "E-STD-INTERNAL")
         .map(|d| format!("{}: {}", d.code, d.message))
         .collect();
     let codes = diagnostics.iter().map(|d| d.code).collect();
