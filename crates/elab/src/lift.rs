@@ -314,8 +314,7 @@ fn go_replace(
         if ix < under {
             return Ok(Term::Var(ix));
         }
-        // A variable bound after `depth` has a wrapped index here.
-        Ok(f(depth.wrapping_sub(1).wrapping_sub(ix - under))?.shift(g, under, 0)?)
+        Ok(f(depth - 1 - (ix - under))?.shift(g, under, 0)?)
     };
     let split = |ix: usize| -> Result<usize> {
         match var(ix)? {
@@ -435,13 +434,15 @@ pub(crate) fn uses(
     }
 }
 
-/// Whether a value of type `ty` (in a context of `level` variables) is
-/// erased when running: a type, or a proof. Its shape decides it (under any
-/// parameters, an equation, a sort or a data type), or else the kernel's
-/// inference of its sort.
-fn erased_type(e: &Elaborator, draft: &Draft, level: usize, ty: &Value) -> Result<bool> {
+/// Whether a value of type `ty` (in `draft`'s context) is erased when
+/// running: a type, or a proof. Its shape decides it (under any parameters,
+/// an equation, a sort or a data type), or else the kernel's inference of
+/// its sort. A variable's type is in the whole context too: a case split
+/// may have replaced a variable it uses by a constructor whose fields are
+/// bound after it.
+fn erased_type(e: &Elaborator, draft: &Draft, ty: &Value) -> Result<bool> {
     let g = &e.globals;
-    let (mut at, mut result) = (level, ty.clone());
+    let (mut at, mut result) = (draft.env.len(), ty.clone());
     loop {
         match force(g, result)? {
             Value::Pi(_, _, _, codomain) => {
@@ -455,9 +456,9 @@ fn erased_type(e: &Elaborator, draft: &Draft, level: usize, ty: &Value) -> Resul
     }
     let cx = Ctx::from_parts(
         e,
-        draft.env[..level].to_vec(),
-        draft.types[..level].to_vec(),
-        draft.names[..level].to_vec(),
+        draft.env.clone(),
+        draft.types.clone(),
+        draft.names.clone(),
         draft.span,
     );
     crate::cases::is_proposition(&cx, ty)
@@ -740,8 +741,8 @@ impl Elaborator {
                 "internal error: an update's variable is neither captured nor a `let`",
             ));
         };
-        let value = self.unrefine_as(draft, &def.value, level, &|_| false, true)?;
-        replace(&self.globals, &value, level, &|l| {
+        let value = self.unrefine_let(draft, level, &def.value, &|_| false)?;
+        replace(&self.globals, &value, draft.env.len(), &|l| {
             self.in_helper(draft, captures, l)
         })
     }
@@ -845,9 +846,42 @@ impl Elaborator {
         keep: &dyn Fn(usize) -> bool,
         lets: bool,
     ) -> Result<Term> {
+        self.unrefine_before(draft, term, depth, keep, lets, depth)
+    }
+
+    /// `term`, a part of the `let` at `level` of `draft`'s context (its
+    /// type or value, in the first `level` variables), unrefined as
+    /// [`Elaborator::unrefine_call`] does, as a term in the whole context: a
+    /// case split after the `let` may have replaced a variable it uses by a
+    /// constructor whose fields are bound after the `let`. Solutions are
+    /// folded back only to the `let`s before it.
+    fn unrefine_let(
+        &self,
+        draft: &Draft,
+        level: usize,
+        term: &Term,
+        keep: &dyn Fn(usize) -> bool,
+    ) -> Result<Term> {
+        let n = draft.env.len();
+        let term = term.shift(&self.globals, n - level, 0)?;
+        self.unrefine_before(draft, &term, n, keep, true, level)
+    }
+
+    /// [`Elaborator::unrefine_as`], folding solutions back only to the
+    /// `let`s at levels before `before`.
+    fn unrefine_before(
+        &self,
+        draft: &Draft,
+        term: &Term,
+        depth: usize,
+        keep: &dyn Fn(usize) -> bool,
+        lets: bool,
+        before: usize,
+    ) -> Result<Term> {
         let g = &self.globals;
         let t = if lets {
-            let around = self.around(draft, depth);
+            let mut around = self.around(draft, depth);
+            around.retain(|(slot, _, _)| *slot < before);
             self.zonk_around(term, depth, keep, &around)?
         } else {
             self.zonk_keeping(term, depth, keep)?
@@ -876,12 +910,27 @@ impl Elaborator {
             (*made, *done) = (trail, 0);
             around.clear();
         }
+        let n = draft.env.len();
         for l in *done..upto {
             if draft.lets[l].is_some()
-                && let Some(normals) = crate::unify::cheaply(g, || {
+                && let Some((scope, normals)) = crate::unify::cheaply(g, || {
+                    // A case split may have replaced a variable the value
+                    // uses by a constructor whose fields are bound after the
+                    // `let`: then the normal form is in a context that has
+                    // them.
+                    let forms = crate::unify::both_forms(g, n, &draft.env[l])?;
+                    let mut free = BTreeSet::new();
+                    for form in &forms {
+                        uses(form, n, &|_| None, &mut free);
+                    }
+                    let scope = free.last().map_or(l, |&last| l.max(last + 1));
                     let mut out = Vec::new();
-                    for normal in crate::unify::both_forms(g, l, &draft.env[l])? {
-                        out.push(crate::unify::refold(g, normal, l, around).map_err(
+                    for form in forms {
+                        let normal = replace(g, &form, n, &|v| Ok(Term::Var(scope - 1 - v)))
+                            .map_err(|_| {
+                                stitchwort_core::budget::ResourceError::Nesting(crate::check::PASS)
+                            })?;
+                        out.push(crate::unify::refold(g, normal, scope, around).map_err(
                             |e| match e {
                                 crate::unify::ZonkError::Resource(e) => e,
                                 crate::unify::ZonkError::Unsolved(_) => {
@@ -890,18 +939,22 @@ impl Elaborator {
                             },
                         )?);
                     }
-                    Ok(out)
+                    Ok((scope, out))
                 })
             {
                 for normal in normals {
                     if crate::unify::worth_folding(&normal) {
-                        around.push((l, Rc::new(normal)));
+                        around.push((l, scope, Rc::new(normal)));
                     }
                 }
             }
         }
         *done = (*done).max(upto);
-        around.iter().filter(|(l, _)| *l < depth).cloned().collect()
+        around
+            .iter()
+            .filter(|(_, scope, _)| *scope <= depth)
+            .cloned()
+            .collect()
     }
 
     /// The helper's body, unrefined, with the `let`s of the owner's context
@@ -1018,10 +1071,10 @@ impl Elaborator {
                 continue;
             }
             let def = draft.lets[l].as_ref().expect("a `let`'s slot");
-            let ty = self.unrefine_as(draft, &def.ty, l, keep, true)?;
-            let value = self.unrefine_as(draft, &def.value, l, keep, true)?;
-            lets_in(&ty, l, &mut work);
-            lets_in(&value, l, &mut work);
+            let ty = self.unrefine_let(draft, l, &def.ty, keep)?;
+            let value = self.unrefine_let(draft, l, &def.value, keep)?;
+            lets_in(&ty, n, &mut work);
+            lets_in(&value, n, &mut work);
             defs.insert(l, (ty, value));
         }
         if defs.is_empty() {
@@ -1044,8 +1097,8 @@ impl Elaborator {
             let (ty, value) = &defs[l];
             body = Term::let_(
                 draft.names[*l].clone(),
-                moved(ty, *l, i)?,
-                moved(value, *l, i)?,
+                moved(ty, n, i)?,
+                moved(value, n, i)?,
                 body,
             );
         }
@@ -1197,12 +1250,11 @@ impl Elaborator {
             return Ok(out);
         }
         let goal = eval(g, &draft.env, &draft.goal)?;
-        if erased_type(self, draft, draft.env.len(), &goal)? {
+        if erased_type(self, draft, &goal)? {
             return Ok(out);
         }
         for level in 0..draft.base.min(draft.lets.len()) {
-            if draft.lets[level].is_some() && !erased_type(self, draft, level, &draft.types[level])?
-            {
+            if draft.lets[level].is_some() && !erased_type(self, draft, &draft.types[level])? {
                 out.insert(level);
             }
         }
