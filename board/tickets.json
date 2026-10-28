@@ -1,5 +1,5 @@
 {
-  "next": 749,
+  "next": 752,
   "tickets": [
     {
       "id": 13,
@@ -6197,7 +6197,7 @@
     {
       "id": 740,
       "title": "omega handles Int atoms (AoC 2024 day 8: every Int inequality became a case split to Nat)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6233,7 +6233,7 @@
     {
       "id": 743,
       "title": "AoC 2024 day 10: solve, prove, log gaps (overnight)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6281,7 +6281,7 @@
     {
       "id": 747,
       "title": "Split List/Sort.sw (1,663 lines) into functions and lemmas, as Toolkit was",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6294,6 +6294,42 @@
       "id": 748,
       "title": "Folded read-back keeps unfolding after a call that steps at once (value.rs:2065): if True then concatenate a b else 0 prints as List.foldLeft … (folded-goals note stage 1)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 749,
+      "title": "AoC 2024 day 11: solve, prove, log gaps (overnight)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 750,
+      "title": "omega reads || (case split), == on Nat (Bool), and fields of literal records; day 10 drops its Prop copy of the step",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 751,
+      "title": "Day 10 findings: list membership holes fill by unfolding; match on n + 1 reduces as Succ n; if-comparisons as Bool consistently; Add.zero vs 0 when comparing; List.forEach and length/count lemmas; 'in' on its own line after a multi-line rewrite",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
