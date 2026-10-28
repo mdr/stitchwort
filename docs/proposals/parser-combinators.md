@@ -1,6 +1,6 @@
 # Proposal: a parser library for puzzle input
 
-**Status:** draft 1, 27 October 2026, for review. Research only: nothing here is in std. The experiments are scratch files, not committed (listed in [Appendix A](#appendix-a-experiments)).
+**Status:** stage 1 built, 28 October 2026: `Std.Parse` is in std (`crates/elab/src/std/Parse/Parse.sw`), with one `Parse` ability rather than `{Parse, Fail}` (decided by Matt, §4.4). §6.1 lists the API as built, and §7.4 has its measurements. The research stage's experiments are scratch files, not committed (listed in [Appendix A](#appendix-a-experiments)).
 
 Matt asked for a std parser-combinator library for turning puzzle input (Advent of Code first, but not only) into the program's own types. This note looks at how other languages do it, tries the main options in Stitchwort, and recommends one.
 
@@ -8,10 +8,10 @@ Tags: **[source]** read in this repository, **[ran]** run in a scratch file with
 
 ## 1. The recommendation in brief
 
-- **A parser is ordinary direct-style code with two abilities, `{Parse, Fail}`.** `Parse` holds the input; `Fail` is the existing failure ability, so `ensure`, `need`, `toNatOrFail` and `Fail.context` work inside parsers unchanged. Code reads like today's AoC `parse` functions:
+- **A parser is ordinary direct-style code with one ability, `{Parse}`**, as in Unison's parser libraries (§4.4). `Parse` holds the input and also fails: `Parse.fail`, `Parse.ensure` and `Parse.need` mirror `Fail`'s, and `Parse.fromFail` turns an existing `{Fail}` helper (`toNatOrFail`) into a parse failure at the current point. The runners turn a parse error into an ordinary `Fail`, so `Fail.context` works on the result. Code reads like today's AoC `parse` functions:
 
   ```
-  def point(): {Parse, Fail} Point :=
+  def point(): {Parse} Point :=
     let x := nat()
     char ','
     let y := nat()
@@ -19,13 +19,13 @@ Tags: **[source]** read in this repository, **[ran]** run in a scratch file with
     let z := nat()
     { x, y, z }
 
-  def parsePoints (input: Text): {Fail} (List Point) := Parse.all input (() => lines point)
+  def parsePoints (input: Text): {Fail} (List Point) := Parse.eachLine input point
   ```
 
   A bad line fails with `line 3, column 6: expected ','`.
 - **The operations are token-sized, not character-sized.** "Read the digits here" is one operation, so a line costs a handful of operations. Character-sized operations made parsing 25 to 33 times slower than today's `split` (§7).
 - **Choice backtracks locally, as in a PEG.** `oneOf`, `optional` and `many` put the input back when an alternative fails. Nothing is ever retried after a choice has returned. There's no `try` to remember.
-- **Loops are total because each repetition must read something.** `many` stops (or fails, see the open choices) if its parser matches without reading. Its fuel is the number of characters left, which is always enough.
+- **Loops are total because each repetition must read something.** `many` fails the whole parse ("`many`: the parser matched without reading anything") if its parser matches without reading, as Parsec and nom do. Its fuel is the number of characters left, which is always enough.
 - **Errors name the furthest point any alternative reached**, and everything expected there: `expected a number or ','`. Positions are counted as one number while parsing and turned into a line and column once, at the end.
 - **For one-line formats, a pattern function**: `line.scan "p={},{} v={},{}"` gives the four texts between the literal pieces. Later, possibly, the same thing as a pattern in `match` (§6.3).
 
@@ -75,7 +75,7 @@ So the core set is: numbers (natural and signed), a literal, a keyword table, si
 | agdarsec (Agda) | indexed by the input's length; a `Success` carries `.small : size < n` | list of successes | a parser must consume to succeed; recursion goes through a "□" (box) type: "available on strictly smaller inputs" | — | [paper](https://gallais.github.io/pdf/agdarsec18.pdf), [repo](https://github.com/gallais/agdarsec) **[web]** |
 | Danielsson's total parser combinators (Agda) | mixed induction and coinduction; the type says whether a parser accepts the empty string | list of successes | sequencing is read coinductively only when the other side can't accept the empty string; handles many left-recursive grammars | — | [paper](https://www.cse.chalmers.se/~nad/publications/danielsson-parser-combinators.pdf) **[web]** |
 
-Unison: I found no parser library built on abilities whose design I could read; [unison-parsers](https://github.com/zenhack/unison-parsers) is marked work in progress and its README shows no code **[web]**. Eff and Frank: their papers and examples use nondeterminism and backtracking handlers ([Eff](https://github.com/matijapretnar/eff), [Bauer and Pretnar](https://arxiv.org/pdf/1203.1539)), but I found no parser library. A later paper describes a parser effect as "nondeterminism with cut" plus a token-consuming effect, following Wu, Schrijvers and Hinze 2014 ([Calculus for Scoped Effects](https://arxiv.org/pdf/2304.09697)) **[web]**; I didn't read the 2014 paper itself.
+Unison: draft 1 found no parser library built on abilities ([unison-parsers](https://github.com/zenhack/unison-parsers) is marked work in progress). Two exist on Unison Share, [@rlmark/parsing](https://share.unison-lang.org/@rlmark/parsing) and [@dfreeman/yap](https://share.unison-lang.org/@dfreeman/yap), each with one `Parse` ability that also fails (§4.4) **[web]**. Eff and Frank: their papers and examples use nondeterminism and backtracking handlers ([Eff](https://github.com/matijapretnar/eff), [Bauer and Pretnar](https://arxiv.org/pdf/1203.1539)), but I found no parser library. A later paper describes a parser effect as "nondeterminism with cut" plus a token-consuming effect, following Wu, Schrijvers and Hinze 2014 ([Calculus for Scoped Effects](https://arxiv.org/pdf/2304.09697)) **[web]**; I didn't read the 2014 paper itself.
 
 ### 3.2 Pattern-shaped helpers for puzzle input
 
@@ -108,7 +108,7 @@ Unison: I found no parser library built on abilities whose design I could read; 
 
 **A. A parser as a data value**: `(input: List Char) → Reply input a`, with combinators `map`, `flatMap`, `andThen`. This is Hutton–Meijer, Lean, cats-parse.
 
-**B. A parser as effectful code**: `() → {Parse, Fail} a`, where `Parse` operations read from input the handler holds. This is Koka, Effekt, Parseff.
+**B. A parser as effectful code**: `() → {Parse} a` (drafted as `{Parse, Fail}`, §4.4), where `Parse` operations read from input the handler holds. This is Koka, Effekt, Parseff.
 
 **C. B on the surface, A underneath**: `Parse` has one operation that runs a data-style parser. Not possible today: an ability's operation can't be polymorphic in its result type ([abilities.md](abilities.md), and `Each.each` works around it the same way) **[source]**.
 
@@ -117,7 +117,7 @@ Unison: I found no parser library built on abilities whose design I could read; 
 | | A: data | B: abilities |
 |---|---|---|
 | Reading | Nested `flatMap`s: Stitchwort has no do-notation and no user-defined operators (no `<*>`, `*>`, D1207) **[source]**. See the example below | Direct style, like every AoC `parse` today |
-| `Fail` inside a parser | Must be turned into a `Reply` | Works as is: `ensure`, `need`, `toNatOrFail` |
+| `Fail` inside a parser | Must be turned into a `Reply` | `Parse.ensure` and `Parse.need` mirror `Fail`'s; `Parse.fromFail` runs a `{Fail}` helper such as `toNatOrFail` (§4.4) |
 | Termination of `many` | Can be in the type: a reply carries `rest.length < input.length`, and `decreasing input.length` needs no run-time check (§5.1) **[ran]** | Fuel equal to the characters left, plus a run-time check that each round read something (§5.2) **[ran]** |
 | Speed, 100k lines (§7) | 1.96 s machine, 0.65 s native, 0.83 s JS (per line) | 3.3 s machine, 1.8 s native, 1.0 s JS (per line) |
 | Proofs | Plain functions: equations by `rfl` and induction | Bridging lemmas through the handler, `rfl` or one `rewrite` each (§8) **[ran]** |
@@ -134,7 +134,7 @@ def point: Parser1 Point :=
 and the ability version **[ran]**:
 
 ```
-def point(): {Parse, Fail} Point :=
+def point(): {Parse} Point :=
   let x := nat()
   char ','
   let y := nat()
@@ -160,6 +160,17 @@ Each.collect (() =>
 ```
 
 It's the wrong default (§3.4, point 2): all parses where you want one, exponential cases, no good error. But it's a nice property of the design that it composes: a puzzle with an ambiguous grammar can use `Each` with the same `Parse` operations, without a second library.
+
+### 4.4 One ability, not `{Parse, Fail}` (decided)
+
+Draft 1 recommended the row `{Parse, Fail}`, so that `Fail`'s helpers would work inside parsers unchanged. Matt chose a single `Parse` ability instead, following Unison's parser libraries **[web]**. In [@rlmark/parsing](https://share.unison-lang.org/@rlmark/parsing) a parser is a delayed computation with the `Parse` ability, run by `run : '{g, Parse err} a -> Text ->{g} Either (Error err) a`. In [@dfreeman/yap](https://share.unison-lang.org/@dfreeman/yap), "a parser is any delayed computation that uses the `Parse` ability", and `failWith` fails "at the current location for an arbitrary reason other than a combinator like `text` failing to match".
+
+As built:
+
+- **Failing is part of `Parse`.** `Parse.fail "message"`, `Parse.ensure` and `Parse.need` fail at the current point, so the nearest choice backs up and the message takes part in furthest-point errors. `Parse.expected "a number"` fails with an expectation, joined to others at the same point with "or".
+- **`Parse.fromFail`** turns an existing `{Fail}` helper (`Text.toNatOrFail`, `Aoc.Common.Range.parse`) into a parse failure at the current point.
+- **Runners turn a parse error into an ordinary `Fail`**, with `line L, column C: …`, so callers keep using `Fail.context` and `Fail.toResult`.
+- **The cost:** a choice can't use `Fail.recover`, which would leave the `Parse` operations to the outer handler. `optional` and `label` instead handle `Parse` themselves and pass every operation but `stop` on to the outer handler. Inside a choice, each operation goes through one extra handler per enclosing choice. The per-line timings stayed within noise of the prototype's (§7.4).
 
 ## 5. Termination
 
@@ -192,25 +203,25 @@ All of these were checked with the release build **[ran]**:
 
 Use fuel equal to the characters left, inside the library, for `many`, `some`, `sepBy1`, `lines` and `sections`. Users write no fuel and no measures. The `decreasing` machinery doesn't apply to effect parsers, because the measure (the input left) lives in the handler, not in an argument.
 
-What `many` does when its parser matched without reading anything is an open choice (§10).
+When its parser matched without reading anything, `many` fails the whole parse with "`many`: the parser matched without reading anything" (decided, §10). The failure is the `Parse.fatal` operation, which no choice backs out of: it's a bug in the parser, not a mismatch in the input.
 
 ### 5.3 Recursive grammars
 
 A parser for nested input calls itself: `packet` contains a list of `packet`s. Nothing in its arguments gets smaller, so the checker refuses a plain recursive definition. The library offers a combinator with the same fuel argument, where each level of nesting uses one unit **[ran]** (`recursive.sw`):
 
 ```
-def packet(): {Parse, Fail} Nat := recursive (nested =>
+def packet(): {Parse} Nat := recursive (nested =>
   oneOf [
-    () => nat(),
+    nat,
     () =>
       char '['
-      let items := optional (() => sepBy1 nested (() => char ','))
+      let items := sepBy nested (() => char ',')
       char ']'
-      (items.getOrElse []).sum
+      items.sum
   ])
 ```
 
-A grammar that nests without reading (left recursion, `self()` first) runs out of fuel after as many levels as there are characters left, and fails with `expected less deeply nested input` instead of looping. That matches aoc-parse's and Parsec's "left recursion doesn't work", but as an error rather than a hang.
+A grammar that nests without reading (left recursion, `self()` first) runs out of fuel after as many levels as there are characters left. As built, it then fails the whole parse with "`recursive`: the parser called itself without reading anything" instead of looping. Running out always means that: the nesting reached more levels than there are positions in the input, so some level called itself at the point where it started, and would do so forever. That matches aoc-parse's and Parsec's "left recursion doesn't work", but as an error rather than a hang.
 
 (The example sums the numbers because `type Packet = … | Packets (items: List Packet)` is refused, `E-POSITIVITY`: a type can't contain itself inside a `List`. The known workaround is a tree type and a forest type defined together. That limit isn't the parser library's, but tree-shaped puzzle input will meet it.)
 
@@ -218,61 +229,80 @@ A grammar that nests without reading (left recursion, `self()` first) runs out o
 
 ### 6.1 The library
 
-Sketched from the prototype that ran (`proto.sw`, 330 lines with tests). Names are proposals. Everything below ran except `digit` (not written) and `label`, whose prototype adds its name to what `p` expected instead of replacing it (`expected 'L' or 'R' or a turn like L68`); replacing needs the handler to drop the expectations noted inside `p` at its starting point, a stage 1 detail.
+**Built** (stage 1) in `crates/elab/src/std/Parse/Parse.sw`, namespace `Parse`, with 67 tests, the exact error messages among them, and the examples `examples/accept/parse-basics.sw` and `examples/accept/parse-aoc-day05.sw`. Import the pieces by name: `import Std.Parse (char, nat, lines)`. A function says in its doc comment when it can't fail.
 
 ```
--- std/Parse (sketch)
-
 -- The operations. Each is a token's worth of work in the handler.
 ability Parse where
   span: (Char → Bool) → {Parse} (List Char)       -- the longest prefix passing the test, read
   next: (Char → Bool) → {Parse} (Option Char)     -- one character, read if it passes
   literal: List Char → {Parse} Bool               -- read these characters if they come next
-  mark: () → {Parse} (Mark, Nat)                  -- where we are, and how many characters are left
-  reset: Mark → {Parse} ()                        -- go back to a mark
-  expect: Text → {Parse} Text                     -- note what was expected here; all expected this far in
+  mark: () → {Parse} Parse.Mark                   -- where we are: the characters left, the offset, how many are left
+  reset: Parse.Mark → {Parse} ()                  -- go back to a mark
+  note: Parse.Problem → {Parse} ()                -- note `Expected what` or `Message text` here, for the error
+  stop: () → {Parse} Empty                        -- fail here; the nearest choice backs up
+  fatal: Text → {Parse} Empty                     -- fail the whole parse: for bugs, such as a loop that reads nothing
 
--- Running a parser. The whole input must be read.
-def Parse.all (input: Text) (parser: () → {Parse, Fail} a): {Fail} a        -- "line 3, column 6: …"
-def Parse.eachLine (input: Text) (parser: () → {Parse, Fail} a): {Fail} (List a)  -- the same messages, one handler per line
+-- Runners. The parser must read all of its input.
+def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a              -- "line 3, column 6: …"; a final line break is allowed
+def Parse.eachLine (input: Text) (parser: () → {Parse} a): {Fail} (List a)  -- one handler per line of `Text.lines`, the same messages
+def Parse.line (line: Text) (parser: () → {Parse} a): {Fail} a              -- "column 6: …", for use inside `Aoc.Common.parseLines`
+def Parse.run (input: List Char) (parser: () → {Parse} a): Result a Parse.Failure  -- needn't read everything; `Failure = { offset, message }`
+
+-- Failing at the current point
+def Parse.fail (message: Text): {Parse} a
+def Parse.expected (what: Text): {Parse} a                 -- "expected what", joined to others here with "or"
+def Parse.ensure (ok: Bool) (message: Text): {Parse} ()
+def Parse.need (option: Option a) (message: Text): {Parse} a
+def Parse.fromFail (computation: () → {Fail} a): {Parse} a  -- a `Fail` helper's failure, here
 
 -- Pieces
-def char (c: Char): {Parse, Fail} ()
-def text (t: Text): {Parse, Fail} ()
-def satisfy (what: Text) (test: Char → Bool): {Parse, Fail} Char
-def takeWhile (test: Char → Bool): {Parse} Text
-def takeWhile1 (what: Text) (test: Char → Bool): {Parse, Fail} Text
-def nat(): {Parse, Fail} Nat
-def int(): {Parse, Fail} Int
-def digit(): {Parse, Fail} (Fin 10)
-def spaces(): {Parse} ()                           -- spaces and tabs, possibly none
-def newline(): {Parse, Fail} ()
-def end(): {Parse, Fail} ()
-def pick (choices: List (Text, a)): {Parse, Fail} a  -- the value of the first word that comes next
+def Parse.char (expected: Char): {Parse} ()
+def Parse.text (expected: Text): {Parse} ()
+def Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char
+def Parse.takeWhile (passes: Char → Bool): {Parse} Text    -- never fails
+def Parse.takeWhile1 (what: Text) (passes: Char → Bool): {Parse} Text
+def Parse.nat(): {Parse} Nat
+def Parse.int(): {Parse} Int                               -- an optional '-', then digits
+def Parse.digit(): {Parse} (Fin 10)
+def Parse.spaces(): {Parse} ()                             -- spaces and tabs, possibly none; never fails
+def Parse.newline(): {Parse} ()                            -- "\n" or "\r\n"
+def Parse.blankLine(): {Parse} ()                          -- two line breaks
+def Parse.end(): {Parse} ()
+def Parse.pick (choices: List (Text, a)): {Parse} a        -- the value of the first word that comes next
 
 -- Choice and repetition. A failed alternative leaves the input as it was.
-def optional (p: () → {Parse, Fail} a): {Parse} (Option a)
-def oneOf (alternatives: List (() → {Parse, Fail} a)): {Parse, Fail} a
-def many (p: () → {Parse, Fail} a): {Parse} (List a)
-def some (p: () → {Parse, Fail} a): {Parse, Fail} (List a)
-def sepBy1 (p: () → {Parse, Fail} a) (separator: () → {Parse, Fail} ()): {Parse, Fail} (List a)
-def lines (p: () → {Parse, Fail} a): {Parse, Fail} (List a)       -- a final line break is allowed
-def sections (p: () → {Parse, Fail} a): {Parse, Fail} (List a)    -- blocks separated by a blank line
-def grid (cell: () → {Parse, Fail} a): {Parse, Fail} (List (List a))
-def recursive (body: (() → {Parse, Fail} a) → {Parse, Fail} a): {Parse, Fail} a
-def label (what: Text) (p: () → {Parse, Fail} a): {Parse, Fail} a  -- "expected a turn" in place of what `p` expected at its start (Megaparsec's `label`)
+def Parse.optional (parser: () → {Parse} a): {Parse} (Option a)    -- never fails
+def Parse.oneOf: List (() → {Parse} a) → {Parse} a
+def Parse.many (parser: () → {Parse} a): {Parse} (List a)          -- fails only on a parser that reads nothing (fatal)
+def Parse.many1 (parser: () → {Parse} a): {Parse} (List a)
+def Parse.sepBy (parser: () → {Parse} a) (separator: () → {Parse} ()): {Parse} (List a)   -- never fails
+def Parse.sepBy1 (parser: () → {Parse} a) (separator: () → {Parse} ()): {Parse} (List a)
+def Parse.lines (parser: () → {Parse} a): {Parse} (List a)         -- the final line break is left to what follows
+def Parse.sections (parser: () → {Parse} a): {Parse} (List a)      -- blocks separated by a blank line
+def Parse.grid (cell: () → {Parse} a): {Parse} (List (List a))
+def Parse.recursive (body: (() → {Parse} a) → {Parse} a): {Parse} a
+def Parse.label (what: Text) (parser: () → {Parse} a): {Parse} a   -- "expected what" in place of what `parser` expected at its start
 ```
 
-About twenty functions. Parsers that take parsers take thunks, `() => …`, like `Fail.toResult` and `Each.collect`. A parser of no arguments is written `nat()`, as `IO.readAll()` is.
+Choices made while building it:
+
+- **`lines` leaves the last line break alone**, and `Parse.all` allows one at the end of the input. With the prototype's `lines`, which ate it, `sections (() => lines nat)` couldn't find the blank line between sections.
+- **`label` replaces, as Megaparsec's does.** Its handler drops the problems that `parser` notes at its starting point. If `parser` fails without getting further, `label` notes its own name there instead.
+- **Messages and expectations at one point are both reported**: `not this; expected 'x'`, the messages first.
+- **`recursive` running out of fuel is fatal**, as `many` reading nothing is (§5.3).
+- **Proofs:** the per-operation lemmas `Parse.runFromPure`, `runFromMark`, `runFromReset`, `runFromNote`, `runFromStop`, `runFromFatal` and `runFromSpan` hold by `rfl`, and `runFromLiteralThere` by one `rewrite`. Each is stated over `Parse.runFrom state`, the handler from any state, because the state now carries the offset and the furthest problems as well as the input.
+
+Parsers that take parsers take thunks, `() => …`, like `Fail.toResult` and `Each.collect`. A parser of no arguments is written `nat()`, as `IO.readAll()` is, and passed as `nat`.
 
 ### 6.2 AoC parsers rewritten
 
-All of these ran as tests in `proto.sw`, with the error messages shown **[ran]**. Each replaces the function named.
+All of these ran as tests in `proto.sw`, with the error messages shown **[ran]**, and are written here for the library as built (`{Parse}`, and `lines` leaving the final line break to the runner). Day 5 is `examples/accept/parse-aoc-day05.sw`; days 1, 4 and 8 and the robot are in `examples/accept/parse-basics.sw`. Each replaces the function named.
 
 **2025 day 1** (`Turn.parse`): a keyword table, aoc-parse style.
 
 ```
-def turn(): {Parse, Fail} Turn :=
+def turn(): {Parse} Turn :=
   let direction := pick [("L", Left), ("R", Right)]
   direction (nat())
 
@@ -282,7 +312,7 @@ def turn(): {Parse, Fail} Turn :=
 **2025 days 2 and 5** (`Range.parse`, `parseRanges`, `parseDatabase`): a check of our own inside the parser, two sections, and line numbers that run through the whole input, so `parseLinesFrom` goes.
 
 ```
-def range(): {Parse, Fail} Range :=
+def range(): {Parse} Range :=
   spaces()
   let from := nat()
   spaces()
@@ -290,16 +320,13 @@ def range(): {Parse, Fail} Range :=
   spaces()
   let to := nat()
   spaces()
-  ensure (from ≤ to) "the range ends before it starts"
+  Parse.ensure (from ≤ to) "the range ends before it starts"
   { from, to }
 
-def ranges(): {Parse, Fail} (List Range) :=
-  let all := sepBy1 range (() => char ',')
-  let final := optional newline
-  all
+def ranges(): {Parse} (List Range) := sepBy1 range (() => char ',')
 
-def database(): {Parse, Fail} Database :=
-  let fresh := sepBy1 range newline
+def database(): {Parse} Database :=
+  let fresh := lines range
   blankLine()
   let available := lines nat
   { fresh, available }
@@ -314,7 +341,7 @@ def database(): {Parse, Fail} Database :=
 **2024 day 1** (`parseIdPair`):
 
 ```
-def idPair(): {Parse, Fail} (Nat, Nat) :=
+def idPair(): {Parse} (Nat, Nat) :=
   let left := nat()
   let gap := takeWhile1 "a space" isSpace
   let right := nat()
@@ -324,7 +351,7 @@ def idPair(): {Parse, Fail} (Nat, Nat) :=
 **2025 day 4** (`parseGrid`, `findStray`): the grid, with line and column for a stray character, in one line instead of two hand-written loops. Checking that the rows are equally wide stays with the `Vec` conversion.
 
 ```
-def cells(): {Parse, Fail} (List (List Cell)) := grid (() => pick [("@", Roll), (".", Floor)])
+def cells(): {Parse} (List (List Cell)) := grid (() => pick [("@", Roll), (".", Floor)])
 
 -- "@.\n.x\n" → "line 2, column 2: expected '@' or '.' or a line break or the end"
 ```
@@ -332,7 +359,7 @@ def cells(): {Parse, Fail} (List (List Cell)) := grid (() => pick [("@", Roll), 
 **2024 day 14** (not in the repository yet): `p=0,4 v=3,-3`.
 
 ```
-def robot(): {Parse, Fail} Robot :=
+def robot(): {Parse} Robot :=
   text "p="
   let px := int()
   char ','
@@ -370,7 +397,7 @@ match line with
   | _ => fail "expected a robot like p=0,4 v=3,-3, got '${line}'"
 ```
 
-It would elaborate to a parser: each literal piece to `text`, each hole to its type's parser, found by an interface (`interface Read (a: Type) = { read: () → {Parse, Fail} a }`, with instances for `Nat`, `Int`, `Char`, and `Text` meaning "up to the next piece"), and the arm to `Parse.all` with `optional`. So text patterns and parsers would be one thing, not two. It is a language change (patterns are elaborated by the compiler), so it's a later stage, behind its own design review.
+It would elaborate to a parser: each literal piece to `text`, each hole to its type's parser, found by an interface (`interface Read (a: Type) = { read: () → {Parse} a }`, with instances for `Nat`, `Int`, `Char`, and `Text` meaning "up to the next piece"), and the arm to `Parse.all` with `optional`. So text patterns and parsers would be one thing, not two. It is a language change (patterns are elaborated by the compiler), so it's a later stage, behind its own design review.
 
 ### 6.4 Out of scope
 
@@ -408,6 +435,18 @@ Startup (checking the file and std) is about 0.2 s of each machine figure. An em
 - Later, if whole-input parsing of large files matters: keep a `Text` and a character offset in the handler, with three natives that take an offset (`Text.spanAt`, `Text.startsWithAt`, `Text.charAt`), each specified by its `toList` definition as the text natives are ([compact-text.md](compact-text.md)). No parser changes: the input's representation is private to the handler. Not needed for AoC.
 - `Text.scan` wants a native "split at the first occurrence" (`Text.splitFirst`); with it, `scan` should approach `split`'s speed **[inferred]**.
 
+### 7.4 The library as built
+
+The same 100,000 lines, parsed by `point` (§4.2) with `Std.Parse`, summing the first numbers. Release build of this branch, 28 October, Apple silicon, other work on the machine **[ran]**. Times are user seconds; memory is the peak resident size of the process tree (`/usr/bin/time -l`).
+
+| Variant | Machine | Peak (machine) | JS | Peak (JS) |
+|---|---|---|---|---|
+| Today's way, `split ','` (`split1.sw`, for comparison) | 0.68 | 242 MB | 0.61 | 347 MB |
+| `Parse.eachLine input point` | 3.44 | 276 MB | 1.04 | 359 MB |
+| `Parse.all input (() => lines point)` | 3.45 | 1,066 MB | 11.3 | 1,435 MB |
+
+Per line, the library is as fast as the prototype (3.29 s machine, 0.99 s JS): the forwarding handlers that one ability needs (§4.4) don't show, because `point` makes no choice. On the whole input it is the same speed on the machine but uses four times the memory, and JS is eleven times slower. So `Parse.eachLine` stays the recommendation for line-per-record input. A real AoC input of a few thousand lines takes under 0.2 s and about 60 MB either way **[inferred: scaled]**.
+
 ## 8. Proofs
 
 What we might want to prove, and whether it's feasible:
@@ -434,7 +473,7 @@ Rendel–Ostermann style "one description, parser and printer" (§3.3) would giv
 
 Each stage is one lane.
 
-1. **`Std.Parse` core.** The ability, the handler, `Parse.all` and `Parse.eachLine`, the pieces and combinators of §6.1, `label`, `recursive`, furthest-failure errors with line and column. Tests: §6.2's examples and their messages, a `many` over a parser that reads nothing, left recursion failing. A guide section in chapter 8. About 400 lines.
+1. **Built, 28 October.** **`Std.Parse` core.** The ability, the handler, `Parse.all` and `Parse.eachLine`, the pieces and combinators of §6.1, `label`, `recursive`, furthest-failure errors with line and column. Tests: §6.2's examples and their messages, a `many` over a parser that reads nothing, left recursion failing. A guide section in chapter 8. About 400 lines.
 2. **Dogfood on AoC.** Rewrite the `parse*` functions of 2025 days 1, 2, 3, 4, 5, 7, 8, 9 and 2024 day 1 with it, delete `parseLinesFrom` and the hand-written error loops of days 4 and 7. Note what was awkward; fix the library, or file language gaps.
 3. **Bridging lemmas** (§8.1) and `nat`'s round trip.
 4. **`Text.scan`** and a native `Text.splitFirst`.
@@ -443,13 +482,13 @@ Each stage is one lane.
 
 ## 10. Open choices
 
-**`many` over a parser that matched without reading: stop, or fail?** Stopping (the prototype) can never loop and never surprises a correct parser. Failing ("`many`: the parser matched without reading anything") is what Parsec, nom and winnow do, because it's always a bug in the parser. *Recommendation: fail, with that message.* A silent stop hides the bug until some input exercises it.
+**`many` over a parser that matched without reading: stop, or fail?** Stopping (the prototype) can never loop and never surprises a correct parser. Failing ("`many`: the parser matched without reading anything") is what Parsec, nom and winnow do, because it's always a bug in the parser. *Recommendation: fail, with that message.* A silent stop hides the bug until some input exercises it. **Decided (Matt): fail**, as built.
 
-**The row: `{Parse, Fail}`, or `{Parse}` alone with its own `fail` operation?** One ability reads better in signatures. But reusing `Fail` lets `ensure`, `need`, `toNatOrFail` and `Fail.context` work inside parsers unchanged, and keeps one failure story in std. *Recommendation: `{Parse, Fail}`.* An ability alias (Effekt's `effect Parser = { Nondet, Lexer }`) would shorten it later; that's a separate language question.
+**The row: `{Parse, Fail}`, or `{Parse}` alone with its own `fail` operation?** One ability reads better in signatures. But reusing `Fail` lets `ensure`, `need`, `toNatOrFail` and `Fail.context` work inside parsers unchanged, and keeps one failure story in std. *Recommendation: `{Parse, Fail}`.* **Decided (Matt): `{Parse}` alone**, following Unison's libraries, with `Parse.fromFail` as the bridge (§4.4).
 
-**Backtracking: always (PEG), or only before input was read (Parsec), with a `try`?** *Recommendation: always.* Puzzle input is small, and furthest-failure errors are as sharp as the consumed-input rule's.
+**Backtracking: always (PEG), or only before input was read (Parsec), with a `try`?** *Recommendation: always.* Puzzle input is small, and furthest-failure errors are as sharp as the consumed-input rule's. **Decided (Matt): always**, with no `try`.
 
-**Default runner: whole input or per line?** *Recommendation: offer both, with the same messages; recommend `Parse.eachLine` in the guide for one-record-per-line input*, because it is 1.3 to 15 times faster and uses a fifth of the memory on large inputs (§7).
+**Default runner: whole input or per line?** *Recommendation: offer both, with the same messages; recommend `Parse.eachLine` in the guide for one-record-per-line input*, because it is 1.3 to 15 times faster and uses a fifth of the memory on large inputs (§7). **Still open.** Both are built, and the guide recommends `Parse.eachLine`. On 100k lines the whole-input runner takes the same time on the machine but four times the memory, and eleven times as long in JS (§7.4).
 
 **Where do errors from our own checks point?** `ensure (from ≤ to)` in `range` reports the column where the parser had got to (the range's end). Pointing at the range's start needs a `located` wrapper. *Recommendation: the current place, and no `located` until a puzzle wants it.*
 
@@ -460,10 +499,12 @@ Each stage is one lane.
 None blocks the recommended design. In order of how much they matter here:
 
 1. **No do-notation or user operators (D1207)**: rules out data-style parsers (§4.2). Abilities sidestep it.
-2. **Ability operations can't be polymorphic in their result**: rules out option C (§4.1). `optional` uses `Fail.recover` and `reset` instead, which works.
+2. **Ability operations can't be polymorphic in their result**: rules out option C (§4.1). The prototype's `optional` used `Fail.recover` and `reset` instead. With one ability, the built one handles `Parse` and passes the other operations on (§4.4).
 3. **Termination checker**: `| [] | [p] | [p, ..ps]` with a recursive call inside a `match` is refused, pure or effectful (`term1.sw`). Small; worth a ticket.
 4. **A type can't contain itself inside a `List`** (`E-POSITIVITY`): tree-shaped puzzle input needs a tree and a forest defined together.
 5. **`Text.uncons` copies on the machine**, and a `List Char` costs about 420 bytes per character: fine per line, heavy for a whole large input (§7).
+6. **No `DecEq` instance for `()`** (met in stage 1): `test … := lineResult "a" (() => char 'a') == Ok ()` is refused with `E-INSTANCE-NONE: no DecEq instance for ()`. The library's tests compare the error text instead.
+7. **A handler must list every operation** (abilities.md, "Coverage"): `optional` and `label` each repeat six clauses that pass operations on unchanged.
 
 ## Appendix A. Experiments
 
@@ -485,7 +526,7 @@ In `/private/tmp/claude-501/-Users-matt-repos-mdr-stitchwort/7712538a-c5aa-43af-
 
 ## Sources
 
-Libraries: [Parsec](https://hackage.haskell.org/package/parsec-3.1.17.0/docs/Text-Parsec.html), [Parsec source](https://hackage.haskell.org/package/parsec-3.1.17.0/docs/src/Text.Parsec.Prim.html), [Megaparsec](https://hackage.haskell.org/package/megaparsec-9.6.1/docs/Text-Megaparsec.html), [attoparsec](https://hackage.haskell.org/package/attoparsec-0.14.4/docs/Data-Attoparsec-ByteString.html), [Angstrom](https://github.com/inhabitedtype/angstrom), [Parseff](https://ocaml.org/p/parseff/0.3.0/combinators.html), [fastparse](https://com-lihaoyi.github.io/fastparse/), [cats-parse](https://github.com/typelevel/cats-parse), [nom `many0`](https://docs.rs/nom/latest/nom/multi/fn.many0.html), [winnow `repeat`](https://docs.rs/winnow/latest/winnow/combinator/fn.repeat.html), [chumsky](https://docs.rs/chumsky/latest/chumsky/), [Lean `Std.Internal.Parsec`](https://github.com/leanprover/lean4/blob/master/src/Std/Internal/Parsec/Basic.lean), [Koka `std/text/parse`](https://github.com/koka-lang/koka/blob/master/lib/std/text/parse.kk), [Effekt frontend case study](https://effekt-lang.org/docs/casestudies/frontend), [Idris 2 `Text.Parser.Core`](https://github.com/idris-lang/Idris2/blob/main/libs/contrib/Text/Parser/Core.idr), [Idris 2 `Text.Parser`](https://github.com/idris-lang/Idris2/blob/main/libs/contrib/Text/Parser.idr), [agdarsec](https://github.com/gallais/agdarsec), [unison-parsers](https://github.com/zenhack/unison-parsers), [Eff](https://github.com/matijapretnar/eff).
+Libraries: [Parsec](https://hackage.haskell.org/package/parsec-3.1.17.0/docs/Text-Parsec.html), [Parsec source](https://hackage.haskell.org/package/parsec-3.1.17.0/docs/src/Text.Parsec.Prim.html), [Megaparsec](https://hackage.haskell.org/package/megaparsec-9.6.1/docs/Text-Megaparsec.html), [attoparsec](https://hackage.haskell.org/package/attoparsec-0.14.4/docs/Data-Attoparsec-ByteString.html), [Angstrom](https://github.com/inhabitedtype/angstrom), [Parseff](https://ocaml.org/p/parseff/0.3.0/combinators.html), [fastparse](https://com-lihaoyi.github.io/fastparse/), [cats-parse](https://github.com/typelevel/cats-parse), [nom `many0`](https://docs.rs/nom/latest/nom/multi/fn.many0.html), [winnow `repeat`](https://docs.rs/winnow/latest/winnow/combinator/fn.repeat.html), [chumsky](https://docs.rs/chumsky/latest/chumsky/), [Lean `Std.Internal.Parsec`](https://github.com/leanprover/lean4/blob/master/src/Std/Internal/Parsec/Basic.lean), [Koka `std/text/parse`](https://github.com/koka-lang/koka/blob/master/lib/std/text/parse.kk), [Effekt frontend case study](https://effekt-lang.org/docs/casestudies/frontend), [Idris 2 `Text.Parser.Core`](https://github.com/idris-lang/Idris2/blob/main/libs/contrib/Text/Parser/Core.idr), [Idris 2 `Text.Parser`](https://github.com/idris-lang/Idris2/blob/main/libs/contrib/Text/Parser.idr), [agdarsec](https://github.com/gallais/agdarsec), [unison-parsers](https://github.com/zenhack/unison-parsers), [@rlmark/parsing](https://share.unison-lang.org/@rlmark/parsing), [@dfreeman/yap](https://share.unison-lang.org/@dfreeman/yap), [Eff](https://github.com/matijapretnar/eff).
 
 Pattern helpers: [Python `parse`](https://pypi.org/project/parse/), [aoc-parse](https://docs.rs/aoc-parse/latest/aoc_parse/), [scan_fmt](https://docs.rs/scan_fmt/latest/scan_fmt/), [Kotlin `destructured`](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.text/-match-result/destructured.html), [Scala 3 string interpolation](https://docs.scala-lang.org/scala3/book/string-interpolation.html).
 

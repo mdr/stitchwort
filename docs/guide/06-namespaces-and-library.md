@@ -270,4 +270,4 @@ test "head needs no Option" := row.head == 4
 test "zipWith needs equal lengths" := (Vec.zipWith row row (a b => a + b)).toList == [8, 10, 12]
 ```
 
-[Chapter 10](10-proofs.md) has more on types that mention values. The library also has `Fin n` (positions below `n`), `Mod n` (wrap-around arithmetic), `Float`, `Each` (search, [chapter 8](08-abilities.md)) and `PrefixSums`.
+[Chapter 10](10-proofs.md) has more on types that mention values. The library also has `Fin n` (positions below `n`), `Mod n` (wrap-around arithmetic), `Float`, `Each` (search, [chapter 8](08-abilities.md)), `Parse` (parsing text into your own types, also chapter 8) and `PrefixSums`.
