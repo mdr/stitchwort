@@ -1,5 +1,5 @@
 {
-  "next": 849,
+  "next": 853,
   "tickets": [
     {
       "id": 13,
@@ -5549,14 +5549,18 @@
     {
       "id": 685,
       "title": "Elaborator fuzzing stage 1: mutate the example corpus (syntax fuzzer's generator) and run full checks; oracles: no panic, no E-INTERNAL, kernel never rejects an elaborated term, finishes within budget, cold and warm cache agree. Small fixed run in the daily tier, long run on demand (27 Oct discussion)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree (starting)",
       "labels": [],
       "body": "D1465 (Matt, 28 Oct 2026): start now, on Sonnet.\n\nScope: mutate examples/accept and examples/reject (reuse the syntax fuzzer's generator, crates/syntax/tests/fuzz.rs; prefer token-level edits so a useful share parses) and run full checks. Oracles: (1) no panic; (2) no E-INTERNAL; (3) the kernel never rejects an elaborated term; (4) finishes within a time or step budget (hangs are found and named); (5) cold and warm check cache agree. Small fixed-seed run in the daily tier; long run with FUZZ_CASES. Failures print input, seed and generator state and save the input. Each distinct bug found becomes a backlog ticket with a minimal reproduction, not a fix in this lane. Out of scope: SW-686 rewrites, SW-687 proof mutation.",
       "created": "2026-10-27",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "cf29b3c0",
+        "ff2ee63c",
+        "82e99e04"
+      ]
     },
     {
       "id": 686,
@@ -7463,8 +7467,8 @@
     },
     {
       "id": 840,
-      "title": "Research: should f -2 parse as f (-2)? Survey languages and approaches, recommend (D1460)",
-      "status": "doing",
+      "title": "Design note: negative arguments, f -2 as f (-2) (written, on branch worktree-agent-afe947c49f61c7399, docs/proposals/negative-arguments.md; D1461, D1462, D1467-D1472 awaiting Matt)",
+      "status": "review",
       "agent": "Opus",
       "where": "worktree (starting)",
       "labels": [
@@ -7585,6 +7589,62 @@
         "bug"
       ],
       "body": "Found by the SW-822 lane, confirmed 28 Oct: .config/nextest.toml:136 [profile.lane-aoc] default-filter = \"binary(aoc_answers) & test(/^day/)\", but aoc_answers tests are now year2024_day01 …, plus every_day_from_the_whole_projects_cache. Pick a handful of fast days that fit the lane's 10 s budget (measure) and match them by name; update the table in docs/testing.md.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 849,
+      "title": "Two instances with the same name panic the elaborator (index out of bounds, crates/elab/src/module.rs:1177)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Found by the SW-685 elaborator fuzzer (oracle 1, no panic; default seed 0x5eede1ab00000685, case 4163, from accept/interfaces-order.sw). Minimal input, 'stitchwort check' panics with 'index out of bounds: the len is 2 but the index is 2' at crates/elab/src/module.rs:1177:\n\ninstance Foo.i: Foo Nat :=\n  { x = 0 }\ninstance Foo.i: Foo Nat :=\n  { x = 0 }\ninterface Foo (a: Type) =\n  { x: a }\n\nExpected: a clean duplicate-definition error naming the second instance. The interface and the Nat type can be anything; the duplicated instance name is what triggers it.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 850,
+      "title": "A cycle between a type's constructor and a later declaration gives E-INTERNAL 'is used before it's checked'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Found by the SW-685 elaborator fuzzer (oracle 2, no E-INTERNAL). Seeds/cases: default 0x5eede1ab00000685 case 5981 (accept/quot-forms.sw); 0x2 case 3085 (accept/index-proof-conflict-data.sw); 0xabcdef cases 568 and 1084. All the same shape after reduction: a type's constructor (or an index type) names a later declaration that in turn names the type, so the declarations form a cycle the order check doesn't catch. Minimal input:\n\ndef Q: Type := List T\ntype T: Q → Type =\n  | A: T Nil\n\ngives '[E-INTERNAL] internal error: `Q` is used before it's checked', 'this is a bug in the compiler'. Variants: 'type Vec (a: Type): Nat → Type = | VCons (x: a) (xs: Vec a n): Box a (Succ n)' followed by 'type Box: Type 1 = | Mk [a: Type] (xs: List a) (rest: Vec)' (E-INTERNAL on Box); a theorem 'noAB: SameP A B → Void' used by an earlier type's constructor and mentioning that type (E-INTERNAL on noAB). Expected: an ordinary cyclic-dependency error (the code for mutually recursive declarations that aren't declared together) at the use.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 851,
+      "title": "Kernel's E-TYPE-MISMATCH reaches the user for a Comp whose result row is an unbound variable (elaborator lets an ill-typed term through)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Found by the SW-685 elaborator fuzzer (oracle 3, the kernel never rejects an elaborated term; seed 0x1 case 1633, from reject/empty-row-function.sw). Minimal input:\n\nimport Std.Effect (Comp, NoOp)\ndef next (n: Nat): Comp NoOp r Nat := n + 1\n\nThe error ('[E-TYPE-MISMATCH] type mismatch ... expected Comp Effect.NoOp r Nat, but this has type Comp Effect.NoOp Effect.NoRes Nat') is the kernel's, not the elaborator's: stitchwort_elab::take_kernel_rejections (the hook SW-685 adds in crates/elab/src/kernel.rs) records the same message from a define call. So the elaborator accepted `n + 1` against a type with an auto-bound variable `r` (it should have reported the mismatch itself, or failed to unify NoRes with the rigid `r`). Severity is low: the user still gets a reasonable error, only from the wrong layer. The fuzzer oracle flags any kernel E-MALFORMED/E-TYPE-MISMATCH/E-NOT-A-* whose message reaches the user unchanged.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 852,
+      "title": "E-INTERNAL is shared by a user-facing error ('X is internal to the standard library') and compiler-bug errors; give the user-facing one its own code",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Found by the SW-685 fuzzer lane, 28 Oct: crates/driver/tests/fuzz_elab.rs has to exclude the user-facing E-INTERNAL by message (USER_INTERNAL, 'is internal to the standard library', used by examples/reject/row-internal-*.sw). A distinct code (e.g. E-PRIVATE-STD) would let tooling and the fuzzer treat E-INTERNAL as always a compiler bug. Snapshots of row-internal-* change.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
