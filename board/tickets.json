@@ -1,5 +1,5 @@
 {
-  "next": 839,
+  "next": 840,
   "tickets": [
     {
       "id": 13,
@@ -7403,7 +7403,7 @@
     {
       "id": 836,
       "title": "rt tests aoc_agrees and every_aoc_main_lowers fail: 'program nested too deeply for the type checker' while lowering (predates TRMC)",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7428,6 +7428,18 @@
       "id": 838,
       "title": "E-ABILITY: in a function taking g: Nat → {e} Nat, a match inside a lambda passed to map whose arms call g is refused (adversarial review t13.sw, scratchpad/adv)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 839,
+      "title": "Fast tripwire test: lower every AoC definition and validate, without running the AoC tests on the reference evaluator (every_aoc_main_lowers takes >35 min; aoc_agrees similar) — keep the slow pair for a slow tier",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
