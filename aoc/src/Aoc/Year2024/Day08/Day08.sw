@@ -58,7 +58,7 @@ def City.antennaPairs (city: City): List (Position, Position) :=
   city.antennas
     |> .flatMap (antenna =>
       city.antennas
-        |> .filter (other => other.frequency == antenna.frequency && other.position != antenna.position)
+        |> .filter (other => antenna.frequency == other.frequency && antenna.position != other.position)
         |> .map (other => (antenna.position, other.position)))
 
 -- The distinct positions on the map among `positions`.

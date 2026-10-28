@@ -33,7 +33,7 @@ def twiceAsFar (point: Position) (far: Position) (near: Position): Bool :=
 def twoAntennas (city: City) (holds: Position → Position → Bool): Bool :=
   city.antennas.any (first =>
     city.antennas.any (second =>
-      first.frequency == second.frequency && first.position != second.position && holds first.position second.position))
+      (first.frequency == second.frequency && first.position != second.position) && holds first.position second.position))
 
 -- Part 1: "an antinode occurs at any point that is perfectly in line with two
 -- antennas of the same frequency - but only when one of the antennas is twice
