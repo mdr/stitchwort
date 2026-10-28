@@ -1,5 +1,5 @@
 {
-  "next": 862,
+  "next": 863,
   "tickets": [
     {
       "id": 13,
@@ -7649,7 +7649,7 @@
     {
       "id": 851,
       "title": "Kernel's E-TYPE-MISMATCH reaches the user for a Comp whose result row is an unbound variable (elaborator lets an ill-typed term through)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -7658,7 +7658,11 @@
       "body": "Found by the SW-685 elaborator fuzzer (oracle 3, the kernel never rejects an elaborated term; seed 0x1 case 1633, from reject/empty-row-function.sw). Minimal input:\n\nimport Std.Effect (Comp, NoOp)\ndef next (n: Nat): Comp NoOp r Nat := n + 1\n\nThe error ('[E-TYPE-MISMATCH] type mismatch ... expected Comp Effect.NoOp r Nat, but this has type Comp Effect.NoOp Effect.NoRes Nat') is the kernel's, not the elaborator's: stitchwort_elab::take_kernel_rejections (the hook SW-685 adds in crates/elab/src/kernel.rs) records the same message from a define call. So the elaborator accepted `n + 1` against a type with an auto-bound variable `r` (it should have reported the mismatch itself, or failed to unify NoRes with the rigid `r`). Severity is low: the user still gets a reasonable error, only from the wrong layer. The fuzzer oracle flags any kernel E-MALFORMED/E-TYPE-MISMATCH/E-NOT-A-* whose message reaches the user unchanged.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "d7251431",
+        "000ec335",
+        "24c92e59"
+      ]
     },
     {
       "id": 852,
@@ -7820,6 +7824,20 @@
         "runtime"
       ],
       "body": "From SW-738 (28 Oct): Std.Parse's span/next/literal return a pair so runFrom resumes with k step.fst step.snd, because with k inside a match arm (23632129's form) each operation keeps a frame (2b541087). Measured 28 Oct on the interpreter: Parse.next over 160,000 chars, natural form 1.49 GB / 9.4 s vs 1.01 GB / 2.2 s. Make the fusion/loop recognise a resume in tail position inside match arms (crates/rt/src/fusion.rs 'State-passing handlers run as a loop'; docs/proposals/parser-combinators.md §7.5), then do SW-738. Also noted: memory grows with input in both forms on a plain next loop (~5.8 KB/char with the workaround), worth understanding.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 862,
+      "title": "Elaborator calls of the kernel's value::conv on values that may hold solved metavariables",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From SW-851 (28 Oct): value::conv compares metas by number and never follows a solution (crates/core/src/value.rs:102), which broke adder.sw until effects.rs switched to unification (same_results). Check the other elaborator calls: partial.rs:726, 776-777, lib.rs:1973, 3845, congruence.rs:550. Also: same_results compares at cx.level() + RESULTS_SLACK (1<<16) because performs_after (effects.rs ~2389) walks a function type's parameters without binding them in cx; better to bind them, then drop the slack. And comp_result_term / is_comp_type still treat any Comp as a computation regardless of its results (SW-851 lane's note).",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
