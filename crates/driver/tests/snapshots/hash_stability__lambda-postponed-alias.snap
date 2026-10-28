@@ -1,0 +1,10 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.Counts cae94701a621eaba73f65bcd0bc07fc9822e6d6c9f7d773c1abed2aa6cd39111
+Main.Counts.add 81ce0ad0ffbe36482528a0909e277594793a5fa4df71e33e609620f0c42cd73b
+Main.Counts.size 14f3744f132772b6e4d9940f92137a431d5d38b760466d0cde8e32e0659a1ed7
+Main.both 90709b9d2f9ecea8f382d2491ba48e7debdb2135e27819a16afe64318240a27a
+Main.sized 568e8a85fe91f383944b67a357b65ac58e13ebcdb5e08fcde8c9dd12af7549d3
+Main.test "the alias's function is found on the postponed parameter" 7cef9a0e3d4e198b1862ec7cc29b792b3a0e2785200559d44410c0e420d05a92

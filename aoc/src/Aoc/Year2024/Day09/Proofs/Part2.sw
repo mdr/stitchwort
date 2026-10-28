@@ -52,8 +52,8 @@ theorem eachFileOnce (diskMap: List Nat): (compactFiles diskMap).map .idAndLengt
   let layout := layoutFrom 0 0 diskMap
   let initial := FreeSpace.of (joinTouching layout.snd)
   rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile in
-    List.mapZipWithScanLeft File.idAndLength File.idAndLength (file free => (FreeSpace.moveFile free file).snd) (file free => moveFileKeeps free file)
-      layout.fst.reverse initial (free file => (FreeSpace.moveFile free file).fst)
+    List.mapZipWithScanLeft File.idAndLength File.idAndLength (file free => (free.moveFile file).snd) (file free => moveFileKeeps free file)
+      layout.fst.reverse initial (free file => (free.moveFile file).fst)
 
 -- Each file moves left or stays.
 theorem filesMoveLeft (diskMap: List Nat):
@@ -61,7 +61,7 @@ theorem filesMoveLeft (diskMap: List Nat):
   let layout := layoutFrom 0 0 diskMap
   let initial := FreeSpace.of (joinTouching layout.snd)
   rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile in
-    allZipWith MovedLeft (file free => (FreeSpace.moveFile free file).snd) (file free => moveFileLeft free file) layout.fst.reverse
+    allZipWith MovedLeft (file free => (free.moveFile file).snd) (file free => moveFileLeft free file) layout.fst.reverse
       (List.scanLeft layout.fst.reverse initial (free file => (free.moveFile file).fst))
 
 theorem moveFileBlocks (free: FreeSpace) (file: File): (free.moveFile file).snd.blocks = file.blocks :=
@@ -75,8 +75,8 @@ theorem movedBlocks (diskMap: List Nat): (compactFiles diskMap).flatMap .blocks 
   let initial := FreeSpace.of (joinTouching layout.snd)
   rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile in
     Eq.cong List.concat
-      (List.mapZipWithScanLeft File.blocks File.blocks (file free => (FreeSpace.moveFile free file).snd) (file free => moveFileBlocks free file)
-        layout.fst.reverse initial (free file => (FreeSpace.moveFile free file).fst))
+      (List.mapZipWithScanLeft File.blocks File.blocks (file free => (free.moveFile file).snd) (file free => moveFileBlocks free file)
+        layout.fst.reverse initial (free file => (free.moveFile file).fst))
 
 theorem fileBlocksReplicate: (n: Nat) → (id: Nat) → fileBlocks (List.replicate n (Some id)) = List.replicate n id
   | Zero, id => rfl
