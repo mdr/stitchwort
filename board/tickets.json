@@ -1,5 +1,5 @@
 {
-  "next": 780,
+  "next": 781,
   "tickets": [
     {
       "id": 13,
@@ -6533,7 +6533,7 @@
     {
       "id": 768,
       "title": "Day 15 findings: match silently refines let-bound hypotheses (say so when a rewrite then finds nothing); record literal type from its fields, errors printed twice; instance-projection unification; constructor disequality C1 = C2",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6666,6 +6666,18 @@
       "id": 779,
       "title": "Day 19 findings: List.startsWith/stripPrefix/isEmpty with prefix lemmas; dropAppend, countFlatMap; '= if …' in a theorem type parse error; Map.getOr vs Option.getOrElse naming; evaluator small-closure call speed",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 780,
+      "title": "Bench: text-literal-walk peak heap 3 kB -> 6 kB, text-nat-to-text 8 -> 11 kB on main (since ~5606c130); find the commit, fix or re-record with reason",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
