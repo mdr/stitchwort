@@ -1,5 +1,5 @@
 {
-  "next": 817,
+  "next": 818,
   "tickets": [
     {
       "id": 13,
@@ -7164,6 +7164,20 @@
       "where": "",
       "labels": [],
       "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 817,
+      "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "AoC 2024 day 3: instructions.foldLeft { enabled = True, total = 0 } step fails with E-CANNOT-INFER because foldLeft's accumulator type is a parameter and arguments are checked left to right; step, checked later, would fix it as Tally. Lambdas are already postponed this way (check.rs ~1665). Day 21's record literal inside a tuple on the left of |> is a related case. Alternative or complement: inferring the type from field names (D1442, SW-805).",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
