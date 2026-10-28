@@ -82,6 +82,7 @@ pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
     ("Map/Spec.sw", include_str!("std/Map/Spec.sw")),
     ("Mod/Mod.sw", include_str!("std/Mod/Mod.sw")),
     ("Nat/Arith.sw", include_str!("std/Nat/Arith.sw")),
+    ("Nat/Bits.sw", include_str!("std/Nat/Bits.sw")),
     ("Nat/Digits.sw", include_str!("std/Nat/Digits.sw")),
     ("Nat/Divides.sw", include_str!("std/Nat/Divides.sw")),
     ("Nat/Iterate.sw", include_str!("std/Nat/Iterate.sw")),
