@@ -38,7 +38,7 @@ def IsRegion (garden: Garden) (plot: Position) (region: List Position): Prop := 
 -- Whether the side of `plot` facing `side` touches a plot of the region.
 def facesRegion (region: List Position) (plot: Position) (side: Direction): Bool :=
   match plot.step side with
-    | Some other => region.any (member => member == other)
+    | Some other => region.contains other
     | None => False
 
 -- "The area of a region is simply the number of garden plots the region
@@ -51,7 +51,7 @@ def perimeter (region: List Position): Nat := region.sumBy (plot => directions.c
 
 -- A section of fence one plot long: a side of a plot of the region that
 -- touches no plot of the region.
-def isFence (region: List Position) (plot: Position) (side: Direction): Bool := region.any (member => member == plot) && !facesRegion region plot side
+def isFence (region: List Position) (plot: Position) (side: Direction): Bool := region.contains plot && !facesRegion region plot side
 
 -- The plot before `plot` along a fence on its `side`: left of it for a fence
 -- above or below, above it for a fence on the left or right.

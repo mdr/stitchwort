@@ -1020,6 +1020,19 @@ pub(crate) fn prefix_form<'a>(
     if receiver_place(cx, &params(g, f), owner)?.is_none() {
         return Ok(None);
     }
+    // A recursive call of a definition with `decreasing`: its stand-in
+    // takes the proof by name, `[decreasing := …]`, as the prefix call does.
+    if args
+        .iter()
+        .all(|a| matches!(a, Arg::Explicit(_) | Arg::Named(..)))
+        && let Some(rec) = cx.decreasing_rec(Some(f))
+    {
+        cx.e.note_dot(field, f);
+        let full: Vec<Arg<'a>> = std::iter::once(Arg::Explicit(recv))
+            .chain(args.iter().copied())
+            .collect();
+        return Ok(Some((rec, full)));
+    }
     let mut full: Vec<Arg<'a>> = Vec::new();
     let defaults = crate::defaults::of_head(cx, &Term::Def(f));
     if crate::named::any(args) || defaults.is_some() {
@@ -1442,9 +1455,12 @@ pub(crate) fn infer_call(
     let Some((head, full)) = prefix_form(cx, recv, field, args)? else {
         return infer_dot(cx, recv, field, args);
     };
+    // A recursive call of a definition with `decreasing` (its stand-in, a
+    // variable) is wrong as its prefix form is: dot notation can't say more.
+    let recursive = matches!(head.0, Term::Var(_));
     let snapshot = crate::undo::Snapshot::take(cx);
     match crate::check::apply_args(cx, head, &full) {
-        Err(e) if !crate::undo::fatal(&e) => {
+        Err(e) if !crate::undo::fatal(&e) && !recursive => {
             mark_failed(cx, call_key(cx, recv, field));
             // The call is wrong either way: say so as dot notation does
             // (it names the receiver's parameter).

@@ -11,7 +11,7 @@ import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Or, Void)
 
 -- The region as a grid of booleans.
-def insideOf (region: List Position) (row: Nat) (column: Nat): Bool := region.any (member => member == ({ row, column }: Position))
+def insideOf (region: List Position) (row: Nat) (column: Nat): Bool := region.contains { row, column }
 
 theorem countDirections (f: Direction → Bool): directions.count f = Bool.toNat (f Up) + Bool.toNat (f Down) + Bool.toNat (f Left) + Bool.toNat (f Right) :=
   rewrite List.countCons [Down, Left, Right] Up f, List.countCons [Left, Right] Down f, List.countCons [Right] Left f, List.countCons Nil Right f in omega
@@ -85,7 +85,7 @@ theorem diagonalSame (garden: Garden) (start: Position) (plant: Char) (grows: ga
   match stepped: plot.step vertical with
     | None => Void.exfalso (Bool.falseNotTrue faces)
     | Some next =>
-      let nextIn := (anyEqual region next).forward faces
+      let nextIn := (List.memContains region next).forward faces
       let nextGrows := joinedPlant garden plant start next grows ((isRegion next).forward nextIn)
       rewrite notEqualNot, plotGrows, <- sameAcrossFaces garden start plant grows region isRegion next nextIn horizontal, nextGrows in rfl
 
@@ -112,7 +112,7 @@ theorem programCornersCell (garden: Garden) (start: Position) (plant: Char) (gro
   | { row, column }, member =>
     let plot: Position := { row, column }
     let inside := insideOf region
-    let isIn: inside row column = True := (anyEqual region plot).backward member
+    let isIn: inside row column = True := (List.memContains region plot).backward member
     let faces := (side: Direction) => sameAcrossFaces garden start plant grows region isRegion plot member side
     let up := Eq.trans (faces Up) (facesUp region row column)
     let down := Eq.trans (faces Down) (facesDown region row column)
@@ -146,12 +146,6 @@ theorem totalRange: (n: Nat) → (f: Nat → Nat) → (List.range n).sumBy f = t
   | Zero, f => rfl
   | Succ n, f => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i)) in rfl
 
--- A member's term is at most the sum.
-theorem memLeSumBy (f: a → Nat): (xs: List a) → (x: a) → x ∈ xs → f x ≤ xs.sumBy f
-  | Nil, x, none => Void.exfalso none
-  | Cons first rest, x, Inl same => rewrite List.sumByCons rest first f, same in omega
-  | Cons first rest, x, Inr later => rewrite List.sumByCons rest first f in omega [memLeSumBy f rest x later]
-
 -- The square of the grid with rows and columns up to `last`, row by row.
 def square (last: Nat): List Position :=
   List.range (Succ last) |> .flatMap (row => List.range (Succ last) |> .map (column => ({ row, column }: Position)))
@@ -178,19 +172,19 @@ theorem sumOverGrid (region: List Position) (distinct: List.Distinct region) (la
     (within: (plot: Position) → plot ∈ region → And (plot.row ≤ last) (plot.column ≤ last)) (f: Nat → Nat → Nat)
     (zero: (row: Nat) → (column: Nat) → insideOf region row column = False → f row column = 0):
     region.sumBy (plot => f plot.row plot.column) = total (Succ last) (row => total (Succ last) (column => f row column)) :=
-  let isIn := (plot: Position) => region.any (member => member == plot)
+  let isIn := (plot: Position) => region.contains plot
   let term := (plot: Position) => f plot.row plot.column
   let kept := (square last).filter isIn
   let same: List.Perm kept region :=
     List.permOfSameMembers kept region (List.distinctFilter (square last) isIn (squareDistinct last)) distinct
-      (plot member => (anyEqual region plot).forward (And.right (List.memFilter (square last) isIn plot member)))
+      (plot member => (List.memContains region plot).forward (And.right (List.memFilter (square last) isIn plot member)))
       (plot member =>
         List.memFilterIntro (square last) isIn plot
           (match plot with
             | { row, column } =>
               let bounds := within { row, column } member
               memSquare last row column (And.left bounds) (And.right bounds))
-          ((anyEqual region plot).backward member))
+          ((List.memContains region plot).backward member))
   let filtered :=
     Eq.trans (List.sumByFilter (square last) term isIn)
       (List.sumByCong (square last) (plot => if isIn plot then term plot else Add.zero) term (plot =>
@@ -215,19 +209,19 @@ theorem sidesCorrect (garden: Garden) (start: Position) (plant: Char) (grows: ga
   let inside := insideOf region
   let last := region.sumBy (plot => plot.row + plot.column)
   let within := (plot: Position) => (member: plot ∈ region) =>
-    let le := memLeSumBy (plot => plot.row + plot.column) region plot member
+    let le := List.memLeSumBy (plot => plot.row + plot.column) region plot member
     (Both (omega [le]) (omega [le]): And (plot.row ≤ last) (plot.column ≤ last))
   let right: (row: Nat) → inside row (Succ last) = False := row =>
     match found: inside row (Succ last) with
       | False => rfl
-      | True => Void.exfalso (omega [And.right (within { row, column = Succ last } ((anyEqual region { row, column = Succ last }).forward found))])
+      | True => Void.exfalso (omega [And.right (within { row, column = Succ last } ((List.memContains region { row, column = Succ last }).forward found))])
   let bottom: (column: Nat) → inside (Succ last) column = False := column =>
     match found: inside (Succ last) column with
       | False => rfl
-      | True => Void.exfalso (omega [And.left (within { row = Succ last, column } ((anyEqual region { row = Succ last, column }).forward found))])
+      | True => Void.exfalso (omega [And.left (within { row = Succ last, column } ((List.memContains region { row = Succ last, column }).forward found))])
   let programSide :=
     Eq.trans
-      (sumByCongMem region garden.cornerCount (plot => corners inside plot.row plot.column)
+      (List.sumByCongMem region garden.cornerCount (plot => corners inside plot.row plot.column)
         (plot member => programCornersCell garden start plant grows region isRegion plot member))
       (sumOverGrid region distinct last within (row column => corners inside row column) (row column outside => rewrite outside in rfl))
   let specSide :=

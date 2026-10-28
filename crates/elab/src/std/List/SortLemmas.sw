@@ -992,6 +992,12 @@ theorem List.sumPerm [auto eq: DecEq a] [auto add: Add a] (xs: List a) (ys: List
 theorem List.countPerm (xs: List a) (ys: List a) (same: List.Perm xs ys) (p: a → Bool): List.count xs p = List.count ys p :=
   rewrite List.countOccurrences xs p, List.countOccurrences ys p in same p
 
+-- A `flatMap` of lists that are permutations of each other gives
+-- permutations.
+theorem List.permFlatMap [auto eq: DecEq a] (xs: List a) (ys: List a) (same: List.Perm xs ys) (f: a → List b):
+    List.Perm (List.flatMap xs f) (List.flatMap ys f) := p =>
+  rewrite List.occurrencesFlatMap f p xs, List.occurrencesFlatMap f p ys in List.sumByPerm xs ys same (x => List.occurrences (f x) p)
+
 theorem List.findKeyExample: List.find [MkPair "a" 1, MkPair "b" 2, MkPair "b" 3] (x => Pair.fst x == "b") = Some (MkPair "b" 2) := rfl
 
 -- Adding an element in front keeps every subsequence.
@@ -1346,6 +1352,20 @@ theorem List.countLeMem: (xs: List a) → (p: a → Bool) → (q: a → Bool) �
     rewrite List.countCons rest x p, List.countCons rest x q in
     match passes: p x with
       | True => rewrite weaker x (Inl rfl) passes in below
+      | False => Nat.leTrans _ _ _ below (Nat.leAddLeft (Bool.toNat (q x)) (List.count rest q))
+
+-- And strictly fewer when some element passes `q` but not `p`.
+theorem List.countLtMem: (xs: List a) → (p: a → Bool) → (q: a → Bool) → ((x: a) → (m: List.Mem x xs) → p x = True → q x = True) →
+    (y: a) → List.Mem y xs → q y = True → p y = False → List.count xs p < List.count xs q
+  | Nil, p, q, weaker, y, none, passes, fails => Void.exfalso none
+  | Cons x rest, p, q, weaker, y, Inl same, passes, fails =>
+    rewrite List.countCons rest x p, List.countCons rest x q, same, passes, fails in
+      List.countLeMem rest p q (z m => weaker z (Inr m))
+  | Cons x rest, p, q, weaker, y, Inr later, passes, fails =>
+    let below := List.countLtMem rest p q (z m => weaker z (Inr m)) y later passes fails
+    rewrite List.countCons rest x p, List.countCons rest x q in
+    match kept: p x with
+      | True => rewrite weaker x (Inl rfl) kept in below
       | False => Nat.leTrans _ _ _ below (Nat.leAddLeft (Bool.toNat (q x)) (List.count rest q))
 
 -- `all` is "no element fails", so a permutation keeps it.

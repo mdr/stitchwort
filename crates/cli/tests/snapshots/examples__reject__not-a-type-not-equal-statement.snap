@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-A-TYPE] Error: in a statement, `!=` is the proposition, not a `Bool`
+   ╭─[ reject/not-a-type-not-equal-statement.sw:5:53 ]
+   │
+ 5 │ theorem notEqualIsNot (a: Nat) (b: Nat) (d: Bool): (a != b) = !d := rfl
+   │                                                     ───┬──    ─┬  
+   │                                                        ╰────────── this `!=` is `Not (… = …)`, a proposition, so this `=` compares propositions
+   │                                                                │  
+   │                                                                ╰── but this isn't a proposition
+   │ 
+   │ Note: for the `Bool` that `!=` computes, ascribe it: `((x != y): Bool)`; or compare with `==` instead, as `(x == y) = False`
+───╯

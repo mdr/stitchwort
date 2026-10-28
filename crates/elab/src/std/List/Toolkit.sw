@@ -250,6 +250,10 @@ def List.elem: List a → (target: a) → (decEq: (x: a) → (y: a) → Decidabl
   | Nil, target, decEq => False
   | Cons x xs, target, decEq => if Decidable.toBool (decEq target x) then True else List.elem xs target decEq
 
+-- Whether `x` is on the list, by its `DecEq` (`List.memContains` says it is
+-- membership).
+def List.contains [auto eq: DecEq a] (xs: List a) (x: a): Bool := List.any xs (member => member == x)
+
 -- One step of `List.partition`: `x` onto the kept or the dropped side of
 -- `sides` (each reversed). A function of its own so the recursive call is
 -- written once, as for `List.filterStep`.
@@ -674,6 +678,7 @@ test "List.findMap is the head of filterMap" :=
     [1].findMap (x => (None: Option Nat)) == ([1].filterMap (x => (None: Option Nat))).head
 test "List.between" := List.between 2 5 == [2, 3, 4, 5] ∧ List.between 3 3 == [3] ∧ List.between 4 2 == Nil ∧ List.between 0 1 == [0, 1]
 test "List.flatMap" := [1, 2, 3].flatMap (x => List.replicate x x) == [1, 2, 2, 3, 3, 3]
+test "List.contains" := [1, 2, 3].contains 2 ∧ ¬([1, 2, 3].contains 4) ∧ ¬((Nil: List Nat).contains 1)
 test "List.pairs" := [1, 2, 3].pairs == [MkPair 1 2, MkPair 1 3, MkPair 2 3] ∧ (Nil: List Nat).pairs == Nil ∧ [1].pairs == (Nil: List (Pair Nat Nat))
 test "List.pairs count" := List.length (List.range 10).pairs == 45
 test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkPair 2 "a", MkPair 2 "b"] ∧ [1].cross (Nil: List Nat) == Nil
