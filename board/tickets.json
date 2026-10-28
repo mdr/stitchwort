@@ -7558,8 +7558,8 @@
     {
       "id": 846,
       "title": "Dot on a postponed lambda's parameter fails in AoC 2024 day 9 proofs: the parameter's type is the unfolded Map, not the nickname FreeSpace",
-      "status": "backlog",
-      "agent": "",
+      "status": "next",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "bug"
@@ -7586,8 +7586,8 @@
     {
       "id": 848,
       "title": "Lane tier: task test:lane AREA=aoc runs 0 tests (filter test(/^day/) predates the yearYYYY_dayNN names)",
-      "status": "backlog",
-      "agent": "",
+      "status": "next",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling",
