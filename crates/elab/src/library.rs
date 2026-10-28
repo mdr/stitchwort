@@ -72,6 +72,7 @@ pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
     ("List/Lemmas.sw", include_str!("std/List/Lemmas.sw")),
     ("List/Positions.sw", include_str!("std/List/Positions.sw")),
     ("List/Sort.sw", include_str!("std/List/Sort.sw")),
+    ("List/SortLemmas.sw", include_str!("std/List/SortLemmas.sw")),
     ("List/Toolkit.sw", include_str!("std/List/Toolkit.sw")),
     ("List/Unfold.sw", include_str!("std/List/Unfold.sw")),
     ("Logic/Logic.sw", include_str!("std/Logic/Logic.sw")),
