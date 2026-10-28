@@ -538,3 +538,27 @@ fn nested_maps_check_in_work_polynomial_in_their_depth() {
         );
     }
 }
+
+/// Whatever a check ran out of, the error says which declaration it was
+/// checking, and points at it (SW-843).
+#[test]
+fn running_out_of_steps_names_the_declaration_being_checked() {
+    let mut session = Session::new();
+    session.elab.limits = Limits {
+        work: 5_000,
+        ..Limits::default()
+    };
+    let source =
+        format!("{REPLICATE}\ntheorem long : List.length (replicate 10000 1) = 10000 := rfl\n");
+    let diagnostics = session.load("work.sw", &source).unwrap_err();
+    let resource = diagnostics
+        .iter()
+        .find(|d| d.code == "E-RESOURCE")
+        .unwrap_or_else(|| panic!("{diagnostics:?}"));
+    let notes = resource.notes.join("\n");
+    assert!(
+        notes.contains("it happened while checking `long`"),
+        "{notes}"
+    );
+    assert_eq!(resource.labels.len(), 1, "{resource:?}");
+}
