@@ -7488,7 +7488,7 @@
     {
       "id": 841,
       "title": "Set.sizeIntersect lemmas (size of intersect ≤ each side; with containsIntersect)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7497,7 +7497,11 @@
       "body": "From SW-809 (day 23). Set.intersect exists (std/Set/Set.sw:46) and Set.containsIntersect (Set/Spec.sw:220), but there is no size lemma for intersect.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "94006ab8",
+        "8568f335",
+        "43c21d4a"
+      ]
     },
     {
       "id": 842,
