@@ -94,6 +94,45 @@ theorem Set.minToList (s: Set k [ord := o]): Set.min s = List.head (Set.toList s
 theorem Set.maxToList (s: Set k [ord := o]): Set.max s = List.last (Set.toList s) :=
   rewrite Map.maxToList s.items in Set.lastMapFst (Map.toList s.items)
 
+-- The smallest key is in the set.
+theorem Set.containsMin [auto ord: Ord k] (s: Set k) (least: k) (found: Set.min s = Some least): Set.contains s least = True :=
+  match entries: Map.toList s.items with
+    | Nil => Void.exfalso (Option.someNotNone least (Eq.trans (Eq.sym found) (rewrite Map.minToList s.items, entries in rfl)))
+    | Cons entry rest =>
+      let first: Set.min s = Some entry.fst := rewrite Map.minToList s.items, entries in rfl
+      Map.containsOfMemToList s.items least entry (rewrite entries in Inl rfl) (Option.someInjective _ _ (Eq.trans (Eq.sym first) found))
+
+-- `popMin` is `min` and `remove` together.
+theorem Set.popMinSpec [auto ord: Ord k] (s: Set k): Set.popMin s = Option.map (Set.min s) (key => (key, Set.remove s key)) :=
+  rewrite Map.popMinSpec s.items in
+  match Map.min s.items with
+    | None => rfl
+    | Some entry => rfl
+
+-- What `popMin` finds: the smallest key, and the set without it.
+theorem Set.popMinSome [auto ord: Ord k] (s: Set k) (key: k) (rest: Set k) (found: Set.popMin s = Some (key, rest)):
+    And (Set.min s = Some key) (rest = Set.remove s key) :=
+  let spec := Set.popMinSpec s
+  match least: Set.min s with
+    | None => Void.exfalso (Option.noneNotSome (key, rest) (Eq.trans (Eq.sym spec) found))
+    | Some smallest =>
+      let pairs: (smallest, Set.remove s smallest) = (key, rest) := Option.someInjective _ _ (Eq.trans (Eq.sym spec) found)
+      rewrite <- Eq.cong Pair.fst pairs, <- Eq.cong Pair.snd pairs in Both rfl rfl
+
+-- `popMin` finds nothing only in an empty set.
+theorem Set.popMinNone [auto ord: Ord k] (s: Set k) (found: Set.popMin s = None): Set.min s = None :=
+  let spec := Set.popMinSpec s
+  match least: Set.min s with
+    | None => rfl
+    | Some smallest => Void.exfalso (Option.someNotNone _ (Eq.trans (Eq.sym spec) found))
+
+-- What `popMin` leaves is one smaller.
+theorem Set.sizePopMin [auto ord: Ord k] (s: Set k) (key: k) (rest: Set k) (found: Set.popMin s = Some (key, rest)):
+    Set.size rest < Set.size s :=
+  let (Both least restIs) := Set.popMinSome s key rest found
+  let present := Set.containsMin s key least
+  rewrite restIs, Set.sizeRemovePresent s key present in omega [Set.sizePositive s key present]
+
 theorem Set.lastMapFst: (xs: List (k, ())) → Option.map (List.last xs) Pair.fst = List.last (List.map xs Pair.fst)
   | Nil => rfl
   | Cons e Nil => rfl

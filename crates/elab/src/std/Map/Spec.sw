@@ -671,6 +671,34 @@ theorem Map.Tree.maxOnto: (found: Option (k, v)) → (t: Map.Tree k v) → (acc:
 
 theorem Map.Raw.minToList (m: Map.Raw k v [ord := o]): Map.Raw.min m = List.head (Map.Raw.toList m) := Eq.sym (Map.Tree.minOnto m.tree Nil)
 
+-- A list's first element and the rest.
+def Map.Spec.uncons: List a → Option (a, List a)
+  | Nil => None
+  | Cons x rest => Some (x, rest)
+
+-- `popMin` takes the first entry off the entries in key order.
+theorem Map.Tree.popMinOnto: (t: Map.Tree k v) →
+    Option.map (Map.Tree.popMin t) (view => (view.fst, Map.Tree.toListOnto view.snd Nil)) = Map.Spec.uncons (Map.Tree.toListOnto t Nil)
+  | Tip => rfl
+  | Bin s l key value r =>
+    rewrite Map.Tree.minViewSplit l key value r in Eq.cong Map.Spec.uncons (Map.Tree.deleteMinOnto l key value r Nil)
+
+theorem Map.Raw.popMinFromToList (m: Map.Raw k v [ord := o]):
+    (popped: Option ((k, v), Map.Tree k v)) → (found: Map.Tree.popMin m.tree = popped) →
+    Option.map (Map.Raw.popMinFrom m popped found) (view => (view.fst, Map.Raw.toList view.snd)) = Map.Spec.uncons (Map.Raw.toList m)
+  | None, found =>
+    let same: Option.map (Map.Raw.popMinFrom m None found) (view => (view.fst, Map.Raw.toList view.snd))
+        = Option.map (Map.Tree.popMin m.tree) (view => (view.fst, Map.Tree.toListOnto view.snd Nil)) := rewrite found in rfl
+    Eq.trans same (Map.Tree.popMinOnto m.tree)
+  | Some (smallest, rest), found =>
+    let same: Option.map (Map.Raw.popMinFrom m (Some (smallest, rest)) found) (view => (view.fst, Map.Raw.toList view.snd))
+        = Option.map (Map.Tree.popMin m.tree) (view => (view.fst, Map.Tree.toListOnto view.snd Nil)) := rewrite found in rfl
+    Eq.trans same (Map.Tree.popMinOnto m.tree)
+
+theorem Map.Raw.popMinToList (m: Map.Raw k v [ord := o]):
+    Option.map (Map.Raw.popMin m) (view => (view.fst, Map.Raw.toList view.snd)) = Map.Spec.uncons (Map.Raw.toList m) :=
+  Map.Raw.popMinFromToList m (Map.Tree.popMin m.tree) rfl
+
 theorem Map.Raw.maxToList (m: Map.Raw k v [ord := o]): Map.Raw.max m = List.last (Map.Raw.toList m) :=
   Eq.trans (Eq.sym (Map.Tree.maxOnto None m.tree Nil)) (Map.Spec.lastOrNone (Map.Raw.toList m))
 

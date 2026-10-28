@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPORT-UNKNOWN] Error: `Turns` has no `Clockwise`
+   ╭─[ import-constructor/src/day.sw:5:15 ]
+   │
+ 5 │ import Turns (Clockwise)
+   │               ────┬────  
+   │                   ╰────── `Turns` has no `Clockwise`
+   │ 
+   │ Note: `Clockwise` is a constructor of `Move`, and constructors come with their type: import `Move` instead, as in `import Turns (Move)`
+───╯
+[E-UNKNOWN-NAME] Error: unknown name `Clockwise`
+   ╭─[ import-constructor/src/day.sw:7:25 ]
+   │
+ 7 │ def turn: Turns.Move := Clockwise
+   │                         ────┬────  
+   │                             ╰────── not in scope
+───╯

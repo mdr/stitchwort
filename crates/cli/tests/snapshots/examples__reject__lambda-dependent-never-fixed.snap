@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-CANNOT-INFER] Error: can't tell what `p` is, so can't look up `.name`
-    ╭─[ reject/lambda-dependent-not-postponed.sw:12:38 ]
+    ╭─[ reject/lambda-dependent-never-fixed.sw:11:38 ]
     │
- 12 │ def name: Text := applyChecked (p => p.name) Refl ann
+ 11 │ def name: Text := applyChecked (p => p.name) rfl
     │                                      ───┬──  
     │                                         ╰──── its type isn't known yet here
     │ 

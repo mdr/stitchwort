@@ -14,8 +14,9 @@ import Std.Parse (char)
 
 def main(): {IO, Fail} () :=
   let maze := parseMaze IO.readAll()
-  IO.print "Part 1: ${solvePart1 maze}"
-  IO.print "Part 2: ${solvePart2 maze}"
+  let fromStart := maze.fromStart
+  IO.print "Part 1: ${part1From maze fromStart}"
+  IO.print "Part 2: ${part2From maze fromStart}"
 
 type Position = { row: Nat, column: Nat }
 
@@ -193,22 +194,6 @@ theorem unsettledInsert [auto ord: Ord s] (graph: Graph s) (settled: Map s Nat) 
         | False => rfl)
     state listed (rewrite fresh in rfl) (rewrite containsInsertSame settled state cost in rfl)
 
--- The least key of a set is in it.
-theorem containsMin [auto ord: Ord k] (set: Set k) (least: k) (found: set.min = Some least): set.contains least = True :=
-  match entries: Map.toList set.items with
-    | Nil => Void.exfalso (Option.someNotNone least (Eq.trans (Eq.sym found) (rewrite Map.minToList set.items, entries in rfl)))
-    | Cons entry rest =>
-      let first: set.min = Some entry.fst := rewrite Map.minToList set.items, entries in rfl
-      Map.containsOfMemToList set.items least entry (rewrite entries in Inl rfl) (Option.someInjective _ _ (Eq.trans (Eq.sym first) found))
-
--- Taking the least key out of a set makes it smaller.
-theorem sizeRemoveMin [auto ord: Ord k] (set: Set k) (least: k) (found: set.min = Some least): (set.remove least).size < set.size :=
-  let there: Map.contains set.items least = True := containsMin set least found
-  rewrite Map.sizeRemove set.items least, there, Map.sizeToList set.items in
-    match entries: Map.toList set.items with
-      | Nil => Void.exfalso (Option.someNotNone least (Eq.trans (Eq.sym found) (rewrite Map.minToList set.items, entries in rfl)))
-      | Cons entry rest => omega
-
 -- The queue with each edge's state added, at `cost` plus the edge's.
 def pushEdges [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → Set (Nat, s)
   | Nil, queue => queue
@@ -216,24 +201,23 @@ def pushEdges [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: 
 
 -- Dijkstra's algorithm: `queue` holds (cost, state) pairs still to look at,
 -- least first; `settled` the least cost found for each state settled so
--- far. The least pair in the queue, `popped`, settles its state, unless it
--- already is, and queues the state's neighbours.
-def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat): (popped: Option (Nat, s)) →
-    queue.min = popped → Map s Nat
+-- far. The least pair in the queue, `popped` with the `rest`, settles its
+-- state, unless it already is, and queues the state's neighbours.
+def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat):
+    (popped: Option ((Nat, s), Set (Nat, s))) → queue.popMin = popped → Map s Nat
     decreasing (graph.unsettled settled, queue.size)
   | None, found => settled
-  | Some (cost, state), found =>
-    let rest := queue.remove (cost, state)
+  | Some ((cost, state), rest), found =>
     if fresh: settled.contains state = False then
       if within: graph.within state = True then
         let pushed := pushEdges cost (graph.edges state) rest
-        Graph.searchFrom graph pushed (settled.insert state cost) pushed.min rfl
+        Graph.searchFrom graph pushed (settled.insert state cost) pushed.popMin rfl
           [decreasing := Nat.LexLess.First (unsettledInsert graph settled state cost (graph.listed state within) fresh)]
-      else Graph.searchFrom graph rest settled rest.min rfl [decreasing := Nat.LexLess.Second rfl (sizeRemoveMin queue (cost, state) found)]
-    else Graph.searchFrom graph rest settled rest.min rfl [decreasing := Nat.LexLess.Second rfl (sizeRemoveMin queue (cost, state) found)]
+      else Graph.searchFrom graph rest settled rest.popMin rfl [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
+    else Graph.searchFrom graph rest settled rest.popMin rfl [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
 
 def Graph.search [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat): Map s Nat :=
-  Graph.searchFrom graph queue settled queue.min rfl
+  Graph.searchFrom graph queue settled queue.popMin rfl
 
 -- The least cost to each state reachable from one of the sources, each
 -- given with the cost of starting there.
@@ -278,12 +262,19 @@ def tilesScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: 
     |> .map (entry => entry.fst.position)
     |> Set.fromList
 
-def Maze.bestTiles (maze: Maze): Set Position :=
-  let fromStart := maze.fromStart
+-- The tiles on best paths, from the start's scores.
+def Maze.bestTilesFrom (maze: Maze) (fromStart: Map Reindeer Nat): Set Position :=
   match maze.lowestScore fromStart with
     | Some best => tilesScoring fromStart maze.toEnd best
     | None => Set.empty
 
-def solvePart1 (maze: Maze): Nat := maze.lowestScore maze.fromStart |> .getOrElse 0
+def Maze.bestTiles (maze: Maze): Set Position := maze.bestTilesFrom maze.fromStart
 
-def solvePart2 (maze: Maze): Nat := maze.bestTiles.size
+-- Each part from the start's scores, so `main` searches forward once.
+def part1From (maze: Maze) (fromStart: Map Reindeer Nat): Nat := maze.lowestScore fromStart |> .getOrElse 0
+
+def part2From (maze: Maze) (fromStart: Map Reindeer Nat): Nat := (maze.bestTilesFrom fromStart).size
+
+def solvePart1 (maze: Maze): Nat := part1From maze maze.fromStart
+
+def solvePart2 (maze: Maze): Nat := part2From maze maze.fromStart
