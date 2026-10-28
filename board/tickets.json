@@ -1,5 +1,5 @@
 {
-  "next": 781,
+  "next": 782,
   "tickets": [
     {
       "id": 13,
@@ -6678,6 +6678,18 @@
       "id": 780,
       "title": "Bench: text-literal-walk peak heap 3 kB -> 6 kB, text-nat-to-text 8 -> 11 kB on main (since ~5606c130); find the commit, fix or re-record with reason",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 781,
+      "title": "AoC 2024 day 21 (examples only; input pending from Matt): keypad robots, solve, prove, log gaps",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
