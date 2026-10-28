@@ -24,9 +24,10 @@
 -- `Aoc.Year2025.Day02.Spec` (Spec/). `run` checks none of them.
 
 namespace Aoc.Year2025.Day02
-import Aoc.Common (Range)
-import Std (Each, Fail, Int, List, Nat)
+import Aoc.Common (Range, range)
+import Std (Each, Fail, Int, List, Nat, Parse)
 import Std.Each (each, require)
+import Std.Parse (char, sepBy1)
 
 def main(): {IO, Fail} () :=
   let ranges := parseRanges IO.readAll()
@@ -106,6 +107,6 @@ def RepetitionTemplate.sumIn (template: RepetitionTemplate) (range: Range): Nat 
     multiplier * Nat.sumBetween firstBlock lastBlock
   else 0
 
--- Ranges separated by commas. Spaces and a final line ending are allowed;
--- anything else fails, naming the text that isn't a range.
-def parseRanges (text: Text): {Fail} (List Range) := text.trim.split ',' |> .map Range.parse
+-- Ranges separated by commas. Spaces and a final line break are allowed;
+-- anything else fails, naming the column.
+def parseRanges (input: Text): {Fail} (List Range) := Parse.all input (() => sepBy1 range (() => char ','))

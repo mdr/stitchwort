@@ -15,18 +15,17 @@
 -- neither.
 
 namespace Aoc.Year2025.Day03
-import Aoc.Common (parseLines)
-import Std (Char, Fail, Fin, IO, Nat)
-import Std.Fail (fail, need)
+import Std (Char, Fail, Fin, IO, Nat, Parse)
+import Std.Parse (digit, end, many1, spaces)
 
 def main(): {IO, Fail} () :=
-  let banks := parseBanks IO.readAllLines()
+  let banks := parseBanks IO.readAll()
   IO.print "Part 1: ${solvePart1 banks}"
   IO.print "Part 2: ${solvePart2 banks}"
 
 -- One bank per line. Spaces around a bank are allowed; anything else fails,
--- naming the line.
-def parseBanks (lines: List Text): {Fail} (List Bank) := parseLines lines Bank.parse
+-- naming the line and column.
+def parseBanks (input: Text): {Fail} (List Bank) := Parse.eachLine input bank
 
 def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (maxJoltage 2)
 
@@ -50,14 +49,15 @@ def Bank: Type := List Battery
 -- A row of digits is a bank of that many batteries. A bank must have the
 -- `part2Batteries` that part 2 turns on (and so the 2 of part 1), so the
 -- program only runs on banks the headline theorem covers (`enough` in
--- Proofs/Best.sw). A shorter one is an input error.
-def Bank.parse (line: Text): {Fail} Bank :=
-  let msg := "expected a row of digits, got '${line}'"
-  match line.trim.toList with
-    | Nil => fail msg
-    | chars =>
-      let bank := chars |> .map (char => need char.toDigit msg)
-      if bank.length < part2Batteries then fail "expected at least ${part2Batteries} batteries, got ${bank.length}" else bank
+-- Proofs/Best.sw). A shorter one is an input error, once the whole line is
+-- known to be digits.
+def bank(): {Parse} Bank :=
+  spaces()
+  let batteries := many1 digit
+  spaces()
+  end()
+  Parse.ensure (batteries.length ≥ part2Batteries) "expected at least ${part2Batteries} batteries, got ${batteries.length}"
+  batteries
 
 -- The digits of the largest number of `count` digits that is a subsequence of the bank (`count` is the second argument; all the digits if the bank has fewer).
 def Bank.best: Bank → Nat → Bank

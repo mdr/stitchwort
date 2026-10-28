@@ -5,5 +5,5 @@ namespace Aoc.Year2025.Day03.Tests
 import Aoc.Year2025.Day03 (..)
 import Std (Fail)
 
-test "real input, part 1" := solvePart1 (Fail.orElse [] (() => parseBanks (include "../../../../../inputs/2025/day03.txt").lines)) == 17263
-test "real input, part 2" := solvePart2 (Fail.orElse [] (() => parseBanks (include "../../../../../inputs/2025/day03.txt").lines)) == 170731717900423
+test "real input, part 1" := solvePart1 (Fail.orElse [] (() => parseBanks (include "../../../../../inputs/2025/day03.txt"))) == 17263
+test "real input, part 2" := solvePart2 (Fail.orElse [] (() => parseBanks (include "../../../../../inputs/2025/day03.txt"))) == 170731717900423

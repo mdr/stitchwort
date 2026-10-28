@@ -18,12 +18,12 @@
 -- The tests are in `Aoc.Year2025.Day08.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Year2025.Day08
-import Aoc.Common (parseLines)
-import Std (Fail, IO, List, Map, Nat, Option, Text)
-import Std.Fail (fail)
+import Aoc.Common (spacedNat)
+import Std (Fail, IO, List, Map, Nat, Option, Parse, Text)
+import Std.Parse (char)
 
 def main(): {IO, Fail} () :=
-  let boxes := parseBoxes IO.readAllLines()
+  let boxes := parseBoxes IO.readAll()
   IO.print "Part 1: ${solvePart1 1000 boxes}"
   match solvePart2 boxes with
     | None => IO.print "Part 2: the boxes are already in one circuit."
@@ -41,19 +41,22 @@ type Point = { x: Nat, y: Nat, z: Nat }
 -- reads that box as `origin`.
 type Boxes = { points: List Point, pairs: List Connection }
 
-def parseBoxes (lines: List Text): {Fail} Boxes := Boxes.of (parsePoints lines)
+def parseBoxes (input: Text): {Fail} Boxes := Boxes.of (parsePoints input)
 
 def Boxes.of (points: List Point): Boxes := { points, pairs = closestFirst points }
 
--- One box per line. Spaces around a line or a number are allowed; anything else
--- fails, naming the line.
-def parsePoints (lines: List Text): {Fail} (List Point) := parseLines lines parsePoint
+-- One box per line. Spaces around a number are allowed; anything else fails,
+-- naming the line and column.
+def parsePoints (input: Text): {Fail} (List Point) := Parse.eachLine input point
 
 -- "162,817,812" is `{ x = 162, y = 817, z = 812 }`.
-def parsePoint (line: Text): {Fail} Point :=
-  match line.split ',' |> .map .trim.toNat with
-    | [Some x, Some y, Some z] => { x, y, z }
-    | _ => fail "expected a box like 162,817,812, got '${line}'"
+def point(): {Parse} Point :=
+  let x := spacedNat()
+  char ','
+  let y := spacedNat()
+  char ','
+  let z := spacedNat()
+  { x, y, z }
 
 -- The straight-line distance squared: it orders pairs the same way as the
 -- distance, and needs no square root.
