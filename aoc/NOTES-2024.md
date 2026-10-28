@@ -3244,3 +3244,319 @@ Release build, on a machine with a load average around 25:
 7. The `Parse` ability's `next` shadows a lambda parameter without an
    import (item 3). Fix: as day 9's item 2, scope ability operations by
    import.
+
+## Day 12: Garden Groups
+
+A map of garden plots, one letter (plant) each. "When multiple garden plots
+are growing the same type of plant and are touching (horizontally or
+vertically), they form a region." "The area of a region is simply the number
+of garden plots the region contains", and "the perimeter of a region is the
+number of sides of garden plots in the region that do not touch another
+garden plot in the same region". Part 1 sums area times perimeter over the
+regions. Part 2 uses "the number of sides each region has. Each straight
+section of fence counts as a side, regardless of how long it is" (part 2's
+wording from the public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/master/2024/day-12/README.txt>).
+
+**The real input is pending from Matt**: his repository
+(<https://github.com/mdr/aoc-2024>) stops at day 10, so there is no
+`inputs/2024/day12.txt`, no `Tests/Input.sw`, and the day isn't registered in
+`aoc_answers.rs` or `machine.rs` yet. The tests are the puzzle's examples:
+140, 772 and 1930 for part 1; 80, 436, 236, 368 and 1206 for part 2, all
+cross-checked with an independent Python script (`/usr/bin/python3 -I`: a
+breadth-first fill per region, and sides found by joining fence segments
+into straight runs, not by counting corners). For performance, the same
+script wrote a random 140 by 140 grid of letter blobs (1115 regions); the
+program and Python agree on it (859142 and 554456). Compiler built from
+`main` at 3117ab0b, 28 October 2026.
+
+### The program
+
+```stitchwort
+def plantLetter(): {Parse} Char := Parse.satisfy "a letter" (char => char.isAsciiLetter)
+
+def parseGarden (input: Text): {Fail} Garden :=
+  let rows := Parse.all input (() => Parse.grid plantLetter)
+  let width := rows.headOr [] |> .length
+  rows.withIndex |> .map (((row, plants)) =>
+    Fail.ensure (plants.length == width) "line ${row + 1}: expected ${width} plots, as on the first line, got ${plants.length}")
+  let plots :=
+    rows.withIndex
+      |> .flatMap (((row, plants)) => plants.withIndex |> .map (((column, plant)) => (({ row, column }: Position), plant)))
+  { plots = Map.fromList plots }
+
+def Garden.fill (garden: Garden) (plant: Char) (stack: List Position) (visited: Set Position) (members: List Position): List Position
+    decreasing (garden.unvisited visited, stack.length)
+:=
+  match stack with
+    | Nil => members
+    | Cons position rest =>
+      if fresh: visited.contains position = False then
+        if grows: garden.plantAt position = Some plant then
+          Garden.fill garden plant (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members)
+            [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)]
+        else Garden.fill garden plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
+      else Garden.fill garden plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
+
+def Garden.regionsFrom (garden: Garden): (starts: List Position) → (seen: Set Position) → List (List Position)
+  | Nil, seen => Nil
+  | Cons start rest, seen =>
+    if seen.contains start then garden.regionsFrom rest seen
+    else
+      let region := garden.regionOf start
+      Cons region (garden.regionsFrom rest (region.foldLeft seen Set.insert))
+
+def Garden.isCorner (garden: Garden) (position: Position) (vertical: Direction) (horizontal: Direction): Bool :=
+  match garden.sameAcross position vertical, garden.sameAcross position horizontal with
+    | False, False => True
+    | True, True => (position.diagonal vertical horizontal |> .flatMap garden.plantAt) != garden.plantAt position
+    | _, _ => False
+
+def solvePart1 (garden: Garden): Nat := garden.regions |> .sumBy (region => region.length * garden.perimeter region)
+
+def solvePart2 (garden: Garden): Nat := garden.regions |> .sumBy (region => region.length * garden.sides region)
+```
+
+The domain model is a `Map Position Char`, the plant at each plot.
+`regions` walks the plots in order and starts a flood fill at each one not
+yet in a region; the fill is depth-first, with a stack and a `Set` of
+visited plots. A plot's fences are its sides not facing the same plant
+(`fences`, summed to `perimeter`); its corners (`isCorner`, counted per
+plot by `cornerCount` and summed to `sides`) are outside corners, where
+neither the vertical nor the horizontal neighbour grows the same plant, and
+inside corners, where both do but the plot diagonally across doesn't. A
+region has as many sides as corners.
+
+The fill terminates without fuel: `decreasing (garden.unvisited visited,
+stack.length)`, lexicographic. Taking a plot shrinks the number of plots not
+yet visited (`unvisitedInsert`, with `countFewer` and `positionsComplete`);
+dropping a visited plot, or one growing another plant, keeps it and shrinks
+the stack. Those three lemmas (45 lines) are in the program file, since the
+program's termination needs them. Std's pigeonhole and iterate-repeat
+lemmas weren't needed.
+
+### Proved, for every map
+
+The spec (`Spec/Spec.sw`) is in the puzzle's words over the program's
+`plantAt` and `step` (the grid point one step in a direction).
+`isOrthogonalStep` is arithmetic on rows and columns, as on day 10;
+`touches` is that and `growSame`; `Joined plot other` is a chain of touching
+plots from one to the other (`Exists` a list, checked by `isChain`);
+`IsRegion garden plot region` says the list holds exactly the plots joined
+to `plot`. `perimeter` counts the sides of the region's plots whose `step`
+isn't a plot of the region. A side is "a straight section of fence";
+`sides` counts each at its first section (`isFirstSection`): a fence
+segment with no fence on the same side of the plot before it along the line
+(left of it for a fence above or below, above it for one left or right).
+`totalPrice regions measure` sums area times `measure`.
+
+Proved (`Proofs/`, 1372 lines in 8 files):
+
+- `regionOfIsRegion`: from a plot growing a plant, the fill lists every
+  plot joined to it, and nothing else; `regionOfDistinct`: each once.
+  `fillCorrect` carries an invariant through the fill's own `decreasing`
+  measure: `visited` has exactly the members, members are distinct, grow
+  the plant and are joined to the start, so is everything on the stack, and
+  each neighbour a member pushed is a member or still on the stack (Fill.sw).
+  Joined plots: reflexive, symmetric, transitive, and keep the plant
+  (Joined.sw); `step` is the spec's orthogonal step (Steps.sw).
+- `regionsAreRegions`: each of the program's regions is `IsRegion` of one
+  of its plots, with no repeats; `inOneRegion`: every plot is in exactly
+  one of them (Regions.sw).
+- `part1Correct`: `solvePart1 garden = totalPrice garden.regions
+  perimeter`; per region, `perimeterCorrect` (a side faces the same plant
+  exactly when it touches a plot of the region, `sameAcrossFaces`).
+- `part2Correct`: `solvePart2 garden = totalPrice garden.regions sides`;
+  per region, `sidesCorrect`: the program's corner count is the spec's
+  count of sides.
+
+The corners-equal-sides step is `cornersEqualSides` (Corners.sw, 488 lines),
+over a region as a grid of booleans with nothing at row or column
+`Succ last`. Each corner is the end of exactly one run of fence along a row
+(`rowEndsSplit`, a 16-case truth table): an outside corner is the end of
+the plot's own fence above or below it; an inside corner is the end of the
+neighbour's. Shifting a sum by one column (`totalLater`, `totalEarlier`)
+lines these up (`rowCorners`), and along any line as many runs start as end
+(`telescope`, `startsEqualEnds`). So the corners are twice the runs along
+rows, and, by the same argument down columns (`columnCorners`), twice the
+runs along columns: their number is the sum, the sides. Sides.sw connects
+the program and the spec to the grid: per plot by cases on row and column
+0 (`programCornersCell`, `specSidesCell`), and a sum over the region's plots
+is a sum over a square big enough to hold it (`sumOverGrid`, through a
+permutation, as on day 10).
+
+Breaking the program (outside corners not counted, or a neighbour left out
+of the fill) makes the proofs fail. Nothing is unproved; what the theorems
+don't say is that the order of the regions is anything in particular, which
+the price doesn't depend on. The spec runs on the program's regions, so
+the tests also check `totalPrice regions perimeter` and `sides` against the
+examples.
+
+### 1. Std.Parse: none
+
+`Parse.grid plantLetter` with `Parse.satisfy "a letter"` read the map first
+time, and the messages read well: `line 2, column 2: expected a letter or
+the end of the line, got '.'`; on empty input `line 1, column 1: expected a
+letter, got the end of the input`. The row-length check is outside the
+grammar, as on days 8 and 10, so its message has no column. Turning rows
+into a `Map Position Char` is a `withIndex`/`flatMap` by hand; std has
+`Map.byPosition` for one list (`crates/elab/src/std/Map/ByPosition.sw`) but
+nothing for a grid. Fix: a
+`Map.byGridPosition` (or `Parse.gridMap`).
+
+### 2. Missing std
+
+- `List.contains` with `DecEq`: tests and the spec write
+  `region.any (member => member == plot)`. Scala has `contains`
+  (<https://www.scala-lang.org/api/current/scala/collection/immutable/List.html>),
+  Haskell `elem`
+  (<https://hackage.haskell.org/package/base/docs/Data-List.html#v:elem>).
+- Lemmas written here: `countLe` and `countFewer` (a count is monotone in
+  its predicate, strictly when one member passes only the larger;
+  in the program file, for termination), `sumByCongMem` (sums agree when
+  terms agree on members), `memLeSumBy` (a member's term is at most the
+  sum), `anyEqual` (`any (== x)` is membership), `notEqualNot` (item 3).
+  Lean's core has `List.countP_mono_left` and `List.countP_congr`
+  (<https://github.com/leanprover/lean4/blob/master/src/Init/Data/List/Count.lean>).
+- A connected-components function: Haskell's containers has
+  `components :: Graph -> [Tree Vertex]`
+  (<https://hackage-content.haskell.org/package/containers-0.8.1/docs/Data-Graph.html>);
+  Mathlib defines `SimpleGraph.Reachable` ("a walk between them") and
+  `ConnectedComponent` as its quotient, with `reachable_is_equivalence`
+  (<https://leanprover-community.github.io/mathlib4_docs/Mathlib/Combinatorics/SimpleGraph/Connectivity/Connected.html>).
+  `Joined` and its lemmas here are that, for one grid.
+
+None added to std (`List/Lemmas.sw` is another lane's). Fix: add
+`List.contains`, the count and sum lemmas, and a grid-to-map builder.
+
+### 3. Confusing errors
+
+- `!=` and `!` in a theorem's statement are the `Prop` ones. Stating
+  `(a != b) = Bool.not d` gave
+
+  ```text
+  [E-NOT-A-TYPE] Error: expected a type
+    this has type `Bool`, so it isn't a type
+    Note: `not` here is on propositions; for a `Bool` `b`, the proposition that it's true is `b = True`
+  ```
+
+  pointing into the right-hand side, not at the `!=` on the left (with
+  `!d` on the right it pointed at that). Ascribing
+  `((a != b): Bool)` worked. Then `!=` on `Bool` is
+  `Decidable.toBool (Decidable.not d)`, not `!(a == b)`, so `rfl` failed
+  between them and a lemma (`notEqualNot`, a `match` on the decision) was
+  needed. Fix: point at the operator, and define `!=` as `!` of `==`.
+- A function's `.unfold` couldn't be used when the program matched a `Bool`
+  with an equation that a `decreasing` proof used (`match taken:
+  visited.contains position with`): every way of stepping through it failed,
+  `rewrite … , taken` with
+
+  ```text
+  [E-REWRITE-MOTIVE] Error: replacing `Set.contains visited position` everywhere in the goal doesn't give a valid proposition
+  ```
+
+  and `match c: visited.contains position with` with
+
+  ```text
+  [E-MATCH-MOTIVE] generalising this match's scrutinee makes its type ill-formed … rfl can't prove this
+  ```
+
+  What I did instead: rewrote the program with `if fresh:
+  visited.contains position = False then`, a `Prop` `if`, and proved each
+  step with std's `Decidable.elimEq`. Fix: generate step equations
+  for each arm, as Lean does, or make the dependent `Bool`
+  match generalise its equation too.
+- "write this recursive call as `Aoc.Year2024.Day12.Garden.fill …`, not
+  with a dot" — clear, but a
+  surprise: `garden.fill …` works everywhere else. Fix: allow dot calls.
+- `ring` is a keyword: "`ring` is a keyword, so it can't be used as a
+  name". Clear; renamed the test's variable `loop`.
+- A lambda parameter `plot` drew a `W-LAMBDA-SHADOW` warning for hiding the
+  grammar `plot()`; renamed the grammar `plantLetter`.
+
+### 4. Inference
+
+- Holes aren't solved from the expected type for a higher-order argument:
+  `Eq.trans (countDirections _) rfl` gave `expected `List.count directions
+  (side => …) = …`, but this has type `List.count directions (?4 region) =
+  …``, and `rewrite countDirections` found nothing. Named the spec's
+  lambda `isFirstSection` and passed it.
+- A `let` of a lambda proving an equation needs its type: `rfl proves an
+  equation, but the expected type is `?11 garden start …``. Annotated.
+- `Some { position | row = above }` is a parse error whose note gives the
+  fix, `Some ({ … })` (day 1's item 7 again).
+
+### 5. Performance
+
+On the generated 140 by 140 grid `stitchwort run` takes 3.75 s user against
+0.61 s on the 10 by 10 example (loading), so about 3.1 s of work: parsing
+0.2 s, the regions 0.6 s, perimeters 0.45 s, corners 1.9 s (measured with
+throwaway mains). Python takes 0.05 s. The first version kept the rows as
+lists and looked plots up with `getOr` (two list walks per lookup): 6 s of
+work; a `Map Position Char` halved it. Corners cost most: four quadrants of
+two or three `Map` lookups each per plot. Not pursued further.
+
+### 6. Proofs
+
+- `n + 1` isn't `Succ n` by computation (day 4's item 2): with `step Down`
+  written `position.row + 1`, the grid lemmas didn't compute. The program
+  says `Succ position.row` instead, which reads less naturally.
+- No decision procedure for `Bool`: the two 16-case truth tables in
+  Corners.sw are 16 `rfl` clauses each, generated. And a wildcard in a
+  `match` on three `Bool`s left `s ∧ False` stuck, so `omega` failed until
+  every case was written out. Lean has `decide` for closed decidable goals
+  (listed under Decision Procedures in
+  <https://lean-lang.org/doc/reference/latest/Tactic-Proofs/Tactic-Reference/>).
+  Fix: a `decide` for `Bool` identities over variables (by cases).
+- `omega` computes `total (Succ last) f` to `f 0 + total last …`, so facts
+  had to be stated for every named sum separately (`totalAdd4` per corner
+  kind) before `omega` could combine 23 of them in `rowCorners`; its
+  listing of facts and atoms made this quick to see. It matched atoms by
+  computing, which made the per-plot identities one `omega` each.
+- No eta for records (day 5): lambdas over `Position` match
+  `{ row, column }` first so the grid lemmas apply.
+
+### 7. What went well
+
+The fill, regions and perimeter proofs (Fill, Joined, Regions, Fences,
+Steps; about 620 lines) mostly checked first time.
+Lexicographic `decreasing` gave a fuel-free fill whose proof follows the
+same measure. In the corner argument (Corners.sw, Sides.sw), once the sums were in one form, `cornersEqualSides` checked first
+time. Lean's `termination_by` is the same idea, with tuples ordered
+lexicographically
+(<https://lean-lang.org/doc/reference/latest/Definitions/Recursive-Definitions/#well-founded-recursion>).
+
+### Size and time
+
+Release build, load average around 22:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day12.Proofs` | 2.7 s user (5.3 s) |
+| `stitchwort check --no-cache Aoc.Year2024.Day12` | 1.9 s user (4.2 s) |
+| `stitchwort test --no-cache Aoc.Year2024.Day12` (33 tests) | 3.1 s user (6.3 s) |
+| `stitchwort test Aoc.Year2024.Day12` (warm) | 1.1 s user (2.3 s) |
+| `stitchwort run Aoc.Year2024.Day12.main` on the larger example | 0.61 s user |
+| `stitchwort run Aoc.Year2024.Day12.main` on a generated 140 by 140 grid | 3.75 s user |
+| `stitchwort check --no-cache` (whole aoc project, 83 namespaces) | 16.5 s user (19 s) |
+
+179 lines of program (45 of them termination lemmas), 77 of spec, 1372 of
+proofs, 158 of tests.
+
+### Ranked
+
+1. `.unfold` unusable through a dependent `Bool` match (item 3). Fix:
+   per-arm equations, or generalise the equation with the scrutinee.
+2. `!=`/`!` in statements are `Prop`, the error points elsewhere, and
+   `!=` isn't `!` of `==` (item 3). Fix: point at the operator; define `!=`
+   as `!(==)`.
+3. No `Bool` decision procedure; wildcards leave `x ∧ False` stuck (item
+   6). Fix: a `decide` that splits `Bool` variables.
+4. `n + 1` isn't `Succ n` (item 6). Fix: reduce `n + 1` to `Succ n`.
+5. Holes not solved for higher-order arguments (item 4). Fix: unify
+   against the expected type first.
+6. Missing `List.contains`, count and sum lemmas, grid-to-map (items 1, 2).
+   Fix: add them.
+7. Corners cost 1.9 s on a 140 by 140 grid (item 5). Fix: none needed
+   yet; a faster `Map` lookup on records would help.
+8. Dot calls refused with `[decreasing := …]` (item 3). Fix: allow them.
