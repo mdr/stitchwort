@@ -5897,7 +5897,7 @@
     {
       "id": 715,
       "title": "std list lemmas from AoC 2024 day 4: getDrop, getZipWith3 in Option form, sums over zips as sums over indices, range-sum extend/shift, (Some x == Some y) = (x == y), step lemmas for all/any over cons; plus DecEq for () (overnight)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5921,7 +5921,7 @@
     {
       "id": 717,
       "title": "Goals show a proof-valued let by its type, not its proof term (no Omega.proveEq or Effect.doneD in goals) (AoC 2024 day 4)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
