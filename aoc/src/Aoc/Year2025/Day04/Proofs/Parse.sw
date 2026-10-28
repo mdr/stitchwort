@@ -1,5 +1,5 @@
 -- `parseGrid` reads the lines as the puzzle does: when it makes a grid, the
--- cell in row r, column c is `parseChar` of line r's character c (`@` is a
+-- cell in row r, column c is `Cell.ofChar` of line r's character c (`@` is a
 -- roll, `.` floor), and floor past the lines (`parseGridCells`).
 
 namespace Aoc.Year2025.Day04.Proofs
@@ -27,7 +27,7 @@ theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (List.he
       let past: lines.length ≤ r := omega
       rewrite rowsCellsBelow rows r c past, List.getOrPast lines r "" past
 
-theorem gridOfCells (lines: List Text) (grid: Grid) (h: gridOf lines = Some grid) (r: Nat) (c: Nat):
+theorem gridOfCells (lines: List Text) (grid: Grid) (h: Grid.of lines = Some grid) (r: Nat) (c: Nat):
     cellsOf grid r c = List.getOr (parseLine (List.getOr lines r "")) c Floor :=
   let width := Text.length (List.headOr lines "")
   let f := (line: Text) => Vec.ofList width (parseLine line)
@@ -42,4 +42,4 @@ theorem parseGridCells (lines: List Text) (grid: Grid) (h: parseGrid lines = Ok 
     cellsOf grid r c = List.getOr (parseLine (List.getOr lines r "")) c Floor :=
   match e: findStray lines with
     | Some (row, column, ch) => Void.exfalso (Bool.falseNotTrue (Eq.cong Result.isOk h))
-    | None => gridOfCells lines grid (Eq.trans (Eq.sym (Result.toOptionToResult _ (gridOf lines))) (Eq.cong Result.toOption h)) r c
+    | None => gridOfCells lines grid (Eq.trans (Eq.sym (Result.toOptionToResult _ (Grid.of lines))) (Eq.cong Result.toOption h)) r c

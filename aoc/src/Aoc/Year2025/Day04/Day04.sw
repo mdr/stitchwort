@@ -52,7 +52,7 @@ def solvePart2 (grid: Grid): Nat := grid.rolls - grid.settle.rolls
 def parseGrid (lines: List Text): Result Grid Text :=
   match findStray lines with
     | Some (row, column, ch) => Err "line ${row}, column ${column}: expected '@' or '.', got '${ch}'"
-    | None => gridOf lines |> .toResult "expected lines that are all the same length, got a line of a different length"
+    | None => Grid.of lines |> .toResult "expected lines that are all the same length, got a line of a different length"
 
 -- The line and column (both from 1) of the first character that is neither
 -- @ nor ., and the character.
@@ -62,16 +62,16 @@ def findStray (lines: List Text): Option (Nat, Nat, Char) :=
       if ch == '@' ∨ ch == '.' then None else Some (rowIndex + 1, columnIndex + 1, ch)))
 
 -- `None` if the lines are not all as long as the first.
-def gridOf (lines: List Text): Option Grid :=
+def Grid.of (lines: List Text): Option Grid :=
   let width := lines.headOr "" |> .length
   Vec.fromList lines
     |> .traverseOption (line => Vec.ofList width (parseLine line))
     |> .map (rows => ({ height = lines.length, width, rows }: Grid))
 
-def parseLine (line: Text): List Cell := line.toList.map parseChar
+def parseLine (line: Text): List Cell := line.toList.map Cell.ofChar
 
 -- `findStray` has checked that anything but @ is a `.`.
-def parseChar: Char → Cell
+def Cell.ofChar: Char → Cell
   | '@' => Roll
   | _ => Floor
 
