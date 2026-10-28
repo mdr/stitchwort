@@ -1,5 +1,5 @@
 {
-  "next": 737,
+  "next": 739,
   "tickets": [
     {
       "id": 13,
@@ -6101,7 +6101,7 @@
     {
       "id": 732,
       "title": "Runtime: fused state-passing handlers should treat a resumption in a match arm as tail position (fusion.rs tail stops at match), so handlers don't leak a frame per operation; and the ~12 µs per handler-passing operation cost (Std.Parse findings)",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6149,6 +6149,30 @@
     {
       "id": 736,
       "title": "Split List/Toolkit.sw: lemmas into their own file(s) so programs calling List.range etc. don't check ~2,400 lines of lemmas (bench check-closed tracks toolkit size); after the day-7 std lemma lane merges",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 737,
+      "title": "Design note: tail-resumptive handler clauses run in place (Koka-style), skipping re-performing handlers; findAll costs ~12 µs/char on the machine vs 0.2 µs in JS",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 738,
+      "title": "Std.Parse: write runFrom's span/next/literal clauses naturally again (the runtime now loops through match arms)",
       "status": "next",
       "agent": "",
       "where": "",
