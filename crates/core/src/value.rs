@@ -564,6 +564,13 @@ pub fn force_solved(g: &Globals, value: Value) -> Result<Value> {
     }
 }
 
+/// Glued call `id spine` unfolded one step: its case tree run, the calls in
+/// what it returns kept as calls rather than forced.
+fn unfold_once(g: &Globals, id: DefId, spine: Spine) -> Result<Value> {
+    let start = unfold_now(g, id, spine, false)?;
+    run(g, start)
+}
+
 /// Whether glued call `id spine` takes a step at once by matching: its case
 /// tree starts with a case on an argument that is already a constructor or
 /// a number, or a call that does this itself (`List.length (List.append
@@ -1882,14 +1889,14 @@ fn erased_arg(g: &Globals, f: &Term) -> bool {
 /// Solved metavariables are replaced by their solutions, and a glued call
 /// ([`Value::Call`]) by its unfolding: the normal form.
 pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
-    Ok(quote_as(g, level, value, false, None)?.expect("no cap"))
+    Ok(quote_as(g, level, value, Readback::Unfolded, None)?.expect("no cap"))
 }
 
 /// [`quote`], or `None` if the term would have more than `cap` nodes: for
 /// callers that only inspect the normal form and can do without it when it's
 /// large.
 pub fn quote_at_most(g: &Globals, level: usize, value: &Value, cap: u64) -> Result<Option<Term>> {
-    quote_as(g, level, value, false, Some(cap))
+    quote_as(g, level, value, Readback::Unfolded, Some(cap))
 }
 
 /// [`quote`], but a glued call ([`Value::Call`]) is written as the call,
@@ -1898,7 +1905,26 @@ pub fn quote_at_most(g: &Globals, level: usize, value: &Value, cap: u64) -> Resu
 /// computes to. The two terms are convertible. Without gluing (the kernel)
 /// there are no calls, and this is [`quote`].
 pub fn quote_folded(g: &Globals, level: usize, value: &Value) -> Result<Term> {
-    Ok(quote_as(g, level, value, true, None)?.expect("no cap"))
+    Ok(quote_as(g, level, value, Readback::Folded, None)?.expect("no cap"))
+}
+
+/// [`quote_folded`] for display: a call that steps at once is written as
+/// its one step rather than forced through, so the calls that step returns
+/// stay calls (`if True then concatenate a b else 0` is `concatenate a b`).
+/// For printing only; elaborated terms are read back with [`quote_folded`].
+pub fn quote_shown(g: &Globals, level: usize, value: &Value) -> Result<Term> {
+    Ok(quote_as(g, level, value, Readback::Shown, None)?.expect("no cap"))
+}
+
+/// How [`quote_as`] reads back glued calls.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Readback {
+    /// As their unfoldings ([`quote`]).
+    Unfolded,
+    /// As calls, except one that steps at once, forced ([`quote_folded`]).
+    Folded,
+    /// As calls, one that steps at once by that step ([`quote_shown`]).
+    Shown,
 }
 
 /// The readback; `None` if it grows past `cap` nodes (when given and below
@@ -1907,7 +1933,7 @@ fn quote_as(
     g: &Globals,
     level: usize,
     value: &Value,
-    folded: bool,
+    mode: Readback,
     cap: Option<u64>,
 ) -> Result<Option<Term>> {
     // A work list rather than recursion: `tasks` are values still to visit
@@ -1936,7 +1962,7 @@ fn quote_as(
                     g.budget.set_too_large(root_def);
                     return Err(ResourceError::Size);
                 }
-                visit(g, level, value, folded, &mut tasks, &mut done)?;
+                visit(g, level, value, mode, &mut tasks, &mut done)?;
             }
             QuoteTask::Pi(x, i) => {
                 let (a, b) = pop2(&mut done);
@@ -2039,7 +2065,7 @@ fn visit(
     g: &Globals,
     level: usize,
     value: Value,
-    folded: bool,
+    mode: Readback,
     tasks: &mut Vec<QuoteTask>,
     done: &mut Vec<Term>,
 ) -> Result<()> {
@@ -2049,7 +2075,7 @@ fn visit(
             tasks.push(QuoteTask::Visit(level, v.clone()));
         }
     };
-    let value = if folded {
+    let value = if mode != Readback::Unfolded {
         match force_solved(g, value)? {
             Value::Call(id, spine, _) if !matches_at_once(g, id, &spine)? => {
                 let args = call_args(&spine);
@@ -2060,6 +2086,12 @@ fn visit(
                 for (v, _) in args.into_iter().rev() {
                     tasks.push(QuoteTask::Visit(level, v));
                 }
+                return Ok(());
+            }
+            // Shown, a call that steps at once is read back as that one step,
+            // in which the calls it returns stay folded.
+            Value::Call(id, spine, _) if mode == Readback::Shown => {
+                tasks.push(QuoteTask::Visit(level, unfold_once(g, id, spine)?));
                 return Ok(());
             }
             other => force(g, other)?,
@@ -2092,9 +2124,11 @@ fn visit(
         // Read back folded, `Succ` of a call stays that: the call is what
         // was written.
         Value::Ctor(d, 1, args)
-            if !folded && Some(d) == g.builtins.nat && has_call_base(g, &args) =>
+            if mode == Readback::Unfolded
+                && Some(d) == g.builtins.nat
+                && has_call_base(g, &args) =>
         {
-            visit(g, level, succ_unglued(g, &args[0])?, folded, tasks, done)?;
+            visit(g, level, succ_unglued(g, &args[0])?, mode, tasks, done)?;
         }
         Value::Ctor(d, c, args) => {
             tasks.push(QuoteTask::Ctor(d, c, args.len()));
