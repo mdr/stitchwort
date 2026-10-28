@@ -28,11 +28,6 @@ theorem operateArrows (rows: List (List (Option k))): (aim: Position) → (route
           | None => rfl
           | Some key => operateArrows rows next others rest
 
--- Whether there are any.
-def hasSome: List a → Bool
-  | Nil => False
-  | Cons first rest => True
-
 -- The number of moves between two places, along rows and columns.
 def distance (from: Position) (to: Position): Nat := from.row - to.row + (to.row - from.row) + (from.column - to.column) + (to.column - from.column)
 
@@ -47,7 +42,7 @@ def fits [auto decEq: DecEq k] (keys: List k) (keypad: Keypad k) (rows: List (Li
   keys.all (to => keyAt rows (keypad.place to) == Some to)
     && keys.all (from =>
       keys.all (to =>
-        hasSome (routes keypad from to) && (routes keypad from to).all (routeFits rows (keypad.place from) (keypad.place to))))
+        (routes keypad from to != []) && (routes keypad from to).all (routeFits rows (keypad.place from) (keypad.place to))))
 
 def numericKeys: List NumericKey := [Digit0, Digit1, Digit2, Digit3, Digit4, Digit5, Digit6, Digit7, Digit8, Digit9, Enter]
 
@@ -87,7 +82,7 @@ type Fitted (k: Type) = {
 }
 
 -- The cheapest of a non-empty list of routes passes a test they all pass.
-theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool): (choices: List (List Direction)) → hasSome choices = True →
+theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool): (choices: List (List Direction)) → ((choices != []): Bool) = True →
     List.all choices passes = True → passes (cheapestRoute costs choices) = True
   | Nil, some, all => Void.exfalso (Bool.falseNotTrue some)
   | Cons first others, some, all => minByStepPasses (routeCost costs) passes first (Bool.andLeft _ _ all) others (Bool.andRight _ _ all)

@@ -1566,6 +1566,14 @@ fn nothing_found(
         }
         _ => error = error.with_note(format!("{what}{after}: `{goal_text}`")),
     }
+    if matches!(place, Place::Goal)
+        && let Some(name) = hypothesis_holding(cx, rule, lhs)
+    {
+        error = error.with_note(format!(
+            "`{name}` has `{shown_lhs}`: to rewrite a hypothesis rather than the goal, name it \
+             with `at`, as `rewrite … at {name} in …`"
+        ));
+    }
     if computed_lhs != shown_lhs {
         error = error.with_note(format!(
             "the search compares what terms compute to: it looked for `{computed_lhs}`, what \
@@ -1614,6 +1622,28 @@ fn nothing_found(
         }
     }
     error
+}
+
+/// The name of the latest variable in scope whose type has `lhs` in it, as
+/// it computes, other than the variable the rule applies.
+fn hypothesis_holding(cx: &Ctx, rule: &RewriteRule, lhs: &Value) -> Option<String> {
+    let needle = cx.quote(lhs).ok()?;
+    let mut head = &rule.proof;
+    while let Expr::App(function, _) = head {
+        head = function;
+    }
+    let applied = match head {
+        Expr::Var(name) => cx.lookup(&name.text),
+        _ => None,
+    };
+    (0..cx.types.len()).rev().find_map(|level| {
+        if Some(level) == applied {
+            return None;
+        }
+        let name = cx.name_of_level(level)?;
+        let ty = cx.quote(&cx.types[level]).ok()?;
+        crate::matching::occurs(&needle, &ty).then(|| name.to_string())
+    })
 }
 
 /// `candidate` is a term of the goal (or the target's type) in `cx`'s

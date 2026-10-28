@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a type's parameter `k` needs its type, in brackets
+   ╭─[ reject/type-parameter-without-type.sw:7:13 ]
+   │
+ 7 │ type Keypad k = { place: k → Position, gap: Position }
+   │             ┬  
+   │             ╰── a type's parameter `k` needs its type, in brackets
+   │ 
+   │ Note: write `type Keypad (k: Type) …`
+───╯

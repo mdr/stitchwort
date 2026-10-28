@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-NOTHING] Error: `rewrite` found no `size a` in the goal
+   ╭─[ reject/rewrite-nothing-hypothesis-has-it.sw:8:11 ]
+   │
+ 8 │   rewrite fixed in sized
+   │           ──┬──  
+   │             ╰──── looking for `size a`
+   │ 
+   │ Note 1: goal: `a = b`
+   │ 
+   │ Note 2: `sized` has `size a`: to rewrite a hypothesis rather than the goal, name it with `at`, as `rewrite … at sized in …`
+   │ 
+   │ Note 3: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
+   │ 
+   │ Note 4: to replace the right side by the left, write `rewrite <- …`
+───╯
