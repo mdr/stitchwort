@@ -18,6 +18,12 @@ pub(crate) enum Role {
     Unary,
     /// An infix `-`: `a - b`.
     Binary,
+    /// An argument minus: `f -2`, a space before and none after it. The gap
+    /// before it is kept, since `f-2` and `f - 2` are subtractions.
+    ArgumentMinus,
+    /// A `-` starting a statement, right after a line that ends an operand:
+    /// its gap after is kept, since `-y` there could read as an argument.
+    StatementMinus,
     /// The `-` of `<-` in `rewrite <- h in …`, which touches the `<`.
     RewriteArrow,
 }
@@ -64,6 +70,7 @@ pub(crate) fn gap(pair: &Pair) -> Gap {
         || (*left == LBrace && *right == RBrace)
         || pair.left_role == Role::RewriteArrow
         || pair.right_role == Role::RewriteArrow
+        || pair.right_role == Role::ArgumentMinus
         || (*left == RParen && *right == LParen);
     if kept {
         return Gap::Kept(spaced);
@@ -75,6 +82,11 @@ pub(crate) fn gap(pair: &Pair) -> Gap {
     if *left == Minus {
         return match pair.left_role {
             Role::Binary => Gap::Rule(true),
+            Role::StatementMinus => Gap::Kept(spaced),
+            // `- 1.abs` is not `-1.abs` (a negative numeral, D1474).
+            _ if matches!(right, Num(_) | Float(_)) && pair.after == Some(&Dot) => {
+                Gap::Kept(spaced)
+            }
             // `- -x`, not the comment `--x`.
             _ => Gap::Rule(*right == Minus),
         };

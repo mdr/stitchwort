@@ -2386,6 +2386,25 @@ export def area: Shape -> Nat
         while (i < text.length && isDigit(text[i])) i++;
         add("number", start, i);
         previous = "0";
+      } else if (c === "-" && isDigit(text[i + 1] || "")
+                 && !(i > 0 && (isWord(text[i - 1]) || ")]}\"'".includes(text[i - 1]))
+                      && !(KEYWORDS.has(previous) && !["Type", "Prop", "omega", "ring", "cases"].includes(previous)))) {
+        // A `-` glued to a numeral, with no closing token touching it on the
+        // left, is part of the number: `-1.abs` is `(-1).abs`, while `x-1`
+        // subtracts (docs/proposals/negative-arguments.md).
+        i++;
+        while (i < text.length && isDigit(text[i])) i++;
+        if (text[i] === "." && isDigit(text[i + 1] || "")) {
+          i++;
+          while (i < text.length && isDigit(text[i])) i++;
+        }
+        if ((text[i] === "e" || text[i] === "E")
+            && (isDigit(text[i + 1] || "") || ((text[i + 1] === "+" || text[i + 1] === "-") && isDigit(text[i + 2] || "")))) {
+          i += 2;
+          while (i < text.length && isDigit(text[i])) i++;
+        }
+        add("number", start, i);
+        previous = "0";
       } else if (c === '"') {
         const block = text.startsWith('"""', i);
         modes.push({ code: false, start, block });

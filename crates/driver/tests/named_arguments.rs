@@ -209,7 +209,7 @@ impl Walk {
                 self.expr(cod);
             }
             Expr::NamedArg(_, value, ..)
-            | Expr::Neg(value, _)
+            | Expr::Neg(value, _, _)
             | Expr::Interpolated(value, _)
             | Expr::Field(value, _) => self.expr(value),
             Expr::Pipe(a, b) => {

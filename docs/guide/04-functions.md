@@ -125,7 +125,7 @@ test "the same call, in full" := Point.manhattan (Point.shift origin 3 (-4)) == 
 
 `origin.shift 3 (-4)` is `Point.shift origin 3 (-4)`. There are no classes and no methods: dot notation is only a way of writing calls. It works for the library's types too (`xs.map f` is `List.map xs f`), and needs no import: the value's type picks the namespace. Nothing is searched for: if `f`'s first explicit parameter isn't a `Point`, `origin.f` is `E-DOT-NO-RECEIVER`, so a function meant to be called with a dot takes its main value first. A function in `Point`'s namespace that takes a `Point` but not first gets the warning `W-RECEIVER-NOT-FIRST`.
 
-A negative literal as an argument needs brackets: `f -4` is `f - 4`.
+A negative number as an argument needs no brackets when the `-` has a space before it and none after it: `f -4` is `f (-4)` and `f -x` is `f (-x)`. `n - 4`, `n-4` and `n- 4` are subtractions, so `n -4` for a number `n` is an error with a note saying so.
 
 ## Pipes
 

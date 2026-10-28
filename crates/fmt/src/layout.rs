@@ -41,7 +41,9 @@
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
-use stitchwort_syntax::{Comment, Lexed, Tok, Token, equivalence, lex_with_trivia};
+use stitchwort_syntax::{
+    Comment, Lexed, Tok, Token, argument_minus, closes_operand, equivalence, lex_with_trivia,
+};
 
 use crate::doc::{Doc, print};
 use crate::spacing::{Gap, Pair, Role, gap};
@@ -124,30 +126,6 @@ pub(crate) struct Layout<'a> {
     pub(crate) stats: Stats,
 }
 
-/// Whether a token can end an operand, so that a `-` after it is infix.
-fn ends_operand(tok: &Tok) -> bool {
-    use Tok::*;
-    matches!(
-        tok,
-        Lower(_)
-            | Upper(_)
-            | Num(_)
-            | Float(_)
-            | Str(_)
-            | StrEnd(_)
-            | Char(_)
-            | RParen
-            | RBracket
-            | RBrace
-            | Underscore
-            | TypeU
-            | Prop
-            | KwOmega
-            | KwRing
-            | KwCases
-    )
-}
-
 /// The role of each token (see [`Role`]).
 fn roles(lexed: &Lexed) -> Vec<Role> {
     let tokens = &lexed.tokens;
@@ -182,12 +160,19 @@ fn roles(lexed: &Lexed) -> Vec<Role> {
                 }) {
                     Role::RewriteArrow
                 } else {
-                    let operand = before.is_some_and(|b| ends_operand(&b.tok));
+                    let operand = before.is_some_and(|b| closes_operand(&b.tok));
                     // A line starting with `-` at or left of the line above
                     // starts a statement, so the `-` is a prefix.
                     let continues = !t.line_start || t.column > prev_line_col;
-                    if operand && continues {
+                    if operand && continues && argument_minus(tokens, k) {
+                        // `f -2`: the parser's own test, so the two agree.
+                        Role::ArgumentMinus
+                    } else if operand && continues {
                         Role::Binary
+                    } else if operand {
+                        // A statement `- y` after an operand: written
+                        // `-y` it would read as an argument minus.
+                        Role::StatementMinus
                     } else {
                         Role::Unary
                     }

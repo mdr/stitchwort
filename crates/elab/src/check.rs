@@ -10,7 +10,7 @@ use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
 use stitchwort_core::{DataId, Globals, Icit, Name, Sort, Term, Value, pretty};
-use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Mode, Name as AstName, SECTION};
+use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Mode, Name as AstName, NegForm, SECTION};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::unify::unify;
@@ -1611,11 +1611,17 @@ fn ctor_fill<'a>(
         let given = (args.iter())
             .filter(|a| !matches!(a, CtorArg::Named(..)))
             .count();
-        let error = cx.error(
+        let mut error = cx.error(
             "E-NOT-A-FUNCTION",
             format!("`{}` takes {wanted} argument(s)", ctor.name),
             format!("it's given {given}"),
         );
+        if let Some(note) = args.iter().find_map(|a| match a {
+            CtorArg::Pos(e) => negative_argument_note(e),
+            _ => None,
+        }) {
+            error = error.with_note(note);
+        }
         return Err(match cx.e.hiding_note(&ctor.name) {
             Some(note) => error.with_note(note),
             None => error,
@@ -2183,6 +2189,13 @@ fn not_a_function_hint(
     value: &Expr,
     e: Diagnostic,
 ) -> Diagnostic {
+    if let Some(note) = negative_argument_note(value) {
+        return if e.code == "E-NOT-A-FUNCTION" {
+            e.with_note(note)
+        } else {
+            e
+        };
+    }
     let (Some(arg), Expr::Unit(_), "E-NOT-A-FUNCTION") = (previous_function_name, value, e.code)
     else {
         return e;
@@ -2191,6 +2204,32 @@ fn not_a_function_hint(
         Some(function) => e.with_note(unit_call_note(&function, &arg.text)),
         None => e,
     }
+}
+
+/// The note for an unbracketed negative argument, `n -1`, where the function
+/// it's given to isn't one (D1467). The elaborator has no source text, so it
+/// names the argument, not the head.
+pub(crate) fn negative_argument_note(arg: &Expr) -> Option<String> {
+    let Expr::Neg(inner, _, NegForm::Argument) = arg else {
+        return None;
+    };
+    fn text(e: &Expr) -> Option<String> {
+        match e {
+            Expr::Num(n, _) => Some(n.to_string()),
+            Expr::Float(t, _) => Some(t.clone()),
+            Expr::Var(n) => Some(n.text.clone()),
+            Expr::Field(e, n) => Some(format!("{}.{}", text(e)?, n.text)),
+            _ => None,
+        }
+    }
+    let shown = match text(inner) {
+        Some(t) => format!("`-{t}`"),
+        None => "this `-`".to_string(),
+    };
+    Some(format!(
+        "{shown} here is a negative argument (a space before the `-`, none after it); to \
+         subtract, put a space after the `-` as well"
+    ))
 }
 
 /// The name of the definition or local variable an application calls.

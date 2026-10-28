@@ -705,7 +705,7 @@ they don't, which is why the choice matters.
 `mul_expr` operand position), so after `(`, `[`, `,`, a binary operator, `=`
 in a definition, `then`, `else`, `->` and the like. Not as a function
 argument: `starts_atom` doesn't include `-`, so `f -5` stays `f - 5`, as
-today. AST: a new `Expr::Neg(Box<Expr>, Span)`.
+today (superseded: `f -5` is now `f (-5)`, docs/proposals/negative-arguments.md). AST: a new `Expr::Neg(Box<Expr>, Span)`.
 
 **Negative literals** are `Expr::Neg` around `Expr::Num`. They mean the same
 as `Int.neg` of the literal; the elaborator folds them into a constant

@@ -1,0 +1,28 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.shift b44950fa9f3efaa60080f7c754eb3002eed3da58c0e101049fe45e553044eefa
+Main.clamp db54a9708f95bc155af6dbae7b32350637aa59863428d5379c0eb412d14dd224
+Main.test "a literal argument" 1256ce822646ceea0ada53d0ca36f125cc7351138f75aa4161938c663ca99fdf
+Main.test "a name" 7a84365071ed4ff7b45e09b048971d96fa85a0a127affb37a2f3be8b2e3cf5f4
+Main.fstOf 3ca7a9e33d0a180ec42e0506d402840101c706233ca2cc31703403dd6f84e377
+Main.test "a field" 21b6a864bee1cec7caf06f2e67b99c9bb7b4ef63708b2e47e351f1e8b9509ca2
+Main.test "a later argument" 3c95141a6cd5f2e57e5e682f666abc465d3ee493bbe968bb20418f4a577f0d19
+Main.test "an argument of a lambda body" a325eba59599e87a495cf6578f8dd8e1c5ab2547618d70fd66e002d002a03a99
+Main.test "the arguments take one atom each" 83a6c57cb0ddbcc9958ba06f462e943c4bb1df2e06838b3c0df6b46d375aee7d
+Main.test "the same term as the brackets" ce8e5d72dd34cc9600829bf1920f9c21b3a2a7cd927060b9b21b100a600fee03
+Main.sameTerm 6f58002e9196e781f0705510b56a6b35977714be1a4bb90a7c732ffade0e9e5a
+Main.test "tight" 104d04c3b52a0d2c064db7e810496f9cc0b17ad5b1116c583e1b646368b4cd1a
+Main.test "loose" 104d04c3b52a0d2c064db7e810496f9cc0b17ad5b1116c583e1b646368b4cd1a
+Main.test "spaced after" 104d04c3b52a0d2c064db7e810496f9cc0b17ad5b1116c583e1b646368b4cd1a
+Main.test "natAbs" b2ef3215a6a354b7deda92a9854e6a971d2d09ed99d3fd7097dc63b6d8f8b00a
+Main.test "sub" 1a3ace99919b7d02da55b5baeb754ed0326f0988e86d563442562f7dc62ba202
+Main.test "float floor" 20fde3e8ffe240d674b5abe19de394136124cff7ab74f94cd1a0379bbfeccd5c
+Main.test "-2.5.floor is (-2.5).floor" 20fde3e8ffe240d674b5abe19de394136124cff7ab74f94cd1a0379bbfeccd5c
+Main.test "-2.5.abs is (-2.5).abs" b0c096e56d86d751b7a27ac3d41001d65aaf3583d7e9ab4c6d01c3f6f0aee20d
+Main.test "an argument's method" d20583bae45eddcce107610cbfa01616d0c80e92fb109ecc51a38b8e9ab4474a
+Main.isMinusOne 3d622b614a298fe1f51f6df7f5caeaf4e9b21d1d8641b8ddd3ee3f9bf4bd112b
+Main.test "Some -1" 1e3c2a43fab6d2e1a3728640d617211060bcd5027992bcb79e179db5c82eebbd
+Main.test "not Some -1" 5855339beb97e9e27bca9775dce32d3bd30441b9d378ff813dd15727084df206
+Main.test "None" b3f64dbab50e61e18a8a0b23423e2eb911c6f2d26c16ef19d04a53fa23ed5383

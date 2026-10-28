@@ -18,7 +18,7 @@ use num_bigint::BigUint;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{DataId, DefId, Icit, Sort, Term, Value};
-use stitchwort_syntax::ast::{BinOp, Expr};
+use stitchwort_syntax::ast::{BinOp, Expr, NegForm};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{
@@ -121,7 +121,7 @@ fn float_def(cx: &Ctx, b: Builtin) -> Result<DefId> {
 pub(crate) fn literal(expr: &Expr) -> Option<(&BigUint, bool)> {
     match expr {
         Expr::Num(k, _) => Some((k, false)),
-        Expr::Neg(inner, _) => match &**inner {
+        Expr::Neg(inner, _, _) => match &**inner {
             Expr::Num(k, _) => Some((k, true)),
             _ => None,
         },
@@ -134,7 +134,7 @@ pub(crate) fn literal(expr: &Expr) -> Option<(&BigUint, bool)> {
 pub(crate) fn decimal(expr: &Expr) -> Option<(&str, bool)> {
     match expr {
         Expr::Float(d, _) => Some((d, false)),
-        Expr::Neg(inner, _) => match &**inner {
+        Expr::Neg(inner, _, _) => match &**inner {
             Expr::Float(d, _) => Some((d, true)),
             _ => None,
         },
@@ -634,7 +634,7 @@ impl<'a> Group<'a> {
                 let b = self.tree(cx, b, op_text(*o))?;
                 Ok(Node::Op(*o, Box::new(a), Box::new(b), expr.span()))
             }
-            Expr::Neg(inner, span) => {
+            Expr::Neg(inner, span, _) => {
                 self.minus.get_or_insert(*span);
                 self.numeric_only.get_or_insert("-");
                 if any_literal(expr) {
@@ -728,8 +728,8 @@ pub(crate) fn map_leaves(
                 let b = tree(cx, b, f)?;
                 Ok(Expr::Binary(*op, Box::new(a), Box::new(b)))
             }
-            Expr::Neg(inner, span) if !any_literal(expr) => {
-                Ok(Expr::Neg(Box::new(tree(cx, inner, f)?), *span))
+            Expr::Neg(inner, span, form) if !any_literal(expr) => {
+                Ok(Expr::Neg(Box::new(tree(cx, inner, f)?), *span, *form))
             }
             _ => f(cx, expr),
         }
@@ -756,7 +756,35 @@ pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Resu
     {
         return crate::check::retrying(cx, |cx| group_in(cx, expr, expected));
     }
-    group_in(cx, expr, expected)
+    group_in(cx, expr, expected).map_err(|e| function_operand_note(cx, expr, e))
+}
+
+/// `f -g x` is `f (-g) x`: when `g` is a function, the mismatch on it is
+/// explained (docs/proposals/negative-arguments.md §4.2, D1467).
+#[inline(never)]
+fn function_operand_note(cx: &mut Ctx, expr: &Expr, e: Diagnostic) -> Diagnostic {
+    let Expr::Neg(inner, _, NegForm::Argument) = expr else {
+        return e;
+    };
+    if e.code != "E-TYPE-MISMATCH" || any_literal(inner) {
+        return e;
+    }
+    let name = match &**inner {
+        Expr::Var(name) => name.text.clone(),
+        Expr::Field(..) => "this".into(),
+        _ => return e,
+    };
+    let is_function = matches!(
+        attempt(cx, |cx| infer(cx, inner)),
+        Ok(Some((_, ty))) if matches!(force(cx.g(), ty.clone()), Ok(Value::Pi(..)))
+    );
+    if !is_function {
+        return e;
+    }
+    e.with_note(format!(
+        "`-{name}` negates `{name}` alone here, not a call of it (a `-` right before an argument \
+         negates just that argument); to negate a call such as `g x`, write `(-(g x))`"
+    ))
 }
 
 fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
@@ -1442,7 +1470,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
             | Expr::Tuple(a, b, _) => {
                 stack.extend([&**a, &**b]);
             }
-            Expr::Neg(a, _)
+            Expr::Neg(a, _, _)
             | Expr::Bracketed(a, _)
             | Expr::Interpolated(a, _)
             | Expr::NamedArg(_, a, _, _)
