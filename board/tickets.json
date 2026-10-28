@@ -6245,7 +6245,7 @@
     {
       "id": 744,
       "title": "Day 9 small fixes: Parse.line reports a character after the line break as column 4 of line 1 (should be line 2); decreasing tries omega on measure goals itself; unknown-field error names Effect.CompD; shadowing warning names Parse.span; List.joinWith for texts; lengthReverse/reverseSnoc/sumFilterMap",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
