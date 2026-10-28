@@ -4,7 +4,7 @@
 -- came from: `xs.attach.sumBy (e => f e.value [decreasing := … e.isIn …])`
 -- (docs/proposals/well-founded-recursion.md, stage 3b). Membership itself,
 -- `List.Mem`, and its facts (`List.memRangeFrom`, `List.memBetween`,
--- `List.memFilter`, `List.memMap`) are in Toolkit.sw.
+-- `List.memFilter`, `List.memMap`) are in Toolkit.sw and Lemmas.sw.
 
 -- An element of `xs`, with the proof that it is one.
 type List.Member (a: Type) (xs: List a) = { value: a, isIn: List.Mem value xs }

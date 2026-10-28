@@ -555,12 +555,12 @@ fn small_programs_load_only_the_library_files_they_can_use() {
     // load `Mod/Mod.sw` (nor `Map`, `Set` or `Vec`).
     // `Result` is a core type, so the toolkit's dot calls (`.map`, `.flatMap`,
     // ...) may mean its functions too, and `Result/Result.sw` loads with it.
-    // The toolkit's lemmas use `DecEq.sound` and `DecEq.refl`
-    // (`Decidable/Decidable.sw`) and `↔` (`Logic/Logic.sw`).
+    // The toolkit's lemmas are in `List/Lemmas.sw` and the `Option` helpers'
+    // in `Option/Lemmas.sw`, so neither loads, nor what only they use
+    // (`Decidable/Decidable.sw`, `Logic/Logic.sw`). `Nat/Arith.sw` is for
+    // the bounds facts that `List.chunksOf` and the congruence lemmas use.
     let toolkit = [
         "Bool/Bool.sw",
-        "Decidable/Decidable.sw",
-        "Logic/Logic.sw",
         "Nat/Arith.sw",
         "Option/Option.sw",
         "Ord/Ord.sw",
@@ -577,7 +577,8 @@ fn small_programs_load_only_the_library_files_they_can_use() {
     );
     // `List/Sort.sw`'s lemmas use `Decidable.toBoolSound` and friends, and
     // its counting lemmas are proved by `ring`, which needs `Std.Ring` (and
-    // the `Int` files that `Ring/Sound.sw` builds on).
+    // the `Int` files that `Ring/Sound.sw` builds on). They also use the
+    // toolkit's and the `Option` helpers' lemmas.
     let sort = [
         "Bool/Bool.sw",
         "Decidable/Decidable.sw",
@@ -586,9 +587,11 @@ fn small_programs_load_only_the_library_files_they_can_use() {
         "Nat/Arith.sw",
         "Int/Int.sw",
         "Option/Option.sw",
+        "Option/Lemmas.sw",
         "Ord/Ord.sw",
         "Result/Result.sw",
         "List/Toolkit.sw",
+        "List/Lemmas.sw",
         "Ring/Ring.sw",
         "Ring/Sound.sw",
         "List/Sort.sw",
