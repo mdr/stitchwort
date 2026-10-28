@@ -100,7 +100,9 @@ pub struct Def {
     /// What the untrusted runtimes (`crates/rt`, JS) run instead of the body,
     /// if set ([`crate::check::set_run_body`]): for a definition with
     /// `decreasing`, the recursion as written, without the fuel the body
-    /// recurses on (docs/proposals/well-founded-recursion.md §6.5). Checked to
+    /// recurses on (docs/proposals/well-founded-recursion.md §6.5); for a
+    /// lifted `match`, its body using the `let`s its caller passes instead of
+    /// computing them again (`lift.rs` in the elaborator). Checked to
     /// have the definition's type and arity, but not for termination; never
     /// unfolded by the kernel, and not hashed (it's determined by the body).
     pub(crate) run_body: Option<Rc<Term>>,

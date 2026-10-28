@@ -6380,6 +6380,24 @@ not std's `Graph.boundAlong` over walks.
   needs to know what it proves`` with ``give it a type: `(omega: a <=
   b)` ``.
 
+Fixed: `List.length` runs as `List.lengthOnto xs 0`, a loop, on the
+interpreter, JS and native code (`List.lengthOntoEq` proves the two equal;
+proofs still compute with `List.length` as defined). A 3 million element
+list's length ran out of stack before and takes 0.8 s now. The same check
+on that list found `map`, `filter`, `append`, `flatMap`, `zip`, `take`,
+`sort`, `concat` and `range` running out of stack on the interpreter too;
+`count`, `sum`, `sumBy`, `foldRight`, `all`, `any`, `maximum`, `getOr`,
+`last`, `contains`, `drop` and `reverse` don't. The ones that build lists
+need more than a loop, so they're left as they are.
+
+Fixed (documented): an argument that performs runs before the call,
+whether or not the function uses it, as docs/syntax.md now says, with this
+example; `Option.fold`'s comment says the same and points to `Fail.need`.
+A warning was tried and dropped: whether an argument performs is decided
+before the call's row is known, so it would have fired on pure calls in
+proofs (`Nat.keepIf (List.sumBy xs g) b` in std's List/SortLemmas.sw, and
+2025 day 6's Correct.sw).
+
 ### 4. Inference: none
 
 `_` for the function in `List.memFlatMapElim`, `List.anyElim` and day
@@ -6434,6 +6452,19 @@ Two things cost more than the work:
 Fix, beyond those: an array with constant-time indexing for grids (item
 2), and let `main` share the searches between the parts.
 
+Fixed: the helper a `match` is lifted to takes the value of a `let` it
+uses from its caller, as a closure would, so the value is computed once
+where it's written. The kernel still sees the helper re-create the `let`
+(proofs keep knowing what it holds); the runtimes run a second body that
+uses the value passed, which the kernel checks against the helper's type,
+and where checking needs the `let`'s value rather than its type, the
+helper keeps computing it. Only a `match` whose result is used when running
+takes them. The minimal pair's slow half took 8.4 s and takes 3.2 s (the
+whole run, checking included); the first, inline version of the program
+on a 965-position serpentine track took 45.4 s and takes 5.4 s, against
+4.5 s for the program above. The interpreter, JS and native code all
+run the second body.
+
 ### 6. Proofs
 
 Easy: 505 lines, and each file checked on the first to third try. Times
@@ -6458,6 +6489,13 @@ and spelling out each `Nat.absDiff` as `(a - b) + (b - a)` for `omega`,
 four `let`s per proof. Lean's `omega` front end rewrites `Int.natAbs`
 itself (the ``Int.natAbs`` case in
 <https://github.com/leanprover/lean4/blob/master/src/Lean/Elab/Tactic/Omega/Frontend.lean>).
+
+Fixed: the four `let`s weren't needed. `omega` reads a fact after
+computing it, and `Nat.absDiff a b` computes to `(a - b) + (b - a)`, two
+subtraction atoms with their cases, which is what Lean does for
+`Int.natAbs`; the compiler from before these fixes already proved
+`aroundSound` and `aroundComplete` without them. They're gone, and
+`examples/accept/omega-absdiff.sw` keeps it working.
 
 ### Size and time
 

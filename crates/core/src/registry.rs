@@ -334,6 +334,9 @@ builtins! {
     Nil = "Nil": Ctor(Builtin::List),
     Cons = "Cons": Ctor(Builtin::List),
     Append = "List.append": Def,
+    // `List.length` runs as `List.lengthOnto xs 0`, a loop (`Def::run_body`)
+    ListLengthOnto = "List.lengthOnto": Def,
+    ListLength = "List.length": Def,
     Option = "Option": Data,
     None = "None": Ctor(Builtin::Option),
     Some = "Some": Ctor(Builtin::Option),

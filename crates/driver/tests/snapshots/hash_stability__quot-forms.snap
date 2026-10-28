@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.At a8546fc1dc9a8322d85b5186bdbdfb558ded0ffcf63bdfea557e7c4aaee801b2
 data Main.AtP 7c9507e9c6234608d7cc45bbecc114b6fd2f9472cf424672eedd81821bcd0379
@@ -18,6 +18,6 @@ Main.QType beb89df7ca65899c9049e7b3099213aa52aea4c35313853d31be4d0e6c4bfc6a
 Main.which ac658181a69aec4bc65a8f9e32b14c625ad210b00ce01d1e4556fba6607c59ac
 Main.whichPair 5b7a58ab195cf03f826ef88cc4468f89257ec22016123e05519478a04c4dfea9
 Main.T.kids 43e6fbe35e018e0c1b9e7239f11355fd9793c43f2e4ce292c5fd6aefeb227c50
-Main.T.kids.update.kids.%match1 48b3a0f0c021c799eeb04e6b1f0aecb31243ed605aaeb9133a63e2ef9764b25b
-Main.T.kids.update.kids 14039fa77f58647a12ca1f7c7abfcc954dff1d0b0e71650322b33b5eadd6a3e6
+Main.T.kids.update.kids.%match1 69efdbea5cb16f08ab87d0a310e4eae3464cc735f9be177f834f4d4bac9f9eb6
+Main.T.kids.update.kids 37ebf996351474a4bb8b7cf3c0290445c6eff3bd1e177783637180f2848999cd
 Main.allEqual 25a98023aa22f3d15c66e46fee7a1965ed1de54d5b09d324d10db8a45647132c

@@ -181,6 +181,7 @@ impl Elaborator {
             glue: _,
             arounds,
             lifted,
+            pending_run_bodies,
             owner,
             body_type,
             local_keys,
@@ -277,6 +278,7 @@ impl Elaborator {
         drafts.get_mut().clear();
         *arounds.get_mut() = Default::default();
         lifted.truncate(mark.lifted);
+        pending_run_bodies.retain(|(id, _)| id.0 < defs);
         owner.get_mut().clear();
         *body_type.get_mut() = None;
         local_keys.get_mut().clear();

@@ -1635,7 +1635,8 @@ pub fn mark_instance(g: &mut Globals, id: DefId) {
 /// Gives final definition `id` a body for the runtimes to run instead of its
 /// own ([`Def::run_body`]): `body` must have `id`'s type and as many leading
 /// lambdas as its arity, refer only to final declarations (`id` included)
-/// and have no `case`. It isn't checked for termination, never unfolds in
+/// and have `case` only in a case tree after those lambdas. It isn't
+/// checked for termination, never unfolds in
 /// the kernel and isn't hashed: the runtimes are untrusted (docs/core.md),
 /// and a proof never depends on what they compute.
 pub fn set_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
@@ -1653,8 +1654,11 @@ pub fn set_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
             "a run body of the wrong arity, or a second one",
         ));
     }
-    if !case_only_in_tree(body, false) {
-        return Err(malformed(&cx, "a run body with a `case`"));
+    if !case_only_in_tree(body.peel_lams(def.arity), true) {
+        return Err(malformed(
+            &cx,
+            "a run body with a `case` outside its case tree",
+        ));
     }
     admissible(&cx, [body], None)?;
     let _set = g.transparent.set(def.transparent.clone());

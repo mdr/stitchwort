@@ -24,27 +24,19 @@ theorem aroundSound (position: Position) (length: Nat) (other: Position) (member
         let (Both columnMember same) := both
         let (Both rowLow rowHigh) := List.memBetween rowMember
         let (Both columnLow columnHigh) := List.memBetween columnMember
-        let rowFar: Nat.absDiff row position.row = (row - position.row) + (position.row - row) := rfl
-        let rowDistance: Nat.absDiff position.row row = (position.row - row) + (row - position.row) := rfl
-        let columnDistance: Nat.absDiff position.column column = (position.column - column) + (column - position.column) := rfl
-        let distance: position.distance ({ row, column }: Position) = Nat.absDiff position.row row + Nat.absDiff position.column column := rfl
-        rewrite <- same in omega [rowLow, rowHigh, columnLow, columnHigh, rowFar, rowDistance, columnDistance, distance]))
+        rewrite <- same in omega [rowLow, rowHigh, columnLow, columnHigh]))
 
 -- Every position at most `length` away is listed.
 theorem aroundComplete (position: Position) (length: Nat): (other: Position) → position.distance other ≤ length → other ∈ position.around length
   | { row, column }, near =>
-    let rowFar: Nat.absDiff row position.row = (row - position.row) + (position.row - row) := rfl
-    let rowDistance: Nat.absDiff position.row row = (position.row - row) + (row - position.row) := rfl
-    let columnDistance: Nat.absDiff position.column column = (position.column - column) + (column - position.column) := rfl
-    let distance: position.distance ({ row, column }: Position) = Nat.absDiff position.row row + Nat.absDiff position.column column := rfl
     let spare := length - Nat.absDiff row position.row
     rewrite aroundRows position length in
       List.memFlatMapIntro (aroundRow position length) row ({ row, column }: Position) (List.between (position.row - length) (position.row + length))
-        (List.memBetweenIntro row (position.row - length) (position.row + length) (omega [near, rowFar, rowDistance, columnDistance, distance])
-          (omega [near, rowFar, rowDistance, columnDistance, distance]))
+        (List.memBetweenIntro row (position.row - length) (position.row + length) (omega [near])
+          (omega [near]))
         (List.memMap (List.between (position.column - spare) (position.column + spare)) column
           (List.memBetweenIntro column (position.column - spare) (position.column + spare)
-            (omega [near, rowFar, rowDistance, columnDistance, distance]) (omega [near, rowFar, rowDistance, columnDistance, distance]))
+            (omega [near]) (omega [near]))
           (other => ({ row, column = other }: Position)))
 
 -- No position is listed twice.

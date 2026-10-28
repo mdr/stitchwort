@@ -457,6 +457,9 @@ pub struct Elaborator {
     /// Every lifted helper so far, with its `match`, for naming the `match`
     /// in diagnostics instead of the helper (`Elaborator::explain_lifted`).
     lifted: Vec<(DefId, Span)>,
+    /// Run bodies for lifted helpers that take a `let`'s value from their
+    /// caller, set once the helper is final (`lift.rs`).
+    pending_run_bodies: Vec<(DefId, Term)>,
     /// While a declaration is elaborated: its key, then the names of the
     /// local definitions being elaborated inside it, for their keys
     /// (`local.rs`).
@@ -2653,6 +2656,7 @@ impl Elaborator {
     /// After a definition is admitted: registering natives (in the prelude)
     /// and an export's validators.
     fn after_definition(&mut self, signature: &Decl, id: DefId) -> Result<()> {
+        self.set_run_bodies()?;
         let Decl::Signature {
             export, instance, ..
         } = signature
@@ -2713,6 +2717,7 @@ impl Elaborator {
                 | Builtin::FloatBitsExt
                 | Builtin::FloatBitsNe),
             ) => stitchwort_core::float::register_def(&mut self.globals, id, b)?,
+            Some(Builtin::ListLength) => self.length_run_body(id)?,
             Some(b) => {
                 if let Some(op) = Native::ALL.into_iter().find(|n| n.builtin() == b) {
                     native::register_native(&mut self.globals, id, op)?;
@@ -2721,6 +2726,32 @@ impl Elaborator {
             None => {}
         }
         Ok(())
+    }
+
+    /// Makes `List.length` (`id`) run as `List.lengthOnto xs 0`, a loop, so
+    /// a long list doesn't run out of stack; `List.lengthOntoEq` proves the
+    /// two equal. A replayed `List.length` has it already.
+    fn length_run_body(&mut self, id: DefId) -> Result<()> {
+        let Some(onto) = self.globals.registry.def(Builtin::ListLengthOnto) else {
+            return Ok(());
+        };
+        if self.globals.def(id).own_run_body().is_some() {
+            return Ok(());
+        }
+        // `[a] xs => List.lengthOnto [a] xs 0`
+        let call = Term::app(
+            Term::app(
+                Term::app_icit(Term::Def(onto), Term::Var(1), Icit::Implicit),
+                Term::Var(0),
+            ),
+            Term::Nat(Rc::new(0u32.into())),
+        );
+        let body = Term::Lam(
+            "a".into(),
+            Icit::Implicit,
+            Rc::new(Term::Lam("xs".into(), Icit::Explicit, Rc::new(call))),
+        );
+        kernel::set_run_body(&mut self.globals, id, &body)
     }
 
     /// For each proof parameter of an export, a decision procedure that the
