@@ -30,7 +30,7 @@ theorem halfOpenBetween (one: Nat) (other: Nat) (value: Nat) (h: isBetweenHalfOp
     (l => Bool.orLeft (one ≤ value ∧ value ≤ other) (other ≤ value ∧ value ≤ one) (omega))
     (r => Bool.orRight (one ≤ value ∧ value ≤ other) (other ≤ value ∧ value ≤ one) (omega))
 
-theorem onLineTouches (tile: Tile) (line: (Tile, Tile)) (h: isOnLine tile line = True): touchesRow tile.y line = True :=
+theorem onLineTouches (tile: Tile) (line: (Tile, Tile)) (h: tile.isOnLine line = True): touchesRow tile.y line = True :=
   Bool.andRight (isBetween line.fst.x line.snd.x tile.x) (isBetween line.fst.y line.snd.y tile.y) h
 
 theorem crossesTouches (tile: Tile) (line: (Tile, Tile)) (h: crossesRightOf tile line = True): touchesRow tile.y line = True :=
@@ -38,7 +38,7 @@ theorem crossesTouches (tile: Tile) (line: (Tile, Tile)) (h: crossesRightOf tile
 
 theorem isRedOrGreenNear (tiles: List Tile) (tile: Tile):
     isRedOrGreen (List.filter (loopLines tiles) (touchesRow tile.y)) tile = redOrGreen tiles tile :=
-  rewrite List.anyFilter (loopLines tiles) (isOnLine tile) (touchesRow tile.y) (onLineTouches tile),
+  rewrite List.anyFilter (loopLines tiles) tile.isOnLine (touchesRow tile.y) (onLineTouches tile),
     List.countFilter (loopLines tiles) (crossesRightOf tile) (touchesRow tile.y) (crossesTouches tile)
     in rfl
 
