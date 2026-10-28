@@ -200,11 +200,15 @@ pub(crate) struct Limits {
     pub rows: usize,
     /// How deep splits may nest.
     pub depth: usize,
+    /// How many disjunctions among the facts `omega` may split on
+    /// (`omega.rs`, `linear_split`), each split a search per case.
+    pub splits: usize,
 }
 
 pub(crate) const LIMITS: Limits = Limits {
     rows: 20_000,
     depth: 6,
+    splits: 8,
 };
 
 struct Search<'p> {
@@ -1147,7 +1151,11 @@ mod tests {
 
     #[test]
     fn budget() {
-        let limits = Limits { rows: 3, depth: 6 };
+        let limits = Limits {
+            rows: 3,
+            depth: 6,
+            splits: 0,
+        };
         let p = problem(
             2,
             &[

@@ -49,6 +49,14 @@ theorem stepBack (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := omeg
 theorem thirdOfTriple (k: Int): (3 * k) / 3 = k := omega
 -- end omega
 
+-- begin omega-logic
+def isNeighbour (a: Nat) (b: Nat): Bool := a + 1 == b || b + 1 == a
+
+theorem neighboursDiffer (a: Nat) (b: Nat) (near: isNeighbour a b = True): a != b := omega
+
+theorem nearZero (a: Nat) (h: a ≤ 1): Or (a = 0) (a = 1) := omega
+-- end omega-logic
+
 -- begin ring
 theorem squareOfSum (a: Nat) (b: Nat): (a + b) * (a + b) = a * a + 2 * a * b + b * b := ring
 

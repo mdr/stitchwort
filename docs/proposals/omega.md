@@ -50,6 +50,8 @@ This note can be read without knowing type theory. Draft 1's code references wer
 - [As built (milestone 1b)](#as-built-milestone-1b)
 - [Stage 1 on AoC (SW-326)](#stage-1-on-aoc-sw-326)
 - [As built (stage 2)](#as-built-stage-2)
+- [As built: `Int`](#as-built-int)
+- [As built: disjunctions, `Bool` logic and record fields](#as-built-disjunctions-bool-logic-and-record-fields)
 - [0. Summary](#0-summary)
 - [1. The problem, with our own code](#1-the-problem-with-our-own-code)
 - [2. Words this note uses](#2-words-this-note-uses)
@@ -820,6 +822,68 @@ and `x % k` on `Int` for a nonzero number are atoms with the facts from `Int.div
 (atoms). Cost: loading the bigger library adds about 16 ms to a program's first `omega`
 (0.386 s to 0.402 s for a one-line file); the AoC days that use `omega` most check in the
 same time as before, within noise.
+
+## As built: disjunctions, `Bool` logic and record fields
+
+AoC 2024 day 10 (aoc/NOTES-2024.md, day 10, item 3) kept a `Prop` copy of its step relation,
+`(r1 == r2 && (c1 + 1 == c2 || c2 + 1 == c1)) || (…)`, because `omega` read neither `||`
+nor a field of a record literal. It now reads both.
+
+**Disjunctions among the facts** are split as Lean's `omega` splits them: its
+`splitDisjunction` first runs the procedure without the disjunctions, and only if that fails
+takes the first one, proves the goal in each case with that side as a new fact (recursively,
+so a case's own disjunctions are split too), and joins the two proofs with `Or.elim`; a
+disjunction whose first side gives no new fact is skipped
+(<https://github.com/leanprover/lean4/blob/master/src/Lean/Elab/Tactic/Omega/Frontend.lean>,
+`omegaImpl`, `splitDisjunction`; the option `splitDisjunctions` is on by default [S1])
+**[checked]**. Here (`omega.rs`, `linear_split`, `split_first`) a disjunction is `Or p q`,
+`(p || q) = True` (sides `p = True`, `q = True`), or `(p && q) = False` (through
+`Bool.andFalseElim`, an `Or`); it is split only if both sides say something `omega` reads,
+and at most 8 times per `omega` (2 for `auto`), after which the message says so. Each case is
+`case => …` with the side in scope, and the cases are joined by `Or.elim` or `Bool.orElim`.
+
+**Soundness.** The certificate checker is unchanged: every case is an ordinary
+`Std.Omega.prove` application whose certificate the kernel checks as before, and the split
+itself is an `Or.elim`/`Bool.orElim` application the kernel type-checks like any other term.
+Nothing in `Std.Omega` changed, so the proofs `omega` already wrote are the same terms. The
+alternative, a `Cases`-like certificate step over facts with an `FOr` constructor, would keep
+one certificate per goal, but needs the `Bool`-to-`Prop` bridge inside each side and a
+soundness proof for nested splits; splitting in the elaborator needs neither, at the cost of
+repeating the facts in each case's term.
+
+**`Bool` logic.** `||` (`Bool.ifThenElse p (u => True) (u => q)`) and `not` (`Bool.not`)
+join `&&` as forms `omega` reads, through lemmas in `std/Bool/Bool.sw`: as facts,
+`(p || q) = False` gives both sides `False` (`Bool.orFalseLeft`/`Right`), `not p = True`/`False`
+gives `p = False`/`True` (`Bool.notTrue`/`notFalse`), and `Not (x = True)` for any of these is
+`x = False` first; as goals, `(p || q) = False` is `Bool.orFalseIntro`, `not p` is
+`Bool.notOfFalse`/`notOfTrue`, and `(p && q) = False` is by cases on `p`
+(`Bool.andFalseLeft`/`Right`). `==` and `!=` on `Nat` and `Int` were already read as
+`Decidable.toBool` of the equation or its negation.
+
+**Disjunctive goals** (`Or p q`, `(p || q) = True`) are proved by cases on the `Bool` that
+decides one side (`Bool.inspect`): `p = True` is decided by `p`, `a = b` on `Nat` by
+`Nat.equal a b` (`Nat.equalSound` back); in the `True` case that side holds, in the `False`
+case the other side is proved with the `False` as a fact. This is complete for a side that is
+a comparison. When neither side is one (day 10's `Or (And …) (And …)`), each side is tried
+alone, and if neither holds, the facts' disjunctions are split and both sides tried again in
+each case, within the same budget of splits.
+
+**Record fields.** An atom that is a call stuck on an unknown solved since (`?r.row` once
+`?r` is `{ row = 1, column = 0 }`) is computed again before it becomes an atom
+(`omega.rs`, `recomputed`), and the check of each fact's type against its quoted meaning
+reads the type again the same way. This is what `rowsApart _ _ (omega)` needs: the record is
+only known once the application's type has met the expected type.
+
+**Cost.** Splitting happens only after a search has failed and only on a disjunction whose
+sides both read as arithmetic, so proofs without one take the same path as before. CPU time
+of `check --no-cache` (user + system, best of 3 or 5, release build, machine load around
+20–40), before and after: a file loading `Std.Float.Theory` (164 `omega`s) 1.08 s and
+1.12 s; the `omega-*` accepted examples 0.18–0.37 s, each within 0.01 s; AoC proofs, 2024 day 6
+8.17 and 8.16 s, day 4 2.11 and 2.14 s, day 8 2.35 and 2.31 s, day 9 1.59 and 1.57 s, day 10
+(its old proofs) 1.80 and 1.80 s (its new proofs 1.84 s), 2025 day 2 1.23 and 1.26 s, day 3
+0.85 and 0.84 s, day 4 1.15 and 1.13 s, day 7 0.88 and 0.88 s, day 8 2.22 and 2.24 s, day 9
+3.45 and 3.46 s. A few `omega` proofs inside `Std.Float` and `Std.Nat.pigeonhole` now come
+out as different terms (their hashes moved; the `Float` hash pins did not).
 
 ## 0. Summary
 

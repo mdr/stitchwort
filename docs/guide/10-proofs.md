@@ -172,7 +172,20 @@ theorem stepBack (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := omeg
 theorem thirdOfTriple (k: Int): (3 * k) / 3 = k := omega
 ```
 
-On `Int`, an unknown may be negative, while `n.toInt` of a `Nat` is known to be at least 0, so `Nat` and `Int` facts mix; `x / 3` and `x % 3` are unknowns with `3 * (x / 3) + x % 3 = x` and `0 ≤ x % 3 < 3`. `omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number. When `omega` fails, it says which facts it used and gives values that satisfy them but not the goal, which usually points at the missing fact:
+On `Int`, an unknown may be negative, while `n.toInt` of a `Nat` is known to be at least 0, so `Nat` and `Int` facts mix; `x / 3` and `x % 3` are unknowns with `3 * (x / 3) + x % 3 = x` and `0 ≤ x % 3 < 3`. `omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number, though a field of a record written out, `{ row = 1, column = 0 }.row`, is computed first.
+
+Comparisons may be joined with `&&`, `||` and `not`, as `Bool`s (`(a == b || a < c) = True`) or as propositions (`Or p q`, `And p q`, `Not p`), and `==` and `!=` on numbers count as comparisons. A fact that is a disjunction is split into its two cases, each proved separately, when the other facts aren't enough (up to 8 splits); a goal that is one is proved by cases on one side, the other side proved where it fails:
+
+<!-- snippet: proofs.sw#omega-logic -->
+```stitchwort
+def isNeighbour (a: Nat) (b: Nat): Bool := a + 1 == b || b + 1 == a
+
+theorem neighboursDiffer (a: Nat) (b: Nat) (near: isNeighbour a b = True): a != b := omega
+
+theorem nearZero (a: Nat) (h: a ≤ 1): Or (a = 0) (a = 1) := omega
+```
+
+When `omega` fails, it says which facts it used and gives values that satisfy them but not the goal, which usually points at the missing fact:
 
 <!-- snippet: errors/omega.sw -->
 ```stitchwort
