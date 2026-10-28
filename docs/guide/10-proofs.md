@@ -159,16 +159,20 @@ A step with no proof is proved by computing.
 
 ## Arithmetic: `omega`
 
-For statements in linear arithmetic over `Nat` (`+`, `-`, comparisons, multiplication, division and remainder by a constant), `omega` finds the proof itself, using every fact in scope:
+For statements in linear arithmetic over `Nat` and `Int` (`+`, `-`, comparisons, multiplication, division and remainder by a constant, `n.toInt`), `omega` finds the proof itself, using every fact in scope:
 
 <!-- snippet: proofs.sw#omega -->
 ```stitchwort
 theorem roomForOne (x: Nat) (y: Nat) (before: x < y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
 
 theorem twiceIsDouble (n: Nat): double n = 2 * n := omega
+
+theorem stepBack (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := omega
+
+theorem thirdOfTriple (k: Int): (3 * k) / 3 = k := omega
 ```
 
-`omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number. When `omega` fails, it says which facts it used and gives values that satisfy them but not the goal, which usually points at the missing fact:
+On `Int`, an unknown may be negative, while `n.toInt` of a `Nat` is known to be at least 0, so `Nat` and `Int` facts mix; `x / 3` and `x % 3` are unknowns with `3 * (x / 3) + x % 3 = x` and `0 ≤ x % 3 < 3`. `omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number. When `omega` fails, it says which facts it used and gives values that satisfy them but not the goal, which usually points at the missing fact:
 
 <!-- snippet: errors/omega.sw -->
 ```stitchwort

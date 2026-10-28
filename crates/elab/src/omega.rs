@@ -1,5 +1,6 @@
 //! `omega` (docs/syntax.md, "omega"; docs/proposals/omega.md, milestone 1b):
-//! a proof of a linear arithmetic goal about `Nat`s from the facts in scope.
+//! a proof of a linear arithmetic goal about `Nat`s and `Int`s from the facts
+//! in scope.
 //!
 //! ```text
 //! omega              -- every arithmetic fact in scope
@@ -11,6 +12,7 @@
 //! ```text
 //! Std.Omega.prove (MkEnv [atoms] []) [facts] goal cert rfl (Both p1 (… Trivial))
 //! Std.Omega.proveEq env facts a b cert1 cert2 rfl rfl proofs      -- for `a = b`
+//! Std.Omega.proveIntEq env facts a b cert1 cert2 rfl rfl proofs   -- on `Int`
 //! ```
 //!
 //! where the facts and the goal are syntax trees over numbered atoms, the
@@ -43,7 +45,17 @@
 //! `Nat.mulComm x y` between them. `x / k` for a number `k > 0` (as
 //! `Nat.divFuel x x k`, which it computes to) is an atom `q` with the facts
 //! `q * k <= x` and `x < (q + 1) * k` (`Nat.divFuelLe`, `Nat.divFuelBound`);
-//! `x % k` computes to `x - q * k`, a subtraction atom over it. A goal that
+//! `x % k` computes to `x - q * k`, a subtraction atom over it.
+//!
+//! **`Int`** works the same way over `Int` syntax (`ITerm`), read as `Int`
+//! arithmetic computes: `a <= b` is `Int.leq a b = True`, `a < b` is
+//! `Int.less a b = True`, `x - y` is `x + Int.neg y`, `n.toInt` and a
+//! literal are `OfNat n` (whose inside is quoted as a `Nat` term, so a `Nat`
+//! atom there keeps its `0 <= x`), and `n.toInt - 1` is
+//! `Int.subNatNatFrom n 1 (1 - n)`. `Int` atoms have no bound. `x / k` and
+//! `x % k` for a nonzero number `k` are atoms with the facts
+//! `k * (x / k) + x % k = x`, `0 <= x % k` and `x % k < |k|`
+//! (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`). A goal that
 //! isn't arithmetic is proved by refuting the facts (`Void.exfalso`/`Void.absurd`). Anything else is an atom: two
 //! subterms are one atom if they're the same term, or if a bounded
 //! conversion check says so; an inconclusive check keeps them apart. A
@@ -83,6 +95,7 @@ const MUL_LEFT_LIMIT: u32 = 1000;
 const LIBRARY: &[&str] = &[
     "Std.Omega.prove",
     "Std.Omega.proveEq",
+    "Std.Omega.proveIntEq",
     "Std.Omega.check",
     "Std.Nat.leqFalse",
     "Std.Nat.leqFalseOfLess",
@@ -99,6 +112,10 @@ const LIBRARY: &[&str] = &[
     "Std.Nat.mulComm",
     "Std.Nat.divFuelLe",
     "Std.Nat.divFuelBound",
+    "Std.Int.mulComm",
+    "Std.Int.divAddMod",
+    "Std.Int.modNonneg",
+    "Std.Int.modLtAbs",
 ];
 
 pub(crate) static LIBRARY_NAMES: LazyLock<Vec<ast::Name>> = LazyLock::new(|| {
@@ -157,7 +174,7 @@ pub(crate) fn prove_premise(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Op
             (is_ctor(cx, &r, lib.tru)? || is_ctor(cx, &r, lib.fls)?)
                 && bool_form(cx, &lib, &l)?.is_some()
         }
-        Value::Eq(ty, _, _) => is_data(cx, &ty, lib.nat)?,
+        Value::Eq(ty, _, _) => is_data(cx, &ty, lib.nat)? || is_data(cx, &ty, lib.int)?,
         Value::Data(d, params) => {
             (d == lib.and && params.len() == 2)
                 || (Some(d) == cx.g().registry.data(Builtin::LexLess) && params.len() == 4)
@@ -210,6 +227,7 @@ struct Extra {
 struct Lib {
     prove: DefId,
     prove_eq: DefId,
+    prove_int_eq: DefId,
     check: DefId,
     fact_holds: DefId,
     leq_false: DefId,
@@ -231,6 +249,14 @@ struct Lib {
     nsucc: (DataId, usize),
     mul_left: (DataId, usize),
     mul_right: (DataId, usize),
+    iv: (DataId, usize),
+    iof_nat: (DataId, usize),
+    ineg_succ: (DataId, usize),
+    iadd: (DataId, usize),
+    ineg: (DataId, usize),
+    imul_left: (DataId, usize),
+    imul_right: (DataId, usize),
+    isub_nat: (DataId, usize),
     fle: (DataId, usize),
     feq: (DataId, usize),
     fnotle: (DataId, usize),
@@ -238,8 +264,18 @@ struct Lib {
     fmax: (DataId, usize),
     fmin: (DataId, usize),
     fne: (DataId, usize),
+    file: (DataId, usize),
+    finotle: (DataId, usize),
+    filt: (DataId, usize),
+    finotlt: (DataId, usize),
+    fieq: (DataId, usize),
+    fine: (DataId, usize),
     gle: (DataId, usize),
     gvoid: (DataId, usize),
+    gile: (DataId, usize),
+    gilt: (DataId, usize),
+    ginotle: (DataId, usize),
+    ginotlt: (DataId, usize),
     mk_row: (DataId, usize),
     input: (DataId, usize),
     neg_goal: (DataId, usize),
@@ -255,6 +291,10 @@ struct Lib {
     mul_comm: DefId,
     div_fuel_le: DefId,
     div_fuel_bound: DefId,
+    int_mul_comm: DefId,
+    int_div_add_mod: DefId,
+    int_mod_nonneg: DefId,
+    int_mod_lt_abs: DefId,
     succ_not_zero: DefId,
     le_refl: DefId,
     // The core's.
@@ -273,7 +313,17 @@ struct Lib {
     to_bool: DefId,
     not: DefId,
     less_than: DefId,
+    int_add: DefId,
+    int_neg: DefId,
+    int_mul: DefId,
+    int_div: DefId,
+    int_mod: DefId,
+    int_leq: DefId,
+    int_less: DefId,
+    sub_nat_nat: DefId,
+    sub_nat_nat_from: DefId,
     nat: DataId,
+    int: DataId,
     bool: DataId,
     void: DataId,
     and: DataId,
@@ -306,6 +356,7 @@ impl Lib {
         Ok(Lib {
             prove: def("Std.Omega.prove")?,
             prove_eq: def("Std.Omega.proveEq")?,
+            prove_int_eq: def("Std.Omega.proveIntEq")?,
             check: def("Std.Omega.check")?,
             fact_holds: def("Std.Omega.Fact.holds")?,
             leq_false: def("Std.Nat.leqFalse")?,
@@ -327,6 +378,14 @@ impl Lib {
             nsucc: ctor("Std.Omega.NTerm.NSucc")?,
             mul_left: ctor("Std.Omega.NTerm.MulLeft")?,
             mul_right: ctor("Std.Omega.NTerm.MulRight")?,
+            iv: ctor("Std.Omega.ITerm.IV")?,
+            iof_nat: ctor("Std.Omega.ITerm.IOfNat")?,
+            ineg_succ: ctor("Std.Omega.ITerm.INegSucc")?,
+            iadd: ctor("Std.Omega.ITerm.IAdd")?,
+            ineg: ctor("Std.Omega.ITerm.INeg")?,
+            imul_left: ctor("Std.Omega.ITerm.IMulLeft")?,
+            imul_right: ctor("Std.Omega.ITerm.IMulRight")?,
+            isub_nat: ctor("Std.Omega.ITerm.ISubNat")?,
             fle: ctor("Std.Omega.Fact.FLe")?,
             feq: ctor("Std.Omega.Fact.FEq")?,
             fnotle: ctor("Std.Omega.Fact.FNotLe")?,
@@ -334,8 +393,18 @@ impl Lib {
             fmax: ctor("Std.Omega.Fact.FMax")?,
             fmin: ctor("Std.Omega.Fact.FMin")?,
             fne: ctor("Std.Omega.Fact.FNe")?,
+            file: ctor("Std.Omega.Fact.FILe")?,
+            finotle: ctor("Std.Omega.Fact.FINotLe")?,
+            filt: ctor("Std.Omega.Fact.FILt")?,
+            finotlt: ctor("Std.Omega.Fact.FINotLt")?,
+            fieq: ctor("Std.Omega.Fact.FIEq")?,
+            fine: ctor("Std.Omega.Fact.FINe")?,
             gle: ctor("Std.Omega.Goal.GLe")?,
             gvoid: ctor("Std.Omega.Goal.GVoid")?,
+            gile: ctor("Std.Omega.Goal.GILe")?,
+            gilt: ctor("Std.Omega.Goal.GILt")?,
+            ginotle: ctor("Std.Omega.Goal.GINotLe")?,
+            ginotlt: ctor("Std.Omega.Goal.GINotLt")?,
             mk_row: ctor("Std.Omega.Row.MkRow")?,
             input: ctor("Std.Omega.Step.Input")?,
             neg_goal: ctor("Std.Omega.Step.NegGoal")?,
@@ -351,6 +420,10 @@ impl Lib {
             mul_comm: def("Std.Nat.mulComm")?,
             div_fuel_le: def("Std.Nat.divFuelLe")?,
             div_fuel_bound: def("Std.Nat.divFuelBound")?,
+            int_mul_comm: def("Std.Int.mulComm")?,
+            int_div_add_mod: def("Std.Int.divAddMod")?,
+            int_mod_nonneg: def("Std.Int.modNonneg")?,
+            int_mod_lt_abs: def("Std.Int.modLtAbs")?,
             succ_not_zero: def("Std.Nat.succNotZero")?,
             le_refl: def("Std.Nat.leRefl")?,
             leq: builtin_def(cx, Builtin::Leq)?,
@@ -368,7 +441,17 @@ impl Lib {
             to_bool: builtin_def(cx, Builtin::ToBool)?,
             not: builtin_def(cx, Builtin::Not)?,
             less_than: builtin_def(cx, Builtin::LessThan)?,
+            int_add: builtin_def(cx, Builtin::IntAdd)?,
+            int_neg: builtin_def(cx, Builtin::IntNeg)?,
+            int_mul: builtin_def(cx, Builtin::IntMul)?,
+            int_div: builtin_def(cx, Builtin::IntDiv)?,
+            int_mod: builtin_def(cx, Builtin::IntMod)?,
+            int_leq: builtin_def(cx, Builtin::IntLeq)?,
+            int_less: builtin_def(cx, Builtin::IntLess)?,
+            sub_nat_nat: def("Std.Int.subNatNat")?,
+            sub_nat_nat_from: def("Std.Int.subNatNatFrom")?,
             nat: builtin_data(cx, Builtin::Nat)?,
+            int: builtin_data(cx, Builtin::Int)?,
             bool: builtin_data(cx, Builtin::Bool)?,
             void: builtin_data(cx, Builtin::Void)?,
             and: builtin_data(cx, Builtin::And)?,
@@ -418,10 +501,16 @@ fn internal(span: Span, message: String) -> Diagnostic {
 }
 
 /// What `omega` was asked to prove, as far as it's linear: `a <= b`, `a = b`
-/// on `Nat`, or `Void`.
+/// on `Nat`, the same on `Int` with `a < b` and the two comparisons' `False`
+/// (`Int.leq a b = False`, `Int.less a b = False`), or `Void`.
 enum Goal {
     Le(Value, Value),
     Eq(Value, Value),
+    ILe(Value, Value),
+    ILt(Value, Value),
+    INotLe(Value, Value),
+    INotLt(Value, Value),
+    IEq(Value, Value),
     Void,
 }
 
@@ -448,10 +537,12 @@ fn call_args(value: &Value, def: DefId) -> Option<Vec<Value>> {
     }
 }
 
-/// A `Bool` reading of `l`: `Nat.leq x y`, `p && q`, or `Decidable.toBool d`
-/// (with the proposition it decides).
+/// A `Bool` reading of `l`: `Nat.leq x y`, `Int.leq x y`, `Int.less x y`,
+/// `p && q`, or `Decidable.toBool d` (with the proposition it decides).
 enum BoolForm {
     Leq(Value, Value),
+    IntLeq(Value, Value),
+    IntLess(Value, Value),
     And(Value, Value),
     ToBool(Value, Value),
 }
@@ -469,6 +560,12 @@ fn bool_form(cx: &Ctx, lib: &Lib, l: &Value) -> Result<Option<BoolForm>> {
     }
     if let Some([x, y]) = call_args(&l, lib.leq).as_deref() {
         return Ok(Some(BoolForm::Leq(x.clone(), y.clone())));
+    }
+    if let Some([x, y]) = call_args(&l, lib.int_leq).as_deref() {
+        return Ok(Some(BoolForm::IntLeq(x.clone(), y.clone())));
+    }
+    if let Some([x, y]) = call_args(&l, lib.int_less).as_deref() {
+        return Ok(Some(BoolForm::IntLess(x.clone(), y.clone())));
     }
     if let Some([p, d]) = call_args(&l, lib.to_bool).as_deref() {
         return Ok(Some(BoolForm::ToBool(p.clone(), d.clone())));
@@ -544,6 +641,16 @@ fn prove_goal(
                 span,
             );
         }
+        Value::Eq(ty, l, r) if is_data(cx, ty, lib.int)? => {
+            return linear(
+                cx,
+                lib,
+                Goal::IEq((**l).clone(), (**r).clone()),
+                expected,
+                extra,
+                span,
+            );
+        }
         Value::Eq(ty, l, r) if is_data(cx, ty, lib.bool)? => {
             let truth = if is_ctor(cx, r, lib.tru)? {
                 Some(true)
@@ -555,6 +662,22 @@ fn prove_goal(
             match (truth, bool_form(cx, lib, l)?) {
                 (Some(true), Some(BoolForm::Leq(x, y))) => {
                     return linear(cx, lib, Goal::Le(x, y), expected, extra, span);
+                }
+                (Some(truth), Some(BoolForm::IntLeq(x, y))) => {
+                    let goal = if truth {
+                        Goal::ILe(x, y)
+                    } else {
+                        Goal::INotLe(x, y)
+                    };
+                    return linear(cx, lib, goal, expected, extra, span);
+                }
+                (Some(truth), Some(BoolForm::IntLess(x, y))) => {
+                    let goal = if truth {
+                        Goal::ILt(x, y)
+                    } else {
+                        Goal::INotLt(x, y)
+                    };
+                    return linear(cx, lib, goal, expected, extra, span);
                 }
                 // `Nat.leq x y = False` from `y < x`.
                 (Some(false), Some(BoolForm::Leq(x, y))) => {
@@ -718,20 +841,23 @@ fn refute_hypothesis(
 
 fn unsupported_goal(cx: &Ctx, goal: &Value, span: Span) -> Diagnostic {
     Diagnostic::error("E-OMEGA", format!("`omega` can't prove `{}`", cx.show(goal)))
-        .with_label(span, "unsupported structure: this goal isn't linear arithmetic on `Nat`")
+        .with_label(span, "unsupported structure: this goal isn't linear arithmetic on `Nat` or `Int`")
         .with_note(
-            "`omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.max` and `Nat.min`, `Void`, and `Not`, `&&` and `Nat.leq … = True`/`False` around them",
+            "`omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s or `Int`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.toInt`, `Nat.max` and `Nat.min`, `Void`, and `Not`, `&&` and `… = True`/`False` around comparisons",
         )
 }
 
 /// A fact the search may use: `a <= b`, `a = b` or `Not (a <= b)`, with a
 /// proof of exactly `prop`; or what an operation atom is (`Op`, from
-/// quoting, proved by `rfl`).
+/// quoting, proved by `rfl`). On `Int`, `Le` and `NotLe` are `Int.leq a b =
+/// True`/`False` and `Lt` and `NotLt` the same for `Int.less`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Kind {
     Le,
     Eq,
     NotLe,
+    Lt,
+    NotLt,
     /// `Not (a = b)`: no rows, two cases (`a < b`, `b < a`).
     Ne,
     Op(OpKind),
@@ -748,6 +874,8 @@ enum OpKind {
 #[derive(Clone)]
 struct Fact {
     kind: Kind,
+    /// Whether its sides are `Int`s.
+    int: bool,
     a: Value,
     b: Value,
     proof: Term,
@@ -778,8 +906,9 @@ impl Reader<'_> {
         }
         let lib = self.lib;
         let value = force(cx.g(), prop.clone())?;
-        let fact = |kind, a: &Value, b: &Value| Fact {
+        let fact = |kind, int, a: &Value, b: &Value| Fact {
             kind,
+            int,
             a: a.clone(),
             b: b.clone(),
             proof: proof.clone(),
@@ -788,7 +917,10 @@ impl Reader<'_> {
         };
         match &value {
             Value::Eq(ty, a, b) if is_data(cx, ty, lib.nat)? => {
-                self.facts.push(fact(Kind::Eq, a, b));
+                self.facts.push(fact(Kind::Eq, false, a, b));
+            }
+            Value::Eq(ty, a, b) if is_data(cx, ty, lib.int)? => {
+                self.facts.push(fact(Kind::Eq, true, a, b));
             }
             Value::Eq(ty, l, r) if is_data(cx, ty, lib.bool)? => {
                 let truth = if is_ctor(cx, r, lib.tru)? {
@@ -810,7 +942,17 @@ impl Reader<'_> {
                     return self.read(cx, p, &ty, origin, depth + 1);
                 }
                 match (truth, bool_form(cx, lib, l)?) {
-                    (true, Some(BoolForm::Leq(x, y))) => self.facts.push(fact(Kind::Le, &x, &y)),
+                    (true, Some(BoolForm::Leq(x, y))) => {
+                        self.facts.push(fact(Kind::Le, false, &x, &y));
+                    }
+                    (truth, Some(BoolForm::IntLeq(x, y))) => {
+                        let kind = if truth { Kind::Le } else { Kind::NotLe };
+                        self.facts.push(fact(kind, true, &x, &y));
+                    }
+                    (truth, Some(BoolForm::IntLess(x, y))) => {
+                        let kind = if truth { Kind::Lt } else { Kind::NotLt };
+                        self.facts.push(fact(kind, true, &x, &y));
+                    }
                     (false, Some(BoolForm::Leq(x, y))) => {
                         let args = [both(cx, &x)?, both(cx, &y)?, (proof.clone(), prop.clone())];
                         let (p, ty) = lemma(cx, lib.leq_false, &args)?;
@@ -857,9 +999,14 @@ impl Reader<'_> {
                         if is_data(cx, ty, lib.bool)? && is_ctor(cx, r, lib.tru)? =>
                     {
                         match bool_form(cx, lib, l)? {
-                            Some(BoolForm::Leq(x, y)) => self.facts.push(fact(Kind::NotLe, &x, &y)),
-                            // `Not (Decidable.toBool d = True)`: `= False` first.
-                            Some(BoolForm::ToBool(..)) => {
+                            Some(BoolForm::Leq(x, y)) => {
+                                self.facts.push(fact(Kind::NotLe, false, &x, &y));
+                            }
+                            // `Not (Decidable.toBool d = True)`, and the
+                            // same on `Int`: `= False` first.
+                            Some(
+                                BoolForm::ToBool(..) | BoolForm::IntLeq(..) | BoolForm::IntLess(..),
+                            ) => {
                                 let args = [both(cx, l)?, (proof.clone(), prop.clone())];
                                 let (f, ty) = lemma(cx, lib.false_of_not_true, &args)?;
                                 self.read(cx, f, &ty, origin, depth + 1)?;
@@ -868,7 +1015,10 @@ impl Reader<'_> {
                         }
                     }
                     Value::Eq(ty, a, b) if is_data(cx, ty, lib.nat)? => {
-                        self.facts.push(fact(Kind::Ne, a, b));
+                        self.facts.push(fact(Kind::Ne, false, a, b));
+                    }
+                    Value::Eq(ty, a, b) if is_data(cx, ty, lib.int)? => {
+                        self.facts.push(fact(Kind::Ne, true, a, b));
                     }
                     _ => {}
                 }
@@ -953,6 +1103,124 @@ impl NTerm {
     }
 }
 
+/// A quoted `Int` term over numbered atoms (`Std.Omega.ITerm`): an atom is
+/// an `Int` atom, and the `Nat` terms inside are over `Nat` atoms.
+#[derive(Clone, Debug)]
+enum ITerm {
+    V(usize),
+    OfNat(NTerm),
+    NegSucc(NTerm),
+    Add(Box<ITerm>, Box<ITerm>),
+    Neg(Box<ITerm>),
+    MulLeft(i128, Box<ITerm>),
+    MulRight(Box<ITerm>, i128),
+    /// `Int.subNatNat a b`
+    SubNat(NTerm, NTerm),
+}
+
+impl ITerm {
+    /// `a + 1` (`Std.Omega.ITerm.succ`).
+    fn succ(&self) -> ITerm {
+        let one = ITerm::OfNat(NTerm::Lit(BigUint::from(1u32)));
+        ITerm::Add(Box::new(self.clone()), Box::new(one))
+    }
+
+    fn atoms(&self, out: &mut BTreeSet<usize>) {
+        match self {
+            ITerm::V(i) => {
+                out.insert(*i);
+            }
+            ITerm::OfNat(t) | ITerm::NegSucc(t) => t.atoms(out),
+            ITerm::Add(a, b) => {
+                a.atoms(out);
+                b.atoms(out);
+            }
+            ITerm::Neg(a) | ITerm::MulLeft(_, a) | ITerm::MulRight(a, _) => a.atoms(out),
+            ITerm::SubNat(a, b) => {
+                a.atoms(out);
+                b.atoms(out);
+            }
+        }
+    }
+
+    fn renumber(&self, map: &[Option<usize>]) -> ITerm {
+        match self {
+            ITerm::V(i) => ITerm::V(map[*i].expect("a used atom")),
+            ITerm::OfNat(t) => ITerm::OfNat(t.renumber(map)),
+            ITerm::NegSucc(t) => ITerm::NegSucc(t.renumber(map)),
+            ITerm::Add(a, b) => ITerm::Add(Box::new(a.renumber(map)), Box::new(b.renumber(map))),
+            ITerm::Neg(a) => ITerm::Neg(Box::new(a.renumber(map))),
+            ITerm::MulLeft(k, a) => ITerm::MulLeft(*k, Box::new(a.renumber(map))),
+            ITerm::MulRight(a, k) => ITerm::MulRight(Box::new(a.renumber(map)), *k),
+            ITerm::SubNat(a, b) => ITerm::SubNat(a.renumber(map), b.renumber(map)),
+        }
+    }
+
+    /// Its linear form: `Std.Omega.ITerm.lin`.
+    fn lin(&self, n: usize) -> Option<Row> {
+        Some(match self {
+            ITerm::V(i) => {
+                let mut row = Row::zero(n);
+                row.a[*i] = 1;
+                row
+            }
+            ITerm::OfNat(t) => t.lin(n)?,
+            ITerm::NegSucc(t) => {
+                let minus_one = Row {
+                    c: -1,
+                    a: vec![0; n],
+                };
+                add(&minus_one, &t.lin(n)?, -1)?
+            }
+            ITerm::Add(a, b) => add(&a.lin(n)?, &b.lin(n)?, 1)?,
+            ITerm::Neg(a) => scale(&a.lin(n)?, -1)?,
+            ITerm::MulLeft(k, a) | ITerm::MulRight(a, k) => scale(&a.lin(n)?, *k)?,
+            ITerm::SubNat(a, b) => add(&a.lin(n)?, &b.lin(n)?, -1)?,
+        })
+    }
+
+    fn term(&self, lib: &Lib) -> Term {
+        match self {
+            ITerm::V(i) => lib.ctor(lib.iv, vec![nat_term(*i as u64)]),
+            ITerm::OfNat(t) => lib.ctor(lib.iof_nat, vec![t.term(lib)]),
+            ITerm::NegSucc(t) => lib.ctor(lib.ineg_succ, vec![t.term(lib)]),
+            ITerm::Add(a, b) => lib.ctor(lib.iadd, vec![a.term(lib), b.term(lib)]),
+            ITerm::Neg(a) => lib.ctor(lib.ineg, vec![a.term(lib)]),
+            ITerm::MulLeft(k, a) => lib.ctor(lib.imul_left, vec![lib.int(*k), a.term(lib)]),
+            ITerm::MulRight(a, k) => lib.ctor(lib.imul_right, vec![a.term(lib), lib.int(*k)]),
+            ITerm::SubNat(a, b) => lib.ctor(lib.isub_nat, vec![a.term(lib), b.term(lib)]),
+        }
+    }
+}
+
+/// The two sides of a fact or goal, quoted.
+#[derive(Clone, Debug)]
+enum Sides {
+    Nat(NTerm, NTerm),
+    Int(ITerm, ITerm),
+}
+
+impl Sides {
+    fn atoms(&self, out: &mut BTreeSet<usize>) {
+        match self {
+            Sides::Nat(a, b) => {
+                a.atoms(out);
+                b.atoms(out);
+            }
+            Sides::Int(a, b) => {
+                a.atoms(out);
+                b.atoms(out);
+            }
+        }
+    }
+}
+
+/// `b - a`: the row `0 <= b - a` that `a <= b` gives on `Int`
+/// (`Std.Omega.ileRow`).
+fn ile_row(a: &ITerm, b: &ITerm, n: usize) -> Option<Row> {
+    add(&b.lin(n)?, &a.lin(n)?, -1)
+}
+
 /// `r + k * s`.
 fn add(r: &Row, s: &Row, k: i128) -> Option<Row> {
     let mut out = r.clone();
@@ -1004,10 +1272,12 @@ struct Op {
     b: NTerm,
 }
 
-/// An atom: a `Nat` subterm `omega` doesn't look inside.
+/// An atom: a `Nat` or `Int` subterm `omega` doesn't look inside.
 struct Atom {
     value: Value,
     term: Term,
+    /// Whether it's an `Int`.
+    int: bool,
     /// Why it's an atom, if that's because the fragment doesn't cover it.
     unsupported: Option<&'static str>,
 }
@@ -1022,6 +1292,16 @@ struct Division {
     divisor: BigUint,
 }
 
+/// An `Int` division or remainder by a nonzero number found while quoting:
+/// `numerator / divisor` or `numerator % divisor`, with the proof `ok` that
+/// the divisor isn't 0.
+#[derive(Clone)]
+struct IntDivision {
+    numerator: Value,
+    divisor: Value,
+    ok: Value,
+}
+
 #[derive(Default)]
 struct Quoter {
     atoms: Vec<Atom>,
@@ -1029,8 +1309,11 @@ struct Quoter {
     ops: Vec<Op>,
     /// The division atoms, each at most once.
     divisions: Vec<Division>,
-    /// The atoms that are products of two unknowns, with their factors.
-    products: Vec<(usize, Value, Value)>,
+    /// The `Int` divisions and remainders, each numerator and divisor once.
+    int_divisions: Vec<IntDivision>,
+    /// The atoms that are products of two unknowns, with their factors and
+    /// whether they're `Int`s.
+    products: Vec<(usize, Value, Value, bool)>,
 }
 
 /// Quoting stopped at an unsolved metavariable.
@@ -1105,14 +1388,19 @@ impl Quoter {
             }
             let (a, b) = (a.clone(), b.clone());
             let before = self.atoms.len();
-            let i = self.atom(cx, base, Some("a product of two unknowns isn't linear"))?;
+            let i = self.atom(
+                cx,
+                base,
+                Some("a product of two unknowns isn't linear"),
+                false,
+            )?;
             if i == before {
-                self.products.push((i, a, b));
+                self.products.push((i, a, b, false));
             }
             return Ok(Ok(NTerm::V(i)));
         }
         if let Some((kind, a, b)) = self.operation(cx, lib, &base)? {
-            let t = self.atom(cx, base, None)?;
+            let t = self.atom(cx, base, None, false)?;
             if !self.ops.iter().any(|o| o.t == t)
                 && let (Ok(a), Ok(b)) = (
                     self.quote(cx, lib, &a, span)?,
@@ -1124,7 +1412,7 @@ impl Quoter {
             return Ok(Ok(NTerm::V(t)));
         }
         if let Some((numerator, divisor)) = self.division(cx, lib, &base)? {
-            let q = self.atom(cx, base, None)?;
+            let q = self.atom(cx, base, None, false)?;
             if !self.divisions.iter().any(|d| d.q == q)
                 && let Ok(quoted) = self.quote(cx, lib, &numerator, span)?
             {
@@ -1137,7 +1425,125 @@ impl Quoter {
             }
             return Ok(Ok(NTerm::V(q)));
         }
-        Ok(Ok(NTerm::V(self.atom(cx, base, None)?)))
+        Ok(Ok(NTerm::V(self.atom(cx, base, None, false)?)))
+    }
+
+    /// An `Int` term, mirroring what it computes to as `quote` does for `Nat`.
+    fn quote_int(
+        &mut self,
+        cx: &mut Ctx,
+        lib: &Lib,
+        value: &Value,
+        span: Span,
+    ) -> Result<std::result::Result<ITerm, Unknown>> {
+        macro_rules! sub {
+            ($e:expr) => {
+                match $e? {
+                    Ok(t) => t,
+                    Err(u) => return Ok(Err(u)),
+                }
+            };
+        }
+        let value = force(cx.g(), value.clone())?;
+        if let Value::Ctor(d, c, fields) = &value
+            && fields.len() == 1
+            && (*d == lib.of_nat.0 && (*c == lib.of_nat.1 || *c == lib.neg_succ.1))
+        {
+            let inner = sub!(self.quote(cx, lib, &fields[0], span));
+            return Ok(Ok(if *c == lib.of_nat.1 {
+                ITerm::OfNat(inner)
+            } else {
+                ITerm::NegSucc(inner)
+            }));
+        }
+        if let Value::Neutral(Head::Meta(_), _) = value {
+            return Ok(Err(Unknown));
+        }
+        if let Some([a, b]) = call_args(&value, lib.int_add).as_deref() {
+            let (a, b) = (a.clone(), b.clone());
+            let a = sub!(self.quote_int(cx, lib, &a, span));
+            let b = sub!(self.quote_int(cx, lib, &b, span));
+            return Ok(Ok(ITerm::Add(Box::new(a), Box::new(b))));
+        }
+        if let Some([a]) = call_args(&value, lib.int_neg).as_deref() {
+            let a = a.clone();
+            let a = sub!(self.quote_int(cx, lib, &a, span));
+            return Ok(Ok(ITerm::Neg(Box::new(a))));
+        }
+        if let Some([a, b]) = call_args(&value, lib.int_mul).as_deref() {
+            let (a, b) = (a.clone(), b.clone());
+            if let Some(k) = int_literal(cx, lib, &a)? {
+                let b = sub!(self.quote_int(cx, lib, &b, span));
+                return Ok(Ok(ITerm::MulLeft(k, Box::new(b))));
+            }
+            if let Some(k) = int_literal(cx, lib, &b)? {
+                let a = sub!(self.quote_int(cx, lib, &a, span));
+                return Ok(Ok(ITerm::MulRight(Box::new(a), k)));
+            }
+            let before = self.atoms.len();
+            let i = self.atom(
+                cx,
+                value,
+                Some("a product of two unknowns isn't linear"),
+                true,
+            )?;
+            if i == before {
+                self.products.push((i, a, b, true));
+            }
+            return Ok(Ok(ITerm::V(i)));
+        }
+        if let Some((m, n)) = self.sub_nat_nat(cx, lib, &value)? {
+            let m = sub!(self.quote(cx, lib, &m, span));
+            let n = sub!(self.quote(cx, lib, &n, span));
+            return Ok(Ok(ITerm::SubNat(m, n)));
+        }
+        let division = call_args(&value, lib.int_div).or_else(|| call_args(&value, lib.int_mod));
+        if let Some([x, d, ok]) = division.as_deref()
+            && int_literal(cx, lib, d)?.is_some_and(|k| k != 0)
+        {
+            let (x, d, ok) = (x.clone(), d.clone(), ok.clone());
+            let i = self.atom(cx, value, None, true)?;
+            let x_term = cx.quote(&x)?;
+            let d_term = cx.quote(&d)?;
+            let mut known = false;
+            for e in &self.int_divisions {
+                if crate::matching::same(&cx.quote(&e.numerator)?, &x_term)
+                    && crate::matching::same(&cx.quote(&e.divisor)?, &d_term)
+                {
+                    known = true;
+                    break;
+                }
+            }
+            if !known {
+                self.int_divisions.push(IntDivision {
+                    numerator: x,
+                    divisor: d,
+                    ok,
+                });
+            }
+            return Ok(Ok(ITerm::V(i)));
+        }
+        Ok(Ok(ITerm::V(self.atom(cx, value, None, true)?)))
+    }
+
+    /// `Int.subNatNat m n`, or what it computes to when `n - m` is stuck:
+    /// `Int.subNatNatFrom m n (n - m)`.
+    fn sub_nat_nat(&self, cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<(Value, Value)>> {
+        if let Some([m, n]) = call_args(value, lib.sub_nat_nat).as_deref() {
+            return Ok(Some((m.clone(), n.clone())));
+        }
+        let args = call_args(value, lib.sub_nat_nat_from);
+        let Some([m, n, gap]) = args.as_deref() else {
+            return Ok(None);
+        };
+        let gap = force(cx.g(), gap.clone())?;
+        let gap_args = call_args(&gap, lib.sub);
+        let Some([n2, m2]) = gap_args.as_deref() else {
+            return Ok(None);
+        };
+        let same = crate::matching::same;
+        let matches = same(&cx.quote(n2)?, &cx.quote(n)?) && same(&cx.quote(m2)?, &cx.quote(m)?);
+        Ok(matches.then(|| (m.clone(), n.clone())))
     }
 
     /// `x / k` for a number `k > 0`: `Nat.div x k`, or `Nat.divFuel x x k`,
@@ -1238,23 +1644,27 @@ impl Quoter {
         }
     }
 
-    /// The atom `value` is, adding it if it's new.
+    /// The atom `value` is, adding it if it's new; `int` says it's an `Int`.
     fn atom(
         &mut self,
         cx: &mut Ctx,
         value: Value,
         unsupported: Option<&'static str>,
+        int: bool,
     ) -> Result<usize> {
         let term = cx.quote(&value)?;
         if let Some(i) = self
             .atoms
             .iter()
-            .position(|a| crate::matching::same(&a.term, &term))
+            .position(|a| a.int == int && crate::matching::same(&a.term, &term))
         {
             return Ok(i);
         }
         let g = cx.g();
         for (i, a) in self.atoms.iter().enumerate() {
+            if a.int != int {
+                continue;
+            }
             let _op = g.budget.operation(Limits {
                 work: 20_000,
                 stack: 128 * 1024,
@@ -1270,7 +1680,10 @@ impl Quoter {
         // come first.
         for i in 0..self.atoms.len() {
             let earlier = &self.atoms[i].term;
-            if !(has_meta(&term) || has_meta(earlier)) || !same_shape(earlier, &term) {
+            if self.atoms[i].int != int
+                || !(has_meta(&term) || has_meta(earlier))
+                || !same_shape(earlier, &term)
+            {
                 continue;
             }
             let _op = cx.g().budget.operation(Limits {
@@ -1288,10 +1701,32 @@ impl Quoter {
         self.atoms.push(Atom {
             value,
             term,
+            int,
             unsupported,
         });
         Ok(self.atoms.len() - 1)
     }
+}
+
+/// `value` as an `Int` number, if it is one that fits in an `i128`.
+fn int_literal(cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<i128>> {
+    let Value::Ctor(d, c, fields) = force(cx.g(), value.clone())? else {
+        return Ok(None);
+    };
+    if d != lib.of_nat.0 || fields.len() != 1 {
+        return Ok(None);
+    }
+    let (k, base) = stitchwort_core::native::view(cx.g(), &fields[0])?;
+    let Some(k) = base.is_none().then(|| i128::try_from(&k).ok()).flatten() else {
+        return Ok(None);
+    };
+    Ok(if c == lib.of_nat.1 {
+        Some(k)
+    } else if c == lib.neg_succ.1 {
+        k.checked_add(1).map(|k| -k)
+    } else {
+        None
+    })
 }
 
 /// Whether `term` mentions a metavariable.
@@ -1309,8 +1744,7 @@ fn same_shape(a: &Term, b: &Term) -> bool {
 struct Quoted {
     fact: Fact,
     t: Option<NTerm>,
-    a: NTerm,
-    b: NTerm,
+    sides: Sides,
 }
 
 impl Quoted {
@@ -1318,13 +1752,33 @@ impl Quoted {
         self.t.as_ref().expect("an operation fact has its atom")
     }
 
+    /// The sides of a fact about `Nat`s.
+    fn nat(&self) -> (&NTerm, &NTerm) {
+        match &self.sides {
+            Sides::Nat(a, b) => (a, b),
+            Sides::Int(..) => unreachable!("a fact about `Nat`s"),
+        }
+    }
+
     /// Its rows, as `Std.Omega.Fact.rows` makes them.
     fn rows(&self, n: usize) -> Option<Vec<Row>> {
-        let (a, b) = (&self.a, &self.b);
+        if let Sides::Int(a, b) = &self.sides {
+            return Some(match self.fact.kind {
+                Kind::Le => vec![ile_row(a, b, n)?],
+                Kind::NotLe => vec![ile_row(&b.succ(), a, n)?],
+                Kind::Lt => vec![ile_row(&a.succ(), b, n)?],
+                Kind::NotLt => vec![ile_row(b, a, n)?],
+                Kind::Eq => vec![ile_row(a, b, n)?, ile_row(b, a, n)?],
+                Kind::Ne => Vec::new(),
+                Kind::Op(_) => unreachable!("operation facts are about `Nat`s"),
+            });
+        }
+        let (a, b) = self.nat();
         Some(match self.fact.kind {
             Kind::Le => vec![le_row(a, b, n)?],
             Kind::Eq => vec![le_row(a, b, n)?, le_row(b, a, n)?],
             Kind::NotLe => vec![le_row(&NTerm::Succ(Box::new(b.clone())), a, n)?],
+            Kind::Lt | Kind::NotLt => unreachable!("only `Int` facts are `Lt`/`NotLt`"),
             Kind::Ne => Vec::new(),
             Kind::Op(OpKind::Sub) => {
                 let tb = NTerm::Add(Box::new(self.t().clone()), Box::new(b.clone()));
@@ -1339,16 +1793,25 @@ impl Quoted {
     fn row_count(&self) -> usize {
         match self.fact.kind {
             Kind::Ne => 0,
-            Kind::Le | Kind::NotLe => 1,
+            Kind::Le | Kind::NotLe | Kind::Lt | Kind::NotLt => 1,
             Kind::Eq | Kind::Op(_) => 2,
         }
     }
 
     /// Its two cases' rows (`Std.Omega.Fact.left`/`right`), if it has cases.
     fn cases(&self, n: usize) -> Option<Option<(Vec<Row>, Vec<Row>)>> {
-        let (a, b) = (&self.a, &self.b);
+        if let Sides::Int(a, b) = &self.sides {
+            return Some(match self.fact.kind {
+                Kind::Ne => Some((
+                    vec![ile_row(&a.succ(), b, n)?],
+                    vec![ile_row(&b.succ(), a, n)?],
+                )),
+                _ => None,
+            });
+        }
+        let (a, b) = self.nat();
         let (left, right) = match self.fact.kind {
-            Kind::Le | Kind::Eq | Kind::NotLe => return Some(None),
+            Kind::Le | Kind::Eq | Kind::NotLe | Kind::Lt | Kind::NotLt => return Some(None),
             Kind::Ne => (
                 form_rows(&[Form::Lt(a, b)], n)?,
                 form_rows(&[Form::Lt(b, a)], n)?,
@@ -1378,19 +1841,30 @@ impl Quoted {
         if let Some(t) = &self.t {
             t.atoms(out);
         }
-        self.a.atoms(out);
-        self.b.atoms(out);
+        self.sides.atoms(out);
     }
 
     fn term(&self, lib: &Lib, map: &[Option<usize>]) -> Term {
-        let (a, b) = (
-            self.a.renumber(map).term(lib),
-            self.b.renumber(map).term(lib),
-        );
+        if let Sides::Int(a, b) = &self.sides {
+            let which = match self.fact.kind {
+                Kind::Le => lib.file,
+                Kind::NotLe => lib.finotle,
+                Kind::Lt => lib.filt,
+                Kind::NotLt => lib.finotlt,
+                Kind::Eq => lib.fieq,
+                Kind::Ne => lib.fine,
+                Kind::Op(_) => unreachable!("operation facts are about `Nat`s"),
+            };
+            let (a, b) = (a.renumber(map).term(lib), b.renumber(map).term(lib));
+            return lib.ctor(which, vec![a, b]);
+        }
+        let (a, b) = self.nat();
+        let (a, b) = (a.renumber(map).term(lib), b.renumber(map).term(lib));
         let which = match self.fact.kind {
             Kind::Le => lib.fle,
             Kind::Eq => lib.feq,
             Kind::NotLe => lib.fnotle,
+            Kind::Lt | Kind::NotLt => unreachable!("only `Int` facts are `Lt`/`NotLt`"),
             Kind::Ne => lib.fne,
             Kind::Op(op) => {
                 let which = match op {
@@ -1408,6 +1882,55 @@ impl Quoted {
 /// The negated goal `Not (a <= b)`'s row (`Std.Omega.Goal.negRow` of `GLe a b`).
 fn neg_goal_row(a: &NTerm, b: &NTerm, n: usize) -> Option<Row> {
     le_row(&NTerm::Succ(Box::new(b.clone())), a, n)
+}
+
+/// The rows of the goals' negations (`Std.Omega.Goal.negRow`), one per
+/// refutation: an equation has two, `Void` one with no row.
+fn negations(goal: &Goal, sides: Option<&Sides>, n: usize) -> Option<Vec<Option<Row>>> {
+    Some(match (goal, sides) {
+        (Goal::Eq(..), Some(Sides::Nat(a, b))) => {
+            vec![Some(neg_goal_row(a, b, n)?), Some(neg_goal_row(b, a, n)?)]
+        }
+        (_, Some(Sides::Nat(a, b))) => vec![Some(neg_goal_row(a, b, n)?)],
+        (Goal::IEq(..), Some(Sides::Int(a, b))) => {
+            vec![
+                Some(ile_row(&b.succ(), a, n)?),
+                Some(ile_row(&a.succ(), b, n)?),
+            ]
+        }
+        (Goal::ILt(..), Some(Sides::Int(a, b))) => vec![Some(ile_row(b, a, n)?)],
+        (Goal::INotLe(..), Some(Sides::Int(a, b))) => vec![Some(ile_row(a, b, n)?)],
+        (Goal::INotLt(..), Some(Sides::Int(a, b))) => vec![Some(ile_row(&a.succ(), b, n)?)],
+        (_, Some(Sides::Int(a, b))) => vec![Some(ile_row(&b.succ(), a, n)?)],
+        (_, None) => vec![None],
+    })
+}
+
+/// A fact's sides, quoted as `Nat`s or `Int`s; `None` if one is unknown.
+fn quote_fact(
+    cx: &mut Ctx,
+    lib: &Lib,
+    quoter: &mut Quoter,
+    fact: &Fact,
+    span: Span,
+) -> Result<Option<Sides>> {
+    Ok(if fact.int {
+        let Ok(a) = quoter.quote_int(cx, lib, &fact.a, span)? else {
+            return Ok(None);
+        };
+        let Ok(b) = quoter.quote_int(cx, lib, &fact.b, span)? else {
+            return Ok(None);
+        };
+        Some(Sides::Int(a, b))
+    } else {
+        let Ok(a) = quoter.quote(cx, lib, &fact.a, span)? else {
+            return Ok(None);
+        };
+        let Ok(b) = quoter.quote(cx, lib, &fact.b, span)? else {
+            return Ok(None);
+        };
+        Some(Sides::Nat(a, b))
+    })
 }
 
 /// Proves a linear goal (or `Void`) from the facts in scope and `extra`.
@@ -1457,44 +1980,58 @@ fn linear(
             let b = quoter
                 .quote(cx, lib, b, span)?
                 .map_err(|_| unknown("the goal"))?;
-            Some((a, b))
+            Some(Sides::Nat(a, b))
+        }
+        Goal::ILe(a, b)
+        | Goal::ILt(a, b)
+        | Goal::INotLe(a, b)
+        | Goal::INotLt(a, b)
+        | Goal::IEq(a, b) => {
+            let a = quoter
+                .quote_int(cx, lib, a, span)?
+                .map_err(|_| unknown("the goal"))?;
+            let b = quoter
+                .quote_int(cx, lib, b, span)?
+                .map_err(|_| unknown("the goal"))?;
+            Some(Sides::Int(a, b))
         }
         Goal::Void => None,
     };
     let mut quoted: Vec<Quoted> = Vec::new();
     for fact in reader.facts {
-        let Ok(a) = quoter.quote(cx, lib, &fact.a, span)? else {
-            continue;
-        };
-        let Ok(b) = quoter.quote(cx, lib, &fact.b, span)? else {
-            continue;
-        };
-        quoted.push(Quoted {
-            fact,
-            t: None,
-            a,
-            b,
-        });
-    }
-    // What each division atom `q = x / k` is: `q * k ≤ x` and
-    // `x < (q + 1) * k`. Quoting these may find more divisions.
-    let mut next_division = 0;
-    while next_division < quoter.divisions.len() {
-        let division = quoter.divisions[next_division].clone();
-        next_division += 1;
-        for fact in division_facts(cx, lib, &quoter, &division)? {
-            let Ok(a) = quoter.quote(cx, lib, &fact.a, span)? else {
-                continue;
-            };
-            let Ok(b) = quoter.quote(cx, lib, &fact.b, span)? else {
-                continue;
-            };
+        if let Some(sides) = quote_fact(cx, lib, &mut quoter, &fact, span)? {
             quoted.push(Quoted {
                 fact,
                 t: None,
-                a,
-                b,
+                sides,
             });
+        }
+    }
+    // What each division atom is: on `Nat`, `q = x / k` has `q * k ≤ x` and
+    // `x < (q + 1) * k`; on `Int`, `x / k` and `x % k` have
+    // `k * (x / k) + x % k = x`, `0 ≤ x % k` and `x % k < |k|`. Quoting these
+    // may find more divisions.
+    let (mut next_division, mut next_int_division) = (0, 0);
+    loop {
+        let facts = if next_division < quoter.divisions.len() {
+            let division = quoter.divisions[next_division].clone();
+            next_division += 1;
+            division_facts(cx, lib, &quoter, &division)?
+        } else if next_int_division < quoter.int_divisions.len() {
+            let division = quoter.int_divisions[next_int_division].clone();
+            next_int_division += 1;
+            int_division_facts(cx, lib, &division)?
+        } else {
+            break;
+        };
+        for fact in facts {
+            if let Some(sides) = quote_fact(cx, lib, &mut quoter, &fact, span)? {
+                quoted.push(Quoted {
+                    fact,
+                    t: None,
+                    sides,
+                });
+            }
         }
     }
     // What each operation atom is, proved by `rfl`: the environment holds
@@ -1509,6 +2046,7 @@ fn linear(
         );
         let fact = Fact {
             kind: Kind::Op(op.kind),
+            int: false,
             a: atom.value.clone(),
             b: atom.value.clone(),
             proof: Term::Refl,
@@ -1518,32 +2056,42 @@ fn linear(
         quoted.push(Quoted {
             fact,
             t: Some(NTerm::V(op.t)),
-            a: op.a,
-            b: op.b,
+            sides: Sides::Nat(op.a, op.b),
         });
     }
-    // `x * y` and `y * x` are two atoms, related by `Nat.mulComm x y`.
-    for (k, (i, x, y)) in quoter.products.iter().enumerate() {
+    // `x * y` and `y * x` are two atoms, related by `Nat.mulComm x y` (or
+    // `Int.mulComm`).
+    for (k, (i, x, y, int)) in quoter.products.iter().enumerate() {
         let (tx, ty) = (cx.quote(x)?, cx.quote(y)?);
-        for (j, x2, y2) in &quoter.products[k + 1..] {
+        for (j, x2, y2, int2) in &quoter.products[k + 1..] {
             let same = crate::matching::same;
-            if !(same(&tx, &cx.quote(y2)?) && same(&ty, &cx.quote(x2)?)) {
+            if int != int2 || !(same(&tx, &cx.quote(y2)?) && same(&ty, &cx.quote(x2)?)) {
                 continue;
             }
-            let (proof, prop) = lemma(cx, lib.mul_comm, &[both(cx, x)?, both(cx, y)?])?;
+            let (which, name) = if *int {
+                (lib.int_mul_comm, "Int.mulComm")
+            } else {
+                (lib.mul_comm, "Nat.mulComm")
+            };
+            let (proof, prop) = lemma(cx, which, &[both(cx, x)?, both(cx, y)?])?;
             let fact = Fact {
                 kind: Kind::Eq,
+                int: *int,
                 a: quoter.atoms[*i].value.clone(),
                 b: quoter.atoms[*j].value.clone(),
                 proof,
                 prop,
-                origin: format!("`Nat.mulComm {} {}`", cx.show(x), cx.show(y)),
+                origin: format!("`{name} {} {}`", cx.show(x), cx.show(y)),
+            };
+            let sides = if *int {
+                Sides::Int(ITerm::V(*i), ITerm::V(*j))
+            } else {
+                Sides::Nat(NTerm::V(*i), NTerm::V(*j))
             };
             quoted.push(Quoted {
                 fact,
                 t: None,
-                a: NTerm::V(*i),
-                b: NTerm::V(*j),
+                sides,
             });
         }
     }
@@ -1574,27 +2122,18 @@ fn linear(
         }
     }
     let shown = show_goal(cx, &quoter, &goal, sides.as_ref(), expected);
-    // One refutation per goal row: `Not (a <= b)` (and `Not (b <= a)` for `=`).
-    let negations: Vec<Option<Row>> = match &sides {
-        Some((a, b)) => {
-            let mut v = vec![Some(neg_goal_row(a, b, n).ok_or_else(too_large)?)];
-            if matches!(goal, Goal::Eq(..)) {
-                v.push(Some(neg_goal_row(b, a, n).ok_or_else(too_large)?));
-            }
-            v
-        }
-        None => vec![None],
-    };
+    let ints: Vec<bool> = quoter.atoms.iter().map(|a| a.int).collect();
     let mut certs: Vec<Cert> = Vec::new();
-    for neg in &negations {
+    for neg in negations(&goal, sides.as_ref(), n).ok_or_else(too_large)? {
         let mut problem_rows = rows.clone();
-        if let Some(neg) = neg {
+        if let Some(neg) = &neg {
             problem_rows.push((Source::NegGoal, neg.clone()));
         }
         let problem = Problem {
             n,
             rows: problem_rows,
             cases: cases.clone(),
+            ints: ints.clone(),
         };
         match search::refute(&problem, search::LIMITS) {
             Ok(cert) => {
@@ -1637,6 +2176,33 @@ fn linear(
         &certs,
         span,
     )
+}
+
+/// The facts saying what `x / k` and `x % k` are on `Int`, from
+/// `Int.divAddMod x k`, `Int.modNonneg x k` and `Int.modLtAbs x k`.
+fn int_division_facts(cx: &Ctx, lib: &Lib, division: &IntDivision) -> Result<Vec<Fact>> {
+    let args = [
+        both(cx, &division.numerator)?,
+        both(cx, &division.divisor)?,
+        both(cx, &division.ok)?,
+    ];
+    let origin = format!(
+        "what `{} / {}` and `{} % {}` are",
+        cx.show(&division.numerator),
+        cx.show(&division.divisor),
+        cx.show(&division.numerator),
+        cx.show(&division.divisor)
+    );
+    let mut reader = Reader {
+        lib,
+        facts: Vec::new(),
+        skipped: Vec::new(),
+    };
+    for which in [lib.int_div_add_mod, lib.int_mod_nonneg, lib.int_mod_lt_abs] {
+        let (proof, prop) = lemma(cx, which, &args)?;
+        reader.read(cx, proof, &prop, &origin, 0)?;
+    }
+    Ok(reader.facts)
 }
 
 /// The facts saying what `division`'s atom `q = x / k` is, from
@@ -1750,38 +2316,92 @@ fn render_le(cx: &Ctx, quoter: &Quoter, a: &NTerm, b: &NTerm) -> String {
     }
 }
 
+/// A quoted `Int` term as a message shows it: `x - y` for `x + Int.neg y`,
+/// `-3` for `NegSucc 2`, `n.toInt` for `OfNat n`.
+fn render_int(cx: &Ctx, quoter: &Quoter, t: &ITerm) -> String {
+    let inner = |t: &ITerm| -> String {
+        let s = render_int(cx, quoter, t);
+        if s.contains(' ') { format!("({s})") } else { s }
+    };
+    // A `Nat` as an `Int`: a number as itself, anything else with `.toInt`.
+    let nat = |t: &NTerm| -> String {
+        let s = render(cx, quoter, t);
+        match t {
+            NTerm::Lit(_) => s,
+            _ if s.contains(' ') => format!("({s}).toInt"),
+            _ => format!("{s}.toInt"),
+        }
+    };
+    match t {
+        ITerm::V(i) => atom_name(cx, quoter, *i),
+        ITerm::OfNat(t) => nat(t),
+        ITerm::NegSucc(NTerm::Lit(k)) => format!("-{}", k + 1u32),
+        ITerm::NegSucc(t) => format!("-({} + 1)", nat(t)),
+        ITerm::Add(a, b) => {
+            let left = render_int(cx, quoter, a);
+            match &**b {
+                ITerm::Neg(b) => format!("{left} - {}", inner(b)),
+                ITerm::NegSucc(NTerm::Lit(k)) => format!("{left} - {}", k + 1u32),
+                ITerm::Add(..) => format!("{left} + ({})", render_int(cx, quoter, b)),
+                _ => format!("{left} + {}", render_int(cx, quoter, b)),
+            }
+        }
+        ITerm::Neg(a) => format!("-{}", inner(a)),
+        ITerm::MulLeft(k, a) => format!("{k} * {}", inner(a)),
+        ITerm::MulRight(a, k) if *k < 0 => format!("{} * ({k})", inner(a)),
+        ITerm::MulRight(a, k) => format!("{} * {k}", inner(a)),
+        ITerm::SubNat(a, b) => format!("{} - {}", nat(a), nat(b)),
+    }
+}
+
+/// Two sides joined by `op`.
+fn render_sides(cx: &Ctx, quoter: &Quoter, sides: &Sides, op: &str) -> String {
+    match sides {
+        Sides::Nat(a, b) => format!("{} {op} {}", render(cx, quoter, a), render(cx, quoter, b)),
+        Sides::Int(a, b) => {
+            format!(
+                "{} {op} {}",
+                render_int(cx, quoter, a),
+                render_int(cx, quoter, b)
+            )
+        }
+    }
+}
+
 /// The goal as a message shows it.
 fn show_goal(
     cx: &Ctx,
     quoter: &Quoter,
     goal: &Goal,
-    sides: Option<&(NTerm, NTerm)>,
+    sides: Option<&Sides>,
     expected: &Value,
 ) -> String {
+    let Some(sides) = sides else {
+        return cx.show(expected);
+    };
     match (goal, sides) {
-        (Goal::Le(..), Some((a, b))) => render_le(cx, quoter, a, b),
-        (Goal::Eq(..), Some((a, b))) => {
-            format!("{} = {}", render(cx, quoter, a), render(cx, quoter, b))
-        }
+        (Goal::Le(..), Sides::Nat(a, b)) => render_le(cx, quoter, a, b),
+        (Goal::Eq(..) | Goal::IEq(..), _) => render_sides(cx, quoter, sides, "="),
+        (Goal::ILe(..), _) => render_sides(cx, quoter, sides, "≤"),
+        (Goal::ILt(..), _) => render_sides(cx, quoter, sides, "<"),
+        (Goal::INotLe(..), _) => format!("¬({})", render_sides(cx, quoter, sides, "≤")),
+        (Goal::INotLt(..), _) => format!("¬({})", render_sides(cx, quoter, sides, "<")),
         _ => cx.show(expected),
     }
 }
 
 fn show_fact(cx: &Ctx, quoter: &Quoter, q: &Quoted) -> String {
-    match q.fact.kind {
-        Kind::Le => render_le(cx, quoter, &q.a, &q.b),
-        Kind::Eq => format!(
-            "{} = {}",
-            render(cx, quoter, &q.a),
-            render(cx, quoter, &q.b)
-        ),
-        Kind::NotLe => format!("¬({})", render_le(cx, quoter, &q.a, &q.b)),
-        Kind::Ne => format!(
-            "{} ≠ {}",
-            render(cx, quoter, &q.a),
-            render(cx, quoter, &q.b)
-        ),
-        Kind::Op(_) => format!("{} = {}", render(cx, quoter, q.t()), cx.show(&q.fact.a)),
+    let sides = &q.sides;
+    match (q.fact.kind, sides) {
+        (Kind::Le, Sides::Nat(a, b)) => render_le(cx, quoter, a, b),
+        (Kind::NotLe, Sides::Nat(a, b)) => format!("¬({})", render_le(cx, quoter, a, b)),
+        (Kind::Le, _) => render_sides(cx, quoter, sides, "≤"),
+        (Kind::NotLe, _) => format!("¬({})", render_sides(cx, quoter, sides, "≤")),
+        (Kind::Lt, _) => render_sides(cx, quoter, sides, "<"),
+        (Kind::NotLt, _) => format!("¬({})", render_sides(cx, quoter, sides, "<")),
+        (Kind::Eq, _) => render_sides(cx, quoter, sides, "="),
+        (Kind::Ne, _) => render_sides(cx, quoter, sides, "≠"),
+        (Kind::Op(_), _) => format!("{} = {}", render(cx, quoter, q.t()), cx.show(&q.fact.a)),
     }
 }
 
@@ -1913,16 +2533,24 @@ fn used_inputs(
     }
 }
 
+/// How the used atoms are renumbered: each atom's new number among the used
+/// atoms of its sort (`Nat` or `Int`), and how many of each there are.
+struct AtomMap {
+    new: Vec<Option<usize>>,
+    int: Vec<bool>,
+    nats: usize,
+    ints: usize,
+}
+
 /// The certificate as a term, with inputs and atoms renumbered.
 fn cert_term(
     lib: &Lib,
     cert: &Cert,
     inputs: &[Option<usize>],
     facts: &[Option<usize>],
-    atoms: &[Option<usize>],
-    n: usize,
+    atoms: &AtomMap,
 ) -> Term {
-    let sub = |c: &Cert| cert_term(lib, c, inputs, facts, atoms, n);
+    let sub = |c: &Cert| cert_term(lib, c, inputs, facts, atoms);
     match cert {
         Cert::Close(r) => lib.ctor(lib.close, vec![nat_term(*r as u64)]),
         Cert::Cases(f, left, right) => lib.ctor(
@@ -1942,7 +2570,7 @@ fn cert_term(
                 Step::NegGoal => lib.ctor(lib.neg_goal, Vec::new()),
                 Step::NatNonneg(i) => lib.ctor(
                     lib.nat_nonneg,
-                    vec![nat_term(atoms[*i].expect("a used atom") as u64)],
+                    vec![nat_term(atoms.new[*i].expect("a used atom") as u64)],
                 ),
                 Step::Combine(terms) => {
                     let pairs = terms
@@ -1964,23 +2592,25 @@ fn cert_term(
             lib.ctor(lib.then, vec![step, sub(rest)])
         }
         Cert::Split(l, left, right) => {
-            let mut coeffs = vec![0i128; n];
+            let mut nats = vec![0i128; atoms.nats];
+            let mut ints = vec![0i128; atoms.ints];
             for (j, &x) in l.a.iter().enumerate() {
                 if x != 0 {
-                    coeffs[atoms[j].expect("a used atom")] = x;
+                    let new = atoms.new[j].expect("a used atom");
+                    if atoms.int[j] {
+                        ints[new] = x;
+                    } else {
+                        nats[new] = x;
+                    }
                 }
             }
-            while coeffs.last() == Some(&0) {
-                coeffs.pop();
-            }
-            let row = lib.ctor(
-                lib.mk_row,
-                vec![
-                    lib.int(l.c),
-                    lib.list(coeffs.into_iter().map(|x| lib.int(x)).collect()),
-                    lib.list(Vec::new()),
-                ],
-            );
+            let coeffs = |mut v: Vec<i128>| {
+                while v.last() == Some(&0) {
+                    v.pop();
+                }
+                lib.list(v.into_iter().map(|x| lib.int(x)).collect())
+            };
+            let row = lib.ctor(lib.mk_row, vec![lib.int(l.c), coeffs(nats), coeffs(ints)]);
             lib.ctor(lib.split, vec![row, sub(left), sub(right)])
         }
     }
@@ -1994,7 +2624,7 @@ fn emit(
     lib: &Lib,
     goal: &Goal,
     expected: &Value,
-    sides: Option<(NTerm, NTerm)>,
+    sides: Option<Sides>,
     quoted: &[Quoted],
     fact_of_row: &[(usize, usize)],
     quoter: &Quoter,
@@ -2009,17 +2639,32 @@ fn emit(
     }
     let mut used_facts: BTreeSet<usize> = inputs.iter().map(|&i| fact_of_row[i].0).collect();
     used_facts.extend(split_facts);
-    if let Some((a, b)) = &sides {
-        a.atoms(&mut atoms);
-        b.atoms(&mut atoms);
+    if let Some(sides) = &sides {
+        sides.atoms(&mut atoms);
     }
     for &f in &used_facts {
         quoted[f].atoms(&mut atoms);
     }
-    let mut atom_map: Vec<Option<usize>> = vec![None; quoter.atoms.len()];
-    for (new, &old) in atoms.iter().enumerate() {
-        atom_map[old] = Some(new);
+    let mut atom_map = AtomMap {
+        new: vec![None; quoter.atoms.len()],
+        int: quoter.atoms.iter().map(|a| a.int).collect(),
+        nats: 0,
+        ints: 0,
+    };
+    let (mut nat_atoms, mut int_atoms) = (Vec::new(), Vec::new());
+    for &old in &atoms {
+        let atom = &quoter.atoms[old];
+        if atom.int {
+            atom_map.new[old] = Some(atom_map.ints);
+            atom_map.ints += 1;
+            int_atoms.push(atom.term.clone());
+        } else {
+            atom_map.new[old] = Some(atom_map.nats);
+            atom_map.nats += 1;
+            nat_atoms.push(atom.term.clone());
+        }
     }
+    let map = &atom_map.new;
     // Each kept fact's first row number, in the kept facts' order.
     let mut first_row: Vec<Option<usize>> = vec![None; quoted.len()];
     let mut fact_map: Vec<Option<usize>> = vec![None; quoted.len()];
@@ -2033,22 +2678,10 @@ fn emit(
         .iter()
         .map(|&(f, offset)| first_row[f].map(|r| r + offset))
         .collect();
-    let n = atoms.len();
-    let env = lib.ctor(
-        lib.mk_env,
-        vec![
-            lib.list(
-                atoms
-                    .iter()
-                    .map(|&i| quoter.atoms[i].term.clone())
-                    .collect(),
-            ),
-            lib.list(Vec::new()),
-        ],
-    );
+    let env = lib.ctor(lib.mk_env, vec![lib.list(nat_atoms), lib.list(int_atoms)]);
     let fact_terms: Vec<Term> = used_facts
         .iter()
-        .map(|&f| quoted[f].term(lib, &atom_map))
+        .map(|&f| quoted[f].term(lib, map))
         .collect();
     let facts = lib.list(fact_terms.clone());
     let mut proofs = Term::ctor(lib.unit, 0, Vec::new());
@@ -2057,66 +2690,65 @@ fn emit(
     }
     let cert_terms: Vec<Term> = certs
         .iter()
-        .map(|c| cert_term(lib, c, &input_map, &fact_map, &atom_map, n))
+        .map(|c| cert_term(lib, c, &input_map, &fact_map, &atom_map))
         .collect();
-    let goal_le = |a: &NTerm, b: &NTerm| {
-        lib.ctor(
-            lib.gle,
+    let nat_sides =
+        |a: &NTerm, b: &NTerm| vec![a.renumber(map).term(lib), b.renumber(map).term(lib)];
+    let int_sides =
+        |a: &ITerm, b: &ITerm| vec![a.renumber(map).term(lib), b.renumber(map).term(lib)];
+    // The goals the certificates refute, and for an equation the theorem
+    // that puts the two together with its sides.
+    let (goals, equation) = match (goal, &sides) {
+        (Goal::Eq(..), Some(Sides::Nat(a, b))) => (
             vec![
-                a.renumber(&atom_map).term(lib),
-                b.renumber(&atom_map).term(lib),
+                lib.ctor(lib.gle, nat_sides(a, b)),
+                lib.ctor(lib.gle, nat_sides(b, a)),
             ],
-        )
+            Some((lib.prove_eq, nat_sides(a, b))),
+        ),
+        (Goal::IEq(..), Some(Sides::Int(a, b))) => (
+            vec![
+                lib.ctor(lib.gile, int_sides(a, b)),
+                lib.ctor(lib.gile, int_sides(b, a)),
+            ],
+            Some((lib.prove_int_eq, int_sides(a, b))),
+        ),
+        (_, Some(Sides::Nat(a, b))) => (vec![lib.ctor(lib.gle, nat_sides(a, b))], None),
+        (_, Some(Sides::Int(a, b))) => {
+            let which = match goal {
+                Goal::ILt(..) => lib.gilt,
+                Goal::INotLe(..) => lib.ginotle,
+                Goal::INotLt(..) => lib.ginotlt,
+                _ => lib.gile,
+            };
+            (vec![lib.ctor(which, int_sides(a, b))], None)
+        }
+        (_, None) => (vec![lib.ctor(lib.gvoid, Vec::new())], None),
     };
-    // The goals the certificates refute, for the pre-check.
-    let (term, goals) = match (goal, &sides) {
-        (Goal::Le(..), Some((a, b))) => {
-            let g = goal_le(a, b);
-            let term = apps(
-                Term::Def(lib.prove),
-                vec![
-                    env.clone(),
-                    facts.clone(),
-                    g.clone(),
-                    cert_terms[0].clone(),
-                    Term::Refl,
-                    proofs,
-                ],
-            );
-            (term, vec![g])
+    let term = match &equation {
+        Some((which, ab)) => {
+            let mut args = vec![env.clone(), facts.clone()];
+            args.extend(ab.iter().cloned());
+            args.extend([
+                cert_terms[0].clone(),
+                cert_terms[1].clone(),
+                Term::Refl,
+                Term::Refl,
+                proofs,
+            ]);
+            apps(Term::Def(*which), args)
         }
-        (Goal::Eq(..), Some((a, b))) => {
-            let term = apps(
-                Term::Def(lib.prove_eq),
-                vec![
-                    env.clone(),
-                    facts.clone(),
-                    a.renumber(&atom_map).term(lib),
-                    b.renumber(&atom_map).term(lib),
-                    cert_terms[0].clone(),
-                    cert_terms[1].clone(),
-                    Term::Refl,
-                    Term::Refl,
-                    proofs,
-                ],
-            );
-            (term, vec![goal_le(a, b), goal_le(b, a)])
-        }
-        _ => {
-            let g = lib.ctor(lib.gvoid, Vec::new());
-            let term = apps(
-                Term::Def(lib.prove),
-                vec![
-                    env.clone(),
-                    facts.clone(),
-                    g.clone(),
-                    cert_terms[0].clone(),
-                    Term::Refl,
-                    proofs,
-                ],
-            );
-            (term, vec![g])
-        }
+        None => apps(
+            Term::Def(lib.prove),
+            vec![
+                env.clone(),
+                facts.clone(),
+                goals[0].clone(),
+                cert_terms[0].clone(),
+                Term::Refl,
+                proofs,
+            ],
+        ),
     };
     // The pre-check: the checker accepts, each fact's meaning is its proof's
     // type, and the whole proves the goal.
@@ -2149,27 +2781,18 @@ fn emit(
             ));
         }
     }
-    let proved = match goal {
-        Goal::Le(..) | Goal::Void => lemma_result(
+    let proved = match equation {
+        Some((which, ab)) => {
+            let mut args = vec![env.clone(), facts.clone()];
+            args.extend(ab);
+            lemma_result(cx, which, &args, 5)?
+        }
+        None => lemma_result(
             cx,
             lib.prove,
             &[env.clone(), facts.clone(), goals[0].clone()],
             3,
         )?,
-        Goal::Eq(..) => {
-            let (a, b) = sides.as_ref().expect("an equation has sides");
-            lemma_result(
-                cx,
-                lib.prove_eq,
-                &[
-                    env.clone(),
-                    facts.clone(),
-                    a.renumber(&atom_map).term(lib),
-                    b.renumber(&atom_map).term(lib),
-                ],
-                5,
-            )?
-        }
     };
     if !cx.unify(&proved, expected)? {
         return Err(internal(

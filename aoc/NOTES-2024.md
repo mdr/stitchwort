@@ -2055,6 +2055,15 @@ problems"
 (<https://lean-lang.org/doc/api/Lean/Elab/Tactic/Omega/Frontend.html>).
 Fix: `Int` atoms in `omega` (the certificate format already has them).
 
+Fixed: `omega` works on `Int` (`+`, `-`, negation, multiplication and
+`/`, `%` by a number, `n.toInt`, `≤ < = ≠`). `subEqZero`, `negOfNatZero`,
+`thirdOf` and `thirdBack` are now `omega`; `modThreeMul`, `divThreeMul`
+and `thirdBackOf` (the workaround for finding 3) are gone, and two
+`omega [Int.ofNatInjective …]` are plain `omega`. `Proofs/` went from 625
+lines to 601 (`Ints.sw` 86 to 71, `Part1.sw` 155 to 147, `Part2.sw` 239 to
+238). What stays by cases is about products of unknowns, `Int.natAbs` and
+`Int.sign`, which `omega` treats as unknowns.
+
 ### 2. `ring [h]` adds each hypothesis once
 
 `ring [h1, h2]` checks that the goal's two sides differ by exactly

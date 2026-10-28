@@ -62,17 +62,9 @@ theorem pastIff (f: Int) (n: Int) (p: Int): Iff (n + (n - f) = p) (f - p = 2 * (
 
 -- ...and a third of the way from `near` to `far` (when that is a whole
 -- number) is where it is twice as far in the other direction.
-theorem thirdOf (f: Int) (n: Int) (p: Int) (h: f - p = 0 - 2 * (n - p)): And ((n - f) % 3 = 0) (n - (n - f) / 3 = p) :=
-  let difference: n - f = 3 * (n - p) := ring [Eq.sym h]
-  rewrite difference in Both (modThreeMul (n - p)) (rewrite divThreeMul (n - p) in ring)
+theorem thirdOf (f: Int) (n: Int) (p: Int) (h: f - p = 0 - 2 * (n - p)): And ((n - f) % 3 = 0) (n - (n - f) / 3 = p) := omega
 
-theorem thirdBackOf (f: Int) (n: Int) (p: Int) (quotient: Int) (remainder: Int) (law: 3 * quotient + remainder = n - f)
-    (multiple: remainder = 0) (e: n - quotient = p):
-    f - p = 0 - 2 * (n - p) :=
-  ring [law, Eq.sym multiple, Eq.cong ((x: Int) => 3 * x) e]
-
-theorem thirdBack (f: Int) (n: Int) (p: Int) (multiple: (n - f) % 3 = 0) (e: n - (n - f) / 3 = p): f - p = 0 - 2 * (n - p) :=
-  thirdBackOf f n p ((n - f) / 3) ((n - f) % 3) (Int.divAddMod (n - f) 3) multiple e
+theorem thirdBack (f: Int) (n: Int) (p: Int) (multiple: (n - f) % 3 = 0) (e: n - (n - f) / 3 = p): f - p = 0 - 2 * (n - p) := omega
 
 -- The spec's test, as equations: `u = ±2v`.
 theorem specCases (far: Position) (near: Position) (point: Position):
