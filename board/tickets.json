@@ -1,5 +1,5 @@
 {
-  "next": 754,
+  "next": 755,
   "tickets": [
     {
       "id": 13,
@@ -6354,6 +6354,18 @@
       "id": 753,
       "title": "Move List.sumByCongRange and List.countCongMem (and the five small lemmas they need) to List/Toolkit.sw beside sumBy/count, so rewrite/decreasing find them wherever those functions are used; sort programs then check ~1.1M steps (from 4.1M). After the day 10 lane (List/Lemmas.sw) merges; fix the two stale comments too",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 754,
+      "title": "AoC 2024 day 12: solve, prove, log gaps (overnight)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
