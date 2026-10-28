@@ -1,0 +1,10 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.commaSeparated e226528da30a03f1261aa6d1e14362788bd9c3ee25e6bdcd8312f2c9f5375741
+Main.spaced 06ab067fe66dedae2e601363d9a68944663b6b3c29cde656561be55f840a7f63
+Main.printed 8d7e3806a2af95fcb29ba946bf205a32eedc571710fbe79cacf59368bab6b9ec
+Main.test "commaSeparated" dde7511368aceeabdfd25c63230033e6ce788fc7aa2c49af703de6801e3039fc
+Main.test "spaced" a827c61cb77a35b490e5497f893c467221eedd5a7a8fd86fe42072cf33051cca
+Main.test "empty" b42eca6df0fc7d40bb513abcd8b0ae339061243564b9a45e0ec4b31562bb391a

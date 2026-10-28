@@ -223,8 +223,9 @@ def Parse.nat(): {Parse} Nat :=
     | digits => digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
 
 -- A whole number of `atLeast` to `atMost` decimal digits (at least one),
--- else "expected a number of 1 to 3 digits" where the number starts. All
--- the digits there are read first, so "1234" is too long, not 123 and a 4.
+-- else "expected a number of 1 to 3 digits", or "expected a 2-digit number",
+-- where the number starts. All the digits there are read first, so "1234"
+-- is too long, not 123 and a 4.
 def Parse.natDigits (atLeast: Nat) (atMost: Nat): {Parse} Nat :=
   let start := Parse.mark()
   let digits := Parse.span Parse.isDigit
@@ -232,7 +233,8 @@ def Parse.natDigits (atLeast: Nat) (atMost: Nat): {Parse} Nat :=
   if 0 < count ∧ atLeast ≤ count ∧ count ≤ atMost then digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
   else
     Parse.reset start
-    Parse.expected (if atLeast == atMost then "a number of ${atLeast} digits" else "a number of ${atLeast} to ${atMost} digits")
+    let fewest := if atLeast == 0 then 1 else atLeast
+    Parse.expected (if fewest == atMost then "a ${atMost}-digit number" else "a number of ${fewest} to ${atMost} digits")
 
 -- A whole number with an optional '-' in front, else "expected a number".
 def Parse.int(): {Parse} Int :=
@@ -1066,8 +1068,10 @@ test "Parse: natDigits" := Parse.Tests.lineResult "123" (() => Parse.natDigits 1
 test "Parse: natDigits, too long" := Parse.Tests.lineResult "x1234" (() =>
   Parse.char 'x'
   Parse.natDigits 1 3) == Err "column 2: expected a number of 1 to 3 digits, got '1'"
-test "Parse: natDigits, too short" := Parse.Tests.lineResult "12" (() => Parse.natDigits 3 3) == Err "column 1: expected a number of 3 digits, got '1'"
-test "Parse: natDigits, none" := Parse.Tests.lineResult "x" (() => Parse.natDigits 0 3) == Err "column 1: expected a number of 0 to 3 digits, got 'x'"
+test "Parse: natDigits, too short" := Parse.Tests.lineResult "12" (() => Parse.natDigits 3 3) == Err "column 1: expected a 3-digit number, got '1'"
+test "Parse: natDigits, none" := Parse.Tests.lineResult "x" (() => Parse.natDigits 0 3) == Err "column 1: expected a number of 1 to 3 digits, got 'x'"
+test "Parse: natDigits, a range" := Parse.Tests.lineResult "123456" (() => Parse.natDigits 2 5) == Err "column 1: expected a number of 2 to 5 digits, got '1'"
+test "Parse: natDigits, one digit" := Parse.Tests.lineResult "10" (() => Parse.natDigits 1 1) == Err "column 1: expected a 1-digit number, got '1'"
 test "Parse: repeat" := Parse.Tests.lineResult "aab" (() =>
   let found := Parse.repeat 1 3 (() => Parse.satisfy "an a" (== 'a'))
   Parse.char 'b'

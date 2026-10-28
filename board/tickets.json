@@ -1,5 +1,5 @@
 {
-  "next": 781,
+  "next": 784,
   "tickets": [
     {
       "id": 13,
@@ -6605,7 +6605,7 @@
     {
       "id": 774,
       "title": "Day 17 findings: auto tries instances before computing the goal (Nat.pow 2 (Succ k) != 0); follow-on errors from failed definitions; %3 placeholder in suggestions; Nat and/or/shiftLeft; 'a number of 1 digits' wording; List.joinWith; List.minimum/filter lemmas to std",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6629,7 +6629,7 @@
     {
       "id": 776,
       "title": "Day 18: proof check 12.9 s -> 2.8 s only by making reachable opaque; find where conversion spends the time (compare by name before unfolding large definitions?) and report slow checks",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6641,7 +6641,7 @@
     {
       "id": 777,
       "title": "Day 18 small findings: pattern let in a definition breaks its unfolding equation (names %step); 'if h: a < b = True' guard errors should suggest the form without = True",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6653,7 +6653,7 @@
     {
       "id": 778,
       "title": "AoC 2024 day 20 (examples only; input pending from Matt): race track cheats, solve, prove, log gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6665,7 +6665,7 @@
     {
       "id": 779,
       "title": "Day 19 findings: List.startsWith/stripPrefix/isEmpty with prefix lemmas; dropAppend, countFlatMap; '= if …' in a theorem type parse error; Map.getOr vs Option.getOrElse naming; evaluator small-closure call speed",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6678,6 +6678,42 @@
       "id": 780,
       "title": "Bench: text-literal-walk peak heap 3 kB -> 6 kB, text-nat-to-text 8 -> 11 kB on main (since ~5606c130); find the commit, fix or re-record with reason",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 781,
+      "title": "AoC 2024 day 21 (examples only; input pending from Matt): keypad robots, solve, prove, log gaps",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 782,
+      "title": "Day 20 findings: a let used in a match arm inside a lambda is re-created on every call (lift.rs Draft::lets; 10x slowdown); List.length overflows the stack on 3.5M items (make it a loop); omega understands Nat.absDiff; warn when an effectful argument is passed where a pure default is evaluated eagerly (Option.fold)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 783,
+      "title": "AoC 2024 day 22 (examples only; input pending from Matt): monkey market secret numbers, solve, prove, log gaps",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],

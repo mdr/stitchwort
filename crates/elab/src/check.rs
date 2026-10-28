@@ -2520,7 +2520,7 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
     let members = cx.e.recursion.as_ref()?.names.clone();
     let shown = |n: &String| format!("`{n}`");
     let what = match arg {
-        Expr::Var(name) => format!("`{}`", name.text),
+        Expr::Var(name) if !name.text.starts_with('%') => format!("`{}`", name.text),
         _ => "this".to_string(),
     };
     let param = cx.show(dom);

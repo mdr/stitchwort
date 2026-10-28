@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: this function has no parameter named `decreasing`
+    ╭─[ reject/unfold-of-failed-definition.sw:12:40 ]
+    │
+ 12 │   then 1 + halves (m / 2) (n / 2) * 2 [decreasing := Nat.leRefl 0]
+    │                                        ─────┬────  
+    │                                             ╰────── not a parameter of this function
+    │ 
+    │ Note: its parameters have no names
+────╯
