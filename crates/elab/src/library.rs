@@ -83,7 +83,10 @@ pub const EMBEDDED_LIBRARY_FILES: &[(&str, &str)] = &[
     ("Nat/Digits.sw", include_str!("std/Nat/Digits.sw")),
     ("Nat/Divides.sw", include_str!("std/Nat/Divides.sw")),
     ("Nat/Iterate.sw", include_str!("std/Nat/Iterate.sw")),
-    ("Nat/IterateRepeat.sw", include_str!("std/Nat/IterateRepeat.sw")),
+    (
+        "Nat/IterateRepeat.sw",
+        include_str!("std/Nat/IterateRepeat.sw"),
+    ),
     ("Nat/Pigeonhole.sw", include_str!("std/Nat/Pigeonhole.sw")),
     ("Omega/Omega.sw", include_str!("std/Omega/Omega.sw")),
     ("Omega/Sound.sw", include_str!("std/Omega/Sound.sw")),
