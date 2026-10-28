@@ -99,6 +99,40 @@ theorem Set.lastMapFst: (xs: List (k, ())) → Option.map (List.last xs) Pair.fs
   | Cons e Nil => rfl
   | Cons e (Cons f rest) => Set.lastMapFst (Cons f rest)
 
+-- What `below` finds: a member below `key`, and no member between the two.
+theorem Set.belowSome [auto ord: Ord k] (s: Set k) (key: k) (found: k) (h: Set.below s key = Some found):
+    And (Set.contains s found = True) (And (found < key) ((other: k) → found < other → other < key → Set.contains s other = False)) :=
+  match below: Map.below s.items key with
+    | None => Void.exfalso (Option.noneNotSome found h)
+    | Some (nearest, unit) =>
+      rewrite <- Option.someInjective nearest found h in
+      match Map.belowSome s.items key nearest unit below with
+        | Both got rest => Both (Map.containsOfGet s.items nearest unit got) rest
+
+-- When `below` finds nothing, no member is below `key`.
+theorem Set.belowNone [auto ord: Ord k] (s: Set k) (key: k) (h: Set.below s key = None) (other: k) (less: other < key):
+    Set.contains s other = False :=
+  match below: Map.below s.items key with
+    | None => Map.belowNone s.items key below other less
+    | Some (nearest, unit) => Void.exfalso (Option.someNotNone nearest h)
+
+-- What `above` finds: a member above `key`, and no member between the two.
+theorem Set.aboveSome [auto ord: Ord k] (s: Set k) (key: k) (found: k) (h: Set.above s key = Some found):
+    And (Set.contains s found = True) (And (key < found) ((other: k) → key < other → other < found → Set.contains s other = False)) :=
+  match above: Map.above s.items key with
+    | None => Void.exfalso (Option.noneNotSome found h)
+    | Some (nearest, unit) =>
+      rewrite <- Option.someInjective nearest found h in
+      match Map.aboveSome s.items key nearest unit above with
+        | Both got rest => Both (Map.containsOfGet s.items nearest unit got) rest
+
+-- When `above` finds nothing, no member is above `key`.
+theorem Set.aboveNone [auto ord: Ord k] (s: Set k) (key: k) (h: Set.above s key = None) (other: k) (more: key < other):
+    Set.contains s other = False :=
+  match above: Map.above s.items key with
+    | None => Map.aboveNone s.items key above other more
+    | Some (nearest, unit) => Void.exfalso (Option.someNotNone nearest h)
+
 theorem Set.containsRemove [auto ord: Ord k] (s: Set k) (key: k): Set.contains (Set.remove s key) key = False :=
   rewrite Map.getRemove s.items key in rfl
 

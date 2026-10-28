@@ -212,14 +212,14 @@ theorem trapSetsSame (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat
         (Eq.trans (keepsTrapsAt lab inside steps gone trapped decides simulates position)
           (Eq.cong (has => has && trapsAt lab trapped position) (Eq.sym (positionsHas lab position)))))
 
--- Part 2: for a guard who starts on the map and leaves, the program counts
--- the spec's trap positions, given sightlines with each new obstruction
--- that simulate the walk (proved in Proofs/Sightlines.sw).
-theorem part2Correct (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None)
-    (trapped: Position → Bool) (decides: Decides lab trapped)
-    (simulates: (blocker: Position) → onMap lab blocker = True →
-      Simulates ((Sightlines.of lab.obstructions).add blocker) (lab.withObstruction blocker)):
+-- Part 2: for a guard who starts on the map and leaves, in a lab whose
+-- obstructions are on the map, the program counts the spec's trap
+-- positions.
+theorem part2Correct (lab: Lab) (inside: onMap lab lab.start = True)
+    (obstructionsInside: (position: Position) → lab.obstructions.contains position = True → onMap lab position = True)
+    (steps: Nat) (gone: after lab steps = None) (trapped: Position → Bool) (decides: Decides lab trapped):
     solvePart2 lab = Some (trapPositions lab trapped).size :=
+  let simulates := programSimulates lab obstructionsInside
   let counted: Option.map (Some (Set.fromList (route lab (Some lab.startGuard) steps)))
       (visited => (visited.filter (keeps lab (Sightlines.of lab.obstructions))).size) = Some (trapPositions lab trapped).size :=
     Eq.cong (set => Some (Set.size set)) (trapSetsSame lab inside steps gone trapped decides simulates)

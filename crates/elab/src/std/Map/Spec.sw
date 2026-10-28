@@ -752,6 +752,113 @@ theorem Map.Raw.aboveToList [auto ord: Ord k] (m: Map.Raw k v) (key: k):
     Map.Raw.above key m = List.find (Map.Raw.toList m) (e => Map.Spec.isLess key e.fst) :=
   Eq.sym (Map.Tree.aboveOnto key None None m.tree Nil m.ordered)
 
+-- What `below` and `above` find, over sorted lists: the nearest key on that
+-- side of `key`, with nothing between.
+
+-- `a < b` rules out `b < a`.
+theorem Map.Spec.notLessOfLess (ord: Ord k) (a: k) (b: k) (e: Ord.compare a b = Less): Not (Ord.compare b a = Less) :=
+  z => Ordering.greaterNotLess (Eq.trans (Eq.sym (Eq.trans (ord.flip a b) (Eq.cong Ordering.flip e))) z)
+
+-- `isLess` is `Less`.
+theorem Map.Spec.isLessSound [auto ord: Ord k] (a: k) (b: k) (h: Map.Spec.isLess a b = True): Ord.compare a b = Less :=
+  match e: Ord.compare a b with
+    | Less => rfl
+    | Equal => Void.exfalso (Bool.falseNotTrue h)
+    | Greater => Void.exfalso (Bool.falseNotTrue h)
+
+theorem Map.Spec.isLessOf [auto ord: Ord k] (a: k) (b: k) (h: Ord.compare a b = Less): Map.Spec.isLess a b = True :=
+  rewrite h in rfl
+
+-- Started with an entry, `lastBelow` finds one.
+theorem Map.Spec.lastBelowSomeNotNone [auto ord: Ord k] (key: k): (entry: (k, v)) → (xs: List (k, v)) →
+    Not (Map.Spec.lastBelow key (Some entry) xs = None)
+  | entry, Nil, h => Option.someNotNone entry h
+  | entry, Cons (kk, vv) rest, h =>
+    match d: Ord.compare kk key with
+      | Less => Map.Spec.lastBelowSomeNotNone key (kk, vv) rest h
+      | Equal => Map.Spec.lastBelowSomeNotNone key entry rest h
+      | Greater => Map.Spec.lastBelowSomeNotNone key entry rest h
+
+-- `lastBelow` finds what it started with, or an entry of the list below `key`.
+theorem Map.Spec.lastBelowFrom [auto ord: Ord k] (key: k): (found: Option (k, v)) → (xs: List (k, v)) → (entry: (k, v)) →
+    Map.Spec.lastBelow key found xs = Some entry →
+    Or (found = Some entry) (And (List.Mem entry xs) (Ord.compare entry.fst key = Less))
+  | found, Nil, entry, h => Inl h
+  | found, Cons (kk, vv) rest, entry, h =>
+    match d: Ord.compare kk key with
+      | Less =>
+        match Map.Spec.lastBelowFrom key (Some (kk, vv)) rest entry h with
+          | Inl same =>
+            let isHead: (kk, vv) = entry := Option.someInjective (kk, vv) entry same
+            Inr (Both (Inl isHead) (rewrite <- isHead in d))
+          | Inr (Both inRest less) => Inr (Both (Inr inRest) less)
+      | Equal =>
+        match Map.Spec.lastBelowFrom key found rest entry h with
+          | Inl same => Inl same
+          | Inr (Both inRest less) => Inr (Both (Inr inRest) less)
+      | Greater =>
+        match Map.Spec.lastBelowFrom key found rest entry h with
+          | Inl same => Inl same
+          | Inr (Both inRest less) => Inr (Both (Inr inRest) less)
+
+-- In an ascending list, no key below `key` is above what `lastBelow` finds.
+theorem Map.Spec.lastBelowGreatest [auto ord: Ord k] (key: k): (lo: Option k) → (found: Option (k, v)) → (xs: List (k, v)) →
+    Map.Spec.Ascending ord lo xs → (entry: (k, v)) → Map.Spec.lastBelow key found xs = Some entry →
+    (other: k) → List.Mem other (List.map xs Pair.fst) → Ord.compare other key = Less → Not (Ord.compare entry.fst other = Less)
+  | lo, found, Nil, asc, entry, h, other, m, less, wrong => Void.exfalso m
+  | lo, found, Cons (kk, vv) rest, Both above arest, entry, h, other, Inl isHead, less, wrong =>
+    match d: Ord.compare kk key with
+      | Less =>
+        match Map.Spec.lastBelowFrom key (Some (kk, vv)) rest entry h with
+          | Inl same =>
+            let lessSelf: Ord.compare kk kk = Less := rewrite Eq.cong Pair.fst (Eq.sym (Option.someInjective (kk, vv) entry same)), <- isHead at wrong
+            Ordering.equalNotLess (Eq.trans (Eq.sym (Ord.compareSelf kk)) lessSelf)
+          | Inr (Both inRest below) =>
+            Map.Spec.notLessOfLess ord kk entry.fst (Map.Spec.keysAbove ord entry.fst (Some kk) rest arest (List.memMap rest entry inRest Pair.fst))
+              (rewrite <- isHead at wrong)
+      | Equal => Ordering.equalNotLess (Eq.trans (Eq.sym d) (rewrite <- isHead at less))
+      | Greater => Ordering.greaterNotLess (Eq.trans (Eq.sym d) (rewrite <- isHead at less))
+  | lo, found, Cons (kk, vv) rest, Both above arest, entry, h, other, Inr inRest, less, wrong =>
+    match d: Ord.compare kk key with
+      | Less => Map.Spec.lastBelowGreatest key (Some kk) (Some (kk, vv)) rest arest entry h other inRest less wrong
+      | Equal => Map.Spec.lastBelowGreatest key (Some kk) found rest arest entry h other inRest less wrong
+      | Greater => Map.Spec.lastBelowGreatest key (Some kk) found rest arest entry h other inRest less wrong
+
+-- Finding nothing, `lastBelow` passed no key below `key`.
+theorem Map.Spec.lastBelowNone [auto ord: Ord k] (key: k): (found: Option (k, v)) → (xs: List (k, v)) →
+    Map.Spec.lastBelow key found xs = None → (other: k) → List.Mem other (List.map xs Pair.fst) → Not (Ord.compare other key = Less)
+  | found, Nil, h, other, m, less => Void.exfalso m
+  | found, Cons (kk, vv) rest, h, other, Inl isHead, less =>
+    match d: Ord.compare kk key with
+      | Less => Map.Spec.lastBelowSomeNotNone key (kk, vv) rest h
+      | Equal => Ordering.equalNotLess (Eq.trans (Eq.sym d) (rewrite <- isHead at less))
+      | Greater => Ordering.greaterNotLess (Eq.trans (Eq.sym d) (rewrite <- isHead at less))
+  | found, Cons (kk, vv) rest, h, other, Inr inRest, less =>
+    match d: Ord.compare kk key with
+      | Less => Map.Spec.lastBelowSomeNotNone key (kk, vv) rest h
+      | Equal => Map.Spec.lastBelowNone key found rest h other inRest less
+      | Greater => Map.Spec.lastBelowNone key found rest h other inRest less
+
+-- In an ascending list, no key above `key` is below the first entry above it.
+theorem Map.Spec.findAboveLeast [auto ord: Ord k] (key: k): (lo: Option k) → (xs: List (k, v)) → Map.Spec.Ascending ord lo xs →
+    (entry: (k, v)) → List.find xs (e => Map.Spec.isLess key e.fst) = Some entry →
+    (other: k) → List.Mem other (List.map xs Pair.fst) → Ord.compare key other = Less → Not (Ord.compare other entry.fst = Less)
+  | lo, Nil, asc, entry, h, other, m, more, wrong => Void.exfalso m
+  | lo, Cons (kk, vv) rest, Both above arest, entry, h, other, Inl isHead, more, wrong =>
+    match d: Ord.compare key kk with
+      | Less =>
+        let lessSelf: Ord.compare kk kk = Less := rewrite Eq.cong Pair.fst (Eq.sym (Option.someInjective (kk, vv) entry h)), <- isHead at wrong
+        Ordering.equalNotLess (Eq.trans (Eq.sym (Ord.compareSelf kk)) lessSelf)
+      | Equal => Ordering.equalNotLess (Eq.trans (Eq.sym d) (rewrite <- isHead at more))
+      | Greater => Ordering.greaterNotLess (Eq.trans (Eq.sym d) (rewrite <- isHead at more))
+  | lo, Cons (kk, vv) rest, Both above arest, entry, h, other, Inr inRest, more, wrong =>
+    match d: Ord.compare key kk with
+      | Less =>
+        Map.Spec.notLessOfLess ord kk other (Map.Spec.keysAbove ord other (Some kk) rest arest inRest)
+          (rewrite Eq.cong Pair.fst (Eq.sym (Option.someInjective (kk, vv) entry h)) at wrong)
+      | Equal => Map.Spec.findAboveLeast key (Some kk) rest arest entry h other inRest more wrong
+      | Greater => Map.Spec.findAboveLeast key (Some kk) rest arest entry h other inRest more wrong
+
 -- What a fold over the entries leaves at one key (for `Map`'s lemmas)
 
 -- What a fold finds at `key`.
