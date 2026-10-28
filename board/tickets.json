@@ -6177,9 +6177,9 @@
     {
       "id": 738,
       "title": "Std.Parse: write runFrom's span/next/literal clauses naturally again (the runtime now loops through match arms)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "worktree",
       "labels": [],
       "body": "",
       "created": "2026-10-28",
@@ -7729,7 +7729,7 @@
     {
       "id": 856,
       "title": "Task entry to run the elaborator fuzzer in release with FUZZ_CASES/FUZZ_SEED",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7738,7 +7738,10 @@
       "body": "From the SW-849 lane: 'task test:one -- fuzz_elab' matches nothing because fuzz_elab is #[ignore]d; running it needs 'cargo nextest run -p stitchwort-driver --test fuzz_elab --run-ignored all', and 4200 cases in a debug build took over 10 minutes. Add a Taskfile entry (e.g. task fuzz:elab CASES=… SEED=…) using the release profile, and document it in docs/testing.md.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "bf6f93d5",
+        "e2e959a3"
+      ]
     },
     {
       "id": 857,
