@@ -6,8 +6,9 @@
 --
 -- Runs (Run.sw): a run that finishes is a halting run of the puzzle's
 -- computer with the same output (`outcomeHalts`), and more fuel finishes
--- the same way (`runMoreFuel`). So part 1's answer is what the program
--- outputs.
+-- the same way (`runMoreFuel`). The puzzle's computer is deterministic
+-- (Unique.sw: `stepUnique`, `haltsUnique`), so part 1's answer is the one
+-- output the program has (`part1Output`).
 --
 -- Part 2 (Search.sw): what the search returns is positive and the program,
 -- started with it in A, halts having output itself (`part2Sound`). If what
@@ -30,6 +31,11 @@ theorem part1Halts (debugger: Debugger) (output: List Nat) (finished: outcome de
     Halts debugger.program (start debugger.registers) output :=
   outcomeHalts debugger.registers debugger.program output finished
 
+-- Part 1: and it is the only output a halting run has.
+theorem part1Output (debugger: Debugger) (output: List Nat) (finished: outcome debugger.registers debugger.program = Finished output)
+    (other: List Nat) (halts: Halts debugger.program (start debugger.registers) other): other = output :=
+  haltsUnique debugger.program (start debugger.registers) other output halts (part1Halts debugger output finished)
+
 -- No positive value outputs nothing.
 theorem lowestNil (output: Nat → List Nat): lowestOutputting output Nil = None := rfl
 
@@ -51,4 +57,3 @@ theorem part2Least (debugger: Debugger) (shape: LoopShape debugger.outputFor) (a
 theorem part2Complete (debugger: Debugger) (shape: LoopShape debugger.outputFor) (other: Nat) (positive: 0 < other)
     (outputs: debugger.outputFor other = debugger.program): ∃ (a: Nat) => solvePart2 debugger = Some a :=
   lowestComplete debugger.outputFor shape debugger.program other positive outputs
-

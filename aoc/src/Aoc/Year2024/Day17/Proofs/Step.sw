@@ -73,4 +73,3 @@ theorem stepMatches (program: List Nat) (machine: Machine): StepMatches program 
       match operandFetched: program.get (machine.pointer + 1) with
         | None => rfl
         | Some operand => executesDecode operand machine opcode
-

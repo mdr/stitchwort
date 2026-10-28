@@ -105,4 +105,27 @@ theorem Nat.testBitXor: (i: Nat) → (m: Nat) → (n: Nat) → Nat.testBit (Nat.
     rewrite Nat.testBitSucc (Nat.xor m n) i, Nat.xorDiv m n, Nat.testBitSucc m i, Nat.testBitSucc n i in
       Nat.testBitXor i (m / 2) (n / 2)
 
+-- Two remainders by 2 that are odd together are equal.
+theorem Nat.bitsEqual: (m: Nat) → (n: Nat) → m < 2 → n < 2 → (m == 1) = (n == 1) → m = n
+  | Zero, Zero, small, alsoSmall, same => rfl
+  | Succ Zero, Succ Zero, small, alsoSmall, same => rfl
+  | Zero, Succ Zero, small, alsoSmall, same => Void.exfalso (Bool.falseNotTrue same)
+  | Succ Zero, Zero, small, alsoSmall, same => Void.exfalso (Bool.trueNotFalse same)
+  | Succ (Succ m), n, small, alsoSmall, same => Void.exfalso (omega)
+  | m, Succ (Succ n), small, alsoSmall, same => Void.exfalso (omega)
+
+-- Numbers with the same bits are equal.
+theorem Nat.eqOfTestBit (m: Nat) (n: Nat) (same: (i: Nat) → Nat.testBit m i = Nat.testBit n i): m = n
+    decreasing m + n
+:=
+  match some: Nat.leq (m + n) 0 with
+    | True => omega
+    | False =>
+      let low := Nat.bitsEqual (m % 2) (n % 2) (Nat.modLess m 2 (Nat.succNotZero 1)) (Nat.modLess n 2 (Nat.succNotZero 1))
+        (rewrite Nat.shiftRightNone m, Nat.shiftRightNone n at same 0)
+      let high :=
+        Nat.eqOfTestBit (m / 2) (n / 2)
+          (i => Eq.trans (Eq.sym (Nat.testBitSucc m i)) (Eq.trans (same (Succ i)) (Nat.testBitSucc n i))) [decreasing := Nat.halvesLess m n some]
+      omega [Nat.divModEq m 2 (Nat.succNotZero 1), Nat.divModEq n 2 (Nat.succNotZero 1), low, high]
+
 theorem Nat.xorExample: Nat.xor 2024 43690 = 44354 := rfl
