@@ -1,5 +1,5 @@
 {
-  "next": 834,
+  "next": 835,
   "tickets": [
     {
       "id": 13,
@@ -7372,6 +7372,18 @@
         "decision"
       ],
       "body": "D1448 positivity check through List's fields (Rocq) vs Lean's mutual translation [rec: positivity check]; D1449 generated induction principle per nested type [rec: yes]; D1450 auto proves list-member-smaller in decreasing [rec: yes]; D1451 keep Map/Set nesting refused [rec: yes]; D1452 allow earlier field as index, List (Tree n) [rec: allow]. Not urgent: needed only for tree-shaped input (AoC 2022 day 13, 2021 day 18). D1448 gates stage 1.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 834,
+      "title": "Interpreter: tail recursion modulo constructor (and addition), as the JS backend and OCaml's [@tail_mod_cons]: List.map/filter/append/… on 3M items without hitting the 2M frame cap",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
