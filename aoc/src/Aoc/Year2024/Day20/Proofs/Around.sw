@@ -3,7 +3,6 @@
 
 namespace Aoc.Year2024.Day20.Proofs
 import Aoc.Year2024.Day20 (..)
-import Aoc.Year2024.Day16.Proofs (memMapElim)
 import Std (And, Eq, Exists, List, Nat)
 
 -- The row of positions in the diamond, `spare` either side of the column.
@@ -21,7 +20,7 @@ theorem aroundSound (position: Position) (length: Nat) (other: Position) (member
   let rows := List.between (position.row - length) (position.row + length)
   List.anyElim _ _ rows (List.memFlatMapElim (aroundRow position length) other rows (rewrite <- aroundRows position length in member))
     (row rowMember inRow =>
-      Exists.elim (memMapElim _ other _ inRow) (column both =>
+      Exists.elim (List.memMapElim _ other _ inRow) (column both =>
         let (Both columnMember same) := both
         let (Both rowLow rowHigh) := List.memBetween rowMember
         let (Both columnLow columnHigh) := List.memBetween columnMember
@@ -57,4 +56,4 @@ theorem distinctAround (position: Position) (length: Nat): List.Distinct (positi
         let spare := length - Nat.absDiff row position.row
         List.distinctMap (List.between (position.column - spare) (position.column + spare)) (List.distinctBetween _ _)
           (column => ({ row, column }: Position)) (first second same => Eq.cong (other => other.column) same))
-      (row member other inRow => Exists.elim (memMapElim _ other _ inRow) (column both => rewrite <- And.right both in rfl))
+      (row member other inRow => Exists.elim (List.memMapElim _ other _ inRow) (column both => rewrite <- And.right both in rfl))

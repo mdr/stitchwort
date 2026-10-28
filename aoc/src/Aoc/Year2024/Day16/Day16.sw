@@ -9,7 +9,7 @@
 -- `Aoc.Year2024.Day16.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day16
-import Std (Bool, DecEq, Eq, Fail, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
+import Std (Bool, DecEq, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
 import Std.Parse (char)
 
 def main(): {IO, Fail} () :=
@@ -136,93 +136,6 @@ def Maze.endReindeer (maze: Maze): List Reindeer := directions.map (facing => ({
 
 def Maze.startReindeer (maze: Maze): Reindeer := { position = maze.start, facing = East }
 
--- A weighted graph for a shortest-path search: each state's edges with
--- their costs, and a list of the states the search can settle, with a quick
--- test for them.
-type Graph (s: Type) = {
-  edges: s → List (s, Nat),
-  within: s → Bool,
-  states: List s,
-  listed: (state: s) → within state = True → state ∈ states
-}
-
--- The states not yet settled: one fewer each time the search settles one.
-def Graph.unsettled [auto ord: Ord s] (graph: Graph s) (settled: Map s Nat): Nat := graph.states.count (state => !settled.contains state)
-
--- No more pass `kept` than `p` when `kept` implies `p`.
-theorem countLe: (xs: List a) → (p: a → Bool) → (kept: a → Bool) → ((x: a) → kept x = True → p x = True) → xs.count kept ≤ xs.count p
-  | Nil, p, kept, implies => rfl
-  | Cons x rest, p, kept, implies =>
-    rewrite List.countCons rest x kept, List.countCons rest x p in
-      let fewer := countLe rest p kept implies
-      match keeps: kept x with
-        | True => rewrite implies x keeps in omega [fewer]
-        | False => omega [fewer]
-
--- Fewer pass `kept` than `p` when `kept` implies `p` and some member passes
--- `p` but not `kept`.
-theorem countFewer: (xs: List a) → (p: a → Bool) → (kept: a → Bool) → ((x: a) → kept x = True → p x = True) → (dropped: a) → dropped ∈ xs →
-    p dropped = True → kept dropped = False → xs.count kept < xs.count p
-  | Nil, p, kept, implies, dropped, member, passes, fails => Void.exfalso member
-  | Cons x rest, p, kept, implies, dropped, Inl same, passes, fails =>
-    rewrite List.countCons rest x kept, List.countCons rest x p, same, passes, fails in omega [countLe rest p kept implies]
-  | Cons x rest, p, kept, implies, dropped, Inr later, passes, fails =>
-    rewrite List.countCons rest x kept, List.countCons rest x p in
-      let fewer := countFewer rest p kept implies dropped later passes fails
-      match keeps: kept x with
-        | True => rewrite implies x keeps in omega [fewer]
-        | False => omega [fewer]
-
--- A key just inserted is there.
-theorem containsInsertSame [auto ord: Ord k] (m: Map k v) (key: k) (value: v): (m.insert key value).contains key = True :=
-  rewrite Map.getInsert key value m in rfl
-
--- Inserting keeps the keys already there.
-theorem containsInsertKeeps [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k) (there: m.contains other = True):
-    (m.insert key value).contains other = True :=
-  match same: other == key with
-    | True => rewrite DecEq.sound other key same in containsInsertSame m key value
-    | False => rewrite Map.getInsertOther key value other (DecEq.soundFalse other key same) m in there
-
--- Settling a listed state not yet settled leaves fewer unsettled.
-theorem unsettledInsert [auto ord: Ord s] (graph: Graph s) (settled: Map s Nat) (state: s) (cost: Nat) (listed: state ∈ graph.states)
-    (fresh: settled.contains state = False): graph.unsettled (settled.insert state cost) < graph.unsettled settled :=
-  countFewer graph.states (other => !settled.contains other) (other => !(settled.insert state cost).contains other)
-    (other kept =>
-      match there: settled.contains other with
-        | True => rewrite containsInsertKeeps settled state cost other there at kept in kept
-        | False => rfl)
-    state listed (rewrite fresh in rfl) (rewrite containsInsertSame settled state cost in rfl)
-
--- The queue with each edge's state added, at `cost` plus the edge's.
-def pushEdges [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → Set (Nat, s)
-  | Nil, queue => queue
-  | Cons (next, weight) rest, queue => pushEdges cost rest (queue.insert (cost + weight, next))
-
--- Dijkstra's algorithm: `queue` holds (cost, state) pairs still to look at,
--- least first; `settled` the least cost found for each state settled so
--- far. The least pair in the queue, `popped` with the `rest`, settles its
--- state, unless it already is, and queues the state's neighbours.
-def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat):
-    (popped: Option ((Nat, s), Set (Nat, s))) → queue.popMin = popped → Map s Nat
-    decreasing (graph.unsettled settled, queue.size)
-  | None, found => settled
-  | Some ((cost, state), rest), found =>
-    if fresh: settled.contains state = False then
-      if within: graph.within state = True then
-        let pushed := pushEdges cost (graph.edges state) rest
-        Graph.searchFrom graph pushed (settled.insert state cost) pushed.popMin rfl
-          [decreasing := Nat.LexLess.First (unsettledInsert graph settled state cost (graph.listed state within) fresh)]
-      else Graph.searchFrom graph rest settled rest.popMin rfl [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
-    else Graph.searchFrom graph rest settled rest.popMin rfl [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
-
-def Graph.search [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat): Map s Nat :=
-  Graph.searchFrom graph queue settled queue.popMin rfl
-
--- The least cost to each state reachable from one of the sources, each
--- given with the cost of starting there.
-def Graph.distances [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)): Map s Nat := graph.search (pushEdges 0 sources Set.empty) Map.empty
-
 theorem directionsComplete: (facing: Direction) → facing ∈ directions
   | East => Inl rfl
   | South => Inr (Inl rfl)
@@ -236,13 +149,70 @@ theorem Maze.holdsListed (maze: Maze): (reindeer: Reindeer) → maze.holds reind
       ({ position, facing }: Reindeer) maze.openTiles.toList (Map.memKeysOfContains maze.openTiles.items position holds)
       (List.memMap directions facing (directionsComplete facing) (way => ({ position, facing = way }: Reindeer)))
 
+-- What `forward` gives stands on an open tile...
+theorem Maze.forwardHolds (maze: Maze): (reindeer: Reindeer) → (next: Reindeer) → next ∈ maze.forward reindeer → maze.holds next = True
+  | { position, facing }, next, member =>
+    match stepped: position.step facing with
+      | None => Void.exfalso member
+      | Some ahead =>
+        match open: maze.isOpen ahead with
+          | False => Void.exfalso member
+          | True =>
+            match member with
+              | Inl here => rewrite <- here in open
+              | Inr none => Void.exfalso none
+
+-- ...and so does what `backward` gives.
+theorem Maze.backwardHolds (maze: Maze): (reindeer: Reindeer) → (next: Reindeer) → next ∈ maze.backward reindeer → maze.holds next = True
+  | { position, facing }, next, member =>
+    match stepped: position.step facing.opposite with
+      | None => Void.exfalso member
+      | Some behind =>
+        match open: maze.isOpen behind with
+          | False => Void.exfalso member
+          | True =>
+            match member with
+              | Inl here => rewrite <- here in open
+              | Inr none => Void.exfalso none
+
+-- Steps onto open tiles and turns, from an open tile, end on one.
+theorem Maze.stepsHold (maze: Maze) (moved: List Reindeer) (movedHold: (other: Reindeer) → other ∈ moved → maze.holds other = True):
+    (reindeer: Reindeer) → maze.holds reindeer = True → (next: Reindeer) → (weight: Nat) →
+      (next, weight) ∈ (moved.map (other => (other, 1))) ++ reindeer.turns → maze.holds next = True
+  | { position, facing }, holds, next, weight, edge =>
+    match List.memAppend (next, weight) _ _ edge with
+      | Inl stepped =>
+        Exists.elim (List.memMapElim (other => (other, 1)) (next, weight) moved stepped) (other both =>
+          rewrite <- Eq.cong Pair.fst (And.right both) in movedHold other (And.left both))
+      | Inr (Inl turn) => rewrite <- Eq.cong Pair.fst turn in holds
+      | Inr (Inr (Inl turn)) => rewrite <- Eq.cong Pair.fst turn in holds
+      | Inr (Inr (Inr none)) => Void.exfalso none
+
+-- The moves out of a way of standing on an open tile, with their costs, or
+-- into it if `backwards`; none from anywhere else.
+def Maze.moves (maze: Maze) (backwards: Bool) (reindeer: Reindeer): List (Reindeer, Nat) :=
+  if maze.holds reindeer then (if backwards then maze.before reindeer else maze.after reindeer) else Nil
+
+-- The moves lead to ways of standing on open tiles.
+theorem Maze.movesListed (maze: Maze) (backwards: Bool) (reindeer: Reindeer) (next: Reindeer) (weight: Nat)
+    (edge: (next, weight) ∈ maze.moves backwards reindeer): next ∈ maze.reindeer :=
+  match holds: maze.holds reindeer with
+    | False => Void.exfalso edge
+    | True =>
+      match backwards with
+        | True =>
+          maze.holdsListed next
+            (maze.stepsHold (maze.backward reindeer) (other member => maze.backwardHolds reindeer other member) reindeer holds next weight edge)
+        | False =>
+          maze.holdsListed next
+            (maze.stepsHold (maze.forward reindeer) (other member => maze.forwardHolds reindeer other member) reindeer holds next weight edge)
+
 -- The maze's moves forward and turns, between the ways to stand on its open
 -- tiles; `backwards` follows each move the other way.
 def Maze.graph (maze: Maze) (backwards: Bool): Graph Reindeer := {
-  edges = reindeer => if backwards then maze.before reindeer else maze.after reindeer,
-  within = maze.holds,
+  edges = maze.moves backwards,
   states = maze.reindeer,
-  listed = reindeer => maze.holdsListed reindeer
+  listed = reindeer next weight edge => maze.movesListed backwards reindeer next weight edge
 }
 
 -- The lowest score from the start to each reachable way of standing.

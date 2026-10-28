@@ -1,12 +1,10 @@
--- The program's moves are the puzzle's steps (`moveAgrees`), and its
--- graph's edges are those moves, each costing one (`edgesSound`,
--- `edgesComplete`). Walks join (`walkAppend`), and keep going with fewer
--- bytes fallen (`walkFewer`).
+-- The program's moves are the puzzle's steps (`moveAgrees`), and each is
+-- an edge of its graph (`edgesComplete`). Walks join (`walkAppend`), and
+-- keep going with fewer bytes fallen (`walkFewer`).
 
 namespace Aoc.Year2024.Day18.Proofs
 import Aoc.Year2024.Day18 (..)
 import Aoc.Year2024.Day18.Spec (..)
-import Aoc.Year2024.Day16.Proofs (anyMember)
 import Std (And, Bool, Eq, Exists, List, Map, Nat, Option, Set, Void)
 
 -- The program's corrupted set holds the bytes fallen.
@@ -44,33 +42,11 @@ theorem directionsComplete: (direction: Direction) → direction ∈ directions
   | Left => Inr (Inr (Inl rfl))
   | Right => Inr (Inr (Inr (Inl rfl)))
 
--- Each edge is a move, costing one.
-theorem edgesSound (memory: MemorySpace) (position: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ memory.edges position):
-    And (Exists Direction (direction => memory.move position direction = Some next)) (weight = 1) :=
-  let found := List.memFilterMapElim (direction => memory.move position direction |> .map (other => (other, 1))) (next, weight) directions edge
-  Exists.elim (anyMember (direction => (memory.move position direction |> .map (other => (other, 1))) = Some (next, weight)) directions found)
-    (direction both =>
-      match moved: memory.move position direction with
-        | None => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
-        | Some other =>
-          let same := Option.someInjective _ _ (And.right both)
-          Both (Witness direction (Eq.trans moved (Eq.cong Some (Eq.cong Pair.fst same)))) (Eq.sym (Eq.cong Pair.snd same)))
-
 -- Each move is an edge.
 theorem edgesComplete (memory: MemorySpace) (position: Position) (direction: Direction) (next: Position)
     (moved: memory.move position direction = Some next): (next, 1) ∈ memory.edges position :=
   List.memFilterMapIntro (way => memory.move position way |> .map (other => (other, 1))) direction (next, 1) directions (directionsComplete direction)
     (rewrite moved in rfl)
-
--- Moves lead to safe positions.
-theorem moveSafe (memory: MemorySpace) (position: Position) (direction: Direction) (next: Position)
-    (moved: memory.move position direction = Some next): memory.isSafe next = True :=
-  match stepped: position.step direction with
-    | None => Void.exfalso (Option.noneNotSome next moved)
-    | Some found =>
-      match safe: memory.isSafe found with
-        | False => Void.exfalso (Option.noneNotSome next moved)
-        | True => rewrite <- Option.someInjective _ _ moved in safe
 
 -- After a first step, the rest of the walk.
 theorem walkCons (size: Nat) (fallen: List Position) (position: Position) (direction: Direction) (next: Position)

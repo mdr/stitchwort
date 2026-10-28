@@ -610,6 +610,29 @@ fn small_programs_load_only_the_library_files_they_can_use() {
 }
 
 #[test]
+fn graph_search_and_partition_point_load_only_where_used() {
+    let graph = "Graph/Search.sw".to_string();
+    let partition = "Nat/PartitionPoint.sw".to_string();
+    // A program of maps and numbers loads neither.
+    let plain = std_loaded_by(
+        "import Std (Map)\ndef m: Map Nat Nat := Map.empty.insert 1 2\ndef n (k: Nat): Nat := k / 2\n",
+    );
+    assert!(!plain.contains(&graph), "{plain:?}");
+    assert!(!plain.contains(&partition), "{plain:?}");
+    // A search loads the graph file, and not the binary search.
+    let search = std_loaded_by(
+        "import Std (Graph, Map)\ndef d (g: Graph Nat): Map Nat Nat := g.breadthFirst [0]\n",
+    );
+    assert!(search.contains(&graph), "{search:?}");
+    assert!(!search.contains(&partition), "{search:?}");
+    // The binary search loads its own file, and not the graph one.
+    let halving =
+        std_loaded_by("import Std (Nat)\ndef p: Nat := Nat.partitionPoint 0 10 (n => n < 4)\n");
+    assert!(halving.contains(&partition), "{halving:?}");
+    assert!(!halving.contains(&graph), "{halving:?}");
+}
+
+#[test]
 fn a_dot_call_on_a_variable_of_a_written_data_type_loads_only_that_types_function() {
     let text = ["Text/Basics.sw".to_string(), "Text/Text.sw".to_string()];
     // `xs.length` with `(xs: List Nat)` is the core's `List.length`, not

@@ -133,6 +133,27 @@ theorem Set.sizePopMin [auto ord: Ord k] (s: Set k) (key: k) (rest: Set k) (foun
   let present := Set.containsMin s key least
   rewrite restIs, Set.sizeRemovePresent s key present in omega [Set.sizePositive s key present]
 
+-- A set with no smallest key holds nothing.
+theorem Set.missingOfMinNone [auto ord: Ord k] (s: Set k) (empty: Set.min s = None) (key: k): Set.contains s key = False :=
+  match there: Set.contains s key with
+    | False => rfl
+    | True =>
+      let member := Map.memKeysOfContains s.items key there
+      match entries: Map.toList s.items with
+        | Nil => Void.exfalso member
+        | Cons entry rest =>
+          let first: Set.min s = Some entry.fst := rewrite Map.minToList s.items, entries in rfl
+          Void.exfalso (Option.someNotNone entry.fst (Eq.trans (Eq.sym first) empty))
+
+-- What's left after removing a key was there before.
+theorem Set.containsOfRemove [auto ord: Ord k] (s: Set k) (key: k) (other: k) (there: Set.contains (Set.remove s key) other = True):
+    Set.contains s other = True :=
+  match same: other == key with
+    | True =>
+      let moved := Eq.cong (found => Set.contains (Set.remove s key) found) (Eq.sym (DecEq.sound other key same))
+      Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Set.containsRemove s key)) (Eq.trans moved there)))
+    | False => Eq.trans (Eq.sym (Set.containsRemoveOther s key other (DecEq.soundFalse other key same))) there
+
 theorem Set.lastMapFst: (xs: List (k, ())) → Option.map (List.last xs) Pair.fst = List.last (List.map xs Pair.fst)
   | Nil => rfl
   | Cons e Nil => rfl

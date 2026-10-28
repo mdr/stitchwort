@@ -10,8 +10,7 @@
 -- `Aoc.Year2024.Day20.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day20
-import Aoc.Year2024.Day16 (Graph)
-import Std (Bool, Fail, IO, List, Map, Nat, Option, Parse, Set, Text)
+import Std (And, Bool, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
 import Std.Parse (grid, pick)
 
 -- The least saving counted is 100 picoseconds, unless the arguments give
@@ -95,13 +94,25 @@ def Racetrack.move (racetrack: Racetrack) (position: Position) (direction: Direc
 def Racetrack.edges (racetrack: Racetrack) (position: Position): List (Position, Nat) :=
   directions.filterMap (direction => racetrack.move position direction |> .map (next => (next, 1)))
 
--- The track as a graph for day 16's search. Every step can be taken back,
--- so the same graph gives the times to the end.
+-- Edges lead onto track.
+theorem Racetrack.edgeOnTrack (racetrack: Racetrack) (position: Position) (next: Position) (weight: Nat)
+    (edge: (next, weight) ∈ racetrack.edges position): racetrack.isTrack next = True :=
+  let found := List.memFilterMapElim (direction => racetrack.move position direction |> .map (other => (other, 1))) (next, weight) directions edge
+  Exists.elim (List.anyMember (direction => (racetrack.move position direction |> .map (other => (other, 1))) = Some (next, weight)) directions found)
+    (direction both =>
+      match stepped: position.step direction with
+        | None => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
+        | Some ahead =>
+          match onIt: racetrack.isTrack ahead with
+            | False => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
+            | True => rewrite <- Eq.cong Pair.fst (Option.someInjective _ _ (And.right both)) in onIt)
+
+-- The track as a graph for std's search. Every step can be taken back, so
+-- the same graph gives the times to the end.
 def Racetrack.graph (racetrack: Racetrack): Graph Position := {
   edges = racetrack.edges,
-  within = racetrack.isTrack,
   states = racetrack.track.toList,
-  listed = position onTrack => Map.memKeysOfContains racetrack.track.items position onTrack
+  listed = position next weight edge => Map.memKeysOfContains racetrack.track.items next (racetrack.edgeOnTrack position next weight edge)
 }
 
 -- The fewest picoseconds from the start to each track position.

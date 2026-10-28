@@ -985,6 +985,16 @@ theorem List.memMapAny: (xs: List a) → (f: a → b) → (y: b) → y ∈ List.
   | Cons z zs, f, y, Inl h => Inl h
   | Cons z zs, f, y, Inr h => Inr (List.memMapAny zs f y h)
 
+-- `List.Any` gives a member that satisfies `p`.
+theorem List.anyMember (p: a → Prop): (xs: List a) → List.Any p xs → Exists a (x => And (x ∈ xs) (p x))
+  | Nil, none => Void.exfalso none
+  | Cons x rest, Inl here => Witness x (Both (Inl rfl) here)
+  | Cons x rest, Inr later => Exists.elim (List.anyMember p rest later) (found both => Witness found (Both (Inr (And.left both)) (And.right both)))
+
+-- A member of a mapped list is the image of a member.
+theorem List.memMapElim (f: a → b) (y: b) (xs: List a) (member: y ∈ List.map xs f): Exists a (x => And (x ∈ xs) (f x = y)) :=
+  List.anyMember (x => f x = y) xs (List.memMapAny xs f y member)
+
 -- What `(.filter p)` keeps was in the list, and passes `p`.
 theorem List.memFilter: (xs: List a) → (p: a → Bool) → (x: a) → x ∈ List.filter xs p → And (x ∈ xs) (p x = True)
   | Nil, p, x, h => Void.exfalso h
