@@ -3950,7 +3950,6 @@ Release build, on a machine with a load average around 25 to 30:
    reached.
 10. No `import ... as` for clashing names (item 2). Fix: add an alias form.
 
-<<<<<<< HEAD
 ## Day 14: Restroom Redoubt
 
 Robots, each with a position `p=x,y` and a velocity `v=x,y` in "tiles per
@@ -3996,40 +3995,10 @@ The timings are on a generated input of 500 robots on 101 by 103 (not
 committed), built in Python with all positions distinct first at second
 7037; the program and the Python script agree (213181710 and 7037).
 Compiler built from `main` at c17208db, 28 October 2026.
-=======
-## Day 16: Reindeer Maze
-
-A maze of walls (`#`) and open tiles. "The Reindeer start on the Start
-Tile (marked S) facing East and need to reach the End Tile (marked E).
-They can move forward one tile at a time (increasing their score by 1
-point), but never into a wall (#). They can also rotate clockwise or
-counterclockwise 90 degrees at a time (increasing their score by 1000
-points)." Part 1: "What is the lowest score a Reindeer could possibly
-get?" Part 2: "you'll need to determine which tiles are part of any best
-path through the maze, including the S and E tiles ... How many tiles are
-part of at least one of the best paths through the maze?" (part 2's
-wording from the public copy at
-<https://gitea.baerentsen.space/FrederikBaerentsen/AdventOfCode/src/branch/master/2024/16/16.md>).
-
-**The real input is pending from Matt**: his repository
-(<https://github.com/mdr/aoc-2024>) stops at day 10, so there is no
-`inputs/2024/day16.txt`, no `Tests/Input.sw`, and the day isn't registered
-in `aoc_answers.rs` or `machine.rs` yet. `examples/2024/day16.txt` is the
-second example. The tests are the puzzle's two examples (7036 and 45;
-11048 and 64) and edge cases, all cross-checked with an independent Python
-script (`/usr/bin/python3 -I`: `heapq` Dijkstra over (row, column,
-direction), part 2 by walking back along predecessor edges whose costs add
-up, not by a second search). For performance, a second script generated a
-141 by 141 maze (a recursive-backtracker maze with 1500 random walls
-knocked out, so there are many paths; not committed); the program and
-Python agree on it (116428 and 444). This is the first shortest-path day.
-Compiler built from `main` at f06e8931, 28 October 2026.
->>>>>>> worktree-agent-a31d6c9efb4547d97
 
 ### The program
 
 ```stitchwort
-<<<<<<< HEAD
 type Position = { x: Nat, y: Nat }
 type Velocity = { x: Int, y: Int }
 type Robot = { position: Position, velocity: Velocity }
@@ -4675,7 +4644,38 @@ takes 0.19 s of CPU on the generated warehouse.
     have no membership lemmas (items 1 and 2). Fix: a std function for a
     grid's cells with their positions, and the membership lemmas in
     `Set/Spec.sw`.
-=======
+
+## Day 16: Reindeer Maze
+
+A maze of walls (`#`) and open tiles. "The Reindeer start on the Start
+Tile (marked S) facing East and need to reach the End Tile (marked E).
+They can move forward one tile at a time (increasing their score by 1
+point), but never into a wall (#). They can also rotate clockwise or
+counterclockwise 90 degrees at a time (increasing their score by 1000
+points)." Part 1: "What is the lowest score a Reindeer could possibly
+get?" Part 2: "you'll need to determine which tiles are part of any best
+path through the maze, including the S and E tiles ... How many tiles are
+part of at least one of the best paths through the maze?" (part 2's
+wording from the public copy at
+<https://gitea.baerentsen.space/FrederikBaerentsen/AdventOfCode/src/branch/master/2024/16/16.md>).
+
+**The real input is pending from Matt**: his repository
+(<https://github.com/mdr/aoc-2024>) stops at day 10, so there is no
+`inputs/2024/day16.txt`, no `Tests/Input.sw`, and the day isn't registered
+in `aoc_answers.rs` or `machine.rs` yet. `examples/2024/day16.txt` is the
+second example. The tests are the puzzle's two examples (7036 and 45;
+11048 and 64) and edge cases, all cross-checked with an independent Python
+script (`/usr/bin/python3 -I`: `heapq` Dijkstra over (row, column,
+direction), part 2 by walking back along predecessor edges whose costs add
+up, not by a second search). For performance, a second script generated a
+141 by 141 maze (a recursive-backtracker maze with 1500 random walls
+knocked out, so there are many paths; not committed); the program and
+Python agree on it (116428 and 444). This is the first shortest-path day.
+Compiler built from `main` at f06e8931, 28 October 2026.
+
+### The program
+
+```stitchwort
 def tile(): {Parse} Tile :=
   Parse.pick [("#", Wall), (".", Floor), ("S", Start), ("E", End)]
 
@@ -5003,4 +5003,3 @@ proofs, 134 of tests.
    the other arguments; don't unfold `List.Any` while solving.
 9. Constructor imports say only "has no `Clockwise`" (item 3). Fix: note
    that constructors come with their type.
->>>>>>> worktree-agent-a31d6c9efb4547d97
