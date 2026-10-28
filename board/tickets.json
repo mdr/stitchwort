@@ -1,5 +1,5 @@
 {
-  "next": 761,
+  "next": 763,
   "tickets": [
     {
       "id": 13,
@@ -6377,7 +6377,7 @@
     {
       "id": 755,
       "title": "AoC 2024 day 13 (examples only; input pending from Matt): solve, prove, log gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6438,6 +6438,30 @@
       "id": 760,
       "title": "Day 11/12 small fixes: E-ARITY names the definition that unfolded; DecEq.sound note names the unknown instance; E-NOT-A-TYPE points at the != operator; dot syntax for a recursive call with a termination proof; std List.contains, count/sum lemmas (countLe, countFewer, sumByCongMem, memLeSumBy, anyEqual, occurrencesFlatMap, permFlatMap, sumBy one = length)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 761,
+      "title": "AoC 2024 day 15 (examples only; input pending from Matt): solve, prove, log gaps",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 762,
+      "title": "Day 13 findings: match on an expression not in the goal silently does nothing (warn); Int (d*a)/d = a and List.minimum lemmas, natAbsMul/natAbsZero to std; labelWhole reports at the furthest point (missing blank line between sections); import … as aliases",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
