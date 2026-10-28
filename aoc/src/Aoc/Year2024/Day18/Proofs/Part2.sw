@@ -18,8 +18,8 @@ theorem hasPathFewer (size: Nat) (bytes: List Position) (fewer: Nat) (more: Nat)
     HasPath size bytes fewer :=
   Exists.elim has (steps path =>
     Witness steps
-      (Both (safeFewer size bytes fewer more le start (And.left path))
-        (walkFewer size bytes fewer more le start steps ({ x = size - 1, y = size - 1 }: Position) (And.right path))))
+      (Both (safeFewer size bytes fewer more le Position.start (And.left path))
+        (walkFewer size bytes fewer more le Position.start steps ({ x = size - 1, y = size - 1 }: Position) (And.right path))))
 
 -- The exit reachable with more bytes fallen is reachable with fewer.
 theorem reachableFewer (size: Nat) (bytes: List Position) (fewer: Nat) (more: Nat) (le: fewer ≤ more) (open: reachable size bytes more = True):

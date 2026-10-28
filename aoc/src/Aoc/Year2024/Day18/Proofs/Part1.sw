@@ -13,18 +13,18 @@ import Std (And, Bool, Eq, Exists, Graph, List, Map, Nat, Option, Void)
 
 -- Some walk from the start ends at `position`, taking `cost` steps.
 def ReachedFromStart (size: Nat) (fallen: List Position) (position: Position) (cost: Nat): Prop :=
-  Exists (List Direction) (steps => And (walk size fallen start steps = Some position) (steps.length = cost))
+  Exists (List Direction) (steps => And (walk size fallen Position.start steps = Some position) (steps.length = cost))
 
 -- From a safe start, the search.
-theorem fromStartSafe (memory: MemorySpace) (safe: memory.isSafe start = True): memory.fromStart = memory.graph.breadthFirst [start] :=
+theorem fromStartSafe (memory: MemorySpace) (safe: memory.isSafe Position.start = True): memory.fromStart = memory.graph.breadthFirst [Position.start] :=
   rewrite safe in rfl
 
 -- The search from a start.
 theorem fromStartCorrect (size: Nat) (bytes: List Position) (fallen: Nat):
-    Graph.SearchResult (MemorySpace.after size bytes fallen).graph ([start].map (source => (source, 0))) (ReachedFromStart size (bytes.take fallen))
-      ((MemorySpace.after size bytes fallen).graph.breadthFirst [start]) :=
+    Graph.SearchResult (MemorySpace.after size bytes fallen).graph ([Position.start].map (source => (source, 0))) (ReachedFromStart size (bytes.take fallen))
+      ((MemorySpace.after size bytes fallen).graph.breadthFirst [Position.start]) :=
   let memory := MemorySpace.after size bytes fallen
-  Graph.breadthFirstCorrect memory.graph [start] (ReachedFromStart size (bytes.take fallen))
+  Graph.breadthFirstCorrect memory.graph [Position.start] (ReachedFromStart size (bytes.take fallen))
     (source member =>
       match member with
         | Inl here => rewrite <- here in Witness Nil (Both rfl rfl)
@@ -35,7 +35,7 @@ theorem fromStartCorrect (size: Nat) (bytes: List Position) (fallen: Nat):
         Exists.elim reached (steps parts =>
           Witness (steps ++ [direction])
             (Both
-              (walkSnoc size (bytes.take fallen) start steps state (And.left parts) direction next
+              (walkSnoc size (bytes.take fallen) Position.start steps state (And.left parts) direction next
                 (Eq.trans (Eq.sym (moveAgrees size bytes fallen state direction)) moved))
               (rewrite List.lengthAppend steps [direction], costs, <- And.right parts in rfl)))))
     (state next weight edge => And.right (memory.edgesSound state next weight edge))
@@ -72,16 +72,16 @@ theorem part1Some (size: Nat) (bytes: List Position) (fallen: Nat) (fewest: Nat)
     IsFewestSteps size (bytes.take fallen) fewest :=
   let memory := MemorySpace.after size bytes fallen
   let found: memory.fromStart.get memory.exit = Some fewest := answer
-  match startSafe: memory.isSafe start with
+  match startSafe: memory.isSafe Position.start with
     | False => Void.exfalso (Option.noneNotSome fewest found)
     | True =>
       let (Both reachedAll (Both sourcesBound closed)) := fromStartCorrect size bytes fallen
-      let startSpec: isSafe size (bytes.take fallen) start = True := Eq.trans (Eq.sym (safeAgrees size bytes fallen start)) startSafe
+      let startSpec: isSafe size (bytes.take fallen) Position.start = True := Eq.trans (Eq.sym (safeAgrees size bytes fallen Position.start)) startSafe
       Both
         (Exists.elim (reachedAll _ fewest found) (steps parts => Witness steps (Both (Both startSpec (And.left parts)) (And.right parts))))
         (steps path =>
           Exists.elim
-            (boundAlong size bytes fallen _ closed start 0 (sourcesBound start 0 (Inl rfl)) steps memory.exit (And.right path))
+            (boundAlong size bytes fallen _ closed Position.start 0 (sourcesBound Position.start 0 (Inl rfl)) steps memory.exit (And.right path))
             (other both =>
               let same: fewest = other := Option.someInjective _ _ (Eq.trans (Eq.sym found) (And.left both))
               omega [same, And.right both]))
@@ -90,11 +90,11 @@ theorem part1Some (size: Nat) (bytes: List Position) (fallen: Nat) (fewest: Nat)
 theorem part1None (size: Nat) (bytes: List Position) (fallen: Nat) (answer: solvePart1 size fallen bytes = None) (steps: List Direction)
     (path: IsPath size (bytes.take fallen) steps): Void :=
   let memory := MemorySpace.after size bytes fallen
-  let startSafe: memory.isSafe start = True := Eq.trans (safeAgrees size bytes fallen start) (And.left path)
-  let missing: (memory.graph.breadthFirst [start]).get memory.exit = None :=
+  let startSafe: memory.isSafe Position.start = True := Eq.trans (safeAgrees size bytes fallen Position.start) (And.left path)
+  let missing: (memory.graph.breadthFirst [Position.start]).get memory.exit = None :=
     Eq.trans (Eq.cong (settled => settled.get memory.exit) (Eq.sym (fromStartSafe memory startSafe))) answer
   let (Both reachedAll (Both sourcesBound closed)) := fromStartCorrect size bytes fallen
-  Exists.elim (boundAlong size bytes fallen _ closed start 0 (sourcesBound start 0 (Inl rfl)) steps memory.exit (And.right path))
+  Exists.elim (boundAlong size bytes fallen _ closed Position.start 0 (sourcesBound Position.start 0 (Inl rfl)) steps memory.exit (And.right path))
     (other both => Option.noneNotSome other (Eq.trans (Eq.sym missing) (And.left both)))
 
 -- Reachable means there is a path...

@@ -34,7 +34,7 @@ def walk (size: Nat) (fallen: List Position) (position: Position): List Directio
 -- memory space (at 0,0) and need to reach the exit in the bottom right
 -- corner": steps from a safe start that end at the exit.
 def IsPath (size: Nat) (fallen: List Position) (steps: List Direction): Prop :=
-  And (isSafe size fallen start = True) (walk size fallen start steps = Some ({ x = size - 1, y = size - 1 }: Position))
+  And (isSafe size fallen Position.start = True) (walk size fallen Position.start steps = Some ({ x = size - 1, y = size - 1 }: Position))
 
 -- "what is the minimum number of steps needed to reach the exit?": some
 -- path takes `fewest` steps, and none takes fewer.
