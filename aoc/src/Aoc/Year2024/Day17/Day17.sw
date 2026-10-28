@@ -160,7 +160,7 @@ def outcome (registers: Registers) (program: List Nat): Outcome :=
 
 def solvePart1 (debugger: Debugger): {Fail} Text :=
   match outcome debugger.registers debugger.program with
-    | Finished output => Text.joinWith (output.map (value => "${value}")) ","
+    | Finished output => output.map (value => "${value}") |> .joinWith ","
     | Faulted => Fail.fail "the program has an invalid instruction"
     | OutOfFuel => Fail.fail "the program didn't halt"
 

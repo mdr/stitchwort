@@ -1144,7 +1144,8 @@ theorem List.findRangeNone (passes: Nat → Bool) (count: Nat) (h: (List.range c
 test "List.findRangeSome" := List.range 10 |> .find (n => n * n > 20) == Some 5
 
 -- `List.minimum`: the least of a list that holds `least` and nothing else
--- is `least`, and an empty list has none.
+-- is `least`, an empty list has none, and what it finds is in the list and
+-- at most each element.
 
 -- Folding `Ord.min` from `least` over elements that are all `least`.
 theorem List.foldMinAll [auto ord: Ord a] (least: a): (xs: List a) → ((x: a) → x ∈ xs → x = least) → List.foldLeft xs least Ord.min = least
@@ -1160,6 +1161,51 @@ theorem List.minimumAllEqual [auto ord: Ord a] (least: a): (xs: List a) → leas
 theorem List.minimumEmpty [auto ord: Ord a]: (xs: List a) → ((x: a) → x ∈ xs → Void) → List.minimum xs = None
   | Nil, none => rfl
   | Cons x rest, none => Void.exfalso (none x (Inl rfl))
+
+-- Folding with `Ord.min` gives at most the start and each element, and
+-- gives the start or an element.
+theorem List.foldMinLeStart [auto ord: Ord a]: (xs: List a) → (start: a) → List.foldLeft xs start Ord.min <= start
+  | Nil, start => Ord.leRefl start
+  | Cons y ys, start =>
+    Ord.leTrans (List.foldLeft ys (Ord.min start y) Ord.min) (Ord.min start y) start (List.foldMinLeStart ys (Ord.min start y)) (Ord.minLeLeft start y)
+
+theorem List.foldMinLeMember [auto ord: Ord a]: (xs: List a) → (start: a) → (x: a) → x ∈ xs → List.foldLeft xs start Ord.min <= x
+  | Nil, start, x, member => Void.exfalso member
+  | Cons y ys, start, x, Inl same =>
+    rewrite Eq.sym same in
+      Ord.leTrans (List.foldLeft ys (Ord.min start y) Ord.min) (Ord.min start y) y (List.foldMinLeStart ys (Ord.min start y)) (Ord.minLeRight start y)
+  | Cons y ys, start, x, Inr member => List.foldMinLeMember ys (Ord.min start y) x member
+
+theorem List.foldMinMember [auto ord: Ord a]: (xs: List a) → (start: a) → Or (List.foldLeft xs start Ord.min = start) (List.foldLeft xs start Ord.min ∈ xs)
+  | Nil, start => Inl rfl
+  | Cons y ys, start =>
+    match List.foldMinMember ys (Ord.min start y) with
+      | Inr member => Inr (Inr member)
+      | Inl same =>
+        match Ord.minEither start y with
+          | Inl isStart => Inl (Eq.trans same isStart)
+          | Inr isY => Inr (Inl (Eq.sym (Eq.trans same isY)))
+
+-- The least element is in the list and at most every element.
+theorem List.minimumSome [auto ord: Ord a] (xs: List a) (least: a) (found: List.minimum xs = Some least): And (least ∈ xs) ((x: a) → x ∈ xs → least <= x) :=
+  match xs with
+    | Nil => Void.exfalso (Option.noneNotSome least found)
+    | Cons y ys =>
+      let same := Option.someInjective (List.foldLeft ys y Ord.min) least found
+      Both
+        (match List.foldMinMember ys y with
+          | Inl isY => Inl (Eq.sym (Eq.trans (Eq.sym same) isY))
+          | Inr member => Inr (rewrite same at member))
+        (x member =>
+          rewrite Eq.sym same in
+            match member with
+              | Inl isY => rewrite Eq.sym isY in List.foldMinLeStart ys y
+              | Inr inRest => List.foldMinLeMember ys y x inRest)
+
+-- A list with an element has a least one.
+theorem List.minimumExists [auto ord: Ord a]: (xs: List a) → (x: a) → x ∈ xs → ∃ (least: a) => List.minimum xs = Some least
+  | Nil, x, member => Void.exfalso member
+  | Cons y ys, x, member => Witness (List.foldLeft ys y Ord.min) rfl
 
 -- An element that passes makes `List.any` true.
 theorem List.anyOfMem: (xs: List a) → (q: a → Bool) → (y: a) → (qy: q y = True) → y ∈ xs → List.any xs q = True

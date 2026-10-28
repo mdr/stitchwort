@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-UNKNOWN-FIELD] Error: `List` has no field or function `joinWith`
+[E-UNKNOWN-FIELD] Error: `List` has no field or function `join`
    ╭─[ reject/unknown-field-elsewhere.sw:7:76 ]
    │
- 7 │ def shown (blocks: List Nat): Text := blocks.map (block => "${block}") |> .joinWith ""
-   │                                                                            ────┬───  
-   │                                                                                ╰───── looked in `List`
+ 7 │ def shown (blocks: List Nat): Text := blocks.map (block => "${block}") |> .join ','
+   │                                                                            ──┬─  
+   │                                                                              ╰─── looked in `List`
    │ 
-   │ Note: `Text.joinWith` takes a `List` first: write `|> Text.joinWith …`
+   │ Note: `Text.join` takes a `List` first: write `|> Text.join …`
 ───╯

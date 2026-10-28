@@ -30,28 +30,28 @@ theorem candidatesComplete (output: Nat → List Nat) (shape: LoopShape output):
           match small: a < 8 with
             | True => rewrite tail in Inl (Eq.sym (Nat.divSmall a 8 small))
             | False => candidatesComplete output shape rest (a / 8) (Eq.sym tail)
-        memFilterIntro (candidate => output candidate == Cons value rest) _ a
+        List.memFilterIntro _ (candidate => output candidate == Cons value rest) a
           (List.memFlatMapIntro (high => List.map (List.range 8) (low => high * 8 + low)) (a / 8) a (candidates output rest) high (amongLows a))
           (rewrite outputs in DecEq.refl (Cons value rest))
 
 -- What the search returns is positive and outputs the target.
 theorem lowestSound (output: Nat → List Nat) (target: List Nat) (a: Nat) (found: lowestOutputting output target = Some a): And (0 < a) (output a = target) :=
-  let kept := And.right (List.memFilter _ _ a (And.left (minimumSome _ a found)))
+  let kept := And.right (List.memFilter _ _ a (And.left (List.minimumSome _ a found)))
   Both (Bool.andLeft _ _ kept) (DecEq.sound (output a) target (Bool.andRight _ _ kept))
 
 -- Every positive value that outputs the target is a final candidate.
 theorem finalCandidate (output: Nat → List Nat) (shape: LoopShape output) (target: List Nat) (other: Nat) (positive: 0 < other) (outputs: output other = target):
     other ∈ List.filter (candidates output target) (a => 0 < a ∧ output a == target) :=
-  memFilterIntro (a => 0 < a ∧ output a == target) _ other (candidatesComplete output shape target other outputs)
+  List.memFilterIntro _ (a => 0 < a ∧ output a == target) other (candidatesComplete output shape target other outputs)
     (Bool.andIntro _ _ positive (rewrite outputs in DecEq.refl target))
 
 -- For an output of the loop shape, the search returns at most any positive
 -- value that outputs the target.
 theorem lowestLeast (output: Nat → List Nat) (shape: LoopShape output) (target: List Nat) (a: Nat) (found: lowestOutputting output target = Some a)
     (other: Nat) (positive: 0 < other) (outputs: output other = target): a ≤ other :=
-  And.right (minimumSome _ a found) other (finalCandidate output shape target other positive outputs)
+  And.right (List.minimumSome _ a found) other (finalCandidate output shape target other positive outputs)
 
 -- For an output of the loop shape, the search finds a value if there is one.
 theorem lowestComplete (output: Nat → List Nat) (shape: LoopShape output) (target: List Nat) (other: Nat) (positive: 0 < other) (outputs: output other = target):
     ∃ (a: Nat) => lowestOutputting output target = Some a :=
-  minimumExists _ other (finalCandidate output shape target other positive outputs)
+  List.minimumExists _ other (finalCandidate output shape target other positive outputs)
