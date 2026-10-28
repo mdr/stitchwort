@@ -1,5 +1,5 @@
 {
-  "next": 759,
+  "next": 761,
   "tickets": [
     {
       "id": 13,
@@ -6317,7 +6317,7 @@
     {
       "id": 750,
       "title": "omega reads || (case split), == on Nat (Bool), and fields of literal records; day 10 drops its Prop copy of the step",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6365,7 +6365,7 @@
     {
       "id": 754,
       "title": "AoC 2024 day 12: solve, prove, log gaps (overnight)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6414,6 +6414,30 @@
       "id": 758,
       "title": "Day 11 findings: E-ARITY should name the definition that unfolded to add arguments; rewrite occurrence selection (focus one part); DecEq.sound note blames match instead of the unknown instance; occurrencesFlatMap/permFlatMap/sumBy-one=length lemmas; Parse's next in scope unimported",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 759,
+      "title": "AoC 2024 day 14 (examples only; input pending from Matt): solve, prove, log gaps",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 760,
+      "title": "Day 11/12 small fixes: E-ARITY names the definition that unfolded; DecEq.sound note names the unknown instance; E-NOT-A-TYPE points at the != operator; dot syntax for a recursive call with a termination proof; std List.contains, count/sum lemmas (countLe, countFewer, sumByCongMem, memLeSumBy, anyEqual, occurrencesFlatMap, permFlatMap, sumBy one = length)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
