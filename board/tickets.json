@@ -1,5 +1,5 @@
 {
-  "next": 816,
+  "next": 817,
   "tickets": [
     {
       "id": 13,
@@ -6701,7 +6701,7 @@
     {
       "id": 782,
       "title": "Day 20 findings: a let used in a match arm inside a lambda is re-created on every call (lift.rs Draft::lets; 10x slowdown); List.length overflows the stack on 3.5M items (make it a loop); omega understands Nat.absDiff; warn when an effectful argument is passed where a pure default is evaluated eagerly (Option.fold)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6749,7 +6749,7 @@
     {
       "id": 786,
       "title": "AoC 2024 day 24 (examples only; input pending from Matt): crossed wires adder, solve, prove, log gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7152,6 +7152,18 @@
         "decision"
       ],
       "body": "Day 12 finding 5: a _ standing for a function argument wasn't solved; the day wrote the lambdas out. Day 22 finding 5 is similar: _ for List.memFlatMapIntro's function never finished against a big list (1.6 s with the lambdas written).",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 816,
+      "title": "Day 24 findings: repair misses in 4/110 generated adders (try every output in the faulty bit); a user constructor And/Or hiding the prelude's needs a message naming what was found; omega given goals expanded into Nat.divFuel; Text.padLeft, Option.toList, list-of-options sequence; E-MATCH-MOTIVE/E-ARITY name the unfolded definition; Ok { … } bracket hint; parse 'got' shows next token; --no-cache flag for the project only; searching lemmas by type; List builders (map, filter, append, …) overflow the stack on 3M items",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
