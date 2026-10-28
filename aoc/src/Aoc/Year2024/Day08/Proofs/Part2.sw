@@ -1,5 +1,5 @@
 -- Part 2: the grid points in line with two antennas `first` and `second`
--- are `first` plus whole steps of `stepToward first second`
+-- are `first` plus whole steps of `first.stepToward second`
 -- (`onLineOfCross`), because the gcd makes the step's parts coprime
 -- (`stepFacts`, from Bézout's identity); and on the map those steps are
 -- fewer than its height or width (`stepsBound`), which `harmonics` takes
@@ -55,9 +55,9 @@ theorem divideByFacts (difference: Position) (goal: Prop) (rowTimes: Nat) (colum
 -- nonzero multiple of it, and its parts are coprime (some whole combination
 -- of them is 1).
 theorem stepFacts (start: Position) (end: Position) (distinct: Not (start = end)) (goal: Prop)
-    (use: (scale: Int) → Not (scale = 0) → end.row - start.row = scale * (stepToward start end).row →
-      end.column - start.column = scale * (stepToward start end).column → (s: Int) → (t: Int) →
-      s * (stepToward start end).row + t * (stepToward start end).column = 1 → goal):
+    (use: (scale: Int) → Not (scale = 0) → end.row - start.row = scale * (start.stepToward end).row →
+      end.column - start.column = scale * (start.stepToward end).column → (s: Int) → (t: Int) →
+      s * (start.stepToward end).row + t * (start.stepToward end).column = 1 → goal):
     goal :=
   let difference := end.minus start
   let rowSize := Int.natAbs difference.row
@@ -114,15 +114,15 @@ theorem stepsBound (fr: Int) (pr: Int) (er: Int) (k: Int) (n: Nat) (a: Nat) (p: 
 -- A point a whole number of steps from `start`, within the map's reach, is
 -- among the harmonics.
 theorem harmonicsOfSteps (city: City) (start: Position) (end: Position) (point: Position): (k: Int) →
-    point.row = start.row + (stepToward start end).row * k → point.column = start.column + (stepToward start end).column * k →
+    point.row = start.row + (start.stepToward end).row * k → point.column = start.column + (start.stepToward end).column * k →
     Int.natAbs k < Nat.max city.height city.width → point ∈ city.harmonics start end
   | OfNat count, rowAt, columnAt, bound =>
-    let step := stepToward start end
+    let step := start.stepToward end
     List.memFlatMapIntro ((count: Nat) => [start.plus (step.times count.toInt), start.minus (step.times count.toInt)]) count point
       (List.range (Nat.max city.height city.width)) (List.memRangeFromIntro count (Nat.max city.height city.width) 0 (omega) (omega))
       (Inl (positionEq (start.plus (step.times count.toInt)) point (Eq.sym rowAt) (Eq.sym columnAt)))
   | NegSucc count, rowAt, columnAt, bound =>
-    let step := stepToward start end
+    let step := start.stepToward end
     List.memFlatMapIntro ((count: Nat) => [start.plus (step.times count.toInt), start.minus (step.times count.toInt)]) (Succ count) point
       (List.range (Nat.max city.height city.width)) (List.memRangeFromIntro (Succ count) (Nat.max city.height city.width) 0 (omega) (omega))
       (Inr (Inl (positionEq (start.minus (step.times (Succ count).toInt)) point (ring [rowAt]) (ring [columnAt]))))
@@ -131,7 +131,7 @@ theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firs
     (point: Position) (inside: city.contains point = True):
     Iff (point ∈ city.harmonics first second) (inLine point first second = True) :=
   stepFacts first second distinct _ (scale scaleNonzero rows columns s t bezout =>
-    let step := stepToward first second
+    let step := first.stepToward second
     let reach := Nat.max city.height city.width
     let secondRow: second.row = first.row + scale * step.row := ring [rows]
     let secondColumn: second.column = first.column + scale * step.column := ring [columns]
