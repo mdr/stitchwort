@@ -5536,6 +5536,8 @@ mod tests {
             ("!a = b", format!("(Eq ({n} a) b)")),
             ("f (!a)", format!("(f ({n} a))")),
             ("f !a", format!("(f ({n} a))")),
+            // `¬` is the same token as `!`.
+            ("f ¬x", format!("(f ({n} x))")),
             ("f !x.done", format!("(f ({n} x.done))")),
             ("f !g x", format!("((f ({n} g)) x)")),
             ("f !a !b", format!("((f ({n} a)) ({n} b))")),
