@@ -3007,7 +3007,8 @@ fn failed(
     // omega treats as an unknown number: std has the facts about it.
     let opaque_division = quoter.atoms.iter().enumerate().any(|(i, atom)| {
         !quoter.divisions.iter().any(|d| d.q == i)
-            && cx.show(&atom.value).starts_with("Nat.divFuel")
+            && matches!(&atom.value, Value::Neutral(Head::Def(id), _)
+                if cx.g().registry.is_def(Builtin::DivFuel, *id))
     });
     if opaque_division {
         d = d.with_note(

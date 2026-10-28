@@ -11,7 +11,7 @@ expression: output
     │ 
     │ Note 1: goal after the rule before this one: `n + Succ n = n + Succ n`
     │ 
-    │ Note 2: the search compares what terms compute to: it looked for `Succ (Nat.divFuel n n 1)`, what `Succ n / 1` computes to, in what the goal computes to
+    │ Note 2: the search compares what terms compute to: it looked for `Succ (n / 1)`, what `Succ n / 1` computes to, in what the goal computes to
     │ 
     │ Note 3: the goal already holds by computing after the rule before this one, so `rfl` proves it: this rule and what follows it aren't needed
     │ 

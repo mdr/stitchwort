@@ -14,7 +14,7 @@ use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, Globals};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
-use crate::value::{Value, quote, quote_shown};
+use crate::value::{Value, quote, quote_shown, same_term};
 
 /// A declaration a printed name stands for.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -1023,7 +1023,24 @@ impl<'g> Printer<'g> {
         args: &[&'t Term],
     ) -> Option<(&'static str, Prec, &'t Term, &'t Term)> {
         if let (Some((op, prec)), [lhs, rhs]) = (self.infix(id), args) {
+            // `n - n / d * d`, as `Nat.mod` unfolds, is `n % d`.
+            if self.g.registry.is_def(Builtin::Sub, id)
+                && let Term::App(..) = rhs.strip_loc()
+                && let (Term::Def(product), factors) = explicit_spine(rhs)
+                && self.g.registry.is_def(Builtin::Mul, *product)
+                && let [quotient, divisor] = factors[..]
+                && let Some((n, d)) = self.quotient(quotient)
+                && same_term(n, lhs)
+                && same_term(d, divisor)
+            {
+                return Some(("%", Prec::Mul, lhs, d));
+            }
             return Some((op, prec, lhs, rhs));
+        }
+        if self.g.registry.is_def(Builtin::DivFuel, id)
+            && let Some((n, d)) = self.quotient_args(id, args)
+        {
+            return Some(("/", Prec::Mul, n, d));
         }
         let path = &self.g.def(id).path;
         let (op, prec, field) = match path.strip_prefix("Std.")? {
@@ -1035,6 +1052,32 @@ impl<'g> Printer<'g> {
         };
         match (field, args) {
             (true, [_, lhs, rhs]) | (false, [lhs, rhs]) => Some((op, prec, lhs, rhs)),
+            _ => None,
+        }
+    }
+
+    /// `n` and `d` if `term` is `n / d` in the form `Nat.mod` unfolds to:
+    /// `Nat.divFuel n n d`, or `Nat.div n d`.
+    fn quotient<'t>(&self, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
+        let (head, args) = explicit_spine(term);
+        let Term::Def(id) = head else {
+            return None;
+        };
+        if self.g.registry.is_def(Builtin::Div, *id)
+            && let [n, d] = args[..]
+        {
+            return Some((n, d));
+        }
+        self.quotient_args(*id, &args)
+    }
+
+    /// `n` and `d` if the explicit arguments of a call of `Nat.divFuel` are
+    /// `n n d`: the fuel is the number divided.
+    fn quotient_args<'t>(&self, id: DefId, args: &[&'t Term]) -> Option<(&'t Term, &'t Term)> {
+        match args {
+            [fuel, n, d] if self.g.registry.is_def(Builtin::DivFuel, id) && same_term(fuel, n) => {
+                Some((n, d))
+            }
             _ => None,
         }
     }

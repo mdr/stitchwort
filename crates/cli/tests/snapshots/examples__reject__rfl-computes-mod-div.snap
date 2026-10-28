@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/rfl-computes-mod-div.sw:5:53 ]
+   │
+ 5 │ theorem notEqual (a: Nat): 0 + a % 2 + a / 2 = a := rfl
+   │                                                     ─┬─  
+   │                                                      ╰─── `0 + (a % 2) + (a / 2)` and `a` aren't equal
+   │ 
+   │ Note 1: computing the left side gives `a % 2 + (a / 2)`
+   │ 
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 3: this statement is false; a counterexample:
+   │           a = 2
+   │         `0 + (a % 2) + (a / 2) = a` is false:
+   │           left:  1
+   │           right: 2
+───╯
