@@ -440,7 +440,7 @@ def Parse.line (line: Text) (parser: () → {Parse} a): {Fail} a :=
 
 -- `parser` on each line of `input`, split as `Text.lines` splits, else fail
 -- with "line 3, column 5: expected ','" for the first line that fails.
--- Lines are numbered from 1, as `Aoc.Common.parseLines` numbers them.
+-- Lines are numbered from 1.
 def Parse.eachLine (input: Text) (parser: () → {Parse} a): {Fail} (List a) :=
   input.lines.withIndex.map (((index, line)) =>
     match Parse.whole line.toList parser with
@@ -652,6 +652,6 @@ test "Parse: eachLine, error" :=
   Fail.toResult (() => Parse.eachLine "1,2\n3x4" (() => Parse.sepBy1 Parse.nat (() => Parse.char ','))) ==
     Err "line 2, column 2: expected ',' or the end"
 test "Parse: eachLine, empty" := Fail.toResult (() => Parse.eachLine "" Parse.nat) == Ok []
--- A failure keeps its line under `Fail.context`, as `Aoc.Common.parseLines` does.
+-- A failure keeps its line under `Fail.context`.
 test "Parse: eachLine, in context" :=
   Fail.toResult (() => Fail.context "input" (() => Parse.eachLine "x" Parse.nat)) == Err "input: line 1, column 1: expected a number"

@@ -9,11 +9,12 @@
 -- `Aoc.Year2024.Day02.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day02
-import Aoc.Common (parseLines)
-import Std (Fail, IO, List, Nat, Text)
+import Aoc.Common (spacedNat)
+import Std (Fail, IO, List, Nat, Parse, Text)
+import Std.Parse (many1)
 
 def main(): {IO, Fail} () :=
-  let reports := parseReports IO.readAllLines()
+  let reports := parseReports IO.readAll()
   IO.print "Part 1: ${solvePart1 reports}"
   IO.print "Part 2: ${solvePart2 reports}"
 
@@ -21,12 +22,13 @@ def main(): {IO, Fail} () :=
 type Report = { levels: List Nat }
 
 -- One report per line, its levels separated by spaces: "7 6 4 2 1". A failure
--- names the line.
-def parseReports (lines: List Text): {Fail} (List Report) := parseLines lines parseReport
+-- names the line and column.
+def parseReports (input: Text): {Fail} (List Report) := Parse.eachLine input reportLine
 
-def parseReport (line: Text): {Fail} Report :=
-  let levels := line.words.map Text.toNatOrFail
-  Fail.ensure (levels != []) "expected levels like '7 6 4 2 1', got an empty line"
+-- At least one level. Two numbers next to each other must have spaces
+-- between them, or they would be one number.
+def reportLine(): {Parse} Report :=
+  let levels := many1 spacedNat
   { levels }
 
 -- From `lower` to `higher` is a rise of one to three.

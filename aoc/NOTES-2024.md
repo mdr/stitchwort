@@ -59,7 +59,8 @@ with a path) all let one project use another. Either a path dependency in
 
 Fixed: the years are one project, `aoc/`, with 2024 in `Aoc.Year2024`, 2025
 in `Aoc.Year2025` and the shared helpers in `Aoc.Common`; day 1 uses
-`Aoc.Common.parseLines`.
+`Aoc.Common.parseLines`. Since 28 October the days with one record per line
+read them with `Std.Parse`'s `Parse.eachLine`, and `parseLines` is gone.
 
 ### 2. No `List.sumByPerm`: a sum is the same in any order
 
@@ -684,6 +685,9 @@ and `List.getLast?_concat`
 What I did: wrote `takeSucc` and `lastSnoc` in the proofs, three lines each.
 Fix: add both beside `List.takeAll` and `List.lastMap`.
 
+Fixed: std has `List.takeSucc` (List/Index.sw) and `List.lastSnoc`
+(List/Toolkit.sw); the proofs use them.
+
 #### 11. Small ones
 
 - `|>` isn't allowed in a `calc` step: `_ = List.range all |> .sumBy f :=
@@ -704,25 +708,6 @@ Release build, wall-clock times, with other work running on the machine:
 | `stitchwort check --no-cache Aoc.Year2024.Day03.Proofs` | 1.3 s |
 | `stitchwort test Aoc.Year2024.Day03 --no-cache` (32 tests) | 2.2 s |
 | `stitchwort run Aoc.Year2024.Day03.main` on the input (18 KB) | 0.63 s |
-
-### Ranked
-
-Std.Parse:
-
-1. No `findAll` (item 1): the core of the puzzle had to be hand-written.
-2. Scanning speed and memory (item 2): 1.2 GB for 180 KB.
-3. No bounded repetition (item 3).
-4. `Parse.mark()` inside a comparison passed as an argument (item 5).
-5. The per-operation lemmas need the continuation spelled out (item 6).
-6. `ensure` reports after the digits, not at the number (item 4).
-
-General:
-
-1. `rewrite` against unfolded goals (item 8), again.
-2. `n + 0` and `if c then a else a` (item 9).
-3. A record literal before the argument that fixes its type (item 7).
-4. Missing `take`-snoc and `last`-of-append lemmas (item 10).
-5. `|>` in `calc` steps (item 11).
 
 ## Day 4: Ceres Search
 
@@ -864,6 +849,9 @@ with the extra `&& …` the only difference. `cases` proves it. Fix: a better
 message (item 3) would have made this a minute's work; std could also state
 `List.allCons`-style lemmas so a proof can avoid relying on computation.
 
+Fixed: std has `List.allCons` and `List.anyCons` (`List.all (Cons x xs) p = (p x ∧
+List.all xs p)`, and `∨` for `any`), and `Bool.andTrue` for the last step.
+
 ### 5. `rewrite` with a hole can't solve an instance argument
 
 ```stitchwort
@@ -915,6 +903,15 @@ Written in `Proofs/Lists.sw` (228 lines), all general:
 
 Fix: move these to `List/Index.sw` and `List/Toolkit.sw`; make
 `Option.decSome`'s `toBool` reduce (or add `Option.someEq`).
+
+Fixed: std has them, and `Proofs/Lists.sw` is gone. `List.getDrop`,
+`List.getZip`, `List.getZipWith3`/`4` (as `Option.map2`/`3`/`4` of the
+elements), `List.lengthZipWithLe`/`3Le`/`4Le` and the `zipWith3`/`zipWith4`
+empty-list lemmas are in List/Toolkit.sw; `List.sumByGet`,
+`List.sumByZipWith`/`3`/`4`, `List.sumByRangeZero`, `List.sumByRangeExtend`
+and `List.sumByRangeSkipZeros` in List/Index.sw; `List.sumByNestedAdd` in
+List/Sort.sw; `Option.map2`/`3`/`4` with `Option.getOrElseMap2`/`3`/`4` (the
+`at4OrElse` step) and `Option.someBeqSome` in Option/Option.sw.
 
 ### 8. A `let` inside parentheses doesn't parse
 
@@ -993,3 +990,311 @@ input as a test took about 0.5 s more (not kept: the proofs cover it).
    `zipWith3` (Haskell's `Data.List` has
    [`zipWith4` to `zipWith7`](https://hackage.haskell.org/package/base/docs/Data-List.html)).
    The prelude hash snapshot gains one line.
+
+1. A trailing blank line is an error with a misleading message (item 1).
+   Fix: let `Parse.all` allow trailing blank lines.
+2. A missing section break reports the wrong thing (item 2). Fix: a
+   `section` combinator, or label the line parsers in the guide's example.
+3. `sections` doesn't fit two kinds of section (item 3). Fix: document the
+   `lines`/`blankLine`/`lines` shape beside it, or add `section p`.
+4. Parser names shadow value names (item 4). Fix: a naming convention in the
+   guide.
+5. Whole-input parsing is the run time and memory (Performance). Fix: the
+   proposal's native text cursor, only if big inputs matter.
+
+General:
+
+1. `||` elaborating to `if b then True else False` inside effect-polymorphic
+   lambdas (item 1): the most time lost, and the message gives no hint.
+   Fix: plain `Bool.or` when the row is `Total`.
+2. No record eta or `T.ext` (item 2). Fix: generate `T.ext` for records.
+3. No pair equality lemma (item 3). Fix: `Pair.eqAnd` in std.
+4. Missing `all`/`any` lemmas (item 4). Fix: add the four to std.
+5. `test` as a name (item 5). Fix: name the keyword in the error.
+
+## Day 5: Print Queue
+
+Page ordering rules, one per line (`47|53`: if an update has both pages, 47
+must be printed before 53), a blank line, then updates, one per line, each a
+list of pages (`75,47,61,53,29`). Part 1 adds up the middle pages of the
+updates already in the right order. Part 2 puts each of the others in the
+right order and adds up their middle pages (part 2's wording from the public
+copy at <https://github.com/romellem/advent-of-code/blob/master/2024/5/README.md>).
+Answers on Matt's input: 4569 and 6456, cross-checked with a Python script
+(`/usr/bin/python3 -I`, using `functools.cmp_to_key`); the example gives 143
+and 123. Compiler built from `main` at 7fe3bba8, 28 October 2026.
+
+The first parser with `Std.Parse` read the input, and the program printed
+the right answers on the first run:
+
+```stitchwort
+def rule(): {Parse} Rule :=
+  let before := nat()
+  char '|'
+  let after := nat()
+  { before, after }
+
+def update(): {Parse} Update := { pages = sepBy1 nat (() => char ',') }
+
+def printQueue(): {Parse} PrintQueue :=
+  let rules := lines rule
+  blankLine()
+  let updates := lines update
+  { rules, updates }
+
+def parsePrintQueue (input: Text): {Fail} PrintQueue := Parse.all input printQueue
+
+def solvePart1 (queue: PrintQueue): Nat :=
+  let precedes := mustPrecede (ruleSet queue.rules)
+  queue.updates.filter (update => inOrder precedes update.pages) |> .sumBy middlePage
+
+def solvePart2 (queue: PrintQueue): Nat :=
+  let precedes := mustPrecede (ruleSet queue.rules)
+  queue.updates.filter (update => !(inOrder precedes update.pages))
+    |> .map (reorder precedes)
+    |> .sumBy middlePage
+```
+
+`inOrder` checks each page against the pages after it, and `reorder` sorts
+with `List.sortWith` and the test "may come before unless a rule says the
+next page goes first", `page next => !(precedes next page)`. The rules are a
+`Set (Nat, Nat)`.
+
+**The assumption for part 2.** On each update's pages, the rules are a strict
+total order: no two pages are ordered both ways, any two different pages are
+ordered one way, and the order is transitive (`Spec.StrictTotalOrderOn`). It
+isn't a lawful order on all pages: the real input has rules X|Y and Y|Z with
+no X|Z (a test says so), so no `Ord` instance fits, and `Ord.reverse` doesn't
+help. The test "real input, the rules order each update's pages" checks the
+assumption on all 197 updates: their pages are different, any two are
+ordered by exactly one rule, and the sorted update is in order (which, with
+the first two, makes the order transitive on those pages).
+
+Proved, for every print queue (`Aoc.Year2024.Day05.Proofs`, 280 lines, no
+axioms), against a spec (`Spec/Spec.sw`) in the puzzle's words, where a rule
+X|Y is followed "if both page number X and page number Y are … part of an
+update, page number X must be printed at some point before page number Y" (no
+copy of Y comes before a copy of X):
+
+- `inOrderCorrect`: the program's pairwise check, through the rule set, is
+  "every rule is followed". On the way, `followsRuleIsPrintedBefore`: the
+  puzzle's "if both pages are in the update" adds nothing, and
+  `mustPrecedeCorrect`: looking a pair up in the set is asking whether some
+  rule says so.
+- `part1Correct`: part 1 adds up the middle pages of the updates in the right
+  order.
+- `reorderCorrect` (under the assumption): the reordered update has the same
+  pages (`List.Perm`) and is in the right order.
+- `correctOrderingUnique` (under the assumption): any two correct orderings
+  of an update are the same, so "the" correct order the puzzle speaks of is
+  well defined.
+- `part2Correct`: given the assumption for every update, part 2 adds up the
+  middle pages of the updates not in the right order, after any correct
+  ordering of each.
+
+The spec reuses the program's `middlePage` (index `length / 2`), which is the
+puzzle's "middle page number" for the odd-length updates of the input (a test
+checks all are odd).
+
+Not proved: that the parser reads the text it's given correctly (house rule:
+theorems are over the parsed model), and that the assumption holds for the
+real input, which is a run-time test, not a theorem. Proving it would need
+the transitivity check as a theorem about a concrete 1,176-rule input, which
+evaluation in the kernel won't do in reasonable time.
+
+The proofs went much better than the size suggests. `std` already had the
+right sort theorems: `List.sortWithSortedOn` and `List.pairwiseOfSortedOn`
+need the test total and transitive only on the values being sorted, which is
+exactly the per-update assumption. Lean's `List.pairwise_mergeSort` needs
+`trans` and `total` for all values
+([Init.Data.List.Sort.Lemmas](https://leanprover-community.github.io/mathlib4_docs/Init/Data/List/Sort/Lemmas.html)),
+so it wouldn't apply directly here; C++'s `std::sort` requires a strict weak
+order on all values ([Compare](https://en.cppreference.com/w/cpp/named_req/Compare)).
+The uniqueness proof copies `List.sortedPermEq`'s shape, with totality only
+on the update's pages.
+
+### Std.Parse
+
+The parser was the easiest part of the day: four short functions, each
+reading like the input. Error messages, from the tests (`Parse.all`):
+
+| Input | Message |
+| --- | --- |
+| a bad rule, `3x4` on line 2 | `line 2, column 2: expected '\|'` |
+| a rule with no second page, `3\|` | `line 2, column 3: expected a number` |
+| a bad update, `3,x` on line 4 | `line 4, column 3: expected a number` |
+| a bad separator in an update, `3;4` | `line 4, column 2: expected ',' or a line break or the end` |
+| a rule among the updates, `3\|4` | `line 4, column 2: expected ',' or a line break or the end` |
+| no blank line between the sections | `line 2, column 2: expected '\|'` |
+| no updates after the blank line | `line 3, column 1: expected a number` |
+| two blank lines between the sections | `line 3, column 1: expected a number` |
+| a blank line at the end of the input | `line 4, column 1: expected a number or the end` |
+
+All point at the right place. The friction:
+
+1. **A blank line at the end of the input is an error, and the message is
+   confusing.** `Parse.all` allows one final line break; a file ending in
+   `\n\n` fails with "line 4, column 1: expected a number or the end" when
+   the cursor *is* at the end but for one line break. Editors and
+   copy-pasting add these. aoc-parse's `section` reads lines "followed by
+   either a blank line or the end of input"
+   ([aoc-parse README](https://github.com/jorendorff/aoc-parse)). What I did:
+   nothing; Matt's input has no final line break at all. Fix: let `Parse.all`
+   allow any trailing blank lines (or whitespace).
+2. **A missing blank line between sections is reported as a bad rule.**
+   `1|2\n1,2` gives "expected '|'" at the update's comma, not "expected a
+   blank line": the furthest failure wins, and the rule parser got further
+   than `blankLine` did. Correct by the furthest-failure rule, but the hint
+   the reader needs is the other one. What I did: a test pins the message.
+   Fix: `Parse.label "a rule like 47|53"` on the rule would make it "expected
+   a rule like 47|53"; or a combinator for a section, `section rule`, that
+   reports "expected a blank line or a rule" from the line start.
+3. **`sections` is for repeated sections of one kind only.** The brief
+   suggests `sections` for this input, but its two sections hold different
+   things (rules, then updates), so `sections` (one parser for every block)
+   doesn't fit; `lines rule`, `blankLine()`, `lines update` does, as in
+   `examples/accept/parse-aoc-day05.sw`. aoc-parse writes this
+   `section(p1) section(p2)` (README, above). Fix: document the
+   two-different-sections shape next to `sections` in the guide; a
+   `section p` (lines of `p`, then a blank line or the end) would make it one
+   word per section.
+4. **Parser names collide with value names.** The parser for an update is
+   naturally `update()`, and then a lambda parameter `update` (the natural
+   name for an update in `solvePart1`) warns
+   `W-LAMBDA-SHADOW: this lambda's first parameter `update` hides the function `update``
+   in the proofs. The program's lambdas didn't warn, only the proofs' (which
+   import the namespace with `(..)`). What I did: called the parameters
+   `queued` in the proofs. Fix: suggest a naming convention for parsers in
+   the guide (`updateLine`, or a `Parsers` sub-namespace).
+5. **`Parse.all` is slow and large on big inputs**, as §7.4 of the proposal
+   says: see the next section. Not a problem at AoC sizes.
+
+### Performance
+
+Release build, Apple silicon, other work on the machine; user time:
+
+| command | time | peak memory |
+| --- | --- | --- |
+| `stitchwort check --no-cache` (whole project) | 5.0 s | |
+| `stitchwort check` (warm) | 1.2 s | |
+| `stitchwort check --no-cache Aoc.Year2024.Day05.Proofs` | 1.6 s | |
+| `stitchwort test Aoc.Year2024.Day05 --no-cache` (34 tests) | 2.1 s | |
+| `run Aoc.Year2024.Day05.main` on the input (1,373 lines, 15 KB) | 0.58 s | 130 MB |
+| the same, parsing only | 0.50 s | 129 MB |
+| `main` on the updates repeated 10 times (3,148 lines) | 1.6 s | 240 MB |
+| `main` on the updates repeated 100 times (20,876 lines) | 14.0 s | 1,388 MB |
+| the same, parsing only | 6.1 s | 1,387 MB |
+
+On the real input, parsing is most of the run (about 0.3 s after start-up),
+and the peak memory is the parser's: it holds the whole input as a
+`List Char`. At 100 times the input (0.9 MB) the parse takes 6 s and 1.4 GB,
+about 1,500 bytes a character: more than the 420 bytes a character the
+proposal measured for the list alone (`parser-combinators.md` §7.2), so the
+parse itself holds a good deal more. I didn't find what. The solving is cheap: `Set` lookups and a merge sort of at most 23
+pages. Nothing to change for AoC; for large sectioned input the proposal's
+native text cursor (§7.3) is the fix. `machine aoc_agrees` samples every
+other day by default, and 2024 day 5 falls between samples; its tests other
+than the real-input ones ran there and agree.
+
+### 1. `a || b` with an effectful `b` elaborates differently inside a lambda
+
+The proof of `noRuleBroken` stated
+`rules.all (rule => !(page == rule.after) || !(later.any (== rule.before)))`
+in a theorem, and `allAnd rules (rule => …same text…) …` in its proof; they
+didn't match:
+
+```text
+expected `List.all later (laterPage => not (ruleSays rules laterPage page)) = List.all rules (rule => not (Decidable.toBool (Nat.decEq page rule.after)) || not (List.any later (== rule.before)) && True)`, but this has type `… = List.all rules (rule => not (Decidable.toBool (Nat.decEq page rule.after)) || not (List.any later (== rule.before)))`
+```
+
+The `&& True` is the clue. A smaller case, `xs.all (x => !(p == x) || !(ys.any (== x))) = True := rfl`, shows the elaborated lambda:
+
+```text
+`List.all xs (x => if not (Decidable.toBool (Nat.decEq p x)) then True else Effect.bindDv Total Empty (Effect.bindDv Total Empty (List.any ys (== x)) (%5 => not %5)) (%cond => if %cond then True else False))` and `True` aren't equal
+```
+
+`List.all`'s test is effect-polymorphic (`a → {e} Bool`), so the lambda is
+elaborated as an effectful computation, and `||` with a right side that calls
+another effect-polymorphic function (`List.any`) becomes
+`if b then True else False`, which isn't `b` by computing when `b` is a
+variable. The same text written where the lambda is known to be pure
+elaborates to plain `a || b`. So two copies of one expression aren't equal by
+`rfl`, and the message doesn't say why. What I did: a named `def keptBy` for the test,
+used in both places. Fix: elaborate `||`/`&&` to `Bool.or`/`Bool.and` of the
+two results when the row turns out to be `Total`, or normalise
+`if b then True else False` to `b` in conversion.
+
+### 2. No eta for records
+
+`Eq.cong (pages => ({ pages }: Update)) same` doesn't prove `first = second`
+for a one-field record:
+
+```text
+expected `first = second`, but this has type `{ pages = first.pages } = { pages = second.pages }`
+```
+
+Lean 4 has eta for structures by definition, so `p = { x := p.x, y := p.y }`
+holds by `rfl` (an example in
+[Multiple-inheritance hazards in dependently-typed algebraic hierarchies](https://arxiv.org/pdf/2306.00617)).
+What I did: `updateExt` by record patterns,
+`| { pages = firstPages }, { pages = secondPages }, same => rewrite same in rfl`.
+Microtypes get an `.ext` theorem (syntax.md); a one-field record like
+`Update` doesn't. Fix: generate `T.ext` for every record, or add record eta
+to conversion.
+
+### 3. No pair equality lemma
+
+`Set.containsFromList` and `Map.Spec.sameKeyDecide` turn set membership into
+`(a, b) == (c, d)`, and nothing in std says that is
+`a == c && b == d`. `rfl` fails on it:
+
+```text
+`Decidable.toBool (Pair.decMk rule.before x rule.after y (Nat.decEq rule.before x) (Nat.decEq rule.after y))` and `Decidable.toBool (Nat.decEq rule.before x) && Decidable.toBool (Nat.decEq rule.after y)` aren't equal
+```
+
+What I did: `pairEqual`, a `match` on the two `Nat.decEq`s, `rfl` in each arm.
+Fix: `Pair.eqAnd` in std.
+
+Fixed: std has `Pair.mkBeqMk`, `((x1, y1) == (x2, y2)) = (x1 == x2 ∧ y1 == y2)`
+for any types with `DecEq` (Option/Option.sw); the proofs use it.
+
+### 4. Missing `List.all`/`any` lemmas
+
+Proved locally, each a few lines: `allTrue` (every element passes), `anyFalse`,
+`allAnd` (`xs.all (x => p x && q x) = (xs.all p && xs.all q)`), and
+`noneRelated` (`xs.all (x => !(ys.any (related x)))` is the same read with
+`ys` outside). Fix: move them to std's toolkit.
+
+Fixed: std has `List.allTrue`, `List.anyFalse`, `List.allAnd` (List/Toolkit.sw)
+and `List.allNotAnyComm` (List/Sort.sw); the proofs use them.
+
+### 5. `test` can't be a parameter name
+
+`(test => Nat.addCancelLeft (Bool.toNat (test x)) …)` (copied from
+`List.sortedPermEq`'s `q`, renamed for readability) gives
+
+```text
+[E-PARSE] Error: expected an expression, but found `test`
+```
+
+`test` is a keyword. What I did: `property`. Fix: say "`test` is a keyword"
+in the message.
+
+### Ranked
+
+Std.Parse:
+
+1. No `findAll` (item 1): the core of the puzzle had to be hand-written.
+2. Scanning speed and memory (item 2): 1.2 GB for 180 KB.
+3. No bounded repetition (item 3).
+4. `Parse.mark()` inside a comparison passed as an argument (item 5).
+5. The per-operation lemmas need the continuation spelled out (item 6).
+6. `ensure` reports after the digits, not at the number (item 4).
+
+General:
+
+1. `rewrite` against unfolded goals (item 8), again.
+2. `n + 0` and `if c then a else a` (item 9).
+3. A record literal before the argument that fixes its type (item 7).
+4. Missing `take`-snoc and `last`-of-append lemmas (item 10).
+5. `|>` in `calc` steps (item 11).

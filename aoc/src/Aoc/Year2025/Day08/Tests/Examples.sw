@@ -7,17 +7,18 @@ import Std (Fail, List, Map, Nat, Option, Result, Text)
 
 -- The puzzle's 20 boxes (also in aoc/examples/2025/day08.txt), or why they
 -- didn't parse.
-def example: Result Boxes Text := Fail.toResult (() => parseBoxes (include "../../../../../examples/2025/day08.txt").lines)
+def example: Result Boxes Text := Fail.toResult (() => parseBoxes (include "../../../../../examples/2025/day08.txt"))
 
 def box (x: Nat) (y: Nat) (z: Nat): Point := { x, y, z }
 
-def pointsOf (lines: List Text): Result (List Point) Text := Fail.toResult (() => parsePoints lines)
+def pointsOf (input: Text): Result (List Point) Text := Fail.toResult (() => parsePoints input)
 
-test "parse a point" := pointsOf ["162,817,812"] == Ok [box 162 817 812]
-test "parse rejects other lines" := pointsOf ["1,2,3", "1,b,3"] == Err "line 2: expected a box like 162,817,812, got '1,b,3'"
-test "parse rejects too few and too many" := (pointsOf ["1,2"], pointsOf ["1,2,3,4"]) == (Err "line 1: expected a box like 162,817,812, got '1,2'", Err "line 1: expected a box like 162,817,812, got '1,2,3,4'")
-test "parse rejects a blank line" := pointsOf ["1,2,3", ""] == Err "line 2: expected a box like 162,817,812, got ''"
-test "parse allows spaces" := pointsOf [" 1, 2 ,3 "] == Ok [box 1 2 3]
+test "parse a point" := pointsOf "162,817,812" == Ok [box 162 817 812]
+test "parse rejects other lines" := pointsOf "1,2,3\n1,b,3" == Err "line 2, column 3: expected a number"
+test "parse rejects too few and too many" :=
+  (pointsOf "1,2", pointsOf "1,2,3,4") == (Err "line 1, column 4: expected ','", Err "line 1, column 6: expected the end")
+test "parse rejects a blank line" := pointsOf "1,2,3\n\n" == Err "line 2, column 1: expected a number"
+test "parse allows spaces" := pointsOf " 1, 2 ,3 " == Ok [box 1 2 3]
 test "the example loads" := example.isOk
 test "example has 20 boxes" := example.map (boxes => boxes.points.length) == Ok 20
 test "squared distance" := (box 0 0 0).squaredDistance (box 1 2 2) == 9 ∧ (box 5 5 5).squaredDistance (box 2 9 5) == 25

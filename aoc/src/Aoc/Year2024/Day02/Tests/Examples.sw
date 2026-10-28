@@ -5,18 +5,18 @@ namespace Aoc.Year2024.Day02.Tests
 import Aoc.Year2024.Day02 (..)
 import Std (Fail, List, Text)
 
-def example: List Text := """
+def example: Text := """
   7 6 4 2 1
   1 2 7 8 9
   9 7 6 2 1
   1 3 2 4 5
   8 6 4 4 1
   1 3 6 7 9
-  """.lines
+  """
 
 def exampleReports: List Report := Fail.orElse [] (() => parseReports example)
 
-def parsed (lines: List Text): Result (List Report) Text := Fail.toResult (() => parseReports lines)
+def parsed (input: Text): Result (List Report) Text := Fail.toResult (() => parseReports input)
 
 def safe (levels: List Nat): Bool := isSafe { levels }
 
@@ -26,11 +26,11 @@ test "example, part 1" := solvePart1 exampleReports == 2
 test "example, part 2" := solvePart2 exampleReports == 4
 test "each example report, part 1" := exampleReports.map isSafe == [True, False, False, False, False, True]
 test "each example report, part 2" := exampleReports.map isSafeWithDampener == [True, False, False, True, True, True]
-test "parse a report" := parsed ["7 6 4 2 1"] == Ok [{ levels = [7, 6, 4, 2, 1] }]
-test "parse extra spaces" := parsed ["  1   3 "] == Ok [{ levels = [1, 3] }]
-test "a level that isn't a number" := parsed ["1 2", "1 x 3"] == Err "line 2: expected a whole number, got 'x'"
-test "an empty line" := parsed ["1 2", ""] == Err "line 2: expected levels like '7 6 4 2 1', got an empty line"
-test "no lines" := parsed [] == Ok []
+test "parse a report" := parsed "7 6 4 2 1" == Ok [{ levels = [7, 6, 4, 2, 1] }]
+test "parse extra spaces" := parsed "  1   3 " == Ok [{ levels = [1, 3] }]
+test "a level that isn't a number" := parsed "1 2\n1 x 3" == Err "line 2, column 3: expected a number or the end"
+test "an empty line" := parsed "1 2\n\n" == Err "line 2, column 1: expected a number"
+test "no lines" := parsed "" == Ok []
 test "one level is safe" := safe [5]
 test "two equal levels are unsafe" := !(safe [5, 5])
 test "a rise of three is safe" := safe [1, 4]

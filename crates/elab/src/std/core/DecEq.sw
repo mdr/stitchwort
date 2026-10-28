@@ -23,6 +23,12 @@ instance Text.instDecEq: DecEq Text := { decide = Text.decEq }
 
 instance Ordering.instDecEq: DecEq Ordering := { decide = Ordering.decEq }
 
+-- `()` has one value, so any two are equal.
+def Builtin.UnitType.decEq: (x: Builtin.UnitType) → (y: Builtin.UnitType) → Decidable (x = y)
+  | Builtin.UnitType.UnitValue, Builtin.UnitType.UnitValue => Yes rfl
+
+instance Builtin.UnitType.instDecEq: DecEq Builtin.UnitType := { decide = Builtin.UnitType.decEq }
+
 instance List.instDecEq [auto decEq: DecEq a]: DecEq (List a) :=
   { decide = List.decEq (x y => DecEq.decide x y) }
 

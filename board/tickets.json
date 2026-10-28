@@ -1,5 +1,5 @@
 {
-  "next": 724,
+  "next": 728,
   "tickets": [
     {
       "id": 13,
@@ -5861,7 +5861,7 @@
     {
       "id": 712,
       "title": "AoC 2024 day 5: solve with Std.Parse once stage 1 lands, prove, log gaps (overnight)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5873,7 +5873,7 @@
     {
       "id": 713,
       "title": "Std.Parse stage 2: rewrite the AoC parsers (2025 and 2024) with Std.Parse where it reads better; answers and error meanings unchanged (overnight)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5909,7 +5909,7 @@
     {
       "id": 716,
       "title": "rfl error: when both sides print alike, show the first differing subterm, and only say 'differ only in arguments the compiler fills in' when true (AoC 2024 day 4)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5992,7 +5992,55 @@
     },
     {
       "id": 723,
-      "title": "std: List.takeSucc (take (k+1) = take k ++ [getOr k]) and lastSnoc (AoC 2024 day 3)",
+      "title": "std: List.takeSucc and lastSnoc (folded into SW-715)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 724,
+      "title": "a || b inside an effect-polymorphic lambda elaborates to if b then True else False, so the same text in a statement and a proof isn't equal by rfl; use plain Bool.or when the row is Total (AoC 2024 day 5)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 725,
+      "title": "std: Pair equality as && of components, allTrue/anyFalse/allAnd (folded into SW-715)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 726,
+      "title": "Error for a keyword used as a parameter name (test) says it's a keyword (AoC 2024 day 5)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 727,
+      "title": "Std.Parse messages from stage 2: say what was found (got 'x' / the end of the line); expectations from attempts that didn't fail are hints that fail/ensure replace; Parse.token or spacedNat; blankLine allows spaces; Parse.line allows one final line break; spaces1; grid allowing empty input and short rows",
       "status": "next",
       "agent": "",
       "where": "",
