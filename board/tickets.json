@@ -5837,7 +5837,7 @@
     {
       "id": 709,
       "title": "Error messages from AoC 2024 day 2: dot call on a function outside the type's namespace suggests the plain call; a tactic word at line end before a new line reports the tactic, not the next line (overnight)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
