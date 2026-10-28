@@ -8,12 +8,6 @@ import Aoc.Year2024.Day12 (..)
 import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Or, Void)
 
--- Sums agree when their terms agree on the list's members.
-theorem sumByCongMem: (xs: List a) → (f: a → Nat) → (g: a → Nat) → ((x: a) → x ∈ xs → f x = g x) → xs.sumBy f = xs.sumBy g
-  | Nil, f, g, agree => rfl
-  | Cons x rest, f, g, agree =>
-    rewrite List.sumByCons rest x f, List.sumByCons rest x g, agree x (Inl rfl), sumByCongMem rest f g (y member => agree y (Inr member)) in rfl
-
 -- A side of a plot in a region faces the same plant exactly when it
 -- touches a plot of the region.
 theorem sameAcrossFaces (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: List Position)
@@ -30,18 +24,18 @@ theorem sameAcrossFaces (garden: Garden) (start: Position) (plant: Char) (grows:
             let touching: touches garden plot other = True :=
               Bool.andIntro _ _ (orthogonalIntro plot other (stepOrthogonal plot side other stepped))
                 (growSameIntro garden plot other plant plotGrows (DecEq.sound _ _ otherGrows))
-            Eq.sym ((anyEqual region other).backward ((isRegion other).backward (joinedStep garden start plot other joined touching)))
+            Eq.sym ((List.memContains region other).backward ((isRegion other).backward (joinedStep garden start plot other joined touching)))
           | False =>
-            match found: region.any (candidate => candidate == other) with
+            match found: region.contains other with
               | False => rfl
               | True =>
-                let otherIn := (anyEqual region other).forward found
+                let otherIn := (List.memContains region other).forward found
                 let sameGrows := joinedPlant garden plant start other grows ((isRegion other).forward otherIn)
                 Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym otherGrows) (rewrite sameGrows in DecEq.refl (Some plant))))
 
 -- The program's perimeter of a region is the spec's.
 theorem perimeterCorrect (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: List Position)
     (isRegion: IsRegion garden start region): garden.perimeter region = perimeter region :=
-  sumByCongMem region garden.fences (plot => directions.count (side => !facesRegion region plot side)) (plot member =>
+  List.sumByCongMem region garden.fences (plot => directions.count (side => !facesRegion region plot side)) (plot member =>
     List.countCongMem directions (side => !garden.sameAcross plot side) (side => !facesRegion region plot side) (side inDirections =>
       rewrite sameAcrossFaces garden start plant grows region isRegion plot member side in rfl))

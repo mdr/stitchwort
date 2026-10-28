@@ -3083,6 +3083,11 @@ are allowed (`spaces1`).
   length`; day 10 wrote a `lengthFlatMap` of its own too. Written in the
   proofs, not std, since `sumByPerm` lives in `List/Sort.sw`, which another
   lane is splitting.
+
+  Fixed: std has `List.occurrencesFlatMap` and `List.sumByOne` (`sumBy (x
+  => 1) = length`) in `List/Lemmas.sw`, and `List.permFlatMap` (for a
+  `DecEq` element type, as `sumByPerm` needs) in `List/SortLemmas.sw`;
+  `blinkPerm` is `List.permFlatMap`, and the local copies are gone.
 - Nothing about a `Map`'s values summed after `insertWith`. `weigh` and
   `weighInsertWith` (13 lines over `Map.Spec.insertWith`) did it; std's
   `Map.toListInsertWith` and `Map.foldLeftToList` made it a list proof.
@@ -3101,6 +3106,11 @@ are allowed (`spaces1`).
   Nothing says the extra argument comes from unfolding `Represents`. I
   added a fifth pattern (`weight`, or `p` for `Perm`) to every arm and
   applied the hypothesis to it.
+
+  Fixed: the error has a note naming the definition and the arguments it
+  adds, as in "the result `List.Perm xs xs` unfolds to a function type,
+  since `List.Perm` is defined as one, and so it adds 1 argument(s) to
+  match: `p: Nat → Bool`".
 - `DecEq.sound _ _ even` on a `Nat` `==`:
 
   ```text
@@ -3113,6 +3123,11 @@ are allowed (`spaces1`).
   which I had written. The real cause is the unsolved instance `?4`:
   writing the arguments, `DecEq.sound (stone.digitCount % 2) 0 even`,
   worked.
+
+  Fixed: `DecEq.sound _ _ even` is accepted. Day 10's fix (a dictionary
+  that only the comparison with the expected type fixes is found, and the
+  types compared again) finds the `DecEq Nat` instance here too; with that
+  step turned off, the same error and note come back.
 - `W-LAMBDA-SHADOW`: a lambda parameter called `next` "hides the function
   `next`", which is the `Parse` ability's operation, in scope from
   `import Std (Parse)` though the file imports only `nat`, `sepBy1` and
@@ -3429,6 +3444,16 @@ nothing for a grid. Fix: a
 None added to std (`List/Lemmas.sw` is another lane's). Fix: add
 `List.contains`, the count and sum lemmas, and a grid-to-map builder.
 
+Fixed: std has `List.contains` (List/Toolkit.sw, by `DecEq`) with
+`List.memContains`, its membership `Iff` (List/Lemmas.sw), which replaces
+`anyEqual`; the spec, proofs and tests use `region.contains plot`.
+`sumByCongMem` and `memLeSumBy` are `List.sumByCongMem` and
+`List.memLeSumBy` (List/Lemmas.sw, without `omega`); `countLe` was std's
+`List.countLeMem`, and `countFewer` is `List.countLtMem` beside it
+(List/SortLemmas.sw), both with the implication needed only on the
+list's elements. `notEqualNot` stays, as `!=` is unchanged. The
+grid-to-map builder isn't added.
+
 ### 3. Confusing errors
 
 - `!=` and `!` in a theorem's statement are the `Prop` ones. Stating
@@ -3446,6 +3471,13 @@ None added to std (`List/Lemmas.sw` is another lane's). Fix: add
   `Decidable.toBool (Decidable.not d)`, not `!(a == b)`, so `rfl` failed
   between them and a lemma (`notEqualNot`, a `match` on the decision) was
   needed. Fix: point at the operator, and define `!=` as `!` of `==`.
+
+  Fixed: the error is now at the `!=`: "in a statement, `!=` is the
+  proposition, not a `Bool`", labelled "this `!=` is `Not (… = …)`, a
+  proposition, so this `=` compares propositions", with the other side
+  labelled "but this isn't a proposition", and the note "for the `Bool`
+  that `!=` computes, ascribe it: `((x != y): Bool)`; or compare with `==`
+  instead, as `(x == y) = False`". What `!=` means is unchanged.
 - A function's `.unfold` couldn't be used when the program matched a `Bool`
   with an equation that a `decreasing` proof used (`match taken:
   visited.contains position with`): every way of stepping through it failed,
@@ -3469,6 +3501,13 @@ None added to std (`List/Lemmas.sw` is another lane's). Fix: add
 - "write this recursive call as `Aoc.Year2024.Day12.Garden.fill …`, not
   with a dot" — clear, but a
   surprise: `garden.fill …` works everywhere else. Fix: allow dot calls.
+
+
+  Fixed: a recursive dot call passes `[decreasing := …]` as the prefix
+  call does (`garden.fill plant … [decreasing := …]`, which `Garden.fill`
+  now uses), and a wrong proof is reported at the proof, as for the prefix
+  form. The old message remains only where the prefix form can't stand
+  for the dot call (a piped receiver, say).
 - `ring` is a keyword: "`ring` is a keyword, so it can't be used as a
   name". Clear; renamed the test's variable `loop`.
 - A lambda parameter `plot` drew a `W-LAMBDA-SHADOW` warning for hiding the

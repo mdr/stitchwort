@@ -76,13 +76,9 @@ theorem sumCounts: (entries: List (Nat, Nat)) → (entries.map Pair.snd).sum = w
   | Nil => rfl
   | Cons (stone, count) rest => rewrite List.sumCons count (rest.map Pair.snd), sumCounts rest in ring
 
-theorem sumByOne: (stones: List Nat) → stones.sumBy (stone => 1) = stones.length
-  | Nil => rfl
-  | Cons stone rest => rewrite List.sumByCons rest stone (stone => 1), sumByOne rest in ring
-
 -- The program's count is the length of the puzzle's line, after any number
 -- of blinks.
 theorem countCorrect (blinks: Nat) (stones: List Nat): countAfter blinks stones = (blinkTimes blinks stones).length :=
   rewrite sumCounts (blinks.iterate blinkCounts (Map.counts stones)).toList,
-    representsAfter blinks (Map.counts stones) stones (representsCounts stones) (stone => 1), sumByOne (blinkTimes blinks stones)
+    representsAfter blinks (Map.counts stones) stones (representsCounts stones) (stone => 1), List.sumByOne (blinkTimes blinks stones)
     in rfl

@@ -1122,12 +1122,60 @@ fn check_leaf(
         return Ok(term);
     }
     check(cx, expr, t).map_err(|e| {
-        if e.code == "E-TYPE-MISMATCH" && e.primary_span() == Some(expr.span()) {
+        if let Some(d) = prop_not_equal(cx, g, &e, i, t, decider) {
+            d
+        } else if e.code == "E-TYPE-MISMATCH" && e.primary_span() == Some(expr.span()) {
             decided_by(cx, g, e, t, decider, what)
         } else {
             e
         }
     })
+}
+
+/// Leaf `i` isn't a proposition, but the group is on propositions because
+/// another side is `x != y`, which in a statement is `Not (x = y)`: the
+/// error is reported at that `!=`, saying how to get the `Bool` instead.
+fn prop_not_equal(
+    cx: &Ctx,
+    g: &Group,
+    e: &Diagnostic,
+    i: usize,
+    t: &Value,
+    decider: Decider,
+) -> Option<Diagnostic> {
+    if !matches!(e.code, "E-NOT-A-TYPE" | "E-TYPE-MISMATCH")
+        || !matches!(force(cx.g(), t.clone()), Ok(Value::Sort(Sort::Prop)))
+    {
+        return None;
+    }
+    let Decider::Leaf(j) = decider else {
+        return None;
+    };
+    let mut decided = g.leaves[j].expr;
+    while let Expr::Bracketed(inner, _) = decided {
+        decided = inner;
+    }
+    if !matches!(decided, Expr::Binary(BinOp::Ne, ..)) {
+        return None;
+    }
+    Some(
+        Diagnostic::error(
+            "E-NOT-A-TYPE",
+            "in a statement, `!=` is the proposition, not a `Bool`",
+        )
+        .with_label(
+            decided.span(),
+            format!(
+                "this `!=` is `Not (… = …)`, a proposition, so this `{}` compares propositions",
+                g.leaves[j].op
+            ),
+        )
+        .with_label(g.leaves[i].expr.span(), "but this isn't a proposition")
+        .with_note(
+            "for the `Bool` that `!=` computes, ascribe it: `((x != y): Bool)`; or compare \
+             with `==` instead, as `(x == y) = False`",
+        ),
+    )
 }
 
 /// Leaf `i`, of type `found`, isn't the group's type `t`.

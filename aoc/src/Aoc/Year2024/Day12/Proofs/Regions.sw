@@ -7,12 +7,6 @@ import Aoc.Year2024.Day12 (..)
 import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Or, Set, Void)
 
--- Membership as the program tests it.
-theorem anyEqual (xs: List Position) (position: Position): Iff (xs.any (member => member == position) = True) (position ∈ xs) := {
-  forward = found => List.anyTrueElim xs (member => member == position) (position ∈ xs) found (member isIn same => rewrite <- DecEq.sound member position same in isIn),
-  backward = isIn => List.anyOfMem xs (member => member == position) position (DecEq.refl position) isIn
-}
-
 -- Every position on the list grows a plant.
 theorem positionsGrow (garden: Garden) (position: Position) (member: position ∈ garden.positions):
     Exists Char (plant => garden.plantAt position = Some plant) :=
@@ -30,11 +24,11 @@ theorem containsInsertAll (seen: Set Position) (region: List Position) (position
       forward = either =>
         match before: seen.contains position with
           | True => Inl rfl
-          | False => Inr ((anyEqual region position).forward either),
+          | False => Inr ((List.memContains region position).forward either),
       backward = either =>
         match either with
           | Inl before => rewrite before in rfl
-          | Inr isIn => rewrite (anyEqual region position).backward isIn in Bool.orTrue _
+          | Inr isIn => rewrite (List.memContains region position).backward isIn in Bool.orTrue _
     }
 
 -- A set of positions that has every plot joined to one it has.
@@ -52,7 +46,7 @@ theorem startInRegion (garden: Garden) (start: Position) (plant: Char) (grows: g
   (regionOfIsRegion garden start plant grows start).backward (joinedRefl garden start)
 
 -- The regions containing `position`.
-def regionsWith (regions: List (List Position)) (position: Position): Nat := regions.count (region => region.any (member => member == position))
+def regionsWith (regions: List (List Position)) (position: Position): Nat := regions.count (region => region.contains position)
 
 -- From a closed `seen`, the regions found are disjoint from `seen` and
 -- from each other.
@@ -74,10 +68,10 @@ theorem atMostOnce (garden: Garden) (position: Position): (starts: List Position
                   | Inl before => Inl (closed from other before joined)
                   | Inr isIn => Inr (regionClosed garden start plant grows from other isIn joined))
           let later := atMostOnce garden position rest after closedAfter (other member => plots other (Inr member))
-          rewrite List.countCons (garden.regionsFrom rest after) region (region => region.any (member => member == position)) in
-            match here: region.any (member => member == position) with
+          rewrite List.countCons (garden.regionsFrom rest after) region (region => region.contains position) in
+            match here: region.contains position with
               | True =>
-                let isIn := (anyEqual region position).forward here
+                let isIn := (List.memContains region position).forward here
                 Both (omega [And.right later ((containsInsertAll seen region position).backward (Inr isIn))])
                   (has =>
                     Void.exfalso
@@ -103,12 +97,12 @@ theorem covered (garden: Garden) (position: Position): (starts: List Position) �
         Exists.elim (plots start (Inl rfl)) (plant grows =>
           let region := garden.regionOf start
           let after := region.foldLeft seen Set.insert
-          rewrite List.countCons (garden.regionsFrom rest after) region (region => region.any (member => member == position)) in
+          rewrite List.countCons (garden.regionsFrom rest after) region (region => region.contains position) in
             let inRegion:
                 position ∈ region →
                   Or (seen.contains position = True)
-                    (1 ≤ Bool.toNat (region.any (member => member == position)) + regionsWith (garden.regionsFrom rest after) position) :=
-              isIn => Inr (rewrite (anyEqual region position).backward isIn in omega)
+                    (1 ≤ Bool.toNat (region.contains position) + regionsWith (garden.regionsFrom rest after) position) :=
+              isIn => Inr (rewrite (List.memContains region position).backward isIn in omega)
             match member with
               | Inl same => inRegion (rewrite <- same in startInRegion garden start plant grows)
               | Inr later =>

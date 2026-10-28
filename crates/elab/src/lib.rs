@@ -2955,6 +2955,7 @@ impl Elaborator {
                 _ => break,
             }
         }
+        let rest_written = written.clone();
         cx.goal = written.map(|w| (cx.level(), w));
         if let Some(h) = header {
             // Arms have exact arity: a pattern for every explicit argument
@@ -2971,11 +2972,17 @@ impl Elaborator {
             }
             if columns.len() < arity || fewer {
                 let message = if fewer {
-                    format!(
+                    let message = format!(
                         "this arm has {} pattern(s), but `{}` takes more arguments after the colon",
                         arity - h,
                         def_name.text
-                    )
+                    );
+                    if let Some(note) =
+                        unfolded_arguments_note(cx, rest_written.as_deref(), ty.clone())?
+                    {
+                        return Err(error("E-ARITY", first_span, message).with_note(note));
+                    }
+                    message
                 } else if h > 0 {
                     // More patterns than arguments after the colon, and the
                     // header names parameters: the likely mistake is trying
@@ -3935,6 +3942,46 @@ fn written_order(cx: &Ctx, aliases: &[(&str, usize)], written: &[&str]) -> Vec<u
         }
     }
     order
+}
+
+/// For an arm with too few patterns: when the result type after the colon is
+/// written as a definition's call (`Holds n`) that unfolds to a function
+/// type, a note naming the definition and the arguments it adds. `ty` is
+/// that result type, unfolded.
+fn unfolded_arguments_note(
+    cx: &mut Ctx,
+    written: Option<&Term>,
+    ty: Value,
+) -> Result<Option<String>> {
+    let Some(written) = written else {
+        return Ok(None);
+    };
+    let Term::Def(id) = written.spine().0 else {
+        return Ok(None);
+    };
+    let g = &cx.e.globals;
+    let shown = pretty::term_for_message_in(g, cx.e, &cx.names, written);
+    let definition = g.def(*id).name.to_string();
+    let mut added = Vec::new();
+    let mut ty = ty;
+    while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
+        if icit == Icit::Explicit {
+            added.push(format!("`{}: {}`", x, cx.show(&dom)));
+        }
+        let var = Value::var(cx.level());
+        cx.bind_hidden(x, (*dom).clone());
+        ty = cod.apply(g, var)?;
+    }
+    if added.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(format!(
+        "the result `{shown}` unfolds to a function type, since `{definition}` is defined as \
+         one, and so it adds {} argument(s) to match: {}. Add a pattern for each to every arm, \
+         or return a lambda",
+        added.len(),
+        added.join(", ")
+    )))
 }
 
 /// [`check_tree`] for a tree that binds only fields, from the current level.

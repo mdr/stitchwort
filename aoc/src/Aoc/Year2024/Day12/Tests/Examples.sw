@@ -126,7 +126,7 @@ test "an L" := summary "AB\nAA\n" |> .headOr (None, 0, 0, 0) == (Some 'A', 3, 8,
 test "a region covers every plot it touches" := (garden larger).regionOf (at 0 0) |> .length == 12
 test "regions cover every plot once" :=
   let map := garden larger
-  map.positions.all (position => map.regions.count (region => region.any (plot => plot == position)) == 1) && map.positions.length == 100
+  map.positions.all (position => map.regions.count (region => region.contains position) == 1) && map.positions.length == 100
 
 test "no plots" := parsed "" == Err "line 1, column 1: expected a letter, got the end of the input"
 test "parse" := (parsed "AB\nCD\n" |> .map (map => map.plots.toList)) == Ok [(at 0 0, 'A'), (at 0 1, 'B'), (at 1 0, 'C'), (at 1 1, 'D')]

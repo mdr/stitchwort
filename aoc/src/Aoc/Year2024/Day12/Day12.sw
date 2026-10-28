@@ -80,36 +80,12 @@ theorem Garden.positionsComplete (garden: Garden) (position: Position) (plant: C
     position ∈ garden.positions :=
   Map.memKeysOfContains garden.plots position (Map.containsOfGet garden.plots position plant grows)
 
--- No more pass `kept` than `p` when `kept` implies `p`.
-theorem countLe: (xs: List a) → (p: a → Bool) → (kept: a → Bool) → ((x: a) → kept x = True → p x = True) → xs.count kept ≤ xs.count p
-  | Nil, p, kept, implies => rfl
-  | Cons x rest, p, kept, implies =>
-    rewrite List.countCons rest x kept, List.countCons rest x p in
-      let fewer := countLe rest p kept implies
-      match keeps: kept x with
-        | True => rewrite implies x keeps in omega [fewer]
-        | False => omega [fewer]
-
--- Fewer pass `kept` than `p` when `kept` implies `p` and some member passes
--- `p` but not `kept`.
-theorem countFewer: (xs: List a) → (p: a → Bool) → (kept: a → Bool) → ((x: a) → kept x = True → p x = True) → (dropped: a) → dropped ∈ xs →
-    p dropped = True → kept dropped = False → xs.count kept < xs.count p
-  | Nil, p, kept, implies, dropped, member, passes, fails => Void.exfalso member
-  | Cons x rest, p, kept, implies, dropped, Inl same, passes, fails =>
-    rewrite List.countCons rest x kept, List.countCons rest x p, same, passes, fails in omega [countLe rest p kept implies]
-  | Cons x rest, p, kept, implies, dropped, Inr later, passes, fails =>
-    rewrite List.countCons rest x kept, List.countCons rest x p in
-      let fewer := countFewer rest p kept implies dropped later passes fails
-      match keeps: kept x with
-        | True => rewrite implies x keeps in omega [fewer]
-        | False => omega [fewer]
-
 -- Taking a plot not yet visited leaves fewer to visit.
 theorem Garden.unvisitedInsert (garden: Garden) (visited: Set Position) (position: Position) (plant: Char)
     (grows: garden.plantAt position = Some plant) (fresh: visited.contains position = False):
     garden.unvisited (visited.insert position) < garden.unvisited visited :=
-  countFewer garden.positions (other => !visited.contains other) (other => !(visited.insert position).contains other)
-    (other kept =>
+  List.countLtMem garden.positions (other => !(visited.insert position).contains other) (other => !visited.contains other)
+    (other member kept =>
       match same: visited.contains other with
         | True => rewrite Set.containsInsertMono visited position other same at kept in kept
         | False => rfl)
@@ -125,10 +101,10 @@ def Garden.fill (garden: Garden) (plant: Char) (stack: List Position) (visited: 
     | Cons position rest =>
       if fresh: visited.contains position = False then
         if grows: garden.plantAt position = Some plant then
-          Garden.fill garden plant (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members)
+          garden.fill plant (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members)
             [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)]
-        else Garden.fill garden plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
-      else Garden.fill garden plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
+        else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
+      else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
 
 -- The region containing `start`: the plots joined to it.
 def Garden.regionOf (garden: Garden) (start: Position): List Position :=

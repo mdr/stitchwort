@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/decreasing-dot-call-wrong-proof.sw:13:47 ]
+    │
+ 13 │     | Succ k => counter.down k [decreasing := Nat.leSucc k]
+    │                                               ──────┬─────  
+    │                                                     ╰─────── expected `k ≤ k`, but this has type `k ≤ Succ k`
+────╯

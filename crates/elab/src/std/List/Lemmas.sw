@@ -529,6 +529,39 @@ theorem List.lengthFlatMap (f: a → List b): (xs: List a) → List.length (List
 
 theorem List.lengthFlatMapExample: List.length (List.flatMap [1, 2, 3] (n => List.replicate n n)) = 6 := rfl
 
+-- What passes a test after a `flatMap`: what passes in each list it joins,
+-- added up.
+theorem List.occurrencesFlatMap (f: a → List b) (p: b → Bool): (xs: List a) →
+    List.occurrences (List.flatMap xs f) p = List.sumBy xs (x => List.occurrences (f x) p)
+  | Nil => rfl
+  | Cons x rest =>
+    rewrite List.occurrencesAppend (f x) (List.flatMap rest f) p, List.occurrencesFlatMap f p rest,
+      List.sumByCons rest x (x => List.occurrences (f x) p)
+      in rfl
+
+-- Summing 1 for each element counts them.
+theorem List.sumByOne: (xs: List a) → List.sumBy xs (x => 1) = List.length xs
+  | Nil => rfl
+  | Cons x rest => rewrite List.sumByCons rest x (x => 1) in Eq.cong Succ (List.sumByOne rest)
+
+-- Sums agree when their terms agree on the list's elements.
+theorem List.sumByCongMem [auto add: Add b]: (xs: List a) → (f: a → b) → (g: a → b) → ((x: a) → x ∈ xs → f x = g x) →
+    List.sumBy xs f = List.sumBy xs g
+  | Nil, f, g, agree => rfl
+  | Cons x rest, f, g, agree =>
+    rewrite List.sumByCons rest x f, List.sumByCons rest x g, agree x (Inl rfl), List.sumByCongMem rest f g (y member => agree y (Inr member))
+      in rfl
+
+-- An element's term is at most the sum.
+theorem List.memLeSumBy (f: a → Nat): (xs: List a) → (x: a) → x ∈ xs → f x ≤ List.sumBy xs f
+  | Nil, x, none => Void.exfalso none
+  | Cons first rest, x, Inl same => rewrite List.sumByCons rest first f, same in Nat.leAddRight (f x) (List.sumBy rest f)
+  | Cons first rest, x, Inr later =>
+    rewrite List.sumByCons rest first f in
+      Nat.leTrans _ _ _ (List.memLeSumBy f rest x later) (Nat.leAddLeft (f first) (List.sumBy rest f))
+
+test "List.sumByOne" := List.sumBy ["a", "b", "c"] (x => 1) == 3
+
 theorem List.scanLeftCons: (xs: List a) → (z: b) → (f: b → a → b) → List.scanLeft xs z f = Cons z (List.drop (List.scanLeft xs z f) 1)
   | Nil, z, f => rfl
   | Cons x xs, z, f => rfl
@@ -1089,6 +1122,13 @@ theorem List.anyTrueElim: (xs: List a) → (p: a → Bool) → (goal: Prop) → 
     match c: p z with
       | True => k z (Inl rfl) c
       | False => List.anyTrueElim zs p goal h (x inZs px => k x (Inr inZs) px)
+
+-- `List.contains` is membership.
+theorem List.memContains [auto eq: DecEq a] (xs: List a) (x: a): Iff (List.contains xs x = True) (x ∈ xs) := {
+  forward = found =>
+    List.anyTrueElim xs (member => member == x) (x ∈ xs) found (member isIn same => rewrite <- DecEq.sound member x same in isIn),
+  backward = isIn => List.anyOfMem xs (member => member == x) x (DecEq.refl x) isIn
+}
 
 -- What `(.find p)` finds passes any other test some element passes.
 theorem List.findAny (xs: List a) (p: a → Bool) (q: a → Bool) (y: a) (qy: q y = True) (h: List.find xs p = Some y): List.any xs q = True :=

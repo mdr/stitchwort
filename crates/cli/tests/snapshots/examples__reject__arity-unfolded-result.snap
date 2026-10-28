@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ARITY] Error: this arm has 1 pattern(s), but `holdsAll` takes more arguments after the colon
+   ╭─[ reject/arity-unfolded-result.sw:7:3 ]
+   │
+ 7 │   | n => Nat.addComm n
+   │   ──────────┬─────────  
+   │             ╰─────────── this arm has 1 pattern(s), but `holdsAll` takes more arguments after the colon
+   │ 
+   │ Note: the result `Holds n` unfolds to a function type, since `Holds` is defined as one, and so it adds 1 argument(s) to match: `m: Nat`. Add a pattern for each to every arm, or return a lambda
+───╯
