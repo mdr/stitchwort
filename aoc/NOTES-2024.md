@@ -59,7 +59,8 @@ with a path) all let one project use another. Either a path dependency in
 
 Fixed: the years are one project, `aoc/`, with 2024 in `Aoc.Year2024`, 2025
 in `Aoc.Year2025` and the shared helpers in `Aoc.Common`; day 1 uses
-`Aoc.Common.parseLines`.
+`Aoc.Common.parseLines`. Since 28 October the days with one record per line
+read them with `Std.Parse`'s `Parse.eachLine`, and `parseLines` is gone.
 
 ### 2. No `List.sumByPerm`: a sum is the same in any order
 

@@ -246,7 +246,7 @@ ability Parse where
 -- Runners. The parser must read all of its input.
 def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a              -- "line 3, column 6: …"; a final line break is allowed
 def Parse.eachLine (input: Text) (parser: () → {Parse} a): {Fail} (List a)  -- one handler per line of `Text.lines`, the same messages
-def Parse.line (line: Text) (parser: () → {Parse} a): {Fail} a              -- "column 6: …", for use inside `Aoc.Common.parseLines`
+def Parse.line (line: Text) (parser: () → {Parse} a): {Fail} a              -- "column 6: …", for one line
 def Parse.run (input: List Char) (parser: () → {Parse} a): Result a Parse.Failure  -- needn't read everything; `Failure = { offset, message }`
 
 -- Failing at the current point
