@@ -6509,7 +6509,7 @@
     {
       "id": 766,
       "title": "Regression: row-stuck-callback lost its empty-row label and note after the day 11/12 fixes merged",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6533,7 +6533,7 @@
     {
       "id": 768,
       "title": "Day 15 findings: match silently refines let-bound hypotheses (say so when a rewrite then finds nothing); record literal type from its fields, errors printed twice; instance-projection unification; constructor disequality C1 = C2",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
