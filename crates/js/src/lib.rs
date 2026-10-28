@@ -3032,23 +3032,7 @@ impl<'g> Gen<'g> {
             }
             return Ok(Self::next_turn(&pad, &passed));
         }
-        // `if c then a else b` (`Bool.ifThenElse c (_ => a) (_ => b)`) and
-        // `if h: p then a else b` (`Decidable.elim d (h => a) (h => b)`).
-        let branches = if Some(*id) == self.if_then_else
-            && let [_, cond, then, otherwise] = args.as_slice()
-        {
-            Some((cond, then, otherwise, "True".to_string()))
-        } else if Some(*id) == self.elim_dec
-            && let [_, _, cond, then, otherwise] = args.as_slice()
-        {
-            Some((cond, then, otherwise, self.decision_yes_tag()))
-        } else {
-            None
-        };
-        if let Some((cond, then, otherwise, tag)) = branches
-            && let (Term::Lam(_, _, then), Term::Lam(_, _, otherwise)) =
-                (then.strip_loc(), otherwise.strip_loc())
-        {
+        if let Some((cond, then, otherwise, tag)) = self.conditional(*id, &args) {
             let cond = self.expr(cond, env)?;
             // The branches' parameter is a proof (of `Unit`, of `p` or of
             // `Not p`), so it's erased.
@@ -4112,10 +4096,55 @@ impl<'g> Gen<'g> {
         matches!(compare.strip_loc(), Term::Def(_)).then_some(compare)
     }
 
+    /// `if c then a else b` (`Bool.ifThenElse c (_ => a) (_ => b)`) or
+    /// `if h: p then a else b` (`Decidable.elim d (h => a) (h => b)`): the
+    /// condition, the bodies of the branches (whose parameter is a proof,
+    /// so erased), and the tag of the constructor that takes the first.
+    fn conditional<'t>(
+        &self,
+        id: DefId,
+        args: &[&'t Term],
+    ) -> Option<(&'t Term, &'t Term, &'t Term, String)> {
+        let (cond, then, otherwise, tag) = if Some(id) == self.if_then_else
+            && let [_, cond, then, otherwise] = args
+        {
+            (*cond, *then, *otherwise, "True".to_string())
+        } else if Some(id) == self.elim_dec
+            && let [_, _, cond, then, otherwise] = args
+        {
+            (*cond, *then, *otherwise, self.decision_yes_tag())
+        } else {
+            return None;
+        };
+        match (then.strip_loc(), otherwise.strip_loc()) {
+            (Term::Lam(_, _, then), Term::Lam(_, _, otherwise)) => {
+                Some((cond, then, otherwise, tag))
+            }
+            _ => None,
+        }
+    }
+
     /// [`Gen::def_ref`], without building a closed map once.
     fn def_call(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> Fallible<String> {
         if let Some(decision) = self.decision_itself(id, args) {
             return self.expr(decision, env);
+        }
+        // In an expression, a conditional, with no closures for the branches.
+        if let Some((cond, then, otherwise, tag)) = self.conditional(id, args) {
+            let cond = self.expr(cond, env)?;
+            // The branches' parameter is a proof, so it's erased.
+            let mut branch = |body: &Term| -> Fallible<String> {
+                env.push(true);
+                let out = self.expr(body, env);
+                env.pop();
+                out
+            };
+            let then = branch(then)?;
+            let otherwise = branch(otherwise)?;
+            return Ok(format!(
+                "({cond}.tag === {} ? {then} : {otherwise})",
+                js_string_literal(&tag)
+            ));
         }
         if Some(id) == self.ord_compare
             && let [_, instance, rest @ ..] = args

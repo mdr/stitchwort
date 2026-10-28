@@ -756,7 +756,7 @@ const $Std$dList$dappend = (v1, v2) => {
   }
 };
 const $Std$dNat$dequal = (m, n) => ({ tag: m === n ? "True" : "False" });
-const $Std$dNat$dcompare = (v0, v1) => $Std$dBool$difThenElse($Std$dNat$dequal(v0, v1), ((v2) => ({ tag: "Equal" })), ((v2) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, v1), ((v3) => ({ tag: "Less" })), ((v3) => ({ tag: "Greater" })))));
+const $Std$dNat$dcompare = (v0, v1) => ($Std$dNat$dequal(v0, v1).tag === "True" ? { tag: "Equal" } : ($Std$dNat$dleq(v0, v1).tag === "True" ? { tag: "Less" } : { tag: "Greater" }));
 const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
   let s4 = v4, s5 = v5, s6 = v6;
   for (;;) {

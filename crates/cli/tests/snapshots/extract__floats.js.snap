@@ -829,7 +829,7 @@ const $Std$dList$dmap$e = (v4, v5) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dFloat$disValid = (v0) => $Std$dBool$difThenElse($Std$dBool$difThenElse($Std$dNat$dleq(v0, 9218868437227405312n), ((v1) => ({ tag: "True" })), ((v1) => $Std$dNat$dequal(v0, 9221120237041090560n))), ((v1) => ({ tag: "True" })), ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(9223372036854775808n, v0), ((v2) => $Std$dNat$dleq(v0, 18442240474082181120n)), ((v2) => ({ tag: "False" })))));
+const $Std$dFloat$disValid = (v0) => (($Std$dNat$dleq(v0, 9218868437227405312n).tag === "True" ? { tag: "True" } : $Std$dNat$dequal(v0, 9221120237041090560n)).tag === "True" ? { tag: "True" } : ($Std$dNat$dleq(9223372036854775808n, v0).tag === "True" ? $Std$dNat$dleq(v0, 18442240474082181120n) : { tag: "False" }));
 const $Std$dFloat$dbits = (v0) => {
   const v1 = toCanonicalBits(v0);
   return v1;
@@ -846,7 +846,7 @@ const $Main$dshift = $Std$dFloat$dadd;
 const $Main$dsameDouble = (v0, v1) => $Std$dDecidable$dtoBool($Std$dFloat$ddecEq(v0, v1));
 const $Main$dtripleEquals = $Std$dFloat$dieeeEq;
 const $Main$dbits = $Std$dFloat$dbits;
-const $Main$dfromBits = (v0) => $Std$dDecidable$delim($Std$dBool$ddecEq($Std$dFloat$disValid(v0), { tag: "True" }), ((v1) => ({ tag: "Some", value: fromCanonicalBits(v0) })), ((v1) => ({ tag: "None" })));
+const $Main$dfromBits = (v0) => ($Std$dBool$ddecEq($Std$dFloat$disValid(v0), { tag: "True" }).tag === "Yes" ? { tag: "Some", value: fromCanonicalBits(v0) } : { tag: "None" });
 const $Main$dfirstOf = (v0) => {
   switch (v0.tag) {
     case "Nil": {

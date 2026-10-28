@@ -854,7 +854,7 @@ const $Std$dFloat$dofInt = (n) => Number(n);
 const $Std$dFloat$dieeeLt = (a, b) => ({ tag: a < b ? "True" : "False" });
 const $Std$dFloat$dieeeLe = (a, b) => ({ tag: a <= b ? "True" : "False" });
 const $Std$dFloat$dtoInt = (a) => (Number.isInteger(a) ? { tag: "Some", value: BigInt(a) } : { tag: "None" });
-const $Main$dinWindow = (v0, v1, v2) => $Std$dList$dfilter$e(v2, ((v3) => $Std$dBool$difThenElse($Std$dFloat$dieeeLe(v0, v3), ((v4) => $Std$dFloat$dieeeLt(v3, v1)), ((v4) => ({ tag: "False" })))));
+const $Main$dinWindow = (v0, v1, v2) => $Std$dList$dfilter$e(v2, ((v3) => ($Std$dFloat$dieeeLe(v0, v3).tag === "True" ? $Std$dFloat$dieeeLt(v3, v1) : { tag: "False" })));
 const $Main$dshiftAll = (v0, v1) => $Std$dList$dmap$e(v1, ((v2) => $Std$dFloat$dadd(v2, v0)));
 const $Main$dgaps = (v0) => {
   let s0 = v0;
@@ -897,7 +897,7 @@ const $Main$dlatest = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return { tag: "Some", value: $Std$dList$dfoldLeft$e(v2, v1, ((v3) => ((v4) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v3, v4), ((v5) => v4), ((v5) => v3))))) };
+      return { tag: "Some", value: $Std$dList$dfoldLeft$e(v2, v1, ((v3) => ((v4) => ($Std$dFloat$dieeeLt(v3, v4).tag === "True" ? v4 : v3)))) };
     }
   }
   throw new Error("unreachable");
@@ -905,7 +905,7 @@ const $Main$dlatest = (v0) => {
 const $Main$dtotal = (v0) => $Std$dList$dfoldLeft$e(v0, 0.0, ((v1) => ((v2) => $Std$dFloat$dadd(v1, v2))));
 const $Main$dwholeMs = $Std$dFloat$dtoInt;
 const $Main$dfromCount = $Std$dFloat$dofInt;
-const $Main$dclamped = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v2, v0), ((v3) => v0), ((v3) => $Std$dBool$difThenElse($Std$dFloat$dieeeLt(v1, v2), ((v4) => v1), ((v4) => v2))));
+const $Main$dclamped = (v0, v1, v2) => ($Std$dFloat$dieeeLt(v2, v0).tag === "True" ? v0 : ($Std$dFloat$dieeeLt(v1, v2).tag === "True" ? v1 : v2));
 
 function $$inWindow(arg0, arg1, arg2) {
   try {

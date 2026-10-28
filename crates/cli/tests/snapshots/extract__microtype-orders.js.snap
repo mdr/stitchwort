@@ -1147,7 +1147,7 @@ const $Std$dMap$dTree$dshapeL = (v2) => {
       const v5 = v2.key;
       const v6 = v2.value;
       const v7 = v2.right;
-      return $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dMap$dTree$dsize(v4) + 1n), $Std$dNat$dmul($Std$dMap$dTree$dsize(v7), 2n)), ((v8) => ({ tag: "SingleL" })), ((v8) => ({ tag: "DoubleL" })));
+      return ($Std$dNat$dleq(($Std$dMap$dTree$dsize(v4) + 1n), $Std$dNat$dmul($Std$dMap$dTree$dsize(v7), 2n)).tag === "True" ? { tag: "SingleL" } : { tag: "DoubleL" });
     }
   }
   throw new Error("unreachable");
@@ -1163,12 +1163,12 @@ const $Std$dMap$dTree$dshapeR = (v2) => {
       const v5 = v2.key;
       const v6 = v2.value;
       const v7 = v2.right;
-      return $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dMap$dTree$dsize(v7) + 1n), $Std$dNat$dmul($Std$dMap$dTree$dsize(v4), 2n)), ((v8) => ({ tag: "SingleR" })), ((v8) => ({ tag: "DoubleR" })));
+      return ($Std$dNat$dleq(($Std$dMap$dTree$dsize(v7) + 1n), $Std$dNat$dmul($Std$dMap$dTree$dsize(v4), 2n)).tag === "True" ? { tag: "SingleR" } : { tag: "DoubleR" });
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$dshape = (v2, v3) => $Std$dBool$difThenElse($Std$dNat$dleq($Std$dNat$dadd($Std$dMap$dTree$dsize(v2), $Std$dMap$dTree$dsize(v3)), 1n), ((v4) => ({ tag: "Keep" })), ((v4) => $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dNat$dmul($Std$dMap$dTree$dsize(v2), 3n) + 1n), $Std$dMap$dTree$dsize(v3)), ((v5) => $Std$dMap$dTree$dshapeL(v3)), ((v5) => $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dNat$dmul($Std$dMap$dTree$dsize(v3), 3n) + 1n), $Std$dMap$dTree$dsize(v2)), ((v6) => $Std$dMap$dTree$dshapeR(v2)), ((v6) => ({ tag: "Keep" })))))));
+const $Std$dMap$dTree$dshape = (v2, v3) => { const v4 = $Std$dMap$dTree$dsize(v2); const v5 = $Std$dMap$dTree$dsize(v3); return ($Std$dNat$dleq(($Std$dNat$dmul(v4, 3n) + 1n), v5).tag === "True" ? $Std$dMap$dTree$dshapeL(v3) : ($Std$dNat$dleq(($Std$dNat$dmul(v5, 3n) + 1n), v4).tag === "True" ? $Std$dMap$dTree$dshapeR(v2) : { tag: "Keep" })); };
 const $Std$dMap$dTree$dbalance = (v2, v3, v4, v5) => $Std$dMap$dTree$drebuild($Std$dMap$dTree$dshape(v2, v5), v2, v3, v4, v5);
 const $Std$dMap$dTree$dinsertWith$d$gmatch1 = (v2, v3, v4, v5, v6, v7, v8, v9, v10, v11) => {
   switch (v11.tag) {
@@ -1537,12 +1537,12 @@ const $Main$dEmail$dvalue = (v0) => {
   const v1 = v0;
   return v1;
 };
-const $Main$dEmail$dparse = (v0) => $Std$dDecidable$delim($Std$dBool$ddecEq($Main$dEmail$disValid(v0), { tag: "True" }), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
+const $Main$dEmail$dparse = (v0) => ($Std$dBool$ddecEq($Main$dEmail$disValid(v0), { tag: "True" }).tag === "Yes" ? { tag: "Some", value: v0 } : { tag: "None" });
 const $Main$dparseEmail = $Main$dEmail$dparse;
 const $Main$demailText = $Main$dEmail$dvalue;
 const $Main$downerOf = (v0, v1) => $Std$dMap$dget($Std$dText$dinstOrd, v0, v1);
 const $Main$dassign = (v0, v1, v2) => $Std$dMap$dinsert($Std$dText$dinstOrd, v0, v1, v2);
-const $Main$dordersOf = (v0, v1) => $Std$dList$dfilterMap$e($Std$dMap$dtoList($Std$dText$dinstOrd, v0), ((v2) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dText$ddecEq($Std$dPair$dsnd(v2), v1)), ((v3) => ({ tag: "Some", value: $Std$dPair$dfst(v2) })), ((v3) => ({ tag: "None" })))));
+const $Main$dordersOf = (v0, v1) => $Std$dList$dfilterMap$e($Std$dMap$dtoList($Std$dText$dinstOrd, v0), ((v2) => ($Std$dDecidable$dtoBool($Std$dText$ddecEq($Std$dPair$dsnd(v2), v1)).tag === "True" ? { tag: "Some", value: $Std$dPair$dfst(v2) } : { tag: "None" })));
 const $Main$ddescribe = (v0, v1) => $Std$dText$dappend("order ", $Std$dText$dappend($Std$dShow$d$gtoText($Main$dOrderId$dinstShow)(v0), $Std$dText$dappend(" belongs to ", $Std$dShow$d$gtoText($Main$dUserId$dinstShow)(v1))));
 
 // A map that crosses is built and read by the library's own functions.

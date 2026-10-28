@@ -917,7 +917,7 @@ const $Std$dChar$dtoNat = (v0) => {
 };
 const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
 const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
-const $Std$dNat$dcompare = (v0, v1) => $Std$dBool$difThenElse($Std$dNat$dequal(v0, v1), ((v2) => ({ tag: "Equal" })), ((v2) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, v1), ((v3) => ({ tag: "Less" })), ((v3) => ({ tag: "Greater" })))));
+const $Std$dNat$dcompare = (v0, v1) => ($Std$dNat$dequal(v0, v1).tag === "True" ? { tag: "Equal" } : ($Std$dNat$dleq(v0, v1).tag === "True" ? { tag: "Less" } : { tag: "Greater" }));
 const $Std$dOrdering$dindex = (v0) => {
   switch (v0.tag) {
     case "Less": {
@@ -1246,7 +1246,7 @@ const $Std$dMap$dTree$dshapeL = (v2) => {
       const v5 = v2.key;
       const v6 = v2.value;
       const v7 = v2.right;
-      return $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dMap$dTree$dsize(v4) + 1n), $Std$dNat$dmul($Std$dMap$dTree$dsize(v7), 2n)), ((v8) => ({ tag: "SingleL" })), ((v8) => ({ tag: "DoubleL" })));
+      return ($Std$dNat$dleq(($Std$dMap$dTree$dsize(v4) + 1n), $Std$dNat$dmul($Std$dMap$dTree$dsize(v7), 2n)).tag === "True" ? { tag: "SingleL" } : { tag: "DoubleL" });
     }
   }
   throw new Error("unreachable");
@@ -1262,12 +1262,12 @@ const $Std$dMap$dTree$dshapeR = (v2) => {
       const v5 = v2.key;
       const v6 = v2.value;
       const v7 = v2.right;
-      return $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dMap$dTree$dsize(v7) + 1n), $Std$dNat$dmul($Std$dMap$dTree$dsize(v4), 2n)), ((v8) => ({ tag: "SingleR" })), ((v8) => ({ tag: "DoubleR" })));
+      return ($Std$dNat$dleq(($Std$dMap$dTree$dsize(v7) + 1n), $Std$dNat$dmul($Std$dMap$dTree$dsize(v4), 2n)).tag === "True" ? { tag: "SingleR" } : { tag: "DoubleR" });
     }
   }
   throw new Error("unreachable");
 };
-const $Std$dMap$dTree$dshape = (v2, v3) => $Std$dBool$difThenElse($Std$dNat$dleq($Std$dNat$dadd($Std$dMap$dTree$dsize(v2), $Std$dMap$dTree$dsize(v3)), 1n), ((v4) => ({ tag: "Keep" })), ((v4) => $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dNat$dmul($Std$dMap$dTree$dsize(v2), 3n) + 1n), $Std$dMap$dTree$dsize(v3)), ((v5) => $Std$dMap$dTree$dshapeL(v3)), ((v5) => $Std$dBool$difThenElse($Std$dNat$dleq(($Std$dNat$dmul($Std$dMap$dTree$dsize(v3), 3n) + 1n), $Std$dMap$dTree$dsize(v2)), ((v6) => $Std$dMap$dTree$dshapeR(v2)), ((v6) => ({ tag: "Keep" })))))));
+const $Std$dMap$dTree$dshape = (v2, v3) => { const v4 = $Std$dMap$dTree$dsize(v2); const v5 = $Std$dMap$dTree$dsize(v3); return ($Std$dNat$dleq(($Std$dNat$dmul(v4, 3n) + 1n), v5).tag === "True" ? $Std$dMap$dTree$dshapeL(v3) : ($Std$dNat$dleq(($Std$dNat$dmul(v5, 3n) + 1n), v4).tag === "True" ? $Std$dMap$dTree$dshapeR(v2) : { tag: "Keep" })); };
 const $Std$dMap$dTree$dbalance = (v2, v3, v4, v5) => $Std$dMap$dTree$drebuild($Std$dMap$dTree$dshape(v2, v5), v2, v3, v4, v5);
 const $Std$dMap$dTree$dinsertWith$d$gmatch1 = (v2, v3, v4, v5, v6, v7, v8, v9, v10, v11) => {
   switch (v11.tag) {

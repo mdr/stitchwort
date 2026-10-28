@@ -77,11 +77,13 @@ def Map.Tree.shapeR: Map.Tree k v → Map.Tree.Shape
   | Tip => Keep
 
 -- A rotation when one side has more than three times the other's keys
--- (Data.Map's delta 3 and ratio 2).
+-- (Data.Map's delta 3 and ratio 2). With one key or none in all, the
+-- rotation picked doesn't fit, so it makes a plain node.
 def Map.Tree.shape (l: Map.Tree k v) (r: Map.Tree k v): Map.Tree.Shape :=
-  if Nat.leq (Map.Tree.size l + Map.Tree.size r) 1 then Keep
-  else if Nat.leq (Succ (Map.Tree.size l * 3)) (Map.Tree.size r) then Map.Tree.shapeL r
-  else if Nat.leq (Succ (Map.Tree.size r * 3)) (Map.Tree.size l) then Map.Tree.shapeR l
+  let sizeL := Map.Tree.size l
+  let sizeR := Map.Tree.size r
+  if Nat.leq (Succ (sizeL * 3)) sizeR then Map.Tree.shapeL r
+  else if Nat.leq (Succ (sizeR * 3)) sizeL then Map.Tree.shapeR l
   else Keep
 
 -- A node, rebalanced: `l` and `r` were balanced, and one has changed by at
