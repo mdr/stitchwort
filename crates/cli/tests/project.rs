@@ -509,13 +509,11 @@ fn rogue_goals_keep_the_dungeon_folded() {
     let text = format!("{}{}", out(&output), err(&output));
     assert_eq!(text.matches("[GOAL]").count(), 7, "{text}");
     assert!(
-        text.contains("stairs: Rogue.isStairs state.level state.player = False"),
+        text.contains("stairs: isStairs state.level state.player = False"),
         "{text}"
     );
     assert!(
-        text.contains(
-            "wall: Rogue.isWall state.level (Rogue.Position.toward state.player direction) = True"
-        ),
+        text.contains("wall: isWall state.level (Position.toward state.player direction) = True"),
         "{text}"
     );
     assert!(!text.contains("['#'"), "the map is unfolded:\n{text}");
