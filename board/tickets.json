@@ -1,5 +1,5 @@
 {
-  "next": 846,
+  "next": 849,
   "tickets": [
     {
       "id": 13,
@@ -7237,14 +7237,19 @@
     {
       "id": 822,
       "title": "A lambda argument isn't postponed when a later argument fixes its type, in day 9's proofs (List.mapZipWithScanLeft … (file free => (free.moveFile file).snd) …): E-CANNOT-INFER on free",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree-agent-a9052e3d7b44a1b3c",
       "labels": [],
-      "body": "2024 day 9 Proofs/Part2.sw lines 55, 64, 78 write FreeSpace.moveFile free file instead. Docs say such lambdas wait for later arguments. Also day 3 proofs: a let-bound lambda over a (index, instruction) pair can't use instruction.result.",
+      "body": "Part 1 merged 28 Oct (47a6ec9b): unknown_domain (crates/elab/src/check.rs) looked only at a lambda's first parameter type, so (n acc => …) against Nat -> b -> c with b unknown wasn't postponed; it now checks the first N parameter types (N = the lambda's names). Example: examples/accept/lambda-postponed-second-parameter.sw.\n\nNot fixed here, split out:\n- SW-846: day 9's dot form (free.moveFile file) is now postponed but free arrives as the unfolded Map Nat (Set Nat) instead of the alias FreeSpace, so dot lookup fails (E-UNKNOWN-FIELD). Day 9 keeps its FreeSpace.moveFile workaround.\n- SW-847: day 3's let-bound lambda over a pair has no application to wait for (design question).\n\nOriginal report: 2024 day 9 Proofs/Part2.sw lines 55, 64, 78 write FreeSpace.moveFile free file instead. Also day 3 proofs: a let-bound lambda over an (index, instruction) pair can't use instruction.result.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "c4a20eb1",
+        "867297c2",
+        "1c34bc24",
+        "47a6ec9b"
+      ]
     },
     {
       "id": 823,
@@ -7536,6 +7541,49 @@
         "bug"
       ],
       "body": "SW-832 adds a note only when a top-level folded call (type alias) faces a non-call of the same head. Not covered: an alias nested inside the printed type (List Q vs List Other), and Prop aliases (unfolding to an equation, skipped to avoid noise on b <= c vs b < c).\n",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 846,
+      "title": "Dot on a postponed lambda's parameter fails in AoC 2024 day 9 proofs: the parameter's type is the unfolded Map, not the nickname FreeSpace",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Follow-up to SW-822 (which makes multi-parameter lambdas postpone when a non-first parameter type is unknown). With that fix, List.mapZipWithScanLeft File.idAndLength File.idAndLength (file free => (free.moveFile file).snd) ... at aoc/src/Aoc/Year2024/Day09/Proofs/Part2.sw:55 (also 64, 78) still gives E-CANNOT-INFER on free: the lambda is now postponed, but by the time it's checked its domain is 'Map Nat (Set Nat) -> File -> Map ...' (unfolded) rather than FreeSpace, and the retry error comes from E-UNKNOWN-FIELD 'Map has no field or function moveFile'. Trace: temporary eprintln of cx.show(&dom) in apply_args_postponing (crates/elab/src/check.rs). Not yet pinned which step solves b to the unfolded type (the call has an expected type from a rewrite goal; z's own check does give FreeSpace). Standalone repros with a def Counts: Type := List Nat did not reproduce it without an expected type mentioning b. Keep the workarounds in Part2.sw until fixed.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 847,
+      "title": "A let-bound unannotated lambda over a pair can't use dot on a component (AoC 2024 day 3 proofs)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Separate from SW-822: 'let counted := ((index, item)) => if index < 3 then item.value else 0' then 'List.sumBy pairs counted' gives E-CANNOT-INFER on item, since a let-bound lambda isn't an argument and has no later argument to postpone against. Day 3's Proofs.sw:64 annotates the pair pattern instead. Needs a design decision (annotate, or defer let-bound lambdas until first use); not fixed.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 848,
+      "title": "Lane tier: task test:lane AREA=aoc runs 0 tests (filter test(/^day/) predates the yearYYYY_dayNN names)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling",
+        "bug"
+      ],
+      "body": "Found by the SW-822 lane, confirmed 28 Oct: .config/nextest.toml:136 [profile.lane-aoc] default-filter = \"binary(aoc_answers) & test(/^day/)\", but aoc_answers tests are now year2024_day01 …, plus every_day_from_the_whole_projects_cache. Pick a handful of fast days that fit the lane's 10 s budget (measure) and match them by name; update the table in docs/testing.md.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
