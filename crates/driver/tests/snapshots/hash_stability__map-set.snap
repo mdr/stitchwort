@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.State 85de017bfba669387e7abba0d3cf8705427dca441fe960de4dbe25ac908798f9
