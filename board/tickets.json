@@ -1,5 +1,5 @@
 {
-  "next": 752,
+  "next": 753,
   "tickets": [
     {
       "id": 13,
@@ -6329,7 +6329,19 @@
     {
       "id": 751,
       "title": "Day 10 findings: list membership holes fill by unfolding; match on n + 1 reduces as Succ n; if-comparisons as Bool consistently; Add.zero vs 0 when comparing; List.forEach and length/count lemmas; 'in' on its own line after a multi-line rewrite",
-      "status": "next",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 752,
+      "title": "ring [c * h] with coefficients, like Mathlib's linear_combination (AoC 2024 day 8)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
