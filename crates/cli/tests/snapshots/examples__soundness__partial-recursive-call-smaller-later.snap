@@ -7,7 +7,7 @@ expression: output
     │
  12 │   | Zero,   m => applyTo (bad m) m
     │                           ──┬──  
-    │                             ╰──── this recursive call might not terminate: the 1st argument is what the 2nd argument was
+    │                             ╰──── this recursive call might not terminate: the 1st argument, `m`, is what the 2nd argument was
     │ 
     │ Note 1: `bad` is given 1 of its 2 arguments here; the rest are whatever it's applied to later, which isn't known to be smaller, so an argument that gets smaller must be among the ones given
     │ 

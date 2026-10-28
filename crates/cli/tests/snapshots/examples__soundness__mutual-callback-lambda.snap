@@ -11,7 +11,7 @@ expression: output
     │ 
  17 │   let callback: Callback := make xs
     │                             ───┬───  
-    │                                ╰───── then this call to `make`: `make`'s 1st argument is `weigh`'s 1st argument
+    │                                ╰───── then this call to `make`: `make`'s 1st argument, `xs`, is `weigh`'s 1st argument
     │ 
     │ Note 1: going round `make` → `weigh` → `make`, over and over, no argument is known to get smaller
     │ 

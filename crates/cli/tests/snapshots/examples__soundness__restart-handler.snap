@@ -7,7 +7,7 @@ expression: output
     │
  18 │   | Call o rest => bad (Call o rest)
     │                    ────────┬───────  
-    │                            ╰───────── this recursive call might not terminate: the 1st argument stays the same
+    │                            ╰───────── this recursive call might not terminate: the 1st argument, `Call o rest`, stays the same
     │ 
     │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
     │ 

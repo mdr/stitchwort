@@ -266,6 +266,13 @@ unchanged: `| a :: rest@(b :: c :: more) => … f rest`
 that sub-term, or add as-patterns; and name the argument that fails to
 shrink, not the first one that stays the same.
 
+Fixed: a constructor rebuilt from exactly a nested pattern's parts is that
+part, at any depth, also inside a lifted `match` (which `cases` makes), so
+the lemma above checks as written (`examples/accept/structural-rebuilt-pattern.sw`
+has its shape; day 2 itself now uses std's `List.chainInit`). When no argument gets smaller, the error
+names the ones matched on: "the 2nd argument, `Cons y (Cons x more)`, isn't
+seen as smaller than `levels`".
+
 ### 2. Goals print `&&` and `<` desugared
 
 The goal for one step of `allRiseGently`:

@@ -7,7 +7,7 @@ expression: output
     │
   9 │ def walk (ts: List Nat): Nat := applyTo (x => walkList x) ts
     │                                               ─────┬────  
-    │                                                    ╰────── this call to `walkList` might not terminate: no argument is known to be smaller
+    │                                                    ╰────── this call to `walkList` might not terminate: `walkList`'s 1st argument, `x`, isn't seen as smaller than any of `walk`'s arguments
     │ 
  12 │   | Nil       => walk Nil
     │                  ────┬───  
