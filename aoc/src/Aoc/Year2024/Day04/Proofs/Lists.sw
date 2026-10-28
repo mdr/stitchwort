@@ -152,3 +152,77 @@ theorem at4OrElse (f: a → b → c → d → Nat) (da: a) (db: b) (dc: c) (dd: 
   | Some x, Some y, None, od => Eq.sym (zero3 _ _ _)
   | Some x, Some y, Some z, None => Eq.sym (zero4 _ _ _)
   | Some x, Some y, Some z, Some w => rfl
+
+-- `f` of three elements when all three are there.
+def some3 (f: a → b → c → d): Option a → Option b → Option c → Option d
+  | Some x, Some y, Some z => Some (f x y z)
+  | _, _, _ => None
+
+theorem some3None2 (f: a → b → c → d) (z: Option c): (x: Option a) → some3 f x None z = None
+  | None => rfl
+  | Some x => rfl
+
+theorem some3None3 (f: a → b → c → d): (x: Option a) → (y: Option b) → some3 f x y None = None
+  | None, y => rfl
+  | Some x, None => rfl
+  | Some x, Some y => rfl
+
+-- Index j of three lists zipped in step.
+theorem getZipWith3 (f: a → b → c → d): (xs: List a) → (ys: List b) → (zs: List c) → (j: Nat) →
+    List.get (List.zipWith3 xs ys zs f) j = some3 f (List.get xs j) (List.get ys j) (List.get zs j)
+  | Nil, ys, zs, j => rfl
+  | Cons x xs, Nil, zs, j => Eq.sym (some3None2 f _ _)
+  | Cons x xs, Cons y ys, Nil, j => Eq.sym (some3None3 f _ _)
+  | Cons x xs, Cons y ys, Cons z zs, Zero => rfl
+  | Cons x xs, Cons y ys, Cons z zs, Succ j => getZipWith3 f xs ys zs j
+
+-- Three lists zipped in step are no longer than the first.
+theorem lengthZipWith3Le (f: a → b → c → d): (xs: List a) → (ys: List b) → (zs: List c) → List.length (List.zipWith3 xs ys zs f) ≤ List.length xs
+  | Nil, ys, zs => rfl
+  | Cons x xs, Nil, zs => rfl
+  | Cons x xs, Cons y ys, Nil => rfl
+  | Cons x xs, Cons y ys, Cons z zs => lengthZipWith3Le f xs ys zs
+
+theorem zipWith3Nil2 (zs: List c) (f: a → b → c → d): (xs: List a) → List.zipWith3 xs Nil zs f = Nil
+  | Nil => rfl
+  | Cons x xs => rfl
+
+theorem zipWith3Nil3 (f: a → b → c → d): (xs: List a) → (ys: List b) → List.zipWith3 xs ys Nil f = Nil
+  | Nil, ys => rfl
+  | Cons x xs, Nil => rfl
+  | Cons x xs, Cons y ys => rfl
+
+-- `f` of two elements when both are there, otherwise 0.
+def at2 (f: a → b → Nat): Option a → Option b → Nat
+  | Some x, Some y => f x y
+  | _, _ => 0
+
+theorem at2None2 (f: a → b → Nat): (x: Option a) → at2 f x None = 0
+  | None => rfl
+  | Some x => rfl
+
+-- The same for two lists.
+theorem sumByZipWith (g: c → Nat) (f: a → b → c): (as: List a) → (bs: List b) → (n: Nat) → List.length as ≤ n →
+    List.sumBy (List.zipWith as bs f) g = List.sumBy (List.range n) (j => at2 (x y => g (f x y)) (List.get as j) (List.get bs j))
+  | Nil, bs, n, h => Eq.sym (sumRangeZero _ n (j => rfl))
+  | Cons x xs, Nil, n, h => Eq.sym (sumRangeZero _ n (j => at2None2 _ _))
+  | Cons x xs, Cons y ys, Zero, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, Cons y ys, Succ n, h =>
+    let each := (j: Nat) => at2 (x y => g (f x y)) (List.get (Cons x xs) j) (List.get (Cons y ys) j)
+    calc List.sumBy (Cons (f x y) (List.zipWith xs ys f)) g
+      _ = g (f x y) + List.sumBy (List.zipWith xs ys f) g := List.sumByCons (List.zipWith xs ys f) (f x y) g
+      _ = each 0 + List.sumBy (List.range n) (j => each (Succ j)) := rewrite sumByZipWith g f xs ys n h
+      _ = List.sumBy (List.range (Succ n)) each := Eq.sym (List.sumByRangeSucc each n)
+
+-- `at3` of optional elements is `f` of them with defaults for the missing
+-- ones, when a default anywhere makes `f` 0.
+theorem at3OrElse (f: a → b → c → Nat) (da: a) (db: b) (dc: c)
+    (zero1: (y: b) → (z: c) → f da y z = 0)
+    (zero2: (x: a) → (z: c) → f x db z = 0)
+    (zero3: (x: a) → (y: b) → f x y dc = 0):
+    (oa: Option a) → (ob: Option b) → (oc: Option c) →
+    at3 f oa ob oc = f (Option.getOrElse oa da) (Option.getOrElse ob db) (Option.getOrElse oc dc)
+  | None, ob, oc => Eq.sym (zero1 _ _)
+  | Some x, None, oc => Eq.sym (zero2 _ _)
+  | Some x, Some y, None => Eq.sym (zero3 _ _)
+  | Some x, Some y, Some z => rfl

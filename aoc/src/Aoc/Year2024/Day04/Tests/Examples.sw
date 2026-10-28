@@ -77,4 +77,4 @@ test "MAM is not a cross" := part2 ["M.M", ".A.", "M.M"] == 0
 test "a plus is not a cross" := part2 [".M.", "MAS", ".S."] == 0
 test "two crosses sharing letters" := part2 ["M.S.M", ".A.A.", "M.S.M"] == 2
 test "the centre must be an A" := part2 ["M.S", ".X.", "M.S"] == 0
-test "a cross cut short" := part2 ["M.S", ".A", "M.S"] == 0
+test "a cross in rows of different lengths" := part2 ["M.S", ".A", "M.S"] == 1 ∧ part2 ["M.S", ".A", "M."] == 0

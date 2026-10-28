@@ -9,8 +9,8 @@
 -- columns (across), or four rows in a run, as they are (down) or each shifted
 -- one column further than the last (the two diagonals). `List.zipWith4` reads
 -- them in step and stops at the shortest, so a line that would leave the grid
--- is never read. Crosses are found the same way, in three rows and three
--- columns.
+-- is never read. Crosses are found the same way, from the two diagonals of
+-- three letters through each centre.
 --
 -- The proofs are in `Aoc.Year2024.Day04.Proofs` (Proofs/) and the tests in
 -- `Aoc.Year2024.Day04.Tests` (Tests/); `run` checks neither.
@@ -55,21 +55,16 @@ def solvePart1 (grid: Grid): Nat :=
   let through := List.zipWith4 rows (rows.drop 1) (rows.drop 2) (rows.drop 3) countThrough |> .sum
   rows.sumBy countAcross + through
 
--- The two ends of a diagonal of a cross are an M and an S.
-def isMas (oneEnd: Char) (otherEnd: Char): Bool := (oneEnd == 'M' ∧ otherEnd == 'S') ∨ (oneEnd == 'S' ∧ otherEnd == 'M')
+-- Three letters in a line spell MAS, one way or the other.
+def spellsMas (first: Char) (second: Char) (third: Char): Bool :=
+  (first == 'M' ∧ second == 'A' ∧ third == 'S') ∨ (first == 'S' ∧ second == 'A' ∧ third == 'M')
 
--- Three columns of three cells (top, middle, bottom) are an X-MAS: an A in
--- the centre and MAS along both diagonals.
-def isCross (left: (Char, Char, Char)) (centre: (Char, Char, Char)) (right: (Char, Char, Char)): Bool :=
-  let (topLeft, _, bottomLeft) := left
-  let (_, middle, _) := centre
-  let (topRight, _, bottomRight) := right
-  middle == 'A' ∧ isMas topLeft bottomRight ∧ isMas topRight bottomLeft
-
--- The crosses in three rows in a run: their columns, three at a time.
+-- The crosses in three rows in a run, by their centres in the middle row:
+-- MAS down to the right through the centre, and MAS down to the left.
 def countCrosses (above: List Char) (middle: List Char) (below: List Char): Nat :=
-  let columns := List.zipWith3 above middle below (top centre bottom => (top, centre, bottom))
-  List.zipWith3 columns (columns.drop 1) (columns.drop 2) isCross |> .count (found => found)
+  let downRight := List.zipWith3 above (middle.drop 1) (below.drop 2) spellsMas
+  let downLeft := List.zipWith3 (above.drop 2) (middle.drop 1) below spellsMas
+  List.zipWith downRight downLeft (one other => one ∧ other) |> .count (found => found)
 
 -- Part 2: the crosses in every run of three rows.
 def solvePart2 (grid: Grid): Nat :=
