@@ -7317,7 +7317,7 @@
     {
       "id": 829,
       "title": "Design note: nested data types (Packets (items: List Packet)), from SW-704",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7329,7 +7329,7 @@
     {
       "id": 830,
       "title": "Day 24 part 2: on a dead end try every gate output in the faulty bit (misses 4/110 generated adders)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7341,7 +7341,7 @@
     {
       "id": 831,
       "title": "std additions: Text.padLeft, Option.toList, List.allSome, Char.isAsciiLowercase, day 22 xor lemmas into Nat/Bits.sw (DeepSeek)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
