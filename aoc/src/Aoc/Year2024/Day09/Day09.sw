@@ -113,7 +113,7 @@ def FreeSpace.leftmostFit (free: FreeSpace) (length: Nat) (before: Nat): Option 
 -- is one: it takes the span's first blocks, and the rest of the span stays
 -- free. The space the file leaves is to the right of every file still to
 -- move, so it isn't added.
-def moveFile (free: FreeSpace) (file: File): (FreeSpace, File) :=
+def FreeSpace.moveFile (free: FreeSpace) (file: File): (FreeSpace, File) :=
   match free.leftmostFit file.span.length file.span.start with
     | None => (free, file)
     | Some span =>
@@ -123,9 +123,9 @@ def moveFile (free: FreeSpace) (file: File): (FreeSpace, File) :=
 -- Every file moved once, highest number first.
 def compactFiles (diskMap: List Nat): List File :=
   let layout := layoutFrom 0 0 diskMap
-  layout.fst.reverse.mapAccumLeft (FreeSpace.of (joinTouching layout.snd)) moveFile |> .snd
+  layout.fst.reverse.mapAccumLeft (FreeSpace.of (joinTouching layout.snd)) FreeSpace.moveFile |> .snd
 
 -- A file's part of the checksum: its blocks' positions times its number.
-def fileChecksum (file: File): Nat := List.rangeFrom file.span.length file.span.start |> .sumBy (position => position * file.id)
+def File.checksum (file: File): Nat := List.rangeFrom file.span.length file.span.start |> .sumBy (position => position * file.id)
 
-def solvePart2 (diskMap: List Nat): Nat := compactFiles diskMap |> .sumBy fileChecksum
+def solvePart2 (diskMap: List Nat): Nat := compactFiles diskMap |> .sumBy .checksum
