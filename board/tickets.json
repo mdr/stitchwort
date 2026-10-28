@@ -6605,7 +6605,7 @@
     {
       "id": 774,
       "title": "Day 17 findings: auto tries instances before computing the goal (Nat.pow 2 (Succ k) != 0); follow-on errors from failed definitions; %3 placeholder in suggestions; Nat and/or/shiftLeft; 'a number of 1 digits' wording; List.joinWith; List.minimum/filter lemmas to std",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
