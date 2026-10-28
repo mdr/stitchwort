@@ -1,5 +1,5 @@
 {
-  "next": 856,
+  "next": 857,
   "tickets": [
     {
       "id": 13,
@@ -7586,9 +7586,9 @@
     {
       "id": 848,
       "title": "Lane tier: task test:lane AREA=aoc runs 0 tests (filter test(/^day/) predates the yearYYYY_dayNN names)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "worktree",
       "labels": [
         "tooling",
         "bug"
@@ -7601,7 +7601,7 @@
     {
       "id": 849,
       "title": "Two instances with the same name panic the elaborator (index out of bounds, crates/elab/src/module.rs:1177)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7610,7 +7610,10 @@
       "body": "Found by the SW-685 elaborator fuzzer (oracle 1, no panic; default seed 0x5eede1ab00000685, case 4163, from accept/interfaces-order.sw). Minimal input, 'stitchwort check' panics with 'index out of bounds: the len is 2 but the index is 2' at crates/elab/src/module.rs:1177:\n\ninstance Foo.i: Foo Nat :=\n  { x = 0 }\ninstance Foo.i: Foo Nat :=\n  { x = 0 }\ninterface Foo (a: Type) =\n  { x: a }\n\nExpected: a clean duplicate-definition error naming the second instance. The interface and the Nat type can be anything; the duplicated instance name is what triggers it.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "3a990e6f",
+        "cd39c1f4"
+      ]
     },
     {
       "id": 850,
@@ -7657,7 +7660,7 @@
     {
       "id": 853,
       "title": "Independent review of the negative-arguments note before implementation",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -7667,7 +7670,10 @@
       "body": "Workflow step for SW-840: an independent reviewer reads docs/proposals/negative-arguments.md (approved by Matt 28 Oct) before implementation starts. Findings go in docs/proposals/negative-arguments-review.md.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "fd5d3c4e",
+        "57607530"
+      ]
     },
     {
       "id": 854,
@@ -7678,7 +7684,7 @@
       "labels": [
         "syntax"
       ],
-      "body": "Implement docs/proposals/negative-arguments.md §8 stages 1 and 2 (they merge together): D1461 whitespace rule, D1462 scope, D1469 line break, D1470 'Some -1' patterns, D1467 notes, D1472 formatter keeps the form. Waits for the independent review.\n\nD1474 (Matt, 28 Oct): a '-' glued to a numeral is part of the number unless an operand comes right before it with no space, so '-1.abs' is '(-1).abs', alone and as an argument ('f -1.abs' is 'f ((-1).abs)'); 'x-1.abs', '- 1.abs' and '-x.abs' keep today's grouping. Update docs/syntax.md:1114 and the note's D1462 examples.\nD1468 (Matt, 28 Oct): colour a glued '-' before a numeral as part of the number in the VS Code grammar (editors/vscode/syntaxes/stitchwort.tmLanguage.json, 'number') and the playground tokenizer, matching the D1474 rule.\n",
+      "body": "Implement docs/proposals/negative-arguments.md §8 stages 1 and 2 (they merge together): D1461 whitespace rule, D1462 scope, D1469 line break, D1470 'Some -1' patterns, D1467 notes, D1472 formatter keeps the form. Waits for the independent review.\n\nD1474 (Matt, 28 Oct): a '-' glued to a numeral is part of the number unless an operand comes right before it with no space, so '-1.abs' is '(-1).abs', alone and as an argument ('f -1.abs' is 'f ((-1).abs)'); 'x-1.abs', '- 1.abs' and '-x.abs' keep today's grouping. Update docs/syntax.md:1114 and the note's D1462 examples.\nD1468 (Matt, 28 Oct): colour a glued '-' before a numeral as part of the number in the VS Code grammar (editors/vscode/syntaxes/stitchwort.tmLanguage.json, 'number') and the playground tokenizer, matching the D1474 rule.\n\n\nReview (SW-853, docs/proposals/negative-arguments-review.md, 57607530): six fixes to the note before building (block-statement stop for -y lines; D1474 silently changes -2.5.floor; stage 1 can't merge alone; §8 needs a D1474 plan; D1467 notes can't quote the head; D1468 regex gaps). Questions D1490-D1492 to Matt.\n",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
@@ -7693,6 +7699,20 @@
         "syntax"
       ],
       "body": "D1471 (Matt, 28 Oct): '!' follows the '-' rule, as a separate small change after stages 1-2. docs/proposals/negative-arguments.md §8 stage 3.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 856,
+      "title": "Task entry to run the elaborator fuzzer in release with FUZZ_CASES/FUZZ_SEED",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From the SW-849 lane: 'task test:one -- fuzz_elab' matches nothing because fuzz_elab is #[ignore]d; running it needs 'cargo nextest run -p stitchwort-driver --test fuzz_elab --run-ignored all', and 4200 cases in a debug build took over 10 minutes. Add a Taskfile entry (e.g. task fuzz:elab CASES=… SEED=…) using the release profile, and document it in docs/testing.md.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
