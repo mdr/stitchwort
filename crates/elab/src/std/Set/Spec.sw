@@ -502,8 +502,13 @@ theorem Set.sizeDifferenceSubset [auto ord: Ord k] (a: Set k) (b: Set k) (subset
       let insideT := (other: k) (inT: Set.contains t other = True) => inside other (Set.containsInsertMono t key other inT)
       let present: Set.contains (Set.difference a t) key = True :=
         rewrite Set.containsDifference a key t, inside key (Set.containsInsert key t), absent in rfl
-      omega [Eq.cong Set.size (Set.differenceInsert a t key), Set.sizeRemovePresent (Set.difference a t) key present, Set.sizePositive (Set.difference a t) key present,
-        Set.sizeInsertNew t key absent, held insideT])
+      omega [
+        Eq.cong Set.size (Set.differenceInsert a t key),
+        Set.sizeRemovePresent (Set.difference a t) key present,
+        Set.sizePositive (Set.difference a t) key present,
+        Set.sizeInsertNew t key absent,
+        held insideT
+      ])
     b subset
 
 -- A subset is no larger (Mathlib's `Finset.card_le_card`).
