@@ -1,5 +1,5 @@
 {
-  "next": 774,
+  "next": 775,
   "tickets": [
     {
       "id": 13,
@@ -6545,7 +6545,7 @@
     {
       "id": 769,
       "title": "AoC 2024 day 17 (examples only; input pending from Matt): 3-bit computer, solve, prove, log gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6594,6 +6594,18 @@
       "id": 773,
       "title": "Day 16 small findings: Set.popMin; lambda arguments inferred after the arguments that fix their type; note when importing a constructor by name; terms a rewrite adds inside a match branch refined by the match",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 774,
+      "title": "Day 17 findings: auto tries instances before computing the goal (Nat.pow 2 (Succ k) != 0); follow-on errors from failed definitions; %3 placeholder in suggestions; Nat and/or/shiftLeft; 'a number of 1 digits' wording; List.joinWith; List.minimum/filter lemmas to std",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
