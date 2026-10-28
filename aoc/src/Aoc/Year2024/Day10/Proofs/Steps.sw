@@ -7,57 +7,30 @@ import Aoc.Year2024.Day10 (..)
 import Aoc.Year2024.Day10.Spec (..)
 import Std (And, Bool, DecEq, Eq, Iff, List, Nat, Option, Void)
 
--- `isOrthogonalStep` as a proposition.
+-- Each neighbour is one orthogonal step away.
+theorem neighbourOrthogonal: (from: Position) → (to: Position) → to ∈ from.neighbours → isOrthogonalStep from to = True
+  | { row = Zero, column = Zero }, to, Inl same => rewrite <- same in omega
+  | { row = Zero, column = Zero }, to, Inr (Inl same) => rewrite <- same in omega
+  | { row = Zero, column = Zero }, to, Inr (Inr none) => Void.exfalso none
+  | { row = Zero, column = Succ previous }, to, Inl same => rewrite <- same in omega
+  | { row = Zero, column = Succ previous }, to, Inr (Inl same) => rewrite <- same in omega
+  | { row = Zero, column = Succ previous }, to, Inr (Inr (Inl same)) => rewrite <- same in omega
+  | { row = Zero, column = Succ previous }, to, Inr (Inr (Inr none)) => Void.exfalso none
+  | { row = Succ up, column = Zero }, to, Inl same => rewrite <- same in omega
+  | { row = Succ up, column = Zero }, to, Inr (Inl same) => rewrite <- same in omega
+  | { row = Succ up, column = Zero }, to, Inr (Inr (Inl same)) => rewrite <- same in omega
+  | { row = Succ up, column = Zero }, to, Inr (Inr (Inr none)) => Void.exfalso none
+  | { row = Succ up, column = Succ previous }, to, Inl same => rewrite <- same in omega
+  | { row = Succ up, column = Succ previous }, to, Inr (Inl same) => rewrite <- same in omega
+  | { row = Succ up, column = Succ previous }, to, Inr (Inr (Inl same)) => rewrite <- same in omega
+  | { row = Succ up, column = Succ previous }, to, Inr (Inr (Inr (Inl same))) => rewrite <- same in omega
+  | { row = Succ up, column = Succ previous }, to, Inr (Inr (Inr (Inr none))) => Void.exfalso none
+
+-- One orthogonal step, by direction: right or left in the same row, or down
+-- or up in the same column. `omega` gives it from `isOrthogonalStep`.
 def Orthogonal (from: Position) (to: Position): Prop :=
   Or (And (from.row = to.row) (Or (from.column + 1 = to.column) (to.column + 1 = from.column)))
     (And (from.column = to.column) (Or (from.row + 1 = to.row) (to.row + 1 = from.row)))
-
-theorem eqTrue (x: Nat) (y: Nat) (same: x = y): (x == y) = True := rewrite same in DecEq.refl y
-
-theorem orthogonalIntro (from: Position) (to: Position) (orthogonal: Orthogonal from to): isOrthogonalStep from to = True :=
-  match orthogonal with
-    | Inl (Both rows columns) =>
-      Bool.orLeft _ _
-        (Bool.andIntro _ _ (eqTrue _ _ rows)
-          (match columns with
-            | Inl right => Bool.orLeft _ _ (eqTrue _ _ right)
-            | Inr left => Bool.orRight _ _ (eqTrue _ _ left)))
-    | Inr (Both columns rows) =>
-      Bool.orRight _ _
-        (Bool.andIntro _ _ (eqTrue _ _ columns)
-          (match rows with
-            | Inl down => Bool.orLeft _ _ (eqTrue _ _ down)
-            | Inr up => Bool.orRight _ _ (eqTrue _ _ up)))
-
-theorem orthogonalElim (from: Position) (to: Position) (step: isOrthogonalStep from to = True): Orthogonal from to :=
-  Bool.orElim _ _ _ step
-    (across =>
-      Inl
-        (Both (DecEq.sound _ _ (Bool.andLeft _ _ across))
-          (Bool.orElim _ _ _ (Bool.andRight _ _ across) (right => Inl (DecEq.sound _ _ right)) (left => Inr (DecEq.sound _ _ left)))))
-    (upOrDown =>
-      Inr
-        (Both (DecEq.sound _ _ (Bool.andLeft _ _ upOrDown))
-          (Bool.orElim _ _ _ (Bool.andRight _ _ upOrDown) (down => Inl (DecEq.sound _ _ down)) (up => Inr (DecEq.sound _ _ up)))))
-
--- Each neighbour is one orthogonal step away.
-theorem neighbourOrthogonal: (from: Position) → (to: Position) → to ∈ from.neighbours → Orthogonal from to
-  | { row = Zero, column = Zero }, to, Inl same => rewrite <- same in Inl (Both (omega) (Inl (omega)))
-  | { row = Zero, column = Zero }, to, Inr (Inl same) => rewrite <- same in Inr (Both (omega) (Inl (omega)))
-  | { row = Zero, column = Zero }, to, Inr (Inr none) => Void.exfalso none
-  | { row = Zero, column = Succ previous }, to, Inl same => rewrite <- same in Inl (Both (omega) (Inr (omega)))
-  | { row = Zero, column = Succ previous }, to, Inr (Inl same) => rewrite <- same in Inl (Both (omega) (Inl (omega)))
-  | { row = Zero, column = Succ previous }, to, Inr (Inr (Inl same)) => rewrite <- same in Inr (Both (omega) (Inl (omega)))
-  | { row = Zero, column = Succ previous }, to, Inr (Inr (Inr none)) => Void.exfalso none
-  | { row = Succ up, column = Zero }, to, Inl same => rewrite <- same in Inr (Both (omega) (Inr (omega)))
-  | { row = Succ up, column = Zero }, to, Inr (Inl same) => rewrite <- same in Inl (Both (omega) (Inl (omega)))
-  | { row = Succ up, column = Zero }, to, Inr (Inr (Inl same)) => rewrite <- same in Inr (Both (omega) (Inl (omega)))
-  | { row = Succ up, column = Zero }, to, Inr (Inr (Inr none)) => Void.exfalso none
-  | { row = Succ up, column = Succ previous }, to, Inl same => rewrite <- same in Inr (Both (omega) (Inr (omega)))
-  | { row = Succ up, column = Succ previous }, to, Inr (Inl same) => rewrite <- same in Inl (Both (omega) (Inr (omega)))
-  | { row = Succ up, column = Succ previous }, to, Inr (Inr (Inl same)) => rewrite <- same in Inl (Both (omega) (Inl (omega)))
-  | { row = Succ up, column = Succ previous }, to, Inr (Inr (Inr (Inl same))) => rewrite <- same in Inr (Both (omega) (Inl (omega)))
-  | { row = Succ up, column = Succ previous }, to, Inr (Inr (Inr (Inr none))) => Void.exfalso none
 
 -- Each position one orthogonal step away is a neighbour.
 theorem orthogonalNeighbour: (from: Position) → (to: Position) → Orthogonal from to → to ∈ from.neighbours
@@ -79,12 +52,10 @@ theorem orthogonalNeighbour: (from: Position) → (to: Position) → Orthogonal 
     rewrite <- columns, <- same in List.memAppendLeft _ from.above (from.leftOf ++ from.rightAndBelow) (Inl rfl)
 
 -- Positions in different rows, or different columns, are different.
-theorem rowsApart (row: Nat) (column: Nat) (otherRow: Nat) (otherColumn: Nat) (apart: Not (row = otherRow)):
-    Not (({ row, column }: Position) = { row = otherRow, column = otherColumn }) :=
+theorem rowsApart (first: Position) (second: Position) (apart: Not (first.row = second.row)): Not (first = second) :=
   same => apart (Eq.cong (position => position.row) same)
 
-theorem columnsApart (row: Nat) (column: Nat) (otherRow: Nat) (otherColumn: Nat) (apart: Not (column = otherColumn)):
-    Not (({ row, column }: Position) = { row = otherRow, column = otherColumn }) :=
+theorem columnsApart (first: Position) (second: Position) (apart: Not (first.column = second.column)): Not (first = second) :=
   same => apart (Eq.cong (position => position.column) same)
 
 theorem notCons (position: Position) (first: Position) (rest: List Position) (apart: Not (first = position)) (notRest: position ∉ rest):
@@ -96,17 +67,17 @@ theorem notCons (position: Position) (first: Position) (rest: List Position) (ap
 
 -- The neighbours are four different positions, or fewer at an edge.
 theorem neighboursDistinct: (from: Position) → List.Distinct from.neighbours
-  | { row = Zero, column = Zero } => Both (notCons _ _ _ (rowsApart _ _ _ _ (omega)) (none => none)) (Both (none => none) Trivial)
+  | { row = Zero, column = Zero } => Both (notCons _ _ _ (rowsApart _ _ (omega)) (none => none)) (Both (none => none) Trivial)
   | { row = Zero, column = Succ previous } =>
-    Both (notCons _ _ _ (columnsApart _ _ _ _ (omega)) (notCons _ _ _ (rowsApart _ _ _ _ (omega)) (none => none)))
-      (Both (notCons _ _ _ (rowsApart _ _ _ _ (omega)) (none => none)) (Both (none => none) Trivial))
+    Both (notCons _ _ _ (columnsApart _ _ (omega)) (notCons _ _ _ (rowsApart _ _ (omega)) (none => none)))
+      (Both (notCons _ _ _ (rowsApart _ _ (omega)) (none => none)) (Both (none => none) Trivial))
   | { row = Succ up, column = Zero } =>
-    Both (notCons _ _ _ (rowsApart _ _ _ _ (omega)) (notCons _ _ _ (rowsApart _ _ _ _ (omega)) (none => none)))
-      (Both (notCons _ _ _ (rowsApart _ _ _ _ (omega)) (none => none)) (Both (none => none) Trivial))
+    Both (notCons _ _ _ (rowsApart _ _ (omega)) (notCons _ _ _ (rowsApart _ _ (omega)) (none => none)))
+      (Both (notCons _ _ _ (rowsApart _ _ (omega)) (none => none)) (Both (none => none) Trivial))
   | { row = Succ up, column = Succ previous } =>
-    Both (notCons _ _ _ (rowsApart _ _ _ _ (omega)) (notCons _ _ _ (rowsApart _ _ _ _ (omega)) (notCons _ _ _ (rowsApart _ _ _ _ (omega)) (none => none))))
-      (Both (notCons _ _ _ (columnsApart _ _ _ _ (omega)) (notCons _ _ _ (rowsApart _ _ _ _ (omega)) (none => none)))
-        (Both (notCons _ _ _ (rowsApart _ _ _ _ (omega)) (none => none)) (Both (none => none) Trivial)))
+    Both (notCons _ _ _ (rowsApart _ _ (omega)) (notCons _ _ _ (rowsApart _ _ (omega)) (notCons _ _ _ (rowsApart _ _ (omega)) (none => none))))
+      (Both (notCons _ _ _ (columnsApart _ _ (omega)) (notCons _ _ _ (rowsApart _ _ (omega)) (none => none)))
+        (Both (notCons _ _ _ (rowsApart _ _ (omega)) (none => none)) (Both (none => none) Trivial)))
 
 -- The positions in row `row`.
 def rowPositions (map: TopographicMap) (row: Nat): List Position :=
@@ -148,10 +119,10 @@ theorem memUphill (map: TopographicMap) (from: Position) (to: Position): to ∈ 
   forward = member =>
     let both := List.memFilter from.neighbours (map.isOneHigher from) to member
     Both (higherOnMap map from to (And.right both))
-      (Bool.andIntro _ _ (orthogonalIntro from to (neighbourOrthogonal from to (And.left both))) (And.right both)),
+      (Bool.andIntro _ _ (neighbourOrthogonal from to (And.left both)) (And.right both)),
   backward = has =>
     let step := And.right has
-    List.memFilterIntro from.neighbours (map.isOneHigher from) to (orthogonalNeighbour from to (orthogonalElim from to (Bool.andLeft _ _ step)))
+    List.memFilterIntro from.neighbours (map.isOneHigher from) to (orthogonalNeighbour from to (omega))
       (Bool.andRight _ _ step)
 }
 

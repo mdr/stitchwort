@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `a ≤ 2`
+   ╭─[ reject/omega-disjunction-case-false.sw:6:63 ]
+   │
+ 6 │ theorem caseFalse (a: Nat) (h: Or (a = 1) (a = 5)): a <= 2 := omega
+   │                                                               ──┬──  
+   │                                                                 ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │ 
+   │ Note 1: facts: `a = 5` (case)
+   │ 
+   │ Note 2: atoms: `a`
+   │ 
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): a = 5
+   │ 
+   │ Note 4: in the case `a = 5` of the disjunction from h
+   │ 
+   │ Note 5: this statement is false; a counterexample:
+   │           a = 5
+   │         `a = 1 ∨ a = 5` holds
+   │         `a ≤ 2` is false
+───╯

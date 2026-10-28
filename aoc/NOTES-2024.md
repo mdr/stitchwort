@@ -2802,6 +2802,17 @@ in the context (its `splitDisjunctions` option, on by default;
 Fix: let `omega` read `||` and `Nat` `==` in `Bool` goals and facts, and
 reduce projections of record literals before abstracting atoms.
 
+Fixed: `omega` splits disjunctions among the facts (`Or`, `||`, a `False`
+`&&`), proves disjunctive goals by cases, reads `||` and `not`, and computes
+a field of a record that became known after the goal (docs/proposals/omega.md,
+"As built: disjunctions, `Bool` logic and record fields").
+`neighbourOrthogonal` now proves `isOrthogonalStep` itself (`rewrite <- same
+in omega` per arm); `eqTrue`, `orthogonalIntro` and `orthogonalElim` are gone,
+`orthogonalNeighbour`'s `Orthogonal` comes from `omega`, and `rowsApart` and
+`columnsApart` take two positions. `Orthogonal` stays only as the four
+directions `orthogonalNeighbour` matches on. `Proofs/Steps.sw` went from 169
+lines to 140 (proofs 426 to 397).
+
 ### 4. Proofs: membership in a list the checker hasn't unfolded
 
 `orthogonalNeighbour` shows a position is in `from.neighbours`, which was

@@ -9,7 +9,7 @@ expression: output
    │                                                                  ──┬──  
    │                                                                    ╰──── unsupported structure: this goal isn't linear arithmetic on `Nat` or `Int`
    │ 
-   │ Note 1: `omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s or `Int`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.toInt`, `Nat.max` and `Nat.min`, `Void`, and `Not`, `&&` and `… = True`/`False` around comparisons
+   │ Note 1: `omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s or `Int`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.toInt`, `Nat.max` and `Nat.min`, `Void`, and `Not`, `Or`, `&&`, `||`, `not` and `… = True`/`False` around comparisons
    │ 
    │ Note 2: for any other goal, `omega` looks for facts that contradict each other, and found none
    │ 

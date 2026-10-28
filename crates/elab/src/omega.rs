@@ -29,7 +29,15 @@
 //! (`Nat.leqFalse`), `(p && q) = True` (`Bool.andLeft`/`andRight`),
 //! `Decidable.toBool d = True`/`False`, which is how `a <= b` inside `&&`
 //! comes out (`Decidable.toBoolSound`/`toBoolFalse`), and `And p q`
-//! (`And.left`/`right`). Each is read again until it's arithmetic.
+//! (`And.left`/`right`), and likewise `||` and `not` (`Bool.orFalseLeft`,
+//! `Bool.notTrue`, ...). Each is read again until it's arithmetic.
+//!
+//! **Disjunctions** among the facts (`Or p q`, `(p || q) = True`,
+//! `(p && q) = False`) are split as Lean's `omega` splits them: only when
+//! the goal doesn't follow without them, by proving it in each case with
+//! that case's side as a fact, joined by `Or.elim` or `Bool.orElim`, within
+//! [`search::Limits::splits`]. A disjunctive goal is proved by cases
+//! (`Bool.inspect`) on the `Bool` deciding one side.
 //!
 //! **Quoting** mirrors the computed value's shape, so the tree's meaning
 //! computes to exactly the source: a number is `NLit`, `k + x` (what `Succ`
@@ -103,6 +111,21 @@ pub(crate) const LIBRARY: &[&str] = &[
     "Std.Bool.andRight",
     "Std.Bool.andIntro",
     "Std.Bool.falseOfNotTrue",
+    "Std.Bool.inspect",
+    "Std.Bool.orElim",
+    "Std.Bool.orLeft",
+    "Std.Bool.orRight",
+    "Std.Bool.orFalseLeft",
+    "Std.Bool.orFalseRight",
+    "Std.Bool.orFalseIntro",
+    "Std.Bool.andFalseElim",
+    "Std.Bool.andFalseLeft",
+    "Std.Bool.andFalseRight",
+    "Std.Bool.notTrue",
+    "Std.Bool.notFalse",
+    "Std.Bool.notOfFalse",
+    "Std.Bool.notOfTrue",
+    "Std.Or.elim",
     "Std.Decidable.toBoolSound",
     "Std.Decidable.toBoolFalse",
     "Std.Decidable.toBoolOf",
@@ -169,6 +192,7 @@ pub(crate) fn prove_premise(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Op
 const AUTO_LIMITS: search::Limits = search::Limits {
     rows: 2_000,
     depth: 2,
+    splits: 2,
 };
 
 /// `omega` for an `auto` argument nothing else proves (`auto.rs`): as
@@ -260,6 +284,21 @@ struct Lib {
     and_right: DefId,
     and_intro: DefId,
     false_of_not_true: DefId,
+    inspect: DefId,
+    or_elim: DefId,
+    or_left: DefId,
+    or_right: DefId,
+    or_false_left: DefId,
+    or_false_right: DefId,
+    or_false_intro: DefId,
+    and_false_elim: DefId,
+    and_false_left: DefId,
+    and_false_right: DefId,
+    not_true: DefId,
+    not_false: DefId,
+    not_of_false: DefId,
+    not_of_true: DefId,
+    prop_or_elim: DefId,
     to_bool_sound: DefId,
     to_bool_false: DefId,
     to_bool_of: DefId,
@@ -336,6 +375,7 @@ struct Lib {
     ite: DefId,
     to_bool: DefId,
     not: DefId,
+    bool_not: DefId,
     less_than: DefId,
     int_add: DefId,
     int_neg: DefId,
@@ -351,6 +391,7 @@ struct Lib {
     bool: DataId,
     void: DataId,
     and: DataId,
+    or: DataId,
     unit: DataId,
     tru: (DataId, usize),
     fls: (DataId, usize),
@@ -391,6 +432,21 @@ impl Lib {
             and_right: def("Std.Bool.andRight")?,
             and_intro: def("Std.Bool.andIntro")?,
             false_of_not_true: def("Std.Bool.falseOfNotTrue")?,
+            inspect: def("Std.Bool.inspect")?,
+            or_elim: def("Std.Bool.orElim")?,
+            or_left: def("Std.Bool.orLeft")?,
+            or_right: def("Std.Bool.orRight")?,
+            or_false_left: def("Std.Bool.orFalseLeft")?,
+            or_false_right: def("Std.Bool.orFalseRight")?,
+            or_false_intro: def("Std.Bool.orFalseIntro")?,
+            and_false_elim: def("Std.Bool.andFalseElim")?,
+            and_false_left: def("Std.Bool.andFalseLeft")?,
+            and_false_right: def("Std.Bool.andFalseRight")?,
+            not_true: def("Std.Bool.notTrue")?,
+            not_false: def("Std.Bool.notFalse")?,
+            not_of_false: def("Std.Bool.notOfFalse")?,
+            not_of_true: def("Std.Bool.notOfTrue")?,
+            prop_or_elim: def("Std.Or.elim")?,
             to_bool_sound: def("Std.Decidable.toBoolSound")?,
             to_bool_false: def("Std.Decidable.toBoolFalse")?,
             to_bool_of: def("Std.Decidable.toBoolOf")?,
@@ -466,6 +522,7 @@ impl Lib {
             ite: builtin_def(cx, Builtin::IfThenElse)?,
             to_bool: builtin_def(cx, Builtin::ToBool)?,
             not: builtin_def(cx, Builtin::Not)?,
+            bool_not: builtin_def(cx, Builtin::BoolNot)?,
             less_than: builtin_def(cx, Builtin::LessThan)?,
             int_add: builtin_def(cx, Builtin::IntAdd)?,
             int_neg: builtin_def(cx, Builtin::IntNeg)?,
@@ -481,6 +538,7 @@ impl Lib {
             bool: builtin_data(cx, Builtin::Bool)?,
             void: builtin_data(cx, Builtin::Void)?,
             and: builtin_data(cx, Builtin::And)?,
+            or: builtin_data(cx, Builtin::Or)?,
             unit: builtin_data(cx, Builtin::Unit)?,
             tru: builtin_ctor(cx, Builtin::True)?,
             fls: builtin_ctor(cx, Builtin::False)?,
@@ -565,12 +623,15 @@ fn call_args(value: &Value, def: DefId) -> Option<Vec<Value>> {
 }
 
 /// A `Bool` reading of `l`: `Nat.leq x y`, `Int.leq x y`, `Int.less x y`,
-/// `p && q`, or `Decidable.toBool d` (with the proposition it decides).
+/// `p && q`, `p || q`, `not p`, or `Decidable.toBool d` (with the
+/// proposition it decides).
 enum BoolForm {
     Leq(Value, Value),
     IntLeq(Value, Value),
     IntLess(Value, Value),
     And(Value, Value),
+    Or(Value, Value),
+    Not(Value),
     ToBool(Value, Value),
 }
 
@@ -597,13 +658,20 @@ fn bool_form(cx: &Ctx, lib: &Lib, l: &Value) -> Result<Option<BoolForm>> {
     if let Some([p, d]) = call_args(&l, lib.to_bool).as_deref() {
         return Ok(Some(BoolForm::ToBool(p.clone(), d.clone())));
     }
-    // `p && q` is `Bool.ifThenElse p (u => q) (u => False)`.
+    if let Some([p]) = call_args(&l, lib.bool_not).as_deref() {
+        return Ok(Some(BoolForm::Not(p.clone())));
+    }
+    // `p && q` is `Bool.ifThenElse p (u => q) (u => False)`, and `p || q` is
+    // `Bool.ifThenElse p (u => True) (u => q)`.
     if let Some([_, p, t, e]) = call_args(&l, lib.ite).as_deref() {
         let trivial = cx.eval(&Term::ctor(lib.unit, 0, Vec::new()))?;
         let otherwise = apply(cx.g(), e.clone(), trivial.clone())?;
+        let then = apply(cx.g(), t.clone(), trivial)?;
         if is_ctor(cx, &otherwise, lib.fls)? {
-            let q = apply(cx.g(), t.clone(), trivial)?;
-            return Ok(Some(BoolForm::And(p.clone(), q)));
+            return Ok(Some(BoolForm::And(p.clone(), then)));
+        }
+        if is_ctor(cx, &then, lib.tru)? {
+            return Ok(Some(BoolForm::Or(p.clone(), otherwise)));
         }
     }
     Ok(None)
@@ -740,8 +808,86 @@ fn prove_goal(
                     let args = [both(cx, &p)?, both(cx, &q)?, (hp, p_true), (hq, q_true)];
                     return Ok(lemma(cx, lib.and_intro, &args)?.0);
                 }
+                // By cases on `p`: `True` is done, `False` leaves `q`.
+                (Some(true), Some(BoolForm::Or(p, q))) => {
+                    let sides =
+                        |cx: &Ctx| -> Result<Vec<Term>> { Ok(vec![cx.quote(&p)?, cx.quote(&q)?]) };
+                    return by_cases(
+                        cx,
+                        lib,
+                        &p,
+                        &goal,
+                        extra,
+                        |cx, _| {
+                            let mut args = sides(cx)?;
+                            args.push(Term::Var(0));
+                            Ok(apps(Term::Def(lib.or_left), args))
+                        },
+                        |cx, extra| {
+                            let q_true = bool_is(cx, lib, &q, true)?;
+                            let mut args = sides(cx)?;
+                            args.push(prove_goal(cx, lib, &q_true, extra, span)?);
+                            Ok(apps(Term::Def(lib.or_right), args))
+                        },
+                    );
+                }
+                (Some(false), Some(BoolForm::Or(p, q))) => {
+                    let (p_false, q_false) =
+                        (bool_is(cx, lib, &p, false)?, bool_is(cx, lib, &q, false)?);
+                    let hp = prove_goal(cx, lib, &p_false, extra, span)?;
+                    let hq = prove_goal(cx, lib, &q_false, extra, span)?;
+                    let args = [both(cx, &p)?, both(cx, &q)?, (hp, p_false), (hq, q_false)];
+                    return Ok(lemma(cx, lib.or_false_intro, &args)?.0);
+                }
+                // By cases on `p`: `False` is done, `True` leaves `q`.
+                (Some(false), Some(BoolForm::And(p, q))) => {
+                    let sides =
+                        |cx: &Ctx| -> Result<Vec<Term>> { Ok(vec![cx.quote(&p)?, cx.quote(&q)?]) };
+                    return by_cases(
+                        cx,
+                        lib,
+                        &p,
+                        &goal,
+                        extra,
+                        |cx, extra| {
+                            let q_false = bool_is(cx, lib, &q, false)?;
+                            let mut args = sides(cx)?;
+                            args.push(prove_goal(cx, lib, &q_false, extra, span)?);
+                            Ok(apps(Term::Def(lib.and_false_right), args))
+                        },
+                        |cx, _| {
+                            let mut args = sides(cx)?;
+                            args.push(Term::Var(0));
+                            Ok(apps(Term::Def(lib.and_false_left), args))
+                        },
+                    );
+                }
+                (Some(truth), Some(BoolForm::Not(p))) => {
+                    let other = bool_is(cx, lib, &p, !truth)?;
+                    let proof = prove_goal(cx, lib, &other, extra, span)?;
+                    let which = if truth {
+                        lib.not_of_false
+                    } else {
+                        lib.not_of_true
+                    };
+                    return Ok(lemma(cx, which, &[both(cx, &p)?, (proof, other)])?.0);
+                }
                 _ => {}
             }
+        }
+        Value::Data(d, params) if *d == lib.or && params.len() == 2 => {
+            let mut splits = lib.limits.splits;
+            return prove_or(
+                cx,
+                lib,
+                &goal,
+                &params[0],
+                &params[1],
+                extra,
+                span,
+                &[],
+                &mut splits,
+            );
         }
         Value::Data(d, _) if *d == lib.void => {
             return linear(cx, lib, Goal::Void, expected, extra, span);
@@ -851,26 +997,110 @@ fn refute_hypothesis(
     span: Span,
 ) -> Result<Term> {
     let void = Value::Data(lib.void, Vec::new());
-    let mut shifted = Vec::new();
-    for e in extra {
-        shifted.push(Extra {
-            term: e.term.shift(cx.g(), 1, 0)?,
-            ty: e.ty.clone(),
-            name: e.name.clone(),
-        });
+    assuming(cx, "h", p, extra, |cx, extra| {
+        prove_goal(cx, lib, &void, extra, span)
+    })
+}
+
+/// `goal` by cases on the `Bool` `b` (`Bool.inspect`): `on_true` with
+/// `h: b = True` in scope, `on_false` with `h: b = False`.
+#[allow(clippy::too_many_arguments)]
+fn by_cases(
+    cx: &mut Ctx,
+    lib: &Lib,
+    b: &Value,
+    goal: &Value,
+    extra: &[Extra],
+    on_true: impl FnOnce(&mut Ctx, &[Extra]) -> Result<Term>,
+    on_false: impl FnOnce(&mut Ctx, &[Extra]) -> Result<Term>,
+) -> Result<Term> {
+    let (is_true, is_false) = (bool_is(cx, lib, b, true)?, bool_is(cx, lib, b, false)?);
+    let when_true = assuming(cx, "case", &is_true, extra, on_true)?;
+    let when_false = assuming(cx, "case", &is_false, extra, on_false)?;
+    let motive = Term::Lam(
+        "b".into(),
+        Icit::Explicit,
+        Rc::new(cx.quote(goal)?.shift(cx.g(), 1, 0)?),
+    );
+    Ok(apps(
+        Term::Def(lib.inspect),
+        vec![cx.quote(b)?, motive, when_true, when_false],
+    ))
+}
+
+/// `Or p q`, by cases on the `Bool` that decides one side: where it's `True`
+/// that side holds, and where it's `False` the other side is proved with
+/// that as a fact. A side is decided by a `Bool` if it is `b = True` (as
+/// `a <= b` computes to) or an equation on `Nat` (`Nat.equal`); if neither
+/// is, one side is proved alone, splitting the disjunctions among the facts
+/// first if it must.
+#[allow(clippy::too_many_arguments)]
+fn prove_or(
+    cx: &mut Ctx,
+    lib: &Lib,
+    goal: &Value,
+    p: &Value,
+    q: &Value,
+    extra: &[Extra],
+    span: Span,
+    split: &Split,
+    splits: &mut usize,
+) -> Result<Term> {
+    for (side, decided, other) in [(0, p, q), (1, q, p)] {
+        let (b, sides) = match force(cx.g(), decided.clone())? {
+            Value::Eq(ty, l, r) if is_data(cx, &ty, lib.bool)? && is_ctor(cx, &r, lib.tru)? => {
+                ((*l).clone(), None)
+            }
+            Value::Eq(ty, x, y) if is_data(cx, &ty, lib.nat)? => {
+                let equal = apps(Term::Def(lib.nat_equal), vec![cx.quote(&x)?, cx.quote(&y)?]);
+                (cx.eval(&equal)?, Some((x, y)))
+            }
+            _ => continue,
+        };
+        return by_cases(
+            cx,
+            lib,
+            &b,
+            goal,
+            extra,
+            |cx, _| {
+                let proof = match &sides {
+                    None => Term::Var(0),
+                    Some((x, y)) => apps(
+                        Term::Def(lib.equal_sound),
+                        vec![cx.quote(x)?, cx.quote(y)?, Term::Var(0)],
+                    ),
+                };
+                Ok(Term::ctor(lib.or, side, vec![proof]))
+            },
+            |cx, extra| {
+                let proof = prove_goal(cx, lib, other, extra, span)?;
+                Ok(Term::ctor(lib.or, 1 - side, vec![proof]))
+            },
+        );
     }
-    let mark = cx.mark();
-    cx.bind_hidden("h".into(), p.clone());
-    let body = prove_goal(cx, lib, &void, &shifted, span);
-    cx.reset(mark);
-    Ok(Term::Lam("h".into(), Icit::Explicit, Rc::new(body?)))
+    if let Some(proof) = crate::undo::attempt(cx, |cx| prove_goal(cx, lib, p, extra, span))? {
+        return Ok(Term::ctor(lib.or, 0, vec![proof]));
+    }
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let failure = match prove_goal(cx, lib, q, extra, span) {
+        Ok(proof) => return Ok(Term::ctor(lib.or, 1, vec![proof])),
+        Err(e) if crate::undo::fatal(&e) => return Err(e),
+        Err(e) => e,
+    };
+    snapshot.restore(cx);
+    let found = read_context(cx, lib, extra)?.disjunctions;
+    let case = |cx: &mut Ctx, extra: &[Extra], split: &Split, splits: &mut usize| {
+        prove_or(cx, lib, goal, p, q, extra, span, split, splits)
+    };
+    split_first(cx, lib, goal, extra, found, split, splits, failure, case)
 }
 
 fn unsupported_goal(cx: &Ctx, goal: &Value, span: Span) -> Diagnostic {
     Diagnostic::error("E-OMEGA", format!("`omega` can't prove `{}`", cx.show(goal)))
         .with_label(span, "unsupported structure: this goal isn't linear arithmetic on `Nat` or `Int`")
         .with_note(
-            "`omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s or `Int`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.toInt`, `Nat.max` and `Nat.min`, `Void`, and `Not`, `&&` and `… = True`/`False` around comparisons",
+            "`omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s or `Int`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.toInt`, `Nat.max` and `Nat.min`, `Void`, and `Not`, `Or`, `&&`, `||`, `not` and `… = True`/`False` around comparisons",
         )
 }
 
@@ -911,10 +1141,31 @@ struct Fact {
     origin: String,
 }
 
+/// A disjunction among the facts, which `omega` may split on: `Or p q`, or
+/// `(p || q) = True` (`bools`), whose sides are `p = True` and `q = True`.
+#[derive(Clone)]
+struct Disjunction {
+    proof: Term,
+    left: Value,
+    right: Value,
+    bools: Option<(Value, Value)>,
+    /// The hypothesis it comes from, for messages.
+    origin: String,
+}
+
+/// `b = True`, or `b = False`.
+fn bool_is(cx: &Ctx, lib: &Lib, b: &Value, truth: bool) -> Result<Value> {
+    let which = if truth { lib.tru } else { lib.fls };
+    let value = cx.eval(&Term::ctor(which.0, which.1, Vec::new()))?;
+    let bool_ty = Rc::new(Value::Data(lib.bool, Vec::new()));
+    Ok(Value::Eq(bool_ty, Rc::new(b.clone()), Rc::new(value)))
+}
+
 /// Reads hypotheses into facts.
 struct Reader<'l> {
     lib: &'l Lib,
     facts: Vec<Fact>,
+    disjunctions: Vec<Disjunction>,
     /// Hypotheses about `Nat` that aren't in the fragment, for messages.
     skipped: Vec<String>,
 }
@@ -1002,6 +1253,34 @@ impl Reader<'_> {
                         let (not_p, ty) = lemma(cx, lib.to_bool_false, &args)?;
                         self.read(cx, not_p, &ty, origin, depth + 1)?;
                     }
+                    (true, Some(BoolForm::Or(p, q))) => {
+                        self.disjunctions.push(Disjunction {
+                            proof: proof.clone(),
+                            left: bool_is(cx, lib, &p, true)?,
+                            right: bool_is(cx, lib, &q, true)?,
+                            bools: Some((p, q)),
+                            origin: origin.to_string(),
+                        });
+                    }
+                    (false, Some(BoolForm::Or(p, q))) => {
+                        let args = [both(cx, &p)?, both(cx, &q)?, (proof.clone(), prop.clone())];
+                        let (left, ty) = lemma(cx, lib.or_false_left, &args)?;
+                        self.read(cx, left, &ty, origin, depth + 1)?;
+                        let (right, ty) = lemma(cx, lib.or_false_right, &args)?;
+                        self.read(cx, right, &ty, origin, depth + 1)?;
+                    }
+                    // One side is `False`: a disjunction.
+                    (false, Some(BoolForm::And(p, q))) => {
+                        let args = [both(cx, &p)?, both(cx, &q)?, (proof.clone(), prop.clone())];
+                        let (either, ty) = lemma(cx, lib.and_false_elim, &args)?;
+                        self.read(cx, either, &ty, origin, depth + 1)?;
+                    }
+                    (truth, Some(BoolForm::Not(p))) => {
+                        let which = if truth { lib.not_true } else { lib.not_false };
+                        let args = [both(cx, &p)?, (proof.clone(), prop.clone())];
+                        let (other, ty) = lemma(cx, which, &args)?;
+                        self.read(cx, other, &ty, origin, depth + 1)?;
+                    }
                     _ => {}
                 }
             }
@@ -1015,6 +1294,15 @@ impl Reader<'_> {
                 self.read(cx, left, &ty, origin, depth + 1)?;
                 let (right, ty) = lemma(cx, lib.and_snd, &args)?;
                 self.read(cx, right, &ty, origin, depth + 1)?;
+            }
+            Value::Data(d, params) if *d == lib.or && params.len() == 2 => {
+                self.disjunctions.push(Disjunction {
+                    proof: proof.clone(),
+                    left: params[0].clone(),
+                    right: params[1].clone(),
+                    bools: None,
+                    origin: origin.to_string(),
+                });
             }
             _ => {
                 let Some(p) = negated(cx, lib, &value)? else {
@@ -1032,7 +1320,12 @@ impl Reader<'_> {
                             // `Not (Decidable.toBool d = True)`, and the
                             // same on `Int`: `= False` first.
                             Some(
-                                BoolForm::ToBool(..) | BoolForm::IntLeq(..) | BoolForm::IntLess(..),
+                                BoolForm::ToBool(..)
+                                | BoolForm::IntLeq(..)
+                                | BoolForm::IntLess(..)
+                                | BoolForm::And(..)
+                                | BoolForm::Or(..)
+                                | BoolForm::Not(..),
                             ) => {
                                 let args = [both(cx, l)?, (proof.clone(), prop.clone())];
                                 let (f, ty) = lemma(cx, lib.false_of_not_true, &args)?;
@@ -1452,6 +1745,9 @@ impl Quoter {
             }
             return Ok(Ok(NTerm::V(q)));
         }
+        if let Some(reduced) = recomputed(cx, &base)? {
+            return self.quote(cx, lib, &reduced, span);
+        }
         Ok(Ok(NTerm::V(self.atom(cx, base, None, false)?)))
     }
 
@@ -1549,6 +1845,9 @@ impl Quoter {
                 });
             }
             return Ok(Ok(ITerm::V(i)));
+        }
+        if let Some(reduced) = recomputed(cx, &value)? {
+            return self.quote_int(cx, lib, &reduced, span);
         }
         Ok(Ok(ITerm::V(self.atom(cx, value, None, true)?)))
     }
@@ -1733,6 +2032,23 @@ impl Quoter {
         });
         Ok(self.atoms.len() - 1)
     }
+}
+
+/// A stuck call computed again, if that gets further: it was stuck on an
+/// unknown solved since, as `r.row` is once `r` is known to be
+/// `{ row = 1, column = 0 }`. `None` if it's no different.
+fn recomputed(cx: &Ctx, value: &Value) -> Result<Option<Value>> {
+    if !matches!(value, Value::Neutral(Head::Def(_), _)) {
+        return Ok(None);
+    }
+    let term = cx.quote(value)?;
+    let again = force(cx.g(), cx.eval(&term)?)?;
+    if matches!(&again, Value::Neutral(Head::Def(_), _))
+        && crate::matching::same(&cx.quote(&again)?, &term)
+    {
+        return Ok(None);
+    }
+    Ok(Some(again))
 }
 
 /// `value` as an `Int` number, if it is one that fits in an `i128`.
@@ -1960,7 +2276,8 @@ fn quote_fact(
     })
 }
 
-/// Proves a linear goal (or `Void`) from the facts in scope and `extra`.
+/// Proves a linear goal (or `Void`) from the facts in scope and `extra`,
+/// splitting the disjunctions among them if it must.
 fn linear(
     cx: &mut Ctx,
     lib: &Lib,
@@ -1969,9 +2286,121 @@ fn linear(
     extra: &[Extra],
     span: Span,
 ) -> Result<Term> {
+    let mut splits = lib.limits.splits;
+    linear_split(cx, lib, &goal, expected, extra, span, &[], &mut splits)
+}
+
+/// [`linear_once`]; if that fails, one disjunction among the facts split
+/// (`Or.elim`, `Bool.orElim`), each case proved the same way with its side
+/// as a fact, as Lean's `omega` does (`splitDisjunction`). `split` holds the
+/// disjunctions already split, with the depth each proof was read at;
+/// `splits` is how many more splits may be made.
+#[allow(clippy::too_many_arguments)]
+fn linear_split(
+    cx: &mut Ctx,
+    lib: &Lib,
+    goal: &Goal,
+    expected: &Value,
+    extra: &[Extra],
+    span: Span,
+    split: &[(Term, usize)],
+    splits: &mut usize,
+) -> Result<Term> {
+    let reader = read_context(cx, lib, extra)?;
+    let found = reader.disjunctions.clone();
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let failure = match linear_once(cx, lib, goal, expected, span, reader) {
+        Ok(proof) => return Ok(proof),
+        Err(e) if crate::undo::fatal(&e) => return Err(e),
+        Err(e) => e,
+    };
+    snapshot.restore(cx);
+    let case = |cx: &mut Ctx, extra: &[Extra], split: &Split, splits: &mut usize| {
+        linear_split(cx, lib, goal, expected, extra, span, split, splits)
+    };
+    split_first(
+        cx, lib, expected, extra, found, split, splits, failure, case,
+    )
+}
+
+/// The disjunctions already split, each proof with the depth it was read
+/// at.
+type Split = [(Term, usize)];
+
+/// `expected` by splitting the first of `found` that isn't in `split` and
+/// whose sides both say something `omega` reads, each case proved by `case`
+/// with its side in scope; `failure` if there is none, or no splits are
+/// left.
+#[allow(clippy::too_many_arguments)]
+fn split_first(
+    cx: &mut Ctx,
+    lib: &Lib,
+    expected: &Value,
+    extra: &[Extra],
+    found: Vec<Disjunction>,
+    split: &Split,
+    splits: &mut usize,
+    failure: Diagnostic,
+    mut case: impl FnMut(&mut Ctx, &[Extra], &Split, &mut usize) -> Result<Term>,
+) -> Result<Term> {
+    for d in found {
+        let mut done = false;
+        for (proof, level) in split {
+            if crate::matching::same(&proof.shift(cx.g(), cx.level() - level, 0)?, &d.proof) {
+                done = true;
+            }
+        }
+        // A side that says nothing `omega` reads leaves its case as hard as
+        // before.
+        if done || !says_something(cx, lib, &d.left)? || !says_something(cx, lib, &d.right)? {
+            continue;
+        }
+        if *splits == 0 {
+            return Err(failure.with_note(format!(
+                "`omega` splits at most {} disjunctions among the facts, and more are left (the one from {}); split some by `match` first",
+                lib.limits.splits, d.origin
+            )));
+        }
+        *splits -= 1;
+        let mut split = split.to_vec();
+        split.push((d.proof.clone(), cx.level()));
+        let mut prove_case = |cx: &mut Ctx, side: &Value| {
+            assuming(cx, "case", side, extra, |cx, extra| {
+                case(cx, extra, &split, splits).map_err(|e| {
+                    e.with_note(format!(
+                        "in the case `{}` of the disjunction from {}",
+                        cx.show(side),
+                        d.origin
+                    ))
+                })
+            })
+        };
+        let left = prove_case(cx, &d.left)?;
+        let right = prove_case(cx, &d.right)?;
+        let goal_term = cx.quote(expected)?;
+        return Ok(match &d.bools {
+            Some((p, q)) => apps(
+                Term::Def(lib.or_elim),
+                vec![cx.quote(p)?, cx.quote(q)?, goal_term, d.proof, left, right],
+            ),
+            None => {
+                let implicit = |t: Term, arg: Term| Term::app_icit(t, arg, Icit::Implicit);
+                let elim = implicit(Term::Def(lib.prop_or_elim), cx.quote(&d.left)?);
+                let elim = implicit(elim, cx.quote(&d.right)?);
+                let elim = implicit(elim, goal_term);
+                apps(elim, vec![d.proof, left, right])
+            }
+        });
+    }
+    Err(failure)
+}
+
+/// The hypotheses in scope and `extra`, read.
+fn read_context<'l>(cx: &Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reader<'l>> {
     let mut reader = Reader {
         lib,
         facts: Vec::new(),
+        disjunctions: Vec::new(),
         skipped: Vec::new(),
     };
     for level in 0..cx.level() {
@@ -1993,13 +2422,62 @@ fn linear(
     for e in extra {
         reader.read(cx, e.term.clone(), &e.ty, &e.name, 0)?;
     }
+    Ok(reader)
+}
+
+/// Whether reading a hypothesis of type `prop` finds a fact or a
+/// disjunction.
+fn says_something(cx: &Ctx, lib: &Lib, prop: &Value) -> Result<bool> {
+    let mut reader = Reader {
+        lib,
+        facts: Vec::new(),
+        disjunctions: Vec::new(),
+        skipped: Vec::new(),
+    };
+    reader.read(cx, Term::Var(0), prop, "", 0)?;
+    Ok(!reader.facts.is_empty() || !reader.disjunctions.is_empty())
+}
+
+/// `name => body`, with `body` made with `name: p` in scope and `extra`
+/// moved under the binder.
+fn assuming(
+    cx: &mut Ctx,
+    name: &str,
+    p: &Value,
+    extra: &[Extra],
+    body: impl FnOnce(&mut Ctx, &[Extra]) -> Result<Term>,
+) -> Result<Term> {
+    let mut shifted = Vec::new();
+    for e in extra {
+        shifted.push(Extra {
+            term: e.term.shift(cx.g(), 1, 0)?,
+            ty: e.ty.clone(),
+            name: e.name.clone(),
+        });
+    }
+    let mark = cx.mark();
+    cx.bind_hidden(name.into(), p.clone());
+    let made = body(cx, &shifted);
+    cx.reset(mark);
+    Ok(Term::Lam(name.into(), Icit::Explicit, Rc::new(made?)))
+}
+
+/// Proves a linear goal (or `Void`) from the facts `reader` read.
+fn linear_once(
+    cx: &mut Ctx,
+    lib: &Lib,
+    goal: &Goal,
+    expected: &Value,
+    span: Span,
+    reader: Reader,
+) -> Result<Term> {
     let mut quoter = Quoter::default();
     let unknown = |what: &str| {
         Diagnostic::error("E-OMEGA", "`omega` needs to know the goal")
             .with_label(span, format!("{what} still has unknowns the compiler hasn't worked out"))
             .with_note("give the missing arguments, or a type annotation, so the goal is known before `omega`")
     };
-    let sides = match &goal {
+    let sides = match goal {
         Goal::Le(a, b) | Goal::Eq(a, b) => {
             let a = quoter
                 .quote(cx, lib, a, span)?
@@ -2148,10 +2626,10 @@ fn linear(
             });
         }
     }
-    let shown = show_goal(cx, &quoter, &goal, sides.as_ref(), expected);
+    let shown = show_goal(cx, &quoter, goal, sides.as_ref(), expected);
     let ints: Vec<bool> = quoter.atoms.iter().map(|a| a.int).collect();
     let mut certs: Vec<Cert> = Vec::new();
-    for neg in negations(&goal, sides.as_ref(), n).ok_or_else(too_large)? {
+    for neg in negations(goal, sides.as_ref(), n).ok_or_else(too_large)? {
         let mut problem_rows = rows.clone();
         if let Some(neg) = &neg {
             problem_rows.push((Source::NegGoal, neg.clone()));
@@ -2194,7 +2672,7 @@ fn linear(
     emit(
         cx,
         lib,
-        &goal,
+        goal,
         expected,
         sides,
         &quoted,
@@ -2223,6 +2701,7 @@ fn int_division_facts(cx: &Ctx, lib: &Lib, division: &IntDivision) -> Result<Vec
     let mut reader = Reader {
         lib,
         facts: Vec::new(),
+        disjunctions: Vec::new(),
         skipped: Vec::new(),
     };
     for which in [lib.int_div_add_mod, lib.int_mod_nonneg, lib.int_mod_lt_abs] {
@@ -2254,6 +2733,7 @@ fn division_facts(cx: &Ctx, lib: &Lib, quoter: &Quoter, division: &Division) -> 
     let mut reader = Reader {
         lib,
         facts: Vec::new(),
+        disjunctions: Vec::new(),
         skipped: Vec::new(),
     };
     for (proof, prop) in [low, high] {
@@ -2796,7 +3276,9 @@ fn emit(
             Term::Def(lib.fact_holds),
             vec![env.clone(), t.clone()],
         ))?;
-        if !cx.unify(&meaning, &quoted[f].fact.prop)? {
+        // A type stuck on an unknown solved since computes once read again.
+        let prop = &quoted[f].fact.prop;
+        if !cx.unify(&meaning, prop)? && !cx.unify(&meaning, &cx.eval(&cx.quote(prop)?)?)? {
             return Err(internal(
                 span,
                 format!(

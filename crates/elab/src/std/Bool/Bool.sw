@@ -71,3 +71,52 @@ theorem Bool.orRight (a: Bool) (b: Bool) (h: b = True): (a ∨ b) = True :=
   match e: a with
     | True => rfl
     | False => h
+
+-- The same for a proposition: prove `goal` from each side.
+theorem Or.elim [p q: Prop] [goal: Prop] (h: Or p q) (left: p → goal) (right: q → goal): goal :=
+  match h with
+    | Inl x => left x
+    | Inr y => right y
+
+-- `||` is `False` exactly when both sides are.
+theorem Bool.orFalseLeft: (a: Bool) → (b: Bool) → (a ∨ b) = False → a = False
+  | True, b, h => Void.exfalso (Bool.trueNotFalse h)
+  | False, b, h => rfl
+
+theorem Bool.orFalseRight: (a: Bool) → (b: Bool) → (a ∨ b) = False → b = False
+  | True, b, h => Void.exfalso (Bool.trueNotFalse h)
+  | False, b, h => h
+
+theorem Bool.orFalseIntro: (a: Bool) → (b: Bool) → a = False → b = False → (a ∨ b) = False
+  | True, b, ha, hb => Void.exfalso (Bool.trueNotFalse ha)
+  | False, b, ha, hb => hb
+
+-- `&&` is `False` exactly when one side is.
+theorem Bool.andFalseElim: (a: Bool) → (b: Bool) → (a ∧ b) = False → Or (a = False) (b = False)
+  | True, b, h => Inr h
+  | False, b, h => Inl rfl
+
+theorem Bool.andFalseLeft: (a: Bool) → (b: Bool) → a = False → (a ∧ b) = False
+  | True, b, h => Void.exfalso (Bool.trueNotFalse h)
+  | False, b, h => rfl
+
+theorem Bool.andFalseRight: (a: Bool) → (b: Bool) → b = False → (a ∧ b) = False
+  | True, b, h => h
+  | False, b, h => rfl
+
+-- `not a` is `True` exactly when `a` is `False`, and the other way round.
+theorem Bool.notTrue: (a: Bool) → (¬a) = True → a = False
+  | True, h => Void.exfalso (Bool.falseNotTrue h)
+  | False, h => rfl
+
+theorem Bool.notFalse: (a: Bool) → (¬a) = False → a = True
+  | True, h => rfl
+  | False, h => Void.exfalso (Bool.trueNotFalse h)
+
+theorem Bool.notOfFalse: (a: Bool) → a = False → (¬a) = True
+  | True, h => Void.exfalso (Bool.trueNotFalse h)
+  | False, h => rfl
+
+theorem Bool.notOfTrue: (a: Bool) → a = True → (¬a) = False
+  | True, h => rfl
+  | False, h => Void.exfalso (Bool.falseNotTrue h)
