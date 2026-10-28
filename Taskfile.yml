@@ -193,6 +193,46 @@ tasks:
     cmds:
       - node --test board.test.js
 
+  # ------------------------------------------------------------- fuzzers
+
+  # The fuzzers run in the release profile, with the tests' features and
+  # memory guard, and show their output. They also run in the tiers at a
+  # fixed small case count; these tasks run them at a count and seed of your
+  # choosing. Task's CASES, SEED and CORPUS variables are passed on as
+  # FUZZ_CASES, FUZZ_SEED and FUZZ_CORPUS (unset: the test's default).
+
+  fuzz:elab:
+    desc: 'Elaborator fuzzer, release (task fuzz:elab CASES=2000 SEED=0x2 CORPUS=1)'
+    summary: Runs crates/driver/tests/fuzz_elab.rs. SEED is decimal or 0x...; CORPUS=1 checks the unmutated examples. A failure saves its input to target/fuzz-elab/<seed>-<case>.sw.
+    env:
+      FUZZ_CASES: '{{.CASES}}'
+      FUZZ_SEED: '{{.SEED}}'
+      FUZZ_CORPUS: '{{.CORPUS}}'
+    cmds:
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-capture -E ''binary(fuzz_elab)'' {{.CLI_ARGS}}'
+
+  fuzz:syntax:
+    desc: 'Lexer and parser fuzzer, release (task fuzz:syntax CASES=100000)'
+    summary: Runs crates/syntax/tests/fuzz.rs.
+    env:
+      FUZZ_CASES: '{{.CASES}}'
+    cmds:
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-capture -E ''package(stitchwort-syntax) & binary(fuzz)'' {{.CLI_ARGS}}'
+
+  fuzz:fmt:
+    desc: 'Formatter fuzzer, release (task fuzz:fmt CASES=5000)'
+    summary: Runs crates/fmt/tests/fuzz.rs.
+    env:
+      FUZZ_CASES: '{{.CASES}}'
+    cmds:
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-capture -E ''package(stitchwort-fmt) & binary(fuzz)'' {{.CLI_ARGS}}'
+
+  fuzz:kernel:
+    desc: 'Kernel fuzzer, release (fixed 3000 terms and seed; no knobs)'
+    summary: Runs crates/core/tests/fuzz.rs, which reads no environment variables.
+    cmds:
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-capture -E ''package(stitchwort-core) & binary(fuzz)'' {{.CLI_ARGS}}'
+
   # ------------------------------------------- snapshots and generated text
 
   snap:examples:
