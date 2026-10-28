@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-INTERNAL] Error: `Effect.Effects.Empty` is internal to the standard library
+[E-STD-INTERNAL] Error: `Effect.Effects.Empty` is internal to the standard library
    ╭─[ reject/row-internal-constructor.sw:9:18 ]
    │
  9 │   List.map [e := Effect.Effects.Empty] (x => x + 1) xs

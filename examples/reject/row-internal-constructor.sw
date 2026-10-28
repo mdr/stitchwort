@@ -1,4 +1,4 @@
--- expect-error: E-INTERNAL
+-- expect-error: E-STD-INTERNAL
 -- A program can't build a row: `Effect.Effects`'s constructors are internal to
 -- the standard library (docs/proposals/effect-polymorphism.md §5.C.2,
 -- D1122). Otherwise it could write `Ops NoOp NoRes`, a second empty row that

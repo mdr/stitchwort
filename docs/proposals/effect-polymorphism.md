@@ -1194,7 +1194,7 @@ because `Sig` has one constructor. Under C it would.
 - `Row`, its constructors `Empty` and `Ops`, and the functions that take a
   row apart (`CompIn`, `doneIn`, `bindIn`, `liftIn`, `lowerIn`, `rowOp`,
   `rowRes`) can be *named* only in the standard library. A program that
-  names one gets an error (`E-INTERNAL`, say). Std's own lemmas about
+  names one gets an error (`E-STD-INTERNAL`, say). Std's own lemmas about
   `CompIn e` for every row still need to name `Empty` and `Ops`, which is
   why "only the library" rather than "only `Effect.sw`".
 - A program still gets row variables through `{e}` in types, and may pass
@@ -1811,7 +1811,7 @@ unknown bare row the unifier now settles it first.
 **The boundary (D1122).** `Elaborator::resolve` doesn't find
 `Effects.Empty`, `Effects.Ops`, `rowOp`, `rowRes`, `CompIn`, `doneIn`, `bindIn`,
 `liftIn` or `lowerIn` outside the library (`loading_prelude`), and
-`unknown` reports such a name as `E-INTERNAL`. One change from D1122 as
+`unknown` reports such a name as `E-STD-INTERNAL`. One change from D1122 as
 written: the *type* `Effect.Effects` can be named by programs. A program needs
 it to declare a type with a row parameter (`type Handlers (e: Effects)` in
 `examples/accept/partial.sw` and `crates/driver/tests/partial.rs`, which
@@ -1830,7 +1830,7 @@ after the callback: put aside, then effectful in `Log`; the same with
 `applyDep`), and a row-polymorphic callback, pure and effectful.
 `examples/reject/row-internal-constructor.sw` (`Effect.Effects.Empty` in
 `[e := …]`), `row-internal-inspect.sw` (`Effect.rowOp`) and
-`row-internal-match.sw` (matching on `Empty`/`Ops`) are `E-INTERNAL`; the
+`row-internal-match.sw` (matching on `Empty`/`Ops`) are `E-STD-INTERNAL`; the
 old `row-tail-repeats-ability.sw` (a hand-built `Sig` repeating an ability)
 is now that first file, since a program can't build a row at all.
 `crates/driver/tests/empty_row_kernel.rs` gained

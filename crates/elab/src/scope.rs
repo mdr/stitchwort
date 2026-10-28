@@ -1462,7 +1462,7 @@ impl Elaborator {
             && self.is_internal(global)
         {
             return Diagnostic::error(
-                "E-INTERNAL",
+                "E-STD-INTERNAL",
                 format!("`{}` is internal to the standard library", display(key)),
             )
             .with_label(name.span, "only the standard library can name this")
