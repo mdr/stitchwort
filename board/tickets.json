@@ -1,5 +1,5 @@
 {
-  "next": 763,
+  "next": 764,
   "tickets": [
     {
       "id": 13,
@@ -6353,7 +6353,7 @@
     {
       "id": 753,
       "title": "Move List.sumByCongRange and List.countCongMem (and the five small lemmas they need) to List/Toolkit.sw beside sumBy/count, so rewrite/decreasing find them wherever those functions are used; sort programs then check ~1.1M steps (from 4.1M). After the day 10 lane (List/Lemmas.sw) merges; fix the two stale comments too",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6462,6 +6462,18 @@
       "id": 762,
       "title": "Day 13 findings: match on an expression not in the goal silently does nothing (warn); Int (d*a)/d = a and List.minimum lemmas, natAbsMul/natAbsZero to std; labelWhole reports at the furthest point (missing blank line between sections); import … as aliases",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 763,
+      "title": "Bench examples entry: peak memory 215 MB (898 files) -> 1.17 GB (1045 files); find which examples or changes drive the peak",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
