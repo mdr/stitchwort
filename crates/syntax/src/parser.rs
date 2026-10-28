@@ -802,6 +802,16 @@ impl<'t> Parser<'t> {
                 "to pass a lambda as an argument, put it in brackets: `List.map xs (x => …)`",
             );
         }
+        if self
+            .tokens
+            .get(self.pos)
+            .is_some_and(|t| t.tok == Tok::KwIf)
+        {
+            return diagnostic.with_note(
+                "an `if` inside an expression goes in brackets: `a + (if c then x else y)`; \
+                 only after `=` or another comparison can it be written without them",
+            );
+        }
         diagnostic
     }
 
@@ -2249,7 +2259,16 @@ impl<'t> Parser<'t> {
         // least as far as the line `if` is on.
         let indent = self.line_indent(self.pos - 1);
         let cond = self.expr()?;
-        self.expect_keyword(Tok::KwThen, "`then`", indent)?;
+        let bool_test = self.peek() == Some(&Tok::Equals);
+        self.expect_keyword(Tok::KwThen, "`then`", indent)
+            .map_err(|e| match &binder {
+                Some(h) if bool_test => e.with_note(format!(
+                    "in `if {}: …` the guard is already a proposition: write `if {}: a < b then` \
+                     for `a < b`, without `= True`",
+                    h.text, h.text
+                )),
+                _ => e,
+            })?;
         let then = self.expr()?;
         self.expect_keyword(Tok::KwElse, "`else`", indent)?;
         let otherwise = self.expr()?;
@@ -2985,6 +3004,14 @@ impl<'t> Parser<'t> {
             _ => return Ok(lhs),
         };
         self.bump();
+        // `a = if c then x else y`: the `if` on the right runs to the end of
+        // the expression, as it does anywhere else.
+        if self.peek() == Some(&Tok::KwIf) {
+            let start = self.here();
+            self.bump();
+            let rhs = self.if_expr(start)?;
+            return Ok(binary(op, flip, lhs, rhs));
+        }
         let mut rhs = self.append_expr()?;
         if self.at_pipe() {
             self.pipe_chain(&mut rhs)?;

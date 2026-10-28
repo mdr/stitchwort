@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected `then`, but found `=`
+   ╭─[ reject/if-guard-equals-true.sw:5:29 ]
+   │
+ 5 │   if apart: Succ low < high = True then low else high
+   │                             ┬  
+   │                             ╰── expected `then`, but found `=`
+   │ 
+   │ Note: in `if apart: …` the guard is already a proposition: write `if apart: a < b then` for `a < b`, without `= True`
+───╯

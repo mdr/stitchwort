@@ -529,6 +529,81 @@ theorem List.lengthFlatMap (f: a → List b): (xs: List a) → List.length (List
 
 theorem List.lengthFlatMapExample: List.length (List.flatMap [1, 2, 3] (n => List.replicate n n)) = 6 := rfl
 
+-- Counting over a `flatMap` adds up the counts over each list it joins.
+theorem List.countFlatMap (f: a → List b) (p: b → Bool): (xs: List a) →
+    List.count (List.flatMap xs f) p = List.sumBy xs (x => List.count (f x) p)
+  | Nil => rfl
+  | Cons x rest =>
+    rewrite List.countAppend (f x) (List.flatMap rest f) p, List.sumByCons rest x (x => List.count (f x) p), List.countFlatMap f p rest
+      in rfl
+
+-- Dropping a list's start leaves what was appended to it.
+theorem List.dropAppend: (start: List a) → (rest: List a) → List.drop (List.append start rest) (List.length start) = rest
+  | Nil, rest => rfl
+  | Cons x xs, rest => List.dropAppend xs rest
+
+-- A list starts with what was appended to.
+theorem List.startsWithAppend [auto eq: DecEq a]: (prefix: List a) → (rest: List a) → List.startsWith (List.append prefix rest) prefix = True
+  | Nil, rest => rfl
+  | Cons p ps, rest => rewrite DecEq.refl p, List.startsWithAppend ps rest in rfl
+
+-- A list that starts with `prefix` is `prefix`, then the rest of it.
+theorem List.startsWithSplit [auto eq: DecEq a]: (xs: List a) → (prefix: List a) → List.startsWith xs prefix = True →
+    List.append prefix (List.drop xs (List.length prefix)) = xs
+  | xs, Nil, starts => rfl
+  | Nil, Cons p ps, starts => Void.exfalso (Bool.falseNotTrue starts)
+  | Cons x xs, Cons p ps, starts =>
+    rewrite DecEq.sound x p (Bool.andLeft _ _ starts), List.startsWithSplit xs ps (Bool.andRight _ _ starts) in rfl
+
+-- A prefix is no longer than the list.
+theorem List.startsWithLength [auto eq: DecEq a]: (xs: List a) → (prefix: List a) → List.startsWith xs prefix = True →
+    List.length prefix ≤ List.length xs
+  | xs, Nil, starts => rfl
+  | Nil, Cons p ps, starts => Void.exfalso (Bool.falseNotTrue starts)
+  | Cons x xs, Cons p ps, starts => List.startsWithLength xs ps (Bool.andRight _ _ starts)
+
+-- Appending to `prefix` gives `xs` exactly when the appended list is the
+-- rest of `xs`, once `xs` starts with `prefix`.
+theorem List.appendEqDrop [auto eq: DecEq a] (xs: List a) (prefix: List a) (starts: List.startsWith xs prefix = True) (rest: List a):
+    (List.append prefix rest == xs) = (rest == List.drop xs (List.length prefix)) :=
+  match same: rest == List.drop xs (List.length prefix) with
+    | True => rewrite DecEq.sound rest (List.drop xs (List.length prefix)) same, List.startsWithSplit xs prefix starts in DecEq.refl xs
+    | False =>
+      match made: List.append prefix rest == xs with
+        | True =>
+          let dropped := Eq.trans (Eq.sym (List.dropAppend prefix rest)) (Eq.cong (ys => List.drop ys (List.length prefix)) (DecEq.sound _ _ made))
+          Void.exfalso (DecEq.soundFalse rest (List.drop xs (List.length prefix)) same dropped)
+        | False => rfl
+
+-- Nothing appended to `prefix` gives a list that doesn't start with it.
+theorem List.appendNotEq [auto eq: DecEq a] (xs: List a) (prefix: List a) (starts: List.startsWith xs prefix = False) (rest: List a):
+    (List.append prefix rest == xs) = False :=
+  match made: List.append prefix rest == xs with
+    | True =>
+      let startsAfter: List.startsWith xs prefix = True := rewrite <- DecEq.sound _ _ made in List.startsWithAppend prefix rest
+      Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym starts) startsAfter))
+    | False => rfl
+
+-- Stripping what was appended to gives the rest.
+theorem List.stripPrefixAppend [auto eq: DecEq a]: (prefix: List a) → (rest: List a) → List.stripPrefix (List.append prefix rest) prefix = Some rest
+  | Nil, rest => rfl
+  | Cons p ps, rest => rewrite DecEq.refl p in List.stripPrefixAppend ps rest
+
+-- `stripPrefix` is `startsWith`, then `drop`.
+theorem List.stripPrefixStartsWith [auto eq: DecEq a]: (xs: List a) → (prefix: List a) →
+    List.stripPrefix xs prefix = (if List.startsWith xs prefix then Some (List.drop xs (List.length prefix)) else None)
+  | xs, Nil => rfl
+  | Nil, Cons p ps => rfl
+  | Cons x xs, Cons p ps =>
+    match same: x == p with
+      | True => List.stripPrefixStartsWith xs ps
+      | False => rfl
+
+-- `isEmpty` is `== []`.
+theorem List.isEmptyEqNil [auto eq: DecEq a]: (xs: List a) → List.isEmpty xs = (xs == Nil)
+  | Nil => rfl
+  | Cons x xs => rfl
+
 -- What passes a test after a `flatMap`: what passes in each list it joins,
 -- added up.
 theorem List.occurrencesFlatMap (f: a → List b) (p: b → Bool): (xs: List a) →
