@@ -26,10 +26,7 @@ def thresholdFrom (args: List Text): {Fail} Nat :=
   let usage := "expected no arguments, or the least saving to count, such as `50`"
   match args with
     | Nil => 100
-    | Cons saving Nil =>
-      match saving.toNat with
-        | Some least => least
-        | None => Fail.fail usage
+    | Cons saving Nil => Fail.need saving.toNat usage
     | _ => Fail.fail usage
 
 type Position = { row: Nat, column: Nat }

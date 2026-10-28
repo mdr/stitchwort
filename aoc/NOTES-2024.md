@@ -6003,3 +6003,338 @@ Release build, load average around 20:
 7. `= if …` is a parse error (item 3). Fix: parse `if` as an operand, or
    name the fix in the message.
 8. `Map.getOr` beside `Option.getOrElse` (item 2). Fix: one name for both.
+
+## Day 20: Race Condition
+
+A racetrack of track (`.`, with `S` and `E`) and walls (`#`). "Exactly
+once during a race, a program may disable collision for up to 2
+picoseconds. This allows the program to pass through walls as if they
+were regular track. At the end of the cheat, the program must be back on
+normal track again"; "cheats are uniquely identified by their start
+position and end position". Part 1: "How many cheats would save you at
+least 100 picoseconds?" Part 2: the same, but "The latest version of the
+cheating rule permits a single cheat that instead lasts at most 20
+picoseconds" (part 2's wording from the public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/master/2024/day-20/README.txt>).
+
+**The real input is pending from Matt**: his repository
+(<https://github.com/mdr/aoc-2024>) stops at day 10, so there is no
+`inputs/2024/day20.txt`, no `Tests/Input.sw`, and the day isn't registered
+in `aoc_answers.rs` or `machine.rs` yet. `examples/2024/day20.txt` is the
+puzzle's example. The example lists the cheats by saving rather than one
+answer, so `main` takes the least saving from its arguments (`-- 50`),
+100 by default; on the example, part 1 counts 44 cheats saving at least 1
+and part 2 counts 285 saving at least 50, and both count 0 at 100. The
+tests check every per-saving count the puzzle lists, for both parts, all
+cross-checked with an independent Python script (`/usr/bin/python3 -I`:
+breadth-first search from S and from E, then every pair of track
+positions, not a diamond of offsets). For performance a second script
+generated a 141 by 141 single-path track of 9,400 steps (a random
+Hamiltonian path on the 70 by 70 lattice of odd positions, by backbite
+moves, cut to 4,701 cells; not committed). The program and Python agree on
+it: 1953 and 1084640. Compiler built from `main` at 5f463d1a, 28 October
+2026.
+
+### The program
+
+```stitchwort
+def tile(): {Parse} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E", End)]
+
+def parseRacetrack (input: Text): {Fail} Racetrack :=
+  let tiles :=
+    Parse.all input (() => grid tile)
+      |> .gridCells
+      |> .map ((((row, column), kind)) => (({ row, column }: Position), kind))
+  {
+    track = tiles.filter (entry => entry.snd != Wall) |> .map (entry => entry.fst) |> Set.fromList,
+    start = onlyTile tiles Start "S",
+    end = onlyTile tiles End "E"
+  }
+
+def Racetrack.fromStart (racetrack: Racetrack): Map Position Nat := racetrack.graph.distances [(racetrack.start, 0)]
+
+def Racetrack.toEnd (racetrack: Racetrack): Map Position Nat := racetrack.graph.distances [(racetrack.end, 0)]
+
+def Position.around (position: Position) (length: Nat): List Position :=
+  List.between (position.row - length) (position.row + length)
+    |> .flatMap (row =>
+      let spare := length - Nat.absDiff row position.row
+      List.between (position.column - spare) (position.column + spare) |> .map (column => ({ row, column }: Position)))
+
+def savesFrom (toEnd: Map Position Nat) (honest: Nat) (threshold: Nat) (start: Position) (before: Nat) (end: Position): Bool :=
+  match toEnd.get end with
+    | Some after => before + start.distance end + after + threshold ≤ honest
+    | None => False
+
+def cheatsFrom (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat) (threshold: Nat) (start: Position): Nat :=
+  match fromStart.get start with
+    | Some before => start.around length |> .count (savesFrom toEnd honest threshold start before)
+    | None => 0
+
+def countCheats (length: Nat) (threshold: Nat) (racetrack: Racetrack): Nat :=
+  let fromStart := racetrack.fromStart
+  match fromStart.get racetrack.end with
+    | Some honest => racetrack.track.toList |> .sumBy (cheatsFrom fromStart racetrack.toEnd honest length threshold)
+    | None => 0
+
+def solvePart1 (threshold: Nat) (racetrack: Racetrack): Nat := countCheats 2 threshold racetrack
+
+def solvePart2 (threshold: Nat) (racetrack: Racetrack): Nat := countCheats 20 threshold racetrack
+```
+
+`main` is `thresholdFrom IO.args()`, `parseRacetrack IO.readAll()`, and
+the two parts printed. The racetrack's graph is day 18's shape: the track
+positions, each a step from its track neighbours, imported as day 16's
+`Graph`.
+
+**Walk or search.** The track is a single path, so walking it from S and
+numbering the positions would give the times. I used day 16's search
+instead, from S and from E: the times are then proved fastest for any
+track, from day 16's `distancesCorrect`, with no single-path assumption to
+state, check or prove anything under. A walk would have needed the
+assumption made precise (every track position has at most two track
+neighbours, and the walk reaches all of them) and a proof that a
+numbering along a path is the fastest time, which day 16's theorem already
+gives. Each search takes about 0.25 s on the generated track; the four
+(two per part) are about 1 s of the 23 s.
+
+A cheat's saving is the fastest race without it minus the race with it:
+the fastest time to its start, its own time (the Manhattan distance), then
+the fastest time from its end. On a single path this is the brief's
+"distance along the track minus the cheat's time"; in general it is what
+"save" means. For each track position reached from S, the program counts
+the positions in the diamond of rows plus columns at most `length` away
+(841 for 20, fewer at the edges) whose time to E makes the race short
+enough; a wall has no time to E, so the lookup is also the "ends on track"
+test.
+
+### Proved, for every racetrack whose S and E are track
+
+The spec (`Spec/Spec.sw`) is the literal reading. `race` makes moves up,
+down, left or right, each onto track; `IsFastest r from to time` is some
+race from `from` to `to` taking `time`, and none faster. A `Cheat` is a
+start and an end; `IsCheat` puts both on track with `cheatTime` (rows plus
+columns between them) at most `length`; `SavesAtLeast` adds that the
+fastest time to the start, plus the cheat, plus the fastest time from the
+end, plus the threshold, is at most the fastest race. `IsCount r length
+threshold count` says there is a list of cheats, each once, holding
+exactly the cheats saving at least the threshold, `count` long.
+
+Proved (`Proofs/`, 505 lines in 4 files):
+
+- `fromStartFastest` and `fastestFromStart` (Times.sw): the search from S
+  settles a position for `time` exactly when `time` is the fastest race
+  there. `toEndFastest` and `fastestToEnd`: the same for the search from E,
+  for races from a position on track to E. The second pair needs every
+  move taken back (`moveBack`: a step the opposite way returns), since the
+  search runs from E over the same graph.
+- `aroundSound`, `aroundComplete`, `distinctAround` (Around.sw): the
+  diamond lists exactly the positions at most `length` away, each once.
+- `countCheatsCorrect` (Count.sw): `IsCount racetrack length threshold
+  (countCheats length threshold racetrack)`, with the witness list the
+  cheats the program counts, start by start (`counted`); and
+  `part1Correct`, `part2Correct` for lengths 2 and 20.
+
+The hypotheses are that S and E are track, which the parser guarantees
+(both are kept as track) but which isn't proved, as parsing isn't on other
+days. Breaking the program (`<` for `≤` in `savesFrom`, or one more column
+either side in `around`) makes the proofs fail.
+
+Not proved: that the fewest moves through walls from a cheat's start to
+its end is the Manhattan distance. The spec defines a cheat's time that
+way, as the brief asked, rather than as a list of moves through anything;
+proving it would be a lemma that a monotone list of moves exists and no
+list is shorter. Nothing else asked for is left unproved.
+
+### 1. Std.Parse: none
+
+`grid tile` and `List.gridCells` composed first time. `#S.x#` gives
+`line 1, column 4: expected '#' or '.' or 'S' or 'E' or the end of the
+line, got 'x'`. `grid` accepts rows of different lengths; a short row
+reads as walls beyond its end, which a test checks, so the program doesn't
+check the rectangle as day 16's does.
+
+### 2. Missing std
+
+- A grid position. Nine 2024 days now define their own `Position` (days
+  6, 8, 10, 12, 14, 15, 16, 18 and 20), most with the same `step` in four
+  directions, its `Zero` cases, and the "step back" lemma (day 16's
+  `stepBack`, copied here for `Up`/`Down`/`Left`/`Right`). What I did:
+  wrote them again. A std `Grid.Position` with `step`, `opposite`,
+  `stepBack` and the Manhattan distance would remove about 60 lines a day.
+- No array with constant-time indexing. The part 2 inner loop is 7.5
+  million `Map Position Nat` lookups (see item 5). Haskell has
+  `Data.Array`, whose documentation says "a programmer may reasonably
+  expect rapid access to the components"
+  (<https://hackage.haskell.org/package/array/docs/Data-Array.html>).
+  What I did: kept the `Map`.
+- No finite cardinality to state "the number of cheats". Lean's Mathlib
+  has `Finset.card`, "the number of elements of `s`"
+  (<https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Finset/Card.html>).
+  What I did: the spec says a list exists holding each such cheat once
+  (`List.Distinct`, with membership an `Iff`), and its length is the count.
+  `List.distinctFlatMap`, `distinctMap`, `distinctFilter` and
+  `Map.keysDistinct` made that cheap.
+- `Nat.absDiff` exists, and the `- n` saturating subtraction made the
+  diamond's clipping at row and column 0 free.
+
+### 3. Confusing errors
+
+- An effect in an argument runs whether or not it's used. `saving.toNat
+  |> .fold (Fail.fail usage) (least => least)` type-checks, and fails
+  every time, even for `-- 50`: the program printed ``error: expected no
+  arguments, or the least saving to count, such as `50` `` with no
+  diagnostic. Arguments are evaluated first, and `Fail.fail usage` is an
+  argument. Scala's `Option.fold` and `getOrElse` take the default by
+  name (`ifEmpty: => B`,
+  <https://github.com/scala/scala/blob/2.13.x/src/library/scala/Option.scala>),
+  so the Scala habit is wrong here. What I did: `Fail.need saving.toNat
+  usage`. Fix: warn on an effectful argument to a parameter of a pure
+  function type (`b`, not `() → {e} b`), or give `Option.fold` a thunk
+  for the default.
+- `List.length` of a long list runs out of stack. `(racetrack.cheats
+  20).length` on the generated track (about 3.5 million cheats, an
+  earlier version of the program) gave ``[E-RESOURCE] Error: ran out of
+  resources: it recursed more deeply than allowed`` with ``Note 2: the
+  recursion was deepest in `Std.List.length` (1999999 frames pending)``,
+  after 18 s. `List.count` on the same list was fine. What I did: counted
+  start by start without building the list. Fix: make `List.length` a
+  loop, as `count` is.
+- `rewrite` with an unfolding lemma after a `match` has already refined
+  the goal: `match honestFound: racetrack.fromStart.get racetrack.end
+  with | Some honest => rewrite countCheatsSome … in …` gave
+  ``[E-REWRITE-NOTHING] Error: `rewrite` found no `countCheats length
+  threshold racetrack` in the goal``. Its Note 1 shows the goal already
+  rewritten (`… = List.sumBy (Set.toList …) (cheatsFrom … … honest length
+  threshold)`), so it can be worked out, and the `match` refining through
+  `countCheats`'s own inner `match` is a pleasant surprise; in one case
+  the error even says ``the goal already holds by computing, so `rfl`
+  proves it without a `rewrite` ``. What I did: deleted six unfolding
+  lemmas and their rewrites. Fix: say "the `match` on line N already
+  replaced this" when the rewritten form is already there.
+- Clear ones: `.all` at the start of a line gave ``[E-PARSE] Error: a
+  line can't start with a method section`` with a note suggesting `|>
+  .all`; `rewrite omega […] in got` gave ``[E-OMEGA] Error: `omega`
+  needs to know what it proves`` with ``give it a type: `(omega: a <=
+  b)` ``.
+
+### 4. Inference: none
+
+`_` for the function in `List.memFlatMapElim`, `List.anyElim` and day
+16's `memMapElim`, and for `Option.someInjective`'s arguments, were all
+solved; the `(cheat => { forward = …, backward = … })` `Iff` record was
+checked against the spec's `Iff` with no annotation.
+
+### 5. Performance
+
+On the generated track (9,401 track positions), `stitchwort run` takes
+23.1 s user; Python takes 0.64 s. Throwaway mains (not committed) split
+it: parsing 0.83 s; the two searches about 0.5 s; part 1 about 0.8 s;
+part 2 about 18 s, of which building the diamonds (7.5 million positions)
+is about 5 s and the `toEnd` lookups (one per diamond position, about 1.7
+µs each) the rest. Each part runs its own two searches, as each part takes
+the parsed racetrack alone. Part 2's work is the brief's n × 840: 9,401 ×
+841 = 7.9 million candidate ends before clipping.
+
+Two things cost more than the work:
+
+- **A `let` used in a `match` arm inside a lambda is recomputed on every
+  call.** My first version wrote the counting inline:
+
+  ```stitchwort
+  let toEnd := racetrack.toEnd
+  ...
+  racetrack.track.toList |> .sumBy (start =>
+    match fromStart.get start with
+      | None => 0
+      | Some before => start.around length |> .count (end => match toEnd.get end with …))
+  ```
+
+  On a 999-position track it took 28.4 s user, against 2.6 s for the same
+  code with the two lambdas made top-level functions (`cheatsFrom`,
+  `savesFrom`), the program above. A minimal pair on the generated track,
+  each summing 20 numbers: `List.range 20 |> .sumBy (i => match
+  racetrack.track.toList.head with | Some first => fromStart.size + i |
+  None => 0)` after `let fromStart := racetrack.fromStart` takes 5.9 s;
+  the same with `fromStart` only in the scrutinee, or with a lambda instead
+  of the `match`, takes 1.1 s. The 4.8 s difference is 20 searches of
+  about 0.25 s. The lifted `match` helper "re-creates" the `let`s it uses
+  (the comment on `Draft::lets`, `crates/elab/src/lift.rs`), so the
+  search is redone each time the helper is called. What I did: top-level
+  functions taking the maps as arguments. Fix: pass a `let`'s value to
+  the helper as a capture instead of re-creating its definition, at least
+  when the helper is called from inside a lambda.
+- **Building the list of cheats.** A version that listed every `Cheat`
+  (`flatMap` over the track, `filter` of the diamond to track positions)
+  and counted the ones saving enough took 36.6 s; counting start by start
+  without the list, 23.1 s.
+
+Fix, beyond those: an array with constant-time indexing for grids (item
+2), and let `main` share the searches between the parts.
+
+### 6. Proofs
+
+Easy: 505 lines, and each file checked on the first to third try. Times
+(160 lines) is day 18's `boundAlong` and day 16's `boundToEnd` adapted,
+and gets the fastest times from S and to E for any track from day 16's
+`distancesCorrect`. This is the third day to use that theorem, and the
+first to use it twice. What made it work:
+
+- The reach predicates put "on track" in (`FromStart`, `ToEnd`), so a
+  position the search settles is on track, which the spec's cheat end
+  needs and a race (which checks only where it moves to) doesn't give.
+- A `match` on `fromStart.get start` refined both the goal and the
+  hypotheses through the program's own `match`es (`countedFrom`,
+  `savesFrom`, `countCheats`), so no unfolding lemmas were needed where a
+  `match` was possible; two remain where the fact comes from a lemma
+  (`countedFromSome`, `savesFromSome`).
+- `omega` with `Nat.absDiff` unfolded by `rfl` equations (`rowDistance`
+  and so on) proved the diamond's bounds both ways.
+
+Friction: stating "the number of cheats" without a cardinality (item 2),
+and spelling out each `Nat.absDiff` as `(a - b) + (b - a)` for `omega`,
+four `let`s per proof. Lean's `omega` front end rewrites `Int.natAbs`
+itself (the ``Int.natAbs`` case in
+<https://github.com/leanprover/lean4/blob/master/src/Lean/Elab/Tactic/Omega/Frontend.lean>).
+
+### Size and time
+
+Release build, load average 25 to 44:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day20.Proofs` | 4.4 s user (10.1 s) |
+| `stitchwort check --no-cache Aoc.Year2024.Day20` | 2.0 s user (3.3 s) |
+| `stitchwort test --no-cache Aoc.Year2024.Day20` (23 tests) | 6.8 s user (12.9 s) |
+| `stitchwort test Aoc.Year2024.Day20` (warm) | 1.2 s user |
+| `stitchwort run Aoc.Year2024.Day20.main -- 50` on the example | 0.73 s user |
+| `stitchwort run Aoc.Year2024.Day20.main` on the generated track | 23.1 s user |
+| Python on the generated track | 0.64 s user |
+
+150 lines of program, 77 of spec, 505 of proofs, 93 of tests.
+
+### Ranked
+
+1. A `let` used in a `match` arm inside a lambda is recomputed on every
+   call: 10 times slower here, silently (item 5). Fix: pass the `let`'s
+   value into the lifted `match` helper as a capture.
+2. The real input is pending: Matt's repository has no day 20. Fix: add
+   his input, its tests and its two answer entries when he has it.
+3. 23 s against Python's 0.64 s, mostly 7.5 million `Map` lookups and
+   building the diamonds (item 5). Fix: an array with constant-time
+   indexing in std; share the searches between the parts in `main`.
+4. An effectful argument runs even where it isn't used:
+   `.fold (Fail.fail usage) …` always fails (item 3). Fix: warn on an
+   effectful argument for a pure parameter, or a thunk default for
+   `Option.fold`.
+5. `List.length` recurses and runs out of stack at 2 million frames
+   (item 3). Fix: a loop, as `List.count` is.
+6. Nine days define their own grid `Position`, `step` and `stepBack`
+   (item 2). Fix: a std grid-position module with the Manhattan distance.
+7. No cardinality for "the number of cheats"; the spec uses a distinct
+   list (item 2). Fix: a std `Set.card` with `Iff`-based lemmas, or keep
+   the distinct-list idiom and document it.
+8. `rewrite` after a refining `match` says "found nothing" (item 3). Fix:
+   name the `match` that already rewrote it.
+9. `omega` needs `Nat.absDiff` unfolded by hand (item 6). Fix: teach
+   `omega` `Nat.absDiff`.
