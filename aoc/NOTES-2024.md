@@ -1880,3 +1880,346 @@ Release build, on a machine busy with other work:
 6. Sum types need a leading `|` (item 6). Fix: accept it without.
 7. Parser and value names clash (item 1). Fix: a `Line` suffix convention in
    the guide.
+
+## Day 8: Resonant Collinearity
+
+A map of antennas, each a letter or digit naming its frequency. Part 1:
+"an antinode occurs at any point that is perfectly in line with two antennas
+of the same frequency - but only when one of the antennas is twice as far
+away as the other"; count the "unique locations within the bounds of the
+map". Part 2: "an antinode occurs at any grid position exactly in line with
+at least two antennas of the same frequency, regardless of distance" (part
+2's wording from the public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/master/2024/day-08/README.txt>).
+Answers on Matt's input: 344 and 1182 (cross-checked with a Python script,
+`/usr/bin/python3 -I`, that tests every cell against every pair with the
+cross product and squared distances; the example gives 14 and 34).
+Compiler built from `main` at 99e1e770, 28 October 2026.
+
+The input is 50 by 50 with 207 antennas of 54 frequencies, at least two of
+each (a test checks every antenna has a partner).
+
+### The puzzle's rule has a third case
+
+Read literally, "in line, one antenna twice as far as the other" also holds
+between two antennas, a third of the way along, when their offset is a
+multiple of 3 in both directions: with antennas at (0, 0) and (3, 3), the
+point (1, 1) is in line, 2√2 from one and √2 from the other. The puzzle
+then says "for any pair of antennas with the same frequency, there are two
+antinodes, one on either side of them", which leaves those out. The spec
+follows the rule, so the program adds the point between when it is a grid
+point; a test shows a pair that has them (`antinodes between two
+antennas`), and another that no pair in Matt's input does, so both
+readings give 344 there.
+
+### The program
+
+The parser and the solver:
+
+```stitchwort
+def cell(): {Parse} (Option Char) :=
+  let char := Parse.satisfy "'.', a letter or a digit" (char => char == '.' || char.isAsciiAlphanumeric)
+  if char == '.' then None else Some char
+
+def parseCity (input: Text): {Fail} City :=
+  let rows := Parse.all input (() => Parse.grid cell)
+  let width := rows.headOr [] |> .length
+  let antennas :=
+    rows.withIndex.flatMap (((row, cells)) =>
+      Fail.ensure (cells.length == width) "line ${row + 1}: expected ${width} characters, as on the first line, got ${cells.length}"
+      cells.withIndex.filterMap (((column, cell)) =>
+        cell.map (frequency => ({ frequency, position = { row = row.toInt, column = column.toInt } }: Antenna))))
+  { height = rows.length, width, antennas }
+
+def antinodesOf (far: Position) (near: Position): List Position :=
+  let difference := near.minus far
+  let past := near.plus difference
+  if difference.row % 3 == 0 && difference.column % 3 == 0 then
+    [past, near.minus { row = difference.row / 3, column = difference.column / 3 }]
+  else [past]
+
+def stepToward (start: Position) (end: Position): Position :=
+  let difference := end.minus start
+  difference.divideBy (Nat.gcd difference.row.natAbs difference.column.natAbs)
+
+def City.harmonics (city: City) (start: Position) (end: Position): List Position :=
+  let step := stepToward start end
+  List.range (Nat.max city.height city.width)
+    |> .flatMap (count => [start.plus (step.times count.toInt), start.minus (step.times count.toInt)])
+
+def solvePart1 (city: City): Nat :=
+  city.antennaPairs |> .flatMap (((far, near)) => antinodesOf far near) |> city.locations |> .size
+
+def solvePart2 (city: City): Nat :=
+  city.antennaPairs |> .flatMap (((start, end)) => city.harmonics start end) |> city.locations |> .size
+```
+
+`Position` has `Int` coordinates, since antinodes can fall off the map;
+`City.locations` keeps those on the map, in a `Set`. `antennaPairs` is
+every ordered pair of antennas with the same frequency at different places.
+Part 2 steps from an antenna by the offset to the other divided by the gcd
+of its parts, both ways, as many steps as the map is high or wide. It
+printed the right answers on the first run.
+
+`Parse.grid` fitted: a one-character grammar per cell, and a check that
+every row is as long as the first, which `Parse.grid` leaves to the caller
+("Rows may differ in length"). The error for a bad character is
+`line 1, column 3: expected '.', a letter or a digit or a line break or the end`.
+
+### Proved, for every city
+
+The spec (`Spec/Spec.sw`) is in the puzzle's words: `inLine point first
+second` is a zero cross product of the directions from `point` to the two
+antennas; `twiceAsFar point far near` compares squared distances
+(`|point→far|² = 4 |point→near|²`); `twoAntennas` is "two antennas of the
+same frequency", at different places, either way round; and the answer is
+the size of the set of map locations (every row and column) where the
+test holds.
+
+- `part1Correct`: `solvePart1 city = part1 city`, for every city. The core
+  is `twiceAsFarCases`: with `u` and `v` the directions to the two
+  antennas, `u × v = 0` and `|u|² = 4|v|²` give `u = 2v` or `u = -2v`. By
+  Lagrange's identity, `(u·v)² = |u|²|v|² - (u×v)² = (2|v|²)²`, so
+  `u·v = ±2|v|²`, and then `|u ∓ 2v|² = 0`. `u = 2v` is the point past the
+  near antenna; `u = -2v` is `3 p = far + 2 near`, the point a third of the
+  way, which is a grid point exactly when 3 divides the offset
+  (`thirdOf`, `thirdBack`). `antinodesOfCorrect` puts these together for
+  the program's `antinodesOf`.
+- `part2Correct`: `solvePart2 city = part2 city`, for every city whose
+  antennas are on the map. `stepFacts`: the offset between the antennas is
+  a nonzero multiple of `stepToward`'s step, and the step's parts are
+  coprime: `s * er + t * ec = 1` for some integers, from Bézout's identity
+  for `Nat.gcd` (`gcdBezout`) and the gcd dividing both parts
+  (`gcdDivides`). Then `crossOnLine` (a whole number of steps is in line)
+  and `onLineOfCross`: a point in line is `s * (pr - fr) + t * (pc - fc)`
+  steps from the antenna, since the cross product makes its offset
+  parallel to the step. `stepsBound`: on the map that is fewer steps than
+  the map is high (or wide, if the step doesn't move rows), so `harmonics`
+  reaches it (`harmonicsCorrect`).
+- `locationsCorrect`, shared by both: when a pair's points are exactly the
+  map locations where the spec's test holds for that pair, the program's
+  set of locations is the spec's (by `Set.ext`).
+- `part2IncludesPart1`: the spec's part 1 locations are a subset of part
+  2's, for every city.
+- `antennasAreAntinodes`: "some of the new antinodes will occur at the
+  position of each antenna (unless that antenna is the only one of its
+  frequency)": an antenna with a partner is a part 2 location.
+
+About 620 lines of proof; `Quot.sound` is the only axiom, through
+`Set.ext` (`harmonicsCorrect`, `antinodesOfCorrect` and the gcd lemmas use
+none). Changing `harmonics` to step only `Nat.min city.height city.width`
+times makes `harmonicsOfSteps` fail with a counterexample (a map 0 high
+and 1 wide).
+
+Not proved: the parser (tested); that `solvePart1 city ≤ solvePart2 city`
+(the subset is proved, but std has no lemma that a subset is no bigger,
+item 4); and part 2 without the hypothesis that antennas are on the map,
+which would be false: antennas at rows -100 and -99 of column 0 are in line
+with (0, 0), 100 steps away, more than `harmonics` takes on a small map.
+The parser only makes antennas on the map.
+
+### 1. `omega` doesn't work on `Int`
+
+Every inequality and most equations here are about `Int`s, and `omega`
+stops at the first:
+
+```text
+[E-OMEGA] Error: `omega` can't prove `x + 1 ≤ y`
+  ╰──── unsupported structure: this goal isn't linear arithmetic on `Nat`
+```
+
+(syntax.md lists `Int` under "Not yet".) What I did instead: equations by
+`ring`, and anything with an order or a remainder by cases on the
+constructors down to `Nat`, where `omega` works. That is all of
+`Proofs/Ints.sw`: `a - b = 0` gives `a = b`, no zero divisors, cancelling a
+nonzero factor, two squares summing to 0, equal squares, `(3 * k) / 3 = k`,
+and in `Part2.sw` exact division, `|x * y| = |x| * |y|`, and two numbers
+below `n` being less than `n` apart. Each is a few lines once split; in
+Lean, `omega` is "for resolving integer and natural linear arithmetic
+problems"
+(<https://lean-lang.org/doc/api/Lean/Elab/Tactic/Omega/Frontend.html>).
+Fix: `Int` atoms in `omega` (the certificate format already has them).
+
+### 2. `ring [h]` adds each hypothesis once
+
+`ring [h1, h2]` checks that the goal's two sides differ by exactly
+`(l1 - r1) + (l2 - r2)`. A proof that needs `4 * h1` or `x * h2` has to
+build it with `Eq.cong ((x: Int) => 4 * x) h1`, and a hypothesis that
+counts negatively has to be flipped with `Eq.sym`. Lagrange's identity
+step needed the cross product's equation squared and turned round
+(`0 = (u × v) * (u × v)`) and the distance equation multiplied by `|v|²`.
+The error says how it combined them, which made the orientation easy to
+fix:
+
+```text
+Note 1: with the hypotheses `l = r` added, the left side plus every `r` against the right side plus every `l`:
+```
+
+What went well: once oriented, `ring` proved every polynomial step here,
+including the degree-4 identity. Mathlib's `linear_combination` takes the
+coefficients: `linear_combination (h1 + h2) / 2`
+(<https://leanprover-community.github.io/mathlib4_docs/Mathlib/Tactic/LinearCombination.html>).
+Fix: coefficients in `ring [4 * h1 - x * h2]`.
+
+### 3. Terms that print the same but aren't, around `/` and `%`
+
+`(n - f) % 3` carries a hidden proof that 3 isn't 0. With
+`Int.divAddMod (n - f) 3` as a hypothesis, `ring` failed with sides that
+are the same polynomial as printed:
+
+```text
+[E-RING] Error: `ring` can't prove `f - p = 0 - (2 * (n - p))`
+  Note 2: left:  2 * p + n + ((n - f) % 3)
+  Note 3: right: 2 * p + n + 3 * ((n - f) / 3) + ((n - f) % 3) - 3 * ((n - f) / 3)
+  Note 4: the left side has `((n - f) % 3) + 3 * ((n - f) / 3)` more and `3 * ((n - f) / 3) + ((n - f) % 3)` less
+```
+
+Restating the law's type with a `let` didn't help. What worked: the same
+lemma over plain variables `quotient` and `remainder` (`thirdBackOf`),
+applied to the real terms, where the kernel's conversion accepted them.
+
+Related, and silent: `match c: <the program's if condition> with` didn't
+replace the condition in the goal, written as the program writes it or as
+the goal shows it (`near.row + Int.neg far.row`, since goals show `-`
+unfolded). I am not sure which of the two (the hidden proof, or the
+unfolded `-`) stops it. A lemma `ifSplit` taking the condition as a
+variable didn't help either, because unification doesn't unfold
+`antinodesOf` to find the `if`:
+
+```text
+expected `point ∈ antinodesOf far near ↔ …`, but this has type `point ∈ (if Decidable.toBool (DecEq.%decide … … …) && Decidable.toBool (DecEq.%decide … … …) then ?2 far near point else ?3 far near point) ↔ …`
+```
+
+What worked: `antinodesOfUnfold`, the program restated with the condition
+written out, proved by `rfl`, then a lemma about that `if` with the
+condition as a variable (`antinodesIff`). Fix: compare atoms and match
+scrutinees up to proofs (proof irrelevance), and print hidden arguments
+when two printed terms differ.
+
+### 4. Missing std
+
+- `Nat.gcd`: added to std (`Nat/Divides.sw`, Euclid's algorithm with
+  `decreasing`), with a test. Its facts are written here (`Proofs/Gcd.sw`,
+  37 lines): `gcdDivides` and `gcdBezout`, by the generated
+  `Nat.gcd.unfold`. Lean core has `Nat.gcd` with `Nat.gcd_dvd_left`
+  (<https://lean-lang.org/doc/api/Init/Data/Nat/Gcd.html>), Mathlib
+  `Nat.gcd_eq_gcd_ab` (Bézout,
+  <https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Int/GCD.html>),
+  and Haskell's Prelude exports `gcd`
+  (<https://hackage-content.haskell.org/package/base-4.22.0.0/docs/Prelude.html>).
+- `Char.isAsciiLetter` and `Char.isAsciiAlphanumeric`: added to std
+  (`Text/Text.sw`), with tests; std had `digitValue` and the whitespace
+  tests only.
+- Integer vectors: `Position.plus`, `minus`, `times` and `divideBy` are
+  written in the program. Fine as program code, but every grid day with
+  directions writes them again.
+- The `Int` lemmas of item 1.
+- No lemma that a subset is no bigger (`Set.isSubset a b = True →
+  a.size ≤ b.size`), so part 2 ⊇ part 1 is stated on the sets, not on the
+  counts.
+- `List.each` (run an effect on each element) and `List.contains`:
+
+  ```text
+  [E-UNKNOWN-FIELD] Error: `List` has no field or function `each`
+  [E-UNKNOWN-FIELD] Error: `List` has no field or function `contains`
+  ```
+
+  What I did instead: the row-length check inside the `flatMap` that
+  builds the antennas, and `.any (== position)`.
+
+### 5. A lifted `match` can't be named
+
+`stepToward` first had the `match` on the gcd inline. A lemma restating it
+with the `match` as a helper failed, with a clear note:
+
+```text
+Note 3: `(match …)` is a `match` written inside `Aoc.Year2024.Day08.stepToward`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name` …
+```
+
+What I did instead: moved it into `Position.divideBy`, which reads as well.
+Day 7's item 5 again. Fix: let `rfl` see two lifted matches with the same
+body as equal.
+
+### 6. Inference
+
+- A lambda's parameter type isn't taken from a later argument when the
+  lambda is the function of `Eq.cong`: `Eq.cong (x => 4 * x) h` failed with
+
+  ```text
+  [E-TYPE-MISMATCH] Error: type mismatch
+    expected `?9 ur uc vr vc cross distance same = ?10 ur uc vr vc cross distance same`, but this has type `2 * (vr * vr + (vc * vc)) = ur * vr + (uc * vc)`
+  ```
+
+  and `Eq.cong ((x: Int) => 4 * x) h` worked. The message doesn't say the
+  lambda is the problem. The same for `List.memFlatMapIntro (count => …)`
+  (`can't tell what count is, so can't look up .toInt`) and
+  `List.anyElim (other => … other.position …)`.
+- `let columnMoves := (z: step.column = 0) => omega [...]` is
+  "`omega` needs to know what it proves"; written
+  `let columnMoves: Not (step.column = 0) := z => omega [...]` it worked.
+- In the program, `auto` doesn't see `Nat.toInt g ≠ 0` from `g != 0`:
+
+  ```text
+  [E-AUTO-STUCK] Error: can't decide `Nat.toInt g ≠ 0` here
+  ```
+
+  What I did instead: match the gcd against `Succ below` and divide by
+  `(Succ below).toInt`, which `auto` decides. Fix: `auto` could carry
+  `≠ 0` through `Nat.toInt`.
+
+### 7. Smaller
+
+- `if h: … then … else …` can't have proofs as branches
+  (`[E-UNIVERSE] Error: if can't choose between proofs yet`; the note says
+  to `match` on the `Bool`, which worked).
+- `cases` is a keyword, so not a parameter name.
+- `rewrite … in` followed by a `let` on the next line is
+  `a block must end with an expression, not let` (day 4's item 8). Moved
+  the `let` before the `rewrite`.
+- A well-founded definition doesn't unfold by `rfl`
+  (`computing the right side gives Nat.gcd (Succ c) (a - (Nat.divFuel a a (Succ c) * Succ c))`);
+  `rewrite Nat.gcd.unfold a (Succ c) in rfl` did it, as the guide says.
+- What went well: `locationsCorrect`, the set-equality plumbing over
+  `flatMap`, `filter` and `Set.fromList`, checked on the first try;
+  `omega` closed `Int` constructor cases with `/` and `%` by 3 once they
+  were `Nat` (`Eq.cong OfNat (omega)`); pattern-matching `{ row = OfNat
+  row, column = NegSucc column }` split the on-map cases neatly.
+
+### Performance
+
+`stitchwort run` on the input takes 0.67 s of user time, of which about
+0.58 s is the same run on the example (loading and checking); the Python
+cross-check, which tests every cell against every pair, 0.31 s. The spec as
+a test on the real input (2,500 locations, each against all 207 × 207
+pairs of antennas) wasn't run.
+
+### Size and time
+
+Release build, on a machine busy with other work:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day08.Proofs` | 2.6 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day08` | 1.8 s |
+| `stitchwort test --no-cache Aoc.Year2024.Day08` (28 tests) | 4.2 s |
+| `stitchwort test Aoc.Year2024.Day08` (warm) | 2.1 s |
+| `stitchwort run Aoc.Year2024.Day08.main` on the input | 0.67 s |
+
+101 lines of program, 55 of spec, 625 of proofs, 149 of tests.
+
+### Ranked
+
+1. `omega` has no `Int` (item 1). Fix: `Int` atoms in `omega`.
+2. Terms that print the same but differ by a hidden proof, and a silent
+   `match` that doesn't abstract (item 3). Fix: compare up to proofs, and
+   print hidden arguments when printed terms are equal.
+3. `ring [h]` without coefficients (item 2). Fix: `ring [4 * h1 - x * h2]`.
+4. Missing std (item 4). Fix: `Nat.gcd`'s divisibility and Bézout lemmas,
+   the `Int` lemmas, `Set.size` of a subset, and `List.each`/`contains`.
+5. Lambda parameter types not taken from the proof argument (item 6). Fix:
+   check the other arguments first, and name the lambda in the message.
+6. Lifted `match`es (item 5). Fix: `rfl` across lifted matches with the
+   same body.
+7. `auto` and `Nat.toInt` (item 6). Fix: carry `≠ 0` through `Nat.toInt`.
+8. The puzzle's rule has a third case (above). Not a language issue: the
+   spec follows the rule, and a test shows the input doesn't hit it.
