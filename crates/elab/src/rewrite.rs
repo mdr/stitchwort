@@ -211,7 +211,7 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
         };
     };
     let name = name.expect("checked above");
-    let ty_term = cx.quote(&ty)?;
+    let ty_term = cx.quote_folded(&ty)?;
     let mark = cx.mark();
     let x: stitchwort_core::Name = name.text.as_str().into();
     let result = cx

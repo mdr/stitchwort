@@ -2798,7 +2798,7 @@ fn sequence(
     if !effectful {
         // A pure `let` is a transparent one around the rest of the
         // computation (docs/proposals/let.md §5, option A).
-        let ty_term = cx.quote(&ty)?;
+        let ty_term = cx.quote_folded(&ty)?;
         cx.define(Some(name), name.into(), ty, ty_term.clone(), term.clone())?;
         let result = body(cx);
         cx.reset(mark);
@@ -2829,7 +2829,7 @@ fn hold(cx: &mut Ctx, row: &Row, name: &str, c: Term, ty: Value) -> Result<Bound
     let mark = cx.mark();
     let (comp, in_place) = match in_place(cx, row, &c, &ty)? {
         Some(value) => {
-            let ty_term = cx.quote(&ty)?;
+            let ty_term = cx.quote_folded(&ty)?;
             cx.define(
                 Some(name),
                 name.into(),
@@ -3998,7 +3998,7 @@ pub fn pure_let(
             let (term, ty) = insert(cx, term, ty)?;
             let ty = settle_let_lambda(cx, value, ty)?;
             let written = crate::dot::written_of(cx, &term)?;
-            let ty_term = cx.quote(&ty)?;
+            let ty_term = cx.quote_folded(&ty)?;
             (term, ty, ty_term, written)
         }
     };
