@@ -58,7 +58,7 @@ time_ms = 326.0
 [check-number-pattern]
 steps = 81
 visits = 38
-allocations = 298
+allocations = 314
 peak_bytes = 4047
 time_ms = 0.8
 
@@ -93,7 +93,7 @@ time_ms = 99.4
 [check-nested-parens]
 steps = 8
 visits = 12
-allocations = 111
+allocations = 122
 peak_bytes = 1957250
 time_ms = 5.2
 
@@ -107,7 +107,7 @@ time_ms = 213.8
 [check-number-huge]
 steps = 81
 visits = 38
-allocations = 304
+allocations = 320
 peak_bytes = 4099
 time_ms = 0.8
 
@@ -135,7 +135,7 @@ time_ms = 1.0
 [check-text-literal]
 steps = 19
 visits = 17
-allocations = 130
+allocations = 141
 peak_bytes = 168230
 time_ms = 0.8
 
