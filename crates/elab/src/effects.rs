@@ -2008,7 +2008,7 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
             .iter()
             .map(|s| &s.expr)
             .chain(alts.iter().map(|a| &a.body)))?,
-        Expr::Neg(a, _) => may_perform(cx, a)?,
+        Expr::Neg(a, _, _) => may_perform(cx, a)?,
         // A `let` performs what its value or the rest of the block does
         // (docs/proposals/let.md §5). The rest is judged here without the
         // name in scope, and asked again once it is (so a call of a bound

@@ -97,8 +97,8 @@ pub enum Expr {
     Binary(BinOp, Box<Expr>, Box<Expr>),
     /// `x |> f a b`: `f a b x`, with `x` elaborated (and run) first.
     Pipe(Box<Expr>, Box<Expr>),
-    /// A prefix minus: `-e`.
-    Neg(Box<Expr>, Span),
+    /// A prefix minus: `-e`, or a negative argument `f -e`.
+    Neg(Box<Expr>, Span, NegForm),
     /// `"a${x}b"`: a text with interpolations, its pieces joined with `++`,
     /// spanning the whole literal, quotes included.
     Interpolated(Box<Expr>, Span),
@@ -391,7 +391,7 @@ impl Expr {
             | Expr::Goal(span)
             | Expr::Ann(_, _, span)
             | Expr::Bracketed(_, span)
-            | Expr::Neg(_, span)
+            | Expr::Neg(_, span, _)
             | Expr::Interpolated(_, span)
             | Expr::List(_, span)
             | Expr::Unit(span)
@@ -457,7 +457,7 @@ fn has_nested(expr: &Expr) -> bool {
         | Expr::Seq(a, b) => nested(a) || nested(b),
         Expr::Lam(_, b, _)
         | Expr::NamedArg(_, b, _, _)
-        | Expr::Neg(b, _)
+        | Expr::Neg(b, _, _)
         | Expr::Interpolated(b, _)
         | Expr::Effect(_, b) => nested(b),
         Expr::Pi { dom, cod, .. } => nested(dom) || nested(cod),
@@ -541,7 +541,7 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
         }
         Expr::Lam(_, b, _)
         | Expr::NamedArg(_, b, _, _)
-        | Expr::Neg(b, _)
+        | Expr::Neg(b, _, _)
         | Expr::Interpolated(b, _)
         | Expr::Effect(_, b) => take(b),
         Expr::Pi { dom, cod, .. } => {
@@ -952,4 +952,15 @@ pub struct Module {
     /// Names declared by declarations that failed to parse, so aren't in
     /// `decls` (only `parse_module_recovering` fills it).
     pub failed: Vec<Name>,
+}
+
+/// How a [`Expr::Neg`] was written. Only the elaborator's messages read it;
+/// the kernel never sees it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NegForm {
+    /// `-e` at the start of an operand, or a negative numeral.
+    Operand,
+    /// An unbracketed argument, `f -e`: a space before the `-`, none after
+    /// (docs/proposals/negative-arguments.md §4.2).
+    Argument,
 }

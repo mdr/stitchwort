@@ -266,7 +266,7 @@ fn split_fact<'a>(
     out: &mut Vec<Scaled<'a>>,
 ) {
     match expr {
-        Expr::Neg(e, _) => {
+        Expr::Neg(e, _, _) => {
             *minus = true;
             split_fact(e, !negative, coefficients, minus, out);
         }
@@ -281,7 +281,7 @@ fn split_fact<'a>(
         }
         Expr::Binary(ast::BinOp::Mul, c, e) => {
             let (mut c, mut negative) = (&**c, negative);
-            while let Expr::Neg(inner, _) = c {
+            while let Expr::Neg(inner, _, _) = c {
                 *minus = true;
                 negative = !negative;
                 c = inner;

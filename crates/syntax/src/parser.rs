@@ -13,9 +13,11 @@
 
 use crate::ast::{
     Alt, BinOp, Binder, Bracket, CalcStep, Clause, CtorDecl, Decl, Expr, Import, LocalDef,
-    MatchKind, Mode, Module, Name, NamespaceDecl, Pattern, RewriteRule, Row, SECTION, Scrutinee,
+    MatchKind, Mode, Module, Name, NamespaceDecl, NegForm, Pattern, RewriteRule, Row, SECTION,
+    Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
+use crate::negation::{argument_minus, negative_numeral};
 use crate::stack::StackLimit;
 use crate::{Diagnostic, FileId, Span};
 
@@ -1317,6 +1319,17 @@ impl<'t> Parser<'t> {
                 .with_note(
                     "braces name a constructor's fields only right after it: `C { f = p, .. }`",
                 ));
+            }
+            if self.argument_minus_at(self.pos) {
+                // `Some -1`: a negative number, as `(-1)` is (D1470).
+                let start = self.bump().span;
+                let Some(Tok::Num(n)) = self.peek() else {
+                    return Err(self.unexpected("a number"));
+                };
+                let n = n.clone();
+                let end = self.bump().span;
+                args.push(Pattern::NegNum(n, start.to(end)));
+                continue;
             }
             args.push(self.pattern()?);
         }
@@ -3219,6 +3232,10 @@ impl<'t> Parser<'t> {
             let start = self.bump().span;
             return self.match_expr(start);
         }
+        // A negative numeral is one atom (D1474): `-1.abs` is `(-1).abs`.
+        if self.peek() == Some(&Tok::Minus) && negative_numeral(self.tokens, self.pos) {
+            return self.app();
+        }
         if let Some(prefix @ (Tok::Minus | Tok::Bang)) = self.peek() {
             self.deeper()?;
             let start = self.bump().span;
@@ -3331,6 +3348,14 @@ impl<'t> Parser<'t> {
             )
         ) || (self.peek() == Some(&Tok::Dot) && self.section_at(self.pos))
             || self.bare_cases()
+            || self.argument_minus_at(self.pos)
+    }
+
+    /// Whether the `-` at token `i` is an argument minus (`f -2`): the
+    /// shared token test, and not at a statement stop, so a block line `-y`
+    /// stays a new statement.
+    fn argument_minus_at(&self, i: usize) -> bool {
+        argument_minus(self.tokens, i) && !self.is_stop(i)
     }
 
     /// Whether the next token is a `cases` with no `in` after it, which is
@@ -3633,9 +3658,33 @@ impl<'t> Parser<'t> {
         Ok(Expr::Interpolated(Box::new(expr), open.to(close)))
     }
 
+    /// `-` at the start of an atom: a negative numeral (`-1`, the base of
+    /// `-1.abs`), or an argument minus (`f -x`), which negates one atom with
+    /// its dots and `()` calls, as any argument takes them.
+    #[inline(never)]
+    fn negative_atom(&mut self) -> Result<Expr> {
+        let numeral = negative_numeral(self.tokens, self.pos);
+        let form = if argument_minus(self.tokens, self.pos) {
+            NegForm::Argument
+        } else if numeral {
+            NegForm::Operand
+        } else {
+            return Err(self.unexpected_name("an expression"));
+        };
+        let start = self.bump().span;
+        let operand = if numeral {
+            self.atom_base()?
+        } else {
+            self.atom(false)?
+        };
+        let span = start.to(operand.span());
+        Ok(Expr::Neg(Box::new(operand), span, form))
+    }
+
     fn atom_base(&mut self) -> Result<Expr> {
         let span = self.here();
         match self.peek() {
+            Some(Tok::Minus) => self.negative_atom(),
             Some(Tok::Lower(_)) => Ok(Expr::Var(self.lower_q("an expression")?)),
             Some(Tok::Upper(_)) => Ok(Expr::Var(self.upper_q("an expression")?)),
             Some(Tok::Num(n)) => {
@@ -3869,7 +3918,7 @@ fn prefix_op(bang: bool, start: Span, operand: Expr) -> Expr {
         return Expr::App(Box::new(not), Box::new(operand));
     }
     let span = start.to(operand.span());
-    Expr::Neg(Box::new(operand), span)
+    Expr::Neg(Box::new(operand), span, NegForm::Operand)
 }
 
 /// `lhs |> rhs`; when `rhs` is a method section, the call it stands for on
@@ -5227,7 +5276,14 @@ mod tests {
         match e {
             Expr::Var(n) => n.text.clone(),
             Expr::Num(n, _) => n.to_string(),
-            Expr::Neg(x, _) => format!("(- {})", shape(x)),
+            Expr::Float(t, _) => t.clone(),
+            Expr::Str(t, _) => format!("{t:?}"),
+            Expr::Unit(_) => "()".into(),
+            Expr::Bracketed(x, _) => shape(x),
+            Expr::Lam(_, body, _) => format!("(=> {})", shape(body)),
+            Expr::Pipe(a, b) => format!("(|> {} {})", shape(a), shape(b)),
+            Expr::Interpolated(x, _) => format!("${{{}}}", shape(x)),
+            Expr::Neg(x, _, _) => format!("(- {})", shape(x)),
             Expr::App(f, a) => format!("({} {})", shape(f), shape(a)),
             Expr::Field(x, n) => format!("{}.{}", shape(x), n.text),
             Expr::Binary(op, a, b) => format!("({op:?} {} {})", shape(a), shape(b)),
@@ -5250,7 +5306,7 @@ mod tests {
             ("-x.abs", "(- x.abs)"),
             ("(-x).abs", "(- x).abs"),
             ("-f x", "(- (f x))"),
-            ("f -x", "(Sub f x)"),
+            ("f -x", "(f (- x))"),
             ("-a * b", "(Mul (- a) b)"),
             ("a * -b", "(Mul a (- b))"),
             ("-18 % 100", "(Mod (- 18) 100)"),
@@ -5259,13 +5315,148 @@ mod tests {
             ("- -x", "(- (- x))"),
             ("a + -b * c", "(Add a (Mul (- b) c))"),
             ("f (-5)", "(f (- 5))"),
-            ("f -5", "(Sub f 5)"),
+            ("f -5", "(f (- 5))"),
         ];
         for (text, want) in cases {
             assert_eq!(shape_of(text), want, "{text}");
         }
         // `--` starts a comment.
         assert_eq!(shape_of("a --b"), "a");
+    }
+
+    #[test]
+    fn an_argument_minus_negates_one_atom() {
+        let cases = [
+            ("f -x.abs", "(f (- x.abs))"),
+            ("f -2 * 3", "(Mul (f (- 2)) 3)"),
+            ("f -g x", "((f (- g)) x)"),
+            ("f 1 -2", "((f 1) (- 2))"),
+            ("f -(a * 2)", "(f (- (Mul a 2)))"),
+            ("x-1", "(Sub x 1)"),
+            ("x- 1", "(Sub x 1)"),
+            ("x - 1", "(Sub x 1)"),
+            ("x -  1", "(Sub x 1)"),
+            ("x - -y", "(Sub x (- y))"),
+            ("f \"a\" -1", "((f \"a\") (- 1))"),
+            ("(f x) -1", "((f x) (- 1))"),
+            ("xs.length -1", "(xs.length (- 1))"),
+            ("f() -1", "((f ()) (- 1))"),
+            ("f -()", "(f (- ()))"),
+            ("f -g()", "(f (- (g ())))"),
+            ("f -1 -2", "((f (- 1)) (- 2))"),
+            // After `,` or an operator the `-` is prefix, as before.
+            ("f x * -y", "(Mul (f x) (- y))"),
+            // `--` starts a comment.
+            ("f --x", "f"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(shape_of(text), want, "{text}");
+        }
+        let list = expression("[1, -2]").unwrap();
+        assert!(matches!(
+            &list,
+            Expr::List(items, _) if matches!(&items[1], Expr::Neg(_, _, NegForm::Operand))
+        ));
+        // A `-` at the end of a line is binary, and needs its operand.
+        assert!(rhs_of("def g : Nat := f -\n").is_err());
+        // The form is recorded: `f -2` is an argument, `f (-2)` is not.
+        let call = rhs_of("def g : Nat := f -2\n").unwrap();
+        let Expr::App(_, arg) = &call else {
+            panic!("an application")
+        };
+        assert!(matches!(**arg, Expr::Neg(_, _, NegForm::Argument)));
+        let call = rhs_of("def g : Nat := f (-2)\n").unwrap();
+        let Expr::App(_, arg) = &call else {
+            panic!("an application")
+        };
+        assert!(matches!(
+            &**arg,
+            Expr::Neg(_, _, NegForm::Operand) | Expr::Bracketed(..)
+        ));
+        assert!(!format!("{arg:?}").contains("Argument"));
+    }
+
+    #[test]
+    fn negative_numerals_are_one_atom() {
+        let cases = [
+            ("-1.abs", "(- 1).abs"),
+            ("f -1.abs", "(f (- 1).abs)"),
+            ("x-1.abs", "(Sub x 1.abs)"),
+            ("- 1.abs", "(- 1.abs)"),
+            ("-x.abs", "(- x.abs)"),
+            ("-1.5.abs", "(- 1.5).abs"),
+            ("- -1.abs", "(- (- 1).abs)"),
+            ("x - -1.abs", "(Sub x (- 1).abs)"),
+            ("-3.sub 5", "((- 3).sub 5)"),
+            ("-3 * 2", "(Mul (- 3) 2)"),
+            ("(-0e-400).bits", "(- 0e-400).bits"),
+            ("1e-5", "1e-5"),
+            ("x --1", "x"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(shape_of(text), want, "{text}");
+        }
+    }
+
+    #[test]
+    fn an_argument_minus_in_sections_pipes_and_texts() {
+        let cases = [
+            ("(.fst -1)", "(=> (%section.fst (- 1)))"),
+            ("x |> f -1", "(|> x (f (- 1)))"),
+            ("\"${x -1}\"", "${(Std.Show.toText (x (- 1)))}"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(shape_of(text), want, "{text}");
+        }
+        let e = shape_of("xs |> .drop -1");
+        assert!(e.contains("(- 1)") && e.contains("drop"), "{e}");
+        let e = format!(
+            "{:?}",
+            rhs_of("def g : Nat := (let z := f -1; z)\n").unwrap()
+        );
+        assert!(e.contains("Argument"), "{e}");
+        let e = format!("{:?}", rhs_of("def g : Nat := (let z := 1; -z)\n").unwrap());
+        assert!(e.contains("Operand") && !e.contains("Argument"), "{e}");
+    }
+
+    #[test]
+    fn a_block_line_starting_with_a_minus_is_a_new_statement() {
+        let e = rhs_of("def g (x : Int) : Int :=\n  let y := x + 1\n  -y\n").unwrap();
+        let text = format!("{e:?}");
+        assert!(text.contains("Let") && text.contains("Operand"), "{text}");
+        assert!(!text.contains("Argument"), "{text}");
+        // An indented line continues the one above: an argument.
+        let e = rhs_of("def g (f : Int -> Int) (x : Int) : Int :=\n  f\n    -x\n").unwrap();
+        assert!(matches!(&e, Expr::App(_, a) if matches!(**a, Expr::Neg(_, _, NegForm::Argument))));
+        // A line starting `- y` with a space is binary, as before.
+        let e = rhs_of("def g (x : Int) (y : Int) : Int :=\n  x\n    - y\n").unwrap();
+        assert!(matches!(e, Expr::Binary(BinOp::Sub, ..)), "{e:?}");
+    }
+
+    #[test]
+    fn a_negative_argument_in_a_constructor_pattern() {
+        let text =
+            "def h (o : Option Int) : Int :=\n  match o with\n    | Some -1 => 0\n    | _ => 1\n";
+        let module = parse_module_text(text).unwrap();
+        let debug = format!("{module:?}");
+        assert!(debug.contains("NegNum(1,"), "{debug}");
+        let text = "def h (l : List Int) : Int :=\n  match l with\n    | Cons -1 rest => 0\n    | _ => 1\n";
+        let debug = format!("{:?}", parse_module_text(text).unwrap());
+        assert!(debug.contains("NegNum(1,"), "{debug}");
+        // Numerals only, as `(-x)` is.
+        let text =
+            "def h (o : Option Int) : Int :=\n  match o with\n    | Some -x => 0\n    | _ => 1\n";
+        assert!(parse_module_text(text).is_err());
+    }
+
+    #[test]
+    fn a_half_typed_minus_is_still_binary_in_recovery() {
+        let text = "def a: Nat := 1\n\ndef b (n: Nat): Nat := n -\n\ndef d: Nat := 2\n";
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        let (module, errors) = parse_module_recovering(file, text, DEFAULT_STACK);
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert!(module.failed.iter().any(|n| n.text == "b"));
     }
 
     #[test]

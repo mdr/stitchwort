@@ -1370,7 +1370,7 @@ impl Walk<'_> {
                 | Expr::Binary(_, a, b)
                 | Expr::Pipe(a, b)
                 | Expr::Seq(a, b) => then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]),
-                Expr::Neg(a, _) | Expr::Bracketed(a, _) | Expr::Interpolated(a, _) => {
+                Expr::Neg(a, _, _) | Expr::Bracketed(a, _) | Expr::Interpolated(a, _) => {
                     stack.push(Work::Expr(a))
                 }
                 Expr::Lam(names, body, _) => {

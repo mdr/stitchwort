@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-A-FUNCTION] Error: this isn't a function
+   ╭─[ reject/negative-argument-not-a-function.sw:4:24 ]
+   │
+ 4 │ def h (n: Nat): Nat := n -1
+   │                        ──┬─  
+   │                          ╰─── it's applied to an argument, but its type is `Nat`
+   │ 
+   │ Note: `-1` here is a negative argument (a space before the `-`, none after it); to subtract, put a space after the `-` as well
+───╯

@@ -4219,7 +4219,7 @@ Fixed: `()` where a proof of `Unit` is expected is `Trivial`.
 - `seconds % space.period` in a theorem's statement: `can't decide
   `Space.period space ≠ 0` here`. A `let ok: space.period ≠ 0 :=
   periodPositive space` before it, or a parameter, fixed it.
-- `f a -1` is `f a - 1`, as in Haskell; `(-1)` needed.
+- `f a -1` was `f a - 1`, as in Haskell; `(-1)` was needed. Fixed: it is `f a (-1)` now (docs/proposals/negative-arguments.md).
 - `test` is a keyword, so a predicate parameter can't be called `test`;
   the message says so.
 
@@ -7129,7 +7129,8 @@ column 1: expected a number, got 'x'`, and an empty input is no buyers
   (<https://downloads.haskell.org/ghc/latest/docs/users_guide/exts/negative_literals.html>).
   Scala's `f(-2, 1)` has no such trap. What I did: `changesOf (-2) 1 (-1)
   3`. Fix: when `-` subtracts from a function, note "write `(-2)` for a
-  negative argument".
+  negative argument". Fixed differently: `changesOf -2 1 -1 3` is a negative
+  argument now (docs/proposals/negative-arguments.md).
 - **`rewrite` shows `%` unfolded.** In `xorModPow`, `rewrite modPowSucc
   (Nat.xor x y) k, Nat.xorDiv x y, Nat.xorMod x y, …` gave
   ``[E-REWRITE-NOTHING] Error: `rewrite` found no `Nat.xor x y % 2` in the

@@ -1,6 +1,6 @@
 # Negative arguments: should `f -2` mean `f (-2)`? (D1460)
 
-**Status:** approved design, 28 October 2026 (SW-840). Nothing is implemented.
+**Status:** approved design, 28 October 2026 (SW-840). Stages 1 and 2 are implemented (SW-854); stage 3 (`!`) is not.
 Matt accepted the recommendations for D1461, D1462, D1467 and D1469 to D1472
 on 28 October (§7): option (b), the whitespace rule, with `!` as a separate
 ticket. Later the same day he decided D1474 (a `-` glued to a numeral is
