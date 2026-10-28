@@ -7,10 +7,9 @@ native Std.Nat.mul = %Nat.mul/2
 native Std.Nat.toText = %NatToText/1
 native Std.Effect.lift = %Effect.lift/1
 fn Std.List.map[empty](v0, v1) {4 slots} =
-  match v0: List {
-    Nil => Nil
-    Cons(head: v2, tail: v3) => Cons(apply v1(v2), Std.List.map[empty](v3, v1))
-  }
+  let v2 = %HoleNew()
+  let v3 = Std.List.map[empty][cells](v0, v1, v2, 0)
+  %HoleTake(v2)
 fn Std.List.foldLeft[empty](v0, v1, v2) {5 slots} =
   match v0: List {
     Nil => v1
@@ -32,14 +31,29 @@ fn Main.main(v0) {2 slots} =
   })
   Call(L(%print(v1)), done-k)
 fn Std.List.map[empty][0](v0) {3 slots} =
-  match v0: List {
-    Nil => Nil
-    Cons(head: v1, tail: v2) => Cons(%Nat.add(%Nat.mul(3, v1), 1), Std.List.map[empty][0](v2))
-  }
+  let v1 = %HoleNew()
+  let v2 = Std.List.map[empty][0][cells](v0, v1, 0)
+  %HoleTake(v1)
 fn Std.List.foldLeft[empty][1](v0, v1) {4 slots} =
   match v0: List {
     Nil => v1
     Cons(head: v2, tail: v3) => Std.List.foldLeft[empty][1](v3, %Nat.add(%Nat.add(v1, v2), 3))
+  }
+fn Std.List.map[empty][cells](v0, v1, v2, v3) {8 slots} =
+  match v0: List {
+    Nil => %HoleFill(v2, v3, Nil)
+    Cons(head: v4, tail: v5) =>
+      let v6 = Cons(apply v1(v4), erased)
+      let v7 = %HoleFill(v2, v3, v6)
+      Std.List.map[empty][cells](v5, v1, v6, 1)
+  }
+fn Std.List.map[empty][0][cells](v0, v1, v2) {7 slots} =
+  match v0: List {
+    Nil => %HoleFill(v1, v2, Nil)
+    Cons(head: v3, tail: v4) =>
+      let v5 = Cons(%Nat.add(%Nat.mul(3, v3), 1), erased)
+      let v6 = %HoleFill(v1, v2, v5)
+      Std.List.map[empty][0][cells](v4, v5, 1)
   }
 entry {1 slots} =
   %Effect.lift({

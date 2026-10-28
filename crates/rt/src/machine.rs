@@ -34,7 +34,7 @@ use crate::effect::{
     EffectCounts, EffectOp, Handler, Resume, StateRun, StateStep, delay_k, done_k, field,
     handler_for, jump_k, pair, resume_lazily, state_handler, state_k, state_step,
 };
-use crate::ir::{GlobalId, GlobalKind, PrimOp, Program, Shapes};
+use crate::ir::{GlobalId, GlobalKind, HoleOp, PrimOp, Program, Shapes};
 use crate::natives::TextNative;
 use crate::prims;
 pub use crate::shared::Limits;
@@ -1079,6 +1079,15 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Instr::TailPrim { op, .. } => {
                     panic!("internal error: a tail `{}`", op.name())
+                }
+                Instr::Prim {
+                    op: PrimOp::Hole(HoleOp::Fill),
+                    args,
+                    ..
+                } => {
+                    let o = ops!(args);
+                    let value = reg!(o[2]).clone();
+                    prims::fill_hole(&reg!(o[0]), &reg!(o[1]), value);
                 }
                 Instr::Prim { dst, op, args } => {
                     let o = ops!(args);

@@ -11,7 +11,7 @@ use stitchwort_core::collections::HashMap;
 use stitchwort_core::native::Native;
 use stitchwort_rt::Program;
 use stitchwort_rt::effect::EffectOp;
-use stitchwort_rt::ir::{Expr, GlobalId, GlobalKind, Lit, MatchKind, PrimOp};
+use stitchwort_rt::ir::{Expr, GlobalId, GlobalKind, HoleOp, Lit, MatchKind, PrimOp};
 use stitchwort_rt::natives::{FloatPrim, IntNative, TextNative};
 
 #[derive(Clone, Debug)]
@@ -722,6 +722,7 @@ impl<'p> Interp<'p> {
             }
             PrimOp::Delay(_) => return Err("unsupported: a partial computation".into()),
             PrimOp::Effect(op) => return self.effect(op, args),
+            PrimOp::Hole(op) => hole(op, &args)?,
             // On the bits, written apart from the runtime's (which works on
             // `f64`s): the model's definitions (std/Float/Float.sw), with
             // `f64` only for the rounding operations.
@@ -813,4 +814,35 @@ impl<'p> Interp<'p> {
             }
         })
     }
+}
+
+/// The hole operations of a loop that links the cells of its result
+/// (`stitchwort_rt::trmc`).
+fn hole(op: HoleOp, args: &[V]) -> R<V> {
+    match op {
+        HoleOp::New => Ok(V::Ctor(0, Rc::from([V::Erased]))),
+        HoleOp::Take => match &args[0] {
+            V::Ctor(_, cell) => Ok(cell[0].clone()),
+            other => Err(format!("HoleTake of {other:?}")),
+        },
+        HoleOp::Fill => {
+            let (V::Ctor(_, cell), V::Nat(i)) = (&args[0], &args[1]) else {
+                return Err(format!("HoleFill of {:?}", args[0]));
+            };
+            let i = usize::try_from(i).map_err(|_| "a hole index".to_string())?;
+            fill(cell, i, args[2].clone());
+            Ok(V::Erased)
+        }
+    }
+}
+
+/// Puts `value` in field `i` of a cell whose field is a hole.
+#[allow(unsafe_code)]
+fn fill(cell: &Rc<[V]>, i: usize, value: V) {
+    assert!(i < cell.len());
+    let hole = Rc::as_ptr(cell).cast::<V>().cast_mut().wrapping_add(i);
+    // SAFETY: as `stitchwort_rt`'s `prims::fill`: the cell is reachable only
+    // from the loop that made it, which is the only code running, and the
+    // field holds `Erased`, which owns nothing.
+    unsafe { std::ptr::write(hole, value) }
 }

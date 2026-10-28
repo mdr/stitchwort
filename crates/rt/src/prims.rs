@@ -20,9 +20,9 @@ use num_bigint::{BigInt, BigUint, Sign};
 use stitchwort_core::native::Native;
 use stitchwort_core::partial::Primitive;
 
-use crate::ir::{PrimOp, Shapes};
+use crate::ir::{HoleOp, PrimOp, Shapes};
 use crate::natives::{FloatPrim, IntNative, TextNative};
-use crate::value::{Delay, Value};
+use crate::value::{Delay, Fields, Value};
 
 fn bad(op: PrimOp, v: &Value) -> ! {
     panic!("internal error: %{} given {v:?}", op.name())
@@ -371,6 +371,7 @@ pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
                 Primitive::FoldD => Value::Delay(Rc::new(Delay::Fold(a(), b(), args[2].clone()))),
             }
         }
+        PrimOp::Hole(op) => hole(op, args),
         PrimOp::Effect(op) => {
             unreachable!("the machine runs the effect runtime's {op:?} on its frames")
         }
@@ -650,5 +651,53 @@ pub fn num_switch(table: &crate::shared::NumTable, v: &Value) -> u32 {
             .find(|(k, _)| k == &**n)
             .map_or(table.default, |(_, t)| *t),
         other => panic!("internal error: a number switch on {other:?}"),
+    }
+}
+
+/// The operations on the cells of a loop that builds its result a cell at
+/// a time ([`crate::trmc`]).
+fn hole(op: HoleOp, args: &[&Value]) -> Value {
+    match op {
+        HoleOp::New => Value::data(0, [Value::Erased]),
+        HoleOp::Take => match args[0] {
+            Value::Data(_, fields) => fields[0].clone(),
+            other => bad(PrimOp::Hole(op), other),
+        },
+        HoleOp::Fill => {
+            fill_hole(args[0], args[1], args[2].clone());
+            Value::Erased
+        }
+    }
+}
+
+/// `HoleFill cell index value`: puts `value` in the field of `cell` that a
+/// loop made a hole (`Value::Erased`).
+#[inline]
+pub(crate) fn fill_hole(cell: &Value, index: &Value, value: Value) {
+    let (Value::Data(_, fields), Value::Nat(i)) = (cell, index) else {
+        bad(PrimOp::Hole(HoleOp::Fill), cell)
+    };
+    fill(fields, *i as usize, value);
+}
+
+#[allow(unsafe_code)]
+#[inline]
+fn fill(fields: &Fields, i: usize, value: Value) {
+    assert!(i < fields.len(), "a hole outside its cell");
+    let hole = Rc::as_ptr(&fields.0)
+        .cast::<Value>()
+        .cast_mut()
+        .wrapping_add(i);
+    // SAFETY: the cell is reachable only from the loop that made it: its
+    // previous cell, the loop's registers and the registers of the call it
+    // is passed to. That loop is the only code running, so nothing reads
+    // the hole or the rest of the cell during the write, and no reference
+    // into the field outlives this call. The hole holds `Erased`, which
+    // owns nothing, so overwriting it without dropping it leaks nothing.
+    // `Rc<[Value]>` has no interior mutability, so this relies on there
+    // being no live shared reference to the field, not on the type.
+    unsafe {
+        debug_assert!(matches!(*hole, Value::Erased));
+        std::ptr::write(hole, value);
     }
 }

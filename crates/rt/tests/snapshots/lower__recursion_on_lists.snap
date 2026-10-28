@@ -12,13 +12,20 @@ fn Main.total(v0) {3 slots} =
     Cons(head: v1, tail: v2) => %Nat.add(v1, Main.total(v2))
   }
 fn Main.double(v0) {3 slots} =
-  match v0: List {
-    Nil => Nil
-    Cons(head: v1, tail: v2) => Cons(%Nat.mul(v1, 2), Main.double(v2))
-  }
+  let v1 = %HoleNew()
+  let v2 = Main.double[cells](v0, v1, 0)
+  %HoleTake(v1)
 fn Main.main(v0) {2 slots} =
   let v1 = %NatToText(Main.total(Main.double(Cons(1, Cons(2, Cons(3, Nil))))))
   Call(L(%print(v1)), done-k)
+fn Main.double[cells](v0, v1, v2) {7 slots} =
+  match v0: List {
+    Nil => %HoleFill(v1, v2, Nil)
+    Cons(head: v3, tail: v4) =>
+      let v5 = Cons(%Nat.mul(v3, 2), erased)
+      let v6 = %HoleFill(v1, v2, v5)
+      Main.double[cells](v4, v5, 1)
+  }
 entry {1 slots} =
   %Effect.lift({
     let v0 = %NatToText(Main.total(Main.double(Cons(1, Cons(2, Cons(3, Nil))))))

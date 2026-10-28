@@ -33,6 +33,7 @@ mod prims;
 pub mod run;
 pub mod shared;
 pub mod specialise;
+pub mod trmc;
 mod validate;
 pub mod value;
 mod wire;

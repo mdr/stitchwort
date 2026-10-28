@@ -13,7 +13,7 @@ use stitchwort_core::native::Native;
 use stitchwort_core::partial::Primitive;
 
 use crate::effect::EffectOp;
-use crate::ir::{PrimOp, Shapes};
+use crate::ir::{HoleOp, PrimOp, Shapes};
 use crate::natives::{FloatPrim, IntNative, TextNative};
 
 /// A hash of this crate's sources (`build.rs`): bytes are read only by a
@@ -316,6 +316,10 @@ impl Writer {
                 self.u8(8);
                 self.uint(effect_tags::tag(op));
             }
+            PrimOp::Hole(op) => {
+                self.u8(9);
+                self.uint(HoleOp::ALL.iter().position(|o| *o == op).expect("listed") as u64);
+            }
         }
     }
 }
@@ -425,6 +429,7 @@ impl<'a> Reader<'a> {
             6 => PrimOp::Delay(self.variant(delay_tags::ALL, "Delay primitive")?),
             7 => PrimOp::Float(self.variant(float_tags::ALL, "Float native")?),
             8 => PrimOp::Effect(self.variant(effect_tags::ALL, "effect native")?),
+            9 => PrimOp::Hole(self.variant(&HoleOp::ALL, "hole operation")?),
             t => return bad(format!("no native operation tagged {t}")),
         })
     }

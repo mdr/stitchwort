@@ -178,6 +178,7 @@ fn lower_roots(g: &Globals, limits: Limits, roots: Vec<DefId>, entry: &Term) -> 
         shapes: shapes(g)?,
     };
     optimize(&mut program, types);
+    crate::trmc::apply(&mut program);
     Ok(program)
 }
 
