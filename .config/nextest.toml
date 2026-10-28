@@ -133,7 +133,7 @@ default-filter = "binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of
 default-filter = "(package(stitchwort-fmt) & !binary(repo) & !binary(fuzz)) | (package(stitchwort-cli) & binary(fmt))"
 
 [profile.lane-aoc]
-default-filter = "binary(aoc_answers) & test(/^day/)"
+default-filter = "binary(aoc_answers) & test(/^(year2024_day02|year2024_day04|year2024_day07|year2025_day01|year2025_day05|year2025_day07)$/)"
 
 [profile.lane-cli]
 # Also `stitchwort build` (crates/standalone, `build.rs`), but for the
