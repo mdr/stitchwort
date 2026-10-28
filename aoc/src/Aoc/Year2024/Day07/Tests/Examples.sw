@@ -42,9 +42,9 @@ test "example, the spec agrees" :=
 test "parse" := parsed "190: 10 19\n3: 3\n" ==
   Ok ([{ testValue = 190, numbers = [10, 19] }, { testValue = 3, numbers = [3] }]: List Equation)
 test "parse without a final line break" := parsed "7: 1 2 3" == Ok ([{ testValue = 7, numbers = [1, 2, 3] }]: List Equation)
-test "no numbers" := parsed "190:\n" == Err "line 1, column 5: expected a number"
-test "no colon" := parsed "190 10 19\n" == Err "line 1, column 4: expected ':'"
-test "a bad number" := parsed "1: 2\n3: 4 x\n" == Err "line 2, column 6: expected a number or the end"
+test "no numbers" := parsed "190:\n" == Err "line 1, column 5: expected a number, got the end of the line"
+test "no colon" := parsed "190 10 19\n" == Err "line 1, column 4: expected ':', got ' '"
+test "a bad number" := parsed "1: 2\n3: 4 x\n" == Err "line 2, column 6: expected a number or the end of the line, got 'x'"
 
 test "one number: it is the test value" := holds allOperators 5 [5] && !(holds allOperators 6 [5])
 test "no operators: only one number" := holds [] 5 [5] && !(holds [] 5 [2, 3])

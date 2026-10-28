@@ -10,9 +10,8 @@
 -- `Aoc.Year2024.Day07.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day07
-import Aoc.Common (spacedNat)
 import Std (Fail, IO, List, Nat, Parse, Text)
-import Std.Parse (char, many1, nat)
+import Std.Parse (char, many1, nat, token)
 
 def main(): {IO, Fail} () :=
   let equations := parseEquations IO.readAll()
@@ -31,7 +30,7 @@ type Operator =
 def equationLine(): {Parse} Equation :=
   let testValue := nat()
   char ':'
-  let numbers := many1 spacedNat
+  let numbers := many1 (() => token nat)
   { testValue, numbers }
 
 -- One equation per line. A failure names the line and column.
