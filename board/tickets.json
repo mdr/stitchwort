@@ -1,5 +1,5 @@
 {
-  "next": 783,
+  "next": 784,
   "tickets": [
     {
       "id": 13,
@@ -6701,6 +6701,18 @@
     {
       "id": 782,
       "title": "Day 20 findings: a let used in a match arm inside a lambda is re-created on every call (lift.rs Draft::lets; 10x slowdown); List.length overflows the stack on 3.5M items (make it a loop); omega understands Nat.absDiff; warn when an effectful argument is passed where a pure default is evaluated eagerly (Option.fold)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 783,
+      "title": "AoC 2024 day 22 (examples only; input pending from Matt): monkey market secret numbers, solve, prove, log gaps",
       "status": "doing",
       "agent": "",
       "where": "",
