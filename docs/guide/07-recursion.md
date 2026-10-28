@@ -83,45 +83,42 @@ def halvings (n: Nat): Nat :=
 ───╯
 ```
 
-`decreasing e` after the result type names a number `e`, made from the parameters, that gets smaller at every recursive call. Each call then needs a proof that it does. Saying `decreasing n` alone isn't enough, since the compiler still has to know that `n / 2 < n`:
-
-<!-- snippet: errors/decreasing.sw -->
-```stitchwort
-def halvings (n: Nat): Nat
-    decreasing n
-:=
-  if n ≤ 1 then 0 else 1 + halvings (n / 2)
-```
-
-<!-- output: check errors/decreasing.sw -->
-```text
-[E-DECREASING] Error: can't show `n / 2 < n` here, which `decreasing n` needs for this call
-   ╭─[ errors/decreasing.sw:4:28 ]
-   │
- 4 │   if n ≤ 1 then 0 else 1 + halvings (n / 2)
-   │                            ───────┬───────
-   │                                   ╰───────── this recursive call
-   │
-   │ Note: give a proof with `[decreasing := …]`, or test it with `if h: n / 2 < n then … else …`
-───╯
-```
-
-The message shows the fact as you wrote it, `n / 2 < n`. The note gives the usual fix: test the fact with `if h: … then … else …`. In the `then` branch the fact is in scope, and the call finds it:
+`decreasing e` after the result type names a number `e`, made from the parameters, that gets smaller at every recursive call. Each call then needs a proof that it does. The compiler looks for one itself, from the facts in scope, and tries `omega` ([chapter 10](10-proofs.md)), which proves most arithmetic facts. Here the `else` branch knows `n` isn't below 10, which is enough for `n / 10 < n`:
 
 <!-- snippet: recursion.sw#decreasing -->
 ```stitchwort
 def digits (n: Nat): List Nat
     decreasing n
 :=
-  if n < 10 then [n]
-  else
-    let rest := n / 10
-    if smaller: rest < n then digits rest ++ [n % 10] else [n]
+  if n < 10 then [n] else digits (n / 10) ++ [n % 10]
 
 test "decreasing" := digits 2025 == [2, 0, 2, 5]
 ```
 
-Here `rest < n` always holds when `n >= 10`, so the `else` branch never runs; the test is there to give the compiler the fact. The same pattern works for Euclid's algorithm, where `a % b < b` once `b != 0`:
+When the compiler can't find a proof, it says which fact it needs. Here `n - step < n` is false when `step` is 0:
+
+<!-- snippet: errors/decreasing.sw -->
+```stitchwort
+def countDown (n: Nat) (step: Nat): Nat
+    decreasing n
+:=
+  if n ≤ 0 then 0 else 1 + countDown (n - step) step
+```
+
+<!-- output: check errors/decreasing.sw -->
+```text
+[E-DECREASING] Error: can't show `n - step < n` here, which `decreasing n` needs for this call
+   ╭─[ errors/decreasing.sw:4:28 ]
+   │
+ 4 │   if n ≤ 0 then 0 else 1 + countDown (n - step) step
+   │                            ────────────┬────────────
+   │                                        ╰────────────── this recursive call
+   │
+   │ Note: give a proof with `[decreasing := …]`, or test it with `if h: n - step < n then … else …`
+───╯
+```
+
+The message shows the fact as you wrote it. The note gives the usual fix: test the fact with `if h: … then … else …`. In the `then` branch the fact is in scope, and the call finds it. Euclid's algorithm needs this, since `omega` doesn't reason about `%` by a variable: `a % b < b` holds once `b != 0`, and the test puts it in scope:
 
 <!-- snippet: recursion.sw#gcd -->
 ```stitchwort
@@ -135,7 +132,7 @@ def gcd (a: Nat) (b: Nat): Nat
 test "gcd" := gcd 84 36 == 12
 ```
 
-A proof can also be given directly, as `[decreasing := proof]` after the call. `omega` ([chapter 10](10-proofs.md)) proves most arithmetic facts. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function:
+Here `a % b < b` always holds, so the inner `else` never runs; the test is there to give the compiler the fact. A proof can also be given directly, as `[decreasing := proof]` after the call. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function, whose calls `omega` proves:
 
 <!-- snippet: recursion.sw#lexicographic -->
 ```stitchwort
@@ -144,8 +141,8 @@ def ackermann (m: Nat) (n: Nat): Nat
 :=
   match m, n with
     | Zero, n => n + 1
-    | Succ k, Zero => ackermann k 1 [decreasing := omega]
-    | Succ k, Succ j => ackermann k (ackermann (Succ k) j [decreasing := omega]) [decreasing := omega]
+    | Succ k, Zero => ackermann k 1
+    | Succ k, Succ j => ackermann k (ackermann (Succ k) j)
 
 test "ackermann" := ackermann 2 3 == 9
 ```

@@ -25,10 +25,7 @@ test "an accumulator" := reverseOnto [] [1, 2, 3] == [3, 2, 1]
 def digits (n: Nat): List Nat
     decreasing n
 :=
-  if n < 10 then [n]
-  else
-    let rest := n / 10
-    if smaller: rest < n then digits rest ++ [n % 10] else [n]
+  if n < 10 then [n] else digits (n / 10) ++ [n % 10]
 
 test "decreasing" := digits 2025 == [2, 0, 2, 5]
 -- end decreasing
@@ -50,8 +47,8 @@ def ackermann (m: Nat) (n: Nat): Nat
 :=
   match m, n with
     | Zero, n => n + 1
-    | Succ k, Zero => ackermann k 1 [decreasing := omega]
-    | Succ k, Succ j => ackermann k (ackermann (Succ k) j [decreasing := omega]) [decreasing := omega]
+    | Succ k, Zero => ackermann k 1
+    | Succ k, Succ j => ackermann k (ackermann (Succ k) j)
 
 test "ackermann" := ackermann 2 3 == 9
 -- end lexicographic
