@@ -5884,7 +5884,7 @@
     },
     {
       "id": 714,
-      "title": "std: DecEq instance for () (Unit), so tests can compare Ok () (Std.Parse stage 1 finding)",
+      "title": "std: DecEq instance for () (folded into SW-715)",
       "status": "done",
       "agent": "",
       "where": "",
@@ -5897,7 +5897,7 @@
     {
       "id": 715,
       "title": "std list lemmas from AoC 2024 day 4: getDrop, getZipWith3 in Option form, sums over zips as sums over indices, range-sum extend/shift, (Some x == Some y) = (x == y), step lemmas for all/any over cons; plus DecEq for () (overnight)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
