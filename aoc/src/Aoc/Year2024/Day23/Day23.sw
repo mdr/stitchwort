@@ -24,11 +24,9 @@ def Computer: Type := Text
 -- "Connections aren't directional": `kh-tc` and `tc-kh` are the same.
 type Network = { connections: List (Computer, Computer) }
 
-def isLowercase (char: Char): Bool := 'a' ≤ char && char ≤ 'z'
-
 def computer(): {Parse} Computer :=
-  let first := satisfy "a lowercase letter" isLowercase
-  let second := satisfy "a lowercase letter" isLowercase
+  let first := satisfy "a lowercase letter" Char.isAsciiLowercase
+  let second := satisfy "a lowercase letter" Char.isAsciiLowercase
   Text.fromList [first, second]
 
 -- One connection: "kh-tc".

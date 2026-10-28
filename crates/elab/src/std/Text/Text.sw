@@ -16,6 +16,15 @@ theorem Text.padRightExample: Text.padRight "ab" 5 '.' = "ab..." := rfl
 
 theorem Text.padRightLongEnough: Text.padRight "ab" 1 '.' = "ab" := rfl
 
+-- `Text.padLeft text n char` is enough copies of `char` followed by `text` to make it
+-- n characters long (it is `text` itself when that is already n long or longer).
+def Text.padLeft (text: Text) (n: Nat) (char: Char): Text :=
+  text.toList.padLeft n char |> Text.fromList
+
+theorem Text.padLeftExample: Text.padLeft "7" 2 '0' = "07" := rfl
+
+theorem Text.padLeftLongEnough: Text.padLeft "123" 2 '0' = "123" := rfl
+
 def Text.less (a: Text) (b: Text): Bool := Ordering.isLess (Text.compare a b)
 
 def Text.joinPair (separator: Char): Pair (List Char) (List (List Char)) → List Char
