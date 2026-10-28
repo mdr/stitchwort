@@ -26,8 +26,9 @@
 -- tests are in `Aoc.Year2025.Day07.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2025.Day07
-import Std (Abort, Fail, Fin, IO, List, Nat, Option, Result, Text, Vec)
+import Std (Abort, Fail, Fin, IO, List, Nat, Option, Parse, Result, Text, Vec)
 import Std.Abort (toOption)
+import Std.Parse (looseGrid, pick)
 
 def main(): {IO, Fail} () :=
   let manifold := (checkManifold IO.readAllLines()).orFail
@@ -56,12 +57,14 @@ def checkManifold (lines: List Text): Result Manifold Text :=
         | Some manifold => Ok manifold
         | None => Err "expected a line with an S, got none"
 
--- The first character that isn't . ^ or S, if any.
+-- The first character that isn't . ^ or S, if any, named by its line and column.
 def manifoldError (lines: List Text): Option Text :=
-  lines.withIndex.findMap (((lineIndex, line)) =>
-    line.toList.withIndex.findMap (((columnIndex, ch)) =>
-      if ch == '.' ∨ ch == '^' ∨ ch == 'S' then None
-      else Some "line ${lineIndex + 1}, column ${columnIndex + 1}: expected . or ^ or S, got '${ch}'"))
+  match Fail.toResult (() => Parse.all (Text.joinWith lines "\n") manifoldCells) with
+    | Ok rows => None
+    | Err message => Some message
+
+-- Lines of . ^ and S, of any lengths.
+def manifoldCells(): {Parse} (List (List ())) := looseGrid (() => pick [(".", ()), ("^", ()), ("S", ())])
 
 -- Each step that finds nothing gives up, which makes the result `None`.
 def parseManifold (lines: List Text): {Abort} Manifold :=

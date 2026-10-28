@@ -47,11 +47,11 @@ test "main with no S" := ran ["..^.."] == MkPair [] (Err "expected a line with a
 test "main with a final blank line" := ran ["..S..", "..^..", ""] == MkPair ["Part 1: 1", "Part 2: 2"] (Ok True)
 
 -- The strict parser: what it rejects, and what it still accepts.
-test "an unknown character" := ran ["..S..", "..x.."] == MkPair [] (Err "line 2, column 3: expected . or ^ or S, got 'x'")
-test "the first unknown character wins" := ran ["..S?", "a"] == MkPair [] (Err "line 1, column 4: expected . or ^ or S, got '?'")
-test "a space is not empty space" := ran ["S.", ". "] == MkPair [] (Err "line 2, column 2: expected . or ^ or S, got ' '")
-test "a lower-case s" := ran ["..s.."] == MkPair [] (Err "line 1, column 3: expected . or ^ or S, got 's'")
-test "an unknown character beats a missing S" := ran ["..x.."] == MkPair [] (Err "line 1, column 3: expected . or ^ or S, got 'x'")
+test "an unknown character" := ran ["..S..", "..x.."] == MkPair [] (Err "line 2, column 3: expected '.' or '^' or 'S' or the end of the line, got 'x'")
+test "the first unknown character wins" := ran ["..S?", "a"] == MkPair [] (Err "line 1, column 4: expected '.' or '^' or 'S' or the end of the line, got '?'")
+test "a space is not empty space" := ran ["S.", ". "] == MkPair [] (Err "line 2, column 2: expected '.' or '^' or 'S' or the end of the line, got ' '")
+test "a lower-case s" := ran ["..s.."] == MkPair [] (Err "line 1, column 3: expected '.' or '^' or 'S' or the end of the line, got 's'")
+test "an unknown character beats a missing S" := ran ["..x.."] == MkPair [] (Err "line 1, column 3: expected '.' or '^' or 'S' or the end of the line, got 'x'")
 test "check with no S" := Result.map (checkManifold ["...."]) (m => m.width) == Err "expected a line with an S, got none"
 test "the manifold is what the parser reads" :=
   Result.map (checkManifold example) (m => (m.width, m.start.toNat, m.rows.length)) == Ok (15, 7, 15)

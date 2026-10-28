@@ -23,9 +23,9 @@ def exampleTurns: List Turn := Fail.orElse [] (() => parseTurns example)
 def parsed (input: Text): Result (List Turn) Text := Fail.toResult (() => parseTurns input)
 
 test "example" := (solvePart1 exampleTurns, solvePart2 exampleTurns) == (3, 6)
-test "a line that isn't a turn" := parsed "L68\nL30\nX12" == Err "line 3, column 1: expected a turn like L68"
-test "a turn without a distance" := parsed "R" == Err "line 1, column 2: expected a number"
-test "a blank line" := parsed "L1\n\n" == Err "line 2, column 1: expected a turn like L68"
+test "a line that isn't a turn" := parsed "L68\nL30\nX12" == Err "line 3, column 1: expected a turn like L68, got 'X'"
+test "a turn without a distance" := parsed "R" == Err "line 1, column 2: expected a number, got the end of the line"
+test "a blank line" := parsed "L1\n\n" == Err "line 2, column 1: expected a turn like L68, got the end of the line"
 test "spaces around a turn" := parsed " L68\nR5 \n" == Ok [Left 68, Right 5]
 
 -- Where one turn, read from `line`, leaves the starting dial.

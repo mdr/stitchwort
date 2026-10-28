@@ -1,4 +1,4 @@
-import Parse.Problem (Expected, Message)
+import Parse.Problem (Expected, Literal, Message)
 
 -- `Parse`: read text into the program's own types. A parser is ordinary
 -- direct-style code that uses the `Parse` ability, `() → {Parse} a`, as in
@@ -17,11 +17,12 @@ import Parse.Problem (Expected, Message)
 --
 --   def parsePoints (input: Text): {Fail} (List Point) := Parse.eachLine input point
 --
--- A bad line fails with "line 3, column 4: expected ','".
+-- A bad line fails with "line 3, column 4: expected ',', got ';'".
 --
 -- Choice always backs up: when an alternative of `oneOf`, `optional` or
 -- `many` fails, the input is as it was before it. Errors name the furthest
--- point any alternative reached and everything expected there. A loop or
+-- point any alternative reached, everything expected there, and what was
+-- found there instead. A loop or
 -- a recursive grammar that would run forever without reading stops the
 -- whole parse with a message naming the combinator.
 
@@ -29,14 +30,17 @@ import Parse.Problem (Expected, Message)
 -- and how many there are.
 type Parse.Mark = { rest: List Char, offset: Nat, left: Nat }
 
--- Why a parse failed at some point: something that was expected there, or
--- a message of the parser's own.
+-- Why a parse failed at some point: something that was expected there, a
+-- text that was expected there, or a message of the parser's own.
 type Parse.Problem =
   | Expected (what: Text)
+  | Literal (text: Text)
   | Message (text: Text)
 
--- A failed parse: what went wrong, `offset` characters in.
-type Parse.Failure = { offset: Nat, message: Text }
+-- A failed parse, `offset` characters in: the parser's own messages and
+-- what was expected there. A runner makes one message of it with
+-- `Parse.Failure.describe`.
+type Parse.Failure = { offset: Nat, messages: List Text, expected: List Text, width: Nat }
 
 -- The operations. Each is a token's worth of work in the handler, so a
 -- parser makes a handful of them per line, not one per character.
@@ -60,19 +64,31 @@ ability Parse where
   fatal: Text → {Parse} Empty
 
 -- What the handler keeps: where the parse is, and the furthest point a
--- problem was noted at, with the problems noted there.
-type Parse.State = { at: Parse.Mark, furthest: Nat, expected: List Text, messages: List Text }
+-- problem was noted at, with the problems noted there and the length of
+-- the longest text expected there (how much of the input to show as what
+-- was found).
+type Parse.State = { at: Parse.Mark, furthest: Nat, expected: List Text, messages: List Text, width: Nat }
+
+def Parse.State.expect (state: Parse.State) (what: Text): Parse.State :=
+  if state.expected.any (== what) then state else { state | expected = state.expected ++ [what] }
 
 def Parse.State.add (state: Parse.State): Parse.Problem → Parse.State
-  | Expected what => if state.expected.any (== what) then state else { state | expected = state.expected ++ [what] }
+  | Expected what => state.expect what
+  | Literal text => { state.expect "'${text}'" | width = Nat.max state.width text.length }
   | Message text => if state.messages.any (== text) then state else { state | messages = state.messages ++ [text] }
 
 -- A problem at the current point replaces those noted nearer the start,
 -- joins those noted here, and is dropped if the parse got further before.
+-- What was expected here before a message is from attempts that didn't
+-- fail the parse, such as the digit `many digit` tried after the last one,
+-- so a message replaces it, as Megaparsec's `fail` drops its hints.
 def Parse.State.note (state: Parse.State) (problem: Parse.Problem): Parse.State :=
   if state.at.offset > state.furthest then
-    Parse.State.add { state | furthest = state.at.offset, expected = [], messages = [] } problem
-  else if state.at.offset == state.furthest then state.add problem
+    Parse.State.add { state | furthest = state.at.offset, expected = [], messages = [], width = 0 } problem
+  else if state.at.offset == state.furthest then
+    match problem with
+      | Message text => Parse.State.add { state | expected = [], width = 0 } problem
+      | _ => state.add problem
   else state
 
 def Parse.State.advance (state: Parse.State) (rest: List Char) (count: Nat): Parse.State :=
@@ -95,16 +111,9 @@ def Parse.State.literal (state: Parse.State) (chars: List Char): (Bool, Parse.St
     | Some after => (True, state.advance after chars.length)
     | None => (False, state)
 
--- The furthest point's problems: the parser's own messages, then
--- "expected A or B".
+-- The furthest point and its problems.
 def Parse.State.failure (state: Parse.State): Parse.Failure :=
-  let expectations := if state.expected == [] then [] else ["expected ${Text.joinWith state.expected " or "}"]
-  let message :=
-    match state.messages ++ expectations with
-      | [] => "the parser failed"
-      | [only] => only
-      | parts => Text.joinWith parts "; "
-  { offset = state.furthest, message }
+  { offset = state.furthest, messages = state.messages, expected = state.expected, width = state.width }
 
 -- Runs `parser` from `state`: its value, or where and why it failed.
 def Parse.runFrom (initial: Parse.State) (parser: () → {Parse} a): Result a Parse.Failure :=
@@ -124,12 +133,12 @@ def Parse.runFrom (initial: Parse.State) (parser: () → {Parse} a): Result a Pa
       | Parse.reset at, k => state => k () { state | at }
       | Parse.note problem, k => state => k () (state.note problem)
       | Parse.stop u, k => state => Err state.failure
-      | Parse.fatal message, k => state => Err ({ offset = state.at.offset, message })
+      | Parse.fatal message, k => state => Err ({ offset = state.at.offset, messages = [message], expected = [], width = 0 })
   go initial
 
 -- The state at the start of `input`.
 def Parse.State.start (input: List Char): Parse.State :=
-  { at = { rest = input, offset = 0, left = input.length }, furthest = 0, expected = [], messages = [] }
+  { at = { rest = input, offset = 0, left = input.length }, furthest = 0, expected = [], messages = [], width = 0 }
 
 -- Runs `parser` from the start of `input`: its value, or where and why it
 -- failed. It needn't read all of the input.
@@ -139,7 +148,9 @@ def Parse.run (input: List Char) (parser: () → {Parse} a): Result a Parse.Fail
 -- Failing. Each fails at the current point: the nearest choice backs up,
 -- and if nothing gets further the message is reported here.
 
--- Fails with `message`, whatever result was expected.
+-- Fails with `message`, whatever result was expected. It replaces what
+-- attempts that didn't fail the parse expected here: `ensure` after `many1
+-- digit` gives its own message, without "or a digit".
 def Parse.fail (message: Text): {Parse} a :=
   Parse.note (Message message)
   Empty.absurd Parse.stop()
@@ -186,7 +197,10 @@ def Parse.char (expected: Char): {Parse} () :=
 
 -- The text `expected`, else "expected 'text'".
 def Parse.text (expected: Text): {Parse} () :=
-  if Parse.literal expected.toList then () else Parse.expected "'${expected}'"
+  if Parse.literal expected.toList then ()
+  else
+    Parse.note (Literal expected)
+    Empty.absurd Parse.stop()
 
 -- The longest run of characters for which `passes` holds, possibly empty. Never fails.
 def Parse.takeWhile (passes: Char → Bool): {Parse} Text := Parse.span passes |> Text.fromList
@@ -234,14 +248,35 @@ def Parse.spaces(): {Parse} () :=
   let skipped := Parse.span Parse.isSpace
   ()
 
+-- Spaces and tabs, at least one, else "expected a space".
+def Parse.spaces1(): {Parse} () :=
+  let skipped := Parse.takeWhile1 "a space" Parse.isSpace
+  ()
+
+-- `parser` with spaces and tabs allowed around it: `token nat` reads " 12 ".
+def Parse.token (parser: () → {Parse} a): {Parse} a :=
+  Parse.spaces()
+  let value := parser()
+  Parse.spaces()
+  value
+
 -- A line break, "\n" or "\r\n", else "expected a line break".
 def Parse.newline(): {Parse} () :=
   if Parse.literal ['\n'] then () else if Parse.literal ['\r', '\n'] then () else Parse.expected "a line break"
 
--- Two line breaks in a row, else "expected a blank line".
+-- A line break or the end of the input, else "expected the end of the line".
+def Parse.lineEnd(): {Parse} () :=
+  if Parse.mark().left == 0 then ()
+  else if Parse.literal ['\n'] then ()
+  else if Parse.literal ['\r', '\n'] then ()
+  else Parse.expected "the end of the line"
+
+-- A line break, a line of nothing but spaces and tabs, and its line break;
+-- else "expected a blank line" where it starts.
 def Parse.blankLine(): {Parse} () :=
-  Parse.label "a blank line" (() =>
+  Parse.labelWhole "a blank line" (() =>
     Parse.newline()
+    Parse.spaces()
     Parse.newline())
 
 -- The end of the input, else "expected the end".
@@ -253,7 +288,16 @@ def Parse.end(): {Parse} () := if Parse.mark().left == 0 then () else Parse.expe
 def Parse.pick (choices: List (Text, a)): {Parse} a :=
   match choices.find (choice => Parse.literal choice.fst.toList) with
     | Some (word, value) => value
-    | None => Parse.expected (choices.map (choice => "'${choice.fst}'") |> Text.joinWith " or ")
+    | None =>
+      Parse.noteWords choices
+      Empty.absurd Parse.stop()
+
+-- Notes each word of `pick`'s choices as expected here.
+def Parse.noteWords: List (Text, a) → {Parse} ()
+  | Nil => ()
+  | Cons (word, value) rest =>
+    Parse.note (Literal word)
+    Parse.noteWords rest
 
 -- Choice and repetition. A failed alternative leaves the input as it was.
 
@@ -360,7 +404,9 @@ def Parse.sections (parser: () → {Parse} a): {Parse} (List a) := Parse.sepBy1 
 
 -- `parser` on a line after the first of a `section`. If it fails, a blank
 -- line before this line is also expected there: the section may have ended.
+-- At the end of the input, where there is no line, a blank line is.
 def Parse.sectionLine (parser: () → {Parse} a): {Parse} a :=
+  let start := Parse.mark()
   handle parser() with
     | return value => value
     | Parse.span passes, k => k (Parse.span passes)
@@ -370,7 +416,8 @@ def Parse.sectionLine (parser: () → {Parse} a): {Parse} a :=
     | Parse.reset at, k => k (Parse.reset at)
     | Parse.note problem, k => k (Parse.note problem)
     | Parse.stop u, k =>
-      Parse.note (Expected "a blank line before this line")
+      let here := Parse.mark()
+      Parse.note (Expected (if here.left == 0 ∧ here.offset == start.offset then "a blank line" else "a blank line before this line"))
       Empty.absurd Parse.stop()
     | Parse.fatal message, k => Empty.absurd (Parse.fatal message)
 
@@ -389,6 +436,21 @@ def Parse.section (parser: () → {Parse} a): {Parse} (List a) :=
 -- Rows of cells, one row per line, at least one cell in each. Rows may
 -- differ in length.
 def Parse.grid (cell: () → {Parse} a): {Parse} (List (List a)) := Parse.lines (() => Parse.many1 cell)
+
+-- One row of `looseGrid`: its cells and its line break, if any. Fails
+-- without a problem of its own at the end of the input, where there is no row.
+def Parse.looseRow (cell: () → {Parse} a): {Parse} (List a) :=
+  if Parse.mark().left == 0 then Empty.absurd Parse.stop()
+  else
+    let cells := Parse.many cell
+    Parse.lineEnd()
+    cells
+
+-- Rows of cells, one row per line, as `grid`, but possibly no rows, and a
+-- row may have no cells: every line, empty or not, is a row. Never fails
+-- at the start of a line; a bad cell is "expected '@' or '.' or the end of
+-- the line".
+def Parse.looseGrid (cell: () → {Parse} a): {Parse} (List (List a)) := Parse.many (() => Parse.looseRow cell)
 
 -- `parser`'s value and whether it read anything, or `None` with the input
 -- as it was if it fails: `optional` with the progress check built in.
@@ -463,6 +525,24 @@ def Parse.label (what: Text) (parser: () → {Parse} a): {Parse} a :=
       Parse.expected what
     | Parse.fatal message, k => Empty.absurd (Parse.fatal message)
 
+-- `parser`, but if it fails anywhere, it backs up and fails with "expected
+-- `what`" where it started, dropping what it expected inside: for a short
+-- token, such as a blank line, that reads best as one thing.
+def Parse.labelWhole (what: Text) (parser: () → {Parse} a): {Parse} a :=
+  let start := Parse.mark()
+  handle parser() with
+    | return value => value
+    | Parse.span passes, k => k (Parse.span passes)
+    | Parse.next passes, k => k (Parse.next passes)
+    | Parse.literal chars, k => k (Parse.literal chars)
+    | Parse.mark u, k => k Parse.mark()
+    | Parse.reset at, k => k (Parse.reset at)
+    | Parse.note problem, k => k ()
+    | Parse.stop u, k =>
+      Parse.reset start
+      Parse.expected what
+    | Parse.fatal message, k => Empty.absurd (Parse.fatal message)
+
 -- `body` with `self` for its nested parser, at most `fuel` levels deep.
 def Parse.recursiveFuel (fuel: Nat) (body: (() → {Parse} a) → {Parse} a): {Parse} a :=
   match fuel with
@@ -493,10 +573,48 @@ def Parse.lineAndColumn (chars: List Char) (offset: Nat): (Nat, Nat) :=
   let column := before.reverse.takeWhile (≠ '\n') |> .length
   (before.count (== '\n') + 1, column + 1)
 
+-- What `failure` expected, in words for a runner whose input ends with
+-- `endOfInput`: "a line break" and "the end" together are "the end of the
+-- line", since either ends it.
+def Parse.Failure.expectations (failure: Parse.Failure) (endOfInput: Text): List Text :=
+  let endsLine := failure.expected.any (== "a line break") ∧ failure.expected.any (== "the end")
+  failure.expected
+    |> .filter (what => ¬(endsLine ∧ what == "the end"))
+    |> .map (what => if endsLine ∧ what == "a line break" then "the end of the line" else if what == "the end" then endOfInput else what)
+    |> .distinctEq
+
+-- What was found `failure.offset` characters into `chars`, for "got 'x'":
+-- as many characters as the longest text expected there, up to a line
+-- break, as Megaparsec shows; a line break is `lineBreak`, and past the
+-- last character is `endOfInput`.
+def Parse.Failure.found (failure: Parse.Failure) (chars: List Char) (endOfInput: Text) (lineBreak: Text): Text :=
+  let rest := chars.drop failure.offset
+  match rest with
+    | Nil => endOfInput
+    | Cons char after =>
+      if char == '\n' ∨ char == '\r' then lineBreak
+      else if failure.width > 1 then
+        let shown := rest.take failure.width |> .takeWhile (shownChar => shownChar ≠ '\n' ∧ shownChar ≠ '\r') |> Text.fromList
+        "'${shown}'"
+      else if char == '\t' then "a tab"
+      else "'${char}'"
+
+-- `failure` as one message: the parser's own messages, then "expected A or
+-- B, got 'x'" with what was found in `chars` instead. `endOfInput` and
+-- `lineBreak` name the end of `chars` and a line break in it.
+def Parse.Failure.describe (failure: Parse.Failure) (chars: List Char) (endOfInput: Text) (lineBreak: Text): Text :=
+  let expectations := failure.expectations endOfInput
+  let expectedPart :=
+    if expectations == [] then [] else ["expected ${Text.joinWith expectations " or "}, got ${failure.found chars endOfInput lineBreak}"]
+  match failure.messages ++ expectedPart with
+    | [] => "the parser failed"
+    | [only] => only
+    | parts => Text.joinWith parts "; "
+
 -- `parser` on all of `input`, else fail with "line 3, column 5: expected
--- ','". For input with sections; holds the input as a list of characters,
--- so for large line-per-record input `Parse.eachLine` is faster and smaller.
--- Line breaks at the end of the input are allowed.
+-- ',', got ';'". For input with sections; holds the input as a list of
+-- characters, so for large line-per-record input `Parse.eachLine` is faster
+-- and smaller. Line breaks at the end of the input are allowed.
 def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a :=
   let chars := input.toList
   let withFinalLineBreaks := () =>
@@ -508,22 +626,29 @@ def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a :=
     | Ok value => value
     | Err failure =>
       let (line, column) := Parse.lineAndColumn chars failure.offset
-      Fail.fail "line ${line}, column ${column}: ${failure.message}"
+      Fail.fail "line ${line}, column ${column}: ${failure.describe chars "the end of the input" "the end of the line"}"
 
--- `parser` on one line, else fail with "column 5: expected ','".
+-- `parser` on one line, else fail with "column 5: expected ',', got ';'".
+-- One line break at the end is allowed.
 def Parse.line (line: Text) (parser: () → {Parse} a): {Fail} a :=
-  match Parse.whole line.toList parser with
+  let chars := line.toList
+  let withFinalLineBreak := () =>
+    let value := parser()
+    let finalLineBreak := Parse.optional Parse.newline
+    value
+  match Parse.whole chars withFinalLineBreak with
     | Ok value => value
-    | Err failure => Fail.fail "column ${failure.offset + 1}: ${failure.message}"
+    | Err failure => Fail.fail "column ${failure.offset + 1}: ${failure.describe chars "the end of the line" "a line break"}"
 
 -- `parser` on each line of `input`, split as `Text.lines` splits, else fail
--- with "line 3, column 5: expected ','" for the first line that fails.
--- Lines are numbered from 1.
+-- with "line 3, column 5: expected ',', got ';'" for the first line that
+-- fails. Lines are numbered from 1.
 def Parse.eachLine (input: Text) (parser: () → {Parse} a): {Fail} (List a) :=
   input.lines.withIndex.map (((index, line)) =>
-    match Parse.whole line.toList parser with
+    let chars := line.toList
+    match Parse.whole chars parser with
       | Ok value => value
-      | Err failure => Fail.fail "line ${index + 1}, column ${failure.offset + 1}: ${failure.message}")
+      | Err failure => Fail.fail "line ${index + 1}, column ${failure.offset + 1}: ${failure.describe chars "the end of the line" "a line break"}")
 
 -- What the handler does with each operation followed by the rest of the
 -- parser `k`. Each holds by `rfl`, or one `rewrite`.
@@ -543,7 +668,7 @@ theorem Parse.runFromStop (state: Parse.State) (k: Empty → {Parse} a):
     Parse.runFrom state (() => k Parse.stop()) = Err state.failure := rfl
 
 theorem Parse.runFromFatal (state: Parse.State) (message: Text) (k: Empty → {Parse} a):
-    Parse.runFrom state (() => k (Parse.fatal message)) = Err ({ offset = state.at.offset, message }) := rfl
+    Parse.runFrom state (() => k (Parse.fatal message)) = Err ({ offset = state.at.offset, messages = [message], expected = [], width = 0 }) := rfl
 
 theorem Parse.runFromSpan (state: Parse.State) (passes: Char → Bool) (k: List Char → {Parse} a):
     Parse.runFrom state (() => k (Parse.span passes)) =
@@ -652,7 +777,7 @@ theorem Parse.runFromOptionalTextThere (state: Parse.State) (expected: Text) (re
 theorem Parse.runFromOptionalTextNotThere (state: Parse.State) (expected: Text) (k: Option () → {Parse} a)
     (absent: Text.stripPrefixChars expected.toList state.at.rest = None):
     Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected))) =
-      Parse.runFrom { state.note (Expected "'${expected}'") | at = state.at } (() => k None) :=
+      Parse.runFrom { state.note (Literal expected) | at = state.at } (() => k None) :=
   rewrite absent in rfl
 
 -- `oneOf` with an alternative after `first`: if `optional first` succeeds,
@@ -691,7 +816,7 @@ theorem Parse.runFromOneOfExample (state: Parse.State) (rest: List Char) (k: Nat
 
 theorem Parse.runPure (input: List Char) (value: a): Parse.run input (() => value) = Ok value := rfl
 
-theorem Parse.runFail (message: Text): Parse.run [] (() => (Parse.fail message: Nat)) = Err ({ offset = 0, message }) := rfl
+theorem Parse.runFail (message: Text): Parse.run [] (() => (Parse.fail message: Nat)) = Err ({ offset = 0, messages = [message], expected = [], width = 0 }) := rfl
 
 -- Tests. Each runs a parser with `Parse.line` (errors give the column) or
 -- `Parse.all` (the line and column).
@@ -704,40 +829,55 @@ def Parse.Tests.allResult (input: Text) (parser: () → {Parse} a): Result a Tex
 def Parse.Tests.lineError (line: Text) (parser: () → {Parse} a): Text := Parse.Tests.lineResult line parser |> .errorOrElse ""
 
 test "Parse: char" := Parse.Tests.lineError "a" (() => Parse.char 'a') == ""
-test "Parse: char, error" := Parse.Tests.lineError "b" (() => Parse.char 'a') == "column 1: expected 'a'"
+test "Parse: char, error" := Parse.Tests.lineError "b" (() => Parse.char 'a') == "column 1: expected 'a', got 'b'"
 test "Parse: text" := Parse.Tests.lineResult "p=4" (() =>
   Parse.text "p="
   Parse.nat()) == Ok 4
-test "Parse: text, error" := Parse.Tests.lineError "p-4" (() => Parse.text "p=") == "column 1: expected 'p='"
+test "Parse: text, error" := Parse.Tests.lineError "p-4" (() => Parse.text "p=") == "column 1: expected 'p=', got 'p-'"
 test "Parse: satisfy" := Parse.Tests.lineResult "e" (() => Parse.satisfy "a vowel" (char => "aeiou".toList.any (== char))) == Ok 'e'
 test "Parse: satisfy, error" :=
-  Parse.Tests.lineResult "x" (() => Parse.satisfy "a vowel" (char => "aeiou".toList.any (== char))) == Err "column 1: expected a vowel"
+  Parse.Tests.lineResult "x" (() => Parse.satisfy "a vowel" (char => "aeiou".toList.any (== char))) == Err "column 1: expected a vowel, got 'x'"
 test "Parse: takeWhile" := Parse.Tests.lineResult "aab" (() =>
   let run := Parse.takeWhile (== 'a')
   Parse.char 'b'
   run) == Ok "aa"
 test "Parse: takeWhile, none" := Parse.Tests.lineResult "" (() => Parse.takeWhile (== 'a')) == Ok ""
 test "Parse: takeWhile1" := Parse.Tests.lineResult "aa" (() => Parse.takeWhile1 "an a" (== 'a')) == Ok "aa"
-test "Parse: takeWhile1, error" := Parse.Tests.lineResult "b" (() => Parse.takeWhile1 "an a" (== 'a')) == Err "column 1: expected an a"
+test "Parse: takeWhile1, error" := Parse.Tests.lineResult "b" (() => Parse.takeWhile1 "an a" (== 'a')) == Err "column 1: expected an a, got 'b'"
 test "Parse: nat" := Parse.Tests.lineResult "1203" Parse.nat == Ok 1203
-test "Parse: nat, error" := Parse.Tests.lineResult "x" Parse.nat == Err "column 1: expected a number"
-test "Parse: nat, then the end" := Parse.Tests.lineResult "12x" Parse.nat == Err "column 3: expected the end"
+test "Parse: nat, error" := Parse.Tests.lineResult "x" Parse.nat == Err "column 1: expected a number, got 'x'"
+test "Parse: nat, then the end" := Parse.Tests.lineResult "12x" Parse.nat == Err "column 3: expected the end of the line, got 'x'"
 test "Parse: int" := Parse.Tests.lineResult "-12" Parse.int == Ok (-12)
 test "Parse: int, positive" := Parse.Tests.lineResult "12" Parse.int == Ok 12
-test "Parse: int, error" := Parse.Tests.lineResult "-" Parse.int == Err "column 2: expected a number"
+test "Parse: int, error" := Parse.Tests.lineResult "-" Parse.int == Err "column 2: expected a number, got the end of the line"
 test "Parse: digit" := Parse.Tests.lineResult "7" (() => Parse.digit().toNat) == Ok 7
-test "Parse: digit, error" := Parse.Tests.lineResult "x" (() => Parse.digit().toNat) == Err "column 1: expected a digit"
+test "Parse: digit, error" := Parse.Tests.lineResult "x" (() => Parse.digit().toNat) == Err "column 1: expected a digit, got 'x'"
 test "Parse: spaces" := Parse.Tests.lineResult " \t 5" (() =>
   Parse.spaces()
   Parse.nat()) == Ok 5
+test "Parse: spaces1" := Parse.Tests.lineResult " 5" (() =>
+  Parse.spaces1()
+  Parse.nat()) == Ok 5
+test "Parse: spaces1, error" := Parse.Tests.lineError "5" Parse.spaces1 == "column 1: expected a space, got '5'"
+test "Parse: token" := Parse.Tests.lineResult " 1 \t2 " (() => Parse.many1 (() => Parse.token Parse.nat)) == Ok [1, 2]
+test "Parse: token, error" := Parse.Tests.lineResult " 1 x" (() => Parse.many1 (() => Parse.token Parse.nat)) == Err "column 4: expected a number or the end of the line, got 'x'"
 test "Parse: newline" := Parse.Tests.lineResult "1\n2" (() => Parse.sepBy1 Parse.nat Parse.newline) == Ok [1, 2]
 test "Parse: newline, CRLF" := Parse.Tests.lineResult "1\r\n2" (() => Parse.sepBy1 Parse.nat Parse.newline) == Ok [1, 2]
-test "Parse: newline, error" := Parse.Tests.lineError "x" Parse.newline == "column 1: expected a line break"
+test "Parse: newline, error" := Parse.Tests.lineError "x" Parse.newline == "column 1: expected a line break, got 'x'"
 test "Parse: blankLine" := Parse.Tests.lineError "\n\n" Parse.blankLine == ""
-test "Parse: blankLine, error" := Parse.Tests.lineError "x" Parse.blankLine == "column 1: expected a blank line"
+test "Parse: blankLine, error" := Parse.Tests.lineError "x" Parse.blankLine == "column 1: expected a blank line, got 'x'"
+test "Parse: blankLine, spaces" := Parse.Tests.lineError "\n \t\n" Parse.blankLine == ""
+-- A blank line that fails part way is reported where it starts.
+test "Parse: blankLine, a line that is not blank" := Parse.Tests.lineError "\n x\n" Parse.blankLine == "column 1: expected a blank line, got a line break"
+test "Parse: lineEnd" := Parse.Tests.lineResult "1\n2" (() => Parse.sepBy1 (() => Parse.nat()) Parse.lineEnd) == Ok [1, 2]
+test "Parse: lineEnd, error" := Parse.Tests.lineError "x" Parse.lineEnd == "column 1: expected the end of the line, got 'x'"
 test "Parse: end" := Parse.Tests.lineError "" Parse.end == ""
 test "Parse: pick" := Parse.Tests.lineResult "R" (() => Parse.pick [("L", 1), ("R", 2)]) == Ok 2
-test "Parse: pick, error" := Parse.Tests.lineResult "X" (() => Parse.pick [("L", 1), ("R", 2)]) == Err "column 1: expected 'L' or 'R'"
+test "Parse: pick, error" := Parse.Tests.lineResult "X" (() => Parse.pick [("L", 1), ("R", 2)]) == Err "column 1: expected 'L' or 'R', got 'X'"
+-- What was found is shown as long as the longest word expected.
+test "Parse: pick, error, longer words" :=
+  Parse.Tests.lineResult "mul ( 1,2)" (() => Parse.pick [("mul(", 1), ("do()", 2), ("don't()", 3)]) ==
+    Err "column 1: expected 'mul(' or 'do()' or 'don't()', got 'mul ( 1'"
 test "Parse: pick, first word first" := Parse.Tests.lineResult "<=" (() => Parse.pick [("<=", 0), ("<", 1)]) == Ok 0
 
 test "Parse: optional" := Parse.Tests.lineResult "+5" (() =>
@@ -772,7 +912,7 @@ test "Parse: oneOf, error" := Parse.Tests.lineError "ad" (() =>
     () =>
       Parse.char 'a'
       Parse.char 'c'
-  ]) == "column 2: expected 'b' or 'c'"
+  ]) == "column 2: expected 'b' or 'c', got 'd'"
 test "Parse: oneOf, none" := Parse.Tests.lineResult "a" (() => (Parse.oneOf []: Nat)) == Err "column 1: `oneOf`: no alternatives"
 test "Parse: many" := Parse.Tests.lineResult "aaab" (() =>
   let found := Parse.many (() => Parse.satisfy "an a" (== 'a'))
@@ -786,27 +926,33 @@ test "Parse: many, reading nothing, inside optional" :=
   Parse.Tests.lineError "ab" (() => Parse.optional (() => Parse.many Parse.spaces)) ==
     "column 1: `many`: the parser matched without reading anything"
 test "Parse: many1" := Parse.Tests.lineResult "aa" (() => Parse.many1 (() => Parse.satisfy "an a" (== 'a'))) == Ok ['a', 'a']
-test "Parse: many1, error" := Parse.Tests.lineResult "" (() => Parse.many1 (() => Parse.satisfy "an a" (== 'a'))) == Err "column 1: expected an a"
+test "Parse: many1, error" := Parse.Tests.lineResult "" (() => Parse.many1 (() => Parse.satisfy "an a" (== 'a'))) == Err "column 1: expected an a, got the end of the line"
 test "Parse: sepBy" := Parse.Tests.lineResult "1,2,3" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok [1, 2, 3]
 test "Parse: sepBy, none" := Parse.Tests.lineResult "" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok []
-test "Parse: sepBy1, error" := Parse.Tests.lineResult "1,2," (() => Parse.sepBy1 Parse.nat (() => Parse.char ',')) == Err "column 5: expected a number"
+test "Parse: sepBy1, error" := Parse.Tests.lineResult "1,2," (() => Parse.sepBy1 Parse.nat (() => Parse.char ',')) == Err "column 5: expected a number, got the end of the line"
 test "Parse: lines" := Parse.Tests.allResult "1\n2\n" (() => Parse.lines Parse.nat) == Ok [1, 2]
-test "Parse: lines, error" := Parse.Tests.allResult "1\n2\nx\n" (() => Parse.lines Parse.nat) == Err "line 3, column 1: expected a number or the end"
+test "Parse: lines, error" := Parse.Tests.allResult "1\n2\nx\n" (() => Parse.lines Parse.nat) == Err "line 3, column 1: expected a number or the end of the input, got 'x'"
 test "Parse: sections" := Parse.Tests.allResult "1\n2\n\n3\n" (() => Parse.sections (() => Parse.lines Parse.nat)) == Ok [[1, 2], [3]]
 test "Parse: grid" :=
   Parse.Tests.allResult "@.\n.@\n" (() => Parse.grid (() => Parse.pick [("@", True), (".", False)])) == Ok [[True, False], [False, True]]
 test "Parse: grid, error" :=
   Parse.Tests.allResult "@.\n.x\n" (() => Parse.grid (() => Parse.pick [("@", True), (".", False)])) ==
-    Err "line 2, column 2: expected '@' or '.' or a line break or the end"
+    Err "line 2, column 2: expected '@' or '.' or the end of the line, got 'x'"
+test "Parse: looseGrid" :=
+  Parse.Tests.allResult "@.\n\n.\n" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)])) == Ok [[True, False], [], [False]]
+test "Parse: looseGrid, no rows" := Parse.Tests.allResult "" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)])) == Ok []
+test "Parse: looseGrid, error" :=
+  Parse.Tests.allResult "@.\n.x\n" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)])) ==
+    Err "line 2, column 2: expected '@' or '.' or the end of the line, got 'x'"
 test "Parse: label" :=
   Parse.Tests.lineResult "X5" (() => Parse.label "a turn like L68" (() => Parse.pick [("L", 1), ("R", 2)])) ==
-    Err "column 1: expected a turn like L68"
+    Err "column 1: expected a turn like L68, got 'X'"
 -- A labelled parser that got further reports what it expected there.
 test "Parse: label, further in" := Parse.Tests.lineResult "1,x" (() =>
   Parse.label "a pair like 1,2" (() =>
     let left := Parse.nat()
     Parse.char ','
-    (left, Parse.nat()))) == Err "column 3: expected a number"
+    (left, Parse.nat()))) == Err "column 3: expected a number, got 'x'"
 
 -- Nested lists of numbers, summed: "[1,[2,[]],3]".
 def Parse.Tests.nestedSum(): {Parse} Nat :=
@@ -822,7 +968,7 @@ def Parse.Tests.nestedSum(): {Parse} Nat :=
 
 test "Parse: recursive" := Parse.Tests.lineResult "[1,[2,[]],3]" Parse.Tests.nestedSum == Ok 6
 test "Parse: recursive, error" :=
-  Parse.Tests.lineResult "[1,[2,x]]" Parse.Tests.nestedSum == Err "column 7: expected a number or '['"
+  Parse.Tests.lineResult "[1,[2,x]]" Parse.Tests.nestedSum == Err "column 7: expected a number or '[', got 'x'"
 test "Parse: recursive, left recursion" := Parse.Tests.lineResult "1+2" (() =>
   Parse.recursive (self =>
     let left := self()
@@ -831,17 +977,25 @@ test "Parse: recursive, left recursion" := Parse.Tests.lineResult "1+2" (() =>
   Err "column 1: `recursive`: the parser called itself without reading anything"
 
 test "Parse: fail" := Parse.Tests.lineResult "a" (() => (Parse.fail "no": Nat)) == Err "column 1: no"
-test "Parse: expected" := Parse.Tests.lineResult "a" (() => (Parse.expected "a b": Nat)) == Err "column 1: expected a b"
+test "Parse: expected" := Parse.Tests.lineResult "a" (() => (Parse.expected "a b": Nat)) == Err "column 1: expected a b, got 'a'"
 -- A message and an expectation at the same point are both reported.
 test "Parse: fail beside expected" := Parse.Tests.lineError "y" (() =>
   Parse.oneOf [
     () => Parse.fail "not this",
     () => Parse.char 'x'
-  ]) == "column 1: not this; expected 'x'"
+  ]) == "column 1: not this; expected 'x', got 'y'"
 test "Parse: ensure" := Parse.Tests.lineResult "5" (() =>
   let number := Parse.nat()
   Parse.ensure (number > 9) "too small"
   number) == Err "column 2: too small"
+-- What `many1` tried after the last digit is dropped for the message.
+test "Parse: ensure after a repetition" := Parse.Tests.lineResult "12" (() =>
+  let digits := Parse.many1 Parse.digit
+  Parse.ensure (digits.length > 2) "too few digits"
+  digits.length) == Err "column 3: too few digits"
+-- A tab and the end of the input are named, not shown.
+test "Parse: got a tab" := Parse.Tests.lineError "\t" (() => Parse.char 'a') == "column 1: expected 'a', got a tab"
+test "Parse: got the end of the input" := Parse.Tests.allResult "1," (() => Parse.sepBy1 Parse.nat (() => Parse.char ',')) == Err "line 1, column 3: expected a number, got the end of the input"
 test "Parse: need" := Parse.Tests.lineResult "" (() => Parse.need (None: Option Nat) "nothing") == Err "column 1: nothing"
 test "Parse: fromFail" := Parse.Tests.lineResult "ab" (() =>
   let word := Parse.takeWhile (char => char ≠ ' ')
@@ -854,19 +1008,21 @@ test "Parse: all" :=
   Parse.Tests.allResult "1,2\n3,4" (() => Parse.lines (() => Parse.sepBy1 Parse.nat (() => Parse.char ','))) == Ok [[1, 2], [3, 4]]
 test "Parse: all, error" :=
   Parse.Tests.allResult "1,2\n3;4\n" (() => Parse.lines (() => Parse.sepBy1 Parse.nat (() => Parse.char ','))) ==
-    Err "line 2, column 2: expected ',' or a line break or the end"
+    Err "line 2, column 2: expected ',' or the end of the line, got ';'"
 test "Parse: all, one line" :=
-  Parse.Tests.allResult "1,2x" (() => Parse.sepBy1 Parse.nat (() => Parse.char ',')) == Err "line 1, column 4: expected ',' or a line break or the end"
+  Parse.Tests.allResult "1,2x" (() => Parse.sepBy1 Parse.nat (() => Parse.char ',')) == Err "line 1, column 4: expected ',' or the end of the line, got 'x'"
 test "Parse: eachLine" :=
   Fail.toResult (() => Parse.eachLine "1,2\n3,4\n" (() => Parse.sepBy1 Parse.nat (() => Parse.char ','))) == Ok [[1, 2], [3, 4]]
 test "Parse: eachLine, error" :=
   Fail.toResult (() => Parse.eachLine "1,2\n3x4" (() => Parse.sepBy1 Parse.nat (() => Parse.char ','))) ==
-    Err "line 2, column 2: expected ',' or the end"
+    Err "line 2, column 2: expected ',' or the end of the line, got 'x'"
 test "Parse: eachLine, empty" := Fail.toResult (() => Parse.eachLine "" Parse.nat) == Ok []
 -- A failure keeps its line under `Fail.context`.
 test "Parse: eachLine, in context" :=
-  Fail.toResult (() => Fail.context "input" (() => Parse.eachLine "x" Parse.nat)) == Err "input: line 1, column 1: expected a number"
+  Fail.toResult (() => Fail.context "input" (() => Parse.eachLine "x" Parse.nat)) == Err "input: line 1, column 1: expected a number, got 'x'"
 test "Parse: all, trailing blank lines" := Parse.Tests.allResult "1\n2\n\n\n" (() => Parse.lines Parse.nat) == Ok [1, 2]
+test "Parse: line, a final line break" := Parse.Tests.lineResult "12\n" Parse.nat == Ok 12
+test "Parse: line, two final line breaks" := Parse.Tests.lineResult "12\n\n" Parse.nat == Err "column 4: expected the end of the line, got a line break"
 
 test "Parse: ensureAt" := Parse.Tests.lineResult "x=12345" (() =>
   Parse.text "x="
@@ -878,9 +1034,9 @@ test "Parse: ensureAt" := Parse.Tests.lineResult "x=12345" (() =>
 test "Parse: natDigits" := Parse.Tests.lineResult "123" (() => Parse.natDigits 1 3) == Ok 123
 test "Parse: natDigits, too long" := Parse.Tests.lineResult "x1234" (() =>
   Parse.char 'x'
-  Parse.natDigits 1 3) == Err "column 2: expected a number of 1 to 3 digits"
-test "Parse: natDigits, too short" := Parse.Tests.lineResult "12" (() => Parse.natDigits 3 3) == Err "column 1: expected a number of 3 digits"
-test "Parse: natDigits, none" := Parse.Tests.lineResult "x" (() => Parse.natDigits 0 3) == Err "column 1: expected a number of 0 to 3 digits"
+  Parse.natDigits 1 3) == Err "column 2: expected a number of 1 to 3 digits, got '1'"
+test "Parse: natDigits, too short" := Parse.Tests.lineResult "12" (() => Parse.natDigits 3 3) == Err "column 1: expected a number of 3 digits, got '1'"
+test "Parse: natDigits, none" := Parse.Tests.lineResult "x" (() => Parse.natDigits 0 3) == Err "column 1: expected a number of 0 to 3 digits, got 'x'"
 test "Parse: repeat" := Parse.Tests.lineResult "aab" (() =>
   let found := Parse.repeat 1 3 (() => Parse.satisfy "an a" (== 'a'))
   Parse.char 'b'
@@ -889,7 +1045,7 @@ test "Parse: repeat, at most" := Parse.Tests.lineResult "aaaa" (() =>
   let found := Parse.repeat 1 3 (() => Parse.satisfy "an a" (== 'a'))
   Parse.char 'a'
   found) == Ok ['a', 'a', 'a']
-test "Parse: repeat, too few" := Parse.Tests.lineResult "ab" (() => Parse.repeat 2 3 (() => Parse.satisfy "an a" (== 'a'))) == Err "column 2: expected an a"
+test "Parse: repeat, too few" := Parse.Tests.lineResult "ab" (() => Parse.repeat 2 3 (() => Parse.satisfy "an a" (== 'a'))) == Err "column 2: expected an a, got 'b'"
 test "Parse: repeat, exactly" := Parse.Tests.lineResult "123" (() => Parse.repeat 3 3 Parse.digit |> .map (digit => digit.toNat)) == Ok [1, 2, 3]
 
 -- The values of `nat` among other characters.
@@ -917,6 +1073,8 @@ def Parse.Tests.twoSections (input: Text): Result (List (Nat, Nat), List (List N
 test "Parse: section" := Parse.Tests.twoSections "1|2\n3|4\n\n1,2\n3\n" == Ok ([(1, 2), (3, 4)], [[1, 2], [3]])
 test "Parse: section, trailing blank lines" := Parse.Tests.twoSections "1|2\n\n1,2\n\n\n" == Ok ([(1, 2)], [[1, 2]])
 test "Parse: section, no blank line" :=
-  Parse.Tests.twoSections "1|2\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line"
-test "Parse: section, a bad line" := Parse.Tests.twoSections "1|2\n3x4\n\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line"
-test "Parse: section, a bad first line" := Parse.Tests.twoSections "1x2\n\n1,2\n" == Err "line 1, column 2: expected '|'"
+  Parse.Tests.twoSections "1|2\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line, got ','"
+test "Parse: section, a bad line" := Parse.Tests.twoSections "1|2\n3x4\n\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line, got 'x'"
+test "Parse: section, a bad first line" := Parse.Tests.twoSections "1x2\n\n1,2\n" == Err "line 1, column 2: expected '|', got 'x'"
+test "Parse: section, blank line of spaces" := Parse.Tests.twoSections "1|2\n  \n1,2\n" == Ok ([(1, 2)], [[1, 2]])
+test "Parse: section, nothing after" := Parse.Tests.twoSections "1|2\n3|4\n" == Err "line 3, column 1: expected a number or a blank line, got the end of the input"

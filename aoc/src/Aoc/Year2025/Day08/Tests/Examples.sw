@@ -14,10 +14,10 @@ def box (x: Nat) (y: Nat) (z: Nat): Point := { x, y, z }
 def pointsOf (input: Text): Result (List Point) Text := Fail.toResult (() => parsePoints input)
 
 test "parse a point" := pointsOf "162,817,812" == Ok [box 162 817 812]
-test "parse rejects other lines" := pointsOf "1,2,3\n1,b,3" == Err "line 2, column 3: expected a number"
+test "parse rejects other lines" := pointsOf "1,2,3\n1,b,3" == Err "line 2, column 3: expected a number, got 'b'"
 test "parse rejects too few and too many" :=
-  (pointsOf "1,2", pointsOf "1,2,3,4") == (Err "line 1, column 4: expected ','", Err "line 1, column 6: expected the end")
-test "parse rejects a blank line" := pointsOf "1,2,3\n\n" == Err "line 2, column 1: expected a number"
+  (pointsOf "1,2", pointsOf "1,2,3,4") == (Err "line 1, column 4: expected ',', got the end of the line", Err "line 1, column 6: expected the end of the line, got ','")
+test "parse rejects a blank line" := pointsOf "1,2,3\n\n" == Err "line 2, column 1: expected a number, got the end of the line"
 test "parse allows spaces" := pointsOf " 1, 2 ,3 " == Ok [box 1 2 3]
 test "the example loads" := example.isOk
 test "example has 20 boxes" := example.map (boxes => boxes.points.length) == Ok 20

@@ -20,7 +20,7 @@ def parsePoints (input: Text): {Fail} (List Point) := Parse.eachLine input point
 
 test "points" := toResult (() => parsePoints "162,817,812\n57,618,57\n") ==
   Ok [{ x = 162, y = 817, z = 812 }, { x = 57, y = 618, z = 57 }]
-test "a bad point" := toResult (() => parsePoints "162,817,812\n57,6x8,57\n") == Err "line 2, column 5: expected ','"
+test "a bad point" := toResult (() => parsePoints "162,817,812\n57,6x8,57\n") == Err "line 2, column 5: expected ',', got 'x'"
 
 -- "L68": a keyword table, then a number.
 type Turn =
@@ -32,7 +32,7 @@ def turn(): {Parse} Turn :=
   direction (nat())
 
 test "turns" := toResult (() => Parse.eachLine "L68\nR5" turn) == Ok [Left 68, Right 5]
-test "a bad turn" := toResult (() => Parse.eachLine "L68\nX5" turn) == Err "line 2, column 1: expected a turn like L68"
+test "a bad turn" := toResult (() => Parse.eachLine "L68\nX5" turn) == Err "line 2, column 1: expected a turn like L68, got 'X'"
 
 -- "p=0,4 v=3,-3": literal text and signed numbers.
 type Robot = { px: Int, py: Int, vx: Int, vy: Int }
@@ -49,7 +49,7 @@ def robot(): {Parse} Robot :=
   { px, py, vx, vy }
 
 test "robot" := toResult (() => Parse.line "p=0,4 v=3,-3" robot) == Ok ({ px = 0, py = 4, vx = 3, vy = -3 }: Robot)
-test "a bad robot" := toResult (() => Parse.line "p=0,4 w=3,-3" robot) == Err "column 6: expected ' v='"
+test "a bad robot" := toResult (() => Parse.line "p=0,4 w=3,-3" robot) == Err "column 6: expected ' v=', got ' w='"
 
 -- A grid of cells; the error names the furthest point and all that was
 -- expected there.
@@ -59,7 +59,7 @@ def cells(): {Parse} (List (List Cell)) := Parse.grid (() => pick [("@", Roll), 
 
 test "grid" := toResult (() => Parse.all "@.\n.@\n" cells) == Ok [[Roll, Floor], [Floor, Roll]]
 test "a bad grid" := toResult (() => Parse.all "@.\n.x\n" cells) ==
-  Err "line 2, column 2: expected '@' or '.' or a line break or the end"
+  Err "line 2, column 2: expected '@' or '.' or the end of the line, got 'x'"
 
 -- Choice backs up: "move 3" and "mark" share their first letters.
 type Command =
@@ -77,7 +77,7 @@ def command(): {Parse} Command :=
   ]
 
 test "commands" := toResult (() => Parse.eachLine "move 3\nmark" command) == Ok [Move 3, Mark]
-test "a bad command" := toResult (() => Parse.line "mov 3" command) == Err "column 1: expected 'move ' or 'mark'"
+test "a bad command" := toResult (() => Parse.line "mov 3" command) == Err "column 1: expected 'move ' or 'mark', got 'mov 3'"
 
 -- Nested input with `recursive`: "[1,[2,3],[]]", the depth of the deepest list.
 def depth(): {Parse} Nat :=
@@ -94,7 +94,7 @@ def depth(): {Parse} Nat :=
     ])
 
 test "depth" := toResult (() => Parse.line "[1,[2,[3]],[]]" depth) == Ok 3
-test "a bad nesting" := toResult (() => Parse.line "[1,[2,3]" depth) == Err "column 9: expected ',' or ']'"
+test "a bad nesting" := toResult (() => Parse.line "[1,[2,3]" depth) == Err "column 9: expected ',' or ']', got the end of the line"
 
 -- An optional sign, then digits, one at a time.
 def signedDigits(): {Parse} (Bool, List Nat) :=

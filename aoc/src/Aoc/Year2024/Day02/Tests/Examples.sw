@@ -28,8 +28,8 @@ test "each example report, part 1" := exampleReports.map isSafe == [True, False,
 test "each example report, part 2" := exampleReports.map isSafeWithDampener == [True, False, False, True, True, True]
 test "parse a report" := parsed "7 6 4 2 1" == Ok [{ levels = [7, 6, 4, 2, 1] }]
 test "parse extra spaces" := parsed "  1   3 " == Ok [{ levels = [1, 3] }]
-test "a level that isn't a number" := parsed "1 2\n1 x 3" == Err "line 2, column 3: expected a number or the end"
-test "an empty line" := parsed "1 2\n\n" == Err "line 2, column 1: expected a number"
+test "a level that isn't a number" := parsed "1 2\n1 x 3" == Err "line 2, column 3: expected a number or the end of the line, got 'x'"
+test "an empty line" := parsed "1 2\n\n" == Err "line 2, column 1: expected a number, got the end of the line"
 test "no lines" := parsed "" == Ok []
 test "one level is safe" := safe [5]
 test "two equal levels are unsafe" := !(safe [5, 5])

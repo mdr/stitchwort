@@ -1,5 +1,5 @@
 {
-  "next": 735,
+  "next": 736,
   "tickets": [
     {
       "id": 13,
@@ -6041,7 +6041,7 @@
     {
       "id": 727,
       "title": "Std.Parse messages from stage 2: say what was found (got 'x' / the end of the line); expectations from attempts that didn't fail are hints that fail/ensure replace; Parse.token or spacedNat; blankLine allows spaces; Parse.line allows one final line break; spaces1; grid allowing empty input and short rows",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6125,6 +6125,18 @@
     {
       "id": 734,
       "title": "std from AoC 2024 day 7: Nat.digitCount (+ positivity), List.anyFlatMap, anyOr, anyComm, reverseReverse, reverseCons, sum-over-filter monotonicity; auto proves a divisor ≠ 0 from facts in scope (omega over hypotheses)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 735,
+      "title": "Bench baseline: check-closed-* programs +12.9% steps after tonight's merges; bisect, fix or re-record",
       "status": "doing",
       "agent": "",
       "where": "",

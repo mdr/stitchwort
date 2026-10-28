@@ -22,11 +22,11 @@ Tags: **[source]** read in this repository, **[ran]** run in a scratch file with
   def parsePoints (input: Text): {Fail} (List Point) := Parse.eachLine input point
   ```
 
-  A bad line fails with `line 3, column 6: expected ','`.
+  A bad line fails with `line 3, column 6: expected ',', got ';'`.
 - **The operations are token-sized, not character-sized.** "Read the digits here" is one operation, so a line costs a handful of operations. Character-sized operations made parsing 25 to 33 times slower than today's `split` (§7).
 - **Choice backtracks locally, as in a PEG.** `oneOf`, `optional` and `many` put the input back when an alternative fails. Nothing is ever retried after a choice has returned. There's no `try` to remember.
 - **Loops are total because each repetition must read something.** `many` fails the whole parse ("`many`: the parser matched without reading anything") if its parser matches without reading, as Parsec and nom do. Its fuel is the number of characters left, which is always enough.
-- **Errors name the furthest point any alternative reached**, and everything expected there: `expected a number or ','`. Positions are counted as one number while parsing and turned into a line and column once, at the end.
+- **Errors name the furthest point any alternative reached**, everything expected there, and what was found instead: `expected a number or ',', got 'x'` (§6.5). Positions are counted as one number while parsing and turned into a line and column once, at the end.
 - **For one-line formats, a pattern function**: `line.scan "p={},{} v={},{}"` gives the four texts between the literal pieces. Later, possibly, the same thing as a pattern in `match` (§6.3).
 
 Rejected, with reasons in §4 and §7: parsers as data values (`Text → Result (a, Text)`), which read badly without do-notation or operators; nondeterminism (`Each`) as the way to backtrack; character-sized operations.
@@ -229,7 +229,7 @@ A grammar that nests without reading (left recursion, `self()` first) runs out o
 
 ### 6.1 The library
 
-**Built** (stage 1) in `crates/elab/src/std/Parse/Parse.sw`, namespace `Parse`, with 67 tests, the exact error messages among them, and the examples `examples/accept/parse-basics.sw` and `examples/accept/parse-aoc-day05.sw`. Import the pieces by name: `import Std.Parse (char, nat, lines)`. A function says in its doc comment when it can't fail.
+**Built** (stage 1) in `crates/elab/src/std/Parse/Parse.sw`, namespace `Parse`, with 107 tests, the exact error messages among them, and the examples `examples/accept/parse-basics.sw` and `examples/accept/parse-aoc-day05.sw`. Import the pieces by name: `import Std.Parse (char, nat, lines)`. A function says in its doc comment when it can't fail.
 
 ```
 -- The operations. Each is a token's worth of work in the handler.
@@ -244,13 +244,13 @@ ability Parse where
   fatal: Text → {Parse} Empty                     -- fail the whole parse: for bugs, such as a loop that reads nothing
 
 -- Runners. The parser must read all of its input.
-def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a              -- "line 3, column 6: …"; line breaks at the end are allowed
+def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a              -- "line 3, column 6: …, got 'x'"; line breaks at the end are allowed
 def Parse.eachLine (input: Text) (parser: () → {Parse} a): {Fail} (List a)  -- one handler per line of `Text.lines`, the same messages
-def Parse.line (line: Text) (parser: () → {Parse} a): {Fail} a              -- "column 6: …", for one line
-def Parse.run (input: List Char) (parser: () → {Parse} a): Result a Parse.Failure  -- needn't read everything; `Failure = { offset, message }`
+def Parse.line (line: Text) (parser: () → {Parse} a): {Fail} a              -- "column 6: …", for one line; one line break at the end is allowed
+def Parse.run (input: List Char) (parser: () → {Parse} a): Result a Parse.Failure  -- needn't read everything; `Failure = { offset, messages, expected, width }`, made one message by `Parse.Failure.describe`
 
 -- Failing at the current point
-def Parse.fail (message: Text): {Parse} a
+def Parse.fail (message: Text): {Parse} a                  -- replaces what attempts that didn't fail expected here (§6.5)
 def Parse.expected (what: Text): {Parse} a                 -- "expected what", joined to others here with "or"
 def Parse.ensure (ok: Bool) (message: Text): {Parse} ()
 def Parse.ensureAt (at: Parse.Mark) (ok: Bool) (message: Text): {Parse} ()   -- reported at the mark
@@ -268,8 +268,11 @@ def Parse.natDigits (atLeast: Nat) (atMost: Nat): {Parse} Nat  -- "expected a nu
 def Parse.int(): {Parse} Int                               -- an optional '-', then digits
 def Parse.digit(): {Parse} (Fin 10)
 def Parse.spaces(): {Parse} ()                             -- spaces and tabs, possibly none; never fails
+def Parse.spaces1(): {Parse} ()                            -- spaces and tabs, at least one
+def Parse.token (parser: () → {Parse} a): {Parse} a        -- spaces, `parser`, spaces: `token nat` reads " 12 "
 def Parse.newline(): {Parse} ()                            -- "\n" or "\r\n"
-def Parse.blankLine(): {Parse} ()                          -- two line breaks
+def Parse.lineEnd(): {Parse} ()                            -- a line break or the end of the input
+def Parse.blankLine(): {Parse} ()                          -- a line break, spaces or tabs, a line break; reported where it starts
 def Parse.end(): {Parse} ()
 def Parse.pick (choices: List (Text, a)): {Parse} a        -- the value of the first word that comes next
 
@@ -287,27 +290,29 @@ def Parse.section (parser: () → {Parse} a): {Parse} (List a)       -- lines, t
 def Parse.findAll (parser: () → {Parse} a): {Parse} (List a)       -- every match in noise, as `re.findall`; never fails, reads everything
 def Parse.findAllStarting (starts: Char → Bool) (parser: () → {Parse} a): {Parse} (List a)  -- the same, skipping characters that can't start a match
 def Parse.grid (cell: () → {Parse} a): {Parse} (List (List a))
+def Parse.looseGrid (cell: () → {Parse} a): {Parse} (List (List a))   -- possibly no rows, and rows possibly empty
 def Parse.recursive (body: (() → {Parse} a) → {Parse} a): {Parse} a
 def Parse.label (what: Text) (parser: () → {Parse} a): {Parse} a   -- "expected what" in place of what `parser` expected at its start
+def Parse.labelWhole (what: Text) (parser: () → {Parse} a): {Parse} a   -- "expected what" where it started, wherever `parser` failed
 ```
 
 Choices made while building it:
 
 - **`lines` leaves the last line break alone**, and `Parse.all` allows one at the end of the input. With the prototype's `lines`, which ate it, `sections (() => lines nat)` couldn't find the blank line between sections.
 - **`label` replaces, as Megaparsec's does.** Its handler drops the problems that `parser` notes at its starting point. If `parser` fails without getting further, `label` notes its own name there instead.
-- **Messages and expectations at one point are both reported**: `not this; expected 'x'`, the messages first.
+- **Messages and expectations at one point are both reported**: `not this; expected 'x', got 'y'`, the messages first, except that a message replaces what attempts that didn't fail expected before it (§6.5).
 - **`recursive` running out of fuel is fatal**, as `many` reading nothing is (§5.3).
 - **Proofs:** the per-operation lemmas `Parse.runFromPure`, `runFromMark`, `runFromReset`, `runFromNote`, `runFromStop`, `runFromFatal` and `runFromSpan` hold by `rfl`, and `runFromLiteralThere` by one `rewrite`. Each is stated over `Parse.runFrom state`, the handler from any state, because the state now carries the offset and the furthest problems as well as the input. The per-piece and choice lemmas are in §8.
 - **The handler resumes in tail position.** `runFrom`'s clauses for `span`, `next` and `literal` call helpers (`Parse.State.span`, `.next`, `.literal`) that return the value and the next state as a pair, and resume with `k step.fst step.snd`. Written with a `match` in the clause, `k` was not in tail position as the runtime's state-handler loop recognises it (§7.5), and each of those operations kept a frame until the parse ended.
 - **`findAll`** tries the parser at each character, so it is right for any parser; a match that reads nothing is kept and a character skipped after it, as `re.findall` does. `findAllStarting starts` skips characters for which `starts` is false with one `span`: correct only if no match starts at one of them, which is the caller's claim.
-- **`section`** is aoc-parse's `section`: lines, then a blank line. A failing line after the first also notes "a blank line before this line" where it failed, so a missing blank line between sections reads `line 2, column 2: expected '|' or a blank line before this line` (the line's own error gets further than the blank line does, so it is the one reported). The last section is `lines`, which keeps its plain messages.
+- **`section`** is aoc-parse's `section`: lines, then a blank line. A failing line after the first also notes "a blank line before this line" where it failed, so a missing blank line between sections reads `line 2, column 2: expected '|' or a blank line before this line, got ','` (the line's own error gets further than the blank line does, so it is the one reported). The last section is `lines`, which keeps its plain messages. At the end of the input, where there is no line, it notes plain "a blank line": `3-5\n4-6\n` with no ids reads `line 3, column 1: expected a number or a blank line, got the end of the input`. `blankLine` is reported where it starts whatever it read (`labelWhole`), so when its second line break is missing it doesn't add "or a line break" to the line's own error further on.
 - **`natDigits` reads all the digits first**, so `1234` with at most 3 is "expected a number of 1 to 3 digits" at its first digit, not 123 followed by an unexpected 4. `repeat` stops at `atMost`, as `count'` does.
 
 Parsers that take parsers take thunks, `() => …`, like `Fail.toResult` and `Each.collect`. A parser of no arguments is written `nat()`, as `IO.readAll()` is, and passed as `nat`.
 
 ### 6.2 AoC parsers rewritten
 
-All of these ran as tests in `proto.sw`, with the error messages shown **[ran]**, and are written here for the library as built (`{Parse}`, and `lines` leaving the final line break to the runner). Day 5 is `examples/accept/parse-aoc-day05.sw`; days 1, 4 and 8 and the robot are in `examples/accept/parse-basics.sw`. Each replaces the function named.
+All of these ran as tests in `proto.sw`, with the error messages shown **[ran]** (the prototype's messages: §6.5 gives what the library says now), and are written here for the library as built (`{Parse}`, and `lines` leaving the final line break to the runner). Day 5 is `examples/accept/parse-aoc-day05.sw`; days 1, 4 and 8 and the robot are in `examples/accept/parse-basics.sw`. Each replaces the function named.
 
 **2025 day 1** (`Turn.parse`): a keyword table, aoc-parse style.
 
@@ -412,6 +417,33 @@ It would elaborate to a parser: each literal piece to `text`, each hole to its t
 ### 6.4 Out of scope
 
 Day 6 reads its worksheet in columns: the meaning is in the layout (which characters line up), not in a grammar. A grid parser can check the characters (`grid (() => satisfy …)`), but the transposition stays ordinary list code. The same goes for puzzles that read pictures (ASCII-art letters).
+
+### 6.5 Error messages
+
+Rewriting the AoC parsers with the library showed four faults in its messages, all fixed as Megaparsec 9.8 handles them: its `withHints` ignores hints when the error is a `fail` ("if the resulting continuation gets a ParseError that has custom data in it, the hints are ignored", [Text.Megaparsec.Internal](https://hackage-content.haskell.org/package/megaparsec-9.8.3/docs/src/Text.Megaparsec.Internal.html)), and `mergeError` keeps the longest unexpected prefix of errors at one point ("Our aim here is to choose the longest prefix", [Text.Megaparsec.Error](https://hackage-content.haskell.org/package/megaparsec-9.8.3/docs/src/Text.Megaparsec.Error.html)).
+
+- **What was found.** A message that lists expectations ends with what the input holds there: `, got 'x'`, or `got the end of the line`, `got the end of the input`, `got a tab`. As Megaparsec's "unexpected" does, it shows as many characters as the longest text expected there (a `text` or `pick` word, noted as `Literal`), up to the end of the line: `mul ( 1,2)` against `pick` of `mul(`, `do()` and `don't()` gives `got 'mul ( 1'`, not `got 'm'`. `Parse.line` calls a line break in its text "a line break". The parser's own messages (`fail`, `ensure`) get nothing added: they say what they mean.
+- **Hints.** What an attempt that didn't fail the parse expected is a hint, such as the digit `many1 digit` tried after the last one. A `fail` or `ensure` message at the same point replaces the hints, as Megaparsec's `fail` does, so a check after a repetition reads `expected at least 12 batteries, got 3`, not `…; expected a digit`. An "expected" failure keeps them, since they are real alternatives there: `expected a digit or the end of the line, got 'x'`.
+- **The end of the line.** After a repetition, "a line break" (the next row may follow) and "the end" (the input may end) are both true but read as noise. A runner names them as one, "the end of the line"; on its own, "the end" is "the end of the input" in `Parse.all` and "the end of the line" in the line runners.
+- **The blank line between sections.** Day 5 read `lines range`, then `blankLine`; a missing blank line came out as `expected a number or a line break`, vaguer than the hand-written `expected a blank line between the ranges and the ids, got none`. With `section range` it is `expected a number or a blank line, got the end of the input`, or, with ids straight after, `expected '-' or a blank line before this line, got the end of the line`.
+
+The AoC days and examples, old message then new; each names the same point and says at least as much:
+
+| Input | Before | Now |
+|---|---|---|
+| 2025 day 3, `123` | `line 1, column 4: expected at least 12 batteries, got 3; expected a digit` | `line 1, column 4: expected at least 12 batteries, got 3` |
+| 2025 day 3, `1234567x9012` | `line 2, column 8: expected a digit or the end` | `line 2, column 8: expected a digit or the end of the line, got 'x'` |
+| 2025 day 5, `3-5\nx-7\n\n1\n` | `line 2, column 1: expected a number or a line break` | `line 2, column 1: expected a number or a blank line before this line, got 'x'` |
+| 2025 day 5, `3-5\n4-6\n` | `line 3, column 1: expected a number or a line break` | `line 3, column 1: expected a number or a blank line, got the end of the input` |
+| 2025 day 5, `3-5\n\n1\ntwo\n` | `line 4, column 1: expected a number or the end` | `line 4, column 1: expected a number or the end of the input, got 't'` |
+| 2024 day 5, `…\n3;4\n` | `line 4, column 2: expected ',' or a line break or the end` | `line 4, column 2: expected ',' or the end of the line, got ';'` |
+| 2025 day 9, `7,1,2` | `line 1, column 4: expected the end` | `line 1, column 4: expected the end of the line, got ','` |
+| 2024 day 3, `mul ( 1,2)` | `column 1: expected 'mul(' or 'do()' or 'don't()'` | `column 1: expected 'mul(' or 'do()' or 'don't()', got 'mul ( 1'` |
+| 2025 day 7, `..S..\n..x..` | `line 2, column 3: expected . or ^ or S, got 'x'` (hand-written) | `line 2, column 3: expected '.' or '^' or 'S' or the end of the line, got 'x'` |
+
+The rest only gain what was found, as `expected a number` → `expected a number, got 'x'`.
+
+**2025 days 4 and 7.** Their grids are built by pure functions that the proofs are about, so a grammar can only check the input. `looseGrid` allows what their checks allow, no rows and rows of any length, empty ones too. Day 7's `manifoldError` is now `Parse.all` of `looseGrid (() => pick [(".", ()), ("^", ()), ("S", ())])` over the joined lines; its proof only splits on whether `manifoldError` gives a message, so it is untouched. Its messages quote the characters and add "or the end of the line", which is true, since a row may end anywhere. Day 4 keeps its hand-written `findStray`: its proof (`parseGridCells`) splits on `findStray`'s line, column and character, so a grammar there would change the proof.
 
 ## 7. Performance
 
