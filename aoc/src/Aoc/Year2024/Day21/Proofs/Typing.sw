@@ -33,14 +33,21 @@ def hasSome: List a → Bool
   | Nil => False
   | Cons first rest => True
 
+-- The number of moves between two places, along rows and columns.
+def distance (from: Position) (to: Position): Nat := from.row - to.row + (to.row - from.row) + (from.column - to.column) + (to.column - from.column)
+
+-- Whether `route` walks from `from` to `to` on `rows`, as few moves as
+-- there can be.
+def routeFits (rows: List (List (Option k))) (from: Position) (to: Position) (route: List Direction): Bool :=
+  walk rows from route == Some to && route.length == distance from to
+
 -- How the keys of `keypad` sit on its rows: each key is where the program
--- places it, and every route between two keys walks from one to the other.
+-- places it, and there are routes between any two keys, all fitting.
 def fits [auto decEq: DecEq k] (keys: List k) (keypad: Keypad k) (rows: List (List (Option k))): Bool :=
   keys.all (to => keyAt rows (keypad.place to) == Some to)
     && keys.all (from =>
       keys.all (to =>
-        hasSome (routes keypad from to)
-          && (routes keypad from to).all (route => walk rows (keypad.place from) route == Some (keypad.place to))))
+        hasSome (routes keypad from to) && (routes keypad from to).all (routeFits rows (keypad.place from) (keypad.place to))))
 
 def numericKeys: List NumericKey := [Digit0, Digit1, Digit2, Digit3, Digit4, Digit5, Digit6, Digit7, Digit8, Digit9, Enter]
 
@@ -74,7 +81,9 @@ type Fitted (k: Type) = {
   rows: List (List (Option k)),
   onKey: (to: k) → keyAt rows (keypad.place to) = Some to,
   cheapestWalks: (costs: Costs) → (from: k) → (to: k) →
-    walk rows (keypad.place from) (cheapestRoute costs (routes keypad from to)) = Some (keypad.place to)
+    walk rows (keypad.place from) (cheapestRoute costs (routes keypad from to)) = Some (keypad.place to),
+  cheapestLength: (costs: Costs) → (from: k) → (to: k) →
+    (cheapestRoute costs (routes keypad from to)).length = distance (keypad.place from) (keypad.place to)
 }
 
 -- The cheapest of a non-empty list of routes passes a test they all pass.
@@ -83,18 +92,22 @@ theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool): (choice
   | Nil, some, all => Void.exfalso (Bool.falseNotTrue some)
   | Cons first others, some, all => minByStepPasses (routeCost costs) passes first (Bool.andLeft _ _ all) others (Bool.andRight _ _ all)
 
+theorem cheapestFits [auto decEq: DecEq k] (keys: List k) (every: (key: k) → key ∈ keys) (keypad: Keypad k) (rows: List (List (Option k)))
+    (checked: fits keys keypad rows = True) (costs: Costs) (from: k) (to: k):
+    routeFits rows (keypad.place from) (keypad.place to) (cheapestRoute costs (routes keypad from to)) = True :=
+  let pairs := Bool.andRight _ _ checked
+  let fromChecked := allMember _ keys pairs from (every from)
+  let pairChecked := allMember _ keys fromChecked to (every to)
+  cheapestPasses costs (routeFits rows (keypad.place from) (keypad.place to)) (routes keypad from to) (Bool.andLeft _ _ pairChecked)
+    (Bool.andRight _ _ pairChecked)
+
 def fitted [auto decEq: DecEq k] (keys: List k) (every: (key: k) → key ∈ keys) (keypad: Keypad k) (rows: List (List (Option k)))
     (checked: fits keys keypad rows = True): Fitted k := {
   keypad,
   rows,
   onKey = to => DecEq.sound _ _ (allMember (to => keyAt rows (keypad.place to) == Some to) keys (Bool.andLeft _ _ checked) to (every to)),
-  cheapestWalks = costs from to =>
-    let pairs := Bool.andRight _ _ checked
-    let fromChecked := allMember _ keys pairs from (every from)
-    let pairChecked := allMember _ keys fromChecked to (every to)
-    DecEq.sound _ _
-      (cheapestPasses costs (route => walk rows (keypad.place from) route == Some (keypad.place to)) (routes keypad from to)
-        (Bool.andLeft _ _ pairChecked) (Bool.andRight _ _ pairChecked))
+  cheapestWalks = costs from to => DecEq.sound _ _ (Bool.andLeft _ _ (cheapestFits keys every keypad rows checked costs from to)),
+  cheapestLength = costs from to => DecEq.sound _ _ (Bool.andRight _ _ (cheapestFits keys every keypad rows checked costs from to))
 }
 
 def numericFitted: Fitted NumericKey := fitted numericKeys everyNumericKey numericKeypad numericRows numericFits
