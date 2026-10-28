@@ -2944,6 +2944,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         return Ok(term);
     }
     let g = cx.g();
+    let named = expected;
     let expected = force(g, expected.clone())?;
     if cx.e.divergence_case_body() {
         let (term, found) = infer_unrun(cx, expr)?;
@@ -2977,7 +2978,43 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                 .map_err(|e| PureFirst::error(plain_error, e)),
         };
     }
+    name_unknown_type(cx, expr, named)?;
     check_value(cx, expr, &expected)
+}
+
+/// A variable whose type isn't known yet, checked against a type that names
+/// a definition (`free` against `FreeSpace` in `FreeSpace.moveFile free
+/// file`, `free` a lambda's parameter): its type is solved with the name
+/// before [`check_inner`] forces the expected type to what it unfolds to
+/// (`Map Nat (Set Nat)`), so a later `free.moveFile` still looks in
+/// `FreeSpace` (SW-846; place 3 of docs/proposals/alias-functions.md). Only
+/// for an unknown type: the solution is the same type either way, with its
+/// name kept.
+fn name_unknown_type(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<()> {
+    let Expr::Var(name) = expr else {
+        return Ok(());
+    };
+    if cx.local(&name.text)?.is_some() {
+        return Ok(());
+    }
+    let Some(level) = cx.lookup(&name.text) else {
+        return Ok(());
+    };
+    let g = cx.g();
+    let found = cx.types[level].clone();
+    if !matches!(
+        stitchwort_core::value::force_solved(g, found.clone())?,
+        Value::Neutral(Head::Meta(_), _)
+    ) {
+        return Ok(());
+    }
+    let named = stitchwort_core::value::force_solved(g, expected.clone())?;
+    if matches!(named, Value::Call(..)) {
+        // Only a better name for the same type: if it doesn't unify, the
+        // ordinary check below reports the mismatch.
+        crate::undo::attempt(cx, |cx| crate::undo::unify(cx, &found, &named))?;
+    }
+    Ok(())
 }
 
 /// [`check_inner`] once it's known that `expr` isn't run as a whole, against
