@@ -7877,13 +7877,13 @@
     {
       "id": 865,
       "title": "Triage the five older agent worktrees with unmerged work (report only)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
         "tooling"
       ],
-      "body": "a4d41ce1 folded goals (SW-742), a5e6df84 nested data types (SW-833), a8049d1c tail-resumptive handlers (SW-737), ac491657 SW-597 parked fix, af7e83c7 type-alias functions note (no ticket). For each: what it holds, how far behind main, whether its content is already on main, whether it still applies; recommend keep/merge/delete. Delete nothing.",
+      "body": "a4d41ce1 folded goals (SW-742), a5e6df84 nested data types (SW-833), a8049d1c tail-resumptive handlers (SW-737), ac491657 SW-597 parked fix, af7e83c7 type-alias functions note (no ticket). For each: what it holds, how far behind main, whether its content is already on main, whether it still applies; recommend keep/merge/delete. Delete nothing.\n\nTriage, 28 Oct night (read-only; all five clean, nothing changed):\n- a4d41ce1 (SW-742, folded-goals.md note, 1 commit 26740888, 380 behind, merges clean): only copy of the note; SW-742 awaits review. Keep.\n- a5e6df84 (SW-833, nested-data-types.md note, 1 commit 4a362115, 120 behind, clean): only copy; SW-833 holds D1448-D1452 about it. Keep.\n- a8049d1c (SW-737, tail-resumptive-handlers.md note, 1 commit 974f372a, 403 behind, clean): only copy; SW-737 awaits review. Keep.\n- ac491657 (SW-597 parked fix, 4 commits 26 Oct, 724 behind, 31 snapshot conflicts): the missing-update-lemma error part already on main (4f361c54); shared-helper change (shared.rs +254, examples/accept/align-with-update-arms.sw) is not. Keep while SW-597 is parked; if revived, cherry-pick shared.rs + the example and redo snapshots; if SW-597 is closed, delete.\n- af7e83c7 (alias-functions note + EXPERIMENTAL 5be9ec86, 138 behind, conflicts): note on main (c4a739f7, newer there); the experiment's idea landed as 52fe3c89, a1ea734e, e979bbd1. Only things unique: experiments/alias-functions/{Bank,Code,FreeSpace,Predictability}.sw, and main's note cites commit 5be9ec86. Delete candidate, for Matt: copy the experiment programs to main first, or keep the branch for the reference.\n",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
@@ -7891,9 +7891,9 @@
     {
       "id": 866,
       "title": "Docs sweep: stale file:line pointers, renamed codes and test names, proposal status lines",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
       "labels": [
         "docs"
       ],
