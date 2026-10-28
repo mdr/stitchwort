@@ -1,5 +1,5 @@
 {
-  "next": 753,
+  "next": 754,
   "tickets": [
     {
       "id": 13,
@@ -6281,7 +6281,7 @@
     {
       "id": 747,
       "title": "Split List/Sort.sw (1,663 lines) into functions and lemmas, as Toolkit was",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6342,6 +6342,18 @@
       "id": 752,
       "title": "ring [c * h] with coefficients, like Mathlib's linear_combination (AoC 2024 day 8)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 753,
+      "title": "Move List.sumByCongRange and List.countCongMem (and the five small lemmas they need) to List/Toolkit.sw beside sumBy/count, so rewrite/decreasing find them wherever those functions are used; sort programs then check ~1.1M steps (from 4.1M). After the day 10 lane (List/Lemmas.sw) merges; fix the two stale comments too",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
