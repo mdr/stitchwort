@@ -22,9 +22,8 @@
 -- The tests are in `Aoc.Year2025.Day09.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Year2025.Day09
-import Aoc.Common (spacedNat)
 import Std (Fail, IO, List, Nat, Parse, PrefixSums, Text)
-import Std.Parse (char)
+import Std.Parse (char, nat, token)
 
 def main(): {IO, Fail} () :=
   let tiles := parseTiles IO.readAll()
@@ -40,9 +39,9 @@ def parseTiles (input: Text): {Fail} (List Tile) := Parse.eachLine input redTile
 
 -- "7,1" is `{ x = 7, y = 1 }`.
 def redTile(): {Parse} Tile :=
-  let x := spacedNat()
+  let x := token nat
   char ','
-  let y := spacedNat()
+  let y := token nat
   { x, y }
 
 -- The number of tiles in the rectangle with these two tiles as opposite

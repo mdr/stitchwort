@@ -13,10 +13,10 @@ def tile (x: Nat) (y: Nat): Tile := { x, y }
 def tilesOf (input: Text): Result (List Tile) Text := Fail.toResult (() => parseTiles input)
 
 test "parse a tile" := tilesOf "7,1\n 11 , 1 " == Ok [tile 7 1, tile 11 1]
-test "parse rejects other lines" := tilesOf "7,1\n7;1" == Err "line 2, column 2: expected ','"
+test "parse rejects other lines" := tilesOf "7,1\n7;1" == Err "line 2, column 2: expected ',', got ';'"
 test "parse rejects too few and too many" :=
-  (tilesOf "7", tilesOf "7,1,2") == (Err "line 1, column 2: expected ','", Err "line 1, column 4: expected the end")
-test "parse rejects a blank line" := tilesOf "7,1\n\n" == Err "line 2, column 1: expected a number"
+  (tilesOf "7", tilesOf "7,1,2") == (Err "line 1, column 2: expected ',', got the end of the line", Err "line 1, column 4: expected the end of the line, got ','")
+test "parse rejects a blank line" := tilesOf "7,1\n\n" == Err "line 2, column 1: expected a number, got the end of the line"
 test "example has 8 tiles" := example.length == 8
 
 test "area counts both corners" := area (tile 2 5) (tile 9 7) == 24 ∧ area (tile 9 7) (tile 2 5) == 24 ∧ area (tile 7 3) (tile 7 3) == 1

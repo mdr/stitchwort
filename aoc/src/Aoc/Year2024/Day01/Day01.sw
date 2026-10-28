@@ -9,8 +9,8 @@
 -- `Aoc.Year2024.Day01.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day01
-import Aoc.Common (spacedNat)
 import Std (Fail, IO, List, Map, Nat, Parse, Text)
+import Std.Parse (nat, token)
 
 def main(): {IO, Fail} () :=
   let lists := parseLocationLists IO.readAll()
@@ -29,8 +29,8 @@ def parseLocationLists (input: Text): {Fail} LocationLists :=
 -- "3   4" is (3, 4). Two numbers next to each other must have spaces
 -- between them, or they would be one number.
 def idPair(): {Parse} (Nat, Nat) :=
-  let left := spacedNat()
-  let right := spacedNat()
+  let left := token nat
+  let right := token nat
   (left, right)
 
 -- Part 1: the lists in increasing order, paired up, and the distances added.

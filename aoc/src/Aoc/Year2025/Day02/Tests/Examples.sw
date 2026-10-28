@@ -19,11 +19,11 @@ test "example" := (solvePart1 exampleRanges, solvePart2 exampleRanges) == (12277
 test "part 1 spec" := part1Spec exampleRanges == 1227775554
 test "part 2 spec" := part2Spec exampleRanges == 4174379265
 test "parse" := parsed "4-14,1490-3407\n" == Ok [range 4 14, range 1490 3407]
-test "a field that isn't a range" := parsed "11-22,bad" == Err "line 1, column 7: expected a number"
+test "a field that isn't a range" := parsed "11-22,bad" == Err "line 1, column 7: expected a number, got 'b'"
 test "a space after a comma" := parsed "11-22, 33-33" == Ok [range 11 22, range 33 33]
 test "spaces around the numbers" := parsed " 11 - 22 \n" == Ok [range 11 22]
-test "a missing number" := parsed "11-" == Err "line 1, column 4: expected a number"
-test "a trailing comma" := parsed "11-22," == Err "line 1, column 7: expected a number"
+test "a missing number" := parsed "11-" == Err "line 1, column 4: expected a number, got the end of the input"
+test "a trailing comma" := parsed "11-22," == Err "line 1, column 7: expected a number, got the end of the input"
 test "backwards" := parsed "22-11" == Err "line 1, column 6: the range 22-11 ends before it starts"
 
 test "weights" := (List.rangeFrom 11 2).map copiesWeight == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]

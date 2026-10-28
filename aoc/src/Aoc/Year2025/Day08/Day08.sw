@@ -18,9 +18,8 @@
 -- The tests are in `Aoc.Year2025.Day08.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Year2025.Day08
-import Aoc.Common (spacedNat)
 import Std (Fail, IO, List, Map, Nat, Option, Parse, Text)
-import Std.Parse (char)
+import Std.Parse (char, nat, token)
 
 def main(): {IO, Fail} () :=
   let boxes := parseBoxes IO.readAll()
@@ -51,11 +50,11 @@ def parsePoints (input: Text): {Fail} (List Point) := Parse.eachLine input point
 
 -- "162,817,812" is `{ x = 162, y = 817, z = 812 }`.
 def point(): {Parse} Point :=
-  let x := spacedNat()
+  let x := token nat
   char ','
-  let y := spacedNat()
+  let y := token nat
   char ','
-  let z := spacedNat()
+  let z := token nat
   { x, y, z }
 
 -- The straight-line distance squared: it orders pairs the same way as the

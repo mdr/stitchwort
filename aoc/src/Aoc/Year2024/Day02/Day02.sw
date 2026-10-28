@@ -9,9 +9,8 @@
 -- `Aoc.Year2024.Day02.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day02
-import Aoc.Common (spacedNat)
 import Std (Fail, IO, List, Nat, Parse, Text)
-import Std.Parse (many1)
+import Std.Parse (many1, nat, token)
 
 def main(): {IO, Fail} () :=
   let reports := parseReports IO.readAll()
@@ -28,7 +27,7 @@ def parseReports (input: Text): {Fail} (List Report) := Parse.eachLine input rep
 -- At least one level. Two numbers next to each other must have spaces
 -- between them, or they would be one number.
 def reportLine(): {Parse} Report :=
-  let levels := many1 spacedNat
+  let levels := many1 (() => token nat)
   { levels }
 
 -- From `lower` to `higher` is a rise of one to three.

@@ -3,7 +3,7 @@
 
 namespace Aoc.Common
 import Std (List, Parse)
-import Std.Parse (char)
+import Std.Parse (char, nat, token)
 
 -- A range of ids, both ends included: "3-5" is `{ from = 3, to = 5 }`.
 type Range = { from: Nat, to: Nat }
@@ -12,9 +12,9 @@ type Range = { from: Nat, to: Nat }
 -- allowed: " 11 - 22 " reads the same. A range that ends before it starts
 -- fails at its end.
 def range(): {Parse} Range :=
-  let from := spacedNat()
+  let from := token nat
   char '-'
-  let to := spacedNat()
+  let to := token nat
   Parse.ensure (from ≤ to) "the range ${from}-${to} ends before it starts"
   { from, to }
 
