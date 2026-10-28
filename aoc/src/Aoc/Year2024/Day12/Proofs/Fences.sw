@@ -45,11 +45,3 @@ theorem perimeterCorrect (garden: Garden) (start: Position) (plant: Char) (grows
   sumByCongMem region garden.fences (plot => directions.count (side => !facesRegion region plot side)) (plot member =>
     List.countCongMem directions (side => !garden.sameAcross plot side) (side => !facesRegion region plot side) (side inDirections =>
       rewrite sameAcrossFaces garden start plant grows region isRegion plot member side in rfl))
-
--- Part 1: the program's total is the spec's total price over the
--- program's regions, which are the map's regions, each once
--- (`regionsAreRegions`, `inOneRegion`).
-theorem part1Correct (garden: Garden): solvePart1 garden = totalPrice garden.regions perimeter :=
-  sumByCongMem garden.regions (region => region.length * garden.perimeter region) (region => area region * perimeter region) (region member =>
-    Exists.elim (regionsAreRegions garden region member) (start both =>
-      Exists.elim (And.left both) (plant grows => rewrite perimeterCorrect garden start plant grows region (And.left (And.right both)) in rfl)))

@@ -104,7 +104,10 @@ theorem covered (garden: Garden) (position: Position): (starts: List Position) �
           let region := garden.regionOf start
           let after := region.foldLeft seen Set.insert
           rewrite List.countCons (garden.regionsFrom rest after) region (region => region.any (member => member == position)) in
-            let inRegion: position ∈ region → Or (seen.contains position = True) (1 ≤ Bool.toNat (region.any (member => member == position)) + regionsWith (garden.regionsFrom rest after) position) :=
+            let inRegion:
+                position ∈ region →
+                  Or (seen.contains position = True)
+                    (1 ≤ Bool.toNat (region.any (member => member == position)) + regionsWith (garden.regionsFrom rest after) position) :=
               isIn => Inr (rewrite (anyEqual region position).backward isIn in omega)
             match member with
               | Inl same => inRegion (rewrite <- same in startInRegion garden start plant grows)

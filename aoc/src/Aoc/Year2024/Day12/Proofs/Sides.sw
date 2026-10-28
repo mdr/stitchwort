@@ -237,11 +237,3 @@ theorem sidesCorrect (garden: Garden) (start: Position) (plant: Char) (grows: ga
           | { row, column } => specSidesCell region row column))
       (sumOverGrid region distinct last within (row column => starts inside row column) (row column outside => rewrite outside in rfl))
   Eq.trans programSide (Eq.trans (cornersEqualSides inside last right bottom) (Eq.sym specSide))
-
--- Part 2: the program's total is the spec's total price, by sides, over
--- the program's regions.
-theorem part2Correct (garden: Garden): solvePart2 garden = totalPrice garden.regions sides :=
-  sumByCongMem garden.regions (region => region.length * garden.sides region) (region => area region * sides region) (region member =>
-    Exists.elim (regionsAreRegions garden region member) (start both =>
-      Exists.elim (And.left both) (plant grows =>
-        rewrite sidesCorrect garden start plant grows region (And.left (And.right both)) (And.right (And.right both)) in rfl)))

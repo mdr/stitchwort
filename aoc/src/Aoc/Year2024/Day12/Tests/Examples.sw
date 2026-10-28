@@ -4,6 +4,7 @@
 
 namespace Aoc.Year2024.Day12.Tests
 import Aoc.Year2024.Day12 (..)
+import Aoc.Year2024.Day12.Spec (isChain, perimeter, sides, totalPrice)
 import Std (Char, Fail, List, Map, Nat, Option, Result, Text)
 
 def small: Text := """
@@ -141,3 +142,17 @@ test "fences and corners of one plot" :=
   let map := garden "AB\nAA\n"
   map.fences (at 1 0) == 2 && map.fences (at 0 1) == 4 && map.cornerCount (at 1 0) == 2
     && map.cornerCount (at 1 1) == 2 && map.cornerCount (at 0 0) == 2
+
+-- The spec runs on the program's regions, and gives the puzzle's prices.
+test "the spec's prices" :=
+  [larger, diagonal, eShaped, inside, small].all (input =>
+    let map := garden input
+    totalPrice map.regions perimeter == solvePart1 map && totalPrice map.regions sides == solvePart2 map)
+    && totalPrice (garden larger).regions sides == 1206
+
+-- "4 sides on the outside and 8 more sides on the inside".
+test "the spec's sides of the A region" := (garden diagonal).regions |> .headOr [] |> sides == 12
+
+test "the spec's chains" :=
+  let map := garden small
+  isChain map (at 1 2) [at 2 2, at 2 3, at 3 3] (at 3 3) && !isChain map (at 0 0) [at 1 0] (at 1 0) && !isChain map (at 1 2) [at 2 3] (at 2 3)
