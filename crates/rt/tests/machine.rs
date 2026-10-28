@@ -232,6 +232,7 @@ const AOC_ANSWERS: &[(&str, &str, &str, &str)] = &[
     ("2024", "04", "2524", "1873"),
     ("2024", "05", "4569", "6456"),
     ("2024", "06", "4967", "1789"),
+    ("2024", "07", "66343330034722", "637696070419031"),
 ];
 
 /// Every AoC day, on its real input, prints the known answers on the

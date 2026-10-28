@@ -1591,3 +1591,268 @@ General:
 3. No pair equality lemma (item 3). Fix: `Pair.eqAnd` in std.
 4. Missing `all`/`any` lemmas (item 4). Fix: add the four to std.
 5. `test` as a name (item 5). Fix: name the keyword in the error.
+
+## Day 7: Bridge Repair
+
+Calibration equations, one per line: a test value, a colon, then numbers
+(`3267: 81 40 27`). Part 1 adds up the test values of the equations that
+some choice of `+` and `*` between the numbers, "always evaluated
+left-to-right, not according to precedence rules", makes true. Part 2 adds
+concatenation, "`12 || 345` would become `12345`" (part 2's wording from the
+public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/master/2024/day-07/README.txt>).
+Answers on Matt's input: 66343330034722 and 637696070419031 (cross-checked
+with a Python script, `/usr/bin/python3 -I`, that tries every operator
+sequence with `itertools.product`; the example gives 3749 and 11387).
+Compiler built from `main` at fd5e6bfd, 28 October 2026.
+
+The input has 850 equations of 2 to 12 numbers, none of them 0 (a test
+checks this), and test values of up to 15 digits.
+
+### The program
+
+The parser and the solver:
+
+```stitchwort
+def equationLine(): {Parse} Equation :=
+  let testValue := nat()
+  char ':'
+  let numbers := many1 spacedNat
+  { testValue, numbers }
+
+def parseEquations (input: Text): {Fail} (List Equation) := Parse.eachLine input equationLine
+
+def canMake (operators: List Operator) (first: Nat) (target: Nat): List Nat → Bool
+  | Nil => target == first
+  | Cons last earlier =>
+    operators.any (operator =>
+      match operator with
+        | Add => last <= target && canMake operators first (target - last) earlier
+        | Multiply =>
+          if last != 0 then
+            target % last == 0 && canMake operators first (target / last) earlier
+          -- Anything times 0 is 0.
+          else target == 0
+        | Concatenate =>
+          let place := placeValue last
+          let nonzero := placeValueNonzero last
+          target % place == last && canMake operators first (target / place) earlier)
+
+def couldBeTrue (operators: List Operator) (equation: Equation): Bool :=
+  match equation.numbers with
+    | Nil => False
+    | Cons first rest => canMake operators first equation.testValue rest.reverse
+
+def calibrationResult (operators: List Operator) (equations: List Equation): Nat :=
+  equations.filter (couldBeTrue operators) |> .sumBy (equation => equation.testValue)
+
+def solvePart1 (equations: List Equation): Nat := calibrationResult [Add, Multiply] equations
+
+def solvePart2 (equations: List Equation): Nat := calibrationResult [Add, Multiply, Concatenate] equations
+```
+
+`canMake` works backwards from the test value: the last operator is undone,
+which prunes almost every branch (a subtraction that would go below 0, a
+division with a remainder, a value that doesn't end in the last number's
+digits). `placeValue n` is `Nat.pow 10 (Nat.digits n).length`. It printed
+the right answers on the first run.
+
+Because `%` and `/` need a proof that the divisor isn't 0, the program had to
+say what multiplying by 0 means (anything times 0 is 0), so it is right for
+every input, not only for inputs without 0, and no theorem needs the
+assumption.
+
+### Proved, for every list of equations
+
+The spec (`Spec/Spec.sw`) is in the puzzle's words: `concatenate` is
+`Nat.fromDigits` of the two numbers' digits appended ("combines the
+digits"), `evaluate` folds the operators over the numbers from the left,
+`combinations operators count` is every list of `count` operators, and an
+equation `couldPossiblyBeTrue` when some combination evaluates to its test
+value. `totalCalibrationResult` sums the test values of those equations.
+
+- `part1Correct`, `part2Correct`: `solvePart1 equations = part1 equations`
+  and the same for part 2, from `calibrationResultCorrect` and
+  `couldBeTrueCorrect`, which hold for any list of operators.
+- `part2AtLeastPart1`: `solvePart1 equations ≤ solvePart2 equations`, from
+  `couldBeTrueMore` (more operators can make at least as much true) and
+  `sumFilterMore` (a filter that keeps more sums to at least as much).
+- `canMakeReaches`: the backwards search is the forwards search over every
+  operator choice (`reaches`), so the pruning is sound and complete. Each
+  operator is undone exactly: `undoAdd`; and `divModMatch`,
+  `v * d + r = target` (for `r < d`) exactly when `target % d = r` and
+  `target / d = v`, which is multiplication with `r = 0` and concatenation
+  with `d` the place value.
+- `combinationsReach`: `any` over all combinations is the forwards search.
+- `combinationsComplete`, `combinationsSound`: `combinations` is exactly the
+  lists of the right length made of allowed operators, so the spec's
+  enumeration is "any combination".
+- `concatenateArithmetic`: `concatenate a b = a * placeValue b + b`, by
+  std's `Nat.fromDigitsAppend` and `Nat.fromDigitsDigits`;
+  `belowPlaceValue`: `b < placeValue b`; `concatenateAtLeast`: both sides are
+  at most the result.
+
+About 290 lines of proof with no axioms, most of it checked on the first
+try. Changing the program's `last <= target` to
+`last < target` makes `canMakeReaches` fail with a counterexample
+(`operators = [Add]`, `first = 0`, `reversed = [0]`, `target = 0`).
+
+Not proved: the parser (tested, as on other days); that concatenation is
+associative, which it isn't when the middle number is 0 (`(5 || 0) || 5` is
+505, `5 || (0 || 5)` is 55); nothing needed it.
+
+### 1. Std.Parse: no friction
+
+`Parse.eachLine` with a four-line grammar and `Aoc.Common.spacedNat` read the
+input, and every error message in the tests was the one I guessed before
+running them (`line 1, column 4: expected ':'`, `line 2, column 6: expected a
+number or the end`). One clash: the parser was first called `equation`, and
+a lambda parameter `equation` in the proofs got
+
+```text
+[W-LAMBDA-SHADOW] Warning: this lambda's first parameter `equation` hides the function `equation`
+```
+
+(day 5's item 4 again). Renamed to `equationLine`, as day 2 has
+`reportLine`. Fix: the guide's convention of a `Line` suffix for line
+grammars.
+
+### 2. `%` by a computed number: `auto` doesn't find the proof
+
+```stitchwort
+let place := placeValue last
+target % place == last && …
+```
+
+```text
+[E-AUTO-STUCK] Error: can't decide `placeValue last ≠ 0` here
+  Note: establish it first, with `if h: … then … else …`
+```
+
+With `let positive := Nat.powSuccPos 9 (Nat.digits last).length` (a proof of
+`0 < Nat.pow 10 …`) in scope, the same error: `auto` neither unfolds
+`placeValue` nor turns `0 < d` into `d ≠ 0`. The note's suggestion, an `if`
+whose `else` can never happen, would leave dead code. What worked: a theorem
+saying exactly `placeValue number ≠ 0` next to `placeValue`, and
+`let nonzero := placeValueNonzero last` before the `%`. For `last`, which can
+be 0, `if last != 0 then` gave the fact, as the guide says.
+
+Lean makes `a % 0 = a` and `a / 0 = 0` (`Nat.mod_zero`,
+<https://lean-lang.org/doc/api/Init/Data/Nat/Div/Basic.html>), so no proof
+is needed and none of this comes up; Scala and Haskell throw at run time.
+Stitchwort's way paid off here: it made the program handle a 0 in the input
+(item "The program" above). Fix: let `auto` use facts in scope through
+`omega` (`0 < d`, or `1 ≤ d`, proves `d ≠ 0`) and unfold a definition one
+step.
+
+### 3. Missing std
+
+- `Nat.digitCount` (or a place value): `(Nat.digits n).length` is written
+  out here and as `digitCount` in 2025 day 2's proofs. With it, a lemma
+  `Nat.digitCountPowPos` (`Nat.pow 10 (Nat.digitCount n) ≠ 0`) would have
+  avoided item 2. `Nat.powSuccPos` needs the base written as `Succ 9`.
+- No power operator: `Nat.pow 10 k`, where Scala has `math.pow` (on
+  `Double`), Haskell `10 ^ k`, Lean `10 ^ k`.
+- List lemmas written here: `anyFlatMap`, `anyOr` (`any` of an `||`),
+  `anyComm` (two `any`s swap), `reverseReverse`, `reverseCons`
+  (`(Cons x xs).reverse = xs.reverse.append [x]`, via `reverseOntoAppend`),
+  and `sumFilterMore` (a filter that keeps more has at least the sum). Lean
+  core has `List.reverse_reverse` and `List.any_flatMap`
+  (<https://leanprover-community.github.io/mathlib4_docs/Init/Data/List/Lemmas.html>).
+- Nat had what concatenation needed: `Nat.fromDigitsAppend`,
+  `Nat.fromDigitsDigits`, `Nat.ltPowTenDigits`, `Nat.divUnique`,
+  `Nat.modUnique`, `Nat.divModEq`. Mathlib's counterparts
+  are `Nat.ofDigits_append` and `Nat.lt_base_pow_length_digits`
+  (<https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Nat/Digits/Defs.html>),
+  little-endian where std's digits are most significant first.
+
+### 4. Holes left for the proof argument
+
+```stitchwort
+List.sumByLe xs _ _ (x => match kept: keep1 x with
+  | True => rewrite included x kept in Nat.leRefl (value x)
+  | False => Nat.zeroLe _)
+```
+
+The two `_`s should come from the goal (after `rewrite List.sumByFilter`, it
+is `sumBy xs (x => if keep1 x …) ≤ sumBy xs (x => if keep2 x …)`), but they
+were still unsolved inside the lambda:
+
+```text
+[E-REWRITE-NOTHING] Error: `rewrite` found no `keep2 x` in the goal
+  Note 1: goal: `?14 a keep1 keep2 value xs included x ≤ ?13 a keep1 keep2 value xs included x`
+[E-UNSOLVED] Error: can't work out an implicit argument
+    | False => Nat.zeroLe _)
+```
+
+Day 1's item 4 again. Written out, both functions, and `Nat.zeroLe`'s
+argument, it checked. Fix: unify the result type with the goal before
+checking the arguments.
+
+### 5. Goals unfold too far, and a `match` in a statement is opaque
+
+- The concatenation goal showed `List.foldLeft (List.append (Nat.digits
+  value) (Nat.digits last)) 0 (acc digit => acc * 10 + digit)` where the
+  spec says `concatenate value last`, and a mutation's error showed one
+  list as `List.reverse earlier` on one side and `List.reverseOnto earlier
+  []` on the other. Day 2's item 3 (keep definitions folded) again.
+- A lemma stated about the program's `match operator with …` (copied from
+  `canMake`) had the goal `Aoc.Year2024.Day07.Proofs.undoCorrect.%match1
+  operators first last earlier target operator = …`: the `match` was lifted
+  out under an internal name, so nothing could be proved about it by name.
+  What worked: splitting on the operator inside `canMakeReaches`, where each
+  arm's goal computed to the program's branch. Fix: show and compare lifted
+  matches by their bodies.
+
+### 6. Smaller
+
+- `type Operator = Add | Multiply | Concatenate` is an `E-PARSE`: a sum type
+  needs a `|` before its first constructor. The message says so. Haskell
+  (`data Op = Add | Mul`) doesn't; Scala 3 writes `enum Op { case Add, Mul }`.
+  Fix: accept the first constructor without `|`.
+- What went well: `rewrite` through `List.anyCong`, `match` on `last` that
+  made the program's `if last != 0` compute in each arm, `omega` on the
+  `undoAdd` cases, and the counterexample search on a wrong program.
+
+### Performance
+
+`stitchwort run` on the input takes 0.44 to 0.70 s, of which about 0.35 s
+is the same run on the example (loading and checking the program); the
+machine (`machine aoc_agrees`) runs it in 0.14 s. The same backwards search
+in CPython takes 0.04 s of user time. Nothing needed tuning.
+
+For comparison, the spec itself (every operator sequence, concatenation
+through digit lists) as a test on the real input took 91 s for both parts,
+against 5.6 s of user time for a Python script that tries every sequence
+with string concatenation: about 16 times slower, in line with day 6's
+factor of 12. Not kept: the proofs cover it.
+
+### Size and time
+
+Release build, on a machine busy with other work:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day07.Proofs` | 1.1 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day07` | 1.3 s |
+| `stitchwort test --no-cache Aoc.Year2024.Day07` (30 tests) | 1.9 s |
+| `stitchwort test Aoc.Year2024.Day07` (warm) | 0.6 s |
+| `stitchwort run Aoc.Year2024.Day07.main` on the input | 0.44 to 0.70 s |
+| `stitchwort check --no-cache` (whole project) | 15 s |
+
+79 lines of program, 47 of spec, 290 of proofs, 79 of tests.
+
+### Ranked
+
+1. `auto` can't prove `d ≠ 0` from facts in scope (item 2). Fix: `omega`
+   over the facts in scope, and unfold one step.
+2. Holes not solved from the goal before the proof argument (item 4). Fix:
+   unify the result type first.
+3. Lifted `match`es in goals and goals unfolded too far (item 5). Fix: fold
+   definitions in goals; show lifted matches by their bodies.
+4. Missing std (item 3). Fix: `Nat.digitCount` with its positivity lemma,
+   and the six list lemmas, in std.
+5. No power operator (item 3). Fix: `^` for `Nat.pow`.
+6. Sum types need a leading `|` (item 6). Fix: accept it without.
+7. Parser and value names clash (item 1). Fix: a `Line` suffix convention in
+   the guide.
