@@ -5992,8 +5992,8 @@
     },
     {
       "id": 723,
-      "title": "std: List.takeSucc (take (k+1) = take k ++ [getOr k]) and lastSnoc (AoC 2024 day 3)",
-      "status": "next",
+      "title": "std: List.takeSucc and lastSnoc (folded into SW-715)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6005,7 +6005,7 @@
     {
       "id": 724,
       "title": "a || b inside an effect-polymorphic lambda elaborates to if b then True else False, so the same text in a statement and a proof isn't equal by rfl; use plain Bool.or when the row is Total (AoC 2024 day 5)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6016,8 +6016,8 @@
     },
     {
       "id": 725,
-      "title": "std: Pair equality as && of components (Pair.eqAnd), allTrue/anyFalse/allAnd lemmas (AoC 2024 day 5)",
-      "status": "next",
+      "title": "std: Pair equality as && of components, allTrue/anyFalse/allAnd (folded into SW-715)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
