@@ -155,7 +155,7 @@ test "parse" := parseBank "102" == [1, 0, 2]
 export def identityNat (n: Nat): Nat := n
 
 let x := 1 + 2                       -- in a block
-(let x := 1 + 2; x * x)               -- an expression
+(let x := 1 + 2; x * x)              -- an expression
 x => x + 1                          -- a lambda
 (x: Nat) (y: Nat) => x + y          -- a lambda with typed parameters
 [a: Type] (x: a) => x               -- a lambda with an implicit parameter

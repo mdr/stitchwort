@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: `let` needs a body after `;`: `(let x := e; body)`
+   ╭─[ reject/let-expression-missing-body.sw:3:45 ]
+   │
+ 3 │ def square (n: Nat): Nat := (let x := n + 1;)
+   │                                             ┬  
+   │                                             ╰── `let` needs a body after `;`: `(let x := e; body)`
+───╯
