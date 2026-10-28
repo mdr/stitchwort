@@ -29,7 +29,7 @@
 use std::rc::Rc;
 
 use crate::kernel;
-use stitchwort_core::value::{Head, conv, force, unfold_folded};
+use stitchwort_core::value::{Head, conv, force, quote_at_most, unfold_folded};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Decl};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -42,6 +42,9 @@ use crate::{Elaborator, Global, error};
 /// How many instance steps one obligation, with the prerequisites it
 /// creates, may take in all, across every round (§5.5 step 7, D182).
 const BUDGET: usize = 10_000;
+
+/// The most nodes [`scanned`] reads back of a normal form.
+const SCAN_LIMIT: u64 = 100_000;
 
 /// What the elaborator knows about an interface, beyond its record.
 pub(crate) struct InterfaceInfo {
@@ -1320,18 +1323,29 @@ fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
     Ok(false)
 }
 
+/// `v` read back for the scans and recomputation below: its normal form,
+/// unless that has more than [`SCAN_LIMIT`] nodes (a call whose unfolding
+/// computes a large structure). Then calls are read back as calls, which is
+/// the same value and still shows the unknowns among their arguments.
+fn scanned(cx: &Ctx, v: &Value) -> Result<Term> {
+    match quote_at_most(cx.g(), cx.level(), v, SCAN_LIMIT)? {
+        Some(term) => Ok(term),
+        None => cx.quote_folded(v),
+    }
+}
+
 /// `v` with the solutions of its unknowns substituted, computed again: a
 /// definition left folded because it was stuck on an unknown that's solved
 /// now takes its step.
 pub(crate) fn refresh(cx: &Ctx, v: &Value) -> Result<Value> {
-    let term = cx.quote(v)?;
+    let term = scanned(cx, v)?;
     let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
     cx.eval(&term)
 }
 
 /// An unknown that `v` mentions and that nothing has solved, if any.
 pub(crate) fn unsolved_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
-    let term = cx.quote(v)?;
+    let term = scanned(cx, v)?;
     let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
     Ok(term.subterms().find_map(|(t, _)| match t {
         Term::Meta(m) if cx.g().meta_solution(*m).is_none() => Some(*m),
@@ -1587,7 +1601,7 @@ impl Elaborator {
 /// dictionary's name (`Add.%add {…} x y`, `Add.%add Nat.instAdd x y`), which
 /// [`refresh`] computes.
 pub(crate) fn stuck_on_found(cx: &Ctx, v: &Value) -> Result<bool> {
-    Ok(stuck_term(cx, &cx.quote(v)?))
+    Ok(stuck_term(cx, &scanned(cx, v)?))
 }
 
 fn stuck_term(cx: &Ctx, term: &Term) -> bool {
@@ -1620,7 +1634,7 @@ pub(crate) fn find_ready_dictionaries(
     ty: &Value,
     only: Option<&[usize]>,
 ) -> Result<Option<Value>> {
-    let term = cx.quote(ty)?;
+    let term = scanned(cx, ty)?;
     let g = cx.g();
     let mut stale = stuck_term(cx, &term);
     let zonked = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;

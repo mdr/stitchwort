@@ -189,13 +189,6 @@ theorem keepsTrapsAt (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat
           | False => rfl
       rewrite notTrapped in shapeOffRoute _ _ _
 
--- Two filtered sets are equal when each keeps what the other does.
-theorem filterSame (visited: Set Position) (keep: Position → Bool) (area: Set Position) (spec: Position → Bool)
-    (each: (position: Position) → (visited.contains position && keep position) = (area.contains position && spec position)):
-    visited.filter keep = area.filter spec :=
-  Set.ext _ _ (position =>
-    rewrite Set.containsFilter visited position keep, Set.containsFilter area position spec in each position)
-
 -- The positions the program keeps from the route are the spec's trap
 -- positions.
 theorem trapSetsSame (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None)
@@ -203,14 +196,14 @@ theorem trapSetsSame (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat
     (simulates: (blocker: Position) → onMap lab blocker = True →
       Simulates ((Sightlines.of lab.obstructions).add blocker) (lab.withObstruction blocker)):
     (Set.fromList (route lab (Some lab.startGuard) steps)).filter (keeps lab (Sightlines.of lab.obstructions)) = trapPositions lab trapped :=
-  filterSame (Set.fromList (route lab (Some lab.startGuard) steps)) (keeps lab (Sightlines.of lab.obstructions))
-    (Set.fromList (positions lab)) (trapsAt lab trapped)
-    (position =>
-      Eq.trans
+  Set.ext ((Set.fromList (route lab (Some lab.startGuard) steps)).filter (keeps lab (Sightlines.of lab.obstructions))) (trapPositions lab trapped) (position =>
+    Eq.trans (Set.containsFilter (Set.fromList (route lab (Some lab.startGuard) steps)) position (keeps lab (Sightlines.of lab.obstructions)))
+      (Eq.trans
         (Eq.cong (has => has && keeps lab (Sightlines.of lab.obstructions) position)
           (Set.containsFromList position (route lab (Some lab.startGuard) steps)))
         (Eq.trans (keepsTrapsAt lab inside steps gone trapped decides simulates position)
-          (Eq.cong (has => has && trapsAt lab trapped position) (Eq.sym (positionsHas lab position)))))
+          (Eq.trans (Eq.cong (has => has && trapsAt lab trapped position) (Eq.sym (positionsHas lab position)))
+            (Eq.sym (Set.containsFilter (Set.fromList (positions lab)) position (trapsAt lab trapped)))))))
 
 -- Part 2: for a guard who starts on the map and leaves, in a lab whose
 -- obstructions are on the map, the program counts the spec's trap

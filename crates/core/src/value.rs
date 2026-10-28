@@ -1882,7 +1882,14 @@ fn erased_arg(g: &Globals, f: &Term) -> bool {
 /// Solved metavariables are replaced by their solutions, and a glued call
 /// ([`Value::Call`]) by its unfolding: the normal form.
 pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
-    quote_as(g, level, value, false)
+    Ok(quote_as(g, level, value, false, None)?.expect("no cap"))
+}
+
+/// [`quote`], or `None` if the term would have more than `cap` nodes: for
+/// callers that only inspect the normal form and can do without it when it's
+/// large.
+pub fn quote_at_most(g: &Globals, level: usize, value: &Value, cap: u64) -> Result<Option<Term>> {
+    quote_as(g, level, value, false, Some(cap))
 }
 
 /// [`quote`], but a glued call ([`Value::Call`]) is written as the call,
@@ -1891,10 +1898,18 @@ pub fn quote(g: &Globals, level: usize, value: &Value) -> Result<Term> {
 /// computes to. The two terms are convertible. Without gluing (the kernel)
 /// there are no calls, and this is [`quote`].
 pub fn quote_folded(g: &Globals, level: usize, value: &Value) -> Result<Term> {
-    quote_as(g, level, value, true)
+    Ok(quote_as(g, level, value, true, None)?.expect("no cap"))
 }
 
-fn quote_as(g: &Globals, level: usize, value: &Value, folded: bool) -> Result<Term> {
+/// The readback; `None` if it grows past `cap` nodes (when given and below
+/// the budget's size limit, which is otherwise an error).
+fn quote_as(
+    g: &Globals,
+    level: usize,
+    value: &Value,
+    folded: bool,
+    cap: Option<u64>,
+) -> Result<Option<Term>> {
     // A work list rather than recursion: `tasks` are values still to visit
     // and terms still to assemble, and `done` holds finished terms, which
     // each assembly takes its parts from.
@@ -1907,12 +1922,16 @@ fn quote_as(g: &Globals, level: usize, value: &Value, folded: bool) -> Result<Te
         _ => None,
     };
     let limit = g.budget.size_limit();
+    let cap = cap.filter(|&cap| cap < limit);
     let rc = |t: Term| Rc::new(t);
     while let Some(task) = tasks.pop() {
         match task {
             QuoteTask::Visit(level, value) => {
                 g.budget.step()?;
                 size += 1;
+                if cap.is_some_and(|cap| size > cap) {
+                    return Ok(None);
+                }
                 if size > limit {
                     g.budget.set_too_large(root_def);
                     return Err(ResourceError::Size);
@@ -1971,7 +1990,7 @@ fn quote_as(g: &Globals, level: usize, value: &Value, folded: bool) -> Result<Te
             }
         }
     }
-    Ok(done.pop().expect("one term"))
+    Ok(Some(done.pop().expect("one term")))
 }
 
 /// Quotation still to do.
