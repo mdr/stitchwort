@@ -10,7 +10,7 @@
 
 namespace Aoc.Year2024.Day03
 import Std (Bool, Fail, IO, List, Nat, Option, Parse, Text)
-import Std.Parse (char, many, nat, oneOf, pick, satisfy, text)
+import Std.Parse (char, findAll, nat, oneOf, pick, text)
 
 def main(): {IO, Fail} () :=
   let instructions := parseInstructions IO.readAll()
@@ -22,18 +22,6 @@ type Instruction =
   | Mul (left: Nat) (right: Nat)
   | Do
   | Dont
-
--- The values of `parser` everywhere it matches, left to right: where it
--- doesn't match, one character is skipped. Reads all of the input.
-def findAll (parser: () → {Parse} a): {Parse} (List a) :=
-  many (() =>
-    oneOf [
-      () => Some (parser()),
-      () =>
-        let skipped := satisfy "any character" (char => True)
-        None
-    ])
-    |> .filterMap (found => found)
 
 -- A number of one to three digits.
 def shortNumber(): {Parse} Nat :=

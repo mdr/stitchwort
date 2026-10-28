@@ -78,6 +78,23 @@ def Parse.State.note (state: Parse.State) (problem: Parse.Problem): Parse.State 
 def Parse.State.advance (state: Parse.State) (rest: List Char) (count: Nat): Parse.State :=
   { state | at = { rest, offset = state.at.offset + count, left = state.at.left - count } }
 
+-- What each reading operation gives, and the state after it. The handler
+-- resumes with the two directly, so that every resumption is a tail call
+-- and the parse runs in constant stack and heap per operation.
+def Parse.State.span (state: Parse.State) (passes: Char → Bool): (List Char, Parse.State) :=
+  let split := state.at.rest.span passes
+  (split.fst, state.advance split.snd split.fst.length)
+
+def Parse.State.next (state: Parse.State) (passes: Char → Bool): (Option Char, Parse.State) :=
+  match state.at.rest with
+    | Cons char after => if passes char then (Some char, state.advance after 1) else (None, state)
+    | Nil => (None, state)
+
+def Parse.State.literal (state: Parse.State) (chars: List Char): (Bool, Parse.State) :=
+  match Text.stripPrefixChars chars state.at.rest with
+    | Some after => (True, state.advance after chars.length)
+    | None => (False, state)
+
 -- The furthest point's problems: the parser's own messages, then
 -- "expected A or B".
 def Parse.State.failure (state: Parse.State): Parse.Failure :=
@@ -95,16 +112,14 @@ def Parse.runFrom (initial: Parse.State) (parser: () → {Parse} a): Result a Pa
     handle parser() with
       | return value => state => Ok value
       | Parse.span passes, k => state =>
-        let (taken, after) := state.at.rest.span passes
-        k taken (state.advance after taken.length)
+        let step := state.span passes
+        k step.fst step.snd
       | Parse.next passes, k => state =>
-        match state.at.rest with
-          | Cons char after => if passes char then k (Some char) (state.advance after 1) else k None state
-          | Nil => k None state
+        let step := state.next passes
+        k step.fst step.snd
       | Parse.literal chars, k => state =>
-        match Text.stripPrefixChars chars state.at.rest with
-          | Some after => k True (state.advance after chars.length)
-          | None => k False state
+        let step := state.literal chars
+        k step.fst step.snd
       | Parse.mark u, k => state => k state.at state
       | Parse.reset at, k => state => k () { state | at }
       | Parse.note problem, k => state => k () (state.note problem)
@@ -297,6 +312,58 @@ def Parse.sections (parser: () → {Parse} a): {Parse} (List a) := Parse.sepBy1 
 -- Rows of cells, one row per line, at least one cell in each. Rows may
 -- differ in length.
 def Parse.grid (cell: () → {Parse} a): {Parse} (List (List a)) := Parse.lines (() => Parse.many1 cell)
+
+-- `parser`'s value and whether it read anything, or `None` with the input
+-- as it was if it fails: `optional` with the progress check built in.
+def Parse.attempt (parser: () → {Parse} a): {Parse} (Option (a, Bool)) :=
+  let start := Parse.mark()
+  handle parser() with
+    | return value =>
+      let finish := Parse.mark()
+      let progressed: Bool := finish.offset > start.offset
+      Some (value, progressed)
+    | Parse.span passes, k => k (Parse.span passes)
+    | Parse.next passes, k => k (Parse.next passes)
+    | Parse.literal chars, k => k (Parse.literal chars)
+    | Parse.mark u, k => k Parse.mark()
+    | Parse.reset at, k => k (Parse.reset at)
+    | Parse.note problem, k => k (Parse.note problem)
+    | Parse.stop u, k =>
+      Parse.reset start
+      None
+    | Parse.fatal message, k => Empty.absurd (Parse.fatal message)
+
+-- `findAll`'s loop, at most `fuel` rounds: `skipNoise`, then `parser`, and
+-- if that didn't read anything, one character skipped. `found` is newest
+-- first.
+def Parse.findAllFuel (fuel: Nat) (skipNoise: () → {Parse} ()) (parser: () → {Parse} a) (found: List a): {Parse} (List a) :=
+  match fuel with
+    | Zero => found.reverse
+    | Succ more =>
+      skipNoise()
+      let attempt := Parse.attempt parser
+      let foundNow := attempt.map (matched => Cons matched.fst found) |> .getOrElse found
+      if attempt.map (matched => matched.snd) |> .getOrElse False then Parse.findAllFuel more skipNoise parser foundNow
+      else
+        match Parse.next (char => True) with
+          | Some skipped => Parse.findAllFuel more skipNoise parser foundNow
+          | None => foundNow.reverse
+
+-- The values of `parser` everywhere it matches in the rest of the input,
+-- left to right, without overlapping, as Python's `re.findall`: where it
+-- doesn't match, one character is skipped, and the next try starts there.
+-- A match that reads nothing is kept, and a character is skipped after it.
+-- Reads all of the input and never fails.
+def Parse.findAll (parser: () → {Parse} a): {Parse} (List a) := Parse.findAllFuel (Parse.mark().left + 1) (() => ()) parser []
+
+-- The same, for a `parser` that can match only where `starts` holds for the
+-- next character: the characters between are skipped with one `span`, not
+-- tried one at a time. A match starting anywhere else is missed.
+def Parse.findAllStarting (starts: Char → Bool) (parser: () → {Parse} a): {Parse} (List a) :=
+  let skipNoise := () =>
+    let skipped := Parse.span (char => ¬(starts char))
+    ()
+  Parse.findAllFuel (Parse.mark().left + 1) skipNoise parser []
 
 -- `parser`, but if it fails without getting past where it started, it
 -- fails with "expected `what`" in place of what it expected there
