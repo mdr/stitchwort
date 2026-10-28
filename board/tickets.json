@@ -7642,9 +7642,9 @@
     {
       "id": 851,
       "title": "Kernel's E-TYPE-MISMATCH reaches the user for a Comp whose result row is an unbound variable (elaborator lets an ill-typed term through)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
       "labels": [
         "bug"
       ],
@@ -7705,9 +7705,9 @@
     {
       "id": 855,
       "title": "Negative arguments, stage 3: f !x as f (!x) under the same whitespace rule",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
       "labels": [
         "syntax"
       ],
@@ -7733,9 +7733,9 @@
     {
       "id": 857,
       "title": "Check that no lane-* nextest profile selects zero tests",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
       "labels": [
         "tooling"
       ],
