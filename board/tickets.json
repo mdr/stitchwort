@@ -1,5 +1,5 @@
 {
-  "next": 767,
+  "next": 769,
   "tickets": [
     {
       "id": 13,
@@ -6449,7 +6449,7 @@
     {
       "id": 761,
       "title": "AoC 2024 day 15 (examples only; input pending from Matt): solve, prove, log gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6510,6 +6510,30 @@
       "id": 766,
       "title": "Regression: row-stuck-callback lost its empty-row label and note after the day 11/12 fixes merged",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 767,
+      "title": "Set.difference/union fold over the small side (day 15: 19.8 s -> 0.97 s by hand); Set size lemmas (disjoint union, injective map, removing a subset, pigeonhole); Set.map/foldLeft membership lemmas; Set.removeAll; grid cells with positions",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 768,
+      "title": "Day 15 findings: match silently refines let-bound hypotheses (say so when a rewrite then finds nothing); record literal type from its fields, errors printed twice; instance-projection unification; constructor disequality C1 = C2",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
