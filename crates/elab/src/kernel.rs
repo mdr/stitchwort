@@ -24,21 +24,34 @@ fn unglued<T>(g: &mut Globals, f: impl FnOnce(&mut Globals) -> Result<T>) -> Res
     let was = g.glue.replace(false);
     let out = kernel_call(|| f(g));
     g.glue.set(was);
-    if let Err(d) = &out {
+    if let Err(d) = &out
+        && RECORDING.get()
+    {
         REJECTIONS.with(|r| r.borrow_mut().push((d.code, d.message.clone())));
     }
     out
 }
 
 thread_local! {
+    /// Whether [`REJECTIONS`] records, on this thread. Off unless a test
+    /// turns it on, so a long-running session (the language server) doesn't
+    /// keep every refusal.
+    static RECORDING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     /// The code and message of every error the kernel returned to a declare
-    /// or define call on this thread, since [`take_rejections`] was last
-    /// called. For the elaborator fuzzer (`crates/driver/tests/fuzz_elab.rs`):
-    /// the kernel's refusal of a term the elaborator built looks like any
-    /// other diagnostic, so a test that wants to tell the two apart has to
-    /// see what the kernel said before the elaborator reworded or dropped it.
+    /// or define call on this thread while recording, since
+    /// [`take_rejections`] was last called. For the elaborator fuzzer
+    /// (`crates/driver/tests/fuzz_elab.rs`): the kernel's refusal of a term
+    /// the elaborator built looks like any other diagnostic, so a test that
+    /// wants to tell the two apart has to see what the kernel said before the
+    /// elaborator reworded or dropped it.
     static REJECTIONS: std::cell::RefCell<Vec<(&'static str, String)>> =
         const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Starts or stops recording the kernel's rejections on this thread: see
+/// `REJECTIONS`.
+pub fn record_rejections(on: bool) {
+    RECORDING.set(on);
 }
 
 /// Returns (and clears) the kernel's rejections on this thread: see

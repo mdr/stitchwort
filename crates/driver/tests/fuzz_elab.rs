@@ -552,6 +552,7 @@ fn check(text: &str, cache: Option<&Path>) -> Report {
     if let Some(dir) = cache {
         session.use_check_cache(dir);
     }
+    stitchwort_elab::record_kernel_rejections(true);
     stitchwort_elab::take_kernel_rejections();
     let result = session.load("fuzz.sw", text);
     let rejections = stitchwort_elab::take_kernel_rejections();
