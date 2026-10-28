@@ -215,6 +215,7 @@ impl Elaborator {
             namespace_keys,
             namespace_capture,
             skip_navigation_walk,
+            omega_for_auto: _,
             replayed_names,
             fail_replays_late: _,
             recheck_namespaces: _,

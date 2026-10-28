@@ -12,31 +12,12 @@ def reaches (operators: List Operator) (start: Nat) (wanted: Nat → Bool): List
   | Nil => wanted start
   | Cons number rest => operators.any (operator => reaches operators (combine operator start number) wanted rest)
 
--- Some element of a `flatMap` passes: some list it is made of has one.
-theorem anyFlatMap (f: a → List b) (p: b → Bool): (xs: List a) → (xs.flatMap f).any p = xs.any (x => (f x).any p)
-  | Nil => rfl
-  | Cons x rest =>
-    Eq.trans (List.anyAppend (f x) (rest.flatMap f) p) (Eq.cong (later => (f x).any p || later) (anyFlatMap f p rest))
-
--- `any` of an `||` is the `||` of the `any`s.
-theorem anyOr (p: a → Bool) (q: a → Bool): (xs: List a) → xs.any (x => p x || q x) = (xs.any p || xs.any q)
-  | Nil => rfl
-  | Cons x rest => rewrite anyOr p q rest in cases
-
--- Two `any`s, in either order.
-theorem anyComm (related: a → b → Bool) (ys: List b): (xs: List a) →
-    xs.any (x => ys.any (y => related x y)) = ys.any (y => xs.any (x => related x y))
-  | Nil => Eq.sym (List.anyFalse ys (y => False) (y => rfl))
-  | Cons x rest =>
-    rewrite anyComm related ys rest in
-      Eq.sym (anyOr (y => related x y) (y => rest.any (other => related other y)) ys)
-
 -- The spec's "any combination" is the forwards search.
 theorem combinationsReach (operators: List Operator) (wanted: Nat → Bool): (numbers: List Nat) → (start: Nat) →
     (combinations operators numbers.length).any (chosen => wanted (evaluate start (chosen.zip numbers))) = reaches operators start wanted numbers
   | Nil, start => cases
   | Cons number rest, start =>
-    Eq.trans (anyFlatMap (operator => combinations operators rest.length |> .map (Cons operator))
+    Eq.trans (List.anyFlatMap (operator => combinations operators rest.length |> .map (Cons operator))
         (chosen => wanted (evaluate start (chosen.zip (Cons number rest)))) operators)
       (List.anyCong operators _ _ (operator =>
         Eq.trans (List.anyMap (combinations operators rest.length) (chosen => wanted (evaluate start (chosen.zip (Cons number rest)))) (Cons operator))
@@ -75,7 +56,7 @@ theorem reachesAny (operators: List Operator) (others: List Operator) (wanted: O
   | Nil, start => rfl
   | Cons number rest, start =>
     Eq.trans (List.anyCong operators _ _ (operator => reachesAny operators others wanted rest (combine operator start number)))
-      (anyComm (operator other => reaches operators (combine operator start number) (wanted other) rest) others operators)
+      (List.anyComm (operator other => reaches operators (combine operator start number) (wanted other) rest) others operators)
 
 -- The last number is the last operator's right side.
 theorem reachesAppend (operators: List Operator) (wanted: Nat → Bool) (last: Nat): (numbers: List Nat) → (start: Nat) →

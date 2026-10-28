@@ -38,10 +38,7 @@ def parseEquations (input: Text): {Fail} (List Equation) := Parse.eachLine input
 
 -- 10 to the power of the number of digits of `number`: what concatenating
 -- `number` onto the right multiplies the left side by.
-def placeValue (number: Nat): Nat := Nat.pow 10 (Nat.digits number).length
-
--- Never 0, so `%` and `/` by it are defined.
-theorem placeValueNonzero (number: Nat): placeValue number ≠ 0 := Nat.nonzeroOfPos (placeValue number) (Nat.powSuccPos 9 (Nat.digits number).length)
+def placeValue (number: Nat): Nat := Nat.pow 10 (Nat.digitCount number)
 
 -- Whether the operators can join `first` and the numbers after it to make
 -- `target`. The numbers after `first` come last one first: the last operator
@@ -59,7 +56,6 @@ def canMake (operators: List Operator) (first: Nat) (target: Nat): List Nat → 
           else target == 0
         | Concatenate =>
           let place := placeValue last
-          let nonzero := placeValueNonzero last
           target % place == last && canMake operators first (target / place) earlier)
 
 -- Whether some choice of the operators between the numbers makes the test

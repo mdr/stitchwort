@@ -145,7 +145,7 @@ def meanOf (total: Nat) (count: Nat): Nat :=
   if count = 0 then 0 else total / count
 ```
 
-In `averageOf`'s `then` branch, `count != 0` is a fact in scope, and `/` finds it; in `meanOf`'s `else` branch the fact is `Not (count = 0)`, which is the same thing. For a literal divisor (`n / 2`) the compiler checks the fact by computing it, so nothing needs to be written. [Chapter 10](10-proofs.md) explains these facts in general: they are proofs, and `[auto …]` parameters ask for them.
+In `averageOf`'s `then` branch, `count != 0` is a fact in scope, and `/` finds it; in `meanOf`'s `else` branch the fact is `Not (count = 0)`, which is the same thing. A fact that the divisor is at least 1 does too: with `h: 0 < count` in scope, `total / count` needs nothing more. For a literal divisor (`n / 2`) the compiler checks the fact by computing it, so nothing needs to be written. [Chapter 10](10-proofs.md) explains these facts in general: they are proofs, and `[auto …]` parameters ask for them.
 
 ### Other number types
 
