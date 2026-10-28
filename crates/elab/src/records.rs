@@ -671,6 +671,75 @@ fn variant(cx: &Ctx, ty: &Value) -> Result<bool> {
     Ok(matches!(force(g, ty.clone())?, Value::Data(d, _) if !g.data(d).record))
 }
 
+/// The record types a literal with these fields may be, when nothing says
+/// which: those visible by their short name whose fields are exactly the
+/// literal's (interfaces left out). Their keys, in declaration order.
+fn with_field_names(cx: &Ctx, fields: &[(ast::Name, Expr)]) -> Vec<(DataId, String)> {
+    let g = cx.g();
+    let written: std::collections::BTreeSet<&str> = fields.iter().map(|(n, _)| &*n.text).collect();
+    if written.len() != fields.len() {
+        return Vec::new();
+    }
+    (0..g.datas.len())
+        .map(DataId)
+        .filter(|&d| {
+            let data = g.data(d);
+            // A record still being declared has no constructor yet.
+            let Some(ctor) = data.ctors.first() else {
+                return false;
+            };
+            data.record
+                && data.indices.is_empty()
+                && !cx.e.interfaces.contains_key(&d)
+                && ctor.fields.len() == written.len()
+                && ctor.fields.iter().all(|(f, _)| written.contains(&**f))
+        })
+        .filter_map(|d| {
+            let key = cx.e.data_key(d);
+            let visible = matches!(
+                cx.e.resolve(crate::scope::short(&key)),
+                crate::scope::Resolved::Found { global: crate::Global::Data(found), rest, .. }
+                    if found == d && rest.is_empty()
+            );
+            visible.then(|| (d, crate::scope::display(&key).to_string()))
+        })
+        .collect()
+}
+
+/// A record literal with no type known: the one record type in scope with
+/// exactly its fields, with its parameters to be inferred.
+pub(crate) fn infer_literal(cx: &mut Ctx, fields: &[(ast::Name, Expr)]) -> Result<(Term, Value)> {
+    let candidates = with_field_names(cx, fields);
+    let [(d, _)] = candidates[..] else {
+        let mut error = cx
+            .error(
+                "E-CANNOT-INFER",
+                "can't tell which record type this literal is",
+                "nothing here says what type it should have",
+            )
+            .with_note("add a type annotation, as in `({ x = 0, y = 0 }: Point)`");
+        if candidates.is_empty() {
+            error = error.with_note("no record type in scope has exactly these fields");
+        } else {
+            let names: Vec<String> = candidates.iter().map(|(_, k)| format!("`{k}`")).collect();
+            error = error.with_note(format!(
+                "more than one record type has exactly these fields: {}",
+                names.join(", ")
+            ));
+        }
+        return Err(error);
+    };
+    let params = (0..cx.g().data(d).params.len())
+        .map(|_| {
+            let meta = cx.fresh_meta();
+            cx.eval(&meta)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let ty = Value::Data(d, params.clone());
+    let term = literal(cx, d, &params, fields)?;
+    Ok((term, ty))
+}
+
 /// A record literal or update, checked against `expected`.
 pub(crate) fn check_record(
     cx: &mut Ctx,
@@ -680,6 +749,15 @@ pub(crate) fn check_record(
 ) -> Result<Term> {
     match base {
         None => {
+            if let Value::Neutral(stitchwort_core::value::Head::Meta(_), _) =
+                force(cx.g(), expected.clone())?
+            {
+                let (term, ty) = infer_literal(cx, fields)?;
+                if !cx.unify(&ty, expected)? {
+                    return Err(cx.mismatch(expected, &ty));
+                }
+                return Ok(term);
+            }
             let (d, params) = record_type(cx, expected, "this record literal")?;
             literal(cx, d, &params, fields)
         }

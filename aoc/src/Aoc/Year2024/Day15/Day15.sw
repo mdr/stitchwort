@@ -73,7 +73,7 @@ def parseDocument (input: Text): {Fail} Document :=
       | [start] => start
       | [] => Fail.fail "expected a robot (@) on the map, found none"
       | _ => Fail.fail "expected one robot (@) on the map, found several"
-  let warehouse: Warehouse := { walls = Set.fromList (positionsOf rows Wall), boxes = Set.fromList (positionsOf rows Box), robot }
+  let warehouse := { walls = Set.fromList (positionsOf rows Wall), boxes = Set.fromList (positionsOf rows Box), robot }
   { warehouse, moves }
 
 -- The first position from `position` on, going `direction`, without a box:

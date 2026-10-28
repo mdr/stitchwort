@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CANNOT-INFER] Error: can't tell which record type this literal is
+   ╭─[ reject/record-literal-no-such-fields.sw:7:42 ]
+   │
+ 7 │ test "a literal with too few fields" := ({ name = "Alice" }).name == "Alice"
+   │                                          ─────────┬────────  
+   │                                                   ╰────────── nothing here says what type it should have
+   │ 
+   │ Note 1: add a type annotation, as in `({ x = 0, y = 0 }: Point)`
+   │ 
+   │ Note 2: no record type in scope has exactly these fields
+───╯

@@ -3,11 +3,13 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-CANNOT-INFER] Error: can't tell which record type this literal is
-   ╭─[ reject/record-literal-without-type.sw:7:35 ]
+   ╭─[ reject/record-literal-without-type.sw:9:35 ]
    │
- 7 │ test "an unannotated literal" := ({ name = "Alice", age = 30 }).age == 30
+ 9 │ test "an unannotated literal" := ({ name = "Alice", age = 30 }).age == 30
    │                                   ──────────────┬─────────────  
    │                                                 ╰─────────────── nothing here says what type it should have
    │ 
-   │ Note: add a type annotation, as in `({ x = 0, y = 0 }: Point)`
+   │ Note 1: add a type annotation, as in `({ x = 0, y = 0 }: Point)`
+   │ 
+   │ Note 2: more than one record type has exactly these fields: `Person`, `Pet`
 ───╯

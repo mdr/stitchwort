@@ -1351,13 +1351,9 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let e = check(cx, e, &ty_value)?;
             Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
         }
-        Expr::Record { base: None, .. } => Err(cx
-            .error(
-                "E-CANNOT-INFER",
-                "can't tell which record type this literal is",
-                "nothing here says what type it should have",
-            )
-            .with_note("add a type annotation, as in `({ x = 0, y = 0 }: Point)`")),
+        Expr::Record {
+            base: None, fields, ..
+        } => records::infer_literal(cx, fields),
         Expr::Record {
             base: Some(base),
             fields,
