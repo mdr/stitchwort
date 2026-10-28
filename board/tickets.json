@@ -1,5 +1,5 @@
 {
-  "next": 748,
+  "next": 749,
   "tickets": [
     {
       "id": 13,
@@ -6220,7 +6220,7 @@
     },
     {
       "id": 742,
-      "title": "Design note: keep definitions folded until asked (goals, rewrite and match unfold too far: AoC 2024 days 2, 6, 7; rewrite reads the goal back fully, matching.rs unfolds to find the scrutinee)",
+      "title": "Design note: keep definitions folded (written, on branch worktree-agent-a4d41ce184555fffb, docs/proposals/folded-goals.md; awaiting review)",
       "status": "doing",
       "agent": "",
       "where": "",
@@ -6269,7 +6269,7 @@
     {
       "id": 746,
       "title": "Bench: four tiny check programs make ~100 more allocations each (check-text-literal 130→232, nested-parens 111→213); find the fixed-cost source",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6282,6 +6282,18 @@
       "id": 747,
       "title": "Split List/Sort.sw (1,663 lines) into functions and lemmas, as Toolkit was",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 748,
+      "title": "Folded read-back keeps unfolding after a call that steps at once (value.rs:2065): if True then concatenate a b else 0 prints as List.foldLeft … (folded-goals note stage 1)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
