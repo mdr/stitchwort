@@ -152,34 +152,43 @@ theorem stepsPastFile (id: Nat) (rest: List (Option Nat)): (moves: Nat) →
       | False => rfl
 
 -- With at least as many moves as blocks, the moves end where the program's
--- fill does. `size` bounds the length, for the recursion.
-theorem stepsFill: (size: Nat) → (moves: Nat) → (blocks: List (Option Nat)) → blocks.length ≤ size → blocks.length ≤ moves →
+-- fill does.
+theorem stepsFill (moves: Nat) (blocks: List (Option Nat)) (enough: blocks.length ≤ moves):
     compactOneAtATime moves blocks = compactBlocks blocks
-  | size, Zero, Nil, small, enough => rfl
-  | size, Succ moves, Nil, small, enough => rfl
-  | Zero, moves, Cons block rest, small, enough => Void.exfalso (omega)
-  | Succ size, moves, Cons (Some id) rest, small, enough =>
-    rewrite stepsPastFile id rest moves, compactFile id rest in Eq.cong (Cons (Some id)) (stepsFill size moves rest (omega) (omega))
-  | Succ size, Zero, Cons None rest, small, enough => Void.exfalso (omega)
-  | Succ size, Succ moves, Cons None rest, small, enough =>
-    match later: lastFile rest with
-      | Some id =>
-        let freedLength := lengthFreeLast rest
-        rewrite anyFileBlock rest, later, stepsPastFile id (freeLastFileBlock rest) moves, compactGap rest id later
-          in Eq.cong (Cons (Some id)) (stepsFill size moves (freeLastFileBlock rest) (omega) (omega))
-      | None => rewrite anyFileBlock rest, later, compactFree rest later in rfl
+    decreasing blocks.length
+:=
+  match blocks with
+    | Nil =>
+      match moves with
+        | Zero => rfl
+        | Succ fewer => rfl
+    | Cons (Some id) rest =>
+      rewrite stepsPastFile id rest moves, compactFile id rest in
+        Eq.cong (Cons (Some id)) (stepsFill moves rest (omega) [decreasing := omega])
+    | Cons None rest =>
+      match moves with
+        | Zero => Void.exfalso (omega)
+        | Succ fewer =>
+          match later: lastFile rest with
+            | Some id =>
+              let freedLength := lengthFreeLast rest
+              rewrite anyFileBlock rest, later, stepsPastFile id (freeLastFileBlock rest) fewer, compactGap rest id later
+                in Eq.cong (Cons (Some id)) (stepsFill fewer (freeLastFileBlock rest) (omega) [decreasing := omega])
+            | None => rewrite anyFileBlock rest, later, compactFree rest later in rfl
 
 -- The fill leaves no gaps.
-theorem fillNoGaps: (size: Nat) → (blocks: List (Option Nat)) → blocks.length ≤ size → hasGap (compactBlocks blocks) = False
-  | size, Nil, small => rfl
-  | Zero, Cons block rest, small => Void.exfalso (omega)
-  | Succ size, Cons (Some id) rest, small => Eq.trans (Eq.cong hasGap (compactFile id rest)) (fillNoGaps size rest (omega))
-  | Succ size, Cons None rest, small =>
-    match later: lastFile rest with
-      | Some id =>
-        let freedLength := lengthFreeLast rest
-        rewrite compactGap rest id later in fillNoGaps size (freeLastFileBlock rest) (omega)
-      | None => rewrite compactFree rest later, anyFileBlock rest, later in rfl
+theorem fillNoGaps (blocks: List (Option Nat)): hasGap (compactBlocks blocks) = False
+    decreasing blocks.length
+:=
+  match blocks with
+    | Nil => rfl
+    | Cons (Some id) rest => Eq.trans (Eq.cong hasGap (compactFile id rest)) (fillNoGaps rest [decreasing := omega])
+    | Cons None rest =>
+      match later: lastFile rest with
+        | Some id =>
+          let freedLength := lengthFreeLast rest
+          rewrite compactGap rest id later in fillNoGaps (freeLastFileBlock rest) [decreasing := omega]
+        | None => rewrite compactFree rest later, anyFileBlock rest, later in rfl
 
 -- Adding up the values there are is adding up every value, with 0 for none.
 theorem sumFilterMap (f: a → Option Nat): (xs: List a) → (xs.filterMap f).sum = xs.sumBy (x => (f x).getOrElse 0)
@@ -197,10 +206,9 @@ theorem checksumCorrect (blocks: List (Option Nat)): checksum blocks = filesyste
 -- Part 1 is the puzzle's moves, one block at a time, then the checksum.
 theorem part1Correct (diskMap: List Nat): solvePart1 diskMap = part1 diskMap :=
   let disk := blocks diskMap
-  rewrite stepsFill disk.length disk.length disk (Nat.leRefl disk.length) (Nat.leRefl disk.length) in checksumCorrect (compactBlocks disk)
+  rewrite stepsFill disk.length disk (Nat.leRefl disk.length) in checksumCorrect (compactBlocks disk)
 
 -- The disk's length is enough moves: none are left to make.
 theorem part1NoGapsLeft (diskMap: List Nat): hasGap (compactOneAtATime (blocks diskMap).length (blocks diskMap)) = False :=
   let disk := blocks diskMap
-  rewrite stepsFill disk.length disk.length disk (Nat.leRefl disk.length) (Nat.leRefl disk.length) in
-    fillNoGaps disk.length disk (Nat.leRefl disk.length)
+  rewrite stepsFill disk.length disk (Nat.leRefl disk.length) in fillNoGaps disk
