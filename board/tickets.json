@@ -1,5 +1,5 @@
 {
-  "next": 769,
+  "next": 770,
   "tickets": [
     {
       "id": 13,
@@ -6473,7 +6473,7 @@
     {
       "id": 763,
       "title": "Bench examples entry: peak memory 215 MB (898 files) -> 1.17 GB (1045 files); find which examples or changes drive the peak",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6534,6 +6534,18 @@
       "id": 768,
       "title": "Day 15 findings: match silently refines let-bound hypotheses (say so when a rewrite then finds nothing); record literal type from its fields, errors printed twice; instance-projection unification; constructor disequality C1 = C2",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 769,
+      "title": "AoC 2024 day 17 (examples only; input pending from Matt): 3-bit computer, solve, prove, log gaps",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
