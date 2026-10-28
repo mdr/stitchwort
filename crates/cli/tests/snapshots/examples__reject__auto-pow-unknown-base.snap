@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-STUCK] Error: can't decide `Nat.pow base k * base ≠ 0` here
+   ╭─[ reject/auto-pow-unknown-base.sw:8:57 ]
+   │
+ 8 │ def divideByPower (n: Nat) (base: Nat) (k: Nat): Nat := n / Nat.pow base (Succ k)
+   │                                                         ────────────┬───────────  
+   │                                                                     ╰───────────── it involves values that aren't known here, and computing it doesn't settle it
+   │ 
+   │ Note: establish it first, with `if h: … then … else …`
+───╯

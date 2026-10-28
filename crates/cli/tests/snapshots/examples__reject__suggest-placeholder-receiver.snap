@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `List` has no field or function `traverse`
+    ╭─[ reject/suggest-placeholder-receiver.sw:11:45 ]
+    │
+ 11 │   match values.map (value => value + 1) |> .traverse checked with
+    │                                             ────┬───  
+    │                                                 ╰───── looked in `List`
+    │ 
+    │ Note 1: did you mean `reverse`?
+    │ 
+    │ Note 2: `Result.traverse` takes a `List` first: write `|> Result.traverse …`
+────╯

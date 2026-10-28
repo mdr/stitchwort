@@ -101,5 +101,5 @@ test "combo operands agree with the spec" :=
 test "parse" := parsed example == Ok (debuggerOf 729 0 0 [0, 1, 5, 4, 3, 0])
 test "parse without a final line break" := parsed "Register A: 1\nRegister B: 2\nRegister C: 3\n\nProgram: 7,0" == Ok (debuggerOf 1 2 3 [7, 0])
 test "a number above 7" := parsed "Register A: 1\nRegister B: 2\nRegister C: 3\n\nProgram: 0,8\n" == Err "line 5, column 12: expected a 3-bit number (0 to 7)"
-test "a two-digit number" := parsed "Register A: 1\nRegister B: 2\nRegister C: 3\n\nProgram: 0,10\n" == Err "line 5, column 12: expected a number of 1 digits, got '1'"
+test "a two-digit number" := parsed "Register A: 1\nRegister B: 2\nRegister C: 3\n\nProgram: 0,10\n" == Err "line 5, column 12: expected a 1-digit number, got '1'"
 test "no blank line" := parsed "Register A: 1\nRegister B: 2\nRegister C: 3\nProgram: 0,1\n" == Err "line 4, column 1: expected a blank line, got 'P'"

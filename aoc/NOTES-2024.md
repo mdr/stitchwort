@@ -5255,6 +5255,10 @@ What I did: kept them, with tests that pin the messages. There is no
 "digit in a range" piece, so `threeBit` is `natDigits 1 1` then
 `Parse.ensureAt` for below 8.
 
+Fixed: `natDigits` says "expected a 1-digit number" for one count and
+"expected a number of 2 to 5 digits" for a range (a lower bound of 0 is
+shown as 1, since it reads at least one digit).
+
 ### 2. Missing std
 
 - No bitwise operations on `Nat` (only `Bool.xor`). Added
@@ -5275,6 +5279,16 @@ What I did: kept them, with tests that pin the messages. There is no
   pipe: `Text.joinWith (output.map (value => "${value}")) ","`. Scala's
   `mkString(sep)` is a method of the collection
   (<https://www.scala-lang.org/api/current/scala/collection/IterableOnceOps.html>).
+
+Fixed: `std/Nat/Bits.sw` has `Nat.and`, `Nat.or` and `Nat.shiftLeft`,
+with `Nat.testBitAnd`, `Nat.testBitOr`, `Nat.shiftLeftMul` (`n * 2^k`)
+and `Nat.shiftRightShiftLeft`. std has `Ord.leRefl`, `Ord.minLeLeft`,
+`Ord.minLeRight` and `Ord.minEither` (`Ord/Ord.sw`), and
+`List.foldMinLeStart`, `List.foldMinLeMember`, `List.foldMinMember`,
+`List.minimumSome` and `List.minimumExists` (`List/Lemmas.sw`), over any
+`Ord`; `memFilterIntro` was already there as `List.memFilterIntro`.
+`Proofs/Lemmas.sw` is gone. `List.joinWith` takes the list first, so
+part 1 is `output.map (value => "${value}") |> .joinWith ","`.
 
 ### 3. Confusing errors
 
@@ -5307,6 +5321,14 @@ What I did: kept them, with tests that pin the messages. There is no
   definition it's written in". The message explains it well and points at
   docs/syntax.md. What I did: no lemma; `match moved: machine.step program
   with` refines the hypothesis directly.
+
+Fixed: `auto` tries the decision procedures again on a goal it couldn't
+decide, as written, with a call matched by its arguments before it
+computes, so `Nat.pow (Succ b) e ≠ 0` decides `Nat.pow 2 (Succ k) ≠ 0`;
+`Nat.halfDivPow` has no `whole` parameter now. `f.unfold` (or any `f.x`)
+for a definition `f` that failed reports nothing beyond `f`'s own errors.
+A suggestion shows `…` (`write |> Text.joinWith …`) where the receiver is
+a value the compiler bound, not `%3`.
 
 ### 4. Inference
 

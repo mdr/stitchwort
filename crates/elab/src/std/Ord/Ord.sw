@@ -51,6 +51,31 @@ theorem Ord.compareSelf [auto ord: Ord a] (x: a): Ord.compare x x = Equal :=
 -- The smaller of a value and itself is that value.
 theorem Ord.minSelf [auto ord: Ord a] (x: a): Ord.min x x = x := rewrite Ord.compareSelf x in rfl
 
+-- Anything is at most itself.
+theorem Ord.leRefl [auto ord: Ord a] (x: a): x <= x :=
+  ord.lessEqOf x x (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym (Ord.compareSelf x)) greater))
+
+-- The smaller of two values is at most each, and is one of them.
+theorem Ord.minLeLeft [auto ord: Ord a] (x: a) (y: a): Ord.min x y <= x :=
+  match order: Ord.compare x y with
+    | Greater =>
+      let flipped: Ord.compare y x = Less := rewrite order at ord.flip x y
+      ord.lessEqOf y x (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym flipped) greater))
+    | Less => Ord.leRefl x
+    | Equal => Ord.leRefl x
+
+theorem Ord.minLeRight [auto ord: Ord a] (x: a) (y: a): Ord.min x y <= y :=
+  match order: Ord.compare x y with
+    | Greater => Ord.leRefl y
+    | Less => ord.lessEqOf x y (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))
+    | Equal => ord.lessEqOf x y (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater))
+
+theorem Ord.minEither [auto ord: Ord a] (x: a) (y: a): Or (Ord.min x y = x) (Ord.min x y = y) :=
+  match order: Ord.compare x y with
+    | Greater => Inr rfl
+    | Less => Inl rfl
+    | Equal => Inl rfl
+
 -- `c3` isn't `Greater` when `c1` and `c2` aren't, given what `Ord`'s laws
 -- say of three comparisons `x y`, `y z` and `x z`: `Less` is transitive,
 -- and an `Equal` makes two of them the same.

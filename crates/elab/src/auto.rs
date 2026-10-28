@@ -27,8 +27,10 @@
 //! b2`, each proved this same way (docs/proposals/well-founded-recursion.md,
 //! stage 3d).
 //!
-//! A goal that computing doesn't decide is then proved from the facts in
-//! scope where that's quick: `d ≠ 0` from a fact `Succ k ≤ d`, and, in a
+//! A goal that computing doesn't decide is then tried against the decision
+//! procedures again as written, its calls matched by their arguments
+//! (`Nat.pow 2 (Succ k) ≠ 0` before it computes to `Nat.pow 2 k * 2 ≠ 0`),
+//! and then proved from the facts in scope where that's quick: `d ≠ 0` from a fact `Succ k ≤ d`, and, in a
 //! module that loads `omega`'s library, an arithmetic goal by `omega` within
 //! a small budget (`from_facts`).
 //!
@@ -261,19 +263,7 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
     let decision = decide(cx, &goal, depth)?;
     let shown = cx.show(&goal);
     match force(cx.g(), cx.eval(&decision)?)? {
-        Value::Ctor(_, 0, _) => {
-            // `fromYes [p := goal] decision Trivial`
-            let from_yes = builtin_def(cx, Builtin::FromYes)?;
-            let (unit, trivial) = builtin_ctor(cx, Builtin::Trivial)?;
-            let goal_term = cx.quote(&goal)?;
-            Ok(Term::app(
-                Term::app(
-                    Term::app_icit(Term::Def(from_yes), goal_term, Icit::Implicit),
-                    decision,
-                ),
-                Term::Ctor(unit, trivial, Vec::new()),
-            ))
-        }
+        Value::Ctor(_, 0, _) => from_yes(cx, &goal, decision),
         Value::Ctor(_, _, _) => {
             let message = match not_in_list(cx, &goal)? {
                 Some(message) => message,
@@ -286,6 +276,9 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             ))
         }
         _ => {
+            if let Some(proof) = decide_as_written(cx, &goal, depth)? {
+                return Ok(proof);
+            }
             if let Some(proof) = from_facts(cx, &goal)? {
                 return Ok(proof);
             }
@@ -303,6 +296,47 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             ))
         }
     }
+}
+
+/// `fromYes [p := goal] decision Trivial`: the proof from a decision that
+/// says `Yes`.
+fn from_yes(cx: &mut Ctx, goal: &Value, decision: Term) -> Result<Term> {
+    let from_yes = builtin_def(cx, Builtin::FromYes)?;
+    let (unit, trivial) = builtin_ctor(cx, Builtin::Trivial)?;
+    let goal_term = cx.quote(goal)?;
+    Ok(Term::app(
+        Term::app(
+            Term::app_icit(Term::Def(from_yes), goal_term, Icit::Implicit),
+            decision,
+        ),
+        Term::Ctor(unit, trivial, Vec::new()),
+    ))
+}
+
+/// A proof of a goal that computing doesn't decide, by a decision procedure
+/// matched against the goal as written, its calls not yet computed: the one
+/// for `Nat.pow (Succ b) e ≠ 0` decides `Nat.pow 2 (Succ k) ≠ 0`, which
+/// computes to `Nat.pow 2 k * 2 ≠ 0`, which it doesn't fit.
+fn decide_as_written(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<Term>> {
+    if !cx.g().glue.get() || depth > MAX_DEPTH {
+        return Ok(None);
+    }
+    let decidable = decidable(cx)?;
+    for id in decision_procedures(cx, decidable)? {
+        let found = attempt(cx, |cx| {
+            let Some(decision) = instantiate(cx, id, decidable, goal, depth, true)? else {
+                return Ok(None);
+            };
+            match force(cx.g(), cx.eval(&decision)?)? {
+                Value::Ctor(_, 0, _) => Ok(Some(decision)),
+                _ => Ok(None),
+            }
+        })?;
+        if let Some(decision) = found {
+            return from_yes(cx, goal, decision).map(Some);
+        }
+    }
+    Ok(None)
 }
 
 /// The lemma that `d ≠ 0` from `Succ k ≤ d`.
@@ -489,7 +523,7 @@ fn decide_unglued(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     }
     if depth <= MAX_DEPTH {
         for id in decision_procedures(cx, decidable)? {
-            let found = attempt(cx, |cx| instantiate(cx, id, decidable, prop, depth))?;
+            let found = attempt(cx, |cx| instantiate(cx, id, decidable, prop, depth, false))?;
             if let Some(term) = found {
                 return Ok(term);
             }
@@ -631,7 +665,7 @@ fn unrelated_hints(
             }
             let mut fits = false;
             attempt(cx, |cx| {
-                fits = instantiate(cx, id, decidable, prop, depth)?.is_some();
+                fits = instantiate(cx, id, decidable, prop, depth, false)?.is_some();
                 Ok(None::<()>)
             })?;
             if fits {
@@ -679,13 +713,16 @@ fn result_head(cx: &Ctx, id: DefId) -> Result<Option<DataId>> {
 
 /// Applies decision procedure `id` to fresh unknowns, unifies its result with
 /// `Decidable prop`, and fills in what's left: `Decidable` arguments by
-/// recursive search, auto arguments by proof search.
+/// recursive search, auto arguments by proof search. `as_written`: a call in
+/// `prop` matches the same call in the procedure's result by its arguments,
+/// before either is computed.
 fn instantiate(
     cx: &mut Ctx,
     id: DefId,
     decidable: DataId,
     prop: &Value,
     depth: usize,
+    as_written: bool,
 ) -> Result<Option<Term>> {
     let g = cx.g();
     let mut term = Term::Def(id);
@@ -698,7 +735,13 @@ fn instantiate(
         term = Term::app_icit(term, meta, icit);
         ty = cod.apply(g, value)?;
     }
-    if !cx.unify(&ty, &Value::Data(decidable, vec![prop.clone()]))? {
+    let wanted = Value::Data(decidable, vec![prop.clone()]);
+    let fits = if as_written {
+        crate::unify::unify_solving_arguments(g, cx.level(), &ty, &wanted)?
+    } else {
+        cx.unify(&ty, &wanted)?
+    };
+    if !fits {
         return Ok(None);
     }
     for (value, icit, dom) in args {

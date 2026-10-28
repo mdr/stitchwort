@@ -236,13 +236,20 @@ fn shown(recv: &Expr) -> String {
         Expr::Field(e, f) if matches!(&**e, Expr::Var(n) if n.text == SECTION) => {
             format!("`.{}`", f.text)
         }
-        Expr::Var(n) => format!("`{}`", n.text),
+        Expr::Var(n) if written(n) => format!("`{}`", n.text),
         Expr::Field(e, f) => match &**e {
-            Expr::Var(n) => format!("`{}.{}`", n.text, f.text),
+            Expr::Var(n) if written(n) => format!("`{}.{}`", n.text, f.text),
             _ => "the value".to_string(),
         },
         _ => "the value".to_string(),
     }
+}
+
+/// Whether a variable is one the program wrote, not one elaboration made up
+/// (`%N`, a value `|>` or an effect's stage bound, or a section's argument),
+/// so that a message can show it.
+fn written(name: &AstName) -> bool {
+    !name.text.starts_with('%')
 }
 
 /// `recv.field args`: dot notation, or a field.
@@ -382,7 +389,7 @@ fn no_update_lemma(cx: &Ctx, recv: &Expr, field: &AstName, owner: &str) -> Diagn
 
 /// Finds `T.f` for the receiver's type `ty`: the first head in the view
 /// whose namespace has an `f`.
-fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, DefId, String)> {
+fn find(cx: &Ctx, recv: &Expr, field: &AstName, ty: Ty) -> Result<(TyHead, DefId, String)> {
     // `f.unfold` for an opaque `f` that has none, read as a field of `f`
     // (docs/proposals/opaque-definitions.md §6.3).
     if let Expr::Var(owner) = recv {
@@ -394,6 +401,40 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<(TyHead, D
             return Err(d);
         }
     }
+    find_in_view(cx, recv, field, ty).map_err(|e| failed_receiver(cx, recv).unwrap_or(e))
+}
+
+/// For `f.x` with `f` a definition that failed, which has no `.unfold` or
+/// other helpers: the error that `f` has errors, which goes without saying
+/// beside them.
+fn failed_receiver(cx: &Ctx, recv: &Expr) -> Option<Diagnostic> {
+    let Expr::Var(owner) = recv else {
+        return None;
+    };
+    if cx.lookup(&owner.text).is_some() || matches!(cx.local(&owner.text), Ok(Some(_))) {
+        return None;
+    }
+    match cx.e.resolve(&owner.text) {
+        crate::scope::Resolved::Found {
+            global: Global::Def(id),
+            rest,
+            ..
+        } if rest.is_empty()
+            && cx.g().def(id).state() == stitchwort_core::globals::State::Failed =>
+        {
+            Some(crate::module::failed_name(owner))
+        }
+        _ => None,
+    }
+}
+
+/// [`find`], once `recv` isn't an opaque definition's missing `.unfold`.
+fn find_in_view(
+    cx: &Ctx,
+    recv: &Expr,
+    field: &AstName,
+    mut ty: Ty,
+) -> Result<(TyHead, DefId, String)> {
     let g = cx.g();
     let mut tried: Vec<TyHead> = Vec::new();
     loop {
@@ -743,7 +784,7 @@ fn unknown_member(cx: &Ctx, recv: &Expr, field: &AstName, tried: &[TyHead]) -> D
         let owner = scope::display(&ns);
         let owner = owner.rsplit('.').next().unwrap_or(owner);
         let call = match recv {
-            Expr::Var(n) if n.text != SECTION => format!("`{full} {} …`", n.text),
+            Expr::Var(n) if written(n) => format!("`{full} {} …`", n.text),
             _ => format!("`|> {full} …`"),
         };
         d = d.with_note(format!("`{full}` takes a `{owner}` first: write {call}"));
@@ -752,7 +793,7 @@ fn unknown_member(cx: &Ctx, recv: &Expr, field: &AstName, tried: &[TyHead]) -> D
         let owner = scope::display(&ns);
         let owner = owner.rsplit('.').next().unwrap_or(owner);
         let argument = match recv {
-            Expr::Var(n) => n.text.to_string(),
+            Expr::Var(n) if written(n) => n.text.to_string(),
             _ => "…".to_string(),
         };
         let call = match place {
@@ -1187,8 +1228,7 @@ fn no_receiver(
     let ns = scope::display(&namespace(cx, owner)).to_string();
     let shown_ty = cx.show(&g.def(f).ty_value);
     let (call, value) = match recv {
-        // `%N` names a value `|>` bound (bind.rs), not one the user wrote.
-        Expr::Var(n) if n.text != SECTION && !n.text.starts_with('%') => (
+        Expr::Var(n) if written(n) => (
             format!("`{}.{}`", n.text, field.text),
             Some(n.text.to_string()),
         ),
