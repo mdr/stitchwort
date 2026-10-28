@@ -6593,7 +6593,7 @@
     {
       "id": 773,
       "title": "Day 16 small findings: Set.popMin; lambda arguments inferred after the arguments that fix their type; note when importing a constructor by name; terms a rewrite adds inside a match branch refined by the match",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6617,7 +6617,7 @@
     {
       "id": 775,
       "title": "Graph search into std: Graph, Dijkstra + correctness, a BFS with a plain queue, a generic shortest-path bound, Nat.partitionPoint; days 16/18 use it; day 18 takes size from IO.args (after the day 16 findings lane merges)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6677,7 +6677,7 @@
     {
       "id": 780,
       "title": "Bench: text-literal-walk peak heap 3 kB -> 6 kB, text-nat-to-text 8 -> 11 kB on main (since ~5606c130); find the commit, fix or re-record with reason",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
