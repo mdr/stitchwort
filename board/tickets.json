@@ -1,5 +1,5 @@
 {
-  "next": 755,
+  "next": 757,
   "tickets": [
     {
       "id": 13,
@@ -6365,6 +6365,30 @@
     {
       "id": 754,
       "title": "AoC 2024 day 12: solve, prove, log gaps (overnight)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 755,
+      "title": "AoC 2024 day 13 (examples only; input pending from Matt): solve, prove, log gaps",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 756,
+      "title": "Guide's errors/decreasing.sw now checks (decreasing tries omega); rewrite the example and text",
       "status": "doing",
       "agent": "",
       "where": "",
