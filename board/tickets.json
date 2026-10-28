@@ -7293,7 +7293,7 @@
     {
       "id": 827,
       "title": "Fix stitchwort-cli project test rogue_goals_keep_the_dungeon_folded: goals print isStairs where Rogue.isStairs expected (failing on main since earlier today)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
