@@ -3910,3 +3910,374 @@ Release build, on a machine with a load average around 25 to 30:
    `labelWhole` expectation count at the furthest point its parser
    reached.
 10. No `import ... as` for clashing names (item 2). Fix: add an alias form.
+
+## Day 15: Warehouse Woes
+
+A warehouse map of walls `#`, boxes `O` and a robot `@`, then the moves
+it "will attempt to make (`^` for up, `v` for down, `<` for left, `>` for
+right)", over several lines, which "form a single giant sequence". "If
+there are any boxes (O) in the way, the robot will also attempt to push
+those boxes. However, if this action would cause the robot or a box to
+move into a wall (#), nothing moves instead, including the robot." Part
+1: "what is the sum of all boxes' GPS coordinates?", a box's being "100
+times its distance from the top edge of the map plus its distance from
+the left edge". Part 2: "everything except the robot is twice as wide":
+`#` becomes `##`, `O` becomes `[]`, `.` becomes `..` and `@` becomes
+`@.`, and "boxes can be aligned such that they directly push two other
+boxes at once"; the GPS of a wide box is measured to "the closest edge of
+the box" (part 2's wording from the public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/main/2024/day-15/README.txt>).
+
+**The real input is pending from Matt.** `mdr/aoc-2024` stops at day 10,
+so day 15 has no `aoc/inputs/2024/day15.txt`, no `Tests/Input.sw` and no
+entry in `crates/cli/tests/aoc_answers.rs` or `crates/rt/tests/machine.rs`;
+add those when the input comes.
+
+The examples' answers are checked: 2028 for the small example and 10092
+for the larger one in part 1, and 9021 for the larger one in part 2, with
+the maps the puzzle draws after the moves (each move of the small
+example, the final map of the larger, the widened map, and the small part
+2 example's moves). An independent Python script (`/usr/bin/python3 -I`,
+sets of positions and a worklist for part 2) agrees on all of them, and
+on a generated 50 by 50 warehouse with 20,000 moves (8% walls, 32% boxes,
+moves in lines of 1000; not committed): 1887456 and 1919660. Compiler
+built from `main` at 4ff1b07f, 28 October 2026.
+
+### The program
+
+```stitchwort
+type Position = { row: Int, column: Int }
+
+type Warehouse = { walls: Set Position, boxes: Set Position, robot: Position }
+
+type Document = { warehouse: Warehouse, moves: List Direction }
+
+def tile(): {Parse} Tile := pick [("#", Wall), ("O", Box), ("@", Robot), (".", Floor)]
+
+def move(): {Parse} Direction := pick [("^", Up), ("v", Down), ("<", Left), (">", Right)]
+
+def document(): {Parse} (List (List Tile), List Direction) :=
+  let rows := section (() => many1 tile)
+  let moves := lines (() => many1 move) |> .concat
+  (rows, moves)
+
+def parseDocument (input: Text): {Fail} Document :=
+  let (rows, moves) := Parse.all input document
+  let robot :=
+    match positionsOf rows Robot with
+      | [start] => start
+      | [] => Fail.fail "expected a robot (@) on the map, found none"
+      | _ => Fail.fail "expected one robot (@) on the map, found several"
+  let warehouse: Warehouse := { walls = Set.fromList (positionsOf rows Wall), boxes = Set.fromList (positionsOf rows Box), robot }
+  { warehouse, moves }
+
+def firstFree (boxes: Set Position) (direction: Direction) (position: Position): (fuel: Nat) → Option Position
+  | Zero => None
+  | Succ fuel => if boxes.contains position then firstFree boxes direction (position.step direction) fuel else Some position
+
+def Warehouse.move (warehouse: Warehouse) (direction: Direction): Warehouse :=
+  let next := warehouse.robot.step direction
+  match firstFree warehouse.boxes direction next (warehouse.boxes.size + 1) with
+    | Some free =>
+      if warehouse.walls.contains free then warehouse
+      else { warehouse | boxes = warehouse.boxes.insert free |> .remove next, robot = next }
+    | None => warehouse
+
+def solvePart1 (document: Document): Int := document.warehouse.moveAll document.moves |> .gpsSum
+
+def Warehouse.gather (warehouse: Warehouse) (direction: Direction) (group: Set Position): (pending: List Position) → (fuel: Nat) → Option (Set Position)
+  | Nil, fuel => Some group
+  | Cons cell rest, Zero => None
+  | Cons cell rest, Succ fuel =>
+    if warehouse.walls.contains cell then None
+    else
+      let found := warehouse.boxesAt cell |> .filter (box => !group.contains box)
+      warehouse.gather direction (found.foldLeft group Set.insert) (found.flatMap (box => frontOf box direction) ++ rest) fuel
+
+def Warehouse.moveWide (warehouse: Warehouse) (direction: Direction): Warehouse :=
+  let next := warehouse.robot.step direction
+  match warehouse.gather direction Set.empty [next] (2 * warehouse.boxes.size + 1) with
+    | Some group =>
+      let moved := group.map (box => box.step direction)
+      { warehouse | boxes = moved.union (group.foldLeft warehouse.boxes Set.remove), robot = next }
+    | None => warehouse
+
+def solvePart2 (document: Document): Int := document.warehouse.widen.moveAllWide document.moves |> .gpsSum
+```
+
+`main` is `parseDocument IO.readAll()` and the two prints. Positions are
+`Int`s, so a step is always defined and the proofs need no edge cases;
+the map's walls keep the robot inside. Part 1 never moves a whole line:
+moving its first box to the free position past the last leaves the same
+set of boxes, and with no box in front, inserting and removing the free
+position changes nothing, so one expression covers both. Part 2's
+warehouse uses the same type, a box being where its `[` is: `cellsOf box`
+is `[box, box.step Right]`, `boxesAt cell` the boxes covering a cell, and
+`frontOf box direction` the cells a moving box moves into other than its
+own (one cell for left and right, two for up and down). `gather` is a
+worklist over cells to empty: a wall fails the move, and each new box
+covering the cell joins the group and adds its front cells. The fuel is
+the number of boxes plus one (part 1) and twice that plus one (part 2),
+enough since a box joins once and adds at most two cells; running out
+moves nothing.
+
+### Proved, for every warehouse and every move
+
+The spec (`Spec/Spec.sw`, 90 lines) is in the puzzle's terms over the
+program's `Warehouse` and `Position.step`. `ahead position direction n`
+is `n` steps on. `LineOfBoxes warehouse direction length` is "any boxes
+in the way": the `length` positions in front of the robot hold boxes and
+the one after doesn't. `BoxAfterPush` says there is a box at a position
+after the push when a box of the line moved one step to it, or a box not
+in the line was already there. `Separate` says nothing overlaps (no box on
+a wall, the robot on neither). For part 2, `wideTile` draws a cell as the
+puzzle does (`#`, `[`, `]`, `@`, `.`) and `Whole` says every `[` has its
+`]` to the right and every `]` its `[`; `WideSeparate` says no box covers
+a wall or another box's cells, and neither covers the robot. `MustMove`
+is the boxes in every set `Closed` under "the robot walks into it, or a
+pushed box walks into it", and `Blocked` is "the robot or a box that must
+move would move into a wall".
+
+Proved (`Proofs/`, 893 lines in five files), with one axiom, `Quot.sound`
+(`stitchwort axioms`; it comes from std's `Map`, a quotient):
+
+- Part 1, `Part1.sw`: `moveWalls` (a move never moves a wall),
+  `moveCount` (never changes the number of boxes: inserting the free
+  position adds one, removing the next position takes one away),
+  `moveSeparate` (with nothing overlapping before, nothing overlaps after:
+  the robot never ends on a wall or a box), and the literal rule:
+  `lineExists` (every move meets a line of boxes, maybe of none),
+  `pushBlocked` (a wall past the line: nothing moves) and `pushMoves`
+  (else the robot steps forward, and a position holds a box exactly when
+  `BoxAfterPush` says). `part1Moves` (`Proofs.sw`) carries the first three
+  through every list of moves.
+- Part 2, `Part2.sw`: `gatherOk`, `gather`'s invariant: the group it
+  returns holds only boxes, every cell they move into is free (not a wall,
+  and every box covering it is in the group), and so is the robot's next
+  cell. From it, `blockedMovesNothing` (with nothing overlapping, a
+  `Blocked` move leaves the warehouse as it was), `moveWideSeparate`
+  (nothing overlaps after a move if nothing did before), `wholeOfSeparate`
+  (with nothing overlapping, every box is whole), and `moveAllWideWalls`.
+  `Widen.sw`: `widenSeparate` (widening a warehouse where nothing overlaps
+  gives a wide one where nothing overlaps) and `part2Whole`: from such a
+  warehouse, after every move the robot is on no wall or box and every
+  box is whole.
+
+The part 1 proofs needed one counting fact: a line of boxes is no longer
+than the boxes there are (`lineAtMostBoxes`, from `countAtMostSize`, a
+pigeonhole for sets: `count` different positions in a set make its size
+at least `count`). That makes `firstFree`'s fuel enough, so the program's
+trick is the literal push for every warehouse, not only small ones.
+Breaking the program (not removing the next position's box in part 1;
+not adding a gathered box's front cells in part 2) makes the proofs fail.
+
+Not proved:
+
+- That part 2 keeps the number of boxes. The new set is the union of the
+  group moved one step and the boxes not in it. The facts are proved
+  (the moved boxes are distinct, since a step is injective, and none lands
+  on a box that stayed, from `gatherOk`), but std has no size lemmas for
+  `Set.union`, `Set.map` or removing a subset, and building them from
+  `Set.toList` lengths and `List.Perm` is about 150 lines (item 2).
+- That an unblocked part 2 move moves exactly the `MustMove` boxes.
+  `gatherOk` gives one direction (every box that must move is gathered);
+  the other needs a second invariant (every gathered box is reached from
+  the robot through covered front cells) and that the fuel suffices, a
+  pigeonhole over the cells `gather` visits. The tests check the trees of
+  boxes against the puzzle's drawings instead.
+- That the parsed warehouse is `Separate`: parsing isn't proved, as on
+  other days. Each position gets one tile, so it holds by construction.
+
+### 1. Std.Parse: none
+
+`section (() => many1 tile)` then `lines (() => many1 move) |> .concat`
+read both examples first time, with `pick` for the tiles and moves. The
+messages are good: a bad tile is `line 1, column 3: expected '#' or 'O'
+or '@' or '.' or a line break or a blank line, got 'x'`, and a missing
+move section `line 2, column 1: expected '#' or 'O' or '@' or '.' or a
+blank line, got the end of the input`. The one check outside the grammar,
+exactly one robot, is a `Fail` after the parse, so its message has no
+line; a robot count isn't a property of one line, so that is right.
+
+Days 6, 12 and 15 all number a grid's cells by hand
+(`rows.withIndex |> .flatMap (... tiles.withIndex ...)`). What I did:
+`positionsOf rows wanted` in the program, 8 lines.
+
+### 2. Missing std
+
+- No size lemmas for sets beyond `Map.sizeInsert` and `Map.sizeRemove`:
+  nothing for `Set.union` of disjoint sets, `Set.map` with an injective
+  function, removing a subset, or "a set holding `n` different elements
+  has at least `n`". Mathlib has `Finset.card_disjUnion` (`(s.disjUnion t
+  h).card = s.card + t.card`), `Finset.card_image_of_injective` (`(image f
+  s).card = s.card`) and `Finset.card_erase_of_mem`
+  (<https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Finset/Card.html>).
+  `Lemmas.sw` proves the last one I needed (`countAtMostSize`, 14 lines);
+  part 2's count is unproved for want of the others.
+- No membership lemmas for `Set.map` or `Set.foldLeft`. `Lemmas.sw` has
+  `setFoldLeftIsList` (a set's fold is its list's fold), `containsMap`,
+  `containsFoldRemove` and `containsFoldInsertMap`, 70 lines.
+- No `Set.removeAll` (`Map.removeAll` filters the whole map). The program
+  folds `Set.remove` over the group.
+- `(cellsOf box).contains cell` is "`List` has no field or function
+  `contains`"; `cell ∉ cellsOf box` works, decided. `Text.concat` doesn't
+  exist ("no function `concat` in `Text`"); the tests' map drawing builds
+  `Char`s and uses `Text.fromList`.
+
+No std file was changed.
+
+### 3. Confusing errors
+
+- Goals are shown computed down to internals, which for sets is
+  unreadable. In `gatherOk`, `group.contains box = True` shows as
+  `Map.contains.%match1 () (Map.get group.items box) = True`, a set after
+  an insert as a `Quot.lift (rawMap => Quot.mk { tree =
+  Map.Tree.insertWith ...` term of 600 characters, and `frontOf` as its
+  whole decision procedure. And a binder that shadows a pattern variable
+  isn't renamed: my statement's `(cell: Position) → cell ∈ pending → ...`,
+  with `pending` matched as `Cons cell rest`, showed as
+
+  ```text
+  ((cell: Position) → cell = cell ∨ List.Any (y => y = cell) rest → ...
+  ```
+
+  where the first `cell` is the list's head and the second the bound one.
+  What I did: wrote the statements
+  of `GatherInvariant` and `Clear` as definitions, and worked from them
+  rather than the goal.
+- `match c: e` replaces `e` in hypotheses too, which is useful, but the
+  messages don't say so. `rewrite c at found` after it says
+
+  ```text
+  [E-REWRITE-NOTHING] Error: `rewrite` found no `Set.contains boxes start` in the type of `found`
+  ```
+
+  with `found`: `Some start = Some free`, already rewritten. A lemma bound
+  with `let` before the `match` is refined too, so its premise
+  `boxes.contains position = True` became `True = True`, and passing the
+  match's own equation failed: "expected `True = True`, but this has type
+  `Set.contains warehouse.boxes position = True`". The note explains the
+  opposite case (a term written inside the branch isn't refined). What I
+  did: used `found` as it was and passed `rfl`.
+- A `_` was solved to make a lemma vacuous: `positionEq _ position rfl
+  (omega)` for `(position.step Right).step Left = position` gave "expected
+  `{ position | column = position.column + 1 - 1 } = position`, but this
+  has type `position = position`". What I did: wrote the argument out.
+- The first check printed each of its two errors twice.
+
+### 4. Inference
+
+- `let warehouse := { walls = ..., boxes = ..., robot }` is "[E-CANNOT-INFER]
+  Error: can't tell which record type this literal is ... nothing here
+  says what type it should have", though `Warehouse` is the only record
+  with those fields and the next line puts it in a `Document`. What I
+  did: `let warehouse: Warehouse := ...`.
+- `falseOf _ (...)` with `_` for `position == warehouse.robot` failed:
+  "expected `Decidable.toBool (Aoc.Year2024.Day15.Position.%decEq position
+  warehouse.robot) = False`, but this has type `Decidable.toBool
+  (DecEq.%decide … position …) = False`", the same `==` reached through
+  the instance and directly. What I did: wrote the argument out.
+
+### 5. Performance
+
+Part 2 first moved the group with `boxes.difference group |> .union
+moved`. On the generated warehouse (753 boxes, 20,000 moves) part 2 took
+19.8 s of CPU; with `moved.union (group.foldLeft boxes Set.remove)` it
+takes 0.97 s. `Map.Raw.difference a b` walks the whole of `a` unless `a`
+is the small one (`if Map.Raw.isSmall a b then ... else Map.Raw.merge`),
+and `union` folds only when its first argument is small, so a few boxes
+taken from hundreds cost hundreds of steps each move. Haskell's
+`Data.Set.difference` and `union` are both "O(m log(n/m + 1)), 0 < m ≤ n",
+m being the smaller set's size
+(<https://hackage-content.haskell.org/package/containers-0.8.1/docs/Data-Set.html>).
+What I did: the fold and the argument order above; part 1 needed nothing.
+
+### 6. Proofs
+
+Most of the proofs went through first time, and three tools carried
+them: `omega` over a `progress` function (how far along a direction a
+position is) proved that steps along a line never revisit a position;
+`cases` proved `moveWalls` and `moveWideWalls` alone; and `match c: e`
+refining the hypotheses saved many rewrites. The friction:
+
+- `i + 1` doesn't compute to `Succ i`: `+` recurses on its first
+  argument (core's `Nat.addSucc` is a theorem). The spec says `ahead
+  robot direction (i + 1)`, and every use needed `Nat.addOne` or
+  `aheadAddOne` rewritten in by hand, with errors such as "`rewrite`
+  found no `Succ i` in the goal" when the goal had computed past it, and
+  "expected `(match …) () (Map.get warehouse.boxes.items (Position.step
+  (ahead warehouse.robot direction i) direction)) = True`, but this has
+  type `Set.contains warehouse.boxes (ahead warehouse.robot direction (i +
+  1)) = True`". In Lean `Nat.add` recurses on the second argument (`| a,
+  Nat.succ b => Nat.succ (Nat.add a b)`,
+  <https://github.com/leanprover/lean4/blob/master/src/Init/Prelude.lean>),
+  so `n + 1` is `Nat.succ n` by computation. What I did: `aheadAddOne`
+  and `rewrite ... at` on hypotheses instead of goals.
+- Membership in a literal list is `List.Any (y => y = x)`, so `x ∈ [a,
+  b]` is `a = x ∨ (b = x ∨ Void)`, the other way round from what I wrote
+  each time; several `Eq.sym`s.
+- An `if` on a `Bool` inside a `let`-ascribed proof isn't decided by an
+  enclosing `match` on that `Bool`: `rfl` failed with "`if
+  Decidable.toBool (Aoc.Year2024.Day15.Position.%decEq ...) then WideRobot
+  else BoxRight` and `BoxRight` aren't equal" until the match's equation
+  was added to the `rewrite`.
+- Constructors of a type aren't known to differ: refuting `WideRobot =
+  BoxLeft` needed a `tileCode` function, `Eq.cong` and `omega`
+  (`tilesDiffer`).
+
+### 7. Comparisons
+
+- Lean's `Nat.add` recursing on its second argument: item 6.
+- Mathlib's `Finset` cardinality lemmas: item 2.
+- Haskell's `Data.Set` complexities: item 5.
+
+### Size and time
+
+Release build, on a machine with a load average around 30 to 40 (wall
+time, then CPU):
+
+| command | wall | CPU |
+| --- | --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day15.Proofs` | 8.1 s | 2.8 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day15` | 4.8 s | 1.9 s |
+| `stitchwort test --no-cache Aoc.Year2024.Day15` (34 tests) | 7.8 s | 3.4 s |
+| `stitchwort run Aoc.Year2024.Day15.main` on the larger example | 1.4 s | 0.65 s |
+| the same on the generated 50 by 50 warehouse, 20,000 moves | 2.8 s | 1.4 s |
+| the same, part 2 with `difference` and `union` (before) | 21.7 s | 19.9 s |
+| `stitchwort check` (whole project) | 45.5 s | 23.5 s |
+
+157 lines of program, 90 of spec, 893 of proofs, 232 of tests. Python
+takes 0.19 s of CPU on the generated warehouse.
+
+### Ranked
+
+1. The real input is pending: Matt's repository has no day 15. Fix: add
+   his input, its tests and its two answer entries when he has it.
+2. `Set.difference` and `Set.union` are linear in the larger set when the
+   other is small: part 2 was 20 times slower (item 5). Fix: in
+   `Map.Raw.difference`, fold `remove` over a small second argument, and
+   let `union` fold whichever side is small.
+3. Part 2's box count and the exactness of its push are unproved, for
+   want of set size lemmas (Proved, item 2). Fix: add size lemmas for
+   disjoint union, injective `map`, removing a subset, and the pigeonhole
+   (`countAtMostSize`) to `Set/Spec.sw`.
+4. `n + 1` doesn't compute to `Succ n` (item 6). Fix: define `+` by
+   recursion on its second argument, as Lean does.
+5. Goals are shown computed into internals, and a bound name captured a
+   free one in the display (item 3). Fix: show goals with definitions such
+   as `Set.contains` folded back, and rename clashing binders.
+6. `match c: e` refines hypotheses and `let`-bound lemmas without saying
+   so, and `rewrite` then reports finding nothing (item 3). Fix: when a
+   rule's left side is absent because a `match` replaced it, say that.
+7. A record literal's type isn't inferred from its fields or its later
+   use (item 4). Fix: infer it when one record type has exactly those
+   fields.
+8. Unification doesn't see `==` through the instance and directly as the
+   same, and a `_` can be solved to a trivial instance (items 3 and 4).
+   Fix: unfold instance projections when unifying.
+9. Constructors aren't known to differ (item 6). Fix: let `cases`, or a
+   `noConfusion`-style lemma per type, close `C1 = C2` hypotheses.
+10. Grids are numbered by hand on three days, and `Set.map`/`foldLeft`
+    have no membership lemmas (items 1 and 2). Fix: a std function for a
+    grid's cells with their positions, and the membership lemmas in
+    `Set/Spec.sw`.
