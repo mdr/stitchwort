@@ -91,7 +91,12 @@ theorem numericWalksYours: CheapestWalks numericKeypad numericRows (robotCosts 0
 
 theorem directionalWalksYours: CheapestWalks directionalKeypad directionalRows (robotCosts 0) := cheapestWalksYours directionalFitted directionalPlaceOf
 
+theorem optimalWithoutRobots: Optimal 0 := optimalIfCheapestWalks 0 (level below => Void.exfalso (omega [below])) numericWalksYours
+
 -- With you pressing the door's keypad's keys yourself, the program's length
 -- is the shortest.
 theorem shortestWithoutRobots (code: Code): Shortest 0 code (shortestLength (robotCosts 0) code) :=
-  shortestIfOptimal 0 (optimalIfCheapestWalks 0 (level below => Void.exfalso (omega [below])) numericWalksYours) code
+  shortestIfOptimal 0 optimalWithoutRobots code
+
+-- And the sum of complexities is the puzzle's answer for any codes.
+theorem answerWithoutRobots (codes: List Code): Answer 0 codes (complexities 0 codes) := complexitiesAnswer 0 optimalWithoutRobots codes

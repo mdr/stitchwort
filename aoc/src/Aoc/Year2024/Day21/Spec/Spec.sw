@@ -5,7 +5,7 @@
 -- the shortest length is the least length of such a sequence. The proofs
 -- (Proofs/) show the program's length is achieved by a sequence that types
 -- the code, for every code and number of robots; that no shorter sequence
--- exists is stated (`Optimal`) but not proved.
+-- exists is proved only with no robots on directional keypads.
 
 namespace Aoc.Year2024.Day21.Spec
 import Aoc.Year2024.Day21 (..)

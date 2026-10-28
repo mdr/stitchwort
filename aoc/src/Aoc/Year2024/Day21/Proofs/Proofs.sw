@@ -1,9 +1,12 @@
 -- Day 21 proved, for every code and number of robots: the program's length
 -- is achieved, by presses that type the code (`lengthAchieved`, from
--- Presses.sw and Typing.sw). That no shorter presses type it is stated as
--- `Optimal` and not proved; with it, the program's length is the spec's
--- shortest (`shortestIfOptimal`) and both parts are the puzzle's answers
--- (`part1Correct`, `part2Correct`). The parser isn't proved.
+-- Presses.sw and Typing.sw). That no shorter presses type it is `Optimal`;
+-- with it, the program's length is the spec's shortest
+-- (`shortestIfOptimal`) and both parts are the puzzle's answers
+-- (`part1Correct`, `part2Correct`). `Optimal` follows from a walk fact on
+-- each keypad (Lower.sw), proved where you press the keys yourself
+-- (Direct.sw), so with no robots on directional keypads; with robots it is
+-- not proved. The parser isn't proved.
 
 namespace Aoc.Year2024.Day21.Proofs
 import Aoc.Year2024.Day21 (..)
@@ -15,10 +18,9 @@ theorem lengthAchieved (robots: Nat) (code: Code):
     Exists (List DirectionKey) (presses => And (Types robots code presses) (presses.length = shortestLength (robotCosts robots) code)) :=
   Witness (pressesFor robots code) (Both (pressesForTypes robots code) (pressesForLength robots code))
 
--- Not proved: no presses shorter than the program's length type the code.
--- It would need every walk of an arm between two keys, typed through the
--- keypads before it, to cost at least the cheaper of the program's two
--- routes (see the notes).
+-- No presses shorter than the program's length type the code. Proved for
+-- no robots (`shortestWithoutRobots`); for more, it needs `CheapestWalks`
+-- at their levels (`optimalIfCheapestWalks`).
 def Optimal (robots: Nat): Prop :=
   (code: Code) → (presses: List DirectionKey) → Types robots code presses → shortestLength (robotCosts robots) code ≤ presses.length
 

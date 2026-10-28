@@ -6,7 +6,7 @@
 namespace Aoc.Year2024.Day21.Tests
 import Aoc.Year2024.Day21 (..)
 import Aoc.Year2024.Day21.Spec (directionalRows, keyAt, moved, numericRows, numericStart, directionalStart, typed)
-import Aoc.Year2024.Day21.Proofs (pressesFor)
+import Aoc.Year2024.Day21.Proofs (cheapestBetween, numericKeys, pressesFor, walk)
 import Std (Fail, List, Nat, Option, Result, Set, Text)
 
 def parsed (input: Text): Result (List Code) Text := Fail.toResult (() => parseCodes input)
@@ -122,6 +122,26 @@ test "brute force agrees on short codes, up to three robots" :=
   [0, 1, 2, 3].all (robots =>
     ["A", "0A", "1A", "5A", "7A", "00A", "70A", "A7A"].all (code =>
       bruteForce robots (codeOf code) == Some (lengthFor robots code)))
+
+-- Every list of at most `count` moves.
+def moveLists: (count: Nat) → List (List Direction)
+  | Zero => [Nil]
+  | Succ count => Cons Nil ([Up, Down, Left, Right].flatMap (direction => moveLists count |> .map (Cons direction)))
+
+-- The walk fact the optimality proof needs (`CheapestWalks`), for walks of
+-- at most `count` moves: each costs at least the program's cheapest route
+-- between the keys at its ends.
+def cheapestWalksUpTo (keys: List k) (keypad: Keypad k) (rows: List (List (Option k))) (costs: Costs) (count: Nat): Bool :=
+  keys.all (from =>
+    moveLists count |> .all (route =>
+      walk rows (keypad.place from) route
+        |> .flatMap (keyAt rows)
+        |> .all (to => cheapestBetween keypad costs from to <= routeCost costs route)))
+
+test "the walk fact for walks of up to six moves, one to three robots" :=
+  [1, 2, 3].all (level =>
+    cheapestWalksUpTo numericKeys numericKeypad numericRows (robotCosts level) 6
+      && cheapestWalksUpTo directionKeys directionalKeypad directionalRows (robotCosts level) 6)
 
 test "parse" := parsed "029A\n980A\n179A\n456A\n379A\n" == Ok exampleCodes
 test "parse without a final line break" := parsed "029A\n1A" == Ok [codeOf "029A", codeOf "1A"]
