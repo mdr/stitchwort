@@ -685,6 +685,9 @@ and `List.getLast?_concat`
 What I did: wrote `takeSucc` and `lastSnoc` in the proofs, three lines each.
 Fix: add both beside `List.takeAll` and `List.lastMap`.
 
+Fixed: std has `List.takeSucc` (List/Index.sw) and `List.lastSnoc`
+(List/Toolkit.sw); the proofs use them.
+
 #### 11. Small ones
 
 - `|>` isn't allowed in a `calc` step: `_ = List.range all |> .sumBy f :=
@@ -846,6 +849,9 @@ with the extra `&& …` the only difference. `cases` proves it. Fix: a better
 message (item 3) would have made this a minute's work; std could also state
 `List.allCons`-style lemmas so a proof can avoid relying on computation.
 
+Fixed: std has `List.allCons` and `List.anyCons` (`List.all (Cons x xs) p = (p x ∧
+List.all xs p)`, and `∨` for `any`), and `Bool.andTrue` for the last step.
+
 ### 5. `rewrite` with a hole can't solve an instance argument
 
 ```stitchwort
@@ -897,6 +903,15 @@ Written in `Proofs/Lists.sw` (228 lines), all general:
 
 Fix: move these to `List/Index.sw` and `List/Toolkit.sw`; make
 `Option.decSome`'s `toBool` reduce (or add `Option.someEq`).
+
+Fixed: std has them, and `Proofs/Lists.sw` is gone. `List.getDrop`,
+`List.getZip`, `List.getZipWith3`/`4` (as `Option.map2`/`3`/`4` of the
+elements), `List.lengthZipWithLe`/`3Le`/`4Le` and the `zipWith3`/`zipWith4`
+empty-list lemmas are in List/Toolkit.sw; `List.sumByGet`,
+`List.sumByZipWith`/`3`/`4`, `List.sumByRangeZero`, `List.sumByRangeExtend`
+and `List.sumByRangeSkipZeros` in List/Index.sw; `List.sumByNestedAdd` in
+List/Sort.sw; `Option.map2`/`3`/`4` with `Option.getOrElseMap2`/`3`/`4` (the
+`at4OrElse` step) and `Option.someBeqSome` in Option/Option.sw.
 
 ### 8. A `let` inside parentheses doesn't parse
 
@@ -1240,12 +1255,18 @@ to conversion.
 What I did: `pairEqual`, a `match` on the two `Nat.decEq`s, `rfl` in each arm.
 Fix: `Pair.eqAnd` in std.
 
+Fixed: std has `Pair.mkBeqMk`, `((x1, y1) == (x2, y2)) = (x1 == x2 ∧ y1 == y2)`
+for any types with `DecEq` (Option/Option.sw); the proofs use it.
+
 ### 4. Missing `List.all`/`any` lemmas
 
 Proved locally, each a few lines: `allTrue` (every element passes), `anyFalse`,
 `allAnd` (`xs.all (x => p x && q x) = (xs.all p && xs.all q)`), and
 `noneRelated` (`xs.all (x => !(ys.any (related x)))` is the same read with
 `ys` outside). Fix: move them to std's toolkit.
+
+Fixed: std has `List.allTrue`, `List.anyFalse`, `List.allAnd` (List/Toolkit.sw)
+and `List.allNotAnyComm` (List/Sort.sw); the proofs use them.
 
 ### 5. `test` can't be a parameter name
 

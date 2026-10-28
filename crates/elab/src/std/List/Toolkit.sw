@@ -101,6 +101,9 @@ theorem List.sumInts: List.sum [(3: Int), -5, 1] = -1 := rfl
 
 theorem List.sumByInts: List.sumBy [(1: Int), 2, 3] (x => Int.sub 1 x) = -3 := rfl
 
+-- A sum is a `sumBy` of each element itself.
+theorem List.sumIsSumBy [auto add: Add a] (xs: List a): List.sum xs = List.sumBy xs (x => x) := rfl
+
 -- The product of the elements, of any type with `Mul`.
 def List.product [auto mul: Mul a] (xs: List a): a := List.foldLeft xs Mul.one Mul.mul
 
@@ -248,6 +251,11 @@ def List.any: List a → (p: a → {e} Bool) → {e} Bool
 def List.all: List a → (p: a → {e} Bool) → {e} Bool
   | Nil, p => True
   | Cons x xs, p => if p x then List.all xs p else False
+
+-- `all` and `any` over a cons: the head's answer, then the rest's.
+theorem List.allCons (p: a → Bool) (x: a) (xs: List a): List.all (Cons x xs) p = (p x ∧ List.all xs p) := rfl
+
+theorem List.anyCons (p: a → Bool) (x: a) (xs: List a): List.any (Cons x xs) p = (p x ∨ List.any xs p) := rfl
 
 -- `n`, plus one if `b`: `List.count`'s step. A function of its own so `n` is
 -- written once: `if b then Succ n else n` writes it twice, so when the
@@ -1028,6 +1036,25 @@ theorem List.allCong: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) →
   | Nil, p1, p2, ep => rfl
   | Cons x xs, p1, p2, ep => rewrite ep x, List.allCong xs p1 p2 ep
 
+-- A test every element passes holds for all of them.
+theorem List.allTrue: (xs: List a) → (p: a → Bool) → ((x: a) → p x = True) → List.all xs p = True
+  | Nil, p, h => rfl
+  | Cons x xs, p, h => rewrite h x in List.allTrue xs p h
+
+-- A test no element passes holds for none of them.
+theorem List.anyFalse: (xs: List a) → (p: a → Bool) → ((x: a) → p x = False) → List.any xs p = False
+  | Nil, p, h => rfl
+  | Cons x xs, p, h => rewrite h x in List.anyFalse xs p h
+
+-- Every element passes both tests when every element passes each.
+theorem List.allAnd: (xs: List a) → (p: a → Bool) → (q: a → Bool) → List.all xs (x => p x ∧ q x) = (List.all xs p ∧ List.all xs q)
+  | Nil, p, q => rfl
+  | Cons x xs, p, q =>
+    match px: p x, qx: q x with
+      | True, True => List.allAnd xs p q
+      | True, False => cases
+      | False, qx => rfl
+
 theorem List.occurrencesCong: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → p1 x = p2 x) →
     List.occurrences xs p1 = List.occurrences xs p2
   | Nil, p1, p2, ep => rfl
@@ -1054,6 +1081,51 @@ theorem List.lengthZipWith3 (f: a → b → c → e): (xs: List a) → (ys: List
   | Cons x xs, Cons y ys, Nil, h1, h2 => Void.exfalso (Nat.zeroNotSucc (List.length xs) h2)
   | Cons x xs, Cons y ys, Cons z zs, h1, h2 =>
     rewrite List.lengthZipWith3 f xs ys zs (Nat.succInjective (List.length ys) (List.length xs) h1) (Nat.succInjective (List.length zs) (List.length xs) h2)
+
+-- Lists zipped in step are no longer than the first.
+theorem List.lengthZipWithLe (f: a → b → c): (xs: List a) → (ys: List b) → List.length (List.zipWith xs ys f) ≤ List.length xs
+  | Nil, ys => rfl
+  | Cons x xs, Nil => rfl
+  | Cons x xs, Cons y ys => List.lengthZipWithLe f xs ys
+
+theorem List.lengthZipWith3Le (f: a → b → c → d): (xs: List a) → (ys: List b) → (zs: List c) → List.length (List.zipWith3 xs ys zs f) ≤ List.length xs
+  | Nil, ys, zs => rfl
+  | Cons x xs, Nil, zs => rfl
+  | Cons x xs, Cons y ys, Nil => rfl
+  | Cons x xs, Cons y ys, Cons z zs => List.lengthZipWith3Le f xs ys zs
+
+theorem List.lengthZipWith4Le (f: a → b → c → d → e): (xs: List a) → (ys: List b) → (zs: List c) → (ws: List d) →
+    List.length (List.zipWith4 xs ys zs ws f) ≤ List.length xs
+  | Nil, ys, zs, ws => rfl
+  | Cons x xs, Nil, zs, ws => rfl
+  | Cons x xs, Cons y ys, Nil, ws => rfl
+  | Cons x xs, Cons y ys, Cons z zs, Nil => rfl
+  | Cons x xs, Cons y ys, Cons z zs, Cons w ws => List.lengthZipWith4Le f xs ys zs ws
+
+-- Zipping with an empty list in a later place gives nothing.
+theorem List.zipWith3NilSecond (zs: List c) (f: a → b → c → d): (xs: List a) → List.zipWith3 xs Nil zs f = Nil
+  | Nil => rfl
+  | Cons x xs => rfl
+
+theorem List.zipWith3NilThird (f: a → b → c → d): (xs: List a) → (ys: List b) → List.zipWith3 xs ys Nil f = Nil
+  | Nil, ys => rfl
+  | Cons x xs, Nil => rfl
+  | Cons x xs, Cons y ys => rfl
+
+theorem List.zipWith4NilSecond (zs: List c) (ws: List d) (f: a → b → c → d → e): (xs: List a) → List.zipWith4 xs Nil zs ws f = Nil
+  | Nil => rfl
+  | Cons x xs => rfl
+
+theorem List.zipWith4NilThird (ws: List d) (f: a → b → c → d → e): (xs: List a) → (ys: List b) → List.zipWith4 xs ys Nil ws f = Nil
+  | Nil, ys => rfl
+  | Cons x xs, Nil => rfl
+  | Cons x xs, Cons y ys => rfl
+
+theorem List.zipWith4NilFourth (f: a → b → c → d → e): (xs: List a) → (ys: List b) → (zs: List c) → List.zipWith4 xs ys zs Nil f = Nil
+  | Nil, ys, zs => rfl
+  | Cons x xs, Nil, zs => rfl
+  | Cons x xs, Cons y ys, Nil => rfl
+  | Cons x xs, Cons y ys, Cons z zs => rfl
 
 -- A sum over a list is the sum over its indices.
 
@@ -2027,6 +2099,12 @@ theorem List.lastMem: (xs: List a) → (x: a) → List.last xs = Some x → x �
 
 theorem List.lastMemExample: 3 ∈ [1, 2, 3] := List.lastMem [1, 2, 3] 3 rfl
 
+-- The last element of a list with `x` added at the end is `x`.
+theorem List.lastSnoc (x: a): (xs: List a) → List.last (List.append xs [x]) = Some x
+  | Nil => rfl
+  | Cons y Nil => rfl
+  | Cons y (Cons z zs) => List.lastSnoc x (Cons z zs)
+
 -- `filterMap` keeps `y` when an element maps to `Some y` ...
 theorem List.memFilterMapIntro (f: a → Option b) (x: a) (y: b): (xs: List a) → x ∈ xs → f x = Some y → y ∈ List.filterMap xs f
   | Nil, m, e => Void.exfalso m
@@ -2248,6 +2326,33 @@ theorem List.getZipWith (f: a → b → c): (xs: List a) → (ys: List b) → (k
   | Cons x xs, Cons y ys, Zero => rfl
   | Cons x xs, Cons y ys, Succ k => List.getZipWith f xs ys k
 
+-- `zip`, `zipWith3` and `zipWith4` have the combined elements where every
+-- list has one.
+theorem List.getZip: (xs: List a) → (ys: List b) → (k: Nat) → List.get (List.zip xs ys) k = Option.map2 MkPair (List.get xs k) (List.get ys k)
+  | Nil, ys, k => rfl
+  | Cons x xs, Nil, k => Eq.sym (Option.map2None MkPair _)
+  | Cons x xs, Cons y ys, Zero => rfl
+  | Cons x xs, Cons y ys, Succ k => List.getZip xs ys k
+
+theorem List.getZipWith3 (f: a → b → c → d): (xs: List a) → (ys: List b) → (zs: List c) → (k: Nat) →
+    List.get (List.zipWith3 xs ys zs f) k = Option.map3 f (List.get xs k) (List.get ys k) (List.get zs k)
+  | Nil, ys, zs, k => rfl
+  | Cons x xs, Nil, zs, k => Eq.sym (Option.map3None2 f _ _)
+  | Cons x xs, Cons y ys, Nil, k => Eq.sym (Option.map3None3 f _ _)
+  | Cons x xs, Cons y ys, Cons z zs, Zero => rfl
+  | Cons x xs, Cons y ys, Cons z zs, Succ k => List.getZipWith3 f xs ys zs k
+
+theorem List.getZipWith4 (f: a → b → c → d → e): (xs: List a) → (ys: List b) → (zs: List c) → (ws: List d) → (k: Nat) →
+    List.get (List.zipWith4 xs ys zs ws f) k = Option.map4 f (List.get xs k) (List.get ys k) (List.get zs k) (List.get ws k)
+  | Nil, ys, zs, ws, k => rfl
+  | Cons x xs, Nil, zs, ws, k => Eq.sym (Option.map4None2 f _ _ _)
+  | Cons x xs, Cons y ys, Nil, ws, k => Eq.sym (Option.map4None3 f _ _ _)
+  | Cons x xs, Cons y ys, Cons z zs, Nil, k => Eq.sym (Option.map4None4 f _ _ _)
+  | Cons x xs, Cons y ys, Cons z zs, Cons w ws, Zero => rfl
+  | Cons x xs, Cons y ys, Cons z zs, Cons w ws, Succ k => List.getZipWith4 f xs ys zs ws k
+
+theorem List.getZipWith3Example: List.get (List.zipWith3 [1, 2] [10, 20, 30] [100, 200] (x y z => x + y + z)) 1 = Some 222 := rfl
+
 -- `append`: the first list's element, else the second's, counting on from
 -- the end of the first.
 theorem List.getAppend: (xs: List a) → (ys: List a) → (k: Nat) →
@@ -2279,6 +2384,12 @@ theorem List.getTakePast: (xs: List a) → (n: Nat) → (k: Nat) → n ≤ k →
   | Nil, Succ n, k, h => rfl
   | Cons x xs, Succ n, Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Cons x xs, Succ n, Succ k, h => List.getTakePast xs n k h
+
+-- Index j after dropping k is index k + j before.
+theorem List.getDrop: (xs: List a) → (k: Nat) → (j: Nat) → List.get (List.drop xs k) j = List.get xs (k + j)
+  | xs, Zero, j => rfl
+  | Nil, Succ k, j => rfl
+  | Cons x xs, Succ k, j => List.getDrop xs k j
 
 -- Entry k of the running accumulations is the fold of the first k
 -- elements (`List.getOrScanLeft`, std/List/Index.sw, with a fallback).

@@ -49,6 +49,129 @@ def Option.alignWith: Option a → Option b → (left: a → c) → (right: b �
   | None, Some y, left, right, both => Some (right y)
   | None, None, left, right, both => None
 
+-- `f` of the values when both are there, else `None`.
+@[noReceiver]
+def Option.map2 (f: a → b → c): Option a → Option b → Option c
+  | Some x, Some y => Some (f x y)
+  | _, _ => None
+
+-- `f` of the values when all three are there, else `None`.
+@[noReceiver]
+def Option.map3 (f: a → b → c → d): Option a → Option b → Option c → Option d
+  | Some x, Some y, Some z => Some (f x y z)
+  | _, _, _ => None
+
+-- `f` of the values when all four are there, else `None`.
+@[noReceiver]
+def Option.map4 (f: a → b → c → d → e): Option a → Option b → Option c → Option d → Option e
+  | Some x, Some y, Some z, Some w => Some (f x y z w)
+  | _, _, _, _ => None
+
+theorem Option.map2None (f: a → b → c): (x: Option a) → Option.map2 f x None = None
+  | None => rfl
+  | Some x => rfl
+
+theorem Option.map3None2 (f: a → b → c → d) (z: Option c): (x: Option a) → Option.map3 f x None z = None
+  | None => rfl
+  | Some x => rfl
+
+theorem Option.map3None3 (f: a → b → c → d): (x: Option a) → (y: Option b) → Option.map3 f x y None = None
+  | None, y => rfl
+  | Some x, None => rfl
+  | Some x, Some y => rfl
+
+theorem Option.map4None2 (f: a → b → c → d → e) (z: Option c) (w: Option d): (x: Option a) → Option.map4 f x None z w = None
+  | None => rfl
+  | Some x => rfl
+
+theorem Option.map4None3 (f: a → b → c → d → e) (w: Option d): (x: Option a) → (y: Option b) → Option.map4 f x y None w = None
+  | None, y => rfl
+  | Some x, None => rfl
+  | Some x, Some y => rfl
+
+theorem Option.map4None4 (f: a → b → c → d → e): (x: Option a) → (y: Option b) → (z: Option c) → Option.map4 f x y z None = None
+  | None, y, z => rfl
+  | Some x, None, z => rfl
+  | Some x, Some y, None => rfl
+  | Some x, Some y, Some z => rfl
+
+-- `map2` is a `flatMap` then a `map`.
+theorem Option.map2FlatMap (f: a → b → c) (y: Option b): (x: Option a) → Option.map2 f x y = Option.flatMap x (u => Option.map y (f u))
+  | None => rfl
+  | Some x =>
+    match y with
+      | None => rfl
+      | Some v => rfl
+
+-- A `map` after `map2`, `map3` or `map4` is one of the composite.
+theorem Option.mapMap2 (f: a → b → c) (g: c → r): (x: Option a) → (y: Option b) →
+    Option.map (Option.map2 f x y) g = Option.map2 (u v => g (f u v)) x y
+  | None, y => rfl
+  | Some x, None => rfl
+  | Some x, Some y => rfl
+
+theorem Option.mapMap3 (f: a → b → c → d) (g: d → r): (x: Option a) → (y: Option b) → (z: Option c) →
+    Option.map (Option.map3 f x y z) g = Option.map3 (u v w => g (f u v w)) x y z
+  | None, y, z => rfl
+  | Some x, None, z => rfl
+  | Some x, Some y, None => rfl
+  | Some x, Some y, Some z => rfl
+
+theorem Option.mapMap4 (f: a → b → c → d → e) (g: e → r): (x: Option a) → (y: Option b) → (z: Option c) → (w: Option d) →
+    Option.map (Option.map4 f x y z w) g = Option.map4 (u v s t => g (f u v s t)) x y z w
+  | None, y, z, w => rfl
+  | Some x, None, z, w => rfl
+  | Some x, Some y, None, w => rfl
+  | Some x, Some y, Some z, None => rfl
+  | Some x, Some y, Some z, Some w => rfl
+
+-- With defaults for missing values, `map2` is `f` of the values or defaults,
+-- when a default in either place makes `f` give the default result.
+theorem Option.getOrElseMap2 (f: a → b → r) (da: a) (db: b) (d: r)
+    (missing1: (y: b) → f da y = d)
+    (missing2: (x: a) → f x db = d):
+    (x: Option a) → (y: Option b) → Option.getOrElse (Option.map2 f x y) d = f (Option.getOrElse x da) (Option.getOrElse y db)
+  | None, y => Eq.sym (missing1 _)
+  | Some x, None => Eq.sym (missing2 _)
+  | Some x, Some y => rfl
+
+-- The same for three.
+theorem Option.getOrElseMap3 (f: a → b → c → r) (da: a) (db: b) (dc: c) (d: r)
+    (missing1: (y: b) → (z: c) → f da y z = d)
+    (missing2: (x: a) → (z: c) → f x db z = d)
+    (missing3: (x: a) → (y: b) → f x y dc = d):
+    (x: Option a) → (y: Option b) → (z: Option c) →
+    Option.getOrElse (Option.map3 f x y z) d = f (Option.getOrElse x da) (Option.getOrElse y db) (Option.getOrElse z dc)
+  | None, y, z => Eq.sym (missing1 _ _)
+  | Some x, None, z => Eq.sym (missing2 _ _)
+  | Some x, Some y, None => Eq.sym (missing3 _ _)
+  | Some x, Some y, Some z => rfl
+
+-- The same for four.
+theorem Option.getOrElseMap4 (f: a → b → c → e → r) (da: a) (db: b) (dc: c) (de: e) (d: r)
+    (missing1: (y: b) → (z: c) → (w: e) → f da y z w = d)
+    (missing2: (x: a) → (z: c) → (w: e) → f x db z w = d)
+    (missing3: (x: a) → (y: b) → (w: e) → f x y dc w = d)
+    (missing4: (x: a) → (y: b) → (z: c) → f x y z de = d):
+    (x: Option a) → (y: Option b) → (z: Option c) → (w: Option e) →
+    Option.getOrElse (Option.map4 f x y z w) d = f (Option.getOrElse x da) (Option.getOrElse y db) (Option.getOrElse z dc) (Option.getOrElse w de)
+  | None, y, z, w => Eq.sym (missing1 _ _ _)
+  | Some x, None, z, w => Eq.sym (missing2 _ _ _)
+  | Some x, Some y, None, w => Eq.sym (missing3 _ _ _)
+  | Some x, Some y, Some z, None => Eq.sym (missing4 _ _ _)
+  | Some x, Some y, Some z, Some w => rfl
+
+-- `Option.decEq` on two `Some`s gives the values' answer, wrapped by
+-- `Option.decSome`, so `==` on them is `==` on the values.
+theorem Option.decSomeToBool (x: a) (y: a): (d: Decidable (x = y)) → Decidable.toBool (Option.decSome x y d) = Decidable.toBool d
+  | Yes p => rfl
+  | No r => rfl
+
+theorem Option.someBeqSome [auto eq: DecEq a] (x: a) (y: a): (Some x == Some y) = (x == y) :=
+  Option.decSomeToBool x y (DecEq.decide x y)
+
+theorem Option.someBeqSomeExample (x: Char): (Some x == Some 'A') = (x == 'A') := Option.someBeqSome x 'A'
+
 -- Takes the option apart: `none` for `None`, else `some` of the value.
 -- `x.fold 0 (v => v + 1)` is `0` for `None` and `v + 1` for `Some v`.
 def Option.fold: Option a → (none: b) → (some: a → b) → b
@@ -151,6 +274,13 @@ theorem Option.alignWithHoldsExample (x: Option Nat) (y: Option Nat) (v: Nat)
 -- `MkPair` is injective: equal pairs have equal parts.
 theorem Pair.mkInjectiveFst (x1: a) (y1: b) (x2: a) (y2: b) (h: MkPair x1 y1 = MkPair x2 y2): x1 = x2 := Eq.cong Pair.fst h
 theorem Pair.mkInjectiveSnd (x1: a) (y1: b) (x2: a) (y2: b) (h: MkPair x1 y1 = MkPair x2 y2): y1 = y2 := Eq.cong Pair.snd h
+
+-- `==` on two pairs is `==` on both parts.
+theorem Pair.mkBeqMk [auto eqA: DecEq a] [auto eqB: DecEq b] (x1: a) (y1: b) (x2: a) (y2: b): ((x1, y1) == (x2, y2)) = (x1 == x2 ∧ y1 == y2) :=
+  match DecEq.decide x1 x2, DecEq.decide y1 y2 with
+    | Yes p, Yes q => rfl
+    | Yes p, No r => rfl
+    | No r, dq => rfl
 
 test "Option.isSome" := (Some 1).isSome == True ∧ (None: Option Nat).isSome == False
 test "Option.isNone" := (Some 1).isNone == False ∧ (None: Option Nat).isNone == True

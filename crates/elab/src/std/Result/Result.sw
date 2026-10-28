@@ -79,7 +79,8 @@ theorem Result.toOptionToResult (err: e): (o: Option a) → Result.toOption (Opt
   | None => rfl
   | Some x => rfl
 
-test "Result.map" := Result.map (Ok 2: Result Nat Text) (+ 1) == Ok 3
+test "Result of ()" := (Ok (): Result () Text) == Ok () ∧ (Err "no": Result () Text) != Ok ()
+test "Result.map" :=Result.map (Ok 2: Result Nat Text) (+ 1) == Ok 3
 test "Result.map, an error" := Result.map (Err "no": Result Nat Text) (+ 1) == Err "no"
 test "Result.mapError" := Result.mapError (Err "no": Result Nat Text) (m => Text.append m "!") == Err "no!"
 test "Result.flatMap" := Result.flatMap (Ok 0: Result Nat Text) (n => if n > 0 then Ok n else Err "zero") == Err "zero"

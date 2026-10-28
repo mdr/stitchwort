@@ -7,29 +7,16 @@ import Aoc.Year2024.Day03 (..)
 import Aoc.Year2024.Day03.Spec (..)
 import Std (Bool, Eq, List, Nat, Void)
 
--- The first k + 1 elements are the first k, then the element at k.
-theorem takeSucc (fallback: a): (items: List a) → (k: Nat) → k < items.length →
-    items.take (Succ k) = List.append (items.take k) [items.getOr k fallback]
-  | Nil, k, inRange => Void.exfalso (Bool.falseNotTrue inRange)
-  | Cons item rest, Zero, inRange => rfl
-  | Cons item rest, Succ k, inRange => Eq.cong (Cons item) (takeSucc fallback rest k inRange)
-
--- The last element of a list with `item` added at the end is `item`.
-theorem lastSnoc (item: a): (items: List a) → List.last (List.append items [item]) = Some item
-  | Nil => rfl
-  | Cons first Nil => rfl
-  | Cons first (Cons second rest) => lastSnoc item (Cons second rest)
-
 -- A `mul` leaves `mul` enabled or disabled, as it was.
 theorem enabledAfterMul (earlier: List Instruction) (left: Nat) (right: Nat):
     enabledAfter (List.append earlier [Mul left right]) = enabledAfter earlier :=
   rewrite List.filterMapAppend earlier [Mul left right] setting, List.appendNil (List.filterMap earlier setting) in rfl
 
 theorem enabledAfterDo (earlier: List Instruction): enabledAfter (List.append earlier [Do]) = True :=
-  rewrite List.filterMapAppend earlier [Do] setting, lastSnoc True (List.filterMap earlier setting) in rfl
+  rewrite List.filterMapAppend earlier [Do] setting, List.lastSnoc True (List.filterMap earlier setting) in rfl
 
 theorem enabledAfterDont (earlier: List Instruction): enabledAfter (List.append earlier [Dont]) = False :=
-  rewrite List.filterMapAppend earlier [Dont] setting, lastSnoc False (List.filterMap earlier setting) in rfl
+  rewrite List.filterMapAppend earlier [Dont] setting, List.lastSnoc False (List.filterMap earlier setting) in rfl
 
 -- One step of the fold, from a tally that agrees with the spec on the
 -- instructions before.
@@ -67,7 +54,7 @@ theorem tallyAfter (instructions: List Instruction): (k: Nat) → k ≤ instruct
     rewrite List.foldLeftTakeSucc step Do instructions ({ enabled = True, total = 0 }: Tally) k inRange,
       before,
       stepAgrees (instructions.take k) (List.range k |> .sumBy (enabledResult instructions)) (instructions.getOr k Do),
-      takeSucc Do instructions k inRange,
+      List.takeSucc Do instructions k inRange,
       List.sumRangeLast (enabledResult instructions) k in
       rfl
 
