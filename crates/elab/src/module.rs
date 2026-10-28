@@ -2389,6 +2389,7 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
         }
         Decl::Data {
             params,
+            indices,
             sort,
             ctors,
             ..
@@ -2403,6 +2404,16 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                 }
             }
             add(free_names(header), true);
+            // The index telescope (`type T: Q -> Type`) is a header too. A
+            // named index is bound in the later ones.
+            let mut index_work = bind_params.clone();
+            for (name, ty) in indices {
+                index_work.push(Work::Expr(ty));
+                if let Some(n) = name {
+                    index_work.push(Work::Bind(&n.text));
+                }
+            }
+            add(free_names(index_work), true);
             if let Some(sort) = sort {
                 add(free_names(vec![Work::Expr(sort)]), true);
             }
@@ -2417,6 +2428,8 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                     }
                     work.extend(binder.names.iter().map(|n| Work::Bind(&n.text)));
                 }
+                // The result type (`: Box a (Succ n)`) sees the fields.
+                work.extend(ctor.result.iter().map(Work::Expr));
                 add(free_names(work), false);
             }
         }

@@ -1,0 +1,18 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-MUTUAL-KIND] Error: `Q` and `T` refer to each other, but data types and definitions can't be defined together
+   ╭─[ reject/mutual-index-type.sw:4:5 ]
+   │
+ 4 │ def Q: Type := List T
+   │     ┬  
+   │     ╰── `Q` is defined here
+ 5 │ type T: Q → Type =
+   │      ┬  
+   │      ╰── `T` is defined here
+   │ 
+   │ Note 1: `Q` uses `T`, which uses `Q`
+   │ 
+   │ Note 2: a data type's constructors can't use a definition that's being defined with it, and a definition can't use a data type before its constructors are finished
+───╯
