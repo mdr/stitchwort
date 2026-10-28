@@ -461,6 +461,67 @@ theorem Map.aboveToList [auto ord: Ord k] (m: Map k v) (key: k):
     Map.above m key = List.find (Map.toList m) (e => Map.Spec.isLess key e.fst) :=
   Map.indRaw [p := m' => Map.above m' key = List.find (Map.toList m') (e => Map.Spec.isLess key e.fst)] (r => Map.Raw.aboveToList r key) m
 
+theorem Map.belowLastBelow [auto ord: Ord k] (m: Map k v) (key: k): Map.below m key = Map.Spec.lastBelow key None (Map.toList m) :=
+  Eq.trans (Map.belowToList m key)
+    (Eq.sym
+      (Eq.trans (Map.Spec.lastBelowFilter key None (Map.toList m))
+        (Map.Spec.lastOrNone (List.filter (Map.toList m) (e => Map.Spec.isLess e.fst key)))))
+
+-- What `below` finds: an entry with a key below `key`, and no key of the
+-- map between the two.
+theorem Map.belowSome [auto ord: Ord k] (m: Map k v) (key: k) (found: k) (value: v) (h: Map.below m key = Some (found, value)):
+    And (Map.get m found = Some value) (And (found < key) ((other: k) → found < other → other < key → Map.contains m other = False)) :=
+  let lastBelow: Map.Spec.lastBelow key None (Map.toList m) = Some (found, value) := Eq.trans (Eq.sym (Map.belowLastBelow m key)) h
+  match Map.Spec.lastBelowFrom key None (Map.toList m) (found, value) lastBelow with
+    | Inl none => Void.exfalso (Option.noneNotSome (found, value) none)
+    | Inr (Both inList less) =>
+      Both ((Map.memToList m found value).forward inList)
+        (Both (ord.lessThanOf found key less)
+          (other between beforeKey =>
+            match has: Map.contains m other with
+              | False => rfl
+              | True =>
+                Void.exfalso
+                  (Map.Spec.lastBelowGreatest key None None (Map.toList m) (Map.toListSorted m) (found, value) lastBelow other
+                    (Map.memKeysOfContains m other has) (ord.lessThanTo other key beforeKey) (ord.lessThanTo found other between))))
+
+-- When `below` finds nothing, no key of the map is below `key`.
+theorem Map.belowNone [auto ord: Ord k] (m: Map k v) (key: k) (h: Map.below m key = None) (other: k) (less: other < key):
+    Map.contains m other = False :=
+  match has: Map.contains m other with
+    | False => rfl
+    | True =>
+      Void.exfalso
+        (Map.Spec.lastBelowNone key None (Map.toList m) (Eq.trans (Eq.sym (Map.belowLastBelow m key)) h) other
+          (Map.memKeysOfContains m other has) (ord.lessThanTo other key less))
+
+-- What `above` finds: an entry with a key above `key`, and no key of the
+-- map between the two.
+theorem Map.aboveSome [auto ord: Ord k] (m: Map k v) (key: k) (found: k) (value: v) (h: Map.above m key = Some (found, value)):
+    And (Map.get m found = Some value) (And (key < found) ((other: k) → key < other → other < found → Map.contains m other = False)) :=
+  let first: List.find (Map.toList m) (e => Map.Spec.isLess key e.fst) = Some (found, value) := Eq.trans (Eq.sym (Map.aboveToList m key)) h
+  match List.findSome (Map.toList m) (e => Map.Spec.isLess key e.fst) (found, value) first with
+    | Both passes inList =>
+      Both ((Map.memToList m found value).forward inList)
+        (Both (ord.lessThanOf key found (Map.Spec.isLessSound key found passes))
+          (other afterKey beforeFound =>
+            match has: Map.contains m other with
+              | False => rfl
+              | True =>
+                Void.exfalso
+                  (Map.Spec.findAboveLeast key None (Map.toList m) (Map.toListSorted m) (found, value) first other
+                    (Map.memKeysOfContains m other has) (ord.lessThanTo key other afterKey) (ord.lessThanTo other found beforeFound))))
+
+-- When `above` finds nothing, no key of the map is above `key`.
+theorem Map.aboveNone [auto ord: Ord k] (m: Map k v) (key: k) (h: Map.above m key = None) (other: k) (more: key < other):
+    Map.contains m other = False :=
+  match got: Map.get m other with
+    | None => rfl
+    | Some value =>
+      Void.exfalso
+        (List.findNoneNotMem (Map.toList m) (e => Map.Spec.isLess key e.fst) (other, value) (Map.Spec.isLessOf key other (ord.lessThanTo key other more))
+          ((Map.memToList m other value).backward got) (Eq.trans (Eq.sym (Map.aboveToList m key)) h))
+
 -- What `get` says about each operation
 
 theorem Map.getEmpty [auto ord: Ord k] (key: k): Map.get (Map.empty: Map k v) key = None := rfl

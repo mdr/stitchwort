@@ -1313,7 +1313,8 @@ means she never leaves (`Loops`, the spec's "stuck in a loop": there's no
 step count at which she has left). The proof is the pigeonhole principle
 over the first `stateCount + 1` states (numbered
 `(row * width + column) * 4 + facing`, which is injective on the map), then
-"a repeated state repeats forever", by induction on a bound (`repeatFrom`).
+"a repeated state repeats forever" (std's `Nat.pigeonhole` and
+`Nat.iterateRepeatNeverNone`, since `walk` is the step iterated).
 The answers are `Option`s, `None` exactly when she loops (`part1Loops`,
 `part2Loops`); `main` fails then.
 
@@ -1368,24 +1369,27 @@ already obstructed, where `trapped` holds, for any `trapped` that decides
 - `loopsWithCorrect`: the jumping loop test decides `Loops`, for sightlines
   that `Simulates` the walk (each next turn is her state some steps on, and
   no next turn means she leaves).
+- `programSimulates` (`Proofs/Sightlines.sw`): the program's sightlines with
+  any new obstruction on the map simulate the walk, when the lab's
+  obstructions are on the map. Each row's and column's set holds exactly the
+  obstructions on that line (`ofRepresents`, through the `Sightlines.of`
+  fold), `Set.below`/`Set.above` find the nearest one ahead, and the walk
+  there, one direction at a time, ends where `nextTurn` jumps to.
 - `offRouteFree`: a new obstruction off the route of a guard who leaves
   never traps her, so part 2 needs only the route's positions.
 - `routeSettled`: the route's positions are on the map and free, except the
   start.
-- `part2Correct`: part 2 is the size of `trapPositions`, given `Simulates`
-  for the sightlines with each new obstruction. `part2Loops`: `None` when
-  she loops.
+- `part2Correct`: part 2 is the size of `trapPositions`, for a lab whose
+  obstructions are on the map. `part2Loops`: `None` when she loops.
 
-About 650 lines of proof, with no axioms.
+About 950 lines of proof, using no axiom but std's `Quot.sound`.
 
-Not proved: `Simulates` for the program's sightlines, that is, that
-`Set.below`/`Set.above` on `(Sightlines.of …).add p` find the nearest
-obstruction ahead, and that walking there step by step ends in the same
-state. It needs spec lemmas for `Set.below`/`Set.above` that std doesn't have
-(item 1), plus a lemma for the `Sightlines.of` fold. `part2Correct` takes it
-as a hypothesis. A test runs the jumping test against the step-by-step walk
-for every obstruction position in the example. The parser (a rectangular
-map, exactly one `^`, so the start is on the map) is tested, not proved.
+`part2Correct` needs the obstructions on the map: one off it to the right
+or below would give the jump a turn the walk never makes, since she leaves
+first. The parser guarantees it, and the parser (a rectangular map, exactly
+one `^`, so the start is on the map) is tested, not proved. A test also runs
+the jumping test against the step-by-step walk for every obstruction position
+in the example.
 
 ### 1. No spec for `Set.below` / `Set.above`
 
@@ -1404,6 +1408,14 @@ sortedness of `toList`, `last` of a filter and `Map.Spec.Ascending`, all in
 `Ord.compare` terms. That is what left `Simulates` unproved. Fix: these four
 lemmas in `Set/Spec.sw`.
 
+Fixed: std has `Set.belowSome`, `Set.belowNone`, `Set.aboveSome` and
+`Set.aboveNone` as above (`Set/Spec.sw`), from `Map.belowSome`,
+`Map.belowNone`, `Map.aboveSome` and `Map.aboveNone` (`Map/Map.sw`, the entry
+found and its value), which rest on list lemmas over sorted entries
+(`Map.Spec.lastBelowGreatest`, `Map.Spec.findAboveLeast` and others in
+`Map/Spec.sw`). Day 6 uses them to prove `Simulates` (`programSimulates`),
+so `part2Correct` no longer takes it as a hypothesis.
+
 ### 2. No pigeonhole principle, and no finite-type enumeration
 
 The budget theorem needed "`n + 1` values below `n` repeat" (`pigeonhole`,
@@ -1421,6 +1433,18 @@ interface derived for enums and records of finite fields.
 Also missing: "an iteration that revisits a state never ends"
 (`repeatFrom`, `repeatLoops`). A std `Nat.iterate` lemma would serve any
 cycle-finding day.
+
+Fixed: std has `Nat.pigeonhole` (`Nat/Pigeonhole.sw`; `n + 1` values below
+`n` at `0, …, n` have a repeat, stated as day 6 had it, proved with
+`List.any` over `List.range` instead of a search function), and
+`Nat/IterateRepeat.sw`: `Nat.iterateAdd`, `Nat.iterateFixedLater` (a fixed
+point, once reached, stays), `Nat.iterateRepeats` (after a value repeats at
+`first < second`, every value is one of the first `second`) and
+`Nat.iterateRepeatNeverNone` (a partial step, `Option.flatMap step`
+iterated, that repeats a state still there at the repeat never reaches
+`None`). Day 6's `pigeonhole`, `lastHit` and `repeatFrom` are gone, and
+`repeatLoops` and `walkLater` are applications of these. The `Finite`
+interface is still to do.
 
 ### 3. `ran out of resources: a value was too large to show`
 
