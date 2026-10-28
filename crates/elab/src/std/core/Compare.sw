@@ -115,6 +115,12 @@ theorem Nat.compareOfLe: (m: Nat) → (n: Nat) → m ≤ n → Not (Nat.compare 
   | Succ m, Zero, h, e => Bool.falseNotTrue h
   | Succ m, Succ n, h, e => Nat.compareOfLe m n h e
 
+-- A number at least `Succ k` isn't 0: how `auto` proves `d ≠ 0` from a fact
+-- `0 < d` in scope.
+theorem Nat.nonzeroOfSuccLe: (k: Nat) → (d: Nat) → Succ k ≤ d → Not (d = 0)
+  | k, Zero, h, e => Bool.falseNotTrue h
+  | k, Succ d, h, e => Nat.succNotZero d e
+
 theorem Int.compareEqual: (a: Int) → (b: Int) → Int.compare a b = Equal → a = b
   | OfNat m, OfNat n, h => Eq.cong OfNat (Nat.compareEqual m n h)
   | OfNat m, NegSucc n, h => Void.exfalso (Ordering.greaterNotEqual h)

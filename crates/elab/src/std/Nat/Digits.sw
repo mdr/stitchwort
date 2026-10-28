@@ -186,6 +186,14 @@ theorem Nat.digitsAccNonEmpty (n: Nat) (acc: List Nat): 1 ≤ List.length (Nat.d
 
 theorem Nat.digitsNonEmpty (n: Nat): 1 ≤ List.length (Nat.digits n) := Nat.digitsAccNonEmpty n Nil
 
+-- How many decimal digits `n` has: 1 from 0 to 9, 2 from 10 to 99, and so on.
+def Nat.digitCount (n: Nat): Nat := List.length (Nat.digits n)
+
+-- Every number has at least one digit.
+theorem Nat.digitCountPos (n: Nat): 0 < Nat.digitCount n := Nat.digitsNonEmpty n
+
+theorem Nat.digitCountExample: Nat.digitCount 1205 = 4 := rfl
+
 theorem Nat.digitsSnoc (a: Nat) (d: Nat) (ha: 1 ≤ a) (hd: d < 10): Nat.digits (a * 10 + d) = List.append (Nat.digits a) (Cons d Nil) :=
   Eq.trans (Nat.digitsAccBig (a * 10 + d) Nil
       (Nat.leqFalseOfLess 9 (a * 10 + d) (Nat.leTrans 10 (a * 10) (a * 10 + d) (Nat.leMulRight 1 a 10 ha) (Nat.leAddRight (a * 10) d))))

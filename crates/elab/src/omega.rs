@@ -143,15 +143,39 @@ pub(crate) fn check_omega(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
 /// `None` if it isn't, if `omega` can't prove it, or if its library isn't
 /// loaded.
 pub(crate) fn prove_premise(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Option<Term>> {
+    prove_premise_within(cx, goal, span, search::LIMITS)
+}
+
+/// The search limits of `omega` for an `auto` argument: smaller than those
+/// of `omega` written out, since `auto` tries it on every goal it can't
+/// decide otherwise.
+const AUTO_LIMITS: search::Limits = search::Limits {
+    rows: 2_000,
+    depth: 2,
+};
+
+/// `omega` for an `auto` argument nothing else proves (`auto.rs`): as
+/// [`prove_premise`], within [`AUTO_LIMITS`].
+pub(crate) fn prove_for_auto(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Option<Term>> {
+    prove_premise_within(cx, goal, span, AUTO_LIMITS)
+}
+
+fn prove_premise_within(
+    cx: &mut Ctx,
+    goal: &Value,
+    span: Span,
+    limits: search::Limits,
+) -> Result<Option<Term>> {
     // One that computes to `a = a`, such as `2 <= 2`.
     if let Value::Eq(_, l, r) = force(cx.g(), goal.clone())?
         && conv(cx.g(), cx.level(), &l, &r)?
     {
         return Ok(Some(Term::Refl));
     }
-    let Ok(lib) = Lib::new(cx, span) else {
+    let Ok(mut lib) = Lib::new(cx, span) else {
         return Ok(None);
     };
+    lib.limits = limits;
     let arithmetic = match force(cx.g(), goal.clone())? {
         Value::Eq(ty, l, r) if is_data(cx, &ty, lib.bool)? => {
             (is_ctor(cx, &r, lib.tru)? || is_ctor(cx, &r, lib.fls)?)
@@ -285,6 +309,8 @@ struct Lib {
     mk_pair: (DataId, usize),
     of_nat: (DataId, usize),
     neg_succ: (DataId, usize),
+    /// How far the search may go.
+    limits: search::Limits,
 }
 
 impl Lib {
@@ -380,6 +406,7 @@ impl Lib {
             mk_pair: builtin_ctor(cx, Builtin::MkPair)?,
             of_nat: builtin_ctor(cx, Builtin::OfNat)?,
             neg_succ: builtin_ctor(cx, Builtin::NegSucc)?,
+            limits: search::LIMITS,
         })
     }
 
@@ -1596,7 +1623,7 @@ fn linear(
             rows: problem_rows,
             cases: cases.clone(),
         };
-        match search::refute(&problem, search::LIMITS) {
+        match search::refute(&problem, lib.limits) {
             Ok(cert) => {
                 if !search::replay(&problem, &cert) {
                     return Err(internal(

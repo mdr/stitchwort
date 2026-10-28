@@ -1011,6 +1011,26 @@ theorem List.mapReverseOnto: (xs: List a) → (acc: List a) → (f: a → b) →
 
 theorem List.mapReverse (xs: List a) (f: a → b): List.map (List.reverse xs) f = List.reverse (List.map xs f) := List.mapReverseOnto xs Nil f
 
+-- Reversing onto `acc`, then reversing that, is `acc` reversed onto the list.
+theorem List.reverseOntoTwice: (xs: List a) → (acc: List a) → List.reverseOnto (List.reverseOnto xs acc) Nil = List.reverseOnto acc xs
+  | Nil, acc => rfl
+  | Cons x xs, acc => List.reverseOntoTwice xs (Cons x acc)
+
+-- Reversing twice gives the list back.
+theorem List.reverseReverse (xs: List a): List.reverse (List.reverse xs) = xs := List.reverseOntoTwice xs Nil
+
+-- Reversing onto `acc` is reversing, then appending `acc`.
+theorem List.reverseOntoAppend: (xs: List a) → (acc: List a) → List.reverseOnto xs acc = List.append (List.reverseOnto xs Nil) acc
+  | Nil, acc => rfl
+  | Cons x xs, acc =>
+    rewrite List.reverseOntoAppend xs (Cons x acc), List.reverseOntoAppend xs [x]
+      in Eq.sym (List.appendAssoc (List.reverseOnto xs Nil) [x] acc)
+
+-- Reversing a list puts its first element last.
+theorem List.reverseCons (x: a) (xs: List a): List.reverse (Cons x xs) = List.append (List.reverse xs) [x] := List.reverseOntoAppend xs [x]
+
+theorem List.reverseReverseExample: List.reverse (List.reverse [1, 2, 3]) = [1, 2, 3] := List.reverseReverse [1, 2, 3]
+
 -- Congruence lemmas: given callbacks that agree on every argument, a function
 -- gives the same result. Their shape is fixed, since `decreasing` looks them up
 -- by name (`F` + `Cong`) to follow a recursive call inside a callback
@@ -1865,6 +1885,29 @@ test "List.foldLeftZipLeft" := List.foldLeft (List.zip [1, 2, 3] ["a", "b", "c",
 theorem List.anyMap: (xs: List a) → (p: b → Bool) → (f: a → b) → List.any (List.map xs f) p = List.any xs (x => p (f x))
   | Nil, p, f => rfl
   | Cons x xs, p, f => rewrite List.anyMap xs p f
+
+-- Some element of a `flatMap` passes exactly when some list it is made of
+-- has one.
+theorem List.anyFlatMap (f: a → List b) (p: b → Bool): (xs: List a) → List.any (List.flatMap xs f) p = List.any xs (x => List.any (f x) p)
+  | Nil => rfl
+  | Cons x xs =>
+    Eq.trans (List.anyAppend (f x) (List.flatMap xs f) p) (Eq.cong (later => List.any (f x) p ∨ later) (List.anyFlatMap f p xs))
+
+-- `List.any` of an `∨` is the `∨` of the `List.any`s.
+theorem List.anyOr (p: a → Bool) (q: a → Bool): (xs: List a) → List.any xs (x => p x ∨ q x) = (List.any xs p ∨ List.any xs q)
+  | Nil => rfl
+  | Cons x xs => rewrite List.anyOr p q xs in cases
+
+-- Two `List.any`s, in either order.
+theorem List.anyComm (related: a → b → Bool) (ys: List b): (xs: List a) →
+    List.any xs (x => List.any ys (y => related x y)) = List.any ys (y => List.any xs (x => related x y))
+  | Nil => Eq.sym (List.anyFalse ys (y => False) (y => rfl))
+  | Cons x xs =>
+    rewrite List.anyComm related ys xs in
+      Eq.sym (List.anyOr (y => related x y) (y => List.any xs (other => related other y)) ys)
+
+theorem List.anyFlatMapExample: List.any (List.flatMap [1, 2] (x => [x, x * 10])) (== 20) = List.any [1, 2] (x => List.any [x, x * 10] (== 20)) :=
+  List.anyFlatMap (x => [x, x * 10]) (== 20) [1, 2]
 
 theorem List.countMap (xs: List a) (p: b → Bool) (f: a → b): List.count (List.map xs f) p = List.count xs (x => p (f x)) :=
   List.foldLeftMap xs 0 (n x => Nat.succIf n (p x)) f

@@ -534,6 +534,12 @@ theorem Nat.powSuccPos (b: Nat): (e: Nat) → 0 < Nat.pow (Succ b) e
   | Zero => rfl
   | Succ e => Nat.leTrans 1 (Nat.pow (Succ b) e) (Nat.pow (Succ b) e * Succ b) (Nat.powSuccPos b e) (Nat.leMulPos (Nat.pow (Succ b) e) (Succ b) rfl)
 
+-- A power of a positive base is never 0: this decides it, so `auto` proves
+-- `Nat.pow 10 k ≠ 0` (`x % Nat.pow 10 k`), and the same of a definition that
+-- unfolds to such a power.
+instance Nat.decPowSuccNotZero (b: Nat) (e: Nat): Decidable (Not (Nat.pow (Succ b) e = 0)) :=
+  Yes (Nat.nonzeroOfPos (Nat.pow (Succ b) e) (Nat.powSuccPos b e))
+
 theorem Nat.powMono (b: Nat) (e: Nat) (f: Nat) (h: e ≤ f): Nat.pow (Succ b) e ≤ Nat.pow (Succ b) f :=
   Nat.leCongRight (Nat.pow (Succ b) e) (Nat.pow (Succ b) e * Nat.pow (Succ b) (f - e)) (Nat.pow (Succ b) f)
     (Eq.trans (Eq.sym (Nat.powAdd (Succ b) e (f - e))) (Eq.cong (t => Nat.pow (Succ b) t) (Nat.addSubCancel e f h)))

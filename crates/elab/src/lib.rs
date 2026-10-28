@@ -572,6 +572,9 @@ pub struct Elaborator {
     /// The namespace's files were already walked for navigation by a
     /// replay that failed part way (`cache`): don't walk them again.
     skip_navigation_walk: bool,
+    /// Whether the module being elaborated loads `omega`'s library, so
+    /// `auto` may prove what it can't decide by `omega` (`auto.rs`).
+    omega_for_auto: bool,
     /// The names such a replay declared (as failures) before it failed:
     /// the namespace's first pass claims them again rather than finding
     /// them taken (`cache`, `new_module_name`).

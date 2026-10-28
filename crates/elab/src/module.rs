@@ -351,6 +351,8 @@ impl Elaborator {
             self.module.first_test = first_test;
         }
         self.capture_after_needs();
+        // After the loads: each library file loaded sets its own.
+        self.omega_for_auto = self.needs_reach_omega(&needs);
         // The core and the library are written in an order that works,
         // instances after what the rest of them uses: their uses of syntax
         // (`if`, `<=`) refer to declarations no name does.

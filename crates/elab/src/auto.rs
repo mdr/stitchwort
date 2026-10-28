@@ -27,6 +27,11 @@
 //! b2`, each proved this same way (docs/proposals/well-founded-recursion.md,
 //! stage 3d).
 //!
+//! A goal that computing doesn't decide is then proved from the facts in
+//! scope where that's quick: `d ≠ 0` from a fact `Succ k ≤ d`, and, in a
+//! module that loads `omega`'s library, an arithmetic goal by `omega` within
+//! a small budget (`from_facts`).
+//!
 //! An obligation whose type is an interface applied to a type is an instance
 //! to find instead (`interfaces.rs`, docs/proposals/interfaces.md §5.5).
 //! One may have to wait, until solving others has said more about its type
@@ -38,9 +43,9 @@ use stitchwort_core::value::{Head, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Term, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
-use crate::Elaborator;
 use crate::check::{Ctx, builtin_ctor, builtin_data, builtin_def};
 use crate::interfaces::{self, Attempt};
+use crate::{Elaborator, Global};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -280,7 +285,11 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
                 "this needs a proof that can't exist",
             ))
         }
-        _ => Err(cx.with_opaque_notes(
+        _ => {
+            if let Some(proof) = from_facts(cx, &goal)? {
+                return Ok(proof);
+            }
+            Err(cx.with_opaque_notes(
             cx.error(
                 "E-AUTO-STUCK",
                 format!("can't decide `{shown}` here"),
@@ -291,8 +300,63 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             )
             .with_note("establish it first, with `if h: … then … else …`"),
             &[&goal],
-        )),
+        ))
+        }
     }
+}
+
+/// The lemma that `d ≠ 0` from `Succ k ≤ d`.
+const NONZERO_OF_SUCC_LE: &str = "Std.Nat.nonzeroOfSuccLe";
+
+/// A proof of a goal that computing doesn't decide, from the facts in scope:
+/// `d ≠ 0` from a fact `Succ k ≤ d` (`0 < d`, `1 ≤ d`, `2 ≤ d`, …), or, in a
+/// module that loads `omega`'s library, an arithmetic goal `omega` proves
+/// from them within a small budget.
+fn from_facts(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
+    if let Some(proof) = attempt(cx, |cx| nonzero_from_positive(cx, goal))? {
+        return Ok(Some(proof));
+    }
+    if cx.e.omega_for_auto {
+        return crate::omega::prove_for_auto(cx, goal, cx.span);
+    }
+    Ok(None)
+}
+
+/// `Nat.nonzeroOfSuccLe k d h` for the goal `d ≠ 0`, with `h` the latest
+/// hypothesis in scope whose type is `Succ k ≤ d` for some `k`.
+fn nonzero_from_positive(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
+    let Some((Global::Def(lemma), _)) = cx.e.named(NONZERO_OF_SUCC_LE) else {
+        return Ok(None);
+    };
+    let lemma = *lemma;
+    let g = cx.g();
+    let below = cx.fresh_meta();
+    let divisor = cx.fresh_meta();
+    let mut ty = g.def(lemma).ty_value.clone();
+    for arg in [&below, &divisor] {
+        let Value::Pi(_, _, _, cod) = force(g, ty)? else {
+            return Ok(None);
+        };
+        ty = cod.apply(g, cx.eval(arg)?)?;
+    }
+    let Value::Pi(_, _, fact, cod) = force(g, ty)? else {
+        return Ok(None);
+    };
+    let conclusion = cod.apply(g, Value::var(cx.level()))?;
+    if !cx.unify(&conclusion, goal)? {
+        return Ok(None);
+    }
+    for level in (0..cx.level()).rev() {
+        let ty = cx.types[level].clone();
+        if attempt(cx, |cx| Ok(cx.unify(&ty, &fact)?.then_some(())))?.is_some() {
+            let proof = Term::Var(cx.level() - 1 - level);
+            return Ok(Some(Term::app(
+                Term::app(Term::app(Term::Def(lemma), below), divisor),
+                proof,
+            )));
+        }
+    }
+    Ok(None)
 }
 
 /// The fewest items a list written out has for a false membership in it to

@@ -1446,6 +1446,15 @@ theorem List.sumBySub (xs: List a) (f: a → Nat) (g: a → Nat) (h: (x: a) → 
     List.sumBy xs f - List.sumBy xs g = List.sumBy xs (x => f x - g x) :=
   rewrite List.sumBySplit xs f g h in Nat.addSubLeft (List.sumBy xs g) (List.sumBy xs (x => f x - g x))
 
+-- A filter that keeps more keeps at least as large a sum.
+theorem List.sumByFilterMono (keep1: a → Bool) (keep2: a → Bool) (value: a → Nat) (xs: List a)
+    (included: (x: a) → keep1 x = True → keep2 x = True): List.sumBy (List.filter xs keep1) value ≤ List.sumBy (List.filter xs keep2) value :=
+  rewrite List.sumByFilter xs value keep1, List.sumByFilter xs value keep2 in
+    List.sumByLe xs (x => if keep2 x then value x else 0) (x => if keep1 x then value x else 0) (x =>
+      match kept: keep1 x with
+        | True => rewrite included x kept in Nat.leRefl (value x)
+        | False => Nat.zeroLe (if keep2 x then value x else 0))
+
 -- Counting with tests that agree on the list's elements (SW-198, day 8).
 theorem List.countCongMem (xs: List a) (p1: a → Bool) (p2: a → Bool) (ep: (x: a) → (m: List.Mem x xs) → p1 x = p2 x): List.count xs p1 = List.count xs p2 :=
   rewrite List.countOccurrences xs p1, List.countOccurrences xs p2 in List.occurrencesCongMem xs p1 p2 ep

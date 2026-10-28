@@ -359,7 +359,11 @@ impl LibraryIndex {
 
     /// The files `roots` need that aren't `loaded`, themselves included,
     /// following the edges.
-    fn closure(&self, roots: &BTreeSet<usize>, loaded: &dyn Fn(usize) -> bool) -> BTreeSet<usize> {
+    pub(crate) fn closure(
+        &self,
+        roots: &BTreeSet<usize>,
+        loaded: &dyn Fn(usize) -> bool,
+    ) -> BTreeSet<usize> {
         let mut set = BTreeSet::new();
         let mut stack: Vec<usize> = roots.iter().copied().filter(|f| !loaded(*f)).collect();
         while let Some(f) = stack.pop() {
@@ -915,6 +919,23 @@ impl Elaborator {
             return Ok(());
         }
         self.load_libraries(&roots)
+    }
+
+    /// Whether the files `needs` names, with the files those need, declare
+    /// everything the proofs `omega` writes use. It depends only on the
+    /// module's own needs, not on what happens to be loaded, so `auto`
+    /// proves the same things however the module is reached.
+    pub(crate) fn needs_reach_omega(&self, needs: &Needs) -> bool {
+        let Some(lib) = &self.library else {
+            return false;
+        };
+        let index = lib.index.clone();
+        let mut omega = Needs::default();
+        for name in crate::omega::LIBRARY_NAMES.iter() {
+            self.note_library_use(&index, &Ref::Name(name), &mut omega);
+        }
+        let reach = index.closure(&needs.files, &|_| false);
+        !omega.files.is_empty() && omega.files.is_subset(&reach)
     }
 
     /// Loads `needs` and what they need, in canonical order.

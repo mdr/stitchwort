@@ -9,23 +9,6 @@ import Aoc.Year2024.Day07 (..)
 import Aoc.Year2024.Day07.Spec (..)
 import Std (And, Bool, DecEq, Eq, List, Nat, Void)
 
--- Reversing onto `acc`, then back, is `acc` reversed onto the list.
-theorem reverseOntoTwice: (xs: List a) → (acc: List a) → List.reverseOnto (List.reverseOnto xs acc) Nil = List.reverseOnto acc xs
-  | Nil, acc => rfl
-  | Cons x rest, acc => reverseOntoTwice rest (Cons x acc)
-
-theorem reverseReverse (xs: List a): xs.reverse.reverse = xs := reverseOntoTwice xs Nil
-
--- Reversing onto `acc` is reversing, then appending `acc`.
-theorem reverseOntoAppend: (xs: List a) → (acc: List a) → List.reverseOnto xs acc = (List.reverseOnto xs Nil).append acc
-  | Nil, acc => rfl
-  | Cons x rest, acc =>
-    rewrite reverseOntoAppend rest (Cons x acc), reverseOntoAppend rest [x]
-      in Eq.sym (List.appendAssoc (List.reverseOnto rest Nil) [x] acc)
-
--- Reversing a list puts its first element last.
-theorem reverseCons (x: a) (xs: List a): (Cons x xs).reverse = xs.reverse.append [x] := reverseOntoAppend xs [x]
-
 -- `left || right` is `left`, shifted left by the digits of `right`, plus
 -- `right`.
 theorem concatenateArithmetic (left: Nat) (right: Nat): concatenate left right = left * placeValue right + right :=
@@ -36,7 +19,7 @@ theorem belowPlaceValue (right: Nat): right < placeValue right := Nat.ltPowTenDi
 
 -- Concatenating never makes a smaller number, on either side.
 theorem concatenateAtLeast (left: Nat) (right: Nat): And (left ≤ concatenate left right) (right ≤ concatenate left right) :=
-  let shifted := Nat.leMulPos left (placeValue right) (Nat.powSuccPos 9 (Nat.digits right).length)
+  let shifted := Nat.leMulPos left (placeValue right) (Nat.powSuccPos 9 (Nat.digitCount right))
   rewrite concatenateArithmetic left right in Both (omega) (omega)
 
 -- `v + last` is `target` when `last ≤ target` and `v` is `target - last`.
@@ -57,7 +40,7 @@ theorem canMakeReaches (operators: List Operator) (first: Nat): (reversed: List 
   | Nil, target => DecEq.eqComm target first
   | Cons last earlier, target =>
     let before := canMakeReaches operators first earlier
-    rewrite reverseCons last earlier, reachesAppend operators (== target) last earlier.reverse first,
+    rewrite List.reverseCons last earlier, reachesAppend operators (== target) last earlier.reverse first,
       reachesAny operators operators (operator value => combine operator value last == target) earlier.reverse first
       in List.anyCongMem operators _ _ (operator has =>
         let rest := earlier.reverse
@@ -80,7 +63,6 @@ theorem canMakeReaches (operators: List Operator) (first: Nat): (reversed: List 
                         (divModMatch (Succ less) 0 rfl value target)) rest first)
                     (reachesAnd operators (target % Succ less == 0) (== target / Succ less) rest first))
           | Concatenate =>
-            let nonzero := placeValueNonzero last
             rewrite before (target / placeValue last) in
               Eq.sym (Eq.trans (reachesCong operators _ (value => target % placeValue last == last && value == target / placeValue last)
                   (value => rewrite concatenateArithmetic value last in divModMatch (placeValue last) last (belowPlaceValue last) value target) rest first)
@@ -92,7 +74,7 @@ theorem couldBeTrueCorrect (operators: List Operator) (equation: Equation): coul
   match numbers: equation.numbers with
     | Nil => rfl
     | Cons first rest =>
-      rewrite canMakeReaches operators first rest.reverse equation.testValue, reverseReverse rest
+      rewrite canMakeReaches operators first rest.reverse equation.testValue, List.reverseReverse rest
         in Eq.sym (combinationsReach operators (== equation.testValue) rest first)
 
 -- So the program's total is the total calibration result.
@@ -123,18 +105,9 @@ theorem couldBeTrueMore (fewer: List Operator) (more: List Operator) (included: 
       rewrite canMakeReaches fewer first rest.reverse equation.testValue, canMakeReaches more first rest.reverse equation.testValue
         in reachesMore fewer more included (== equation.testValue) rest.reverse.reverse first
 
--- Keeping more of a list keeps at least as large a sum.
-theorem sumFilterMore (keep1: a → Bool) (keep2: a → Bool) (value: a → Nat) (xs: List a) (included: (x: a) → keep1 x = True → keep2 x = True):
-    (xs.filter keep1).sumBy value ≤ (xs.filter keep2).sumBy value :=
-  rewrite List.sumByFilter xs value keep1, List.sumByFilter xs value keep2 in
-    List.sumByLe xs (x => if keep2 x then value x else 0) (x => if keep1 x then value x else 0) (x =>
-      match kept: keep1 x with
-        | True => rewrite included x kept in Nat.leRefl (value x)
-        | False => Nat.zeroLe (if keep2 x then value x else 0))
-
 -- Part 2 adds an operator, so its total is at least part 1's.
 theorem part2AtLeastPart1 (equations: List Equation): solvePart1 equations ≤ solvePart2 equations :=
-  sumFilterMore (couldBeTrue [Add, Multiply]) (couldBeTrue [Add, Multiply, Concatenate]) (equation => equation.testValue) equations
+  List.sumByFilterMono (couldBeTrue [Add, Multiply]) (couldBeTrue [Add, Multiply, Concatenate]) (equation => equation.testValue) equations
     (couldBeTrueMore [Add, Multiply] [Add, Multiply, Concatenate] (operator has =>
       match has with
         | Inl same => Inl same

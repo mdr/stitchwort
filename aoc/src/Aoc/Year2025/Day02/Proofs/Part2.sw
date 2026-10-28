@@ -31,6 +31,7 @@ import Aoc.Common (Range)
 import Aoc.Year2025.Day02 (..)
 import Aoc.Year2025.Day02.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, Int, List, Nat, Void)
+import Std.Nat (digitCount)
 
 -- (1) n copies ------------------------------------------------------------
 -- The n-copies lemmas (`repeatedIds`, `repCount`, `collapse`, `copies`,
@@ -208,9 +209,7 @@ theorem periodWritten (ds: List Nat) (hl: ds.length ≠ 0) (k: Nat) (n: Nat) [au
 
 -- (5) One id -----------------------------------------------------------------
 
-def digitCount (x: Nat): Nat := List.length (Nat.digits x)
-
-theorem digitCountNonZero (x: Nat): digitCount x ≠ 0 := Nat.nonzeroOfPos (digitCount x) (Nat.digitsNonEmpty x)
+theorem digitCountNonZero (x: Nat): digitCount x ≠ 0 := Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x)
 
 -- x's digits have period p.
 def periodOf (x: Nat) (p: Nat): Bool := isPeriod (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) p
