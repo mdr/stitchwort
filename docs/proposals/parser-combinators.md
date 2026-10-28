@@ -244,7 +244,7 @@ ability Parse where
   fatal: Text → {Parse} Empty                     -- fail the whole parse: for bugs, such as a loop that reads nothing
 
 -- Runners. The parser must read all of its input.
-def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a              -- "line 3, column 6: …"; a final line break is allowed
+def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a              -- "line 3, column 6: …"; line breaks at the end are allowed
 def Parse.eachLine (input: Text) (parser: () → {Parse} a): {Fail} (List a)  -- one handler per line of `Text.lines`, the same messages
 def Parse.line (line: Text) (parser: () → {Parse} a): {Fail} a              -- "column 6: …", for one line
 def Parse.run (input: List Char) (parser: () → {Parse} a): Result a Parse.Failure  -- needn't read everything; `Failure = { offset, message }`
@@ -253,6 +253,7 @@ def Parse.run (input: List Char) (parser: () → {Parse} a): Result a Parse.Fail
 def Parse.fail (message: Text): {Parse} a
 def Parse.expected (what: Text): {Parse} a                 -- "expected what", joined to others here with "or"
 def Parse.ensure (ok: Bool) (message: Text): {Parse} ()
+def Parse.ensureAt (at: Parse.Mark) (ok: Bool) (message: Text): {Parse} ()   -- reported at the mark
 def Parse.need (option: Option a) (message: Text): {Parse} a
 def Parse.fromFail (computation: () → {Fail} a): {Parse} a  -- a `Fail` helper's failure, here
 
@@ -263,6 +264,7 @@ def Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char
 def Parse.takeWhile (passes: Char → Bool): {Parse} Text    -- never fails
 def Parse.takeWhile1 (what: Text) (passes: Char → Bool): {Parse} Text
 def Parse.nat(): {Parse} Nat
+def Parse.natDigits (atLeast: Nat) (atMost: Nat): {Parse} Nat  -- "expected a number of 1 to 3 digits" where it starts
 def Parse.int(): {Parse} Int                               -- an optional '-', then digits
 def Parse.digit(): {Parse} (Fin 10)
 def Parse.spaces(): {Parse} ()                             -- spaces and tabs, possibly none; never fails
@@ -276,10 +278,14 @@ def Parse.optional (parser: () → {Parse} a): {Parse} (Option a)    -- never fa
 def Parse.oneOf: List (() → {Parse} a) → {Parse} a
 def Parse.many (parser: () → {Parse} a): {Parse} (List a)          -- fails only on a parser that reads nothing (fatal)
 def Parse.many1 (parser: () → {Parse} a): {Parse} (List a)
+def Parse.repeat (atLeast: Nat) (atMost: Nat) (parser: () → {Parse} a): {Parse} (List a)   -- Megaparsec's count'
 def Parse.sepBy (parser: () → {Parse} a) (separator: () → {Parse} ()): {Parse} (List a)   -- never fails
 def Parse.sepBy1 (parser: () → {Parse} a) (separator: () → {Parse} ()): {Parse} (List a)
 def Parse.lines (parser: () → {Parse} a): {Parse} (List a)         -- the final line break is left to what follows
 def Parse.sections (parser: () → {Parse} a): {Parse} (List a)      -- blocks separated by a blank line
+def Parse.section (parser: () → {Parse} a): {Parse} (List a)       -- lines, then a blank line: `section rule`, then `lines update`
+def Parse.findAll (parser: () → {Parse} a): {Parse} (List a)       -- every match in noise, as `re.findall`; never fails, reads everything
+def Parse.findAllStarting (starts: Char → Bool) (parser: () → {Parse} a): {Parse} (List a)  -- the same, skipping characters that can't start a match
 def Parse.grid (cell: () → {Parse} a): {Parse} (List (List a))
 def Parse.recursive (body: (() → {Parse} a) → {Parse} a): {Parse} a
 def Parse.label (what: Text) (parser: () → {Parse} a): {Parse} a   -- "expected what" in place of what `parser` expected at its start
@@ -291,7 +297,11 @@ Choices made while building it:
 - **`label` replaces, as Megaparsec's does.** Its handler drops the problems that `parser` notes at its starting point. If `parser` fails without getting further, `label` notes its own name there instead.
 - **Messages and expectations at one point are both reported**: `not this; expected 'x'`, the messages first.
 - **`recursive` running out of fuel is fatal**, as `many` reading nothing is (§5.3).
-- **Proofs:** the per-operation lemmas `Parse.runFromPure`, `runFromMark`, `runFromReset`, `runFromNote`, `runFromStop`, `runFromFatal` and `runFromSpan` hold by `rfl`, and `runFromLiteralThere` by one `rewrite`. Each is stated over `Parse.runFrom state`, the handler from any state, because the state now carries the offset and the furthest problems as well as the input.
+- **Proofs:** the per-operation lemmas `Parse.runFromPure`, `runFromMark`, `runFromReset`, `runFromNote`, `runFromStop`, `runFromFatal` and `runFromSpan` hold by `rfl`, and `runFromLiteralThere` by one `rewrite`. Each is stated over `Parse.runFrom state`, the handler from any state, because the state now carries the offset and the furthest problems as well as the input. The per-piece and choice lemmas are in §8.
+- **The handler resumes in tail position.** `runFrom`'s clauses for `span`, `next` and `literal` call helpers (`Parse.State.span`, `.next`, `.literal`) that return the value and the next state as a pair, and resume with `k step.fst step.snd`. Written with a `match` in the clause, `k` was not in tail position as the runtime's state-handler loop recognises it (§7.5), and each of those operations kept a frame until the parse ended.
+- **`findAll`** tries the parser at each character, so it is right for any parser; a match that reads nothing is kept and a character skipped after it, as `re.findall` does. `findAllStarting starts` skips characters for which `starts` is false with one `span`: correct only if no match starts at one of them, which is the caller's claim.
+- **`section`** is aoc-parse's `section`: lines, then a blank line. A failing line after the first also notes "a blank line before this line" where it failed, so a missing blank line between sections reads `line 2, column 2: expected '|' or a blank line before this line` (the line's own error gets further than the blank line does, so it is the one reported). The last section is `lines`, which keeps its plain messages.
+- **`natDigits` reads all the digits first**, so `1234` with at most 3 is "expected a number of 1 to 3 digits" at its first digit, not 123 followed by an unexpected 4. `repeat` stops at `atMost`, as `count'` does.
 
 Parsers that take parsers take thunks, `() => …`, like `Fail.toResult` and `Each.collect`. A parser of no arguments is written `nat()`, as `IO.readAll()` is, and passed as `nat`.
 
@@ -447,6 +457,36 @@ The same 100,000 lines, parsed by `point` (§4.2) with `Std.Parse`, summing the 
 
 Per line, the library is as fast as the prototype (3.29 s machine, 0.99 s JS): the forwarding handlers that one ability needs (§4.4) don't show, because `point` makes no choice. On the whole input it is the same speed on the machine but uses four times the memory, and JS is eleven times slower. So `Parse.eachLine` stays the recommendation for line-per-record input. A real AoC input of a few thousand lines takes under 0.2 s and about 60 MB either way **[inferred: scaled]**.
 
+### 7.5 Memory per operation, and scanning
+
+AoC 2024 day 3 (scanning 18 KB of noise for `mul(…)`) used about 6.5 KB per input character, and day 5's whole-input parse about 1.5 KB.
+
+**Cause** **[ran]**. The runtime runs a state-passing handler such as `runFrom` as a loop (crates/rt/src/fusion.rs, "State-passing handlers run as a loop"): a clause's `k v s′` in tail position becomes a jump of the loop. The pass follows tail positions through `let`, applied lambdas, `if` and `Decidable.elim`, but not through `match`, which elaborates to a call of a separate case-tree definition (`Term::Case` appears only at the top of a definition). `runFrom`'s `span` clause destructured a pair with `let (taken, after) := …`, and its `next` and `literal` clauses matched on the input; there `k` was the real continuation, which "runs the same loop from where the operation was": a nested loop whose frames stay until the parse ends. So every `span`, `next` and `literal` kept a frame for the rest of the parse, while `mark`, `reset` and `note` (written `k x s′` directly) did not. Small programs over random noise, release build, peak resident memory:
+
+| program (per character) | 40 KB | 80 KB | 160 KB | growth per character |
+|---|---|---|---|---|
+| read the input as a `List Char` | 74 MB | 84 MB | 116 MB | about 400 B (the list) |
+| one `next` (before) | 97 MB | 118 MB | 165 MB | 590 B |
+| `many (satisfy any)`: 4 operations and an `optional` (before) | 178 MB | 285 MB | 501 MB | 2.7 KB |
+| one `next` (after) | 89 MB | 95 MB | 120 MB | the list |
+| `many (satisfy any)` (after) | 88 MB | 103 MB | 135 MB | the list and the result |
+
+`many`'s fuel and the backtracking marks hold nothing extra: a mark is a pointer into the input list, and `optional`'s forwarding handler resumes lazily.
+
+**Fix.** The clauses resume with `k step.fst step.snd` from helpers that return the pair (§6.1). Memory is now the input list (about 400 bytes a character on the machine) plus the result.
+
+**Scanning.** `Parse.findAll` replaces day 3's hand-written `many`/`oneOf`/`filterMap` scan. Day 3 (`findAll instruction`), the real input repeated, release build, Apple silicon, load average 30 to 40 on the machine, so user time is the steadier figure; the 1.8 MB "before" runs were stopped at a 4 GB cap **[ran]**:
+
+| | 180 KB, machine | 1.8 MB, machine | 180 KB, JS | 1.8 MB, JS |
+|---|---|---|---|---|
+| before (hand-written scan, old handler) | 3.5 s, 1,170 MB | over 4 GB at 11 s, stopped | 18.3 s, 1,970 MB | over 4 GB at 63 s, stopped |
+| after (`findAll`) | 2.9 s, 142 MB | 22.1 s, 793 MB | 0.9 s, 111 MB | 4.5 s, 305 MB |
+| `findAllStarting (char => char == 'm' ∨ char == 'd')` | 0.8 s, 135 MB | 4.1 s, 823 MB | | |
+
+(Start-up is about 0.8 s of user time in these runs.) Memory now grows with the input, not with the operations. Time on the machine is still about 12 µs a character of noise for `findAll`: each try at a character makes about a dozen operations (marks, two failed `literal`s, notes, a `stop` and a reset), and each crosses two or three handlers (the alternative's `optional`, `findAll`'s own, `runFrom`). JS does the same work about five times faster. The same day-3 grammar with `findAllStarting` makes one `span` per stretch of noise and runs at about 0.2 s per 100 KB on the machine. Day 5 at 0.9 MB (the updates repeated 100 times): 17.3 s and 1,329 MB before, 12.6 s and 453 MB after.
+
+A `findAll` that skips ahead by itself for any parser would need to know where a match can start. The parser's first operation doesn't tell: before it reads, a parser may look at `mark()`, whose offset differs at every character (`end` does, and `oneOf` always marks first), so a skip worked out from one failed try isn't sound in general. That is why the faster scan takes `starts` from the caller.
+
 ## 8. Proofs
 
 What we might want to prove, and whether it's feasible:
@@ -466,6 +506,15 @@ What we might want to prove, and whether it's feasible:
 3. **Round trips** for a particular format: `Parse.all (show x) parser = x`, e.g. for `Range`. Feasible but per format, and it needs digit lemmas about `Nat.toText` **[inferred]**. Not needed for AoC: the theorems there are about the parsed types, not about text (house rule). Worth doing once, for `nat`, as the library's own example.
 4. **Determinism** comes free: a parser is a function. **Termination** comes free: the definitions are accepted.
 5. **Not consuming on failure** isn't a property we need: every choice resets the input, so a failed alternative's reading never shows.
+
+**Built** (with the lemmas of §6.1), each stated over `Parse.runFrom state` with the rest of the parser as `k`, and each by `rewrite` and `rfl` unless noted:
+
+- Reading operations where the input has what they read: `runFromSpanThere` (the input starts with `taken`, all passing, and the next character, if any, doesn't), `runFromNextThere`, and the existing `runFromLiteralThere`. They rest on four new list lemmas: `List.takeWhileAppend`, `List.dropWhileAppend`, `List.dropWhileStops` and `List.spanAppend` (by induction).
+- Pieces: `runFromTextThere`, `runFromCharThere` (with `Parse.sameChar`, `c == c` for a variable `c`, by a `match` on `Char.decEq`), `runFromNatThere` (a non-empty digit run followed by a non-digit or nothing; its value is `Nat.fromDigits` of the digits) and `runFromEndThere`.
+- `optional`: `runFromOptional` (it marks the current point and runs `optionalFrom state.at parser`); `runFromOptionalFromSpan`, `…Next` and `…Literal` (the handler passes each reading operation on, so the parser's own lemmas apply under it); success, `runFromOptionalFromPure` (a parser that has given a value gives `Some` of it); and backtracking, `runFromOptionalFromStop` (a parser that has stopped leaves the input at the mark and gives `None`). `runFromOptionalTextThere` and `runFromOptionalTextNotThere` are the two cases for `text`.
+- `oneOf`: `runFromOneOfFromSome` and `runFromOneOfFromNone`, by applying a hypothesis about `optional first`, and `runFromOneOfFromLast` by `rfl`. The hypothesis is stated for any `choose` and `finish` after `optional first`, because the elaborated `oneOfFrom` is a `bind` of a `bind`, and that form is what lets one application close the goal without `Effect.bindAssoc` and function extensionality. `oneOfFrom` now continues with a named `Parse.valueOr` rather than a `match`, so that the continuation can be written in the proof. `runFromOneOfExample` shows a concrete `oneOf` of two words computing after one `rewrite`.
+
+Not proved: a lemma for `optional p` or `oneOf` over an arbitrary `p` given only a lemma about `p` on its own ("if `p` reads to state `s′` giving `v`, so does `optional p`"). The handler `optionalFrom` wraps every operation of `p`, so moving such a fact under it is an induction over `p`'s computation tree, with function extensionality at each `Call`, as `Effect.foldCompBind` does; `p` given as an opaque thunk has no tree to induct on without `match reify`, which splits only on its first step. For a concrete parser the run computes, as in `runFromOneOfExample`. No lemmas for `many`, `findAll`, `section` or `repeat`: each is a fuelled loop around `optional`, so each needs the same lifting first.
 
 Rendel–Ostermann style "one description, parser and printer" (§3.3) would give round trips by construction. Too much machinery for this library; not recommended.
 

@@ -9,7 +9,7 @@
 --   5
 import Std (Fail, List, Nat, Parse, Result, Text)
 import Std.Fail (toResult)
-import Std.Parse (blankLine, char, lines, nat, spaces)
+import Std.Parse (char, lines, nat, section, spaces)
 
 -- A range of ids, both ends included.
 type Range = { from: Nat, to: Nat }
@@ -24,17 +24,17 @@ def spacedNat(): {Parse} Nat :=
   number
 
 -- "11-22", or " 11 - 22 ". A range that ends before it starts fails where
--- the parse has got to: the end of the range.
+-- the range starts.
 def range(): {Parse} Range :=
+  let start := Parse.mark()
   let from := spacedNat()
   char '-'
   let to := spacedNat()
-  Parse.ensure (from ≤ to) "the range ends before it starts"
+  Parse.ensureAt start (from ≤ to) "the range ends before it starts"
   { from, to }
 
 def database(): {Parse} Database :=
-  let fresh := lines range
-  blankLine()
+  let fresh := section range
   let available := lines spacedNat
   { fresh, available }
 
@@ -45,6 +45,6 @@ test "database" := toResult (() => parseDatabase "3-5\n10-14\n\n1\n5\n") ==
 test "spaces around numbers" := toResult (() => parseDatabase " 3 - 5 \n\n 1 \n") ==
   Ok ({ fresh = [{ from = 3, to = 5 }], available = [1] }: Database)
 test "a bad id" := toResult (() => parseDatabase "3-5\n10-14\n\n1\nx\n") == Err "line 5, column 1: expected a number or the end"
-test "a bad range" := toResult (() => parseDatabase "3-5\n10x14\n\n1\n") == Err "line 2, column 3: expected '-'"
-test "a backwards range" := toResult (() => parseDatabase "5-3\n\n1\n") == Err "line 1, column 4: the range ends before it starts"
-test "no blank line" := toResult (() => parseDatabase "3-5\n1\n") == Err "line 2, column 2: expected '-'"
+test "a bad range" := toResult (() => parseDatabase "3-5\n10x14\n\n1\n") == Err "line 2, column 3: expected '-' or a blank line before this line"
+test "a backwards range" := toResult (() => parseDatabase "5-3\n\n1\n") == Err "line 1, column 1: the range ends before it starts"
+test "no blank line" := toResult (() => parseDatabase "3-5\n1\n") == Err "line 2, column 2: expected '-' or a blank line before this line"

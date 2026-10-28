@@ -11,7 +11,7 @@
 
 namespace Aoc.Year2024.Day05
 import Std (Fail, IO, List, Nat, Parse, Set, Text)
-import Std.Parse (blankLine, char, lines, nat, sepBy1)
+import Std.Parse (char, lines, nat, section, sepBy1)
 
 def main(): {IO, Fail} () :=
   let queue := parsePrintQueue IO.readAll()
@@ -38,8 +38,7 @@ def update(): {Parse} Update := { pages = sepBy1 nat (() => char ',') }
 
 -- The rules, one per line, a blank line, then the updates, one per line.
 def printQueue(): {Parse} PrintQueue :=
-  let rules := lines rule
-  blankLine()
+  let rules := section rule
   let updates := lines update
   { rules, updates }
 
