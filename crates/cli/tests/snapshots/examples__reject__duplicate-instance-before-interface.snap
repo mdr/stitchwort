@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DUPLICATE] Error: `Foo.i` is already defined
+   ╭─[ reject/duplicate-instance-before-interface.sw:6:10 ]
+   │
+ 4 │ instance Foo.i: Foo Nat :=
+   │          ──┬──  
+   │            ╰──── first defined here
+   │ 
+ 6 │ instance Foo.i: Foo Nat :=
+   │          ──┬──  
+   │            ╰──── `Foo.i` is already defined
+───╯
