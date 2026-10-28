@@ -1,5 +1,5 @@
 {
-  "next": 808,
+  "next": 809,
   "tickets": [
     {
       "id": 13,
@@ -6713,7 +6713,7 @@
     {
       "id": 783,
       "title": "AoC 2024 day 22 (examples only; input pending from Matt): monkey market secret numbers, solve, prove, log gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7048,6 +7048,18 @@
         "decision"
       ],
       "body": "Like Haskell's Enum/Bounded and Lean's Fintype, beside derived DecEq/Ord. Day 21 wrote 11-deep membership proofs by hand; gives decide something to range over. Rec: yes.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 808,
+      "title": "Day 22 findings: built-in Nat xor/and/or/shifts in the runtime (4.3 µs per xor); lazy unfolding when comparing large closed definitions (130,321-element list hangs, no part2 name); omega facts for % by a literal; hangs should name their declaration (time budget); 'f -2' message suggests brackets; rewrite notes print % not Nat.divFuel; low-bits xor lemmas into Nat/Bits.sw; array with constant-time indexing",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
