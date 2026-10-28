@@ -237,6 +237,10 @@ test "a bad box" := toResult (() => parseBoxes "162,817,812\n57,6x8,57\n") == Er
 
 A choice always backs up: when one alternative fails, the next starts from the same place. An error names the furthest point any alternative reached, and everything expected there. A parser fails with `Parse.fail`, `Parse.ensure` or `Parse.need`, and `Parse.fromFail (() => word.toNatOrFail)` runs a `Fail` helper inside a parser. `examples/accept/parse-basics.sw` shows the rest: keyword tables, grids, nested input.
 
+Input in sections of one kind is `sections (() => lines nat)`. When the sections hold different things, as rules then updates, read each with `section` (its lines, then the blank line) and the last with `lines`: `let rules := section rule`, then `let updates := lines update` (`examples/accept/parse-aoc-day05.sw`). A bad line in a section is reported with what the line expected and "or a blank line before this line", since a missing blank line looks the same. `Parse.all` allows any number of line breaks at the end of the input.
+
+For matches scattered through noise, `findAll parser` gives the value of every match, left to right, as Python's `re.findall` does; it tries `parser` at each character, so it's right for any parser. When a match can only start at certain characters, `findAllStarting (char => char == 'm') parser` skips the others in one step, which is several times faster on large input. `natDigits 1 3` reads a number of one to three digits, `repeat 2 4 parser` reads two to four of something, and `Parse.ensureAt start ok message` reports a failed check where `start` was marked rather than where the parse has got to.
+
 ## `IO` and `main`
 
 `IO` has three operations: `IO.print` (writes a line), `IO.readLine()` (the next line, or `None` at the end of the input) and `IO.readAll()` (the rest of the input). `IO.readAllLines()` is the input as a list of lines.

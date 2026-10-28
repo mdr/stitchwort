@@ -1748,6 +1748,41 @@ theorem List.spanTakeDrop (xs: List a) (p: a → Bool): List.span xs p = MkPair 
 
 theorem List.spanExample: List.span [1, 2, 3, 1] (x => Nat.leq x 2) = MkPair [1, 2] [3, 1] := rfl
 
+-- `takeWhile` over a prefix that passes: the prefix, then what passes after.
+theorem List.takeWhileAppend (p: a → Bool) (rest: List a): (prefix: List a) → List.all prefix p = True →
+    List.takeWhile (List.append prefix rest) p = List.append prefix (List.takeWhile rest p)
+  | Nil, all => rfl
+  | Cons x xs, all =>
+    match p x with
+      | True => Eq.cong (Cons x) (List.takeWhileAppend p rest xs all)
+      | False => Void.exfalso (Bool.falseNotTrue all)
+
+-- `dropWhile` over a prefix that passes drops it.
+theorem List.dropWhileAppend (p: a → Bool) (rest: List a): (prefix: List a) → List.all prefix p = True →
+    List.dropWhile (List.append prefix rest) p = List.dropWhile rest p
+  | Nil, all => rfl
+  | Cons x xs, all =>
+    match p x with
+      | True => List.dropWhileAppend p rest xs all
+      | False => Void.exfalso (Bool.falseNotTrue all)
+
+-- Where `takeWhile` takes nothing, `dropWhile` drops nothing.
+theorem List.dropWhileStops (p: a → Bool): (xs: List a) → List.takeWhile xs p = Nil → List.dropWhile xs p = xs
+  | Nil, stops => rfl
+  | Cons x xs, stops =>
+    match p x with
+      | True => Void.exfalso (List.consNotNil x (List.takeWhile xs p) stops)
+      | False => rfl
+
+-- `span` of a prefix that passes, then a rest that starts with an element
+-- that doesn't (or is empty), splits between the two.
+theorem List.spanAppend (p: a → Bool) (taken: List a) (rest: List a) (all: List.all taken p = True)
+    (stops: List.takeWhile rest p = Nil):
+    List.span (List.append taken rest) p = MkPair taken rest :=
+  rewrite List.spanTakeDrop (List.append taken rest) p, List.takeWhileAppend p rest taken all, stops, List.appendNil taken,
+    List.dropWhileAppend p rest taken all, List.dropWhileStops p rest stops in
+    rfl
+
 test "List.maxBy" := [MkPair 2 "bb", MkPair 1 "a", MkPair 3 "ccc"].maxBy Pair.fst == Some (MkPair 3 "ccc") ∧ (Nil: List Nat).maxBy (x => x) == None
 test "List.maxBy first wins a tie" := [MkPair 1 "a", MkPair 3 "b", MkPair 3 "c"].maxBy Pair.fst == Some (MkPair 3 "b")
 test "List.minBy first wins a tie" := [MkPair 3 "z", MkPair 1 "a", MkPair 1 "b"].minBy Pair.fst == Some (MkPair 1 "a") ∧ (Nil: List Nat).minBy (x => x) == None

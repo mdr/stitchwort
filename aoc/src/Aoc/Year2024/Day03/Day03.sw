@@ -10,7 +10,7 @@
 
 namespace Aoc.Year2024.Day03
 import Std (Bool, Fail, IO, List, Nat, Option, Parse, Text)
-import Std.Parse (char, findAll, nat, oneOf, pick, text)
+import Std.Parse (char, findAll, natDigits, oneOf, pick, text)
 
 def main(): {IO, Fail} () :=
   let instructions := parseInstructions IO.readAll()
@@ -24,12 +24,7 @@ type Instruction =
   | Dont
 
 -- A number of one to three digits.
-def shortNumber(): {Parse} Nat :=
-  let start := Parse.mark()
-  let number := nat()
-  let finish := Parse.mark()
-  Parse.ensure (finish.offset - start.offset ≤ 3) "expected at most three digits"
-  number
+def shortNumber(): {Parse} Nat := natDigits 1 3
 
 -- "mul(44,46)", "do()" or "don't()", exactly: no spaces, no other brackets.
 def instruction(): {Parse} Instruction :=
