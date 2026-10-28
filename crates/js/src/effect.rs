@@ -204,7 +204,7 @@ impl Effect {
         args: &[&Term],
     ) -> stitchwort_core::budget::Result<Option<Fused>> {
         match &self.fusion {
-            Some(fusion) => fusion.fuse(g, args),
+            Some(fusion) => fusion.fuse(g, args, None),
             None => Ok(None),
         }
     }

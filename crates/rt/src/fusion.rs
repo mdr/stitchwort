@@ -21,7 +21,8 @@
 //! - each operation clause `x, k => s => body` (under `Done` at the closed
 //!   empty row) becomes `x, k => jump => s => body′`, where `body′` is
 //!   `body` with every `k v s′` in tail position (through `let`s, applied
-//!   lambdas, `if` and `Decidable.elim`) replaced by `jump v s′`;
+//!   lambdas, `if`, `Decidable.elim` and, where the caller supplies their
+//!   bodies, `match`es) replaced by `jump v s′`;
 //! - at the closed empty row the return clause `x => Done e` becomes
 //!   `x => e`, so it gives the state's function directly.
 //!
@@ -46,18 +47,43 @@
 //! A clause whose `e` isn't a lambda is eta-expanded (`s => e s`), which
 //! is sound since generated code is pure and total. A fold none of whose
 //! clauses has a tail `k v s′` is left alone.
+//!
+//! A `match` is a call of a lifted definition (`f.%match1`) whose body is a
+//! case tree. Called in tail position with `k` among its arguments, it is
+//! inlined, its parameters bound to the arguments (or replaced by them,
+//! where they're variables), so that the arms' `k v s′` are in the clause;
+//! the case tree is then followed into each arm. Only a backend that can
+//! lower a case tree inside an expression supplies the bodies (the
+//! runtime's lowering does; JS's doesn't), and the call is left as it was
+//! if no arm resumes in tail position.
 
 use std::rc::Rc;
 
 use stitchwort_core::budget::Result;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::term::Icit;
+use stitchwort_core::term::{Branch, Icit, NumArm};
 use stitchwort_core::{DataId, DefId, Globals, Term};
 
 use crate::erasure::def_shape;
 
 /// How deeply the tail positions of a clause are followed.
 const MAX_DEPTH: usize = 200;
+
+/// How many `match`es are inlined into one fold's clauses.
+const MAX_INLINED: usize = 64;
+
+/// The case tree of a lifted `match` (`f.%match1`) for a call with these
+/// arguments, under all of its parameters; `None` leaves the call alone.
+pub type MatchBodies<'a> = &'a dyn Fn(DefId, &[&Term]) -> Option<Rc<Term>>;
+
+/// What the rewrite of one fold's clauses has done so far.
+struct Walk<'a> {
+    bodies: Option<MatchBodies<'a>>,
+    /// Tail resumptions made jumps.
+    jumps: usize,
+    /// `match`es inlined.
+    inlined: usize,
+}
 
 /// What the rewrite needs to know about the core.
 pub struct StateFusion {
@@ -115,8 +141,14 @@ impl StateFusion {
 
     /// `foldComp`'s arguments (`ops`, `res`, `t`, the carrier, `done`,
     /// `call`, `c`, and any it's applied to after), rewritten if the fold is
-    /// a state-passing handler at the empty row.
-    pub fn fuse(&self, g: &Globals, args: &[&Term]) -> Result<Option<Fused>> {
+    /// a state-passing handler at the empty row. `bodies` gives the case
+    /// trees of the `match`es to follow, if the backend can inline them.
+    pub fn fuse(
+        &self,
+        g: &Globals,
+        args: &[&Term],
+        bodies: Option<MatchBodies>,
+    ) -> Result<Option<Fused>> {
         if args.len() < 7 {
             return Ok(None);
         }
@@ -167,20 +199,24 @@ impl StateFusion {
         if elim_args.len() > elim_mask.len() {
             return Ok(None);
         }
-        let mut jumps = 0;
+        let mut walk = Walk {
+            bodies,
+            jumps: 0,
+            inlined: 0,
+        };
         let mut elim = elim_head.clone();
         for (i, (arg, icit)) in elim_args.iter().enumerate() {
             let arg = if elim_mask[i] {
                 (*arg).clone()
             } else {
-                let Some(clause) = self.clause(g, arg, comp, &mut jumps)? else {
+                let Some(clause) = self.clause(g, arg, comp, &mut walk)? else {
                     return Ok(None);
                 };
                 clause
             };
             elim = Term::app_icit(elim, arg, *icit);
         }
-        if jumps == 0 {
+        if walk.jumps == 0 {
             return Ok(None);
         }
         let mut call = head.clone();
@@ -196,7 +232,7 @@ impl StateFusion {
             comp,
             done,
             call,
-            jumps,
+            jumps: walk.jumps,
         }))
     }
 
@@ -243,7 +279,7 @@ impl StateFusion {
         g: &Globals,
         clause: &Term,
         comp: bool,
-        jumps: &mut usize,
+        walk: &mut Walk,
     ) -> Result<Option<Term>> {
         let Term::Lam(x, xi, inner) = strip(clause) else {
             return Ok(None);
@@ -266,7 +302,7 @@ impl StateFusion {
             Term::Lam(s, _, b) => (s.clone(), b.shift(g, 1, 1)?),
             other => ("s".into(), Term::app(other.shift(g, 2, 0)?, Term::Var(0))),
         };
-        let body = self.tail(g, &body, 0, jumps)?;
+        let body = self.tail(g, &body, 0, walk)?;
         let lam = |name, icit, body| Term::Lam(name, icit, Rc::new(body));
         Ok(Some(lam(
             x.clone(),
@@ -281,7 +317,7 @@ impl StateFusion {
 
     /// `term`, under `depth` more binders than the clause's body (where `s`
     /// is 0, `jump` 1 and `k` 2), with its tail resumptions made jumps.
-    fn tail(&self, g: &Globals, term: &Term, depth: usize, jumps: &mut usize) -> Result<Term> {
+    fn tail(&self, g: &Globals, term: &Term, depth: usize, walk: &mut Walk) -> Result<Term> {
         if depth > MAX_DEPTH {
             return Ok(term.clone());
         }
@@ -289,16 +325,13 @@ impl StateFusion {
             |v: &Term, s: &Term| Term::app(Term::app(Term::Var(1 + depth), v.clone()), s.clone());
         match term {
             Term::Loc(span, inner) => {
-                return Ok(Term::Loc(
-                    *span,
-                    Rc::new(self.tail(g, inner, depth, jumps)?),
-                ));
+                return Ok(Term::Loc(*span, Rc::new(self.tail(g, inner, depth, walk)?)));
             }
-            Term::Ann(inner, _) => return self.tail(g, inner, depth, jumps),
+            Term::Ann(inner, _) => return self.tail(g, inner, depth, walk),
             // `k v s′`.
             Term::App(f, s, _) => {
                 if let Some(v) = self.resume(f, depth) {
-                    *jumps += 1;
+                    walk.jumps += 1;
                     return Ok(jump(v, s));
                 }
             }
@@ -319,11 +352,11 @@ impl StateFusion {
                 && matches!(strip(r), Term::Var(0))
                 && !s.mentions(0)
             {
-                *jumps += 1;
+                walk.jumps += 1;
                 // `s` is under the `let`'s binder, which it doesn't use.
                 return Ok(jump(v, &s.instantiate_var(g, 0)?));
             }
-            let body = self.tail(g, body, depth + 1, jumps)?;
+            let body = self.tail(g, body, depth + 1, walk)?;
             return Ok(match term {
                 Term::Let(x, ty, value, _, skip) => {
                     Term::Let(x.clone(), ty.clone(), value.clone(), Rc::new(body), *skip)
@@ -342,7 +375,7 @@ impl StateFusion {
             });
         }
         if let Term::Let(x, ty, value, body, true) = term {
-            let body = self.tail(g, body, depth + 1, jumps)?;
+            let body = self.tail(g, body, depth + 1, walk)?;
             return Ok(Term::Let(
                 x.clone(),
                 ty.clone(),
@@ -360,8 +393,8 @@ impl StateFusion {
             && let (Term::Lam(xt, it, t), Term::Lam(xe, ie, e)) =
                 (strip(args[at].0), strip(args[at + 1].0))
         {
-            let t = self.tail(g, t, depth + 1, jumps)?;
-            let e = self.tail(g, e, depth + 1, jumps)?;
+            let t = self.tail(g, t, depth + 1, walk)?;
+            let e = self.tail(g, e, depth + 1, walk)?;
             let mut out = Term::Def(*id);
             for (i, (arg, icit)) in args.iter().enumerate() {
                 let arg = if i == at {
@@ -374,6 +407,59 @@ impl StateFusion {
                 out = Term::app_icit(out, arg, *icit);
             }
             return Ok(out);
+        }
+        // A case tree's arms, each under its constructor's fields.
+        match term {
+            Term::Case(ix, d, branches) => {
+                let mut out = Vec::with_capacity(branches.len());
+                for branch in branches.iter() {
+                    let body = match &branch.body {
+                        Some(body) => Some(Rc::new(self.tail(
+                            g,
+                            body,
+                            depth + branch.names.len(),
+                            walk,
+                        )?)),
+                        None => None,
+                    };
+                    out.push(Branch {
+                        names: branch.names.clone(),
+                        body,
+                    });
+                }
+                return Ok(Term::Case(*ix, *d, out.into()));
+            }
+            Term::NumCase(ix, arms, default) => {
+                let mut out = Vec::with_capacity(arms.len());
+                for arm in arms.iter() {
+                    out.push(NumArm {
+                        value: arm.value.clone(),
+                        body: Rc::new(self.tail(g, &arm.body, depth, walk)?),
+                    });
+                }
+                let default = self.tail(g, default, depth, walk)?;
+                return Ok(Term::NumCase(*ix, out.into(), Rc::new(default)));
+            }
+            _ => {}
+        }
+        // A lifted `match` given `k`, inlined: kept only if an arm jumps.
+        if let Some(bodies) = walk.bodies
+            && walk.inlined < MAX_INLINED
+            && let Some((Term::Def(id), args)) = spine_icit(term)
+            && is_lifted_match(g, *id)
+            && args.len() == g.def(*id).arity
+            && args.iter().any(|(arg, _)| arg.mentions(2 + depth))
+        {
+            let args: Vec<&Term> = args.iter().map(|(arg, _)| *arg).collect();
+            if let Some(tree) = bodies(*id, &args) {
+                walk.inlined += 1;
+                let before = walk.jumps;
+                let inlined = inline(g, &tree, &args)?;
+                let out = self.tail(g, &inlined, depth, walk)?;
+                if walk.jumps > before {
+                    return Ok(out);
+                }
+            }
         }
         Ok(term.clone())
     }
@@ -410,6 +496,47 @@ impl StateFusion {
             _ => None,
         }
     }
+}
+
+/// Whether `id` is a `match` lifted out of a definition (`f.%match1`).
+fn is_lifted_match(g: &Globals, id: DefId) -> bool {
+    g.def(id)
+        .path
+        .rsplit('.')
+        .next()
+        .is_some_and(|last| last.starts_with("%match"))
+}
+
+/// `tree`, under one binder per argument, applied to `args`: a variable argument replaces its
+/// parameter, and any other is bound to it by an applied lambda, so that a
+/// case tree's scrutinee stays a variable.
+fn inline(g: &Globals, tree: &Term, args: &[&Term]) -> Result<Term> {
+    let mut lams = tree.clone();
+    for _ in args {
+        lams = Term::Lam("x".into(), Icit::Explicit, Rc::new(lams));
+    }
+    bind(g, &lams, args, 0)
+}
+
+/// [`inline`] on `lams`, a lambda per argument, with `bound` arguments
+/// bound by lambdas so far.
+fn bind(g: &Globals, lams: &Term, args: &[&Term], bound: usize) -> Result<Term> {
+    let Some((first, rest)) = args.split_first() else {
+        return Ok(lams.clone());
+    };
+    let Term::Lam(x, icit, body) = lams else {
+        unreachable!("a lambda per argument")
+    };
+    let first = first.shift(g, bound, 0)?;
+    if let Term::Var(to) = strip(&first) {
+        return bind(g, &body.instantiate_var(g, *to)?, rest, bound);
+    }
+    let body = bind(g, body, rest, bound + 1)?;
+    Ok(Term::App(
+        Rc::new(Term::Lam(x.clone(), *icit, Rc::new(body))),
+        Rc::new(first),
+        Icit::Explicit,
+    ))
 }
 
 /// Locations and annotations taken off.
