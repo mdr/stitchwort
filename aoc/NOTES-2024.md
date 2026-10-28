@@ -5003,3 +5003,343 @@ proofs, 134 of tests.
    the other arguments; don't unfold `List.Any` while solving.
 9. Constructor imports say only "has no `Clockwise`" (item 3). Fix: note
    that constructors come with their type.
+
+## Day 18: RAM Run
+
+Bytes fall one at a time onto a square memory space; "Your memory space
+is a two-dimensional grid with coordinates that range from 0 to 70 both
+horizontally and vertically" (0 to 6 in the example). "Corrupted memory
+coordinates cannot be entered by you or The Historians"; "You can step
+up, down, left, or right", from the top left corner (0,0) to the exit in
+the bottom right. Part 1: "Simulate the first kilobyte (1024 bytes)
+falling onto your memory space ... what is the minimum number of steps
+needed to reach the exit?" (12 bytes in the example). Part 2: "What are
+the coordinates of the first byte that will prevent the exit from being
+reachable from your starting position?" (part 2's wording from the public
+copy at <https://tgragnato.it/2024/12/18/RAM-Run.html>).
+
+**The real input is pending from Matt**: his repository
+(<https://github.com/mdr/aoc-2024>) stops at day 10, so there is no
+`inputs/2024/day18.txt`, no `Tests/Input.sw`, and the day isn't registered
+in `aoc_answers.rs` or `machine.rs` yet. `examples/2024/day18.txt` is the
+puzzle's example (22 and `6,1`). The tests are the example and edge cases,
+cross-checked with an independent Python script (`/usr/bin/python3 -I`: a
+`deque` breadth-first search, and part 2 by trying every prefix in turn,
+not by a binary search). For performance the same script generated a 71
+by 71 input of 3450 random distinct positions, never (0,0) or (70,70)
+(not committed); the program and Python agree on it (140 and `67,67`).
+This is the first day to reuse another day's code. Compiler built from
+`main` at 9e19c790, 28 October 2026.
+
+### The program
+
+```stitchwort
+import Aoc.Year2024.Day16 (Graph)
+
+def main(): {IO, Fail} () := solveIn 71 1024
+
+def mainExample(): {IO, Fail} () := solveIn 7 12
+
+def byte(): {Parse} Position :=
+  let x := nat()
+  text ","
+  let y := nat()
+  { x, y }
+
+def parseBytes (input: Text): {Fail} (List Position) := Parse.eachLine input byte
+
+type MemorySpace = { size: Nat, corrupted: Set Position }
+
+def MemorySpace.after (size: Nat) (bytes: List Position) (fallen: Nat): MemorySpace := { size, corrupted = bytes.take fallen |> Set.fromList }
+
+def MemorySpace.move (memory: MemorySpace) (position: Position) (direction: Direction): Option Position :=
+  match position.step direction with
+    | Some next => if memory.isSafe next then Some next else None
+    | None => None
+
+def MemorySpace.graph (memory: MemorySpace): Graph Position := {
+  edges = memory.edges,
+  within = memory.isSafe,
+  states = memory.positions,
+  listed = position => memory.safeListed position
+}
+
+def MemorySpace.fromStart (memory: MemorySpace): Map Position Nat :=
+  if memory.isSafe start then memory.graph.distances [(start, 0)] else Map.empty
+
+opaque def reachable (size: Nat) (bytes: List Position) (fallen: Nat): Bool := (MemorySpace.after size bytes fallen).fewestSteps.isSome
+
+def firstBlocked (blocked: Nat → Bool) (low: Nat) (high: Nat): Nat
+    decreasing high - low :=
+  if apart: Succ low < high then
+    let middle := (low + high) / 2
+    if blocked middle then firstBlocked blocked low middle [decreasing := omega [apart]]
+    else firstBlocked blocked middle high [decreasing := omega [apart]]
+  else high
+
+def solvePart1 (size: Nat) (fallen: Nat) (bytes: List Position): Option Nat := (MemorySpace.after size bytes fallen).fewestSteps
+
+def solvePart2 (size: Nat) (bytes: List Position): Option Position :=
+  let blocked := (fallen: Nat) => !reachable size bytes fallen
+  if blocked 0 || !blocked bytes.length then None else bytes.get (firstBlocked blocked 0 bytes.length - 1)
+```
+
+The domain model is the list of byte positions; `MemorySpace.after`
+turns its first `fallen` into a corrupted set. Part 1 is day 16's
+Dijkstra search over a `Graph Position` whose edges each cost 1: with unit
+costs it settles positions in breadth-first order. Part 1 returns `Option
+Nat`, `None` when the exit can't be reached (printed as `none`); day 16
+answered 0 there.
+
+Part 2 is a binary search over the number of bytes fallen, not union-find
+in reverse. Union-find would answer in one pass, but std has no union-find
+and its proof would need a new invariant (each set is the positions
+connected once the later bytes are removed), while the binary search
+reuses part 1 and its proof unchanged and needs one new fact,
+monotonicity (more bytes, fewer paths), a short induction. It runs about
+13 searches for 3450 bytes. `firstBlocked` keeps `blocked low = False` and
+`blocked high = True` and stops when the two are adjacent; `solvePart2`
+answers `None` when the exit is cut off before any byte falls, or still
+reachable after all have.
+
+The grid size and byte count differ between the example and the real
+input; std has no `IO.args` yet, so as on day 14 there are two entry
+points, `main` (71, 1024) and `mainExample` (7, 12).
+
+### Proved, for every size and list of bytes
+
+The spec (`Spec/Spec.sw`) is in the puzzle's words over the program's
+`Position.step`: `isSafe size fallen position` (inside the grid and not
+in the `fallen` list, a `List`, not the program's `Set`); `stepTo`, one
+step, `None` out of the grid or onto a corrupted position; `walk`, where
+a list of steps ends. `IsPath size fallen steps`: the start is safe and
+the steps walk from (0,0) to (`size - 1`, `size - 1`). `IsFewestSteps
+size fallen fewest`: some path has `fewest` steps and none has fewer.
+`HasPath size bytes count`: some path with the first `count` bytes
+fallen. `IsFirstBlocking size bytes byte`: the byte at some index, with no
+path once it has fallen and a path for every count up to its index.
+
+Proved (`Proofs/`, 385 lines in 4 files; each theorem's only axiom is
+`Quot.sound`, through `Set`):
+
+- Steps.sw: the program's safety check and moves are the spec's
+  (`safeAgrees`, `moveAgrees`, through `Set.containsFromList`), and the
+  graph's edges are exactly the moves, each costing 1 (`edgesSound`,
+  `edgesComplete`). `walkFewer`: a walk with more bytes fallen is a walk
+  with fewer.
+- `part1Some` (Part1.sw): `solvePart1 size fallen bytes = Some fewest` →
+  `IsFewestSteps size (bytes.take fallen) fewest`. `part1None`: `None` →
+  no path. Both from day 16's `distancesCorrect`, with `reach` "some walk
+  from the start ends here in this many steps", and a `boundAlong` over
+  walks. Then `reachableSound` and `reachableComplete`: `reachable` is
+  `True` exactly when there is a path.
+- `hasPathFewer` (Part2.sw), monotonicity: a path with `more` bytes
+  fallen is one with `fewer ≤ more` (`walkFewer`, `safeFewer`, and
+  `containsTakeMono` in Lemmas.sw).
+- `firstBlockedCorrect`: from a `low` not blocked to a `high > low`
+  blocked, the search returns `r` with `low < r ≤ high`, `r` blocked and
+  `r - 1` not. This needs no monotonicity.
+- `part2Some`: `solvePart2 size bytes = Some byte` → `IsFirstBlocking
+  size bytes byte`; its "every earlier count has a path" half is where
+  monotonicity comes in. `part2None`: `None` → no byte is the first to
+  block.
+
+Breaking the program (`firstBlocked … - 1` without the `- 1`, `!blocked
+middle` for `blocked middle`, `<=` for `<` in `isSafe`, or edges costing
+2) makes the proofs fail. Not proved: parsing (as on other days).
+
+### 1. Std.Parse: none
+
+`nat`, `text ","` and `nat` under `Parse.eachLine` read the bytes first
+time, and the messages are good: `line 1, column 2: expected ',', got ' '`
+and `line 1, column 1: expected a number, got '-'`.
+
+### 2. Missing std
+
+- **Graph search, again.** Day 16's `Graph` search was imported, not
+  rewritten (item 6). Breadth-first search would be cheaper than Dijkstra
+  with a `Set` queue, but std has neither. Haskell's `Data.Graph` has
+  `reachable` and `path` ("Returns True if the second vertex reachable
+  from the first") but no distances
+  (<https://hackage-content.haskell.org/package/containers-0.8.1/docs/Data-Graph.html>).
+- **Binary search over a monotone predicate.** Written by hand
+  (`firstBlocked`). Rust's `partition_point` is this search; its
+  documentation says "The slice is assumed to be partitioned according to
+  the given predicate" and, if not, "the returned result is unspecified
+  and meaningless" (<https://doc.rust-lang.org/std/primitive.slice.html>).
+  Mathlib's `Nat.find` is "the smallest natural number satisfying `p`",
+  with `Nat.find_spec` and `Nat.find_min'` proving it so, found by
+  counting up, not halving
+  (<https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Nat/Find.html>).
+- **`IO.args`**: not in std yet (another lane is adding it), so two entry
+  points.
+- **Lemmas**: `List.contains` over `take` is monotone in the count
+  (`containsTakeMono`, Lemmas.sw), and `(Set.fromList xs).contains x =
+  xs.contains x` took `Set.containsFromList`, `Map.Spec.sameKeyDecide` and
+  `List.anyCong` together (`safeAgrees`). Not added to std (the `List`
+  lemma files are another lane's).
+
+Fix: move day 16's search to std with a breadth-first search beside it;
+add a `Nat.partitionPoint` with `firstBlockedCorrect` as its lemma,
+`List.containsTakeMono`, and `Set.containsFromList` stated with
+`List.contains`.
+
+### 3. Confusing errors
+
+- A pattern `let` on a proof inside a definition stays in its unfolding
+  equation. The first `firstBlocked` took `halfBounds` apart with `let
+  (Both below above) := halfBounds (high - low)` for its `decreasing`
+  proofs; then a lemma stating one step of it as written gave
+
+  ```text
+  expected `Aoc.Year2024.Day18.firstBlocked.%step blocked low high (blocked low high [auto decreasing: _] => firstBlocked blocked low high) = (if blocked (low + half …) then firstBlocked blocked low (low + half …) else firstBlocked blocked (low + half …) high)`, but this has type `Decidable.elim (Nat.decLessThan (Succ low) high) (x => ?8 blocked low high apart) (?7 blocked low high apart) = ?8 blocked low high apart`
+  ```
+
+  A scratch file showed the cause: the same function with `let bounds :=
+  halfBounds …` and `And.left bounds` in its proofs unfolds as written;
+  the pattern `let` leaves a `match` on a proof that can't compute. The
+  message names an internal `%step` and doesn't say what is stuck. What I
+  did: no pattern `let` in the body (and then `/ 2`, item 6). Fix: erase
+  matches on proofs in `f.unfold`, or say which `match` is stuck.
+- Before that, `rewrite apart in rfl` on the same goal gave
+  ``[E-REWRITE-MOTIVE] Error: replacing `Succ low < high` everywhere in the
+  goal doesn't give a valid proposition`` (`apart` was written `Nat.leq
+  (Succ (Succ low)) high = True`, shown as `Succ low < high`). Its note 2
+  explains it (the `if` carries the proof); `Decidable.elimEq`, as on day
+  12, worked.
+- `if apart: Succ low < high = True then` is ``[E-PARSE] Error: expected
+  `then`, but found `=` ``, and `if apart: (Succ low < high) = True then`
+  is ``expected `Prop`, but this has type `Bool` `` with "this comparison
+  is on `Prop` because of this": in an `if` guard, `<` is the
+  proposition. `if apart: Succ low < high then` works, but neither error
+  says so. Fix: a note suggesting the guard without `= True`.
+- A `match` refines hypotheses through definitions, so a term built later
+  in the branch no longer fits. With `answer: solvePart1 … = Some fewest`,
+  `match startSafe: memory.isSafe start with` turned `answer` (and a `let`
+  restating it) into ``Map.get (Aoc.Year2024.Day16.Graph.searchFrom { edges
+  = …, … } …) { x = size - 1, y = size - 1 } = Some fewest``, and
+  `reachedAll memory.exit fewest found`, from a lemma about
+  `memory.fromStart`, then gave ``expected `Map.get (MemorySpace.fromStart
+  (MemorySpace.after size bytes fallen)) (MemorySpace.exit (MemorySpace.after
+  size bytes fallen)) = Some fewest`, but this has type `Map.get
+  (Aoc.Year2024.Day16.Graph.searchFrom { edges = …, within = …, states = …,
+  listed = … } { items = … } { raw = … } (Some …) rfl) { x = size - 1, y =
+  size - 1 } = Some fewest` ``. The note ("Write `_` for such an argument")
+  is right: I stated the lemma about `graph.distances` (what the refined
+  term computes to) and passed `_`. In the `False` branch the refinement
+  helped: `answer` became `Map.get` of the empty map `= Some fewest`,
+  refuted directly.
+- Internal names in messages: ``Decidable.toBool (DecEq.%decide eq x
+  wanted)``, `Position.%decEq`, `Position.%instOrd`. Readable once known.
+
+### 4. Inference: none new
+
+`_` for the arguments a hypothesis fixes worked everywhere I used it
+(`Bool.andLeft _ _ safe`, `Option.someInjective _ _ moved`). The one type
+on a lambda, `(fallen: Nat) => …`, I wrote before trying without.
+
+### 5. Performance
+
+On the generated 71 by 71 input (3450 bytes) `stitchwort run` takes 2.6 s
+user; Python's breadth-first search with the same binary search takes
+0.02 s (13 searches), and Python trying every prefix 2.9 s. The program
+runs 16 searches (part 1, the two ends, 13 halvings). The example's whole
+run takes 0.66 s, mostly loading, so one search over at most 5041
+positions is roughly 0.12 s (an estimate from these totals, not measured
+alone), against Python's 1.5 ms. Each step is day 16's `Set (Nat,
+Position)` queue and `Map` of settled positions, balanced trees compared
+field by field. Not pursued. Fix: a breadth-first search in std with a
+plain queue.
+
+Checking was the surprise: `check --no-cache Aoc.Year2024.Day18.Proofs`
+took 12.9 s user, about 10 s of it in the two part 2 theorems (2.7 s with
+them removed). Making `reachable` an `opaque def`, with `unfolding
+reachable` on the two theorems that look inside it, brought the whole
+check to 2.8 s, so the time went on the checker computing through
+`reachable`, which is the whole search, while comparing terms. Day 16's
+proofs take 3.0 s. Fix: compare by name before unfolding a large
+definition, or report what a slow check spent its time on.
+
+### 6. Proofs
+
+Reusing day 16's proof worked better than reusing its code. Day 16's
+`distancesCorrect` applied as it is: day 18 supplied its `reach` and the
+four facts it needs (sources reached and within, edges keep `reach` and
+`within`), about 25 lines. What got in the way, for moving it to std:
+
+- **Day 16's `boundAlong` is about the maze.** Optimality is an
+  induction along a path, and day 16's is over its own moves; I wrote it
+  again over walks (17 lines). A generic one over a list of edges would
+  serve both, leaving each day to turn its paths into edge lists.
+- **`Bound`, `SearchResult`, `boundWeaken` and `anyMember` live in day
+  16's `Proofs` namespace**, beside maze lemmas, so the import names day
+  16 (`import Aoc.Year2024.Day16.Proofs (Bound, SearchResult, boundWeaken,
+  distancesCorrect)`). The program's `import Aoc.Year2024.Day16 (Graph)`
+  brings day 16's maze code with it into every check. Importing `Graph`
+  did bring its methods (`.distances`), so the program reads naturally.
+- **Finiteness.** `Graph` wants a list of all states and a proof that
+  `within` implies membership: a list of every grid position and a
+  9-line `safeListed` (`List.memFlatMapIntro`, `List.memRangeFromIntro`,
+  `List.memMap`). Day 16's item 7 again.
+- **Sources must be within.** `distancesCorrect` assumes each source is
+  in the graph, so the program checks the start is safe before searching
+  (`fromStart`); a corrupted start gets `Map.empty`.
+
+Monotonicity was easy: about 45 lines, an induction on the walk with
+`containsTakeMono`. Stating the spec over the fallen `List` rather than
+the program's `Set` cost one lemma (`safeAgrees`). The binary search's
+lemma needed `f.unfold` and `Decidable.elimEq` (item 3). `omega` handles
+`(low + high) / 2` directly, so the first version's hand-written `half`
+and its bounds lemma went. Part 2's case splits are on `Bool` arguments
+with their equations (`part2SomeCases`, `part2NoneCases`) rather than
+`match`, so `answer` keeps the shape that `part2Search` and friends
+rewrite.
+
+### 7. Comparisons
+
+- Rust's `partition_point` and Mathlib's `Nat.find`: item 2. Rust states
+  the monotonicity precondition in prose and leaves the result
+  meaningless without it; here `firstBlockedCorrect` holds without it,
+  and `hasPathFewer` supplies it where "first" needs it.
+- Haskell's `Data.Graph` decides reachability (`path`) but gives no
+  distances: item 2.
+
+### Size and time
+
+Release build, load average around 20 to 36:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day18.Proofs` | 2.8 s user |
+| `stitchwort check --no-cache Aoc.Year2024.Day18` | 1.8 s user |
+| `stitchwort test --no-cache Aoc.Year2024.Day18` (24 tests) | 3.2 s user |
+| `stitchwort run Aoc.Year2024.Day18.mainExample` on the example | 0.66 s user |
+| `stitchwort run Aoc.Year2024.Day18.main` on a generated 71 by 71 input | 2.6 s user |
+
+138 lines of program, 55 of spec, 385 of proofs, 93 of tests.
+
+### Ranked
+
+1. The real input is pending: Matt's repository has no day 18. Fix: add
+   his input, its tests and its two answer entries when he has it.
+2. Checking spent 10 s computing through `reachable` until it was made
+   opaque (item 5). Fix: compare by name before unfolding a large
+   definition, or report what a slow check spent its time on.
+3. Day 16's search reused well, but its optimality induction, its helper
+   lemmas and its finiteness list don't travel (item 6). Fix: move
+   `Graph`, `distancesCorrect`, a generic `boundAlong` over edge lists,
+   `Bound` and `anyMember` to std, beside a breadth-first search.
+4. 2.6 s against Python's 0.02 s, roughly 0.12 s a search (item 5). Fix:
+   a breadth-first search in std with a plain queue.
+5. A pattern `let` on a proof makes a definition's unfolding equation
+   unusable, with a message naming `%step` (item 3). Fix: erase matches
+   on proofs in `f.unfold`, or name the stuck `match`.
+6. No binary search over a monotone predicate (item 2). Fix: a std
+   `Nat.partitionPoint` with `firstBlockedCorrect` as its lemma.
+7. `if h: a < b = True` fails to parse, and with brackets says `Prop`
+   isn't `Bool` (item 3). Fix: a note suggesting the guard without `=
+   True`.
+8. No `IO.args` yet, so two entry points (item 2). Fix: the lane adding
+   it.
+9. Small missing lemmas: `containsTakeMono`, and `Set.fromList` against
+   `List.contains` (item 2). Fix: add them to std.
