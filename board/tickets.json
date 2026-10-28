@@ -1,5 +1,5 @@
 {
-  "next": 832,
+  "next": 833,
   "tickets": [
     {
       "id": 13,
@@ -7305,7 +7305,7 @@
     {
       "id": 828,
       "title": "Error messages from AoC findings: which And/Or a user constructor hides; Ok { … } bracket hint; parse 'got' shows next token; goals print % not Nat.divFuel",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7342,6 +7342,18 @@
       "id": 831,
       "title": "std additions: Text.padLeft, Option.toList, List.allSome, Char.isAsciiLowercase, day 22 xor lemmas into Nat/Bits.sw (DeepSeek)",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 832,
+      "title": "Type mismatch with an alias hides the difference: 'expected Quot Bool BoolEq, but this has type Q' (soundness/quot-relation-mismatch since alias names are kept); show the unfolded form beside the alias when the two sides differ only after unfolding",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
