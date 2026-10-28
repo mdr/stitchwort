@@ -1,5 +1,5 @@
 {
-  "next": 719,
+  "next": 724,
   "tickets": [
     {
       "id": 13,
@@ -5825,7 +5825,7 @@
     {
       "id": 708,
       "title": "AoC 2024 day 3: solve with Std.Parse once stage 1 lands, prove, log gaps (overnight)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5933,6 +5933,66 @@
     {
       "id": 718,
       "title": "rewrite: a hole can stand for an auto instance argument (List.sumByAdd _ _ fails with Add.%add ?58 …); no internal names in its error (AoC 2024 day 4)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 719,
+      "title": "Std.Parse follow-ups from AoC 2024 day 3: Parse.findAll (skips with span), bounded repetition (natDigits atLeast atMost), ensureAt a mark, per-piece and optional/oneOf lemmas; investigate ~6.5 KB/char memory growth in runFrom",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 720,
+      "title": "Effectful operand in a comparison: Parse.ensure (Parse.mark().offset ≤ 3) fails with 'no way to decide %3'; elaborate the effectful operand first, never print %n (AoC 2024 day 3)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 721,
+      "title": "Untyped record literal as an argument before the argument that fixes its type (foldLeft { enabled = True, total = 0 } step) can't be inferred; postpone it (AoC 2024 day 3)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 722,
+      "title": "|> in calc steps doesn't parse (AoC 2024 day 3)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 723,
+      "title": "std: List.takeSucc (take (k+1) = take k ++ [getOr k]) and lastSnoc (AoC 2024 day 3)",
       "status": "next",
       "agent": "",
       "where": "",
