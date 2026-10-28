@@ -53,7 +53,7 @@ struct Entry {
     /// As shown: `n`, or `n✝` for one that can't be referred to here.
     name: String,
     ty: Value,
-    /// For a `let`, its value.
+    /// For a `let` of data, its value.
     value: Option<Value>,
 }
 
@@ -135,10 +135,13 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
             None if name.ends_with('✝') => name.to_string(),
             None => format!("{name}✝"),
         };
+        let ty = cx.types[level].clone();
+        // A proof's value is its proof term: only its statement is shown.
+        let shows_value = is_let && !crate::rewrite::is_proof_type(cx, &ty).unwrap_or(false);
         context.push(Entry {
             name,
-            ty: cx.types[level].clone(),
-            value: is_let.then(|| value.clone()),
+            ty,
+            value: shows_value.then(|| value.clone()),
         });
     }
     let shown = display_goal(cx);

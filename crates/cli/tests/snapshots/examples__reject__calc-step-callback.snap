@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CALC-STEP] Error: this step doesn't prove what its line says
+   ╭─[ reject/calc-step-callback.sw:8:51 ]
+   │
+ 8 │     _ = List.sumBy (List.range n) (r => r + 0) := (rfl: 0 = 0)
+   │                                                   ──────┬─────  
+   │                                                         ╰─────── this proves `0 = 0`
+   │ 
+   │ Note: the line says `List.sumBy (List.range n) (r => r) = List.sumBy (List.range n) (r => r + 0)`
+───╯
