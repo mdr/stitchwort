@@ -7,25 +7,23 @@ import Aoc.Year2024.Day16 (..)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, List, Map, Nat, Option, Or, Set, Void)
 
 -- One step of the search: an empty queue ends it...
-theorem searchEmpty [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat) (found: queue.min = None):
+theorem searchEmpty [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat) (found: queue.popMin = None):
     graph.searchFrom queue settled None found = settled :=
   rewrite Graph.searchFrom.unfold graph queue settled None found in rfl
 
 -- ...a state already settled is dropped...
-theorem searchSkip [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat) (cost: Nat) (state: s)
-    (found: queue.min = Some (cost, state)) (taken: settled.contains state = True):
-    graph.searchFrom queue settled (Some (cost, state)) found
-      = graph.searchFrom (queue.remove (cost, state)) settled (queue.remove (cost, state)).min rfl :=
-  rewrite Graph.searchFrom.unfold graph queue settled (Some (cost, state)) found in
+theorem searchSkip [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat) (cost: Nat) (state: s) (rest: Set (Nat, s))
+    (found: queue.popMin = Some ((cost, state), rest)) (taken: settled.contains state = True):
+    graph.searchFrom queue settled (Some ((cost, state), rest)) found = graph.searchFrom rest settled rest.popMin rfl :=
+  rewrite Graph.searchFrom.unfold graph queue settled (Some ((cost, state), rest)) found in
     Decidable.elimEq _ _ _ _ (fresh => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) taken))) (other => rfl)
 
 -- ...and one not settled yet is settled, with its neighbours queued.
-theorem searchSettle [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat) (cost: Nat) (state: s)
-    (found: queue.min = Some (cost, state)) (fresh: settled.contains state = False) (within: graph.within state = True):
-    graph.searchFrom queue settled (Some (cost, state)) found
-      = graph.searchFrom (pushEdges cost (graph.edges state) (queue.remove (cost, state))) (settled.insert state cost)
-        (pushEdges cost (graph.edges state) (queue.remove (cost, state))).min rfl :=
-  rewrite Graph.searchFrom.unfold graph queue settled (Some (cost, state)) found in
+theorem searchSettle [auto ord: Ord s] (graph: Graph s) (queue: Set (Nat, s)) (settled: Map s Nat) (cost: Nat) (state: s) (rest: Set (Nat, s))
+    (found: queue.popMin = Some ((cost, state), rest)) (fresh: settled.contains state = False) (within: graph.within state = True):
+    graph.searchFrom queue settled (Some ((cost, state), rest)) found
+      = graph.searchFrom (pushEdges cost (graph.edges state) rest) (settled.insert state cost) (pushEdges cost (graph.edges state) rest).popMin rfl :=
+  rewrite Graph.searchFrom.unfold graph queue settled (Some ((cost, state), rest)) found in
     Decidable.elimEq _ _ _ _ (isFresh => Decidable.elimEq _ _ _ _ (isWithin => rfl) (notWithin => Void.exfalso (notWithin within)))
       (notFresh => Void.exfalso (notFresh fresh))
 
@@ -82,18 +80,19 @@ theorem pendingKept [auto ord: Ord s] (queue: Set (Nat, s)) (newQueue: Set (Nat,
         | False => Inl (kept (cost, state) there (DecEq.soundFalse _ _ same))
 
 -- With nothing queued, a pending cost is a bound.
-theorem boundOfPending [auto ord: Ord s] (queue: Set (Nat, s)) (settled: Map s Nat) (empty: queue.min = None) (cost: Nat) (state: s)
+theorem boundOfPending [auto ord: Ord s] (queue: Set (Nat, s)) (settled: Map s Nat) (empty: queue.popMin = None) (cost: Nat) (state: s)
     (pending: Pending queue settled cost state): Bound settled cost state :=
   match pending with
     | Inr bound => bound
-    | Inl there => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (missingOfMinNone queue empty (cost, state))) there))
+    | Inl there =>
+      Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (missingOfMinNone queue (Set.popMinNone queue empty) (cost, state))) there))
 
 -- Dropping a popped pair whose state is settled keeps the search state.
 theorem skipKeeps [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop) (queue: Set (Nat, s)) (settled: Map s Nat)
     (cost: Nat) (state: s) (found: queue.min = Some (cost, state)) (taken: settled.contains state = True)
     (invariant: SearchState graph sources reach queue settled): SearchState graph sources reach (queue.remove (cost, state)) settled :=
   let (Both queued (Both settledReached (Both sourcesPending (Both edgesPending ordered)))) := invariant
-  let inQueue := containsMin queue (cost, state) found
+  let inQueue := Set.containsMin queue (cost, state) found
   Exists.elim (getOfContains settled state taken) (settledCost got =>
     let cheaper := ordered state settledCost got cost state inQueue
     let keep := pendingKept queue (queue.remove (cost, state)) settled settled cost state settledCost
@@ -118,7 +117,7 @@ theorem settleKeeps [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) 
   let (Both queued (Both settledReached (Both sourcesPending (Both edgesPending ordered)))) := invariant
   let rest := queue.remove (cost, state)
   let pushed := pushEdges cost (graph.edges state) rest
-  let inQueue := containsMin queue (cost, state) found
+  let inQueue := Set.containsMin queue (cost, state) found
   let (Both reached within) := queued cost state inQueue
   let poppedGot: (settled.insert state cost).get state = Some cost := Map.getInsert state cost settled
   let keep := pendingKept queue pushed settled (settled.insert state cost) cost state cost
@@ -159,7 +158,7 @@ theorem searchFromCorrect [auto ord: Ord s] (graph: Graph s) (sources: List (s, 
     (edgesWithin: (state: s) → graph.within state = True → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
       graph.within next = True)
     (queue: Set (Nat, s)) (settled: Map s Nat):
-    (popped: Option (Nat, s)) → (found: queue.min = popped) → SearchState graph sources reach queue settled →
+    (popped: Option ((Nat, s), Set (Nat, s))) → (found: queue.popMin = popped) → SearchState graph sources reach queue settled →
       SearchResult graph sources reach (graph.searchFrom queue settled popped found)
     decreasing (graph.unsettled settled, queue.size)
   | None, found, invariant =>
@@ -169,19 +168,20 @@ theorem searchFromCorrect [auto ord: Ord s] (graph: Graph s) (sources: List (s, 
         (Both (source start member => boundOfPending queue settled found start source (sourcesPending source start member))
           (from fromCost got next weight edge =>
             boundOfPending queue settled found (fromCost + weight) next (edgesPending from fromCost got next weight edge)))
-  | Some (cost, state), found, invariant =>
+  | Some ((cost, state), rest), found, invariant =>
+    let (Both least restIs) := Set.popMinSome queue (cost, state) rest found
     match taken: settled.contains state with
       | True =>
-        rewrite searchSkip graph queue settled cost state found taken in
-          searchFromCorrect graph sources reach edgesReach edgesWithin (queue.remove (cost, state)) settled (queue.remove (cost, state)).min rfl
-            (skipKeeps graph sources reach queue settled cost state found taken invariant)
-            [decreasing := Nat.LexLess.Second rfl (sizeRemoveMin queue (cost, state) found)]
+        rewrite searchSkip graph queue settled cost state rest found taken in
+          searchFromCorrect graph sources reach edgesReach edgesWithin rest settled rest.popMin rfl
+            (rewrite restIs in skipKeeps graph sources reach queue settled cost state least taken invariant)
+            [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
       | False =>
-        let within := And.right (And.left invariant cost state (containsMin queue (cost, state) found))
-        let pushed := pushEdges cost (graph.edges state) (queue.remove (cost, state))
-        rewrite searchSettle graph queue settled cost state found taken within in
-          searchFromCorrect graph sources reach edgesReach edgesWithin pushed (settled.insert state cost) pushed.min rfl
-            (settleKeeps graph sources reach edgesReach edgesWithin queue settled cost state found taken invariant)
+        let within := And.right (And.left invariant cost state (Set.containsMin queue (cost, state) least))
+        rewrite searchSettle graph queue settled cost state rest found taken within in
+          searchFromCorrect graph sources reach edgesReach edgesWithin (pushEdges cost (graph.edges state) rest) (settled.insert state cost)
+            (pushEdges cost (graph.edges state) rest).popMin rfl
+            (rewrite restIs in settleKeeps graph sources reach edgesReach edgesWithin queue settled cost state least taken invariant)
             [decreasing := Nat.LexLess.First (unsettledInsert graph settled state cost (graph.listed state within) taken)]
 
 -- The distances from the sources: each reached for its cost, each source
@@ -210,4 +210,4 @@ theorem distancesCorrect [auto ord: Ord s] (graph: Graph s) (sources: List (s, N
             let same: 0 + start = start := omega
             Inl (rewrite <- same in containsPushedEdge 0 sources Set.empty source start member))
           (Both (state cost got => Void.exfalso (Option.noneNotSome cost got)) (state cost got => Void.exfalso (Option.noneNotSome cost got)))))
-  searchFromCorrect graph sources reach edgesReach edgesWithin queue Map.empty queue.min rfl initial
+  searchFromCorrect graph sources reach edgesReach edgesWithin queue Map.empty queue.popMin rfl initial

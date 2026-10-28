@@ -127,6 +127,19 @@ def Map.Tree.deleteMin: Map.Tree k v → k → v → Map.Tree k v → Map.Tree k
   | Tip, key, value, r => r
   | Bin _ ll lk lv lr, key, value, r => Map.Tree.balance (Map.Tree.deleteMin ll lk lv lr) key value r
 
+-- The node `l key value r`'s smallest entry and the node without it, in one
+-- walk down the left spine (`minKey`, `minValue` and `deleteMin` together).
+def Map.Tree.minView: Map.Tree k v → k → v → Map.Tree k v → ((k, v), Map.Tree k v)
+  | Tip, key, value, r => ((key, value), r)
+  | Bin _ ll lk lv lr, key, value, r =>
+    let (smallest, rest) := Map.Tree.minView ll lk lv lr
+    (smallest, Map.Tree.balance rest key value r)
+
+-- The smallest entry and the tree without it; none for an empty tree.
+def Map.Tree.popMin: Map.Tree k v → Option ((k, v), Map.Tree k v)
+  | Tip => None
+  | Bin _ l key value r => Some (Map.Tree.minView l key value r)
+
 -- Two trees, every key of the first below every key of the second, as one.
 def Map.Tree.glue: Map.Tree k v → Map.Tree k v → Map.Tree k v
   | Tip, r => r
@@ -460,6 +473,33 @@ theorem Map.Tree.deleteMinSized: (l: Map.Tree k v) → (key: k) → (value: v) �
   | Bin _ ll lk lv lr, key, value, r, Both e (Both sll slr), sr =>
     Map.Tree.balanceSized (Map.Tree.deleteMin ll lk lv lr) key value r (Map.Tree.deleteMinSized ll lk lv lr sll slr) sr
 
+-- `minView` is `minKey`, `minValue` and `deleteMin` in one walk.
+theorem Map.Tree.minViewSplit: (l: Map.Tree k v) → (key: k) → (value: v) → (r: Map.Tree k v) →
+    Map.Tree.minView l key value r = ((Map.Tree.minKey key l, Map.Tree.minValue value l), Map.Tree.deleteMin l key value r)
+  | Tip, key, value, r => rfl
+  | Bin _ ll lk lv lr, key, value, r => rewrite Map.Tree.minViewSplit ll lk lv lr in rfl
+
+-- What `popMin` leaves of a non-empty tree is `deleteMin`'s.
+theorem Map.Tree.popMinRest (l: Map.Tree k v) (key: k) (value: v) (r: Map.Tree k v) (s: Nat) (smallest: (k, v)) (rest: Map.Tree k v)
+    (found: Map.Tree.popMin (Bin s l key value r) = Some (smallest, rest)): rest = Map.Tree.deleteMin l key value r :=
+  Eq.cong Pair.snd (Eq.trans (Eq.sym (Option.someInjective _ _ found)) (Map.Tree.minViewSplit l key value r))
+
+-- Taking the smallest entry off keeps the keys in order...
+theorem Map.Tree.popMinOrdered (ord: Ord k): (t: Map.Tree k v) → (smallest: (k, v)) → (rest: Map.Tree k v) →
+    Map.Tree.Ordered ord t → Map.Tree.popMin t = Some (smallest, rest) → Map.Tree.Ordered ord rest
+  | Tip, smallest, rest, w, found => Void.exfalso (Option.noneNotSome (smallest, rest) found)
+  | Bin s l key value r, smallest, rest, Both (Both ab be) (Both wl wr), found =>
+    rewrite Map.Tree.popMinRest l key value r s smallest rest found in
+      Map.Tree.withinLow ord None (Map.Tree.minKey key l) None (Map.Tree.deleteMin l key value r) Trivial
+        (Map.Tree.deleteMinWithin ord None None l key value r ab be wl wr)
+
+-- ...and the stored sizes right.
+theorem Map.Tree.popMinSized: (t: Map.Tree k v) → (smallest: (k, v)) → (rest: Map.Tree k v) →
+    Map.Tree.Sized t → Map.Tree.popMin t = Some (smallest, rest) → Map.Tree.Sized rest
+  | Tip, smallest, rest, st, found => Void.exfalso (Option.noneNotSome (smallest, rest) found)
+  | Bin s l key value r, smallest, rest, Both e (Both sl sr), found =>
+    rewrite Map.Tree.popMinRest l key value r s smallest rest found in Map.Tree.deleteMinSized l key value r sl sr
+
 theorem Map.Tree.glueSized: (l: Map.Tree k v) → (r: Map.Tree k v) →
     Map.Tree.Sized l → Map.Tree.Sized r → Map.Tree.Sized (Map.Tree.glue l r)
   | Tip, r, sl, sr => sr
@@ -732,6 +772,21 @@ def Map.Raw.mapWithKey (f: k → v → w) (m: Map.Raw k v [ord := o]): Map.Raw k
 def Map.Raw.min (m: Map.Raw k v [ord := o]): Option (k, v) := Map.Tree.minOr None m.tree
 
 def Map.Raw.max (m: Map.Raw k v [ord := o]): Option (k, v) := Map.Tree.maxOr None m.tree
+
+-- `popMin` given the tree's `popMin` and its equation.
+def Map.Raw.popMinFrom (m: Map.Raw k v [ord := o]):
+    (popped: Option ((k, v), Map.Tree k v)) → Map.Tree.popMin m.tree = popped → Option ((k, v), Map.Raw k v [ord := o])
+  | None, found => None
+  | Some (smallest, rest), found =>
+    Some (smallest, {
+      tree = rest,
+      ordered = Map.Tree.popMinOrdered o m.tree smallest rest m.ordered found,
+      sized = Map.Tree.popMinSized m.tree smallest rest m.sized found
+    })
+
+-- The smallest entry and the map without it, in one walk.
+def Map.Raw.popMin (m: Map.Raw k v [ord := o]): Option ((k, v), Map.Raw k v [ord := o]) :=
+  Map.Raw.popMinFrom m (Map.Tree.popMin m.tree) rfl
 
 @[noReceiver]
 def Map.Raw.below [auto ord: Ord k] (key: k) (m: Map.Raw k v): Option (k, v) := Map.Tree.nearestBelow key None m.tree

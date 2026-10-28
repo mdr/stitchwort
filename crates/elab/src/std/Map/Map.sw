@@ -193,6 +193,15 @@ def Map.find (m: Map k v [ord := o]) (p: k → v → Bool): Option (k, v) := m.t
 -- The entry with the smallest key, O(log n).
 def Map.min (m: Map k v [ord := o]): Option (k, v) := Quot.lift Map.Raw.min (a b same => Map.Raw.minRespects a b same) m.raw
 
+-- The entry with the smallest key and the map without it, in one walk,
+-- O(log n): `min` and `remove` together (`Map.popMinSpec`).
+def Map.popMin (m: Map k v [ord := o]): Option ((k, v), Map k v [ord := o]) :=
+  Quot.lift Map.popMinRaw (a b same => Map.popMinRespects a b same) m.raw
+
+-- `popMin` of one representative.
+def Map.popMinRaw (rawMap: Map.Raw k v [ord := o]): Option ((k, v), Map k v [ord := o]) :=
+  Option.map (Map.Raw.popMin rawMap) (view => (view.fst, Map.ofRaw view.snd))
+
 -- The entry with the largest key, O(log n).
 def Map.max (m: Map k v [ord := o]): Option (k, v) := Quot.lift Map.Raw.max (a b same => Map.Raw.maxRespects a b same) m.raw
 
@@ -450,6 +459,44 @@ theorem Map.toListMapWithKey (f: k → v → w) (m: Map k v [ord := o]): Map.toL
 
 theorem Map.minToList (m: Map k v [ord := o]): Map.min m = List.head (Map.toList m) :=
   Map.indRaw [p := m' => Map.min m' = List.head (Map.toList m')] (r => Map.Raw.minToList r) m
+
+-- Views of two maps with the same entries left agree.
+theorem Map.viewsAgree: (x: Option ((k, v), Map.Raw k v [ord := o])) → (y: Option ((k, v), Map.Raw k v [ord := o])) →
+    Option.map x (view => (view.fst, Map.Raw.toList view.snd)) = Option.map y (view => (view.fst, Map.Raw.toList view.snd)) →
+    Option.map x (view => (view.fst, Map.ofRaw view.snd)) = Option.map y (view => (view.fst, Map.ofRaw view.snd))
+  | None, None, same => rfl
+  | None, Some view, same => Void.exfalso (Option.noneNotSome _ same)
+  | Some view, None, same => Void.exfalso (Option.someNotNone _ same)
+  | Some (smallest, rest), Some (other, otherRest), same =>
+    let pairs := Option.someInjective _ _ same
+    rewrite Eq.cong Pair.fst pairs in
+      Eq.cong (left => Some (other, left)) (Map.toListInjective (Map.ofRaw rest) (Map.ofRaw otherRest) (Eq.cong Pair.snd pairs))
+
+theorem Map.popMinRespects (a: Map.Raw k v [ord := o]) (b: Map.Raw k v [ord := o]) (same: Map.Raw.Equiv a b): Map.popMinRaw a = Map.popMinRaw b :=
+  Map.viewsAgree (Map.Raw.popMin a) (Map.Raw.popMin b)
+    (Eq.trans (Map.Raw.popMinToList a) (Eq.trans (Eq.cong Map.Spec.uncons same) (Eq.sym (Map.Raw.popMinToList b))))
+
+-- `popMinSpec` for one representative, given its view and its entries.
+theorem Map.popMinSpecRaw [auto ord: Ord k] (r: Map.Raw k v):
+    (x: Option ((k, v), Map.Raw k v)) → (entries: List (k, v)) →
+    Option.map x (view => (view.fst, Map.Raw.toList view.snd)) = Map.Spec.uncons entries → Map.Raw.toList r = entries →
+    Option.map x (view => (view.fst, Map.ofRaw view.snd)) = Option.map (List.head entries) (entry => (entry, Map.remove (Map.ofRaw r) entry.fst))
+  | None, Nil, viewed, listed => rfl
+  | None, Cons entry more, viewed, listed => Void.exfalso (Option.noneNotSome _ viewed)
+  | Some view, Nil, viewed, listed => Void.exfalso (Option.someNotNone _ viewed)
+  | Some ((key, value), rest), Cons entry more, viewed, listed =>
+    let pairs := Option.someInjective _ _ viewed
+    let first: (key, value) = entry := Eq.cong Pair.fst pairs
+    let whole: Map.Raw.toList r = Cons (key, value) (Map.Raw.toList rest) := rewrite first, Eq.cong Pair.snd pairs in listed
+    let left: Map.Raw.toList rest = Map.Raw.toList (Map.Raw.remove key r) :=
+      rewrite Map.Raw.toListRemove key r, whole, Ord.compareSelf key in rfl
+    rewrite <- first in
+      Eq.cong (later => Some ((key, value), later)) (Map.toListInjective (Map.ofRaw rest) (Map.ofRaw (Map.Raw.remove key r)) left)
+
+-- `popMin` is `min` and `remove` together.
+theorem Map.popMinSpec [auto ord: Ord k] (m: Map k v): Map.popMin m = Option.map (Map.min m) (entry => (entry, Map.remove m entry.fst)) :=
+  Map.indRaw [p := m' => Map.popMin m' = Option.map (Map.min m') (entry => (entry, Map.remove m' entry.fst))]
+    (r => rewrite Map.minToList (Map.ofRaw r) in Map.popMinSpecRaw r (Map.Raw.popMin r) (Map.Raw.toList r) (Map.Raw.popMinToList r) rfl) m
 
 theorem Map.maxToList (m: Map k v [ord := o]): Map.max m = List.last (Map.toList m) :=
   Map.indRaw [p := m' => Map.max m' = List.last (Map.toList m')] (r => Map.Raw.maxToList r) m
@@ -992,6 +1039,8 @@ test "map: counts" := Map.toList (Map.counts ['b', 'a', 'b']) == [('a', 1), ('b'
 test "map: find" := Map.find Map.example2 (key t => key > 2) == Some (3, "c") ∧ Map.find Map.example2 (key t => key > 7) == None
 test "map: min and max" :=
   Map.min Map.example2 == Some (1, "a") ∧ Map.max Map.example2 == Some (7, "g") ∧ Map.min (Map.empty: Map Nat Nat) == None
+test "map: popMin" :=
+  Map.popMin Map.example2 == Some ((1, "a"), Map.remove Map.example2 1) ∧ Map.popMin (Map.empty: Map Nat Nat) == None
 test "map: below" :=
   Map.below Map.example2 5 == Some (3, "c") ∧ Map.below Map.example2 6 == Some (5, "e") ∧ Map.below Map.example2 1 == None
     ∧ Map.below Map.example2 100 == Some (7, "g")

@@ -54,6 +54,11 @@ def Set.unions [auto ord: Ord k] (ss: List (Set k)): Set k := List.foldLeft ss S
 -- The smallest key, O(log n).
 def Set.min (set: Set k [ord := o]): Option k := set.items.min |> .map Pair.fst
 
+-- The smallest key and the set without it, in one walk, O(log n): `min`
+-- and `remove` together (`Set.popMinSpec`).
+def Set.popMin (set: Set k [ord := o]): Option (k, Set k [ord := o]) :=
+  set.items.popMin |> .map (view => (view.fst.fst, ({ items = view.snd }: Set k [ord := o])))
+
 -- The largest key, O(log n).
 def Set.max (set: Set k [ord := o]): Option k := set.items.max |> .map Pair.fst
 
@@ -175,6 +180,9 @@ test "set: unions" := Set.toList (Set.unions [Set.fromList [3, 1], Set.fromList 
 test "set: min, max, below, above" :=
   Set.min Set.example == Some 1 ∧ Set.max Set.example == Some 3 ∧ Set.min (Set.empty: Set Nat) == None
     ∧ Set.below Set.example 3 == Some 2 ∧ Set.below Set.example 1 == None ∧ Set.above Set.example 1 == Some 2 ∧ Set.above Set.example 3 == None
+test "set: popMin" :=
+  Set.popMin Set.example == Some (1, Set.fromList [2, 3]) ∧ Set.popMin (Set.empty: Set Nat) == None
+    ∧ (Set.fromList (List.range 40) |> .popMin |> .map (view => view.snd.toList)) == Some (List.range 40 |> List.tailOf)
 test "set: isSubset, disjoint" :=
   Set.isSubset (Set.fromList [1, 2]) Set.example ∧ ¬(Set.isSubset (Set.fromList [1, 4]) Set.example)
     ∧ Set.disjoint Set.example (Set.fromList [4]) ∧ ¬(Set.disjoint Set.example (Set.fromList [2]))
