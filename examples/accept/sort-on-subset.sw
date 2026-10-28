@@ -1,7 +1,7 @@
 -- Sorting doubles by JS's `<=` (`Float.ieeeLe`), which is total only
 -- without the NaN: `List.sortWithSortedOn` needs totality only on the
 -- values the elements are (here, every double but the NaN), and
--- `List.pairwiseOfSortedOn` transitivity only there (std/List/Sort.sw,
+-- `List.pairwiseOfSortedOn` transitivity only there (std/List/SortLemmas.sw,
 -- with the order's laws from std/Float/Float.sw).
 import Std (Bool, List, Float)
 

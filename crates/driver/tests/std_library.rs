@@ -577,20 +577,15 @@ fn small_programs_load_only_the_library_files_they_can_use() {
     );
     // The sort's lemmas are in `List/SortLemmas.sw`, so neither they nor
     // `ring` (`Std.Ring` and the `Int` files under it) load. The congruence
-    // lemmas `List.sumByCongRange` and `List.countCongMem` stay in
-    // `List/Sort.sw` and use `List.sumByCons` and `List.countOccurrences`,
-    // so the toolkit's lemmas load, with what they use.
+    // lemmas of `List.sumBy` and `List.count` are in the toolkit, so the
+    // toolkit's other lemmas don't load either.
     let sort = [
         "Bool/Bool.sw",
-        "Decidable/Decidable.sw",
-        "Logic/Logic.sw",
         "Nat/Arith.sw",
         "Option/Option.sw",
-        "Option/Lemmas.sw",
         "Ord/Ord.sw",
         "Result/Result.sw",
         "List/Toolkit.sw",
-        "List/Lemmas.sw",
         "List/Sort.sw",
     ];
     assert_eq!(

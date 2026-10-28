@@ -1096,7 +1096,7 @@ theorem List.findAny (xs: List a) (p: a → Bool) (q: a → Bool) (y: a) (qy: q 
     | Both py m => List.anyOfMem xs q y qy m
 
 -- With distinct keys, finding by an element's key finds that element (and
--- `List.findKey`, std/List/Sort.sw, says what is found has the key).
+-- `List.findKey`, std/List/SortLemmas.sw, says what is found has the key).
 theorem List.findKeyDistinct [auto eq: DecEq k] (key: a → k): (xs: List a) → List.Distinct (List.map xs key) → (x: a) → x ∈ xs →
     List.find xs (y => key y == key x) = Some x
   | Nil, d, x, m => Void.exfalso m
