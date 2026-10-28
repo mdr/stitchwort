@@ -1,5 +1,5 @@
 {
-  "next": 775,
+  "next": 778,
   "tickets": [
     {
       "id": 13,
@@ -6557,7 +6557,7 @@
     {
       "id": 770,
       "title": "AoC 2024 day 18 (examples only; input pending from Matt): falling bytes, shortest path, solve, prove, log gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6605,6 +6605,42 @@
     {
       "id": 774,
       "title": "Day 17 findings: auto tries instances before computing the goal (Nat.pow 2 (Succ k) != 0); follow-on errors from failed definitions; %3 placeholder in suggestions; Nat and/or/shiftLeft; 'a number of 1 digits' wording; List.joinWith; List.minimum/filter lemmas to std",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 775,
+      "title": "Graph search into std: Graph, Dijkstra + correctness, a BFS with a plain queue, a generic shortest-path bound, Nat.partitionPoint; days 16/18 use it; day 18 takes size from IO.args (after the day 16 findings lane merges)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 776,
+      "title": "Day 18: proof check 12.9 s -> 2.8 s only by making reachable opaque; find where conversion spends the time (compare by name before unfolding large definitions?) and report slow checks",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 777,
+      "title": "Day 18 small findings: pattern let in a definition breaks its unfolding equation (names %step); 'if h: a < b = True' guard errors should suggest the form without = True",
       "status": "next",
       "agent": "",
       "where": "",
