@@ -1,5 +1,5 @@
 {
-  "next": 809,
+  "next": 810,
   "tickets": [
     {
       "id": 13,
@@ -6725,7 +6725,7 @@
     {
       "id": 784,
       "title": "AoC 2024 day 23 (examples only; input pending from Matt): LAN party triangles and largest clique, solve, prove, log gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7055,6 +7055,18 @@
     {
       "id": 808,
       "title": "Day 22 findings: built-in Nat xor/and/or/shifts in the runtime (4.3 µs per xor); lazy unfolding when comparing large closed definitions (130,321-element list hangs, no part2 name); omega facts for % by a literal; hangs should name their declaration (time budget); 'f -2' message suggests brackets; rewrite notes print % not Nat.divFuel; low-bits xor lemmas into Nat/Bits.sw; array with constant-time indexing",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 809,
+      "title": "Day 23 findings: 'match found:' in a definition can't be stepped through (E-REWRITE/MATCH-MOTIVE; see D1439); a 100-line theorem 16 s vs 2.2 s with let-bound proofs moved out (why?); lambda needing a later argument for pair.fst gives a same-type mismatch message; Set membership Iff lemmas; dependent if choosing between proofs (E-UNIVERSE); Set.sizeIntersect lemmas; Char.isAsciiLowercase",
       "status": "backlog",
       "agent": "",
       "where": "",
