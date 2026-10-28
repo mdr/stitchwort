@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ABILITY] Error: this may perform abilities that aren't allowed here
+   ╭─[ reject/match-outer-variable-ability-not-allowed.sw:6:3 ]
+   │
+ 6 │ ╭─▶   xs.map (x =>
+   ┆ ┆   
+ 9 │ ├─▶       | n => g (n + x))
+   │ │                             
+   │ ╰───────────────────────────── its row variable isn't part of the enclosing function's abilities
+───╯

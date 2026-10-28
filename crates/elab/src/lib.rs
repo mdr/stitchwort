@@ -4194,6 +4194,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     return Err(e);
                 }
             };
+            effects::unpin_row(cx, goal, *x)?;
             let goal_term = cx.quote_folded(goal)?;
             if !data.indices.is_empty() {
                 let term = families::check_case(cx, *x, *d, &params, branches, &goal_term, *span)?;
@@ -4293,6 +4294,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     return Err(e);
                 }
             }
+            effects::unpin_row(cx, goal, *x)?;
             let goal_term = cx.quote_folded(goal)?;
             let mut out = Vec::new();
             let mut failed = Vec::new();
