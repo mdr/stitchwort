@@ -629,7 +629,8 @@ def Parse.all (input: Text) (parser: () → {Parse} a): {Fail} a :=
       Fail.fail "line ${line}, column ${column}: ${failure.describe chars "the end of the input" "the end of the line"}"
 
 -- `parser` on one line, else fail with "column 5: expected ',', got ';'".
--- One line break at the end is allowed.
+-- One line break at the end is allowed; a failure after a line break gives
+-- its line too, as `Parse.all` does.
 def Parse.line (line: Text) (parser: () → {Parse} a): {Fail} a :=
   let chars := line.toList
   let withFinalLineBreak := () =>
@@ -638,7 +639,11 @@ def Parse.line (line: Text) (parser: () → {Parse} a): {Fail} a :=
     value
   match Parse.whole chars withFinalLineBreak with
     | Ok value => value
-    | Err failure => Fail.fail "column ${failure.offset + 1}: ${failure.describe chars "the end of the line" "a line break"}"
+    | Err failure =>
+      match Parse.lineAndColumn chars failure.offset with
+        | (1, column) => Fail.fail "column ${column}: ${failure.describe chars "the end of the line" "a line break"}"
+        | (lineNumber, column) =>
+          Fail.fail "line ${lineNumber}, column ${column}: ${failure.describe chars "the end of the input" "a line break"}"
 
 -- `parser` on each line of `input`, split as `Text.lines` splits, else fail
 -- with "line 3, column 5: expected ',', got ';'" for the first line that
@@ -1022,7 +1027,11 @@ test "Parse: eachLine, in context" :=
   Fail.toResult (() => Fail.context "input" (() => Parse.eachLine "x" Parse.nat)) == Err "input: line 1, column 1: expected a number, got 'x'"
 test "Parse: all, trailing blank lines" := Parse.Tests.allResult "1\n2\n\n\n" (() => Parse.lines Parse.nat) == Ok [1, 2]
 test "Parse: line, a final line break" := Parse.Tests.lineResult "12\n" Parse.nat == Ok 12
-test "Parse: line, two final line breaks" := Parse.Tests.lineResult "12\n\n" Parse.nat == Err "column 4: expected the end of the line, got a line break"
+test "Parse: line, two final line breaks" :=
+  Parse.Tests.lineResult "12\n\n" Parse.nat == Err "line 2, column 1: expected the end of the input, got a line break"
+test "Parse: line, a second line" := Parse.Tests.lineResult "12\n34\n" Parse.nat == Err "line 2, column 1: expected the end of the input, got '3'"
+test "Parse: line, an error on a second line" :=
+  Parse.Tests.lineResult "1\n2x" (() => Parse.sepBy1 Parse.nat Parse.newline) == Err "line 2, column 2: expected the end of the line, got 'x'"
 
 test "Parse: ensureAt" := Parse.Tests.lineResult "x=12345" (() =>
   Parse.text "x="

@@ -14,7 +14,7 @@ use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Mode, Name as AstName, SECTIO
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::unify::unify;
-use crate::{Elaborator, Global, effects, records};
+use crate::{Elaborator, Global, effects, records, scope};
 
 pub type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -3765,8 +3765,9 @@ fn lambda_shadow(cx: &Ctx, names: &[AstName], span: Span) -> Result<Option<(AstN
             Diagnostic::warning(
                 "W-LAMBDA-SHADOW",
                 format!(
-                    "this lambda's first parameter `{0}` hides the function `{0}`",
-                    first.text
+                    "this lambda's first parameter `{}` hides the function `{}`",
+                    first.text,
+                    hidden_function_name(cx, &first.text)
                 ),
             )
             .with_label(first.span, format!("`{}` is a parameter here", first.text))
@@ -3774,6 +3775,23 @@ fn lambda_shadow(cx: &Ctx, names: &[AstName], span: Span) -> Result<Option<(AstN
         );
     }
     Ok(Some((first.clone(), second.clone())))
+}
+
+/// The function `name` names, in full where it's declared outside the
+/// module (`Parse.span` for `span`), so a name brought in unqualified says
+/// where it's from.
+fn hidden_function_name(cx: &Ctx, name: &str) -> String {
+    if cx.local(name).ok().flatten().is_some() || cx.lookup(name).is_some() {
+        return name.to_string();
+    }
+    match cx.e.resolve(name) {
+        scope::Resolved::Found { key, rest, .. }
+            if rest.is_empty() && key.strip_prefix(cx.e.namespace_root.as_str()) != Some(name) =>
+        {
+            scope::display(key).to_string()
+        }
+        _ => name.to_string(),
+    }
 }
 
 fn shadow_advice(first: &AstName, second: &AstName) -> String {

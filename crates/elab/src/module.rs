@@ -2304,9 +2304,11 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
     };
     match decl {
         Decl::Signature {
+            name,
             ty,
             unfolding,
             defaults,
+            decreasing,
             ..
         } => {
             add(free_names(vec![Work::Expr(ty)]), true);
@@ -2321,6 +2323,7 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
             );
             let binders = body_binders(ty, equations);
             let param_types = explicit_param_types(ty, equations);
+            let mut body = Vec::new();
             for eq in equations {
                 let Decl::Equation { patterns, rhs, .. } = eq else {
                     continue;
@@ -2328,8 +2331,15 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                 let mut work: Vec<Work> = binders.iter().map(|x| Work::Bind(x)).collect();
                 work.extend(equation_patterns(patterns, &param_types));
                 work.extend(rhs.iter().map(Work::Expr));
-                add(free_names(work), false);
+                body.extend(names_and_proofs(work));
             }
+            // A recursive call with no `[decreasing := …]` is proved by
+            // `auto`, which tries `omega` when nothing else proves it.
+            if decreasing.is_some() && unproved_recursive_call(name, &body) {
+                body.push(Ref::Name(&REWRITE_MARKER));
+            }
+            body.retain(|r| !is_decreasing_proof(r));
+            add(body, false);
         }
         Decl::Data {
             params,
@@ -2412,8 +2422,10 @@ pub(crate) enum Ref<'a> {
     Dot(&'a ast::Name, String, Option<&'a ast::Name>),
 }
 
-/// A reference no declaration can have: a `rewrite` is here. A program's
-/// module loads `omega`'s library for it ([`Elaborator::dependencies`]);
+/// A reference no declaration can have: a `rewrite` is here, or another
+/// proof that may be `omega`'s (a `cases`, or a recursive call of a
+/// definition with `decreasing` that gives no proof). A program's module
+/// loads `omega`'s library for it ([`Elaborator::dependencies`]);
 /// a library file doesn't, since `omega`'s library is built on files that
 /// use `rewrite` (an edge back would be a cycle), so there a premise is
 /// proved by `omega` only where the file loads it anyway.
@@ -2460,10 +2472,44 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
     }
 }
 
+/// A reference no declaration can have: a `[decreasing := …]` argument is
+/// here. Only [`names_and_proofs`] gives it.
+static DECREASING_PROOF: std::sync::LazyLock<ast::Name> = std::sync::LazyLock::new(|| ast::Name {
+    text: "%decreasing".to_string(),
+    span: Span::NOWHERE,
+});
+
+fn is_decreasing_proof(r: &Ref<'_>) -> bool {
+    matches!(r, Ref::Name(n) if std::ptr::eq(*n, &*DECREASING_PROOF))
+}
+
+/// Whether a body whose references, with its `[decreasing := …]`
+/// arguments, are `refs` names `name` more often than it gives such a proof.
+fn unproved_recursive_call(name: &ast::Name, refs: &[Ref<'_>]) -> bool {
+    let short = name.text.rsplit('.').next().unwrap_or(&name.text);
+    let calls = refs
+        .iter()
+        .filter(|r| match r {
+            Ref::Name(n) => n.text == name.text || n.text == short,
+            Ref::Dot(_, field, _) => field == short,
+        })
+        .count();
+    let proofs = refs.iter().filter(|r| is_decreasing_proof(r)).count();
+    calls > proofs
+}
+
 /// The free names in `work`, in order: names used that aren't bound by a
-/// binder around them. A work list rather than recursion, since expressions
-/// can nest more deeply than recursion could follow.
+/// binder around them.
 fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
+    let mut out = names_and_proofs(work);
+    out.retain(|r| !is_decreasing_proof(r));
+    out
+}
+
+/// [`free_names`], with [`DECREASING_PROOF`] where a `[decreasing := …]`
+/// argument is. A work list rather than recursion, since expressions can
+/// nest more deeply than recursion could follow.
+fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
     let mut stack: Vec<Work> = work;
     stack.reverse();
     // Each variable's bindings in scope, innermost last, with the name at the
@@ -2612,7 +2658,12 @@ fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 steps.extend(unbind);
                 then(&mut stack, steps);
             }
-            Expr::NamedArg(_, value, _, _) => stack.push(Work::Expr(value)),
+            Expr::NamedArg(name, value, _, _) => {
+                if name.text == "decreasing" {
+                    out.push(Ref::Name(&DECREASING_PROOF));
+                }
+                stack.push(Work::Expr(value));
+            }
             Expr::If {
                 binder,
                 cond,

@@ -31,10 +31,38 @@ fn a_first_parameter_that_hides_an_imported_function_warns() {
     };
     assert_eq!(w.severity, Severity::Warning);
     assert!(
-        w.message.contains("`map` hides the function `map`"),
+        w.message.contains("`map` hides the function `List.map`"),
         "{w:?}"
     );
     assert!(w.notes[0].contains("map (xs => …)"), "{w:?}");
+}
+
+#[test]
+fn an_ability_operation_in_scope_is_named_in_full() {
+    let (session, result) = load(
+        "import Std (List, Parse)\n\n\
+         def f (xs: List Nat): Nat := xs.foldRight 0 (span total => span + total)\n",
+    );
+    result.unwrap();
+    let [w] = &shadow_warnings(&session)[..] else {
+        panic!("{:#?}", session.warnings);
+    };
+    assert!(
+        w.message.contains("`span` hides the function `Parse.span`"),
+        "{w:?}"
+    );
+}
+
+#[test]
+fn a_function_of_the_same_file_is_named_as_written() {
+    let (session, _) = load(
+        "def r (i: Nat): Nat := i\n\n\
+         def f : Nat -> Nat -> Nat := r acc => r + acc\n",
+    );
+    let [w] = &shadow_warnings(&session)[..] else {
+        panic!("{:#?}", session.warnings);
+    };
+    assert!(w.message.contains("`r` hides the function `r`"), "{w:?}");
 }
 
 #[test]

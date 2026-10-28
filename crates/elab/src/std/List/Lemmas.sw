@@ -657,6 +657,50 @@ theorem List.reverseOntoAppend: (xs: List a) → (acc: List a) → List.reverseO
 -- Reversing a list puts its first element last.
 theorem List.reverseCons (x: a) (xs: List a): List.reverse (Cons x xs) = List.append (List.reverse xs) [x] := List.reverseOntoAppend xs [x]
 
+-- Reversing a list puts its last element first.
+theorem List.reverseSnoc: (xs: List a) → (x: a) → List.reverse (List.append xs [x]) = Cons x (List.reverse xs)
+  | Nil, x => rfl
+  | Cons y rest, x =>
+    rewrite List.reverseCons y (List.append rest [x]), List.reverseSnoc rest x, List.reverseCons y rest in rfl
+
+theorem List.lengthReverseOnto: (xs: List a) → (acc: List a) → List.length (List.reverseOnto xs acc) = List.length xs + List.length acc
+  | Nil, acc => rfl
+  | Cons x rest, acc => Eq.trans (List.lengthReverseOnto rest (Cons x acc)) (Nat.addSucc (List.length rest) (List.length acc))
+
+theorem List.lengthReverse (xs: List a): List.length (List.reverse xs) = List.length xs :=
+  Eq.trans (List.lengthReverseOnto xs Nil) (Nat.addZero (List.length xs))
+
+theorem List.lengthSnoc: (xs: List a) → (x: a) → List.length (List.append xs [x]) = Succ (List.length xs)
+  | Nil, x => rfl
+  | Cons y rest, x => Eq.cong Succ (List.lengthSnoc rest x)
+
+-- Counting in a `flatMap` over a list reversed onto `acc`.
+theorem List.occurrencesFlatMapReverseOnto (f: a → List b) (p: b → Bool): (xs: List a) → (acc: List a) →
+    List.occurrences (List.flatMap (List.reverseOnto xs acc) f) p =
+      List.occurrences (List.flatMap xs f) p + List.occurrences (List.flatMap acc f) p
+  | Nil, acc => rfl
+  | Cons x rest, acc =>
+    let here := List.occurrences (f x) p
+    let before := List.occurrences (List.flatMap rest f) p
+    let after := List.occurrences (List.flatMap acc f) p
+    rewrite List.occurrencesFlatMapReverseOnto f p rest (Cons x acc), List.occurrencesAppend (f x) (List.flatMap acc f) p,
+      List.occurrencesAppend (f x) (List.flatMap rest f) p
+      in Eq.trans (Eq.sym (Nat.addAssoc before here after)) (Eq.cong (t => t + after) (Nat.addComm before here))
+
+-- A `flatMap` over the list reversed has the same elements.
+theorem List.permFlatMapReverse (f: a → List b) (xs: List a): List.Perm (List.flatMap (List.reverse xs) f) (List.flatMap xs f) :=
+  p => Eq.trans (List.occurrencesFlatMapReverseOnto f p xs Nil) (Nat.addZero (List.occurrences (List.flatMap xs f) p))
+
+-- Adding up the values there are is adding up every value, with 0 for none.
+theorem List.sumFilterMap (f: a → Option Nat): (xs: List a) →
+    List.sum (List.filterMap xs f) = List.sumBy xs (x => Option.getOrElse (f x) 0)
+  | Nil => rfl
+  | Cons x rest =>
+    rewrite List.sumByCons rest x (y => Option.getOrElse (f y) 0), <- List.sumFilterMap f rest in
+      match value: f x with
+        | Some v => List.sumByCons (List.filterMap rest f) v (y => y)
+        | None => rfl
+
 theorem List.reverseReverseExample: List.reverse (List.reverse [1, 2, 3]) = [1, 2, 3] := List.reverseReverse [1, 2, 3]
 
 -- A test every element passes holds for all of them.
