@@ -7245,7 +7245,7 @@
     {
       "id": 823,
       "title": "Design note for D1445: may spec/proof/test files add functions to a program's types, and how far would they leak into other scopes",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -7257,7 +7257,7 @@
     {
       "id": 824,
       "title": "Design note for D1446: functions on type aliases; why dot syntax loses the alias after inference (experiment with glued calls in dot.rs step_value)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
