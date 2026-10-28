@@ -14,17 +14,15 @@ import Std (List, Nat, Option)
 def filesystemChecksum (blocks: List (Option Nat)): Nat :=
   blocks.withIndex |> .filterMap (pair => pair.snd.map (id => pair.fst * id)) |> .sum
 
--- The last file block's file, and the blocks with that block made free.
--- `None` when there is no file block.
-def takeLastFileBlock: List (Option Nat) → Option (Nat, List (Option Nat))
+-- The file of the last file block, if there is a file block.
+def lastFile: List (Option Nat) → Option Nat
   | Nil => None
-  | Cons block rest =>
-    match takeLastFileBlock rest with
-      | Some (id, freed) => Some (id, Cons block freed)
-      | None =>
-        match block with
-          | Some id => Some (id, Cons None rest)
-          | None => None
+  | Cons block rest => (lastFile rest).orElse block
+
+-- The blocks with the last file block made free.
+def freeLastFileBlock: List (Option Nat) → List (Option Nat)
+  | Nil => Nil
+  | Cons block rest => if (lastFile rest).isSome then Cons block (freeLastFileBlock rest) else Cons None rest
 
 -- Part 1's one move: "move file blocks one at a time from the end of the
 -- disk to the leftmost free space block". Past the file blocks at the front,
@@ -34,8 +32,8 @@ def moveLastBlock: List (Option Nat) → List (Option Nat)
   | Nil => Nil
   | Cons (Some id) rest => Cons (Some id) (moveLastBlock rest)
   | Cons None rest =>
-    match takeLastFileBlock rest with
-      | Some (id, freed) => Cons (Some id) freed
+    match lastFile rest with
+      | Some id => Cons (Some id) (freeLastFileBlock rest)
       | None => Cons None rest
 
 -- A gap between file blocks: a free block with a file block after it.
