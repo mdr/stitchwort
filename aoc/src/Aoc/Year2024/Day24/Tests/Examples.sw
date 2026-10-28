@@ -78,7 +78,7 @@ test "a bad value" := parsed "x00: 2\n\nx00 OR x00 -> z00\n" == Err "line 1, col
 
 test "a bad operation" := parsed "x00: 1\n\nx00 NOR x00 -> z00\n" == Err "line 3, column 5: expected AND, OR or XOR, got 'N'"
 
-test "no blank line" := parsed "x00: 1\nx00 OR x00 -> z00\n" == Err "line 2, column 4: expected ': ' or a blank line before this line, got ' O'"
+test "no blank line" := parsed "x00: 1\nx00 OR x00 -> z00\n" == Err "line 2, column 4: expected ': ' or a blank line before this line, got ' OR'"
 
 -- A wire with no value: the gate waits for ever.
 test "a gate missing an input never fires" := solvePart1 (deviceOf "x00: 1\n\nx00 AND y00 -> z00\n") == None
