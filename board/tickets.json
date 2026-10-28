@@ -5405,7 +5405,7 @@
     {
       "id": 673,
       "title": "Latent scoping bug: after a match refines a variable, a let's value can mention a variable bound later (Float.Theory.roundsToFinite: h1 at level 17 quoted at level 11); index arithmetic underflows and wraps (release silently, debug now explicitly at value.rs:2081, term.rs shift, lift.rs:222). Represent later-bound variables properly in the lift code (debug-builtins lane, 26 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
