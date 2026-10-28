@@ -172,4 +172,4 @@ def solvePart1 (lab: Lab): Option Nat := lab.patrol |> .map .size
 def solvePart2 (lab: Lab): Option Nat :=
   let sightlines := Sightlines.of lab.obstructions
   lab.patrol
-    |> .map (visited => visited.toList.count (position => position != lab.start && lab.loopsWith (sightlines.add position)))
+    |> .map (visited => visited.filter (position => position != lab.start && lab.loopsWith (sightlines.add position)) |> .size)
