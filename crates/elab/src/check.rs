@@ -2971,7 +2971,9 @@ fn name_unknown_type(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<()> 
     }
     let named = stitchwort_core::value::force_solved(g, expected.clone())?;
     if matches!(named, Value::Call(..)) {
-        crate::undo::unify(cx, &found, &named)?;
+        // Only a better name for the same type: if it doesn't unify, the
+        // ordinary check below reports the mismatch.
+        crate::undo::attempt(cx, |cx| crate::undo::unify(cx, &found, &named))?;
     }
     Ok(())
 }
