@@ -123,7 +123,7 @@ def box(): {Parse} Box :=
 def parseBoxes (input: Text): {Fail} (List Box) := Parse.eachLine input box
 
 test "boxes" := toResult (() => parseBoxes "162,817,812\n57,618,57\n") == Ok [{ x = 162, y = 817, z = 812 }, { x = 57, y = 618, z = 57 }]
-test "a bad box" := toResult (() => parseBoxes "162,817,812\n57,6x8,57\n") == Err "line 2, column 5: expected ','"
+test "a bad box" := toResult (() => parseBoxes "162,817,812\n57,6x8,57\n") == Err "line 2, column 5: expected ',', got 'x'"
 -- end parse
 
 -- begin effects-parameter

@@ -16,9 +16,9 @@
 -- range holds. The tests are in `Aoc.Year2025.Day05.Tests` (Tests/). `run` checks neither.
 
 namespace Aoc.Year2025.Day05
-import Aoc.Common (Range, range, spacedNat)
+import Aoc.Common (Range, range)
 import Std (Fail, IO, Nat, Parse, Text)
-import Std.Parse (blankLine, lines)
+import Std.Parse (lines, nat, section, token)
 
 def main(): {IO, Fail} () :=
   let database := parseDatabase IO.readAll()
@@ -37,9 +37,8 @@ def emptyDatabase: Database := { fresh = [], available = [] }
 def parseDatabase (input: Text): {Fail} Database := Parse.all input database
 
 def database(): {Parse} Database :=
-  let fresh := lines range
-  blankLine()
-  let available := lines spacedNat
+  let fresh := section range
+  let available := lines (() => token nat)
   { fresh, available }
 
 -- Part 1: the available ids that are fresh.
