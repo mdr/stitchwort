@@ -32,7 +32,7 @@ bare row `{e} b` is `CompIn e b`, which *is* `b` when `e` is the empty row
 ("As built (stage 1, first part)", `f111cbe4`) **[checked]**.
 
 Programs write `{…}` only after an arrow, as a function's result type
-(`parser.rs:1757-1765`, `result_type`) **[checked]**. In a body, a
+(`parser.rs:1933-1941`, `result_type`) **[checked]**. In a body, a
 computation used where a plain value is expected runs there (D1055), and since
 stage 0 one passed where a computation is expected is passed as it is
 (`docs/syntax.md:604`) **[checked]**.
@@ -342,7 +342,7 @@ result.
 | Idris 2 | value | `App es a` | anywhere | `run` | no (a function) | linear types |
 | F\* | computation type | `ST a wp`, `Dv t` | effectful terms are abstract | — | via `reify` (terminating, reifiable only) | WP types + extrinsic proofs by `reify` |
 | Rocq / Agda free monads | value (data) | `impure i α`, `itree E R`, `Free C R a` | anywhere | interpreter | **yes** | lemmas take a computation; cases / induction |
-| Stitchwort today | tree (data), or thunk | `{A} T` after `->`; thunks `() -> {A} T` | arrow only (`parser.rs:1757`) | implicitly where a value is expected (D1055) | yes for `Comp` written by hand | lemmas over thunks and handlers |
+| Stitchwort today | tree (data), or thunk | `{A} T` after `->`; thunks `() -> {A} T` | arrow only (`parser.rs:1933`) | implicitly where a value is expected (D1055) | yes for `Comp` written by hand | lemmas over thunks and handlers |
 
 ## 6. What the survey shows
 
