@@ -18,7 +18,7 @@ def exampleText: Text :=
     ++ "wh-td\nta-ka\ntd-qp\naq-cg\nwq-ub\nub-vc\nde-ta\nwq-aq\nwq-vc\nwh-yn\nka-de\nkh-ta\nco-tc\nwh-qp\ntb-vc\ntd-yn\n"
 
 -- The example's connections, split by hand rather than parsed.
-def example: Network := exampleText.split '\n' |> .filter (line => line != "") |> networkOf
+def example: Network := exampleText.lines |> networkOf
 
 -- Sets written as the puzzle lists them, "aq,cg,yn".
 def setOf (names: Text): Set Computer := names.split ',' |> Set.fromList

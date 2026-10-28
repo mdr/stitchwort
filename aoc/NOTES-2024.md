@@ -6447,3 +6447,355 @@ Release build, load average 25 to 44:
    name the `match` that already rewrote it.
 9. `omega` needs `Nat.absDiff` unfolded by hand (item 6). Fix: teach
    `omega` `Nat.absDiff`.
+
+## Day 23: LAN Party
+
+A map of a network, one connection per line (`kh-tc`): "Connections aren't
+directional; tc-kh would mean exactly the same thing." Part 1: "Find all
+the sets of three inter-connected computers. How many contain at least one
+computer with a name that starts with t?" Part 2: "the LAN party will be
+the largest set of computers that are all connected to each other", and
+"the password to get into the LAN party is the name of every computer at
+the LAN party, sorted alphabetically, then joined together with commas"
+(part 2's wording from the public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/master/2024/day-23/README.txt>).
+
+**The real input is pending from Matt**: his repository
+(<https://github.com/mdr/aoc-2024>) stops at day 10, so there is no
+`inputs/2024/day23.txt`, no `Tests/Input.sw`, and the day isn't registered
+in `aoc_answers.rs` or `machine.rs` yet. `examples/2024/day23.txt` is the
+puzzle's example (7 and `co,de,ka,ta`). The tests are the example (all 12
+sets of three, and the 7 with a t, as the puzzle lists them) and edge
+cases, all cross-checked with an independent Python script
+(`/usr/bin/python3 -I`: `frozenset` triangles from adjacency sets, and
+Bron–Kerbosch with pivoting over every maximal clique, not the program's
+search). For performance a second script generated 520 computers, each with
+13 connections, with one planted 13-clique (a pairing model with edge
+swaps to remove loops and repeats; not committed). The program and Python
+agree on it (103 and `ah,bw,ep,fr,fs,fz,oi,op,qf,tv,wg,ws,yi`), and on a
+second seed (39 and `be,cb,el,fx,gb,it,ob,pb,pp,qd,rp,vq,xl`). Compiler
+built from `main` at 4a675500, 28 October 2026.
+
+### The program
+
+```stitchwort
+def computer(): {Parse} Computer :=
+  let first := satisfy "a lowercase letter" isLowercase
+  let second := satisfy "a lowercase letter" isLowercase
+  Text.fromList [first, second]
+
+def connection(): {Parse} (Computer, Computer) :=
+  let one := computer()
+  text "-"
+  let other := computer()
+  (one, other)
+
+def parseNetwork (input: Text): {Fail} Network := { connections = Parse.all input (() => lines connection) }
+
+def Network.bothWays (network: Network): List (Computer, Computer) :=
+  network.connections.flatMap (connection => [connection, (connection.snd, connection.fst)])
+
+def Network.links (network: Network): Links :=
+  network.bothWays |> Map.groupBy Pair.fst |> .map (pairs => pairs.map Pair.snd |> Set.fromList)
+
+def setsWith (links: Links) (first: Computer): List (Set Computer) :=
+  let firstNeighbours := neighbours links first
+  firstNeighbours.toList.flatMap (second =>
+    neighbours links second |> .intersect firstNeighbours |> .toList |> .map (third => Set.fromList [first, second, third]))
+
+def setsOfThree (links: Links): Set (Set Computer) :=
+  links.keySet.toList.flatMap (setsWith links) |> Set.fromList |> .filter (set => set.size == 3)
+
+def solvePart1 (network: Network): Nat := setsOfThree network.links |> .filter mightBeChiefs |> .size
+
+def largestFrom (links: Links) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer): Set Computer
+    decreasing candidates.size
+:=
+  if clique.size + candidates.size ≤ best.size then best
+  else
+    match candidates.popMin with
+      | None => clique
+      | Some (candidate, others) =>
+        if fewer: others.size < candidates.size then
+          let narrowed := neighbours links candidate |> .intersect others
+          let withinOthers: narrowed.size ≤ others.size := …
+          let withIt := largestFrom links (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
+          largestFrom links clique others withIt
+        else best
+
+def largestClique (links: Links): Set Computer := largestFrom links Set.empty links.keySet Set.empty
+
+def password (party: Set Computer): Text := party.toList.sort.joinWith ","
+
+def solvePart2 (network: Network): Text := largestClique network.links |> password
+```
+
+`main` is `parseNetwork IO.readAll()` and the two parts printed. A
+`Computer` is its two-letter name (`Text`); the domain model is the list of
+connections, and the program builds each computer's neighbours once, a
+`Map Computer (Set Computer)` (`Links`).
+
+**Part 1** makes, from each computer, the set of it, a neighbour, and a
+neighbour of both, collects them in a `Set (Set Computer)`, so each set of
+three counts once whichever computer it was found from, and keeps those of
+size 3 (a computer connected to itself would otherwise make a set of two).
+
+**Part 2 is not Bron–Kerbosch.** Bron–Kerbosch reports every *maximal*
+clique: its set `X` of computers already tried is there only to tell a
+maximal clique from one that could still grow, and the pivot `u` cuts the
+branching to the candidates not next to `u`
+(<https://en.wikipedia.org/wiki/Bron%E2%80%93Kerbosch_algorithm>). The
+puzzle wants a *largest* clique, which needs neither. `largestFrom` is
+Bron–Kerbosch's recursion without `X` or a pivot, plus a bound: take the
+smallest candidate; search with it in the clique (only its neighbours stay
+candidates), then without it; and stop when the clique and all the
+candidates together can't beat the best found so far. On the generated
+graph a Python copy of the same search makes 1,231 calls (1,667 on the
+second seed); the bound does the work a pivot would. With no bound the
+search would try every subset of each computer's later neighbours, up to
+2^13 per computer. The bound's effect on the real input, whose structure
+I haven't seen, is untested.
+
+The `if fewer:` test is always true. It's there because the proofs can't
+step through the obvious version (`match found: candidates.popMin with`,
+using `found` for the decreasing proof; item 3).
+
+### Proved, for every network
+
+The spec (`Spec/Spec.sw`) is about `Set Computer`, so "sets" and "largest"
+are the library's: `connected` reads the connections either way round;
+`AllConnected` says every two different members are connected;
+`InterConnectedThree` is that and `size = 3`; `IsPart1 network count`
+says there is a set of sets holding exactly the inter-connected sets of
+three with a t name, and its `size` is `count`. `IsClique` is a set of
+computers on the map, all connected to each other; `IsLargest` is a clique
+with no clique larger (by `Set.size`); `IsPart2 network answer` says some
+largest set's sorted, comma-joined names are the answer. The puzzle says
+"the largest set", but nothing in the input format makes it unique: with
+two of the same size the program returns one (the first its search finds,
+a test checks which), and the spec accepts either.
+
+Proved (`Proofs/`, 617 lines in 6 files):
+
+- `linkedIff`, `hasLinksIff` (Links.sw): the program's neighbours are the
+  puzzle's connections, either way round, and the computers with
+  neighbours are the computers on the map.
+- `setsOfThreeIff` (Part1.sw): the program's sets of three are exactly the
+  puzzle's inter-connected sets of three. From it, `part1Correct`:
+  `IsPart1 network (solvePart1 network)`, the set of sets the program
+  counts being the witness.
+- `largestFromAnswers` (Part2.sw): the search's invariant (the result is a
+  clique, no smaller than the best so far, and no smaller than any clique
+  made of the clique and some of the candidates), by the program's own
+  measure, `candidates.size`. The bound's case needs `size (clique ∪
+  candidates) = size clique + size candidates`, and a clique holding the
+  smallest candidate lies within the clique, that candidate and its
+  neighbours among the other candidates. From it, `largestCorrect`:
+  `IsLargest network (largestClique network.links)`, soundness and
+  optimality together, and `part2Correct`: `IsPart2 network (solvePart2
+  network)`.
+
+Nothing asked for is left unproved: both parts, for every network,
+including a computer connected to itself and connections listed twice.
+Parsing isn't proved, as on other days. Breaking the program makes the
+proofs fail: stopping when `… ≤ best.size + 1` (with the three step
+lemmas in Search.sw restated to match, so the invariant proof is the one
+that fails: ``[E-OMEGA] Error: `omega` can't prove `(Map.size
+best.items) + 1 < (Map.size clique.items) + Map.size candidates.items` ``),
+and `| None => best` (with `largestDone` restated; fails in
+`largestFromAnswers`'s `None` case). Keeping only sets of two or more in
+part 1 fails too, though where the proof restates the program's filter
+rather than in the argument.
+
+What a Bron–Kerbosch proof would add, not needed here: that every maximal
+clique is reported (which needs `X`), and for the pivot the lemma that a
+clique avoiding every candidate not next to `u` can take `u` too, so some
+largest clique holds a branching candidate. The second is the
+bound-free half of the argument above, with `u` added; I'd expect it to
+cost one more lemma of the size of `withinWithCandidate` (an estimate, not
+tried). I found no machine-checked proof of Bron–Kerbosch to compare with
+in a short search.
+
+### 1. Std.Parse: none
+
+`satisfy`, `text "-"` and `lines` composed first time, and the messages
+are good: `kh-Tc` gives `line 1, column 4: expected a lowercase letter, got
+'T'`, `kh-tcd` gives `line 1, column 6: expected the end of the line, got
+'d'`, and `kh tc` gives `line 1, column 3: expected '-', got ' '`. One gap:
+there's `Char.isAsciiLetter` but no lowercase test, so the program has a
+one-line `isLowercase`.
+
+### 2. Missing std
+
+- Set facts in elimination form. `Set.containsUnion`,
+  `Set.containsIntersect`, `Set.containsFromList` are `Bool` equations
+  (`… = (contains a ∨ contains b)`), so every use is an `Eq.trans (Eq.sym
+  …)` and `Bool.orElim` or `Bool.andLeft`. What I did: `unionElim`,
+  `insertElim`, `intersectElim` (Part2.sw), and `containsFromListOfMem`,
+  `memOfContainsFromList` and `threeElim` (Lemmas.sw), each 2–6 lines.
+  Fix: `Iff` forms beside the `Bool` ones in `Set/Spec.sw`.
+- No size lemma for `intersect`. The program's decreasing proof writes
+  `size (n ∩ others) ≤ size others` through `Set.sizeSubset` and
+  `Set.containsIntersect` (three lines of proof in the program). Fix:
+  `Set.sizeIntersectLeft` and `…Right`.
+- No subsets of a given size. Scala's `subsets(len)` is "An iterator over
+  all subsets of this set of the given size"
+  (<https://www.scala-lang.org/api/2.13.x/scala/collection/SetOps.html>);
+  Haskell's `Data.Set` has `powerSet`
+  (<https://hackage-content.haskell.org/package/containers-0.8.1/docs/Data-Set.html>).
+  What I did: the tests' brute-force spec of sets of three is three nested
+  `flatMap`s and a `size == 3` filter. Not needed by the program.
+- What worked: `Set.size` (O(1), like Haskell's `size`, same page) as the
+  spec's "largest", with `Set.sizeSubset`, `Set.sizeUnionDisjoint`,
+  `Set.popMinSome` and `Set.sizePopMin`, was everything the optimality
+  proof needed about sizes. `Set (Set Computer)` worked with no
+  annotation, through `Set.instOrd`.
+- No graph code added: another lane is moving the graph search into std.
+
+### 3. Confusing errors
+
+- **Two types that print the same.** `List.memFlatMapIntro (pair =>
+  [pair.fst, pair.snd]) (one, other) one xs m (firstOfTwo one other)` gave
+  ``[E-TYPE-MISMATCH] Error: type mismatch``, ``expected `List.Any (y => y
+  = one) [one, other]`, but this has type `one ∈ [one, other]` ``. These
+  are the same type (`∈` is `List.Mem`, which is `List.Any (y => y =
+  x)`). With `Inl rfl` in place of `firstOfTwo` the error shows the cause:
+  ``rfl` proves an equation, but the expected type is `?8 xs one other
+  m` ``. The lambda's `pair.fst` was never resolved, because `pair`'s type
+  comes only from a later argument (item 4), and the first message prints
+  the expected type after solving it. What I did: `(pair: (Computer,
+  Computer)) => …`. Fix: say the expected type has an unsolved part, and
+  which field access is waiting.
+- **A `match found:` in a definition blocks proofs about it.** The first
+  `largestFrom` was `match found: candidates.popMin with … Set.sizePopMin
+  candidates candidate others found`. A minimal copy (`drain`, a count of a
+  set's keys, not committed) shows both ways of stepping through it fail:
+  `rewrite drain.unfold set, found in rfl` gives ``[E-REWRITE-MOTIVE]
+  Error: replacing `Set.popMin set` everywhere in the goal doesn't give a
+  valid proposition`` with ``Note 1: the checker says: `rfl` can't prove
+  this (`Option.map (Map.popMin set.items) (view => (view.fst.fst, {
+  items = view.snd }))` and `x'` aren't equal)``, and `match popped:
+  set.popMin with` gives ``[E-MATCH-MOTIVE] Error: generalising this
+  `match`'s scrutinee makes its type ill-formed`` with ``Note 1: a
+  top-level helper with a written signature can always do what this
+  `match` would: define one and call it`` and ``Note 2: checking the type
+  it would have: `rfl` can't prove this``. My reading (not checked in the
+  compiler): the definition's `match` carries `found`'s proof, `rfl` for
+  the scrutinee, and replacing the scrutinee leaves that proof ill-typed.
+  Note 1's advice doesn't apply. What I did: the guard style from the
+  guide (`if fewer: others.size < candidates.size then … else best`),
+  with a dead `else`. Fix: generalise the equation's proof with the
+  scrutinee, or name the definition's `match found:` as the cause.
+- **`if` between proofs.** `if pruned: clique.size + candidates.size ≤
+  best.size then … else …` in a theorem gave ``[E-UNIVERSE] Error: `if`
+  can't choose between proofs yet`` with ``this `if` has proofs as its
+  branches; use `match b with | True => … | False => …` ``. Clear, and the
+  advice works (`match fits: Nat.leq … with`, and `match DecEq.decide key
+  candidate with | Yes same => … | No same => …` for equalities), but Lean's
+  `dite` takes any `α : Sort u`, so its `if h : c then … else …` makes
+  proofs too (`def dite {α : Sort u} (c : Prop) [h : Decidable c] …`,
+  <https://github.com/leanprover/lean4/blob/master/src/Init/Prelude.lean>).
+  Fix: allow it.
+- Mild: grammar names are natural variable names. `computer()` and
+  `connection()` are the parser's, so `(computer listed => …)` in a proof
+  gave ``[W-LAMBDA-SHADOW] Warning: this lambda's first parameter
+  `computer` hides the function `Aoc.Year2024.Day23.computer` ``. Renamed
+  the parameters.
+- Clear ones: ``Note 5: inside the `match`, `Set.toList set` is replaced
+  with `[]` … so `listed` is already refined: use it as it is``, and
+  ``Note 1: what's expected was refined by the `match` … the `match`'s own
+  equation and terms written in the branch aren't`` (which told me to
+  `rewrite keys at` a term written in the branch).
+
+### 4. Inference
+
+- A field of a lambda's parameter whose type comes from a later argument
+  isn't resolved: `List.memFlatMapIntro (pair => [pair.fst, pair.snd]) …`
+  leaves `pair.fst` unsolved (item 3), where the same lambda after a
+  receiver, `network.connections.flatMap (connection => [connection.fst,
+  …])`, is fine. What I did: annotated the parameter in proofs (14
+  lambdas, all in Links.sw). Fix: postpone a lambda whose body needs its
+  parameter's type until the other arguments are in.
+
+### 5. Performance
+
+On the generated graph (520 computers, 3,380 connections), `stitchwort
+run` takes 0.96 s user; on the example, 0.72 s, so the work is about 0.24
+s and the rest is loading. Python takes 0.04 s. Nothing to fix in the
+program.
+
+Checking the proofs was the slow part. As first written,
+`largestFromAnswers` was one theorem of about 100 lines, with the cases'
+facts as `let`s of lambdas; `STITCHWORT_TIMINGS=1` showed it taking 16.1
+s to elaborate and building 294 million nodes, and the whole of
+`Aoc.Year2024.Day23.Proofs` took 15.6 s user to check. Moving five of the
+`let`s out as theorems (`cliqueInsert`, `candidatesNarrowed`,
+`withinWithCandidate`, `withinWithoutCandidate`, `othersElim`) took it to
+2.2 s and 66 million nodes, and the namespace to 8.5 s. Fix: find why a
+`let`-bound proof inside a theorem costs so much more than the same proof
+as a theorem (speculative: it may be re-elaborated or copied at each use).
+
+### 6. Proofs
+
+617 lines; Links.sw and Part2.sw took a few rounds each, Part1.sw two.
+What made it work:
+
+- The spec in `Set`s. "Sets of three" and "largest" are `Set.size`, so
+  there's no "each triangle once" to state by hand, and the optimality
+  proof is three library facts (`sizeSubset`, `sizeUnionDisjoint`,
+  `sizePopMin`).
+- A program reading of a clique (`Clique`: keys of the links, neighbours
+  in the map) for the invariant, joined to the spec's once at the end
+  (`cliqueOfSpec`, `specOfClique`), so the induction never mentions the
+  list of connections.
+- Step lemmas for the search (Search.sw): `largestFrom.unfold`, then a
+  `match` on the bound's `Nat.leq` and `rewrite found`, and
+  `Decidable.elimEq` for the guard.
+- Part 1's way back: a set of size 3 lists as three keys, different by
+  `Map.keysDistinct`, and is the `Set.fromList` of them by `Set.extIff`.
+
+Friction: the `match found:` (item 3), which changed the program; the
+`Bool` set facts (item 2); and the proof-check time (item 5), which
+changed the proof's shape. Mathlib states the sizes the same way
+(`Finset.card_le_card`, `Finset.card_disjUnion`;
+<https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Finset/Card.html>),
+and `Set/Spec.sw` cites those names.
+
+### Size and time
+
+Release build, load average 8 to 14:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day23.Proofs` | 8.5 s user (8.9 s) |
+| `stitchwort check --no-cache Aoc.Year2024.Day23` | 2.4 s user (2.5 s) |
+| `stitchwort test --no-cache Aoc.Year2024.Day23` (24 tests) | 8.4 s user (8.5 s) |
+| `stitchwort test Aoc.Year2024.Day23` (warm) | 1.8 s user |
+| `stitchwort run Aoc.Year2024.Day23.main` on the example | 0.72 s user |
+| `stitchwort run Aoc.Year2024.Day23.main` on the generated graph | 0.96 s user |
+| Python on the generated graph | 0.04 s user |
+
+101 lines of program, 58 of spec, 617 of proofs, 96 of tests.
+
+### Ranked
+
+1. A `match found:` in a definition can't be stepped through in a proof,
+   by `rewrite` or `match`, and the note's advice doesn't help (item 3).
+   Fix: generalise the equation's proof with the scrutinee.
+2. One 100-line theorem took 16 s to check; split into lemmas, 2 s (item
+   5). Fix: find what a `let`-bound proof costs inside a theorem.
+3. "expected `List.Any (y => y = one) [one, other]`, but this has type
+   `one ∈ [one, other]`": the same type, with an unsolved part hidden
+   (items 3 and 4). Fix: postpone lambdas that need their parameter's
+   type, and show unsolved parts in the message.
+4. The real input is pending: Matt's repository has no day 23. Fix: add
+   his input, its tests and its two answer entries when he has it, and
+   time the search on it.
+5. `Set` membership facts are `Bool` equations, not eliminations (item 2).
+   Fix: `Iff` forms in `Set/Spec.sw`.
+6. `if` can't choose between proofs (item 3). Fix: allow a dependent `if`
+   whose branches are proofs, as Lean's `dite` does.
+7. No `Set.sizeIntersect…` lemma, so the program carries a three-line
+   proof for its decreasing measure (item 2). Fix: add it.
+8. No lowercase test on `Char` (item 1). Fix: `Char.isAsciiLowercase`
+   beside `isAsciiLetter`.

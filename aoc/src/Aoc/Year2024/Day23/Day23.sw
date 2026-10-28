@@ -40,7 +40,7 @@ def connection(): {Parse} (Computer, Computer) :=
 
 def parseNetwork (input: Text): {Fail} Network := { connections = Parse.all input (() => lines connection) }
 
--- Each computer's connections, both ways round.
+-- Each computer's neighbours.
 def Links: Type := Map Computer (Set Computer)
 
 -- Each connection, both ways round.
