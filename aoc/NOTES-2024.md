@@ -4644,3 +4644,344 @@ takes 0.19 s of CPU on the generated warehouse.
     have no membership lemmas (items 1 and 2). Fix: a std function for a
     grid's cells with their positions, and the membership lemmas in
     `Set/Spec.sw`.
+
+## Day 17: Chronospatial Computer
+
+"A 3-bit computer: its program is a list of 3-bit numbers (0 through 7)",
+with "three registers named A, B, and C" that "can hold any integer", and
+eight instructions, each an opcode and "the 3-bit number after it" as its
+operand, read as a literal or a combo operand (0 to 3 themselves, 4 to 6
+the registers, 7 "reserved and will not appear in valid programs"). "If the
+computer tries to read an opcode past the end of the program, it instead
+halts." Part 1: run the program; "what do you get if you use commas to join
+the values it output into a single string?" Part 2: the program "is
+supposed to output another copy of the program", so "what is the lowest
+positive initial value for register A that causes the program to output a
+copy of itself?" (part 1 from <https://adventofcode.com/2024/day/17>; part
+2's wording from the public copy at
+<https://tgragnato.it/2024/12/17/Chronospatial-Computer.html>).
+
+**The real input is pending from Matt.** `mdr/aoc-2024` stops at day 10,
+so day 17 has no `aoc/inputs/2024/day17.txt`, no `Tests/Input.sw` and no
+entry in `crates/cli/tests/aoc_answers.rs` or `crates/rt/tests/machine.rs`;
+add those when the input comes.
+
+The examples are checked: part 1's `4,6,3,5,6,3,5,2,1,0`, part 2's 117440
+for `0,3,5,4,3,0`, and all five examples of instruction operation
+(registers after, and outputs). Part 2's search is tested on three
+programs of the real inputs' shape that I wrote (`2,4,1,1,7,5,1,5,4,0,5,5,
+0,3,3,0` gives 164279024971453; two others shift A before the output), one
+of that shape with no copy, and shorter targets. An independent Python
+script (`/usr/bin/python3 -I`, not committed) agrees on all of them, and
+brute force over every A below 8^(n+1) agrees on the short targets.
+Compiler built from `main` at 429d61b8, 28 October 2026.
+
+### The program
+
+```stitchwort
+type Registers = { a: Nat, b: Nat, c: Nat }
+
+type Debugger = { registers: Registers, program: List Nat }
+
+type Combo =
+  | Value (value: Nat)
+  | RegisterA
+  | RegisterB
+  | RegisterC
+
+type Instruction =
+  | Adv (operand: Combo)
+  | Bxl (operand: Nat)
+  ...
+  | Cdv (operand: Combo)
+
+def threeBit(): {Parse} Nat :=
+  let start := Parse.mark()
+  let value := natDigits 1 1
+  Parse.ensureAt start (value < 8) "expected a 3-bit number (0 to 7)"
+  value
+
+def register (name: Text): {Parse} Nat :=
+  text "Register ${name}: "
+  nat()
+
+def debugger(): {Parse} Debugger :=
+  let a := register "A"
+  newline()
+  let b := register "B"
+  newline()
+  let c := register "C"
+  blankLine()
+  text "Program: "
+  let program := sepBy1 threeBit (() => char ',')
+  { registers = { a, b, c }, program }
+
+def parseDebugger (input: Text): {Fail} Debugger := Parse.all input debugger
+
+def main(): {IO, Fail} () :=
+  let debugger := parseDebugger IO.readAll()
+  IO.print "Part 1: ${solvePart1 debugger}"
+  let lowest :=
+    match solvePart2 debugger with
+      | Some a => "${a}"
+      | None => "none: no initial value of A outputs the program"
+  IO.print "Part 2: ${lowest}"
+```
+
+The program stays a list of numbers, since `jnz` may jump to any
+position, odd ones included; `decode opcode operand` turns the pair at the
+pointer into an `Instruction` (`None` for a reserved combo operand or an
+opcode above 7). `Machine.step` returns `Halt`, `Fault` or `Next machine
+printed`, and `Machine.run` takes at most `fuel` steps, ending `Finished
+output`, `Faulted` or `OutOfFuel`. The fuel is `(A + 1) * (length + 1)`,
+enough for a loop that shifts A right on every pass; part 1 fails with
+"the program didn't halt" if it runs out. The example's part 2 prints
+"none": no A makes `0,1,5,4,3,0` output itself (brute force agrees).
+
+Part 2 builds A three bits at a time from the end of the target:
+
+```stitchwort
+def candidates (output: Nat → List Nat): (target: List Nat) → List Nat
+  | Nil => [0]
+  | Cons value rest =>
+    candidates output rest
+      |> .flatMap (high => List.range 8 |> .map (low => high * 8 + low))
+      |> .filter (a => output a == Cons value rest)
+
+def lowestOutputting (output: Nat → List Nat) (target: List Nat): Option Nat :=
+  candidates output target
+    |> .filter (a => 0 < a ∧ output a == target)
+    |> .minimum
+```
+
+It keeps every candidate at each level rather than stopping at the first
+(a depth-first search would need its visiting order proved), and the
+final filter checks again, so soundness doesn't depend on the shape.
+
+### Proved, for every program and all initial register values
+
+The spec (`Spec/Spec.sw`, 117 lines) quotes each instruction.
+`comboValue` is the combo operand table. `BitwiseXor x y result` is the
+bitwise XOR: bit `i` of `result` (`n / 2^i % 2 == 1`) is set when exactly
+one of `x` and `y` has it set. `Executes opcode operand machine step` says
+what each opcode does, with adv, bdv and cdv dividing by `Nat.pow 2
+value`, and `StepMatches program machine step` adds the halt past the end.
+`Halts program machine output` is the inductive relation "runs to a halt,
+outputting `output`, every step as `StepMatches` says". `OutputsItself
+debugger a` is `Halts` from A = `a` with the program as the output.
+`LoopShape output` is the assumption part 2 needs (below).
+
+Proved (`Proofs/`, 423 lines in six files):
+
+- `stepMatches` (Step.sw): `Machine.step` takes the step `StepMatches`
+  describes, for every program, machine, opcode and operand, including
+  the reserved operand and opcodes above 7. `xorBitwise`: `Nat.xor` is the
+  spec's `BitwiseXor`; `Nat.shiftRightDiv` makes the shifts the divisions.
+- `outcomeHalts`, `runHalts` (Run.sw): a run that finishes is a `Halts`
+  run with the same output; `runMoreFuel`: more fuel finishes the same way.
+- `stepUnique`, `haltsUnique` (Unique.sw): the puzzle's computer is
+  deterministic, so `part1Output`: part 1's output is the only output any
+  halting run from the given registers has.
+- `part2Sound` (Proofs.sw): what `solvePart2` returns is positive and
+  `OutputsItself`, for every program, with no assumption.
+- `candidatesComplete`, `part2Least`, `part2Complete` (Search.sw,
+  Proofs.sw): if the program's output (`Debugger.outputFor`) has the loop
+  shape, every A that outputs a target is among its candidates, so the
+  search returns a value whenever a positive one outputs the program, and
+  returns the least.
+
+The assumption, exactly: `LoopShape output` is `(a: Nat) → ∃ first =>
+output a = Cons first (if a < 8 then Nil else output (a / 8))`: what A
+outputs is one number, then what A / 8 outputs unless A / 8 is 0. Real
+inputs are a loop that sets B and C from A, outputs B, shifts A right by
+3 and jumps to 0 unless A is 0, which has this shape (the initial B and C
+are overwritten). The tests check it for A below 600 on each written
+program, and that the part 1 example, which shifts by 1, doesn't have it.
+
+Not proved:
+
+- That any particular program has the loop shape. It is a statement about
+  every A for a run with fuel, so it needs symbolic execution of the loop
+  body and a bound on steps per pass: a proof per program, and there is no
+  program yet.
+- That `part2Least` covers every A the puzzle counts. It is stated over
+  `Debugger.outputFor`, whose runs have `fuelFor` steps; an A whose run
+  halts with the program as output, but only after more steps, isn't
+  covered. A program of the loop shape halts within the fuel (its passes
+  are at most the octal digits of A), but proving that is the same
+  per-program proof.
+- Parsing, as on other days.
+
+Breaking the program makes the proofs fail: bxl as `b + operand`, or bst
+without its `% 8`, fails `executesDecode`; trying only 7 low values per
+level fails `candidatesComplete`.
+
+### 1. Std.Parse
+
+`text`, `nat`, `newline`, `blankLine` and `sepBy1` read the example first
+time. Two messages read oddly:
+
+- `natDigits 1 1` on "10" gives `line 5, column 12: expected a number of
+  1 digits, got '1'`: "1 digits", and what was found is one character of
+  the two-digit number it rejected.
+- A missing blank line gives `line 3, column 14: expected a blank line,
+  got the end of the line`. A line end is there; the next line isn't
+  blank.
+
+What I did: kept them, with tests that pin the messages. There is no
+"digit in a range" piece, so `threeBit` is `natDigits 1 1` then
+`Parse.ensureAt` for below 8.
+
+### 2. Missing std
+
+- No bitwise operations on `Nat` (only `Bool.xor`). Added
+  `std/Nat/Bits.sw` (131 lines, registered in `library.rs`):
+  `Nat.shiftRight` (stops once the number is 0, so a shift by a register
+  holding 10^12 is cheap, where `Nat.pow 2 count` would not be),
+  `Nat.testBit`, `Nat.xor` (by `decreasing m + n`, halving both), and the
+  lemmas `Nat.shiftRightDiv` (`n` shifted by `k` is `n / 2^k`),
+  `Nat.testBitXor`, `Nat.eqOfTestBit` (bit extensionality) and
+  `Nat.halfDivPow`. Still missing: and, or, shift left, and a general
+  `Nat.divDiv` (`n / a / b = n / (a * b)`).
+- `List.minimum` has no lemmas, and `List.memFilter` has no converse.
+  What I did: `minLeLeft`, `minLeRight`, `minEither`, the fold lemmas,
+  `minimumSome`, `minimumExists` and `memFilterIntro` in
+  `Proofs/Lemmas.sw` (80 lines), over `Nat` only: the general `Ord`
+  versions need the `flip` law case by case.
+- `Text.joinWith` takes the list first and lives in `Text`, so it doesn't
+  pipe: `Text.joinWith (output.map (value => "${value}")) ","`. Scala's
+  `mkString(sep)` is a method of the collection
+  (<https://www.scala-lang.org/api/current/scala/collection/IterableOnceOps.html>).
+
+### 3. Confusing errors
+
+- A `[decreasing := …]` written after `Nat.xor (m / 2) (n / 2) * 2`
+  attached to the `2`: "this function has no parameter named
+  `decreasing`", with the note "its parameters have no names". True, but
+  it doesn't say the bracket went to the last argument of `*`. Then,
+  because the definition failed, each `Nat.xor.unfold` gave "`Nat.xor` is
+  a function, which has no namespace to look `.unfold` up in", a cascade
+  that hides the cause. What I did: moved the bracket before `* 2`.
+- `auto` couldn't prove `Nat.pow 2 (Succ k) ≠ 0` for a `/`: "can't decide
+  `Nat.pow 2 k * 2 ≠ 0` here", and elsewhere "can't decide `Nat.pow 2
+  count + (Nat.pow 2 count + 0) ≠ 0` here". std's instance decides
+  `Nat.pow (Succ b) e ≠ 0`, but `auto` computes the power one step before
+  trying it. What I did: an `[auto whole: Nat.pow 2 (Succ k) ≠ 0]`
+  parameter on `Nat.halfDivPow`, passed explicitly as `[whole :=
+  Nat.nonzeroOfPos …]`.
+- `ring` failed once a `rewrite` had put `n / a` inside `n % a`, which is
+  `n - n / a * a`: the goal showed `Nat.divFuel …` terms and "`n / a % b`
+  is an unknown to `ring`: truncated subtraction isn't a ring operation".
+  What I did: the regrouping as its own lemma over plain variables
+  (`Nat.regroupHalf`), instantiated.
+- `output.map … |> .joinWith ","`: "`List` has no field or function
+  `joinWith`", with the note "`Text.joinWith` takes a `List` first: write
+  `Text.joinWith %3 …`". The `%3` is an internal placeholder leaking into
+  the suggestion.
+- A lemma restating one step of `Machine.run` (`runSucc … := rfl`) fails:
+  the inner `match` is a generated function, and "the same `match` written
+  again is another such function, equal to it only if neither calls the
+  definition it's written in". The message explains it well and points at
+  docs/syntax.md. What I did: no lemma; `match moved: machine.step program
+  with` refines the hypothesis directly.
+
+### 4. Inference
+
+- A record literal needs its type: `({ registers, pointer = 0 }:
+  Machine).run …` ("can't tell which record type this literal is"), as on
+  day 15.
+- Otherwise none: `_` for the lists and predicates in the search proofs
+  was solved every time, and `.map (.b)` on an `Option Registers` worked.
+
+### 5. Performance
+
+Part 2 on a 16-number program takes 0.92 s of CPU, 0.36 s of it start-up
+(the example takes that long), against 0.06 s for the Python script's
+same level-by-level search. Each candidate costs a full run from the
+start, so the search is quadratic in the program's length; reusing the
+previous level's run would make it linear, but the proofs are simpler
+this way and it's fast enough. `Nat.xor` goes through the `decreasing`
+fuel, one step per bit (about 50), with built-in division.
+
+### 6. Proofs
+
+Less friction than earlier days. `match fetched: program.get
+machine.pointer with` refined goals through `Machine.step` without
+lemmas; literal patterns `| 0 => … | 7 => …` with a `Succ (Succ …)`
+catch-all made each opcode's case compute to `rfl`; the indexed
+inductive `Halts` and a nine-arm match on two derivations (`haltsUnique`)
+checked first time.
+
+Friction:
+
+- `auto` and powers of 2, and `ring` with divisions (item 3).
+- The spec's XOR. A function (the sum of `2^i` over the bits that differ)
+  would need a proof that the sum is `Nat.xor`; stating it bit by bit
+  (`BitwiseXor`) made `stepMatches` easy, but then determinism needs bit
+  extensionality (`Nat.eqOfTestBit`), by `decreasing` recursion on `m + n`.
+- Constructors aren't known to differ (as on day 15): `Faulted = Finished
+  output`, `Halt = Next …` and `Next a None = Next b (Some v)` each needed
+  a discriminating function (`isFinished`, `isHalt`, `printedOf`) and
+  `Eq.cong`.
+- The least-A theorem is about a run with fuel, not the puzzle's runs
+  (Not proved, above): a fuel-free statement needs a bound on steps for
+  each program.
+
+### 7. Comparisons
+
+- Lean's `Nat` has `xor`, `>>>` and `testBit` in core, with
+  `Nat.shiftRight_eq_div_pow`, `Nat.testBit_xor` and
+  `Nat.eq_of_testBit_eq`
+  (<https://github.com/leanprover/lean4/blob/master/src/Init/Data/Nat/Bitwise/Basic.lean>,
+  <https://github.com/leanprover/lean4/blob/master/src/Init/Data/Nat/Bitwise/Lemmas.lean>).
+  The new std file has the same three facts.
+- Haskell's `Data.Bits` class has `xor`, `shiftR` and `testBit`, with an
+  `Integer` instance
+  (<https://hackage.haskell.org/package/base/docs/Data-Bits.html>), and
+  Scala's `BigInt` has `^`, `>>` and `testBit`
+  (<https://www.scala-lang.org/api/current/scala/math/BigInt.html>).
+  Neither comes with lemmas.
+
+### Size and time
+
+Release build, on a machine with a load average around 30 to 40 (wall
+time, then CPU):
+
+| command | wall | CPU |
+| --- | --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day17` | 1.4 s | 0.84 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day17.Proofs` | 0.9 s | 0.79 s |
+| `stitchwort test --no-cache Aoc.Year2024.Day17` (37 tests) | 5.3 s | 2.8 s |
+| `stitchwort run Aoc.Year2024.Day17.main` on the example | 0.47 s | 0.36 s |
+| the same on `2,4,1,1,7,5,1,5,4,0,5,5,0,3,3,0` | 1.0 s | 0.92 s |
+
+192 lines of program, 117 of spec, 423 of proofs, 105 of tests, and 131
+of std (`Nat/Bits.sw`).
+
+### Ranked
+
+1. The real input is pending: Matt's repository has no day 17. Fix: add
+   his input, its tests and its two answer entries when he has it, and a
+   test that checks `LoopShape` on it.
+2. No bitwise operations on `Nat` (item 2). Fix: xor, shift right and
+   testBit are now in `std/Nat/Bits.sw`; add and, or and shift left with
+   their `testBit` lemmas.
+3. `auto` computes `Nat.pow 2 (Succ k)` past the instance that decides it
+   (item 3). Fix: try instances before computing the goal, or teach `auto`
+   that powers of a positive base aren't 0.
+4. Part 2's least-A theorem depends on fuel (Not proved). Fix: a std
+   lemma that a fuelled run with at least as much fuel as a "halts in n
+   steps" derivation finishes, so per-program step bounds plug in.
+5. A failed definition's `.unfold` is reported as "has no namespace", and
+   `%3` leaks into a suggestion (item 3). Fix: skip references to
+   definitions that failed, and print the placeholder as `…`.
+6. Constructors aren't known to differ (item 6, as on day 15). Fix: a
+   `noConfusion`-style lemma per type, or `cases` closing `C1 = C2`.
+7. `List.minimum` and `filter` lack lemmas (item 2). Fix: add
+   `minimumSome`, `minimumExists` and `memFilterIntro`, over `Ord`, to
+   `List/Lemmas.sw`.
+8. Parse messages: "a number of 1 digits", and "expected a blank line,
+   got the end of the line" (item 1). Fix: "a 1-digit number", and show
+   what the next line holds.
+9. `Text.joinWith` doesn't pipe from a list (item 2). Fix: a
+   `List.joinWith` taking the list first.
