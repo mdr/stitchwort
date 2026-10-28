@@ -1,5 +1,5 @@
 {
-  "next": 728,
+  "next": 732,
   "tickets": [
     {
       "id": 13,
@@ -5849,7 +5849,7 @@
     {
       "id": 711,
       "title": "AoC 2024 day 6: solve, prove against a puzzle-literal spec, log language gaps (overnight)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5921,7 +5921,7 @@
     {
       "id": 717,
       "title": "Goals show a proof-valued let by its type, not its proof term (no Omega.proveEq or Effect.doneD in goals) (AoC 2024 day 4)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5969,7 +5969,7 @@
     {
       "id": 721,
       "title": "Untyped record literal as an argument before the argument that fixes its type (foldLeft { enabled = True, total = 0 } step) can't be inferred; postpone it (AoC 2024 day 3)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6005,7 +6005,7 @@
     {
       "id": 724,
       "title": "a || b inside an effect-polymorphic lambda elaborates to if b then True else False, so the same text in a statement and a proof isn't equal by rfl; use plain Bool.or when the row is Total (AoC 2024 day 5)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6029,7 +6029,7 @@
     {
       "id": 726,
       "title": "Error for a keyword used as a parameter name (test) says it's a keyword (AoC 2024 day 5)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6041,6 +6041,54 @@
     {
       "id": 727,
       "title": "Std.Parse messages from stage 2: say what was found (got 'x' / the end of the line); expectations from attempts that didn't fail are hints that fail/ensure replace; Parse.token or spacedNat; blankLine allows spaces; Parse.line allows one final line break; spaces1; grid allowing empty input and short rows",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 728,
+      "title": "AoC 2024 day 7: solve, prove, log gaps (overnight)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 729,
+      "title": "std from AoC 2024 day 6: Set.below/above lemmas (largest key below, nothing in between), Nat.pigeonhole and 'a repeated state never ends' lemma",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 730,
+      "title": "Misleading E-EFFECT-ESCAPE on a pure let lambda in a {Fail} body; a lambda with a return type gives 'block must end with an expression' (AoC 2024 day 6)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 731,
+      "title": "A lemma application ran out of resources ('a value was too large to show') on Set.containsFilter with the program's filter; compare the term with itself before unfolding, and always shorten error terms (AoC 2024 day 6)",
       "status": "next",
       "agent": "",
       "where": "",
