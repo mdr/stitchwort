@@ -140,7 +140,7 @@ fn bind(
     lets: &mut Vec<(Name, Term, Term)>,
 ) -> Result<usize> {
     let shown: Name = name.unwrap_or("%p").into();
-    let ty_term = cx.quote(&ty)?;
+    let ty_term = cx.quote_folded(&ty)?;
     lets.push((shown.clone(), ty_term.clone(), value.clone()));
     cx.define(name, shown, ty, ty_term, value)?;
     Ok(cx.level() - 1)
@@ -220,7 +220,7 @@ fn project(cx: &Ctx, def: DefId, params: &[Value], level: usize) -> Result<(Term
     let mut ty = crate::kernel::def_ty(g, def)?;
     let args = params
         .iter()
-        .map(|p| Ok((cx.quote(p)?, p.clone(), Icit::Implicit)))
+        .map(|p| Ok((cx.quote_folded(p)?, p.clone(), Icit::Implicit)))
         .chain(std::iter::once(Ok((
             Term::Var(cx.level() - 1 - level),
             cx.env[level].clone(),

@@ -712,7 +712,7 @@ fn lemma(cx: &Ctx, which: DefId, args: &[(Term, Value)]) -> Result<(Term, Value)
 
 /// A value with its term.
 fn both(cx: &Ctx, value: &Value) -> Result<(Term, Value)> {
-    Ok((cx.quote(value)?, value.clone()))
+    Ok((cx.quote_folded(value)?, value.clone()))
 }
 
 /// Proves `expected`, taking it apart where it's a logical form around
@@ -777,8 +777,8 @@ fn prove_goal(
                 // `Nat.leq x y = False` from `y < x`.
                 (Some(false), Some(BoolForm::Leq(x, y))) => {
                     let less = Term::app(
-                        Term::app(Term::Def(lib.less_than), cx.quote(&y)?),
-                        cx.quote(&x)?,
+                        Term::app(Term::Def(lib.less_than), cx.quote_folded(&y)?),
+                        cx.quote_folded(&x)?,
                     );
                     let less = cx.eval(&less)?;
                     let proof = prove_goal(cx, lib, &less, extra, span)?;
@@ -793,7 +793,7 @@ fn prove_goal(
                 }
                 (Some(false), Some(BoolForm::ToBool(p, d))) => {
                     let proof = refute_hypothesis(cx, lib, &p, extra, span)?;
-                    let not_p = cx.eval(&Term::app(Term::Def(lib.not), cx.quote(&p)?))?;
+                    let not_p = cx.eval(&Term::app(Term::Def(lib.not), cx.quote_folded(&p)?))?;
                     let args = [both(cx, &p)?, both(cx, &d)?, (proof, not_p)];
                     return Ok(lemma(cx, lib.to_bool_of_not, &args)?.0);
                 }
@@ -811,7 +811,7 @@ fn prove_goal(
                 // By cases on `p`: `True` is done, `False` leaves `q`.
                 (Some(true), Some(BoolForm::Or(p, q))) => {
                     let sides =
-                        |cx: &Ctx| -> Result<Vec<Term>> { Ok(vec![cx.quote(&p)?, cx.quote(&q)?]) };
+                        |cx: &Ctx| -> Result<Vec<Term>> { Ok(vec![cx.quote_folded(&p)?, cx.quote_folded(&q)?]) };
                     return by_cases(
                         cx,
                         lib,
@@ -842,7 +842,7 @@ fn prove_goal(
                 // By cases on `p`: `False` is done, `True` leaves `q`.
                 (Some(false), Some(BoolForm::And(p, q))) => {
                     let sides =
-                        |cx: &Ctx| -> Result<Vec<Term>> { Ok(vec![cx.quote(&p)?, cx.quote(&q)?]) };
+                        |cx: &Ctx| -> Result<Vec<Term>> { Ok(vec![cx.quote_folded(&p)?, cx.quote_folded(&q)?]) };
                     return by_cases(
                         cx,
                         lib,
@@ -936,8 +936,8 @@ fn lex_less(
 ) -> Result<Term> {
     let less = |cx: &mut Ctx, a: &Value, b: &Value| -> Result<Value> {
         let term = Term::app(
-            Term::app(Term::Def(lib.less_than), cx.quote(a)?),
-            cx.quote(b)?,
+            Term::app(Term::Def(lib.less_than), cx.quote_folded(a)?),
+            cx.quote_folded(b)?,
         );
         cx.eval(&term)
     };
@@ -1020,11 +1020,11 @@ fn by_cases(
     let motive = Term::Lam(
         "b".into(),
         Icit::Explicit,
-        Rc::new(cx.quote(goal)?.shift(cx.g(), 1, 0)?),
+        Rc::new(cx.quote_folded(goal)?.shift(cx.g(), 1, 0)?),
     );
     Ok(apps(
         Term::Def(lib.inspect),
-        vec![cx.quote(b)?, motive, when_true, when_false],
+        vec![cx.quote_folded(b)?, motive, when_true, when_false],
     ))
 }
 
@@ -1052,7 +1052,7 @@ fn prove_or(
                 ((*l).clone(), None)
             }
             Value::Eq(ty, x, y) if is_data(cx, &ty, lib.nat)? => {
-                let equal = apps(Term::Def(lib.nat_equal), vec![cx.quote(&x)?, cx.quote(&y)?]);
+                let equal = apps(Term::Def(lib.nat_equal), vec![cx.quote_folded(&x)?, cx.quote_folded(&y)?]);
                 (cx.eval(&equal)?, Some((x, y)))
             }
             _ => continue,
@@ -1068,7 +1068,7 @@ fn prove_or(
                     None => Term::Var(0),
                     Some((x, y)) => apps(
                         Term::Def(lib.equal_sound),
-                        vec![cx.quote(x)?, cx.quote(y)?, Term::Var(0)],
+                        vec![cx.quote_folded(x)?, cx.quote_folded(y)?, Term::Var(0)],
                     ),
                 };
                 Ok(Term::ctor(lib.or, side, vec![proof]))
@@ -1595,7 +1595,10 @@ struct Op {
 /// An atom: a `Nat` or `Int` subterm `omega` doesn't look inside.
 struct Atom {
     value: Value,
+    /// Read back in full, for finding the same atom again.
     term: Term,
+    /// Read back with its calls kept, for the certificate.
+    written: Term,
     /// Whether it's an `Int`.
     int: bool,
     /// Why it's an atom, if that's because the fragment doesn't cover it.
@@ -2024,9 +2027,11 @@ impl Quoter {
             }
             snapshot.restore(cx);
         }
+        let written = cx.quote_folded(&value)?;
         self.atoms.push(Atom {
             value,
             term,
+            written,
             int,
             unsupported,
         });
@@ -2377,16 +2382,16 @@ fn split_first(
         };
         let left = prove_case(cx, &d.left)?;
         let right = prove_case(cx, &d.right)?;
-        let goal_term = cx.quote(expected)?;
+        let goal_term = cx.quote_folded(expected)?;
         return Ok(match &d.bools {
             Some((p, q)) => apps(
                 Term::Def(lib.or_elim),
-                vec![cx.quote(p)?, cx.quote(q)?, goal_term, d.proof, left, right],
+                vec![cx.quote_folded(p)?, cx.quote_folded(q)?, goal_term, d.proof, left, right],
             ),
             None => {
                 let implicit = |t: Term, arg: Term| Term::app_icit(t, arg, Icit::Implicit);
-                let elim = implicit(Term::Def(lib.prop_or_elim), cx.quote(&d.left)?);
-                let elim = implicit(elim, cx.quote(&d.right)?);
+                let elim = implicit(Term::Def(lib.prop_or_elim), cx.quote_folded(&d.left)?);
+                let elim = implicit(elim, cx.quote_folded(&d.right)?);
                 let elim = implicit(elim, goal_term);
                 apps(elim, vec![d.proof, left, right])
             }
@@ -3164,11 +3169,11 @@ fn emit(
         if atom.int {
             atom_map.new[old] = Some(atom_map.ints);
             atom_map.ints += 1;
-            int_atoms.push(atom.term.clone());
+            int_atoms.push(atom.written.clone());
         } else {
             atom_map.new[old] = Some(atom_map.nats);
             atom_map.nats += 1;
-            nat_atoms.push(atom.term.clone());
+            nat_atoms.push(atom.written.clone());
         }
     }
     let map = &atom_map.new;
