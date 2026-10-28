@@ -1,5 +1,5 @@
 {
-  "next": 810,
+  "next": 816,
   "tickets": [
     {
       "id": 13,
@@ -7072,6 +7072,86 @@
       "where": "",
       "labels": [],
       "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 810,
+      "title": "Consider a std grid-position module (Position, step in four directions, neighbours, Manhattan distance, step-back lemma)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Nine AoC 2024 days (6, 8, 10, 12, 14, 15, 16, 18, 20) each define their own Position, step and step-back lemma (day 20 finding 6). List.gridCells exists but returns plain pairs because each day has its own Position type.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 811,
+      "title": "Consider a std non-empty list type (that many1 could return)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Day 19: every theorem carries a hypothesis that no pattern is empty, because many1's result type doesn't say so (finding 6). Haskell has Data.List.NonEmpty; Scala cats has NonEmptyList.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 812,
+      "title": "Consider how specs say 'the number of': a Set.card-style notion, or document the distinct-list idiom",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Day 20 stated counts as 'a list holding each such thing once' with List.Distinct (finding 7); day 23 used Set.size. Mathlib has Finset.card.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 813,
+      "title": "Interpreter speed: about 6.5 ns per instruction is the main cost in every AoC day (20-100x slower than Python on generated inputs)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Map lane profile (28 Oct): ~2,060 of 3,000 samples in the machine's main loop, then value freeing and register-vector resizing. Day 19: ~11M small closure calls dominate 8.1 s. Investigate dispatch, frame setup and register allocation before data-structure work.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 814,
+      "title": "Map speed beyond the 28 Oct fixes: a fused balanceL/balanceR (as Data.Map, est. ~30% fewer instructions per level) or a Nat-keyed IntMap",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "Options listed by the Map lane: fused balance means re-proving balanceWithin, balanceSized, balanceOnto; an IntMap is a new std type with its own proofs. Day 20 part 2: ~1.7 µs per Map lookup.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 815,
+      "title": "Consider holes (_) for function arguments being solved from later uses",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision"
+      ],
+      "body": "Day 12 finding 5: a _ standing for a function argument wasn't solved; the day wrote the lambdas out. Day 22 finding 5 is similar: _ for List.memFlatMapIntro's function never finished against a big list (1.6 s with the lambdas written).",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
