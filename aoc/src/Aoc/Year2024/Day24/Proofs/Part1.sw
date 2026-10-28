@@ -90,7 +90,7 @@ theorem settledSound (device: Device): Sound device device.settled :=
 theorem part1Sound (device: Device) (number: Nat) (solved: solvePart1 device = Some number): Outputs device number :=
   let count := bitCount Wire.zBit device.wires
   let zValue := (bit: Nat) => if device.wires.contains (Z bit) then device.settled.get (Z bit) else Some False
-  Option.mapEqSome (zBits device device.settled) fromBits number solved (bits bitsAre isNumber =>
+  Option.mapEqSome (device.zBits device.settled) fromBits number solved (bits bitsAre isNumber =>
     Both
       (bit member =>
         let below := countFromAbove Wire.zBit (Z bit) bit rfl device.wires 0 member
