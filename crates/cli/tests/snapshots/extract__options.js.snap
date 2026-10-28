@@ -919,7 +919,7 @@ const $Main$dkeepSome = (v0) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dmarkAll = (v0) => $Std$dList$dmap$e(v0, ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v1, 1n), ((v2) => ({ tag: "None" })), ((v2) => ({ tag: "Some", value: v1 })))));
+const $Main$dmarkAll = (v0) => $Std$dList$dmap$e(v0, ((v1) => ($Std$dNat$dleq(v1, 1n).tag === "True" ? { tag: "None" } : { tag: "Some", value: v1 })));
 const $Main$dpeek = (v0) => v0;
 const $Main$ddescribe = (v0) => {
   switch (v0.tag) {

@@ -835,7 +835,7 @@ const $Std$dBool$ddecEq = (v0, v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dChar$disScalar = (v0) => $Std$dBool$difThenElse($Std$dNat$dleq(55296n, v0), ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(v0, 57343n), ((v2) => ({ tag: "False" })), ((v2) => $Std$dNat$dleq(v0, 1114111n)))), ((v1) => ({ tag: "True" })));
+const $Std$dChar$disScalar = (v0) => ($Std$dNat$dleq(55296n, v0).tag === "True" ? ($Std$dNat$dleq(v0, 57343n).tag === "True" ? { tag: "False" } : $Std$dNat$dleq(v0, 1114111n)) : { tag: "True" });
 const $Std$dChar$dtoNat = (v0) => {
   switch (v0.tag) {
     case "MkChar": {
@@ -845,7 +845,7 @@ const $Std$dChar$dtoNat = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dChar$dfromNat = (v0) => $Std$dDecidable$delim($Std$dBool$ddecEq($Std$dChar$disScalar(v0), { tag: "True" }), ((v1) => ({ tag: "Some", value: { tag: "MkChar", code: v0 } })), ((v1) => ({ tag: "None" })));
+const $Std$dChar$dfromNat = (v0) => ($Std$dBool$ddecEq($Std$dChar$disScalar(v0), { tag: "True" }).tag === "Yes" ? { tag: "Some", value: { tag: "MkChar", code: v0 } } : { tag: "None" });
 const $Std$dChar$ddecEqFrom = (v0, v1, v2) => {
   switch (v2.tag) {
     case "Yes": {

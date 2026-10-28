@@ -854,7 +854,7 @@ const $Main$ddescribe = (v0) => {
         return "zero";
       }
     }
-    return $Std$dBool$difThenElse($Std$dInt$dless(v0, 0n), ((v2) => "negative"), ((v2) => "positive"));
+    return ($Std$dInt$dless(v0, 0n).tag === "True" ? "negative" : "positive");
   } else {
     const v1 = -v0 - 1n;
     switch (v1) {
@@ -862,7 +862,7 @@ const $Main$ddescribe = (v0) => {
         return "minus one";
       }
     }
-    return $Std$dBool$difThenElse($Std$dInt$dless(v0, 0n), ((v2) => "negative"), ((v2) => "positive"));
+    return ($Std$dInt$dless(v0, 0n).tag === "True" ? "negative" : "positive");
   }
 };
 const $Main$dnegatives = (v0) => $Std$dList$dmap$e(v0, ((v1) => (-v1 - 1n)));
@@ -901,7 +901,7 @@ const $Main$dresidueName = (v0) => {
         return "one";
       }
     }
-    return $Std$dBool$difThenElse($Std$dInt$dless(v0, 0n), ((v2) => "negative"), ((v2) => "other"));
+    return ($Std$dInt$dless(v0, 0n).tag === "True" ? "negative" : "other");
   } else {
     const v1 = -v0 - 1n;
     switch (v1) {
@@ -909,7 +909,7 @@ const $Main$dresidueName = (v0) => {
         return "minus one";
       }
     }
-    return $Std$dBool$difThenElse($Std$dInt$dless(v0, 0n), ((v2) => "negative"), ((v2) => "other"));
+    return ($Std$dInt$dless(v0, 0n).tag === "True" ? "negative" : "other");
   }
 };
 const $Main$dresidue = (v0, v1) => $Main$dresidueName($Std$dInt$dmod(v0, v1));

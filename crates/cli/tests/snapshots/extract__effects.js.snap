@@ -975,7 +975,7 @@ const $Main$dsomeSum = (v0) => {
     case "Cons": {
       const v1 = v0.head;
       const v2 = v0.tail;
-      return $Std$dEffect$dbind($Main$dsomeSum(v2), ((v3) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%choose", x: { tag: "UnitValue" } } }, rest: ((v4) => ({ tag: "Done", value: v4 })) }, ((v4) => $Std$dBool$difThenElse(v4, ((v5) => ({ tag: "Done", value: $Std$dNat$dadd(v1, v3) })), ((v5) => ({ tag: "Done", value: v3 })))))));
+      return $Std$dEffect$dbind($Main$dsomeSum(v2), ((v3) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%choose", x: { tag: "UnitValue" } } }, rest: ((v4) => ({ tag: "Done", value: v4 })) }, ((v4) => (v4.tag === "True" ? { tag: "Done", value: $Std$dNat$dadd(v1, v3) } : { tag: "Done", value: v3 })))));
     }
   }
   throw new Error("unreachable");
@@ -990,7 +990,7 @@ const $Main$dtick = (v0) => {
   }
 };
 const $Main$dcountUp = (v0) => $Main$dsndOf($Main$drunState$e(0n, ((v1) => $Main$dtick(v0))));
-const $Main$dsafeDiv = (v0, v1) => $Std$dDecidable$delim($Std$dDecidable$dnot($Std$dNat$ddecEq(v1, 0n)), ((v2) => ({ tag: "Done", value: $Std$dNat$ddiv(v0, v1) })), ((v2) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%abort", x: { tag: "UnitValue" } } }, rest: ((v3) => ({ tag: "Done", value: v3 })) }, ((v3) => ({ tag: "Done", value: $Main$dfromEmpty(v3) })))));
+const $Main$dsafeDiv = (v0, v1) => ($Std$dDecidable$dnot($Std$dNat$ddecEq(v1, 0n)).tag === "Yes" ? { tag: "Done", value: $Std$dNat$ddiv(v0, v1) } : $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%abort", x: { tag: "UnitValue" } } }, rest: ((v3) => ({ tag: "Done", value: v3 })) }, ((v3) => ({ tag: "Done", value: $Main$dfromEmpty(v3) }))));
 const $Main$dorZero = (v0) => {
   switch (v0.tag) {
     case "None": {

@@ -779,7 +779,7 @@ const $Main$dPretty$d$gpretty = (v1) => {
   return v2;
 };
 const $Main$dPretty$dpretty = $Main$dPretty$d$gpretty;
-const $Main$dPretty$dinstNat = ((v0) => $Std$dBool$difThenElse($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0, 0n)), ((v1) => "zero"), ((v1) => "some")));
+const $Main$dPretty$dinstNat = ((v0) => ($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v0, 0n)).tag === "True" ? "zero" : "some"));
 const $Main$dPretty$dinstList = (v1) => ((v2) => $Std$dText$dappend("[", $Std$dText$dappend($Std$dText$djoin($Std$dList$dmap$e(v2, $Main$dPretty$d$gpretty(v1)), { tag: "MkChar", code: 44n }), "]")));
 const $Main$dOrdered$d$gless = (v1) => {
   const v2 = v1;

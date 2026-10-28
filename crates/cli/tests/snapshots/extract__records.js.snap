@@ -828,7 +828,7 @@ const $Main$dPerson$dage = (v0) => {
 const $Main$dgreet = (v0) => $Std$dText$dappend("Hello, ", $Main$dPerson$dname(v0));
 const $Main$dbirthday = (v0) => ({ name: $Main$dPerson$dname(v0), age: $Std$dNat$dadd($Main$dPerson$dage(v0), 1n) });
 const $Main$drename = (v0, v1) => ({ name: v0, age: $Main$dPerson$dage(v1) });
-const $Main$dolder = (v0, v1) => $Std$dBool$difThenElse($Std$dNat$dleq($Main$dPerson$dage(v1), $Main$dPerson$dage(v0)), ((v2) => v0), ((v2) => v1));
+const $Main$dolder = (v0, v1) => ($Std$dNat$dleq($Main$dPerson$dage(v1), $Main$dPerson$dage(v0)).tag === "True" ? v0 : v1);
 const $Main$doldestFrom = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
@@ -928,7 +928,7 @@ const $Main$disSorted = (v0) => {
   }
 };
 const $Main$ddecIsSorted = (v0) => $Std$dBool$ddecTrue($Main$disSorted(v0));
-const $Main$dsorted = (v0) => $Std$dDecidable$delim($Main$ddecIsSorted(v0), ((v1) => ({ tag: "Some", value: v0 })), ((v1) => ({ tag: "None" })));
+const $Main$dsorted = (v0) => ($Main$ddecIsSorted(v0).tag === "Yes" ? { tag: "Some", value: v0 } : { tag: "None" });
 const $Main$dsmallest = (v0) => {
   const v1 = v0;
   switch (v1.tag) {

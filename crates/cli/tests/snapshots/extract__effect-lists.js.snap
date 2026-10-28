@@ -1015,7 +1015,7 @@ const $Std$dShow$d$gtoText = (v1) => {
   return v2;
 };
 const $Std$dShow$dtoText = $Std$dShow$d$gtoText;
-const $Std$dShow$descapeChar = (v0, v1, v2) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 92n), ((v3) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: v2 } })), ((v3) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), $Std$dChar$dtoNat(v0)), ((v4) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })), ((v4) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 10n), ((v5) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: v2 } })), ((v5) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 9n), ((v6) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: v2 } })), ((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 13n), ((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: v2 } })), ((v7) => ({ tag: "Cons", head: v1, tail: v2 })))))))))));
+const $Std$dShow$descapeChar = (v0, v1, v2) => ($Std$dNat$dequal($Std$dChar$dtoNat(v1), 92n).tag === "True" ? { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: v2 } } : ($Std$dNat$dequal($Std$dChar$dtoNat(v1), $Std$dChar$dtoNat(v0)).tag === "True" ? { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } } : ($Std$dNat$dequal($Std$dChar$dtoNat(v1), 10n).tag === "True" ? { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 110n }, tail: v2 } } : ($Std$dNat$dequal($Std$dChar$dtoNat(v1), 9n).tag === "True" ? { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 116n }, tail: v2 } } : ($Std$dNat$dequal($Std$dChar$dtoNat(v1), 13n).tag === "True" ? { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: { tag: "MkChar", code: 114n }, tail: v2 } } : { tag: "Cons", head: v1, tail: v2 })))));
 const $Std$dShow$descapeBefore = (v0, v1, v2, v3) => {
   switch (v3.tag) {
     case "Nil": {
@@ -1024,7 +1024,7 @@ const $Std$dShow$descapeBefore = (v0, v1, v2, v3) => {
     case "Cons": {
       const v4 = v3.head;
       const v5 = v3.tail;
-      return $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v1), 36n), ((v6) => $Std$dBool$difThenElse($Std$dNat$dequal($Std$dChar$dtoNat(v4), 123n), ((v7) => ({ tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } })), ((v7) => ({ tag: "Cons", head: v1, tail: v2 })))), ((v6) => $Std$dShow$descapeChar(v0, v1, v2)));
+      return ($Std$dNat$dequal($Std$dChar$dtoNat(v1), 36n).tag === "True" ? ($Std$dNat$dequal($Std$dChar$dtoNat(v4), 123n).tag === "True" ? { tag: "Cons", head: { tag: "MkChar", code: 92n }, tail: { tag: "Cons", head: v1, tail: v2 } } : { tag: "Cons", head: v1, tail: v2 }) : $Std$dShow$descapeChar(v0, v1, v2));
     }
   }
   throw new Error("unreachable");
@@ -1348,7 +1348,7 @@ const $Std$dList$dany = (v1, v2, v3, v4) => {
     case "Cons": {
       const v5 = v3.head;
       const v6 = v3.tail;
-      return $Std$dEffect$dbindDv(v2, v1, (v4)(v5), ((v7) => $Std$dBool$difThenElse(v7, ((v8) => $Std$dEffect$ddoneD(v2, v1, { tag: "True" })), ((v8) => $Std$dList$dany(v1, v2, v6, v4)))));
+      return $Std$dEffect$dbindDv(v2, v1, (v4)(v5), ((v7) => (v7.tag === "True" ? $Std$dEffect$ddoneD(v2, v1, { tag: "True" }) : $Std$dList$dany(v1, v2, v6, v4))));
     }
   }
   throw new Error("unreachable");
@@ -1384,7 +1384,7 @@ const $Std$dList$dall = (v1, v2, v3, v4) => {
     case "Cons": {
       const v5 = v3.head;
       const v6 = v3.tail;
-      return $Std$dEffect$dbindDv(v2, v1, (v4)(v5), ((v7) => $Std$dBool$difThenElse(v7, ((v8) => $Std$dList$dall(v1, v2, v6, v4)), ((v8) => $Std$dEffect$ddoneD(v2, v1, { tag: "False" })))));
+      return $Std$dEffect$dbindDv(v2, v1, (v4)(v5), ((v7) => (v7.tag === "True" ? $Std$dList$dall(v1, v2, v6, v4) : $Std$dEffect$ddoneD(v2, v1, { tag: "False" }))));
     }
   }
   throw new Error("unreachable");
@@ -1432,7 +1432,7 @@ const $Std$dList$dfind = (v1, v2, v3, v4) => {
     case "Cons": {
       const v5 = v3.head;
       const v6 = v3.tail;
-      return $Std$dEffect$dbindDv(v2, v1, (v4)(v5), ((v7) => $Std$dBool$difThenElse(v7, ((v8) => $Std$dEffect$ddoneD(v2, v1, { tag: "Some", value: v5 })), ((v8) => $Std$dList$dfind(v1, v2, v6, v4)))));
+      return $Std$dEffect$dbindDv(v2, v1, (v4)(v5), ((v7) => (v7.tag === "True" ? $Std$dEffect$ddoneD(v2, v1, { tag: "Some", value: v5 }) : $Std$dList$dfind(v1, v2, v6, v4))));
     }
   }
   throw new Error("unreachable");
@@ -1580,7 +1580,7 @@ const $Std$dList$dtakeWhile = (v1, v2, v3, v4) => {
     case "Cons": {
       const v5 = v3.head;
       const v6 = v3.tail;
-      return $Std$dEffect$dbindDv(v2, v1, (v4)(v5), ((v7) => $Std$dBool$difThenElse(v7, ((v8) => $Std$dEffect$dbindDv(v2, v1, $Std$dList$dtakeWhile(v1, v2, v6, v4), ((v9) => $Std$dEffect$ddoneD(v2, v1, { tag: "Cons", head: v5, tail: v9 })))), ((v8) => $Std$dEffect$ddoneD(v2, v1, { tag: "Nil" })))));
+      return $Std$dEffect$dbindDv(v2, v1, (v4)(v5), ((v7) => (v7.tag === "True" ? $Std$dEffect$dbindDv(v2, v1, $Std$dList$dtakeWhile(v1, v2, v6, v4), ((v9) => $Std$dEffect$ddoneD(v2, v1, { tag: "Cons", head: v5, tail: v9 }))) : $Std$dEffect$ddoneD(v2, v1, { tag: "Nil" }))));
     }
   }
   throw new Error("unreachable");
@@ -1620,7 +1620,7 @@ const $Std$dList$dspanOnto = (v1, v2, v3, v4, v5) => {
     case "Cons": {
       const v6 = v5.head;
       const v7 = v5.tail;
-      return $Std$dEffect$dbindDv(v2, v1, (v4)(v6), ((v8) => $Std$dBool$difThenElse(v8, ((v9) => $Std$dList$dspanOnto(v1, v2, { tag: "Cons", head: v6, tail: v3 }, v4, v7)), ((v9) => $Std$dEffect$ddoneD(v2, v1, { tag: "MkPair", fst: $Std$dList$dreverse(v3), snd: { tag: "Cons", head: v6, tail: v7 } })))));
+      return $Std$dEffect$dbindDv(v2, v1, (v4)(v6), ((v8) => (v8.tag === "True" ? $Std$dList$dspanOnto(v1, v2, { tag: "Cons", head: v6, tail: v3 }, v4, v7) : $Std$dEffect$ddoneD(v2, v1, { tag: "MkPair", fst: $Std$dList$dreverse(v3), snd: { tag: "Cons", head: v6, tail: v7 } }))));
     }
   }
   throw new Error("unreachable");
@@ -1738,7 +1738,7 @@ const $Main$dbig = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: {
 const $Main$dseen = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%visit", x: v0 } }, rest: ((v1) => ({ tag: "Done", value: v1 })) }, ((v1) => ({ tag: "Done", value: v0 })));
 const $Main$daddSeen = (v0, v1) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%visit", x: v1 } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => ({ tag: "Done", value: $Std$dNat$dadd(v0, v1) })));
 const $Main$dpushSeen = (v0, v1) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%visit", x: v0 } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => ({ tag: "Done", value: { tag: "Cons", head: v0, tail: v1 } })));
-const $Main$dtenfoldIfBig = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%visit", x: v0 } }, rest: ((v1) => ({ tag: "Done", value: v1 })) }, ((v1) => $Std$dBool$difThenElse($Std$dNat$dleq(5n, v0), ((v2) => ({ tag: "Done", value: { tag: "Some", value: $Std$dNat$dmul(v0, 10n) } })), ((v2) => ({ tag: "Done", value: { tag: "None" } })))));
+const $Main$dtenfoldIfBig = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%visit", x: v0 } }, rest: ((v1) => ({ tag: "Done", value: v1 })) }, ((v1) => ($Std$dNat$dleq(5n, v0).tag === "True" ? { tag: "Done", value: { tag: "Some", value: $Std$dNat$dmul(v0, 10n) } } : { tag: "Done", value: { tag: "None" } })));
 const $Main$dtwiceSeen = (v0) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%visit", x: v0 } }, rest: ((v1) => ({ tag: "Done", value: v1 })) }, ((v1) => ({ tag: "Done", value: { tag: "Cons", head: v0, tail: { tag: "Cons", head: v0, tail: { tag: "Nil" } } } })));
 const $Main$dfilterOrder = (v0) => $Main$dtraced$e(((v1) => $Std$dList$dfilter({ tag: "Ops" }, { tag: "Total" }, v0, $Main$dbig)));
 const $Main$dfoldLeftOrder = (v0) => $Main$dtraced$e(((v1) => $Std$dList$dfoldLeft({ tag: "Ops" }, { tag: "Total" }, v0, 0n, ($Main$daddSeen$c ??= ($p0) => ($p1) => $Main$daddSeen($p0, $p1)))));
@@ -1981,7 +1981,7 @@ const $Main$dpureTakeWhile = (v1, v2) => {
   }
 };
 const $Main$disBig = (v0) => $Std$dNat$dleq(5n, v0);
-const $Main$dtenfold = (v0) => $Std$dBool$difThenElse($Std$dNat$dleq(5n, v0), ((v1) => ({ tag: "Some", value: $Std$dNat$dmul(v0, 10n) })), ((v1) => ({ tag: "None" })));
+const $Main$dtenfold = (v0) => ($Std$dNat$dleq(5n, v0).tag === "True" ? { tag: "Some", value: $Std$dNat$dmul(v0, 10n) } : { tag: "None" });
 const $Main$dadd = $Std$dNat$dadd;
 const $Main$dfiltered = (v0) => ({ tag: "MkPair", fst: $Std$dList$dfilter$e(v0, $Main$disBig), snd: $Main$dpureFilter(v0, $Main$disBig) });
 const $Main$dfolded = (v0) => ({ tag: "MkPair", fst: $Std$dList$dfoldLeft$e(v0, 0n, ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1))), snd: $Main$dpureFoldLeft(v0, 0n, ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1))) });

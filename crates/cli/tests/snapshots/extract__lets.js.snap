@@ -723,6 +723,17 @@ const encodeFast = (fast, t, v) => {
 const $Std$dNat$dadd = (m, n) => m + n;
 const $Std$dNat$dsub = (m, n) => (m >= n ? m - n : 0n);
 const $Std$dNat$dmul = (m, n) => m * n;
+const $Std$dBool$difThenElse = (v1, v2, v3) => {
+  switch (v1.tag) {
+    case "False": {
+      return (v3)(undefined);
+    }
+    case "True": {
+      return (v2)(undefined);
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dPair$dfst = (v2) => {
   switch (v2.tag) {
@@ -744,31 +755,8 @@ const $Std$dPair$dsnd = (v2) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dDecidable$delim = (v2, v3, v4) => {
-  switch (v2.tag) {
-    case "Yes": {
-      return (v3)(undefined);
-    }
-    case "No": {
-      return (v4)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dBool$ddecTrue = (v0) => {
-  switch (v0.tag) {
-    case "False": {
-      return { tag: "No" };
-    }
-    case "True": {
-      return { tag: "Yes" };
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dNat$ddecLessEq = (v0, v1) => $Std$dBool$ddecTrue($Std$dNat$dleq(v0, v1));
 const $Main$dtwice = (v0) => { const v1 = $Std$dNat$dadd(v0, 1n); return $Std$dNat$dadd(v1, v1); };
-const $Main$dclamp = (v0) => { const v1 = $Std$dNat$dadd(v0, 1n); return $Std$dDecidable$delim($Std$dNat$ddecLessEq(v1, 2n), ((v2) => 0n), ((v2) => v1)); };
+const $Main$dclamp = (v0) => { const v1 = $Std$dNat$dadd(v0, 1n); return ($Std$dNat$dleq(v1, 2n).tag === "True" ? 0n : v1); };
 const $Main$dlessOf = (v0, v1) => $Std$dNat$dsub(v1, v0);
 const $Main$dbelow = (v0, v1) => $Main$dlessOf(v0, $Std$dNat$dadd(v0, v1));
 const $Main$dcountUp = (v0, v1) => {

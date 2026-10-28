@@ -23,7 +23,9 @@
 //! - **Calls of known functions**: applying a global, a partial application
 //!   or a closure literal is a direct call; a closure capturing constants
 //!   (`sortBy Nat.compare`'s comparison) gets its own lambda with them
-//!   substituted, which the rules above can then simplify.
+//!   substituted, which the rules above can then simplify. A recursive
+//!   function called with known functions or known instance dictionaries
+//!   (`Map.insertWith` at `Nat.instOrd`) gets a copy with them substituted.
 //!
 //! Everything here is pure and total (a partial computation is a value until
 //! the runner runs it), so a binding nothing reads is dropped and work may
@@ -53,7 +55,7 @@ const PUSH_SIZE: usize = 48;
 const FUEL: u32 = 200;
 /// How deeply inlined code may inline in turn.
 const DEPTH: u32 = 12;
-/// The largest recursive function copied for known function arguments, and
+/// The largest recursive function copied for known arguments, and
 /// how many copies a program may have.
 const COPY_SIZE: usize = 200;
 const COPIES: usize = 64;
@@ -137,8 +139,8 @@ struct Cx {
     globals: Vec<Global>,
     /// The global being simplified: its body isn't available meanwhile.
     busy: Option<usize>,
-    /// Copies of recursive functions with constant function arguments
-    /// substituted, by the function and the arguments.
+    /// Copies of recursive functions with known arguments substituted, by
+    /// the function and the arguments.
     copies: HashMap<String, GlobalId>,
 }
 
@@ -1206,10 +1208,23 @@ impl Simp<'_> {
         }
     }
 
-    /// A call of recursive global `g` with some arguments known functions
-    /// (`map scramble xs`, `merge less xs ys`): a call of a copy of `g` with
-    /// them substituted, whose own recursive calls that pass them on call
-    /// the copy. Then applying them is a direct call, which can be inlined.
+    /// An argument worth copying a recursive function for: a known
+    /// function, or a constant whose value is a known constructor, such as
+    /// an instance dictionary (`Nat.instOrd`), so that the copy's method
+    /// calls are direct.
+    fn known_argument(&self, e: &Expr) -> Option<Expr> {
+        match e {
+            Expr::Global(h) if self.cx.consts[h.0 as usize].is_some() => Some(e.clone()),
+            _ => self.known_function(e),
+        }
+    }
+
+    /// A call of recursive global `g` with some arguments known
+    /// ([`Simp::known_argument`]: `map scramble xs`, `merge less xs ys`,
+    /// `insertWith Nat.instOrd f key value tree`): a call of a copy of `g`
+    /// with them substituted, whose own recursive calls that pass them on
+    /// call the copy. Then applying them is a direct call, which can be
+    /// inlined, and a method read from a dictionary is a known function.
     fn specialise(&mut self, g: GlobalId, args: &[Expr]) -> Option<Expr> {
         let i = g.0 as usize;
         if self.cx.busy == Some(i) || self.cx.copies.len() >= COPIES {
@@ -1224,7 +1239,7 @@ impl Simp<'_> {
         let known: Vec<(usize, Expr)> = args
             .iter()
             .enumerate()
-            .filter_map(|(k, a)| self.known_function(a).map(|f| (k, f)))
+            .filter_map(|(k, a)| self.known_argument(a).map(|f| (k, f)))
             .collect();
         if known.is_empty() || known.len() == args.len() {
             return None;
