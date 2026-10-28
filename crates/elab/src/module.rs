@@ -424,6 +424,9 @@ impl Elaborator {
                 let too_large = self.globals.budget.take_too_large();
                 let ran_out_in = self.globals.budget.take_ran_out_in();
                 for (position, d) in &mut diagnostics[before..] {
+                    if d.code == "E-RESOURCE" {
+                        d.notes.push(self.while_checking_note(&component));
+                    }
                     if d.code == "E-RESOURCE" && d.message.ends_with("too large to show") {
                         for note in self.too_large_notes(&component, too_large) {
                             d.notes.push(note);
@@ -598,18 +601,23 @@ impl Elaborator {
         })
     }
 
+    /// Names the declaration(s) of `component`, so a check that ran out of
+    /// resources says where, whatever it ran out of (SW-843).
+    fn while_checking_note(&self, component: &[usize]) -> String {
+        let names: Vec<String> = component
+            .iter()
+            .map(|i| format!("`{}`", self.module.items[*i].name))
+            .collect();
+        format!("it happened while checking {}", names.join(", "))
+    }
+
     /// Notes for "a value was too large to show" while checking `component`:
-    /// the declaration, the definition the value was a call of (`head`, an
+    /// the definition the value was a call of (`head`, an
     /// index recorded where the reading-back gave up), and the opaque
     /// definitions the declaration unfolds, whose bodies were computed with.
     fn too_large_notes(&self, component: &[usize], head: Option<usize>) -> Vec<String> {
         let g = &self.globals;
         let mut notes = Vec::new();
-        let names: Vec<String> = component
-            .iter()
-            .map(|i| format!("`{}`", self.module.items[*i].name))
-            .collect();
-        notes.push(format!("it happened while checking {}", names.join(", ")));
         if let Some(head) = head.filter(|h| *h < g.defs.len()) {
             let name = &g.defs[head].name;
             if !name.contains('%') {
