@@ -74,15 +74,18 @@ def antinodesOf (far: Position) (near: Position): List Position :=
     [past, near.minus { row = difference.row / 3, column = difference.column / 3 }]
   else [past]
 
+-- Both parts divided by `divisor`, rounding down; unchanged for 0.
+def Position.divideBy (position: Position): Nat → Position
+  | Zero => position
+  | Succ below =>
+    let divisor := (Succ below).toInt
+    { row = position.row / divisor, column = position.column / divisor }
+
 -- The smallest step from `start` towards `end` that lands on grid points:
 -- the difference divided by the greatest common divisor of its parts.
 def stepToward (start: Position) (end: Position): Position :=
   let difference := end.minus start
-  match Nat.gcd difference.row.natAbs difference.column.natAbs with
-    | Zero => difference
-    | Succ below =>
-      let divisor := (Succ below).toInt
-      { row = difference.row / divisor, column = difference.column / divisor }
+  difference.divideBy (Nat.gcd difference.row.natAbs difference.column.natAbs)
 
 -- The grid points in line with `start` and `end`: whole steps from `start`
 -- either way, as many as the map is high or wide, which reaches past it.
