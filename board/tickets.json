@@ -1,5 +1,5 @@
 {
-  "next": 853,
+  "next": 856,
   "tickets": [
     {
       "id": 13,
@@ -7467,18 +7467,23 @@
     },
     {
       "id": 840,
-      "title": "Design note: negative arguments, f -2 as f (-2) (written, on branch worktree-agent-afe947c49f61c7399, docs/proposals/negative-arguments.md; D1461, D1462, D1467-D1472 awaiting Matt)",
-      "status": "review",
+      "title": "Design note: negative arguments, f -2 as f (-2) (docs/proposals/negative-arguments.md; approved 28 Oct)",
+      "status": "done",
       "agent": "Opus",
-      "where": "worktree (starting)",
+      "where": "main",
       "labels": [
         "design",
         "syntax"
       ],
-      "body": "D1460 (Matt, 28 Oct 2026): run an Opus research lane surveying other languages and approaches, ending in a recommendation; replaces the original 'add a hint for f -2' (D1456 dropped).\n\nToday: 'f -2' is 'f - 2' (docs/syntax.md:1114; docs/proposals/integers.md:704-708 kept it 'as today'), and gives 'expected Int, but this has type Int → Int'. Corpus check 28 Oct: no .sw file writes subtraction as 'x -y' (space before '-', none after), excluding keywords and strings. Candidate: whitespace rule (GHC LexicalNegation / F# / Swift / Elm).",
+      "body": "D1460 (Matt, 28 Oct 2026): run an Opus research lane surveying other languages and approaches, ending in a recommendation; replaces the original 'add a hint for f -2' (D1456 dropped).\n\nToday: 'f -2' is 'f - 2' (docs/syntax.md:1114; docs/proposals/integers.md:704-708 kept it 'as today'), and gives 'expected Int, but this has type Int → Int'. Corpus check 28 Oct: no .sw file writes subtraction as 'x -y' (space before '-', none after), excluding keywords and strings. Candidate: whitespace rule (GHC LexicalNegation / F# / Swift / Elm).\n\nDecisions (Matt, 28 Oct 2026): recommendations accepted for D1461 (whitespace rule, option (b)), D1462 (one atom with dots and calls), D1469 (line break counts as a space), D1470 (Some -1 in patterns, numerals only), D1471 (! the same, separate ticket), D1472 (formatter keeps the form as written), D1467 (notes for the new mistakes, same change). D1468 (editor colouring) still open, rec no. Note merged to main (9a58d10a). Next: independent review of the note, then the implementation tickets.\n",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "b8dcab5c",
+        "b9d821e0",
+        "0b62f44e",
+        "9a58d10a"
+      ]
     },
     {
       "id": 841,
@@ -7596,9 +7601,9 @@
     {
       "id": 849,
       "title": "Two instances with the same name panic the elaborator (index out of bounds, crates/elab/src/module.rs:1177)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
       "labels": [
         "bug"
       ],
@@ -7610,9 +7615,9 @@
     {
       "id": 850,
       "title": "A cycle between a type's constructor and a later declaration gives E-INTERNAL 'is used before it's checked'",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
       "labels": [
         "bug"
       ],
@@ -7645,6 +7650,49 @@
         "bug"
       ],
       "body": "Found by the SW-685 fuzzer lane, 28 Oct: crates/driver/tests/fuzz_elab.rs has to exclude the user-facing E-INTERNAL by message (USER_INTERNAL, 'is internal to the standard library', used by examples/reject/row-internal-*.sw). A distinct code (e.g. E-PRIVATE-STD) would let tooling and the fuzzer treat E-INTERNAL as always a compiler bug. Snapshots of row-internal-* change.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 853,
+      "title": "Independent review of the negative-arguments note before implementation",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design",
+        "syntax"
+      ],
+      "body": "Workflow step for SW-840: an independent reviewer reads docs/proposals/negative-arguments.md (approved by Matt 28 Oct) before implementation starts. Findings go in docs/proposals/negative-arguments-review.md.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 854,
+      "title": "Negative arguments, stages 1-2: parser rule, pattern numerals, notes, formatter (f -2 as f (-2))",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "Implement docs/proposals/negative-arguments.md §8 stages 1 and 2 (they merge together): D1461 whitespace rule, D1462 scope, D1469 line break, D1470 'Some -1' patterns, D1467 notes, D1472 formatter keeps the form. Waits for the independent review.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 855,
+      "title": "Negative arguments, stage 3: f !x as f (!x) under the same whitespace rule",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "D1471 (Matt, 28 Oct): '!' follows the '-' rule, as a separate small change after stages 1-2. docs/proposals/negative-arguments.md §8 stage 3.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
