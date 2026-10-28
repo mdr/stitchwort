@@ -86,11 +86,10 @@ theorem seenStart (lab: Lab): SeenBy lab (Set.singleton lab.startGuard) 0 :=
 
 -- The program's loop test decides `Loops`.
 theorem loopsWithCorrect (lab: Lab) (sightlines: Sightlines) (simulates: Simulates sightlines lab) (inside: onMap lab lab.start = True):
-    Iff (lab.loopsWith sightlines = True) (Loops lab) :=
-  {
-    forward = says =>
-      loopsFromSound lab sightlines simulates inside lab.stateCount lab.startGuard (Set.singleton lab.startGuard) 0 rfl
-        (Nat.leRefl lab.stateCount) (seenStart lab) says,
-    backward = loops =>
-      loopsFromComplete lab sightlines simulates inside loops lab.stateCount lab.startGuard (Set.singleton lab.startGuard) 0 rfl
-  }
+    Iff (lab.loopsWith sightlines = True) (Loops lab) := {
+  forward = says =>
+    loopsFromSound lab sightlines simulates inside lab.stateCount lab.startGuard (Set.singleton lab.startGuard) 0 rfl
+      (Nat.leRefl lab.stateCount) (seenStart lab) says,
+  backward = loops =>
+    loopsFromComplete lab sightlines simulates inside loops lab.stateCount lab.startGuard (Set.singleton lab.startGuard) 0 rfl
+}

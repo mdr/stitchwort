@@ -3,6 +3,7 @@
 
 namespace Aoc.Year2024.Day06.Tests
 import Aoc.Year2024.Day06 (..)
+import Aoc.Year2024.Day06.Spec (after, positions)
 import Std (Fail, List, Option, Set, Text)
 
 def example: List Text := """
@@ -51,6 +52,14 @@ test "the next turn is short of the obstruction ahead" :=
   (Sightlines.of exampleLab.obstructions).nextTurn exampleLab.startGuard == Some ({ position = at 1 4, facing = Right })
 test "no next turn with nothing ahead" :=
   (Sightlines.of exampleLab.obstructions).nextTurn { position = at 9 4, facing = Down } == None
+-- The jumping loop test agrees with the step-by-step walk (still on the map
+-- after `stateCount` steps, which `budgetEnough` proves is looping) for
+-- every new obstruction in the example.
+test "jumps agree with steps on the example" :=
+  positions exampleLab
+    |> .all (position =>
+      let blocked := exampleLab.withObstruction position
+      blocked.loops == (after blocked blocked.stateCount).isSome)
 test "turning right" := [Up, Right, Down, Left].map .turnRight == [Right, Down, Left, Up]
 
 -- Edges of the map, and small labs.

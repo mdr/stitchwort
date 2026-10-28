@@ -239,6 +239,3 @@ theorem budgetEnough (lab: Lab) (inside: onMap lab lab.start = True) (still: Not
           | None, _ => Void.exfalso (firstStill rfl)
           | Some one, None => Void.exfalso (secondStill rfl)
       repeatLoops lab first second earlier same secondStill))
-
--- And the converse: a guard who loops is on the map after any budget.
-theorem loopsStill (lab: Lab) (loops: Loops lab) (steps: Nat): Not (after lab steps = None) := loops steps

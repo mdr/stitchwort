@@ -415,3 +415,293 @@ Nothing slow.
 6. No count monotonicity lemma (item 6).
 7. `List.removeAt` (item 5): added.
 8. The small ones (item 8).
+
+## Day 6: Guard Gallivant
+
+A guard walks a grid, turning right at each obstruction directly ahead,
+until she steps off the map. Part 1 counts the distinct positions she visits;
+part 2 counts the positions where one new obstruction (not at her start)
+traps her in a loop (part 2's wording from the public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/master/2024/day-06/README.txt>).
+Answers on Matt's input: 4967 and 1789 (cross-checked with an independent
+Python walk; the example gives 41 and 6).
+
+The interesting part for a total language: a walk need not end, and part 2 is
+about walks that don't.
+
+### Termination
+
+Every walk carries a step budget, `stateCount = height * width * 4`: the
+guard has at most that many states (a position on the map and a facing).
+The program is ordinary structural recursion on the budget:
+
+```stitchwort
+def Lab.patrolFrom (lab: Lab) (guard: Guard) (visited: Set Position): (budget: Nat) → Option (Set Position)
+  | Zero => None
+  | Succ budget =>
+    let visitedNow := visited.insert guard.position
+    match lab.step guard with
+      | None => Some visitedNow
+      | Some next => lab.patrolFrom next visitedNow budget
+```
+
+Running out of budget is not a guess. `budgetEnough` proves, for a guard who
+starts on the map, that still being on the map after `stateCount` steps
+means she never leaves (`Loops`, the spec's "stuck in a loop": there's no
+step count at which she has left). The proof is the pigeonhole principle
+over the first `stateCount + 1` states (numbered
+`(row * width + column) * 4 + facing`, which is injective on the map), then
+"a repeated state repeats forever", by induction on a bound (`repeatFrom`).
+The answers are `Option`s, `None` exactly when she loops (`part1Loops`,
+`part2Loops`); `main` fails then.
+
+Part 2's loop test jumps from turn to turn (below), remembering the states
+it has seen. A repeat is a loop (`repeatLoops`), and running out of budget is
+`budgetEnough` again, since each jump takes at least one step.
+
+`decreasing` (recursion on a measure) exists but wasn't the tool: nothing
+gets smaller along a walk unless the program carries a proof that its
+seen-set grows towards a bound, which is the same pigeonhole argument moved
+into the program. A budget plus a separate theorem kept the program plain.
+
+### The program
+
+```stitchwort
+def Lab.step (lab: Lab) (guard: Guard): Option Guard :=
+  lab.ahead guard
+    |> .map (next =>
+      if lab.obstructions.contains next then { guard | facing = guard.facing.turnRight } else { guard | position = next })
+
+def Sightlines.loopsFrom (sightlines: Sightlines) (guard: Guard) (seen: Set Guard): (budget: Nat) → Bool
+  | Zero => True
+  | Succ budget =>
+    match sightlines.nextTurn guard with
+      | None => False
+      | Some next => seen.contains next || sightlines.loopsFrom next (seen.insert next) budget
+
+def solvePart1 (lab: Lab): Option Nat := lab.patrol |> .map .size
+
+def solvePart2 (lab: Lab): Option Nat :=
+  let sightlines := Sightlines.of lab.obstructions
+  lab.patrol
+    |> .map (visited => visited.filter (position => position != lab.start && lab.loopsWith (sightlines.add position)) |> .size)
+```
+
+`Sightlines` holds the obstructions' columns for each row and rows for each
+column; `nextTurn` goes straight to the nearest one ahead with
+`Set.below`/`Set.above`. Only positions on the original route are tried.
+
+### Proved, for every lab whose guard starts on the map
+
+The spec (`Spec/Spec.sw`) is over the program's `Lab.step`, which is the
+protocol as the puzzle words it: `walk`, `after`, `Loops`, `route` (her
+positions over the first steps), `distinctPositions` (the size of the set of
+the route), and `trapPositions` (positions on the map, not the start, not
+already obstructed, where `trapped` holds, for any `trapped` that decides
+`Loops` for the lab with that obstruction, so the spec has no budget in it).
+
+- `budgetEnough`: the budget catches every loop (above).
+- `part1Correct`: for any step count by which she has left, part 1 is
+  `distinctPositions`. `part1Loops`: `None` when she loops.
+- `loopsWithCorrect`: the jumping loop test decides `Loops`, for sightlines
+  that `Simulates` the walk (each next turn is her state some steps on, and
+  no next turn means she leaves).
+- `offRouteFree`: a new obstruction off the route of a guard who leaves
+  never traps her, so part 2 needs only the route's positions.
+- `routeSettled`: the route's positions are on the map and free, except the
+  start.
+- `part2Correct`: part 2 is the size of `trapPositions`, given `Simulates`
+  for the sightlines with each new obstruction. `part2Loops`: `None` when
+  she loops.
+
+About 650 lines of proof, with no axioms.
+
+Not proved: `Simulates` for the program's sightlines, that is, that
+`Set.below`/`Set.above` on `(Sightlines.of …).add p` find the nearest
+obstruction ahead, and that walking there step by step ends in the same
+state. It needs spec lemmas for `Set.below`/`Set.above` that std doesn't have
+(item 1), plus a lemma for the `Sightlines.of` fold. `part2Correct` takes it
+as a hypothesis. A test runs the jumping test against the step-by-step walk
+for every obstruction position in the example. The parser (a rectangular
+map, exactly one `^`, so the start is on the map) is tested, not proved.
+
+### 1. No spec for `Set.below` / `Set.above`
+
+`Map.below m key` is specified only as `List.last (List.filter (Map.toList m)
+(e => Map.Spec.isLess e.fst key))` (`Map.belowToList`). What a caller needs
+is "the largest key below, and nothing in between":
+
+```stitchwort
+theorem Set.belowSome (s: Set k) (key: k) (found: k) (h: s.below key = Some found):
+  s.contains found = True ∧ found < key ∧ ((other: k) → found < other → other < key → s.contains other = False)
+theorem Set.belowNone (s: Set k) (key: k) (h: s.below key = None) (other: k) (less: other < key): s.contains other = False
+```
+
+and the same for `above`. Getting there from `belowToList` means the
+sortedness of `toList`, `last` of a filter and `Map.Spec.Ascending`, all in
+`Ord.compare` terms. That is what left `Simulates` unproved. Fix: these four
+lemmas in `Set/Spec.sw`.
+
+### 2. No pigeonhole principle, and no finite-type enumeration
+
+The budget theorem needed "`n + 1` values below `n` repeat" (`pigeonhole`,
+with a bounded search `lastHit`, 50 lines) and an injection of guard states
+into `Nat` (`stateCode`; `rowOfCell` by `Nat.divAddMul` and `Nat.divSmall`;
+an inverse for `directionIndex` to show it injective). Mathlib has the
+pigeonhole principle as `Fintype.not_injective_of_card_lt` and
+`List.Nodup.length_le_card`
+(<https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Fintype/Card.html>),
+over `Fintype` instances for finite types, so the states of
+`Fin h × Fin w × Direction` are counted rather than encoded by hand. Fix: a
+std `Nat.pigeonhole` (stated as in `Proofs/Bound.sw`); later, a `Finite`
+interface derived for enums and records of finite fields.
+
+Also missing: "an iteration that revisits a state never ends"
+(`repeatFrom`, `repeatLoops`). A std `Nat.iterate` lemma would serve any
+cycle-finding day.
+
+### 3. `ran out of resources: a value was too large to show`
+
+```text
+[E-RESOURCE] Error: ran out of resources: a value was too large to show
+  Note 1: this isn't a type error or a failed test: there's no answer within the limits
+  Note 2: it happened while checking `stepA2`
+```
+
+from a plain application of a std lemma:
+
+```stitchwort
+theorem stepA2 (lab: Lab) (visited: Set Position) (position: Position):
+    Set.contains (visited.filter (keeps lab (Sightlines.of lab.obstructions))) position
+      = (Set.contains visited position && keeps lab (Sightlines.of lab.obstructions) position) :=
+  Set.containsFilter visited position (keeps lab (Sightlines.of lab.obstructions))
+```
+
+The same with an arbitrary `keep: Position → Bool` checks. `keeps` unfolds
+to `loopsFrom` with a budget of `height * width * 4` and a `Set.singleton`
+that computes to a tree; something unfolds it and then can't print it. A `?`
+hole there failed the same way, and `rewrite` there gave `E-REWRITE-BUDGET`.
+What worked: a lemma over any `keep` (`filterSame`), then instantiated, and
+`Eq.trans`/`Eq.cong` chains instead of `rewrite`. Fix: compare `keeps lab s`
+with itself before unfolding it; and an error should never fail to print
+(shorten the term, as other messages do).
+
+### 4. Goals unfold too far
+
+- `(lab.withObstruction blocker).ahead guard = lab.ahead guard` isn't `rfl`:
+  `ahead`'s inner `match` is lifted with `lab` as an argument, so the sides
+  are two different stuck calls. `cases` (on the facing) proves it.
+- `match patrolled: lab.patrol with` against the goal `solvePart2 lab = None`
+  ran out of resources (item 3). Proving `lab.patrol = None` first, then
+  `Eq.cong`, worked.
+- `rewrite onRoute` (unfold a definition by name) is `E-REWRITE-RULE`
+  ("this has type `Lab → Option Guard → Nat → Position → Bool`, which isn't
+  an equation"). Lean's `rw [onRoute]` and `unfold` do this. Wrote `Eq.cong`
+  with the body spelled out.
+
+Day 2's item 3 (keep definitions folded until asked) is the common fix.
+
+### 5. Confusing errors in the program
+
+- Calling a `let`-bound lambda in a `{Fail}` body:
+
+  ```stitchwort
+  let positionsOf := (wanted: Cell) => cells.filter (cell => cell.snd == wanted) |> .map (cell => cell.fst)
+  match positionsOf GuardStart with
+    | [start] => { height = lines.length, width, obstructions = Set.fromList (positionsOf Obstruction), start }
+  ```
+
+  ```text
+  [E-EFFECT-ESCAPE] Error: the result's type depends on the result of an operation
+    Note: return the value together with what its type depends on, as a dependent pair
+  ```
+
+  No type depends on anything here. The same with a top-level
+  `positionsOf` checks, as does a `match` on an inline `xs.map (…)`; the
+  lambda's call seems to count as an operation. Fix: treat a `let` lambda
+  that performs nothing as pure, and don't suggest a dependent pair unless a
+  type really mentions the result.
+- A lambda with a return type, `(wanted: Cell): List Position => …`, is
+  "`a block must end with an expression, not let`", pointing at the `let`.
+  Fix: say lambdas don't take a return type (or allow one, as Scala and Lean
+  do).
+- `Some { row = row - 1, column }` (day 1's item 7): six times today.
+
+### 6. `cases` gaps
+
+- It doesn't substitute an equation `record = variable` that it has found
+  (`%fact1: { guard.position | row = … } = position`), so `aheadOnMap` (the
+  position ahead is on the map) failed on the goal `False = True`. Stated
+  about the `Option` instead (`onMapIfAny`), `cases` closed every case.
+- It doesn't split plain variables: `directionIndex one = directionIndex
+  other → one = other` is "found nothing to split on". Proved with an
+  inverse (`directionOfIndex`) instead.
+- Record eta isn't definitional: `{ row = p.row, column = p.column } = p`
+  needs a `match` (`positionEta`, `guardExt`).
+
+Fix: substitute equations with a variable side; split enum variables in the
+goal; record eta in conversion.
+
+### 7. Smaller
+
+- A spec module can't add dot functions to the program's types
+  (`E-FOREIGN-NAMESPACE`, a clear message), so the spec has `walk lab`, not
+  `lab.walk`.
+- A theorem whose result unfolds to a function type
+  (`Loops lab := (steps: Nat) → Not …`) needs those arguments as patterns in
+  every arm (`E-ARITY … takes more arguments after the colon`). Clear, but
+  surprising for a named proposition.
+- `at` can't be a variable's name in a `rewrite` rule (clear message).
+- `x != y` is `Decidable.toBool (Decidable.not d)`, not `!(x == y)`, so a
+  Boolean lemma about it has to talk about `Decidable` (`shapeOnRoute`).
+
+What went well: `omega` took `row * width` as an atom and closed the code's
+bounds; the pigeonhole proof and the loop-test proofs checked on the first
+try; `Exists` and `Witness` were easy; `cases` did the Boolean case splits.
+
+### Performance
+
+The first part 2 (step by step from the start, remembering the turning
+states, for each of the 4967 route positions) took 35 s on `stitchwort run`,
+against 3.0 s for the same algorithm in CPython: about 12 times slower.
+Jumping to the next obstruction with `Set.below`/`Set.above` per row and
+column brought it to 3.3 s. Haskell and Scala would write the same loops,
+and neither asks why the walk ends. Lean would take a `partial def`, which
+proofs can't see into ("Functions marked `partial` are treated as opaque
+constants by the kernel and are neither unfolded nor reduced",
+<https://lean-lang.org/doc/reference/latest/Definitions/Recursive-Definitions/>),
+or a budget like this one.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache` (whole project) | 11.1 s (5.0 s before day 6) |
+| `stitchwort check` (warm) | 1.6 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day06.Proofs` | 7.4 s |
+| `stitchwort test --no-cache Aoc.Year2024.Day06` (27 tests) | 10.3 s |
+| `stitchwort run Aoc.Year2024.Day06.main` on the example | 0.44 s |
+| the same on the input (130 by 130) | 3.4 s |
+| `stitchwort build` executable on the input | 3.1 s |
+| the machine (`aoc_agrees`, full tier) on the input | 8.5 s |
+| `aoc_answers year2024_day06` (with `--no-cache`) | 14.9 s |
+
+The day is in `machine.rs`'s list but, at its place, not in the daily sample
+(`aoc_agrees` stays at 49 s); at the full tier it runs, and the whole test took
+285 s, most of it the reference evaluator on this day. Native and JS weren't
+measured (this build has no `native` feature).
+
+### Ranked
+
+1. No `Set.below`/`Set.above` spec (item 1): left the jumping walk
+   unproved.
+2. A resource blow-up on a plain lemma application, with an unprintable
+   error (item 3): cost the most time.
+3. No pigeonhole principle or finite enumeration (item 2): 120 lines of
+   encoding and counting for a one-line fact.
+4. Goals unfolding (item 4).
+5. `E-EFFECT-ESCAPE` on a pure `let` lambda (item 5).
+6. `cases` gaps and record eta (item 6).
+7. The small ones (item 7).
