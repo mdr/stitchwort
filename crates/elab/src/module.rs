@@ -933,6 +933,21 @@ impl Elaborator {
                     infos.push(info);
                 }
             }
+            // The interface and head of an instance were looked up before
+            // the declarations were left out, so they name the old indices.
+            for info in &mut infos {
+                for global in [&mut info.interface, &mut info.head] {
+                    if let Some(Global::Unchecked(i)) = global {
+                        // Looked up by name, so it's the declaration that
+                        // kept the name, never one left out.
+                        if let Some(&new) = renumber.get(i) {
+                            *i = new;
+                        } else {
+                            *global = None;
+                        }
+                    }
+                }
+            }
             self.module.items = infos;
             for key in &self.module.names {
                 if let Some((Global::Unchecked(i), _)) = self.scope.entries.get_mut(key)
