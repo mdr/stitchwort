@@ -117,7 +117,7 @@ test "frequencies are case sensitive and include digits" := (city "aA0\n...").an
 test "a final line break is allowed" := solvePart2 (city "a.a\n") == 3
 
 test "parse error, a ragged row" := parsed "...\n..\n..." == Err "line 2: expected 3 characters, as on the first line, got 2"
-test "parse error, a bad character" := parsed "..#\n..." == Err "line 1, column 3: expected '.', a letter or a digit or a line break or the end"
+test "parse error, a bad character" := parsed "..#\n..." == Err "line 1, column 3: expected '.', a letter or a digit or the end of the line, got '#'"
 
 -- The spec, worded like the puzzle, counts the same on the examples.
 test "example, the spec agrees" := part1 (city example) == 14 && part2 (city example) == 34
