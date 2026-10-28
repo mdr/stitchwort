@@ -75,7 +75,7 @@ The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times
 | `native` | `stitchwort-native`: the Cranelift spike (stage N0 of native-compilation.md) and stages N1 to N4 against the machine (`tests/n1.rs`, `n3.rs`: outputs, allocation traces, resource points, every error exit; `tests/n2b.rs`: frame sizing, tail-call shapes, error-exit traces; `tests/frames.rs`: the frame bound on both architectures; `tests/n4.rs`: handlers and every `-- run:` line of the effect examples; the ten-million-iteration tail test is left to the merge tier), that the generated code holds no host address (`tests/relocatable.rs`, stage S4 of standalone-executables.md), and the object `build --native` links (`tests/object.rs`, S5) | 7 s |
 | `lsp` | six quick `cli` `lsp` tests (hover, formatting, goals, navigation) | 3 s |
 | `fmt` | `stitchwort-fmt` (not `repo` or `fuzz`) and the `cli` `fmt` tests | 2 s |
-| `aoc` | every AoC day on its real input (`aoc_answers` `yearYYYY_dayNN`) | 6 s |
+| `aoc` | six AoC days on their real input, by exact name (`aoc_answers`: `year2024_day02`, `04`, `07`, `year2025_day01`, `05`, `07`; the rest are for merge and up) | 2 s |
 | `cli` | `cli` `session`, `keys_mode` (`run` in a pseudo-terminal), `run` but for its five slowest, and `stitchwort build`: `crates/standalone`, and `build` (with and without `--native`) but for the roguelike's two tests (merge runs those too) | 12 s at load 70 (`build --native`'s `set_nat` the longest) |
 | `hashes` | `hash_stability` `examples`, `projects` and `prelude`; `NAME=` keeps only the examples whose names contain it | 6 s |
 | `examples` | `cli` `examples`: a quarter of each folder, or with `NAME=synonym` every example whose name contains it | 7 s (2 s with `NAME`) |
