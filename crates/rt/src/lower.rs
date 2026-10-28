@@ -747,7 +747,8 @@ impl<'g> Lowerer<'g> {
         // §9.1.5, stage 4d).
         if self.effect.as_ref().is_some_and(|e| e.is_fold(id))
             && let Some(fusion) = &self.fusion
-            && let Some(fused) = fusion.fuse(self.g, args)?
+            && let Some(fused) =
+                fusion.fuse(self.g, args, Some(&|id, args| self.match_body(id, args)))?
         {
             let op = if fused.comp {
                 EffectOp::FoldStateComp
@@ -855,6 +856,21 @@ impl<'g> Lowerer<'g> {
             Some(Carrier::Value) | None => EffectOp::Fold,
         };
         Ok(Expr::Prim(PrimOp::Effect(op), runtime))
+    }
+
+    /// The case tree of lifted `match` `id` for a call with `args`, under
+    /// its parameters, for a state-passing handler's clause to inline: the
+    /// body its call would run (its empty-row variant's, if the call is at
+    /// the empty row).
+    fn match_body(&self, id: DefId, args: &[&Term]) -> Option<Rc<Term>> {
+        if self.spec.empty_call(id, args).ok()? {
+            return self.spec.empty_body(id).ok()?;
+        }
+        if let Some(body) = self.spec.generic_body(id).ok()? {
+            return Some(body);
+        }
+        let def = self.g.def(id);
+        Some(Term::peel_lams_rc(def.run_body()?, def.arity))
     }
 
     fn global(&self, id: DefId) -> Result<(GlobalId, u32, Option<PrimOp>)> {
