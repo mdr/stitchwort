@@ -127,10 +127,9 @@ theorem couldBeTrueMore (fewer: List Operator) (more: List Operator) (included: 
 theorem sumFilterMore (keep1: a → Bool) (keep2: a → Bool) (value: a → Nat) (xs: List a) (included: (x: a) → keep1 x = True → keep2 x = True):
     (xs.filter keep1).sumBy value ≤ (xs.filter keep2).sumBy value :=
   rewrite List.sumByFilter xs value keep1, List.sumByFilter xs value keep2 in
-    List.sumByLe xs (x => if keep2 x then value x else 0) (x => if keep1 x then value x else 0) (x =>
-      match kept: keep1 x with
-        | True => rewrite included x kept in Nat.leRefl (value x)
-        | False => Nat.zeroLe (if keep2 x then value x else 0))
+    List.sumByLe xs _ _ (x => match kept: keep1 x with
+      | True => rewrite included x kept in Nat.leRefl (value x)
+      | False => Nat.zeroLe (if keep2 x then value x else 0))
 
 -- Part 2 adds an operator, so its total is at least part 1's.
 theorem part2AtLeastPart1 (equations: List Equation): solvePart1 equations ≤ solvePart2 equations :=

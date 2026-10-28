@@ -33,7 +33,8 @@ use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::RewriteRule;
 
 use super::{
-    Equation, Key, Place, Shape, elaborate_rule, key, mentions_bound, replace_occurrences, shown,
+    Equation, Key, Place, Shape, elaborate_rule, key, mentions_bound, replace_occurrences,
+    replace_solving_instances, shown,
 };
 use crate::calc::lemma;
 use crate::check::{Ctx, Piped, Result};
@@ -568,23 +569,40 @@ fn rewrite_body(
                               recent: usize,
                               current: &mut Value,
                               proof: &mut Term,
+                              solving_instances: bool,
                               remaining: &mut u64|
          -> Result<bool> {
             let right = cx.quote(current)?;
-            let replaced = replace_occurrences(
-                cx,
-                rule,
-                Place::Inside,
-                equation,
-                &goal(current),
-                Shape::Right {
-                    ty: &ty_term,
-                    left: &left,
-                    right: &right,
-                },
-                recent,
-                remaining,
-            )?;
+            let goal = goal(current);
+            let shape = Shape::Right {
+                ty: &ty_term,
+                left: &left,
+                right: &right,
+            };
+            let replaced = if solving_instances {
+                replace_solving_instances(
+                    cx,
+                    rule,
+                    Place::Inside,
+                    equation,
+                    &goal,
+                    shape,
+                    recent,
+                    remaining,
+                )?
+            } else {
+                replace_occurrences(
+                    cx,
+                    rule,
+                    Place::Inside,
+                    equation,
+                    &goal,
+                    shape,
+                    recent,
+                    false,
+                    remaining,
+                )?
+            };
             if let Some(step) = replaced.step {
                 let Value::Eq(_, _, next) = force(g, step.goal)? else {
                     unreachable!("the motive is an equation")
@@ -603,11 +621,24 @@ fn rewrite_body(
         // As for the goal (`rewrite_once`): the calls inside, then the
         // occurrences that use one of the functions' variables (those that
         // don't are the goal's own, rewritten there).
+        let mut matched_inside = false;
         for site in sites(cx, rule, &keys, &left, base, remaining, missing)? {
             let equation = site.equation(cx, rule, Place::Inside)?;
-            apply_step(cx, &equation, 0, &mut current, &mut proof, remaining)?;
+            matched_inside |=
+                apply_step(cx, &equation, 0, &mut current, &mut proof, false, remaining)?;
         }
-        if apply_step(cx, &equation, recent, &mut current, &mut proof, remaining)? {
+        // Only where nothing else matched may the rule's instances be found
+        // from an occurrence (`replace_solving_instances`).
+        let solving_instances = !matched_inside;
+        if apply_step(
+            cx,
+            &equation,
+            recent,
+            &mut current,
+            &mut proof,
+            solving_instances,
+            remaining,
+        )? {
             super::discharge(cx, rule, &equation, recent, remaining)?;
         }
         if !changed {
