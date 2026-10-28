@@ -6718,6 +6718,10 @@ gap fails `numericFits` and `directionalFits`; costing your own presses at
   expected a key (0 to 9 or A), got the end of the input`. `label` composed
   with `pick` first time. Fine as it is.
 
+  Left as it is: every alternative is what could come next, and capping
+  the list would hide the one the reader was after; `label` is the way to
+  name the set.
+
 ### 2. Missing std
 
 - No way to enumerate a finite type. The proofs check facts for every pair
@@ -6737,6 +6741,10 @@ gap fails `numericFits` and `directionalFits`; costing your own presses at
 - No `List.isEmpty` without `DecEq` (day 19): `choices != []` on `List a`
   gave ``[E-AUTO-NONE] Error: no way to decide `choices ≠ []` ``. Wrote a
   two-arm `hasSome`.
+
+  Fixed in the program: the uses are on `List (List Direction)`, which has
+  `DecEq`, so with the ascription parsing (item 3) `fits` and
+  `cheapestPasses` use `!=` and `hasSome` is gone.
 - Lemmas written in `Lemmas.sw`: `allMember` (`List.all` is true of each
   member; std's `List.allMem` is about the `Prop` `List.All`),
   `minByStepPasses` (`List.minBy`'s result passes a test every element
@@ -6754,10 +6762,19 @@ gap fails `numericFits` and `directionalFits`; costing your own presses at
   → …`, gave ``[E-PARSE] Error: a lambda doesn't take a result type``.
   What I did: named the test (`hasSome`). Fix: parse the ascription there,
   or put the `==` suggestion first.
+
+  Fixed: inside the brackets, `(choices != []): Bool` looked like a lambda
+  written with a result type, `(x: A): B => …`, because the look-ahead for
+  its `=>` ran past the closing bracket into the theorem's first arm (or,
+  in a lambda's parameter, to the lambda's own `=>`). It now stops at the
+  bracket around it.
 - `type Keypad k = { place: k → Position, gap: Position }` gave
   ``[E-PARSE] Error: expected the end of the declaration, but found `k` ``.
   The parameter needs a binder, `type Keypad (k: Type) = …`; docs/syntax.md
   says so, the message doesn't. Fix: a note showing `(k: Type)`.
+
+  Fixed: ``a type's parameter `k` needs its type, in brackets`` with
+  ``Note: write `type Keypad (k: Type) …` ``.
 - `rewrite <- throughRobotsLast level presses in through`, meant to rewrite
   the hypothesis `through`, rewrote the goal and gave ``[E-REWRITE-NOTHING]
   Error: `rewrite` found no `Option.flatMap (throughRobots level presses)
@@ -6765,6 +6782,12 @@ gap fails `numericFits` and `directionalFits`; costing your own presses at
   `rewrite … at through in …` exists (docs/syntax.md), but the message
   doesn't mention it. What I did: `Eq.trans (Eq.sym …) through`. Fix: when
   the goal lacks the pattern and a hypothesis has it, suggest `at`.
+
+  Fixed: a note names the latest hypothesis that has the pattern, other
+  than the rule's own: ``Note 2: `through` has `…`: to rewrite a hypothesis
+  rather than the goal, name it with `at`, as `rewrite … at through in …` ``.
+  `throughRobotsCost` now writes `rewrite throughRobotsLast level presses
+  at through in through`.
 - Clear ones: `Some { aim | row = aim.row - 1 }` (``braces after `Some`
   name its fields; an update isn't one of them``, with the bracketed fix);
   `theorem fitted …: Fitted k` (``is declared as a theorem, but its type
@@ -6782,6 +6805,15 @@ gap fails `numericFits` and `directionalFits`; costing your own presses at
   comparison with a `Position` doesn't reach it (day 15's item again).
   What I did: `let acrossTurn: Position := …` and two `if`s, which read
   better anyway.
+
+  Not fixed: a tuple checked against a pair type already checks each
+  component against its part (`(1, { row = 0, column = 0 })` as a `(Nat,
+  Position)` is accepted). Here the list is the receiver of `|>`, so it is
+  inferred before anything says its type, even with a result type of
+  `List (List Direction, Position)`. Reaching it means postponing the
+  literal until a later use fixes its type, or picking the record type
+  from the field names, which `examples/reject/record-literal-without-type.sw`
+  rules out today.
 - `cheapestRoute costs routes |> routeCost costs` is a type error: `|>`
   passes the first argument (day 2's item), so it fed the route to
   `costs`. Scala's `pipe` takes a function (`def pipe[B](f: A => B): B`,

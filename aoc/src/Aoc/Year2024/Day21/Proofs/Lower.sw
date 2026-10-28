@@ -73,7 +73,7 @@ theorem throughRobotsCost:
       costFrom (robotCosts level) Activate keys ≤ presses.length
   | Zero, walks, presses, keys, through => rewrite <- Option.someInjective presses keys through, costFromOnes Activate presses in omega
   | Succ level, walks, presses, keys, through =>
-    let via := Eq.trans (Eq.sym (throughRobotsLast level presses)) through
+    let via := rewrite throughRobotsLast level presses at through in through
     match before: throughRobots level presses with
       | None => Void.exfalso (Option.noneNotSome keys via)
       | Some driving =>

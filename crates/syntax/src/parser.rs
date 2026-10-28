@@ -1372,6 +1372,16 @@ impl<'t> Parser<'t> {
                 }
                 params.push(binder);
                 auto_params.push(true);
+            } else if let Some(Tok::Lower(param)) = self.peek()
+                && !param.contains('.')
+            {
+                let keyword = if interface { "interface" } else { "type" };
+                let param = param.clone();
+                return Err(error(
+                    self.here(),
+                    format!("a {keyword}'s parameter `{param}` needs its type, in brackets"),
+                )
+                .with_note(format!("write `{keyword} {} ({param}: Type) …`", name.text)));
             } else {
                 break;
             }
@@ -2781,7 +2791,8 @@ impl<'t> Parser<'t> {
 
     /// The `:` of a lambda written with a result type, `(x: A): B => body`:
     /// a run of parameters ending in a bracketed one, then `:`, then a `=>`
-    /// later in the expression. Nothing is consumed.
+    /// later in the expression, before the bracket around it closes. Nothing
+    /// is consumed.
     #[inline(never)]
     fn lambda_result_type_ahead(&self) -> Option<usize> {
         let mut i = self.pos;
@@ -2814,7 +2825,9 @@ impl<'t> Parser<'t> {
         while i < self.tokens.len() && !self.is_stop(i) {
             match &self.tokens[i].tok {
                 Tok::FatArrow => return Some(colon),
-                Tok::ColonEq => return None,
+                // A closer here ends the bracket the expression is in, so a
+                // `=>` after it belongs to an enclosing lambda.
+                Tok::ColonEq | Tok::RParen | Tok::RBracket | Tok::RBrace => return None,
                 Tok::LParen | Tok::LBracket | Tok::LBrace => match self.matching[i] {
                     NO_PARTNER => return None,
                     close => i = close as usize + 1,
