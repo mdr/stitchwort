@@ -7415,7 +7415,7 @@
     {
       "id": 837,
       "title": "TRMC bug: a let inside a recursive call's argument makes the caller pass an unbound variable (Main.flatten[cells]: v6 is read where it isn't bound); non-native build executables refuse to run. Plus: helper copies share the [cells] name; passes_on comment overstates its check",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
