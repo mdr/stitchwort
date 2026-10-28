@@ -108,3 +108,11 @@ test "unionWith" := (Map.unionWith (wordCounts ["a", "b"]) (wordCounts ["b", "c"
 test "min and below" := (wordCounts ["b", "a", "c"]).min == Some ("a", 1) ∧ (wordCounts ["b", "a", "c"]).below "c" == Some ("b", 1)
 test "keySet" := (wordCounts ["b", "a"]).keySet == Set.fromList ["a", "b"]
 test "isSubset" := Set.isSubset (visited "R") (visited "RD") ∧ not (Set.isSubset (visited "RD") (visited "R"))
+
+-- What an intersection holds and how large it is, from the library's theorems.
+theorem commonKeyHeld (a: Set Nat) (b: Set Nat) (n: Nat) (inA: Set.contains a n = True) (inB: Set.contains b n = True):
+    Set.contains (Set.intersect a b) n = True :=
+  rewrite Set.containsIntersect a n b, inA, inB in rfl
+
+theorem commonAtMostEither (a: Set Nat) (b: Set Nat): Set.size (Set.intersect a b) ≤ Set.size a ∧ Set.size (Set.intersect a b) ≤ Set.size b :=
+  Both (Set.sizeIntersectLeft a b) (Set.sizeIntersectRight a b)

@@ -372,7 +372,7 @@ With list meanings, most of these are short inductions.
   - `foldLeftToList` (`foldLeft f z m = List.foldLeft … (toList m)`);
   - `Map.induction` (`P empty`, and `P m -> get k m = None -> P (insert k v m)`).
 - **`Set`:** the same, through `contains` (`containsRemove`, `containsUnion`, `containsIntersect`,
-  `containsDifference`, `containsFromList`, `ext`, `isSubsetSpec`).
+  `containsDifference`, `containsFromList`, `ext`, `isSubsetSpec`; later `sizeSubset`, `sizeIntersectLeft`, `sizeIntersectRight`).
 
 **Status.** Built in stage 2.2: everything above except `memToList`, `sizeInsert`, `sizeRemove`,
 `Map.induction` and `Set.isSubsetSpec`, which followed in the SW-356 leftovers step. Their
