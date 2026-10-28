@@ -579,8 +579,8 @@ The theorem, in `Aoc.Year2025.Day01.Proofs`, says they agree for a dial of any s
 theorem zerosPassedCorrect [n: Nat] (startingDial: Dial n) (turns: List Turn): zerosPassed turns startingDial = zerosPassedSpec turns startingDial :=
   zerosPassedFrom startingDial turns
 
-theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec turns startingDial :=
-  zerosPassedCorrect startingDial turns
+theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec turns Dial.start :=
+  zerosPassedCorrect Dial.start turns
 ```
 
 The proof ([Proofs/Part2.sw](../../aoc/src/Aoc/Year2025/Day01/Proofs/Part2.sw)) is about 130 lines: induction on the turns, a lemma for one turn split into clicks, and arithmetic lemmas about one click, with `calc`, `rewrite` and `omega` doing the steps. The day is laid out the way the other days are:

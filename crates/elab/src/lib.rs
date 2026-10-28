@@ -2814,8 +2814,17 @@ impl Elaborator {
         let g = &self.globals;
         let mut cx = Ctx::new(self, def_name.span);
         let written = Rc::new(g.def(id).ty.clone());
-        // Its type, as the body sees it: with what it unfolds unfolded.
-        let ty_value = kernel::def_type(g, g.def(id))?;
+        // Its type, as the body sees it. The kernel's value has every
+        // definition unfolded; while gluing, a type that names one is
+        // evaluated again so the definitions written in it stay as calls:
+        // `codes: List Code` keeps `Code`, whose namespace dot notation then
+        // finds on anything inferred from `codes`.
+        let ty = &g.def(id).ty;
+        let ty_value = if g.glue.get() && ty.subterms().any(|(t, _)| matches!(t, Term::Def(_))) {
+            stitchwort_core::value::eval(g, &[], ty)?
+        } else {
+            kernel::def_type(g, g.def(id))?
+        };
         self.with_body_type(&ty_value, def_name.span, || {
             self.body_in(
                 &mut cx,

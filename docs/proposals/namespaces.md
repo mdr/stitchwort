@@ -933,6 +933,22 @@ Two definitionally equal types may offer different lookups: with
 `Price = Nat`, `p : Price` tries `Price.show` and then `Nat.show`, while
 `n : Nat` tries only `Nat.show`. That's intended, and it depends only on
 the types as written.
+
+**An alias's functions are found where the value's type mentions the
+alias** ([alias-functions.md](alias-functions.md)). An inferred type keeps
+the aliases it came from: inside a definition, a parameter's type is as
+written (`codes: List Code` stays `List Code`), and a metavariable solved
+from it keeps the alias (the element type of `List Code` is `Code`). So
+`codes.sumBy (code => code.numericPart)`, `codes |> .sumBy (.scaled 2)` and
+a value through a generic function or `List.scanLeft` find `Code`'s
+functions. A value whose type never mentions the alias, a hand-written
+`digits: List Nat` or a literal `[1, 2]`, looks only in `List`; its
+`E-UNKNOWN-FIELD` note says the type doesn't mention `Code` and suggests
+`Code.numericPart digits` or an annotation. Known gap: a metavariable
+solved by checking against an expected type, which is unfolded first,
+gets the unfolded type (alias-functions.md §3.2, place 3), so a lambda
+whose parameter type is fixed that way, before the alias-typed value is
+seen, doesn't find the alias's functions.
 4. **Build the call.** `e.f a₁ … aₙ` is `T.f e a₁ … aₙ`: `e` is the first
    explicit argument and `a₁ … aₙ` fill the following explicit parameters
    in order. Implicit and `auto` arguments are inserted as usual.

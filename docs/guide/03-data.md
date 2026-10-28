@@ -310,6 +310,8 @@ def Grid.width (grid: Grid): Nat := grid.map (.length) |> .maximum |> .getOrElse
 test "a synonym is the type it names" := ([[1, 2, 3], [4]]: Grid).width == 3
 ```
 
+A synonym's functions are found by dot notation where the value's type mentions the synonym: a `grid: Grid` parameter, a value annotated as `Grid`, a function's `Grid` result, and anything worked out from those, such as each element in `grids.map (grid => grid.width)` with `grids: List Grid`. A value whose type never mentions `Grid` looks only in the namespace of what `Grid` stands for: `[[1, 2, 3]].width` and `rows.width` with a hand-written `rows: List (List Nat)` look in `List`, and the error says so. There, write `Grid.width rows`, or annotate the value as `Grid` where it's made, as the test above does. Where it does find `Grid`, `List`'s functions still work too (`grid.length`): the synonym's namespace is tried first, then what it stands for.
+
 To make a new type that can't be mixed up with the old one (a `UserId` that isn't any `Text`), use a one-field record instead. At run time a one-field record costs nothing; it is stored as its field.
 
 More: [syntax.md, Records](../syntax.md#records), [Field defaults](../syntax.md#field-defaults), [`match`](../syntax.md#match), and the design notes [records.md](../proposals/records.md) and [variant-fields.md](../proposals/variant-fields.md).
