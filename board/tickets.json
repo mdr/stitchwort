@@ -1,5 +1,5 @@
 {
-  "next": 736,
+  "next": 737,
   "tickets": [
     {
       "id": 13,
@@ -6089,7 +6089,7 @@
     {
       "id": 731,
       "title": "A lemma application ran out of resources ('a value was too large to show') on Set.containsFilter with the program's filter; compare the term with itself before unfolding, and always shorten error terms (AoC 2024 day 6)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6137,7 +6137,19 @@
     {
       "id": 735,
       "title": "Bench baseline: check-closed-* programs +12.9% steps after tonight's merges; bisect, fix or re-record",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 736,
+      "title": "Split List/Toolkit.sw: lemmas into their own file(s) so programs calling List.range etc. don't check ~2,400 lines of lemmas (bench check-closed tracks toolkit size); after the day-7 std lemma lane merges",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
