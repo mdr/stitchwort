@@ -18,6 +18,21 @@ theorem testBitAbove (n: Nat) (bits: Nat) (bit: Nat) (small: n < Nat.pow 2 bits)
 theorem allMember (p: a → Bool) (xs: List a) (x: a) (all: List.all xs p = True) (member: x ∈ xs): p x = True :=
   List.allMem (y => p y = True) x xs (List.allToAll p xs all) member
 
+-- Filtering keeps at most what there was.
+theorem filterNoLonger: (xs: List a) → (keep: a → Bool) → (xs.filter keep).length ≤ xs.length
+  | Nil, keep => rfl
+  | Cons x rest, keep =>
+    match keep x with
+      | True => filterNoLonger rest keep
+      | False => omega [filterNoLonger rest keep]
+
+def isLess (ordering: Ordering): Bool :=
+  match ordering with
+    | Less => True
+    | _ => False
+
+theorem lessNotGreater (same: Less = Greater): Void := Bool.trueNotFalse (Eq.cong isLess same)
+
 -- What `Map.lookupLast` finds is one of the pairs.
 theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, v)) → Map.lookupLast key pairs = Some value → (key, value) ∈ pairs
   | Nil, found => Void.exfalso (Option.noneNotSome value found)
