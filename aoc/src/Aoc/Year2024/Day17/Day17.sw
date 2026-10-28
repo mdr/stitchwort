@@ -86,7 +86,7 @@ def debugger(): {Parse} Debugger :=
 def parseDebugger (input: Text): {Fail} Debugger := Parse.all input debugger
 
 -- The combo operand `operand` stands for; operand 7 is reserved.
-def comboOperand (operand: Nat): Option Combo :=
+def Combo.decode (operand: Nat): Option Combo :=
   match operand with
     | 4 => Some RegisterA
     | 5 => Some RegisterB
@@ -94,16 +94,16 @@ def comboOperand (operand: Nat): Option Combo :=
     | _ => if operand < 4 then Some (Value operand) else None
 
 -- The instruction an opcode and its operand make, if they make one.
-def decode (opcode: Nat) (operand: Nat): Option Instruction :=
+def Instruction.decode (opcode: Nat) (operand: Nat): Option Instruction :=
   match opcode with
-    | 0 => comboOperand operand |> .map Adv
+    | 0 => Combo.decode operand |> .map Adv
     | 1 => Some (Bxl operand)
-    | 2 => comboOperand operand |> .map Bst
+    | 2 => Combo.decode operand |> .map Bst
     | 3 => Some (Jnz operand)
     | 4 => Some Bxc
-    | 5 => comboOperand operand |> .map Out
-    | 6 => comboOperand operand |> .map Bdv
-    | 7 => comboOperand operand |> .map Cdv
+    | 5 => Combo.decode operand |> .map Out
+    | 6 => Combo.decode operand |> .map Bdv
+    | 7 => Combo.decode operand |> .map Cdv
     | _ => None
 
 def Registers.value (registers: Registers) (operand: Combo): Nat :=
@@ -137,7 +137,7 @@ def Machine.step (machine: Machine) (program: List Nat): Step :=
   match program.get machine.pointer with
     | None => Halt
     | Some opcode =>
-      match program.get (machine.pointer + 1) |> .flatMap (operand => decode opcode operand) with
+      match program.get (machine.pointer + 1) |> .flatMap (operand => Instruction.decode opcode operand) with
         | Some instruction => machine.execute instruction
         | None => Fault
 
