@@ -740,6 +740,28 @@ impl<'t> Parser<'t> {
         self.expect(tok, what)
     }
 
+    /// [`Parser::unexpected`] where a name could be written: a keyword found
+    /// there is reported as one, since it can't be a name.
+    fn unexpected_name(&self, expected: &str) -> Diagnostic {
+        let keyword = match self.tokens.get(self.pos) {
+            Some(token) if !self.is_stop(self.pos) => token.tok.keyword().filter(|word| {
+                // `∈` and `∃` are the same tokens as `in` and `exists`.
+                (token.span.end - token.span.start) as usize == word.len()
+            }),
+            _ => None,
+        };
+        match keyword {
+            Some(word) => error(
+                self.here(),
+                format!("expected {expected}, but found the keyword `{word}`"),
+            )
+            .with_note(format!(
+                "`{word}` is a keyword, so it can't be used as a name"
+            )),
+            None => self.unexpected(expected),
+        }
+    }
+
     fn unexpected(&self, expected: &str) -> Diagnostic {
         if !self.is_stop(self.pos) && self.tokens.get(self.pos).map(|t| &t.tok) == Some(&Tok::At) {
             return Diagnostic::error("E-ATTRIBUTE", "attributes can't be written here")
@@ -932,7 +954,7 @@ impl<'t> Parser<'t> {
                     span,
                 })
             }
-            _ => Err(self.unexpected(what)),
+            _ => Err(self.unexpected_name(what)),
         }
     }
 
@@ -1190,7 +1212,7 @@ impl<'t> Parser<'t> {
                 };
                 Ok(pattern)
             }
-            _ => Err(self.unexpected("a pattern or `=`")),
+            _ => Err(self.unexpected_name("a pattern or `=`")),
         }
     }
 
@@ -2253,10 +2275,13 @@ impl<'t> Parser<'t> {
         result
     }
 
-    /// A `calc` expression: above the relations, so `a || b` and `a && b`
-    /// need no parentheses.
+    /// A `calc` expression: above the relations, so `a || b`, `a && b` and
+    /// `xs |> f` need no parentheses.
     fn calc_operand(&mut self) -> Result<Expr> {
         let mut e = self.append_expr()?;
+        if self.at_pipe() {
+            self.pipe_chain(&mut e)?;
+        }
         if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
             self.logic_chain(&mut e)?;
         }
@@ -3583,6 +3608,10 @@ impl<'t> Parser<'t> {
             Some(Tok::LBracket) => self.list_expr(span),
             Some(Tok::LBrace) => self.record_expr(),
             Some(Tok::Dot) => self.section_start(),
+            // A keyword as a lambda's parameter: `(test => …)`.
+            _ if self.peek_at(1) == Some(&Tok::FatArrow) => {
+                Err(self.unexpected_name("an expression"))
+            }
             _ => Err(self.unexpected("an expression")),
         }
     }
@@ -6362,6 +6391,48 @@ mod tests {
             panic!("expected a calc");
         };
         assert_eq!(steps.len(), 2);
+    }
+
+    #[test]
+    fn calc_expressions_may_use_pipes() {
+        // `|>` binds tighter than the step's relation: `_ = (xs |> List.sum)`.
+        let text = "def f (xs: List Nat): xs.sum = xs.sum :=\n  calc xs |> List.sum\n    _ = xs |> List.sum := h\n    _ = xs |> .sum\n";
+        let Expr::Calc {
+            ref first,
+            ref steps,
+            ..
+        } = rhs(text)
+        else {
+            panic!("expected a calc");
+        };
+        assert!(matches!(**first, Expr::Pipe(..)));
+        assert_eq!(steps.len(), 2);
+        assert!(matches!(steps[0].rhs, Expr::Pipe(..)));
+        assert!(steps[0].proof.is_some());
+        assert!(matches!(steps[1].rhs, Expr::Field(..)));
+    }
+
+    #[test]
+    fn a_keyword_where_a_name_goes_is_called_a_keyword() {
+        for text in [
+            "def f (then: Nat): Nat := 0\n",
+            "def f: Nat := (test => test) 0\n",
+            "def f: Nat :=\n  let with := 0\n  0\n",
+            "def f (n: Nat): Nat := match n with\n  | Succ return => 0\n  | Zero => 0\n",
+        ] {
+            let message = first_error(text);
+            assert!(message.contains("found the keyword"), "{text}: {message}");
+        }
+        // `∈` is `in`, but isn't written as a word.
+        let message = first_error("def f (∈: Nat): Nat := 0\n");
+        assert!(!message.contains("keyword"), "{message}");
+    }
+
+    fn first_error(text: &str) -> String {
+        match parse_module_text(text) {
+            Ok(_) => panic!("{text}: parsed"),
+            Err(errors) => errors[0].message.clone(),
+        }
     }
 
     #[test]

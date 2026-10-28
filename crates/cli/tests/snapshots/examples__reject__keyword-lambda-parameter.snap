@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected an expression, but found the keyword `test`
+   ╭─[ reject/keyword-lambda-parameter.sw:5:73 ]
+   │
+ 5 │ def keep (xs: List Nat) (property: Nat -> Bool): List Nat := xs.filter (test => property test)
+   │                                                                         ──┬─  
+   │                                                                           ╰─── expected an expression, but found the keyword `test`
+   │ 
+   │ Note: `test` is a keyword, so it can't be used as a name
+───╯

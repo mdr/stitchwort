@@ -147,6 +147,46 @@ pub enum Tok {
     At,
 }
 
+impl Tok {
+    /// The word of a keyword written as one: `test`, `then`. `in` and
+    /// `exists` may also be written `∈` and `∃`, which this can't tell apart.
+    pub fn keyword(&self) -> Option<&'static str> {
+        Some(match self {
+            Tok::KwType => "type",
+            Tok::KwTheorem => "theorem",
+            Tok::KwDef => "def",
+            Tok::KwExport => "export",
+            Tok::KwTest => "test",
+            Tok::KwInterface => "interface",
+            Tok::KwInstance => "instance",
+            Tok::KwIf => "if",
+            Tok::KwThen => "then",
+            Tok::KwElse => "else",
+            Tok::KwAbility => "ability",
+            Tok::KwWhere => "where",
+            Tok::KwHandle => "handle",
+            Tok::KwWith => "with",
+            Tok::KwMatch => "match",
+            Tok::KwReturn => "return",
+            Tok::KwLet => "let",
+            Tok::KwImport => "import",
+            Tok::KwInclude => "include",
+            Tok::KwNamespace => "namespace",
+            Tok::KwCalc => "calc",
+            Tok::KwRewrite => "rewrite",
+            Tok::KwOmega => "omega",
+            Tok::KwRing => "ring",
+            Tok::KwCases => "cases",
+            Tok::KwDecreasing => "decreasing",
+            Tok::KwOpaque => "opaque",
+            Tok::KwUnfolding => "unfolding",
+            Tok::KwIn => "in",
+            Tok::KwExists => "exists",
+            _ => return None,
+        })
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Token {
     pub tok: Tok,

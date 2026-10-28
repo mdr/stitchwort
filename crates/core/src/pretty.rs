@@ -404,10 +404,10 @@ impl<'g> Printer<'g> {
         match term {
             Term::Loc(_, t) | Term::Ann(t, _) => self.go(names, t),
             Term::Var(ix) => {
-                let name = names
-                    .len()
-                    .checked_sub(ix + 1)
-                    .map_or_else(|| format!("?{ix}"), |l| names[l].to_string());
+                let name = names.len().checked_sub(ix + 1).map_or_else(
+                    || format!("?{ix}"),
+                    |l| readable(&names[l], names).to_string(),
+                );
                 (name, Prec::Atom)
             }
             // A constant parameter default's helper, outside the call it
@@ -471,6 +471,7 @@ impl<'g> Printer<'g> {
                     unreachable!("just matched")
                 };
                 let ty = self.print(names, &args[0], Prec::Arrow);
+                let x = readable(x, names);
                 names.push(x.clone());
                 let body = self.print(names, body, Prec::Arrow);
                 names.pop();
@@ -606,6 +607,7 @@ impl<'g> Printer<'g> {
                 } else {
                     self.print(names, a, Prec::Or)
                 };
+                let x = readable(x, names);
                 names.push(x.clone());
                 let cod = self.print(names, b, Prec::Arrow);
                 names.pop();
@@ -659,6 +661,7 @@ impl<'g> Printer<'g> {
             // The annotation isn't shown, as for `Ann`.
             Term::Let(x, _, v, b, _) => {
                 let value = self.print(names, v, Prec::Arrow);
+                let x = readable(x, names);
                 names.push(x.clone());
                 let body = self.print(names, b, Prec::Arrow);
                 names.pop();
@@ -1550,13 +1553,22 @@ const SECTION: &str = "%section";
 const LEFT: &str = "%left";
 const RIGHT: &str = "%right";
 
-/// A lambda's parameter `x` as shown: a section's hidden parameter, in a
-/// lambda not shown as the section, gets a name that `names` doesn't use.
+/// A variable `x` as shown: a name the compiler made (starting with `%`)
+/// gets a readable one that `names` doesn't use, from the letters after its
+/// `%` (`%cond` is `cond`), or `x` if there are none (`%3`). A section's
+/// hidden parameters are `x` and `y`.
 fn readable(x: &Name, names: &[Name]) -> Name {
+    let Some(rest) = x.strip_prefix('%') else {
+        return x.clone();
+    };
+    let letters = &rest[..rest
+        .find(|c: char| !c.is_ascii_alphabetic())
+        .unwrap_or(rest.len())];
     let base = match &**x {
         SECTION | LEFT => "x",
         RIGHT => "y",
-        _ => return x.clone(),
+        _ if letters.starts_with(|c: char| c.is_ascii_lowercase()) => letters,
+        _ => "x",
     };
     (0..)
         .map(|k| {

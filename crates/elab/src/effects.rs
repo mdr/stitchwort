@@ -2918,6 +2918,7 @@ fn comp_app(
     // Arguments that go to parameters of computation type are passed, not
     // run (stage 0 of docs/proposals/effect-polymorphism.md).
     let passed = passed_args(cx, head, &args, 0)?;
+    let param_types = call_param_types(cx, head, &args, 0)?.unwrap_or_default();
     // The head, then effectful arguments, run first, left to right, into
     // variables.
     let head = match head {
@@ -2947,19 +2948,20 @@ fn comp_app(
             span: operand.span(),
         }));
     }
-    for (arg, passed) in args.iter().zip(passed).skip(owned.len()) {
+    for (i, (arg, passed)) in args.iter().zip(passed).enumerate().skip(owned.len()) {
         if passed {
             owned.push((*arg).clone());
             continue;
         }
+        let param = param_types.get(i).and_then(Option::as_ref);
         owned.push(match arg {
             Expr::NamedArg(name, value, span, bracket) => Expr::NamedArg(
                 name.clone(),
-                Box::new(run_first(cx, value, row, &mut bound)?),
+                Box::new(run_argument(cx, value, param, row, &mut bound)?),
                 *span,
                 *bracket,
             ),
-            other => run_first(cx, other, row, &mut bound)?,
+            other => run_argument(cx, other, param, row, &mut bound)?,
         });
     }
 
@@ -3468,6 +3470,33 @@ fn run_first(cx: &mut Ctx, e: &Expr, row: &Row, bound: &mut Vec<Bound>) -> Resul
     let (c, ty) = comp_infer(cx, e, row)?;
     let name = format!("%{}", cx.level());
     bound.push(hold(cx, row, &name, c, ty)?);
+    Ok(Expr::Var(AstName {
+        text: name,
+        span: e.span(),
+    }))
+}
+
+/// Runs argument `e` first, as [`run_first`] does, except that a comparison
+/// that is a proposition, going to a parameter of type `param` that is
+/// `Bool`, runs as that `Bool`, decided.
+fn run_argument(
+    cx: &mut Ctx,
+    e: &Expr,
+    param: Option<&Value>,
+    row: &Row,
+    bound: &mut Vec<Bound>,
+) -> Result<Expr> {
+    let decided = match param {
+        Some(param) => is_proposition(e) && is_bool(cx, param)? && may_perform(cx, e)?,
+        None => false,
+    };
+    if !decided {
+        return run_first(cx, e, row, bound);
+    }
+    let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+    let c = comp_check(cx, e, row, &bool_ty)?;
+    let name = format!("%{}", cx.level());
+    bound.push(hold(cx, row, &name, c, bool_ty)?);
     Ok(Expr::Var(AstName {
         text: name,
         span: e.span(),
