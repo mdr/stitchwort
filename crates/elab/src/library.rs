@@ -931,13 +931,17 @@ impl Elaborator {
         let Some(lib) = &self.library else {
             return false;
         };
-        let index = lib.index.clone();
-        let mut omega = Needs::default();
-        for name in crate::omega::LIBRARY_NAMES.iter() {
-            self.note_library_use(&index, &Ref::Name(name), &mut omega);
+        // A module that needs no files reaches none of omega's.
+        if needs.files.is_empty() {
+            return false;
         }
+        let index = &lib.index;
+        let omega: BTreeSet<usize> = crate::omega::LIBRARY
+            .iter()
+            .filter_map(|name| index.owner(name).filter(|&f| f != 0))
+            .collect();
         let reach = index.closure(&needs.files, &|_| false);
-        !omega.files.is_empty() && omega.files.is_subset(&reach)
+        !omega.is_empty() && omega.is_subset(&reach)
     }
 
     /// Loads `needs` and what they need, in canonical order.

@@ -80,7 +80,7 @@ const MUL_LEFT_LIMIT: u32 = 1000;
 
 /// The library names the emitted proofs use: the pre-pass loads their files
 /// wherever `omega` is written (`module.rs`, `free_names`).
-const LIBRARY: &[&str] = &[
+pub(crate) const LIBRARY: &[&str] = &[
     "Std.Omega.prove",
     "Std.Omega.proveEq",
     "Std.Omega.check",
