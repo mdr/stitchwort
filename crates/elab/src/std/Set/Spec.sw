@@ -576,6 +576,16 @@ theorem Set.sizeSubset [auto ord: Ord k] (a: Set k) (b: Set k) (subset: (key: k)
     Set.size b ≤ Set.size a :=
   omega [Set.sizeDifferenceSubset a b subset]
 
+-- An intersection is no larger than either side (Mathlib's
+-- `Finset.card_inter_le_left` and `card_inter_le_right`).
+theorem Set.sizeIntersectLeft [auto ord: Ord k] (a: Set k) (b: Set k): Set.size (Set.intersect a b) ≤ Set.size a :=
+  Set.sizeSubset a (Set.intersect a b) (key held =>
+    Bool.andLeft (Set.contains a key) (Set.contains b key) (rewrite <- Set.containsIntersect a key b in held))
+
+theorem Set.sizeIntersectRight [auto ord: Ord k] (a: Set k) (b: Set k): Set.size (Set.intersect a b) ≤ Set.size b :=
+  Set.sizeSubset b (Set.intersect a b) (key held =>
+    Bool.andRight (Set.contains a key) (Set.contains b key) (rewrite <- Set.containsIntersect a key b in held))
+
 -- A set holding `count` different keys, `at 0` to `at (count - 1)`, has at
 -- least `count` (Mathlib's `Finset.card_le_card_of_injOn`).
 theorem Set.countAtMostSize [auto ord: Ord k] (at: Nat → k): (count: Nat) → (s: Set k) →
