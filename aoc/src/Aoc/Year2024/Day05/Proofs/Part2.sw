@@ -54,19 +54,19 @@ theorem reorderInOrder (precedes: Nat → Nat → Bool) (update: Update)
     (total: (x: Nat) → (y: Nat) → x ∈ update.pages → y ∈ update.pages → Not (x = y) → precedes x y = False → precedes y x = True)
     (transitive: (x: Nat) → (y: Nat) → (z: Nat) → x ∈ update.pages → y ∈ update.pages → z ∈ update.pages →
       precedes x y = True → precedes y z = True → precedes x z = True):
-    inOrder precedes (reorder precedes update).pages = True :=
+    inOrder precedes (update.reorder precedes).pages = True :=
   let inUpdate := (page: Nat) => page ∈ update.pages
   let all := List.allOfMem inUpdate update.pages (page isIn => isIn)
   let sorted := List.sortWithSortedOn (mayPrecede precedes) inUpdate (mayPrecedeTotal precedes update.pages asymmetric) update.pages all
   let allSorted := List.allSortWith (mayPrecede precedes) inUpdate update.pages all
-  inOrderOfPairwise precedes (reorder precedes update).pages
+  inOrderOfPairwise precedes (update.reorder precedes).pages
     (List.pairwiseOfSortedOn (mayPrecede precedes) inUpdate (mayPrecedeTransitive precedes update.pages total transitive)
-      (reorder precedes update).pages allSorted sorted)
+      (update.reorder precedes).pages allSorted sorted)
 
 -- The reordered update is a correct ordering: the same pages, in the right
 -- order.
 theorem reorderCorrect (rules: List Rule) (update: Update) (order: StrictTotalOrderOn rules update.pages):
-    CorrectOrdering rules update (reorder (mustPrecede (ruleSet rules)) update) :=
+    CorrectOrdering rules update (update.reorder (mustPrecede (ruleSet rules))) :=
   match order with
     | Both asymmetric (Both total transitive) =>
       let precedes := mustPrecede (ruleSet rules)
@@ -77,7 +77,7 @@ theorem reorderCorrect (rules: List Rule) (update: Update) (order: StrictTotalOr
           (x y inX inY different notFirst => Eq.trans (same y x) (total x y inX inY different (Eq.trans (Eq.sym (same x y)) notFirst)))
           (x y z inX inY inZ xy yz =>
             Eq.trans (same x z) (transitive x y z inX inY inZ (Eq.trans (Eq.sym (same x y)) xy) (Eq.trans (Eq.sym (same y z)) yz)))
-      Both (List.sortWithPerm update.pages (mayPrecede precedes)) (Eq.trans (Eq.sym (inOrderCorrect rules (reorder precedes update))) inOrdered)
+      Both (List.sortWithPerm update.pages (mayPrecede precedes)) (Eq.trans (Eq.sym (inOrderCorrect rules (update.reorder precedes))) inOrdered)
 
 -- Two orderings of the same pages, both in order by a total order, are the
 -- same.
@@ -138,11 +138,11 @@ theorem part2Correct (queue: PrintQueue)
   let wrong := (queued: Update) => !(rightOrder queue.rules queued)
   rewrite List.filterCongMem queue.updates (queued => !(inOrder precedes queued.pages)) wrong
     (queued isIn => rewrite inOrderCorrect queue.rules queued in rfl),
-    List.mapCongMem (queue.updates.filter wrong) (reorder precedes) ordering
+    List.mapCongMem (queue.updates.filter wrong) (.reorder precedes) ordering
       (queued isIn =>
         match List.memFilter queue.updates wrong queued isIn with
           | Both inQueue isWrong =>
-            updateExt (reorder precedes queued) (ordering queued)
-              (correctOrderingUnique queue.rules queued (orders queued inQueue) (reorder precedes queued) (ordering queued)
+            updateExt (queued.reorder precedes) (ordering queued)
+              (correctOrderingUnique queue.rules queued (orders queued inQueue) (queued.reorder precedes) (ordering queued)
                 (reorderCorrect queue.rules queued (orders queued inQueue)) (correct queued inQueue (cases))))
     in rfl

@@ -27,14 +27,14 @@ theorem fitBefore (free: FreeSpace) (length: Nat) (before: Nat) (span: Span) (fi
   And.right (Option.filterEqSome _ ((found: Span) => found.start < before) span fit)
 
 -- A move keeps the file's number and length, and goes left if anywhere.
-theorem moveFileLeft (free: FreeSpace) (file: File): MovedLeft file (moveFile free file).snd :=
+theorem moveFileLeft (free: FreeSpace) (file: File): MovedLeft file (free.moveFile file).snd :=
   match fit: free.leftmostFit file.span.length file.span.start with
     | None => Both rfl (Both rfl (Nat.leRefl file.span.start))
     | Some span =>
       let earlier := fitBefore free file.span.length file.span.start span fit
       Both rfl (Both rfl (omega))
 
-theorem moveFileKeeps (free: FreeSpace) (file: File): idAndLength (moveFile free file).snd = idAndLength file :=
+theorem moveFileKeeps (free: FreeSpace) (file: File): idAndLength (free.moveFile file).snd = idAndLength file :=
   match fit: free.leftmostFit file.span.length file.span.start with
     | None => rfl
     | Some span => rfl
@@ -51,20 +51,20 @@ theorem allZipWith (holds: a → c → Prop) (g: a → b → c) (each: (x: a) �
 theorem eachFileOnce (diskMap: List Nat): (compactFiles diskMap).map idAndLength = (filesOf diskMap).reverse.map idAndLength :=
   let layout := layoutFrom 0 0 diskMap
   let initial := FreeSpace.of (joinTouching layout.snd)
-  rewrite List.mapAccumLeftList layout.fst.reverse initial moveFile in
-    List.mapZipWithScanLeft idAndLength idAndLength (file free => (moveFile free file).snd) (file free => moveFileKeeps free file)
-      layout.fst.reverse initial (free file => (moveFile free file).fst)
+  rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile in
+    List.mapZipWithScanLeft idAndLength idAndLength (file free => (FreeSpace.moveFile free file).snd) (file free => moveFileKeeps free file)
+      layout.fst.reverse initial (free file => (FreeSpace.moveFile free file).fst)
 
 -- Each file moves left or stays.
 theorem filesMoveLeft (diskMap: List Nat):
     List.All (pair => MovedLeft pair.fst pair.snd) (List.zip (filesOf diskMap).reverse (compactFiles diskMap)) :=
   let layout := layoutFrom 0 0 diskMap
   let initial := FreeSpace.of (joinTouching layout.snd)
-  rewrite List.mapAccumLeftList layout.fst.reverse initial moveFile in
-    allZipWith MovedLeft (file free => (moveFile free file).snd) (file free => moveFileLeft free file) layout.fst.reverse
-      (List.scanLeft layout.fst.reverse initial (free file => (moveFile free file).fst))
+  rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile in
+    allZipWith MovedLeft (file free => (FreeSpace.moveFile free file).snd) (file free => moveFileLeft free file) layout.fst.reverse
+      (List.scanLeft layout.fst.reverse initial (free file => (FreeSpace.moveFile free file).fst))
 
-theorem moveFileBlocks (free: FreeSpace) (file: File): blocksOfFile (moveFile free file).snd = blocksOfFile file :=
+theorem moveFileBlocks (free: FreeSpace) (file: File): blocksOfFile (free.moveFile file).snd = blocksOfFile file :=
   match fit: free.leftmostFit file.span.length file.span.start with
     | None => rfl
     | Some span => rfl
@@ -73,10 +73,10 @@ theorem moveFileBlocks (free: FreeSpace) (file: File): blocksOfFile (moveFile fr
 theorem movedBlocks (diskMap: List Nat): (compactFiles diskMap).flatMap blocksOfFile = (filesOf diskMap).reverse.flatMap blocksOfFile :=
   let layout := layoutFrom 0 0 diskMap
   let initial := FreeSpace.of (joinTouching layout.snd)
-  rewrite List.mapAccumLeftList layout.fst.reverse initial moveFile in
+  rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile in
     Eq.cong List.concat
-      (List.mapZipWithScanLeft blocksOfFile blocksOfFile (file free => (moveFile free file).snd) (file free => moveFileBlocks free file)
-        layout.fst.reverse initial (free file => (moveFile free file).fst))
+      (List.mapZipWithScanLeft blocksOfFile blocksOfFile (file free => (FreeSpace.moveFile free file).snd) (file free => moveFileBlocks free file)
+        layout.fst.reverse initial (free file => (FreeSpace.moveFile free file).fst))
 
 theorem fileBlocksReplicate: (n: Nat) → (id: Nat) → fileBlocks (List.replicate n (Some id)) = List.replicate n id
   | Zero, id => rfl
@@ -124,7 +124,7 @@ theorem checksumFileRun (id: Nat): (length: Nat) → (from: Nat) →
 -- A file's part of the checksum is the puzzle's checksum of a disk with just
 -- that file, where it is.
 theorem fileChecksumCorrect (file: File):
-    fileChecksum file = filesystemChecksum (List.replicate file.span.start None ++ List.replicate file.span.length (Some file.id)) :=
+    file.checksum = filesystemChecksum (List.replicate file.span.start None ++ List.replicate file.span.length (Some file.id)) :=
   rewrite <- checksumCorrect (List.replicate file.span.start None ++ List.replicate file.span.length (Some file.id)) in
     Eq.sym (Eq.trans (checksumSkipFree (List.replicate file.span.length (Some file.id)) file.span.start 0)
       (rewrite Nat.addZero file.span.start in checksumFileRun file.id file.span.length file.span.start))

@@ -57,18 +57,18 @@ def inOrder (precedes: Nat → Nat → Bool): List Nat → Bool
 
 -- The pages sorted so that each comes before the next unless a rule says
 -- otherwise.
-def reorder (precedes: Nat → Nat → Bool) (update: Update): Update :=
+def Update.reorder (update: Update) (precedes: Nat → Nat → Bool): Update :=
   { pages = update.pages.sortWith (page next => !(precedes next page)) }
 
 -- The page in the middle of an update (updates have an odd number of pages).
-def middlePage (update: Update): Nat := update.pages.getOr (update.pages.length / 2) 0
+def Update.middlePage (update: Update): Nat := update.pages.getOr (update.pages.length / 2) 0
 
 def solvePart1 (queue: PrintQueue): Nat :=
   let precedes := mustPrecede (ruleSet queue.rules)
-  queue.updates.filter (update => inOrder precedes update.pages) |> .sumBy middlePage
+  queue.updates.filter (update => inOrder precedes update.pages) |> .sumBy .middlePage
 
 def solvePart2 (queue: PrintQueue): Nat :=
   let precedes := mustPrecede (ruleSet queue.rules)
   queue.updates.filter (update => !(inOrder precedes update.pages))
-    |> .map (reorder precedes)
-    |> .sumBy middlePage
+    |> .map (.reorder precedes)
+    |> .sumBy .middlePage

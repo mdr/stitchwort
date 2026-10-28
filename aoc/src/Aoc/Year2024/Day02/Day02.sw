@@ -34,16 +34,16 @@ def reportLine(): {Parse} Report :=
 def risesGently (lower: Nat) (higher: Nat): Bool := lower < higher && higher <= lower + 3
 
 -- Every step rises gently, or every step falls gently.
-def isSafe (report: Report): Bool :=
+def Report.isSafe (report: Report): Bool :=
   report.levels.chain risesGently || report.levels.chain (level next => risesGently next level)
 
 -- The report with one level taken out, for each level in turn.
-def withoutOneLevel (report: Report): List Report :=
+def Report.withoutOneLevel (report: Report): List Report :=
   List.range report.levels.length |> .map (index => { levels = report.levels.removeAt index })
 
 -- Safe as it is, or once one level is taken out.
-def isSafeWithDampener (report: Report): Bool := isSafe report || (withoutOneLevel report |> .any isSafe)
+def Report.isSafeWithDampener (report: Report): Bool := report.isSafe || (report.withoutOneLevel |> .any .isSafe)
 
-def solvePart1 (reports: List Report): Nat := reports.count isSafe
+def solvePart1 (reports: List Report): Nat := reports.count .isSafe
 
-def solvePart2 (reports: List Report): Nat := reports.count isSafeWithDampener
+def solvePart2 (reports: List Report): Nat := reports.count .isSafeWithDampener

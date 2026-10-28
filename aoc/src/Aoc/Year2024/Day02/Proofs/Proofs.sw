@@ -30,21 +30,21 @@ theorem allFallGently (levels: List Nat):
     (List.chainAnd levels (level next => level > next) differByOneToThree)
 
 -- The program's check is the puzzle's rules.
-theorem isSafeCorrect (report: Report): isSafe report = safe report :=
+theorem isSafeCorrect (report: Report): report.isSafe = safe report :=
   rewrite allRiseGently report.levels, allFallGently report.levels in cases
 
 -- Part 1 counts the safe reports.
 theorem part1Correct (reports: List Report): solvePart1 reports = safeReports reports :=
-  List.countCongMem reports isSafe safe (report _ => isSafeCorrect report)
+  List.countCongMem reports Report.isSafe safe (report _ => isSafeCorrect report)
 
 -- With the dampener, the program's check is the puzzle's rule.
-theorem isSafeWithDampenerCorrect (report: Report): isSafeWithDampener report = safeWithDampener report :=
+theorem isSafeWithDampenerCorrect (report: Report): report.isSafeWithDampener = safeWithDampener report :=
   let removed := (index: Nat) => ({ levels = report.levels.removeAt index }: Report)
-  rewrite isSafeCorrect report, List.anyMap (List.range report.levels.length) isSafe removed, isSafeCorrect (removed _) in rfl
+  rewrite isSafeCorrect report, List.anyMap (List.range report.levels.length) Report.isSafe removed, isSafeCorrect (removed _) in rfl
 
 -- Part 2 counts the reports that are safe with the dampener.
 theorem part2Correct (reports: List Report): solvePart2 reports = safeReportsWithDampener reports :=
-  List.countCongMem reports isSafeWithDampener safeWithDampener (report _ => isSafeWithDampenerCorrect report)
+  List.countCongMem reports Report.isSafeWithDampener safeWithDampener (report _ => isSafeWithDampenerCorrect report)
 
 -- Whatever keeps every adjacent pair of a list keeps a safe report safe.
 theorem safeKept (shrink: List Nat → List Nat)
@@ -81,4 +81,4 @@ theorem dampenerAloneSuffices (level: Nat) (rest: List Nat):
 
 -- The dampener only adds safe reports: part 2's answer is at least part 1's.
 theorem part2AtLeastPart1 (reports: List Report): solvePart1 reports ≤ solvePart2 reports :=
-  List.countLeMem reports isSafe isSafeWithDampener (report _ wasSafe => rewrite wasSafe in rfl)
+  List.countLeMem reports Report.isSafe Report.isSafeWithDampener (report _ wasSafe => rewrite wasSafe in rfl)

@@ -83,14 +83,14 @@ def Position.divideBy (position: Position): Nat → Position
 
 -- The smallest step from `start` towards `end` that lands on grid points:
 -- the difference divided by the greatest common divisor of its parts.
-def stepToward (start: Position) (end: Position): Position :=
+def Position.stepToward (start: Position) (end: Position): Position :=
   let difference := end.minus start
   difference.divideBy (Nat.gcd difference.row.natAbs difference.column.natAbs)
 
 -- The grid points in line with `start` and `end`: whole steps from `start`
 -- either way, as many as the map is high or wide, which reaches past it.
 def City.harmonics (city: City) (start: Position) (end: Position): List Position :=
-  let step := stepToward start end
+  let step := start.stepToward end
   List.range (Nat.max city.height city.width)
     |> .flatMap (count => [start.plus (step.times count.toInt), start.minus (step.times count.toInt)])
 
