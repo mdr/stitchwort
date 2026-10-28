@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/comp-row-results-variable-argument.sw:11:29 ]
+    │
+ 11 │ def two: Comp NoOp r Nat := apply (n => n + 1)
+    │                             ────────┬────────  
+    │                                     ╰────────── expected `Comp NoOp r Nat`, but this has type `Comp NoOp Effect.NoRes Nat`
+    │ 
+    │ Note 1: its operations are the row `{}`'s, but what they give back is `r`, not the row's `Effect.NoRes`: so it isn't a computation in `{}`, and a value here isn't made into one
+    │ 
+    │ Note 2: for a computation in a row, write the row and let the `Comp` be made from it: `{e} a` for any row, `{} a` for the empty one
+────╯

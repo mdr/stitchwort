@@ -2955,7 +2955,30 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     if !matches!(expr, Expr::Hole(_) | Expr::Goal(_))
         && let Some((row, t)) = effects::comp_parts(cx, &expected)?
     {
-        return effects::comp_check_written(cx, expr, &row, &t);
+        // While its results are unknown (`Comp NoOp ?r Nat`), a computation
+        // of its own (`c : Comp NoOp r Nat`) is passed as it is, and decides
+        // them; anything else is a computation in the row, whose results
+        // are then the row's (SW-851).
+        if effects::results_unsettled(cx, &expected)?
+            && matches!(
+                expr,
+                Expr::Var(_) | Expr::App(..) | Expr::Field(..) | Expr::Pipe(..)
+            )
+            && let Some(term) = crate::undo::attempt(cx, |cx| {
+                let (term, found) = infer_unrun(cx, expr)?;
+                let (term, found) = insert(cx, term, found)?;
+                if effects::is_comp_type(cx, &found)? && cx.unify(&found, &expected)? {
+                    Ok(term)
+                } else {
+                    Err(cx.error("E-TYPE-MISMATCH", "not passed as it is", "here"))
+                }
+            })?
+        {
+            return Ok(term);
+        }
+        if effects::settle_results(cx, &expected)? {
+            return effects::comp_check_written(cx, expr, &row, &t);
+        }
     }
     if effects::may_perform_at(cx, expr, Some(&expected))? {
         // A computation where a computation whose row isn't known yet is
@@ -2979,7 +3002,15 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         };
     }
     name_unknown_type(cx, expr, named)?;
-    check_value(cx, expr, &expected)
+    check_value(cx, expr, &expected).or_else(|e| {
+        // A `Comp` whose results aren't its row's is a data type, not a
+        // computation in the row (SW-851): say why a value didn't fit.
+        if e.code != "E-TYPE-MISMATCH" {
+            return Err(e);
+        }
+        let notes = effects::foreign_results_notes(cx, &expected)?;
+        Err(notes.into_iter().fold(e, |e, n| e.with_note(n)))
+    })
 }
 
 /// A variable whose type isn't known yet, checked against a type that names

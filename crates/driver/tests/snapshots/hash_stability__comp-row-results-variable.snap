@@ -1,0 +1,7 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.pass 5e21fa3c9026f414f88d2ba0d9cce0e039e692ec421f0b50f350a522dfcd38e8
+Main.passTwice 15ac5bcea488e16a05e7554e00b84f5a06b67eedbd8f22f2fcd62cdfa64e8449
+Main.passIsSame 7f46937131c256c1d4499c1213eb88836120d4c8f0baa09ace0aa8d463d6252c
