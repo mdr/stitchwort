@@ -43,10 +43,12 @@ def parseNetwork (input: Text): {Fail} Network := { connections = Parse.all inpu
 -- Each computer's connections, both ways round.
 def Links: Type := Map Computer (Set Computer)
 
+-- Each connection, both ways round.
+def Network.bothWays (network: Network): List (Computer, Computer) :=
+  network.connections.flatMap (connection => [connection, (connection.snd, connection.fst)])
+
 def Network.links (network: Network): Links :=
-  network.connections.flatMap ((((one, other)) => [(one, other), (other, one)]))
-    |> Map.groupBy Pair.fst
-    |> .map (pairs => pairs.map Pair.snd |> Set.fromList)
+  network.bothWays |> Map.groupBy Pair.fst |> .map (pairs => pairs.map Pair.snd |> Set.fromList)
 
 def neighbours (links: Links) (computer: Computer): Set Computer := links.getOr computer Set.empty
 
@@ -78,16 +80,19 @@ def largestFrom (links: Links) (clique: Set Computer) (candidates: Set Computer)
 :=
   if clique.size + candidates.size ≤ best.size then best
   else
-    match found: candidates.popMin with
+    match candidates.popMin with
       | None => clique
       | Some (candidate, others) =>
-        let fewer := Set.sizePopMin candidates candidate others found
-        let narrowed := neighbours links candidate |> .intersect others
-        let withinOthers: narrowed.size ≤ others.size :=
-          Set.sizeSubset others narrowed (key inside =>
-            Bool.andRight _ _ (Eq.trans (Eq.sym (Set.containsIntersect (neighbours links candidate) key others)) inside))
-        let withIt := largestFrom links (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
-        largestFrom links clique others withIt
+        -- Always true (`Set.sizePopMin`); the test puts it in scope for the
+        -- recursive calls.
+        if fewer: others.size < candidates.size then
+          let narrowed := neighbours links candidate |> .intersect others
+          let withinOthers: narrowed.size ≤ others.size :=
+            Set.sizeSubset others narrowed (key inside =>
+              Bool.andRight _ _ (Eq.trans (Eq.sym (Set.containsIntersect (neighbours links candidate) key others)) inside))
+          let withIt := largestFrom links (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
+          largestFrom links clique others withIt
+        else best
 
 -- The largest set of computers that are all connected to each other.
 def largestClique (links: Links): Set Computer := largestFrom links Set.empty links.keySet Set.empty

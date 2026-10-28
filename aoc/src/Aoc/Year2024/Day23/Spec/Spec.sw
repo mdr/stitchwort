@@ -36,7 +36,7 @@ def IsPart1 (network: Network) (count: Nat): Prop :=
     ((set: Set Computer) → Iff (sets.contains set = True) (InterConnectedThree network set ∧ hasT set = True)) ∧ sets.size = count
 
 -- The computers on the network map: those in some connection.
-def computers (network: Network): List Computer := network.connections.flatMap ((((one, other)) => [one, other]))
+def computers (network: Network): List Computer := network.connections.flatMap (connection => [connection.fst, connection.snd])
 
 -- "a set of computers that are all connected to each other": computers on
 -- the map, each connected to every other one in the set.
