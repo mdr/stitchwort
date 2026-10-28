@@ -559,6 +559,43 @@ enum Stmt {
     Expr(Expr),
 }
 
+/// `let p := e` followed by `rest`: the `Let` (or, for a pattern, the
+/// one-alternative `match`) that a block's `let` line and an expression
+/// `let` both make.
+fn bind_let(stmt: Stmt, rest: Expr) -> Expr {
+    match stmt {
+        Stmt::LetPattern(pattern, ty, value, span) => {
+            let expr = match ty {
+                Some(ty) => {
+                    let ann_span = value.span().to(ty.span());
+                    Expr::Ann(Box::new(value), Box::new(ty), ann_span)
+                }
+                None => value,
+            };
+            let alt_span = pattern.span().to(rest.span());
+            let span = span.to(rest.span());
+            Expr::Match {
+                scrutinees: vec![Scrutinee { name: None, expr }],
+                alts: vec![Alt {
+                    patterns: vec![pattern],
+                    body: rest,
+                    span: alt_span,
+                }],
+                span,
+                kind: MatchKind::Let,
+            }
+        }
+        Stmt::Let(name, ty, value, span) => Expr::Let {
+            span: span.to(rest.span()),
+            name,
+            ty: ty.map(Box::new),
+            value: Box::new(value),
+            body: Box::new(rest),
+        },
+        _ => unreachable!("bind_let takes a `let`"),
+    }
+}
+
 impl<'t> Parser<'t> {
     fn new(tokens: &'t [Token], file: FileId, text_len: usize, stack: StackLimit) -> Self {
         let eof = tokens.last().map_or(text_len as u32, |t| t.span.end);
@@ -1739,34 +1776,7 @@ impl<'t> Parser<'t> {
                         }
                     }
                 }
-                Stmt::LetPattern(pattern, ty, value, span) => {
-                    let expr = match ty {
-                        Some(ty) => {
-                            let ann_span = value.span().to(ty.span());
-                            Expr::Ann(Box::new(value), Box::new(ty), ann_span)
-                        }
-                        None => value,
-                    };
-                    let alt_span = pattern.span().to(rest.span());
-                    let span = span.to(rest.span());
-                    Expr::Match {
-                        scrutinees: vec![Scrutinee { name: None, expr }],
-                        alts: vec![Alt {
-                            patterns: vec![pattern],
-                            body: rest,
-                            span: alt_span,
-                        }],
-                        span,
-                        kind: MatchKind::Let,
-                    }
-                }
-                Stmt::Let(name, ty, value, span) => Expr::Let {
-                    span: span.to(rest.span()),
-                    name,
-                    ty: ty.map(Box::new),
-                    value: Box::new(value),
-                    body: Box::new(rest),
-                },
+                stmt @ (Stmt::LetPattern(..) | Stmt::Let(..)) => bind_let(stmt, rest),
                 Stmt::Expr(e) => Expr::Seq(Box::new(e), Box::new(rest)),
             };
         }
@@ -1788,7 +1798,15 @@ impl<'t> Parser<'t> {
 
     fn statement(&mut self) -> Result<Stmt> {
         match self.peek() {
-            Some(Tok::KwLet) => self.let_statement(),
+            Some(Tok::KwLet) => {
+                let stmt = self.let_statement()?;
+                // `let x := e; body` on a line is the expression `let`.
+                if self.peek() == Some(&Tok::Semi) {
+                    Ok(Stmt::Expr(self.let_body(stmt)?))
+                } else {
+                    Ok(stmt)
+                }
+            }
             Some(Tok::KwDef | Tok::KwTheorem) => self.local_def(),
             Some(Tok::KwExport) => Err(error(
                 self.here(),
@@ -1833,6 +1851,34 @@ impl<'t> Parser<'t> {
             },
             start,
         ))
+    }
+
+    /// After an expression `let`'s header and value (`let x := e`): the `;`
+    /// and the body, which together with them make the same tree as a block
+    /// `let` followed by its rest (D1425, D1453: `in` is membership).
+    #[inline(never)]
+    fn let_body(&mut self, stmt: Stmt) -> Result<Expr> {
+        if self.peek() != Some(&Tok::Semi) {
+            return Err(self.unexpected("`;` after the value of `let`").with_note(
+                "an expression `let` is written `(let x := e; body)`; `in` is membership, \
+                     not a separator",
+            ));
+        }
+        self.bump();
+        let at_end = self.tokens.get(self.pos).is_none_or(|t| {
+            matches!(
+                t.tok,
+                Tok::RParen | Tok::RBracket | Tok::RBrace | Tok::Comma
+            )
+        });
+        if at_end {
+            return Err(error(
+                self.here(),
+                "`let` needs a body after `;`: `(let x := e; body)`",
+            ));
+        }
+        let body = self.expr()?;
+        Ok(bind_let(stmt, body))
     }
 
     /// `let p := e`, or `let p : T := e`; the type may contain `=`.
@@ -2632,6 +2678,10 @@ impl<'t> Parser<'t> {
         let start = self.here();
         if self.eat(&Tok::KwHandle) {
             return self.handle(start);
+        }
+        if self.peek() == Some(&Tok::KwLet) {
+            let stmt = self.let_statement()?;
+            return self.let_body(stmt);
         }
         if self.eat(&Tok::KwMatch) {
             return self.match_piped(start);
@@ -3882,6 +3932,7 @@ fn describe(tok: &Tok) -> String {
         Tok::LBracket => "`[`".into(),
         Tok::RBracket => "`]`".into(),
         Tok::Comma => "`,`".into(),
+        Tok::Semi => "`;`".into(),
         Tok::Colon => "`:`".into(),
         Tok::ColonEq => "`:=`".into(),
         Tok::Equals => "`=`".into(),
@@ -5032,6 +5083,51 @@ mod tests {
             assert_eq!(error.code, "E-OR-PATTERN-BINDS", "{text}");
         }
         assert!(rhs_of("def f (o : Nat) : Nat := match o with | Some _ | None => 0\n").is_ok());
+    }
+
+    /// `(let x := e; body)` is the tree a block `let` makes (D1425, D1453).
+    #[test]
+    fn an_expression_let_is_a_block_let() {
+        for text in [
+            "def f (n : Nat) : Nat := (let x := n; let y := x; y)\n",
+            "def f (n : Nat) : Nat := let x := n; let y := x; y\n",
+            "def f (n : Nat) : Nat :=\n  (let x := n;\n    let y := x; y)\n",
+            "def f (n : Nat) : Nat := if True then let x := n; let y := x; y else 0\n",
+        ] {
+            let e = rhs(text);
+            let e = if let Expr::If { then, .. } = &e {
+                then
+            } else {
+                &e
+            };
+            assert_eq!(lines(e), ["let x", "let y", "result"], "{text}");
+        }
+        // A pattern gives the one-alternative `match`, as in a block.
+        let e = rhs("def f (p : Nat) : Nat := (let (a, b) := p; a)\n");
+        assert!(matches!(
+            &e,
+            Expr::Match {
+                kind: MatchKind::Let,
+                ..
+            }
+        ));
+        // `in` is membership, so it stays in the value.
+        let e = rhs("def f (x : Nat) (xs : List Nat) : Bool := (let b := x in xs; b)\n");
+        let Expr::Let { value, .. } = &e else {
+            panic!("expected a `let`, got {e:?}");
+        };
+        assert!(!matches!(**value, Expr::Var(_)), "{value:?}");
+    }
+
+    #[test]
+    fn an_expression_let_needs_a_semicolon_and_a_body() {
+        let message = |text: &str| rhs_of(text).unwrap_err().message;
+        let m = message("def f (n : Nat) : Nat := (let x := n in x)\n");
+        assert!(m.contains("expected `;` after the value of `let`"), "{m}");
+        let m = message("def f (n : Nat) : Nat := (let x := n)\n");
+        assert!(m.contains("expected `;` after the value of `let`"), "{m}");
+        let m = message("def f (n : Nat) : Nat := (let x := n;)\n");
+        assert!(m.contains("`let` needs a body after `;`"), "{m}");
     }
 
     #[test]
