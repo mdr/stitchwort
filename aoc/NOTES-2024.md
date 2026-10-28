@@ -1895,3 +1895,329 @@ Release build, on a machine busy with other work:
 6. Sum types need a leading `|` (item 6). Fix: accept it without.
 7. Parser and value names clash (item 1). Fix: a `Line` suffix convention in
    the guide.
+
+## Day 9: Disk Fragmenter
+
+One line of 19,999 digits, a "disk map" whose digits alternate between the
+length of a file and the length of the free space after it; the files are
+numbered 0, 1, 2, … in order. Part 1 moves "file blocks one at a time from
+the end of the disk to the leftmost free space block (until there are no
+gaps remaining between file blocks)"; part 2 moves "whole files to the
+leftmost span of free space blocks that could fit the file", "each file
+exactly once in order of decreasing file ID number", and a file with no such
+span to its left doesn't move (part 2's wording from the public copy at
+<https://github.com/gchan/advent-of-code-ruby/blob/master/2024/day-09/README.txt>).
+Each answer is the checksum: the sum of each file block's position times its
+file's number.
+Answers on Matt's input: 6242766523059 and 6272188244509 (cross-checked with
+two independent Python scripts, `/usr/bin/python3 -I`: a literal one that
+moves one block, or one file, at a time over a list of blocks, and a fast one
+with a heap of free starts per length; the example gives 1928 and 2858, and
+"12345" gives 60 and 132). Compiler built from `main` at 2c21d65c, 28
+October 2026.
+
+The disk has 10,000 files, 94,500 blocks (49,556 of them file blocks) and 984
+free spans of length 0; no file has length 0 (tests check both).
+
+### The program
+
+```stitchwort
+def diskMapLine(): {Parse} (List Nat) := many1 (() => digit().toNat)
+
+def parseDiskMap (input: Text): {Fail} (List Nat) := Parse.all input diskMapLine
+
+def fillFront: (blocks: List (Option Nat)) → (moving: List Nat) → (count: Nat) → List (Option Nat)
+  | blocks, moving, Zero => List.replicate blocks.length None
+  | Nil, moving, Succ count => Nil
+  | Cons (Some id) rest, moving, Succ count => Cons (Some id) (fillFront rest moving count)
+  | Cons None rest, Nil, Succ count => Cons None (fillFront rest Nil count)
+  | Cons None rest, Cons id moving, Succ count => Cons (Some id) (fillFront rest moving count)
+
+def compactBlocks (blocks: List (Option Nat)): List (Option Nat) :=
+  let files := fileBlocks blocks
+  fillFront blocks files.reverse files.length
+
+def solvePart1 (diskMap: List Nat): Nat := blocks diskMap |> compactBlocks |> checksum
+
+def moveFile (free: FreeSpace) (file: File): (FreeSpace, File) :=
+  match free.leftmostFit file.span.length file.span.start with
+    | None => (free, file)
+    | Some span =>
+      let rest: Span := { start = span.start + file.span.length, length = span.length - file.span.length }
+      (free.remove span |> .add rest, { file | span = { file.span | start = span.start } })
+
+def compactFiles (diskMap: List Nat): List File :=
+  let layout := layoutFrom 0 0 diskMap
+  layout.fst.reverse.mapAccumLeft (FreeSpace.of (joinTouching layout.snd)) moveFile |> .snd
+
+def solvePart2 (diskMap: List Nat): Nat := compactFiles diskMap |> .sumBy fileChecksum
+```
+
+The domain model is the disk map's lengths; a block is `Option Nat`, `Some
+id` for a block of file `id` and `None` for free space.
+
+Part 1 needs no moves at all: when it ends, the first `n` blocks (`n` the
+number of file blocks) are files, each keeping its own file block or, where
+it was free, taking the next file block from the end. `fillFront` is that,
+one walk front to back with the file blocks reversed as the supply: linear,
+on lists, with no array or second pointer.
+
+Part 2 keeps `FreeSpace`, the starts of the free spans of each length
+(`Map Nat (Set Nat)`). `leftmostFit` takes the least start of every length
+at least the file's (at most 9), the least of those, and keeps it if it is
+before the file. A moved file fills the front of its span and the rest goes
+back under its new length. The space a file leaves is never added, since
+every file still to move is to its left. `mapAccumLeft` threads the map
+through the files, highest number first.
+
+A file of length 0 makes two free spans that touch, where the spec sees one
+run, so a file that fits the run fit neither span (`"11023"` is `0...222`;
+file 2 fits at block 1). `joinTouching` joins them. The real input has no
+such file, so the answers were right without it; without `joinTouching` two
+of the spec-agreement tests on small disks fail.
+
+### Proved, for every disk map
+
+The spec (`Spec/Spec.sw`) is the puzzle's, block by block, over the
+program's `blocks` (the expansion, `"00...111...2..."`): `moveLastBlock`
+passes the file blocks at the front and gives the first free block the last
+file block, if there is one after it; `hasGap` is a free block with a file
+block after it; `compactOneAtATime moves` repeats the move while there is a
+gap, at most `moves` times; `part1` uses the disk's length as `moves`, then
+`filesystemChecksum`, which skips free blocks ("If a block contains free
+space, skip it instead"). For part 2, `moveWholeFile` finds the file's first
+block and its length, the first start, left to right, that is free for that
+length and ends before the file, and writes the file there and frees its old
+blocks; `compactWholeFiles` folds it over the file numbers from the highest
+down.
+
+Part 1, all of it (`Proofs/Part1.sw`, 214 lines):
+
+- `part1Correct`: `solvePart1 diskMap = part1 diskMap`.
+- `part1NoGapsLeft`: after the disk's length in moves no gap is left, so the
+  bound in the spec never cuts it short.
+- `stepsFill`: with at least as many moves as blocks, the moves give
+  `compactBlocks`. Induction on the disk's length (`decreasing
+  blocks.length`), since after a move at a free front block the rest is the
+  same length with its last file block freed. The steps: `compactFile` (a
+  file block at the front stays), `compactGap` (a free one takes the last
+  file block, and the rest compacts with that block freed), `compactFree`
+  (no file block after it: nothing moves), `stepsPastFile` (moves happen
+  behind a file block at the front). `compactGap` rests on `fillFront` never
+  looking past its first `count` blocks (`fillFrontFreeLast`) or using more
+  than `count` of the blocks it moves (`fillFrontAppend`).
+- `checksumCorrect`: the program's checksum (a `sumBy`, 0 for free blocks)
+  is the spec's `filterMap` then `sum` (`sumFilterMap`).
+
+Changing the program to `fillFront blocks files files.length` (no reverse)
+makes `compactFile` and `compactGap` fail, each with a counterexample.
+
+Part 2, in part (`Proofs/Part2.sw`, 142 lines):
+
+- `eachFileOnce`: the moved files are the disk map's files, each once,
+  highest number first, with their numbers and lengths (through std's
+  `mapAccumLeftList` and `mapZipWithScanLeft`).
+- `filesMoveLeft`: zipped with the files they came from, each moved file
+  starts at or before where it was (`MovedLeft`; `fitBefore` reads it from
+  `leftmostFit`'s `.filter`).
+- `part2KeepsBlocks`: the moved files' blocks are a permutation
+  (`List.Perm`) of the disk's file blocks (`layoutBlocks`: the files' blocks
+  are `fileBlocks (blocks diskMap)`; `permFlatMapReverse`).
+- `fileChecksumCorrect`: a file's part of the checksum is the spec's
+  `filesystemChecksum` of a disk holding just that file, where it is.
+
+Not proved: `solvePart2 = part2`. What it needs, and the proofs lack:
+(1) an invariant that the `FreeSpace` map holds exactly the maximal free
+runs left of the files still to move, as the spec's disk has them at that
+step: specs of `Map.alter`, `Map.adjust`, `Set.insert`, `Set.remove` and
+`Set.min` together, and of `joinTouching`; (2) that `leftmostFit` finds the
+spec's first fitting start (the least start over the lengths that fit is the
+leftmost long-enough run); (3) that moved files don't overlap, so the sum of
+`fileChecksum`s is one disk's checksum; (4) the spec's `moveWholeFile` read
+back as "the file is at `start`, `length` blocks", which needs it contiguous
+before each move. Items 1 and 4 are most of the work: the spec's disk is
+index-based (`findIndex`, `drop`/`take`, `mapWithIndex`) and the program's is
+spans, and the invariant joins the two. I'd guess a day 6–sized proof
+(around 1,000 lines). The tests check agreement instead: the example's moves
+picture by picture, 14 small disks (the zero-length cases among them) and
+the first 99 digits of the real input, both parts against the spec.
+
+### 1. Std.Parse: little friction, one confusing column
+
+`many1 (() => digit().toNat)` and `Parse.all` read the line, and the
+messages were right, with one exception. The first version used
+`Parse.line` (one final line break allowed). On `"12\n34\n"` it said
+
+```text
+column 4: expected the end of the line, got '3'
+```
+
+The `3` is at line 2, column 1: `Parse.line` counts columns on past the line
+break and gives no line. `Parse.all` says `line 2, column 1: expected the end
+of the input, got '3'`, so I used it. It also names the same end two ways:
+`line 1, column 3: expected a digit or the end of the line, got 'x'`, but
+`line 1, column 1: expected a digit, got the end of the input`. Fix:
+`Parse.line` reports what follows its line break as line 2, or says
+"expected nothing after the line break".
+
+### 2. An ability's operations are in scope without importing them
+
+With `import Std (…, Parse, …)` and `import Std.Parse (digit, many1)`, a
+lambda `(span joined => …)` in a `foldRight` got
+
+```text
+[W-LAMBDA-SHADOW] Warning: this lambda's first parameter `span` hides the function `span`
+  Note: if you meant to pass a lambda to `span`, put it in brackets: `span (joined => …)`; otherwise rename the parameter
+```
+
+The `span` is `Parse`'s operation (`(Char → Bool) → {Parse} (List Char)`):
+importing the ability brings its operations in unqualified, while
+`takeWhile`, a function, wasn't in scope. With a type `Span` and a field
+`span` in the file it was puzzling until a probe (`def probe: Nat := span`)
+showed the type. Renamed to `earlier`. Fix: name it in full in the warning
+(`Parse.span`), and import operations by name, as functions are.
+
+### 3. Inference: record literals and lambdas before what fixes their type
+
+- `Cons { id, span = … } later.fst` is an `E-PARSE` ("braces after `Cons`
+  name its fields, and take no further arguments"), day 1's item 7 again;
+  the note's `Cons ({ … }) …` works.
+- `.map (start => { start, length = entry.fst })` in a pipeline ending in
+  `Option Span` got `[E-CANNOT-INFER] Error: can't tell which record type
+  this record literal is`, and so did `let rest := { start = …, length = …
+  }`. Both needed `: Span`.
+- In a proof, `Option.filterEqSome _ (found => found.start < before) span
+  fit`, where `span: Span` is the next argument, got ``can't tell what
+  `found` is, so can't look up `.start` ``. It needed `(found: Span)`.
+
+Fix: check lambda and record-literal arguments after a call's other
+arguments.
+
+### 4. A confusing error: `Effect.CompD`
+
+`blocks.map (…) |> .joinWith ""`, to join a `List Text`, got
+
+```text
+[E-UNKNOWN-FIELD] Error: `List` has no field or function `joinWith`
+  looked in `Effect.CompD` or `List`
+```
+
+`Text.joinWith` takes the list first, but a `List` receiver looks only in
+`List`, and `Effect.CompD` is an internal name. Wrote
+`Text.joinWith (blocks.map …) ""`. Haskell's `Data.List` has
+`intercalate :: [a] -> [[a]] -> [a]`
+(<https://hackage-content.haskell.org/package/base/docs/Data-List.html>).
+Fix: keep internal namespaces out of the message; add `List.joinWith` for
+texts, or suggest `Text.joinWith`.
+
+### 5. Missing std
+
+- List lemmas written again: `lengthReverse`, `reverseCons`, `reverseSnoc`
+  (`(xs ++ [x]).reverse = Cons x xs.reverse`), `reverseOntoAppend` (day 7
+  has it too), `lengthSnoc`, and the permutation of a `flatMap` over the
+  reversed list (`permFlatMapReverse`). Lean's core has
+  `List.length_reverse`, `List.reverse_append` and `List.reverse_flatMap`
+  (<https://leanprover-community.github.io/mathlib4_docs/Init/Data/List/Lemmas.html>).
+- `sumFilterMap`: the sum of a `filterMap` is a `sumBy` with 0 for `None`.
+- `filterMap` over `List.replicate n (Some x)` and `List.replicate n None`.
+- `List.joinWith` for texts (item 4).
+
+None added. Fix: the reverse lemmas (now needed on two days) and
+`sumFilterMap` in `List/Toolkit.sw`.
+
+### 6. Proofs: `rewrite` misses a term the goal has unfolded, again
+
+`rewrite compactFile id rest in …` on the goal
+`hasGap (compactBlocks (Cons (Some id) rest)) = False`:
+
+```text
+[E-REWRITE-NOTHING] Error: `rewrite` found no `compactBlocks (Cons (Some id) rest)` in the goal
+  Note 2: the search compares what terms compute to: it looked for `Cons (Some id) (fillFront rest (List.reverseOnto (List.filterMap rest (block => block)) [id]) (List.length (List.filterMap rest (block => block))))`, what `compactBlocks (Cons (Some id) rest)` computes to, in what the goal computes to
+```
+
+`hasGap` had already taken its step on the leading `Cons (Some id)`, so the
+computed goal had no `Cons` left to find. Wrote
+`Eq.trans (Eq.cong hasGap (compactFile id rest)) …`. Day 2's item 3 and day
+3's item 8 again. Fix: look in the goal as written before what it computes
+to.
+
+### 7. Proofs: `decreasing` needs proofs even of structural steps
+
+`stepsFill` and `fillNoGaps` recurse on a list of the same length (the rest
+with its last file block freed), so they say `decreasing blocks.length`.
+Then every recursive call needs `[decreasing := omega]`, the plain one on
+`rest` too:
+
+```text
+[E-DECREASING] Error: can't show `List.length rest < Succ (List.length rest)` here, which `decreasing Succ (List.length rest)` needs for this call
+```
+
+and the measure must use a parameter named in the header (``E-DECREASING:
+`fillNoGapsByLength`'s measure needs the parameters it uses named in its
+header``), so the theorem `match`es instead of using arms. The first version
+passed a `size` bound instead, as day 6 passes a budget; `decreasing` with
+`[decreasing := omega]` is shorter. Lean's default termination tactic,
+`decreasing_trivial`, tries `simp_arith` and `omega` itself
+(<https://lean-lang.org/doc/reference/latest/Definitions/Recursive-Definitions/>).
+Fix: try `omega`, with the facts in scope, on measure goals.
+
+### 8. What went well
+
+Every part 1 lemma but one checked on its first try, and every part 2 one.
+`match later: lastFile rest with` rewrites the hypotheses as well as the
+goal, so contradictions were just `Void.exfalso (Option.someNotNone id
+none)`, and `Void.exfalso (omega)` closed the impossible length cases.
+Std's `mapAccumLeftList` and `mapZipWithScanLeft` made "each file moved
+once" one line. Rewriting the spec's first `takeLastFileBlock` (returning an
+`Option` of a pair) as `lastFile` and `freeLastFileBlock` before the proofs
+avoided reasoning about a pair inside an `Option`.
+
+### Performance
+
+`stitchwort run` on the input takes 0.85 s, against 0.53 s on the example
+(loading and checking): about 0.16 s for part 1 and 0.15 s for part 2.
+Plain recursion over the 94,500-block lists (`fillFront`, `blocksFrom`) had
+no stack trouble. The fast Python takes 0.04 s user, the literal Python
+(a block at a time over a list) 24 s.
+
+The spec is far slower, since each move walks the disk and part 1 makes
+23,434 moves. Both parts against the spec on the first 99 digits (454
+blocks) add 0.35 s to the tests; on the first 999 digits (4,739 blocks) it
+ran over 2 minutes before I stopped it. So the spec is compared on small
+disks only.
+
+### Size and time
+
+Release build, on a machine with a load average around 30:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2024.Day09.Proofs` | 1.6 s |
+| `stitchwort check --no-cache Aoc.Year2024.Day09` | 1.5 s |
+| `stitchwort test --no-cache Aoc.Year2024.Day09` (32 tests) | 1.9 s |
+| `stitchwort test Aoc.Year2024.Day09` (warm) | 0.5 s |
+| `stitchwort run Aoc.Year2024.Day09.main` on the input | 0.85 s |
+| `stitchwort check --no-cache` (whole project) | 13.5 s |
+
+131 lines of program, 86 of spec, 356 of proofs, 92 of tests.
+
+### Ranked
+
+1. Part 2's equivalence with the spec is out of reach without
+   specifications for a map of sets threaded through a fold ("Not proved").
+   Fix: std lemmas tying `Map.alter`/`Map.adjust`, `Set.insert`/`Set.remove`
+   and `Set.min` to a list model, so an invariant can be stated on lists.
+2. `rewrite` misses terms the goal has already unfolded (item 6). Fix: look
+   in the goal as written first.
+3. Lambdas and record literals checked before the argument that fixes their
+   type (item 3). Fix: check them last in a call.
+4. `decreasing` needs a hand proof even for structural calls (item 7). Fix:
+   try `omega` on measure goals.
+5. Ability operations in scope unimported, and a warning that doesn't say
+   which `span` (item 2). Fix: qualify the name; import operations by name.
+6. Missing list lemmas, two for the second time (item 5). Fix: add the
+   reverse lemmas and `sumFilterMap` to std.
+7. `Effect.CompD` in an unknown-field error, and no `joinWith` on a list of
+   texts (item 4). Fix: hide internal namespaces; add `List.joinWith`.
+8. `Parse.line` counts columns past the line break (item 1). Fix: report
+   line 2.
