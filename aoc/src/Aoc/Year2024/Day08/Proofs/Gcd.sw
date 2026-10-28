@@ -20,7 +20,7 @@ theorem gcdDivides (a: Nat) (b: Nat): And (∃ (x: Nat) => a = x * Nat.gcd a b) 
       match gcdDivides (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)] with
         | Both (Witness x hx) (Witness y hy) =>
           rewrite gcdStep a c in
-          Both (Witness (a / Succ c * x + y) (ring [divided, Eq.cong ((n: Nat) => a / Succ c * n) hx, hy])) (Witness x hx)
+          Both (Witness (a / Succ c * x + y) (ring [divided, a / Succ c * hx, hy])) (Witness x hx)
 
 -- Bézout's identity: the gcd is `s * a + t * b` for some integers `s` and
 -- `t`.
@@ -34,4 +34,4 @@ theorem gcdBezout (a: Nat) (b: Nat): ∃ (s: Int) => ∃ (t: Int) => s * a.toInt
       match gcdBezout (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)] with
         | Witness s (Witness t h) =>
           rewrite gcdStep a c in
-          Witness t (Witness (s - t * (a / Succ c).toInt) (ring [h, Eq.cong ((n: Int) => t * n) divided]))
+          Witness t (Witness (s - t * (a / Succ c).toInt) (ring [h, t * divided]))

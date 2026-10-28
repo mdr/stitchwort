@@ -15,16 +15,14 @@ import Std (And, Bool, DecEq, Eq, Int, Iff, Nat, Or, Set, Void)
 theorem twiceAsFarCases (ur: Int) (uc: Int) (vr: Int) (vc: Int) (cross: ur * vc - uc * vr = 0)
     (distance: ur * ur + uc * uc = 4 * (vr * vr + vc * vc)):
     Or (And (ur = 2 * vr) (uc = 2 * vc)) (And (ur = 0 - 2 * vr) (uc = 0 - 2 * vc)) :=
-  let crossSquared: 0 = (ur * vc - uc * vr) * (ur * vc - uc * vr) := rewrite cross in rfl
-  let distanceScaled := Eq.cong (x => x * (vr * vr + vc * vc)) distance
   let lagrange: (ur * vr + uc * vc) * (ur * vr + uc * vc) = (2 * (vr * vr + vc * vc)) * (2 * (vr * vr + vc * vc)) :=
-    ring [distanceScaled, crossSquared]
+    ring [(vr * vr + vc * vc) * distance, (ur * vc - uc * vr) * cross]
   match squaresEq (ur * vr + uc * vc) (2 * (vr * vr + vc * vc)) lagrange with
     | Inl same =>
-      let zero := sumSquaresZero (ur - 2 * vr) (uc - 2 * vc) (ring [distance, Eq.cong ((x: Int) => 4 * x) (Eq.sym same)])
+      let zero := sumSquaresZero (ur - 2 * vr) (uc - 2 * vc) (ring [distance, 4 * same])
       Inl (Both (subEqZero ur (2 * vr) (And.left zero)) (subEqZero uc (2 * vc) (And.right zero)))
     | Inr opposite =>
-      let zero := sumSquaresZero (ur + 2 * vr) (uc + 2 * vc) (ring [distance, Eq.cong ((x: Int) => 4 * x) opposite])
+      let zero := sumSquaresZero (ur + 2 * vr) (uc + 2 * vc) (ring [distance, 4 * opposite])
       Inr (Both (ring [And.left zero]) (ring [And.right zero]))
 
 -- And back: `u = ±2v` is in line, and twice as far.
@@ -56,8 +54,8 @@ theorem positionEq: (first: Position) → (second: Position) → first.row = sec
 -- and `p`. Past `near` is where `far` is twice as far in the same
 -- direction...
 theorem pastIff (f: Int) (n: Int) (p: Int): Iff (n + (n - f) = p) (f - p = 2 * (n - p)) := {
-  forward = e => ring [Eq.sym e],
-  backward = h => ring [Eq.sym h]
+  forward = e => ring [e],
+  backward = h => ring [h]
 }
 
 -- ...and a third of the way from `near` to `far` (when that is a whole

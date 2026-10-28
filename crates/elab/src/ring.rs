@@ -5,6 +5,7 @@
 //! ```text
 //! ring               -- a = b
 //! ring [h1, h2]      -- a = b, given h1: l1 = r1 and h2: l2 = r2
+//! ring [4 * h1, -h2] -- with coefficients: any `Nat` or `Int` expression
 //! ```
 //!
 //! The proof is an application of a theorem from `Std.Ring`
@@ -19,8 +20,11 @@
 //! sides as syntax over numbered atoms, and `rfl` is the kernel running the
 //! library's normaliser on both and finding the same normal form. With
 //! hypotheses, the sides checked are `a + (r1 + …)` and `b + (l1 + …)`, and
-//! the theorem cancels the two sums. Nothing here is trusted: a mistake is a
-//! type error.
+//! the theorem cancels the two sums. A hypothesis with a coefficient `c` is
+//! passed as `c * l = c * r` (`Std.Ring.scaleNat`, `scaleInt`) and one with a
+//! `-` turned round (`Std.Ring.flipNat`, `flipInt`), so the check is that
+//! `a - b` is the combination `Σ cᵢ (lᵢ - rᵢ)`. Nothing here is trusted: a
+//! mistake is a type error.
 //!
 //! **Reading** follows the value, as `omega`'s does, so the syntax's meaning
 //! computes to exactly the side it reads: a number is `NNum`, `k + x` (what
@@ -53,7 +57,7 @@ use stitchwort_syntax::ast::{self, Expr};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Global;
-use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def, infer, insert};
+use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def, check, infer, insert};
 
 /// The library names the emitted proofs use: the pre-pass loads their files
 /// wherever `ring` is written (`module.rs`, `free_names`).
@@ -101,34 +105,56 @@ pub(crate) fn check_ring(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<
             "`ring` proves `a = b` where `a` and `b` are `Nat`s or `Int`s built from `+`, `*`, numbers and atoms (and `-` at `Int`) that are equal as polynomials",
         ));
     };
+    // Each entry is a sum of terms `c * h` (docs/syntax.md, ring); a term
+    // with a `-` written in its entry is used as written, the others either
+    // way round.
     let mut hyps: Vec<Hyp> = Vec::new();
+    let mut free: Vec<bool> = Vec::new();
     for fact in facts {
-        let (term, ty) = infer(cx, fact)?;
-        let (term, ty) = insert(cx, term, ty)?;
-        let forced = force(cx.g(), ty.clone())?;
-        match equation(cx, &lib, &forced)? {
-            Some((s, hl, hr)) if s == sort => hyps.push(Hyp {
-                proof: term,
+        let mut terms = Vec::new();
+        let mut minus = false;
+        split_fact(fact, false, Vec::new(), &mut minus, &mut terms);
+        for term in terms {
+            let (proof, ty) = infer(cx, term.proof)?;
+            let (proof, ty) = insert(cx, proof, ty)?;
+            let forced = force(cx.g(), ty.clone())?;
+            let (hl, hr) = match equation(cx, &lib, &forced)? {
+                Some((s, hl, hr)) if s == sort => (hl, hr),
+                _ => {
+                    let mut d = Diagnostic::error(
+                        "E-RING",
+                        format!(
+                            "`ring` takes equations between `{}`s, and this is `{}`",
+                            sort.name(),
+                            cx.show(&ty)
+                        ),
+                    )
+                    .with_label(term.proof.span(), "not an equation of the goal's type")
+                    .with_note(format!(
+                        "each hypothesis of `ring [h1, h2]` proves `l = r` between `{}`s, like the goal",
+                        sort.name()
+                    ));
+                    if !term.coefficients.is_empty() {
+                        d = d.with_note("a coefficient goes before its hypothesis: `c * h`");
+                    }
+                    return Err(d);
+                }
+            };
+            let mut h = Hyp {
+                proof,
                 ty,
                 l: hl,
                 r: hr,
-                span: fact.span(),
-            }),
-            _ => {
-                return Err(Diagnostic::error(
-                    "E-RING",
-                    format!(
-                        "`ring` takes equations between `{}`s, and this is `{}`",
-                        sort.name(),
-                        cx.show(&ty)
-                    ),
-                )
-                .with_label(fact.span(), "not an equation of the goal's type")
-                .with_note(format!(
-                    "each hypothesis of `ring [h1, h2]` proves `l = r` between `{}`s, like the goal",
-                    sort.name()
-                )));
+                span: term.proof.span(),
+            };
+            if term.negative {
+                h = flipped(cx, &lib, sort, h)?;
             }
+            if !term.coefficients.is_empty() {
+                h = scaled(cx, &lib, sort, &term.coefficients, h)?;
+            }
+            hyps.push(h);
+            free.push(!minus);
         }
     }
 
@@ -163,24 +189,31 @@ pub(crate) fn check_ring(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<
     }
 
     // The sides checked: with hypotheses, `a + (r1 + …)` and `b + (l1 + …)`.
-    // Each hypothesis may be needed either way round (`l = r` or `r = l`),
-    // so with a few of them every orientation is tried, as polynomials.
+    // A hypothesis written without a `-` may be needed either way round
+    // (`l = r` or `r = l`), so with a few of them every orientation is tried,
+    // as polynomials.
     let (pa, pb) = (a.poly(), b.poly());
     let hyp_polys: Vec<(Poly, Poly)> = sides.iter().map(|(l, r)| (l.poly(), r.poly())).collect();
+    let free: Vec<usize> = (0..hyps.len()).filter(|&i| free[i]).collect();
+    let flipped_at = |flips: u32, i: usize| {
+        free.iter()
+            .position(|&f| f == i)
+            .is_some_and(|k| flips & (1 << k) != 0)
+    };
     let checked = |flips: u32| -> (Poly, Poly) {
         hyp_polys
             .iter()
             .enumerate()
             .fold((pa.clone(), pb.clone()), |(left, right), (i, (l, r))| {
-                if flips & (1 << i) == 0 {
-                    (left.add(r), right.add(l))
-                } else {
+                if flipped_at(flips, i) {
                     (left.add(l), right.add(r))
+                } else {
+                    (left.add(r), right.add(l))
                 }
             })
     };
-    let tries: u32 = if hyps.len() <= MAX_FLIPPED_HYPS {
-        1 << hyps.len()
+    let tries: u32 = if free.len() <= MAX_FLIPPED_HYPS {
+        1 << free.len()
     } else {
         1
     };
@@ -200,29 +233,121 @@ pub(crate) fn check_ring(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<
             span,
         ));
     };
-    for (i, (h, side)) in hyps.iter_mut().zip(sides.iter_mut()).enumerate() {
-        if flips & (1 << i) == 0 {
-            continue;
+    let mut flipped_hyps = Vec::with_capacity(hyps.len());
+    for (i, (h, side)) in hyps.into_iter().zip(sides.iter_mut()).enumerate() {
+        if flipped_at(flips, i) {
+            flipped_hyps.push(flipped(cx, &lib, sort, h)?);
+            std::mem::swap(&mut side.0, &mut side.1);
+        } else {
+            flipped_hyps.push(h);
         }
-        let flip = match sort {
-            Sort::Nat => lib.flip_nat,
-            Sort::Int => lib.flip_int,
-        };
-        let proof = apps(
-            Term::Def(flip),
-            vec![cx.quote(&h.l)?, cx.quote(&h.r)?, h.proof.clone()],
-        );
-        let Value::Eq(t, l, r) = force(cx.g(), h.ty.clone())? else {
-            unreachable!("a hypothesis is an equation")
-        };
-        h.ty = Value::Eq(t, r, l);
-        h.proof = proof;
-        std::mem::swap(&mut h.l, &mut h.r);
-        std::mem::swap(&mut side.0, &mut side.1);
     }
+    let hyps = flipped_hyps;
     emit(
         cx, &lib, sort, expected, &reader, &a, &b, &sides, &hyps, span,
     )
+}
+
+/// One term of an entry of `ring [..]`: `-c1 * c2 * h` is `h` with the
+/// coefficients `c1`, `c2`, negated.
+struct Scaled<'a> {
+    negative: bool,
+    coefficients: Vec<&'a Expr>,
+    proof: &'a Expr,
+}
+
+/// The terms of an entry: sums and differences of `c * h` and `-h`, with
+/// `minus` set when a `-` is written.
+fn split_fact<'a>(
+    expr: &'a Expr,
+    negative: bool,
+    coefficients: Vec<&'a Expr>,
+    minus: &mut bool,
+    out: &mut Vec<Scaled<'a>>,
+) {
+    match expr {
+        Expr::Neg(e, _) => {
+            *minus = true;
+            split_fact(e, !negative, coefficients, minus, out);
+        }
+        Expr::Binary(ast::BinOp::Add, a, b) => {
+            split_fact(a, negative, coefficients.clone(), minus, out);
+            split_fact(b, negative, coefficients, minus, out);
+        }
+        Expr::Binary(ast::BinOp::Sub, a, b) => {
+            *minus = true;
+            split_fact(a, negative, coefficients.clone(), minus, out);
+            split_fact(b, !negative, coefficients, minus, out);
+        }
+        Expr::Binary(ast::BinOp::Mul, c, e) => {
+            let (mut c, mut negative) = (&**c, negative);
+            while let Expr::Neg(inner, _) = c {
+                *minus = true;
+                negative = !negative;
+                c = inner;
+            }
+            let mut coefficients = coefficients;
+            coefficients.push(c);
+            split_fact(e, negative, coefficients, minus, out);
+        }
+        _ => out.push(Scaled {
+            negative,
+            coefficients,
+            proof: expr,
+        }),
+    }
+}
+
+/// `h: l = r` turned round to `r = l`.
+fn flipped(cx: &Ctx, lib: &Lib, sort: Sort, h: Hyp) -> Result<Hyp> {
+    let flip = match sort {
+        Sort::Nat => lib.flip_nat,
+        Sort::Int => lib.flip_int,
+    };
+    let proof = apps(
+        Term::Def(flip),
+        vec![cx.quote(&h.l)?, cx.quote(&h.r)?, h.proof],
+    );
+    let Value::Eq(t, l, r) = force(cx.g(), h.ty)? else {
+        unreachable!("a hypothesis is an equation")
+    };
+    Ok(Hyp {
+        proof,
+        ty: Value::Eq(t, r, l),
+        l: h.r,
+        r: h.l,
+        span: h.span,
+    })
+}
+
+/// `h: l = r` times the product of `coefficients`: `c * l = c * r`.
+fn scaled(cx: &mut Ctx, lib: &Lib, sort: Sort, coefficients: &[&Expr], h: Hyp) -> Result<Hyp> {
+    let (mul, scale) = match sort {
+        Sort::Nat => (lib.mul, lib.scale_nat),
+        Sort::Int => (lib.int_mul, lib.scale_int),
+    };
+    let Value::Eq(t, _, _) = force(cx.g(), h.ty.clone())? else {
+        unreachable!("a hypothesis is an equation")
+    };
+    let mut c: Option<Term> = None;
+    for e in coefficients {
+        let term = check(cx, e, &t)?;
+        c = Some(match c {
+            None => term,
+            Some(acc) => apps(Term::Def(mul), vec![acc, term]),
+        });
+    }
+    let c = c.expect("at least one coefficient");
+    let (l, r) = (cx.quote(&h.l)?, cx.quote(&h.r)?);
+    let new_l = cx.eval(&apps(Term::Def(mul), vec![c.clone(), l.clone()]))?;
+    let new_r = cx.eval(&apps(Term::Def(mul), vec![c.clone(), r.clone()]))?;
+    Ok(Hyp {
+        proof: apps(Term::Def(scale), vec![c, l, r, h.proof]),
+        ty: Value::Eq(t, Rc::new(new_l.clone()), Rc::new(new_r.clone())),
+        l: new_l,
+        r: new_r,
+        span: h.span,
+    })
 }
 
 /// What a hypothesis `ring [h]` was given.
@@ -272,6 +397,8 @@ struct Lib {
     prove_int_with: DefId,
     flip_nat: DefId,
     flip_int: DefId,
+    scale_nat: DefId,
+    scale_int: DefId,
     npoly: DefId,
     zpoly: DefId,
     mk_env: (DataId, usize),
@@ -333,6 +460,8 @@ impl Lib {
             prove_int_with: def("Std.Ring.proveIntWith")?,
             flip_nat: def("Std.Ring.flipNat")?,
             flip_int: def("Std.Ring.flipInt")?,
+            scale_nat: def("Std.Ring.scaleNat")?,
+            scale_int: def("Std.Ring.scaleInt")?,
             npoly: def("Std.Ring.NExpr.poly")?,
             zpoly: def("Std.Ring.ZExpr.poly")?,
             mk_env: ctor("Std.Ring.Env.MkEnv")?,
@@ -964,13 +1093,19 @@ fn different(
     .with_label(span, "the two sides are different polynomials");
     if with_hyps {
         d = d.with_note(
-            "with the hypotheses `l = r` added, the left side plus every `r` against the right side plus every `l`:",
+            "with the hypotheses `l = r` added, each times its coefficient, the left side plus every `r` against the right side plus every `l`:",
         );
     }
     d = d
         .with_note(format!("left:  {}", poly_text(cx, reader, left)))
         .with_note(format!("right: {}", poly_text(cx, reader, right)))
         .with_note(format!("the left side has {}", parts.join(" and ")));
+    if with_hyps {
+        d = d.with_note(format!(
+            "left over: `{}`, the goal's left minus its right, minus each coefficient times its hypothesis's `l - r`; it has to be 0",
+            poly_text(cx, reader, &diff)
+        ));
+    }
     for atom in reader.atoms.iter().filter(|a| a.unsupported.is_some()) {
         d = d.with_note(format!(
             "`{}` is an unknown to `ring`: {}",
@@ -1130,4 +1265,88 @@ fn emit(
         ));
     }
     Ok(term)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stitchwort_syntax::SourceMap;
+
+    /// The terms of an entry, each as `(negative, coefficients, hypothesis)`
+    /// in source text, and whether a `-` was written.
+    fn split(text: &str) -> (Vec<(bool, Vec<String>, String)>, bool) {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test", text);
+        let expr = stitchwort_syntax::parse_expression(file, text).expect("parses");
+        let source = |e: &Expr| {
+            let span = e.span();
+            text[span.start as usize..span.end as usize].to_string()
+        };
+        let mut terms = Vec::new();
+        let mut minus = false;
+        split_fact(&expr, false, Vec::new(), &mut minus, &mut terms);
+        let terms = terms
+            .iter()
+            .map(|t| {
+                (
+                    t.negative,
+                    t.coefficients.iter().map(|c| source(c)).collect(),
+                    source(t.proof),
+                )
+            })
+            .collect();
+        (terms, minus)
+    }
+
+    fn term(negative: bool, coefficients: &[&str], proof: &str) -> (bool, Vec<String>, String) {
+        (
+            negative,
+            coefficients.iter().map(|c| c.to_string()).collect(),
+            proof.to_string(),
+        )
+    }
+
+    #[test]
+    fn a_bare_hypothesis_is_one_term() {
+        assert_eq!(split("h"), (vec![term(false, &[], "h")], false));
+        assert_eq!(
+            split("Eq.sym h"),
+            (vec![term(false, &[], "Eq.sym h")], false)
+        );
+    }
+
+    #[test]
+    fn coefficients_go_in_front() {
+        assert_eq!(split("4 * h"), (vec![term(false, &["4"], "h")], false));
+        assert_eq!(
+            split("2 * x * h"),
+            (vec![term(false, &["2 * x"], "h")], false)
+        );
+        assert_eq!(
+            split("2 * (x * h)"),
+            (vec![term(false, &["2", "x"], "h")], false)
+        );
+    }
+
+    #[test]
+    fn a_minus_negates_and_is_noted() {
+        assert_eq!(split("-h"), (vec![term(true, &[], "h")], true));
+        assert_eq!(split("-4 * h"), (vec![term(true, &["4"], "h")], true));
+        assert_eq!(split("-(-h)"), (vec![term(false, &[], "h")], true));
+    }
+
+    #[test]
+    fn sums_and_differences_are_several_terms() {
+        assert_eq!(
+            split("3 * h1 - h2 + x * h3"),
+            (
+                vec![
+                    term(false, &["3"], "h1"),
+                    term(true, &[], "h2"),
+                    term(false, &["x"], "h3")
+                ],
+                true
+            )
+        );
+    }
 }

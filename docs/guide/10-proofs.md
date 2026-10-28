@@ -249,6 +249,45 @@ theorem squareOfSum (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
 ───╯
 ```
 
+A hypothesis can have a coefficient, any `Nat` or `Int` expression, written in front of it: `ring [4 * h]` uses `h: l = r` as `4 * l = 4 * r`, and `ring [-h]` uses it turned round. `ring` then checks that the goal's left side minus its right side is exactly the sum of each coefficient times its hypothesis's `l - r`. A hypothesis written without a `-` is also tried the other way round, so the sign is only needed when you want to say it:
+
+<!-- snippet: proofs.sw#ring-coefficients -->
+```stitchwort
+theorem scaledUp (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [4 * half]
+
+theorem bothScaled (x: Int) (y: Int) (k: Int) (sum: x + y = 10) (gap: x - y = 2): 2 * k * x = 12 * k := ring [k * sum, k * gap]
+
+theorem turnedRound (a: Int) (b: Int) (h: a = b + 1): b - a = -1 := ring [-h]
+```
+
+When the coefficients are wrong, the error shows what is left over:
+
+<!-- snippet: errors/ring-coefficient.sw -->
+```stitchwort
+theorem scaledUp (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [2 * half]
+```
+
+<!-- output: check errors/ring-coefficient.sw -->
+```
+[E-RING] Error: `ring` can't prove `4 * a = 8 * b`
+   ╭─[ errors/ring-coefficient.sw:1:72 ]
+   │
+ 1 │ theorem scaledUp (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [2 * half]
+   │                                                                        ───────┬───────
+   │                                                                               ╰───────── the two sides are different polynomials
+   │
+   │ Note 1: with the hypotheses `l = r` added, each times its coefficient, the left side plus every `r` against the right side plus every `l`:
+   │
+   │ Note 2: left:  4 * a + 4 * b
+   │
+   │ Note 3: right: 2 * a + 8 * b
+   │
+   │ Note 4: the left side has `2 * a` more and `4 * b` less
+   │
+   │ Note 5: left over: `2 * a - 4 * b`, the goal's left minus its right, minus each coefficient times its hypothesis's `l - r`; it has to be 0
+───╯
+```
+
 `(ring: a = b)` states the equation, so it can be given to `rewrite`: `rewrite (ring: i + (p + q) = i + p + q)`.
 
 ## Proof by cases: `cases`

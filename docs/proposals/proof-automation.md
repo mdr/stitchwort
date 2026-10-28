@@ -1103,7 +1103,12 @@ kernel error. Differences from §6.2:
 - **`ring [h]` tries each hypothesis both ways round**, with up to six of them (64
   comparisons of polynomials in Rust); a reversed one is passed as `Ring.flipNat l r h`.
   `Nat.fromDigitsFrom`'s step needed this: its two induction hypotheses are used in opposite
-  directions. Multipliers (`2 * h`) are still left out (§9, Q3).
+  directions. Multipliers came later: `ring [4 * h1, -h2, c * h3]` passes each `c * h` as
+  `Ring.scaleNat`/`scaleInt c l r h: c * l = c * r` and each `-h` as a flip, so the theorems
+  are unchanged and the check is that `a - b` is `Σ cᵢ (lᵢ - rᵢ)`, as Mathlib's
+  `linear_combination` reduces to `ring1`
+  ([docs](https://leanprover-community.github.io/mathlib4_docs/Mathlib/Tactic/LinearCombination.html)).
+  An entry with a `-` is used as written; the others are still tried both ways round.
 - **Atoms** are chosen as `omega` chooses them: the same term, or convertible within a
   budget. A call is kept folded in messages (`multiplier k n`, not its unfolding).
 - **Messages**: §6.2's example comes out as

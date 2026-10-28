@@ -9,7 +9,7 @@ expression: output
    │                                                                       ────┬───  
    │                                                                           ╰───── the two sides are different polynomials
    │ 
-   │ Note 1: with the hypotheses `l = r` added, the left side plus every `r` against the right side plus every `l`:
+   │ Note 1: with the hypotheses `l = r` added, each times its coefficient, the left side plus every `r` against the right side plus every `l`:
    │ 
    │ Note 2: left:  3 * p + n
    │ 
@@ -17,7 +17,9 @@ expression: output
    │ 
    │ Note 4: the left side has `p` more and `n` less
    │ 
-   │ Note 5: this statement is false; a counterexample:
+   │ Note 5: left over: `p - n`, the goal's left minus its right, minus each coefficient times its hypothesis's `l - r`; it has to be 0
+   │ 
+   │ Note 6: this statement is false; a counterexample:
    │           n = 2
    │           p = 1
    │         `p + p = n` holds

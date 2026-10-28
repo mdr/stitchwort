@@ -209,6 +209,13 @@ theorem Ring.flipNat (l: Nat) (r: Nat) (h: l = r): r = l := Eq.sym h
 
 theorem Ring.flipInt (l: Int) (r: Int) (h: l = r): r = l := Eq.sym h
 
+-- A hypothesis with a coefficient, `ring [c * h]`: `c * l = c * r`, so the
+-- sides checked are `a + (c * r + ...)` and `b + (c * l + ...)`, that is,
+-- `a - b` is the combination `c * (l - r) + ...`.
+theorem Ring.scaleNat (c: Nat) (l: Nat) (r: Nat) (h: l = r): c * l = c * r := Eq.cong (Nat.mul c) h
+
+theorem Ring.scaleInt (c: Int) (l: Int) (r: Int) (h: l = r): Int.mul c l = Int.mul c r := Eq.cong (Int.mul c) h
+
 theorem Ring.NExpr.sidesAgree (env: Ring.Env): (hs: List (Pair Ring.NExpr Ring.NExpr)) → Ring.NExpr.allHold env hs →
     Ring.NExpr.eval env (Ring.NExpr.lefts hs) = Ring.NExpr.eval env (Ring.NExpr.rights hs)
   | Nil, h => rfl
@@ -253,3 +260,8 @@ theorem Ring.proveNatWithExample (n: Nat) (p: Nat) (h: p + p + n = n * n): (n + 
   Ring.proveNatWith (MkEnv [n, p] [])
     (NAdd (NAdd (NAdd (NAtom 0) (NAtom 1)) (NAdd (NAtom 0) (NAtom 1))) (NSucc (NAtom 0))) (NMul (NSucc (NAtom 0)) (NSucc (NAtom 0)))
     [MkPair (NAdd (NAdd (NAtom 1) (NAtom 1)) (NAtom 0)) (NMul (NAtom 0) (NAtom 0))] rfl (Both h Trivial)
+
+-- `h: a = 2 * b` times 4 gives `4 * a = 8 * b` (`ring [4 * h]`).
+theorem Ring.proveIntScaledExample (a: Int) (b: Int) (h: a = 2 * b): 4 * a = 8 * b :=
+  Ring.proveIntWith (MkEnv [] [a, b]) (ZMul (ZNum 4) (ZAtom 0)) (ZMul (ZNum 8) (ZAtom 1))
+    [MkPair (ZMul (ZNum 4) (ZAtom 0)) (ZMul (ZNum 4) (ZMul (ZNum 2) (ZAtom 1)))] rfl (Both (Ring.scaleInt 4 a (2 * b) h) Trivial)
