@@ -1,5 +1,5 @@
 {
-  "next": 785,
+  "next": 786,
   "tickets": [
     {
       "id": 13,
@@ -6689,7 +6689,7 @@
     {
       "id": 781,
       "title": "AoC 2024 day 21 (examples only; input pending from Matt): keypad robots, solve, prove, log gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6725,6 +6725,18 @@
     {
       "id": 784,
       "title": "AoC 2024 day 23 (examples only; input pending from Matt): LAN party triangles and largest clique, solve, prove, log gaps",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 785,
+      "title": "Day 21 small findings: != note suggests a form that doesn't parse after a binder; expected type into tuple components (record literal); 'type Keypad k' note showing (k: Type); rewrite … in suggests 'at h' when only a hypothesis has the pattern; pick error lists every key",
       "status": "doing",
       "agent": "",
       "where": "",
