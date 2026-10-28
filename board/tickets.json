@@ -1,5 +1,5 @@
 {
-  "next": 858,
+  "next": 861,
   "tickets": [
     {
       "id": 13,
@@ -7558,7 +7558,7 @@
     {
       "id": 846,
       "title": "Dot on a postponed lambda's parameter fails in AoC 2024 day 9 proofs: the parameter's type is the unfolded Map, not the nickname FreeSpace",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -7567,7 +7567,11 @@
       "body": "Follow-up to SW-822 (which makes multi-parameter lambdas postpone when a non-first parameter type is unknown). With that fix, List.mapZipWithScanLeft File.idAndLength File.idAndLength (file free => (free.moveFile file).snd) ... at aoc/src/Aoc/Year2024/Day09/Proofs/Part2.sw:55 (also 64, 78) still gives E-CANNOT-INFER on free: the lambda is now postponed, but by the time it's checked its domain is 'Map Nat (Set Nat) -> File -> Map ...' (unfolded) rather than FreeSpace, and the retry error comes from E-UNKNOWN-FIELD 'Map has no field or function moveFile'. Trace: temporary eprintln of cx.show(&dom) in apply_args_postponing (crates/elab/src/check.rs). Not yet pinned which step solves b to the unfolded type (the call has an expected type from a rewrite goal; z's own check does give FreeSpace). Standalone repros with a def Counts: Type := List Nat did not reproduce it without an expected type mentioning b. Keep the workarounds in Part2.sw until fixed.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "e979bbd1",
+        "f1d9fbbe",
+        "f18cbe57"
+      ]
     },
     {
       "id": 847,
@@ -7684,7 +7688,7 @@
     {
       "id": 854,
       "title": "Negative arguments, stages 1-2: parser rule, pattern numerals, notes, formatter (f -2 as f (-2))",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7693,7 +7697,10 @@
       "body": "Implement docs/proposals/negative-arguments.md §8 stages 1 and 2 (they merge together): D1461 whitespace rule, D1462 scope, D1469 line break, D1470 'Some -1' patterns, D1467 notes, D1472 formatter keeps the form. Waits for the independent review.\n\nD1474 (Matt, 28 Oct): a '-' glued to a numeral is part of the number unless an operand comes right before it with no space, so '-1.abs' is '(-1).abs', alone and as an argument ('f -1.abs' is 'f ((-1).abs)'); 'x-1.abs', '- 1.abs' and '-x.abs' keep today's grouping. Update docs/syntax.md:1114 and the note's D1462 examples.\nD1468 (Matt, 28 Oct): colour a glued '-' before a numeral as part of the number in the VS Code grammar (editors/vscode/syntaxes/stitchwort.tmLanguage.json, 'number') and the playground tokenizer, matching the D1474 rule.\n\n\nReview (SW-853, docs/proposals/negative-arguments-review.md, 57607530): six fixes to the note before building (block-statement stop for -y lines; D1474 silently changes -2.5.floor; stage 1 can't merge alone; §8 needs a D1474 plan; D1467 notes can't quote the head; D1468 regex gaps). Questions D1490-D1492 to Matt.\n\n\nD1490-D1492 (Matt, 28 Oct): all yes (negative numeral is one atom everywhere; accept the -<float>.f change, documented and tested; stages 1-2 in one lane). D1493: note updated from the review (2636eb4a); §8 is the build spec.\n",
       "created": "2026-10-28",
       "updated": "2026-10-28",
-      "commits": []
+      "commits": [
+        "7a14ec83",
+        "199ec3cb"
+      ]
     },
     {
       "id": 855,
@@ -7733,6 +7740,48 @@
         "tooling"
       ],
       "body": "From the SW-848 lane: lane-aoc silently ran 0 tests after the aoc_answers tests were renamed to yearYYYY_dayNN. Add a cheap check (a task or a test in the merge tier) that runs 'cargo nextest list --profile lane-X' for every lane-* profile and fails if one lists 0 tests. All 16 lanes list >0 today (28 Oct).",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 858,
+      "title": "Alias place 3 in general: expressions of unknown type other than variables lose the alias name when checked",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "Follow-up to SW-846 (f18cbe57), which fixed only a variable whose type is an unsolved meta (name_unknown_type in check.rs). Applications, fields and other expressions with an unknown type are still solved against the forced (unfolded) expected type in check_inner. docs/proposals/alias-functions.md place 3 / §8 item 4; the proposal's earlier broad patch broke std/List/Lemmas.sw and Toolkit.sw, so this needs design.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 859,
+      "title": "Postponable lambda kept from its in-place try can settle a shared type before an earlier postponed lambda is checked (argument-order dependence)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From the SW-846 lane: in apply_args_postponing (check.rs), a postponable lambda that succeeds when tried in place is kept, so it can solve a metavariable (with the unfolded type) before an earlier postponed lambda is checked; the result depends on argument order (alias-functions.md §4). Check whether the remaining argument-order cases mostly come from this.",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 860,
+      "title": "Negative arguments: the D1467 note on E-TYPE-MISMATCH for one argument too many, and a test for the new colouring",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "From the SW-854 lane: (1) the note for an unbracketed negative argument is added to E-NOT-A-FUNCTION and the constructor arity error only; 'f a -1' where f takes one argument fewer can surface as E-TYPE-MISMATCH at the result with no note (no case built yet). (2) No test covers the new glued-numeral colouring in the VS Code grammar or the playground tokenizer (web/index.html); add a grammar test or a case in web/tests/browser.mjs.",
       "created": "2026-10-28",
       "updated": "2026-10-28",
       "commits": []
