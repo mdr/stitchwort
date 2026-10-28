@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.collatzSteps.Request 4fe15f52869bfb17ce2345ba4073756e1dff1d59304b73dfea0d4059b6408474
 data Main.isEven.Request 331e4ee7484f1e1322156f6f63839abd0643aa220a718951d46a0122853e290d
@@ -21,6 +21,6 @@ Main.isEven.body aaa2bd93a0aa3d715777893ce0ab8db83c6c977ea0fb2a9dd83481202f8edca
 Main.test "27 takes 111 steps" a504f702bf9be5f70c34fe53604726ea1f8be9cb9c1295036d06904d1c7ef4d4
 Main.test "1 takes none" 317b0ae73ddc7d4520359a0fa2703abe2df88b0d8da232a0fa8c19f16df9caf7
 Main.test "through a partial helper" 98ca9370f07116b4030acaf750dd1651d65fcedb80b1bdd053e3c38b86dfd466
-Main.test "in a block" 95b4cdbeb3feba017417656b4af108e8f776d3a9fd0b7f87e7dacf09b0f4d49a
-Main.test "mutual recursion" 8018f8bb3f813081abae570ca6fe89ff3b862265dbdbb2733d66bcf5214a252d
+Main.test "in a block" 20035adcc3bbd5b7df9620978d278c4ffead74f8bb4f961ad63fd519fe8a1d81
+Main.test "mutual recursion" 1331135f83e83914c011b5df17299fd37c0b8aea9badf0145afd24a1dcab9640
 Main.test "a total test beside them" 4477681ad9a15964f60344a723084fd34ec47f6b1377573de13555d9b6ec4a6a
