@@ -7391,7 +7391,7 @@
     {
       "id": 835,
       "title": "Check the interpreter's hole filling (prims.rs fill: ptr::write through Rc::as_ptr) under Miri; if it is UB, rework (e.g. Rc::get_mut_unchecked's contract, or a cell type with interior mutability)",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
