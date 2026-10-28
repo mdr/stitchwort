@@ -16,9 +16,9 @@ expression: output
     │
  16 │     | other => ?
     │                ┬  
-    │                ╰── all: (if next✝ then allTrue (Cons head✝ tail✝) else False) = True
+    │                ╰── all: (next✝ && allTrue (Cons head✝ tail✝)) = True
     │                    next✝: Bool
     │                    head✝: Bool
     │                    tail✝: List Bool
-    │                    ⊢ (if next✝ then allTrue (Cons head✝ tail✝) else False) = True
+    │                    ⊢ (next✝ && allTrue (Cons head✝ tail✝)) = True
 ────╯
