@@ -7,5 +7,5 @@ expression: output
     │
  10 │ def unwrap (q: Q): Bool := Quot.lift [r := BoolEq] (b => b) (x y h => h) q
     │                                                                          ┬  
-    │                                                                          ╰── expected `Quot Bool BoolEq`, but this has type `Quot Bool AllTrue`
+    │                                                                          ╰── expected `Quot Bool BoolEq`, but this has type `Q`
 ────╯
