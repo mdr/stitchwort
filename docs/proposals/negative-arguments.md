@@ -1,7 +1,9 @@
 # Negative arguments: should `f -2` mean `f (-2)`? (D1460)
 
-**Status:** research note, 28 October 2026 (SW-840). Nothing is implemented.
-The decisions are D1461, D1462, D1467 to D1472 (§7).
+**Status:** approved design, 28 October 2026 (SW-840). Nothing is implemented.
+Matt accepted the recommendations for D1461, D1462, D1467 and D1469 to D1472
+on 28 October (§7): option (b), the whitespace rule, with `!` as a separate
+ticket. D1468 (editor colouring) is still open.
 
 Labels, as in the other notes:
 
