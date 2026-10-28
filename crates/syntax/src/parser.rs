@@ -473,6 +473,9 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
 enum LamParam {
     Plain(Name, Option<Pattern>),
     Typed(Name, Mode, Expr),
+    /// `(pattern: A)`: a pattern with a written type, an explicit parameter
+    /// of that type taken apart by the pattern.
+    TypedPattern(Name, Pattern, Expr),
 }
 
 struct Parser<'t> {
@@ -2173,6 +2176,19 @@ impl<'t> Parser<'t> {
                         params.push(LamParam::Typed(name, mode, ty.clone()));
                     }
                 }
+                // `((a, b): A)`: a pattern with a written type.
+                Some(Tok::LParen) if self.annotated_pattern_ahead() => {
+                    self.bump();
+                    let pattern = self.pattern()?;
+                    self.expect(Tok::Colon, "`:`")?;
+                    let ty = self.expr()?;
+                    self.expect(Tok::RParen, "`)`")?;
+                    let name = Name {
+                        text: format!("%arg{}", params.len()),
+                        span: pattern.span(),
+                    };
+                    params.push(LamParam::TypedPattern(name, pattern, ty));
+                }
                 Some(Tok::LParen | Tok::LBrace) => match self.pattern()? {
                     Pattern::Var(name) => params.push(LamParam::Plain(name, None)),
                     pattern => {
@@ -2196,7 +2212,9 @@ impl<'t> Parser<'t> {
         let mut scrutinees = Vec::new();
         let mut patterns = Vec::new();
         for param in &params {
-            if let LamParam::Plain(name, Some(pattern)) = param {
+            if let LamParam::Plain(name, Some(pattern)) | LamParam::TypedPattern(name, pattern, _) =
+                param
+            {
                 scrutinees.push(Scrutinee {
                     name: None,
                     expr: Expr::Var(name.clone()),
@@ -2232,6 +2250,14 @@ impl<'t> Parser<'t> {
                     }
                     result = Expr::TypedLam(name, mode, Box::new(ty), Box::new(result), span);
                 }
+                LamParam::TypedPattern(name, _, ty) => {
+                    if !run.is_empty() {
+                        run.reverse();
+                        result = Expr::Lam(std::mem::take(&mut run), Box::new(result), span);
+                    }
+                    let ty = Box::new(ty);
+                    result = Expr::TypedLam(name, Mode::Explicit, ty, Box::new(result), span);
+                }
             }
         }
         if !run.is_empty() {
@@ -2249,6 +2275,28 @@ impl<'t> Parser<'t> {
             i += 1;
         }
         i > 1 && self.peek_at(i) == Some(&Tok::Colon)
+    }
+
+    /// Whether a `(` here opens a pattern with a written type, `((a, b): A)`:
+    /// a bracketed group with a `:` at its top level and no comma before it.
+    fn annotated_pattern_ahead(&self) -> bool {
+        let close = match self.matching[self.pos] {
+            NO_PARTNER => return false,
+            close => close as usize,
+        };
+        let mut i = self.pos + 1;
+        while i < close {
+            match &self.tokens[i].tok {
+                Tok::Colon => return i > self.pos + 1,
+                Tok::Comma => return false,
+                Tok::LParen | Tok::LBracket | Tok::LBrace => match self.matching[i] {
+                    NO_PARTNER => return false,
+                    inner => i = inner as usize + 1,
+                },
+                _ => i += 1,
+            }
+        }
+        false
     }
 
     /// `if c then a else b`, after the `if`. Its own function, so the stack
@@ -5457,6 +5505,30 @@ mod tests {
         let (names, body) = lam("def f : Nat := (x) _ => x\n");
         assert_eq!(names.len(), 2);
         assert!(matches!(body, Expr::Var(_)));
+    }
+
+    #[test]
+    fn lambda_patterns_may_be_annotated() {
+        let Expr::TypedLam(name, Mode::Explicit, ty, body, _) =
+            &rhs("def f : Nat := ((a, b): (Nat, Nat)) => a\n")
+        else {
+            panic!("expected a typed lambda");
+        };
+        assert_eq!(name.text, "%arg0");
+        assert!(matches!(**ty, Expr::Tuple(..)));
+        assert!(matches!(
+            **body,
+            Expr::Match {
+                kind: MatchKind::Lambda,
+                ..
+            }
+        ));
+        // Among plain parameters, with a record pattern.
+        let Expr::Lam(names, body, _) = &rhs("def f : Nat := x ({ n, .. }: P) => x\n") else {
+            panic!("expected a lambda");
+        };
+        assert_eq!(names[0].text, "x");
+        assert!(matches!(**body, Expr::TypedLam(..)));
     }
 
     #[test]

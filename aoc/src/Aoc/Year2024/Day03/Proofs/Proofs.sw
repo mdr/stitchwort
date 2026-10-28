@@ -61,7 +61,7 @@ theorem tallyAfter (instructions: List Instruction): (k: Nat) → k ≤ instruct
 -- The spec's sum, by index.
 theorem enabledResultsByIndex (instructions: List Instruction):
     enabledResults instructions = List.range instructions.length |> .sumBy (enabledResult instructions) :=
-  let counted := ((index, instruction)) => if enabledAfter (instructions.take index) then Instruction.result instruction else 0
+  let counted := ((index, instruction): (Nat, Instruction)) => if enabledAfter (instructions.take index) then instruction.result else 0
   Eq.trans
     (Eq.cong (pairs => List.sumBy pairs counted) (List.withIndexRange instructions Do))
     (List.sumByMap (List.range instructions.length) counted (index => (index, instructions.getOr index Do)))

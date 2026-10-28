@@ -231,7 +231,7 @@ the pinned first map and the winning game (232 turns before levels were made on 
      "expected a parameter's name, but found `then`", which is clear.
    - An `And` proof has no `.snd` (its fields are `left` and `right`); `And.right p`
      works.
-   - Pattern lambdas (`((row, chars)) => …`) can't take a type annotation;
+   - Pattern lambdas take a type annotation (`((row, chars): (Nat, Text)) => …`);
      a typed `let` works.
    - A hypothesis named `at` broke `rewrite … at in …` with "the line
      starting with `in` is at or left of the enclosing block's column";
