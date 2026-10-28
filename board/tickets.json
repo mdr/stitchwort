@@ -6775,9 +6775,9 @@
     {
       "id": 788,
       "title": "let as an expression: (let x := e; body) (D1425 yes, D1453 ';' separator)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree-agent-a231c49f17b476653",
       "labels": [
         "syntax"
       ],
@@ -7233,9 +7233,9 @@
     {
       "id": 822,
       "title": "A lambda argument isn't postponed when a later argument fixes its type, in day 9's proofs (List.mapZipWithScanLeft … (file free => (free.moveFile file).snd) …): E-CANNOT-INFER on free",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree-agent-a9052e3d7b44a1b3c",
       "labels": [],
       "body": "2024 day 9 Proofs/Part2.sw lines 55, 64, 78 write FreeSpace.moveFile free file instead. Docs say such lambdas wait for later arguments. Also day 3 proofs: a let-bound lambda over a (index, instruction) pair can't use instruction.result.",
       "created": "2026-10-28",
@@ -7353,9 +7353,9 @@
     {
       "id": 832,
       "title": "Type mismatch with an alias hides the difference: 'expected Quot Bool BoolEq, but this has type Q' (soundness/quot-relation-mismatch since alias names are kept); show the unfolded form beside the alias when the two sides differ only after unfolding",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree-agent-a7885eb4a489477b6",
       "labels": [],
       "body": "",
       "created": "2026-10-28",

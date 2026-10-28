@@ -90,6 +90,13 @@ own tickets as described in [board/README.md](../board/README.md).
   get a design note in `docs/proposals/` first, researched against the
   literature, and wait for the user (and possibly an external reviewer)
   before implementation.
+- Questions for Matt in a session get a D number (D1454, D1455, …),
+  counting up from the highest in use so each is unique. D numbers are
+  handles for the session's open questions, not a permanent record: the
+  answer goes on the SW- ticket it concerns. After each turn the
+  orchestrator lists the session's unanswered D questions, each followed by
+  its recommendation in square brackets (`D1454: start these lanes? [rec:
+  yes]`).
 - New findings become tickets in `backlog` (label `bug` for known issues),
   not straight into `next`, unless they block what's in progress.
 - Design detail lives in `DESIGN.md` and `docs/proposals/`; tickets only
