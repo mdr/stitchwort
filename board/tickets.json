@@ -5765,7 +5765,7 @@
     {
       "id": 703,
       "title": "Termination: list-pattern clauses | [] | [p] | [p, ..ps] with a recursive call inside a match are refused (pure or effectful); dropping [p] passes (parser research, 27 Oct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6245,7 +6245,7 @@
     {
       "id": 744,
       "title": "Day 9 small fixes: Parse.line reports a character after the line break as column 4 of line 1 (should be line 2); decreasing tries omega on measure goals itself; unknown-field error names Effect.CompD; shadowing warning names Parse.span; List.joinWith for texts; lengthReverse/reverseSnoc/sumFilterMap",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
