@@ -1,5 +1,5 @@
 {
-  "next": 837,
+  "next": 839,
   "tickets": [
     {
       "id": 13,
@@ -7404,6 +7404,30 @@
       "id": 836,
       "title": "rt tests aoc_agrees and every_aoc_main_lowers fail: 'program nested too deeply for the type checker' while lowering (predates TRMC)",
       "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 837,
+      "title": "TRMC bug: a let inside a recursive call's argument makes the caller pass an unbound variable (Main.flatten[cells]: v6 is read where it isn't bound); non-native build executables refuse to run. Plus: helper copies share the [cells] name; passes_on comment overstates its check",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 838,
+      "title": "E-ABILITY: in a function taking g: Nat → {e} Nat, a match inside a lambda passed to map whose arms call g is refused (adversarial review t13.sw, scratchpad/adv)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
