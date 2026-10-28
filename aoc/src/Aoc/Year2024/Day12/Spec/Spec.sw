@@ -66,10 +66,10 @@ def alongBefore (plot: Position) (side: Direction): Option Position :=
 -- it is": a run of fence facing the same way, plot after plot along a line.
 -- Each side is counted once, at its first section, the one with no fence
 -- before it along the line.
-def sides (region: List Position): Nat :=
-  region.sumBy (plot =>
-    directions.count (side =>
-      isFence region plot side && !(alongBefore plot side |> .map (before => isFence region before side) |> .getOrElse False)))
+def isFirstSection (region: List Position) (plot: Position) (side: Direction): Bool :=
+  isFence region plot side && !(alongBefore plot side |> .map (before => isFence region before side) |> .getOrElse False)
+
+def sides (region: List Position): Nat := region.sumBy (plot => directions.count (isFirstSection region plot))
 
 -- "The total price of fencing all regions on a map is found by adding
 -- together the price of fence for every region on the map", the price being

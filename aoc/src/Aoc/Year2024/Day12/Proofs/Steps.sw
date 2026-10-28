@@ -45,19 +45,23 @@ theorem orthogonalElim (from: Position) (to: Position) (step: isOrthogonalStep f
 theorem stepOrthogonal: (from: Position) → (side: Direction) → (to: Position) → from.step side = Some to → Orthogonal from to
   | { row = Succ above, column }, Up, to, stepped => rewrite <- Option.someInjective _ _ stepped in Inr (Both rfl (Inr (omega)))
   | { row = Zero, column }, Up, to, stepped => Void.exfalso (Option.noneNotSome to stepped)
-  | { row, column }, Down, to, stepped => rewrite <- Option.someInjective _ _ stepped in Inr (Both rfl (Inl rfl))
+  | { row, column }, Down, to, stepped => rewrite <- Option.someInjective _ _ stepped in Inr (Both rfl (Inl (omega)))
   | { row, column = Succ before }, Left, to, stepped => rewrite <- Option.someInjective _ _ stepped in Inl (Both rfl (Inr (omega)))
   | { row, column = Zero }, Left, to, stepped => Void.exfalso (Option.noneNotSome to stepped)
-  | { row, column }, Right, to, stepped => rewrite <- Option.someInjective _ _ stepped in Inl (Both rfl (Inl rfl))
+  | { row, column }, Right, to, stepped => rewrite <- Option.someInjective _ _ stepped in Inl (Both rfl (Inl (omega)))
 
 -- One orthogonal step is a step in some direction.
 theorem orthogonalStep: (from: Position) → (to: Position) → Orthogonal from to → Exists Direction (side => from.step side = Some to)
-  | { row, column }, { row = toRow, column = toColumn }, Inl (Both rows (Inl right)) => rewrite <- rows, <- right in Witness Right rfl
+  | { row, column }, { row = toRow, column = toColumn }, Inl (Both rows (Inl right)) =>
+    let same: Succ column = toColumn := omega
+    rewrite <- rows, <- same in Witness Right rfl
   | { row, column = Zero }, { row = toRow, column = toColumn }, Inl (Both rows (Inr left)) => Void.exfalso (omega)
   | { row, column = Succ before }, { row = toRow, column = toColumn }, Inl (Both rows (Inr left)) =>
     let same: before = toColumn := omega
     rewrite <- rows, <- same in Witness Left rfl
-  | { row, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inl down)) => rewrite <- columns, <- down in Witness Down rfl
+  | { row, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inl down)) =>
+    let same: Succ row = toRow := omega
+    rewrite <- columns, <- same in Witness Down rfl
   | { row = Zero, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inr up)) => Void.exfalso (omega)
   | { row = Succ above, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inr up)) =>
     let same: above = toRow := omega

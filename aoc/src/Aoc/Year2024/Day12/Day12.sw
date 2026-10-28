@@ -56,12 +56,12 @@ def Position.step (position: Position): Direction → Option Position
     match position.row with
       | Zero => None
       | Succ above => Some ({ position | row = above })
-  | Down => Some ({ position | row = position.row + 1 })
+  | Down => Some ({ position | row = Succ position.row })
   | Left =>
     match position.column with
       | Zero => None
       | Succ before => Some ({ position | column = before })
-  | Right => Some ({ position | column = position.column + 1 })
+  | Right => Some ({ position | column = Succ position.column })
 
 -- Whether the plot one step in `direction` grows the same plant.
 def Garden.sameAcross (garden: Garden) (position: Position) (direction: Direction): Bool :=
@@ -156,19 +156,23 @@ def Garden.perimeter (garden: Garden) (region: List Position): Nat := region.sum
 -- right.
 def quadrants: List (Direction, Direction) := [(Up, Left), (Up, Right), (Down, Left), (Down, Right)]
 
+-- The grid point diagonally across a plot's corner.
+def Position.diagonal (position: Position) (vertical: Direction) (horizontal: Direction): Option Position :=
+  position.step vertical |> .flatMap (next => next.step horizontal)
+
 -- A corner of the region's fence at a plot: outside, where neither side
 -- faces the same plant, or inside, where both do but the plot diagonally
 -- across doesn't.
-def Garden.isCorner (garden: Garden) (position: Position) (quadrant: (Direction, Direction)): Bool :=
-  let (vertical, horizontal) := quadrant
-  let diagonal := position.step vertical |> .flatMap (next => next.step horizontal) |> .flatMap garden.plantAt
+def Garden.isCorner (garden: Garden) (position: Position) (vertical: Direction) (horizontal: Direction): Bool :=
   match garden.sameAcross position vertical, garden.sameAcross position horizontal with
     | False, False => True
-    | True, True => diagonal != garden.plantAt position
+    | True, True => (position.diagonal vertical horizontal |> .flatMap garden.plantAt) != garden.plantAt position
     | _, _ => False
 
+def Garden.cornerCount (garden: Garden) (position: Position): Nat := quadrants.count (quadrant => garden.isCorner position quadrant.fst quadrant.snd)
+
 -- The number of sides equals the number of corners.
-def Garden.sides (garden: Garden) (region: List Position): Nat := region.sumBy (position => quadrants.count (garden.isCorner position))
+def Garden.sides (garden: Garden) (region: List Position): Nat := region.sumBy garden.cornerCount
 
 def solvePart1 (garden: Garden): Nat := garden.regions |> .sumBy (region => region.length * garden.perimeter region)
 

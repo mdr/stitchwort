@@ -139,5 +139,5 @@ test "steps" :=
 
 test "fences and corners of one plot" :=
   let map := garden "AB\nAA\n"
-  map.fences (at 1 0) == 2 && map.fences (at 0 1) == 4 && quadrants.count (map.isCorner (at 1 0)) == 2
-    && quadrants.count (map.isCorner (at 1 1)) == 2 && quadrants.count (map.isCorner (at 0 0)) == 2
+  map.fences (at 1 0) == 2 && map.fences (at 0 1) == 4 && map.cornerCount (at 1 0) == 2
+    && map.cornerCount (at 1 1) == 2 && map.cornerCount (at 0 0) == 2
