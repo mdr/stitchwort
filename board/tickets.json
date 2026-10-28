@@ -1,5 +1,5 @@
 {
-  "next": 732,
+  "next": 733,
   "tickets": [
     {
       "id": 13,
@@ -5909,7 +5909,7 @@
     {
       "id": 716,
       "title": "rfl error: when both sides print alike, show the first differing subterm, and only say 'differ only in arguments the compiler fills in' when true (AoC 2024 day 4)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5945,7 +5945,7 @@
     {
       "id": 719,
       "title": "Std.Parse follow-ups from AoC 2024 day 3: Parse.findAll (skips with span), bounded repetition (natDigits atLeast atMost), ensureAt a mark, per-piece and optional/oneOf lemmas; investigate ~6.5 KB/char memory growth in runFrom",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5957,7 +5957,7 @@
     {
       "id": 720,
       "title": "Effectful operand in a comparison: Parse.ensure (Parse.mark().offset ≤ 3) fails with 'no way to decide %3'; elaborate the effectful operand first, never print %n (AoC 2024 day 3)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5969,7 +5969,7 @@
     {
       "id": 721,
       "title": "Untyped record literal as an argument before the argument that fixes its type (foldLeft { enabled = True, total = 0 } step) can't be inferred; postpone it (AoC 2024 day 3)",
-      "status": "doing",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5981,7 +5981,7 @@
     {
       "id": 722,
       "title": "|> in calc steps doesn't parse (AoC 2024 day 3)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6041,7 +6041,7 @@
     {
       "id": 727,
       "title": "Std.Parse messages from stage 2: say what was found (got 'x' / the end of the line); expectations from attempts that didn't fail are hints that fail/ensure replace; Parse.token or spacedNat; blankLine allows spaces; Parse.line allows one final line break; spaces1; grid allowing empty input and short rows",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6089,6 +6089,18 @@
     {
       "id": 731,
       "title": "A lemma application ran out of resources ('a value was too large to show') on Set.containsFilter with the program's filter; compare the term with itself before unfolding, and always shorten error terms (AoC 2024 day 6)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 732,
+      "title": "Runtime: fused state-passing handlers should treat a resumption in a match arm as tail position (fusion.rs tail stops at match), so handlers don't leak a frame per operation; and the ~12 µs per handler-passing operation cost (Std.Parse findings)",
       "status": "next",
       "agent": "",
       "where": "",
