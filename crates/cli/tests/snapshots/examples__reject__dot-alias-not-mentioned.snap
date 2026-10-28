@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `List` has no field or function `numericPart`
+    ╭─[ reject/dot-alias-not-mentioned.sw:10:51 ]
+    │
+ 10 │ def handWritten (digits: List Nat): Nat := digits.numericPart
+    │                                                   ─────┬─────  
+    │                                                        ╰─────── looked in `List`
+    │ 
+    │ Note: `digits` has type `List Nat` here, which doesn't mention `Code`, so `.numericPart` was looked up in `List`; `Code.numericPart` takes a `Code`: write `Code.numericPart digits …`, or annotate the value as `Code` where it's made
+────╯

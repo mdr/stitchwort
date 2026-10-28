@@ -1,7 +1,12 @@
 # Should a type alias have its own functions?
 
-**Status:** design note, 28 October 2026. Open question; nothing decided, nothing landed. The
-experiment in [§3](#3-the-experiment) is commit `5be9ec86` on its own branch, marked
+**Status:** design note, 28 October 2026. Recommendation ([§8](#8-recommendation)) items 1–3
+implemented: fixes 1 and 2, with fix 2 evaluating a definition's type again only when it names
+a definition (no measurable cost on the bench), the same for the types of definitions a body
+refers to (§3.3's third change; +0.7% steps on the `check-closed-*` rows), the
+`E-UNKNOWN-FIELD` note, and the rule in
+[namespaces.md](namespaces.md) §4.8 and the guide. Place 3 and the same-name warning are open.
+The experiment in [§3](#3-the-experiment) is commit `5be9ec86` on its own branch, marked
 experimental. Related: [namespaces.md](namespaces.md) §4.8 (the dot rule),
 [dot-receiver.md](dot-receiver.md), [folded-calls.md](folded-calls.md) (glued calls),
 [microtypes.md](microtypes.md) (one-field records as distinct types),

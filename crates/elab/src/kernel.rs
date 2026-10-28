@@ -139,6 +139,18 @@ pub fn substitute_folded(
 /// everywhere; else evaluated again, so a type that names an opaque
 /// definition being unfolded computes (docs/proposals/opaque-definitions.md
 /// §6.4: a body sees `start: Code` as `start: Nat` when it unfolds `Code`).
+///
+/// The stored type has every definition unfolded. While gluing, a type that
+/// names a definition is evaluated again, so the definitions written in it
+/// stay as calls: in `codes: List Code`, a parameter or a constant, `Code`
+/// is kept, and dot notation finds `Code`'s namespace on anything inferred
+/// from `codes`. A type that names none is the same either way, and isn't
+/// evaluated again.
 pub fn def_ty(g: &Globals, id: DefId) -> stitchwort_core::budget::Result<stitchwort_core::Value> {
-    k::def_type(g, g.def(id))
+    let def = g.def(id);
+    if g.glue.get() && def.ty.subterms().any(|(t, _)| matches!(t, Term::Def(_))) {
+        stitchwort_core::value::eval(g, &[], &def.ty)
+    } else {
+        k::def_type(g, def)
+    }
 }

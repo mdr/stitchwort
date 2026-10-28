@@ -7,13 +7,15 @@
 //! The namespace comes from the **type-head view** of `e`'s type *as
 //! written* (a term), not of its value, since evaluation unfolds nicknames
 //! like `Price = Nat` at once: `p : Price` tries `Price.show` and then
-//! `Nat.show`.
+//! `Nat.show`. An inferred type keeps the nickname where it came from one
+//! (a glued call), so `codes.map (code => code.f)` with `codes: List Code`
+//! tries `Code.f` too.
 
 use std::rc::Rc;
 
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Head, eval, force};
+use stitchwort_core::value::{Head, eval, force, force_solved};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Term, Value};
 use stitchwort_syntax::ast::{Bracket, Expr, Name as AstName, SECTION};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -83,6 +85,13 @@ fn step(g: &Globals, ty: Ty) -> Result<Step> {
 }
 
 fn step_value(g: &Globals, value: Value) -> Result<Step> {
+    // A glued call is a definition as written (`Code`, kept while gluing),
+    // say an inferred type that came from one: try its namespace before
+    // unfolding it.
+    let value = force_solved(g, value)?;
+    if let Value::Call(id, ..) = &value {
+        return Ok(Step::Head(TyHead::Def(*id), Some(Ty::Value(value))));
+    }
     Ok(match force(g, value)? {
         Value::Data(d, _) => Step::Head(TyHead::Data(d), None),
         Value::Eq(..) => Step::Head(TyHead::Eq, None),
@@ -100,6 +109,8 @@ fn step_value(g: &Globals, value: Value) -> Result<Step> {
 /// running it. `None` if it can't unfold (it's stuck, say on a variable).
 fn unfold(g: &Globals, id: DefId, ty: Option<Ty>) -> Result<Option<Ty>> {
     let (term, env) = match ty {
+        // A glued call unfolds by forcing.
+        Some(Ty::Value(value @ Value::Call(..))) => return Ok(Some(Ty::Value(force(g, value)?))),
         // A value is already as unfolded as evaluation could make it.
         None | Some(Ty::Value(_)) => return Ok(None),
         Some(Ty::Term(term, env)) => (term, env),
@@ -436,6 +447,7 @@ fn find_in_view(
     mut ty: Ty,
 ) -> Result<(TyHead, DefId, String)> {
     let g = cx.g();
+    let receiver_ty = ty.clone();
     let mut tried: Vec<TyHead> = Vec::new();
     loop {
         match step(g, ty)? {
@@ -574,7 +586,7 @@ fn find_in_view(
                         Some(next) => ty = next,
                         None => return Err(blocked(cx, recv, field, &tried)),
                     },
-                    _ => return Err(unknown_member(cx, recv, field, &tried)),
+                    _ => return Err(unknown_member(cx, recv, field, &tried, receiver_ty)),
                 }
             }
         }
@@ -735,7 +747,13 @@ fn blocked(cx: &Ctx, recv: &Expr, field: &AstName, tried: &[TyHead]) -> Diagnost
 
 /// `E-UNKNOWN-FIELD`: the type has no field or function `field`. Lists a
 /// record's fields, and near misses among the namespace's functions.
-fn unknown_member(cx: &Ctx, recv: &Expr, field: &AstName, tried: &[TyHead]) -> Diagnostic {
+fn unknown_member(
+    cx: &Ctx,
+    recv: &Expr,
+    field: &AstName,
+    tried: &[TyHead],
+    receiver_ty: Ty,
+) -> Diagnostic {
     let g = cx.g();
     let last = *tried.last().expect("a head was tried");
     let ns = namespace(cx, last);
@@ -780,14 +798,27 @@ fn unknown_member(cx: &Ctx, recv: &Expr, field: &AstName, tried: &[TyHead]) -> D
             format!("its fields are {}", fields.join(", "))
         });
     }
-    if let Some(full) = elsewhere_taking(cx, field, tried) {
-        let owner = scope::display(&ns);
-        let owner = owner.rsplit('.').next().unwrap_or(owner);
+    if let Some((full, param_heads)) = elsewhere_taking(cx, field, tried) {
         let call = match recv {
             Expr::Var(n) if written(n) => format!("`{full} {} …`", n.text),
             _ => format!("`|> {full} …`"),
         };
-        d = d.with_note(format!("`{full}` takes a `{owner}` first: write {call}"));
+        let alias = unmentioned_alias(cx, &param_heads, tried, receiver_ty);
+        d = d.with_note(match alias {
+            Some((alias, ty)) => format!(
+                "{} has type `{ty}` here, which doesn't mention `{alias}`, so `.{}` was \
+                 looked up in {}; `{full}` takes a `{alias}`: write {call}, or annotate \
+                 the value as `{alias}` where it's made",
+                shown(recv),
+                field.text,
+                tried_list(cx, tried)
+            ),
+            None => {
+                let owner = scope::display(&ns);
+                let owner = owner.rsplit('.').next().unwrap_or(owner);
+                format!("`{full}` takes a `{owner}` first: write {call}")
+            }
+        });
     }
     if let Some(place) = in_scope_taking(cx, field, tried) {
         let owner = scope::display(&ns);
@@ -811,13 +842,14 @@ fn unknown_member(cx: &Ctx, recv: &Expr, field: &AstName, tried: &[TyHead]) -> D
 /// A definition `U.field` in another namespace whose first explicit
 /// parameter's type has one of `tried` as a head, so `x |> U.field` would
 /// take the receiver: `Text.joinWith` for `.joinWith` on a `List`. The
-/// first such name in order, as written in messages.
-fn elsewhere_taking(cx: &Ctx, field: &AstName, tried: &[TyHead]) -> Option<String> {
+/// first such name in order, as written in messages, with the heads of that
+/// parameter's type.
+fn elsewhere_taking(cx: &Ctx, field: &AstName, tried: &[TyHead]) -> Option<(String, Vec<TyHead>)> {
     let suffix = format!(".{}", field.text);
     let tried_namespaces: Vec<String> = tried.iter().map(|h| namespace(cx, *h)).collect();
     let g = cx.g();
     let level = cx.level();
-    let mut found: Vec<String> =
+    let mut found: Vec<(String, Vec<TyHead>)> =
         cx.e.scope
             .keys()
             .filter_map(|key| {
@@ -834,14 +866,48 @@ fn elsewhere_taking(cx: &Ctx, field: &AstName, tried: &[TyHead]) -> Option<Strin
                 let all = params(g, f);
                 let depth = all.iter().position(|p| p.icit == Icit::Explicit)?;
                 let env: Vec<Value> = (0..depth).map(|j| Value::var(level + j)).collect();
-                let takes = heads(g, Ty::Term(all[depth].ty.clone(), env))
-                    .is_ok_and(|hs| hs.iter().any(|h| tried.contains(h)));
-                takes.then(|| scope::display(key).to_string())
+                let hs = heads(g, Ty::Term(all[depth].ty.clone(), env)).ok()?;
+                hs.iter()
+                    .any(|h| tried.contains(h))
+                    .then(|| (scope::display(key).to_string(), hs))
             })
             .collect();
-    found.sort();
-    found.dedup();
+    found.sort_by(|a, b| a.0.cmp(&b.0));
+    found.dedup_by(|a, b| a.0 == b.0);
     found.into_iter().next()
+}
+
+/// When the function found elsewhere takes an alias (the first of
+/// `param_heads` is a definition that unfolds to one of `tried`) and the
+/// receiver's type doesn't mention it anywhere: the alias's name, and the
+/// receiver's type as shown.
+fn unmentioned_alias(
+    cx: &Ctx,
+    param_heads: &[TyHead],
+    tried: &[TyHead],
+    receiver_ty: Ty,
+) -> Option<(String, String)> {
+    let Some(&TyHead::Def(alias)) = param_heads.first() else {
+        return None;
+    };
+    if tried.contains(&TyHead::Def(alias)) {
+        return None;
+    }
+    let g = cx.g();
+    let value = match receiver_ty {
+        Ty::Value(value) => value,
+        Ty::Term(term, env) => eval(g, &env, &term).ok()?,
+    };
+    let term = stitchwort_core::value::quote_folded(g, cx.level(), &value).ok()?;
+    if term
+        .subterms()
+        .any(|(t, _)| matches!(t, Term::Def(id) if *id == alias))
+    {
+        return None;
+    }
+    let name = scope::display(&namespace(cx, TyHead::Def(alias))).to_string();
+    let name = name.rsplit('.').next().unwrap_or(&name).to_string();
+    Some((name, cx.show(&value)))
 }
 
 /// Whether the bare name `field` is a definition in scope (not a local

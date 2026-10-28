@@ -3,7 +3,7 @@
 **Status:** built, 23 October 2026 (D1073, from the AoC Day 3 review). User
 documentation: [syntax.md, "`Fin` literals"](../syntax.md#fin-literals).
 
-**Problem.** `maxJoltage 2 [2, 7, 5, 7, 3]`, where a `List (Fin 10)` is
+**Problem.** `Bank.maxJoltage [2, 7, 5, 7, 3] 2`, where a `List (Fin 10)` is
 expected, was refused: "expected `Fin 10`, but this has type `Nat` … a numeral
 can only be the prelude's `Nat` or `Int`". Tests built digits from text
 (`Bank.parse "27573"`) or with `Fin.ofNat`.
