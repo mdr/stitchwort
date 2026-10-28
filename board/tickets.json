@@ -1,5 +1,5 @@
 {
-  "next": 711,
+  "next": 713,
   "tickets": [
     {
       "id": 13,
@@ -5838,6 +5838,30 @@
       "id": 709,
       "title": "Error messages from AoC 2024 day 2: dot call on a function outside the type's namespace suggests the plain call; a tactic word at line end before a new line reports the tactic, not the next line (overnight)",
       "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 711,
+      "title": "AoC 2024 day 6: solve, prove against a puzzle-literal spec, log language gaps (overnight)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 712,
+      "title": "AoC 2024 day 5: solve with Std.Parse once stage 1 lands, prove, log gaps (overnight)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
