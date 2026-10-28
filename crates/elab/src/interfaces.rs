@@ -1565,10 +1565,7 @@ impl Elaborator {
                 let Term::Meta(m) = ob.meta.spine().0 else {
                     continue;
                 };
-                if keep.contains(m)
-                    || only.is_some_and(|only| !only.contains(m))
-                    || self.globals.meta_solution(*m).is_some()
-                {
+                if keep.contains(m) || only.is_some_and(|only| !only.contains(m)) {
                     continue;
                 }
                 let Some((_, arg)) = interface_goal(self, &ob.goal)? else {
@@ -1581,19 +1578,33 @@ impl Elaborator {
                     ob.names.clone(),
                     ob.span,
                 );
+                // Solved by unification, unless only pruned: then its
+                // solution is a new unknown, still to be found here.
+                if !unsolved_placeholder(&cx, &ob.meta)? {
+                    continue;
+                }
                 if unsolved_in(&cx, &arg)?.is_none() {
-                    ready.push(ob.meta.clone());
+                    ready.push(ob.clone());
                 }
             }
         }
         let mut found = false;
-        for meta in ready {
-            self.solve_now(&meta)?;
-            found |=
-                matches!(meta.spine().0, Term::Meta(m) if self.globals.meta_solution(*m).is_some());
+        for ob in ready {
+            self.solve_now(&ob.meta)?;
+            let cx = Ctx::from_parts(self, ob.env, ob.types, ob.names, ob.span);
+            found |= !unsolved_placeholder(&cx, &ob.meta)?;
         }
         Ok(found)
     }
+}
+
+/// Whether the dictionary `meta` stands for is still unknown: an unsolved
+/// metavariable, or one solved only by pruning to another unsolved one.
+fn unsolved_placeholder(cx: &Ctx, meta: &Term) -> Result<bool> {
+    Ok(matches!(
+        force(cx.g(), cx.eval(meta)?)?,
+        Value::Neutral(Head::Meta(_), _)
+    ))
 }
 
 /// Whether `v` has a projection that was stuck on a dictionary found since:

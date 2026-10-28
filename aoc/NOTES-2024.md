@@ -4576,11 +4576,22 @@ program uses it again.
   `Set.contains warehouse.boxes position = True`". The note explains the
   opposite case (a term written inside the branch isn't refined). What I
   did: used `found` as it was and passed `rfl`.
+
+  Fixed: the `rewrite` error labels the `match` ("this `match` replaced
+  `isBig n` with `False`") and says the hypothesis is already refined; the
+  mismatch for a refined lemma labels it too, says the `match`'s own
+  equation isn't refined, and that `rfl` proves the premise when both
+  sides are the same. The lemma doesn't accept the equation: in the branch
+  `e` and `True` aren't the same by computing, only by the equation, as in
+  Lean's `match h : e with`.
 - A `_` was solved to make a lemma vacuous: `positionEq _ position rfl
   (omega)` for `(position.step Right).step Left = position` gave "expected
   `{ position | column = position.column + 1 - 1 } = position`, but this
   has type `position = position`". What I did: wrote the argument out.
 - The first check printed each of its two errors twice.
+
+  Not a bug: the command was `stitchwort check … | head -40 && stitchwort
+  run …`, and both commands printed the two errors.
 
 ### 4. Inference
 
@@ -4594,6 +4605,11 @@ program uses it again.
   warehouse.robot) = False`, but this has type `Decidable.toBool
   (DecEq.%decide … position …) = False`", the same `==` reached through
   the instance and directly. What I did: wrote the argument out.
+
+  Fixed: solving the `_` outside the lambda pruned `DecEq.sound`'s
+  dictionary to a new unknown with no obligation, so the instance was never
+  looked for. Pruned dictionaries are now looked for; `wholeOfSeparate`
+  writes `Bool.falseOfNotTrue _`.
 
 ### 5. Performance
 
@@ -4651,6 +4667,12 @@ refining the hypotheses saved many rewrites. The friction:
 - Constructors of a type aren't known to differ: refuting `WideRobot =
   BoxLeft` needed a `tileCode` function, `Eq.cong` and `omega`
   (`tilesDiffer`).
+
+  Fixed: `cases` already closed such a case (a hypothesis equating two
+  different constructors), and each of the eight is now `cases`;
+  `tileCode` and `tilesDiffer` are gone. `()` now matches an equation of
+  two different constructors too (`| ()` for `Robot = BoxLeft -> Void`),
+  where it said the equation "has values".
 
 ### 7. Comparisons
 

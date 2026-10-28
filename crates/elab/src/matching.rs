@@ -649,8 +649,9 @@ fn generalised(
     cx.scrutinees.extend(
         exprs
             .iter()
-            .filter(|s| !matches!(s.normal.strip_loc(), Term::Var(_)))
-            .map(|s| (base, s.normal.clone(), s.span)),
+            .enumerate()
+            .filter(|(_, s)| !matches!(s.normal.strip_loc(), Term::Var(_)))
+            .map(|(i, s)| (base, s.normal.clone(), s.span, base + i)),
     );
     let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, &motive));
     cx.scrutinees.truncate(known);

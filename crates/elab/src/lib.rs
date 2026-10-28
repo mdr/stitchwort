@@ -4092,6 +4092,12 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
         {
             Ok(Term::Loc(*span, Rc::new(term)))
         }
+        // An equation of two different constructors has no proofs.
+        Tree::Absurd { level, span }
+            if let Some(term) = cases::refute_equation(cx, *level, goal)? =>
+        {
+            Ok(Term::Loc(*span, Rc::new(term)))
+        }
         Tree::Absurd { level, span } => match force(cx.g(), cx.types[*level].clone())? {
             Value::Data(d, _) if cx.g().data(d).ctors.is_empty() => Ok(Term::Loc(
                 *span,

@@ -81,9 +81,10 @@ pub struct Ctx<'e> {
     pub(crate) tree_start: usize,
     /// The expression scrutinees of the generalised `match`es whose
     /// alternatives are being checked: the variables in scope at the `match`,
-    /// the scrutinee as types hold it, and where it is written. A mismatch
-    /// that still contains one gets a hint (D230).
-    pub(crate) scrutinees: Vec<(usize, Term, Span)>,
+    /// the scrutinee as types hold it, where it is written, and the level of
+    /// the variable standing for it (in a branch, the branch's constructor).
+    /// A mismatch that still contains one gets a hint (D230).
+    pub(crate) scrutinees: Vec<(usize, Term, Span, usize)>,
     /// How to show the goal of a `?` that is a `match reify`'s `return`
     /// clause (`reify.rs`); display only.
     pub(crate) reify_display: Option<ReifyDisplay>,
@@ -657,11 +658,43 @@ impl<'e> Ctx<'e> {
         let (Ok(expected), Ok(found)) = (quote(g, level, expected), quote(g, level, found)) else {
             return d;
         };
-        for (base, needle, span) in self.scrutinees.iter().rev() {
+        for (base, needle, span, var) in self.scrutinees.iter().rev() {
             let Ok(needle) = needle.shift(g, level - base, 0) else {
                 continue;
             };
             let contains = |t: &Term| crate::matching::occurs(&needle, t);
+            // What's expected is `found` refined by the `match`: a hypothesis
+            // or `let`-bound lemma from before it, given the match's own
+            // equation or another term about the unrefined scrutinee.
+            if !contains(&expected)
+                && contains(&found)
+                && let Some(value) = self.refined_value(*var)
+                && self.refines_to(&needle, *var, &found, &expected)
+            {
+                let mut d = d
+                    .with_label(
+                        *span,
+                        format!(
+                            "this `match` replaced its scrutinee with `{value}` in this branch"
+                        ),
+                    )
+                    .with_note(format!(
+                        "what's expected was refined by the `match`: it has `{value}` where this \
+                         has the scrutinee. The goal, the hypotheses and the `let`-bound lemmas \
+                         from before the `match` are refined; the `match`'s own equation and \
+                         terms written in the branch aren't"
+                    ));
+                if let Term::Eq(_, l, r) = expected.strip_loc()
+                    && crate::matching::same(l, r)
+                    && let Ok(side) = self.eval(l)
+                {
+                    d = d.with_note(format!(
+                        "both sides of what's expected are `{}`, so `rfl` proves it",
+                        self.show(&side)
+                    ));
+                }
+                return d;
+            }
             if contains(&expected) || contains(&found) {
                 return d
                     .with_label(*span, "the `match`'s scrutinee, still in this type")
@@ -675,6 +708,43 @@ impl<'e> Ctx<'e> {
             }
         }
         d
+    }
+
+    /// In a branch of a generalised `match`, what the variable at `var`
+    /// (standing for a scrutinee) is, shown: the branch's constructor or
+    /// number. `None` where it is still a variable (a catch-all arm).
+    pub(crate) fn refined_value(&self, var: usize) -> Option<String> {
+        let value = self.env.get(var)?;
+        if matches!(value, Value::Neutral(..)) {
+            return None;
+        }
+        Some(self.show(value))
+    }
+
+    /// Whether `term`, with `needle` replaced by the variable at `var`,
+    /// computes to `refined` (quoted, as `needle` is, at the current level).
+    pub(crate) fn refines_to(
+        &self,
+        needle: &Term,
+        var: usize,
+        term: &Term,
+        refined: &Term,
+    ) -> bool {
+        let g = self.g();
+        let level = self.level();
+        let hook = |t: &Term, under: usize| {
+            crate::matching::same_shifted(needle, t, under, 0)
+                .then(|| Term::Var(level + under - 1 - var))
+        };
+        let Ok(replaced) =
+            crate::lift::replace_with(g, term, level, &|l| Ok(Term::Var(level - 1 - l)), &hook)
+        else {
+            return false;
+        };
+        let Ok(value) = self.eval(&replaced) else {
+            return false;
+        };
+        quote(g, level, &value).is_ok_and(|t| crate::matching::same(&t, refined))
     }
 }
 
