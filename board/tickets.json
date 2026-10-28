@@ -5957,7 +5957,7 @@
     {
       "id": 720,
       "title": "Effectful operand in a comparison: Parse.ensure (Parse.mark().offset ≤ 3) fails with 'no way to decide %3'; elaborate the effectful operand first, never print %n (AoC 2024 day 3)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -5981,7 +5981,7 @@
     {
       "id": 722,
       "title": "|> in calc steps doesn't parse (AoC 2024 day 3)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6029,7 +6029,7 @@
     {
       "id": 726,
       "title": "Error for a keyword used as a parameter name (test) says it's a keyword (AoC 2024 day 5)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
