@@ -1,5 +1,5 @@
 {
-  "next": 746,
+  "next": 748,
   "tickets": [
     {
       "id": 13,
@@ -6149,7 +6149,7 @@
     {
       "id": 736,
       "title": "Split List/Toolkit.sw: lemmas into their own file(s) so programs calling List.range etc. don't check ~2,400 lines of lemmas (bench check-closed tracks toolkit size); after the day-7 std lemma lane merges",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6257,6 +6257,30 @@
     {
       "id": 745,
       "title": "Std lemmas tying Map.alter/adjust, Set.insert/remove/min to a list model, then AoC 2024 day 9 part 2 proved equal to the spec (~1,000 lines est.)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 746,
+      "title": "Bench: four tiny check programs make ~100 more allocations each (check-text-literal 130→232, nested-parens 111→213); find the fixed-cost source",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 747,
+      "title": "Split List/Sort.sw (1,663 lines) into functions and lemmas, as Toolkit was",
       "status": "next",
       "agent": "",
       "where": "",
