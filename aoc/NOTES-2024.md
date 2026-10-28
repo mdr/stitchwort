@@ -4920,6 +4920,14 @@ None added to std (the `List` lemma files are another lane's). Fix: add
 `Set.popMin` and the `Set.min` lemmas, the `Map` insert lemmas, the
 `List.minimum` lemmas and `memMapElim`, and move the generic search.
 
+Fixed: std has `Set.popMin` and `Map.popMin`, the least key (entry) and
+the rest in one walk down the left spine, as `Data.Set.minView`, with
+`Set.popMinSpec` (`popMin` is `min` and `remove` together),
+`Set.popMinSome`, `Set.popMinNone`, `Set.sizePopMin`, `Set.containsMin`
+and `Map.popMinSpec`. The search pops with it: `searchFrom` takes
+`queue.popMin` and its equation, and the program's `containsMin` and
+`sizeRemoveMin` are gone.
+
 ### 3. Confusing errors
 
 - A dependent `match` on `queue.min` inside the search couldn't be stepped
@@ -4951,11 +4959,27 @@ None added to std (the `List` lemma files are another lane's). Fix: add
   the left, put there by the `rewrite`, had not. I bridged with a lemma,
   `finalCons`, in whichever direction the error showed. Fix: refine terms
   produced inside the branch too, or say which side is unrefined.
+
+  Not fixed: the unrefined side isn't the `rewrite`'s. `final maze middle
+  after` has `after` bound by the `Exists` until `Witness (Cons way rest)`
+  fills it in; only then does it compute to a `match` on `move maze
+  reindeer way`, long after the `match` replaced that expression in the
+  goal. So neither the `match` nor the `rewrite` ever sees it; refining it
+  would mean comparing terms up to the arm's equation (`moved`) everywhere
+  in the arm, which the kernel's comparison doesn't do. `rewrite moved in
+  rfl` in place of `finalCons` works, since `rewrite` searches what terms
+  compute to (`examples/accept/match-equation-rewrites-later-terms.sw`;
+  `examples/reject/match-refines-goal-once.sw` is the failure, with no
+  `rewrite` in it).
 - Constructors aren't imported by name: `import Aoc.Year2024.Day16.Spec
   (Clockwise, Counterclockwise, Forward, Move, …)` gave ``[E-IMPORT-UNKNOWN]
   Error: `Aoc.Year2024.Day16.Spec` has no `Clockwise` `` for each;
   importing `Move` brings them. Fix: a note saying a constructor comes
   with its type.
+
+  Fixed: the error has the note ``Note: `Clockwise` is a constructor of
+  `Move`, and constructors come with their type: import `Move` instead, as
+  in `import Turns (Move)` `` (`examples/projects/reject/import-constructor`).
 - A type written on a `let` is computed before `rewrite` sees it:
   `let member: List.Mem x (List.map (Cons (key, unit) rest) Pair.fst) :=
   rewrite <- entries in …` gave ``[E-REWRITE-NOTHING] Error: `rewrite`
@@ -4973,6 +4997,12 @@ None added to std (the `List` lemma files are another lane's). Fix: add
   `memMapElim (entry => entry.fst.position) tile (fromStart.toList.filter
   passes) listed` gave ``can't tell what `entry` is, so can't look up
   `.fst` ``. Annotated `(entry: (Reindeer, Nat))`, three times.
+
+  Fixed: a lambda whose parameter type isn't known yet, and that fails
+  where it is, is checked after the later arguments also when a later
+  parameter's type mentions it (here `y ∈ xs.map f`): that type holds a
+  placeholder for the lambda, which `listed`'s type solves. The three
+  annotations are gone (`examples/accept/lambda-postponed-dependent-argument.sw`).
 - `_` for a predicate isn't solved from a hypothesis's type: `anyMember _
   maze.endReindeer (List.memFilterMapElim …)` gave ``expected `… ∨ … ∨
   …`, but this has type `List.Any (x => Map.get (Maze.fromStart maze) x =
@@ -4993,6 +5023,13 @@ each part takes the parsed maze alone. Each pop is a `Set.min`, a
 `Map.insert`, all balanced-tree operations on records compared field by
 field. Not pursued further. Fix: a `Set.popMin` (one walk instead of
 two), and let `main` share the forward search between the parts.
+
+Fixed: both. `main` searches forward once and passes the scores to
+`part1From` and `part2From` (`solvePart1` and `solvePart2`, which the
+proofs are about, are those with `maze.fromStart`). On a regenerated 141
+by 141 maze (the same recipe with another seed; 45284 and 329, as Python
+says), load average about 10: 13.5 s user before, 10.7 s with `popMin`,
+6.3 s with the search shared too.
 
 ### 6. Proofs
 
