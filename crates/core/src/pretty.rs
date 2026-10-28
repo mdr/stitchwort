@@ -696,6 +696,22 @@ impl<'g> Printer<'g> {
                     {
                         return self.go(names, value);
                     }
+                    // A value made a computation, `doneIn e v` or `doneD d e
+                    // v`, is the value as written: the wrapper is the
+                    // compiler's, unless the hidden arguments are asked for.
+                    if !self.show_hidden.get()
+                        && let Some(value) = match &args[..] {
+                            [_, value] if self.g.registry.is_def(Builtin::DoneIn, *id) => {
+                                Some(value)
+                            }
+                            [_, _, value] if self.g.registry.is_def(Builtin::DoneD, *id) => {
+                                Some(value)
+                            }
+                            _ => None,
+                        }
+                    {
+                        return self.go(names, value);
+                    }
                     // A computation in a bare row that may be partial
                     // (docs/proposals/partial-stage-3.md): `CompD d e a` is
                     // `{e} a`, as written; at `Total` it's `CompIn e a`, and

@@ -530,7 +530,7 @@ fn discharge(
 
 /// Whether `ty` is the type of proofs: an equation, a proposition, or a
 /// call of a definition whose result is one (`List.Mem x xs`).
-fn is_proof_type(cx: &Ctx, ty: &Value) -> Result<bool> {
+pub(crate) fn is_proof_type(cx: &Ctx, ty: &Value) -> Result<bool> {
     if crate::patlet::proposition(cx, ty)? {
         return Ok(true);
     }

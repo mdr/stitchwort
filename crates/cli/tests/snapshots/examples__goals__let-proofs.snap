@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `shifted`
+    ╭─[ goals/let-proofs.sw:12:3 ]
+    │
+ 12 │   ?
+    │   ┬  
+    │   ╰── n: Nat
+    │       wide: Nat := n + 3
+    │       split: n + 3 = n + 2 + 1
+    │       both: n + 3 = n + 2 + 1
+    │       step: (k: Nat) → k + 1 = k + 1
+    │       ⊢ total (n + 3) = total (n + 2 + 1)
+────╯
