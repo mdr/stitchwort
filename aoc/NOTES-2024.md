@@ -1166,6 +1166,15 @@ used in both places. Fix: elaborate `||`/`&&` to `Bool.or`/`Bool.and` of the
 two results when the row turns out to be `Total`, or normalise
 `if b then True else False` to `b` in conversion.
 
+Fixed: in a computation, `a || b` and `a && b` no longer wrap `b` in
+`if b then True else False`. A left side that performs runs first and its
+result is the left operand of the rest; a pure left side is the condition of
+the plain `Bool` reading, with the same choice of `if` or `Decidable.elim`
+as outside a computation. Once the row is empty the lambda computes to the
+plain form, so the same text in a statement and a proof is equal by `rfl`
+(`examples/accept/effect-logic-in-lambdas.sw`). Day 5 writes the test inline
+again; `keptBy` is gone.
+
 ### 2. No eta for records
 
 `Eq.cong (pages => ({ pages }: Update)) same` doesn't prove `first = second`

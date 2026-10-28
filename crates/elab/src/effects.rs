@@ -2457,9 +2457,50 @@ fn comp_check_in(
             cx.span = saved;
             result
         }
-        // `a && b`, `a || b`: as an `if`, so `b` runs only if it's needed.
+        // `a && b`, `a || b`, so that `b` runs only if it's needed. An `a`
+        // that performs runs first, and its result is the left operand of
+        // the rest; a pure `a` is the condition of the `Bool` reading, with
+        // computations as its branches. Either way, in the empty row the
+        // term computes to the one a pure `a op b` gets.
         Expr::Binary(op @ (BinOp::And | BinOp::Or), a, b) if may_perform(cx, expr)? => {
-            comp_check_in(cx, &crate::logic::as_if(*op, a, b), row, t, as_written)
+            if !may_perform(cx, a)? {
+                let and = *op == BinOp::And;
+                let what = if and { "&&" } else { "||" };
+                return branches(cx, row, t, as_written, |cx, expected| {
+                    let result = cx.quote_folded(expected)?;
+                    let constant = |cx: &mut Ctx, which: Builtin| -> Result<Term> {
+                        let name = if which == Builtin::True {
+                            "True"
+                        } else {
+                            "False"
+                        };
+                        let name = AstName {
+                            text: format!("Std.Bool.{name}"),
+                            span: expr.span(),
+                        };
+                        check(cx, &Expr::Var(name), expected)
+                    };
+                    crate::logic::short_circuit(
+                        cx,
+                        and,
+                        a,
+                        what,
+                        result,
+                        &mut |cx| check(cx, b, expected),
+                        &constant,
+                    )
+                });
+            }
+            let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+            let c = comp_check(cx, a, row, &bool_ty)?;
+            let left = Expr::Var(AstName {
+                text: "%left".into(),
+                span: a.span(),
+            });
+            let rest = Expr::Binary(*op, Box::new(left), b.clone());
+            sequence(cx, row, t, "%left", c, bool_ty, true, |cx| {
+                comp_check_in(cx, &rest, row, t, as_written)
+            })
         }
         _ if may_perform_at(cx, expr, Some(t))? => {
             let (c, ty) = comp_call(cx, expr, row, Some(t))?;
