@@ -1,5 +1,5 @@
 {
-  "next": 770,
+  "next": 772,
   "tickets": [
     {
       "id": 13,
@@ -6485,7 +6485,7 @@
     {
       "id": 764,
       "title": "AoC 2024 day 16 (examples only; input pending from Matt): Dijkstra, solve, prove, log gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -6546,6 +6546,30 @@
       "id": 769,
       "title": "AoC 2024 day 17 (examples only; input pending from Matt): 3-bit computer, solve, prove, log gaps",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 770,
+      "title": "AoC 2024 day 18 (examples only; input pending from Matt): falling bytes, shortest path, solve, prove, log gaps",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-10-28",
+      "updated": "2026-10-28",
+      "commits": []
+    },
+    {
+      "id": 771,
+      "title": "Day 16 findings: Set.popMin and the generic Dijkstra + proof into std (after the Set lane); share part 1's search with part 2; E-MATCH-MOTIVE on a match keeping its equation (queue.min); rewrite-introduced terms not refined by match; lambdas inferred after other arguments; importing a constructor by name note",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
