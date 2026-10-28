@@ -23,7 +23,7 @@ def enabledAfter (earlier: List Instruction): Bool :=
 -- "Add up all of the results of just the enabled multiplications": each
 -- instruction counts when the instructions before it leave `mul` enabled.
 def enabledResults (instructions: List Instruction): Nat :=
-  instructions.withIndex.sumBy (((index, instruction)) => if enabledAfter (instructions.take index) then result instruction else 0)
+  instructions.withIndex.sumBy (((index, instruction)) => if enabledAfter (instructions.take index) then instruction.result else 0)
 
 def isDont: Instruction → Bool
   | Dont => True

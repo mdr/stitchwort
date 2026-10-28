@@ -43,12 +43,12 @@ def instruction(): {Parse} Instruction :=
 def parseInstructions (memory: Text): {Fail} (List Instruction) := Parse.all memory (() => findAll instruction)
 
 -- What a `mul` adds; `do()` and `don't()` add nothing.
-def result: Instruction → Nat
+def Instruction.result: Instruction → Nat
   | Mul left right => left * right
   | Do => 0
   | Dont => 0
 
-def solvePart1 (instructions: List Instruction): Nat := instructions.sumBy result
+def solvePart1 (instructions: List Instruction): Nat := instructions.sumBy .result
 
 -- Part 2's running state: whether `mul` is enabled, and the sum so far.
 type Tally = { enabled: Bool, total: Nat }
