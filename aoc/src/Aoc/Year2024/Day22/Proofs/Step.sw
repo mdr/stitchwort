@@ -25,15 +25,15 @@ theorem bitwiseXorUnique (x: Nat) (y: Nat) (result: Nat) (bitwise: BitwiseXor x 
 theorem powModulus: Nat.pow 2 24 = modulus := rfl
 
 -- Pruning a mix is mixing the pruned sides.
-theorem pruneMix (value: Nat) (secret: Nat): prune (mix value secret) = Nat.xor (value % modulus) (secret % modulus) := xorModPow 24 value secret
+theorem pruneMix (value: Nat) (secret: Nat): prune (mix value secret) = Nat.xor (value % modulus) (secret % modulus) := Nat.xorModPow 24 value secret
 
 theorem belowModulus (n: Nat): n % modulus < modulus := Nat.modLess n modulus (Nat.succNotZero 16777215)
 
 theorem nextSecretEvolves (secret: Nat): nextSecret secret = evolve secret :=
   let first := Nat.xor (secret * 64 % modulus) (secret % modulus)
-  let firstSmall: first < modulus := xorBelow 24 (secret * 64 % modulus) (secret % modulus) (belowModulus (secret * 64)) (belowModulus secret)
+  let firstSmall: first < modulus := Nat.xorBelow 24 (secret * 64 % modulus) (secret % modulus) (belowModulus (secret * 64)) (belowModulus secret)
   let second := Nat.xor (first / 32) first
-  let secondSmall: second < modulus := xorBelow 24 (first / 32) first (omega [firstSmall]) firstSmall
+  let secondSmall: second < modulus := Nat.xorBelow 24 (first / 32) first (omega [firstSmall]) firstSmall
   rewrite pruneMix (secret * 64) secret in
     rewrite pruneMix (first / 32) first, Nat.modSmall (first / 32) modulus (omega [firstSmall]), Nat.modSmall first modulus firstSmall in
       rewrite pruneMix (second * 2048) second, Nat.modSmall second modulus secondSmall in rfl

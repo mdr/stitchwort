@@ -36,6 +36,12 @@ def Char.isAsciiSpaceCode: Nat → Bool
 
 def Char.isAsciiSpace (char: Char): Bool := char.toNat |> Char.isAsciiSpaceCode
 
+-- `a` to `z`.
+def Char.isAsciiLowercase (char: Char): Bool := 'a' ≤ char && char ≤ 'z'
+
+-- `A` to `Z`.
+def Char.isAsciiUppercase (char: Char): Bool := 'A' ≤ char && char ≤ 'Z'
+
 -- The non-ASCII `White_Space` code points below U+2000: U+0085, U+00A0, U+1680.
 def Char.isWhitespaceLow: Nat → Bool
   | 133 => True

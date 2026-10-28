@@ -83,6 +83,13 @@ def Option.filter: Option a → (p: a → Bool) → Option a
   | None, p => None
   | Some x, p => if p x then Some x else None
 
+-- The value as a one-element list, or the empty list.
+def Option.toList: Option a → List a
+  | None => Nil
+  | Some x => [x]
+
+theorem Option.toListExample: (Some 3).toList = [3] := rfl
+
 test "Option.isSome" := (Some 1).isSome == True ∧ (None: Option Nat).isSome == False
 test "Option.isNone" := (Some 1).isNone == False ∧ (None: Option Nat).isNone == True
 test "Option.orElse" := (Some 1).orElse (Some 2) == Some 1 ∧ (None: Option Nat).orElse (Some 2) == Some 2 ∧ (None: Option Nat).orElse None == None

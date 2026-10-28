@@ -311,6 +311,18 @@ def List.lookup [auto eq: DecEq k]: List (Pair k v) → (key: k) → Option v
 -- n long (it is `xs` itself when that is already n long or longer).
 def List.padRight (xs: List a) (n: Nat) (x: a): List a := xs.append (List.replicate (n - xs.length) x)
 
+-- `xs` after enough copies of `x` to make it `n` long (`xs` itself when it is already that long).
+def List.padLeft (xs: List a) (n: Nat) (x: a): List a := (List.replicate (n - xs.length) x).append xs
+
+-- `Some` of every value when every option has one, else `None`.
+def List.allSome: List (Option a) → Option (List a)
+  | Nil => Some Nil
+  | Cons first rest => first.flatMap (value => List.allSome rest |> .map (Cons value))
+
+theorem List.allSomeExample: List.allSome [Some 1, Some 2] = Some [1, 2] := rfl
+
+theorem List.allSomeNone: List.allSome [Some 1, None] = None := rfl
+
 -- The first `n` columns of a list of rows (`List.transpose`'s loop): column i
 -- is the i-th element of each row that has one.
 @[noReceiver]

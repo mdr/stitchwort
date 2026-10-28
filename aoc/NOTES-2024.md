@@ -7059,7 +7059,7 @@ Proved (`Proofs/`, 396 lines in 6 files):
 - `mixBitwise` and `bitwiseXorUnique` (Step.sw): `mix value secret` has
   each bit set exactly when one of `value` and `secret` has it, and any
   number with that property is `mix value secret`.
-- `xorModPow` and `xorBelow` (Lemmas.sw): the low `k` bits of an XOR are
+- `xorModPow` and `xorBelow` (Std's Nat/Bits.sw): the low `k` bits of an XOR are
   the XOR of the low `k` bits, so an XOR of two numbers below `2^k` is
   below it. From std's `Nat.xorMod`, `Nat.xorDiv`.
 - `nextSecretEvolves` (Step.sw): `nextSecret secret = evolve secret` for
@@ -7113,8 +7113,7 @@ column 1: expected a number, got 'x'`, and an empty input is no buyers
   (`testBitXor`) but not `xor x y % 2^k = xor (x % 2^k) (y % 2^k)`, nor
   `Nat.and n (2^k - 1) = n % 2^k`, which a masked step would need. What I
   did: `xorModPow`, `xorBelow` and `modPowSucc` (`n % 2^(k+1)` from half
-  of `n`) in `Proofs/Lemmas.sw`, 70 lines. Fix: move them to
-  `Nat/Bits.sw` with the mask lemma.
+  of `n`), now in Std's Nat/Bits.sw. Fix: add the mask lemma there.
 - Small list lemmas: `findMapAny` (a `findMap` that finds something found
   it at some element) and `memTails` (an element of a suffix is an
   element of the list). Written in Keys.sw.
