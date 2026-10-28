@@ -222,6 +222,11 @@ theorem Nat.digitsTake: (k: Nat) → (xs: List Nat) → Nat.Digits xs → Nat.Di
   | Succ k, Nil, h => Trivial
   | Succ k, Cons x xs, Both hx hs => Both hx (Nat.digitsTake k xs hs)
 
+theorem Nat.digitsDrop: (k: Nat) → (xs: List Nat) → Nat.Digits xs → Nat.Digits (List.drop xs k)
+  | Zero, xs, h => h
+  | Succ k, Nil, h => Trivial
+  | Succ k, Cons x xs, Both hx hs => Nat.digitsDrop k xs hs
+
 theorem Nat.fromDigitsHeadBound: (l: List Nat) → 1 ≤ List.headOr l 0 → Nat.pow 10 (List.length l - 1) ≤ Nat.fromDigits l
   | Nil, h => Void.exfalso (Bool.falseNotTrue h)
   | Cons d s, h =>
