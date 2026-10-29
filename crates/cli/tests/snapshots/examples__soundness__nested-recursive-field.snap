@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-POSITIVITY] Error: field `same` depends on `n`, whose type contains `Fnat`
+    ╭─[ soundness/nested-recursive-field.sw:12:38 ]
+    │
+ 12 │   | FSucc (n: Fnat) (m: Fnat) (same: n = m)
+    │                                      ──┬──  
+    │                                        ╰──── `same`'s type mentions `n`
+    │ 
+    │ Note 1: a field's type can't mention an earlier field that holds a `Fnat` (or holds one inside another type): `Fnat` would then have to be defined together with what that field's type says about it, which isn't supported
+    │ 
+    │ Note 2: state it as a separate proposition about the value, or keep what it needs in an index
+────╯

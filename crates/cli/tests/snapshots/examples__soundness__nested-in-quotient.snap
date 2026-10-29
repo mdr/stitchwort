@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-POSITIVITY] Error: `M` is used inside a quotient type
+   ╭─[ soundness/nested-in-quotient.sw:9:16 ]
+   │
+ 9 │   | MkM (kids: Map Nat M)
+   │                ────┬────  
+   │                    ╰────── field `kids` has `M` inside `Map Nat M [ord := Nat.instOrd]`, which is built on a quotient type
+   │ 
+   │ Note 1: data types can't be recursive through a quotient yet
+   │ 
+   │ Note 2: store the nodes in a separate table addressed by ids (a `Map Nat Node` whose nodes hold their children's ids), or define a tree and a forest together, with the key and the child in separate constructor fields
+───╯
