@@ -86,7 +86,7 @@ pub(crate) fn signature(cx: &Ctx, ty: &Value) -> Result<Signature> {
                 defaults: None,
             });
         }
-        if let Some((_, value)) = crate::effects::comp_parts(cx, &ty)? {
+        if let Some((_, value)) = crate::effects::comp_parts_at(cx, level, &ty)? {
             ty = value;
             continue;
         }
@@ -827,7 +827,7 @@ pub(crate) fn dependencies(cx: &Ctx, ty: &Value) -> Result<Vec<Vec<usize>>> {
         if let Value::Neutral(Head::Meta(_), _) = ty {
             return Ok(out);
         }
-        if let Some((_, value)) = crate::effects::comp_parts(cx, &ty)? {
+        if let Some((_, value)) = crate::effects::comp_parts_at(cx, base + out.len(), &ty)? {
             ty = value;
             continue;
         }

@@ -365,7 +365,7 @@ fn is_fact(cx: &Ctx, ty: &Value) -> bool {
 
 fn by_computation(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
     if let Value::Eq(_, l, r) = force(cx.g(), goal.clone())?
-        && conv(cx.g(), cx.level(), &l, &r)?
+        && cx.conv_now(&l, &r)?
     {
         return Ok(Some(Term::Refl));
     }
@@ -382,9 +382,23 @@ fn visible(cx: &Ctx) -> Vec<usize> {
 }
 
 fn by_hypothesis(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
-    for level in visible(cx) {
+    let levels = visible(cx);
+    let found = |l: usize| Ok(Some(Term::Var(cx.level() - 1 - l)));
+    for &level in &levels {
         if conv(cx.g(), cx.level(), &cx.types[level], goal)? {
-            return Ok(Some(Term::Var(cx.level() - 1 - level)));
+            return found(level);
+        }
+    }
+    // Again with what's been solved since the goal or a hypothesis was
+    // computed (`Ctx::conv_now`), the goal computed again only once.
+    if cx.g().meta_trail.borrow().is_empty() {
+        return Ok(None);
+    }
+    let goal = crate::interfaces::refresh(cx, goal)?;
+    for level in levels {
+        let ty = crate::interfaces::refresh(cx, &cx.types[level])?;
+        if conv(cx.g(), cx.level(), &ty, &goal)? {
+            return found(level);
         }
     }
     Ok(None)

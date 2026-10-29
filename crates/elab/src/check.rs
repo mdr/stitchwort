@@ -458,6 +458,26 @@ impl<'e> Ctx<'e> {
         Ok(unify(self.g(), self.level(), a, b)?)
     }
 
+    /// Whether `a` and `b` are equal by computation, solving nothing, with
+    /// an unknown solved since either was computed taken as its solution.
+    /// The kernel's conversion (`value::conv`) compares unknowns by their
+    /// numbers: to it, `Box ?a` with `?a` solved as `Nat` since isn't
+    /// `Box Nat` (SW-862). So where it says they differ and something has
+    /// been solved, both are computed again (`interfaces::refresh`) and
+    /// compared once more.
+    pub(crate) fn conv_now(&self, a: &Value, b: &Value) -> Result<bool> {
+        let g = self.g();
+        if stitchwort_core::value::conv(g, self.level(), a, b)? {
+            return Ok(true);
+        }
+        if g.meta_trail.borrow().is_empty() {
+            return Ok(false);
+        }
+        let a = crate::interfaces::refresh(self, a)?;
+        let b = crate::interfaces::refresh(self, b)?;
+        Ok(stitchwort_core::value::conv(g, self.level(), &a, &b)?)
+    }
+
     pub fn show(&self, value: &Value) -> String {
         pretty::value_for_message_in(self.g(), self.e, &self.names, value)
     }
