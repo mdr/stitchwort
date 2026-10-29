@@ -2176,6 +2176,47 @@ impl Elaborator {
         self.after_definition(signature, id)
     }
 
+    /// Generated definitions that may call each other (a derived instance's
+    /// function and its helpers for the containers a nested type is in,
+    /// `derive.rs`): every signature, then every body, then the kernel
+    /// admits them together. One on its own is [`Self::definition`].
+    fn definitions(&mut self, group: &[(Decl, Vec<Decl>)]) -> Result<()> {
+        if let [(signature, equations)] = group {
+            return self.definition(signature, equations);
+        }
+        let mut ids = Vec::new();
+        for (signature, _) in group {
+            let Decl::Signature { name: def_name, .. } = signature else {
+                unreachable!()
+            };
+            self.clear_metas();
+            let id = self.signature(signature)?;
+            let key = self.declaration_key(def_name)?;
+            self.scope
+                .insert(&key, Global::Def(id), def_name.span, false);
+            ids.push(id);
+        }
+        let mut bodies = Vec::new();
+        self.local_helpers.clear();
+        self.preadmitted.borrow_mut().clear();
+        for ((signature, equations), id) in group.iter().zip(&ids) {
+            let Decl::Signature { name: def_name, .. } = signature else {
+                unreachable!()
+            };
+            self.clear_metas();
+            self.module.phase = Phase::Body;
+            let (body, members) = self.lifted_body(*id, def_name, equations)?;
+            bodies.push((*id, body));
+            bodies.extend(members);
+        }
+        kernel::define_group(&mut self.globals, &bodies).map_err(|d| self.explain_lifted(d))?;
+        self.bind_local_helpers()?;
+        for ((signature, _), id) in group.iter().zip(&ids) {
+            self.after_definition(signature, *id)?;
+        }
+        Ok(())
+    }
+
     /// Once their owner is final, its local definitions can be named from
     /// outside: `sumTo.go` (docs/proposals/syntax-conveniences.md §3.6).
     fn bind_local_helpers(&mut self) -> Result<()> {

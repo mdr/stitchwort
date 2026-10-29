@@ -33,6 +33,12 @@
 //! instance T.%instOrd : … -> Ord (T a) := Ord.fromCompare T.%compare T.%equal T.%flip T.%trans
 //! ```
 //!
+//! A nested type gets `T.%m1%compare` and its laws for each container it's
+//! in, as `DecEq` does (`derive.rs`), each kind defined together with `T`'s:
+//! `List`'s constructors in order (`Nil` first) then its fields is
+//! `List.compareLex`, and likewise `Option.compareWith` and
+//! `Pair.compareWith`, so a nested list compares as a list.
+//!
 //! For values of different constructors the last equation of each applies,
 //! and the tags decide: `equal` refutes `Nat.compare i j = Equal` for two
 //! different numbers, `flip` is `Nat.compare`'s, and `trans` is
@@ -45,7 +51,7 @@ use stitchwort_core::DataId;
 use stitchwort_syntax::Span;
 use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
 
-use crate::derive::{Field, Plan, fields_equal};
+use crate::derive::{Field, Plan, fields_equal, member_prefix};
 use crate::module::Status;
 use crate::{Elaborator, Global, Result, interfaces};
 
@@ -144,10 +150,13 @@ impl Elaborator {
                 }
             }
         }
+        for (m, nested) in plan.nested.iter().enumerate() {
+            self.derive_member_helpers(d, m + 1, &nested.member, false)?;
+        }
         let mut result = Ok(());
-        for (signature, equations) in self.ord_source(d, &plan) {
+        for group in self.ord_source(d, &plan) {
             self.clear_metas();
-            result = result.and_then(|()| self.definition(&signature, &equations));
+            result = result.and_then(|()| self.definitions(&group));
         }
         self.clear_metas();
         match result {
@@ -162,99 +171,120 @@ impl Elaborator {
     }
 
     /// Whether `T.member` is declared.
-    fn has_member(&self, d: DataId, member: &str) -> bool {
+    pub(crate) fn has_member(&self, d: DataId, member: &str) -> bool {
         let key = Self::member_key(&self.data_key(d), member);
         self.scope.get(&key).is_some()
     }
 
     /// The source of `T.%compare`, `T.%equal`, `T.%flip`, `T.%unfold` (with
     /// two constructors or more, not all without fields), `T.%trans` and
-    /// `T.%instOrd`, in that order.
-    fn ord_source(&self, d: DataId, plan: &Plan) -> Vec<Definition> {
+    /// `T.%instOrd`, in that order, as groups of definitions admitted
+    /// together. For a nested type, each container it's in (member `m`)
+    /// gets its own `T.%m{m}%compare` and the rest, in the group of `T`'s.
+    fn ord_source(&self, d: DataId, plan: &Plan) -> Vec<Vec<Definition>> {
+        let members = 1 + plan.nested.len();
+        let mut groups: Vec<Vec<Definition>> = vec![Vec::new(); 5];
+        for m in 0..members {
+            for (kind, definition) in self.ord_member_source(d, plan, m) {
+                groups[kind].push(definition);
+            }
+        }
+        let mut out: Vec<Vec<Definition>> = Vec::new();
+        for (kind, group) in groups.into_iter().enumerate() {
+            if kind == 3 {
+                // `unfold`s don't call each other.
+                out.extend(group.into_iter().map(|u| vec![u]));
+            } else if !group.is_empty() {
+                out.push(group);
+            }
+        }
+        out.push(vec![self.ord_instance_source(d, plan)]);
+        out
+    }
+
+    /// `T.%instOrd`.
+    fn ord_instance_source(&self, d: DataId, plan: &Plan) -> Definition {
+        let data = self.globals.data(d);
+        let ty_name = self.relative_to_root(&data.name);
+        let s = Src { span: data.span };
+        let member = |m: &str| format!("{ty_name}.%{m}");
+        let with_params = ord_params(&s, data, plan);
+        let this = s.this(&ty_name, data);
+        // instance T.%instOrd : … -> Std.Ord (T %p0 …) :=
+        //   Std.Ord.fromCompare T.%compare T.%equal T.%flip T.%trans
+        let instance = format!("{ty_name}.%instOrd");
+        let ty = with_params(s.app(s.var("Std.Ord"), vec![this]));
+        let body = s.app(
+            s.var("Std.Ord.fromCompare"),
+            ["compare", "equal", "flip", "trans"]
+                .iter()
+                .map(|x| s.var(&member(x)))
+                .collect(),
+        );
+        (
+            s.signature(&instance, ty, true),
+            vec![s.equation(&instance, Vec::new(), body)],
+        )
+    }
+
+    /// Member `m`'s `compare` (0), `equal` (1), `flip` (2), `unfold` (3,
+    /// with two constructors or more, not all without fields) and `trans`
+    /// (4), each with its kind.
+    fn ord_member_source(&self, d: DataId, plan: &Plan, m: usize) -> Vec<(usize, Definition)> {
         let data = self.globals.data(d);
         let ty_name = self.relative_to_root(&data.name);
         let s = Src { span: data.span };
         let np = data.params.len();
-        let ctors = data.ctors.len();
-        let enumeration = ctors > 1 && data.ctors.iter().all(|c| c.fields.is_empty());
-        let tagged = ctors > 1 && !enumeration;
+        let prefix = member_prefix(&ty_name, m);
         let param = |j: usize| format!("%p{j}");
+        // The type matched on, how source names its constructors, and the
+        // member's type: `T %p0 …`, or `T.%m1%type %p0 …`.
+        let (matched, ctor_prefix, this) = if m == 0 {
+            (d, ty_name.clone(), s.this(&ty_name, data))
+        } else {
+            let container = plan.nested[m - 1].member.data;
+            (
+                container,
+                self.globals.data(container).path.to_string(),
+                s.app(
+                    s.var(&format!("{prefix}type")),
+                    (0..np).map(|j| s.var(&param(j))).collect(),
+                ),
+            )
+        };
+        let ctor_list = &self.globals.data(matched).ctors;
+        let member_fields = plan.member_fields(m);
+        let ctors = ctor_list.len();
+        let enumeration = ctors > 1 && ctor_list.iter().all(|c| c.fields.is_empty());
+        let tagged = ctors > 1 && !enumeration;
         let a = |k: usize| format!("%a{k}");
         let b = |k: usize| format!("%b{k}");
         let c = |k: usize| format!("%c{k}");
-        let member = |m: &str| format!("{ty_name}.%{m}");
+        let of = |t: usize, f: &str| format!("{}{f}", member_prefix(&ty_name, t));
         let (compare, equal, flip, unfold, trans) = (
-            member("compare"),
-            member("equal"),
-            member("flip"),
-            member("unfold"),
-            member("trans"),
+            of(m, "compare"),
+            of(m, "equal"),
+            of(m, "flip"),
+            of(m, "unfold"),
+            of(m, "trans"),
         );
-        let dicts: Vec<usize> = (0..np).filter(|j| plan.deciders[*j]).collect();
-        // `ord`, or one per parameter after it (`ordA` for `a`) when there are
-        // several.
-        let dict = |j: usize| {
-            if dicts.len() == 1 {
-                "ord".to_string()
-            } else {
-                let p = data.params[j].0.to_string();
-                let mut chars = p.chars();
-                match chars.next() {
-                    Some(ch) => format!("ord{}{}", ch.to_uppercase(), chars.as_str()),
-                    None => format!("ord{j}"),
-                }
-            }
-        };
-        // [%p0 : _] -> … -> [auto ord : Std.Ord %p0] -> … -> rest
-        let with_params = |rest: Expr| {
-            let mut ty = rest;
-            for &j in dicts.iter().rev() {
-                let dom = s.app(s.var("Std.Ord"), vec![s.var(&param(j))]);
-                ty = s.pi(&[&dict(j)], true, true, dom, ty);
-            }
-            for j in (0..np).rev() {
-                ty = s.pi(&[&param(j)], true, false, Expr::Hole(s.span), ty);
-            }
-            ty
-        };
-        // An `auto` parameter is given by name: `T %p0 [ord := %p1]`.
-        let this = s.app(
-            s.var(&ty_name),
-            (0..np)
-                .map(|j| {
-                    if data.auto_params.get(j) == Some(&true) {
-                        Expr::NamedArg(
-                            s.n(&data.params[j].0),
-                            Box::new(s.var(&param(j))),
-                            s.span,
-                            Bracket::Square,
-                        )
-                    } else {
-                        s.var(&param(j))
-                    }
-                })
-                .collect(),
-        );
+        let with_params = ord_params(&s, data, plan);
         let values =
             |names: &[&str], cod: Expr| with_params(s.pi(names, false, false, this.clone(), cod));
         let call =
             |f: &str, args: &[&str]| s.app(s.var(f), args.iter().map(|x| s.var(x)).collect());
-        let tag = |x: &str| call(&format!("{ty_name}.%tag"), &[x]);
+        let tag_name = format!("{prefix}tag");
+        let tag = |x: &str| call(&tag_name, &[x]);
         let tags = |f: &str, xs: &[&str]| s.app(s.var(f), xs.iter().map(|x| tag(x)).collect());
         let ordering = |c: &str| s.var(&format!("Std.Ordering.{c}"));
         let less = || ordering("Less");
-        let equation = |name: &str, patterns: Vec<Pattern>, rhs: Expr| Decl::Equation {
-            name: s.n(name),
-            patterns,
-            rhs: Some(rhs),
-            arm: None,
-            span: s.span,
-        };
+        let equation =
+            |name: &str, patterns: Vec<Pattern>, rhs: Expr| s.equation(name, patterns, rhs);
         let vars = |xs: &[&str]| xs.iter().map(|x| Pattern::Var(s.n(x))).collect::<Vec<_>>();
         let ctor_pattern = |ctor: usize, f: &dyn Fn(usize) -> String| {
-            let ct = &data.ctors[ctor];
+            let ct = &ctor_list[ctor];
             Pattern::Ctor(
-                s.n(&format!("{ty_name}.{}", ct.name)),
+                s.n(&format!("{ctor_prefix}.{}", ct.name)),
                 (0..ct.fields.len())
                     .map(|k| Pattern::Var(s.n(&f(k))))
                     .collect(),
@@ -262,8 +292,7 @@ impl Elaborator {
             )
         };
         // The data fields of each constructor, in order.
-        let data_fields: Vec<Vec<usize>> = plan
-            .fields
+        let data_fields: Vec<Vec<usize>> = member_fields
             .iter()
             .map(|kinds| {
                 (0..kinds.len())
@@ -271,14 +300,15 @@ impl Elaborator {
                     .collect()
             })
             .collect();
-        let recursive = |ctor: usize, k: usize| plan.fields[ctor][k] == Field::Recursive;
+        // The member a field is, if it is one.
+        let recursive = |ctor: usize, k: usize| match member_fields[ctor][k] {
+            Field::Recursive(t) => Some(t),
+            _ => None,
+        };
         // Field `k`'s comparison of `x` and `y`.
-        let cmp = |ctor: usize, k: usize, x: &str, y: &str| {
-            if recursive(ctor, k) {
-                call(&compare, &[x, y])
-            } else {
-                call("Std.Ord.compare", &[x, y])
-            }
+        let cmp = |ctor: usize, k: usize, x: &str, y: &str| match recursive(ctor, k) {
+            Some(t) => call(&of(t, "compare"), &[x, y]),
+            None => call("Std.Ord.compare", &[x, y]),
         };
         // The comparison of the data fields from position `t` on.
         let chain =
@@ -294,21 +324,8 @@ impl Elaborator {
                 }
                 result.unwrap_or_else(|| ordering("Equal"))
             };
-        let signature = |name: &str, ty: Expr, instance: bool| Decl::Signature {
-            name: s.n(name),
-            ty,
-            theorem: false,
-            export: false,
-            synonym: false,
-            instance,
-            decreasing: None,
-            opaque: false,
-            unfolding: Vec::new(),
-            defaults: Vec::new(),
-            attrs: Vec::new(),
-            span: s.span,
-        };
-        let mut out: Vec<Definition> = Vec::new();
+        let signature = |name: &str, ty: Expr| s.signature(name, ty, false);
+        let mut out: Vec<(usize, Definition)> = Vec::new();
 
         // T.%compare
         let ty = values(&["%r", "%s"], s.var("Std.Ordering"));
@@ -335,7 +352,7 @@ impl Elaborator {
                 ));
             }
         }
-        out.push((signature(&compare, ty, false), equations));
+        out.push((0, (signature(&compare, ty), equations)));
 
         // Values of different constructors don't compare `Equal`.
         let differ = || {
@@ -360,13 +377,13 @@ impl Elaborator {
         );
         let mut equations = Vec::new();
         for (ctor, fields) in data_fields.iter().enumerate() {
-            let m = fields.len();
+            let count = fields.len();
             // The proof that field `fields[t]`'s comparison is `Equal`, from
             // `%h`, the whole comparison's, by `Ordering.thenEqual`.
             let mut rest = s.var("%h");
             let mut equals: Vec<Expr> = Vec::new();
-            for t in 0..m {
-                if t + 1 == m {
+            for t in 0..count {
+                if t + 1 == count {
                     equals.push(rest.clone());
                 } else {
                     let split = s.app(s.var("Std.Ordering.thenEqual"), vec![rest.clone()]);
@@ -374,23 +391,23 @@ impl Elaborator {
                     rest = s.app(s.var("Std.And.right"), vec![split]);
                 }
             }
-            let is_proof: Vec<bool> = plan.fields[ctor]
+            let is_proof: Vec<bool> = member_fields[ctor]
                 .iter()
                 .map(|f| *f == Field::Proof)
                 .collect();
             let field_equal = |k: usize| {
                 let t = fields.iter().position(|q| *q == k).expect("a data field");
-                let law = if recursive(ctor, k) {
-                    equal.as_str()
-                } else {
-                    "Std.Ord.equal"
+                let law = match recursive(ctor, k) {
+                    Some(target) => of(target, "equal"),
+                    None => "Std.Ord.equal".to_string(),
                 };
-                s.app(call(law, &[&a(k), &b(k)]), vec![equals[t].clone()])
+                s.app(call(&law, &[&a(k), &b(k)]), vec![equals[t].clone()])
             };
+            let ctor_name = &ctor_list[ctor].name;
             let proof = fields_equal(
                 s.span,
-                &ty_name,
-                &data.ctors[ctor].name,
+                &format!("{ctor_prefix}.{ctor_name}"),
+                &format!("{prefix}{ctor_name}"),
                 &is_proof,
                 np,
                 &this,
@@ -412,7 +429,7 @@ impl Elaborator {
         if ctors > 1 {
             equations.push(equation(&equal, vars(&["%r", "%s", "%h"]), differ()));
         }
-        out.push((signature(&equal, ty, false), equations));
+        out.push((1, (signature(&equal, ty), equations)));
 
         // T.%flip
         let ty = values(
@@ -433,12 +450,11 @@ impl Elaborator {
             for (ctor, fields) in data_fields.iter().enumerate() {
                 let mut proof: Option<Expr> = None;
                 for &k in fields.iter().rev() {
-                    let law = if recursive(ctor, k) {
-                        flip.as_str()
-                    } else {
-                        "Std.Ord.flip"
+                    let law = match recursive(ctor, k) {
+                        Some(target) => of(target, "flip"),
+                        None => "Std.Ord.flip".to_string(),
                     };
-                    let here = call(law, &[&a(k), &b(k)]);
+                    let here = call(&law, &[&a(k), &b(k)]);
                     proof = Some(match proof {
                         None => here,
                         Some(rest) => s.app(s.var("Std.Ordering.thenFlip"), vec![here, rest]),
@@ -454,7 +470,7 @@ impl Elaborator {
                 equations.push(equation(&flip, vars(&["%r", "%s"]), by_tags()));
             }
         }
-        out.push((signature(&flip, ty, false), equations));
+        out.push((2, (signature(&flip, ty), equations)));
 
         // T.%unfold: a comparison is its tags' then itself.
         if tagged {
@@ -481,7 +497,7 @@ impl Elaborator {
                 })
                 .collect();
             equations.push(equation(&unfold, vars(&["%r", "%s"]), s.var("rfl")));
-            out.push((signature(&unfold, ty, false), equations));
+            out.push((3, (signature(&unfold, ty), equations)));
         }
 
         // T.%trans
@@ -505,39 +521,41 @@ impl Elaborator {
             ));
         } else {
             for (ctor, fields) in data_fields.iter().enumerate() {
-                let m = fields.len();
+                let count = fields.len();
                 // From position `t` on, given `h1` and `h2` for the rest.
                 let mut proof: Option<Box<dyn Fn(Expr, Expr) -> Expr + '_>> = None;
-                for t in (0..m).rev() {
+                for t in (0..count).rev() {
                     let k = fields[t];
                     let (ak, bk, ck) = (a(k), b(k), c(k));
                     let (p, q) = (format!("%p{t}"), format!("%q{t}"));
                     let next = proof.take();
                     let rec = recursive(ctor, k);
                     let s = &s;
-                    let compare = &compare;
-                    let equal = &equal;
-                    let trans = &trans;
+                    let of = &of;
                     proof = Some(Box::new(move |h1: Expr, h2: Expr| {
-                        let law = if rec { trans.as_str() } else { "Std.Ord.trans" };
+                        let law = match rec {
+                            Some(target) => of(target, "trans"),
+                            None => "Std.Ord.trans".to_string(),
+                        };
                         let Some(next) = &next else {
-                            return s.app(call(law, &[&ak, &bk, &ck]), vec![h1, h2]);
+                            return s.app(call(&law, &[&ak, &bk, &ck]), vec![h1, h2]);
                         };
                         let rest = s.lam(&[&p, &q], next(s.var(&p), s.var(&q)));
-                        if rec {
+                        if let Some(target) = rec {
+                            let (compare, equal) = (of(target, "compare"), of(target, "equal"));
                             let (e, x, y) = (format!("%e{t}"), format!("%x{t}"), format!("%y{t}"));
                             s.app(
                                 s.var("Std.Ordering.thenTransBy"),
                                 vec![
-                                    s.var(compare),
+                                    s.var(&compare),
                                     s.var(&ak),
                                     s.var(&bk),
                                     s.var(&ck),
                                     h1,
                                     h2,
-                                    s.lam(&[&x, &y], call(trans, &[&ak, &bk, &ck, &x, &y])),
-                                    s.lam(&[&e], call(equal, &[&ak, &bk, &e])),
-                                    s.lam(&[&e], call(equal, &[&bk, &ck, &e])),
+                                    s.lam(&[&x, &y], call(&law, &[&ak, &bk, &ck, &x, &y])),
+                                    s.lam(&[&e], call(&equal, &[&ak, &bk, &e])),
+                                    s.lam(&[&e], call(&equal, &[&bk, &ck, &e])),
                                     rest,
                                 ],
                             )
@@ -612,18 +630,43 @@ impl Elaborator {
                 ));
             }
         }
-        out.push((signature(&trans, ty, false), equations));
-
-        // instance T.%instOrd : … -> Std.Ord (T %p0 …) :=
-        //   Std.Ord.fromCompare T.%compare T.%equal T.%flip T.%trans
-        let instance = format!("{ty_name}.%instOrd");
-        let ty = with_params(s.app(s.var("Std.Ord"), vec![this.clone()]));
-        let body = call("Std.Ord.fromCompare", &[&compare, &equal, &flip, &trans]);
-        out.push((
-            signature(&instance, ty, true),
-            vec![equation(&instance, Vec::new(), body)],
-        ));
+        out.push((4, (signature(&trans, ty), equations)));
         out
+    }
+}
+
+/// `[%p0 : _] -> … -> [auto ord : Std.Ord %p0] -> … -> rest`, for `T`
+/// (`data`): an `ord` for each parameter the plan's fields need one for
+/// (`ordA` for `a`, … when there are several).
+fn ord_params<'a>(
+    s: &'a Src,
+    data: &'a stitchwort_core::globals::Data,
+    plan: &'a Plan,
+) -> impl Fn(Expr) -> Expr + 'a {
+    let np = data.params.len();
+    let dicts: Vec<usize> = (0..np).filter(|j| plan.deciders[*j]).collect();
+    move |rest: Expr| {
+        let dict = |j: usize| {
+            if dicts.len() == 1 {
+                "ord".to_string()
+            } else {
+                let p = data.params[j].0.to_string();
+                let mut chars = p.chars();
+                match chars.next() {
+                    Some(ch) => format!("ord{}{}", ch.to_uppercase(), chars.as_str()),
+                    None => format!("ord{j}"),
+                }
+            }
+        };
+        let mut ty = rest;
+        for &j in dicts.iter().rev() {
+            let dom = s.app(s.var("Std.Ord"), vec![s.var(&format!("%p{j}"))]);
+            ty = s.pi(&[&dict(j)], true, true, dom, ty);
+        }
+        for j in (0..np).rev() {
+            ty = s.pi(&[&format!("%p{j}")], true, false, Expr::Hole(s.span), ty);
+        }
+        ty
     }
 }
 
@@ -633,6 +676,56 @@ struct Src {
 }
 
 impl Src {
+    /// `T %p0 …`, an `auto` parameter given by name: `T %p0 [ord := %p1]`.
+    fn this(&self, ty_name: &str, data: &stitchwort_core::globals::Data) -> Expr {
+        let np = data.params.len();
+        self.app(
+            self.var(ty_name),
+            (0..np)
+                .map(|j| {
+                    let p = self.var(&format!("%p{j}"));
+                    if data.auto_params.get(j) == Some(&true) {
+                        Expr::NamedArg(
+                            self.n(&data.params[j].0),
+                            Box::new(p),
+                            self.span,
+                            Bracket::Square,
+                        )
+                    } else {
+                        p
+                    }
+                })
+                .collect(),
+        )
+    }
+
+    fn signature(&self, name: &str, ty: Expr, instance: bool) -> Decl {
+        Decl::Signature {
+            name: self.n(name),
+            ty,
+            theorem: false,
+            export: false,
+            synonym: false,
+            instance,
+            decreasing: None,
+            opaque: false,
+            unfolding: Vec::new(),
+            defaults: Vec::new(),
+            attrs: Vec::new(),
+            span: self.span,
+        }
+    }
+
+    fn equation(&self, name: &str, patterns: Vec<Pattern>, rhs: Expr) -> Decl {
+        Decl::Equation {
+            name: self.n(name),
+            patterns,
+            rhs: Some(rhs),
+            arm: None,
+            span: self.span,
+        }
+    }
+
     fn n(&self, text: &str) -> ast::Name {
         ast::Name {
             text: text.to_string(),

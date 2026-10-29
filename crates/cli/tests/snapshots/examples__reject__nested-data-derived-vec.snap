@@ -1,0 +1,26 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-NONE] Error: no `DecEq` instance for `Branching`
+    ╭─[ reject/nested-data-derived-vec.sw:13:15 ]
+    │
+ 13 │ test "vec" := Fork (VCons Tip (VCons Tip VNil)) == Fork (VCons Tip (VCons Tip VNil))
+    │               ──────────────────────────────────┬─────────────────────────────────  
+    │                                                 ╰─────────────────────────────────── this needs `DecEq Branching`
+    │ 
+    │ Note 1: `==` isn't derived for `Branching`: the field `kids` of `Fork` contains `Branching` inside `Vec`, and `==` is derived for a type inside `List`, `Option` and pairs only
+    │ 
+    │ Note 2: an instance of `DecEq` for `Branching` can be declared in `Main`
+────╯
+[E-INSTANCE-NONE] Error: no `Show` instance for `Boxed`
+    ╭─[ reject/nested-data-derived-vec.sw:22:34 ]
+    │
+ 22 │ def describe (b: Boxed): Text := "${b}"
+    │                                  ───┬──  
+    │                                     ╰──── this needs `Show Boxed`
+    │ 
+    │ Note 1: `Show` isn't derived for `Boxed`: the field `next` of `More` contains `Boxed` inside `Box`, and `Show` is derived for a type inside `List`, `Option` and pairs only
+    │ 
+    │ Note 2: an instance of `Show` for `Boxed` can be declared in `Main`
+────╯

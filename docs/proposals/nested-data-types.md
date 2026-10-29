@@ -4,8 +4,8 @@
 draft 1, SW-829). Draft 1 (28 October) proposed Rocq's old nested positivity rule; this draft
 replaces it with the 2026 Lamiaux–Forster–Sozeau–Tabareau criterion, specialised to Stitchwort.
 What changed and why is in [§11](#11-response-to-review). The decisions for Matt are in
-[§13](#13-decisions). D1821 adopted the rule; **stage 1 is built**
-([As built](#as-built-stage-1)). Related: [mutual-recursion.md](mutual-recursion.md) (data groups,
+[§13](#13-decisions). D1821 adopted the rule; **stages 1 and 2 are built**
+([As built](#as-built-stage-1), [stage 2](#as-built-stage-2): derived `==`, `<`, `${…}`, D1840). Related: [mutual-recursion.md](mutual-recursion.md) (data groups,
 size-change termination), [well-founded-recursion.md](well-founded-recursion.md) (`decreasing`,
 `List.attach`), [parser-combinators.md](parser-combinators.md) §5.3, [map-equality.md](map-equality.md)
 (why nesting through a quotient is refused), [indexed-families.md](indexed-families.md).
@@ -53,6 +53,7 @@ This note can be read without knowing type theory. Labels:
 - [12. Options considered](#12-options-considered)
 - [13. Decisions](#13-decisions)
 - [As built (stage 1)](#as-built-stage-1)
+- [As built (stage 2)](#as-built-stage-2)
 - [Sources](#sources)
 
 ## 1. The problem
@@ -708,6 +709,8 @@ Stitchwort has no sort polymorphism), and the helpers above per occurrence. That
    The §8 oracle (properties 1-2), with these as seeds.
 2. **Derived `==`, `<`, `${…}`** (medium), as in draft 1: a generated mutual helper over each
    nesting container the deriver knows (`List`, `Option`, tuples); others keep today's message.
+   **Built** ([As built (stage 2)](#as-built-stage-2)); the others get a new message naming the
+   container.
 3. **Generated `D.All`, `T.induct`, `T.inductMem`, size and membership lemma** (medium), §9,
    with `auto` proving `decreasing T.size p` obligations from an `attach`ed element.
 4. **Dogfood** (small). AoC 2022 day 13, 2021 day 18, a typing judgement with `All`.
@@ -810,7 +813,8 @@ file is removed, its `Rose` is in `nested-data-shapes.sw`). Three messages chang
 inside `Effect.Comp`, and the type of `Effect.Comp`'s later parameter `res` mentions its
 parameter `op`": Landin's knot is refused by condition 2).
 
-**Derived instances** (stage 2): a nested type gets today's messages, checked **[run]**:
+**Derived instances** (before stage 2, which replaced these; see [stage 2](#as-built-stage-2)): a
+nested type got these messages, checked **[run]**:
 "`==` isn't derived for `Packet`: the field `items` of `Packets` contains `Packet` inside
 another type, which `==` isn't derived for yet", the same for `Show` and, through `==`, `Ord`.
 
@@ -847,6 +851,53 @@ that mentions a field holding a member without naming the member (only possible 
 index of type `Prop` or a type former, `(x => True) r`) is as allowed as it was before this
 stage; LFST's condition refuses it ("the instantiation of the indices does not refer to the
 inductive blocks"), and so would extending §5.3 to result indices **[inferred]**.
+
+## As built (stage 2)
+
+29 October 2026, SW-704, after D1840. Derived `==`, `<`/`compare` and `${…}` for a type nested
+in `List`, `Option` and pairs, in the elaborator's derivers only (`crates/elab/src/derive.rs`,
+`derive_ord.rs`, `derive_show.rs`); the kernel is unchanged.
+
+**How.** `Elaborator::members` finds, for `T`, the containers it's in: each field's type that
+mentions `T` and isn't `T` itself, evaluated with `T`'s parameters as variables, and then each
+of *their* fields' types, until no new one turns up (`List (List T)` gives both lists, `Option
+(T, Nat)` the option and the pair). Each is a *member*, numbered from 1 in the order found, and
+gets the same generated functions as `T`, named `T.%m1%…`: `T.%m1%type` (a definition of `T`'s
+parameters standing for the member's type, so the generated source can name it), `T.%m1%tag`,
+the field projections `T.%m1%Cons%0`, `T.%m1%differ`, `T.%m1%decEq`; `T.%m1%compare`, `equal`,
+`flip`, `unfold`, `trans`; `T.%m1%show` (and `T.%m1%items` for a list). They're made by the same
+code as `T`'s, as for a data type whose constructors are the container's with its arguments,
+where a field whose type is a member calls that member's function. Each kind (all `decEq`s, all
+`compare`s, …) is admitted as one group (`Elaborator::definitions`), so `T.%decEq (Packets a0)
+(Packets b0)` calls `T.%m1%decEq a0 b0`, which calls `T.%decEq` on the heads and itself on the
+tails: every call is on a part of an argument, and termination accepts it as it accepts
+`size`/`sizeList` (§6.4); no `decreasing`. The proofs (`J`s, `Eq.cong` of the projections,
+`Ordering.thenTransBy`) are the ones generated for any type, checked by the kernel. A type
+without nesting generates exactly what it did: no example's hashes changed except the nested
+ones', which gained the new definitions.
+
+**Behaviour** (**[run]**). `==` is structural. `Ord` is constructors in order, then fields;
+a container's own derived order is the order of its library instance (`List.compareLex`:
+`Nil` first, then head, then tail; `Option.compareWith`: `None` first; `Pair.compareWith`), so
+`Ord.compare (Packets [Number 1, Number 9]) (Packets [Number 2]) == Ord.compare [1, 9] [2]`.
+`Show` prints a list `[x, y]` and a pair `(x, y)` as `List.instShow` and `Pair.instShow` do,
+and an option as `Option.instShow` does: `Packets [Packets [Number 1], Packets [Number 2,
+Packets [Number 3]]]`, `Node 'a' [Node 'b' []]`, `Link (Some (Link None "b", 3)) "a"`.
+`auto`, `if h:`, a proposition as a `Bool`, `List.sort`, `contains` and `Map` keys use them, and
+they compute in proofs (`(Packets [Number 1] == Packets [Number 1]) = True := rfl`).
+
+**Not derived**, with the note naming the container: `T` inside `Vec`, a type of the program
+(`Box T`), or an earlier group (`Tree Big`): "the field `kids` of `Fork` contains `Branching`
+inside `Vec`, and `==` is derived for a type inside `List`, `Option` and pairs only".
+Unchanged: types defined together (`Expr`/`Stmt`), types with indices (`Ranked`).
+
+**Tests** **[run]**: `examples/accept/nested-data-derived.sw` (34 tests: `Packet`, a rose
+tree with a parameter, `List (List Table)`, `Option (Chain, Nat)`, `auto`, `rfl`, a
+9,000-node value), whose `main` prints the same under `run`, `run --js`, `run --reference` and
+`run --native`; `examples/reject/nested-data-derived-vec.sw` (`Vec`, and a user's `Box`).
+`==`, `compare` and `${…}` on `Packet`s of 20,000 nodes and a 2,000-deep one take under 0.2 s
+under `run` and `run --native`, 0.7 s under `run --reference`. Checking the accept examples
+takes the same time as before (about 50 s for the whole folder, one file at a time).
 
 ## Sources
 

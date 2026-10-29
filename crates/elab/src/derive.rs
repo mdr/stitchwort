@@ -11,7 +11,8 @@
 //! without indices) whose fields are
 //!
 //! - data that doesn't depend on earlier fields and is either `T` itself,
-//!   with the same parameters, or has a `DecEq` instance, given one for each
+//!   with the same parameters, or `T` inside `List`, `Option` and pairs (a
+//!   nested type, below), or has a `DecEq` instance, given one for each
 //!   parameter that's a type; or
 //! - a proof of an equation `l = r` in a type with a `DecEq` instance (not
 //!   one that mentions `T`: that evidence would depend on the instance being
@@ -75,6 +76,25 @@
 //! `y q => (z: P … y …) -> C a… = C b0 … y a… z`. At the end it's applied
 //! to the `b`s' proofs.
 //!
+//! A nested type (docs/proposals/nested-data-types.md §10, stage 2), `type
+//! Packet = | Number (value: Nat) | Packets (items: List Packet)`, can't
+//! pass `T.%decEq` to `List`'s instance: termination refuses an unsaturated
+//! recursive function, as it refuses `map`. Instead each container `T` is
+//! in, found by [`Elaborator::members`] (`List Packet`; for `List (List
+//! T)` both lists; for `Option (T, Nat)` the option and the pair), is a
+//! *member*, numbered from 1, with the same generated functions under
+//! `T.%m1%`: `T.%m1%type` (its type, so source can name it),
+//! `T.%m1%tag`, `T.%m1%Cons%0`, `T.%m1%differ` and `T.%m1%decEq`, made as
+//! for a data type whose fields are its constructors' with the container's
+//! arguments: `T.%m1%decEq (Cons a0 a1) (Cons b0 b1)` decides `a0` by
+//! `T.%decEq` and `a1` by itself. The `decEq`s are defined together, and
+//! every call is on a part of an argument. Only `List`, `Option` and `Pair`
+//! are looked into; `T` inside another type (`Vec`, a type of the program,
+//! an earlier group) gets the note naming it. A container's equality is
+//! structural like its own instance's, and its `Ord` (`derive_ord.rs`),
+//! constructors then fields, is the order of `List`'s, `Option`'s and
+//! `Pair`'s own instances.
+//!
 //! Generating eagerly, when `T` is declared, is simpler than on first use,
 //! which would mean elaborating new definitions in the middle of the one
 //! using `==`.
@@ -99,8 +119,10 @@ use crate::{Elaborator, Global, Result, interfaces};
 /// How `==` (or a derived `Ord`) treats one field of a constructor.
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Field {
-    /// It's `T` again: a recursive call.
-    Recursive,
+    /// It's `T` again (member 0), or a container of `T` the derivers know
+    /// (member `m`, [`Plan::nested`]`[m - 1]`): a call to that member's
+    /// function, defined together with `T`'s.
+    Recursive(usize),
     /// Its type has an instance of the interface: `DecEq`, which
     /// `if h : x = y` finds, or `Ord`.
     Decided,
@@ -115,6 +137,86 @@ pub(crate) struct Plan {
     pub(crate) deciders: Vec<bool>,
     /// For each constructor, each field's.
     pub(crate) fields: Vec<Vec<Field>>,
+    /// For each container `T` is nested in (members 1 and on), each of its
+    /// constructors' fields.
+    pub(crate) nested: Vec<Nested>,
+}
+
+impl Plan {
+    /// Member `m`'s fields: `T`'s for 0, else its container's.
+    pub(crate) fn member_fields(&self, m: usize) -> &[Vec<Field>] {
+        if m == 0 {
+            &self.fields
+        } else {
+            &self.nested[m - 1].fields
+        }
+    }
+}
+
+/// A container a nested type is in, as the derivers see it: `List Packet`
+/// in `type Packet = … | Packets (items: List Packet)`.
+pub(crate) struct Nested {
+    /// `List`, `Option` or `Pair`, with its arguments.
+    pub(crate) member: Member,
+    /// For each of its constructors, each field's.
+    pub(crate) fields: Vec<Vec<Field>>,
+}
+
+/// A type a derived instance has a function for: `T` itself (member 0), or
+/// a container of `T` that one of `T`'s fields, or another member's, has as
+/// its type (`List Packet`, `List (List Packet)`, `Option (Packet, Nat)`
+/// and the pair in it). Each member after `T` gets its own function, defined
+/// together with `T`'s, so that every call is on a part of the argument:
+/// passing `T`'s function to `List`'s instance would be refused as `map` is.
+pub(crate) struct Member {
+    /// `T`, or `List`, `Option` or `Pair`.
+    pub(crate) data: DataId,
+    /// Its arguments, with `T`'s parameters as the variables `0..np`.
+    pub(crate) args: Vec<Value>,
+    /// For a container, the field of `T` it's in, as notes name it (`the
+    /// field `items` of `Packets``).
+    pub(crate) origin: String,
+}
+
+/// Which of `members` has type `ty` (with `T`'s parameters as the
+/// variables `0..np`), if any.
+pub(crate) fn member_of(
+    g: &stitchwort_core::Globals,
+    np: usize,
+    members: &[Member],
+    ty: &Value,
+) -> Result<Option<usize>> {
+    for (m, member) in members.iter().enumerate() {
+        if stitchwort_core::value::conv(g, np, ty, &member.ty())? {
+            return Ok(Some(m));
+        }
+    }
+    Ok(None)
+}
+
+impl Member {
+    /// Its type, with `T`'s parameters as the variables `0..np`.
+    pub(crate) fn ty(&self) -> Value {
+        Value::Data(self.data, self.args.clone())
+    }
+}
+
+/// The source-name prefix of member `m`'s generated names in `T`'s
+/// namespace: `T.%` for `T` itself (`T.%decEq`, `T.%tag`), `T.%m1%` for the
+/// first container (`T.%m1%decEq`, `T.%m1%tag`, `T.%m1%Cons%0`).
+pub(crate) fn member_prefix(ty_name: &str, m: usize) -> String {
+    if m == 0 {
+        format!("{ty_name}.%")
+    } else {
+        format!("{ty_name}.%m{m}%")
+    }
+}
+
+/// The containers the derivers look into.
+fn known_container(g: &stitchwort_core::Globals, e: DataId) -> bool {
+    [Builtin::List, Builtin::Option, Builtin::Pair]
+        .iter()
+        .any(|b| g.registry.data(*b) == Some(e))
 }
 
 impl Elaborator {
@@ -153,16 +255,21 @@ impl Elaborator {
                 }
             }
         }
+        for (m, nested) in plan.nested.iter().enumerate() {
+            self.derive_member_helpers(d, m + 1, &nested.member, true)?;
+        }
         self.clear_metas();
         let source = self.eq_source(d, &plan);
-        let mut result = match source.differ {
-            Some((signature, equation)) => self.definition(&signature, &[equation]),
-            None => Ok(()),
-        };
-        for (signature, equations) in [source.dec_eq, source.instance] {
+        let mut result = Ok(());
+        for (signature, equation) in source.differs {
             self.clear_metas();
-            result = result.and_then(|()| self.definition(&signature, &equations));
+            result = result.and_then(|()| self.definition(&signature, &[equation]));
         }
+        self.clear_metas();
+        result = result.and_then(|()| self.definitions(&source.dec_eqs));
+        let (signature, equations) = source.instance;
+        self.clear_metas();
+        result = result.and_then(|()| self.definition(&signature, &equations));
         self.clear_metas();
         match result {
             Ok(()) => {}
@@ -173,6 +280,90 @@ impl Elaborator {
             }
         }
         Ok(())
+    }
+
+    /// `T` (member 0) and the containers of it that its fields have as
+    /// types, and theirs, in the order they're found (constructors, then
+    /// fields, then the next member's); or why not: `T` inside a container
+    /// the derivers don't know (a `Vec`, a type of the program, an earlier
+    /// group), named, with `label` what the note calls the derivation.
+    /// Fields the plans refuse anyway (proofs, types, functions, a type
+    /// that depends on an earlier field) are passed over. Every deriver
+    /// finds the same members, in the same order, so `T.%m1%type` means one
+    /// thing.
+    pub(crate) fn members(
+        &self,
+        d: DataId,
+        label: &str,
+    ) -> Result<std::result::Result<Vec<Member>, String>> {
+        let g = &self.globals;
+        let data = g.data(d);
+        let name = data.name.to_string();
+        let np = data.params.len();
+        let mut members = vec![Member {
+            data: d,
+            args: (0..np).map(Value::var).collect(),
+            origin: String::new(),
+        }];
+        let mut next = 0;
+        while next < members.len() {
+            let here = &members[next];
+            let (container, args) = (here.data, here.args.clone());
+            for ctor in &g.data(container).ctors {
+                for (i, (field, ty)) in ctor.fields.iter().enumerate() {
+                    if ctor.field_erased[i] || (0..i).any(|j| ty.mentions(i - 1 - j)) {
+                        continue;
+                    }
+                    let env: Vec<Value> = args
+                        .iter()
+                        .cloned()
+                        .chain((0..i).map(|_| unused()))
+                        .collect();
+                    let value = force(g, eval(g, &env, ty)?)?;
+                    if matches!(value, Value::Pi(..)) {
+                        continue;
+                    }
+                    let term = quote(g, np, &value)?;
+                    if !term
+                        .subterms()
+                        .any(|(t, _)| matches!(t, Term::Data(e, _) if *e == d))
+                    {
+                        continue;
+                    }
+                    if member_of(g, np, &members, &value)?.is_some() {
+                        continue;
+                    }
+                    let what = if next > 0 {
+                        members[next].origin.clone()
+                    } else if data.record {
+                        format!("its field `{field}`")
+                    } else {
+                        format!("the field `{field}` of `{}`", ctor.name)
+                    };
+                    match &value {
+                        Value::Data(e, args) if known_container(g, *e) => {
+                            members.push(Member {
+                                data: *e,
+                                args: args.clone(),
+                                origin: what,
+                            });
+                        }
+                        other => {
+                            let inside = match other {
+                                Value::Data(e, _) => format!("`{}`", g.data(*e).name),
+                                _ => "another type".to_string(),
+                            };
+                            return Ok(Err(format!(
+                                "{what} contains `{name}` inside {inside}, and {label} is \
+                                 derived for a type inside `List`, `Option` and pairs only"
+                            )));
+                        }
+                    }
+                }
+            }
+            next += 1;
+        }
+        Ok(Ok(members))
     }
 
     /// Whether the module item being checked (a data type) has a `DecEq`
@@ -233,6 +424,17 @@ impl Elaborator {
         if data.ctors.is_empty() {
             return Ok(Err(format!("`{name}` has no constructors")));
         }
+        // `T` and the containers it's nested in, when fields are compared.
+        let members = if compare {
+            match self.members(d, label)? {
+                Ok(members) => members,
+                Err(why) => return Ok(Err(why)),
+            }
+        } else {
+            Vec::new()
+        };
+        let g = &self.globals;
+        let data = g.data(d);
         let is_type = |ty: &Term| matches!(ty.strip_loc(), Term::Sort(Sort::Type(0)));
         let param_is_type: Vec<bool> = data.params.iter().map(|(_, t)| is_type(t)).collect();
         // Each field, classified; the types to find instances for are
@@ -324,7 +526,7 @@ impl Elaborator {
                     _ => false,
                 };
                 if direct {
-                    kinds.push(Field::Recursive);
+                    kinds.push(Field::Recursive(0));
                     continue;
                 }
                 if compare
@@ -332,10 +534,16 @@ impl Elaborator {
                         .subterms()
                         .any(|(t, _)| matches!(t, Term::Data(e, _) if *e == d))
                 {
-                    return Ok(Err(format!(
-                        "{what} contains `{name}` inside another type, which {label} isn't \
-                         derived for yet"
-                    )));
+                    match member_of(g, np, &members, &value)? {
+                        Some(m) => kinds.push(Field::Recursive(m)),
+                        None => {
+                            return Ok(Err(format!(
+                                "{what} contains `{name}` inside another type, which {label} \
+                                 isn't derived for yet"
+                            )));
+                        }
+                    }
+                    continue;
                 }
                 kinds.push(Field::Decided);
                 if compare {
@@ -346,6 +554,51 @@ impl Elaborator {
                 }
             }
             fields.push(kinds);
+        }
+        // The containers' fields: a member again, or data with an instance.
+        let mut nested = Vec::new();
+        for member in members.iter().skip(1) {
+            let container = g.data(member.data);
+            let mut member_fields = Vec::new();
+            for ctor in &container.ctors {
+                let mut kinds = Vec::new();
+                for (i, (_, ty)) in ctor.fields.iter().enumerate() {
+                    let what = &member.origin;
+                    if ctor.field_erased[i] || (0..i).any(|j| ty.mentions(i - 1 - j)) {
+                        return Ok(Err(format!(
+                            "{what} has `{name}` inside `{}`, whose fields {label} can't compare",
+                            container.name
+                        )));
+                    }
+                    let env: Vec<Value> = member
+                        .args
+                        .iter()
+                        .cloned()
+                        .chain((0..i).map(|_| unused()))
+                        .collect();
+                    let value = force(g, eval(g, &env, ty)?)?;
+                    if matches!(value, Value::Pi(..)) {
+                        return Ok(Err(format!(
+                            "{what} has a function inside `{}`, and functions can't be compared",
+                            container.name
+                        )));
+                    }
+                    if let Some(m) = member_of(g, np, &members, &value)? {
+                        kinds.push(Field::Recursive(m));
+                        continue;
+                    }
+                    let term = quote(g, np, &value)?;
+                    for j in 0..np {
+                        if term.mentions(np - 1 - j) {
+                            deciders[j] |= param_is_type[j];
+                        }
+                    }
+                    kinds.push(Field::Decided);
+                    to_decide.push((value, what.clone(), false));
+                }
+                member_fields.push(kinds);
+            }
+            nested.push(member_fields);
         }
         // Every type to decide needs an instance, given one for each
         // parameter that's a type.
@@ -404,12 +657,80 @@ impl Elaborator {
         self.clear_metas();
         Ok(match why {
             Some(why) => Err(why),
-            None => Ok(Plan { deciders, fields }),
+            None => Ok(Plan {
+                deciders,
+                fields,
+                nested: members
+                    .into_iter()
+                    .skip(1)
+                    .zip(nested)
+                    .map(|(member, fields)| Nested { member, fields })
+                    .collect(),
+            }),
         })
     }
 
     /// Declares `T.%tag : [params] -> T params -> Nat`.
     pub(crate) fn derive_tag(&mut self, d: DataId) -> Result<()> {
+        self.derive_tag_in(d, d, "%tag")
+    }
+
+    /// The containers' helpers for member `m` of `T` (`d`), unless declared
+    /// already: `T.%m{m}%type`, its type, a definition of `T`'s parameters
+    /// (explicit) so source can name it; `T.%m{m}%tag` with two
+    /// constructors or more; and, with `fields`, `T.%m{m}%C%k` for each
+    /// field. The last two are over the container's own parameters, as
+    /// `T.%tag` and `T.%C%k` are over `T`'s.
+    pub(crate) fn derive_member_helpers(
+        &mut self,
+        d: DataId,
+        m: usize,
+        member: &Member,
+        fields: bool,
+    ) -> Result<()> {
+        let prefix = format!("%m{m}%");
+        let ty_member = format!("{prefix}type");
+        if !self.has_member(d, &ty_member) {
+            let data = self.globals.data(d);
+            let np = data.params.len();
+            let mut body = quote(&self.globals, np, &member.ty())?;
+            let mut ty = Term::Sort(data.sort);
+            for (x, t) in data.params.iter().rev() {
+                ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty));
+                body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body));
+            }
+            let name: Name = format!("{}.{ty_member}", data.name).into();
+            let span = data.span;
+            let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
+            kernel::define_def(&mut self.globals, id, &body)?;
+            let key = Self::member_key(&self.data_key(d), &ty_member);
+            self.scope.insert(&key, Global::Def(id), span, false);
+        }
+        let container = self.globals.data(member.data);
+        let ctors: Vec<usize> = container.ctors.iter().map(|c| c.fields.len()).collect();
+        let tag = format!("{prefix}tag");
+        if ctors.len() > 1 && !self.has_member(d, &tag) {
+            self.derive_tag_in(d, member.data, &tag)?;
+        }
+        if fields {
+            for (c, count) in ctors.iter().enumerate() {
+                for k in 0..*count {
+                    let name = format!(
+                        "{prefix}{}%{k}",
+                        self.globals.data(member.data).ctors[c].name
+                    );
+                    if !self.has_member(d, &name) {
+                        self.derive_field_in(d, member.data, &prefix, c, k)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Declares `T.member : [params] -> D params -> Nat`, for `D` (`d`) `T`
+    /// itself or a container of it.
+    fn derive_tag_in(&mut self, owner: DataId, d: DataId, member: &str) -> Result<()> {
         let Some(nat) = self.globals.registry.data(Builtin::Nat) else {
             return Ok(());
         };
@@ -436,12 +757,25 @@ impl Elaborator {
             Icit::Explicit,
             Rc::new(Term::Case(0, d, branches.into())),
         );
-        self.declare_member(d, "%tag", ty, body)
+        self.declare_member(owner, d, member, ty, body)
     }
 
     /// Declares `T.%C%k : [params] -> A -> T params -> A`: field `k` of a
     /// `C`, or the first argument for another constructor.
     fn derive_field(&mut self, d: DataId, c: usize, k: usize) -> Result<()> {
+        self.derive_field_in(d, d, "%", c, k)
+    }
+
+    /// [`Self::derive_field`] for `D` (`d`), `T` itself or a container of
+    /// it, named `T.{prefix}C%k` in `T`'s (`owner`'s) namespace.
+    fn derive_field_in(
+        &mut self,
+        owner: DataId,
+        d: DataId,
+        prefix: &str,
+        c: usize,
+        k: usize,
+    ) -> Result<()> {
         let g = &self.globals;
         let data = g.data(d);
         let np = data.params.len();
@@ -489,8 +823,8 @@ impl Elaborator {
                 Rc::new(Term::Case(0, d, branches.into())),
             )),
         );
-        let member = format!("%{}%{k}", ctor.name);
-        self.declare_member(d, &member, ty, body)
+        let member = format!("{prefix}{}%{k}", ctor.name);
+        self.declare_member(owner, d, &member, ty, body)
     }
 
     /// Declares `T.%C%P%k : (params) -> (fields before k) -> Prop`, the type
@@ -520,26 +854,37 @@ impl Elaborator {
         Ok(())
     }
 
-    /// Adds `T.member`, of type `[params] -> ty`, with body `[params] ->
-    /// body`, in `T`'s namespace.
-    fn declare_member(&mut self, d: DataId, member: &str, ty: Term, body: Term) -> Result<()> {
+    /// Adds `T.member` in `T`'s (`owner`'s) namespace, of type `[params] ->
+    /// ty`, with body `[params] -> body`, the parameters `d`'s (`T`'s, or a
+    /// container's).
+    fn declare_member(
+        &mut self,
+        owner: DataId,
+        d: DataId,
+        member: &str,
+        ty: Term,
+        body: Term,
+    ) -> Result<()> {
         let data = self.globals.data(d);
         let (mut ty, mut body) = (ty, body);
         for (x, t) in data.params.iter().rev() {
             ty = Term::Pi(x.clone(), Icit::Implicit, Rc::new(t.clone()), Rc::new(ty));
             body = Term::Lam(x.clone(), Icit::Implicit, Rc::new(body));
         }
-        let name: Name = format!("{}.{member}", data.name).into();
-        let span = data.span;
+        let owner_data = self.globals.data(owner);
+        let name: Name = format!("{}.{member}", owner_data.name).into();
+        let span = owner_data.span;
         let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
         kernel::define_def(&mut self.globals, id, &body)?;
-        let key = Self::member_key(&self.data_key(d), member);
+        let key = Self::member_key(&self.data_key(owner), member);
         self.scope.insert(&key, Global::Def(id), span, false);
         Ok(())
     }
 
     /// The source of `T.%differ` (with two constructors or more), of
-    /// `T.%decEq` and of `T.%instDecEq`.
+    /// `T.%decEq` and of `T.%instDecEq`; for a nested type, also
+    /// `T.%m1%differ` and `T.%m1%decEq` for each container it's in, the
+    /// `decEq`s defined together.
     fn eq_source(&self, d: DataId, plan: &Plan) -> Source {
         let data = self.globals.data(d);
         let ty_name = self.relative_to_root(&data.name);
@@ -585,7 +930,7 @@ impl Elaborator {
         let a = |k: usize| format!("%a{k}");
         let b = |k: usize| format!("%b{k}");
         let h = |k: usize| format!("%h{k}");
-        let dec_eq = format!("{ty_name}.%decEq");
+        let dec_eq_of = |m: usize| format!("{}decEq", member_prefix(&ty_name, m));
         let deciders: Vec<usize> = (0..np).filter(|j| plan.deciders[*j]).collect();
         // The dictionaries' names: `decEq`, or one per parameter after it
         // (`decEqA` for `a`) when there are several.
@@ -635,141 +980,164 @@ impl Elaborator {
                 .collect(),
         );
 
-        // T.%decEq : … -> (%r %s : T %p0 …) -> Decidable (%r = %s)
-        let ty = with_params(
-            Expr::Pi {
-                names: vec![n("%r"), n("%s")],
-                implicit: false,
-                auto: false,
-                dom: Box::new(this.clone()),
-                cod: Box::new(decidable(eq(var("%r"), var("%s")))),
-                span,
-            },
-            true,
-        );
-        let name = n(&dec_eq);
-        let dec_eq_signature = signature(&name, ty, false);
-
-        let mut equations = Vec::new();
-        for (c, ctor) in data.ctors.iter().enumerate() {
-            let ctor_name = format!("{ty_name}.{}", ctor.name);
-            let kinds = &plan.fields[c];
-            let count = ctor.fields.len();
-            let pattern = |f: &dyn Fn(usize) -> String| {
-                Pattern::Ctor(
-                    n(&ctor_name),
-                    (0..count).map(|k| Pattern::Var(n(&f(k)))).collect(),
-                    span,
+        let mut differs = Vec::new();
+        let mut dec_eqs = Vec::new();
+        for m in 0..=plan.nested.len() {
+            let prefix = member_prefix(&ty_name, m);
+            // The type matched on, how source names its constructors, and
+            // the member's type: `T %p0 …`, or `T.%m1%type %p0 …`.
+            let (matched, ctor_prefix, this) = if m == 0 {
+                (d, ty_name.clone(), this.clone())
+            } else {
+                let container = plan.nested[m - 1].member.data;
+                (
+                    container,
+                    self.globals.data(container).path.to_string(),
+                    apps(
+                        var(&format!("{prefix}type")),
+                        (0..np).map(|j| var(&param(j))).collect(),
+                    ),
                 )
             };
-            let data_fields: Vec<usize> =
-                (0..count).filter(|k| kinds[*k] != Field::Proof).collect();
-            let is_proof: Vec<bool> = kinds.iter().map(|k| *k == Field::Proof).collect();
-            let proof = fields_equal(
-                span,
-                &ty_name,
-                &ctor.name,
-                &is_proof,
-                np,
-                &this,
-                &a,
-                &b,
-                &|k| var(&h(k)),
-                &|j| format!("%p{j}"),
-            );
-            let mut body = apps(var("Std.Decidable.Yes"), vec![proof]);
-            for &k in data_fields.iter().rev() {
-                let field = format!("{ty_name}.%{}%{k}", ctor.name);
-                let cong = apps(
-                    var("Std.Eq.cong"),
-                    vec![apps(var(&field), vec![var(&a(k))]), var("%e")],
-                );
-                let refute = lam(&["%e"], apps(var(&h(k)), vec![cong]));
-                let no = apps(var("Std.Decidable.No"), vec![refute]);
-                body = match kinds[k] {
-                    Field::Recursive => apps(
-                        var("Std.Decidable.elim"),
-                        vec![
-                            apps(var(&dec_eq), vec![var(&a(k)), var(&b(k))]),
-                            lam(&[&h(k)], body),
-                            lam(&[&h(k)], no),
-                        ],
-                    ),
-                    _ => Expr::If {
-                        binder: Some(n(&h(k))),
-                        cond: Box::new(eq(var(&a(k)), var(&b(k)))),
-                        then: Box::new(body),
-                        otherwise: Box::new(no),
-                        span,
-                    },
-                };
-            }
-            equations.push(Decl::Equation {
-                name: name.clone(),
-                patterns: vec![pattern(&a), pattern(&b)],
-                rhs: Some(body),
-                arm: None,
-                span,
-            });
-        }
-        let mut differ = None;
-        if data.ctors.len() > 1 {
-            // Different constructors: their tags differ. Proved once, by
-            // `T.%differ`, which each pair of constructors gives `rfl`:
-            //
-            // T.%differ : [%p0 : _] -> … -> (%r %s : T %p0 …) ->
-            //   Nat.equal (T.%tag %r) (T.%tag %s) = False -> Not (%r = %s)
-            // T.%differ %r %s %t %e = Nat.equalFalse (T.%tag %r) (T.%tag %s) %t (Eq.cong T.%tag %e)
-            let tag = format!("{ty_name}.%tag");
-            let tag_of = |x: &str| apps(var(&tag), vec![var(x)]);
-            let differ_name = n(&format!("{ty_name}.%differ"));
-            let unequal = eq(
-                apps(var("Std.Nat.equal"), vec![tag_of("%r"), tag_of("%s")]),
-                var("Std.Bool.False"),
-            );
+            let ctors = &self.globals.data(matched).ctors;
+            let member_fields = plan.member_fields(m);
+
+            // T.%decEq : … -> (%r %s : T %p0 …) -> Decidable (%r = %s)
             let ty = with_params(
                 Expr::Pi {
                     names: vec![n("%r"), n("%s")],
                     implicit: false,
                     auto: false,
                     dom: Box::new(this.clone()),
-                    cod: Box::new(Expr::Arrow(
-                        Box::new(unequal),
-                        Box::new(apps(var("Std.Not"), vec![eq(var("%r"), var("%s"))])),
-                    )),
+                    cod: Box::new(decidable(eq(var("%r"), var("%s")))),
                     span,
                 },
-                false,
+                true,
             );
-            let cong = apps(var("Std.Eq.cong"), vec![var(&tag), var("%e")]);
-            let rhs = apps(
-                var("Std.Nat.equalFalse"),
-                vec![tag_of("%r"), tag_of("%s"), var("%t"), cong],
-            );
-            differ = Some((
-                signature(&differ_name, ty, false),
-                Decl::Equation {
-                    name: differ_name,
-                    patterns: ["%r", "%s", "%t", "%e"]
-                        .iter()
-                        .map(|x| Pattern::Var(n(x)))
-                        .collect(),
-                    rhs: Some(rhs),
+            let name = n(&dec_eq_of(m));
+            let dec_eq_signature = signature(&name, ty, false);
+
+            let mut equations = Vec::new();
+            for (c, ctor) in ctors.iter().enumerate() {
+                let ctor_name = format!("{ctor_prefix}.{}", ctor.name);
+                let kinds = &member_fields[c];
+                let count = ctor.fields.len();
+                let pattern = |f: &dyn Fn(usize) -> String| {
+                    Pattern::Ctor(
+                        n(&ctor_name),
+                        (0..count).map(|k| Pattern::Var(n(&f(k)))).collect(),
+                        span,
+                    )
+                };
+                let data_fields: Vec<usize> =
+                    (0..count).filter(|k| kinds[*k] != Field::Proof).collect();
+                let is_proof: Vec<bool> = kinds.iter().map(|k| *k == Field::Proof).collect();
+                let proof = fields_equal(
+                    span,
+                    &ctor_name,
+                    &format!("{prefix}{}", ctor.name),
+                    &is_proof,
+                    np,
+                    &this,
+                    &a,
+                    &b,
+                    &|k| var(&h(k)),
+                    &|j| format!("%p{j}"),
+                );
+                let mut body = apps(var("Std.Decidable.Yes"), vec![proof]);
+                for &k in data_fields.iter().rev() {
+                    let field = format!("{prefix}{}%{k}", ctor.name);
+                    let cong = apps(
+                        var("Std.Eq.cong"),
+                        vec![apps(var(&field), vec![var(&a(k))]), var("%e")],
+                    );
+                    let refute = lam(&["%e"], apps(var(&h(k)), vec![cong]));
+                    let no = apps(var("Std.Decidable.No"), vec![refute]);
+                    body = match kinds[k] {
+                        Field::Recursive(target) => apps(
+                            var("Std.Decidable.elim"),
+                            vec![
+                                apps(var(&dec_eq_of(target)), vec![var(&a(k)), var(&b(k))]),
+                                lam(&[&h(k)], body),
+                                lam(&[&h(k)], no),
+                            ],
+                        ),
+                        _ => Expr::If {
+                            binder: Some(n(&h(k))),
+                            cond: Box::new(eq(var(&a(k)), var(&b(k)))),
+                            then: Box::new(body),
+                            otherwise: Box::new(no),
+                            span,
+                        },
+                    };
+                }
+                equations.push(Decl::Equation {
+                    name: name.clone(),
+                    patterns: vec![pattern(&a), pattern(&b)],
+                    rhs: Some(body),
                     arm: None,
                     span,
-                },
-            ));
-            let refute = apps(
-                var(&format!("{ty_name}.%differ")),
-                vec![var("%r"), var("%s"), var("rfl")],
-            );
-            equations.push(Decl::Equation {
-                name: name.clone(),
-                patterns: vec![Pattern::Var(n("%r")), Pattern::Var(n("%s"))],
-                rhs: Some(apps(var("Std.Decidable.No"), vec![refute])),
-                arm: None,
-                span,
-            });
+                });
+            }
+            if ctors.len() > 1 {
+                // Different constructors: their tags differ. Proved once, by
+                // `T.%differ`, which each pair of constructors gives `rfl`:
+                //
+                // T.%differ : [%p0 : _] -> … -> (%r %s : T %p0 …) ->
+                //   Nat.equal (T.%tag %r) (T.%tag %s) = False -> Not (%r = %s)
+                // T.%differ %r %s %t %e = Nat.equalFalse (T.%tag %r) (T.%tag %s) %t (Eq.cong T.%tag %e)
+                let tag = format!("{prefix}tag");
+                let tag_of = |x: &str| apps(var(&tag), vec![var(x)]);
+                let differ_name = n(&format!("{prefix}differ"));
+                let unequal = eq(
+                    apps(var("Std.Nat.equal"), vec![tag_of("%r"), tag_of("%s")]),
+                    var("Std.Bool.False"),
+                );
+                let ty = with_params(
+                    Expr::Pi {
+                        names: vec![n("%r"), n("%s")],
+                        implicit: false,
+                        auto: false,
+                        dom: Box::new(this.clone()),
+                        cod: Box::new(Expr::Arrow(
+                            Box::new(unequal),
+                            Box::new(apps(var("Std.Not"), vec![eq(var("%r"), var("%s"))])),
+                        )),
+                        span,
+                    },
+                    false,
+                );
+                let cong = apps(var("Std.Eq.cong"), vec![var(&tag), var("%e")]);
+                let rhs = apps(
+                    var("Std.Nat.equalFalse"),
+                    vec![tag_of("%r"), tag_of("%s"), var("%t"), cong],
+                );
+                differs.push((
+                    signature(&differ_name, ty, false),
+                    Decl::Equation {
+                        name: differ_name,
+                        patterns: ["%r", "%s", "%t", "%e"]
+                            .iter()
+                            .map(|x| Pattern::Var(n(x)))
+                            .collect(),
+                        rhs: Some(rhs),
+                        arm: None,
+                        span,
+                    },
+                ));
+                let refute = apps(
+                    var(&format!("{prefix}differ")),
+                    vec![var("%r"), var("%s"), var("rfl")],
+                );
+                equations.push(Decl::Equation {
+                    name: name.clone(),
+                    patterns: vec![Pattern::Var(n("%r")), Pattern::Var(n("%s"))],
+                    rhs: Some(apps(var("Std.Decidable.No"), vec![refute])),
+                    arm: None,
+                    span,
+                });
+            }
+            dec_eqs.push((dec_eq_signature, equations));
         }
         // instance T.%instDecEq : … -> Std.DecEq (T %p0 …) := { decide = T.%decEq }
         let instance_name = n(&format!("{ty_name}.%instDecEq"));
@@ -781,7 +1149,7 @@ impl Elaborator {
                 patterns: Vec::new(),
                 rhs: Some(Expr::Record {
                     base: None,
-                    fields: vec![(n("decide"), var(&dec_eq))],
+                    fields: vec![(n("decide"), var(&dec_eq_of(0)))],
                     span,
                 }),
                 arm: None,
@@ -789,17 +1157,17 @@ impl Elaborator {
             }],
         );
         Source {
-            differ,
-            dec_eq: (dec_eq_signature, equations),
+            differs,
+            dec_eqs,
             instance,
         }
     }
 }
 
-/// A proof of `(C %a0 … : this) = C %b0 …` for constructor `ctor` of the
-/// type named `ty_name` (as source names it), given `h(k): %ak = %bk` for
+/// A proof of `(C %a0 … : this) = C %b0 …` for the constructor source names
+/// `ctor_name` (`T.C`), given `h(k): %ak = %bk` for
 /// each data field; `is_proof` says which fields are proofs, and
-/// `T.%C%P%k` must be declared for each. First, for proofs `%z…` of the
+/// `{helper}%P%k` (`T.%C%P%k`) must be declared for each. First, for proofs `%z…` of the
 /// proof fields' types: `C %a… = C %a…[%z…]`, along `DecEq.uniqueEq`'s
 /// equations. Then each data field's `J`, the claim for all proofs carried
 /// along: `y q => (%z: P …) -> C %a… = C %b… y %a… %z…`; at the end it's
@@ -807,8 +1175,8 @@ impl Elaborator {
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn fields_equal(
     span: Span,
-    ty_name: &str,
-    ctor: &str,
+    ctor_name: &str,
+    helper: &str,
     is_proof: &[bool],
     np: usize,
     this: &Expr,
@@ -840,13 +1208,12 @@ pub(crate) fn fields_equal(
     };
     let z = |k: usize| format!("%z{k}");
     let count = is_proof.len();
-    let ctor_name = format!("{ty_name}.{ctor}");
     let proofs: Vec<usize> = (0..count).filter(|k| is_proof[*k]).collect();
     let data_fields: Vec<usize> = (0..count).filter(|k| !is_proof[*k]).collect();
     // `C x0 … xn`, the left side annotated for the parameters the fields
     // don't determine.
     let built =
-        |field: &dyn Fn(usize) -> Expr| apps(var(&ctor_name), (0..count).map(field).collect());
+        |field: &dyn Fn(usize) -> Expr| apps(var(ctor_name), (0..count).map(field).collect());
     let left = Expr::Ann(
         Box::new(built(&|j| var(&a(j)))),
         Box::new(this.clone()),
@@ -854,7 +1221,7 @@ pub(crate) fn fields_equal(
     );
     // A proof field's type, from the fields before it.
     let proof_type = |k: usize, field: &dyn Fn(usize) -> Expr| {
-        let helper = format!("{ty_name}.%{ctor}%P%{k}");
+        let helper = format!("{helper}%P%{k}");
         let mut args: Vec<Expr> = (0..np).map(|j| var(&param(j))).collect();
         args.extend((0..k).map(field));
         apps(var(&helper), args)
@@ -916,7 +1283,10 @@ pub(crate) fn fields_equal(
 
 /// The source [`Elaborator::eq_source`] generates.
 struct Source {
-    differ: Option<(Decl, Decl)>,
-    dec_eq: (Decl, Vec<Decl>),
+    /// `T.%differ`, then each container's (`T.%m1%differ`), for each with
+    /// two constructors or more.
+    differs: Vec<(Decl, Decl)>,
+    /// `T.%decEq`, then each container's, defined together.
+    dec_eqs: Vec<(Decl, Vec<Decl>)>,
     instance: (Decl, Vec<Decl>),
 }
