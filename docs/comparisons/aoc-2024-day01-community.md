@@ -112,7 +112,7 @@ filter is ignored for Unison, which returned 136 unrelated repositories, so I dr
 Coq, Koka and Isabelle searches hit GitHub's search rate limit and were re-run. Isabelle and
 F\* returned nothing **[checked]**. A `KeenS/aoc2024` hit was a false match on `Day10_1.lean`. I
 kept one entry per author (`curenosm` and `mdr` split day 1 across three files). `mdr/aoc-2024`
-may be Matt's own account **[unverified]**.
+is Matt's own Lean 4 repository, from December 2024 **[checked: GitHub user `mdr` is Matt Russell, the owner of this repository's origin]**.
 
 **The megathread.** `scripts/arctic.py` made two requests to Arctic Shift: the post search for
 1 December 2024 05:00 UTC, then the comment tree of post `1h3vp6n` ("-❄️- 2024 Day 1
