@@ -2687,14 +2687,22 @@ impl<'t> Parser<'t> {
         })
     }
 
+    /// `let x := e; body` as an expression. Out of line, so that the `let`'s
+    /// `Stmt` isn't in `expr_inline`'s frame, which every level of a nested
+    /// expression (`((…(0)…))`) holds on the stack.
+    #[inline(never)]
+    fn expression_let(&mut self) -> Result<Expr> {
+        let stmt = self.let_statement()?;
+        self.let_body(stmt)
+    }
+
     fn expr_inline(&mut self) -> Result<Expr> {
         let start = self.here();
         if self.eat(&Tok::KwHandle) {
             return self.handle(start);
         }
         if self.peek() == Some(&Tok::KwLet) {
-            let stmt = self.let_statement()?;
-            return self.let_body(stmt);
+            return self.expression_let();
         }
         if self.eat(&Tok::KwMatch) {
             return self.match_piped(start);
