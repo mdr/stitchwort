@@ -1961,7 +1961,8 @@ impl Quoter {
 
     /// `k * t`: left folded as the call when `t` is a variable
     /// (`native::folds_mul`), and otherwise as it computes,
-    /// `t + (t + … + (t + 0))` with `k >= 2` copies.
+    /// `t + (t + … + t)` with `k >= 2` copies (the innermost `t + 0` is `t`:
+    /// `+` computes on its second argument too, `nat_add.rs`).
     fn mul_left(&self, cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<(BigUint, Value)>> {
         let g = cx.g();
         if let Some([k, t]) = call_args(value, lib.mul).as_deref()
@@ -1991,6 +1992,12 @@ impl Quoter {
                 _ => {
                     let (k, base) = stitchwort_core::native::view(g, &current_forced)?;
                     let zero = base.is_none() && k == BigUint::default();
+                    // The last `t + 0` is `t` itself when `t` is stuck: `+`
+                    // computes on its second argument too (`nat_add.rs`).
+                    if !zero && crate::matching::same(&cx.quote(&current_forced)?, &t_term) {
+                        count = count.saturating_add(1);
+                        return Ok((count >= 2).then_some((BigUint::from(count), t)));
+                    }
                     return Ok((zero && count >= 2).then_some((BigUint::from(count), t)));
                 }
             }
