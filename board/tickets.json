@@ -1,5 +1,5 @@
 {
-  "next": 884,
+  "next": 885,
   "tickets": [
     {
       "id": 13,
@@ -8191,6 +8191,20 @@
         "research"
       ],
       "body": "Matt, 29 Oct (D1661): 'something like this would be cool, do a research lane to understand the options'. From docs/comparisons/aoc-2024-day03-community.md §4: our mul( rule takes six let-bound lines where an applicative one-liner takes one. Output: docs/proposals/ note; design only.",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 884,
+      "title": "Design: total parser combinators by type (Idris consumes flag / agdarsec sizes) in Stitchwort? Whether, and how, vs today's run-time fuel",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
+      "labels": [
+        "research"
+      ],
+      "body": "Matt, 29 Oct: run a design lane on whether and how we might get total parser combinators in the Idris/Agda way. Today Std.Parse is total by fuel (Parse.manyFuel, Parse.sw:341-356) and stops with a fatal error if many's parser matches without reading. Idris 2 Text.Parser.Core: Grammar state tok (consumes: Bool) a, lazy (Inf) continuation only after consuming. agdarsec: size-indexed parsers, recursion under a later modality. Output: a docs/proposals note; design only.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
       "commits": []
