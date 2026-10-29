@@ -101,17 +101,6 @@ pub fn retype_def(g: &mut Globals, id: DefId, ty: &Term) -> Result<()> {
         .map_err(|d| crate::goals::unfinished_dependency(g, [ty], &[], d))
 }
 
-#[allow(dead_code)]
-pub fn declare_data(
-    g: &mut Globals,
-    name: Name,
-    params: Vec<(Name, Term)>,
-    sort: Sort,
-    span: Span,
-) -> Result<DataId> {
-    unglued(g, |g| k::declare_data(g, name, params, sort, span))
-}
-
 pub fn declare_data_group(
     g: &mut Globals,
     params: Vec<(Name, Term)>,
@@ -119,16 +108,6 @@ pub fn declare_data_group(
     members: Vec<(Name, Span)>,
 ) -> Result<Vec<DataId>> {
     unglued(g, |g| k::declare_data_group(g, params, sort, members))
-}
-
-#[allow(dead_code)]
-pub fn declare_data_group_as(
-    g: &mut Globals,
-    params: Vec<(Name, Term)>,
-    sort: Sort,
-    members: Vec<(Name, Span, bool)>,
-) -> Result<Vec<DataId>> {
-    unglued(g, |g| k::declare_data_group_as(g, params, sort, members))
 }
 
 pub fn declare_indexed_data_group(
@@ -140,11 +119,6 @@ pub fn declare_indexed_data_group(
     unglued(g, |g| {
         k::declare_indexed_data_group(g, params, sort, members)
     })
-}
-
-#[allow(dead_code)]
-pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<()> {
-    unglued(g, |g| k::define_ctors(g, d, ctors))
 }
 
 pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>) -> Result<()> {
