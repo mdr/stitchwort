@@ -4,10 +4,12 @@
 -- (a type inside `Neg`, which takes its parameter as a function's input),
 -- soundness/nested-in-quotient.sw and soundness/partial-nested.sw. More
 -- shapes are in accept/nested-data-shapes.sw; derived `==`, `<` and `${…}`
--- in accept/nested-data-derived.sw.
+-- in accept/nested-data-derived.sw; the generated `Packet.size`,
+-- `Packet.induct` and `Packet.inductMem` in accept/nested-data-induction.sw.
 --
 --   $ stitchwort run examples/accept/nested-data.sw
 --   size: 6
+--   depth: 2
 
 import Std (Eq, IO, List, Nat, Void)
 import Std.IO (print)
@@ -38,8 +40,22 @@ test "length" := match example with
   | Number _ => False
   | Packets items => items.length == 3
 
--- A packet in a list is no bigger than the list, so it's smaller than the
--- packet that holds the list.
+-- Recursion through `map` instead of a helper: the generated `Packet.size`
+-- is the measure, and a packet `attach`ed from `items` (`e.value`, with
+-- `e.isIn`, the proof that it's in `items`) is smaller than the packet. The
+-- compiler proves that from `e.isIn` with the lemma it generates for the
+-- field `items`.
+def depth (p: Packet): Nat
+    decreasing Packet.size p
+:=
+  match p with
+    | Number n => 0
+    | Packets items => 1 + (items.attach.map (e => depth e.value) |> .foldLeft 0 Nat.max)
+
+test "depth" := depth example == 2
+
+-- By hand, that lemma is this (for the `size` above): a packet in a list is
+-- no bigger than the list, so it's smaller than the packet that holds it.
 theorem sizeListMem (q: Packet): (items: List Packet) → List.Mem q items → size q ≤ sizeList items
   | Nil, member => Void.exfalso member
   | Cons p rest, Inl same => rewrite same in Nat.leAddRight (size q) (sizeList rest)
@@ -50,4 +66,6 @@ theorem sizeListMem (q: Packet): (items: List Packet) → List.Mem q items → s
 theorem sizeMem (q: Packet) (items: List Packet) (member: List.Mem q items): size q < size (Packets items) :=
   sizeListMem q items member
 
-def main(): {IO} () := print "size: ${size example}"
+def main(): {IO} () :=
+  print "size: ${size example}"
+  print "depth: ${depth example}"
