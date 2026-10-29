@@ -73,7 +73,7 @@ def Float.Model.units (bits: Nat): Int :=
   let e: Nat := Nat.divFuel m m 4503599627370496
   let f: Nat := m - e * 4503599627370496
   Int.signed (Float.Model.signBit bits)
-    (if Nat.equal e 0 then f else (f + 4503599627370496) * Float.Model.pow2 (e - 1))
+    (if Nat.equal e 0 then f else Float.Model.pow2 (e - 1) * (f + 4503599627370496))
 
 -- Where an exact value lies between two neighbouring candidates: on the
 -- lower one, below the point halfway to the upper, on it, or above it.

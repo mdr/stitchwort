@@ -559,11 +559,14 @@ def Float.wholeMagnitude (e: Nat) (m: Nat): Option Nat :=
 def Float.withSign (negative: Bool) (n: Nat): Int := if negative then Int.neg (OfNat n) else OfNat n
 
 -- From the sign and the exponent field `e`, and the rest of the bits, `m =
--- e * 2^52 + f`.
+-- e * 2^52 + f`. The significand `f + 2^52` is written `m - (e - 1) * 2^52`
+-- (`e` isn't 0 there): `f + 2^52` computes to `2^52 + f` (`+` computes on
+-- both sides), and `*` and `Nat.divFuel` in `wholeMagnitude` would count
+-- that down 2^52 times while checking.
 def Float.toIntFrom (negative: Bool) (e: Nat) (m: Nat): Option Int :=
   if Nat.equal e 2047 then None
   else if Nat.equal e 0 then (if Nat.equal m 0 then Some (OfNat 0) else None)
-  else match Float.wholeMagnitude e (m - e * 4503599627370496 + 4503599627370496) with
+  else match Float.wholeMagnitude e (m - (e - 1) * 4503599627370496) with
     | Some n => Some (Float.withSign negative n)
     | None => None
 

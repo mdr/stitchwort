@@ -107,15 +107,15 @@ pub const NATIVE_HASHES: &[(Builtin, &str)] = &[
     ),
     (
         Builtin::FloatToInt,
-        "26ec25a82920530a6b24bdb014dc38736381e6c4a3d5659167ca3bf154f7a383",
+        "1269704679960f59ce32fd1248471b27c764d28b23f931ade3f2867cac952aaf",
     ),
     (
         Builtin::FloatAdd,
-        "8e844daae72a5349c16404fa91cc72020cf516e3fce16c8952481bd4cbd6913c",
+        "eb2f17a6d6deb4489606eb56455d4ef9e969ca4643a1f8b5ce90b1c3b9d3eaaa",
     ),
     (
         Builtin::FloatSub,
-        "02f1f356764a12760e2caf978807ee00a95892e5ff8d14c37a7455d35bcddbf3",
+        "e98ae309a94ea69a8f2af057f1602502bc110e221a91b5a9a3ecc2700412c4a1",
     ),
     (
         Builtin::FloatBitsExt,
