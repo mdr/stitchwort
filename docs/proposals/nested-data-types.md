@@ -495,8 +495,9 @@ It assumes, in full:
   `lookup_minductive` are parameters too (`Positivity_condition.v:440-441`), as is
   `cdecl_to_arity` (`:894`).
 - **A2 (the view).** The theorem is about the view, not about raw terms: that a declaration's
-  view correctly describes it (`arg_of_term`) is not part of the theorem **[checked: no such
-  lemma is used]**.
+  view correctly describes it (`arg_of_term`) is not part of the theorem **[checked: the
+  statement quantifies over views; we found no lemma linking views to terms in the files we
+  read]**.
 - **A3 (guard).** "Guard Checking is unset in the formalization in order not to have to reason by
   well-foundedness on the size of the environment" [R4 README] **[cited]**. The recursion is on
   earlier types, so it is well founded; the formal proof doesn't show it.
