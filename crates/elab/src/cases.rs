@@ -337,6 +337,15 @@ fn open_case(
         }
     }
     d = d.with_note(format!("goal: {}", cx.show(goal)));
+    // The case's own equations hold the atoms split on, where an unused
+    // equation's left side may be (SW-882).
+    let mut searched = vec![goal];
+    searched.extend(
+        (0..cx.level())
+            .filter(|&l| is_equation(cx, l))
+            .map(|l| &cx.types[l]),
+    );
+    d = cx.with_unused_equation_notes(d, &searched);
     match stuck {
         Some((what, ty)) => d.with_note(format!(
             "it stopped here because the goal is stuck on `{what}`, a `{ty}`, which `cases` \

@@ -1406,6 +1406,8 @@ What a generalised `match` (an expression scrutinee, or any named one) replaces:
 
 Nothing else changes. The definitions and lemmas you call keep their statements, so a lemma stated about the folded form (`accessible grid s r c`) fails with a type mismatch against a branch's goal that is a step further along. This was the main surprise in the day 4 proofs ([aoc-2025.md](aoc-2025.md), pain point 1), and it is predictable once known. To avoid it, give the lemma the matched value as an argument (`sweepRowCases` on the marks, `ifFloorRoll` on the condition), or state it about the computed form.
 
+The same goes for an occurrence a lemma brings in. The `match` replaces the scrutinee everywhere in the goal it is given, inside lambdas too: with `step: ok x` the `True` branch of `anyR (ys => all2 ok (Cons x ys)) rest` is `anyR (ys => all2 ok ys) rest`, as `all2` computes to `ok x && …` and that to what follows. But a `rewrite` with a lemma inside the branch puts the lemma's statement into the goal, and an `ok x` in it is still there: neither `rfl` nor `cases` rewrites with `step`, so a goal that would hold with `True` in place of `ok x` fails. `rewrite step` replaces it, inside a lambda too, as `ok x` doesn't mention the lambda's parameter, so no congruence lemma is needed; `E-REFL` and `E-CASES` say so when such an occurrence is inside a function (SW-882, `examples/reject/match-scrutinee-from-lemma-under-lambda.sw`).
+
 This is how a proof splits on an `if`: matching on the condition replaces it in the goal, and `h` is the evidence for the branch. No motive is written by hand (`Bool.inspect` asks for one).
 
 ```

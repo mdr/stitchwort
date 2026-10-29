@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/match-scrutinee-from-lemma-under-lambda.sw:26:40 ]
+    │
+ 26 │     | True => rewrite gIs ok x rest in rfl
+    │                                        ─┬─  
+    │                                         ╰─── `anyR (ys => ok x && all2 ok ys) rest` and `anyR (ys => all2 ok ys) rest` aren't equal
+    │ 
+    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 2: `ok x` is inside a function here, where `step: ok x = True` isn't used: `rfl` and `cases` compute, but don't rewrite with a hypothesis. This `ok x` came in after the `match` on it (from a lemma's statement or a term written in the branch), so the `match` didn't replace it. `rewrite step in …` does, as `ok x` doesn't mention the function's parameter
+────╯
