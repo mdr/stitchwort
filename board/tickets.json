@@ -1,5 +1,5 @@
 {
-  "next": 881,
+  "next": 883,
   "tickets": [
     {
       "id": 13,
@@ -8146,6 +8146,34 @@
         "perf"
       ],
       "body": "D1660 (Matt, 29 Oct): 'I don't have an issue with trusting cached entries' — reverses D277 (check-cache.md §3, option B). Evidence: a warm run of Aoc.Year2024.Day01.main is 569 ms wall, of which 302 ms is the kernel re-checking the 29 cached std files (STITCHWORT_TIMINGS=1), mostly lemma files (Map/Spec 72, Map/Map 56, List/SortLemmas 38, List/Lemmas 38, Parse 22). Scope: every command; --no-cache stays the full check; merge/daily/aoc gates must still exercise the kernel; keep the differential test (§5.4).",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 881,
+      "title": "AoC 2024 day 2: the one-pass check becomes the main program, proved correct against the simple spec (every removal); counterexamples as tests",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Matt, 29 Oct (after D1641): switch day 2 part 2 to the linear check from docs/comparisons/aoc-2024-day02-community/scripts/sw/LinearProved.sw and prove it correct against a simple spec. Brute force becomes (or stays) the spec. Tests: the shortcut counterexamples [1,3,2,1], [1,5,6], [1,6,2].",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 882,
+      "title": "Elaborator: match h: e with | True doesn't refine e inside a lambda in the goal, while the False branch seems to; reproduce, explain, fix or document",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
+      "labels": [
+        "bug"
+      ],
+      "body": "From docs/comparisons/aoc-2024-day02-community.md §3 (lines ~205-211): with step: ok level next = True in scope, the goal still had anyRemoved (ys => ok level next && …) rest and cases couldn't close it; anyRemovedCong … (ys => rewrite step in rfl) did. In the False branch the lambda looked refined (ys => ok before level && False). Unverified whether that's refinement or just computation. Matt, 29 Oct: bottom it out.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
       "commits": []
