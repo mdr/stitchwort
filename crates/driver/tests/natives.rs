@@ -161,8 +161,15 @@ fn natives_accept_succ_around_a_number() {
 fn natives_wait_for_numbers() {
     let session = Session::new();
     let g = &session.elab.globals;
-    // `add x 3` with `x` unknown stays as it is, as the definition would.
-    let stuck = call(g, def(g, "Nat.add"), &[Value::var(0), nat(3)]);
+    // `add x y` with both unknown stays as it is, as the definition would.
+    let stuck = call(g, def(g, "Nat.add"), &[Value::var(0), Value::var(1)]);
+    assert!(matches!(stuck, Value::Neutral(..)), "{stuck:?}");
+    // `add x 3` computes on its second argument (R4, `nat_add.rs`), with the
+    // natives on or off: `3 + x`.
+    let moved = call(g, def(g, "Nat.add"), &[Value::var(0), nat(3)]);
+    assert!(matches!(moved, Value::NatAdd(..)), "{moved:?}");
+    // `sub x 3` stays as it is.
+    let stuck = call(g, def(g, "Nat.sub"), &[Value::var(0), nat(3)]);
     assert!(matches!(stuck, Value::Neutral(..)), "{stuck:?}");
 }
 
@@ -310,6 +317,12 @@ fn plus_var(k: u64, level: Option<usize>) -> Value {
     native::from_view(BigUint::from(k), level.map(Value::var))
 }
 
+/// `base` under `k` `Succ` constructors (not the compact `k + base`).
+fn succs(g: &stitchwort_core::Globals, k: u64, base: Value) -> Value {
+    let nat = g.builtins.nat.expect("`Nat` is bound");
+    (0..k).fold(base, |v, _| Value::Ctor(nat, 1, vec![v].into()))
+}
+
 #[test]
 fn shortcuts_with_unknowns_agree_with_the_definitions() {
     with_big_stack(|| {
@@ -319,12 +332,18 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
             let id = def(g, op.name());
             for k1 in 0..12 {
                 for k2 in 0..12 {
-                    // `k1 + x` against `k2 + y`, `k2`, and `k2 + x`.
+                    // `k1 + x` against `k2 + y`, `k2`, and `k2 + x`; and
+                    // against `y` under `k2` `Succ` constructors. For `Add`
+                    // these are sums stuck on either side, or both, which
+                    // compute on the second side when stuck on the first
+                    // (R3 and R4, `nat_add.rs`; crates/driver/tests/
+                    // nat_add_rule.rs has the reference evaluator too).
                     for (a, b) in [
                         (plus_var(k1, Some(0)), plus_var(k2, Some(1))),
                         (plus_var(k1, Some(0)), plus_var(k2, None)),
                         (plus_var(k1, None), plus_var(k2, Some(0))),
                         (plus_var(k1, Some(0)), plus_var(k2, Some(0))),
+                        (plus_var(k1, Some(0)), succs(g, k2, Value::var(1))),
                     ] {
                         let fast = call(g, id, &[a.clone(), b.clone()]);
                         g.builtins.disable_natives = true;
