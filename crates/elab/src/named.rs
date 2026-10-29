@@ -270,7 +270,6 @@ fn past_the_end(defaults: &HeadDefaults, left_out: &Name, arg: Arg) -> Diagnosti
 /// an explicit one, `Arg::Named` for an implicit one), and the positional
 /// arguments past the end: for a constructor, whose fields are elaborated
 /// by their own code.
-#[allow(clippy::type_complexity)]
 pub(crate) fn assign<'a>(
     cx: &Ctx,
     sig: &Signature,
@@ -298,7 +297,6 @@ pub(crate) fn assign<'a>(
 /// call meaning the same however it's bracketed (§4.2 rule 1). The names
 /// after the stuck type are then read from what it computes to (§4.3,
 /// "Synonyms and reduction"). `None` if the call isn't such a call.
-#[allow(clippy::type_complexity)]
 pub(crate) fn split<'a>(
     cx: &Ctx,
     sig: &Signature,
@@ -336,7 +334,6 @@ pub(crate) fn split<'a>(
 /// arguments past the end of the signature. With `lenient`, a named
 /// argument the signature has no parameter for goes with those (in written
 /// order) rather than being an error, for [`split`].
-#[allow(clippy::type_complexity)]
 fn fill<'a>(
     cx: &Ctx,
     sig: &Signature,

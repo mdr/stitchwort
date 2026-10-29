@@ -4417,7 +4417,6 @@ fn as_fields(cx: &Ctx, name: &AstName) -> Option<Expr> {
 
 /// If `expr` is a constructor applied to explicit arguments: the constructor
 /// and the arguments.
-#[allow(clippy::type_complexity)]
 fn ctor_head<'a>(cx: &Ctx, expr: &'a Expr) -> Result<Option<(DataId, usize, Vec<CtorArg<'a>>)>> {
     let mut args = Vec::new();
     let mut head = expr;
