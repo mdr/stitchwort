@@ -55,7 +55,139 @@ family" tells users to declare `Succ n`, not `n + 1`, in an index, because
 
 ## 2. How other systems do it
 
-SEE_RESEARCH
+Every claim here is **[cited]** from the linked file at the given tag
+(read by a research subagent), unless marked otherwise.
+
+**Lean 4** counts down the **second** argument, the only system here that
+does
+([Prelude.lean L1887-1890, v4.35.0](https://github.com/leanprover/lean4/blob/v4.35.0/src/Init/Prelude.lean#L1887-L1890)):
+
+```
+protected def Nat.add : (@& Nat) → (@& Nat) → Nat
+  | a, Nat.zero   => a
+  | a, Nat.succ b => Nat.succ (Nat.add a b)
+```
+
+`Nat.mul` too: `| a, Nat.succ b => Nat.add (Nat.mul a b) a`, the
+recursive call on the left (same file, L1908-1911). So `add_succ`,
+`add_one` and `add_zero` are `rfl`, and `succ_add` and `zero_add` are
+proved by induction
+([Nat/Basic.lean L135-153](https://github.com/leanprover/lean4/blob/v4.35.0/src/Init/Data/Nat/Basic.lean#L135-L153),
+[Core.lean L747](https://github.com/leanprover/lean4/blob/v4.35.0/src/Init/Core.lean#L747)).
+
+- `n + 1` works as a match pattern because `Nat.add` and `HAdd.hAdd` are
+  marked `[match_pattern]` (Prelude.lean L1895-1897).
+- Since lean4 PR #3579 (13 March 2024, in v4.8.0), `succ_eq_add_one` is
+  `@[simp]`, so `n + 1`, not `Nat.succ n`, is simp's normal form
+  ([commit 317adf42](https://github.com/leanprover/lean4/commit/317adf42e92a4dbe07295bc1f0429b61bb8079fe);
+  [reference manual](https://lean-lang.org/doc/reference/latest/Basic-Types/Natural-Numbers/):
+  "Using `Nat.succ n` should usually be avoided in favor of `n + 1`").
+- The kernel computes `succ`, `add`, `sub`, `mul`, `pow`, `gcd`, `mod`,
+  `div`, `beq`, `ble`, `land`, `lor`, `xor`, `shiftLeft` and `shiftRight`
+  with GMP, **only when both arguments reduce to literals**; while
+  checking definitional equality it tries this only when neither side has
+  a free variable
+  ([type_checker.cpp L672-703, L1060](https://github.com/leanprover/lean4/blob/v4.35.0/src/kernel/type_checker.cpp#L672-L703)).
+  So GMP never helps `x + 1` with `x` a variable; the definition does.
+- `List.length_append` is not `rfl`: it is proved by induction with
+  `simp [ih, Nat.succ_add]`
+  ([List/Basic.lean L622-625](https://github.com/leanprover/lean4/blob/v4.35.0/src/Init/Data/List/Basic.lean#L622-L625)).
+  `Vector` is an `Array` with a size proof, so its index never computes
+  ([Vector/Basic.lean L225](https://github.com/leanprover/lean4/blob/v4.35.0/src/Init/Data/Vector/Basic.lean#L225)).
+  Lean pays the (b) costs of §3 with `simp`.
+- No design rationale for the choice was found; the closest is the 2024
+  [Zulip thread](https://leanprover-community.github.io/archive/stream/287929-mathlib4/topic/experiment.20making.20.60succ_eq_add_one.60.20.40.5Bsimp.5D.60.html)
+  on the normal form.
+
+**Agda** counts down the **first** argument
+([Agda/Builtin/Nat.agda L18-35, v2.8.0.2](https://github.com/agda/agda/blob/v2.8.0.2/src/data/lib/prim/Agda/Builtin/Nat.agda#L18-L35)).
+`BUILTIN NATPLUS` uses Haskell integers only for **closed** terms
+([built-ins](https://agda.readthedocs.io/en/latest/language/built-ins.html)).
+The stdlib proves `+-suc` and `+-identityʳ` by induction
+([Properties.agda L543-559](https://github.com/agda/agda-stdlib/blob/v2.4/src/Data/Nat/Properties.agda#L543-L559)),
+and `Vec`'s `_++_ : Vec A m → Vec A n → Vec A (m + n)` relies on the
+first-argument side
+([Vec/Base.agda L108](https://github.com/agda/agda-stdlib/blob/v2.4/src/Data/Vec/Base.agda#L108)).
+With `--rewriting`, the manual's own example makes `+` compute on both
+sides, which is option (c)
+([rewriting](https://agda.readthedocs.io/en/latest/language/rewriting.html)):
+
+```
++zero : m + zero ≡ m
++suc : m + (suc n) ≡ suc (m + n)
+{-# REWRITE +zero +suc #-}
+```
+
+The manual says rules are safe **only with `--confluence-check`**, and
+termination is not checked.
+
+**Rocq** counts down the **first** argument
+([Init/Nat.v L47-65, V9.3.0](https://github.com/rocq-prover/rocq/blob/V9.3.0/theories/Corelib/Init/Nat.v#L47-L65));
+`plus_n_O` and `plus_n_Sm` are proved by induction
+([Peano.v L99-124](https://github.com/rocq-prover/rocq/blob/V9.3.0/theories/Corelib/Init/Peano.v#L99-L124));
+`Vector.append` has index `n + p`
+([VectorDef.v L190](https://github.com/rocq-prover/stdlib/blob/V9.0.0/theories/Vectors/VectorDef.v#L190)).
+Rewrite rules (since 8.20, enabled by `-allow-rewrite-rules`) have the
+four-rule both-sides `+` as the manual's example, on a new `Symbol`, not
+on `Nat.add`
+([rewrite-rules](https://rocq-prover.org/doc/V9.0.0/refman/addendum/rewrite-rules.html)).
+The manual calls them "highly experimental": types, confluence and
+termination are **not checked**, and enabling them turns off the VM and
+native reduction. Binary `positive`, `N` and `Z` are separate types
+([BinNums.v](https://github.com/rocq-prover/rocq/blob/V9.3.0/theories/Corelib/Numbers/BinNums.v#L21-L71));
+`nat` stays unary.
+
+**Idris 2** counts down the **first** argument; `plusZeroRightNeutral`
+and `plusSuccRightSucc` are proved by induction
+([Prelude/Types.idr L48-64](https://github.com/idris-lang/Idris2/blob/v0.8.0/libs/prelude/Prelude/Types.idr#L48-L64),
+[Data/Nat.idr L454-465](https://github.com/idris-lang/Idris2/blob/v0.8.0/libs/base/Data/Nat.idr#L454-L465)).
+`%builtin Natural` makes `Nat` an integer at run time
+([builtins](https://idris2.readthedocs.io/en/latest/reference/builtins.html));
+that it doesn't change type checking is **[unverified]**.
+
+**Isabelle/HOL** defines `plus_nat` by `primrec` on the **first** argument,
+and has both `add_0_right` and `add_Suc_right` as `[simp]` lemmas
+([Nat.thy L214-226](https://github.com/isabelle-prover/mirror-isabelle/blob/968581a57388778193d3efa40d940fdbcf4be4f2/src/HOL/Nat.thy#L214-L226)).
+HOL has no definitional equality in typing, so the side never blocks a
+type **[unverified]** (background knowledge). This is option (e) as a
+whole design.
+
+**F\*** (`let nat = x:int{x >= 0}`,
+[tutorial](https://fstar-lang.org/tutorial/book/part1/part1_getting_off_the_ground.html#boolean-refinement-types))
+and **Dafny** (`type nat = n: int | 0 <= n`,
+[reference](https://dafny.org/latest/DafnyRef/DafnyRef#5631-type-nat))
+make `nat` a subset of `int` and leave arithmetic to the SMT solver, so
+there is no recursion side.
+
+**GHC** type-level `+` is a built-in type family that only evaluates
+literals; GHC "does not know … the commutativity and associativity of
+(+)"
+([type literals](https://downloads.haskell.org/ghc/latest/docs/users_guide/exts/type_literals.html#computing-with-type-level-naturals)).
+The [ghc-typelits-natnormalise](https://hackage.haskell.org/package/ghc-typelits-natnormalise)
+plugin normalises sums of products of literals and variables, then
+compares syntactically: option (d), as a plugin to the type checker.
+
+**Papers.** Cockx,
+[Type Theory Unchained](https://doi.org/10.4230/LIPIcs.TYPES.2019.2)
+(TYPES 2019), is the design of Agda's rewrite rules; Cockx, Tabareau and
+Winterhalter, [The Taming of the Rew](https://doi.org/10.1145/3434341)
+(POPL 2021), gives the type theory with rewrite rules and the triangle
+criterion for confluence that the Rocq manual points to. Allais, McBride
+and Boutillier,
+[New Equations for Neutral Terms](https://arxiv.org/abs/1304.0809)
+(2013), add laws for neutral terms (list monoid, functor and fusion
+laws), applied after evaluation gets stuck. They say this is "perfectly
+useless for commutativity", and that rules such as `x + suc y ≡ suc (x +
+y)` "make neutral terms come unstuck, and so cannot be postponed until
+reification": that is, (c) has to be part of evaluation, not a
+post-pass, which is what §6 proposes.
+
+**Summary.** Lean alone picks (b). Agda, Rocq, Idris and Isabelle use
+(a). Agda and Rocq offer (c) as opt-in rewrite rules, Agda's checked for
+confluence on request and Rocq's unchecked. Isabelle is (e) by design.
+GHC's plugin is (d). No system makes commutativity definitional in its
+kernel.
+
 
 ## 3. What the choice touches here
 
@@ -113,8 +245,8 @@ the recursive part on the left of `+`, which suits (a):
   **[checked]**: it broke, and the fix is on the branch.
 - `List.sum` and `List.sumBy` are `foldLeft` from `0` with `acc + x`
   (`List/Toolkit.sw:80-85`) **[checked]**, so a sum starts `0 + a`. Under
-  (a) that computes; under (b) it is stuck. Lean's `List.sum` is a
-  `foldr` with the `0` on the right, which suits (b) **[unverified]**.
+  (a) that computes; under (b) it is stuck. Which side Lean's
+  `List.sum` puts the `0` on was not checked **[unverified]**.
 - `Vec` append with index `n + m`, in
   `examples/accept/indexed-families.sw`, typechecks only because `+`
   counts down `n`, the first vector's length **[checked]** (the comment
@@ -219,7 +351,8 @@ rules. The four rules (two from the definition, two added) are confluent:
 the critical pairs `Zero + Zero`, `Zero + Succ n`, `Succ m + Zero` and
 `Succ m + Succ n` each close in one or two steps **[inferred]**, and every
 rule makes an argument smaller, so they terminate **[inferred]**. Agda
-offers exactly this with `--rewriting`, and Rocq 9 with rewrite rules (§2).
+offers exactly this with `--rewriting`, and Rocq with rewrite rules: both
+manuals use this very example (§2).
 Everything in §3's table computes except commutativity and associativity.
 Costs: the kernel gains a rule that isn't a definition; `+` becomes strict
 in its second argument when the first is stuck (it must look at the
@@ -233,9 +366,10 @@ definitional. Costs: a normal form that isn't a constructor tree, a
 new value form the whole kernel (conversion, unification, readback,
 pattern matching, `omega`, `ring`) must handle, and the natives-off
 evaluator can't match it (it would have to be part of the core's meaning
-of `+`, not a shortcut). Allais, McBride and Boutillier (§2) did the
-neutral-term half of this, without commutativity. No mainstream prover
-does commutativity in conversion **[inferred]** from §2.
+of `+`, not a shortcut). GHC's natnormalise plugin does this outside a
+kernel; Allais, McBride and Boutillier call such laws "perfectly useless
+for commutativity" in their setting (§2). None of the provers in §2 makes
+commutativity definitional **[inferred]** from §2.
 
 **(e) Tactics only.** A `simp`-like normaliser that rewrites `x + 1` to
 `Succ x` (and `0 + x` to `x`) in a goal before `cases` or `rfl`; `omega`
@@ -369,14 +503,20 @@ Ranked by end state:
    prototype breaks almost nothing (§5), and what breaks is mostly
    rewrites that should be deleted. The cost is one kernel rule, which is
    a proved theorem, plus `+` being strict in its second argument while
-   checking. Risk: the day 4 and day 15 failures I didn't explain; the
-   `Float/Theory` resource errors until re-pinned.
+   checking. It is what Agda (`--rewriting`) and Rocq (rewrite rules)
+   offer as an opt-in, with the same example (§2); here it would be one
+   fixed rule whose confluence is checked by hand once (§4), not a
+   general user feature. Risk: the day 4 and day 15 failures I didn't
+   explain; the `Float/Theory` resource errors until re-pinned.
 2. **(b), Lean's side.** No kernel change, and it fixes the common case
-   (`x + 1`). But it moves the friction to `0 + x` folds, `length` of an
-   append and `Vec` append, and costs about 250 proof edits. Choose it
+   (`x + 1`), and it is Lean's choice. But it moves the friction to
+   `0 + x` folds, `length` of an append and `Vec` append, and costs about
+   250 proof edits. Choose it
    over (c) if no kernel rule is acceptable.
 3. **(e), tactics**, as a complement to either: a normaliser before `cases`
-   helps with `x + y + 1` shapes that (c) doesn't settle.
+   helps with equations that need commutativity or associativity
+   (`x + (y + z) = (x + y) + z` with `z` unknown), which no option makes
+   compute.
 4. **(a)**, today.
 5. **(d)**: commutativity in conversion is not worth a new value form in
    the kernel when `omega` and `ring` already prove these equations.
@@ -390,4 +530,4 @@ Ranked by end state:
 | D1771 | Which end state for `+`: (a) keep, (b) Lean's side, (c) both sides compute, (d) kernel normalisation? | [(c), with the rule in the core for both evaluators (§6), not as a natives shortcut] |
 | D1772 | If (c): also add the matching rules for `*` (`m * Succ n = m * n + m`, `m * 0 = 0`)? | [not now; measure after `+`] |
 | D1773 | If (c) is rejected: switch to (b) and migrate std and aoc (about 250 edits)? | [yes; (b) beats (a) on the common case even with its new friction] |
-| D1774 | The branch's prototype commits: merge any of them? | [no; drop the branch after reading. The real (c) is a new ticket] |
+| D1774 | The branch's prototype commits: merge any of them? | [merge only this note (cherry-pick its commits); drop the prototype commits, which are natives-only and carry scratch tooling. The real (c) is a new ticket] |
