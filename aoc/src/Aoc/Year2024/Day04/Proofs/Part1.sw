@@ -273,5 +273,15 @@ theorem specDirections (grid: Grid):
 -- Part 1 is right for every grid: the printed answer is the number of
 -- positions and directions from which the letters spell XMAS.
 theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
-  omega [programLines grid, specDirections grid, upLeft grid, upward grid, upRight grid, leftward grid,
-    rightward grid, downLeft grid, downward grid, downRight grid]
+  omega [
+    programLines grid,
+    specDirections grid,
+    upLeft grid,
+    upward grid,
+    upRight grid,
+    leftward grid,
+    rightward grid,
+    downLeft grid,
+    downward grid,
+    downRight grid
+  ]

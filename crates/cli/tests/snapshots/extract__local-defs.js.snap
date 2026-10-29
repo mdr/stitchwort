@@ -753,7 +753,7 @@ const $Main$dsumTo$dgo = (v0, v1) => {
     } else {
       const v2 = v0 - 1n;
       s0 = v2;
-      s1 = $Std$dNat$dadd(v1, (v2 + 1n));
+      s1 = ($Std$dNat$dadd(v1, v2) + 1n);
       continue;
     }
   }
@@ -771,7 +771,7 @@ const $Main$dcountIf$dgo = (v0, v1, v2) => {
         const v3 = v2.head;
         const v4 = v2.tail;
         s0 = v0;
-        s1 = ($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v3, v0)).tag === "True" ? $Std$dNat$dadd(v1, 1n) : v1);
+        s1 = ($Std$dDecidable$dtoBool($Std$dNat$ddecEq(v3, v0)).tag === "True" ? (v1 + 1n) : v1);
         s2 = v4;
         continue;
       }

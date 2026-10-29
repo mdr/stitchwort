@@ -52,7 +52,8 @@
 //! **Binding.** The rules are only for the library's own `Nat.add`, by
 //! content hash ([`NAT_ADD_HASH`], which covers `Nat` too), and are switched
 //! on when the prelude binds `Nat.addSucc`, after checking that it and
-//! `Nat.addZero` have the types of R3 and R4 ([`register`]). The theorems
+//! `Nat.addZero` have the types of R3 and R4 ([`register`]); for another
+//! `Nat.add` they stay off. The theorems
 //! are a safety net against binding the rules to the wrong definition, not
 //! the soundness argument: the kernel trusts this code to implement R3 and
 //! R4, as it trusts the natives (DESIGN.md §13).
@@ -177,9 +178,6 @@ fn refused(span: Span, why: &str) -> Diagnostic {
         "the library's `Nat.add` isn't the declaration the compiler's rules for `+` were written for",
     )
     .with_label(span, why.to_string())
-    .with_note(
-        "`Nat.add`'s content hash is pinned in crates/core/src/nat_add.rs",
-    )
 }
 
 /// The content hash of the bound `Nat.add`, if it has one: for the test
@@ -193,9 +191,9 @@ pub fn add_hash(g: &Globals) -> Option<String> {
 }
 
 /// Switches R3 and R4 on for the prelude's `Nat.add`, when it binds
-/// `Nat.addSucc` (`add_succ`), which comes after `Nat.addZero`. `Nat.add`
-/// must have the pinned content hash, and the two theorems must have the
-/// types `(n: Nat) → n + 0 = n` and `(n: Nat) → (m: Nat) → n + Succ m =
+/// `Nat.addSucc` (`add_succ`), which comes after `Nat.addZero`, if
+/// `Nat.add` has the pinned content hash (otherwise they stay off). Then the
+/// two theorems must have the types `(n: Nat) → n + 0 = n` and `(n: Nat) → (m: Nat) → n + Succ m =
 /// Succ (n + m)`. The theorems are checked as a safety net against binding
 /// the rules to the wrong definition: what makes the rules sound is the
 /// argument in the module comment, not their proofs.
@@ -211,15 +209,12 @@ pub fn register(g: &mut Globals, add_succ: DefId) -> Result<(), Diagnostic> {
             "`Nat`, `Nat.add` or `Nat.addZero` isn't bound",
         ));
     };
-    let hash = add_hash(g);
-    if hash.as_deref() != Some(NAT_ADD_HASH) {
-        return Err(refused(
-            g.def(add).span,
-            &format!(
-                "its content hash, {}, isn't the pinned one",
-                hash.as_deref().unwrap_or("none")
-            ),
-        ));
+    // Another `Nat.add` (or `Nat`): the rules stay off, and `+` is its
+    // definition alone, as compact text falls back to constructors for
+    // another `List` or `Char`. The library's own is checked by the test
+    // `nat_add_is_the_pinned_declaration`, which prints the new hash.
+    if add_hash(g).as_deref() != Some(NAT_ADD_HASH) {
+        return Ok(());
     }
     let nat_ty = || Term::Data(nat, Vec::new());
     let pi =

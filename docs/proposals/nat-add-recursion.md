@@ -768,12 +768,18 @@ doesn't touch it. The WebAssembly kernel is the same crate compiled to
 WebAssembly (`crates/web`), so there's nothing separate there.
 
 **Binding.** `register` runs when the prelude binds `Nat.addSucc`
-(`registry.rs` names `Nat.addZero` and `Nat.addSucc`): `Nat.add` must have
-the pinned content hash (which covers `Nat`), and both theorems must be
-final theorems with the types `(n: Nat) → n + 0 = n` and `(n: Nat) → (m:
-Nat) → n + Succ m = Succ (n + m)`, else `E-BUILTIN`. The theorem check is a
-safety net against binding the rules to the wrong definition; the argument
-is §9.
+(`registry.rs` names `Nat.addZero` and `Nat.addSucc`). If `Nat.add` has
+another content hash than the pinned one (which covers `Nat`), the rules
+stay off and `+` is its definition alone, as compact text falls back to
+constructors for another `List`; a test fails for the library's own
+(`nat_add_is_the_pinned_declaration`), printing the new hash. (Refusing
+the prelude instead, as `Float` does, broke a test that loads a prelude
+with a renamed `Succ` field to check the JS representation's fallback;
+this is a choice, flagged for review.) With the pinned hash, both theorems
+must be final theorems with the types `(n: Nat) → n + 0 = n` and `(n: Nat)
+→ (m: Nat) → n + Succ m = Succ (n + m)`, else `E-BUILTIN`. The theorem
+check is a safety net against binding the rules to the wrong definition;
+the argument is §9.
 
 **Tests.** `crates/driver/tests/nat_add_rule.rs`: the pinned hash; the
 critical pairs (§9.4); stuck sums (`x + 0`, `x + 1`, `x + 3 = 3 + x`,

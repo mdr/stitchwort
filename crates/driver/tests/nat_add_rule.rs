@@ -92,8 +92,8 @@ fn num(n: u64) -> Term {
 }
 
 /// The prelude's `Nat.add` is the one the rules were written for, and they
-/// are on. If this fails, the library changed `Nat.add` or `Nat` (the load
-/// fails with `E-BUILTIN`, printing the new hash): check the rules in
+/// are on. If this fails, the library changed `Nat.add` or `Nat` (the rules
+/// are then off, and this prints the new hash): check the rules in
 /// crates/core/src/nat_add.rs are still its equations, then pin the hash.
 #[test]
 fn nat_add_is_the_pinned_declaration() {
