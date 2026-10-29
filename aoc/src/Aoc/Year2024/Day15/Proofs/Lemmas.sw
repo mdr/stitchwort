@@ -35,7 +35,7 @@ theorem aheadFrom (position: Position) (direction: Direction): (count: Nat) → 
 
 theorem aheadAddOne (position: Position) (direction: Direction) (count: Nat):
     ahead position direction (count + 1) = (ahead position direction count).step direction :=
-  rewrite Nat.addOne count in rfl
+  rfl
 
 -- Whether `position` is one of the `count` positions after `start`.
 theorem decideAhead (start: Position) (direction: Direction) (count: Nat) (position: Position):

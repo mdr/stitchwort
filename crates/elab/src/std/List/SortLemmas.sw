@@ -1161,8 +1161,7 @@ theorem List.splitGroupsDone (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) 
               List.splitGroupsDone p f sep hsep g m (Succ s) (rewrite <- Nat.addSucc s m in e),
               Bool.andFalse (¬(sep (Succ s)))
       _ = List.sumBy (List.rangeFrom (Succ m) s) (c => Nat.keepIf (g (List.runAt f sep (s + Succ m) (Succ c))) (¬(sep (Succ c)) ∧ sep c)) :=
-        rewrite Nat.addSucc s m in
-          Eq.sym (List.sumByCons (List.rangeFrom m (Succ s)) s (c => Nat.keepIf (g (List.runAt f sep (Succ (s + m)) (Succ c))) (¬(sep (Succ c)) ∧ sep c)))
+        Eq.sym (List.sumByCons (List.rangeFrom m (Succ s)) s (c => Nat.keepIf (g (List.runAt f sep (Succ (s + m)) (Succ c))) (¬(sep (Succ c)) ∧ sep c)))
 
 -- All the groups: the run from 0, then one for every separator followed by
 -- a position that isn't one.
@@ -1206,7 +1205,7 @@ theorem List.isRunEnd (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end:
   let none := Bool.andLeft (List.all (List.rangeFrom (hi - lo) lo) (c => ¬(sep c))) (sep hi) inner
   let stop := Bool.andRight (List.all (List.rangeFrom (hi - lo) lo) (c => ¬(sep c))) (sep hi) inner
   let found := Nat.firstFromFound sep (Succ (n - lo)) lo n (Nat.lessLe lo n hlo)
-    (rewrite Nat.addSucc lo (n - lo), Nat.addSubCancel lo n (Nat.lessLe lo n hlo) in Nat.leRefl (Succ n)) end
+    (rewrite Nat.addSubCancel lo n (Nat.lessLe lo n hlo) in Nat.leRefl (Succ n)) end
   match e: Nat.leq hi (Nat.firstFrom sep (Succ (n - lo)) lo) with
     | True => Nat.leAntisym hi (Nat.firstFrom sep (Succ (n - lo)) lo) e (Nat.firstFromLe sep (Succ (n - lo)) lo hi (Nat.lessLe lo hi long) stop)
     | False =>
@@ -1222,7 +1221,7 @@ theorem List.isRunRun (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end:
     (h1: sep lo = False) (h2: (lo == 0 ∨ sep (lo - 1)) = True): Nat.isRun sep lo (Nat.firstFrom sep (Succ (n - lo)) lo) = True :=
   let v := Nat.firstFrom sep (Succ (n - lo)) lo
   let found: sep v = True := Nat.firstFromFound sep (Succ (n - lo)) lo n (Nat.lessLe lo n hlo)
-    (rewrite Nat.addSucc lo (n - lo), Nat.addSubCancel lo n (Nat.lessLe lo n hlo) in Nat.leRefl (Succ n)) end
+    (rewrite Nat.addSubCancel lo n (Nat.lessLe lo n hlo) in Nat.leRefl (Succ n)) end
   let atLeast: lo ≤ v := Nat.firstFromAtLeast sep (Succ (n - lo)) lo
   let long: Succ lo ≤ v := Nat.leNeSucc lo v atLeast (e => Bool.falseNotTrue (Eq.trans (Eq.sym h1) (rewrite e in found)))
   Bool.andIntro (lo == 0 ∨ sep (lo - 1)) (lo < v ∧ (List.all (List.rangeFrom (v - lo) lo) (c => ¬(sep c)) ∧ sep v)) h2
@@ -1260,7 +1259,7 @@ theorem List.runsFromStart (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat
 
 theorem List.sumRangeLast (f: Nat → Nat) (n: Nat): List.sumBy (List.range (Succ n)) f = List.sumBy (List.range n) f + f n :=
   calc List.sumBy (List.rangeFrom (Succ n) 0) f
-    _ = List.sumBy (List.append (List.rangeFrom n 0) (List.rangeFrom 1 (0 + n))) f := rewrite <- List.rangeFromAppend n 1 0, Nat.addOne n
+    _ = List.sumBy (List.append (List.rangeFrom n 0) (List.rangeFrom 1 (0 + n))) f := rewrite <- List.rangeFromAppend n 1 0 in rfl
     _ = List.sumBy (List.range n) f + f n := List.sumByAppend (List.rangeFrom n 0) (List.rangeFrom 1 n) f
 
 -- The runs by where they start: at 0, or just after a separator.

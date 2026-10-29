@@ -173,7 +173,7 @@ theorem rowsShifted (grid: Grid) (r0: Nat) (c0: Nat) (r1: Nat) (c1: Nat) (r2: Na
 -- Left to right.
 theorem rightward (grid: Grid): inDirection grid { down = Stay, across = Ahead } = everywhere grid 0 0 0 1 0 2 0 3 :=
   let each := (r: Nat) => (c: Nat) =>
-    (rewrite Nat.addZero c, Nat.addComm c 1, Nat.addComm c 2, Nat.addComm c 3 in cases:
+    (cases:
       Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c { down = Stay, across = Ahead }) = readsAt grid r c 0 0 0 1 0 2 0 3)
   rewrite each _ _ in rfl
 
