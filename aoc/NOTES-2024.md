@@ -419,6 +419,8 @@ Nothing slow.
 
 ## Day 3: Mull It Over
 
+Community comparison (SW-879): [docs/comparisons/aoc-2024-day03-community.md](../docs/comparisons/aoc-2024-day03-community.md).
+
 Corrupted memory: instructions like `mul(44,46)`, with one to three digits
 per number, scattered through noise. Part 1 adds up the products of every
 well-formed `mul`; part 2 also obeys `do()` and `don't()`, where "only the
