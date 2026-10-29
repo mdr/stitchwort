@@ -9,7 +9,7 @@ type Vec (a: Type): Nat → Type =
   | VNil: Vec a 0
   | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
--- No `VNil` arm: it can't happen (paired with reject/index-declared-plus-one.sw).
+-- No `VNil` arm: it can't happen.
 def head: Vec a (Succ n) → a
   | VCons x _ => x
 
@@ -26,8 +26,9 @@ def zipWith (f: a → b → c): Vec a n → Vec b n → Vec c n
   | VNil, VNil => VNil
   | VCons x xs, VCons y ys => VCons (f x y) (zipWith f xs ys)
 
--- `+` counts down its first argument, so the goals compute (paired with
--- reject/index-stuck-plus.sw).
+-- `+` computes on its first argument, so the goals compute (paired with
+-- reject/index-stuck-plus.sw). It computes on its second too, so the
+-- length could as well be `m + n` (accept/plus-both-sides.sw).
 def append: Vec a n → Vec a m → Vec a (n + m)
   | VNil, ys => ys
   | VCons x xs, ys => VCons x (append xs ys)

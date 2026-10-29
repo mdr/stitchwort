@@ -7,8 +7,8 @@
 -- the goal as `List.sumBy` calls, makes it check.
 import Std (Eq, List, Nat)
 
-theorem addZeroRight (n: Nat): n + 0 = n := omega
+theorem mulOneRight (n: Nat): n * 1 = n := omega
 
 theorem unfolded (xs: List Nat):
-    List.foldLeft xs 0 (acc x => acc + (x + 0)) = List.foldLeft xs 0 (acc x => acc + x) :=
-  List.sumByCong xs _ _ (x => rewrite addZeroRight x in rfl)
+    List.foldLeft xs 0 (acc x => acc + (x * 1)) = List.foldLeft xs 0 (acc x => acc + x) :=
+  List.sumByCong xs _ _ (x => rewrite mulOneRight x in rfl)
