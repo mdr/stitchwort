@@ -1,0 +1,66 @@
+== Hello run
+0.14s 64MB  
+0.22s 64MB  
+0.14s 64MB  
+== Hello js
+0.30s 64MB  
+0.32s 64MB  
+0.32s 64MB  
+== Day04 run
+0.21s 72MB  Part 2: 1873
+0.20s 72MB  Part 2: 1873
+0.20s 72MB  Part 2: 1873
+== Day04 js
+0.39s 77MB  Part 2: 1873
+0.28s 77MB  Part 2: 1873
+0.28s 77MB  Part 2: 1873
+== MapGrid run
+0.93s 113MB  Part 2: 1873
+0.91s 113MB  Part 2: 1873
+0.91s 113MB  Part 2: 1873
+== MapGrid js
+0.70s 105MB  Part 2: 1873
+0.77s 106MB  Part 2: 1873
+0.71s 105MB  Part 2: 1873
+== SpecRun run
+2.86s 80MB  Part 2: 1873
+2.69s 80MB  Part 2: 1873
+1.91s 80MB  Part 2: 1873
+== SpecRun js
+0.46s 80MB  Part 2: 1873
+0.46s 80MB  Part 2: 1873
+0.46s 80MB  Part 2: 1873
+== day04-native
+0.02s 4MB  Part 2: 1873
+0.01s 4MB  Part 2: 1873
+0.01s 4MB  Part 2: 1873
+== native-Hello
+0.01s 3MB  
+0.00s 3MB  
+0.00s 3MB  
+== native-MapGrid
+0.16s 24MB  Part 2: 1873
+0.15s 24MB  Part 2: 1873
+0.15s 24MB  Part 2: 1873
+== native-SpecRun
+0.21s 4MB  Part 2: 1873
+0.20s 4MB  Part 2: 1873
+0.20s 4MB  Part 2: 1873
+== Day04 run
+0.75s 86MB  Part 2: 30004
+== Day04 js
+0.44s 161MB  Part 2: 30004
+== MapGrid run
+13.81s 370MB  Part 2: 30004
+== MapGrid js
+2.18s 392MB  Part 2: 30004
+== SpecRun run
+131.29s 100MB  Part 2: 30004
+== SpecRun js
+20.27s 179MB  Part 2: 30004
+== native-Day04
+0.15s 23MB  Part 2: 30004
+== native-MapGrid
+3.51s 330MB  Part 2: 30004
+== native-SpecRun
+17.07s 23MB  Part 2: 30004
