@@ -8266,14 +8266,14 @@
     },
     {
       "id": 888,
-      "title": "Sequence expressions (a; b): do a, then b's value, wherever an expression can go; same meaning as two block lines",
+      "title": "Sequence expressions (a; b), plus Parse.before for trailing text (D1700, D1701)",
       "status": "doing",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
         "language"
       ],
-      "body": "D1700 (Matt, 29 Oct): yes. Design in docs/proposals/direct-style-grammars.md (SW-883). Parser + formatter + docs + examples; elaborator should need nothing (desugars to a block). Parse.before (D1701) not approved yet.",
+      "body": "D1700 (Matt, 29 Oct): yes. Design in docs/proposals/direct-style-grammars.md (SW-883). Parser + formatter + docs + examples; elaborator should need nothing (desugars to a block). Parse.before (D1701) not approved yet.\n\nD1701 (Matt, 29 Oct): yes, add Parse.before (value) (suffix: Text), used as … |> before \")\"; not after or between. Added to this lane.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
       "commits": []
