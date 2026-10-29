@@ -8353,7 +8353,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "Matt, 29 Oct: days 4-5 next, after days 1-3 (SW-877-879). Our solution: aoc/src/Aoc/Year2024/Day05 (friction notes in aoc/NOTES-2024.md). Output: docs/comparisons/aoc-2024-day05-community.md.",
+      "body": "Matt, 29 Oct: days 4-5 next, after days 1-3 (SW-877-879). Our solution: aoc/src/Aoc/Year2024/Day05 (friction notes in aoc/NOTES-2024.md). Output: docs/comparisons/aoc-2024-day05-community.md.\n\nD1751 (Matt, 29 Oct): no. Don't commit long rfl proofs over AoC input data (the ~68 s end-to-end day 5 theorem stays in the note's scratch file). D1780 (Matt, 29 Oct): no; leave NOTES-2024.md's line and add no counterexample tests.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
       "commits": [
