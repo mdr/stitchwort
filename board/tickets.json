@@ -1,5 +1,5 @@
 {
-  "next": 880,
+  "next": 881,
   "tickets": [
     {
       "id": 13,
@@ -8135,6 +8135,20 @@
         "b3527d82",
         "d3434a7f"
       ]
+    },
+    {
+      "id": 880,
+      "title": "Check cache stage 3: trust cached entries (admit without re-running the kernel on a hit); --no-cache keeps the full check; gates still run the kernel",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
+      "labels": [
+        "perf"
+      ],
+      "body": "D1660 (Matt, 29 Oct): 'I don't have an issue with trusting cached entries' — reverses D277 (check-cache.md §3, option B). Evidence: a warm run of Aoc.Year2024.Day01.main is 569 ms wall, of which 302 ms is the kernel re-checking the 29 cached std files (STITCHWORT_TIMINGS=1), mostly lemma files (Map/Spec 72, Map/Map 56, List/SortLemmas 38, List/Lemmas 38, Parse 22). Scope: every command; --no-cache stays the full check; merge/daily/aoc gates must still exercise the kernel; keep the differential test (§5.4).",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
     }
   ]
 }
