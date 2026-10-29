@@ -4608,13 +4608,13 @@
     {
       "id": 607,
       "title": "Private app port: handover update bundle (in the work folder) + a prompt for the consuming agent to refresh its resolver sources and Stitchwort, regenerate the TS and recheck the integration; after the cases/std step (Matt, 26 Oct; private work only)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "Pin: 26716e50 (pushed 26 Oct, D1331). Bundle in ~/stitchwort-event-resolver-work/handover-refresh-26oct/.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-29",
       "commits": []
     },
     {
@@ -4817,13 +4817,13 @@
     {
       "id": 624,
       "title": "Private app port: D1359/D1360 — WellFormed gains 'every recording duration is finite and >= 0' (Float.isFinite); annotation fact restated literally (0 <= start <= end of last recording, or 0 with no recordings), proved for well-formed inputs (clamp form may stay as an internal lemma); drop the negative-duration fallback; tests + differential updated. After the methods sweep (private work only)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-29",
       "commits": []
     },
     {
@@ -6164,15 +6164,17 @@
     },
     {
       "id": 737,
-      "title": "Design note: tail-resumptive handler clauses (written, on branch worktree-agent-a8049d1cc701aac1f, docs/proposals/tail-resumptive-handlers.md; awaiting review)",
-      "status": "review",
+      "title": "Design note: tail-resumptive handler clauses (docs/proposals/tail-resumptive-handlers.md; proposed, awaiting Matt's review)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
-      "commits": []
+      "updated": "2026-10-29",
+      "commits": [
+        "974f372a"
+      ]
     },
     {
       "id": 738,
@@ -6224,15 +6226,17 @@
     },
     {
       "id": 742,
-      "title": "Design note: keep definitions folded (written, on branch worktree-agent-a4d41ce184555fffb, docs/proposals/folded-goals.md; awaiting review)",
-      "status": "review",
+      "title": "Design note: keep definitions folded (docs/proposals/folded-goals.md; proposed, awaiting Matt's review)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
-      "commits": []
+      "updated": "2026-10-29",
+      "commits": [
+        "26740888"
+      ]
     },
     {
       "id": 743,
