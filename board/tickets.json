@@ -7998,7 +7998,7 @@
     {
       "id": 872,
       "title": "A postponed lambda that fails again should report its second error, not the first in-place attempt's E-CANNOT-INFER",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -8007,7 +8007,10 @@
       "body": "From SW-859 (29 Oct): twice (c => c.size) (c => List.length c) (Counts.of 1) reports E-CANNOT-INFER 'can't tell what c is' from the in-place try, though the real failure when the postponed lambda is checked is E-UNKNOWN-FIELD (List has no size). In apply_args_postponing (crates/elab/src/check.rs), report the retry's error (lane's D1567, rec yes).",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "1e076242",
+        "c576842c"
+      ]
     },
     {
       "id": 873,
