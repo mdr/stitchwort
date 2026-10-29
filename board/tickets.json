@@ -8267,7 +8267,7 @@
     {
       "id": 888,
       "title": "Sequence expressions (a; b), plus Parse.before for trailing text (D1700, D1701)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -8276,7 +8276,10 @@
       "body": "D1700 (Matt, 29 Oct): yes. Design in docs/proposals/direct-style-grammars.md (SW-883). Parser + formatter + docs + examples; elaborator should need nothing (desugars to a block). Parse.before (D1701) not approved yet.\n\nD1701 (Matt, 29 Oct): yes, add Parse.before (value) (suffix: Text), used as … |> before \")\"; not after or between. Added to this lane.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "05635bc7",
+        "84415da5"
+      ]
     }
   ]
 }
