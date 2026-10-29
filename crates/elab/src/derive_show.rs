@@ -23,18 +23,21 @@
 //! instance T.%instShow : … -> Std.Show (T %p0) := { toText = T.%show, toSource = T.%show }
 //! ```
 
-use stitchwort_core::value::{eval, force, unused};
+use stitchwort_core::registry::Builtin;
+use stitchwort_core::value::{eval, force, quote, unused};
 use stitchwort_core::{DataId, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Bracket, Decl, Expr, Pattern};
 
 use crate::check::Ctx;
+use crate::derive::{Member, member_of, member_prefix};
 use crate::{Elaborator, Global, Result, interfaces};
 
 /// How the derived `Show` treats one field of a constructor.
 #[derive(Clone, Copy, PartialEq)]
 enum Field {
-    /// It's `T` again: a recursive call.
-    Recursive,
+    /// It's `T` again (member 0), or a container of `T` (member `m`,
+    /// `Plan::nested[m - 1]`): a call to that member's function.
+    Recursive(usize),
     /// Its type has a `Show` instance, which `Show.toSource` finds.
     Shown,
     /// A proof: left out.
@@ -45,6 +48,9 @@ struct Plan {
     /// Which parameters (types) take a `Show` dictionary: those fields use.
     dicts: Vec<bool>,
     fields: Vec<Vec<Field>>,
+    /// For each container `T` is nested in (members 1 and on): it, and each
+    /// of its constructors' fields.
+    nested: Vec<(Member, Vec<Vec<Field>>)>,
 }
 
 type Equations = (Decl, Vec<Decl>);
@@ -69,8 +75,12 @@ impl Elaborator {
             }
         };
         self.clear_metas();
-        let (function, instance) = self.show_source(d, &plan);
-        let mut result = self.definition(&function.0, &function.1);
+        for (m, (member, _)) in plan.nested.iter().enumerate() {
+            self.derive_member_helpers(d, m + 1, member, false)?;
+        }
+        self.clear_metas();
+        let (functions, instance) = self.show_source(d, &plan);
+        let mut result = self.definitions(&functions);
         self.clear_metas();
         result = result.and_then(|()| self.definition(&instance.0, &instance.1));
         self.clear_metas();
@@ -106,6 +116,13 @@ impl Elaborator {
         if data.ctors.is_empty() {
             return Ok(Err(format!("`{name}` has no constructors")));
         }
+        // `T` and the containers it's nested in.
+        let members = match self.members(d, "`Show`")? {
+            Ok(members) => members,
+            Err(why) => return Ok(Err(why)),
+        };
+        let g = &self.globals;
+        let data = g.data(d);
         let is_type = |ty: &Term| matches!(ty.strip_loc(), Term::Sort(Sort::Type(0)));
         let param_is_type: Vec<bool> = data.params.iter().map(|(_, t)| is_type(t)).collect();
         let mut dicts = vec![false; np];
@@ -149,17 +166,23 @@ impl Elaborator {
                     _ => false,
                 };
                 if direct {
-                    kinds.push(Field::Recursive);
+                    kinds.push(Field::Recursive(0));
                     continue;
                 }
                 if ty
                     .subterms()
                     .any(|(t, _)| matches!(t, Term::Data(e, _) if *e == d))
                 {
-                    return Ok(Err(format!(
-                        "{what} contains `{name}` inside another type, which `Show` isn't \
-                         derived for yet"
-                    )));
+                    match member_of(g, np, &members, &value)? {
+                        Some(m) => kinds.push(Field::Recursive(m)),
+                        None => {
+                            return Ok(Err(format!(
+                                "{what} contains `{name}` inside another type, which `Show` \
+                                 isn't derived for yet"
+                            )));
+                        }
+                    }
+                    continue;
                 }
                 for j in 0..np {
                     if ty.mentions(i + np - 1 - j) {
@@ -171,6 +194,53 @@ impl Elaborator {
             }
             fields.push(kinds);
         }
+        // The containers' fields: a member again, or data with an instance.
+        let mut nested_fields = Vec::new();
+        for member in members.iter().skip(1) {
+            let container = g.data(member.data);
+            let mut member_fields = Vec::new();
+            for ctor in &container.ctors {
+                let mut kinds = Vec::new();
+                for (i, (_, ty)) in ctor.fields.iter().enumerate() {
+                    let what = &member.origin;
+                    if ctor.field_erased[i] || (0..i).any(|j| ty.mentions(i - 1 - j)) {
+                        return Ok(Err(format!(
+                            "{what} has `{name}` inside `{}`, whose fields `Show` can't show",
+                            container.name
+                        )));
+                    }
+                    let env: Vec<Value> = member
+                        .args
+                        .iter()
+                        .cloned()
+                        .chain((0..i).map(|_| unused()))
+                        .collect();
+                    let value = force(g, eval(g, &env, ty)?)?;
+                    if matches!(value, Value::Pi(..)) {
+                        return Ok(Err(format!(
+                            "{what} has a function inside `{}`, and functions can't be shown",
+                            container.name
+                        )));
+                    }
+                    if let Some(m) = member_of(g, np, &members, &value)? {
+                        kinds.push(Field::Recursive(m));
+                        continue;
+                    }
+                    let term = quote(g, np, &value)?;
+                    for j in 0..np {
+                        if term.mentions(np - 1 - j) {
+                            dicts[j] |= param_is_type[j];
+                        }
+                    }
+                    kinds.push(Field::Shown);
+                    to_show.push((value, what.clone()));
+                }
+                member_fields.push(kinds);
+            }
+            nested_fields.push(member_fields);
+        }
+        let nested: Vec<(Member, Vec<Vec<Field>>)> =
+            members.into_iter().skip(1).zip(nested_fields).collect();
         self.clear_metas();
         let span = self.globals.data(d).span;
         let params: Vec<(Name, Term)> = self.globals.data(d).params.clone();
@@ -208,13 +278,19 @@ impl Elaborator {
         self.clear_metas();
         Ok(match why {
             Some(why) => Err(why),
-            None => Ok(Plan { dicts, fields }),
+            None => Ok(Plan {
+                dicts,
+                fields,
+                nested,
+            }),
         })
     }
 
     /// The source of `T.%show` and of `T.%instShow`, each a signature and
-    /// its equations.
-    fn show_source(&self, d: DataId, plan: &Plan) -> (Equations, Equations) {
+    /// its equations; for a nested type, `T.%show` is with a function for
+    /// each container it's in (`T.%m1%show`, and `T.%m1%items` for a
+    /// list), to be defined together.
+    fn show_source(&self, d: DataId, plan: &Plan) -> (Vec<Equations>, Equations) {
         let data = self.globals.data(d);
         let ty_name = self.relative_to_root(&data.name);
         let span = data.span;
@@ -253,7 +329,6 @@ impl Elaborator {
         let np = data.params.len();
         let param = |j: usize| format!("%p{j}");
         let a = |k: usize| format!("%a{k}");
-        let show_name = format!("{ty_name}.%show");
         let dicts: Vec<usize> = (0..np).filter(|j| plan.dicts[*j]).collect();
         let dict = |j: usize| {
             if dicts.len() == 1 {
@@ -295,67 +370,161 @@ impl Elaborator {
                 })
                 .collect(),
         );
-        let ty = with_params(Expr::Pi {
-            names: vec![n("%r")],
-            implicit: false,
-            auto: false,
-            dom: Box::new(this.clone()),
-            cod: Box::new(var("Std.Text")),
-            span,
-        });
-        let name = n(&show_name);
-        let sig = signature(&name, ty, false);
-
-        let mut equations = Vec::new();
-        for (c, ctor) in data.ctors.iter().enumerate() {
-            let kinds = &plan.fields[c];
-            let count = ctor.fields.len();
-            let ctor_name = format!("{ty_name}.{}", ctor.name);
-            let pattern = Pattern::Ctor(
-                n(&ctor_name),
-                (0..count).map(|k| Pattern::Var(n(&a(k)))).collect(),
+        let show_of = |m: usize| format!("{}show", member_prefix(&ty_name, m));
+        // `%r : this` to `Std.Text`.
+        let function_ty = |this: Expr| {
+            with_params(Expr::Pi {
+                names: vec![n("%r")],
+                implicit: false,
+                auto: false,
+                dom: Box::new(this),
+                cod: Box::new(var("Std.Text")),
                 span,
-            );
-            let shown: Vec<usize> = (0..count).filter(|k| kinds[*k] != Field::Proof).collect();
-            let element = |k: usize| {
-                if kinds[k] == Field::Recursive {
-                    apps(var(&show_name), vec![var(&a(k))])
-                } else {
-                    apps(var("Std.Show.toSource"), vec![var(&a(k))])
-                }
-            };
-            let mut pieces: Vec<Expr> = Vec::new();
-            if data.record {
-                if shown.is_empty() {
-                    pieces.push(text("{}"));
-                } else {
-                    for (i, &k) in shown.iter().enumerate() {
-                        let open = if i == 0 { "{ " } else { ", " };
-                        pieces.push(text(&format!("{open}{} = ", ctor.fields[k].0)));
-                        pieces.push(element(k));
-                    }
-                    pieces.push(text(" }"));
-                }
-            } else {
-                pieces.push(text(&ctor.name));
-                for &k in &shown {
-                    pieces.push(text(" "));
-                    pieces.push(apps(var("Std.Show.arg"), vec![element(k)]));
-                }
-            }
+            })
+        };
+        // The text of the pieces, appended.
+        let appended = |pieces: Vec<Expr>| {
             let mut pieces = pieces.into_iter().rev();
             let mut body = pieces.next().expect("at least one piece");
             for lhs in pieces {
                 body = apps(var("Std.Text.append"), vec![lhs, body]);
             }
-            equations.push(Decl::Equation {
-                name: name.clone(),
-                patterns: vec![pattern],
-                rhs: Some(body),
-                arm: None,
-                span,
-            });
+            body
+        };
+        let equation = |name: &ast::Name, pattern: Pattern, body: Expr| Decl::Equation {
+            name: name.clone(),
+            patterns: vec![pattern],
+            rhs: Some(body),
+            arm: None,
+            span,
+        };
+        let list = self.globals.registry.data(Builtin::List);
+        let pair = self.globals.registry.data(Builtin::Pair);
+
+        let mut functions = Vec::new();
+        for m in 0..=plan.nested.len() {
+            let prefix = member_prefix(&ty_name, m);
+            // The type matched on, how source names its constructors, and
+            // the member's type: `T %p0 …`, or `T.%m1%type %p0 …`.
+            let (matched, ctor_prefix, this) = if m == 0 {
+                (d, ty_name.clone(), this.clone())
+            } else {
+                let container = plan.nested[m - 1].0.data;
+                (
+                    container,
+                    self.globals.data(container).path.to_string(),
+                    apps(
+                        var(&format!("{prefix}type")),
+                        (0..np).map(|j| var(&param(j))).collect(),
+                    ),
+                )
+            };
+            let member_fields = if m == 0 {
+                &plan.fields
+            } else {
+                &plan.nested[m - 1].1
+            };
+            let ctors = &self.globals.data(matched).ctors;
+            let name = n(&show_of(m));
+            let pattern = |c: usize| {
+                let ctor = &ctors[c];
+                Pattern::Ctor(
+                    n(&format!("{ctor_prefix}.{}", ctor.name)),
+                    (0..ctor.fields.len())
+                        .map(|k| Pattern::Var(n(&a(k))))
+                        .collect(),
+                    span,
+                )
+            };
+            // An element, as source shows it: a member's own function, or
+            // its type's `toSource`.
+            let element = |c: usize, k: usize| match member_fields[c][k] {
+                Field::Recursive(t) => apps(var(&show_of(t)), vec![var(&a(k))]),
+                _ => apps(var("Std.Show.toSource"), vec![var(&a(k))]),
+            };
+            let mut equations = Vec::new();
+            if m > 0 && Some(matched) == list {
+                // As `List`'s own: `[x, y]`, the elements after the first
+                // by `T.%m1%items` (`Show.items`).
+                let items = n(&format!("{prefix}items"));
+                let (nil, cons) = (pattern(0), pattern(1));
+                equations.push(equation(&name, nil.clone(), text("[]")));
+                equations.push(equation(
+                    &name,
+                    cons.clone(),
+                    appended(vec![
+                        text("["),
+                        element(1, 0),
+                        apps(var(&items.text), vec![var(&a(1))]),
+                        text("]"),
+                    ]),
+                ));
+                functions.push((
+                    signature(&name, function_ty(this.clone()), false),
+                    equations,
+                ));
+                let rest = vec![
+                    equation(&items, nil, text("")),
+                    equation(
+                        &items,
+                        cons,
+                        appended(vec![
+                            text(", "),
+                            element(1, 0),
+                            apps(var(&items.text), vec![var(&a(1))]),
+                        ]),
+                    ),
+                ];
+                functions.push((signature(&items, function_ty(this), false), rest));
+                continue;
+            }
+            if m > 0 && Some(matched) == pair {
+                // As a pair's own: `(x, y)`.
+                equations.push(equation(
+                    &name,
+                    pattern(0),
+                    appended(vec![
+                        text("("),
+                        element(0, 0),
+                        text(", "),
+                        element(0, 1),
+                        text(")"),
+                    ]),
+                ));
+                functions.push((signature(&name, function_ty(this), false), equations));
+                continue;
+            }
+            // A constructor and its fields (`Option`'s as its own instance
+            // shows them: `None`, `Some (Number 1)`), or a record.
+            let record = m == 0 && data.record;
+            for (c, ctor) in ctors.iter().enumerate() {
+                let kinds = &member_fields[c];
+                let count = ctor.fields.len();
+                let shown: Vec<usize> = (0..count).filter(|k| kinds[*k] != Field::Proof).collect();
+                let mut pieces: Vec<Expr> = Vec::new();
+                if record {
+                    if shown.is_empty() {
+                        pieces.push(text("{}"));
+                    } else {
+                        for (i, &k) in shown.iter().enumerate() {
+                            let open = if i == 0 { "{ " } else { ", " };
+                            pieces.push(text(&format!("{open}{} = ", ctor.fields[k].0)));
+                            pieces.push(element(c, k));
+                        }
+                        pieces.push(text(" }"));
+                    }
+                } else {
+                    pieces.push(text(&ctor.name));
+                    for &k in &shown {
+                        pieces.push(text(" "));
+                        pieces.push(apps(var("Std.Show.arg"), vec![element(c, k)]));
+                    }
+                }
+                equations.push(equation(&name, pattern(c), appended(pieces)));
+            }
+            functions.push((signature(&name, function_ty(this), false), equations));
         }
+        let show_name = show_of(0);
         let instance_name = n(&format!("{ty_name}.%instShow"));
         let instance_ty = with_params(apps(var("Std.Show"), vec![this]));
         let instance = (
@@ -375,7 +544,7 @@ impl Elaborator {
                 span,
             }],
         );
-        ((sig, equations), instance)
+        (functions, instance)
     }
 
     /// Whether the module item being checked (a data type) has an instance

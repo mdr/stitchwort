@@ -695,7 +695,10 @@ impl Elaborator {
         if fields {
             for (c, count) in ctors.iter().enumerate() {
                 for k in 0..*count {
-                    let name = format!("{prefix}{}%{k}", self.globals.data(member.data).ctors[c].name);
+                    let name = format!(
+                        "{prefix}{}%{k}",
+                        self.globals.data(member.data).ctors[c].name
+                    );
                     if !self.has_member(d, &name) {
                         self.derive_field_in(d, member.data, &prefix, c, k)?;
                     }

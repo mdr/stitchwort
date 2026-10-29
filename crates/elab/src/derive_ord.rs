@@ -272,7 +272,8 @@ impl Elaborator {
         let tags = |f: &str, xs: &[&str]| s.app(s.var(f), xs.iter().map(|x| tag(x)).collect());
         let ordering = |c: &str| s.var(&format!("Std.Ordering.{c}"));
         let less = || ordering("Less");
-        let equation = |name: &str, patterns: Vec<Pattern>, rhs: Expr| s.equation(name, patterns, rhs);
+        let equation =
+            |name: &str, patterns: Vec<Pattern>, rhs: Expr| s.equation(name, patterns, rhs);
         let vars = |xs: &[&str]| xs.iter().map(|x| Pattern::Var(s.n(x))).collect::<Vec<_>>();
         let ctor_pattern = |ctor: usize, f: &dyn Fn(usize) -> String| {
             let ct = &ctor_list[ctor];
@@ -678,7 +679,12 @@ impl Src {
                 .map(|j| {
                     let p = self.var(&format!("%p{j}"));
                     if data.auto_params.get(j) == Some(&true) {
-                        Expr::NamedArg(self.n(&data.params[j].0), Box::new(p), self.span, Bracket::Square)
+                        Expr::NamedArg(
+                            self.n(&data.params[j].0),
+                            Box::new(p),
+                            self.span,
+                            Bracket::Square,
+                        )
                     } else {
                         p
                     }
