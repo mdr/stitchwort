@@ -8284,7 +8284,7 @@
     {
       "id": 889,
       "title": "Warning: a statement line that performs no effect (its value is dropped and it can do nothing), e.g. shortNumber without (), x + 1, list.map f",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -8293,7 +8293,11 @@
       "body": "D1702 revised (Matt, 29 Oct): kick it off. From docs/proposals/direct-style-grammars.md §2.5 (3) and gaps.sw 'forgotten'. A statement line in a block or a sequence (a; b) whose expression performs no effects can't do anything, so warn (OCaml warning 5 is the function-only case). Not for dropped non-() results of effectful calls (that's D1713, backlog).",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "5981e86d",
+        "4c468cd9",
+        "dea7c486"
+      ]
     },
     {
       "id": 890,
