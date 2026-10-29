@@ -6970,16 +6970,16 @@
     },
     {
       "id": 800,
-      "title": "Consider D1437: A decide proof form for Bool truth tables (Lean's decide)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "title": "decide: a proof form that checks every case of a statement over finite types (design lane, with SW-807)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree (design lane)",
       "labels": [
         "decision"
       ],
-      "body": "Day 12 wrote two 16-case truth tables by hand. Rec: yes, limited to a few Bool variables.",
+      "body": "Day 12 wrote two 16-case truth tables by hand. Rec: yes, limited to a few Bool variables.\n\n29 Oct (Matt): design lane: compare with other languages, write a design note, then a review artefact. SW-807 (derived list of all values) is in scope as the thing decide ranges over.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-29",
       "commits": []
     },
     {
