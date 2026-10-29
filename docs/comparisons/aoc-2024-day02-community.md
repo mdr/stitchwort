@@ -213,6 +213,9 @@ It took three `check` runs, and two kinds of friction:
 In Lean the same proof would be about as long. `simp` would do the congruences that I wrote by
 hand, but nobody did it, so this is **[unverified]**.
 
+Since SW-881 the linear check is the main program (`passesDampened` in `Day02.sw`), proved
+against a `removals` spec in `Day02/Proofs/Dampener.sw`.
+
 ## 4. Length and readability, side by side
 
 Code lines are non-blank and non-comment **[checked]**:

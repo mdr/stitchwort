@@ -20,10 +20,16 @@ def adjacentDifferByOneToThree (levels: List Nat): Bool := levels.chain differBy
 def safe (report: Report): Bool :=
   (allIncreasing report.levels || allDecreasing report.levels) && adjacentDifferByOneToThree report.levels
 
+-- The levels with one of them removed, for each one in turn: without the
+-- first, then with the first kept and one removed from the rest.
+def removals: List Nat → List (List Nat)
+  | Nil => Nil
+  | Cons level rest => Cons rest (removals rest |> .map (Cons level))
+
 -- "If removing a single level from an unsafe report would make it safe, the
 -- report instead counts as safe."
 def safeWithDampener (report: Report): Bool :=
-  safe report || (List.range report.levels.length |> .any (index => safe { levels = report.levels.removeAt index }))
+  safe report || (removals report.levels |> .any (levels => safe { levels }))
 
 -- "How many reports are safe?"
 def safeReports (reports: List Report): Nat := reports.count safe

@@ -37,12 +37,28 @@ def risesGently (lower: Nat) (higher: Nat): Bool := lower < higher && higher <= 
 def Report.isSafe (report: Report): Bool :=
   report.levels.chain risesGently || report.levels.chain (level next => risesGently next level)
 
--- The report with one level taken out, for each level in turn.
-def Report.withoutOneLevel (report: Report): List Report :=
-  List.range report.levels.length |> .map (index => { levels = report.levels.removeAt index })
+-- Every step passes `ok` once at most one level is taken out, in one pass.
+-- Taking out a level away from the first bad step leaves that step bad, so
+-- only its two levels can be the one to take out: there, check the rest
+-- without each of them, and stop.
+def passesDampened (ok: Nat → Nat → Bool): List Nat → Bool
+  | Nil => True
+  | Cons level Nil => True
+  | Cons level (Cons next rest) =>
+    if ok level next then passesDampenedAfter ok level next rest
+    else (Cons level rest).chain ok || (Cons next rest).chain ok
+
+-- The same, after a good step from `before` to `level`. Taking out `level`
+-- makes a step from `before` to `next`.
+def passesDampenedAfter (ok: Nat → Nat → Bool) (before: Nat) (level: Nat): List Nat → Bool
+  | Nil => True
+  | Cons next rest =>
+    if ok level next then passesDampenedAfter ok level next rest
+    else (Cons level rest).chain ok || (ok before next && (Cons next rest).chain ok)
 
 -- Safe as it is, or once one level is taken out.
-def Report.isSafeWithDampener (report: Report): Bool := report.isSafe || (report.withoutOneLevel |> .any .isSafe)
+def Report.isSafeWithDampener (report: Report): Bool :=
+  passesDampened risesGently report.levels || passesDampened (level next => risesGently next level) report.levels
 
 def solvePart1 (reports: List Report): Nat := reports.count .isSafe
 

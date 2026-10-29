@@ -3,6 +3,7 @@
 
 namespace Aoc.Year2024.Day02.Tests
 import Aoc.Year2024.Day02 (..)
+import Aoc.Year2024.Day02.Spec (removals)
 import Std (Fail, List, Text)
 
 def example: Text := """
@@ -44,5 +45,10 @@ test "removing the last level" := safeWithDampener [1, 2, 3, 9]
 test "removing a level in the middle" := safeWithDampener [1, 2, 9, 3]
 test "two bad levels are too many" := !(safeWithDampener [1, 9, 2, 9, 3])
 test "removing a level can fix the direction" := safeWithDampener [5, 6, 4, 3]
-test "removeAt" := [1, 2, 3].removeAt 1 == [1, 3]
-test "removeAt past the end" := [1, 2, 3].removeAt 3 == [1, 2, 3]
+
+-- Reports that common one-pass shortcuts get wrong
+-- (docs/comparisons/aoc-2024-day02-community.md §3).
+test "removing the first level can change the direction" := safeWithDampener [1, 3, 2, 1]
+test "removing the first level of a bad first step" := safeWithDampener [1, 5, 6]
+test "removing a level that makes two bad steps" := safeWithDampener [1, 6, 2]
+test "removals" := removals [1, 2, 3] == [[2, 3], [1, 3], [1, 2]]
