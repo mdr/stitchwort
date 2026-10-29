@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `List` has no field or function `size`
+    ╭─[ reject/postponed-lambda-second-error.sw:15:29 ]
+    │
+ 15 │ def a: Nat := twice (c => c.size) (c => List.length c) (Counts.of 1)
+    │                             ──┬─  
+    │                               ╰─── looked in `List`
+    │ 
+    │ Note: `c` has type `List Nat` here, which doesn't mention `Counts`, so `.size` was looked up in `List`; `Counts.size` takes a `Counts`: write `Counts.size c …`, or annotate the value as `Counts` where it's made
+────╯
