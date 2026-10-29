@@ -1,5 +1,5 @@
 {
-  "next": 883,
+  "next": 884,
   "tickets": [
     {
       "id": 13,
@@ -8174,6 +8174,20 @@
         "bug"
       ],
       "body": "From docs/comparisons/aoc-2024-day02-community.md §3 (lines ~205-211): with step: ok level next = True in scope, the goal still had anyRemoved (ys => ok level next && …) rest and cases couldn't close it; anyRemovedCong … (ys => rewrite step in rfl) did. In the False branch the lambda looked refined (ys => ok before level && False). Unverified whether that's refinement or just computation. Matt, 29 Oct: bottom it out.",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 883,
+      "title": "Research: shorter grammar code in direct style, e.g. Mul (shortNumber()) (char ','; shortNumber()); what works today, and the options",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
+      "labels": [
+        "research"
+      ],
+      "body": "Matt, 29 Oct (D1661): 'something like this would be cool, do a research lane to understand the options'. From docs/comparisons/aoc-2024-day03-community.md §4: our mul( rule takes six let-bound lines where an applicative one-liner takes one. Output: docs/proposals/ note; design only.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
       "commits": []
