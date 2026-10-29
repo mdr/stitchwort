@@ -1,6 +1,6 @@
 # Design note: parsers that are total by type
 
-**Status:** design only, 29 October 2026, for Matt's review. Ticket SW-884. Nothing in the language or Std changes. The prototype is [`total-parsers/consumes.sw`](total-parsers/consumes.sw), which checks and whose 8 tests pass. Decisions D1710 to D1712 are in §8.
+**Status:** design only, 29 October 2026, for Matt's review. Ticket SW-884. Nothing in the language or Std changes. The prototype is [`total-parsers/consumes.sw`](total-parsers/consumes.sw), which checks and whose 8 tests pass. Decisions D1710 to D1712 are in §8. D1710 (Matt, 29 October): not now; the prototype stays on file, to revisit with D1651.
 
 Matt asked whether, and how, Stitchwort could get total parser combinators the way Idris 2 and Agda do: the type rules out a parser that could loop forever, such as `many (optional x)` or a left-recursive grammar, at compile time.
 
