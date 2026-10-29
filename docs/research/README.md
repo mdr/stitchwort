@@ -7,6 +7,7 @@ file records how it was searched, so it can be refreshed.
 |---|---|
 | Effects and handlers | [effects.md](effects.md) |
 | Elaboration | [elaboration.md](elaboration.md) |
+| Proof automation | [proof-automation.md](proof-automation.md) |
 
 ## What a cluster file holds
 
