@@ -1,6 +1,6 @@
 # Proposal: keeping definitions folded in goals
 
-**Status:** draft 1, 28 October 2026. Design only; the scratch patches used to measure are not
+**Status:** proposed, awaiting Matt's review (draft 1, 28 October 2026). Design only; the scratch patches used to measure are not
 committed. Ticket SW-742. Written against commit `7a7dfd00`. Related:
 [folded-calls.md](folded-calls.md) (glued calls, D483, D484),
 [goal-readback.md](goal-readback.md) (the size cap, D1280, deferred),
