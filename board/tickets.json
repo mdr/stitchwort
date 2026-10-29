@@ -5781,11 +5781,11 @@
     {
       "id": 704,
       "title": "Nested data types: Packets (items: List Packet) is refused with E-POSITIVITY; tree-shaped puzzle input needs it (parser research, 27 Oct)",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree (stage 2 lane)",
+      "status": "next",
+      "agent": "",
+      "where": "",
       "labels": [],
-      "body": "\n\nExternal review (29 Oct) of docs/proposals/nested-data-types.md: approve in principle, revise the rule before coding: base it on the 2026 Lamiaux-Forster-Sozeau-Tabareau nestable-parameter criterion (not old Rocq nested positivity); fix the translation-argument tension (later fields using List functions); derive the parameter side condition; earlier mutual outer types; termination as concrete subvalue containment; keep quotients refused; property-style translation oracle; All-predicate induction. D1820 (Matt): yes, research lane to rethink.\n\nDraft 2 merged 29 Oct (LFST nestable-parameter rule; prototype changed only reject/nested-data.sw across 1,075 examples). Open: D1821 adopt rule incl. mutual outer types / earlier-field indices / predicate parameters in stage 1; D1822 nested Prop eliminates into data? (rec no); D1823 T.induct with All hypotheses + membership corollary. Prototype patch on branch worktree-agent-a7f334dd0df947551 (a6cecfd1, dev/scratch, not merged).\n\nD1821 (Matt, 29 Oct): yes, adopt the draft 2 rule for stage 1, incl. earlier mutual outer types, earlier-field indices (List (Tree n)) and predicate parameters. Stage 1 lane started.\n\nStage 1 merged 29 Oct (50299c69 + b03773d2): kernel rule, examples, must-reject pairs, oracle (4000 cases: no unsound acceptance). D1822 taken conservatively (nested Prop eliminates only into proofs). Next: stage 2 derived ==/</Show; stage 3 All/induct/size; stage 4 dogfood (AoC 2022 day 13, 2021 day 18). Open (As built): §5.3 checks fields, not constructor result indices.\n\nD1840 (Matt, 29 Oct): yes, stage 2 (derived ==, <, Show for nested types).",
+      "body": "\n\nExternal review (29 Oct) of docs/proposals/nested-data-types.md: approve in principle, revise the rule before coding: base it on the 2026 Lamiaux-Forster-Sozeau-Tabareau nestable-parameter criterion (not old Rocq nested positivity); fix the translation-argument tension (later fields using List functions); derive the parameter side condition; earlier mutual outer types; termination as concrete subvalue containment; keep quotients refused; property-style translation oracle; All-predicate induction. D1820 (Matt): yes, research lane to rethink.\n\nDraft 2 merged 29 Oct (LFST nestable-parameter rule; prototype changed only reject/nested-data.sw across 1,075 examples). Open: D1821 adopt rule incl. mutual outer types / earlier-field indices / predicate parameters in stage 1; D1822 nested Prop eliminates into data? (rec no); D1823 T.induct with All hypotheses + membership corollary. Prototype patch on branch worktree-agent-a7f334dd0df947551 (a6cecfd1, dev/scratch, not merged).\n\nD1821 (Matt, 29 Oct): yes, adopt the draft 2 rule for stage 1, incl. earlier mutual outer types, earlier-field indices (List (Tree n)) and predicate parameters. Stage 1 lane started.\n\nStage 1 merged 29 Oct (50299c69 + b03773d2): kernel rule, examples, must-reject pairs, oracle (4000 cases: no unsound acceptance). D1822 taken conservatively (nested Prop eliminates only into proofs). Next: stage 2 derived ==/</Show; stage 3 All/induct/size; stage 4 dogfood (AoC 2022 day 13, 2021 day 18). Open (As built): §5.3 checks fields, not constructor result indices.\n\nD1840 (Matt, 29 Oct): yes, stage 2 (derived ==, <, Show for nested types).\n\nStage 2 merged 29 Oct (305fbfdc): derived ==, compare/<, Show through List, Option and pairs (nested combinations too); generated per-container helpers, structural. Not derived: Vec, user containers, earlier mutual groups, mutual nested types, indexed types. Untested: user-written DecEq then derived Ord. Next: stage 3 (All, T.induct, size/membership lemma, auto for decreasing), stage 4 dogfood.",
       "created": "2026-10-27",
       "updated": "2026-10-29",
       "commits": [
@@ -5797,7 +5797,8 @@
         "2bf58cd7",
         "87704f0f",
         "50299c69",
-        "b03773d2"
+        "b03773d2",
+        "305fbfdc"
       ]
     },
     {
