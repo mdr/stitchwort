@@ -2566,12 +2566,24 @@ fn comp_check_in(
             })
         }
         Expr::Seq(first, rest) => {
+            // A line run for its effects that performs none is `W-NO-EFFECT`
+            // (`no_effect.rs`).
             let (term, ty, effectful) = if may_perform(cx, first)? {
+                let pure = crate::no_effect::pure_as_plain_calls(cx, first)?;
                 let (c, ty) = comp_infer(cx, first, row)?;
+                if let Some(pure) = pure {
+                    crate::no_effect::warn(cx, first, &pure)?;
+                } else if row.is_empty()
+                    && crate::no_effect::call_like(first)
+                    && done_value(cx, &c)?.is_some()
+                {
+                    crate::no_effect::check_value(cx, first, &ty)?;
+                }
                 (c, ty, true)
             } else {
                 let (term, ty) = infer(cx, first)?;
                 let (term, ty) = insert(cx, term, ty)?;
+                crate::no_effect::check_value(cx, first, &ty)?;
                 (term, ty, false)
             };
             sequence(cx, row, t, "_", term, ty, effectful, |cx| {

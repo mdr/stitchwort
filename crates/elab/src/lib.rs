@@ -39,6 +39,7 @@ mod membership;
 mod module;
 mod named;
 mod nav;
+mod no_effect;
 pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, std_source};
 mod cases;
 mod numbers;
@@ -372,6 +373,8 @@ pub struct Elaborator {
     /// `W-LAMBDA-SHADOW` warnings, found while checking a lambda, where only
     /// a shared reference to the elaborator is at hand. One per lambda
     /// (checking can reach the same lambda twice); drained with `warnings`.
+    /// Also others found while checking, such as `W-NO-EFFECT` (one per
+    /// statement line, dropped when an attempt is undone, `undo.rs`).
     lambda_warnings: RefCell<Vec<Diagnostic>>,
     /// Errors from the other bad branches of a case whose first bad branch's
     /// error is the one returned. Where only a shared reference to the

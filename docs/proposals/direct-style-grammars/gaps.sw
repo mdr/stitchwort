@@ -5,7 +5,7 @@
 --
 -- reports E-CANNOT-INFER at `inArgument`, `inTuple` and `nested`,
 -- E-TYPE-MISMATCH at `dependent` and E-NOT-EMPTY at `unitInTuple`, and
--- nothing at all for `forgotten`.
+-- W-NO-EFFECT for `forgotten` (since SW-889; nothing before).
 
 import Std (Nat, Parse, Vec)
 import Std.Parse (char, natDigits)
@@ -45,7 +45,8 @@ def unitInTuple(): {Parse} Nat :=
   n
 
 -- 4. A statement that names a parser without calling it is accepted and
--- does nothing: no warning.
+-- does nothing. It had no warning; since SW-889 it is W-NO-EFFECT, "call
+-- it: `shortNumber()`".
 def forgotten(): {Parse} Nat :=
   char ','
   shortNumber

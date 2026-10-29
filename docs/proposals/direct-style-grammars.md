@@ -9,7 +9,10 @@ docs/syntax.md (Layout, "A sequence"), with
 One detail the note left open: a `;` straight after a `let`'s value starts
 the `let`'s body even when the value ends in a lambda or an `if`, so
 `(let f := x => x + 1; f 2)` keeps its meaning. SW-888 doesn't cover D1702
-(a warning for a dropped function value) or D1703 (discard markers). The
+(a warning for a dropped function value) or D1703 (discard markers).
+D1702 was revised (any statement line that performs no effects, not only
+a function value) and is built in SW-889 as `W-NO-EFFECT` (docs/syntax.md,
+Blocks). The
 questions for Matt were D1700 to D1703 (§7).
 
 AoC 2024 day 3's `mul(` rule takes six lines where Lean's applicative parser
@@ -196,7 +199,8 @@ the author breaks the lines. It won't break a long one for you.
    side" **[cited]**. OCaml warns for it (warning 5,
    `ignored-partial-application`: "expression whose result has function type
    and is ignored" **[cited]**). Any option that adds statements inside
-   expressions makes this mistake easier to make.
+   expressions makes this mistake easier to make. (Since SW-889 it warns,
+   `W-NO-EFFECT`, as does any statement line that performs no effects.)
 4. A statement whose value isn't `()` is dropped silently too
    (`shortNumber()` as a line, `args.sw` "a dropped value" **[checked]**).
    This one is fine: parsers often read something only to skip it. OCaml
@@ -550,6 +554,10 @@ Then rewrite Day 3's rule and Day 14's `robotLine` as the corpus proof. Day
   without its `()`, or `char` without its argument (OCaml's warning 5)? It is
   silently dropped today (§2.5 (3)), and `;` makes it easier to write. [rec:
   yes, a separate backlog ticket; no warning for a dropped non-`()` value]
+  **Built in SW-889**, revised: any statement line (of a block or a
+  sequence) that performs no effects warns `W-NO-EFFECT`, with "call it:
+  `shortNumber()`" for a function. A dropped result of an effectful call
+  still doesn't warn (D1713, SW-890).
 - **D1703:** Leave out discard markers (`~(e)` inside argument lists) for
   now? [rec: yes]
 

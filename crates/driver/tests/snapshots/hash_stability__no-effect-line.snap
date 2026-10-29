@@ -1,0 +1,11 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.shortNumber 4ba78d1015245ecfbf20e0cfafaec315e30ac5869cf2da3e77cb9bbcf0eb50a0
+Main.forgotten 83995300ea4e75580267ef13629eb6cbfeab4f9e4b0fe24fd4ea017909380d80
+Main.missingArgument e5336c18857851d18e648171331e8b74ff1a63958cac09ce462f8356818ec49a
+Main.sum ded774ffb57d21d85499a7ddea7064867c08cef3a179b0a3607a8201d0b40c85
+Main.mapped 4856d6ce34d412c27a824f7734e15de15c7ed56894ab35964209efbd6cbf3c5e
+Main.skipped 43aa9ad094b5859a9f65b275f42182b30a1bc269add996f1345c7e95b529b97a
+Main.readEach fb98fc17b907869648d3d30347dbe484384cc0f7c13e5d071875bca13522dde0
