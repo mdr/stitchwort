@@ -3688,7 +3688,14 @@ impl<'t> Parser<'t> {
         };
         let start = self.bump().span;
         let operand = if numeral {
-            self.atom_base()?
+            // The number `negative_numeral` saw, read here rather than by
+            // `atom_base`, so that `atom` stays its only caller.
+            let token = self.bump();
+            match &token.tok {
+                Tok::Num(n) => Expr::Num(n.clone(), token.span),
+                Tok::Float(text) => Expr::Float(text.clone(), token.span),
+                _ => unreachable!("negative_numeral checks for a number"),
+            }
         } else {
             self.atom(false)?
         };
@@ -3708,6 +3715,12 @@ impl<'t> Parser<'t> {
         Ok(prefix_op(true, start, operand))
     }
 
+    /// An atom without its dots and `()` calls. Always inlined in `atom`, its
+    /// only caller: every level of a nested expression (`((…(0)…))`) goes
+    /// through both, and as two functions their frames don't share slots.
+    /// When 7a14ec83 gave it a second caller it stopped being inlined, and
+    /// each level took about 780 bytes more of the stack (SW-875).
+    #[inline(always)]
     fn atom_base(&mut self) -> Result<Expr> {
         let span = self.here();
         match self.peek() {
