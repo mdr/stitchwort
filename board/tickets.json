@@ -6977,7 +6977,7 @@
       "labels": [
         "decision"
       ],
-      "body": "Day 12 wrote two 16-case truth tables by hand. Rec: yes, limited to a few Bool variables.\n\n29 Oct (Matt): design lane: compare with other languages, write a design note, then a review artefact. SW-807 (derived list of all values) is in scope as the thing decide ranges over.",
+      "body": "Day 12 wrote two 16-case truth tables by hand. Rec: yes, limited to a few Bool variables.\n\n29 Oct (Matt): design lane: compare with other languages, write a design note, then a review artefact. SW-807 (derived list of all values) is in scope as the thing decide ranges over.\n29 Oct (lane): context read (docs, day 12/21 proofs). Finding: today's `cases` already proves day 12's rowEndsSplit (16 cases) and day 21's tabulateSame (25); everyNumericKey via `contains` + List.memContains. Prototypes in docs/proposals/decide/.\n29 Oct (lane): languages read: Lean (decide/native_decide/bv_decide docs and Decide.lean, Native.lean, Mathlib Fintype + DeriveFintype), Rocq (vm/native_compute, casts, MathComp fintype header), Agda (Dec, Fin all?), Idris 2 (So, Dec), Isabelle (codegen §6), F* (SMT fuel, partial), Haskell (Enum/Bounded). Dafny not read. Also: a closed decidable goal is already provable via an auto helper (`byDecision`); 2^16 cases by kernel rfl took ~6 s.\n29 Oct (lane): design drafted and prototypes run; docs/proposals/decide.md on branch worktree-agent-ad5c41ec5a22e812f (41b6957e). Rec: extend `cases` (decision closer + split unstuck finite variable), derive `Finite` (SW-807), never native_decide. D1960-D1962.\n",
       "created": "2026-10-28",
       "updated": "2026-10-29",
       "commits": []
