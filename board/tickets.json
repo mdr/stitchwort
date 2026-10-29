@@ -8071,7 +8071,7 @@
     {
       "id": 876,
       "title": "AoC 2025 day 9 community research note: other languages' solutions vs ours (Lean, Agda, Idris, Dafny, FP); how Stitchwort compares",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -8080,7 +8080,10 @@
       "body": "D1610 (Matt, 29 Oct): yes. Same kind of note as docs/comparisons/aoc-day08-community.md, written after our solution (aoc/src/Aoc/Year2025/Day09, SW-13), so it compares finished code: length, clarity, speed, proof effort. Output: docs/comparisons/aoc-day09-community.md.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "32154320",
+        "d225e790"
+      ]
     }
   ]
 }
