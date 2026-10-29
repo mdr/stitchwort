@@ -179,6 +179,44 @@ theorem c (s: Set Nat) (x: Nat) (h: s.contains x = True): s.contains x = True :=
     assert_eq!(without_d, own_lines(long));
 }
 
+/// A declaration with `match`es in its type and its body: its helpers are
+/// numbered in source order within the owner, the type's first and the
+/// body's after them, so no two share a key (docs/proposals/
+/// syntax-conveniences.md §2.4, SW-874). A local definition's are numbered
+/// within it.
+#[test]
+fn matches_in_a_type_and_its_body_are_numbered_together() {
+    let text = "def pick (n: Nat) (b: Bool): (match n with | Zero => Nat | Succ _ => Nat) -> (match b with | True => Nat | False => Nat) -> Nat :=
+  def go (m: Nat): Nat := 1 + (match m with
+    | Zero => 1
+    | Succ k => k)
+  match n with
+    | Zero => (x => _ => x)
+    | Succ k => (x => _ => go (match b with | True => k | False => x))
+";
+    let found = own_lines(text);
+    let paths: Vec<&str> = found
+        .lines()
+        .map(|l| l.split_once(' ').expect("a path and a hash").0)
+        .collect();
+    // In the order they're declared: the type's two before `pick`, then the
+    // body's, `go`'s numbered within it, and the inner `match` (4) before
+    // the one it's in (3), which calls it.
+    assert_eq!(
+        paths,
+        [
+            "Main.pick.%match1",
+            "Main.pick.%match2",
+            "Main.pick",
+            "Main.pick.go.%match1",
+            "Main.pick.go",
+            "Main.pick.%match4",
+            "Main.pick.%match3",
+        ],
+        "{found}"
+    );
+}
+
 /// The accepted example projects: their declarations' hashes, as for the
 /// files.
 #[test]
