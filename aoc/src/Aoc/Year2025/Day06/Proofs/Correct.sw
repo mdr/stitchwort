@@ -101,7 +101,7 @@ theorem blocksTotal (lines: List Text) (answer: List (List Char) → Nat):
     List.sumBy (blocks lines) answer
       = List.sumBy (List.range (gridWidth lines))
         (lo => List.sumBy (List.range (gridWidth lines + 1)) (hi => Nat.keepIf (answer (blockOf lines lo hi)) (isProblem lines lo hi))) :=
-  rewrite Nat.addOne (gridWidth lines), columnsAre lines in
+  rewrite columnsAre lines in
     List.splitByRuns isBlank (column lines) (blank lines) (c => rfl) answer (gridWidth lines)
       (blankPast (gridWidth lines) lines (r => List.lengthLeMaxLength (List.map lines Text.toList) r))
 

@@ -147,6 +147,6 @@ theorem roundsStable (grid: Grid): (fuel: Nat) → (s: Cells) → Inside grid s 
         let stable := noneStable grid s ins e
         stableSame grid s (grid.rounds (Succ n) s) (x y => Eq.sym (roundsFixed grid (Succ n) s stable x y)) stable r c hs
       | Succ b =>
-        let total: grid.rollCount (grid.removeAccessible s) + Succ b ≤ Succ n := rewrite <- e, roundCount grid s in h
+        let total: grid.rollCount (grid.removeAccessible s) + Succ b ≤ Succ n := omega [roundCount grid s]
         roundsStable grid n (grid.removeAccessible s) (removeInside grid s ins)
           omega r c hs
