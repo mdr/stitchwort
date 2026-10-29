@@ -7897,16 +7897,21 @@
     {
       "id": 866,
       "title": "Docs sweep: stale file:line pointers, renamed codes and test names, proposal status lines",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
         "docs"
       ],
-      "body": "Janitorial: find file:line references in docs/ that no longer point at what they describe (spot-check the most-cited files), names changed on 28 Oct (E-STD-INTERNAL, aoc_answers yearYYYY_dayNN, lane tier contents), and proposal Status lines for work that has since landed. Fix what's clearly stale; list anything unclear.",
+      "body": "Janitorial: find file:line references in docs/ that no longer point at what they describe (spot-check the most-cited files), names changed on 28 Oct (E-STD-INTERNAL, aoc_answers yearYYYY_dayNN, lane tier contents), and proposal Status lines for work that has since landed. Fix what's clearly stale; list anything unclear.\n\nDone 29 Oct (night): 1,705 refs extracted; 15 fixed in 4 un-anchored notes (record-argument-braces, check-cache, computation-values, errors); ~150 drifted refs left as historical (notes checked at a commit); 13 proposal Status lines updated (fin-arithmetic, integers, std-library, prelude-slim, namespaces, multi-file, opaque-definitions, playground-live-keys, terminal-io, playground-projects, declaration-syntax, map-equality, maps, negative-arguments). Left for an owner: effect-polymorphic-list.md and goal-readback.md say nothing built (no evidence either way); partial-handlers.md, multi-file stages 3+, opaque-definitions lanes 5-6, terminal-io lane 3 need someone to say what's built; js-source-maps.md check.rs refs ambiguous.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
-      "commits": []
+      "updated": "2026-10-29",
+      "commits": [
+        "2c7cd308",
+        "e5951fdb",
+        "2cf33d06",
+        "42fd24cc"
+      ]
     },
     {
       "id": 867,
