@@ -7,6 +7,9 @@ D277 was then reopened: stage 1 builds option A, with the load arranged so
 that skipping the kernel would be one switch. **Stage 1 is built** (SW-240,
 22 Oct 2026): see [As built (stage 1)](#as-built-stage-1). **Stage 2 is
 built** (SW-245, 22 Oct 2026): see [As built (stage 2)](#as-built-stage-2).
+**Stage 3 is built** (SW-880, 29 Oct 2026): a cache hit is trusted, without
+the kernel checking it again (D1660, reversing D277): see
+[As built (stage 3)](#as-built-stage-3).
 
 This note can be read without knowing the codebase. The main part takes about
 15 minutes. The [appendix](#appendix) has the evidence: the profile, the
@@ -100,6 +103,11 @@ The other ~81% is elaboration, including loading standard library files
 stage 2 show the kernel re-check dominating warm runs. If B is ever built, it
 should be limited to local interactive runs, with the gate always running the
 kernel.
+
+**Reversed (D1660, 29 Oct 2026).** Matt: "I don't have an issue with
+trusting cached entries." Stage 3 builds option B for every command that
+reads the cache, with `--no-cache` as the full check and the gates still
+checking everything (see [As built (stage 3)](#as-built-stage-3)).
 
 ### 3.1 Threat model
 
@@ -240,7 +248,8 @@ replaying errors would add a second way to produce every error message.
 
 An entry is loaded by **replaying** it through the same functions the
 elaborator uses: `declare_*` and `define_*` for the kernel, which re-checks
-(option A), and the same insertion functions for each side table. It is not
+(option A; since stage 3 the kernel's trusted counterparts, D1660), and the
+same insertion functions for each side table. It is not
 loaded by patching tables directly. So a loaded namespace goes through the
 same consistency checks as an elaborated one. Lean loads imported modules the
 same way: each "environment extension" in an `.olean` is replayed into the
@@ -367,6 +376,10 @@ Each stage is separately mergeable and useful on its own.
 4. **Optional.** Early cutoff (D280). Then re-measure and decide about option
    B (D277).
 
+As it turned out, stage 2 gave the editor its speedup, and the stage built
+as stage 3 is option B (D1660, [As built (stage 3)](#as-built-stage-3)).
+Early cutoff is still to do.
+
 ## 10. Risks
 
 - **Forgetting a table.** The elaborator keeps about 20 side tables keyed by
@@ -443,6 +456,9 @@ namespaces are not yet (stage 2).
   uses the default cache in its own temporary project on purpose.
 
 ### Loading is replay, and the kernel checks everything
+
+(This held until stage 3, which admits an entry's declarations without
+checking them again: see [As built (stage 3)](#as-built-stage-3).)
 
 `Elaborator::admit_replayed` is the one place a replay reaches the kernel.
 It calls `declare_def`, `mark_folded`, `mark_instance`,
@@ -580,6 +596,7 @@ estimate in §6.
 SW-245, 22 October 2026. Project namespaces are cached too. The kernel
 still checks every declaration loaded (option A; D277 stays open, and
 `Elaborator::admit_replayed` is still the one place to change for B).
+Stage 3 then changed that one place.
 
 ### What there is
 
@@ -791,11 +808,154 @@ namespaces: `Aoc.Year2025.Day02.Proofs` 2.4 MB and `Aoc.Year2025.Day04.Proofs` 1
 they `include`. With the library files' entries, a cache with and without
 navigation comes to 12.4 MB.
 
+## As built (stage 3)
+
+SW-880, 29 October 2026. **A cache hit is trusted** (option B): the
+declarations in an entry are admitted without the kernel checking them
+again. Matt decided this as D1660, reversing D277: "I don't have an issue
+with trusting cached entries." (§9 had planned stage 3 as the editor's save
+loop, which stage 2 already gave, and option B as a later optional stage.)
+
+### Why
+
+After stage 2, re-checking in the kernel was most of a warm run. A warm
+`run Aoc.Year2024.Day01.main` took 657 ms wall, of which 341 ms was kernel
+time on the cached library files, mostly lemma files (`STITCHWORT_TIMINGS`).
+A warm `check` of the whole `aoc` project (135 namespaces now, with the 2024
+days) took 9.9 s, 9.2 s of it in the kernel. The measurements below give
+the times after the change.
+
+### What is trusted
+
+- **The kernel's trust boundary** is a short section of `check.rs`,
+  "Trusted admission: the check cache's trust boundary", with five
+  functions: `admit_trusted_def`, `admit_trusted_group`,
+  `admit_trusted_run_body`, `admit_trusted_data_decls` and
+  `admit_trusted_data_group`. They stand in for `declare_def`,
+  `define_group`, `set_run_body`, `declare_indexed_data_group` and
+  `define_data_group`. Each one installs the terms it is given as already
+  checked. Everything else a final declaration records is worked out by the
+  same code the checking path uses: arity, group, transparency set,
+  `lift_leaf`, `recursive`, and for data types their groups and
+  `defs_before`/`datas_before`. The checking and trusting paths share
+  `install_group`, `install_data_group`, `push_def` and `push_data_group`,
+  so what they record can't drift apart. Type checking and the termination,
+  positivity and universe checks are skipped. The marks (`mark_folded`,
+  `mark_instance`, `mark_opaque`, `set_unfolding`, `mark_auto_params`)
+  never checked anything, and both paths use them.
+- **What is still checked** is cheap and structural:
+  - each group's members are pending and listed once, and a data group
+    lists all its members;
+  - every reference is to a final declaration or a member of the group
+    (`admissible`, which also refuses a failed dependency);
+  - `case` appears only in a case tree;
+  - a run body has its definition's arity, and a record has no indices;
+  - a constructor has one sort and one erasure flag per field, and one
+    result index per index.
+
+  Any refusal is a miss, as before. What replay added is removed
+  (`Registry::forget_from`, truncating the tables, dropping the hashes), and
+  the unit is elaborated and checked in full. The cache side still checks
+  everything it checked before: the checksum, key and salt, every
+  dependency's path and content hash, that each declaration gets the id and
+  path it had, and the built-ins bound.
+- **The entry** now also holds each constructor's field sorts and erasure
+  flags (`field_sorts`, `field_erased`). Before, checking the fields worked
+  these out (`FORMAT` 18).
+- **Every command that reads the cache trusts it**: `check`, `test`, `run`,
+  `build`, `eval` and the editor (the language server's `GatedCache`). All
+  of them go through `Elaborator::admit_replayed`, the one place a replay
+  reaches the kernel.
+- **So whenever an entry is loaded, the trusted base now includes** the
+  cache files, the code that reads them (`crates/elab/src/cache/`) and the
+  completeness of the key: the "Under B" column of §3.1. The mitigations
+  listed there are all in place: atomic writes, a checksum, the compiler
+  fingerprint in every key, the per-directory salt, and dependencies
+  checked by hash.
+
+### How to get a full check
+
+`--no-cache` (on every command) elaborates and checks everything from
+source, and never calls the trusted functions. Deleting
+`.stitchwort/cache/check/` gives one full check, and the cache fills again.
+A new compiler build never reads another build's entries (the fingerprint
+is in every key), so the first run after any change to the compiler checks
+everything.
+
+Lean works the same way. Importing a module loads its `.olean` file without
+the kernel checking it again, and `lean4checker` (now `lake check`) replays
+the files through the kernel on request (§A.4). Coq's `.vo` files and
+`coqchk` are the same. We have no separate replay checker; `--no-cache` does
+that job, at the cost of elaborating everything as well.
+
+### The gates still run the kernel
+
+A test `Session` has no check cache unless `use_check_cache` is called
+(D286), so the driver's tests, the snapshots, `dev/t` and the benchmark
+check everything. The CLI tests that start the binary pass `--no-cache`.
+That includes the per-day tests in `aoc_answers`, which are the merge
+tier's "every AoC day's answers". Some tests use a cache on purpose:
+`crates/driver/tests/check_cache.rs`, `crates/cli/tests/check_cache.rs`,
+`every_day_from_the_whole_projects_cache` in `aoc_answers`, the AoC copy in
+`lsp.rs`, `auto_membership_speed`, and the fuzzer's cache comparison. Each
+starts from an empty cache folder of its own, so its cold run checks
+everything before any warm run trusts it. Their entries also come from the
+build under test, since the fingerprint is in the key.
+
+So `task test:merge`, `task test:daily` (and `nix flake check`) and the AoC
+tests all check every declaration with the kernel somewhere, and none of
+them had to change. Only a developer's warm interactive run trusts entries
+from an earlier run.
+
+### The differential test
+
+The tests are the same as in stage 2: a fresh run against a cold one and a
+warm one. The warm run now trusts, so they compare a trusted replay with a
+full check. The canonical dump (`dump.rs`) now also shows what admission
+works out that it didn't show before: each definition's transparency set,
+`lift_leaf`, `recursive`, `param_default` and run body.
+(`Def::admitted_metadata` reads the three that are private to the crate.)
+It already showed arity, group, state, every flag, types, bodies, and each
+constructor's field sorts and erasure.
+
+`crates/core/tests/trusted.rs` tests the kernel side on its own:
+
+- an environment copied by trusted admission, one declaration at a time,
+  has the same content hashes and metadata as the checked one;
+- a body that doesn't terminate is admitted (that is what trusting means);
+- the structural checks refuse a pending or unknown reference, a group
+  that is already defined, and a constructor of the wrong shape.
+
+### Measurements
+
+Release CLI, wall time, median of 7 rounds, with every kind of run taken in
+turn in each round and a separate cache folder for each build. "Before" is
+`main` at `82a79b30`, "after" is this change. Load average 2 to 6.
+
+| Run | `--no-cache` | Warm, before | Warm, after |
+|---|---|---|---|
+| `run Aoc.Year2024.Day01.main < inputs/2024/day01.txt` | 1.651 s | 0.616 s | **0.292 s** |
+| `check` on `aoc` (135 namespaces) | 35.6 s | 9.90 s | **1.60 s** |
+| `check Aoc.Year2025.Day05` (the editor's save) | 0.593 s | 0.357 s | **0.224 s** |
+
+With `STITCHWORT_TIMINGS`:
+
+- day 1: kernel time went from 341 ms (of 657 ms wall) to 25 ms (of 294 ms);
+- the whole project: from 9,162 ms (of 9,920 ms) to 1,008 ms (of 1,601 ms).
+
+Of the 1,008 ms left, 946 ms is one declaration,
+`Aoc.Year2024.Day22.Proofs.digitChangesPossible`. It is a theorem whose type
+is `HoldsDigitChanges (sequencesOf possibleChanges)`. Admitting a
+definition still evaluates its type to `Def::ty_value`, as `declare_def`
+does, and here that builds the list of all 130,321 change sequences. Fixing
+it would mean evaluating `ty_value` lazily, which is outside the cache.
+Every other cached declaration takes well under a millisecond to admit.
+
 ## Decisions
 
 | ID | Question | Recommendation |
 |---|---|---|
-| D277 | When we reuse a cached result, do we still run the kernel's check on it? | [**Yes.** We skip only elaboration (option A), so a cache file can never make a false proof accepted. Skipping the kernel too (option B) would save about another fifth of the time. Reconsider that only after stage 2's measurements, and then only for local interactive runs, with the gate always checking.] |
+| D277 | When we reuse a cached result, do we still run the kernel's check on it? | **Reversed by D1660.** [**Yes.** We skip only elaboration (option A), so a cache file can never make a false proof accepted. Skipping the kernel too (option B) would save about another fifth of the time. Reconsider that only after stage 2's measurements, and then only for local interactive runs, with the gate always checking.] |
 | D278 | What unit is cached? | [**One project namespace, and one standard library file.** Not single declarations. Reusing single declarations is a job for the future language server, in memory.] |
 | D279 | What decides whether a cached namespace is still valid? | [A hash, computed before elaborating, of: the compiler build (including `Cargo.lock`), the modes and limits, the namespace's files and their text, files it `include`s, the list of project namespaces and `stitchwort.yaml`, and the same hash of everything it imports. Any edit re-checks that namespace and everything that uses it.] |
 | D280 | Should a comment-only edit in a namespace avoid re-checking the namespaces that use it ("early cutoff")? | [**Later, stage 4.** It needs dependents keyed by what a namespace *produces*, not its text, and navigation targets stored by declaration (planned from the start).] |
@@ -806,6 +966,7 @@ navigation comes to 12.4 MB.
 | D285 | Is the cache on by default? | [**Yes**, for `check`, `test`, `run`, `build` and `eval`, so VS Code and lanes get it without changes. `--no-cache` turns it off.] |
 | D286 | Do the gate and the test suites use it? | [**No.** Tests and the benchmark must exercise the checker. The gate runs without the cache, plus one differential test that checks fresh and cached results are identical.] |
 | D287 | Does the playground get a cache? | [**No persistent one.** At most, later, the standard library kept in memory between checks in the worker (SW-185).] |
+| D1660 | Reverse D277: does a cache hit skip the kernel's checks? | **Yes** (Matt, 29 Oct 2026: "I don't have an issue with trusting cached entries"). This covers every command that reads the cache, the editor included. `--no-cache` stays the full check, and the gates still check everything. Built in stage 3 (SW-880). |
 
 ---
 

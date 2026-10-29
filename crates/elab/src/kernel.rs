@@ -125,6 +125,43 @@ pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>)
     unglued(g, |g| k::define_data_group(g, members))
 }
 
+// The check cache's trusted admission (`check::admit_trusted_*`, D1660),
+// timed as kernel calls too. Only `cache::admit_replayed` calls these.
+
+pub fn admit_trusted_def(
+    g: &mut Globals,
+    name: &Name,
+    ty: &Term,
+    theorem: bool,
+    span: Span,
+) -> Result<DefId> {
+    unglued(g, |g| k::admit_trusted_def(g, name, ty, theorem, span))
+}
+
+pub fn admit_trusted_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
+    unglued(g, |g| k::admit_trusted_group(g, members))
+}
+
+pub fn admit_trusted_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
+    unglued(g, |g| k::admit_trusted_run_body(g, id, body))
+}
+
+pub fn admit_trusted_data_decls(
+    g: &mut Globals,
+    params: Vec<(Name, Term)>,
+    sort: Sort,
+    members: Vec<DataDecl>,
+) -> Result<Vec<DataId>> {
+    unglued(g, |g| k::admit_trusted_data_decls(g, params, sort, members))
+}
+
+pub fn admit_trusted_data_group(
+    g: &mut Globals,
+    members: Vec<(DataId, Vec<stitchwort_core::globals::Ctor>)>,
+) -> Result<()> {
+    unglued(g, |g| k::admit_trusted_data_group(g, members))
+}
+
 /// The kernel's substitution for the elaborator's case splits, in a context
 /// whose environment is `env` (`check::substitute_in`): each value is read
 /// back with its calls folded (`value::quote_folded`), so a refined context

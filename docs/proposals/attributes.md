@@ -196,7 +196,8 @@ The facts that matter here:
   `SAFE_NAT_HASH`, … in `crates/rt/src/natives.rs`, used from `crates/js/src/lib.rs:27`)
   **[checked]**. The check cache (`docs/proposals/check-cache.md`) skips *elaboration* of an
   unchanged unit, keyed by the compiler build, the unit's text and its dependencies' keys; every
-  cached declaration still goes through the kernel again, and each cross-unit reference records
+  cached declaration still goes through the kernel again (until stage 3, D1660, which trusts
+  cached declarations instead), and each cross-unit reference records
   the full path and hash it expects **[checked]**. The cache also stores about twenty elaborator
   *side tables* (scope entries, records, derived-instance reasons, lifted helpers…) that the hash
   doesn't cover (check-cache.md §4.4, risks: "forgetting a table").
