@@ -1,5 +1,5 @@
 {
-  "next": 868,
+  "next": 870,
   "tickets": [
     {
       "id": 13,
@@ -7444,14 +7444,17 @@
     {
       "id": 838,
       "title": "E-ABILITY: in a function taking g: Nat → {e} Nat, a match inside a lambda passed to map whose arms call g is refused (adversarial review t13.sw, scratchpad/adv)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [],
       "body": "",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
-      "commits": []
+      "updated": "2026-10-29",
+      "commits": [
+        "cd283e6c",
+        "6e25695e"
+      ]
     },
     {
       "id": 839,
@@ -7845,17 +7848,20 @@
     {
       "id": 863,
       "title": "List builders (map, filter, append, …) overflow the stack on 3M items",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
         "bug",
         "stdlib"
       ],
-      "body": "From SW-816 (AoC 2024 day 24 findings). Reproduce with a 3,000,000-element list through List.map / filter / append (and the other builders) on the interpreter, and native/JS if they differ; make them stack-safe (tail-recursive accumulate+reverse in std, or the runtime's loop), keeping hashes/proofs about them working.",
+      "body": "From SW-816 (AoC 2024 day 24 findings). Reproduce with a 3,000,000-element list through List.map / filter / append (and the other builders) on the interpreter, and native/JS if they differ; make them stack-safe (tail-recursive accumulate+reverse in std, or the runtime's loop), keeping hashes/proofs about them working.\n\n28 Oct night: pure builders no longer overflow: TRMC for the interpreter landed in b7d8ee67 (crates/rt/src/trmc.rs; JS already loops). Checked on 3M elements across ~30 builders on interpreter, most on native and JS too. Regression test list_builders_run_on_two_million_elements (crates/cli/tests/run.rs, a62f63f1). The effectful case is split off to SW-868.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
-      "commits": []
+      "updated": "2026-10-29",
+      "commits": [
+        "a62f63f1",
+        "9981d46e"
+      ]
     },
     {
       "id": 864,
@@ -7905,15 +7911,44 @@
     {
       "id": 867,
       "title": "Clippy and dead-code pass: remove unused code and stale allow attributes, no behaviour change",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
       "labels": [
         "tooling"
       ],
       "body": "Janitorial: look for #[allow(dead_code)], #[allow(unused…)] and clippy allows that are no longer needed, unused functions/imports, and commented-out code; remove them with no behaviour change (hashes and snapshots unchanged).",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 868,
+      "title": "Effectful List.map (callback performs {IO}) runs out of frames on ~2M elements: interpreter and native, not JS",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision",
+        "runtime"
+      ],
+      "body": "From SW-863 (28 Oct): List.map xs f with f performing {IO} gives E-RESOURCE '1999999 frames pending' on a 3M list (interpreter, --native; JS passes). The generic-row map's recursive call sits in a continuation (bindIn e (f x) (y => Cons y (map xs f))), so TRMC doesn't apply (docs/core.md, after 'Tail calls as loops'); the limit is the 2,000,000-frame budget (crates/core/src/budget.rs:97), ~750 B/frame. Options for Matt: (a) close: the pure case was the AoC need (day 24's builders unconfirmed); (b) extend TRMC through effect continuations in interpreter and native (trmc.rs documents this as excluded for soundness); (c) std builders accumulate-and-reverse like partitionOnto (List.map is referenced 81x in List/Lemmas.sw, 43x in SortLemmas.sw, all would need re-proving); (d) raise Limits.frames for run (memory-bound, 3M frames ~2 GB) and/or a CLI flag. Lane recommendation: none given; orchestrator's: (a) unless a real program needs it.",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 869,
+      "title": "A let-bound lambda with no written type, whose body matches an outer variable and performs effects, fails with E-TYPE-MISMATCH 'expected ?1 g 0 x'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From SW-838 (28 Oct): 'let h := (x: Nat) => match k with | 0 => g x | n => g n' (g: Nat -> {e} Nat) fails; writing the type (let h: Nat -> {IO} Nat := …) works, and so does a pure body. The unknown is the whole result type, which may legitimately depend on k, so SW-838's row pruning doesn't apply. Not yet confirmed on main before SW-838 (the lane believes it fails there too).",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
       "commits": []
     }
   ]
