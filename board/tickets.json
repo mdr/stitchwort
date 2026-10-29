@@ -7338,14 +7338,16 @@
     {
       "id": 829,
       "title": "Design note: nested data types (Packets (items: List Packet)), from SW-704",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "body": "",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
-      "commits": []
+      "updated": "2026-10-29",
+      "commits": [
+        "e2297587"
+      ]
     },
     {
       "id": 830,
