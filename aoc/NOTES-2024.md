@@ -193,6 +193,8 @@ Nothing slow. `check --counterexamples` found no false theorems.
 
 ## Day 2: Red-Nosed Reports
 
+Community comparison (SW-878, 29 Oct): [docs/comparisons/aoc-2024-day02-community.md](../docs/comparisons/aoc-2024-day02-community.md).
+
 One report of levels per line. A report is safe if its levels are all
 increasing or all decreasing, and adjacent levels differ by one to three.
 Part 1 counts the safe reports; part 2 also counts those that one removed
