@@ -1,0 +1,440 @@
+1e16miin/aoc2024	Clojure	src/aoc2024/day5.clj	55	
+2f42/advent-of-code-2024	Clojure	src/day5/day5.clj	33	sort with a comparator
+39bytes/aoc2024	Gleam	src/day05/day05.gleam	87	sort with a comparator
+a01fe/aoc2024	Scala	day5/Day5.scala	70	
+a2435191/advent-of-code-2024-lean	Lean	AdventOfCode2024/Day5.lean	42	sort with a comparator
+aaronallen8455/aoc2024	Agda	Days/D5.agda	78	
+aarroyoc/advent-of-code-2024	Haskell	day5/app/Main.hs	67	
+AbaevT/aoc2024	Clojure	Day5/Day5.clj	51	sort with a comparator
+AbderFaiz/advent_of_code_2024	OCaml	5/solve_2.ml	55	sort with a comparator
+acohimself/advent-of-code-2024	Elm	day5/src/Main.elm	1588	sort with a comparator
+adamcbrown/AdventOfCode2024	OCaml	lib/day05/day05.ml	61	repeated swaps
+adamnfish/aoc-2024	Scala	src/main/scala/com/adamnfish/days/Day05.scala	152	
+adrian-goe/adventofcode2024	Gleam	src/aoc_2024/day_5.gleam	160	sort with a comparator,repeated swaps
+adriandole/aoc2024	Lean	days/Day5.lean	43	topological sort
+aerlingsson/advent_of_code_2024	F#	src/Day5.fs	70	topological sort
+agharbin/advent-of-code-2024	Clojure	05/solve.clj	64	sort with a comparator,topological sort,predecessor count as key
+Airex/aoc2024	F#	Day5/Program.fs	115	sort with a comparator,repeated swaps
+aivarasbaranauskas/aoc2024	OCaml	bin/day5.ml	60	
+akashkgarg/aoc2024	Clojure	src/day05.clj	86	sort with a comparator,topological sort,detects a cycle or checks the order
+AlbanPhelip/advent-of-code-2024	Scala	src/main/scala/fr/sncf/itnovem/adventofcode2024/Day05.scala	37	repeated swaps
+AlexJPotter/AdventOfCode2024	F#	AdventOfCode2024/Day05/Day05.fs	67	
+alexmfriedman/advent-of-code-2024	OCaml	advent_of_code_2024/lib/problem_5.ml	69	topological sort
+AlexMunro/advent-of-code-2024	Elixir	lib/day05.ex	77	repeated swaps
+alexnuttall/aoc2024-roc	Roc	05/main.roc	108	sort with a comparator
+alissonbk/aoc2024	OCaml	bin/day5.ml	176	
+alphapaca/aoc2024	Clojure	src/aoc2024/day5.clj	79	sort with a comparator
+amalloy/aoc-2024	Haskell	day05/src/Main.hs	41	
+amesgen/aoc24	Lean	Aoc/Day5.lean	66	neighbours-only part 1
+amff/aoc2024	OCaml	lib/day5.ml	108	sort with a comparator,predecessor count as key
+AmirS2/advent-of-code-2024	Clojure	day5/part2.clj	35	sort with a comparator
+analogpixel/aoc2024	Clojure	day5.clj	81	repeated swaps
+andagr/aoc2024	F#	05.fsx	31	sort with a comparator,neighbours-only part 1
+AndreLeBlanc/adventOfCode2024	F#	days/day5.fsx	37	
+Andrew-Bekhiet/advent-of-code-2024	Elixir	Day-5/elixir.ex	83	sort with a comparator
+andrewflbarnes/advent-of-code-2024	Clojure	src/d05.clj	45	sort with a comparator
+AnesFoufa/aoc2024	Elixir	05/solution.exs	47	sort with a comparator
+AngelVI13/aoc2024	OCaml	lib/day5.ml	112	sort with a comparator
+AP-Hunt/aoc2024	F#	05/Part2.fs	99	sort with a comparator
+arjunchib/aoc2024	Gleam	src/day5.gleam	146	
+aseminjakiw/adventOfCode2024	F#	AdventOfCode/Day5.fs	79	sort with a comparator
+Asfaroth/advent_of_code_2024	Clojure	src/aoc_2024/day5.clj	67	sort with a comparator,topological sort,detects a cycle or checks the order
+ashpool37/advent-of-code-2024-racket	Racket	src/day05/b.rkt	53	
+asieradzk/AoC2024Fsharp	F#	Day5.fs	1442	
+asinghani/advent-of-hardcaml-2024	OCaml	fpga/src/day05.ml	166	repeated swaps,detects a cycle or checks the order
+astynax/AdventOfCode2024	Clojure	src/advent_of_code_2024/day_05.clj	70	sort with a comparator
+AugustUnderground/AoC2024	Idris	src/Day05.idr	58	sort with a comparator
+Avataw/advent_of_code_2024	Gleam	src/day_5.gleam	102	
+b-valdez/aoc	OCaml	solutions/2024/5/solution.ml	57	sort with a comparator
+b4rtm/aoc2024	Scala	src/main/scala/Day5.scala	52	sort with a comparator
+BenBean18/AoC2024	Idris	src/Day5.idr	111	sort with a comparator,topological sort,repeated swaps
+BenCStokes/AdventOfCode2024	Haskell	haskell/Day5.hs	67	
+bhauman/adv2024	Clojure	src/adv2024/day05/sol.clj	27	sort with a comparator
+BinaryMuse/aoc_2024_elixir	Elixir	lib/advent/days/day_05.ex	89	
+binilinlquad/aoc2024	Elixir	day05/solution.ex	40	sort with a comparator
+bjorkstromm/AdventOfCode2024	F#	day05.fsx	59	sort with a comparator
+blablablerg/AOC2024	Haskell	day05/day05.hs	39	
+blerou/advent-of-code-2024	Racket	d05.rkt	19	
+blink1415/advent-of-code-2024	Gleam	src/day5.gleam	82	sort with a comparator
+brian14708/aoc2024	Gleam	src/day05.gleam	96	sort with a comparator
+BrianNormant/Advent-of-code-2024	Idris	src/d05/Solution.idr	187	topological sort,repeated swaps
+brightlego/aoc2024	Lean	aoclean/Aoclean/Day5.lean	34	
+bsless/aoc2024	Clojure	src/day5.clj	112	topological sort
+bthuilot/aoc24	Racket	private/days/05.rkt	123	
+cacharle/aoc-2024	Haskell	05/main.hs	48	repeated swaps
+cadaker/aoc2024	Clojure	src/aoc2024/day05.clj	32	sort with a comparator
+caleb-fringer/aoc2024	Clojure	day5/first-attempt.clj	15	
+carstencodes/aoc2024	F#	week1/day5/puzzle2.fsx	1520	sort with a comparator
+caseneuve/aoc2024	Clojure	day05/solution.clj	43	sort with a comparator
+Charlynux/advent-of-code-2024	OCaml	src/advent_2024/day05.ml	65	sort with a comparator
+chris-steenkamp/aoc2024	Elixir	lib/aoc/days/day_05.ex	127	
+christo/aoc2024	Scala	src/main/scala/com/chromosundrift/aoc2024/Day05.scala	42	sort with a comparator
+chrzrdx/advent-of-code-2024	Elixir	lib/day/05.ex	37	
+ckampfe/aoc2024	Elixir	day5.exs	168	
+ClemRz/advent-of-code-2024	Clojure	src/aoc/day_5/common.clj	45	
+cninja/AdventOfCode2024	F#	Day5/Program.fs	70	repeated swaps
+CodeFarmer/aoc-2024	Clojure	src/aoc_2024/day_5.clj	33	sort with a comparator
+codylandry/advent_of_code_2024	Elixir	lib/days/day_5/part_1.ex	95	
+ComanderP/advent-of-code-2024	OCaml	src/day5/part2.ml	52	sort with a comparator
+constantineMelios85/advent_of_code_2024	Clojure	clojure_advent/src/day05/core.clj	66	
+Convez/AOC2024	Gleam	src/day05.gleam	111	sort with a comparator,predecessor count as key
+crab-apple/aoc2024	Clojure	src/aoc2024/day05/solution.clj	88	
+Cramplescrunch/aoc2024	Clojure	src/aoc2024/day5.clj	51	sort with a comparator
+crawdaddie/aoc2024	OCaml	bin/day05.ml	80	sort with a comparator
+creeperkafasi/aoc2024	Haskell	day5/part1-2.hs	65	sort with a comparator,neighbours-only part 1
+crnkofe/aoc2024	Gleam	src/day5.gleam	93	sort with a comparator
+Cruiser18/AdventOfCode2024	F#	Day5/Solution2.fsx	62	
+crvdgc/aoc2024lean	Lean	Aoc2024lean/D5.lean	41	sort with a comparator
+Cueballmania/aoc2024	Haskell	src/Day5.hs	43	sort with a comparator
+dabzr/AoC-2024	Gleam	day05/src/day5.gleam	120	
+daic0r/advent_of_code_2024	Elixir	elixir/day5/day5.exs	70	sort with a comparator
+DanKHansen/aoc2024	Scala	src/main/scala/day5.scala	46	repeated swaps,neighbours-only part 1
+danvk/aoc2024	Elixir	lib/day5.ex	43	sort with a comparator
+dausi15/aoc2024	F#	FirstIonideProject/5-1.fs	32	
+dball/aoc2024	Gleam	day5/src/day5.gleam	84	sort with a comparator
+DeemoONeill/AOC2024	Elixir	lib/day5.ex	52	sort with a comparator
+DenisHromada/aoc_2024	F#	Day5/Program.fs	108	repeated swaps
+dennismok2018pub/aoc2024	OCaml	d5/main.ml	202	sort with a comparator,topological sort,detects a cycle or checks the order
+derheap/aoc-2024	Racket	05.rkt	66	
+DeSevilla/advent2024	Koka	day5/day5.kk	74	sort with a comparator
+devries/advent_of_code_2024	Gleam	src/day05/solution.gleam	116	repeated swaps
+dgoeke/aoc2024	Clojure	src/aoc2024/day5.clj	60	sort with a comparator
+djmcgill/aoc2024	Haskell	d05/Main.hs	41	repeated swaps
+dmjio/aoc2024	Haskell	day5/Main.hs	53	sort with a comparator
+dra27/AOC2024	OCaml	day05.ml	102	predecessor count as key
+dupuisf/aoc24	Lean	Aoc24/Day05.lean	74	topological sort
+DwieDave/advent-of-code-2024	Gleam	src/day5_1.gleam	78	
+Earthcomputer/aoc2024	Clojure	src/aoc2024/day5.clj	71	sort with a comparator
+eflisback/advent-of-code-2024	Scala	5/ab.scala	53	sort with a comparator
+Ellyll/AdventOfCode2024	F#	AdventOfCode2024.Day05/Day05_B.fs	76	sort with a comparator
+eMDi94/AdventOfCode2024	Scala	src/main/scala/day5/Solution.scala	57	sort with a comparator
+emillon/aoc2024	OCaml	day05.ml	43	sort with a comparator
+Enkidatron/advent-of-code-2024	Roc	day5.roc	110	
+Eoic/AdventOfCode2024	Elixir	lib/mix/tasks/D5/Day5.ex	48	sort with a comparator
+epicseven-cup/AdventOfCode2024	Scala	src/main/scala/Day5_PrintQueue/PrintQueue.scala	131	
+er2/advent-of-code-2024	Clojure	src/advent_of_code_2024/day5.clj	50	
+EricKalkman/AoC2024	Clojure	src/aoc2024/day05.clj	33	sort with a comparator
+escherize/aoc_2024	Gleam	src/day_5.gleam	132	sort with a comparator
+evertvanaart/advent2024	Elixir	lib/solutions/day05/day05b.ex	28	
+fanoplanes/AdventOfCode2024	Racket	05/05-2.rkt	31	sort with a comparator
+fdahlstrand/advent-of-code-2024	OCaml	day05/day05.ml	89	repeated swaps
+fdlk/advent-2024	Scala	2024/day05.sc	23	sort with a comparator
+Feathora/AdventOfCode2024	Haskell	Advent/day5.hs	46	repeated swaps
+felixhudson/aoc2024	Gleam	src/days/day5.gleam	126	
+feoktant/aoc2024	Scala	src/main/scala/day5.scala	37	sort with a comparator
+feschber/aoc2024	Haskell	app/day05.hs	43	
+filipcsa/aoc2024	Haskell	05/solver2.hs	29	sort with a comparator
+fjebaker/advent-of-code-2024	Clojure	day05/main.clj	44	sort with a comparator,repeated swaps
+fl00r/aoc2024	Clojure	5.clj	64	sort with a comparator
+FlorianCassayre/AdventOfCode-2024	Scala	src/main/scala/adventofcode/solutions/Day05.scala	36	topological sort,neighbours-only part 1
+FlyinPancake/aoc_2024	Gleam	src/aoc_2024/day_5.gleam	98	sort with a comparator
+Folamh/aoc2024	Scala	day5.worksheet.sc	52	
+FractionalRadix/adventOfCode2024	Scala	src/main/scala/SolverDay05.scala	94	repeated swaps
+frerich/aoc2024	Elixir	elixir/day05/day05.exs	36	sort with a comparator
+freundf/AdventOfCode2024	Haskell	5.hs	51	sort with a comparator
+frutjus/aoc2024	Elixir	day5/part2.ex	65	neighbours-only part 1,detects a cycle or checks the order
+Frytak/AdventOfCode2024	Elixir	day5/mod.exs	85	repeated swaps
+gbrlbrbs/advent-of-code-2024	Elixir	lib/advent_of_code/day5.ex	77	sort with a comparator
+GearsDatapacks/advent-of-code-2024	Gleam	src/aoc_2024/day_5.gleam	103	
+ghostrider77/adventOfCode-2024	Haskell	src/day05b.hs	37	sort with a comparator
+glompho/advent-of-code2024	Elixir	lib/advent_of_code/day_05.ex	57	sort with a comparator
+gtruitt/advent_of_code_2024	Gleam	src/day_05_second.gleam	93	sort with a comparator
+guibou/AdventOfCode2024	Haskell	src/Day05.hs	76	
+GuillaumedeVolpiano/adventOfCode	Haskell	2024/days/Day5.hs	79	sort with a comparator
+GustavOhman/AdventOfCode2024	F#	Day05/Solution.fsx	83	sort with a comparator
+haku-kiro/aoc2024	OCaml	lib/day05.ml	43	
+HalflingHelper/AdventOfCode2024	Racket	day05.rkt	23	
+harrywincup/advent-of-code-2024	PureScript	src/Day5/Main.purs	38	
+hath995/dafny-aoc-2024	Dafny	problems/5/Problem5.dfy	162	
+hbomb79/Advent-of-Code	OCaml	2024/lib/puzzles/day05.ex	40	sort with a comparator
+henkkuli/aoc-2024	Lean	Day5.lean	87	
+horothesun/advent-of-code-2024	Scala	src/test/scala/Day05Suite.scala	145	
+HoshigaIkaro/aoc_2024-haskell	Haskell	src/Days/D5.hs	49	sort with a comparator,neighbours-only part 1
+hraftery/aoc2024	Gleam	src/days/day05.gleam	73	sort with a comparator
+hygt/aoc2024	Scala	src/aoc2024/Day05.scala	54	sort with a comparator,neighbours-only part 1
+hype09/aoc2024	F#	Day05/Part02.fs	18	sort with a comparator
+I-mikan-I/advent-of-code-2024	Racket	src/day05/solution.rkt	53	sort with a comparator
+ia7ck/advent-of-code-2024-fs	F#	day05/Program.fs	100	sort with a comparator
+imaah/aoc2024	Gleam	src/day05/solver.gleam	117	
+IMLaoJI/aoc2024	Gleam	aoc-gleam/src/aoc/year2024/day05_2.gleam	69	sort with a comparator
+immoh/advent-of-code-2024	Clojure	src/day05.clj	51	sort with a comparator
+itsjoeoui/aoc2024	Scala	src/day05.scala	61	sort with a comparator
+itsMapleLeaf/aoc2024	Gleam	src/day05/day05.gleam	131	
+ivanjermakov/adventofcode	Clojure	aoc2024/src/day5/day5b.erl	40	sort with a comparator
+j-r-beckett/aoc2024	F#	5/Program.fs	71	repeated swaps
+jaaron/aoc2024	OCaml	bin/day5.ml	69	sort with a comparator
+jairtrejo/advent2024	Racket	day05/aoc5.rkt	30	sort with a comparator
+jakcharvat/aoc-2024	Gleam	day05/src/day05.gleam	87	
+JakeTrevor/advent-of-code	Haskell	src/D5.hs	70	
+jalsol/aoc2024	OCaml	lib/day5/main.ml	31	
+James-Oswald/Advent-Of-Code-2024	Lean	AdventOfCode2024/Day5.lean	51	repeated swaps
+jamin-panzenberg/purescript-advent-of-code-2024	PureScript	src/Day5/Day5.purs	73	sort with a comparator
+jannawro/aoc2024	Gleam	src/days/day5.gleam	136	sort with a comparator
+janno-p/aoc2024	F#	src/Aoc2024/Day05.fs	62	
+Jannyboy11/AdventOfCode2024	Scala	src/main/scala/day05/Day05.scala	37	sort with a comparator
+jano-wol/aoc_2024	Lean	Aoc/Day05.lean	111	repeated swaps
+jaredbothwell/aoc2024	Gleam	src/days/day5.gleam	146	
+jarkkopa/aoc-2024	F#	day05.fsx	52	sort with a comparator
+Jaymesv2/aoc2024	Haskell	src/Days/Day05.hs	27	sort with a comparator
+jbonet/advent_of_code_2024	Elixir	lib/advent_of_code_2024/days/05.ex	66	
+JBraungardt/aoc2024	Elixir	lib/2024/5.ex	62	sort with a comparator
+Jean-Ralphio/advent-of-code-2024	Clojure	src/aoc2024/day5.clj	61	sort with a comparator
+jefgr/AdventOfCode2024	Racket	day5.rkt	1491	sort with a comparator
+jenningsfan/AOC2024	Elixir	lib/advent_of_code/day_05.ex	47	sort with a comparator
+jflinchbaugh/aoc2024	Clojure	src/aoc2024/day_05.clj	64	sort with a comparator
+jhgarner/aoc2024	Lean	Days/Day5.lean	138	sort with a comparator,repeated swaps,detects a cycle or checks the order
+jinwoo/aoc2024	Racket	day05.rkt	60	sort with a comparator
+jjbrooksnet/aoc2024	F#	day5/day5.fsx	101	sort with a comparator
+jjcomer/advent-2024	Clojure	src/y2024/d5.clj	58	sort with a comparator
+jman2454/aoc2024	OCaml	day5_2/main.ml	119	sort with a comparator,topological sort,detects a cycle or checks the order
+jmc-elodie/aoc2024	F#	Days/Day05/Solution.fs	108	sort with a comparator,topological sort
+jmcduffie32/aoc2024	Clojure	src/aoc/day5.clj	31	sort with a comparator
+jmgimeno/aoc2024	Scala	days/src/main/scala/aoc2024s/day5/Day5.scala	75	sort with a comparator
+joebadger24/AdventOfCode2024	Haskell	Day5.hs	1450	
+jogadordabeira/AdventOfCode2024	OCaml	src/lib/day05.ml	45	
+johnngugi/AdventOfCode2024	Scala	day5/src/main/scala/Main.scala	67	repeated swaps
+Jonesus/aoc2024	Gleam	src/day05/part1.gleam	104	
+jorge-hermoso/AdventOfCode2024	Scala	src/main/scala/adventofcode/Day05.scala	28	sort with a comparator
+josepablocastro/advent_of_code_2024	Elixir	lib/advent2024/day_05.ex	77	sort with a comparator
+josephmate/AdventOfCode2024	Elixir	lib/day/day05.ex	93	
+Josh-Cena/aoc2024	OCaml	bin/day5.ml	71	
+josuma26/AOC2024	OCaml	day5.ml	78	sort with a comparator
+JpOnline/advent-of-code-2024	Clojure	advent_05.clj	89	repeated swaps
+jpyamamoto/advent_of_code_2024	Gleam	src/aoc_2024/day_5.gleam	69	sort with a comparator
+jrmcauliffe/aoc2024	Elm	src/Day05.elm	59	sort with a comparator
+jsr-p/aoc2024	Lean	day5/main.lean	110	sort with a comparator
+juergenhoetzel/adventofcode2024.ocaml	OCaml	lib/day5.ml	27	
+JulianGCalderon/advent-of-code-2024	Racket	day5/main.rkt	60	
+kaareltinn/aoc2024	Elixir	day5/lib/day5.ex	130	
+kaepr/advent-of-code-2024	Clojure	src/aoc2024/day05.clj	125	repeated swaps
+kalejami/aoc2024	Scala	src/main/scala/de/mk/aoc2024/day5.scala	44	sort with a comparator
+kallehed/Advent-of-code-2024	Gleam	day5/p1.hs	51	
+KarlBris/AoC2024FSharp	F#	AoC2024/Day05.fs	78	repeated swaps
+KartonM/aoc2024	Elixir	lib/advent_of_code/day_05.ex	58	
+kasparito/aoc2024	Scala	src/com/hellden/aoc/aoc2024/Day05.scala	31	sort with a comparator
+KasperLovold/AOC2024	F#	day5/Program.fs	117	topological sort
+KasperVaessen/AdventOfCode2024	Elixir	lib/advent_of_code/day_05.ex	31	sort with a comparator
+katafrakt/advent_of_code_2024	Gleam	src/day05/solution.gleam	125	
+KeenS/aoc2024	Lean	Day5_2.lean	45	sort with a comparator
+Kevincav/AdventOfCode2024	Scala	src/main/scala/org/advent/year2024/Day5.scala	36	
+KevinDuringWork/AoC2024	Haskell	day5/app/Main.hs	33	
+kevinwu1/AdventOfCode2024	Scala	Aoc2024/src/Day05.scala	70	sort with a comparator,detects a cycle or checks the order
+kfl/adventofcode_2024	Haskell	day05/day05.hs	81	sort with a comparator
+kieran-grant/aoc2024	Clojure	src/aoc2024/day05.clj	63	sort with a comparator
+kjinho/aoc2024	Gleam	src/day05.gleam	137	sort with a comparator
+klemola/aoc2024	Clojure	day5/solution.clj	39	sort with a comparator
+knexer/aoc-2024	Haskell	5/part_2.hs	51	
+knightpp/advent-of-code-2024	Elixir	lib/day5/day5.ex	62	
+knightstick/aoc2024	Gleam	src/aoc2024/day5.gleam	148	repeated swaps
+kotharin/aoc2024	F#	Day5.fs	145	
+KristianSchmidt/AdventOfCode2024	F#	Day5.fsx	52	
+kubenetic/AdventOfCode2024-Elixir-	Elixir	lib/day05.ex	68	
+Larocceau/adventOfCode2024	F#	day5/solution.fsx	98	sort with a comparator
+lasseebert/advent_of_code_2024	Elixir	lib/advent/day_05.ex	84	sort with a comparator
+laszlokorte/aoc2024	F#	day05.fs	43	sort with a comparator
+lave/aoc2024	Haskell	05.hs	36	sort with a comparator,detects a cycle or checks the order
+lboshuizen/aoc24	F#	Day05.fs	25	sort with a comparator
+ledbettj/aoc2024	Elixir	lib/day5.ex	65	
+LeedsJohn/OCaml-Advent-Of-Code	OCaml	lib/solutions/problem_2024_05.ml	55	
+lego-eden/aoc2024	Scala	day5/day5.scala	60	sort with a comparator
+leo-leesco/Advent-of-code-2024	OCaml	Day5.ml	63	predecessor count as key
+Lerke/AdventOfCode2024	F#	Day05.PrintQueue/Program.fs	45	
+levon-vardevanyan-solarwinds/AdventOfCode2024	Racket	day5/solution.rkt	17	sort with a comparator
+lexxns/AdventOfCode2024	Haskell	src/Days/Day05.hs	107	repeated swaps,detects a cycle or checks the order
+Liezere/AoC24	Prolog	day05.pl	46	
+lifegame1lu111/aoc2024-functional	Lean	Day05.hs	45	sort with a comparator
+Lorin-Lange/advent-of-code	Haskell	AoC_2024/AoC_2024_05/Main.hs	22	sort with a comparator
+louis-can-code/AdventOfCode2024	Elixir	5/day5.exs	52	
+lovelyckaro/AOC2024	Haskell	lib/Solutions/Day05.hs	64	sort with a comparator
+lukasbm/aoc2024	Haskell	05/part2.hs	46	sort with a comparator,neighbours-only part 1
+lukewilliamboswell/aoc	Roc	2024/05.roc	119	repeated swaps,detects a cycle or checks the order
+lunky/aoc2024	Haskell	src/Day5.hs	53	repeated swaps
+lupari/aoc2024	Scala	src/main/scala/assignments/Day05.scala	27	
+lydell/advent-of-code	Elm	2024/src/d05/ab.gleam	91	sort with a comparator,repeated swaps
+m-faucon/aoc2024	Clojure	src/aoc2024/day5.clj	66	sort with a comparator,topological sort,predecessor count as key
+maard/adventofcode2024	Elixir	5/level5.exs	66	repeated swaps
+Mac15001900/adventOfCode2024	Haskell	day5.hs	61	repeated swaps
+MaciPaci/AdventOfCode2024	Gleam	src/aoc_2024/day_5.gleam	130	sort with a comparator
+magoun/aoc2024	Gleam	src/days/day5.gleam	154	
+main--/aoc2024-lean4	Lean	day5.lean	196	sort with a comparator
+majocha/aoc2024	F#	day05.fsx	30	
+Marado-Programmer/aoc2024	Gleam	src/day_05_impl.erl	37	sort with a comparator
+marco-marinho/AdventOfCode2024	Elixir	lib/days/day05.ex	81	sort with a comparator,topological sort
+martinfalke/aoc2024	Elixir	lib/days/day05.ex	140	topological sort,detects a cycle or checks the order
+MartinPuda/aoc2024	Clojure	src/aoc2024/day05.clj	36	
+MateuszPietrzak/advent_of_code_2024	OCaml	day_5/main.ml	88	topological sort
+MathieuDR/AOC-2024	Elixir	lib/aoc_2024/solutions/y24/day05.ex	118	
+mats42/2024_AdventOfCode	Clojure	src/aoc2024/day5.clj	97	repeated swaps
+Matthew-Davey/AdventOfCode2024	F#	Day05/Part2.fs	37	repeated swaps
+maxhille/aoc-2024	Elm	days/Day05.elm	72	sort with a comparator
+maxprokopiev/aoc2024	OCaml	day05/main.ml	33	sort with a comparator
+mbottini/AOC2024	F#	Day05/Program.fs	71	repeated swaps
+mdjohns/advent-of-code-2024	OCaml	bin/day05_part2.ml	71	
+MDoerner/AdventOfCode2024	Elixir	Elixir/advent_of_code_2024/lib/days/day5.ex	77	sort with a comparator
+mdr/aoc-2024	Lean	Aoc2024/Day05/Solve.lean	22	sort with a comparator,neighbours-only part 1
+mduvalhall/aoc2024	OCaml	day5/day5.ml	86	sort with a comparator
+mdw-aoc/advent-of-code	Clojure	clj-bb/2024/05.clj	45	repeated swaps
+meliadamian17/aoc2024	Elixir	day5/soln2.exs	90	topological sort
+melodicht/aoc2024	Racket	day5/main.rkt	215	sort with a comparator
+merlinorg/aoc2024	Scala	src/main/scala/Day5.scala	27	sort with a comparator
+mewhhaha/aoc2024	Gleam	day5.2/src/main.gleam	106	sort with a comparator
+mfornet/advent-of-code-2024	Lean	Aoc2024/Day05.lean	88	sort with a comparator,topological sort
+mgkoning/advent-of-code-2024	Gleam	advent_gleam/src/day05.gleam	82	topological sort
+micahcantor/advent-of-code-2024	Racket	day-5/day-5.rkt	52	sort with a comparator
+michalliss/aoc2024	Scala	aoc2024/src/Day5.scala	59	topological sort
+mildsunrise/aoc-2024	Haskell	day5/code.hs	27	
+misaelvillaverde/aoc2024	Gleam	src/day5/p1.gleam	78	sort with a comparator
+MisustinIvan/aoc2024	OCaml	days/day05_shared.ml	34	
+mniip/aoc2024	Lean	Day05.lean	24	sort with a comparator
+Morendil/AdventOfCode2024	Haskell	Day05.hs	45	repeated swaps
+mpenciak/Advent2024	Lean	Advent/Day5.lean	125	
+mrkline/aoc2024	Haskell	day5.hs	50	
+mrybak834/adventOfCode2024	Scala	src/main/scala/adventOfCode/day5/part2/Solution1.scala	55	repeated swaps
+mstksg/advent-of-code	Haskell	2024/AOC2024/Day05.hs	65	sort with a comparator
+mtamc/aoc2024	Haskell	src/Day05.hs	40	
+mtelvers/aoc2024	OCaml	day5/bin/main.ml	25	sort with a comparator
+mtravers/aoc2024	Clojure	src/aoc2024/day5.clj	43	sort with a comparator,topological sort
+muesli4brekkies/aoc2024	Clojure	src/y24/5/1.clj	17	
+mvlootman/aoc2024	Gleam	src/day05.gleam	59	sort with a comparator
+Nare6880/AdventOfCode2024	Scala	src/main/scala/day05.scala	54	
+nathanielknight/aoc2024	Gleam	src/y2024/d05/solve.gleam	172	sort with a comparator
+nathank07/AdventOfCode2024	Haskell	05/main.hs	44	sort with a comparator
+nelanz/aoc2024	Scala	src/main/scala/day05/Day05.scala	96	repeated swaps
+Neofox/advent-of-code-elixir	Elixir	lib/advent_of_code/day_05.ex	47	sort with a comparator
+nerdatmath/aoc2024	Roc	day05.roc	119	sort with a comparator
+nicholas-miklaucic/aoc2024	F#	sols/day5.fs	40	repeated swaps
+Nick-Chapman/aoc2024	Haskell	src/Day5.hs	50	sort with a comparator
+nikb-de/aoc2024	Scala	src/main/scala/nikbde/Day5.scala	65	sort with a comparator,topological sort
+nikiiv/aoc2024	Elixir	lib/day05.ex	100	
+Ninteedo/AdventOfCode2024	Scala	src/main/scala/days/Day05.scala	46	sort with a comparator
+njm64/aoc2024	Haskell	haskell/day5.hs	42	
+noahmoss/AdventOfCode2024	Clojure	src/aoc2024/day5/part1.clj	43	
+nonpop/aoc2024	Gleam	src/day5.gleam	92	
+ntwilson/AdventOfCode2024	PureScript	src/Day5Puzzle2.purs	90	
+nukeLEARg/AOC2024-OCAML	OCaml	bin/Day05.ml	65	repeated swaps
+NukeyFox/AdventOfCode2024	Haskell	day5/day5.hs	49	repeated swaps
+Odonno/advent_of_code_2024	Gleam	src/day05/common.gleam	113	
+Ojkee/AOC2024	OCaml	bin/day5.ml	96	sort with a comparator
+okkdev/aoc2024	Gleam	day5/day5.gleam	101	sort with a comparator
+olligobber/AOC2024	Haskell	Day05/Part2.hs	33	
+OnFireByte/Advent-of-Code-2024	Gleam	src/day05.gleam	139	sort with a comparator,repeated swaps
+oopjot/aoc2024	Clojure	src/aoc2024/day5.clj	77	sort with a comparator
+opqdonut/adventofcode24	Haskell	Day05.hs	33	sort with a comparator
+Ossur/AdventOfCode2024	F#	Day5/PrintQueue.fs	72	repeated swaps
+ostcar/aoc2024	Roc	day05.roc	112	sort with a comparator
+outergod/advent-of-code-2024	Clojure	src/2024/day_5.clj	28	sort with a comparator
+Palemand/AdventOfCode2024	Scala	src/Day5.scala	68	sort with a comparator
+PapstJL4U/AdventOfCode2024	Elixir	day5/lib/day5.ex	81	
+paulfedory/advent_of_code_2024	Elixir	lib/advent_of_code_2024/day_05.ex	53	sort with a comparator
+pbv/advent2024	Haskell	05/app/Main.hs	55	
+pcsteppan/advent-of-code-2024	OCaml	5_gleam/day5/src/day5.gleam	147	sort with a comparator
+pepe217/aoc2024	Elixir	day5.exs	50	sort with a comparator
+pgeadas/AdventOfCode2024	F#	Advent2024/Day5.fs	115	sort with a comparator,topological sort,detects a cycle or checks the order
+phfroidmont/aoc2024	Scala	src/day05.scala	50	sort with a comparator
+philipmstc/aoc2024	Scala	day05-print-queue/Day5.scala	59	sort with a comparator
+pmbauer/aoc2024	Clojure	src/codes/bauer/aoc2024/05.clj	41	sort with a comparator
+prinsniels/AdventOfCode2024	Scala	src/main/scala/day05.scala	37	sort with a comparator
+Pseudonym777/aoc2024	Haskell	05/5.hs	42	
+pwschaedler/advent-of-code-2024	Gleam	src/d5.gleam	127	repeated swaps
+qw3r/aoc2024	Elixir	lib/aoc/day_05.ex	73	
+rafasf/aoc2024	Elixir	lib/day05/day05.ex	62	
+rbobillot/AdventOfCode2024	Gleam	gleam/src/day05.gleam	86	sort with a comparator
+rcklemm/AdventOfCode2024	OCaml	day5/day5.ml	54	sort with a comparator,detects a cycle or checks the order
+reeddunkle/advent-of-code-2024	Clojure	src/day05.clj	51	
+renaudlenne/advent_of_code_2024	Gleam	src/aoc_2024/day_5.gleam	89	sort with a comparator
+rileythomp/adventofcode	Clojure	2024/5/main.clj	70	repeated swaps
+Rinorragi/aoc2024	F#	day05.fsx	104	
+rjNemo/ai_advent_code_2024	Elixir	lib/advent_code2024/solutions/day05/day5.ex	90	sort with a comparator,neighbours-only part 1
+rleijon/aoc2024	Elixir	lib/days/day5.ex	36	sort with a comparator
+Roald87/AdventOfCode2024	F#	day5.fsx	29	sort with a comparator
+robmerrell/aoc2024	Roc	day5.roc	96	
+rolandtritsch/scala3-aoc-2024	Scala	main/src/aoc2024/Day05.scala	89	repeated swaps
+RoxtroffJ/Advent_of_code2024	OCaml	5/bin/main.ml	81	sort with a comparator
+roy-crippen/aoc2024-roc	Roc	src/Day05.roc	124	
+rslabon/aoc2024	Clojure	test/aoc2024/day5.clj	112	sort with a comparator
+ruslandoga/aoc2024	Elixir	lib/day05.ex	67	sort with a comparator
+RussellEmerine/aoc-2024	Lean	Aoc2024/Day5.lean	78	topological sort
+rwpeterson/aoc2024	OCaml	solutions/day05/day05.ml	71	
+ryanjeffares/aoc2024	Scala	src/main/scala/days/Day5.scala	53	
+samhattangady/aoc24	Racket	05.rkt	50	sort with a comparator,repeated swaps
+Samuel-Dufour/AdventOfCode-2024	F#	day-5/answers.fsx	103	
+sanraith/aoc2024	Scala	shared/src/main/scala/hu/sanraith/aoc2024/solution/Day05.scala	21	sort with a comparator
+Sasiiiiiiiiiiiiii/Advent_of_Code	OCaml	day5c/day5_part2.ml	98	topological sort
+sc-let-me-in/advent-of-code-2024	Racket	05/nick.rkt	66	sort with a comparator
+ScallyGames/aoc-2024	Roc	2024/day5.roc	209	
+scorphus/advent-of-code-2024	Gleam	src/day05.gleam	124	
+Seb-G0/AOC2024	Racket	Day5.rkt	106	sort with a comparator
+SerenMcIntyre/Advent-of-Code-2024	Gleam	src/day5.gleam	139	repeated swaps
+sethcalebweeks/advent-of-code-2024	Gleam	src/day05/day05.gleam	93	sort with a comparator
+Shifaan0010/advent-of-code-2024	Elixir	5/5.exs	85	predecessor count as key
+shilangyu/AoC-2024	Lean	AoC2024/Day05.lean	78	neighbours-only part 1,detects a cycle or checks the order
+shinkathe/aoc2024	F#	day5.fsx	17	repeated swaps
+Shiphan/advent-of-code-2024	Haskell	day5p2.hs	57	
+sidneypiper/advent_of_code_2024	OCaml	lib/day05.ml	64	sort with a comparator
+sim642/adventofcode	Scala	src/main/scala/eu/sim642/adventofcode2024/Day5.scala	58	sort with a comparator,topological sort
+sisou/advent-of-code-2024	Gleam	src/day_05.gleam	83	
+spazzylemons/advent-of-code-2024	Gleam	src/aoc_2024/day_5.gleam	111	
+spencerwi/AdventOfCode2024	F#	day5/Lib.fs	93	
+Splagoon/AdventOfCode2024	Elixir	lib/05.exs	79	
+sqeezy/AdventOfCode2024	F#	src/Day05/BothParts.fsx	59	sort with a comparator
+stephen-allison/aoc2024	Clojure	src/aoc24/day5.clj	65	sort with a comparator
+stevenjmoe/advent_of_code_2024	OCaml	lib/day5.ml	70	
+stubillwhite/advent-of-code-2024	Clojure	src/advent_of_code_2024/day_5.clj	36	sort with a comparator
+SwannHERRERA/advent-of-code-2024	Elixir	ex/lib/day_5.ex	149	sort with a comparator
+synctax/AOC2024	Haskell	5/main.hs	38	sort with a comparator
+Sztorm/AdventOfCode2024	F#	src/AdventOfCode2024/Day05/Day05.fs	37	sort with a comparator
+t-gebauer/advent-of-code-2024	OCaml	day05.ml	89	sort with a comparator
+T-oo-T/advent-of-code-2024	Clojure	src/aoc_2024/day_05.clj	141	repeated swaps
+T045T/aoc2024	Gleam	src/day_5.gleam	107	sort with a comparator
+tamaslang/AdventOfCode2024Clj	Clojure	src/com/day5/PrintQueue.clj	43	sort with a comparator
+targeter/aoc2024	Scala	src/main/scala/aoc2024/Day05.scala	36	sort with a comparator
+TerminalCursor/AdventOfCode2024-Clojure	Clojure	D05/D05P02.clj	110	
+tewecske/aoc2024	Scala	aoc2024-scala/src/main/scala/aoc/day5/AoCDay5.scala	88	neighbours-only part 1
+tgolsson/aoc2024	Clojure	src/aoc2024/day5.clj	80	
+thenikso/advent-of-code-2024-roc	Roc	05.roc	154	
+TheScown/advent-of-code	Scala	src/main/scala/advent2024/problems/Day5.scala	42	sort with a comparator
+TheShmill/AoC2024	Clojure	src/day5.clj	19	
+thinkbeforecoding/advent-of-code-2024	F#	day05.fsx	44	sort with a comparator
+thisguycodes/aoc2024	Gleam	src/day5.gleam	97	sort with a comparator
+thymoze/aoc2024	Gleam	day05/src/day05.gleam	96	sort with a comparator
+timochu/aoc2024	F#	day05.fsx	15	repeated swaps
+TimWillebrands/aoc-2024	F#	5/solution.fsx	53	
+Tiseno/Advent-of-code-2024	Haskell	day05/main.hs	52	
+tiwwi/aoc2024	Haskell	src/Day05.hs	42	
+tkindy/AdventOfCode2024	Clojure	src/com/tylerkindy/aoc2024/day05.clj	66	sort with a comparator
+tkshill/AdventOfCode2024	F#	AOC/Day05.fs	37	
+tocrafty/aoc2024	Haskell	exe/Day5/Day5.hs	37	sort with a comparator
+Tommytto/advent-of-code-2024	OCaml	ocaml/day5/puzzle.ml	142	repeated swaps
+toomyem/aoc2024	OCaml	day05/main.ml	37	sort with a comparator
+tormodfj/aoc2024	F#	05-2/Program.fs	24	sort with a comparator
+tromp/AoC2024	Haskell	day5.hs	20	sort with a comparator
+tyrosine-rex/aoc2024	OCaml	ocaml/solutions/day5.ml	120	sort with a comparator
+UnaryPlus/aoc2024	Haskell	src/AoC2024/Solutions/Day5.hs	41	
+vanHavel/AdventOfCode2024	Clojure	src/aoc/day5.clj	15	sort with a comparator
+veeenu/adventofcode2024	OCaml	day05.ml	77	sort with a comparator
+verdammelt/advent-of-code	Common Lisp	2024/day05.lisp	61	sort with a comparator
+veresdavid/advent-of-code-2024	Elixir	05/print_queue_02.exs	67	
+VeryCautious/AdventOfCode2024	F#	AdventOfCode2024-Day05/Day5.fs	68	sort with a comparator,detects a cycle or checks the order
+VincentQuillien/advent-of-code-2024	Scala	Day05/ex.worksheet.sc	25	sort with a comparator
+vindarel/bacalisp	Common Lisp	advent/2024/day05.lisp	117	sort with a comparator
+vmaradudin/AdventOfCode2024	F#	src/2024/Modules/Day05.fs	31	sort with a comparator
+Vovan-S/aoc2024	Elixir	5.exs	94	sort with a comparator
+vteremasov/aoc-2024	OCaml	day_5/solution_2.ml	60	
+Vulkes/AdventOfCode-2024-solutions	OCaml	lib/day05.ml	54	sort with a comparator
+WadeGulbrandsen/aoc2024	Gleam	src/solvers/day05.gleam	46	sort with a comparator
+WalrusGumboot/aoc2024	Haskell	05/aoc2024-05.hs	42	sort with a comparator
+wclem4/aoc2024	OCaml	day5/p2.ml	56	repeated swaps,predecessor count as key
+whoek/advent-of-code-2024	OCaml	day5/day5.ml	48	
+willemvermeer/aoc2024	Scala	src/main/scala/day5/Day5.scala	82	repeated swaps
+wiseodd/aoc-2024	Gleam	src/day05.gleam	91	sort with a comparator
+WJWH/aoc2024	Haskell	app/Day05.hs	74	topological sort,detects a cycle or checks the order
+woojiahao/aoc	Elixir	lib/aoc/y2024/day_5.ex	47	sort with a comparator
+wsgac/advent-of-code-2024	Common Lisp	2024/day05.lisp	1447	sort with a comparator
+WTomas/aoc2024	Haskell	challenges/Day05.hs	61	
+Yalond/AdventOfCode2024	Haskell	Day5/day5.fsx	20	sort with a comparator
+YilunAllenChen/aoc2024	Gleam	src/d5.gleam	233	
+yoshi-monster/aoc2024	Gleam	src/aoc_2024/day_5.gleam	76	sort with a comparator
+zanlib0/aoc2024	Clojure	src/aoc/day05.clj	89	repeated swaps
+ZeroX-DG/aoc2024	Elixir	day5/day5.exs	119	
+Ziharrk/aoc2024	Haskell	src/Day5.hs	31	
+zouppen/aoc-2024	Haskell	src/Day05.hs	63	sort with a comparator
