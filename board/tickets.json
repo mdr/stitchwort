@@ -7789,15 +7789,15 @@
     {
       "id": 859,
       "title": "Postponable lambda kept from its in-place try can settle a shared type before an earlier postponed lambda is checked (argument-order dependence)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
       "labels": [
         "bug"
       ],
       "body": "From the SW-846 lane: in apply_args_postponing (check.rs), a postponable lambda that succeeds when tried in place is kept, so it can solve a metavariable (with the unfolded type) before an earlier postponed lambda is checked; the result depends on argument order (alias-functions.md §4). Check whether the remaining argument-order cases mostly come from this.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-29",
       "commits": []
     },
     {
