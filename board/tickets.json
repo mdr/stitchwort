@@ -1,5 +1,5 @@
 {
-  "next": 891,
+  "next": 892,
   "tickets": [
     {
       "id": 13,
@@ -8305,6 +8305,20 @@
         "diagnostics"
       ],
       "body": "D1713 (Matt, 29 Oct): add to backlog to consider. First measure how often aoc/ and Std would trigger it (e.g. nat() read only to skip), then choose between a general warning and a Rust-style must_use attribute. Escape hatch would be let _ := e.",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 891,
+      "title": "Consider (or not): a forged Parse.Mark can change a result — reset to { here | left = 0 } makes many digit on 123 return one digit; fuel could come from the handler's state, or Mark could be abstract",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "D1711 (Matt, 29 Oct): backlog, to consider or not. From docs/proposals/total-parsers.md §1 (SW-884); repro in the SW-884 scratch forged.sw (reproduced in the note). Low value unless option (c) proofs (fuel never runs out) are pursued (D1710: not now).",
       "created": "2026-10-29",
       "updated": "2026-10-29",
       "commits": []
