@@ -1,5 +1,5 @@
 {
-  "next": 885,
+  "next": 888,
   "tickets": [
     {
       "id": 13,
@@ -8191,7 +8191,7 @@
     {
       "id": 883,
       "title": "Research: shorter grammar code in direct style, e.g. Mul (shortNumber()) (char ','; shortNumber()); what works today, and the options",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -8200,7 +8200,10 @@
       "body": "Matt, 29 Oct (D1661): 'something like this would be cool, do a research lane to understand the options'. From docs/comparisons/aoc-2024-day03-community.md §4: our mul( rule takes six let-bound lines where an applicative one-liner takes one. Output: docs/proposals/ note; design only.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "fa1c8b76",
+        "01a7b94c"
+      ]
     },
     {
       "id": 884,
@@ -8212,6 +8215,48 @@
         "research"
       ],
       "body": "Matt, 29 Oct: run a design lane on whether and how we might get total parser combinators in the Idris/Agda way. Today Std.Parse is total by fuel (Parse.manyFuel, Parse.sw:341-356) and stops with a fatal error if many's parser matches without reading. Idris 2 Text.Parser.Core: Grammar state tok (consumes: Bool) a, lazy (Inf) continuation only after consuming. agdarsec: size-indexed parsers, recursion under a later modality. Output: a docs/proposals note; design only.",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 885,
+      "title": "Record literal with an effectful field is E-CANNOT-INFER as an argument, tuple part or nested field",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From docs/proposals/direct-style-grammars.md §8 (SW-883); repro in docs/proposals/direct-style-grammars/gaps.sw. Blocks the natural AoC 2024 day 14 grammar rewrite without ': Position' annotations.",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 886,
+      "title": "() in a tuple pattern gives E-NOT-EMPTY, though let () := e on its own works",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From docs/proposals/direct-style-grammars.md §8 (SW-883); repro in docs/proposals/direct-style-grammars/gaps.sw.",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 887,
+      "title": "Std.Parse natDigits 1 3 on 1234 reports \"got '1'\" rather than the over-long number",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From docs/proposals/direct-style-grammars.md §8 (SW-883).",
       "created": "2026-10-29",
       "updated": "2026-10-29",
       "commits": []
