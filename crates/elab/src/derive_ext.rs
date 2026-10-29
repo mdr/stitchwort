@@ -189,8 +189,8 @@ impl Elaborator {
             .collect();
         let proof = fields_equal(
             span,
-            &ty_name,
-            &ctor.name,
+            &format!("{ty_name}.{}", ctor.name),
+            &format!("{ty_name}.%{}", ctor.name),
             &is_proof,
             np,
             &this,
