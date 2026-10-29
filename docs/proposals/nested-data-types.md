@@ -1,49 +1,56 @@
 # Proposal: nested data types, `Packets (items: List Packet)`
 
-**Status:** draft 1, 28 October 2026, for review. Ticket SW-829 (from SW-704). No decisions are
-taken here; the [open questions](#9-open-questions) are for Matt. Related:
-[mutual-recursion.md](mutual-recursion.md) (data groups, size-change termination; it set nested
-types aside as "a later step"), [well-founded-recursion.md](well-founded-recursion.md)
-(`decreasing`, `List.attach`, congruence lemmas), [parser-combinators.md](parser-combinators.md)
-§5.3 (the `recursive` combinator, which today can only sum a packet, not build one),
-[map-equality.md](map-equality.md) (why nesting through a quotient is refused).
+**Status:** draft 2, 29 October 2026. Ticket SW-704 (D1820: rethink after the external review of
+draft 1, SW-829). Draft 1 (28 October) proposed Rocq's old nested positivity rule; this draft
+replaces it with the 2026 Lamiaux–Forster–Sozeau–Tabareau criterion, specialised to Stitchwort.
+What changed and why is in [§11](#11-response-to-review). The decisions for Matt are in
+[§13](#13-decisions). Related: [mutual-recursion.md](mutual-recursion.md) (data groups,
+size-change termination), [well-founded-recursion.md](well-founded-recursion.md) (`decreasing`,
+`List.attach`), [parser-combinators.md](parser-combinators.md) §5.3, [map-equality.md](map-equality.md)
+(why nesting through a quotient is refused), [indexed-families.md](indexed-families.md).
 
-**The short answer.** Let a data type contain itself inside an *already defined* data type, such
-as `List`, `Option`, a tuple or `Vec`, when that type only ever *stores* its parameter (never
-takes it as a function's input, never uses it as an index). The kernel checks this by looking
-inside the outer type's constructors with the parameter filled in, exactly as Rocq's kernel
-does. Nothing else in the kernel changes: the termination checker already treats "a field of a
-matched constructor" as smaller whatever its type, so a list of packets inside a packet, and a
-packet inside that list, are already smaller. A prototype of the relaxed check (a scratch patch,
-not committed) accepted the Packet type, and with it, unchanged: structural recursion through a
-helper over the list, proofs by mutual induction, recursion through `items.attach.map` with
-`decreasing`, day 13's comparison, `rfl` on a `decreasing` function over packets, and the same
-output under `run`, `run --js` and `run --reference` **[run]**. Then, in later stages, the
-compiler generates what Lean generates: `==`/`<`/`${…}` for such types, a size function, and an
-induction principle whose hypothesis is "the property holds for every member of `items`".
+**The short answer.** Let a data type contain itself inside an earlier data type, such as `List`,
+`Option`, a pair, `Vec` or an earlier mutual group, at a parameter that the earlier type only
+*stores*. The kernel works out once, per data group, which of its parameters are like that
+(*nestable*), with the rule from Lamiaux, Forster, Sozeau and Tabareau's paper (PLDI 2026,
+"LFST" below). Then a field like `items: List Packet` is checked by looking up `List`'s table, not
+by expanding `List`'s constructors. LFST have a machine-checked proof that every type their rule
+accepts has a strictly positive *mutual* encoding (`Packet` with a private copy of `List`). Our
+rule is their rule with a few extra restrictions (§5.5), so the proof covers us, under the
+assumptions written out in §6. Termination needs no change: "is a part of" already means "is a
+constructor field, at any depth, of this particular value" (§6.4). Two small additions: a field
+may not depend on an earlier field that contains the type (LFST's "no inductive-inductive"
+rule), and a proposition with a nested field can't be matched to produce data (as in Lean). A
+scratch prototype (~200 lines, behind an environment variable, not merged) accepts every
+example we want and refuses every one we don't (§7), and changes no verdict on the 1,075 files
+in `examples/accept`, `reject` and `soundness` except `reject/nested-data.sw` **[run]**.
 
-This note can be read without knowing type theory. Labels, as in the other notes:
+This note can be read without knowing type theory. Labels:
 
-- **[checked]**: read in the Stitchwort source or docs at the `file:line` given (commit
-  `39c6f838`), or in a source listed at the end ([L1], [R1] and so on), read in full unless
-  marked otherwise;
-- **[run]**: a Stitchwort or Lean program run on 28 October 2026 (Stitchwort's release CLI at
-  `39c6f838`, with the scratch patch where stated; Lean 4.34.1 from nixpkgs). The programs are
-  scratch files, not committed; each is quoted where it's used;
-- **[inferred]**: my reasoning from checked facts;
+- **[checked]**: read in the Stitchwort source at commit `9a6a3d84`, or in a source listed at
+  the end, at the place given;
+- **[cited]**: what a source says, quoted, and not checked further by us;
+- **[run]**: a program run on 29 October 2026 (Stitchwort at `9a6a3d84`, with the scratch
+  prototype where stated; Lean 4.34.1 and Rocq 9.1.1 from nixpkgs). Programs are scratch files;
+  each is quoted or described where used;
+- **[inferred]**: our reasoning from checked or cited facts;
 - **[unverified]**: believed, not confirmed.
 
 ## Contents
 
 - [1. The problem](#1-the-problem)
 - [2. Words this note uses](#2-words-this-note-uses)
-- [3. How Stitchwort checks data types and recursion today](#3-how-stitchwort-checks-data-types-and-recursion-today)
+- [3. How Stitchwort checks data types today](#3-how-stitchwort-checks-data-types-today)
 - [4. How others do it](#4-how-others-do-it)
-- [5. What we ran](#5-what-we-ran)
-- [6. Options](#6-options)
-- [7. Recommendation: option A, in detail](#7-recommendation-option-a-in-detail)
-- [8. Stages](#8-stages)
-- [9. Open questions](#9-open-questions)
+- [5. The rule for Stitchwort](#5-the-rule-for-stitchwort)
+- [6. Why it is sound](#6-why-it-is-sound)
+- [7. What we ran](#7-what-we-ran)
+- [8. The translation test oracle](#8-the-translation-test-oracle)
+- [9. Induction principles](#9-induction-principles)
+- [10. Stages](#10-stages)
+- [11. Response to review](#11-response-to-review)
+- [12. Options considered](#12-options-considered)
+- [13. Decisions](#13-decisions)
 - [Sources](#sources)
 
 ## 1. The problem
@@ -59,673 +66,722 @@ type Packet: Type =
 
 ```
 [E-POSITIVITY] Error: `Packet` is used inside another type
- 6 │   | Packets (items: List Packet)
-   │                     ╰─────── field `items` has `Packet` inside another type
-   │ Note 1: a data type's fields can contain it only directly, or as the result of a function
-   │ field: whether it's safe inside another type (such as a `List`) would depend on how that
-   │ type uses it, which isn't checked
-   │ Note 2: for a tree whose children are in a list, write two types defined together instead:
-   │ a tree, and a forest of trees
+   field `items` has `Packet` inside another type
 ```
 
-The suggested workaround, a `Tree` and a `Forest` defined together (`examples/accept/mutual-data.sw`
-**[checked]**), works, but the forest is a second list type: none of `List`'s functions
-(`map`, `sum`, `zip`, `sort`, `attach`) or theorems apply to it, and every one a program needs
-has to be written again for `Forest`. The same shape comes up in 2021 day 18 (snailfish
-numbers, pairs of pairs), in expression trees, JSON-like values, file-system trees (2022 day 7),
-and in whatever a recursive `{Parse}` grammar produces: parser-combinators.md §5.3 says its
-example "sums the numbers because `type Packet = … | Packets (items: List Packet)` is refused"
-**[checked]**.
+The workaround is a `Tree` and a `Forest` defined together (`examples/accept/mutual-data.sw`). It
+works, but the forest is a second list type: none of `List`'s functions or theorems apply to it.
+The same shape comes up in 2021 day 18 (snailfish numbers), 2022 day 7 (file trees), expression
+trees, JSON-like values, and whatever a recursive `{Parse}` grammar builds (parser-combinators.md
+§5.3). It also comes up in proofs: a typing judgement for a language with `switch` wants "every
+branch is well typed", `All (t => Typed t r) branches`, which is LFST's own motivating example.
 
-What users want to write, in order of how often:
-
-1. **The type itself**, with a real `List` inside.
-2. **Functions using the library**: `items.map (q => depth q)`, `items.sum`, `List.zip`, a
-   comparison that walks two lists of packets together.
-3. **Proofs by induction**, where the step for `Packets items` may assume the property for every
-   packet in `items`.
-4. **`==`, `<` and `${p}`** derived, as for every other type.
+What users want, in order of how often: the type itself, with a real `List` inside; functions
+using the library (`items.map`, `sum`, `zip`); proofs by induction where the step for `Packets
+items` may assume the property for every packet in `items`; and derived `==`, `<` and `${p}`.
 
 ## 2. Words this note uses
 
 - **Nested occurrence.** The type being defined appears as an argument of another type in a
   field: `List Packet`. `Packet` is *nested* in `List`; `List` is the *outer type*.
-- **Strictly positive.** A type occurs strictly positively in a field if it never appears to the
-  left of an arrow (as a function's input). `Bad (f: Bad -> Nat)` is not strictly positive, and
-  would let a program loop forever and prove anything (mutual-recursion.md §3 lists the bugs
-  that came from getting this wrong).
-- **Parameter that's only stored.** `List (a: Type)` uses `a` only as the type of a field
-  (`head: a`) and in `List a` itself. A type like `type Neg (a: Type) = | MkNeg (consume: a -> Nat)`
-  uses `a` as a function's input. Agda calls the first kind of parameter *strictly positive*
-  (`@++`), Rocq a *nestable* uniform parameter. Nesting is safe exactly through stored
-  parameters.
+- **Strictly positive.** The type never appears to the left of an arrow in a field.
+  `Bad (f: Bad → Nat)` is not strictly positive, and would let a program loop and prove anything.
+- **Uniform parameter.** A parameter every recursive use of the type passes on unchanged:
+  `List a` uses `List a` inside, never `List (a, a)`. In Stitchwort *every* parameter is uniform:
+  in its own fields a group's member may only be applied to the group's own parameters
+  (`not_positive`, `check.rs:2733-2739`, `Occurrence::OtherParameters`) **[checked]**. Anything
+  that varies is an index.
+- **Nestable parameter.** LFST's "strictly positive uniform parameter": a parameter of type
+  `Type` (or a function returning a type, `a → Prop`) that the type only stores, never takes as
+  input and never uses in an index. `List`'s `a` is nestable; `Neg (a) = MkNeg (consume: a →
+  Nat)` has a non-nestable `a`. Rocq's manual: "The inductive type `prod` has two
+  uniform-parameters `A, B : Type` that are strictly positive, and hence nestable" [R2] **[cited]**.
+- **Mutual encoding.** The same type written without nesting: `Packet` and a private copy of
+  `List` specialised to packets, defined together. LFST's whole justification is that this exists.
 - **Size-change termination (SCT).** Stitchwort's termination check: every recursive call is
-  summarised by which arguments got smaller than which parameters, and every way of repeating
-  the calls must make something smaller (mutual-recursion.md §3).
-- **Recursor / eliminator.** In Lean and Rocq, the built-in "induction principle" a data type
-  comes with. Stitchwort has none: functions and proofs are case trees plus the termination
-  check (`docs/core.md`) **[checked]**.
+  summarised by which arguments got smaller, and every way of repeating calls must make something
+  smaller (mutual-recursion.md §3).
+- **Recursor.** The built-in induction principle Lean and Rocq give each type. Stitchwort has
+  none: functions and proofs are case trees plus the termination check (`docs/core.md`).
 
-## 3. How Stitchwort checks data types and recursion today
+## 3. How Stitchwort checks data types today
 
-**Positivity** (`crates/core/src/check.rs`). Each field type of each constructor of a data group
-goes through `not_positive` (called at `check.rs:2149`, defined at `:2483`) **[checked]**. It
-allows a group member only as itself applied to the group's own parameters (and indices that
-mention no member), possibly as the result of a function field whose inputs mention no member.
-Anything else is an `Occurrence`: `Input` (left of an arrow), `OtherParameters`, `InIndex`, or
-`Inside`, the catch-all that `List Packet` falls into (`:2576`, the message above). The error
-note already anticipates this note: "whether it's safe inside another type … would depend on how
-that type uses it, which isn't checked".
+Everything here was read at `9a6a3d84` **[checked]** unless marked.
 
-Two other guards matter here and stay as they are:
+**Positivity.** Each field type of each constructor of a data group is checked
+(`check_type`, `check.rs:2205`), then passed to `not_positive` (`check.rs:2218`, defined at
+`:2722`). It allows a member only applied to the group's own parameters and then to indices that
+mention no member, possibly as the result of a function field whose inputs mention no member.
+Anything else is an `Occurrence` (`:2705`): `Input`, `OtherParameters`, `InIndex`, or `Inside`,
+which is where `List Packet` falls. Note that positivity runs on the *checked* field type, in
+which every `Eq` carries its type: `Eq(None, a, b)` comes back as `Eq(Some(A), a, b)`
+(`check.rs:355-376`). This matters in §5.3.
 
-- **Declared later** (`declared_later`, used at `check.rs:2121-2136`): a field may only mention
-  declarations made before the group, so a definition can't hide an occurrence. So the outer type
-  (`List`) is always final and fully known when a nested type is checked **[checked]**.
-- **No constructors or `case` of the group in fields** (`admissible`, `Itself::DataGroup`): a
-  later field can't compute anything from a packet, because nothing that inspects a packet exists
-  yet **[checked]**.
+**Other guards** that stay:
 
-**Termination** (`crates/core/src/termination.rs`, `docs/core.md:202`). The rule that decides
-this note: "A field of a constructor matched out of a parameter is smaller than it, **whatever its
-type**, so `size (Node n kids) = Succ (sizeForest kids)` is a smaller call" **[checked]**. The
-order is "is a part of", across types, and transitive through further matches
-(`termination.rs:20-24`). So in `size (Packets items)`, `items` is smaller than the packet, and
-in a helper that matches `items` as `Cons p rest`, `p` is smaller still. Nothing about this
-needs to know that `items` is a `List`.
+- **Declared later** (`declared_later`, `check.rs:2631`, used at `:2190`): a field may only
+  mention declarations made before its group. So the outer type is always final and fully known.
+- **No constructors or `case` of the group in fields** (`admissible`, `check.rs:2534`, message at
+  `:2596`): nothing that inspects a member exists while its fields are checked.
+- **`case` only at the top of a definition** (`case_only_in_tree`), so a field's type can't
+  compute by matching.
+- **Field sizes**: a field's type must fit in the type's universe (`E-UNIVERSE`), and there is no
+  cumulativity (`docs/core.md`, Universes).
+- **`Prop` elimination** (`check.rs:915-922`): matching on a proof may produce data only if the
+  proposition is alone in its group, has at most one constructor, and every field is a proof.
+  The same rule is in `value.rs:1615` and `erase.rs:39`.
 
-What termination does *not* accept: "Every occurrence of a member is a call … under lambdas …
-Occurrences of members must be saturated" (`termination.rs:42-50`) **[checked]**. In
-`items.map (q => depth q)`, `q` is a lambda's variable, so nothing is known about its size, and
-the call is refused (shown in §5). That is the job of `decreasing` with `List.attach`
-(well-founded-recursion.md stage 3a/3b, built) **[checked]**.
+**Termination** (`termination.rs`, header at lines 1-55). "An argument's relation comes only from
+the terms, never from types" (`:19`). A variable bound as a field of a constructor matched out of
+a parameter, directly or through further matches, is smaller than it, whatever its type. A
+*recursive function field* (a field whose declared type is a function returning a member of the
+matched type's own group, `is_recursive_fn`, `:326`) applied to arguments is smaller too. Calls
+under lambdas see lambda-bound variables as unknown, so `items.map (q => f q)` is refused and needs
+`decreasing` with `List.attach` (well-founded-recursion.md).
 
-**Derived instances.** `==` (`DecEq`), `<` (`Ord`) and `Show` are derived for every declared
-type, except "the type is used inside another type of its own fields" (`docs/syntax.md:619`;
-`crates/elab/src/derive.rs:336`, `derive_show.rs:160`) **[checked]**. The derivers already have
-an error for this case, which is what a nested type gets until they learn it (§5).
-
-**Quotients.** `Map` and `Set` are records over a quotient (`std/Map/Map.sw:22`: `{ raw: Quot
-(Map.Raw k v [ord := ord]) Map.Raw.Equiv }`) **[checked]**. A recursive occurrence inside a
-quotient has its own error (`crates/elab/src/quot.rs:401-470`, R10: "data types can't be
-recursive through a quotient yet") **[checked]**, and stays refused under every option here (§7.1).
-
-**Runtimes.** The JS boundary codec relies on "a data type's fields can only mention it, and the
-types defined together with it, applied to their own parameters (the positivity check) … so a
-boundary type has finitely many types inside it" (`crates/js/src/lib.rs:1244-1251`)
-**[checked]**. A nested occurrence is still the type applied to its own parameters, so the set
-stays finite **[inferred]**; the comment needs a word changed.
+**Quotients and primitives.** `Map` and `Set` are records over `Quot`
+(`std/Map/Map.sw:22`). A quotient is `Term::Quot`, not a data type. `Effect.Delay` is a `def` with
+no body (`std/core/Effect.sw:233`), not a data type either.
 
 ## 4. How others do it
 
-### 4.1 Lean 4: translate to a mutual group, inside the kernel
+### 4.1 Lean 4: translate to a mutual group in the kernel
 
-The reference manual [L1, §4.4.5.4 "Nested Inductive Types"]:
+Lean's kernel finds each nested occurrence `I Ds is` and copies *every* type of `I`'s mutual
+declaration into the group as an auxiliary type ("We should copy all inductive datatypes `J` in
+the mutual declaration containing `I` to the `m_new_types` mutual declaration as new auxiliary
+types", `src/kernel/inductive.cpp`, `replace_if_nested`, around line 1080, master at `400f83a`)
+[L4] **[cited]**. It then checks the whole thing as an ordinary mutual group, and builds the
+recursor from the translated one. Requirements from the manual [L1] **[cited]**: occurrences
+"must be nested directly under an inductive type's type constructor"; "Local variables such as
+the constructor's parameters may not occur in the arguments to the nested occurrence"; "The
+nested occurrences must occur strictly positively"; "Constructor parameters whose types include
+nested occurrences may not be used in ways that rely on the specific choice of outer type
+constructor"; and "Nested occurrences may not be used as parameters to the outer type
+constructor that occur in the types of the outer type's indices." The local-variable rule is
+`is_nested_inductive_app`: "nested inductive datatypes parameters cannot contain local
+variables" (`inductive.cpp:1041`) **[checked]**.
 
-> "Nested inductive types that satisfy certain requirements can be translated into mutual
-> inductive types; this translation demonstrates that they are sound. Internally, the kernel
-> performs this translation; if it succeeds, then the original nested inductive type is accepted.
-> This avoids performance and usability issues that would arise from details of the translation
-> surfacing."
+Two consequences we ran **[run]**, Lean 4.34.1:
 
-The requirements it lists: occurrences "must be nested directly under an inductive type's type
-constructor. Terms that reduce to such nested occurrences are not accepted" (so `abbrev Children
-:= List` fails); "Local variables such as the constructor's parameters may not occur in the
-arguments to the nested occurrence"; "The nested occurrences must occur strictly positively";
-"Constructor parameters whose types include nested occurrences may not be used in ways that rely
-on the specific choice of outer type constructor"; and "Nested occurrences may not be used as
-parameters to the outer type constructor that occur in the types of the outer type's indices."
+- `inductive ITree : Nat → Type | node (n : Nat) (children : List (ITree n)) : ITree (n+1)` is
+  refused: "(kernel) invalid nested inductive datatype 'List', nested inductive datatypes
+  parameters cannot contain local variables". So is LFST's `Typed` judgement with
+  `All (fun t => Typed t r) bs`, and LFST's `Fnat` (nested through `Eq`, see §4.2).
+- A proposition nested in `And` only eliminates into `Prop`: for
+  `inductive P : Prop | mk (h : And P True)`, `#check @P.rec` shows `motive_1 : P → Prop` and a
+  second motive for the auxiliary `And`. Lean's rule: "Mutually recursive inductive predicates
+  only eliminate into Prop" (`inductive.cpp:517-519`), and the auxiliary types make the group
+  mutual **[checked]**.
 
-The translation: "Nested occurrences of the inductive type are translated into new inductive
-types in the same mutual group … These new inductive types have the same constructors as the
-outer inductive type, except the original parameters are instantiated by the translated version
-of the type", repeated "if the resulting type is also a nested inductive type (e.g. a type nested
-under Array becomes a type nested under List …)". Conversions both ways are generated and
-"proved to be mutual inverses", and "The recursor for the nested inductive type is constructed
-from the recursor for the translated type." Lean's kernel source agrees: `elim_nested_inductive_fn`
-creates "an auxiliary type `Iaux` in the (mutual) inductive declaration" for each nested
-occurrence `I Ds is`, and afterwards `restore_nested` puts the real `I Ds` back
-(`src/kernel/inductive.cpp:966-1039`) [L4]. Note what this means for positivity: Lean has no
-separate "how does `List` use its parameter" analysis. Copying `List`'s constructors into the
-group, with `Packet` for `a`, and running the ordinary mutual positivity check on the copy *is*
-that analysis; a bad use (`check (f : Option WithCheck → Bool)`) fails the ordinary check
-[L1].
+Lean accepts nesting through an earlier *mutual* group (`MTree`/`MForest`) **[run]**, and the
+manual's `BRTree`, whose later field says `children.length < branches`, is refused because the
+translated `children` has the auxiliary type [L1] **[cited]**.
 
-One consequence is visible to users: a later field may not apply a `List`-specific function to
-the nested field. The manual's `BRTree` (`children.length < branches`) is refused with "argument
-has type `_nested.List_1` but function has type `List (BRTree branches α) → Nat`", because "a
-translation of List.length to the translated types" would be needed [L1].
+### 4.2 Rocq before 9.2: substitute and re-check
 
-**The recursor** has a second motive for the list [run]:
+The kernel rule, still the one in the Rocq 9.3 manual [R1] **[cited]**: a type is strictly
+positive in `T` if, among other cases, "`T` converts to `(I a_1 … a_r t_1 … t_s)` where `I` is the
+name of an inductive definition … (in particular, it is not mutually defined and it has `r`
+parameters) and no `X_1 … X_k` occur in any of the `t_i` nor in any of the `a_j` for `m < j ≤ r`
+where `m ≤ r` is the number of recursively uniform parameters, and the (instantiated) types of
+constructor `C_i{p_j/a_j}_{j=1…m}` of `I` satisfy the nested positivity condition". Draft 1
+proposed this rule.
 
-```
-@Packet.rec : {motive_1 : Packet → Sort u_1} → {motive_2 : List Packet → Sort u_1} →
-  ((value : Nat) → motive_1 (Packet.number value)) →
-  ((items : List Packet) → motive_2 items → motive_1 (Packet.packets items)) →
-  motive_2 [] →
-  ((head : Packet) → (tail : List Packet) → motive_1 head → motive_2 tail → motive_2 (head :: tail)) →
-  (t : Packet) → motive_1 t
-'Packet.rec' does not depend on any axioms
-```
+LFST show two problems with it (§2.2 of [P1]) **[cited]**, and we reproduced both with Rocq 9.1.1
+**[run]**:
 
-**Structural recursion** over nested types arrived with mutual structural recursion in Lean
-4.11: "This feature supports both mutual recursion over a non-mutual data type, as well as
-recursion over mutual or nested data types", with the example `Tree.size`/`Tree.list_size` over
-`inductive Tree where | node : List Tree → Tree` [L2]. The manual's rule: "All the types of all
-the decreasing arguments must be from the same inductive type, or more generally from the same
-mutual group" [L3, §7.6.2.2] (the group includes the auxiliary `List Tree`).
+- **Nestability decided by computation.** `Inductive depends_on_b (b : bool) (A : Type) := cst :
+  (if b then A else (A -> bool)) -> depends_on_b b A.` Nesting in `depends_on_b true` is
+  accepted, in `depends_on_b false` refused. The answer depends on reducing the outer type's
+  constructors with the arguments in.
+- **Inductive-inductive types slip through.** `Inductive Fnat : Type := Fnat_zero : Fnat |
+  Fnat_succ : forall (n m : Fnat), n = m -> Fnat.` is accepted. Its mutual encoding would need a
+  copy of `eq` *indexed by* `Fnat`, which is inductive-inductive. "The recursive dependency via
+  eq introduces an inductive-inductive structure, but Rocq accepts it because the strict
+  positivity checker does not reject such cases" [P1].
 
-**Recursion through `map`** is well-founded recursion. Every inductive type gets a `SizeOf`
-instance ("For inductive types, a SizeOf instance is automatically derived by Lean"), and the
-elaborator rewrites `xs.map f` on a parameter into `xs.attach.unattach.map f` so that `f`
-sees `x ∈ xs` (`wfParam`, the `wf_preprocess` simp set; "This feature requires special setup
-for the higher-order function under which the recursive call is nested") [L3, §7.6.3]. The
-default `decreasing_tactic` knows `sizeOf_list_dec`, "that the size of list elements is less
-than the size of the list" [L3]. The manual's worked example is exactly this case for a custom
-container (a `Pair`): a membership predicate, "a theorem that relates the size of a member to the
-size of the containing pair", `attach`/`unattach`, two `wf_preprocess` rules and a
-`decreasing_trivial` extension [L3]. What we ran **[run]**:
+Also, nesting through a mutual group (`MTree`/`MForest`) is refused by Rocq 9.1.1 **[run]**, as
+the rule says ("not mutually defined").
 
-```
-def Packet.depth : Packet → Nat
-  | .number _ => 0
-  | .packets items => 1 + (items.map Packet.depth).foldl max 0
-```
+### 4.3 LFST 2026: nestable parameters
 
-is accepted with no annotation, and `#eval` gives 2 on `[1,[2]]`; but `by decide` and `rfl` on
-the same fact fail ("reduction got stuck"), and `#print axioms Packet.depth` says `[propext,
-Quot.sound]`. The size facts it used: `Packet.packets.sizeOf_spec : sizeOf (Packet.packets items)
-= 1 + sizeOf items` and `List.sizeOf_lt_of_mem : a ∈ as → sizeOf a < sizeOf as`.
+Thomas Lamiaux, Yannick Forster, Matthieu Sozeau, Nicolas Tabareau, "Nested Inductive Types:
+Justified and Usable Nested Inductive Types in Lean and Rocq", PACMPL 10 (PLDI 2026), 1891–1914,
+doi 10.1145/3808322 [P1]. We read the November 2025 preprint (HAL hal-05366368v1, via the Internet
+Archive) in full; the published version was not reachable (ACM returned 403, HAL refused
+connections), so differences between the two are **[unverified]**. We read the formalisation
+[R4] (`MetaRocq/nested-eliminators`, commit `f9ca941`, 24 April 2026): the positivity condition
+in full, the translation's top level and the theorem statement.
 
-**Induction.** The plain tactic refuses nested types **[run]**: "The `induction` tactic does not
-support the type `Packet` because it is a nested inductive type. Hint: Consider using the `cases`
-tactic instead". Functional induction does work, and gives the hypothesis users want **[run]**:
+The abstract: "This paper introduces a novel validity criterion for nested inductive types that
+guarantees that they can be elaborated into well-formed mutual inductive types. … Our condition
+strictly generalizes Lean's current check while ruling out exactly the problematic cases
+accepted in Rocq." **[cited]**
 
-```
-Packet.depth.induct : ∀ (motive : Packet → Prop),
-  (∀ (value : Nat), motive (Packet.number value)) →
-    (∀ (items : List Packet), (∀ (x : Packet), x ∈ items → motive x) → motive (Packet.packets items)) →
-      ∀ (a : Packet), motive a
-```
+**The idea** (§3 of [P1]) **[cited]**: "The core idea is to only allow nesting on the parameters
+that are arities—of the form ∀ X0 … Xn, Type—and that occur in strictly positive position, with
+arguments that are themselves strictly positive. We call these parameters strictly positive
+parameters." Each inductive type comes with a function `check_nestable` saying which parameters
+those are; "The role of the strict positivity condition is to guarantee the correctness of this
+function". Nesting is then checked *compositionally*: an occurrence `D args` looks up `D`'s
+table instead of expanding `D`.
 
-**Day 13's comparison**, written as most solutions write it (a number against a list is
-compared as a one-element list), is refused **[run]**: "Could not find a decreasing measure",
-with the call `compareList [number a] ys` failing every structural candidate. Rewritten with a
-separate number-against-list helper, Lean's structural recursion still refuses it ("Skipping
-arguments of type List Packet, as Packet.cmp has no compatible argument") because each function
-must pick one decreasing parameter of the group's types, and the helper's is its second.
+**The condition** (§3.2 of [P1], formalised as `positive_argument`, `Positivity_condition.v:911-976`)
+**[cited, and checked against the Coq source]**. An argument (constructor field) is one of four
+shapes, each `∀ largs, …`:
 
-### 4.2 Rocq: a nested positivity rule, guard checking that looks inside `map`
+1. "a constant `arg_is_cst t` then `t` must not refer to the inductive blocks or strictly
+   positive parameters";
+2. "a recursive argument `arg_is_ind largs pos_block inst_indices` then: `largs, inst_indices`
+   must nor refer to the inductive blocks and the strictly positive parameters";
+3. "a strictly positive parameter `arg_is_sup largs k inst_args`, then: `largs, inst_args` must
+   nor refer to the inductive blocks and k-th parameter does correspond to a strictly uniform
+   parameter. To ensure the encoding is not inductive-inductive, we also need that recursive
+   occurrences do not appear in in `largs, inst_indices`";
+4. "a nested argument `largs ind inst_params inst_indices`, then `largs, inst_indices` must nor
+   refer to the inductive blocks and the strictly positive parameters. Moreover, for each
+   instantiation `(largs, arg)` … of a parameter, `llargs` must nor refer to the inductive blocks
+   or the strictly positive parameter; and if the parameter is strictly positive then `arg` must
+   be positive, otherwise it must not refer to the inductive blocks or the strictly positive
+   parameters. To ensure the encoding is not inductive-inductive, we also need that recursive
+   occurrences do not appear in `largs`, nor in `llargs` and `args`."
 
-**Positivity** [R1, "Positivity Condition", "Strict positivity", "Nested Positivity"]. The
-constants occur strictly positively in `T` when, among other cases, "`T` converts to `(I a_1 …
-a_r t_1 … t_s)` where `I` is the name of an inductive definition … (in particular, it is not
-mutually defined and it has r parameters) and no `X_1 … X_k` occur in any of the `t_i` nor in
-any of the `a_j` for `m < j ≤ r` where `m ≤ r` is the number of recursively uniform parameters,
-and the (instantiated) types of constructor `C_i{p_j/a_j}` of `I` satisfy the nested positivity
-condition". So Rocq does not translate anything: it *substitutes* the arguments into the outer
-type's constructors and checks those. Within that check, an occurrence of the outer type itself
-is fine as long as the nested types don't appear in its indices or non-uniform parameters (the
-first bullet of "Nested Positivity"), which is what stops the check expanding forever.
+Plus: "An inductive block … is positive provided that all its constructors are positive, and
+that the indices do not refer to the inductive blocks nor the strictly positive parameters. A
+constructor … is positive provided that all its arguments are positive, and that the
+instantiation of the indices … does not refer to the inductive blocks nor to the strictly
+positive parameters." Non-uniform parameters must not mention the strictly positive ones
+(`positive_mutual_inductive_body`, `:1141-1144`).
 
-**Recursion.** A fixpoint's recursive call must be on a subterm of the decreasing argument
-[R1, "Fixpoint"]. Recursing through `map` used to need a local copy of `map` written with its
-function "lambda-dropped" (a `fix` inside a `fun f`), because "The natural definition of
-`List.map` with a `Fixpoint` doesn't pass the guard condition" (Rocq issue #16040, with the
-`tree`/`lmap` example) [R3]. Since PR #17986, merged 7 May 2024, the guard checker "computes the
-parameters of inner fixpoints that are stable across recursive calls and extrudes them for the
-computation of guard through these inner fixpoints" [R3]: it looks *inside* `map`'s definition
-and sees that the function passed in is only ever applied to parts of the list. That is a
-change to the trusted kernel, made after decades of users asking.
+Three details from the Coq source that the prose doesn't spell out **[checked]**:
 
-**Induction principles.** Until recently Rocq generated no useful induction principle for nested
-types; Rocq 9.2 adds one [R2, "Eliminators for Nested Inductive Types"]: "When generating
-eliminators for a predicate P, if an argument is nested with reference, the All predicate and
-its theorem will be looked up … and used to enforce P holds on the nested argument", and "If they
-are not registered, no induction hypothesis is created for the nested argument." `Scheme All for
-prod` generates `prod_all` (the property holds of both components) and `prod_all_forall`; the
-resulting `LeftTree_ind` has the hypothesis `prod_all (LeftTree A) P nat (fun _ => unit) p -> P
-(Lnode A p)` [R2]. This comes from the MetaRocq `nested-eliminators` project, whose README
-claims a "New positivity condition for nested inductive types, and proof that any positive nested
-inductive type has a mutual encoding", and says "The plugin has been adapted and merged into
-Rocq, and is part of Rocq 9.2" [R4]. The accompanying talk, "Nested Inductive Types for Rocq and
-Lean" (Lamiaux, Forster, Sozeau, Tabareau, RocqPL 2026): "neither Rocq nor Lean currently
-provides adequate support for them, both positivity and generation of elimination principles
-being insufficient", and "we introduce a new positivity condition for nested inductive type that
-is neither too lax nor too strict" [R5, abstract only: I found no public full text].
+- **"Recursive occurrences" means earlier arguments that contain one.** The extra condition
+  (marked `BEGIN ADDITION NO INDUCTIVE-INDUCTIVE`) is `rc_notin`: no argument may mention an
+  earlier argument whose shape isn't a constant (`PosArgBool`, `:1111-1115`). So a constant field
+  can't depend on an earlier recursive field at all.
+- **The outer type may be a member of a mutual group.** The nested case looks up `D`'s whole
+  block (`lookup_minductive E kname = Some mdecl`, `pos_ind < #|ind_bodies mdecl|`) and uses the
+  block's per-parameter flags (`ind_uparams : list (context_decl * bool)`), `:946-973`. Rocq's
+  old "not mutually defined" condition is gone: "this limitation is artificial" [P1, §2.2].
+- **The flags are per block and assumed correct.** The theorem takes the flags as given and
+  assumes every earlier block is positive with them (`E_pos`, `Nested_to_mutual_proof.v:1200`).
+  The plugin computes them with `preprocess_strpos` (`strictly_positive_uniform_parameters.v:146`):
+  a parameter starts as a candidate if its type reduces to an arity ending in a sort
+  (`default_value`, `:54`), and stays one if it occurs only strictly positively in every
+  argument (`preprocess_strpos_arg`, `:87`), not in non-uniform parameters' types
+  (`check_nuparams`, `:134`) and not in index types (`check_indices`, `:137`). That function does
+  not check `rc_notin` and does not look at later uniform parameters' types **[checked]**; the
+  formal condition's `E_pos` would refuse some flags it computes (for a `Sigma`-like type, see
+  §5.5) **[inferred, not run: no Rocq ≥ 9.2 available]**. We follow the formal condition.
 
-The guard checker itself is acknowledged to be intricate: "All the mentioned features like
-mutuality and nesting introduce mostly orthogonal complexity in the definition of Rocq's guard
-checker, which is defined in the kernel/inductive.ml file of Rocq's code in about 1000 lines of
-OCaml code", with a history of relaxations and restrictions (2012, 2014, 2022, 2024) [R6].
+**The translation** (§3.1 of [P1]) **[cited]**: each nested occurrence's outer block is copied
+into the group, with the parameters replaced, "and the nested arguments are replaced with their
+corresponding specialized instantiations". Unlike Lean's, it allows local variables: "we must
+include the relevant arguments as indices to keep them available", leaving out recursive ones
+(the strengthening `↑args_g`), so `List (Tree n)` becomes a forest *indexed by* `n`. The
+specialised block's signature: `ind_l_mut params_g : ↑args_g → largs_g → σ(indices_l) → Type`.
 
-### 4.3 Agda: polarity of parameters
+**The theorem.** `pos_nested_to_mutual : positive_mutual_inductive_body mdecl ->
+positive_mutual_inductive_body (nested_to_mutual mdecl)` (`Nested_to_mutual_proof.v:1417`)
+**[checked]**: the encoding of a positive nested block is a positive *non-nested* mutual block.
+What it does not say is in §6.1.
 
-Agda's positivity checker "analyses how functions use their arguments. For instance, Agda can
-tell that D in the following code is strictly positive, because Vec uses its Set argument in a
-strictly positive way" [A1]; the example nests `D` in a `Vec` defined by a *function* (`Vec A
-(suc n) = A × Vec A n`). An alternative is to write the polarity: `data _×_ (@++ A B : Set)`,
-where `@++` means "Anywhere except in the domain of a pi/function type" [A1, A2]. The
-documentation's warning is the lesson for us: a polarity that is *declared* rather than checked
-can prove `⊥`. Its example postulates `_⇒_` with `{-# POLARITY _⇒_ ++ #-}`, defines `data D :
-Set where c : D ⇒ ⊥ → D`, and derives `bad : ⊥`; "Polarity pragmas are not allowed in safe
-mode" [A1]. mutual-recursion.md §3 records Idris 2 #1771, `Fix f = MkFix (f (Fix f))` with a
-negative `f`, looping under `%default total` "because nested occurrences were allowed without
-checking how the outer type uses its parameter" **[checked]**.
+**Eliminators** (§4 of [P1]): "sparse parametricity" adds a predicate only for each nestable
+parameter (`prod_all A PA B PB`), with a "local fundamental lemma" (`ind_all_forall`: if every
+`PA` holds, `ind_all` holds). The eliminator for a nested type takes `All`-style hypotheses and
+is built by `fix` and `match` using that lemma. This is in Rocq 9.2 as `Scheme All`
+[R2] **[cited]**. LFST also say the eliminator's encoding via the mutual one is pen and paper:
+"Although we are fairly confident this method succeeds, we emphasize that … absolute certainty
+remains unattainable" [P1, App. F] **[cited]**.
 
-Agda's termination page describes structural recursion on subterms and the call-matrix method
-("Foetus") [A3]; it says nothing specific about recursion through `map`, and I didn't test it
-**[unverified]**.
+**A caveat to "strictly generalizes Lean's check".** Lean 4.34.1 accepts
+`structure Dep (α : Type) (x : List α) where y : α` followed by
+`inductive UsesDep | leaf | node (d : Dep UsesDep [])` **[run]** (Rocq 9.1.1 too **[run]**).
+Under the formal condition, `x` isn't an arity so it isn't nestable, and its argument `[]`, which
+is `@List.nil UsesDep`, mentions the type: refused **[inferred]**. So the inclusion holds for the
+cases the paper discusses, not for every declaration. Nothing in Stitchwort needs this case.
 
-### 4.4 What to take
+### 4.4 Agda
 
-| | Lean 4 | Rocq | Agda |
-|---|---|---|---|
-| Is the outer type's use of its parameter checked? | yes: by translating and running the mutual check | yes: by substituting into its constructors | yes: occurrence analysis, or `@++` annotations |
-| Outer type defined by a function (`abbrev`, Agda's `Vec`)? | no | only if it *converts* to an inductive | yes |
-| Structural recursion through a helper over the list | yes, since 4.11 | yes (mutual `fix`) | yes |
-| Recursion through `map` | well-founded: `sizeOf` + automatic `attach`; doesn't compute in `rfl`/`decide` | structural, the guard looks inside `map` (since 2024) | [unverified] |
-| Induction hypothesis "for every member" | functional induction (`f.induct`); plain `induction` refuses | `Scheme All` (Rocq 9.2) | by hand |
+Agda analyses how a type uses its parameters, or takes `@++` polarity annotations; a polarity
+that is *declared* rather than checked can prove `⊥`, so "Polarity pragmas are not allowed in
+safe mode" [A1] **[cited]**. The lesson stands: nestability must be computed by the kernel from
+the outer type's constructors, never trusted from an annotation.
 
-## 5. What we ran
+### 4.5 Summary
 
-A scratch patch to `not_positive` (an extra arm: a member inside any argument of another data
-type is checked recursively, with **no** check of how that type uses its parameter; behind an
-environment variable, never committed) to see what else would break. The programs:
-
-```
-type Packet: Type =
-  | Number (value: Nat)
-  | Packets (items: List Packet)
-
-def Packet.size: Packet → Nat
-  | Number n => 1
-  | Packets items => 1 + Packet.sizeList items
-
-def Packet.sizeList: List Packet → Nat
-  | Nil => 0
-  | Cons p rest => Packet.size p + Packet.sizeList rest
-
-def sample: Packet := Packets [Number 1, Packets [Number 2, Number 3], Packets []]
-theorem sizeSample: Packet.size sample = 6 := rfl
-```
-
-**Accepted with no other change [run]:**
-
-1. **The type**, and `size`/`sizeList` (structural, a mutual pair, as for Tree/Forest).
-2. **Proofs by mutual induction**: `Packet.numbersLe: (p: Packet) → Packet.numbers p ≤
-   Packet.size p` with its list twin `numbersListLe`, each arm closed by `omega` with the other's
-   result in a `let`.
-3. **A membership lemma**: `Packet.memLe (q): (items: List Packet) → List.Mem q items →
-   Packet.size q ≤ Packet.sizeList items`, by structural recursion on `items`.
-4. **Recursion through `map`**, with `decreasing` and `attach`; `auto` finds the obligation by
-   `omega` from the lemma in scope:
-
-   ```
-   def Packet.depth (p: Packet): Nat
-       decreasing Packet.size p
-   :=
-     match p with
-       | Number n => 0
-       | Packets items =>
-         1 + (items.attach.map (e =>
-           let below := Packet.memLe e.value items e.isIn
-           Packet.depth e.value) |> .foldLeft 0 Nat.max)
-
-   theorem depthSample: Packet.depth sample = 2 := rfl
-   theorem depthStep (items: List Packet): Packet.depth (Packets items) = 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max) :=
-     Packet.depth.unfold (Packets items)
-   ```
-
-   Unlike Lean's, this one computes in `rfl` (well-founded-recursion.md's design reason for
-   proof-carrying fuel).
-5. **Day 13's comparison**, as three structural functions: `cmp` (packet against packet),
-   `cmpList` (list against list, calling `cmp` on the heads), and `cmpNumberList`/`cmpNumber` (a
-   number against a list or a packet, so that the "wrap the number in a list" case never calls
-   `cmp` on a rebuilt packet). Both of the puzzle's sample comparisons give `Less`.
-6. **The induction principle Lean generates, written by hand** and accepted by the ordinary
-   termination check: the recursive call is on a field (`items`), and the lambda's own variables
-   are only passed along:
-
-   ```
-   theorem Packet.induct (motive: Packet → Prop)
-       (number: (n: Nat) → motive (Number n))
-       (packets: (items: List Packet) → ((q: Packet) → List.Mem q items → motive q) → motive (Packets items)):
-       (p: Packet) → motive p
-     | Number n => number n
-     | Packets items => packets items (q h => Packet.inductList motive number packets items q h)
-
-   -- (`number` and `packets` as above; shortened here)
-   theorem Packet.inductList (motive: Packet → Prop) (number: …) (packets: …):
-       (items: List Packet) → (q: Packet) → List.Mem q items → motive q
-     | Nil, q, h => Void.exfalso h
-     | Cons p rest, q, Inl e => rewrite <- e in Packet.induct motive number packets p
-     | Cons p rest, q, Inr h => Packet.inductList motive number packets rest q h
-   ```
-
-   and used: `Packet.induct (p => Packet.numbers p ≤ Packet.size p) (n => omega) (items ih => …)`.
-7. **Tests and runtimes**: `stitchwort test` passes all four tests; `main` prints `size: 6`,
-   `depth: 2`, `numbers: 3` identically under `run`, `run --js` and `run --reference`.
-
-**Refused, as expected [run]:**
-
-- **Recursion through `map` without `decreasing`**: `| Packets items => 1 + (items.map (q =>
-  Packet.count q) |> .sum)` is `E-TERMINATION`, "the 1st argument, `q`, isn't seen as smaller".
-- **Day 13 written the usual way** (a number against a list calls `cmp (Number a) y` again):
-  `E-TERMINATION`, "going round `Packet.cmp` → `Packet.cmpNumberList` → `Packet.cmp` → …, no
-  argument is known to get smaller". It does terminate (the total size goes down), so it needs
-  `decreasing`, or the shape in item 5. Lean refuses the same program (§4.1).
-- **Derived instances**: `sample == sample` is `E-INSTANCE-NONE`, "`==` isn't derived for
-  `Packet`: the field `items` of `Packets` contains `Packet` inside another type, which `==`
-  isn't derived for yet"; `"${sample}"` the same for `Show`.
-
-**Accepted by the prototype, and must not be [run]:**
-
-```
-type Neg (a: Type): Type =
-  | MkNeg (consume: a → Nat)
-
-type Bad: Type =
-  | B (inside: Neg Bad)
-```
-
-`Neg` uses its parameter as a function's input, so `Bad` hides a negative occurrence, the
-Idris #1771 shape. The prototype checks it; `main` refuses it (`E-POSITIVITY`). This is why the
-real rule must look inside the outer type (§7.1).
-
-## 6. Options
-
-### Option A: a nested positivity check in the kernel (Rocq's rule)
-
-`not_positive` gains one case: a member may appear inside `D args`, where `D` is an earlier,
-final data type (not a quotient, not a primitive like `Effect.Delay`), if the arguments that
-mention a member are in parameter positions of `D` (never indices), and `D`'s constructor fields,
-with those arguments substituted for `D`'s parameters, pass the same check. Everything else in
-the kernel stays.
-
-- **Kernel changes.** About 100 lines in `check.rs`: the new case, the substitution of arguments
-  into `D`'s field types (the kernel already instantiates constructor types when it checks a
-  `Ctor` or a `Case` **[inferred; not located in the source]**), a guard so that `D`'s own recursive occurrence (`tail: List a`) isn't
-  expanded again, and new error messages. No change to termination, conversion, evaluation,
-  hashing or erasure **[inferred from §3, and §5's run]**.
-- **Soundness argument.** Two parts. (1) *The type exists*: every type the rule accepts has a
-  translation into a mutual group the kernel already accepts, made by copying the outer type's
-  constructors into the group with the parameter replaced, as Lean's kernel does [L1, L4], and
-  the values of the two correspond one to one. The rule's recursive check on the substituted
-  fields is exactly the ordinary group check run on that copy, so it accepts exactly the types
-  whose translation the existing check accepts **[inferred]**. The nested-eliminators project
-  claims a mechanised proof that "any positive nested inductive type has a mutual encoding" for
-  its (Rocq-style) condition [R4] (I haven't read the proof). (2) *Termination stays sound*: the
-  SCT order is "is a part of a value", and the parts of a `Packet` in the nested form are
-  exactly the parts of the corresponding value in the mutual form, list cells included, so any
-  call sequence that descends forever in one descends forever in the other **[inferred]**.
-  Tree/Forest is already accepted on that basis (`docs/core.md:202`).
-- **Recursion through `items.map (p => f p)`.** Not by the termination check (§5). Three
-  routes, all available on day one: a helper over the list (structural, no proof); `decreasing`
-  with a size and `List.attach` (needs a size function and its membership lemma, §5 items 3-4);
-  or the guard style. Stage 3 generates the size and the lemma so the second route needs no
-  user proof.
-- **Proofs by induction.** Mutual theorems, as for Tree/Forest (§5 item 2), or a generated
-  `T.induct` with "for every member of `items`" (§5 item 6), or `decreasing` on a theorem.
-- **Runtime, JS, native.** No change to representation: a packet's `items` is an ordinary list
-  value **[run: `run`, `--js`, `--reference`]**. Native code was not run **[unverified]**; it
-  uses the same erased program as `run` **[inferred]**. The JS codec's finiteness comment holds
-  (§3); exporting a nested type across the boundary wasn't tried.
-- **Effort.** Kernel stage small to medium (the check, messages, docs, about 15 accept/reject
-  examples). Derivers medium. Generated size/induction medium.
-
-### Option B: translate to a mutual group (Lean's approach)
-
-Two variants.
-
-- **B1, in the elaborator, visible to users.** `List Packet` becomes a generated
-  `Packet.List` type. This *is* today's Tree/Forest workaround, generated: `items.map` and the
-  `List` library don't apply to it, which is the whole point of the request. Not useful.
-- **B2, in the kernel, for checking only** (what Lean's kernel does). The kernel builds the
-  auxiliary group, checks it, and keeps the real `List` in the accepted type. In Lean the
-  translation earns its keep because the kernel then derives the *recursor* from the translated
-  one [L1]. Stitchwort's kernel has no recursors: after the check, the auxiliary group would be
-  thrown away. So B2 is option A with a more roundabout implementation of the same check (build
-  types, admit them, discard them) **[inferred]**, and it would inherit Lean's restriction that
-  no later field may apply a list function to the nested field (§4.1, `BRTree`).
-- **Its real use here: a test oracle.** For every nested type in the tests, a test can build the
-  translated group, admit it with the existing kernel, and check that A accepts exactly the
-  types whose translation is accepted (a cheap, independent check of A's code).
-
-### Option C: let the termination check look inside `map` (Rocq since 2024)
-
-When a member is passed to a known structural function over a list (`List.map`, `sumBy`, …), the
-termination check would inline that function and see that the callback is only applied to
-elements of the list. `items.map (q => depth q)` would then pass without `decreasing`.
-
-- **Kernel:** a substantial change to trusted code that mutual-recursion.md §3 lists bugs in
-  (Rocq's own history of guard relaxations and fixes [R6]), and it interacts with
-  `case_only_in_tree` and lifted matches. **Effort:** large.
-- **Gain:** one annotation saved in a pattern that `decreasing` already covers and stage 3 makes
-  annotation-free in the common case. Not now; reconsider if AoC ports show many `decreasing`
-  clauses whose only purpose is this.
-
-### Option D: sized types
-
-Rejected for the reasons in well-founded-recursion.md §5(D): Agda's sized types are not allowed
-with `--safe` because of soundness bugs, and sizes would show in every signature. Nothing here
-changes that.
-
-### Option E: keep refusing, improve the workaround
-
-Generate `Forest`-style twins plus conversions to and from `List`. Every use pays a conversion,
-and proofs must move facts across it. Strictly worse than A.
-
-### Side by side
-
-| | A: nested positivity | B2: kernel translation | C: guard through `map` | E: generated twins |
+| | Lean 4.34 | Rocq ≤ 9.1 kernel | LFST (Rocq 9.2 eliminators) | This proposal |
 |---|---|---|---|---|
-| `items: List Packet` is a real `List` | **yes** | yes | needs A or B2 | no |
-| Kernel change | **one case in positivity** | larger: build, check, discard | large, in termination | none |
-| `items.map (q => f q)` | `decreasing` + `attach` (stage 3: automatic) | same | **structural** | n/a |
-| `rfl`/`test` on such functions | **yes** [run] | yes | yes | yes |
-| Induction "for every member" | generated `T.induct` (stage 3) | same | same | per twin |
-| Runtimes | unchanged [run] | unchanged | unchanged | conversions |
-| Effort | **small-medium** | medium | large | medium, no gain |
+| How nesting is checked | translate, check the copy | substitute, re-check by conversion | per-type nestable flags | per-group nestable flags |
+| `List (Tree n)` (earlier field in the index) | refused [run] | accepted [run] | accepted | accepted [run] |
+| `All (t => Typed t r) bs` | refused [run] | accepted [cited] | accepted | accepted [run] |
+| Through an earlier mutual group | accepted [run] | refused [run] | accepted | accepted [run] |
+| `Fnat` (through `Eq`) | refused [run] | accepted [run] | refused | refused [run] |
+| `depends_on_b` | accepted [P1] | `true` accepted [run] | refused | can't be written (§5.6) |
+| `Dep UsesDep []` | accepted [run] | accepted [run] | refused [inferred] | refused (§5.5) |
+| Nested `Prop` matched to make data | no [run] | yes (`P_rect` into `Type`) [run] | not discussed | no (§5.4) |
+| Proved | no paper proof | no | encoding is positive (mechanised) | inherits LFST (§6) |
 
-## 7. Recommendation: option A, in detail
+## 5. The rule for Stitchwort
 
-### 7.1 The rule
+### 5.1 Nestable parameters of a data group
 
-In a field of a data group, a member may occur:
+Computed once per data group when it is admitted (or lazily when first needed; it depends only
+on the group's final constructors, so it needs no hash and no cache). A group's parameters are one
+telescope shared by its members, so the flags are per group. Parameter `p` of group `G` is
+**nestable** when all of these hold:
 
-1. directly, applied to the group's own parameters, then to indices that mention no member (as
-   today);
-2. as the result of a function field whose inputs mention no member (as today);
-3. **new:** inside `D a₁ … aᵣ t₁ … tₛ`, where
-   - `D` is a data type declared before the group and final (the "declared later" guard
-     already ensures this), and is *not* a record or type with a quotient field (`Map`, `Set`) and
-     not a primitive (`Effect.Delay`): those keep today's refusal and messages;
-   - no member occurs in the indices `t₁ … tₛ` (Lean: nested occurrences "may not be used as
-     parameters … that occur in the types of the outer type's indices"; Rocq: none in the `t_i`);
-   - no member occurs in a parameter `aⱼ` whose position appears in the type of a later
-     parameter or of an index of `D` (`List.Member (a) (xs: List a)`: `a` can't be nested
-     through), nor in an `auto` dictionary parameter's position (so `Map`'s `k` is excluded twice
-     over);
-   - every field type of every constructor of `D`, with `a₁ … aᵣ` substituted for `D`'s
-     parameters, passes this same check for the group, where `D`'s own occurrence applied to the
-     same arguments counts as direct (so `tail: List Packet` in `List`'s `Cons` is fine and isn't
-     expanded again), and `D`'s constructor result indices mention no member.
+1. **Its type is an arity**: `Type`, `Prop`, or a function type ending in one (`a → Prop`).
+2. **No later parameter's type mentions it.** (`List.Member (a) (xs: List a)`: `a` is not
+   nestable. `Map (k) (v) [auto ord: Ord k]`: `k` is not.) This is a restriction beyond LFST;
+   see §5.5.
+3. **No member's index types mention it**, and no constructor's result indices do.
+4. **In every field of every constructor of every member, it occurs only strictly positively**,
+   which means the field type, after any leading `(x: A) →` whose `A` doesn't mention `p`, is one
+   of:
+   - something that doesn't mention `p`;
+   - `p` applied to arguments that don't mention `p`;
+   - a member of `G` applied to `G`'s own parameters (which includes `p` itself, as in `tail:
+     List a`) and then to indices that don't mention `p`;
+   - an earlier data type `D args`, where every argument mentioning `p` is at a nestable
+     parameter of `D` and, after stripping leading lambdas `x y => …`, satisfies this same
+     condition; `D`'s indices don't mention `p`.
+5. **No field mentions an earlier field whose type mentions `p`** (LFST's `rc_notin`, applied to
+   the parameter).
 
-   Each argument that mentions a member must itself be an allowed occurrence (so `List (List
-   Packet)`, `Option (Packet, Nat)` and `Vec Packet n` are fine; `List (Packet → Nat)` is not).
+Anything else (`p` left of an arrow, inside a `def` application, an `Eq`, a `Quot`, or a
+non-nestable parameter of another type) makes `p` not nestable. In particular a quotient is not a
+data type, so `Map`'s and `Set`'s parameters are never nestable, and no special case is needed for
+them **[inferred from `std/Map/Map.sw:22`; the elaborator refuses first, §7]**.
 
-Because `D` is always declared earlier, the check only ever looks at earlier types, and the
-"counts as direct" case stops it re-expanding `D` inside itself, so it ends **[inferred]**
-(nested-eliminators makes the same argument for its formalisation: "a nested inductive type can
-only refer to previously defined inductive types" [R4]). A computed type in a field (a `def`
-that unfolds to `List Packet`, a `match` in a type) stays refused, as in Lean ("Terms that reduce
-to such nested occurrences are not accepted" [L1]); the declared-later guard means such a `def`
-couldn't mention `Packet` anyway, only a type variable, so this only loses aliases like
-`Children := List`.
+Examples. Nesting through these was accepted by the prototype, so they are nestable **[run]**:
+`List`'s `a`, `Option`'s `a`, `Pair`'s first parameter, `Vec`'s `a`, `Effect.Comp`'s `a`, a local
+`All (a) (p: a → Prop)`'s `p`, and a mutual `Tree`/`Forest`'s `a`. Nesting through these was
+refused, so they are not **[run]**: `Neg`'s `a`, `List.Member`'s `a`, `Exists`'s `a`. By the rule,
+not run: `Pair`'s second, `And`'s and `Or`'s parameters are nestable; `Effect.Comp`'s `op` (in
+`res`'s type) and `res` (an input of `rest`), and `Map`'s and `Set`'s parameters are not
+**[inferred]**.
 
-What stays exactly as it is: occurrences left of an arrow, other parameters, member constructors
-or `case` in fields, universes (`List Packet` is in `Type` like `Packet`), `Prop` elimination
-rules (a `Prop` can't contain a `List` of itself: the field would be in `Type`, `E-UNIVERSE`),
-and the termination check. A function field returning a *nested* type (`children: Nat → List
-Tree`) isn't a recursive function field for termination (`termination.rs:24-30` only counts
-fields returning a member itself); that is conservative and can stay **[inferred]**.
+### 5.2 The new case in `not_positive`
 
-A cached "which parameters of `D` can be nested through" table per data type is an optimisation
-of the same rule, not a different rule; it would also make the error message easy to write. The
-error for a refused nested occurrence should name the field of `D` that breaks it: "`Packet` is
-used inside `Neg`, and `Neg`'s field `consume` takes its parameter `a` as a function's input".
+In a field of group `G`, a member may now also occur:
 
-### 7.2 What users write
+3. **inside `D a₁ … aₙ t₁ … tₛ`**, where `D` is a data type outside `G` (so final and earlier,
+   by the declared-later guard), and
+   - no member occurs in the indices `t₁ … tₛ`;
+   - every `aⱼ` that mentions a member is at a nestable parameter of `D`;
+   - each such `aⱼ`, after stripping leading lambdas, is itself allowed by the whole rule
+     (directly, as a function field's result, or nested again).
+
+Cases 1 and 2 (directly, applied to the group's own parameters and member-free indices; as the
+result of a function field whose inputs mention no member) are unchanged. So are the refusals of
+a member left of an arrow, applied to other parameters, in an index, or under anything that is
+not a data type: a `def` (`Children := List`), a type variable (`Fix f = MkFix (f (Fix f))`), a
+quotient, `Effect.Delay`, `Eq`.
+
+`List (List Packet)`, `Option (Packet, Nat)`, `Vec Packet n`, `Tree Big` with `Tree`/`Forest`
+mutual, `List (Tree n)` with `n` an earlier field, and `All Term (t => Typed t r) bs` are
+accepted; `Neg Bad`, `Option WithCheck → Bool`, `List.Member Q []` and `Exists E (x => x = x)`
+are refused **[run, prototype]**.
+
+### 5.3 No field depends on a recursive field
+
+New, from LFST's `rc_notin`: **a field may not mention an earlier field of the same constructor
+whose type mentions a member.** `Mk (children: List T) (lenOk: List.length children = 2)` is
+refused. It is refused already by §5.2, because the checked `lenOk` is `Eq(Some(Nat), List.length
+T children, 2)` and `T` is the type argument of `List.length`, a `def` **[run]**. Likewise LFST's
+`Fnat`: `n = m` is checked to `Eq(Some(Fnat), n, m)` **[run]**.
+
+So why add a rule? Because §5.2's argument rests on the member's *name* appearing in the term, and
+Stitchwort's core terms don't always carry types the way Rocq's do: lambdas have no domain
+(`Term::Lam(Name, Icit, body)`) and constructors take no parameters (`Term::Ctor(DataId, usize,
+fields)`, `term.rs:151-162`) **[checked]**. We found no way to use a recursive field without the
+member's name appearing (§6.2), but the explicit rule makes that argument unnecessary for
+soundness. It costs nothing: with it the prototype gives the same verdict as today on every one of
+the 1,075 example files **[run]**.
+
+### 5.4 Propositions with a nested field
+
+**A member of `Prop` with a nested occurrence in any of its fields counts as a group of two or more
+for `E-PROP-ELIM`**: matching on its proofs only produces proofs. Today
+`type P: Prop = | MkP (h: And P Unit)` followed by `def fromP (p: P): Nat := match p with | MkP h
+=> 0` is accepted by the prototype **[run]**, because `P` is alone in its group, has one
+constructor, and its field is a proof (`check.rs:917-922`). Its encoding is `P` with a copy of
+`And`, a group of two, which may not eliminate into data. Lean agrees (§4.1); Rocq 9.1.1 gives
+`P_rect` into `Type` **[run]**. We see no unsoundness in Rocq's choice for such types (they are
+built only from single-constructor proofs, so a proof's depth can't be observed) **[inferred,
+not proved]**, but the conservative rule keeps "accepted only if the encoding is accepted" true
+without a separate argument, and no example needs the large elimination. The flag is three places
+in the code (`check.rs:917`, `value.rs:1615`, `erase.rs`).
+
+### 5.5 How this relates to LFST
+
+LFST's setting is MetaRocq's PCUIC. Specialising it to Stitchwort:
+
+| LFST | Stitchwort | Same, restriction, or not applicable |
+|---|---|---|
+| Uniform and non-uniform parameters | All parameters are uniform; indices do what non-uniform parameters do | N/A: LFST "do not distinguish indices from non-uniform parameters" [P1 §3]. Their rule for non-uniform parameters is our rule for indices |
+| Strictly positive parameter: arity, strictly positive everywhere, not in non-uniform parameters' or indices' types | §5.1 conditions 1, 3, 4, 5 | **Same** |
+| Later *uniform* parameters' types may mention a nestable one | Not nestable then (§5.1 condition 2) | **Restriction**, below |
+| Four argument shapes; constants mention no block and no nestable parameter | §5.2 and today's cases 1-2; anything else refused | **Same**, with "mention" meaning a syntactic occurrence of the member's name in the *checked* term |
+| `rc_notin` | §5.3 | **Same** (ours is the simpler form: no field mentions an earlier field containing a member; LFST exempt the indices of a direct recursive field, which can't mention such a field in Stitchwort anyway, because index types are fixed before the group and can't mention a member) **[inferred]** |
+| Outer type: any block of an earlier mutual inductive | Any member of an earlier data group | **Same** |
+| Instances may mention earlier constant arguments (local variables) | Allowed (`List (Tree n)`, `t => Typed t r`) | **Same** |
+| Instances of arity parameters: `fun llargs => arg` | Leading lambdas stripped, body checked | **Same** |
+| Indices of the nested occurrence must be constants | Same | **Same** |
+| Truly nested types (a type as its own container) | Refused by declared-later | **Same** (LFST don't cover them either) |
+| `Prop`, `SProp`, sort polymorphism | One `Prop`, subsingleton elimination, no cumulativity | **Restriction** for `Prop` (§5.4); universes as today |
+| Quotients, primitive types (`array`) | `Quot` isn't data: never nestable; `Effect.Delay` isn't data | **Restriction** (LFST's Rocq integration allows registered `array_all` by hand [R2]; we don't) |
+| Flags computed by `preprocess_strpos` (no `rc_notin`) | Flags by the formal condition (with `rc_notin`) | We follow the formalisation, which is what the theorem is about |
+
+**Why the restriction to "no later parameter's type" is harmless and wanted.** LFST's formal
+condition doesn't look at later uniform parameters' types. Take `Dep (a: Type) (xs: List a)` with
+`a` nestable. To nest, the instance for `xs` must be a term of type `List T` that mentions neither
+`T` nor a recursive field. In Rocq that is impossible (`nil` is `@nil T`), so the case is
+vacuous. In Stitchwort it isn't: `Nil` is `Term::Ctor` with no parameters, and `_ => Nat` is a
+lambda with no domain, so a term can have a type involving `T` without mentioning `T`. Refusing to
+nest through such a parameter closes that gap. What we lose: nothing in the standard library
+(`List.Member`, `Exists`, `Map`, `Effect.Comp` are the parameters affected, and none is a
+container one nests in) **[checked, the std types listed in §5.1]**, and Lean's `UsesDep`, which
+LFST refuse too.
+
+**Why the flag approach, not draft 1's substitution, even though they agree here.** Under
+Stitchwort's restrictions (uniform parameters, no computation in field types, syntactic
+occurrence) substituting the arguments into `D`'s constructors and re-checking gives the same
+verdict as the flags, except for nesting through a mutual outer group, where draft 1's rule was
+incomplete (it would re-expand `Forest` inside `Tree` inside `Forest`, with no stopping case for a
+sibling) **[inferred]**. The flags are what the theorem is about, terminate trivially, handle
+mutual outer groups, give the error message its content ("`Neg`'s `a` is used as a function's
+input in field `consume`"), and are exactly what stage 3's `All` predicates need.
+
+### 5.6 Resolved questions
+
+- **`lenOk: List.length children = 2`.** Refused, by Lean, LFST (`ind_notin` for constants, and
+  `rc_notin`) and by us (§5.3) **[run]**. We shouldn't allow it: its encoding would need a
+  translation of `List.length` to the copied list, and nothing proves such types sound. Draft 1
+  said option A "need not" inherit Lean's refusal; that was wrong, as the reviewer suspected: draft
+  1's own rule refused it too (`List.length T children` is a `def` application). Users write the
+  invariant as a separate proposition about the value, or use an index.
+- **An outer type in an earlier mutual group.** Allowed. LFST's formalisation covers it directly,
+  Lean allows it, and the flags make it free (§5.5). The prototype accepts `Big` nested in
+  `Tree Big`, with `Tree`/`Forest` mutual, and a structural count over all three types computes
+  in `rfl` **[run]**. The reviewer suggested restricting stage 1 to non-mutual outer types; we
+  think that is unnecessary (§11, point 4).
+- **`children: List (Tree n)`, `n` an earlier field.** Allowed, as the reviewer recommends. LFST's
+  encoding indexes the copied list by `n`; we wrote that encoding by hand (`Tree`/`Forest: Nat →
+  Type` with `FCons (n) (t: Tree n) (rest: Forest n): Forest n`) and today's kernel accepts it,
+  with a count that computes in `rfl` **[run]**. Lean refuses the nested form **[run]**.
+- **Quotients.** Stay refused (`Map`, `Set`): automatically by the flags, and earlier by the
+  elaborator's own message ("`M` is used inside a quotient type … built on a quotient type")
+  **[run]**. Same reasons as before: no encoding, and no part-of relation through a quotient.
+- **`depends_on_b`.** Can't be written: a field type can't contain `case`
+  (`case_only_in_tree`), and a `def` that computes a type is not a data type, so the parameter
+  used through it is not nestable.
+
+## 6. Why it is sound
+
+### 6.1 What we rely on
+
+**The theorem** [R4, `Nested_to_mutual_proof.v:1417`] **[checked: the statement]**: for every
+mutual block `mdecl` written in LFST's view (`argument`, `constructor_body`, `mutual_inductive_body`
+of `Positivity_condition.v`), if `positive_mutual_inductive_body mdecl` then
+`positive_mutual_inductive_body (nested_to_mutual mdecl)`, and the result has no nested arguments.
+It assumes, in full:
+
+- **A1 (environment).** Every block already in the environment is positive with its flags:
+  `Parameter (E_pos : forall kname, if lookup_minductive E kname is Some mdecl then
+  positive_mutual_inductive_body mdecl else False)` (`:1200`). The environment `E` and
+  `lookup_minductive` are parameters too (`Positivity_condition.v:440-441`), as is
+  `cdecl_to_arity` (`:894`).
+- **A2 (the view).** The theorem is about the view, not about raw terms: that a declaration's
+  view correctly describes it (`arg_of_term`) is not part of the theorem **[checked: no such
+  lemma is used]**.
+- **A3 (guard).** "Guard Checking is unset in the formalization in order not to have to reason by
+  well-foundedness on the size of the environment" [R4 README] **[cited]**. The recursion is on
+  earlier types, so it is well founded; the formal proof doesn't show it.
+- **A4 (positivity only).** What is proved is that the encoding is *strictly positive*. That the
+  encoding is *well typed* is not stated as a theorem; the paper's §3.1 explains the construction
+  (strengthening, indices) that is meant to make it so **[cited]**.
+- **A5 (eliminators).** That the nested eliminator can be derived from the mutual one is argued
+  in [P1, App. F] on paper, with computation rules holding "only up to propositional equality",
+  "fairly confident" **[cited]**.
+- **A6 (the base theory).** A strictly positive mutual inductive type is consistent in CIC
+  (standard; not part of the paper).
+
+### 6.2 What we argue ourselves
+
+- **B1 (our rule is inside theirs).** Every group our rule accepts, with our flags, satisfies
+  LFST's `positive_mutual_inductive_body`, reading Stitchwort's data group as a block with only
+  uniform parameters and our indices as their indices. The table in §5.5 is the argument, case by
+  case **[inferred]**. Our flags are at most theirs (condition 2 refuses more), and a non-nestable
+  parameter is treated as a constant, which is always allowed. By induction over declaration
+  order, every earlier group is positive with its flags, which is A1 for us.
+- **B2 (syntax).** LFST's conditions say "does not refer to the inductive blocks"; ours say "the
+  member's name doesn't occur in the checked term". These agree if a term whose type involves a
+  member must mention it or a field whose type does. In Stitchwort a type is introduced to a term
+  only by: an explicit argument (a data type's parameters, a `def`'s implicit arguments, which are
+  explicit in core terms), an `Eq`'s type (filled in by the checker before positivity runs,
+  `check.rs:355-376`), a variable's type, or the expected type of a constructor or lambda. The
+  first two mention the member by name; a variable whose type mentions a member is a recursive
+  field, which §5.3 forbids mentioning; the last is closed by §5.1 condition 2 for parameters, and
+  by index types being fixed before the group for indices **[inferred, not proved]**.
+- **B3 (the encoding exists in Stitchwort).** LFST's encoding is a mutual group with uniform
+  parameters and some new indices: exactly the shape Stitchwort's data groups allow (one
+  parameter telescope, per-member indices, members applied to their own parameters). Universes:
+  the copied type's fields keep their sorts after substitution, and `D args` fitting in the
+  group's universe means `D`'s sort does, so the copy fits **[inferred]**. Per declaration, the
+  test oracle (§8) checks this with today's kernel, which is stronger than A4.
+- **B4 (Prop).** With §5.4, a nested proposition eliminates exactly like its encoding.
+- **B5 (termination).** Below.
+
+### 6.3 What remains open
+
+- **C1.** No proof that a Stitchwort value of `T` corresponds one to one with a value of the
+  encoding. It is the folklore relabelling (each `List T` value ↔ the copy's value, constructor
+  for constructor), and the oracle can test it on generated values (§8), but nobody has proved it
+  for Stitchwort.
+- **C2.** B2 is an argument about the shape of core terms, not a proof; §5.3 and §5.1 condition 2
+  are there so that we don't depend on it.
+- **C3.** Stitchwort's own kernel (mutual groups, SCT, `Prop` rules) has no soundness proof. This
+  proposal adds nothing to that gap beyond C1.
+- **C4.** We read LFST's preprint, not the published version.
+
+### 6.4 Termination
+
+**The invariant**, to go in `termination.rs`'s header and `docs/core.md`: *SCT's "smaller than"
+relates two variables only when, in every run, the first's value is a proper constructor
+subvalue of the second's: a field of it, a field of a field and so on, or the result of applying
+a recursive function field of it. It is the transitive closure of immediate field containment on
+one particular value, never a relation computed from the data types' dependency graph.* So
+`Packet → List Packet → Packet` repeating in the *types* is irrelevant: for values,
+`p > items > q` and `q` can't be `p`.
+
+**Checked against the code** **[checked]**: a variable becomes smaller only by being bound as a
+field of a `case` on a variable that is a parameter or already smaller (`termination.rs`, the
+`Term::Case` arm from line 442: `source = scrutinee.param.or(scrutinee.smaller_than)`), by
+`let` of such a value, or as a recursive function field applied. The only type-directed step is
+`is_recursive_fn` (`:326`): it reads the *matched* type's own declared field type and its own
+group. For a nested type that is conservative: a field `kids: Nat → List Tree` returns `List`, not
+a member, so `kids n` gains nothing, and `List`'s `head: a` is never a function field. Quotients
+can't be matched ("A quotient form, `Quot.lift` included, gives no evidence of descent", `:407`). So nothing makes "part of" follow
+types **[checked]**.
+
+**Why that's enough** **[inferred]**: SCT is sound if "part of" is well founded on values. Values
+of a nested `T` are finite trees (or well-founded trees, through function fields) because `T` is
+isomorphic to its encoding (B3, C1), whose values are. An infinite descent through `T`, `List T`
+and back would be an infinite descent in the encoding, which can't exist. This uses C1, and needs
+positivity: `Bad`'s values would not be well founded.
+
+## 7. What we ran
+
+**The prototype** (scratch, ~200 lines in `check.rs` behind `STITCHWORT_NESTED_PROTO`, not
+merged; kept as `dev/scratch/sw704-nested-positivity.patch` in a separate commit): §5.1 flags
+computed on demand, §5.2's case, §5.3's rule. Not §5.4. **[run]**:
+
+| Program | Prototype | Lean 4.34.1 | Rocq 9.1.1 |
+|---|---|---|---|
+| `Packet` with structural size, `rfl` | accepted | (draft 1: accepted) | |
+| `Rose a`, `List (List (Option (Nest, Nat)))` | accepted | | |
+| `Vec V n` (nested at `Vec`'s parameter) | accepted | | |
+| `Effect.Comp Nat (_ => Nat) C` | accepted | | |
+| `Big` in `Tree Big`, `Tree`/`Forest` mutual, count by `rfl` | accepted | accepted | refused |
+| `Tree: Nat → Type` with `children: List (Tree n)`, count by `rfl` | accepted | refused | accepted |
+| `Typed` with `All Term (t => Typed t r) bs` (and `Term` nested in `List`) | accepted | refused | |
+| `Neg Bad` | refused | | |
+| `WithCheck`, `f: Option WithCheck → Bool` | refused (negative) | refused | |
+| `BRTree` with `ok: List.length children < branches` | refused | (manual: refused) | |
+| `lenOk: List.length children = 2` | refused | | |
+| `Fnat` (`same: n = m`) | refused | refused | accepted |
+| `Fix f`, `unfold: f (Fix f)` | refused | | |
+| `List.Member Q []` | refused | | |
+| `Exists E (x => x = x)` | refused | | |
+| `Map Nat M` | refused (elaborator, quotient message) | | |
+| `P: Prop` nested in `And`, matched to make a `Nat` | **accepted** (§5.4 not in the prototype) | `P.rec` into `Prop` only | `P_rect` into `Type` |
+| `Dep UsesDep []` | (not tried) | accepted | accepted |
+
+**Regression sweep**: all 1,075 files in `examples/accept`, `examples/reject` and
+`examples/soundness`, checked with and without the variable: one verdict differs,
+`reject/nested-data.sw` (the nested `Rose` this proposal accepts) **[run]**.
+
+**Runtime and induction**: with the prototype, `Packet` with a hand-written All-form induction
+principle (§9) checks, `Packet.sizePositive` follows from it by `omega`, and `main` prints `size: 6`
+under `run` and `run --js` **[run]**. Draft 1's runs (recursion through `items.attach.map` with
+`decreasing`, day 13's comparison, mutual induction, the same output under `run --reference`) used
+draft 1's prototype, which accepted a superset of this one on those programs; they don't depend on
+the positivity rule and are not repeated here.
+
+An aside: a first version of the hand-written induction principle wrote `List.All`'s proofs as
+`()` and a pair; checking it ran for over 100 s at 2 GB before we stopped it. Written with
+`Trivial` and `Both`, it checks at once. A pair against an `And` alone gives a prompt type
+mismatch **[run]**. Not investigated further; worth a ticket.
+
+## 8. The translation test oracle
+
+A property test of the kernel rule against LFST's translation, run by today's kernel. It tests the
+algorithm on many shapes, not a list of examples.
+
+**Generator** (seeded, deterministic, in Rust, emitting source text):
+
+- **Outer types**: a fixed library (`List`, `Option`, `Pair`, `Vec`, a mutual `Tree`/`Forest`,
+  `Neg (a → Nat)`, `W (a → b)`, `Phantom`, `Dep (a) (xs: List a)`, `All (a) (p: a → Prop)`,
+  an indexed `Idx (a): a → Type`), plus 0-2 randomly generated earlier groups (1-2 members, 1-2
+  parameters of type `Type` or `a → Prop`, 0-1 index, 1-2 constructors, 0-3 fields).
+- **The group under test**: 1-2 members, 0-1 parameters, 0-1 `Nat` index, 1-3 constructors, 0-3
+  fields each. Field types from: `Nat`, a parameter, an earlier `Nat` field, a member (own
+  parameters; index a literal or an earlier `Nat` field), `D τ…` for an outer type, `τ → τ'`, a
+  lambda instance for an arity parameter, `x = y` on earlier fields.
+
+**Translation** (LFST §3.1, on the generator's own small AST, so it never parses): repeatedly
+replace the first nested occurrence `D σ` in field `f` by a fresh copy of `D`'s whole group,
+parameters replaced by `σ`, indexed by the earlier constant fields that `σ` mentions (LFST's
+`↑args`), and refer to it applied to those fields. Stop when nothing nested is left, or report
+"no translation" (a member in an index, an instance mentioning a recursive field).
+
+**Properties**, both checked with the real elaborator and kernel:
+
+1. **Soundness (must hold):** if the nested group is accepted, its translation is accepted by the
+   kernel *without* the nested case. A failure is a kernel bug or a translation bug; either way it
+   blocks.
+2. **Completeness (reported, not required):** if the translation is accepted, so is the nested
+   group. Each kind of counterexample is either fixed or listed in the note with its reason (we
+   expect the §5.5 restriction to show up here, and nothing else).
+3. **Values (stage 1 if cheap, else later):** for accepted pairs, generate the two conversion
+   functions (structural, one per copied type) and random closed values, and check
+   `fromMut (toMut v) = v` by `rfl`. This tests C1 on instances.
+
+**Tiers**: 50 cases in the lane tier (`AREA=core`), a few thousand in the daily tier. A failure
+prints both programs as `.sw` files, ready to become `examples/soundness` pairs.
+
+## 9. Induction principles
+
+**What LFST generate**, and why we can't copy it directly. Their eliminator for `Packet` has the
+hypothesis `List.All motive items` (sparse parametricity), proved by `fix` and `match` with a
+generic lemma `allOf: ((x: a) → p x) → (xs: List a) → List.All p xs` applied to the eliminator
+itself under a lambda. Rocq's guard checker accepts that because it unfolds `allOf` [P1 §4.2].
+Stitchwort's SCT doesn't look inside other definitions: our version is refused, "the 4th argument,
+`q`, isn't seen as smaller than `p`" **[run]**.
+
+**What stage 3 generates instead**: the same statement, proved by a *mutual helper per nested
+occurrence*, which is the encoding at the level of proofs. For `Packet` **[run, prototype]**:
 
 ```
-type Packet: Type =
-  | Number (value: Nat)
-  | Packets (items: List Packet)
+theorem Packet.induct (motive: Packet → Prop)
+    (number: (n: Nat) → motive (Number n))
+    (packets: (items: List Packet) → List.All motive items → motive (Packets items)):
+    (p: Packet) → motive p
+  | Number n => number n
+  | Packets items => packets items (Packet.inductList motive number packets items)
+
+theorem Packet.inductList (motive: …) (number: …) (packets: …):
+    (items: List Packet) → List.All motive items
+  | Nil => Trivial
+  | Cons p rest => Both (Packet.induct motive number packets p) (Packet.inductList motive number packets rest)
 ```
 
-**Functions.** With a helper over the list (structural), or with `decreasing` and `attach` (§5).
-After stage 3 the size measure and its membership lemma are generated, so
+Both helpers are ordinary checked theorems; nothing is trusted.
 
-```
-def Packet.depth (p: Packet): Nat
-    decreasing Packet.size p
-:=
-  match p with
-    | Number n => 0
-    | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
-```
+**`All` versus "for every member".** The `All` form composes: `List (Option T)` gives
+`List.All (Option.All motive) items`, and a container with two nestable parameters gets one
+predicate per parameter (`Pair.All PA PB`). The membership form, `(q: T) → List.Mem q items →
+motive q` (draft 1), reads better but needs a `Mem` for each container and doesn't compose.
+Proposal: the generated `T.induct` uses the `All` form, as LFST do; for a field whose type is
+`List T` or `Option T` directly, a corollary `T.inductMem` with the membership hypothesis is
+generated from it with `List.All.mem` (a library lemma). `List.All` already exists as a
+definition by recursion (`std/List/Toolkit.sw:343`); stage 3 generates `D.All` the same way for
+a user's container (a `def`, one predicate per nestable parameter, `Prop`-valued only, since
+Stitchwort has no sort polymorphism), and the helpers above per occurrence. That's D1823.
 
-has its obligation found by `auto` (§8 stage 3).
+## 10. Stages
 
-**Proofs.** By the generated principle:
+1. **Kernel and docs** (medium). §5.1-5.4 in `check.rs` (flags, the nested case, the
+   recursive-field rule, the `Prop` rule in its three places); error messages that name the outer
+   type's parameter and the field that makes it non-nestable; `docs/core.md` (data types, groups,
+   the termination invariant of §6.4) and `docs/syntax.md:140`; the termination header comment;
+   the JS codec's finiteness comment (`crates/js/src/lib.rs:1244-1251`, a nested occurrence is
+   still the type applied to its own parameters). Must-reject pairs in `examples/soundness`:
+   `Neg`/`List`, `Fnat`/`Tree` with `Eq` on a non-recursive field, `WithCheck`/`Option` stored,
+   `List.Member`/`Option`, a nested `Prop` matched to data / matched to a proof, `Map`/`List`.
+   The §8 oracle (properties 1-2), with these as seeds.
+2. **Derived `==`, `<`, `${…}`** (medium), as in draft 1: a generated mutual helper over each
+   nesting container the deriver knows (`List`, `Option`, tuples); others keep today's message.
+3. **Generated `D.All`, `T.induct`, `T.inductMem`, size and membership lemma** (medium), §9,
+   with `auto` proving `decreasing T.size p` obligations from an `attach`ed element.
+4. **Dogfood** (small). AoC 2022 day 13, 2021 day 18, a typing judgement with `All`.
 
-```
-theorem Packet.sizePositive: (p: Packet) → 0 < Packet.size p :=
-  Packet.induct (p => 0 < Packet.size p) (n => omega) (items ih => omega)
-```
+Draft 1's option C (termination looking inside `map`) stays unstaged.
 
-where `ih: (q: Packet) → List.Mem q items → …`, or by mutual theorems, or by `decreasing` on a
-theorem.
+## 11. Response to review
 
-**Day 13**, after stage 2's derived `Ord` and the parser: `parse` builds `Packet`s with
-`recursive` (parser-combinators.md §5.3 already shows the grammar), and `solvePart1` compares
-pairs with the hand-written `cmp` (the puzzle's order isn't the derived one).
+| Reviewer's point | What changed |
+|---|---|
+| 1. Base the rule on LFST's nestable-parameter criterion, not old Rocq | **Adopted.** §4.3 quotes it, §5 specialises it, §5.5 maps it line by line. The flags are per group, as in the formalisation |
+| 2. The soundness argument claims "iff the translation is accepted" but also that A accepts more than Lean (`lenOk`) | **Agreed; the draft was wrong.** `lenOk` is refused by draft 1's own rule, by Lean, by LFST and by this rule (§5.6) **[run]**. The claim is now one-directional: accepted ⇒ LFST-positive ⇒ positive encoding (mechanised), plus a per-instance check that the encoding is accepted (§6, §8). We do still accept more than Lean (local variables, `List (Tree n)`), because LFST's translation does |
+| 3. Derive the parameter side condition from the nestable-parameter definition, or prove they coincide | **Derived** (§5.1). One condition is ours, not LFST's (a later parameter's type), kept for a Stitchwort-specific reason: untyped lambdas and parameterless constructors (§5.5) |
+| 4. Earlier mutual outer types; maybe restrict stage 1 to non-mutual | **Allowed from stage 1, not restricted.** LFST's formalisation handles it directly with per-block flags, Lean allows it, and the prototype accepts it and computes over it **[run]**. Draft 1's substitution rule did have the gap the reviewer saw; the flags remove it |
+| 5. Allow `List (Tree n)` | **Adopted** (§5.6), with the hand-written indexed encoding accepted by today's kernel **[run]** |
+| 6. Termination is sound if "part of" is concrete subvalue containment; say so | **Adopted** as an invariant for `termination.rs` and `docs/core.md`, checked against the code (§6.4) |
+| 7. Keep quotients refused | **Agreed**; now a consequence of the flags as well as the elaborator's message (§5.6) |
+| 8. A over B2, with a property-style oracle; say which direction is the soundness check | **Adopted** (§8): "nested accepted ⇒ translation accepted" must hold; the converse is reported |
+| 9. User-facing "for every member" built on `All` | **Adopted with a change**: LFST's construction is refused by SCT **[run]**, so stage 3 generates a mutual helper per occurrence; the `All` form is primary, the membership form a corollary (§9, D1823) |
+| Not raised, found here | §5.3 (`rc_notin`), §5.4 (`Prop` elimination, a real mismatch with the encoding **[run]**), the `UsesDep` caveat to "strictly generalizes Lean" (§4.3), and that LFST's mechanised result is positivity of the encoding, not its typing or the eliminators (§6.1) |
 
-### 7.3 Effect on the rest
+## 12. Options considered
 
-- **Hashes.** None to the scheme: `Packet`'s hash covers its constructors, and a reference to
-  `List` is a reference to an earlier declaration, as `Nat` is.
-- **Erasure and runtimes.** None (§5 item 7).
-- **JS boundary.** Update the finiteness comment (`crates/js/src/lib.rs:1244-1251`); add a test
-  that exports a function taking a `Packet`, since a list of packets crosses as an array of
-  objects, which the codec builds lazily per type (`data`, `list` memoise by instance)
-  **[checked: the memoisation; inferred: that it suffices]**.
-- **Elaborator.** The `quot.rs` R10 message keeps quotients' own wording; the
-  Tree/Forest note on `E-POSITIVITY` goes, replaced by the new message; `docs/syntax.md:138`
-  ("or inside another type (`List Tree`)") changes.
-- **Derivers** (`derive.rs`, `derive_ord.rs`, `derive_show.rs`): stage 2.
+- **A′ (recommended): LFST's rule, specialised (§5).** Kernel: about 200 lines (the prototype is
+  that size), no change to termination, conversion, evaluation, hashing or erasure.
+- **A (draft 1): Rocq's old substitute-and-re-check rule.** Superseded: incomplete for mutual
+  outer types, and its justification was the theorem for a different rule.
+- **B2: Lean's translation in the kernel.** Builds the encoding, checks it, throws it away (we have
+  no recursor to derive from it). More trusted code than A′ for the same verdicts, and Lean's
+  translation refuses local variables. Kept as the test oracle (§8), outside the kernel.
+- **C: termination looks inside `map`.** Not now (draft 1 §6, unchanged).
+- **D: sized types.** Rejected (well-founded-recursion.md §5(D)).
+- **E: keep refusing, generate `Forest` twins.** Strictly worse than A′.
 
-## 8. Stages
+## 13. Decisions
 
-Each is one lane-sized piece of work; each ends with its acceptance examples.
+Earlier decisions this note relies on: D1820 (this rethink). Recommendations in brackets.
 
-1. **Kernel and docs** (small-medium). The rule of §7.1 in `check.rs`, the new error message,
-   `docs/core.md` (groups of data types) and `docs/syntax.md`. Examples: accept `Packet`, a
-   rose tree, nesting in `Option`, a tuple, `Vec` (parameter, not index), `List (List T)`, a
-   mutual group nested in a list, and §5's programs 1-7 (minus derived instances); reject `Neg`
-   (§5), a member in an index of the outer type, through `List.Member`'s `a`, through `Map`
-   (quotient message unchanged), through a `def` alias, through `Effect.Delay`, and `type Fix (f:
-   Type → Type) = | MkFix (unfold: f (Fix f))` (a variable isn't a data type). The translation
-   test oracle of option B as a kernel test. Lean's `WithCheck` (nested under `Option`, left of an
-   arrow) as a soundness example.
-2. **Derived `==`, `<`, `${…}`** (medium). Each deriver generates a mutual helper over the
-   nesting container instead of calling the container's instance with an unsaturated recursive
-   function (which termination would refuse, as `map` is refused): `Packet.decEq` with
-   `Packet.decEqList`, and so on. Only for containers it knows (`List`, `Option`, tuples); others
-   keep today's message.
-3. **Generated size, membership lemma and induction principle** (medium). For each nested type:
-   `T.size` (structural, through generated helpers, as Lean's `sizeOf`), `T.sizeMem…` (a member of
-   a nested list is smaller than its node), registered so that `auto` proves `decreasing T.size p`
-   obligations from an `attach`ed element's `isIn` without a `let`, and `T.induct` with "for every
-   member" hypotheses (§5 item 6 shows the shape is accepted). Names and shapes in an open
-   question.
-4. **Dogfood** (small). AoC 2022 day 13 and 2021 day 18 programs and proofs, through the parser's
-   `recursive`; anything they expose is filed then.
-
-Option C is not staged; it's reconsidered only if stage 4 shows many `decreasing` clauses whose
-only purpose is recursion through a library function.
-
-## 9. Open questions
-
-Each is one decision; the recommendation comes first.
-
-1. **Which approach?** Recommended: option A, Rocq's nested positivity rule in the kernel, with
-   Lean's translation used only as a test oracle. The alternative worth weighing is B2 (build the
-   translated group inside the kernel, as Lean does), which reuses more of the existing check but
-   does more work for the same result and refuses list functions in later fields.
-2. **Generate an induction principle `T.induct` for each nested type?** Recommended: yes, in stage
-   3, shaped like Lean's functional induction (§4.1): one case per constructor, and for a field
-   `items: List T` the hypothesis `(q: T) → List.Mem q items → motive q`. The alternative is to
-   leave proofs to mutual theorems and `decreasing`, which work today (§5).
-3. **Should `auto` find "this element is smaller" obligations by itself?** Recommended: yes, in
-   stage 3, through a generated size and membership lemma, as Lean's `decreasing_tactic` does with
-   `sizeOf_list_dec`. Without it, each `decreasing` recursion through `attach` names the lemma or
-   brings it into scope with a `let` (§5 item 4).
-4. **Nesting through `Map` and `Set`** (quotients). Recommended: stay refused for now, with
-   today's message suggesting ids into a separate table; neither Lean nor Rocq nests through a
-   quotient. Revisit if a puzzle needs a tree keyed by name.
-5. **A member nested with a constructor's own field as an index** (`children: List (Tree n)`,
-   where `n` is an earlier field). Lean refuses this ("parameters cannot contain local variables"
-   [L1]); Rocq's rule allows it when the variable is in an index of the member, not a parameter
-   of the outer type. Recommended: allow it, since a direct occurrence `Tree n` is already allowed
-   and the rule treats the substituted occurrence the same way; the conservative choice is
-   Lean's refusal.
+| # | Question | Options |
+|---|---|---|
+| D1821 | Adopt §5 (LFST's nestable parameters, specialised, with §5.3 and §5.4) as the kernel rule, with stages as in §10, including mutual outer types, earlier fields in nested instances, and arity parameters (`All (t => Typed t r) bs`) in stage 1? | [**yes, all in stage 1**]; or stage 1 without arity parameters and local variables (Lean's fragment), the rest later |
+| D1822 | A proposition with a nested field: may matching on its proofs produce data? | [**no, as Lean: it counts as a group of two (§5.4)**]; or yes, as Rocq, with a separate argument that the encoding mismatch is harmless |
+| D1823 | Shape of the generated induction principle | [**`T.induct` with `All` hypotheses, plus `T.inductMem` ("for every member") for direct `List`/`Option` fields (§9)**]; or membership form only (draft 1) |
 
 ## Sources
 
 Read in full unless marked otherwise.
 
-- [L1] Lean language reference, Inductive types, §4.4.5.4 "Nested Inductive Types" and §4.4.3.2.2
-  "Strict Positivity": https://lean-lang.org/doc/reference/latest/The-Type-System/Inductive-Types/
-  (the nested section and the positivity section read in full; the rest of the page skimmed)
-- [L2] Lean 4.11.0 release notes, "Recursive definitions":
-  https://lean-lang.org/doc/reference/latest/releases/v4.11.0/
-- [L3] Lean language reference, Recursive definitions (§7.6.2 structural recursion, §7.6.3
-  well-founded recursion, preprocessing, the `Pair` example):
-  https://lean-lang.org/doc/reference/latest/Definitions/Recursive-Definitions/ (those sections;
-  not the partial-fixpoint and coinduction parts)
-- [L4] Lean 4 kernel source, `src/kernel/inductive.cpp`, `elim_nested_inductive_fn` and
-  `restore_nested` (lines 871-1039 read):
-  https://github.com/leanprover/lean4/blob/master/src/kernel/inductive.cpp
-- [R1] Rocq reference manual, Inductive types and recursive functions ("Positivity Condition",
-  "Strict positivity", "Nested Positivity", "Fixpoint"):
-  https://rocq-prover.org/doc/master/refman/language/core/inductive.html (those sections)
-- [R2] Rocq reference manual, Reasoning with inductive types, "Eliminators for Nested Inductive
-  Types": https://rocq-prover.org/doc/master/refman/proofs/writing-proofs/reasoning-inductives.html
-  (that section)
-- [R3] Rocq issue #16040, "Guard condition should recognize fixpoint parameters", and PR #17986,
-  "Extrude uniform parameters of inner fixpoints in guard condition check" (merged 7 May 2024):
-  https://github.com/rocq-prover/rocq/issues/16040, https://github.com/rocq-prover/rocq/pull/17986
-  (descriptions read; the code not read)
-- [R4] MetaRocq, nested-eliminators, README: https://github.com/MetaRocq/nested-eliminators (README
-  only; the formal proofs not read)
-- [R5] T. Lamiaux, Y. Forster, M. Sozeau, N. Tabareau, "Nested Inductive Types for Rocq and Lean",
-  RocqPL 2026 (POPL 2026 workshop):
-  https://popl26.sigplan.org/details/rocqpl-2026-papers/9/Nested-Inductive-Types-for-Rocq-and-Lean
-  (abstract only; no public full text found)
-- [R6] Y.-J. Tan and Y. Forster, "Towards Formalising the Guard Checker of Rocq", TYPES 2025
-  abstract: https://msp.cis.strath.ac.uk/types2025/abstracts/TYPES2025_paper15.pdf
-- [A1] Agda documentation, Positivity checking (occurrence analysis, polarity pragmas):
-  https://agda.readthedocs.io/en/latest/language/positivity-checking.html
-- [A2] Agda documentation, Polarity annotations:
-  https://agda.readthedocs.io/en/latest/language/polarity.html
-- [A3] Agda documentation, Termination checking:
-  https://agda.readthedocs.io/en/latest/language/termination-checking.html
-- Lean's manual cites no paper for its translation; the closest current research is [R4, R5].
-  The containers paper Agda cites for strict positivity (Abbott, Altenkirch, Ghani, "Containers:
-  constructing strictly positive types", TCS 342(1), 2005) was not read.
-- Stitchwort: `crates/core/src/check.rs`, `crates/core/src/termination.rs`, `docs/core.md`,
-  `docs/syntax.md`, `crates/elab/src/derive.rs`, `derive_show.rs`, `quot.rs`,
-  `crates/js/src/lib.rs`, `crates/elab/src/std/Map/Map.sw`, `List/Attach.sw`;
-  `docs/proposals/mutual-recursion.md`, `well-founded-recursion.md`, `parser-combinators.md`.
+- [P1] T. Lamiaux, Y. Forster, M. Sozeau, N. Tabareau, "Nested Inductive Types: Justified and
+  Usable Nested Inductive Types in Lean and Rocq", PACMPL 10 (PLDI 2026) 1891–1914,
+  doi:10.1145/3808322 (bibliographic data from pldb). Read: the preprint, HAL hal-05366368v1
+  (November 2025), from the Internet Archive's copy of
+  https://hal.science/hal-05366368v1/file/main.pdf. Not accessible: the ACM version (403), HAL
+  directly (connection refused), hal-05366368v2 (bot check).
+- [R4] MetaRocq, nested-eliminators, https://github.com/MetaRocq/nested-eliminators, commit
+  `f9ca941` (24 April 2026): `README.md`; `formalization/Positivity_condition.v` (all);
+  `formalization/Nested_to_mutual.v` (lines 1-80, `nested_to_mutual` at 352);
+  `formalization/Nested_to_mutual_proof.v` (lines 1195-1431: assumptions and the theorem, not the
+  proof); `theories/Preprocess/strictly_positive_uniform_parameters.v` (all).
+- [R1] Rocq 9.3.0 reference manual, "Inductive types and recursive functions": "Positivity
+  Condition", "Strict positivity", "Nested Positivity":
+  https://rocq-prover.org/doc/V9.3.0/refman/language/core/inductive.html (those sections).
+- [R2] Rocq 9.3.0 reference manual, "Reasoning with inductive types", "Eliminators for Nested
+  Inductive Types" (`Scheme All`, `prod_all`, `LeftTree`, `trie` over `array`):
+  https://rocq-prover.org/doc/V9.3.0/refman/proofs/writing-proofs/reasoning-inductives.html (that
+  section).
+- [L1] Lean language reference, Inductive types, "Nested Inductive Types":
+  https://lean-lang.org/doc/reference/latest/The-Type-System/Inductive-Types/ (that section, read
+  for draft 1).
+- [L4] Lean 4 kernel, `src/kernel/inductive.cpp`, master at `400f83a` (29 October 2026):
+  `is_nested_inductive_app`, `replace_if_nested`, `elim_only_at_universe_zero` (lines 505-580,
+  1005-1100).
+- [A1] Agda documentation, Positivity checking:
+  https://agda.readthedocs.io/en/latest/language/positivity-checking.html (read for draft 1).
+- Draft 1's other sources (Lean recursive definitions [L2, L3], Rocq guard checker [R3, R6],
+  Agda polarity and termination [A2, A3]) are still the basis of option C and the `decreasing`
+  material; see draft 1 in git history (`e2297587`).
+- Stitchwort at `9a6a3d84`: `crates/core/src/check.rs`, `term.rs`, `termination.rs`;
+  `docs/core.md`; `DESIGN.md` §13; `crates/elab/src/std/core/{Data,Logic,Effect}.sw`,
+  `List/Toolkit.sw`, `Logic/Logic.sw`, `Map/Map.sw`, `Vec/Vec.sw`.
