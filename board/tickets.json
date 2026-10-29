@@ -8015,7 +8015,7 @@
     {
       "id": 873,
       "title": "A lambda parameter with no written type, used under a match on an outer variable, fails ('expected Nat, but this has type ?1 g 0')",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -8024,7 +8024,10 @@
       "body": "From SW-869 (29 Oct): let h := x => match k with | 0 => g x | ... fails, pure body or not: the split also substitutes the constructor into the parameter's own unknown type. Likely needs SW-838/869's pruning (effects::unpin_goal, unify::prune_variable) applied to unknowns in the types of variables in scope. Repro was in the session scratchpad (869/t4.sw).",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "ee32ee51",
+        "9af99bc9"
+      ]
     }
   ]
 }
