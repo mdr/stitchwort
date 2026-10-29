@@ -8403,9 +8403,9 @@
     {
       "id": 895,
       "title": "Goals and errors print x + 1 as Succ x and x + 3 as 3 + x since + computes on both sides (SW-787): read sums back as written",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [
         "diagnostics"
       ],
@@ -8445,9 +8445,9 @@
     {
       "id": 898,
       "title": "Kernel: pin the Nat natives to their definitions by content hash (register_native checks only arity and type; cf. Lean #15908)",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [
         "kernel"
       ],
@@ -8459,9 +8459,9 @@
     {
       "id": 899,
       "title": "DESIGN.md: handler termination is no longer a tracked conjecture, and there is no stitchwort assumptions command; say what is actually trusted",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [
         "docs"
       ],
