@@ -6,6 +6,7 @@ file records how it was searched, so it can be refreshed.
 | Cluster | File |
 |---|---|
 | Effects and handlers | [effects.md](effects.md) |
+| Elaboration | [elaboration.md](elaboration.md) |
 
 ## What a cluster file holds
 
