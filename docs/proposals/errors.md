@@ -206,7 +206,7 @@ type Result (a: Type) (e: Type) =
   | Err (error: e)
 ```
 
-It goes in the prelude next to `Option` (`docs/syntax.md:214`), so that `Ok`
+It goes in the prelude next to `Option` (`docs/syntax.md:238`), so that `Ok`
 and `Err` can be written without an import. It also gets a `DecEq` instance, as
 `Option` has (`core/DecEq.sw:32`), so that tests can compare results with `==`.
 It comes with the usual functions: `Result.map`, `Result.mapError`,

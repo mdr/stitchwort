@@ -1,6 +1,6 @@
 # Proposal: wrapping arithmetic, on `Fin n` or beside it
 
-**Status:** Draft 1, 21 October 2026. A design note only: nothing is built. It
+**Status:** Draft 1, 21 October 2026. **Built:** `Mod n` is in the library (`Std.Mod`, `examples/accept/mod-arith.sw`; [syntax.md](../syntax.md)), with `Fin` unchanged, as recommended; the note below is the design. It
 answers D310, Matt's question "Could we make our `Fin n` type have wrapping
 behaviour?", meaning `+`, `-` and `*` modulo `n`, as Lean's `Fin 100` has them
 (four Lean solutions to Advent of Code 2025 day 1 used `(50 : Fin 100) + x`, so

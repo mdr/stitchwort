@@ -1,6 +1,6 @@
 # Proposal: opaque definitions
 
-**Status:** draft 2, 25 October 2026. Design only, nothing built. Ticket SW-505, decision
+**Status:** draft 2, 25 October 2026. Lanes 1 to 4 are built (SW-525 to SW-527; `crates/elab/src/opaque.rs`, [core.md](../core.md)); the text below is the design. Ticket SW-505, decision
 D1262 (Matt: write this note). D1263, D1264 and D1267 ([§10](#10-decisions)) are open; D1265 and
 D1266 are decided (yes, as build details). Draft 1 was written against commit `11e029b2` (all
 **[run]** results are from that build); draft 2 folds in an external review

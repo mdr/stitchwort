@@ -3,7 +3,7 @@
 **Date:** 20 October 2026. **Ticket:** SW-148 (related: SW-145, SW-146; supersedes D48).
 **Decisions already made by Matt:** D49, D50, D55, D56 (§2). **Open:** none; D57 was accepted after the review and done in stage 1.
 **Status:** reviewed once externally ("proceed, but tighten the loader invariants before
-implementing stage 1"; no soundness issue found). Nothing is implemented.
+implementing stage 1"; no soundness issue found). Stage 1 and the compiler part of stage 2 are built: see [As built (stage 1)](#as-built-stage-1) and [As built: stage 2](#as-built-stage-2-compiler-part-20-october-2026-sw-165).
 
 ## Changes since draft 1
 

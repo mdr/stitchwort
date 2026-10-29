@@ -128,7 +128,7 @@ in §5.4.
 ### 4.1 Per namespace, not per declaration
 
 The unit is **one project namespace**: all its files, elaborated together by
-`elaborate_namespace` (`crates/elab/src/module.rs:208`). For the standard
+`elaborate_namespace` (`crates/elab/src/module.rs:234`). For the standard
 library it is **one library file**, the unit lazy loading already uses
 (`crates/elab/src/library.rs`). This matches how projects are already loaded.
 `load_analysis` elaborates one namespace at a time in dependency order, and a

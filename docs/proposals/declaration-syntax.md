@@ -4,9 +4,9 @@
 (verdict: proceed); this draft adopts every must-fix and should-fix as
 specification, and records the user's decisions taken after the review
 (items 10 to 15 in §7; [Review response](#review-response) maps each
-finding to its section). **Lane A (the parser) is built**
-([what was built](#lane-a-what-was-built)); the converter, the checker, the
-conversion of the code base, and the removal of the old syntax are not.
+finding to its section). **Built and switched:** lane A (the
+parser, [what was built](#lane-a-what-was-built)), lane B (the converter) and the
+switch itself (`def` headers are the only syntax, merged as `c2f9a04a`; the converter crate was removed after).
 Answers `TODO.md`'s "Declaration syntax" item: the user decided (18 Oct)
 to **replace** Haskell-style declarations (a signature line `f : A -> B`,
 then equations `f x = …`) with the Lean/Scala style (typed parameters

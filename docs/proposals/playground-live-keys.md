@@ -1,6 +1,6 @@
 # Stitchwort: live keys in the playground
 
-**Status:** draft 1, 25 October 2026, for review (D1271, approved by Matt). Nothing here is built; a scratch prototype ran (§7). Decisions D1272 to D1275 are at the end.
+**Status:** draft 1, 25 October 2026, for review (D1271, approved by Matt). Built (SW-520 and SW-521: pausable runs, the live run, the terminal pane); a scratch prototype ran first (§7). Decisions D1272 to D1275 are at the end.
 
 Today the playground runs `Terminal` programs "with no terminal": the input box's text is the input, read in one go, and each frame comes out as lines with a form feed after it ([terminal-io.md](terminal-io.md) §4.5). So the roguelike can be replayed from typed-ahead letters, but not played. This note is about making it playable: keys pressed in the page reach the running program as they're pressed, and each frame replaces the last on a terminal-like grid.
 

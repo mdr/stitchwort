@@ -4,7 +4,7 @@
 end of the decisions section), and an external reviewer has answered §12;
 draft 2 adopts the review ([Changes since draft
 1.1](#changes-since-draft-11)). Stages 0 and 1 ([§9](#9-staging)) are
-built; stage 2 (dot notation) is design only.
+built; so is stage 2 (dot notation: docs/syntax.md).
 It records decisions the user has already made, proposes the rest, and
 keeps the questions that were put to the user
 ([§11](#11-questions-for-the-user)) and to the external reviewer ([§12](#12-open-questions-for-the-reviewer)).

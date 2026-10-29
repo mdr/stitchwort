@@ -1,6 +1,6 @@
 # Proposal: programs in several files
 
-**Status:** draft 4, 19 October 2026. Design only, nothing is built. It
+**Status:** draft 4, 19 October 2026. Stages 1 and 2 are built (stage 2 is SW-106, `import N (..)`; `aoc/` is a multi-file project, SW-132); the rest is design. It
 answers the independent review of draft 3
 ([Appendix A](#appendix-a-response-to-the-draft-3-review)) and folds in
 Matt's latest decisions. Two questions remain for Matt

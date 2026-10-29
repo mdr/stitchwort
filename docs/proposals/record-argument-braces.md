@@ -48,24 +48,24 @@ deliberate rule, not a parser gap.
 
 ### Where it lives
 
-- `crates/syntax/src/parser.rs:3047` `atom`: an uppercase name followed by
-  `{` goes to `ctor_fields_expr` (line 3053), whatever the name turns out to
-  be. Its doc comment (3043–3046) gives the reason for refusing it as an
+- `crates/syntax/src/parser.rs:3411` `atom`: an uppercase name followed by
+  `{` goes to `ctor_fields_expr` (line 3417), whatever the name turns out to
+  be. Its doc comment (3406–3410) gives the reason for refusing it as an
   argument: `f C { … }` could mean `f (C { … })` or `f C ({ … })`.
-- `parser.rs:3130` `ctor_fields_expr`: refuses it as an argument (the
+- `parser.rs:3494` `ctor_fields_expr`: refuses it as an argument (the
   `Some TextCard { … }` error) and refuses an update; otherwise builds
   `Expr::CtorFields`.
-- `parser.rs:2923` `app`: after `CtorFields`, a further argument is
-  `ctor_fields_then_argument` (2958).
-- `parser.rs:3179` `record_body`: `{ x = …` or `{ x, …` or `{}` is a
+- `parser.rs:3248` `app`: after `CtorFields`, a further argument is
+  `ctor_fields_then_argument` (3286).
+- `parser.rs:3543` `record_body`: `{ x = …` or `{ x, …` or `{}` is a
   literal; anything else is an update `{ e | … }`.
-- `parser.rs:1801` `row`: `{` in a type position (after `->`) is an ability
+- `parser.rs:1943` `row`: `{` in a type position (after `->`) is an ability
   row.
-- `crates/elab/src/records.rs:447` `ctor_fields`: if the name is a
-  constructor, the braces name its fields; if not (`not_a_ctor`, line 545),
+- `crates/elab/src/records.rs:466` `ctor_fields`: if the name is a
+  constructor, the braces name its fields; if not (`not_a_ctor`, line 564),
   the braces become a record-literal argument again. That fallback is why
   `Mk { … }` works for an uppercase function.
-- `records.rs:384` `unknown_ctor_field`: the second note, given when the
+- `records.rs:398` `unknown_ctor_field`: the second note, given when the
   constructor's one field holds a record that has every name written.
 
 ### Why it is this way
