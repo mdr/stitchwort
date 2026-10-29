@@ -1,0 +1,74 @@
+# Part 2 method per FP file, from two read-only reader agents (29 Oct 2026), rubric in the note §2.
+# author	language	category	prefix-sum	notes
+Andrew-42	Haskell	EDGE+IN	n	strict crossings plus ray cast of the two other corners
+Casper-Guo	Scala	SHAPE	n	hard-codes notch y 50285/48466
+CodeFarmer	Clojure	NONE	n	stub
+FizzyElt	OCaml	EDGE	n	strict open-interior test
+GuillaumedeVolpiano	Haskell	EDGE+IN	n	heap popped until valid; ray cast of other corners
+JavadocMD	Scala	OTHER	n	loop offset one tile outward; rectangle sides must not touch it; assumes clockwise
+JustinKasteleijn	Haskell	EDGE	n	credits NerdyPepper
+PP6464	Haskell	EDGE	n	nine regions round the rectangle
+Philippus	Scala	OTHER	n	PIP on 1500 random points then every tile; "takes around 1,5 hr"
+TheScown	Scala	EDGE+IN	n	~200 s (Reddit)
+Zenor27	Gleam	NONE	n	part2 returns Ok(1)
+aguluman	OCaml	EDGE+IN	n	corner PIP plus samples
+ak-coram	Common Lisp	OTHER	n	DuckDB spatial ST_Within
+albertdahlin	Elm	PERIM	n	compressed perimeter cells, orientation-sensitive
+alex800121	Haskell	SWEEP	n	y-intervals per x; 6 ms (Reddit)
+arnemart	Clojure	SHAPE	n	finds >10000-long notch edge
+b-valdez	OCaml	EDGE+IN	n	centre parity
+beefyhalo	Haskell	EDGE	n
+bjoli	OCaml	EDGE+IN	n	half-offset point test
+blfuentes	F#	EDGE	n	~4 s (Reddit)
+bmatcuk	Gleam	EDGE	n	"probably wouldn't work in a general case"
+bucsi	Gleam	NONE	n	unfinished scanline paint
+chrg127	Racket	OTHER	n	x-sweep splits polygon into rectangles; area sum
+claytonflesher	Elixir	EDGE+IN	n
+cod1r	OCaml	EDGE+IN	n
+damirarh	F#	EDGE	n
+danvk	Haskell	PERIM	n	every perimeter tile; relies on no xs/ys 1 apart (Reddit)
+devries	Gleam	EDGE+IN	n
+genmeblog	Clojure	OTHER	n	java.awt Path2D .contains
+glguy	Haskell	OTHER	n	box algebra: outer box minus strips, exterior boxes
+guillheu	Gleam	EDGE	n
+gulllberg	Clojure	OTHER	n	outward offset boundary from hand-given start; 29.8 s
+houli	Gleam	EDGE	n	possibly buggy
+jelaby	Scala	OTHER	n	edges shifted one tile outward
+jstnlef	F#	OTHER	n	SkiaSharp SKRegion.Contains
+kfc35	Gleam	OTHER	n	"TODO this does not work for convex..."
+KacperKopiec	OCaml	COMPRESS-FILL	y	BFS outside, 2D prefix sum, no gap cells
+khuepr123	Haskell	COMPRESS-FILL	y	parity scanline fill + 2D prefix sum (= glistering_knight on Reddit)
+killertux	Gleam	OTHER	n	vertex strictly inside + ray along diagonal
+lasseebert	Elixir	NONE	n	returns 0
+lboshuizen	F#	EDGE	n	Array.Parallel; 5 s, ~1 s parallel (Reddit)
+lukaskollmer	OCaml	OTHER	n	full-resolution grid PIP, likely broken
+lupari	Scala	EDGE	n	no perimeter tile strictly inside
+markpattison	F#	SHAPE	n	hard-coded notch indices 248/249
+massung	Haskell	NONE	n	stubs
+matajoh	F#	EDGE	n
+maxhille	Elm	EDGE+IN	n
+mbacarella	OCaml	EDGE	n
+merlinorg	Scala	EDGE	n	"not really lawful, there could be two adjacent parallel lines"
+miguel-negrao	Haskell	PERIM	n	continuous split of sides; "checked by Z3"; 5.6 s; "5 weeks"
+mstksg	Haskell	SWEEP	n	interval map / IntervalSet
+mtravers	Clojure	SHAPE	n	hard-coded notch points
+narimiran	Clojure	EDGE	n	replaced a compress-and-fill version
+nicuveo	Haskell	OTHER	n	orientation gives inward directions at corners
+nikola-benes	Elixir	EDGE	n	"assumption: green lines never touch (true for my input)"
+phibr0	OCaml	EDGE	n
+pillsgood	F#	EDGE	n	unsure which edges
+python-b5	Lily	EDGE	n	"just under a second" (Reddit)
+rolandtritsch	Scala	COMPRESS-FILL	y	even-odd ray per block, gap blocks
+ryoung786	Elixir	EDGE	n	may miss crossings
+shnarazk	OCaml	COMPRESS-FILL	n	8-neighbour flood; per-cell scan
+sim642	Scala	COMPRESS-FILL	y	"Grid compression assumes no adjacent coordinates occur."; ~8.5 s first version (Reddit)
+sondresl	Haskell	EDGE	n	lazy head of descending sort
+spencerwi	F#	NONE	n	returns "the right answer"
+sreetamdas	Elixir	PERIM	n	268 ms; answer suspect
+stanosphere	Haskell	EDGE	n
+tilltheis	Gleam	EDGE	n
+tomas81508	Clojure	OTHER	n	outward boundary from hand-given point; 21.8 s
+trajafri	Haskell	EDGE	n	inner ring must hold no loop tile
+vorber	F#	EDGE	n	(mvorber on Reddit) "no 'touching' edges in the input"
+wisq	Elixir	EDGE	n	Task.async_stream parallel
+MrCrLr	Elixir	NONE	n	part 1 only
