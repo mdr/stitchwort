@@ -1485,6 +1485,13 @@ fn fresh_function_type_in(
     let dom = cx.fresh_meta();
     let mark = cx.mark();
     let dom_value = cx.eval(&dom)?;
+    // Noted now, not only once the lambda is checked: a case split in its
+    // body unpins it from the matched variable ([`unpin_parameter_types`]).
+    if let Value::Neutral(Head::Meta(m), _) = force(cx.g(), dom_value.clone())? {
+        cx.e.parameter_metas
+            .borrow_mut()
+            .insert(m, name.to_string());
+    }
     cx.bind_hidden(name.clone(), dom_value);
     let cod = fresh_function_type_in(cx, rest, body);
     cx.reset(mark);
@@ -1564,6 +1571,36 @@ fn note_parameter_metas(cx: &mut Ctx, ty: &Value) -> Result<()> {
         }
         rest = force(g, cod.apply(g, Value::var(level))?)?;
         level += 1;
+    }
+    Ok(())
+}
+
+/// Before a case split on variable `level`: the type of each variable in
+/// scope that is still the unknown made up for an unannotated lambda's
+/// parameter (`x => …`, nothing written) can't depend on `level`, so the
+/// split's substitution leaves it as it is (SW-873). Otherwise, in
+/// `x => match k with | 0 => g x | …`, `x` would have type `?t k` and, in
+/// each arm, `?t 0`, which no type solves when `g x` asks for a `Nat`. A
+/// type written by the user, or one already worked out, is never touched:
+/// only an unknown in `parameter_metas`, as the parameter's whole type, is,
+/// so dependent matching on a written type works as before. The unknown
+/// standing for the pruned one is noted in its place, for a later split
+/// and for the message if nothing works it out.
+pub(crate) fn unpin_parameter_types(cx: &Ctx, level: usize) -> Result<()> {
+    let g = cx.g();
+    for ty in &cx.types {
+        let Value::Neutral(Head::Meta(m), _) = force(g, ty.clone())? else {
+            continue;
+        };
+        let Some(name) = cx.e.parameter_metas.borrow().get(&m).cloned() else {
+            continue;
+        };
+        crate::unify::prune_variable(g, ty, level)?;
+        if let Value::Neutral(Head::Meta(m2), _) = force(g, ty.clone())?
+            && m2 != m
+        {
+            cx.e.parameter_metas.borrow_mut().insert(m2, name);
+        }
     }
     Ok(())
 }
