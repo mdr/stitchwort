@@ -386,25 +386,45 @@ fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
             let Some(name) = name else {
                 continue;
             };
+            // A binary expression's span starts at its left operand's, and
+            // brackets around that operand aren't part of it: the argument
+            // `(a || b) = True` of `Not ((a || b) = True)` spans from `a`.
+            // Its start is moved back over the `(`s its own `)`s close.
+            let bytes = text.as_bytes();
+            let end = span.end as usize;
+            let mut start = span.start as usize;
+            let mut depth = 0i32;
+            let mut unopened = 0;
+            for b in &bytes[start..end] {
+                depth += match b {
+                    b'(' => 1,
+                    b')' => -1,
+                    _ => 0,
+                };
+                unopened = unopened.max(-depth);
+            }
+            for _ in 0..unopened {
+                start = bytes[..start]
+                    .iter()
+                    .rposition(|b| !b.is_ascii_whitespace())
+                    .filter(|&i| bytes[i] == b'(')
+                    .expect("an operand's brackets");
+            }
             // An argument already in brackets is named inside them, so a
             // block in it (`f (\n  let …`) keeps its layout.
-            let bytes = text.as_bytes();
-            let before = bytes[..span.start as usize]
+            let before = bytes[..start]
                 .iter()
                 .rposition(|b| !b.is_ascii_whitespace());
-            let after = bytes[span.end as usize..]
-                .iter()
-                .position(|b| !b.is_ascii_whitespace());
+            let after = bytes[end..].iter().position(|b| !b.is_ascii_whitespace());
             match (before, after) {
-                (Some(open), Some(close))
-                    if bytes[open] == b'(' && bytes[span.end as usize + close] == b')' =>
-                {
+                (Some(open), Some(close)) if bytes[open] == b'(' && bytes[end + close] == b')' => {
                     inserts.push((open as u32 + 1, i64::MAX, format!("{name} := ")));
                 }
                 _ => {
-                    let width = i64::from(span.end - span.start);
-                    inserts.push((span.start, width, format!("({name} := ")));
-                    inserts.push((span.end, -width, ")".to_string()));
+                    let (start, end) = (start as u32, end as u32);
+                    let width = i64::from(end - start);
+                    inserts.push((start, width, format!("({name} := ")));
+                    inserts.push((end, -width, ")".to_string()));
                 }
             }
             count += 1;
