@@ -131,6 +131,16 @@ named `decide` as a rejected name for it because `auto` already runs decision pr
 | day 12 as option (b), by hand | `List.all` over `[False, True]` four times, one `rfl`, `Finite.check` four times | checks | check 0.5 + 0.2; statement 1.2 + 0.6 |
 | 2^10, 2^14, 2^16 cases | one `rfl` on a nested `List.all` | checks | 37 + 29; 773 + 596; 3485 + 2626 |
 
+**The statement's form matters** [run, by the coordinator on the real file, 29 October 2026].
+In `Corners.sw` as written, `rowEndsSplit`'s variables are bound after the colon
+(`theorem rowEndsSplit: (plot: Bool) → … → …`). Replacing its 16 arms with `:= cases` in that
+form fails with `E-CASES`: "the goal isn't stuck on anything `cases` can take apart". Restated with
+the variables before the colon (`theorem rowEndsSplit (plot: Bool) (out: Bool) (side: Bool)
+(sideOut: Bool): … := cases`), as the prototype writes it, the real file's
+`Aoc.Year2024.Day12.Proofs` checks with `--no-cache`. So converting days 12 and 21 means
+restating those theorems too, and a `cases` that introduced leading `Π` variables itself would
+remove the difference. The file was restored afterwards; nothing in `aoc/` changed.
+
 `everyNumericKey` fails because `key ∈ numericKeys` computes to a disjunction of propositions,
 `Digit0 = key ∨ Digit1 = key ∨ …`, which isn't stuck on `key`: nothing in it is a `case` on a
 value [run; checked: syntax.md:1652, "doesn't take apart … propositions"].
@@ -406,17 +416,17 @@ The recommendation depends on these; if one is wrong, so is the part that rests 
 
 ## 9. Decisions for Matt
 
-**D1960. Close SW-800 by extending `cases` (a decision closer at the leaves, and splitting a
+**D1971. Close SW-800 by extending `cases` (a decision closer at the leaves, and splitting a
 finite variable when nothing is stuck), with no new `decide` word?** [yes]. Alternative: a `decide`
 word evaluating `Decidable` instances as Lean does (option (a)); it can't do day 21's
 `tabulateSame` and doesn't show the failing case.
 
-**D1961. Build SW-807 as a derived `Finite` interface (a list of every value with a completeness
+**D1972. Build SW-807 as a derived `Finite` interface (a list of every value with a completeness
 proof) and `Finite.check`, for non-recursive constructor types with finite fields?** [yes, after
-D1960's conversion of days 12 and 21]. Alternative: enumerations only, as Haskell's `Enum`; day
+D1971's conversion of days 12 and 21]. Alternative: enumerations only, as Haskell's `Enum`; day
 21's `DirectionKey` has a field and would be left out.
 
-**D1962. Never add native evaluation as a proof (`native_decide`)?** [never, until a proof needs
+**D1973. Never add native evaluation as a proof (`native_decide`)?** [never, until a proof needs
 more than about 10 s of kernel evaluation; then revisit with that proof]. Alternative: trust the
 fast runtime for closed `Bool`s, adding it to the trusted base.
 
