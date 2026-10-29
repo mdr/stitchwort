@@ -57,11 +57,11 @@ fn each_shared_field_gets_one_per_shared_field() {
     );
     // The same field: the new value. Another: the old value's.
     assert!(
-        found[0].ends_with(").ref = ref") && found[0].contains("(x: Shape) → (ref: Nat) →"),
+        found[0].ends_with("}.ref = ref") && found[0].contains("(x: Shape) → (ref: Nat) →"),
         "{}",
         found[0]
     );
-    assert!(found[1].ends_with(").id = x.id"), "{}", found[1]);
+    assert!(found[1].ends_with("}.id = x.id"), "{}", found[1]);
 }
 
 #[test]
