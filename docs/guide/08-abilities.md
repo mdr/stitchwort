@@ -241,6 +241,8 @@ Input in sections of one kind is `sections (() => lines nat)`. When the sections
 
 For matches scattered through noise, `findAll parser` gives the value of every match, left to right, as Python's `re.findall` does; it tries `parser` at each character, so it's right for any parser. When a match can only start at certain characters, `findAllStarting (char => char == 'm') parser` skips the others in one step, which is several times faster on large input. `natDigits 1 3` reads a number of one to three digits, `repeat 2 4 parser` reads two to four of something, and `Parse.ensureAt start ok message` reports a failed check where `start` was marked rather than where the parse has got to.
 
+Text read only to be skipped, such as the `,` between two numbers, can go inside an argument with a sequence `(a; b)`: it runs `a`, then gives `b`'s value, as two lines of a block would. `before ")"` reads closing text after a value is built, since `|>` runs its left side first. Together they put a rule on one line: `Mul (text "mul("; natDigits 1 3) (char ','; natDigits 1 3) |> before ")"` reads `mul(44,46)` as `Mul 44 46`, with the same errors as the six lines `text "mul("`, `let left := natDigits 1 3`, `char ','`, `let right := natDigits 1 3`, `char ')'`, `Mul left right` (`examples/accept/sequence-expression.sw`).
+
 ## `IO` and `main`
 
 `IO` has three operations: `IO.print` (writes a line), `IO.readLine()` (the next line, or `None` at the end of the input) and `IO.readAll()` (the rest of the input). `IO.readAllLines()` is the input as a list of lines.

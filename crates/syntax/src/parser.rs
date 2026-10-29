@@ -500,6 +500,11 @@ struct Parser<'t> {
     /// Whether an `at` outside brackets, after the first token, ends the
     /// `rewrite` rule too: true for a rule, false for the target after `at`.
     rewrite_at: bool,
+    /// While a `let`'s value is being parsed: the token the `let` starts
+    /// at. A `;` outside brackets opened since ends the value (the
+    /// expression `let`'s body follows it), so it doesn't start a sequence
+    /// `a; b` (SW-888). A block resets it.
+    let_value: Option<usize>,
     /// For each opening bracket (`(`, `[`, `{`), the index of its partner,
     /// and `NO_PARTNER` for every other token and for unmatched brackets.
     /// Built once per declaration, so that skipping a bracketed group is one
@@ -611,6 +616,7 @@ impl<'t> Parser<'t> {
             calc_depth: 0,
             rewrite_rule: None,
             rewrite_at: false,
+            let_value: None,
             matching: match_brackets(tokens),
             stack,
         }
@@ -1735,6 +1741,12 @@ impl<'t> Parser<'t> {
     /// `many` false, just one line.
     fn block(&mut self, column: u32, many: bool) -> Result<Expr> {
         let saved = (self.limit, self.allow);
+        // A new block's lines may be sequences, even inside a `let`'s value;
+        // a line continuing the one before (`many` false) stays in it.
+        let let_value = self.let_value;
+        if many {
+            self.let_value = None;
+        }
         self.limit = Some(column);
         let mut stmts = Vec::new();
         let result = loop {
@@ -1748,6 +1760,7 @@ impl<'t> Parser<'t> {
             }
         };
         (self.limit, self.allow) = saved;
+        self.let_value = let_value;
         result?;
         let mut rest = match stmts.pop() {
             Some(Stmt::Expr(e)) => e,
@@ -1897,6 +1910,7 @@ impl<'t> Parser<'t> {
     /// `let p := e`, or `let p : T := e`; the type may contain `=`.
     #[inline(never)]
     fn let_statement(&mut self) -> Result<Stmt> {
+        let start_index = self.pos;
         let start = self.bump().span;
         let pattern = self.let_pattern()?;
         let ty = if self.eat(&Tok::Colon) {
@@ -1908,7 +1922,10 @@ impl<'t> Parser<'t> {
             return Err(self.def_equals());
         }
         self.expect(Tok::ColonEq, "`:=`")?;
-        let value = self.expr()?;
+        let outer = self.let_value.replace(start_index);
+        let value = self.expr();
+        self.let_value = outer;
+        let value = value?;
         Ok(match pattern {
             Pattern::Var(name) => Stmt::Let(name, ty, value, start),
             pattern => Stmt::LetPattern(pattern, ty, value, start),
@@ -2747,7 +2764,55 @@ impl<'t> Parser<'t> {
         if section {
             sections::widen(&mut lhs);
         }
+        if self.peek() == Some(&Tok::Semi) && self.sequence_ahead() {
+            return self.sequence(lhs);
+        }
         Ok(lhs)
+    }
+
+    /// Whether the `;` at the current token continues a sequence `a; b`
+    /// rather than ending a `let`'s value (`let x := a; body`): it does
+    /// unless a `let`'s value is being parsed and the `;` isn't inside
+    /// brackets opened since that `let`.
+    #[inline(never)]
+    fn sequence_ahead(&self) -> bool {
+        let Some(start) = self.let_value else {
+            return true;
+        };
+        let depth = self.tokens[start..self.pos]
+            .iter()
+            .fold(0i64, |d, t| match t.tok {
+                Tok::LBracket | Tok::LParen | Tok::LBrace => d + 1,
+                Tok::RBracket | Tok::RParen | Tok::RBrace => d - 1,
+                _ => d,
+            });
+        depth > 0
+    }
+
+    /// `a; b`, after `a`: run `a`, then give `b`'s value (SW-888, D1700).
+    /// The same tree as the block lines `a` and `b`, so `a; b; c` is
+    /// `Seq(a, Seq(b, c))` and `a; let x := e; b` binds `x` for `b`. The
+    /// rest runs as far as an expression can, as an expression `let`'s body
+    /// does.
+    #[inline(never)]
+    fn sequence(&mut self, first: Expr) -> Result<Expr> {
+        let semi = self.bump().span;
+        let at_end = self
+            .peek()
+            .is_none_or(|t| matches!(t, Tok::RParen | Tok::RBracket | Tok::RBrace | Tok::Comma));
+        if at_end {
+            let message =
+                "`;` needs an expression after it: `(a; b)` runs `a`, then gives `b`'s value";
+            // The next line is the block's next line, which needs no `;`.
+            let note = if self.tokens.get(self.pos).is_some_and(|t| t.line_start) {
+                "the next line starts a new line of the block: leave out the `;` at the end of this one"
+            } else {
+                "`;` goes between two expressions: leave out a `;` at the end"
+            };
+            return Err(error(semi, message).with_note(note));
+        }
+        let rest = self.expr()?;
+        Ok(Expr::Seq(Box::new(first), Box::new(rest)))
     }
 
     /// `p <-> q`, after `p`: `Iff p q` (D1202). Looser than `&&` and `||`,
@@ -5220,6 +5285,72 @@ mod tests {
         assert!(m.contains("`let` needs a body after `;`"), "{m}");
     }
 
+    /// `a; b` is the tree the block lines `a` and `b` make (SW-888, D1700).
+    #[test]
+    fn a_sequence_is_block_lines() {
+        let block = rhs("def f (n : Nat) : Nat :=\n  a\n  let x := b\n  c\n  x\n");
+        for text in [
+            "def f (n : Nat) : Nat := (a; let x := b; c; x)\n",
+            "def f (n : Nat) : Nat := a; let x := b; c; x\n",
+            "def f (n : Nat) : Nat :=\n  a\n  let x := b; c; x\n",
+            "def f (n : Nat) : Nat :=\n  a\n  let x := b\n  c; x\n",
+            "def f (n : Nat) : Nat :=\n  (a;\n    let x := b; c; x)\n",
+        ] {
+            let e = rhs(text);
+            let e = match &e {
+                Expr::Bracketed(inner, _) => inner,
+                e => e,
+            };
+            assert_eq!(lines(e), lines(&block), "{text}");
+            assert_eq!(shape(e), shape(&block), "{text}");
+        }
+    }
+
+    #[test]
+    fn sequence_precedence() {
+        let cases = [
+            // Looser than everything else, so it runs to the right.
+            ("a; b; c", "(; a (; b c))"),
+            ("f a; g b", "(; (f a) (g b))"),
+            ("a |> f; b", "(; (|> a f) b)"),
+            ("a; b |> f", "(; a (|> b f))"),
+            ("x => a; b", "(=> (; a b))"),
+            ("if a then b; x else y; f", "(if (; b x) (; y f))"),
+            // It ends at a comma, as a `let`'s body does.
+            ("(a; b, f)", "(, (; a b) f)"),
+            // In a `let`, a `;` after the value starts the body.
+            ("(let z := a; b; f)", "(let z a (; b f))"),
+            ("(let z := x => a; b)", "(let z (=> a) b)"),
+            ("(let z := if a then b else x; y)", "(let z (if b x) y)"),
+            ("(let z := let w := a; w; z)", "(let z (let w a w) z)"),
+            // Unless the `;` is in brackets inside the value.
+            ("(let z := (a; b); z)", "(let z (; a b) z)"),
+            ("(let z := f (a; b); z)", "(let z (f (; a b)) z)"),
+            ("(a; let z := b; z)", "(; a (let z b z))"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(shape_of(text), want, "{text}");
+        }
+    }
+
+    #[test]
+    fn a_sequence_needs_an_expression_after_the_semicolon() {
+        for text in [
+            "def f (n : Nat) : Nat := (a;)\n",
+            "def f (n : Nat) : Nat := (a; b;)\n",
+            "def f (n : Nat) : (Nat, Nat) := (a;, b)\n",
+            "def f (n : Nat) : Nat := (let x := n; x;)\n",
+            // A `;` ending a block's line: the next line is a new statement.
+            "def f (n : Nat) : Nat :=\n  a;\n  b\n",
+        ] {
+            let m = rhs_of(text).unwrap_err().message;
+            assert!(
+                m.contains("`;` needs an expression after it"),
+                "{text}: {m}"
+            );
+        }
+    }
+
     #[test]
     fn rejects_malformed_matches() {
         let fails = |text: &str| rhs_of(text).is_err();
@@ -5323,6 +5454,16 @@ mod tests {
             Expr::Bracketed(x, _) => shape(x),
             Expr::Lam(_, body, _) => format!("(=> {})", shape(body)),
             Expr::Pipe(a, b) => format!("(|> {} {})", shape(a), shape(b)),
+            Expr::Seq(a, b) => format!("(; {} {})", shape(a), shape(b)),
+            Expr::Let {
+                name, value, body, ..
+            } => {
+                format!("(let {} {} {})", name.text, shape(value), shape(body))
+            }
+            Expr::Tuple(a, b, _) => format!("(, {} {})", shape(a), shape(b)),
+            Expr::If {
+                then, otherwise, ..
+            } => format!("(if {} {})", shape(then), shape(otherwise)),
             Expr::Interpolated(x, _) => format!("${{{}}}", shape(x)),
             Expr::Neg(x, _, _) => format!("(- {})", shape(x)),
             Expr::App(f, a) => format!("({} {})", shape(f), shape(a)),
