@@ -83,6 +83,13 @@ impl From<stitchwort_core::budget::ResourceError> for Stop {
 
 type R<T> = std::result::Result<T, Stop>;
 
+/// An extra binder for `member_pi`: its name, and its type built at the
+/// depth it's given.
+type Extra<'a> = (Name, &'a dyn Fn(usize) -> R<Term>);
+
+/// An `Extra` that owns its type builder.
+type OwnedExtra = (Name, Box<dyn Fn(usize) -> R<Term>>);
+
 /// How a field's type holds the type being looked at (the *owner*: `T` for
 /// its induction principle, a container `D` for its `All`), read from the
 /// type in its generic context: the owner's parameters, then the earlier
@@ -1227,7 +1234,7 @@ impl Elaborator {
         &self,
         st: &Gen,
         m: usize,
-        extra: &[(Name, &dyn Fn(usize) -> R<Term>)],
+        extra: &[Extra<'_>],
         result: &dyn Fn(usize, usize) -> R<Term>,
     ) -> R<Term> {
         let g = &self.globals;
@@ -1334,11 +1341,11 @@ impl Elaborator {
             return Ok(());
         };
         let mut lemma = vec![None; st.members.len()];
-        for m in 0..st.members.len() {
+        for (m, slot) in lemma.iter_mut().enumerate() {
             if self.list_of_t(st, &st.members[m].data, &st.members[m].preds).is_some()
                 && sizes.members[m].is_some()
             {
-                lemma[m] = Some(self.define_member_size_mem(st, &sizes, m)?);
+                *slot = Some(self.define_member_size_mem(st, &sizes, m)?);
             }
         }
         let d = st.d;
@@ -2067,7 +2074,7 @@ impl Elaborator {
             case_tys.push(self.case_type(st, c, motive, motive + 1 + c, false)?);
         }
         let names = self.case_names(st.d);
-        let mut extra: Vec<(Name, Box<dyn Fn(usize) -> R<Term>>)> = Vec::new();
+        let mut extra: Vec<OwnedExtra> = Vec::new();
         {
             let t = motive_ty.clone();
             extra.push(("motive".into(), Box::new(move |_| Ok(t.clone()))));
@@ -2076,7 +2083,7 @@ impl Elaborator {
             let t = case_tys[c].clone();
             extra.push((names[c].clone(), Box::new(move |_| Ok(t.clone()))));
         }
-        let extra_refs: Vec<(Name, &dyn Fn(usize) -> R<Term>)> =
+        let extra_refs: Vec<Extra<'_>> =
             extra.iter().map(|(x, f)| (x.clone(), f.as_ref())).collect();
         let member = &st.members[m];
         let probe = Pred::All {
