@@ -511,6 +511,13 @@ fn no_duplicates(cx: &Ctx, labels: &[Label]) -> Result<()> {
 /// for a row variable `e`: the row (partial for a `Delay`, bare for a
 /// `CompIn`) and the result type.
 pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
+    comp_parts_at(cx, cx.level(), ty)
+}
+
+/// [`comp_parts`] for a type with `level` variables in scope: `cx`'s, and
+/// those of the binders a caller walked past without binding them in `cx`
+/// (as [`performs_after`] walks a function type's parameters).
+pub fn comp_parts_at(cx: &Ctx, level: usize, ty: &Value) -> Result<Option<(Row, Value)>> {
     let Ok(comp) = data(cx, Builtin::Comp) else {
         return Ok(None);
     };
@@ -551,7 +558,7 @@ pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
             }
         }
         Value::Data(d, args) if d == comp => match decode(cx, &args[0])? {
-            Some(row) if fits_row(cx, &row, &args[1])? => Some((row, args[2].clone())),
+            Some(row) if fits_row(cx, level, &row, &args[1])? => Some((row, args[2].clone())),
             _ => None,
         },
         Value::Neutral(Head::Def(d), spine) if Some(d) == delay && spine.len() == 3 => {
@@ -561,7 +568,7 @@ pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
             };
             match (arg(0), arg(1), arg(2)) {
                 (Some(op), Some(res), Some(t)) => match decode(cx, &op)? {
-                    Some(row) if fits_row(cx, &row, &res)? => Some((
+                    Some(row) if fits_row(cx, level, &row, &res)? => Some((
                         Row {
                             partial: true,
                             div: None,
@@ -588,30 +595,23 @@ pub fn comp_parts(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value)>> {
 /// unknown in it, it's taken to be the row's, as before. A row with a
 /// partial group's private recursion signature ([`REC`]) is one only the
 /// elaborator writes, while describing the group, so it's taken as it is.
-fn fits_row(cx: &Ctx, row: &Row, res_arg: &Value) -> Result<bool> {
+fn fits_row(cx: &Ctx, level: usize, row: &Row, res_arg: &Value) -> Result<bool> {
     if row.labels.iter().any(|l| l.ability == REC) {
         return Ok(true);
     }
     let own = res(cx, row)?;
-    Ok(same_results(cx, res_arg, &own)?.unwrap_or(true))
+    Ok(same_results(cx, level, res_arg, &own)?.unwrap_or(true))
 }
-
-/// How far above `cx.level()` [`same_results`] compares. Some callers of
-/// [`comp_parts`] look at a type under binders they haven't added to `cx`
-/// ([`performs_after`] walks a function type's parameters), so its values
-/// can mention variables at `cx.level()` and above; a comparison whose
-/// fresh variables start this far up can't confuse one with them.
-const RESULTS_SLACK: usize = 1 << 16;
 
 /// Whether the results `written` in a computation type are `own`, a row's:
 /// `None` while either has an unknown in it. Compared by unification, which
 /// sees a solved unknown as its solution, with nothing to solve: the
 /// kernel's conversion compares unknowns by their numbers, so to it
 /// `PlusRes IO.res (rowRes ?e)` with `?e` solved as `e` isn't
-/// `PlusRes IO.res (rowRes e)` (`accept/adder.sw`).
-fn same_results(cx: &Ctx, written: &Value, own: &Value) -> Result<Option<bool>> {
+/// `PlusRes IO.res (rowRes e)` (`accept/adder.sw`). `level` variables are
+/// in scope ([`comp_parts_at`]).
+fn same_results(cx: &Ctx, level: usize, written: &Value, own: &Value) -> Result<Option<bool>> {
     let g = cx.g();
-    let level = cx.level() + RESULTS_SLACK;
     let unknown = |v: &Value| -> Result<bool> {
         let t = stitchwort_core::value::quote(g, level, v)?;
         Ok(t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))
@@ -627,7 +627,7 @@ fn same_results(cx: &Ctx, written: &Value, own: &Value) -> Result<Option<bool>> 
 /// in them (`Comp NoOp ?r Nat`).
 pub(crate) fn results_unsettled(cx: &Ctx, ty: &Value) -> Result<bool> {
     Ok(match written_results(cx, ty)? {
-        Some((_, written, own)) => same_results(cx, &written, &own)?.is_none(),
+        Some((_, written, own)) => same_results(cx, cx.level(), &written, &own)?.is_none(),
         None => false,
     })
 }
@@ -641,7 +641,7 @@ pub(crate) fn settle_results(cx: &mut Ctx, ty: &Value) -> Result<bool> {
     let Some((_, written, own)) = written_results(cx, ty)? else {
         return Ok(true);
     };
-    Ok(match same_results(cx, &written, &own)? {
+    Ok(match same_results(cx, cx.level(), &written, &own)? {
         Some(same) => same,
         None => crate::undo::unify(cx, &written, &own)?,
     })
@@ -682,7 +682,7 @@ pub(crate) fn foreign_results_notes(cx: &Ctx, expected: &Value) -> Result<Vec<St
     let Some((row, written, own)) = written_results(cx, expected)? else {
         return Ok(Vec::new());
     };
-    if fits_row(cx, &row, &written)? {
+    if fits_row(cx, cx.level(), &row, &written)? {
         return Ok(Vec::new());
     }
     let parts: Vec<String> = row.labels.iter().map(|l| ability_name(cx, l)).collect();
@@ -1393,7 +1393,13 @@ pub fn unknown_bare_value(cx: &Ctx, ty: &Value) -> Result<Option<Value>> {
 /// the empty one, so `ty` is `T`; anything else is left alone. For a value
 /// of a pure context, which can't be a computation (`check::pure_first`).
 pub fn settle_empty(cx: &Ctx, ty: &Value) -> Result<()> {
-    if let Some((row, _)) = comp_parts(cx, ty)?
+    settle_empty_at(cx, cx.level(), ty)
+}
+
+/// [`settle_empty`] for a type with `level` variables in scope
+/// ([`comp_parts_at`]) whose row is made in `cx`.
+fn settle_empty_at(cx: &Ctx, level: usize, ty: &Value) -> Result<()> {
+    if let Some((row, _)) = comp_parts_at(cx, level, ty)?
         && unknown_bare(cx, &row)?
     {
         if let Some(d) = &row.div {
@@ -1422,7 +1428,7 @@ pub fn settle_let_lambda(cx: &Ctx, value: &Expr, ty: Value) -> Result<Value> {
         rest = force(g, cod.apply(g, Value::var(level))?)?;
         level += 1;
     }
-    let Some((row, _)) = comp_parts(cx, &rest)? else {
+    let Some((row, _)) = comp_parts_at(cx, level, &rest)? else {
         return Ok(ty);
     };
     if !unknown_bare(cx, &row)? {
@@ -1430,7 +1436,7 @@ pub fn settle_let_lambda(cx: &Ctx, value: &Expr, ty: Value) -> Result<Value> {
     }
     // The row is made outside the parameters, so it's settled where the
     // lambda stands.
-    crate::rows::settling_empty(cx, || settle_empty(cx, &rest))?;
+    crate::rows::settling_empty(cx, || settle_empty_at(cx, level, &rest))?;
     cx.eval(&cx.quote(&ty)?)
 }
 
@@ -1789,7 +1795,7 @@ fn pi_slots(cx: &Ctx, mut ty: Value) -> Result<Vec<ParamSlot>> {
     let mut level = cx.level();
     let mut out = Vec::new();
     loop {
-        if comp_parts(cx, &ty)?.is_some() {
+        if comp_parts_at(cx, level, &ty)?.is_some() {
             return Ok(out);
         }
         match force(g, ty)? {
@@ -2395,7 +2401,7 @@ fn performs_after(cx: &Ctx, mut ty: Value, mut explicit: usize) -> Result<bool> 
     let g = cx.g();
     let mut level = cx.level();
     loop {
-        if let Some((row, _)) = comp_parts(cx, &ty)? {
+        if let Some((row, _)) = comp_parts_at(cx, level, &ty)? {
             return Ok(!(row.is_bare() && cx.e.bare_rows_pure.get()));
         }
         match force(g, ty)? {

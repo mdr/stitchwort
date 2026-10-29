@@ -1596,7 +1596,7 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
                 level += 1;
             }
             other if explicit == 0 => {
-                let value = match crate::effects::comp_parts(cx, &other)? {
+                let value = match crate::effects::comp_parts_at(cx, level, &other)? {
                     Some((_, value)) => value,
                     None => other,
                 };
