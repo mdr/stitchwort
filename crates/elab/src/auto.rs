@@ -432,7 +432,10 @@ fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
                     let Value::Pi(_, icit, dom, cod) = force(g, lemma_ty)? else {
                         return Ok(None);
                     };
-                    if !matches!(force(g, cod.apply(g, Value::var(cx.level()))?)?, Value::Pi(..)) {
+                    if !matches!(
+                        force(g, cod.apply(g, Value::var(cx.level()))?)?,
+                        Value::Pi(..)
+                    ) {
                         if !cx.unify(&dom, &ty)? {
                             return Ok(None);
                         }
@@ -518,7 +521,8 @@ fn size_lemmas(cx: &Ctx, t: DataId) -> Vec<DefId> {
     for ctor in &cx.g().data(t).ctors {
         for i in 0..ctor.fields.len() {
             let member = format!("%{}%{i}%sizeMem", ctor.name);
-            if let Some((Global::Def(id), _)) = e.scope.get(&Elaborator::member_key(&key, &member)) {
+            if let Some((Global::Def(id), _)) = e.scope.get(&Elaborator::member_key(&key, &member))
+            {
                 found.push(id);
             }
         }
