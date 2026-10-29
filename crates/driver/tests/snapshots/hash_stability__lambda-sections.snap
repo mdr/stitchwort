@@ -23,9 +23,9 @@ Main.test "a section to the end of the expression" 8b4cc9d00a6c0d686be739c3b786f
 Main.test "the same as the lambda" fd68d0a4fdb1325b87aefecdfb0222f7d63196789ca28c0348b22f6fe102a96d
 Main.late c8e37600135e2f3c4afb863d1bbb47f7c7546a5185dd1d486de0d5cd53ce3d9f
 Main.test "arithmetic after the section" 57bbc745863a64f2a8c192058d62851d55e0806fe076aa0164845844aa673caa
-Main.test "a section after a pipe" 8fef162df5ff03a658537050b1c9195b844c3ac6783d96aa03a17fd8fdc8eb87
-Main.total 3b25173953a82f7779d6b9954a59fe8aab244d67655f83de87f7571af08724d9
-Main.test "a pipe inside the section" 738d8bcad785a76542a13d5c4b13787988498ee3f970c965c01cf8773e2315de
+Main.test "a section after a pipe" 85d0c5806e640ab24a39f5d93b524effa11729ff4047478943cbbb4dea3af818
+Main.total c50a2f65e5a7d84e6359165c175ed5a7c98c22c42b6c29ea72a4cceadf47539b
+Main.test "a pipe inside the section" ea68567d202f44407436720107d9ffc0a6de47709f369a308bb9284a4bdb8bd4
 Main.sIndex f5ba5a126b7f8dd46ecdcbf8bc94558e6cb3d42018a184e132ab2704bbe115c6
 Main.test "an operator section" 45e88a44d88e06e1ee3a88910b271559288ecfec87d37237de8ab5f5af1ebf2d
 Main.test "a comparison section" 2d4d120a90b46e54e534657dc15b35d44f7368139495d029deb314beb4a95f67
