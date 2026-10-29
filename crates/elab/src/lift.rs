@@ -494,10 +494,10 @@ pub(crate) fn within(outer: Span, inner: Span) -> bool {
     outer.file == inner.file && outer.start <= inner.start && inner.end <= outer.end
 }
 
-/// The keys of a batch of drafts: a local definition's own; a `match`'s
-/// numbered in source order within the innermost local definition it's in,
-/// or else within the owner (§2.4).
-fn keys(owner: &str, drafts: &[Draft]) -> Vec<String> {
+/// The prefix a draft `match` is numbered under: the key of the innermost
+/// local definition in the batch it's in, or else the owner (§2.4). `None`
+/// for a local definition.
+fn match_prefixes(owner: &str, drafts: &[Draft]) -> Vec<Option<String>> {
     let prefix = |d: &Draft| -> String {
         drafts
             .iter()
@@ -506,18 +506,33 @@ fn keys(owner: &str, drafts: &[Draft]) -> Vec<String> {
             .min_by_key(|l| l.whole.end - l.whole.start)
             .map_or_else(|| owner.to_string(), |l| l.key.clone())
     };
+    drafts
+        .iter()
+        .map(|d| d.local.is_none().then(|| prefix(d)))
+        .collect()
+}
+
+/// The keys of a batch of drafts: a local definition's own; a `match`'s
+/// numbered in source order within its prefix ([`match_prefixes`]), after
+/// the `before[prefix]` numbered under it in an earlier batch: the owner's
+/// type's, for its body (§2.4).
+fn keys(owner: &str, drafts: &[Draft], before: Option<&HashMap<String, usize>>) -> Vec<String> {
     let mut out = vec![String::new(); drafts.len()];
     let mut matches: HashMap<String, Vec<usize>> = HashMap::default();
-    for (i, d) in drafts.iter().enumerate() {
-        match &d.local {
-            Some(l) => out[i] = l.key.clone(),
-            None => matches.entry(prefix(d)).or_default().push(i),
+    for (i, (d, prefix)) in drafts.iter().zip(match_prefixes(owner, drafts)).enumerate() {
+        match (&d.local, prefix) {
+            (Some(l), _) => out[i] = l.key.clone(),
+            (None, prefix) => matches
+                .entry(prefix.expect("a `match`'s prefix"))
+                .or_default()
+                .push(i),
         }
     }
     for (prefix, mut members) in matches {
+        let base = before.and_then(|b| b.get(&prefix)).copied().unwrap_or(0);
         members.sort_by_key(|&i| (drafts[i].span.start, std::cmp::Reverse(drafts[i].span.end)));
         for (n, i) in members.into_iter().enumerate() {
-            out[i] = format!("{prefix}.%match{}", n + 1);
+            out[i] = format!("{prefix}.%match{}", base + n + 1);
         }
     }
     out
@@ -538,6 +553,27 @@ impl Elaborator {
         Ok(self.resolve_batch(owner, drafts, join)?.0)
     }
 
+    /// Resolves the drafts made while elaborating the type of the
+    /// declaration `owner`, admitting each at once (it can't refer to the
+    /// declaration, which isn't declared yet), and notes how many `match`es
+    /// each prefix had, for the body's to be numbered after them (§2.4).
+    /// Numbered from 1 each time the type is elaborated.
+    pub(crate) fn lift_signature(&mut self, owner: &str) -> Result<()> {
+        self.signature_matches.remove(owner);
+        if self.drafts.borrow().is_empty() {
+            return Ok(());
+        }
+        self.solve_obligations()?;
+        let drafts = std::mem::take(&mut *self.drafts.borrow_mut());
+        let mut counts: HashMap<String, usize> = HashMap::default();
+        for prefix in match_prefixes(owner, &drafts).into_iter().flatten() {
+            *counts.entry(prefix).or_default() += 1;
+        }
+        self.resolve_batch(owner, drafts, false)?;
+        self.signature_matches.insert(owner.to_string(), counts);
+        Ok(())
+    }
+
     /// Resolves `drafts` together (see the module's documentation): the
     /// helpers to admit with the owner, and what each draft became.
     pub(crate) fn resolve_batch(
@@ -547,7 +583,7 @@ impl Elaborator {
         join: bool,
     ) -> Result<Batch> {
         self.arounds.borrow_mut().clear();
-        let keys = keys(owner, &drafts);
+        let keys = keys(owner, &drafts, self.signature_matches.get(owner));
         let index: HashMap<usize, usize> = drafts
             .iter()
             .enumerate()

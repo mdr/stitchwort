@@ -477,6 +477,12 @@ pub struct Elaborator {
     /// Local definitions admitted after an attempt at their owner's body
     /// failed, by key, for the next attempt (`local.rs`).
     preadmitted: RefCell<HashMap<String, lift::Resolved>>,
+    /// By declaration key: how many `match`es its type has, by the prefix
+    /// they're numbered under, so that the body's are numbered after them
+    /// (docs/proposals/syntax-conveniences.md §2.4). Written each time the
+    /// type is elaborated and only read when the body's are lifted, so an
+    /// attempt at the body that's undone or tried again numbers the same.
+    signature_matches: HashMap<String, HashMap<String, usize>>,
     /// While the body of a declaration with an `unfolding` clause is
     /// elaborated: that clause, which each helper lifted from the body (a
     /// `match`, a local definition) gets too, opaque, so its body may use
@@ -2648,7 +2654,7 @@ impl Elaborator {
         let ty = ty.map_err(|d| with_notes(autobind::explain(&auto, d)))?;
         // A `match` in the signature is admitted before it (§2.2): it can't
         // refer to the definition, which isn't declared yet.
-        self.lift(key, false).map_err(with_notes)?;
+        self.lift_signature(key).map_err(with_notes)?;
         // (The unfinished term is dropped here, not kept alive while the
         // kernel checks the finished one.)
         let unfinished = ty;
