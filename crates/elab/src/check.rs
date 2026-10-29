@@ -1994,7 +1994,23 @@ fn apply_args_postponing(
         }
     }
     for (value, dom, placeholder, id) in postponed {
-        let checked = check(cx, value, &dom)?;
+        let checked = match check(cx, value, &dom) {
+            Ok(checked) => checked,
+            // The retry sees the types the later arguments gave, so its
+            // error is the real one. The in-place try's is kept only when
+            // both are can't-infers: then the first names the unknown.
+            Err(e) if !crate::undo::fatal(&e) => {
+                if e.code != "E-CANNOT-INFER"
+                    || first_error
+                        .as_ref()
+                        .is_none_or(|f| f.code != "E-CANNOT-INFER")
+                {
+                    *first_error = None;
+                }
+                return Err(e);
+            }
+            Err(e) => return Err(e),
+        };
         let evaluated = cx.eval(&checked)?;
         if !cx.unify(&evaluated, &placeholder)? {
             return Err(cx.mismatch(&placeholder, &evaluated));
