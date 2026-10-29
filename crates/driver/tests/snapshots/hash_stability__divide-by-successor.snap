@@ -2,9 +2,9 @@
 source: crates/driver/tests/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.upTo 3f58cf0378d0523760e086c8b26833e12a80b27f0ba441137118267cac2d6da1
-Main.perPair bbfcc06e7b3ad106a270bb98ea1c749c6e646500da109c751385cedefc016bfe
+Main.upTo d6e7ef6180776fc0a85c391773b9b1ff996abad3655c12dd9539b32eae7327f4
+Main.perPair 51e7816939a296b6743b13d59b132d421793b61f5f59558ba853b8db60cb5112
 Main.upToSucc a3be348dec6c92aee3662b477a6aff855b5f23327bf758a76d0b24a6a45c8391
-Main.test "upTo" 3de4cac843321c2962b978f5e4cca90e9aeba799f1286f4b9f8aaa6ec43eb140
-Main.test "perPair" 065c0297b0fada42fd2b6255b80a8977d6c519297dfb872a6f81acd347606bf9
-Main.test "the same as Succ" 9aa56bb131fdca765dc39464ad791030353a1e6ebe551b2d0065651e55c9e2ba
+Main.test "upTo" 196bab0b598d1fe403e76a8ee719b748f60d19a3a5dd5ea80e4b0b16535c50c2
+Main.test "perPair" b8fb78b775430bfc6e12de8c6b8eaedd906adfbb5b2758bc637745f69cf135c8
+Main.test "the same as Succ" c32e3c042663472c453c0d5544df326a27b791ba017350ed0f0b8b9e2f5a8b79

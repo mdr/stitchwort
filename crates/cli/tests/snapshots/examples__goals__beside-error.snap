@@ -7,11 +7,11 @@ expression: output
    │
  7 │     | Succ k => rfl
    │                 ─┬─  
-   │                  ╰─── `Succ (k + 0)` and `Succ k` aren't equal
+   │                  ╰─── `0` and `k * 0` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯
-[GOAL] Goal: in `addZero`
+[GOAL] Goal: in `zeroMul`
    ╭─[ goals/beside-error.sw:6:15 ]
    │
  6 │     | Zero => ?

@@ -20,15 +20,15 @@ theorem everywhere (a: Nat) (b: Nat) (h: a = b): Succ (a + a) = Succ (b + b) :=
 theorem backwards (a: Nat) (b: Nat) (h: a = b): b + 0 = a + 0 :=
   rewrite <- h
 
--- A lemma with arguments: the rule is `n + Succ m = Succ (n + m)`.
-theorem lemma (n: Nat) (m: Nat): n + Succ m = Succ (n + m) :=
-  rewrite Nat.addSucc n m
+-- A lemma with arguments: the rule is `n * Succ m = n + n * m`.
+theorem lemma (n: Nat) (m: Nat): n * Succ m = n + n * m :=
+  rewrite Nat.mulSucc n m
 
 -- A comma list is applied left to right: `rewrite p, q in t` is
 -- `rewrite p in (rewrite q in t)`. After the first rule, the goal is
--- `Succ (n + m) = Succ m + n`, and the second turns `n + m` into `m + n`.
-theorem two (n: Nat) (m: Nat): n + Succ m = Succ m + n :=
-  rewrite Nat.addSucc n m, Nat.addComm n m
+-- `n + n * m = n * m + n`, and the second turns `n + n * m` into `n * m + n`.
+theorem two (n: Nat) (m: Nat): n * Succ m = n * m + n :=
+  rewrite Nat.mulSucc n m, Nat.addComm n (n * m)
 
 -- Order matters: after `h1` the goal mentions `b`, which `h2` then replaces.
 theorem inOrder (a: Nat) (b: Nat) (c: Nat) (h1: a = b) (h2: b = c): Succ a = Succ c :=
@@ -87,14 +87,14 @@ theorem argumentIn (f: Prop → Nat) (g: Prop → Nat) (xs: List Nat) (h: (p: Pr
 theorem stepZero (highest: Nat) (n: Nat):
     Bool.toNat (0 == 0) + ((Succ highest - 0) % Succ highest + n) / Succ highest
       = ((Succ highest - 1) % Succ highest + Succ n) / Succ highest :=
-  rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) (Nat.leRefl highest), Nat.addSucc highest n
+  rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) (Nat.leRefl highest)
     in Eq.sym (Nat.addDivSelf (Succ highest) n)
 
 -- In a `calc` step, `rewrite p` is checked against the step's own line.
-theorem inCalc (a: Nat) (n: Nat): a + Succ n = Succ (n + a) :=
-  calc a + Succ n
-    _ = Succ (a + n) := rewrite Nat.addSucc a n
-    _ = Succ (n + a) := rewrite Nat.addComm a n
+theorem inCalc (a: Nat) (n: Nat): a * Succ n = a * n + a :=
+  calc a * Succ n
+    _ = a + a * n := rewrite Nat.mulSucc a n
+    _ = a * n + a := rewrite Nat.addComm a (a * n)
 
 -- `in` may start its own line, at the `rewrite`'s column or right of it.
 theorem inOwnLine (a: Nat) (b: Nat) (c: Nat) (h: a = b) (k: b = c): a + 0 = c + 0 :=

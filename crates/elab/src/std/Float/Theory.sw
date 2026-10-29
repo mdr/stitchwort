@@ -118,7 +118,7 @@ theorem Float.Theory.bitLengthSpec (n: Nat) (pos: 0 < n): Float.Theory.IsBitLeng
 def Float.Theory.magUnits (m: Nat): Nat :=
   let e: Nat := Nat.divFuel m m 4503599627370496
   let f: Nat := m - e * 4503599627370496
-  if Nat.equal e 0 then f else (f + 4503599627370496) * Float.Model.pow2 (e - 1)
+  if Nat.equal e 0 then f else Float.Model.pow2 (e - 1) * (f + 4503599627370496)
 
 theorem Float.Theory.unitsMag (bits: Nat):
     Float.Model.units bits = Int.signed (Float.Model.signBit bits) (Float.Theory.magUnits (Float.Model.magnitude bits)) :=
@@ -127,19 +127,19 @@ theorem Float.Theory.unitsMag (bits: Nat):
 -- The units of the pattern with exponent field `e` and fraction `f`.
 theorem Float.Theory.magUnitsField (e: Nat) (f: Nat) (h: f < 4503599627370496):
     Float.Theory.magUnits (e * 4503599627370496 + f)
-      = (if Nat.equal e 0 then f else (f + 4503599627370496) * Nat.pow 2 (e - 1)) :=
+      = (if Nat.equal e 0 then f else Nat.pow 2 (e - 1) * (f + 4503599627370496)) :=
   let d: Nat.divFuel (e * 4503599627370496 + f) (e * 4503599627370496 + f) 4503599627370496 = e :=
     Nat.divUnique (e * 4503599627370496 + f) 4503599627370496 e f h rfl
   rewrite d, (omega: e * 4503599627370496 + f - e * 4503599627370496 = f), Float.Theory.pow2Pow (e - 1) in rfl
 
 -- A normal pattern, exponent field `e + 1`.
 theorem Float.Theory.magUnitsFieldNext (e: Nat) (f: Nat) (h: f < 4503599627370496):
-    Float.Theory.magUnits (e * 4503599627370496 + 4503599627370496 + f) = (f + 4503599627370496) * Nat.pow 2 e :=
+    Float.Theory.magUnits (e * 4503599627370496 + 4503599627370496 + f) = Nat.pow 2 e * (f + 4503599627370496) :=
   Eq.trans
     (Eq.cong Float.Theory.magUnits
       (omega: e * 4503599627370496 + 4503599627370496 + f = (e + 1) * 4503599627370496 + f))
     (Eq.trans (Float.Theory.magUnitsField (e + 1) f h)
-      (rewrite Nat.equalOfLess 0 (e + 1) omega, (omega: e + 1 - 1 = e) in rfl))
+      rfl)
 
 -- A subnormal's units are its bits.
 theorem Float.Theory.magUnitsLow (q: Nat) (h: q < 4503599627370496): Float.Theory.magUnits q = q :=
@@ -153,14 +153,13 @@ theorem Float.Theory.magUnitsNormal (e: Nat) (q: Nat) (lo: 4503599627370496 ≤ 
     (Eq.cong Float.Theory.magUnits
       (omega: e * 4503599627370496 + q = e * 4503599627370496 + 4503599627370496 + (q - 4503599627370496)))
     (Eq.trans (Float.Theory.magUnitsFieldNext e (q - 4503599627370496) omega)
-      (Eq.trans (Eq.cong (t => t * Nat.pow 2 e) (omega: q - 4503599627370496 + 4503599627370496 = q))
-        (Nat.mulComm q (Nat.pow 2 e))))
+      (Eq.cong (t => Nat.pow 2 e * t) (omega: q - 4503599627370496 + 4503599627370496 = q)))
 
 -- The first pattern of exponent field `e + 1`, and of `e + 2`.
 theorem Float.Theory.magUnitsWholeAt (e: Nat) (z: Nat) (hz: z = 0):
     Float.Theory.magUnits (e * 4503599627370496 + 4503599627370496 + z) = Nat.pow 2 e * 4503599627370496 :=
   Eq.trans (Float.Theory.magUnitsFieldNext e z (omega: z < 4503599627370496))
-    (Eq.trans (ring: (z + 4503599627370496) * Nat.pow 2 e = z * Nat.pow 2 e + Nat.pow 2 e * 4503599627370496)
+    (Eq.trans (ring: Nat.pow 2 e * (z + 4503599627370496) = z * Nat.pow 2 e + Nat.pow 2 e * 4503599627370496)
       (Eq.cong (t => t * Nat.pow 2 e + Nat.pow 2 e * 4503599627370496) hz))
 
 theorem Float.Theory.magUnitsWhole (e: Nat):
@@ -184,7 +183,7 @@ theorem Float.Theory.magUnitsSplit (m: Nat) (e: Nat) (low: e * 4503599627370496 
     (high: m < e * 4503599627370496 + 4503599627370496):
     Float.Theory.magUnits m
       = (if Nat.equal e 0 then m - e * 4503599627370496
-        else (m - e * 4503599627370496 + 4503599627370496) * Nat.pow 2 (e - 1)) :=
+        else Nat.pow 2 (e - 1) * (m - e * 4503599627370496 + 4503599627370496)) :=
   Eq.trans
     (Eq.cong Float.Theory.magUnits (omega: m = e * 4503599627370496 + (m - e * 4503599627370496)))
     (Float.Theory.magUnitsField e (m - e * 4503599627370496) omega)
@@ -196,7 +195,12 @@ theorem Float.Theory.magUnitsStepWithin (m: Nat) (e: Nat) (low: e * 450359962737
     (omega: Succ m - e * 4503599627370496 + 4503599627370496 = Succ (m - e * 4503599627370496 + 4503599627370496)) in
   match z: Nat.equal e 0 with
     | True => omega
-    | False => omega [Nat.powSuccPos 1 (e - 1)]
+    | False =>
+      omega [
+        Nat.powSuccPos 1 (e - 1),
+        (ring: Nat.pow 2 (e - 1) * Succ (m - e * 4503599627370496 + 4503599627370496)
+          = Nat.pow 2 (e - 1) * (m - e * 4503599627370496 + 4503599627370496) + Nat.pow 2 (e - 1))
+      ]
 
 theorem Float.Theory.magUnitsStepAcross (m: Nat) (e: Nat) (low: e * 4503599627370496 ≤ m)
     (full: Succ m = e * 4503599627370496 + 4503599627370496):
@@ -210,7 +214,7 @@ theorem Float.Theory.magUnitsStepAcross (m: Nat) (e: Nat) (low: e * 450359962737
       rewrite (Eq.cong (Nat.pow 2) (omega: e = Succ (e - 1)): Nat.pow 2 e = Nat.pow 2 (Succ (e - 1))) in
       omega [
         Nat.powSuccPos 1 (e - 1),
-        (ring: (m - e * 4503599627370496 + 4503599627370496) * Nat.pow 2 (e - 1)
+        (ring: Nat.pow 2 (e - 1) * (m - e * 4503599627370496 + 4503599627370496)
           = (m - e * 4503599627370496) * Nat.pow 2 (e - 1) + Nat.pow 2 (e - 1) * 4503599627370496),
         (Eq.cong (t => Nat.pow 2 (e - 1) * t) (omega: Succ (m - e * 4503599627370496) = 4503599627370496):
           Nat.pow 2 (e - 1) * Succ (m - e * 4503599627370496) = Nat.pow 2 (e - 1) * 4503599627370496),
@@ -720,7 +724,6 @@ theorem Float.Theory.powStep: (m: Int) →
     Float.Theory.upPow m * Float.Theory.downPow (Int.add m (OfNat 1)) * 2
       = Float.Theory.upPow (Int.add m (OfNat 1)) * Float.Theory.downPow m
   | OfNat a =>
-    rewrite (omega: a + 1 = Succ a) in
     ring
   | NegSucc Zero => rfl
   | NegSucc (Succ b) =>
@@ -1071,8 +1074,6 @@ theorem Float.Theory.keyLow (m: Nat) (h: m ≤ 9218868437227405312):
 
 theorem Float.Theory.keyHigh (m: Nat):
     Float.keyOf (m + 9223372036854775808) (Nat.leq 9223372036854775808 (m + 9223372036854775808)) = NegSucc m :=
-  rewrite (omega: Nat.leq 9223372036854775808 (m + 9223372036854775808) = True),
-    (omega: m + 9223372036854775808 - 9223372036854775808 = m) in
   rfl
 
 theorem Float.Theory.leqVia (a: Int) (b: Int) (c: Int) (d: Int) (ea: a = c) (eb: b = d) (h: Int.leq c d = True):

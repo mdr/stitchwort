@@ -1,5 +1,5 @@
 import Std (Eq)
 
-theorem plusZero: (n: Nat) → n + 0 = n
+theorem timesOne: (n: Nat) → n * 1 = n
   | Zero => rfl
-  | Succ k => plusZero k
+  | Succ k => timesOne k

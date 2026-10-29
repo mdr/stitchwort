@@ -15,5 +15,5 @@ expression: output
  7 │     | Succ k => ?
    │                 ┬  
    │                 ╰── k: Nat
-   │                     ⊢ Succ (k + 0) = Succ k
+   │                     ⊢ Succ k = Succ k
 ───╯

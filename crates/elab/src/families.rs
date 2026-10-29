@@ -795,17 +795,18 @@ fn index_stuck(
         ),
     );
     let d = cx.with_opaque_notes(d, &[&k.lhs, &k.rhs]);
-    // `a + k` with `a` unknown: on the constructor's side, declare `Succ a`;
-    // on the scrutinee's, match on `a` first.
-    if let Some((a, n)) = plus(cx, &k.rhs) {
+    // A stuck `a + b`: neither side is a number or a `Succ` (`+` computes
+    // on both sides, `nat_add.rs`). On the scrutinee's side, match on `a`
+    // first.
+    if let Some((a, b)) = plus(cx, &k.rhs) {
         d.with_note(format!(
-            "`+` counts down its first argument, so `{a} + {n}` doesn't compute while `{a}` is \
-             unknown. Declare `{ctor}` with `Succ {a}` (or `{n} + {a}`) instead"
+            "`+` computes only when one side is a number or a `Succ`, so `{a} + {b}` doesn't \
+             compute while both are unknown"
         ))
-    } else if let Some((a, _)) = plus(cx, &k.lhs) {
+    } else if let Some((a, b)) = plus(cx, &k.lhs) {
         d.with_note(format!(
-            "`+` counts down its first argument, so this doesn't compute while `{a}` is \
-             unknown: match on `{a}` first"
+            "`+` computes only when one side is a number or a `Succ`, so `{a} + {b}` doesn't \
+             compute while both are unknown: match on `{a}` first"
         ))
     } else {
         d.with_note(note)
@@ -821,8 +822,8 @@ fn subject(cx: &Ctx, x: usize) -> String {
     }
 }
 
-/// If `value` is `a + b` (the prelude's `Nat.add`) with `a` not a number:
-/// `a` and `b`, shown.
+/// If `value` is a stuck `a + b` (the prelude's `Nat.add`): `a` and `b`,
+/// shown.
 fn plus(cx: &Ctx, value: &Value) -> Option<(String, String)> {
     let g = cx.g();
     let Value::Neutral(Head::Def(id), spine) = value else {

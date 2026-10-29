@@ -155,7 +155,7 @@ theorem checkFromCarries (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs:
             | True => zs k before
             | False => rewrite (omega: k = bit), sumBit x y bit in carried.left)
         checkFromCarries device bits x y inputs fewer (bit + 1) next final passes top (omega) within zsAbove
-          (rewrite (omega: bit + 1 = Succ bit) in carried.right)
+          carried.right
 
 -- Gates of the ripple-carry shape for `bits` bits: every z wire below
 -- `bits` carries its bit of `x + y`, and the last carry wire is `Z bits`,

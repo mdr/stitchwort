@@ -14,7 +14,7 @@ expression: output
     │       matching: Nat := List.count xs (== id)
     │       flipped: Nat := List.count xs (id ==)
     │       others: Nat := List.count xs (!= id)
-    │       next: List Nat := List.map xs (+ 1)
+    │       next: List Nat := List.map xs (x => Succ x)
     │       doubled: List Nat := List.map xs (n * 2 +)
     │       small: List Nat := List.filter xs (< n)
     │       large: List Nat := List.filter xs (n <)

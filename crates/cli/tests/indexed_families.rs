@@ -60,15 +60,25 @@ fn an_arm_reached_in_another_branch_does_not_warn() {
 }
 
 #[test]
-fn stuck_matches_suggest_succ() {
-    let e = error(
+fn a_constructor_declared_with_n_plus_one_matches() {
+    // `+` computes on its second argument too (SW-787): `n + 1` is `Succ n`.
+    let (_, result) = load(
         "type Vec (a: Type): Nat -> Type =\n  | VNil: Vec a 0\n  \
          | VCons (x: a) (xs: Vec a n): Vec a (n + 1)\n\n\
          def head: Vec a (Succ k) -> a\n  | VCons x _ => x\n",
     );
+    result.unwrap();
+}
+
+#[test]
+fn stuck_sums_say_both_sides_are_unknown() {
+    let e = error(&with_vec(
+        "def lengthOfSum: Vec a (n + m) -> Nat\n  | VNil => 0\n  | VCons _ _ => 1\n",
+    ));
     assert_eq!(e.code, "E-INDEX-STUCK");
     assert!(
-        e.notes[0].contains("Declare `VCons` with `Succ n` (or `1 + n`)"),
+        e.notes[0]
+            .contains("so `n + m` doesn't compute while both are unknown: match on `n` first"),
         "{e:?}"
     );
 }

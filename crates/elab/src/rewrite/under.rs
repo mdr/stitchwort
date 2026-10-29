@@ -784,8 +784,8 @@ theorem nested (mulSucc: (a: Nat) -> (b: Nat) -> a * Succ b = a + a * b) (xs: Li
   rewrite mulSucc _ _
 
 -- The rule is instantiated once for each function: `_` is `i`, then `j`.
-theorem twice (addZero: (n: Nat) -> n + 0 = n) (xs: List Nat): total (i => i + 0) xs + total (j => j + 0) xs = total (i => i) xs + total (j => j) xs :=
-  rewrite addZero _
+theorem twice (mulOne: (n: Nat) -> n * 1 = n) (xs: List Nat): total (i => i * 1) xs + total (j => j * 1) xs = total (i => i) xs + total (j => j) xs :=
+  rewrite mulOne _
 
 -- A function given as a partial application is looked inside too.
 theorem partial (f: Nat -> Nat -> Nat) (g: Nat -> Nat -> Nat) (h: (a: Nat) -> (b: Nat) -> f a b = g a b) (k: Nat) (xs: List Nat):
@@ -907,12 +907,12 @@ theorem totalCongMem (f1: Nat -> Nat) (f2: Nat -> Nat) (xs: List Nat) (ef: (x: N
         // `In x xs` proves it, unification filling in the list.
         let source = format!(
             "{MEM_LEMMA}
-theorem inside (sub: (x: Nat) -> (xs: List Nat) -> In x xs -> x + 0 = x) (xs: List Nat): total (x => x + 0) xs = total (x => x) xs :=
+theorem inside (sub: (x: Nat) -> (xs: List Nat) -> In x xs -> x * 1 = x) (xs: List Nat): total (x => x * 1) xs = total (x => x) xs :=
   rewrite sub
 
 -- The fact fills a `_` in an argument given explicitly.
-theorem given (sub: (x: Nat) -> (xs: List Nat) -> In x xs -> x + 0 = x) (same: (x: Nat) -> (xs: List Nat) -> In x xs -> In x xs) (xs: List Nat):
-    total (x => x + 0) xs = total (x => x) xs :=
+theorem given (sub: (x: Nat) -> (xs: List Nat) -> In x xs -> x * 1 = x) (same: (x: Nat) -> (xs: List Nat) -> In x xs -> In x xs) (xs: List Nat):
+    total (x => x * 1) xs = total (x => x) xs :=
   rewrite sub _ xs (same _ _ _)
 "
         );
@@ -935,7 +935,7 @@ theorem given (sub: (x: Nat) -> (xs: List Nat) -> In x xs -> x + 0 = x) (same: (
     fn a_premise_nothing_proves_is_an_error_naming_it() {
         let source = format!(
             "{MEM_LEMMA}
-theorem stuck (sub: (x: Nat) -> (ys: List Nat) -> In x ys -> x + 0 = x) (xs: List Nat) (ys: List Nat): total (x => x + 0) xs = total (x => x) xs :=
+theorem stuck (sub: (x: Nat) -> (ys: List Nat) -> In x ys -> x * 1 = x) (xs: List Nat) (ys: List Nat): total (x => x * 1) xs = total (x => x) xs :=
   rewrite sub _ ys
 "
         );

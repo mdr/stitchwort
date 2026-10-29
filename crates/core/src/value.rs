@@ -1338,7 +1338,7 @@ fn resume(g: &Globals, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Re
                 }
                 // Stuck: a leaf of a case tree leaves its definition folded;
                 // otherwise it's the lift applied to its arguments.
-                None if matches!(stuck, Some((_, _, true))) => stuck_tree(stuck),
+                None if matches!(stuck, Some((_, _, true))) => stuck_tree(g, stuck)?,
                 None => quot_args(g, term, env, Vec::new(), Some(value), stack)?,
             }
         }
@@ -1591,7 +1591,7 @@ fn branch(
                 (k, Some(base)) => match arms.last() {
                     Some(last) if *last.value < k => default.clone(),
                     _ if apart_of(&base).excludes(g, &k, arms) => default.clone(),
-                    _ => return Ok(stuck_tree(stuck)),
+                    _ => return stuck_tree(g, stuck),
                 },
             };
             return Ok(Control::Tree(next, env, stuck));
@@ -1603,20 +1603,20 @@ fn branch(
         other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.builtins.nat => {
             match native::split_value(&other) {
                 Some(split) => split,
-                None => return Ok(stuck_tree(stuck)),
+                None => return stuck_tree(g, stuck),
             }
         }
         // A compact list: what matching its expansion would find.
         Value::Chars(chars) => match &g.builtins.text {
             Some(text) if text.list == *d => chars::split(text, &chars),
-            _ => return Ok(stuck_tree(stuck)),
+            _ => return stuck_tree(g, stuck),
         },
         // An erased proof: matching it into data is allowed only for one
         // constructor with only proof fields (`E-PROP-ELIM`, `erase.rs`).
         v if erase::is_erased(&v) && g.data(*d).sort == Sort::Prop && !branches.is_empty() => {
             (0, vec![erased(); g.data(*d).ctors[0].fields.len()])
         }
-        _ => return Ok(stuck_tree(stuck)),
+        _ => return stuck_tree(g, stuck),
     };
     let Some(body) = branches[c].body.clone() else {
         // An impossible branch is never reached by a well-typed value
@@ -1625,7 +1625,7 @@ fn branch(
         if g.erasure.program_running() {
             panic!("internal error: unreachable: an impossible branch was reached");
         }
-        return Ok(stuck_tree(stuck));
+        return stuck_tree(g, stuck);
     };
     env.extend(fields);
     Ok(Control::Tree(body, env, stuck))
@@ -1640,10 +1640,19 @@ pub fn apart_of(value: &Value) -> Apart {
     }
 }
 
-/// A case tree that can't take a step: its definition stays folded.
-fn stuck_tree(stuck: Stuck) -> Control {
+/// A case tree that can't take a step: its definition stays folded, unless
+/// it's `Nat.add` and R3 or R4 applies (`nat_add.rs`).
+fn stuck_tree(g: &Globals, stuck: Stuck) -> Result<Control> {
     match stuck {
-        Some((id, spine, _)) => Control::Return(Value::Neutral(Head::Def(id), spine)),
+        Some((id, spine, _)) => {
+            if g.builtins.nat_add_rule == Some(id)
+                && let [Elim::App(m, _), Elim::App(n, _)] = &spine[..]
+                && let Some(value) = crate::nat_add::stuck_value(g, id, m, n, force)?
+            {
+                return Ok(Control::Return(value));
+            }
+            Ok(Control::Return(Value::Neutral(Head::Def(id), spine)))
+        }
         None => panic!("internal error: a case outside a definition's case tree got stuck"),
     }
 }

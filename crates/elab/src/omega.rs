@@ -1926,15 +1926,34 @@ impl Quoter {
         let Some([a, b]) = leq.as_deref() else {
             return Ok(None);
         };
+        let g = cx.g();
         let trivial = cx.eval(&Term::ctor(lib.unit, 0, Vec::new()))?;
-        let then = cx.quote(&apply(cx.g(), then.clone(), trivial.clone())?)?;
-        let otherwise = cx.quote(&apply(cx.g(), otherwise.clone(), trivial)?)?;
+        let then = apply(g, then.clone(), trivial.clone())?;
+        let otherwise = apply(g, otherwise.clone(), trivial)?;
+        // `max (k + a) (k + b)` computes to `if Nat.leq a b then k + b else
+        // k + a`: `Nat.leq` takes off the `Succ`s both sides share, and the
+        // branches keep them. (With `+` computing on both sides, `min (x +
+        // 1) (y + 1)` is `if Nat.leq x y then Succ x else Succ y`.) So take
+        // the same `k` off each branch before comparing them with `a` and `b`.
+        use stitchwort_core::native::{from_view, view};
+        let (k_then, base_then) = view(g, &then)?;
+        let (k_otherwise, base_otherwise) = view(g, &otherwise)?;
+        let (k, then, otherwise) = match (base_then, base_otherwise) {
+            (Some(t), Some(o)) if k_then == k_otherwise => (k_then, t, o),
+            _ => (BigUint::default(), then, otherwise),
+        };
+        let then = cx.quote(&then)?;
+        let otherwise = cx.quote(&otherwise)?;
         let (ta, tb) = (cx.quote(a)?, cx.quote(b)?);
         let same = crate::matching::same;
+        let (a, b) = (
+            from_view(k.clone(), Some(a.clone())),
+            from_view(k, Some(b.clone())),
+        );
         Ok(if same(&then, &tb) && same(&otherwise, &ta) {
-            Some((OpKind::Max, a.clone(), b.clone()))
+            Some((OpKind::Max, a, b))
         } else if same(&then, &ta) && same(&otherwise, &tb) {
-            Some((OpKind::Min, a.clone(), b.clone()))
+            Some((OpKind::Min, a, b))
         } else {
             None
         })
@@ -1942,7 +1961,8 @@ impl Quoter {
 
     /// `k * t`: left folded as the call when `t` is a variable
     /// (`native::folds_mul`), and otherwise as it computes,
-    /// `t + (t + … + (t + 0))` with `k >= 2` copies.
+    /// `t + (t + … + t)` with `k >= 2` copies (the innermost `t + 0` is `t`:
+    /// `+` computes on its second argument too, `nat_add.rs`).
     fn mul_left(&self, cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<(BigUint, Value)>> {
         let g = cx.g();
         if let Some([k, t]) = call_args(value, lib.mul).as_deref()
@@ -1972,6 +1992,12 @@ impl Quoter {
                 _ => {
                     let (k, base) = stitchwort_core::native::view(g, &current_forced)?;
                     let zero = base.is_none() && k == BigUint::default();
+                    // The last `t + 0` is `t` itself when `t` is stuck: `+`
+                    // computes on its second argument too (`nat_add.rs`).
+                    if !zero && crate::matching::same(&cx.quote(&current_forced)?, &t_term) {
+                        count = count.saturating_add(1);
+                        return Ok((count >= 2).then_some((BigUint::from(count), t)));
+                    }
                     return Ok((zero && count >= 2).then_some((BigUint::from(count), t)));
                 }
             }

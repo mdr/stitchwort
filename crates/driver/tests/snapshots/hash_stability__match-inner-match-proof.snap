@@ -1,12 +1,12 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.reach 48b9bbfa34caf8cc2b1edb0d1f85731e1207b7d3b563b11e550236b35d8743ca
 Main.reach.%match1 247d246b2392d16d8803732dc9bebc9695abc5042ec8153f2233e82c065519ba
 Main.orCases 2172b5a264362983c8b7af8a372c40248129c3237bc54c67585a7746313dff0e
-Main.skip 8ed2a4021dbf22305b1545aab45e9942cdc14c42ae41eb271a1f99e815d7387c
-Main.skip.%match1 1b3ed57b4376fdc6727df9462994b3761db7a1d999176fbcbe27fd418197ea66
-Main.ways 92a96a88d657ebad3902b8d7e9469e0b90f40fcee07487398be23141765dd050
+Main.skip a4837038c6b3a7fe0ec02453af575f9c3aecbc4bead3a43ae2c422d171149f9a
+Main.skip.%match1 26d8015d399607775c0c53c3d0a409fb2ec641d5a160f18ee8d5d2b59f396e36
+Main.ways 0f54ff6cfc79ffbf42e097ae8c2dee0a9101d15beaf70137393037e3a62f54cb
 Main.ways.%match2 182a72b91e9927fcf8fced1881407824753deadb118156a9252d803ef8391ad2
-Main.ways.%match1 d54eadfe5d01d91fbc636a63ef086aa1082ef2efa318a528bab13a9511bfee8f
+Main.ways.%match1 dbd30b9e70433f58c9fcda50ba7225d0c4f9e395331073f9d9615e10deb3809c

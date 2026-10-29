@@ -9,13 +9,15 @@ expression: output
    │                                                    ─┬─  
    │                                                     ╰─── `double n` and `n + 1` aren't equal
    │ 
-   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 1: computing the right side gives `Succ n`
    │ 
-   │ Note 2: `double` is opaque, so its body isn't used here
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
    │ 
-   │ Note 3: add `unfolding double` after this declaration's signature, or rewrite with `double.unfold`
+   │ Note 3: `double` is opaque, so its body isn't used here
    │ 
-   │ Note 4: this statement is false; a counterexample:
+   │ Note 4: add `unfolding double` after this declaration's signature, or rewrite with `double.unfold`
+   │ 
+   │ Note 5: this statement is false; a counterexample:
    │           n = 0
    │         `double n = n + 1` is false:
    │           left:  0

@@ -71,11 +71,12 @@ theorem programCrosses (grid: Grid):
     _ = List.sumBy (List.range tall) (r => Option.getOrElse (Option.map3 (x y z => countCrosses x y z) (rows.get r) ((rows.drop 1).get r) ((rows.drop 2).get r)) 0)
       := List.sumByZipWith3 (x => x) countCrosses rows (rows.drop 1) (rows.drop 2) tall omega
     _ = List.sumBy (List.range tall) (r => countCrosses (rowOf grid r) (rowOf grid (1 + r)) (rowOf grid (2 + r)))
-      := rewrite List.getDrop rows 1 _, List.getDrop rows 2 _,
-        Option.getOrElseMap3 (x y z => countCrosses x y z) [] [] [] 0 crossesEmpty1 crossesEmpty2 crossesEmpty3 _ _ _,
-        <- List.getOrGet rows _ [], <- List.getOrGet rows _ [], <- List.getOrGet rows _ [] in rfl
+      := List.sumByCong (List.range tall) _ _ (r =>
+        rewrite List.getDrop rows 1 _, List.getDrop rows 2 _,
+          Option.getOrElseMap3 (x y z => countCrosses x y z) [] [] [] 0 crossesEmpty1 crossesEmpty2 crossesEmpty3 _ _ _,
+          <- List.getOrGet rows _ [], <- List.getOrGet rows _ [], <- List.getOrGet rows _ [] in rfl)
     _ = List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => crossRead grid r c))
-      := rewrite crossesSum (rowOf grid _) (rowOf grid (1 + _)) (rowOf grid (2 + _)) wide (rowFits grid _) in rfl
+      := List.sumByCong (List.range tall) _ _ (r => crossesSum (rowOf grid r) (rowOf grid (1 + r)) (rowOf grid (2 + r)) wide (rowFits grid r))
 
 -- No letter at the centre, no cross.
 theorem crossAtMissing (grid: Grid) (r: Nat) (c: Nat) (missing: letterAt grid r c = None): Bool.toNat (crossAt grid r c) = 0 :=
@@ -103,11 +104,9 @@ theorem specCrosses (grid: Grid):
   let wide := width grid + 3
   let centres := (r: Nat) => List.sumBy (List.range wide) (c => Bool.toNat (crossAt grid r c))
   let blocks := (r: Nat) => List.sumBy (List.range (width grid + 2)) (c => crossRead grid r c)
-  let tallSplit: tall = height grid + 2 + 1 := omega
-  let wideSplit: wide = width grid + 2 + 1 := omega
   let row := (r: Nat) =>
     calc centres (1 + r)
-      _ = List.sumBy (List.range (width grid + 2 + 1)) (c => Bool.toNat (crossAt grid (1 + r) c)) := rewrite wideSplit in rfl
+      _ = List.sumBy (List.range (width grid + 2 + 1)) (c => Bool.toNat (crossAt grid (1 + r) c)) := rfl
       _ = blocks r := List.sumByRangeSkipZeros 1 (c => Bool.toNat (crossAt grid (1 + r) c)) (c => crossRead grid r c) (width grid + 2)
         (c early =>
           let first: c = 0 := omega
@@ -119,7 +118,7 @@ theorem specCrosses (grid: Grid):
     _ = List.sumBy (List.range tall) centres
       := List.sumByCong (List.range tall) _ _ (r =>
         Eq.sym (List.sumByRangeExtend _ (rowOf grid r).length wide (rowFits grid r) (c right => crossAtMissing grid r c (List.getPast (rowOf grid r) c right))))
-    _ = List.sumBy (List.range (height grid + 2 + 1)) centres := rewrite tallSplit in rfl
+    _ = List.sumBy (List.range (height grid + 2 + 1)) centres := rfl
     _ = List.sumBy (List.range (height grid + 2)) blocks := List.sumByRangeSkipZeros 1 centres blocks (height grid + 2)
       (r early =>
         let first: r = 0 := omega

@@ -96,11 +96,11 @@ theorem lineAtMostBoxes (warehouse: Warehouse) (direction: Direction) (length: N
 -- position past it.
 theorem lineFree (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length):
     firstFree warehouse.boxes direction (warehouse.robot.step direction) (warehouse.boxes.size + 1) = Some (pastLine warehouse direction length) :=
-  rewrite Nat.addOne length, <- aheadFrom warehouse.robot direction length in
+  rewrite <- aheadFrom warehouse.robot direction length in
     firstFreeLine warehouse.boxes direction length (warehouse.robot.step direction) (warehouse.boxes.size + 1)
       (omega [lineAtMostBoxes warehouse direction length line])
-      (i below => rewrite aheadFrom warehouse.robot direction i in (rewrite Nat.addOne i at And.left line i below))
-      (rewrite aheadFrom warehouse.robot direction length in (rewrite Nat.addOne length at And.right line))
+      (i below => rewrite aheadFrom warehouse.robot direction i in (And.left line i below))
+      (rewrite aheadFrom warehouse.robot direction length in (And.right line))
 
 -- "If this action would cause the robot or a box to move into a wall (#),
 -- nothing moves instead, including the robot."
@@ -203,7 +203,7 @@ theorem boxesEndOrFill (boxes: Set Position) (direction: Direction): (start: Pos
 theorem lineExists (warehouse: Warehouse) (direction: Direction): ∃ (length: Nat) => LineOfBoxes warehouse direction length :=
   let next := warehouse.robot.step direction
   let fromRobot: (i: Nat) → warehouse.boxes.contains (ahead next direction i) = warehouse.boxes.contains (ahead warehouse.robot direction (i + 1)) :=
-    i => rewrite aheadFrom warehouse.robot direction i, Nat.addOne i in rfl
+    i => rewrite aheadFrom warehouse.robot direction i in rfl
   match boxesEndOrFill warehouse.boxes direction next (warehouse.boxes.size + 1) with
     | Inl (Witness length (Both below (Both boxed free))) =>
       Witness length (Both (i before => rewrite <- fromRobot i in boxed i before) (rewrite <- fromRobot length in free))

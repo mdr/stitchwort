@@ -18,9 +18,9 @@ Main.test "loose" 104d04c3b52a0d2c064db7e810496f9cc0b17ad5b1116c583e1b646368b4cd
 Main.test "spaced after" 104d04c3b52a0d2c064db7e810496f9cc0b17ad5b1116c583e1b646368b4cd1a
 Main.test "natAbs" b2ef3215a6a354b7deda92a9854e6a971d2d09ed99d3fd7097dc63b6d8f8b00a
 Main.test "sub" 1a3ace99919b7d02da55b5baeb754ed0326f0988e86d563442562f7dc62ba202
-Main.test "float floor" 20fde3e8ffe240d674b5abe19de394136124cff7ab74f94cd1a0379bbfeccd5c
-Main.test "-2.5.floor is (-2.5).floor" 20fde3e8ffe240d674b5abe19de394136124cff7ab74f94cd1a0379bbfeccd5c
-Main.test "-2.5.abs is (-2.5).abs" b0c096e56d86d751b7a27ac3d41001d65aaf3583d7e9ab4c6d01c3f6f0aee20d
+Main.test "float floor" bacaa9d1f412c805cb42b497d383c1af234f60f7e88be5d8c651e9cf75b5b861
+Main.test "-2.5.floor is (-2.5).floor" bacaa9d1f412c805cb42b497d383c1af234f60f7e88be5d8c651e9cf75b5b861
+Main.test "-2.5.abs is (-2.5).abs" e417a85a9a81df9f08cfafd336dcb8b98be163d047f2dadd96b4465b5cc038a1
 Main.test "an argument's method" d20583bae45eddcce107610cbfa01616d0c80e92fb109ecc51a38b8e9ab4474a
 Main.isMinusOne 3d622b614a298fe1f51f6df7f5caeaf4e9b21d1d8641b8ddd3ee3f9bf4bd112b
 Main.test "Some -1" 1e3c2a43fab6d2e1a3728640d617211060bcd5027992bcb79e179db5c82eebbd

@@ -45,13 +45,11 @@ theorem keepRemove: (a: Cell) → (n: Nat) → keep a (n + a.count) = (if a == R
   | Roll, n =>
     match e: Nat.leq 4 n with
       | True =>
-        let many: Nat.leq 5 (n + 1) = True := omega
         let notFew: Nat.leq (Succ n) 4 = False := omega
-        rewrite many, notFew in rfl
+        rewrite notFew in rfl
       | False =>
-        let notMany: Nat.leq 5 (n + 1) = False := omega
         let few: Nat.leq (Succ n) 4 = True := omega
-        rewrite notMany, few in rfl
+        rewrite few in rfl
 
 -- The rolls in column j (counted from 1) of three rows.
 def tri (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w) (j: Nat): Nat :=

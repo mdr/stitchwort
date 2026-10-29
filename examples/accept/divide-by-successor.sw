@@ -1,7 +1,7 @@
 -- A divisor `n + k`, with `k` a literal above 0, is never 0, so `auto`
--- proves `n + 1 ≠ 0` without a test, as it does `Succ n ≠ 0`. `+` recurses on
--- its first argument, so `n + 1` doesn't compute to a `Succ` with `n`
--- unknown; `Nat.decAddSuccNotZero` decides it (games/rogue/NOTES.md §2).
+-- proves `n + 1 ≠ 0` without a test, as it does `Succ n ≠ 0`: `+` computes on
+-- its second argument too, so `n + 1` is `Succ n` (games/rogue/NOTES.md §2;
+-- accept/plus-both-sides.sw).
 -- `n + m`, with both unknown, still needs a test (reject/divide-by-unknown.sw).
 
 -- A roll from 0 up to `most`.

@@ -1,11 +1,11 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
-Main.sumTo fa7c8a678e520b12dfd08abe69366c8c1c3f77b7389730f0718094f417e6639e
-Main.sumTo.go adc00b5c86b42d51a407cb253b15a50a6c85cf218b65519e5d384bf9340377f4
-Main.countIf 047ea10c5625f0426f06ccc8d7b7d9e64c05a13e2cf077fbb5ab401c4dcf4f02
-Main.countIf.go 5191f397a16efc101c1ec40505e3a2eb7c2a7d0972d6d03de17e828f1aa5b55f
+Main.sumTo fc61d89ee1785ea26626740a967227bbe6c50c026ffe694c34124eec478d264d
+Main.sumTo.go eaa2a6f28876b6e6796d64e627b88ab85eea417da527753f5af4cd30b0e585c7
+Main.countIf 22e38f56790217ace83803a865c2345152ebfe68e12f4ef2edf72d173b7e3393
+Main.countIf.go 8cce951372ef72f2a97b91af5df8d8d71246295cadec547ab08be23e4ea677df
 Main.parity c7659731f1283522a338bf42f70e69988df39cac9437f5d54441d40e53ac52eb
 Main.parity.isEven 7bffc0904cd6cfc7ab28e4e15161f419506611d9a18147ae67391a554dea0b41
 Main.parity.isOdd a0f0bb70240f857f68e792ff96e6261a21e4f5733981db31261ec9a9ab30f7c1

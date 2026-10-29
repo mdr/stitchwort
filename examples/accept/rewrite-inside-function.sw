@@ -6,9 +6,9 @@
 -- (docs/syntax.md, "rewrite"; docs/proposals/proof-automation.md §6.1.)
 import Std (Eq, List, Nat)
 
--- `_` stands for the variable: `Nat.addZero _` is `x + 0 = x`, for each `x`.
-theorem mapped (xs: List Nat): List.map xs (x => x + 0) = List.map xs (x => x) :=
-  rewrite Nat.addZero _
+-- `_` stands for the variable: `Nat.mulOne _` is `x * 1 = x`, for each `x`.
+theorem mapped (xs: List Nat): List.map xs (x => x * 1) = List.map xs (x => x) :=
+  rewrite Nat.mulOne _
 
 -- With other arguments given: `k * Succ i` is `k + k * i`, for each `i`.
 theorem summed (k: Nat) (xs: List Nat): List.sumBy xs (i => k * Succ i) = List.sumBy xs (i => k + k * i) :=
@@ -16,8 +16,8 @@ theorem summed (k: Nat) (xs: List Nat): List.sumBy xs (i => k * Succ i) = List.s
 
 -- Functions inside functions: the inner one uses the outer one's variable.
 theorem nested (xs: List Nat) (ys: List Nat):
-    List.map xs (x => List.map ys (y => x + Succ y)) = List.map xs (x => List.map ys (y => Succ (x + y))) :=
-  rewrite Nat.addSucc _ _
+    List.map xs (x => List.map ys (y => x + y)) = List.map xs (x => List.map ys (y => y + x)) :=
+  rewrite Nat.addComm _ _
 
 -- `_` is filled in once for each function: here `x`, then `y`.
 theorem twice (xs: List Nat):
@@ -25,14 +25,14 @@ theorem twice (xs: List Nat):
   rewrite Nat.mulOne _
 
 -- With `in t`, `t` proves what's left; `<-` and `at h` work as elsewhere.
-theorem withBody (xs: List Nat) (h: List.map xs (x => x) = xs): List.map xs (x => x + 0) = xs :=
-  rewrite Nat.addZero _ in h
+theorem withBody (xs: List Nat) (h: List.map xs (x => x) = xs): List.map xs (x => x * 1) = xs :=
+  rewrite Nat.mulOne _ in h
 
-theorem backwards (k: Nat) (xs: List Nat): List.map xs (x => Succ (x + k)) = List.map xs (x => x + Succ k) :=
-  rewrite <- Nat.addSucc _ k
+theorem backwards (k: Nat) (xs: List Nat): List.map xs (x => x + x * k) = List.map xs (x => x * Succ k) :=
+  rewrite <- Nat.mulSucc _ k
 
-theorem atFact (xs: List Nat) (ys: List Nat) (h: List.map xs (x => x + 0) = ys): List.map xs (x => x) = ys :=
-  rewrite Nat.addZero _ at h
+theorem atFact (xs: List Nat) (ys: List Nat) (h: List.map xs (x => x * 1) = ys): List.map xs (x => x) = ys :=
+  rewrite Nat.mulOne _ at h
 
 -- A program's own function works the same, given its congruence lemma,
 -- named after it with `Cong`, beside it.
@@ -49,8 +49,8 @@ theorem totalled (xs: List Nat): total (x => x * 1) xs = total (x => x) xs :=
   rewrite Nat.mulOne _
 
 -- Under `List.all` and `List.any`, by `List.allCong` and `List.anyCong`.
-theorem allAdded (xs: List Nat): List.all xs (x => Nat.leq (x + 0) 5) = List.all xs (x => Nat.leq x 5) :=
-  rewrite Nat.addZero _
+theorem allAdded (xs: List Nat): List.all xs (x => Nat.leq (x * 1) 5) = List.all xs (x => Nat.leq x 5) :=
+  rewrite Nat.mulOne _
 
-theorem anyAdded (xs: List Nat): List.any xs (x => Nat.leq (x + 0) 5) = List.any xs (x => Nat.leq x 5) :=
-  rewrite Nat.addZero _
+theorem anyAdded (xs: List Nat): List.any xs (x => Nat.leq (x * 1) 5) = List.any xs (x => Nat.leq x 5) :=
+  rewrite Nat.mulOne _

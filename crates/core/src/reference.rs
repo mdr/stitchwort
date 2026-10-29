@@ -279,6 +279,13 @@ fn unfold(g: &Globals, id: DefId, spine: Vec<Elim>) -> Result<Value> {
         {
             return Ok(value);
         }
+        // Stuck: `Nat.add` stuck on its first argument may compute on its
+        // second (R3 and R4, `nat_add.rs`).
+        if let [Elim::App(m, _), Elim::App(n, _)] = &spine[..]
+            && let Some(value) = crate::nat_add::stuck_value(g, id, m, n, force)?
+        {
+            return Ok(value);
+        }
     }
     Ok(Value::Neutral(Head::Def(id), spine.into()))
 }

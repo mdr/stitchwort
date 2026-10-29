@@ -717,7 +717,7 @@ theorem Graph.breadthKeeps [auto ord: Ord s] (graph: Graph s) (sources: List s) 
             (List.memFlatMapElim graph.edges (state, weight) frontier edge) (from inFrontier fromEdge =>
               let fromGot := (atFrontier from).forward inFrontier
               let reached := edgesReach from depth (And.left (settledReach from depth fromGot)) state weight fromEdge
-              rewrite costs in Both (rewrite <- unit from state weight fromEdge in reached) (Nat.leRefl (depth + 1))))
+              rewrite costs in Both (rewrite unit from state weight fromEdge at reached) (Nat.leRefl (depth + 1))))
     (Both
       (state => {
         forward = listed =>

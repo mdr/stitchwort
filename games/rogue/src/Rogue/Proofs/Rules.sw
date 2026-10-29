@@ -29,7 +29,7 @@ def threat (player: Position): List Monster → Nat
   | [] => 0
   | Cons monster rest => (if monster.position.isNextTo player then monster.kind.strength else 0) + threat player rest
 
-theorem upToAtMost (dice: Dice) (index: Nat) (most: Nat): dice.upTo index most ≤ most :=
+theorem upToAtMost (dice: Dice) (index: Nat) (most: Nat): dice.upTo index most ≤ most unfolding Dice.upTo :=
   omega [Nat.modLt (lcg (lcg (dice.seed + index * 7919)) / 65536) (most + 1)]
 
 theorem strengthPositive: (kind: Kind) → 1 ≤ kind.strength
@@ -47,7 +47,7 @@ theorem actAllDamage (dice: Dice) (level: Level) (player: Position):
   | index, outcome, Cons monster waiting =>
     match next: monster.position.isNextTo player with
       | True =>
-        let rest := actAllDamage dice level player (index + 1) (outcome.add monster _ _) waiting
+        let rest := actAllDamage dice level player (index + 1) (outcome.add monster (1 + dice.upTo (3 * index + 1) (monster.kind.strength - 1)) _) waiting
         omega [rest, blowAtMost dice (3 * index + 1) monster.kind]
       | False =>
         let destination := pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) |> .getOrElse monster.position

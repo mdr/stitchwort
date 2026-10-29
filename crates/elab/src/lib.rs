@@ -2715,6 +2715,8 @@ impl Elaborator {
     pub(crate) fn bind_builtin_def(&mut self, id: DefId) -> Result<()> {
         match registry::bind_def(&mut self.globals, id) {
             Some(Builtin::NatNeq) => native::register_nat_neq(&mut self.globals, id)?,
+            // `+` computes on its second argument too from here on.
+            Some(Builtin::NatAddSucc) => stitchwort_core::nat_add::register(&mut self.globals, id)?,
             Some(
                 b @ (Builtin::FloatNeg
                 | Builtin::FloatAbs
