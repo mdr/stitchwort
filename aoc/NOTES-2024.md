@@ -982,6 +982,8 @@ right statements, not in fighting the checker, except for items 3 to 6.
 
 ## Day 5: Print Queue
 
+Community comparison (SW-893, 29 Oct): [docs/comparisons/aoc-2024-day05-community.md](../docs/comparisons/aoc-2024-day05-community.md).
+
 Page ordering rules, one per line (`47|53`: if an update has both pages, 47
 must be printed before 53), a blank line, then updates, one per line, each a
 list of pages (`75,47,61,53,29`). Part 1 adds up the middle pages of the
