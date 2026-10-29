@@ -1079,7 +1079,16 @@ impl Elaborator {
             name: &name,
             module: &file.module,
         };
+        // PROTOTYPE TOOLING (SW-787), drop before merging.
+        let keep_going = std::env::var_os("STITCHWORT_LIBRARY_KEEP_GOING").is_some();
+        if keep_going {
+            eprintln!("KEEP-GOING-START {name}");
+        }
+        let started = std::time::Instant::now();
         let diagnostics = self.elaborate_namespace(None, &[unit], None);
+        if keep_going {
+            eprintln!("KEEP-GOING-DONE {name} {:?}", started.elapsed());
+        }
         self.scope.loading = None;
         self.module = saved.module;
         self.namespace_root = saved.namespace_root;
@@ -1107,6 +1116,18 @@ impl Elaborator {
             self.cache_after(f, before, ok, unit, key);
         }
         if !ok {
+            // PROTOTYPE TOOLING (SW-787), drop before merging: report the
+            // file's errors and keep going, to count breakage across std.
+            if std::env::var_os("STITCHWORT_LIBRARY_KEEP_GOING").is_some() {
+                for d in &diagnostics {
+                    if matches!(d.severity, Severity::Error) {
+                        let line = d.labels.first().map(|l| format!("{:?} {}", l.span, l.message.replace('\n', " "))).unwrap_or_default();
+                        eprintln!("KEEP-GOING {name} {} {line} {}", d.code, d.message);
+                    }
+                }
+                self.drop_unconfirmed(f);
+                return Ok(());
+            }
             // Running out of resources isn't a bug in the file: it's the
             // answer for the program that needed it, as for the core.
             if diagnostics.iter().any(|d| d.code == "E-RESOURCE") {
