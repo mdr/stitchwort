@@ -1,0 +1,506 @@
+mfornet/advent-of-code-2024	Lean	Aoc2024/Day02.lean	day2	36	
+mdr/aoc-2024	Lean	Aoc2024/Day02/Main.lean		13	
+dupuisf/aoc24	Lean	Aoc24/Day02.lean	day2,brute,proof	47	#eval
+James-Oswald/Advent-Of-Code-2024	Lean	AdventOfCode2024/Day2.lean	day2,brute	14	
+josephjunker/advent-of-code-2024	Lean	src/Day2/Day2.lean	day2,brute	46	
+curenosm/advent-of-code-2024	Lean	day_02/Day02.lean		1	
+a2435191/advent-of-code-2024-lean	Lean	AdventOfCode2024/Day2.lean	day2,brute,proof	56	#eval
+mpenciak/Advent2024	Lean	Advent/Day2.lean	day2,brute	33	
+henkkuli/aoc-2024	Lean	Day2.lean	day2	29	
+crvdgc/aoc2024lean	Lean	Aoc2024lean/D2.lean	day2,brute	86	
+LHolten/aoc24lean	Lean	Day2.lean	day2	24	
+jano-wol/aoc_2024	Lean	Aoc/Day02.lean		62	
+alok/aoc2024	Lean	Aoc2024/Day2.lean	day2,brute	55	
+shilangyu/AoC-2024	Lean	AoC2024/Day02.lean	day2,proof	70	example : lemma theorem
+mniip/aoc2024	Lean	Day02.lean		52	
+jsr-p/aoc2024	Lean	day2/main.lean	day2,brute	102	
+adriandole/aoc2024	Lean	days/Day2.lean	day2,brute	47	
+suremarc/aoc2024	Lean	Day02/Main.lean		2	
+jhgarner/aoc2024	Lean	Days/Day2.lean	day2	34	
+brightlego/aoc2024	Lean	aoclean/Aoclean/Day2.lean	brute,proof	23	#eval
+natewhite345/aoc2024	Lean	Src/Day2/Day2.lean		0	
+KeenS/aoc2024	Lean	Day1_2.lean		18	
+amesgen/aoc24	Lean	Aoc/Day2.lean	day2,brute,proof	31	#eval #guard
+lifegame1lu111/aoc2024-functional	Lean	Day02.lean	day2	47	
+main--/aoc2024-lean4	Lean	day2.lean	day2,brute,proof	14	#eval example:
+RussellEmerine/aoc-2024	Lean	Aoc2024/Day2.lean	day2,brute	48	
+Philogy/lean-aoc-2024	Lean	Aoc2024/Day2.lean	day2	26	
+andrewmw94/2024_advent_of_code	Lean	aoc_day2/AocDay2.lean		2	
+BrianNormant/Advent-of-code-2024	Idris	src/d02/Solution.idr	day2,brute	72	
+PraneethJain/Advent-of-Code-2024	Idris	src/Day2.idr	brute	35	
+AugustUnderground/AoC2024	Idris	src/Day02.idr	day2,brute	46	
+BenBean18/AoC2024	Idris	src/Day2.idr	day2,brute	43	
+aaronallen8455/aoc2024	Agda	Days/D2.agda	day2,brute	25	
+hath995/dafny-aoc-2024	Dafny	problems/2/Problem2.dfy	day2,brute,proof	74	ensures invariant
+DeSevilla/advent2024	Koka	day2/day2.kk	day2	118	
+Enkidatron/advent-of-code-2024	Roc	day2.roc	day2,brute	41	
+HajagosNorbert/advent-of-code-2024	Roc	Day2.roc	day2,brute	89	
+thenikso/advent-of-code-2024-roc	Roc	02.roc	day2,brute	78	
+robmerrell/aoc2024	Roc	day2.roc	day2,brute	68	
+roy-crippen/aoc2024-roc	Roc	src/Day02.roc	day2,brute	102	
+nerdatmath/aoc2024	Roc	day02.roc	day2,brute	93	
+ostcar/aoc2024	Roc	day02.roc	day2,brute	69	
+alexnuttall/aoc2024-roc	Roc	02/main.roc	day2,brute	62	
+Saalico/aoc_2024	Roc	day2/main.roc	day2,brute	53	
+ScallyGames/aoc-2024	Roc	2024/day2.roc	day2,brute	129	
+kfl/adventofcode_2024	Haskell	day02/day02.hs	day2,brute	41	
+acomley/advent-of-code-2024	Haskell	src/02/main.hs	day2,brute	38	
+Tiseno/Advent-of-code-2024	Haskell	day02/main.hs	day2,brute	21	
+arkeros/aoc2024	Haskell	02/Main.hs	day2,proof	42	example:
+ghostrider77/adventOfCode-2024	Haskell	src/day02a.hs	day2	17	
+pepijno/adventOfCode2024	Haskell	app/Day2.hs	day2,brute	33	
+joshbarrass/AdventOfCode2024	Haskell	Day2/Setup.hs		2	
+Yolgie/AdventOfCode2024	Haskell	app/aoc1_2.hs		17	
+Feathora/AdventOfCode2024	Haskell	Advent/day2.hs	day2,brute	30	
+lexxns/AdventOfCode2024	Haskell	src/Days/Day02.hs	day2,brute	35	
+kohakuma4m/AdventOfCode_2024	Haskell	day02/solution.hs	day2,brute	46	
+Cyoger/AdventOfCode2024	Haskell	day2/part1/main.hs		29	
+Yalond/AdventOfCode2024	Haskell	Day2/day2.hs	brute	13	
+Morendil/AdventOfCode2024	Haskell	Day02.hs	day2,brute	21	
+chmeliik/AdventOfCode2024	Haskell	02/solve.hs	day2,brute	38	
+guibou/AdventOfCode2024	Haskell	src/Day02.hs	day2,brute	25	
+Mac15001900/adventOfCode2024	Haskell	day2.hs	day2	15	
+joebadger24/AdventOfCode2024	Haskell	Day2.hs	brute	1056	
+josesantosl/adventOfCode2024	Haskell	day2/day2.hs	day2,brute	42	
+BenCStokes/AdventOfCode2024	Haskell	haskell/Day2.hs	day2,brute	36	
+freundf/AdventOfCode2024	Haskell	2.hs	day2,brute	29	
+PineappleBeech/AdventOfCode2024	Haskell	day2.hs	day2	23	
+nathank07/AdventOfCode2024	Haskell	02/main.hs	day2,brute	43	
+tesseractive8644/adventOfCode2024	Haskell	Day_2/day2.hs		24	
+NukeyFox/AdventOfCode2024	Haskell	day2/day2.hs	day2,brute	15	
+Ziharrk/aoc2024	Haskell	src/Day2.hs	day2,brute	26	
+olligobber/AOC2024	Haskell	Day02/Part1.hs	day2,brute	12	
+harmim/aoc-2024	Haskell	src/Day02.hs	day2,brute	42	
+zouppen/aoc-2024	Haskell	src/Day02.hs	day2,brute	31	
+knexer/aoc-2024	Haskell	1/part_2.hs		37	
+mildsunrise/aoc-2024	Haskell	day2/code.hs	day2,brute	16	
+cacharle/aoc-2024	Haskell	02/main.hs	brute	21	
+amalloy/aoc-2024	Haskell	day02/Setup.hs		2	
+JakeTrevor/advent-of-code	Haskell	src/D2.hs		37	
+agnantis/advent-of-code	Haskell	app/AoC/Y2024/Day2.hs	day2,brute,proof	68	example:
+filipcsa/aoc2024	Haskell	02/solver.hs	day2	16	
+aarroyoc/advent-of-code-2024	Haskell	day2/app/Main.hs	day2	44	
+mickeelm/aoc2024	Haskell	day02/app/Main.hs	day2,brute	59	
+WJWH/aoc2024	Haskell	app/Day02.hs	day2,brute	26	
+njm64/aoc2024	Haskell	haskell/day2.hs	day2,brute	17	
+airxhi/aoc2024	Haskell	src/Day2.hs	day2,brute	35	
+WTomas/aoc2024	Haskell	challenges/Day02.hs	day2,brute	29	
+QuotableWater7/aoc2024	Haskell	02/main.hs	day2	23	
+jogor9/aoc2024	Haskell	2.hs	brute	39	
+Cueballmania/aoc2024	Haskell	src/Day2.hs	day2,brute	37	
+Pseudonym777/aoc2024	Haskell	02/2.hs	day2,brute	16	
+tiwwi/aoc2024	Haskell	src/Day02.hs	day2,brute	24	
+martinsb/aoc2024	Haskell	src/Days/Day02.hs	day2,brute	36	
+chrcav/aoc2024	Haskell	day02/solve1.hs	day2	14	
+lunky/aoc2024	Haskell	src/Day2.hs	day2,brute	24	
+blablablerg/AOC2024	Haskell	day02/day02.hs	day2,brute	14	
+mtamc/aoc2024	Haskell	src/Day02.hs	day2	36	
+Shiphan/advent-of-code-2024	Haskell	day2.hs		17	
+tromp/AoC2024	Haskell	day2.hs	day2,brute	13	
+Jaymesv2/aoc2024	Haskell	src/Days/Day02.hs	day2	30	
+tocrafty/aoc2024	Haskell	aoc2025/Day2.hs	brute	34	
+creeperkafasi/aoc2024	Haskell	day2/part1-2.hs	day2,brute	70	
+AndrewGaspar/aoc2024	Haskell	app/aoc01_02.hs		24	
+lovelyckaro/AOC2024	Haskell	lib/Solutions/Day02.hs	brute,proof	26	decreases
+SziluBe/aoc2024	Haskell	day02/sol.hs	day2,brute	34	
+lukasbm/aoc2024	Haskell	02/part1.hs	day2	16	
+djmcgill/aoc2024	Haskell	d02/Main.hs	day2	25	
+lave/aoc2024	Haskell	02.hs	day2,brute	27	
+dmjio/aoc2024	Haskell	day2/Main.hs	day2,brute	54	
+haizhu3333/aoc2024	Haskell	day02/Main.hs	day2,brute	23	
+synctax/AOC2024	Haskell	1/2.hs		14	
+mrkline/aoc2024	Haskell	day2.hs	day2,brute	27	
+WalrusGumboot/aoc2024	Haskell	02/aoc2024-02.hs	day2,brute	26	
+feschber/aoc2024	Haskell	app/day02.hs	day2	11	
+Nick-Chapman/aoc2024	Haskell	src/Day2.hs	day2,brute	30	
+UnaryPlus/aoc2024	Haskell	src/AoC2024/Solutions/Day2.hs	day2	12	
+bagedevimo/aoc2024	Haskell	app/day2.hs	brute	39	
+opqdonut/adventofcode24	Haskell	Day02.hs	day2	17	
+pbv/advent2024	Haskell	02/app/Main.hs	day2,brute	33	
+adamcbrown/AdventOfCode2024	OCaml	lib/day02/day02.ml	day2,brute	47	
+jogadordabeira/AdventOfCode2024	OCaml	src/lib/day02.ml	day2	27	
+rcklemm/AdventOfCode2024	OCaml	day2/day2.ml	day2	60	
+Vulkes/AdventOfCode-2024-solutions	OCaml	lib/day02.ml	day2	45	
+leo-leesco/Advent-of-code-2024	OCaml	Day2.ml	day2,brute	42	
+MateuszPietrzak/advent_of_code_2024	OCaml	day_2/main.ml	day2	41	
+mdjohns/advent-of-code-2024	OCaml	bin/day02_part1.ml	day2	29	
+t-gebauer/advent-of-code-2024	OCaml	day02.ml	day2,brute	83	
+Charlynux/advent-of-code-2024	OCaml	src/advent_2024/day02.ml	day2	37	
+fdahlstrand/advent-of-code-2024	OCaml	day02/day02.ml	day2,brute	28	
+RCoder01/advent-of-code-2024	OCaml	lib/day2.ml	day2,brute	21	
+safwanyp/advent-of-code-2024	OCaml	day-two/safe_2.ml	day2,brute	51	
+Keisn1/advent-of-code-2024	OCaml	day2/day2.ml	day2	27	
+thienudomsrirungruang/advent_of_code_2024	OCaml	day2/gold.ml	day2,brute	57	
+sidneypiper/advent_of_code_2024	OCaml	lib/day02.ml	day2,brute	37	
+charleslambert/Advent-of-Code-2024	OCaml	lib/day2.ml	day2,brute	49	
+Ant1-Provot/advent_of_code_2024	OCaml	d_2/main.ml	day2,brute	47	
+igemnace/advent-of-code-2024	OCaml	day02/bin/main.ml	day2,brute,proof	124	example:
+stevenjmoe/advent_of_code_2024	OCaml	lib/day2.ml	day2,brute	108	
+alexmfriedman/advent-of-code-2024	OCaml	advent_of_code_2024/lib/problem_2.ml	day2	31	
+whoek/advent-of-code-2024	OCaml	day2/day2.ml	day2,brute	54	
+Tommytto/advent-of-code-2024	OCaml	ocaml/day2/puzzle.ml	day2,brute	41	
+d-costa/advent-of-code-2024	OCaml	lib/day2.ml	day2,brute	63	
+AbderFaiz/advent_of_code_2024	OCaml	1/solve_2.ml		21	
+ComanderP/advent-of-code-2024	OCaml	src/day2/part1.ml	day2	22	
+MisustinIvan/aoc2024	OCaml	days/day02_first.ml	day2	7	
+emillon/aoc2024	OCaml	day02.ml	day2	22	
+ryohkhn/aoc24	OCaml	bin/day2.ml	day2	37	
+mduvalhall/aoc2024	OCaml	day2/day2.ml	day2,brute	64	
+siarie/aoc2024	OCaml	day02/main.ml	day2	53	
+jaaron/aoc2024	OCaml	bin/day2.ml	day2,brute	55	
+jalsol/aoc2024	OCaml	lib/day2/main.ml		11	
+stathopulos/aoc2024	OCaml	day02/main.ml	day2	29	
+borbrudar/aoc2024	OCaml	day2.ml	day2,brute	89	
+dennismok2018pub/aoc2024	OCaml	d2/main.ml	day2,brute	162	
+josuma26/AOC2024	OCaml	day2.ml	day2	49	
+supermii2/aoc2024	OCaml	day2/day2.ml	day2	36	
+AngelVI13/aoc2024	OCaml	lib/day2.ml	day2,brute	71	
+maxprokopiev/aoc2024	OCaml	day02/main.ml	day2,brute	36	
+wclem4/aoc2024	OCaml	day2/p1.ml	day2	34	
+nitbix/aoc2024	OCaml	day2_part1/bin/main.ml	day2	34	
+Josh-Cena/aoc2024	OCaml	bin/day2.ml	day2,brute	55	
+kasouza/aoc2024	OCaml	lib/day02.ml	day2	33	
+tyrosine-rex/aoc2024	OCaml	ocaml/solutions/day2.ml	brute	89	
+Ojkee/AOC2024	OCaml	bin/day2.ml	day2	63	
+aivarasbaranauskas/aoc2024	OCaml	bin/day2.ml	day2	34	
+alissonbk/aoc2024	OCaml	bin/day2.ml	day2	74	
+crawdaddie/aoc2024	OCaml	bin/day02.ml	day2,brute	66	
+toomyem/aoc2024	OCaml	day02/main.ml	brute	50	
+Smrt666/aoc2024	OCaml	day1/2.ml		13	
+Geometer1729/aoc2024	OCaml	bin/d2.ml	day2	57	
+jman2454/aoc2024	OCaml	day2/main.ml		26	
+RodolpheFouquet/aoc2024	OCaml	lib/day2.ml	day2	102	
+mtelvers/aoc2024	OCaml	day2/bin/main.ml	day2	27	
+dra27/AOC2024	OCaml	day02.ml	day2,brute	54	
+Koneke/aoc2024	OCaml	day2/day2.ml	day2	42	
+amff/aoc2024	OCaml	lib/day2.ml	day2,brute	50	
+haku-kiro/aoc2024	OCaml	lib/day02.ml	brute	48	
+rwpeterson/aoc2024	OCaml	solutions/day02/day02.ml	day2,brute	75	
+teyalem/aoc2024	OCaml	bin/d02/main.ml	day2,brute	32	
+asinghani/advent-of-hardcaml-2024	OCaml	fpga/src/day02.ml	day2,brute	98	
+RoxtroffJ/Advent_of_code2024	OCaml	2/bin/main.ml		46	
+FlorianCassayre/AdventOfCode-2024	Scala	src/main/scala/adventofcode/solutions/Day02.scala	day2,brute	10	
+kevinwu1/AdventOfCode2024	Scala	Aoc2024/src/Day02.scala	day2,brute	38	
+AlbanPhelip/advent-of-code-2024	Scala	src/main/scala/fr/sncf/itnovem/adventofcode2024/Day02.scala	day2,brute	23	
+FractionalRadix/adventOfCode2024	Scala	src/main/scala/SolverDay02.scala	day2,brute	93	
+Palemand/AdventOfCode2024	Scala	src/Day2.scala	day2,brute	38	
+prinsniels/AdventOfCode2024	Scala	src/main/scala/day02.scala	day2,brute	28	
+amizan-jaleel/AdventOfCode2024	Scala	src/main/scala/Day2.scala	brute	16	
+eMDi94/AdventOfCode2024	Scala	src/main/scala/day2/part1/Line.scala	day2,brute	13	
+jorge-hermoso/AdventOfCode2024	Scala	src/main/scala/adventofcode/Day02.scala	day2,brute	13	
+Kevincav/AdventOfCode2024	Scala	src/main/scala/org/advent/year2024/Day2.scala	day2,brute	12	
+epicseven-cup/AdventOfCode2024	Scala	src/main/scala/Day2Red_NosedReports/Solution.scala	day2,brute	83	
+mrybak834/adventOfCode2024	Scala	src/main/scala/adventOfCode/day2/partOne/Solution1.scala	day2	37	
+Jannyboy11/AdventOfCode2024	Scala	src/main/scala/day02/Day02.scala	day2,brute	23	
+Nare6880/AdventOfCode2024	Scala	src/main/scala/day02.scala	brute	29	
+johnngugi/AdventOfCode2024	Scala	Day2/src/main/scala/main.scala	day2,brute	35	
+Ninteedo/AdventOfCode2024	Scala	src/main/scala/days/Day02.scala	day2,brute	23	
+melfkammholz/aoc24	Scala	day02/A.scala	brute	17	
+fdlk/advent-2024	Scala	2024/day02.sc	day2,brute	15	
+itsjoeoui/aoc2024	Scala	src/day02.scala	day2,brute	42	
+VincentQuillien/advent-of-code-2024	Scala	Day02/ex.worksheet.sc	day2,brute	41	
+eflisback/advent-of-code-2024	Scala	2/ab.scala	day2,brute	21	
+ferranEspuna/advent-of-code-2024	Scala	2.scala	day2,brute	39	
+merlinorg/aoc2024	Scala	src/main/scala/Day2.scala	day2	17	
+dr-jerry/aoc-scala3	Scala	src/main/scala/nl/itjer/aoc2024/Day02.scala	day2,brute	78	
+rolandtritsch/scala3-aoc-2024	Scala	main/src/aoc2024/Day02.scala	day2,brute	60	
+bracl/aoc2024	Scala	src/main/scala/day2/day2.scala	day2,brute	36	
+ErikLjungdahl/aoc2024	Scala	2.scala	day2	29	
+michalliss/aoc2024	Scala	aoc2024/src/Day2.scala	day2,brute	51	
+DanKHansen/aoc2024	Scala	src/main/scala/day2.scala	day2,brute	16	
+CamJohnson26/AOC2024	Scala	src/day2/Day2.scala	day2,brute	45	
+skht/aoc2024	Scala	src/main/scala/aoc2024/day02.scala	brute	40	
+targeter/aoc2024	Scala	src/main/scala/aoc2024/Day02.scala	brute	22	
+a01fe/aoc2024	Scala	day2/Day2.scala	day2,brute	29	
+Folamh/aoc2024	Scala	day2.worksheet.sc	day2,brute	35	
+nelanz/aoc2024	Scala	src/main/scala/day02/Day02.scala	day2,brute	60	
+sanraith/aoc2024	Scala	shared/src/main/scala/hu/sanraith/aoc2024/solution/Day02.scala	day2,brute	16	
+nikb-de/aoc2024	Scala	src/main/scala/nikbde/Day2.scala	brute	49	
+dlubom/aoc2024	Scala	src/main/scala/aoc/d02/Day02.scala	day2,brute	31	
+erdeszt/aoc2024	Scala	src/main/scala/advent/solutions/day2.scala	day2,brute	53	
+tewecske/aoc2024	Scala	aoc2024-scala/src/main/scala/aoc/day2/AoCDay2.scala	day2	218	
+feoktant/aoc2024	Scala	src/main/scala/day2.scala	day2,brute	43	
+phfroidmont/aoc2024	Scala	src/day02.scala	day2,brute	36	
+wolfendale/aoc2024	Scala	day-02/src/main/scala/Day2.scala	day2,brute	34	
+sparkhi/aoc2024	Scala	src/main/scala/com/knowingwhere/aoc2024/Day2.scala	day2	20	
+mkmij/aoc2024	Scala	day2/src/main/scala/Main.scala	day2,brute	40	
+b4rtm/aoc2024	Scala	src/main/scala/Day2.scala	day2,brute	41	
+christo/aoc2024	Scala	src/main/scala/com/chromosundrift/aoc2024/Day02.scala	day2,brute	29	
+ryanjeffares/aoc2024	Scala	src/main/scala/days/Day2.scala	day2,brute	27	
+hygt/aoc2024	Scala	src/aoc2024/Day02.scala	day2,brute	38	
+kasparito/aoc2024	Scala	src/com/hellden/aoc/aoc2024/Day02.scala	day2,brute	21	
+w-r-z-k/aoc2024	Scala	src/main/scala/Day2.scala	day2,brute	16	
+jmgimeno/aoc2024	Scala	days/src/main/scala/aoc2024s/day2/Day2.scala	day2,brute	45	
+hraponssi/AOC2024	Scala	src/main/scala/Day2.scala	brute	34	
+lego-eden/aoc2024	Scala	day2/day2.scala	day2,brute	18	
+kalejami/aoc2024	Scala	src/main/scala/de/mk/aoc2024/day2.scala	day2,brute	80	
+philipmstc/aoc2024	Scala	day02-rednosed-reports/Day2.scala	day2,brute	47	
+willemvermeer/aoc2024	Scala	src/main/scala/day2/Day2.scala	day2,brute	50	
+thinkbeforecoding/advent-of-code-2024	F#	day02.fsx	day2,brute	32	
+Ossur/AdventOfCode2024	F#	Day2/RedNosedReports.fs	day2,brute	41	
+bjorkstromm/AdventOfCode2024	F#	day02.fsx	day2,brute	52	
+aseminjakiw/adventOfCode2024	F#	AdventOfCode/Day2.fs	day2,brute	70	
+Matthew-Davey/AdventOfCode2024	F#	Day02/Part1.fs	day2	13	
+Roald87/AdventOfCode2024	F#	day2.fsx	day2,brute	25	
+Ellyll/AdventOfCode2024	F#	AdventOfCode2024.Day02/Day02_A.fs	day2	44	
+vmaradudin/AdventOfCode2024	F#	src/2024/Modules/Day02.fs	day2,brute	17	
+tkshill/AdventOfCode2024	F#	AOC/Day02.fs	day2,brute	21	
+Lerke/AdventOfCode2024	F#	Day02.RedNosedReports/Program.fs	day2,brute	43	
+Sztorm/AdventOfCode2024	F#	src/AdventOfCode2024/Day02/Day02.fs	day2,brute	51	
+cninja/AdventOfCode2024	F#	Day2Part1/Program.fs	day2,brute	35	
+Cruiser18/AdventOfCode2024	F#	Day2/Solution.fsx	day2	42	
+pjjohnstone/AdventOfCode2024	F#	AdventOfCode2024/Day2/Day2.fs	day2,brute	102	
+VeryCautious/AdventOfCode2024	F#	AdventOfCode2024-Day02/Day2.fs	day2,brute	45	
+KristianSchmidt/AdventOfCode2024	F#	Day2.fsx	brute	24	
+GustavOhman/AdventOfCode2024	F#	Day02/Solution.fsx	day2,brute	80	
+mitchnenn/AdventOfCode2024	F#	Day02/Program.fs	day2	14	
+le-marais/AdventOfCode2024	F#	Day2Fs/Program.fs	day2,brute	60	
+Smaug123/AdventOfCode2024	F#	AdventOfCode2024/Day2.fs	day2	70	
+AlexJPotter/AdventOfCode2024	F#	AdventOfCode2024/Day02/Day02.fs	day2,brute	39	
+vincentremond/AdventOfCode2024	F#	AdventOfCode2024/Day02/Solution.fs	day2,brute	70	
+Samuel-Dufour/AdventOfCode-2024	F#	day-2/answers.fsx	brute	30	
+Larocceau/adventOfCode2024	F#	day2/solution.fsx	day2,brute	30	
+pgeadas/AdventOfCode2024	F#	Advent2024/Day2.fs	day2,brute	39	
+spencerwi/AdventOfCode2024	F#	day2/Lib.fs	day2,brute	88	
+AndreLeBlanc/adventOfCode2024	F#	days/day2.fsx	day2	39	
+DenisHromada/aoc_2024	F#	Day2/Program.fs	day2,brute	48	
+TimWillebrands/aoc-2024	F#	2/solution.fsx	brute	36	
+timochu/aoc2024	F#	day02.fsx	day2,brute	12	
+carstencodes/aoc2024	F#	week1/day2/puzzle1.fsx	day2	1064	
+atparkweb/aoc2024	F#	AoC2024/Day2.fs	day2	24	
+softsilverwind/aoc2024	F#	2/simple.fsx		24	
+shinkathe/aoc2024	F#	day2.fsx		8	
+tormodfj/aoc2024	F#	01-2/Program.fs		19	
+mbottini/AOC2024	F#	Day02/Program.fs	day2	43	
+tim-lofstrom/aoc2024	F#	day02/Program.fs	day2,brute,proof	29	example:
+thomasmethrayil/aoc2024	F#	day2/day2.fsx	day2,brute	107	
+AP-Hunt/aoc2024	F#	02/Part1.fs	day2	45	
+dausi15/aoc2024	F#	FirstIonideProject/4-2.fs	brute	40	
+KasperLovold/AOC2024	F#	day2/Program.fs	brute	27	
+hype09/aoc2024	F#	Day02/Part01.fs		9	
+j-r-beckett/aoc2024	F#	2/Program.fs	day2	33	
+jmc-elodie/aoc2024	F#	Days/Day02/Solution.fs	day2,brute	70	
+devdtc/aoc2024	F#	day2/Program.fs	day2,brute	42	
+Rinorragi/aoc2024	F#	day02.fsx	day2,brute	46	
+kotharin/aoc2024	F#	Day2.fs	day2,brute	123	
+musabkilic/aoc2024	F#	02.fs	brute	28	
+0xFEEDCODE/aoc2024	F#	aoc2024/day02.fs	day2	37	
+jjbrooksnet/aoc2024	F#	day2/day2.fsx	day2,brute	141	
+laszlokorte/aoc2024	F#	day02.fs	brute	32	
+andagr/aoc2024	F#	02.fsx	day2,brute	35	
+Airex/aoc2024	F#	Day2/Program.fs	day2,brute	29	
+janno-p/aoc2024	F#	src/Aoc2024/Day02.fs	day2,brute	26	
+nicholas-miklaucic/aoc2024	F#	sols/day2.fs	day2,brute	34	
+majocha/aoc2024	F#	day02.fsx	day2,brute	26	
+sqeezy/AdventOfCode2024	F#	src/Day02/Program.fs	day2,brute	45	
+mgkoning/advent-of-code-2024	Gleam	advent_gleam/src/day02.gleam	day2,brute	44	
+Kiwow/advent-of-code-2024	Gleam	2/solution/src/solution.gleam	day2,brute	54	
+rbobillot/AdventOfCode2024	Gleam	gleam/src/day02.gleam	day2	56	
+kTindalland/AdventOfCode-2024	Gleam	day-2/src/aoc_2.gleam	day2,brute	130	
+MaciPaci/AdventOfCode2024	Gleam	src/aoc_2024/day_2.gleam	day2,brute	80	
+renaudlenne/advent_of_code_2024	Gleam	src/aoc_2024/day_2.gleam	day2	65	
+devries/advent_of_code_2024	Gleam	src/day02/solution.gleam	day2,brute	88	
+pwschaedler/advent-of-code-2024	Gleam	src/d2.gleam	day2	143	
+Avataw/advent_of_code_2024	Gleam	src/day_2.gleam	day2	68	
+tkanerva/advent_of_code_2024	Gleam	day2/src/day2.gleam		74	
+blink1415/advent-of-code-2024	Gleam	src/day2.gleam	day2,brute	80	
+gtruitt/advent_of_code_2024	Gleam	src/day_02_first.gleam	day2	39	
+Odonno/advent_of_code_2024	Gleam	src/day02/part1.gleam	day2	7	
+sethcalebweeks/advent-of-code-2024	Gleam	src/day02/day02.gleam	day2,brute	64	
+BrewingWeasel/advent_of_code_2024	Gleam	advent/src/day2.gleam	day2,brute	53	
+OnFireByte/Advent-of-Code-2024	Gleam	src/day02.gleam	day2	79	
+JitPackJoyride/advent-of-code-2024	Gleam	day_2/src/day_2.gleam	day2	56	
+jpyamamoto/advent_of_code_2024	Gleam	src/aoc_2024/day_2.gleam	day2,brute	63	
+spazzylemons/advent-of-code-2024	Gleam	src/aoc_2024/day_2.gleam	day2	49	
+DwieDave/advent-of-code-2024	Gleam	src/day2_1.gleam	day2	38	
+sisou/advent-of-code-2024	Gleam	src/day_02.gleam	day2	49	
+SerenMcIntyre/Advent-of-Code-2024	Gleam	src/day2.gleam	day2,brute	89	
+escherize/aoc_2024	Gleam	src/day_2.gleam	day2,brute	39	
+brian14708/aoc2024	Gleam	src/day02.gleam	day2	60	
+jaredbothwell/aoc2024	Gleam	src/days/day2.gleam	day2,brute	71	
+arjunchib/aoc2024	Gleam	src/day2.gleam	day2	71	
+IMLaoJI/aoc2024	Gleam	aoc-gleam/src/aoc/year2024/day02.gleam	day2,brute	46	
+39bytes/aoc2024	Gleam	src/day02/day02.gleam	day2,brute	59	
+knightstick/aoc2024	Gleam	src/aoc2024/day2.gleam	day2	113	
+nathanielknight/aoc2024	Gleam	src/y2024/d02/solve.gleam	day2,brute	87	
+imaah/aoc2024	Gleam	src/day02/solver.gleam	day2,brute	62	
+Jonesus/aoc2024	Gleam	src/day02/part1.gleam		20	
+okkdev/aoc2024	Gleam	day2/day2.gleam	day2,brute	57	
+crnkofe/aoc2024	Gleam	src/day2.gleam	day2,brute	55	
+Brentlok/aoc2024	Gleam	src/day02.gleam	day2,brute	74	
+felixhudson/aoc2024	Gleam	src/days/day2.gleam	proof	131	decreases
+yoshi-monster/aoc2024	Gleam	src/aoc_2024/day_2.gleam	day2,brute	34	
+thymoze/aoc2024	Gleam	day02/src/day02.gleam	day2,brute	44	
+hraftery/aoc2024	Gleam	src/days/day02.gleam	day2,brute	68	
+nonpop/aoc2024	Gleam	src/day2.gleam	day2	67	
+YilunAllenChen/aoc2024	Gleam	src/d2.gleam	day2,brute	76	
+tzx/aoc2024	Gleam	src/aoc_2024/day_2.gleam	day2,brute	51	
+thisguycodes/aoc2024	Gleam	src/day2.gleam	day2	74	
+Convez/AOC2024	Gleam	src/day02.gleam	brute	93	
+Zenor27/AOC2024	Gleam	src/day02/day02.gleam	day2,brute	69	
+magoun/aoc2024	Gleam	src/days/day2.gleam	day2,brute	110	
+mvlootman/aoc2024	Gleam	src/day02.gleam	day2,brute	54	
+misaelvillaverde/aoc2024	Gleam	src/day2/p1.gleam		68	
+kjinho/aoc2024	Gleam	src/day02.gleam	day2,brute	99	
+mewhhaha/aoc2024	Gleam	day1.2/src/main.gleam		48	
+itsMapleLeaf/aoc2024	Gleam	src/day02/day02.gleam	day2,brute,proof	58	example:
+jannawro/aoc2024	Gleam	src/days/day2.gleam	day2,brute	125	
+Marado-Programmer/aoc2024	Gleam	src/day_02.gleam		4	
+WadeGulbrandsen/aoc2024	Gleam	src/solvers/day02.gleam	day2,brute	34	
+dabzr/AoC-2024	Gleam	day02/src/day2.gleam	brute	46	
+veresdavid/advent-of-code-2024	Elixir	05/print_queue_02.exs		67	
+leomeloxp/advent-of-code-2024-ex	Elixir	lib/advent_of_code/day_02.ex	day2	57	
+louis-can-code/AdventOfCode2024	Elixir	2/day2-p1.exs	day2	34	
+awallace689/AdventOfCode2024	Elixir	lib/day2.ex	day2,brute	97	
+Eoic/AdventOfCode2024	Elixir	lib/mix/tasks/D2/Day2.ex	day2,brute	43	
+KasperVaessen/AdventOfCode2024	Elixir	lib/advent_of_code/day_02.ex	day2,brute	29	
+MDoerner/AdventOfCode2024	Elixir	Elixir/advent_of_code_2024/lib/days/day2.ex	day2,brute	114	
+marco-marinho/AdventOfCode2024	Elixir	lib/days/day02.ex	brute	48	
+PapstJL4U/AdventOfCode2024	Elixir	day2/lib/day2.ex	day2	67	
+nkijak/AdventOfCode2024	Elixir	day2/lib/day2.ex	day2,brute	115	
+josephmate/AdventOfCode2024	Elixir	lib/day/day02.ex	day2,brute	56	
+Splagoon/AdventOfCode2024	Elixir	lib/02.exs	day2,brute	44	
+Frytak/AdventOfCode2024	Elixir	day2/part1.exs	day2	24	
+kubenetic/AdventOfCode2024-Elixir-	Elixir	lib/day02.ex	day2,brute	31	
+rjNemo/ai_advent_code_2024	Elixir	lib/advent_code2024/solutions/day02/day2.ex	day2,brute	105	
+Andrew-Bekhiet/advent-of-code-2024	Elixir	Day-2/elixir.ex	day2,brute	61	
+codylandry/advent_of_code_2024	Elixir	lib/days/day_2/day_2.ex	day2,proof	17	example:
+paulfedory/advent_of_code_2024	Elixir	lib/advent_of_code_2024/day_02.ex	day2,brute	51	
+lassebe/advent_of_code_2024	Elixir	lib/advent_of_code/day_02.ex	day2,brute	51	
+josepablocastro/advent_of_code_2024	Elixir	lib/advent2024/day_02.ex	day2,brute	56	
+mborromeo/advent_of_code_2024	Elixir	lib/day2.ex	day2,brute	47	
+netmask/advent_of_code_2024	Elixir	day2/part1.exs	day2	23	
+sulmanen/advent-of-code-2024	Elixir	2/.iex.exs		1	
+AlexMunro/advent-of-code-2024	Elixir	lib/day02.ex	day2,brute	39	
+ZeroX-DG/aoc2024	Elixir	day2/day2.exs	day2,brute	56	
+DeemoONeill/AOC2024	Elixir	lib/day2.ex	day2,brute	42	
+MathieuDR/AOC-2024	Elixir	lib/aoc_2024/solutions/y24/day02.ex	day2,brute	71	
+dams/adventofcode2024	Elixir	day_2/part1.exs	day2	24	
+maard/adventofcode2024	Elixir	2/level2.exs	day2,brute	61	
+KartonM/aoc2024	Elixir	lib/advent_of_code/day_02.ex	day2,brute	27	
+kaareltinn/aoc2024	Elixir	day2/lib/day2_part1.ex	day2	42	
+ledbettj/aoc2024	Elixir	lib/day2.ex	day2,brute	90	
+GP4cK/aoc2024	Elixir	lib/aoc2024/solutions/y24/day02.ex	day2,proof	46	decreases
+ColbyZW/aoc2024	Elixir	day2/main.exs		49	
+SantaAna/aoc2024	Elixir	lib/day2.ex	day2,brute	62	
+nicolasdular/aoc2024	Elixir	lib/day2.ex	day2,brute	41	
+chico1992/aoc2024	Elixir	day2/part1.exs		22	
+martinfalke/aoc2024	Elixir	lib/days/day02.ex	day2,brute	59	
+petros/aoc2024	Elixir	lib/day02/solution.ex	day2,brute	156	
+cthompson527/AOC2024	Elixir	elixir/day2.exs	day2,brute	1060	
+pepe217/aoc2024	Elixir	day2.exs	day2,brute	44	
+nikiiv/aoc2024	Elixir	lib/day02.ex	day2,brute	67	
+frutjus/aoc2024	Elixir	day2/day2.ex	brute	18	
+ruslandoga/aoc2024	Elixir	lib/day02.ex	day2	89	
+Cloakless/aoc2024	Elixir	2.exs	day2,brute	48	
+rafasf/aoc2024	Elixir	lib/day02/day02.ex	day2,brute	46	
+Vovan-S/aoc2024	Elixir	2.exs	day2,brute	49	
+knightpp/advent-of-code-2024	Elixir	lib/day2/day2.ex	day2	92	
+ckampfe/aoc2024	Elixir	day2.exs	day2,brute	62	
+qw3r/aoc2024	Elixir	lib/aoc/day_02.ex	day2,brute	65	
+JBraungardt/aoc2024	Elixir	lib/2024/2.ex	day2,brute	60	
+jenningsfan/AOC2024	Elixir	lib/advent_of_code/day_02.ex	day2,brute	52	
+LucasWolschick/aoc2024	Elixir	lib/days/day02.ex	day2,brute	60	
+rleijon/aoc2024	Elixir	lib/days/day2.ex	day2,brute	38	
+chris-steenkamp/aoc2024	Elixir	lib/aoc/days/day_02.ex		64	
+frerich/aoc2024	Elixir	elixir/day02/day02.exs	day2,brute	29	
+mgrusso/aoc2024	Elixir	day2/day2.ex	day2	69	
+meliadamian17/aoc2024	Elixir	day2/soln1.exs		43	
+binilinlquad/aoc2024	Elixir	day02/solution.ex	day2,brute	45	
+woojiahao/aoc	Elixir	lib/aoc/y2024/day_2.ex	day2,brute	30	
+glompho/advent-of-code2024	Elixir	lib/advent_of_code/day_02.ex	brute	54	
+fjebaker/advent-of-code-2024	Clojure	day02/main.clj	brute	33	
+caseneuve/aoc2024	Clojure	day02/solution.clj	day2,brute	38	
+tkindy/AdventOfCode2024	Clojure	src/com/tylerkindy/aoc2024/day02.clj	day2,brute	52	
+noahmoss/AdventOfCode2024	Clojure	src/aoc2024/day2/part1.clj	day2,proof	40	invariant
+vanHavel/AdventOfCode2024	Clojure	src/aoc/day2.clj	day2,brute	20	
+astynax/AdventOfCode2024	Clojure	src/advent_of_code_2024/day_02.clj	day2,brute	21	
+tamaslang/AdventOfCode2024Clj	Clojure	src/com/day2/SafeReports.clj	day2,brute	27	
+TerminalCursor/AdventOfCode2024-Clojure	Clojure	D02/D02P01.clj	day2	21	
+andrewflbarnes/advent-of-code-2024	Clojure	src/d02.clj	day2,brute	27	
+T-oo-T/advent-of-code-2024	Clojure	src/aoc_2024/day_02.clj	day2,brute	41	
+virail/Advent-of-Code-2024	Clojure	day2/project.clj		10	
+ClemRz/advent-of-code-2024	Clojure	src/aoc/day_1/part_2.clj		15	
+Jean-Ralphio/advent-of-code-2024	Clojure	src/aoc2024/day2.clj	day2,brute	54	
+stubillwhite/advent-of-code-2024	Clojure	src/advent_of_code_2024/day_2.clj	day2,brute	33	
+2f42/advent-of-code-2024	Clojure	src/day2/day2.clj	day2,brute	19	
+kaepr/advent-of-code-2024	Clojure	src/aoc2024/day02.clj	day2,brute	47	
+AmirS2/advent-of-code-2024	Clojure	day2/part1.clj	day2	26	
+JpOnline/advent-of-code-2024	Clojure	advent_02.clj	day2,brute	76	
+SnackkOverflowError/advent_of_code_2024	Clojure	src/day2/day2.clj	day2,brute	80	
+outergod/advent-of-code-2024	Clojure	src/2024/day_2.clj	day2,brute	30	
+agharbin/advent-of-code-2024	Clojure	02/solve.clj	day2,brute	43	
+er2/advent-of-code-2024	Clojure	src/advent_of_code_2024/day2.clj	day2,brute	62	
+Asfaroth/advent_of_code_2024	Clojure	src/aoc_2024/day2.clj	day2,brute	18	
+sfogfar/advent-of-code-2024	Clojure	src/aoc_2024/day_02/solution.clj	day2,brute	45	
+Earthcomputer/aoc2024	Clojure	src/aoc2024/day2.clj	day2,brute	32	
+mtravers/aoc2024	Clojure	src/aoc2024/day2.clj	day2,brute	42	
+dfehrenbach/aoc2024	Clojure	clojure/src/day2/core.clj	day2,brute	46	
+tobifasc/aoc2024	Clojure	src/adventofcode2024/day02.clj	day2	31	
+m-faucon/aoc2024	Clojure	src/aoc2024/day2.clj	day2,brute	30	
+dgoeke/aoc2024	Clojure	src/aoc2024/day2.clj	day2,brute	19	
+caleb-fringer/aoc2024	Clojure	day2/solution.clj	day2,brute	50	
+oopjot/aoc2024	Clojure	src/aoc2024/day2.clj	day2,brute	28	
+pmbauer/aoc2024	Clojure	src/codes/bauer/aoc2024/02.clj	day2,brute	42	
+cadaker/aoc2024	Clojure	src/aoc2024/day02.clj	day2,brute	27	
+stephen-allison/aoc2024	Clojure	src/aoc24/day2.clj	day2,brute	43	
+akashkgarg/aoc2024	Clojure	src/day02.clj	brute	33	
+crab-apple/aoc2024	Clojure	src/aoc2024/day02/solution.clj	day2,brute	26	
+tgolsson/aoc2024	Clojure	src/aoc2024/day2.clj	day2,brute	41	
+klemola/aoc2024	Clojure	day2/solution.clj	day2,brute	48	
+keychera/aoc2024	Clojure	src/day2/day2.clj	day2,brute	86	
+muesli4brekkies/aoc2024	Clojure	src/y15/1/2.clj		2	
+1e16miin/aoc2024	Clojure	src/aoc2024/day2.clj	day2,brute	48	
+alphapaca/aoc2024	Clojure	src/aoc2024/day2.clj	day2,brute	29	
+fl00r/aoc2024	Clojure	2.clj	day2,brute	42	
+MartinPuda/aoc2024	Clojure	src/aoc2024/day02.clj	day2,brute	39	
+kieran-grant/aoc2024	Clojure	src/aoc2024/day02.clj	day2,brute	42	
+Kpovoc/aoc2024	Clojure	src/day02/core.clj	day2,brute	62	
+rslabon/aoc2024	Clojure	test/aoc2024/day2.clj	day2,brute	55	
+bsless/aoc2024	Clojure	src/day2.clj	day2,brute	51	
+jmcduffie32/aoc2024	Clojure	src/aoc/day2.clj	day2,brute	41	
+analogpixel/aoc2024	Clojure	day2.clj	brute	42	
+AbaevT/aoc2024	Clojure	Day2/Day2.clj	day2,brute	23	
+Cramplescrunch/aoc2024	Clojure	src/aoc2024/day2.clj	day2,brute	69	
+zanlib0/aoc2024	Clojure	src/aoc/day02.clj	day2,brute	44	
+mattiasl/aoc2024	Clojure	src/main/clojure/day02.clj	day2,brute	19	
+emauton/aoc2024	Clojure	src/aoc2024/day2.clj	day2,brute	28	
+mcarfagno/aoc2024	Clojure	src/day02.clj	day2,brute	36	
+duncanjbrown/aoc2024	Clojure	src/aoc/day2.clj	day2,brute	26	
+bhauman/adv2024	Clojure	src/adv2024/day02/sol.clj	day2,brute	25	
+jjcomer/advent-2024	Clojure	src/y2024/d2.clj		38	
+mats42/2024_AdventOfCode	Clojure	src/aoc2024/day2.clj	day2,brute	50	
+Strophox/Advent-of-Code-2024	Elm	day02.elm	day2,brute	74	
+acohimself/advent-of-code-2024	Elm	day2/src/Main.elm	day2,brute	1167	
+DrBloke/advent-of-code-2024-elm	Elm	src/Page/D1_2.elm	proof	69	example:
+maxhille/aoc-2024	Elm	days/Day02.elm	day2,brute	138	
+jrmcauliffe/aoc2024	Elm	src/Day02.elm	day2,brute	40	
+ntwilson/AdventOfCode2024	PureScript	src/Day2Puzzle1.purs	day2,brute	40	
+SolarBear/AdventOfCode2024	PureScript	src/day2.purs	day2,brute	56	
+harrywincup/advent-of-code-2024	PureScript	src/Day2/Main.purs	day2	28	
+jamin-panzenberg/purescript-advent-of-code-2024	PureScript	src/Day2/Day2.purs	day2,brute	52	
+micahhahn/aoc-2024	PureScript	src/Day2.purs	day2,brute	85	
+sc-let-me-in/advent-of-code-2024	Racket	02/luke.rkt	day2	18	
+levon-vardevanyan-solarwinds/AdventOfCode2024	Racket	day2/solution.rkt	day2,brute	17	
+HalflingHelper/AdventOfCode2024	Racket	day02.rkt	day2	19	
+jefgr/AdventOfCode2024	Racket	day2.rkt	day2	1060	
+fanoplanes/AdventOfCode2024	Racket	01/01-2.rkt		10	
+thomas-le-goff/AdventOfCode2024	Racket	Day2/main.rkt	day2,brute,proof	46	example:
+swishtail/AoC-2024-in-Racket	Racket	day2/day2.rkt	day2	80	
+I-mikan-I/advent-of-code-2024	Racket	src/day02/solution.rkt	day2,brute	31	
+jonathan-chen10/advent-of-code-2024	Racket	day_2/soln.rkt	day2,brute	67	
+JulianGCalderon/advent-of-code-2024	Racket	day2/main.rkt	day2,brute	35	
+jcottrell/advent-of-code-2024	Racket	day-02/code.rkt	day2,brute	76	
+micahcantor/advent-of-code-2024	Racket	day-2/day-2.rkt	day2,brute	37	
+ashpool37/advent-of-code-2024-racket	Racket	src/day02/a.rkt	day2	25	
+derheap/aoc-2024	Racket	02.rkt	day2,brute	72	
+ejflick/aoc2024	Racket	day2.rkt	day2,brute	23	
+jairtrejo/advent2024	Racket	day02/aoc2.rkt	day2,brute	43	
+Bogdanp/aoc2024	Racket	day-02.rkt	day2,brute	34	
+bthuilot/aoc24	Racket	private/days/02.rkt	day2,brute	103	
+Seb-G0/AOC2024	Racket	Day2.rkt	day2,brute	36	
+jinwoo/aoc2024	Racket	day02.rkt	day2,brute	65	
+melodicht/aoc2024	Racket	day2/main.rkt	day2,brute	102	
+zsb258/aoc_2024	Racket	day02/day02.rkt	day2,brute	38	
+ofrank123/AoC2024	Racket	day02_p1.rkt	day2	19	
+thierry-martinez/advent-of-code	Coq	2024/day02/day02.v	day2,proof	233	lemma proof qed
