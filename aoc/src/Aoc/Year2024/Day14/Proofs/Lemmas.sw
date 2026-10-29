@@ -10,7 +10,7 @@ theorem forwardWrap: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size 
   | Zero, ok, x, inside => Void.exfalso (ok rfl)
   | Succ n, ok, x, inside =>
     match e: x + 1 == Succ n with
-      | True => rewrite DecEq.sound (x + 1) (Succ n) e in Eq.sym (Nat.modSelf (Succ n))
+      | True => rewrite (omega [DecEq.sound (x + 1) (Succ n) e]: x = n) in Eq.sym (Nat.modSelf (Succ n))
       | False => Eq.sym (Nat.modSmall (x + 1) (Succ n) omega)
 
 -- Counting `wanted` among the `Some` results is counting the elements that

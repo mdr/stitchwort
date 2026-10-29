@@ -373,7 +373,10 @@ theorem wholeOfSeparate (warehouse: Warehouse) (separate: WideSeparate warehouse
     }
 
 -- A move in the wide warehouse never moves a wall.
-theorem moveWideWalls (warehouse: Warehouse) (direction: Direction): (warehouse.moveWide direction).walls = warehouse.walls := cases
+theorem moveWideWalls (warehouse: Warehouse) (direction: Direction): (warehouse.moveWide direction).walls = warehouse.walls :=
+  match warehouse.gather direction Set.empty [warehouse.robot.step direction] (2 * warehouse.boxes.size + 1) with
+    | Some group => rfl
+    | None => rfl
 
 -- After every move: the walls are where they were, nothing overlaps if
 -- nothing did at the start (so the robot is never on a wall or a box), and
