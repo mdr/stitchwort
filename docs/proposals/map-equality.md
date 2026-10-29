@@ -1,7 +1,7 @@
 # Design session: equality of maps (and other types whose natural equality is coarser than their representation)
 
-**Status:** draft 3, signed off after two external reviews; implementation starts with stage 1
-(kernel quotients, [§14.1](#141-stages)). 23 October 2026. Draft 1 (a state-of-the-art audit and
+**Status:** draft 3, signed off after two external reviews; implemented (SW-356, merged 24 October: kernel quotients,
+[§14.1](#141-stages), the API leftovers and the O(n + m) combining operations). 23 October 2026. Draft 1 (a state-of-the-art audit and
 option analysis) had one external review, which kept option E (Lean-style quotients) as the
 preferred direction on conditions; draft 2 adopted it (D786) and turned E into a precise kernel
 proposal; the second review found no logical contradiction in the five rules and asked for a

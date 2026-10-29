@@ -1,7 +1,7 @@
 # Proposal: projects in the playground
 
-**Status:** draft 2, 20 October 2026 (SW-133). Design only: nothing is
-built. Decisions for Matt are D109 to D116, D118 and D119
+**Status:** draft 2, 20 October 2026 (SW-133). Built: see
+[As built](#as-built) (SW-133, SW-173). Decisions for Matt are D109 to D116, D118 and D119
 ([§11](#11-decisions-for-matt)), each with a recommended answer. The goal
 is Matt's (D105/D106): make the Advent of Code project (`aoc/`) browsable,
 editable and runnable in the **local** playground (`web/serve.sh`).

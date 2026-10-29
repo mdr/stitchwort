@@ -1,6 +1,6 @@
 # Stitchwort: terminal control
 
-**Status:** draft 2, 25 October 2026, for review (D1245). Nothing here is built. Draft 1's D1246 to D1248 are decided: D1246 as revised below (a library ability), D1247 and D1248 as recommended. Draft 1's random-seed decision is renumbered **D1258** (it clashed with D1249, the partial-handlers note) and is still open. New decisions D1259 and D1260 are at the end.
+**Status:** draft 2, 25 October 2026, for review (D1245). Built: lanes 1, 2 and 4 are done (SW-495, SW-496, SW-497: host IO ops, std `Terminal`, `IO.randomSeed`). Draft 1's D1246 to D1248 are decided: D1246 as revised below (a library ability), D1247 and D1248 as recommended. Draft 1's random-seed decision is renumbered **D1258** (it clashed with D1249, the partial-handlers note) and is still open. New decisions D1259 and D1260 are at the end.
 
 Matt asked for "simple keypress input, or maybe more generally a bit of terminal control layer stuff as needed in IO, to make this nice". A roguelike is being written now. It needs to react to single keys (including arrow keys) and redraw the screen without scrolling.
 

@@ -1,6 +1,6 @@
 # Proposal: maps and sets for practical use
 
-**Status:** draft 1, 23 October 2026. Design only: nothing is built. Ticket SW-356. Stops for
+**Status:** draft 1, 23 October 2026. Ticket SW-356, done and merged (24 October; its equality half is [map-equality.md](map-equality.md)). Stops for
 review (design-review gate). Decisions D740–D749 are at the [end](#7-decisions). Written against
 commit `143d647e`. Follows [map-set.md](map-set.md) (SW-113, the `Map`/`Set` as built).
 

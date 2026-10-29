@@ -2,7 +2,7 @@
 
 **Date:** 21 October 2026. **Ticket:** SW-213 (D258). **Builds on:** std-library.md
 (SW-148, D49–D62), namespaces.md §4.5–§4.8, interfaces.md §9 (D170, D172).
-**Status:** a design note for Matt's review. Nothing is implemented.
+**Status:** a design note for Matt's review. Stages 1 to 3 are built (see the As built sections below).
 **Decisions asked for:** D260–D267 (§9). **Decided (21 Oct 2026):** D260 option B, D261 (no import for dot notation), D266 (the 22 names) (Matt). D262, D263, D264, D267 as recommended (Claude, implementation detail). Open: D265 (stage 1 adds no import form). **Stage 1 (§8.1) is implemented.**
 
 Claims about the code are marked **[checked]** when I read or ran the thing named, and

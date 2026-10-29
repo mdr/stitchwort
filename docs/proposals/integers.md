@@ -1,7 +1,7 @@
 # Proposal: integers (`Int`)
 
 **Status:** draft 2, 16 October 2026. Stage 1 (the type and its library)
-is built; see [As built](#as-built-stage-1). Stages 2–7 aren't.
+is built; see [As built](#as-built-stage-1). So are stages 3 to 7 (their As built sections follow; stage 2, the parser, has none of its own).
 The user has answered the questions for the user ([Decisions](#decisions-16-october-2026)),
 and an external reviewer has answered the questions for the reviewer
 ([Review outcome](#review-outcome)). Draft 2 adopts the review
