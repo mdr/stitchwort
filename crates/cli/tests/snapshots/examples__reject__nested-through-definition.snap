@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-POSITIVITY] Error: `Tree` is used inside another type
+    ╭─[ reject/nested-through-definition.sw:10:17 ]
+    │
+ 10 │   | Node (kids: Children Tree)
+    │                 ──────┬──────  
+    │                       ╰──────── field `kids` has `Tree` inside `Children`, which is a definition, not a data type
+    │ 
+    │ Note: a data type's fields can hold the type itself directly, as a function field's result, or inside another data type at a parameter that the other type only stores, as `List` stores its elements. Whether it's safe inside anything else would depend on how that uses it, which isn't checked
+────╯

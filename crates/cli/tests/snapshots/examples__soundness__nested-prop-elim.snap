@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PROP-ELIM] Error: can't match on a proof of `P` to produce data
+    ╭─[ soundness/nested-prop-elim.sw:15:3 ]
+    │
+ 15 │   | MkP h => 0
+    │   ──────┬─────  
+    │         ╰─────── the result type `Nat` isn't a proposition
+    │ 
+    │ Note: `P` is a proposition, so its proofs are erased at runtime. Its field `h` (of `MkP`) holds a `P` inside another type, so it counts as defined together with that type, and matching on a proof of it can only produce another proof.
+────╯

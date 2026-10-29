@@ -7,9 +7,7 @@ expression: output
    │
  6 │   | Node (kids: Quot Nat (x y => (t: T) → Unit))
    │                 ───────────────┬──────────────  
-   │                                ╰──────────────── field `kids` has `T` inside another type
+   │                                ╰──────────────── field `kids` has `T` inside a quotient
    │ 
-   │ Note 1: a data type's fields can contain it only directly, or as the result of a function field: whether it's safe inside another type (such as a `List`) would depend on how that type uses it, which isn't checked
-   │ 
-   │ Note 2: for a tree whose children are in a list, write two types defined together instead: a tree, and a forest of trees
+   │ Note: a data type's fields can hold the type itself directly, as a function field's result, or inside another data type at a parameter that the other type only stores, as `List` stores its elements. Whether it's safe inside anything else would depend on how that uses it, which isn't checked
 ───╯

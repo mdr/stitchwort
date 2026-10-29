@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-POSITIVITY] Error: `Q` is used inside `List.Member`, and the type of `List.Member`'s later parameter `xs` mentions its parameter `a`
+    ╭─[ soundness/nested-member.sw:12:13 ]
+    │
+ 12 │   | MkQ (m: List.Member Q [])
+    │             ────────┬───────  
+    │                     ╰───────── field `m` has `Q` inside `List.Member`, as its parameter `a`
+    │ 
+    │ Note: a data type's fields can hold the type itself directly, as a function field's result, or inside another data type at a parameter that the other type only stores, as `List` stores its elements: no field takes it as a function's input, has it inside something that isn't a data type (a definition, an equality) or in an index, or depends on an earlier field that has it, and no other parameter's type mentions it. `List.Member`'s `a` isn't like that, so `Q` inside it isn't known to be safe
+────╯

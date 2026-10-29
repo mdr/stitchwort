@@ -39,6 +39,30 @@
 //! Each argument is related to at most one parameter, the one it was matched
 //! out of, so each graph has at most one arc into each position.
 //!
+//! **The invariant** (docs/proposals/nested-data-types.md §6.4): `<` relates
+//! two variables only when, in every run, the first's value is a proper
+//! constructor subvalue of the second's: a field of it, a field of a field
+//! and so on, or the result of applying a recursive function field of it. It
+//! is the transitive closure of immediate field containment on one
+//! particular value, never a relation computed from the data types. So for
+//! a nested type (`Packets (items: List Packet)`), that `Packet`, `List
+//! Packet` and `Packet` again repeat in the *types* doesn't matter: for
+//! values, `p > items > q`, and `q` is never `p`. The one type-directed step
+//! is recognising a recursive function field, which reads the matched type's
+//! own declared field and its own group, so a field like `kids: Nat → List
+//! Tree` (which returns a `List`, not a member) gains nothing. Quotients
+//! can't be matched (a quotient form gives no evidence of descent).
+//!
+//! Why that's sound, assuming that every data type's values are well
+//! founded, that is, contain no infinite chain of constructor subvalues: a
+//! decrease in every way of repeating the calls would then be an infinite
+//! descent through one value. For a type that is strictly positive and not
+//! nested this is standard. For a nested type it rests on the type being
+//! isomorphic to its mutual encoding (the type with a private copy of each
+//! container), whose values are well founded; that isomorphism is the usual
+//! constructor-for-constructor relabelling, believed but not proved for
+//! Stitchwort (nested-data-types.md §6.3, C1).
+//!
 //! **Every occurrence of a member is a call**, wherever it is: under lambdas,
 //! inside types and inside the arguments of other calls. Each application
 //! spine headed by a member is one call, with its own graph, never merged

@@ -9,7 +9,9 @@ use std::rc::Rc;
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::budget;
-use crate::globals::{Ctor, Data, Def, FieldValidator, Globals, State, Validator};
+use crate::globals::{
+    Ctor, Data, Def, FieldValidator, Globals, NotNestable, ParamUse, State, Validator,
+};
 use crate::pretty;
 use crate::term::{Branch, DataId, DefId, Icit, Name, NumArm, QuotForm, Sort, Term};
 use crate::termination;
@@ -914,7 +916,12 @@ fn check_case(
         // Like Lean, propositions defined together never eliminate into
         // data: a deliberately conservative rule
         // (docs/proposals/mutual-recursion.md §7.3).
+        // A proposition with a field that holds it inside another type counts
+        // as defined together with (a copy of) that type
+        // (docs/proposals/nested-data-types.md §5.4).
+        let nested = nested_field(g, d);
         let subsingleton = data.group.len() == 1
+            && nested.is_none()
             && data.ctors.len() <= 1
             && data
                 .ctors
@@ -929,6 +936,14 @@ fn check_case(
                      together with other types, and matching on a proof of one of those can only \
                      produce another proof.",
                     data.name
+                )
+            } else if let Some((c, f)) = nested {
+                format!(
+                    "`{}` is a proposition, so its proofs are erased at runtime. Its field `{}` \
+                     (of `{}`) holds a `{}` inside another type, so it counts as defined together \
+                     with that type, and matching on a proof of it can only produce another \
+                     proof.",
+                    data.name, data.ctors[c].fields[f].0, data.ctors[c].name, data.name
                 )
             } else {
                 format!(
@@ -2018,6 +2033,7 @@ fn push_data_group(
             js: None,
             defaults: None,
             group: group.clone(),
+            nestable: Rc::from([]),
             defs_before,
             datas_before,
             state: State::Pending,
@@ -2146,6 +2162,12 @@ fn install_data_group<C>(
                 g.datas[d.0].ctors = ctors;
                 g.datas[d.0].state = State::Final;
             }
+            // Which parameters later groups may nest in, now that the
+            // constructors are final.
+            let nestable: Rc<[_]> = nestable_params(g, &group).into();
+            for d in group.iter() {
+                g.datas[d.0].nestable = nestable.clone();
+            }
             Ok(())
         }
         Err(e) => fail(g, e),
@@ -2175,6 +2197,9 @@ fn admit_data_group(
             let mut fields = Vec::new();
             let mut field_sorts = Vec::new();
             let mut field_erased = Vec::new();
+            // Whether each field so far holds a member, directly or inside
+            // another type.
+            let mut holds = Vec::new();
             for (x, ty, span) in ctor.fields {
                 cx.span = span;
                 if !case_only_in_tree(&ty, false) {
@@ -2215,10 +2240,20 @@ fn admit_data_group(
                         ),
                     ));
                 }
-                if let Some((found, how)) = not_positive(&ty, group, first.params.len(), cx.level())
+                // No field may mention an earlier one that holds a member
+                // (docs/proposals/nested-data-types.md §5.3).
+                let f = fields.len();
+                if let Some(e) = (0..f).find(|&e| holds[e] && ty.mentions(f - 1 - e)) {
+                    let (earlier, earlier_ty): &(Name, Term) = &fields[e];
+                    let found = occurs(earlier_ty, group).unwrap_or(d);
+                    return Err(depends_on_recursive_error(&cx, &x, earlier, found));
+                }
+                if let Some((found, how)) =
+                    not_positive(g, &ty, group, first.params.len(), cx.level())
                 {
                     return Err(not_positive_error(&cx, &x, found, how, group));
                 }
+                holds.push(occurs(&ty, group).is_some());
                 let value = cx.eval(&ty)?;
                 field_erased.push(sort == Sort::Prop || is_type_former(g, cx.level(), &value)?);
                 cx.bind(x.clone(), value);
@@ -2707,19 +2742,68 @@ enum Occurrence {
     Input,
     /// Applied to something other than the group's parameters.
     OtherParameters,
-    /// In the indices of a member (docs/proposals/indexed-families.md §6.2).
+    /// In the indices of a member, or of another data type it's nested in
+    /// (docs/proposals/indexed-families.md §6.2).
     InIndex,
-    /// Inside another type (a nested occurrence, like `List Rose`), or
-    /// anywhere else.
-    Inside,
+    /// Inside another data type, at its parameter `param`, which isn't
+    /// nestable (docs/proposals/nested-data-types.md §5.2).
+    AtParameter(DataId, usize),
+    /// Inside something that isn't a data type.
+    Inside(Container),
 }
 
-/// Strict positivity across a data group: each member may appear in a
-/// field's type only as itself applied to the group's `params` parameters
-/// and then to indices that mention no member, possibly as the result of a
-/// function whose inputs mention no member. The member that doesn't, if one
-/// doesn't (the first found), and how it occurs.
+/// What a member was found inside, when that isn't a data type
+/// ([`Occurrence::Inside`]).
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Container {
+    Def(DefId),
+    Variable,
+    Equality,
+    Quotient,
+    Other,
+}
+
+impl Container {
+    fn of(term: &Term) -> Container {
+        match term.spine().0.strip_loc() {
+            Term::Def(id) => Container::Def(*id),
+            Term::Var(_) => Container::Variable,
+            Term::Eq(..) => Container::Equality,
+            Term::Quot(..) => Container::Quotient,
+            _ => Container::Other,
+        }
+    }
+
+    fn describe(self, g: &Globals) -> String {
+        match self {
+            Container::Def(id) => match g.defs.get(id.0) {
+                Some(def) => format!("`{}`, which is a definition, not a data type", def.name),
+                None => "a definition, not a data type".to_string(),
+            },
+            Container::Variable => "a type that's a variable, not a data type".to_string(),
+            Container::Equality => "an equality".to_string(),
+            Container::Quotient => "a quotient".to_string(),
+            Container::Other => "something that isn't a data type".to_string(),
+        }
+    }
+}
+
+/// Strict positivity across a data group (docs/core.md, "Data types";
+/// docs/proposals/nested-data-types.md §5.2). Each member may appear in a
+/// field's type only:
+///
+/// 1. as itself applied to the group's `params` parameters and then to
+///    indices that mention no member,
+/// 2. as the result of a function whose inputs mention no member, or
+/// 3. inside another data type `D` (declared earlier, so final), at
+///    nestable parameters of `D` only (not in its indices), where each
+///    argument that mentions a member, after any leading lambdas, is allowed
+///    by this same rule.
+///
+/// `depth` is the number of variables in scope. The member that doesn't, if
+/// one doesn't (the first found), and how it occurs.
 fn not_positive(
+    g: &Globals,
     ty: &Term,
     group: &[DataId],
     params: usize,
@@ -2746,7 +2830,279 @@ fn not_positive(
                 Some(d2) => return Some((d2, Occurrence::Input)),
                 None => (ty, depth) = (cod, depth + 1),
             },
-            _ => return Some((found, Occurrence::Inside)),
+            Term::Data(outer, args) => {
+                return not_positive_nested(g, *outer, args, group, params, depth);
+            }
+            other => return Some((found, Occurrence::Inside(Container::of(other)))),
+        }
+    }
+}
+
+/// [`not_positive`]'s case 3: a member somewhere in `args`, the arguments
+/// of `outer`, a data type outside the group.
+fn not_positive_nested(
+    g: &Globals,
+    outer: DataId,
+    args: &[Rc<Term>],
+    group: &[DataId],
+    params: usize,
+    depth: usize,
+) -> Option<(DataId, Occurrence)> {
+    let data = g.data(outer);
+    // `outer` was declared before the group (`declared_later`), so it's
+    // final or failed. If it failed, so does this group (`admissible` saw
+    // it), with that as the reason.
+    if data.state != State::Final {
+        return None;
+    }
+    for (j, arg) in args.iter().enumerate() {
+        let Some(found) = occurs(arg, group) else {
+            continue;
+        };
+        if j >= data.params.len() {
+            return Some((found, Occurrence::InIndex));
+        }
+        if !matches!(data.nestable.get(j), Some(Ok(()))) {
+            return Some((found, Occurrence::AtParameter(outer, j)));
+        }
+        let (body, depth) = strip_lambdas(arg, depth);
+        if let Some(problem) = not_positive(g, body, group, params, depth) {
+            return Some(problem);
+        }
+    }
+    None
+}
+
+/// `term` without its leading lambdas (`x y => body` is `body`), and the
+/// number of variables in scope there, given `depth` outside.
+fn strip_lambdas(term: &Term, depth: usize) -> (&Term, usize) {
+    let (mut term, mut depth) = (term.strip_loc(), depth);
+    while let Term::Lam(_, _, body) = term {
+        (term, depth) = (body.strip_loc(), depth + 1);
+    }
+    (term, depth)
+}
+
+/// Whether each of `group`'s parameters is nestable, or why not
+/// (docs/proposals/nested-data-types.md §5.1): Lamiaux, Forster, Sozeau and
+/// Tabareau's strictly positive uniform parameters, with one restriction of
+/// ours (condition 2 below). Parameter `p` is nestable when:
+///
+/// 1. its type is `Type`, `Prop`, or a function type ending in one;
+/// 2. no later parameter's type mentions it;
+/// 3. no member's index types mention it, and no constructor's result
+///    indices do;
+/// 4. in every field it occurs only strictly positively ([`stored_only`]);
+/// 5. no field mentions an earlier field whose type mentions it.
+///
+/// The group's constructors must be final. Reads the earlier groups' own
+/// flags, so it's computed once per group, in declaration order.
+fn nestable_params(g: &Globals, group: &[DataId]) -> Vec<std::result::Result<(), NotNestable>> {
+    let n = g.data(group[0]).params.len();
+    (0..n).map(|j| param_nestable(g, group, j)).collect()
+}
+
+/// [`nestable_params`] for parameter `j`.
+fn param_nestable(g: &Globals, group: &[DataId], j: usize) -> std::result::Result<(), NotNestable> {
+    let params = &g.data(group[0]).params;
+    let n = params.len();
+    if !is_arity(&params[j].1) {
+        return Err(NotNestable::NotAType);
+    }
+    // Parameter `k`'s type is in the context of the parameters before it.
+    if let Some(k) = (j + 1..n).find(|&k| params[k].1.mentions(k - 1 - j)) {
+        return Err(NotNestable::LaterParameter(k));
+    }
+    for &data in group {
+        let member = g.data(data);
+        // Index `i`'s type is in the context of the parameters and the
+        // indices before it.
+        if let Some(index) =
+            (0..member.indices.len()).find(|&i| member.indices[i].1.mentions(n + i - 1 - j))
+        {
+            return Err(NotNestable::IndexType { data, index });
+        }
+        for (ctor, c) in member.ctors.iter().enumerate() {
+            // Whether each earlier field's type mentions the parameter.
+            let mut uses = Vec::new();
+            for (field, (_, ty)) in c.fields.iter().enumerate() {
+                let refuse = |how| NotNestable::Field {
+                    data,
+                    ctor,
+                    field,
+                    how,
+                };
+                if let Some(earlier) = (0..field).find(|&e| uses[e] && ty.mentions(field - 1 - e)) {
+                    return Err(refuse(ParamUse::DependsOn(earlier)));
+                }
+                let depth = n + field;
+                stored_only(g, ty, group, n, depth, j).map_err(refuse)?;
+                uses.push(ty.mentions(depth - 1 - j));
+            }
+            let depth = n + c.fields.len();
+            if c.result.iter().any(|r| r.mentions(depth - 1 - j)) {
+                return Err(NotNestable::ResultIndex { data, ctor });
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Whether `ty` is `Type`, `Prop`, or a function type ending in one: a type
+/// that can be a parameter's that a data type stores values of (or proofs
+/// of, `a → Prop`).
+fn is_arity(ty: &Term) -> bool {
+    let mut ty = ty.strip_loc();
+    while let Term::Pi(_, _, _, cod) = ty {
+        ty = cod.strip_loc();
+    }
+    matches!(ty, Term::Sort(_))
+}
+
+/// Whether parameter `j` of `group` (which has `params` parameters) occurs
+/// only strictly positively in the field type `ty`, with `depth` variables
+/// in scope, or how it occurs otherwise: `ty`, after leading function inputs
+/// that don't mention it, doesn't mention it; or is it applied to arguments
+/// that don't; or is a member of the group applied to its own parameters
+/// and to indices that don't mention it; or is an earlier data type with
+/// it only at nestable parameters, where it occurs only strictly
+/// positively (after any leading lambdas).
+fn stored_only(
+    g: &Globals,
+    ty: &Term,
+    group: &[DataId],
+    params: usize,
+    depth: usize,
+    j: usize,
+) -> std::result::Result<(), ParamUse> {
+    let (mut ty, mut depth) = (ty.strip_loc(), depth);
+    while ty.mentions(depth - 1 - j) {
+        let Term::Pi(_, _, dom, cod) = ty else {
+            break;
+        };
+        if dom.mentions(depth - 1 - j) {
+            return Err(ParamUse::Input);
+        }
+        (ty, depth) = (cod.strip_loc(), depth + 1);
+    }
+    let p = depth - 1 - j;
+    if !ty.mentions(p) {
+        return Ok(());
+    }
+    let (head, args) = ty.spine();
+    match head.strip_loc() {
+        Term::Var(v) if *v == p => match args.iter().any(|a| a.mentions(p)) {
+            true => Err(ParamUse::NotStored),
+            false => Ok(()),
+        },
+        Term::Data(d2, dargs) if args.is_empty() && group.contains(d2) => {
+            for (k, a) in dargs.iter().enumerate() {
+                if k < params {
+                    // The group's own positivity check made sure of this.
+                    if !matches!(a.strip_loc(), Term::Var(v) if *v == depth - 1 - k) {
+                        return Err(ParamUse::NotStored);
+                    }
+                } else if a.mentions(p) {
+                    return Err(ParamUse::InIndex);
+                }
+            }
+            Ok(())
+        }
+        Term::Data(outer, dargs) if args.is_empty() => {
+            let data = g.data(*outer);
+            for (k, a) in dargs.iter().enumerate() {
+                if !a.mentions(p) {
+                    continue;
+                }
+                if k >= data.params.len() {
+                    return Err(ParamUse::InIndex);
+                }
+                if !matches!(data.nestable.get(k), Some(Ok(()))) {
+                    return Err(ParamUse::AtParameter {
+                        outer: *outer,
+                        param: k,
+                    });
+                }
+                let (body, depth) = strip_lambdas(a, depth);
+                stored_only(g, body, group, params, depth, j)?;
+            }
+            Ok(())
+        }
+        _ => Err(ParamUse::NotStored),
+    }
+}
+
+/// Why parameter `param` of data type `outer` isn't nestable, as the end of
+/// a sentence: "`Neg`'s field `consume` takes its parameter `a` as a
+/// function's input".
+fn why_not_nestable(g: &Globals, outer: DataId, param: usize) -> String {
+    let data = g.data(outer);
+    let name = &data.name;
+    let Some((p, _)) = data.params.get(param) else {
+        return format!("`{name}` has no such parameter");
+    };
+    // How to refer to the parameter from `member`'s point of view.
+    let its = |member: DataId| match member == outer {
+        true => format!("its parameter `{p}`"),
+        false => format!("`{name}`'s parameter `{p}`"),
+    };
+    let field_of = |member: DataId, ctor: usize, field: usize| {
+        let m = g.data(member);
+        let c = &m.ctors[ctor];
+        match m.ctors.len() {
+            1 => format!("`{}`'s field `{}`", m.name, c.fields[field].0),
+            _ => format!(
+                "`{}`'s field `{}` (of `{}`)",
+                m.name, c.fields[field].0, c.name
+            ),
+        }
+    };
+    match data.nestable.get(param) {
+        None | Some(Ok(())) => format!("`{name}` isn't finished"),
+        Some(Err(NotNestable::NotAType)) => {
+            format!("`{name}`'s parameter `{p}` isn't a type")
+        }
+        Some(Err(NotNestable::LaterParameter(k))) => format!(
+            "the type of `{name}`'s later parameter `{}` mentions its parameter `{p}`",
+            data.params[*k].0
+        ),
+        Some(Err(NotNestable::IndexType { data: m, index })) => format!(
+            "the type of `{}`'s index `{}` mentions {}",
+            g.data(*m).name,
+            g.data(*m).indices[*index].0,
+            its(*m)
+        ),
+        Some(Err(NotNestable::ResultIndex { data: m, ctor })) => format!(
+            "`{}`'s constructor `{}` has {} in its result's indices",
+            g.data(*m).name,
+            g.data(*m).ctors[*ctor].name,
+            its(*m)
+        ),
+        Some(Err(NotNestable::Field {
+            data: m,
+            ctor,
+            field,
+            how,
+        })) => {
+            let (m, ctor, field) = (*m, *ctor, *field);
+            let f = field_of(m, ctor, field);
+            let its = its(m);
+            match how {
+                ParamUse::Input => format!("{f} takes {its} as a function's input"),
+                ParamUse::NotStored => {
+                    format!("{f} has {its} inside something that isn't a data type")
+                }
+                ParamUse::InIndex => format!("{f} has {its} in a type's indices"),
+                ParamUse::DependsOn(e) => format!(
+                    "{f} depends on the earlier field `{}`, whose type has {its} in it",
+                    g.data(m).ctors[ctor].fields[*e].0
+                ),
+                ParamUse::AtParameter { outer: o, param: q } => format!(
+                    "{f} has {its} inside `{}`, where {}",
+                    g.data(*o).name,
+                    why_not_nestable(g, *o, *q)
+                ),
+            }
         }
     }
 }
@@ -2769,6 +3125,14 @@ fn not_positive_error(
             .collect();
         listed(&names)
     });
+    let nesting = format!(
+        "{} directly, as a function field's result, or inside another data type at a parameter \
+         that the other type only stores, as `List` stores its elements",
+        match &together {
+            Some(names) => format!("the fields of {names} can hold any of them"),
+            None => "a data type's fields can hold the type itself".to_string(),
+        }
+    );
     match how {
         Occurrence::Input => {
             let note = match &together {
@@ -2810,27 +3174,80 @@ fn not_positive_error(
             )
             .with_note(
                 "in a constructor's fields, the types being defined can't appear in the indices \
-                 they're applied to",
+                 of any type",
             ),
-        Occurrence::Inside => cx
+        Occurrence::AtParameter(outer, param) => {
+            let outer_name = &g.data(outer).name;
+            let p = &g.data(outer).params[param].0;
+            cx.error(
+                "E-POSITIVITY",
+                format!(
+                    "`{name}` is used inside `{outer_name}`, and {}",
+                    why_not_nestable(g, outer, param)
+                ),
+                format!("field `{x}` has `{name}` inside `{outer_name}`, as its parameter `{p}`"),
+            )
+            .with_note(format!(
+                "{nesting}: no field takes it as a function's input, has it inside something \
+                 that isn't a data type (a definition, an equality) or in an index, or depends \
+                 on an earlier field that has it, and no other parameter's type mentions it. \
+                 `{outer_name}`'s `{p}` isn't like that, so `{name}` inside it isn't known to be \
+                 safe"
+            ))
+        }
+        Occurrence::Inside(container) => cx
             .error(
                 "E-POSITIVITY",
                 format!("`{name}` is used inside another type"),
-                format!("field `{x}` has `{name}` inside another type"),
+                format!("field `{x}` has `{name}` inside {}", container.describe(g)),
             )
             .with_note(format!(
-                "a data type's fields can contain {} only directly, or as the result of a function \
-                 field: whether it's safe inside another type (such as a `List`) would depend on \
-                 how that type uses it, which isn't checked",
-                together
-                    .as_deref()
-                    .map_or_else(|| "it".to_string(), |names| names.to_string())
-            ))
-            .with_note(
-                "for a tree whose children are in a list, write two types defined together \
-                 instead: a tree, and a forest of trees",
-            ),
+                "{nesting}. Whether it's safe inside anything else would depend on how that uses \
+                 it, which isn't checked"
+            )),
     }
+}
+
+/// The error for field `x`, which mentions the earlier field `earlier`,
+/// whose type contains `found`, a member of the group
+/// (docs/proposals/nested-data-types.md §5.3).
+fn depends_on_recursive_error(cx: &Ctx, x: &Name, earlier: &Name, found: DataId) -> Diagnostic {
+    let name = &cx.g.data(found).name;
+    cx.error(
+        "E-POSITIVITY",
+        format!("field `{x}` depends on `{earlier}`, whose type contains `{name}`"),
+        format!("`{x}`'s type mentions `{earlier}`"),
+    )
+    .with_note(format!(
+        "a field's type can't mention an earlier field that holds a `{name}` (or holds one \
+         inside another type): `{name}` would then have to be defined together with what that \
+         field's type says about it, which isn't supported"
+    ))
+    .with_note(
+        "state it as a separate proposition about the value, or keep what it needs in an index",
+    )
+}
+
+/// The first field of data type `d` (by constructor and field position) that
+/// holds a member of its group inside another data type (a nested
+/// occurrence, docs/proposals/nested-data-types.md), if any: `items` in
+/// `Packets (items: List Packet)`.
+pub fn nested_field(g: &Globals, d: DataId) -> Option<(usize, usize)> {
+    let data = g.data(d);
+    let group = &data.group;
+    data.ctors.iter().enumerate().find_map(|(c, ctor)| {
+        ctor.fields
+            .iter()
+            .position(|(_, ty)| {
+                ty.subterms().any(|(t, _)| match t {
+                    Term::Data(outer, args) if !group.contains(outer) => {
+                        args.iter().any(|a| occurs(a, group).is_some())
+                    }
+                    _ => false,
+                })
+            })
+            .map(|f| (c, f))
+    })
 }
 
 /// The first member of `group` that `term` mentions as a type or matches on.

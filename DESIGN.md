@@ -942,7 +942,7 @@ Host implementations are **trusted contracts**: JS can't be checked for purity o
 | **Small trusted kernel** that re-checks all elaborated declarations | Bugs in the large front-end can't produce false proofs. Later fixes stay in one place. |
 | **Numbered universes** in the kernel | `Type: Type` allows paradoxes that break both proofs and termination. |
 | **`Prop` elimination rules** | Runtime results can't depend on erased proofs. |
-| **Strict positivity check** on data types | Without it, `type Bad = MkBad (Bad -> Void)` lets you prove anything. |
+| **Strict positivity check** on data types | Without it, `type Bad = MkBad (Bad -> Void)` lets you prove anything. A type nested in another (`List Packet`) is allowed only at that type's nestable parameters, computed by the kernel from its constructors, never declared (Lamiaux, Forster, Sozeau and Tabareau's rule, with one extra restriction; [docs/core.md](docs/core.md#nestable-parameters)). That an accepted nested type has a mutual encoding the kernel accepts without nesting is tested on generated declarations (`crates/driver/tests/nested_oracle.rs`). |
 | **Exhaustiveness checking** of pattern matches | A missing case is a hidden crash. |
 | **Conservative termination checking** | Rejecting too much is safe. It can be relaxed later without breaking anything. |
 | **Checking never runs effects** | Principle 2. |
@@ -962,6 +962,11 @@ Each rejected example is paired with a nearby example that must be **accepted**,
 |---|---|---|
 | Non-positive data type (`MkBad (Bad -> Void)`) | Positivity check | A positive recursive type (`List`) |
 | A negative occurrence through a sibling (`Bad1 = MkBad1 (Bad2 -> Void)`, `Bad2 = MkBad2 Bad1`) | Positivity across the data group | `Tree`/`Forest` |
+| A type nested in a container that takes its parameter as input (`Bad = MkBad (inner: Neg Bad)`); nested in `Option` but as a function's input (`Option WithCheck -> Bool`) | Nested positivity: only at nestable parameters ([nested types](docs/core.md#nestable-parameters)) | `Packets (items: List Packet)`; `MkStored (next: Option Stored)` |
+| A field depending on an earlier field that holds the type (`Fnat`'s `same: n = m`) | No inductive-inductive types | An equation between fields that don't hold it (`Checked`) |
+| A type nested at a parameter another parameter's type mentions (`List.Member Q []`) | Nestable parameters, condition 2 | Nested in `Option` (`Chain`) |
+| Matching on a proposition with a nested field to produce data (`MkP (h: And P Unit)` to `Nat`) | `Prop` elimination: it counts as defined together with the copy of `And` | Matching it to produce a proof |
+| A type nested in a `Map` (a quotient) | Quotients aren't data types | Nested in a `List` |
 | Girard / Hurkens paradox | Universe levels | A function quantifying over `Type 0` values |
 | A total function calling a `Partial` one | Ability checking | The same function declared `{Partial}` |
 | A missing pattern-match case | Exhaustiveness | The complete match |

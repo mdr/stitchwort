@@ -4,7 +4,8 @@
 draft 1, SW-829). Draft 1 (28 October) proposed Rocq's old nested positivity rule; this draft
 replaces it with the 2026 Lamiaux–Forster–Sozeau–Tabareau criterion, specialised to Stitchwort.
 What changed and why is in [§11](#11-response-to-review). The decisions for Matt are in
-[§13](#13-decisions). Related: [mutual-recursion.md](mutual-recursion.md) (data groups,
+[§13](#13-decisions). D1821 adopted the rule; **stage 1 is built**
+([As built](#as-built-stage-1)). Related: [mutual-recursion.md](mutual-recursion.md) (data groups,
 size-change termination), [well-founded-recursion.md](well-founded-recursion.md) (`decreasing`,
 `List.attach`), [parser-combinators.md](parser-combinators.md) §5.3, [map-equality.md](map-equality.md)
 (why nesting through a quotient is refused), [indexed-families.md](indexed-families.md).
@@ -51,6 +52,7 @@ This note can be read without knowing type theory. Labels:
 - [11. Response to review](#11-response-to-review)
 - [12. Options considered](#12-options-considered)
 - [13. Decisions](#13-decisions)
+- [As built (stage 1)](#as-built-stage-1)
 - [Sources](#sources)
 
 ## 1. The problem
@@ -749,6 +751,102 @@ Earlier decisions this note relies on: D1820 (this rethink). Recommendations in 
 | D1821 | Adopt §5 (LFST's nestable parameters, specialised, with §5.3 and §5.4) as the kernel rule, with stages as in §10, including mutual outer types, earlier fields in nested instances, and arity parameters (`All (t => Typed t r) bs`) in stage 1? | [**yes, all in stage 1**]; or stage 1 without arity parameters and local variables (Lean's fragment), the rest later |
 | D1822 | A proposition with a nested field: may matching on its proofs produce data? | [**no, as Lean: it counts as a group of two (§5.4)**]; or yes, as Rocq, with a separate argument that the encoding mismatch is harmless |
 | D1823 | Shape of the generated induction principle | [**`T.induct` with `All` hypotheses, plus `T.inductMem` ("for every member") for direct `List`/`Option` fields (§9)**]; or membership form only (draft 1) |
+
+## As built (stage 1)
+
+29 October 2026, SW-704, after D1821 (Matt: the §5 rule in stage 1, including earlier mutual
+outer types, earlier fields in nested instances, and predicate parameters). D1822 is still
+formally open; the stage takes its conservative option (§5.4), which the soundness argument
+uses (B4).
+
+**Kernel** (`crates/core`):
+
+- `globals.rs`: `Data::nestable`, one entry per parameter of the group, `Ok(())` or the first
+  reason it isn't nestable (`NotNestable`: not a type, a later parameter's type, an index type,
+  a result index, or a field's `ParamUse`: a function's input, inside something that isn't a
+  data type, at another type's non-nestable parameter, in an index, or depending on an earlier
+  field that has it). Not hashed.
+- `check.rs`: `nestable_params` (§5.1, conditions 1-5, with `stored_only` for condition 4),
+  computed in `install_data_group` once the constructors are final, so on the checked path and
+  the check cache's trusted path alike (the trusted test compares them). `not_positive` gains
+  case 3 (`not_positive_nested`, §5.2): an argument of an earlier data type that mentions a
+  member must be at a nestable parameter (not an index), and after stripping its leading
+  lambdas is checked by the whole rule again. §5.3 runs in `admit_data_group` *before*
+  positivity, so `Fnat` gets "field `same` depends on `n`, whose type contains `Fnat`" rather
+  than the equation's message. §5.4 is `nested_field`, read by `E-PROP-ELIM`'s subsingleton
+  test, with its own note. `value.rs` and `erase.rs` needed no change: they match an erased
+  proof into data only where the checker allowed it, which is now strictly less often.
+- An outer type that failed is skipped by positivity: the group fails anyway, with
+  `E-FAILED-DEPENDENCY` (`admissible` saw it).
+- Messages: "`Packet` is used inside `Neg`, and `Neg`'s field `consume` takes its parameter `a`
+  as a function's input"; through two containers, "`Bad` is used inside `Wrap`, and `Wrap`'s
+  field `inner` (of `MkWrap`) has its parameter `a` inside `Neg`, where `Neg`'s field `consume`
+  takes its parameter `a` as a function's input"; "`Q` is used inside `List.Member`, and the
+  type of `List.Member`'s later parameter `xs` mentions its parameter `a`"; inside a
+  non-data-type, the label names it ("inside `Children`, which is a definition, not a data
+  type", "a quotient", "an equality", "a type that's a variable"). The Tree/Forest workaround
+  note is gone; the elaborator's quotient message (`Map`, `Set`) is unchanged and still comes
+  first.
+
+**What it accepts and refuses** (**[run]**, the stage's binary): accepted, in
+`examples/accept/nested-data.sw` and `nested-data-shapes.sw`: `Packet` with `size`/`sizeList`,
+`items.length` and a membership lemma (`size q < size (Packets items)` for `List.Mem q items`);
+`Rose a`; `List (List Nest)`, `Option (Pair Nest Nat)`; `Vec Wide 2`; `Expr`/`Stmt` mutual, both in
+lists; `Big` in `Tree Big` (`Tree`/`Forest` mutual); `Ranked: Nat → Type` with `kids: List
+(Ranked n)`; `Typed` with `All Term (t => Typed t r) bs`; and the pairs' accepted halves. Refused,
+in `examples/soundness/`: `nested-negative.sw` (`Neg Bad`, with the proof of `Void` written
+out), `nested-recursive-field.sw` (`Fnat`), `nested-input.sw` (`Option WithCheck → Bool`),
+`nested-member.sw` (`List.Member Q []`), `nested-prop-elim.sw` (`E-PROP-ELIM`),
+`nested-in-quotient.sw` (`Map Nat M`); in `reject/`, `nested-through-definition.sw`
+(`Children Tree`). `Packet`'s `main` prints `size: 6` under `run`, `run --js`, `run --reference`
+and `run --native` (all three bodies native). An exported function taking and returning a
+`Packet` extracts to JS with the type `{ $tag: "Packets"; items: Packet[] }` and round-trips.
+
+**Regression** **[run]**: every file in `examples/accept`, `reject` and `soundness` (the daily
+sample, which is all of them): one verdict changed, `reject/nested-data.sw` (now accepted; the
+file is removed, its `Rose` is in `nested-data-shapes.sw`). Three messages changed:
+`soundness/partial-nested.sw` (`Delay`, "a definition, not a data type"),
+`quot-recursive-relation.sw` ("inside a quotient") and `cell-operation.sw` (now "`CellOp` is used
+inside `Effect.Comp`, and the type of `Effect.Comp`'s later parameter `res` mentions its
+parameter `op`": Landin's knot is refused by condition 2).
+
+**Derived instances** (stage 2): a nested type gets today's messages, checked **[run]**:
+"`==` isn't derived for `Packet`: the field `items` of `Packets` contains `Packet` inside
+another type, which `==` isn't derived for yet", the same for `Show` and, through `==`, `Ord`.
+
+**The oracle** (§8, properties 1-2; `crates/driver/tests/nested_oracle.rs`). Its library is
+`OList`, `OOpt`, `OPair`, `OVec`, `OTree`/`OForest`, `ONeg`, `OW`, `OPhantom`, `ODep`, `OAll`
+and `OIdx`, written in the test (not the standard library's, since the translation needs their
+constructors), plus 0-2 random earlier groups. 19 hand-written seeds (the examples' shapes) get
+their expected verdicts, and §5.5's `ODep` is the only seed where the translation is accepted
+and the nested group isn't. Two choices the note didn't spell out: the generated group is split
+into the groups the elaborator makes (members that refer to each other), each translated with
+the earlier ones as containers; and each copy is declared in the group's universe, since a
+Stitchwort group has one (positivity doesn't depend on it). Results **[run]**, seed `0x5eed0704`:
+
+| Cases | Nested accepted (each translation accepted) | Refused by positivity | ... with an accepted translation | Ill-formed |
+|---|---|---|---|---|
+| 50 (lane) | 26 | 24 | 2 (both §5.5) | 0 |
+| 400 (daily) | 214 | 186 | 21 (18 §5.5, 3 phantom) | 0 |
+| 4000 (full) | 2148 | 1852 | 191 (146 §5.5, 45 phantom) | 0 |
+
+**Property 1 held on every case.** Property 2's counterexamples are of two kinds: §5.5's
+restriction (`ODep`, and generated groups with a predicate parameter on their first one,
+`(r1: r0 → Prop)`, which makes `r0` not nestable), and *phantom* containers: a container that
+doesn't use a parameter (`OPhantom`, or a generated one) loses the occurrence in its copy, so
+something the rule refuses by where the name is written (`OPhantom (ONeg T)`, `OW Nat (R T)`
+with `R`'s parameter unused) disappears from the translation. All 45 phantom cases at 4000 were
+looked at (by a script checking for `OPhantom`, and the 10 others by hand: each had a
+generated container with the parameter unused). Neither kind is a soundness question; a
+phantom parameter could be made nestable everywhere if it ever matters.
+
+**Not done in stage 1**: property 3 (values, `fromMut (toMut v) = v`), which needs
+generated conversion functions; stages 2-4. One thing for a later decision, not changed here:
+§5.3 is applied to fields, as the note says, not to constructors' result indices. A result index
+that mentions a field holding a member without naming the member (only possible through an
+index of type `Prop` or a type former, `(x => True) r`) is as allowed as it was before this
+stage; LFST's condition refuses it ("the instantiation of the indices does not refer to the
+inductive blocks"), and so would extending §5.3 to result indices **[inferred]**.
 
 ## Sources
 

@@ -130,6 +130,7 @@ fn a_trusted_copy_is_the_checked_environment() {
             (x.defs_before, x.datas_before),
             (y.defs_before, y.datas_before)
         );
+        assert_eq!(x.nestable, y.nestable, "{}", x.name);
         for (c, d) in x.ctors.iter().zip(&y.ctors) {
             assert_eq!(format!("{:?}", c.fields), format!("{:?}", d.fields));
             assert_eq!(c.field_sorts, d.field_sorts);

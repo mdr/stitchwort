@@ -2221,7 +2221,7 @@ written out), `soundness/pending-data.sw` (the pending-datatype case at the
 surface: `E-MUTUAL-KIND`), `reject/mutual-sibling-constructor.sw`,
 `reject/mutual-prop-elim.sw`, `reject/mutual-data-parameters.sw`,
 `reject/mutual-data-header.sw`, `reject/mutual-ability.sw` and
-`reject/nested-data.sw` (`List Rose`).
+`reject/nested-data.sw` (`List Rose`; accepted since SW-704 stage 1, nested-data-types.md, and the file removed).
 
 **Tests.** `crates/core/tests/data_groups.rs`, each must-reject case with its
 neighbour: `Tree`/`Forest` with `size` running; rebuilding a tree from a
