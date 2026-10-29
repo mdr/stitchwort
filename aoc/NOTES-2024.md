@@ -730,6 +730,8 @@ Release build, wall-clock times, with other work running on the machine:
 
 ## Day 4: Ceres Search
 
+Community comparison (SW-892): [docs/comparisons/aoc-2024-day04-community.md](../docs/comparisons/aoc-2024-day04-community.md).
+
 A word search. Part 1 counts every XMAS, "horizontal, vertical, diagonal,
 written backwards, or even overlapping other words". Part 2 counts the X-MAS:
 "two `MAS` in the shape of an `X` ... Within the `X`, each `MAS` can be
