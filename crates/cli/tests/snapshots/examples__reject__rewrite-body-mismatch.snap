@@ -7,5 +7,5 @@ expression: output
    │
  4 │   rewrite h in p
    │                ┬  
-   │                ╰── expected `b + 1 = b`, but this has type `a + 1 = b`
+   │                ╰── expected `Succ b = b`, but this has type `Succ a = b`
 ───╯

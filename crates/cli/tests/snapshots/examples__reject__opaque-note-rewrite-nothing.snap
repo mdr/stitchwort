@@ -2,20 +2,20 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REWRITE-NOTHING] Error: `rewrite` found no `n + 0` in the goal
+[E-REWRITE-NOTHING] Error: `rewrite` found no `n * 1` in the goal
     ╭─[ reject/opaque-note-rewrite-nothing.sw:10:11 ]
     │
- 10 │   rewrite Nat.addZero n in rfl
-    │           ──────┬──────  
-    │                 ╰──────── looking for `n + 0`
+ 10 │   rewrite Nat.mulOne n in rfl
+    │           ──────┬─────  
+    │                 ╰─────── looking for `n * 1`
     │ 
-    │ Note 1: goal: `plusZero n = n`
+    │ Note 1: goal: `timesOne n = n`
     │ 
     │ Note 2: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
     │ 
     │ Note 3: to replace the right side by the left, write `rewrite <- …`
     │ 
-    │ Note 4: `plusZero` is opaque, so its body isn't used here
+    │ Note 4: `timesOne` is opaque, so its body isn't used here
     │ 
-    │ Note 5: add `unfolding plusZero` after this declaration's signature, or rewrite with `plusZero.unfold`
+    │ Note 5: add `unfolding timesOne` after this declaration's signature, or rewrite with `timesOne.unfold`
 ────╯

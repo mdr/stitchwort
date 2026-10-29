@@ -5,9 +5,9 @@ expression: output
 [E-REWRITE-CONG] Error: `rewrite` can't go inside the function passed to `total`: there is no `totalCong`
     ╭─[ reject/rewrite-inside-function-no-lemma.sw:12:11 ]
     │
- 12 │   rewrite Nat.addZero _
-    │           ──────┬──────  
-    │                 ╰──────── looking for `?3 + 0`, which is in the goal only inside a function passed to `total`, where it uses the function's variable
+ 12 │   rewrite Nat.mulOne _
+    │           ──────┬─────  
+    │                 ╰─────── looking for `?3 * 1`, which is in the goal only inside a function passed to `total`, where it uses the function's variable
     │ 
     │ Note 1: to rewrite inside a function passed to `total`, `rewrite` needs `totalCong`: `total`'s parameters in order, each function parameter twice (`f1`, `f2`), then `(x…) → f1 x… = f2 x…` for each, proving `total … f1 … = total … f2 …` (as `List.sumByCong` does)
     │ 

@@ -9,7 +9,7 @@ expression: output
     │                                                                                 ─┬─  
     │                                                                                  ╰─── `area shape` and `3 * size shape * size shape` aren't equal
     │ 
-    │ Note 1: computing the right side gives `(size shape + (size shape + (size shape + 0))) * size shape`
+    │ Note 1: computing the right side gives `(size shape + (size shape + size shape)) * size shape`
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
     │ 

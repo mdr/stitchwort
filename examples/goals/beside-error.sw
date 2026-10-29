@@ -1,7 +1,7 @@
 -- expect-error: E-REFL
 -- An error in one branch doesn't hide a hole in another: branches are
 -- checked independently.
-theorem addZero (n: Nat): n + 0 = n :=
+theorem zeroMul (n: Nat): 0 * n = n * 0 :=
   match n with
     | Zero => ?
     | Succ k => rfl

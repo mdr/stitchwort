@@ -1,14 +1,13 @@
 ---
 source: crates/cli/tests/examples.rs
-assertion_line: 430
 expression: output
 ---
-[E-REWRITE-NOTHING] Error: `rewrite` found no `x + 0` in the goal
+[E-REWRITE-NOTHING] Error: `rewrite` found no `x * 1` in the goal
     ╭─[ reject/lambda-after-expected-unfolded.sw:14:39 ]
     │
- 14 │   List.sumByCong xs _ _ (x => rewrite addZeroRight x in rfl)
-    │                                       ───────┬──────  
-    │                                              ╰──────── looking for `x + 0`
+ 14 │   List.sumByCong xs _ _ (x => rewrite mulOneRight x in rfl)
+    │                                       ──────┬──────  
+    │                                             ╰──────── looking for `x * 1`
     │ 
     │ Note 1: goal: `?3 xs x = ?4 xs x`
     │ 

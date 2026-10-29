@@ -2,14 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REWRITE-NOTHING] Error: `rewrite` found no `x + 0` in the goal
-    ╭─[ reject/lambda-after-expected-type.sw:12:37 ]
+[E-REWRITE-NOTHING] Error: `rewrite` found no `x * 1` in the goal
+    ╭─[ reject/lambda-after-expected-type.sw:13:37 ]
     │
- 12 │   List.mapCong xs _ _ (x => rewrite addZeroRight x in rfl)
-    │                                     ───────┬──────  
-    │                                            ╰──────── looking for `x + 0`
+ 13 │   List.mapCong xs _ _ (x => rewrite mulOneRight x in rfl)
+    │                                     ──────┬──────  
+    │                                           ╰──────── looking for `x * 1`
     │ 
-    │ Note 1: goal: `x + 1 = x`
+    │ Note 1: goal: `Succ x = x`
     │ 
     │ Note 2: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
     │ 

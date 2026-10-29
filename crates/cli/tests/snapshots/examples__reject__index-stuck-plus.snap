@@ -10,5 +10,5 @@ expression: output
     │ │                        
     │ ╰──────────────────────── the argument has type `Vec a (n + m)`; matching `VNil` needs `n + m = 0`
     │     
-    │     Note: `+` counts down its first argument, so this doesn't compute while `n` is unknown: match on `n` first
+    │     Note: `+` computes only when one side is a number or a `Succ`, so `n + m` doesn't compute while both are unknown: match on `n` first
 ────╯

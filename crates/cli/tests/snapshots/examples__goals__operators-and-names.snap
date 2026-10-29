@@ -9,7 +9,7 @@ expression: output
     │                                                                                            ┬  
     │                                                                                            ╰── a: Nat
     │                                                                                                b: Nat
-    │                                                                                                ⊢ (a < b && b <= a + 3 || b < a) = (gentle a b || b < a)
+    │                                                                                                ⊢ (a < b && b <= 3 + a || b < a) = (gentle a b || b < a)
 ────╯
 [GOAL] Goal: in `onInt`
     ╭─[ goals/operators-and-names.sw:13:85 ]
@@ -40,5 +40,5 @@ expression: output
  17 │ theorem hidden (count: Nat): count + Demo.Ops.count = Demo.Ops.count + count := ?
     │                                                                                 ┬  
     │                                                                                 ╰── count: Nat
-    │                                                                                     ⊢ count + Demo.Ops.count = 3 + count
+    │                                                                                     ⊢ 3 + count = 3 + count
 ────╯

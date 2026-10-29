@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/plus-comm-by-rfl.sw:6:54 ]
+   │
+ 6 │ theorem plusComm (n: Nat) (m: Nat): n + m = m + n := rfl
+   │                                                      ─┬─  
+   │                                                       ╰─── `n + m` and `m + n` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯

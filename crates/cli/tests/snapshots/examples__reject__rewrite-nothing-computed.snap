@@ -9,7 +9,7 @@ expression: output
     │                         ─────────┬────────  
     │                                  ╰────────── looking for `Succ n / 1`
     │ 
-    │ Note 1: goal after the rule before this one: `n + Succ n = n + Succ n`
+    │ Note 1: goal after the rule before this one: `Succ (n + n) = Succ (n + n)`
     │ 
     │ Note 2: the search compares what terms compute to: it looked for `Succ (n / 1)`, what `Succ n / 1` computes to, in what the goal computes to
     │ 
