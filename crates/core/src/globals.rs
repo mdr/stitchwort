@@ -215,6 +215,47 @@ pub struct FieldDefault {
 /// A data type's defaults: one list per constructor, one entry per field.
 pub type FieldDefaults = Vec<Vec<Option<FieldDefault>>>;
 
+/// Why a data group's parameter isn't nestable: why a later data type
+/// can't contain itself inside a member of the group applied to it there
+/// (docs/proposals/nested-data-types.md §5.1). Each names the first problem
+/// found, reading the group in order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NotNestable {
+    /// Its type isn't `Type`, `Prop`, or a function type ending in one.
+    NotAType,
+    /// The type of a later parameter (this one, by position) mentions it.
+    LaterParameter(usize),
+    /// The type of `data`'s index `index` mentions it.
+    IndexType { data: DataId, index: usize },
+    /// The result indices of `data`'s constructor `ctor` mention it.
+    ResultIndex { data: DataId, ctor: usize },
+    /// Field `field` of `data`'s constructor `ctor` uses it `how`.
+    Field {
+        data: DataId,
+        ctor: usize,
+        field: usize,
+        how: ParamUse,
+    },
+}
+
+/// How a field uses a parameter, when that keeps the parameter from being
+/// nestable ([`NotNestable::Field`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParamUse {
+    /// In the input of a function.
+    Input,
+    /// Inside something that isn't a data type (a definition, an equality,
+    /// a quotient), or with itself among its own arguments.
+    NotStored,
+    /// At parameter `param` of the data type `outer`, which isn't nestable.
+    AtParameter { outer: DataId, param: usize },
+    /// In the indices of a data type.
+    InIndex,
+    /// The field mentions the earlier field `earlier` (by position), whose
+    /// type mentions the parameter.
+    DependsOn(usize),
+}
+
 pub struct Data {
     /// Its name as written from the root of its module: `List`,
     /// `Effect.Comp`, `Geometry.Shape`.
@@ -268,6 +309,15 @@ pub struct Data {
     /// checker's recursive function fields, elimination from `Prop` and
     /// hashing read it.
     pub group: Rc<[DataId]>,
+    /// For each parameter of its group, whether it's nestable, or why not
+    /// (docs/proposals/nested-data-types.md §5.1): whether a later data
+    /// type may contain itself inside a member of this group applied to it
+    /// there, as `Packet` is inside `List Packet`. The same for every member.
+    /// Computed from the final constructors when the group is installed,
+    /// checked or trusted (so the check cache needn't store it), and read
+    /// only by later groups' positivity checks. Empty until then. Not
+    /// hashed: it's a function of what is.
+    pub nestable: Rc<[Result<(), NotNestable>]>,
     /// How many definitions, and data types, existed when this type's group
     /// was declared. Its fields may only use those (and its group's
     /// members), since anything declared later could mention this type and

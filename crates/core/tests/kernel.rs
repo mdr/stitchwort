@@ -411,12 +411,121 @@ fn rejects_a_recursive_occurrence_with_different_parameters() {
     assert_eq!(code, "E-POSITIVITY");
 }
 
+// Nested occurrences (docs/proposals/nested-data-types.md §5).
+
 #[test]
-fn rejects_a_nested_occurrence_conservatively() {
+fn accepts_a_nested_occurrence_at_a_nestable_parameter() {
     let mut p = Prelude::new();
     let list = p.list;
+    assert_eq!(p.g.data(list).nestable.as_ref(), &[Ok(())]);
     let code = data_code(&mut p.g, "Rose", vec![], Sort::Type(0), |d| {
         vec![("children", Term::data(list, vec![Term::Data(d, vec![])]))]
+    });
+    assert_eq!(code, "ok");
+}
+
+/// `Neg (a) = MkNeg (consume: a → Nat)`: `a` isn't nestable.
+fn neg(p: &mut Prelude) -> stitchwort_core::DataId {
+    let nat = p.nat_ty();
+    let neg = data(&mut p.g, "Neg", vec![("a", ty())], Sort::Type(0));
+    let consume = ctor("MkNeg", vec![("consume", arrow(v(0), nat))]);
+    stitchwort_core::check::define_ctors(&mut p.g, neg, vec![consume]).expect("Neg");
+    neg
+}
+
+#[test]
+fn a_parameter_taken_as_input_isnt_nestable() {
+    use stitchwort_core::globals::{NotNestable, ParamUse};
+    let mut p = Prelude::new();
+    let neg = neg(&mut p);
+    assert_eq!(
+        p.g.data(neg).nestable.as_ref(),
+        &[Err(NotNestable::Field {
+            data: neg,
+            ctor: 0,
+            field: 0,
+            how: ParamUse::Input
+        })]
+    );
+    let list = p.list;
+    // Refused through `List` too: `List (Neg Bad)`.
+    let bad = data(&mut p.g, "Bad", vec![], Sort::Type(0));
+    let field = Term::data(list, vec![Term::data(neg, vec![Term::Data(bad, vec![])])]);
+    let e = stitchwort_core::check::define_ctors(
+        &mut p.g,
+        bad,
+        vec![ctor("MkBad", vec![("inner", field)])],
+    )
+    .expect_err("refused");
+    assert_eq!(e.code, "E-POSITIVITY");
+    assert_eq!(
+        e.message,
+        "`Bad` is used inside `Neg`, and `Neg`'s field `consume` takes its parameter `a` as a \
+         function's input"
+    );
+}
+
+#[test]
+fn a_parameter_of_a_type_wrapping_a_non_nestable_one_isnt_nestable() {
+    use stitchwort_core::globals::{NotNestable, ParamUse};
+    let mut p = Prelude::new();
+    let neg = neg(&mut p);
+    let list = p.list;
+    let wrap = data(&mut p.g, "Wrap", vec![("a", ty())], Sort::Type(0));
+    let inner = Term::data(list, vec![Term::data(neg, vec![v(0)])]);
+    stitchwort_core::check::define_ctors(
+        &mut p.g,
+        wrap,
+        vec![ctor("MkWrap", vec![("inner", inner)])],
+    )
+    .expect("Wrap");
+    assert_eq!(
+        p.g.data(wrap).nestable.as_ref(),
+        &[Err(NotNestable::Field {
+            data: wrap,
+            ctor: 0,
+            field: 0,
+            how: ParamUse::AtParameter {
+                outer: neg,
+                param: 0
+            }
+        })]
+    );
+}
+
+#[test]
+fn a_parameter_in_a_later_parameters_type_isnt_nestable() {
+    use stitchwort_core::globals::NotNestable;
+    let mut p = Prelude::new();
+    let list = p.list;
+    let dep = data(
+        &mut p.g,
+        "Dep",
+        vec![("a", ty()), ("xs", Term::data(list, vec![v(0)]))],
+        Sort::Type(0),
+    );
+    stitchwort_core::check::define_ctors(&mut p.g, dep, vec![ctor("MkDep", vec![("y", v(1))])])
+        .expect("Dep");
+    assert_eq!(
+        p.g.data(dep).nestable.as_ref(),
+        &[
+            Err(NotNestable::LaterParameter(1)),
+            Err(NotNestable::NotAType)
+        ]
+    );
+}
+
+#[test]
+fn a_field_may_not_mention_an_earlier_recursive_field() {
+    // `FSucc (n: Fnat) (same: n = n)`: refused for depending on `n`, before
+    // anything else.
+    let mut p = Prelude::new();
+    let code = data_code(&mut p.g, "Fnat", vec![], Sort::Type(0), |d| {
+        let fnat = || Rc::new(Term::Data(d, vec![]));
+        vec![
+            ("n", Term::Data(d, vec![])),
+            ("same", Term::Eq(Some(fnat()), Rc::new(v(0)), Rc::new(v(0)))),
+        ]
     });
     assert_eq!(code, "E-POSITIVITY");
 }
