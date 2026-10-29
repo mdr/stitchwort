@@ -1,0 +1,52 @@
+-- Evidence for docs/proposals/direct-style-grammars.md §2.5: what goes wrong
+-- with effectful arguments today. This file is meant to be refused:
+--
+--   $ stitchwort check docs/proposals/direct-style-grammars/gaps.sw
+--
+-- reports E-CANNOT-INFER at `inArgument`, `inTuple` and `nested`,
+-- E-TYPE-MISMATCH at `dependent` and E-NOT-EMPTY at `unitInTuple`, and
+-- nothing at all for `forgotten`.
+
+import Std (Nat, Parse, Vec)
+import Std.Parse (char, natDigits)
+
+def shortNumber(): {Parse} Nat := natDigits 1 3
+
+type Position = { x: Nat, y: Nat }
+
+type Robot = { position: Position, speed: Nat }
+
+def usePosition (p: Position): Nat := p.x
+
+-- 1. A record literal with an effectful field, where a type is expected
+-- but the literal is not the whole result: E-CANNOT-INFER. The same
+-- literal as the whole body, or annotated, is fine.
+def inArgument(): {Parse} Nat := usePosition { x = shortNumber(), y = 0 }
+
+def inTuple(): {Parse} (Position, Nat) := ({ x = shortNumber(), y = 0 }, 1)
+
+def nested(): {Parse} Robot := { position = { x = shortNumber(), y = 0 }, speed = 0 }
+
+def wholeBody(): {Parse} Position := { x = shortNumber(), y = 0 }
+
+def annotated(): {Parse} Robot := { position = ({ x = shortNumber(), y = 0 }: Position), speed = 0 }
+
+-- 2. An effectful argument's value is unknown to the checker, so a later
+-- parameter's type that mentions it can't be met: E-TYPE-MISMATCH,
+-- "expected `Vec Nat x`, but this has type `Vec Nat 2`".
+def sized (n: Nat) (v: Vec Nat n): Nat := n
+
+def dependent(): {Parse} Nat := sized (shortNumber()) (Vec.replicate 2 0)
+
+-- 3. `()` inside a tuple pattern is refused (`let () := …` alone is fine);
+-- `_` works.
+def unitInTuple(): {Parse} Nat :=
+  let ((), n) := (char ',', shortNumber())
+  n
+
+-- 4. A statement that names a parser without calling it is accepted and
+-- does nothing: no warning.
+def forgotten(): {Parse} Nat :=
+  char ','
+  shortNumber
+  shortNumber()
