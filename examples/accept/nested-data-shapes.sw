@@ -3,7 +3,7 @@
 -- data type, at parameters that one only stores. Each pairs with a must-reject
 -- example in soundness/, named where it comes.
 
-import Std (Eq,List, Nat, Option, Pair, Vec, Unit, And)
+import Std (Eq, List, Nat, Option, Pair, Vec, Unit, And)
 
 -- A rose tree with labels of any type: `Rose a` inside `List`.
 type Rose (a: Type): Type =

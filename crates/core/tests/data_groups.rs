@@ -279,14 +279,15 @@ fn a_negative_occurrence_through_a_sibling_is_refused() {
 fn every_member_must_be_strictly_positive_in_every_member() {
     let mut p = Prelude::new();
     let nat = p.nat_ty();
-    // A sibling in the input of a function, in the codomain's input, under
-    // another type, and with other parameters.
+    // A sibling in the input of a function, in the codomain's input, and
+    // under another type as a function's input. (Under another type at a
+    // nestable parameter, `List B`, is accepted: nested data types.)
     let list = p.list;
     let n = || nat.clone();
     let cases: Vec<Box<dyn Fn(DataId, DataId) -> Term>> = vec![
         Box::new(|_, b| arrow(Term::Data(b, vec![]), n())),
         Box::new(|_, b| arrow(n(), arrow(Term::Data(b, vec![]), n()))),
-        Box::new(|_, b| Term::data(list, vec![Term::Data(b, vec![])])),
+        Box::new(|_, b| Term::data(list, vec![arrow(Term::Data(b, vec![]), n())])),
     ];
     for (k, field) in cases.iter().enumerate() {
         let mut g = Prelude::new().g;
