@@ -1,5 +1,5 @@
 {
-  "next": 874,
+  "next": 876,
   "tickets": [
     {
       "id": 13,
@@ -8028,6 +8028,36 @@
         "ee32ee51",
         "9af99bc9"
       ]
+    },
+    {
+      "id": 874,
+      "title": "Match helpers in a declaration's type and body share names (%match1 twice): number them across both batches",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "decision"
+      ],
+      "body": "From the 29 Oct daily-tier triage: fmt_hashes formatting_changes_no_declaration_hash fails because Aoc.Year2024.Day17.Proofs.comboStep and executesDecode each have two different definitions named %match1: the theorem type's matches are named in one batch (lib.rs:2651) and the body's in lifted_body, and keys() in crates/elab/src/lift.rs restarts the numbering. syntax-conveniences.md §2.4 says helpers are numbered in source order within their owner. Old bug (18abdec9, 17 Oct), first exercised by day 17 (21e8605c). Fix needs per-owner numbering that survives undo/rewind; it renames helpers (hash snapshots change). Question for Matt (D1575): continue numbering across type and body (body helper becomes %match3), or give type helpers their own prefix?",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 875,
+      "title": "Parser depth: check-nested-parens (12,000 brackets) hits the parser's stack limit after SW-854; find which change grew the per-bracket frame",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
+      "labels": [
+        "bug",
+        "syntax"
+      ],
+      "body": "From the 29 Oct daily-tier triage: bench check-nested-parens fails with E-RESOURCE. Brackets reached: before f91bdafd all 12,000; f91bdafd (let expression) 10,825; 7a14ec83^ 10,607; 7a14ec83 (SW-854 negative arguments) 9,107; HEAD after dcb44d58 (expression let out of line) 10,229. The SW-854 loss is unexplained (keeping negation token tests out of line and a single app() call in unary() didn't help). Find what grew expr_inline/atom's frame and restore 12,000, or (if not feasible) re-record the bench at a shallower depth (D1576).",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
     }
   ]
 }
