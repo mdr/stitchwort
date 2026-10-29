@@ -73,7 +73,33 @@ SEE_RESEARCH
 
 All rows are [checked] for (a) and (b) against the definitions in
 `Data.sw` on `main` and on the branch; (c) rows are [checked] by running
-the prototype in §5.
+the prototype in §5 on this file:
+
+```
+theorem t1 (x: Nat): x + 1 = Succ x := rfl
+theorem t2 (x: Nat): x + 0 = x := rfl
+theorem t3 (x: Nat): 0 + x = x := rfl
+theorem t4 (m: Nat) (n: Nat): Succ m + n = Succ (m + n) := rfl
+theorem t5 (m: Nat) (n: Nat): m + Succ n = Succ (m + n) := rfl
+theorem t6 (x: Nat): x + 3 = 3 + x := rfl
+theorem t7 (x: Nat) (y: Nat): x + (y + 2) = (x + y) + 2 := rfl
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+def append: Vec a n → Vec a m → Vec a (n + m)
+  | VNil, ys => ys
+  | VCons x xs, ys => VCons x (append xs ys)
+def appendR: Vec a n → Vec a m → Vec a (m + n)
+  | VNil, ys => ys
+  | VCons x xs, ys => VCons x (appendR xs ys)
+def headPlus: Vec a (n + 1) → a
+  | VCons x _ => x
+```
+
+On `main` it fails at `t1`, `t2`, `t5`, `t6`, `t7` (`E-REFL`), `appendR`
+(`E-TYPE-MISMATCH`) and `headPlus` (`E-INDEX-STUCK`). Under the (c)
+prototype every line checks **[checked]**. Under (b), `t3`, `t4` and
+`append` would fail instead **[inferred]** from the definition.
 
 ### Things that line up with the first argument
 
@@ -112,7 +138,10 @@ Stitchwort has no `n + 1` pattern **[checked]** (no match in std, aoc or
 examples; `docs/core.md` §index tells users to write `Succ n`). Under (b)
 or (c), an index or a case written `n + 1` computes to `Succ n`, so
 `Vec a (n + 1)` can be matched like `Vec a (Succ n)` without new
-pattern syntax **[inferred]**: unification sees `Succ n` after evaluation.
+pattern syntax: unification sees `Succ n` after evaluation. Checked for
+(c) by `headPlus` above **[checked]**; for (b) **[inferred]**. A pattern
+`n + 1` in a `match` on a `Nat` (Lean's form) would be new syntax under
+any option.
 
 ### Induction-shaped lemmas
 
