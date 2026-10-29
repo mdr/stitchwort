@@ -7,6 +7,7 @@ file records how it was searched, so it can be refreshed.
 |---|---|
 | Effects and handlers | [effects.md](effects.md) |
 | Elaboration | [elaboration.md](elaboration.md) |
+| Kernel and type theory | [kernel.md](kernel.md) |
 
 ## What a cluster file holds
 
