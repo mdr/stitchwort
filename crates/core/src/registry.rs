@@ -121,7 +121,6 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FailStop,
     Builtin::Iff,
     Builtin::Exists,
-    Builtin::ListMem,
 ];
 
 macro_rules! builtins {
@@ -172,7 +171,7 @@ builtins! {
     And = "And": Data,
     Or = "Or": Data,
     // Printed as the notation that writes them, `p ↔ q`, `∃ (x: T) => P`
-    // and `x ∈ xs` (D1204): library declarations
+    // and `x ∈ xs` (D1204): library declarations, except `List.Mem` (core)
     Iff = "Iff": Data,
     Exists = "Exists": Data,
     ListMem = "List.Mem": Def,

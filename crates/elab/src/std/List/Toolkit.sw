@@ -338,17 +338,9 @@ def List.transposeN: Nat → List (List a) → List (List a)
 -- `[[1, 2]]` (Haskell's `transpose` goes to the longest row instead).
 def List.transpose (rows: List (List a)): List (List a) := List.transposeN (List.length (List.headOr rows Nil)) rows
 
--- Every element of the list satisfies `p`.
-@[noReceiver]
-def List.All (p: a → Prop): List a → Prop
-  | Nil => Unit
-  | Cons x xs => And (p x) (List.All p xs)
-
--- Some element of the list satisfies `p`.
-@[noReceiver]
-def List.Any (p: a → Prop): List a → Prop
-  | Nil => Void
-  | Cons x xs => Or (p x) (List.Any p xs)
+-- `List.All`, `List.Any` and `List.Mem` are in the core
+-- (core/ListOptionPair.sw): the induction principles generated for a nested
+-- type state their hypotheses with them.
 
 -- Every row has length n (the list is rectangular).
 @[noReceiver]
@@ -462,10 +454,6 @@ theorem List.foldLeftCong: (xs: List a) → (z: b) → (f1: b → a → b) → (
 
 theorem List.sumByCong [auto add: Add b] (xs: List a) (f1: a → b) (f2: a → b) (ef: (x: a) → f1 x = f2 x): List.sumBy xs f1 = List.sumBy xs f2 :=
   List.foldLeftCong xs Add.zero (acc x => acc + f1 x) (acc x => acc + f2 x) (acc x => Eq.cong (t => acc + t) (ef x))
-
--- `x` is an element of the list.
-@[noReceiver]
-def List.Mem (x: a) (xs: List a): Prop := List.Any (y => y = x) xs
 
 -- Decides `x ∈ xs` one element at a time from the front, so `x ∈ xs` is a
 -- `Bool` where one is expected (`if x ∈ seen`) and `if h: x ∈ xs` names

@@ -77,3 +77,47 @@ def Option.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (m: Option a) →
   | None, Some y => No (Option.noneNotSome y)
   | Some x, None => No (Option.someNotNone x)
   | Some x, Some y => Option.decSome x y (d x y)
+
+-- Every element, part or value satisfies the predicate: `List.All`,
+-- `Option.All` and `Pair.All`, with `List.Any` and membership. They're in the
+-- core because the induction principle generated for a nested type states its
+-- hypotheses with them (`T.induct`, docs/syntax.md, "Nested data types"):
+-- `Packets (items: List Packet)` gets `List.All motive items`.
+
+-- Every element of the list satisfies `p`.
+@[noReceiver]
+def List.All (p: a → Prop): List a → Prop
+  | Nil => Unit
+  | Cons x xs => And (p x) (List.All p xs)
+
+-- Some element of the list satisfies `p`.
+@[noReceiver]
+def List.Any (p: a → Prop): List a → Prop
+  | Nil => Void
+  | Cons x xs => Or (p x) (List.Any p xs)
+
+-- `x` is an element of the list.
+@[noReceiver]
+def List.Mem (x: a) (xs: List a): Prop := List.Any (y => y = x) xs
+
+-- The value, if there is one, satisfies `p`.
+@[noReceiver]
+def Option.All (p: a → Prop): Option a → Prop
+  | None => Unit
+  | Some x => p x
+
+-- Both halves satisfy their predicates.
+@[noReceiver]
+def Pair.All (p: a → Prop) (q: b → Prop): Pair a b → Prop
+  | MkPair x y => And (p x) (q y)
+
+-- What holds of every element holds of each one.
+theorem List.memOfAll (p: a → Prop): (xs: List a) → List.All p xs → (x: a) → List.Mem x xs → p x
+  | Nil, all, x, member => Void.exfalso member
+  | Cons y ys, Both here rest, x, Inl same => J (z e => p z) here same
+  | Cons y ys, Both here rest, x, Inr member => List.memOfAll p ys rest x member
+
+-- What holds of the value, if any, holds of the value there is.
+theorem Option.memOfAll (p: a → Prop): (o: Option a) → Option.All p o → (x: a) → o = Some x → p x
+  | None, all, x, e => Void.exfalso (Option.noneNotSome x e)
+  | Some y, here, x, e => J (z s => p z) here (Eq.cong (.getOrElse y) e)
