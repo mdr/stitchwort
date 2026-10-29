@@ -52,16 +52,16 @@ A theorem is erased when the program runs: it costs nothing. In a project, `stit
 
 ## Induction is recursion
 
-`n + 0 = n` is true, but `rfl` can't prove it for an unknown `n`: `+` recurses on its first argument, and `n` isn't a known number. The proof goes by cases on `n`, like a function with arms:
+`n * 1 = n` is true, but `rfl` can't prove it for an unknown `n`: `*` recurses on its first argument, and `n` isn't a known number. (`n + 0 = n` and `n + 1 = Succ n` do hold by computing: `+` is special, and computes on its second argument too when the first is unknown.) The proof goes by cases on `n`, like a function with arms:
 
 <!-- snippet: proofs.sw#induction -->
 ```stitchwort
-theorem plusZero: (n: Nat) → n + 0 = n
+theorem timesOne: (n: Nat) → n * 1 = n
   | Zero => rfl
-  | Succ k => Eq.cong Succ (plusZero k)
+  | Succ k => Eq.cong Succ (timesOne k)
 ```
 
-In the `Zero` arm the statement is `0 + 0 = 0`, which computes. In the `Succ k` arm it is `Succ k + 0 = Succ k`, which computes to `Succ (k + 0) = Succ k`. The recursive call `plusZero k` proves `k + 0 = k`: this is the induction hypothesis, and calling the theorem on a smaller value is how induction is written. The compiler checks that it terminates, like any recursion. `Eq.cong Succ` turns `x = y` into `Succ x = Succ y`.
+In the `Zero` arm the statement is `0 * 1 = 0`, which computes. In the `Succ k` arm it is `Succ k * 1 = Succ k`, which computes to `Succ (k * 1) = Succ k` (`Succ k * 1` is `1 + k * 1`). The recursive call `timesOne k` proves `k * 1 = k`: this is the induction hypothesis, and calling the theorem on a smaller value is how induction is written. The compiler checks that it terminates, like any recursion. `Eq.cong Succ` turns `x = y` into `Succ x = Succ y`.
 
 The skill is in reading what each case needs. Using the induction hypothesis directly gives a message that shows it:
 
@@ -69,9 +69,9 @@ The skill is in reading what each case needs. Using the induction hypothesis dir
 ```stitchwort
 import Std (Eq)
 
-theorem plusZero: (n: Nat) → n + 0 = n
+theorem timesOne: (n: Nat) → n * 1 = n
   | Zero => rfl
-  | Succ k => plusZero k
+  | Succ k => timesOne k
 ```
 
 <!-- output: check errors/induction.sw -->
@@ -79,9 +79,9 @@ theorem plusZero: (n: Nat) → n + 0 = n
 [E-TYPE-MISMATCH] Error: type mismatch
    ╭─[ errors/induction.sw:5:15 ]
    │
- 5 │   | Succ k => plusZero k
+ 5 │   | Succ k => timesOne k
    │               ─────┬────
-   │                    ╰────── expected `Succ (k + 0) = Succ k`, but this has type `k + 0 = k`
+   │                    ╰────── expected `Succ (k * 1) = Succ k`, but this has type `k * 1 = k`
 ───╯
 ```
 
@@ -93,27 +93,27 @@ You don't have to know what a case needs before writing it. Put `?` where a proo
 ```stitchwort
 import Std (Eq)
 
-theorem plusZero: (n: Nat) → n + 0 = n
+theorem timesOne: (n: Nat) → n * 1 = n
   | Zero => rfl
   | Succ k => ?
 ```
 
 <!-- output: check errors/hole.sw -->
 ```text
-[GOAL] Goal: in `plusZero`
+[GOAL] Goal: in `timesOne`
    ╭─[ errors/hole.sw:5:15 ]
    │
  5 │   | Succ k => ?
    │               ┬
    │               ╰── k: Nat
-   │                   ⊢ Succ (k + 0) = Succ k
+   │                   ⊢ Succ (k * 1) = Succ k
 ───╯
 1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
 ```
 
 A declaration with a `?` isn't an error, but it isn't finished either: it isn't checked, and `check` fails until every goal is closed. You can state a lemma with `?` as its proof and use it in the main theorem first, then come back to it. In the editor, the goal shows on hover, and "Stitchwort: Show Goals" opens a panel that follows the cursor.
 
-The goal is shown computed, as the checker sees it, so it is often a step further along than what you wrote: `Succ (k + 0)`, not `Succ k + 0`.
+The goal is shown computed, as the checker sees it, so it is often a step further along than what you wrote: `Succ (k * 1)`, not `Succ k * 1`.
 
 ## Proofs about lists
 
@@ -138,11 +138,11 @@ theorem lengthMapList (f: a → b): (xs: List a) → (mapList f xs).length = xs.
 
 <!-- snippet: proofs.sw#rewrite -->
 ```stitchwort
-theorem swapWithZero (a: Nat) (b: Nat): a + b + 0 = b + a :=
-  rewrite Nat.addZero (a + b), Nat.addComm a b
+theorem swapTimesOne (a: Nat) (b: Nat): (a + b) * 1 = b + a :=
+  rewrite Nat.mulOne (a + b), Nat.addComm a b
 ```
 
-`Nat.addZero (a + b)` turns `a + b + 0` into `a + b`, and `Nat.addComm a b` turns `a + b` into `b + a`, leaving `b + a = b + a`. The library's lemmas are named after what they say: `Nat.addComm`, `Nat.addAssoc`, `List.lengthMap`, `List.lengthAppend`. `rewrite <- p` rewrites from right to left, and `rewrite p at h` rewrites the type of a hypothesis `h` instead of the goal. `rewrite` also goes inside a function passed as an argument, through the congruence lemma of the function it is passed to: `rewrite Nat.addZero _` proves `List.map xs (x => x + 0) = List.map xs (x => x)` by `List.mapCong`, with `_` standing for `x`. Arguments left off a rule's end are filled in the same way, and a premise the rule needs, such as `x <= n` for `Nat.addSubCancel x n`, is proved by a hypothesis or by `omega`; inside `List.sumBy f (List.range n)` the congruence lemma also says that `x` is below `n`, which proves it, so `rewrite Nat.addSubCancel` turns `x + (n - x)` into `n` there.
+`Nat.mulOne (a + b)` turns `(a + b) * 1` into `a + b`, and `Nat.addComm a b` turns `a + b` into `b + a`, leaving `b + a = b + a`. The library's lemmas are named after what they say: `Nat.addComm`, `Nat.addAssoc`, `List.lengthMap`, `List.lengthAppend`. `rewrite <- p` rewrites from right to left, and `rewrite p at h` rewrites the type of a hypothesis `h` instead of the goal. `rewrite` also goes inside a function passed as an argument, through the congruence lemma of the function it is passed to: `rewrite Nat.mulOne _` proves `List.map xs (x => x * 1) = List.map xs (x => x)` by `List.mapCong`, with `_` standing for `x`. Arguments left off a rule's end are filled in the same way, and a premise the rule needs, such as `x <= n` for `Nat.addSubCancel x n`, is proved by a hypothesis or by `omega`; inside `List.sumBy f (List.range n)` the congruence lemma also says that `x` is below `n`, which proves it, so `rewrite Nat.addSubCancel` turns `x + (n - x)` into `n` there.
 
 `calc` writes a proof as a chain of steps, each with its own justification, like a calculation on paper. The chain may mix `=`, `<=` and `<`:
 
@@ -194,7 +194,7 @@ theorem roomForOne (x: Nat) (y: Nat) (before: x ≤ y) (limit: y ≤ 10): x + 1 
 
 <!-- output: check errors/omega.sw -->
 ```text
-[E-OMEGA] Error: `omega` can't prove `x + 1 ≤ 10`
+[E-OMEGA] Error: `omega` can't prove `x ≤ 9`
    ╭─[ errors/omega.sw:1:85 ]
    │
  1 │ theorem roomForOne (x: Nat) (y: Nat) (before: x ≤ y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
@@ -480,7 +480,7 @@ def sumFast (n: Nat): Nat :=
 -- What the loop computes, for any accumulator: the general statement is
 -- what makes the induction go through.
 theorem loopIsSum: (n: Nat) → (total: Nat) → sumFast.loop n total = total + sumTo n
-  | Zero, total => Eq.sym (Nat.addZero total)
+  | Zero, total => rfl
   | Succ k, total => omega [loopIsSum k (total + Succ k)]
 
 theorem sumFastIsSum (n: Nat): sumFast n = sumTo n := loopIsSum n 0
