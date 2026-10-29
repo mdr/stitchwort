@@ -449,11 +449,13 @@ What this says:
 | MyEternalSadness (Haskell) | sort desc, EDGE-like | 7.22 ms + 643.93 ms **[cited]** |
 | Tnixc (OCaml) | edge test with a `Hashtbl` cache | 100 ms **[cited]** |
 | CPython, my port (`methods9.py`) | **our method** | **0.20 s**, without start-up **[checked]** |
+| **Stitchwort native executable** (`build --native`) | **ours** | **0.34 s** (0.02 s of it start-up) **[checked]** |
 | dunhamsteve (Newt, compiled to JS) | EDGE+IN, no sort | 300 ms **[cited]** |
 | kneegma (Clojure, babashka) | AABB, short-circuit | 390 ms **[cited]** |
 | sreetamdas (Elixir) | PERIM, compressed | 268 ms (1.70 GB) **[cited: file]** |
 | python-b5 (Lily) | EDGE | "just under a second" **[cited]** |
 | **Stitchwort `run --js`** | **ours** | **1.0 s** **[checked]** |
+| **Stitchwort `run --native`** | **ours** | **1.2 s** **[checked]** |
 | CPython, my port | EDGE, EDGE+IN | 1.5 s each **[checked]** |
 | **Stitchwort `run`** | **ours** | **2.0–2.9 s** **[checked]** |
 | blacai (F#) | edge counting | ~4 s **[cited]** |
@@ -464,6 +466,8 @@ What this says:
 | tomas81508, gulllberg (Clojure) | offset boundary | 21.8 s, 29.8 s **[cited: files]** |
 | TheScown (Scala) | EDGE+IN + perimeter tiles | ~200 s **[cited]** |
 | Philippus (Scala) | PIP on every tile | "around 1,5 hr" **[cited: file]** |
+
+Compiled natively, it is a different picture. `stitchwort build --native Aoc.Year2025.Day09.main` compiles all 177 function bodies `main` reaches (154 ms), and the executable runs both parts in 0.34 s (four runs, 0.33 to 0.37 s; 67 MB peak memory). A native build of `Hello.sw` runs in about 0.02 s, so about 0.32 s is the program's own work: about 7 times faster than `run` (2.2 to 2.4 s in the same session) and 3 times faster than `run --js` (1.0 to 1.1 s), and within about 1.6 times CPython's 0.20 s for the same method. `run --native` takes 1.2 s, because it still loads the checked modules and compiles before running **[checked: 29 October 2026, release build at c611cc78, four runs each from `aoc/`; inferred: the split of `run --native`'s time]**.
 
 The plain verdict: on speed, Stitchwort sits in the middle of the community only because the
 community includes a lot of slow brute force. With the same method, CPython is about 7 times
