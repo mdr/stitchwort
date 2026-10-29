@@ -8173,7 +8173,7 @@
     {
       "id": 882,
       "title": "Elaborator: match h: e with | True doesn't refine e inside a lambda in the goal, while the False branch seems to; reproduce, explain, fix or document",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -8182,7 +8182,11 @@
       "body": "From docs/comparisons/aoc-2024-day02-community.md §3 (lines ~205-211): with step: ok level next = True in scope, the goal still had anyRemoved (ys => ok level next && …) rest and cases couldn't close it; anyRemovedCong … (ys => rewrite step in rfl) did. In the False branch the lambda looked refined (ys => ok before level && False). Unverified whether that's refinement or just computation. Matt, 29 Oct: bottom it out.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "d088c0a0",
+        "b7c69756",
+        "d9f8629b"
+      ]
     },
     {
       "id": 883,
