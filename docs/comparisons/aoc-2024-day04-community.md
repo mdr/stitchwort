@@ -66,8 +66,8 @@ How Stitchwort compares:
 2. **The proof cost a lot.** It took 290 code lines and 40 theorems, on top of the general
    list lemmas that day 4 added to std (SW-715). The spec is 41 code lines and the program 30.
    Friction items 2 to 9 were all checker, library or syntax friction rather than hard
-   mathematics. Some are still open: `c + 1` doesn't compute (SW-787), `rewrite _` rewrites
-   only one instance, and `let` can't appear inside parentheses. Others are fixed: `rfl`
+   mathematics. Some are still open: `c + 1` doesn't compute (SW-787) and `rewrite _` rewrites
+   only one instance. Others are fixed: `let` inside parentheses (SW-788), `rfl`
    messages that hid the difference (SW-716), goals that printed proof terms (SW-717), and the
    missing lemmas (SW-715). A Lean user with Mathlib would have `simp` and
    `omega` for most of the index arithmetic **[inferred]**. Nobody in Lean did it, so this is
@@ -368,7 +368,7 @@ What this shows **[inferred from the tables]**:
 | 3 | **A `rewrite`-every-instance form, or a note when `rewrite _` matched once and other instances remain** | proof tooling | the step that cost the most time after the `rfl` messages (now fixed) | small to medium | NOTES item 6 |
 | 4 | **A short "grids in Stitchwort" section in the AoC or std guide**: shifted-row zips for fixed patterns, `gridCells` + `Map` for lookups, `Vec.around` for stencils, `Option` everywhere; and the 25× speed difference | docs | the three styles exist in std but no page puts them side by side; newcomers will write `MapGrid` | small | §4, §5 |
 | 5 | **A symmetry lemma pair**: the count with the word reversed, and with the grid transposed (`transposeFill` already exists) | proof / library | the two facts the community does use informally (shilangyu, Dafny's `matTranspose`); reusable on later grid days | medium | §3 |
-| 6 | **`let … in …` as an expression** | syntax | a one-off fact as an argument without moving it to its own lines | small, if the parser allows it | NOTES item 8 |
+| 6 | ~~`let … in …` as an expression~~: already done before this note, as `(let x := e; body)` (SW-788) | syntax | — | — | NOTES item 8 |
 | — | A `Dir8`/`V2 Int` direction type in std | library | shorter direction code (mniip, mstksg) | small, but wait for a second grid day that needs it | §4 |
 
 ## 7. Decisions for Matt

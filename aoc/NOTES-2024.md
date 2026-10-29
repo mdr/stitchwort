@@ -955,7 +955,7 @@ A `let` is only allowed at the start of a block, so a one-off fact for an
 argument needs the argument on its own indented lines (as in `specCrosses`'
 `c early =>` arguments). Lean writes `(have h : … := by omega; …)` inline.
 Fix: allow `let … in …` (or `let …; …`) as an expression. In the end `cases`
-did these steps with no fact at all.
+did these steps with no fact at all. (Fixed since: SW-788 added `(let x := e; body)`.)
 
 ### 9. Goals show the proof terms of `let`s
 
