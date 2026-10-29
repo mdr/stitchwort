@@ -1,0 +1,87 @@
+Wall clock and peak RSS from scripts/time3.sh, release binary of 29 Oct 2026, on a
+loaded laptop. Rough. The scratch programs (scripts/sw/bench.sh) first, then our
+program (scripts/sw/big.sh and by hand), then Python's regex.
+
+== Day03 (aoc/, findAll) real input: run 0.94 0.54 0.55 s, 112-115 MB; run --js 0.53 0.52 0.48 s; native 0.15 0.14 0.14 s, 6 MB
+== Day03 x10 run 2.52 2.52 s 119 MB; js 0.77 0.80 s; native 1.34 1.33 s 22 MB
+== Day03 x100 native 13.49 13.53 s 200 MB; js 3.68 s 304 MB
+== Python re.finditer (scripts/regex3.py), in-process: 18 KB 0.4 ms; 1.8 MB 32.3 ms
+
+== Hello run
+0.22s 91MB
+0.20s 91MB
+0.19s 91MB  
+== Hello js
+0.32s 91MB  
+0.32s 91MB  
+0.31s 91MB  
+== Hello native
+0.01s 3MB  
+0.00s 3MB  
+0.00s 3MB  
+== Starting run
+0.38s 112MB  Part 2: 56275602
+0.37s 112MB  Part 2: 56275602
+0.38s 112MB  Part 2: 56275602
+== Starting js
+0.49s 111MB  Part 2: 56275602
+0.49s 111MB  Part 2: 56275602
+0.48s 111MB  Part 2: 56275602
+== Starting native
+0.03s 6MB  Part 2: 56275602
+0.02s 6MB  Part 2: 56275602
+0.02s 6MB  Part 2: 56275602
+== Scan run
+0.28s 103MB  Part 2: 56275602
+0.28s 103MB  Part 2: 56275602
+0.28s 103MB  Part 2: 56275602
+== Scan js
+0.41s 103MB  Part 2: 56275602
+0.41s 103MB  Part 2: 56275602
+0.39s 103MB  Part 2: 56275602
+== Scan native
+0.02s 4MB  Part 2: 56275602
+0.01s 4MB  Part 2: 56275602
+0.01s 4MB  Part 2: 56275602
+== Split run
+0.66s 112MB  Part 2: 56275602
+0.67s 112MB  Part 2: 56275602
+0.67s 112MB  Part 2: 56275602
+== Split js
+0.55s 111MB  Part 2: 56275602
+0.58s 111MB  Part 2: 56275602
+0.55s 111MB  Part 2: 56275602
+== Split native
+0.20s 6MB  Part 2: 56275602
+0.19s 6MB  Part 2: 56275602
+0.19s 6MB  Part 2: 56275602
+== Starting x10 run
+0.66s 119MB  Part 2: 562756020
+== Starting x10 js
+0.56s 111MB  Part 2: 562756020
+== Starting x10 native
+0.16s 22MB  Part 2: 562756020
+== Starting x100 native
+1.58s 200MB  Part 2: 5627560200
+== Starting x100 js
+1.22s 304MB  Part 2: 5627560200
+== Scan x10 run
+0.47s 103MB  Part 2: 562756020
+== Scan x10 js
+0.45s 108MB  Part 2: 562756020
+== Scan x10 native
+0.08s 14MB  Part 2: 562756020
+== Scan x100 native
+0.76s 114MB  Part 2: 5627560200
+== Scan x100 js
+0.83s 289MB  Part 2: 5627560200
+== Split x10 run
+3.50s 119MB  Part 2: 562756020
+== Split x10 js
+1.00s 138MB  Part 2: 562756020
+== Split x10 native
+1.89s 26MB  Part 2: 562756020
+== Split x100 native
+18.82s 226MB  Part 2: 5627560200
+== Split x100 js
+5.86s 686MB  Part 2: 5627560200
