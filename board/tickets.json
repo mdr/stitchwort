@@ -1,5 +1,5 @@
 {
-  "next": 889,
+  "next": 891,
   "tickets": [
     {
       "id": 13,
@@ -8280,6 +8280,34 @@
         "05635bc7",
         "84415da5"
       ]
+    },
+    {
+      "id": 889,
+      "title": "Warning: a statement line that performs no effect (its value is dropped and it can do nothing), e.g. shortNumber without (), x + 1, list.map f",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "D1702 revised (Matt, 29 Oct): kick it off. From docs/proposals/direct-style-grammars.md §2.5 (3) and gaps.sw 'forgotten'. A statement line in a block or a sequence (a; b) whose expression performs no effects can't do anything, so warn (OCaml warning 5 is the function-only case). Not for dropped non-() results of effectful calls (that's D1713, backlog).",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 890,
+      "title": "Consider: warn when an effectful call's non-() result is dropped (OCaml 10, GHC -Wunused-do-bind, Swift), or a must_use attribute",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "D1713 (Matt, 29 Oct): add to backlog to consider. First measure how often aoc/ and Std would trigger it (e.g. nat() read only to skip), then choose between a general warning and a Rust-style must_use attribute. Escape hatch would be let _ := e.",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
     }
   ]
 }
