@@ -4,8 +4,10 @@
 draft 1, SW-829). Draft 1 (28 October) proposed Rocq's old nested positivity rule; this draft
 replaces it with the 2026 Lamiaux–Forster–Sozeau–Tabareau criterion, specialised to Stitchwort.
 What changed and why is in [§11](#11-response-to-review). The decisions for Matt are in
-[§13](#13-decisions). D1821 adopted the rule; **stages 1 and 2 are built**
-([As built](#as-built-stage-1), [stage 2](#as-built-stage-2): derived `==`, `<`, `${…}`, D1840). Related: [mutual-recursion.md](mutual-recursion.md) (data groups,
+[§13](#13-decisions). D1821 adopted the rule; **stages 1-3 are built**
+([As built](#as-built-stage-1), [stage 2](#as-built-stage-2): derived `==`, `<`, `${…}`, D1840;
+[stage 3](#as-built-stage-3): generated `T.size`, `T.induct`, `T.inductMem`, `D.All`, D1870,
+which adopted D1823). Stage 4 (dogfood) is not done. Related: [mutual-recursion.md](mutual-recursion.md) (data groups,
 size-change termination), [well-founded-recursion.md](well-founded-recursion.md) (`decreasing`,
 `List.attach`), [parser-combinators.md](parser-combinators.md) §5.3, [map-equality.md](map-equality.md)
 (why nesting through a quotient is refused), [indexed-families.md](indexed-families.md).
@@ -54,6 +56,7 @@ This note can be read without knowing type theory. Labels:
 - [13. Decisions](#13-decisions)
 - [As built (stage 1)](#as-built-stage-1)
 - [As built (stage 2)](#as-built-stage-2)
+- [As built (stage 3)](#as-built-stage-3)
 - [Sources](#sources)
 
 ## 1. The problem
@@ -713,6 +716,7 @@ Stitchwort has no sort polymorphism), and the helpers above per occurrence. That
    container.
 3. **Generated `D.All`, `T.induct`, `T.inductMem`, size and membership lemma** (medium), §9,
    with `auto` proving `decreasing T.size p` obligations from an `attach`ed element.
+   **Built** ([As built (stage 3)](#as-built-stage-3)).
 4. **Dogfood** (small). AoC 2022 day 13, 2021 day 18, a typing judgement with `All`.
 
 Draft 1's option C (termination looking inside `map`) stays unstaged.
@@ -753,7 +757,7 @@ Earlier decisions this note relies on: D1820 (this rethink). Recommendations in 
 |---|---|---|
 | D1821 | Adopt §5 (LFST's nestable parameters, specialised, with §5.3 and §5.4) as the kernel rule, with stages as in §10, including mutual outer types, earlier fields in nested instances, and arity parameters (`All (t => Typed t r) bs`) in stage 1? | [**yes, all in stage 1**]; or stage 1 without arity parameters and local variables (Lean's fragment), the rest later |
 | D1822 | A proposition with a nested field: may matching on its proofs produce data? | [**no, as Lean: it counts as a group of two (§5.4)**]; or yes, as Rocq, with a separate argument that the encoding mismatch is harmless |
-| D1823 | Shape of the generated induction principle | [**`T.induct` with `All` hypotheses, plus `T.inductMem` ("for every member") for direct `List`/`Option` fields (§9)**]; or membership form only (draft 1) |
+| D1823 | Shape of the generated induction principle | [**`T.induct` with `All` hypotheses, plus `T.inductMem` ("for every member") for direct `List`/`Option` fields (§9)**]; or membership form only (draft 1). **Adopted** with D1870 (Matt, 29 October): `All` primary, membership a corollary; built in stage 3 |
 
 ## As built (stage 1)
 
@@ -898,6 +902,153 @@ tree with a parameter, `List (List Table)`, `Option (Chain, Nat)`, `auto`, `rfl`
 `==`, `compare` and `${…}` on `Packet`s of 20,000 nodes and a 2,000-deep one take under 0.2 s
 under `run` and `run --native`, 0.7 s under `run --reference`. Checking the accept examples
 takes the same time as before (about 50 s for the whole folder, one file at a time).
+
+## As built (stage 3)
+
+29 October 2026, SW-704, after D1870 (Matt: stage 3 as in §9, which adopts D1823: `All`
+hypotheses primary, the membership form a corollary). In the elaborator only
+(`crates/elab/src/derive_induct.rs`, called after the derived instances for every data type
+and record); the kernel's rules are unchanged. Labels as above; **[checked]** here means read in
+`derive_induct.rs` or `auto.rs` on the stage's branch.
+
+**What is generated**, for a nested type `T` (signatures as the REPL's `:t` prints them **[run]**;
+it leaves out the names of binders nothing depends on, and shows `List.Mem q items` as what it
+computes to, `List.Any (y => y = q) items`):
+
+- `T.size`, structural: one more than the sizes of the fields that hold `T`, through a helper
+  for each container (`T.%m1%size`, …: one more than the sizes of *its* fields that hold `T`).
+  For `Packet`: `Packet → Nat`; `Number n` is 1, `Packets items` is `Succ (Packet.%m1%size
+  items)`, `Nil` is 1 and `Cons y ys` is `Succ (Packet.size y + Packet.%m1%size ys)`, so
+  `Packet.size (Packets [Number 1]) = 4` by `rfl`. With indices, they're implicit: `Ranked.size:
+  [i0: Nat] → Ranked i0 → Nat`.
+- `T.induct`, one case per constructor (named after it, lower case), taking the constructor's
+  fields and then a hypothesis for each field that holds `T` (named after the field,
+  `itemsIh`): `motive` of it for a field of type `T`, the container's `All` of the motive for a field inside a container. Nesting composes
+  (`List.All (List.All motive) rows`, `Option.All (Pair.All motive (x => Unit)) next`):
+
+  ```
+  Packet.induct: (motive: Packet → Prop) → ((value: Nat) → motive (Number value)) →
+      ((items: List Packet) → List.All motive items → motive (Packets items)) →
+      (x: Packet) → motive x
+  ```
+
+  With indices the motive takes them: `Ranked.induct: (motive: (i0: Nat) → Ranked i0 → Prop) →
+  motive 0 RLeaf → ((n: Nat) → (kids: List (Ranked n)) → List.All (motive n) kids → motive (Succ
+  n) (RNode n kids)) → [i0: Nat] → (x: Ranked i0) → motive i0 x`. It's proved by a helper per
+  container (`Packet.%m1%induct: … (x: List Packet) → List.All motive x`, §9's `inductList`),
+  defined in one group with `T.induct` **[checked]**.
+- `T.inductMem`, only when some field's type is `List T` or `Option T` itself (`T` applied to
+  its own parameters): the same, with that field's hypothesis "for every member", and every
+  other field's as in `T.induct`. It's `T.induct` with each such case adapted by
+  `List.memOfAll` or `Option.memOfAll` **[checked]**:
+
+  ```
+  Packet.inductMem: (motive: Packet → Prop) → ((value: Nat) → motive (Number value)) →
+      ((items: List Packet) → ((q: Packet) → List.Any (y => y = q) items → motive q) →
+          motive (Packets items)) →
+      (x: Packet) → motive x
+  ```
+
+  For an option the hypothesis is `(q: T) → next = Some q → motive q` **[run]**.
+- `D.All` for a container `D` of the program: `Bag.All: [a: Type] → (a → Prop) → Bag a → Prop`
+  **[run]**, one predicate for each parameter that is nestable and of type `Type` (`p`, `q`, …,
+  at most eight), then `D`'s indices, implicit. By cases: the `And` of the predicates of the
+  fields that hold a parameter, `Unit` for none, as `List.All` is written, so `Bag.All p (Many x
+  [y])` is proved by `Both px (Both py ())`. It is generated the first time a nested type needs
+  it, and named `D.All` only when `D` is declared in the same module, isn't in `Std`, and the
+  module has no `D.All` of its own; otherwise it is hidden in the nested type's namespace,
+  `T.%D%All` (`Wide.induct` has `Wide.%Vec%All motive kids` **[run]**). Since `D.All` doesn't
+  exist until a nested type holding `D` is checked, a declaration that writes `D.All` depends
+  on every data type of the module that mentions `D` (`module.rs`, a "speculative"
+  dependency), so `bagAll` can be written above `Crate`.
+- The size lemmas, for each field `i` of a constructor `C` whose type is `List T` itself:
+  `T.%C%i%sizeMem` (`Packet.%Packets%0%sizeMem`, `Rose.%Bloom%1%sizeMem`, the record
+  `Node`'s `Node.%%mk%1%sizeMem`). Its statement **[checked]**: given those fields of `C` its
+  statement mentions, an element `q` and `h: List.Mem q f`, `T.size q < Succ (the sum of the
+  sizes of C's fields that hold T)`, which is what `T.size (C …)` computes to. For `Packet`:
+
+  ```
+  Packet.%Packets%0%sizeMem: (items: List Packet) → (q: Packet) → (h: List.Mem q items) →
+      Packet.size q < Succ (Packet.%m1%size items)
+  ```
+
+  It is proved from the list's own lemma, `Packet.%m1%sizeMem: (q: Packet) → (xs: List
+  Packet) → List.Mem q xs → Packet.size q < Packet.%m1%size xs` (by recursion on `xs`), with `Nat.lessLe`,
+  `Nat.leAddOfLeLeft` and `Nat.leAddOfLeRight`.
+
+Names with `%` can't be written in source (the parser reads `Packet.%…` as a field access and
+stops **[run]**); they're for the compiler. Each user-facing name (`T.size`, `T.induct`,
+`T.inductMem`, `D.All`) is skipped when the module declares it itself, and then so is what
+depends on it: no `T.size` means no size lemmas, no `T.induct` means no `T.inductMem`. A
+module's own `T.size` is used as written (`Own.size OL` evaluates to the module's 7 **[run]**).
+All of them are kernel terms (case trees), declared and defined through the kernel, which checks
+their types, bodies and the termination of each group; nothing is trusted. If the kernel refuses
+one, that's `E-INTERNAL`, "the induction principle generated for `T` was refused", a compiler
+bug.
+
+**`auto` and `decreasing T.size`.** When a goal isn't decided by computing, `auto` now also tries
+`size_from_member` (`auto.rs`) before `omega`: for each membership fact in scope (a hypothesis
+whose type is a call of `List.Any`, which is what `List.Mem` computes to, or such a field of a
+record in scope, as an `attach`ed element's `isIn`), whose element type is a data type `T`, it
+tries each `T.%C%i%sizeMem`, all arguments but the membership left to unification with the
+fact and the goal, and uses the first one that solves them all **[checked]**. That proves the
+obligation of a recursive call on an element of a `List T` field:
+
+```
+def Packet.depth (p: Packet): Nat
+    decreasing Packet.size p
+:=
+  match p with
+    | Number n => 0
+    | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
+```
+
+**[run]**, also for a field after others (`TNode (left: List Two) (n: Nat) (right: List Two)`, a
+call on an element of `right`), a parameter (`Rose a`), an index (`Ranked`) and a record (`Node`).
+An `[auto lt: Packet.size q < Packet.size (Packets items)]` argument, with `h: List.Mem q items`
+in scope, was not proved: `E-AUTO-STUCK`, "can't decide `Packet.size q ≤ Packet.%m1%size items`"
+**[run]**; the goal had computed past the lemma's form. Only `decreasing` obligations are
+claimed here.
+
+**Which types get them** **[checked]**: a type of `Type` (not `Prop`, not a higher universe)
+that is alone in its group, has at least one constructor, and holds itself, at its own
+parameters, inside `List`, `Option`, a pair, or a data type that is alone in its group, in
+`Type`, and not nested itself (`Vec`, a user's `Bag`), at any depth (`List (List T)`, `List
+(Option T)`, `Option (T, Nat)`), with parameters and indices, and through a container whose
+arguments mention earlier fields (`kids: List (Ranked n)`: the helpers then take those fields).
+Fields that are erased (proofs) are skipped. Covered by the examples: `Packet`, `Rose a`,
+`Nest` (`List (List Nest)` and `Option (Nest, Nat)`), `Sparse` (`List (Option Sparse)`),
+`Crate` (`Bag Crate`), `Wide` (`Vec Wide 2`), `Ranked`, the record `Node`, and the shapes in
+`nested-data-shapes.sw` and `nested-data-derived.sw` (hash snapshots list what each got).
+
+**Not covered**: nothing is generated, silently, for types defined together (`Expr`/`Stmt`), a
+type inside a member of a group (`Big` in `Tree Big`), a container that is nested itself
+(`Weird (a) = W (x: a) (ys: List (Weird a))` holding `T`), a field that holds `T` inside a
+function's result, at a container parameter that gets no predicate (one that isn't nestable or
+isn't of type `Type`: `All (t => Typed t r) bs`), at other parameters than `T`'s own, or in an
+index. One exception to "nothing": a `D.All` made for an earlier field stays when a later field
+stops generation (with `(bag: Bag T) (w: Weird T)`, `Bag.All` exists and `T.induct` doesn't
+**[run]**). `T.inductMem` covers direct `List T` and `Option T` fields only (`Nest`, `Sparse`
+and `Crate` get none); the size lemmas `List T` fields only (no `auto` help for `Option T`,
+`List (List T)`, `Vec` or a user's container: write the lemma by hand, as
+`examples/accept/nested-data.sw` does). Types declared while the core loads get nothing (the
+generator returns at once there).
+
+**Library** (in the core, `crates/elab/src/std/core/`, since the generated terms name them):
+`List.All`, `List.Any` and `List.Mem` moved there from `List/Toolkit.sw` (so `List.Mem` is
+now a core built-in in `crates/core/src/registry.rs`, the stage's only change in `crates/core`);
+new are `Option.All`, `Pair.All`, `List.memOfAll` (§9's `List.All.mem`), `Option.memOfAll`
+(`ListOptionPair.sw`), `Nat.leAddOfLeLeft` and `Nat.leAddOfLeRight` (`Division.sw`). The
+generator finds them by name; without them it generates nothing.
+
+**Tests** **[run]**: `examples/accept/nested-data-induction.sw` (3 tests; proofs by
+`Packet.induct`, `Packet.inductMem`, `Rose.inductMem`, `Ranked.induct`; the statements of
+`Nest.induct`, `Sparse.induct`, `Crate.induct` written out and checked; `Bag.All`; recursion
+by `attach` under `decreasing T.size` for `Packet`, `Rose`, `Ranked` and `Node`), whose `main`
+prints the same under `run`, `run --js`, `run --reference` and `run --native`;
+`examples/accept/nested-data.sw` gains `depth`, the same recursion beside its hand-written
+lemma. Hash snapshots: only the nested examples' and the prelude's changed (their new
+declarations); no other example's snapshot changed.
 
 ## Sources
 
