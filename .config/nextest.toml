@@ -102,7 +102,7 @@ path = "junit.xml"
 default-filter = "package(stitchwort-syntax)"
 
 [profile.lane-core]
-default-filter = "package(stitchwort-core) & (kind(lib) | binary(kernel) | binary(hash) | binary(admission) | binary(opaque))"
+default-filter = "package(stitchwort-core) & (kind(lib) | binary(kernel) | binary(hash) | binary(admission) | binary(opaque) | binary(trusted))"
 
 [profile.lane-elab]
 default-filter = "package(stitchwort-elab) & !test(/^omega_search::tests::(replay_refuses_a_missing_case|integer_model|needs_nonnegativity|not_equal_splits|disconnected)$/)"

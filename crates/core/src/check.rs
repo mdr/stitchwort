@@ -1394,6 +1394,19 @@ pub fn define_def(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
 /// - Termination is decided for the whole group at once, from every call
 ///   between any two members.
 pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
+    install_group(g, members, admit_group)
+}
+
+/// [`define_group`] with `bodies` deciding the bodies to install: the
+/// checked ones ([`admit_group`]), or for the check cache the trusted ones
+/// ([`admit_trusted_group`]). Everything else a final definition records
+/// (its arity, group, transparency set, `lift_leaf`, `recursive`) is worked
+/// out here, the same either way.
+fn install_group(
+    g: &mut Globals,
+    members: &[(DefId, Term)],
+    bodies: impl FnOnce(&Globals, &[(DefId, Term)]) -> Result<Vec<Term>>,
+) -> Result<()> {
     debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
     // Refused before anything changes: an empty group, or an id that isn't
     // a definition at all.
@@ -1450,7 +1463,7 @@ pub fn define_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
             Err(e) => return fail(g, e),
         }
     }
-    match admit_group(g, members) {
+    match bodies(g, members) {
         Ok(bodies) => {
             for ((id, _), body) in members.iter().zip(bodies) {
                 let def = &mut g.defs[id.0];
@@ -1566,6 +1579,20 @@ pub fn declare_def(
         )
         .with_note("remove `theorem` to make it an ordinary definition"));
     }
+    push_def(g, name, ty, theorem, export, span)
+}
+
+/// Adds a pending definition with the checked type `ty`, for
+/// [`declare_def`] and [`admit_trusted_def`]. Its type's value is evaluated
+/// with every opaque definition hidden (the caller's transparency set).
+fn push_def(
+    g: &mut Globals,
+    name: &Name,
+    ty: Term,
+    theorem: bool,
+    export: bool,
+    span: Span,
+) -> Result<DefId> {
     let ty_value = eval(g, &[], &ty)?;
     g.defs.push(Def {
         name: name.clone(),
@@ -1644,8 +1671,22 @@ pub fn mark_instance(g: &mut Globals, id: DefId) {
 /// the kernel and isn't hashed: the runtimes are untrusted (docs/core.md),
 /// and a proof never depends on what they compute.
 pub fn set_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
+    run_body_shape(g, id, body)?;
     let def = g.def(id);
     let mut cx = Ctx::new(g, def.span);
+    let _set = g.transparent.set(def.transparent.clone());
+    let ty = def_type(g, def)?;
+    let checked = check(&mut cx, body, &ty)?;
+    g.defs[id.0].run_body = Some(Rc::new(checked));
+    Ok(())
+}
+
+/// What [`set_run_body`] asks of a run body before checking its type: the
+/// definition is final with no run body yet, and `body` has its arity, a
+/// `case` only in its case tree, and refers only to final declarations.
+fn run_body_shape(g: &Globals, id: DefId, body: &Term) -> Result<()> {
+    let def = g.def(id);
+    let cx = Ctx::new(g, def.span);
     if def.state != State::Final {
         return Err(malformed(
             &cx,
@@ -1665,10 +1706,6 @@ pub fn set_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
         ));
     }
     admissible(&cx, [body], None)?;
-    let _set = g.transparent.set(def.transparent.clone());
-    let ty = def_type(g, def)?;
-    let checked = check(&mut cx, body, &ty)?;
-    g.defs[id.0].run_body = Some(Rc::new(checked));
     Ok(())
 }
 
@@ -1939,16 +1976,33 @@ pub fn declare_indexed_data_group(
         cx.unbind(indices.len());
         member_indices.push(indices);
     }
+    let members = members
+        .into_iter()
+        .zip(member_indices)
+        .map(|(member, indices)| DataDecl { indices, ..member })
+        .collect();
+    Ok(push_data_group(g, checked, sort, members))
+}
+
+/// Adds a data group with checked parameters `params` and members with
+/// checked indices, pending and with no constructors yet, for
+/// [`declare_indexed_data_group`] and [`admit_trusted_data_decls`].
+fn push_data_group(
+    g: &mut Globals,
+    checked: Vec<(Name, Term)>,
+    sort: Sort,
+    members: Vec<DataDecl>,
+) -> Vec<DataId> {
     let (defs_before, datas_before) = (g.defs.len(), g.datas.len());
     let group: Rc<[DataId]> = (0..members.len())
         .map(|i| DataId(datas_before + i))
         .collect();
-    for (
-        DataDecl {
-            name, span, record, ..
-        },
+    for DataDecl {
+        name,
+        span,
+        record,
         indices,
-    ) in members.into_iter().zip(member_indices)
+    } in members
     {
         let path = g.path(&name);
         g.datas.push(Data {
@@ -1970,7 +2024,7 @@ pub fn declare_indexed_data_group(
             span,
         });
     }
-    Ok(group.to_vec())
+    group.to_vec()
 }
 
 pub struct CtorDecl {
@@ -2005,6 +2059,17 @@ pub fn define_ctors(g: &mut Globals, d: DataId, ctors: Vec<CtorDecl>) -> Result<
 ///   member's constructors: a member can't occur to the left of an arrow,
 ///   even in a sibling's constructor.
 pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>) -> Result<()> {
+    install_data_group(g, members, admit_data_group)
+}
+
+/// [`define_data_group`] with `admit` deciding the constructors to install:
+/// the checked ones ([`admit_data_group`]), or for the check cache the
+/// trusted ones ([`admit_trusted_data_group`]).
+fn install_data_group<C>(
+    g: &mut Globals,
+    members: Vec<(DataId, Vec<C>)>,
+    admit: impl FnOnce(&Globals, &[DataId], Vec<(DataId, Vec<C>)>) -> Result<Vec<(DataId, Vec<Ctor>)>>,
+) -> Result<()> {
     let _set = g.transparent.set(Rc::default());
     // Refused before anything changes: an empty group, or an id that isn't
     // a data type at all.
@@ -2073,7 +2138,7 @@ pub fn define_data_group(g: &mut Globals, members: Vec<(DataId, Vec<CtorDecl>)>)
         );
         return fail(g, e);
     }
-    match admit_data_group(g, &group, members) {
+    match admit(g, &group, members) {
         Ok(ctors) => {
             // Every member at once: until now none had constructors, could
             // be matched on, or had a hash.
@@ -2261,6 +2326,176 @@ fn check_result_indices(
         out.push(r);
     }
     Ok((out, failed))
+}
+
+// Trusted admission: the check cache's trust boundary.
+//
+// The `admit_trusted_*` functions add declarations this kernel accepted in
+// an earlier run without checking them again. They are for the check cache
+// only (docs/proposals/check-cache.md, "As built (stage 3)", D1660, which
+// reverses D277): a cache hit hands them the terms `define_group` and
+// friends gave back the first time, and the environment ends up exactly as
+// if they had been checked: the same terms, flags, groups, arities,
+// transparency sets and runtime metadata. Type checking, termination,
+// positivity and universe checks are skipped. So whatever reaches these
+// functions is trusted: the cache files, the code that reads them, and the
+// completeness of the cache's key are part of the trusted base whenever a
+// cached entry is loaded. `--no-cache` never calls them.
+//
+// What is still checked is cheap and structural: each group's members are
+// pending and listed once, every reference is to a final declaration (or a
+// member of the group), `case` only in a case tree, and the shapes match
+// (arities, one sort and erasure flag per field, one result index per
+// index). The marks (`mark_folded`, `mark_instance`, `mark_opaque`,
+// `set_unfolding`, `mark_auto_params`) check nothing anyway, and are the
+// same for both paths. Any refusal is an error the caller treats as a cache
+// miss.
+
+/// Adds a definition with type `ty` and no body, as [`declare_def`] does,
+/// without checking the type: `ty` must be the type `declare_def` gave back
+/// when it was checked. Never an export. The trust boundary (above).
+pub fn admit_trusted_def(
+    g: &mut Globals,
+    name: &Name,
+    ty: &Term,
+    theorem: bool,
+    span: Span,
+) -> Result<DefId> {
+    debug_assert!(!g.glue.get(), "the kernel is entered unglued (D483)");
+    let _set = g.transparent.set(Rc::default());
+    let cx = Ctx::new(g, span);
+    if !case_only_in_tree(ty, false) {
+        return Err(malformed(
+            &cx,
+            "`case` may only appear at the top of a definition",
+        ));
+    }
+    if let Some(dep) = admissible(&cx, [ty], None)? {
+        return Err(failed_dependency(&cx, name, &dep));
+    }
+    push_def(g, name, ty.clone(), theorem, false, span)
+}
+
+/// Makes a group of definitions added by [`admit_trusted_def`] (or
+/// [`declare_def`]) final with the given bodies, as [`define_group`] does,
+/// without checking them or their termination: each body must be the one
+/// `define_group` installed. The trust boundary (above).
+pub fn admit_trusted_group(g: &mut Globals, members: &[(DefId, Term)]) -> Result<()> {
+    install_group(g, members, |g, members| {
+        let ids: Vec<DefId> = members.iter().map(|(id, _)| *id).collect();
+        let mut bodies = Vec::with_capacity(members.len());
+        for (id, body) in members {
+            let def = g.def(*id);
+            let cx = Ctx::new(g, def.span);
+            if let Some(dep) = admissible(&cx, [body], Some(Itself::Group(&ids)))? {
+                return Err(failed_dependency(&cx, &def.name, &dep));
+            }
+            if !case_only_in_tree(body.peel_lams(def.arity), true) {
+                return Err(malformed(
+                    &cx,
+                    "`case` may only appear at the top of a definition",
+                ));
+            }
+            bodies.push(body.clone());
+        }
+        Ok(bodies)
+    })
+}
+
+/// Gives final definition `id` the run body `body`, as [`set_run_body`]
+/// does, without checking its type: it must be the run body `set_run_body`
+/// installed. The trust boundary (above).
+pub fn admit_trusted_run_body(g: &mut Globals, id: DefId, body: &Term) -> Result<()> {
+    run_body_shape(g, id, body)?;
+    g.defs[id.0].run_body = Some(Rc::new(body.clone()));
+    Ok(())
+}
+
+/// Declares a data group, as [`declare_indexed_data_group`] does, without
+/// checking its parameters' and indices' types: they must be the ones that
+/// function stored. The trust boundary (above).
+pub fn admit_trusted_data_decls(
+    g: &mut Globals,
+    params: Vec<(Name, Term)>,
+    sort: Sort,
+    members: Vec<DataDecl>,
+) -> Result<Vec<DataId>> {
+    let _set = g.transparent.set(Rc::default());
+    let Some(span) = members.first().map(|m| m.span) else {
+        return Err(Diagnostic::error(
+            "E-MALFORMED",
+            "malformed core term: an empty group of data types",
+        ));
+    };
+    let cx = Ctx::new(g, span);
+    let first = members[0].name.clone();
+    let types = params.iter().map(|(_, ty)| ty).chain(
+        members
+            .iter()
+            .flat_map(|m| m.indices.iter().map(|(_, ty)| ty)),
+    );
+    if let Some(dep) = admissible(&cx, types, None)? {
+        return Err(failed_dependency(&cx, &first, &dep));
+    }
+    for member in &members {
+        if member.record && !member.indices.is_empty() {
+            return Err(malformed(
+                &cx,
+                format!("`{}` is a record, so it can't have indices", member.name),
+            ));
+        }
+        if !member
+            .indices
+            .iter()
+            .all(|(_, ty)| case_only_in_tree(ty, false))
+        {
+            return Err(malformed(
+                &cx,
+                "`case` may only appear at the top of a definition",
+            ));
+        }
+    }
+    Ok(push_data_group(g, params, sort, members))
+}
+
+/// Gives every member of a data group added by [`admit_trusted_data_decls`]
+/// (or [`declare_indexed_data_group`]) its constructors, as
+/// [`define_data_group`] does, without checking them (types, universes,
+/// positivity): they must be the constructors `define_data_group`
+/// installed, with their field sorts and erasure. The trust boundary
+/// (above).
+pub fn admit_trusted_data_group(g: &mut Globals, members: Vec<(DataId, Vec<Ctor>)>) -> Result<()> {
+    install_data_group(g, members, |g, group, members| {
+        for (d, ctors) in &members {
+            let data = g.data(*d);
+            let cx = Ctx::new(g, data.span);
+            for ctor in ctors {
+                let n = ctor.fields.len();
+                if ctor.field_sorts.len() != n
+                    || ctor.field_erased.len() != n
+                    || ctor.implicit.len() != n
+                    || ctor.result.len() != data.indices.len()
+                {
+                    return Err(malformed(
+                        &cx,
+                        format!("`{}` has the wrong shape", ctor.name),
+                    ));
+                }
+                let terms = ctor.fields.iter().map(|(_, ty)| ty).chain(&ctor.result);
+                if let Some(dep) = admissible(&cx, terms, Some(Itself::DataGroup(group)))? {
+                    return Err(failed_dependency(&cx, &data.name, &dep));
+                }
+                let terms = ctor.fields.iter().map(|(_, ty)| ty).chain(&ctor.result);
+                if !terms.into_iter().all(|t| case_only_in_tree(t, false)) {
+                    return Err(malformed(
+                        &cx,
+                        "`case` may only appear at the top of a definition",
+                    ));
+                }
+            }
+        }
+        Ok(members)
+    })
 }
 
 /// Marks every pending declaration failed. For an elaborator that gives up

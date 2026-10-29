@@ -68,7 +68,7 @@ The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times
 | AREA | Runs | Time |
 |---|---|---|
 | `syntax` | `stitchwort-syntax`: lexer, parser, layout, fuzzing | 6 s |
-| `core` | `stitchwort-core` unit tests and the `kernel`, `hash` and `admission` tests | 5 s |
+| `core` | `stitchwort-core` unit tests and the `kernel`, `hash`, `admission`, `opaque` and `trusted` tests | 5 s |
 | `elab` | `stitchwort-elab` unit tests, but for five slow `omega_search` ones | 4 s |
 | `effects` | `ability_errors`, `empty_row_kernel`, and the quick `effect_runtime` tests of `rt` and `cli` | 3 s |
 | `std` | the quick `std_library` tests (the loader, the index, cycles); not the sweeps | 3 s |

@@ -13,10 +13,13 @@
 //!   hash they are expected to have, never by load-order ids, and spans as
 //!   (file, byte range). A navigation target in another unit's file is kept
 //!   by the name of its declaration (§4.3).
-//! - **Loading is replay** (§5.2): the declarations go to the kernel through
-//!   the same `declare_*`/`define_*` functions the elaborator uses, so the
-//!   kernel checks every one again (option A, D277). Only elaboration is
-//!   skipped. `Elaborator::admit_replayed` is the one place that submits
+//! - **Loading is replay** (§5.2): the declarations go to the kernel in the
+//!   order elaborating made them, through its trusted admission
+//!   (`check::admit_trusted_*`), which installs what it checked when the
+//!   entry was written without checking it again (stage 3, D1660, which
+//!   reverses D277). So both elaboration and the kernel's checks are
+//!   skipped, and an entry that is loaded is trusted: `--no-cache` is the
+//!   full check. `Elaborator::admit_replayed` is the one place that submits
 //!   them.
 //! - **The key** (§4.2) is computed before anything is elaborated: the
 //!   compiler build, the format, the modes and limits that change results,
@@ -45,7 +48,7 @@ use std::rc::Rc;
 
 use crate::kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
-use stitchwort_core::globals::State;
+use stitchwort_core::globals::{Ctor, State};
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::js_repr::{JsCtor, JsRepr};
 use stitchwort_core::native::Native;
@@ -67,7 +70,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 17;
+pub const FORMAT: u32 = 18;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1335,6 +1338,16 @@ impl Elaborator {
                 for i in &ctor.implicit {
                     e.w.bool(*i);
                 }
+                // What checking the fields found, which a trusted replay
+                // installs as it is (stage 3, D1660).
+                e.w.usize(ctor.field_sorts.len());
+                for s in &ctor.field_sorts {
+                    codec::sort(&mut e.w, *s);
+                }
+                e.w.usize(ctor.field_erased.len());
+                for x in &ctor.field_erased {
+                    e.w.bool(*x);
+                }
                 e.w.usize(ctor.result.len());
                 for r in &ctor.result {
                     e.term(r);
@@ -1895,6 +1908,8 @@ struct DefEntry {
 struct CtorEntry {
     name: Name,
     fields: Vec<(Name, Term)>,
+    field_sorts: Vec<Sort>,
+    field_erased: Vec<bool>,
     implicit: Vec<bool>,
     result: Vec<Term>,
 }
@@ -2331,10 +2346,17 @@ impl Elaborator {
                 let fields = body.named_terms()?;
                 let implicit = body.bools()?;
                 let m = body.count()?;
+                let field_sorts = (0..m)
+                    .map(|_| codec::read_sort(&mut body.r))
+                    .collect::<Read<_>>()?;
+                let field_erased = body.bools()?;
+                let m = body.count()?;
                 let result = (0..m).map(|_| body.term()).collect::<Read<_>>()?;
                 ctors.push(CtorEntry {
                     name,
                     fields,
+                    field_sorts,
+                    field_erased,
                     implicit,
                     result,
                 });
@@ -2457,10 +2479,11 @@ impl Elaborator {
         Ok(())
     }
 
-    /// Submits an entry's declarations to the kernel, through the same
-    /// functions the elaborator uses, so it checks each one again: only
-    /// elaboration is skipped (option A, D277). This is the one place a
-    /// replay reaches the kernel.
+    /// Submits an entry's declarations to the kernel's trusted admission
+    /// (`check::admit_trusted_*`), which installs them as they were checked
+    /// when the entry was written, without checking them again (stage 3,
+    /// D1660). This is the one place a replay reaches the kernel, and so the
+    /// cache's side of its trust boundary.
     ///
     /// The declarations are made in their original order (a data group
     /// goes where its `defs_before` and `datas_before` say), and each group
@@ -2468,8 +2491,9 @@ impl Elaborator {
     /// later than the elaborator defined it. Each final declaration is
     /// bound as a built-in, if it is one, as elaborating binds it, and the
     /// built-ins bound must be the entry's `bound`. If the kernel refuses
-    /// anything, or other built-ins are bound, what was added is removed
-    /// and the file is elaborated instead.
+    /// anything (its structural checks: dependencies final, shapes right),
+    /// or other built-ins are bound, what was added is removed and the file
+    /// is elaborated instead.
     fn admit_replayed(
         &mut self,
         defs: &[DefEntry],
@@ -2649,13 +2673,11 @@ impl Elaborator {
                                 let ctors = data
                                     .ctors
                                     .iter()
-                                    .map(|c| kernel::CtorDecl {
+                                    .map(|c| Ctor {
                                         name: c.name.clone(),
-                                        fields: c
-                                            .fields
-                                            .iter()
-                                            .map(|(x, t)| (x.clone(), t.clone(), data.span))
-                                            .collect(),
+                                        fields: c.fields.clone(),
+                                        field_sorts: c.field_sorts.clone(),
+                                        field_erased: c.field_erased.clone(),
                                         result: c.result.clone(),
                                         implicit: c.implicit.clone(),
                                     })
@@ -2663,7 +2685,7 @@ impl Elaborator {
                                 (DataId(base_datas + m), ctors)
                             })
                             .collect();
-                        self.kernel_op(|g| kernel::define_data_group(g, members))
+                        self.kernel_op(|g| kernel::admit_trusted_data_group(g, members))
                             .map_err(refused)?;
                         for m in &group.members {
                             data_final[*m] = true;
@@ -2676,7 +2698,7 @@ impl Elaborator {
                             .iter()
                             .map(|&m| (DefId(base_defs + m), defs[m].body.clone()))
                             .collect();
-                        self.kernel_op(|g| kernel::define_group(g, &members))
+                        self.kernel_op(|g| kernel::admit_trusted_group(g, &members))
                             .map_err(refused)?;
                         for m in &group.members {
                             def_final[*m] = true;
@@ -2686,7 +2708,7 @@ impl Elaborator {
                         for m in &group.members {
                             if let Some(run) = &defs[*m].run_body {
                                 self.kernel_op(|g| {
-                                    kernel::set_run_body(g, DefId(base_defs + m), run)
+                                    kernel::admit_trusted_run_body(g, DefId(base_defs + m), run)
                                 })
                                 .map_err(refused)?;
                             }
@@ -2718,7 +2740,7 @@ impl Elaborator {
                 self.globals.module = module_of(&first.name, &first.path)?;
                 let (params, sort) = (first.params.clone(), first.sort);
                 let ids = self
-                    .kernel_op(|g| kernel::declare_indexed_data_group(g, params, sort, members))
+                    .kernel_op(|g| kernel::admit_trusted_data_decls(g, params, sort, members))
                     .map_err(refused)?;
                 for (&m, id) in groups[gi].members.iter().zip(&ids) {
                     let data = &datas[m];
@@ -2740,7 +2762,7 @@ impl Elaborator {
                 self.globals.module = module_of(&def.name, &def.path)?;
                 let id = self
                     .kernel_op(|g| {
-                        kernel::declare_def(g, &def.name, &def.ty, def.theorem, false, def.span)
+                        kernel::admit_trusted_def(g, &def.name, &def.ty, def.theorem, def.span)
                     })
                     .map_err(refused)?;
                 if id.0 != base_defs + next_def || self.globals.def(id).path != def.path {

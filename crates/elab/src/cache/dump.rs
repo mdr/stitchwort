@@ -212,6 +212,19 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             Some(b) => term(&mut out, b),
             None => out.push('-'),
         }
+        // What admission works out besides the body, so that a trusted
+        // replay (stage 3) is compared with a full check on it too.
+        let (transparent, lift_leaf, recursive) = def.admitted_metadata();
+        let _ = write!(
+            out,
+            "\n  transparent {:?} lift_leaf {lift_leaf} recursive {recursive} param_default {}",
+            transparent.iter().map(|d| d.0).collect::<Vec<_>>(),
+            def.param_default,
+        );
+        if let Some(run) = def.own_run_body() {
+            out.push_str("\n  run ");
+            term(&mut out, run);
+        }
         for v in &def.validators {
             let _ = write!(out, "\n  validator {} ", v.param);
             term(&mut out, &v.decision);

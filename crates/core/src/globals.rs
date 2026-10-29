@@ -168,6 +168,13 @@ impl Def {
         self.state
     }
 
+    /// What admission worked out besides the body, read-only: its
+    /// transparency set, `lift_leaf` and `recursive`. For the check cache's
+    /// differential test, which compares a trusted replay with a full check.
+    pub fn admitted_metadata(&self) -> (&[DefId], bool, bool) {
+        (&self.transparent, self.lift_leaf, self.recursive)
+    }
+
     /// Bypasses admission: for tests that build deliberately broken states only.
     #[doc(hidden)]
     pub fn set_body_unchecked_for_tests(&mut self, body: Option<Rc<Term>>) {
