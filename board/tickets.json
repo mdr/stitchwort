@@ -8047,7 +8047,7 @@
     {
       "id": 875,
       "title": "Parser depth: check-nested-parens (12,000 brackets) hits the parser's stack limit after SW-854; find which change grew the per-bracket frame",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -8057,7 +8057,10 @@
       "body": "From the 29 Oct daily-tier triage: bench check-nested-parens fails with E-RESOURCE. Brackets reached: before f91bdafd all 12,000; f91bdafd (let expression) 10,825; 7a14ec83^ 10,607; 7a14ec83 (SW-854 negative arguments) 9,107; HEAD after dcb44d58 (expression let out of line) 10,229. The SW-854 loss is unexplained (keeping negation token tests out of line and a single app() call in unary() didn't help). Find what grew expr_inline/atom's frame and restore 12,000, or (if not feasible) re-record the bench at a shallower depth (D1576).",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "2e5fb866",
+        "c9ab7145"
+      ]
     }
   ]
 }
