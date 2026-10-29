@@ -1,5 +1,5 @@
 {
-  "next": 870,
+  "next": 873,
   "tickets": [
     {
       "id": 13,
@@ -7789,13 +7789,14 @@
     {
       "id": 859,
       "title": "Postponable lambda kept from its in-place try can settle a shared type before an earlier postponed lambda is checked (argument-order dependence)",
-      "status": "doing",
-      "agent": "Opus",
-      "where": "worktree",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [
-        "bug"
+        "bug",
+        "decision"
       ],
-      "body": "From the SW-846 lane: in apply_args_postponing (check.rs), a postponable lambda that succeeds when tried in place is kept, so it can solve a metavariable (with the unfolded type) before an earlier postponed lambda is checked; the result depends on argument order (alias-functions.md §4). Check whether the remaining argument-order cases mostly come from this.",
+      "body": "From the SW-846 lane: in apply_args_postponing (check.rs), a postponable lambda that succeeds when tried in place is kept, so it can solve a metavariable (with the unfolded type) before an earlier postponed lambda is checked; the result depends on argument order (alias-functions.md §4). Check whether the remaining argument-order cases mostly come from this.\n\nInvestigated 29 Oct (night), no change. With def Counts: Type := List Nat, Counts.size, twice (f: b -> Nat) (g: b -> Nat) (z: b):\n- A: twice (c => c.size) (c => List.length c) (Counts.of 1) rejected (misleading E-CANNOT-INFER from the first try);\n- B: lambdas swapped, rejected (E-UNKNOWN-FIELD, c: List ?2) with no lambda postponed;\n- C: both c.size, accepted; E1/E2: moving z first changes the inferred call type Counts vs List Nat.\nCause: whichever comparison solves b first decides its name; a later Counts never restores it (alias-functions.md place 3). SW-859's mechanism is one route into it; the §4/AoC cases are already fixed (SW-846) or not this mechanism.\nRules tried with a temporary switch: R1 (after one postponement, postpone all later postponable lambdas) accepts A, E2 but newly rejects examples/accept/lambda-postponed-alias.sw and a record-literal case; R2 (postpone all) accepts A, B, E2 but rejects lambda-postponed-alias.sw and twice (c => Int.abs c) (c => c) 3.\nOptions for Matt (lane's D1565/D1566): (a) leave, document with place 3; (b) R1; (c) R2; (d) retry with R1 then R2 only when the whole call fails (untested); and fold into a place-3 design (SW-858) where a later unification can restore the alias name. Lane recs: (d) if wanted before place 3, else (a); yes to folding into place 3. Repro files were in the session scratchpad (o/A.sw-F.sw).\n",
       "created": "2026-10-28",
       "updated": "2026-10-29",
       "commits": []
@@ -7834,7 +7835,7 @@
     {
       "id": 862,
       "title": "Elaborator calls of the kernel's value::conv on values that may hold solved metavariables",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -7842,8 +7843,11 @@
       ],
       "body": "From SW-851 (28 Oct): value::conv compares metas by number and never follows a solution (crates/core/src/value.rs:102), which broke adder.sw until effects.rs switched to unification (same_results). Check the other elaborator calls: partial.rs:726, 776-777, lib.rs:1973, 3845, congruence.rs:550. Also: same_results compares at cx.level() + RESULTS_SLACK (1<<16) because performs_after (effects.rs ~2389) walks a function type's parameters without binding them in cx; better to bind them, then drop the slack. And comp_result_term / is_comp_type still treat any Comp as a computation regardless of its results (SW-851 lane's note).",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
-      "commits": []
+      "updated": "2026-10-29",
+      "commits": [
+        "94241fde",
+        "20227f04"
+      ]
     },
     {
       "id": 863,
@@ -7916,7 +7920,7 @@
     {
       "id": 867,
       "title": "Clippy and dead-code pass: remove unused code and stale allow attributes, no behaviour change",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "worktree",
       "labels": [
@@ -7925,7 +7929,10 @@
       "body": "Janitorial: look for #[allow(dead_code)], #[allow(unused…)] and clippy allows that are no longer needed, unused functions/imports, and commented-out code; remove them with no behaviour change (hashes and snapshots unchanged).",
       "created": "2026-10-28",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "e885f614",
+        "8e5ffb3c"
+      ]
     },
     {
       "id": 868,
@@ -7952,6 +7959,49 @@
         "bug"
       ],
       "body": "From SW-838 (28 Oct): 'let h := (x: Nat) => match k with | 0 => g x | n => g n' (g: Nat -> {e} Nat) fails; writing the type (let h: Nat -> {IO} Nat := …) works, and so does a pure body. The unknown is the whole result type, which may legitimately depend on k, so SW-838's row pruning doesn't apply. Not yet confirmed on main before SW-838 (the lane believes it fails there too).",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 870,
+      "title": "Kernel conv: follow solved metavariables itself, or move elaborator sites to Ctx::conv_now (decision)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "decision",
+        "kernel"
+      ],
+      "body": "From SW-862 (29 Oct): value::conv (crates/core/src/value.rs ~102) compares metas by number and never follows a solution, so elaborator values computed before a meta was solved compare unequal after. SW-862 added Ctx::conv_now (check.rs: conv, then refresh both and conv again if anything is solved) and used it in cases.rs. Sites left alone as harmless or contrived: cases.rs take_apart (587, 602), omega.rs:212 and 2008, ring.rs:927, data_auto.rs:209. Option A: make conv force solved metas at each step (kernel terms are zonked, so the code never runs in the kernel; fixes every elaborator call at once) at the soundness boundary. Option B: keep conv kernel-only and move elaborator sites to conv_now one at a time. Lane's D1545.",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 871,
+      "title": "Misleading E-ABILITY: passing an effectful call to a Comp NoOp r Nat parameter says the ability isn't in the enclosing function's abilities",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "From SW-862 (29 Oct): with def pass (c: Comp NoOp r Nat): Nat, the call pass (log 3) inside a {Log} Nat definition gives E-ABILITY '`Log` isn't in the abilities of the enclosing function', which is false; the real problem is that the parameter is a Comp in the empty row with foreign results (SW-851). Likely from SW-851's rule that unknown results become the row's own (unconfirmed). Give the right error.",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 872,
+      "title": "A postponed lambda that fails again should report its second error, not the first in-place attempt's E-CANNOT-INFER",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "worktree",
+      "labels": [
+        "bug"
+      ],
+      "body": "From SW-859 (29 Oct): twice (c => c.size) (c => List.length c) (Counts.of 1) reports E-CANNOT-INFER 'can't tell what c is' from the in-place try, though the real failure when the postponed lambda is checked is E-UNKNOWN-FIELD (List has no size). In apply_args_postponing (crates/elab/src/check.rs), report the retry's error (lane's D1567, rec yes).",
       "created": "2026-10-29",
       "updated": "2026-10-29",
       "commits": []
