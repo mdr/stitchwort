@@ -1,9 +1,10 @@
 # Which side `+` counts down
 
 *SW-787 (D1770), 29 October 2026. A research note with two prototypes on
-branch `worktree-agent-ab2873e951b1e94b8`; nothing here is on `main`.
-Measured on `main` at `6d0115d0`, release build, M-series Mac with other
-lanes running.*
+branch `worktree-agent-ab2873e951b1e94b8`. Sections 1 to 8 were measured on
+`main` at `6d0115d0`, release build, M-series Mac with other lanes running.
+D1771 chose (c); §9 is its soundness argument, rewritten after an external
+review, and §10 is what was built (SW-787, D1771).*
 
 Labels: **[checked]** I ran it, or read it in the source or tool output;
 **[cited]** taken from the linked page; **[inferred]** my reasoning from
@@ -315,7 +316,8 @@ rewritten for the new side, and `crates/driver/tests/natives.rs` run.
 (c) and (d) add equations to the kernel's conversion that aren't the
 unfolding of a definition. They are theorems (`Nat.addSucc`,
 `Nat.addZero`, and for (d) commutativity and associativity), so they are
-consistent, but the kernel must then be trusted to apply them correctly,
+consistent (but that alone doesn't make them safe in conversion: §9 has
+the argument for (c)), and the kernel must then be trusted to apply them correctly,
 and the natives-on and natives-off evaluators must agree on them
 (`crates/driver/tests/natives.rs` compares the two on numbers)
 **[checked]**. See §5.
@@ -483,7 +485,9 @@ evaluator and the machine), as a declared, checked rule:
 2. A check, when the rule is registered, that `Nat.add` is the definition
    it was written for (as `Float` pins its definitions) and that
    `Nat.addSucc` and `Nat.addZero` are provable, so the rule is a
-   consequence of the definition and not a new axiom.
+   consequence of the definition and not a new axiom. (As built, §10, this
+   check is a safety net against binding the rules to the wrong
+   definition; the soundness argument is §9.)
 3. The `natives.rs` tests extended to stuck sums, on and off.
 4. `docs/core.md` and DESIGN.md §13 updated: the trusted base gains one
    rule.
@@ -531,3 +535,355 @@ Ranked by end state:
 | D1772 | If (c): also add the matching rules for `*` (`m * Succ n = m * n + m`, `m * 0 = 0`)? | [not now; measure after `+`] |
 | D1773 | If (c) is rejected: switch to (b) and migrate std and aoc (about 250 edits)? | [yes; (b) beats (a) on the common case even with its new friction] |
 | D1774 | The branch's prototype commits: merge any of them? | [merge only this note (cherry-pick its commits); drop the prototype commits, which are natives-only and carry scratch tooling. The real (c) is a new ticket] |
+
+D1771 was decided for (c), with the rule in the core for both evaluators;
+D1772 (rules for `*`) was left for later, as the external review also
+advised. §9 is the soundness argument for what was built, rewritten after
+the review; §10 is what was built and what it changed.
+
+## 9. Why (c) is sound
+
+This replaces the argument of §3 ("Trust") and §4, which said the rules are
+safe because their equations are theorems. That is reassuring but not
+enough: an equation that is provable can still, added to conversion, fail
+to terminate, break confluence (and so make conversion depend on the order
+of steps), or break subject reduction. Agda checks confluence of rewrite
+rules separately and says termination is not checked
+([rewriting](https://agda.readthedocs.io/en/latest/language/rewriting.html))
+**[cited]**; Cockx, Tabareau and Winterhalter,
+[The Taming of the Rew](https://doi.org/10.1145/3434341) (POPL 2021), treat
+the extension of a type theory's computation with rewrite rules as the
+problem, with conditions for subject reduction and confluence
+**[cited]** (the paper's abstract and §1; the details below that rely on it
+are marked). So the argument has four parts: typing, confluence,
+termination, and that the evaluator computes the normal forms of the
+extended relation.
+
+### 9.1 Two things called "the rules"
+
+**The rewrite relation** `→` is the kernel's reduction (β; ι, a `case` on a
+constructor; δ, unfolding a definition; the natives, each of which is a
+sequence of those steps, §3 "Trust") extended with four rules on the head
+`Nat.add` (written `+`):
+
+```
+R1  Zero + n     → n
+R2  Succ m + n   → Succ (m + n)
+R3  m + Zero     → m
+R4  m + Succ n   → Succ (m + n)
+```
+
+R1 and R2 are not new: they are what δ and ι do to `Nat.add` (its case
+tree splits its first argument and nothing else, `std/core/Data.sw`)
+**[checked]**, and the kernel never shows a half-unfolded `Nat.add` (a
+stuck call stays folded, `value.rs` `stuck_tree`) **[checked]**, so for
+`Nat.add` "δ then ι" and "R1 or R2" are the same step. R3 and R4 are new.
+The relation overlaps: `Succ m + Succ n` can take R2 or R4.
+
+**The evaluator** is deterministic. Both kernel evaluators (the machine,
+`value.rs`, and the reference, `reference.rs`) run `Nat.add`'s case tree
+first (R1, R2, or the natives' shortcut for many R2 steps). Only when the
+tree is stuck, because the first argument is neither a number nor a
+constructor, do they look at the second argument
+(`nat_add::stuck`): a number `k` (or `Zero`, or `Succ`s around a number)
+gives `k + m`; `k + n'` with `k > 0` gives `k + (m + n')`, with `m + n'`
+left as a stuck call; anything else leaves `m + n` stuck **[checked]**. That
+is R4 taken `k` times and then R3 or nothing, done in one step, the way the
+natives take R2 `k` times in one step. So the evaluator gives R1 and R2
+priority and uses R3 and R4 only when the first argument is neutral; every
+step it takes is a sequence of `→` steps.
+
+The arguments below are about `→`; §9.5 connects them to the evaluator.
+
+### 9.2 Assumptions
+
+Each claim below depends on some of these; they are stated once here.
+
+- **A1 (the core).** Without R3 and R4, the kernel's reduction is
+  confluent and strongly normalising on well-typed terms, has subject
+  reduction, and its type theory is consistent. This is what the rest of
+  the kernel already assumes (DESIGN.md §13); none of it is proved for
+  Stitchwort.
+- **A2 (a model).** The core has a model in which `Nat` is the natural
+  numbers, `Zero` and `Succ` are zero and successor, and each definition
+  denotes the function its equations define. (The set-theoretic model of
+  a predicative type theory with inductive types; assumed, not built.)
+- **A3 (what's folded).** A call the evaluator leaves folded by name
+  (dictionaries, theorems, `k * x` with `x` a variable, a definition stuck
+  on a `Quot.lift` leaf) and that has type `Nat` never unfolds to `Zero`, a
+  `Succ` or a number. Checked by reading **[checked]**: theorems must have
+  a propositional type (`E-NOT-A-PROP`, tried); dictionaries are records;
+  `k * x` unfolds to `x + (k - 1) * x`, stuck on `x` (`native::folds_mul`);
+  a call folded on a lift leaf is stuck there. Opaque definitions are
+  treated as variables, by design, in both the relation and the evaluator.
+- **A4 (the code).** `nat_add.rs`, and the two call sites in `value.rs`
+  and `reference.rs`, implement R3 and R4 as described in §9.1, and only
+  for the library's `Nat.add`. This is trusted, as the natives are; the
+  tests in §10 check it on many inputs, not for all.
+
+### 9.3 Typing
+
+R3 and R4 are typed rewrite rules: in any context where the left side is
+well typed, `m` and `n` have type `Nat` (the type of `Nat.add`), and both
+sides have type `Nat`. `Nat` has no parameters or indices, so no rule
+changes a type, and an instance of a rule under any substitution of `m` and
+`n` is again well typed. The rules are first-order (no λ, no applied
+variable), left-linear (each variable occurs once on the left), on
+constructor patterns, and non-duplicating (each variable occurs at most once
+on the right) **[checked]** against the four rules above. With A1, a step
+by R3 or R4 replaces a term of type `Nat` by one of type `Nat` in the same
+context, so subject reduction is kept **[inferred]**: the rules leave every
+type alone, which is the easy case of the Taming of the Rew's conditions
+**[inferred]**, not checked against the paper's statement.
+
+**Consistency.** The equations of R3 and R4 hold in the model of A2:
+`m + 0 = m` and `m + (n + 1) = (m + n) + 1` for all natural numbers. They
+are also derivable in the core without the rules: they are the theorems
+`Nat.addZero` and `Nat.addSucc`, proved by induction on `m` from the
+definition (`std/core/Arith.sw`) **[checked]**. So adding them to
+conversion identifies only terms that the model of A2 already identifies;
+under A2 the extended theory has the same model, and is consistent
+**[inferred]**. This is the part of the old argument that stands; it is not
+enough alone, which is why §9.4 and §9.5 follow.
+
+### 9.4 Confluence
+
+**Where the rules can overlap.** An overlap needs a term that is a redex of
+two rules at once, at the root or with one redex inside the other's left
+side at a non-variable position. The left sides of R1 to R4 are
+`Nat.add p q` with `p`, `q` each a variable, `Zero` or `Succ` of a
+variable. Their non-variable positions are the root and the constructor
+arguments. A constructor applied to a variable is not a redex of any rule
+of `→` (no rule's left side is headed by a constructor; a number is a
+value). So overlaps are at the root only, between rules whose left side is
+headed by `Nat.add`. `Nat.add` is rigid: a constant, never the result of a
+substitution, so β never produces a new `Nat.add` head that wasn't there
+(β can only substitute into the arguments, which the rules match by
+variables, constructors, or not at all), and no other definition's δ or ι
+step has a left side headed by `Nat.add`. The natives' steps are sequences
+of R1/R2 steps and steps of other definitions (§3 "Trust"). So the only
+overlaps of the whole relation that involve R3 or R4 are those among R1 to
+R4 **[inferred]**, the point the review made. R1 against R2, and R3 against
+R4, are on different constructors and don't overlap.
+
+**The four critical pairs**, each joined:
+
+| term | one rule | the other | joined at |
+|---|---|---|---|
+| `Zero + Zero` | R1: `Zero` | R3: `Zero` | `Zero` |
+| `Zero + Succ n` | R1: `Succ n` | R4: `Succ (Zero + n)` →R1 `Succ n` | `Succ n` |
+| `Succ m + Zero` | R2: `Succ (m + Zero)` →R3 `Succ m` | R3: `Succ m` | `Succ m` |
+| `Succ m + Succ n` | R2: `Succ (m + Succ n)` →R4 `Succ (Succ (m + n))` | R4: `Succ (Succ m + n)` →R2 `Succ (Succ (m + n))` | `Succ (Succ (m + n))` |
+
+**[checked]**, by hand, and by the test `the_critical_pairs_join` in
+`crates/driver/tests/nat_add_rule.rs`, which evaluates each term and both
+reducts with both evaluators, natives on and off, with `m` and `n`
+variables, `0`, `4` or `3 + x`, and checks that all three are convertible
+and that the two evaluators give the same normal form (64 combinations
+each).
+
+**Confluence of R1 to R4.** They form a left-linear first-order rewrite
+system whose critical pairs all join, so it is locally confluent (the
+critical pair lemma, Knuth and Bendix; Huet 1980), and, being terminating
+(§9.5), confluent (Newman's lemma) **[inferred]** from these standard
+results (from memory, **[unverified]** as citations).
+
+**Confluence with the rest of the kernel.** For λ-calculus extended with
+left-linear first-order (algebraic) rules, confluence of the rules alone
+gives confluence of the combination: Müller, "Confluence of the lambda
+calculus with left-linear algebraic rewriting", Information Processing
+Letters 41 (1992) **[unverified]**, from memory. Stitchwort's core has
+more than β (ι, δ, `J`, quotients, the other trusted rules), so that
+theorem doesn't apply as stated. What carries over is its reason, which
+holds here: no step of the rest of `→` overlaps R3 or R4 (above), and none
+of them duplicates or erases a subterm in a way that breaks a left-linear
+pattern, since R3 and R4 match only `Nat` constructors and variables. The
+Taming of the Rew's triangle criterion is the general check for this
+situation (Agda's `--confluence-check` implements it, with this very
+example, §2) **[cited]**; for two fixed rules a generic checker is out of
+proportion, as the review said, and the critical pairs are checked by the
+test instead. So: confluence of the extended relation is argued, with A1
+and the overlap analysis, not proved **[inferred]**.
+
+### 9.5 Termination, and the evaluator's normal forms
+
+**R1 to R4 terminate.** Interpret terms in the positive integers: a
+variable or other neutral term as any value `≥ 1`, `Zero` as 1, `Succ x` as
+`x + 1`, and `m + n` (the rule head) as `2m + 2n`. Each interpretation is
+strictly increasing in each argument, and each rule strictly decreases the
+value of its left side **[checked]** by arithmetic:
+
+| rule | left | right |
+|---|---|---|
+| R1 | `2 + 2n` | `n` |
+| R2 | `2m + 2n + 2` | `2m + 2n + 1` |
+| R3 | `2m + 2` | `m` |
+| R4 | `2m + 2n + 2` | `2m + 2n + 1` |
+
+So every rewrite sequence of R1 to R4 is finite (a polynomial
+interpretation, Lankford 1979, **[unverified]** as a citation). In words:
+R2 and R4 replace a sum by a sum of proper subterms under a `Succ`, and R1
+and R3 remove the sum.
+
+**The whole core with them.** That the core of A1 stays strongly
+normalising with R3 and R4 added is a different claim, and it is **expected,
+not proved**. It is expected because the rules are first-order,
+non-duplicating, type-preserving and terminating on their own, and results
+of that shape exist for simpler systems (Breazu-Tannen and Gallier,
+"Polymorphic rewriting conserves algebraic strong normalization", 1989/1991,
+for System F with algebraic rules **[unverified]**, from memory). The Taming
+of the Rew assumes normalisation for its decidability results rather than
+proving it **[unverified]** (read in the paper's introduction by the
+research subagent of §2, not checked again). No such theorem covers
+Stitchwort's core (inductive families, large elimination, quotients).
+
+**The evaluator computes `→`-normal forms.** Every evaluator step is a
+sequence of `→` steps (§9.1), so what the evaluator identifies is
+`→`-convertible. Conversely, a value the evaluator returns has no R1 to R4
+redex: a stuck `m + n` has `m` neither a number nor a constructor (else R1
+or R2 would have run) and `n` neither (else R3 or R4 would have), up to
+A3 for folded calls. So, with confluence, two terms are convertible exactly
+when the evaluator gives them the same normal form **[inferred]**: checking
+only the first argument first is complete, because if it is a constructor
+R1 or R2 applies, and if it is neutral only R3 or R4 can apply at the root,
+which the evaluator then tries. Once both are neutral, `x + y` has no step,
+and stopping is right. The evaluator also does bounded extra work: R4 is
+taken in one step for any `k`, and the stuck `m + n'` it leaves is built
+directly, not evaluated again.
+
+## 10. As built
+
+On branch `worktree-agent-ad5f0d8aae673e382` (SW-787, D1771). Everything
+here is **[checked]** on that branch, against `main` at `23ffe28f`.
+
+**Kernel** (`crates/core`). `nat_add.rs`: `stuck` (R3 and R4 for a call
+stuck on its first argument), `critical_pairs` (the four, as terms, for the
+test), `register` (the binding), `NAT_ADD_HASH`. The machine applies it in
+`stuck_tree` (`value.rs`), where every case tree that can't step ends; the
+reference evaluator in `unfold` (`reference.rs`), after the case tree;
+the natives' `Nat.add` shortcut (`native.rs` `run_partial`), after taking
+`k` off the first argument, so natives on and off agree. The rule sits in
+`Builtins::nat_add_rule`, not with the natives, and `disable_natives`
+doesn't touch it. The WebAssembly kernel is the same crate compiled to
+WebAssembly (`crates/web`), so there's nothing separate there.
+
+**Binding.** `register` runs when the prelude binds `Nat.addSucc`
+(`registry.rs` names `Nat.addZero` and `Nat.addSucc`): `Nat.add` must have
+the pinned content hash (which covers `Nat`), and both theorems must be
+final theorems with the types `(n: Nat) → n + 0 = n` and `(n: Nat) → (m:
+Nat) → n + Succ m = Succ (n + m)`, else `E-BUILTIN`. The theorem check is a
+safety net against binding the rules to the wrong definition; the argument
+is §9.
+
+**Tests.** `crates/driver/tests/nat_add_rule.rs`: the pinned hash; the
+critical pairs (§9.4); stuck sums (`x + 0`, `x + 1`, `x + 3 = 3 + x`,
+`x + Succ y`, `x + (y + 2) = (x + y) + 2`, `(2 + x) + (3 + y)`, `0 + x`)
+the same with both evaluators, natives on and off, and `x + y = y + x` and
+`x + 1 = 1 + y` still not convertible; a copy of `Nat.add` gets no rules.
+`crates/driver/tests/natives.rs`: the natives' shortcuts against the
+definitions now include sums stuck on either side against `Succ` chains.
+`examples/accept/plus-both-sides.sw`: the facts of §3 by `rfl`, `Vec a
+(n + 1)` declared and matched, `Vec` append with index `n + m` and `m + n`.
+`examples/reject/plus-comm-by-rfl.sw`: `n + m = m + n` by `rfl` is still
+`E-REFL`.
+
+**Elaborator** (`crates/elab`). Nothing mirrors the kernel's `+` except
+through values, so most of it needed nothing. Changed: `omega` recognises
+`min` and `max` after they've computed with shared `Succ`s (`min (x + 1)
+(y + 1)` is now `if Nat.leq x y then Succ x else Succ y`) and reads `k *
+t` whose last `t + 0` is `t`; `E-INDEX-STUCK`'s note for a stuck sum says
+both sides must be unknown (the old note told users to declare `Succ n`
+instead of `n + 1`). `ring` and the unifier needed no change.
+
+**Library and programs.** In std: `Nat.decAddSuccNotZero` deleted (it
+existed only because `most + 1` was stuck); the prototype's five rewrites in
+`List/SortLemmas` and `Graph/Search`, and three in `Float/Theory`; `Float`'s model and theory write the
+significand on the right of `*` (below); `Float.neg`, `abs`, `sub`, `add`
+and `toInt` re-pinned. In aoc, the prototype's deletions (2024 days 4, 15 and 24), then 23
+errors on the first full run, all fixed (2024 days 4, 14 and 15; 2025 days
+1, 2, 4 and 6).
+Examples that used `x + 0` or `x + Succ y` to demonstrate `rewrite` use
+`x * 1` and `x * Succ y`; rejects that relied on `n + 1` being stuck use
+`n + m`; `reject/index-declared-plus-one.sw` is gone (its declaration is
+now accepted). `games/rogue`: `lcg` and `Dice.upTo` are opaque (below).
+The guide's induction example is `n * 1 = n`.
+
+**The failures the prototype left unexplained** (§5). None was an artefact
+of the prototype running in one evaluator; all three persist with the rule
+in both, and each is a consequence of (c):
+
+1. *30 `E-RESOURCE` in `Float/Theory`*, and one in `Float.toIntFrom`.
+   Not the pins: after re-pinning they stayed. `Float.Model.units` and
+   `Float.Theory.magUnits` were `(f + 2^52) * pow2 (e - 1)`. R4 turns
+   `f + 2^52` into `2^52 + f`, and `*` recurses on its first argument, so
+   evaluating that product with `pow2 (e - 1)` unknown unfolds `*` 2^52
+   times. Minimal case: `theorem t (e f: Nat): (f + 4503599627370496) *
+   Nat.pow 2 e = (f + 4503599627370496) * Nat.pow 2 e := rfl` is
+   `E-RESOURCE` ("while unfolding `Nat.mul`") under (c) and checks on
+   `main`, where `(4503599627370496 + f) * Nat.pow 2 e` fails the same way.
+   Fix: `pow2 (e - 1) * (f + 2^52)` in the model and the theorem
+   statements (proofs adjusted; one `omega` needed a `ring` fact for `P *
+   Succ x`), and `Float.toIntFrom` passes `m - (e - 1) * 2^52`, which
+   stays stuck, instead of `m - e * 2^52 + 2^52`.
+2. *2024 day 4, 12 errors.* `List.range (height grid + 3)` now computes
+   its first three elements (`h + 3` is `3 + h`, and `List.rangeFrom`
+   counts down its first argument), so a sum over it is `f 0 + f 1 + f 2
+   + …` with three instances already computed. `rewrite each _ _` rewrote
+   the instance under the binder and not those, so `rfl` compared what
+   `spells` computes to (a `&&` chain ending `&& True`, from its recursion
+   over the four letters) with `readsXmas`'s (no `True`): the `… && True`
+   against `…` of §5. The `calc` step failed the same way: the lemma's
+   `_ _` functions couldn't be unified against the computed sums. Fix:
+   rewrite pointwise with `List.sumByCong`, give the functions to
+   `List.sumByNestedAdd`, and finish `part1Correct` with `omega` over the
+   direction lemmas (rewriting there ran out of budget comparing the
+   computed sums).
+3. *2024 day 15 part 2, `E-CASES-BUDGET`.* `gather`'s fuel `2 *
+   warehouse.boxes.size + 1` is now `Succ (size + size)`, so `cases`
+   unfolds `gather` a step and splits on what's inside: neighbouring map
+   lookups and coordinate comparisons, among them `Nat.decEq n (Succ n)`
+   (from `column + 1`), whose `Yes` case it can't refute. On `main` the
+   fuel `… + 1` was stuck and `cases` split on the whole `gather …` call.
+   Shown by making `cases` fail on a probe theorem: on `main` the open case
+   has `gather … (Map.size … + (Map.size … + 0) + 1)`, under (c) 23 splits
+   with `gather … (Map.size … + Map.size …)`. Fix: split by hand on
+   `gather` (`match … with | Some group => rfl | None => rfl`).
+
+**Other consequences found** while migrating, of three kinds:
+
+- *A constant summand moves out where recursion sees it.* Besides `Float`:
+  `games/rogue`'s `lcg seed` is `(seed * 1103515245 + 12345) % 2^31`;
+  `+ 12345` moves out, and reading back `%`'s fuel recursion under its
+  stuck `if`s unrolls 12345 levels (`E-RESOURCE`, "too large to show").
+  `lcg` and `Dice.upTo` are opaque for checking now (one `unfolding` where a
+  proof needs the body). `examples/goals/counterexample-out-of-steps.sw`
+  stated `countDown (n + 100000000) = 1`, which now counts down 10^8 while
+  checking (63 s); it uses `Nat.max n 100000000`. On `main` the same
+  happened to anyone who wrote the constant first.
+- *Goals compute further.* A `match` that replaced `Nat.leq d (Succ a)`
+  now finds it inside `(a + 1) % d` (2025 day 1); `rewrite` finds nothing
+  where the goal already computed (the `E-REWRITE-NOTHING`s); `x + 1`
+  prints as `Succ x` and `x + k` as `k + x` in messages.
+- *Unification that relied on a stuck shape.* `List.memBetween h` with `h:
+  x ∈ List.between 2 n` no longer infers its implicit `lo` and `hi`:
+  `List.between ?lo ?hi` unfolds to `rangeFrom (?hi + 1 - ?lo) ?lo`, and
+  `?hi + 1` is now `Succ ?hi`, a different shape from the computed `n - 1`
+  (2025 day 2; fixed by naming them). Likewise `x + ?d` no longer unifies
+  with a computed `Succ (x + t)` (rogue). A unifier rule inverting R4 would
+  recover these; not done.
+
+**Measured** (release build, other lanes running, so rough):
+
+| | `main` | (c) |
+|---|---:|---:|
+| whole std, loaded eagerly, no cache | 4.6 to 4.9 s | 4.7 to 4.8 s |
+| `aoc`, `stitchwort check --no-cache` | 37.0 s, 52.7 s | 37.1 s, 49.6 s |
+| bench `--no-time`, `check-closed-*` steps | 1,054,829 | 1,059,555 (+0.5%) |
+| bench `--no-time`, `examples` steps | 3,126,066,165 | 3,127,056,213 (+0.03%) |
+
+No bench count regressed beyond that. The `check-closed-*` steps are
+mostly the prelude's; that the 0.5% is the two theorems' types checked at
+binding is **[inferred]**, not measured apart.
+
+**Not done.** Rules for `*` (D1772). Printing `k + x` as `x + k`, which
+would match how people write it. The unifier rule inverting R4.

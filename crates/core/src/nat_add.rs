@@ -35,7 +35,7 @@
 //! solved metavariable replaced), but does not unfold a call left folded
 //! by name. The only such call of type `Nat` is `k * x` with `x` a variable
 //! (`native::folds_mul`), which unfolds to `x + (k - 1) * x`, stuck on `x`:
-//! never `Zero` or a `Succ`, so nothing is missed.
+//! never `Zero` or a `Succ`, so nothing is missed (the proposal's §9.2, A3).
 //!
 //! **Why it's sound** (the argument in full, with its assumptions, is in the
 //! proposal's §9): R3 and R4 are typed, left-linear, first-order rules on
