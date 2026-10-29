@@ -37,15 +37,6 @@ theorem isSafeCorrect (report: Report): report.isSafe = safe report :=
 theorem part1Correct (reports: List Report): solvePart1 reports = safeReports reports :=
   List.countCongMem reports Report.isSafe safe (report _ => isSafeCorrect report)
 
--- With the dampener, the program's check is the puzzle's rule.
-theorem isSafeWithDampenerCorrect (report: Report): report.isSafeWithDampener = safeWithDampener report :=
-  let removed := (index: Nat) => ({ levels = report.levels.removeAt index }: Report)
-  rewrite isSafeCorrect report, List.anyMap (List.range report.levels.length) Report.isSafe removed, isSafeCorrect (removed _) in rfl
-
--- Part 2 counts the reports that are safe with the dampener.
-theorem part2Correct (reports: List Report): solvePart2 reports = safeReportsWithDampener reports :=
-  List.countCongMem reports Report.isSafeWithDampener safeWithDampener (report _ => isSafeWithDampenerCorrect report)
-
 -- Whatever keeps every adjacent pair of a list keeps a safe report safe.
 theorem safeKept (shrink: List Nat → List Nat)
     (keeps: (levels: List Nat) → (holds: Nat → Nat → Bool) → levels.chain holds = True → (shrink levels).chain holds = True)
@@ -72,7 +63,7 @@ theorem safeWithoutLast (report: Report) (wasSafe: safe report = True): safe { l
 -- with one level removed".
 theorem dampenerAloneSuffices (level: Nat) (rest: List Nat):
     safeWithDampener { levels = Cons level rest } =
-      (List.range (Succ rest.length) |> .any (index => safe { levels = (Cons level rest).removeAt index })) :=
+      (removals (Cons level rest) |> .any (levels => safe { levels })) :=
   match wasSafe: safe { levels = Cons level rest } with
     | True =>
       let kept := safeWithoutFirst level rest wasSafe
@@ -81,4 +72,5 @@ theorem dampenerAloneSuffices (level: Nat) (rest: List Nat):
 
 -- The dampener only adds safe reports: part 2's answer is at least part 1's.
 theorem part2AtLeastPart1 (reports: List Report): solvePart1 reports ≤ solvePart2 reports :=
-  List.countLeMem reports Report.isSafe Report.isSafeWithDampener (report _ wasSafe => rewrite wasSafe in rfl)
+  rewrite part1Correct reports, part2Correct reports in
+  List.countLeMem reports safe safeWithDampener (report _ wasSafe => rewrite wasSafe in rfl)

@@ -1,5 +1,7 @@
--- Day 2 part 2 in linear time, proved equal to the puzzle's rule (the
--- committed spec, which tries every removal). One pass per direction: on the
+-- Day 2 part 2 in linear time, proved equal to the puzzle's rule (the spec
+-- of the time, which tried every `removeAt index`; copied below as
+-- `safeWithDampenerByIndex`). Since SW-881 this check is the program in
+-- aoc/src/Aoc/Year2024/Day02, proved there against a `removals` spec. One pass per direction: on the
 -- first bad step, only its two levels can be the one to remove.
 --
 --   $ stitchwort run Scratch.LinearProved.main < inputs/2024/day02.txt
@@ -7,8 +9,8 @@
 namespace Scratch.LinearProved
 import Aoc.Year2024.Day02 (..)
 import Aoc.Year2024.Day02.Spec (..)
-import Aoc.Year2024.Day02.Proofs (isSafeWithDampenerCorrect)
-import Std (Bool, Fail, IO, List, Nat)
+import Aoc.Year2024.Day02.Proofs (isSafeCorrect)
+import Std (Bool, Eq, Fail, IO, List, Nat)
 
 -- After `before` and `level` (a good step), the rest passes `ok` once at most
 -- one of `level` and the rest is removed.
@@ -32,6 +34,10 @@ def Report.isSafeLinear (report: Report): Bool :=
 def main(): {IO, Fail} () :=
   let reports := parseReports IO.readAll()
   IO.print "Part 2 (linear, proved): ${reports.count .isSafeLinear}"
+
+-- The spec this was proved against: safe, or safe with some `removeAt index`.
+def safeWithDampenerByIndex (report: Report): Bool :=
+  safe report || (List.range report.levels.length |> .any (index => safe { levels = report.levels.removeAt index }))
 
 -- The brute force without indices: `holds` of the list with some one element
 -- removed.
@@ -98,14 +104,15 @@ theorem toleratesOneCorrect (ok: Nat → Nat → Bool): (levels: List Nat) →
       | False => rewrite anyRemovedNever rest (ys => False) (ys => rfl) in cases
 
 -- The linear check is the puzzle's rule with the dampener.
-theorem isSafeLinearCorrect (report: Report): report.isSafeLinear = safeWithDampener report :=
-  rewrite <- isSafeWithDampenerCorrect report,
-    List.anyMap (List.range report.levels.length) Report.isSafe (index => ({ levels = report.levels.removeAt index }: Report)),
+theorem isSafeLinearCorrect (report: Report): report.isSafeLinear = safeWithDampenerByIndex report :=
+  rewrite <- isSafeCorrect report,
+    List.anyCong (List.range report.levels.length) (index => safe { levels = report.levels.removeAt index })
+      (index => Report.isSafe { levels = report.levels.removeAt index }) (index => Eq.sym (isSafeCorrect { levels = report.levels.removeAt index })),
     <- anyRemovedRange report.levels (ys => Report.isSafe { levels = ys }),
     anyRemovedOr report.levels (ys => ys.chain risesGently) (ys => ys.chain (level next => risesGently next level)),
     toleratesOneCorrect risesGently report.levels, toleratesOneCorrect (level next => risesGently next level) report.levels in
   cases
 
 -- Part 2 by the linear check counts the reports the puzzle calls safe.
-theorem part2LinearCorrect (reports: List Report): reports.count .isSafeLinear = safeReportsWithDampener reports :=
-  List.countCongMem reports Report.isSafeLinear safeWithDampener (report _ => isSafeLinearCorrect report)
+theorem part2LinearCorrect (reports: List Report): reports.count .isSafeLinear = reports.count safeWithDampenerByIndex :=
+  List.countCongMem reports Report.isSafeLinear safeWithDampenerByIndex (report _ => isSafeLinearCorrect report)

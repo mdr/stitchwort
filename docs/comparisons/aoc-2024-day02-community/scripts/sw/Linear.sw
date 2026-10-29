@@ -22,10 +22,11 @@ def main(): {IO, Fail} () :=
   let reports := parseReports IO.readAll()
   IO.print "Part 2 (linear): ${reports.count isSafeLinear}"
 
--- Only part 2 by the committed brute force, for timing against the above.
+-- Only part 2 by the committed program, for timing against the above. That
+-- was brute force when this was written; since SW-881 it is a one-pass check.
 def mainBrute(): {IO, Fail} () :=
   let reports := parseReports IO.readAll()
-  IO.print "Part 2 (brute): ${solvePart2 reports}"
+  IO.print "Part 2 (committed): ${solvePart2 reports}"
 
 -- Only the parse, to separate it from the checks.
 def mainParse(): {IO, Fail} () :=

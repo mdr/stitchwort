@@ -224,7 +224,8 @@ def isSafeWithDampener (report: Report): Bool := isSafe report || (withoutOneLev
 
 The spec (`Spec/Spec.sw`) says it the puzzle's way: `allIncreasing`,
 `allDecreasing` and `adjacentDifferByOneToThree` (with `Nat.absDiff`) over
-every adjacent pair, and "safe, or some `removeAt index` is safe" for part 2.
+every adjacent pair, and "safe, or some `removeAt index` is safe" for part 2
+(since SW-881, "some removal", below).
 Proved for every list of reports (`Aoc.Year2024.Day02.Proofs`, about 120
 lines, no axioms):
 
@@ -240,6 +241,18 @@ lines, no axioms):
 Nothing attempted was left unproved. `cases` closed every Boolean and
 arithmetic step, `absDiff` included, which made this much cheaper than
 expected.
+
+**Part 2 in one pass (SW-881, 29 Oct).** Part 2 is now the one-pass check
+from the community comparison (§3): per direction, `passesDampened` walks the
+levels, and at the first bad step it tries the rest without each of that
+step's two levels, since removing any other level leaves the bad step in
+place. The brute force is now only the spec, written without indices:
+`removals levels` lists the levels with each one removed, and part 2 is
+"safe, or some removal is safe". `Proofs/Dampener.sw` (56 code lines, no
+axioms) proves `part2Correct` for it through `anyRemoved`, a recursive form
+of `removals … |> .any`. The program grew from 20 to 30 code lines. Tests
+cover three reports that common shortcuts get wrong: `[1, 3, 2, 1]`,
+`[1, 5, 6]` and `[1, 6, 2]`, all safe.
 
 ### 1. Recursion on a nested pattern isn't seen as smaller
 
