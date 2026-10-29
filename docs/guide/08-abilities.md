@@ -243,6 +243,8 @@ For matches scattered through noise, `findAll parser` gives the value of every m
 
 Text read only to be skipped, such as the `,` between two numbers, can go inside an argument with a sequence `(a; b)`: it runs `a`, then gives `b`'s value, as two lines of a block would. `before ")"` reads closing text after a value is built, since `|>` runs its left side first. Together they put a rule on one line: `Mul (text "mul("; natDigits 1 3) (char ','; natDigits 1 3) |> before ")"` reads `mul(44,46)` as `Mul 44 46`, with the same errors as the six lines `text "mul("`, `let left := natDigits 1 3`, `char ','`, `let right := natDigits 1 3`, `char ')'`, `Mul left right` (`examples/accept/sequence-expression.sw`).
 
+Recursive grammars use `recursive (self => …)`, and a choice keeps the first alternative that succeeds, so a rule must not call `self` before reading something. Such left recursion can hide behind an earlier alternative: in `recursive (self => oneOf [nat, () => (let left := self(); char '+'; left + nat())])`, `nat` succeeds on `1+2` and the choice never comes back, so `12` parses but `1+2` fails with `expected the end of the line, got '+'`. Only input where every earlier alternative fails, such as `x`, gives ``the parser called itself without reading anything``. So tests of good input can pass, and the grammar quietly accepts less than intended. Read the repeated part with a loop instead: `sepBy1 nat (() => char '+') |> .sum` parses `1+2+3` as 6.
+
 ## `IO` and `main`
 
 `IO` has three operations: `IO.print` (writes a line), `IO.readLine()` (the next line, or `None` at the end of the input) and `IO.readAll()` (the rest of the input). `IO.readAllLines()` is the input as a list of lines.
