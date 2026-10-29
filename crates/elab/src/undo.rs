@@ -16,8 +16,12 @@
 //!   the same reason;
 //! - the local context and the current span.
 //!
-//! Warnings aren't part of it: only declaration-level code adds them (it
-//! needs `&mut Elaborator`, which a `Ctx` doesn't have). Nor are resource
+//! Warnings mostly aren't part of it: declaration-level code adds most of
+//! them (it needs `&mut Elaborator`, which a `Ctx` doesn't have), and those
+//! found while checking (`W-LAMBDA-SHADOW` and the like) stay true of the
+//! code whatever the attempt. The exception is `W-NO-EFFECT`, judged from
+//! the types the attempt knew: one found in an attempt undone is dropped,
+//! and found again if the code is checked again. Nor are resource
 //! budgets: running out of resources is an error that stops elaboration,
 //! passed on without undoing anything, and what was used isn't refunded.
 
@@ -43,6 +47,9 @@ pub(crate) struct Snapshot {
     local_types: usize,
     goals: usize,
     branch_errors: usize,
+    /// How many warnings were noted: a `W-NO-EFFECT` found in an attempt
+    /// undone is dropped, since it was judged with what the attempt assumed.
+    noted_warnings: usize,
 }
 
 impl Snapshot {
@@ -63,6 +70,7 @@ impl Snapshot {
             local_types: cx.e.pending_local_types(),
             goals: cx.e.pending_goals(),
             branch_errors: cx.e.branch_errors.borrow().len(),
+            noted_warnings: cx.e.lambda_warnings.borrow().len(),
         }
     }
 
@@ -127,6 +135,11 @@ impl Snapshot {
         cx.e.drop_goals_since(self.goals);
         // The errors of other bad branches of an attempt undone here.
         cx.e.branch_errors.borrow_mut().truncate(self.branch_errors);
+        let mut i = 0;
+        cx.e.lambda_warnings.borrow_mut().retain(|w| {
+            i += 1;
+            i <= self.noted_warnings || w.code != crate::no_effect::CODE
+        });
         cx.reset(self.mark);
         cx.span = self.span;
     }

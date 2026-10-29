@@ -9,3 +9,12 @@ expression: output
    │                                    ┬  
    │                                    ╰── expected `Text`, but this has type `Nat`
 ───╯
+[W-NO-EFFECT] Warning: this line does nothing: it performs no effects, and its value is dropped
+   ╭─[ reject/sequence-in-let-value.sw:8:33 ]
+   │
+ 8 │ def value: Text := (let x := 1; 2; x)
+   │                                 ┬  
+   │                                 ╰── performs nothing
+   │ 
+   │ Note: remove the line, or bind its value with `let` if it's meant for later
+───╯

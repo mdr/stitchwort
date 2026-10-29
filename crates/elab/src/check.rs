@@ -1113,7 +1113,7 @@ impl PureFirst {
 }
 
 /// [`infer_inner`] once it's known that `expr` isn't run as a whole.
-fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     if let Some(logic) = crate::logic::classify(cx, expr) {
         return crate::logic::infer(cx, logic);
     }

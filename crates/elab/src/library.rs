@@ -1095,12 +1095,13 @@ impl Elaborator {
         lib.order.push(f);
         // A library file with an open goal (`?`) doesn't check either, nor
         // one with a function whose main value isn't first, nor one with a
-        // redundant arm: the library keeps the convention it asks of
-        // programs (D306).
+        // redundant arm, nor one with a line that does nothing: the library
+        // keeps the convention it asks of programs (D306).
         let ok = !diagnostics.iter().any(|d| {
             matches!(d.severity, Severity::Error | Severity::Goal)
                 || d.code == "W-RECEIVER-NOT-FIRST"
                 || d.code == "W-REDUNDANT"
+                || d.code == crate::no_effect::CODE
         });
         if let (Some(before), Some((unit, key))) = (before, &cached) {
             self.cache_after(f, before, ok, unit, key);

@@ -1,0 +1,40 @@
+---
+source: crates/cli/tests/examples.rs
+expression: warnings
+---
+[W-NO-EFFECT] Warning: this line does nothing: it performs no effects, and its value is dropped
+    ╭─[ accept/no-effect-line.sw:14:3 ]
+    │
+ 14 │   shortNumber
+    │   ─────┬─────  
+    │        ╰─────── performs nothing
+    │ 
+    │ Note: call it: `shortNumber()`
+────╯
+[W-NO-EFFECT] Warning: this line does nothing: it performs no effects, and its value is dropped
+    ╭─[ accept/no-effect-line.sw:17:40 ]
+    │
+ 17 │ def missingArgument(): {Parse} Nat := (char; shortNumber())
+    │                                        ──┬─  
+    │                                          ╰─── performs nothing
+    │ 
+    │ Note: `char` is a function missing its arguments: give them to call it
+────╯
+[W-NO-EFFECT] Warning: this line does nothing: it performs no effects, and its value is dropped
+    ╭─[ accept/no-effect-line.sw:20:3 ]
+    │
+ 20 │   x + 1
+    │   ──┬──  
+    │     ╰──── performs nothing
+    │ 
+    │ Note: remove the line, or bind its value with `let` if it's meant for later
+────╯
+[W-NO-EFFECT] Warning: this line does nothing: it performs no effects, and its value is dropped
+    ╭─[ accept/no-effect-line.sw:24:3 ]
+    │
+ 24 │   list.map (n => n + 1)
+    │   ──────────┬─────────  
+    │             ╰─────────── performs nothing
+    │ 
+    │ Note: remove the line, or bind its value with `let` if it's meant for later
+────╯
