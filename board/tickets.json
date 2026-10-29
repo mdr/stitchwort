@@ -6769,15 +6769,15 @@
     {
       "id": 787,
       "title": "Consider D1424: Nat addition recursing on its second argument (as Lean's)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree (research lane, D1770)",
       "labels": [
         "decision"
       ],
       "body": "Today 1 + c computes but c + 1 doesn't; day 4 needed Nat.addComm rewrites in 5 of 8 directions, days 12 and 15 hit it too. Changes how every + computes: proofs and hashes need re-checking. Rec: yes, as one measured lane.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-29",
       "commits": []
     },
     {
