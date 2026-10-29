@@ -8116,7 +8116,7 @@
     {
       "id": 879,
       "title": "AoC 2024 day 3 community research note: other languages' solutions vs ours (Lean, Agda, Idris, Dafny, FP); how Stitchwort compares",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -8125,7 +8125,10 @@
       "body": "Matt, 29 Oct: do 2024 days 1-3 next, after the 2025 day 9 note (SW-876, docs/comparisons/aoc-day09-community.md). Our solution: aoc/src/Aoc/Year2024/Day03 (friction notes in aoc/NOTES-2024.md). Output: docs/comparisons/aoc-2024-day03-community.md.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "b3527d82",
+        "d3434a7f"
+      ]
     }
   ]
 }
