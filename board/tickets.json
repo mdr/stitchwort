@@ -1,5 +1,5 @@
 {
-  "next": 888,
+  "next": 889,
   "tickets": [
     {
       "id": 13,
@@ -8260,6 +8260,20 @@
         "diagnostics"
       ],
       "body": "From docs/proposals/direct-style-grammars.md §8 (SW-883).",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 888,
+      "title": "Sequence expressions (a; b): do a, then b's value, wherever an expression can go; same meaning as two block lines",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
+      "labels": [
+        "language"
+      ],
+      "body": "D1700 (Matt, 29 Oct): yes. Design in docs/proposals/direct-style-grammars.md (SW-883). Parser + formatter + docs + examples; elaborator should need nothing (desugars to a block). Parse.before (D1701) not approved yet.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
       "commits": []
