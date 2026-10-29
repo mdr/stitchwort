@@ -514,6 +514,79 @@ impl<'e> Ctx<'e> {
             .fold(d, Diagnostic::with_note)
     }
 
+    /// `d` with a note for each hypothesis `h: e = C` (`C` a constructor)
+    /// whose `e` occurs inside a function in `values`, as they compute
+    /// (SW-882): `rfl` and `cases` compute and split, but don't rewrite with
+    /// `h`, so `anyRemoved (ys => ok x && …) rest` keeps its `ok x` though
+    /// `step: ok x = True` is in scope. `rewrite h` reaches it, since `e`
+    /// can't mention the function's parameter. If `e` is a `match`'s
+    /// scrutinee, the occurrence came in after the `match` refined the goal
+    /// (from a lemma's statement, or a term written in the branch). Error
+    /// path only.
+    pub(crate) fn with_unused_equation_notes(
+        &self,
+        mut d: Diagnostic,
+        values: &[&Value],
+    ) -> Diagnostic {
+        let g = self.g();
+        let level = self.level();
+        let hay: Vec<Term> = values
+            .iter()
+            .filter_map(|v| quote(g, level, v).ok())
+            .collect();
+        if hay.is_empty() {
+            return d;
+        }
+        for l in (0..level).rev() {
+            let Some(name) = self.name_of_level(l) else {
+                continue;
+            };
+            let Ok(Value::Eq(_, lhs, rhs)) = force(g, self.types[l].clone()) else {
+                continue;
+            };
+            if !matches!(
+                force(g, (*rhs).clone()),
+                Ok(Value::Ctor(..) | Value::Nat(_))
+            ) {
+                continue;
+            }
+            let Ok(needle) = quote(g, level, &lhs) else {
+                continue;
+            };
+            if matches!(needle.strip_loc(), Term::Ctor(..) | Term::Nat(_)) {
+                continue;
+            }
+            let under_binder = |t: &Term| {
+                t.subterms().any(|(sub, under)| {
+                    under > 0 && crate::matching::same_shifted(&needle, sub, under, 0)
+                })
+            };
+            if !hay.iter().any(under_binder) {
+                continue;
+            }
+            let shown = pretty::term_for_message_in(g, self.e, &self.names, &needle);
+            let ty = self.show(&self.types[l]);
+            let matched = self.scrutinees.iter().any(|(base, s, _, _)| {
+                s.shift(g, level - base, 0)
+                    .is_ok_and(|s| crate::matching::same(&s, &needle))
+            });
+            let why = if matched {
+                format!(
+                    " This `{shown}` came in after the `match` on it (from a lemma's statement \
+                     or a term written in the branch), so the `match` didn't replace it."
+                )
+            } else {
+                String::new()
+            };
+            d = d.with_note(format!(
+                "`{shown}` is inside a function here, where `{name}: {ty}` isn't used: `rfl` \
+                 and `cases` compute, but don't rewrite with a hypothesis.{why} `rewrite \
+                 {name} in …` does, as `{shown}` doesn't mention the function's parameter"
+            ));
+        }
+        d
+    }
+
     /// [`Ctx::show`], with the arguments the compiler fills in.
     pub fn show_hidden(&self, value: &Value) -> String {
         pretty::value_for_message_hidden_in(self.g(), self.e, &self.names, value)
@@ -4944,6 +5017,7 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     }
     let error =
         error.with_note("`rfl` proves `a = b` only when both sides compute to the same value");
+    let error = cx.with_unused_equation_notes(error, &[a, b]);
     cx.with_opaque_notes(error, &[a, b])
 }
 
