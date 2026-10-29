@@ -115,3 +115,42 @@ fn proofs_do_not_warn() {
                 theorem viaRewrite (a b: Nat) (h: a = b): b = a :=\n  let k := h\n  rewrite k in rfl\n";
     assert!(warnings(text).is_empty(), "{:#?}", warnings(text));
 }
+
+#[test]
+fn a_map_whose_callback_has_statement_lines_is_not_tried() {
+    // Trying it would elaborate the callback's lines twice, each trying its
+    // own lines, doubling the work with each level of nesting: the warning
+    // is missed instead.
+    assert!(
+        warnings(
+            "def f (list: List Nat): {Parse} List Nat :=\n  \
+             list.map (x => (let y := x; y + 1))\n  list\n"
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn deeply_nested_callbacks_with_statement_lines_check_quickly() {
+    // Each level is a statement line whose callback has statement lines of
+    // its own. With every line tried as plain calls, callbacks included, the
+    // work doubled with each level: 14 levels took 4 s, 20 would take minutes.
+    let mut inner = "(IO.print \"x\"; IO.print \"y\")".to_string();
+    for d in 1..20 {
+        inner = format!("([1, 2].forEach (x{d} => {inner}); IO.print \"y\")");
+    }
+    let text = format!(
+        "import Std (IO, List)\n\n\
+         def main(): {{IO}} () :=\n  [1, 2].forEach (x20 => {inner})\n  IO.print \"done\"\n"
+    );
+    let start = std::time::Instant::now();
+    let mut session = Session::new();
+    if let Err(errors) = session.load("test.sw", &text) {
+        panic!("{errors:#?}");
+    }
+    let took = start.elapsed();
+    assert!(
+        took < std::time::Duration::from_secs(10),
+        "20 levels took {took:?}"
+    );
+}

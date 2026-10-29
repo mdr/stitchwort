@@ -69,7 +69,7 @@ pub(crate) fn check_value(cx: &Ctx, expr: &Expr, ty: &Value) -> Result<()> {
 /// a bare row, is pure: elaborated as plain calls, undone afterwards, its
 /// type isn't a computation. That type, if so.
 pub(crate) fn pure_as_plain_calls(cx: &mut Ctx, expr: &Expr) -> Result<Option<Value>> {
-    if !applies(expr) || !call_like(expr) {
+    if !applies(expr) || !call_like(expr) || !without_statements(expr) {
         return Ok(None);
     }
     if !crate::effects::performs_only_in_bare_rows(cx, expr, None)? {
@@ -107,6 +107,54 @@ pub(crate) fn pure_as_plain_calls(cx: &mut Ctx, expr: &Expr) -> Result<Option<Va
         Err(e) if crate::undo::fatal(&e) => Err(e),
         Err(_) => Ok(None),
     }
+}
+
+/// Whether `expr` is made only of names, literals, calls, operators, lists,
+/// tuples, `if`s and lambdas whose bodies are made the same way: no
+/// statement lines (`a; b`, `let`), `handle`, `match` or anything else.
+/// [`pure_as_plain_calls`] elaborates a line once more, undone; a line
+/// with statement lines inside (in a callback) would have those elaborated
+/// twice, each trying its own trial, so the work would double with each
+/// level of nesting. Such a line isn't tried, and a pure one isn't warned
+/// about (`list.map (x => (let y := x; y + 1))`): a missed warning, never a
+/// wrong one. The walk is iterative, so a deep expression can't overflow it.
+fn without_statements(expr: &Expr) -> bool {
+    let mut pending = vec![expr];
+    while let Some(e) = pending.pop() {
+        match e {
+            Expr::Var(_)
+            | Expr::Num(..)
+            | Expr::Float(..)
+            | Expr::Char(..)
+            | Expr::Str(..)
+            | Expr::Unit(_)
+            | Expr::Hole(_) => {}
+            Expr::App(a, b) | Expr::Binary(_, a, b) | Expr::Pipe(a, b) | Expr::Tuple(a, b, _) => {
+                pending.push(a);
+                pending.push(b);
+            }
+            Expr::Ann(a, _, _) => pending.push(a),
+            Expr::Bracketed(a, _)
+            | Expr::Interpolated(a, _)
+            | Expr::Neg(a, _, _)
+            | Expr::NamedArg(_, a, _, _)
+            | Expr::Lam(_, a, _)
+            | Expr::Field(a, _) => pending.push(a),
+            Expr::List(items, _) => pending.extend(items.iter()),
+            Expr::If {
+                cond,
+                then,
+                otherwise,
+                ..
+            } => {
+                pending.push(cond);
+                pending.push(then);
+                pending.push(otherwise);
+            }
+            _ => return false,
+        }
+    }
+    true
 }
 
 /// Records the warning for the statement line `expr`, whose value, of type
