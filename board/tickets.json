@@ -7831,9 +7831,9 @@
       "labels": [
         "runtime"
       ],
-      "body": "From SW-738 (28 Oct): Std.Parse's span/next/literal return a pair so runFrom resumes with k step.fst step.snd, because with k inside a match arm (23632129's form) each operation keeps a frame (2b541087). Measured 28 Oct on the interpreter: Parse.next over 160,000 chars, natural form 1.49 GB / 9.4 s vs 1.01 GB / 2.2 s. Make the fusion/loop recognise a resume in tail position inside match arms (crates/rt/src/fusion.rs 'State-passing handlers run as a loop'; docs/proposals/parser-combinators.md §7.5), then do SW-738. Also noted: memory grows with input in both forms on a plain next loop (~5.8 KB/char with the workaround), worth understanding.",
+      "body": "From SW-738 (28 Oct): Std.Parse's span/next/literal return a pair so runFrom resumes with k step.fst step.snd, because with k inside a match arm (23632129's form) each operation keeps a frame (2b541087). Measured 28 Oct on the interpreter: Parse.next over 160,000 chars, natural form 1.49 GB / 9.4 s vs 1.01 GB / 2.2 s. Make the fusion/loop recognise a resume in tail position inside match arms (crates/rt/src/fusion.rs 'State-passing handlers run as a loop'; docs/proposals/parser-combinators.md §7.5), then do SW-738. Also noted: memory grows with input in both forms on a plain next loop (~5.8 KB/char with the workaround), worth understanding.\n\n29 Oct, from docs/comparisons/aoc-2024-day01-community.md: on 100,000 synthetic lines, about 1.0 s of the native build's 1.2 s is Std.Parse, five times slower than splitting on white space. On real inputs (1,000 to 20,000 lines) parsing costs 10 to 200 ms natively. See also the day 2 and day 3 numbers on SW-593.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-29",
       "commits": []
     },
     {
@@ -8088,7 +8088,7 @@
     {
       "id": 877,
       "title": "AoC 2024 day 1 community research note: other languages' solutions vs ours (Lean, Agda, Idris, Dafny, FP); how Stitchwort compares",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -8097,7 +8097,10 @@
       "body": "Matt, 29 Oct: do 2024 days 1-3 next, after the 2025 day 9 note (SW-876, docs/comparisons/aoc-day09-community.md). Our solution: aoc/src/Aoc/Year2024/Day01 (friction notes in aoc/NOTES-2024.md). Output: docs/comparisons/aoc-2024-day01-community.md.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "bcc2cd25",
+        "507a2644"
+      ]
     },
     {
       "id": 878,
