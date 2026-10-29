@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: `;` needs an expression after it: `(a; b)` runs `a`, then gives `b`'s value
+   ╭─[ reject/sequence-missing-rest.sw:7:46 ]
+   │
+ 7 │ def number(): {Parse} Nat := (char ','; nat();)
+   │                                              ┬  
+   │                                              ╰── `;` needs an expression after it: `(a; b)` runs `a`, then gives `b`'s value
+   │ 
+   │ Note: `;` goes between two expressions: leave out a `;` at the end
+───╯

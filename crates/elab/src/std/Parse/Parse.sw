@@ -262,6 +262,15 @@ def Parse.token (parser: () → {Parse} a): {Parse} a :=
   Parse.spaces()
   value
 
+-- Reads `suffix`, else "expected 'suffix'", then gives `value`: Lean's
+-- `value <* string suffix`. Meant for `|>`, which runs its left side first
+-- (docs/syntax.md, "Effectful code"), so the value's own parsers have read
+-- their part before `suffix` is read:
+-- `Mul (text "mul("; nat()) (char ','; nat()) |> before ")"`.
+def Parse.before (value: a) (suffix: Text): {Parse} a :=
+  Parse.text suffix
+  value
+
 -- A line break, "\n" or "\r\n", else "expected a line break".
 def Parse.newline(): {Parse} () :=
   if Parse.literal ['\n'] then () else if Parse.literal ['\r', '\n'] then () else Parse.expected "a line break"
@@ -888,6 +897,9 @@ test "Parse: spaces1" := Parse.Tests.lineResult " 5" (() =>
 test "Parse: spaces1, error" := Parse.Tests.lineError "5" Parse.spaces1 == "column 1: expected a space, got '5'"
 test "Parse: token" := Parse.Tests.lineResult " 1 \t2 " (() => Parse.many1 (() => Parse.token Parse.nat)) == Ok [1, 2]
 test "Parse: token, error" := Parse.Tests.lineResult " 1 x" (() => Parse.many1 (() => Parse.token Parse.nat)) == Err "column 4: expected a number or the end of the line, got 'x'"
+-- `|>` runs the value's parsers first, then `before` reads the suffix.
+test "Parse: before" := Parse.Tests.lineResult "(12,3)" (() => (Parse.char '('; (Parse.nat(), (Parse.char ','; Parse.nat()))) |> Parse.before ")") == Ok (12, 3)
+test "Parse: before, error" := Parse.Tests.lineResult "12]" (() => Parse.nat() |> Parse.before ")") == Err "column 3: expected ')', got ']'"
 test "Parse: newline" := Parse.Tests.lineResult "1\n2" (() => Parse.sepBy1 Parse.nat Parse.newline) == Ok [1, 2]
 test "Parse: newline, CRLF" := Parse.Tests.lineResult "1\r\n2" (() => Parse.sepBy1 Parse.nat Parse.newline) == Ok [1, 2]
 test "Parse: newline, error" := Parse.Tests.lineError "x" Parse.newline == "column 1: expected a line break, got 'x'"

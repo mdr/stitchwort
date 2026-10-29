@@ -1,7 +1,16 @@
 # Shorter grammar code in direct style (SW-883)
 
-**Status:** research note, 29 October 2026. Design only: nothing here is
-built. The questions for Matt are D1700 to D1703 (§7).
+**Status:** research note, 29 October 2026; §6's recommendation is built.
+Sequence expressions `(a; b)` (§4.2, D1700) and `Parse.before` (§4.1,
+D1701, `before` only: no `after` or `between`) were added in SW-888, and
+day 3's `mul(` rule is now §5.1's one line. The rules as built are in
+docs/syntax.md (Layout, "A sequence"), with
+`examples/accept/sequence-expression.sw` and `examples/reject/sequence-*.sw`.
+One detail the note left open: a `;` straight after a `let`'s value starts
+the `let`'s body even when the value ends in a lambda or an `if`, so
+`(let f := x => x + 1; f 2)` keeps its meaning. SW-888 doesn't cover D1702
+(a warning for a dropped function value) or D1703 (discard markers). The
+questions for Matt were D1700 to D1703 (§7).
 
 AoC 2024 day 3's `mul(` rule takes six lines where Lean's applicative parser
 takes one ([aoc-2024-day03-community.md](../comparisons/aoc-2024-day03-community.md) §4).
