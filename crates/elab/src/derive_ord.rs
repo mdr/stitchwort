@@ -33,6 +33,12 @@
 //! instance T.%instOrd : … -> Ord (T a) := Ord.fromCompare T.%compare T.%equal T.%flip T.%trans
 //! ```
 //!
+//! A nested type gets `T.%m1%compare` and its laws for each container it's
+//! in, as `DecEq` does (`derive.rs`), each kind defined together with `T`'s:
+//! `List`'s constructors in order (`Nil` first) then its fields is
+//! `List.compareLex`, and likewise `Option.compareWith` and
+//! `Pair.compareWith`, so a nested list compares as a list.
+//!
 //! For values of different constructors the last equation of each applies,
 //! and the tags decide: `equal` refutes `Nat.compare i j = Equal` for two
 //! different numbers, `flip` is `Nat.compare`'s, and `trans` is

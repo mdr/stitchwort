@@ -6,11 +6,18 @@
 //!
 //! It's derived when `T` is declared, for a type with constructors (not a
 //! proposition, not defined together with other types, without indices)
-//! whose data fields are `T` itself, with the same parameters, or have a
-//! `Show` instance, given one for each parameter that's a type. Proof fields
-//! are left out. Anything else (a function, a type, a field whose type
-//! depends on an earlier one, `T` inside another type) stops derivation,
-//! and why not is kept for the note when `${…}` is used on `T`.
+//! whose data fields are `T` itself, with the same parameters, `T` inside
+//! `List`, `Option` and pairs, or have a `Show` instance, given one for each
+//! parameter that's a type. Proof fields are left out. Anything else (a
+//! function, a type, a field whose type depends on an earlier one, `T`
+//! inside another type) stops derivation, and why not is kept for the note
+//! when `${…}` is used on `T`.
+//!
+//! A nested type gets a function for each container it's in, defined
+//! together with `T.%show`, as for `DecEq` (`derive.rs`): `T.%m1%show`,
+//! which prints the container as its own instance does: a list `[x, y]`
+//! (with `T.%m1%items` for the elements after the first, as `Show.items`),
+//! a pair `(x, y)`, an option `None` or `Some x` (bracketed by `Show.arg`).
 //!
 //! Elements are shown with `toSource`. A constructor is its name, then its
 //! fields, each in brackets when it has spaces and isn't already one piece

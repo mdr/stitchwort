@@ -11,7 +11,8 @@
 //! without indices) whose fields are
 //!
 //! - data that doesn't depend on earlier fields and is either `T` itself,
-//!   with the same parameters, or has a `DecEq` instance, given one for each
+//!   with the same parameters, or `T` inside `List`, `Option` and pairs (a
+//!   nested type, below), or has a `DecEq` instance, given one for each
 //!   parameter that's a type; or
 //! - a proof of an equation `l = r` in a type with a `DecEq` instance (not
 //!   one that mentions `T`: that evidence would depend on the instance being
@@ -74,6 +75,25 @@
 //! along `h`, its type changing with the field: the motive is
 //! `y q => (z: P … y …) -> C a… = C b0 … y a… z`. At the end it's applied
 //! to the `b`s' proofs.
+//!
+//! A nested type (docs/proposals/nested-data-types.md §10, stage 2), `type
+//! Packet = | Number (value: Nat) | Packets (items: List Packet)`, can't
+//! pass `T.%decEq` to `List`'s instance: termination refuses an unsaturated
+//! recursive function, as it refuses `map`. Instead each container `T` is
+//! in, found by [`Elaborator::members`] (`List Packet`; for `List (List
+//! T)` both lists; for `Option (T, Nat)` the option and the pair), is a
+//! *member*, numbered from 1, with the same generated functions under
+//! `T.%m1%`: `T.%m1%type` (its type, so source can name it),
+//! `T.%m1%tag`, `T.%m1%Cons%0`, `T.%m1%differ` and `T.%m1%decEq`, made as
+//! for a data type whose fields are its constructors' with the container's
+//! arguments: `T.%m1%decEq (Cons a0 a1) (Cons b0 b1)` decides `a0` by
+//! `T.%decEq` and `a1` by itself. The `decEq`s are defined together, and
+//! every call is on a part of an argument. Only `List`, `Option` and `Pair`
+//! are looked into; `T` inside another type (`Vec`, a type of the program,
+//! an earlier group) gets the note naming it. A container's equality is
+//! structural like its own instance's, and its `Ord` (`derive_ord.rs`),
+//! constructors then fields, is the order of `List`'s, `Option`'s and
+//! `Pair`'s own instances.
 //!
 //! Generating eagerly, when `T` is declared, is simpler than on first use,
 //! which would mean elaborating new definitions in the middle of the one
@@ -1193,7 +1213,7 @@ pub(crate) fn fields_equal(
     // `C x0 … xn`, the left side annotated for the parameters the fields
     // don't determine.
     let built =
-        |field: &dyn Fn(usize) -> Expr| apps(var(&ctor_name), (0..count).map(field).collect());
+        |field: &dyn Fn(usize) -> Expr| apps(var(ctor_name), (0..count).map(field).collect());
     let left = Expr::Ann(
         Box::new(built(&|j| var(&a(j)))),
         Box::new(this.clone()),

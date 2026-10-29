@@ -3,7 +3,8 @@
 -- that the earlier type only stores. Pairs with soundness/nested-negative.sw
 -- (a type inside `Neg`, which takes its parameter as a function's input),
 -- soundness/nested-in-quotient.sw and soundness/partial-nested.sw. More
--- shapes are in accept/nested-data-shapes.sw.
+-- shapes are in accept/nested-data-shapes.sw; derived `==`, `<` and `${…}`
+-- in accept/nested-data-derived.sw.
 --
 --   $ stitchwort run examples/accept/nested-data.sw
 --   size: 6
