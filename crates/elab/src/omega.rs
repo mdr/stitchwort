@@ -1926,15 +1926,34 @@ impl Quoter {
         let Some([a, b]) = leq.as_deref() else {
             return Ok(None);
         };
+        let g = cx.g();
         let trivial = cx.eval(&Term::ctor(lib.unit, 0, Vec::new()))?;
-        let then = cx.quote(&apply(cx.g(), then.clone(), trivial.clone())?)?;
-        let otherwise = cx.quote(&apply(cx.g(), otherwise.clone(), trivial)?)?;
+        let then = apply(g, then.clone(), trivial.clone())?;
+        let otherwise = apply(g, otherwise.clone(), trivial)?;
+        // `max (k + a) (k + b)` computes to `if Nat.leq a b then k + b else
+        // k + a`: `Nat.leq` takes off the `Succ`s both sides share, and the
+        // branches keep them. (With `+` computing on both sides, `min (x +
+        // 1) (y + 1)` is `if Nat.leq x y then Succ x else Succ y`.) So take
+        // the same `k` off each branch before comparing them with `a` and `b`.
+        use stitchwort_core::native::{from_view, view};
+        let (k_then, base_then) = view(g, &then)?;
+        let (k_otherwise, base_otherwise) = view(g, &otherwise)?;
+        let (k, then, otherwise) = match (base_then, base_otherwise) {
+            (Some(t), Some(o)) if k_then == k_otherwise => (k_then, t, o),
+            _ => (BigUint::default(), then, otherwise),
+        };
+        let then = cx.quote(&then)?;
+        let otherwise = cx.quote(&otherwise)?;
         let (ta, tb) = (cx.quote(a)?, cx.quote(b)?);
         let same = crate::matching::same;
+        let (a, b) = (
+            from_view(k.clone(), Some(a.clone())),
+            from_view(k, Some(b.clone())),
+        );
         Ok(if same(&then, &tb) && same(&otherwise, &ta) {
-            Some((OpKind::Max, a.clone(), b.clone()))
+            Some((OpKind::Max, a, b))
         } else if same(&then, &ta) && same(&otherwise, &tb) {
-            Some((OpKind::Min, a.clone(), b.clone()))
+            Some((OpKind::Min, a, b))
         } else {
             None
         })

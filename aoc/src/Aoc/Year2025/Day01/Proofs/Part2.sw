@@ -72,17 +72,17 @@ theorem leftAt [n: Nat] (dial: Dial n): (k: Nat) →
 
 theorem stepRight (d: Nat) [auto ok: d ≠ 0] (a: Nat) (h: a < d) (n: Nat):
     Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d = (a + Succ n) / d :=
-  match e: Nat.leq d (Succ a) with
-    | True =>
+  match Nat.decEq (Succ a) d with
+    | Yes same =>
       -- the click wraps: `a + 1 = d`, so the dial goes to 0
       calc Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d
-        _ = Succ (n / d) := rewrite (omega: a + 1 = d), Nat.modSelf d
+        _ = Succ (n / d) := rewrite (Eq.trans (Eq.cong (t => t % d) same) (Nat.modSelf d): (a + 1) % d = 0)
         _ = (d + n) / d := Eq.sym (Nat.addDivSelf d n)
         _ = (Succ a + n) / d := rewrite (omega: d = Succ a)
         _ = (a + Succ n) / d := rewrite (ring: a + Succ n = Succ a + n)
-    | False =>
+    | No differ =>
       -- no wrap: `Succ a < d`, so the dial goes to `a + 1`
-      rewrite Nat.addOne a, Nat.modSmall (Succ a) d (omega: Succ a < d), Nat.addSucc a n
+      rewrite Nat.modSmall (Succ a) d (omega [differ]: Succ a < d) in rfl
 
 theorem rightCount [n: Nat] (dial: Dial n): (k: Nat) →
     zerosLandedOn (List.replicate k (Right 1)) dial = (dial.position.value + k) / Mod.size n
