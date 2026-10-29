@@ -13,6 +13,7 @@ pub mod float;
 pub mod globals;
 pub mod hash;
 pub mod js_repr;
+pub mod nat_add;
 pub mod native;
 pub mod partial;
 pub mod pretty;

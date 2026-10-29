@@ -200,6 +200,9 @@ builtins! {
     Zero = "Zero": Ctor(Builtin::Nat),
     Succ = "Succ": Ctor(Builtin::Nat),
     Add = "Nat.add": Def,
+    // The theorems R3 and R4 of `+` are the equations of (`nat_add.rs`)
+    NatAddZero = "Nat.addZero": Def,
+    NatAddSucc = "Nat.addSucc": Def,
     Sub = "Nat.sub": Def,
     Mul = "Nat.mul": Def,
     Div = "Nat.div": Def,

@@ -131,6 +131,10 @@ pub struct Builtins {
     /// `decEqNat`'s definition puts in its `No`, and so the native does too.
     pub nat_neq: Option<DefId>,
     natives: HashMap<DefId, Native>,
+    /// `Nat.add`, once R3 and R4 (`nat_add.rs`: `+` computes on its second
+    /// argument too) are switched on for it. Not a native: switching the
+    /// natives off doesn't switch it off.
+    pub nat_add_rule: Option<DefId>,
     /// Off in tests that compare natives with their definitions.
     pub disable_natives: bool,
     /// `Delay` and its constants (`partial.rs`), once admitted.
@@ -235,6 +239,7 @@ impl Builtins {
             bool: self.bool,
             decidable: self.decidable,
             nat_neq: self.nat_neq,
+            nat_add_rule: self.nat_add_rule,
             text: self.text.clone(),
             float: self.float.clone(),
         }
@@ -252,9 +257,11 @@ impl Builtins {
             bool,
             decidable,
             nat_neq,
+            nat_add_rule,
             text,
             float,
         } = mark.clone();
+        self.nat_add_rule = nat_add_rule;
         self.float = float;
         self.nat = nat;
         self.bool = bool;
@@ -271,6 +278,7 @@ pub(crate) struct BuiltinsMark {
     bool: Option<DataId>,
     decidable: Option<DataId>,
     nat_neq: Option<DefId>,
+    nat_add_rule: Option<DefId>,
     text: Option<crate::chars::CompactText>,
     float: crate::float::FloatBinding,
 }
@@ -692,7 +700,9 @@ fn run_partial(
     let view = |v: &Value| view_with(g, v, force);
     let explicit = |v: Value| Elim::App(v, Icit::Explicit);
     match (native, args) {
-        // `add (Succ m) n = Succ (add m n)`, so `add (k + m) n = k + add m n`.
+        // `add (Succ m) n = Succ (add m n)`, so `add (k + m) n = k + add m n`;
+        // and then `add m n`, stuck on `m`, is what R3 and R4 make of it
+        // (`nat_add.rs`), if they're on.
         (Native::Add, [m, n]) => {
             let (k, base) = view(m)?;
             Ok(match base {
@@ -700,14 +710,15 @@ fn run_partial(
                     let (k2, base2) = view(n)?;
                     Some(Outcome::Done(from_view(k + k2, base2)))
                 }
+                // The case tree gets stuck, and the evaluator applies R3
+                // and R4 there.
                 Some(_) if k.is_zero() => None,
-                Some(base) => {
-                    let stuck = Value::Neutral(
-                        Head::Def(id),
-                        vec![explicit(base), explicit((*n).clone())].into(),
-                    );
-                    Some(Outcome::Done(from_view(k, Some(stuck))))
-                }
+                Some(base) => Some(Outcome::Done(
+                    match crate::nat_add::stuck(g, id, &base, n, force)? {
+                        Some((k2, rest)) => from_view(k + k2, Some(rest)),
+                        None => from_view(k, Some(crate::nat_add::call(id, base, (*n).clone()))),
+                    },
+                )),
             })
         }
         // `op (Succ m) (Succ n) = op m n`: take off the shared `Succ`s.
