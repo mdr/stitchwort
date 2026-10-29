@@ -4434,9 +4434,9 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "\n\n29 Oct, from the AoC 2024 community notes:\n- Day 3 (docs/comparisons/aoc-2024-day03-community.md): on the input repeated 100 times (1.8 MB), Std.Parse findAll takes 13.5 s native against 3.7 s under --js, while a pure hand-written scanner runs level (0.76 s native, 0.83 s JS).\n- Day 2 (docs/comparisons/aoc-2024-day02-community.md): on 100,000 reports, Std.Parse takes 9.1 s under run, 4.6 s native and 1.9 s under --js; splitting into words takes 1.3 s, 0.30 s and 0.85 s.\n- So native loses to JS only on effect-heavy parsing, which fits effects being the native gap (inferred, not profiled).\n- Day 2's 27 Oct timing of 2.0 s per 100,000 lines was taken before day 2 switched from words to Std.Parse (eef373f3 vs ad46aad4), so it is not a regression.",
       "created": "2026-10-26",
-      "updated": "2026-10-26",
+      "updated": "2026-10-29",
       "commits": []
     },
     {
@@ -8102,7 +8102,7 @@
     {
       "id": 878,
       "title": "AoC 2024 day 2 community research note: other languages' solutions vs ours (Lean, Agda, Idris, Dafny, FP); how Stitchwort compares",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -8111,7 +8111,10 @@
       "body": "Matt, 29 Oct: do 2024 days 1-3 next, after the 2025 day 9 note (SW-876, docs/comparisons/aoc-day09-community.md). Our solution: aoc/src/Aoc/Year2024/Day02 (friction notes in aoc/NOTES-2024.md). Output: docs/comparisons/aoc-2024-day02-community.md.",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "a02185da",
+        "1e5817d1"
+      ]
     },
     {
       "id": 879,
