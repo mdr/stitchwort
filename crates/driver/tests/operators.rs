@@ -178,12 +178,17 @@ fn primitive_and_uniform_lowering_agree() {
 
 /// The same on a larger sample: the library files the AoC project uses,
 /// and the project, loaded both ways, give every definition the same hash.
+/// On a 16 MiB stack, as the CLI and the other tests that load the project
+/// check it: day 22's `part1Correct` recurses more deeply than a default
+/// (2 MiB) session allows.
 #[test]
 fn primitive_and_uniform_lowering_agree_on_the_library_and_aoc() {
     use stitchwort_core::hash::def_hash;
+    use stitchwort_driver::driver::par_map;
     use stitchwort_driver::project::{DiskFiles, Target};
+    const STACK: usize = 16 * 1024 * 1024;
     let hashes = |uniform: bool| {
-        let mut session = Session::new();
+        let mut session = Session::for_stack(STACK);
         session.elab.uniform_operators = uniform;
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
         if let Err(errors) = session.load_project(&DiskFiles { root }, "aoc", &Target::Everything) {
@@ -199,7 +204,9 @@ fn primitive_and_uniform_lowering_agree_on_the_library_and_aoc() {
         }
         out
     };
-    let (primitive, uniform) = (hashes(false), hashes(true));
+    let [primitive, uniform]: [_; 2] = par_map(STACK, &[false, true], |&u| hashes(u))
+        .try_into()
+        .unwrap();
     assert!(primitive.len() > 1000, "{} definitions", primitive.len());
     assert_eq!(primitive.len(), uniform.len());
     for (name, h) in &primitive {
