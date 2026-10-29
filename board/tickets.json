@@ -7940,9 +7940,9 @@
     {
       "id": 869,
       "title": "A let-bound lambda with no written type, whose body matches an outer variable and performs effects, fails with E-TYPE-MISMATCH 'expected ?1 g 0 x'",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
       "labels": [
         "bug"
       ],
