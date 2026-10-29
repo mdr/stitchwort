@@ -1,5 +1,5 @@
 {
-  "next": 873,
+  "next": 874,
   "tickets": [
     {
       "id": 13,
@@ -7952,7 +7952,7 @@
     {
       "id": 869,
       "title": "A let-bound lambda with no written type, whose body matches an outer variable and performs effects, fails with E-TYPE-MISMATCH 'expected ?1 g 0 x'",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree",
       "labels": [
@@ -7961,7 +7961,10 @@
       "body": "From SW-838 (28 Oct): 'let h := (x: Nat) => match k with | 0 => g x | n => g n' (g: Nat -> {e} Nat) fails; writing the type (let h: Nat -> {IO} Nat := …) works, and so does a pure body. The unknown is the whole result type, which may legitimately depend on k, so SW-838's row pruning doesn't apply. Not yet confirmed on main before SW-838 (the lane believes it fails there too).",
       "created": "2026-10-29",
       "updated": "2026-10-29",
-      "commits": []
+      "commits": [
+        "ef3aaaa5",
+        "d47fcdd3"
+      ]
     },
     {
       "id": 870,
@@ -8002,6 +8005,20 @@
         "bug"
       ],
       "body": "From SW-859 (29 Oct): twice (c => c.size) (c => List.length c) (Counts.of 1) reports E-CANNOT-INFER 'can't tell what c is' from the in-place try, though the real failure when the postponed lambda is checked is E-UNKNOWN-FIELD (List has no size). In apply_args_postponing (crates/elab/src/check.rs), report the retry's error (lane's D1567, rec yes).",
+      "created": "2026-10-29",
+      "updated": "2026-10-29",
+      "commits": []
+    },
+    {
+      "id": 873,
+      "title": "A lambda parameter with no written type, used under a match on an outer variable, fails ('expected Nat, but this has type ?1 g 0')",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree",
+      "labels": [
+        "bug"
+      ],
+      "body": "From SW-869 (29 Oct): let h := x => match k with | 0 => g x | ... fails, pure body or not: the split also substitutes the constructor into the parameter's own unknown type. Likely needs SW-838/869's pruning (effects::unpin_goal, unify::prune_variable) applied to unknowns in the types of variables in scope. Repro was in the session scratchpad (869/t4.sw).",
       "created": "2026-10-29",
       "updated": "2026-10-29",
       "commits": []
