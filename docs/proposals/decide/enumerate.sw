@@ -47,12 +47,12 @@ theorem rowEndsChecked:
 
 theorem rowEndsHoldsAll (plot: Bool) (out: Bool) (side: Bool) (sideOut: Bool): rowEndsHolds plot out side sideOut = True :=
   let p1 := Finite.check boolFinite (plot =>
-      List.all boolFinite.all (out =>
-        List.all boolFinite.all (side =>
-          List.all boolFinite.all (sideOut => rowEndsHolds plot out side sideOut)))) rowEndsChecked plot
-  let p2 := Finite.check boolFinite (out =>
+    List.all boolFinite.all (out =>
       List.all boolFinite.all (side =>
-        List.all boolFinite.all (sideOut => rowEndsHolds plot out side sideOut))) p1 out
+        List.all boolFinite.all (sideOut => rowEndsHolds plot out side sideOut)))) rowEndsChecked plot
+  let p2 := Finite.check boolFinite (out =>
+    List.all boolFinite.all (side =>
+      List.all boolFinite.all (sideOut => rowEndsHolds plot out side sideOut))) p1 out
   let p3 := Finite.check boolFinite (side =>
-      List.all boolFinite.all (sideOut => rowEndsHolds plot out side sideOut)) p2 side
+    List.all boolFinite.all (sideOut => rowEndsHolds plot out side sideOut)) p2 side
   Finite.check boolFinite (sideOut => rowEndsHolds plot out side sideOut) p3 sideOut
