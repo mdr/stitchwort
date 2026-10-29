@@ -11,6 +11,8 @@ the distances; part 2 adds up each left id times how often it appears in the
 right list. Answers on Matt's input: 2066446 and 24931009 (cross-checked with
 a Python one-liner; the example gives 11 and 31).
 
+How other languages solved it: [docs/comparisons/aoc-2024-day01-community.md](../docs/comparisons/aoc-2024-day01-community.md).
+
 The program came out short and read as intended on the first try:
 
 ```stitchwort
