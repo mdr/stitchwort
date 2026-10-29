@@ -1419,12 +1419,25 @@ fn settle_empty_at(cx: &Ctx, level: usize, ty: &Value) -> Result<()> {
 /// (`?e k` becoming `?e 0`), which can't be solved as the row of the
 /// abilities the arm performs (SW-838). A row is an index programs can't
 /// compute, so no solution needs the matched value.
-pub fn unpin_row(cx: &Ctx, goal: &Value, level: usize) -> Result<()> {
-    if let Some((row, _)) = comp_parts(cx, goal)? {
-        for v in row.tail.iter().chain(&row.div) {
-            crate::unify::prune_variable(cx.g(), v, level)?;
+///
+/// The goal's type of values, when it is still unknown (the result of a
+/// lambda with no written type whose body performs abilities, as in
+/// `let h := (x: Nat) => match k with | 0 => g x | n => g n`), is pruned of
+/// `level` too (SW-869): the same unknown a `match` inferred without a goal
+/// gets (`matching::unknown_type`, docs/proposals/syntax-conveniences.md
+/// §4.4), compared with every arm's type. Left applied to `level`, each arm
+/// would see it applied to its constructor (`?t 0 x`), which no type solves.
+pub fn unpin_goal(cx: &Ctx, goal: &Value, level: usize) -> Result<()> {
+    let result = match comp_parts(cx, goal)? {
+        Some((row, result)) => {
+            for v in row.tail.iter().chain(&row.div) {
+                crate::unify::prune_variable(cx.g(), v, level)?;
+            }
+            result
         }
-    }
+        None => goal.clone(),
+    };
+    crate::unify::prune_variable(cx.g(), &result, level)?;
     Ok(())
 }
 
