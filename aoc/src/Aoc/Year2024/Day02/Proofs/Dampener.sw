@@ -17,14 +17,6 @@ theorem anyRemovedIsRemovals: (levels: List Nat) → (holds: List Nat → Bool) 
   | Cons level rest, holds =>
     rewrite anyRemovedIsRemovals rest (levels => holds (Cons level levels)), List.anyMap (removals rest) holds (Cons level) in rfl
 
-theorem anyRemovedCong: (levels: List Nat) → (holds1: List Nat → Bool) → (holds2: List Nat → Bool) →
-    ((rest: List Nat) → holds1 rest = holds2 rest) → anyRemoved holds1 levels = anyRemoved holds2 levels
-  | Nil, holds1, holds2, same => rfl
-  | Cons level rest, holds1, holds2, same =>
-    rewrite same rest,
-      anyRemovedCong rest (levels => holds1 (Cons level levels)) (levels => holds2 (Cons level levels)) (levels => same (Cons level levels)) in
-    rfl
-
 theorem anyRemovedNever: (levels: List Nat) → (holds: List Nat → Bool) → ((rest: List Nat) → holds rest = False) → anyRemoved holds levels = False
   | Nil, holds, never => rfl
   | Cons level rest, holds, never =>
@@ -38,13 +30,7 @@ theorem passesDampenedAfterCorrect (ok: Nat → Nat → Bool): (before: Nat) →
   | before, level, Nil, good => rfl
   | before, level, Cons next rest, good =>
     match step: ok level next with
-      | True =>
-        -- `step` doesn't reach inside these lambdas, so they are rewritten by hand.
-        let fromBefore := anyRemovedCong rest (levels => ok before level && List.chain (Cons next levels) ok)
-          (levels => List.chain (Cons next levels) ok) (levels => rewrite good in rfl)
-        let fromLevel := anyRemovedCong rest (levels => List.chain (Cons level (Cons next levels)) ok)
-          (levels => List.chain (Cons next levels) ok) (levels => rewrite step in rfl)
-        rewrite passesDampenedAfterCorrect ok level next rest step, fromBefore, fromLevel in cases
+      | True => rewrite passesDampenedAfterCorrect ok level next rest step, step, good in cases
       | False => rewrite anyRemovedNever rest (levels => ok before level && False) (levels => cases) in cases
 
 -- The one pass is "passes, or passes with one level removed".
@@ -54,10 +40,7 @@ theorem passesDampenedCorrect (ok: Nat → Nat → Bool): (levels: List Nat) →
   | Cons level Nil => rfl
   | Cons level (Cons next rest) =>
     match step: ok level next with
-      | True =>
-        let fromLevel := anyRemovedCong rest (levels => List.chain (Cons level (Cons next levels)) ok)
-          (levels => List.chain (Cons next levels) ok) (levels => rewrite step in rfl)
-        rewrite passesDampenedAfterCorrect ok level next rest step, fromLevel in cases
+      | True => rewrite passesDampenedAfterCorrect ok level next rest step, step in cases
       | False => rewrite anyRemovedNever rest (levels => False) (levels => rfl) in cases
 
 -- With the dampener, the program's check is the puzzle's rule.

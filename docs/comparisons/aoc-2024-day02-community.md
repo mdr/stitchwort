@@ -209,6 +209,10 @@ It took three `check` runs, and two kinds of friction:
   `cases` couldn't close it. An explicit `anyRemovedCong … (ys => rewrite step in rfl)` did. In
   the `False` branch, the lambda in the goal *was* refined (`ys => ok before level && False`).
   Why it is refined in one branch and not the other is **[unverified]**.
+  *Later (SW-882):* the `match` does refine under lambdas, in both branches. The unrefined
+  `ok level next` came in afterwards, from the statement of the lemma rewritten with in the
+  `True` branch. `rewrite …, step in cases` reaches it, so the congruences weren't needed, and
+  `Proofs/Dampener.sw` no longer has them. `E-REFL` and `E-CASES` now say so in a note.
 
 In Lean the same proof would be about as long. `simp` would do the congruences that I wrote by
 hand, but nobody did it, so this is **[unverified]**.
