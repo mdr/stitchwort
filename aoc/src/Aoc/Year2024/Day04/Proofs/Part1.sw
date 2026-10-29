@@ -110,28 +110,35 @@ theorem programLines (grid: Grid):
     _ = List.sumBy (List.range tall) (r => countAcross (rowOf grid r))
       := Eq.sym (List.sumByRangeExtend _ rows.length tall omega (r below => rewrite List.getOrPast rows r [] below in rfl))
     _ = everywhere grid 0 0 0 1 0 2 0 3 + everywhere grid 0 3 0 2 0 1 0 0
-      := rewrite acrossSum grid _ wide (rowFits grid _) in List.sumByNestedAdd (List.range tall) (List.range wide) _ _
+      := Eq.trans (List.sumByCong (List.range tall) _ _ (r => acrossSum grid r wide (rowFits grid r)))
+        (List.sumByNestedAdd (List.range tall) (List.range wide) (r c => readsAt grid r c 0 0 0 1 0 2 0 3) (r c => readsAt grid r c 0 3 0 2 0 1 0 0))
   let through := calc List.sum (List.zipWith4 rows (rows.drop 1) (rows.drop 2) (rows.drop 3) countThrough)
     _ = List.sumBy (List.range tall) (r => Option.getOrElse (Option.map4 (x y z w => countThrough x y z w) (rows.get r) ((rows.drop 1).get r) ((rows.drop 2).get r) ((rows.drop 3).get r)) 0)
       := List.sumByZipWith4 (x => x) countThrough rows (rows.drop 1) (rows.drop 2) (rows.drop 3) tall omega
     _ = List.sumBy (List.range tall) (r => countThrough (rowOf grid r) (rowOf grid (1 + r)) (rowOf grid (2 + r)) (rowOf grid (3 + r)))
-      := rewrite List.getDrop rows 1 _, List.getDrop rows 2 _, List.getDrop rows 3 _,
-        Option.getOrElseMap4 (x y z w => countThrough x y z w) [] [] [] [] 0 throughEmpty1 throughEmpty2 throughEmpty3 throughEmpty4 _ _ _ _,
-        <- List.getOrGet rows _ [], <- List.getOrGet rows _ [], <- List.getOrGet rows _ [], <- List.getOrGet rows _ [] in rfl
+      := List.sumByCong (List.range tall) _ _ (r =>
+        rewrite List.getDrop rows 1 _, List.getDrop rows 2 _, List.getDrop rows 3 _,
+          Option.getOrElseMap4 (x y z w => countThrough x y z w) [] [] [] [] 0 throughEmpty1 throughEmpty2 throughEmpty3 throughEmpty4 _ _ _ _,
+          <- List.getOrGet rows _ [], <- List.getOrGet rows _ [], <- List.getOrGet rows _ [], <- List.getOrGet rows _ [] in rfl)
     _ = List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 0 2 0 3 0 + readsAt grid r c 3 0 2 0 1 0 0 0)
         + List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 1 2 2 3 3 + readsAt grid r c 3 3 2 2 1 1 0 0)
         + List.sumBy (List.range wide) (c => readsAt grid r c 0 3 1 2 2 1 3 0 + readsAt grid r c 3 0 2 1 1 2 0 3))
-      := rewrite throughSum grid _ wide (rowFits grid _) in rfl
+      := List.sumByCong (List.range tall) _ _ (r => throughSum grid r wide (rowFits grid r))
     _ = List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 0 2 0 3 0 + readsAt grid r c 3 0 2 0 1 0 0 0))
         + List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 1 2 2 3 3 + readsAt grid r c 3 3 2 2 1 1 0 0))
         + List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 3 1 2 2 1 3 0 + readsAt grid r c 3 0 2 1 1 2 0 3))
-      := rewrite List.sumByAdd (List.range tall) _ _, List.sumByAdd (List.range tall) _ _ in rfl
+      := Eq.trans (List.sumByAdd (List.range tall) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 0 2 0 3 0 + readsAt grid r c 3 0 2 0 1 0 0 0) + List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 1 2 2 3 3 + readsAt grid r c 3 3 2 2 1 1 0 0)) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 3 1 2 2 1 3 0 + readsAt grid r c 3 0 2 1 1 2 0 3)))
+        (Eq.cong (t => t + List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 3 1 2 2 1 3 0 + readsAt grid r c 3 0 2 1 1 2 0 3))) (List.sumByAdd (List.range tall) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 0 2 0 3 0 + readsAt grid r c 3 0 2 0 1 0 0 0)) (r => List.sumBy (List.range wide) (c => readsAt grid r c 0 0 1 1 2 2 3 3 + readsAt grid r c 3 3 2 2 1 1 0 0))))
     _ = everywhere grid 0 0 1 0 2 0 3 0 + everywhere grid 3 0 2 0 1 0 0 0
         + (everywhere grid 0 0 1 1 2 2 3 3 + everywhere grid 3 3 2 2 1 1 0 0)
         + (everywhere grid 0 3 1 2 2 1 3 0 + everywhere grid 3 0 2 1 1 2 0 3)
-      := rewrite List.sumByNestedAdd (List.range tall) (List.range wide) _ _, List.sumByNestedAdd (List.range tall) (List.range wide) _ _,
-        List.sumByNestedAdd (List.range tall) (List.range wide) _ _ in rfl
-  rewrite <- across, <- through in rfl
+      := omega [
+        List.sumByNestedAdd (List.range tall) (List.range wide) (r c => readsAt grid r c 0 0 1 0 2 0 3 0) (r c => readsAt grid r c 3 0 2 0 1 0 0 0),
+        List.sumByNestedAdd (List.range tall) (List.range wide) (r c => readsAt grid r c 0 0 1 1 2 2 3 3) (r c => readsAt grid r c 3 3 2 2 1 1 0 0),
+        List.sumByNestedAdd (List.range tall) (List.range wide) (r c => readsAt grid r c 0 3 1 2 2 1 3 0) (r c => readsAt grid r c 3 0 2 1 1 2 0 3)
+      ]
+  Eq.trans (rfl: solvePart1 grid = rows.sumBy countAcross + List.sum (List.zipWith4 rows (rows.drop 1) (rows.drop 2) (rows.drop 3) countThrough))
+    (omega [across, through])
 
 -- Past the last row, and past the longest row, there are no letters.
 theorem letterBelow (grid: Grid) (r: Nat) (c: Nat) (below: height grid ≤ r): letterAt grid r c = None :=
@@ -175,21 +182,21 @@ theorem rightward (grid: Grid): inDirection grid { down = Stay, across = Ahead }
   let each := (r: Nat) => (c: Nat) =>
     (cases:
       Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c { down = Stay, across = Ahead }) = readsAt grid r c 0 0 0 1 0 2 0 3)
-  rewrite each _ _ in rfl
+  List.sumByCong (List.range (height grid + 3)) _ _ (r => List.sumByCong (List.range (width grid + 3)) _ _ (each r))
 
 -- Right to left: XMAS read across from its other end, three columns on.
 theorem leftward (grid: Grid): inDirection grid { down = Stay, across = Back } = everywhere grid 0 3 0 2 0 1 0 0 :=
   let row := (r: Nat) =>
     columnsShifted grid r 0 3 0 2 0 1 0 0 (c => Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c { down = Stay, across = Back }))
       (c early => cases) (c => cases)
-  rewrite row _ in rfl
+  List.sumByCong (List.range (height grid + 3)) _ _ row
 
 -- Top to bottom.
 theorem downward (grid: Grid): inDirection grid { down = Ahead, across = Stay } = everywhere grid 0 0 1 0 2 0 3 0 :=
   let each := (r: Nat) => (c: Nat) =>
-    (rewrite Nat.addZero r, Nat.addComm r 1, Nat.addComm r 2, Nat.addComm r 3 in cases:
+    (cases:
       Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c { down = Ahead, across = Stay }) = readsAt grid r c 0 0 1 0 2 0 3 0)
-  rewrite each _ _ in rfl
+  List.sumByCong (List.range (height grid + 3)) _ _ (r => List.sumByCong (List.range (width grid + 3)) _ _ (each r))
 
 -- Bottom to top: XMAS read down from its other end, three rows on.
 theorem upward (grid: Grid): inDirection grid { down = Back, across = Stay } = everywhere grid 3 0 2 0 1 0 0 0 :=
@@ -197,14 +204,14 @@ theorem upward (grid: Grid): inDirection grid { down = Back, across = Stay } = e
     (cases: Bool.toNat (spells ['X', 'M', 'A', 'S'] grid (3 + r) c { down = Back, across = Stay }) = readsAt grid r c 3 0 2 0 1 0 0 0)
   rowsShifted grid 3 0 2 0 1 0 0 0 (r => List.sumBy (List.range (width grid + 3)) (c => Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c { down = Back, across = Stay })))
     (r early => List.sumByRangeZero _ (width grid + 3) (c => cases))
-    (r => rewrite each r _ in rfl)
+    (r => List.sumByCong (List.range (width grid + 3)) _ _ (each r))
 
 -- Down to the right.
 theorem downRight (grid: Grid): inDirection grid { down = Ahead, across = Ahead } = everywhere grid 0 0 1 1 2 2 3 3 :=
   let each := (r: Nat) => (c: Nat) =>
-    (rewrite Nat.addZero r, Nat.addComm r 1, Nat.addComm r 2, Nat.addComm r 3, Nat.addZero c, Nat.addComm c 1, Nat.addComm c 2, Nat.addComm c 3 in cases:
+    (cases:
       Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c { down = Ahead, across = Ahead }) = readsAt grid r c 0 0 1 1 2 2 3 3)
-  rewrite each _ _ in rfl
+  List.sumByCong (List.range (height grid + 3)) _ _ (r => List.sumByCong (List.range (width grid + 3)) _ _ (each r))
 
 -- Up to the left: XMAS read down to the right from its other end, three rows
 -- and three columns on.
@@ -218,18 +225,18 @@ theorem upLeft (grid: Grid): inDirection grid { down = Back, across = Back } = e
 theorem downLeft (grid: Grid): inDirection grid { down = Ahead, across = Back } = everywhere grid 0 3 1 2 2 1 3 0 :=
   let row := (r: Nat) =>
     columnsShifted grid r 0 3 1 2 2 1 3 0 (c => Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c { down = Ahead, across = Back }))
-      (c early => cases) (c => rewrite Nat.addZero r, Nat.addComm r 1, Nat.addComm r 2, Nat.addComm r 3 in cases)
-  rewrite row _ in rfl
+      (c early => cases) (c => cases)
+  List.sumByCong (List.range (height grid + 3)) _ _ row
 
 -- Up to the right: XMAS read down to the left from its other end, three rows
 -- on.
 theorem upRight (grid: Grid): inDirection grid { down = Back, across = Ahead } = everywhere grid 3 0 2 1 1 2 0 3 :=
   let each := (r: Nat) => (c: Nat) =>
-    (rewrite Nat.addZero c, Nat.addComm c 1, Nat.addComm c 2, Nat.addComm c 3 in cases:
+    (cases:
       Bool.toNat (spells ['X', 'M', 'A', 'S'] grid (3 + r) c { down = Back, across = Ahead }) = readsAt grid r c 3 0 2 1 1 2 0 3)
   rowsShifted grid 3 0 2 1 1 2 0 3 (r => List.sumBy (List.range (width grid + 3)) (c => Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c { down = Back, across = Ahead })))
     (r early => List.sumByRangeZero _ (width grid + 3) (c => cases))
-    (r => rewrite each r _ in rfl)
+    (r => List.sumByCong (List.range (width grid + 3)) _ _ (each r))
 
 -- With no letter at a position, XMAS starts there in no direction.
 theorem noneFromMissing (grid: Grid) (r: Nat) (c: Nat) (missing: letterAt grid r c = None):
@@ -253,7 +260,7 @@ theorem specDirections (grid: Grid):
       := List.sumByCong (List.range tall) _ _ (r =>
         Eq.sym (List.sumByRangeExtend _ (rowOf grid r).length wide (rowFits grid r) (c right => noneFromMissing grid r c (List.getPast (rowOf grid r) c right))))
     _ = List.sumBy (List.range tall) (r => List.sumBy (List.range wide) (c => List.sumBy directions (direction => Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c direction))))
-      := rewrite List.countSumBy directions (spells ['X', 'M', 'A', 'S'] grid _ _) in rfl
+      := List.sumByCong (List.range tall) _ _ (r => List.sumByCong (List.range wide) _ _ (c => List.countSumBy directions (spells ['X', 'M', 'A', 'S'] grid r c)))
     _ = List.sumBy (List.range tall) (r => List.sumBy directions (direction => List.sumBy (List.range wide) (c => Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c direction))))
       := List.sumByCong (List.range tall) _ _ (r => List.sumBySwap directions (List.range wide) (c direction => Bool.toNat (spells ['X', 'M', 'A', 'S'] grid r c direction)))
     _ = List.sumBy directions (inDirection grid)
@@ -266,5 +273,5 @@ theorem specDirections (grid: Grid):
 -- Part 1 is right for every grid: the printed answer is the number of
 -- positions and directions from which the letters spell XMAS.
 theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
-  rewrite programLines grid, specDirections grid, upLeft grid, upward grid, upRight grid, leftward grid,
-    rightward grid, downLeft grid, downward grid, downRight grid in omega
+  omega [programLines grid, specDirections grid, upLeft grid, upward grid, upRight grid, leftward grid,
+    rightward grid, downLeft grid, downward grid, downRight grid]
