@@ -257,7 +257,8 @@ impl Parser<'_> {
                     .with_note(
                         "a section takes one operand, the one that binds tighter than its \
                      operator: bracket a longer one, as in `(+ (1 + 2))`",
-                    ));
+                    )
+                    .into());
             }
             let end = self.bump().span;
             let body = operation(&first, at, var(SECTION, at), rhs);
@@ -284,7 +285,8 @@ impl Parser<'_> {
                 .with_note(
                     "a section's operand must bind tighter than its operator: bracket the \
                      operand, as in `((a + b) *)`",
-                ));
+                )
+                .into());
         }
         self.bump();
         let end = self.expect(Tok::RParen, "`)`")?.span;

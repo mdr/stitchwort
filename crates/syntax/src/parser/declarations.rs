@@ -83,7 +83,8 @@ impl Parser<'_> {
                         return Err(error(
                             self.here(),
                             "an attribute's argument is a plain string, without `${…}`",
-                        ));
+                        )
+                        .into());
                     }
                     _ => None,
                 };
@@ -105,7 +106,7 @@ impl Parser<'_> {
             return Ok(());
         }
         let attrs = self.attributes()?;
-        Err(misplaced_attributes(&attrs[0], what))
+        Err(misplaced_attributes(&attrs[0], what).into())
     }
 
     /// A declaration: a definition (a signature and its equations), or one
@@ -126,7 +127,9 @@ impl Parser<'_> {
                     return self.definition(start, true, true);
                 }
                 if !matches!(self.peek(), Some(Tok::KwDef | Tok::KwTheorem)) {
-                    return Err(self.unexpected("`def`, `theorem` or `opaque` after `export`"));
+                    return Err(self
+                        .unexpected("`def`, `theorem` or `opaque` after `export`")
+                        .into());
                 }
                 self.definition(start, true, false)
             }
@@ -136,8 +139,8 @@ impl Parser<'_> {
                 self.definition(start, false, true)
             }
             Some(Tok::KwDef | Tok::KwTheorem) => self.definition(start, false, false),
-            Some(Tok::Lower(_) | Tok::Upper(_)) => Err(self.missing_keyword()),
-            _ => Err(self.unexpected("a declaration")),
+            Some(Tok::Lower(_) | Tok::Upper(_)) => Err(self.missing_keyword().into()),
+            _ => Err(self.unexpected("a declaration").into()),
         }
     }
 
@@ -152,12 +155,15 @@ impl Parser<'_> {
                 .with_note(
                     "to use an opaque definition's body in its proof, write `unfolding f` \
                      after its type",
-                )),
+                )
+                .into()),
             Some(Tok::KwInstance) => Err(error(self.here(), "an instance can't be `opaque`")
-                .with_note("an instance is used by taking it apart, which needs its body")),
+                .with_note("an instance is used by taking it apart, which needs its body")
+                .into()),
             Some(Tok::KwExport) => Err(error(self.here(), "`export` goes before `opaque`")
-                .with_note("write `export opaque def`")),
-            _ => Err(self.unexpected("`def` after `opaque`")),
+                .with_note("write `export opaque def`")
+                .into()),
+            _ => Err(self.unexpected("`def` after `opaque`").into()),
         }
     }
 
@@ -170,10 +176,10 @@ impl Parser<'_> {
                 self.bump();
                 text
             }
-            _ => return Err(self.unexpected("the test's name, in quotes")),
+            _ => return Err(self.unexpected("the test's name, in quotes").into()),
         };
         if self.peek() == Some(&Tok::Equals) {
-            return Err(self.def_equals());
+            return Err(self.def_equals().into());
         }
         self.expect(Tok::ColonEq, "`:=`")?;
         let expr = self.expr()?;
@@ -238,10 +244,7 @@ impl Parser<'_> {
         // `decreasing e`, before `:=` or the arms (D474).
         let decreasing = if self.eat(&Tok::KwDecreasing) {
             if instance {
-                return Err(error(
-                    self.prev_span(),
-                    "an instance can't have `decreasing`",
-                ));
+                return Err(error(self.prev_span(), "an instance can't have `decreasing`").into());
             }
             let measure = self.expr()?;
             // After it, `:=` may start a line of its own, at the
@@ -263,9 +266,11 @@ impl Parser<'_> {
         if self.eat(&Tok::KwUnfolding) {
             if instance {
                 return Err(
-                    error(self.prev_span(), "an instance can't have `unfolding`").with_note(
-                        "an instance is never opaque, so it can't unfold opaque definitions",
-                    ),
+                    error(self.prev_span(), "an instance can't have `unfolding`")
+                        .with_note(
+                            "an instance is never opaque, so it can't unfold opaque definitions",
+                        )
+                        .into(),
                 );
             }
             loop {
@@ -286,7 +291,7 @@ impl Parser<'_> {
             }
         }
         if self.peek() == Some(&Tok::KwDecreasing) && !unfolding.is_empty() {
-            return Err(error(self.here(), "`decreasing` goes before `unfolding`"));
+            return Err(error(self.here(), "`decreasing` goes before `unfolding`").into());
         }
         let defaults = take_defaults(&mut params);
         let (ty, header) = lower_header(params, result);
@@ -323,11 +328,12 @@ impl Parser<'_> {
                     .with_note(
                         "named parameters can't be matched in arms: to take one apart, move it \
                          after the colon, or use `match`",
-                    ));
+                    )
+                    .into());
                 }
             }
             Some(Tok::Pipe) => self.arms(column, &name, &header, &mut decls)?,
-            Some(Tok::Equals) => return Err(self.def_equals()),
+            Some(Tok::Equals) => return Err(self.def_equals().into()),
             // `def f (x : Nat) : Nat = x`: the type swallowed the body as an
             // equation, and nothing follows.
             None if result_is_equation => {
@@ -339,20 +345,22 @@ impl Parser<'_> {
                 .with_note(
                     "its type is read as an equation; if that `=` was meant to start the \
                      body, write `:=`",
-                ));
+                )
+                .into());
             }
             // A header without a body: a primitive, for the elaborator to
             // admit or refuse.
             None => {}
             _ => {
-                return Err(self.unexpected(
-                    "`:=` and the body, or arms starting with `|` on their own lines",
-                ));
+                return Err(self
+                    .unexpected("`:=` and the body, or arms starting with `|` on their own lines")
+                    .into());
             }
         }
         if instance && decls.len() == 1 {
             return Err(error(span, "an instance needs a body")
-                .with_note("write `:=` and the instance's value after its type"));
+                .with_note("write `:=` and the instance's value after its type")
+                .into());
         }
         if self.tokens.get(self.pos).map(|t| &t.tok) == Some(&Tok::KwWhere) {
             return Err(Diagnostic::error(
@@ -363,7 +371,8 @@ impl Parser<'_> {
             .with_note(
                 "write the helper as a `def` in the body's block, before the result, like \
                  `def f (n: Nat): Nat :=` then `  def go …` then `  go n`",
-            ));
+            )
+            .into());
         }
         Ok(decls)
     }
@@ -395,14 +404,14 @@ impl Parser<'_> {
             )
         };
         if self.peek() == Some(&Tok::Pipe) {
-            return Err(ambiguous("a sum type without its leading `|`"));
+            return Err(ambiguous("a sum type without its leading `|`").into());
         }
         let mut spine = &body;
         while let Expr::App(f, arg) = spine {
             if matches!(**arg, Expr::Ann(..)) {
-                return Err(ambiguous(
-                    "a constructor with named fields, without its leading `|`",
-                ));
+                return Err(
+                    ambiguous("a constructor with named fields, without its leading `|`").into(),
+                );
             }
             spine = f;
         }
@@ -462,9 +471,9 @@ impl Parser<'_> {
             Some(Tok::LParen) => false,
             Some(Tok::LBracket) => true,
             _ => {
-                return Err(self.unexpected(
-                    "a parameter such as `(x: Nat)`, or `:` and the definition's type",
-                ));
+                return Err(self
+                    .unexpected("a parameter such as `(x: Nat)`, or `:` and the definition's type")
+                    .into());
             }
         };
         self.bump();
@@ -483,7 +492,9 @@ impl Parser<'_> {
         {
             let ty = self.expr()?;
             if self.peek() != Some(&Tok::RBracket) {
-                return Err(self.unexpected("`]` to close the parameter `[auto …]`"));
+                return Err(self
+                    .unexpected("`]` to close the parameter `[auto …]`")
+                    .into());
             }
             let end = self.bump().span;
             return Ok(Param::Named {
@@ -518,7 +529,8 @@ impl Parser<'_> {
         );
         if self.peek() != Some(&Tok::Colon) {
             return Err(error(self.here(), "a parameter needs a type")
-                .with_note(format!("write `{written}{close}`")));
+                .with_note(format!("write `{written}{close}`"))
+                .into());
         }
         self.bump();
         let ty = self.binder_type()?;
@@ -527,7 +539,7 @@ impl Parser<'_> {
                 return Err(error(self.here(), DEFAULT_PLACES).with_note(
                     "an implicit or `auto` parameter is found by unification or by search; give \
                      one at a call with `[x := …]`",
-                ));
+                ).into());
             }
             self.bump();
             Some(self.expr()?)
@@ -535,7 +547,9 @@ impl Parser<'_> {
             None
         };
         if self.peek() != Some(&closing) {
-            return Err(self.unexpected(&format!("`{close}` to close the parameter `{written}`")));
+            return Err(self
+                .unexpected(&format!("`{close}` to close the parameter `{written}`"))
+                .into());
         }
         let end = self.bump().span;
         Ok(Param::Named {
@@ -562,23 +576,24 @@ impl Parser<'_> {
     ) -> Result<()> {
         let first = &self.tokens[self.pos];
         if !first.line_start {
-            return Err(
-                error(first.span, "arms start on their own lines").with_note(
+            return Err(error(first.span, "arms start on their own lines")
+                .with_note(
                     "put each `| … => …` on a line of its own, indented; a case analysis that fits \
                  on one line is a `:=` body with a `match`",
-                ),
-            );
+                )
+                .into());
         }
         if first.column <= d {
             return Err(error(
                 first.span,
                 "arms are indented further than the definition they belong to",
-            ));
+            )
+            .into());
         }
         let (column, first_span) = (first.column, first.span);
         let saved = (self.limit, self.allow);
         self.limit = Some(column);
-        let result = (|| {
+        let result = (|| -> Result<()> {
             loop {
                 self.allow = Some(self.pos);
                 decls.push(self.arm(name, header)?);
@@ -586,7 +601,7 @@ impl Parser<'_> {
                     return Ok(());
                 };
                 if !next.line_start {
-                    return Err(self.unexpected("the end of the arm"));
+                    return Err(self.unexpected("the end of the arm").into());
                 }
                 match next.tok {
                     _ if next.column <= d => return Ok(()),
@@ -602,7 +617,8 @@ impl Parser<'_> {
                         .with_note(
                             "a `match` or `handle` inside an arm indents its `|`s further than \
                              the arms",
-                        ));
+                        )
+                        .into());
                     }
                     _ => {
                         return Err(error(
@@ -614,9 +630,8 @@ impl Parser<'_> {
                             ),
                         )
                         .with_label(first_span, "the arms start at this column")
-                        .with_note(
-                            "an arm's body continues on lines indented further than its `|`",
-                        ));
+                        .with_note("an arm's body continues on lines indented further than its `|`")
+                        .into());
                     }
                 }
             }
@@ -668,7 +683,8 @@ impl Parser<'_> {
             return Err(error(
                 self.here(),
                 format!("name the continuation: `| {} x, k => …`", op.text),
-            ));
+            )
+            .into());
         }
         self.expect(Tok::Comma, "`,` and a name for the continuation")?;
         let k = if self.peek() == Some(&Tok::Underscore) {
@@ -684,7 +700,8 @@ impl Parser<'_> {
             return Err(error(
                 arg.span().to(self.here()),
                 "an operation takes one argument; bracket a tuple: `(a, b)`",
-            ));
+            )
+            .into());
         }
         self.expect(Tok::FatArrow, "`=>`")?;
         let body = self.expr()?;
