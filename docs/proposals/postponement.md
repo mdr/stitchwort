@@ -1751,7 +1751,7 @@ its lane, and the hash dumps, tests, AoC and rogue were run again after the reba
   `check.rs:2101`), the lambda try-then-postpone path's firings.
 
 **Hash changes: none** **[measured]**. The std + aoc (10,420 declarations) and std + rogue
-(5,164) dumps of `61515018` are byte-identical to those of `d031ca0c`, taken before any change.
+(5,164) dumps of the lane (`61515018` before the rebase, `936da6b9` after) are byte-identical to those of `d031ca0c`, taken before any change.
 `hash_stability` at `STITCHWORT_TIER=full` changes only the snapshots of the two new accepted
 examples. So **the 6 aoc lambda postponements that are sections, now section items, have the
 hashes they had**: they were checked at the end of their application, after the later
@@ -1768,7 +1768,7 @@ tier changes no error message but the planned move:
   same message at its own span.
 
 **Counters**, `STITCHWORT_TIMINGS`, `stitchwort check --no-cache`, each example checked on its
-own and summed, `d031ca0c` (with a scratch build adding the counters) → `61515018`
+own and summed, `d031ca0c` (with a scratch build adding the counters) → the lane (`61515018`, before the rebase)
 **[measured]**. `requeued`, `read back`, `disagreed` and `kept chose` are 0 everywhere, and
 `defaulted` is as in stage 2 (1, in the accepted examples):
 
