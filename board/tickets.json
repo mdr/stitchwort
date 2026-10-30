@@ -8703,17 +8703,19 @@
     {
       "id": 912,
       "title": "stitchwort audit: axioms, unfinished and vacuity check for proof lanes and the merge gate (D2040)",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "lane: audit stage 1 (D2042)",
+      "status": "backlog",
+      "agent": "",
+      "where": "stage 1 merged c2b8e0f9; open: merge-tier wiring (decision), stages 2-3 (statement hash --base, program/instance changes)",
       "labels": [
         "tooling",
         "research"
       ],
-      "body": "D2040 (Matt, 30 Oct 2026: yes): stitchwort audit is the check every proof lane runs before reporting and the merge gate runs. Spec: docs/research/agentic-proving.md T1 (and T2 for the vacuity verdict). Stage 1 (small): for named theorems or a namespace, report and fail on axioms beyond an allowlist and unfinished closure (anything depending on a ?), and warn on vacuous hypotheses (held in 0 of N cases). Stage 2: statement type hash with --base REV / --challenge FILE. Stage 3: erased-hash changes to definitions the theorems mention and changed instances. Exit status as lake comparator's. Then wire it into lane instructions and task test:merge.\n",
+      "body": "D2040 (Matt, 30 Oct 2026: yes): stitchwort audit is the check every proof lane runs before reporting and the merge gate runs. Spec: docs/research/agentic-proving.md T1 (and T2 for the vacuity verdict). Stage 1 (small): for named theorems or a namespace, report and fail on axioms beyond an allowlist and unfinished closure (anything depending on a ?), and warn on vacuous hypotheses (held in 0 of N cases). Stage 2: statement type hash with --base REV / --challenge FILE. Stage 3: erased-hash changes to definitions the theorems mention and changed instances. Exit status as lake comparator's. Then wire it into lane instructions and task test:merge.\n\n\nLane log (audit stage 1):\n- 30 Oct: audit command working in file mode (axioms/unfinished/vacuous verdicts, --json, --strict); GaveUp split into NeverHeld (0 of N) and GaveUp (<10%). Next: corpus runs, tests, docs.\n- 30 Oct: done on branch worktree-agent-a1f5cb6bb55d21fec (47eb1e13, 2b6fc4f7). Corpus: std 2322 thms 5 warn, aoc 1366 thms 16 warn, rogue 190 thms 3 warn, 0 fail; all warnings narrow hypotheses, none found really vacuous. Full-corpus cost with search ~340 s (aoc 222, std 99, rogue 20); --no-search warm 3 s for aoc. Lane tiers cli/elab/examples/hashes pass; clippy, fmt clean.",
       "created": "2026-10-30",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "c2b8e0f9"
+      ]
     },
     {
       "id": 913,
