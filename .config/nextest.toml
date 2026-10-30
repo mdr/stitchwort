@@ -56,8 +56,9 @@ default-filter = "all()"
 path = "junit.xml"
 
 # The merge tier: the lane areas together, plus every accepted, rejected and
-# soundness example on the merge sample (a quarter) and every AoC day's
-# answers.
+# soundness example on the merge sample (a quarter), every AoC day's answers,
+# and every extraction example's generated JS and `.d.ts` against their
+# snapshots (`generated_code_is_stable`, about 4 s; `tsc` on them is daily).
 [profile.merge]
 test-threads = "num-cpus"
 fail-fast = false
@@ -75,7 +76,7 @@ package(stitchwort-syntax)
 | package(stitchwort-host)
 | package(stitchwort-js)
 | package(stitchwort-native)
-| (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/))
+| (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops|generated_code_is_stable)$/))
 | (binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/))
 | (package(stitchwort-fmt) & !binary(repo) & !binary(fuzz))
 | (package(stitchwort-cli) & binary(fmt))
@@ -96,8 +97,8 @@ path = "junit.xml"
 #
 # `task test:lane AREA=…`: one area's handful of fast tests, under 10 s with
 # the release test binaries built. Keep each to tests that take about a
-# second; the merge tier above is the union of them, plus the examples and
-# AoC answers.
+# second; the merge tier above is the union of them, plus the examples, the
+# AoC answers and the extraction snapshots.
 
 [profile.lane-syntax]
 default-filter = "package(stitchwort-syntax)"
@@ -175,7 +176,10 @@ corpus-sweeps = { max-threads = 1 }
 filter = "package(stitchwort-cli) & binary(lsp)"
 test-group = "lsp-aoc-copy"
 
-# A new test with its own `par_map` over a corpus belongs here too.
+# A new test with its own `par_map` over a corpus belongs here too, unless its
+# pool is small: crates/cli/tests/extract.rs's `generated_code_is_stable`
+# peaks at about 320 MB, and in the group it would lengthen the merge tier,
+# whose last tests are this group's, by its own 4 to 7 s.
 [[profile.default.overrides]]
 filter = """
 (package(stitchwort-rt) & binary(machine) & test(=examples_agree))
