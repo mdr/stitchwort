@@ -125,6 +125,9 @@ impl Snapshot {
                 .borrow_mut()
                 .retain(|l| !matches!(l.head, stitchwort_core::Term::Meta(m) if m >= self.metas));
             cx.e.local_metas.borrow_mut().retain(|m, _| *m < self.metas);
+            cx.e.operator_dictionaries
+                .borrow_mut()
+                .retain(|m, _| *m < self.metas);
             cx.e.local_defaults
                 .borrow_mut()
                 .retain(|h, _| h.before(self.metas));

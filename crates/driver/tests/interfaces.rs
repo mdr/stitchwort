@@ -363,6 +363,45 @@ def same (m: Nat) (n: Nat): Bool := m == n
     assert_eq!(defs, ["Decidable.toBool", "Nat.decEq"]);
 }
 
+/// An operator whose dictionary is found only after it (a let-bound
+/// lambda's, whose parameter type the call after it fixes) is still written
+/// as the instance's field, as when the dictionary is found at once: the
+/// projection is made at the end, so the term doesn't depend on when the
+/// dictionary was found (docs/proposals/postponement.md §5.10). And §9's
+/// must-hold for invariant 8: `rule => rule.before == page`, with `rule`'s
+/// type fixed by a later argument, is `Nat.decEq`, as with it annotated.
+#[test]
+fn an_operator_whose_dictionary_is_found_later_is_projected_too() {
+    let source = "\
+import Std (Nat, Bool, List)
+
+type Rule = { before: Nat, after: Nat }
+
+def late (n: Nat): Bool :=
+  let same := x => x == x
+  same n
+
+def early (n: Nat): Bool := n == n
+
+def applied [a: Type] (f: a -> Bool) (x: a): Bool := f x
+
+def befores (rule: Rule) (page: Nat): Bool :=
+  applied (rule => rule.before == page) rule
+
+def annotated (rule: Rule) (page: Nat): Bool :=
+  applied ((rule: Rule) => rule.before == page) rule
+";
+    for name in ["late", "early", "befores", "annotated"] {
+        let (defs, _) = body_of(source, name);
+        assert!(defs.iter().any(|d| d == "Nat.decEq"), "{name}: {defs:?}");
+        assert!(
+            !defs.iter().any(|d| d == "DecEq.decide"),
+            "{name}: {defs:?}"
+        );
+    }
+    assert_eq!(body_of(source, "befores"), body_of(source, "annotated"));
+}
+
 /// A dictionary kept by name is still equal to what it unfolds to, and to
 /// another name for the same record: comparison unfolds it when the name
 /// alone doesn't settle it.

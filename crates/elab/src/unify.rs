@@ -1558,7 +1558,7 @@ pub(crate) fn refold(
 /// replaces none. What's unchanged is shared, not rebuilt: most passes
 /// find nothing to fold, and rebuilding (and then dropping) a large normal
 /// form once per `let` in scope was most of the cost of lifting.
-fn fold_back(
+pub(crate) fn fold_back(
     g: &Globals,
     term: &Term,
     under: usize,

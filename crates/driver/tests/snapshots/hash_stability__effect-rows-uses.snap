@@ -10,7 +10,7 @@ Main.Log.%elim 9e20dcca5b622e5ea77389704e530731095bf23ef895583c540a0e0c17e780dc
 Main.Log.collect 75965e17c23aafe2a43dc7a3292e76f793b3454db16d3f142f756b73ae873634
 Main.test "a pure use compared with ==" 4a7696e84b5f9a767a4da76985b6c46cb43d401332c90d51e8326100981879a9
 Main.useFirst a9bbf85b3c83fb88c3eb8f682b2a8de4f4261d2661896f4065485447d39265c2
-Main.test "a pure use on a computed receiver" 50723032e89e97172595ce10c43c8ea9bc7fcc81fcff79abcbce75d5f431f357
+Main.test "a pure use on a computed receiver" b5266e945057c43e3157d4d57a1dd21290d09ee56fee38673b4c39974f868529
 Main.halve 295e00a84a6c3f7b1e0fa7d04c97904de553ccda9688aa50df363a1168c034e0
 Main.test "an effectful use, failing" 2d3614f8f2d7b09176f4e59fb00e6f91a00514128437882977315845f370e36e
 Main.test "an effectful use, succeeding" 9c148c362fa6782259a67eabca2ea6dc03b19ebd2e500688b46aee80dac7fed3

@@ -519,6 +519,12 @@ pub struct Elaborator {
     /// The frozen metavariables standing for local definitions, with their
     /// names, for messages.
     pub(crate) local_metas: RefCell<HashMap<usize, String>>,
+    /// The dictionaries of operators (`==`, `+`, `<`, …) that weren't found
+    /// when the operator was elaborated, by metavariable: the method called
+    /// and the field of its interface it projects. One found to be a global
+    /// instance by the end is written as that instance's field, as it is
+    /// when found at once (`interfaces::specialise_operators`).
+    pub(crate) operator_dictionaries: RefCell<HashMap<usize, (DefId, usize)>>,
     /// The parameter defaults of the local definitions in scope, by what
     /// their name stands for (`defaults::LocalHead`).
     pub(crate) local_defaults: RefCell<HashMap<defaults::LocalHead, Rc<defaults::LocalDefaults>>>,
@@ -1081,6 +1087,7 @@ impl Elaborator {
         self.globals.clear_metas();
         self.drafts.borrow_mut().clear();
         self.local_metas.borrow_mut().clear();
+        self.operator_dictionaries.borrow_mut().clear();
         self.local_defaults.borrow_mut().clear();
         self.obligations.borrow_mut().clear();
         self.row_metas.borrow_mut().clear();
@@ -1100,7 +1107,10 @@ impl Elaborator {
         self.compare_awaiting_helpers()?;
         let stuck = self.settle_queue()?;
         self.settle_rows(stuck)?;
-        self.zonk(term, level)
+        match self.specialise_operators(term, level)? {
+            Some(term) => self.zonk(&term, level),
+            None => self.zonk(term, level),
+        }
     }
 
     /// Substitutes metavariable solutions into `term`, failing if any are
