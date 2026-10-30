@@ -1,5 +1,5 @@
 {
-  "next": 910,
+  "next": 911,
   "tickets": [
     {
       "id": 13,
@@ -6979,7 +6979,7 @@
       "labels": [
         "decision"
       ],
-      "body": "Day 12 wrote two 16-case truth tables by hand. Rec: yes, limited to a few Bool variables.\n\n29 Oct (Matt): design lane: compare with other languages, write a design note, then a review artefact. SW-807 (derived list of all values) is in scope as the thing decide ranges over.\n29 Oct (lane): context read (docs, day 12/21 proofs). Finding: today's `cases` already proves day 12's rowEndsSplit (16 cases) and day 21's tabulateSame (25); everyNumericKey via `contains` + List.memContains. Prototypes in docs/proposals/decide/.\n29 Oct (lane): languages read: Lean (decide/native_decide/bv_decide docs and Decide.lean, Native.lean, Mathlib Fintype + DeriveFintype), Rocq (vm/native_compute, casts, MathComp fintype header), Agda (Dec, Fin all?), Idris 2 (So, Dec), Isabelle (codegen §6), F* (SMT fuel, partial), Haskell (Enum/Bounded). Dafny not read. Also: a closed decidable goal is already provable via an auto helper (`byDecision`); 2^16 cases by kernel rfl took ~6 s.\n29 Oct (lane): design drafted and prototypes run; docs/proposals/decide.md on branch worktree-agent-ad5c41ec5a22e812f (41b6957e). Rec: extend `cases` (decision closer + split unstuck finite variable), derive `Finite` (SW-807), never native_decide. D1960-D1962.\n29 Oct (Claude): verified and merged (88e9104b; merge tier 873/873). Checked: all 6 prototypes check --no-cache; rowEndsSplit prototype matches the real theorem; in the real Corners.sw, :=cases fails with the variables after the colon but checks (Day12.Proofs --no-cache) with them as parameters; file restored. Added that caveat to the note; decisions renumbered D1971-D1973 (D1960-62 in use); formatted enumerate.sw. Next: review artefact.\n\n30 Oct (lane, draft 2): review-1 copied; R1 evidence run (real Corners.sw: after-colon := cases is E-CASES, lambda form checks, 519 nodes; restored); R2 simulated by hand in decide/fallback.sw; closer-order and bv_decide checked. Writing decide.md draft 2.\n\n30 Oct (lane, draft 2): done, decide.md draft 2 on branch worktree-agent-a1d5a1c5a3c6346e6 (747f75de). Intro after the closers (intro-first breaks a by-hypothesis Pi proof); decision closer after omega, No falls through (counterexample in closer_order.sw); fallback fewest-then-latest (2 vs 24, 22 vs 11 leaves by hand). D1971-D1973 revised, open; no new decision.\n\n30 Oct (impl lane): rebased, built; decide.md draft 2, prototypes, review-1, cases.rs, auto.rs read. Baseline pinned: examples/accept/cases-pi-goals.sw hash snapshot from main's elaborator (63f1b329); aoc and rogue hashes dumped to scratch for comparison.\n\n30 Oct (impl lane): part 1 (binder introduction, after the closers) committed f3b3db79; rowEndsAfter hashes the same as before-colon/lambda (8d5e5e07); pinned Pi-goal hashes unchanged; Day12 rowEndsSplit/columnEndsSplit and Day21 tabulateSame converted to := cases. Lanes elab/core/std/examples/hashes pass.\n",
+      "body": "Day 12 wrote two 16-case truth tables by hand. Rec: yes, limited to a few Bool variables.\n\n29 Oct (Matt): design lane: compare with other languages, write a design note, then a review artefact. SW-807 (derived list of all values) is in scope as the thing decide ranges over.\n29 Oct (lane): context read (docs, day 12/21 proofs). Finding: today's `cases` already proves day 12's rowEndsSplit (16 cases) and day 21's tabulateSame (25); everyNumericKey via `contains` + List.memContains. Prototypes in docs/proposals/decide/.\n29 Oct (lane): languages read: Lean (decide/native_decide/bv_decide docs and Decide.lean, Native.lean, Mathlib Fintype + DeriveFintype), Rocq (vm/native_compute, casts, MathComp fintype header), Agda (Dec, Fin all?), Idris 2 (So, Dec), Isabelle (codegen §6), F* (SMT fuel, partial), Haskell (Enum/Bounded). Dafny not read. Also: a closed decidable goal is already provable via an auto helper (`byDecision`); 2^16 cases by kernel rfl took ~6 s.\n29 Oct (lane): design drafted and prototypes run; docs/proposals/decide.md on branch worktree-agent-ad5c41ec5a22e812f (41b6957e). Rec: extend `cases` (decision closer + split unstuck finite variable), derive `Finite` (SW-807), never native_decide. D1960-D1962.\n29 Oct (Claude): verified and merged (88e9104b; merge tier 873/873). Checked: all 6 prototypes check --no-cache; rowEndsSplit prototype matches the real theorem; in the real Corners.sw, :=cases fails with the variables after the colon but checks (Day12.Proofs --no-cache) with them as parameters; file restored. Added that caveat to the note; decisions renumbered D1971-D1973 (D1960-62 in use); formatted enumerate.sw. Next: review artefact.\n\n30 Oct (lane, draft 2): review-1 copied; R1 evidence run (real Corners.sw: after-colon := cases is E-CASES, lambda form checks, 519 nodes; restored); R2 simulated by hand in decide/fallback.sw; closer-order and bv_decide checked. Writing decide.md draft 2.\n\n30 Oct (lane, draft 2): done, decide.md draft 2 on branch worktree-agent-a1d5a1c5a3c6346e6 (747f75de). Intro after the closers (intro-first breaks a by-hypothesis Pi proof); decision closer after omega, No falls through (counterexample in closer_order.sw); fallback fewest-then-latest (2 vs 24, 22 vs 11 leaves by hand). D1971-D1973 revised, open; no new decision.\n\n30 Oct (impl lane): rebased, built; decide.md draft 2, prototypes, review-1, cases.rs, auto.rs read. Baseline pinned: examples/accept/cases-pi-goals.sw hash snapshot from main's elaborator (63f1b329); aoc and rogue hashes dumped to scratch for comparison.\n\n30 Oct (impl lane): part 1 (binder introduction, after the closers) committed f3b3db79; rowEndsAfter hashes the same as before-colon/lambda (8d5e5e07); pinned Pi-goal hashes unchanged; Day12 rowEndsSplit/columnEndsSplit and Day21 tabulateSame converted to := cases. Lanes elab/core/std/examples/hashes pass.\n\n30 Oct (impl lane): part 2 (decision closer after omega, No goes on) d3a33677; part 3 (fallback split, fewest cases then latest, (fallback) diagnostics) 1f8c9621; Day21 everyNumericKey/everyDirectionKey converted. Lanes pass. Finding: everyNumericKey's cases takes ~45 ms in aoc (0.8 ms by hand), mostly auto::decision_procedures re-sorting the library per decide call in project mode. Next: aoc check/test, rogue, timings, docs.\n",
       "created": "2026-10-28",
       "updated": "2026-10-30",
       "commits": [
@@ -7207,7 +7207,7 @@
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
       "status": "backlog",
       "agent": "",
-      "where": "stages 1-2 merged (6338d997); open question: decide_to_bool (Prop where Bool expected) decided at once; stage 3 (method sections) next",
+      "where": "stages 1-2 merged; D2035 yes (Matt): stage 3 also makes the Prop-where-Bool-expected choice (decide_to_bool) wait; stage 3 next",
       "labels": [
         "decision"
       ],
@@ -8620,9 +8620,9 @@
     {
       "id": 907,
       "title": "Counterexample search ignores its time budget and blows memory on shiftLeft-shaped theorems (unreproduced)",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "janitorial lane",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "elab",
         "bug"
@@ -8630,22 +8630,26 @@
       "body": "Found by the SW-903 lane (30 Oct 2026), running the counterexample search over std through the driver API (check never searches std, but a user theorem of the same shape would): Std.Nat.shiftRightShiftLeft ran for over 4 minutes, ignoring its 500 ms budget; Std.Float.Theory.pow2FromPow went past 2 GB. The lane's guess, not checked: Nat.shiftLeft by a random edge value (2^64) builds an enormous number, and that work isn't charged to the time or memory budget. Not yet reproduced by the orchestrator: reproduce under dev/memguard --cap-gb 2 with a user copy of each theorem first.\n\nJanitorial lane (30 Oct): reproduced with user theorems under memguard 2 GB: pow2From shape killed at 3.84 GB in 2 s; shiftLeft shape 4.4 s against the 500 ms budget. sample: time in rt prims::nat_mul (bignum mul and to_biguint memmove); a step is a frame, whatever the number's size; reference evaluator went past 5.9 GB too. Fix cd8ea57e on worktree-agent-a219941b3330387db: opt-in step per big-number word (product for mul/div, charged first), on in the search only (rt Limits::number_words, Budget::count_number_words). Now 0.08 GB and about 0.4 s of search. Example goals/counterexample-big-numbers.sw.",
       "created": "2026-10-30",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "bbede571"
+      ]
     },
     {
       "id": 908,
       "title": "(c: {} Nat) parameter type read as an empty record literal (E-CANNOT-INFER); gaps.sw header stale",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "janitorial lane",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "elab",
         "bug"
       ],
-      "body": "Found by the SW-871/886 lane (30 Oct 2026): a parameter type written (c: {} Nat) gives E-CANNOT-INFER 'can't tell which record type this literal is'; {} seems to be parsed as an empty record literal rather than an empty ability row. Not reproduced by the orchestrator yet. Also: docs/proposals/direct-style-grammars/gaps.sw's header still says inArgument, inTuple and nested give E-CANNOT-INFER, which SW-805 fixed; update the header.\n",
+      "body": "Found by the SW-871/886 lane (30 Oct 2026): a parameter type written (c: {} Nat) gives E-CANNOT-INFER 'can't tell which record type this literal is'; {} seems to be parsed as an empty record literal rather than an empty ability row. Not reproduced by the orchestrator yet. Also: docs/proposals/direct-style-grammars/gaps.sw's header still says inArgument, inTuple and nested give E-CANNOT-INFER, which SW-805 fixed; update the header.\n\nJanitorial lane (30 Oct): reproduced (def run (c: {} Nat): Nat := c, E-CANNOT-INFER at 1:13; (c: {IO} Nat) is E-PARSE 'expected | and the fields to update'). Parser's fault: rows are parsed only on result types (parser.rs result_type), a binder's type is an expr, so {} is a record literal. D1141 (d) keeps rows off parameter types, so not accepted: 318ac176 on worktree-agent-a219941b3330387db refuses {…} T in a parameter's type with E-PARSE saying to drop an empty row or take () -> {IO} Nat; example reject/row-in-parameter-type.sw. gaps.sw header now: E-TYPE-MISMATCH at dependent, W-NO-EFFECT at forgotten, nothing else.",
       "created": "2026-10-30",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "bbede571"
+      ]
     },
     {
       "id": 909,
@@ -8656,7 +8660,22 @@
       "labels": [
         "research"
       ],
-      "body": "Matt, 30 Oct 2026: the primary theorem provers using Stitchwort will be AI agents, not humans. Research how to optimise Stitchwort for agentic theorem proving: literature and tools on the web (full-text reading protocol, counts first), plus ideas of our own grounded in Stitchwort's code and in the friction our own agent lanes recorded while proving AoC and rogue (aoc/NOTES-*.md findings, games/rogue PROOFS.md, board tickets). Output: docs/research/agentic-proving.md in the register format. One research lane at a time.\n",
+      "body": "Matt, 30 Oct 2026: the primary theorem provers using Stitchwort will be AI agents, not humans. Research how to optimise Stitchwort for agentic theorem proving: literature and tools on the web (full-text reading protocol, counts first), plus ideas of our own grounded in Stitchwort's code and in the friction our own agent lanes recorded while proving AoC and rogue (aoc/NOTES-*.md findings, games/rogue PROOFS.md, board tickets). Output: docs/research/agentic-proving.md in the register format. One research lane at a time.\n- 30 Oct (lane): rebased; read protocol, SW-897, README, infrastructure/proof-automation cards; mined aoc/NOTES-2024.md ranked lists and rogue NOTES/PROOFS; probed check/--index/goals/counterexamples/axioms/test/repl on main's binary; 24 arXiv full texts downloaded (0 WebSearch so far).",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
+    },
+    {
+      "id": 910,
+      "title": "Let-bound curried lambda r => p => … can't be inferred, while r p => … can",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "body": "Found by the postponement stage 2 lane (30 Oct 2026), on main too: a let-bound curried lambda written with nested arrows, r => p => …, can't be inferred, while the same lambda written r p => … can. The two should elaborate the same (a lambda of two parameters). Not yet reproduced by the orchestrator: reproduce first, then find where nested lambdas are inferred differently from multi-parameter ones (lambda inference in crates/elab), and make them agree. Likely small.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
