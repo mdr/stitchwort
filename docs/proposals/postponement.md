@@ -1,6 +1,7 @@
 # Proposal: one postponement queue in the elaborator
 
-**Status:** draft 3, 30 October 2026. Tickets SW-817 (anchor), SW-847 and SW-885; context
+**Status:** draft 3, 30 October 2026; **stage 1 is built** ([As built (stage
+1)](#as-built-stage-1)). Tickets SW-817 (anchor), SW-847 and SW-885; context
 SW-509, SW-805, SW-896. Follows D1990 (one queue, agreed in principle), D1991 (SW-805's
 field-name rule stays, as name resolution), D2012 (Matt: design for the best end state; the
 cost of churn is not a criterion) and D2015 (Matt: revise after the external review). Repros,
@@ -1362,6 +1363,173 @@ off and on runs, with the exact-term and type comparison of the changed declarat
 (`changes.txt`); the queue and retry-path counters per file (`counts.txt`); draft 3's counters
 and variants (`draft3-counts.txt`); and the three repros with run-time tests (`sw817run.sw`,
 `sw847run.sw`, `sw885run.sw`).
+
+## As built (stage 1)
+
+Built in SW-817's stage-1 lane, on `ec69866e`, in two commits: the queue (`0cfa7b6b`), then the
+known-instance projection at the end (`cded0c9b`). Nothing is queued yet: no construct makes an
+item until stage 2 (K1, K2). Line numbers are of `cded0c9b`.
+
+**What exists.**
+- **The queue**, `crates/elab/src/queue.rs`. `Check` (`:64`) is what an item does when resumed,
+  one implementation per kind (K1-K4 to come); it gives `Resumed::Done(term)` or
+  `Resumed::Waiting(type)`, and may have a default (`Priority`, field names before `Nat`,
+  D2013). `State` (`:110`) is waiting (on a type, whose head is the blocker), running, done or
+  failed. `Queue` (`:141`) holds the items, their states and the resumption log, every state
+  change with the state it replaced, as `meta_trail` does for solutions; `Queue::restore`
+  (`:170`) puts states back newest first and drops the items queued since, and a fill taken back
+  takes its term out of the placeholder table. `queue` (`:239`) makes an item with a fresh
+  placeholder (`Ctx::fresh_meta`) and the context saved (`Ctx::save`, `Saved`,
+  `check.rs:139`, `:246`). It is the `Elaborator`'s `queue` (`lib.rs:343`), emptied by
+  `clear_metas` and `rewind` (`rewind.rs:150`, `:256`), recorded by `Snapshot`
+  (`undo.rs:54`, `:78`, `:145`).
+- **The ladder.** Step 1, `resume_from` (`queue.rs:345`): every waiting item in scope whose
+  type's head is no longer an unknown, in creation order, again while any was; `resume_item`
+  (`:374`) marks it running, runs its check in its saved context and fills its placeholder.
+  Step 3, `apply_default` (`:470`): the first default that applies, by priority then creation
+  order, undone if it doesn't apply. Step 4, `stuck_report` (`:502`).
+- **The resume points.** W1: `resume_application` (`queue.rs:322`), called at the end of
+  `apply_args_postponing` (`check.rs:2218`) with the queue's length when the application began
+  (`check.rs:1980`). W2: `resume_before_lifting` (`queue.rs:446`) at the start of `lift` and
+  `lift_signature` (`lift.rs:550`, `:566`): the obligations loop, if anything waits. W3: step 1
+  at every round of `solve_obligations_until_stuck` in which no obligation is left
+  (`auto.rs:108`). W4: `settle_queue` (`queue.rs:457`), from `finish` (`lib.rs:1108`): the
+  obligations loop, then while anything waits one default and the loop again, then the stuck
+  report.
+- **Placeholders.** `fill` (`queue.rs:410`): if unification solved the placeholder first
+  (D2016) the item's term must agree with that solution, or it is the item's mismatch at its own
+  span; either way the term goes into `Globals::lifted_calls` as a call in the variables the
+  placeholder is applied to (`placeholder_call`, `:286`), so zonking writes it wherever the
+  placeholder is, with its arguments (`unify::lifted_call`, `unify.rs:1768`, now also for a bare
+  placeholder, `:1857`; a helper's bare frozen metavariable is still read back, as before).
+- **The lossy rule's mark** (the caveat to P1): the comparison of two stuck calls by their
+  arguments (`unify.rs:981`) notes what it solved, by metavariable and place in the trail
+  (`note_lossy`, `:107`); `solved_lossily` (`:124`) says whether a metavariable's current
+  solution was made so; restores and `undo_since` forget what they take back
+  (`forget_lossy_since`, `:134`).
+- **The stuck report.** Waiting items are grouped: an item waiting on another's placeholder or
+  on the unknown that is its type depends on it, and items so linked, or waiting on the same
+  unknown, are one group. Each group is reported by its first item, in creation order, that
+  depends on no waiting item; the first group's error is the declaration's, the next two go to
+  `branch_errors`, the rest are consequences.
+- **The T1 rule** for attempt sites is in `undo.rs`'s module comment.
+- **The projection at the end** (§5.10, the `==` regression). `decide_eq_of` and `method_call`
+  note each dictionary they leave generic (`note_operator_dictionary`, `interfaces.rs:1746`;
+  `Elaborator::operator_dictionaries`, `lib.rs:527`, restored by snapshots). At `finish`
+  (`lib.rs:1110`) and when lifting (`lift.rs:924`), `specialise_operators`
+  (`interfaces.rs:1760`) writes each such call whose dictionary is by then a global instance's
+  record literal as that instance's field applied to the operator's arguments, by the rule
+  `method_call` uses when the dictionary is found at once (`projected`, `:1823`). A dictionary
+  that is a local variable, a superclass projection of one, or a record whose field isn't a
+  definition stays generic, as before.
+
+**Invariants, how each is kept and tested.** Debug assertions run in debug builds only (the
+lane tier builds with `--release`); the queue's tests were run both ways.
+
+| invariant | kept by | debug assertion | tests (`queue.rs` unless named) |
+|---|---|---|---|
+| 1. one placeholder, one occurrence | a fresh unknown per item; a restore drops the items queued since | after a restore no item outlives its placeholder; a placeholder is filled once | `restoring_takes_back_items_resumptions_and_fills` |
+| 2. only its item fills | `fill`, only from `resume_item`; the term recorded for zonking | only a running item fills | `a_fill_that_disagrees_with_unification_is_the_items_error`; `a_filled_placeholder_zonks_to_the_items_term` (`two`, not `S (S Z)`); `a_filled_placeholder_is_its_term_in_the_arguments_it_is_given`; `lambda-postponed-dependent.sw` and `-argument.sw` stay accepted (the examples test) |
+| 3. isolation | W1 resumes from the length at the application's start; W2-W4 are declaration-level | W1's start is within the queue | `the_end_of_an_application_resumes_only_its_own_items`; `postponed-lambda-second-error.sw` keeps its error (the examples' snapshots) |
+| 4. no re-entry | states; only waiting items are selected | no item in a resume point's scope is running (T3) | `an_item_whose_check_has_an_application_is_resumed_once`; `a_running_item_is_never_selected_again` (in a debug build it expects the assertion's panic, in release that the item isn't selected again); `an_item_that_meets_another_unknown_waits_again` |
+| 5. restore restores the queue | the resumption log, in every snapshot; `clear_metas`, `rewind` | as 1 | `restoring_takes_back_items_resumptions_and_fills`; `clearing_and_rewinding_empty_the_queue` |
+| 6. kept subterms stable | about what K2 keeps: stage 2 | stage 2 | stage 2 |
+| 7. defaults at quiescence | only `settle_queue` (W4) applies one, after the obligations loop | a default solves what its item waits on | `defaults_apply_one_at_a_time_field_names_before_nat` (W1-W3 apply none; then field names, resume, `Nat`, resume) |
+| 8. opaque to choices | the projection at the end, for operators | none | `crates/driver/tests/interfaces.rs`, `an_operator_whose_dictionary_is_found_later_is_projected_too` |
+| §5.9 report | `stuck_report` | none | `stuck_items_are_reported_by_root_at_most_three` (a chain of three reports its root; four independent items report two more, through `branch_errors`) |
+| caveat to P1 | `solved_lossily` | none | `a_placeholder_guessed_by_comparing_calls_is_counted`: `pred` ignores its second argument; `pred x ?p` against `pred x Z` solves `?p` with `Z`; the item's `two` would do as well (`pred x two` and `pred x Z` are the same stuck term), but the fill reports a mismatch at the item, and the lossy counter counts it. An incompleteness on a right program, as the caveat says, never unsoundness |
+
+**Counters**, printed with `STITCHWORT_TIMINGS` after the `wall` line (`timings.rs:294`), and
+readable as `stitchwort_elab::queue_counts()`. Process-wide, attempts undone included:
+```
+postponement queue: 0 queued, 0 resumed, 0 defaulted, 0 stuck, 0 crossed W1, 0 solved first, 0 lossy, 0 disagreed, 0 read back
+```
+- `queued`, `resumed`, `defaulted`, `stuck`: items made, resumptions, defaults applied, items
+  still waiting at a stuck report;
+- `crossed W1`: items still waiting at the end of the application they were queued in, each
+  counted once. This is the first half of the stage-6 trigger (§5.13): a placeholder that
+  crosses its W1 is one a comparison may meet before its item can say what it is;
+- `solved first`: fills whose placeholder unification had solved already (D2016; 14 in the
+  prototype), and of those `lossy`, solved by comparing two stuck calls' arguments (the caveat
+  to P1; 0 expected);
+- `disagreed`: fills whose term disagreed with that solution (each is an error at the item);
+- `read back`: fills whose term couldn't be written as a call of the placeholder (a `let`'s or a
+  split variable's value that isn't in the placeholder's variables either), so zonking reads the
+  solution back, as for any unknown.
+
+All are 0 over the corpus in stage 1, since nothing is queued.
+
+**Identity checks.** Run on the queue commit, then again on the projection commit:
+- every declaration's hash with std and every library file plus aoc (10,420 declarations), and
+  plus rogue (5,164), dumped sorted by a scratch test (not committed; `Session::eager_for_stack`
+  and `load_project`, as hash_stability's `dump`, which itself fails on main today with
+  `E-RESOURCE` on its default stack) from main `ec69866e` before any change and from each
+  commit: **byte-identical** both times;
+- `hash_stability` and the examples test (`crates/cli/tests/examples.rs`: accepted, rejected,
+  goal and soundness examples and projects, with every error-message snapshot) at
+  `STITCHWORT_TIER=full`, every file rather than the lane's quarter: **unchanged** on the queue
+  commit; on the projection commit one hash changes, below, and no error message;
+- `stitchwort check --no-cache` and `stitchwort test` in `aoc/` (135 namespaces, 914 tests) and
+  `games/rogue/` (3 namespaces, 100 tests): pass on both commits.
+
+**The projection's hash list:** one declaration of all of the above.
+`examples/accept/effect-rows-uses.sw`, test "a pure use on a computed receiver", `(if useFirst
+then [1, 2] else [3]).map (n => n * n) == [1, 4]`, whose `DecEq` instance waits for the row to be
+defaulted: `Decidable.toBool (DecEq.decide [List Nat] [List.instDecEq [Nat.instDecEq]] …)`
+becomes `Decidable.toBool (List.decEq … Nat.decEq …)` (the definitions its body mentions,
+compared with the projection switched off in a scratch build). Generic to specialised, as
+expected; its tests pass. Every other generic operator call at `finish` in std and aoc has a
+dictionary that is a local variable, a superclass projection `Ord.%eq` of one, or a record whose
+field isn't a definition (1,425, 234 and 66 matches of the pass in a scratch-instrumented `aoc`
+check, a call matching once per application node of it, so about a third as many calls; the
+commit message calls the matches "calls"), so none changes. `Day05.noRuleBroken`, the case
+§6.3 found, only goes generic with K1 and K2 on; the driver test above covers that shape (an
+operator whose dictionary is found later), and shows the generic `DecEq.decide [Nat]
+[Nat.instDecEq]` without the projection.
+
+**Timing**, `stitchwort check --no-cache` in `aoc/`, user + system CPU, alternating main's
+binary (`/Users/matt/repos/mdr/stitchwort/target/release/stitchwort`, the same crates as
+`ec69866e`) with the lane's, on a shared machine (load average 5-6):
+- queue commit: main 35.99, 36.10, 36.17 s; lane 35.95, 35.92, 36.01 s;
+- projection commit: main 37.00, 37.52, 36.53, 37.78, 37.83, 37.70, 37.61 s; lane 38.37, 36.92,
+  39.21, 40.53, 37.94, 37.68, 37.84 s. The lane's spread is the machine's: the projection pass
+  itself, timed in a scratch build, ran about 4,200 times in that check for about 5 ms in all.
+
+**Deviations from the note, with why.**
+1. **W1 runs ladder step 1 only**, not step 2. A round of obligations and rows at an
+   application's end would solve obligations made outside the application, which invariant 3
+   forbids, and the measured prototype's W1 only resumed. W2-W4 run steps 1 and 2 (W3 is
+   inside the obligations loop; W2 and W4 run that loop). If stage 2 finds an item at W1 that
+   only an obligation made inside the application would unblock, the round can be scoped to the
+   obligations made since the application began, as `retry_rows_from` is for rows.
+2. **W2 applies no default.** The ladder and the task say defaults are W4's only; the prototype
+   applied them before lifting too. The failure W2 exists for (`Day08/Proofs/Part2.sw:148`, a
+   record literal holding a `match`) has to be checked in stage 2: if that literal is resumed by
+   step 1 there, nothing changes; if it needs its field-name default first, W2 needs one.
+3. **No blocker-to-items map.** A resume point scans the items in its scope in creation order,
+   which with nothing queued is a length comparison, and with items is one forced head per
+   waiting item (the prototype scanned too). §5.3's map, from `meta_trail`, is worth adding
+   only if a declaration's queue gets long.
+4. **No counter of comparisons that met an unfilled placeholder** (§5.13, §8): the unifier
+   doesn't know which unknowns are placeholders, and telling it is stage 6's change. `crossed
+   W1` counts the placeholders such a comparison could meet; stage 2 can add the comparison
+   counter where that is non-zero.
+5. **A placeholder's term mentioning a `let`'s or a split variable** is written with that
+   variable's value, read back folded, where the placeholder isn't applied to the variable
+   (fresh metavariables leave those out of their spines); zonking may fold a `let`'s value back
+   to its name. One whose value isn't in the placeholder's variables either falls back to
+   reading the solution, counted as `read back`.
+6. **The stuck report's dependency** is the two direct links (another item's placeholder, or
+   its type's unknown) plus a shared blocker, not "solved only through it" in general. Each
+   group is reported by its first *root* in creation order, which is the note's "first item"
+   in every case the note gives, and the review's choice where they differ.
+7. **Invariants 6 and 8's assertions** wait for the kinds they are about (K2's kept receiver;
+   the choices of §5.10 a kept receiver could make): stage 2. §8 listed 3, 4 and 6 for stage 1.
+8. **The lossy mark is thread-local**, in `unify.rs` beside its other comparison state, keyed by
+   metavariable and place in the trail: a debug count, never acted on.
+9. **The projection runs at `finish` and when lifting only**, not in every zonk: the zonks that
+   read a type to decide something (`find_ready_dictionaries`, `effects.rs`, `defaults.rs`) see
+   the terms they saw before.
 
 ## Review 1 and how it was addressed
 

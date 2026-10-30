@@ -52,6 +52,10 @@ mod patlet;
 mod pipe;
 mod probe;
 pub mod project;
+mod queue;
+/// The postponement queue's counters (`queue.rs`), for measuring the stages
+/// that queue checks (docs/proposals/postponement.md, "As built (stage 1)").
+pub use queue::counts as queue_counts;
 mod quot;
 mod records;
 mod redundant;
@@ -334,6 +338,9 @@ pub struct Elaborator {
     /// Row comparisons put aside until more is known (`unify_postponing`),
     /// retried with the obligations.
     row_constraints: RefCell<Vec<rows::Postponed>>,
+    /// Checks waiting for an unknown type to be known, resumed as it is
+    /// (`queue.rs`; docs/proposals/postponement.md).
+    pub(crate) queue: queue::Queue,
     /// Comparisons that met a helper not lifted yet, compared again once it
     /// is (`lift::await_helpers`).
     awaiting_helpers: RefCell<Vec<lift::AwaitingHelpers>>,
@@ -382,7 +389,7 @@ pub struct Elaborator {
     /// elaborator is at hand; a definition that fails reports them after its
     /// own error, and one that succeeds (the check was an attempt that was
     /// undone) drops them.
-    branch_errors: RefCell<Vec<Diagnostic>>,
+    pub(crate) branch_errors: RefCell<Vec<Diagnostic>>,
     /// Arms of the definition being checked that a case on an indexed family
     /// dropped because their constructor can't be there, with a reason, and
     /// the arms that were reached: those dropped and never reached are
@@ -512,6 +519,12 @@ pub struct Elaborator {
     /// The frozen metavariables standing for local definitions, with their
     /// names, for messages.
     pub(crate) local_metas: RefCell<HashMap<usize, String>>,
+    /// The dictionaries of operators (`==`, `+`, `<`, …) that weren't found
+    /// when the operator was elaborated, by metavariable: the method called
+    /// and the field of its interface it projects. One found to be a global
+    /// instance by the end is written as that instance's field, as it is
+    /// when found at once (`interfaces::specialise_operators`).
+    pub(crate) operator_dictionaries: RefCell<HashMap<usize, (DefId, usize)>>,
     /// The parameter defaults of the local definitions in scope, by what
     /// their name stands for (`defaults::LocalHead`).
     pub(crate) local_defaults: RefCell<HashMap<defaults::LocalHead, Rc<defaults::LocalDefaults>>>,
@@ -1066,7 +1079,7 @@ impl Elaborator {
         pretty::value(&self.globals, &[], value)
     }
 
-    fn clear_metas(&self) {
+    pub(crate) fn clear_metas(&self) {
         self.flush_navigation();
         self.flush_goals();
         self.proof_holes.borrow_mut().clear();
@@ -1074,22 +1087,30 @@ impl Elaborator {
         self.globals.clear_metas();
         self.drafts.borrow_mut().clear();
         self.local_metas.borrow_mut().clear();
+        self.operator_dictionaries.borrow_mut().clear();
         self.local_defaults.borrow_mut().clear();
         self.obligations.borrow_mut().clear();
         self.row_metas.borrow_mut().clear();
         self.row_constraints.borrow_mut().clear();
+        self.queue.clear();
+        crate::unify::forget_lossy_since(0);
         self.awaiting_helpers.borrow_mut().clear();
         self.defaulted.borrow_mut().clear();
         self.instance_steps.borrow_mut().clear();
     }
 
     /// Proves outstanding auto arguments, then substitutes metavariable
-    /// solutions into `term`, failing if any are unsolved.
+    /// solutions into `term`, failing if any are unsolved. The end of a
+    /// declaration part for the queued checks too: they are resumed with
+    /// the obligations, defaulted, or reported stuck (`queue.rs`, W4).
     fn finish(&self, term: &Term, level: usize) -> Result<Term> {
         self.compare_awaiting_helpers()?;
-        let stuck = self.solve_obligations_until_stuck()?;
+        let stuck = self.settle_queue()?;
         self.settle_rows(stuck)?;
-        self.zonk(term, level)
+        match self.specialise_operators(term, level)? {
+            Some(term) => self.zonk(&term, level),
+            None => self.zonk(term, level),
+        }
     }
 
     /// Substitutes metavariable solutions into `term`, failing if any are

@@ -147,6 +147,7 @@ impl Elaborator {
             obligations,
             row_metas,
             row_constraints,
+            queue,
             awaiting_helpers,
             defaulted,
             char_patterns,
@@ -194,6 +195,7 @@ impl Elaborator {
             local_helpers,
             helper_keys,
             local_metas,
+            operator_dictionaries,
             local_defaults,
             goals,
             proof_holes,
@@ -251,6 +253,7 @@ impl Elaborator {
         obligations.get_mut().clear();
         row_metas.get_mut().clear();
         row_constraints.get_mut().clear();
+        queue.clear();
         awaiting_helpers.get_mut().clear();
         defaulted.get_mut().clear();
         char_patterns.get_mut().clear();
@@ -294,6 +297,7 @@ impl Elaborator {
         *local_helpers = mark.local_helpers.clone();
         *helper_keys = mark.helper_keys.clone();
         local_metas.get_mut().clear();
+        operator_dictionaries.get_mut().clear();
         local_defaults.get_mut().clear();
         *goals.get_mut() = Default::default();
         proof_holes.get_mut().clear();

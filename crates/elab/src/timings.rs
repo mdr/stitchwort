@@ -291,6 +291,10 @@ pub fn report() {
         ms(wall),
         ms(wall.saturating_sub(elab + kernel))
     );
+    let queue: Vec<String> = (crate::queue::counts().iter())
+        .map(|(name, n)| format!("{n} {name}"))
+        .collect();
+    eprintln!("postponement queue: {}", queue.join(", "));
     report_decls();
 }
 

@@ -1511,6 +1511,7 @@ pub(crate) fn decide_eq_of(cx: &mut Ctx, ty: &Value, xt: Term, yt: Term) -> Resu
     let Some((Global::Def(method), _)) = cx.e.scope.get("Std.DecEq.decide") else {
         unreachable!("`DecEq` has its method")
     };
+    note_operator_dictionary(cx, &meta, method, 0);
     let ty = cx.quote(ty)?;
     let call = Term::app_icit(
         Term::app_icit(Term::Def(method), ty, Icit::Implicit),
@@ -1727,6 +1728,7 @@ pub(crate) fn method_call(
         }
         _ => {
             let method = cx.e.interfaces[&interface].methods[index];
+            note_operator_dictionary(cx, &meta, method, index);
             let ty = cx.quote(ty)?;
             Term::app_icit(
                 Term::app_icit(Term::Def(method), ty, Icit::Implicit),
@@ -1736,6 +1738,102 @@ pub(crate) fn method_call(
         }
     };
     Ok(args.into_iter().fold(head, Term::app))
+}
+
+/// Notes that an operator's call is `method [a] [meta] …`, its dictionary
+/// `meta` not found yet: one found later is projected then
+/// ([`Elaborator::specialise_operators`]).
+fn note_operator_dictionary(cx: &Ctx, meta: &Term, method: DefId, field: usize) {
+    if let Term::Meta(m) = meta.spine().0 {
+        (cx.e.operator_dictionaries.borrow_mut()).insert(*m, (method, field));
+    }
+}
+
+impl Elaborator {
+    /// `term`, in a context of `depth` variables, with each operator call
+    /// whose dictionary wasn't found at the operator ([`method_call`],
+    /// [`decide_eq_of`]) but is now a global instance, written as that
+    /// instance's field applied to the operator's arguments, as it is when
+    /// the dictionary is found at once (`x == y` on `Nat` is `Nat.decEq x
+    /// y`). So the term doesn't depend on when the dictionary was found
+    /// (docs/proposals/postponement.md §5.10). `None` if there's none.
+    pub(crate) fn specialise_operators(&self, term: &Term, depth: usize) -> Result<Option<Term>> {
+        if self.operator_dictionaries.borrow().is_empty() {
+            return Ok(None);
+        }
+        let failed = std::cell::Cell::new(None);
+        let out = self.specialise_in(term, depth, &failed);
+        match (failed.take(), out) {
+            (Some(e), _) | (None, Err(e)) => Err(e),
+            (None, Ok(out)) => Ok(out),
+        }
+    }
+
+    fn specialise_in(
+        &self,
+        term: &Term,
+        depth: usize,
+        failed: &std::cell::Cell<Option<Diagnostic>>,
+    ) -> Result<Option<Term>> {
+        let g = &self.globals;
+        let hook = |t: &Term, under: usize| -> Option<Term> {
+            if !matches!(t, Term::App(..)) {
+                return None;
+            }
+            let (head, args) = t.spine();
+            let (Term::Def(method), [_, dict, rest @ ..]) = (head, &args[..]) else {
+                return None;
+            };
+            let Term::Meta(m) = dict.spine().0 else {
+                return None;
+            };
+            let (noted, field) = *self.operator_dictionaries.borrow().get(m)?;
+            if noted != *method {
+                return None;
+            }
+            match self.projected(dict, field, depth + under) {
+                Ok(Some(projected)) => {
+                    let mut out = projected;
+                    for arg in rest {
+                        match self.specialise_in(arg, depth + under, failed) {
+                            Ok(arg2) => {
+                                out = Term::app(out, arg2.unwrap_or_else(|| (*arg).clone()))
+                            }
+                            Err(e) => {
+                                failed.set(Some(e));
+                                return None;
+                            }
+                        }
+                    }
+                    Some(out)
+                }
+                Ok(None) => None,
+                Err(e) => {
+                    failed.set(Some(e));
+                    None
+                }
+            }
+        };
+        Ok(crate::unify::fold_back(g, term, 0, &hook)?)
+    }
+
+    /// The field `field` of the dictionary `dict` (a term in `depth`
+    /// variables), if it is now a global instance's record literal whose
+    /// field is a definition, applied or not: what [`method_call`] projects.
+    fn projected(&self, dict: &Term, field: usize, depth: usize) -> Result<Option<Term>> {
+        let g = &self.globals;
+        let env: Vec<Value> = (0..depth).map(Value::var).collect();
+        let found = force(g, stitchwort_core::value::eval(g, &env, dict)?)?;
+        let found = unfold_folded(g, &found)?.unwrap_or(found);
+        Ok(match found {
+            Value::Ctor(_, 0, fields)
+                if matches!(fields[field], Value::Neutral(Head::Def(_), _)) =>
+            {
+                Some(stitchwort_core::value::quote(g, depth, &fields[field])?)
+            }
+            _ => None,
+        })
+    }
 }
 
 /// §5.16 step 2: if `prop` is a relation field of a dictionary applied to

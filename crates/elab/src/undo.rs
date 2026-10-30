@@ -10,6 +10,9 @@
 //! - lifted helpers not yet resolved (`lift.rs`), and the local
 //!   definitions' keys met so far (`local.rs`);
 //! - pending auto obligations and defaulted-literal records (`Elaborator`);
+//! - the queued checks and the resumption log of their states
+//!   (`queue.rs`): an attempt undone takes back both the checks it queued
+//!   and the resumptions it made, with the terms they filled in;
 //! - with code navigation on, the local variables' types noted for printing
 //!   (`nav.rs`), which may mention the metavariables dropped;
 //! - the open goals noted (`goals.rs`), and the `_`s noted as proofs, for
@@ -24,6 +27,14 @@
 //! and found again if the code is checked again. Nor are resource
 //! budgets: running out of resources is an error that stops elaboration,
 //! passed on without undoing anything, and what was used isn't refunded.
+//!
+//! A rule for every caller (docs/proposals/postponement.md §5.7, T1): an
+//! attempt site has a fixed, finite list of alternatives, and repeats one
+//! only in a loop that runs again on progress (an obligation solved, a
+//! comparison settled). Elaboration ends because the attempts form a
+//! finite tree; the step budget is a resource limit on top of that, not
+//! what makes it end. A site that retries without a bound needs its own
+//! argument that it ends.
 
 use stitchwort_core::Value;
 use stitchwort_syntax::{Diagnostic, Span};
@@ -40,6 +51,7 @@ pub(crate) struct Snapshot {
     obligations: usize,
     row_metas: usize,
     row_constraints: usize,
+    queue: crate::queue::Mark,
     awaiting_helpers: usize,
     defaulted: usize,
     drafts: usize,
@@ -63,6 +75,7 @@ impl Snapshot {
             obligations: cx.e.obligations.borrow().len(),
             row_metas: cx.e.row_metas.borrow().len(),
             row_constraints: cx.e.row_constraints.borrow().len(),
+            queue: cx.e.queue.mark(),
             awaiting_helpers: cx.e.awaiting_helpers.borrow().len(),
             defaulted: cx.e.defaulted.borrow().len(),
             drafts: cx.e.drafts.borrow().len(),
@@ -112,6 +125,9 @@ impl Snapshot {
                 .borrow_mut()
                 .retain(|l| !matches!(l.head, stitchwort_core::Term::Meta(m) if m >= self.metas));
             cx.e.local_metas.borrow_mut().retain(|m, _| *m < self.metas);
+            cx.e.operator_dictionaries
+                .borrow_mut()
+                .retain(|m, _| *m < self.metas);
             cx.e.local_defaults
                 .borrow_mut()
                 .retain(|h, _| h.before(self.metas));
@@ -119,12 +135,14 @@ impl Snapshot {
             cx.e.parameter_metas
                 .borrow_mut()
                 .retain(|m, _| *m < self.metas);
+            crate::unify::forget_lossy_since(self.trail);
         }
         cx.e.obligations.borrow_mut().truncate(self.obligations);
         cx.e.row_metas.borrow_mut().truncate(self.row_metas);
         cx.e.row_constraints
             .borrow_mut()
             .truncate(self.row_constraints);
+        cx.e.queue.restore(self.queue, g, self.metas);
         cx.e.awaiting_helpers
             .borrow_mut()
             .truncate(self.awaiting_helpers);

@@ -545,6 +545,9 @@ impl Elaborator {
     /// those are returned, with their bodies, for the caller to admit with
     /// the owner.
     pub(crate) fn lift(&mut self, owner: &str, join: bool) -> Result<Vec<(DefId, Term)>> {
+        // A queued check may hold a `match`, drafted when it is resumed
+        // (`queue.rs`, W2).
+        self.resume_before_lifting()?;
         if self.drafts.borrow().is_empty() {
             return Ok(Vec::new());
         }
@@ -560,6 +563,7 @@ impl Elaborator {
     /// Numbered from 1 each time the type is elaborated.
     pub(crate) fn lift_signature(&mut self, owner: &str) -> Result<()> {
         self.signature_matches.remove(owner);
+        self.resume_before_lifting()?;
         if self.drafts.borrow().is_empty() {
             return Ok(());
         }
@@ -915,6 +919,10 @@ impl Elaborator {
         before: usize,
     ) -> Result<Term> {
         let g = &self.globals;
+        // The obligations are solved by now (`lift`): an operator's
+        // dictionary found since is projected, as `finish` does.
+        let specialised = self.specialise_operators(term, depth)?;
+        let term = specialised.as_ref().unwrap_or(term);
         let t = if lets {
             let mut around = self.around(draft, depth);
             around.retain(|(slot, _, _)| *slot < before);

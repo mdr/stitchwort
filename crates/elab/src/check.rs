@@ -132,6 +132,53 @@ pub(crate) struct LocalName {
     pub ty: Value,
 }
 
+/// A [`Ctx`] without its elaborator, kept by a queued check to be resumed
+/// in later (`queue.rs`). Everything but `written_goal`, which only the
+/// next `rewrite` reads.
+#[derive(Clone)]
+pub(crate) struct Saved {
+    env: Vec<Value>,
+    types: Vec<Value>,
+    names: Vec<Name>,
+    written: Vec<Option<crate::dot::Written>>,
+    scope: Vec<(String, usize)>,
+    kinds: Vec<Icit>,
+    locals: Vec<LocalName>,
+    lets: Vec<Option<Rc<LetDef>>>,
+    goal: Option<(usize, Rc<Term>)>,
+    order: Vec<usize>,
+    tree_start: usize,
+    scrutinees: Vec<(usize, Term, Span, usize)>,
+    reify_display: Option<ReifyDisplay>,
+    cases: Option<Rc<crate::cases::Run>>,
+    pub span: Span,
+}
+
+impl Saved {
+    /// The context saved, again.
+    pub(crate) fn ctx<'e>(&self, e: &'e Elaborator) -> Ctx<'e> {
+        Ctx {
+            e,
+            env: self.env.clone(),
+            types: self.types.clone(),
+            names: self.names.clone(),
+            written: self.written.clone(),
+            scope: self.scope.clone(),
+            kinds: self.kinds.clone(),
+            locals: self.locals.clone(),
+            lets: self.lets.clone(),
+            goal: self.goal.clone(),
+            written_goal: None,
+            order: self.order.clone(),
+            tree_start: self.tree_start,
+            scrutinees: self.scrutinees.clone(),
+            reify_display: self.reify_display.clone(),
+            cases: self.cases.clone(),
+            span: self.span,
+        }
+    }
+}
+
 /// A position to return to with [`Ctx::reset`].
 #[derive(Clone, Copy)]
 pub struct Mark {
@@ -192,6 +239,27 @@ impl<'e> Ctx<'e> {
             reify_display: None,
             cases: None,
             span,
+        }
+    }
+
+    /// Everything but the elaborator, for a queued check ([`Saved`]).
+    pub(crate) fn save(&self) -> Saved {
+        Saved {
+            env: self.env.clone(),
+            types: self.types.clone(),
+            names: self.names.clone(),
+            written: self.written.clone(),
+            scope: self.scope.clone(),
+            kinds: self.kinds.clone(),
+            locals: self.locals.clone(),
+            lets: self.lets.clone(),
+            goal: self.goal.clone(),
+            order: self.order.clone(),
+            tree_start: self.tree_start,
+            scrutinees: self.scrutinees.clone(),
+            reify_display: self.reify_display.clone(),
+            cases: self.cases.clone(),
+            span: self.span,
         }
     }
 
@@ -1908,6 +1976,8 @@ fn apply_args_postponing(
     first_error: &mut Option<Diagnostic>,
 ) -> Result<(Term, Value)> {
     let (mut term, mut ty) = head;
+    // The checks queued from here on are this application's (`queue.rs`).
+    let queued_from = cx.e.queue.len();
     let mut postponed = Vec::new();
     // Lambdas to check after the application's type is compared with the
     // type expected of it, if `infer_expecting` says what that is.
@@ -2142,6 +2212,10 @@ fn apply_args_postponing(
         // instead of the call `Text.decEq`, which extraction runs natively).
         term = fill_placeholder(&term, id, &checked).unwrap_or(term);
     }
+    // The application's end, before its type is compared with the type
+    // expected of it: the checks queued while it was elaborated, and only
+    // those, are resumed if they can be (W1, scoped; D2014).
+    cx.e.resume_application(queued_from)?;
     if let (false, Some(expected)) = (after_expected.is_empty(), &expecting) {
         // The type as `fallback` will compare it: with no implicit
         // parameters left to insert (they'd be made again there).
