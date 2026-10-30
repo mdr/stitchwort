@@ -350,6 +350,9 @@ fn from_facts(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     if let Some(proof) = attempt(cx, |cx| nonzero_from_positive(cx, goal))? {
         return Ok(Some(proof));
     }
+    if let Some(proof) = size_from_member(cx, goal)? {
+        return Ok(Some(proof));
+    }
     if cx.e.omega_for_auto {
         return crate::omega::prove_for_auto(cx, goal, cx.span);
     }
@@ -391,6 +394,140 @@ fn nonzero_from_positive(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
         }
     }
     Ok(None)
+}
+
+/// For a nested type `T` (`derive_induct.rs`), a goal `T.size y < T.size
+/// (C … xs …)` (computed: `Succ` of the sizes of `C`'s fields that hold `T`)
+/// from a membership `List.Mem y xs` in scope: a hypothesis, or a field of a
+/// record in scope, such as an `attach`ed element's `isIn`. It's what a
+/// recursive call on an element of a list in a node needs under `decreasing
+/// T.size x`. The proof is `T.%C%i%sizeMem` (generated for each field `i` of
+/// `C` that's a `List T`), its arguments found by unification.
+fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
+    // `List.Mem y xs` is `List.Any (x => x = y) xs` once evaluated: a
+    // call of `List.Any`, stuck on `xs`.
+    let Some((Global::Def(any), _)) = cx.e.named("Std.List.Any") else {
+        return Ok(None);
+    };
+    let any = *any;
+    for (proof, ty) in membership_facts(cx, any)? {
+        let Value::Call(_, spine, _) = &ty else {
+            continue;
+        };
+        let args = stitchwort_core::value::call_args(spine);
+        let Some((elem, _)) = args.first() else {
+            continue;
+        };
+        let Value::Data(t, _) = force(cx.g(), elem.clone())? else {
+            continue;
+        };
+        for lemma in size_lemmas(cx, t) {
+            let found = attempt(cx, |cx| {
+                let g = cx.g();
+                let mut term = Term::Def(lemma);
+                let mut lemma_ty = g.def(lemma).ty_value.clone();
+                let mut metas = Vec::new();
+                // Every parameter but the last, the membership, is unknown.
+                loop {
+                    let Value::Pi(_, icit, dom, cod) = force(g, lemma_ty)? else {
+                        return Ok(None);
+                    };
+                    if !matches!(
+                        force(g, cod.apply(g, Value::var(cx.level()))?)?,
+                        Value::Pi(..)
+                    ) {
+                        if !cx.unify(&dom, &ty)? {
+                            return Ok(None);
+                        }
+                        let conclusion = cod.apply(g, cx.eval(&proof)?)?;
+                        if !cx.unify(&conclusion, goal)? {
+                            return Ok(None);
+                        }
+                        term = Term::app_icit(term, proof.clone(), icit);
+                        break;
+                    }
+                    let meta = cx.fresh_meta();
+                    let value = cx.eval(&meta)?;
+                    metas.push(value.clone());
+                    term = Term::app_icit(term, meta, icit);
+                    lemma_ty = cod.apply(g, value)?;
+                }
+                for m in &metas {
+                    if matches!(force(g, m.clone())?, Value::Neutral(Head::Meta(_), _)) {
+                        return Ok(None);
+                    }
+                }
+                Ok(Some(term))
+            })?;
+            if found.is_some() {
+                return Ok(found);
+            }
+        }
+    }
+    Ok(None)
+}
+
+/// The memberships in scope, as proofs with their types: hypotheses `List.Mem
+/// y xs`, and such fields of the records in scope (`e.isIn`), latest first.
+fn membership_facts(cx: &mut Ctx, any: DefId) -> Result<Vec<(Term, Value)>> {
+    let g = cx.g();
+    let is_mem = |ty: &Value| matches!(ty, Value::Call(id, ..) if *id == any);
+    let mut facts = Vec::new();
+    for level in (0..cx.level()).rev() {
+        let ty = cx.types[level].clone();
+        let here = Term::Var(cx.level() - 1 - level);
+        if is_mem(&ty) {
+            facts.push((here, ty));
+            continue;
+        }
+        let Value::Data(r, params) = force(g, ty)? else {
+            continue;
+        };
+        let Some(info) = cx.e.records.get(&r) else {
+            continue;
+        };
+        for projection in info.projections.iter().flatten() {
+            let mut term = Term::Def(*projection);
+            let mut ty = g.def(*projection).ty_value.clone();
+            let mut params = params.iter();
+            loop {
+                let Value::Pi(_, icit, _, cod) = force(g, ty.clone())? else {
+                    break;
+                };
+                if icit == Icit::Explicit {
+                    term = Term::app(term, here.clone());
+                    ty = cod.apply(g, Value::var(level))?;
+                    break;
+                }
+                let Some(p) = params.next() else {
+                    break;
+                };
+                term = Term::app_icit(term, cx.quote(p)?, icit);
+                ty = cod.apply(g, p.clone())?;
+            }
+            if is_mem(&ty) {
+                facts.push((term, ty));
+            }
+        }
+    }
+    Ok(facts)
+}
+
+/// The lemmas `T.%C%i%sizeMem` generated for nested type `t`, by name.
+fn size_lemmas(cx: &Ctx, t: DataId) -> Vec<DefId> {
+    let e = cx.e;
+    let key = e.data_key(t);
+    let mut found = Vec::new();
+    for ctor in &cx.g().data(t).ctors {
+        for i in 0..ctor.fields.len() {
+            let member = format!("%{}%{i}%sizeMem", ctor.name);
+            if let Some((Global::Def(id), _)) = e.scope.get(&Elaborator::member_key(&key, &member))
+            {
+                found.push(id);
+            }
+        }
+    }
+    found
 }
 
 /// The fewest items a list written out has for a false membership in it to

@@ -20,6 +20,7 @@ mod decreasing;
 mod defaults;
 mod derive;
 mod derive_ext;
+mod derive_induct;
 mod derive_ord;
 mod derive_show;
 mod dot;
@@ -443,6 +444,9 @@ pub struct Elaborator {
     no_show: HashMap<DataId, String>,
     /// The same for `Ord` (`derive_ord.rs`).
     no_ord: HashMap<DataId, String>,
+    /// The `D.All` generated for each container of the program a nested
+    /// type is in, by container (`derive_induct.rs`).
+    generated_alls: HashMap<DataId, DefId>,
     /// Helpers elaborated in the current declaration and not yet lifted
     /// (`lift.rs`). Part of the inference state `undo.rs` restores.
     drafts: RefCell<Vec<lift::Draft>>,
@@ -2141,6 +2145,7 @@ impl Elaborator {
                 e.derive_data_eq(d)?;
                 e.derive_data_show(d)?;
                 e.derive_data_ord(d)?;
+                e.derive_nested(d)?;
                 if !operations {
                     e.derive_update_lemmas(d, decl)?;
                 }

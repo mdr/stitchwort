@@ -38,6 +38,18 @@ theorem Nat.lessLe (m: Nat) (n: Nat) (h: m < n): m ≤ n := Nat.leTrans m (Succ 
 
 theorem Nat.lessTrans (m: Nat) (n: Nat) (p: Nat) (h1: m < n) (h2: n < p): m < p := Nat.leTrans (Succ m) n p h1 (Nat.lessLe n p h2)
 
+-- A bound on either side of a sum bounds the sum: the steps of the proofs
+-- generated for a nested type's `T.size` (an element of a list in a node is
+-- smaller than the node).
+theorem Nat.leAddOfLeLeft: (a: Nat) → (b: Nat) → (c: Nat) → a ≤ b → a ≤ b + c
+  | Zero, b, c, h => rfl
+  | Succ a, Zero, c, h => Void.exfalso (Bool.falseNotTrue h)
+  | Succ a, Succ b, c, h => Nat.leAddOfLeLeft a b c h
+
+theorem Nat.leAddOfLeRight: (a: Nat) → (b: Nat) → (c: Nat) → a ≤ c → a ≤ b + c
+  | a, Zero, c, h => h
+  | a, Succ b, c, h => Nat.leTrans a (b + c) (Succ (b + c)) (Nat.leAddOfLeRight a b c h) (Nat.leSucc (b + c))
+
 -- Lexicographic order on pairs of numbers
 
 -- `(a1, a2)` comes before `(b1, b2)`: the first number is smaller, or it's the

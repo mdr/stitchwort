@@ -176,6 +176,7 @@ impl Elaborator {
             no_eq,
             no_show,
             no_ord,
+            generated_alls,
             drafts,
             standalone_inputs: _,
             glue: _,
@@ -274,6 +275,7 @@ impl Elaborator {
         no_eq.retain(|d, _| d.0 < datas);
         no_show.retain(|d, _| d.0 < datas);
         no_ord.retain(|d, _| d.0 < datas);
+        generated_alls.retain(|d, id| d.0 < datas && id.0 < defs);
         interfaces.retain(|d, _| d.0 < datas);
         data_owners.retain(|d, _| d.0 < datas);
         drafts.get_mut().clear();

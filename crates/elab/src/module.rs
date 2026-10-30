@@ -1105,6 +1105,9 @@ impl Elaborator {
         let mut needs = crate::library::Needs::default();
         let own = self.scope.loading;
         let library = self.library_index();
+        // `D.All` for a data type `D` of this module that doesn't declare it:
+        // generated with the nested types that hold `D` (`derive_induct.rs`).
+        let mut alls: Vec<(usize, usize, Span)> = Vec::new();
         for (index, item) in items.iter().enumerate() {
             self.module.file = Some(self.module.items[index].file);
             let mut deps = Vec::new();
@@ -1125,6 +1128,9 @@ impl Elaborator {
                             in_header,
                             speculative: None,
                         });
+                        if rest.len() == 1 && rest[0] == "All" {
+                            alls.push((index, j, n.span));
+                        }
                     }
                     fields = rest;
                 }
@@ -1165,6 +1171,30 @@ impl Elaborator {
                 add(r, in_header);
             }
             self.module.items[index].deps = deps;
+        }
+        for (index, d, span) in alls {
+            if self.module.items[d].kind != Kind::Data {
+                continue;
+            }
+            let holders: Vec<usize> = (0..self.module.items.len())
+                .filter(|&x| {
+                    x != d
+                        && x != index
+                        && self.module.items[x].kind == Kind::Data
+                        && self.module.items[x].deps.iter().any(|dep| dep.item == d)
+                })
+                .collect();
+            let name = self.module.items[d].name.clone();
+            for x in holders {
+                self.module.items[index].deps.push(Dep {
+                    item: x,
+                    span,
+                    in_header: false,
+                    speculative: Some(format!(
+                        "`{name}.All` is generated with a type that holds `{name}`"
+                    )),
+                });
+            }
         }
         self.module.file = None;
         if let Some(f) = own {
