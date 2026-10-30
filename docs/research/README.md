@@ -11,6 +11,7 @@ file records how it was searched, so it can be refreshed.
 | Kernel and type theory | [kernel.md](kernel.md) |
 | Inductive types and recursion | [inductives.md](inductives.md) |
 | Infrastructure and trust | [infrastructure.md](infrastructure.md) |
+| Compilation and runtime | [compilation.md](compilation.md) |
 
 ## What a cluster file holds
 
