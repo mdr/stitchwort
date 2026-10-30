@@ -819,6 +819,10 @@ impl crate::queue::Check for Literal {
     }
 
     fn apply_default(&self, cx: &mut Ctx) -> Result<bool> {
+        debug_assert!(
+            cx.e.queue.settling(),
+            "the field-name rule chose a type before the end (invariant 8)"
+        );
         let [(d, _)] = with_field_names(cx, &self.fields)[..] else {
             return Ok(false);
         };

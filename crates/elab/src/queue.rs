@@ -41,14 +41,20 @@
 //!    resumption log, which a snapshot records with the items.
 //! 6. *Kept subterms are stable*: K1 keeps nothing elaborated; K2 keeps its
 //!    receiver as syntax where the blocker predates it, and as a term only
-//!    where the receiver made the blocker (§5.5).
+//!    where the receiver made the blocker, which [`kept_receiver`] checks
+//!    made no choice from an unknown.
 //! 7. *Defaults at quiescence only*: only W4 applies one, after the
 //!    obligations loop has stopped making progress.
 //! 8. *Placeholders are opaque to elaboration choices*: a placeholder is an
 //!    unknown like any other to the code around it; the consumers that
-//!    choose from a type's shape wait or decide at `finish` (§5.10).
+//!    choose from a type's shape wait or decide at `finish` (§5.10). Debug
+//!    assertions: the field-name rule chooses a literal's type only as W4's
+//!    default ([`Queue::settling`]), and a resumed dot call has its implicit
+//!    arguments inserted before it fills a placeholder that doesn't take
+//!    them (`dot.rs`). Comparisons that fail at an unfilled placeholder are
+//!    counted (`unify::met_unfilled`).
 //!
-//! The debug assertions below check 1-5 where they can be seen; the unit
+//! The debug assertions below check 1-6 where they can be seen; the unit
 //! tests at the end exercise each with items made directly.
 //!
 //! Counters for later stages are printed with `STITCHWORT_TIMINGS`
@@ -149,6 +155,9 @@ pub(crate) struct Queue {
     items: RefCell<Vec<Rc<Item>>>,
     states: RefCell<Vec<State>>,
     log: RefCell<Vec<(usize, State)>>,
+    /// Whether the end of a declaration part (W4) is settling the queue:
+    /// the only place a default may be applied (invariants 7 and 8).
+    settling: Cell<bool>,
 }
 
 /// The queue's lengths at a snapshot.
@@ -163,6 +172,15 @@ impl Queue {
         self.items.borrow().len()
     }
 
+    /// Whether W4 is settling the queue, the only place a default is
+    /// applied: a choice an item's default makes (the field-name rule) is
+    /// made from nothing else having said what the item is, never from a
+    /// placeholder's apparent shape in the middle of elaboration
+    /// (invariant 8).
+    pub(crate) fn settling(&self) -> bool {
+        self.settling.get()
+    }
+
     pub(crate) fn mark(&self) -> Mark {
         Mark {
             items: self.len(),
@@ -175,6 +193,7 @@ impl Queue {
     /// term out of the placeholder table (`Globals::lifted_calls`). `metas`
     /// is the length the metavariables are restored to.
     pub(crate) fn restore(&self, mark: Mark, g: &Globals, metas: usize) {
+        let changed = self.len() > mark.items || self.log.borrow().len() > mark.log;
         {
             let items = self.items.borrow();
             let mut states = self.states.borrow_mut();
@@ -193,12 +212,28 @@ impl Queue {
             self.items.borrow().iter().all(|item| item.meta < metas),
             "an item outlived its placeholder (invariant 1)"
         );
+        if changed {
+            self.sync_unfilled();
+        }
     }
 
     pub(crate) fn clear(&self) {
         self.items.borrow_mut().clear();
         self.states.borrow_mut().clear();
         self.log.borrow_mut().clear();
+        self.sync_unfilled();
+    }
+
+    /// Tells the unifier which placeholders aren't filled yet, for its
+    /// count of comparisons that fail at one (`unify::met_unfilled`).
+    fn sync_unfilled(&self) {
+        let items = self.items.borrow();
+        let states = self.states.borrow();
+        crate::unify::set_unfilled(
+            (0..items.len())
+                .filter(|&i| !matches!(states[i], State::Done))
+                .map(|i| items[i].meta),
+        );
     }
 
     fn item(&self, i: usize) -> Rc<Item> {
@@ -212,6 +247,7 @@ impl Queue {
     fn set(&self, i: usize, state: State) {
         let old = std::mem::replace(&mut self.states.borrow_mut()[i], state);
         self.log.borrow_mut().push((i, old));
+        self.sync_unfilled();
     }
 
     fn waiting(&self, i: usize) -> Option<Value> {
@@ -271,6 +307,7 @@ pub(crate) fn queue(
         crossed: Cell::new(false),
     }));
     q.states.borrow_mut().push(State::Waiting(needs, None));
+    q.sync_unfilled();
     count(&QUEUED);
     Ok(placeholder)
 }
@@ -478,9 +515,15 @@ impl Elaborator {
     /// Otherwise what [`Elaborator::solve_obligations_until_stuck`] gives.
     pub(crate) fn settle_queue(&self) -> Result<Option<Diagnostic>> {
         let mut stuck = self.solve_obligations_until_stuck()?;
-        while self.queue.any_waiting() && self.apply_default()? {
-            stuck = self.solve_obligations_until_stuck()?;
-        }
+        let settling = self.queue.settling.replace(true);
+        let defaulted = (|| -> Result<()> {
+            while self.queue.any_waiting() && self.apply_default()? {
+                stuck = self.solve_obligations_until_stuck()?;
+            }
+            Ok(())
+        })();
+        self.queue.settling.set(settling);
+        defaulted?;
         match self.stuck_report()? {
             Some(error) => Err(error),
             None => Ok(stuck),
@@ -594,9 +637,31 @@ static LOSSY: AtomicUsize = AtomicUsize::new(0);
 static DISAGREED: AtomicUsize = AtomicUsize::new(0);
 static READ_BACK: AtomicUsize = AtomicUsize::new(0);
 static REQUEUED: AtomicUsize = AtomicUsize::new(0);
+static KEPT: AtomicUsize = AtomicUsize::new(0);
+static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
 
 fn count(counter: &AtomicUsize) {
     counter.fetch_add(1, Ordering::Relaxed);
+}
+
+/// Invariant 6 for a `.field` whose receiver is kept as a term (K2,
+/// docs/proposals/postponement.md §5.5): the receiver, elaborated since
+/// `before`, made none of the choices of §5.10 from an unknown's shape that
+/// a type known later could make otherwise: no number literal made `Nat`
+/// at once (`numbers::Defaulted`), and no operator left with a generic
+/// dictionary. Counted (`kept`, and `kept chose` for one that did), and
+/// asserted in a debug build.
+pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
+    count(&KEPT);
+    let defaulted = cx.e.defaulted.borrow().len() > before.defaulted();
+    let generic = (cx.e.operator_dictionaries.borrow().keys()).any(|&m| m >= before.metas());
+    if defaulted || generic {
+        count(&KEPT_CHOSE);
+    }
+    debug_assert!(
+        !defaulted && !generic,
+        "a receiver kept as a term chose from an unknown (invariant 6)"
+    );
 }
 
 /// The queue's counters over the process, attempts undone included, for
@@ -604,13 +669,17 @@ fn count(counter: &AtomicUsize) {
 /// (docs/proposals/postponement.md, "As built (stage 1)" and "(stage 2)"):
 /// items queued, resumed, defaulted and reported stuck; items that reached
 /// the end of their application still waiting (`crossed W1`, the stage-6
-/// trigger); fills whose placeholder unification had solved first (`solved
-/// first`), and of those, solved by comparing two calls' arguments
-/// (`lossy`, the caveat to D2016's P1); fills that disagreed with that
-/// solution; fills whose term couldn't be written as a call of the
-/// placeholder, so zonking reads the solution back (`read back`); and
-/// resumptions that met another unknown and waited again (`requeued`).
-pub fn counts() -> [(&'static str, usize); 10] {
+/// trigger); comparisons that failed at an unfilled placeholder (`met
+/// unfilled`, its other half, `unify::met_unfilled`); fills whose
+/// placeholder unification had solved first (`solved first`), and of
+/// those, solved by comparing two calls' arguments (`lossy`, the caveat to
+/// D2016's P1); fills that disagreed with that solution; fills whose term
+/// couldn't be written as a call of the placeholder, so zonking reads the
+/// solution back (`read back`); resumptions that met another unknown and
+/// waited again (`requeued`); and `.field`s queued with their receiver
+/// kept as a term (`kept`), of which those whose receiver made a choice
+/// from an unknown (`kept chose`, invariant 6; 0 expected).
+pub fn counts() -> [(&'static str, usize); 13] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -618,11 +687,14 @@ pub fn counts() -> [(&'static str, usize); 10] {
         ("defaulted", get(&DEFAULTED)),
         ("stuck", get(&STUCK)),
         ("crossed W1", get(&CROSSED)),
+        ("met unfilled", crate::unify::met_unfilled()),
         ("solved first", get(&SOLVED_FIRST)),
         ("lossy", get(&LOSSY)),
         ("disagreed", get(&DISAGREED)),
         ("read back", get(&READ_BACK)),
         ("requeued", get(&REQUEUED)),
+        ("kept", get(&KEPT)),
+        ("kept chose", get(&KEPT_CHOSE)),
     ]
 }
 

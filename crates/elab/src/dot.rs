@@ -470,6 +470,7 @@ fn keep_receiver(
         before.restore(cx);
         None
     } else {
+        crate::queue::kept_receiver(cx, &before);
         Some(receiver)
     }
 }
@@ -528,7 +529,16 @@ impl crate::queue::Check for DotCall {
         let (term, ty) = match force(cx.g(), self.result.clone())? {
             Value::Neutral(Head::Meta(_), _) => (term, ty),
             Value::Pi(_, icit, ..) if icit.is_implicit() => (term, ty),
-            _ => insert(cx, term, ty)?,
+            _ => {
+                let (term, ty) = insert(cx, term, ty)?;
+                // None were inserted at the placeholder, so the item's own
+                // term has them (invariant 8, §5.10's implicit arguments).
+                debug_assert!(
+                    !matches!(force(cx.g(), ty.clone()), Ok(Value::Pi(_, icit, ..)) if icit.is_implicit()),
+                    "a resumed call kept an implicit parameter its place doesn't take (invariant 8)"
+                );
+                (term, ty)
+            }
         };
         if !cx.unify(&ty, &self.result)? {
             return Err(cx.mismatch(&self.result, &ty));
