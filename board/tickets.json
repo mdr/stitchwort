@@ -1,5 +1,5 @@
 {
-  "next": 902,
+  "next": 903,
   "tickets": [
     {
       "id": 13,
@@ -8506,6 +8506,21 @@
         "tooling"
       ],
       "body": "",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
+    },
+    {
+      "id": 902,
+      "title": "SOUNDNESS: universe level overflow, Type 4294967295 : Type 0 is accepted",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel",
+        "bug"
+      ],
+      "body": "SOUNDNESS. Found 30 Oct 2026 by the kernel-bug test lane (kernel register T1, porting Lean's looseBVarRange bit-overflow shape); reproduced by the orchestrator with main's release binary.\n\n`def wrap: Type 0 := Type 4294967295` is ACCEPTED (\"checked\"). So is `def wrap2: Type 4294967295 := Type 4294967294`. (`def big: Type 4294967295 := Nat` is rightly E-UNIVERSE; `Type 4294967296` is E-PARSE \"universe level is too large\".)\n\nCause: universe levels are u32 (`crates/core/src/term.rs:24`, `Sort::Type(u32)`), and the step to the next universe adds one unchecked: the kernel's `Sort::succ` (`term.rs:32`, `Sort::Type(i) => Sort::Type(i + 1)`, used at `crates/core/src/check.rs:286` and `:608`) and the elaborator (`crates/elab/src/check.rs:1218`). Release builds have no overflow checks (no `overflow-checks` in Cargo.toml), so `Type u32::MAX : Type 0`. The parser accepts any level that fits in a u32 (`crates/syntax/src/parser.rs:3882`).\n\nConsequence: the universe hierarchy is cyclic (Type 0 : ... : Type u32::MAX : Type 0), the setting of Girard's/Hurkens' paradox, so a proof of Void should be constructible (not built; treat as unsound). Also `Sort::fits_in` (term.rs:53-58) lets a Type 0 data type hold a field of type Type u32::MAX.\n\nFix direction: the kernel must refuse a universe whose successor doesn't exist (checked add, an error rather than saturating, since Type MAX : Type MAX is just as bad), the elaborator likewise, and the parser should keep levels far below the limit. Then audit the kernel for other unchecked arithmetic on levels, de Bruijn indices or counters. Must-reject tests for both programs above.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
