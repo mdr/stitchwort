@@ -1,0 +1,98 @@
+Queue prototype, draft-3 counters, 30 Oct 2026 (docs/proposals/postponement.md §6.7, §11).
+Prototype patch on fcb12746 plus scratch counters (not kept). All 'on' runs: W1 scoped, W2.
+Counts include items queued inside attempts that were undone.
+Runs: off (switch off); scoped (draft 2's recommended form); resyntax (scoped, and a `.field`
+whose blocker was made before its receiver undoes the receiver and is queued as syntax,
+resumed by infer_call); freeze (scoped, placeholders frozen until their item fills them).
+The freeze run was made before the dict.generic counter was added, so it has none.
+"hashes changed" counts declarations whose hash line differs (a failing declaration has none).
+
+######## off
+items: queued  resumed  defaulted  stuck 
+  dict.generic 486
+  per unit:
+
+######## scoped
+items: queued 179 resumed 136 defaulted 4 stuck 4
+  dict.generic 487
+  fill.already_solved 14
+  fill.unsolved 121
+  k2.blocker_inside 28
+  k2.blocker_outside 131
+  k2.receiver_app_inside 5
+  k2.receiver_field_inside 19
+  k2.receiver_other_inside 4
+  k2.receiver_var_outside 131
+  per unit:
+    std k2.receiver_field_inside 6
+    accept/lambda-postponed-dependent-argument.sw fill.already_solved 1
+    accept/lambda-postponed-dependent-argument.sw k2.receiver_field_inside 1
+    accept/lambda-postponed-dependent.sw fill.already_solved 3
+    accept/record-literal-inferred.sw k2.receiver_other_inside 1
+    reject/record-literal-no-such-fields.sw k2.receiver_other_inside 1
+    reject/record-literal-without-type.sw k2.receiver_other_inside 1
+    reject/section-underscore.sw k2.receiver_other_inside 1
+    aoc fill.already_solved 10
+    aoc k2.receiver_app_inside 5
+    aoc k2.receiver_field_inside 10
+    rogue k2.receiver_field_inside 2
+
+######## resyntax
+items: queued 179 resumed 136 defaulted 4 stuck 4
+  dict.generic 487
+  fill.already_solved 14
+  fill.unsolved 121
+  k2.blocker_inside 28
+  k2.blocker_outside 131
+  k2.receiver_app_inside 5
+  k2.receiver_field_inside 19
+  k2.receiver_other_inside 4
+  k2.receiver_var_outside 131
+  k2.resyntax_queued 131
+  per unit:
+    std k2.receiver_field_inside 6
+    accept/lambda-postponed-dependent-argument.sw fill.already_solved 1
+    accept/lambda-postponed-dependent-argument.sw k2.receiver_field_inside 1
+    accept/lambda-postponed-dependent.sw fill.already_solved 3
+    accept/record-literal-inferred.sw k2.receiver_other_inside 1
+    reject/record-literal-no-such-fields.sw k2.receiver_other_inside 1
+    reject/record-literal-without-type.sw k2.receiver_other_inside 1
+    reject/section-underscore.sw k2.receiver_other_inside 1
+    aoc fill.already_solved 10
+    aoc k2.receiver_app_inside 5
+    aoc k2.receiver_field_inside 10
+    rogue k2.receiver_field_inside 2
+
+######## freeze
+items: queued 192 resumed 128 defaulted 4 stuck 4
+  fill.unsolved 127
+  k2.blocker_inside 35
+  k2.blocker_outside 137
+  k2.receiver_app_inside 6
+  k2.receiver_field_inside 25
+  k2.receiver_other_inside 4
+  k2.receiver_var_outside 137
+  per unit:
+    std k2.receiver_field_inside 6
+    accept/lambda-postponed-dependent-argument.sw k2.receiver_field_inside 1
+    accept/record-literal-inferred.sw k2.receiver_other_inside 1
+    reject/record-literal-no-such-fields.sw k2.receiver_other_inside 1
+    reject/record-literal-without-type.sw k2.receiver_other_inside 1
+    reject/section-underscore.sw k2.receiver_other_inside 1
+    aoc k2.receiver_app_inside 6
+    aoc k2.receiver_field_inside 16
+    rogue k2.receiver_field_inside 2
+
+######## outcomes and hashes compared
+== off -> scoped: outcomes changed: 1, hashes changed: 26
+< R accept/record-literal-inferred.sw OK
+> R accept/record-literal-inferred.sw ERR E-TYPE-MISMATCH | type mismatch | 671-676 expected `Nat`, but this has type `Int`
+== scoped -> resyntax: outcomes changed: 0, hashes changed: 0
+== scoped -> freeze: outcomes changed: 5, hashes changed: 7
+< R accept/lambda-postponed-dependent.sw OK
+> R accept/lambda-postponed-dependent.sw ERR E-TYPE-MISMATCH | type mismatch | 876-902 expected `Ordering.isLessEq (Nat.compare (?2 xs a b) (?4 xs a b)) = False → Ordering.isLessEq (Nat.compare (?2 xs b a) (?4 xs b a)) = True`, but this has type `Ordering.isLessEq (Nat.compare a.lo b.lo) = False → Ordering.isLessEq (Nat.compare b.lo a.lo) = True`
+< R aoc OK
+> R aoc ERR E-TYPE-MISMATCH | type mismatch | 2954-2977 expected `File.idAndLength (?18 diskMap file free) = File.idAndLength file`, but this has type `File.idAndLength (FreeSpace.moveFile free file).snd = File.idAndLength file`
+> R aoc ERR E-TYPE-MISMATCH | type mismatch | 3499-3521 expected `(?17 diskMap file free).id = file.id ∧ (?17 diskMap file free).span.length = file.span.length ∧ (?17 diskMap file free).span.start ≤ file.span.start`, but this has type `MovedLeft file (FreeSpace.moveFile free file).snd`
+> R aoc ERR E-TYPE-MISMATCH | type mismatch | 4354-4378 expected `File.blocks (?24 diskMap file free) = File.blocks file`, but this has type `File.blocks (FreeSpace.moveFile free file).snd = File.blocks file`
+> R aoc ERR E-TYPE-MISMATCH | type mismatch | 6830-6853 expected `List.all gates (gate => Bool.ifThenElse (?96 bits x y gates wired gate member named gate) (_ => ?102 bits x y gates wired gate member named gate _) (_ => False)) = True`, but this has type `List.all gates (gate => Option.isNone (Wire.xBit gate.output) && Option.isNone (Wire.yBit gate.output)) = True`
