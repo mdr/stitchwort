@@ -9,9 +9,9 @@ expression: output
     │                                                                          ─┬─  
     │                                                                           ╰─── `List.all (List.range 4) (p c)` and `p c 0 && p c 1 && p c 2 && p c 3` aren't equal
     │ 
-    │ Note 1: computing both sides gives `Decidable.toBool (Nat.decEqFrom (Succ c) (7 + (… + c)) (Nat.equal c (6 + …)) rfl) && Decidable.toBool (Nat.decEqFrom (2 + …) (9 + …) (Nat.equal … …) rfl) && Decidable.toBool (Nat.decEqFrom … … … rfl) && Decidable.toBool … && True` and `Decidable.toBool (Nat.decEqFrom (Succ c) (7 + …) (Nat.equal c …) rfl) && Decidable.toBool (Nat.decEqFrom … … … rfl) && Decidable.toBool … && Decidable.toBool …`
+    │ Note 1: computing both sides gives `Decidable.toBool (Nat.decEqFrom (Succ c) (… + c + 7) (Nat.equal c (… + 6)) rfl) && Decidable.toBool (Nat.decEqFrom (… + 2) (… + 9) (Nat.equal … …) rfl) && Decidable.toBool (Nat.decEqFrom … … … rfl) && Decidable.toBool … && True` and `Decidable.toBool (Nat.decEqFrom (Succ c) (… + 7) (Nat.equal c …) rfl) && Decidable.toBool (Nat.decEqFrom … … … rfl) && Decidable.toBool … && Decidable.toBool …`
     │ 
-    │ Note 2: they first differ at `Decidable.toBool (Nat.decEqFrom (4 + …) (19 + …) (Nat.equal … …) rfl) && True` against `Decidable.toBool (Nat.decEqFrom (4 + (… + c)) (19 + (… + c)) (Nat.equal (… + c) (15 + …)) rfl)`
+    │ Note 2: they first differ at `Decidable.toBool (Nat.decEqFrom (… + c + 4) (… + c + 19) (Nat.equal (… + c) (… + 15)) rfl) && True` against `Decidable.toBool (Nat.decEqFrom (… + c + 4) (… + c + 19) (Nat.equal (… + c) (… + 15)) rfl)`
     │ 
     │ Note 3: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯

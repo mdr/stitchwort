@@ -17,7 +17,7 @@ expression: output
     │ 
  22 │         | False => n => Bool.andRight b (reach flag (Succ k) c d) hc
     │                                                                   ─┬  
-    │                                                                    ╰── expected `(b && (if flag c then (match …) flag k c d || reach flag k (Succ c) d else reach flag k c d)) = True`, but this has type `(b && reach flag k c d) = True`
+    │                                                                    ╰── expected `(b && (if flag c then (match …) flag k c d || reach flag k (c + 1) d else reach flag k c d)) = True`, but this has type `(b && reach flag k c d) = True`
     │     
     │     Note 1: a term written out inside a branch (an explicit argument, or a type you wrote) isn't refined by the `match`: only the goal and the variables in scope are, so it still has the scrutinee in it. Write `_` for such an argument, so it is inferred from the hypothesis (docs/syntax.md, "Proving things about a definition with an inner `match`")
     │     
