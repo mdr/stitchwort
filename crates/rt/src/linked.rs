@@ -415,6 +415,8 @@ pub fn decode(bytes: &[u8]) -> Result<Linked, CodecError> {
     let limits = Limits {
         steps: r.uint()?,
         frames: r.usize()?,
+        // Only the counterexample search counts words; it builds nothing.
+        number_words: false,
     };
     let main_row = match r.u8()? {
         0 => MainRow::Io,

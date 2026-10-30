@@ -162,6 +162,9 @@ pub struct Budget {
     /// Whether the flag has been seen set: from then on every operation
     /// fails with [`ResourceError::Cancelled`], until [`Budget::reset`].
     cancelled: Cell<bool>,
+    /// Whether an operation on a big number costs a step per machine word
+    /// it works through ([`Budget::number_words`]).
+    number_words: Cell<bool>,
 }
 
 impl Default for Budget {
@@ -183,6 +186,7 @@ impl Default for Budget {
             cancel: RefCell::new(None),
             watching: Cell::new(false),
             cancelled: Cell::new(false),
+            number_words: Cell::new(false),
         }
     }
 }
@@ -383,6 +387,32 @@ impl Budget {
             self.arm();
         }
         result.map(Some)
+    }
+
+    /// Turns on or off whether a native operation on big numbers (past a
+    /// machine word) also costs a step per word it works through
+    /// ([`crate::native::number_words`]), so that the steps bound its time
+    /// and memory: the counterexample search turns it on while it runs an
+    /// input (SW-907), where a number at a word's edge, used as a count of
+    /// doublings or an exponent, makes numbers of gigabytes in a few steps.
+    /// Otherwise a native operation is one step. Returns what it was.
+    pub fn count_number_words(&self, on: bool) -> bool {
+        self.number_words.replace(on)
+    }
+
+    /// Charges `words` steps for a native operation on big numbers, when
+    /// they count ([`Budget::count_number_words`]).
+    #[inline]
+    pub fn number_words(&self, words: impl FnOnce() -> u64) -> Result<()> {
+        if !self.number_words.get() {
+            return Ok(());
+        }
+        let work = self.work.get().saturating_add(words());
+        self.work.set(work);
+        if work > self.work_limit.get() {
+            return self.slow_step(work);
+        }
+        Ok(())
     }
 
     /// The error the current operation ran out with, if it did.

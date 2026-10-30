@@ -206,6 +206,28 @@ fn a_bug_at_a_machine_words_edge_is_found() {
     assert_eq!(log.found_by, Some(Phase::Random), "{log:?}");
 }
 
+/// SW-907: an edge number used as a count of doublings or as an exponent
+/// makes huge numbers in few steps. Each operation on a big number costs a
+/// step per word, on the fast runtime and on the reference evaluator alike,
+/// so those inputs run out of steps and the test tier's memory cap is never
+/// reached; before, either went past 4 GB in seconds. The time is a loose
+/// backstop, many times the budget.
+#[test]
+fn big_numbers_count_toward_an_inputs_steps() {
+    for (fast, runner) in [(true, Runner::Fast), (false, Runner::Reference)] {
+        let (notes, log) = search("goals/counterexample-big-numbers.sw", fast);
+        assert!(notes.is_empty(), "{notes:?}");
+        let searched: Vec<&str> = log.iter().map(|l| l.theorem.as_str()).collect();
+        assert_eq!(searched, ["doubleTimesHalved", "powTwoIsPow"], "{log:?}");
+        for l in &log {
+            assert_eq!(l.runner, Some(runner), "{l:?}");
+            assert!(l.found.is_none() && l.random > 0, "{l:?}");
+            assert!(l.out_of_steps > 0, "{l:?}");
+            assert!(l.micros.is_none_or(|m| m < 10_000_000), "{l:?}");
+        }
+    }
+}
+
 /// A record with `(ok: lo <= hi)` never has `lo > hi`: the true statement
 /// about it holds on every input, none discarded, and the false one's
 /// counterexample is a range that exists.

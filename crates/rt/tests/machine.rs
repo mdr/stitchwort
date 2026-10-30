@@ -430,12 +430,44 @@ def main(): {IO} () :=
         Limits {
             steps: u64::MAX,
             frames: 10_000,
+            number_words: false,
         },
     );
     assert_eq!(out, "before\n");
     assert_eq!(
         result,
         Err("ran out of resources: it recursed more deeply than allowed".into())
+    );
+}
+
+/// With `number_words` (the counterexample search's, SW-907), an operation
+/// on a big number costs a step per word: squaring 2 twenty times, 20
+/// frames, would make a number of 2^20 bits, but runs out of steps first.
+/// Without it, the same steps are plenty.
+#[test]
+fn big_numbers_cost_their_words_when_they_count() {
+    let source = r#"
+import Std (Nat, Text)
+
+def square: Nat -> Nat -> Nat
+  | 0, n => n
+  | Succ k, n => square k (n * n)
+
+def main(): {IO} () := IO.print (Nat.toText (square 20 2 % 1000))
+"#;
+    let limits = |number_words| Limits {
+        steps: 10_000,
+        frames: 100,
+        number_words,
+    };
+    let (out, result) = on_the_machine(source, limits(false));
+    assert_eq!(result, Ok(()));
+    assert_eq!(out, "136\n");
+    let (out, result) = on_the_machine(source, limits(true));
+    assert_eq!(out, "");
+    assert_eq!(
+        result,
+        Err("ran out of resources: it took more evaluation steps than allowed".into())
     );
 }
 
@@ -455,6 +487,7 @@ def main(): {IO} () := IO.print (Nat.toText (loop 3000000 0))
         Limits {
             steps: u64::MAX,
             frames: 100,
+            number_words: false,
         },
     );
     assert_eq!(result, Ok(()));
@@ -478,6 +511,7 @@ def main(): {IO} () := IO.print (Nat.toText (build 100000 []).length)
         Limits {
             steps: u64::MAX,
             frames: 100,
+            number_words: false,
         },
     );
     assert_eq!(result, Ok(()));
@@ -522,6 +556,7 @@ def main(): {IO} () :=
         Limits {
             steps: u64::MAX,
             frames: Limits::default().frames,
+            number_words: false,
         },
     );
     assert_eq!(result, Ok(()));
@@ -624,6 +659,7 @@ def main(): {IO} () := IO.print (Nat.toText (total 20000 (Some 1)))
         Limits {
             steps: 500_000,
             frames: 1_000_000,
+            number_words: false,
         },
     );
     assert_eq!(result, Ok(()));
@@ -692,6 +728,7 @@ def main(): {IO} () :=
         Limits {
             steps: 10_000,
             frames: 100,
+            number_words: false,
         },
         input.as_bytes(),
     );

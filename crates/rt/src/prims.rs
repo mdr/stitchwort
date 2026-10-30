@@ -339,6 +339,65 @@ fn nat_to_text(n: &Value) -> Value {
 }
 
 /// Computes native operation `op` (not `Text.fold`) on `args`.
+/// The machine words of a number: 1 for one that fits a word.
+fn words(v: &Value) -> u64 {
+    match v {
+        Value::BigNat(n) => n.bits().div_ceil(64),
+        Value::BigInt(n) => n.bits().div_ceil(64),
+        _ => 1,
+    }
+}
+
+/// The steps an operation on numbers costs beyond its frame when
+/// [`crate::Limits::number_words`] is on: none unless an argument is a big
+/// number; then the product of the two operands' words for a
+/// multiplication or a division (schoolbook's bound, counted before the
+/// work is done, so a huge product is never made), and the sum of the
+/// arguments' words for anything else.
+pub fn number_cost(op: PrimOp, args: &[&Value]) -> u64 {
+    use IntNative as I;
+    let numeric = matches!(
+        op,
+        PrimOp::Nat(_) | PrimOp::Int(_) | PrimOp::NegSucc | PrimOp::IntEqual
+    );
+    if !numeric
+        || !args
+            .iter()
+            .any(|v| matches!(v, Value::BigNat(_) | Value::BigInt(_)))
+    {
+        return 0;
+    }
+    let operands = match op {
+        PrimOp::Nat(Native::Mul)
+        | PrimOp::Int(
+            I::IntMul
+            | I::IntDiv
+            | I::IntMod
+            | I::IntTDiv
+            | I::IntTMod
+            | I::IntFDiv
+            | I::IntFMod
+            | I::IntModNat,
+        ) => Some((args[0], args[1])),
+        // `divFuel fuel n d`.
+        PrimOp::Nat(Native::DivFuel) => Some((args[1], args[2])),
+        _ => None,
+    };
+    match operands {
+        Some((a, b)) => words(a).saturating_mul(words(b)),
+        None => args
+            .iter()
+            .filter(|v| {
+                matches!(
+                    v,
+                    Value::Nat(_) | Value::BigNat(_) | Value::Int(_) | Value::BigInt(_)
+                )
+            })
+            .map(|v| words(v))
+            .fold(0, u64::saturating_add),
+    }
+}
+
 pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
     match op {
         PrimOp::Nat(n) => match n {
