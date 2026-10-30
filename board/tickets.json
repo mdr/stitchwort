@@ -8617,9 +8617,9 @@
     {
       "id": 907,
       "title": "Counterexample search ignores its time budget and blows memory on shiftLeft-shaped theorems (unreproduced)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "janitorial lane",
       "labels": [
         "elab",
         "bug"
@@ -8632,9 +8632,9 @@
     {
       "id": 908,
       "title": "(c: {} Nat) parameter type read as an empty record literal (E-CANNOT-INFER); gaps.sw header stale",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "janitorial lane",
       "labels": [
         "elab",
         "bug"
