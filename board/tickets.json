@@ -7208,9 +7208,9 @@
     {
       "id": 817,
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
-      "status": "backlog",
-      "agent": "",
-      "where": "stages 1-3 merged (84e7e339); stage 3 queues sections whole (deviation, keeps D506); next: stage 4 (number literals, defaults ladder)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "stage 4 lane: K4 number literals, defaults ladder",
       "labels": [
         "decision"
       ],
