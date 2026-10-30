@@ -695,7 +695,7 @@ motive q` (draft 1), reads better but needs a `Mem` for each container and doesn
 Proposal: the generated `T.induct` uses the `All` form, as LFST do; for a field whose type is
 `List T` or `Option T` directly, a corollary `T.inductMem` with the membership hypothesis is
 generated from it with `List.All.mem` (a library lemma). `List.All` already exists as a
-definition by recursion (`std/List/Toolkit.sw:343`); stage 3 generates `D.All` the same way for
+definition by recursion (`std/core/ListOptionPair.sw:89`, moved there from `List/Toolkit.sw` in stage 3); stage 3 generates `D.All` the same way for
 a user's container (a `def`, one predicate per nestable parameter, `Prop`-valued only, since
 Stitchwort has no sort polymorphism), and the helpers above per occurrence. That's D1823.
 
