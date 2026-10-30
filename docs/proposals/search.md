@@ -8,7 +8,7 @@ measuring prototype by D2044. The prototype is on the branch, hidden and marked 
 
 Labels, as in the other notes:
 
-- **[checked: file:line]**: read in the Stitchwort source or docs, at `82a79b30` (main when this
+- **[checked: file:line]**: read in the Stitchwort source or docs, at `ea855ed6` (main when this
   was written) plus the prototype commit;
 - **[run]**: run with the release CLI built from this branch on 30 October 2026, under
   `dev/memguard --cap-gb 2` and `timeout 300`. Times are wall-clock milliseconds printed by the
