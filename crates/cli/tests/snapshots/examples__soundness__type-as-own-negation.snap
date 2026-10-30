@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `T` terminates
+   ╭─[ soundness/type-as-own-negation.sw:5:16 ]
+   │
+ 5 │ def T: Prop := T → Void
+   │                ┬  
+   │                ╰── this recursive call might not terminate: `T` has no parameters, so nothing can get smaller
+   │ 
+   │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+   │ 
+   │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+───╯

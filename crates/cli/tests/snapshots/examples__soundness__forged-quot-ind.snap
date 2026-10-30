@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DUPLICATE] Error: `Quot.ind` is built in and can't be redefined
+   ╭─[ soundness/forged-quot-ind.sw:4:5 ]
+   │
+ 4 │ def Quot.ind (n: Nat): Nat := n
+   │     ────┬───  
+   │         ╰───── `Quot.ind` is built in and can't be redefined
+───╯

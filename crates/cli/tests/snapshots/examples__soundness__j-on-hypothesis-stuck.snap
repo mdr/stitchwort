@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ soundness/j-on-hypothesis-stuck.sw:7:60 ]
+   │
+ 7 │ theorem bad (y: Nat) (h: 0 = y): J (z _ => Nat) 5 h = 5 := rfl
+   │                                                            ─┬─  
+   │                                                             ╰─── `J (z _ => Nat) 5 h` and `5` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯

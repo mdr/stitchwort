@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `T` and `U` terminate
+   ╭─[ soundness/type-as-own-negation-mutual.sw:4:25 ]
+   │
+ 4 │ def T (n: Nat): Prop := U (Succ n)
+   │                         ────┬────  
+   │                             ╰────── this call to `U` might not terminate: no argument is known to be smaller
+   │ 
+ 6 │ def U (n: Nat): Prop := T (Succ n) → Void
+   │                         ────┬────  
+   │                             ╰────── then this call to `T`: no argument is known to be smaller
+   │ 
+   │ Note 1: going round `T` → `U` → `T`, over and over, no argument is known to get smaller
+   │ 
+   │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+   │ 
+   │ Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+───╯

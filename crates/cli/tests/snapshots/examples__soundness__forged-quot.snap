@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DUPLICATE] Error: `Quot` is built in and can't be redefined
+   ╭─[ soundness/forged-quot.sw:7:6 ]
+   │
+ 7 │ type Quot = | A | B
+   │      ──┬─  
+   │        ╰─── `Quot` is built in and can't be redefined
+───╯
