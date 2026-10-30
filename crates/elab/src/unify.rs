@@ -123,12 +123,21 @@ fn on_pending(g: &Globals, level: usize, v: &Value) -> Result<bool> {
         Value::Neutral(Head::Meta(_) | Head::Def(_), _) => {}
         _ => return Ok(false),
     }
-    Ok(match quote_at_most(g, level, &v, KNOWN_CAP)? {
-        Some(t) => t
+    if let Some(t) = quote_at_most(g, level, &v, KNOWN_CAP)? {
+        return Ok(t
             .subterms()
-            .any(|(t, _)| matches!(t, Term::Meta(m) if pending(*m))),
-        None => false,
-    })
+            .any(|(t, _)| matches!(t, Term::Meta(m) if pending(*m))));
+    }
+    // Too large to read back cheaply (a call unfolded into a whole
+    // proof's statement): look for each pending unknown, as the occurs
+    // check does. There are few.
+    let pending: Vec<usize> = PENDING.with(|p| p.borrow().iter().copied().collect());
+    for m in pending {
+        if mentions_meta(g, level, m, &v)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// Whether `m` is pending ([`PENDING`]).
