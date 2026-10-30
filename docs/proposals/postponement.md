@@ -1861,6 +1861,144 @@ those of the table above.
    or a section's waiting `.f` reports; what is removed is its separate path, which failed at
    once.
 
+## Stage 6: design (tri-state unification)
+
+Written in SW-817's stage-6+4 lane (D2051: stage 6 first, then stage 4, one lane), on
+`b6f8d2ae` (main `edd5243b` plus the `retried` counter, cherry-picked from the stopped stage-4
+experiment `03d76458`). Line numbers are of `b6f8d2ae`.
+
+**Why now.** Stage 4 (K4, number literals wait) was tried and stopped (branch
+`postponement-stage4-experiment`, `27f66005`): with literals waiting until the end of the
+declaration, 11 proofs main accepts failed, 7 in std (`List/Lemmas.sw:977`, `:1149`, `:1154`,
+`:1546`, `:1793`; `List/Index.sw:245`; `PrefixSums/BlockSum.sw:40`) and 4 in aoc (2024
+`Day08/Proofs/Part1.sw:81`, `Day10/Proofs/Proofs.sw:140`, `Day17/Proofs/Search.sw:46`; 2025
+`Day08/Proofs/Part2.sw:287`). In each, only the `Nat` default fixes a literal's type, and a
+proof in the same declaration compares against its value first; the comparison can't wait, so it
+fails on the unfilled placeholder. Rerun on this base with `27f66005` applied **[run]**: 6 are
+`E-TYPE-MISMATCH` or `E-REFL` at a comparison with a placeholder in it (`?2 ?3` and `?4`; `[?7
+[]] ∉ [[?14 []]]`; `DecEq.%decide (?22 …) …`), one is `rfl` against an expected type that *is*
+a placeholder (`Lemmas.sw:977`, "the expected type is `?3 ?4`"), and one is `rewrite` finding
+nothing in a goal that holds one (`Day17/Proofs/Search.sw:46`, `E-REWRITE-NOTHING`). That is
+§5.13's trigger, so stage 6 comes first.
+
+### The unifier's callers
+
+`unify::unify` answers `true` or `false` (`unify.rs:26`, `run` at `:41`). Every call outside
+the unifier, by kind, with what each does with `false` today **[checked]**:
+
+| kind | sites | `false` means today |
+|---|---|---|
+| **checking against an expected type** | `check::compare` (`check.rs:4198`): `undo::unify`, then dictionaries found and compared again (`:4210-4243`), `effects::coerce`, `rows::postpone`, `lift::await_helpers`, then the mismatch. Direct shortcuts that give their own message or choose a shape: `check.rs:2146`, `2855`, `3145`, `3259`, `3352`, `3394`, `3619`, `4350`, `4450`, `4913`, `4921`, `4942`, `5054`; `numbers.rs:257`, `:299`, `:973`, `:999`, `:1161`; `dot.rs:543`, `:942`, `:1632`; `records.rs:836`, `:1034`, `:1042`; `calc.rs:74`, `:130`; `patlet.rs:232`, `:287`; `ring.rs:1257`; `omega.rs:3350`; `quot.rs:253`; `defaults.rs:658`; `reify.rs:142`; `lib.rs:4306`; `families.rs:217` | `compare`: the declaration's (or the enclosing attempt's) `E-TYPE-MISMATCH`, after every other way. The shortcuts: another way, or their own error |
+| **`rfl`** | `check.rs:3514` (with `lift::await_helpers` at `:3515` and `refl_after_instances`, `:5170`, `:5176`), its message at `:3522`; `lift.rs:266` (a comparison kept for helpers, made again after lifting) | `E-REFL` |
+| **`rewrite`** | `rewrite.rs:531`, `:578`, `:1124-1127`, `:1207`, `:1380`, `:1471`, `:1507`; `rewrite/under.rs:337`; `search.rs:265`, `:271` | this occurrence, hypothesis or motive doesn't fit: try the next, or `E-REWRITE-NOTHING` |
+| **instance and proof search** | `interfaces.rs:1031`, `:1276`; `auto.rs:172`, `:246`, `:267`, `:412`, `:417`, `:475`, `:479`, `:657`, `:982`, `:984`, `:1009` | this candidate doesn't apply: the next; an obligation whose type is unknown already waits (`Attempt::Wait`) |
+| **`cases`, `omega`, decisions** | `omega.rs:2056`, `:3325`; `ring.rs:1179`, `:1243`; `matching.rs:279`; `decreasing.rs:2551`; `calc.rs:256`, `:499`, `:500` | not this atom, branch or shape: the next |
+| **try-and-undo** | `undo::unify` and `undo::unify_solving_arguments` (`undo.rs:213`, `:218`), used by `compare`, `rfl`, `check.rs:2289-2290` (expected-type propagation), `:3335`, `records.rs:1042`, `matching.rs:279`, `effects.rs:655`, `lift.rs:266`, `rewrite.rs`; and the 51 `Snapshot::take` sites outside `undo.rs` and 35 `transaction`/`attempt` calls, each of which may wrap any of the above | undone; the attempt takes its next alternative (§5.7, T1) |
+| **effects and rows** | `rows.rs:225`, `:295` (`unify_postponing`, which already puts a row comparison aside: `RowConstraint`, the precedent for this stage), `:390`, `:394`; `effects.rs`, 25 sites | rows: kept as a row constraint, retried in the obligations loop; the rest: their own error or route |
+| **the queue's own** | `queue.rs` `fill`; `check.rs:2264`, `:2300` (a postponed lambda's placeholder); `lift.rs:233` (`unify_awaiting_helpers`, the other precedent: a helper's frozen unknown taken as equal, compared again after lifting) | the item's mismatch at its span |
+| **inside the unifier** | `unify.rs`: the nested comparisons of `unify_step` (a call's arguments, `same_arguments`, stuck case trees, the `+` rule) | the enclosing pair fails, or is put aside (SW-896) |
+
+### What `Blocked` means, per kind
+
+`unify` gains a tri-state form, `unify_waiting`, answering **Yes**, **No** or
+**Blocked(pairs)**. A pair is set aside, rather than failing the comparison, only if it fails
+where one side is a **pending** unknown applied to anything, or is flexible (another unknown
+applied, a stuck call, a sum on one) and mentions a pending one. **Pending** means: a
+placeholder no check has filled, or the unknown a waiting item waits on (`queue::pending`). These
+are exactly the unknowns the queue *owns*: each is settled by the end of the declaration (by its
+item's resumption, a default, or the item is reported stuck), so a comparison that waits on one
+always gets an answer by W4. An ordinary unknown is not pending: a pair stuck on one fails, as
+today. (Agda waits on any unknown; restricting waits to the queue's own keeps every comparison
+that doesn't meet postponed syntax exactly as it is.) Comparisons nested inside a pair answer for
+themselves: the outer pair is what waits (`unify::nested`). The rest of the comparison goes on,
+and what it solves stays solved: those are pattern solutions forced by other pairs, as today.
+
+| kind | `Blocked` | why |
+|---|---|---|
+| checking against an expected type: `compare`'s **last** step | **waits**: a queued comparison (`Failure::Mismatch`) | `compare` is where a mismatch becomes the error. Asked only after every other way failed, so a comparison that succeeds today never reaches it |
+| the direct shortcuts | No, as today | each is a shape test with another way after it, or `compare` follows |
+| `rfl`'s **last** step | **waits** (`Failure::Refl`) | as `compare`; `rfl` against an expected type whose head is pending (`Lemmas.sw:977`) is stage 4's, below |
+| `rewrite` | No inside its search; the **rewrite as a whole** may wait as an item when its goal holds an unfilled placeholder (as D2035's `Decide` waits) | a search over occurrences can't commit to a pair that may not hold; but its goal is known once the placeholder is filled. Built in stage 4 only if K4 needs it (`Day17/Proofs/Search.sw:46`) |
+| instance and proof search | No | a candidate is chosen now; obligations already wait at their own level |
+| `cases`, `omega`, decisions | No | a decision procedure that waited would commit to a branch |
+| try-and-undo | No: the boolean `unify` is unchanged | an attempt chooses between alternatives now. A `compare` or `rfl` *inside* an attempt may wait; the waiting comparison belongs to that attempt (invariant 5: undone with it) |
+| effects and rows | No, as today | rows have their own postponement |
+| the queue's own | No | a fill solves its placeholder |
+| inside the unifier | the enclosing pair | nesting (`unify::nested`) |
+
+**The risk this keeps** [inferred]: a `compare` or `rfl` inside an attempt that today fails, so
+that the attempt takes another alternative, now waits, and the attempt succeeds. If the waiting
+comparison later holds, the program is accepted on that route (a hash may change); if it fails,
+it fails at a resume point. Within its own application's W1 that is still inside any attempt
+that encloses the application; outside it, the route is committed and the program is rejected
+where another alternative would have succeeded. Only comparisons that meet a pending unknown can
+take this path, which is measurable: the stage-2 counters found 8 such comparisons in aoc and 2
+in the accepted examples ("met unfilled"). Every one is checked below.
+
+### Waking, the ladder, and invariant 7
+
+A blocked comparison becomes a queue item, a `Comparison` (no syntax, no term: its placeholder
+stands for nothing), with its pairs, the two types, its caller's failure kind, and its blockers:
+the pending unknowns its pairs mention. It is created in the scope it was made in, so the
+queue's own rules apply unchanged:
+- **woken** at the resume points, when **any** of its blockers is solved (`Check::wakes`), not
+  only the first; selected at ladder step 1 with the items, in creation order, scoped as items
+  are (invariant 3: at W1 only if made inside that application);
+- **resumed** in its saved context by its caller's ways again (`compare`: the comparison, then
+  with dictionaries found; `rfl`: the comparison, then `refl_after_instances`), then by
+  `unify_waiting`: Yes, it is done; No, it fails with its caller's error against the types now
+  known, at its own span (§5.9's rule for resumed items); Blocked, it waits again on what it is
+  now stuck on (`Resumed::WaitingAs`, so a restore takes that back);
+- **invariant 7**: a comparison has no default. A default is applied only when no item and no
+  comparison can resume and the obligations loop is quiet; after a default the ladder goes back
+  to step 1, where the items it unblocks fill their placeholders and the comparisons on them
+  wake;
+- **invariant 5**: it is an item, so snapshots record and restore it.
+
+**Stuck at the end.** A comparison still waiting at W4 waits on a pending unknown; after the
+ladder, that is a stuck item's placeholder or blocker. The stuck report groups it with that
+item (it depends on it, or shares its blocker), and reports the item, the root, as §5.9 does;
+the comparison is a consequence. Its own error, computed when it began waiting (its caller's
+error then), is reported only if it were a root, which the definition of pending rules out.
+
+### D2016's end state: placeholders frozen
+
+With comparisons able to wait, a placeholder is frozen until its check fills it: unification
+treats it as a rigid unknown equal only to itself (as `Globals::frozen_metas` are), never solves
+it, never prunes it, and never solves it by comparing two stuck calls' arguments (the lossy rule
+of the caveat to P1). The set lives on `Globals` (`unfilled_placeholders`), kept in step with
+the queue, so it can't leak between elaborators on one thread. The fill unfreezes and solves it.
+**Decided: freeze now**, from the measurement **[run, with this design prototyped]**:
+- unfrozen, aoc waits once (`Day24/Proofs/Adder.sw`, the `allMember` of §"As built (stage 2)"),
+  with every std + aoc hash unchanged;
+- frozen, aoc waits 17 times and `solved first` falls from 16 to 0 (`lossy` from 11 to 0); every
+  std + aoc hash, every accepted and extract example hash at `STITCHWORT_TIER=full` is unchanged;
+  every example keeps its outcome and its error message (no snapshot written). The example and
+  the four aoc proofs that draft 3's freeze broke (§6.7) pass: their comparisons wait.
+
+### Termination (extending §5.7)
+
+T1 is unchanged: no attempt site is added (`compare_waiting` takes one snapshot, restored if the
+answer is No: straight-line, one alternative). T3 holds for comparisons as for items. T4 gains
+one fact: **a waiting comparison is resumed only after one of its blockers was solved since it
+began waiting**, and resuming it either finishes it, fails, or makes it wait again on pending
+unknowns still unsolved. Within a branch solutions are never taken back, and the branch's
+unknowns are finite (each is made by elaborating finite syntax, measure 1), so a comparison is
+resumed at most once per unknown solved in its branch. A comparison makes no items and no
+syntax, and `unify_waiting` steps the budget as `unify` does. So measure 1 (a waiting comparison
+counting as an unfinished occurrence) falls when it finishes, and between its resumptions the
+count of unsolved unknowns in the branch falls. Across branches, comparisons are items, undone
+with their attempt (T1-T2 unchanged).
+
+### What stage 6 doesn't do
+
+- W1 stays as frequent as it is (D2014's S4 allows fewer; nothing asks for it).
+- Shortcuts, searches and decisions answer as today. If a case needs one of them to wait, it is
+  queued as an item at that site, as `Decide` was (D2035), not by making the search tri-state.
+- The note's "met unfilled" counter keeps its meaning (failing pairs headed by an unfilled
+  placeholder or a call stuck on one), counted in every comparison, waiting or not; a new counter,
+  `waited`, counts comparisons queued.
+
 ## Review 1 and how it was addressed
 
 The review is [postponement/review-1.md](postponement/review-1.md): "approve with revisions".
