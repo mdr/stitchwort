@@ -7,27 +7,34 @@
 //! is any term, `?x` a named hole (every `?x` must match the same term), and
 //! a leading `⊢` (or `|-`) matches the conclusion only.
 //!
-//! Draft 2's measuring directives (also comma-separated parts, so that
-//! `main.rs` needn't change):
+//! Measuring directives (also comma-separated parts, so that `main.rs`
+//! needn't change):
 //! - `mode:rewrite` matches the two sides of an equation only;
 //!   `mode:permute` and `mode:subset` let a function pattern's parameters
 //!   match in another order (and, with `subset`, a theorem with more);
 //! - `rank:NAME` orders the results by one of [`RANKINGS`];
+//! - `tiers:on` finds each match's best relation (draft 3, D2062);
+//!   `ho:on` also tries targets headed by a theorem variable (`p x`);
+//!   `iff:on` lets `mode:rewrite` take `Iff` conclusions; `filter:either`
+//!   and `filter:off` change the constants filter, `data:on` adds data
+//!   types to it;
 //! - `self:conclusion` or `self:left` runs the self-retrieval benchmark:
 //!   every std theorem's own conclusion (or left side, in `mode:rewrite`)
-//!   as a pattern, reporting where the theorem ranks under each ranking.
+//!   as a pattern, reporting where the theorem ranks under each ranking;
+//!   `self:uses` runs the proof-use benchmark (draft 3 §6.2): each lemma
+//!   used in a std proof, searched for with the statement it proved there.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::process::ExitCode;
 use std::time::Instant;
 
 use stitchwort_cli::driver::Session;
-use stitchwort_core::{DefId, Globals};
-use stitchwort_elab::search::{self, Hit, Mode, Place, Side, Stats};
+use stitchwort_core::{DataId, DefId, Globals, Term};
+use stitchwort_elab::search::{self, Filter, Hit, Index, Mode, Opts, Place, Relation, Side, Stats};
 use stitchwort_syntax::Span;
 
-/// The rankings compared in draft 2 §5.1, by name.
-const RANKINGS: [&str; 8] = [
+/// The rankings compared in draft 2 §5.1 and draft 3 §5.1, by name.
+const RANKINGS: [&str; 10] = [
     "draft1",
     "draft1+hyps",
     "isabelle",
@@ -36,22 +43,23 @@ const RANKINGS: [&str; 8] = [
     "proposed",
     "proposed+rare",
     "rare-first",
+    "tiered",
+    "weak-last",
 ];
 
-/// What the rankings need besides a hit: per candidate, the constants its
-/// type names, and per constant, how rare it is.
+/// What the rankings need besides a hit: per constant, how rare it is.
 struct Rarity {
     /// `ln(N / df)` for each constant, times 100, where `df` is how many
     /// candidates name it (inverse document frequency, as MaSh weights
     /// features).
-    idf: std::collections::BTreeMap<DefId, i64>,
+    idf: BTreeMap<DefId, i64>,
 }
 
 impl Rarity {
-    fn new(index: &[BTreeSet<DefId>]) -> Rarity {
-        let mut df: std::collections::BTreeMap<DefId, usize> = Default::default();
+    fn new(index: &[Index]) -> Rarity {
+        let mut df: BTreeMap<DefId, usize> = Default::default();
         for set in index {
-            for c in set {
+            for c in &set.ty {
                 *df.entry(*c).or_default() += 1;
             }
         }
@@ -86,6 +94,7 @@ fn key(
         Place::Right => Place::Left as i64,
         p => p as i64,
     };
+    let relation = hit.relation as i64;
     let (a, i) = (hit.absorbed as i64, hit.instantiated as i64);
     let (size, hyps) = (hit.size as i64, hit.hyps as i64);
     let namelen = g.def(hit.id).path.to_string().len() as i64;
@@ -107,7 +116,18 @@ fn key(
         // The same with rarity (MePo, MaSh, Hoogle) after specificity.
         "proposed+rare" => vec![place, a, i, extra, hyps, size],
         "rare-first" => vec![place, extra, a, i, hyps, size],
-        _ => vec![place, a, i, namelen],
+        // Draft 3 §5.1 (D2062): the relation first, then draft 2's.
+        "tiered" => vec![relation, place, a, i, hyps, size],
+        // Draft 2's, with common-instance matches last.
+        "weak-last" => vec![
+            (hit.relation == Relation::Common) as i64,
+            place,
+            a,
+            i,
+            hyps,
+            size,
+        ],
+        _ => vec![relation, place, a, i, hyps, size],
     }
 }
 
@@ -120,50 +140,86 @@ pub struct Args {
     pub repeat: usize,
 }
 
+/// What a benchmark measures.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Bench {
+    Conclusion,
+    Left,
+    Uses,
+}
+
 /// A pattern split into its parts.
 struct Query {
     names: Vec<String>,
     /// The type pattern with each `?x` written as `_`, and the offsets of
     /// each named hole's occurrences.
     pattern: Option<(String, Vec<Vec<u32>>)>,
-    conclusion_only: bool,
-    mode: Mode,
+    opts: Opts,
     ranking: String,
-    self_retrieval: Option<Side>,
+    bench: Option<Bench>,
+    /// For `self:uses`: take every Nth use.
+    every: usize,
+    /// The relaxed second pass (on unless `relax:off`).
+    relax: bool,
 }
 
 fn parse_query(text: &str) -> Query {
     let mut names = Vec::new();
     let mut pattern = None;
     let mut conclusion_only = false;
-    let mut mode = Mode::Plain;
-    let mut ranking = "draft1".to_string();
-    let mut self_retrieval = None;
+    let mut opts = Opts::default();
+    let mut ranking = "tiered".to_string();
+    let mut bench = None;
+    let mut every = 1;
+    let mut relax = true;
     for part in split_top(text) {
         let part = part.trim();
         if part.len() >= 2 && part.starts_with('"') && part.ends_with('"') {
             names.push(part[1..part.len() - 1].to_string());
             continue;
         }
-        if let Some(m) = part.strip_prefix("mode:") {
-            mode = match m.trim() {
-                "rewrite" => Mode::Rewrite,
-                "permute" => Mode::Permute,
-                "subset" => Mode::Subset,
-                _ => Mode::Plain,
-            };
-            continue;
-        }
-        if let Some(r) = part.strip_prefix("rank:") {
-            ranking = r.trim().to_string();
-            continue;
-        }
-        if let Some(s) = part.strip_prefix("self:") {
-            self_retrieval = Some(if s.trim() == "left" {
-                Side::Left
-            } else {
-                Side::Conclusion
-            });
+        if let Some((key, value)) = part.split_once(':')
+            && !key.contains(' ')
+            && [
+                "mode", "rank", "self", "tiers", "ho", "iff", "filter", "data", "every", "relax",
+            ]
+            .contains(&key)
+        {
+            let value = value.trim();
+            let on = value == "on";
+            match key {
+                "mode" => {
+                    opts.mode = match value {
+                        "rewrite" => Mode::Rewrite,
+                        "permute" => Mode::Permute,
+                        "subset" => Mode::Subset,
+                        _ => Mode::Plain,
+                    }
+                }
+                "rank" => ranking = value.to_string(),
+                "self" => {
+                    bench = Some(match value {
+                        "left" => Bench::Left,
+                        "uses" => Bench::Uses,
+                        _ => Bench::Conclusion,
+                    })
+                }
+                "tiers" => opts.tiers = on,
+                "ho" => opts.ho = on,
+                // Filled in once the library is loaded.
+                "iff" => opts.iff = on.then_some(DataId(usize::MAX)),
+                "filter" => {
+                    opts.filter = match value {
+                        "off" => Filter::Off,
+                        "either" => Filter::Either,
+                        _ => Filter::Pattern,
+                    }
+                }
+                "data" => opts.data = on,
+                "every" => every = value.parse().unwrap_or(1).max(1),
+                "relax" => relax = value != "off",
+                _ => {}
+            }
             continue;
         }
         let mut p = part.to_string();
@@ -203,145 +259,386 @@ fn parse_query(text: &str) -> Query {
         }
         pattern = Some((out, groups.into_iter().map(|(_, at)| at).collect()));
     }
+    opts.anywhere = !conclusion_only;
     Query {
         names,
         pattern,
-        conclusion_only,
-        mode,
+        opts,
         ranking,
-        self_retrieval,
+        bench,
+        every,
+        relax,
     }
 }
 
-/// The self-retrieval benchmark (draft 2 §6.1): each theorem's own
-/// conclusion (or left side) as a pattern; where does the theorem rank?
-fn self_retrieval(
+/// One benchmark query: how to make its pattern, the theorem it must find,
+/// and a theorem to leave out (the proof it was taken from).
+struct BenchQuery {
+    owner: DefId,
+    wanted: DefId,
+    make: Make,
+}
+
+enum Make {
+    Own(DefId, Side),
+    Use(DefId, Vec<Term>, usize),
+}
+
+/// A use: the proof, the lemma, its arguments, and the binders they are
+/// under.
+type Use = (DefId, DefId, Vec<Term>, usize);
+
+/// The uses of theorems in the proofs of std's theorems (and their
+/// helpers): the first use of each lemma in each proof, with all its
+/// arguments, and how many uses there were in all.
+fn lemma_uses(g: &Globals, candidates: &[DefId]) -> (Vec<Use>, usize) {
+    let wanted: BTreeSet<DefId> = candidates
+        .iter()
+        .copied()
+        .filter(|id| g.def(*id).theorem)
+        .collect();
+    let by_path: BTreeMap<String, DefId> = wanted
+        .iter()
+        .map(|id| (g.def(*id).path.to_string(), *id))
+        .collect();
+    let mut uses = Vec::new();
+    let mut seen: BTreeSet<(DefId, DefId)> = BTreeSet::new();
+    let mut all = 0;
+    for i in 0..g.defs.len() {
+        let id = DefId(i);
+        let def = g.def(id);
+        let path = def.path.to_string();
+        let owner = if wanted.contains(&id) {
+            id
+        } else if let Some((stem, _)) = path.split_once('%')
+            && let Some(o) = by_path.get(stem)
+        {
+            *o
+        } else {
+            continue;
+        };
+        let Some(body) = def.body() else { continue };
+        // Applications that are the function part of a larger one.
+        let mut inner: BTreeSet<*const Term> = BTreeSet::new();
+        for (t, _) in body.subterms() {
+            if let Term::App(f, _, _) = t {
+                let mut f = f.as_ref();
+                loop {
+                    inner.insert(f as *const Term);
+                    match f {
+                        Term::Loc(_, x) => f = x,
+                        Term::App(x, _, _) => f = x,
+                        _ => break,
+                    }
+                }
+            }
+        }
+        for (t, binders) in body.subterms() {
+            if matches!(t, Term::Loc(..)) || inner.contains(&(t as *const Term)) {
+                continue;
+            }
+            let (head, args) = t.spine();
+            let Term::Def(lemma) = head else { continue };
+            if !wanted.contains(lemma) || *lemma == owner {
+                continue;
+            }
+            all += 1;
+            if seen.insert((owner, *lemma)) {
+                uses.push((owner, *lemma, args.into_iter().cloned().collect(), binders));
+            }
+        }
+    }
+    (uses, all)
+}
+
+/// Where the wanted theorem ranks among `hits` under each ranking:
+/// `(ties for it, ties against it, ties broken by name)`.
+type Ranks = (usize, usize, usize);
+
+/// The self-retrieval and proof-use benchmarks (draft 2 §6.1, draft 3
+/// §6): each query's pattern searched over every theorem; where does the
+/// wanted theorem rank?
+fn benchmark(
     session: &mut Session,
     candidates: &[DefId],
-    index: &[BTreeSet<DefId>],
-    side: Side,
-    no_filter: bool,
+    index: &[Index],
+    bench: Bench,
+    opts: &Opts,
+    every: usize,
+    relax: bool,
 ) {
     let start = Instant::now();
     let rarity = Rarity::new(index);
-    let mode = if side == Side::Left {
-        Mode::Rewrite
+    let g = &session.elab.globals;
+    let mut opts = *opts;
+    if bench == Bench::Left {
+        opts.mode = Mode::Rewrite;
+    }
+    opts.anywhere = false;
+    let (uses, all_uses) = if bench == Bench::Uses {
+        lemma_uses(g, candidates)
     } else {
-        Mode::Plain
+        (Vec::new(), 0)
     };
-    // Per ranking: each query's optimistic rank (1 + hits strictly before
-    // it) and pessimistic rank (hits not after it, itself included).
-    let mut ranks: Vec<Vec<(usize, usize)>> = vec![Vec::new(); RANKINGS.len()];
-    let mut queries = 0;
+    let queries: Vec<BenchQuery> = match bench {
+        Bench::Uses => uses
+            .into_iter()
+            .enumerate()
+            .filter(|(n, _)| n % every == 0)
+            .map(|(_, (owner, lemma, args, depth))| BenchQuery {
+                owner,
+                wanted: lemma,
+                make: Make::Use(lemma, args, depth),
+            })
+            .collect(),
+        _ => candidates
+            .iter()
+            .filter(|id| g.def(**id).theorem)
+            .map(|id| BenchQuery {
+                owner: DefId(usize::MAX),
+                wanted: *id,
+                make: Make::Own(
+                    *id,
+                    if bench == Bench::Left {
+                        Side::Left
+                    } else {
+                        Side::Conclusion
+                    },
+                ),
+            })
+            .collect(),
+    };
+    let position: BTreeMap<DefId, usize> = candidates
+        .iter()
+        .enumerate()
+        .map(|(i, id)| (*id, i))
+        .collect();
+    // Per ranking, per query: the wanted theorem's ranks, or `None`.
+    let mut ranks: Vec<Vec<Option<Ranks>>> = vec![Vec::new(); RANKINGS.len()];
+    let mut relations: BTreeMap<String, usize> = BTreeMap::new();
+    let mut n_queries = 0;
     let mut skipped = 0;
     let mut missed: Vec<String> = Vec::new();
     let mut hit_counts: Vec<usize> = Vec::new();
     let mut stats = Stats::default();
     let mut panics: Vec<String> = Vec::new();
+    let mut truncated_queries = 0;
+    let mut relaxed = 0;
+    let mut relaxed_found = 0;
+    let mut lost_to_filter = 0;
+    let mut no_match = 0;
+    let mut no_match_kinds: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut no_match_examples: Vec<String> = Vec::new();
+    let mut query_ms: Vec<f64> = Vec::new();
     std::panic::set_hook(Box::new(|_| {}));
-    for (t, id) in candidates.iter().enumerate() {
-        if !session.elab.globals.def(*id).theorem {
-            continue;
-        }
-        let Some(pattern) = session.elab.theorem_pattern(*id, side) else {
+    for q in &queries {
+        let remake = |session: &mut Session| match &q.make {
+            Make::Own(id, side) => session.elab.theorem_pattern(*id, *side, opts.iff),
+            Make::Use(lemma, args, depth) => {
+                let args: Vec<&Term> = args.iter().collect();
+                session.elab.use_pattern(*lemma, &args, *depth)
+            }
+        };
+        let Some(pattern) = remake(session) else {
             skipped += 1;
             continue;
         };
-        queries += 1;
-        let mut hits: Vec<(Hit, usize)> = Vec::new();
-        for (i, other) in candidates.iter().enumerate() {
-            if !session.elab.globals.def(*other).theorem {
-                continue;
-            }
-            // An internal error in one comparison is counted, not fatal:
-            // the benchmark is also a robustness test.
-            let elab = &session.elab;
-            let attempt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                let mut s = Stats::default();
-                let hit = elab.search_one(
-                    &pattern,
-                    *other,
-                    false,
-                    mode,
-                    (!no_filter).then(|| &index[i]),
-                    &mut s,
-                );
-                (hit, s)
-            }));
-            match attempt {
-                Ok((hit, s)) => {
-                    stats.unifications += s.unifications;
-                    stats.resource_outs += s.resource_outs;
-                    if let Some(hit) = hit {
-                        hits.push((hit, i));
+        n_queries += 1;
+        let began = Instant::now();
+        let mut run = |session: &mut Session, filter: bool| {
+            let mut hits: Vec<(Hit, usize)> = Vec::new();
+            let mut outs = 0;
+            for (i, other) in candidates.iter().enumerate() {
+                if !session.elab.globals.def(*other).theorem || *other == q.owner {
+                    continue;
+                }
+                // An internal error in one comparison is counted, not
+                // fatal: the benchmark is also a robustness test.
+                let elab = &session.elab;
+                let attempt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let mut s = Stats::default();
+                    let hit =
+                        elab.search_one(&pattern, *other, &opts, filter.then(|| &index[i]), &mut s);
+                    (hit, s)
+                }));
+                match attempt {
+                    Ok((hit, s)) => {
+                        stats.unifications += s.unifications;
+                        stats.resource_outs += s.resource_outs;
+                        stats.upgraded += s.upgraded;
+                        outs += s.resource_outs;
+                        if let Some(hit) = hit {
+                            hits.push((hit, i));
+                        }
+                    }
+                    Err(_) => {
+                        let g = &session.elab.globals;
+                        panics.push(format!(
+                            "{} against {}",
+                            g.def(q.wanted).path,
+                            g.def(*other).path
+                        ));
+                        // Leave the session as a failed attempt would.
+                        let _ = remake(session);
                     }
                 }
-                Err(_) => {
-                    let g = &session.elab.globals;
-                    panics.push(format!(
-                        "{} against {}",
-                        g.def(*id).path,
-                        g.def(*other).path
-                    ));
-                    // Leave the session as a failed attempt would.
-                    let _ = session.elab.theorem_pattern(*id, side);
-                }
             }
+            (hits, outs)
+        };
+        let filtered = opts.filter != Filter::Off;
+        let (mut hits, mut outs) = run(session, filtered);
+        if filtered && hits.is_empty() && relax {
+            // Draft 3's relaxed second pass.
+            relaxed += 1;
+            (hits, outs) = run(session, false);
+            if hits.iter().any(|(h, _)| h.id == q.wanted) {
+                relaxed_found += 1;
+            }
+        }
+        query_ms.push(began.elapsed().as_secs_f64() * 1000.0);
+        if outs > 0 {
+            truncated_queries += 1;
         }
         hit_counts.push(hits.len());
         let g = &session.elab.globals;
-        let Some((own, _)) = hits.iter().find(|(h, _)| h.id == *id) else {
-            missed.push(g.def(*id).path.to_string());
+        let Some((own, own_i)) = hits.iter().find(|(h, _)| h.id == q.wanted) else {
+            missed.push(g.def(q.wanted).path.to_string());
+            // Why: filtered out (and unfiltered matching finds it), or no
+            // match at all.
+            let i = position[&q.wanted];
+            let mut s = Stats::default();
+            let mut o = opts;
+            o.filter = Filter::Off;
+            let matches = session
+                .elab
+                .search_one(&pattern, q.wanted, &o, None, &mut s)
+                .is_some();
+            let g = &session.elab.globals;
+            if matches && !search::passes(&pattern, &index[i], &opts) {
+                lost_to_filter += 1;
+            } else if !matches {
+                no_match += 1;
+                let shown = pattern.show(g);
+                let kind = if shown == "Void" {
+                    "goal Void (a negation applied)"
+                } else if g.def(q.wanted).path.to_string() == "Std.Eq.cong" {
+                    "Eq.cong on a computed goal"
+                } else {
+                    "other"
+                };
+                *no_match_kinds.entry(kind).or_default() += 1;
+                if kind == "other" && no_match_examples.len() < 40 {
+                    no_match_examples.push(format!(
+                        "{} in {}: {}",
+                        g.def(q.wanted).path,
+                        if q.owner.0 == usize::MAX {
+                            String::new()
+                        } else {
+                            g.def(q.owner).path.to_string()
+                        },
+                        pattern.show(g)
+                    ));
+                }
+            }
+            for r in ranks.iter_mut() {
+                r.push(None);
+            }
             continue;
         };
+        *relations.entry(format!("{:?}", own.relation)).or_default() += 1;
+        let names: Vec<String> = hits
+            .iter()
+            .map(|(h, _)| g.def(h.id).path.to_string())
+            .collect();
+        let mine_name = g.def(own.id).path.to_string();
         for (r, name) in RANKINGS.iter().enumerate() {
-            let k = |h: &Hit, i: usize| key(name, g, h, &index[i], &pattern.constants, &rarity);
-            let mine = k(own, t);
-            let before = hits.iter().filter(|(h, i)| k(h, *i) < mine).count();
-            let not_after = hits.iter().filter(|(h, i)| k(h, *i) <= mine).count();
-            ranks[r].push((before + 1, not_after));
+            let k = |h: &Hit, i: usize| key(name, g, h, &index[i].ty, &pattern.constants, &rarity);
+            let mine = k(own, *own_i);
+            let keys: Vec<Vec<i64>> = hits.iter().map(|(h, i)| k(h, *i)).collect();
+            let before = keys.iter().filter(|x| **x < mine).count();
+            let not_after = keys.iter().filter(|x| **x <= mine).count();
+            let strict = (keys.iter().zip(&names))
+                .filter(|(x, n)| (*x, *n) < (&mine, &mine_name))
+                .count();
+            ranks[r].push(Some((before + 1, not_after, strict + 1)));
         }
     }
     let ms = start.elapsed().as_secs_f64() * 1000.0;
     hit_counts.sort();
-    let pct = |p: f64| {
-        hit_counts
-            .get(((hit_counts.len() as f64 - 1.0) * p) as usize)
+    let pct = |v: &[usize], p: f64| {
+        v.get(((v.len() as f64 - 1.0) * p) as usize)
             .copied()
             .unwrap_or(0)
     };
+    query_ms.sort_by(f64::total_cmp);
+    let pctf = |p: f64| {
+        query_ms
+            .get(((query_ms.len() as f64 - 1.0) * p) as usize)
+            .copied()
+            .unwrap_or(0.0)
+    };
+    if bench == Bench::Uses {
+        println!(
+            "proof uses: {all_uses} uses of std theorems in std proofs, {} distinct (proof, lemma) pairs, every {every}th taken",
+            queries.len() * every
+        );
+    }
     println!(
-        "self-retrieval ({:?}): {queries} queries ({skipped} theorems skipped: no pattern), {} not found, {ms:.0} ms",
-        side,
+        "benchmark ({:?}; {:?}): {n_queries} queries ({skipped} skipped: no pattern), {} not found, {ms:.0} ms",
+        bench,
+        opts,
         missed.len()
     );
     println!(
         "hits per query: median {}, p90 {}, p99 {}, max {}",
-        pct(0.5),
-        pct(0.9),
-        pct(0.99),
-        pct(1.0)
+        pct(&hit_counts, 0.5),
+        pct(&hit_counts, 0.9),
+        pct(&hit_counts, 0.99),
+        pct(&hit_counts, 1.0)
     );
     println!(
-        "stats: unifications {}, out of budget {}",
-        stats.unifications, stats.resource_outs
+        "time per query: median {:.1} ms, p90 {:.1} ms, p99 {:.1} ms, max {:.1} ms",
+        pctf(0.5),
+        pctf(0.9),
+        pctf(0.99),
+        pctf(1.0)
     );
-    println!("ranking       rank1(opt)  top3(opt)  top10(opt)  MRR(opt)  rank1(pess)  mean-pess");
+    println!(
+        "stats: unifications {}, out of budget {} (queries with any: {truncated_queries}), upgraded by a one-way retry {}",
+        stats.unifications, stats.resource_outs, stats.upgraded
+    );
+    println!(
+        "relaxed second pass (filtered search empty): {relaxed} queries, wanted found by it in {relaxed_found}; not found: {lost_to_filter} filtered out (unfiltered matching finds them), {no_match} no match at all"
+    );
+    println!("no match, by kind: {no_match_kinds:?}");
+    for e in &no_match_examples {
+        println!("no match: {e}");
+    }
+    println!("relation of the wanted theorem's match: {relations:?}");
+    println!(
+        "over all {n_queries} queries (not found = no rank):\nranking       top1-strict  top1-ties  MRR-strict  R@5-strict  R@10-strict | found: top1-ties  MRR-ties  mean-pess"
+    );
     for (r, name) in RANKINGS.iter().enumerate() {
         let v = &ranks[r];
         let n = v.len().max(1) as f64;
-        let share = |f: &dyn Fn(&(usize, usize)) -> bool| {
-            100.0 * v.iter().filter(|x| f(x)).count() as f64 / n
-        };
-        let mrr = v.iter().map(|(o, _)| 1.0 / *o as f64).sum::<f64>() / n;
-        let mean_pess = v.iter().map(|(_, p)| *p as f64).sum::<f64>() / n;
+        let found: Vec<&Ranks> = v.iter().flatten().collect();
+        let nf = found.len().max(1) as f64;
+        let share =
+            |f: &dyn Fn(&Ranks) -> bool| 100.0 * found.iter().filter(|x| f(x)).count() as f64 / n;
+        let share_found =
+            |f: &dyn Fn(&Ranks) -> bool| 100.0 * found.iter().filter(|x| f(x)).count() as f64 / nf;
+        let mrr_strict = found.iter().map(|x| 1.0 / x.2 as f64).sum::<f64>() / n;
+        let mrr_opt_found = found.iter().map(|x| 1.0 / x.0 as f64).sum::<f64>() / nf;
+        let mean_pess = found.iter().map(|x| x.1 as f64).sum::<f64>() / nf;
         println!(
-            "{name:<13} {:>9.1}%  {:>8.1}%  {:>9.1}%  {:>8.3}  {:>10.1}%  {:>9.2}",
+            "{name:<13} {:>10.1}%  {:>8.1}%  {:>10.3}  {:>9.1}%  {:>10.1}% | {:>9.1}%  {:>8.3}  {:>9.2}",
+            share(&|x| x.2 == 1),
             share(&|x| x.0 == 1),
-            share(&|x| x.0 <= 3),
-            share(&|x| x.0 <= 10),
-            mrr,
-            share(&|x| x.1 == 1),
+            mrr_strict,
+            share(&|x| x.2 <= 5),
+            share(&|x| x.2 <= 10),
+            share_found(&|x| x.0 == 1),
+            mrr_opt_found,
             mean_pess,
         );
     }
@@ -349,7 +646,7 @@ fn self_retrieval(
     for p in panics.iter().take(25) {
         println!("panic: {p}");
     }
-    for name in missed.iter().take(25) {
+    for name in missed.iter().take(40) {
         println!("not found: {name}");
     }
 }
@@ -377,6 +674,26 @@ fn split_top(text: &str) -> Vec<String> {
 
 fn ms(since: Instant) -> f64 {
     since.elapsed().as_secs_f64() * 1000.0
+}
+
+fn relation_name(r: Relation) -> &'static str {
+    match r {
+        Relation::Instance => "instance",
+        Relation::Generalisation => "generalisation",
+        Relation::Common => "commonInstance",
+    }
+}
+
+fn place_name(p: Place) -> &'static str {
+    match p {
+        Place::Whole => "whole",
+        Place::Reordered => "reordered",
+        Place::Conclusion => "conclusion",
+        Place::Left => "left",
+        Place::Right => "right",
+        Place::Hypothesis => "premise",
+        Place::Inside => "subterm",
+    }
 }
 
 pub fn run(session: &mut Session, args: &Args) -> ExitCode {
@@ -417,7 +734,7 @@ pub fn run(session: &mut Session, args: &Args) -> ExitCode {
         }
     }
     let imported = ms(start);
-    // The candidates and, per candidate, the constants its type names.
+    // The candidates and, per candidate, what its type names.
     let start = Instant::now();
     let g = &session.elab.globals;
     let candidates: Vec<DefId> = (0..g.defs.len())
@@ -431,19 +748,36 @@ pub fn run(session: &mut Session, args: &Args) -> ExitCode {
     let theorems = candidates.iter().filter(|id| g.def(**id).theorem).count();
     let enumerated = ms(start);
     let start = Instant::now();
-    let index: Vec<std::collections::BTreeSet<DefId>> = candidates
+    let index: Vec<Index> = candidates
         .iter()
-        .map(|id| session.elab.type_constants(*id))
+        .map(|id| session.elab.type_index(*id))
         .collect();
     let indexed = ms(start);
-    let query = parse_query(&args.pattern);
-    if let Some(side) = query.self_retrieval {
+    let mut query = parse_query(&args.pattern);
+    if args.no_filter {
+        query.opts.filter = Filter::Off;
+    }
+    if query.opts.iff.is_some() {
+        let g = &session.elab.globals;
+        query.opts.iff = (0..g.datas.len())
+            .map(DataId)
+            .find(|d| g.data(*d).path.to_string() == "Std.Iff");
+    }
+    if let Some(bench) = query.bench {
         eprintln!("timing: load-all-std {loaded:.1} ms; constants index {indexed:.1} ms");
-        self_retrieval(session, &candidates, &index, side, args.no_filter);
+        benchmark(
+            session,
+            &candidates,
+            &index,
+            bench,
+            &query.opts,
+            query.every,
+            query.relax,
+        );
         return ExitCode::SUCCESS;
     }
     let rarity = Rarity::new(&index);
-    let position: std::collections::BTreeMap<DefId, usize> = candidates
+    let position: BTreeMap<DefId, usize> = candidates
         .iter()
         .enumerate()
         .map(|(i, id)| (*id, i))
@@ -482,49 +816,73 @@ pub fn run(session: &mut Session, args: &Args) -> ExitCode {
     let mut hits = Vec::new();
     let mut stats = Stats::default();
     let mut matching = Vec::new();
+    let mut tier = "filtered";
     for _ in 0..args.repeat.max(1) {
         let start = Instant::now();
-        hits.clear();
-        stats = Stats::default();
-        let g = &session.elab.globals;
-        for (i, id) in candidates.iter().enumerate() {
-            let path = g.def(*id).path.to_string();
-            if !query.names.iter().all(|n| path.contains(n.as_str())) {
-                continue;
-            }
-            match &pattern {
-                None => {
-                    let (size, hyps) = search::shape(g, *id);
-                    hits.push(search::Hit {
-                        id: *id,
-                        place: Place::Conclusion,
-                        absorbed: 0,
-                        instantiated: 0,
-                        size,
-                        hyps,
-                    })
+        let mut opts = query.opts;
+        tier = if opts.filter == Filter::Off {
+            "unfiltered"
+        } else {
+            "filtered"
+        };
+        // The relaxed second pass: unfiltered, if the filtered search
+        // found nothing.
+        for pass in 0..2 {
+            hits.clear();
+            stats = Stats::default();
+            let g = &session.elab.globals;
+            for (i, id) in candidates.iter().enumerate() {
+                let path = g.def(*id).path.to_string();
+                if !query.names.iter().all(|n| path.contains(n.as_str())) {
+                    continue;
                 }
-                Some(p) => {
-                    if let Some(hit) = session.elab.search_one(
-                        p,
-                        *id,
-                        !query.conclusion_only,
-                        query.mode,
-                        (!args.no_filter).then(|| &index[i]),
-                        &mut stats,
-                    ) {
-                        hits.push(hit);
+                match &pattern {
+                    None => {
+                        let (size, hyps) = search::shape(g, *id);
+                        hits.push(search::Hit {
+                            id: *id,
+                            place: Place::Conclusion,
+                            relation: Relation::Instance,
+                            iff: false,
+                            absorbed: 0,
+                            instantiated: 0,
+                            size,
+                            hyps,
+                        })
+                    }
+                    Some(p) => {
+                        if let Some(hit) =
+                            session
+                                .elab
+                                .search_one(p, *id, &opts, Some(&index[i]), &mut stats)
+                        {
+                            hits.push(hit);
+                        }
                     }
                 }
             }
+            if pass == 0 && hits.is_empty() && opts.filter != Filter::Off && pattern.is_some() {
+                opts.filter = Filter::Off;
+                tier = "relaxed";
+                continue;
+            }
+            break;
         }
-        if query.ranking == "draft1" {
+        let g = &session.elab.globals;
+        if query.ranking == "tiered" {
             search::rank(g, &mut hits);
         } else {
             let none = BTreeSet::new();
             let ours = pattern.as_ref().map(|p| &p.constants).unwrap_or(&none);
             hits.sort_by_cached_key(|h| {
-                let k = key(&query.ranking, g, h, &index[position[&h.id]], ours, &rarity);
+                let k = key(
+                    &query.ranking,
+                    g,
+                    h,
+                    &index[position[&h.id]].ty,
+                    ours,
+                    &rarity,
+                );
                 (k, g.def(h.id).path.to_string())
             });
         }
@@ -546,40 +904,55 @@ pub fn run(session: &mut Session, args: &Args) -> ExitCode {
                 .strip_prefix("Std.")
                 .and_then(|r| r.split_once('.'))
                 .map(|(top, _)| format!("import Std ({top})"));
-            serde_json::json!({
+            let mut v = serde_json::json!({
                 "name": path,
                 "type": stitchwort_core::pretty::term(g, &[], &def.ty),
                 "file": file.name,
                 "line": line,
                 "import": namespace,
-                "place": format!("{:?}", hit.place).to_lowercase(),
+                "relation": relation_name(hit.relation),
+                "place": place_name(hit.place),
                 "absorbed": hit.absorbed,
                 "instantiated": hit.instantiated,
-            })
+                "premises": hit.hyps,
+                "size": hit.size,
+            });
+            if query.opts.mode == Mode::Rewrite {
+                v["equation"] = (if hit.iff { "iff" } else { "eq" }).into();
+            }
+            v
         })
         .collect();
+    let budget = serde_json::json!({
+        "candidates": stats.candidates,
+        "compared": stats.candidates - stats.filtered_out,
+        "outOfBudget": stats.resource_outs,
+        "truncated": hits.len() > args.limit,
+    });
     if args.json {
         println!(
             "{}",
-            serde_json::json!({"version": 0, "experimental": true, "results": shown, "total": hits.len()})
+            serde_json::json!({"version": 0, "experimental": true, "searchTier": tier,
+                "results": shown, "total": hits.len(), "budget": budget})
         );
     } else {
         for (rank, s) in shown.iter().enumerate() {
             println!(
-                "{:>2}. {} : {}\n    {}:{}  [{} {} {}]",
+                "{:>2}. {} : {}\n    {}:{}  [{} {} {} {}]",
                 rank + 1,
                 s["name"].as_str().unwrap_or(""),
                 s["type"].as_str().unwrap_or(""),
                 s["file"].as_str().unwrap_or(""),
                 s["line"],
+                s["relation"].as_str().unwrap_or(""),
                 s["place"].as_str().unwrap_or(""),
                 s["absorbed"],
                 s["instantiated"],
             );
         }
-        println!("{} matches", hits.len());
+        println!("{} matches ({tier})", hits.len());
     }
-    let total_constants: usize = index.iter().map(|s| s.len()).sum();
+    let total_constants: usize = index.iter().map(|s| s.ty.len()).sum();
     let mut sorted = matching.clone();
     sorted.sort_by(f64::total_cmp);
     eprintln!(
@@ -591,8 +964,12 @@ pub fn run(session: &mut Session, args: &Args) -> ExitCode {
         sorted.len(),
     );
     eprintln!(
-        "stats: candidates {}, skipped by the constants filter {}, unifications {}, out of budget {}",
-        stats.candidates, stats.filtered_out, stats.unifications, stats.resource_outs
+        "stats: candidates {}, skipped by the constants filter {}, unifications {}, out of budget {}, upgraded {}",
+        stats.candidates,
+        stats.filtered_out,
+        stats.unifications,
+        stats.resource_outs,
+        stats.upgraded
     );
     if let Some(p) = &pattern {
         let g = &session.elab.globals;
