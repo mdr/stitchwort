@@ -8385,7 +8385,7 @@
       "title": "Literature trawl: dependent types and effect systems, ideas to steal",
       "status": "doing",
       "agent": "Claude",
-      "where": "D1974: step 1 (compilation audit) merged 76196e5c; step 2 kernel redo next",
+      "where": "D1974 step 2: kernel register redo from full texts (lane)",
       "labels": [
         "research"
       ],
