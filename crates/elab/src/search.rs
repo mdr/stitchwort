@@ -374,7 +374,7 @@ impl Elaborator {
                         .map(|(h, at)| eval(g, &env[..*at], h))
                         .collect::<std::result::Result<_, _>>()?;
                     let concl = eval(g, &env, &conclusion)?;
-                    reordered(g, def.span, &pattern.value, &theirs, &concl, mode)?
+                    reordered(g, &pattern.value, &theirs, &concl, mode)?
                 } else {
                     let target_value = eval(g, &env[..at], &target)?;
                     // A target that is one of the theorem's own variables
@@ -481,10 +481,9 @@ impl Elaborator {
 /// theorem's, chosen greedily left to right as Loogle's `matchHyps` does.
 /// With [`Mode::Permute`] the counts must be equal; with [`Mode::Subset`]
 /// the theorem may have more. The pattern's own binders are opened with
-/// fresh unknowns (a later parameter may depend on an earlier one).
+/// rigid variables.
 fn reordered(
     g: &Globals,
-    span: Span,
     pattern: &Value,
     theirs: &[Value],
     concl: &Value,
@@ -492,18 +491,23 @@ fn reordered(
 ) -> std::result::Result<bool, stitchwort_core::ResourceError> {
     let mut ours: Vec<Value> = Vec::new();
     let mut v = force(g, pattern.clone())?;
+    // Rigid variables, not unknowns: a hole under the arrows is an unknown
+    // applied to them (`?m x y`), which unification can solve only when
+    // they are variables.
+    let mut level = 0;
     while let Value::Pi(_, icit, dom, closure) = v {
         if icit == stitchwort_core::Icit::Explicit {
             ours.push((*dom).clone());
         }
-        let m = g.new_meta(span);
-        v = force(g, closure.apply(g, eval(g, &[], &Term::Meta(m))?)?)?;
+        v = force(g, closure.apply(g, Value::var(level))?)?;
+        level += 1;
     }
     let counts_fit = match mode {
         Mode::Subset => ours.len() <= theirs.len(),
         _ => ours.len() == theirs.len(),
     };
-    if ours.len() < 2 || !counts_fit || !crate::unify::unify_solving_arguments(g, 0, &v, concl)? {
+    if ours.len() < 2 || !counts_fit || !crate::unify::unify_solving_arguments(g, level, &v, concl)?
+    {
         return Ok(false);
     }
     let mut used = vec![false; theirs.len()];
@@ -514,7 +518,7 @@ fn reordered(
                 continue;
             }
             let inner = g.meta_trail.borrow().len();
-            if crate::unify::unify_solving_arguments(g, 0, want, have)? {
+            if crate::unify::unify_solving_arguments(g, level, want, have)? {
                 used[i] = true;
                 found = true;
                 break;
