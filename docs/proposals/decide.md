@@ -4,49 +4,60 @@
 sections, 4 not read** (listed under [Sources](#sources); a claim resting on a section names the
 section). Dafny was not consulted at all.
 
-**Status:** draft 1, 29 October 2026. Design only: nothing in the compiler changes. Tickets
-SW-800 (`decide`) and SW-807 (a derived list of every value). Prototypes, each checked with
-`stitchwort check --no-cache`, are in [decide/](decide/). Three decisions for Matt are in
-[§9](#9-decisions-for-matt).
+**Status:** draft 2, 30 October 2026 (draft 1: 29 October), revised after an external review
+([decide/review-1.md](decide/review-1.md), verbatim; how each point was addressed is
+[§11](#11-review-1-and-how-it-was-addressed)), approved for revision as D2034. Design only:
+nothing in the compiler changes. Tickets SW-800 (`decide`) and SW-807 (a derived list of every
+value). Prototypes, each checked with `stitchwort check --no-cache`, are in [decide/](decide/).
+Three decisions for Matt, still open, are in [§10](#10-decisions-for-matt); the stage plan is
+[§12](#12-stage-plan).
 
 Labels, as in the other notes:
 
-- **[checked: file:line]**: read in the Stitchwort source or docs, at `b02ec6ca`;
-- **[run]**: a prototype in `decide/`, checked on 29 October 2026 with the release CLI built
-  from main that day (`target/release/stitchwort`, 19:21); times are `STITCHWORT_TIMINGS=decls`,
-  one run, elaboration ms + kernel ms;
+- **[checked: file:line]**: read in the Stitchwort source or docs: at `09118ced` for what draft 2
+  adds (§6.1, §6.2's `nodup` paragraph, §7, §8), at `b02ec6ca` for citations carried from draft 1;
+- **[run]**: a prototype in `decide/`, or a scratch file named in the text, checked with the
+  release CLI built from main (draft 1: 29 October, 19:21; draft 2: 30 October, 16:29, at
+  `09118ced`), under `dev/memguard --cap-gb 2` and `timeout`; times are
+  `STITCHWORT_TIMINGS=decls`, one run, elaboration ms + kernel ms;
 - **[cited: S]**: read in source S under [Sources](#sources);
 - **[inferred]**: my reasoning from checked or cited facts;
 - **[unverified]**: believed, not confirmed.
 
 ## The short answer
 
-- **The motivating proofs don't need a new proof word.** Today's `cases` (built 26 October,
-  two days before day 12 was written) proves day 12's 16-case truth table and day 21's
-  25-case `tabulateSame` as one word each, in about 1 ms and 3 ms **[run]**. Day 21's eleven
-  `Inr (Inr (…))` membership proofs become one `cases` on the `Bool` form plus
-  `List.memContains` **[run]**. A closed decidable goal (Lean's `decide` with no variables) is
-  already provable through `auto` **[run]**.
+- **The motivating proofs don't need a new proof word.** Today's `cases` proves day 12's 16-case
+  truth table and day 21's 25-case `tabulateSame` as one word each, in about 1 ms and 3 ms
+  **[run]**, once their variables are bound before the colon. As the files write them, after the
+  colon, `:= cases` fails ("found nothing to split on") **[run, on the real Corners.sw]**. A closed
+  decidable goal is already provable through `auto` (`byDecision`) **[run]**.
 - **Lean's `decide` is what `auto` already is.** Both find the goal's `Decidable` instance,
   evaluate it, and leave a proof term the kernel evaluates again (`of_decide_eq_true` in Lean,
   `Decidable.fromYes d Trivial` here) [cited: L2; checked: crates/elab/src/auto.rs:20-23].
   Lean's `decide` refuses goals with free variables [cited: L2; L3 lines 24-33]; the variables are
   what the AoC proofs have.
-- **Recommendation: no `decide` word now; extend `cases` and close SW-800 with it** (option
-  (d), [§6](#6-recommendation-extend-cases-and-derive-finite)). Two small additions: a
-  leaf closer that runs the goal's decision procedure (so `key ∈ numericKeys` closes once
-  `key` is a constructor), and splitting a finite-typed variable of the statement when the
-  goal isn't stuck on anything (so `cases` reaches `key` inside a disjunction). Then convert
-  days 12 and 21. Nothing new is trusted: the proof is `match`es, `rfl`s and `fromYes` terms
-  the kernel re-checks.
-- **SW-807 yes, as a library interface `Finite T` with a derived instance** for types whose
-  constructors' fields are all finite (enumerations, `Arrow Direction | Activate`, records of
-  `Bool`s). Its completeness proof replaces day 21's hand-written ones directly, and its
-  generic lemma `Finite.check` is the route for statements too big for `cases`' 64 cases:
-  2^16 cases took about 6 s by one `rfl` **[run]**.
-- **Never a `native_decide`.** Lean admits each native result as a new axiom and trusts its
-  compiler [cited: L2, L4]. Stitchwort's kernel evaluator is fast enough for every size the AoC
-  proofs reach.
+- **Recommendation: no `decide` word; extend `cases` in three parts and close SW-800 with it**
+  ([§6.1](#61-cases-closes-sw-800)), each part running only where `cases` today reports an error,
+  so no proof that checks today changes:
+  1. **`cases` introduces the goal's leading binders** when nothing proves the `Π` goal as it
+     stands, so `theorem foo: (x: Bool) → … := cases` works as `theorem foo (x: Bool): … :=
+     cases` does (review R1);
+  2. **a decision closer, after `omega`**: a case whose goal's decision procedure evaluates to
+     `Yes` closes with the `fromYes` term `auto` writes; `No` doesn't fail the case, since its
+     hypotheses may still contradict each other **[run]**;
+  3. **a fallback split**: when the goal is stuck on nothing, split the mentioned splittable
+     variable with the fewest cases, ties to the latest bound (review R2), and say so in the
+     diagnostics.
+
+  Then convert days 12 and 21 as written. Nothing new is trusted.
+- **SW-807 yes, as a library interface `Finite T = { all, complete }` with a derived instance**,
+  no duplicate-freedom field (review R3), plus `Finite.check` for statements past `cases`' 64
+  cases (2^16 cases took about 6 s by one `rfl` **[run]**), and `byDecision` made an official std
+  idiom.
+- **Native evaluation: not now rather than never.** Not until measured kernel evaluation is a
+  material limitation on real programs; about 10 s in one proof is the trigger to investigate
+  ([§7](#7-native-evaluation)). Faster checking doesn't have to cost trust (certificate checking),
+  but `native_decide`-style evaluation does [cited: L1, L2, L4].
 
 ## 1. The motivating proofs
 
@@ -139,7 +150,8 @@ the variables before the colon (`theorem rowEndsSplit (plot: Bool) (out: Bool) (
 (sideOut: Bool): … := cases`), as the prototype writes it, the real file's
 `Aoc.Year2024.Day12.Proofs` checks with `--no-cache`. So converting days 12 and 21 means
 restating those theorems too, and a `cases` that introduced leading `Π` variables itself would
-remove the difference. The file was restored afterwards; nothing in `aoc/` changed.
+remove the difference. The file was restored afterwards; nothing in `aoc/` changed. Draft 2
+ran this again, with the output, and designs that introduction: [§6.1.1](#611-part-1-cases-introduces-the-goals-leading-binders-r1).
 
 `everyNumericKey` fails because `key ∈ numericKeys` computes to a disjunction of propositions,
 `Digit0 = key ∨ Digit1 = key ∨ …`, which isn't stuck on `key`: nothing in it is a `case` on a
@@ -175,7 +187,7 @@ One line each first; the details follow.
 | Lean 4 `decide` | `by decide` on a closed goal | elaborator `whnf`, then kernel | no: "is false" | reduction cost; WF recursion and `Eq.rec` get stuck | kernel only |
 | Lean 4 `decide +kernel` | the same | kernel only, once | no | as above | kernel only |
 | Lean 4 `native_decide` | `by native_decide` | compiled code | no | compile time | compiler, `@[implemented_by]`, a new axiom per use |
-| Lean 4 `bv_decide` | `bv_decide` on `BitVec`/`Bool` | SAT solver, LRAT checked | yes, an assignment | SAT | code generator, axioms |
+| Lean 4 `bv_decide` | `bv_decide` on `BitVec`/`Bool` | SAT solver; its LRAT proof checked in Lean | yes, an assignment | SAT | code generator, axioms; not the solver |
 | Mathlib `Fintype` | `deriving Fintype`; `decide` over `∀ a` | kernel, through `decidableForallFintype` | no | cardinality | kernel only |
 | Rocq | `vm_compute; reflexivity`, `native_compute`; casts `<:` `<<:` | kernel's VM, or OCaml-compiled code | no [inferred] | 5-10 s before `native_compute` pays | VM; OCaml compiler for native [inferred] |
 | MathComp | `[forall x, P]` with `forallP` | reflection lemmas | no [inferred] | | kernel |
@@ -258,6 +270,8 @@ Activate` gets neither [inferred]; Mathlib's handler would take it [inferred fro
 
 1. Lean, Rocq and Isabelle all offer evaluation that trusts more for speed, and all mark it as
    a trust cost. Stitchwort's measured sizes don't need it ([§2](#2-what-stitchwort-has-today)).
+   Speed by trusted evaluation is one route, not the only one: certificate checking
+   (`bv_decide`'s untrusted SAT solver) is another ([§7](#7-native-evaluation)).
 2. Lean's `decide` doesn't take variables; `+revert` turns them into `∀`, and instances for `∀`
    over finite types (`Bool` in core, any `Fintype` in Mathlib) evaluate it. That needs an
    enumeration with a completeness proof: SW-807.
@@ -284,20 +298,20 @@ term is small. Same limit as (a) on `tabulateSame`. Nothing new trusted.
 **(c) Native evaluation, `native_decide`-style.** Run the `Bool` on the fast runtime (`crates/rt`)
 or JS and admit the result. Both runtimes are untrusted today: "Its output can be wrong, but a
 proof never depends on it" [checked: core.md:237]. This would put a runtime, and for JS Node, in
-the trusted base, for statements the kernel already checks in seconds. Rejected.
+the trusted base, for statements the kernel already checks in seconds. Not now ([§7](#7-native-evaluation)).
 
 **(d) Extend `cases`.** Already does the 16- and 25-case proofs, with the failing case and a
-counterexample in the error, and handles open statements (`tabulateSame`). Missing: splitting a
-variable the goal isn't stuck on (membership), closing a leaf that is a closed decidable
-proposition, and more than 64 cases. Nothing new trusted.
+counterexample in the error, and handles open statements (`tabulateSame`). Missing: introducing the
+variables bound after the colon, closing a leaf whose decision procedure says `Yes`, splitting a
+variable the goal isn't stuck on (membership), and more than 64 cases. Nothing new trusted.
 
 ## 5. Comparing them on the motivating proofs
 
 | | (a) | (b) | (c) | (d) as proposed |
 |---|---|---|---|---|
-| `rowEndsSplit` | yes | yes, as a `Bool` statement | yes, trusted | yes, today |
-| `tabulateSame` (open `costs`) | no | no | no | yes, today |
-| `everyNumericKey` | yes | yes (it is `complete`) | yes | yes, with the two additions |
+| `rowEndsSplit` | yes | yes, as a `Bool` statement | yes, trusted | yes: today before the colon; as written, with part 1 |
+| `tabulateSame` (open `costs`) | no | no | no | yes: today before the colon; as written, with part 1 |
+| `everyNumericKey` | yes | yes (it is `complete`) | yes | yes, with parts 1-3 |
 | shows the failing case | no | no (would need a search) | no | yes, today |
 | past 64 cases | yes | yes, about 90 µs a case measured | yes | no; points to (b) |
 | new trust | none | none | a runtime | none |
@@ -308,57 +322,252 @@ proposition, and more than 64 cases. Nothing new trusted.
 
 **Syntax:** unchanged, `cases` and `cases in t`. No new keyword.
 
-**Two additions** to crates/elab/src/cases.rs:
+**Three additions** to crates/elab/src/cases.rs, all in `node` (cases.rs:212-271), the function
+that closes or splits one case. Today `node` tries, in order [checked: cases.rs:212-270]:
+computation, contradiction, taking an equation apart, a hypothesis, `t`; then it looks for an atom
+the goal is stuck on and splits it (trying `omega` first when the atom is a whole side of the
+goal); with no atom, `omega`; then `E-CASES`. Draft 2 adds three steps between that last `omega`
+and `E-CASES`, in this order:
 
-1. **A decision closer.** After the existing closers and before `omega`: if the case's goal is a
-   proposition with a decision procedure and no free variables left in it that the procedure is
-   stuck on, run it as `auto` does; `Yes` closes the case with `Decidable.fromYes d Trivial`
-   (the kernel runs `d` again), `No` makes the case fail with "this case is false" and its
-   splits. This closes `Digit3 = key ∨ …` once `key` is `Digit3`.
-2. **Split a finite-typed variable of the statement when nothing is stuck.** Today a variable is
-   split only when the goal is stuck on it. Add a last resort: when the goal isn't stuck and no
-   closer proves it, split the latest variable in scope whose type is splittable (the same test
-   as now: two or more constructors, not recursive, no indices) and that the goal mentions. Then
-   `(key: NumericKey) → key ∈ numericKeys := cases` splits `key` and each case closes by (1).
+```
+1-5.  computation, contradiction, take apart, hypothesis, `t`     -- as today
+6.    split what the goal is stuck on                             -- as today
+7.    omega                                                       -- as today
+8.    the decision closer: `Yes` closes; `No` or stuck goes on    -- new (part 2)
+9.    the goal is a Π: introduce its leading binders, back to 1   -- new (part 1)
+10.   split a mentioned variable: fewest cases, then latest       -- new (part 3)
+11.   E-CASES                                                     -- as today
+```
 
-**Types supported:** those `cases` splits: `Bool`, enumerations, constructor types whose fields
-it then splits in turn (`Arrow Direction`), records of them. **Not** `Fin n` or bounded `Nat`
-ranges: `Fin` is an indexed family and `Nat` is recursive, and `cases` takes apart neither
-[checked: syntax.md:1652]. For those, (b) through `Fin.any`-style lemmas: std has `Fin.any` with
-`Fin.anyElim` [checked: crates/elab/src/std/Fin/Fin.sw:98-111]; a `Fin.all` with its elimination
-lemma is the matching piece, written by hand once. Products are covered by splitting each
-component.
+Every new step runs only where today's `cases` reports an error for the case (`E-CASES`, or for
+`cases in t` the error `t` gave), so **no proof that checks today
+changes its term, its time or its outcome** [inferred from cases.rs:265-270: the only path to
+step 8 is the one that now ends in `open_case`]. The parts are numbered in the order they are built
+(§12), not the order they run.
 
-**Failure:** as now, `E-CASES` naming the case by its splits, with the counterexample note.
-Decision-closer failures say "decided false" in that case's notes.
+#### 6.1.1 Part 1: `cases` introduces the goal's leading binders (R1)
 
-**Size limit:** the 64-case budget stays. Past it, `E-CASES-BUDGET` gets one more note when every
-split variable has a `Finite` instance: "for statements this size, check every case by
-computation: `Finite.check`" with the shape of the call. 64 cases cost 11.7 ms and 5,938 term
-nodes **[run]**; raising the budget grows the proof term exponentially, where (b)'s stays small,
-so the budget is not the knob to turn [inferred].
+**The evidence.** All five motivating theorems bind some of their variables after the colon:
+`rowEndsSplit` and `columnEndsSplit` all four (Corners.sw:172, :192), `everyNumericKey` and
+`everyDirectionKey` theirs (Typing.sw:53, :66), and `tabulateSame` binds `costs` before the colon
+and `from`, `to` after (Presses.sw:43) [checked]. With the variables after the colon, `:= cases`
+fails. Run on the real file (Corners.sw with `rowEndsSplit`'s 16 arms replaced, in this worktree,
+restored afterwards; `stitchwort check --no-cache Aoc.Year2024.Day12.Proofs`) **[run]**:
 
-**Interactions.**
+```
+[E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
+     ╭─[ aoc/src/Aoc/Year2024/Day12/Proofs/Corners.sw:174:3 ]
+ 174 │   cases
+     │     ╰──── this `cases`
+     │ Note 1: goal: (plot: Bool) → (out: Bool) → (side: Bool) → (sideOut: Bool) → Bool.toNat ((plot && not out) && not (side && not sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out)
+     │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis nor `omega` proves it; give this case's proof as `cases in t`
+```
 
-- *Opaque definitions:* a goal that calls an opaque definition without `unfolding` it is stuck
-  on that call, which neither splitting nor deciding gets past [inferred from core.md:163-170].
-  As for `rfl` today, the fix is `unfolding` or `f.unfold`.
-- *Check cache:* nothing new; the proof is ordinary declarations, cached like any other
-  [inferred from core.md:423].
-- *Erasure:* the proofs are theorems, erased [checked: core.md:468].
-- *Proof irrelevance:* unaffected. The closers write `rfl`, `J` and `fromYes` terms, which don't
-  compare proofs [inferred]. For a `Finite` instance of a record with proof fields, completeness
-  needs `DecEq.uniqueEq` as derived `==` already uses [checked: crates/elab/src/derive.rs:17-21];
-  D1′ (proof-irrelevance.md, not built) would make that free.
-- *Trust:* nothing added. The proof is the `match` tree `cases` writes now, plus `fromYes`
-  terms that `auto` writes now.
+and with the binders introduced by hand, `plot out side sideOut => cases`, the same namespace
+`checked 3 namespaces of aoc`, `rowEndsSplit` at 0.7 + 0.3 ms, 16,669 steps, 519 nodes **[run]**.
+The prototype [decide/binders.sw](decide/binders.sw) has both checking forms (before the colon,
+16,701 steps; the lambda, 16,669; 519 nodes each) and, in comments, the two failing ones (after the
+colon; and split, two before and two after, which fails the same way with the goal `(side: Bool) →
+(sideOut: Bool) → …`) **[run]**.
+
+**Why it fails.** The atom search walks equations, constructors, data and stuck calls, and stops at
+anything else (`Finder::walk`, cases.rs:807-875, `_ => Ok(None)`), so on a `Π` it finds nothing
+[checked]. Implicit and `auto` binders already work: the checker introduces those before any
+expression is checked against the type (check.rs:3355-3363, "Implicit parameters are introduced
+automatically"), so `theorem implicitAfter: [b: Bool] → not (not b) = b := cases` checks today
+[checked; run: binders.sw].
+
+**Where it goes: after the closers, not first.** A `Π` goal is proved today in three ways, all in
+binders.sw **[run]**: by a hypothesis of exactly that type (`byHyp`), by `omega` refuting the
+hypothesis of `P → Void` (`notLess`), and by the term after `in` checked against the whole goal
+(`byTerm: … := cases in Bool.orComm`). Introducing first would break `byHyp`: its goal would become
+`f a b = f b a`, which no hypothesis is, and that form fails today with `E-CASES` ("found nothing
+to split on") **[run]**. Introducing as step 9 keeps all three, because steps 1-8 see the `Π` goal
+as now. Since it only replaces an error, the after-colon form then proves a superset of what the
+before-colon form proves.
+
+**The design.**
+
+- **Which binders:** every leading binder of the goal, explicit, implicit and `auto`, up to the
+  first thing that isn't a `Π`, whatever the binder's type: `costs: Costs` (a function) is
+  introduced as a variable, as it is before the colon, and is never split. No stopping at a
+  binder whose type isn't splittable: the stopping rule that matters is which variables get
+  *split*, and that stays steps 6 and 10. Hypotheses (`b = True → …`) are introduced too, so the
+  contradiction and hypothesis closers can use them, as they do before the colon. Implicit and
+  `auto` binders are introduced hidden, as the checker does (check.rs:3357-3362); this matters
+  only for `(x: A) → [y: B] → …`, where the checker's rule has already run.
+- **At any node, not just the first.** Step 9 is part of `node`, so a goal that becomes a `Π`
+  after a split (`if b then ((x: Bool) → P x) else Q`) is introduced too.
+- **Names in diagnostics:** a named binder is bound under its name, as `cx.bind` does for a
+  lambda's parameter (check.rs:3408, "`cx.bind(&first.text, …)`"), so the path of an open case,
+  the hypotheses note and `cases in t` all use the written names (`plot = True, out = False, …`),
+  the same as before the colon. A binder without a name (`A → B` makes a `Π` named `_`,
+  check.rs:1404-1409) is bound under an internal name, `%hyp1`, `%hyp2`, … (like the split
+  equations' `%case`, cases.rs:66, not a name a program can write), so the closers see it, and is
+  shown as `hypothesis 1 (unnamed): <type>`. A binder that reuses an outer name shadows it, as a
+  lambda's does. The counterexample note is unaffected: it is built from the statement, and
+  already names after-colon variables (`badAfter: (a: Bool) → (b: Bool) → (a ∧ b) = a := a b =>
+  cases` reports `a = True`, `b = False`) [run, in the scratch directory].
+- **The proof term:** one `Term::Lam(name, icit, body)` per introduced binder, as the lambda case
+  of `check` builds (check.rs:3398-3421), with `body` the rest of `node` under the extended
+  context. It is the term `plot out side sideOut => cases` elaborates to: same 519 nodes as
+  before the colon **[run]**. Introduction makes no cases and costs no budget.
+
+**Then** the five motivating theorems convert as written, without restating their signatures.
+
+#### 6.1.2 Part 2: the decision closer, after `omega` (review §2)
+
+At step 8: find the goal's decision procedure as `auto` does (auto.rs:9-23), evaluate it, and on
+`Yes` close the case with `Decidable.fromYes d Trivial`, which the kernel evaluates again
+[checked: auto.rs:20-23]. This closes `Digit3 = key ∨ …` once `key` is `Digit3`. It is the term
+`auto` writes today, so nothing enters the trusted base; the review agrees (§2: "I see no trust
+problem here").
+
+**Two changes from draft 1**, both from measurement:
+
+1. **`No` doesn't fail the case.** Draft 1 had `No` end the case with "this case is false". That is
+   wrong where the case's hypotheses contradict each other: `theorem falseGoalImpossibleCase (n:
+   Nat) (h: n + 1 < n): 2 ∈ [1, 3] := cases` checks today, by `omega` refuting `h`, although the
+   goal decides `No` [run: decide/closer_order.sw]. So `No` and stuck both go on to step 9; if the
+   case ends in `E-CASES`, its notes add "the goal's decision procedure says it is false" (for
+   `No`). Nor is the closer limited to goals with no free variables: `Decidable.or` decides left to
+   right, so `Or (K1 ∈ keys) (flag = True)` decides `Yes` with `flag` unknown [run:
+   closer_order.sw, `leftYes`]. The rule is just "evaluation reaches `Yes`".
+2. **After `omega`, not before.** The review questioned the order (§2). Measured:
+   - *Outcome:* with `No` going on, the order can't change whether a case closes; both closers are
+     sound, and each only closes [inferred].
+   - *Existing proofs:* after `omega`, the closer runs only where today's `cases` fails, so every
+     proof that checks today keeps its term. Before `omega`, a case `omega` closes today whose goal
+     also decides would switch to a `fromYes` term. No such case was found by reading the 141
+     `cases` uses in the corpus; whether one exists can't be counted without instrumenting the
+     compiler, which this lane doesn't change [not measured].
+   - *Time:* on a closed goal both take about 0.1 ms (`Or (5 < 4) (Not (2 = 3))`: `omega` 2,557
+     steps, 64 nodes; `byDecision` 2,663 steps, 35 nodes). Where only the closer applies, `omega`
+     fails first in about 0.1 ms and 1,211 steps (`K1 ∈ keys`, `E-OMEGA`), against 0.2-1.2 ms for
+     the decision itself [run: closer_order.sw, and the 11-key list in the scratch directory]. So
+     `everyNumericKey`'s 11 leaves pay about 1 ms for `omega` going first.
+
+   So: no example in the corpus or the prototypes where the order changes the outcome; a measured
+   cost of about 0.1 ms a leaf for "after"; and "after" guarantees no existing proof changes.
+   After.
+
+**Elaborator first.** The procedure runs in the elaborator and again in the kernel, as `auto` does,
+rather than once in the kernel as Lean's `decide +kernel` does [cited: L1]. The review agrees (§2):
+the first run is what lets the error name the case that decided false. A kernel-only evaluation, if
+it is ever needed, belongs to `auto` as a whole, not to `cases`.
+
+#### 6.1.3 Part 3: the fallback split, fewest cases first (R2)
+
+At step 10: the goal is not stuck on anything step 6 splits, nothing closed it, and it is not a
+`Π`. Split one of the goal's variables anyway, chosen as follows.
+
+**Candidates.** A variable in scope (introduced by step 9, bound before the colon, or a field from
+an earlier split) that is
+
+- *mentioned*: met as a variable when step 6's walk goes over the goal (`Finder::walk`,
+  cases.rs:807-875). This is the goal as computed, not as written, so a variable the statement
+  names but computation drops (`const True x`) is not a candidate;
+- *splittable*, by today's test (`splittable`, cases.rs:997-1010): data that isn't a proposition,
+  has no indices, and isn't recursive;
+- *not yet known*: not the left side of a split equation of this case (`is_known`, cases.rs:963).
+
+Hypotheses are not searched for candidates; step 6 already splits what a hypothesis `C … = stuck`
+is stuck on (cases.rs:776-805).
+
+**Choice: fewest cases, then the latest bound.** The cost of a candidate is the number of cases its
+split makes:
+
+- *a data type:* its constructor count, `data.ctors.len()`, which `splittable` already returns
+  (cases.rs:1009) and the budget already counts (`split_on`, cases.rs:1084: "`ctors.len() - 1`"
+  more cases);
+- *`Bool`:* 2 (it is data with two constructors in std);
+- *a record (one constructor):* 1, so it is split first: taking it apart adds no case and gives
+  its fields as new candidates (today step 6 splits records only when nothing else is stuck,
+  cases.rs:28-29, for the same reason);
+- *an indexed family:* never a candidate today, since `splittable` refuses any type with indices
+  (cases.rs:1000). If indexed families become splittable, the count is the constructors whose
+  indices can match the variable's type, those `match` would not mark impossible, since only
+  those make cases. Until then this case doesn't arise.
+
+Ties (equal counts) go to the variable bound latest, which is draft 1's rule. The count is of the
+split itself, not of the whole tree below it: `DirectionKey` costs 2 (`Arrow _`, `Activate`), though
+fully split it is 5 cases.
+
+**Measurement.** The fallback isn't built, so it can't be run. Two ways instead:
+
+- *On the prototypes and days 12 and 21, the two rules choose the same everywhere* [inferred, by
+  reading each proof]. The fallback runs only where today's `cases` fails, and in every motivating
+  proof at most one candidate is left when it does:
+  - `cases_budget.sw` (`xor6`, 64 cases): every split is a stuck split (step 6); the proof checks
+    today, so the fallback never runs.
+  - `scale.sw`: no `cases`; one `rfl` on lists of `Bool`s. Nothing to compare.
+  - `day21_today.sw`: `tabulateSame` splits `from` and `to` because `DirectionKey.index` is stuck
+    on them (step 6); `costs` is a function, never a candidate. `containsNumericKey` is stuck on
+    `key`. Both check today.
+  - Day 12's `rowEndsSplit` and `columnEndsSplit`: stuck splits only (cases_today.sw checks).
+  - Day 21's `everyNumericKey := cases`: one candidate, `key` (11 cases); both rules give 11
+    leaves, each closed by step 8. `everyDirectionKey := cases`: `key` (2), then in the `Arrow d`
+    case `d` (4), each the only candidate; 5 leaves either way.
+- *Where they differ, by hand* [run: decide/fallback.sw]. Each order is written out as the `match`es
+  the fallback would make, each leaf `byDecision` (step 8's term):
+
+  | statement | fewest cases first | latest first |
+  |---|---|---|
+  | `(flag: Bool) (month: Month): Or (flag = True) (Or (flag = False) (month = month))`: only `flag` matters | `flag`: **2 leaves**, 0.4 + 0.0 ms | `month` (12), then `flag` in each: **24 leaves**, 3.0 + 0.2 ms |
+  | `(flag: Bool) (key: NumericKey): Or (key ∈ numericKeys) (flag = True)`: only `key` matters | `flag`; each case is still stuck on `key`: **22 leaves**, 15.8 + 0.3 ms | `key` (11): **11 leaves**, 12.3 + 0.2 ms |
+
+  Neither rule always wins: which variable makes progress depends on the goal, not on counts.
+  The asymmetry is in the loss. A rule that splits an unneeded variable `u` first multiplies the
+  cases by `u`'s count. Fewest-first splits `u` first only when `u`'s count is at most the needed
+  variable's, so its loss is bounded by the smaller count (here ×2); latest-first's loss is any
+  count at all (here ×12) [inferred]. That is the review's argument (§4), and the reason to take its
+  rule.
+
+**Diagnostics.** The fallback splits are marked, so a bad choice can be seen:
+
+- `E-CASES-BUDGET`, when the split that crosses 64 is a fallback split, says so as the first note:
+  "`cases` tried splitting `month : Month` as a fallback (the goal isn't stuck on it); this would
+  exceed the 64-case budget". When earlier fallback splits contributed but the crossing split is a
+  stuck one, the "it split on …" note (cases.rs:194-201) marks them: "it split on 3: `flag`
+  (fallback), `month` (fallback), `x`".
+- `E-CASES`, for a case still open after fallback splits: the case's path marks them the same way
+  ("`cases` can't close the case flag = True (fallback), month = Jan (fallback)"), and its last
+  note, today "the goal isn't stuck on anything …" (cases.rs:355-359), adds "it split `flag`,
+  `month` as a fallback, though the goal wasn't stuck on them".
+
+**Effect on failing proofs.** A proof that fails today with "found nothing to split on" may, with the
+fallback, split up to 64 cases before failing: slower to fail, and the error names a smaller case.
+`badAfter`'s error today stops at `a = True` with the goal `b = True`; with the fallback it would
+split `b` and report `a = True, b = False (fallback)` with the goal `False = True` [inferred from the
+run above].
+
+#### 6.1.4 What stays
+
+- **Types supported:** those `cases` splits: `Bool`, enumerations, constructor types whose fields it
+  then splits (`Arrow Direction`), records of them. **Not** `Fin n` or bounded `Nat` ranges: `Fin`
+  is an indexed family and `Nat` is recursive [checked: syntax.md:1652; cases.rs:997-1010]. For
+  those, `Finite.check` (§6.2) with a hand-written instance; std has `Fin.any` with `Fin.anyElim`
+  [checked: crates/elab/src/std/Fin/Fin.sw:98-111].
+- **Failure:** as now, `E-CASES` naming the case by its splits, with the counterexample note.
+- **Size limit: 64 cases, not raised in advance** (review §7: going up later is easy, going down
+  once proofs depend on it isn't). 64 cases cost 11.7 ms and 5,938 term nodes **[run:
+  cases_budget.sw]**; the proof term grows with the case tree, where `Finite.check`'s stays small.
+  Past 64, `E-CASES-BUDGET` gets one more note when every variable it split has a `Finite`
+  instance: "for statements this size, check every case by computation: `Finite.check`", with the
+  shape of the call.
+- **Interactions** (unchanged from draft 1): an opaque definition the goal calls is stuck for
+  every step, as for `rfl`, so the fix is `unfolding` [inferred from core.md:163-170]; the check
+  cache and erasure see ordinary declarations [core.md:423, :468]; the closers write `rfl`, `J`,
+  `fromYes` and lambdas, none of which compare proofs [inferred]. A later `Decidable ((x: A) → P
+  x)` from `Finite` (§6.2) would let step 8 decide a whole `Π` goal before step 9 introduces it:
+  the past-64 route, chosen automatically [inferred].
 
 **Then:** convert day 12's two truth tables and day 21's `tabulateSame`, `everyNumericKey`,
-`everyDirectionKey` (each one word, [§2](#2-what-stitchwort-has-today)), and say in
-docs/syntax.md's `cases` section that it is the truth-table method, with a line on
-`byDecision`-style closed goals. Whether to name `byDecision` in std is a build detail.
+`everyDirectionKey`, each to `:= cases` with its signature as written; and in docs/syntax.md's
+`cases` section say that it is the truth-table method, that it introduces the goal's binders, and
+point closed goals to `byDecision`.
 
-### 6.2 `Finite` (SW-807)
+### 6.2 `Finite` and `byDecision` (SW-807)
 
 ```
 interface Finite (a: Type) = {
@@ -367,6 +576,8 @@ interface Finite (a: Type) = {
 }
 
 theorem Finite.check [auto fin: Finite a] (p: a → Bool) (checked: List.all Finite.all p = True) (x: a): p x = True
+
+def byDecision [p: Prop] [auto h: p]: p := h
 ```
 
 - **Derived**, as `DecEq` is (generated source, elaborated and checked, derive.rs:1-7 style
@@ -380,55 +591,232 @@ theorem Finite.check [auto fin: Finite a] (p: a → Bool) (checked: List.all Fin
   (T.%tag x) = Some x` by one `match` with `rfl` arms, then membership from it, so the term is
   linear in the constructors, not quadratic like day 21's chains [cited: M2; inferred].
 - **Library instances** for `Bool`, `Ordering`, `Option a`, pairs; `Fin n` by hand.
+- **`byDecision` becomes an official std idiom** (review §1), not just a pattern in this note: the
+  one-line definition above in std's `Decidable` module, documented in docs/syntax.md beside
+  `auto` and `cases` as the way to prove a closed decidable statement, and named in `E-CASES`'s
+  last note when the open case's goal is closed and decidable. It is `auto` under a name
+  [run: decide/closed.sw]; the review's split of names ("`byDecision` = prove this closed
+  decidable proposition computationally; `cases` = finite structural case analysis; `omega` =
+  arithmetic procedure") is the one to document.
 - **Uses:** `everyNumericKey` is `Finite.complete`; day 21's `fits` can be stated over
   `Finite.all`; statements past 64 cases use `Finite.check` (decide/enumerate.sw shows the
   pattern for day 12).
-- No `nodup` field: nothing here needs a count. A cardinality (pigeonhole, day 6's need,
-  NOTES-2024.md:1449-1460) would add one later [checked; inferred].
 
-## 7. Assumptions
+**No `nodup` field (R3).** Nothing in this design reads one [checked against this note]:
+`Finite.check` uses `all` and `complete` only (`allMember` in enumerate.sw uses membership, not
+distinctness) [run]; the decision closer and the fallback split don't use `Finite`; the
+`E-CASES-BUDGET` note only asks whether an instance exists. A count would: day 6's pigeonhole
+("`n + 1` values below `n` repeat", aoc/NOTES-2024.md:1449-1460) [checked].
+
+- *The trade-off:* adding a field to `Finite` later breaks every hand-written instance (`Fin n`'s,
+  and any a program writes); derived ones are regenerated. Matt's standing rule is that churn is
+  not a reason, so what decides it is the end state.
+- *The end state needs no field.* For a type with `DecEq`, which every type `Finite` is derived for
+  has, a duplicate-free complete list is a function of `Finite`: `List.distinctEq Finite.all`,
+  with `List.memDistinctEq` (`x ∈ List.distinctEq xs ↔ x ∈ xs`) and `List.distinctEqNoRepeats`
+  already in std [checked: crates/elab/src/std/List/Distinct.sw:86, :95]. So a later
+  `Finite.card` and pigeonhole can be library code over `Finite` plus `DecEq`, and no instance
+  changes [inferred; that those lemmas are enough for pigeonhole is not checked].
+- *If counting ever needs a type without `DecEq`* (a type of functions, say), that is a separate
+  interface carrying the distinctness proof, alongside `Finite` rather than inside it. Its form is
+  left to when it's built.
+
+**Later, not in SW-807 (review §6).** A proposition-level `Finite.forall`, or a derived `Decidable
+((x: A) → P x)` from `Finite A` and pointwise decidability, would let `byDecision` (and step 8)
+prove `(x: A) → P x` directly, without restating it as a `Bool` and transferring it with
+`Finite.check`. It is new territory for `auto`'s search (instances are found by unification on the
+result type, core.md:294) [checked; inferred], so it waits until `Finite.check` is in use.
+
+## 7. Native evaluation
+
+**Policy (D1973):** do not add native proof evaluation until measured kernel evaluation is a
+material limitation on real programs. About 10 s of kernel evaluation in one real proof is the
+trigger to investigate, not a boundary: crossing it means measuring that proof and asking whether
+`Finite.check`, a better decision procedure or a faster kernel evaluator would do, before asking
+whether to trust a runtime.
+
+Today's numbers, for scale: 2^16 cases by one `rfl` took about 3.5 s elaboration + 2.6 s kernel
+**[run: scale.sw, draft 1]**; the largest motivating proof has 25 cases.
+
+Native evaluation means running the check on the fast runtime (`crates/rt`) or JS and admitting the
+result. Both are untrusted today: "Its output can be wrong, but a proof never depends on it"
+[checked: core.md:239]. Lean's `native_decide` does this and adds an axiom per use, trusting the
+compiler [cited: L2, L4]; Rocq's `native_compute` checks on OCaml-compiled code [cited: R1, R2].
+
+**Faster need not mean more trusted.** Draft 1 said "faster evaluation costs trust". The review
+(§8, "One correction") is right that this is too broad. What the systems read show:
+
+- `native_decide` and `native_compute` are faster by trusting the code that runs the evaluation
+  [cited: L2, L4, R1].
+- Certificate checking is a different route: an untrusted tool does the expensive search and
+  produces a certificate, and a checker verified in the prover checks it. Lean's `bv_decide`
+  works this way: it "obtain[s] a proof from an external SAT solver and verif[ies] it inside
+  Lean", the proof being an LRAT certificate that `bv_check` can read back from a file, so the
+  SAT solver is not trusted [cited: L1, re-read 30 October 2026, the `bv_decide` and `bv_check`
+  docstrings].
+- In `bv_decide` as shipped, though, the check itself still runs on compiled code: its docstring
+  says "`bv_decide` trusts the correctness of the code generator and adds a axioms asserting its
+  result" [cited: L1]. So `bv_decide` takes the solver out of the trusted base but keeps the
+  compiler in it. How it runs the check (the docstring doesn't say; `Lean.ofReduceBool` is
+  believed to be the mechanism) is [unverified].
+- A certificate checked by the kernel would keep the trusted base where it is, with the speed of
+  the search outside it; that is the general principle the review states, and it holds by
+  construction for any checker the kernel runs [inferred]. Which system does that at scale was
+  not checked [unverified].
+
+So the honest statement is: *native evaluation* costs trust; *faster proofs* need not, if the
+expensive part produces something the kernel can check. Neither is needed for Stitchwort's sizes.
+
+## 8. Assumptions
 
 The recommendation depends on these; if one is wrong, so is the part that rests on it.
 
-1. The AoC statements over finite types stay at or below about six `Bool`s' worth of cases
-   (16 and 25 so far, [§1](#1-the-motivating-proofs)). Past 64, (b) is the fallback and works
-   ([run], 2^16 in about 6 s).
-2. The decision closer can reuse `auto`'s search for a single goal from inside `cases` without
-   reorganising either (auto.rs runs obligations in rounds after a declaration is elaborated,
-   auto.rs:36-41, "retried in rounds" at :40) [checked; that it reuses cleanly is inferred].
-3. Splitting an unstuck variable as a last resort doesn't change any existing `cases` proof:
-   today those cases are errors, so only failing proofs reach it [inferred from cases.rs:350-357, the "isn't stuck" error at :355].
-4. A derived `Finite` costs little at declaration time for every eligible type. `DecEq`'s
-   derivation is the precedent; not measured for `Finite` [unverified]. If it does cost, derive
-   it on first use or on request.
-5. Day 21's quadratic membership terms are a real cost only at larger sizes; at 11 they cost 0.4 +
-   0.1 ms through `memContains` [run]. So the linear proof is about larger enumerations, not
-   these.
+1. **Sizes.** The AoC statements over finite types stay at or below 64 cases (16 and 25 so far,
+   [§1](#1-the-motivating-proofs)). If one doesn't, `Finite.check` is the route and works up to at
+   least 2^16 cases in about 6 s [run].
+2. **Reusing `auto`.** The decision closer can run `auto`'s search on one goal from inside `cases`
+   without reorganising either (auto.rs runs obligations in rounds after a declaration is
+   elaborated, auto.rs:36-41) [checked; that it reuses cleanly is inferred].
+3. **New steps only replace an error.** Steps 8-10 run only where `node` now returns `open_case`
+   (cases.rs:265-270), so no proof that checks today changes [checked; inferred]. This is what makes
+   the closer's order (after `omega`) and the introduction's order (after the closers) safe.
+4. **No other `Π`-goal `cases` in the corpus is affected.** Reading the 141 `cases` uses outside
+   docs/proposals found none whose goal is a `Π` at the `cases`: every after-colon theorem using
+   `cases` reaches it inside a match arm [checked by reading; not by instrumenting]. By assumption
+   3 they wouldn't change anyway.
+5. **Cheap derivation.** A derived `Finite` costs little at declaration time for every eligible
+   type. `DecEq`'s derivation is the precedent; not measured for `Finite` [unverified]. If it does
+   cost, derive it on first use or on request.
+6. **Day 21's quadratic membership terms** are a real cost only at larger sizes; at 11 they cost
+   0.4 + 0.1 ms through `memContains` [run]. So the linear proof is about larger enumerations.
 
-## 8. What was not reached
+## 9. What was not reached
 
-- Dafny was not consulted; F* only its SMT-fuel chapter.
-- Lean's `Fin n` instance for `∀` in core was searched for and not found
-  (Init/Data/Nat/Basic.lean, by grep only) [unverified either way].
-- No prototype of the two `cases` additions (they need compiler changes, out of scope here).
-- The derived `Finite`'s completeness proof through `T.%tag` wasn't prototyped; enumerate.sw
-  writes `Bool`'s by hand.
+- None of the three `cases` parts was built (compiler changes are out of scope). Part 1 is shown by
+  its hand-written equivalent (the lambda), part 2 by `byDecision`, part 3 by hand-written
+  `match`es; their diagnostics are designed, not seen.
+- Whether a case `omega` closes in today's corpus also decides (so that "closer before `omega`"
+  would change its term) was not counted: it needs instrumentation.
+- How `bv_decide` runs its LRAT check, and whether any system checks certificates in the kernel at
+  scale [unverified, §7].
+- Dafny was not consulted; F* only its SMT-fuel chapter. Lean's `Fin n` instance for `∀` in core
+  was searched for and not found [unverified either way].
+- The derived `Finite`'s completeness proof through `T.%tag` wasn't prototyped; enumerate.sw writes
+  `Bool`'s by hand.
 
-## 9. Decisions for Matt
+## 10. Decisions for Matt
 
-**D1971. Close SW-800 by extending `cases` (a decision closer at the leaves, and splitting a
-finite variable when nothing is stuck), with no new `decide` word?** [yes]. Alternative: a `decide`
-word evaluating `Decidable` instances as Lean does (option (a)); it can't do day 21's
-`tabulateSame` and doesn't show the failing case.
+All three remain open. Each assumption is stated in full.
 
-**D1972. Build SW-807 as a derived `Finite` interface (a list of every value with a completeness
-proof) and `Finite.check`, for non-recursive constructor types with finite fields?** [yes, after
-D1971's conversion of days 12 and 21]. Alternative: enumerations only, as Haskell's `Enum`; day
-21's `DirectionKey` has a field and would be left out.
+**D1971. Close SW-800 by extending `cases` in three parts, with no new `decide` word: (1) `cases`
+introduces the goal's leading binders, explicit, implicit and `auto`, when no closer proves the
+`Π` goal as it stands; (2) a decision closer after `omega`, closing a case on `Yes` with
+`Decidable.fromYes d Trivial` and going on after `No` or stuck; (3) when nothing is stuck, split
+the mentioned splittable variable with the fewest cases, ties to the latest bound, marked
+"fallback" in the diagnostics?**
+Recommendation: **yes**. Reviewer agrees, with changes, all taken: part 1 added to SW-800 (R1), part
+3's heuristic changed from latest-first (R2); the order after `omega` and `No` not failing are this
+draft's answers to the review's ordering question. Alternative: a `decide` word evaluating
+`Decidable` instances as Lean does (option (a)); it can't do day 21's `tabulateSame` and doesn't
+show the failing case.
+Assumptions: (i) the new steps run only where `cases` today reports `E-CASES`, so no proof that
+checks today changes (cases.rs:265-270); (ii) `auto`'s search can be run on one goal from inside
+`cases` without reorganising either; (iii) the statements the AoC proofs need stay within 64 cases,
+with `Finite.check` beyond.
 
-**D1973. Never add native evaluation as a proof (`native_decide`)?** [never, until a proof needs
-more than about 10 s of kernel evaluation; then revisit with that proof]. Alternative: trust the
-fast runtime for closed `Bool`s, adding it to the trusted base.
+**D1972. Build SW-807 as a derived `Finite` interface with exactly two fields, `all: List a` and
+`complete: (x: a) → x ∈ all` (no duplicate-freedom field), plus `Finite.check`, for non-recursive,
+non-indexed constructor types with finite fields; and make `byDecision` an official std idiom?**
+Recommendation: **yes, after D1971's conversion of days 12 and 21**. Reviewer agrees, with change:
+no `nodup` (R3; draft 1 had none either, and this draft records why) and `byDecision` in std rather
+than an example. Alternatives: enumerations only, as Haskell's `Enum` (day 21's `DirectionKey` has
+a field and would be left out); or a `nodup` field now (breaks no instance today, but nothing reads
+it).
+Assumptions: (i) every type `Finite` is derived for also has derived `DecEq`, so a duplicate-free
+list is `List.distinctEq Finite.all` (std/List/Distinct.sw:86, :95) and counting never needs a new
+field for those types; (ii) a derived `Finite` costs little at declaration time for every eligible
+type (not measured); (iii) a proposition-level `Finite.forall` is a later ticket, not SW-807.
+
+**D1973. Do not add native proof evaluation until measured kernel evaluation is a material
+limitation on real programs; about 10 s of kernel evaluation in one real proof is the trigger to
+investigate, not a boundary.**
+Recommendation: **yes, worded so** ("not now rather than never"). Reviewer agrees, with change: the
+policy reworded from draft 1's "never, until a proof needs more than about 10 s", and the comparison
+section no longer says faster evaluation must cost trust (§7). Alternative: trust the fast runtime
+for closed `Bool`s now, adding it to the trusted base.
+Assumptions: (i) kernel evaluation stays fast enough for real proofs: 2^16 cases in about 6 s by one
+`rfl` (scale.sw), against 25 cases in the largest motivating proof; (ii) when the trigger is
+reached, cheaper routes (`Finite.check`, a better decision procedure, a faster kernel evaluator, a
+kernel-checked certificate) are considered before a trusted runtime.
+
+No new decision: the questions the investigation raised (where introduction goes, the closer's
+order, what `No` does) each had one answer that keeps every current proof and adds proofs, so they
+are recorded as design, not put to Matt.
+
+## 11. Review 1 and how it was addressed
+
+The review is [decide/review-1.md](decide/review-1.md), verbatim.
+
+| # | reviewer point (section of review-1.md) | how addressed | where in this note |
+|---|---|---|---|
+| 1 | No `decide` keyword (§1) | agreed; unchanged | §6.1, D1971 |
+| 2 | Make `byDecision` an official std idiom (§1) | adopted: in std, in syntax.md, named in `E-CASES` | §6.2, D1972, §12 |
+| 3 | The decision closer is sound: same `fromYes … Trivial` as `auto` (§2) | agreed; recorded | §6.1.2 |
+| 4 | Keep elaborator-first evaluation for diagnostics (§2) | agreed; recorded | §6.1.2 |
+| 5 | Closer before `omega` questioned, not blocking (§2) | investigated: moved after `omega`; also `No` no longer fails a case (counterexample to draft 1 in closer_order.sw); no corpus example where order changes the outcome | §6.1.2 |
+| 6 | **R1**: `cases` introduces leading Π binders, part of SW-800 (§3) | adopted as part 1; run on the real `rowEndsSplit`; placed after the closers because introducing first breaks `byHyp` | §6.1.1, binders.sw |
+| 7 | **R2**: fewest cases, ties by recency; say when the fallback blows the budget (§4) | adopted; counts defined (data, `Bool`, records, indexed families); measured by hand where the rules differ; diagnostic specified | §6.1.3, fallback.sw |
+| 8 | **R3**: `Finite` minimal, no `nodup`; record the trade-off (§5) | adopted (draft 1 had none); trade-off recorded; counting shown possible from `Finite` + `DecEq` with existing std lemmas | §6.2, D1972 |
+| 9 | `Finite.forall` / `Decidable ((x: A) → P x)` later, not SW-807 (§6) | agreed; recorded as a later extension | §6.2 |
+| 10 | Keep 64, don't raise pre-emptively; point larger cases to `Finite.check` (§7) | agreed; recorded | §6.1.4 |
+| 11 | Native evaluation: "not now rather than never", 10 s a trigger (§8) | policy reworded | §7, D1973 |
+| 12 | Soften "faster evaluation costs trust"; `bv_decide` and certificates (§8, correction) | rewritten; `bv_decide` re-read: it removes the solver from the trusted base but, per its docstring, still trusts the code generator | §7 |
+
+## 12. Stage plan
+
+Each part is one merge, with its tests; tests are snapshot examples in examples/accept and
+examples/reject, as for today's `cases`.
+
+**SW-800 part 1: binder introduction** (cases.rs `node`, step 9).
+- accept: `rowEndsSplit` after the colon (binders.sw's `rowEndsAfter`), and split before/after
+  (`rowEndsMixed`); a hypothesis after the colon used by the contradiction closer (`(b: Bool) → b
+  = True → not b = False`); an unnamed hypothesis; a `Π` reached after a split.
+- accept, unchanged: binders.sw's `byHyp`, `notLess`, `byTerm`, `implicitAfter` (introduction must
+  not pre-empt them).
+- reject: an open case after introduction, its path using the written names; an unnamed
+  hypothesis shown as `hypothesis 1 (unnamed)`.
+- then: convert days 12 (`rowEndsSplit`, `columnEndsSplit`) and 21 (`tabulateSame`) to `:= cases`
+  in their written form.
+
+**SW-800 part 2: the decision closer** (step 8).
+- accept: `closer_order.sw`'s `falseGoalImpossibleCase` still checks (`No` goes on); `leftYes`'s
+  goal by `cases`; a leaf closed only by deciding (`Digit3 = key ∨ …` after a split).
+- reject: a case whose goal decides `No`, with the "decision procedure says it is false" note.
+- check: the snapshot suite unchanged otherwise (no existing proof changes, assumption 3).
+
+**SW-800 part 3: the fallback split** (step 10).
+- accept: `everyNumericKey := cases` and `everyDirectionKey := cases` (5 leaves, with the second
+  fallback on `d`); `fallback.sw`'s two statements by `cases`, each with the leaf count the rule
+  predicts (2 and 22), as a test of the rule itself.
+- reject: `E-CASES-BUDGET` from a fallback split, with "`cases` tried splitting `x : T` as a
+  fallback; this would exceed the 64-case budget"; `E-CASES` with a path marked "(fallback)"
+  (`badAfter`); a statement past 64 whose variables all have `Finite`, with the `Finite.check`
+  note (after SW-807).
+- then: convert day 21's `everyNumericKey`, `everyDirectionKey`.
+
+**SW-807: `Finite`, `Finite.check`, `byDecision`.**
+- std: `Finite`, `Finite.check` (from enumerate.sw), library instances (`Bool`, `Ordering`,
+  `Option a`, pairs, `Fin n` by hand), `byDecision` in the `Decidable` module.
+- derive: accept, `Finite` for an enumeration, for `DirectionKey` (a field), for a record of
+  `Bool`s, each `all` in declaration order; reject, a recursive type and an indexed family, with
+  why.
+- accept: day 12's statement by `Finite.check` (enumerate.sw, using the derived `Bool` instance);
+  a 2^10 statement by `Finite.check`.
+- docs: syntax.md's `cases` section (the truth-table method, binder introduction, the fallback,
+  the budget and `Finite.check`), `byDecision` beside `auto`.
+- measure: declaration-time cost of deriving `Finite` across std and aoc (assumption 5).
+
+Order: parts 1, 2, 3, then SW-807; part 3's `Finite.check` note waits for SW-807.
 
 ## Sources
 
@@ -464,6 +852,10 @@ Fetched 29 October 2026 into the lane's scratch directory; line numbers are of t
 - Lean `src/Init/Core.lean`, `src/Init/Data/Nat/Basic.lean`, `src/Lean/Elab/Tactic/ElabTerm.lean` (grep for `decide` and bounded-`∀` instances only).
 - One web search for F*'s `assert_norm` (result snippets only; no usable source).
 
+**Draft 2's web use:** no web searches; one fetch, re-reading [L1]'s `bv_decide`, `bv_check` and
+`bv_decide?` docstrings on 30 October 2026 (the first 100,000 characters of the file, which hold
+them).
+
 **Stitchwort**, at `b02ec6ca`: README.md; DESIGN.md §13; docs/core.md in full; docs/syntax.md
 (Interfaces, Expressions, Goals, Counterexamples, `calc`, `rewrite`, `omega`, `ring`, `cases`);
 docs/proposals/simp.md (summary, §5, §8.3, §9); counterexample-search.md (§0);
@@ -475,7 +867,16 @@ docs/research/proof-automation.md in its 29 Oct version, replaced on 30 Oct (C10
 nested-data-types.md, opaque-definitions.md and check-cache.md (only core.md's summaries of
 them).
 
-**Prototypes** ([decide/](decide/)): `cases_today.sw` (day 12 by `cases`), `day21_today.sw`
+**Stitchwort, draft 2**, at `09118ced`: crates/elab/src/cases.rs in full; check.rs (the
+`check` cases for lambdas and implicit `Π`s, :3355-3421, and arrows, :1400-1411); omega.rs
+(`prove_case`, `prove_goal`, `negated`); std/List/Distinct.sw (theorem list); std/Bool/Bool.sw
+(theorem list); the day 12 and day 21 signatures; the 141 uses of `cases` in `.sw` files outside
+docs/proposals, read with their enclosing declaration's signature.
+
+**Prototypes** ([decide/](decide/)), draft 2 adds `binders.sw` (R1: `rowEndsSplit` before the
+colon and as a lambda, the after-colon and split forms' errors in comments, and the `Π` goals
+`cases` proves today), `closer_order.sw` (the closer's order and what `No` does) and
+`fallback.sw` (R2: both rules written out by hand on two statements). Draft 1's: `cases_today.sw` (day 12 by `cases`), `day21_today.sw`
 (`tabulateSame`, `containsNumericKey`, `everyNumericKey`), `cases_budget.sw` (64 cases; the
 128-case error in a comment), `closed.sw` (`byDecision`), `enumerate.sw` (option (b) by hand for
 day 12), `scale.sw` (2^10 and 2^14 by one `rfl`).
