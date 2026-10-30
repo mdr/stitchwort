@@ -7043,15 +7043,15 @@
     {
       "id": 805,
       "title": "Consider D1442: Infer a record literal's type from its field names",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "D1991 (Matt: keep): rebase lane; safe-fields hashes changed on merge, investigating",
       "labels": [
         "decision"
       ],
       "body": "Reverses the rule \"no type is guessed from the field names\". Built on branch record-literal-inference: exactly one record type in scope with exactly those fields. Rec: yes as built.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
@@ -7207,9 +7207,9 @@
       "labels": [
         "decision"
       ],
-      "body": "AoC 2024 day 3: instructions.foldLeft { enabled = True, total = 0 } step fails with E-CANNOT-INFER because foldLeft's accumulator type is a parameter and arguments are checked left to right; step, checked later, would fix it as Tally. Lambdas are already postponed this way (check.rs ~1665). Day 21's record literal inside a tuple on the left of |> is a related case. Alternative or complement: inferring the type from field names (D1442, SW-805).",
+      "body": "AoC 2024 day 3: instructions.foldLeft { enabled = True, total = 0 } step fails with E-CANNOT-INFER because foldLeft's accumulator type is a parameter and arguments are checked left to right; step, checked later, would fix it as Tally. Lambdas are already postponed this way (check.rs ~1665). Day 21's record literal inside a tuple on the left of |> is a related case. Alternative or complement: inferring the type from field names (D1442, SW-805).\n30 Oct: design lane for D1990 (one postponement queue) started; repros for SW-817/847/885 written under docs/proposals/postponement/.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
@@ -8502,16 +8502,18 @@
     {
       "id": 901,
       "title": "Extract snapshot comparison in the merge tier (stale JS snapshots went unnoticed)",
-      "status": "doing",
-      "agent": "Claude",
+      "status": "done",
+      "agent": "",
       "where": "",
       "labels": [
         "tooling"
       ],
-      "body": "- D1983 item 1. Old test 28 s: checking the 53 examples 17.7 s, tsc 9.7 s, generate+compare 0.2 s.\n- Split (2e02ab37): generated_code_is_stable (par_map check + snapshots, ~4.2 s alone; 4 threads 6.9 s, 14 threads 4.0 s) and the_declarations_type_check (tsc, daily).",
+      "body": "- D1983 item 1. Old test 28 s: checking the 53 examples 17.7 s, tsc 9.7 s, generate+compare 0.2 s.\n- Split: generated_code_is_stable (par_map check + snapshots, ~4.2 s alone; 4 threads 6.9 s, 14 threads 4.0 s; 323 MB peak) in merge; the_declarations_type_check (tsc) daily. Catches a corrupted snapshot. Not in a lane (4 s > 'about a second'; lane-cli already 12 s).\n- In corpus-sweeps it sat on the merge tier's tail chain (hash_stability examples started as it ended), so it runs beside the sweeps instead.\n- Merge tier (load 23-146 from other worktrees, noisy): before 48.6, 54.5, 56.7, 97.9 s; after (in group) 51.7, 52.0, 106.0, 70.1 s; after (beside sweeps) 56.7, 110.7, 81.1 s. No cost resolvable over the noise; needs a quiet-machine pair.\n- Branch worktree-agent-a1f0f053454506cfc: 31c79738, 72f0533f. fmt, clippy clean.",
       "created": "2026-10-30",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "319663a8"
+      ]
     },
     {
       "id": 902,
@@ -8523,7 +8525,7 @@
         "kernel",
         "bug"
       ],
-      "body": "SOUNDNESS. Found 30 Oct 2026 by the kernel-bug test lane (kernel register T1, porting Lean's looseBVarRange bit-overflow shape); reproduced by the orchestrator with main's release binary.\n\n`def wrap: Type 0 := Type 4294967295` is ACCEPTED (\"checked\"). So is `def wrap2: Type 4294967295 := Type 4294967294`. (`def big: Type 4294967295 := Nat` is rightly E-UNIVERSE; `Type 4294967296` is E-PARSE \"universe level is too large\".)\n\nCause: universe levels are u32 (`crates/core/src/term.rs:24`, `Sort::Type(u32)`), and the step to the next universe adds one unchecked: the kernel's `Sort::succ` (`term.rs:32`, `Sort::Type(i) => Sort::Type(i + 1)`, used at `crates/core/src/check.rs:286` and `:608`) and the elaborator (`crates/elab/src/check.rs:1218`). Release builds have no overflow checks (no `overflow-checks` in Cargo.toml), so `Type u32::MAX : Type 0`. The parser accepts any level that fits in a u32 (`crates/syntax/src/parser.rs:3882`).\n\nConsequence: the universe hierarchy is cyclic (Type 0 : ... : Type u32::MAX : Type 0), the setting of Girard's/Hurkens' paradox, so a proof of Void should be constructible (not built; treat as unsound). Also `Sort::fits_in` (term.rs:53-58) lets a Type 0 data type hold a field of type Type u32::MAX.\n\nFix direction: the kernel must refuse a universe whose successor doesn't exist (checked add, an error rather than saturating, since Type MAX : Type MAX is just as bad), the elaborator likewise, and the parser should keep levels far below the limit. Then audit the kernel for other unchecked arithmetic on levels, de Bruijn indices or counters. Must-reject tests for both programs above.\n\n\n30 Oct (fix lane): reproduced on main release: wrap, wrap2 and a Type 0 data type with a `Type 4294967295` field are all \"checked\". Plan: MAX_LEVEL = 65535 (u16::MAX), checked Sort::succ in kernel and elab, parser limit, cache read limit.\n",
+      "body": "SOUNDNESS. Found 30 Oct 2026 by the kernel-bug test lane (kernel register T1, porting Lean's looseBVarRange bit-overflow shape); reproduced by the orchestrator with main's release binary.\n\n`def wrap: Type 0 := Type 4294967295` is ACCEPTED (\"checked\"). So is `def wrap2: Type 4294967295 := Type 4294967294`. (`def big: Type 4294967295 := Nat` is rightly E-UNIVERSE; `Type 4294967296` is E-PARSE \"universe level is too large\".)\n\nCause: universe levels are u32 (`crates/core/src/term.rs:24`, `Sort::Type(u32)`), and the step to the next universe adds one unchecked: the kernel's `Sort::succ` (`term.rs:32`, `Sort::Type(i) => Sort::Type(i + 1)`, used at `crates/core/src/check.rs:286` and `:608`) and the elaborator (`crates/elab/src/check.rs:1218`). Release builds have no overflow checks (no `overflow-checks` in Cargo.toml), so `Type u32::MAX : Type 0`. The parser accepts any level that fits in a u32 (`crates/syntax/src/parser.rs:3882`).\n\nConsequence: the universe hierarchy is cyclic (Type 0 : ... : Type u32::MAX : Type 0), the setting of Girard's/Hurkens' paradox, so a proof of Void should be constructible (not built; treat as unsound). Also `Sort::fits_in` (term.rs:53-58) lets a Type 0 data type hold a field of type Type u32::MAX.\n\nFix direction: the kernel must refuse a universe whose successor doesn't exist (checked add, an error rather than saturating, since Type MAX : Type MAX is just as bad), the elaborator likewise, and the parser should keep levels far below the limit. Then audit the kernel for other unchecked arithmetic on levels, de Bruijn indices or counters. Must-reject tests for both programs above.\n\n\n30 Oct (fix lane): reproduced on main release: wrap, wrap2 and a Type 0 data type with a `Type 4294967295` field are all \"checked\". Plan: MAX_LEVEL = 65535 (u16::MAX), checked Sort::succ in kernel and elab, parser limit, cache read limit.\n30 Oct (fix lane): fix committed on branch (e1d444d7 kernel, da80af16 parser/elab/cache, d8d36404 examples); repros now E-PARSE / E-UNIVERSE; hashes lane unchanged. Next: audit, docs, lanes.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
