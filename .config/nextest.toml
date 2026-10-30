@@ -85,6 +85,7 @@ package(stitchwort-syntax)
 | package(stitchwort-standalone) | (package(stitchwort-cli) & ((kind(bin) & test(/^build::/)) | binary(build)))
 | (binary(hash_stability) & test(/^(examples|projects|prelude)$/))
 | (package(stitchwort-cli) & binary(examples))
+| (package(stitchwort-cli) & binary(goal_index))
 | (package(stitchwort-bench) & binary(check_work) & !test(=checking_does_not_compute_unneeded_values))
 """
 
@@ -130,6 +131,12 @@ default-filter = "package(stitchwort-native) & !test(=tail_calls_of_every_shape_
 
 [profile.lane-lsp]
 default-filter = "binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)"
+
+# Goals end to end with the built command (`crates/cli/tests/goal_index.rs`):
+# `check --index`'s goals and lemmas, each lemma and printed goal pasted back
+# and checked again. About 12 s, its lemma test the longest.
+[profile.lane-goals]
+default-filter = "package(stitchwort-cli) & binary(goal_index)"
 
 [profile.lane-fmt]
 default-filter = "(package(stitchwort-fmt) & !binary(repo) & !binary(fuzz)) | (package(stitchwort-cli) & binary(fmt))"
