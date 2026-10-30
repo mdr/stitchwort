@@ -1,6 +1,22 @@
 # Literature trawl: inductive types and recursion
 
-**Counts: screened 56; carded 21; read in full 19; not read 2 (listed in §9).**
+**Counts: screened 56; carded 21; read in full 21; not read 0.** The 29 Oct version said read
+in full 19, not read 2: C20 and C21 were NOT READ then and were read for the audit, in Internet
+Archive copies of the ACM PDFs (§9).
+
+**Audited 30 Oct 2026 against full texts: 11 OK, 8 minor (fixed), 0 wrong, 0 can't verify** (of
+the 19 cards first marked read). Every card now ends with "Audit:". The minor ones were quotes
+that weren't the source's words (C1, C4, C16), claims marked unverified or "from Zulip" that the
+sources do state (C3, C6, C14), a caveat left out (C6: tail-recursive functions qualify too;
+C8: Lean's linear `BEq` and `Ord` start at 10 constructors), and a number stretched in §1 (C11:
+5.5× is one standard-library file, not the library). Outside the cards, one Stitchwort claim was
+wrong: §5.3's assumption E1, that day 21 needs enumerations only (its `DirectionKey` has a field,
+`Arrow (direction: Direction)`), on which D1912 rested; D1912 is withdrawn in favour of
+decide.md's D1972. The §3 tally was off by one (17 maybe and 18 drop, not 18 and 17). Stitchwort
+descriptions were updated for work merged since 29 Oct: nested types stage 3 built `T.induct`,
+`T.inductMem`, `T.size` and `D.All` (D1823, done), and `auto` now proves `decreasing T.size p`
+from an attached element (D1450's ask, done for `T.size`); decide.md (29 Oct) took over SW-807.
+Each place is marked "Audit:". No file reference in this register was wrong.
 
 *SW-894, cluster 2. Trawled 29 October 2026 against `main` at `5c25a1b5`. Research only: no
 code changed, no tests run. Window: 2022 onwards (D1831); older work appears only where
@@ -41,8 +57,9 @@ confirms them: case trees plus size-change termination, not recursors; proof-car
 for `decreasing`, not `Acc`, so tests and `rfl` compute; nested types checked as written;
 `Partial` as a separate mode, not a domain theory. Lean went the same way on one of these in
 2025: it removed reducible well-founded recursion altogether (4.25, #10714). Sized types are
-still not practical. Chan, Li and Bowman measured at least a 5.5× slowdown on Coq's standard
-library from backward-compatible size inference, "intrinsic and unavoidable" (C11). Agda's
+still not practical. Chan, Li and Bowman measured a 5.5× slowdown compiling `MSetList`, one
+file of Coq's standard library, from backward-compatible size inference, "intrinsic and
+unavoidable" (C11). Agda's
 implementation "is currently inconsistent" because Agda proves `∞ < ∞` (C12). Nothing here
 argues for reopening those choices.
 
@@ -50,22 +67,27 @@ What is worth stealing is mostly **Lean's elaborator work from 2024-2026**, beca
 problems that are open on Stitchwort's board:
 
 - **Generated functional induction and case-split principles** (`f.induct`, Lean 4.8;
-  `f.fun_cases`, 4.17). One generator would serve three open items: SW-199's stage 3
-  `f.induct`, SW-802's per-branch lemmas (D1439), and nested-data-types.md §9's `T.induct`
-  (D1823). In Stitchwort it can be a generated *theorem* by recursion that the kernel checks,
-  so nothing new is trusted (§5.1, T1).
+  `f.fun_cases`, 4.17). One generator would serve two open items: SW-199's stage 3
+  `f.induct` and SW-802's per-branch lemmas (D1439). In Stitchwort it can be a generated
+  *theorem* by recursion that the kernel checks, so nothing new is trusted (§5.1, T1). (Audit:
+  the third item, nested-data-types.md §9's `T.induct` (D1823), was built in nested types stage
+  3 after this register was written, as kernel case trees in `derive_induct.rs`; it is the
+  precedent for T1.)
 - **Automatic `attach`** (Lean 4.18, `wf_preprocess`): the elaborator rewrites `xs.map f` to
   `xs.attach.map …` itself, so a recursive call inside `map` gets its membership fact.
   Stitchwort built the pieces in stages 3a and 3b (congruence lemmas, `List.attach`,
-  `List.Member`), but the user still attaches by hand (§5.2, T2).
+  `List.Member`), and nested types stage 3 made `auto` prove `decreasing T.size p` from an
+  attached element's `isIn`, but the user still attaches by hand (§5.2, T2).
 - **Termination-measure guessing** (Lean's GuessLex): try candidate measures, then report the
   one that works (`termination_by?`), or a table of what was found per call. In Stitchwort
   this belongs in the `E-TERMINATION` message, not in the checker (§5.2, T3).
 - **Derived enumerations** (Mathlib's `Fintype` handler; Lean 4.24/4.25's linear `DecidableEq`,
-  `BEq` and `Ord` by constructor index): for SW-807, a derived `T.all` with linear-size
-  completeness and distinctness proofs, built on the `T.%tag` that Stitchwort's derived
-  `DecEq` and `Ord` already use (§5.3, T4). Stitchwort's derived `DecEq` already has the
-  linear shape Lean adopted in 2025 **[checked]**.
+  `BEq` and `Ord` by constructor index): for SW-807, a derived list of every value with a
+  linear-size completeness proof, built on the `T.%tag` that Stitchwort's derived `DecEq` and
+  `Ord` already use (§5.3). Stitchwort's derived `DecEq` already has the linear shape Lean
+  adopted in 2025 **[checked]**. (Audit: SW-807 is now designed in decide.md, D1972, as a
+  derived `Finite` interface that also covers fields of finite types, which day 21 needs; T4
+  and D1912 are withdrawn.)
 
 Two "no"s are worth writing down. **Codata** (streams, coinductive types): checking
 termination and productivity separately "is not enough" once inductive and coinductive types
@@ -131,11 +153,26 @@ docs; Idris 2 "Builtins" page; Agda 2.8.0 changelog; Breitner's blog post 816 ("
 termination proofs", 10 Mar 2025); arXiv abstract 2607.18455. Semantic Scholar's API was used
 to look for open copies of the two ICFP 2022 papers.
 
+Audit fetches (30 Oct 2026, no web searches): every source was fetched again and read as text.
+Lean's docstrings came from the module sources on GitHub (`src/Lean/Meta/Tactic/FunInd.lean`,
+`…/WF/Preprocess.lean`, `…/WF/GuessLex.lean`), and Mathlib's from
+`Mathlib/Tactic/DeriveFintype.lean`. The release notes were 4.8.0, 4.17.0, 4.18.0, 4.24.0 and
+4.25.0 (lean-lang.org/doc/reference/latest/releases/). The Lean reference chapter "Recursive
+definitions" was read in full: its partial-fixpoint and coinductive-predicate sections are now
+on the same page. So were the `invalidDottedIdent` page (now at
+`Error-Explanations/About___--invalidDottedIdent/`), Breitner's post 816, Idris 2's "Builtins"
+page and the Agda 2.8.0 changelog. Papers: Leroy's PDF; the NSF copy of C10; arXiv 1912.05601v4,
+2407.05715, 2505.21225v2 and 2607.18455; the LIPIcs PDF of C12. C20 and C21 came from
+`web.archive.org/web/2023id_/https://dl.acm.org/doi/pdf/<doi>`. Citations were checked against
+Crossref (JFP 33 e1; PLDI 2022 pp. 966-980; PACMPL 6 ICFP, articles 113 and 98) and arXiv's
+metadata (C15 is to appear in TFP 2025; C17 "to be presented at TyDe 2026").
+
 ## 3. Screened list
 
 Screened on title and abstract (or release-note text) against SW-894's hooks and the tickets
-in the brief. 56 sources: 21 carded (19 read, 2 NOT READ), 18 maybe, 17 drop. A "maybe" was
-not read and supports nothing below.
+in the brief. 56 sources: 21 carded (all 21 read; C20 and C21 only in the audit), 17 maybe
+(rows 22-38), 18 drop (rows 39-56). A "maybe" was not read and supports nothing below.
+(Audit: the 29 Oct line said 18 maybe and 17 drop; the rows say 17 and 18.)
 
 | # | Source | Verdict | Why |
 |---|---|---|---|
@@ -158,8 +195,8 @@ not read and supports nothing below.
 | 17 | Richter and Böhler, From pattern unification towards pattern matching unification, TyDe 2026 | card C17 | motive inference |
 | 18 | Agda 2.8.0 changelog | card C18 | SW-510 |
 | 19 | Lean dotted identifiers from the expected type (reference) | card C19 | SW-510 |
-| 20 | Escot and Cockx, Practical generic programming over a universe of native datatypes, ICFP 2022 | card C20, NOT READ | deriving architecture |
-| 21 | Ko, Chen, Lin, Datatype-generic programming meets elaborator reflection, ICFP 2022 | card C21, NOT READ | same |
+| 20 | Escot and Cockx, Practical generic programming over a universe of native datatypes, ICFP 2022 | card C20 (read in the audit) | deriving architecture |
+| 21 | Ko, Chen, Lin, Datatype-generic programming meets elaborator reflection, ICFP 2022 | card C21 (read in the audit) | same |
 | 22 | Hyvernat, Totality for Mixed Inductive and Coinductive Types, LMCS 2025 | maybe | companion to 13 |
 | 23 | Møgelberg and Zwart, What Monads Can and Cannot Do with a Few Extra Pages, LMCS 2025 | maybe | Delay with other effects |
 | 24 | Kovács, Canonicity for Indexed Inductive-Recursive Types, POPL 2026 | maybe | IIR theory; not now |
@@ -202,15 +239,21 @@ not read and supports nothing below.
 *Claim:* every recursive function `f` (structural, well-founded, mutual) gets `f.induct`. Its
 motive ranges over `f`'s non-fixed parameters. Its cases follow `f`'s branches, roughly its
 tail positions (`if` arms and `match` arms). Each case gets one induction hypothesis per
-recursive call, quantified over any binders the call depends on, plus the branch's `if`
-condition and `let`s "when judged useful". Where patterns overlap, the matcher is replaced by
-its "splitter", which "brings extra assumptions into scope". Mutual functions get one motive
-each. The principle is built by walking the compiled body (`.brecOn` or `WellFounded.fix`).
-Inductive predicates defined by `.brecOn` are not supported **[cited]**. *Steal:* generate
-`f.induct` from the case tree, as a theorem by recursion that the kernel checks (§5.1).
-*Helps:* SW-199 stage 3, SW-802, D1823. *Cost:* elaborator change. *Full text:* read
-(docstring at lean-lang.org/doc/api/Lean/Meta/Tactic/FunInd.html; 4.17 notes). The Lean blog
-post of May 2024 was not reached (§9); nothing here rests on it.
+recursive call, quantified over the binders the call (or its termination proof) depends on.
+The branch's local context (an `if` condition, a `let`, a `have`) is added "if they are likely
+to be useful (as determined by `MVarId.cleanup`)". Where patterns overlap, the matcher is
+replaced by its "splitter", which "brings extra assumptions into scope". Mutual functions get
+one motive each. The principle is built by walking the compiled body (`.brecOn` or
+`WellFounded.fix`). Structural recursion over an inductive *predicate* is not supported: the
+code "does *not* recognize the `.brecOn` of inductive *predicates*" **[cited]**. *Steal:*
+generate `f.induct` from the case tree, as a theorem by recursion that the kernel checks
+(§5.1). *Helps:* SW-199 stage 3, SW-802. *Cost:* elaborator change. *Full text:* read
+(docstring at lean-lang.org/doc/api/Lean/Meta/Tactic/FunInd.html; 4.8 notes, which introduced
+`f.induct`). The Lean blog post of May 2024 was not reached (§9); nothing here rests on it.
+*Audit: MINOR, fixed.* "When judged useful" was in quotes but isn't the docstring's wording,
+and "inductive predicates defined by `.brecOn`" garbled the limitation, which is about
+functions that recurse structurally on a predicate. The 4.17 notes don't cover `f.induct`; the
+4.8 notes do. D1823 removed from *Helps* (built, §5.1).
 
 **C2. Lean `fun_cases`.** Lean 4.17 notes, #6261; FunInd docstring. *Claim:* `foo.fun_cases`
 is "an automatically generated theorem that splits the goal according to the branching
@@ -220,7 +263,9 @@ case (`motive x y (f x y)`), reducing through `match`, `ite` and `let` **[cited]
 the proof-side answer to SW-809 ("a `match found:` in a definition can't be stepped through")
 and SW-802 (days 12 and 16): one generated lemma per definition, applied as a case split.
 *Helps:* SW-802, SW-809. *Cost:* elaborator change (shares T1's generator). *Full text:* read
-(4.17 notes; FunInd docstring).
+(4.17 notes; FunInd docstring). *Audit: OK.* Both quotes are in the 4.17 notes (#6261); the
+unfolding variant is the docstring's `fun_cases_unfolding`, reduced "as we go into match, ite
+or let expressions".
 
 **C3. Lean automatic `attach`.** `Lean.Elab.PreDefinition.WF.Preprocess` docstring. *Claim:*
 before building a well-founded definition, Lean marks every parameter with `wfParam` and
@@ -229,21 +274,28 @@ pushes the marker through projections and `match`. It then rewrites with a simp 
 `(wfParam xs).map f = xs.attach.unattach.map f`, and performing the call, `xs.unattach.map f =
 xs.map (fun ⟨x, h⟩ => f (wfParam x))`. The split lets chains like `(xs.reverse.filter p).map f`
 attach the membership proof to `xs`, and the inner `wfParam` handles doubly nested recursion
-**[cited]**. Lean 4.18's notes say it makes `attach` unnecessary "in many cases"
-**[unverified: search summary of the notes]**. *Steal:* auto-attach for `decreasing` (§5.2,
-T2). *Helps:* SW-199 stage 3b follow-up; nested stage 3 (D1450). *Cost:* elaborator change.
-*Full text:* read (docstring).
+**[cited]**. Lean 4.18's notes (#6744) say it brings assumptions like `x ∈ xs` into scope
+automatically, and "In many cases this removes the need to use functions like List.attach"
+**[cited]**. *Steal:* auto-attach for `decreasing` (§5.2, T2). *Helps:* SW-199 stage 3b
+follow-up. *Cost:* elaborator change. *Full text:* read (docstring; 4.18 notes). *Audit:
+MINOR, fixed.* The 4.18 sentence was marked unverified; it is in the notes. D1450 removed from
+*Helps*: nested types stage 3 built it for `T.size` (`auto.rs`, `size_from_member`).
 
 **C4. Breitner, "Extrinsic termination proofs for well-founded recursion in Lean"**
 (joachim-breitner.de/blog/816, 10 Mar 2025). *Claim:* an alternative design leaves the user's
-functional untouched and proves separately that it "calls only on" smaller arguments
-(`callsOn`, with compositional lemmas per higher-order function). It works for termination
+functional untouched and proves separately that "F calls its higher-order argument only on
+arguments that satisfy the predicate P" (`callsOn`, with compositional lemmas per higher-order
+function, as Isabelle does with congruence lemmas). It works for termination
 but not for functional induction, because the facts the induction needs exist only inside
 the termination proof ("The cake is a lie"). He would probably have chosen it had functional
 induction not existed already **[cited]**. *Steal:* the warning for T1. Stitchwort's
 congruence-lemma route (`FCong`, stage 3a) is the same kind of extrinsic argument, used for
 the respects lemma. A generated `f.induct` has no fact to give a call under a lambda unless
 that call used `attach`. *Helps:* T1, T2. *Cost:* none (design input). *Full text:* read.
+*Audit: MINOR, fixed.* "Calls only on" was in quotes but isn't the post's wording; the
+post's sentence is quoted now. The rest holds: "The cake is a lie" (the assumptions "only exist
+in the termination proof, they are not available in F"), and "if we didn't have functional
+induction at this point yet, then very likely I'd change Lean to use this construction".
 
 **C5. Lean GuessLex.** `Lean.Elab.PreDefinition.WF.GuessLex` docstring. *Claim:* candidate
 measures are `sizeOf` of each parameter, `e₂ - e₁` when `e₁ < e₂` is in a call's context, and,
@@ -256,18 +308,26 @@ call. The design follows Bulwahn, Krauss and Nipkow, and Manolios and Vroon **[c
 *Steal:* T3: on `E-TERMINATION`, try candidates against `auto` and suggest the `decreasing`
 clause that works, or print the per-call table. *Helps:* DESIGN §5 ("the error should say
 which call failed and … suggest `decreasing`"). *Cost:* elaborator change (messages only).
-*Full text:* read (docstring).
+*Full text:* read (docstring and module source). *Audit: OK.* The docstring has the measures,
+the `<`-then-`≤` table, the laziness, the `=` check and both citations; the threshold of 32 and
+"uniform combinations first" are in `generateCombinations?` in the same module, and the failure
+table is `explainFailure`.
 
 **C6. Lean `partial_fixpoint`.** Lean 4.17 notes, #6355; Lean reference, "Recursive
 definitions". *Claim:* the feature adds "the ability to define possibly non-terminating
-functions and still be able to reason about them equationally". The return type must be in
-certain monads (for example `Option`). Applications "are not definitionally equal to their
+functions and still be able to reason about them equationally, as long as they are
+tail-recursive, or operate within certain monads such as Option". The reference names the two
+classes: "Tail-recursive functions whose return type is inhabited type" and "Functions that
+return values in a suitable monad". Applications "are not definitionally equal to their
 return values", but propositional equations and, for monadic functions, partial-correctness
-theorems are generated. By contrast, `partial` functions are opaque constants **[cited]**.
-The names `fixpoint_induct` and `partial_correctness` come from Zulip **[unverified]**.
-*Steal:* the idea that a partial function can have a reasoning principle without a
-termination proof (§5.4). *Helps:* partial.md. *Cost:* research. *Full text:* read (notes;
-reference chapter to 200k of 217k characters; the partial-fixpoint subpage returned 404).
+theorems are generated (for example `List.findIndex.partial_correctness`). By contrast,
+`partial` functions "are treated as opaque constants by the kernel" **[cited]**. The name
+`fixpoint_induct` comes from Zulip **[unverified]**. *Steal:* the idea that a partial function
+can have a reasoning principle without a termination proof (§5.4). *Helps:* partial.md.
+*Cost:* research. *Full text:* read (notes; the whole reference chapter, which now includes the
+partial-fixpoint section). *Audit: MINOR, fixed.* The card said the return type *must* be in a
+monad, leaving out tail-recursive functions; and `partial_correctness`, marked as from Zulip,
+is in the reference.
 
 **C7. Leroy, Well-founded recursion done right** (CoqPL 2024; xavierleroy.org/publi/
 wf-recursion.pdf). *Claim:* Coq's options for well-founded recursion are tactics, `Fix`,
@@ -281,30 +341,39 @@ on an acyclic graph with an `incl l (successors x)` invariant **[cited]**. *Stea
 confirmation that option B (proof-carrying fuel, `f.%go` with `h: m x < k`) is the right
 family; his proof style is what `decreasing` theorems already do. His DFS is a recursion with
 no `Nat` measure, which option B can't express directly. *Helps:* SW-199. *Cost:* none.
-*Full text:* read (whole pearl, 4 pages).
+*Full text:* read (whole pearl, 4 pages). *Audit: OK.* Table 1, "the only way that ticks all the
+box is Function, which is documented as 'legacy functionality'", the `Acc_inv` recipe, the
+"usual problems with dependent induction" and both appendices are in the PDF; CoqPL 2024 is
+confirmed by the POPL 2024 programme page.
 
 **C8. Lean 4.24 and 4.25: deriving and recursion.** Release notes v4.24.0 and v4.25.0.
-*Claim:* `.ctorIdx` for all inductives (#9951); a `DecidableEq` construction that "avoids
-quadratic overhead" (#10152, #10274), and the same for `BEq` and `Ord` (#10268, #10270);
-shared same-constructor logic for `BEq`, `DecidableEq` and `Ord` (#10316); `deriving
-ReflBEq, LawfulBEq` (#10351); `@[method_specs]`, generating specification theorems for
-derived operations (#10302, #10346). In recursion, 4.25 "removes support for reducible
-well-founded recursion, a Breaking Change" (#10714) **[cited]**. *Steal:* nothing to change
+*Claim:* `.ctorIdx` for all inductives (#9951); a `DecidableEq` construction "that avoids the
+quadratic overhead of the default construction" (#10152, with #10274), and the same for `BEq`
+and `Ord` (#10268, #10270), used from 10 constructors up by default
+(`deriving.beq.linear_construction_threshold`, `deriving.ord.…`); shared same-constructor logic
+for `BEq`, `DecidableEq` and `Ord` (#10316); `deriving ReflBEq, LawfulBEq` (#10351), whose
+proofs "are still quadratic"; `@[method_specs]`, generating specification theorems for derived
+operations (#10302, #10346). In recursion, 4.25 "removes support for reducible well-founded
+recursion, a Breaking Change" (#10714) **[cited]**. *Steal:* nothing to change
 in `DecEq`: Stitchwort's `T.%decEq` already compares same-constructor pairs field by field and
 sends every other pair to one default through `T.%tag` (`crates/elab/src/derive.rs:1-60`),
-and `derive_ord.rs` compares tags first **[checked]**. Reuse `T.%tag` for T4. #10714 confirms
+and `derive_ord.rs` compares tags first **[checked]**. Reuse `T.%tag` for SW-807 (decide.md's D1972; T4 is withdrawn). #10714 confirms
 that Lean has given up on computing with `Acc`, which is option A of well-founded-recursion.md.
-*Helps:* SW-807, SW-199. *Cost:* none. *Full text:* read (both pages).
+*Helps:* SW-807, SW-199. *Cost:* none. *Full text:* read (both pages). *Audit: MINOR, fixed.*
+Every PR number checks. Added the 10-constructor threshold and the quadratic `LawfulBEq`
+proofs, both in #10268's note; the quote now has the notes' words. `derive.rs:1-60` and
+`derive_ord.rs:1-50` say what the card says **[checked]**.
 
 **C9. Mathlib `deriving Fintype`.** `Mathlib.Tactic.DeriveFintype` docs. *Claim:* the handler
 covers structures and inductive types, not "inductive types that are either recursive or that
 have indices". For an enumeration (all constructors without arguments) it builds `enumList`,
 proved in `ctorIdx` order and duplicate-free, and "the proofs are all linear complexity". For
 other inductives it builds a proxy of nested sums, and mapping the i-th constructor costs
-time proportional to i, "a source of quadratic complexity" **[cited]**. *Steal:* T4's shape:
+time proportional to i, "a source of quadratic complexity" **[cited]**. *Steal:* the shape of SW-807's enumeration case:
 `T.all`, proved complete and distinct in linear size by the tag. *Helps:* SW-807 (day 21's
 11-deep membership proofs; something for `decide` to range over). *Cost:* elaborator change
-(derive). *Full text:* read (docs page).
+(derive). *Full text:* read (docs page; the module's docstrings). *Audit: OK.* All four quotes
+are in `DeriveFintype.lean`. The steal is now decide.md's D1972 (a derived `Finite`), see §5.3.
 
 **C10. Paraskevopoulou, Eline and Lampropoulos, Computing Correctly with Inductive Relations**
 (PLDI 2022, doi 10.1145/3519939.3523707; par.nsf.gov/servlets/purl/10407308). *Claim:* one
@@ -324,13 +393,18 @@ declared as data (`Le`, `Sorted`, typing judgements), so `auto` and `if h:` work
 input generators that satisfy a hypothesis, so counterexample search discards fewer inputs.
 In Stitchwort, fuel would make the checker a test, not a `Decidable` instance, unless the
 relation's structure gives termination. *Helps:* DESIGN §6 `auto`/`Decidable`;
-counterexample-search.md. *Cost:* research project. *Full text:* read (whole paper).
+counterexample-search.md. *Cost:* research project. *Full text:* read (whole paper). *Audit:
+OK.* Table 1 gives 38 + 71 = 109 relations and 30 + 67 = 97 derived computations; "less than
+2%" (§1); the `Sorted` timings are 11.202 s, `Qed` 16.283 s, and 0.05 s / 0.059 s ("less than
+60 milliseconds each", §6.3); `zero` and negation in §5; "minor variation" and
+"user-unfriendly" in §8; Crossref gives PLDI 2022, pp. 966-980.
 
 **C11. Chan, Li and Bowman, Is Sized Typing for Coq Practical?** (JFP 33 e1, 2023, doi
 10.1017/S0956796822000120; arXiv 1912.05601v4). *Claim:* CICb∗ adds global and local
 definitions, cumulativity and impredicative `Prop` to sized CIC, with size inference needing
 no annotations, implemented in Coq's kernel. On `MSetList`, compilation goes from 15.1 s to
-83.7 s, 77% of it in constraint solving (`solve`, `RecCheck`), which is O(|V||C|) in size
+83.7 s (Table 2; the text of §6.2.1 says 82.660 s), 77% of it in `solve` and `RecCheck`, each
+pass of which is O(|V||C|) in size
 variables and constraints. Definitions are implicitly size-polymorphic, so size variables
 multiply: six nested tuple aliases reach 16,382 size variables and take over 120 s. The
 slowdown is "intrinsic and unavoidable" for backward-compatible inference, and nested
@@ -342,7 +416,13 @@ criticise Coq's guard checker for inlining definitions, which they call anti-mod
 research route. Stitchwort's SCT doesn't inline other definitions (nested-data-types.md §9),
 which avoids the modularity problem they describe. *Helps:* SW-199. *Cost:* none. *Full
 text:* read (§1, §2, §6 evaluation, §8 in full; §3-5 calculus and metatheory and §7 related
-work skimmed).
+work skimmed). *Audit: MINOR, fixed.* The card's numbers are the paper's (Table 2's total
+83.660 s; 77.2%; Table 3's `nats6`, 16,382 body size variables, "> 120" s; "intrinsic and
+unavoidable", §6.2.2; "might be—but only if…", §8; "anti-modular", §1; nested inductives
+disallowed, §2). But §1 of this register turned the one-file 5.5× (83.66 / 15.12) into "at
+least a 5.5× slowdown on Coq's standard library"; reworded. The table and text disagree by
+1 s; noted above. "Stitchwort's SCT doesn't inline" holds: nested-data-types.md §9, "SCT
+doesn't look inside other definitions" **[checked]**.
 
 **C12. Laarakker, Otten and van den Berg, Constructing (Co)inductive Types via Large Sizes**
 (FSCD 2026, LIPIcs 378 art. 21; arXiv 2602.18921). *Claim:* Agda's sized types are "currently
@@ -355,7 +435,11 @@ computing β-rule for size recursion (a naive one "breaks normalisation"), and d
 inequality, which would mean asking the user for proofs of `i < j` **[cited]**. *Steal:* the
 state of the art: sized types for a proof assistant are still research in 2026. *Helps:*
 SW-199 option D. *Cost:* none. *Full text:* read (§1-2 and §5 in full; §3 constructions and §4
-realisability model skimmed; FSCD PDF from drops.dagstuhl.de).
+realisability model skimmed; FSCD PDF from drops.dagstuhl.de). *Audit: OK.* "Currently
+inconsistent due to the addition of a largest size" (abstract), "Agda proves ∞ < ∞" (§1), the
+uncountable ordinal (abstract, §4), and the three open problems (§5 "Discussion and Future
+work": computing parametricity, the β-rule that "breaks normalisation", undecidable `<` with
+suprema) are in the LIPIcs PDF, `LIPIcs.FSCD.2026.21`.
 
 **C13. Hyvernat, The Size-Change Principle for Mixed Inductive and Coinductive Types** (LMCS
 21(3:20), 2025; arXiv 2407.05715). *Claim:* a provably correct totality checker, based on the
@@ -369,22 +453,30 @@ infinitely many even-priority constructors or strip infinitely many odd ones fro
 At least PSPACE-hard; "B = 2 and D = 2 is enough for most cases". It accepts a stream-of-lists
 `sums` that Agda rejects. Dependent types and higher-order functions are future work
 **[cited]**. A side note on the purely inductive part: `f (C2 x) = f (C1 x)` needs `D ≥ 1`.
-Stitchwort's SCT records only `<`, `≤` and unknown, so it would reject that call
-**[inferred, not run]**. *Steal:* the warning for D1911: codata needs a totality checker in
+Stitchwort's SCT records only `<`, `≤` and unknown (`sct.rs` header **[checked]**), so it would
+reject that call **[inferred, not run]**. *Steal:* the warning for D1911: codata needs a totality checker in
 this style, not a second productivity pass. *Helps:* D1911. *Cost:* research. *Full text:*
 read (§1, §4 with examples and implementation, concluding remarks in full; §2-3 semantics and
-call-graph construction skimmed).
+call-graph construction skimmed). *Audit: OK.* "Checking termination and productivity
+independently is not enough" (§1, after Altenkirch and Danielsson), `bad_s` and `magic` (§1.1),
+the priorities (§1.2), "at least P-space hard", the `D = 1` example and "B = 2 and D = 2 is
+enough for most cases" (concluding remarks), and footnote 3 on `sums`, "Agda doesn't detect
+that this function terminates", are in the arXiv text, which is the LMCS 21(3:20) version.
 
 **C14. Lean coinductive predicates.** Lean 4.25 notes, #10333. *Claim:* "introduces a
 `coinductive` keyword", defining coinductive predicates with `inductive`'s syntax, in mutual
-blocks that may mix inductive and coinductive definitions **[cited]**. That they are greatest
-fixpoints on a lattice, and that Lean has no coinductive *data* in core, come from search
+blocks that may mix inductive and coinductive definitions **[cited]**. They are greatest
+fixpoints of monotone operators on the complete lattice of predicates (Knaster-Tarski), built
+on the partial-fixpoint machinery: "Recursive Prop-valued functions can be defined as greatest
+or least fixpoints of monotone operators on complete lattices" (reference, "Recursive
+definitions") **[cited]**. That Lean has no coinductive *data* in core comes from search
 summaries **[unverified]**. *Steal:* if Stitchwort ever wants coinduction, start with
 coinductive *propositions*, which need no productivity checker. *Helps:* D1911. *Cost:*
-research. *Full text:* read (4.25 notes).
+research. *Full text:* read (4.25 notes; reference chapter). *Audit: MINOR, fixed.* The
+lattice reading was marked unverified; the reference states it.
 
 **C15. Theocharis and Brady, Custom Representations of Inductive Families** (arXiv
-2505.21225v2, May 2025). *Claim:* datatt extends MLTT so that each data type comes with an
+2505.21225v2, May 2025; to appear in TFP 2025). *Claim:* datatt extends MLTT so that each data type comes with an
 inductive algebra (constructors, eliminator, propositional coherence) giving its runtime
 representation. A modality `Repr` with `repr`/`unrepr` converts between a type and its
 representation, and a translation to extensional MLTT replaces every data type by its
@@ -399,7 +491,10 @@ list-, maybe- and number-like types **[cited]**. *Steal:* the question behind T5
 Stitchwort families are a number or a list underneath (`Fin n`, `Vec a n`, `List.Member`,
 `Mod n`), and are the conversions between them free at run time? *Helps:* fast-runtime.md,
 JS, native. *Cost:* small (audit); research (a representation feature). *Full text:* read
-(§1-7).
+(§1-7). *Audit: OK.* GMP-style `Nat` (abstract, §2), `forget-length`/`remember-length` by
+`repr`/`unrepr` (§2), zero-copy deserialisation (§2), the Agda formalisation (§1, §8), Superfluid's
+`BigInt` and arrays and the decidability caveat (§4), and the merged Idris 2 optimisation (§5)
+are in the arXiv text. Venue added from arXiv's metadata.
 
 **C16. Idris 2 Nat-like optimisation.** idris2.readthedocs.io, "Builtins". *Claim:* a type
 with two constructors after erasure, one with no arguments and one with exactly one strict
@@ -407,10 +502,13 @@ argument of the same type constructor, compiles to a big integer, so indexed `Fi
 `%builtin Natural` forces it for other constructor orders; `%transform` makes chosen
 operations (`plus`, `eqNat`) O(1). Conversion functions are optimised only in one shape, and
 "it may be sensitive to seemingly insignificant changes"; `%builtin IntegerToNatural` asserts
-a conversion's correctness, and that is "the programmer's responsibility" **[cited]**.
-*Steal:* T5's checklist. Stitchwort binds its kernel natives by name, checking only their
-types; only R3/R4 are pinned by content hash (kernel.md §5.4, C22, T5); a runtime-only
-representation choice is a separate, untrusted question. *Cost:* small (audit). *Full text:* read (docs page).
+a conversion's correctness: "It is your responsibility to make sure this is correct"
+**[cited]**. *Steal:* T5's checklist. Stitchwort binds its kernel natives by name, checking
+only their types; only R3/R4 are pinned by content hash (kernel.md §5.4, C22, T5; SW-898 would
+pin the rest); a runtime-only representation choice is a separate, untrusted question. *Cost:*
+small (audit). *Full text:* read (docs page). *Audit: MINOR, fixed.* "The programmer's
+responsibility" was in quotes but isn't the page's wording; replaced by the page's sentence.
+SW-898 (backlog) added.
 
 **C17. Richter and Böhler, From Pattern Unification Towards Pattern Matching Unification**
 (extended abstract, TyDe 2026; arXiv 2607.18455). *Claim:* constraints like `?P true = Nat,
@@ -423,7 +521,10 @@ the boundary of the solvable fragment (indexed families, GADTs) are open **[cite
 *Steal:* a motive-inference fallback after unification fails (`E-MATCH-MOTIVE`, `J`
 applications): try to compile the stuck constraints as a case split. *Helps:* elaboration.md's
 cluster; SW-802. *Cost:* elaborator change, research-grade. *Full text:* read (whole
-abstract, 2 pages).
+abstract, 2 pages). *Audit: OK.* The constraints, the three fragments it falls outside
+(Miller, FCU, DHOP), "fewer than 3000 lines of Lean", the litmus test with Rocq's and Lean's
+errors (Figure 1), "the constraint remains unsolved and is reported as an error", and
+"omits recursion" are all in it; TyDe 2026 is arXiv's comment.
 
 **C18. Agda 2.8.0 changelog.** hackage.haskell.org/package/Agda-2.8.0/changelog. *Claim:*
 termination "more permissive wrt non-exact clause reduction" (#7502); a postponed
@@ -433,7 +534,10 @@ fails, now also with `--sized-types` (#7931); opacity forgotten when checking si
 (#7857) **[cited]**. *Steal:* for SW-510, Agda resolves an overloaded constructor by type and
 *postpones* the choice while the type is unknown. That Agda allows overloaded constructor
 names at all is from the manual as I remember it **[unverified]**. *Helps:* SW-510. *Cost:*
-elaborator change. *Full text:* read (changelog).
+elaborator change. *Full text:* read (changelog). *Audit: OK.* All six PR numbers and their
+titles check (#7814 is "Fix #7660: new DisambiguateConstructor postponed tc problem"; the
+warning is issue #7660). The manual's data-type, module and record pages and its search index
+were searched for overloaded constructors and say nothing, so that part stays unverified.
 
 **C19. Lean dotted identifiers.** Lean reference, error explanation `invalidDottedIdent`.
 *Claim:* `.ctor` omits the namespace when Lean can infer it from the *expected* type. The
@@ -441,17 +545,50 @@ argument's type is never used (`.reverse (xs ++ xs)` fails without a return type
 universe such as `Prop` doesn't support it (`.true` on `n > 42` needs `decide`) **[cited]**.
 *Steal:* for SW-510, an explicit short form resolved from the expected type, rather than
 making bare constructor names ambiguous. *Helps:* SW-510. *Cost:* elaborator change. *Full
-text:* read (page).
+text:* read (page). *Audit: OK.* Both examples and "Lean will not use the type of the argument
+xs ++ xs to infer the omitted namespace" are on the page (error since 4.22.0). The notation is
+for any name in the expected type's namespace (`.reverse`), not only constructors.
 
 **C20. Escot and Cockx, Practical generic programming over a universe of native datatypes**
-(ICFP 2022, PACMPL 6, doi 10.1145/3547644). **NOT READ** (§9). Search summary: a library of
-generic programs over a description universe, specialised to native Agda datatypes "with a
-simple one-liner" by reflection **[unverified]**. Supports nothing below.
+(ICFP 2022, PACMPL 6 ICFP, article 113, doi 10.1145/3547644). *Claim:* an Agda library
+(usable with `--safe`) with a universe of descriptions for parameterised, indexed datatypes at
+any universe level, with higher-order inductive arguments and implicit and irrelevant fields.
+`deriveDesc T` uses reflection once, to compute `T`'s description and the proof connecting it
+to `T`; after that every generic construction is an ordinary Agda function, specialised "with a
+simple one-liner": eliminator, case analysis, fold, no-confusion, `DecEq`, `Show`. Because the
+conversions are shallow (only the outermost constructor), the instances "reduce on open terms",
+so `elimNat′ P H0 HS (suc n) ≡ HS (…)` is `refl`. A construction that doesn't apply asks for an
+instance of an empty, named type (`HigherOrderArgumentsNotSupported`), so the error says why.
+Not supported: nested types other than tuples (`node : A → List (Tree A) → Tree A` must be
+encoded with `Fin n → Tree A`), mutual types, induction-recursion, universe-polymorphic
+datatypes, and a generic `map`. Hand-written decidable equality "would take a number of cases
+quadratic in the number of constructors" **[cited]**. *Steal:* little: Stitchwort generates
+each derived definition and has the kernel check it, so it has no universe to maintain, and
+already keeps "why not" for the note when `==` is used (`derive.rs`) **[checked]**. It
+confirms that nested types are where generic schemes break, which Stitchwort's stage 3 solved
+per container. *Helps:* none directly. *Cost:* none. *Full text:* read (§1-2, §5-6 in full;
+§3-4 encoding and constructions skimmed; Internet Archive copy of the ACM PDF). *Audit: first NOT READ; read for
+the audit and rewritten from the text.*
 
 **C21. Ko, Chen and Lin, Datatype-generic programming meets elaborator reflection** (ICFP
-2022, PACMPL 6, doi 10.1145/3547629). **NOT READ** (§9). Search summary: metaprograms that
-instantiate datatype-generic programs as and for native Agda datatypes **[unverified]**.
-Supports nothing below.
+2022, PACMPL 6 ICFP, article 98, doi 10.1145/3547629). *Claim:* a framework of Agda
+metaprograms, on elaborator reflection, that derives descriptions from native datatypes
+(`genDataD`), manufactures native datatypes from descriptions, and defines native functions by
+normalising a generic program for one description and unquoting it (`defineFold`), which they
+call partial evaluation by normalisation. So instantiated functions are "as clean as
+hand-written code", with "connections" relating each to its generic form so that generic
+theorems (fold fusion) instantiate too. It covers inductive families, folds and induction, and
+universe polymorphism. Examples: fold operators, fold fusion, ornaments (`Vec` from `List`),
+and `All`/`Any` predicates derived for any "simple container" by marking element fields (the
+`Any` of 2-3 trees gets three `here` and five `there` constructors). Costs: checking all their
+examples through the metaprograms took about 66 s against about 5 s for the printed
+definitions (§7.1); the metaprograms' correctness is argued only informally (§7.3.2)
+**[cited]**. *Steal:* support for Stitchwort's route (generate ordinary definitions, have the
+kernel check them), and two cautions for T1: generate on demand (A3), since generation and
+checking cost far more than the definitions themselves; and a generator for `All` from marked
+element positions is what `derive_induct.rs` does per container for `D.All` (built). *Helps:*
+T1. *Cost:* none. *Full text:* read (§1, §6.3 and §7 in full; §2-5 and the rest of §6
+skimmed; Internet Archive copy of the ACM PDF). *Audit: first NOT READ; read for the audit and rewritten from the text.*
 
 ## 5. Deep reads
 
@@ -477,8 +614,12 @@ walking the compiled body (`brecOn` or `WellFounded.fix`) and building the proof
   induction without a new principle" (well-founded-recursion.md §0). D1439 (SW-802) asks for
   per-branch lemmas after days 12 and 16 hit `E-MATCH-MOTIVE`; SW-809 records the same for
   `match found:`.
-- Nested types need `T.induct` with `List.All motive items`, built as mutual helper theorems
-  (nested-data-types.md §9, D1823), because `sct.rs` doesn't look inside `allOf`.
+- Nested types have `T.induct` with `List.All motive items` and `T.inductMem`, built in stage 3
+  as a mutual helper theorem per container, because SCT doesn't look inside `allOf`
+  (nested-data-types.md §9, "As built (stage 3)"; `crates/elab/src/derive_induct.rs`). They are
+  made as kernel case trees, not source, because "their types need the fields' types, which
+  source can't always name" (`derive_induct.rs` header) **[checked]**. (Audit: on 29 Oct this
+  bullet said nested types *need* `T.induct`; D1823 was adopted and built the same day.)
 
 **Mapping.** One generator, three outputs, all ordinary theorems the kernel checks, so nothing
 new is trusted:
@@ -497,9 +638,10 @@ new is trusted:
 3. **`f.induct` for `decreasing`**: recursion on the same measure. Each induction hypothesis
    takes the leaf's `decreasing` obligation, which `auto` already found for `f`. The proof has
    `f.%go`'s shape with the motive.
-4. **`T.induct`** for a nested type is `f.induct` of the identity-like traversal. The
-   generator for D1823 reuses the same code, with `D.All` hypotheses for calls under a
-   container's helper.
+4. **`T.induct`** for a nested type is `f.induct` of the identity-like traversal. *Done*
+   (Audit): `derive_induct.rs` builds it directly. It is the precedent for 1-3: generated
+   kernel case trees, a group the kernel's termination check accepts, an `E-INTERNAL` if the
+   kernel refuses one, and a generated name skipped when the module declares it itself.
 
 **Assumptions the recommendation depends on.** (A1) The elaborator keeps, per leaf of a
 compiled case tree, the pattern variables, the index equations learned and the `if`
@@ -517,8 +659,9 @@ match" is already in the tree's shape, and the risk is only in how premises are 
 Mutual groups need one motive per member; `decreasing` doesn't support mutual groups yet
 (SW-199), so that part waits.
 
-**Next step.** T1: one design note covering `f.cases`, `f.induct` (structural and
-`decreasing`) and `T.induct`, closing D231 (superseded), D1439 and D1823 in one place.
+**Next step.** T1: one design note covering `f.cases` and `f.induct` (structural and
+`decreasing`), closing D231 (superseded) and D1439, and reusing `derive_induct.rs`'s approach.
+(Audit: `T.induct` and D1823 dropped from this step; done.)
 
 ### 5.2 Termination: automatic attach, measure suggestions, and Acc done right (C3, C4, C5, C7, C11, C12)
 
@@ -540,14 +683,19 @@ is extensible and untrusted.
 
 *Assumptions.* (B1) Only callbacks over lists matter for now (day 2, nested stage 3); others
 keep the manual form. (B2) `auto` can turn `List.Mem x xs` and the measure into the needed `<`
-for common cases (`List.size` sums); D1450 asks for this. (B3) The equation shown to users
-stays the un-attached one; otherwise readability (D519) regresses.
+for common cases (`List.size` sums). For a nested type's `T.size` this is built: `auto` tries
+`size_from_member` (`auto.rs:424`), which applies the generated `T.%C%i%sizeMem` lemmas to a
+membership fact in scope, such as an attached element's `isIn` (nested-data-types.md, "As built
+(stage 3)") **[checked]**; other measures are still open. (B3) The equation shown to users
+stays the un-attached one; otherwise readability (D519) regresses. (Audit: B2 said D1450 asks
+for this; stage 3 built it for `T.size`.)
 
 **Measure suggestions** [cited: GuessLex docstring]. Stitchwort's SCT already accepts
 lexicographic and permuted descent *structurally*, which Lean needs GuessLex for. What's
 missing is the step after failure. `E-TERMINATION` should try a few `decreasing` candidates
-(each `Nat` parameter, each data parameter's size where a size function exists, ordered pairs
-of those), check each fully with the `decreasing` elaboration and `auto`, bounded as GuessLex
+(each `Nat` parameter, each data parameter's size where a size function exists, such as a
+nested type's generated `T.size`, and ordered pairs of those, which `decreasing (m1, m2)`
+accepts since stage 3d), check each fully with the `decreasing` elaboration and `auto`, bounded as GuessLex
 is, and print the first that works ("accepted with `decreasing (n, m)`"). Otherwise it should
 print GuessLex-style per-call findings. No rule changes, only a message **[inferred]**. Risk:
 a suggestion must be checked by the same `auto` that will run, or it fails when pasted; the
@@ -573,7 +721,8 @@ Record in well-founded-recursion.md that option D stays closed, citing both.
 
 **Stitchwort today** [checked: `crates/elab/src/derive.rs:1-60`, `derive_ord.rs:1-50`].
 Derived `DecEq`, `Ord`, `Show` and `T.ext` are generated as source and elaborated, so the
-kernel checks them. `T.%tag` numbers the constructors. `T.%decEq` has one equation per
+kernel checks them; a nested type's `T.size`, `T.induct`, `T.inductMem` and `D.All` are made
+as kernel terms (`derive_induct.rs`). `T.%tag` numbers the constructors. `T.%decEq` has one equation per
 constructor plus a default that refutes by tags (`T.%differ`), so its size is linear in the
 number of constructors, as Lean's 2025 construction is (C8).
 
@@ -590,9 +739,19 @@ order. The Stitchwort mapping, for a type whose constructors have no fields:
   `decide` over `T` would need it).
 
 Extending to fields of finite types (a record of two enumerations) is Mathlib's quadratic
-proxy; leave it until a program asks. *Assumptions:* (E1) day 21's need is enumerations only
-(SW-807 says "constructor-only types"); (E2) `List.Distinct` exists (it does, for day 7;
-well-founded-recursion.md 3b item 1).
+proxy. *Assumptions:* (E1) ~~day 21's need is enumerations only (SW-807 says
+"constructor-only types")~~; (E2) `List.Distinct` exists (it does, for day 7;
+well-founded-recursion.md 3b item 1; `std/List/Toolkit.sw:474`).
+
+*Audit: E1 was WRONG.* Day 21 enumerates two types: `NumericKey`, eleven constructors without
+fields (the 11-deep membership proofs), and `DirectionKey = | Arrow (direction: Direction) |
+Activate`, which has a field (`aoc/src/Aoc/Year2024/Day21/Day21.sw:30-46`; its 25-arm
+`tabulateSame` ranges over pairs of them) **[checked]**. So an enumerations-only `T.all` leaves
+day 21 half done. decide.md (29 Oct, later than this register) covers it: D1972, a derived
+`Finite` interface (`all` and a completeness proof) for non-recursive constructor types with
+finite fields, with `Finite.check`, after D1971's `cases` extension. This section's linear,
+tag-based proof is still the right shape for the enumeration case of that derivation (decide.md
+lists the completeness proof through `T.%tag` as not prototyped). T4 and D1912 are withdrawn.
 
 **Specification lemmas.** Lean 4.25's `@[method_specs]` and `deriving LawfulBEq` (C8) generate
 the laws of derived operations. Stitchwort's derived `DecEq` *is* a proof (a `Decidable`), so
@@ -607,7 +766,7 @@ and generators that produce only inputs satisfying a hypothesis. Its reflection 
 project. The derived checker is fuelled, so a `Decidable` instance would need a termination
 argument per relation, which the authors themselves avoided as "user-unfriendly".
 
-**Next step.** T4.
+**Next step.** decide.md's D1972 (was T4).
 
 ### 5.4 Codata and partiality: should Stitchwort have streams? (C6, C13, C14)
 
@@ -648,14 +807,15 @@ board only). (P2) The `Partial` model stays a one-element set.
 
 ## 6. Steal next
 
-Ranked by value over effort. Every row rests on sources read in full.
+Ranked by value over effort. Every row rests on sources read in full, and (audit, 30 Oct) on
+cards that are OK or had minor fixes only.
 
 | Rank | Idea | Source | Helps | Cost |
 |---|---|---|---|---|
-| 1 | Generated `f.cases` and `f.induct` (and `T.induct` from the same generator) | C1, C2, C4 | SW-802, SW-809, SW-199 stage 3, D1823 | elaborator change, after a design note |
-| 2 | Derived `T.all` with linear completeness and distinctness proofs for enumerations | C8, C9 | SW-807 | elaborator change (derive), small |
+| 1 | Generated `f.cases` and `f.induct`, on `derive_induct.rs`'s pattern (`T.induct`: **done**, nested types stage 3, D1823) | C1, C2, C4, C21 | SW-802, SW-809, SW-199 stage 3 | elaborator change, after a design note |
+| 2 | ~~Derived `T.all` for enumerations~~: **superseded** by decide.md's D1972 (a derived `Finite`, fields of finite types included); its enumeration case can use the linear, tag-based proof | C8, C9 | SW-807 | elaborator change (derive) |
 | 3 | `E-TERMINATION` suggests a `decreasing` clause that `auto` accepts, or prints per-call findings | C5 | DESIGN §5 messages | elaborator change, small |
-| 4 | Automatic `attach` for recursive calls inside list callbacks, rules beside `FCong` | C3, C4 | SW-199 stage 3b, D1450 | elaborator change |
+| 4 | Automatic `attach` for recursive calls inside list callbacks, rules beside `FCong` (proving the obligation from an attached element: **done** for `T.size`, D1450) | C3, C4 | SW-199 stage 3b | elaborator change |
 | 5 | Constructor short form resolved by expected type (`.Quit`), postponed when unknown | C18, C19 | SW-510 | design note, then elaborator change |
 | 6 | Audit runtime representations of Nat-like and list-like families (`Fin`, `Vec`, `Member`, `Mod`) | C15, C16 | fast runtime, JS, native | small (audit) |
 | 7 | Record in the note that SW-199's option D (sized types) stays closed | C11, C12 | SW-199 | one paragraph |
@@ -663,13 +823,18 @@ Ranked by value over effort. Every row rests on sources read in full.
 | 9 | Derived decision procedures and generators for inductive relations | C10 | `auto`, counterexample search | research |
 | 10 | Partial correctness for `Partial` functions; coinductive propositions | C6, C14 | partial.md | research, not now |
 
+(Audit: no row rested on a WRONG or unverified card. Row 2 rested on the wrong assumption E1
+and is superseded rather than re-ranked; the others keep their order. C20 and C21, read in the
+audit, add no row: C21 supports row 1's on-demand generation.)
+
 ## 7. Proposed tickets
 
 Label `research` on each. Not added to the board.
 
-**T1. Design note: generated case and induction principles (`f.cases`, `f.induct`,
-`T.induct`).** One note covering what equation-lemmas.md D231-D233, SW-802 (D1439), SW-199
-stage 3 and nested-data-types.md §9 (D1823) each ask for. It should give the statement shapes
+**T1. Design note: generated case and induction principles (`f.cases`, `f.induct`).** One
+note covering what equation-lemmas.md D231-D233, SW-802 (D1439) and SW-199 stage 3 each ask
+for. (Audit: `T.induct` and D1823 are done, `derive_induct.rs`; the note should start from
+it.) It should give the statement shapes
 of §5.1 (premises per leaf: pattern variables, learned equations, `if h:` facts, an induction
 hypothesis per recursive call), and generate them on demand as checked theorems (structural by
 the same recursion, `decreasing` by the same measure). It should say what is refused at first
@@ -689,10 +854,11 @@ pairs), check each fully with the `decreasing` elaboration and `auto`, and add t
 succeeds to the message. Otherwise list, per recursive call, which candidates went down,
 stayed equal or were unknown (GuessLex's table). No rule changes. Refs: §5.2; GuessLex.
 
-**T4. Derive `T.all` for enumerations (SW-807).** For a type whose constructors have no
-fields: `T.all`, `T.allComplete` and `T.allDistinct` (by `T.%tag`), linear in the number of
-constructors. Test on day 21's type, and on a 40-constructor enumeration for check time.
-Refs: §5.3; Mathlib `DeriveFintype`.
+**T4. Withdrawn (audit, 30 Oct).** It derived `T.all` for enumerations only, on the wrong
+assumption that day 21 needs nothing more (§5.3, E1). SW-807 is designed in decide.md (D1972,
+a derived `Finite`). What survives is an input to that work: for the enumeration case, prove
+completeness by `T.%tag` in linear size, and time it on a 40-constructor enumeration. Refs:
+§5.3; Mathlib `DeriveFintype`.
 
 **T5. Audit: runtime representation of Nat-like and list-like families.** For `Fin n`, `Vec a
 n`, `List.Member`, `Mod n` and enumerations: what the fast runtime, JS and native backends
@@ -707,26 +873,29 @@ C18, C19.
 
 ## 8. Decisions
 
-**D1910. Write T1 as one design note covering `f.cases`, `f.induct` and `T.induct`, replacing
-D231-D233's "not now" and answering D1439 and D1823 together?** Assumptions: (A1) the case
-tree's per-leaf facts can be recovered; (A3) generation is on demand. [Yes.]
+**D1910. Write T1 as one design note covering `f.cases` and `f.induct`, replacing D231-D233's
+"not now" and answering D1439?** Assumptions: (A1) the elaborator keeps, or can recompute, the
+pattern variables, the index equations learned and the `if` conditions at each leaf of a
+compiled case tree; (A3) generated theorems are made only when a program names them. [Yes.]
+(Audit: D1823 and `T.induct` dropped; done in nested types stage 3.)
 
 **D1911. Keep codata out of Stitchwort for now (no streams, no coinductive types or
 propositions), and revisit only when a program needs infinite data?** Assumptions: (P1) no
 planned program needs it; (P2) the `Partial` model stays a one-element set. Hyvernat's result
 means a later design needs its own totality checker, not a second SCT pass. [Yes.]
 
-**D1912. Build T4 (derived `T.all` for enumerations) as SW-807's answer, leaving types with
-fields until asked?** Assumption: (E1) day 21's type is an enumeration. [Yes.]
+**D1912. Withdrawn (audit, 30 Oct).** It asked to build T4 (derived `T.all` for enumerations)
+as SW-807's answer, on the assumption that day 21's type is an enumeration. Day 21's
+`DirectionKey` has a field (§5.3). decide.md's D1972 asks the question with that fixed.
 
 ## 9. Sources not reached
 
-**Full text not reachable (for Matt to fetch).**
-
-| Title | DOI | URLs tried, and what each returned |
-|---|---|---|
-| Escot and Cockx, Practical generic programming over a universe of native datatypes (ICFP 2022) | 10.1145/3547644 | `repository.tudelft.nl/file/File_1f762247-…` and `/record/uuid:3fe37bbd-…`: connection refused; `dl.acm.org/doi/pdf/10.1145/3547644`: an HTML page, not a PDF; Semantic Scholar API: `openAccessPdf` points to the same ACM URL |
-| Ko, Chen and Lin, Datatype-generic programming meets elaborator reflection (ICFP 2022) | 10.1145/3547629 | `dl.acm.org/doi/pdf/10.1145/3547629`: an HTML page; Semantic Scholar API: points to the same ACM URL; Zenodo artefact 10.5281/zenodo.6954977 not tried |
+**Full text not reachable (for Matt to fetch): none.** On 29 Oct this table held C20 and C21
+(TU Delft repository: connection refused; `dl.acm.org/doi/pdf/…`: an HTML page; Semantic
+Scholar: `openAccessPdf` points to the same ACM URL). Audit retry, 30 Oct: `dl.acm.org/doi/pdf/…`
+returned 403 (HTML) for both; arXiv's API had no title match for either;
+`web.archive.org/web/2023id_/https://dl.acm.org/doi/pdf/10.1145/3547644` and `…/3547629`
+returned the PDFs (25 and 29 pages, both CC BY), which were read (C20, C21).
 
 Other gaps:
 
@@ -737,10 +906,11 @@ Other gaps:
   non-empty list types in Lean/Agda libraries (SW-811), or-patterns in Lean/Agda (SW-676).
   This register makes no claim about them.
 - **Fetch failures (not papers).** Lean's functional-induction blog post (redirects to the
-  Internet Archive, which the fetch tool refuses); the Lean reference's partial-fixpoint
-  subpage (404); the TU Delft repository (connection refused), so the Agda Core termination
-  thesis was not read; Agda's manual on overloaded constructors (the data-types page doesn't
-  cover it); the last 17k characters of the Lean reference's recursion chapter.
+  Internet Archive, which the fetch tool refuses); the TU Delft repository (connection
+  refused), so the Agda Core termination thesis was not read; Agda's manual on overloaded
+  constructors (not on the data-types, module-system or record pages, nor in the search
+  index). (Audit: the partial-fixpoint subpage and the rest of the recursion chapter are now
+  one page, read in full.)
 - **Screened "maybe" papers not read** (rows 22-38 of §3); they support nothing here. Of
   these, Kovács (POPL 2026), Møgelberg and Zwart (arXiv 2311.15919) and Fiore, Pitts and
   Steenkamp (arXiv 2101.02994) were downloaded and are readable if a later pass wants them.

@@ -9,7 +9,7 @@ file records how it was searched, so it can be refreshed.
 | Elaboration | [elaboration.md](elaboration.md) | 64 / 20 / 20 / 0 | Redone from full texts |
 | Proof automation | [proof-automation.md](proof-automation.md) | 72 / 29 / 25 / 4 | Redone from full texts |
 | Kernel and type theory | [kernel.md](kernel.md) | 62 / 27 / 26 / 1 | Redone from full texts |
-| Inductive types and recursion | [inductives.md](inductives.md) | 56 / 21 / 19 / 2 | Read in full (29 Oct) |
+| Inductive types and recursion | [inductives.md](inductives.md) | 56 / 21 / 21 / 0 | Audited against full texts (11 OK, 8 minor, 0 wrong); C20 and C21 read in the audit; D1912 withdrawn (wrong day 21 assumption) |
 | Infrastructure and trust | [infrastructure.md](infrastructure.md) | 59 / 26 / 24 / 2 | Read in full (29 Oct); searching was cut short, see its §9 |
 | Compilation and runtime | [compilation.md](compilation.md) | 52 / 23 / 22 / 1 | Audited against full texts |
 
