@@ -8815,17 +8815,21 @@
     {
       "id": 918,
       "title": "Goals print library names the file can't resolve (List.count without import); goal_index test in no tier",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "lane (D2061)",
+      "where": "merged; goal_index in merge tier (+~7 s)",
       "labels": [
         "elab",
         "tooling"
       ],
-      "body": "Found by the SW-914 lane (30 Oct 2026), predates it: the goal printer shows library names as stored (List.count), which can't be written in a file that hasn't imported them (E-UNKNOWN-NAME), so a goal pasted as a lemma doesn't check; the human goal output has the same problem. Print a name the file can resolve (Std.List.count or the imported short form), or mark it. Also: crates/cli/tests/goal_index.rs (~9 s) is in no lane profile and not in the merge tier; decide where it runs.\n\n\nD2061 (Matt, 30 Oct 2026): lane started. Repro on main: `theorem evensLe (xs: List Nat): xs.count (n => n % 2 == 0) ≤ xs.length := ?` prints `⊢ List.count xs (n => Decidable.toBool (Nat.decEq (n % 2) 0)) ≤ List.length xs`; pasting that as a lemma gives E-UNKNOWN-NAME for List.count. Also in scope (separate commit): `==` printed as `Decidable.toBool (Nat.decEq ..)`.\n\n\nLane progress: cause found. Library declarations are stored with `name` relative to Std (`List.count`), and the scoped printer fell back to that name when no shorter part resolved. Now it falls back to the key (`Std.List.count`). Note `List.length` and `Decidable.toBool` do not resolve without an import either (checked: E-UNKNOWN-NAME), so they print as `Std.…` too. 19 snapshots change (goals and error messages).\n",
+      "body": "Found by the SW-914 lane (30 Oct 2026), predates it: the goal printer shows library names as stored (List.count), which can't be written in a file that hasn't imported them (E-UNKNOWN-NAME), so a goal pasted as a lemma doesn't check; the human goal output has the same problem. Print a name the file can resolve (Std.List.count or the imported short form), or mark it. Also: crates/cli/tests/goal_index.rs (~9 s) is in no lane profile and not in the merge tier; decide where it runs.\n\n\nD2061 (Matt, 30 Oct 2026): lane started. Repro on main: `theorem evensLe (xs: List Nat): xs.count (n => n % 2 == 0) ≤ xs.length := ?` prints `⊢ List.count xs (n => Decidable.toBool (Nat.decEq (n % 2) 0)) ≤ List.length xs`; pasting that as a lemma gives E-UNKNOWN-NAME for List.count. Also in scope (separate commit): `==` printed as `Decidable.toBool (Nat.decEq ..)`.\n\n\nLane progress: cause found. Library declarations are stored with `name` relative to Std (`List.count`), and the scoped printer fell back to that name when no shorter part resolved. Now it falls back to the key (`Std.List.count`). Note `List.length` and `Decidable.toBool` do not resolve without an import either (checked: E-UNKNOWN-NAME), so they print as `Std.…` too. 19 snapshots change (goals and error messages).\n\n\nLane done (branch worktree-agent-a46f334ed87c46286): f1819edb names (Std.List.count without import; 24 snapshots + 1 new), 7bfc7c7b goal_index in merge + new lane-goals (merge 51.5 s -> 58.9 s at load 28; 4-at-a-time to stay under the 3 GB cap), 80cc659c goals print `==` where it elaborates back to the same term (3 snapshots). Repro now: `⊢ Std.List.count xs (n => n % 2 == 0) ≤ Std.List.length xs`.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "f1819edb",
+        "7bfc7c7b",
+        "80cc659c"
+      ]
     },
     {
       "id": 919,
