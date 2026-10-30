@@ -7076,9 +7076,9 @@
     {
       "id": 807,
       "title": "Consider D1444: Derive a list of all values (with completeness proof) for constructor-only types",
-      "status": "backlog",
-      "agent": "",
-      "where": "next: Finite, Finite.check, byDecision in std (D1972); after SW-800 (0516e372)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "lane: Finite, Finite.check, byDecision (D1972)",
       "labels": [
         "decision"
       ],
