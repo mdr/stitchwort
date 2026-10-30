@@ -197,6 +197,7 @@ impl Elaborator {
             helper_keys,
             local_metas,
             operator_dictionaries,
+            local_dictionaries,
             local_defaults,
             goals,
             proof_holes,
@@ -301,6 +302,7 @@ impl Elaborator {
         *helper_keys = mark.helper_keys.clone();
         local_metas.get_mut().clear();
         operator_dictionaries.get_mut().clear();
+        local_dictionaries.get_mut().clear();
         local_defaults.get_mut().clear();
         *goals.get_mut() = Default::default();
         proof_holes.get_mut().clear();

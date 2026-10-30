@@ -1425,7 +1425,11 @@ item until stage 2 (K1, K2). Line numbers are of `cded0c9b`.
   record literal as that instance's field applied to the operator's arguments, by the rule
   `method_call` uses when the dictionary is found at once (`projected`, `:1823`). A dictionary
   that is a local variable, a superclass projection of one, or a record whose field isn't a
-  definition stays generic, as before.
+  definition stays generic, as before. A dictionary found in scope (§5.5 step 4) is noted as
+  such (`Elaborator::local_dictionaries`, dropped by a restore that undoes its solution) and is
+  never projected: a `let`'s value is written in place of its variable, so without the note
+  `let d: Add Nat := pick; x + x`, with `pick`'s own dictionary found later, was projected to
+  `Nat.add` (driver test `a_local_dictionary_not_yet_settled_is_used`, broken by stage 1).
 
 **Invariants, how each is kept and tested.** Debug assertions run in debug builds only (the
 lane tier builds with `--release`); the queue's tests were run both ways.

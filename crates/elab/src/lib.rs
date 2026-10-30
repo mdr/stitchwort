@@ -542,6 +542,14 @@ pub struct Elaborator {
     /// instance by the end is written as that instance's field, as it is
     /// when found at once (`interfaces::specialise_operators`).
     pub(crate) operator_dictionaries: RefCell<HashMap<usize, (DefId, usize)>>,
+    /// The dictionaries found in scope (§5.5 step 4: a local variable, or
+    /// a superclass path from one), by metavariable, each with the length
+    /// of `Globals::meta_trail` before it was solved, so a snapshot's
+    /// restore drops those it undoes. Such an operator dictionary stays
+    /// generic at the end, even when its solution (a `let`'s value, written
+    /// in place of the variable) has since become a global instance's
+    /// record: [`Elaborator::specialise_operators`].
+    pub(crate) local_dictionaries: RefCell<HashMap<usize, usize>>,
     /// The parameter defaults of the local definitions in scope, by what
     /// their name stands for (`defaults::LocalHead`).
     pub(crate) local_defaults: RefCell<HashMap<defaults::LocalHead, Rc<defaults::LocalDefaults>>>,
@@ -1110,6 +1118,7 @@ impl Elaborator {
         self.drafts.borrow_mut().clear();
         self.local_metas.borrow_mut().clear();
         self.operator_dictionaries.borrow_mut().clear();
+        self.local_dictionaries.borrow_mut().clear();
         self.local_defaults.borrow_mut().clear();
         self.obligations.borrow_mut().clear();
         self.row_metas.borrow_mut().clear();
