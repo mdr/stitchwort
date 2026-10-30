@@ -3,15 +3,19 @@
 A literature trawl for ideas to steal, one file per cluster (SW-894). Each
 file records how it was searched, so it can be refreshed.
 
-| Cluster | File |
-|---|---|
-| Effects and handlers | [effects.md](effects.md) |
-| Elaboration | [elaboration.md](elaboration.md) |
-| Proof automation | [proof-automation.md](proof-automation.md) |
-| Kernel and type theory | [kernel.md](kernel.md) |
-| Inductive types and recursion | [inductives.md](inductives.md) |
-| Infrastructure and trust | [infrastructure.md](infrastructure.md) |
-| Compilation and runtime | [compilation.md](compilation.md) |
+| Cluster | File | Screened / carded / read in full / not read | Status (30 Oct 2026) |
+|---|---|---|---|
+| Effects and handlers | [effects.md](effects.md) | 75 / 11 / 10 + C3 (a manual) / 0 | Audited against full texts |
+| Elaboration | [elaboration.md](elaboration.md) | 64 / 20 / 20 / 0 | Redone from full texts |
+| Proof automation | [proof-automation.md](proof-automation.md) | 72 / 29 / 25 / 4 | Redone from full texts |
+| Kernel and type theory | [kernel.md](kernel.md) | 62 / 27 / 26 / 1 | Redone from full texts |
+| Inductive types and recursion | [inductives.md](inductives.md) | 56 / 21 / 19 / 2 | Read in full (29 Oct) |
+| Infrastructure and trust | [infrastructure.md](infrastructure.md) | 59 / 26 / 24 / 2 | Read in full (29 Oct); searching was cut short, see its §9 |
+| Compilation and runtime | [compilation.md](compilation.md) | 52 / 23 / 22 / 1 | Audited against full texts |
+
+A card marked NOT READ supports no ranking or recommendation. On 29 Oct
+several of these files were written from abstracts; the lessons are in
+board ticket SW-897.
 
 ## What a cluster file holds
 
