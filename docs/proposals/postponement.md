@@ -1,7 +1,9 @@
 # Proposal: one postponement queue in the elaborator
 
-**Status:** draft 3, 30 October 2026; **stages 1 and 2 are built** ([As built (stage
-1)](#as-built-stage-1), [As built (stage 2)](#as-built-stage-2)). Tickets SW-817 (anchor), SW-847 and SW-885; context
+**Status:** draft 3, 30 October 2026; **stages 1, 2, 3 and 6 are built** ([As built (stage
+1)](#as-built-stage-1), [As built (stage 2)](#as-built-stage-2), [As built (stage
+3)](#as-built-stage-3), [As built (stage 6)](#as-built-stage-6)); stage 4's second attempt is
+stopped for decisions ([Stage 4, second attempt: stopped](#stage-4-second-attempt-stopped)). Tickets SW-817 (anchor), SW-847 and SW-885; context
 SW-509, SW-805, SW-896. Follows D1990 (one queue, agreed in principle), D1991 (SW-805's
 field-name rule stays, as name resolution), D2012 (Matt: design for the best end state; the
 cost of churn is not a criterion) and D2015 (Matt: revise after the external review). Repros,
@@ -1998,6 +2000,212 @@ with their attempt (T1-T2 unchanged).
 - The note's "met unfilled" counter keeps its meaning (failing pairs headed by an unfilled
   placeholder or a call stuck on one), counted in every comparison, waiting or not; a new counter,
   `waited`, counts comparisons queued.
+
+## As built (stage 6)
+
+Built in SW-817's stage-6+4 lane on `b6f8d2ae`, in four commits: the design pass (`8f24df0f`),
+the stage (`37352546`), and two fixes stage 4 found in it (`2907420d`, `18762a20`); this section
+is the fifth. Line numbers are of `18762a20`.
+
+**What exists.**
+- **Tri-state unification** (`crates/elab/src/unify.rs`). `unify_waiting` (`:70`) answers
+  `Answer::Yes`, `No` or `Blocked(pairs)` (`:51`), with the queue's pending unknowns given for
+  the call (`PENDING`, `:237`). In `run`, a pair that fails (`:181`), or a pair put aside that
+  still fails with nothing solved (`:188`), is set aside by `sets_aside` (`:92`) when one side is
+  a pending unknown applied, or flexible (an unknown applied, a stuck call, a sum on one) and
+  mentioning one (`on_pending`, `:116`; past `KNOWN_CAP` it looks for each pending unknown as the
+  occurs check does, `18762a20`). Only the outer comparison sets pairs aside: `unify` and the
+  nested runs of `unify_step` go through `nested` (`:34`), which suspends `WAITING` (`:240`), so
+  every existing caller's boolean answer is unchanged by construction.
+- **Placeholders frozen** (D2016's end state). `Globals::unfilled_placeholders`
+  (`crates/core/src/globals.rs:445`, cleared with the metavariables) holds the placeholders their
+  checks haven't filled, kept in step by `Queue::sync_unfilled` (`queue.rs:256`); `unify::frozen`
+  (`unify.rs:153`) treats them as `frozen_metas` are, everywhere the unifier asked
+  `meta_frozen` (solving, pruning, the row and `+` rules, `blocked`). The fill unfreezes its
+  placeholder before solving it (`queue.rs:766`).
+- **A waiting comparison** (`queue.rs`). `compare_waiting` (`:426`) is the last step of
+  `check::compare` (`check.rs:4224`, after `await_helpers`) and of `rfl` (`check.rs:3517`): with
+  anything queued, it asks `unify_waiting` with `pending` (`:374`: the unfilled placeholders and
+  each waiting item's blocker); on `Blocked` it queues a `Comparison` (`:477`) through
+  `queue_constraint` (`:564`): an item with no term (`Item::constraint`, `:169`; resumed it gives
+  `Resumed::Holds`, `:720`), woken when any of its blockers is solved (`Check::wakes`, `:107`,
+  `:552`). Resumed (`:507`), its sides are evaluated afresh (`2907420d`), then its caller's own
+  ways run again (`check::unifies_with_instances`, `check.rs:4245`, split out of `compare`; or
+  `undo::unify` and `refl_after_instances` for `rfl`), then `unify_waiting`: it holds, fails with
+  its caller's error against the types now known (`Failure::error`), or waits again
+  (`Resumed::WaitingAs`). Counter `waited` (`:926`).
+
+**The caller table and the policy** are §"Stage 6: design" as written; nothing deviated from
+it. The `rewrite` row's "the rewrite as a whole may wait" was not needed by stage 6 alone.
+
+**Hash changes: none** **[measured]**. The std + aoc (10,657 declarations) and std + rogue
+(5,228) dumps of `37352546`, `2907420d` and `18762a20` are byte-identical to `b6f8d2ae`'s;
+`hash_stability` at `STITCHWORT_TIER=full` (accepted and extract examples, projects, prelude)
+writes no snapshot.
+
+**Error messages and outcomes: none changed** **[run]**. The examples test at the full tier
+(accepted, rejected with every message snapshot, goals, soundness, projects) passes on
+`37352546` and on `18762a20` with no snapshot written. `stitchwort check --no-cache` and
+`stitchwort test` pass in `aoc/` (135 namespaces, 914 tests) and `games/rogue/` (3 namespaces,
+100 tests) on both. `task audit`: 1,363 aoc and 190 rogue theorems, 0 failed, 0 warnings. A
+mismatch that now waits and then fails reports what main reports (the driver test below compares
+the message).
+
+**Counters**, `STITCHWORT_TIMINGS`, `stitchwort check --no-cache`, base `b6f8d2ae` → lane
+**[measured]** (each example checked on its own and summed; the examples on `37352546`, aoc and
+rogue on `18762a20`; `requeued`, `read back`, `disagreed`, `kept chose`, `defaulted` and `retried`
+are as on the base):
+
+| | queued | resumed | stuck | met unfilled | solved first | lossy | waited |
+|---|---|---|---|---|---|---|---|
+| aoc | 166 → 166 | 143 → 160 | 0 → 0 | 8 → 218 | 16 → **0** | 11 → **0** | **17** |
+| rogue | 35 → 35 | 32 → 32 | 0 → 0 | 0 → 0 | 0 → 0 | 0 → 0 | 0 |
+| accepted examples | 2,944 → 2,944 | 2,927 → 2,931 | 0 → 0 | 2 → 42 | 4 → **0** | 3 → **0** | **4** |
+| rejected examples | 4,233 → 4,233 | 4,209 → 4,209 | 9 → 9 | 0 → 0 | 0 → 0 | 0 → 0 | 0 |
+
+- **The 8 comparisons that "met unfilled" at `Day24/Proofs/Adder.sw:193`** belong to one
+  comparison, the `allMember (wire => wire.zBit.all (found => found ≤ bits))` argument checked
+  against its parameter; it now **waits** (one of the 17, at `Adder.sw:193`, found with a scratch
+  trace, not kept) and holds once the `.zBit` placeholders are filled.
+- **The 16 fills unification solved first** (10 in stage 2, +6 sections in stage 3) now wait
+  instead: the other 16 of aoc's 17 waits are those comparisons (by the same trace: 2024 day
+  7's `couldBeTrue` statement, day 9's three `moveFile` proofs of §5.10, day 16's two
+  reindeer-path proofs, and ten more in day 24's proofs, two of them in `Adder.sw`) [the files
+  other than `Adder.sw` identified by their content, inferred]. `solved first` and `lossy` are 0:
+  no placeholder is solved by unification, guessed or otherwise (the caveat to D2016's P1 is
+  gone).
+- `met unfilled` rises because frozen placeholders now fail the boolean comparisons that used to
+  solve them (in attempts, shortcuts and searches, where `Blocked` is `No` by design); none of
+  those changes an outcome or a hash (above).
+
+**Timing**, `stitchwort check --no-cache` in `aoc/`, user + system CPU, alternating `b6f8d2ae`'s
+binary with `18762a20`'s, on a shared machine **[measured]**: base 37.41, 34.77, 34.43 s; lane
+35.34, 34.50, 34.43 s (load average 26 falling to 4). No cost shows.
+
+**Tests.**
+- `unify.rs`, 3 new: a pair on a pending unknown waits and the rest is solved (the placeholder
+  never is); only pending unknowns make a comparison wait (a rigid mismatch and a frozen unknown
+  the queue doesn't own are `No`); a nested comparison answers for itself.
+- `queue.rs`, 6 new: a comparison on a placeholder waits and holds once it is filled, after its
+  item; a waiting comparison that fails reports its caller's error (`E-REFL`) at its own span; a
+  comparison that can never hold doesn't wait and keeps nothing it solved; restoring takes back a
+  waiting comparison and its resumption (invariant 5); a stuck comparison is reported through the
+  item it waits on (§5.9); a side stuck on the placeholder computes again when resumed. Three
+  stage-1 tests of D2016's unfrozen placeholders are rewritten for frozen ones (the fill's guard
+  is kept and tested with a placeholder solved directly; the lossy guess can no longer happen).
+  Release and debug.
+- `crates/driver/tests/postponement.rs`, 2 new: `anyPerm` with the lambda's parameter fixed later
+  is the annotated term (the shape where unification used to solve the placeholder); the same
+  with a wrong number is `E-TYPE-MISMATCH` with main's message, no unknown in it.
+- Lane tier `elab`, `core`, `std`, `examples`, `hashes`, `lsp` on `37352546`: pass. The examples,
+  `hash_stability`, `postponement` and the elab unit tests at the full tier on `18762a20`: pass
+  (151). Clippy `--deny warnings` and `cargo fmt --check`: clean.
+
+**Merge-readiness of stage 6 alone: ready** by the gate set for it: every hash classified (none
+changed), no error message changed, aoc 914 and rogue 100 pass, audit clean. Two caveats for the
+merge: the lane tier was run on `37352546`, before the two small fixes (`2907420d`, `18762a20`),
+whose effect was re-measured with the dumps, the full-tier examples and AoC/rogue but not the
+lane tier itself; and the merge tier was not run (lane rules).
+
+**Deviations from the design pass.**
+1. **On resume a comparison is made again whole**, not pair by pair: its caller's ways (finding
+   dictionaries) are what make some hold (`examples/accept/finite-check.sw`'s `rfl`, which waits
+   on `u.bits` and then needs `Finite.all`'s dictionary).
+2. **`effects::coerce` is not retried on resume**: it changes the term, and a waiting comparison
+   has none. No case needs it.
+3. **The pending set is computed per call** (`queue::pending`), not kept in step with the queue:
+   it is asked only where a comparison has already failed every other way.
+
+## Stage 4, second attempt: stopped
+
+Built on stage 6 in this lane as `ac4587c9` (**EXPERIMENT, not for merge**), from `27f66005`'s
+K4 (number literals and undecided groups wait, `Nat` default after the field-name rule) plus what
+stage 6 and the first failures asked for. Stopped, as the brief asks, because outcomes of reject
+examples change and the design shows a consumer missing from §5.10.
+
+**What stage 6 fixed** **[run]**: with comparisons waiting, `27f66005` applied on stage 6 checks
+`k4-proof.sw` and the std failures of the first attempt at `:977` aside; the runs then found, one
+after another, `List/Lemmas.sw:625` (a rewrite rule's literal, new), `:1793` (stage 6 resumed a
+comparison on stale stuck values: `2907420d`), 2025 `Day08/Proofs/Part2.sw:286` (a side too large
+to read back: `18762a20`), `PrefixSums/BlockSum.sw:40` (a rewrite's goal holding a waiting
+literal), and the rest below.
+
+**What was added on top, each found by a failure** **[run]**:
+1. `rfl` against an expected type whose shape is pending (`?3 ?4`, `?3 ?5 < ?5`) is `?x = ?x`
+   compared with it, which waits (`List/Lemmas.sw:977`).
+2. A rewrite rule's own items are settled before its search, defaults included, scoped to the
+   rule, as Lean elaborates a `rw` rule with postponement off (`queue::settle_rule`;
+   `List.sumByOne`'s `(x => 1)`). **This applies a default before W4** (invariant 7, scoped).
+3. `rewrite` and `cases` that fail on a goal holding a pending unknown wait whole
+   (`queue::tactic_or_wait`; `PrefixSums/BlockSum.sw:40`, `cases-solved-unknown.sw`).
+4. W2 applies defaults (helpers are lifted at the end of a part; `match-eq-auto.sw`'s
+   `| Less => 0 | _ => 1`).
+5. A pending placeholder applied twice (`?p a` against `?p b`) waits rather than comparing its
+   arguments (`quot-lift-types.sw`'s `a => 7`).
+6. **Groups built at an unknown type**: a group with only `+`, `*`, `<`, `<=` and equations that
+   nothing decides is built at once at a fresh type, its literals waiting and its dictionaries
+   obligations, so its shape is known (`0 = 0` is `Eq ?T ?a ?b`, as Lean's `@Eq ?α 0 0`);
+   `27f66005` made the whole group a placeholder, which hid `Eq` and `<` from `J`, `rfl`,
+   decisions and tests: 12 accepted examples failed (`and-or-not`, `greater-than`, `big-numbers`,
+   `kernel-2026-neighbours`, `effect-logic-in-lambdas`, the three `quot-*`, `match-eq-auto`,
+   `cases-solved-unknown`, `postpone-let-lambda-field`, `match-in-lambda-restated`).
+
+**Where it stands at `ac4587c9`** **[run]**:
+- `k4-proof.sw` checks; `record-literal-inferred.sw`'s "in a list" passes unannotated; every
+  accepted example and project checks; rogue checks and passes 100 tests.
+- **10 of the 11 proofs check**; aoc 2024 `Day17/Proofs/Search.sw:46` (`rewrite outputs in
+  DecEq.refl target` inside `Bool.andIntro _ _ positive …`, the filter's `0 < a ∧ …`) checked
+  before change 6 and fails again after it, `E-REWRITE-NOTHING`.
+- **3 reject examples change outcome**: `int-binding-nat.sw` (`let m := 3 - 5; m + i == 0` with
+  `i: Int`) and `match-bad-motive.sw` are **accepted**; `calc-step-callback.sw` is
+  `E-TYPE-MISMATCH` instead of `E-CALC-STEP` (its step's `(rfl: 0 = 0)` now waits, and fails at a
+  resume point, outside `calc`'s own error mapping).
+- **4 reject messages change**, same code: `expected-type-retry.sw` and
+  `operators-generic-literal.sw` now blame the literal against the type the rest fixes ("expected
+  `Bool`, but this has type `Nat`", note "a numeral can only be the prelude's `Nat` or `Int`")
+  rather than the other part against `Nat` (arguably better); `let-refutable.sw` says `Option ?0`
+  for `Option Nat` and `soundness/quot-of-proposition.sw` says `?1 = ?2` for `0 = 0` (worse: an
+  unknown shown).
+- Std + rogue: 12 std declarations change hash (not classified at this commit). At an earlier
+  point (before change 6) std + aoc changed 17 (13 aoc, 4 std), 6 in their own terms, every one a
+  call kept folded where the base's term had its unfolding (a `J` motive, an implicit argument);
+  all statements identical **[measured, scratch term dump]**.
+
+**Why stop** (the brief's conditions):
+- **Reject outcomes change.** `int-binding-nat.sw` is the D2013/N1 change itself: a literal made
+  `Nat` too early on main is now the `Int` the declaration fixes, so syntax.md's "A `let` binding
+  keeps its own type" no longer holds. That is a language change to list for Matt, not a bug.
+  `match-bad-motive.sw` is not: see the next point.
+- **A consumer missing from §5.10: a `match`'s generalisation of its scrutinee.**
+  `match List.length [1, 1] with …` abstracts the occurrences of its scrutinee in the context; with
+  the body's `[1, 1]` waiting, the scrutinee is `List.length [?1, ?2]`, the signature's
+  `List.length [1, 1]` doesn't match it, `q` isn't generalised, and the program the example
+  rejects with `E-MATCH-MOTIVE` is accepted. The kernel accepts the term (no unsoundness), but
+  it is an elaboration choice made from a placeholder's shape, invariant 8's class "a different
+  well-typed meaning", not "a type error". The fix in kind is change 2's: settle the scrutinee's
+  own items before generalising. With changes 2 and 4 that makes three places where a default
+  runs before W4, which is a revision of invariant 7 for Matt, not a patch.
+- **Error reporting.** A comparison that waits and then fails reports outside the construct that
+  maps its error (`calc`), and two messages now print unknowns. Both need a rule (an item's error
+  wrapped by its caller; a waiting literal printed as itself) rather than case-by-case fixes.
+- **Not converging.** Change 6, needed by 12 accepted examples, undid Day17's fix; each of the six
+  changes was a new consumer of a type's shape that a waiting literal hides.
+
+**What a stage 4 that can be merged needs, as I see it** [inferred]:
+- K4 with groups built at an unknown type (change 6) as the base design: only literals and
+  `-`/`/`/`%` groups wait, never a proposition's shape.
+- A decision for Matt on **where defaults may run before W4**: at the end of a closed
+  sub-elaboration whose result is searched or matched against (a rewrite rule, a `match`
+  scrutinee, a `calc` step?), as Lean runs `synthesizeSyntheticMVarsNoPostponing` for tactic
+  arguments; and at W2. Invariant 7 would then say "at quiescence of the declaration, or of a
+  closed sub-elaboration that a search consumes".
+- §5.10's table extended with: `match` scrutinee generalisation, rewrite rules and goals,
+  `cases` goals, `rfl`'s expected shape, decisions of tests and `if` conditions.
+- A rule for errors of waiting checks: the message rendered after defaults, or with a waiting
+  literal printed as written.
+- D2013's N1 restated: accepted programs keep their literals' types (measured so far: yes, every
+  changed term is a folded/unfolded difference), and some rejected ones are now accepted (list:
+  `int-binding-nat.sw`, syntax.md's "Known limit" `let v = chooseFirst 5 i`).
 
 ## Review 1 and how it was addressed
 
