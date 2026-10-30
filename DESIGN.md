@@ -39,7 +39,7 @@ Draft 1 stated several guarantees more strongly than its rules justified. This d
 | Area | Draft 1 | Draft 2 |
 |---|---|---|
 | Universes | `Type: Type`, fix later | Numbered universes in the kernel from day one. `Type: Type` breaks termination, not just logic |
-| Handler termination | Trusted if each clause resumes at most once | That rule has counterexamples. Now: deep handlers, first-order operations, non-recursive clauses, recorded as a tracked conjecture |
+| Handler termination | Trusted if each clause resumes at most once | That rule has counterexamples. Draft 2: deep handlers, first-order operations, non-recursive clauses, recorded as a conjecture. Since replaced: a handler is translated into a fold over `Effect.Comp`, and the kernel's termination check covers it ([§8](#8-abilities-and-handlers)) |
 | `withFuel` | Generic handler for `Partial` | Postponed. Explicit fuel arguments for now. `Partial` can't be handled by user code |
 | Erasure | Open question | `Prop`-based, with restricted elimination |
 | `auto` | "By computation" | Via a `Decidable` mechanism, which also produces the JS boundary checks |
@@ -120,7 +120,7 @@ This section defines what the rest of the document promises.
 
 **Checked.** The kernel has accepted a definition's elaborated core declaration (its type and its body), either in this run or as recorded in the local cache ([§11](#11-content-hashing-and-caching)).
 
-**Assumption-free.** A definition that doesn't depend, directly or indirectly, on any tracked assumption: `assume`, a foreign function declared total, a proof hole, or a conjecture the checker relies on (currently the handler rule in [§8](#8-abilities-and-handlers)). `stitchwort assumptions <name>` lists them. "Assumption-free" is relative to the core theory, which includes the quotient axiom `Quot.sound`: that axiom doesn't block anything, and `stitchwort axioms <name>` lists it (and any later axiom) for a definition that depends on it, directly or through what it uses. An empty axiom report says no axiom is used; it doesn't say the term computes to data in the kernel.
+**Assumption-free.** A definition that doesn't depend, directly or indirectly, on any tracked assumption: `assume`, a foreign function declared total, a proof hole, or a conjecture the checker relies on. Today there are none to depend on: there's no `assume` yet, so every checked definition is assumption-free ([docs/core.md](docs/core.md#how-this-differs-from-designmd-today)), and handler termination is no longer a conjecture but follows from the kernel's checks ([§8](#8-abilities-and-handlers)). A command to list tracked assumptions (principle 3) will come with the first of them; the CLI has none today. "Assumption-free" is relative to the core theory, which includes the quotient axiom `Quot.sound`: that axiom doesn't block anything, and `stitchwort axioms <name>` lists it (and any later axiom) for a definition that depends on it, directly or through what it uses. An empty axiom report says no axiom is used; it doesn't say the term computes to data in the kernel.
 
 **Effect judgment.** Internally, the type checker establishes judgments of the form
 
@@ -549,11 +549,11 @@ test "tick twice" :=
 - **Tests may run `Partial` code** (D1183), with nothing extra to write: a test whose expression is partial is a partial computation of a `Bool`, and `stitchwort test` steps it as `stitchwort run` steps a partial `main`, with no tick limit. A test that never finishes is a bug in the test or the code, and whoever runs it stops it.
 - **Only `stitchwort test`, and the playground's Tests tab, run tests.** The type checker, the editor's language server and the playground's checks never do, so a test that loops can't hang them (principle 2).
 - **Effectful code is tested via pure handlers**, like `runState` above.
-- **Assumptions are shown with the result.** `tick twice` goes through `runState`, whose termination relies on the handler conjecture ([§8](#8-abilities-and-handlers)). So it reports as conditional:
+- **Assumptions are to be shown with the result**, once there are tracked assumptions ([§3](#3-precise-guarantees)): a test that depends on one will report as conditional. None exists today, so no result is conditional. `tick twice` goes through `runState`, a handler, and handlers no longer rest on a conjecture: `runState` is a fold over `Effect.Comp` that the kernel has checked terminates ([§8](#8-abilities-and-handlers)). So it reports like any other test:
 
   ```
-  ✓ reverse twice          passed
-  ✓ tick twice             passed, assuming: handler-termination
+  ✓ reverse twice          ran
+  ✓ tick twice             ran
   ```
 
 ### Property tests (later)
@@ -626,21 +626,33 @@ def knot: () -> {Cell} ()
 
 Each continuation here is resumed exactly once. The recursion comes from the stored function, not from the handler. Koka's design makes the same point: higher-order mutable state can cause divergence that a check for syntactic recursion can't see.
 
-**POC rule.** A handler is admissible when:
+**POC rule (draft 2, superseded).** The rule and conjecture below were draft 2's plan. They are kept for the reasoning; what is built is under *How handlers terminate today*, after them. `IsData` was never built. A handler is admissible when:
 
 1. **It's deep, and its clauses aren't recursive.** A clause can't call the handler or any function that leads back to it. The only way to continue is `k`. This rejects `Ping`.
 2. **Its ability's operations are data-only.** Operation arguments and results can't contain functions, anywhere. This rejects `Cell`. It's checked **transitively, after type parameters are filled in**, not just by looking for `->` in the operation's signature, because a function can hide inside a constructor or record. So `State Nat` is fine, but `State (List (Nat -> Nat))` and `State { f: Nat -> Nat }` are rejected. For parameterised abilities like `State s`, the handler must require `IsData s`, a property of types that the compiler decides by looking through their definitions. Without that, `runState` could be used with function-valued state and reintroduce Landin's knot.
 3. **Its clauses are total and pure** apart from the outer row `e`.
 4. **It isn't for `Partial`** ([§5](#5-totality-and-partiality)).
 
-**Conjecture.** An admissible handler terminates, *whether or not* it resumes `k` more than once. The argument has two parts:
+**Conjecture (draft 2).** An admissible handler terminates, *whether or not* it resumes `k` more than once. The argument has two parts:
 
 1. **The computation:** under these typing and termination rules, an effectful computation corresponds to a *well-founded* tree of operations. Every path through it is finite, and data-only operations can't smuggle in recursion.
 2. **The handling:** an admissible deep handler is a fold over such a tree with total clauses, so it doesn't introduce divergence of its own.
 
-Splitting it this way avoids assuming "the computation is total" before totality has been defined for open, effectful computations, and shows that the restrictions on operations belong to part 1. This is an argument, not yet a proof. Until it's written up properly, it's a **tracked assumption** (principle 3): results that rely on a handler show it ([§3](#3-precise-guarantees)). Built-in handlers like `runState` and `runAbort` might get their own specific arguments later, so they no longer depend on the general conjecture.
+Splitting it this way avoids assuming "the computation is total" before totality has been defined for open, effectful computations, and shows that the restrictions on operations belong to part 1. Draft 2 planned to track it as an assumption until it was written up. It was never written up, and the implementation made it unnecessary.
 
-**Operational semantics to pin down before milestone 7.** Answered in [`docs/proposals/abilities.md`](docs/proposals/abilities.md), which also chooses an implementation: effects are translated into an inductive tree type, so the kernel's positivity and termination checks prove that handlers terminate, replacing the conjecture below. `Partial` is a separate open proposal, [`docs/proposals/partial.md`](docs/proposals/partial.md). "Deep" isn't a complete specification. Before implementing handlers, the core rules must say:
+**How handlers terminate today.** Abilities are translated into ordinary data before the kernel sees them ([docs/core.md](docs/core.md#abilities); [abilities.md](docs/proposals/abilities.md), Part 2, option B). An effectful computation is a value of the prelude's `Effect.Comp`, a strictly positive tree of operations, and `handle` becomes `Effect.foldComp` (`crates/elab/src/effects.rs`, module comment; `crates/elab/src/std/core/Effect.sw`, `Effect.foldComp`). So the parts of the conjecture become checks the kernel already makes:
+
+1. **The computation** is a `Comp` value. It's well founded because the type is strictly positive (the positivity check).
+2. **The handling** is a structural fold: the termination checker accepts recursion on `rest y` for a recursive function field `rest` ([docs/core.md](docs/core.md#abilities); `crates/core/src/termination.rs`, module comment). A clause that handles the computation again, as `Ping` does, rebuilds the parameter, which isn't smaller, and is refused with `E-TERMINATION` (`examples/soundness/ping-handler.sw`). Landin's knot is refused: written as an `ability`, by the elaborator (`E-ABILITY`, `examples/soundness/cell-ability.sw`); written by hand against `Comp`, by positivity (`cell-operation.sw`) or termination (`cell-result.sw`). There's no `IsData` rule: the kernel's own checks on the translation take its place ([abilities.md](docs/proposals/abilities.md), "`IsData` is replaced by the kernel's own checks").
+
+Nothing here is a tracked assumption. What is trusted instead:
+
+- **The kernel's termination rule for function fields.** abilities.md says, under "The termination rule": "Not yet verified: a soundness proof for these rules in this kernel." Its soundness argument assumes every data type's values are well founded (`termination.rs`, module comment). Like the rest of the kernel, this is trusted and covered by must-reject tests, not proved ([§13](#13-soundness-policy)).
+- **That the translation is faithful.** The kernel checks that the *translated* program terminates. That the translation matches the semantics of abilities.md Part 1 is the elaborator's obligation, tested by comparing behaviour ([abilities.md](docs/proposals/abilities.md), "Changes since draft 1"; the semantic tests in `examples/accept/abilities.sw`). A wrong translation could give a program the wrong meaning. It can't make a total program loop, because everything it generates is re-checked by the kernel (`effects.rs`, module comment).
+
+`Partial` is outside all this: a partial computation is an `Effect.Delay`, which only the runtime runs. A handler around partial code is partial too, so it can't make looping code total (`E-PARTIAL`, `examples/soundness/partial-handled-total.sw`; [docs/proposals/partial-handlers.md](docs/proposals/partial-handlers.md)).
+
+**Operational semantics to pin down before milestone 7.** Answered in [`docs/proposals/abilities.md`](docs/proposals/abilities.md), which also chooses an implementation: effects are translated into an inductive tree type, so the kernel's positivity and termination checks prove that handlers terminate, replacing the conjecture above. `Partial` is a separate open proposal, [`docs/proposals/partial.md`](docs/proposals/partial.md). "Deep" isn't a complete specification. Before implementing handlers, the core rules must say:
 
 - whether a clause runs *inside* or *outside* the handler it belongs to (i.e. what happens if a clause itself performs an operation of the ability being handled);
 - how operations the handler doesn't handle are forwarded to outer handlers;
@@ -946,7 +958,7 @@ Host implementations are **trusted contracts**: JS can't be checked for purity o
 | **Exhaustiveness checking** of pattern matches | A missing case is a hidden crash. |
 | **Conservative termination checking** | Rejecting too much is safe. It can be relaxed later without breaking anything. |
 | **Checking never runs effects** | Principle 2. |
-| **Tracked assumptions** | `stitchwort assumptions <name>` lists every `assume`, foreign function, proof hole and conjecture a definition depends on. |
+| **Tracked assumptions** | Planned (principle 3): a command listing every `assume`, foreign function, proof hole and conjecture a definition depends on. There are none to list yet: no `assume` exists ([docs/core.md](docs/core.md#how-this-differs-from-designmd-today)), and handler termination is checked, not assumed ([§8](#8-abilities-and-handlers)). The CLI has no such command; `stitchwort axioms` lists axioms. |
 | **Axiom report** | `stitchwort axioms <name>` lists the axioms a definition depends on, transitively (today only `Quot.sound`, found even when it sits inline in a body). It reports foundational dependencies only; it doesn't promise the term computes to data in the kernel. |
 | **A "must reject" test suite** | Readable example programs that must fail to type-check. |
 | **Native arithmetic is listed and tested** | A few prelude definitions on `Nat` run natively, in the kernel's evaluator and in extracted JS. `Int` has no kernel natives (decision K1): its operations are ordinary definitions over `Nat` constructors, so only `Nat`'s natives run in the kernel. Each native is trusted, so each is compared with its own definition by tests, as the whole result: a native returning a proof must give the definition's own proof term, so natives never change which `rfl` proofs check ([`docs/core.md`](docs/core.md#numbers)). |
@@ -998,7 +1010,7 @@ Each rejected example is paired with a nearby example that must be **accepted**,
 
 | Gap | Status |
 |---|---|
-| **Handler termination** | A conjecture ([§8](#8-abilities-and-handlers)), shown as a tracked assumption until written up properly. |
+| **Handler termination** | Checked by the kernel's positivity and termination checks on the translation into `Effect.Comp` ([§8](#8-abilities-and-handlers)). Trusted: the termination rule for recursive function fields, with no soundness proof for this kernel ([abilities.md](docs/proposals/abilities.md), "The termination rule"); and that the translation is faithful to the semantics, which is tested by comparing behaviour, not proved. |
 | **Extractor and encoders/decoders** | Trusted, not verified. Rocq's extraction has the same caveat. |
 | **Local cache** | Trusted ([§11](#11-content-hashing-and-caching)). `--no-cache` re-checks everything. |
 
@@ -1095,7 +1107,7 @@ Reviewers' opinions are especially welcome here. The second review recommended s
 
 4. **Finding decision procedures** (milestone 3). How does the compiler find the `Decidable p` for a given `p`? Type-class-style instances, or something simpler?
 5. **`Text`** (milestone 4). Settled in [docs/proposals/text-and-io.md](docs/proposals/text-and-io.md): Unicode scalar values, with `Text` meaning a list of them, and strict JS decoding.
-6. **Handler admissibility** (milestone 7). Write up the two-part conjecture in [§8](#8-abilities-and-handlers) properly. Is "data-only operations" too restrictive in practice?
+6. **Handler admissibility** (milestone 7). Settled by the translation into `Effect.Comp` ([§8](#8-abilities-and-handlers), [abilities.md](docs/proposals/abilities.md)): the draft 2 conjecture and its "data-only operations" rule are replaced by the kernel's positivity and termination checks. Still open: a soundness argument for the termination rule on recursive function fields in this kernel.
 7. **Handler operational semantics** (milestone 7). The points listed in [§8](#8-abilities-and-handlers).
 8. **Effects and dependency.** The precise typing rules for sequencing effectful code when its results are used as type indices.
 9. **Runtime "at most once" for continuations.** How to check it, including through closures, for when handlers are extracted to JS.
