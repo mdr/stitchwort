@@ -32,6 +32,12 @@ type Result<T> = std::result::Result<T, Diagnostic>;
 /// core's default `Limits`.
 pub const DEFAULT_STACK: usize = 1536 * 1024;
 
+/// The largest `n` in `Type n`: the kernel's top universe
+/// (`stitchwort_core::MAX_LEVEL`, docs/core.md "Universes"; a core test
+/// checks they agree). Far below `u32::MAX`, so no arithmetic on levels can
+/// wrap (SW-902).
+pub const MAX_UNIVERSE_LEVEL: u32 = 65535;
+
 pub fn parse_module(file: FileId, text: &str) -> std::result::Result<Module, Vec<Diagnostic>> {
     parse_module_within(file, text, DEFAULT_STACK)
 }
@@ -3878,8 +3884,15 @@ impl<'t> Parser<'t> {
                 self.bump();
                 if let Some(Tok::Num(n)) = self.peek() {
                     let end = self.bump().span;
-                    let level =
-                        u32::try_from(n).map_err(|_| error(end, "universe level is too large"))?;
+                    let too_large = || {
+                        error(end, "universe level is too large").with_note(format!(
+                            "the largest universe is `Type {MAX_UNIVERSE_LEVEL}`"
+                        ))
+                    };
+                    let level = u32::try_from(n)
+                        .ok()
+                        .filter(|&l| l <= MAX_UNIVERSE_LEVEL)
+                        .ok_or_else(too_large)?;
                     return Ok(Expr::Type(level, span.to(end)));
                 }
                 Ok(Expr::Type(0, span))

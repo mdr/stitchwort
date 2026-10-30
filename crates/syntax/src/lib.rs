@@ -17,7 +17,7 @@ pub use negation::{
     argument_bang, argument_minus, argument_prefix, closes_operand, negative_numeral, opens_atom,
 };
 pub use parser::{
-    DEFAULT_STACK, decl_ranges, parse_expression, parse_expression_within, parse_module,
-    parse_module_recovering, parse_module_within, parse_namespace_line,
+    DEFAULT_STACK, MAX_UNIVERSE_LEVEL, decl_ranges, parse_expression, parse_expression_within,
+    parse_module, parse_module_recovering, parse_module_within, parse_namespace_line,
 };
 pub use source::{FileId, SourceFile, SourceMap, Span};

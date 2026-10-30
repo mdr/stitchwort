@@ -50,8 +50,10 @@ Variables are de Bruijn indices in terms and de Bruijn levels in values.
 ## Universes
 
 ```
-Prop: Type 0        Type i: Type (i+1)
+Prop: Type 0        Type i: Type (i+1)    for i < 65535
 ```
+
+**The largest universe is `Type 65535`** (`MAX_LEVEL`, `u16::MAX`; the parser's `MAX_UNIVERSE_LEVEL` is the same). It has no universe above it, so it is never a term: `Term::Sort(Type 65535)`, or anything above it, is refused with `E-UNIVERSE` ("a universe with no universe above it"), and so is a data type declared in it, since its type would be `Type 65535`. The step up is `Sort::succ`, which returns `None` at the top and never saturates: `Type n : Type n` is as unsound as `Type : Type`. So every level the kernel handles is at most 65535, the largest usable as a term is `Type 65534`, and the parser refuses `Type n` above 65535 (`E-PARSE`, "universe level is too large"). Levels are `u32`, and the limit keeps them far below `u32::MAX`: a sum, or even a product, of two levels fits, so `max`, `succ` and any later level arithmetic can't wrap. (Before SW-902 the step was an unchecked `i + 1`, so in a release build `Type 4294967295 : Type 0` and the hierarchy was a cycle, the setting of Girard's paradox.) A check-cache entry with a level above the limit is a miss (`cache/codec.rs` `read_sort`); entries written by an earlier compiler are misses anyway, since every key has the build's source fingerprint.
 
 The universe of a function type:
 
@@ -506,7 +508,7 @@ The interpreter (`stitchwort run`) makes the same functions loops in its IR (`cr
 | `E-ARITY` | Wrong number of patterns or arguments |
 | `E-NOT-A-CONSTRUCTOR` | A pattern that isn't a constructor |
 | `E-TYPE-MISMATCH` | Types don't match |
-| `E-UNIVERSE` | Universe mismatch, or a field or an index too large for its data type |
+| `E-UNIVERSE` | Universe mismatch, a field or an index too large for its data type, or `Type 65535`, the largest universe, used as a term |
 | `E-CANNOT-INFER` | Needs a type annotation |
 | `E-NOT-A-TYPE` / `E-NOT-A-FUNCTION` / `E-NOT-A-SORT` | Wrong kind of thing |
 | `E-NOT-A-PROP` | A `theorem` whose type isn't a proposition |

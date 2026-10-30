@@ -9,7 +9,7 @@ use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
-use stitchwort_core::{DataId, Globals, Icit, Name, Sort, Term, Value, pretty};
+use stitchwort_core::{DataId, Globals, Icit, MAX_LEVEL, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Mode, Name as AstName, NegForm, SECTION};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -1215,7 +1215,20 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             infer(cx, &Expr::Str(text, *span))
         }
         Expr::Binary(BinOp::Append, a, b) => append(cx, a, b),
-        Expr::Type(i, _) => Ok((Term::Sort(Sort::Type(*i)), Value::Sort(Sort::Type(i + 1)))),
+        // `Type MAX_LEVEL` is the top universe: nothing for it to live in
+        // (SW-902).
+        Expr::Type(i, span) => match Sort::Type(*i).succ() {
+            Some(above) => Ok((Term::Sort(Sort::Type(*i)), Value::Sort(above))),
+            None => Err(Diagnostic::error("E-UNIVERSE", format!("`Type {i}` has no type"))
+                .with_label(
+                    *span,
+                    format!("`Type {MAX_LEVEL}` is the largest universe, and no universe holds it"),
+                )
+                .with_note(format!(
+                    "`Type n` can be used as a term for `n` up to {}: every term needs a type, and `Type n : Type n` would make the logic inconsistent",
+                    MAX_LEVEL - 1
+                ))),
+        },
         Expr::Prop(_) => Ok((Term::Sort(Sort::Prop), Value::Sort(Sort::Type(0)))),
         Expr::Hole(_) => {
             let ty = cx.fresh_meta();

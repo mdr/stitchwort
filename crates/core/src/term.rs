@@ -24,13 +24,30 @@ pub enum Sort {
     Type(u32),
 }
 
+/// The largest universe level: `Type MAX_LEVEL` is the top universe
+/// (docs/core.md, "Universes"). It has no universe above it, so it is never
+/// a term: [`Sort::succ`] refuses it. No level the kernel handles is above
+/// it. It is `u16::MAX`, far below `u32::MAX`, so a sum or even a product
+/// of two levels fits in a `u32` (SW-902: an unchecked `i + 1` at
+/// `u32::MAX` once made `Type 4294967295 : Type 0`).
+pub const MAX_LEVEL: u32 = u16::MAX as u32;
+
 impl Sort {
-    /// The universe this universe lives in.
-    pub fn succ(self) -> Sort {
+    /// The universe this universe lives in, if there is one: `None` for
+    /// `Type MAX_LEVEL` (and any level above it, which the kernel never
+    /// admits). Never saturates: `Type MAX : Type MAX` would be as unsound
+    /// as `Type : Type`.
+    pub fn succ(self) -> Option<Sort> {
         match self {
-            Sort::Prop => Sort::Type(0),
-            Sort::Type(i) => Sort::Type(i + 1),
+            Sort::Prop => Some(Sort::Type(0)),
+            Sort::Type(i) if i < MAX_LEVEL => Some(Sort::Type(i + 1)),
+            Sort::Type(_) => None,
         }
+    }
+
+    /// Whether this universe's level is at most [`MAX_LEVEL`].
+    pub fn in_range(self) -> bool {
+        self.level() <= MAX_LEVEL
     }
 
     fn level(self) -> u32 {
