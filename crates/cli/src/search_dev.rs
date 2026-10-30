@@ -27,13 +27,14 @@ use stitchwort_elab::search::{self, Hit, Mode, Place, Side, Stats};
 use stitchwort_syntax::Span;
 
 /// The rankings compared in draft 2 §5.1, by name.
-const RANKINGS: [&str; 7] = [
+const RANKINGS: [&str; 8] = [
     "draft1",
     "draft1+hyps",
     "isabelle",
     "rocq",
     "loogle",
     "proposed",
+    "proposed+rare",
     "rare-first",
 ];
 
@@ -101,8 +102,10 @@ fn key(
         "rocq" => vec![3 * theirs.len() as i64 + size],
         // Loogle: module order (here, load order), then size.
         "loogle" => vec![hit.id.0 as i64, size],
-        // Draft 2 §5.1.
-        "proposed" => vec![place, a, i, extra, hyps, size],
+        // Draft 2 §5.1: specificity, then Isabelle's premises and size.
+        "proposed" => vec![place, a, i, hyps, size],
+        // The same with rarity (MePo, MaSh, Hoogle) after specificity.
+        "proposed+rare" => vec![place, a, i, extra, hyps, size],
         "rare-first" => vec![place, extra, a, i, hyps, size],
         _ => vec![place, a, i, namelen],
     }
