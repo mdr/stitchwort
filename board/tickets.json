@@ -1,5 +1,5 @@
 {
-  "next": 908,
+  "next": 909,
   "tickets": [
     {
       "id": 13,
@@ -8017,16 +8017,18 @@
     {
       "id": 871,
       "title": "Misleading E-ABILITY: passing an effectful call to a Comp NoOp r Nat parameter says the ability isn't in the enclosing function's abilities",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "small-bugs lane",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "bug"
       ],
-      "body": "From SW-862 (29 Oct): with def pass (c: Comp NoOp r Nat): Nat, the call pass (log 3) inside a {Log} Nat definition gives E-ABILITY '`Log` isn't in the abilities of the enclosing function', which is false; the real problem is that the parameter is a Comp in the empty row with foreign results (SW-851). Likely from SW-851's rule that unknown results become the row's own (unconfirmed). Give the right error.",
+      "body": "From SW-862 (29 Oct): with def pass (c: Comp NoOp r Nat): Nat, the call pass (log 3) inside a {Log} Nat definition gives E-ABILITY '`Log` isn't in the abilities of the enclosing function', which is false; the real problem is that the parameter is a Comp in the empty row with foreign results (SW-851). Likely from SW-851's rule that unknown results become the row's own (unconfirmed). Give the right error.\n30 Oct: cause is not SW-851 (Comp NoOp NoRes Nat gives the same): a passed argument is checked in the parameter's row and not_allowed only knows that row. Fixed message-only in effects.rs (passed_not_allowed), reject/passed-computation-ability.sw; commit 29ebe682 on worktree-agent-ae6f4fa0c6d6b00e2.",
       "created": "2026-10-29",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "06158061"
+      ]
     },
     {
       "id": 872,
@@ -8268,16 +8270,18 @@
     {
       "id": 886,
       "title": "() in a tuple pattern gives E-NOT-EMPTY, though let () := e on its own works",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "small-bugs lane",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "bug"
       ],
-      "body": "From docs/proposals/direct-style-grammars.md §8 (SW-883); repro in docs/proposals/direct-style-grammars/gaps.sw.",
+      "body": "From docs/proposals/direct-style-grammars.md §8 (SW-883); repro in docs/proposals/direct-style-grammars/gaps.sw.\n30 Oct: cause: only a whole argument's () with a rhs became the unit pattern; a nested one stayed absurd (lib.rs compile -> Tree::Absurd -> E-NOT-EMPTY). Now compile takes it as unit where the column's type is known to be (). accept/unit-pattern-in-tuple.sw, reject/unit-pattern-in-tuple-not-unit.sw; commit 2be6a532 on worktree-agent-ae6f4fa0c6d6b00e2.",
       "created": "2026-10-29",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "06158061"
+      ]
     },
     {
       "id": 887,
@@ -8621,6 +8625,21 @@
         "bug"
       ],
       "body": "Found by the SW-903 lane (30 Oct 2026), running the counterexample search over std through the driver API (check never searches std, but a user theorem of the same shape would): Std.Nat.shiftRightShiftLeft ran for over 4 minutes, ignoring its 500 ms budget; Std.Float.Theory.pow2FromPow went past 2 GB. The lane's guess, not checked: Nat.shiftLeft by a random edge value (2^64) builds an enormous number, and that work isn't charged to the time or memory budget. Not yet reproduced by the orchestrator: reproduce under dev/memguard --cap-gb 2 with a user copy of each theorem first.\n",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
+    },
+    {
+      "id": 908,
+      "title": "(c: {} Nat) parameter type read as an empty record literal (E-CANNOT-INFER); gaps.sw header stale",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "body": "Found by the SW-871/886 lane (30 Oct 2026): a parameter type written (c: {} Nat) gives E-CANNOT-INFER 'can't tell which record type this literal is'; {} seems to be parsed as an empty record literal rather than an empty ability row. Not reproduced by the orchestrator yet. Also: docs/proposals/direct-style-grammars/gaps.sw's header still says inArgument, inTuple and nested give E-CANNOT-INFER, which SW-805 fixed; update the header.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
