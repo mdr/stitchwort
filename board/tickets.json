@@ -7076,16 +7076,18 @@
     {
       "id": 807,
       "title": "Consider D1444: Derive a list of all values (with completeness proof) for constructor-only types",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "lane: Finite, Finite.check, byDecision (D1972)",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "decision"
       ],
-      "body": "Like Haskell's Enum/Bounded and Lean's Fintype, beside derived DecEq/Ord. Day 21 wrote 11-deep membership proofs by hand; gives decide something to range over. Rec: yes.",
+      "body": "Like Haskell's Enum/Bounded and Lean's Fintype, beside derived DecEq/Ord. Day 21 wrote 11-deep membership proofs by hand; gives decide something to range over. Rec: yes.\n- Lane: core/Finite.sw (interface, Bool/Ordering/Option/Pair instances), derive_finite.rs (derived per type; proof by per-constructor lemmas + a generic cover, since a match whose goal names the list makes the kernel refine it at the list's cost), Finite.check (std/Finite), byDecision (std/Decidable), Fin instance; cases notes. Measuring.\n- Done on branch worktree-agent-a28b5d277dd8002c6 (bbd1a155, 9c60d379): derive adds 0.5-2.1 ms per day 21 type; Finite.check 2^10 ~93 ms, 2^16 ~12.4 s (prototype 6.5 s); day 21 converted; lanes elab/std/examples/hashes pass; aoc 914, rogue 100 pass. Small check.rs change (rfl retries after ready instances). decide.md §14.",
       "created": "2026-10-28",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "8dd7dec8"
+      ]
     },
     {
       "id": 808,
