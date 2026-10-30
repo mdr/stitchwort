@@ -7210,7 +7210,7 @@
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
       "status": "doing",
       "agent": "Claude",
-      "where": "stage 4 lane: K4 number literals, defaults ladder",
+      "where": "lane (D2051): stage 6 (comparisons wait) then stage 4 (number literals); stage 5 after",
       "labels": [
         "decision"
       ],
