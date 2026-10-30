@@ -7203,9 +7203,9 @@
     {
       "id": 817,
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
-      "status": "backlog",
-      "agent": "",
-      "where": "design note merged 8cd3cdd6; awaiting D2010, D2011",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "design lane (D2012): single-queue end state + review brief",
       "labels": [
         "decision"
       ],
