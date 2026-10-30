@@ -146,6 +146,65 @@ fn the_critical_pairs_join() {
     });
 }
 
+/// The evaluators reach the right side of the Taming of the Rew's
+/// "parallel rule" R5 `Succ m + Succ n → Succ (Succ (m + n))` (its Example
+/// 4.3; the proposal's §9.4) without having it as code: `Succ m + Succ n`
+/// and its one-step reducts by R2 and R4 are each convertible with R5's
+/// right side, with each evaluator, natives on and off, for the instances
+/// of `the_critical_pairs_join`. Not always as the same value: with `m` and
+/// `n` variables the sum is `NatAdd(2, m + n)`, the compact form of
+/// `Succ (Succ (m + n))`, while R5's right side as written stays two
+/// `Succ` constructors (`native::ctor` compacts only a `Succ` of a number
+/// or a `NatAdd`); conversion identifies the two.
+#[test]
+fn the_parallel_rule_is_reached() {
+    with_stack(STACK, || {
+        let mut session = Session::new();
+        let g = &mut session.elab.globals;
+        let add = add_id(g);
+        let nat = g.builtins.nat.expect("`Nat` is bound");
+        let plus = |a: Term, b: Term| Term::app(Term::app(Term::Def(add), a), b);
+        let succ = |t: Term| Term::ctor(nat, 1, vec![t]);
+        // `m` and `n` are levels 0 and 1: indices 1 and 0.
+        let (m, n) = (|| Term::Var(1), || Term::Var(0));
+        let sum = plus(succ(m()), succ(n()));
+        let by_r2 = succ(plus(m(), succ(n())));
+        let by_r4 = succ(plus(succ(m()), n()));
+        let r5 = succ(succ(plus(m(), n())));
+        let x = Value::var(2);
+        let instances = |own: usize| {
+            [
+                Value::var(own),
+                native::nat_value(BigUint::from(0u32)),
+                native::nat_value(BigUint::from(4u32)),
+                native::from_view(BigUint::from(3u32), Some(x.clone())),
+            ]
+        };
+        let mut checked = 0;
+        for mv in instances(0) {
+            for nv in instances(1) {
+                let env = [mv.clone(), nv.clone()];
+                let terms = [&r5, &sum, &by_r2, &by_r4];
+                in_every_mode(g, &env, 3, &terms, |g, v, evaluator, natives| {
+                    let what = format!("m = {mv:?}, n = {nv:?}, {evaluator:?}, natives {natives}");
+                    for (name, value) in [("the sum", &v[1]), ("R2", &v[2]), ("R4", &v[3])] {
+                        assert!(conv(g, 3, value, &v[0], evaluator), "{what}: {name}");
+                    }
+                    if matches!((&mv, &nv), (Value::Neutral(..), Value::Neutral(..))) {
+                        let two = BigUint::from(2u32);
+                        let compact = matches!(&v[1], Value::NatAdd(k, _) if **k == two);
+                        assert!(compact, "{what}: {}", shown(g, 3, &v[1]));
+                        let ctor = matches!(&v[0], Value::Ctor(..));
+                        assert!(ctor, "{what}: {}", shown(g, 3, &v[0]));
+                    }
+                    checked += 1;
+                });
+            }
+        }
+        assert_eq!(checked, 4 * 4 * 4);
+    });
+}
+
 /// Sums stuck on their first argument compute on their second, to the same
 /// value with each evaluator, natives on and off; and a sum stuck on both
 /// stays stuck. `x` and `y` are variables (levels 0 and 1).
