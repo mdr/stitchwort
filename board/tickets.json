@@ -8406,27 +8406,27 @@
       "title": "Goals and errors print x + 1 as Succ x and x + 3 as 3 + x since + computes on both sides (SW-787): read sums back as written",
       "status": "backlog",
       "agent": "",
-      "where": "",
+      "where": "queued (D1977): next spare lane after SW-896",
       "labels": [
         "diagnostics"
       ],
       "body": "After SW-787, a stuck sum x + k is read back as Succ x / k + x, so goals and error messages show a different shape from the source. Read back NatAdd(k, x) as x + k (or keep the folded call as written), as glued evaluation does for other calls.",
       "created": "2026-10-29",
-      "updated": "2026-10-29",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
       "id": 896,
       "title": "Unifier: x + ?m against a computed Succ (x + t) (invert R4 of SW-787) so List.memBetween-style implicits are inferred again",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "lane (D1977)",
       "labels": [
         "elab"
       ],
       "body": "Since + computes on its second argument (SW-787), x + ?m no longer unifies with Succ (x + t); aoc and rogue now pass List.memBetween's implicit arguments explicitly. Consider a unification rule: x + ?m =?= Succ s solves ?m := Succ ?m' with x + ?m' =?= s (and the literal case).",
       "created": "2026-10-29",
-      "updated": "2026-10-29",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
