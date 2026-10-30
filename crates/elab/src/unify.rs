@@ -28,11 +28,39 @@ pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
 }
 
 /// [`unify`] for every pair on the work list.
+///
+/// A pair that fails while one side is a definition stuck on an unknown is
+/// put aside and compared again after the rest, evaluated afresh, if the
+/// rest solved anything: the unknown may be solved by then and the
+/// definition compute. So `List.rangeFrom (Succ ?hi - ?lo) ?lo` against
+/// `List.rangeFrom (n - 1) 2` solves `?lo` from the second arguments, and
+/// then `?hi - 1` against `n - 1` solves `?hi` (SW-896). A pair put aside
+/// fails for good if nothing was solved since. What a failed comparison
+/// solved is kept, as it is when unification fails (callers that try again
+/// build on it).
 fn run(g: &Globals, mut work: Vec<Task>) -> Result<bool> {
     while let Some(task) = work.pop() {
         g.budget.step()?;
         let same = match task {
-            Task::Values(level, a, b) => unify_step(g, level, &a, &b, &mut work)?,
+            Task::Values(level, a, b) => {
+                if unify_step(g, level, &a, &b, &mut work)? {
+                    true
+                } else if blocked(g, &a)? || blocked(g, &b)? {
+                    let trail = g.meta_trail.borrow().len();
+                    work.insert(0, Task::Later(level, a, b, trail));
+                    true
+                } else {
+                    false
+                }
+            }
+            // Put aside, and nothing solved since: they differ.
+            Task::Later(_, _, _, trail) if g.meta_trail.borrow().len() <= trail => false,
+            Task::Later(level, a, b, _) => {
+                let env: Vec<Value> = (0..level).map(Value::var).collect();
+                let afresh = |v: &Value| eval(g, &env, &quote(g, level, v)?);
+                work.push(Task::Values(level, afresh(&a)?, afresh(&b)?));
+                true
+            }
             // Identical functions unify without solving anything (`same_closure`).
             Task::Codomains(_, b1, b2) if same_closure(&b1, &b2) => true,
             Task::Codomains(level, b1, b2) => {
@@ -604,7 +632,8 @@ fn plus_rule_with(
             if mentions_meta(g, level, sum.m, &t)? {
                 return Ok(None);
             }
-            let fresh = g.new_meta(g.metas.borrow()[sum.m].span);
+            let span = g.metas.borrow()[sum.m].span;
+            let fresh = g.new_meta(span);
             let n = sum.spine.len();
             let mut applied = Term::Meta(fresh);
             for (i, elim) in sum.spine.iter().enumerate() {
@@ -669,6 +698,42 @@ fn mentions_meta(g: &Globals, level: usize, m: usize, v: &Value) -> Result<bool>
 enum Task {
     Values(usize, Value, Value),
     Codomains(usize, Closure, Closure),
+    /// A pair put aside ([`run`]), with the length of the trail then.
+    Later(usize, Value, Value, usize),
+}
+
+/// Whether `v` may be a definition stuck on an unknown, as far as can be
+/// told cheaply: a call of one with an argument that is an unknown not
+/// solved yet (or `k + ` one), or such a call itself, [`BLOCKED_DEPTH`]
+/// calls deep at most.
+fn blocked(g: &Globals, v: &Value) -> Result<bool> {
+    blocked_within(g, v, BLOCKED_DEPTH)
+}
+
+/// How deep [`blocked`] looks.
+const BLOCKED_DEPTH: usize = 3;
+
+fn blocked_within(g: &Globals, v: &Value, depth: usize) -> Result<bool> {
+    let Value::Neutral(Head::Def(_), spine) = force(g, v.clone())? else {
+        return Ok(false);
+    };
+    for elim in spine.iter() {
+        let Elim::App(arg, _) = elim else {
+            continue;
+        };
+        let arg = match force(g, arg.clone())? {
+            Value::NatAdd(_, base) => force(g, (*base).clone())?,
+            other => other,
+        };
+        match &arg {
+            Value::Neutral(Head::Meta(m), _) if !g.meta_frozen(*m) => return Ok(true),
+            Value::Neutral(Head::Def(_), _) if depth > 1 && blocked_within(g, &arg, depth - 1)? => {
+                return Ok(true);
+            }
+            _ => {}
+        }
+    }
+    Ok(false)
 }
 
 /// Unifies the outermost layer of `a` and `b`: `false` if they can't be made
@@ -856,7 +921,15 @@ fn unify_step(
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 => {
             if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
                 // Eta for definitions doesn't apply, so the spines must match.
+                // Calls stuck on an unknown may be equal without that, once it
+                // is solved: their spines are compared here, so that if they
+                // differ, the calls are put aside whole ([`run`]).
                 match spine_pairs(level, s1, s2) {
+                    Some(pairs)
+                        if matches!(h1, Head::Def(_)) && (blocked(g, &a)? || blocked(g, &b)?) =>
+                    {
+                        run(g, pairs.into_iter().rev().collect())?
+                    }
                     Some(pairs) => {
                         work.extend(pairs.into_iter().rev());
                         true
