@@ -7195,9 +7195,9 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Text.padLeft, Option.toList, list-of-options sequence as List.allSome (f7264e47). Ok { … } bracket hint: E-UNKNOWN-FIELD note 2 already says write Ok ({ … }) (checked).\n- SPLIT: parse 'got' next token; E-MATCH-MOTIVE/E-ARITY naming the unfolded definition -> SW-842.\n- NOT REPRODUCED: user constructors And/Or beside the prelude's (type T = | And | Or with p ∧ q checks fine); needs the day's exact case.\n- OPEN here: repair misses in 4/110 generated adders (AoC program); omega given goals expanded into Nat.divFuel; --no-cache for the project only; searching lemmas by type; List builders (map, filter, append, …) overflow the stack on 3M items.\n",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Text.padLeft, Option.toList, list-of-options sequence as List.allSome (f7264e47). Ok { … } bracket hint: E-UNKNOWN-FIELD note 2 already says write Ok ({ … }) (checked).\n- SPLIT: parse 'got' next token; E-MATCH-MOTIVE/E-ARITY naming the unfolded definition -> SW-842.\n- NOT REPRODUCED: user constructors And/Or beside the prelude's (type T = | And | Or with p ∧ q checks fine); needs the day's exact case.\n- OPEN here: repair misses in 4/110 generated adders (AoC program); omega given goals expanded into Nat.divFuel; --no-cache for the project only; searching lemmas by type; List builders (map, filter, append, …) overflow the stack on 3M items.\n\n\nClarified 30 Oct (orchestrator, checked against aoc/NOTES-2024.md and Proofs/Part2.sw): the 'repair misses' item is incompleteness, not wrong answers. part2Sound/part2Correct prove that any answer returned is a correct repair (at most four swaps, adds for every x and y). After SW-830, 117 of 120 generated cases are found; the 3 misses return None, all with swaps spread across bits. Not proved: completeness (false today) and uniqueness (false in general). Day 24 has no real input in the repo (Matt's inputs stop at day 10). Backlog, not urgent (Matt): to close it, make repair backtrack across bits within the four-swap budget, then prove completeness.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
