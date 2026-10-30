@@ -685,12 +685,7 @@ pub(crate) fn foreign_results_notes(cx: &Ctx, expected: &Value) -> Result<Vec<St
     if fits_row(cx, cx.level(), &row, &written)? {
         return Ok(Vec::new());
     }
-    let parts: Vec<String> = row.labels.iter().map(|l| ability_name(cx, l)).collect();
-    let text = match &row.tail {
-        Some(tail) if parts.is_empty() => format!("{{{}}}", cx.show(tail)),
-        Some(tail) => format!("{{{} | {}}}", parts.join(", "), cx.show(tail)),
-        None => format!("{{{}}}", parts.join(", ")),
-    };
+    let text = show_row(cx, &row);
     Ok(vec![
         format!(
             "its operations are the row `{text}`'s, but what they give back is `{}`, not \
@@ -848,6 +843,10 @@ fn same_shape(cx: &Ctx, a: &Row, b: &Row) -> Result<bool> {
         })
 }
 
+/// How [`not_allowed`]'s message reads around the ability's name, so
+/// [`passed_not_allowed`] can tell which ability it was.
+const NOT_ALLOWED: (&str, &str) = ("this may perform `", "`, which isn't allowed here");
+
 fn not_allowed(cx: &Ctx, label: &Label) -> Diagnostic {
     if label.ability == REC {
         return escape(cx);
@@ -855,12 +854,100 @@ fn not_allowed(cx: &Ctx, label: &Label) -> Diagnostic {
     let name = ability_name(cx, label);
     cx.error(
         "E-ABILITY",
-        format!("this may perform `{name}`, which isn't allowed here"),
+        format!("{}{name}{}", NOT_ALLOWED.0, NOT_ALLOWED.1),
         format!("`{name}` isn't in the abilities of the enclosing function or handler"),
     )
     .with_note(format!(
         "add `{name}` to the function's type (`-> {{{name} …}} …`), or handle it"
     ))
+}
+
+/// [`not_allowed`]'s error `e` for an argument of a call in `row` that is
+/// passed as a computation, to a parameter of computation type: the
+/// argument is a computation in the parameter's row, not the caller's, so
+/// "isn't in the abilities of the enclosing function" is wrong when the
+/// caller has the ability (SW-871). Says what the parameter takes instead.
+/// Any other error is returned as it is.
+fn passed_not_allowed(
+    cx: &Ctx,
+    e: Diagnostic,
+    args: &[&Expr],
+    passed: &[bool],
+    param_types: &[Option<Value>],
+    row: &Row,
+) -> Result<Diagnostic> {
+    if e.code != "E-ABILITY" {
+        return Ok(e);
+    }
+    let Some(name) = e
+        .message
+        .strip_prefix(NOT_ALLOWED.0)
+        .and_then(|m| m.strip_suffix(NOT_ALLOWED.1))
+        .map(str::to_string)
+    else {
+        return Ok(e);
+    };
+    let Some(span) = e.primary_span() else {
+        return Ok(e);
+    };
+    let inside = |arg: &Expr| {
+        let a = arg_value(arg).span();
+        a.file == span.file && a.start <= span.start && span.end <= a.end
+    };
+    let Some(i) = (0..args.len()).find(|&i| passed.get(i) == Some(&true) && inside(args[i])) else {
+        return Ok(e);
+    };
+    let Some(param) = param_types.get(i).and_then(Option::as_ref) else {
+        return Ok(e);
+    };
+    // The row of its operations, whatever its results (`Comp NoOp r Nat`,
+    // SW-851): the parameter's type is under the binders before it, so it
+    // isn't compared or shown.
+    let Some((param_row, _, _)) = written_results(cx, param)? else {
+        return Ok(e);
+    };
+    let names: Vec<String> = param_row
+        .labels
+        .iter()
+        .map(|l| ability_name(cx, l))
+        .collect();
+    let wanted = match (names.is_empty(), param_row.tail.is_some()) {
+        (true, false) => "a computation with no abilities".to_string(),
+        (false, false) => format!("a computation in `{{{}}}`", names.join(", ")),
+        (true, true) => format!("a computation whose abilities don't include `{name}`"),
+        (false, true) => format!(
+            "a computation in `{{{} | …}}`, which doesn't include `{name}`",
+            names.join(", ")
+        ),
+    };
+    let mut d = Diagnostic::error(
+        "E-ABILITY",
+        format!("this argument may perform `{name}`, but its parameter takes {wanted}"),
+    )
+    .with_label(
+        span,
+        format!("this is passed to the parameter as a computation, so it can't perform `{name}`"),
+    );
+    if row.labels.iter().any(|l| ability_name(cx, l) == name) {
+        d = d.with_note(format!(
+            "the enclosing function may perform `{name}`, but an argument passed as a \
+             computation has its parameter's abilities, not the caller's"
+        ));
+    }
+    Ok(d.with_note(format!(
+        "for an argument that performs `{name}`, give the parameter a row with it \
+         (`{{{name} | e}} …`); or run the call first, `let x := …`, and pass `x`"
+    )))
+}
+
+/// A row as written: `{A, B}`, `{A | e}`, `{e}`, `{}`.
+fn show_row(cx: &Ctx, row: &Row) -> String {
+    let parts: Vec<String> = row.labels.iter().map(|l| ability_name(cx, l)).collect();
+    match &row.tail {
+        Some(tail) if parts.is_empty() => format!("{{{}}}", cx.show(tail)),
+        Some(tail) => format!("{{{} | {}}}", parts.join(", "), cx.show(tail)),
+        None => format!("{{{}}}", parts.join(", ")),
+    }
 }
 
 /// A recursive call of the partial group being described, used where
@@ -2735,10 +2822,35 @@ fn comp_check_in(
             if let Some(c) = unknown_row_value(cx, expr, row, t)? {
                 return Ok(c);
             }
-            let v = check(cx, expr, t)?;
+            let v = match check(cx, expr, t) {
+                Ok(v) => v,
+                Err(e) if crate::undo::fatal(&e) => return Err(e),
+                Err(e) => return Err(call_not_allowed(cx, e, expr, row)?),
+            };
             done(cx, row, t, v)
         }
     }
+}
+
+/// [`passed_not_allowed`] for `e`, an error from checking the call `expr`
+/// as a plain value in `row`.
+fn call_not_allowed(cx: &Ctx, e: Diagnostic, expr: &Expr, row: &Row) -> Result<Diagnostic> {
+    if e.code != "E-ABILITY" {
+        return Ok(e);
+    }
+    let mut args: Vec<&Expr> = Vec::new();
+    let mut head = expr;
+    while let Expr::App(f, a) = head {
+        args.push(a);
+        head = f;
+    }
+    if args.is_empty() {
+        return Ok(e);
+    }
+    args.reverse();
+    let passed = passed_args(cx, head, &args, 0)?;
+    let param_types = call_param_types(cx, head, &args, 0)?.unwrap_or_default();
+    passed_not_allowed(cx, e, &args, &passed, &param_types, row)
 }
 
 /// A call (or a variable, a dot call, a pipe) that performs nothing, checked
@@ -3153,7 +3265,7 @@ fn comp_app(
             span: operand.span(),
         }));
     }
-    for (i, (arg, passed)) in args.iter().zip(passed).enumerate().skip(owned.len()) {
+    for (i, (arg, &passed)) in args.iter().zip(&passed).enumerate().skip(owned.len()) {
         if passed {
             owned.push((*arg).clone());
             continue;
@@ -3267,8 +3379,19 @@ fn comp_app(
         Ok(applied) => applied,
         // A positional call too: its computations also run first, so the
         // same diagnosis applies (§4.5 R5, last paragraph).
-        Err(e) if crate::undo::fatal(&e) || bound.is_empty() => return Err(e),
+        Err(e) if crate::undo::fatal(&e) => return Err(e),
+        Err(e) if bound.is_empty() => {
+            return Err(passed_not_allowed(
+                cx,
+                e,
+                &args,
+                &passed,
+                &param_types,
+                row,
+            )?);
+        }
         Err(e) => {
+            let e = passed_not_allowed(cx, e, &args, &passed, &param_types, row)?;
             snapshot.restore(cx);
             let order = effect_order(cx, &head_ty, &written_args, &owned)?;
             return Err(order.unwrap_or(e));

@@ -1,0 +1,26 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ABILITY] Error: this argument may perform `Log`, but its parameter takes a computation with no abilities
+    ╭─[ reject/passed-computation-ability.sw:15:35 ]
+    │
+ 15 │ def caller (): {Log} Nat := pass (log 3)
+    │                                   ──┬──  
+    │                                     ╰──── this is passed to the parameter as a computation, so it can't perform `Log`
+    │ 
+    │ Note 1: the enclosing function may perform `Log`, but an argument passed as a computation has its parameter's abilities, not the caller's
+    │ 
+    │ Note 2: for an argument that performs `Log`, give the parameter a row with it (`{Log | e} …`); or run the call first, `let x := …`, and pass `x`
+────╯
+[E-ABILITY] Error: this argument may perform `Log`, but its parameter takes a computation with no abilities
+    ╭─[ reject/passed-computation-ability.sw:22:41 ]
+    │
+ 22 │ def callerLog (): {Log} Nat := passLog (log 3)
+    │                                         ──┬──  
+    │                                           ╰──── this is passed to the parameter as a computation, so it can't perform `Log`
+    │ 
+    │ Note 1: the enclosing function may perform `Log`, but an argument passed as a computation has its parameter's abilities, not the caller's
+    │ 
+    │ Note 2: for an argument that performs `Log`, give the parameter a row with it (`{Log | e} …`); or run the call first, `let x := …`, and pass `x`
+────╯
