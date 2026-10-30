@@ -1,0 +1,148 @@
+== std (eager library load): 1 units
+  arg_after_expected                 3 in    1 units
+  arg_after_expected @in-snapshot       2 in    1 units
+  dot_unknown                      248 in    1 units
+  dot_unknown @in-snapshot         248 in    1 units
+  lam_after_expected                 5 in    1 units
+  lam_after_expected @in-snapshot       3 in    1 units
+  lam_arg                         2362 in    1 units
+  lam_arg @in-snapshot            1722 in    1 units
+  lam_postponable                  656 in    1 units
+  lam_postponable @in-snapshot     498 in    1 units
+  lam_postponed                     45 in    1 units
+  lam_postponed @in-snapshot        32 in    1 units
+  other_arg                      55527 in    1 units
+  other_arg @in-snapshot         46099 in    1 units
+  postponed_resumed_ok              45 in    1 units
+  postponed_resumed_ok @in-snapshot      32 in    1 units
+  section_postponed_untried         33 in    1 units
+  section_postponed_untried @in-snapshot      22 in    1 units
+  unify_put_aside                 1674 in    1 units
+  unify_put_aside @in-snapshot    1674 in    1 units
+  unify_put_aside_failed          1566 in    1 units
+  unify_put_aside_failed @in-snapshot    1566 in    1 units
+== examples/accept (318 load, 0 fail, 0 fail with E-CANNOT-INFER): 318 units
+  arg_after_expected                13 in    4 units
+  arg_after_expected @in-snapshot       9 in    2 units
+  dot_unknown                      183 in    8 units
+  dot_unknown @in-snapshot         183 in    8 units
+  lam_after_expected                 5 in    3 units
+  lam_arg                         1857 in  186 units
+  lam_arg @in-snapshot            1491 in  163 units
+  lam_postponable                   68 in   37 units
+  lam_postponable @in-snapshot      38 in   22 units
+  lam_postponed                     19 in    9 units
+  lam_postponed @in-snapshot        12 in    8 units
+  literal_postponed                 10 in    4 units
+  literal_postponed @in-snapshot      10 in    4 units
+  other_arg                      59153 in  309 units
+  other_arg @in-snapshot         52485 in  303 units
+  postponed_resumed_ok              29 in   13 units
+  postponed_resumed_ok @in-snapshot      22 in   12 units
+  rec_meta_literal                   3 in    1 units
+  rec_meta_literal @in-snapshot       3 in    1 units
+  section_postponed_untried          1 in    1 units
+  section_postponed_untried @in-snapshot       1 in    1 units
+  unify_put_aside                 6863 in  182 units
+  unify_put_aside @in-snapshot    6863 in  182 units
+  unify_put_aside_failed          5400 in  181 units
+  unify_put_aside_failed @in-snapshot    5400 in  181 units
+== examples/reject (0 load, 686 fail, 7 fail with E-CANNOT-INFER): 686 units
+  arg_after_expected                 5 in    4 units
+  arg_after_expected @in-snapshot       2 in    1 units
+  dot_unknown                       62 in    5 units
+  dot_unknown @in-snapshot          49 in    5 units
+  lam_after_expected                 3 in    3 units
+  lam_arg                          375 in   88 units
+  lam_arg @in-snapshot             274 in   65 units
+  lam_postponable                   10 in    5 units
+  lam_postponable @in-snapshot       4 in    3 units
+  lam_postponed                      6 in    3 units
+  lam_postponed @in-snapshot         3 in    3 units
+  literal_postponed                  2 in    2 units
+  literal_postponed @in-snapshot       2 in    2 units
+  other_arg                      17866 in  307 units
+  other_arg @in-snapshot         15714 in  285 units
+  postponed_resumed_ok               1 in    1 units
+  postponed_resumed_ok @in-snapshot       1 in    1 units
+  rec_infer                          7 in    1 units
+  rec_infer @in-snapshot             7 in    1 units
+  section_unknown                    7 in    2 units
+  section_unknown @in-snapshot       6 in    1 units
+  unify_put_aside                 1343 in  165 units
+  unify_put_aside @in-snapshot    1339 in  165 units
+  unify_put_aside_failed          1131 in  165 units
+  unify_put_aside_failed @in-snapshot    1127 in  165 units
+    CI dot-cannot-infer.sw {"dot_unknown": 12, "dot_unknown @in-snapshot": 8, "lam_arg": 9, "lam_arg @in-snapshot": 7, "other_arg": 368, "other_arg @in-snapshot": 335, "unify_put_aside": 2, "unify_put_aside @in-snapshot": 2, "unify_put_aside_failed": 2, "unify_put_aside_failed @in-snapshot": 2}
+    CI lambda-dependent-never-fixed.sw {"dot_unknown": 20, "dot_unknown @in-snapshot": 16, "lam_arg": 2, "lam_arg @in-snapshot": 1, "lam_postponable": 2, "lam_postponable @in-snapshot": 1, "lam_postponed": 2, "lam_postponed @in-snapshot": 1, "other_arg": 42, "other_arg @in-snapshot": 31, "unify_put_aside": 2, "unify_put_aside @in-snapshot": 2, "unify_put_aside_failed": 2, "unify_put_aside_failed @in-snapshot": 2}
+    CI lambda-parameter-cannot-infer.sw {}
+    CI record-field-of-unknown.sw {"dot_unknown": 10, "dot_unknown @in-snapshot": 6, "lam_arg": 3, "lam_arg @in-snapshot": 1, "other_arg": 71, "other_arg @in-snapshot": 60, "unify_put_aside": 10, "unify_put_aside @in-snapshot": 10, "unify_put_aside_failed": 8, "unify_put_aside_failed @in-snapshot": 8}
+    CI record-literal-without-type.sw {"lam_arg": 1, "other_arg": 71, "other_arg @in-snapshot": 60, "rec_infer": 7, "rec_infer @in-snapshot": 7, "unify_put_aside": 10, "unify_put_aside @in-snapshot": 10, "unify_put_aside_failed": 8, "unify_put_aside_failed @in-snapshot": 8}
+    CI section-underscore.sw {"dot_unknown": 10, "dot_unknown @in-snapshot": 9, "other_arg": 9, "other_arg @in-snapshot": 8}
+    CI section-unknown-receiver.sw {"section_unknown": 1}
+== examples/extract (53 load, 0 fail, 0 fail with E-CANNOT-INFER): 53 units
+  lam_arg                          388 in   38 units
+  lam_arg @in-snapshot             322 in   37 units
+  lam_postponable                    1 in    1 units
+  lam_postponable @in-snapshot       1 in    1 units
+  other_arg                      13979 in   52 units
+  other_arg @in-snapshot         12411 in   52 units
+  unify_put_aside                 3980 in   33 units
+  unify_put_aside @in-snapshot    3980 in   33 units
+  unify_put_aside_failed          3346 in   33 units
+  unify_put_aside_failed @in-snapshot    3346 in   33 units
+== aoc (loads: true): 1 units
+  arg_after_expected               136 in    1 units
+  arg_after_expected @in-snapshot      80 in    1 units
+  dot_unknown                      514 in    1 units
+  dot_unknown @in-snapshot         514 in    1 units
+  lam_after_expected                52 in    1 units
+  lam_after_expected @in-snapshot      21 in    1 units
+  lam_arg                         3179 in    1 units
+  lam_arg @in-snapshot            2410 in    1 units
+  lam_postponable                  294 in    1 units
+  lam_postponable @in-snapshot     191 in    1 units
+  lam_postponed                     73 in    1 units
+  lam_postponed @in-snapshot        54 in    1 units
+  other_arg                      86380 in    1 units
+  other_arg @in-snapshot         75519 in    1 units
+  postponed_resumed_ok              73 in    1 units
+  postponed_resumed_ok @in-snapshot      54 in    1 units
+  rec_meta_literal                   2 in    1 units
+  rec_meta_literal @in-snapshot       2 in    1 units
+  section_postponed_untried         12 in    1 units
+  section_postponed_untried @in-snapshot       8 in    1 units
+  section_unknown                   46 in    1 units
+  section_unknown @in-snapshot      46 in    1 units
+  unify_put_aside                 5854 in    1 units
+  unify_put_aside @in-snapshot    5854 in    1 units
+  unify_put_aside_failed          5300 in    1 units
+  unify_put_aside_failed @in-snapshot    5300 in    1 units
+== rogue (loads: true): 1 units
+  arg_after_expected                 9 in    1 units
+  dot_unknown                       77 in    1 units
+  dot_unknown @in-snapshot          77 in    1 units
+  lam_after_expected                 3 in    1 units
+  lam_arg                          275 in    1 units
+  lam_arg @in-snapshot             225 in    1 units
+  lam_postponable                   11 in    1 units
+  lam_postponable @in-snapshot       2 in    1 units
+  lam_postponed                      3 in    1 units
+  lam_postponed @in-snapshot         1 in    1 units
+  other_arg                      11067 in    1 units
+  other_arg @in-snapshot          9221 in    1 units
+  postponed_resumed_ok               3 in    1 units
+  postponed_resumed_ok @in-snapshot       1 in    1 units
+  unify_put_aside                 2691 in    1 units
+  unify_put_aside @in-snapshot    2691 in    1 units
+  unify_put_aside_failed          2221 in    1 units
+  unify_put_aside_failed @in-snapshot    2221 in    1 units
+== examples/projects/accept: 21 units
+  lam_arg                           21 in    8 units
+  lam_arg @in-snapshot              16 in    6 units
+  other_arg                       1575 in   15 units
+  other_arg @in-snapshot          1405 in   15 units
+  unify_put_aside                   60 in    7 units
+  unify_put_aside @in-snapshot      60 in    7 units
+  unify_put_aside_failed            50 in    7 units
+  unify_put_aside_failed @in-snapshot      50 in    7 units
