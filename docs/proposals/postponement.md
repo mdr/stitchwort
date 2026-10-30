@@ -1186,7 +1186,7 @@ accept examples: `postpone-record-literal-argument.sw` (sw817), `postpone-let-la
 `task snap:examples` writing no changed error message; the hash diff matching the stage's list;
 §9's must-hold tests for invariants 3, 6 and 8.
 
-**Stage 3: K3, method sections.** Remove the section-without-a-try path and
+**Stage 3: K3, method sections.** **Also (D2035, Matt, 30 October 2026):** the choice that decides a proposition where a `Bool` is expected (`decide_to_bool`, `check.rs:4044`) waits for an unfilled placeholder, as instance search does; it was missing from §5.10's consumer list (found in stage 2: `let check := r => 3 ∈ r.items; check b` gave `E-AUTO-NONE` naming `?5 b b`). Remove the section-without-a-try path and
 `section_unknown_name`'s special case. *Changes:* `section-unknown-receiver.sw` moves to accept
 (D2011), with a new reject example for a section that nothing ever fixes; the 6 aoc lambda
 postponements become section items, so their declarations may change hash.
