@@ -282,8 +282,8 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             if let Some(proof) = from_facts(cx, &goal)? {
                 return Ok(proof);
             }
-            Err(cx.with_opaque_notes(
-                cx.error(
+            let mut error = cx
+                .error(
                     "E-AUTO-STUCK",
                     format!("can't decide `{shown}` here"),
                     // Not "it depends on run-time values": `most + 1 ≠ 0` before
@@ -291,11 +291,29 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
                     // didn't compute (games/rogue/NOTES.md §2).
                     "it involves values that aren't known here, and computing it doesn't settle it",
                 )
-                .with_note("establish it first, with `if h: … then … else …`"),
-                &[&goal],
-            ))
+                .with_note("establish it first, with `if h: … then … else …`");
+            if let Some(note) = hidden_name_note(&shown) {
+                error = error.with_note(note);
+            }
+            Err(cx.with_opaque_notes(error, &[&goal]))
         }
     }
+}
+
+/// For a goal shown with a name the compiler generated, one with a `%`
+/// (`Packet.%m1%size items`, what `Packet.size (Packets items)` computes
+/// to: the call takes its step at once, so the goal can't be shown as
+/// written), a note saying what it is: a helper generated for nested type
+/// `Packet` (`derive_induct.rs`), which can't be written in source.
+fn hidden_name_note(shown: &str) -> Option<String> {
+    let name = shown
+        .split(|c: char| c.is_whitespace() || "()[]{},`".contains(c))
+        .find(|word| word.contains(".%"))?;
+    let owner = &name[..name.find(".%")?];
+    Some(format!(
+        "`{name}` is a helper the compiler generates for `{owner}` \
+         (part of `{owner}.size`, `{owner}.induct` or their lemmas); it can't be written in source"
+    ))
 }
 
 /// `fromYes [p := goal] decision Trivial`: the proof from a decision that
@@ -404,13 +422,20 @@ fn nonzero_from_positive(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
 /// T.size x`. The proof is `T.%C%i%sizeMem` (generated for each field `i` of
 /// `C` that's a `List T`), its arguments found by unification.
 fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
-    // `List.Mem y xs` is `List.Any (x => x = y) xs` once evaluated: a
-    // call of `List.Any`, stuck on `xs`.
-    let Some((Global::Def(any), _)) = cx.e.named("Std.List.Any") else {
+    // A membership is a glued call of `List.Mem` (a hypothesis written `h:
+    // List.Mem y xs` or `y ∈ xs`) or of `List.Any`, what that unfolds to
+    // (the type of a field like `attach`'s `isIn`, stored computed). Either
+    // way its first argument is the element type.
+    let mut mems = Vec::new();
+    for name in ["Std.List.Mem", "Std.List.Any"] {
+        if let Some((Global::Def(id), _)) = cx.e.named(name) {
+            mems.push(*id);
+        }
+    }
+    if mems.is_empty() {
         return Ok(None);
-    };
-    let any = *any;
-    for (proof, ty) in membership_facts(cx, any)? {
+    }
+    for (proof, ty) in membership_facts(cx, &mems)? {
         let Value::Call(_, spine, _) = &ty else {
             continue;
         };
@@ -468,10 +493,11 @@ fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
 }
 
 /// The memberships in scope, as proofs with their types: hypotheses `List.Mem
-/// y xs`, and such fields of the records in scope (`e.isIn`), latest first.
-fn membership_facts(cx: &mut Ctx, any: DefId) -> Result<Vec<(Term, Value)>> {
+/// y xs`, and such fields of the records in scope (`e.isIn`), latest first:
+/// those whose type is a glued call of one of `mems`.
+fn membership_facts(cx: &mut Ctx, mems: &[DefId]) -> Result<Vec<(Term, Value)>> {
     let g = cx.g();
-    let is_mem = |ty: &Value| matches!(ty, Value::Call(id, ..) if *id == any);
+    let is_mem = |ty: &Value| matches!(ty, Value::Call(id, ..) if mems.contains(id));
     let mut facts = Vec::new();
     for level in (0..cx.level()).rev() {
         let ty = cx.types[level].clone();
