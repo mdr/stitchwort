@@ -1,5 +1,5 @@
 {
-  "next": 912,
+  "next": 914,
   "tickets": [
     {
       "id": 13,
@@ -8696,6 +8696,35 @@
         "bug"
       ],
       "body": "Found by the SW-910 lane (30 Oct 2026), predates SW-910 (flat and nested forms both): effectful let-bound lambdas fail with 'expected Nat, but this has type {Fail} Nat' in two shapes: (1) two separate effectful let lambdas in one body used as a 1 3 + b 2 5; (2) one effectful let lambda in a function with no parameters, called only with literals (span 1 3 + span 2 5). Giving the function a parameter (span base 3) avoids it. Not yet reproduced by the orchestrator; repros in the scratchpad sw910/ folder (temporary). Reproduce first.\n",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
+    },
+    {
+      "id": 912,
+      "title": "stitchwort audit: axioms, unfinished and vacuity check for proof lanes and the merge gate (D2040)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling",
+        "research"
+      ],
+      "body": "D2040 (Matt, 30 Oct 2026: yes): stitchwort audit is the check every proof lane runs before reporting and the merge gate runs. Spec: docs/research/agentic-proving.md T1 (and T2 for the vacuity verdict). Stage 1 (small): for named theorems or a namespace, report and fail on axioms beyond an allowlist and unfinished closure (anything depending on a ?), and warn on vacuous hypotheses (held in 0 of N cases). Stage 2: statement type hash with --base REV / --challenge FILE. Stage 3: erased-hash changes to definitions the theorems mention and changed instances. Exit status as lake comparator's. Then wire it into lane instructions and task test:merge.\n",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
+    },
+    {
+      "id": 913,
+      "title": "auto: cache the ordering of decision procedures (re-sorted on every call in a project) (D2036)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "D2036 (Matt, 30 Oct 2026: yes), found by the SW-800 lane: in a project, auto::decision_procedures re-sorts the library's decision procedures on every call (profiled), so an 11-item membership by cases takes ~43 ms (14 ms in single-file mode; 0.8 ms by hand). Every auto obligation in a project pays this. Cache the ordering; the cache must survive or be invalidated correctly by session rewinds (rewind.rs) and library loading. Measure before/after on day 21's everyNumericKey and the aoc check.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
