@@ -190,7 +190,7 @@ C11), 20 maybe, 12 drop. Kernel-specific sources are in kernel.md and not repeat
 | 54 | CapCode, SpecBench, BenchJack (2026 preprints) | maybe | test-gaming measures |
 | 55 | Vercel Zero JSON diagnostics (vendor, May 2026) | maybe | stable codes + repair fields; page returned 403 |
 | 56 | Patch porting with JSON diagnostics, arXiv 2604.01680 | drop | narrow |
-| 57 | Mariposa / proof stability | — | in proof-automation.md C8–C9 |
+| 57 | Mariposa / proof stability | — | in proof-automation.md §3, row 35 (screened, not read) |
 | 58 | QED at Large survey (2019, **classic**) | drop | window |
 | 59 | Ringer et al., proof repair (PLDI 2021, **classic**) | drop | window |
 | 60 | Lean 4 snapshot types (API docs) | maybe | reuse invariant for headers; not read |
@@ -373,9 +373,9 @@ wrong interface for a machine: it makes the client track cursor positions and pa
 messages; Pantograph exposes goals as data, lets a client solve goals in any order, and
 resumes proofs containing `sorry` **[cited]**. *Steal:* Stitchwort's `--index` JSON already
 carries diagnostics with codes and goals (as rendered text, severity `goal`)
-(code-navigation.md format; lsp-goal-holes.md:470) **[checked]**, so proof-automation.md T6's
-`check --json` is half built; goals as structured data are missing. *Cost:* small. *Full
-text:* read ([arXiv 2410.16429](https://arxiv.org/pdf/2410.16429)).
+(code-navigation.md format; lsp-goal-holes.md:470) **[checked]**, so the `check --json`
+proposed by the 29 Oct proof-automation.md (its T6, dropped in the 30 Oct redo, wrong claim
+1) is half built; goals as structured data are missing. *Cost:* small. *Full text:* read ([arXiv 2410.16429](https://arxiv.org/pdf/2410.16429)).
 
 **C21. coq-lsp.** README ([GitHub](https://github.com/LLM4Rocq/coq-lsp)). *Claim:* re-checks "only
 what is necessary, continuously"; on-demand modes "follow the cursor" or "follow the
@@ -691,7 +691,7 @@ Ranked by value over effort. "Value" counts open tickets and risks addressed.
 | 5 | Score fuzzers and oracles against missed `cargo mutants` mutants | C5 | choosing SW-688/689 work | small |
 | 6 | Weak-theorem detection: mutate AoC/std functions, re-check their theorems | C9 | spec quality; AoC proofs | tooling |
 | 7 | Agent detail mode (`STITCHWORT_FULL_TERMS=1` in lanes; unification trail later) | C28, C29 | agent repair loops | small |
-| 8 | Goals carry the data types they mention | C19, C20 | agent proofs; proof-automation T6 | small |
+| 8 | Goals carry the data types they mention | C19, C20 | agent proofs; proof-automation T5 | small |
 | 9 | SW-688 split: IR-level backend generator; std-API source generator; agent-written seeds | C6, C2, C4, C8 | SW-688, SW-689 | tooling (design note) |
 | 10 | Test cache keyed on the erased program | C14, proof-irrelevance.md §7.7 | warm test runs after proof edits | small, one open question |
 | 11 | Measure cross-namespace proof unfolding; then decide opaque theorems | C14 | D280 early cutoff | small (measure), design (rule) |
@@ -751,7 +751,9 @@ found detailed unification context helps agents fix type errors. Refs: §4 C28.
 **T8. Goals list the data types they mention.** When a `?` goal is reported (CLI, index JSON,
 LSP), add the definitions (constructors and fields) of the data types in the goal and its
 context, folded by default in the editor. ChatLSP found type definitions the most useful
-context for a model filling a hole. Pairs with proof-automation.md T6. Refs: §4 C19, C20.
+context for a model filling a hole. Pairs with goals as structured data in the index JSON
+(C20; the 29 Oct proof-automation.md T6, dropped in the 30 Oct redo) and with
+proof-automation.md T5. Refs: §4 C19, C20.
 
 **T9. Design note: SW-688 as an IR-level backend generator.** Generate `crates/rt`'s erased IR
 directly (total, in-bounds programs), run it on rt, JS and native with the reference path as
