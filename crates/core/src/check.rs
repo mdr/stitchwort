@@ -13,7 +13,7 @@ use crate::globals::{
     Ctor, Data, Def, FieldValidator, Globals, NotNestable, ParamUse, State, Validator,
 };
 use crate::pretty;
-use crate::term::{Branch, DataId, DefId, Icit, Name, NumArm, QuotForm, Sort, Term};
+use crate::term::{Branch, DataId, DefId, Icit, MAX_LEVEL, Name, NumArm, QuotForm, Sort, Term};
 use crate::termination;
 use crate::unify_index::{Constraint, Outcome, Reason, Scope, unify};
 use crate::value::{
@@ -283,7 +283,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             }
             Ok((Term::data(*d, out), Value::Sort(data.sort)))
         }
-        Term::Sort(s) => Ok((term.clone(), Value::Sort(s.succ()))),
+        Term::Sort(s) => Ok((term.clone(), Value::Sort(universe_above(cx, *s)?))),
         Term::Nat(_) => match g.builtins.nat {
             Some(nat) => Ok((term.clone(), Value::Data(nat, Vec::new()))),
             None => Err(malformed(cx, "a number, but `Nat` isn't defined")),
@@ -605,7 +605,7 @@ fn check_let_value(
 /// The universe that `ty` lives in.
 fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
     match &*force_ref(cx.g, ty)? {
-        Value::Sort(s) => return Ok(s.succ()),
+        Value::Sort(s) => return universe_above(cx, *s),
         // An equation is a proposition. Answered without quoting it: the
         // quote of its sides can be exponentially larger than their values,
         // which share.
@@ -1939,6 +1939,8 @@ pub fn declare_indexed_data_group(
         ));
     };
     let mut cx = Ctx::new(g, span);
+    // The members' type ends in `sort`, which must itself have a type.
+    universe_above(&cx, sort)?;
     // A failed reference is let through: `define_data_group` finds it again.
     admissible(&cx, params.iter().map(|(_, ty)| ty), None)?;
     let mut checked = Vec::new();
@@ -2463,6 +2465,7 @@ pub fn admit_trusted_data_decls(
         ));
     };
     let cx = Ctx::new(g, span);
+    universe_above(&cx, sort)?;
     let first = members[0].name.clone();
     let types = params.iter().map(|(_, ty)| ty).chain(
         members
@@ -2693,6 +2696,23 @@ fn listed(names: &[String]) -> String {
         Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
         _ => names.join(""),
     }
+}
+
+/// The universe `s` lives in, or `E-UNIVERSE` if it has none: `Type
+/// MAX_LEVEL` is the top universe (SW-902). Never saturates, since `Type n :
+/// Type n` is as unsound as `Type : Type`.
+fn universe_above(cx: &Ctx, s: Sort) -> Result<Sort> {
+    s.succ().ok_or_else(|| {
+        cx.error(
+            "E-UNIVERSE",
+            "a universe with no universe above it",
+            format!(
+                "`{}` has no type: the largest universe is `Type {MAX_LEVEL}`",
+                pretty::term(cx.g, &[], &Term::Sort(s))
+            ),
+        )
+        .with_note("so `Type n` is a term only for `n` below the largest level")
+    })
 }
 
 /// An error for a term no correct elaborator would produce.

@@ -30,5 +30,5 @@ pub mod value;
 pub use budget::{Limits, ResourceError};
 pub use globals::Globals;
 pub use num_bigint::BigUint;
-pub use term::{DataId, DefId, Icit, Name, QuotForm, Sort, Term};
+pub use term::{DataId, DefId, Icit, MAX_LEVEL, Name, QuotForm, Sort, Term};
 pub use value::Value;
