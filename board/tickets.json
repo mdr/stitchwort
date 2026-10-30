@@ -1,5 +1,5 @@
 {
-  "next": 911,
+  "next": 912,
   "tickets": [
     {
       "id": 13,
@@ -8671,14 +8671,31 @@
     {
       "id": 910,
       "title": "Let-bound curried lambda r => p => … can't be inferred, while r p => … can",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "janitorial lane",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "elab",
         "bug"
       ],
-      "body": "Found by the postponement stage 2 lane (30 Oct 2026), on main too: a let-bound curried lambda written with nested arrows, r => p => …, can't be inferred, while the same lambda written r p => … can. The two should elaborate the same (a lambda of two parameters). Not yet reproduced by the orchestrator: reproduce first, then find where nested lambdas are inferred differently from multi-parameter ones (lambda inference in crates/elab), and make them agree. Likely small.\n\n\n\n30 Oct: reproduced (let two := n => m => roll n + roll m: E-TYPE-MISMATCH \"expected type is ?2 n\"; as an argument both forms already worked). Fixed in check.rs infer: nested plain lambdas collected into one function type, as x y => is. Example lambda-nested-arrows.sw; testing.\n",
+      "body": "Found by the postponement stage 2 lane (30 Oct 2026), on main too: a let-bound curried lambda written with nested arrows, r => p => …, can't be inferred, while the same lambda written r p => … can. The two should elaborate the same (a lambda of two parameters). Not yet reproduced by the orchestrator: reproduce first, then find where nested lambdas are inferred differently from multi-parameter ones (lambda inference in crates/elab), and make them agree. Likely small.\n\n\n\n30 Oct: reproduced (let two := n => m => roll n + roll m: E-TYPE-MISMATCH \"expected type is ?2 n\"; as an argument both forms already worked). Fixed in check.rs infer: nested plain lambdas collected into one function type, as x y => is. Example lambda-nested-arrows.sw; testing.\n30 Oct: done on branch worktree-agent-ad6f1536ac44e12ef, commit 538c3259; lanes elab/examples/hashes/std pass, aoc and rogue check, no existing hash changes.\n",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": [
+        "381db0de"
+      ]
+    },
+    {
+      "id": 911,
+      "title": "Effectful let-bound lambdas: 'expected Nat, but this has type {Fail} Nat' when used twice or only with literals",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "body": "Found by the SW-910 lane (30 Oct 2026), predates SW-910 (flat and nested forms both): effectful let-bound lambdas fail with 'expected Nat, but this has type {Fail} Nat' in two shapes: (1) two separate effectful let lambdas in one body used as a 1 3 + b 2 5; (2) one effectful let lambda in a function with no parameters, called only with literals (span 1 3 + span 2 5). Giving the function a parameter (span base 3) avoids it. Not yet reproduced by the orchestrator; repros in the scratchpad sw910/ folder (temporary). Reproduce first.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
