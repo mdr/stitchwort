@@ -18,7 +18,7 @@ or docs at the place given; **[inferred]** my reasoning; **[unverified]** from a
 summary or a second-hand account only.
 
 Not repeated here: kernel bug classes, large elimination from recursive propositions and the
-Rocq guard-checker CVEs (kernel.md §5.1, §5.2, T2), and nested data types
+Rocq guard-checker CVEs (kernel.md §5.4, §5.1, T1, T2), and nested data types
 (docs/proposals/nested-data-types.md, which covers Lamiaux, Forster, Sozeau and Tabareau,
 PLDI 2026).
 
@@ -408,9 +408,9 @@ argument of the same type constructor, compiles to a big integer, so indexed `Fi
 operations (`plus`, `eqNat`) O(1). Conversion functions are optimised only in one shape, and
 "it may be sensitive to seemingly insignificant changes"; `%builtin IntegerToNatural` asserts
 a conversion's correctness, and that is "the programmer's responsibility" **[cited]**.
-*Steal:* T5's checklist. Stitchwort already pins its own natives by content hash for the
-kernel (kernel.md C10); a runtime-only representation choice is a separate, untrusted
-question. *Cost:* small (audit). *Full text:* read (docs page).
+*Steal:* T5's checklist. Stitchwort binds its kernel natives by name, checking only their
+types; only R3/R4 are pinned by content hash (kernel.md §5.4, C22, T5); a runtime-only
+representation choice is a separate, untrusted question. *Cost:* small (audit). *Full text:* read (docs page).
 
 **C17. Richter and Böhler, From Pattern Unification Towards Pattern Matching Unification**
 (extended abstract, TyDe 2026; arXiv 2607.18455). *Claim:* constraints like `?P true = Nat,
@@ -557,7 +557,7 @@ full check is the fix.
 His recursion is structural on an `Acc` proof that extraction erases, and his proofs go by
 induction on the argument, not on the evidence. Stitchwort's fuel `k` with `h: m x < k` is the
 same idea with a `Nat` in place of `Acc`, chosen so tests compute. Lean has since dropped
-reducible well-founded recursion entirely (C8, #10714), and kernel.md §5.2 shows `Acc`'s large
+reducible well-founded recursion entirely (C8, #10714), and kernel.md §5.1 shows `Acc`'s large
 elimination is the next thing kernels are removing. One gap his examples show is recursion on
 a well-founded *relation* with no `Nat` measure (DFS over an acyclic graph); today that is
 written with fuel by hand. *Assumption:* no AoC program has needed it yet (not checked).
