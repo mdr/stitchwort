@@ -1,0 +1,44 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CASES] Error: `cases` can't close the case a = True
+   ╭─[ reject/cases-binders-open.sw:7:58 ]
+   │
+ 7 │ theorem badAfter: (a: Bool) → (b: Bool) → (a ∧ b) = a := cases
+   │                                                          ──┬──  
+   │                                                            ╰──── this `cases`
+   │ 
+   │ Note 1: goal: b = True
+   │ 
+   │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis nor `omega` proves it; give this case's proof as `cases in t`
+   │ 
+   │ Note 3: 1 other case was closed (1 by computation)
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           a = True
+   │           b = False
+   │         `(a && b) = a` is false:
+   │           left:  False
+   │           right: True
+───╯
+[E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
+   ╭─[ reject/cases-binders-open.sw:9:51 ]
+   │
+ 9 │ theorem badUnnamed: (n: Nat) → (n = 3) → n = 4 := cases
+   │                                                   ──┬──  
+   │                                                     ╰──── this `cases`
+   │ 
+   │ Note 1: hypothesis 1 (unnamed): n = 3
+   │ 
+   │ Note 2: goal: n = 4
+   │ 
+   │ Note 3: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis nor `omega` proves it; give this case's proof as `cases in t`
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           n = 3
+   │         `n = 3` holds
+   │         `n = 4` is false:
+   │           left:  3
+   │           right: 4
+───╯

@@ -170,43 +170,13 @@ def corners (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Nat :=
 -- One end of a run along a row: an outside corner of the plot, or an
 -- inside corner of the plot next to it along the row.
 theorem rowEndsSplit: (plot: Bool) → (out: Bool) → (side: Bool) → (sideOut: Bool) →
-    Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out)
-  | False, False, False, False => rfl
-  | False, False, False, True => rfl
-  | False, False, True, False => rfl
-  | False, False, True, True => rfl
-  | False, True, False, False => rfl
-  | False, True, False, True => rfl
-  | False, True, True, False => rfl
-  | False, True, True, True => rfl
-  | True, False, False, False => rfl
-  | True, False, False, True => rfl
-  | True, False, True, False => rfl
-  | True, False, True, True => rfl
-  | True, True, False, False => rfl
-  | True, True, False, True => rfl
-  | True, True, True, False => rfl
-  | True, True, True, True => rfl
+    Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
+  cases
 
 -- One end of a run along a column, likewise.
 theorem columnEndsSplit: (plot: Bool) → (out: Bool) → (side: Bool) → (sideOut: Bool) →
-    Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot side out) + Bool.toNat (concave side plot sideOut out)
-  | False, False, False, False => rfl
-  | False, False, False, True => rfl
-  | False, False, True, False => rfl
-  | False, False, True, True => rfl
-  | False, True, False, False => rfl
-  | False, True, False, True => rfl
-  | False, True, True, False => rfl
-  | False, True, True, True => rfl
-  | True, False, False, False => rfl
-  | True, False, False, True => rfl
-  | True, False, True, False => rfl
-  | True, False, True, True => rfl
-  | True, True, False, False => rfl
-  | True, True, False, True => rfl
-  | True, True, True, False => rfl
-  | True, True, True, True => rfl
+    Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot side out) + Bool.toNat (concave side plot sideOut out) :=
+  cases
 
 -- No inside corner without the horizontal neighbour, or the plot itself.
 theorem concaveNoHorizontal: (plot: Bool) → (vertical: Bool) → (diagonal: Bool) → concave plot vertical False diagonal = False

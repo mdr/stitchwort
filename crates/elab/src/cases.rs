@@ -37,6 +37,12 @@
 //! alternative's body is this `cases` again: so the proof is ordinary
 //! `match`es and the closers' terms, and the kernel checks it as such.
 //!
+//! A case still open then, whose goal is a `Π`, has the goal's leading
+//! binders introduced, and starts again under them (docs/proposals/decide.md
+//! §6.1.1): `theorem t: (x: Bool) → P x := cases` is the proof `x => cases`.
+//! This comes after the closers, so a `Π` goal they prove whole (a
+//! hypothesis of that type, `omega` on `P → Void`, `t`) keeps that proof.
+//!
 //! A case nothing closes, with nothing left to split, is `E-CASES`, showing
 //! the path of choices to it and the hypotheses in scope (only the latest
 //! copy of each, as generalising copies them). More than [`CASES`] cases is
@@ -267,7 +273,63 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
         run.closed.borrow_mut().omega += 1;
         return Ok(term);
     }
+    // Everything above saw the goal as it stands, so a `Π` goal that a
+    // hypothesis, `omega` or `t` proves whole keeps that proof; only a case
+    // that would otherwise be open goes on to have its binders introduced.
+    if let Some(term) = introduce(cx, run, goal)? {
+        return Ok(term);
+    }
     Err(open_case(cx, run, goal, stuck, failed_body))
+}
+
+/// The prefix of the names unnamed binders are introduced under: not one a
+/// program can write.
+const UNNAMED: &str = "%hyp";
+
+/// A goal that is a `Π`, introduced (docs/proposals/decide.md §6.1.1): every
+/// leading binder, explicit, implicit and `auto`, whatever its type, bound
+/// under its written name, or an unnamed one (`A → B`) under `%hypN`, and
+/// the case goes on under them. The proof is one lambda per binder, the
+/// term `x y => cases` elaborates to. `None` if the goal isn't a `Π`.
+fn introduce(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> {
+    let g = cx.g();
+    let mut goal = force(g, goal.clone())?;
+    if !matches!(goal, Value::Pi(..)) {
+        return Ok(None);
+    }
+    let mark = cx.mark();
+    let mut binders: Vec<(Name, Icit)> = Vec::new();
+    while let Value::Pi(x, icit, dom, cod) = goal {
+        let var = Value::var(cx.level());
+        let name = if &*x == "_" || x.is_empty() {
+            let unnamed = cx.names.iter().filter(|n| n.starts_with(UNNAMED)).count();
+            Name::from(format!("{UNNAMED}{}", unnamed + 1).as_str())
+        } else {
+            x.clone()
+        };
+        cx.bind(&name, (*dom).clone());
+        if icit != Icit::Explicit {
+            cx.set_kind(icit);
+        }
+        binders.push((name, icit));
+        goal = force(g, cod.apply(g, var)?)?;
+    }
+    let body = node(cx, run, &goal);
+    cx.reset(mark);
+    let mut body = body?;
+    for (name, icit) in binders.into_iter().rev() {
+        body = Term::Lam(name, icit, Rc::new(body));
+    }
+    Ok(Some(body))
+}
+
+/// How the hypothesis at `level` is shown: its name, or for one introduced
+/// from an unnamed binder, `hypothesis N (unnamed)`.
+fn hypothesis_name(cx: &Ctx, level: usize, name: &str) -> String {
+    match name.strip_prefix(UNNAMED) {
+        Some(n) if &*cx.names[level] == name => format!("hypothesis {n} (unnamed)"),
+        _ => name.to_string(),
+    }
 }
 
 /// The equations of the splits made on the way to this case, oldest first,
@@ -333,7 +395,11 @@ fn open_case(
             continue;
         };
         if is_fact(cx, &cx.types[level]) {
-            d = d.with_note(format!("{name}: {}", cx.show(&cx.types[level])));
+            d = d.with_note(format!(
+                "{}: {}",
+                hypothesis_name(cx, level, name),
+                cx.show(&cx.types[level])
+            ));
         }
     }
     d = d.with_note(format!("goal: {}", cx.show(goal)));
