@@ -326,23 +326,42 @@ fn a_namespace_checked_alone_has_the_same_hashes() {
     });
 }
 
+/// Stack for [`dump`]'s thread: the command line's (`crates/cli/src/main.rs`),
+/// so a project loads as `stitchwort check` loads it. On the test harness's
+/// default stack AoC's proofs run out (`E-RESOURCE`, SW-906).
+const DUMP_STACK: usize = 64 * 1024 * 1024;
+
 /// Writes every declaration's hash, for the prelude with every library file
-/// and for the AoC project, to the file `HASH_DUMP` names, one sorted line
-/// per declaration: for comparing two versions of the compiler
+/// and for a project (`HASH_DUMP_PROJECT`, a directory relative to the
+/// repository's root; `aoc` if unset), to the file `HASH_DUMP` names, one
+/// sorted line per declaration: for comparing two versions of the compiler
 /// (docs/proposals/interfaces.md stage 5's hash oracle). Run with
 /// `HASH_DUMP=… cargo test --release -p stitchwort-driver --test
-/// hash_stability -- --ignored dump`.
+/// hash_stability -- --ignored dump` (docs/testing.md, "Hash dumps").
 #[test]
 #[ignore]
 fn dump() {
+    std::thread::Builder::new()
+        .stack_size(DUMP_STACK)
+        .spawn(dump_on_this_thread)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn dump_on_this_thread() {
     let Ok(path) = std::env::var("HASH_DUMP") else {
         return;
     };
-    let mut session = Session::eager();
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
+    let project = std::env::var("HASH_DUMP_PROJECT").unwrap_or_else(|_| "aoc".to_string());
+    let mut session = Session::eager_for_stack(DUMP_STACK);
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(&project);
+    let name = root.file_name().unwrap().to_string_lossy().to_string();
     let files = DiskFiles { root };
-    if let Err(errors) = session.load_project(&files, "aoc", &Target::Everything) {
-        panic!("aoc doesn't load: {errors:#?}");
+    if let Err(errors) = session.load_project(&files, &name, &Target::Everything) {
+        panic!("{project} doesn't load: {errors:#?}");
     }
     let mut out: Vec<String> = lines(&session, 0, 0).lines().map(str::to_string).collect();
     out.sort();
