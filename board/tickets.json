@@ -7587,13 +7587,13 @@
       "title": "Mismatch alias notes: nested aliases (List Q vs List Other) and Prop aliases get no unfolded note",
       "status": "backlog",
       "agent": "",
-      "where": "",
+      "where": "queued: after postponement stage 2 merges (check.rs overlap)",
       "labels": [
         "bug"
       ],
       "body": "SW-832 adds a note only when a top-level folded call (type alias) faces a non-call of the same head. Not covered: an alias nested inside the printed type (List Q vs List Other), and Prop aliases (unfolding to an equation, skipped to avoid noise on b <= c vs b < c).\n",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
@@ -7808,13 +7808,13 @@
       "title": "Alias place 3 in general: expressions of unknown type other than variables lose the alias name when checked",
       "status": "backlog",
       "agent": "",
-      "where": "",
+      "where": "queued: after postponement stage 2 merges (check.rs overlap)",
       "labels": [
         "bug"
       ],
       "body": "Follow-up to SW-846 (f18cbe57), which fixed only a variable whose type is an unsolved meta (name_unknown_type in check.rs). Applications, fields and other expressions with an unknown type are still solved against the forced (unfolded) expected type in check_inner. docs/proposals/alias-functions.md place 3 / §8 item 4; the proposal's earlier broad patch broke std/List/Lemmas.sw and Toolkit.sw, so this needs design.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
@@ -7827,9 +7827,9 @@
         "bug",
         "decision"
       ],
-      "body": "From the SW-846 lane: in apply_args_postponing (check.rs), a postponable lambda that succeeds when tried in place is kept, so it can solve a metavariable (with the unfolded type) before an earlier postponed lambda is checked; the result depends on argument order (alias-functions.md §4). Check whether the remaining argument-order cases mostly come from this.\n\nInvestigated 29 Oct (night), no change. With def Counts: Type := List Nat, Counts.size, twice (f: b -> Nat) (g: b -> Nat) (z: b):\n- A: twice (c => c.size) (c => List.length c) (Counts.of 1) rejected (misleading E-CANNOT-INFER from the first try);\n- B: lambdas swapped, rejected (E-UNKNOWN-FIELD, c: List ?2) with no lambda postponed;\n- C: both c.size, accepted; E1/E2: moving z first changes the inferred call type Counts vs List Nat.\nCause: whichever comparison solves b first decides its name; a later Counts never restores it (alias-functions.md place 3). SW-859's mechanism is one route into it; the §4/AoC cases are already fixed (SW-846) or not this mechanism.\nRules tried with a temporary switch: R1 (after one postponement, postpone all later postponable lambdas) accepts A, E2 but newly rejects examples/accept/lambda-postponed-alias.sw and a record-literal case; R2 (postpone all) accepts A, B, E2 but rejects lambda-postponed-alias.sw and twice (c => Int.abs c) (c => c) 3.\nOptions for Matt (lane's D1565/D1566): (a) leave, document with place 3; (b) R1; (c) R2; (d) retry with R1 then R2 only when the whole call fails (untested); and fold into a place-3 design (SW-858) where a later unification can restore the alias name. Lane recs: (d) if wanted before place 3, else (a); yes to folding into place 3. Repro files were in the session scratchpad (o/A.sw-F.sw).\n",
+      "body": "From the SW-846 lane: in apply_args_postponing (check.rs), a postponable lambda that succeeds when tried in place is kept, so it can solve a metavariable (with the unfolded type) before an earlier postponed lambda is checked; the result depends on argument order (alias-functions.md §4). Check whether the remaining argument-order cases mostly come from this.\n\nInvestigated 29 Oct (night), no change. With def Counts: Type := List Nat, Counts.size, twice (f: b -> Nat) (g: b -> Nat) (z: b):\n- A: twice (c => c.size) (c => List.length c) (Counts.of 1) rejected (misleading E-CANNOT-INFER from the first try);\n- B: lambdas swapped, rejected (E-UNKNOWN-FIELD, c: List ?2) with no lambda postponed;\n- C: both c.size, accepted; E1/E2: moving z first changes the inferred call type Counts vs List Nat.\nCause: whichever comparison solves b first decides its name; a later Counts never restores it (alias-functions.md place 3). SW-859's mechanism is one route into it; the §4/AoC cases are already fixed (SW-846) or not this mechanism.\nRules tried with a temporary switch: R1 (after one postponement, postpone all later postponable lambdas) accepts A, E2 but newly rejects examples/accept/lambda-postponed-alias.sw and a record-literal case; R2 (postpone all) accepts A, B, E2 but rejects lambda-postponed-alias.sw and twice (c => Int.abs c) (c => c) 3.\nOptions for Matt (lane's D1565/D1566): (a) leave, document with place 3; (b) R1; (c) R2; (d) retry with R1 then R2 only when the whole call fails (untested); and fold into a place-3 design (SW-858) where a later unification can restore the alias name. Lane recs: (d) if wanted before place 3, else (a); yes to folding into place 3. Repro files were in the session scratchpad (o/A.sw-F.sw).\n\n\n30 Oct (orchestrator): folded into SW-817 (postponement queue). Its example, twice (c => c.size) (c => List.length c) (Counts.of 1), is the case the queue's scoped W1 keeps rejected today and that stage 5 (removing the lambda try-then-postpone in apply_args_postponing) is meant to settle; re-check after stage 5.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-29",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
@@ -8015,15 +8015,15 @@
     {
       "id": 871,
       "title": "Misleading E-ABILITY: passing an effectful call to a Comp NoOp r Nat parameter says the ability isn't in the enclosing function's abilities",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "small-bugs lane",
       "labels": [
         "bug"
       ],
       "body": "From SW-862 (29 Oct): with def pass (c: Comp NoOp r Nat): Nat, the call pass (log 3) inside a {Log} Nat definition gives E-ABILITY '`Log` isn't in the abilities of the enclosing function', which is false; the real problem is that the parameter is a Comp in the empty row with foreign results (SW-851). Likely from SW-851's rule that unknown results become the row's own (unconfirmed). Give the right error.",
       "created": "2026-10-29",
-      "updated": "2026-10-29",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
@@ -8266,15 +8266,15 @@
     {
       "id": 886,
       "title": "() in a tuple pattern gives E-NOT-EMPTY, though let () := e on its own works",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "small-bugs lane",
       "labels": [
         "bug"
       ],
       "body": "From docs/proposals/direct-style-grammars.md §8 (SW-883); repro in docs/proposals/direct-style-grammars/gaps.sw.",
       "created": "2026-10-29",
-      "updated": "2026-10-29",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
