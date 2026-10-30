@@ -8703,9 +8703,9 @@
     {
       "id": 912,
       "title": "stitchwort audit: axioms, unfinished and vacuity check for proof lanes and the merge gate (D2040)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "lane: audit stage 1 (D2042)",
       "labels": [
         "tooling",
         "research"
@@ -8718,9 +8718,9 @@
     {
       "id": 913,
       "title": "auto: cache the ordering of decision procedures (re-sorted on every call in a project) (D2036)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "lane (D2042)",
       "labels": [
         "elab"
       ],
