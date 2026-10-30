@@ -10,7 +10,8 @@ section). Dafny was not consulted at all.
 (`decide`) and SW-807 (a derived list of every value). Prototypes, each checked with `stitchwort
 check --no-cache`, are in [decide/](decide/). The three decisions in [§10](#10-decisions-for-matt)
 are decided (yes); the stage plan is [§12](#12-stage-plan). **SW-800's three parts are built**:
-[§13, As built](#13-as-built-sw-800). The sections before §13 are the design as written.
+[§13, As built](#13-as-built-sw-800); **so is SW-807**: [§14, As built](#14-as-built-sw-807). The
+sections before §13 are the design as written.
 
 Labels, as in the other notes:
 
@@ -919,6 +920,142 @@ hash changed.
    `E-CASES`, which wait for SW-807. No unit tests were added: the closers need a loaded library
    (`Bool`, `List`, membership), which the elaborator's unit tests don't load; the examples test
    each part.
+
+## 14. As built (SW-807)
+
+Built 30 October 2026, D1972 (Matt: yes). Times are `STITCHWORT_TIMINGS=decls`, elaboration ms +
+kernel ms, release CLI of the lane, three runs unless one number is given.
+
+**What was built.**
+
+- *`Finite`, in the core* (crates/elab/src/std/core/Finite.sw, a new core file after `Helpers`):
+  `interface Finite (a: Type) = { all: List a, complete: (x: a) → x ∈ all }`, exactly the two
+  fields (no `nodup`, R3), with instances for `Bool`, `Ordering`, `Option a` and pairs. It is in
+  the core, not a library file, because derivation runs when a type is declared: a library file
+  loads only when a module refers to it, so a type declared in a module that doesn't mention
+  `Finite` would have no instance for a later module that does. The core's rule is the same for
+  `DecEq`, `Ord` and `Show` (prelude-slim.md §2.1: what `deriving` needs). `Finite` is a default
+  name (scope.rs `PRELUDE`), as the other derived interfaces are, so `Finite.all` needs no import.
+  The lemmas a derived proof writes are in the same file: `List.memAppendLeft` and
+  `List.memAppendRight`, moved from std/List/Lemmas.sw (their hashes are unchanged: a hash
+  doesn't cover the location), and `List.memConcatMap`, new.
+- *Derivation* (crates/elab/src/derive_finite.rs, `derive_data_finite`), called after `Ord`'s for
+  data types (lib.rs) and records (records.rs, one line). For every declared type with
+  constructors that isn't a proposition, mutual, indexed or recursive, whose fields are data with a
+  `Finite` instance (found as `Show` finds `Show`, with `[auto fin: Finite a]` for each type
+  parameter the fields use) and don't depend on earlier fields. Otherwise the reason is kept and
+  `E-INSTANCE-NONE` shows it (interfaces.rs, `none`). Library types are skipped; a module's own
+  `instance` replaces it.
+- *`Finite.check`* (std/Finite/Finite.sw), as designed:
+  `theorem Finite.check [auto fin: Finite a] (p: a → Bool) (checked: List.all Finite.all p = True)
+  (x: a): p x = True`, proved by `List.memOfAll` and `List.allToAll`.
+- *`Fin n`*: `Fin.all`, `Fin.allComplete` and `instance Fin.instFinite` by hand (std/Fin/Fin.sw).
+- *`byDecision`* (std/Decidable/Decidable.sw): `def byDecision [p: Prop] [auto h: p]: p := h`,
+  `import Std (byDecision)`; documented in syntax.md beside `auto` (the operator table) and after
+  `cases` (`#### byDecision`), with the review's split of names.
+- *The SW-800 leftovers* (cases.rs): `E-CASES`'s last note now reads "neither `rfl`, a
+  contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves it";
+  `E-CASES-BUDGET` adds, when every atom it split is a variable of a type with a `Finite` instance
+  (`finite_atoms`), "every variable it split has a finite type (`a : Bool`, …): to check every
+  value by computing instead, state it as a `Bool` function `p` of one record or pair holding them
+  and prove `p v = True` by `Finite.check p rfl v` (`import Std (Finite)`)".
+- *One change in check.rs* (`refl_after_instances`): `rfl` that fails tries again after finding
+  the dictionaries whose types are known, as `compare` already does. Without it
+  `Finite.check p rfl x` failed: the `checked` argument is computed over `Finite.all` while its
+  instance is still to be found (`E-REFL`, "computing the left side gives `List.all (Finite.%all
+  (?1 k)) …`"). It runs only where `rfl` would fail.
+
+**How `complete` is proved.** Not by `cases`, and not through `T.%tag` as §6.2 planned. For each
+constructor, `T.%mem%c` proves its values are on the list, with the fields as variables: it walks
+to the constructor (an `Inr` past each constructor without fields, `List.memAppendRight` past each
+part) and then down the fields, one `List.memConcatMap` with the field's own `Finite.complete` per
+field. Nothing is computed. A generic eliminator `T.%cover : (P: T → Prop) → (each constructor's
+case) → (x: T) → P x`, a match whose statement is a variable, joins them: `T.%complete :=
+T.%cover (x => x ∈ T.%all) T.%mem%0 …`. Two things forced this shape [run]:
+
+- *A match whose statement names the list costs as much as the list is long.* In a branch the
+  kernel refines the statement (check.rs `enter_branch` → `substitute_in`), and the sample shows it
+  reading back the list's values. Three fields of a 16-constructor enumeration (4,096 values),
+  the same per-constructor proof, matched in the theorem: 0.6 + 540 ms; four fields (65,536):
+  killed at 200 s. With `T.%cover`: the type's declaration 5.1 + 1.3 ms against 4.0 + 0.9 on main
+  (all its derived instances). Matching in `T.%complete` directly would have made deriving `Finite`
+  exponential in the number of fields.
+- *Every argument a lemma needs is named.* The elaborator checks an application's arguments before
+  its result type meets the expected one, so `List.memAppendLeft _ _ _ p` leaves the lists unsolved;
+  and two `Finite.all`s whose instances are still to be found, under two binders, don't unify
+  (three `Bool` fields failed with "type mismatch" between two identical-looking statements). So
+  each part's level is a definition (`T.%part%c%j`, its `Finite.all` found there), each list after a
+  constructor with fields is named (`T.%all%c`), each field's type is named for source
+  (`T.%C%F%k`, declared directly in the kernel, as `T.%C%P%k` is for proof fields), and every
+  reference passes `T`'s parameters and dictionaries by name.
+
+`cases` would prove it too, but at about 14 ms (file) to 45 ms (project) for an 11-constructor
+enumeration (§13); and Mathlib's `get? all (tag x) = some x` computes `get?` for each constructor,
+which for a constructor with fields means computing its part.
+
+**Cost of deriving** [run]. Day 21's types, the type's declaration (all its derived instances),
+main → this lane, three runs each, identical across runs: `Direction` 1.4 + 0.4 → 1.8 + 0.5,
+`DirectionKey` 2.5 + 0.9 → 3.2 + 1.1, `NumericKey` 7.4 + 2.5 → 8.9 + 3.1. So `Finite` adds 0.5,
+0.9 and 2.1 ms. A record of ten `Bool`s (1,024 values): 124.4 + 10.6 → 120.9 + 12.1 (the other
+derivations dominate). The core: 476 → 494 declarations, `def z: Nat := 0` 40.5-47.8 + 12.5-14.7
+→ 44.2 + 13.6-13.8 ms. All of `aoc`, `check --no-cache`, user CPU, before converting day 21: main
+34.81 s, this lane 35.07 s (one run each). Assumption 5 holds: it is derived eagerly.
+
+**`Finite.check`** [run], against the prototype (scale.sw, one `rfl` on `allBools`, run again
+today):
+
+| cases | `Finite.check` | prototype today | prototype, draft 1 |
+|---|---|---|---|
+| 2^10 (a record of ten `Bool`s, finite-check.sw) | 44.0-44.6 + 47.6-49.9 | 37.1-37.7 + 28.4-28.5 | 37 + 29 |
+| 2^16 (a pair of two records of eight `Bool`s) | 6176-6267 + 6156-6234 | 3694 + 2763 (one run) | 3485 + 2626 |
+
+About 1.4 times the prototype at 2^10 and 1.9 at 2^16: each value is a record (or a pair of
+them) built from the derived list and taken apart by the statement, where the prototype builds a
+list of `Bool`s directly. At 2^16 it is past D1973's 10 s trigger to investigate; no real program
+needs it (the largest motivating statement is 25 cases).
+
+**Tests** (snapshot examples). Accept: finite-derive.sw (an enumeration, `DirectionKey`, a type
+whose fields are `Ordering`, `Bool`, `Option Direction` and a pair, a record, a parameterised
+type and `Slot (Slot Direction)`, each list checked by `rfl`, `Finite.complete` used, and the order
+equal to `List.sort`'s), finite-check.sw (2^10; day 12's `rowEndsSplit` statement as a pair of
+pairs; a `Fin 6` statement), by-decision.sw. Reject: finite-recursive.sw and finite-nat-field.sw
+(`E-INSTANCE-NONE`, the reason in the note). The `cases` notes: cases-budget.snap and
+cases-fallback-budget.snap get the `Finite.check` note (the latter's variables are a program's
+`Month`, whose instance is derived); cases-binders-open, cases-decides-false, cases-fallback-count,
+cases-fallback-open and cases-open-case get `byDecision` in the last note.
+
+**Hashes.** The prelude snapshot gains the new declarations and loses none (`Std.Finite`, the
+four instances and their helpers, `List.memConcatMap`, `Std.Finite.check`, `Std.Fin.all…`,
+`Std.byDecision`); `List.memAppendLeft` and `List.memAppendRight` keep their hashes. 36 example
+snapshots gain the derived `T.%…` declarations of their types (every line added, none changed or
+removed); four of them also get insta's `expression:` header rewritten (`lines(&session, …)` to
+`lines(session, …)`, the test's current source).
+
+**Day 21** [run]. `fits` takes its keys from `Finite.all` (`[auto fin: Finite k]`) instead of an
+argument; `cheapestFits` and `fitted` lose `keys` and `every`; `Finite.check` replaces
+`allMember` with a membership proof. Removed: `numericKeys`, `everyNumericKey`,
+`everyDirectionKey` (Typing.sw) and `allMember` (Lemmas.sw). Kept: the program's `directionKeys`
+(Day21.sw), because `Costs.tabulate` reads its table by `DirectionKey.index`, so the list's order
+is part of the program; the derived list is the same list (finite-derive.sw checks it), but the
+order a program depends on is written where it's used. The 23 day 21 tests pass; all of `aoc`
+checks with `--no-cache` and its 914 tests pass; games/rogue checks and its 100 tests pass.
+
+**Deviations, with reasons.**
+
+1. *`complete` through `T.%mem%c` and `T.%cover`*, not through `T.%tag` (§6.2), and not by
+   `cases`: above.
+2. *Proof fields are refused* ("its field `ok` is a proof, which `Finite` isn't derived for
+   yet"), where §6.2 allowed equations in `DecEq` types. Listing such a constructor needs
+   `if h: l = r` per value and `DecEq.uniqueEq` to identify the proofs in the completeness proof;
+   left for a ticket that needs it.
+3. *`Finite` is a default name*, a 23rd beside D266's 22: the rule those follow ("the interfaces
+   behind operators and `deriving`") covers it.
+4. *check.rs changed* (`refl_after_instances`, 12 lines), which the lane was asked to avoid:
+   without it `Finite.check p rfl x`, the form §6.2 designs, doesn't check.
+5. *Not derived, as for the other interfaces*: types with no constructors, mutual types, indexed
+   families (`Fin n` has a hand instance).
+6. *Day 12's statement by `Finite.check`* is an example (finite-check.sw), not a conversion: the
+   real `rowEndsSplit` is `:= cases` since SW-800, 16 cases, well inside the budget.
 
 ## Sources
 

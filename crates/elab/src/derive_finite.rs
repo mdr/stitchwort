@@ -32,24 +32,36 @@
 //! K.%all%2    : List K := Cons K.C Nil      -- what follows a constructor with fields
 //! K.%all      : List K := Cons K.A (List.append K.%part%1 K.%all%2)
 //!
-//! K.%complete : (%x : K) -> List.Mem %x K.%all
-//! K.%complete K.A = Inl rfl
-//! K.%complete (K.B %a0 %a1) =
+//! K.%mem%0 : List.Mem K.A K.%all := Inl rfl
+//! K.%mem%1 : (%a0 : K.%B%F%0) -> (%a1 : K.%B%F%1 %a0) -> List.Mem (K.B %a0 %a1) K.%all
+//! K.%mem%1 %a0 %a1 =
 //!   Inr (List.memAppendLeft (K.B %a0 %a1) K.%part%1 K.%all%2
 //!     (List.memConcatMap ((%a0 : …) => K.%part%1%1 %a0) %a0 (K.B %a0 %a1) Finite.all (Finite.complete %a0)
 //!       (List.memConcatMap ((%a1 : …) => ([K.B %a0 %a1] : List K)) %a1 (K.B %a0 %a1) Finite.all (Finite.complete %a1) (Inl rfl))))
-//! K.%complete K.C = Inr (List.memAppendRight K.C K.%part%1 K.%all%2 (Inl rfl))
+//! K.%mem%2 : List.Mem K.C K.%all := Inr (List.memAppendRight K.C K.%part%1 K.%all%2 (Inl rfl))
+//!
+//! K.%cover : (%P : K -> Prop) -> %P K.A -> ((%a0 : …) -> (%a1 : …) -> %P (K.B %a0 %a1)) -> %P K.C -> (%x : K) -> %P %x
+//! K.%cover %P %c0 %c1 %c2 K.A = %c0       -- and so on, one equation per constructor
+//! K.%complete : (%x : K) -> List.Mem %x K.%all := K.%cover (%x => List.Mem %x K.%all) K.%mem%0 K.%mem%1 K.%mem%2
 //!
 //! instance K.%instFinite : Finite K := { all = K.%all, complete = K.%complete }
 //! ```
 //!
-//! The proof of each value's membership walks the list to its constructor
-//! (an `Inr` past each constructor without fields, `memAppendRight` past each
-//! with), then down its fields, one `memConcatMap` and the field's own
-//! `Finite.complete` per field: nothing is computed and nothing is searched
-//! but the fields' instances. Its size is linear in the fields, and in the
-//! constructors but for a run of constructors without fields, which is a
-//! chain of `Inr`s, as a hand-written proof is.
+//! The proof of each constructor's membership, `T.%mem%c`, walks the list to
+//! its constructor (an `Inr` past each constructor without fields,
+//! `memAppendRight` past each with), then down its fields, one
+//! `memConcatMap` and the field's own `Finite.complete` per field: nothing is
+//! computed and nothing is searched but the fields' instances. Its size is
+//! linear in the fields, and in the constructors but for a run of
+//! constructors without fields, which is a chain of `Inr`s, as a hand-written
+//! proof is.
+//!
+//! The match on the value is in `T.%cover`, whose statement `%P` is a
+//! variable, not in `T.%complete`: in a match the kernel refines the whole
+//! statement in each branch, and with the list in the statement that costs
+//! as much as the list is long (a type of 4,096 values took 0.54 s, one of
+//! 65,536 didn't finish in 200 s; through `T.%cover`, 1.3 ms; decide.md,
+//! "As built (SW-807)").
 //!
 //! Everything a proof's arguments mention is named, and every generated name
 //! gets `T`'s parameters and dictionaries by name: the elaborator checks an

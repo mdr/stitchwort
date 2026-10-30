@@ -6,7 +6,7 @@
 namespace Aoc.Year2024.Day21.Tests
 import Aoc.Year2024.Day21 (..)
 import Aoc.Year2024.Day21.Spec (directionalRows, keyAt, moved, numericRows, numericStart, directionalStart, typed)
-import Aoc.Year2024.Day21.Proofs (cheapestBetween, numericKeys, pressesFor, walk)
+import Aoc.Year2024.Day21.Proofs (cheapestBetween, pressesFor, walk)
 import Std (Fail, List, Nat, Option, Result, Set, Text)
 
 def parsed (input: Text): Result (List Code) Text := Fail.toResult (() => parseCodes input)
@@ -140,7 +140,7 @@ def cheapestWalksUpTo (keys: List k) (keypad: Keypad k) (rows: List (List (Optio
 
 test "the walk fact for walks of up to six moves, one to three robots" :=
   [1, 2, 3].all (level =>
-    cheapestWalksUpTo numericKeys Keypad.numeric numericRows (robotCosts level) 6
+    cheapestWalksUpTo Finite.all Keypad.numeric numericRows (robotCosts level) 6
       && cheapestWalksUpTo directionKeys Keypad.directional directionalRows (robotCosts level) 6)
 
 test "parse" := parsed "029A\n980A\n179A\n456A\n379A\n" == Ok exampleCodes

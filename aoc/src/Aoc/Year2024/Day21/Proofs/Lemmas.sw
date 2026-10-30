@@ -44,12 +44,6 @@ theorem lastFromAppendOne: (from: k) → (keys: List k) → (key: k) → lastFro
   | from, Nil, key => rfl
   | from, Cons first rest, key => lastFromAppendOne first rest key
 
--- `List.all` holds of each member.
-theorem allMember (passes: a → Bool): (xs: List a) → List.all xs passes = True → (x: a) → x ∈ xs → passes x = True
-  | Nil, all, x, member => Void.exfalso member
-  | Cons first rest, all, x, Inl same => rewrite <- same in Bool.andLeft _ _ all
-  | Cons first rest, all, x, Inr later => allMember passes rest (Bool.andRight _ _ all) x later
-
 theorem flatMapSome (f: a → Option b): (x: Option a) → (value: a) → x = Some value → x.flatMap f = f value
   | None, value, same => Void.exfalso (Option.noneNotSome value same)
   | Some found, value, same => rewrite Option.someInjective found value same in rfl
