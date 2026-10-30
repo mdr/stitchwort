@@ -63,7 +63,12 @@ const outOfResources = (name, e) =>
 // type's fields can only mention it, and the types defined together with it,
 // applied to their own parameters (the positivity check), and otherwise only
 // types declared before them, so a boundary type has finitely many types
-// inside it.
+// inside it. That holds for a nested type too (`Packets (items: List
+// Packet)`, docs/proposals/nested-data-types.md): there the member is still
+// applied to its own parameters, as an argument of an earlier type, so the
+// types inside are the earlier types' fields with those fixed arguments in,
+// and each earlier type, by induction on declaration order, has finitely many
+// types inside it (`List Packet` gives `Packet` and `List Packet` again).
 const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3, OPTION = 4, MAP = 5;
 let typeCount = 0;
 const leaf = (dec, enc) => ({ kind: LEAF, open: false, id: typeCount++, dec, enc });
