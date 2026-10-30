@@ -1310,6 +1310,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let ty = cx.eval(&ty)?;
             Ok((crate::goals::hole(cx, &ty), ty))
         }
+        Expr::Lam(..) if expr.section_name().is_some() => infer_section(cx, expr),
         // `x => y => b` is inferred as `x y => b` is (SW-910): one function
         // type for all its parameters, so the inner lambda is checked
         // against a function type, not an unknown.
@@ -1722,6 +1723,48 @@ fn curried_lambda(lambda: &Expr) -> (Vec<&AstName>, &Expr) {
         e = body;
     }
     (names, e)
+}
+
+/// A method section inferred, as in `let g := .drop 1` or `(.length)
+/// "abcd"`: a lambda whose argument's type is unknown, so the section waits
+/// for it (K3, `dot::Section`). Unlike [`infer_lambda`]'s, its result type
+/// doesn't depend on its argument: nothing elaborated says so before the
+/// section is resumed, and meanwhile a use can say what it returns, as
+/// `(.length) "abcd"` against `Nat` does (`?r` against `Nat`, where
+/// `?r "abcd"` would be solved by nothing). A section whose result does
+/// depend on its argument is a mismatch at the section when it is resumed.
+fn infer_section(cx: &mut Ctx, section: &Expr) -> Result<(Term, Value)> {
+    let Expr::Lam(names, body, _) = section else {
+        unreachable!("a section is a lambda")
+    };
+    let name: Name = names[0].text.as_str().into();
+    let (row, row_value) = inferred_row(cx)?;
+    let dom = cx.fresh_meta();
+    let mark = cx.mark();
+    let dom_value = cx.eval(&dom)?;
+    cx.bind_hidden(name.clone(), dom_value);
+    let performs = effects::may_perform(cx, body);
+    cx.reset(mark);
+    let performs = performs?;
+    let result = cx.fresh_meta();
+    let cod = match performs {
+        true => inferred_comp(cx, &row_value, result)?,
+        false => result,
+    };
+    let ty = Term::Pi(
+        name,
+        Icit::Explicit,
+        Rc::new(dom),
+        Rc::new(cod.shift(cx.g(), 1, 0)?),
+    );
+    let ty = cx.eval(&ty)?;
+    let term = check(cx, section, &ty)?;
+    if performs {
+        settle_inferred_row(cx, &row, &row_value)?;
+    }
+    note_parameter_metas(cx, &ty)?;
+    let ann = Term::Ann(Rc::new(term), Rc::new(cx.quote_folded(&ty)?));
+    Ok((ann, ty))
 }
 
 /// Records each parameter type of `ty` still unknown after checking the
