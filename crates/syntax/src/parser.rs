@@ -25,7 +25,17 @@ mod declarations;
 mod sections;
 use declarations::{Param, misplaced_attributes};
 
-type Result<T> = std::result::Result<T, Diagnostic>;
+/// The parser's results box their error: with an unboxed `Diagnostic`,
+/// every `Result<Expr>` would be as large as a `Diagnostic`, and each level
+/// of a nested expression (`((…(0)…))`) holds several on the stack. When
+/// b0f1a3ea (SW-914) grew `Diagnostic` from 96 to 112 bytes, each level took
+/// about 350 bytes more and the bench's check-nested-parens (12,000
+/// brackets) stopped parsing. An error happens once per parse at most, so
+/// the box costs nothing that matters.
+type Result<T> = std::result::Result<T, Box<Diagnostic>>;
+
+/// What the public functions return: the error unboxed.
+type Parsed<T> = std::result::Result<T, Diagnostic>;
 
 /// Bytes of stack the parser may use when the caller doesn't say: safe on a
 /// 2 MiB thread (Rust's default for spawned threads and tests), like the
@@ -42,7 +52,7 @@ pub fn parse_module(file: FileId, text: &str) -> std::result::Result<Module, Vec
     parse_module_within(file, text, DEFAULT_STACK)
 }
 
-pub fn parse_expression(file: FileId, text: &str) -> Result<Expr> {
+pub fn parse_expression(file: FileId, text: &str) -> Parsed<Expr> {
     parse_expression_within(file, text, DEFAULT_STACK)
 }
 
@@ -81,11 +91,11 @@ pub fn parse_module_recovering(
     let mut namespace = None;
     let mut imports = Vec::new();
     let mut decls = Vec::new();
-    let mut errors = Vec::new();
+    let mut errors: Vec<Diagnostic> = Vec::new();
     let mut failed = Vec::new();
     let groups = match split_decls(&tokens) {
         Ok(groups) => groups,
-        Err(d) => return (Module::default(), vec![d]),
+        Err(d) => return (Module::default(), vec![*d]),
     };
     for group in groups {
         let mut parser = Parser::new(group, file, text.len(), limit);
@@ -93,7 +103,7 @@ pub fn parse_module_recovering(
         let attrs = match parser.attributes() {
             Ok(attrs) => attrs,
             Err(diagnostic) => {
-                errors.push(diagnostic);
+                errors.push(*diagnostic);
                 failed.extend(declared_names_of(group));
                 continue;
             }
@@ -145,7 +155,7 @@ pub fn parse_module_recovering(
                 .and_then(|decl| parser.finish().map(|()| decl))
             {
                 Ok(decl) => namespace = Some(decl),
-                Err(diagnostic) => errors.push(diagnostic),
+                Err(diagnostic) => errors.push(*diagnostic),
             }
             continue;
         }
@@ -162,7 +172,7 @@ pub fn parse_module_recovering(
                 .and_then(|import| parser.finish().map(|()| import))
             {
                 Ok(import) => imports.push(import),
-                Err(diagnostic) => errors.push(diagnostic),
+                Err(diagnostic) => errors.push(*diagnostic),
             }
             continue;
         }
@@ -182,7 +192,7 @@ pub fn parse_module_recovering(
                 decls.extend(parsed)
             }
             Err(diagnostic) => {
-                errors.push(diagnostic);
+                errors.push(*diagnostic);
                 failed.extend(declared_names_of(group));
             }
         }
@@ -269,7 +279,11 @@ fn declared_names_of(group: &[Token]) -> Vec<Name> {
 /// Reads only a file's namespace line: `Some` if the file's first
 /// declaration group is one, `None` if it starts with anything else. For
 /// finding a file's namespace when the rest of it doesn't parse.
-pub fn parse_namespace_line(file: FileId, text: &str) -> Result<Option<NamespaceDecl>> {
+pub fn parse_namespace_line(file: FileId, text: &str) -> Parsed<Option<NamespaceDecl>> {
+    namespace_line(file, text).map_err(|d| *d)
+}
+
+fn namespace_line(file: FileId, text: &str) -> Result<Option<NamespaceDecl>> {
     let limit = StackLimit::from_here(DEFAULT_STACK);
     let tokens = lex(file, text)?;
     let groups = split_decls(&tokens)?;
@@ -286,7 +300,11 @@ pub fn parse_namespace_line(file: FileId, text: &str) -> Result<Option<Namespace
 }
 
 /// Parses an expression, using at most `stack` bytes of stack.
-pub fn parse_expression_within(file: FileId, text: &str, stack: usize) -> Result<Expr> {
+pub fn parse_expression_within(file: FileId, text: &str, stack: usize) -> Parsed<Expr> {
+    expression_within(file, text, stack).map_err(|d| *d)
+}
+
+fn expression_within(file: FileId, text: &str, stack: usize) -> Result<Expr> {
     let limit = StackLimit::from_here(stack);
     let tokens = lex(file, text)?;
     let mut parser = Parser::new(&tokens, file, text.len(), limit);
@@ -306,7 +324,8 @@ fn unqualified(name: Name) -> Result<Name> {
                 name.text
             ),
         )
-        .with_note("only declarations and references can be qualified; write a short name"));
+        .with_note("only declarations and references can be qualified; write a short name")
+        .into());
     }
     Ok(name)
 }
@@ -370,8 +389,8 @@ fn first_bound(p: &Pattern) -> Option<&Name> {
 /// the ranges cover `tokens`, except that tokens before the first range (a file
 /// whose first column-0 token is `:=`, which starts no declaration) are in
 /// none. Fails if the first token isn't at column 0.
-pub fn decl_ranges(tokens: &[Token]) -> Result<Vec<std::ops::Range<usize>>> {
-    let groups = split_decls(tokens)?;
+pub fn decl_ranges(tokens: &[Token]) -> Parsed<Vec<std::ops::Range<usize>>> {
+    let groups = split_decls(tokens).map_err(|d| *d)?;
     // The groups run to the end of `tokens`, so the first starts after
     // whatever precedes it.
     let mut start = tokens.len() - groups.iter().map(|group| group.len()).sum::<usize>();
@@ -392,7 +411,8 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
         return Err(error(
             first.span,
             "declarations must start at the beginning of a line",
-        ));
+        )
+        .into());
     }
     // A token at column 0 starts a declaration, except:
     // - `:=`, which ends a header (`decreasing e` then `:=`,
@@ -634,7 +654,8 @@ impl<'t> Parser<'t> {
         if self.peek() == Some(&Tok::Arrow) {
             return Err(self
                 .unexpected(what)
-                .with_note("lambdas and arms use `=>`: `x => e`, `| p => e`"));
+                .with_note("lambdas and arms use `=>`: `x => e`, `| p => e`")
+                .into());
         }
         self.expect(Tok::FatArrow, what)
     }
@@ -648,9 +669,8 @@ impl<'t> Parser<'t> {
                 "ran out of resources: the program is nested too deeply to parse",
             )
             .with_label(self.here(), "nested too deeply here")
-            .with_note(
-                "this isn't a syntax error: there's a limit on how deeply expressions nest",
-            ));
+            .with_note("this isn't a syntax error: there's a limit on how deeply expressions nest")
+            .into());
         }
         Ok(())
     }
@@ -769,7 +789,7 @@ impl<'t> Parser<'t> {
         if self.peek() == Some(&tok) {
             Ok(self.bump())
         } else {
-            Err(self.unexpected(what))
+            Err(self.unexpected(what).into())
         }
     }
 
@@ -882,7 +902,7 @@ impl<'t> Parser<'t> {
             items.push(self.expr()?);
         }
         if self.peek() == Some(&Tok::Colon) {
-            return Err(self.tuple_annotation());
+            return Err(self.tuple_annotation().into());
         }
         let end = self.expect(Tok::RParen, "`)`")?.span;
         let mut last = items.pop().expect("two components");
@@ -963,7 +983,7 @@ impl<'t> Parser<'t> {
         }
         let start = self.bump().span;
         let Some(Tok::Num(n)) = self.peek() else {
-            return Err(self.unexpected("a number"));
+            return Err(self.unexpected("a number").into());
         };
         let n = n.clone();
         let end = self.bump().span;
@@ -984,7 +1004,7 @@ impl<'t> Parser<'t> {
 
     fn finish(&self) -> Result<()> {
         if self.pos < self.tokens.len() {
-            Err(self.unexpected("the end of the declaration"))
+            Err(self.unexpected("the end of the declaration").into())
         } else {
             Ok(())
         }
@@ -1000,10 +1020,13 @@ impl<'t> Parser<'t> {
     fn param_name(&mut self) -> Result<Name> {
         if let Some(Tok::Upper(text)) = self.peek() {
             let text = text.clone();
-            return Err(self.unexpected("a parameter's name").with_note(format!(
-                "parameter names start with a lowercase letter; an uppercase name such as \
+            return Err(self
+                .unexpected("a parameter's name")
+                .with_note(format!(
+                    "parameter names start with a lowercase letter; an uppercase name such as \
                  `{text}` is a constructor"
-            )));
+                ))
+                .into());
         }
         self.lower("a parameter's name")
     }
@@ -1018,7 +1041,7 @@ impl<'t> Parser<'t> {
                     span,
                 })
             }
-            _ => Err(self.unexpected_name(what)),
+            _ => Err(self.unexpected_name(what).into()),
         }
     }
 
@@ -1067,7 +1090,7 @@ impl<'t> Parser<'t> {
                     span,
                 })
             }
-            _ => Err(self.unexpected(what)),
+            _ => Err(self.unexpected(what).into()),
         }
     }
 
@@ -1091,8 +1114,9 @@ impl<'t> Parser<'t> {
             Some(Tok::Lower(_)) => Err(error(
                 self.here(),
                 "each part of a namespace's name starts with a capital letter",
-            )),
-            _ => Err(self.unexpected("a namespace, such as `Day05`")),
+            )
+            .into()),
+            _ => Err(self.unexpected("a namespace, such as `Day05`").into()),
         }
     }
 
@@ -1109,7 +1133,7 @@ impl<'t> Parser<'t> {
                 self.bump();
                 name
             }
-            _ => return Err(self.unexpected("a namespace, such as `List`")),
+            _ => return Err(self.unexpected("a namespace, such as `List`").into()),
         };
         self.expect(Tok::LParen, "`(` and the names to import")?;
         let mixed = |dots: Span, path: &Name| {
@@ -1127,7 +1151,7 @@ impl<'t> Parser<'t> {
             let dots = self.here();
             self.bump();
             if self.peek() != Some(&Tok::RParen) {
-                return Err(mixed(dots, &path));
+                return Err(mixed(dots, &path).into());
             }
             everything = Some(dots);
         }
@@ -1140,8 +1164,10 @@ impl<'t> Parser<'t> {
                     });
                     self.bump();
                 }
-                Some(Tok::DotDot) if !items.is_empty() => return Err(mixed(self.here(), &path)),
-                _ => return Err(self.unexpected("a name to import")),
+                Some(Tok::DotDot) if !items.is_empty() => {
+                    return Err(mixed(self.here(), &path).into());
+                }
+                _ => return Err(self.unexpected("a name to import").into()),
             }
             if !self.eat(&Tok::Comma) {
                 break;
@@ -1276,7 +1302,7 @@ impl<'t> Parser<'t> {
                 };
                 Ok(pattern)
             }
-            _ => Err(self.unexpected_name("a pattern or `=`")),
+            _ => Err(self.unexpected_name("a pattern or `=`").into()),
         }
     }
 
@@ -1309,7 +1335,8 @@ impl<'t> Parser<'t> {
                     "to match a record as `{0}`'s first argument, write it in brackets: \
                      `{0} ({{ … }}) …`",
                     name.text
-                )));
+                ))
+                .into());
             }
             return Ok(Pattern::CtorFields {
                 ctor: name,
@@ -1330,13 +1357,13 @@ impl<'t> Parser<'t> {
                 )
                 .with_note(
                     "braces name a constructor's fields only right after it: `C { f = p, .. }`",
-                ));
+                ).into());
             }
             if self.argument_minus_at(self.pos) {
                 // `Some -1`: a negative number, as `(-1)` is (D1470).
                 let start = self.bump().span;
                 let Some(Tok::Num(n)) = self.peek() else {
-                    return Err(self.unexpected("a number"));
+                    return Err(self.unexpected("a number").into());
                 };
                 let n = n.clone();
                 let end = self.bump().span;
@@ -1406,7 +1433,7 @@ impl<'t> Parser<'t> {
             if self.peek() == Some(&Tok::LParen) {
                 let binder = self.binder()?;
                 if let Some(first) = binder.attrs.first() {
-                    return Err(misplaced_attributes(first, "a data type's parameter"));
+                    return Err(misplaced_attributes(first, "a data type's parameter").into());
                 }
                 params.push(binder);
                 auto_params.push(false);
@@ -1416,7 +1443,7 @@ impl<'t> Parser<'t> {
                 let start = self.here();
                 let (binder, auto) = self.implicit_binder()?;
                 if let Some(first) = binder.attrs.first() {
-                    return Err(misplaced_attributes(first, "a data type's parameter"));
+                    return Err(misplaced_attributes(first, "a data type's parameter").into());
                 }
                 if !auto {
                     return Err(error(
@@ -1426,14 +1453,16 @@ impl<'t> Parser<'t> {
                     .with_note(
                         "a type's other parameters are always given, so they're written \
                          `(a: Type)`",
-                    ));
+                    )
+                    .into());
                 }
                 if binder.names[0].text == crate::ast::NAMELESS {
                     return Err(error(
                         start.to(self.prev_span()),
                         "a type's `auto` parameter needs a name, so it can be given by name: \
                          `[auto ord: Ord k]`",
-                    ));
+                    )
+                    .into());
                 }
                 params.push(binder);
                 auto_params.push(true);
@@ -1446,7 +1475,8 @@ impl<'t> Parser<'t> {
                     self.here(),
                     format!("a {keyword}'s parameter `{param}` needs its type, in brackets"),
                 )
-                .with_note(format!("write `{keyword} {} ({param}: Type) …`", name.text)));
+                .with_note(format!("write `{keyword} {} ({param}: Type) …`", name.text))
+                .into());
             } else {
                 break;
             }
@@ -1459,7 +1489,7 @@ impl<'t> Parser<'t> {
                 if self.is_pi_binder() {
                     let binder = self.binder()?;
                     if let Some(first) = binder.attrs.first() {
-                        return Err(misplaced_attributes(first, "a data type's index"));
+                        return Err(misplaced_attributes(first, "a data type's index").into());
                     }
                     self.expect(Tok::Arrow, "`->`")?;
                     for n in binder.names {
@@ -1482,11 +1512,11 @@ impl<'t> Parser<'t> {
         // An interface is a record (docs/proposals/interfaces.md §5.1).
         if interface {
             if let Some((_, ty)) = indices.first() {
-                return Err(error(ty.span(), "an interface can't have indices"));
+                return Err(error(ty.span(), "an interface can't have indices").into());
             }
             self.expect(Tok::Equals, "`=` and the interface's fields, `{ … }`")?;
             if self.peek() != Some(&Tok::LBrace) {
-                return Err(self.unexpected("`{` and the interface's fields"));
+                return Err(self.unexpected("`{` and the interface's fields").into());
             }
             let ctor = self.record_fields(&name)?;
             return Ok(vec![Decl::Data {
@@ -1509,7 +1539,8 @@ impl<'t> Parser<'t> {
                         ty.span(),
                         "a type synonym can't have indices: `->` after the colon is only for a \
                          data type's indices",
-                    ));
+                    )
+                    .into());
                 }
                 return self.type_synonym(start, name, params, auto_params, sort);
             }
@@ -1536,7 +1567,8 @@ impl<'t> Parser<'t> {
                                 return Err(error(
                                     binder.names[0].span,
                                     "a constructor's implicit fields can't be `auto`",
-                                ));
+                                )
+                                .into());
                             }
                             fields.push(binder);
                             implicit.push(true);
@@ -1564,9 +1596,9 @@ impl<'t> Parser<'t> {
                     });
                 }
                 if ctors.is_empty() {
-                    return Err(
-                        self.unexpected("`|` and a constructor, or `{` and a record's fields")
-                    );
+                    return Err(self
+                        .unexpected("`|` and a constructor, or `{` and a record's fields")
+                        .into());
                 }
             }
         }
@@ -1640,13 +1672,13 @@ impl<'t> Parser<'t> {
         while self.peek() == Some(&Tok::LParen) {
             let binder = self.binder()?;
             if let Some(first) = binder.attrs.first() {
-                return Err(misplaced_attributes(first, "an ability's parameter"));
+                return Err(misplaced_attributes(first, "an ability's parameter").into());
             }
             params.push(binder);
         }
         self.expect(Tok::KwWhere, "`where`")?;
         let Some(first) = self.tokens.get(self.pos).filter(|_| self.peek().is_some()) else {
-            return Err(self.unexpected("the ability's operations"));
+            return Err(self.unexpected("the ability's operations").into());
         };
         let column = first.column;
         let saved = (self.limit, self.allow);
@@ -1654,7 +1686,7 @@ impl<'t> Parser<'t> {
         let mut ops = Vec::new();
         let result = loop {
             self.allow = Some(self.pos);
-            let op = (|| {
+            let op = (|| -> Result<_> {
                 let op = self.lower("an operation name")?;
                 self.expect(Tok::Colon, "`:`")?;
                 Ok((op, self.expr_inline()?))
@@ -1689,13 +1721,13 @@ impl<'t> Parser<'t> {
     fn binder(&mut self) -> Result<Binder> {
         let (binder, default) = self.binder_with_default()?;
         if let Some(default) = default {
-            return Err(
-                error(default.span(), declarations::DEFAULT_PLACES).with_note(
+            return Err(error(default.span(), declarations::DEFAULT_PLACES)
+                .with_note(
                     "a definition's explicit parameters, `def range (step: Nat := 1)`, a \
                      record's fields, `{ step: Nat := 1 }`, and a constructor's, \
                      `| Circle (id: Text := \"a\")`, can have one; a function type can't",
-                ),
-            );
+                )
+                .into());
         }
         Ok(binder)
     }
@@ -1757,7 +1789,8 @@ impl<'t> Parser<'t> {
                 "an ability row can't be written in a parameter's type",
             )
             .with_label(span, "this `{…}` is an ability row")
-            .with_note(note));
+            .with_note(note)
+            .into());
         }
         self.expr()
     }
@@ -1812,18 +1845,16 @@ impl<'t> Parser<'t> {
         let mut rest = match stmts.pop() {
             Some(Stmt::Expr(e)) => e,
             Some(Stmt::Let(_, _, _, span) | Stmt::LetPattern(_, _, _, span)) => {
-                return Err(error(
-                    span,
-                    "a block must end with an expression, not `let`",
-                ));
+                return Err(error(span, "a block must end with an expression, not `let`").into());
             }
             Some(Stmt::Def(_, span)) => {
                 return Err(error(
                     span,
                     "a block must end with an expression, not a local `def` or `theorem`",
-                ));
+                )
+                .into());
             }
-            None => return Err(self.unexpected("an expression")),
+            None => return Err(self.unexpected("an expression").into()),
         };
         // Whether `rest` is a `LocalDefs` made from the line after this one,
         // which another local definition joins.
@@ -1884,11 +1915,13 @@ impl<'t> Parser<'t> {
             Some(Tok::KwExport) => Err(error(
                 self.here(),
                 "local definitions can't be exported: only top-level ones are",
-            )),
+            )
+            .into()),
             Some(Tok::KwOpaque) => Err(error(
                 self.here(),
                 "local definitions can't be `opaque`: only top-level ones can",
-            )),
+            )
+            .into()),
             _ => Ok(Stmt::Expr(self.expr_inline()?)),
         }
     }
@@ -1908,14 +1941,14 @@ impl<'t> Parser<'t> {
             )
             .with_note(
                 "it unfolds what the declaration it's in unfolds: write `unfolding` on that one",
-            ));
+            ).into());
         }
         let equations: Vec<Decl> = decls.collect();
         if equations.is_empty() {
             return Err(error(
                 signature.span(),
                 "a local definition needs a body: `:=` and an expression, or arms starting with `|`",
-            ));
+            ).into());
         }
         Ok(Stmt::Def(
             LocalDef {
@@ -1932,10 +1965,13 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn let_body(&mut self, stmt: Stmt) -> Result<Expr> {
         if self.peek() != Some(&Tok::Semi) {
-            return Err(self.unexpected("`;` after the value of `let`").with_note(
-                "an expression `let` is written `(let x := e; body)`; `in` is membership, \
+            return Err(self
+                .unexpected("`;` after the value of `let`")
+                .with_note(
+                    "an expression `let` is written `(let x := e; body)`; `in` is membership, \
                      not a separator",
-            ));
+                )
+                .into());
         }
         self.bump();
         let at_end = self.tokens.get(self.pos).is_none_or(|t| {
@@ -1948,7 +1984,8 @@ impl<'t> Parser<'t> {
             return Err(error(
                 self.here(),
                 "`let` needs a body after `;`: `(let x := e; body)`",
-            ));
+            )
+            .into());
         }
         let body = self.expr()?;
         Ok(bind_let(stmt, body))
@@ -1966,7 +2003,7 @@ impl<'t> Parser<'t> {
             None
         };
         if self.peek() == Some(&Tok::Equals) {
-            return Err(self.def_equals());
+            return Err(self.def_equals().into());
         }
         self.expect(Tok::ColonEq, "`:=`")?;
         let outer = self.let_value.replace(start_index);
@@ -2015,7 +2052,8 @@ impl<'t> Parser<'t> {
             .with_note(
                 "anonymous record types aren't supported: give it a name with `type`, then write \
                  that name after `->`",
-            ));
+            )
+            .into());
         }
         let mut abilities = Vec::new();
         let mut tail = None;
@@ -2072,7 +2110,7 @@ impl<'t> Parser<'t> {
             clauses.push(self.handler_clause()?);
         }
         if clauses.is_empty() {
-            return Err(self.unexpected("`|` and a handler clause"));
+            return Err(self.unexpected("`|` and a handler clause").into());
         }
         Ok(clauses)
     }
@@ -2096,7 +2134,8 @@ impl<'t> Parser<'t> {
             return Err(error(
                 self.here(),
                 "`match reify` takes one computation, with nothing else to match",
-            ));
+            )
+            .into());
         }
         self.expect(Tok::KwWith, "`with`")?;
         let clauses = self.handler_clauses()?;
@@ -2131,7 +2170,8 @@ impl<'t> Parser<'t> {
                         .with_note(
                             "both sides would be computations, whose type has no spelling; in each \
                      clause the goal already says what the computation did",
-                        ),
+                        )
+                        .into(),
                 );
             }
             let expr = self.expr_inline()?;
@@ -2167,7 +2207,8 @@ impl<'t> Parser<'t> {
                         if n == 1 { "" } else { "s" },
                         if m == 1 { "" } else { "s" },
                     ),
-                ));
+                )
+                .into());
             }
             self.expect_fat_arrow("`=>`")?;
             let body = self.expr()?;
@@ -2178,7 +2219,7 @@ impl<'t> Parser<'t> {
             });
         }
         if alts.is_empty() {
-            return Err(self.unexpected("`|` and an alternative"));
+            return Err(self.unexpected("`|` and an alternative").into());
         }
         Ok(Expr::Match {
             span: start.to(self.prev_span()),
@@ -2239,7 +2280,7 @@ impl<'t> Parser<'t> {
             .with_label(name.span, format!("`{}` is bound here", name.text))
             .with_note(
                 "write `_` for a part that isn't used, or match each alternative in an arm of its own",
-            ));
+            ).into());
         }
         let span = alternatives[0]
             .span()
@@ -2277,7 +2318,7 @@ impl<'t> Parser<'t> {
                         unreachable!("an annotated parameter is a named one")
                     };
                     if let Some(default) = default {
-                        return Err(lambda_default(&default));
+                        return Err(lambda_default(&default).into());
                     }
                     for name in names {
                         params.push(LamParam::Typed(name, Mode::Explicit, ty.clone()));
@@ -2327,7 +2368,7 @@ impl<'t> Parser<'t> {
             }
         }
         if params.is_empty() {
-            return Err(self.unexpected("a parameter name"));
+            return Err(self.unexpected("a parameter name").into());
         }
         self.expect_fat_arrow("`=>`")?;
         let body = self.expr()?;
@@ -2442,13 +2483,16 @@ impl<'t> Parser<'t> {
         let cond = self.expr()?;
         let bool_test = self.peek() == Some(&Tok::Equals);
         self.expect_keyword(Tok::KwThen, "`then`", indent)
-            .map_err(|e| match &binder {
+            .map_err(|e| {
+                match &binder {
                 Some(h) if bool_test => e.with_note(format!(
                     "in `if {}: …` the guard is already a proposition: write `if {}: a < b then` \
                      for `a < b`, without `= True`",
                     h.text, h.text
-                )),
+                ))
+                .into(),
                 _ => e,
+            }
             })?;
         let then = self.expr()?;
         self.expect_keyword(Tok::KwElse, "`else`", indent)?;
@@ -2499,7 +2543,8 @@ impl<'t> Parser<'t> {
                 self.here(),
                 "`calc` starts with one expression; each relation goes on a line of its own",
             )
-            .with_note("write `calc a` and then, indented below it, `_ = b := proof`"));
+            .with_note("write `calc a` and then, indented below it, `_ = b := proof`")
+            .into());
         }
         let mut steps: Vec<CalcStep> = Vec::new();
         let mut column = None;
@@ -2518,7 +2563,8 @@ impl<'t> Parser<'t> {
                     return Err(error(
                         token.span,
                         "this step isn't lined up with the steps above it",
-                    ));
+                    )
+                    .into());
                 }
                 Some(_) => {}
             }
@@ -2546,9 +2592,14 @@ impl<'t> Parser<'t> {
                         self.here(),
                         "a `calc` step is `=`, `<=`, `<`, `>=` or `>`: other relations can't \
                          be chained",
-                    ));
+                    )
+                    .into());
                 }
-                _ => return Err(self.unexpected("`=`, `<=`, `<`, `>=` or `>` after `_`")),
+                _ => {
+                    return Err(self
+                        .unexpected("`=`, `<=`, `<`, `>=` or `>` after `_`")
+                        .into());
+                }
             };
             let rhs = self.calc_operand()?;
             let proof = if self.eat(&Tok::ColonEq) {
@@ -2567,7 +2618,8 @@ impl<'t> Parser<'t> {
         let Some(last) = steps.last() else {
             return Err(self
                 .unexpected("a step `_ = e` on the next line, indented past `calc`")
-                .with_note("a `calc` needs at least one step"));
+                .with_note("a `calc` needs at least one step")
+                .into());
         };
         let span = start.to(last.span);
         if descending && ascending {
@@ -2578,7 +2630,8 @@ impl<'t> Parser<'t> {
             .with_label(span, "this chain has steps in both directions")
             .with_note(
                 "write the steps all with `<`/`<=` or all with `>`/`>=` (`=` goes with either)",
-            ));
+            )
+            .into());
         }
         if descending {
             let (first, steps) = reverse_calc(first, steps);
@@ -2639,7 +2692,7 @@ impl<'t> Parser<'t> {
         let target = if word(self, "at") {
             let at = self.bump().span;
             if self.peek().is_none_or(|t| *t == Tok::KwIn) || self.is_stop(self.pos) {
-                return Err(rewrite_at_without_target(at));
+                return Err(rewrite_at_without_target(at).into());
             }
             self.rewrite_rule = Some(self.pos);
             self.rewrite_at = false;
@@ -2724,7 +2777,7 @@ impl<'t> Parser<'t> {
             "a bare `in` ends a `rewrite` rule, so membership in a rule is written in brackets, \
              `rewrite h (x in xs) in …`; a membership test as the body is bracketed too, \
              `rewrite h in (x in xs)`",
-        ))
+        ).into())
     }
 
     /// `(x : A) -> B` or `[x : A] -> B`. Out of line, as `if_expr` is.
@@ -2736,7 +2789,7 @@ impl<'t> Parser<'t> {
             (self.binder()?, false)
         };
         if let Some(first) = binder.attrs.first() {
-            return Err(misplaced_attributes(first, "a function type's parameter"));
+            return Err(misplaced_attributes(first, "a function type's parameter").into());
         }
         self.expect(Tok::Arrow, "`->`")?;
         let cod = self.result_type()?;
@@ -2784,7 +2837,7 @@ impl<'t> Parser<'t> {
             return self.lambda(start);
         }
         if let Some(colon) = self.lambda_result_type_ahead() {
-            return Err(lambda_result_type(self.tokens[colon].span));
+            return Err(lambda_result_type(self.tokens[colon].span).into());
         }
         if self.peek() == Some(&Tok::KwExists) {
             return self.exists_expr();
@@ -2856,7 +2909,7 @@ impl<'t> Parser<'t> {
             } else {
                 "`;` goes between two expressions: leave out a `;` at the end"
             };
-            return Err(error(semi, message).with_note(note));
+            return Err(error(semi, message).with_note(note).into());
         }
         let rest = self.expr()?;
         Ok(Expr::Seq(Box::new(first), Box::new(rest)))
@@ -2880,7 +2933,8 @@ impl<'t> Parser<'t> {
         if self.peek() == Some(&Tok::Iff) {
             return Err(Diagnostic::error("E-PARSE", "`<->` doesn't chain")
                 .with_label(self.here(), "a second `<->`")
-                .with_note("`p <-> q <-> r` could mean either grouping: add brackets"));
+                .with_note("`p <-> q <-> r` could mean either grouping: add brackets")
+                .into());
         }
         let lhs = std::mem::replace(operand, Expr::Prop(Span::NOWHERE));
         let iff = Expr::Var(Name {
@@ -2904,7 +2958,8 @@ impl<'t> Parser<'t> {
         if !self.lambda_ahead()? {
             return Err(self
                 .unexpected("a parameter and `=>` after `exists`")
-                .with_note("\"there exists\" is written `exists (x: T) => P`"));
+                .with_note("\"there exists\" is written `exists (x: T) => P`")
+                .into());
         }
         let start = self.here();
         let lambda = self.lambda(start)?;
@@ -3285,7 +3340,8 @@ impl<'t> Parser<'t> {
             .with_note(
                 "for \"not in\", write `x !in xs`; if the element really is negated, bracket \
                  it: `(!x) in xs`",
-            ));
+            )
+            .into());
         }
         let mut rhs = self.append_expr()?;
         if self.at_pipe() {
@@ -3378,11 +3434,11 @@ impl<'t> Parser<'t> {
         if let Expr::CtorFields { ctor, .. } = &expr
             && self.starts_atom()
         {
-            return Err(self.ctor_fields_then_argument(ctor));
+            return Err(self.ctor_fields_then_argument(ctor).into());
         }
         while self.starts_atom() {
             if self.peek() == Some(&Tok::Dot) && self.tokens[self.pos].line_start {
-                return Err(self.section_line());
+                return Err(self.section_line().into());
             }
             let arg = self.atom(false)?;
             if section && let Expr::Lam(_, body, span) = &mut expr {
@@ -3394,7 +3450,7 @@ impl<'t> Parser<'t> {
             expr = Expr::App(Box::new(expr), Box::new(arg));
         }
         if self.peek() == Some(&Tok::KwCases) && self.peek_at(1) == Some(&Tok::KwIn) {
-            return Err(self.cases_in_argument());
+            return Err(self.cases_in_argument().into());
         }
         Ok(expr)
     }
@@ -3557,13 +3613,15 @@ impl<'t> Parser<'t> {
                 },
                 _ => {
                     return Err(error(dot, "expected a field name after `.`")
-                        .with_note("`.` is for field access, as in `p.name`"));
+                        .with_note("`.` is for field access, as in `p.name`")
+                        .into());
                 }
             };
             if self.prev_span().end != dot.start || dot.end != field.span.start {
                 return Err(
                     error(dot, "field access is written without spaces around the `.`")
-                        .with_note(format!("write `….{}`", field.text)),
+                        .with_note(format!("write `….{}`", field.text))
+                        .into(),
                 );
             }
             self.pos += 2;
@@ -3594,9 +3652,9 @@ impl<'t> Parser<'t> {
                 span: *span,
             },
             _ => {
-                return Err(error(dot, "expected a name right after `.`").with_note(
-                    "`.name args` is a method section, the function `x => x.name args`",
-                ));
+                return Err(error(dot, "expected a name right after `.`")
+                    .with_note("`.name args` is a method section, the function `x => x.name args`")
+                    .into());
             }
         };
         self.pos += 1;
@@ -3626,7 +3684,8 @@ impl<'t> Parser<'t> {
                 "write `({0} {{ … }})` to build a `{0}` by its fields, or `{0} ({{ … }})` to \
                  pass `{0}` and a record",
                 ctor.text
-            )));
+            ))
+            .into());
         }
         let Expr::Record { base, fields, span } = &mut self.record_expr()? else {
             unreachable!("record_expr makes a record")
@@ -3644,7 +3703,8 @@ impl<'t> Parser<'t> {
                 "to pass an updated record as `{0}`'s argument, write it in brackets: \
                  `{0} ({{ r | … }})`",
                 ctor.text
-            )));
+            ))
+            .into());
         }
         Ok(Expr::CtorFields {
             span: ctor.span.to(span),
@@ -3764,7 +3824,7 @@ impl<'t> Parser<'t> {
             let (end, piece) = match &next.tok {
                 Tok::StrMid(piece) => (false, piece.clone()),
                 Tok::StrEnd(piece) => (true, piece.clone()),
-                _ => return Err(self.unexpected("`}`")),
+                _ => return Err(self.unexpected("`}`").into()),
             };
             text_span = next.span;
             text = piece;
@@ -3796,7 +3856,7 @@ impl<'t> Parser<'t> {
         } else if numeral {
             NegForm::Operand
         } else {
-            return Err(self.unexpected_name("an expression"));
+            return Err(self.unexpected_name("an expression").into());
         };
         let start = self.bump().span;
         let operand = if numeral {
@@ -3820,7 +3880,7 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn bang_atom(&mut self) -> Result<Expr> {
         if !argument_bang(self.tokens, self.pos) {
-            return Err(self.unexpected_name("an expression"));
+            return Err(self.unexpected_name("an expression").into());
         }
         let start = self.bump().span;
         let operand = self.atom(false)?;
@@ -3864,10 +3924,9 @@ impl<'t> Parser<'t> {
                         self.bump();
                         Ok(Expr::Include(path, span.to(end)))
                     }
-                    _ => {
-                        Err(self
-                            .unexpected("a path in quotes, as in `include \"inputs/day04.txt\"`"))
-                    }
+                    _ => Err(self
+                        .unexpected("a path in quotes, as in `include \"inputs/day04.txt\"`")
+                        .into()),
                 }
             }
             Some(Tok::Char(c)) => {
@@ -3975,7 +4034,7 @@ impl<'t> Parser<'t> {
                 if self.eat(&Tok::Colon) {
                     let ty = self.expr()?;
                     if self.peek() == Some(&Tok::Comma) {
-                        return Err(self.tuple_annotation());
+                        return Err(self.tuple_annotation().into());
                     }
                     let end = self.expect(Tok::RParen, "`)`")?.span;
                     return Ok(Expr::Ann(Box::new(inner), Box::new(ty), span.to(end)));
@@ -4014,9 +4073,9 @@ impl<'t> Parser<'t> {
             Some(Tok::Dot) => self.section_start(),
             // A keyword as a lambda's parameter: `(test => …)`.
             _ if self.peek_at(1) == Some(&Tok::FatArrow) => {
-                Err(self.unexpected_name("an expression"))
+                Err(self.unexpected_name("an expression").into())
             }
-            _ => Err(self.unexpected("an expression")),
+            _ => Err(self.unexpected("an expression").into()),
         }
     }
 }
@@ -4245,7 +4304,7 @@ mod tests {
         parse_module(file, text).unwrap_or_else(|errors| panic!("{errors:?}"))
     }
 
-    fn expression(text: &str) -> Result<Expr> {
+    fn expression(text: &str) -> Parsed<Expr> {
         let mut sources = SourceMap::new();
         let file = sources.add("test.sw", text);
         parse_expression(file, text)
