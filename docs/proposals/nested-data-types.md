@@ -1050,6 +1050,14 @@ prints the same under `run`, `run --js`, `run --reference` and `run --native`;
 lemma. Hash snapshots: only the nested examples' and the prelude's changed (their new
 declarations); no other example's snapshot changed.
 
+**Cost** **[run]**, 29-30 October, release builds of this branch and of `main` (6a3f4b19), runs
+alternated, min/median of three. The whole std, loaded eagerly with no cache (`Session::eager`,
+from a scratch binary): 4.40/4.45 s, `main` 4.39/4.43 s (load average 7-8). Every file of `main`'s
+`examples/accept` (316), `check --no-cache` one at a time: 98.2/98.5 s, `main` 96.4/96.6 s,
+2% more, none failing (load average 4-7). `aoc`, `check --no-cache`, CPU time (user + system;
+the machine slept during some runs, so wall times were unusable): 33.0/33.1 s, `main`
+32.9/33.3 s; runs without a sleep took 33-35 s wall either way, peak memory 1.39 GB either way.
+
 ## Sources
 
 Read in full unless marked otherwise.
