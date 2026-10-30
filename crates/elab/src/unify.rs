@@ -93,6 +93,46 @@ thread_local! {
     static AWAITED_HELPERS: RefCell<Option<HashSet<usize>>> = const { RefCell::new(None) };
     /// While [`unify_solving_arguments`] runs.
     static SOLVING_ARGUMENTS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// The solutions made while comparing two calls of a definition stuck
+    /// on an unknown by their arguments ([`unify_step`]): each metavariable
+    /// and its place in `Globals::meta_trail`. Equal arguments are enough
+    /// for equal calls, not needed for them, so for a definition that isn't
+    /// injective such a solution is one of several. Only counted
+    /// ([`solved_lossily`], for `queue.rs`), never acted on.
+    static LOSSY: RefCell<Vec<(usize, usize)>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Notes the solutions made since the trail was `trail` long as made by
+/// comparing two calls' arguments ([`LOSSY`]).
+fn note_lossy(g: &Globals, trail: usize) {
+    let made = g.meta_trail.borrow();
+    if made.len() > trail {
+        LOSSY.with(|l| {
+            let mut l = l.borrow_mut();
+            l.extend(
+                made[trail..]
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (m, _))| (*m, trail + i)),
+            );
+        });
+    }
+}
+
+/// Whether metavariable `m`'s solution, as it now is, was made by comparing
+/// two calls of a definition by their arguments ([`LOSSY`]).
+pub(crate) fn solved_lossily(g: &Globals, m: usize) -> bool {
+    let trail = g.meta_trail.borrow();
+    let Some(at) = trail.iter().rposition(|(solved, _)| *solved == m) else {
+        return false;
+    };
+    LOSSY.with(|l| l.borrow().contains(&(m, at)))
+}
+
+/// Forgets what [`note_lossy`] noted of the solutions from place `len` of
+/// the trail on, as they are taken back.
+pub(crate) fn forget_lossy_since(len: usize) {
+    LOSSY.with(|l| l.borrow_mut().retain(|(_, at)| *at < len));
 }
 
 /// [`unify`], except that two calls of the same definition whose arguments
@@ -936,7 +976,10 @@ fn unify_step(
                     Some(pairs)
                         if matches!(h1, Head::Def(_)) && (blocked(g, &a)? || blocked(g, &b)?) =>
                     {
-                        run(g, pairs.into_iter().rev().collect())?
+                        let trail = g.meta_trail.borrow().len();
+                        let same = run(g, pairs.into_iter().rev().collect())?;
+                        note_lossy(g, trail);
+                        same
                     }
                     Some(pairs) => {
                         work.extend(pairs.into_iter().rev());
@@ -1039,6 +1082,7 @@ fn undo_since(g: &Globals, len: usize) {
     let mut trail = g.meta_trail.borrow_mut();
     if trail.len() > len {
         g.metas_taken_back();
+        forget_lossy_since(len);
     }
     while trail.len() > len {
         let (m, old) = trail.pop().expect("longer");
@@ -1716,14 +1760,19 @@ fn meta_headed(term: &Term) -> bool {
     matches!(head, Term::Meta(_))
 }
 
-/// The call a lifted helper's frozen metavariable stands for, if `term` is
-/// that metavariable applied to all the variables it is a function of: the
-/// call (a term in those variables), and the arguments.
+/// The call a lifted helper's frozen metavariable stands for, or the term a
+/// queued check filled its placeholder with (`queue.rs`), if `term` is that
+/// metavariable applied to all the variables it is a function of: the call
+/// (a term in those variables), and the arguments. A helper's metavariable
+/// applied to nothing is read back instead, as it always has been.
 fn lifted_call<'a>(g: &Globals, term: &'a Term) -> Option<(Rc<Term>, Vec<&'a Term>)> {
     let (head, args) = term.spine();
     let Term::Meta(m) = head else { return None };
     let (s, call) = g.lifted_calls.borrow().get(m).cloned()?;
-    (g.meta_frozen(*m) && g.meta_solution(*m).is_some() && s == args.len()).then_some((call, args))
+    if args.is_empty() && g.meta_frozen(*m) {
+        return None;
+    }
+    (g.meta_solution(*m).is_some() && s == args.len()).then_some((call, args))
 }
 
 /// A lifted helper's call, `?m x y` for the frozen metavariable `?m`, with
@@ -1805,7 +1854,7 @@ fn zonk_changed(
         Ok(out)
     };
     Ok(match term {
-        Term::App(..) if lifted_call(g, term).is_some() => {
+        Term::Meta(_) | Term::App(..) if lifted_call(g, term).is_some() => {
             let (call, args) = lifted_call(g, term).expect("just found");
             Some(zonk_call(g, level, &call, &args, keep, lets)?)
         }

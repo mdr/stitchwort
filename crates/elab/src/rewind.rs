@@ -147,6 +147,7 @@ impl Elaborator {
             obligations,
             row_metas,
             row_constraints,
+            queue,
             awaiting_helpers,
             defaulted,
             char_patterns,
@@ -251,6 +252,7 @@ impl Elaborator {
         obligations.get_mut().clear();
         row_metas.get_mut().clear();
         row_constraints.get_mut().clear();
+        queue.clear();
         awaiting_helpers.get_mut().clear();
         defaulted.get_mut().clear();
         char_patterns.get_mut().clear();

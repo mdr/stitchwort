@@ -103,6 +103,12 @@ impl Elaborator {
         loop {
             let obligations = std::mem::take(&mut *self.obligations.borrow_mut());
             if obligations.is_empty() {
+                // Queued checks whose unknown is solved now (`queue.rs`,
+                // W3): they may make obligations.
+                if self.resume_from(0)? {
+                    progress = true;
+                    continue;
+                }
                 // Row comparisons put aside: one that's settled now is
                 // progress.
                 if self.retry_rows()? {

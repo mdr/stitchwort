@@ -434,7 +434,9 @@ pub struct Globals {
     /// variables the call is a function of, and the call itself (a term in
     /// them). Zonking puts this term in, instead of reading the solution
     /// value back, which would write out what the arguments of the call
-    /// unfold to. Cleared with `metas`.
+    /// unfold to. The elaborator's queued checks keep the term each filled
+    /// its placeholder with here too, for the same reason. Cleared with
+    /// `metas`.
     pub lifted_calls: RefCell<crate::collections::HashMap<usize, (usize, Rc<Term>)>>,
     /// How the printer shows calls of local definitions while their owner
     /// is checked (docs/proposals/syntax-conveniences.md §2.5): `go a b`,
