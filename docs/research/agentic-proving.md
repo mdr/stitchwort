@@ -1127,7 +1127,7 @@ Label `research` on each. Not added to the board.
 
 ## 10. Decisions
 
-**D2040. Make `stitchwort audit` (T1) the check every proof lane runs before reporting and
+**D2040. **Decided: yes (Matt, 30 October 2026).** Make `stitchwort audit` (T1) the check every proof lane runs before reporting and
 the merge gate runs on the lane's theorems?** Recommended: yes, stage 1 first (axioms,
 unfinished, vacuity), then the statement hash.
 
@@ -1153,7 +1153,7 @@ The assumptions, in full:
 7. Running it on a lane's changed theorems costs seconds. Unmeasured: `axioms` on two rogue
    theorems took 0.26 s warm.
 
-**D2041. Keep the agent interface a CLI with JSON output (T3, T4, T1) and don't build an MCP
+**D2041. **Decided: yes (Matt, 30 October 2026).** Keep the agent interface a CLI with JSON output (T3, T4, T1) and don't build an MCP
 server, REPL protocol or warm worker pool for now?** Recommended: yes; revisit if a non-shell
 agent is adopted or cold checks dominate lane time.
 
