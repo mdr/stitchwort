@@ -537,9 +537,12 @@ impl Elaborator {
                 checker.shown_hypotheses,
                 checker.shown_conclusion
             )));
+            // Drawing them counts toward the same time as running them:
+            // past it, the batch would run none of them anyway (SW-900).
             let random: Vec<Vec<Term>> = {
                 let _op = g.budget.operation(self.limits);
                 (0..more)
+                    .take_while(|_| !clock::past(started, budget.millis * 4 / 5))
                     .filter_map(|i| {
                         let size = 1 + i * RANDOM_SIZE / more.max(1);
                         log.random_size = log.random_size.max(size);

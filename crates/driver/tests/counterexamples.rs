@@ -9,7 +9,7 @@ use std::path::Path;
 
 use stitchwort_driver::counterexample::Verdict;
 use stitchwort_driver::driver::{Session, with_stack};
-use stitchwort_elab::counterexample::{Budget, MAX_INPUTS, Phase, Runner, SearchLog};
+use stitchwort_elab::counterexample::{Budget, MAX_INPUTS, Phase, RANDOM_SIZE, Runner, SearchLog};
 
 const STACK: usize = 16 * 1024 * 1024;
 
@@ -86,6 +86,24 @@ fn a_true_statement_gets_no_note() {
     assert!(log.found.is_none(), "{log:?}");
     assert_eq!(log.tried, MAX_INPUTS, "{log:?}");
     assert_eq!(log.discarded, 0, "{log:?}");
+}
+
+/// SW-900: random trees holding a `List` or a `Vec` of themselves, up to
+/// the largest random size, are made without running out of memory (the
+/// test tier's memory cap), and every one is drawn: none gives up at
+/// `MAX_RANDOM_VALUES`.
+#[test]
+fn random_trees_share_their_size_among_their_children() {
+    let (notes, log) = search("reject/counterexample-nested-trees.sw", true);
+    assert!(notes.is_empty(), "{notes:?}");
+    let searched: Vec<&str> = log.iter().map(|l| l.theorem.as_str()).collect();
+    assert_eq!(searched, ["rose", "smaller", "pair", "grid"], "{log:?}");
+    for l in &log {
+        assert!(l.out_of_scope.is_none() && l.found.is_none(), "{l:?}");
+        assert_eq!(l.tried, MAX_INPUTS, "{l:?}");
+        assert!(l.random > 0, "{l:?}");
+        assert_eq!(l.random_size, RANDOM_SIZE, "{l:?}");
+    }
 }
 
 #[test]

@@ -761,10 +761,18 @@ As in stage 1, a run stopped by time is never cached (nothing is).
 
 **Random values (§5.3).** A `Nat` is uniform up to the size, or, one time in ten, one of 2^32,
 2^63, 2^64 − 1, 2^64, 2^64 + 1; an `Int` the same with either sign. A list's length is uniform
-up to the size and each element is drawn at the size (QuickCheck's way: a list built
-constructor by constructor would rarely be long). Any other data type picks a constructor (one
+up to the size (QuickCheck's way: a list built constructor by constructor would rarely be
+long), and each element is drawn at the size divided by the length, rounded down; a `Vec`'s
+`n` elements likewise at the size divided by `n`. Any other data type picks a constructor (one
 without data fields at size 0, where there is one) and shares the size left among its fields
-at random, up to 40 deep. A `Char` is from the alphabet six times in ten, printable ASCII two,
+at random, up to 40 deep. So a random value is made of a few values per unit of its size:
+at most 206 in 500 tuples of three trees at size 40
+(`random_trees_are_about_as_large_as_their_size`, which allows 480). *SW-900:* each element was once drawn at
+the whole size, so a type holding a list of itself (`type Rose = | Leaf | Node (kids: List
+Rose)`) grew faster than exponentially in its size, and a failing proof about one used 3 GB
+within a second. As a backstop, a random tuple that takes more than 1,000 values
+(`MAX_RANDOM_VALUES`) is dropped, and drawing the random inputs stops at four fifths of the
+time, like running them. A `Char` is from the alphabet six times in ten, printable ASCII two,
 one of `é ß λ 中 😀` one, and any scalar value one. A `Float` is one of `-0.0`, NaN, ±infinity,
 the largest and smallest normal doubles, `0.1` and `1e300` a quarter of the time, else a
 whole number up to the size divided by 1, 2, 4, 8 or 16.
@@ -867,6 +875,10 @@ on another.
 - `reject/counterexample-text.sw`: `t = "ab"` (enumerated) and `c = '\u{80}'`, a random
   non-ASCII character shrunk to the smallest past ASCII.
 - `reject/counterexample-library-types.sw`: `Float.nan`, `Fin`, `Vec`, `Map`, `Set`.
+- `reject/counterexample-nested-trees.sw` (SW-900): true statements about trees in a `List`
+  and in a `Vec`; every random tuple up to size 40 is drawn, and none is a counterexample
+  (`random_trees_share_their_size_among_their_children`). No other example's snapshot
+  changed when the elements came to share the size.
 - Every one of these finds the same counterexample, after the same number of inputs, with the
   fast runtime taken away (`the_fast_runtime_and_the_reference_evaluator_agree`).
 - `check --counterexamples`: `check_counterexamples_gives_every_theorem_a_verdict` and
