@@ -32,6 +32,13 @@ const MAX_VEC: usize = 64;
 /// How deep a random value of a recursive type may nest.
 const MAX_DEPTH: usize = 40;
 
+/// The most values one random tuple of inputs may be built from (each
+/// number, list, constructor and part of one counts); past it the draw
+/// gives up. The size shared among a value's parts keeps a draw to about
+/// its size in values, far below this, so this is only a backstop against
+/// values that grow faster than their size (SW-900).
+const MAX_RANDOM_VALUES: usize = 1000;
+
 /// How many times a random value with a proof field is drawn again when its
 /// proof field doesn't hold.
 const PROOF_RETRIES: usize = 16;
@@ -648,18 +655,40 @@ impl<'g> Inputs<'g> {
 
     // Random values (§5.1 phase 2).
 
-    /// A random tuple of inputs for `plans`, each of size up to `size`.
+    /// A random tuple of inputs for `plans`, each of size up to `size`, or
+    /// `None` if it would take more than [`MAX_RANDOM_VALUES`] values.
     pub fn random_tuple(&self, plans: &[usize], size: usize, rng: &mut Rng) -> Option<Vec<Term>> {
-        plans
+        self.random_tuple_counted(plans, size, rng).0
+    }
+
+    /// [`Inputs::random_tuple`], and how many values it drew.
+    fn random_tuple_counted(
+        &self,
+        plans: &[usize],
+        size: usize,
+        rng: &mut Rng,
+    ) -> (Option<Vec<Term>>, usize) {
+        let mut built = 0;
+        let tuple = plans
             .iter()
-            .map(|p| self.random(*p, size, rng, 0))
-            .collect()
+            .map(|p| self.random(*p, size, rng, 0, &mut built))
+            .collect();
+        (tuple, built)
     }
 
     /// A random value of plan `plan` of size up to `size`: sometimes an edge
     /// value (a number past a machine word, a non-ASCII character, a NaN).
-    fn random(&self, plan: usize, size: usize, rng: &mut Rng, depth: usize) -> Option<Term> {
-        if depth > MAX_DEPTH {
+    /// `built` counts the values drawn so far for the tuple it's part of.
+    fn random(
+        &self,
+        plan: usize,
+        size: usize,
+        rng: &mut Rng,
+        depth: usize,
+        built: &mut usize,
+    ) -> Option<Term> {
+        *built += 1;
+        if depth > MAX_DEPTH || *built > MAX_RANDOM_VALUES {
             return None;
         }
         match &self.plans[plan] {
@@ -697,23 +726,35 @@ impl<'g> Inputs<'g> {
                 layout,
                 ..
             } => {
+                // The size shared evenly among the elements, as a list's is.
+                let share = size / (*n).max(1);
                 let parts = (0..*n)
-                    .map(|_| self.random(*elem, size, rng, depth + 1))
+                    .map(|_| self.random(*elem, share, rng, depth + 1, built))
                     .collect::<Option<Vec<Term>>>()?;
                 Some(vec_term(*vec, *layout, parts))
             }
             Plan::Map { head, list } => Some(Term::app(
                 head.clone(),
-                self.random(*list, size, rng, depth + 1)?,
+                self.random(*list, size, rng, depth + 1, built)?,
             )),
             Plan::Data {
                 data, ctors, list, ..
             } => {
-                // A list by its length, up to the size, as QuickCheck does.
+                // A list by its length, up to the size, as QuickCheck does,
+                // with the size shared evenly among its elements, as
+                // QuickCheck's generators of recursive types do: were each
+                // element given all of it, a tree's children would each be
+                // as large as the tree, and a value would grow faster than
+                // exponentially in its size (SW-900). Evenly, not at random
+                // as among a constructor's fields: each element is drawn up
+                // to its share, so the elements vary anyway, a long list
+                // keeps elements of size 1 rather than mostly 0, and no
+                // more numbers are drawn.
                 if let Some(elem) = list {
                     let length = rng.upto(size);
+                    let share = size / length.max(1);
                     let items = (0..length)
-                        .map(|_| self.random(*elem, size, rng, depth + 1))
+                        .map(|_| self.random(*elem, share, rng, depth + 1, built))
                         .collect::<Option<Vec<Term>>>()?;
                     return Some(list_term(*data, items));
                 }
@@ -738,7 +779,7 @@ impl<'g> Inputs<'g> {
                         .zip(&weights)
                         .map(|(p, w)| {
                             let share = (left * w / total) as usize;
-                            self.random(*p, share, rng, depth + 1)
+                            self.random(*p, share, rng, depth + 1, built)
                         })
                         .collect::<Option<Vec<Term>>>()?;
                     if let Some(value) = self.build(plan, c, parts) {
@@ -1273,6 +1314,72 @@ mod tests {
         assert_eq!(shrink_nat(&n(1)), [n(0)]);
         assert_eq!(shrink_nat(&n(2)), [n(0), n(1)]);
         assert!(shrink_nat(&n(0)).is_empty());
+    }
+
+    /// SW-900: a random tuple of trees (types that hold a `List` of
+    /// themselves) at the largest random size is drawn from a few values
+    /// per unit of size, not from exponentially many: a list's elements
+    /// share its size.
+    #[test]
+    fn random_trees_are_about_as_large_as_their_size() {
+        std::thread::Builder::new()
+            .stack_size(256 << 20)
+            .spawn(random_trees)
+            .expect("a thread")
+            .join()
+            .expect("the test passes");
+    }
+
+    fn random_trees() {
+        use stitchwort_core::registry::Builtin;
+        use stitchwort_core::{DataId, Value};
+        use stitchwort_syntax::{SourceMap, parse_module};
+
+        use super::{Inputs, MAX_RANDOM_VALUES};
+        use crate::Elaborator;
+        use crate::counterexample::RANDOM_SIZE;
+
+        let mut sources = SourceMap::new();
+        let core = sources.add("<prelude>", crate::prelude());
+        let core = parse_module(core, crate::prelude()).expect("the core parses");
+        let mut e = Elaborator::new();
+        e.loading_prelude = true;
+        e.elaborate_module(&core);
+        e.finish_core().expect("a complete core");
+        let text = "type Rose: Type =\n  | Leaf\n  | Node (kids: List Rose)\n\n\
+                    type Packet: Type =\n  | Number (value: Nat)\n  | Packets (items: List Packet)\n";
+        let file = sources.add("trees", text);
+        let module = parse_module(file, text).expect("parses");
+        let errors = e.elaborate_module(&module);
+        assert!(errors.is_empty(), "{errors:?}");
+        let g = &e.globals;
+        let data = |name: &str| {
+            let at = g.datas.iter().position(|d| d.name.to_string() == name);
+            Value::Data(DataId(at.expect("declared")), Vec::new())
+        };
+        let packet = data("Packet");
+        let list = g.registry.data(Builtin::List).expect("List");
+        let mut inputs = Inputs::new(g, 1000);
+        let plans: Vec<usize> = [
+            data("Rose"),
+            Value::Data(list, vec![packet.clone()]),
+            packet,
+        ]
+        .iter()
+        .map(|ty| inputs.plan(ty).expect("a plan"))
+        .collect();
+        let mut rng = Rng::new(Rng::seed_of("trees"));
+        let mut most = 0;
+        for _ in 0..500 {
+            let (drawn, built) = inputs.random_tuple_counted(&plans, RANDOM_SIZE, &mut rng);
+            assert!(drawn.is_some(), "a draw gave up after {built} values");
+            most = most.max(built);
+        }
+        assert!(
+            most <= 4 * plans.len() * RANDOM_SIZE,
+            "a draw built {most} values"
+        );
+        assert!(most < MAX_RANDOM_VALUES);
     }
 
     #[test]
