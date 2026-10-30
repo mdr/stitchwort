@@ -1921,8 +1921,16 @@ pub fn quote_folded(g: &Globals, level: usize, value: &Value) -> Result<Term> {
 /// its one step rather than forced through, so the calls that step returns
 /// stay calls (`if True then concatenate a b else 0` is `concatenate a b`).
 /// For printing only; elaborated terms are read back with [`quote_folded`].
+/// A sum stuck on an unknown is written `x + k`
+/// ([`native::nat_add_shown`], SW-895).
 pub fn quote_shown(g: &Globals, level: usize, value: &Value) -> Result<Term> {
     Ok(quote_as(g, level, value, Readback::Shown, None)?.expect("no cap"))
+}
+
+/// [`quote`] for display: the normal form, but a sum stuck on an unknown is
+/// written `x + k` ([`native::nat_add_shown`], SW-895). For printing only.
+pub fn quote_unfolded_shown(g: &Globals, level: usize, value: &Value) -> Result<Term> {
+    Ok(quote_as(g, level, value, Readback::UnfoldedShown, None)?.expect("no cap"))
 }
 
 /// How [`quote_as`] reads back glued calls.
@@ -1934,6 +1942,21 @@ enum Readback {
     Folded,
     /// As calls, one that steps at once by that step ([`quote_shown`]).
     Shown,
+    /// As [`Readback::Unfolded`], for display ([`quote_unfolded_shown`]).
+    UnfoldedShown,
+}
+
+impl Readback {
+    /// Whether glued calls are read back as their unfoldings.
+    fn unfolds(self) -> bool {
+        matches!(self, Readback::Unfolded | Readback::UnfoldedShown)
+    }
+
+    /// Whether the term is only printed, so a stuck sum `k + x` is written
+    /// `x + k` ([`native::nat_add_shown`]).
+    fn for_display(self) -> bool {
+        matches!(self, Readback::Shown | Readback::UnfoldedShown)
+    }
 }
 
 /// The readback; `None` if it grows past `cap` nodes (when given and below
@@ -1991,7 +2014,11 @@ fn quote_as(
             }
             QuoteTask::NatAdd(k) => {
                 let base = done.pop().expect("a base");
-                done.push(native::nat_add_term(g, &k, base));
+                done.push(if mode.for_display() {
+                    native::nat_add_shown(g, &k, base)
+                } else {
+                    native::nat_add_term(g, &k, base)
+                });
             }
             QuoteTask::Eq => {
                 let b = done.pop().expect("three parts");
@@ -2084,7 +2111,7 @@ fn visit(
             tasks.push(QuoteTask::Visit(level, v.clone()));
         }
     };
-    let value = if mode != Readback::Unfolded {
+    let value = if !mode.unfolds() {
         match force_solved(g, value)? {
             Value::Call(id, spine, _) if !matches_at_once(g, id, &spine)? => {
                 let args = call_args(&spine);
@@ -2133,9 +2160,7 @@ fn visit(
         // Read back folded, `Succ` of a call stays that: the call is what
         // was written.
         Value::Ctor(d, 1, args)
-            if mode == Readback::Unfolded
-                && Some(d) == g.builtins.nat
-                && has_call_base(g, &args) =>
+            if mode.unfolds() && Some(d) == g.builtins.nat && has_call_base(g, &args) =>
         {
             visit(g, level, succ_unglued(g, &args[0])?, mode, tasks, done)?;
         }

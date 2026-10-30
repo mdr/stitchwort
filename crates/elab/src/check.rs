@@ -490,7 +490,7 @@ impl<'e> Ctx<'e> {
     /// [`Ctx::show`], but with calls unfolded: what `value` computes to,
     /// for a message that says so.
     pub fn show_unfolded(&self, value: &Value) -> String {
-        match quote(self.g(), self.level(), value) {
+        match stitchwort_core::value::quote_unfolded_shown(self.g(), self.level(), value) {
             Ok(term) => pretty::term_for_message_in(self.g(), self.e, &self.names, &term),
             Err(_) => "…".into(),
         }
@@ -612,7 +612,8 @@ impl<'e> Ctx<'e> {
     pub fn first_difference_note(&self, a: &Value, b: &Value) -> Option<String> {
         let g = self.g();
         let level = self.level();
-        let (x, y) = (quote(g, level, a).ok()?, quote(g, level, b).ok()?);
+        let shown = |v| stitchwort_core::value::quote_unfolded_shown(g, level, v).ok();
+        let (x, y) = (shown(a)?, shown(b)?);
         let found = pretty::first_difference_in(g, self.e, &self.names, &x, &y)?;
         let within = found
             .within

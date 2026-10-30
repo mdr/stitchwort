@@ -7,5 +7,5 @@ expression: output
     │
  24 │   Set.containsFilter s key (keep x)
     │   ────────────────┬───────────────  
-    │                   ╰───────────────── expected `Set.contains (Set.filter s (keep x)) key = (Set.contains s key && keep (Succ x) key)`, but this has type `Set.contains (Set.filter s (keep x)) key = (Set.contains s key && keep x key)`
+    │                   ╰───────────────── expected `Set.contains (Set.filter s (keep x)) key = (Set.contains s key && keep (x + 1) key)`, but this has type `Set.contains (Set.filter s (keep x)) key = (Set.contains s key && keep x key)`
 ────╯

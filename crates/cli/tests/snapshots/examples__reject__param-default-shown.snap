@@ -9,7 +9,7 @@ expression: output
     │                                                                   ─┬─  
     │                                                                    ╰─── `range (a + 1) b` and `[a, b, 1]` aren't equal
     │ 
-    │ Note 1: computing the left side gives `[Succ a, b, 1]`
+    │ Note 1: computing the left side gives `[a + 1, b, 1]`
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
     │ 

@@ -643,6 +643,29 @@ pub fn compare_with(
     }
 }
 
+/// The term for `k + base` shown to a person (SW-895): `base + k`, with the
+/// number on the right as sums are usually written, `x + 1` included. Only
+/// for printing ([`crate::value::quote_shown`],
+/// [`crate::value::quote_unfolded_shown`]): the term is convertible with
+/// [`nat_add_term`]'s but not the same, so it never goes into an elaborated
+/// term, a hash or a comparison.
+///
+/// A `k + base` value comes from arithmetic: `+` (R2 or R4 of
+/// docs/proposals/nat-add-recursion.md, on either side), `Succ` of such a
+/// sum, or a native taking shared `Succ`s off one. `Succ x` written in the
+/// source or a pattern, with `x` not a number or a sum, stays a constructor
+/// value ([`ctor`] only compacts `Succ` of a number or a sum) and is shown
+/// as `Succ x`.
+pub fn nat_add_shown(g: &Globals, k: &BigUint, base: Term) -> Term {
+    match native_def(g, Native::Add) {
+        Some(add) => Term::app(
+            Term::app(Term::Def(add), base),
+            Term::Nat(Rc::new(k.clone())),
+        ),
+        None => nat_add_term(g, k, base),
+    }
+}
+
 /// The term for `k + base`: `Succ base` when `k` is 1 (as proofs usually
 /// write it), and otherwise an application of `add`.
 pub fn nat_add_term(g: &Globals, k: &BigUint, base: Term) -> Term {

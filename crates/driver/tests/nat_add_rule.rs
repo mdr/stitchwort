@@ -290,3 +290,57 @@ fn the_unifier_peels_succs_off_a_sum_stuck_on_an_unknown() {
         assert_eq!(codes, ["E-REFL"], "{name}");
     }
 }
+
+/// A stuck sum is printed with its number on the right, as sums are
+/// written (SW-895): `x + 1` and `x + 3`, not `Succ x` and `3 + x`; a
+/// `Succ` written as one stays `Succ`; a number stays a number. Only the
+/// printing readbacks do this: the kernel's `quote` still gives the terms
+/// it gave before, `Succ x` and `3 + x`. `x` and `y` are variables (levels
+/// 0 and 1).
+#[test]
+fn stuck_sums_are_printed_as_written() {
+    let session = Session::new();
+    let g = &session.elab.globals;
+    let add = add_id(g);
+    let nat = g.builtins.nat.expect("`Nat` is bound");
+    let plus = |a: Term, b: Term| Term::app(Term::app(Term::Def(add), a), b);
+    let succ = |t: Term| Term::ctor(nat, 1, vec![t]);
+    let (x, y) = (|| Term::Var(1), || Term::Var(0));
+    let names: Vec<stitchwort_core::Name> = vec!["x".into(), "y".into()];
+    let env = [Value::var(0), Value::var(1)];
+    // Each term, how it's printed, and the kernel's readback of its value.
+    let cases = [
+        (plus(x(), num(1)), "x + 1", succ(x())),
+        (plus(num(1), x()), "x + 1", succ(x())),
+        (plus(x(), num(3)), "x + 3", plus(num(3), x())),
+        (plus(num(3), x()), "x + 3", plus(num(3), x())),
+        (succ(plus(x(), num(2))), "x + 3", plus(num(3), x())),
+        (
+            plus(x(), plus(y(), num(2))),
+            "x + y + 2",
+            plus(num(2), plus(x(), y())),
+        ),
+        (succ(x()), "Succ x", succ(x())),
+        (succ(succ(x())), "Succ (Succ x)", succ(succ(x()))),
+        (plus(num(2), num(3)), "5", num(5)),
+        (plus(x(), y()), "x + y", plus(x(), y())),
+    ];
+    for (term, printed, kernel) in &cases {
+        let v = value::eval(g, &env, term).expect("no limits");
+        assert_eq!(stitchwort_core::pretty::value(g, &names, &v), *printed);
+        assert_eq!(
+            stitchwort_core::pretty::value_for_message(g, &names, &v),
+            *printed
+        );
+        assert_eq!(
+            format!("{:?}", value::quote(g, 2, &v).expect("no limits")),
+            format!("{kernel:?}"),
+            "the kernel's readback of {printed}"
+        );
+        assert_eq!(
+            format!("{:?}", value::quote_folded(g, 2, &v).expect("no limits")),
+            format!("{kernel:?}"),
+            "the elaborator's readback of {printed}"
+        );
+    }
+}

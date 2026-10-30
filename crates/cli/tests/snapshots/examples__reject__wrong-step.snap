@@ -7,5 +7,5 @@ expression: output
    │
  9 │   | Cons x xs, ys => appendLength xs ys
    │                      ─────────┬────────  
-   │                               ╰────────── expected `Succ (List.length (List.append xs ys)) = Succ (List.length xs + List.length ys)`, but this has type `List.length (List.append xs ys) = List.length xs + List.length ys`
+   │                               ╰────────── expected `Succ (List.length (List.append xs ys)) = List.length xs + List.length ys + 1`, but this has type `List.length (List.append xs ys) = List.length xs + List.length ys`
 ───╯

@@ -8,9 +8,9 @@ expression: output
  12 │   ?
     │   ┬  
     │   ╰── n: Nat
-    │       wide: Nat := 3 + n
-    │       split: 3 + n = 3 + n
-    │       both: 3 + n = 3 + n
-    │       step: (k: Nat) → Succ k = Succ k
-    │       ⊢ total (3 + n) = total (3 + n)
+    │       wide: Nat := n + 3
+    │       split: n + 3 = n + 3
+    │       both: n + 3 = n + 3
+    │       step: (k: Nat) → k + 1 = k + 1
+    │       ⊢ total (n + 3) = total (n + 3)
 ────╯

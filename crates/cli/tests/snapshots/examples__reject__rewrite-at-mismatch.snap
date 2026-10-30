@@ -7,7 +7,7 @@ expression: output
    │
  4 │   rewrite e at h
    │   ───────┬──────  
-   │          ╰──────── expected `Succ a = 5`, but this has type `Succ b = 5`
+   │          ╰──────── expected `a + 1 = 5`, but this has type `Succ b = 5`
    │ 
    │ Note: after `rewrite … at`, `h` is `Succ b = 5`
 ───╯

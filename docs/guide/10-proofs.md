@@ -61,7 +61,7 @@ theorem timesOne: (n: Nat) → n * 1 = n
   | Succ k => Eq.cong Succ (timesOne k)
 ```
 
-In the `Zero` arm the statement is `0 * 1 = 0`, which computes. In the `Succ k` arm it is `Succ k * 1 = Succ k`, which computes to `Succ (k * 1) = Succ k` (`Succ k * 1` is `1 + k * 1`). The recursive call `timesOne k` proves `k * 1 = k`: this is the induction hypothesis, and calling the theorem on a smaller value is how induction is written. The compiler checks that it terminates, like any recursion. `Eq.cong Succ` turns `x = y` into `Succ x = Succ y`.
+In the `Zero` arm the statement is `0 * 1 = 0`, which computes. In the `Succ k` arm it is `Succ k * 1 = Succ k`, which computes to `Succ (k * 1) = Succ k` (`Succ k * 1` is `1 + k * 1`, which messages write `k * 1 + 1`: a sum stuck on an unknown is shown with its number last). The recursive call `timesOne k` proves `k * 1 = k`: this is the induction hypothesis, and calling the theorem on a smaller value is how induction is written. The compiler checks that it terminates, like any recursion. `Eq.cong Succ` turns `x = y` into `Succ x = Succ y`.
 
 The skill is in reading what each case needs. Using the induction hypothesis directly gives a message that shows it:
 
@@ -81,7 +81,7 @@ theorem timesOne: (n: Nat) → n * 1 = n
    │
  5 │   | Succ k => timesOne k
    │               ─────┬────
-   │                    ╰────── expected `Succ (k * 1) = Succ k`, but this has type `k * 1 = k`
+   │                    ╰────── expected `k * 1 + 1 = Succ k`, but this has type `k * 1 = k`
 ───╯
 ```
 
@@ -106,14 +106,14 @@ theorem timesOne: (n: Nat) → n * 1 = n
  5 │   | Succ k => ?
    │               ┬
    │               ╰── k: Nat
-   │                   ⊢ Succ (k * 1) = Succ k
+   │                   ⊢ k * 1 + 1 = Succ k
 ───╯
 1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
 ```
 
 A declaration with a `?` isn't an error, but it isn't finished either: it isn't checked, and `check` fails until every goal is closed. You can state a lemma with `?` as its proof and use it in the main theorem first, then come back to it. In the editor, the goal shows on hover, and "Stitchwort: Show Goals" opens a panel that follows the cursor.
 
-The goal is shown computed, as the checker sees it, so it is often a step further along than what you wrote: `Succ (k * 1)`, not `Succ k * 1`.
+The goal is shown computed, as the checker sees it, so it is often a step further along than what you wrote: `k * 1 + 1`, not `Succ k * 1`.
 
 ## Proofs about lists
 
