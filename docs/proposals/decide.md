@@ -468,7 +468,7 @@ Fetched 29 October 2026 into the lane's scratch directory; line numbers are of t
 (Interfaces, Expressions, Goals, Counterexamples, `calc`, `rewrite`, `omega`, `ring`, `cases`);
 docs/proposals/simp.md (summary, §5, §8.3, §9); counterexample-search.md (§0);
 literal-match-facts.md (the problem); proof-irrelevance.md (status, §0);
-docs/research/proof-automation.md (C10, C11, §5.4, which this note supersedes: its
+docs/research/proof-automation.md in its 29 Oct version, replaced on 30 Oct (C10, C11, §5.4, which this note supersedes: its
 "[unverified]" on Lean's `∀`-over-`Bool` instance is now [cited: L6]); aoc/NOTES-2024.md (day 12
 §6, day 21 §2); the day 12 and day 21 proofs cited inline; crates/elab/src/cases.rs and auto.rs
 (headers), derive.rs and derive_ext.rs (headers), std/Fin/Fin.sw. Not read: omega.md,
