@@ -525,9 +525,9 @@ fn divergence_rule(
 /// is a `Succ` exactly when `M` is (R4, or R2 for `?m + a`), is `a` exactly
 /// when `M` is `Zero` (R3, R1), and is otherwise a sum stuck on `M`. So:
 ///
+/// - `T` is `k + a`, `k > 0`: `?m := k` (R4 `k` times, then R3);
 /// - `T` is `k + t`, `k > 0`, and `t` doesn't mention `?m`: `?m := k + ?m'`
 ///   for a new `?m'`, then `a + ?m' ≟ t` (the one way to peel `k` `Succ`s);
-/// - `T` is convertible to `a`: `?m := Zero`;
 /// - anything else (a number, another sum, a stuck call): `None`, and the
 ///   comparison goes on as before.
 ///
@@ -535,6 +535,14 @@ fn divergence_rule(
 /// could avoid; the kernel checks the result as always. `None` too when
 /// the rule doesn't apply: the rules of `+` aren't bound, neither side is
 /// such a sum, or the other side is an unknown (solved with the sum itself).
+///
+/// `a + ?m ≟ a` on its own, with no `Succ` to peel, is left alone, though
+/// `?m := Zero` is its one solution: `rewrite` finds occurrences by
+/// unification, and `Nat.powAdd 10 k _` would then find `Nat.pow 10 k` as
+/// `Nat.pow 10 (k + 0)`, which no sum matched before `+` computed on its
+/// second argument (2025 day 2's `multiplierSucc`). What the rule does
+/// match, `a + ?m` against `k + a` or `Succ (a + t)`, is what matched as
+/// written then (`x + 1` was stuck).
 fn plus_rule(
     g: &Globals,
     level: usize,
@@ -627,6 +635,11 @@ fn plus_rule_with(
     };
     let (k, rest) = native::view(g, other)?;
     match rest {
+        // `k + a`: `?m := k`.
+        Some(t) if k != BigUint::ZERO && conv(g, level, &sum.known, &t)? => {
+            solve_with(Term::Nat(Rc::new(k)))?;
+            Ok(Some(true))
+        }
         // `k + t`: `?m := k + ?m'`, then `a + ?m' ≟ t`.
         Some(t) if k != BigUint::ZERO => {
             if mentions_meta(g, level, sum.m, &t)? {
@@ -650,11 +663,6 @@ fn plus_rule_with(
                 nat_add::call(add, sum.known, fresh)
             };
             work.push(Task::Values(level, smaller, t));
-            Ok(Some(true))
-        }
-        // `a`: `?m := Zero`.
-        Some(t) if conv(g, level, &sum.known, &t)? => {
-            solve_with(Term::Nat(Rc::new(BigUint::ZERO)))?;
             Ok(Some(true))
         }
         _ => Ok(None),
