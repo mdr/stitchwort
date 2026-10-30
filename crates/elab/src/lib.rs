@@ -403,6 +403,9 @@ pub struct Elaborator {
     /// that has number literals in it checked after its siblings, so they
     /// can say what its parameters are (`check::defers_literal`).
     pub(crate) late_literals: std::cell::Cell<usize>,
+    /// When the field-name rule for record literals is held back, so that a
+    /// construct that tries another way first gets to (`records::held`).
+    pub(crate) field_names: records::FieldNames,
     /// What each receiver's dot call was found to call, by the receiver
     /// expression and the field written after it: so a chain `x.f.g.h` finds
     /// each head once instead of inferring the receiver again at every

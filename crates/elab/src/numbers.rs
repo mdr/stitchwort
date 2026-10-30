@@ -747,7 +747,16 @@ pub(crate) fn map_leaves(
 /// Elaborates the group `expr` (arithmetic, a comparison, or a prefix `-`
 /// that isn't part of a negative literal), against `expected` if
 /// it's an arithmetic tree and that's given: its term and type.
+///
+/// Its leaves are inferred with the field-name rule held back, so a record
+/// literal among them takes its type from the other leaves; only if the
+/// group can't be elaborated that way is the rule used
+/// ([`crate::records::last_resort`]).
 pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
+    crate::records::last_resort(cx, |cx| group_tried(cx, expr, expected))
+}
+
+fn group_tried(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
     // A comparison with a constructor with number literals as an operand: as
     // written first, and if that fails, with that operand last.
     if let Expr::Binary(op, a, b) = expr
@@ -1111,12 +1120,17 @@ fn speculate(
     passed: bool,
 ) -> Result<std::result::Result<(Term, Value), Diagnostic>> {
     let snapshot = crate::undo::Snapshot::take(cx);
-    let inferred = if passed {
-        crate::check::infer_unrun(cx, expr)
-    } else {
-        infer(cx, expr)
-    };
-    match inferred.and_then(|(term, ty)| insert(cx, term, ty)) {
+    // A record literal here takes its type from the other leaves, if any
+    // can say it ([`group`]).
+    let inferred = crate::records::held(cx, |cx| {
+        if passed {
+            crate::check::infer_unrun(cx, expr)
+        } else {
+            infer(cx, expr)
+        }
+        .and_then(|(term, ty)| insert(cx, term, ty))
+    });
+    match inferred {
         Ok(found) => Ok(Ok(found)),
         Err(e) if e.code == "E-CANNOT-INFER" => {
             snapshot.restore(cx);

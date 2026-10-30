@@ -4387,7 +4387,7 @@ def parseDocument (input: Text): {Fail} Document :=
       | [start] => start
       | [] => Fail.fail "expected a robot (@) on the map, found none"
       | _ => Fail.fail "expected one robot (@) on the map, found several"
-  let warehouse: Warehouse := { walls = Set.fromList (positionsOf rows Wall), boxes = Set.fromList (positionsOf rows Box), robot }
+  let warehouse := { walls = Set.fromList (positionsOf rows Wall), boxes = Set.fromList (positionsOf rows Box), robot }
   { warehouse, moves }
 
 def firstFree (boxes: Set Position) (direction: Direction) (position: Position): (fuel: Nat) → Option Position
@@ -4623,6 +4623,9 @@ program uses it again.
   says what type it should have", though `Warehouse` is the only record
   with those fields and the next line puts it in a `Document`. What I
   did: `let warehouse: Warehouse := ...`.
+
+  Fixed: a literal with no expected type is the one record type in scope
+  whose fields are exactly its own; `parseDocument` has no annotation.
 - `falseOf _ (...)` with `_` for `position == warehouse.robot` failed:
   "expected `Decidable.toBool (Aoc.Year2024.Day15.Position.%decEq position
   warehouse.robot) = False`, but this has type `Decidable.toBool

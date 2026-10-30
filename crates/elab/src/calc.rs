@@ -89,7 +89,17 @@ struct Ends {
     end_term: Term,
 }
 
+/// A record literal as the first term takes its type from the goal if the
+/// goal says it (`records::last_resort`).
 fn elaborate(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value, Ends)> {
+    crate::records::last_resort(cx, |cx| elaborate_tried(cx, expr, expected))
+}
+
+fn elaborate_tried(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: Option<&Value>,
+) -> Result<(Term, Value, Ends)> {
     let Expr::Calc { first, steps, .. } = expr else {
         unreachable!("only called on a calc");
     };
@@ -98,7 +108,13 @@ fn elaborate(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Ter
         Some(goal) => hint(cx, goal, ordered)?,
         None => None,
     };
-    let (start, ty) = match infer(cx, first).and_then(|(t, ty)| insert(cx, t, ty)) {
+    let infer_first = |cx: &mut Ctx| infer(cx, first).and_then(|(t, ty)| insert(cx, t, ty));
+    let inferred = if hint.is_some() {
+        crate::records::held(cx, infer_first)
+    } else {
+        infer_first(cx)
+    };
+    let (start, ty) = match inferred {
         Ok(found) => found,
         Err(e) if e.code == "E-CANNOT-INFER" && hint.is_some() => {
             let hint = hint.expect("just checked");

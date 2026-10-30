@@ -1364,13 +1364,9 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let e = check(cx, e, &ty_value)?;
             Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
         }
-        Expr::Record { base: None, .. } => Err(cx
-            .error(
-                "E-CANNOT-INFER",
-                "can't tell which record type this literal is",
-                "nothing here says what type it should have",
-            )
-            .with_note("add a type annotation, as in `({ x = 0, y = 0 }: Point)`")),
+        Expr::Record {
+            base: None, fields, ..
+        } => records::infer_literal(cx, fields),
         Expr::Record {
             base: Some(base),
             fields,
@@ -3525,8 +3521,15 @@ fn char_term(cx: &Ctx, c: char) -> Result<Term> {
 
 /// `a ++ b`: `textAppend` for texts, `append` for lists, chosen by the type of
 /// whichever side can be inferred.
+/// A record literal in `a` takes its type from `b` if `b` can say it
+/// (`records::last_resort`).
 fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
-    let (a, b, ty) = match infer(cx, a).and_then(|(t, ty)| insert(cx, t, ty)) {
+    crate::records::last_resort(cx, |cx| append_tried(cx, a, b))
+}
+
+fn append_tried(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
+    let first = crate::records::held(cx, |cx| infer(cx, a).and_then(|(t, ty)| insert(cx, t, ty)));
+    let (a, b, ty) = match first {
         Ok((a, ty)) => (a, check(cx, b, &ty)?, ty),
         Err(e) if e.code == "E-CANNOT-INFER" => {
             let (b, ty) = infer(cx, b)?;
