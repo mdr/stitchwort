@@ -6,13 +6,13 @@ use std::rc::Rc;
 
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
-use stitchwort_core::native;
 use stitchwort_core::value::{
-    Closure, Elim, Head, Relation, apply_icit, call_args, eval, expand_step, force, force_solved,
-    is_folded, matches_at_once, opens_by_tree, quote, quote_folded, same_closure, same_stuck_trees,
-    underapplied, unfold_folded,
+    Closure, Elim, Head, Relation, Spine, apply_icit, call_args, conv, eval, expand_step, force,
+    force_solved, is_folded, matches_at_once, opens_by_tree, quote, quote_at_most, quote_folded,
+    same_closure, same_stuck_trees, underapplied, unfold_folded,
 };
-use stitchwort_core::{Globals, Term, Value};
+use stitchwort_core::{BigUint, DefId, Globals, Icit, Term, Value};
+use stitchwort_core::{nat_add, native};
 
 /// Makes `a` and `b` equal by solving metavariables, with `level` variables in
 /// scope. `Ok(false)` if they can't be made equal; an error if it ran out of
@@ -24,11 +24,43 @@ use stitchwort_core::{Globals, Term, Value};
 /// in the same order; a function type's codomain is only evaluated once its
 /// domain has been unified, so it sees the solutions.
 pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
-    let mut work = vec![Task::Values(level, a.clone(), b.clone())];
+    run(g, vec![Task::Values(level, a.clone(), b.clone())])
+}
+
+/// [`unify`] for every pair on the work list.
+///
+/// A pair that fails while one side is a definition stuck on an unknown is
+/// put aside and compared again after the rest, evaluated afresh, if the
+/// rest solved anything: the unknown may be solved by then and the
+/// definition compute. So `List.rangeFrom (Succ ?hi - ?lo) ?lo` against
+/// `List.rangeFrom (n - 1) 2` solves `?lo` from the second arguments, and
+/// then `?hi - 1` against `n - 1` solves `?hi` (SW-896). A pair put aside
+/// fails for good if nothing was solved since. What a failed comparison
+/// solved is kept, as it is when unification fails (callers that try again
+/// build on it).
+fn run(g: &Globals, mut work: Vec<Task>) -> Result<bool> {
     while let Some(task) = work.pop() {
         g.budget.step()?;
         let same = match task {
-            Task::Values(level, a, b) => unify_step(g, level, &a, &b, &mut work)?,
+            Task::Values(level, a, b) => {
+                if unify_step(g, level, &a, &b, &mut work)? {
+                    true
+                } else if blocked(g, &a)? || blocked(g, &b)? {
+                    let trail = g.meta_trail.borrow().len();
+                    work.insert(0, Task::Later(level, a, b, trail));
+                    true
+                } else {
+                    false
+                }
+            }
+            // Put aside, and nothing solved since: they differ.
+            Task::Later(_, _, _, trail) if g.meta_trail.borrow().len() <= trail => false,
+            Task::Later(level, a, b, _) => {
+                let env: Vec<Value> = (0..level).map(Value::var).collect();
+                let afresh = |v: &Value| eval(g, &env, &quote_folded(g, level, v)?);
+                work.push(Task::Values(level, afresh(&a)?, afresh(&b)?));
+                true
+            }
             // Identical functions unify without solving anything (`same_closure`).
             Task::Codomains(_, b1, b2) if same_closure(&b1, &b2) => true,
             Task::Codomains(level, b1, b2) => {
@@ -485,10 +517,231 @@ fn divergence_rule(
     Ok(Some(true))
 }
 
+/// The rules of `+` read backwards (SW-896; docs/proposals/nat-add-recursion.md
+/// §10), for a sum stuck on an unknown: `a + ?m ≟ T`, or `?m + a ≟ T`, where
+/// `a` mentions no unknown and `?m` is unsolved and applied to distinct
+/// variables. `a` is then stuck for good (it's no number or constructor, or
+/// the sum would have computed, and no solution can make it one), so `a + M`
+/// is a `Succ` exactly when `M` is (R4, or R2 for `?m + a`), is `a` exactly
+/// when `M` is `Zero` (R3, R1), and is otherwise a sum stuck on `M`. So:
+///
+/// - `T` is `k + a`, `k > 0`: `?m := k` (R4 `k` times, then R3);
+/// - `T` is `k + t`, `k > 0`, and `t` doesn't mention `?m`: `?m := k + ?m'`
+///   for a new `?m'`, then `a + ?m' ≟ t` (the one way to peel `k` `Succ`s);
+/// - anything else (a number, another sum, a stuck call): `None`, and the
+///   comparison goes on as before.
+///
+/// Every solution has that shape, so the rule chooses nothing a solution
+/// could avoid; the kernel checks the result as always. `None` too when
+/// the rule doesn't apply: the rules of `+` aren't bound, neither side is
+/// such a sum, or the other side is an unknown (solved with the sum itself).
+///
+/// `a + ?m ≟ a` on its own, with no `Succ` to peel, is left alone, though
+/// `?m := Zero` is its one solution: `rewrite` finds occurrences by
+/// unification, and `Nat.powAdd 10 k _` would then find `Nat.pow 10 k` as
+/// `Nat.pow 10 (k + 0)`, which no sum matched before `+` computed on its
+/// second argument (2025 day 2's `multiplierSucc`). What the rule does
+/// match, `a + ?m` against `k + a` or `Succ (a + t)`, is what matched as
+/// written then (`x + 1` was stuck).
+fn plus_rule(
+    g: &Globals,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    work: &mut Vec<Task>,
+) -> Result<Option<bool>> {
+    let Some(add) = g.builtins.nat_add_rule else {
+        return Ok(None);
+    };
+    if let Some(sum) = stuck_sum(g, level, add, a)?
+        && let Some(answer) = plus_rule_with(g, level, add, sum, b, work)?
+    {
+        return Ok(Some(answer));
+    }
+    match stuck_sum(g, level, add, b)? {
+        Some(sum) => plus_rule_with(g, level, add, sum, a, work),
+        None => Ok(None),
+    }
+}
+
+/// A sum stuck on an unknown, as [`plus_rule`] takes it apart.
+struct StuckSum {
+    /// The side that mentions no unknown.
+    known: Value,
+    /// Whether the unknown is the first summand (`?m + a`).
+    unknown_first: bool,
+    m: usize,
+    spine: Spine,
+}
+
+/// `v`, an already forced value, as a [`StuckSum`] of `add`, if it is one.
+fn stuck_sum(g: &Globals, level: usize, add: DefId, v: &Value) -> Result<Option<StuckSum>> {
+    let Value::Neutral(Head::Def(d), spine) = v else {
+        return Ok(None);
+    };
+    let [Elim::App(x, Icit::Explicit), Elim::App(y, Icit::Explicit)] = &spine[..] else {
+        return Ok(None);
+    };
+    if *d != add {
+        return Ok(None);
+    }
+    let unknown = |v: &Value| -> Result<Option<(usize, Spine)>> {
+        Ok(match force(g, v.clone())? {
+            Value::Neutral(Head::Meta(m), s) if !g.meta_frozen(m) && distinct_variables(g, &s)? => {
+                Some((m, s))
+            }
+            _ => None,
+        })
+    };
+    let (known, unknown_first, (m, spine)) = match (unknown(x)?, unknown(y)?) {
+        (None, Some(u)) => (x, false, u),
+        (Some(u), None) => (y, true, u),
+        _ => return Ok(None),
+    };
+    if mentions_unknown(g, level, known)? {
+        return Ok(None);
+    }
+    Ok(Some(StuckSum {
+        known: known.clone(),
+        unknown_first,
+        m,
+        spine,
+    }))
+}
+
+/// [`plus_rule`] for `sum ≟ other`.
+fn plus_rule_with(
+    g: &Globals,
+    level: usize,
+    add: DefId,
+    sum: StuckSum,
+    other: &Value,
+    work: &mut Vec<Task>,
+) -> Result<Option<bool>> {
+    if matches!(other, Value::Neutral(Head::Meta(_), _)) {
+        return Ok(None);
+    }
+    // `x1 … xn => body`, for the unknown's spine.
+    let solve_with = |body: Term| -> Result<()> {
+        let mut solution = body;
+        for elim in sum.spine.iter().rev() {
+            let Elim::App(_, icit) = elim else {
+                unreachable!("distinct variables are applications")
+            };
+            solution = Term::Lam("x".into(), *icit, Rc::new(solution));
+        }
+        g.solve_meta(sum.m, eval(g, &[], &solution)?);
+        Ok(())
+    };
+    let (k, rest) = native::view(g, other)?;
+    match rest {
+        // `k + a`: `?m := k`.
+        Some(t) if k != BigUint::ZERO && conv(g, level, &sum.known, &t)? => {
+            solve_with(Term::Nat(Rc::new(k)))?;
+            Ok(Some(true))
+        }
+        // `k + t`: `?m := k + ?m'`, then `a + ?m' ≟ t`.
+        Some(t) if k != BigUint::ZERO => {
+            if mentions_meta(g, level, sum.m, &t)? {
+                return Ok(None);
+            }
+            let span = g.metas.borrow()[sum.m].span;
+            let fresh = g.new_meta(span);
+            let n = sum.spine.len();
+            let mut applied = Term::Meta(fresh);
+            for (i, elim) in sum.spine.iter().enumerate() {
+                let Elim::App(_, icit) = elim else {
+                    unreachable!("distinct variables are applications")
+                };
+                applied = Term::app_icit(applied, Term::Var(n - 1 - i), *icit);
+            }
+            solve_with(native::nat_add_term(g, &k, applied))?;
+            let fresh = Value::Neutral(Head::Meta(fresh), sum.spine.clone());
+            let smaller = if sum.unknown_first {
+                nat_add::call(add, fresh, sum.known)
+            } else {
+                nat_add::call(add, sum.known, fresh)
+            };
+            work.push(Task::Values(level, smaller, t));
+            Ok(Some(true))
+        }
+        _ => Ok(None),
+    }
+}
+
+/// Whether `spine` is distinct variables, as a pattern's is.
+fn distinct_variables(g: &Globals, spine: &[Elim]) -> Result<bool> {
+    let mut seen = HashSet::default();
+    for elim in spine {
+        let Elim::App(v, _) = elim else {
+            return Ok(false);
+        };
+        match force(g, v.clone())? {
+            Value::Neutral(Head::Var(l, _), s) if s.is_empty() && seen.insert(l) => {}
+            _ => return Ok(false),
+        }
+    }
+    Ok(true)
+}
+
+/// The most nodes [`mentions_unknown`] reads back before giving up.
+const KNOWN_CAP: u64 = 4096;
+
+/// Whether `v` may mention an unknown: read back, it has one, or it's too
+/// large to tell cheaply.
+fn mentions_unknown(g: &Globals, level: usize, v: &Value) -> Result<bool> {
+    Ok(match quote_at_most(g, level, v, KNOWN_CAP)? {
+        Some(t) => t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))),
+        None => true,
+    })
+}
+
+/// Whether `v` mentions unknown `m`, through the solutions of others too.
+fn mentions_meta(g: &Globals, level: usize, m: usize, v: &Value) -> Result<bool> {
+    let renaming: HashMap<usize, usize> = (0..level).map(|l| (l, l)).collect();
+    Ok(settle(rename(g, m, &renaming, level, level, v, true))?.is_none())
+}
+
 /// Unification still to do.
 enum Task {
     Values(usize, Value, Value),
     Codomains(usize, Closure, Closure),
+    /// A pair put aside ([`run`]), with the length of the trail then.
+    Later(usize, Value, Value, usize),
+}
+
+/// Whether `v` may be a definition stuck on an unknown, as far as can be
+/// told cheaply: a call of one with an argument that is an unknown not
+/// solved yet (or `k + ` one), or such a call itself, [`BLOCKED_DEPTH`]
+/// calls deep at most.
+fn blocked(g: &Globals, v: &Value) -> Result<bool> {
+    blocked_within(g, v, BLOCKED_DEPTH)
+}
+
+/// How deep [`blocked`] looks.
+const BLOCKED_DEPTH: usize = 3;
+
+fn blocked_within(g: &Globals, v: &Value, depth: usize) -> Result<bool> {
+    let Value::Neutral(Head::Def(_), spine) = force(g, v.clone())? else {
+        return Ok(false);
+    };
+    for elim in spine.iter() {
+        let Elim::App(arg, _) = elim else {
+            continue;
+        };
+        let arg = match force(g, arg.clone())? {
+            Value::NatAdd(_, base) => force(g, (*base).clone())?,
+            other => other,
+        };
+        match &arg {
+            Value::Neutral(Head::Meta(m), _) if !g.meta_frozen(*m) => return Ok(true),
+            Value::Neutral(Head::Def(_), _) if depth > 1 && blocked_within(g, &arg, depth - 1)? => {
+                return Ok(true);
+            }
+            _ => {}
+        }
+    }
+    Ok(false)
 }
 
 /// Unifies the outermost layer of `a` and `b`: `false` if they can't be made
@@ -532,8 +785,13 @@ fn unify_step(
             return Ok(true);
         }
     }
+    // A sum stuck on an unknown, by the rules of `+` read backwards.
+    if let Some(answer) = plus_rule(g, level, &a, &b, work)? {
+        return Ok(answer);
+    }
     // Numbers compare by their `k + x` forms (see `conv`): `3` and `Succ ?x`
-    // unify by solving `?x` with `2`.
+    // unify by solving `?x` with `2`, and `Succ (x + ?d)` and `Succ (Succ x)`
+    // by `plus_rule`.
     if !is_meta(&a) && !is_meta(&b) && (native::nat_like(g, &a) || native::nat_like(g, &b)) {
         return native::compare(
             g,
@@ -543,7 +801,16 @@ fn unify_step(
                 work.push(Task::Values(level, x.clone(), y.clone()));
                 Ok(true)
             },
-            |x, v| Ok(is_meta(x) && unify(g, level, x, v)?),
+            |x, v| {
+                if is_meta(x) {
+                    return unify(g, level, x, v);
+                }
+                let mut work = Vec::new();
+                match plus_rule(g, level, x, v, &mut work)? {
+                    Some(true) => run(g, work),
+                    _ => Ok(false),
+                }
+            },
         );
     }
     // A computation type over a row unknown, against a type that settles it
@@ -662,7 +929,15 @@ fn unify_step(
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 => {
             if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
                 // Eta for definitions doesn't apply, so the spines must match.
+                // Calls stuck on an unknown may be equal without that, once it
+                // is solved: their spines are compared here, so that if they
+                // differ, the calls are put aside whole ([`run`]).
                 match spine_pairs(level, s1, s2) {
+                    Some(pairs)
+                        if matches!(h1, Head::Def(_)) && (blocked(g, &a)? || blocked(g, &b)?) =>
+                    {
+                        run(g, pairs.into_iter().rev().collect())?
+                    }
                     Some(pairs) => {
                         work.extend(pairs.into_iter().rev());
                         true

@@ -239,3 +239,54 @@ fn the_rules_are_only_for_the_librarys_add() {
         .collect();
     assert_eq!(codes, ["E-REFL"]);
 }
+
+/// The unifier reads the rules backwards for a sum stuck on an unknown
+/// (`plus_rule` in crates/elab/src/unify.rs, SW-896): `x + ?d` against a
+/// `Succ` peels it. Where a solution needn't have that shape, or peeling
+/// might not end, it does nothing, and these stay `E-REFL`.
+#[test]
+fn the_unifier_peels_succs_off_a_sum_stuck_on_an_unknown() {
+    let mut session = Session::new();
+    let ok = session.load(
+        "peel.sw",
+        "def three (x: Nat) (f: (d: Nat) → x + d = x + 3 → Nat): Nat := f _ rfl\n\
+         def left (x: Nat) (t: Nat) (f: (d: Nat) → d + x = Succ (t + x) → Nat): Nat := f _ rfl\n\
+         theorem solved (x: Nat): three x (d p => d) = 3 := rfl\n",
+    );
+    assert!(ok.is_ok(), "{ok:?}");
+    for (name, source) in [
+        // `?d` inside the other side: `?d := Succ ?d'` would go on for ever.
+        (
+            "occurs",
+            "def occurs (x: Nat) (f: (d: Nat) → x + d = Succ d → Nat): Nat := f _ rfl\n",
+        ),
+        // Both summands unknown: `?c := Succ ?c'` would do as well.
+        (
+            "both",
+            "def both (x: Nat) (f: (c: Nat) → (d: Nat) → c + d = Succ x → Nat): Nat := f _ _ rfl\n",
+        ),
+        // The known summand mentions an unknown, so may yet be a `Succ`.
+        (
+            "inside",
+            "def inside (x: Nat) (f: (c: Nat) → (d: Nat) → (c + x) + d = 3 + x → Nat): Nat := f _ _ rfl\n",
+        ),
+        // Nothing to peel: `0` isn't a `Succ`, and `x` alone is left alone.
+        (
+            "zero",
+            "def zero (x: Nat) (f: (d: Nat) → x + d = 0 → Nat): Nat := f _ rfl\n",
+        ),
+        (
+            "itself",
+            "def itself (x: Nat) (f: (d: Nat) → x + d = x → Nat): Nat := f _ rfl\n",
+        ),
+    ] {
+        let refused = session.load(&format!("{name}.sw"), source);
+        let codes: Vec<&str> = refused
+            .err()
+            .unwrap_or_default()
+            .iter()
+            .map(|d| d.code)
+            .collect();
+        assert_eq!(codes, ["E-REFL"], "{name}");
+    }
+}

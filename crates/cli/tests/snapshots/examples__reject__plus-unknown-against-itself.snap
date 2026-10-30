@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/plus-unknown-against-itself.sw:7:68 ]
+   │
+ 7 │ def unchanged (x: Nat) (f: (d: Nat) → x + d = x → Nat): Nat := f _ rfl
+   │                                                                    ─┬─  
+   │                                                                     ╰─── `x + ?0 x f` and `x` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯
