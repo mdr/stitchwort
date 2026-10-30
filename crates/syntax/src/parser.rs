@@ -1711,7 +1711,7 @@ impl<'t> Parser<'t> {
             names.push(self.lower("a name")?);
         }
         self.expect(Tok::Colon, "`:`")?;
-        let ty = self.expr()?;
+        let ty = self.binder_type()?;
         let default = if self.eat(&Tok::ColonEq) {
             Some(self.expr()?)
         } else {
@@ -1719,6 +1719,47 @@ impl<'t> Parser<'t> {
         };
         self.expect(Tok::RParen, "`)`")?;
         Ok((Binder { names, ty, attrs }, default))
+    }
+
+    /// A binder's type, after its `:`. An ability row is written only on a
+    /// result type (D1141 (d)), so `{…} T` here, braces followed by a type,
+    /// is refused with what to write instead, rather than read as a record
+    /// literal applied to `T` (SW-908): `{} Nat` gave "can't tell which
+    /// record type this literal is", `{IO} Nat` "expected `|` and the
+    /// fields to update".
+    fn binder_type(&mut self) -> Result<Expr> {
+        if self.peek() == Some(&Tok::LBrace)
+            && let close = self.matching[self.pos]
+            && close != NO_PARTNER
+            && self.tokens.get(close as usize + 1).is_some_and(|t| {
+                matches!(
+                    t.tok,
+                    Tok::Upper(_)
+                        | Tok::Lower(_)
+                        | Tok::LParen
+                        | Tok::LBracket
+                        | Tok::TypeU
+                        | Tok::Prop
+                )
+            })
+        {
+            let span = self.tokens[self.pos]
+                .span
+                .to(self.tokens[close as usize].span);
+            let note = if close as usize == self.pos + 1 {
+                "a row written `{}` is no row: `{} Nat` is `Nat`, so write the type without it"
+            } else {
+                "a computation type is written only as a result type: to take a computation, \
+                 take a function returning it, as in `(c: () -> {IO} Nat)`"
+            };
+            return Err(Diagnostic::error(
+                "E-PARSE",
+                "an ability row can't be written in a parameter's type",
+            )
+            .with_label(span, "this `{…}` is an ability row")
+            .with_note(note));
+        }
+        self.expr()
     }
 
     // Expressions, loosest-binding first
@@ -2263,7 +2304,7 @@ impl<'t> Parser<'t> {
                     self.bump();
                     let pattern = self.pattern()?;
                     self.expect(Tok::Colon, "`:`")?;
-                    let ty = self.expr()?;
+                    let ty = self.binder_type()?;
                     self.expect(Tok::RParen, "`)`")?;
                     let name = Name {
                         text: format!("%arg{}", params.len()),
@@ -2939,7 +2980,7 @@ impl<'t> Parser<'t> {
             names.remove(0);
         }
         self.expect(Tok::Colon, "`:`")?;
-        let ty = self.expr()?;
+        let ty = self.binder_type()?;
         self.expect(Tok::RBracket, "`]`")?;
         Ok((Binder { names, ty, attrs }, auto))
     }
@@ -5027,6 +5068,34 @@ mod tests {
         assert_eq!(row("{e}"), (0, Some("e".into())));
         assert_eq!(row("{| e}"), (0, Some("e".into())));
         assert_eq!(row("{}"), (0, None));
+    }
+
+    /// SW-908: a parameter's type can't start with an ability row; the error
+    /// says what to write. A record literal there that isn't applied to a
+    /// type is left to the elaborator, as before.
+    #[test]
+    fn a_row_in_a_parameters_type_says_what_to_write() {
+        for (text, note) in [
+            ("def f (c: {} Nat): Nat := c\n", "`{} Nat` is `Nat`"),
+            ("def f (c: {IO} Nat): Nat := 0\n", "`(c: () -> {IO} Nat)`"),
+            (
+                "def f [c: {Fail | e} a]: Nat := 0\n",
+                "only as a result type",
+            ),
+            (
+                "def f: Nat -> Nat := (c: {} Nat) => c\n",
+                "`{} Nat` is `Nat`",
+            ),
+            ("def f: (c: {} Nat) -> Nat := c => c\n", "`{} Nat` is `Nat`"),
+        ] {
+            let e = parse_error(text);
+            assert_eq!(
+                e.message, "an ability row can't be written in a parameter's type",
+                "{text}"
+            );
+            assert!(e.notes.iter().any(|n| n.contains(note)), "{text}: {e:?}");
+        }
+        parse("def f (c: {}): Nat := 0\n");
     }
 
     #[test]

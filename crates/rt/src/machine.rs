@@ -381,6 +381,29 @@ impl State {
         Ok(())
     }
 
+    /// What native operation `op` on `args` costs beyond its frame: its big
+    /// numbers' words, when they count ([`Limits::number_words`]).
+    #[inline]
+    fn number_cost(&self, op: PrimOp, args: &[&Value]) -> u64 {
+        if self.limits.number_words {
+            prims::number_cost(op, args)
+        } else {
+            0
+        }
+    }
+
+    /// Charges `cost` steps (from [`State::number_cost`]).
+    #[inline]
+    fn charge(&mut self, cost: u64) -> Result<()> {
+        if cost > 0 {
+            self.steps = self.steps.saturating_add(cost);
+            if self.steps > self.limits.steps {
+                return Err(ResourceError::Work);
+            }
+        }
+        Ok(())
+    }
+
     /// Puts `args` on top of the registers, for `apply`, `enter` or
     /// `effect`: how many.
     fn put_args(&mut self, args: impl IntoIterator<Item = Value>) -> usize {
@@ -519,6 +542,16 @@ impl State {
                 GlobalKind::Native(PrimOp::Effect(op)) => self.effect(program, image, *op, n, ret),
                 GlobalKind::Native(op) => {
                     let at = self.regs.len() - n;
+                    if self.limits.number_words {
+                        let refs: SmallVec<[&Value; 4]> = self.regs[at..].iter().collect();
+                        let cost = self.number_cost(*op, &refs);
+                        drop(refs);
+                        // Charged before the work is done.
+                        if let Err(e) = self.charge(cost) {
+                            self.regs.truncate(at);
+                            return Err(e);
+                        }
+                    }
                     let refs: SmallVec<[&Value; 4]> = self.regs[at..].iter().collect();
                     let v = prims::eval(&program.shapes, *op, &refs);
                     drop(refs);
@@ -1100,6 +1133,16 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         pending = st.fold_start(program, image, f, z, &t, Ret::Reg(to))?;
                         continue 'outer;
                     }
+                    if st.limits.number_words {
+                        let refs: SmallVec<[&Value; 4]> =
+                            o.iter().map(|r| &st.regs[base + *r as usize]).collect();
+                        let cost = st.number_cost(op, &refs);
+                        drop(refs);
+                        if cost > 0 {
+                            save!();
+                            st.charge(cost)?;
+                        }
+                    }
                     let v = match o {
                         [a] => prims::eval(s, op, &[&reg!(*a)]),
                         [a, b] => prims::eval(s, op, &[&reg!(*a), &reg!(*b)]),
@@ -1334,6 +1377,16 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     let holds = match fast {
                         Some(holds) => holds,
                         None => {
+                            if st.limits.number_words {
+                                let refs: SmallVec<[&Value; 4]> =
+                                    o.iter().map(|r| &st.regs[base + *r as usize]).collect();
+                                let cost = st.number_cost(op, &refs);
+                                drop(refs);
+                                if cost > 0 {
+                                    save!();
+                                    st.charge(cost)?;
+                                }
+                            }
                             let refs: Vec<&Value> =
                                 o.iter().map(|r| &st.regs[base + *r as usize]).collect();
                             match prims::eval(s, op, &refs).tag() {

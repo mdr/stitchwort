@@ -238,6 +238,9 @@ pub fn run_fast(
         stitchwort_rt::Limits {
             steps: FAST_STEPS,
             frames: limits.frames,
+            // A step per word of a big number, so that an input's steps
+            // bound its time and memory (SW-907).
+            number_words: true,
         },
     );
     let parts = |value: &Value| -> Option<(Value, Value)> {

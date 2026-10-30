@@ -738,7 +738,12 @@ impl Elaborator {
         let call = input
             .iter()
             .fold(checker.term.clone(), |f, a| Term::app(f, a.clone()));
-        match eval(g, &[], &call).and_then(|v| force(g, v)) {
+        // A step per word of a big number, so that the steps bound the
+        // input's time and memory, as on the fast runtime (SW-907).
+        let counted = g.budget.count_number_words(true);
+        let result = eval(g, &[], &call).and_then(|v| force(g, v));
+        g.budget.count_number_words(counted);
+        match result {
             Ok(Value::Nat(k)) => Ok(u64::try_from(k.as_ref().clone()).ok()),
             Ok(Value::Ctor(_, 0, _)) => Ok(Some(0)),
             Ok(_) => Ok(None),

@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `doubleTimesHalved`
+    ╭─[ goals/counterexample-big-numbers.sw:15:100 ]
+    │
+ 15 │ theorem doubleTimesHalved (n: Nat) (count: Nat): Nat.shiftRight (doubleTimes n count) count = n := ?
+    │                                                                                                    ┬  
+    │                                                                                                    ╰── n: Nat
+    │                                                                                                        count: Nat
+    │                                                                                                        ⊢ Nat.shiftRight (doubleTimes n count) count = n
+────╯
+[GOAL] Goal: in `powTwoIsPow`
+    ╭─[ goals/counterexample-big-numbers.sw:26:74 ]
+    │
+ 26 │ theorem powTwoIsPow (fuel: Nat) (k: Nat): powTwo fuel k = Nat.pow 2 k := ?
+    │                                                                          ┬  
+    │                                                                          ╰── fuel: Nat
+    │                                                                              k: Nat
+    │                                                                              ⊢ powTwo fuel k = Nat.pow 2 k
+────╯

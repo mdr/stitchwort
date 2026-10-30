@@ -19,6 +19,15 @@ pub struct Limits {
     pub steps: u64,
     /// Frames pending at once: how deeply a program may recurse.
     pub frames: usize,
+    /// Whether an operation on a big number (one past a machine word) also
+    /// costs a step per word it works through ([`crate::prims::number_cost`]),
+    /// so that the steps bound its time and memory too. Only the machine
+    /// counts these, and only the counterexample search asks it to
+    /// (SW-907): there a random number at a word's edge, used as a count of
+    /// doublings or an exponent, makes numbers of gigabytes in a few steps.
+    /// Otherwise a step is a frame entered, counted the same on the machine
+    /// and in native code.
+    pub number_words: bool,
 }
 
 impl Limits {
@@ -28,6 +37,7 @@ impl Limits {
         Limits {
             steps: limits.work,
             frames: limits.frames,
+            number_words: false,
         }
     }
 }

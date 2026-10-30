@@ -830,7 +830,27 @@ pub fn run(
             None => return run_partial(g, id, native, &values, force),
         }
     }
+    // Charged before the work is done, when it counts.
+    g.budget.number_words(|| number_words(native, &args))?;
     Ok(run_numbers(g, native, &args).map(Outcome::Done))
+}
+
+/// The steps a native operation on numbers costs beyond its own when an
+/// operation on big numbers counts their words
+/// ([`crate::budget::Budget::count_number_words`]): none unless a number
+/// is past a machine word; then the product of the operands' words for a
+/// multiplication or a division (schoolbook's bound), and the sum of the
+/// numbers' words for anything else. The fast runtime counts the same
+/// (`stitchwort_rt::prims::number_cost`).
+pub fn number_words(native: Native, args: &[BigUint]) -> u64 {
+    if args.iter().all(|n| n.bits() <= 64) {
+        return 0;
+    }
+    let words = |n: &BigUint| n.bits().div_ceil(64).max(1);
+    match (native, args) {
+        (Native::Mul, [m, n]) | (Native::DivFuel, [_, m, n]) => words(m).saturating_mul(words(n)),
+        _ => args.iter().map(words).fold(0, u64::saturating_add),
+    }
 }
 
 /// A native implementation on numbers.
