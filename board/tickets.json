@@ -7205,9 +7205,9 @@
     {
       "id": 817,
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
-      "status": "backlog",
-      "agent": "",
-      "where": "stages 1-2 merged; D2035 yes (Matt): stage 3 also makes the Prop-where-Bool-expected choice (decide_to_bool) wait; stage 3 next",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "stage 3 lane: K3 method sections + D2035",
       "labels": [
         "decision"
       ],
@@ -8668,9 +8668,9 @@
     {
       "id": 910,
       "title": "Let-bound curried lambda r => p => … can't be inferred, while r p => … can",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "janitorial lane",
       "labels": [
         "elab",
         "bug"
