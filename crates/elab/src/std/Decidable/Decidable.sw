@@ -37,3 +37,13 @@ theorem DecEq.refl [auto eq: DecEq a] (x: a): (x == x) = True := Decidable.toBoo
 -- `x == y` is `y == x`.
 theorem DecEq.eqComm [auto eq: DecEq a] (x: a) (y: a): (x == y) = (y == x) :=
   Bool.eqOf (x == y) (y == x) (h => rewrite DecEq.sound x y h in DecEq.refl y) (h => rewrite DecEq.sound y x h in DecEq.refl x)
+
+-- A closed decidable statement, proved by deciding it: `auto` finds its
+-- decision procedure, the elaborator runs it, and the proof is
+-- `Decidable.fromYes d Trivial`, which the kernel checks by running `d`
+-- again (docs/proposals/decide.md §2, §6.2): `theorem small: 2 + 2 < 5 :=
+-- byDecision`, `theorem found: Enter ∈ keys := byDecision`. A false one is
+-- `E-AUTO-FALSE`; one whose procedure is stuck on a variable is
+-- `E-AUTO-STUCK` (split the variable with `cases`, or check every value
+-- with `Finite.check`).
+def byDecision [p: Prop] [auto h: p]: p := h

@@ -671,13 +671,13 @@ fn ord_params<'a>(
 }
 
 /// Builds source at one place.
-struct Src {
-    span: Span,
+pub(crate) struct Src {
+    pub(crate) span: Span,
 }
 
 impl Src {
     /// `T %p0 …`, an `auto` parameter given by name: `T %p0 [ord := %p1]`.
-    fn this(&self, ty_name: &str, data: &stitchwort_core::globals::Data) -> Expr {
+    pub(crate) fn this(&self, ty_name: &str, data: &stitchwort_core::globals::Data) -> Expr {
         let np = data.params.len();
         self.app(
             self.var(ty_name),
@@ -699,7 +699,7 @@ impl Src {
         )
     }
 
-    fn signature(&self, name: &str, ty: Expr, instance: bool) -> Decl {
+    pub(crate) fn signature(&self, name: &str, ty: Expr, instance: bool) -> Decl {
         Decl::Signature {
             name: self.n(name),
             ty,
@@ -716,7 +716,7 @@ impl Src {
         }
     }
 
-    fn equation(&self, name: &str, patterns: Vec<Pattern>, rhs: Expr) -> Decl {
+    pub(crate) fn equation(&self, name: &str, patterns: Vec<Pattern>, rhs: Expr) -> Decl {
         Decl::Equation {
             name: self.n(name),
             patterns,
@@ -726,31 +726,31 @@ impl Src {
         }
     }
 
-    fn n(&self, text: &str) -> ast::Name {
+    pub(crate) fn n(&self, text: &str) -> ast::Name {
         ast::Name {
             text: text.to_string(),
             span: self.span,
         }
     }
 
-    fn var(&self, text: &str) -> Expr {
+    pub(crate) fn var(&self, text: &str) -> Expr {
         Expr::Var(self.n(text))
     }
 
-    fn app(&self, head: Expr, args: Vec<Expr>) -> Expr {
+    pub(crate) fn app(&self, head: Expr, args: Vec<Expr>) -> Expr {
         args.into_iter()
             .fold(head, |f, a| Expr::App(Box::new(f), Box::new(a)))
     }
 
-    fn eq(&self, a: Expr, b: Expr) -> Expr {
+    pub(crate) fn eq(&self, a: Expr, b: Expr) -> Expr {
         Expr::Binary(BinOp::Eq, Box::new(a), Box::new(b))
     }
 
-    fn arrow(&self, a: Expr, b: Expr) -> Expr {
+    pub(crate) fn arrow(&self, a: Expr, b: Expr) -> Expr {
         Expr::Arrow(Box::new(a), Box::new(b))
     }
 
-    fn lam(&self, names: &[&str], body: Expr) -> Expr {
+    pub(crate) fn lam(&self, names: &[&str], body: Expr) -> Expr {
         Expr::Lam(
             names.iter().map(|x| self.n(x)).collect(),
             Box::new(body),
@@ -758,7 +758,25 @@ impl Src {
         )
     }
 
-    fn pi(&self, names: &[&str], implicit: bool, auto: bool, dom: Expr, cod: Expr) -> Expr {
+    /// `(x: ty) => body`.
+    pub(crate) fn typed_lam(&self, x: &str, ty: Expr, body: Expr) -> Expr {
+        Expr::TypedLam(
+            self.n(x),
+            ast::Mode::Explicit,
+            Box::new(ty),
+            Box::new(body),
+            self.span,
+        )
+    }
+
+    pub(crate) fn pi(
+        &self,
+        names: &[&str],
+        implicit: bool,
+        auto: bool,
+        dom: Expr,
+        cod: Expr,
+    ) -> Expr {
         Expr::Pi {
             names: names.iter().map(|x| self.n(x)).collect(),
             implicit,

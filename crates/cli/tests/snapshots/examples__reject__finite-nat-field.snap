@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-INSTANCE-NONE] Error: no `Finite` instance for `Reading`
+    ╭─[ reject/finite-nat-field.sw:11:31 ]
+    │
+ 11 │ def readings: List Reading := Finite.all
+    │                               ─────┬────  
+    │                                    ╰────── this needs `Finite Reading`
+    │ 
+    │ Note 1: `Finite` isn't derived for `Reading`: the field `n` of `Count` has type `Nat`, which has no `Finite` instance (when `Reading` was declared)
+    │ 
+    │ Note 2: an instance of `Finite` for `Reading` can be declared in `Main`
+────╯

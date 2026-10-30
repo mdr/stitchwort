@@ -15,5 +15,7 @@ expression: output
     │ 
     │ Note 3: the first case still open: b = May (fallback)
     │ 
-    │ Note 4: prove a fact that decides some of the cases at once and give it as `cases in t`, or split by hand with `match`
+    │ Note 4: every variable it split has a finite type (`b : Month`, `a : Month`): to check every value by computing instead, state it as a `Bool` function `p` of one record or pair holding them and prove `p v = True` by `Finite.check p rfl v` (`import Std (Finite)`)
+    │ 
+    │ Note 5: prove a fact that decides some of the cases at once and give it as `cases in t`, or split by hand with `match`
 ────╯

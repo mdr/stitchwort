@@ -11,7 +11,7 @@ expression: output
     │ 
     │ Note 1: goal: (Digit0 = Enter ∨ Digit1 = Enter ∨ Digit2 = Enter ∨ Digit3 = Enter ∨ Digit4 = Enter ∨ Digit5 = Enter ∨ Digit6 = Enter ∨ Digit7 = Enter ∨ Digit8 = Enter ∨ Digit9 = Enter ∨ Void) ∨ False = True
     │ 
-    │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis nor `omega` proves it; give this case's proof as `cases in t`
+    │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases in t`
     │ 
     │ Note 3: it split `flag`, `key` as a fallback, though the goal wasn't stuck on them
     │ 

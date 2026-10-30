@@ -3469,6 +3469,7 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         {
             if crate::undo::unify(cx, a, b)?
                 || crate::lift::await_helpers(cx, a, b, crate::lift::Failure::Refl)?
+                || refl_after_instances(cx, a, b)?
             {
                 Ok(Term::Refl)
             } else {
@@ -5065,6 +5066,20 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
     }
     let show = |t: &Term| pretty::term_for_message_in(cx.g(), cx.e, &cx.names, t);
     Some((show(ga), show(gb)))
+}
+
+/// Whether `rfl` proves `a = b` once the dictionaries whose types are known
+/// by now are found: a side computed over one still to be found is stuck on
+/// it (`List.all Finite.all p = True` in `Finite.check p rfl x`), as in
+/// [`compare`]. Only reached where `rfl` would otherwise fail.
+#[inline(never)]
+fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
+    if cx.e.interfaces.is_empty() || !cx.e.solve_ready_instances()? {
+        return Ok(false);
+    }
+    let a = crate::interfaces::refresh(cx, a)?;
+    let b = crate::interfaces::refresh(cx, b)?;
+    crate::undo::unify(cx, &a, &b)
 }
 
 /// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of

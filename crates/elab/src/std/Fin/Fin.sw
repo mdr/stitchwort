@@ -56,6 +56,21 @@ instance Fin.instDecEq: DecEq (Fin n) :=
 -- Positions in order of their numbers.
 instance Fin.instOrd: Ord (Fin n) := Ord.byKey Fin.toNat Fin.toNatInjective
 
+-- Every position below n, in order: `Fin.all 3` is `[0, 1, 2]` as positions.
+def Fin.all: (n: Nat) → List (Fin n)
+  | Zero => Nil
+  | Succ n => Cons FZero (List.concatMap (Fin.all n) (i => [FSucc i]))
+
+theorem Fin.allComplete: (n: Nat) → (i: Fin n) → List.Mem i (Fin.all n)
+  | Succ m, FZero => Inl rfl
+  | Succ m, FSucc i => Inr (List.memConcatMap (j => [FSucc j]) i (FSucc i) (Fin.all m) (Fin.allComplete m i) (Inl rfl))
+
+-- So `Fin n` is finite (written by hand: `Finite` isn't derived for an
+-- indexed family), and `Finite.check` takes statements about positions.
+instance Fin.instFinite: Finite (Fin n) := { all = Fin.all n, complete = Fin.allComplete n }
+
+theorem Fin.allExample: List.map (Fin.all 3) Fin.toNat = [0, 1, 2] := rfl
+
 test "fin: == equal" := (FSucc FZero: Fin 3) == FSucc FZero
 test "fin: == different" := (FSucc FZero: Fin 3) ≠ FZero
 test "fin: == different depth" := (FSucc (FSucc FZero): Fin 3) ≠ FSucc FZero

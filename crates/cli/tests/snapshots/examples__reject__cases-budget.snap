@@ -13,5 +13,7 @@ expression: output
    │ 
    │ Note 2: the first case still open: a = True, b = False, c = False, d = False, e = False
    │ 
-   │ Note 3: prove a fact that decides some of the cases at once and give it as `cases in t`, or split by hand with `match`
+   │ Note 3: every variable it split has a finite type (`a : Bool`, `b : Bool`, `c : Bool`, `d : Bool`, `e : Bool`, `f : Bool`, `g : Bool`): to check every value by computing instead, state it as a `Bool` function `p` of one record or pair holding them and prove `p v = True` by `Finite.check p rfl v` (`import Std (Finite)`)
+   │ 
+   │ Note 4: prove a fact that decides some of the cases at once and give it as `cases in t`, or split by hand with `match`
 ───╯
