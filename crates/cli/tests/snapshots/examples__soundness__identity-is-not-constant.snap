@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ soundness/identity-is-not-constant.sw:8:60 ]
+   │
+ 8 │ theorem bad (y: Nat): ((x: Nat) => x) = ((z: Nat) => y) := rfl
+   │                                                            ─┬─  
+   │                                                             ╰─── `x => x` and `z => y` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯

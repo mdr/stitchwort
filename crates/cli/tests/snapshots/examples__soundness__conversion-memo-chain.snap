@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ soundness/conversion-memo-chain.sw:17:60 ]
+    │
+ 17 │ theorem bad (x: Nat): (f x, g x, f x) = (g x, f x, h x) := rfl
+    │                                                            ─┬─  
+    │                                                             ╰─── `(f x, g x, f x)` and `(g x, f x, h x)` aren't equal
+    │ 
+    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 2: this statement is false; a counterexample:
+    │           x = 1
+    │         `(f x, g x, f x) = (g x, f x, h x)` is false:
+    │           left:  (1, 1, 1)
+    │           right: (1, 1, 2)
+    │           first difference at .2: 1 vs 2
+────╯

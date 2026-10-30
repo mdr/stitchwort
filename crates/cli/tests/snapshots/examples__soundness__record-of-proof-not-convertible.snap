@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ soundness/record-of-proof-not-convertible.sw:10:34 ]
+    │
+ 10 │ theorem bad (p q: Box): p = q := rfl
+    │                                  ─┬─  
+    │                                   ╰─── `p` and `q` aren't equal
+    │ 
+    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+────╯

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: `outer` is used here without all its arguments
+   ╭─[ soundness/recursive-passed-bare-to-recursive.sw:6:35 ]
+   │
+ 6 │ def outer (n: Nat): Void := inner outer n
+   │                                   ──┬──  
+   │                                     ╰──── `outer` takes 1 argument; it's given none here
+   │ 
+   │ Note 1: write `x => outer x` so the call can be checked
+   │ 
+   │ Note 2: a recursive call must be given all the arguments, so the termination checker can see what each one is
+───╯

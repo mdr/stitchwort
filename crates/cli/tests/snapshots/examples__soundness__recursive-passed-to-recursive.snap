@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `outer` terminates
+   ╭─[ soundness/recursive-passed-to-recursive.sw:8:41 ]
+   │
+ 8 │ def outer (n: Nat): Void := inner (x => outer x) n
+   │                                         ───┬───  
+   │                                            ╰───── this recursive call might not terminate: no argument is known to be smaller
+   │ 
+   │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+   │ 
+   │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+───╯

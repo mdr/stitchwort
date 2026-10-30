@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `f` and `g` terminate
+    ╭─[ soundness/mutual-cross-calls-grow.sw:9:25 ]
+    │
+  9 │ def f (n: Nat): Void := g (Succ n)
+    │                         ────┬────  
+    │                             ╰────── this call to `g` might not terminate: no argument is known to be smaller
+    │ 
+ 11 │ def g (n: Nat): Void := f (Succ n)
+    │                         ────┬────  
+    │                             ╰────── then this call to `f`: no argument is known to be smaller
+    │ 
+    │ Note 1: going round `f` → `g` → `f`, over and over, no argument is known to get smaller
+    │ 
+    │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+────╯
