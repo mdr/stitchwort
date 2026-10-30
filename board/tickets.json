@@ -8762,7 +8762,7 @@
       "title": "Design note: stitchwort search, lemma search by type (agentic T4)",
       "status": "review",
       "agent": "Claude",
-      "where": "review 1 in; D2062/D2063 yes; draft 3 + stage 1 lane waits on SW-919",
+      "where": "draft 3 lane started (stops for Matt), then stage 1",
       "labels": [
         "tooling",
         "design"
@@ -8830,14 +8830,14 @@
     {
       "id": 919,
       "title": "Panic 'internal error: applying a constructor' (value.rs:815) in dev search matching std theorem pairs",
-      "status": "doing",
-      "agent": "Opus",
+      "status": "backlog",
+      "agent": "",
       "where": "",
       "labels": [
         "bug",
         "elab"
       ],
-      "body": "Found by the SW-915 search lane (30 Oct 2026). `stitchwort dev search 'self:conclusion'` (docs/proposals/search/queries-draft2.sh, section self) panics with \"internal error: applying a constructor\" (crates/core/src/value.rs:815, the catch-all in apply) on 4 pairs of std theorems with the constants filter and 12 without, e.g. the pattern from `Std.Parse.runFromMark` against `Std.Parse.runFromNatThere` (docs/proposals/search.md §6.1, stage S1a).\n\nNot yet known: whether this is reachable from ordinary elaboration, or only from search's matching (which unifies a pattern with theorem types it hasn't type-checked against, so an ill-typed meta solution could put a constructor in head position). First step: reduce the pair to a minimal repro, then decide whether the fix is in search (check types before unifying) or in unify/eval. A panic in core is a bug either way; it should be an error, not a crash.\n",
+      "body": "Found by the SW-915 search lane (30 Oct 2026). `stitchwort dev search 'self:conclusion'` (docs/proposals/search/queries-draft2.sh, section self) panics with \"internal error: applying a constructor\" (crates/core/src/value.rs:815, the catch-all in apply) on 4 pairs of std theorems with the constants filter and 12 without, e.g. the pattern from `Std.Parse.runFromMark` against `Std.Parse.runFromNatThere` (docs/proposals/search.md §6.1, stage S1a).\n\nNot yet known: whether this is reachable from ordinary elaboration, or only from search's matching (which unifies a pattern with theorem types it hasn't type-checked against, so an ill-typed meta solution could put a constructor in head position). First step: reduce the pair to a minimal repro, then decide whether the fix is in search (check types before unifying) or in unify/eval. A panic in core is a bug either way; it should be an error, not a crash.\n\n30 Oct (lane): reachable from ordinary `stitchwort check`, not search-only. Minimal repro (panics at value.rs:815 under plain `check`; backtrace effects::pure_let -> quote_folded -> force_solved -> apply_step):\n\n    def app [p: Bool → Type] (x: p True): p True := x\n\n    def probe (t: (Nat → Nat) → Type) (mk: (g: Nat → Nat) → t g) (use: (g: Nat → Nat) → t g → g 0 = g 0): Nat :=\n      let e := use _ (app (mk _))\n      let f: 1 = 1 := e\n      0\n\nCause: unify.rs `first_order`. Checking `mk ?g : t ?g` against `?p True`: `?p True` isn't a pattern (True isn't a variable), so first_order pairs the last arguments, `True =?= ?g`, and solves `?g : Nat → Nat` with `True` (logged: `solve ?g := x x x => True`). Its doc comment says \"the kernel re-checks the result\", but the elaborator evaluates `?g 0` (from `g 0 = g 0`) before any re-check, and applying `True` panics. With `use` returning `Nat` instead, the same file gives a clean E-TYPE-MISMATCH (\"`True` builds a `Bool`, but the expected type is `Nat → Nat`\").\n\nSearch pair (runFromMark against runFromNatThere): same mechanism. Logged solutions: pattern `?k (?s.at)` against target `Effect.bind (Parse.nat.%match1 …) k'`; first_order gives `?k := Effect.bind (Parse.nat.%match1 …)` and `k' := Parse.State.at ?s` (a Mark record, where k' : Nat → {Parse} a). A postponed comparison (unify::run, Task::Later) then re-quotes and applies it. Search only makes such ill-typed pairings more common.\n\nThe fix belongs in unify.rs (first_order mustn't pair last arguments of different types, or a solution must be checked before use). Stopped per the lane brief, since the postponement stage 6 lane is rewriting the unifier. No commits.\n\n\n\n30 Oct (orchestrator): repro verified on main: plain `stitchwort check` on the 6-line file panics at value.rs:815. So this is an elaborator bug, not search-only: `first_order` (unify.rs) solves `?g: Nat → Nat` with `True` from `True =?= ?g` when `?p True` isn't a pattern, and the elaborator evaluates `?g 0` before the kernel re-check. A crash, not a false theorem (the kernel still re-checks). Fix belongs in unify.rs (don't pair last arguments of different types, or check a solution's type before use; `can_apply` in `push_eta` is a partial guard). Waits for postponement stage 6 (SW-817), which is rewriting the unifier; then a lane fixes it with the repro as a reject example. Core's panic arm left as is: turning it into an error needs a new eval error kind, since callers read eval errors as budget errors.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
