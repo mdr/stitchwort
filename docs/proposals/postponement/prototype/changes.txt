@@ -1,0 +1,180 @@
+Queue prototype: switch off against switch on, 30 Oct 2026 (docs/proposals/postponement.md §6).
+Produced by crates/driver/tests/queue_scratch.rs and dev/queue-prototype/ (report.sh, compare.py, termdiff.py, typediff.py), all in queue-prototype.patch.
+
+######## run 2: off against on (R1 unscoped, R2: STITCHWORT_QUEUE=1 _APP=1 _LIFT=1)
+== times (s): off / on
+  std                     4.57    4.56
+  examples/accept         2.52    2.53
+  examples/reject         1.52    1.52
+  examples/extract        0.56    0.56
+  aoc                    37.99   35.98
+  rogue                   2.31    2.35
+
+== acceptance changes: 2
+  accept/record-literal-inferred.sw: accepted -> rejected
+      ERR E-TYPE-MISMATCH | type mismatch | 671-676 expected `Nat`, but this has type `Int`
+  reject/postponed-lambda-second-error.sw: rejected -> accepted
+      ERR E-UNKNOWN-FIELD | `List` has no field or function `size` | 474-478 looked in `List`
+
+== still rejected, error changed: 0 (code changed in 0)
+
+== hash changes (declarations present in both):
+  accept: 2 declarations in 1 units
+  aoc: 24 declarations in 1 units
+  total 26
+  declarations only with off: 79, only with on: 5
+
+######## run 1: off against on (same switches)
+== times (s): off / on
+  std                     4.61    4.59
+  examples/accept         2.52    2.50
+  examples/reject         1.53    1.51
+  examples/extract        0.56    0.56
+  aoc                    38.28   35.87
+  rogue                   2.31    2.34
+
+== acceptance changes: 2
+  accept/record-literal-inferred.sw: accepted -> rejected
+      ERR E-TYPE-MISMATCH | type mismatch | 671-676 expected `Nat`, but this has type `Int`
+  reject/postponed-lambda-second-error.sw: rejected -> accepted
+      ERR E-UNKNOWN-FIELD | `List` has no field or function `size` | 474-478 looked in `List`
+
+== still rejected, error changed: 0 (code changed in 0)
+
+== hash changes (declarations present in both):
+  accept: 2 declarations in 1 units
+  aoc: 24 declarations in 1 units
+  total 26
+  declarations only with off: 79, only with on: 5
+
+######## off (run 2) against on with R1 scoped (_SCOPED=1)
+== times (s): off / on
+  std                     4.57    4.70
+  examples/accept         2.52    2.54
+  examples/reject         1.52    1.56
+  examples/extract        0.56    0.58
+  aoc                    37.99   36.67
+  rogue                   2.31    2.34
+
+== acceptance changes: 1
+  accept/record-literal-inferred.sw: accepted -> rejected
+      ERR E-TYPE-MISMATCH | type mismatch | 671-676 expected `Nat`, but this has type `Int`
+
+== still rejected, error changed: 0 (code changed in 0)
+
+== hash changes (declarations present in both):
+  accept: 2 declarations in 1 units
+  aoc: 24 declarations in 1 units
+  total 26
+  declarations only with off: 79, only with on: 0
+
+######## off (run 1) against the field-name rule at the literal (_NAMES_FIRST=1)
+== times (s): off / on
+  std                     4.61    4.58
+  examples/accept         2.52    2.63
+  examples/reject         1.53    1.52
+  examples/extract        0.56    0.56
+  aoc                    38.28   36.19
+  rogue                   2.31    2.32
+
+== acceptance changes: 2
+  accept/record-literal-inferred.sw: accepted -> rejected
+      ERR E-TYPE-MISMATCH | type mismatch | 1094-1102 expected `Option Cell`, but this has type `Option Hidden.Cell`
+      ERR E-TYPE-MISMATCH | type mismatch | 1169-1197 expected `Cell`, but this has type `Hidden.Cell`
+  reject/postponed-lambda-second-error.sw: rejected -> accepted
+      ERR E-UNKNOWN-FIELD | `List` has no field or function `size` | 474-478 looked in `List`
+
+== still rejected, error changed: 0 (code changed in 0)
+
+== hash changes (declarations present in both):
+  accept: 2 declarations in 1 units
+  aoc: 22 declarations in 1 units
+  total 24
+  declarations only with off: 79, only with on: 5
+
+######## declarations whose hash changed (run 2, unscoped)
+accept/safe-fields.sw	Main.test "record equality"
+accept/safe-fields.sw	Main.test "record inequality"
+aoc	Aoc.Year2024.Day05.Proofs.correctOrderingUnique
+aoc	Aoc.Year2024.Day05.Proofs.inOrderCorrect
+aoc	Aoc.Year2024.Day05.Proofs.inOrderPrintedBefore
+aoc	Aoc.Year2024.Day05.Proofs.inOrderRuleSays
+aoc	Aoc.Year2024.Day05.Proofs.noRuleBroken
+aoc	Aoc.Year2024.Day05.Proofs.part1Correct
+aoc	Aoc.Year2024.Day05.Proofs.part2Correct
+aoc	Aoc.Year2024.Day05.Proofs.part2Correct.%match1
+aoc	Aoc.Year2024.Day05.Proofs.reorderCorrect
+aoc	Aoc.Year2024.Day06.Proofs.keepsTrapsAt
+aoc	Aoc.Year2024.Day06.Proofs.keepsTrapsAt.%match1
+aoc	Aoc.Year2024.Day06.Proofs.keepsTrapsAt.%match2
+aoc	Aoc.Year2024.Day06.Proofs.offRouteFree
+aoc	Aoc.Year2024.Day06.Proofs.part2Correct
+aoc	Aoc.Year2024.Day06.Proofs.trapSetsSame
+aoc	Aoc.Year2024.Day08.Proofs.harmonicsCorrect
+aoc	Aoc.Year2024.Day08.Proofs.part2Correct
+aoc	Aoc.Year2024.Day24.Proofs.adderAdds
+aoc	Aoc.Year2024.Day24.Proofs.carriesMentioned
+aoc	Aoc.Year2024.Day24.Proofs.part2Correct
+aoc	Aoc.Year2024.Day24.Proofs.part2Sound
+aoc	Aoc.Year2024.Day24.Proofs.part2Sound.%match1
+aoc	Aoc.Year2024.Day24.Proofs.shapeAdds
+aoc	Aoc.Year2024.Day24.Proofs.shapeAdds.%match3
+
+######## the same with R1 scoped
+accept/safe-fields.sw	Main.test "record equality"
+accept/safe-fields.sw	Main.test "record inequality"
+aoc	Aoc.Year2024.Day05.Proofs.correctOrderingUnique
+aoc	Aoc.Year2024.Day05.Proofs.inOrderCorrect
+aoc	Aoc.Year2024.Day05.Proofs.inOrderPrintedBefore
+aoc	Aoc.Year2024.Day05.Proofs.inOrderRuleSays
+aoc	Aoc.Year2024.Day05.Proofs.noRuleBroken
+aoc	Aoc.Year2024.Day05.Proofs.part1Correct
+aoc	Aoc.Year2024.Day05.Proofs.part2Correct
+aoc	Aoc.Year2024.Day05.Proofs.part2Correct.%match1
+aoc	Aoc.Year2024.Day05.Proofs.reorderCorrect
+aoc	Aoc.Year2024.Day06.Proofs.keepsTrapsAt
+aoc	Aoc.Year2024.Day06.Proofs.keepsTrapsAt.%match1
+aoc	Aoc.Year2024.Day06.Proofs.keepsTrapsAt.%match2
+aoc	Aoc.Year2024.Day06.Proofs.offRouteFree
+aoc	Aoc.Year2024.Day06.Proofs.part2Correct
+aoc	Aoc.Year2024.Day06.Proofs.trapSetsSame
+aoc	Aoc.Year2024.Day08.Proofs.harmonicsCorrect
+aoc	Aoc.Year2024.Day08.Proofs.part2Correct
+aoc	Aoc.Year2024.Day24.Proofs.adderAdds
+aoc	Aoc.Year2024.Day24.Proofs.carriesMentioned
+aoc	Aoc.Year2024.Day24.Proofs.part2Correct
+aoc	Aoc.Year2024.Day24.Proofs.part2Sound
+aoc	Aoc.Year2024.Day24.Proofs.part2Sound.%match1
+aoc	Aoc.Year2024.Day24.Proofs.shapeAdds
+aoc	Aoc.Year2024.Day24.Proofs.shapeAdds.%match3
+
+######## exact terms ({:?}) and types of the changed declarations, off against on
+== accept/safe-fields.sw Main.test "record equality" Loc(Span { file: FileId(65), start: 931, end: 1002 }: differs (1496 vs 1270 chars)
+== accept/safe-fields.sw Main.test "record inequality": differs (1549 vs 1315 chars)
+== aoc Aoc.Year2024.Day05.Proofs.correctOrderingUnique: same (8726 chars)
+== aoc Aoc.Year2024.Day05.Proofs.inOrderCorrect: same (2479 chars)
+== aoc Aoc.Year2024.Day05.Proofs.inOrderPrintedBefore: same (21057 chars)
+== aoc Aoc.Year2024.Day05.Proofs.inOrderRuleSays: same (4495 chars)
+== aoc Aoc.Year2024.Day05.Proofs.noRuleBroken: differs (10755 vs 10596 chars)
+== aoc Aoc.Year2024.Day05.Proofs.part1Correct: same (5485 chars)
+== aoc Aoc.Year2024.Day05.Proofs.part2Correct: same (44195 chars)
+== aoc Aoc.Year2024.Day05.Proofs.part2Correct.%match1: same (5132 chars)
+== aoc Aoc.Year2024.Day05.Proofs.reorderCorrect: same (16331 chars)
+== aoc Aoc.Year2024.Day06.Proofs.keepsTrapsAt: same (1408 chars)
+== aoc Aoc.Year2024.Day06.Proofs.keepsTrapsAt.%match1: same (17301 chars)
+== aoc Aoc.Year2024.Day06.Proofs.keepsTrapsAt.%match2: same (2899 chars)
+== aoc Aoc.Year2024.Day06.Proofs.offRouteFree: differs (7861 vs 7258 chars)
+== aoc Aoc.Year2024.Day06.Proofs.part2Correct: differs (11762 vs 10936 chars)
+== aoc Aoc.Year2024.Day06.Proofs.trapSetsSame: same (20904 chars)
+== aoc Aoc.Year2024.Day08.Proofs.harmonicsCorrect: differs (39655 vs 30958 chars)
+== aoc Aoc.Year2024.Day08.Proofs.part2Correct: same (7713 chars)
+== aoc Aoc.Year2024.Day24.Proofs.adderAdds: same (5469 chars)
+== aoc Aoc.Year2024.Day24.Proofs.carriesMentioned: differs (8439 vs 7995 chars)
+== aoc Aoc.Year2024.Day24.Proofs.part2Correct: same (734 chars)
+== aoc Aoc.Year2024.Day24.Proofs.part2Sound: same (4050 chars)
+== aoc Aoc.Year2024.Day24.Proofs.part2Sound.%match1: same (4893 chars)
+== aoc Aoc.Year2024.Day24.Proofs.shapeAdds: same (25608 chars)
+== aoc Aoc.Year2024.Day24.Proofs.shapeAdds.%match3: same (9407 chars)
+types:
+  dbg-off-safe-fields.txt: 2 types compared, 2 identical, 0 differ
+  dbg-off-aoc.txt: 24 types compared, 24 identical, 0 differ
