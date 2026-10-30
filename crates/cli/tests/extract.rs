@@ -16,7 +16,7 @@ use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use stitchwort_cli::driver::{Session, tier_sample};
+use stitchwort_cli::driver::{Session, par_map, tier_sample};
 use stitchwort_cli::render::render;
 use stitchwort_core::hash::data_hash;
 use stitchwort_core::registry::Builtin;
@@ -123,17 +123,37 @@ fn random_inputs_agree_with_the_reference_evaluator() {
     }
 }
 
-/// The generated module and declarations are snapshot-tested (so any change to
-/// the output shows up in review), and the declarations must type-check.
+/// Examples are checked on threads with this much stack.
+const STACK: usize = 16 * 1024 * 1024;
+
+/// The generated module and declarations are snapshot-tested, so any change to
+/// the output shows up in review. Checking the examples is nearly all of the
+/// time, so they are checked in parallel; generating and comparing take
+/// a fraction of a second.
 #[test]
-fn generated_code_is_stable_and_the_declarations_type_check() {
+fn generated_code_is_stable() {
+    let outputs = par_map(STACK, &examples().paths(), |path| {
+        let (name, _, session) = check_example(path);
+        let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
+            .expect("extraction succeeds");
+        (name, output)
+    });
+    for (name, output) in outputs {
+        let stem = name.trim_end_matches(".sw");
+        insta::assert_snapshot!(format!("{stem}.js"), output.js);
+        insta::assert_snapshot!(format!("{stem}.d.ts"), output.dts);
+    }
+}
+
+/// The generated declarations type-check. The `tsc` runs, one per example,
+/// take about 10 s, so this is in the daily tier and `generated_code_is_stable`
+/// in the merge tier.
+#[test]
+fn the_declarations_type_check() {
     for (name, _, session) in examples() {
         let output = stitchwort_js::generate(&session.elab.globals, session.elab.limits)
             .expect("extraction succeeds");
         let stem = name.trim_end_matches(".sw");
-        insta::assert_snapshot!(format!("{stem}.js"), output.js);
-        insta::assert_snapshot!(format!("{stem}.d.ts"), output.dts);
-
         let dir =
             std::env::temp_dir().join(format!("stitchwort-dts-{}-{stem}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("create temp dir");
@@ -210,6 +230,11 @@ impl Examples {
     /// A corpus sweep's share of the examples in this tier (`tier_sample`).
     fn sampled(self, daily_stride: usize) -> Examples {
         Examples(tier_sample(self.0, daily_stride))
+    }
+
+    /// The examples' paths, none of them checked.
+    fn paths(self) -> Vec<PathBuf> {
+        self.0.into_iter().map(|(path, _)| path).collect()
     }
 
     /// The example called `name` (its file name), checked.
