@@ -619,7 +619,16 @@ fn same_results(cx: &Ctx, level: usize, written: &Value, own: &Value) -> Result<
     if unknown(written)? || unknown(own)? {
         return Ok(None);
     }
-    Ok(Some(crate::unify::unify(g, level, written, own)?))
+    if crate::unify::unify(g, level, written, own)? {
+        return Ok(Some(true));
+    }
+    // The written results may be stuck on an unknown solved since they were
+    // made: a lambda's `{Fail | ?e}`, closed once its body is checked
+    // (`close_inferred_row`), keeps `rowRes ?e`, which is `rowRes Empty`
+    // now but hasn't taken its step to `NoRes` (SW-911). Computed again,
+    // it has.
+    let written = crate::rows::refresh_at(cx, level, written)?;
+    Ok(Some(crate::unify::unify(g, level, &written, own)?))
 }
 
 /// Whether `ty`, a computation type [`comp_parts`] read a row from, has

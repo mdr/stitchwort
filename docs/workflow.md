@@ -86,6 +86,11 @@ own tickets as described in [board/README.md](../board/README.md).
   (`nix develop -c cargo run --release -p stitchwort-bench`) and record an
   intended change with `-- --update`, saying why in the commit. The
   deterministic counts are checked by `nix flake check` (+10% fails).
+- A lane that proves theorems is told to read
+  [proving-guide.md](proving-guide.md) first: its rules (never weaken a
+  statement, prove against a spec in the problem's words, report "not
+  proved" honestly), workflow, tools, common errors and performance traps.
+  A lane brief that hands out proofs links it.
 - Significant design decisions (soundness, the kernel, language semantics)
   get a design note in `docs/proposals/` first, researched against the
   literature, and wait for the user (and possibly an external reviewer)
@@ -106,7 +111,8 @@ own tickets as described in [board/README.md](../board/README.md).
 ### How a proof lane finishes
 
 A lane that adds or changes theorems (AoC proofs, the roguelike's, std's)
-runs `stitchwort audit` on the namespaces it touched before it reports
+follows [proving-guide.md](proving-guide.md) while it works (§7 there is
+what its report says), and runs `stitchwort audit` on the namespaces it touched before it reports
 (SW-912, D2040), from the project folder: `stitchwort audit
 Aoc.Year2024.Day06`, `stitchwort audit Rogue.Proofs`, or `stitchwort audit
 Std.List` for std ([syntax.md](syntax.md#auditing-theorems-stitchwort-audit)).

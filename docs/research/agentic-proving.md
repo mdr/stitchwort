@@ -1111,7 +1111,8 @@ Label `research` on each. Not added to the board.
 - Input for message work and for infrastructure.md T7 (detail mode).
 - Refs: C12, C10; §5 C.
 
-**T7. Design note: a proving guide for agent lanes.**
+**T7. Design note: a proving guide for agent lanes.** Written:
+[docs/proving-guide.md](../proving-guide.md) (SW-916).
 - One page with these rules:
   - don't change a theorem's statement; if a hypothesis is needed, add it and list it under
     "Not proved";
