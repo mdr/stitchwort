@@ -16,6 +16,7 @@ use stitchwort_fmt::Error as FmtError;
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 
 mod build;
+mod search_dev;
 
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
@@ -69,6 +70,33 @@ enum DevCommand {
         /// or, on macOS on Apple Silicon, `map-jit` (the default there)
         #[arg(long)]
         memory: Option<String>,
+    },
+    /// EXPERIMENTAL (SW-915): search the library's theorems by a type
+    /// pattern, printing timings on standard error
+    /// (docs/proposals/search.md §4)
+    Search {
+        /// Comma-separated parts: `"name substring"`, or one type pattern
+        /// (`_` any term, `?x` a named hole, a leading `⊢` for the
+        /// conclusion only)
+        pattern: String,
+        /// How many results to print
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+        /// Unify with every candidate, without the constants filter
+        #[arg(long)]
+        no_filter: bool,
+        /// Search definitions too, not only theorems
+        #[arg(long)]
+        defs: bool,
+        /// Print JSON
+        #[arg(long)]
+        json: bool,
+        /// Run the matching this many times, for timing
+        #[arg(long, default_value_t = 1)]
+        repeat: usize,
+        /// Load the library through the check cache in this folder
+        #[arg(long)]
+        cache_dir: Option<PathBuf>,
     },
 }
 
@@ -550,6 +578,33 @@ fn run(cli: Cli) -> ExitCode {
         ),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
+        }
+        Command::Dev(DevCommand::Search {
+            pattern,
+            limit,
+            no_filter,
+            defs,
+            json,
+            repeat,
+            cache_dir,
+        }) => {
+            let mut session = new_session(false);
+            if let Some(dir) = cache_dir {
+                session.use_check_cache(&dir);
+            }
+            let code = search_dev::run(
+                &mut session,
+                &search_dev::Args {
+                    pattern,
+                    limit,
+                    no_filter,
+                    defs,
+                    json,
+                    repeat,
+                },
+            );
+            discard(session);
+            code
         }
     }
 }
