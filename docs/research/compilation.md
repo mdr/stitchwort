@@ -1,7 +1,14 @@
 # Literature trawl: compilation and runtime
 
-**Counts: screened 52; carded 23; read in full 21; not read 2 (C12, C22; listed in §9 with
-two screened-only items Matt may want to fetch).**
+**Counts: screened 52; carded 23; read in full 22; not read 1 (C22; listed in §9 with two
+screened-only items whose full text wasn't reached).**
+
+**Audited 30 Oct 2026 against full texts: 12 OK, 8 minor (fixed), 1 wrong (fixed), 0 can't
+verify** (of the 21 cards first marked read). C8 was wrong: `Array.groupBy` is the thesis
+author's own example, not Lean's library function. C12, first NOT READ, was then read in an
+Internet Archive copy of the ACM PDF. Each fixed card ends with "Audit:". Two file references
+were wrong (`specialise.rs` for known-argument specialisation, which `opt.rs` does; "no borrow
+concept", but `native_abi.rs` helpers take borrowed arguments). Both are corrected below.
 
 *SW-894, cluster 6. Trawled 29 October 2026 against `main` at `5c25a1b5`. Research only: no
 code changed, no tests run. Window: 2022 onwards (D1831); older work appears only where
@@ -37,8 +44,9 @@ Effekt in October, and the machine has them **[checked]**:
 - register bytecode with moves on last use, early drops, and Perceus/Lean-style reuse
   tokens (`code.rs` header, `Unpack`, `CtorReuse`, `DropReuse`);
 - small numbers inline with a `BigUint` fallback (`value.rs`);
-- a simplifier that inlines, specialises on known function arguments and resolves known
-  constructors (`opt.rs`, `specialise.rs`);
+- a simplifier that inlines, copies recursive functions for known arguments and resolves
+  known constructors (`opt.rs`; `specialise.rs` is the separate empty-row specialisation of
+  effect-polymorphic code);
 - TRMC by destination passing (`trmc.rs`), state handlers run as loops (`fusion.rs`);
 - Cranelift native code that keeps the machine's RC and reuse decisions (`crates/native`).
 
@@ -49,14 +57,14 @@ don't cover. Ranked by value against effort:
    array in place when it isn't shared (Ullrich and de Moura, **classic**, §7.1).
    Stitchwort already specifies `Text` as a list and runs it compactly (compact-text.md).
    The same for arrays is a design note, then a runtime change. Huisinga's thesis (2023)
-   shows the risk to design against: Lean's own `Array.groupBy` copies on every `push`
-   because the array also sits in a map (deep read 5.1).
+   shows the risk to design against: in the thesis's own `Array.groupBy` example, every
+   `push` copies the array because it also sits in a map (deep read 5.1).
 2. **Measure reference counting before borrowing.** Lean infers borrowed parameters; a 2026
    paper removes 75–100% of increments against Perceus and gains 1.48× (Brandon et al.,
-   OOPSLA 2026). But borrowing has costs the papers name: Koka declined Lean's inference as
-   "not frame-limited" (Lorenzen and Leijen, ICFP 2022), it made one Lean benchmark faster
-   when *removed* (const_fold, 0.90), and it blocked 6.4% of in-place updates in one
-   benchmark of the 2026 paper. Stitchwort clones every read that isn't the last. So:
+   OOPSLA 2026). But borrowing has costs the papers name: Koka declined Lean's inference
+   because it is "not safe for space" (Lorenzen and Leijen, ICFP 2022), and it blocked 6.4%
+   of in-place updates in one benchmark of the 2026 paper. Also, *removing* it made one Lean
+   benchmark faster (const_fold, 0.90); the paper doesn't say why. Stitchwort clones every read that isn't the last. So:
    count increments and decrements first, then decide (deep read 5.2).
 3. **Don't store forced indices.** `VCons` stores its length `n` at run time **[checked]**
    (docs/core.md; vec.md measured 5–10% per operation). Brady, McBride and McKinna
@@ -189,7 +197,7 @@ trust of backends.
 | 17 | Marshall, Vollmer, Orchard: Linearity and Uniqueness: An Entente Cordiale | ESOP 2022 | A | maybe; not carded (full text reached late, at kar.kent.ac.uk, and not read) |
 | 18 | Futhark uniqueness types and their limits with higher-order functions (blog, 2022) | blog | A | drop (static types; Stitchwort's reuse is dynamic) |
 | 19 | Roc: RC with in-place `List` update; compiler rewrite in Zig (2025) | secondary only | A/R | maybe, **[unverified]** |
-| 20 | Brandon, Driscoll, Dai, Berkow, Milano: Better Defunctionalization through Lambda Set Specialization | PLDI 2023 | S | **keep**, but NOT READ (C12) |
+| 20 | Brandon, Driscoll, Dai, Berkow, Milano: Better Defunctionalization through Lambda Set Specialization | PLDI 2023 | S | **keep** (C12; read at the audit) |
 | 21 | Lutze, Schuster, Brachthäuser: The Simple Essence of Monomorphization | OOPSLA 2025 | S | drop (types are erased; no unboxed type parameters) |
 | 22 | Xu, Kjolstad: Deegen, a JIT-capable VM generator (LuaJIT Remake) | arXiv 2024, OOPSLA 2026 | I | **keep** |
 | 23 | Titzer: A Fast In-Place Interpreter for WebAssembly | OOPSLA 2022 | I | maybe |
@@ -223,12 +231,13 @@ trust of backends.
 | 51 | Koka's mimalloc (Leijen et al. 2019), relied on by 7 and 10 | **classic** | R | drop (the CLI already uses mimalloc, evaluator-speed Q2) |
 | 52 | Huet's zipper / Minamide's holes, as used by 7 | **classic** | S | drop |
 
-52 screened: 21 keep, 17 maybe, 14 drop. 23 carded (some cards cover two or three rows).
+52 screened: 23 keep, 14 maybe, 15 drop (audit recount of the table above; the first version
+said 21, 17 and 14). 23 carded (some cards cover two or three rows).
 
 ## 4. Cards
 
-Each card says whether its full text was read, and from where. Two cards are **NOT READ**
-(C12, C22): they stay as pointers, but nothing in §5–§8 rests on them.
+Each card says whether its full text was read, and from where. One card is **NOT READ**
+(C22): it stays as a pointer, but nothing in §5–§8 rests on it.
 
 **C1. Ullrich and de Moura, "Counting Immutable Beans", IFL 2019 (classic).**
 [arXiv 1908.05647](https://arxiv.org/abs/1908.05647). Claim: reset/reuse on the
@@ -247,14 +256,15 @@ runtime change each. Full text: read (arXiv v3).
 [4.30.0 notes](https://lean-lang.org/doc/reference/latest/releases/v4.30.0/),
 [`InferBorrow`](https://lean-lang.org/doc/api/Lean/Compiler/LCNF/InferBorrow.html). Claim:
 the reset/reuse pass moved to LCNF and "prevents exponential code generation unlike the old
-one", with "~15% decrease in binary size" (#12665); user borrow annotations `(x : @&Ty)` are
-kept, but "keeping tail calls takes priority" (#12830); `@[export]` functions may not borrow
-(#13017) **[cited]**. `InferBorrow`: owned for correctness at tail calls and reset/reuse;
+one", with "a ~15% decrease in binary size" (#12665); user borrow annotations `(x : @&Ty)`
+are kept where possible, but "the compiler prioritizes preserving tail calls over preserving
+borrow annotations" (#12830); `@[export]` functions may not borrow (#13017) **[cited]**. `InferBorrow`: owned for correctness at tail calls and reset/reuse;
 owned for speed when passed to an owned parameter, in a partial application, or as a
-constructor argument; user annotations override the heuristics **[cited]**. Steal: (a) a size
-counter for lowered code, since `opt.rs` copies functions per known argument (64 copies of up
-to 200 nodes) **[checked]**; (b) an annotation as the escape hatch for 5.2. Cost: small; (b)
-part of 5.2. Full text: read (both pages).
+constructor argument; user annotations override the performance heuristics, not the
+correctness rules **[cited]**. Steal: (a) a size counter for lowered code, since `opt.rs`
+copies functions per known argument (64 copies of up to 200 nodes) **[checked]**; (b) an
+annotation as the escape hatch for 5.2. Cost: small; (b) part of 5.2. Full text: read (both
+pages). Audit: the #12830 quote was a paraphrase, now replaced by the release note's words.
 
 **C3. Brandon, Driscoll, Dai, Ragan-Kelley, Milano and Aiken, "Fully-Automatic Type
 Inference for Borrows with Lifetimes", OOPSLA 2026.** [DOI
@@ -277,35 +287,41 @@ reuse placed before RC insertion is fragile: their example `match x { Just(_) ->
 -> x; _ -> Just(y) } }` makes the token always null under the older algorithm, and inlining
 `is-red` loses reuse in red-black insertion under both older algorithms (§3) **[checked]**.
 Drop-guided reuse runs after dup/drop insertion and turns a `drop(x)` into a reuse when a
-same-size allocation follows; it is proved frame-limited (Theorem 5). Lean-style borrow
-inference "is not frame-limited" and "should therefore be avoided in practice"; "Koka
-currently has no automatic borrow inference" (§1, §4.2) **[checked]**. Up to 1.6× over
-Koka's old reuse (§6). Steal: (a) check where `code.rs` places `Unpack`'s token relative to
+same-size allocation follows; it is proved frame-limited (Theorem 5). "Unrestricted borrow
+inference [Ullrich and de Moura 2019]" is not a frame-limited transformation, and "such
+transformations should therefore be avoided in practice" (§1); borrowing "is generally not
+frame-limited", Lean's inference "is not safe for space", so "Koka currently has no
+automatic borrow inference" (§4.2) **[checked]**. Up to 1.6× over Koka's old reuse (§6). Steal: (a) check where `code.rs` places `Unpack`'s token relative to
 the cell's last use, against example A; (b) a test that `opt.rs`'s inlining doesn't lose
 reuse. Cost: small (review and tests). Full text: read (MSR copy, fetched with a browser user
-agent).
+agent). Audit: the paper's words "is not frame limited" are about reuse algorithm D, not
+borrow inference; the quotes are now the ones about borrowing.
 
 **C5. Lorenzen, Leijen and Swierstra, "FP²: Fully in-Place Functional Programming",
 ICFP 2023.** [TR](https://www.microsoft.com/en-us/research/uploads/prod/2023/05/fip-tr-v2.pdf).
-Claim: functions passing a `fip` check "never (de)allocate memory and use bounded stack
-space" when their owned arguments are unique; `fbip` allows freeing; `fip(n)` allows n
-allocations; constant stack needs tail calls within a recursive group (§2, §5) **[checked]**.
+Claim: functions passing a `fip` check can be compiled "to never (de)allocate memory or use
+unbounded stack space" when their owned arguments are unique (§1); `fbip` allows freeing and
+any stack depth; `fip(n)` allows n allocations (§1.3); constant stack needs every recursive
+call within a recursive group to be a tail call (§2.6, Theorem 4) **[checked]**.
 The uniqueness test stays dynamic: a shared argument is copied, so fip code runs from non-fip
 code. The std-reuse variant cost about 1% over no reuse when nothing could be reused (§6)
 **[checked]**. Steal: a *report* of which functions run in place (T8), not a type. Cost:
-small (diagnostic). Full text: read (MSR TR v2, 85 pages incl. appendices).
+small (diagnostic). Full text: read (MSR TR v2, 85 pages incl. appendices). Audit: the
+first quote was reworded ("and use bounded"); it is now verbatim, with section numbers.
 
 **C6. Lorenzen, Leijen, Swierstra and Lindley, "The Functional Essence of Imperative
 Binary Search Trees", PLDI 2024.** [PDF](https://homepages.inf.ed.ac.uk/slindley/papers/fiptree.pdf).
 Claim: bottom-up tree algorithms from a defunctionalised CPS transform (zippers that reuse
 each visited node's cell), top-down ones from first-class constructor contexts; Koka "always
-outperform[s] C" on move-to-root, splay and zip trees, and red-black trees are 25% (top-down)
-to 50% (bottom-up) slower than C with the same allocator, because C can stop early on the way
-up (§7) **[checked]**. Weight-balanced trees aren't treated. Steal: for SW-814, an
+outperform[s] C" on move-to-root, splay and zip trees, and red-black trees are about 25%
+(top-down) and almost 50% (bottom-up) slower than C with the same allocator ("equalized" C).
+For bottom-up the authors believe C wins by bailing out early on the way up; for top-down
+"the reason ... is less clear" (§7) **[checked]**. Weight-balanced trees aren't treated. Steal: for SW-814, an
 `insertWith` that walks down with a zipper the reuse tokens fill, so the machine runs it in
 constant stack with each node reused. Rebalancing on the way up is the red-black case, the
 one that gained least **[inferred]**. Cost: std change plus re-proving `balance` lemmas.
-Full text: read.
+Full text: read (the PDF linked above). Audit: the early-exit reason was given for both
+red-black variants; the paper gives it only for bottom-up.
 
 **C7. Lam and Parreaux, "Being Lazy When It Counts", FLOPS 2024.**
 [PDF](https://lptk.github.io/files/ctrc-2024-05-09.pdf). Claim: push a dead object on a
@@ -323,12 +339,19 @@ Full text: read.
 thesis, KIT, 2023.** [PDF](https://pp.ipd.kit.edu/uploads/publikationen/huisinga23masterarbeit.pdf).
 Claim: for arrays "the only alternative to an in-place update is a full copy", so users see
 "huge disparities in runtime when referential uniqueness is violated by accident" (abstract,
-§1). The example is Lean's own `Array.groupBy`: after `RBMap.find?` the group array has two
-references, so each `push` copies it, "accidentally quadratic"; the workaround erases the map
-entry before updating (§2.4) **[checked]**. A uniqueness type system with a dynamic fallback
-is proposed; implemented as a separate checker, not integrated, no benchmarks; no
-higher-order functions **[checked]**. Steal: the failure mode 5.1 must design against, and
-its exact shape (an array stored in a `Map`). Cost: reading. Full text: read.
+§1). The example is an `Array.groupBy` the thesis itself writes (§2.1: "our implementation
+of `Array.groupBy` is actually an example of an imperative implementation that is
+unexpectedly inefficient"): after `RBMap.find?` the group array has two references, so each
+`push` copies it, and "our `Array.groupBy` implementation is accidentally quadratic". The
+"common solution" is an `RBMap.update` that erases the map entry before updating (§2.4)
+**[checked]**. A uniqueness type system is proposed, and users must be able to "fall back to
+this manual type-less mode" of runtime uniqueness (§3.1); it is implemented as a separate
+checker, "not yet integrated" into Lean, with no benchmarks and no uniqueness in higher-order
+functions (§5, §8) **[checked]**. Steal: the failure mode 5.1 must design against, and its
+exact shape (an array stored in a `Map`). Cost: reading. Full text: read (the KIT PDF linked
+above). Audit: WRONG as first written. It called this "Lean's own `Array.groupBy`" and the
+erase-first fix "the workaround" in Lean's library. The thesis presents both as its own
+illustration and doesn't say Lean's library has the bug.
 
 **C9. Allais, "Builtin Types viewed as Inductive Families", ESOP 2023.**
 [arXiv 2301.02194](https://arxiv.org/abs/2301.02194). Claim: a record of an efficient
@@ -350,6 +373,10 @@ constant time by pattern matching on the indices" passed to the eliminator; *det
 *collapsing* go further (§3–6). Memory: "a 10-20% saving" for vector operations, over 80%
 for a typechecker (§8) **[checked]**. Steal: 5.3. Cost: lowering change. Full text: read
 (the text layer is garbled; read from page images rendered by the reading sub-agent).
+Audit: the card named no source. The PDF is Brady's own copy,
+`eb.host.cs.st-andrews.ac.uk/writings/types2003.pdf`, through the Internet Archive (the
+publisher's copy is closed, per Unpaywall). The quotes were re-read from rendered pages 7, 8
+and 14. Published in TYPES 2003, LNCS 3085 (2004).
 
 **C11. Agda's run-time irrelevance.**
 [docs](https://agda.readthedocs.io/en/latest/language/runtime-irrelevance.html). Claim:
@@ -360,17 +387,34 @@ without annotations, but a mark "ensures that it is erased without relying on th
 (the docs page).
 
 **C12. Brandon et al., "Better Defunctionalization through Lambda Set Specialization",
-PLDI 2023. NOT READ.** [DOI 10.1145/3591260](https://doi.org/10.1145/3591260). Kept as a
-pointer: C3 uses it to remove closures before inferring borrows (§6.1) **[checked]**, and
-Stitchwort's `specialise.rs` does a bounded form of it for known function arguments
-**[checked]**. Not ranked, no recommendation (§9 lists the URLs tried).
+PLDI 2023.** [DOI 10.1145/3591260](https://doi.org/10.1145/3591260). Claim: every function
+type carries a *lambda set* (the lambdas that can reach it), inferred by a polymorphic type
+system, so specialising a higher-order function to its call site's lambdas is type
+monomorphisation. Then lowering turns function values into sum types and calls into matches.
+Unlike C++/Rust templates it "never falls back to traditional dynamic function
+representations" (§1, §2). Inference is proved sound and complete in Isabelle/HOL. Top-level
+`def`s, or strongly connected groups of them, are the unit of specialisation (§3, §6.3).
+Lambda sets must be hoisted into named, memoised terms, or their size grows exponentially
+(§6.1). On six benchmarks the speedup is up to 6.85× under MLton, 3.45× under OCaml and
+78.93× in Morphic (abstract, §7; Fig. 11's per-benchmark bars came back scrambled, so only
+these maxima are used) **[checked]**.
+C3 uses it to remove closures before inferring borrows (C3 §6.1) **[checked]**. Stitchwort's
+`opt.rs` does a bounded form for known arguments: it copies a recursive global with the known
+argument substituted, up to 64 copies of up to 200 nodes (`Simp::specialise`) **[checked]**.
+Steal: nothing ranked now. It is the general form of what `opt.rs` does for one known
+function, and a direction for SW-813's closure-heavy programs (Day 19's 11 M closure calls)
+if `opt.rs`'s bound proves too tight **[inferred]**. Cost: research project. Full text: read
+(the ACM PDF, through its Internet Archive capture of 30 Mar 2025, found at the audit).
+Audit: first NOT READ. It also named `specialise.rs`, which specialises effect-polymorphic
+code to the empty row; known-argument copying is in `opt.rs`.
 
 **C13. Unboxed scalar fields (C1 §7.1).** Claim: Lean stores scalar fields as raw bytes
 after the pointer fields, and boxes them only to pass to polymorphic code **[checked]**
 (C1). Stitchwort's cell is `Rc<[Value]>` of 24-byte values (`value.rs`) **[checked]**, and
-native-compilation.md measured `Set` insert at 0.68 s with boxed numbers against 0.12 s with
-numbers unboxed in the nodes (§0) **[checked]**. That note already lists the change as
-"later, separately". The steal is only the layout rule: scalars after pointers, so freeing
+native-compilation.md's hand translation of the `Set` insert to Rust took 0.68 s with the
+machine's boxed numbers against 0.12 s with numbers unboxed in the nodes (§0) **[checked]**.
+That note already lists the change as "later, separately". (Audit: the first version didn't
+say these are timings of hand-written Rust, not of the machine.) The steal is only the layout rule: scalars after pointers, so freeing
 walks a prefix. (Jane Street's "Unboxed types for OCaml", ML 2022, has no paper, only a talk
 abstract and an RFC; not read.) Cost: runtime change, both runners. Full text: C1 read.
 
@@ -405,11 +449,13 @@ question. Full text: read.
 [Elhage](https://blog.nelhage.com/post/cpython-tail-call/),
 [Jin](https://fidget-spinner.github.io/posts/no-longer-sorry.html). Claim: the first
 "10-15%" was "primarily due to inadvertently working around a regression in LLVM 19";
-against a good baseline it "drops to 1-5% or so" (Elhage); 5% on macOS AArch64 and 15–20%
-with MSVC, where tail calls "reset compiler heuristics to sane levels" (Jin) **[cited]**.
-Elhage: "easy to get impressive-looking results if you're comparing against a poorly-tuned
-baseline". Steal: the caution for SW-813. Full text: read (both posts; Elhage's tables came
-back scrambled).
+against a good baseline it "drops to 1-5% or so" (Elhage); about 5% over computed gotos on
+macOS AArch64, and 15–20% with MSVC over the *switch-case* interpreter, where Jin's guess is
+that tail calls "reset compiler heuristics to sane levels" (Jin) **[cited]**. Elhage: "It's
+easy to get impressive-looking results if you're comparing against a poorly-tuned baseline".
+Steal: the caution for SW-813. Full text: read (both posts; Elhage's tables came back
+scrambled). Audit: the MSVC figure's baseline is a switch-case loop, the same shape as the
+machine's `match`, so it is the closest to Stitchwort's case of these numbers.
 
 **C19. Wasm as a playground target: WasmGC, tail calls, Hoot, wasm_of_ocaml.**
 [web.dev](https://web.dev/blog/wasmgc-wasm-tail-call-optimizations-baseline),
@@ -453,14 +499,19 @@ unmeasured. Steal: 5.5. Full text: read (both pages).
 [rustls ci-bench](https://github.com/rustls/rustls/blob/main/ci-bench),
 [pythonspeed](https://pythonspeed.com/articles/consistent-benchmarking-in-ci). Claim: "Gate
 on instruction counts. Report wall time without gating on it"; Cachegrind counts varied
-0.008–0.027% quiet and 0.011–0.021% under 32 stress workers, while wall-clock medians "moved
-by roughly 150%" (tak) **[cited]**; counts miss "cache misses and branch mispredictions", so
-wall time is kept beside them (rustls) **[cited]**; two VMs gave instruction counts within 12
-of 2.27 billion and wall times 1.5–3.7% apart (pythonspeed) **[cited]**. Stitchwort's notes
+0.008–0.027% on a quiet host and 0.011–0.021% "under heavy CPU contention", while
+wall-clock medians "moved by roughly 150%" (tak) **[cited]**. tak's page says of itself
+"These docs are currently AI slop and have not been fully reviewed", so its numbers are weak
+evidence. Counts don't account for "cache misses and branch mispredictions", so wall time is
+kept beside them (rustls) **[cited]**. Two GitHub Actions VMs gave instruction counts within
+12 of 2.27 billion, while five timed runs spread 1.5% on the first VM and about 3.7% on the
+second, which also ran about 5% faster (pythonspeed) **[cited]**. Stitchwort's notes
 agree: native-only.md called its timings at load 21–38 "rough" and its instruction counts
 "steady to 0.1%"; evaluator-speed.md read retired instructions from `/usr/bin/time -l`
 **[checked]**. Steal: T1. Cost: small. Full text: read (three pages; GHC #15333 was blocked,
-§9).
+§9). Audit: "32 stress workers" belongs to tak's separate allocation-count experiment, not
+to these figures. The pythonspeed spread was within each VM, not between VMs. tak's
+disclaimer was missing.
 
 **C25. Titzer, "A Fast In-Place Interpreter for WebAssembly", OOPSLA 2022.**
 [arXiv 2205.01183](https://arxiv.org/abs/2205.01183). Claim: interpreting Wasm in place with
@@ -482,10 +533,10 @@ structure around a `List` I know only second-hand **[unverified]**, but compact-
 records the same split for Lean's `String` **[checked]**. Allais (C9) gives the general
 method for a dependently typed language: a record of the efficient encoding plus an erased
 invariant, smart constructors, and a view so users match as if on the inductive family
-**[checked]**. Huisinga (C8) shows the failure that matters: Lean's own `Array.groupBy`
-looks the group up in an `RBMap`, so the array has two references and every `push` copies
-it, "accidentally quadratic"; the fix in the library is to erase the map entry first
-**[checked]**. FP² (C5) keeps the uniqueness test dynamic and costs about 1% when nothing can
+**[checked]**. Huisinga (C8) shows the failure that matters, with an `Array.groupBy` the
+thesis writes as an illustration: it looks the group up in an `RBMap`, so the array has two
+references and every `push` copies it, "accidentally quadratic". The thesis's fix is to erase
+the map entry first (an `RBMap.update`) **[checked]**. FP² (C5) keeps the uniqueness test dynamic and costs about 1% when nothing can
 be reused **[checked]**.
 
 **How it maps onto Stitchwort.** The pattern is built once already. Compact text keeps
@@ -542,14 +593,17 @@ geomean **[checked]**.
 
 Three costs are measured or argued in the same papers **[checked]**:
 
-- **Borrowing blocks in-place update.** Lean's own ablation: removing borrowing made
-  const_fold *faster* (0.90) while it slowed binarytrees (1.14) and deriv (1.16) (C1 Fig. 6).
-  In C3, "borrowing past a mutation point may inhibit RC-1 optimizations": 6.4% of array
-  updates in unify fell back to a copy (§7.1).
-- **Borrowing can raise peak memory.** Lean-style inference "is not frame-limited" and
-  "should therefore be avoided in practice"; "Koka currently has no automatic borrow
-  inference" (C4 §1, §4.2). A borrowed list stays alive while the callee builds something
-  else.
+- **Borrowing blocks in-place update.** C1's heuristic keeps a parameter owned when it is
+  reset, because borrowing would "prevent reset and reuse" (C1 §5.2). Lean's own ablation:
+  removing borrowing made const_fold *faster* (0.90) while it slowed binarytrees (1.14) and
+  deriv (1.16) (C1 Fig. 6). The paper doesn't explain const_fold; that lost reuse is the
+  cause is my guess **[inferred]**. In C3, "borrowing past a mutation point may inhibit RC-1
+  optimizations": 6.4% of array updates in unify fell back to a copy (§7.1).
+- **Borrowing can raise peak memory.** "Unrestricted borrow inference" is not
+  frame-limited, and "such transformations should therefore be avoided in practice"; it "is
+  not safe for space", and "Koka currently has no automatic borrow inference" (C4 §1, §4.2).
+  A borrowed list stays alive while the callee builds something else. (C3 measured this:
+  only unify's peak memory rose, by 2.5%, C3 §7.1.)
 - **Borrowing and reuse interact.** Lean forbids reuse through a borrow; C3 didn't
   implement reuse at all.
 
@@ -557,8 +611,12 @@ Three costs are measured or argued in the same papers **[checked]**:
 register with the `MOVE` bit is moved, otherwise cloned (`code.rs`: `Ops`, `MOVE`)
 **[checked]**. A clone of an `Rc` is an increment, and the callee drops its copy, a
 decrement. Native code copies these decisions exactly (`n1.rs` header: "every move, clone
-and drop is the bytecode's") **[checked]**. There is no borrow concept in `crates/rt` or
-`crates/native` **[checked]** (grep). Where reuse matters most (`merge`, `map`), the argument
+and drop is the bytecode's", n1.rs:87) **[checked]**. Compiled functions have no borrowed
+parameters: a call's arguments are moved or cloned, and nothing in `code.rs` marks a
+parameter borrowed **[checked]**. (Audit: the first version said there was "no borrow
+concept" at all. But some `native_abi.rs` helpers do take arguments borrowed, for example
+the text at `t`, native_abi.rs:2150, and the function value at `k`, native_abi.rs:2506.
+That is a convention for runtime helpers, not borrowed parameters of user code.) Where reuse matters most (`merge`, `map`), the argument
 is passed on its last use and is already moved, so borrowing wouldn't help there and would
 hurt if it stopped reuse **[inferred]**. Where it would help is a structure read but not
 consumed: a tree passed to `Map.Tree.get` in a loop, a list passed to `List.length` and then
@@ -595,8 +653,9 @@ only thin it (C9 §2.1) **[checked]**.
 
 **How it maps onto Stitchwort.** Erasure is by sort: proofs and types go, relevant data
 stays. docs/core.md says so: "an indexed family's computational fields are kept, forced
-implicit ones like `n` in `VCons` included", and the Rust runtime shares the same decisions
-(`Data::unboxed_field`) **[checked]**. vec.md measured the cost: about 5–10% per operation
+implicit ones like `n` in `VCons` included", and the runtime's lowering shares the same
+decisions with the JS backend (`erasure.rs` header, D389; `Data::unboxed_field` is the
+shared rule for one-field records) **[checked]**. vec.md measured the cost: about 5–10% per operation
 against lists, "from the stored length in each `VCons`", and a naive `fromList` that is
 quadratic **[checked]**.
 
@@ -634,7 +693,8 @@ read, and whether the index is in scope at those matches), then a short note. Lo
   ablation, so the share due to dispatch is unknown (C14) **[checked]**. Titzer's Wizard
   measured its own threaded dispatch at 14% on average, 29% at most (C25 §3.4)
   **[checked]**. CPython's tail-calling interpreter gained "1-5% or so" against a
-  well-tuned baseline (Elhage), 5% on macOS and 15–20% with MSVC (Jin) (C17) **[cited]**.
+  well-tuned baseline (Elhage), 5% on macOS over computed gotos and 15–20% with MSVC over
+  a switch-case loop (Jin) (C17) **[cited]**.
   Keeter measured it in Rust with `become` (C16) **[cited]**:
 
   | Platform | `match` loop | tail calls | |
@@ -662,8 +722,9 @@ reference counting"; 4% is growing the register vector at frame entry; a call an
 costs about 37 ns against 2.2 ns natively with the same counting (native-compilation.md
 §1.2–1.3) **[checked]**. wasmi's Fibonacci result fits: register bytecode didn't help calls.
 
-**Expected gain.** Dispatch: at most the 19%, so 1.1–1.25× even if it vanished; Titzer's and
-CPython's measured 5–14% fit that **[inferred]**. The call path is the bigger target:
+**Expected gain.** Dispatch: at most the 19%, so 1.1–1.25× even if it vanished. Titzer's
+and CPython's measured 5–14% fit that, and so does CPython's 15–20% over a switch-case loop
+on MSVC, the shape closest to the machine's, if only just **[inferred]**. The call path is the bigger target:
 pre-sizing the register vector, not clearing registers written before read, unboxing the
 common `Ret` cases **[inferred]**.
 
@@ -713,7 +774,10 @@ eight years since. Measure first.
 
 ## 6. Steal next
 
-Only cards read in full appear here.
+Only cards read in full appear here. At the audit (30 Oct) every source below verified OK or
+minor, except C8. C8's claim was corrected, not dropped: the copy-on-every-`push` failure is
+in the thesis, but as the author's example, not Lean's library. Ranks 4 and 8 still stand,
+because they rest on SW-112, the day 4 measurements and C1 as much as on C8. No re-rank.
 
 | Rank | Idea | Helps | Cost | Source |
 |---|---|---|---|---|
@@ -749,8 +813,8 @@ the bench programs, `Set` and day 4. Write a borrowed-parameters note only if th
 large, with the constraints the papers give: owned when reset or reused (Lean, Beans §5.2),
 owned at tail calls (Lean), frame-limited memory (Lorenzen and Leijen, ICFP 2022: Koka
 declined Lean's inference), no borrow into an effect continuation. Evidence that it can
-cost: removing borrowing sped up Lean's const_fold (0.90); borrowing blocked 6.4% of
-in-place updates in OOPSLA 2026's unify.
+cost: removing borrowing sped up Lean's const_fold (0.90, cause not stated in the paper);
+borrowing blocked 6.4% of in-place updates in OOPSLA 2026's unify.
 
 **T3. Forced constructor fields.** Measure how many `VCons` cells a `Vec` program builds, how
 often a matched `n` is read, and whether the length is in scope at those matches. Then a
@@ -763,7 +827,8 @@ per call; 19% dispatch; frame push and pop, register clearing, RC). Candidates: 
 register vector once, don't clear registers written before read, unbox the common `Ret`
 cases. Record why tail-call dispatch is out for now: Keeter (2026) measured it 1.5–2×
 faster natively and 1.2–4.6× slower in Wasm engines, it needs nightly `become`, and measured
-dispatch gains elsewhere are 1–14% (CPython, Wizard).
+dispatch gains elsewhere are 1–14% (CPython against computed gotos, Wizard), 15–20%
+against a switch-case loop (CPython on MSVC).
 
 **T5. JS `Nat` representation: measure, then decide.** Profile day 2's brute force under
 `--js`; time `Nat` addition and comparison as `bigint` and as `number` in Node 22. If the gap
@@ -810,12 +875,16 @@ the full texts in §9. Next: January 2027.
 
 ## 9. Sources not reached
 
-### Full text not reachable (for Matt to fetch)
+### Full text not reachable
+
+None of these is promising enough for Matt to fetch by hand (audit, 30 Oct). C12, first
+listed here, was found at the audit in the Internet Archive's capture of the ACM PDF
+(`web.archive.org/web/20250330073918id_/https://dl.acm.org/doi/pdf/10.1145/3591260`) and is
+now read.
 
 | Item | DOI | URLs tried, and what each returned |
 |---|---|---|
-| C12. Brandon et al., Better Defunctionalization through Lambda Set Specialization (PLDI 2023) | [10.1145/3591260](https://doi.org/10.1145/3591260) | dl.acm.org/doi/pdf/…: HTML page (bot check); dspace.mit.edu bitstream (twice): empty file; escholarship.org content PDF: XML "AccessDenied"; Semantic Scholar: only the DOI link; the Roc Zulip upload is a different paper (Hafiz's) |
-| C22. IOG, "Stacks in the JS backend" (2023) | — | engineering.iog.io/2023-04-21-stacks-in-the-js-backend (with and without slash): 404; web.archive.org: unreachable from the fetch tool |
+| C22. IOG, "Stacks in the JS backend" (2023) | — | engineering.iog.io/2023-04-21-stacks-in-the-js-backend (with and without slash): 404; web.archive.org: unreachable from the fetch tool. Audit retry (30 Oct): the URL redirects (308) to the slashless form, which is a 404; the new engineering.iog.io index links no such post; Internet Archive CDX: "Temporarily Offline". Not promising enough to ask Matt for (a blog post on a backend design Stitchwort doesn't share) |
 | Forster, Sozeau, Tabareau, Verified Extraction from Coq to OCaml (PLDI 2024; screened, not carded) | [10.1145/3656379](https://doi.org/10.1145/3656379) | dl.acm.org PDF: HTML page; inria.hal.science/hal-04329663/file/main.pdf: HTML (bot page); Semantic Scholar: DOI link only |
 | GHC issue #15333 (screened, not carded) | — | gitlab.haskell.org issue page and API: Anubis bot page |
 
