@@ -708,7 +708,7 @@ The recommendation depends on these; if one is wrong, so is the part that rests 
 
 All three remain open. Each assumption is stated in full.
 
-**D1971. Close SW-800 by extending `cases` in three parts, with no new `decide` word: (1) `cases`
+**D1971. **Decided: yes (Matt, 30 October 2026).** Close SW-800 by extending `cases` in three parts, with no new `decide` word: (1) `cases`
 introduces the goal's leading binders, explicit, implicit and `auto`, when no closer proves the
 `Π` goal as it stands; (2) a decision closer after `omega`, closing a case on `Yes` with
 `Decidable.fromYes d Trivial` and going on after `No` or stuck; (3) when nothing is stuck, split
@@ -724,7 +724,7 @@ checks today changes (cases.rs:265-270); (ii) `auto`'s search can be run on one 
 `cases` without reorganising either; (iii) the statements the AoC proofs need stay within 64 cases,
 with `Finite.check` beyond.
 
-**D1972. Build SW-807 as a derived `Finite` interface with exactly two fields, `all: List a` and
+**D1972. **Decided: yes (Matt, 30 October 2026).** Build SW-807 as a derived `Finite` interface with exactly two fields, `all: List a` and
 `complete: (x: a) → x ∈ all` (no duplicate-freedom field), plus `Finite.check`, for non-recursive,
 non-indexed constructor types with finite fields; and make `byDecision` an official std idiom?**
 Recommendation: **yes, after D1971's conversion of days 12 and 21**. Reviewer agrees, with change:
@@ -737,7 +737,7 @@ list is `List.distinctEq Finite.all` (std/List/Distinct.sw:86, :95) and counting
 field for those types; (ii) a derived `Finite` costs little at declaration time for every eligible
 type (not measured); (iii) a proposition-level `Finite.forall` is a later ticket, not SW-807.
 
-**D1973. Do not add native proof evaluation until measured kernel evaluation is a material
+**D1973. **Decided: yes (Matt, 30 October 2026).** Do not add native proof evaluation until measured kernel evaluation is a material
 limitation on real programs; about 10 s of kernel evaluation in one real proof is the trigger to
 investigate, not a boundary.**
 Recommendation: **yes, worded so** ("not now rather than never"). Reviewer agrees, with change: the
