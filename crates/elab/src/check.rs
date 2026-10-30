@@ -3514,6 +3514,7 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             if crate::undo::unify(cx, a, b)?
                 || crate::lift::await_helpers(cx, a, b, crate::lift::Failure::Refl)?
                 || refl_after_instances(cx, a, b)?
+                || crate::queue::compare_waiting(cx, a, b, crate::queue::Failure::Refl)?
             {
                 Ok(Term::Refl)
             } else {
@@ -4196,8 +4197,58 @@ fn decided(cx: &mut Ctx, span: Span, term: &Term) -> Result<Term> {
 
 /// `term`, of type `found`, where `expected` is expected.
 pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value) -> Result<Term> {
-    if crate::undo::unify(cx, found, expected)? {
+    if unifies_with_instances(cx, found, expected)? {
         return Ok(term);
+    }
+    // An effectful function whose row lists the same abilities in a
+    // different order, or a total one where a partial one is expected.
+    if let Some(term) =
+        crate::undo::transaction(cx, |cx| effects::coerce(cx, &term, found, expected))?
+    {
+        return Ok(term);
+    }
+    // A computation type over a row unknown, against a type that may yet
+    // compute to a `Comp`: decided later (docs/proposals/effect-polymorphism.md
+    // §5.C.1, step 5).
+    if crate::rows::postpone(cx, found, expected)? {
+        return Ok(term);
+    }
+    // A `match` not lifted yet, against the same `match` elsewhere (a
+    // finished helper's call): compared again once it is lifted.
+    if crate::lift::await_helpers(cx, found, expected, crate::lift::Failure::Mismatch)? {
+        return Ok(term);
+    }
+    // A comparison stuck only on what the postponement queue still has to
+    // settle (a placeholder not filled yet, an unknown a queued check waits
+    // on): it waits for it (docs/proposals/postponement.md, stage 6).
+    if crate::queue::compare_waiting(cx, found, expected, crate::queue::Failure::Mismatch)? {
+        return Ok(term);
+    }
+    // The message shows the types as the failed comparison left them, as it
+    // always has: repeat it, keeping what it solved before failing.
+    cx.unify(found, expected)?;
+    if let Some(d) = effects::partial_mismatch(cx, found, expected)? {
+        Err(d)
+    } else {
+        Err(crate::numbers::explain_default(
+            cx,
+            cx.mismatch(expected, found),
+            &[found],
+        ))
+    }
+}
+
+/// Whether `found` and `expected` unify, once the dictionaries they need
+/// are found, if that is what was in the way ([`compare`]'s first ways; and
+/// a waiting comparison's, resumed, `queue::Comparison`). Nothing is solved
+/// if they don't.
+pub(crate) fn unifies_with_instances(
+    cx: &mut Ctx,
+    found: &Value,
+    expected: &Value,
+) -> Result<bool> {
+    if crate::undo::unify(cx, found, expected)? {
+        return Ok(true);
     }
     // A dictionary still to be found may be what's in the way (`List.sort xs`
     // against its value for `Nat`): find those whose type is known by now,
@@ -4215,7 +4266,7 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
         let found = crate::interfaces::refresh(cx, found)?;
         let expected = crate::interfaces::refresh(cx, expected)?;
         if crate::undo::unify(cx, &found, &expected)? {
-            return Ok(term);
+            return Ok(true);
         }
     }
     // A dictionary whose type only this comparison fixes (`List.sumByZero xs`
@@ -4238,38 +4289,9 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
         })?
         .is_some()
     {
-        return Ok(term);
+        return Ok(true);
     }
-    // An effectful function whose row lists the same abilities in a
-    // different order, or a total one where a partial one is expected.
-    if let Some(term) =
-        crate::undo::transaction(cx, |cx| effects::coerce(cx, &term, found, expected))?
-    {
-        return Ok(term);
-    }
-    // A computation type over a row unknown, against a type that may yet
-    // compute to a `Comp`: decided later (docs/proposals/effect-polymorphism.md
-    // §5.C.1, step 5).
-    if crate::rows::postpone(cx, found, expected)? {
-        return Ok(term);
-    }
-    // A `match` not lifted yet, against the same `match` elsewhere (a
-    // finished helper's call): compared again once it is lifted.
-    if crate::lift::await_helpers(cx, found, expected, crate::lift::Failure::Mismatch)? {
-        return Ok(term);
-    }
-    // The message shows the types as the failed comparison left them, as it
-    // always has: repeat it, keeping what it solved before failing.
-    cx.unify(found, expected)?;
-    if let Some(d) = effects::partial_mismatch(cx, found, expected)? {
-        Err(d)
-    } else {
-        Err(crate::numbers::explain_default(
-            cx,
-            cx.mismatch(expected, found),
-            &[found],
-        ))
-    }
+    Ok(false)
 }
 
 /// Checks the application `expr` against `expected`, comparing its result
@@ -5167,7 +5189,7 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
 /// it (`List.all Finite.all p = True` in `Finite.check p rfl x`), as in
 /// [`compare`]. Only reached where `rfl` would otherwise fail.
 #[inline(never)]
-fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
+pub(crate) fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
     if cx.e.interfaces.is_empty() || !cx.e.solve_ready_instances()? {
         return Ok(false);
     }

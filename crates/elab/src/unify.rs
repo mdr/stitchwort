@@ -24,7 +24,125 @@ use stitchwort_core::{nat_add, native};
 /// in the same order; a function type's codomain is only evaluated once its
 /// domain has been unified, so it sees the solutions.
 pub fn unify(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
-    run(g, vec![Task::Values(level, a.clone(), b.clone())])
+    nested(|| run(g, vec![Task::Values(level, a.clone(), b.clone())]))
+}
+
+/// Runs `f` with no pair waiting: a comparison inside another, or for a
+/// caller that wants `true` or `false`, answers for itself, so a pair stuck
+/// on a pending unknown in it fails it, as it always has; the comparison
+/// around it decides whether the whole pair waits ([`unify_waiting`]).
+fn nested<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
+    let saved = WAITING.with(|w| w.borrow_mut().take());
+    let result = f();
+    WAITING.with(|w| *w.borrow_mut() = saved);
+    result
+}
+
+/// A pair that can't be decided yet ([`unify_waiting`]), with `level`
+/// variables in scope.
+#[derive(Clone)]
+pub(crate) struct Waiting {
+    pub(crate) level: usize,
+    pub(crate) a: Value,
+    pub(crate) b: Value,
+}
+
+/// What [`unify_waiting`] finds.
+pub(crate) enum Answer {
+    /// Equal, with what was solved to make them so.
+    Yes,
+    /// They can't be made equal.
+    No,
+    /// Equal but for these pairs, each failing only where a side is an
+    /// unknown the queue still has to settle, or stuck on one: the rest is
+    /// solved, and the pairs are decided once those unknowns are
+    /// (docs/proposals/postponement.md, stage 6).
+    Blocked(Vec<Waiting>),
+}
+
+/// Tri-state unification (docs/proposals/postponement.md, stage 6): as
+/// [`unify`], except that a pair that fails where one side is an unknown
+/// still pending in the queue ([`set_pending`]), or a neutral term mentioning
+/// one, is set aside instead of failing the comparison, and the rest goes
+/// on. Only the outer comparison sets pairs aside: one nested in it (a
+/// call's arguments compared on their own) answers `true` or `false`, and
+/// the pair it was part of is then the one set aside.
+pub(crate) fn unify_waiting(
+    g: &Globals,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    pending: &HashSet<usize>,
+) -> Result<Answer> {
+    let saved = WAITING.with(|w| w.borrow_mut().replace(Vec::new()));
+    let saved_pending = PENDING.with(|p| p.replace(pending.clone()));
+    let result = run(g, vec![Task::Values(level, a.clone(), b.clone())]);
+    PENDING.with(|p| p.replace(saved_pending));
+    let waiting = WAITING.with(|w| std::mem::replace(&mut *w.borrow_mut(), saved));
+    let waiting = waiting.unwrap_or_default();
+    Ok(match result? {
+        false => Answer::No,
+        true if waiting.is_empty() => Answer::Yes,
+        true => Answer::Blocked(waiting),
+    })
+}
+
+/// Whether the failing pair `a`, `b` waits ([`unify_waiting`]); set aside
+/// if so.
+fn sets_aside(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    if WAITING.with(|w| w.borrow().is_none()) || PENDING.with(|p| p.borrow().is_empty()) {
+        return Ok(false);
+    }
+    if !(on_pending(g, level, a)? || on_pending(g, level, b)?) {
+        return Ok(false);
+    }
+    WAITING.with(|w| {
+        if let Some(w) = w.borrow_mut().as_mut() {
+            w.push(Waiting {
+                level,
+                a: a.clone(),
+                b: b.clone(),
+            });
+        }
+    });
+    Ok(true)
+}
+
+/// Whether `v` may yet become something else once the queue settles a
+/// pending unknown: it is a pending unknown applied to anything, or it is
+/// flexible (another unknown applied, a stuck call, a sum on either) and
+/// mentions one. A constructor, a type former or a variable applied is
+/// rigid, and a pair failing there fails for good.
+fn on_pending(g: &Globals, level: usize, v: &Value) -> Result<bool> {
+    let v = match force(g, v.clone())? {
+        Value::NatAdd(_, base) => force(g, (*base).clone())?,
+        v => v,
+    };
+    match &v {
+        Value::Neutral(Head::Meta(m), _) if pending(*m) => return Ok(true),
+        Value::Neutral(Head::Meta(_) | Head::Def(_), _) => {}
+        _ => return Ok(false),
+    }
+    Ok(match quote_at_most(g, level, &v, KNOWN_CAP)? {
+        Some(t) => t
+            .subterms()
+            .any(|(t, _)| matches!(t, Term::Meta(m) if pending(*m))),
+        None => false,
+    })
+}
+
+/// Whether `m` is pending ([`PENDING`]).
+fn pending(m: usize) -> bool {
+    PENDING.with(|p| p.borrow().contains(&m))
+}
+
+/// Whether unknown `m` is frozen, equal only to itself: a helper's not
+/// lifted yet (`Globals::meta_frozen`), or a placeholder its queued check
+/// hasn't filled (D2016's end state, stage 6). Only the check fills a
+/// placeholder (invariant 2); a comparison that meets one waits for it
+/// ([`unify_waiting`]) or fails.
+fn frozen(g: &Globals, m: usize) -> bool {
+    g.meta_frozen(m) || g.unfilled_placeholders.borrow().contains(&m)
 }
 
 /// [`unify`] for every pair on the work list.
@@ -51,13 +169,14 @@ fn run(g: &Globals, mut work: Vec<Task>) -> Result<bool> {
                     true
                 } else {
                     note_unfilled(g, &a, &b)?;
-                    false
+                    sets_aside(g, level, &a, &b)?
                 }
             }
-            // Put aside, and nothing solved since: they differ.
-            Task::Later(_, a, b, trail) if g.meta_trail.borrow().len() <= trail => {
+            // Put aside, and nothing solved since: they differ, unless the
+            // comparison may wait on them.
+            Task::Later(level, a, b, trail) if g.meta_trail.borrow().len() <= trail => {
                 note_unfilled(g, &a, &b)?;
-                false
+                sets_aside(g, level, &a, &b)?
             }
             Task::Later(level, a, b, _) => {
                 let env: Vec<Value> = (0..level).map(Value::var).collect();
@@ -104,10 +223,12 @@ thread_local! {
     /// injective such a solution is one of several. Only counted
     /// ([`solved_lossily`], for `queue.rs`), never acted on.
     static LOSSY: RefCell<Vec<(usize, usize)>> = const { RefCell::new(Vec::new()) };
-    /// The placeholders of the queued checks not filled yet (`queue.rs`,
-    /// kept in step by `Queue::sync_unfilled`), so a comparison that fails
-    /// at one can be counted ([`met_unfilled`]).
-    static UNFILLED: RefCell<HashSet<usize>> = RefCell::new(HashSet::default());
+    /// While [`unify_waiting`] runs: the unknowns the queue still has to
+    /// settle (`queue::pending`), on which a pair may wait.
+    static PENDING: RefCell<HashSet<usize>> = RefCell::new(HashSet::default());
+    /// While [`unify_waiting`] runs, outside any comparison nested in it:
+    /// the pairs set aside.
+    static WAITING: RefCell<Option<Vec<Waiting>>> = const { RefCell::new(None) };
 }
 
 /// Comparisons that failed at a pair one side of which is headed by an
@@ -121,22 +242,13 @@ pub(crate) fn met_unfilled() -> usize {
     MET_UNFILLED.load(std::sync::atomic::Ordering::Relaxed)
 }
 
-/// The placeholders not filled yet are now `metas`.
-pub(crate) fn set_unfilled(metas: impl Iterator<Item = usize>) {
-    UNFILLED.with(|u| {
-        let mut u = u.borrow_mut();
-        u.clear();
-        u.extend(metas);
-    });
-}
-
 /// Counts a failing pair, `a` against `b`, if one side's head is an unfilled
 /// placeholder, or a definition stuck on one.
 fn note_unfilled(g: &Globals, a: &Value, b: &Value) -> Result<()> {
-    if UNFILLED.with(|u| u.borrow().is_empty()) {
+    if g.unfilled_placeholders.borrow().is_empty() {
         return Ok(());
     }
-    let is_unfilled = |m: usize| UNFILLED.with(|u| u.borrow().contains(&m));
+    let is_unfilled = |m: usize| g.unfilled_placeholders.borrow().contains(&m);
     let unfilled = |v: &Value| -> Result<bool> {
         Ok(match force(g, v.clone())? {
             Value::Neutral(Head::Meta(m), _) => is_unfilled(m),
@@ -373,7 +485,7 @@ fn row_rule(
             return Ok(None);
         };
         Ok(match force(g, row.clone())? {
-            Value::Neutral(Head::Meta(m), _) if !g.meta_frozen(m) => {
+            Value::Neutral(Head::Meta(m), _) if !frozen(g, m) => {
                 Some((row.clone(), result.clone()))
             }
             _ => None,
@@ -508,7 +620,7 @@ fn divergence_rule(
             return Ok(None);
         };
         Ok(match force(g, div.clone())? {
-            Value::Neutral(Head::Meta(m), _) if !g.meta_frozen(m) => {
+            Value::Neutral(Head::Meta(m), _) if !frozen(g, m) => {
                 Some((div.clone(), row.clone(), result.clone()))
             }
             _ => None,
@@ -685,7 +797,7 @@ fn stuck_sum(g: &Globals, level: usize, add: DefId, v: &Value) -> Result<Option<
     }
     let unknown = |v: &Value| -> Result<Option<(usize, Spine)>> {
         Ok(match force(g, v.clone())? {
-            Value::Neutral(Head::Meta(m), s) if !g.meta_frozen(m) && distinct_variables(g, &s)? => {
+            Value::Neutral(Head::Meta(m), s) if !frozen(g, m) && distinct_variables(g, &s)? => {
                 Some((m, s))
             }
             _ => None,
@@ -832,7 +944,7 @@ fn blocked_within(g: &Globals, v: &Value, depth: usize) -> Result<bool> {
             other => other,
         };
         match &arg {
-            Value::Neutral(Head::Meta(m), _) if !g.meta_frozen(*m) => return Ok(true),
+            Value::Neutral(Head::Meta(m), _) if !frozen(g, *m) => return Ok(true),
             Value::Neutral(Head::Def(_), _) if depth > 1 && blocked_within(g, &arg, depth - 1)? => {
                 return Ok(true);
             }
@@ -905,7 +1017,7 @@ fn unify_step(
                 }
                 let mut work = Vec::new();
                 match plus_rule(g, level, x, v, &mut work)? {
-                    Some(true) => run(g, work),
+                    Some(true) => nested(|| run(g, work)),
                     _ => Ok(false),
                 }
             },
@@ -992,9 +1104,9 @@ fn unify_step(
         // A frozen metavariable is rigid: against a metavariable that isn't,
         // that one is solved; against anything else, they differ.
         (Value::Neutral(Head::Meta(m1), s1), Value::Neutral(Head::Meta(m2), s2))
-            if g.meta_frozen(*m1) != g.meta_frozen(*m2) =>
+            if frozen(g, *m1) != frozen(g, *m2) =>
         {
-            let (m, spine, other) = if g.meta_frozen(*m1) {
+            let (m, spine, other) = if frozen(g, *m1) {
                 (*m2, s2, &a)
             } else {
                 (*m1, s1, &b)
@@ -1002,7 +1114,7 @@ fn unify_step(
             solve(g, level, m, spine, other)? || first_order(g, level, m, spine, other)?
         }
         (Value::Neutral(Head::Meta(m), _), _) | (_, Value::Neutral(Head::Meta(m), _))
-            if g.meta_frozen(*m) =>
+            if frozen(g, *m) =>
         {
             let awaited =
                 |v: &Value| matches!(v, Value::Neutral(Head::Meta(m), _) if awaited_helper(*m));
@@ -1035,7 +1147,7 @@ fn unify_step(
                         if matches!(h1, Head::Def(_)) && (blocked(g, &a)? || blocked(g, &b)?) =>
                     {
                         let trail = g.meta_trail.borrow().len();
-                        let same = run(g, pairs.into_iter().rev().collect())?;
+                        let same = nested(|| run(g, pairs.into_iter().rev().collect()))?;
                         note_lossy(g, trail);
                         same
                     }
@@ -1249,7 +1361,7 @@ fn meta_against_call(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<
     let (m, spine, call) = match (&a, &b) {
         (Value::Neutral(Head::Meta(m), spine), call @ Value::Call(..))
         | (call @ Value::Call(..), Value::Neutral(Head::Meta(m), spine))
-            if !g.meta_frozen(*m) =>
+            if !frozen(g, *m) =>
         {
             (*m, spine, call)
         }
@@ -1516,7 +1628,7 @@ fn prune(
     spine: &[Elim],
     renaming: &HashMap<usize, usize>,
 ) -> Result<Option<(usize, Vec<Elim>)>> {
-    if g.meta_frozen(m2) {
+    if frozen(g, m2) {
         return Ok(None); // pruning would solve it
     }
     let mut levels = Vec::new();
@@ -2762,5 +2874,87 @@ mod tests {
         assert!(unify(&g, 4, &lam(0), &lam(1)).unwrap());
         assert_eq!(g.budget.total_work() - before, 1, "one step: the shortcut");
         assert!(g.meta_solution(m).is_none());
+    }
+
+    fn pending_of(ms: &[usize]) -> HashSet<usize> {
+        ms.iter().copied().collect()
+    }
+
+    /// Stage 6: a pair that fails only at a pending unknown (here a
+    /// placeholder, frozen until filled) is set aside, and the rest of the
+    /// comparison goes on and keeps what it solves: `?p = ?x` against
+    /// `Type = Type` is `Blocked` on `?p`, with `?x` solved.
+    #[test]
+    fn a_pair_on_a_pending_unknown_waits_and_the_rest_is_solved() {
+        let g = globals();
+        let (p, placeholder) = meta(&g, &[]);
+        let (x, unknown) = meta(&g, &[]);
+        g.unfilled_placeholders.borrow_mut().insert(p);
+        let a = eq(placeholder.clone(), unknown);
+        let b = eq(ty(), ty());
+        assert!(
+            !unify(&g, 0, &a, &b).unwrap(),
+            "frozen: the boolean form fails"
+        );
+        let answer = unify_waiting(&g, 0, &a, &b, &pending_of(&[p])).unwrap();
+        let Answer::Blocked(pairs) = answer else {
+            panic!("blocked")
+        };
+        assert_eq!(pairs.len(), 1);
+        assert!(matches!(force(&g, pairs[0].a.clone()).unwrap(),
+            Value::Neutral(Head::Meta(m), _) if m == p));
+        assert!(g.meta_solution(p).is_none(), "never solved by unification");
+        assert!(g.meta_solution(x).is_some(), "the rest is solved");
+    }
+
+    /// Stage 6: only a pending unknown makes a pair wait. A rigid mismatch
+    /// is `No` even with pending unknowns elsewhere, and a pair stuck on an
+    /// ordinary unknown fails as it always has; with nothing pending the
+    /// answer is the boolean form's.
+    #[test]
+    fn only_pending_unknowns_make_a_comparison_wait() {
+        let g = globals();
+        let (p, placeholder) = meta(&g, &[]);
+        let (q, other) = meta(&g, &[]);
+        g.unfilled_placeholders.borrow_mut().insert(p);
+        g.unfilled_placeholders.borrow_mut().insert(q);
+        let pending = pending_of(&[p]);
+        // Type 0 against Type 1: rigid.
+        let rigid = unify_waiting(&g, 0, &ty(), &Value::Sort(Sort::Type(1)), &pending).unwrap();
+        assert!(matches!(rigid, Answer::No));
+        // A frozen unknown the queue doesn't own (`q` not pending).
+        let a = eq(other.clone(), ty());
+        let b = eq(ty(), ty());
+        assert!(matches!(
+            unify_waiting(&g, 0, &a, &b, &pending).unwrap(),
+            Answer::No
+        ));
+        // With `p` pending, the same shape waits.
+        let a = eq(placeholder, ty());
+        assert!(matches!(
+            unify_waiting(&g, 0, &a, &b, &pending).unwrap(),
+            Answer::Blocked(_)
+        ));
+        assert!(matches!(
+            unify_waiting(&g, 0, &ty(), &ty(), &pending).unwrap(),
+            Answer::Yes
+        ));
+    }
+
+    /// Stage 6: a comparison nested in a pair answers for itself, so it is
+    /// the outer pair that waits: `unify` inside `unify_waiting` sets nothing
+    /// aside, and leaves the waiting state as it found it.
+    #[test]
+    fn a_nested_comparison_answers_for_itself() {
+        let g = globals();
+        let (p, placeholder) = meta(&g, &[]);
+        g.unfilled_placeholders.borrow_mut().insert(p);
+        let saved = WAITING.with(|w| w.borrow_mut().replace(Vec::new()));
+        let saved_pending = PENDING.with(|q| q.replace(pending_of(&[p])));
+        assert!(!unify(&g, 0, &placeholder, &ty()).unwrap());
+        let set_aside = WAITING.with(|w| w.borrow().as_ref().map(Vec::len));
+        PENDING.with(|q| q.replace(saved_pending));
+        WAITING.with(|w| *w.borrow_mut() = saved);
+        assert_eq!(set_aside, Some(0));
     }
 }
