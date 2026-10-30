@@ -8389,8 +8389,8 @@
       "id": 894,
       "title": "Literature trawl: dependent types and effect systems, ideas to steal",
       "status": "doing",
-      "agent": "",
-      "where": "D1974: all six clusters now reliable except infrastructure's unsearched remainder (last 084bed2e)",
+      "agent": "Claude",
+      "where": "finishing: audit inductives.md (lane), then audit + finish searches of infrastructure.md (queued); summary report after, not yet (Matt)",
       "labels": [
         "research"
       ],
