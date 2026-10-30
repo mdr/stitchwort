@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: universe level is too large
+   ╭─[ soundness/universe-above-limit.sw:3:17 ]
+   │
+ 3 │ def above: Type 65536 := Type 65535
+   │                 ──┬──  
+   │                   ╰──── universe level is too large
+   │ 
+   │ Note: the largest universe is `Type 65535`
+───╯

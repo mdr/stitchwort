@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: universe level is too large
+   ╭─[ soundness/universe-overflow-annotation.sw:3:17 ]
+   │
+ 3 │ def wrap2: Type 4294967295 := Type 4294967294
+   │                 ─────┬────  
+   │                      ╰────── universe level is too large
+   │ 
+   │ Note: the largest universe is `Type 65535`
+───╯

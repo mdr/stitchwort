@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: universe level is too large
+   ╭─[ soundness/universe-overflow-field.sw:5:20 ]
+   │
+ 5 │   | MkBox (t: Type 4294967295)
+   │                    ─────┬────  
+   │                         ╰────── universe level is too large
+   │ 
+   │ Note: the largest universe is `Type 65535`
+───╯

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNIVERSE] Error: `Type 65535` has no type
+   ╭─[ soundness/universe-top.sw:5:10 ]
+   │
+ 5 │ def top: Type 65535 := Type 65534
+   │          ─────┬────  
+   │               ╰────── `Type 65535` is the largest universe, and no universe holds it
+   │ 
+   │ Note: `Type n` can be used as a term for `n` up to 65534: every term needs a type, and `Type n : Type n` would make the logic inconsistent
+───╯
