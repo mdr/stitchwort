@@ -1313,7 +1313,11 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Lam(..) if expr.section_name().is_some() => {
             Err(crate::dot::section_unknown(cx, expr))
         }
-        Expr::Lam(names, ..) => {
+        // `x => y => b` is inferred as `x y => b` is (SW-910): one function
+        // type for all its parameters, so the inner lambda is checked
+        // against a function type, not an unknown.
+        Expr::Lam(..) => {
+            let (names, _) = curried_lambda(expr);
             let names: Vec<Name> = names.iter().map(|name| name.text.as_str().into()).collect();
             infer_lambda(cx, expr, &names)
         }
@@ -1693,7 +1697,7 @@ fn settle_inferred_row(cx: &Ctx, row: &Term, value: &Value) -> Result<()> {
 fn infer_lambda(cx: &mut Ctx, lambda: &Expr, names: &[Name]) -> Result<(Term, Value)> {
     let (row, row_value) = inferred_row(cx)?;
     let body = match lambda {
-        Expr::Lam(_, body, _) => Some((&**body, &row_value)),
+        Expr::Lam(..) => Some((curried_lambda(lambda).1, &row_value)),
         _ => None,
     };
     let fresh = fresh_function_type_in(cx, names, body)?;
@@ -1706,6 +1710,21 @@ fn infer_lambda(cx: &mut Ctx, lambda: &Expr, names: &[Name]) -> Result<(Term, Va
     // Annotated for the kernel, which doesn't infer a lambda's type.
     let ann = Term::Ann(Rc::new(term), Rc::new(cx.quote_folded(&ty)?));
     Ok((ann, ty))
+}
+
+/// The parameters of `lambda`, a plain lambda, and of each plain lambda
+/// that is directly its body, with the innermost body: `x => y z => b`
+/// gives `x, y, z` and `b`. A section (`.f`) inside isn't taken in.
+fn curried_lambda(lambda: &Expr) -> (Vec<&AstName>, &Expr) {
+    let mut names = Vec::new();
+    let mut e = lambda;
+    while let Expr::Lam(more, body, _) = e
+        && (names.is_empty() || e.section_name().is_none())
+    {
+        names.extend(more.iter());
+        e = body;
+    }
+    (names, e)
 }
 
 /// Records each parameter type of `ty` still unknown after checking the
