@@ -1,7 +1,7 @@
 # Proposal: one postponement queue in the elaborator
 
-**Status:** draft 3, 30 October 2026; **stage 1 is built** ([As built (stage
-1)](#as-built-stage-1)). Tickets SW-817 (anchor), SW-847 and SW-885; context
+**Status:** draft 3, 30 October 2026; **stages 1 and 2 are built** ([As built (stage
+1)](#as-built-stage-1), [As built (stage 2)](#as-built-stage-2)). Tickets SW-817 (anchor), SW-847 and SW-885; context
 SW-509, SW-805, SW-896. Follows D1990 (one queue, agreed in principle), D1991 (SW-805's
 field-name rule stays, as name resolution), D2012 (Matt: design for the best end state; the
 cost of churn is not a criterion) and D2015 (Matt: revise after the external review). Repros,
@@ -1530,6 +1530,189 @@ binary (`/Users/matt/repos/mdr/stitchwort/target/release/stitchwort`, the same c
 9. **The projection runs at `finish` and when lifting only**, not in every zonk: the zonks that
    read a type to decide something (`find_ready_dictionaries`, `effects.rs`, `defaults.rs`) see
    the terms they saw before.
+
+## As built (stage 2)
+
+Built in SW-817's stage-2 lane, on `85af9c08`, in four commits: the hash dump fixed (SW-906,
+`0caa1f93`), K1 and K2 (`b0ea8c3b`), the assertions and the counter (`ffcff48e`), the tests and
+examples (`9c95bf57`); this section is the fifth. Line numbers are of `9c95bf57`.
+
+**What changed.**
+- **K1, record literals** (`crates/elab/src/records.rs`). A literal inferred (`infer_literal`,
+  `:792`) or checked against a type whose head is an unknown (`check_record`, `:886`) is queued
+  by `queue_literal` (`:843`) as a `Literal` (`:806`) waiting on that unknown; `infer_literal`
+  gives it a fresh unknown type first. Resumed, it is `check_record` at the type now known. Its
+  default (`:821`, priority `FieldNames`, D2013) is SW-805's field-name rule: the one record type
+  in scope by its short name with exactly the literal's fields, with fresh parameters, unified
+  with what the literal waits on; the ladder applies it at W4 only. A literal still waiting at
+  the end is reported with the rule's error, the candidates noted as before. A literal waits
+  whether or not `held` holds the rule back, so `FieldNames::hold` is no longer reached and
+  `last_resort` never reruns; stage 5 removes them.
+- **K2, `.field` and dot calls** (`crates/elab/src/dot.rs`). The type-head view reports the
+  unknown it meets (`Step::Unknown(m)`, `find_or_block`, `:668`, `:724`). `infer_dot` (`:269`)
+  and `infer_call` (`:1881`) elaborate through `dot_or_block` (`:301`) and `call_or_block`
+  (`:1894`), which give the stop to their caller instead of failing, and `queue_call` (`:434`)
+  queues a `DotCall` (`:414`) by §5.5's receiver rule (`keep_receiver`, `:463`): a blocker
+  numbered below the snapshot taken before the receiver was made before it, so the snapshot is
+  restored and the receiver kept as syntax; otherwise the receiver's term is kept. Resumed
+  (`:478`): from syntax, by the entry it came in by (`Route`, `:363`: `infer_call`, which picks
+  the prefix form or the dot form then, or `infer_dot` for `x |> r.g` and the effect pass's
+  call heads); with the term kept, `insert` and then the view and the call (`dot_on`, `:326`).
+  The call's implicit arguments are inserted unless its placeholder's type is still unknown or
+  itself takes them. A call with an argument already elaborated (piped in, or a parameter's
+  default) doesn't wait: it is the error it was.
+- **Waiting again** (§5.7, T4's second measure). A resumption that meets another unknown applies
+  the same rule to it: the receiver undone and `Resumed::Waiting`, or, where the receiver (made
+  again from syntax, or given implicit arguments at resume) made the new unknown,
+  `Resumed::WaitingAs` (`queue.rs:106`), a check holding that receiver from then on. The check
+  is part of the state (`Queue::check`, `:263`), so a restore takes it back with the resumption.
+- **Filling** (`unify.rs:1861`). A filled placeholder's term may mention unknowns solved after
+  the fill (a literal's type parameters, `({ label = "n", contents = 5 }).contents`); zonking
+  the placeholder's call now zonks the term in its own variables first. A lifted helper's call,
+  zonked before it is recorded, is unaffected.
+- **Invariant 6's assertion** (`queue::kept_receiver`, `:655`, called from `keep_receiver`,
+  `dot.rs:473`): a receiver kept as a term made no number literal `Nat` at once (the
+  `defaulted` list) and left no operator with a generic dictionary, since the snapshot before
+  it (`Snapshot::metas`, `::defaulted`, `undo.rs:92`, `:98`). A debug assertion; counted in
+  release.
+- **Invariant 8's assertions**, for the consumers of §5.10 that K1 and K2 meet: the field-name
+  rule chooses a type only as W4's default (`Queue::settling`, `queue.rs:181`, set by
+  `settle_queue`, `:517`; asserted in `Literal`'s default, `records.rs:824`); a resumed call
+  has its implicit arguments before it fills a placeholder that doesn't take them
+  (`dot.rs:538`). The others are stage 1's (operators decided at `finish`) or later stages'
+  (sections, numbers).
+- **The counter stage 1 couldn't add** (its deviation 4): the unifier now knows the unfilled
+  placeholders, a thread-local set (`unify.rs:110`) that `Queue::sync_unfilled` (`queue.rs:230`)
+  keeps in step with every state change, restore and clear; a comparison that fails at a pair
+  one side of which is headed by an unfilled placeholder, or is a definition stuck on one, is
+  counted (`note_unfilled`, `unify.rs:135`). New counters: `met unfilled`, `requeued`, `kept`
+  and `kept chose` (`queue::counts`, `queue.rs:683`).
+- **SW-906**: `hash_stability`'s `dump` runs on a 64 MB thread with `Session::eager_for_stack`,
+  and takes `HASH_DUMP_PROJECT`; on main it failed with `E-RESOURCE` in Day22's `part1Correct`
+  **[run]**. How to run it: docs/testing.md, "Hash dumps".
+
+**Hash changes**, against `0caa1f93` (std + aoc, 10,420 declarations; std + rogue, 5,164; the
+accepted and extract examples at `STITCHWORT_TIER=full`), each changed term compared exactly
+with a scratch test (not kept) on the base and the lane **[measured]**:
+
+| declaration | what differs | kind | in §6.3 |
+|---|---|---|---|
+| `safe-fields.sw` "record equality", "record inequality" | the right side of `==` wrapped in `Ann(…, Option Counter)`, since it is now inferred with its literal waiting | harmless: `Ann` is erased | yes |
+| `record-literal-inferred.sw` "the other side says" | the same `Ann`, around `Some ({ value = one })` | harmless | no: the prototype rejected this file ("in a list"), so its hashes weren't compared |
+| `record-literal-inferred.sw` "appended" | the `Ann` moves from the right operand of `++` to the left: the left now infers, with its literal waiting | harmless | no, as above |
+| `Day08.harmonicsCorrect` | `stepFacts`'s motive solved to the folded goal, `City.harmonics city first second`, not its `List.flatMap …` unfolding | harmless, arguably better | yes |
+| `Day24.carriesMentioned` | the lambda as written (`each`) and `List.flatMap`'s lemma, not the unifier's copy (`gate`) through another library call | harmless, arguably better | yes |
+| `Day08.part2Correct`; `Day24` `adderAdds`, `part2Correct`, `part2Sound`, `part2Sound.%match1`, `shapeAdds`, `shapeAdds.%match3` | identical terms: each refers to a changed declaration | harmless | yes |
+
+**13 changes: 4 example tests and 9 aoc declarations; std, rogue, the extract examples and
+every other accepted example unchanged.** Against §6.3's 26: Day05's 9 (`noRuleBroken` and the
+8 that refer to it) and Day06's 5 (`offRouteFree` and the 4 that refer to it) are gone, as
+expected, since stage 1 fixed both causes; the 2 `record-literal-inferred.sw` tests are new.
+**`Day06.part2Correct`, which §6.3 found changed in its own term, is unchanged**: the lane's term
+and the base's are identical but for `Loc` wrappers **[measured]**. [inferred] SW-822 part 1
+(`47a6ec9b`, after the prototype's base) makes a lambda argument wait for the later arguments
+when any parameter type is unknown, so that lambda is no longer tried in place and its `.filter`
+never meets an unknown. "In a list", annotated, has the hash it had unannotated (identical
+terms but for `Loc`), as §9's first must-hold for invariant 6 says it should.
+
+**Statements, answers and errors.** None of the 9 aoc declarations' types changed (the scratch
+comparison shows each type identical). `stitchwort check --no-cache` and `stitchwort test` pass
+in `aoc/` (914 tests) and `games/rogue/` (100) **[run]**. `task snap:examples` at the full tier
+writes no snapshot: **no error message changed**, and `postponed-lambda-second-error.sw` keeps
+its error (invariant 3) **[run]**.
+
+**Counters**, `STITCHWORT_TIMINGS`, `stitchwort check --no-cache`, each accepted and rejected
+example checked on its own and summed **[measured]**:
+
+| | queued | resumed | defaulted | stuck | crossed W1 | met unfilled | solved first | lossy | disagreed | read back | requeued | kept | kept chose |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| aoc | 117 | 94 | 0 | 0 | 15 | 8 | 10 | 7 | 0 | 0 | 0 | 21 | 0 |
+| rogue | 11 | 8 | 0 | 0 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 0 |
+| accepted examples | 149 | 133 | 1 | 0 | 80 | 2 | 4 | 3 | 0 | 0 | 0 | 2 | 0 |
+| rejected examples | 105 | 88 | 0 | 8 | 66 | 0 | 0 | 0 | 0 | 0 | 0 | 3 | 0 |
+
+- `kept chose` is 0 everywhere: no receiver kept as a term chose from an unknown (invariant 6).
+- `met unfilled`: aoc's 8 are all at one place, `Day24/Proofs/Adder.sw:193`, `allMember (wire
+  => wire.zBit.all (found => found ≤ bits)) …`: a chained `.field` on the lambda's parameter
+  whose placeholders a comparison inside the same application meets before its W1 (found with a
+  scratch trace, not kept). The declaration's hash is unchanged, so the route that survives gives
+  today's term. Not the stage-6 trigger: nothing is rejected that would be accepted.
+- `lossy`: **7 of aoc's 10 fills found solved first had been solved by comparing two stuck calls
+  by their arguments** (Day09 `Proofs/Part2.sw:55`, `:64`, `:78`, `(free.moveFile file).snd`,
+  §5.10's example; Day24 `Proofs/Complete.sw:61`, twice; Day24 `Proofs/Part2.sw:101`, twice),
+  and all 7 agreed with the item's term (`disagreed` 0). The caveat to D2016's P1 expected none;
+  it holds in the sense that matters (no right program rejected), but the solutions here came
+  from the lossy rule, not from pattern solutions.
+- The one default is `record-literal-inferred.sw`'s "a parameter is inferred", at W4.
+
+**Timing**, `stitchwort check --no-cache` in `aoc/`, user + system CPU, alternating main's
+binary (`/Users/matt/repos/mdr/stitchwort/target/release/stitchwort`, built at 17:00 on 30
+October from main) with the lane's, on a shared machine (load average 5 to 19) **[measured]**: main 41.67, 41.49, 40.18 s; lane 39.84, 37.99, 37.90 s. The lane is about 5
+to 8% faster, as the prototype was (§6.4): fewer failed tries.
+
+**The Day08 literal** (stage 1's open point, its deviation 2). The literal `{ forward = …,
+backward = … }` holding a `match`, now at `Day08/Proofs/Part2.sw:143` (§5.6 and §6.5 say `:148`),
+is **not queued** in stage 2: a scratch trace (removed) of every item queued and resumed while
+`aoc` is checked shows none at its span **[run]**; its expected type is known when it is
+reached. No item anywhere in the corpus needs a default before lifting: aoc and rogue default
+nothing, and the one default in the examples is at W4 in a declaration with no `match`.
+**Decision: W2 keeps applying no default**, as stage 1 built it; the ladder and invariant 7 say
+defaults are W4's only, and nothing in the corpus asks otherwise.
+
+**Tests.**
+- `queue.rs`, 6 new, on modules without the library: K1 waits and is checked at its type; its
+  default applies only at W4, and two candidates report the rule's error; K2 on a variable waits
+  as syntax, its receiver's inference undone; K2 on a waiting literal keeps it; K2 that meets
+  another unknown waits again; invariant 6's assertion, made to fire by hand (in release, that it
+  counts). Run in release and debug.
+- `crates/driver/tests/postponement.rs`, 6, with the library, on a 64 MB thread so a debug build
+  passes too: §9's must-hold tests for invariant 6 (`p => p.row` fixed later, the annotated
+  term; Lean's chained `((f.x 1).x 2).x 3`, the annotated term), invariant 8 (`r => r.before ==
+  page` decides with `Nat.decEq` as annotated, also with `page` fixed later; `3 ∈ r.items` with
+  `r` later a record holding a set is a mismatch at `r.items`) and invariant 3
+  (`postponed-lambda-second-error.sw`); and a resumed `.field` the type hasn't, or a literal
+  whose type is no record, reported against the type now known at its own place.
+- Accept examples, each rejected on main with `E-CANNOT-INFER`, with tests of what they
+  compute: `postpone-record-literal-argument.sw` (SW-817), `postpone-let-lambda-field.sw`
+  (SW-847), `postpone-effectful-record.sw` (SW-885's four cases, `Size` kept, and a fifth for
+  `Size` itself).
+- Lane tier `elab`, `core`, `std`, `examples`, `hashes`, `lsp`: pass; clippy and `cargo fmt
+  --check` clean; `stitchwort fmt --check` clean on the new files.
+
+**Deviations from the note, with why.**
+1. **K1 and K2 are one commit.** K1 alone rejects `record-literal-inferred.sw`'s "a parameter is
+   inferred", `({ label = "n", contents = 5 }).contents`: the literal waits, and the `.contents`
+   on it fails until K2 lets it wait too.
+2. **A `.field` waits on the bare blocker**, not on the type at the view's step: that type may
+   mention what the receiver's elaboration made, which the restore takes back. A blocker solved
+   as a function whose body is another unknown is resumed and waits again (`requeued`; 0 in the
+   corpus).
+3. **`Resumed::WaitingAs`** is new: §5.5's rule, applied again at resume, can find that the
+   receiver now made the new unknown; the item then keeps that receiver. 0 in the corpus.
+4. **Invariant 6's check** covers what §5.5 counted (number literals made `Nat` at once, generic
+   dictionaries), not the number group's `Nat` default (`numbers.rs:944`), which leaves no
+   record; that moves to the ladder with K4.
+5. **`met unfilled`** counts failing pairs headed by an unfilled placeholder or a definition
+   stuck on one, not every comparison that meets one deeper inside.
+6. **The membership must-hold test is written as a proposition** (`def has (b: Box): Prop`).
+   Where a `Bool` is expected, see the first finding below.
+
+**Findings for later.**
+1. **A consumer missing from §5.10's table: a proposition where a `Bool` is expected**
+   (`decide_to_bool`, `check.rs:4044`, which calls `bind::decide` at once). With a `.field`
+   waiting inside the proposition, made outside the application whose type is compared (`let
+   check := r => 3 ∈ r.items; check b` with `has: Bool` and `items: List Nat`), the decision
+   runs before the `.items` can resume, finds nothing to decide `List.Any (y => y = 3) (?5 b
+   b)`, and the declaration fails with `E-AUTO-NONE` naming the placeholder **[run]**. Main
+   rejects the same program with `E-CANNOT-INFER`, so no accepted program changes and no
+   example's error changes; but it is a right program the queue could accept, and the message
+   shows an unknown. Either that decision waits (an obligation, as instance search does) or it is
+   left to stage 6. A question for Matt, not patched.
+2. **The lossy rule solves most early-solved placeholders** (7 of 10 in aoc, above). The fill's
+   comparison guards it; worth keeping in view for D2016's caveat.
+3. Unrelated to the queue: on main and here alike, a `let`-bound curried lambda written `r => p
+   => …` with nothing known isn't inferred ("this is a function, but the expected type is `?2
+   page r`"), where `r p => …` is **[run]**.
 
 ## Review 1 and how it was addressed
 
