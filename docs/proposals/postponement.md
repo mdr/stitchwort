@@ -1249,7 +1249,7 @@ tests the review's points R1 and R7 depend on):
 ## 10. Decisions for Matt
 
 **D2013. Run SW-805's field-name rule as a default in the queue's ladder, and default number
-literals in the same ladder after it, instead of at the literal?** In the end state a record
+literals in the same ladder after it, instead of at the literal?** **Decided: yes (Matt, 30 October 2026).** In the end state a record
 literal or a number literal whose type is unknown waits. When nothing else makes progress at the
 end of the declaration, the ladder applies one default, the field-name rule first, then `Nat` for
 a number, and goes round again. **[Recommend yes.]** **The reviewer agrees**: "for current
@@ -1274,7 +1274,7 @@ shows it breaks `held`'s two tests unless `held` and `last_resort` stay, which k
 mechanism.
 
 **D2014. Resume queued checks at the end of every application, scoped to the items made inside
-it, as well as before lifting and at the end of the declaration?** This is instead of only at
+it, as well as before lifting and at the end of the declaration?** **Decided: yes (Matt, 30 October 2026).** This is instead of only at
 the end of the declaration (Lean's definition-level ladder, Agda's freeze) or inside the unifier
 when the blocker is solved (Agda's wake-up). **[Recommend yes.]** **The reviewer agrees, and
 would make the scope non-negotiable**: unscoped, postponed syntax "can run inside speculative
@@ -1326,7 +1326,7 @@ The alternative, freezing now, would need stage 6 before stage 2, or would rejec
 
 **Caveat to P1** (orchestrator, 30 October, from the elaboration register §5.2): P1 holds for pattern solutions, but the unifier is also *lossy*: two calls of the same definition stuck on an unknown have their arguments equated (`unify.rs:929-944`), which for a non-injective definition picks one of several solutions. Such a solution could reach a placeholder as a guess, not a forced constraint. The fill (P2) would then report a disagreement at the item on a correct program: an incompleteness, never unsoundness, since the item's term is checked and the kernel re-checks everything. None of the 14 measured fills was solved this way. Stage 1 counts fills whose placeholder was solved through the lossy rule, and its tests include a constructed case (a non-injective definition stuck on the placeholder) to show what happens.
 
-**Still open from earlier drafts:** D2013 and D2014 (above). D2016 is decided (yes).
+**Decided** (Matt, 30 October 2026): D2013, D2014 and D2016, all yes. None is open.
 
 ## 11. The prototype
 
