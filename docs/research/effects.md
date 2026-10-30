@@ -1,8 +1,46 @@
 # Effects and handlers: ideas to steal
 
+**Counts: screened 75; carded 11; read in full 10 (all ten paper cards); not read 0. C3 is
+Lean's reference manual, read in full as it stands on 30 Oct 2026; some quotes from the 29 Oct
+version are no longer on the pages (see C3).** The 29 Oct version had no counts line. By its own
+§1.2 it had read one card's paper in full (C2), five in part (C1 introduction, C4 and C11 the
+abstract and some sections, C5 §6, C6 §1) and four not at all (C7, C8, C9, C10).
+
+**Audited 30 Oct 2026 against full texts: 6 OK, 4 minor (fixed), 1 wrong (fixed), 0 can't
+verify** (of the 11 cards; the four first marked unverified or NOT READ were read for the audit
+and their claims hold). Every card now says what was read and ends with "Audit:". PDFs were read
+with `pdftotext` (`nix shell nixpkgs#poppler-utils`). Lean's manual was read as text from HTML
+fetched with `curl`. For a long theory paper (C1, C6), "read" means the prose, definitions,
+examples and conclusions, with the proofs and appendices skimmed. Each card names the sections.
+
+**Claims of the 29 Oct version found wrong** (each checked against the paper or our code):
+
+1. *`Effect.bindCongAlways` "helps … SW-548" and is "the lemma rogue's PROOFS.md says is still
+   missing" for an equation about a handled program* (old C2, §4.2, T2). Wrong. PROOFS.md gap 2
+   says that equation (`Random.withSeed s (() => f (p())) = f (Random.withSeed s p)`) "would
+   still need" `Effect.bindAssoc`. Moving a pure `f` through a handler is a fusion and
+   associativity fact, not a congruence under a postcondition. H-elim's analogue doesn't touch
+   `bindAssoc`'s axiom either, so it doesn't help SW-548 (C2, §4.2).
+2. *"With 4.1 it would no longer need the axiom"* (old §4.2). Wrong. At `Call o rest` the
+   lemma must equate `y => bind (rest y) f` and `y => bind (rest y) g`, whose bodies are only
+   *propositionally* equal (by the induction hypothesis). That step needs `Quot.funext`
+   whatever conversion rules for `bind` exist (`crates/elab/src/std/Effect/Laws.sw:15-18`, `bindDone`, has the same shape).
+3. *The monad laws by conversion, including R-fuse, "from Yang and Wu"* (old §0 item 1, §4.1).
+   Misattributed in part. The paper gets the laws judgementally *by giving up* the law that
+   handling commutes with `let` (Remark 2.11, "having hdl-let would result in inconsistency"
+   with lawless handlers; Contributions, §1.3). Its §6 item 6 leaves open whether a dependently
+   typed language can have "all the laws judgementally". R-assoc, R-unit and R-fuse as trusted
+   kernel rules are the old register's own proposal, and the paper is evidence about the
+   trade-off, not support for R-fuse (§4.1).
+4. *C9's link* pointed at LIPIcs.ECOOP.2023.29, which is the noninterference paper (row 21).
+   Interaction Tree Specifications is LIPIcs.ECOOP.2023.30.
+5. *"Found on the way": DESIGN.md still calls handler termination a conjecture* (old §0, T1,
+   D1852). True on 29 Oct, now done: SW-899 rewrote DESIGN.md §1, §3, §7, §8, §13 and §16
+   (`4e33920c`). T1 and D1852 are closed.
+
 Status: research register for SW-894, cluster 5 (effects and handlers),
-29 Oct 2026. Window: papers from 2022 on (D1831); older work only where
-in-window papers lean on it, marked "(classic)". No code changes.
+29 Oct 2026; audited 30 Oct 2026 against `main` at `82a79b30`. Window: papers from 2022 on
+(D1831); older work only where in-window papers lean on it, marked "(classic)". No code changes.
 
 Labels: **[cited]** (link given), **[checked]** (read in the paper's text or
 in our code at `02eb7b62`), **[inferred]** (my reasoning, not tested),
@@ -16,14 +54,18 @@ in our code at `02eb7b62`), **[inferred]** (my reasoning, not tested),
   2022–2026 that adds most is on **reasoning about effectful programs**, not
   on running them.
 - The best ideas to steal:
-  1. **Monad laws that hold by conversion** (Yang and Wu, POPL 2026). For
-     Stitchwort this would mean `bindAssoc`, `bindDone` and `foldCompBind`
-     as trusted conversion rules, in the same way as the two extra `Nat.add`
-     rules. That would close SW-548, and with it rogue's gap 2. It is a
-     kernel change, so a decision (D1850).
+  1. **Monad laws that hold by conversion** (prompted by Yang and Wu, POPL
+     2026, who get them judgementally by giving up the law that handling
+     commutes with `let`). For Stitchwort this could mean `bindAssoc` and
+     `bindDone` as trusted conversion rules, as with the two extra `Nat.add`
+     rules, or a CPS form of computations, the paper's own model, in which
+     they hold by β and η (§4.1). That would close SW-548, and with it
+     rogue's gap 2. It is a kernel change, so a decision (D1850).
   2. **Hoare reasoning that yields program equations** (Kidney, Yang and
      Wu, POPL 2024: the lemma H-elim). Stitchwort's free monad needs only
-     the easy case: a short lemma beside `Effect.alwaysBind`. Small.
+     the easy case: a short lemma beside `Effect.alwaysBind`, which still
+     needs `Quot.funext`. Small, but it neither closes SW-548 nor gives
+     rogue's gap-2 equation (audit, wrong claims 1 and 2).
   3. **Specifications for handlers as predicate transformers** (Lean's
      `Std.Do`, `mvcgen` and `vcgen`, 2025–2026). A library layer, so that
      proofs compose specification lemmas instead of running a handler on
@@ -41,7 +83,13 @@ in our code at `02eb7b62`), **[inferred]** (my reasoning, not tested),
   checks now prove it on the translated program. No `conjecture` or
   `assumptions` command exists in `crates/`. What is really left to trust
   is that the translation is faithful to the semantics
-  (abilities.md:35). Ticket T1.
+  (abilities.md:35). Ticket T1. *Audit, 30 Oct: done as SW-899
+  (`4e33920c`); DESIGN.md §8 "How handlers terminate today" now names the
+  two things trusted (the termination rule for function fields, and the
+  translation's faithfulness).* Hamana (C8) proves strong normalisation of
+  a handler by the same argument the kernel uses, that `M[x]` is smaller
+  than `get(x.M[x])` (§4.5 of that paper); it is a citation for the first
+  of the two trusted items, not a proof for this kernel.
 
 ## 1. Method
 
@@ -93,12 +141,20 @@ Rerun these each quarter, restricted to the new months.
 | Q28–30 | titles of Modal Effect Types, Yang–Wu POPL 2026, "Deciding not to Decide" | abstracts |
 | Q31–33 | Ahman–Sobolev year; Ikemori TFP 2022; F* indexed effects venue | dates |
 
-Full texts read: Kidney–Yang–Wu (POPL 2024), Yang–Wu (POPL 2026,
+Full texts read (29 Oct): Kidney–Yang–Wu (POPL 2024), Yang–Wu (POPL 2026,
 introduction), Lexa (OOPSLA 2024, abstract, §1–2 and §5), Zero-Overhead
 Lexical Effect Handlers (abstract, §1), Modal Effect Types (abstract, §1),
 TRMC (POPL 2023, §6). These PDFs were fetched with curl and turned into
 text with macOS PDFKit. Lean reference pages: `mvcgen` overview, predicate
 transformers (first half only), `vcgen`.
+
+Audit (30 Oct): all ten papers fetched again with curl and read with
+`pdftotext`; each card names its sections. Sources: arXiv (C1, C6), the
+authors' pages (C2, C4, C5, C7, C11), LMCS (C8), DROPS (C9), and an
+Internet Archive `id_` copy of the ACM PDF (C10, DOI 10.1145/3547640).
+Lean's manual: `mvcgen` §18.1 and §18.2, `vcgen` §17 and §17.1–17.4,
+in full. One WebSearch (the JFP version of C5). DBLP returned a bot
+page; Semantic Scholar's API answered once, then returned 429.
 
 ### 1.3 Couldn't reach, or couldn't confirm
 
@@ -115,6 +171,11 @@ transformers (first half only), `vcgen`.
   `vcgen` page.
 - effekt-lang.org/publications and se.cs.uni-tuebingen.de/publications
   weren't fetched; I took Effekt's 2024–2025 papers from search results.
+- *Audit, 30 Oct:* the F\* venue was not re-checked. Unison's and Koka
+  v3.2's notes were not looked for. The rows they back stay
+  **[unverified]** and support nothing. Lean's pages were read in full
+  this time (C3). No full text was unreachable, so nothing is for Matt to
+  fetch. The 64 screened-only rows were not re-screened.
 
 ## 2. Screened list
 
@@ -213,6 +274,21 @@ satisfy the monadic laws judgementally" **[checked]** (abstract and §1).
 Steal: make the monad laws hold by conversion, not by an axiom-backed lemma.
 Helps SW-548, SW-570 and rogue gap 2. Cost: kernel change. Full text: yes
 (introduction read; the realizability models weren't). Deep read 1.
+*Full text:* read ([arXiv PDF](https://arxiv.org/pdf/2511.05739), v1 with
+appendices; §1, §2.3 and Remarks 2.11-2.12, §3.1-3.2 (the realizability
+model, eq. 9), Theorems 3.3-3.6 and 4.1 as stated, §6; §4 proofs and the
+appendices skimmed). *Audit: MINOR, fixed in §4.1.* The quoted claim, "the
+computation judgements still satisfy the monadic laws judgementally", is in
+the abstract; canonicity and parametricity are for the recursion-free
+fragment (abstract; Theorem 4.1, Remark 4.14). The card left out the price:
+handling does *not* commute with `let` (`hdl-let`, Remark 2.11), because
+with lawless raw monads "having hdl-let would result in inconsistency". And
+the calculus is System Fω with effects, not dependently typed. §6 item 6
+asks whether a dependently typed language with lawful monads "can … make the
+computational judgements satisfy all the laws judgementally", as an open
+question. The model of computations is a CPS encoding (eq. 9),
+`co H A = (h : Handler H) → (B : P) → (A → h B) → h B`, which validates the
+laws. That bears on how Stitchwort might get them (§4.1).
 
 **C2. Kidney, Yang and Wu, "Algebraic Effects Meet Hoare Logic in Cubical
 Agda", POPL 2024.** [PDF](https://yangzhixuan.github.io/pdf/free.pdf),
@@ -221,6 +297,21 @@ over free monads quotiented by equations, plus an elimination principle,
 H-elim, that turns a Hoare triple into a program equation. Steal: the H-elim
 pattern, which is easy for Stitchwort's unquotiented `Comp`. Helps rogue
 gap 2 and SW-548. Cost: small (one std lemma). Full text: yes. Deep read 2.
+*Full text:* read ([author PDF](https://yangzhixuan.github.io/pdf/free.pdf);
+§1-2, §4.2-4.4, §6, §7 with Theorem 7.1 and Lemmas 7.3-7.5, §8, §9; DOI
+confirmed by doi.org and Semantic Scholar). *Audit: WRONG in the steal,
+fixed.* The paper's claims are as stated: quotients "instead of" setoids
+(§1), the triple as an equation of programs (§1, Definition 6.1), H-elim
+(Theorem 7.1) "surprisingly difficult to prove constructively" (§1), and
+the parser equation (1) derived by H-elim (§7, end), "substituted … in any
+context" (§1). Two details were missing: the constructive proof needs
+Bishop-finite arities but the proof with excluded middle doesn't (§7,
+Remark), and deriving equation (1) also needs Lemma 7.5, which assumes the
+parser is total ("true for sufficiently large step-index n"). Total
+correctness is future work (§9). The wrong part was "Helps rogue gap 2
+and SW-548": see wrong claims 1 and 2 at the top. The lemma is still worth
+having for what H-elim is for: two continuations that agree only where a
+postcondition holds give the same computation.
 
 **C3. Lean 4 `Std.Do`, `mvcgen` and `vcgen`.**
 [mvcgen](https://lean-lang.org/doc/reference/latest/The--mvcgen--tactic/Overview/),
@@ -233,6 +324,22 @@ including "an inductive type of commands" **[cited]**. Steal: a
 specification layer for handlers. Helps SW-570. Cost: library and design
 note first; a tactic later. Full text: the docs (partly truncated). Deep
 read 3.
+*Full text:* read, the manual as published on 30 Oct 2026 (now with
+4.36.0-rc2 tutorials): `mvcgen` §18.1-18.2, `vcgen` §17 and §17.1-17.4.
+*Audit: MINOR, fixed.* The substance holds: `vcgen` takes any program type
+with a `WP` instance, and §17.1 now says "Non-monadic types, such as the
+syntax trees of a small imperative langauge, are also supported"; the
+verification conditions "contain no weakest preconditions" (§17.1); the
+`with` clause runs a `grind`-mode step on them (§17.3). But the three
+quoted phrases ("the original program `prog` no longer occurs", "carries a
+`Std.WP.WP` interpretation", "an inductive type of commands … operational
+semantics") aren't on today's pages, so they can't be checked; the pages
+have changed. Two details changed with them: `vcgen` lives in `Std.WP`
+(with `Std.Tactic.Do`), and its soundness lemmas are `…of_run_eq_wp`
+(`mvcgen`'s, in `Std.Do`, are `…of_wp_run_eq`, as §4.3 says). For `vcgen`,
+`WP` requires only monotonicity; conjunctivity is a separate class,
+`WPConjunctive` (§17.2). "`mvcgen` (4.22)" in row 3 wasn't checked. The
+`mkFreshNat` example in §4.3 isn't on the pages read.
 
 **C4. Ma, Ge, Lee and Zhang, "Lexical Effect Handlers, Directly", OOPSLA
 2024.** [PDF](https://cs.uwaterloo.ca/~yizhou/papers/lexa-oopsla2024.pdf).
@@ -243,6 +350,14 @@ declared, and run in place with no `under` construct **[checked]** (§5).
 Steal: declared fast-path modes as assertions. Helps SW-790–792 and SW-861.
 Cost: small (a diagnostic); the compilation scheme itself would be a
 research project. Full text: yes. Deep read 4.
+*Full text:* read ([author PDF](https://cs.uwaterloo.ca/~yizhou/papers/lexa-oopsla2024.pdf);
+§1-2, §5, §7, §8 prose; §3-4 and §6 skimmed). *Audit: OK.* The quotes are
+in the abstract, §1 and §5. Not in the card, and relevant here: Lexa's
+formalism has no multi-shot resumptions ("a nongoal for us"), and the
+implementation allows one only if it holds "no more than one stack" and at
+most one copy is installed at a time (§7.2). Stitchwort's resumptions are
+unrestricted multi-shot (D1162), so the compilation scheme wouldn't carry
+over as is; the declared modes would.
 
 **C5. Leijen and Lorenzen, "Tail Recursion Modulo Context", POPL 2023.**
 [PDF](https://www.microsoft.com/en-us/research/uploads/prod/2023/07/trmc-popl23.pdf).
@@ -252,6 +367,17 @@ copied when shared, or if a second, slower version runs whenever a
 multi-shot handler is in scope (§6.1–6.2) **[checked]**. Steal: the guard
 for effectful `map`. Helps SW-868 option (b). Cost: runtime change. Full
 text: yes (§6). Deep read 5.
+*Full text:* read ([MSR PDF](https://www.microsoft.com/en-us/research/uploads/prod/2023/07/trmc-popl23.pdf);
+§1-2, §5 prose, §6, §7 headings; proofs skimmed). The JFP version is
+"Tail recursion modulo context: An equational approach (extended
+version)", JFP 35 (2025) e22 (found by one WebSearch; not read).
+*Audit: MINOR, fixed.* The quotes and §6.1-6.2 are as stated. The card
+said "if a context is copied when shared" without the condition the paper
+gives: the hybrid of §6.1 "depends on both having precise reference
+counts, and having extra bits in a header" (§6.2). Stitchwort's runtime
+does count references (compilation.md §1), so the hybrid, not only the
+two-version fallback, is a candidate for SW-868 (b) **[inferred]**
+(§4.5).
 
 **C6. Tang et al., "Modal Effect Types", OOPSLA 2025.**
 [arXiv 2407.11816](https://arxiv.org/abs/2407.11816). Claim: track effects
@@ -263,6 +389,14 @@ where it came from; (b) in the long run, an alternative to `{e}` on
 higher-order functions. Helps effect-polymorphism.md and the messages
 (errors.md). Cost: (a) is small; (b) is a research project that conflicts
 with "a plain arrow means pure and total" (DESIGN §8). Full text: §1 only.
+*Full text:* read ([arXiv PDF](https://arxiv.org/pdf/2407.11816), v3, 60
+pages with appendices; §1, §2.1-2.3, §8.1-8.2 read; §3-7 skimmed). *Audit:
+OK.* The Frank error and "no hidden effect variables" are in §1. Met itself
+is simply typed; effect polymorphism is added back in §6 "to recover the
+full power of traditional effect systems" (§1, contributions). Its rows
+are scoped and allow duplicate labels (§2.1), unlike Stitchwort's
+(abilities.md, "Labels"). §8.2 compares Metl, Koka and Effekt signatures
+for the same programs, the quickest way in if (b) is ever considered.
 
 **C7. Ikemori, Cong, Masuhara and Leijen, "Sound and Complete Type Inference
 for Closed Effect Rows", TFP 2022.**
@@ -272,6 +406,18 @@ sites; this paper formalises it and proves it sound and complete
 **[unverified]** (search summary). Steal: a citation, and a check, for D1124
 (an undecided row unknown becomes `Empty`). Helps effect-polymorphism.md
 §5.C.1. Cost: none (reading). Full text: not read.
+*Full text:* read ([PDF](https://prg.is.titech.ac.jp/papers/pdf/tfp2022inference.pdf),
+LNCS 13401 pp. 144-168; §1-3 in full, §4-7 prose). *Audit: OK.* The claim
+holds: "close the effect row of all named functions (bound by the let/val
+expression), and open the effect row when we encounter variables of a
+closed function type" (§2.3), proved sound and complete with respect to
+declarative rules (§1, §4-5). The motive is runtime as well as
+readability: a closed row lets evidence passing find the handler "at a
+fixed offset in the vector" (§1). The mechanism differs from D1124:
+Koka closes at `let` generalisation, while Stitchwort sets an undecided row
+unknown to `Empty` at the end of a declaration (docs/core.md, "A row
+unknown"). So it is a related citation, not the same rule. Koka's rows may
+repeat a label (§3.1.3); Stitchwort's may not.
 
 **C8. Hamana, "Modular Termination for Second-Order Computation Rules and
 Application to Algebraic Effect Handlers", LMCS 2022.**
@@ -281,16 +427,35 @@ the General Schema **[unverified]** (abstract). Steal: a reference for the
 write-up that T1 asks for (termination of the *source* semantics, as a
 second argument beside the kernel's check of the translation). Cost:
 reading. Full text: not read.
+*Full text:* read ([LMCS PDF](https://lmcs.episciences.org/9702/pdf),
+LMCS 18(2:18) 2022; §1, §2.6-2.7, §3 statements, §4 in full, §6). *Audit:
+OK.* The abstract's claim is as stated; the calculus is `mam`, a variant of
+CBPV, with one handler (global state) and the state theory (§4.2-4.4).
+The handler half is SN by the General Schema alone, using the structural
+subterm order "to establish that M[x] is smaller than get(x.M[x])"; the
+hard part is the effect theory's equations, which fail the General Schema
+and need the modular theorem (§4.3, §4.5). "Any effect handler is shown to
+be SN by GS along this way" (§4.5). That is the same shape as the kernel's
+rule that `rest y` is smaller than `Call o rest` (abilities.md, "The
+termination rule"). T1 itself is done (SW-899).
 
 **C9. Silver, Westbrook, Yacavone and Scott, "Interaction Tree
 Specifications", ECOOP 2023.**
-[DROPS](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECOOP.2023.29).
+[DROPS](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECOOP.2023.30).
 Claim: a specification is an interaction tree with quantifier events
 (`forall`, `exists`), and refinement between trees gives syntax-directed,
 "auto-active" proofs **[unverified]** (abstract). Steal: specifications
 written in the program's own language, as trees. This is an alternative to
 the predicate transformers of C3 for SW-570. Cost: research project. Full
 text: not read.
+*Full text:* read (DROPS PDF, LIPIcs.ECOOP.2023.30; §1-2 in full, §3-4
+prose, §6 skimmed). *Audit: MINOR, fixed.* The link pointed at
+ECOOP.2023.29, which is row 21's noninterference paper. The claim holds:
+`Spec_forall` and `Spec_exists` events (§3), and specifications as
+"syntactic constructs enabling syntax-directed inference rules" (§1). The
+trees are coinductive interaction trees and the specifications are about
+possibly non-terminating programs (abstract, §1), unlike Stitchwort's
+finite `Comp`; that makes it a further-off fit than C3.
 
 **C10. Ullrich and de Moura, "'do' Unchained", ICFP 2022.**
 [supplement](https://kha.github.io/do-supplement/print.html). Claim: local
@@ -299,6 +464,16 @@ monadic code with proofs that the translation is right. A Zulip thread says
 Lean's real elaborator differs **[unverified]**. Steal: if Stitchwort grows
 `var`/`for` in effectful blocks, translate them to `State`/`Abort` handlers
 in the same way. Cost: design note. Full text: not read.
+*Full text:* read ([Internet Archive copy of the ACM PDF](https://web.archive.org/web/2023id_/https://dl.acm.org/doi/pdf/10.1145/3547640),
+PACMPL 6 ICFP, Article 109; §1-2, §5 in full, §3-4 rules skimmed).
+*Audit: OK.* The abstract states the translation rules and "formally
+prove[s] the correctness of the translation rules relative to a simple
+static and dynamic semantics in Lean". The paper itself says Lean's built-in
+version is "a more extensive implementation" than the reference macros
+(§1, §5.1), so the Zulip remark adds nothing and stays unverified. The
+translation targets the `StateT` and `ExceptT` transformers, not handlers;
+for speed Lean then moved to CPS versions, `StateCpsT` and `ExceptCpsT`
+(§5.2).
 
 **C11. Zero-Overhead Lexical Effect Handlers (Ma, Ge, Jung and Zhang,
 OOPSLA 2025)**, kept as a pair with C4.
@@ -310,6 +485,13 @@ effect based on its expected invocation rate" **[checked]** (abstract).
 Steal: a per-ability choice of strategy (rare `Abort` against frequent
 `Parse.next`). Helps SW-593. Cost: research project. Full text: abstract
 and §1.
+*Full text:* read ([author PDF](https://cs.uwaterloo.ca/~yizhou/papers/zero-oopsla2025.pdf),
+PACMPL 9 OOPSLA2, Article 399; §1-2 in full, §3 rules and evaluation
+skimmed). *Audit: OK.* The quote is in the abstract; §1 says rare effects
+"can use the new zero-overhead implementation strategy, while effects
+expected to be raised more frequently can still use existing strategies".
+The scheme is for lexically scoped handlers of "exceptional effects"
+(abstract).
 
 ## 4. Deep reads
 
@@ -323,22 +505,52 @@ judgementally, so a program that differs from another only by how its
 composition "ought to be an operation for a notion of computation" (§1.2.3).
 They prove canonicity and parametricity for the recursion-free fragment.
 
+**Audit, 30 Oct [checked].** The price of that design is stated in the
+paper and was missing here: `hdl-let`, the law that handling a `let` is
+the handler's bind of the handled parts, is left out, because with lawless
+raw monads it "would result in inconsistency" (Remark 2.11; §1.3, §6 item
+6). Their calculus has no dependent types. Its model of computations is a
+CPS (impredicative) encoding, `co H A = (h : Handler H) → (B : P) → (A → h
+B) → h B` (§3.2, eq. 9), in which `val` and `let-in` are λ-terms, so the
+laws hold by β. Two readings for Stitchwort follow **[inferred]**:
+
+- Stitchwort's fold is not a lawless raw monad, so their inconsistency
+  argument doesn't apply to `foldCompBind`, which is a theorem here
+  (`crates/elab/src/std/Effect/Laws.sw:40-55`). Making it a conversion rule is a separate question
+  that the paper doesn't address.
+- Their route to the laws is a representation, not rewrite rules. The
+  analogue would be computations in CPS form, `(r: Type) → (a → r) →
+  ((o: op) → (res o → r) → r) → r`, where `bind` is composition and the
+  laws hold by β and η. The costs: such a type lives a universe up (Type 1
+  for `r : Type`, since only `Prop` is impredicative), and it has no
+  induction principle, so `Always`, `AlwaysTree` and every proof by
+  induction on a computation would be lost. So it isn't a drop-in. It is
+  worth stating in T3's note as the alternative the rules are weighed
+  against.
+
 **How it maps onto Stitchwort.** Stitchwort chose option B: computations
 are data, `Effect.Comp` with `Done | Call`, and `bind` and `foldComp` are
 ordinary definitions (`crates/elab/src/std/core/Effect.sw:12-28`)
 **[checked]**. So the laws are propositional. `bindDone`, `bindAssoc` and
-`foldCompBind` (`std/Effect/Laws.sw`) each need `Quot.funext` at the `Call`
+`foldCompBind` (`crates/elab/src/std/Effect/Laws.sw:12-55`) each need `Quot.funext` at the `Call`
 case, because `Call`'s `rest` is a function **[checked]**. That is SW-548,
 and rogue's gap 2: `f (g (p()))` and `(x => f (g x)) (p())` elaborate to
 binds associated differently, and only `bindAssoc` joins them
 (games/rogue/PROOFS.md, "What would be needed", 2) **[checked]**.
 
 Stitchwort can't adopt their judgement form without option A (effects in
-the kernel), which abilities.md rejected. It *can* get the same
-user-visible effect: three trusted conversion rules on the library's exact
+the kernel), which abilities.md rejected. It could get the same
+user-visible effect (this is the register's proposal, not the paper's;
+audit): three trusted conversion rules on the library's exact
 `Effect.bind` and `Effect.foldComp`, applied only when the definition is
 stuck. This is the pattern already used for `Nat.add`
-(`crates/core/src/nat_add.rs`, DESIGN §13) **[checked]**:
+(`crates/core/src/nat_add.rs`, DESIGN §13) **[checked]**, with one
+difference the audit adds: DESIGN §13 calls R3/R4 "left-linear,
+first-order rules on constructor patterns whose equations are derivable
+from the definition". These three are higher-order (their right sides
+build lambdas, and `c` is matched as any stuck term) and need funext, so
+the confluence and normalisation arguments of nat-add-recursion.md §9 don't
+carry over as they stand:
 
 - R-assoc: `bind (bind c f) g ⟶ bind c (x => bind (f x) g)` when `c` is
   stuck;
@@ -376,8 +588,9 @@ The critical pairs against `bind`'s and `foldComp`'s own clauses join
   argument for the whole system has to be written out, as nat-add-recursion
   §9 did **[inferred]**.
 - The elaborator's unification must apply the same rules, or `rfl` will
-  type-check in the kernel and fail in the elaborator (the drift SW-870 is
-  about).
+  type-check in the kernel and fail in the elaborator (a drift between
+  the two conversions of the kind SW-870 is about; SW-870 itself is about
+  solved metavariables).
 - The runtime is untouched: the machine replaces `bind` and `foldComp` with
   natives (tail-resumptive-handlers.md §1.1), and the rules only change
   which terms the checker considers equal.
@@ -406,7 +619,7 @@ The logic is for partial correctness; total correctness is future work
 
 **How it maps onto Stitchwort.** `Effect.Always P c` is exactly the
 "pure postcondition" triple `{} x ← c {P x}` on the free monad, with
-`alwaysBind` as its sequencing rule (`std/Effect/Always.sw:14-30`)
+`alwaysBind` as its sequencing rule (`crates/elab/src/std/Effect/Always.sw:14-30`)
 **[checked]**. H-elim's hard part comes from the quotient. On Stitchwort's
 unquotiented `Comp` it is an easy induction **[inferred]**:
 
@@ -418,11 +631,25 @@ theorem Effect.bindCongAlways (P: a → Prop) (f g: a → Comp op res b)
   -- Call o rest: Quot.funext on y, by the induction hypothesis at rest y
 ```
 
-That is the lemma rogue's PROOFS.md says is still missing for "an
+~~That is the lemma rogue's PROOFS.md says is still missing for "an
 *equation* about a handled program" (gap 2): the generator proofs already
 use `Always` for properties, but have no way back to equations. With 4.1 it
 would no longer need the axiom. Without 4.1 it needs `Quot.funext`, like
-`bindAssoc`.
+`bindAssoc`.~~
+
+**Audit, 30 Oct: the struck paragraph was wrong [checked].** PROOFS.md
+gap 2's example equation, `Random.withSeed s (() => f (p())) = f
+(Random.withSeed s p)`, moves a pure `f` out through a handler, and
+PROOFS.md says it "would still need" `Effect.bindAssoc`. That is
+associativity plus fusion (`foldCompBind`), not a congruence under a
+postcondition, so `bindCongAlways` doesn't give it. And the lemma needs
+`Quot.funext` at `Call` in any case: the two lambdas `y => bind (rest y) f`
+and `y => bind (rest y) g` are equal only by the induction hypothesis, a
+propositional equation, which no conversion rule for `bind` turns into a
+definitional one. What the lemma does give: where a continuation is
+rewritten under a fact the computation guarantees (a roll is below its
+bound, say), the two programs are equal, with the fact used and no case
+split on the computation.
 
 What doesn't transfer: their state-aware triples rely on the equational
 theory of state. Stitchwort's `State` has no equations on `Comp`; its
@@ -435,6 +662,8 @@ rather than about handled results.* If rogue's next proofs are all about
 
 **Next step.** Ticket T2: add `Effect.bindCongAlways` and use it once in
 rogue to state one handled-program equation. No decision needed.
+*Audit: T2 is narrowed (§6): it is a small std lemma for the case above,
+not a route to gap 2 or SW-548, which stay with T3.*
 
 ### 4.3 Specifications for handlers (from Lean's `Std.Do`, `mvcgen` and `vcgen`)
 
@@ -523,6 +752,18 @@ cost of silent detection: moving `k` into a match arm left the fast path,
 and nothing said so (9.4 s against 2.2 s, measured 28 Oct) **[checked]**
 (ticket text).
 
+*Audit, 30 Oct.* Lexa §5 confirms the `under` point from the other side:
+"In languages where handlers are dynamically scoped, in-place invocation of
+tail-resumptive handlers is tricky to get right … the tail-resume
+optimization requires a special under construct". Stitchwort's handlers
+are found dynamically, so this supports D1429 (SW-792). One thing to
+re-check: since `01462c09` (28 Oct, 16 minutes after the `2b541087` that
+SW-861 cites), `fusion.rs` follows a tail `k v s′` into lifted `match`es
+when the backend supplies their bodies, which the machine does and JS
+doesn't (fusion.rs header, "A `match` is a call of a lifted definition").
+So SW-861's natural form may now be fused on the machine. That should be
+measured again before T5 cites SW-861 as its motive **[inferred]**.
+
 **Steal.** Keep automatic detection, and add an *assertion* the author can
 make, in the spirit of Scala's `@tailrec`: an attribute on a handler (or a
 `stitchwort check --explain-handlers` report) that fails, or warns, when the
@@ -534,6 +775,9 @@ have been seen), and it fits attributes.md.
 be phrased as "runs without capturing a resumption on all backends", or be a
 report only. *Assumption: the fusion analysis in `crates/rt/src/fusion.rs`
 can report why it gave up* **[unverified]**. I didn't read the function.
+*Audit [checked]: today it can't.* Its recognisers return `Option` with no
+reason (`carrier`, `done_field`, `resume`: `fusion.rs:242`, `:269`, `:482`),
+so T5 needs those to say why they declined.
 
 **Next step.** Ticket T5. A short note under attributes.md. No decision
 beyond SW-791, which this supports.
@@ -569,7 +813,7 @@ reachable by a continuation that could run twice (`trmc.rs:36-48`)
   runtime's own.
 
 **Risks.** Stitchwort's resumptions are persistent and multi-shot by design
-(D1162 §9.1.1). The guard must be exact, or `Each.collect` and other
+(D1162; effect-runtime.md §9.1, item 1). The guard must be exact, or `Each.collect` and other
 multi-shot handlers would observe sharing. This is the hardest of the five.
 *Assumption: effectful `map` over millions of elements matters to someone.*
 SW-868's option (a) says the AoC need was the pure case.
@@ -577,12 +821,21 @@ SW-868's option (a) says the AoC need was the pure case.
 **Next step.** Add this as option (b′) to SW-868's decision text (ticket
 T6). Don't design it unless Matt picks (b).
 
+*Audit, 30 Oct.* The first fix, the hybrid of §6.1, "depends on both
+having precise reference counts, and having extra bits in a header"
+(§6.2), and the copy follows a context path stored in each constructor
+(the field index, kept in Koka's object header, §6.1). Stitchwort's
+machine counts references exactly (compilation.md §1), so the hybrid is a
+candidate as well as the two versions. It would copy a shared chain
+instead of refusing to twin. Whether a header has room for the index
+wasn't checked **[inferred]**.
+
 ## 5. Steal next (ranked by value against effort)
 
 | Rank | Idea | Helps | Cost | Source |
 |---|---|---|---|---|
-| 1 | DESIGN.md: retire the handler-termination conjecture text; name the real gap (faithful translation) | correctness of docs; §16 Q6, Q9 | small (docs) | our code and docs [checked]; C8 |
-| 2 | `Effect.bindCongAlways` (H-elim on the free monad) | rogue gap 2, SW-548 | small (std) | C2, deep read 4.2 |
+| 1 | ~~DESIGN.md: retire the handler-termination conjecture text; name the real gap (faithful translation)~~ **Done (SW-899, `4e33920c`).** | correctness of docs; §16 Q6, Q9 | small (docs) | our code and docs [checked]; C8 |
+| 2 | `Effect.bindCongAlways` (H-elim on the free monad). *Audit: it helps neither rogue gap 2 nor SW-548 (wrong claims 1 and 2 at the top). It is a small lemma for rewriting a continuation under a guaranteed fact.* | equations under a postcondition | small (std) | C2, deep read 4.2 |
 | 3 | Handler fast-path assertion or report | SW-861, SW-791 | small (diagnostic) | C4, deep read 4.4 |
 | 4 | Handler specifications as predicate transformers (`wp` per handler, spec lemmas, adequacy) | SW-570, rogue loop | medium (std + note), tactic later | C3, C2, deep read 4.3 |
 | 5 | Monad laws as trusted conversion rules (`bind`, `foldComp`) | SW-548, rogue gap 2, proof ergonomics | kernel change | C1, deep read 4.1 |
@@ -590,6 +843,28 @@ T6). Don't design it unless Matt picks (b).
 | 7 | TRMC for generic-row `map`, guarded by "no multi-shot handler in scope" | SW-868 (b) | runtime, large | C5, deep read 4.5 |
 | 8 | Per-ability runtime strategy (rare against frequent operations) | SW-593 | research | C11 |
 | 9 | Modal effects instead of `{e}` on higher-order functions | effect-polymorphism ergonomics | research; conflicts with DESIGN §8 | C6 |
+
+The audit didn't re-rank the list. With row 1 done and row 2 narrowed, the
+first rows to act on are 3 (after re-measuring SW-861), 4 and 5.
+
+### 5.1 Bearing on SW-790–792 (D1427–D1429), checked in the audit
+
+- **SW-790 (D1427, steps C then A, B after measuring).** Nothing read here
+  argues against it. Lexa (C4) and Zero-Overhead (C11) get their speed
+  from knowing the handler statically (lexical scoping) and from stack
+  switching. Neither applies to Stitchwort's dynamically found, multi-shot
+  handlers without a redesign (C4 audit: multi-shot is a non-goal there).
+- **SW-791 (D1428, detect tail-resumptive clauses automatically, or mark
+  them).** Lexa *declares* `tail` and `abort` (§5). Koka's book has `fun`
+  clauses that are tail-resumptive by construction
+  (tail-resumptive-handlers.md §2). The audit's finding that `fusion.rs`
+  can't say why it declined (§4.4) is the argument for T5's report beside
+  automatic detection, not instead of it.
+- **SW-792 (D1429, in-place clauses for empty-row handlers first).**
+  Supported. Lexa §5 says in-place tail-resumptive handlers need Koka's
+  `under` when handlers are dynamically scoped, and are simple only under
+  lexical scoping. A clause at the empty row performs nothing, so it has
+  nothing for `under` to route **[inferred]** (§4.4).
 
 ## 6. Proposed tickets (label `research`; not added to the board)
 
@@ -605,6 +880,8 @@ translation is faithful to the source semantics (abilities.md:35), tested by
 comparing behaviour. Q9 (one-shot at runtime) is answered by D1162's
 persistent multi-shot continuations. Hamana (LMCS 2022) is a reference if a
 source-level termination argument is ever written.
+*Audit: done as SW-899 (`4e33920c`, 30 Oct). Q9 is still listed in
+DESIGN.md §16, as a question for JS extraction.*
 
 **T2. Std: `Effect.bindCongAlways`, H-elim for the free monad.** If every
 result of `c` satisfies `P`, and `f x = g x` whenever `P x`, then
@@ -613,6 +890,10 @@ result of `c` satisfies `P`, and `f x = g x` whenever `P x`, then
 where the quotient makes it hard; here it is easy. Use it in rogue to state
 one equation about a handled program (PROOFS.md gap 2), and record what it
 did or didn't unlock.
+*Audit: narrowed. It doesn't give PROOFS.md gap 2's equation, which needs
+`bindAssoc` and `foldCompBind` (§4.2). Use it once where a continuation is
+rewritten under a fact the computation guarantees, or drop the ticket if
+no such proof exists yet.*
 
 **T3. Design note: the monad laws of `Effect.bind` and `Effect.foldComp` as
 trusted conversion rules.** Three rules (R-assoc, R-unit, R-fuse, deep read
@@ -622,6 +903,10 @@ R-assoc overlap in particular), a normalisation argument, the elaborator's
 unification doing the same, and what `stitchwort axioms` then means, since
 the equations need funext. Measure on rogue's draw-then-plan proofs and
 SW-570's examples. Decision D1850.
+*Audit: the note should also say that these rules, unlike R3/R4, are
+higher-order. It should weigh them against Yang and Wu's route, a CPS form
+of computations in which the laws hold by β and η but induction on
+computations is lost (§4.1).*
 
 **T4. Design note: specifications for handlers (`Effect.Spec`).** After
 Lean's `Std.Do` and `vcgen`: a predicate transformer `wp` for each library
@@ -637,6 +922,8 @@ state loop (fusion.rs) or in place, and when not, which clause stopped it.
 From Lexa's declared `tail`/`abort` handlers (OOPSLA 2024 §5). It would have
 caught SW-861's silent slowdown. It complements SW-791 (detection stays
 automatic).
+*Audit: re-measure SW-861 first (§4.4). The recognisers in `fusion.rs`
+would need to return a reason.*
 
 **T6. SW-868: add Koka's guarded TRMC as option (b′).** Leijen and Lorenzen
 (POPL 2023 §6.2): twin the effectful function, and choose the
@@ -644,6 +931,8 @@ destination-passing version only when no handler in scope may resume more
 than once. Add to SW-868's options, with the risk that Stitchwort's
 continuations are persistent and multi-shot (D1162). No design unless (b) is
 chosen.
+*Audit: list §6.1's hybrid, which copies a shared context, as a second
+variant (§4.5).*
 
 **T7. Refresh this register quarterly.** Rerun §1.2's queries for the new
 months, screen, card, and update §5. Next: January 2027.
@@ -660,3 +949,8 @@ months, screen, card, and update §5. Next: January 2027.
   note first (T4), after T2 lands.]**
 - **D1852.** Retire the handler-termination conjecture from DESIGN.md (T1),
   and make "the translation is faithful" the tracked gap instead? **[Yes.]**
+  *Audit: closed. SW-899 did it (`4e33920c`).*
+
+Audit note: D1850 and D1851 stand as written. Neither needs a new number.
+D1850's "would close SW-548" holds for the rules themselves. The audit
+withdraws only the claim that T2 helps there.

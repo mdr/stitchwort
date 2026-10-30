@@ -185,7 +185,7 @@ trust of backends.
 | 5 | Lorenzen, Leijen: Reference Counting with Frame Limited Reuse | ICFP 2022 | R | **keep** |
 | 6 | Lorenzen, Leijen, Swierstra: FP²: Fully in-Place Functional Programming | ICFP 2023 | A/R | **keep** |
 | 7 | Lorenzen, Leijen, Swierstra, Lindley: The Functional Essence of Imperative Binary Search Trees | PLDI 2024 | R | **keep** (SW-814) |
-| 8 | Leijen, Lorenzen: Tail Recursion Modulo Context (JFP extended version, first-class contexts) | JFP 2025 | S | maybe (TRMC built; effects.md has §6) |
+| 8 | Leijen, Lorenzen: Tail Recursion Modulo Context (JFP extended version, first-class contexts) | JFP 2025 | S | maybe (TRMC built; effects.md has it as C5 and deep read §4.5) |
 | 9 | Lorenzen, Leijen, Swierstra, Lindley: First-Order Laziness | ICFP 2025 | — | drop (strict language) |
 | 10 | Lam, Parreaux: Being Lazy When It Counts (constant-time RC) | FLOPS 2024 | R | maybe |
 | 11 | Huisinga: static uniqueness analysis for Lean 4 | KIT master's thesis 2023 | A | **keep** |
