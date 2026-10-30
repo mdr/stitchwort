@@ -1995,7 +1995,6 @@ impl Elaborator {
     }
 }
 
-/// The target of the alias `key`, if it is one.
 /// Printed terms name declarations as the module being checked would write
 /// them, from its namespace and the current file's imports.
 impl NameScope for Elaborator {
@@ -2017,8 +2016,13 @@ impl NameScope for Elaborator {
             _ => key == self.declaration_key_of(declaration),
         }
     }
+
+    fn full_name(&self, declaration: Declaration) -> String {
+        self.declaration_key_of(declaration)
+    }
 }
 
+/// The target of the alias `key`, if it is one.
 fn alias_target(key: &str) -> Option<String> {
     let path = key.strip_prefix("Std.")?;
     ALIASES

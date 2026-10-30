@@ -7,7 +7,7 @@ expression: output
    │
  4 │ def bad: Char := MkChar 55296 rfl
    │                               ─┬─  
-   │                                ╰─── `Char.isScalar 55296` and `True` aren't equal
+   │                                ╰─── `Std.Char.isScalar 55296` and `True` aren't equal
    │ 
    │ Note 1: computing the left side gives `False`
    │ 

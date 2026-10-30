@@ -162,8 +162,11 @@ as text. Its label is unchanged: the names in scope a line each, then
   - a `let` of data is in scope (the lemma would lose its value);
   - a name can't be written: a hypothesis named `n✝` or `%x`, a compiler-made
     name in the text, or a declaration or constructor the printer names in a
-    way the top level can't resolve (`List.count` without `import Std
-    (List)`; one shown as notation, `+` or a record update, is fine);
+    way the top level can't resolve (one shown as notation, `+` or a record
+    update, is fine). A declaration is named by the shortest trailing part
+    of its name that means it in the file, else in full: `List.count` with
+    `import Std (List)`, `Std.List.count` without (SW-918). So only one the
+    file can't name at all (internal to the library) leaves the lemma out;
   - it mentions a variable the goal doesn't show (one bound as `_`), or a
     hypothesis's type mentions a later hypothesis (a case split can refine an
     earlier one's type);

@@ -11,7 +11,7 @@ expression: output
     │ 
     │ Note 1: on other types `+` is `Add.add`, and there's no `Add` instance for `Comp NoOp r Nat` here
     │ 
-    │ Note 2: its operations are the row `{}`'s, but what they give back is `r`, not the row's `Effect.NoRes`: so it isn't a computation in `{}`, and a value here isn't made into one
+    │ Note 2: its operations are the row `{}`'s, but what they give back is `r`, not the row's `Std.Effect.NoRes`: so it isn't a computation in `{}`, and a value here isn't made into one
     │ 
     │ Note 3: for a computation in a row, write the row and let the `Comp` be made from it: `{e} a` for any row, `{} a` for the empty one
 ────╯

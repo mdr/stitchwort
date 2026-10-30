@@ -27,47 +27,47 @@ expression: json
         {
           "name": "matching",
           "type": "Nat",
-          "value": "List.count xs (== id)"
+          "value": "Std.List.count xs (== id)"
         },
         {
           "name": "flipped",
           "type": "Nat",
-          "value": "List.count xs (id ==)"
+          "value": "Std.List.count xs (id ==)"
         },
         {
           "name": "others",
           "type": "Nat",
-          "value": "List.count xs (!= id)"
+          "value": "Std.List.count xs (!= id)"
         },
         {
           "name": "next",
           "type": "List Nat",
-          "value": "List.map xs (+ 1)"
+          "value": "Std.List.map xs (+ 1)"
         },
         {
           "name": "doubled",
           "type": "List Nat",
-          "value": "List.map xs (n * 2 +)"
+          "value": "Std.List.map xs (n * 2 +)"
         },
         {
           "name": "small",
           "type": "List Nat",
-          "value": "List.filter xs (< n)"
+          "value": "Std.List.filter xs (< n)"
         },
         {
           "name": "large",
           "type": "List Nat",
-          "value": "List.filter xs (n <)"
+          "value": "Std.List.filter xs (n <)"
         },
         {
           "name": "total",
           "type": "Nat",
-          "value": "List.foldLeft xs 0 (+)"
+          "value": "Std.List.foldLeft xs 0 (+)"
         },
         {
           "name": "found",
           "type": "List Item",
-          "value": "List.filter items (x => Decidable.toBool (Nat.decEq x.id id))"
+          "value": "Std.List.filter items (x => Std.Decidable.toBool (Std.Nat.decEq x.id id))"
         }
       ],
       "target": "Nat"
@@ -75,7 +75,7 @@ expression: json
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\nitems: List Item\nid: Nat\nn: Nat\nmatching: Nat := List.count xs (== id)\nflipped: Nat := List.count xs (id ==)\nothers: Nat := List.count xs (!= id)\nnext: List Nat := List.map xs (+ 1)\ndoubled: List Nat := List.map xs (n * 2 +)\nsmall: List Nat := List.filter xs (< n)\nlarge: List Nat := List.filter xs (n <)\ntotal: Nat := List.foldLeft xs 0 (+)\nfound: List Item := List.filter items (x => Decidable.toBool (Nat.decEq x.id id))\n⊢ Nat",
+        "message": "xs: List Nat\nitems: List Item\nid: Nat\nn: Nat\nmatching: Nat := Std.List.count xs (== id)\nflipped: Nat := Std.List.count xs (id ==)\nothers: Nat := Std.List.count xs (!= id)\nnext: List Nat := Std.List.map xs (+ 1)\ndoubled: List Nat := Std.List.map xs (n * 2 +)\nsmall: List Nat := Std.List.filter xs (< n)\nlarge: List Nat := Std.List.filter xs (n <)\ntotal: Nat := Std.List.foldLeft xs 0 (+)\nfound: List Item := Std.List.filter items (x => Std.Decidable.toBool (Std.Nat.decEq x.id id))\n⊢ Nat",
         "range": [
           15,
           2,
@@ -108,12 +108,13 @@ expression: json
           "type": "Nat"
         }
       ],
-      "target": "List.count xs (< n) ≤ List.length xs"
+      "lemma": "theorem countBelowGoal1 (xs: List Nat) (n: Nat): Std.List.count xs (< n) ≤ Std.List.length xs := ?",
+      "target": "Std.List.count xs (< n) ≤ Std.List.length xs"
     },
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\nn: Nat\n⊢ List.count xs (< n) ≤ List.length xs",
+        "message": "xs: List Nat\nn: Nat\n⊢ Std.List.count xs (< n) ≤ Std.List.length xs",
         "range": [
           17,
           74,

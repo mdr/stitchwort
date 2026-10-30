@@ -7,14 +7,14 @@ expression: output
    │
  4 │ theorem appendComm [a: Type] (xs: List a) (ys: List a): xs ++ ys = ys ++ xs := rfl
    │                                                                                ─┬─  
-   │                                                                                 ╰─── `List.append xs ys` and `List.append ys xs` aren't equal
+   │                                                                                 ╰─── `Std.List.append xs ys` and `Std.List.append ys xs` aren't equal
    │ 
    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
    │ 
    │ Note 2: this statement is false (with a := Nat); a counterexample:
    │           xs = [0]
    │           ys = [1]
-   │         `List.append xs ys = List.append ys xs` is false:
+   │         `Std.List.append xs ys = Std.List.append ys xs` is false:
    │           left:  [0, 1]
    │           right: [1, 0]
    │           first difference at [0]: 0 vs 1

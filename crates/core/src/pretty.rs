@@ -29,6 +29,12 @@ pub enum Declaration {
 pub trait NameScope {
     /// Whether `written` names `declaration` here.
     fn names(&self, written: &str, declaration: Declaration) -> bool;
+
+    /// `declaration`'s name written from the root, which means it wherever
+    /// it is written: `Std.List.count` for the library's (`List.count`
+    /// names it only where `List` is imported), else its name from its
+    /// module's root.
+    fn full_name(&self, declaration: Declaration) -> String;
 }
 
 /// Prints `term`, whose free variables are named by `names` (outermost first).
@@ -374,17 +380,20 @@ impl<'g> Printer<'g> {
         }
     }
 
-    /// `full`, the name of `declaration` from the root, as its shortest
-    /// trailing part that means `declaration` in the scope, skipping a part
-    /// whose first component is a variable in `names` (which would mean the
-    /// variable). `full` if no shorter part does, or there is no scope.
-    fn short_name(&self, names: &[Name], full: &str, declaration: Declaration) -> String {
+    /// The name of `declaration` (`name`, from its module's root) as its
+    /// shortest trailing part that means `declaration` in the scope,
+    /// skipping a part whose first component is a variable in `names`
+    /// (which would mean the variable). Else its whole name as the scope
+    /// writes it ([`NameScope::full_name`]: `Std.List.count`, where
+    /// `List.count` needs an import); `name` if there is no scope.
+    fn short_name(&self, names: &[Name], name: &str, declaration: Declaration) -> String {
         let Some(scope) = self.scope else {
-            return full.to_string();
+            return name.to_string();
         };
-        if full.contains('%') {
-            return full.to_string();
+        if name.contains('%') {
+            return name.to_string();
         }
+        let full = scope.full_name(declaration);
         let parts: Vec<&str> = full.split('.').collect();
         for start in (1..parts.len()).rev() {
             if names.iter().any(|x| **x == *parts[start]) {
@@ -400,7 +409,7 @@ impl<'g> Printer<'g> {
                 return written;
             }
         }
-        full.to_string()
+        full
     }
 
     /// Definition `id`'s name, as [`Printer::short_name`] writes it.

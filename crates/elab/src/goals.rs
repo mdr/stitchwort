@@ -449,17 +449,15 @@ impl Elaborator {
         }
         // Every declaration it names, it names as the top level of the file
         // can. The printer names one by the shortest part of its name that
-        // means it here, else by its whole name, which may need an import
-        // there (`List.count`, of `Std.List.count`). One shown as notation
-        // (`+`, a record update) isn't named.
+        // means it here, else by its whole name (`Std.List.count`), which
+        // only a declaration the file can't name at all (one internal to the
+        // library) fails. One shown as notation (`+`, a record update) isn't
+        // named.
         let text: Vec<&str> = std::iter::once(target)
             .chain(hypotheses.iter().map(|h| h.ty.as_str()))
             .collect();
         for declaration in declarations {
-            let full = match declaration {
-                Declaration::Def(id) => &*g.def(id).name,
-                Declaration::Data(d) => &*g.data(d).name,
-            };
+            let full = self.full_name(declaration);
             let parts: Vec<&str> = full.split('.').collect();
             let resolves = (0..parts.len()).any(|start| {
                 let written = parts[start..].join(".");

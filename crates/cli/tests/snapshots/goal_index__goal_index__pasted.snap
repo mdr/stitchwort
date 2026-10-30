@@ -1,0 +1,9 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: "shown.join(\"\\n\")"
+---
+no-import: theorem pasted0 (xs: List Nat): Std.List.count xs (n => Std.Decidable.toBool (Std.Nat.decEq (n % 2) 0)) ≤ Std.List.length xs := ?
+import: theorem pasted0 (xs: List Nat): List.count xs (n => Std.Decidable.toBool (Std.Nat.decEq (n % 2) 0)) ≤ List.length xs := ?
+namespace: theorem pasted0 (xs: List Nat): List.count xs (n => Std.Decidable.toBool (Nat.decEq (n % 2) 0)) ≤ List.length xs := ?
+namespace: theorem pasted1 (xs: List Nat): count (List.length xs) = List.length xs := ?
+hypotheses: theorem pasted0 (xs: List Nat) (h: Std.List.all xs (n => n <= 9) = True): Std.List.length (Std.List.map xs (n => n + 1)) = Std.List.length xs := ?

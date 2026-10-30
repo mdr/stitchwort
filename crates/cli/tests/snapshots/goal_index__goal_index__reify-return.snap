@@ -76,7 +76,7 @@ expression: json
         },
         {
           "name": "rest✝",
-          "type": "Empty → {Fail} a"
+          "type": "Std.Empty → {Fail} a"
         },
         {
           "name": "msg",
@@ -88,7 +88,7 @@ expression: json
     "labels": [
       {
         "file": 0,
-        "message": "a: Type\nb: Type\nt: () → {Fail} a\nk: a → {Fail} b\nrest✝: Empty → {Fail} a\nmsg: Text\n⊢ Err msg = Err msg",
+        "message": "a: Type\nb: Type\nt: () → {Fail} a\nk: a → {Fail} b\nrest✝: Std.Empty → {Fail} a\nmsg: Text\n⊢ Err msg = Err msg",
         "range": [
           9,
           26,
@@ -137,12 +137,12 @@ expression: json
           "type": "b"
         }
       ],
-      "target": "Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => k (Effect.runPure (Call o (y => Done y))))) (Effect.bind (List.map xs f) (x1 => Done (Cons y x1))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (arg => f z))) (tail => Cons y tail))"
+      "target": "Std.Effect.foldComp (x => Ok x) (Std.Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => k (Std.Effect.runPure (Call o (y => Done y))))) (Std.Effect.bind (Std.List.map xs f) (x1 => Done (Cons y x1))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (arg => f z))) (tail => Cons y tail))"
     },
     "labels": [
       {
         "file": 0,
-        "message": "a: Type\nb: Type\nf: a → {Fail} b\nx: a\nxs: List a\ny: b\n⊢ Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => k (Effect.runPure (Call o (y => Done y))))) (Effect.bind (List.map xs f) (x1 => Done (Cons y x1))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (arg => f z))) (tail => Cons y tail))",
+        "message": "a: Type\nb: Type\nf: a → {Fail} b\nx: a\nxs: List a\ny: b\n⊢ Std.Effect.foldComp (x => Ok x) (Std.Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => k (Std.Effect.runPure (Call o (y => Done y))))) (Std.Effect.bind (Std.List.map xs f) (x1 => Done (Cons y x1))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (arg => f z))) (tail => Cons y tail))",
         "range": [
           21,
           20,

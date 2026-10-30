@@ -7,9 +7,9 @@ expression: output
    │
  4 │ theorem countFlipped (xs: List Nat) (id: Nat): xs.count (== id) = xs.count (id ==) := rfl
    │                                                                                       ─┬─  
-   │                                                                                        ╰─── `List.count xs (== id)` and `List.count xs (id ==)` aren't equal
+   │                                                                                        ╰─── `Std.List.count xs (== id)` and `Std.List.count xs (id ==)` aren't equal
    │ 
-   │ Note 1: computing both sides gives `List.foldLeft xs 0 (n x => Nat.succIf n (Decidable.toBool (Nat.decEq x id)))` and `List.foldLeft xs 0 (n x => Nat.succIf n (Decidable.toBool (Nat.decEq id x)))`
+   │ Note 1: computing both sides gives `Std.List.foldLeft xs 0 (n x => Std.Nat.succIf n (Std.Decidable.toBool (Std.Nat.decEq x id)))` and `Std.List.foldLeft xs 0 (n x => Std.Nat.succIf n (Std.Decidable.toBool (Std.Nat.decEq id x)))`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

@@ -9,7 +9,7 @@ expression: output
     │   ┬  
     │   ╰── shape: Shape
     │       newId: Text
-    │       ⊢ { shape | id = Text.append newId "!" }.ref = shape.ref
+    │       ⊢ { shape | id = Std.Text.append newId "!" }.ref = shape.ref
 ────╯
 [GOAL] Goal: in `renamedTwice`
     ╭─[ goals/record-update.sw:17:3 ]
