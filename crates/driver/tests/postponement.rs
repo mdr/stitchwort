@@ -1,7 +1,8 @@
-//! The postponement queue's record literals and `.field`s (K1 and K2,
-//! docs/proposals/postponement.md stage 2), with the library: §9's
-//! must-hold tests for invariants 3, 6 and 8, and the errors a waiting
-//! check gives once its type is known. The queue's own tests, on items made
+//! The postponement queue's record literals, `.field`s and method sections
+//! (K1, K2 and K3, docs/proposals/postponement.md stages 2 and 3), and the
+//! decision that waits for them (D2035), with the library: §9's must-hold
+//! tests for invariants 3, 6 and 8, and the errors a waiting check gives
+//! once its type is known. The queue's own tests, on items made
 //! by hand and modules without the library, are in `crates/elab/src/queue.rs`.
 
 use std::path::Path;
@@ -179,10 +180,9 @@ def bothAnnotated (rule: Rule) (page: Nat): Bool :=
 /// Invariant 8, must hold (§9), the allowed class of §5.10: `x ∈ r.items`
 /// with `r`'s type fixed later reads `r.items` as a list, the reading for an
 /// unknown container. When `r` turns out to hold a set, that is a mismatch
-/// at the waiting `.items`, never an acceptance with a list. (As a
-/// proposition: where a `Bool` is expected, `check b` is decided before the
-/// `.items`, made outside that application, can say what it is, and that
-/// fails first; postponement.md, "As built (stage 2)".)
+/// at the waiting `.items`, never an acceptance with a list. (Where a
+/// `Bool` is expected instead, the decision waits for the `.items`, D2035:
+/// `a_decision_waits_for_a_field_in_its_proposition`.)
 #[test]
 fn membership_in_a_waiting_field_is_a_mismatch_not_a_list() {
     let base = "\
@@ -207,7 +207,7 @@ def has (b: Box): Prop :=
   check b
 "
     );
-    let errors = load(&later).err().expect("rejected");
+    let errors = load(&later).expect_err("rejected");
     assert_eq!(errors[0].code, "E-TYPE-MISMATCH", "{errors:#?}");
     assert_eq!(pointed_at(&later, &errors), "r.items");
 }
@@ -221,7 +221,7 @@ fn a_field_isnt_resumed_inside_another_applications_attempts() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/reject/postponed-lambda-second-error.sw");
     let source = std::fs::read_to_string(path).unwrap();
-    let errors = load(&source).err().expect("rejected");
+    let errors = load(&source).expect_err("rejected");
     assert_eq!(errors[0].code, "E-UNKNOWN-FIELD", "{errors:#?}");
     assert_eq!(pointed_at(&source, &errors), "size");
 }
@@ -240,7 +240,7 @@ def depth (start: Position): Int :=
   let depth := p => p.depth
   depth start
 ";
-    let errors = load(field).err().expect("rejected");
+    let errors = load(field).expect_err("rejected");
     assert_eq!(errors[0].code, "E-UNKNOWN-FIELD", "{errors:#?}");
     assert_eq!(pointed_at(field, &errors), "depth");
     let literal = "\
@@ -250,7 +250,71 @@ def firstOf (x: a) (xs: List a): a := x
 
 def wrong: Nat := firstOf { row = 1 } [2]
 ";
-    let errors = load(literal).err().expect("rejected");
+    let errors = load(literal).expect_err("rejected");
     assert_eq!(errors[0].code, "E-NOT-A-RECORD", "{errors:#?}");
     assert_eq!(pointed_at(literal, &errors), "{ row = 1 }");
+}
+
+/// K3, the section's form of invariant 6's must-hold (§9): a section whose
+/// argument's type is fixed only by a later argument elaborates to the same
+/// term as with that type known from the start: `.snd` is `Pair.snd` itself
+/// (D506), not a lambda around it. It waits whole, and is checked once
+/// `pairs` has said what it takes.
+#[test]
+fn a_section_fixed_later_is_the_term_it_is_when_known() {
+    let source = "\
+import Std (Bool, List, Nat, Pair)
+
+def anyOf (p: a -> Bool) (xs: List a): Bool := xs.any p
+
+def section (pairs: List (Pair Nat Bool)): Bool := anyOf .snd pairs
+
+def written (pairs: List (Pair Nat Bool)): Bool := anyOf Pair.snd pairs
+
+def known (pairs: List (Pair Nat Bool)): Bool := pairs.any .snd
+
+def knownWritten (pairs: List (Pair Nat Bool)): Bool := pairs.any Pair.snd
+";
+    let h = hashes(source, &["section", "written", "known", "knownWritten"]);
+    assert_eq!(h[0], h[1]);
+    assert_eq!(h[2], h[3]);
+}
+
+/// D2035, invariant 8 (§5.10): where a `Bool` is expected, a proposition
+/// holding a waiting `.field` is decided only once the `.field` is filled.
+/// With `r`'s type fixed later the decision is the one made with `r`
+/// annotated (the same definitions); and if `r` turns out to hold a set,
+/// the `.items` read as a list is a mismatch at it, not a decision of
+/// something else.
+#[test]
+fn a_decision_waits_for_a_field_in_its_proposition() {
+    let source = "\
+import Std (Bool, List, Nat)
+
+type Box = { items: List Nat }
+
+def later (b: Box): Bool :=
+  let check := r => 3 ∈ r.items
+  check b
+
+def annotated (b: Box): Bool :=
+  let check := (r: Box) => 3 ∈ r.items
+  check b
+";
+    let later = mentions(source, "later");
+    let annotated = mentions(source, "annotated");
+    assert!(later.iter().any(|d| d == "Decidable.toBool"), "{later:?}");
+    assert_eq!(later, annotated);
+    let set = "\
+import Std (Bool, Nat, Set)
+
+type Box = { items: Set Nat }
+
+def has (b: Box): Bool :=
+  let check := r => 3 ∈ r.items
+  check b
+";
+    let errors = load(set).expect_err("rejected");
+    assert_eq!(errors[0].code, "E-TYPE-MISMATCH", "{errors:#?}");
+    assert_eq!(pointed_at(set, &errors), "r.items");
 }

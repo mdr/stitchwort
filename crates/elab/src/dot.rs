@@ -718,8 +718,11 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
     let mut tried: Vec<TyHead> = Vec::new();
     loop {
         match step(g, ty)? {
-            Step::Unknown(_) if matches!(recv, Expr::Var(n) if n.text == SECTION) => {
-                return Err(section_unknown_name(cx, field));
+            // A section's argument whose type meets an unknown further along
+            // its view (K3's sections wait before that, on the argument's
+            // type itself): the `.field` waits, with the section's message.
+            Step::Unknown(blocker) if matches!(recv, Expr::Var(n) if n.text == SECTION) => {
+                return Ok(Lookup::Blocked(blocker, section_unknown(cx, field)));
             }
             Step::Unknown(blocker) => {
                 let error = cx
@@ -955,13 +958,56 @@ pub(crate) fn section_partial(
     }
 }
 
-/// A method section whose argument's type isn't known: `let f := .drop 1`.
-pub(crate) fn section_unknown(cx: &Ctx, section: &Expr) -> Diagnostic {
-    let name = section.section_name().expect("a section");
-    section_unknown_name(cx, name)
+/// K3 (docs/proposals/postponement.md §5.2, §5.4): a method section `.f …`
+/// checked against `dom -> cod` with `dom` still an unknown, as in `let g :=
+/// .drop 1` or `List.map .position ds`, waits on `dom` and is checked against
+/// the function type once `dom`'s head is known, from its syntax. The
+/// section is nothing but a dot call on its argument, so it has nothing to
+/// elaborate before `dom` is known: like a record literal (K1), it keeps
+/// nothing elaborated (invariant 6). Checked whole rather than as the lambda
+/// `x => x.f …` with a `.f` waiting inside (the note's first reading of K3),
+/// so that it is what it is when `dom` is known from the start: the partial
+/// application `T.f a…` where the receiver comes last (D506), not the lambda
+/// around it. A section whose argument's type is known but whose view meets
+/// an unknown further on is a lambda with a `.f` waiting inside (K2),
+/// carrying the section's message ([`find_in_view`]).
+struct Section {
+    section: Expr,
+    /// The function type it is checked against, as the placeholder has it.
+    expected: Value,
 }
 
-fn section_unknown_name(cx: &Ctx, field: &AstName) -> Diagnostic {
+impl crate::queue::Check for Section {
+    fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
+        let term = crate::check::check(cx, &self.section, &self.expected)?;
+        Ok(crate::queue::Resumed::Done(term))
+    }
+}
+
+/// [`Section`]: `section` checked against `expected`, `dom -> cod`, queued
+/// if `dom`'s head is an unknown, giving its placeholder; `None` otherwise.
+pub(crate) fn queue_section(
+    cx: &mut Ctx,
+    section: &Expr,
+    dom: &Value,
+    expected: &Value,
+) -> Result<Option<Term>> {
+    let Value::Neutral(Head::Meta(blocker), _) = force(cx.g(), dom.clone())? else {
+        return Ok(None);
+    };
+    let field = section.section_name().expect("a section");
+    let check = Section {
+        section: section.clone(),
+        expected: expected.clone(),
+    };
+    let error = section_unknown(cx, field);
+    let term = crate::queue::queue(cx, Rc::new(check), on(blocker), expected.clone(), error)?;
+    Ok(Some(term))
+}
+
+/// A method section whose argument's type isn't known: `let f := .drop 1`
+/// with nothing to say what `f` is applied to.
+fn section_unknown(cx: &Ctx, field: &AstName) -> Diagnostic {
     cx.error(
         "E-CANNOT-INFER",
         format!("can't tell what `.{}` is applied to", field.text),

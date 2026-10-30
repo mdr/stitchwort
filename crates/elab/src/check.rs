@@ -1310,9 +1310,6 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let ty = cx.eval(&ty)?;
             Ok((crate::goals::hole(cx, &ty), ty))
         }
-        Expr::Lam(..) if expr.section_name().is_some() => {
-            Err(crate::dot::section_unknown(cx, expr))
-        }
         // `x => y => b` is inferred as `x y => b` is (SW-910): one function
         // type for all its parameters, so the inner lambda is checked
         // against a function type, not an unknown.
@@ -2022,9 +2019,6 @@ fn apply_args_postponing(
                 let later = args[i + 1..]
                     .iter()
                     .any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
-                // Later parameters whose types mention it see the
-                // placeholder, which their arguments may solve.
-                let dependents = !only_lambdas_depend_on_it(&cod.body, &args[i + 1..]);
                 let parameters = match value {
                     Expr::Lam(names, ..) => names.len(),
                     _ => 1,
@@ -2053,8 +2047,6 @@ fn apply_args_postponing(
                     }
                 } else if !postponable {
                     Some(check_arg(cx, &term, value, &dom)?)
-                } else if value.section_name().is_some() && !dependents {
-                    None
                 } else {
                     let snapshot = crate::undo::Snapshot::take(cx);
                     match check_arg(cx, &term, value, &dom) {
@@ -2063,6 +2055,7 @@ fn apply_args_postponing(
                         Err(e) => {
                             snapshot.restore(cx);
                             first_error.get_or_insert(e);
+                            crate::queue::note_lambda_postponed();
                             None
                         }
                     }
@@ -2072,8 +2065,11 @@ fn apply_args_postponing(
                     term = Term::app(term, value);
                     continue;
                 }
-                // `List.map .position ds`: what `.position` takes is
-                // known once `ds` is, so the lambda is checked last.
+                // A lambda that failed in place, while what it takes was
+                // unknown, is checked last, once the later arguments may
+                // have said it. (A method section such as `List.map
+                // .position ds`'s doesn't fail in place for that: it waits
+                // in the queue, K3.)
                 let meta = cx.fresh_meta();
                 let placeholder = cx.eval(&meta)?;
                 ty = cod.apply(cx.g(), placeholder.clone())?;
@@ -3415,10 +3411,14 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             _,
         ) => check_if(cx, binder.as_ref(), cond, then, otherwise, &expected),
         (Expr::Lam(names, body, span), Value::Pi(_, Icit::Explicit, dom, cod)) => {
-            if expr.section_name().is_some()
-                && let Some(term) = crate::dot::section_partial(cx, expr, dom, &expected)?
-            {
-                return Ok(term);
+            if expr.section_name().is_some() {
+                // What the section takes isn't known yet: it waits (K3).
+                if let Some(term) = crate::dot::queue_section(cx, expr, dom, &expected)? {
+                    return Ok(term);
+                }
+                if let Some(term) = crate::dot::section_partial(cx, expr, dom, &expected)? {
+                    return Ok(term);
+                }
             }
             let shadowed = lambda_shadow(cx, names, *span)?;
             let (first, rest) = names.split_first().expect("lambdas have parameters");
@@ -4060,6 +4060,13 @@ fn awaiting_note(
 /// and `found` is `Prop`, so other comparisons don't pay for it. A
 /// condition (`if c`, `&&` …) whose `Bool` reading is being tried isn't
 /// decided here: its proposition reading decides it (`logic::condition`).
+///
+/// A proposition that holds a queued check's placeholder not filled yet
+/// isn't decided until it is (D2035): which procedure decides it depends on
+/// what the placeholder turns out to be, so the choice waits, as instance
+/// search waits for an unknown (invariant 8, docs/proposals/postponement.md
+/// §5.10). In `let check := r => 3 ∈ r.items; check b`, the `.items` waits
+/// for `r`'s type, which only `check b` fixes; then `check b` is decided.
 fn decide_to_bool(
     cx: &mut Ctx,
     expr: &Expr,
@@ -4077,6 +4084,49 @@ fn decide_to_bool(
     {
         return Ok(None);
     }
+    let span = expr.span();
+    if let Some(placeholder) = crate::queue::unfilled_in(cx, &cx.eval(term)?)? {
+        // Reported only if it is what nothing unblocks, which it never is
+        // while the check its placeholder stands for waits (§5.9).
+        let error = Diagnostic::error("E-CANNOT-INFER", "can't decide this proposition yet")
+            .with_label(span, "it holds a value whose type isn't known here");
+        let decide = Decide {
+            span,
+            term: term.clone(),
+        };
+        let needs = Value::Neutral(Head::Meta(placeholder), Default::default());
+        let term = crate::queue::queue(cx, Rc::new(decide), needs, expected.clone(), error)?;
+        return Ok(Some(term));
+    }
+    decided(cx, span, term).map(Some)
+}
+
+/// A proposition's decision into a `Bool`, waiting for a placeholder in it
+/// ([`decide_to_bool`]). It keeps the proposition's term, elaborated before
+/// it waited: the term doesn't change with what the placeholder becomes,
+/// only the decision does, and the placeholder in it is written as its
+/// check's term when the declaration is zonked (invariant 6).
+struct Decide {
+    span: Span,
+    term: Term,
+}
+
+impl crate::queue::Check for Decide {
+    fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
+        // Another placeholder still unfilled: wait on that one.
+        if let Some(placeholder) = crate::queue::unfilled_in(cx, &cx.eval(&self.term)?)? {
+            let needs = Value::Neutral(Head::Meta(placeholder), Default::default());
+            return Ok(crate::queue::Resumed::Waiting(needs));
+        }
+        Ok(crate::queue::Resumed::Done(decided(
+            cx, self.span, &self.term,
+        )?))
+    }
+}
+
+/// [`decide_to_bool`]'s decision of `term`, a proposition written at `span`,
+/// as a `Bool`.
+fn decided(cx: &mut Ctx, span: Span, term: &Term) -> Result<Term> {
     let decision = match crate::bind::decide(cx, term) {
         Ok(decision) => decision,
         Err(mut e) if e.code == "E-AUTO-NONE" && !e.notes.is_empty() => {
@@ -4092,11 +4142,11 @@ fn decide_to_bool(
             {
                 e.message = "no way to decide this proposition".into();
             }
-            return Err(e.with_label(expr.span(), "this is a proposition, and nothing decides it"));
+            return Err(e.with_label(span, "this is a proposition, and nothing decides it"));
         }
         Err(e) => return Err(e),
     };
-    Ok(Some(decision.into_bool(cx, term.clone())?))
+    decision.into_bool(cx, term.clone())
 }
 
 /// `term`, of type `found`, where `expected` is expected.

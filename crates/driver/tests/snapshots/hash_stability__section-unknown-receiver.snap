@@ -1,0 +1,12 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.f 84b2ff18459c4f37f162fdbd2a4e5697ea6c19ae729b7d52f9b541f886e7b159
+Main.anyOf d7fa0274833c8a1b2ef290a6b3b784842471ab8dbe2db4fb4df32a04dc79d151
+Main.pairs ed515c161f80626e7958f240f77de4a654cfb35daec0a43d0631a9c9b13edf14
+Main.waits_for_pairs c2f9fde9ba53dfade4e22c5734b11f8fe1c627386da18b6a15b8fc1b9636f4f9
+Main.test "drop" eeb97f9aff25cb8d4a180b7537fde670017c20f74d825914715ea8e660ededee
+Main.test "drop from nothing" 10325a153cbe5b34c49634dc6809b0141267222d39a6fb3dac0fa55816de547a
+Main.test "any" 93c5be7488d458c6984907fa4c303865e2019fed0ba08fdfb02fc2e40db888af
+Main.test "none" a8aad3231c20fcc7613ddf39db60d34a2d5190401b411af733e64bd103a3f2d5
