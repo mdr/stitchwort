@@ -565,6 +565,11 @@ pub struct Elaborator {
     /// definition, whose type, and everything it refers to, never changes;
     /// definitions are only ever added, so an entry never goes stale.
     pub(crate) result_heads: RefCell<Vec<Option<Option<DataId>>>>,
+    /// The candidates `auto::decision_procedures` tries after the current
+    /// module's own definitions, in order, once worked out, with what the
+    /// order was worked out from (`auto::DecisionOrder`). Forgotten on a
+    /// rewind, which can replace the definitions it lists.
+    pub(crate) decision_order: RefCell<Option<auto::DecisionOrder>>,
     /// Whether a call of final definition `id` with `n` explicit arguments
     /// reaches a computation type (`effects::def_performs_after`), once
     /// worked out: asked for every call in every expression checked, and

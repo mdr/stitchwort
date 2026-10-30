@@ -40,6 +40,11 @@
 //! or its candidates; obligations are retried in rounds while a round makes
 //! progress.
 
+use std::collections::BTreeMap;
+use std::ops::Range;
+use std::rc::Rc;
+
+use stitchwort_core::globals::State;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, force};
 use stitchwort_core::{DataId, DefId, Globals, Icit, Name, Term, Value};
@@ -747,17 +752,83 @@ fn decidable(cx: &Ctx) -> Result<DataId> {
 /// then each namespace it depends on, the last in canonical order first, by
 /// name within it; then the loaded library files', by name; then the
 /// prelude's, most recent first. No other namespace's.
+///
+/// The part after this module's own definitions is worked out once and
+/// remembered (`DecisionOrder`): the search runs for every `auto` argument,
+/// and sorting the library's definitions each time was most of its cost
+/// (SW-913).
 fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     let g = cx.g();
-    let candidates: Vec<DefId> = match &cx.e.module.closure {
-        None => (0..g.defs.len()).rev().map(DefId).collect(),
+    // Until the core has declared `DecEq`, every procedure is a candidate,
+    // as before D163: the core's own uses of `==` come before it.
+    let bootstrap = interfaces::dec_eq(cx.e).is_none();
+    let first_def = cx.e.module.first_def.min(g.defs.len());
+    let earlier = earlier_candidates(cx.e, first_def, bootstrap);
+    let own = (first_def..g.defs.len()).rev().map(DefId);
+    let mut found = Vec::new();
+    for id in own.chain(earlier.iter().copied()) {
+        if !(g.def(id).instance || bootstrap) || !cx.e.auto_eligible(id) {
+            continue; // not marked, not checked yet, or below the use
+        }
+        if result_head(cx, id)? == Some(decidable) {
+            found.push(id);
+        }
+    }
+    Ok(found)
+}
+
+/// What `decision_procedures` tries after the current module's own
+/// definitions, in its order, with what that was worked out from
+/// (`Elaborator::decision_order`).
+///
+/// The order depends only on the fields here and on the definitions below
+/// `first_def`: earlier modules', library files' and the prelude's. So it is
+/// reused while the fields are the same. Those definitions are never changed
+/// once declared, and only a rewind removes them, which forgets the order.
+/// (The check cache's undo of a failed replay also removes definitions, but
+/// only ones declared during that replay, past every `first_def` seen
+/// before it.) The current module's own definitions, which grow as it's
+/// checked, aren't part of it.
+///
+/// It leaves out only what can never be a candidate: a checked or failed
+/// definition not marked `instance` (outside the bootstrap, which is one of
+/// the fields). A mark is only ever set while a definition is pending
+/// (`kernel::mark_instance`), so pending ones stay in; everything else
+/// (checked yet, written above the use, its result type) is still asked on
+/// every call, as before.
+pub(crate) struct DecisionOrder {
+    first_def: usize,
+    prelude_defs: usize,
+    closure: Option<Vec<String>>,
+    namespace_defs: BTreeMap<String, Range<usize>>,
+    bootstrap: bool,
+    candidates: Rc<[DefId]>,
+}
+
+impl DecisionOrder {
+    fn matches(&self, e: &Elaborator, first_def: usize, bootstrap: bool) -> bool {
+        self.first_def == first_def
+            && self.bootstrap == bootstrap
+            && self.prelude_defs == e.prelude_defs
+            && self.closure == e.module.closure
+            && self.namespace_defs == e.namespace_defs
+    }
+}
+
+/// `DecisionOrder::candidates` for the elaborator as it is now, remembered.
+fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[DefId]> {
+    if let Some(order) = &*e.decision_order.borrow()
+        && order.matches(e, first_def, bootstrap)
+    {
+        return order.candidates.clone();
+    }
+    let g = &e.globals;
+    let ordered: Vec<DefId> = match &e.module.closure {
+        None => (0..first_def).rev().map(DefId).collect(),
         Some(closure) => {
-            let mut all: Vec<DefId> = (cx.e.module.first_def..g.defs.len())
-                .rev()
-                .map(DefId)
-                .collect();
+            let mut all = Vec::new();
             for namespace in closure.iter().rev() {
-                let Some(range) = cx.e.namespace_defs.get(namespace) else {
+                let Some(range) = e.namespace_defs.get(namespace) else {
                     continue;
                 };
                 let mut ids: Vec<DefId> = range.clone().map(DefId).collect();
@@ -770,31 +841,33 @@ fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
             // without its file loaded), by name: every definition
             // outside the core that no namespace of the project made.
             // File mode sees them as it sees everything.
-            let project: Vec<std::ops::Range<usize>> =
-                cx.e.namespace_defs.values().cloned().collect();
-            let mut library: Vec<DefId> = (cx.e.prelude_defs..cx.e.module.first_def)
+            let project: Vec<Range<usize>> = e.namespace_defs.values().cloned().collect();
+            let mut library: Vec<DefId> = (e.prelude_defs..first_def)
                 .filter(|id| !project.iter().any(|range| range.contains(id)))
                 .map(DefId)
                 .collect();
             library.sort_by(|a, b| g.def(*a).path.cmp(&g.def(*b).path));
             all.extend(library);
-            all.extend((0..cx.e.prelude_defs).rev().map(DefId));
+            all.extend((0..e.prelude_defs).rev().map(DefId));
             all
         }
     };
-    // Until the core has declared `DecEq`, every procedure is a candidate,
-    // as before D163: the core's own uses of `==` come before it.
-    let bootstrap = interfaces::dec_eq(cx.e).is_none();
-    let mut found = Vec::new();
-    for id in candidates {
-        if !(g.def(id).instance || bootstrap) || !cx.e.auto_eligible(id) {
-            continue; // not marked, not checked yet, or below the use
-        }
-        if result_head(cx, id)? == Some(decidable) {
-            found.push(id);
-        }
-    }
-    Ok(found)
+    let candidates: Rc<[DefId]> = ordered
+        .into_iter()
+        .filter(|id| {
+            let def = g.def(*id);
+            def.instance || bootstrap || def.state() == State::Pending
+        })
+        .collect();
+    *e.decision_order.borrow_mut() = Some(DecisionOrder {
+        first_def,
+        prelude_defs: e.prelude_defs,
+        closure: e.module.closure.clone(),
+        namespace_defs: e.namespace_defs.clone(),
+        bootstrap,
+        candidates: candidates.clone(),
+    });
+    candidates
 }
 
 /// In a project, what the error says about decision procedures in
