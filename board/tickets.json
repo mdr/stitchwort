@@ -8468,16 +8468,18 @@
     {
       "id": 898,
       "title": "Kernel: pin the Nat natives to their definitions by content hash (register_native checks only arity and type; cf. Lean #15908)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "kernel"
       ],
-      "body": "crates/core/src/native.rs register_native (line ~379) checks a definition's arity and type, not its body; the + rules (nat_add.rs), compact text and Float are already bound by content hash. Natives are registered only while the prelude loads, so the exposure is a prelude edit, but the kernel would then compute natively something other than the definition. Pin them as the other trusted extras are.",
+      "body": "crates/core/src/native.rs register_native (line ~379) checks a definition's arity and type, not its body; the + rules (nat_add.rs), compact text and Float are already bound by content hash. Natives are registered only while the prelude loads, so the exposure is a prelude edit, but the kernel would then compute natively something other than the definition. Pin them as the other trusted extras are.\n\nDecided 30 Oct 2026 (Matt): won't pin. The risk is only an edited standard library (user code can't define Nat.add: E-STD-NAMESPACE, checked), and we won't add broken natives. Documented instead that std is trusted and that --std-dir with altered Nat definitions is outside the guarantees: docs/core.md (Numbers, Trust) and DESIGN.md §13 (e938efea).\n",
       "created": "2026-10-29",
-      "updated": "2026-10-29",
-      "commits": []
+      "updated": "2026-10-30",
+      "commits": [
+        "e938efea"
+      ]
     },
     {
       "id": 899,
