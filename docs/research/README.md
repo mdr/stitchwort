@@ -9,12 +9,9 @@ file records how it was searched, so it can be refreshed.
 | Elaboration | [elaboration.md](elaboration.md) |
 | Proof automation | [proof-automation.md](proof-automation.md) |
 | Kernel and type theory | [kernel.md](kernel.md) |
-<<<<<<< HEAD
 | Inductive types and recursion | [inductives.md](inductives.md) |
 | Infrastructure and trust | [infrastructure.md](infrastructure.md) |
-=======
 | Compilation and runtime | [compilation.md](compilation.md) |
->>>>>>> worktree-agent-aa5688f5b03448c33
 
 ## What a cluster file holds
 
