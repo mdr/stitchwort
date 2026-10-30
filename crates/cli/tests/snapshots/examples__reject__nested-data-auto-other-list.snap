@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-STUCK] Error: can't decide `Packet.size q ≤ Packet.%m1%size items` here
+    ╭─[ reject/nested-data-auto-other-list.sw:13:106 ]
+    │
+ 13 │ theorem elsewhere (q: Packet) (items: List Packet) (others: List Packet) (h: List.Mem q others): Unit := memberSmaller q items
+    │                                                                                                          ──────────┬──────────  
+    │                                                                                                                    ╰──────────── it involves values that aren't known here, and computing it doesn't settle it
+    │ 
+    │ Note 1: establish it first, with `if h: … then … else …`
+    │ 
+    │ Note 2: `Packet.%m1%size` is a helper the compiler generates for `Packet` (part of `Packet.size`, `Packet.induct` or their lemmas); it can't be written in source
+────╯
