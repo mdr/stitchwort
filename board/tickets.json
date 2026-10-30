@@ -7205,7 +7205,7 @@
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
       "status": "doing",
       "agent": "",
-      "where": "draft 3 merged 25651c56 (review 1 addressed); open: D2013, D2014, D2016",
+      "where": "draft 3 merged; D2016 decided yes (Matt); open: D2013, D2014",
       "labels": [
         "decision"
       ],
