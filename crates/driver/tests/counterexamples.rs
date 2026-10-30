@@ -308,6 +308,63 @@ fn check_counterexamples_gives_every_theorem_a_verdict() {
     assert_eq!(out[0].3, "not applicable: `f` is a function");
 }
 
+/// SW-903: a false statement whose hypothesis only short lists satisfy
+/// (`[0, 1, 2, 3, 4, 5]` is a counterexample, but random lists that long are
+/// almost never increasing) has none found, and the verdict says the
+/// hypotheses held only for inputs of a few constructors, far fewer than
+/// the inputs made: weak evidence. Its total size is no help: a list of
+/// one large number held, as large in total as anything made.
+#[test]
+fn hypotheses_held_only_for_small_inputs_are_weak_evidence() {
+    let log = only("goals/counterexample-weak-evidence.sw");
+    assert!(log.found.is_none(), "{log:?}");
+    assert!(log.discarded > 0, "{log:?}");
+    // Below 6, or the input would be a counterexample.
+    assert!(log.held_shape <= 5, "{log:?}");
+    assert!(log.tried_shape >= 4 * log.held_shape, "{log:?}");
+    assert!(
+        log.held_size * 2 >= log.enumerated_size.max(log.random_size),
+        "{log:?}"
+    );
+    let found = verdicts("goals/counterexample-weak-evidence.sw");
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].2, Verdict::NoneFound, "{found:?}");
+    let line = &found[0].3;
+    assert!(
+        line.starts_with(
+            "none in 2000 cases (evidence, not a proof), but the hypotheses held only for \
+             inputs of up to "
+        ) && line.ends_with(" made: weak evidence, unless they allow no larger ones"),
+        "{line}"
+    );
+    assert!(line.contains(" constructors of the "), "{line}");
+}
+
+/// SW-903: with no hypotheses, or none discarding anything, the size the
+/// hypotheses held up to is the size made, and the verdict is as before;
+/// with a hypothesis most inputs satisfy (`b <= a`), about as large.
+#[test]
+fn the_size_held_is_the_size_made_without_discards() {
+    let log = only("reject/counterexample-true-statement.sw");
+    assert_eq!(log.discarded, 0, "{log:?}");
+    assert_eq!(
+        log.held_size,
+        log.enumerated_size.max(log.random_size),
+        "{log:?}"
+    );
+    assert_eq!(log.held_shape, log.tried_shape, "{log:?}");
+    let (_, log) = search("reject/counterexample-sub-add.sw", true);
+    let below = &log[1];
+    assert!(below.discarded > 0, "{below:?}");
+    let made = below.enumerated_size.max(below.random_size);
+    assert!(below.held_size * 2 >= made, "{below:?}");
+    let found = verdicts("reject/counterexample-sub-add.sw");
+    assert!(
+        found[1].3.ends_with("; evidence, not a proof)") && !found[1].3.contains("weak"),
+        "{found:?}"
+    );
+}
+
 /// On theorems that check, no counterexample (a soundness canary, §7.3).
 #[test]
 fn theorems_that_check_have_no_counterexample() {

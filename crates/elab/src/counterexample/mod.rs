@@ -40,7 +40,7 @@ use stitchwort_core::{BigUint, DefId, Globals, Icit, Limits, Name, Sort, Term, V
 
 use crate::check::{Ctx, builtin_data, builtin_def};
 use crate::{Elaborator, shown};
-use inputs::{Inputs, Rng};
+use inputs::{Inputs, Rng, Size};
 
 /// How much one search may do (§6.3): inputs tried (half enumerated, half
 /// random), and wall time where there's a clock.
@@ -156,6 +156,16 @@ pub struct SearchLog {
     /// to.
     pub enumerated_size: usize,
     pub random_size: usize,
+    /// The largest size of an input every hypothesis held for (SW-903):
+    /// its total size as enumeration counts it ([`Size::total`]), a random
+    /// one's no more than the size it was drawn at. With no input
+    /// discarded, every input tried counts, and this is the size they
+    /// reached, the larger of `enumerated_size` and `random_size`.
+    pub held_size: usize,
+    /// The largest shape ([`Size::shape`]) of an input tried, and of one
+    /// every hypothesis held for (with none discarded, the same).
+    pub tried_shape: usize,
+    pub held_shape: usize,
     /// Whether the enumeration covered every input there is.
     pub exhaustive: bool,
     /// The counterexample's bindings as shown, if one was found; the phase
@@ -510,6 +520,7 @@ impl Elaborator {
         let first = self.run_batch(
             checker,
             &enumerated,
+            &|i| inputs.size_tuple(&plans, &enumerated[i]),
             started,
             budget.millis * 2 / 5,
             true,
@@ -539,24 +550,47 @@ impl Elaborator {
             )));
             // Drawing them counts toward the same time as running them:
             // past it, the batch would run none of them anyway (SW-900).
-            let random: Vec<Vec<Term>> = {
+            // Each with the size it was drawn at.
+            let (random, drawn): (Vec<Vec<Term>>, Vec<usize>) = {
                 let _op = g.budget.operation(self.limits);
                 (0..more)
                     .take_while(|_| !clock::past(started, budget.millis * 4 / 5))
                     .filter_map(|i| {
                         let size = 1 + i * RANDOM_SIZE / more.max(1);
                         log.random_size = log.random_size.max(size);
-                        inputs.random_tuple(&plans, size, &mut rng)
+                        Some((inputs.random_tuple(&plans, size, &mut rng)?, size))
                     })
-                    .collect()
+                    .unzip()
             };
             let before = log.tried;
-            let batch =
-                self.run_batch(checker, &random, started, budget.millis * 4 / 5, true, log)?;
+            // A random input counts at its own size, but no more than it was
+            // drawn at: a number at an edge is large, but no sign that the
+            // search reached large inputs.
+            let batch = self.run_batch(
+                checker,
+                &random,
+                &|i| {
+                    let size = inputs.size_tuple(&plans, &random[i]);
+                    Size {
+                        total: size.total.min(drawn[i]),
+                        ..size
+                    }
+                },
+                started,
+                budget.millis * 4 / 5,
+                true,
+                log,
+            )?;
             log.random = log.tried - before;
             found = batch
                 .found
                 .map(|i| (random[i].clone(), batch.fast, Phase::Random));
+        }
+        // Nothing discarded: the hypotheses held for every input tried, so
+        // for as large ones as were made (SW-903).
+        if log.discarded == 0 {
+            log.held_size = log.enumerated_size.max(log.random_size);
+            log.held_shape = log.tried_shape;
         }
         let (mut input, mut fast, phase) = found?;
         log.found_by = Some(phase);
@@ -572,8 +606,15 @@ impl Elaborator {
                     let _op = g.budget.operation(self.limits);
                     inputs.shrink_tuple(&plans, &input)
                 };
-                let batch =
-                    self.run_batch(checker, &candidates, started, budget.millis, false, log)?;
+                let batch = self.run_batch(
+                    checker,
+                    &candidates,
+                    &|_| Size::default(),
+                    started,
+                    budget.millis,
+                    false,
+                    log,
+                )?;
                 let Some(i) = batch.found else { break };
                 input = candidates[i].clone();
                 fast = batch.fast;
@@ -604,13 +645,16 @@ impl Elaborator {
 
     /// Runs `checker` on each of `inputs`, on the fast runtime if it can,
     /// until one is a counterexample or `until_ms` milliseconds have passed
-    /// since `started`; if `counted`, each is counted in `log`, and too
+    /// since `started`; if `counted`, each is counted in `log`, the
+    /// largest `size` of those the hypotheses held for is kept, and too
     /// many running out of steps stops it. `None` if the check was
     /// cancelled.
+    #[allow(clippy::too_many_arguments)]
     fn run_batch(
         &self,
         checker: &Checker,
         inputs: &[Vec<Term>],
+        size: &dyn Fn(usize) -> Size,
         started: Option<clock::Instant>,
         until_ms: u64,
         counted: bool,
@@ -625,10 +669,15 @@ impl Elaborator {
         let mut each = |i: usize, result: Option<u64>| -> bool {
             if counted {
                 log.tried += 1;
+                let size = size(i);
+                log.tried_shape = log.tried_shape.max(size.shape);
                 match result {
                     Some(code) if code < falsified - 1 => log.discarded += 1,
                     None => log.out_of_steps += 1,
-                    Some(_) => {}
+                    Some(_) => {
+                        log.held_size = log.held_size.max(size.total);
+                        log.held_shape = log.held_shape.max(size.shape);
+                    }
                 }
             }
             if result == Some(falsified) {

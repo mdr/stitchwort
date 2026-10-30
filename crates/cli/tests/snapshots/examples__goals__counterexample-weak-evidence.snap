@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `shortIncreasing`
+    ╭─[ goals/counterexample-weak-evidence.sw:14:84 ]
+    │
+ 14 │ theorem shortIncreasing (xs: List Nat) (h: increasing xs = True): xs.length < 6 := ?
+    │                                                                                    ┬  
+    │                                                                                    ╰── xs: List Nat
+    │                                                                                        h: increasing xs = True
+    │                                                                                        ⊢ List.length xs ≤ 5
+────╯

@@ -881,8 +881,13 @@ fn search_counterexamples(
         .max()
         .unwrap_or(0);
     let mut counts = [0usize; 5];
+    // Of those with none found, how many on weak evidence (SW-903).
+    let mut weak = 0;
     for (search, (verdict, line)) in searches.iter().zip(verdicts) {
         counts[verdict as usize] += 1;
+        if verdict == Verdict::NoneFound && search.weak_evidence().is_some() {
+            weak += 1;
+        }
         if !shown(verdict) {
             continue;
         }
@@ -908,9 +913,15 @@ fn search_counterexamples(
     }
     let total = searches.len();
     let [false_, none, gave_up, inconclusive, not_applicable] = counts;
+    let weak = if weak > 0 {
+        format!(" ({weak} on weak evidence)")
+    } else {
+        String::new()
+    };
     eprintln!(
-        "searched {total} theorem{} for counterexamples: {false_} false, {none} with none found, \
-         {gave_up} gave up, {inconclusive} inconclusive, {not_applicable} not applicable",
+        "searched {total} theorem{} for counterexamples: {false_} false, {none} with none \
+         found{weak}, {gave_up} gave up, {inconclusive} inconclusive, {not_applicable} not \
+         applicable",
         if total == 1 { "" } else { "s" }
     );
     false_ == 0

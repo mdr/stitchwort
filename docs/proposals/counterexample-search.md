@@ -501,7 +501,8 @@ action offers "add as a test".
 ### 9.3 Explicit runs
 
 `check --counterexamples` prints one line per theorem: `counterexample …`, `none in N
-cases (sizes ≤ k)`, `gave up (hypotheses true in M of N cases)`, `not applicable: (f: Nat ->
+cases (sizes ≤ k)` (as built, k is the size the hypotheses held up to, with a weak-evidence
+warning when it is far below the size made: SW-903, §10 stage 2), `gave up (hypotheses true in M of N cases)`, `not applicable: (f: Nat ->
 Nat) is a function`, or `inconclusive (ran out of steps)`.
 
 CE-5 is whether the counterexample on a failing proof is a note on the existing error (my
@@ -567,7 +568,9 @@ tables. DESIGN §7 and `docs/syntax.md` updated.
 
 Generators that satisfy hypotheses by construction (QuickChick's derived generators for
 relations [cited: Q2, Q3]; Isabelle's generators from premises [cited: I1]) if "gave up" turns
-out common; narrowing; searching every theorem as it's typed (D570 (b)), if stages 1-2 show
+out common, or "weak evidence" does (hypotheses that held only for inputs far smaller than
+those made, SW-903: the size they held up to is reported, so both are counted by
+`check --counterexamples --verbose`); narrowing; searching every theorem as it's typed (D570 (b)), if stages 1-2 show
 it's cheap.
 
 ## 11. Decisions for the owner
@@ -834,6 +837,24 @@ searched 4 theorems for counterexamples: 1 false, 1 with none found, 1 gave up, 
 ```
 
 Without `--verbose`, only the first line and the count.
+
+*SW-903:* the sizes are those of the inputs the hypotheses held for, not of those made: the
+largest such input's total size as enumeration counts it (a random one's no more than the
+size it was drawn at, so an edge number doesn't count as large), or, with nothing discarded,
+the size made, as before. When that is under a quarter of the largest made, or the inputs'
+*shape* (how many constructors with data fields they have: a list's length) is under a
+quarter of the largest shape made, the line says so instead:
+
+```
+  ~ shortIncreasing  none in 10000 cases (evidence, not a proof), but the hypotheses held only for inputs of up to 5 constructors of the 40 made: weak evidence, unless they allow no larger ones
+```
+
+(`examples/goals/counterexample-weak-evidence.sw`: `(h: increasing xs = True): xs.length <
+6` is false at `[0, 1, 2, 3, 4, 5]`, but a random list that long is almost never increasing.)
+Its total size is no help there: a list of one large number is increasing, and as large in
+total as anything made. The "unless" is for hypotheses that bound the inputs, as `(h: a <= 3)`
+does, where every input they allow was tried. The verdict stays "none found"; see SW-903 for
+the corpus counts behind the quarter.
 
 "Gave up" is fewer than one input in ten getting past the hypotheses; "inconclusive" is more
 than half running out of steps (or none tried); a "not applicable" reason is cut to 200
