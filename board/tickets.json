@@ -7043,16 +7043,18 @@
     {
       "id": 805,
       "title": "Consider D1442: Infer a record literal's type from its field names",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "D1991 (Matt: keep): rebase lane; safe-fields hashes changed on merge, investigating",
+      "status": "done",
+      "agent": "",
+      "where": "merged afea8395 (last-resort rule, D1991)",
       "labels": [
         "decision"
       ],
-      "body": "Reverses the rule \"no type is guessed from the field names\". Built on branch record-literal-inference: exactly one record type in scope with exactly those fields. Rec: yes as built.\n30 Oct rebase lane: safe-fields hash change was already in fc74cbce (not SW-896): `==`'s group infers the literal side first, the rule now made it succeed, so it decided the type and the other side was checked; fix: the rule is held back inside such tries (==/comparisons, ++, calc) and used only if the construct then fails; hashes unchanged.",
+      "body": "Reverses the rule \"no type is guessed from the field names\". Built on branch record-literal-inference: exactly one record type in scope with exactly those fields. Rec: yes as built.\n30 Oct rebase lane: safe-fields hash change was already in fc74cbce (not SW-896): `==`'s group infers the literal side first, the rule now made it succeed, so it decided the type and the other side was checked; fix: the rule is held back inside such tries (==/comparisons, ++, calc) and used only if the construct then fails; hashes unchanged.\n30 Oct: done on worktree-agent-a4f9f02fbc6f9b2be (8b12865a + 8f52025b); lanes elab 78/78, examples 7/7, hashes 3/3 (only record-literal-inferred.snap grows), std 21/21; aoc check ok; docs syntax.md + records.md U6 As built.",
       "created": "2026-10-28",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "afea8395"
+      ]
     },
     {
       "id": 806,
