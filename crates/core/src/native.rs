@@ -713,6 +713,13 @@ pub enum Outcome {
 
 /// Shortcuts for numbers with unknowns in them, each a number of steps of
 /// the definition taken at once.
+///
+/// Never inlined, nor is [`run_numbers`]: [`run`] is on the Rust stack once
+/// for each nested native call it forces an argument of (`Nat.pow 2 280` is
+/// 280 of them), and only its loop over the arguments needs to be in that
+/// frame. Inlined, these two made it 304 bytes of WebAssembly stack, and
+/// the float gate's `Float.toInt 1e100` ran out of the playground's 256 KiB.
+#[inline(never)]
 fn run_partial(
     g: &Globals,
     id: DefId,
@@ -853,7 +860,8 @@ pub fn number_words(native: Native, args: &[BigUint]) -> u64 {
     }
 }
 
-/// A native implementation on numbers.
+/// A native implementation on numbers. Never inlined (see [`run_partial`]).
+#[inline(never)]
 fn run_numbers(g: &Globals, native: Native, args: &[BigUint]) -> Option<Value> {
     let nat = |n: BigUint| Some(nat_value(n));
     match (native, args) {
