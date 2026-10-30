@@ -1,5 +1,5 @@
 {
-  "next": 918,
+  "next": 919,
   "tickets": [
     {
       "id": 13,
@@ -8741,16 +8741,18 @@
     {
       "id": 914,
       "title": "Goals as data in check --index JSON (agentic T3)",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "lane (D2044)",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "tooling"
       ],
-      "body": "D2044 (Matt). docs/research/agentic-proving.md T3: add structured goals to check --index JSON: goal {hypotheses [{name, type, value?}], target, lemma?}; a structured counterexample note; elide long goal text in human output (full with a flag); lemma = standalone theorem … := ? when its names resolve; bump the index version; document in code-navigation.md.\n- 30 Oct: goal/counterexample data on Diagnostic (syntax), printed apart in goals.rs; index v3 writes goal + counterexample members. Next: lemma round trip, elision.\n- 30 Oct: lemma round trip passes (32 lemmas of 46 goals in examples/goals; 14 skipped); --full-goals, 400-char line cut; docs. Running lane tiers.",
+      "body": "D2044 (Matt). docs/research/agentic-proving.md T3: add structured goals to check --index JSON: goal {hypotheses [{name, type, value?}], target, lemma?}; a structured counterexample note; elide long goal text in human output (full with a flag); lemma = standalone theorem … := ? when its names resolve; bump the index version; document in code-navigation.md.\n- 30 Oct: goal/counterexample data on Diagnostic (syntax), printed apart in goals.rs; index v3 writes goal + counterexample members. Next: lemma round trip, elision.\n- 30 Oct: lemma round trip passes (32 lemmas of 46 goals in examples/goals; 14 skipped); --full-goals, 400-char line cut; docs. Running lane tiers.\n- 30 Oct: done on branch worktree-agent-a92c7888bac964155, commit b0f1a3ea. Lanes cli/elab/examples/lsp/hashes green; clippy, fmt clean. Ready to merge.",
       "created": "2026-10-30",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "54acfcb5"
+      ]
     },
     {
       "id": 915,
@@ -8796,6 +8798,21 @@
         "bug"
       ],
       "body": "Found by the SW-916 lane (30 Oct 2026) while testing the proving guide: with an opaque lcg, 'rewrite lcg.unfold in …' (the lemma's argument left open) took about 25 s to check, while 'rewrite lcg.unfold seed in …' took 0.25 s and 'unfolding lcg' 0.18 s. STITCHWORT_REWRITE_METRICS shows the rewrite itself is cheap, so the time is elsewhere (unification of the open argument against the goal? the motive?). Cause unknown; not yet reproduced by the orchestrator. Reproduce, profile with sample, fix or document.\n",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
+    },
+    {
+      "id": 918,
+      "title": "Goals print library names the file can't resolve (List.count without import); goal_index test in no tier",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "tooling"
+      ],
+      "body": "Found by the SW-914 lane (30 Oct 2026), predates it: the goal printer shows library names as stored (List.count), which can't be written in a file that hasn't imported them (E-UNKNOWN-NAME), so a goal pasted as a lemma doesn't check; the human goal output has the same problem. Print a name the file can resolve (Std.List.count or the imported short form), or mark it. Also: crates/cli/tests/goal_index.rs (~9 s) is in no lane profile and not in the merge tier; decide where it runs.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
