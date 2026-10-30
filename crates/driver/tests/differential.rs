@@ -57,9 +57,11 @@ fn param_icits(g: &Globals, id: DefId) -> Vec<Icit> {
 /// at k = 2, 30 million at 8, 485 million at 10), and `Random.xor64` is
 /// k = 64. Everything that calls it on an unknown number is as big: `main` in
 /// random-seed.sw rolls with the seed `IO.randomSeed` gives, a variable in its
-/// normal form. An entry is a name, or `example: name` for one example's
-/// definition. Their closed uses (the module's and the example's tests) are
-/// still compared.
+/// normal form. In lemma-on-large-normal-form.sw, `keep x k` on an unknown
+/// `k` is stuck on `k` around `grow 30 (Leaf x)`, a tree of 2^30 nodes written
+/// out (the example is about exactly that). An entry is a name, or
+/// `example: name` for one example's definition. Their closed uses (the
+/// module's and the example's tests) are still compared.
 const NORMAL_FORM_TOO_BIG: &[&str] = &[
     "Random.xor64",
     "Random.next",
@@ -69,15 +71,28 @@ const NORMAL_FORM_TOO_BIG: &[&str] = &[
     "accept/random-seed.sw: main",
     "accept/kernel-same-call-arguments.sw: generate",
     "accept/kernel-same-call-arguments.sw: descend",
+    "accept/lemma-on-large-normal-form.sw: keep",
 ];
 
 /// Definitions whose type's normal form is exponentially large, so only
 /// their types' conversion is compared: in kernel-same-call-arguments.sw,
-/// `mix 16 seed` on an unknown seed mentions the seed 3^16 times.
+/// `mix 16 seed` on an unknown seed mentions the seed 3^16 times; in
+/// lemma-on-large-normal-form.sw, `applied`'s type mentions `keep x key`
+/// (see [`NORMAL_FORM_TOO_BIG`]).
 const TYPE_NORMAL_FORM_TOO_BIG: &[&str] = &[
     "accept/kernel-same-call-arguments.sw: descendMakes",
     "accept/kernel-same-call-arguments.sw: descendCells",
+    "accept/lemma-on-large-normal-form.sw: applied",
 ];
+
+/// Definitions left out of [`compare_conversion`], because the reference's
+/// `conv` (no sharing, no lazy unfolding) walks a tree of exponential size
+/// to compare one with itself, while the machine's takes under a
+/// microsecond. In lemma-on-large-normal-form.sw, `applied`'s type, compared
+/// with itself, reaches `keep x key`, which has the 2^30 nodes of
+/// `grow 30 (Leaf x)` on each side. Its type is still compared by the
+/// machine in [`compare_definitions`].
+const CONVERSION_TOO_SLOW: &[&str] = &["accept/lemma-on-large-normal-form.sw: applied"];
 
 /// Compares the two evaluators on everything `g` defines: each definition
 /// applied to fresh variables (open terms, stuck case trees, partial
@@ -155,6 +170,11 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
 fn compare_conversion(g: &Globals, what: &str) -> usize {
     let defs: Vec<(String, Value, Value)> = (0..g.defs.len())
         .filter(|&i| g.defs[i].body().is_some())
+        .filter(|&i| {
+            !CONVERSION_TOO_SLOW
+                .iter()
+                .any(|entry| *entry == format!("{what}: {}", g.defs[i].name))
+        })
         .map(|i| {
             let def = &g.defs[i];
             let value = value::eval(g, &[], &Term::Def(DefId(i))).expect("no limits");
