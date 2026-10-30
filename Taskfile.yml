@@ -59,7 +59,7 @@ tasks:
     summary: |
       The lane tier: what a subagent runs while working, under 10 s.
 
-      AREA is one of: syntax, core, elab, effects, std, rt, js, native, lsp, fmt,
+      AREA is one of: syntax, core, elab, effects, std, rt, js, native, lsp, goals, fmt,
       aoc, cli, hashes, bench, web, examples. For `examples` and `hashes`,
       NAME keeps only the example files or project folders whose names
       contain it (task test:lane AREA=examples NAME=synonym).

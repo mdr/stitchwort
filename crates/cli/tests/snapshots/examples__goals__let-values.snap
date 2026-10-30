@@ -9,6 +9,6 @@ expression: output
    │   ┬  
    │   ╰── xs: List Nat
    │       total: Nat := sum xs
-   │       count: Nat := List.length xs
+   │       count: Nat := Std.List.length xs
    │       ⊢ Nat
 ───╯

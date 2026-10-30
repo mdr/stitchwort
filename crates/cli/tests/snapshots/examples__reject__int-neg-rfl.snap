@@ -7,7 +7,7 @@ expression: output
    │
  3 │ def negSelf (x: Int): -x = x := rfl
    │                                 ─┬─  
-   │                                  ╰─── `Int.neg x` and `x` aren't equal
+   │                                  ╰─── `Std.Int.neg x` and `x` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

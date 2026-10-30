@@ -23,7 +23,7 @@ expression: output
     │                               b: Type
     │                               t: () → {Fail} a
     │                               k: a → {Fail} b
-    │                               rest✝: Empty → {Fail} a
+    │                               rest✝: Std.Empty → {Fail} a
     │                               msg: Text
     │                               ⊢ Err msg = Err msg
 ────╯
@@ -38,5 +38,5 @@ expression: output
     │                         x: a
     │                         xs: List a
     │                         y: b
-    │                         ⊢ Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => k (Effect.runPure (Call o (y => Done y))))) (Effect.bind (List.map xs f) (x1 => Done (Cons y x1))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (arg => f z))) (tail => Cons y tail))
+    │                         ⊢ Std.Effect.foldComp (x => Ok x) (Std.Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => k (Std.Effect.runPure (Call o (y => Done y))))) (Std.Effect.bind (Std.List.map xs f) (x1 => Done (Cons y x1))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (arg => f z))) (tail => Cons y tail))
 ────╯

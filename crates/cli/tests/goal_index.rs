@@ -64,20 +64,39 @@ fn is_goal(d: &Value) -> bool {
     d["severity"] == "goal"
 }
 
-/// Runs `f` on each example, on threads of their own.
+/// How many examples are checked at once. Each check is a process of about
+/// 80 MB; one per example, the tests together came to 3.5 GB and went over
+/// the merge tier's memory cap (docs/testing.md, "Memory").
+const AT_ONCE: usize = 4;
+
+/// Runs `f` on each example, [`AT_ONCE`] at a time, in the examples' order.
 fn each_example<T: Send>(f: impl Fn(&str, &str) -> T + Sync) -> Vec<(String, T)> {
     let all = examples();
     assert!(!all.is_empty());
-    std::thread::scope(|s| {
-        let handles: Vec<_> = all
-            .iter()
-            .map(|(name, text)| {
-                let f = &f;
-                s.spawn(move || (name.clone(), f(name, text)))
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let mut results: Vec<(usize, String, T)> = std::thread::scope(|s| {
+        let handles: Vec<_> = (0..AT_ONCE)
+            .map(|_| {
+                let (f, all, next) = (&f, &all, &next);
+                s.spawn(move || {
+                    let mut done = Vec::new();
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some((name, text)) = all.get(i) else {
+                            return done;
+                        };
+                        done.push((i, name.clone(), f(name, text)));
+                    }
+                })
             })
             .collect();
-        handles.into_iter().map(|h| h.join().unwrap()).collect()
-    })
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().unwrap())
+            .collect()
+    });
+    results.sort_by_key(|(i, ..)| *i);
+    results.into_iter().map(|(_, name, t)| (name, t)).collect()
 }
 
 /// Each goal example's diagnostics in the index, snapshotted: the `goal`
@@ -225,4 +244,87 @@ fn long_goal_lines_are_cut_in_the_middle() {
         String::from_utf8(stitchwort(&dir, &["check", "--full-goals", "long.sw"]).stderr).unwrap();
     assert!(full.contains(&format!("⊢ {target}\n")), "{full}");
     assert!(!full.contains("left out"), "{full}");
+}
+
+/// A goal printed in a file, pasted back into that file as the statement of
+/// a lemma, checks with no error and is the same goal (SW-918): each name
+/// is printed as that file can write it. `List.count` needs `import Std
+/// (List)`; without it the goal says `Std.List.count`; in a namespace with
+/// a `count` of its own, `List.count`, not `count`.
+#[test]
+fn printed_goals_paste_back_as_lemmas() {
+    let dir = scratch("paste");
+    let statement = "(xs: List Nat): xs.count (n => n % 2 == 0) ≤ xs.length";
+    let cases = [
+        ("no-import", format!("theorem evensLe {statement} := ?\n")),
+        (
+            "import",
+            format!("import Std (List)\n\ntheorem evensLe {statement} := ?\n"),
+        ),
+        (
+            "namespace",
+            format!(
+                "namespace Paste.Here\n\nimport Std (List, Nat)\n\n\
+                 def count (n: Nat): Nat := n\n\n\
+                 theorem evensLe {statement} := ?\n\n\
+                 theorem counted (xs: List Nat): count xs.length = xs.length := ?\n"
+            ),
+        ),
+        (
+            "hypotheses",
+            "theorem mapKeepsLength (xs: List Nat) (h: xs.all (n => n < 10) = True): \
+             (xs.map (n => n + 1)).length = xs.length := ?\n"
+                .to_string(),
+        ),
+        // `==` is printed as `==` where it decides by a definition of the
+        // two sides (`Nat.decEq`, a record's derived one); a list's
+        // decision, which takes its items' as an argument, as it is.
+        (
+            "equations",
+            "type Item = { id: Nat }\n\n\
+             theorem decided (xs: List Nat) (b: Bool) (i: Int) (c: Char) (s: Text) (it: Item): \
+             (b == True) = (i == 0) ∧ (c == 'a') = (s == \"x\") ∧ (it == it) = True \
+             ∧ (xs == []) = True := ?\n"
+                .to_string(),
+        ),
+    ];
+    let mut shown = Vec::new();
+    for (name, text) in cases {
+        let file = format!("{name}.sw");
+        std::fs::write(dir.join(&file), &text).unwrap();
+        let index = index_of(&dir, &file);
+        let goals: Vec<Value> = diagnostics(&index).into_iter().filter(is_goal).collect();
+        assert!(!goals.is_empty(), "{name}: no goal:\n{index:#}");
+        for (i, d) in goals.iter().enumerate() {
+            let goal = &d["goal"];
+            let mut lemma = format!("theorem pasted{i}");
+            for h in goal["hypotheses"].as_array().unwrap() {
+                assert!(h["value"].is_null(), "{name}: a `let` in the goal");
+                let (x, ty) = (h["name"].as_str().unwrap(), h["type"].as_str().unwrap());
+                lemma.push_str(&format!(" ({x}: {ty})"));
+            }
+            lemma.push_str(&format!(": {} := ?", goal["target"].as_str().unwrap()));
+            shown.push(format!("{name}: {lemma}"));
+            let pasted = format!("{name}-{i}.sw");
+            std::fs::write(dir.join(&pasted), format!("{text}\n{lemma}\n")).unwrap();
+            let again = diagnostics(&index_of(&dir, &pasted));
+            let errors: Vec<&Value> = again.iter().filter(|d| d["severity"] == "error").collect();
+            assert!(
+                errors.is_empty(),
+                "{name}: `{lemma}` doesn't check: {errors:#?}"
+            );
+            let found: Vec<&Value> = again
+                .iter()
+                .filter(|d| d["message"] == format!("in `pasted{i}`"))
+                .collect();
+            assert_eq!(found.len(), 1, "{name}: `{lemma}`: {again:#?}");
+            let again = &found[0]["goal"];
+            assert_eq!(
+                (&again["hypotheses"], &again["target"]),
+                (&goal["hypotheses"], &goal["target"]),
+                "{name}: `{lemma}` is another goal"
+            );
+        }
+    }
+    insta::assert_snapshot!("goal_index__pasted", shown.join("\n"));
 }

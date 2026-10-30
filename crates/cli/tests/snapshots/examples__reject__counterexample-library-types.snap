@@ -9,7 +9,7 @@ expression: output
    │                                                             ─┬─  
    │                                                              ╰─── `Float.ieeeEq x x` and `True` aren't equal
    │ 
-   │ Note 1: computing the left side gives `not (Nat.equal x.bits 9221120237041090560) && (Nat.equal x.bits x.bits || (Nat.equal x.bits 0 || Nat.equal x.bits 9223372036854775808) && (Nat.equal x.bits 0 || Nat.equal x.bits 9223372036854775808))`
+   │ Note 1: computing the left side gives `not (Std.Nat.equal x.bits 9221120237041090560) && (Std.Nat.equal x.bits x.bits || (Std.Nat.equal x.bits 0 || Std.Nat.equal x.bits 9223372036854775808) && (Std.Nat.equal x.bits 0 || Std.Nat.equal x.bits 9223372036854775808))`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
    │ 

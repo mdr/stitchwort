@@ -9,7 +9,7 @@ expression: output
     │                                                                                       ─┬─  
     │                                                                                        ╰─── `u => caught 5` and `u => settled 5` aren't equal
     │ 
-    │ Note 1: computing both sides gives `u => Effect.foldD (x => Effect.now (Ok x)) (Effect.handlePlus (Fail.%elim (msg k => Effect.now (Err msg))) (o k => Effect.bindD (Effect.lift (Call … …)) (y => k …))) (Effect.pfix countdown.body (countdown.request 5))` and `u => Effect.now (Err "three")`
+    │ Note 1: computing both sides gives `u => Std.Effect.foldD (x => Std.Effect.now (Ok x)) (Std.Effect.handlePlus (Fail.%elim (msg k => Std.Effect.now …)) (o k => Std.Effect.bindD (Std.Effect.lift …) (y => …))) (Std.Effect.pfix countdown.body (countdown.request 5))` and `u => Std.Effect.now (Err "three")`
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯

@@ -8,7 +8,7 @@ expression: output
  5 │   | Succ k => ?
    │               ┬  
    │               ╰── xs: List Nat
-   │                   h: List.length xs = Succ k
+   │                   h: Std.List.length xs = Succ k
    │                   k: Nat
    │                   ⊢ Text
 ───╯

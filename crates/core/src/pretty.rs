@@ -29,6 +29,19 @@ pub enum Declaration {
 pub trait NameScope {
     /// Whether `written` names `declaration` here.
     fn names(&self, written: &str, declaration: Declaration) -> bool;
+
+    /// `declaration`'s name written from the root, which means it wherever
+    /// it is written: `Std.List.count` for the library's (`List.count`
+    /// names it only where `List` is imported), else its name from its
+    /// module's root.
+    fn full_name(&self, declaration: Declaration) -> String;
+
+    /// The definition `a == b` decides an equation `a = b` of type `ty` by
+    /// here, applied to `a` and `b`: `Nat.decEq` for `Nat`. `None` if `ty`
+    /// mentions a variable, or `==` decides it some other way.
+    fn eq_decider(&self, _ty: &Term) -> Option<DefId> {
+        None
+    }
 }
 
 /// Prints `term`, whose free variables are named by `names` (outermost first).
@@ -105,7 +118,7 @@ const MESSAGE_LIMIT: usize = 240;
 /// docs/proposals/folded-calls.md, stage 3). Setting
 /// `STITCHWORT_FULL_TERMS` shows everything.
 pub fn value_for_message(g: &Globals, names: &[Name], value: &Value) -> String {
-    value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow)
+    value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow, false)
 }
 
 /// [`value_for_message`], with names as `scope` writes them.
@@ -115,7 +128,15 @@ pub fn value_for_message_in(
     names: &[Name],
     value: &Value,
 ) -> String {
-    value_within(g, Some(scope), names, value, MESSAGE_LIMIT, Prec::Arrow)
+    value_within(
+        g,
+        Some(scope),
+        names,
+        value,
+        MESSAGE_LIMIT,
+        Prec::Arrow,
+        false,
+    )
 }
 
 /// [`value_for_message`], showing the arguments the compiler fills in, for
@@ -198,8 +219,9 @@ fn difference(
         Ok(Some(found)) if !found.outermost => found,
         _ => return None,
     };
-    let show =
-        |names: &[Name], t: &Term| term_within(g, scope, names, t, DIFFERENCE_LIMIT, Prec::Arrow);
+    let show = |names: &[Name], t: &Term| {
+        term_within(g, scope, names, t, DIFFERENCE_LIMIT, Prec::Arrow, false)
+    };
     let Mismatch {
         mut left,
         mut right,
@@ -242,7 +264,7 @@ pub fn differ_only_in_hidden(g: &Globals, a: &Term, b: &Term) -> bool {
 
 /// [`value_for_message`], for a term.
 pub fn term_for_message(g: &Globals, names: &[Name], term_: &Term) -> String {
-    term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow)
+    term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow, false)
 }
 
 /// [`term_for_message`], with names as `scope` writes them.
@@ -252,7 +274,15 @@ pub fn term_for_message_in(
     names: &[Name],
     term_: &Term,
 ) -> String {
-    term_within(g, Some(scope), names, term_, MESSAGE_LIMIT, Prec::Arrow)
+    term_within(
+        g,
+        Some(scope),
+        names,
+        term_,
+        MESSAGE_LIMIT,
+        Prec::Arrow,
+        false,
+    )
 }
 
 /// The longest a term may be in a goal (docs/proposals/lsp-goal-holes.md
@@ -261,7 +291,7 @@ const GOAL_LIMIT: usize = 4000;
 
 /// [`value_for_message_in`], with the larger limit of a goal's types.
 pub fn value_for_goal(g: &Globals, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
-    value_within(g, Some(scope), names, value, GOAL_LIMIT, Prec::Arrow)
+    value_within(g, Some(scope), names, value, GOAL_LIMIT, Prec::Arrow, true)
 }
 
 /// [`value_for_message_in`] for one side of an equation shown as `a = b`:
@@ -273,7 +303,15 @@ pub fn side_for_message_in(
     names: &[Name],
     value: &Value,
 ) -> String {
-    value_within(g, Some(scope), names, value, MESSAGE_LIMIT, Prec::Add)
+    value_within(
+        g,
+        Some(scope),
+        names,
+        value,
+        MESSAGE_LIMIT,
+        Prec::Add,
+        false,
+    )
 }
 
 /// [`term_within`] for a value, with calls shown as written.
@@ -284,15 +322,17 @@ fn value_within(
     value: &Value,
     limit: usize,
     prec: Prec,
+    equations: bool,
 ) -> String {
     let Ok(t) = quote_shown(g, names.len(), value) else {
         return "…".into();
     };
-    term_within(g, scope, names, &t, limit, prec)
+    term_within(g, scope, names, &t, limit, prec, equations)
 }
 
 /// [`term_for_message`] at precedence `prec`, with a result longer than
-/// `limit` characters shortened.
+/// `limit` characters shortened; with `equations`, as a goal writes
+/// decided equations ([`Printer::equations`]).
 fn term_within(
     g: &Globals,
     scope: Option<&dyn NameScope>,
@@ -300,17 +340,23 @@ fn term_within(
     term_: &Term,
     limit: usize,
     prec: Prec,
+    equations: bool,
 ) -> String {
     note_failed_mention(g, term_);
+    let printer = || {
+        let printer = Printer::new(g, scope);
+        printer.equations.set(equations);
+        printer
+    };
     let mut ns = names.to_vec();
-    let full = Printer::new(g, scope).print(&mut ns, term_, prec);
+    let full = printer().print(&mut ns, term_, prec);
     if full.chars().count() <= limit || std::env::var_os("STITCHWORT_FULL_TERMS").is_some() {
         return full;
     }
     // Reprint with less and less depth until it fits.
     for depth in (1..=10).rev() {
         let mut ns = names.to_vec();
-        let printer = Printer::new(g, scope);
+        let printer = printer();
         printer.max_depth.set(Some(depth));
         let text = printer.print(&mut ns, term_, prec);
         if text.chars().count() <= limit {
@@ -353,6 +399,9 @@ struct Printer<'g> {
     /// Write the operators in ASCII (`&&`, `!=`, `->`), for text a
     /// JavaScript developer reads (D1223).
     ascii: Cell<bool>,
+    /// Write a decided equation as the `a == b` that elaborates to it
+    /// ([`Printer::decided_equation`]): in a goal, which is pasted back.
+    equations: Cell<bool>,
     /// The names in scope, to shorten declarations' names by; without it,
     /// names are written from the root.
     scope: Option<&'g dyn NameScope>,
@@ -369,22 +418,26 @@ impl<'g> Printer<'g> {
             depth: Cell::new(0),
             show_hidden: Cell::new(false),
             ascii: Cell::new(false),
+            equations: Cell::new(false),
             scope,
             meant: RefCell::new(HashMap::default()),
         }
     }
 
-    /// `full`, the name of `declaration` from the root, as its shortest
-    /// trailing part that means `declaration` in the scope, skipping a part
-    /// whose first component is a variable in `names` (which would mean the
-    /// variable). `full` if no shorter part does, or there is no scope.
-    fn short_name(&self, names: &[Name], full: &str, declaration: Declaration) -> String {
+    /// The name of `declaration` (`name`, from its module's root) as its
+    /// shortest trailing part that means `declaration` in the scope,
+    /// skipping a part whose first component is a variable in `names`
+    /// (which would mean the variable). Else its whole name as the scope
+    /// writes it ([`NameScope::full_name`]: `Std.List.count`, where
+    /// `List.count` needs an import); `name` if there is no scope.
+    fn short_name(&self, names: &[Name], name: &str, declaration: Declaration) -> String {
         let Some(scope) = self.scope else {
-            return full.to_string();
+            return name.to_string();
         };
-        if full.contains('%') {
-            return full.to_string();
+        if name.contains('%') {
+            return name.to_string();
         }
+        let full = scope.full_name(declaration);
         let parts: Vec<&str> = full.split('.').collect();
         for start in (1..parts.len()).rev() {
             if names.iter().any(|x| **x == *parts[start]) {
@@ -400,7 +453,7 @@ impl<'g> Printer<'g> {
                 return written;
             }
         }
-        full.to_string()
+        full
     }
 
     /// Definition `id`'s name, as [`Printer::short_name`] writes it.
@@ -897,6 +950,11 @@ impl<'g> Printer<'g> {
                         let rhs = self.print(names, rhs, Prec::Add);
                         return (format!("{lhs} {op} {rhs}"), Prec::Eq);
                     }
+                    if let Some((lhs, rhs)) = self.decided_equation(term) {
+                        let lhs = self.print(names, lhs, Prec::Add);
+                        let rhs = self.print(names, rhs, Prec::Add);
+                        return (format!("{lhs} == {rhs}"), Prec::Eq);
+                    }
                     if let Some((op, prec, lhs, rhs)) = self.arithmetic(*id, &args) {
                         // `+`, `-`, `*`, `/` and `%` associate left;
                         // comparisons don't associate.
@@ -1169,6 +1227,39 @@ impl<'g> Printer<'g> {
             _ => return None,
         };
         Some((op, lhs, rhs))
+    }
+
+    /// The sides of `Decidable.toBool {a = b} (f a b)`, to be written
+    /// `a == b`: only where that elaborates to exactly this, which is where
+    /// the scope's `==` decides an equation of its type by `f`
+    /// ([`NameScope::eq_decider`]), and only in a goal.
+    fn decided_equation<'t>(&self, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
+        if !self.equations.get() || self.show_hidden.get() {
+            return None;
+        }
+        let scope = self.scope?;
+        let (head, args) = full_spine(term);
+        let Term::Def(id) = head else {
+            return None;
+        };
+        if self.g.registry.loaded_def(Builtin::ToBool) != Some(*id) {
+            return None;
+        }
+        let [(prop, Icit::Implicit), (decision, Icit::Explicit)] = args[..] else {
+            return None;
+        };
+        let Term::Eq(Some(ty), a, b) = prop.strip_loc() else {
+            return None;
+        };
+        let (f, sides) = full_spine(decision);
+        let Term::Def(f) = f else {
+            return None;
+        };
+        let [(x, Icit::Explicit), (y, Icit::Explicit)] = sides[..] else {
+            return None;
+        };
+        let decided = same_term(x, a) && same_term(y, b) && scope.eq_decider(ty) == Some(*f);
+        decided.then_some((&**a, &**b))
     }
 
     /// The operator and operands of `a < b` or `a <= b` as propositions

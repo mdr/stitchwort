@@ -21,7 +21,7 @@ use stitchwort_core::globals::HashKey;
 use stitchwort_core::globals::State;
 use stitchwort_core::pretty::{Declaration, NameScope};
 use stitchwort_core::value::{Head, force, quote_shown};
-use stitchwort_core::{Globals, Name, Term, Value, pretty};
+use stitchwort_core::{DefId, Globals, Icit, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::{Diagnostic, GoalData, Hypothesis, Span};
 
 use crate::Elaborator;
@@ -86,6 +86,62 @@ pub(crate) struct Goals {
     pending: Vec<Pending>,
     /// Printed: one per span, the last checked there.
     found: Vec<Found>,
+}
+
+/// The names in scope where a goal at `span` is printed: the file's, as for
+/// a message, and also what `a == b` elaborates to there, so that a decided
+/// equation is printed as the `a == b` that gives it back.
+struct GoalScope<'e> {
+    e: &'e Elaborator,
+    span: Span,
+}
+
+impl NameScope for GoalScope<'_> {
+    fn names(&self, written: &str, declaration: Declaration) -> bool {
+        self.e.names(written, declaration)
+    }
+
+    fn full_name(&self, declaration: Declaration) -> String {
+        self.e.full_name(declaration)
+    }
+
+    /// What `a == b` decides `a = b` by, for a `ty` that mentions no
+    /// variable: `decide_eq_of`, as `a == b` finds it
+    /// (`numbers::equation`, `bind::decide_written`), on placeholder
+    /// sides; the definition it applies to the sides, if that's all it is.
+    /// Everything the search did is undone.
+    fn eq_decider(&self, ty: &Term) -> Option<DefId> {
+        let closed = ty.subterms().all(|(t, binders)| match t {
+            Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) => *i < binders,
+            Term::Meta(_) => false,
+            _ => true,
+        });
+        if !closed {
+            return None;
+        }
+        let mut cx = Ctx::new(self.e, self.span);
+        let mut found = None;
+        crate::undo::transaction(&mut cx, |cx| {
+            let ty = cx.eval(ty)?;
+            let side = Term::Sort(Sort::Prop);
+            let decision = crate::interfaces::decide_eq_of(cx, &ty, side.clone(), side.clone())?;
+            let (head, args) = decision.spine();
+            if let (Term::Def(f), [x, y]) = (head.strip_loc(), &args[..])
+                && matches!(
+                    (x.strip_loc(), y.strip_loc()),
+                    (Term::Sort(_), Term::Sort(_))
+                )
+                && !decision
+                    .subterms()
+                    .any(|(t, _)| matches!(t, Term::App(_, _, i) if *i != Icit::Explicit))
+            {
+                found = Some(*f);
+            }
+            Ok(None::<()>)
+        })
+        .ok()?;
+        found
+    }
 }
 
 /// The goal of a `match reify` `return` clause's `?`, written in terms of
@@ -320,7 +376,11 @@ impl Elaborator {
 
     fn print_goal(&self, p: &Pending) -> Found {
         let g = &self.globals;
-        let show = |v: &Value| pretty::value_for_goal(g, self, &p.names, v);
+        let scope = GoalScope {
+            e: self,
+            span: p.span,
+        };
+        let show = |v: &Value| pretty::value_for_goal(g, &scope, &p.names, v);
         let hypotheses: Vec<Hypothesis> = p
             .context
             .iter()
@@ -449,17 +509,15 @@ impl Elaborator {
         }
         // Every declaration it names, it names as the top level of the file
         // can. The printer names one by the shortest part of its name that
-        // means it here, else by its whole name, which may need an import
-        // there (`List.count`, of `Std.List.count`). One shown as notation
-        // (`+`, a record update) isn't named.
+        // means it here, else by its whole name (`Std.List.count`), which
+        // only a declaration the file can't name at all (one internal to the
+        // library) fails. One shown as notation (`+`, a record update) isn't
+        // named.
         let text: Vec<&str> = std::iter::once(target)
             .chain(hypotheses.iter().map(|h| h.ty.as_str()))
             .collect();
         for declaration in declarations {
-            let full = match declaration {
-                Declaration::Def(id) => &*g.def(id).name,
-                Declaration::Data(d) => &*g.data(d).name,
-            };
+            let full = self.full_name(declaration);
             let parts: Vec<&str> = full.split('.').collect();
             let resolves = (0..parts.len()).any(|start| {
                 let written = parts[start..].join(".");

@@ -9,7 +9,7 @@ Tests are only useful while they aren't friction, so they run in four tiers, eac
 | Tier | Command | Budget | When | What |
 |---|---|---|---|---|
 | lane | `task test:lane AREA=…` | under 10 s | while working, in a subagent lane | a handful of fast tests for one area (the map below) |
-| merge | `task test:merge` | under 60 s | after every merge | rustfmt, then a broad smoke test: every lane area, a quarter of the accepted, rejected and soundness examples, every AoC day's answers, every example's hash snapshots, every extraction example's generated JS and `.d.ts` snapshots |
+| merge | `task test:merge` | under 60 s | after every merge | rustfmt, then a broad smoke test: every lane area, a quarter of the accepted, rejected and soundness examples, every AoC day's answers, every example's hash snapshots, every extraction example's generated JS and `.d.ts` snapshots, the `goal_index` tests |
 | daily | `task test:daily` | under 5 minutes | a daily checkpoint; `nix flake check` runs the same | rustfmt, clippy, every test with each corpus sweep on a fixed sample, the doctests, `builtins` in the debug profile, the board's tests |
 | full | `task test:full` | tens of minutes | only when Matt asks | every test, every sweep over the whole corpus, the full-only tests |
 
@@ -76,6 +76,7 @@ The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times
 | `js` | `stitchwort-js` unit tests and five quick `extract` tests | 4 s |
 | `native` | `stitchwort-native`: the Cranelift spike (stage N0 of native-compilation.md) and stages N1 to N4 against the machine (`tests/n1.rs`, `n3.rs`: outputs, allocation traces, resource points, every error exit; `tests/n2b.rs`: frame sizing, tail-call shapes, error-exit traces; `tests/frames.rs`: the frame bound on both architectures; `tests/n4.rs`: handlers and every `-- run:` line of the effect examples; the ten-million-iteration tail test is left to the merge tier), that the generated code holds no host address (`tests/relocatable.rs`, stage S4 of standalone-executables.md), and the object `build --native` links (`tests/object.rs`, S5) | 7 s |
 | `lsp` | six quick `cli` `lsp` tests (hover, formatting, goals, navigation) | 3 s |
+| `goals` | `cli` `goal_index`: goals in `check --index` end to end, every lemma and printed goal pasted back and checked again (SW-918) | 10 s at load 30 (`lemmas_check_as_the_same_goal` 8 s) |
 | `fmt` | `stitchwort-fmt` (not `repo` or `fuzz`) and the `cli` `fmt` tests | 2 s |
 | `aoc` | six AoC days on their real input, by exact name (`aoc_answers`: `year2024_day02`, `04`, `07`, `year2025_day01`, `05`, `07`; the rest are for merge and up) | 2 s |
 | `cli` | `cli` `session`, `keys_mode` (`run` in a pseudo-terminal), `run` but for its five slowest, and `stitchwort build`: `crates/standalone`, and `build` (with and without `--native`) but for the roguelike's two tests (merge runs those too) | 12 s at load 70 (`build --native`'s `set_nat` the longest) |

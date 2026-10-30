@@ -17,12 +17,13 @@ expression: json
           "type": "Text"
         }
       ],
-      "target": "{ shape | id = Text.append newId \"!\" }.ref = shape.ref"
+      "lemma": "theorem renamedKeepsRefGoal1 (shape: Shape) (newId: Text): ({ shape | id = Std.Text.append newId \"!\" }.ref = shape.ref) := ?",
+      "target": "{ shape | id = Std.Text.append newId \"!\" }.ref = shape.ref"
     },
     "labels": [
       {
         "file": 0,
-        "message": "shape: Shape\nnewId: Text\n⊢ { shape | id = Text.append newId \"!\" }.ref = shape.ref",
+        "message": "shape: Shape\nnewId: Text\n⊢ { shape | id = Std.Text.append newId \"!\" }.ref = shape.ref",
         "range": [
           12,
           2,

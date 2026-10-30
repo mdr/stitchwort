@@ -14,7 +14,7 @@ expression: json
         },
         {
           "name": "h",
-          "type": "List.length xs = Succ k"
+          "type": "Std.List.length xs = Succ k"
         },
         {
           "name": "k",
@@ -26,7 +26,7 @@ expression: json
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\nh: List.length xs = Succ k\nk: Nat\n⊢ Text",
+        "message": "xs: List Nat\nh: Std.List.length xs = Succ k\nk: Nat\n⊢ Text",
         "range": [
           4,
           14,
