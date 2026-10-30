@@ -1,0 +1,45 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "x",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "def firstDoubledGoal1 (xs: List Nat) (x: Nat): Nat := ?",
+      "target": "Nat"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "xs: List Nat\nx: Nat\n⊢ Nat",
+        "range": [
+          3,
+          60,
+          3,
+          61
+        ]
+      }
+    ],
+    "message": "in `firstDoubled`",
+    "notes": [],
+    "range": [
+      3,
+      60,
+      3,
+      61
+    ],
+    "severity": "goal"
+  }
+]

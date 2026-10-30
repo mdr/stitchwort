@@ -1,0 +1,41 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem addZeroGoal1 (n: Nat): n = n := ?",
+      "target": "n = n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ n = n",
+        "range": [
+          5,
+          39,
+          5,
+          40
+        ]
+      }
+    ],
+    "message": "in `addZero`",
+    "notes": [],
+    "range": [
+      5,
+      39,
+      5,
+      40
+    ],
+    "severity": "goal"
+  }
+]

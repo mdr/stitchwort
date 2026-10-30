@@ -19,12 +19,14 @@
 
 use stitchwort_core::globals::HashKey;
 use stitchwort_core::globals::State;
-use stitchwort_core::value::{Head, force};
+use stitchwort_core::pretty::{Declaration, NameScope};
+use stitchwort_core::value::{Head, force, quote_shown};
 use stitchwort_core::{Globals, Name, Term, Value, pretty};
-use stitchwort_syntax::{Diagnostic, Span};
+use stitchwort_syntax::{Diagnostic, GoalData, Hypothesis, Span};
 
 use crate::Elaborator;
 use crate::check::Ctx;
+use crate::scope::Resolved;
 
 /// The code of the error that stands for "unfinished": a term with an open
 /// goal in it, or one that uses an unfinished declaration. The module turns
@@ -46,6 +48,13 @@ pub(crate) struct Pending {
     context: Vec<Entry>,
     /// What the hole is in: "`addZero`".
     owner: String,
+    /// What a lemma of the goal is named after: the declaration's name less
+    /// its namespace (`addZero`); `None` in a test or an expression, or for
+    /// a name that isn't a plain one.
+    lemma_base: Option<String>,
+    /// Whether the goal is a proposition, if that was known when the hole
+    /// was checked: a lemma of it is then a `theorem`, else a `def`.
+    prop: Option<bool>,
 }
 
 #[derive(Clone)]
@@ -55,14 +64,28 @@ struct Entry {
     ty: Value,
     /// For a `let` of data, its value.
     value: Option<Value>,
+    /// Its level in the context.
+    level: usize,
+}
+
+/// A goal printed: its diagnostic, and the lemma it makes, less the
+/// lemma's name ([`Elaborator::take_goals`] numbers them).
+#[derive(Clone)]
+struct Found {
+    span: Span,
+    diagnostic: Diagnostic,
+    /// [`Pending::lemma_base`].
+    base: Option<String>,
+    /// The lemma's keyword, and what follows its name.
+    lemma: Option<(&'static str, String)>,
 }
 
 /// The goals of the declaration being checked.
 #[derive(Clone, Default)]
 pub(crate) struct Goals {
     pending: Vec<Pending>,
-    /// Printed, each with its span: one per span, the last checked there.
-    found: Vec<(Span, Diagnostic)>,
+    /// Printed: one per span, the last checked there.
+    found: Vec<Found>,
 }
 
 /// The goal of a `match reify` `return` clause's `?`, written in terms of
@@ -142,16 +165,24 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
             name,
             ty,
             value: shows_value.then(|| value.clone()),
+            level,
         });
     }
+    let prop = match force(g, expected.clone()) {
+        Ok(Value::Neutral(Head::Meta(_), _)) | Err(_) => None,
+        Ok(_) => crate::rewrite::is_proof_type(cx, expected).ok(),
+    };
     let shown = display_goal(cx);
+    let (owner, lemma_base) = cx.e.goal_owner();
     cx.e.goals.borrow_mut().pending.push(Pending {
         span: cx.span,
         meta: m,
         expected: shown.unwrap_or_else(|| expected.clone()),
         names: cx.names.clone(),
         context,
-        owner: cx.e.goal_owner(),
+        owner,
+        lemma_base,
+        prop,
     });
     term
 }
@@ -242,13 +273,18 @@ impl Elaborator {
         self.goals.borrow_mut().pending.truncate(len);
     }
 
-    /// What a goal noted now is in, for its heading.
-    fn goal_owner(&self) -> String {
+    /// What a goal noted now is in, for its heading; and what a lemma of it
+    /// is named after (`Pending::lemma_base`).
+    fn goal_owner(&self) -> (String, Option<String>) {
         let item = self.module.item.or(self.module.current.first().copied());
         match item.and_then(|i| self.module.items.get(i)) {
-            Some(item) if item.kind == crate::module::Kind::Test => item.name.clone(),
-            Some(item) => format!("`{}`", item.name),
-            None => "this expression".to_string(),
+            Some(item) if item.kind == crate::module::Kind::Test => (item.name.clone(), None),
+            Some(item) => {
+                let last = item.name.rsplit('.').next().unwrap_or(&item.name);
+                let base = is_identifier(last).then(|| last.to_string());
+                (format!("`{}`", item.name), base)
+            }
+            None => ("this expression".to_string(), None),
         }
     }
 
@@ -263,7 +299,7 @@ impl Elaborator {
         // Printing a goal that mentions a failed declaration isn't an error
         // message showing it (`Globals::failed_mentioned`).
         let mentioned = g.failed_mentioned.get();
-        let printed: Vec<(Span, Diagnostic)> = pending
+        let printed: Vec<Found> = pending
             .iter()
             .map(|p| {
                 // With gluing, as while checking: calls stay folded, also
@@ -271,26 +307,34 @@ impl Elaborator {
                 let was = g.glue.replace(self.glue);
                 let printed = self.print_goal(p);
                 g.glue.set(was);
-                (p.span, printed)
+                printed
             })
             .collect();
         g.failed_mentioned.set(mentioned);
         let mut goals = self.goals.borrow_mut();
-        for (span, d) in printed {
-            goals.found.retain(|(s, _)| *s != span);
-            goals.found.push((span, d));
+        for found in printed {
+            goals.found.retain(|f| f.span != found.span);
+            goals.found.push(found);
         }
     }
 
-    fn print_goal(&self, p: &Pending) -> Diagnostic {
+    fn print_goal(&self, p: &Pending) -> Found {
         let g = &self.globals;
         let show = |v: &Value| pretty::value_for_goal(g, self, &p.names, v);
-        let mut lines: Vec<String> = p
+        let hypotheses: Vec<Hypothesis> = p
             .context
             .iter()
-            .map(|e| match &e.value {
-                Some(value) => format!("{}: {} := {}", e.name, show(&e.ty), show(value)),
-                None => format!("{}: {}", e.name, show(&e.ty)),
+            .map(|e| Hypothesis {
+                name: e.name.clone(),
+                ty: show(&e.ty),
+                value: e.value.as_ref().map(show),
+            })
+            .collect();
+        let mut lines: Vec<String> = hypotheses
+            .iter()
+            .map(|h| match &h.value {
+                Some(value) => format!("{}: {} := {}", h.name, h.ty, value),
+                None => format!("{}: {}", h.name, h.ty),
             })
             .collect();
         // Forcing leaves a metavariable only if it's unsolved.
@@ -298,24 +342,219 @@ impl Elaborator {
             force(g, p.expected.clone()),
             Ok(Value::Neutral(Head::Meta(_), _))
         );
-        lines.push(if known {
-            format!("⊢ {}", show(&p.expected))
+        let target = if known {
+            show(&p.expected)
         } else {
-            "⊢ (the type here isn't known yet)".to_string()
-        });
-        Diagnostic::goal(format!("in {}", p.owner)).with_label(p.span, lines.join("\n"))
+            "(the type here isn't known yet)".to_string()
+        };
+        lines.push(format!("⊢ {target}"));
+        let lemma = if known {
+            self.lemma_of(p, &hypotheses, &target).ok()
+        } else {
+            None
+        };
+        let mut diagnostic =
+            Diagnostic::goal(format!("in {}", p.owner)).with_label(p.span, lines.join("\n"));
+        diagnostic.goal = Some(Box::new(GoalData {
+            hypotheses,
+            target,
+            lemma: None,
+        }));
+        Found {
+            span: p.span,
+            diagnostic,
+            base: p.lemma_base.clone(),
+            lemma,
+        }
     }
 
-    /// The goals printed since this was last called, in source order.
+    /// The goal `p`, printed as `hypotheses` and `target`, as a declaration
+    /// of its own less its name: its keyword, and what follows the name
+    /// (` (n: Nat): n + 0 = n := ?`). Or why not, if it might not mean the
+    /// same at the top level of the file (docs/proposals/code-navigation.md,
+    /// "Goals"): a `let` of data is in scope (its value would be lost); a
+    /// name in it can't be written there (`n✝`, a compiler-made `%x`, a
+    /// declaration or constructor that needs an import); it mentions a
+    /// variable the goal doesn't show (a `_`), or a hypothesis mentions a
+    /// later one; a part isn't shown in full (`…`) or isn't known (`?`);
+    /// or whether it's a proposition wasn't known.
+    fn lemma_of(
+        &self,
+        p: &Pending,
+        hypotheses: &[Hypothesis],
+        target: &str,
+    ) -> Result<(&'static str, String), &'static str> {
+        let keyword = match p.prop {
+            Some(true) => "theorem",
+            Some(false) => "def",
+            None => return Err("prop unknown"),
+        };
+        if p.context.iter().any(|e| e.value.is_some()) {
+            return Err("let of data");
+        }
+        if !hypotheses.iter().all(|h| is_identifier(&h.name)) {
+            return Err("unwritable hypothesis name");
+        }
+        // `%` before a name: a compiler-made one (`n % 2` is fine).
+        let unwritable = |text: &str| {
+            text.contains(['✝', '?', '…', '\n'])
+                || text.contains("(body of ")
+                || text
+                    .split('%')
+                    .skip(1)
+                    .any(|after| after.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+        };
+        if unwritable(target) || hypotheses.iter().any(|h| unwritable(&h.ty)) {
+            return Err("unwritable text");
+        }
+        // Every variable the goal mentions is one it shows, a hypothesis's
+        // type mentioning only those before it (a case split can refine an
+        // earlier one's type with a later one).
+        let g = &self.globals;
+        let level = p.names.len();
+        let levels: Vec<usize> = p.context.iter().map(|e| e.level).collect();
+        let mut declarations = Vec::new();
+        let mut ctors = Vec::new();
+        let mut writable = |v: &Value, shown: &[usize]| {
+            let Ok(term) = quote_shown(g, level, v) else {
+                return false;
+            };
+            term.subterms().all(|(t, binders)| match t {
+                Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) => {
+                    *i < binders
+                        || (i - binders < level && shown.contains(&(level - 1 - (i - binders))))
+                }
+                Term::Meta(_) => false,
+                Term::Def(id) if id.0 < g.defs.len() => {
+                    declarations.push(Declaration::Def(*id));
+                    true
+                }
+                Term::Data(d, _) if d.0 < g.datas.len() => {
+                    declarations.push(Declaration::Data(*d));
+                    true
+                }
+                Term::Ctor(d, c, _) if d.0 < g.datas.len() => {
+                    ctors.push((*d, *c));
+                    true
+                }
+                Term::Def(_) | Term::Data(..) | Term::Ctor(..) => false,
+                _ => true,
+            })
+        };
+        if !writable(&p.expected, &levels) {
+            return Err("target mentions a hidden variable");
+        }
+        if !(p.context.iter().enumerate()).all(|(k, e)| writable(&e.ty, &levels[..k])) {
+            return Err("hypothesis mentions a hidden or later variable");
+        }
+        // Every declaration it names, it names as the top level of the file
+        // can. The printer names one by the shortest part of its name that
+        // means it here, else by its whole name, which may need an import
+        // there (`List.count`, of `Std.List.count`). One shown as notation
+        // (`+`, a record update) isn't named.
+        let text: Vec<&str> = std::iter::once(target)
+            .chain(hypotheses.iter().map(|h| h.ty.as_str()))
+            .collect();
+        for declaration in declarations {
+            let full = match declaration {
+                Declaration::Def(id) => &*g.def(id).name,
+                Declaration::Data(d) => &*g.data(d).name,
+            };
+            let parts: Vec<&str> = full.split('.').collect();
+            let resolves = (0..parts.len()).any(|start| {
+                let written = parts[start..].join(".");
+                self.names(&written, declaration)
+                    && matches!(self.resolve(&written), Resolved::Found { .. })
+            });
+            let shown = |t: &&str| {
+                (0..parts.len()).any(|start| mentions_name(t, &parts[start..].join(".")))
+            };
+            if !resolves && text.iter().any(shown) {
+                return Err("names a declaration it can't");
+            }
+        }
+        // A constructor is shown by its own name (`Done y`), unless as a
+        // literal or a record.
+        for (d, c) in ctors {
+            let name = &*g.data(d).ctors[c].name;
+            let resolves = matches!(
+                self.resolve(name),
+                Resolved::Found { global: crate::Global::Ctor(e, k), .. } if e == d && k == c
+            );
+            if !resolves && text.iter().any(|t| mentions_name(t, name)) {
+                return Err("names a constructor it can't");
+            }
+        }
+        // A type that starts with a record update, `{ p | gold = 3 } = p`,
+        // reads after a `:` as a block: it goes in brackets.
+        let bracketed = |ty: &str| {
+            if ty.starts_with('{') {
+                format!("({ty})")
+            } else {
+                ty.to_string()
+            }
+        };
+        let mut rest = String::new();
+        for h in hypotheses {
+            rest.push_str(&format!(" ({}: {})", h.name, bracketed(&h.ty)));
+        }
+        rest.push_str(&format!(": {} := ?", bracketed(target)));
+        Ok((keyword, rest))
+    }
+
+    /// The goals printed since this was last called, in source order, each
+    /// lemma named after its declaration and its place among the
+    /// declaration's goals (`addZeroGoal2`; `goal1` in a test).
     pub(crate) fn take_goals(&self) -> Vec<Diagnostic> {
         self.flush_goals();
         let mut found = std::mem::take(&mut self.goals.borrow_mut().found);
-        found.sort_by_key(|(s, _)| (s.file.index(), s.start));
-        found.into_iter().map(|(_, d)| d).collect()
+        found.sort_by_key(|f| (f.span.file.index(), f.span.start));
+        let mut counts: Vec<(Option<String>, usize)> = Vec::new();
+        found
+            .into_iter()
+            .map(|f| {
+                let n = match counts.iter_mut().find(|(b, _)| *b == f.base) {
+                    Some((_, n)) => {
+                        *n += 1;
+                        *n
+                    }
+                    None => {
+                        counts.push((f.base.clone(), 1));
+                        1
+                    }
+                };
+                let mut d = f.diagnostic;
+                if let (Some((keyword, rest)), Some(goal)) = (f.lemma, d.goal.as_mut()) {
+                    let name = match &f.base {
+                        Some(base) => format!("{base}Goal{n}"),
+                        None => format!("goal{n}"),
+                    };
+                    goal.lemma = Some(format!("{keyword} {name}{rest}"));
+                }
+                d
+            })
+            .collect()
     }
 
     /// Forgets every goal, noted or printed.
     pub(crate) fn clear_goals(&self) {
         *self.goals.borrow_mut() = Goals::default();
     }
+}
+
+/// Whether `text` has `name` in it as a whole name: `List.count` is in
+/// `List.count xs`, but not in `Std.List.counts`.
+fn mentions_name(text: &str, name: &str) -> bool {
+    let part_of_name = |c: char| c.is_alphanumeric() || matches!(c, '_' | '\'' | '.' | '%');
+    text.match_indices(name).any(|(at, _)| {
+        !text[..at].ends_with(part_of_name) && !text[at + name.len()..].starts_with(part_of_name)
+    })
+}
+
+/// Whether `name` can be written as a plain name: `n`, `xs'`, `h_1`.
+fn is_identifier(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars.next().is_some_and(|c| c.is_alphabetic() || c == '_')
+        && chars.all(|c| c.is_alphanumeric() || c == '_' || c == '\'')
+        && name != "_"
 }

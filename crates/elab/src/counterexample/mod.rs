@@ -171,6 +171,8 @@ pub struct SearchLog {
     /// The counterexample's bindings as shown, if one was found; the phase
     /// that found it; and how many times it was shrunk.
     pub found: Option<Vec<String>>,
+    /// With `found`: the type parameters, each tried at `Nat`.
+    pub found_types: Vec<String>,
     pub found_by: Option<Phase>,
     pub shrinks: usize,
     /// Whether the fast runtime's counterexample was not confirmed by the
@@ -640,6 +642,7 @@ impl Elaborator {
             return None;
         }
         log.found = Some(bindings.clone());
+        log.found_types = checker.type_params.iter().map(|a| a.to_string()).collect();
         Some(self.counterexample_text(checker, &input, &bindings))
     }
 

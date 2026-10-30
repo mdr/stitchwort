@@ -1,0 +1,65 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "y",
+          "type": "Nat"
+        },
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "p",
+          "type": "Prop"
+        },
+        {
+          "name": "ne",
+          "type": "x ≠ y"
+        },
+        {
+          "name": "out",
+          "type": "y ∉ xs"
+        },
+        {
+          "name": "np",
+          "type": "¬p"
+        }
+      ],
+      "lemma": "theorem shownGoal1 (x: Nat) (y: Nat) (xs: List Nat) (p: Prop) (ne: x ≠ y) (out: y ∉ xs) (np: ¬p): (x ∈ xs ↔ p) ∧ (∃ (n: Nat) => n ≤ x ∨ n = y) := ?",
+      "target": "(x ∈ xs ↔ p) ∧ (∃ (n: Nat) => n ≤ x ∨ n = y)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "x: Nat\ny: Nat\nxs: List Nat\np: Prop\nne: x ≠ y\nout: y ∉ xs\nnp: ¬p\n⊢ (x ∈ xs ↔ p) ∧ (∃ (n: Nat) => n ≤ x ∨ n = y)",
+        "range": [
+          6,
+          63,
+          6,
+          64
+        ]
+      }
+    ],
+    "message": "in `shown`",
+    "notes": [],
+    "range": [
+      6,
+      63,
+      6,
+      64
+    ],
+    "severity": "goal"
+  }
+]

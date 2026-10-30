@@ -1,0 +1,49 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "row",
+          "type": "Nat"
+        },
+        {
+          "name": "column",
+          "type": "Nat"
+        },
+        {
+          "name": "wall",
+          "type": "isWall row column = False"
+        }
+      ],
+      "lemma": "theorem steppedGoal1 (row: Nat) (column: Nat) (wall: isWall row column = False): row = row := ?",
+      "target": "row = row"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "row: Nat\ncolumn: Nat\nwall: isWall row column = False\n⊢ row = row",
+        "range": [
+          11,
+          15,
+          11,
+          16
+        ]
+      }
+    ],
+    "message": "in `stepped`",
+    "notes": [],
+    "range": [
+      11,
+      15,
+      11,
+      16
+    ],
+    "severity": "goal"
+  }
+]

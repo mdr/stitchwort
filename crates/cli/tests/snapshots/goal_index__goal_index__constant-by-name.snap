@@ -1,0 +1,49 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "hitPoints",
+          "type": "Nat"
+        },
+        {
+          "name": "rooms",
+          "type": "List Nat"
+        },
+        {
+          "name": "same",
+          "type": "rooms = startingRooms"
+        }
+      ],
+      "lemma": "theorem healedAtMostGoal1 (hitPoints: Nat) (rooms: List Nat) (same: rooms = startingRooms): healed hitPoints ≤ maxHitPoints := ?",
+      "target": "healed hitPoints ≤ maxHitPoints"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "hitPoints: Nat\nrooms: List Nat\nsame: rooms = startingRooms\n⊢ healed hitPoints ≤ maxHitPoints",
+        "range": [
+          10,
+          2,
+          10,
+          3
+        ]
+      }
+    ],
+    "message": "in `healedAtMost`",
+    "notes": [],
+    "range": [
+      10,
+      2,
+      10,
+      3
+    ],
+    "severity": "goal"
+  }
+]

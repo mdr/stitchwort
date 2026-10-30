@@ -1,0 +1,41 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem slowGoal1 (n: Nat): countDown (Nat.max n 100000000) = 1 := ?",
+      "target": "countDown (Nat.max n 100000000) = 1"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ countDown (Nat.max n 100000000) = 1",
+        "range": [
+          11,
+          62,
+          11,
+          63
+        ]
+      }
+    ],
+    "message": "in `slow`",
+    "notes": [],
+    "range": [
+      11,
+      62,
+      11,
+      63
+    ],
+    "severity": "goal"
+  }
+]

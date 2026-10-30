@@ -767,7 +767,7 @@ mod tests {
     fn indexes_a_program_for_navigation_and_serves_library_text() {
         let index = check_index("def f (xs: List Nat): Nat := xs.length\n");
         assert!(
-            index.starts_with(r#"{"version":2,"errors":false,"ok":true,"files":["#),
+            index.starts_with(r#"{"version":3,"errors":false,"ok":true,"files":["#),
             "{index}"
         );
         assert!(index.contains(r#"{"path":"playground.sw"}"#), "{index}");

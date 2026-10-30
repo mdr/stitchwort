@@ -1,0 +1,178 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "x",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem plusOneGoal1 (x: Nat): x + 1 = x + 1 := ?",
+      "target": "x + 1 = x + 1"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "x: Nat\n⊢ x + 1 = x + 1",
+        "range": [
+          4,
+          43,
+          4,
+          44
+        ]
+      }
+    ],
+    "message": "in `plusOne`",
+    "notes": [],
+    "range": [
+      4,
+      43,
+      4,
+      44
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "x",
+          "value": "0"
+        },
+        {
+          "name": "y",
+          "value": "0"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "y",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem plusThreeGoal1 (x: Nat) (y: Nat): x + 3 = y + x + 2 := ?",
+      "target": "x + 3 = y + x + 2"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "x: Nat\ny: Nat\n⊢ x + 3 = y + x + 2",
+        "range": [
+          6,
+          53,
+          6,
+          54
+        ]
+      }
+    ],
+    "message": "in `plusThree`",
+    "notes": [
+      "this statement is false; a counterexample:\n  x = 0\n  y = 0\n`x + 3 = y + (x + 2)` is false:\n  left:  3\n  right: 2"
+    ],
+    "range": [
+      6,
+      53,
+      6,
+      54
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "n",
+          "value": "0"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem writtenGoal1 (n: Nat): Succ n = Succ (Succ n) := ?",
+      "target": "Succ n = Succ (Succ n)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ Succ n = Succ (Succ n)",
+        "range": [
+          8,
+          52,
+          8,
+          53
+        ]
+      }
+    ],
+    "message": "in `written`",
+    "notes": [
+      "this statement is false; a counterexample:\n  n = 0\n`Succ n = Succ (Succ n)` is false:\n  left:  1\n  right: 2"
+    ],
+    "range": [
+      8,
+      52,
+      8,
+      53
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "m",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem matchedGoal1 (m: Nat): Succ m = 0 := ?",
+      "target": "Succ m = 0"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "m: Nat\n⊢ Succ m = 0",
+        "range": [
+          12,
+          14,
+          12,
+          15
+        ]
+      }
+    ],
+    "message": "in `matched`",
+    "notes": [],
+    "range": [
+      12,
+      14,
+      12,
+      15
+    ],
+    "severity": "goal"
+  }
+]

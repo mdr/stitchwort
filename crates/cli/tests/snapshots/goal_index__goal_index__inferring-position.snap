@@ -1,0 +1,40 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "target": "(the type here isn't known yet)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ (the type here isn't known yet)",
+        "range": [
+          2,
+          11,
+          2,
+          12
+        ]
+      }
+    ],
+    "message": "in `unknown`",
+    "notes": [],
+    "range": [
+      2,
+      11,
+      2,
+      12
+    ],
+    "severity": "goal"
+  }
+]

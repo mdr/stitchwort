@@ -1,0 +1,63 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "E-REFL",
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "`0` and `k * 0` aren't equal",
+        "range": [
+          6,
+          16,
+          6,
+          19
+        ]
+      }
+    ],
+    "message": "`rfl` can't prove this",
+    "notes": [
+      "`rfl` proves `a = b` only when both sides compute to the same value"
+    ],
+    "range": [
+      6,
+      16,
+      6,
+      19
+    ],
+    "severity": "error"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [],
+      "lemma": "theorem zeroMulGoal1: 0 = 0 := ?",
+      "target": "0 = 0"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ 0 = 0",
+        "range": [
+          5,
+          14,
+          5,
+          15
+        ]
+      }
+    ],
+    "message": "in `zeroMul`",
+    "notes": [],
+    "range": [
+      5,
+      14,
+      5,
+      15
+    ],
+    "severity": "goal"
+  }
+]

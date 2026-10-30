@@ -1,0 +1,178 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Nat"
+        },
+        {
+          "name": "b",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem onNatGoal1 (a: Nat) (b: Nat): (a < b && b <= a + 3 || b < a) = (gentle a b || b < a) := ?",
+      "target": "(a < b && b <= a + 3 || b < a) = (gentle a b || b < a)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Nat\nb: Nat\n⊢ (a < b && b <= a + 3 || b < a) = (gentle a b || b < a)",
+        "range": [
+          10,
+          91,
+          10,
+          92
+        ]
+      }
+    ],
+    "message": "in `onNat`",
+    "notes": [],
+    "range": [
+      10,
+      91,
+      10,
+      92
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Int"
+        },
+        {
+          "name": "b",
+          "type": "Int"
+        },
+        {
+          "name": "h",
+          "type": "a < b"
+        },
+        {
+          "name": "k",
+          "type": "a ≤ b"
+        }
+      ],
+      "lemma": "theorem onIntGoal1 (a: Int) (b: Int) (h: a < b) (k: a ≤ b): (a < b && a <= b) = True := ?",
+      "target": "(a < b && a <= b) = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Int\nb: Int\nh: a < b\nk: a ≤ b\n⊢ (a < b && a <= b) = True",
+        "range": [
+          12,
+          84,
+          12,
+          85
+        ]
+      }
+    ],
+    "message": "in `onInt`",
+    "notes": [],
+    "range": [
+      12,
+      84,
+      12,
+      85
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "t",
+          "type": "Type"
+        },
+        {
+          "name": "ord",
+          "type": "Ord t"
+        },
+        {
+          "name": "a",
+          "type": "t"
+        },
+        {
+          "name": "b",
+          "type": "t"
+        },
+        {
+          "name": "h",
+          "type": "a < b"
+        }
+      ],
+      "lemma": "theorem throughOrdGoal1 (t: Type) (ord: Ord t) (a: t) (b: t) (h: a < b): (a <= b || a < b) = True := ?",
+      "target": "(a <= b || a < b) = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "t: Type\nord: Ord t\na: t\nb: t\nh: a < b\n⊢ (a <= b || a < b) = True",
+        "range": [
+          14,
+          101,
+          14,
+          102
+        ]
+      }
+    ],
+    "message": "in `throughOrd`",
+    "notes": [],
+    "range": [
+      14,
+      101,
+      14,
+      102
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "count",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem hiddenGoal1 (count: Nat): count + 3 = count + 3 := ?",
+      "target": "count + 3 = count + 3"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "count: Nat\n⊢ count + 3 = count + 3",
+        "range": [
+          16,
+          80,
+          16,
+          81
+        ]
+      }
+    ],
+    "message": "in `hidden`",
+    "notes": [],
+    "range": [
+      16,
+      80,
+      16,
+      81
+    ],
+    "severity": "goal"
+  }
+]

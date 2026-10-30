@@ -1,0 +1,50 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "total",
+          "type": "Nat",
+          "value": "sum xs"
+        },
+        {
+          "name": "count",
+          "type": "Nat",
+          "value": "List.length xs"
+        }
+      ],
+      "target": "Nat"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "xs: List Nat\ntotal: Nat := sum xs\ncount: Nat := List.length xs\n⊢ Nat",
+        "range": [
+          6,
+          2,
+          6,
+          3
+        ]
+      }
+    ],
+    "message": "in `average`",
+    "notes": [],
+    "range": [
+      6,
+      2,
+      6,
+      3
+    ],
+    "severity": "goal"
+  }
+]

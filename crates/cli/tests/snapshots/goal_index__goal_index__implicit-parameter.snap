@@ -1,0 +1,92 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Type"
+        },
+        {
+          "name": "x",
+          "type": "a"
+        }
+      ],
+      "lemma": "def identityGoal1 (a: Type) (x: a): a := ?",
+      "target": "a"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Type\nx: a\n⊢ a",
+        "range": [
+          1,
+          36,
+          1,
+          37
+        ]
+      }
+    ],
+    "message": "in `identity`",
+    "notes": [],
+    "range": [
+      1,
+      36,
+      1,
+      37
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Type"
+        },
+        {
+          "name": "x",
+          "type": "a"
+        },
+        {
+          "name": "y",
+          "type": "a"
+        },
+        {
+          "name": "h",
+          "type": "x = y"
+        }
+      ],
+      "lemma": "theorem symmetricGoal1 (a: Type) (x: a) (y: a) (h: x = y): y = x := ?",
+      "target": "y = x"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Type\nx: a\ny: a\nh: x = y\n⊢ y = x",
+        "range": [
+          3,
+          63,
+          3,
+          64
+        ]
+      }
+    ],
+    "message": "in `symmetric`",
+    "notes": [],
+    "range": [
+      3,
+      63,
+      3,
+      64
+    ],
+    "severity": "goal"
+  }
+]

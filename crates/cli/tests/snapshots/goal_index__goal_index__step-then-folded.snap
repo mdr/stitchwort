@@ -1,0 +1,45 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Nat"
+        },
+        {
+          "name": "b",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem stepsAtOnceGoal1 (a: Nat) (b: Nat): concatenate a b = concatenate a b := ?",
+      "target": "concatenate a b = concatenate a b"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Nat\nb: Nat\n⊢ concatenate a b = concatenate a b",
+        "range": [
+          8,
+          98,
+          8,
+          99
+        ]
+      }
+    ],
+    "message": "in `stepsAtOnce`",
+    "notes": [],
+    "range": [
+      8,
+      98,
+      8,
+      99
+    ],
+    "severity": "goal"
+  }
+]

@@ -6,12 +6,14 @@ use std::fmt::Write;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_elab::{NavIndex, NavTarget};
-use stitchwort_syntax::{Diagnostic, FileId, Severity, SourceMap, Span, Tok};
+use stitchwort_syntax::{
+    Counterexample, Diagnostic, FileId, GoalData, Severity, SourceMap, Span, Tok,
+};
 
 use crate::driver::Session;
 
 /// The version of the format.
-pub const VERSION: u32 = 2;
+pub const VERSION: u32 = 3;
 
 /// Where the library's files are in the repository, relative to its root.
 const STD_DIR: &str = "crates/elab/src/std/";
@@ -105,6 +107,10 @@ pub struct IndexDiagnostic {
     /// Every label, the first included: file, range, message.
     pub labels: Vec<(usize, Range, String)>,
     pub notes: Vec<String>,
+    /// A goal's hypotheses and target, each printed alone, and its lemma.
+    pub goal: Option<GoalData>,
+    /// The counterexample a note shows, as data.
+    pub counterexample: Option<Counterexample>,
 }
 
 /// The index of everything `session` has loaded, with `enable_navigation`
@@ -219,7 +225,16 @@ pub fn index_json(
             }
             diags.push_str(&string(note));
         }
-        diags.push_str("]}");
+        diags.push(']');
+        if let Some(goal) = &d.goal {
+            diags.push_str(r#","goal":"#);
+            goal_json(&mut diags, goal);
+        }
+        if let Some(found) = &d.counterexample {
+            diags.push_str(r#","counterexample":"#);
+            counterexample_json(&mut diags, found);
+        }
+        diags.push('}');
     }
 
     let mut out = format!(r#"{{"version":{VERSION},"errors":{errors}"#);
@@ -414,6 +429,8 @@ pub fn index_data_of(
             at,
             labels,
             notes: d.notes.clone(),
+            goal: d.goal.as_deref().cloned(),
+            counterexample: d.counterexample.as_deref().cloned(),
         });
     }
 
@@ -691,6 +708,57 @@ fn index_of_files(session: &Session, wanted: &dyn Fn(FileId) -> bool) -> NavInde
 }
 
 /// `text` as a JSON string.
+/// A goal's `goal` member: `{"hypotheses":[{"name","type","value"?}],
+/// "target","lemma"?}`, each part as the goal's label prints it.
+fn goal_json(out: &mut String, goal: &GoalData) {
+    out.push_str(r#"{"hypotheses":["#);
+    for (i, h) in goal.hypotheses.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        let _ = write!(
+            out,
+            r#"{{"name":{},"type":{}"#,
+            string(&h.name),
+            string(&h.ty)
+        );
+        if let Some(value) = &h.value {
+            let _ = write!(out, r#","value":{}"#, string(value));
+        }
+        out.push('}');
+    }
+    let _ = write!(out, r#"],"target":{}"#, string(&goal.target));
+    if let Some(lemma) = &goal.lemma {
+        let _ = write!(out, r#","lemma":{}"#, string(lemma));
+    }
+    out.push('}');
+}
+
+/// A diagnostic's `counterexample` member: `{"verdict":"false",
+/// "types":[{"name","type"}],"bindings":[{"name","value"}]}`.
+fn counterexample_json(out: &mut String, found: &Counterexample) {
+    let _ = write!(out, r#"{{"verdict":{},"types":["#, string(found.verdict));
+    for (i, (name, ty)) in found.types.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        let _ = write!(out, r#"{{"name":{},"type":{}}}"#, string(name), string(ty));
+    }
+    out.push_str(r#"],"bindings":["#);
+    for (i, (name, value)) in found.bindings.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        let _ = write!(
+            out,
+            r#"{{"name":{},"value":{}}}"#,
+            string(name),
+            string(value)
+        );
+    }
+    out.push_str("]}");
+}
+
 pub fn string(text: &str) -> String {
     let mut out = String::with_capacity(text.len() + 2);
     out.push('"');

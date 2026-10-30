@@ -1,0 +1,53 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "n",
+          "value": "1"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem doubleIsSquareGoal1 (n: Nat): n + n = n * n := ?",
+      "target": "n + n = n * n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ n + n = n * n",
+        "range": [
+          2,
+          50,
+          2,
+          51
+        ]
+      }
+    ],
+    "message": "in `doubleIsSquare`",
+    "notes": [
+      "this statement is false; a counterexample:\n  n = 1\n`n + n = n * n` is false:\n  left:  2\n  right: 1"
+    ],
+    "range": [
+      2,
+      50,
+      2,
+      51
+    ],
+    "severity": "goal"
+  }
+]

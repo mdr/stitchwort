@@ -155,7 +155,7 @@ fn partial_when_checking_fails() {
     let source = "def ok (xs: List Nat): Nat := xs.length\n\ndef bad (xs: List Nat): Nat := xs.map (n => n)\n";
     assert!(session.load("one.sw", source).is_err());
     let json = index_json(&session, true, Some(false), "", &[]);
-    assert!(json.starts_with(r#"{"version":2,"errors":true,"ok":false,"files":["#));
+    assert!(json.starts_with(r#"{"version":3,"errors":true,"ok":false,"files":["#));
     assert!(json.contains(r#""name":"Std.List.length""#), "{json}");
     assert!(json.contains(r#""name":"Main.ok","kind":"def""#), "{json}");
 }

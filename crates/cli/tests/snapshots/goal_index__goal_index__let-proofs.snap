@@ -1,0 +1,57 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "wide",
+          "type": "Nat",
+          "value": "n + 3"
+        },
+        {
+          "name": "split",
+          "type": "n + 3 = n + 3"
+        },
+        {
+          "name": "both",
+          "type": "n + 3 = n + 3"
+        },
+        {
+          "name": "step",
+          "type": "(k: Nat) → k + 1 = k + 1"
+        }
+      ],
+      "target": "total (n + 3) = total (n + 3)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\nwide: Nat := n + 3\nsplit: n + 3 = n + 3\nboth: n + 3 = n + 3\nstep: (k: Nat) → k + 1 = k + 1\n⊢ total (n + 3) = total (n + 3)",
+        "range": [
+          11,
+          2,
+          11,
+          3
+        ]
+      }
+    ],
+    "message": "in `shifted`",
+    "notes": [],
+    "range": [
+      11,
+      2,
+      11,
+      3
+    ],
+    "severity": "goal"
+  }
+]

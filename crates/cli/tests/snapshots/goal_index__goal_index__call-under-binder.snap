@@ -1,0 +1,41 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "xs",
+          "type": "List Nat"
+        }
+      ],
+      "lemma": "theorem shownGoal1 (xs: List Nat): List.any xs isSmall = List.any xs (n => isSmall n) := ?",
+      "target": "List.any xs isSmall = List.any xs (n => isSmall n)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "xs: List Nat\n⊢ List.any xs isSmall = List.any xs (n => isSmall n)",
+        "range": [
+          6,
+          74,
+          6,
+          75
+        ]
+      }
+    ],
+    "message": "in `shown`",
+    "notes": [],
+    "range": [
+      6,
+      74,
+      6,
+      75
+    ],
+    "severity": "goal"
+  }
+]
