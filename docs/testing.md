@@ -147,6 +147,20 @@ task test:gate                                 # nix flake check: the daily tier
 task test:browser                              # the playground in headless Chrome: about 35 s
 ```
 
+### Hash dumps
+
+To show what a change to the elaborator does to the declarations it accepts, dump every declaration's hash before and after it and diff the two. `hash_stability`'s ignored test `dump` loads the whole library and one project, and writes one sorted line per declaration (`path hash`, `data path hash` for types) to the file `HASH_DUMP` names:
+
+```sh
+HASH_DUMP=/tmp/aoc.txt cargo test --release -p stitchwort-driver --test hash_stability -- --ignored dump                               # std + aoc: about 45 s, 10,420 lines
+HASH_DUMP=/tmp/rogue.txt HASH_DUMP_PROJECT=games/rogue cargo test --release -p stitchwort-driver --test hash_stability -- --ignored dump  # std + rogue: about 7 s
+```
+
+- `HASH_DUMP_PROJECT` is a project directory relative to the repository's root; `aoc` if unset.
+- With `HASH_DEPS` set to a second path, it also writes each definition's direct references, one line per definition, to work out which changed hashes only follow from another.
+- It runs on a thread with the command line's 64 MB stack, so a project loads as `stitchwort check` loads it (on the harness's default stack AoC ran out with `E-RESOURCE`, SW-906).
+- The accepted examples' and extract examples' hashes are the `hashes` area's snapshots: `STITCHWORT_TIER=full` with `cargo insta test` shows every one that changed.
+
 ## The allocation trace
 
 A bring-up tool for native compilation (`docs/proposals/native-compilation.md`, "Bring-up trace"): the machine can record every `alloc`, `reuse`, `inc`, `dec` and `free` of a constructor cell, so the machine's memory decisions can be read, and later compared with native code's, event by event.

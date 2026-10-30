@@ -87,6 +87,18 @@ impl Snapshot {
         }
     }
 
+    /// How many metavariables there were: those numbered below were made
+    /// before the snapshot.
+    pub(crate) fn metas(&self) -> usize {
+        self.metas
+    }
+
+    /// How many number literals had been made `Nat` at once
+    /// (`numbers::Defaulted`).
+    pub(crate) fn defaulted(&self) -> usize {
+        self.defaulted
+    }
+
     /// Whether local definitions or `match`es have been drafted for lifting
     /// (`lift.rs`) since the snapshot was taken.
     pub(crate) fn drafted_since(&self, cx: &Ctx) -> bool {

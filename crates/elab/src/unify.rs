@@ -50,11 +50,15 @@ fn run(g: &Globals, mut work: Vec<Task>) -> Result<bool> {
                     work.insert(0, Task::Later(level, a, b, trail));
                     true
                 } else {
+                    note_unfilled(g, &a, &b)?;
                     false
                 }
             }
             // Put aside, and nothing solved since: they differ.
-            Task::Later(_, _, _, trail) if g.meta_trail.borrow().len() <= trail => false,
+            Task::Later(_, a, b, trail) if g.meta_trail.borrow().len() <= trail => {
+                note_unfilled(g, &a, &b)?;
+                false
+            }
             Task::Later(level, a, b, _) => {
                 let env: Vec<Value> = (0..level).map(Value::var).collect();
                 let afresh = |v: &Value| eval(g, &env, &quote_folded(g, level, v)?);
@@ -100,6 +104,60 @@ thread_local! {
     /// injective such a solution is one of several. Only counted
     /// ([`solved_lossily`], for `queue.rs`), never acted on.
     static LOSSY: RefCell<Vec<(usize, usize)>> = const { RefCell::new(Vec::new()) };
+    /// The placeholders of the queued checks not filled yet (`queue.rs`,
+    /// kept in step by `Queue::sync_unfilled`), so a comparison that fails
+    /// at one can be counted ([`met_unfilled`]).
+    static UNFILLED: RefCell<HashSet<usize>> = RefCell::new(HashSet::default());
+}
+
+/// Comparisons that failed at a pair one side of which is headed by an
+/// unfilled placeholder (stuck there, or put aside on it), over the process:
+/// the second half of the stage-6 trigger (docs/proposals/postponement.md
+/// §5.13).
+static MET_UNFILLED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// [`MET_UNFILLED`]'s count.
+pub(crate) fn met_unfilled() -> usize {
+    MET_UNFILLED.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// The placeholders not filled yet are now `metas`.
+pub(crate) fn set_unfilled(metas: impl Iterator<Item = usize>) {
+    UNFILLED.with(|u| {
+        let mut u = u.borrow_mut();
+        u.clear();
+        u.extend(metas);
+    });
+}
+
+/// Counts a failing pair, `a` against `b`, if one side's head is an unfilled
+/// placeholder, or a definition stuck on one.
+fn note_unfilled(g: &Globals, a: &Value, b: &Value) -> Result<()> {
+    if UNFILLED.with(|u| u.borrow().is_empty()) {
+        return Ok(());
+    }
+    let is_unfilled = |m: usize| UNFILLED.with(|u| u.borrow().contains(&m));
+    let unfilled = |v: &Value| -> Result<bool> {
+        Ok(match force(g, v.clone())? {
+            Value::Neutral(Head::Meta(m), _) => is_unfilled(m),
+            Value::Neutral(Head::Def(_), spine) => {
+                let mut stuck = false;
+                for elim in spine.iter() {
+                    if let Elim::App(arg, _) = elim
+                        && let Value::Neutral(Head::Meta(m), _) = force(g, arg.clone())?
+                    {
+                        stuck |= is_unfilled(m);
+                    }
+                }
+                stuck
+            }
+            _ => false,
+        })
+    };
+    if unfilled(a)? || unfilled(b)? {
+        MET_UNFILLED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+    Ok(())
 }
 
 /// Notes the solutions made since the trail was `trail` long as made by
@@ -1794,6 +1852,17 @@ fn zonk_call(
     for a in args {
         zonked.push(zonk_in(g, level, a, keep, lets)?);
     }
+    // A helper's call is zonked before it is recorded; a queued check's term
+    // (`queue.rs`) is recorded when its check returns, and may mention
+    // unknowns solved since (a literal's type parameters, say): zonked here,
+    // in its own variables.
+    let zonked_call;
+    let call = if (call.subterms()).any(|(t, _)| matches!(t, Term::Meta(_))) {
+        zonked_call = zonk_in(g, n, call, keep, &[])?;
+        &zonked_call
+    } else {
+        call
+    };
     if let Some(m) = call.subterms().find_map(|(t, _)| match t {
         Term::Meta(m) if !keep(*m) => Some(*m),
         _ => None,

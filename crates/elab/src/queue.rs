@@ -14,10 +14,16 @@
 //!   stuck.
 //!
 //! The queue is per declaration, like the obligations: `clear_metas` and
-//! `rewind` empty it, and a [`crate::undo::Snapshot`] restores it. Stage 1
-//! (§8) is the machinery only: nothing is queued yet (record literals,
-//! `.field`, sections and number literals are stages 2-4), so every resume
-//! point finds the queue empty, which costs a length comparison.
+//! `rewind` empty it, and a [`crate::undo::Snapshot`] restores it. Two kinds
+//! of check are queued (stage 2 of §8; sections and number literals are
+//! stages 3 and 4):
+//! - K1, a record literal whose type is unknown (`records.rs`, `Literal`),
+//!   whose default is SW-805's field-name rule;
+//! - K2, a `.field` or dot call whose receiver's type view meets an
+//!   unknown (`dot.rs`, `DotCall`), with its receiver kept by §5.5's rule.
+//!
+//! A resume point with nothing queued in its scope costs a length
+//! comparison.
 //!
 //! The queue's invariants (§5.1), and how each is kept here:
 //! 1. *One placeholder, one occurrence*: [`queue`] makes a fresh unknown
@@ -33,16 +39,24 @@
 //!    and a resume point selects only waiting items.
 //! 5. *Restore restores the queue*: the states change only through the
 //!    resumption log, which a snapshot records with the items.
-//! 6. *Kept subterms are stable*: about what an item keeps of its syntax,
-//!    so each kind's own (K2's receiver, stage 2).
+//! 6. *Kept subterms are stable*: K1 keeps nothing elaborated; K2 keeps its
+//!    receiver as syntax where the blocker predates it, and as a term only
+//!    where the receiver made the blocker, which [`kept_receiver`] checks
+//!    made no choice from an unknown.
 //! 7. *Defaults at quiescence only*: only W4 applies one, after the
 //!    obligations loop has stopped making progress.
 //! 8. *Placeholders are opaque to elaboration choices*: a placeholder is an
 //!    unknown like any other to the code around it; the consumers that
-//!    choose from a type's shape wait or decide at `finish` (§5.10).
+//!    choose from a type's shape wait or decide at `finish` (§5.10). Debug
+//!    assertions: the field-name rule chooses a literal's type only as W4's
+//!    default ([`Queue::settling`]), and a resumed dot call has its implicit
+//!    arguments inserted before it fills a placeholder that doesn't take
+//!    them (`dot.rs`). Comparisons that fail at an unfilled placeholder are
+//!    counted (`unify::met_unfilled`).
 //!
-//! The debug assertions below check 1-5 where they can be seen; the unit
-//! tests at the end exercise each with items made directly.
+//! The debug assertions below check 1-6 where they can be seen; the unit
+//! tests at the end exercise each with items made directly, and K1 and K2
+//! on small modules.
 //!
 //! Counters for later stages are printed with `STITCHWORT_TIMINGS`
 //! ([`counts`]).
@@ -79,27 +93,25 @@ pub(crate) trait Check {
 }
 
 /// What a resumed check gives.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "made by the kinds of item, from stage 2")
-)]
 pub(crate) enum Resumed {
     /// Its term, to fill its placeholder with.
     Done(Term),
     /// It met another unknown (a `.field` at a later step of its view): it
     /// waits again, on the head of this type.
     Waiting(Value),
+    /// As [`Resumed::Waiting`], resumed from now on by this check: a `.field`
+    /// whose receiver, elaborated again, made the unknown it now waits on,
+    /// and so keeps that receiver (`dot.rs`, `DotCall`). The change is a
+    /// state's, so a restore takes it back with the resumption.
+    WaitingAs(Value, Rc<dyn Check>),
 }
 
 /// The defaults, in the order the ladder tries them (D2013): SW-805's
 /// field-name rule for a record literal, then `Nat` for a number.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "the defaults of K1 and K4, stages 2 and 4")
-)]
 pub(crate) enum Priority {
     FieldNames,
+    #[cfg_attr(not(test), expect(dead_code, reason = "K4's default, stage 4"))]
     Nat,
 }
 
@@ -108,8 +120,10 @@ pub(crate) enum Priority {
 /// resumption, or the declaration fails.
 #[derive(Clone)]
 pub(crate) enum State {
-    /// On the head of this type, a value in the item's context.
-    Waiting(Value),
+    /// On the head of this type, a value in the item's context; to be
+    /// resumed by this check rather than the item's own, if there is one
+    /// ([`Resumed::WaitingAs`]).
+    Waiting(Value, Option<Rc<dyn Check>>),
     Running,
     Done,
     Failed,
@@ -142,6 +156,9 @@ pub(crate) struct Queue {
     items: RefCell<Vec<Rc<Item>>>,
     states: RefCell<Vec<State>>,
     log: RefCell<Vec<(usize, State)>>,
+    /// Whether the end of a declaration part (W4) is settling the queue:
+    /// the only place a default may be applied (invariants 7 and 8).
+    settling: Cell<bool>,
 }
 
 /// The queue's lengths at a snapshot.
@@ -156,6 +173,15 @@ impl Queue {
         self.items.borrow().len()
     }
 
+    /// Whether W4 is settling the queue, the only place a default is
+    /// applied: a choice an item's default makes (the field-name rule) is
+    /// made from nothing else having said what the item is, never from a
+    /// placeholder's apparent shape in the middle of elaboration
+    /// (invariant 8).
+    pub(crate) fn settling(&self) -> bool {
+        self.settling.get()
+    }
+
     pub(crate) fn mark(&self) -> Mark {
         Mark {
             items: self.len(),
@@ -168,6 +194,7 @@ impl Queue {
     /// term out of the placeholder table (`Globals::lifted_calls`). `metas`
     /// is the length the metavariables are restored to.
     pub(crate) fn restore(&self, mark: Mark, g: &Globals, metas: usize) {
+        let changed = self.len() > mark.items || self.log.borrow().len() > mark.log;
         {
             let items = self.items.borrow();
             let mut states = self.states.borrow_mut();
@@ -186,12 +213,28 @@ impl Queue {
             self.items.borrow().iter().all(|item| item.meta < metas),
             "an item outlived its placeholder (invariant 1)"
         );
+        if changed {
+            self.sync_unfilled();
+        }
     }
 
     pub(crate) fn clear(&self) {
         self.items.borrow_mut().clear();
         self.states.borrow_mut().clear();
         self.log.borrow_mut().clear();
+        self.sync_unfilled();
+    }
+
+    /// Tells the unifier which placeholders aren't filled yet, for its
+    /// count of comparisons that fail at one (`unify::met_unfilled`).
+    fn sync_unfilled(&self) {
+        let items = self.items.borrow();
+        let states = self.states.borrow();
+        crate::unify::set_unfilled(
+            (0..items.len())
+                .filter(|&i| !matches!(states[i], State::Done))
+                .map(|i| items[i].meta),
+        );
     }
 
     fn item(&self, i: usize) -> Rc<Item> {
@@ -205,17 +248,27 @@ impl Queue {
     fn set(&self, i: usize, state: State) {
         let old = std::mem::replace(&mut self.states.borrow_mut()[i], state);
         self.log.borrow_mut().push((i, old));
+        self.sync_unfilled();
     }
 
     fn waiting(&self, i: usize) -> Option<Value> {
         match &self.states.borrow()[i] {
-            State::Waiting(needs) => Some(needs.clone()),
+            State::Waiting(needs, _) => Some(needs.clone()),
             _ => None,
         }
     }
 
+    /// What resumes item `i`, or gives its default: its own check, or the
+    /// one it waits as.
+    fn check(&self, i: usize) -> Rc<dyn Check> {
+        match &self.states.borrow()[i] {
+            State::Waiting(_, Some(check)) => check.clone(),
+            _ => self.items.borrow()[i].check.clone(),
+        }
+    }
+
     fn any_waiting(&self) -> bool {
-        (self.states.borrow().iter()).any(|s| matches!(s, State::Waiting(_)))
+        (self.states.borrow().iter()).any(|s| matches!(s, State::Waiting(..)))
     }
 
     /// How many times item `i` has been resumed since the queue was last
@@ -223,7 +276,7 @@ impl Queue {
     #[cfg(test)]
     fn resumptions(&self, i: usize) -> usize {
         (self.log.borrow().iter())
-            .filter(|(j, old)| *j == i && matches!(old, State::Waiting(_)))
+            .filter(|(j, old)| *j == i && matches!(old, State::Waiting(..)))
             .count()
     }
 }
@@ -232,10 +285,6 @@ impl Queue {
 /// of type `ty` for its result, and `error` for its site's error if it
 /// stays stuck: the placeholder's term, which stands for the result in the
 /// term being built.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "nothing is queued until stage 2 (K1)")
-)]
 pub(crate) fn queue(
     cx: &Ctx,
     check: Rc<dyn Check>,
@@ -258,7 +307,8 @@ pub(crate) fn queue(
         error,
         crossed: Cell::new(false),
     }));
-    q.states.borrow_mut().push(State::Waiting(needs));
+    q.states.borrow_mut().push(State::Waiting(needs, None));
+    q.sync_unfilled();
     count(&QUEUED);
     Ok(placeholder)
 }
@@ -373,22 +423,32 @@ impl Elaborator {
     /// Resumes item `i`, running until its check returns.
     fn resume_item(&self, i: usize) -> Result<()> {
         let item = self.queue.item(i);
+        let check = self.queue.check(i);
+        let replaced = match self.queue.state(i) {
+            State::Waiting(_, replaced) => replaced,
+            _ => None,
+        };
         self.queue.set(i, State::Running);
         count(&RESUMED);
         let mut cx = item.saved.ctx(self);
-        let resumed = item
-            .check
-            .resume(&mut cx)
-            .and_then(|resumed| match resumed {
-                Resumed::Done(term) => self.fill(&mut cx, i, &item, &term).map(|()| State::Done),
-                Resumed::Waiting(needs) => {
-                    debug_assert!(
-                        !ready(&self.globals, &needs).unwrap_or(false),
-                        "an item waits again only on an unknown head"
-                    );
-                    Ok(State::Waiting(needs))
-                }
-            });
+        let waits = |needs: &Value| {
+            debug_assert!(
+                !ready(&self.globals, needs).unwrap_or(false),
+                "an item waits again only on an unknown head"
+            );
+            count(&REQUEUED);
+        };
+        let resumed = check.resume(&mut cx).and_then(|resumed| match resumed {
+            Resumed::Done(term) => self.fill(&mut cx, i, &item, &term).map(|()| State::Done),
+            Resumed::Waiting(needs) => {
+                waits(&needs);
+                Ok(State::Waiting(needs, replaced))
+            }
+            Resumed::WaitingAs(needs, check) => {
+                waits(&needs);
+                Ok(State::Waiting(needs, Some(check)))
+            }
+        });
         match resumed {
             Ok(state) => {
                 self.queue.set(i, state);
@@ -456,9 +516,15 @@ impl Elaborator {
     /// Otherwise what [`Elaborator::solve_obligations_until_stuck`] gives.
     pub(crate) fn settle_queue(&self) -> Result<Option<Diagnostic>> {
         let mut stuck = self.solve_obligations_until_stuck()?;
-        while self.queue.any_waiting() && self.apply_default()? {
-            stuck = self.solve_obligations_until_stuck()?;
-        }
+        let settling = self.queue.settling.replace(true);
+        let defaulted = (|| -> Result<()> {
+            while self.queue.any_waiting() && self.apply_default()? {
+                stuck = self.solve_obligations_until_stuck()?;
+            }
+            Ok(())
+        })();
+        self.queue.settling.set(settling);
+        defaulted?;
         match self.stuck_report()? {
             Some(error) => Err(error),
             None => Ok(stuck),
@@ -470,14 +536,14 @@ impl Elaborator {
     fn apply_default(&self) -> Result<bool> {
         let mut candidates: Vec<(Priority, usize)> = (0..self.queue.len())
             .filter(|&i| self.queue.waiting(i).is_some())
-            .filter_map(|i| Some((self.queue.item(i).check.default_priority()?, i)))
+            .filter_map(|i| Some((self.queue.check(i).default_priority()?, i)))
             .collect();
         candidates.sort();
         for (_, i) in candidates {
             let item = self.queue.item(i);
             let mut cx = item.saved.ctx(self);
             let snapshot = crate::undo::Snapshot::take(&cx);
-            if item.check.apply_default(&mut cx)? {
+            if self.queue.check(i).apply_default(&mut cx)? {
                 debug_assert!(
                     (self.queue.waiting(i))
                         .is_none_or(|needs| ready(&self.globals, &needs).unwrap_or(true)),
@@ -571,22 +637,50 @@ static SOLVED_FIRST: AtomicUsize = AtomicUsize::new(0);
 static LOSSY: AtomicUsize = AtomicUsize::new(0);
 static DISAGREED: AtomicUsize = AtomicUsize::new(0);
 static READ_BACK: AtomicUsize = AtomicUsize::new(0);
+static REQUEUED: AtomicUsize = AtomicUsize::new(0);
+static KEPT: AtomicUsize = AtomicUsize::new(0);
+static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
 
 fn count(counter: &AtomicUsize) {
     counter.fetch_add(1, Ordering::Relaxed);
 }
 
+/// Invariant 6 for a `.field` whose receiver is kept as a term (K2,
+/// docs/proposals/postponement.md §5.5): the receiver, elaborated since
+/// `before`, made none of the choices of §5.10 from an unknown's shape that
+/// a type known later could make otherwise: no number literal made `Nat`
+/// at once (`numbers::Defaulted`), and no operator left with a generic
+/// dictionary. Counted (`kept`, and `kept chose` for one that did), and
+/// asserted in a debug build.
+pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
+    count(&KEPT);
+    let defaulted = cx.e.defaulted.borrow().len() > before.defaulted();
+    let generic = (cx.e.operator_dictionaries.borrow().keys()).any(|&m| m >= before.metas());
+    if defaulted || generic {
+        count(&KEPT_CHOSE);
+    }
+    debug_assert!(
+        !defaulted && !generic,
+        "a receiver kept as a term chose from an unknown (invariant 6)"
+    );
+}
+
 /// The queue's counters over the process, attempts undone included, for
 /// `STITCHWORT_TIMINGS` (`timings.rs`) and the stages after this one
-/// (docs/proposals/postponement.md, "As built (stage 1)"): items queued,
-/// resumed, defaulted and reported stuck; items that reached the end of
-/// their application still waiting (`crossed W1`, the stage-6 trigger);
-/// fills whose placeholder unification had solved first (`solved first`),
-/// and of those, solved by comparing two calls' arguments (`lossy`, the
-/// caveat to D2016's P1); fills that disagreed with that solution; and
-/// fills whose term couldn't be written as a call of the placeholder, so
-/// zonking reads the solution back (`read back`).
-pub fn counts() -> [(&'static str, usize); 9] {
+/// (docs/proposals/postponement.md, "As built (stage 1)" and "(stage 2)"):
+/// items queued, resumed, defaulted and reported stuck; items that reached
+/// the end of their application still waiting (`crossed W1`, the stage-6
+/// trigger); comparisons that failed at an unfilled placeholder (`met
+/// unfilled`, its other half, `unify::met_unfilled`); fills whose
+/// placeholder unification had solved first (`solved first`), and of
+/// those, solved by comparing two calls' arguments (`lossy`, the caveat to
+/// D2016's P1); fills that disagreed with that solution; fills whose term
+/// couldn't be written as a call of the placeholder, so zonking reads the
+/// solution back (`read back`); resumptions that met another unknown and
+/// waited again (`requeued`); and `.field`s queued with their receiver
+/// kept as a term (`kept`), of which those whose receiver made a choice
+/// from an unknown (`kept chose`, invariant 6; 0 expected).
+pub fn counts() -> [(&'static str, usize); 13] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -594,10 +688,14 @@ pub fn counts() -> [(&'static str, usize); 9] {
         ("defaulted", get(&DEFAULTED)),
         ("stuck", get(&STUCK)),
         ("crossed W1", get(&CROSSED)),
+        ("met unfilled", crate::unify::met_unfilled()),
         ("solved first", get(&SOLVED_FIRST)),
         ("lossy", get(&LOSSY)),
         ("disagreed", get(&DISAGREED)),
         ("read back", get(&READ_BACK)),
+        ("requeued", get(&REQUEUED)),
+        ("kept", get(&KEPT)),
+        ("kept chose", get(&KEPT_CHOSE)),
     ]
 }
 
@@ -713,7 +811,7 @@ mod tests {
     }
 
     fn waiting(e: &Elaborator, i: usize) -> bool {
-        matches!(e.queue.state(i), State::Waiting(_))
+        matches!(e.queue.state(i), State::Waiting(..))
     }
 
     fn done(e: &Elaborator, i: usize) -> bool {
@@ -1097,5 +1195,192 @@ mod tests {
         assert_eq!(error.code, "E-TYPE-MISMATCH");
         assert_eq!(error.labels[0].span, at);
         assert!(LOSSY.load(Ordering::Relaxed) > lossy);
+    }
+
+    /// Records and a type-level identity for the K1 and K2 tests: `P` and
+    /// `Q` have the same field, `Only` is the one record with `only`.
+    const RECORDS: &str = "type N: Type =\n  | Z\n  | S (n: N)\n\n\
+        type P = { row: N }\n\n\
+        type Q = { row: N }\n\n\
+        type Only = { only: N }\n\n\
+        def Id (a: Type): Type := a\n";
+
+    /// `source` elaborated, with no library, glued as while a declaration
+    /// is checked; and a type's value by its short name.
+    fn module(source: &str) -> (Elaborator, impl Fn(&Elaborator, &str) -> Value) {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test", source);
+        let module = stitchwort_syntax::parse_module(file, source).expect("parses");
+        let mut e = Elaborator::new();
+        e.loading_prelude = true;
+        let errors: Vec<_> = (e.elaborate_module(&module).into_iter())
+            .filter(|d| d.severity == stitchwort_syntax::Severity::Error)
+            .collect();
+        assert!(errors.is_empty(), "{errors:#?}");
+        // Still as the prelude, so that its names are in scope by their
+        // short names, as in a declaration after them.
+        e.globals.glue.set(true);
+        let data = |e: &Elaborator, name: &str| {
+            let d = (e.globals.datas.iter())
+                .position(|d| d.path.rsplit('.').next() == Some(name))
+                .unwrap_or_else(|| panic!("{name} declared"));
+            Value::Data(DataId(d), Vec::new())
+        };
+        (e, data)
+    }
+
+    fn zonked(cx: &Ctx, term: &Term) -> String {
+        let zonked = crate::unify::zonk_in(cx.g(), cx.level(), term, &|_| false, &[]).unwrap();
+        format!("{:?}", zonked.strip_loc())
+    }
+
+    /// K1: a record literal whose type is unknown waits (no
+    /// `E-CANNOT-INFER`, though `P` and `Q` both have its field), and once
+    /// the type is known is checked at it: its placeholder zonks to the
+    /// literal of that type.
+    #[test]
+    fn a_record_literal_waits_for_its_type() {
+        let (e, data) = module(RECORDS);
+        let mut cx = Ctx::new(&e, span());
+        let (term, ty) = crate::check::infer(&mut cx, &expression("{ row = Z }")).unwrap();
+        assert_eq!(e.queue.len(), 1);
+        assert!(waiting(&e, 0));
+        assert!(head_meta(cx.g(), &ty).unwrap().is_some());
+        assert!(cx.unify(&ty, &data(&e, "Q")).unwrap());
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0));
+        let Value::Data(q, _) = data(&e, "Q") else {
+            unreachable!()
+        };
+        assert!(
+            zonked(&cx, &term).starts_with(&format!("Ctor({q:?}, 0")),
+            "{}",
+            zonked(&cx, &term)
+        );
+    }
+
+    /// K1's default (D2013): at the end, the one record type with exactly
+    /// the literal's fields; where there are two, nothing is chosen and the
+    /// literal is reported with the field-name rule's error.
+    #[test]
+    fn a_record_literal_takes_its_field_names_type_only_at_the_end() {
+        let (e, data) = module(RECORDS);
+        let mut cx = Ctx::new(&e, span());
+        let (_, ty) = crate::check::infer(&mut cx, &expression("{ only = Z }")).unwrap();
+        // Not at an application's end, nor before lifting.
+        e.resume_application(0).unwrap();
+        e.resume_before_lifting().unwrap();
+        assert!(waiting(&e, 0));
+        assert!(e.settle_queue().unwrap().is_none());
+        assert!(done(&e, 0));
+        assert!(cx.conv_now(&ty, &data(&e, "Only")).unwrap());
+        e.clear_metas();
+        let mut cx = Ctx::new(&e, span());
+        crate::check::infer(&mut cx, &expression("{ row = Z }")).unwrap();
+        let error = e.settle_queue().expect_err("two types have `row`");
+        assert_eq!(error.code, "E-CANNOT-INFER");
+        assert!(
+            (error.notes.iter()).any(|n| n.contains("more than one record type")),
+            "{error:?}"
+        );
+    }
+
+    /// K2 with the blocker made before the receiver (a variable's type):
+    /// the receiver is kept as syntax, and the call is elaborated from the
+    /// start once the type is known, to the projection applied to `p`.
+    #[test]
+    fn a_field_on_a_variable_of_unknown_type_waits_as_syntax() {
+        let (e, data) = module(RECORDS);
+        let mut cx = Ctx::new(&e, span());
+        let (blocker, ty) = unknown(&cx);
+        cx.bind("p", ty);
+        let metas = e.globals.metas.borrow().len();
+        let (term, _) = crate::check::infer(&mut cx, &expression("p.row")).unwrap();
+        assert_eq!(e.queue.len(), 1);
+        // What inferring the receiver made was undone: the item's
+        // placeholder and its type are all that is new.
+        assert_eq!(e.globals.metas.borrow().len(), metas + 2);
+        assert_eq!(
+            head_meta(cx.g(), &e.queue.waiting(0).unwrap()).unwrap(),
+            Some(blocker)
+        );
+        e.globals.solve_meta(blocker, data(&e, "P"));
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0));
+        let text = zonked(&cx, &term);
+        assert!(
+            text.starts_with("App(Def(") && text.contains("Var(0)"),
+            "{text}"
+        );
+    }
+
+    /// K2 with the blocker made by the receiver (a record literal waiting,
+    /// K1): the receiver's term is kept, the `.row` waits on the literal's
+    /// type, and the literal's default lets both finish.
+    #[test]
+    fn a_field_on_a_waiting_literal_keeps_the_literal() {
+        let (e, _) = module(RECORDS);
+        let mut cx = Ctx::new(&e, span());
+        let kept = KEPT.load(Ordering::Relaxed);
+        crate::check::infer(&mut cx, &expression("({ only = Z }).only")).unwrap();
+        // The literal, and the `.only` on it; the literal queued while the
+        // prefix form was tried was undone with it.
+        assert_eq!(e.queue.len(), 2);
+        assert!(KEPT.load(Ordering::Relaxed) > kept);
+        assert!(e.settle_queue().unwrap().is_none());
+        assert!(done(&e, 0) && done(&e, 1));
+    }
+
+    /// K2 resumed that meets another unknown (§5.7, T4's second measure)
+    /// waits again, on that one: `p : ?A z`, a `.row` waiting on `?A`; then
+    /// `?A` is solved as `z => ?B`, so `p`'s type is `?B`, still unknown.
+    #[test]
+    fn a_field_meeting_another_unknown_waits_again() {
+        let (e, data) = module(RECORDS);
+        let mut cx = Ctx::new(&e, span());
+        cx.bind("z", data(&e, "N"));
+        let applied = cx.fresh_meta();
+        let Term::Meta(first) = *applied.spine().0 else {
+            unreachable!("a fresh metavariable")
+        };
+        cx.bind("p", cx.eval(&applied).unwrap());
+        crate::check::infer(&mut cx, &expression("p.row")).unwrap();
+        assert_eq!(
+            head_meta(cx.g(), &e.queue.waiting(0).unwrap()).unwrap(),
+            Some(first)
+        );
+        let (second, b) = unknown(&cx);
+        let mut outer = Ctx::new(&e, span());
+        outer.bind("z", data(&e, "N"));
+        assert!(outer.unify(&outer.eval(&applied).unwrap(), &b).unwrap());
+        let requeued = REQUEUED.load(Ordering::Relaxed);
+        assert!(e.resume_from(0).unwrap());
+        assert!(REQUEUED.load(Ordering::Relaxed) > requeued);
+        assert!(waiting(&e, 0));
+        assert_eq!(
+            head_meta(cx.g(), &e.queue.waiting(0).unwrap()).unwrap(),
+            Some(second)
+        );
+        e.globals.solve_meta(second, data(&e, "P"));
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0));
+        assert_eq!(e.queue.resumptions(0), 2);
+    }
+
+    /// Invariant 6's assertion: a receiver kept as a term must have made no
+    /// choice of §5.10 from an unknown, such as leaving an operator with a
+    /// generic dictionary. Made by hand here: a debug build's assertion
+    /// says so; a release build counts it.
+    #[test]
+    #[cfg_attr(debug_assertions, should_panic(expected = "invariant 6"))]
+    fn a_kept_receiver_that_chose_from_an_unknown_is_caught() {
+        let e = Elaborator::new();
+        let cx = Ctx::new(&e, span());
+        let before = Snapshot::take(&cx);
+        let (m, _) = unknown(&cx);
+        (e.operator_dictionaries.borrow_mut()).insert(m, (DefId(0), 0));
+        let chose = KEPT_CHOSE.load(Ordering::Relaxed);
+        kept_receiver(&cx, &before);
+        assert!(KEPT_CHOSE.load(Ordering::Relaxed) > chose);
     }
 }
