@@ -345,7 +345,7 @@ One postponement queue &
 D1990: a design note, \file{docs/proposals/postponement.md}, comparing Lean 4, Agda, Idris~2, Rocq
 and OmniML. D2012 (Matt): design for the best end state, so draft 2 makes one queue in the
 single elaboration pass, with prototype measurements and a brief for an external reviewer. The
-review has been received; draft 3 (D2015) is revising the note. &
+review (approve with revisions) is worked into draft 3 (D2015), merged. &
 SW-817 (doing); 7b751873 / 8cd3cdd6; c35e458b / bb9e432a; 3d0036f8. \\
 \addlinespace
 SW-805, field-name rule &
@@ -357,7 +357,7 @@ SW-805 (done); 8f52025b; merged afea8395. \\
 Design note for SW-800 and SW-807: extend \code{cases} with a decision closer and a split of a
 finite variable, derive a \code{Finite} interface, never \code{native\_decide}. Merged; the
 proof-automation register finds that D1971 stands, and the inductives audit withdrew its D1912
-in favour of D1972. The decisions await a review artefact. &
+in favour of D1972. Its review page is published; the decisions await the external review. &
 88e9104b, 0ddc8e2c; SW-800 (next). \\
 \addlinespace
 Handler termination in \file{DESIGN.md} &
@@ -508,8 +508,10 @@ D1990 led to \file{docs/proposals/postponement.md}. Its first draft measured tha
 queueable \code{E-CANNOT-INFER} sites fire 1,073 times in accepted code, always caught, and
 proposed a second pass; D2012 made the end state one queue in the single pass. The draft 2
 prototype changed one acceptance and 26 hashes (statements identical), and no error message.
-The external review is being worked into draft 3 (D2015). SW-805 is merged as a last resort
-(D1991). Open: the note's D2013 and D2014 (Section~\ref{sec:decisions}).
+The external review (approve with revisions) is worked into draft 3 (D2015): queue
+invariants, a rule for kept receivers, a termination argument over a finite attempt tree, and
+tri-state unification as the expected follow-up. SW-805 is merged as a last resort (D1991).
+Open: the note's D2013, D2014 and D2016 (Section~\ref{sec:decisions}).
 
 % =====================================================================
 \section{Proof automation}\label{sec:pa}
@@ -1006,10 +1008,10 @@ Table~\ref{tab:decisions} lists every decision still open in the registers and d
 with each register's recommendation and its assumptions in full. Each was checked against the
 board and \code{git log} on 30 October; resolved ones are left out (D1852, D1912, D1980, D1981,
 D1983, D1984, D1990, D1991, D2000 and D2012; the postponement note's D2010 was superseded by
-D2012, and its D2011 is kept in draft 2 and not listed there as open). D2013 and D2014 come from
-\file{docs/proposals/postponement.md}, which draft 3 (D2015) is revising after its external
-review, so their wording may change. D1971--D1973 come from \file{docs/proposals/decide.md},
-whose SW-800 awaits a review artefact.
+D2012, and its D2011 is kept and not listed there as open). D2013, D2014 and D2016 come from
+draft 3 of \file{docs/proposals/postponement.md}, which works in its external review; the
+reviewer agrees with D2013 and D2014. D1971--D1973 come from \file{docs/proposals/decide.md},
+whose review page has been published and awaits an external review.
 
 {\small
 \begin{longtable}{@{}L{1.1cm}L{4.1cm}L{2.5cm}L{7.15cm}@{}}
@@ -1123,7 +1125,7 @@ literal was made \code{Nat} too early; stage 4 tests this over the corpus (infer
 measured: K4 is not in the prototype). (N2) the field-name rule has priority over the number
 default because a record's field types say what its numbers are, never the reverse (\S5.4's
 ``in a list''). (N3) Lean's numeral default is the precedent: low priority, in the ladder
-(\file{Prelude.lean:1411}, \file{SyntheticMVars.lean:237-243}). \\
+(\file{Prelude.lean:1411}, \file{SyntheticMVars.lean:237-243}). The external reviewer agrees: record identity first, \code{Nat} last. \\
 \addlinespace
 D2014 & Resume queued checks at the end of every application, scoped to the items made inside
 it, as well as before lifting and at the end of the declaration? &
@@ -1141,7 +1143,19 @@ their own application's end or at the declaration's. (S3) waking inside the unif
 elaborate syntax in the middle of a comparison that callers inside many of the 44
 \code{Snapshot::take} sites branch on; resume points give the same order at fixed places. (S4) if waiting comparisons (\S5.9) are ever added, W1
 (the resume point at each application's end) can become less frequent; this decision doesn't
-preclude that. \\
+preclude that. The external reviewer agrees, and calls scoping non-negotiable: unscoped, the
+prototype accepted a program that today's order rejects. \\
+\addlinespace
+D2016 & Keep placeholders solvable by unification until stage~6 (comparisons that can wait),
+and freeze them only then? &
+Yes (draft 3, against the reviewer's suggestion to freeze them now). &
+(P1) a solution unification finds for a placeholder is forced by the comparison that found it,
+not a guess; (P2) the fill compares the item's own term with any such solution, so a
+disagreement is reported as the item's own error at its span; (P3) zonking writes the item's
+term, never the unifier's solution; (P4) a frozen placeholder needs comparisons that can wait,
+and without them they fail on correct programs: freezing broke
+\file{lambda-postponed-dependent.sw} and four AoC proofs (2024 days 9 and 24), while in 14 of
+135 fills unification had already solved the placeholder. \\
 \addlinespace
 D1971 & Close SW-800 by extending \code{cases} (a decision closer at the leaves, and splitting a
 finite variable when nothing is stuck), with no new \code{decide} word? &
