@@ -1,5 +1,5 @@
 {
-  "next": 920,
+  "next": 921,
   "tickets": [
     {
       "id": 13,
@@ -8798,9 +8798,9 @@
     {
       "id": 917,
       "title": "rewrite with an open lemma argument takes ~25 s (vs 0.25 s with it given)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
-      "where": "investigation lane (Matt)",
+      "where": "fixed for rewrite (c037491b, 24 s to 0.25 s); unifier half split to new ticket",
       "labels": [
         "elab",
         "bug"
@@ -8808,7 +8808,9 @@
       "body": "Found by the SW-916 lane (30 Oct 2026) while testing the proving guide: with an opaque lcg, 'rewrite lcg.unfold in …' (the lemma's argument left open) took about 25 s to check, while 'rewrite lcg.unfold seed in …' took 0.25 s and 'unfolding lcg' 0.18 s. STITCHWORT_REWRITE_METRICS shows the rewrite itself is cheap, so the time is elsewhere (unification of the open argument against the goal? the motive?). Cause unknown; not yet reproduced by the orchestrator. Reproduce, profile with sample, fix or document.\n\n30 Oct (investigation lane): reproduced on main 82a79b30: scratch file opaque lcg + theorem lcg seed < 2^31 by rewrite lcg.unfold in Std.Nat.modLt …: 24.1 s user; with seed given 0.22 s; unfolding lcg 0.16 s. Profiling next.\n30 Oct (investigation lane): cause found: rewrite builds the new goal from the rule's right side as computed before matching, so it holds the solved unknown ?x, not seed; core::value::identical (same_closure) doesn't see through solved unknowns, so unify descends into both sides' Nat.divFuel unfoldings, one level per Succ of + 12345 (steps ~ C^2; 154M). Fix in rewrite.rs (refresh the right side after a match by conversion): 24.1 s -> 0.20 s. Testing next.\n30 Oct (investigation lane): done on branch worktree-agent-a829ead674fd2209f, commit c037491b: rewrite.rs refreshes the rule's right side after an open rule matches by conversion, kept only when the new goal reads back the same (hashes unchanged; first unguarded try changed 83 prelude hashes). Repro 24.1 s -> 0.25 s; example accept/rewrite-open-argument-solved.sw 47.1 s -> 0.21 s. Lanes elab/examples/hashes, clippy, fmt, rogue check pass. Left open (unifier, not fixed): Std.Nat.modLt (_ * 1103515245 + 12345) 2147483648 against a transparent (seed*…+12345) % 2^31 < 2^31 still takes 24.7 s, same mechanism, no rewrite involved.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "c037491b"
+      ]
     },
     {
       "id": 918,
@@ -8836,6 +8838,21 @@
         "elab"
       ],
       "body": "Found by the SW-915 search lane (30 Oct 2026). `stitchwort dev search 'self:conclusion'` (docs/proposals/search/queries-draft2.sh, section self) panics with \"internal error: applying a constructor\" (crates/core/src/value.rs:815, the catch-all in apply) on 4 pairs of std theorems with the constants filter and 12 without, e.g. the pattern from `Std.Parse.runFromMark` against `Std.Parse.runFromNatThere` (docs/proposals/search.md §6.1, stage S1a).\n\nNot yet known: whether this is reachable from ordinary elaboration, or only from search's matching (which unifies a pattern with theorem types it hasn't type-checked against, so an ill-typed meta solution could put a constructor in head position). First step: reduce the pair to a minimal repro, then decide whether the fix is in search (check types before unifying) or in unify/eval. A panic in core is a bug either way; it should be an error, not a crash.\n",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
+    },
+    {
+      "id": 920,
+      "title": "Unifier: identity shortcut doesn't see through solved unknowns (modLt against % 2^31: 24.7 s)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "perf"
+      ],
+      "body": "Split from SW-917 (30 Oct 2026). The slowdown happens without `rewrite`: `Std.Nat.modLt (_ * 1103515245 + 12345) 2147483648` checked against a transparent `(seed * 1103515245 + 12345) % 2147483648 < 2147483648` takes 24.7 s and 154M steps (quadratic in the added constant: `Nat.mod` unfolds `Nat.divFuel` once per `Succ` of `+ 12345`).\n\nCause found by the SW-917 lane: the identical-closure shortcut (`same_closure`, unify.rs Lam case ~936, via `value::identical`, crates/core/src/value.rs ~3393) compares heads without forcing solved unknowns, so `Meta(?x)` (solved to `seed`) against `Var(seed)` counts as different and unify descends into two equal terms structurally. The `Nat.div` call shortcut misses because its arguments solve the `auto ok` proof.\n\nLikely fix: make the identity shortcut see through solved unknowns (substitute before comparing, or retry identity after forcing). Touches unify.rs / core `identical`, so wait until postponement stage 6 (SW-817) has merged; then re-measure, since stage 6 may change these paths. Hash changes possible; must be explained.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
