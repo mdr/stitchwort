@@ -6,6 +6,13 @@ principle) and D1991 (SW-805's field-name rule stays, as name resolution), both 
 docs/research/elaboration.md §8. Repros, the P1 counts and the scratch counter patch are in
 [postponement/](postponement/). Two decisions for Matt are in [§9](#9-decisions-for-matt).
 
+**Since this draft** (orchestrator, 30 October): SW-805 (record literals typed from their field
+names when nothing else says) was merged after the note was written, at `bc0802eb`. With only one
+record type having fields `x` and `y`, all four of sw885.sw's literals now check on main, so
+the repro now declares a second such type (`Size`); with it, all four are `E-CANNOT-INFER` again
+**[run]**. SW-885's problem and stage 0 stand for literals whose field names don't pick one type.
+The P1 counts were taken before SW-805 too.
+
 Labels, as in the other notes:
 
 - **[checked: file:line]**: read in the Stitchwort source at `bc0802eb` (main, 30 October);

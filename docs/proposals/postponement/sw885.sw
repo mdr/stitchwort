@@ -14,6 +14,11 @@ def shortNumber(): {Parse} Nat := natDigits 1 3
 
 type Position = { x: Nat, y: Nat }
 
+-- A second record type with the same fields, so the field-name rule (SW-805,
+-- merged after this repro was written) can't pick one: without it the four
+-- literals check on main since SW-805.
+type Size = { x: Nat, y: Nat }
+
 type Robot = { position: Position, speed: Nat }
 
 def usePosition (p: Position): Nat := p.x
