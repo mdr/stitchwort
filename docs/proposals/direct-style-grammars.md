@@ -133,7 +133,7 @@ left to right, except for arguments that correspond to a by-name parameter"
 | `(let _ := char ','; shortNumber())` | works | **[checked]** |
 | a block on new lines inside brackets, as an argument (below) | works | **[checked]** |
 | `(text "mul(", shortNumber(), char ',', shortNumber(), char ')')` matched by `let (_, left, _, right, _)` | works | **[checked]** |
-| the same with `()` in place of the `_`s | `E-NOT-EMPTY` "`()` has values, so this argument can't be `()`" | **[checked]** (§8) |
+| the same with `()` in place of the `_`s | `E-NOT-EMPTY` "`()` has values, so this argument can't be `()`"; works since SW-886 | **[checked]** (§8) |
 
 The block form is:
 
@@ -570,6 +570,8 @@ Worth tickets whatever is decided. I haven't edited the board.
 2. **Small:** `()` inside a tuple pattern is `E-NOT-EMPTY` "`()` has values,
    so this argument can't be `()`", while `let () := e` on its own works
    (`gaps.sw`, `unitInTuple`). Either accept it or say "write `_`".
+   Fixed by SW-886: `()` inside a pattern is the unit pattern where what it
+   matches is `()` (`examples/accept/unit-pattern-in-tuple.sw`).
 3. **Docs:** `natDigits 1 3` on `1234` reports "got '1'", not "got '1234'"
    (`rewrites.sw`, "day 3: the same errors" **[checked]**). That is a
    little odd next to its doc comment: "All the digits there are read first,

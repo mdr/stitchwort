@@ -187,6 +187,18 @@ type Result<T> = std::result::Result<T, Diagnostic>;
 /// prelude's `UnitValue`, by identity. Source can't spell it.
 const UNIT_PATTERN: &str = "%unit";
 
+/// The unit pattern `()` at `span`.
+fn unit_pattern(span: Span) -> Pattern {
+    Pattern::Ctor(
+        ast::Name {
+            text: UNIT_PATTERN.into(),
+            span,
+        },
+        Vec::new(),
+        span,
+    )
+}
+
 /// A constructor pattern the compiler writes for a constructor it knows by
 /// identity rather than by name (`Done`, `Plus.L`, an operation's
 /// `Fail.%stop`, for `match reify`): `%ctor d c`. Source can't spell it.
@@ -3238,6 +3250,25 @@ impl Elaborator {
             .iter()
             .position(|p| matches!(**p, Pattern::Absurd(_)))
         {
+            // `()` inside a pattern (`let ((), n) := …`, `| (x, ()) => …`)
+            // where what it matches is the unit type: the unit pattern, as
+            // `()` on its own is in an equation with a right-hand side
+            // (SW-886). At a type with no values it stays absurd.
+            if first.rhs.is_some() && self.is_unit_type(types[j].as_ref())? {
+                let rows: Vec<Row<'a>> = rows
+                    .iter()
+                    .map(|row| {
+                        let mut row = row.clone();
+                        if let Pattern::Absurd(span) = *row.pats[j]
+                            && row.rhs.is_some()
+                        {
+                            row.pats[j] = Cow::Owned(unit_pattern(span));
+                        }
+                        row
+                    })
+                    .collect();
+                return self.compile(&rows, depth, columns, types, span);
+            }
             return Ok(Tree::Absurd {
                 level: columns[j],
                 span: first.pats[j].span(),
@@ -3849,6 +3880,14 @@ impl Elaborator {
     }
 
     /// The prelude's constructor `b`, for a pattern the compiler writes.
+    /// Whether `ty`, if known, is the unit type `()`.
+    fn is_unit_type(&self, ty: Option<&Value>) -> Result<bool> {
+        let (Some(ty), Some(unit)) = (ty, self.globals.registry.data(Builtin::UnitType)) else {
+            return Ok(false);
+        };
+        Ok(matches!(force(&self.globals, ty.clone())?, Value::Data(d, _) if d == unit))
+    }
+
     fn builtin_ctor(&self, b: Builtin, span: Span) -> Result<(DataId, usize)> {
         self.globals.registry.ctor(b).ok_or_else(|| {
             error(
