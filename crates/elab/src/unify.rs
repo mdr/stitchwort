@@ -1135,7 +1135,7 @@ fn same_arguments_solving_nothing(
 }
 
 /// Undoes the metavariable solutions made since the trail was `len` long.
-fn undo_since(g: &Globals, len: usize) {
+pub(crate) fn undo_since(g: &Globals, len: usize) {
     let mut metas = g.metas.borrow_mut();
     let mut trail = g.meta_trail.borrow_mut();
     if trail.len() > len {

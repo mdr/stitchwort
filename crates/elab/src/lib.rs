@@ -67,6 +67,7 @@ mod ring;
 mod rows;
 mod saturate;
 mod scope;
+pub mod search;
 mod shared;
 pub mod shown;
 pub mod timings;
