@@ -166,6 +166,7 @@ impl Elaborator {
             no_propagation,
             bare_rows_pure,
             late_literals,
+            field_names,
             dot_heads,
             dot_failed,
             condition,
@@ -265,6 +266,7 @@ impl Elaborator {
         no_propagation.set(0);
         bare_rows_pure.set(false);
         late_literals.set(0);
+        field_names.reset();
         *dot_heads.get_mut() = mark.dot_heads.clone();
         *dot_failed.get_mut() = mark.dot_failed.clone();
         condition.set(0);

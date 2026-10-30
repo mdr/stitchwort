@@ -671,6 +671,78 @@ fn variant(cx: &Ctx, ty: &Value) -> Result<bool> {
     Ok(matches!(force(g, ty.clone())?, Value::Data(d, _) if !g.data(d).record))
 }
 
+/// When the field-name rule ([`infer_literal`]) is held back. A construct
+/// that infers one part and, if that can't be done, takes the type from
+/// another part (the sides of `==` and of other comparisons, `a ++ b`, a
+/// `calc`'s first term) infers that first part with the rule held back
+/// ([`held`]), so a literal there is `E-CANNOT-INFER` as before the rule
+/// existed and the other part says its type. Only if the whole construct
+/// then fails is it elaborated again with the rule in force
+/// ([`last_resort`]). So the rule applies only where nothing else says the
+/// type, and a program that elaborated without it elaborates as before.
+/// Holding it back changes when the rule is used, never what it looks at:
+/// that is still only the literal's field names and the names in scope
+/// (D1991, assumption R1).
+#[derive(Default)]
+pub(crate) struct FieldNames {
+    /// Above zero inside [`held`].
+    held: std::cell::Cell<usize>,
+    /// Above zero while [`last_resort`] tries again: nothing is held then.
+    released: std::cell::Cell<usize>,
+    /// How many literals have been held back.
+    hits: std::cell::Cell<usize>,
+}
+
+impl FieldNames {
+    /// Whether the rule is held back here, counting it if so.
+    fn hold(&self) -> bool {
+        let held = self.held.get() > 0 && self.released.get() == 0;
+        if held {
+            self.hits.set(self.hits.get() + 1);
+        }
+        held
+    }
+
+    pub(crate) fn reset(&self) {
+        self.held.set(0);
+        self.released.set(0);
+        self.hits.set(0);
+    }
+}
+
+/// Runs `f` with the field-name rule held back ([`FieldNames`]).
+pub(crate) fn held<T>(cx: &mut Ctx, f: impl FnOnce(&mut Ctx) -> T) -> T {
+    let names = &cx.e.field_names;
+    names.held.set(names.held.get() + 1);
+    let result = f(cx);
+    let names = &cx.e.field_names;
+    names.held.set(names.held.get() - 1);
+    result
+}
+
+/// Runs `f`, which holds the field-name rule back somewhere ([`held`]); if
+/// it fails after holding back a literal, undoes it and runs it again with
+/// the rule in force, giving that result.
+pub(crate) fn last_resort<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Result<T> {
+    if cx.e.field_names.released.get() > 0 {
+        return f(cx);
+    }
+    let hits = cx.e.field_names.hits.get();
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let result = f(cx);
+    match &result {
+        Err(e) if !crate::undo::fatal(e) && cx.e.field_names.hits.get() > hits => {}
+        _ => return result,
+    }
+    snapshot.restore(cx);
+    let names = &cx.e.field_names;
+    names.released.set(names.released.get() + 1);
+    let again = f(cx);
+    let names = &cx.e.field_names;
+    names.released.set(names.released.get() - 1);
+    again
+}
+
 /// The record types a literal with these fields may be, when nothing says
 /// which: those visible by their short name whose fields are exactly the
 /// literal's (interfaces left out). Their keys, in declaration order.
@@ -709,6 +781,15 @@ fn with_field_names(cx: &Ctx, fields: &[(ast::Name, Expr)]) -> Vec<(DataId, Stri
 /// A record literal with no type known: the one record type in scope with
 /// exactly its fields, with its parameters to be inferred.
 pub(crate) fn infer_literal(cx: &mut Ctx, fields: &[(ast::Name, Expr)]) -> Result<(Term, Value)> {
+    if cx.e.field_names.hold() {
+        return Err(cx
+            .error(
+                "E-CANNOT-INFER",
+                "can't tell which record type this literal is",
+                "nothing here says what type it should have",
+            )
+            .with_note("add a type annotation, as in `({ x = 0, y = 0 }: Point)`"));
+    }
     let candidates = with_field_names(cx, fields);
     let [(d, _)] = candidates[..] else {
         let mut error = cx
@@ -751,6 +832,7 @@ pub(crate) fn check_record(
         None => {
             if let Value::Neutral(stitchwort_core::value::Head::Meta(_), _) =
                 force(cx.g(), expected.clone())?
+                && !cx.e.field_names.hold()
             {
                 let (term, ty) = infer_literal(cx, fields)?;
                 if !cx.unify(&ty, expected)? {

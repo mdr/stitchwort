@@ -67,6 +67,27 @@ the light of:
   annotation (`({ x = 0, y = 0 } : Point)`). When anonymous records arrive,
   this case becomes an anonymous record, so no working program changes
   meaning. No guessing from field names.
+
+  *As built (SW-805, D1442, D1991): reversed.* Where nothing says a
+  literal's type, it is the one record type visible by its short name whose
+  fields are exactly the literal's, with its parameters inferred; none or
+  several is still `E-CANNOT-INFER`, naming the candidates
+  (`records::infer_literal`). "Nothing says" is the expected type being an
+  unknown, and no construct around the literal that would take the type
+  from another part: the sides of `==` and the other comparisons, `a ++ b`,
+  and a `calc`'s first term try that part with the rule held back, and use
+  the rule only if the construct then fails (`records::last_resort`). So
+  every program that elaborated before elaborates to the same terms and
+  hashes. Without that, `f 1 == Some ({ value = v })` took the right side's
+  type from the field names and checked `f 1` against it (the comparison
+  infers literal-free sides first), changing two hashes of
+  `examples/accept/safe-fields.sw`, and rejecting the comparison where the
+  field names name a different type from `f`'s
+  (`examples/accept/record-literal-inferred.sw`). The rule is a
+  name-resolution rule, like GHC proposal 366's rule 4: it looks only at the
+  literal's field names and the names in scope at the literal, never at
+  types learned later in elaboration (R1, `docs/research/elaboration.md`
+  §5.3); holding it back changes only whether it is used.
 - **U7, reading and updating only.** Adding and removing fields are deferred
   with the row work; if ever wanted, build the "lacks" machinery once and
   share it with ability rows.
