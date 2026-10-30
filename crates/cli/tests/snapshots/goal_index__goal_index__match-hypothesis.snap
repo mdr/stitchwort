@@ -1,0 +1,48 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "h",
+          "type": "List.length xs = Succ k"
+        },
+        {
+          "name": "k",
+          "type": "Nat"
+        }
+      ],
+      "target": "Text"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "xs: List Nat\nh: List.length xs = Succ k\nk: Nat\n⊢ Text",
+        "range": [
+          4,
+          14,
+          4,
+          15
+        ]
+      }
+    ],
+    "message": "in `describe`",
+    "notes": [],
+    "range": [
+      4,
+      14,
+      4,
+      15
+    ],
+    "severity": "goal"
+  }
+]

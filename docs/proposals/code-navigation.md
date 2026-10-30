@@ -47,11 +47,11 @@ name, kind, name position, whole-declaration range, and the declaration it
 sits in (a constructor or field in its type, an operation in its ability).
 Local definitions aren't listed (they are binders).
 
-## Format (`"version": 2`)
+## Format (`"version": 3`)
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "errors": false,
   "files": [
     {"path": "Main/Main.sw"},
@@ -119,7 +119,69 @@ Local definitions aren't listed (they are binders).
   (`E-TYPE-MISMATCH`), `message` (the main text), `labels` (each `file`,
   `range` and `message`; the first is where the diagnostic is, and `file` and
   `range` of the diagnostic are its range, absent if it has no label), and
-  `notes` (plain strings). A label's file may be a library file.
+  `notes` (plain strings). A label's file may be a library file. An open
+  goal, `?`, has `severity` `goal` and code `GOAL`, and two more members
+  (below); any diagnostic may have `counterexample`.
+
+### Goals (version 3)
+
+Agents read goals and diagnostics more than anything else
+(docs/research/agentic-proving.md T3, §7.3). So a goal comes as data as well
+as text. Its label is unchanged: the names in scope a line each, then
+`⊢ target`. Beside it:
+
+```json
+{"severity": "goal", "code": "GOAL", "message": "in `doubleIsSquare`",
+ "file": 0, "range": [2, 50, 2, 51],
+ "labels": [{"file": 0, "range": [2, 50, 2, 51], "message": "n: Nat\n⊢ n + n = n * n"}],
+ "notes": ["this statement is false; a counterexample:\n  n = 1\n`n + n = n * n` is false:\n  left:  2\n  right: 1"],
+ "goal": {"hypotheses": [{"name": "n", "type": "Nat"}],
+          "target": "n + n = n * n",
+          "lemma": "theorem doubleIsSquareGoal1 (n: Nat): n + n = n * n := ?"},
+ "counterexample": {"verdict": "false", "types": [],
+                    "bindings": [{"name": "n", "value": "1"}]}}
+```
+
+- `goal.hypotheses`: the names in scope, in the label's order: `name`,
+  `type`, and `value` for a `let` of data (a `let` of a proof shows only its
+  statement). `goal.target`: what must be shown, as after `⊢` (`(the type
+  here isn't known yet)` if it isn't). Each is printed as the label prints
+  it, so the label is exactly the lines `name: type` (or `name: type :=
+  value`) and `⊢ target`. A name shown as `n✝` can't be written there.
+- `goal.lemma`, when present: the goal as a declaration of its own, to paste
+  at the top level of the same file (after the declaration, in the same
+  namespace): `theorem <decl>Goal<i> (h: T) …: target := ?`, or `def` when the
+  target is data, not a proposition. `<decl>` is the declaration's name less
+  its namespace and `<i>` the goal's place among the declaration's goals,
+  from 1 (`goal<i>` in a test). Each hypothesis becomes an explicit
+  parameter (an implicit `a: Type` too); a type that starts with a record
+  update is put in brackets. Checked, it is a goal with the same hypotheses
+  and target (`crates/cli/tests/goal_index.rs` checks this for every lemma of
+  `examples/goals/`). It is left out when it might not mean the same at the
+  top level:
+  - a `let` of data is in scope (the lemma would lose its value);
+  - a name can't be written: a hypothesis named `n✝` or `%x`, a compiler-made
+    name in the text, or a declaration or constructor the printer names in a
+    way the top level can't resolve (`List.count` without `import Std
+    (List)`; one shown as notation, `+` or a record update, is fine);
+  - it mentions a variable the goal doesn't show (one bound as `_`), or a
+    hypothesis's type mentions a later hypothesis (a case split can refine an
+    earlier one's type);
+  - part of it isn't shown in full (`…`) or isn't known (`?`), or whether the
+    target is a proposition wasn't known when the hole was checked.
+  The name may already be taken; rename it then.
+- `counterexample`: on the diagnostic whose note says the counterexample
+  search found one (the first error of a failed theorem, or the goal of a
+  proof that is wholly `?`): `verdict` (`"false"`: the statement is false, as
+  `check --counterexamples` names it), `types` (each type parameter `name`,
+  and the `type` it was tried at, `Nat`), and `bindings` (each input's `name`
+  and `value`, as the note shows them). The note itself is unchanged.
+
+On the command line (not in the index), a line of a goal longer than 400
+characters is cut in the middle, keeping 200 characters at each end and
+saying how many it leaves out: `…[203 characters left out; --full-goals
+shows them]…`. `--full-goals` (any command) shows goals in full. The index
+always has the whole text.
 
 To go to a definition: find the ref whose range contains the cursor, follow
 `symbol` or `binder`. To hover: show the ref's `type` (and `symbols[i].name`).

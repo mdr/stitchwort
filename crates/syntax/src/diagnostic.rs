@@ -29,6 +29,45 @@ pub struct Diagnostic {
     pub message: String,
     pub labels: Vec<Label>,
     pub notes: Vec<String>,
+    /// For a goal: its hypotheses and target, each printed apart, for the
+    /// code navigation index (docs/proposals/code-navigation.md).
+    pub goal: Option<Box<GoalData>>,
+    /// A counterexample to the statement, when one of the notes says the
+    /// statement is false: its bindings, for the index.
+    pub counterexample: Option<Box<Counterexample>>,
+}
+
+/// A goal as data: what its label shows, each part printed alone.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GoalData {
+    pub hypotheses: Vec<Hypothesis>,
+    /// What must be shown, as after `⊢`.
+    pub target: String,
+    /// The goal as a declaration of its own, to paste at the top level of
+    /// the file (`theorem fGoal1 (n: Nat): n + 0 = n := ?`), when every
+    /// name in it means there what it means at the goal.
+    pub lemma: Option<String>,
+}
+
+/// One name in scope at a goal.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Hypothesis {
+    pub name: String,
+    pub ty: String,
+    /// For a `let` of data, its value.
+    pub value: Option<String>,
+}
+
+/// A counterexample the search found, as the note shows it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Counterexample {
+    /// `"false"`: the statement is false (the verdict as
+    /// `check --counterexamples` names it).
+    pub verdict: &'static str,
+    /// Each type parameter, and the type it was tried at (`Nat`).
+    pub types: Vec<(String, String)>,
+    /// Each input's name and value.
+    pub bindings: Vec<(String, String)>,
 }
 
 impl Diagnostic {
@@ -51,6 +90,8 @@ impl Diagnostic {
             message: message.into(),
             labels: Vec::new(),
             notes: Vec::new(),
+            goal: None,
+            counterexample: None,
         }
     }
 

@@ -28,7 +28,16 @@ struct Cli {
     /// `STITCHWORT_STD_DIR` does the same; this wins
     #[arg(long, global = true, value_name = "DIR")]
     std_dir: Option<PathBuf>,
+    /// Show each goal in full. Without it, a line of a goal (a hypothesis,
+    /// or the target) longer than 400 characters is cut in the middle,
+    /// saying how much is left out; `check --index` always has the whole
+    /// goal
+    #[arg(long, global = true)]
+    full_goals: bool,
 }
+
+/// Whether goals are shown in full (`--full-goals`).
+static FULL_GOALS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// A session for the compiler thread.
 fn new_session(navigation: bool) -> Session {
@@ -376,6 +385,7 @@ fn exit_quietly_on_broken_pipe() {
 fn main() -> ExitCode {
     exit_quietly_on_broken_pipe();
     let cli = Cli::parse();
+    FULL_GOALS.store(cli.full_goals, std::sync::atomic::Ordering::Relaxed);
     if let Some(dir) = &cli.std_dir
         && let Err(e) = stitchwort_elab::use_std_dir(dir)
     {
@@ -2542,7 +2552,16 @@ fn relative_path(from: &Path, path: &Path) -> String {
 
 fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
     let color = std::io::stderr().is_terminal();
+    let full_goals = FULL_GOALS.load(std::sync::atomic::Ordering::Relaxed);
     for diagnostic in diagnostics {
-        eprint!("{}", render(sources, diagnostic, color));
+        if diagnostic.severity == Severity::Goal && !full_goals {
+            let cut = stitchwort_cli::render::with_long_goal_lines_cut(
+                diagnostic,
+                stitchwort_cli::render::GOAL_LINE_LIMIT,
+            );
+            eprint!("{}", render(sources, &cut, color));
+        } else {
+            eprint!("{}", render(sources, diagnostic, color));
+        }
     }
 }

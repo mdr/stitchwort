@@ -1,0 +1,76 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "def pairGoal1 (n: Nat): Nat := ?",
+      "target": "Nat"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ Nat",
+        "range": [
+          1,
+          35,
+          1,
+          36
+        ]
+      }
+    ],
+    "message": "in `pair`",
+    "notes": [],
+    "range": [
+      1,
+      35,
+      1,
+      36
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "def pairGoal2 (n: Nat): Text := ?",
+      "target": "Text"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ Text",
+        "range": [
+          1,
+          38,
+          1,
+          39
+        ]
+      }
+    ],
+    "message": "in `pair`",
+    "notes": [],
+    "range": [
+      1,
+      38,
+      1,
+      39
+    ],
+    "severity": "goal"
+  }
+]

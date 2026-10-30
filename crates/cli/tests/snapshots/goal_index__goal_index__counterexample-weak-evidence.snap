@@ -1,0 +1,45 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "h",
+          "type": "increasing xs = True"
+        }
+      ],
+      "lemma": "theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs = True): List.length xs ≤ 5 := ?",
+      "target": "List.length xs ≤ 5"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "xs: List Nat\nh: increasing xs = True\n⊢ List.length xs ≤ 5",
+        "range": [
+          13,
+          83,
+          13,
+          84
+        ]
+      }
+    ],
+    "message": "in `shortIncreasing`",
+    "notes": [],
+    "range": [
+      13,
+      83,
+      13,
+      84
+    ],
+    "severity": "goal"
+  }
+]

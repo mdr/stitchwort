@@ -78,6 +78,51 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
     out
 }
 
+/// The longest a line of a goal (a hypothesis, or the target) is shown in
+/// full on the command line: a longer one keeps its first and last
+/// [`GOAL_LINE_LIMIT`]` / 2` characters, and says how many it leaves out
+/// (`--full-goals` shows them all; the index always has them). A goal is
+/// a few lines; one line of thousands of characters is a term the reader
+/// will search, not read, and six of them were 30 KB of output
+/// (docs/research/agentic-proving.md §5 B).
+pub const GOAL_LINE_LIMIT: usize = 400;
+
+/// `diagnostic`, if it's a goal, with each line of its label longer than
+/// `limit` characters cut in the middle ([`GOAL_LINE_LIMIT`]).
+pub fn with_long_goal_lines_cut(diagnostic: &Diagnostic, limit: usize) -> Diagnostic {
+    let mut d = diagnostic.clone();
+    if d.severity != Severity::Goal {
+        return d;
+    }
+    for label in &mut d.labels {
+        let lines: Vec<String> = label
+            .message
+            .lines()
+            .map(|line| cut_middle(line, limit))
+            .collect();
+        label.message = lines.join("\n");
+    }
+    d
+}
+
+/// `line` if it has no more than `limit` characters; else its first and
+/// last `limit / 2`, and how many are left out between.
+fn cut_middle(line: &str, limit: usize) -> String {
+    let count = line.chars().count();
+    if count <= limit {
+        return line.to_string();
+    }
+    let keep = limit / 2;
+    let head: String = line.chars().take(keep).collect();
+    let tail: String = line.chars().skip(count - keep).collect();
+    format!(
+        "{} …[{} characters left out; --full-goals shows them]… {}",
+        head.trim_end(),
+        count - 2 * keep,
+        tail.trim_start()
+    )
+}
+
 /// `text` without its terminal colour codes.
 fn without_colour(text: &str) -> String {
     let mut out = String::with_capacity(text.len());

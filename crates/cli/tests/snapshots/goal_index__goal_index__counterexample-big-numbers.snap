@@ -1,0 +1,84 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "count",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem doubleTimesHalvedGoal1 (n: Nat) (count: Nat): Nat.shiftRight (doubleTimes n count) count = n := ?",
+      "target": "Nat.shiftRight (doubleTimes n count) count = n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\ncount: Nat\n⊢ Nat.shiftRight (doubleTimes n count) count = n",
+        "range": [
+          14,
+          99,
+          14,
+          100
+        ]
+      }
+    ],
+    "message": "in `doubleTimesHalved`",
+    "notes": [],
+    "range": [
+      14,
+      99,
+      14,
+      100
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "fuel",
+          "type": "Nat"
+        },
+        {
+          "name": "k",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem powTwoIsPowGoal1 (fuel: Nat) (k: Nat): powTwo fuel k = Nat.pow 2 k := ?",
+      "target": "powTwo fuel k = Nat.pow 2 k"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "fuel: Nat\nk: Nat\n⊢ powTwo fuel k = Nat.pow 2 k",
+        "range": [
+          25,
+          73,
+          25,
+          74
+        ]
+      }
+    ],
+    "message": "in `powTwoIsPow`",
+    "notes": [],
+    "range": [
+      25,
+      73,
+      25,
+      74
+    ],
+    "severity": "goal"
+  }
+]

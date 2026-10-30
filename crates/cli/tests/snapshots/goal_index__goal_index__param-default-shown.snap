@@ -1,0 +1,200 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Nat"
+        },
+        {
+          "name": "b",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem rangeGoalGoal1 (a: Nat) (b: Nat): range a b = [a, b, 1] := ?",
+      "target": "range a b = [a, b, 1]"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Nat\nb: Nat\n⊢ range a b = [a, b, 1]",
+        "range": [
+          10,
+          62,
+          10,
+          63
+        ]
+      }
+    ],
+    "message": "in `rangeGoal`",
+    "notes": [],
+    "range": [
+      10,
+      62,
+      10,
+      63
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem scaledGoalGoal1 (a: Nat): scaled a = a + (a * 2) := ?",
+      "target": "scaled a = a + (a * 2)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Nat\n⊢ scaled a = a + (a * 2)",
+        "range": [
+          12,
+          53,
+          12,
+          54
+        ]
+      }
+    ],
+    "message": "in `scaledGoal`",
+    "notes": [],
+    "range": [
+      12,
+      53,
+      12,
+      54
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "E-REFL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "a",
+          "value": "0"
+        },
+        {
+          "name": "b",
+          "value": "0"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "`range a b` and `[a, b, 2]` aren't equal",
+        "range": [
+          14,
+          63,
+          14,
+          66
+        ]
+      }
+    ],
+    "message": "`rfl` can't prove this",
+    "notes": [
+      "computing the left side gives `[a, b, 1]`",
+      "`rfl` proves `a = b` only when both sides compute to the same value",
+      "this statement is false; a counterexample:\n  a = 0\n  b = 0\n`range a b = [a, b, 2]` is false:\n  left:  [0, 0, 1]\n  right: [0, 0, 2]\n  first difference at [2]: 1 vs 2"
+    ],
+    "range": [
+      14,
+      63,
+      14,
+      66
+    ],
+    "severity": "error"
+  },
+  {
+    "code": "E-REFL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "a",
+          "value": "1"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "`scaled a` and `a` aren't equal",
+        "range": [
+          16,
+          46,
+          16,
+          49
+        ]
+      }
+    ],
+    "message": "`rfl` can't prove this",
+    "notes": [
+      "computing the left side gives `a + (a * 2)`",
+      "`rfl` proves `a = b` only when both sides compute to the same value",
+      "this statement is false; a counterexample:\n  a = 1\n`scaled a = a` is false:\n  left:  3\n  right: 1"
+    ],
+    "range": [
+      16,
+      46,
+      16,
+      49
+    ],
+    "severity": "error"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "k",
+          "type": "Nat"
+        },
+        {
+          "name": "m",
+          "type": "Nat"
+        }
+      ],
+      "target": "inner m = m + (k + m)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "k: Nat\nm: Nat\n⊢ inner m = m + (k + m)",
+        "range": [
+          21,
+          51,
+          21,
+          52
+        ]
+      }
+    ],
+    "message": "in `outer`",
+    "notes": [],
+    "range": [
+      21,
+      51,
+      21,
+      52
+    ],
+    "severity": "goal"
+  }
+]

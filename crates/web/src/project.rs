@@ -541,7 +541,7 @@ mod tests {
             ];
             let index = check_index_project(PROJECT, paths, texts, "");
             assert!(
-                index.starts_with(r#"{"version":2,"errors":false,"ok":true,"files":["#),
+                index.starts_with(r#"{"version":3,"errors":false,"ok":true,"files":["#),
                 "{index}"
             );
             assert!(index.contains(r#"{"path":"src/B/B.sw"}"#), "{index}");

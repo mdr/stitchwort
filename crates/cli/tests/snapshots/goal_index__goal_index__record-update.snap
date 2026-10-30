@@ -1,0 +1,134 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "shape",
+          "type": "Shape"
+        },
+        {
+          "name": "newId",
+          "type": "Text"
+        }
+      ],
+      "target": "{ shape | id = Text.append newId \"!\" }.ref = shape.ref"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "shape: Shape\nnewId: Text\n⊢ { shape | id = Text.append newId \"!\" }.ref = shape.ref",
+        "range": [
+          12,
+          2,
+          12,
+          3
+        ]
+      }
+    ],
+    "message": "in `renamedKeepsRef`",
+    "notes": [],
+    "range": [
+      12,
+      2,
+      12,
+      3
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "shape",
+          "type": "Shape"
+        },
+        {
+          "name": "other",
+          "type": "Shape"
+        },
+        {
+          "name": "newId",
+          "type": "Text"
+        },
+        {
+          "name": "newRef",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem renamedTwiceGoal1 (shape: Shape) (other: Shape) (newId: Text) (newRef: Nat): ({ pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }) := ?",
+      "target": "{ pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "shape: Shape\nother: Shape\nnewId: Text\nnewRef: Nat\n⊢ { pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }",
+        "range": [
+          16,
+          2,
+          16,
+          3
+        ]
+      }
+    ],
+    "message": "in `renamedTwice`",
+    "notes": [],
+    "range": [
+      16,
+      2,
+      16,
+      3
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "player",
+          "type": "Player"
+        },
+        {
+          "name": "amount",
+          "type": "Nat"
+        },
+        {
+          "name": "same",
+          "type": "{ player | gold = amount } = player"
+        }
+      ],
+      "lemma": "theorem paidGoal1 (player: Player) (amount: Nat) (same: ({ player | gold = amount } = player)): ({ player | hitPoints = 3, gold = amount } = { player | hitPoints = 3 }) := ?",
+      "target": "{ player | hitPoints = 3, gold = amount } = { player | hitPoints = 3 }"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "player: Player\namount: Nat\nsame: { player | gold = amount } = player\n⊢ { player | hitPoints = 3, gold = amount } = { player | hitPoints = 3 }",
+        "range": [
+          20,
+          2,
+          20,
+          3
+        ]
+      }
+    ],
+    "message": "in `paid`",
+    "notes": [],
+    "range": [
+      20,
+      2,
+      20,
+      3
+    ],
+    "severity": "goal"
+  }
+]

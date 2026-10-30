@@ -1,0 +1,52 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
+---
+32 lemmas, 14 goals without one
+
+beside-error goal 1: theorem zeroMulGoal1: 0 = 0 := ?
+call-under-binder goal 1: theorem shownGoal1 (xs: List Nat): List.any xs isSmall = List.any xs (n => isSmall n) := ?
+constant-by-name goal 1: theorem healedAtMostGoal1 (hitPoints: Nat) (rooms: List Nat) (same: rooms = startingRooms): healed hitPoints ≤ maxHitPoints := ?
+counterexample-at-hole goal 1: theorem doubleIsSquareGoal1 (n: Nat): n + n = n * n := ?
+counterexample-big-numbers goal 1: theorem doubleTimesHalvedGoal1 (n: Nat) (count: Nat): Nat.shiftRight (doubleTimes n count) count = n := ?
+counterexample-big-numbers goal 2: theorem powTwoIsPowGoal1 (fuel: Nat) (k: Nat): powTwo fuel k = Nat.pow 2 k := ?
+counterexample-out-of-steps goal 1: theorem slowGoal1 (n: Nat): countDown (Nat.max n 100000000) = 1 := ?
+counterexample-weak-evidence goal 1: theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs = True): List.length xs ≤ 5 := ?
+implicit-parameter goal 1: def identityGoal1 (a: Type) (x: a): a := ?
+implicit-parameter goal 2: theorem symmetricGoal1 (a: Type) (x: a) (y: a) (h: x = y): y = x := ?
+inferring-position goal 1: no lemma
+lemma-used-later goal 1: theorem addZeroGoal1 (n: Nat): n = n := ?
+let-proofs goal 1: no lemma
+let-values goal 1: no lemma
+logic-notation goal 1: theorem shownGoal1 (x: Nat) (y: Nat) (xs: List Nat) (p: Prop) (ne: x ≠ y) (out: y ∉ xs) (np: ¬p): (x ∈ xs ↔ p) ∧ (∃ (n: Nat) => n ≤ x ∨ n = y) := ?
+match-branches goal 1: theorem addZeroGoal1: 0 = 0 := ?
+match-branches goal 2: theorem addZeroGoal2 (k: Nat): Succ k = Succ k := ?
+match-hypothesis goal 1: no lemma
+match-hypothesis-folded goal 1: theorem steppedGoal1 (row: Nat) (column: Nat) (wall: isWall row column = False): row = row := ?
+match-unnamed-fields goal 1: no lemma
+match-unnamed-fields goal 2: no lemma
+operators-and-names goal 1: theorem onNatGoal1 (a: Nat) (b: Nat): (a < b && b <= a + 3 || b < a) = (gentle a b || b < a) := ?
+operators-and-names goal 2: theorem onIntGoal1 (a: Int) (b: Int) (h: a < b) (k: a ≤ b): (a < b && a <= b) = True := ?
+operators-and-names goal 3: theorem throughOrdGoal1 (t: Type) (ord: Ord t) (a: t) (b: t) (h: a < b): (a <= b || a < b) = True := ?
+operators-and-names goal 4: theorem hiddenGoal1 (count: Nat): count + 3 = count + 3 := ?
+param-default-shown goal 1: theorem rangeGoalGoal1 (a: Nat) (b: Nat): range a b = [a, b, 1] := ?
+param-default-shown goal 2: theorem scaledGoalGoal1 (a: Nat): scaled a = a + (a * 2) := ?
+param-default-shown goal 3: no lemma
+proof-hole goal 1: theorem addZeroGoal1 (n: Nat): n = n := ?
+record-update goal 1: no lemma
+record-update goal 2: theorem renamedTwiceGoal1 (shape: Shape) (other: Shape) (newId: Text) (newRef: Nat): ({ pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }) := ?
+record-update goal 3: theorem paidGoal1 (player: Player) (amount: Nat) (same: ({ player | gold = amount } = player)): ({ player | hitPoints = 3, gold = amount } = { player | hitPoints = 3 }) := ?
+reify-return goal 1: no lemma
+reify-return goal 2: no lemma
+reify-return goal 3: no lemma
+sections goal 1: no lemma
+sections goal 2: no lemma
+step-then-folded goal 1: theorem stepsAtOnceGoal1 (a: Nat) (b: Nat): concatenate a b = concatenate a b := ?
+sums-as-written goal 1: theorem plusOneGoal1 (x: Nat): x + 1 = x + 1 := ?
+sums-as-written goal 2: theorem plusThreeGoal1 (x: Nat) (y: Nat): x + 3 = y + x + 2 := ?
+sums-as-written goal 3: theorem writtenGoal1 (n: Nat): Succ n = Succ (Succ n) := ?
+sums-as-written goal 4: theorem matchedGoal1 (m: Nat): Succ m = 0 := ?
+test-hole goal 1: no lemma
+two-holes goal 1: def pairGoal1 (n: Nat): Nat := ?
+two-holes goal 2: def pairGoal2 (n: Nat): Text := ?
+undone-attempt goal 1: def firstDoubledGoal1 (xs: List Nat) (x: Nat): Nat := ?

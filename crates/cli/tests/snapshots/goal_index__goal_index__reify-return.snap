@@ -1,0 +1,164 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Type"
+        },
+        {
+          "name": "b",
+          "type": "Type"
+        },
+        {
+          "name": "t",
+          "type": "() → {Fail} a"
+        },
+        {
+          "name": "k",
+          "type": "a → {Fail} b"
+        },
+        {
+          "name": "y",
+          "type": "a"
+        }
+      ],
+      "target": "Fail.toResult (arg => k y) = Result.flatMap (Fail.toResult (() => Done y)) (x => Fail.toResult (arg => k x))"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Type\nb: Type\nt: () → {Fail} a\nk: a → {Fail} b\ny: a\n⊢ Fail.toResult (arg => k y) = Result.flatMap (Fail.toResult (() => Done y)) (x => Fail.toResult (arg => k x))",
+        "range": [
+          8,
+          18,
+          8,
+          19
+        ]
+      }
+    ],
+    "message": "in `toResultThen`",
+    "notes": [],
+    "range": [
+      8,
+      18,
+      8,
+      19
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Type"
+        },
+        {
+          "name": "b",
+          "type": "Type"
+        },
+        {
+          "name": "t",
+          "type": "() → {Fail} a"
+        },
+        {
+          "name": "k",
+          "type": "a → {Fail} b"
+        },
+        {
+          "name": "rest✝",
+          "type": "Empty → {Fail} a"
+        },
+        {
+          "name": "msg",
+          "type": "Text"
+        }
+      ],
+      "target": "Err msg = Err msg"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Type\nb: Type\nt: () → {Fail} a\nk: a → {Fail} b\nrest✝: Empty → {Fail} a\nmsg: Text\n⊢ Err msg = Err msg",
+        "range": [
+          9,
+          26,
+          9,
+          27
+        ]
+      }
+    ],
+    "message": "in `toResultThen`",
+    "notes": [],
+    "range": [
+      9,
+      26,
+      9,
+      27
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Type"
+        },
+        {
+          "name": "b",
+          "type": "Type"
+        },
+        {
+          "name": "f",
+          "type": "a → {Fail} b"
+        },
+        {
+          "name": "x",
+          "type": "a"
+        },
+        {
+          "name": "xs",
+          "type": "List a"
+        },
+        {
+          "name": "y",
+          "type": "b"
+        }
+      ],
+      "target": "Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => k (Effect.runPure (Call o (y => Done y))))) (Effect.bind (List.map xs f) (x1 => Done (Cons y x1))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (arg => f z))) (tail => Cons y tail))"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Type\nb: Type\nf: a → {Fail} b\nx: a\nxs: List a\ny: b\n⊢ Effect.foldComp (x => Ok x) (Effect.handlePlus (Fail.%elim (msg k => Err msg)) (o k => k (Effect.runPure (Call o (y => Done y))))) (Effect.bind (List.map xs f) (x1 => Done (Cons y x1))) = Result.flatMap (Fail.toResult (() => Done y)) (y => Result.map (Result.traverse xs (z => Fail.toResult (arg => f z))) (tail => Cons y tail))",
+        "range": [
+          21,
+          20,
+          21,
+          21
+        ]
+      }
+    ],
+    "message": "in `toResultMap`",
+    "notes": [],
+    "range": [
+      21,
+      20,
+      21,
+      21
+    ],
+    "severity": "goal"
+  }
+]
