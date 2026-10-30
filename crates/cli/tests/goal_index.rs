@@ -276,6 +276,17 @@ fn printed_goals_paste_back_as_lemmas() {
              (xs.map (n => n + 1)).length = xs.length := ?\n"
                 .to_string(),
         ),
+        // `==` is printed as `==` where it decides by a definition of the
+        // two sides (`Nat.decEq`, a record's derived one); a list's
+        // decision, which takes its items' as an argument, as it is.
+        (
+            "equations",
+            "type Item = { id: Nat }\n\n\
+             theorem decided (xs: List Nat) (b: Bool) (i: Int) (c: Char) (s: Text) (it: Item): \
+             (b == True) = (i == 0) ∧ (c == 'a') = (s == \"x\") ∧ (it == it) = True \
+             ∧ (xs == []) = True := ?\n"
+                .to_string(),
+        ),
     ];
     let mut shown = Vec::new();
     for (name, text) in cases {

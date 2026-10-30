@@ -67,7 +67,7 @@ expression: json
         {
           "name": "found",
           "type": "List Item",
-          "value": "Std.List.filter items (x => Std.Decidable.toBool (Std.Nat.decEq x.id id))"
+          "value": "Std.List.filter items (x => x.id == id)"
         }
       ],
       "target": "Nat"
@@ -75,7 +75,7 @@ expression: json
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\nitems: List Item\nid: Nat\nn: Nat\nmatching: Nat := Std.List.count xs (== id)\nflipped: Nat := Std.List.count xs (id ==)\nothers: Nat := Std.List.count xs (!= id)\nnext: List Nat := Std.List.map xs (+ 1)\ndoubled: List Nat := Std.List.map xs (n * 2 +)\nsmall: List Nat := Std.List.filter xs (< n)\nlarge: List Nat := Std.List.filter xs (n <)\ntotal: Nat := Std.List.foldLeft xs 0 (+)\nfound: List Item := Std.List.filter items (x => Std.Decidable.toBool (Std.Nat.decEq x.id id))\n⊢ Nat",
+        "message": "xs: List Nat\nitems: List Item\nid: Nat\nn: Nat\nmatching: Nat := Std.List.count xs (== id)\nflipped: Nat := Std.List.count xs (id ==)\nothers: Nat := Std.List.count xs (!= id)\nnext: List Nat := Std.List.map xs (+ 1)\ndoubled: List Nat := Std.List.map xs (n * 2 +)\nsmall: List Nat := Std.List.filter xs (< n)\nlarge: List Nat := Std.List.filter xs (n <)\ntotal: Nat := Std.List.foldLeft xs 0 (+)\nfound: List Item := Std.List.filter items (x => x.id == id)\n⊢ Nat",
         "range": [
           15,
           2,

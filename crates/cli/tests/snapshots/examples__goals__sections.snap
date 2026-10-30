@@ -19,7 +19,7 @@ expression: output
     │       small: List Nat := Std.List.filter xs (< n)
     │       large: List Nat := Std.List.filter xs (n <)
     │       total: Nat := Std.List.foldLeft xs 0 (+)
-    │       found: List Item := Std.List.filter items (x => Std.Decidable.toBool (Std.Nat.decEq x.id id))
+    │       found: List Item := Std.List.filter items (x => x.id == id)
     │       ⊢ Nat
 ────╯
 [GOAL] Goal: in `countBelow`
