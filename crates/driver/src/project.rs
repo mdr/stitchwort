@@ -781,6 +781,14 @@ pub fn cycle_diagnostic(analysis: &Analysis, chain: &[String]) -> Diagnostic {
 #[serde(deny_unknown_fields)]
 struct RawConfig {
     sources: Option<Vec<String>>,
+    audit: Option<RawAudit>,
+}
+
+/// `audit:` in `stitchwort.yaml` (SW-912).
+#[derive(serde::Deserialize, Default)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct RawAudit {
+    allowed_axioms: Option<Vec<String>>,
 }
 
 /// What `stitchwort.yaml` says (docs/proposals/multi-file.md §5).
@@ -788,6 +796,10 @@ struct RawConfig {
 pub struct Config {
     /// Normalised, relative to the project folder; "" is the project folder.
     pub sources: Vec<String>,
+    /// The axioms `stitchwort audit` allows (`audit: allowed-axioms:`), if
+    /// the project lists them; `None` means the default
+    /// (`audit::DEFAULT_ALLOWED`).
+    pub allowed_axioms: Option<Vec<String>>,
 }
 
 fn config_error(display: &str, what: impl std::fmt::Display) -> Diagnostic {
@@ -839,8 +851,24 @@ pub fn parse_config(file: FileId, display: &str, text: &str) -> Result<Config, D
             normalised.push(path);
         }
     }
+    let allowed_axioms = raw.audit.and_then(|a| a.allowed_axioms);
+    if let Some(unknown) = allowed_axioms
+        .iter()
+        .flat_map(crate::audit::unknown_axioms)
+        .next()
+    {
+        return Err(config_error(
+            display,
+            format!("`audit: allowed-axioms:` lists `{unknown}`, which isn't an axiom"),
+        )
+        .with_note(format!(
+            "the axioms are {}",
+            crate::audit::AXIOMS.join(", ")
+        )));
+    }
     Ok(Config {
         sources: normalised,
+        allowed_axioms,
     })
 }
 

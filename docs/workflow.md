@@ -102,3 +102,22 @@ own tickets as described in [board/README.md](../board/README.md).
 - Design detail lives in `DESIGN.md` and `docs/proposals/`; tickets only
   track what is to do and why. Finished work is in git log;
   [history.md](history.md) keeps what the old `TODO.md` recorded as done.
+
+### How a proof lane finishes
+
+A lane that adds or changes theorems (AoC proofs, the roguelike's, std's)
+runs `stitchwort audit` on the namespaces it touched before it reports
+(SW-912, D2040), from the project folder: `stitchwort audit
+Aoc.Year2024.Day06`, `stitchwort audit Rogue.Proofs`, or `stitchwort audit
+Std.List` for std ([syntax.md](syntax.md#auditing-theorems-stitchwort-audit)).
+
+- A failure (`✗`: an axiom beyond the allowed ones, an unfinished theorem,
+  or a counterexample) is fixed before reporting, or listed under "Not
+  proved".
+- A warning (`!`: hypotheses no input satisfied) is read. If the
+  hypotheses really contradict each other, the theorem proves nothing:
+  fix its statement, or say so in the report. If they are only narrow (a
+  monster at exactly the given cell), say so in a line.
+- The report quotes the summary line (`audited N theorems: …`).
+
+`audit` isn't in `task test:merge` yet.
