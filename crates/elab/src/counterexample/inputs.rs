@@ -66,6 +66,28 @@ const FLOAT_EDGES: [f64; 8] = [
 /// The values of one type of one size.
 type Tier = Rc<Vec<Term>>;
 
+/// How large an input is (SW-903).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Size {
+    /// Its size as enumeration counts it: [`Inputs::enumerate`] makes it
+    /// among the inputs of this total.
+    pub total: usize,
+    /// How many of its constructors have data fields (a list's length, a
+    /// tree's nodes): its total without its numbers, characters and the
+    /// like, whose magnitude can make an input large that is small in
+    /// shape (a list of one large number).
+    pub shape: usize,
+}
+
+impl Size {
+    fn plus(self, other: Size) -> Size {
+        Size {
+            total: self.total.saturating_add(other.total),
+            shape: self.shape.saturating_add(other.shape),
+        }
+    }
+}
+
 /// One field of a constructor.
 #[derive(Clone)]
 enum Field {
@@ -787,6 +809,96 @@ impl<'g> Inputs<'g> {
                     }
                 }
                 None
+            }
+        }
+    }
+
+    // Sizes (SW-903).
+
+    /// The size of a tuple of inputs for `plans`: the sum of theirs.
+    pub fn size_tuple(&self, plans: &[usize], input: &[Term]) -> Size {
+        plans
+            .iter()
+            .zip(input)
+            .fold(Size::default(), |total, (plan, value)| {
+                total.plus(self.size(*plan, value))
+            })
+    }
+
+    /// The size of input `value` of plan `plan`. Its total is as
+    /// [`Inputs::tier`] counts it: a number its value (an `Int`'s
+    /// `NegSucc n` `n + 1`), a `Char` or `Float` its tier (outside them, its
+    /// code or magnitude), a `Fin` its number, a `Vec` or `Map` the sum of
+    /// its elements', and a constructor 1 more than the sum of its data
+    /// fields' (0 without any). Its shape counts only the constructors with
+    /// data fields. Values drawn at random past a size (an edge number)
+    /// count at their own size, saturating.
+    fn size(&self, plan: usize, value: &Term) -> Size {
+        let value = value.strip_loc();
+        let atom = |total: usize| Size { total, shape: 0 };
+        let nat = |n: &BigUint| usize::try_from(n).unwrap_or(usize::MAX);
+        match &self.plans[plan] {
+            Plan::Pending | Plan::Failed => Size::default(),
+            Plan::Nat => atom(nat_of(value).map_or(0, nat)),
+            Plan::Int { .. } => atom(match value {
+                Term::Ctor(_, c, fields) => fields
+                    .first()
+                    .and_then(|f| nat_of(f))
+                    .map_or(0, |n| nat(n).saturating_add(*c)),
+                _ => 0,
+            }),
+            Plan::Char { .. } => atom(char_code(value).map_or(0, |code| {
+                ALPHABET
+                    .iter()
+                    .position(|c| *c as u32 == code)
+                    .unwrap_or(code as usize)
+            })),
+            Plan::Float { .. } => atom(float_of(value).map_or(0, |x| {
+                FLOAT_TIERS
+                    .iter()
+                    .position(|xs| xs.iter().any(|y| y.to_bits() == x.to_bits()))
+                    .unwrap_or_else(|| {
+                        if x.is_finite() {
+                            // Saturates past `usize::MAX`.
+                            x.abs().ceil() as usize
+                        } else {
+                            usize::MAX
+                        }
+                    })
+            })),
+            Plan::Fin { .. } => {
+                let (_, args) = value.spine();
+                atom(args.get(1).and_then(|i| nat_of(i)).map_or(0, nat))
+            }
+            Plan::Vec { elem, layout, .. } => vec_items(value, *layout)
+                .iter()
+                .fold(Size::default(), |total, item| {
+                    total.plus(self.size(*elem, item))
+                }),
+            Plan::Map { list, .. } => match value {
+                Term::App(_, xs, _) => self.size(*list, xs),
+                _ => Size::default(),
+            },
+            Plan::Data { ctors, .. } => {
+                let Term::Ctor(_, c, fields) = value else {
+                    return Size::default();
+                };
+                let Some(kinds) = ctors.get(*c) else {
+                    return Size::default();
+                };
+                let mut parts = kinds
+                    .iter()
+                    .zip(fields)
+                    .filter_map(|(k, f)| match k {
+                        Field::Data(p) => Some(self.size(*p, f)),
+                        Field::Proof(_) => None,
+                    })
+                    .peekable();
+                if parts.peek().is_none() {
+                    Size::default()
+                } else {
+                    parts.fold(Size { total: 1, shape: 1 }, Size::plus)
+                }
             }
         }
     }

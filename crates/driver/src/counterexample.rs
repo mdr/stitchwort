@@ -85,20 +85,72 @@ impl TheoremSearch {
                 format!("gave up (hypotheses true in {held} of {} cases)", log.tried),
             );
         }
+        let plural = if log.tried == 1 { "" } else { "s" };
+        let none = format!("none in {} case{plural}", log.tried);
+        if let Some(weak) = self.weak_evidence() {
+            let held = match weak {
+                Weak::Size { held, made } => format!("up to size {held} of the {made} made"),
+                Weak::Shape { held, made } => {
+                    format!("of up to {held} constructors of the {made} made")
+                }
+            };
+            return (
+                Verdict::NoneFound,
+                format!(
+                    "{none} (evidence, not a proof), but the hypotheses held only for inputs \
+                     {held}: weak evidence, unless they allow no larger ones"
+                ),
+            );
+        }
         let sizes = if log.exhaustive {
             "every input".to_string()
         } else {
-            format!("sizes up to {}", log.enumerated_size.max(log.random_size))
+            format!("sizes up to {}", log.held_size)
         };
-        let plural = if log.tried == 1 { "" } else { "s" };
         (
             Verdict::NoneFound,
-            format!(
-                "none in {} case{plural} ({sizes}; evidence, not a proof)",
-                log.tried
-            ),
+            format!("{none} ({sizes}; evidence, not a proof)"),
         )
     }
+
+    /// Whether the hypotheses held only for inputs far smaller than those
+    /// made (SW-903): in total size (`n < 3` over numbers up to 40), or in
+    /// shape (an increasing list held only short, where a list of one
+    /// large number is large in total). `None` if they held for about as
+    /// large ones, or nothing was discarded, or every input was tried.
+    pub fn weak_evidence(&self) -> Option<Weak> {
+        let log = &self.log;
+        if log.exhaustive || log.discarded == 0 || log.found.is_some() {
+            return None;
+        }
+        let far_below = |held: usize, made: usize| held * WEAK_RATIO < made;
+        let made = log.enumerated_size.max(log.random_size);
+        if far_below(log.held_size, made) {
+            return Some(Weak::Size {
+                held: log.held_size,
+                made,
+            });
+        }
+        if far_below(log.held_shape, log.tried_shape) {
+            return Some(Weak::Shape {
+                held: log.held_shape,
+                made: log.tried_shape,
+            });
+        }
+        None
+    }
+}
+
+/// How far below the inputs made the hypotheses held for the evidence to be
+/// weak: under a quarter of their size (SW-903).
+pub const WEAK_RATIO: usize = 4;
+
+/// Hypotheses that held only for small inputs (SW-903): the largest size
+/// (or shape) of an input they held for, and of one made.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Weak {
+    Size { held: usize, made: usize },
+    Shape { held: usize, made: usize },
 }
 
 impl Session {
