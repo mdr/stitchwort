@@ -1,5 +1,5 @@
 {
-  "next": 907,
+  "next": 908,
   "tickets": [
     {
       "id": 13,
@@ -8550,16 +8550,18 @@
     {
       "id": 903,
       "title": "Counterexample search misses a false theorem silently when its hypothesis holds only for small inputs",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "lane: report the size the hypotheses held up to (Matt, 30 Oct)",
+      "status": "done",
+      "agent": "",
+      "where": "",
       "labels": [
         "elab"
       ],
-      "body": "Found by the proof-automation register redo (docs/research/proof-automation.md §5.2), re-run by the orchestrator 30 Oct on main's binary.\n\n`theorem shortIncreasing (xs: List Nat) (h: increasing xs = True): xs.length < 6` is false ([0, 1, 2, 3, 4, 5]), but `check --counterexamples --verbose` prints \"none in 10000 cases (sizes up to 40; evidence, not a proof)\". With `h: xs.length < 100` instead, it finds [0, 0, 0, 0, 0, 0]. Probe: /private/tmp/claude-501/-Users-matt-repos-mdr-stitchwort/3eef38f5-69c2-4f26-b1b3-39bd97dd0fd4/scratchpad/sw894probe/sparse.sw (temporary).\n\nWhy it's silent: the verdict is \"gave up\" only when hypotheses hold in under 10% of inputs (crates/driver/src/counterexample.rs:82); here they hold often, but only for short lists, so nothing says the search never reached a falsifying size. Speculative, not checked: SW-900 (random list elements now share the size) may have made long increasing lists rarer than before; check against a pre-SW-900 build (branch sw900-investigation's base).\n\nRegister proposals: T2, report the size reached by inputs that satisfy the hypotheses (measurement first); T3, generators from Bool hypotheses (Palamedes PLDI 2026), only if T2 finds such cases.\n\n\nSW-903 lane (30 Oct): held size in the generator's units is 40 for shortIncreasing (singletons of large numbers hold), so the lane also tracks shape (constructors with data fields): held 4-5 vs 40 made. Pre-SW-900 build finds the counterexample on 5 of 40 seeds, main on 0 of 40.\n",
+      "body": "Found by the proof-automation register redo (docs/research/proof-automation.md §5.2), re-run by the orchestrator 30 Oct on main's binary.\n\n`theorem shortIncreasing (xs: List Nat) (h: increasing xs = True): xs.length < 6` is false ([0, 1, 2, 3, 4, 5]), but `check --counterexamples --verbose` prints \"none in 10000 cases (sizes up to 40; evidence, not a proof)\". With `h: xs.length < 100` instead, it finds [0, 0, 0, 0, 0, 0]. Probe: /private/tmp/claude-501/-Users-matt-repos-mdr-stitchwort/3eef38f5-69c2-4f26-b1b3-39bd97dd0fd4/scratchpad/sw894probe/sparse.sw (temporary).\n\nWhy it's silent: the verdict is \"gave up\" only when hypotheses hold in under 10% of inputs (crates/driver/src/counterexample.rs:82); here they hold often, but only for short lists, so nothing says the search never reached a falsifying size. Speculative, not checked: SW-900 (random list elements now share the size) may have made long increasing lists rarer than before; check against a pre-SW-900 build (branch sw900-investigation's base).\n\nRegister proposals: T2, report the size reached by inputs that satisfy the hypotheses (measurement first); T3, generators from Bool hypotheses (Palamedes PLDI 2026), only if T2 finds such cases.\n\n\nSW-903 lane (30 Oct): held size in the generator's units is 40 for shortIncreasing (singletons of large numbers hold), so the lane also tracks shape (constructors with data fields): held 4-5 vs 40 made. Pre-SW-900 build finds the counterexample on 5 of 40 seeds, main on 0 of 40.\n\nSW-903 lane done (30 Oct): 763ef574, d861cb58 on worktree-agent-a5e6dc0f68e2e9181. Weak if held size or shape < 1/4 of made; corpus flags 50 of 675 candidates (std 6, examples 28, aoc 13, rogue 3), only shortIncreasing known false. No snapshot text changed (verdict lines are not in snapshots). Side finding: std searches Nat.shiftRightShiftLeft hangs (shiftLeft by an edge 2^64) and Float.Theory.pow2FromPow goes past 2 GB, under the driver API only (check skips Std).\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "b85c3405"
+      ]
     },
     {
       "id": 904,
@@ -8602,6 +8604,21 @@
         "bug"
       ],
       "body": "Found by the postponement stage 1 lane (30 Oct 2026): the repo's HASH_DUMP hash-dump test fails on main with E-RESOURCE (the dump recurses too deep for its stack). The lane used a scratch copy with a bigger stack to compare std+aoc (10,420 declarations) and std+rogue (5,164) byte for byte. Not yet reproduced by the orchestrator. Fix: give the dump test a bigger stack (as other corpus tests do with a spawned thread), so later stages can use it for identity checks.\n",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
+    },
+    {
+      "id": 907,
+      "title": "Counterexample search ignores its time budget and blows memory on shiftLeft-shaped theorems (unreproduced)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "body": "Found by the SW-903 lane (30 Oct 2026), running the counterexample search over std through the driver API (check never searches std, but a user theorem of the same shape would): Std.Nat.shiftRightShiftLeft ran for over 4 minutes, ignoring its 500 ms budget; Std.Float.Theory.pow2FromPow went past 2 GB. The lane's guess, not checked: Nat.shiftLeft by a random edge value (2^64) builds an enormous number, and that work isn't charged to the time or memory budget. Not yet reproduced by the orchestrator: reproduce under dev/memguard --cap-gb 2 with a user copy of each theorem first.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
