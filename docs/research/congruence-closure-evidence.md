@@ -305,7 +305,7 @@ same-line: an expression of 20-120 characters becomes `cases`.
   70-80 rewrite sites where congruence closure, with stage 2 and disequalities, would let
   `cases` replace the step: **about 150 sites** in about 70,000 lines of proofs. The std Map
   cluster (Map/Raw/Spec, Set/Spec:279-280, Ord/Ord), 39 sites of one shape, is about half the chain sites that need it.
-- **Lines.** About 0 per site. The sample's rate (4 lines in 21 cases, all from one theorem)
+- **Lines.** About 0 per site. The sample's rate (4 lines over the 21 table rows that aren't "closes today", all from one theorem)
   gives **roughly 10-30 lines** across all four corpora. Character savings: about 30 per site,
   about 4,500 in all.
 - **Proof steps.** The real saving is that the writer no longer needs to know the
