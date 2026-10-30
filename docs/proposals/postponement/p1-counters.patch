@@ -1,0 +1,292 @@
+diff --git a/crates/driver/tests/p1_scratch.rs b/crates/driver/tests/p1_scratch.rs
+new file mode 100644
+index 00000000..81f7fad6
+--- /dev/null
++++ b/crates/driver/tests/p1_scratch.rs
+@@ -0,0 +1,107 @@
++//! SCRATCH: P1 measurement for docs/proposals/postponement.md. Dropped.
++
++use std::collections::BTreeMap;
++use std::path::Path;
++
++use stitchwort_driver::driver::Session;
++use stitchwort_driver::project::{DiskFiles, Target};
++
++type Counts = BTreeMap<String, usize>;
++
++fn add(total: &mut Counts, files: &mut Counts, c: &Counts) {
++    for (k, v) in c {
++        *total.entry(k.clone()).or_insert(0) += v;
++        *files.entry(k.clone()).or_insert(0) += 1;
++    }
++}
++
++fn report(name: &str, n: usize, total: &Counts, files: &Counts, out: &mut String) {
++    out.push_str(&format!("== {name}: {n} units\n"));
++    for (k, v) in total {
++        out.push_str(&format!("  {k:28} {v:7} in {:4} units\n", files[k]));
++    }
++}
++
++fn run() {
++    let mut out = String::new();
++    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
++    stitchwort_elab::p1::take();
++    let mut session = Session::eager_for_stack(512 * 1024 * 1024);
++    let std_counts = stitchwort_elab::p1::take();
++    report("std (eager library load)", 1, &std_counts, &std_counts.keys().map(|k| (k.clone(), 1)).collect(), &mut out);
++    let mark = session.mark();
++    for dir in ["accept", "reject", "extract"] {
++        let mut found: Vec<_> = std::fs::read_dir(root.join("examples").join(dir))
++            .unwrap()
++            .map(|e| e.unwrap().path())
++            .filter(|p| p.extension().is_some_and(|e| e == "sw"))
++            .collect();
++        found.sort();
++        let (mut total, mut files) = (Counts::new(), Counts::new());
++        let (mut ok, mut failed, mut cannot_infer) = (0, 0, 0);
++        let mut ci_files = Vec::new();
++        for path in &found {
++            session.rewind(&mark);
++            let text = std::fs::read_to_string(path).unwrap();
++            let r = session.load(&path.display().to_string(), &text);
++            let c = stitchwort_elab::p1::take();
++            add(&mut total, &mut files, &c);
++            match r {
++                Ok(_) => ok += 1,
++                Err(ds) => {
++                    failed += 1;
++                    if ds.iter().any(|d| d.code == "E-CANNOT-INFER") {
++                        cannot_infer += 1;
++                        ci_files.push(format!(
++                            "{} {:?}",
++                            path.file_name().unwrap().to_string_lossy(),
++                            c
++                        ));
++                    }
++                }
++            }
++        }
++        report(&format!("examples/{dir} ({ok} load, {failed} fail, {cannot_infer} fail with E-CANNOT-INFER)"), found.len(), &total, &files, &mut out);
++        if dir == "reject" {
++            for f in ci_files {
++                out.push_str(&format!("    CI {f}\n"));
++            }
++        }
++    }
++    for (label, dir, name) in [("aoc", root.join("aoc"), "aoc"), ("rogue", root.join("games/rogue"), "rogue")] {
++        session.rewind(&mark);
++        let files = DiskFiles { root: dir };
++        let r = session.load_project(&files, name, &Target::Everything);
++        let c = stitchwort_elab::p1::take();
++        let ones: Counts = c.keys().map(|k| (k.clone(), 1)).collect();
++        report(&format!("{label} (loads: {})", r.is_ok()), 1, &c, &ones, &mut out);
++    }
++    let mut dirs: Vec<_> = std::fs::read_dir(root.join("examples/projects/accept"))
++        .unwrap()
++        .map(|e| e.unwrap().path())
++        .filter(|p| p.is_dir())
++        .collect();
++    dirs.sort();
++    let (mut total, mut files) = (Counts::new(), Counts::new());
++    for dir in &dirs {
++        session.rewind(&mark);
++        let name = dir.file_name().unwrap().to_string_lossy().to_string();
++        let r = session.load_project(&DiskFiles { root: dir.clone() }, &name, &Target::Everything);
++        assert!(r.is_ok(), "{name}");
++        let c = stitchwort_elab::p1::take();
++        add(&mut total, &mut files, &c);
++    }
++    report("examples/projects/accept", dirs.len(), &total, &files, &mut out);
++    std::fs::write(std::env::var("P1_OUT").unwrap(), out).unwrap();
++}
++
++#[test]
++#[ignore]
++fn p1() {
++    std::thread::Builder::new()
++        .stack_size(1024 * 1024 * 1024)
++        .spawn(run)
++        .unwrap()
++        .join()
++        .unwrap();
++}
+diff --git a/crates/elab/src/check.rs b/crates/elab/src/check.rs
+index 242800df..bd831527 100644
+--- a/crates/elab/src/check.rs
++++ b/crates/elab/src/check.rs
+@@ -1351,7 +1351,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+             let e = check(cx, e, &ty_value)?;
+             Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
+         }
+-        Expr::Record { base: None, .. } => Err(cx
++        Expr::Record { base: None, .. } => Err({ crate::p1::hit("rec_infer"); cx }
+             .error(
+                 "E-CANNOT-INFER",
+                 "can't tell which record type this literal is",
+@@ -1932,6 +1932,8 @@ fn apply_args_postponing(
+                     _ => 1,
+                 };
+                 let postponable = later && unknown_domain(cx, &dom, parameters)?;
++                crate::p1::hit("lam_arg");
++                if postponable { crate::p1::hit("lam_postponable"); }
+                 // Where the application's expected type is known, a lambda
+                 // whose type has unknowns that fails in place is checked
+                 // again once the application's type has been compared with
+@@ -1956,6 +1958,7 @@ fn apply_args_postponing(
+                 } else if !postponable {
+                     Some(check_arg(cx, &term, value, &dom)?)
+                 } else if value.section_name().is_some() && !dependents {
++                    crate::p1::hit("section_postponed_untried");
+                     None
+                 } else {
+                     let snapshot = crate::undo::Snapshot::take(cx);
+@@ -1985,8 +1988,10 @@ fn apply_args_postponing(
+                 };
+                 term = Term::app(term, meta);
+                 if late {
++                    crate::p1::hit("lam_after_expected");
+                     after_expected.push((*value, dom, placeholder, id));
+                 } else {
++                    crate::p1::hit("lam_postponed");
+                     postponed.push((*value, dom, placeholder, id));
+                 }
+             }
+@@ -2019,6 +2024,7 @@ fn apply_args_postponing(
+                 term = Term::app(term, value);
+             }
+             Arg::Explicit(value) => {
++                crate::p1::hit("other_arg");
+                 (term, ty) = insert_with(cx, term, ty, supply)?;
+                 let (dom, cod) = function_parts(cx, &ty).map_err(|e| {
+                     not_a_function_hint(cx, &term, previous_function_name, value, e)
+@@ -2051,6 +2057,7 @@ fn apply_args_postponing(
+                         _ => unreachable!("a fresh metavariable is headed by one"),
+                     };
+                     term = Term::app(term, meta);
++                    crate::p1::hit("literal_postponed");
+                     postponed.push((*value, dom, placeholder, id));
+                     continue;
+                 }
+@@ -2087,6 +2094,7 @@ fn apply_args_postponing(
+                             _ => unreachable!("a fresh metavariable is headed by one"),
+                         };
+                         term = Term::app(term, meta);
++                        crate::p1::hit("arg_after_expected");
+                         after_expected.push((*value, dom, placeholder, id));
+                         continue;
+                     }
+@@ -2106,7 +2114,7 @@ fn apply_args_postponing(
+     }
+     for (value, dom, placeholder, id) in postponed {
+         let checked = match check(cx, value, &dom) {
+-            Ok(checked) => checked,
++            Ok(checked) => { crate::p1::hit("postponed_resumed_ok"); checked }
+             // The retry sees the types the later arguments gave, so its
+             // error is the real one. The in-place try's is kept only when
+             // both are can't-infers: then the first names the unknown.
+diff --git a/crates/elab/src/dot.rs b/crates/elab/src/dot.rs
+index 4c9525fd..49f2315a 100644
+--- a/crates/elab/src/dot.rs
++++ b/crates/elab/src/dot.rs
+@@ -455,6 +455,7 @@ fn find_in_view(
+                 return Err(section_unknown_name(cx, field));
+             }
+             Step::Unknown => {
++                crate::p1::hit("dot_unknown");
+                 return Err(cx
+                     .error(
+                         "E-CANNOT-INFER",
+@@ -694,6 +695,7 @@ pub(crate) fn section_unknown(cx: &Ctx, section: &Expr) -> Diagnostic {
+ }
+ 
+ fn section_unknown_name(cx: &Ctx, field: &AstName) -> Diagnostic {
++    crate::p1::hit("section_unknown");
+     cx.error(
+         "E-CANNOT-INFER",
+         format!("can't tell what `.{}` is applied to", field.text),
+diff --git a/crates/elab/src/lib.rs b/crates/elab/src/lib.rs
+index 0c22b7ed..cb7553f8 100644
+--- a/crates/elab/src/lib.rs
++++ b/crates/elab/src/lib.rs
+@@ -6,6 +6,26 @@
+ //! (`stitchwort-core`), so a bug here can cause a confusing error but can't
+ //! make the kernel accept something false.
+ 
++/// SCRATCH (P1 measurement, to be dropped).
++pub mod p1 {
++    use std::collections::BTreeMap;
++    use std::sync::Mutex;
++    static COUNTS: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
++    thread_local! {
++        pub static DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
++    }
++    pub fn hit(tag: &'static str) {
++        let spec = DEPTH.with(|d| d.get()) > 0;
++        let mut c = COUNTS.lock().unwrap();
++        *c.entry(tag.to_string()).or_insert(0) += 1;
++        if spec {
++            *c.entry(format!("{tag} @in-snapshot")).or_insert(0) += 1;
++        }
++    }
++    pub fn take() -> BTreeMap<String, usize> {
++        std::mem::take(&mut *COUNTS.lock().unwrap())
++    }
++}
+ mod attributes;
+ mod auto;
+ mod autobind;
+diff --git a/crates/elab/src/records.rs b/crates/elab/src/records.rs
+index 5320859b..7c20f0a9 100644
+--- a/crates/elab/src/records.rs
++++ b/crates/elab/src/records.rs
+@@ -649,7 +649,7 @@ fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)>
+     let g = cx.g();
+     match force(g, ty.clone())? {
+         Value::Data(d, params) if g.data(d).record => Ok((d, params)),
+-        Value::Neutral(stitchwort_core::value::Head::Meta(_), _) => Err(cx
++        Value::Neutral(stitchwort_core::value::Head::Meta(_), _) => Err({ crate::p1::hit(if what.contains("literal") { "rec_meta_literal" } else { "rec_meta_other" }); cx }
+             .error(
+                 "E-CANNOT-INFER",
+                 format!("can't tell which record type {what} is"),
+diff --git a/crates/elab/src/undo.rs b/crates/elab/src/undo.rs
+index c8c59fac..840246c9 100644
+--- a/crates/elab/src/undo.rs
++++ b/crates/elab/src/undo.rs
+@@ -52,8 +52,15 @@ pub(crate) struct Snapshot {
+     noted_warnings: usize,
+ }
+ 
++impl Drop for Snapshot {
++    fn drop(&mut self) {
++        crate::p1::DEPTH.with(|d| d.set(d.get() - 1));
++    }
++}
++
+ impl Snapshot {
+     pub(crate) fn take(cx: &Ctx) -> Snapshot {
++        crate::p1::DEPTH.with(|d| d.set(d.get() + 1));
+         let g = cx.g();
+         Snapshot {
+             mark: cx.mark(),
+diff --git a/crates/elab/src/unify.rs b/crates/elab/src/unify.rs
+index 1c03f698..9285fea6 100644
+--- a/crates/elab/src/unify.rs
++++ b/crates/elab/src/unify.rs
+@@ -47,6 +47,7 @@ fn run(g: &Globals, mut work: Vec<Task>) -> Result<bool> {
+                     true
+                 } else if blocked(g, &a)? || blocked(g, &b)? {
+                     let trail = g.meta_trail.borrow().len();
++                    crate::p1::hit("unify_put_aside");
+                     work.insert(0, Task::Later(level, a, b, trail));
+                     true
+                 } else {
+@@ -54,7 +55,7 @@ fn run(g: &Globals, mut work: Vec<Task>) -> Result<bool> {
+                 }
+             }
+             // Put aside, and nothing solved since: they differ.
+-            Task::Later(_, _, _, trail) if g.meta_trail.borrow().len() <= trail => false,
++            Task::Later(_, _, _, trail) if g.meta_trail.borrow().len() <= trail => { crate::p1::hit("unify_put_aside_failed"); false }
+             Task::Later(level, a, b, _) => {
+                 let env: Vec<Value> = (0..level).map(Value::var).collect();
+                 let afresh = |v: &Value| eval(g, &env, &quote_folded(g, level, v)?);
