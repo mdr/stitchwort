@@ -10,7 +10,7 @@ file records how it was searched, so it can be refreshed.
 | Proof automation | [proof-automation.md](proof-automation.md) | 72 / 29 / 25 / 4 | Redone from full texts |
 | Kernel and type theory | [kernel.md](kernel.md) | 62 / 27 / 26 / 1 | Redone from full texts |
 | Inductive types and recursion | [inductives.md](inductives.md) | 56 / 21 / 21 / 0 | Audited against full texts (11 OK, 8 minor, 0 wrong); C20 and C21 read in the audit; D1912 withdrawn (wrong day 21 assumption) |
-| Infrastructure and trust | [infrastructure.md](infrastructure.md) | 68 / 29 / 28 / 1 | Audited against full texts (18 OK, 5 minor, 1 wrong: C1's numbers were the submission copy's); searching finished (12 more queries); C23 read in the audit; C31–C33 added; D2030; C3 (Eris) left for Matt, open access in a browser |
+| Infrastructure and trust | [infrastructure.md](infrastructure.md) | 68 / 29 / 29 / 0 | Audited against full texts (18 OK, 5 minor, 1 wrong: C1's numbers were the submission copy's); searching finished (12 more queries); C23 read in the audit; C31–C33 added; D2030; C3 (Eris) read in full from the PDF Matt fetched: T2's overwrite half becomes error enumeration, kernel first (D2031) |
 | Compilation and runtime | [compilation.md](compilation.md) | 52 / 23 / 22 / 1 | Audited against full texts |
 
 **Summary report:** [summary/literature-review.pdf](summary/literature-review.pdf)

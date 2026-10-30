@@ -87,7 +87,7 @@ algebraic effects and a small trusted kernel. Between 29 and 30 October 2026 it 
 of a literature review in seven clusters: effects and handlers, elaboration, proof automation,
 the kernel and type theory, inductive types and recursion, infrastructure and trust, and
 compilation and runtime. The window was 2022 onwards. Across the seven registers 449 sources were
-screened and 160 carded; 153 of the cards rest on a full text read for the review and 7 were not
+screened and 160 carded; 154 of the cards rest on a full text read for the review and 6 were not
 read. A first attempt on 29 October wrote several registers from abstracts. Every register was
 then redone or audited against full texts on 30 October, and this summary cites only sources
 read in full.
@@ -266,10 +266,10 @@ Elaboration & 64 & 20 & 20 & 0 & Redone from full texts; 6 old claims wrong. \\
 Proof automation & 72 & 29 & 25 & 4 & Redone from full texts; 6 old claims wrong. \\
 Kernel and type theory & 62 & 27 & 26 & 1 & Redone from full texts; 6 old claims wrong. \\
 Inductive types and recursion & 56 & 21 & 21 & 0 & Audited (19 cards): 11 OK, 8 minor, 0 wrong; 2 cards first NOT READ were read. \\
-Infrastructure and trust & 68 & 29 & 28 & 1 & Audited (24 cards): 18 OK, 5 minor, 1 wrong; searching finished. \\
+Infrastructure and trust & 68 & 29 & 29 & 0 & Audited (24 cards): 18 OK, 5 minor, 1 wrong; searching finished; C3 (Eris) read later from the PDF Matt fetched. \\
 Compilation and runtime & 52 & 23 & 22 & 1 & Audited (21 cards): 12 OK, 8 minor, 1 wrong; C12 read at the audit. \\
 \midrule
-\textbf{Total} & \textbf{449} & \textbf{160} & \textbf{153} & \textbf{7} & \\
+\textbf{Total} & \textbf{449} & \textbf{160} & \textbf{154} & \textbf{6} & \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -726,8 +726,8 @@ stage~3. Open: D1910 and D1911.
 % =====================================================================
 \section{Infrastructure and trust}\label{sec:infra}
 
-\textbf{Register:} \file{docs/research/infrastructure.md}. 68 screened, 29 carded, 28 read, 1 NOT
-READ (Eris); audited.
+\textbf{Register:} \file{docs/research/infrastructure.md}. 68 screened, 29 carded, 29 read, 0 NOT
+READ; audited. Eris, the one card first left unread, was read from the PDF Matt fetched.
 
 \subsection{Key findings}
 \begin{itemize}
@@ -739,6 +739,18 @@ READ (Eris); audited.
     bugs, at least 42 of them missed by Hephaestus \cite{sotiropoulos2024thalia}. Stitchwort's
     elaborator fuzzer has neither oracle. Content hashes make the erasure oracle stronger here:
     removing an inferable annotation must leave the hash unchanged.
+  \item \textbf{Error enumeration.} Eris replaces one expression of a well-typed seed with a
+    term of an incompatible type, at every location, one mismatch per variant, for one
+    representative of each \emph{type shape}. Over ten months it found 64 bugs in kotlinc,
+    scalac, groovyc and the Checker Framework's Nullness checker: 51 soundness bugs and 13
+    crashes, 33 of them fixed. Of the 51, 29 need a particular actual/expected pair at a
+    particular location, and its authors judged 50 of the 64 out of Hephaestus's and Thalia's
+    reach. Inference can ``repair'' an injected mismatch, so Eris recovers missing types from
+    use sites (needed at 26\% of locations, and for 27 of the 64 bugs); shapes cut the variants
+    13-fold \cite{sotiropoulos2026eris}. Stitchwort's kernel sees only complete terms
+    (\file{crates/core/src/term.rs:218-220}), so there the repair problem doesn't arise; the
+    elaborator already records the expected type at each checked span for hover
+    (\file{crates/elab/src/check.rs:3091}).
   \item \textbf{Generators.} Generate at the IR the backends share, as Rustlantis does with
     MIR (22 bugs) \cite{wang2024rustlantis}; choose types non-locally so functions use their
     arguments (four times faster to find GHC bugs) \cite{frank2024useless}; score generators by
@@ -783,7 +795,8 @@ READ (Eris); audited.
 \begin{enumerate}
   \item A lane trust diff: changed statements, renames, must-reject, snapshot and budget
         changes, axioms (T1, D1930).
-  \item Erase and overwrite oracles in \file{fuzz_elab.rs} (T2; SW-686, SW-687).
+  \item An erase oracle, and error enumeration at every check site, kernel first, then the
+        elaborator (T2, D2031; SW-686, SW-687).
   \item A kernel type-preservation sweep: evaluate, read back, re-check (T3).
   \item Rotate the sampled sweeps' offset (T4).
   \item Score fuzzers against missed \code{cargo mutants} mutants (T5, D1932).
@@ -799,8 +812,9 @@ READ (Eris); audited.
 
 \subsection{Acted on, and open}
 The audit corrected Hephaestus's numbers (the 29 October card had the anonymous submission
-copy's) and found that tests run erased, which simplified T10 and produced D2030. Open: D1930,
-D1931, D1932, D2030. Eris is for Matt to fetch (Section~\ref{sec:limits}).
+copy's) and found that tests run erased, which simplified T10 and produced D2030. Matt then
+fetched Eris; reading it turned T2's overwrite half into error enumeration and produced D2031.
+Open: D1930, D1931, D1932, D2030, D2031.
 
 % =====================================================================
 \section{Compilation and runtime}\label{sec:comp}
@@ -922,7 +936,8 @@ most: Rustlantis compares backends \cite{wang2024rustlantis}, fuzz-d adds an int
 because shared code fools back-end comparisons \cite{donaldson2024fuzzd}, and Sisyphus runs old
 and new versions on the same inputs \cite{gopinathan2023sisyphus}. Stitchwort's reference
 evaluator is that implementation and must stay in every comparison. Mutation gives oracles
-without a reference: Hephaestus's erase and overwrite \cite{chaliasos2022hephaestus}, MutDafny's
+without a reference: Hephaestus's erase and overwrite \cite{chaliasos2022hephaestus}, Eris's
+enumeration of one mismatch at every location \cite{sotiropoulos2026eris}, MutDafny's
 weak-specification check \cite{amaral2026mutdafny}, ETNA's scoring of generators
 \cite{shi2023etna}. The counterexample search is itself an oracle with a blind spot (SW-903), and
 the remedy is the same as for any oracle: report what it did not reach.
@@ -970,7 +985,7 @@ and not started; done items are kept for the record.
 6 & Pin natives by hash or check their equations (kernel T5) & trusted base & small kernel & SW-898 & open \\
 7 & Lane trust diff (infra T1) & review of agent work & small tooling & D1930 & open \\
 8 & Counterexample search reports the size reached (PA T2) & silent misses & small & SW-903 & open \\
-9 & Erase and overwrite oracles (infra T2) & elaborator soundness & tooling & SW-686, SW-687; D1932 & open \\
+9 & Erase oracle; error enumeration, kernel first (infra T2) & kernel and elaborator soundness & small (kernel), tooling & SW-686, SW-687; D1932, D2031 & open \\
 10 & Kernel type-preservation sweep (infra T3) & kernel soundness & small & --- & open \\
 11 & One postponement queue (elab T1) & SW-817, 847, 885, 509 & elaborator & D1990, D2012, D2013, D2014; SW-817 & in progress \\
 12 & SW-805 field-name rule as name resolution (elab T3) & SW-805, SW-817 & small & D1991; SW-805 & done (rule) \\
@@ -1104,6 +1119,33 @@ declaration in trusted cache code is acceptable if a differential test (the same
 either key, over the test corpus) guards it, as \file{check-cache.md} \S5.4 guards the check
 cache; (4) the saving matters, because std lemma edits re-run many tests today (unmeasured). \\
 \addlinespace
+D2031 & Build T2's overwrite half as error enumeration (Eris): every check site, one replacement
+per variant, one term per shape of incompatible type, kernel stage first, run as an on-demand
+campaign with a small fixed-seed daily sample, instead of random overwrites in the daily
+\code{fuzz\_elab} run? &
+Yes. Stage K (the kernel) first: small, needs no type recovery, tests the trust boundary; the
+elaborator stage after T2's erase half, which shares its harness. &
+(1) Eris's evidence holds in kind: soundness bugs in mature checkers need a particular
+actual/expected pair at a particular location (29 of its 51), so random overwrites reach few;
+it comes from four JVM checkers with subtyping, inference and flow typing, and its transfer to a
+dependently typed checker with conversion and no subtyping is untested; (2) no metavariable
+reaches the kernel (\file{crates/core/src/term.rs:218-220}), so a replacement whose type the
+kernel's own conversion check finds not convertible to the expected type makes the definition
+ill-typed and must be refused; a comparison out of budget drops the variant; (3) the
+elaborator's hover record (\file{crates/elab/src/check.rs:3091},
+\file{crates/elab/src/nav.rs:503-519}) can be extended to mark check-mode spans and whether their
+expected type still had an unsolved metavariable, and the first elaborator stage skips those, so
+inference can't turn a mismatch into a false alarm (Eris's conservative baseline lost 26\% of
+locations and 27 of 64 bugs, which use-site recovery would win back later); (4) everything the
+elaborator accepts beyond unification (ability coercions and total-to-partial lifting,
+postponed row comparisons, numeral defaults: \code{compare},
+\file{crates/elab/src/check.rs:4010-4084}) counts as compatible when choosing incompatible
+types; (5) the cost is acceptable outside the tiers (thousands of variants per seed, minutes
+per seed at about 50\,ms a check), and the daily sample guards against regressions; (6) every
+acceptance is checked by hand before it is called a bug, and each confirmed one becomes an
+\file{examples/soundness/} file with its expected code; (7) the tiers' time budgets change only
+by the daily sample. \\
+\addlinespace
 D2001 & For SW-802 and SW-809, design generated case theorems (\code{f.cases}, Lean's
 \code{fun\_cases}) instead of per-leaf equation lemmas (D231)? &
 Yes. &
@@ -1185,7 +1227,7 @@ and risks their deep reads (effects register \S4.1 and \S4.3) name.
 \section{Limits}\label{sec:limits}
 
 \subsection{Not read}
-Seven carded sources were not read. None supports anything in this summary.
+Six carded sources were not read. None supports anything in this summary.
 \begin{itemize}
   \item Proof automation C26: Morrison and de Moura, \emph{grind: an SMT-inspired tactic for Lean
         4}, I{}JCAR 2026 (no public copy found; its system was read through its manual, source and
@@ -1200,18 +1242,15 @@ Seven carded sources were not read. None supports anything in this summary.
   \item Kernel C27: Liesnikov and Cockx, \emph{Building a Correct-by-Construction Type Checker
         for a Dependently Typed Core Language} (Agda Core), APLAS 2024, doi
         10.1007/978-981-97-8943-6\_4 (TU Delft repository unreachable).
-  \item Infrastructure C3: Sotiropoulos and Su, \emph{Enumerating Ill-Typed Programs for Testing
-        Type Analyzers} (Eris), PLDI 2026, doi 10.1145/3808320.
   \item Compilation C22: IOG, \emph{Stacks in the JS backend} (2023), a blog post that returns
         404.
 \end{itemize}
 
 \subsection{For Matt to fetch}
-One paper meets the bar: \textbf{Eris} (PLDI 2026, Distinguished Paper, doi
-\href{https://doi.org/10.1145/3808320}{10.1145/3808320}). It is the published form of the
-overwrite oracle in recommendation~9, and would shape that design. It is open access at ACM, so
-it should open in a browser; every scripted route returned 403 or nothing. Its abstract's figures
-(64 bugs, 51 of them unsoundness) are \unverified{} and support nothing here.
+Nothing is left. The one paper that met the bar, Eris \cite{sotiropoulos2026eris}, was open
+access at ACM but refused every scripted route; Matt fetched it on 30 October and it was read in
+full (Section~\ref{sec:infra}). The figures its abstract gave, which the first version of this
+summary marked unverified, match the paper.
 
 \subsection{What wasn't searched}
 Each register's \S9 lists what it did not reach. In short:

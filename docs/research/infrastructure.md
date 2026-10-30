@@ -1,10 +1,12 @@
 # Literature trawl: infrastructure and trust
 
-**Counts: screened 68; carded 29; read in full 28; not read 1 (C3; listed in §9 with the
-uncarded sources still not reached).** No card marked NOT READ supports a deep read, a ranking
-or a recommendation. The 29 Oct version said screened 59, carded 26, read in full 24, not read
-2: C23 (Sisyphus) was read for the audit, from Ilya Sergey's own copy; the §9 sources were then
-reached and decided (§2 "Audit searches"), adding C31–C33 and nine screened rows.
+**Counts: screened 68; carded 29; read in full 29; not read 0 (the uncarded sources still not
+reached are listed in §9).** No card marked NOT READ supports a deep read, a ranking or a
+recommendation. The 29 Oct version said screened 59, carded 26, read in full 24, not read 2:
+C23 (Sisyphus) was read for the audit, from Ilya Sergey's own copy; the §9 sources were then
+reached and decided (§2 "Audit searches"), adding C31–C33 and nine screened rows. C3 (Eris)
+was the one card left for Matt to fetch; he fetched it on 30 Oct, and it is now read in full
+(C3, §5.1 "Error enumeration", T2, D2031).
 
 **Audited 30 Oct 2026 against full texts: 18 OK, 5 minor (fixed), 1 wrong (fixed), 0 can't
 verify** (of the 24 cards first marked read). C1 was wrong: its numbers (153 bugs, 128
@@ -21,7 +23,10 @@ is stated, in Ralf Jung's post. Line references into docs/core.md had drifted by
 lines, and today's merges changed four descriptions (the soundness corpus is 107 examples after
 the 2026 kernel-bug shapes and SW-902; kernel.md's T1 is built; SW-901 put the extraction
 snapshots in the merge tier; SW-900 changed how random containers share a size). Each fixed
-place ends with "Audit:".
+place ends with "Audit:". Later on 30 Oct, C3 was read from the PDF Matt fetched. The figures
+the old §9 gave from the PLDI page's abstract (64 bugs, 51 unsound) are right; "Distinguished
+Paper" isn't stated in the PDF, so it is dropped. T2's overwrite half is now error enumeration
+(§5.1, D2031).
 
 *SW-894, cluster 7. Trawled 29 October 2026 against `main` at `5c25a1b5`. Research only: no
 code changed, no tests run. Window: 2022 onwards (D1831); older work appears only where
@@ -64,7 +69,11 @@ What the literature adds is mostly **better oracles**, not more fuzzers.
   delete type annotations (must still compile) and replace one type with an incompatible one
   (must not compile) **[cited]**. (Audit: the first version said 153 and 72, the submission
   copy's numbers.) Thalia (POPL 2024) pushes the same two
-  oracles further. Stitchwort's elaborator fuzzer has neither: its oracles
+  oracles further. Eris (PLDI 2026) turns the overwrite oracle into *error enumeration*: one
+  mismatch per variant, at every expression of a well-typed seed, for a pruned set of
+  incompatible types. It found 64 bugs (51 soundness, 13 crashes; 33 fixed) in kotlinc, scalac,
+  groovyc and the Checker Framework, 50 of them out of Hephaestus's and Thalia's reach
+  **[cited]** (C3). Stitchwort's elaborator fuzzer has neither oracle: its oracles
   are "no panic, no internal error, no kernel rejection, a cold and warm cache agree"
   (`crates/driver/tests/fuzz_elab.rs`, docs/testing.md) **[checked]**. Both transformations
   fit SW-686 and SW-687 directly (§5.1).
@@ -182,7 +191,7 @@ the 29 Oct version had 59 sources, 27 keep, 20 maybe, 12 drop; rows 8, 12, 23, 2
 |---|---|---|---|
 | 1 | Chaliasos et al., *Finding Typing Compiler Bugs* (Hephaestus), PLDI 2022 | keep | C1; §5.1 |
 | 2 | Sotiropoulos, Chaliasos, Su, *API-driven Program Synthesis for Testing Static Typing Implementations* (Thalia), POPL 2024 | keep | C2; §5.1, §5.2 |
-| 3 | *Enumerating Ill-Typed Programs for Testing Type Analyzers* (Eris), PLDI 2026 | keep | C3, **NOT READ** |
+| 3 | Sotiropoulos, Su, *Enumerating Ill-Typed Programs for Testing Type Analyzers* (Eris), PLDI 2026 | keep | C3; §5.1 (read 30 Oct, PDF fetched by Matt) |
 | 4 | Chaliasos et al., *Well-Typed Programs Can Go Wrong*, OOPSLA 2021 (**classic**, base of 1–3) | maybe | bug taxonomy |
 | 5 | Frank, Quiring, Lampropoulos, *Generating Well-Typed Terms That Are Not "Useless"*, POPL 2024 | keep | C4; §5.2 |
 | 6 | Shi, Keles, Goldstein, Pierce, Lampropoulos, *Etna*, ICFP 2023 | keep | C5; §5.2 |
@@ -290,12 +299,79 @@ the extended version; the numbers match the [POPL copy](https://theosotr.github.
 Audit: MINOR. The one-third finding is the 2021 study's, which Thalia cites, not Thalia's own;
 "77 confirmed" and "42 missed" were "confirmed or fixed" and "at least 42".
 
-**C3. Eris.** Sotiropoulos, Su, *Enumerating Ill-Typed Programs for Testing Type Analyzers*,
-PLDI 2026 (PACMPL, [10.1145/3808320](https://doi.org/10.1145/3808320); Distinguished Paper).
-**NOT READ** (§9: open access at ACM, but every scripted route returned 403 or nothing). The
-artifact README was read: it has seeds, API specifications and a list of bugs, but not the
-paper. Nothing below rests on it. Audit: retried 30 Oct; authors and DOI found (Semantic
-Scholar, the PLDI page, theosotr.github.io), no readable copy.
+**C3. Eris.** Thodoris Sotiropoulos, Zhendong Su (ETH Zurich), *Enumerating Ill-Typed
+Programs for Testing Type Analyzers*, Proc. ACM Program. Lang. 10, PLDI, Article 242 (June
+2026), 25 pages, [10.1145/3808320](https://doi.org/10.1145/3808320); CC BY 4.0; received
+12 Nov 2025, accepted 3 Apr 2026 (all from the PDF's first and last pages).
+*Claim:* *error enumeration*: "Given a well-typed program 𝑃, it systematically injects type
+mismatches at all possible program locations to explore ill-typed programs that differ from 𝑃
+by replacing one expression with incompatible ones" **[cited, abstract]**. Four steps (§4):
+every subexpression is a location; its *expected types* come from its parent's typing rule
+(Def. 3.1, Fig. 3: the declared type for an initialiser, `bool` for a condition, the return
+type for a body, the parameter type for an argument); keep the types in scope that are not
+subtypes of any expected type; put one synthesised inhabitant of each in place of the
+expression. Theorem 3.5: every variant is ill-typed; Theorem 3.6: every single-replacement
+variant with a mismatch is generated (proofs "in supplementary materials", footnote 1, p. 242:8)
+**[cited, §3.2]**. Three insights from two bugs it found (§2.2): *isolation*, one error per
+program so the oracle is "whether the type analyzer fails to report that single error"; *type
+combinatorics*, only some actual/expected pairs trigger a bug; *location sensitivity*, the
+groovyc bug of Fig. 1b fires only inside the *nested* conditional **[cited]**. Two practical
+problems: missing annotations let inference "silently 'repair' the injected error", and flow
+typing can undo it (Figs. 6, 7). Answer: *type recovery*, constraints from the use sites of an
+unannotated variable or call within its method (SSA form for refinement), solved by subtype
+unification; a location whose recovered type is a bare type variable is skipped, since no
+mismatch can be guaranteed there (§4.2.2). Pruning: equivalent locations (same expected types,
+parent kind, depth, child index; §4.1); one representative per *type shape* (arity plus the
+shape of the type hierarchy, Def. 4.1–4.2), ranked by hierarchy distance so near-miss types come
+first, with bounded constructor depth (§4.3); one inhabitant per type, via Thalia's API-graph
+synthesis (§4.4). The last two give up Theorem 3.6, "trad[ing] local completeness for
+scalability" **[cited, §4.3, §4.4]**. Other errors are encoded as mismatches in a small lattice:
+nullability, access modifiers, reassigning immutable variables (§4.5, Fig. 10).
+*Numbers* **[cited]**: four analyzers, kotlinc, scalac (Scala 3), groovyc with static
+compilation, and the Checker Framework's Nullness checker (JCF); javac excluded for lack of an
+open issue tracker (§5.1). Over ten months, 64 bugs reported, triggered by ill-typed programs:
+51 soundness bugs and 13 compile-time crashes; 58 previously unknown (25 confirmed, 33 fixed),
+2 duplicates, 4 "won't fix" (§5.2, Table 2a, whose won't-fix total prints "4 (3)"). By analyzer:
+groovyc 34, JCF 13, kotlinc 11, scalac 6; soundness 32, 12, 3, 4 (Table 2). The seed generators
+found 18 more (16 crashes, 2 completeness bugs), 82 reports in all. By injected error: type
+mismatch 37, nullability 16, access violation 9, reassignment 2 (Table 2c). Runtime effect of the
+soundness bugs: type mismatches at run time 20, null dereferences 15, illegal member access 9,
+bytecode the JVM verifier rejects 2, other 5 (§5.3). Of the 51, 29 are both type- and
+location-sensitive, 15 type-sensitive only, 7 location-sensitive only (§5.4). In a 24-hour run,
+48,836 groovyc variants from 16 seeds gave 242 alerts and 19,547 JCF variants from 135 seeds gave
+30; 7 of 16 groovyc seeds (44%) and 119 of 135 JCF seeds (88%) triggered nothing; per productive
+seed the rate was 0.04–8.8% for groovyc (median 1%) and 0.3–3% for JCF (average 1.3%) (§5.4).
+Type recovery was needed at 34,683 of 132,848 locations in 1,000 seeds (26%), and 27 of the 64
+bugs (42%) needed it. Type shapes cut a Java API's type pool by 84% (mean and median; APIs of 270
+types on average, median 137), and variants by 13× on 85 seeds: 841,163 against 12,074,344 (the
+printed per-seed averages, 5,016 and 65,285, aren't those totals divided by 85) (§5.4). Against
+prior work: of 53 bugs in Kotlin, Scala and Groovy, 37 were in versions Hephaestus's and Thalia's
+campaigns tested; 50 of the 64 "cannot be found by both Hephaestus and Thalia" (printed as 68%;
+50/64 is 78%): 18 involve errors beyond type mismatches, 13 inference and refinement, 19 deeply
+nested locations (§5.5, Fig. 13). Workflow: 24-hour runs, alerts checked by hand, 3–5 reports per
+team per week; soundness bugs were reduced by hand from Eris's log of the injected line, because
+"existing test case reducers are unable to reduce soundness bugs due to the lack of a test
+oracle" (§5.1). *Limits stated:* it needs the target's typing rules; type recovery assumes
+partially annotated programs and "may require adaptations" for fully inferred ones such as
+Haskell; it depends on its seeds; built on Hephaestus's IR, it doesn't support "many distinct
+features found in languages such as TypeScript, including structural types" (§4.5).
+*Steal:* for T2's overwrite half, enumerate rather than sample, and keep one mismatch per
+variant (§5.1, "Error enumeration"). The paper's practical problem, inference repairing a
+mismatch, is absent at Stitchwort's kernel, which only sees complete, annotated terms; there the
+paper's fully annotated setting (§3.1 assumes type inference off) applies **[inferred]**. Its
+encoding of other errors as mismatches suggests the same for Stitchwort's soundness-critical
+non-type errors (termination, `Prop` elimination, abilities); the paper does none of these
+**[inferred]**. Its related work names Zhao et al. (C18) as "a more general account of type
+recovery than ours" **[cited, §6]**, and Moser et al., *Validating Soundness and Completeness in
+Pattern-Match Coverage Analyzers* (OOPSLA 2025, 10.1145/3763171), a lead for exhaustiveness
+checking that wasn't screened (§9). *Helps:* T2, SW-687 (first stage), kernel.md T1's must-reject
+corpus. *Cost:* tooling; the kernel stage is small (§5.1). *Full text:* read
+(~/stitchwort-papers/eris-pldi26.pdf, fetched by Matt 30 Oct 2026; pp. 242:1–242:25: §1–§7, the
+references and the data-availability statement in full; the paper contains no proofs, so none
+were skimmed; Fig. 3, Table 1 and Table 2 were read from `pdftotext -layout`, whose layout of
+Fig. 3 and Table 1 is scrambled; Fig. 12's plots were not read beyond the numbers the text
+gives). Audit: the 29 Oct card was NOT READ; its "Distinguished Paper" isn't in the PDF and is
+dropped; the abstract figures quoted in the old §9 (64 bugs, 51 unsound) match.
 
 **C4. Non-useless well-typed terms.** Frank, Quiring, Lampropoulos, POPL 2024. *Claim:*
 top-down generators choose a subexpression's type locally, so generated functions often
@@ -625,7 +701,7 @@ data is workable for agents when compiler feedback is good, which is Stitchwort'
 
 ## 5. Deep reads
 
-### 5.1 Oracles from the corpus: erase, overwrite, preserve (C1, C2)
+### 5.1 Oracles from the corpus: erase, enumerate errors, preserve (C1, C2, C3)
 
 **What they do.** Hephaestus and Thalia turn one accepted program into many tests with known
 answers. *Erasure*: remove an annotation the checker should infer; the program must still be
@@ -633,7 +709,12 @@ accepted. *Overwriting*: replace one type with an incompatible one; the program 
 rejected. Thalia's soundness mode enumerates ill-typed uses of one API rather than picking
 at random. The oracles need no reference implementation, which is why they find bugs in mature compilers:
 74 of Hephaestus's 156 came from the two mutations and were missed by its generator alone
-**[cited]**. (Audit: was "72 of 153", the submission copy's figures.)
+**[cited]**. (Audit: was "72 of 153", the submission copy's figures.) Eris generalises
+overwriting from declared types and API calls to every expression: one mismatch per variant, at
+every location, for each shape of incompatible type, and its authors trace most of its 51
+soundness bugs to exactly what random or shallow overwriting misses: 29 need a particular
+actual/expected pair at a particular location, and 19 of the 50 its predecessors couldn't find
+need a deeply nested location (C3) **[cited]**.
 
 **Where Stitchwort is.**
 
@@ -659,12 +740,13 @@ at random. The oracles need no reference implementation, which is why they find 
    code. The second branch matters: Stitchwort doesn't promise complete inference, so the
    oracle has to allow honest failure, as Thalia's inference mode only erases what "can be
    inferred by the surrounding context" **[cited]** **[inferred for Stitchwort]**.
-2. **Overwrite (SW-687).** For each application argument in an accepted
-   declaration, substitute a closed term of a different, non-convertible type taken from a
-   small pool (a `Nat` literal, `True`, `"x"`, `[]`, a constructor of an unrelated data
-   type). Oracle: rejected, with a type error at that argument. An *acceptance* is a
-   soundness lead; a rejection with `E-INTERNAL` or with the kernel's `E-TYPE-MISMATCH`
-   reaching the user is an elaborator bug, as in today's oracles.
+2. **Overwrite, as error enumeration (SW-687's first stage; C3).** At every position the
+   checker checks against an expected type, in every accepted declaration, put in turn one
+   closed term of each pruned incompatible type, one replacement per variant. Oracle: rejected,
+   with a mismatch code at that position. An *acceptance* is a soundness lead; a rejection with
+   `E-INTERNAL` or with the kernel's `E-TYPE-MISMATCH` reaching the user is an elaborator bug,
+   as in today's oracles. The 29 Oct version picked argument positions and a fixed pool at
+   random; Eris's results say to enumerate (below).
 3. **Preserve (kernel; new).** For each accepted definition `f : A := b`, evaluate `b` with the
    kernel's evaluator under a step budget, read the value back, and check it against `A` with
    the kernel. Do the same for `A` itself (its normal form must still be a type in the same
@@ -672,6 +754,111 @@ at random. The oracles need no reference implementation, which is why they find 
    read-back or checker disagree: a subject-reduction failure. docs/core.md:169 names the
    Danielsson–Geng counterexample to subject reduction that the `unfolding` rule exists to
    prevent **[checked]**, so this class has already occurred once in design.
+
+**Error enumeration for Stitchwort (C3).** Eris's four steps, mapped. Two stages, because
+Stitchwort has two checkers and only one of them infers.
+
+*Stage K, the kernel (small).* Seeds: the core terms of accepted definitions, after a full
+check of std, `examples/accept` and a sample of AoC. Locations: every place
+`crates/core/src/check.rs` checks a subterm against a known type: an application's argument
+(`check(cx, a, &dom)`, check.rs:320), an ascription (:341–345), a constructor's fields
+(`check_ctor_fields`, :546), a `let`'s value (`check_let_value`, :590–600), a case branch
+against its refined goal (`check_case`, :844), and a definition's body against its declared type
+(`define_def`, :1391). Expected types: the kernel always has them, because no metavariable
+reaches it (`Term::Meta` "Never reaches the kernel", `crates/core/src/term.rs:218-220`)
+**[checked]**; so Eris's type recovery (its §4.2) isn't needed here, and the setting is the
+paper's fully annotated one, where Theorem 3.5 says every variant is ill-typed **[inferred]**.
+Oracle: `define_def`/`define_group` refuses, with `E-TYPE-MISMATCH` (or `E-UNIVERSE` when both
+sides are sorts, `check.rs:202-224`; `E-REFL` for `rfl` at an equation whose sides differ,
+:500–510). Acceptance is a kernel soundness bug, unless the "incompatible" type was in fact
+convertible, which the harness must rule out with the kernel's own conversion check under a
+budget; an undecided comparison drops the variant **[inferred]**. This turns
+`crates/core/tests/kernel_bugs_2026.rs`, which hand-builds six shapes "that skip the parser and
+the elaborator" (its lines 1–6) **[checked]**, into a generator of such shapes. The harness
+needs the checker's `Term` API only, as that file does.
+
+*Stage E, the elaborator (tooling).* Seeds: `examples/accept` (`fuzz_elab.rs` reads `accept`
+and `reject` today, `fuzz_elab.rs:166`), std, AoC. Locations and expected types: the
+elaborator already records, for the language server's hover, the expected type at each span it
+checks (`cx.e.note_expr(cx, span, expected)` in `check`, `crates/elab/src/check.rs:3091`) and the
+inferred type at each span it infers (:981), printed after metavariables are solved
+(`flush_navigation`, `crates/elab/src/nav.rs:503-519`), and `--index` can emit them as
+`"exprs"` (`crates/driver/src/nav.rs:251-262`) **[checked]**. Two additions make it Eris's Step
+1–2: mark which spans were check-mode, and whether the expected type still had an unsolved
+metavariable when it was checked **[inferred]**. A position whose expected type was a
+metavariable then is Eris's "missing annotation" case: a replacement there may be repaired by
+inference, as the paper's Fig. 6b is. Stage 1 skips those positions (Eris's conservative
+baseline, which in its evaluation lost 26% of locations and 27 of 64 bugs); stage 2 adds
+use-site recovery, where the constraint on that metavariable comes from a later check against a
+written type **[cited for the figures; inferred for Stitchwort]**. Repairs Stitchwort's
+elaborator makes beyond unification must count as compatible, or acceptances are false alarms:
+`compare` (`check.rs:4010`) also coerces a function with fewer or reordered abilities, or a total
+function where a partial one is expected (`effects::coerce`, `check.rs:4057-4061`;
+`crates/elab/src/effects.rs:4687-4693`), postpones row comparisons (`rows::postpone`, :4065) and
+waits for unlifted `match` helpers (:4070); numerals take their type from context
+(`numbers::explain_default`) **[checked]**. Dependent pattern matching refines the goal in each
+branch, the analogue of the paper's flow typing: a branch where `n` became `Succ m` is a
+location distinct from the same expression outside the match, by Eris's own rule that parent
+kind and depth distinguish locations (§4.1) **[inferred]**.
+
+*Kinds of mismatch* (Eris's Step 3, with shapes for a dependently typed core) **[inferred]**,
+nearest first, as Eris ranks by hierarchy distance:
+
+| Kind | Example at expected `Vec Nat 3` (or as stated) | Code expected |
+|---|---|---|
+| index only | `Vec Nat 4`; a `Fin 5` literal where `Fin 3` is expected | `E-TYPE-MISMATCH`; `E-FIN-LITERAL` |
+| parameter only | `Vec Bool 3`; `List Bool` for `List Nat` | `E-TYPE-MISMATCH` |
+| head | `List Nat`, `Nat` | `E-TYPE-MISMATCH` |
+| universe | `Type 1` where `Type 0` is expected; the top level `Type 65535` (SW-902) | `E-UNIVERSE` |
+| sort class | a proof where data is expected, data where a proof is | `E-TYPE-MISMATCH` |
+| binder | `[x] -> …` for `(x) -> …`; a function where a non-function is expected | `E-TYPE-MISMATCH` (`check.rs:438-445`) |
+| proposition | another lemma in scope, or `rfl`, at a different statement | `E-TYPE-MISMATCH`; `E-REFL` |
+| abilities | a computation performing an ability not in the row; a partial function where a total one is expected | `E-ABILITY` (as `examples/reject/ability-not-in-row.sw`); `E-PARTIAL` (`effects.rs:4630`, :4667) |
+| not a type | a value where a type is expected | `E-NOT-A-TYPE` (as `examples/reject/tuple-value-for-type.sw`) |
+
+(The `Fin` literal code is `examples/reject/fin-literal-out-of-range.sw`'s.) **[checked: the
+codes and examples named; inferred: which kind each variant falls in]**
+
+Shapes for pruning: a type's head (sort and level class, Π with its binder kinds and arity, data
+type with its parameter and index counts, equation, computation with its row size), not its
+names, as Eris's shapes keep arity and hierarchy and drop names **[inferred]**. The
+universe row is the shape that found SW-902 (`def wrap: Type 0 := Type 4294967295` accepted
+before the fix, DESIGN.md §13 table) **[checked]**: a type- and location-sensitive mismatch in
+Eris's terms, found by hand.
+
+*Inhabitants* (Step 4): one closed term per incompatible type. For data types, the counterexample
+search's generators already produce them (built-in types, and generators derived from
+constructors for types without indices or function fields;
+docs/proposals/counterexample-search.md §5.3–§5.4) **[checked]**; `Vec a n` and `Fin n` with `n`
+known are in its table. For propositions: a lemma from scope whose statement isn't convertible
+to the expected one **[inferred]**.
+
+*Non-type errors encoded as mismatches,* as Eris encodes nullability and access (18 of its 50
+bugs out of its predecessors' reach). The soundness-critical ones here: a recursive call's
+argument replaced by the parameter it came from (must be `E-TERMINATION`, the shape of
+`examples/soundness/fake-child.sw`); a proof matched to produce data (`E-PROP-ELIM`, the shape
+of `examples/soundness/hidden-type.sw`); an ability performed outside its row (`E-ABILITY`)
+**[checked: the two examples' expected codes; inferred: the encoding]**.
+
+*Oracle, for both stages:* exactly one change per variant (Eris's isolation; `fuzz_elab`'s
+`mutate` makes one to three edits, `fuzz_elab.rs:481`) **[checked]**; the variant must be
+rejected, and the first error must have a code from the row's set, at or inside the replaced
+span, or, for a stage-2 position, at the use site whose written type fixed it. That is the
+must-reject suite's rule, "a rejection only counts if it's for the right reason" (DESIGN.md:1014;
+`crates/cli/tests/examples.rs:7-9`) **[checked]**, applied to generated programs. Acceptance:
+soundness lead, confirmed by hand before it is called a bug, as Eris's authors did; a reduced
+case goes into `examples/soundness/` with its `-- expect-error:` line. `E-UNSOLVED`
+(`crates/elab/src/lib.rs:1209`) or `E-CANNOT-INFER`: a wrong-reason rejection, counted
+separately as a diagnostic finding. `E-INTERNAL` or a kernel code from `BAD_KERNEL_CODES`
+(`fuzz_elab.rs:71-79`) reaching the user: an elaborator bug, as today.
+
+*Cost.* Exhaustive enumeration is far beyond the daily tier's 400 cases (about 20 s,
+docs/testing.md:100) **[checked]**: Eris ran 48,836 groovyc variants from 16 seeds in a day, and
+even with shapes averaged thousands of variants per seed **[cited]**. At `fuzz_elab`'s rate
+(about 50 ms a case), 5,000 variants is about four minutes per seed **[inferred]**. So: an
+on-demand campaign (`task fuzz:enum`), and a small fixed-seed sample in the daily tier for
+regressions (D2031). Stage K is much cheaper per variant, since it re-checks one definition
+without parsing or elaborating **[inferred]**.
 
 **Why these, not a generator first.** Hephaestus's two mutations found bugs its generator
 alone could not (74 of 156) **[cited]**; ETNA's experience is that generator comparisons are
@@ -690,12 +877,20 @@ compute large values may mostly come back inconclusive; run it on std and exampl
 split first. Overwrite needs the substituted term to be *non-convertible* with the expected
 type at that position, which needs the elaborator's view of the expected type; doing it at
 the token level gives some type-correct "mutations" (a `Nat` where `Nat` was wanted), so
-compare types before calling a bug. Preservation on terms with `Quot.sound` can get stuck
-(DESIGN §3 "Total") **[checked]**; stuck is not a failure.
+compare types before calling a bug. (Error enumeration answers this by taking the expected
+types from the elaborator's own record, not from tokens.) Enumeration's own risks: false alarms
+from a repair the harness didn't model (a coercion, a numeral default, a postponed comparison),
+so stage E starts with positions whose expected type had no metavariable; and volume, which
+Eris answered with shapes and by checking alerts by hand (C3). Eris's 24-hour runs found that
+44% of groovyc seeds and 88% of JCF seeds triggered nothing **[cited]**, so a quiet first run
+over a few seeds says little. Whether its JVM results transfer to a dependently typed checker,
+with conversion and no subtyping, is untested **[inferred]**. Preservation on terms with
+`Quot.sound` can get stuck (DESIGN §3 "Total") **[checked]**; stuck is not a failure.
 
-**Next step.** T2 (erase and overwrite in `fuzz_elab.rs`, as SW-686/687's first stage) and T3
-(preservation sweep). No design note needed for T3; T2's spec should list which syntactic
-positions are erased and the pool for overwriting.
+**Next step.** T2 (erase, and error enumeration: stage K at the kernel first, then stage E in
+the elaborator; SW-686/687's first stage; D2031) and T3 (preservation sweep). No design note
+needed for T3; T2's spec should list which syntactic positions are erased, the check sites
+enumerated (above), the shapes, and the code set per kind.
 
 ### 5.2 Generators for SW-688: three layers and a scoreboard (C2, C4, C5, C6, C8)
 
@@ -882,7 +1077,7 @@ Ranked by value over effort. "Value" counts open tickets and risks addressed.
 | Rank | Idea | Source | Helps | Cost |
 |---|---|---|---|---|
 | 1 | Lane trust diff: changed statements, renames, must-reject/snapshot/budget changes, axioms | C22, C26, C27, C11 | review; soundness of agent work | small (tooling) |
-| 2 | Erase and overwrite oracles over the corpus in `fuzz_elab` | C1, C2 | SW-686, SW-687 | tooling |
+| 2 | Erase oracle, and error enumeration (one mismatch at every check site): kernel first, then elaborator | C1, C2, C3 | SW-686, SW-687; kernel soundness; D2031 | small (kernel stage); tooling (elaborator stage) |
 | 3 | Kernel preservation sweep (evaluate, read back, re-check) | classic; §5.1 | kernel soundness; complements kernel.md T1 (built 30 Oct: 14 must-reject programs and `kernel_bugs_2026.rs`) | small |
 | 4 | Rotating sample offset for the sampled sweeps | C26 | coverage between full runs | small |
 | 5 | Score fuzzers and oracles against missed `cargo mutants` mutants | C5 | choosing SW-688/689 work | small |
@@ -915,12 +1110,24 @@ strides and ignored tests; the axiom report for each changed theorem. Empty outp
 common case. Mathlib's PR summary comment and ImpossibleBench's findings on agents editing
 tests are the model. Refs: docs/research/infrastructure.md §5.4.
 
-**T2. Erase and overwrite oracles (first stage of SW-686 and SW-687).** In `fuzz_elab.rs`, two
-new mutation kinds over accepted inputs. Erase: remove a written implicit argument, binder
-annotation or ascription; oracle: same hash, or a documented can't-infer code. Overwrite: put
-a closed term of a non-convertible type in one argument position; oracle: rejected with a type
-error at that position (an acceptance is a soundness lead). Report the share of erasures that
-end in `E-UNSOLVED` to calibrate. Hephaestus found 74 of its 156 bugs this way. Refs: §5.1.
+**T2. Erase oracle and error enumeration (first stage of SW-686 and SW-687).** Erase, in
+`fuzz_elab.rs`: remove a written implicit argument, binder annotation or ascription; oracle:
+same hash, or a documented can't-infer code; report the share that end in `E-UNSOLVED` to
+calibrate. Overwrite, as Eris's error enumeration, exhaustive rather than random, one
+replacement per variant: (K) at the kernel, over the core terms of accepted definitions, every
+check site (argument, ascription, constructor field, `let` value, case branch, body) gets one
+closed term of each shape of non-convertible type; `define_def` must refuse with
+`E-TYPE-MISMATCH`, `E-UNIVERSE` or `E-REFL`. (E) In the elaborator, the same over source
+spans, with expected types from the hover record (marked check-mode, and skipping spans whose
+expected type had an unsolved metavariable when checked); the first error must have the kind's
+code at or inside the replaced span. Inhabitants from the counterexample search's generators;
+non-type errors (termination, `Prop` elimination, abilities) encoded as further kinds. An
+acceptance is a soundness lead, checked by hand; a reduced case goes into
+`examples/soundness/`. Runs as `task fuzz:enum` on demand, with a small fixed-seed sample
+daily (D2031). Hephaestus found 74 of its 156 bugs with erase and overwrite; Eris found 51
+soundness bugs by enumeration, and its authors judged 50 of its 64 out of Hephaestus's and
+Thalia's reach. Refs:
+§4 C3, §5.1 "Error enumeration".
 
 **T3. Kernel type-preservation sweep.** For every accepted definition in std, examples and a
 sample of AoC: evaluate the body with the kernel's evaluator under a step budget, read it back,
@@ -1007,20 +1214,49 @@ the test corpus) guards it, as check-cache.md §5.4 guards the check cache; (4) 
 matters, because std lemma edits re-run many tests today (unmeasured). [Recommended: yes, with
 the differential test; measure first how many tests a typical std proof edit re-runs.]
 
+**D2031. Build T2's overwrite half as error enumeration, kernel stage first, run as an on-demand
+campaign with a small daily sample, instead of random overwrites in the daily `fuzz_elab`
+run?** (Added 30 Oct, after reading Eris, C3.) The choice: (a) as T2 was first written, a random
+argument position and a fixed pool, inside the existing 400-case daily run; or (b) every check
+site, one replacement per variant, one term per shape of incompatible type, at the kernel first
+(stage K) and then in the elaborator (stage E), as `task fuzz:enum`, outside the tiers, with a
+fixed-seed sample of a few hundred variants in the daily tier. Assumptions, in full: (1) Eris's
+evidence holds in kind for Stitchwort: soundness bugs in mature checkers need a particular
+actual/expected pair at a particular location (29 of Eris's 51 needed both), so random single
+overwrites reach few of them; this comes from four JVM checkers with subtyping, inference and
+flow typing, and its transfer to a dependently typed checker with conversion and no subtyping
+is untested; (2) at the kernel every expected type is known, because no metavariable reaches
+it (`crates/core/src/term.rs:218-220`), so a replacement whose type the kernel's own conversion
+check finds not convertible to the expected type makes the definition ill-typed, and the kernel
+must refuse it; a comparison that runs out of budget drops the variant rather than counting it;
+(3) the elaborator's hover record (`crates/elab/src/check.rs:3091`, `crates/elab/src/nav.rs:503-519`)
+can be extended to say which spans were checked against an expected type and whether that type
+still had an unsolved metavariable then, and stage E's first version skips those spans, so
+inference can't repair an injected mismatch into a false alarm; Eris's conservative baseline
+lost 26% of locations and 27 of 64 bugs that way, which stage E's second version (use-site
+recovery) would win back; (4) everything the elaborator accepts beyond unification (ability
+coercions and total-to-partial lifting, `effects::coerce`; postponed row comparisons; numeral
+defaults; `compare`, `crates/elab/src/check.rs:4010-4084`) is treated as compatible when choosing
+incompatible types, so an acceptance means a bug, not a modelled coercion; (5) the cost is
+acceptable outside the tiers (thousands of variants per seed, minutes per seed at
+`fuzz_elab`'s roughly 50 ms a case), and the daily sample, not the campaign, is what guards
+against regressions; (6) every acceptance is checked by hand before it is called a soundness
+bug, as Eris's authors checked theirs, and each confirmed one becomes an `examples/soundness/`
+file with its expected code; (7) running it doesn't change the tiers' time budgets
+(docs/testing.md "Tiers") beyond the daily sample. [Recommended: (b). Stage K first, because it
+is small, needs no type recovery, and tests the trust boundary directly; stage E after T2's
+erase half, which shares its harness.]
+
 ## 9. Sources not reached
 
 ### Full text not reachable (for Matt to fetch)
 
-Carded but **NOT READ**; nothing in §5–§8 rests on it.
-
-| Card | Title | DOI | URLs tried, and what each returned |
-|---|---|---|---|
-| C3 | Sotiropoulos, Su, *Enumerating Ill-Typed Programs for Testing Type Analyzers* (Eris), PLDI 2026 | 10.1145/3808320 | 29 Oct: pldi26.sigplan.org page (search summary only); github.com/hephaestus-compiler-project/eris-pldi-eval README (artifact, no paper); zenodo.org record 19033618 (seeds and evaluation only). 30 Oct: Semantic Scholar API (DOI found, `openAccessPdf` is the ACM DOI, GOLD, CC-BY); dl.acm.org/doi/pdf/10.1145/3808320 with curl and with the fetch tool (403 both); web.archive.org `2026id_` copy (404) and the Wayback availability API (no snapshot); theosotr.github.io (publication entry links only the DOI and the tool's repository; `assets/pdf/pldi26.pdf` 404); github.com/hephaestus-compiler-project/eris README (no paper); arXiv title search (nothing) |
-
-Why ask: it is the published form of T2's overwrite oracle (enumerate ill-typed variants at
-every program location; 64 bugs in Kotlin, Scala, Groovy and the Checker Framework, 51 of them
-unsoundness, per the PLDI page's abstract **[unverified]**), so it would shape T2's design. It
-is open access at ACM, so it should open in a browser; only scripts are refused.
+None. The one card listed here, C3 (Eris, 10.1145/3808320), was fetched by Matt on 30 Oct 2026
+and read in full (§4 C3). Every scripted route had failed: the PLDI page, the artifact's
+README and Zenodo record, the Semantic Scholar API (`openAccessPdf` pointed at the ACM DOI),
+dl.acm.org with curl and the fetch tool (403), the Internet Archive (no copy), the first
+author's site, the tool's repository and arXiv. The abstract's figures quoted here before (64
+bugs, 51 unsound) match the paper.
 
 ### Screened, not carded, not read
 
@@ -1039,13 +1275,16 @@ Each row's verdict in §3 says why it was dropped or left as "maybe" without its
   tooling (Q33, giving C33), matklad's blog (nothing in-window, Q34), semantic versioning (Q35),
   proof-assistant testing 2025–26 (Q36), the Lean FRO roadmap (Q37), compiler-testing venues
   2025 (Q38), F-IDE and HATRA (Q39).
+- Snowball lead from C3, not screened: Moser, Sotiropoulos, Zhang, Su, *Validating Soundness
+  and Completeness in Pattern-Match Coverage Analyzers*, OOPSLA 2025 (10.1145/3763171), for
+  Stitchwort's exhaustiveness check.
 - Still not searched: MetaRocq updates beyond kernel.md; Agda interface files; F\*'s tooling;
   Mokhov's later work; Nix content-addressed derivations; Dhall's hash-pinned imports; Elm's
   enforced semantic versioning (Q35 found nothing for typed functional languages); the
   CoqPL/RocqPL, Lean workshop and ITP/CPP 2022–26 programmes year by year. A refresh should
   start with these.
 - dl.acm.org returns 403 to scripts. The Internet Archive's `id_` copies worked for Rustlantis
-  and Forster et al., and had nothing for Sisyphus or Eris. Authors' pages had PACMPL papers
+  and Forster et al., and had nothing for Sisyphus or Eris (Eris was then fetched by Matt). Authors' pages had PACMPL papers
   (lemonidas.github.io, hazel.org, ilyasergey.net, theosotr.github.io), and guessing the file
   name on an author's site found Sisyphus. The UCL Discovery copy of Hephaestus is the
   anonymous submission, with different numbers from the published paper (C1): check the
