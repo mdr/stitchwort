@@ -986,7 +986,6 @@ impl Elaborator {
         ty = self.wrap_params_pi(d, ty);
         let name: Name = format!("{}.{SIZE}", data.name).into();
         let size_id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
-        let mut ids = vec![size_id];
         let sized: Vec<usize> = (0..st.members.len())
             .filter(|m| st.members[*m].preds.iter().any(Pred::involves_motive))
             .collect();
@@ -996,7 +995,6 @@ impl Elaborator {
             let name: Name = format!("{}.%m{}%{SIZE}", self.globals.data(d).name, m + 1).into();
             let id = kernel::declare_def(&mut self.globals, &name, &ty, false, false, span)?;
             member_ids[m] = Some(id);
-            ids.push(id);
         }
         let sizes = Sizes {
             size: size_id,
@@ -1042,7 +1040,7 @@ impl Elaborator {
                 });
             }
             let body = Term::Case(0, d, branches.into());
-            let body = self.wrap_lams(d, np, ni, None, body);
+            let body = self.wrap_lams(d, ni, None, body);
             bodies.push((size_id, body));
         }
         for &m in &sized {
@@ -1107,15 +1105,7 @@ impl Elaborator {
     /// `[params…] (extra…) [indices…] (x) => body`: lambdas for a
     /// definition over `d` (or a container's indices, `ni`), with `extra`
     /// explicit binders between.
-    fn wrap_lams(
-        &self,
-        d: DataId,
-        np: usize,
-        ni: usize,
-        extra: Option<&[Name]>,
-        body: Term,
-    ) -> Term {
-        let _ = np;
+    fn wrap_lams(&self, d: DataId, ni: usize, extra: Option<&[Name]>, body: Term) -> Term {
         let mut body = lam("x", Icit::Explicit, body);
         for k in (0..ni).rev() {
             body = lam(&self.globals.data(d).indices[k].0, Icit::Implicit, body);
@@ -1707,12 +1697,6 @@ impl Elaborator {
         let ctor = &g.data(d).ctors[c];
         let mut needed = vec![false; nf];
         let mark = |t: &Term, depth: usize, needed: &mut Vec<bool>| {
-            mentions_level(t, depth, &|l| {
-                if l >= np && l < np + nf {
-                    // recorded below
-                }
-                false
-            });
             for (s, under) in t.subterms() {
                 if let Term::Var(ix) = s
                     && *ix >= under
@@ -1781,8 +1765,6 @@ impl Elaborator {
             Term::Def(lib.less_than),
             explicit(vec![sq.clone(), Term::ctor(lib.nat, 1, vec![total])]),
         );
-        let field_list = Term::data(lib.list, vec![reindex(&elem_ty, depth_all, h)?]);
-        let _ = field_list;
         ty = pi(
             "h",
             Icit::Explicit,
@@ -1946,7 +1928,7 @@ impl Elaborator {
             let body = Term::Case(0, d, branches.into());
             let mut extra: Vec<Name> = vec!["motive".into()];
             extra.extend(self.case_names(d));
-            bodies.push((induct, self.wrap_lams(d, np, ni, Some(&extra), body)));
+            bodies.push((induct, self.wrap_lams(d, ni, Some(&extra), body)));
         }
         for m in 0..st.members.len() {
             let body = self.member_induct_body(st, &inducts, m)?;
@@ -2379,7 +2361,7 @@ impl Elaborator {
         let body = apps(Term::Def(induct), args);
         let mut extra: Vec<Name> = vec!["motive".into()];
         extra.extend(self.case_names(d));
-        let body = self.wrap_lams(d, np, ni, Some(&extra), body);
+        let body = self.wrap_lams(d, ni, Some(&extra), body);
         kernel::define_group(&mut self.globals, &[(id, body)])?;
         self.bind_generated(d, INDUCT_MEM, id);
         Ok(())
@@ -2449,8 +2431,7 @@ impl Elaborator {
             });
         }
         let mut body = apps(var(inner, case), explicit(args));
-        for (h, (i, _)) in preds.iter().enumerate().rev() {
-            let _ = h;
+        for (i, _) in preds.iter().rev() {
             body = lam(&format!("{}Ih", names[*i]), Icit::Explicit, body);
         }
         for x in names.iter().rev() {

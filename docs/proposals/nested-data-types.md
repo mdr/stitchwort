@@ -988,8 +988,8 @@ bug.
 
 **`auto` and `decreasing T.size`.** When a goal isn't decided by computing, `auto` now also tries
 `size_from_member` (`auto.rs`) before `omega`: for each membership fact in scope (a hypothesis
-whose type is a call of `List.Any`, which is what `List.Mem` computes to, or such a field of a
-record in scope, as an `attach`ed element's `isIn`), whose element type is a data type `T`, it
+whose type is a call of `List.Mem` or of `List.Any`, what `List.Mem` computes to, or such a
+field of a record in scope, as an `attach`ed element's `isIn`), whose element type is a data type `T`, it
 tries each `T.%C%i%sizeMem`, all arguments but the membership left to unification with the
 fact and the goal, and uses the first one that solves them all **[checked]**. That proves the
 obligation of a recursive call on an element of a `List T` field:
@@ -1005,10 +1005,25 @@ def Packet.depth (p: Packet): Nat
 
 **[run]**, also for a field after others (`TNode (left: List Two) (n: Nat) (right: List Two)`, a
 call on an element of `right`), a parameter (`Rose a`), an index (`Ranked`) and a record (`Node`).
-An `[auto lt: Packet.size q < Packet.size (Packets items)]` argument, with `h: List.Mem q items`
-in scope, was not proved: `E-AUTO-STUCK`, "can't decide `Packet.size q ≤ Packet.%m1%size items`"
-**[run]**; the goal had computed past the lemma's form. Only `decreasing` obligations are
-claimed here.
+It proves an `[auto]` argument the same way: `[auto lt: Packet.size q < Packet.size (Packets
+items)]` with `h: List.Mem q items` (or `h: q ∈ items`) in scope **[run]**, also for `Rose a`
+and the record `Node` (`examples/accept/nested-data-induction.sw`). At first it didn't
+(`E-AUTO-STUCK`, "can't decide `Packet.size q ≤ Packet.%m1%size items`"), and the goal wasn't
+the reason: an `[auto]` goal and a `decreasing` one reach `size_from_member` in the same
+computed form, `Packet.size q ≤ Packet.%m1%size items` either way **[run]**. The hypothesis
+was: its type, as written, is a glued call of `List.Mem`, while `attach`'s `isIn` is stored as
+the `List.Any` it computes to, and only `List.Any` was looked for **[checked]**. Now both are
+(SW-704 follow-up, D1977).
+
+When `auto` is stuck on such a goal anyway (the membership is in another list,
+`examples/reject/nested-data-auto-other-list.sw`), `E-AUTO-STUCK` shows it as it computes,
+with the hidden helper, and a note says what that is: "`Packet.%m1%size` is a helper the
+compiler generates for `Packet` (part of `Packet.size`, `Packet.induct` or their lemmas); it
+can't be written in source" **[run]**. It can't show the goal as written: `Packet.size (Packets
+items)` takes its step at once when it is evaluated (its case tree starts on a constructor), so
+even the obligation's unforced goal is `Packet.size q < Succ (Packet.%m1%size items)` **[run]**.
+Showing `Packet.%m1%size items` in a user-facing form (as `Packet.size (Packets items)` minus
+one, say) would be a readback rule in the pretty-printer, not done here.
 
 **Which types get them** **[checked]**: a type of `Type` (not `Prop`, not a higher universe)
 that is alone in its group, has at least one constructor, and holds itself, at its own

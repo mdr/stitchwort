@@ -51,6 +51,13 @@ def Packet.depth (p: Packet): Nat
 
 test "depth" := Packet.depth example == 3
 
+-- The same lemma proves an `[auto]` argument that a member of a packet's
+-- items is smaller, from a membership in scope written `List.Mem q items`
+-- (or `q ∈ items`).
+theorem memberSmaller (q: Packet) (items: List Packet) [auto lt: Packet.size q < Packet.size (Packets items)]: Unit := ()
+
+theorem memberSmallerHere (q: Packet) (items: List Packet) (h: List.Mem q items): Unit := memberSmaller q items
+
 -- Structural recursion with a helper for the list, as before.
 def numbers: Packet → Nat
   | Number _ => 1
@@ -90,6 +97,11 @@ def Rose.labels (t: Rose a): List a
     | Bloom x kids => Cons x (kids.attach.map (e => Rose.labels e.value) |> .foldLeft [] List.append)
 
 test "labels" := Rose.labels (Bloom 1 [Bloom 2 [], Bloom 3 [Bloom 4 []]]) == [1, 2, 3, 4]
+
+-- An `[auto]` argument from a membership, with the parameter.
+theorem kidSmaller (t: Rose a) (x: a) (kids: List (Rose a)) [auto lt: Rose.size t < Rose.size (Bloom x kids)]: Unit := ()
+
+theorem kidSmallerHere (t: Rose a) (x: a) (kids: List (Rose a)) (h: t ∈ kids): Unit := kidSmaller t x kids
 
 -- A label count is at least one, by `Rose.inductMem` on any `Rose a`.
 theorem labelsNonEmpty (t: Rose a): 0 < Rose.size t :=
@@ -160,6 +172,11 @@ def Node.total (node: Node): Nat
     | { weight, children } => weight + (children.attach.map (e => Node.total e.value) |> .foldLeft 0 Nat.add)
 
 test "total" := Node.total { weight = 1, children = [{ weight = 2, children = [] }, { weight = 4, children = [] }] } == 7
+
+-- And for the record.
+theorem childSmaller (m: Node) (w: Nat) (cs: List Node) [auto lt: Node.size m < Node.size { weight = w, children = cs }]: Unit := ()
+
+theorem childSmallerHere (m: Node) (w: Nat) (cs: List Node) (h: List.Mem m cs): Unit := childSmaller m w cs
 
 def main(): {IO} () :=
   print "depth: ${Packet.depth example}"
