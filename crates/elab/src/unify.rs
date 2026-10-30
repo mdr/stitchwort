@@ -57,7 +57,7 @@ fn run(g: &Globals, mut work: Vec<Task>) -> Result<bool> {
             Task::Later(_, _, _, trail) if g.meta_trail.borrow().len() <= trail => false,
             Task::Later(level, a, b, _) => {
                 let env: Vec<Value> = (0..level).map(Value::var).collect();
-                let afresh = |v: &Value| eval(g, &env, &quote(g, level, v)?);
+                let afresh = |v: &Value| eval(g, &env, &quote_folded(g, level, v)?);
                 work.push(Task::Values(level, afresh(&a)?, afresh(&b)?));
                 true
             }

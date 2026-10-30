@@ -875,8 +875,8 @@ in both, and each is a consequence of (c):
   `List.between ?lo ?hi` unfolds to `rangeFrom (?hi + 1 - ?lo) ?lo`, and
   `?hi + 1` is now `Succ ?hi`, a different shape from the computed `n - 1`
   (2025 day 2; fixed by naming them). Likewise `x + ?d` no longer unifies
-  with a computed `Succ (x + t)` (rogue). A unifier rule inverting R4 would
-  recover these; not done.
+  with a computed `Succ (x + t)` (rogue). Both are inferred again since
+  SW-896 (§10.1); the first needed more than a rule for `+`.
 
 **Measured** (release build, other lanes running, so rough):
 
@@ -892,4 +892,135 @@ mostly the prelude's; that the 0.5% is the two theorems' types checked at
 binding is **[inferred]**, not measured apart.
 
 **Not done.** Rules for `*` (D1772). Printing `k + x` as `x + k`, which
-would match how people write it. The unifier rule inverting R4.
+would match how people write it.
+
+### 10.1 The unifier: sums stuck on an unknown (SW-896)
+
+On branch `worktree-agent-a736c6643c901c9a2` (SW-896, D1977), against
+`main` at `47e1425f`; **[checked]** there unless marked.
+
+**The rule** (`crates/elab/src/unify.rs`, `plus_rule`, `stuck_sum`,
+`plus_rule_with`). R4 and R2 read backwards. When one side of a
+unification problem is `a + ?m` (or `?m + a`), stuck, with
+
+- (U1) `a` mentioning no unknown (read back with at most 4096 nodes, else
+  the rule doesn't apply),
+- (U2) `?m` unsolved, not frozen, and applied to distinct variables,
+
+and the other side is `k + t` with `k > 0` (a value with `k` `Succ`s
+outside it), then:
+
+- if `t` is convertible to `a`: `?m := k` (R4 `k` times, then R3);
+- else, if `t` doesn't mention `?m` (U3): `?m := x₁ … xₙ => k + ?m' x₁ … xₙ`
+  for a new `?m'`, and the problem goes on as `a + ?m' ≟ t` (`?m' + a ≟ t`).
+
+Otherwise the rule does nothing and unification goes on as before. It is
+tried before numbers are compared by their `k + x` forms, and again on the
+base those leave (`Succ (x + ?d)` against `Succ (Succ x)`). The rules must
+be bound (`Builtins::nat_add_rule`); for another `Nat.add` it is off.
+
+**Why it chooses nothing a solution could avoid.** Take any solution, `?m
+:= S`, of `a + ?m ≟ k + t` (every unknown solved). By (U1) `a` is the same
+value under it, and `a` is neither a number nor a constructor: the sum
+was stuck, and the evaluator tries R1, R2 and the natives' shortcut on `a`
+before anything else (§10, *Kernel*). By (U2) `S` is `x₁ … xₙ => B`, and
+`?m x₁ … xₙ` is `B`. By cases on `B`'s value: `Zero` gives `a + B ≡ a`,
+which isn't headed by `Succ`; a value stuck on something gives the stuck
+call `a + B`, likewise; so `B ≡ Succ B₁` and `a + B ≡ Succ (a + B₁)` (R4),
+and `a + B₁ ≡ (k - 1) + t`. After `k` steps, `B ≡ k + Bₖ` with `a + Bₖ ≡
+t`: the solution is `?m' := x₁ … xₙ => Bₖ`. So the rule loses no solution
+(it is complete for this problem), and when `t ≡ a` the only `Bₖ` is
+`Zero` by the same cases, which is `?m := k`. For `?m + a` the argument is
+the same with R2 and R1 (a stuck `?m + a` means R3 and R4 didn't apply, so
+`a` is no number or `Succ` either). This uses confluence (§9.4): a value
+has one normal form, so "headed by `Succ`" is a property of the value.
+
+**Soundness** doesn't depend on the argument above: a solution is still a
+term the kernel re-checks, and `?m := k + ?m'` with `a + ?m' ≟ t` solved is
+`a + (k + B') ≡ k + (a + B') ≡ k + t` by R4, so the original problem holds.
+
+**What the conditions rule out, and why.**
+
+- *`a` mentions an unknown* (`(?c + x) + ?d ≟ 3 + x`, or `?c + ?d ≟ Succ
+  x`). `a` may then become a `Succ` (`?c := Succ ?c'`), and a solution
+  that puts the `Succ` there instead is missed; committing would be
+  incomplete, so the rule waits (the comparison fails as before, or a
+  later one solves `?c`).
+- *`?m` not applied to distinct variables* (`?m (Succ z)`). A solution can
+  then be `y => y`, which isn't `y => Succ …`; the ordinary fallback
+  (`first_order` in `unify.rs`) is left to it.
+- *`t` mentions `?m`* (`x + ?d ≟ Succ ?d`). Peeling would never end
+  (`?d := Succ ?d'`, then `x + ?d' ≟ Succ (Succ ?d')`, …); there is no
+  finite solution anyway.
+- *Termination.* Each step takes `k ≥ 1` `Succ`s off the other side and
+  leaves `t`, which has none outside, so the rule fires at most once on a
+  path through `t`'s outer layer; deeper `Succ`s are under a different
+  head and reached only by comparing parts, which are smaller.
+
+**What it doesn't do.**
+
+- `a + ?m ≟ a` alone, with nothing to peel, is left alone, though `?m :=
+  Zero` is its one solution. With it, `rewrite Nat.powAdd 10 k _` in 2025
+  day 2's `multiplierSucc` found `Nat.pow 10 k` as `Nat.pow 10 (k + 0)`
+  (`rewrite` finds occurrences by unification) and failed with
+  `E-REWRITE-MOTIVE`, where it had found `Nat.pow 10 (k + k * i)`.
+  Before (c) no sum matched a bare `k`; what the rule does match (`k + ?x`
+  against `k + 3` or `Succ (k + t)`) is what matched as written then.
+  `examples/reject/plus-unknown-against-itself.sw`.
+- `a + ?m ≟ 0`, or against a stuck call, a variable, another sum: as
+  before (`examples/reject/plus-unknown-against-zero.sw`).
+- `*`, `-` and the other operations: nothing.
+
+**`List.memBetween` needed something else** (`unify.rs`, `run` and
+`blocked`). Its problem isn't a stuck sum. `List.between ?lo ?hi` unfolds
+to `List.rangeFrom (Succ ?hi - ?lo) ?lo`, and `-` counts down its second
+argument, so the first argument is stuck on `?lo`; `h`'s type is
+`List.rangeFrom (n - 1) 2` (or `List.rangeFrom n 1` for `between 1 n`).
+The arguments are compared first to first, so `Succ ?hi - ?lo` met `n - 1`
+(the spines `Succ ?hi` and `n` differ) or `n` before `?lo := 2` was known,
+and failed. On `main` before (c) it worked by shape alone: `?hi + 1` and
+`n + 1` were both stuck, and `n + 1 - 2` stuck on `n + 1`. The fix is
+general: a pair that fails while one side is a definition stuck on an
+unknown (an argument an unsolved unknown, or `k +` one, or such a call,
+three calls deep at most) is put aside and compared again after the rest
+of the work list, read back and evaluated afresh, if anything was solved
+meanwhile; if nothing was, it fails. Two calls of the same definition
+stuck so are compared argument by argument as a nested run, so the calls
+(not some argument pair inside them) are what is put aside. With `?lo :=
+2`, `Succ ?hi - 2` computes to `?hi - 1`, which unifies with `n - 1`.
+
+That is sound for the same reason (it only orders comparisons; every pair
+is still unified, and the kernel checks), and it terminates: a pair put
+aside is retried only after the trail of solutions has grown, and each
+retry is a budget step. What it changes: a unification that fails because
+of a blocked pair now does the rest of its work list before failing, and
+keeps the solutions that made (solutions of a failed unification were
+already kept; taking back either the put-aside pair's or the rest's broke
+`std/List/Lemmas.sw`'s `List.appendNotEq`, whose `rewrite <- DecEq.sound _
+_ made` relies on them, **[checked]**: both variants tried). Not covered:
+a pair stuck on an unknown that is solved only after this unification
+returns (the elaborator's own postponing, of lambdas and rows, is
+separate), and calls stuck more than three deep.
+
+**Reverted explicit arguments.** 2025 day 2 `Templates.sw` (`match
+List.memBetween lengthChosen, List.memBetween copyCountChosen`) and rogue
+`Rules.sw` `actAllDamage` (`outcome.add monster _ _`), each checked with
+`--no-cache`, and each rejected by `main`'s binary (`E-TYPE-MISMATCH`,
+`E-OMEGA`). Those are the only two SW-787 introduced for this (the lane's
+diff of `aoc/` and `games/`; `git grep memBetween`); the rest of its
+changes there were rewrites and proofs, not implicits.
+
+**Tests.** `examples/accept/plus-unknown-summand.sw` (every case fails on
+`main`'s binary): `x + ?d` against `Succ (x + 3)`, `Succ (x + t)`, `?d + x`
+against `Succ (t + x)`, `Succ (x + ?d)` against `x + 3`, and
+`List.memBetween h` under a `match` for `between 2 n` and `between 1 n`.
+`examples/reject/plus-unknown-against-{zero,itself}.sw`.
+`crates/driver/tests/nat_add_rule.rs`
+`the_unifier_peels_succs_off_a_sum_stuck_on_an_unknown`: two solved, and
+each condition's counterexample (`t` mentions `?d`, both summands unknown,
+`a` mentions an unknown, `0`, `a` alone) still `E-REFL`.
+
+**Measured.** `aoc`, `stitchwort check --no-cache`, user CPU time,
+alternating runs, other lanes running: this branch 36.95, 36.71, 41.91 s;
+`main`'s binary (on the same `aoc` with `main`'s `Templates.sw`) 36.44,
+41.45, 37.03 s. No difference beyond the noise.
