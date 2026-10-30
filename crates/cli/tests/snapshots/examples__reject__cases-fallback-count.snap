@@ -1,0 +1,26 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CASES] Error: `cases` can't close the case flag = False (fallback), key = Enter (fallback)
+    ╭─[ reject/cases-fallback-count.sw:26:86 ]
+    │
+ 26 │ theorem keyFewest (flag: Bool) (key: NumericKey): Or (key ∈ digits) (flag = True) := cases
+    │                                                                                      ──┬──  
+    │                                                                                        ╰──── this `cases`
+    │ 
+    │ Note 1: goal: (Digit0 = Enter ∨ Digit1 = Enter ∨ Digit2 = Enter ∨ Digit3 = Enter ∨ Digit4 = Enter ∨ Digit5 = Enter ∨ Digit6 = Enter ∨ Digit7 = Enter ∨ Digit8 = Enter ∨ Digit9 = Enter ∨ Void) ∨ False = True
+    │ 
+    │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis nor `omega` proves it; give this case's proof as `cases in t`
+    │ 
+    │ Note 3: it split `flag`, `key` as a fallback, though the goal wasn't stuck on them
+    │ 
+    │ Note 4: the goal's decision procedure says it is false
+    │ 
+    │ Note 5: 11 other cases were closed (1 by `omega`, 10 by deciding)
+    │ 
+    │ Note 6: this statement is false; a counterexample:
+    │           flag = False
+    │           key = Enter
+    │         `key ∈ digits ∨ flag = True` is false
+────╯

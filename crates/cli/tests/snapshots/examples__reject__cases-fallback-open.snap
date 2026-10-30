@@ -1,0 +1,26 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CASES] Error: `cases` can't close the case a = True, b = False (fallback)
+   ╭─[ reject/cases-fallback-open.sw:7:61 ]
+   │
+ 7 │ theorem badFallback: (a: Bool) → (b: Bool) → (a ∧ b) = a := cases
+   │                                                             ──┬──  
+   │                                                               ╰──── this `cases`
+   │ 
+   │ Note 1: goal: False = True
+   │ 
+   │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis nor `omega` proves it; give this case's proof as `cases in t`
+   │ 
+   │ Note 3: it split `b` as a fallback, though the goal wasn't stuck on it
+   │ 
+   │ Note 4: 2 other cases were closed (2 by computation)
+   │ 
+   │ Note 5: this statement is false; a counterexample:
+   │           a = True
+   │           b = False
+   │         `(a && b) = a` is false:
+   │           left:  False
+   │           right: True
+───╯

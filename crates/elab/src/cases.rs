@@ -48,6 +48,13 @@
 //! This comes after the closers, so a `Π` goal they prove whole (a
 //! hypothesis of that type, `omega` on `P → Void`, `t`) keeps that proof.
 //!
+//! A case still open then, not a `Π`, is split anyway, as a *fallback*
+//! (§6.1.3): of the variables the goal mentions, as computed, that are
+//! splittable and not known in this case, the one with the fewest
+//! constructors (a record's 1, `Bool`'s 2), ties to the latest bound. That
+//! is what proves `key ∈ keys`, a disjunction of equations not stuck on
+//! `key`. Its splits are marked "(fallback)" in the diagnostics.
+//!
 //! A case nothing closes, with nothing left to split, is `E-CASES`, showing
 //! the path of choices to it and the hypotheses in scope (only the latest
 //! copy of each, as generalising copies them). More than [`CASES`] cases is
@@ -85,12 +92,15 @@ pub(crate) struct Run {
     span: Span,
     /// Cases made so far.
     cases: Cell<usize>,
-    /// The atoms split on, as shown, in the order first split.
-    atoms: RefCell<Vec<String>>,
+    /// The atoms split on, as shown, in the order first split, and whether
+    /// each was first split as a fallback.
+    atoms: RefCell<Vec<(String, bool)>>,
     /// How the closed cases were closed.
     closed: RefCell<Closed>,
     /// Set once the budget is exceeded: every case after that fails at once.
     over: Cell<bool>,
+    /// The split that exceeded the budget, `x : T`, when it was a fallback.
+    over_fallback: RefCell<Option<String>>,
     /// The first case still open when the budget ran out, as shown.
     open_at: RefCell<Option<String>>,
     /// Facts added by taking equations apart, for their names.
@@ -161,6 +171,7 @@ pub(crate) fn check_cases(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
         atoms: RefCell::new(Vec::new()),
         closed: RefCell::new(Closed::default()),
         over: Cell::new(false),
+        over_fallback: RefCell::new(None),
         open_at: RefCell::new(None),
         facts: Cell::new(0),
         splittable: RefCell::new(HashMap::default()),
@@ -207,13 +218,23 @@ fn budget_error(run: &Run) -> Diagnostic {
         "E-CASES-BUDGET",
         format!("`cases` made more than {CASES} cases without closing them all"),
     )
-    .with_label(run.span, "this `cases`")
-    .with_note(format!(
+    .with_label(run.span, "this `cases`");
+    if let Some(split) = &*run.over_fallback.borrow() {
+        d = d.with_note(format!(
+            "`cases` tried splitting `{split}` as a fallback; this would exceed the \
+             {CASES}-case budget"
+        ));
+    }
+    d = d.with_note(format!(
         "it split on {}: {}",
         atoms.len(),
         atoms
             .iter()
-            .map(|a| format!("`{a}`"))
+            .map(|(a, fallback)| if *fallback {
+                format!("`{a}` (fallback)")
+            } else {
+                format!("`{a}`")
+            })
             .collect::<Vec<_>>()
             .join(", ")
     ));
@@ -263,10 +284,14 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
             }
         }
     }
-    let (atom, stuck) = {
+    let (atom, stuck, fallback) = {
         let mut finder = Finder::new(cx, run);
         let atom = finder.find(goal)?;
-        (atom, finder.stuck.take())
+        let fallback = match atom {
+            None => finder.fallback()?,
+            Some(_) => None,
+        };
+        (atom, finder.stuck.take(), fallback)
     };
     if let Some(atom) = atom {
         // Splitting on the goal's own side (`Nat.leq a b = True` into
@@ -278,7 +303,7 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
             run.closed.borrow_mut().omega += 1;
             return Ok(term);
         }
-        return split_on(cx, run, atom, goal);
+        return split_on(cx, run, atom, goal, false);
     }
     let found = crate::omega::prove_case(cx, goal, run.span)?;
     if let Some(term) = found {
@@ -297,6 +322,13 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     // that would otherwise be open goes on to have its binders introduced.
     if let Some(term) = introduce(cx, run, goal)? {
         return Ok(term);
+    }
+    // The fallback (docs/proposals/decide.md §6.1.3): the goal isn't stuck
+    // on anything splittable, so split a variable it mentions anyway, the
+    // one whose split makes the fewest cases, ties to the latest bound. In
+    // each case it is a constructor, which may let a closer finish.
+    if let Some(atom) = fallback {
+        return split_on(cx, run, atom, goal, true);
     }
     let error = open_case(cx, run, goal, stuck, failed_body);
     Err(match decided {
@@ -422,8 +454,23 @@ fn hypothesis_name(cx: &Ctx, level: usize, name: &str) -> String {
 fn path(cx: &Ctx) -> Vec<String> {
     (0..cx.level())
         .filter(|&l| is_equation(cx, l) && cx.name_of_level(l).is_some())
-        .map(|l| cx.show(&cx.types[l]))
+        .map(|l| {
+            let shown = cx.show(&cx.types[l]);
+            if is_fallback(cx, l) {
+                format!("{shown} (fallback)")
+            } else {
+                shown
+            }
+        })
         .collect()
+}
+
+/// The end of the names of the equations of fallback splits.
+const FALLBACK: &str = "%fallback";
+
+/// Whether the variable at `level` is the equation of a fallback split.
+fn is_fallback(cx: &Ctx, level: usize) -> bool {
+    is_equation(cx, level) && cx.names[level].ends_with(FALLBACK)
 }
 
 /// Whether the variable at `level` is a hypothesis a generalising `match`
@@ -497,7 +544,7 @@ fn open_case(
             .map(|l| &cx.types[l]),
     );
     d = cx.with_unused_equation_notes(d, &searched);
-    match stuck {
+    let d = match stuck {
         Some((what, ty)) => d.with_note(format!(
             "it stopped here because the goal is stuck on `{what}`, a `{ty}`, which `cases` \
              doesn't take apart; give this case's proof as `cases in t`"
@@ -507,7 +554,23 @@ fn open_case(
              contradiction, a hypothesis nor `omega` proves it; give this case's proof as \
              `cases in t`",
         ),
+    };
+    // The fallback splits on the way here, by what they split.
+    let fallbacks: Vec<String> = (0..cx.level())
+        .filter(|&l| is_fallback(cx, l) && cx.name_of_level(l).is_some())
+        .filter_map(|l| match force(cx.g(), cx.types[l].clone()) {
+            Ok(Value::Eq(_, split, _)) => Some(format!("`{}`", cx.show(&split))),
+            _ => None,
+        })
+        .collect();
+    if fallbacks.is_empty() {
+        return d;
     }
+    d.with_note(format!(
+        "it split {} as a fallback, though the goal wasn't stuck on {}",
+        fallbacks.join(", "),
+        if fallbacks.len() == 1 { "it" } else { "them" }
+    ))
 }
 
 /// Whether a hypothesis of type `ty` is worth showing: a proposition, as
@@ -889,6 +952,8 @@ struct Finder<'a, 'e> {
     /// How many stuck calls' arguments the walk is inside: a record
     /// is split only outside them.
     under_stuck: usize,
+    /// The variables met in the goal, by level: the fallback's candidates.
+    mentioned: Vec<usize>,
 }
 
 /// The most values the search for an atom visits in one case.
@@ -916,6 +981,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             visits: 0,
             in_goal: false,
             under_stuck: 0,
+            mentioned: Vec::new(),
         }
     }
 
@@ -976,7 +1042,12 @@ impl<'a, 'e> Finder<'a, 'e> {
                 }
                 self.walk_stuck_spine(spine)
             }
-            Value::Neutral(Head::Var(..), spine) => self.walk_spine(spine),
+            Value::Neutral(Head::Var(level, _), spine) => {
+                if self.in_goal && spine.is_empty() && !self.mentioned.contains(level) {
+                    self.mentioned.push(*level);
+                }
+                self.walk_spine(spine)
+            }
             Value::Ctor(_, _, fields) => {
                 for f in fields.iter() {
                     if let Some(atom) = self.walk(f)? {
@@ -1111,6 +1182,44 @@ impl<'a, 'e> Finder<'a, 'e> {
         Ok(best)
     }
 
+    /// The fallback's split, after [`Finder::find`] found nothing
+    /// (docs/proposals/decide.md §6.1.3): of the variables the goal
+    /// mentions, as computed, whose type is splittable and that aren't
+    /// known in this case, the one whose split makes the fewest cases (its
+    /// constructor count: a record's 1, `Bool`'s 2), ties to the latest
+    /// bound.
+    fn fallback(&self) -> Result<Option<Atom>> {
+        let cx = self.cx;
+        let mut best: Option<(usize, usize, DataId)> = None;
+        for &level in &self.mentioned {
+            if is_equation(cx, level) {
+                continue;
+            }
+            let Value::Data(d, _) = force(cx.g(), cx.types[level].clone())? else {
+                continue;
+            };
+            let Some(count) = self.ctors(d) else {
+                continue;
+            };
+            let value = Value::var(level);
+            if self.is_known(&value)? {
+                continue;
+            }
+            let better = match best {
+                None => true,
+                Some((c, l, _)) => count < c || (count == c && level > l),
+            };
+            if better {
+                best = Some((count, level, d));
+            }
+        }
+        Ok(best.map(|(_, level, d)| Atom {
+            value: Value::var(level),
+            d,
+            side: false,
+        }))
+    }
+
     fn is_known(&self, value: &Value) -> Result<bool> {
         if self.known.is_empty() {
             return Ok(false);
@@ -1221,20 +1330,25 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
 }
 
 /// Splits the case on `atom`: the generated `match` with one alternative
-/// per constructor, each going on with this `cases`.
-fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value) -> Result<Term> {
+/// per constructor, each going on with this `cases`. `fallback`: the goal
+/// isn't stuck on it (§6.1.3), which the diagnostics say.
+fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: bool) -> Result<Term> {
     let g = cx.g();
     let data = g.data(atom.d);
     let shown = cx.show(&atom.value);
     {
         let mut atoms = run.atoms.borrow_mut();
-        if !atoms.contains(&shown) {
-            atoms.push(shown.clone());
+        if !atoms.iter().any(|(a, _)| *a == shown) {
+            atoms.push((shown.clone(), fallback));
         }
     }
     run.cases.set(run.cases.get() + data.ctors.len() - 1);
     if run.cases.get() > CASES {
         run.over.set(true);
+        if fallback {
+            let ty = atom_type(cx, &cx.quote_folded(&atom.value)?, atom.d)?;
+            *run.over_fallback.borrow_mut() = Some(format!("{shown} : {}", cx.show(&ty)));
+        }
         let path = path(cx);
         *run.open_at.borrow_mut() = Some(if path.is_empty() {
             "the first, before any split".to_string()
@@ -1247,7 +1361,11 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value) -> Result<Ter
     let ty = atom_type(cx, &term, atom.d)?;
     let depth = (0..cx.level()).filter(|&l| is_equation(cx, l)).count();
     let name = ast::Name {
-        text: format!("{EQUATION}{}", depth + 1),
+        text: if fallback {
+            format!("{EQUATION}{}{FALLBACK}", depth + 1)
+        } else {
+            format!("{EQUATION}{}", depth + 1)
+        },
         span: run.span,
     };
     let alts: Vec<Alt> = data
