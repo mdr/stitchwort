@@ -40,32 +40,8 @@ theorem drivingKeysCost (keypad: Keypad k) (costs: Costs): (from: k) → (keys: 
       in rfl
 
 -- Tabulating changes no cost.
-theorem tabulateSame (costs: Costs): (from: DirectionKey) → (to: DirectionKey) → costs.tabulate from to = costs from to
-  | Arrow Up, Arrow Up => rfl
-  | Arrow Up, Arrow Down => rfl
-  | Arrow Up, Arrow Left => rfl
-  | Arrow Up, Arrow Right => rfl
-  | Arrow Up, Activate => rfl
-  | Arrow Down, Arrow Up => rfl
-  | Arrow Down, Arrow Down => rfl
-  | Arrow Down, Arrow Left => rfl
-  | Arrow Down, Arrow Right => rfl
-  | Arrow Down, Activate => rfl
-  | Arrow Left, Arrow Up => rfl
-  | Arrow Left, Arrow Down => rfl
-  | Arrow Left, Arrow Left => rfl
-  | Arrow Left, Arrow Right => rfl
-  | Arrow Left, Activate => rfl
-  | Arrow Right, Arrow Up => rfl
-  | Arrow Right, Arrow Down => rfl
-  | Arrow Right, Arrow Left => rfl
-  | Arrow Right, Arrow Right => rfl
-  | Arrow Right, Activate => rfl
-  | Activate, Arrow Up => rfl
-  | Activate, Arrow Down => rfl
-  | Activate, Arrow Left => rfl
-  | Activate, Arrow Right => rfl
-  | Activate, Activate => rfl
+theorem tabulateSame (costs: Costs): (from: DirectionKey) → (to: DirectionKey) → costs.tabulate from to = costs from to :=
+  cases
 
 -- The program's next costs are the cheapest routes on a directional keypad.
 theorem nextCostsCheapest (costs: Costs) (from: DirectionKey) (to: DirectionKey):

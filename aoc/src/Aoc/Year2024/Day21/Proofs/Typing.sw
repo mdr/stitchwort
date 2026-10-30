@@ -50,25 +50,9 @@ theorem numericFits: fits numericKeys Keypad.numeric numericRows = True := rfl
 
 theorem directionalFits: fits directionKeys Keypad.directional directionalRows = True := rfl
 
-theorem everyNumericKey: (key: NumericKey) → key ∈ numericKeys
-  | Digit0 => Inl rfl
-  | Digit1 => Inr (Inl rfl)
-  | Digit2 => Inr (Inr (Inl rfl))
-  | Digit3 => Inr (Inr (Inr (Inl rfl)))
-  | Digit4 => Inr (Inr (Inr (Inr (Inl rfl))))
-  | Digit5 => Inr (Inr (Inr (Inr (Inr (Inl rfl)))))
-  | Digit6 => Inr (Inr (Inr (Inr (Inr (Inr (Inl rfl))))))
-  | Digit7 => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl rfl)))))))
-  | Digit8 => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl rfl))))))))
-  | Digit9 => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl rfl)))))))))
-  | Enter => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl rfl))))))))))
+theorem everyNumericKey: (key: NumericKey) → key ∈ numericKeys := cases
 
-theorem everyDirectionKey: (key: DirectionKey) → key ∈ directionKeys
-  | Arrow Up => Inl rfl
-  | Arrow Down => Inr (Inl rfl)
-  | Arrow Left => Inr (Inr (Inl rfl))
-  | Arrow Right => Inr (Inr (Inr (Inl rfl)))
-  | Activate => Inr (Inr (Inr (Inr (Inl rfl))))
+theorem everyDirectionKey: (key: DirectionKey) → key ∈ directionKeys := cases
 
 -- What `fits` gives for one pair of keys.
 type Fitted (k: Type) = {

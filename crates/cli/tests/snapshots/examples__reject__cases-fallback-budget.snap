@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CASES-BUDGET] Error: `cases` made more than 64 cases without closing them all
+    ╭─[ reject/cases-fallback-budget.sw:22:70 ]
+    │
+ 22 │ theorem sameOrNot (a: Month) (b: Month): Or (a = b) (Not (a = b)) := cases
+    │                                                                      ──┬──  
+    │                                                                        ╰──── this `cases`
+    │ 
+    │ Note 1: `cases` tried splitting `a : Month` as a fallback; this would exceed the 64-case budget
+    │ 
+    │ Note 2: it split on 2: `b` (fallback), `a` (fallback)
+    │ 
+    │ Note 3: the first case still open: b = May (fallback)
+    │ 
+    │ Note 4: prove a fact that decides some of the cases at once and give it as `cases in t`, or split by hand with `match`
+────╯

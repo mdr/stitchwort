@@ -6,11 +6,11 @@ section). Dafny was not consulted at all.
 
 **Status:** draft 2, 30 October 2026 (draft 1: 29 October), revised after an external review
 ([decide/review-1.md](decide/review-1.md), verbatim; how each point was addressed is
-[§11](#11-review-1-and-how-it-was-addressed)), approved for revision as D2034. Design only:
-nothing in the compiler changes. Tickets SW-800 (`decide`) and SW-807 (a derived list of every
-value). Prototypes, each checked with `stitchwort check --no-cache`, are in [decide/](decide/).
-Three decisions for Matt, still open, are in [§10](#10-decisions-for-matt); the stage plan is
-[§12](#12-stage-plan).
+[§11](#11-review-1-and-how-it-was-addressed)), approved for revision as D2034. Tickets SW-800
+(`decide`) and SW-807 (a derived list of every value). Prototypes, each checked with `stitchwort
+check --no-cache`, are in [decide/](decide/). The three decisions in [§10](#10-decisions-for-matt)
+are decided (yes); the stage plan is [§12](#12-stage-plan). **SW-800's three parts are built**:
+[§13, As built](#13-as-built-sw-800). The sections before §13 are the design as written.
 
 Labels, as in the other notes:
 
@@ -817,6 +817,108 @@ examples/reject, as for today's `cases`.
 - measure: declaration-time cost of deriving `Finite` across std and aoc (assumption 5).
 
 Order: parts 1, 2, 3, then SW-807; part 3's `Finite.check` note waits for SW-807.
+
+## 13. As built (SW-800)
+
+Built 30 October 2026, D1971 (Matt: yes), in three parts, each its own commit. All in
+crates/elab/src/cases.rs, except one visibility change in auto.rs. Line numbers are of the lane's
+last commit.
+
+**What changed.** `node` (cases.rs:251) now runs, after `omega` (:309), the three new steps in the
+designed order (steps 8, 9, 10):
+
+- *Part 2, the decision closer* (`by_decision`, cases.rs:374, called at :315): the goal, if a
+  proposition, has its procedure found by `auto::decide` and run in a transaction; `Yes` closes the
+  case with `auto::from_yes` (auto.rs:327, made `pub(crate)`, nothing else in auto.rs changed),
+  counted as "by deciding" in the closed-cases note; `No` and stuck go on, and an `E-CASES` for the
+  case adds "the goal's decision procedure says it is false" (:335-340), except where the goal is
+  an equation of two constructors (`visibly_false`, :344), which the goal note already shows false.
+  The trust comment is on `by_decision`.
+- *Part 1, binder introduction* (`introduce`, cases.rs:411, called at :323): every leading binder
+  of a `Π` goal, bound by `cx.bind` under its written name, unnamed ones (`_`) under `%hypN`
+  (`UNNAMED`, :404), shown as "hypothesis N (unnamed)" (`hypothesis_name`, :445); the case starts
+  again under them; one `Term::Lam` per binder.
+- *Part 3, the fallback split* (`Finder::fallback`, cases.rs:1191, used at :330): the walk now
+  records the variables it meets in the goal (:1045); the candidate is splittable (`ctors`), not an
+  equation, not known in the case; fewest constructors, ties to the higher level. `split_on`
+  (:1335) takes `fallback: bool`: the equation is named `%caseN%fallback` (`FALLBACK`, :469), so
+  `path` marks it "(fallback)"; the budget note marks the atom; a fallback that crosses the budget
+  records `x : T` for the first note (:1350, :224); `open_case` adds "it split `b` as a fallback,
+  though the goal wasn't stuck on it".
+
+**Must-hold results** [run]. examples/accept/cases-pi-goals.sw was committed first, with its hash
+snapshot made by main's elaborator (`byHyp`, `notLess`, `byTerm`, `implicitAfter`,
+`falseGoalImpossibleCase`, `rowEndsBefore`, `rowEndsLambda`); after all three parts the snapshot is
+unchanged (`task test:lane AREA=hashes`). `rowEndsAfter := cases` (examples/accept/cases-binders.sw)
+hashes `8d5e5e07…`, the same as `rowEndsBefore` and `rowEndsLambda`. `falseGoalImpossibleCase`
+checks, hash `0898692d…` before and after.
+
+**Tests** (snapshot examples). Accept: cases-binders.sw (after the colon, mixed, a hypothesis after
+the colon used by the contradiction closer, an unnamed hypothesis, a `Π` after a split, an implicit
+binder after an explicit one), cases-decision.sw (`inKeys`, `leftYes`, `pickIn`: a leaf closed only
+by deciding after a split, `falseGoalImpossibleCase`), cases-fallback.sw (`everyNumericKey`,
+`everyDirectionKey`, fallback.sw's two statements, and `flagFewestOfThree`, which latest-first would
+take past the budget). Reject: cases-binders-open.sw (written names; `hypothesis 1 (unnamed)`),
+cases-decides-false.sw, cases-fallback-open.sw (`badAfter`'s shape), cases-fallback-budget.sw,
+cases-fallback-count.sw (the fallback's order and case count, by a statement false in one case).
+No snapshot that existed before this lane changed.
+
+**Converted proofs**, statements as written (lines are the declaration, before → after):
+
+| proof | before | after | elab + kernel ms, by hand (main) | by `cases` |
+|---|---|---|---|---|
+| Day 12 `rowEndsSplit` | 18 | 3 | 0.4 + 0.2 | 1.0-1.3 + 0.3 |
+| Day 12 `columnEndsSplit` | 18 | 3 | 0.3-0.4 + 0.2 | 0.9-1.0 + 0.3 |
+| Day 21 `tabulateSame` | 26 | 2 | 1.9 + 1.7 | 2.7-2.9 + 1.1-1.2 |
+| Day 21 `everyNumericKey` | 12 | 1 | 0.7-0.8 + 0.2 | 42.6-45.2 + 0.8 |
+| Day 21 `everyDirectionKey` | 6 | 1 | 0.2 + 0.1 | 12.7-13.6 + 0.3-0.4 |
+
+Times are `STITCHWORT_TIMINGS=decls`, `check --no-cache Aoc.Year2024.Day12.Proofs
+Aoc.Year2024.Day21.Proofs`, 3 runs each; main is `target/release/stitchwort` of the main checkout
+on main's `aoc/`. The whole `aoc` check, `--no-cache`, user CPU: main 39.16, 39.36, 38.46 s; this
+branch 38.62, 36.73, 39.64 s: no difference beyond the noise.
+
+**Where the membership proofs' time goes** [run, `sample` on `check --no-cache
+Aoc.Year2024.Day21.Proofs`]: in `auto::decision_procedures`, which in a project sorts each
+namespace's and the library's definitions by path on every call, and `Decidable.or` on an 11-item
+membership calls `decide` once per item, in each of 11 cases. In file mode the same proof is 14.4 ms
+(examples/accept/cases-fallback.sw). It is `auto`'s cost for every obligation in a project, not
+`cases`'; caching that order belongs in `auto` (follow-up, not done here: the cache has to survive
+session rewinds, which touches more than auto.rs).
+
+**Hashes.** `task test:lane AREA=hashes` passes: the prelude's and every pinned example's hashes
+are unchanged. In aoc (every declaration's hash, dumped before and after by a scratch test, not
+committed), exactly the five converted declarations and their dependents change, all in
+`Aoc.Year2024.Day12.Proofs` (11 names: the two tables, `cellUp`, `cellDown`, `cellLeft`,
+`cellRight`, `rowCorners`, `columnCorners`, `cornersEqualSides`, `sidesCorrect`, `part2Correct`) and
+`Aoc.Year2024.Day21.Proofs` (22: the three proofs, `nextCostsCheapest`, `numericFitted`,
+`directionalFitted`, `numericWalksYours`, `directionalWalksYours`, `throughRobotsCost`,
+`optimalIfCheapestWalks`, `optimalWithoutRobots`, `yourPressesThrough`, `yourPressesLength`,
+`pressesForLength`, `pressesForTypes`, `lengthAchieved`, `shortestIfOptimal`, `complexitiesAnswer`,
+`part1Correct`, `part2Correct`, `shortestWithoutRobots`, `answerWithoutRobots`), plus the new
+`%match` helpers; a hash covers what it depends on (crates/core/src/hash.rs:1-6). games/rogue: no
+hash changed.
+
+**Deviations, with reasons.**
+
+1. *Implicit and `auto` binders after an explicit one are bound by name*, not hidden as §6.1.1
+   said. Hidden, the closers and the hypotheses note couldn't see them (`visible` skips nameless
+   levels), so `(n: Nat) → [auto h: n = 3] → …` would lose `h`; bound by name, they act as they do
+   before the colon. A leading implicit is still introduced by the checker, hidden, before `cases`
+   runs, as before.
+2. *`keyFewest` makes 12 cases, not 22*: the case `flag = True` is `… ∨ True = True`, which `omega`
+   (step 7) closes before anything else, so `key` is split only under `flag = False`. fallback.sw's
+   count assumed every leaf closed by deciding. The rule chose `flag` first as predicted
+   (cases-fallback-count.sw's path starts `flag = False (fallback)`).
+3. *`tabulateSame` was converted with part 1*, as §12 plans; it needs only binder introduction.
+4. *The "decides false" note is left out for a goal that is visibly an equation of constructors*
+   (`False = True`): there it repeats the goal note. Otherwise the note is as designed.
+5. *The budget note's wording is the review's* ("`cases` tried splitting `x : T` as a fallback; this
+   would exceed the 64-case budget"), without §6.1.3's "(the goal isn't stuck on it)".
+6. *Not built*: the `E-CASES-BUDGET` note pointing to `Finite.check`, and naming `byDecision` in
+   `E-CASES`, which wait for SW-807. No unit tests were added: the closers need a loaded library
+   (`Bool`, `List`, membership), which the elaborator's unit tests don't load; the examples test
+   each part.
 
 ## Sources
 
