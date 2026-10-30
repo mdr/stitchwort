@@ -110,7 +110,7 @@ theorem templateFits (range: Range) (template: RepetitionTemplate)
               match fromCopyCount with
                 | Inl same =>
                   rewrite <- same in
-                  match List.memBetween [lo := 1] [hi := size] lengthChosen, List.memBetween [lo := 2] [hi := size] copyCountChosen with
+                  match List.memBetween lengthChosen, List.memBetween copyCountChosen with
                     | Both oneLe _, Both twoLe _ => Both oneLe (Both twoLe room)
                 | Inr none => Void.exfalso none
             | False => Void.exfalso fromCopyCount))
