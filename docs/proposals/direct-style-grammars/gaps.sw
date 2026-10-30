@@ -4,8 +4,8 @@
 --   $ stitchwort check docs/proposals/direct-style-grammars/gaps.sw
 --
 -- reports E-CANNOT-INFER at `inArgument`, `inTuple` and `nested`,
--- E-TYPE-MISMATCH at `dependent` and E-NOT-EMPTY at `unitInTuple`, and
--- W-NO-EFFECT for `forgotten` (since SW-889; nothing before).
+-- E-TYPE-MISMATCH at `dependent`, and W-NO-EFFECT for `forgotten` (since
+-- SW-889; nothing before). `unitInTuple` was E-NOT-EMPTY until SW-886.
 
 import Std (Nat, Parse, Vec)
 import Std.Parse (char, natDigits)
@@ -38,8 +38,8 @@ def sized (n: Nat) (v: Vec Nat n): Nat := n
 
 def dependent(): {Parse} Nat := sized (shortNumber()) (Vec.replicate 2 0)
 
--- 3. `()` inside a tuple pattern is refused (`let () := …` alone is fine);
--- `_` works.
+-- 3. `()` inside a tuple pattern was refused (`let () := …` alone was
+-- fine); `_` worked. Accepted since SW-886.
 def unitInTuple(): {Parse} Nat :=
   let ((), n) := (char ',', shortNumber())
   n

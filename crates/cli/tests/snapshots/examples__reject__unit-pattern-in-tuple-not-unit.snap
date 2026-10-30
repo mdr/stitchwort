@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-EMPTY] Error: `Nat` has values, so this argument can't be `()`
+   ╭─[ reject/unit-pattern-in-tuple-not-unit.sw:7:11 ]
+   │
+ 7 │   let (n, ()) := p
+   │           ─┬  
+   │            ╰── `Nat` has values, so this argument can't be `()`
+───╯
