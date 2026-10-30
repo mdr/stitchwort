@@ -60,8 +60,8 @@ enum Step {
     /// A namespace to try. For a definition, the type at this step, to
     /// unfold if the namespace has nothing.
     Head(TyHead, Option<Ty>),
-    /// An unsolved metavariable.
-    Unknown,
+    /// An unsolved metavariable, at the type's head.
+    Unknown(usize),
     /// No namespace: what the type is instead.
     Nothing(&'static str),
 }
@@ -96,7 +96,7 @@ fn step_value(g: &Globals, value: Value) -> Result<Step> {
         Value::Data(d, _) => Step::Head(TyHead::Data(d), None),
         Value::Eq(..) => Step::Head(TyHead::Eq, None),
         Value::Neutral(Head::Def(id), _) => Step::Head(TyHead::Def(id), None),
-        Value::Neutral(Head::Meta(_), _) => Step::Unknown,
+        Value::Neutral(Head::Meta(m), _) => Step::Unknown(m),
         Value::Neutral(Head::Var(_, _), _) => Step::Nothing("a type variable"),
         Value::Pi(..) => Step::Nothing("a function"),
         Value::Sort(_) => Step::Nothing("a type"),
@@ -171,7 +171,7 @@ fn heads(g: &Globals, mut ty: Ty) -> Result<Vec<TyHead>> {
                     _ => return Ok(out),
                 }
             }
-            Step::Unknown | Step::Nothing(_) => return Ok(out),
+            Step::Unknown(_) | Step::Nothing(_) => return Ok(out),
         }
     }
 }
@@ -263,22 +263,79 @@ fn written(name: &AstName) -> bool {
     !name.text.starts_with('%')
 }
 
-/// `recv.field args`: dot notation, or a field.
+/// `recv.field args`: dot notation, or a field. Where the receiver's type
+/// view meets an unknown before a namespace with `field`, the call waits
+/// for it (K2).
 pub(crate) fn infer_dot(
     cx: &mut Ctx,
     recv: &Expr,
     field: &AstName,
     args: &[Arg],
 ) -> Result<(Term, Value)> {
+    match dot_or_block(cx, recv, field, args)? {
+        Dotted::Done(term, ty) => Ok((term, ty)),
+        Dotted::Blocked(blocked) => queue_call(cx, recv, field, args, Route::Dot, blocked),
+    }
+}
+
+/// A dot call elaborated, or stopped where its receiver's type view met an
+/// unknown.
+enum Dotted {
+    Done(Term, Value),
+    Blocked(Box<Blocked>),
+}
+
+/// A dot call stopped at an unknown.
+struct Blocked {
+    /// The state before its receiver was elaborated.
+    before: crate::undo::Snapshot,
+    /// The unknown the view met.
+    blocker: usize,
+    /// The receiver, elaborated, with its implicit arguments inserted.
+    receiver: (Term, Value),
+    /// The error the call gives if it can't wait.
+    error: Diagnostic,
+}
+
+/// [`infer_dot`], with a stop at an unknown left to the caller.
+fn dot_or_block(cx: &mut Ctx, recv: &Expr, field: &AstName, args: &[Arg]) -> Result<Dotted> {
     if let Some(id) = helper(cx, recv, field) {
         cx.e.note_dot(field, id);
         let head = (Term::Def(id), crate::kernel::def_ty(cx.g(), id)?);
-        return crate::check::apply_args(cx, head, args);
+        let (term, ty) = crate::check::apply_args(cx, head, args)?;
+        return Ok(Dotted::Done(term, ty));
     }
+    let before = crate::undo::Snapshot::take(cx);
     let (rterm, rty) = infer_receiver(cx, recv, field)?;
     let (rterm, rty) = insert(cx, rterm, rty)?;
+    Ok(
+        match dot_on(cx, recv, field, args, rterm.clone(), rty.clone())? {
+            Ok((term, ty)) => Dotted::Done(term, ty),
+            Err((blocker, error)) => Dotted::Blocked(Box::new(Blocked {
+                before,
+                blocker,
+                receiver: (rterm, rty),
+                error,
+            })),
+        },
+    )
+}
+
+/// The dot call once its receiver is elaborated: its term and type, or the
+/// unknown its type view met and the error that is.
+fn dot_on(
+    cx: &mut Ctx,
+    recv: &Expr,
+    field: &AstName,
+    args: &[Arg],
+    rterm: Term,
+    rty: Value,
+) -> Result<std::result::Result<(Term, Value), (usize, Diagnostic)>> {
     let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
-    let (owner, f, key) = find(cx, recv, field, start)?;
+    let (owner, f, key) = match find_or_block(cx, recv, field, start)? {
+        Lookup::Found(owner, f, key) => (owner, f, key),
+        Lookup::Blocked(blocker, error) => return Ok(Err((blocker, error))),
+    };
     cx.e.note_dot(field, f);
     note_left_out(cx, field, f, args)?;
     // A recursive call of a definition with `decreasing` passes its proof
@@ -297,7 +354,187 @@ pub(crate) fn infer_dot(
     // its dictionaries are found here (`check::found_dictionaries`).
     let (term, ty) = call(cx, recv, field, owner, f, &key, rterm, rty, args)?;
     let own = crate::check::own_dictionaries(&term);
-    Ok((term, crate::check::found_dictionaries(cx, &own, ty)?))
+    Ok(Ok((term, crate::check::found_dictionaries(cx, &own, ty)?)))
+}
+
+/// Which entry a queued dot call came in by, so that it is resumed by the
+/// same one: an elaboration without postponement would have taken it.
+#[derive(Clone, Copy)]
+enum Route {
+    /// [`infer_call`]: the prefix form where it stands for the call.
+    Call,
+    /// [`infer_dot`] directly (a `|>` or an effectful call's head).
+    Dot,
+}
+
+/// An argument of a queued dot call, as written.
+#[derive(Clone)]
+enum OwnedArg {
+    Explicit(Expr),
+    Named(AstName, Expr),
+    NamedExplicit(AstName, Expr),
+}
+
+impl OwnedArg {
+    fn of(arg: &Arg) -> Option<OwnedArg> {
+        Some(match arg {
+            Arg::Explicit(e) => OwnedArg::Explicit((*e).clone()),
+            Arg::Named(n, e) => OwnedArg::Named((*n).clone(), (*e).clone()),
+            Arg::NamedExplicit(n, e) => OwnedArg::NamedExplicit((*n).clone(), (*e).clone()),
+            // Elaborated already: not syntax to keep.
+            Arg::Piped(_) | Arg::Default(_) => return None,
+        })
+    }
+
+    fn arg(&self) -> Arg<'_> {
+        match self {
+            OwnedArg::Explicit(e) => Arg::Explicit(e),
+            OwnedArg::Named(n, e) => Arg::Named(n, e),
+            OwnedArg::NamedExplicit(n, e) => Arg::NamedExplicit(n, e),
+        }
+    }
+}
+
+/// K2 (docs/proposals/postponement.md §5.2, §5.5): `recv.field args` whose
+/// receiver's type view met an unknown, the blocker, queued until that is
+/// solved. Its receiver is kept by the rule of §5.5 (invariant 6):
+/// - the blocker was made before the receiver was elaborated (a lambda's
+///   parameter, a `let`): the receiver is undone and kept as syntax, and
+///   the call is resumed from the start, by the entry it came in by, so the
+///   prefix form or the dot form is chosen then, as it would be without
+///   postponement;
+/// - the receiver made the blocker (a chained `.field`, a record literal
+///   waiting, an application): undoing it would leave nothing to solve the
+///   blocker, so its term is kept. It was inferred with no expected type, so
+///   it is what it would be at resume; what reads its type (implicit
+///   arguments, the view, the call) is done again at resume.
+///
+/// Resumed, it may meet another unknown further along its view: it waits
+/// again, on that one (§5.7, T4's second measure).
+struct DotCall {
+    recv: Expr,
+    field: AstName,
+    args: Vec<OwnedArg>,
+    route: Route,
+    /// The receiver's term and type, if kept.
+    kept: Option<(Term, Value)>,
+    /// The call's type, as the placeholder has it.
+    result: Value,
+}
+
+/// An unknown, to wait on.
+fn on(blocker: usize) -> Value {
+    Value::Neutral(Head::Meta(blocker), Default::default())
+}
+
+/// Queues the dot call `blocked` stopped (K2), by the receiver rule of
+/// [`DotCall`]: the placeholder for it and its type. A call with an
+/// argument elaborated already (piped in, or a default) doesn't wait: it is
+/// the error it was.
+fn queue_call(
+    cx: &mut Ctx,
+    recv: &Expr,
+    field: &AstName,
+    args: &[Arg],
+    route: Route,
+    blocked: Box<Blocked>,
+) -> Result<(Term, Value)> {
+    let Some(args) = args.iter().map(OwnedArg::of).collect::<Option<Vec<_>>>() else {
+        return Err(blocked.error);
+    };
+    let kept = keep_receiver(cx, blocked.before, blocked.blocker, blocked.receiver);
+    let meta = cx.fresh_meta();
+    let result = cx.eval(&meta)?;
+    let call = DotCall {
+        recv: recv.clone(),
+        field: field.clone(),
+        args,
+        route,
+        kept,
+        result: result.clone(),
+    };
+    let needs = on(blocked.blocker);
+    let term = crate::queue::queue(cx, Rc::new(call), needs, result.clone(), blocked.error)?;
+    Ok((term, result))
+}
+
+/// The receiver rule (§5.5): `None`, with the receiver undone, where the
+/// blocker predates it; otherwise the receiver, kept.
+fn keep_receiver(
+    cx: &mut Ctx,
+    before: crate::undo::Snapshot,
+    blocker: usize,
+    receiver: (Term, Value),
+) -> Option<(Term, Value)> {
+    if blocker < before.metas() {
+        before.restore(cx);
+        None
+    } else {
+        Some(receiver)
+    }
+}
+
+impl crate::queue::Check for DotCall {
+    fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
+        let args: Vec<Arg> = self.args.iter().map(OwnedArg::arg).collect();
+        let (recv, field) = (&self.recv, &self.field);
+        let dotted = match &self.kept {
+            None => match self.route {
+                Route::Call => call_or_block(cx, recv, field, &args)?,
+                Route::Dot => dot_or_block(cx, recv, field, &args)?,
+            },
+            Some((rterm, rty)) => {
+                let before = crate::undo::Snapshot::take(cx);
+                let (rterm, rty) = insert(cx, rterm.clone(), rty.clone())?;
+                match dot_on(cx, recv, field, &args, rterm.clone(), rty.clone())? {
+                    Ok((term, ty)) => Dotted::Done(term, ty),
+                    Err((blocker, error)) => Dotted::Blocked(Box::new(Blocked {
+                        before,
+                        blocker,
+                        receiver: (rterm, rty),
+                        error,
+                    })),
+                }
+            }
+        };
+        let (term, ty) = match dotted {
+            Dotted::Done(term, ty) => (term, ty),
+            // Further along the view, another unknown: wait on it, keeping
+            // the receiver by the same rule. One that made this unknown now
+            // (elaborated again from syntax, or given implicit arguments
+            // here) is kept from now on, by a check that holds it.
+            Dotted::Blocked(blocked) => {
+                let needs = on(blocked.blocker);
+                return Ok(
+                    match keep_receiver(cx, blocked.before, blocked.blocker, blocked.receiver) {
+                        None => crate::queue::Resumed::Waiting(needs),
+                        Some(kept) => {
+                            let call = DotCall {
+                                recv: self.recv.clone(),
+                                field: self.field.clone(),
+                                args: self.args.clone(),
+                                route: self.route,
+                                kept: Some(kept),
+                                result: self.result.clone(),
+                            };
+                            crate::queue::Resumed::WaitingAs(needs, Rc::new(call))
+                        }
+                    },
+                );
+            }
+        };
+        // Its implicit arguments, as an inferred term's are before it is
+        // compared with what is expected of it, unless that takes them.
+        let (term, ty) = match force(cx.g(), self.result.clone())? {
+            Value::Neutral(Head::Meta(_), _) => (term, ty),
+            Value::Pi(_, icit, ..) if icit.is_implicit() => (term, ty),
+            _ => insert(cx, term, ty)?,
+        };
+        if !cx.unify(&ty, &self.result)? {
+            return Err(cx.mismatch(&self.result, &ty));
+        }
+        Ok(crate::queue::Resumed::Done(term))
+    }
 }
 
 /// For hover on `field`, a dot call of `f` with `args`: the defaults it
@@ -398,9 +635,27 @@ fn no_update_lemma(cx: &Ctx, recv: &Expr, field: &AstName, owner: &str) -> Diagn
     .with_note(note)
 }
 
+/// What looking `.f` up in the type-head view found.
+enum Lookup {
+    /// `T.f`: the head, the function, and its name as shown.
+    Found(TyHead, DefId, String),
+    /// The view met an unknown at a type's head, the *blocker*, before any
+    /// namespace with an `f`: the `.f` can wait on it (K2,
+    /// docs/proposals/postponement.md §5.2), or else this is its error.
+    Blocked(usize, Diagnostic),
+}
+
 /// Finds `T.f` for the receiver's type `ty`: the first head in the view
 /// whose namespace has an `f`.
 fn find(cx: &Ctx, recv: &Expr, field: &AstName, ty: Ty) -> Result<(TyHead, DefId, String)> {
+    match find_or_block(cx, recv, field, ty)? {
+        Lookup::Found(h, f, key) => Ok((h, f, key)),
+        Lookup::Blocked(_, error) => Err(error),
+    }
+}
+
+/// [`find`], or where the view met an unknown first, that unknown.
+fn find_or_block(cx: &Ctx, recv: &Expr, field: &AstName, ty: Ty) -> Result<Lookup> {
     // `f.unfold` for an opaque `f` that has none, read as a field of `f`
     // (docs/proposals/opaque-definitions.md §6.3).
     if let Expr::Var(owner) = recv {
@@ -412,7 +667,13 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, ty: Ty) -> Result<(TyHead, DefId
             return Err(d);
         }
     }
-    find_in_view(cx, recv, field, ty).map_err(|e| failed_receiver(cx, recv).unwrap_or(e))
+    let result = find_in_view(cx, recv, field, ty);
+    if matches!(result, Ok(Lookup::Blocked(..)) | Err(_))
+        && let Some(failed) = failed_receiver(cx, recv)
+    {
+        return Err(failed);
+    }
+    result
 }
 
 /// For `f.x` with `f` a definition that failed, which has no `.unfold` or
@@ -439,23 +700,19 @@ fn failed_receiver(cx: &Ctx, recv: &Expr) -> Option<Diagnostic> {
     }
 }
 
-/// [`find`], once `recv` isn't an opaque definition's missing `.unfold`.
-fn find_in_view(
-    cx: &Ctx,
-    recv: &Expr,
-    field: &AstName,
-    mut ty: Ty,
-) -> Result<(TyHead, DefId, String)> {
+/// [`find_or_block`], once `recv` isn't an opaque definition's missing
+/// `.unfold`.
+fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lookup> {
     let g = cx.g();
     let receiver_ty = ty.clone();
     let mut tried: Vec<TyHead> = Vec::new();
     loop {
         match step(g, ty)? {
-            Step::Unknown if matches!(recv, Expr::Var(n) if n.text == SECTION) => {
+            Step::Unknown(_) if matches!(recv, Expr::Var(n) if n.text == SECTION) => {
                 return Err(section_unknown_name(cx, field));
             }
-            Step::Unknown => {
-                return Err(cx
+            Step::Unknown(blocker) => {
+                let error = cx
                     .error(
                         "E-CANNOT-INFER",
                         format!(
@@ -470,7 +727,8 @@ fn find_in_view(
                          must be known where it's used: annotate it, as in \
                          `(p: Person) => p.{}`, or write the function's full name",
                         field.text, field.text
-                    )));
+                    ));
+                return Ok(Lookup::Blocked(blocker, error));
             }
             Step::Nothing(_) if field.text == "update" && helper_owner(cx, recv).is_some() => {
                 let owner = helper_owner(cx, recv).expect("just checked");
@@ -509,7 +767,7 @@ fn find_in_view(
                         .iter()
                         .position(|(n, _)| **n == *field.text)
                 {
-                    return Ok((h, info.projections[i], shown_key));
+                    return Ok(Lookup::Found(h, info.projections[i], shown_key));
                 }
                 // A local definition is never found by dot notation (§3.6).
                 let mut found = match cx.e.helper_keys.contains(&key) {
@@ -530,7 +788,7 @@ fn find_in_view(
                     }
                 }
                 match found {
-                    Some((Global::Def(id), _)) => return Ok((h, id, shown_key)),
+                    Some((Global::Def(id), _)) => return Ok(Lookup::Found(h, id, shown_key)),
                     Some((Global::Unchecked(item), _)) => {
                         return Err(cx.e.unchecked(
                             &AstName {
@@ -1616,11 +1874,19 @@ pub(crate) fn infer_call(
     field: &AstName,
     args: &[Arg],
 ) -> Result<(Term, Value)> {
+    match call_or_block(cx, recv, field, args)? {
+        Dotted::Done(term, ty) => Ok((term, ty)),
+        Dotted::Blocked(blocked) => queue_call(cx, recv, field, args, Route::Call, blocked),
+    }
+}
+
+/// [`infer_call`], with a stop at an unknown left to the caller.
+fn call_or_block(cx: &mut Ctx, recv: &Expr, field: &AstName, args: &[Arg]) -> Result<Dotted> {
     if has_failed(cx, call_key(cx, recv, field)) {
-        return infer_dot(cx, recv, field, args);
+        return dot_or_block(cx, recv, field, args);
     }
     let Some((head, full)) = prefix_form(cx, recv, field, args)? else {
-        return infer_dot(cx, recv, field, args);
+        return dot_or_block(cx, recv, field, args);
     };
     // A recursive call of a definition with `decreasing` (its stand-in, a
     // variable) is wrong as its prefix form is: dot notation can't say more.
@@ -1632,9 +1898,9 @@ pub(crate) fn infer_call(
             // The call is wrong either way: say so as dot notation does
             // (it names the receiver's parameter).
             snapshot.restore(cx);
-            infer_dot(cx, recv, field, args)
+            dot_or_block(cx, recv, field, args)
         }
-        result => result,
+        result => result.map(|(term, ty)| Dotted::Done(term, ty)),
     }
 }
 

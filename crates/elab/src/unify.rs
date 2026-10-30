@@ -1794,6 +1794,17 @@ fn zonk_call(
     for a in args {
         zonked.push(zonk_in(g, level, a, keep, lets)?);
     }
+    // A helper's call is zonked before it is recorded; a queued check's term
+    // (`queue.rs`) is recorded when its check returns, and may mention
+    // unknowns solved since (a literal's type parameters, say): zonked here,
+    // in its own variables.
+    let zonked_call;
+    let call = if (call.subterms()).any(|(t, _)| matches!(t, Term::Meta(_))) {
+        zonked_call = zonk_in(g, n, call, keep, &[])?;
+        &zonked_call
+    } else {
+        call
+    };
     if let Some(m) = call.subterms().find_map(|(t, _)| match t {
         Term::Meta(m) if !keep(*m) => Some(*m),
         _ => None,

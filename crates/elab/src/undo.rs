@@ -87,6 +87,12 @@ impl Snapshot {
         }
     }
 
+    /// How many metavariables there were: those numbered below were made
+    /// before the snapshot.
+    pub(crate) fn metas(&self) -> usize {
+        self.metas
+    }
+
     /// Whether local definitions or `match`es have been drafted for lifting
     /// (`lift.rs`) since the snapshot was taken.
     pub(crate) fn drafted_since(&self, cx: &Ctx) -> bool {

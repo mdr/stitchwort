@@ -683,6 +683,11 @@ fn variant(cx: &Ctx, ty: &Value) -> Result<bool> {
 /// Holding it back changes when the rule is used, never what it looks at:
 /// that is still only the literal's field names and the names in scope
 /// (D1991, assumption R1).
+///
+/// Since K1 (postponement.md, stage 2) nothing is held back: a literal of
+/// unknown type waits in the queue instead of failing, and the rule runs as
+/// its default at the end, so the other part always gets to say the type
+/// first and [`last_resort`] never runs again. Stage 5 removes this.
 #[derive(Default)]
 pub(crate) struct FieldNames {
     /// Above zero inside [`held`].
@@ -695,6 +700,7 @@ pub(crate) struct FieldNames {
 
 impl FieldNames {
     /// Whether the rule is held back here, counting it if so.
+    #[expect(dead_code, reason = "a literal waits instead (K1); stage 5 removes it")]
     fn hold(&self) -> bool {
         let held = self.held.get() > 0 && self.released.get() == 0;
         if held {
@@ -778,47 +784,87 @@ fn with_field_names(cx: &Ctx, fields: &[(ast::Name, Expr)]) -> Vec<(DataId, Stri
         .collect()
 }
 
-/// A record literal with no type known: the one record type in scope with
-/// exactly its fields, with its parameters to be inferred.
+/// A record literal with no type known: queued (K1, postponement.md §5.4)
+/// at a fresh unknown type, which the rest of the declaration may fix;
+/// where nothing does, the field-name rule ([`Literal::apply_default`])
+/// picks the one record type in scope with exactly its fields, with its
+/// parameters to be inferred.
 pub(crate) fn infer_literal(cx: &mut Ctx, fields: &[(ast::Name, Expr)]) -> Result<(Term, Value)> {
-    if cx.e.field_names.hold() {
-        return Err(cx
-            .error(
-                "E-CANNOT-INFER",
-                "can't tell which record type this literal is",
-                "nothing here says what type it should have",
-            )
-            .with_note("add a type annotation, as in `({ x = 0, y = 0 }: Point)`"));
-    }
-    let candidates = with_field_names(cx, fields);
-    let [(d, _)] = candidates[..] else {
-        let mut error = cx
-            .error(
-                "E-CANNOT-INFER",
-                "can't tell which record type this literal is",
-                "nothing here says what type it should have",
-            )
-            .with_note("add a type annotation, as in `({ x = 0, y = 0 }: Point)`");
-        if candidates.is_empty() {
-            error = error.with_note("no record type in scope has exactly these fields");
-        } else {
-            let names: Vec<String> = candidates.iter().map(|(_, k)| format!("`{k}`")).collect();
-            error = error.with_note(format!(
-                "more than one record type has exactly these fields: {}",
-                names.join(", ")
-            ));
-        }
-        return Err(error);
-    };
-    let params = (0..cx.g().data(d).params.len())
-        .map(|_| {
-            let meta = cx.fresh_meta();
-            cx.eval(&meta)
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let ty = Value::Data(d, params.clone());
-    let term = literal(cx, d, &params, fields)?;
+    let meta = cx.fresh_meta();
+    let ty = cx.eval(&meta)?;
+    let term = queue_literal(cx, fields, &ty)?;
     Ok((term, ty))
+}
+
+/// K1: a record literal whose type `expected` has an unknown at its head.
+/// It waits before checking any field, so it keeps nothing elaborated
+/// (invariant 6 holds trivially). Resumed, it is [`check_record`] at the
+/// type now known; its default is SW-805's field-name rule, applied at the
+/// end of the declaration only if nothing else has said the type (D2013).
+/// The rule still looks only at the literal's field names and the names in
+/// scope at the literal (D1991, assumption R1): only when it runs changes.
+struct Literal {
+    fields: Vec<(ast::Name, Expr)>,
+    expected: Value,
+}
+
+impl crate::queue::Check for Literal {
+    fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
+        let term = check_record(cx, None, &self.fields, &self.expected)?;
+        Ok(crate::queue::Resumed::Done(term))
+    }
+
+    fn default_priority(&self) -> Option<crate::queue::Priority> {
+        Some(crate::queue::Priority::FieldNames)
+    }
+
+    fn apply_default(&self, cx: &mut Ctx) -> Result<bool> {
+        let [(d, _)] = with_field_names(cx, &self.fields)[..] else {
+            return Ok(false);
+        };
+        let params = (0..cx.g().data(d).params.len())
+            .map(|_| {
+                let meta = cx.fresh_meta();
+                cx.eval(&meta)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        cx.unify(&Value::Data(d, params), &self.expected)
+    }
+}
+
+/// Queues a record literal at `expected`, whose head is an unknown: the
+/// placeholder standing for it. If it is still waiting at the end, with no
+/// record type its field names pick, it is reported with the error the
+/// field-name rule gives.
+fn queue_literal(cx: &mut Ctx, fields: &[(ast::Name, Expr)], expected: &Value) -> Result<Term> {
+    let candidates = with_field_names(cx, fields);
+    let mut error = cx
+        .error(
+            "E-CANNOT-INFER",
+            "can't tell which record type this literal is",
+            "nothing here says what type it should have",
+        )
+        .with_note("add a type annotation, as in `({ x = 0, y = 0 }: Point)`");
+    if candidates.is_empty() {
+        error = error.with_note("no record type in scope has exactly these fields");
+    } else if candidates.len() > 1 {
+        let names: Vec<String> = candidates.iter().map(|(_, k)| format!("`{k}`")).collect();
+        error = error.with_note(format!(
+            "more than one record type has exactly these fields: {}",
+            names.join(", ")
+        ));
+    }
+    let literal = Literal {
+        fields: fields.to_vec(),
+        expected: expected.clone(),
+    };
+    crate::queue::queue(
+        cx,
+        Rc::new(literal),
+        expected.clone(),
+        expected.clone(),
+        error,
+    )
 }
 
 /// A record literal or update, checked against `expected`.
@@ -832,13 +878,8 @@ pub(crate) fn check_record(
         None => {
             if let Value::Neutral(stitchwort_core::value::Head::Meta(_), _) =
                 force(cx.g(), expected.clone())?
-                && !cx.e.field_names.hold()
             {
-                let (term, ty) = infer_literal(cx, fields)?;
-                if !cx.unify(&ty, expected)? {
-                    return Err(cx.mismatch(expected, &ty));
-                }
-                return Ok(term);
+                return queue_literal(cx, fields, expected);
             }
             let (d, params) = record_type(cx, expected, "this record literal")?;
             literal(cx, d, &params, fields)

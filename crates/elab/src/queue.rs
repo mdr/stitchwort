@@ -14,10 +14,16 @@
 //!   stuck.
 //!
 //! The queue is per declaration, like the obligations: `clear_metas` and
-//! `rewind` empty it, and a [`crate::undo::Snapshot`] restores it. Stage 1
-//! (§8) is the machinery only: nothing is queued yet (record literals,
-//! `.field`, sections and number literals are stages 2-4), so every resume
-//! point finds the queue empty, which costs a length comparison.
+//! `rewind` empty it, and a [`crate::undo::Snapshot`] restores it. Two kinds
+//! of check are queued (stage 2 of §8; sections and number literals are
+//! stages 3 and 4):
+//! - K1, a record literal whose type is unknown (`records.rs`, `Literal`),
+//!   whose default is SW-805's field-name rule;
+//! - K2, a `.field` or dot call whose receiver's type view meets an
+//!   unknown (`dot.rs`, `DotCall`), with its receiver kept by §5.5's rule.
+//!
+//! A resume point with nothing queued in its scope costs a length
+//! comparison.
 //!
 //! The queue's invariants (§5.1), and how each is kept here:
 //! 1. *One placeholder, one occurrence*: [`queue`] makes a fresh unknown
@@ -33,8 +39,9 @@
 //!    and a resume point selects only waiting items.
 //! 5. *Restore restores the queue*: the states change only through the
 //!    resumption log, which a snapshot records with the items.
-//! 6. *Kept subterms are stable*: about what an item keeps of its syntax,
-//!    so each kind's own (K2's receiver, stage 2).
+//! 6. *Kept subterms are stable*: K1 keeps nothing elaborated; K2 keeps its
+//!    receiver as syntax where the blocker predates it, and as a term only
+//!    where the receiver made the blocker (§5.5).
 //! 7. *Defaults at quiescence only*: only W4 applies one, after the
 //!    obligations loop has stopped making progress.
 //! 8. *Placeholders are opaque to elaboration choices*: a placeholder is an
@@ -79,27 +86,25 @@ pub(crate) trait Check {
 }
 
 /// What a resumed check gives.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "made by the kinds of item, from stage 2")
-)]
 pub(crate) enum Resumed {
     /// Its term, to fill its placeholder with.
     Done(Term),
     /// It met another unknown (a `.field` at a later step of its view): it
     /// waits again, on the head of this type.
     Waiting(Value),
+    /// As [`Resumed::Waiting`], resumed from now on by this check: a `.field`
+    /// whose receiver, elaborated again, made the unknown it now waits on,
+    /// and so keeps that receiver (`dot.rs`, `DotCall`). The change is a
+    /// state's, so a restore takes it back with the resumption.
+    WaitingAs(Value, Rc<dyn Check>),
 }
 
 /// The defaults, in the order the ladder tries them (D2013): SW-805's
 /// field-name rule for a record literal, then `Nat` for a number.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "the defaults of K1 and K4, stages 2 and 4")
-)]
 pub(crate) enum Priority {
     FieldNames,
+    #[cfg_attr(not(test), expect(dead_code, reason = "K4's default, stage 4"))]
     Nat,
 }
 
@@ -108,8 +113,10 @@ pub(crate) enum Priority {
 /// resumption, or the declaration fails.
 #[derive(Clone)]
 pub(crate) enum State {
-    /// On the head of this type, a value in the item's context.
-    Waiting(Value),
+    /// On the head of this type, a value in the item's context; to be
+    /// resumed by this check rather than the item's own, if there is one
+    /// ([`Resumed::WaitingAs`]).
+    Waiting(Value, Option<Rc<dyn Check>>),
     Running,
     Done,
     Failed,
@@ -209,13 +216,22 @@ impl Queue {
 
     fn waiting(&self, i: usize) -> Option<Value> {
         match &self.states.borrow()[i] {
-            State::Waiting(needs) => Some(needs.clone()),
+            State::Waiting(needs, _) => Some(needs.clone()),
             _ => None,
         }
     }
 
+    /// What resumes item `i`, or gives its default: its own check, or the
+    /// one it waits as.
+    fn check(&self, i: usize) -> Rc<dyn Check> {
+        match &self.states.borrow()[i] {
+            State::Waiting(_, Some(check)) => check.clone(),
+            _ => self.items.borrow()[i].check.clone(),
+        }
+    }
+
     fn any_waiting(&self) -> bool {
-        (self.states.borrow().iter()).any(|s| matches!(s, State::Waiting(_)))
+        (self.states.borrow().iter()).any(|s| matches!(s, State::Waiting(..)))
     }
 
     /// How many times item `i` has been resumed since the queue was last
@@ -223,7 +239,7 @@ impl Queue {
     #[cfg(test)]
     fn resumptions(&self, i: usize) -> usize {
         (self.log.borrow().iter())
-            .filter(|(j, old)| *j == i && matches!(old, State::Waiting(_)))
+            .filter(|(j, old)| *j == i && matches!(old, State::Waiting(..)))
             .count()
     }
 }
@@ -232,10 +248,6 @@ impl Queue {
 /// of type `ty` for its result, and `error` for its site's error if it
 /// stays stuck: the placeholder's term, which stands for the result in the
 /// term being built.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "nothing is queued until stage 2 (K1)")
-)]
 pub(crate) fn queue(
     cx: &Ctx,
     check: Rc<dyn Check>,
@@ -258,7 +270,7 @@ pub(crate) fn queue(
         error,
         crossed: Cell::new(false),
     }));
-    q.states.borrow_mut().push(State::Waiting(needs));
+    q.states.borrow_mut().push(State::Waiting(needs, None));
     count(&QUEUED);
     Ok(placeholder)
 }
@@ -373,22 +385,32 @@ impl Elaborator {
     /// Resumes item `i`, running until its check returns.
     fn resume_item(&self, i: usize) -> Result<()> {
         let item = self.queue.item(i);
+        let check = self.queue.check(i);
+        let replaced = match self.queue.state(i) {
+            State::Waiting(_, replaced) => replaced,
+            _ => None,
+        };
         self.queue.set(i, State::Running);
         count(&RESUMED);
         let mut cx = item.saved.ctx(self);
-        let resumed = item
-            .check
-            .resume(&mut cx)
-            .and_then(|resumed| match resumed {
-                Resumed::Done(term) => self.fill(&mut cx, i, &item, &term).map(|()| State::Done),
-                Resumed::Waiting(needs) => {
-                    debug_assert!(
-                        !ready(&self.globals, &needs).unwrap_or(false),
-                        "an item waits again only on an unknown head"
-                    );
-                    Ok(State::Waiting(needs))
-                }
-            });
+        let waits = |needs: &Value| {
+            debug_assert!(
+                !ready(&self.globals, needs).unwrap_or(false),
+                "an item waits again only on an unknown head"
+            );
+            count(&REQUEUED);
+        };
+        let resumed = check.resume(&mut cx).and_then(|resumed| match resumed {
+            Resumed::Done(term) => self.fill(&mut cx, i, &item, &term).map(|()| State::Done),
+            Resumed::Waiting(needs) => {
+                waits(&needs);
+                Ok(State::Waiting(needs, replaced))
+            }
+            Resumed::WaitingAs(needs, check) => {
+                waits(&needs);
+                Ok(State::Waiting(needs, Some(check)))
+            }
+        });
         match resumed {
             Ok(state) => {
                 self.queue.set(i, state);
@@ -470,14 +492,14 @@ impl Elaborator {
     fn apply_default(&self) -> Result<bool> {
         let mut candidates: Vec<(Priority, usize)> = (0..self.queue.len())
             .filter(|&i| self.queue.waiting(i).is_some())
-            .filter_map(|i| Some((self.queue.item(i).check.default_priority()?, i)))
+            .filter_map(|i| Some((self.queue.check(i).default_priority()?, i)))
             .collect();
         candidates.sort();
         for (_, i) in candidates {
             let item = self.queue.item(i);
             let mut cx = item.saved.ctx(self);
             let snapshot = crate::undo::Snapshot::take(&cx);
-            if item.check.apply_default(&mut cx)? {
+            if self.queue.check(i).apply_default(&mut cx)? {
                 debug_assert!(
                     (self.queue.waiting(i))
                         .is_none_or(|needs| ready(&self.globals, &needs).unwrap_or(true)),
@@ -571,6 +593,7 @@ static SOLVED_FIRST: AtomicUsize = AtomicUsize::new(0);
 static LOSSY: AtomicUsize = AtomicUsize::new(0);
 static DISAGREED: AtomicUsize = AtomicUsize::new(0);
 static READ_BACK: AtomicUsize = AtomicUsize::new(0);
+static REQUEUED: AtomicUsize = AtomicUsize::new(0);
 
 fn count(counter: &AtomicUsize) {
     counter.fetch_add(1, Ordering::Relaxed);
@@ -578,15 +601,16 @@ fn count(counter: &AtomicUsize) {
 
 /// The queue's counters over the process, attempts undone included, for
 /// `STITCHWORT_TIMINGS` (`timings.rs`) and the stages after this one
-/// (docs/proposals/postponement.md, "As built (stage 1)"): items queued,
-/// resumed, defaulted and reported stuck; items that reached the end of
-/// their application still waiting (`crossed W1`, the stage-6 trigger);
-/// fills whose placeholder unification had solved first (`solved first`),
-/// and of those, solved by comparing two calls' arguments (`lossy`, the
-/// caveat to D2016's P1); fills that disagreed with that solution; and
-/// fills whose term couldn't be written as a call of the placeholder, so
-/// zonking reads the solution back (`read back`).
-pub fn counts() -> [(&'static str, usize); 9] {
+/// (docs/proposals/postponement.md, "As built (stage 1)" and "(stage 2)"):
+/// items queued, resumed, defaulted and reported stuck; items that reached
+/// the end of their application still waiting (`crossed W1`, the stage-6
+/// trigger); fills whose placeholder unification had solved first (`solved
+/// first`), and of those, solved by comparing two calls' arguments
+/// (`lossy`, the caveat to D2016's P1); fills that disagreed with that
+/// solution; fills whose term couldn't be written as a call of the
+/// placeholder, so zonking reads the solution back (`read back`); and
+/// resumptions that met another unknown and waited again (`requeued`).
+pub fn counts() -> [(&'static str, usize); 10] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -598,6 +622,7 @@ pub fn counts() -> [(&'static str, usize); 9] {
         ("lossy", get(&LOSSY)),
         ("disagreed", get(&DISAGREED)),
         ("read back", get(&READ_BACK)),
+        ("requeued", get(&REQUEUED)),
     ]
 }
 
@@ -713,7 +738,7 @@ mod tests {
     }
 
     fn waiting(e: &Elaborator, i: usize) -> bool {
-        matches!(e.queue.state(i), State::Waiting(_))
+        matches!(e.queue.state(i), State::Waiting(..))
     }
 
     fn done(e: &Elaborator, i: usize) -> bool {
