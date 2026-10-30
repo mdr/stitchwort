@@ -1,0 +1,1306 @@
+From 8204158ef06f8306c1ad55a9cae3c60e05264881 Mon Sep 17 00:00:00 2001
+From: Matt Russell
+Date: Fri, 30 Oct 2026 13:23:17 +0000
+Subject: [PATCH] SCRATCH (experimental, off by default; to be dropped): single
+ postponement queue prototype
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+STITCHWORT_QUEUE=1 queues record literals and .field on an unknown type in
+the main pass (docs/proposals/postponement.md draft 2, §11), with resume
+points switched by STITCHWORT_QUEUE_APP/_LIFT/_SCOPED and the field-name rule
+at the literal by _NAMES_FIRST. crates/driver/tests/queue_scratch.rs and
+dev/queue-prototype/ measure it. Not for merging.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ crates/driver/tests/queue_scratch.rs | 142 +++++++++++
+ crates/elab/src/auto.rs              |   6 +
+ crates/elab/src/check.rs             |  79 ++++++
+ crates/elab/src/dot.rs               |  84 ++++++-
+ crates/elab/src/lib.rs               |  15 +-
+ crates/elab/src/lift.rs              |   8 +
+ crates/elab/src/queue.rs             | 353 +++++++++++++++++++++++++++
+ crates/elab/src/records.rs           |  56 +++++
+ crates/elab/src/rewind.rs            |   2 +
+ crates/elab/src/undo.rs              |   6 +
+ dev/queue-prototype/compare.py       |  85 +++++++
+ dev/queue-prototype/debug.sh         |   8 +
+ dev/queue-prototype/measure.sh       |  22 ++
+ dev/queue-prototype/report.sh        |  51 ++++
+ dev/queue-prototype/termdiff.py      |  32 +++
+ dev/queue-prototype/tests.sh         |  12 +
+ dev/queue-prototype/typediff.py      |  24 ++
+ 17 files changed, 983 insertions(+), 2 deletions(-)
+ create mode 100644 crates/driver/tests/queue_scratch.rs
+ create mode 100644 crates/elab/src/queue.rs
+ create mode 100644 dev/queue-prototype/compare.py
+ create mode 100644 dev/queue-prototype/debug.sh
+ create mode 100644 dev/queue-prototype/measure.sh
+ create mode 100644 dev/queue-prototype/report.sh
+ create mode 100644 dev/queue-prototype/termdiff.py
+ create mode 100644 dev/queue-prototype/tests.sh
+ create mode 100644 dev/queue-prototype/typediff.py
+
+diff --git a/crates/driver/tests/queue_scratch.rs b/crates/driver/tests/queue_scratch.rs
+new file mode 100644
+index 00000000..ca353695
+--- /dev/null
++++ b/crates/driver/tests/queue_scratch.rs
+@@ -0,0 +1,142 @@
++//! EXPERIMENTAL scratch measurement for docs/proposals/postponement.md
++//! draft 2 (§11): what the queue prototype (`STITCHWORT_QUEUE=1`,
++//! `crates/elab/src/queue.rs`) changes. Writes, to the file `PQ_OUT`
++//! names, every declaration's hash and every example's outcome, for std,
++//! examples/{accept,reject,extract}, aoc and games/rogue. Run once with the
++//! switch off and once on, and compare.
++
++use std::fmt::Write as _;
++use std::path::Path;
++use std::time::Instant;
++
++use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
++use stitchwort_core::{DataId, DefId};
++use stitchwort_driver::driver::Session;
++use stitchwort_driver::project::{DiskFiles, Target};
++
++fn show(h: stitchwort_core::budget::Result<Option<ContentHash>>) -> String {
++    match h {
++        Ok(Some(h)) => h.hex(),
++        _ => "<none>".to_string(),
++    }
++}
++
++fn hashes(session: &Session, unit: &str, data0: usize, def0: usize, out: &mut String) {
++    let g = &session.elab.globals;
++    let mut lines = Vec::new();
++    for i in data0..g.datas.len() {
++        lines.push(format!("H {unit} data {} {}", g.datas[i].path, show(data_hash(g, DataId(i)))));
++    }
++    let wanted: Vec<String> = std::env::var("PQ_TERMS")
++        .map(|v| v.split(',').map(str::to_string).collect())
++        .unwrap_or_default();
++    for i in def0..g.defs.len() {
++        lines.push(format!("H {unit} {} {}", g.defs[i].path, show(def_hash(g, DefId(i)))));
++        if wanted.iter().any(|w| *w == *g.defs[i].path)
++            && let Some(body) = g.defs[i].body()
++        {
++            let text = if std::env::var("PQ_DEBUG").is_ok() { format!("{body:?}") } else { stitchwort_core::pretty::term_in_full(g, &[], body).unwrap_or_else(|e| format!("<{e:?}>")) };
++            lines.push(format!("B {unit} {} {}", g.defs[i].path, text.replace('\n', " ")));
++            lines.push(format!("Y {unit} {} {:?}", g.defs[i].path, g.defs[i].ty));
++        }
++    }
++    lines.sort();
++    for l in lines {
++        out.push_str(&l);
++        out.push('\n');
++    }
++}
++
++fn outcome(unit: &str, r: &Result<impl Sized, Vec<stitchwort_syntax::Diagnostic>>, out: &mut String) {
++    match r {
++        Ok(_) => writeln!(out, "R {unit} OK").unwrap(),
++        Err(ds) => {
++            for d in ds.iter().filter(|d| d.severity == stitchwort_syntax::Severity::Error) {
++                let at = d
++                    .labels
++                    .first()
++                    .map(|l| format!("{}-{} {}", l.span.start, l.span.end, l.message.replace('\n', " ")))
++                    .unwrap_or_default();
++                writeln!(out, "R {unit} ERR {} | {} | {}", d.code, d.message.replace('\n', " "), at).unwrap();
++            }
++        }
++    }
++}
++
++thread_local! {
++    static LAST: std::cell::Cell<[usize; 4]> = const { std::cell::Cell::new([0; 4]) };
++}
++
++/// The queue's counters since the last call, if any moved.
++fn stats(session: &Session, unit: &str, out: &mut String) {
++    for (tag, n) in stitchwort_elab::queue_notes() {
++        writeln!(out, "N {unit} {tag} {n}").unwrap();
++    }
++    let now = session.elab.queue_stats();
++    let last = LAST.with(|l| l.replace(now));
++    if now != last {
++        let d: Vec<usize> = (0..4).map(|i| now[i] - last[i]).collect();
++        writeln!(out, "S {unit} queued {} resumed {} defaulted {} stuck {}", d[0], d[1], d[2], d[3]).unwrap();
++    }
++}
++
++fn run() {
++    let mut out = String::new();
++    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
++    let t = Instant::now();
++    let mut session = Session::eager_for_stack(512 * 1024 * 1024);
++    writeln!(out, "T std {:.2}", t.elapsed().as_secs_f64()).unwrap();
++    hashes(&session, "std", 0, 0, &mut out);
++    stats(&session, "std", &mut out);
++    let mark = session.mark();
++    let (data0, def0) = (session.elab.globals.datas.len(), session.elab.globals.defs.len());
++    for dir in ["accept", "reject", "extract"] {
++        let mut found: Vec<_> = std::fs::read_dir(root.join("examples").join(dir))
++            .unwrap()
++            .map(|e| e.unwrap().path())
++            .filter(|p| p.extension().is_some_and(|e| e == "sw"))
++            .filter(|p| {
++                std::env::var("PQ_ONLY")
++                    .map_or(true, |f| p.to_string_lossy().contains(&f))
++            })
++            .collect();
++        found.sort();
++        let t = Instant::now();
++        for path in &found {
++            session.rewind(&mark);
++            let unit = format!("{dir}/{}", path.file_name().unwrap().to_string_lossy());
++            let text = std::fs::read_to_string(path).unwrap();
++            let r = session.load(&path.display().to_string(), &text);
++            outcome(&unit, &r, &mut out);
++            stats(&session, &unit, &mut out);
++            if r.is_ok() {
++                hashes(&session, &unit, data0, def0, &mut out);
++            }
++        }
++        writeln!(out, "T examples/{dir} {:.2}", t.elapsed().as_secs_f64()).unwrap();
++    }
++    for (dir, name) in [(root.join("aoc"), "aoc"), (root.join("games/rogue"), "rogue")] {
++        if std::env::var("PQ_ONLY").is_ok_and(|f| f != name) {
++            continue;
++        }
++        session.rewind(&mark);
++        let t = Instant::now();
++        let r = session.load_project(&DiskFiles { root: dir }, name, &Target::Everything);
++        writeln!(out, "T {name} {:.2}", t.elapsed().as_secs_f64()).unwrap();
++        outcome(name, &r, &mut out);
++        stats(&session, name, &mut out);
++        hashes(&session, name, data0, def0, &mut out);
++    }
++    std::fs::write(std::env::var("PQ_OUT").unwrap(), out).unwrap();
++}
++
++#[test]
++#[ignore]
++fn queue_measure() {
++    std::thread::Builder::new()
++        .stack_size(1024 * 1024 * 1024)
++        .spawn(run)
++        .unwrap()
++        .join()
++        .unwrap();
++}
+diff --git a/crates/elab/src/auto.rs b/crates/elab/src/auto.rs
+index d4959031..4dbee0e1 100644
+--- a/crates/elab/src/auto.rs
++++ b/crates/elab/src/auto.rs
+@@ -103,6 +103,12 @@ impl Elaborator {
+         loop {
+             let obligations = std::mem::take(&mut *self.obligations.borrow_mut());
+             if obligations.is_empty() {
++                // EXPERIMENTAL (`queue.rs`): queued checks whose unknown is
++                // solved now; they may add obligations.
++                if self.drain_queue()? {
++                    progress = true;
++                    continue;
++                }
+                 // Row comparisons put aside: one that's settled now is
+                 // progress.
+                 if self.retry_rows()? {
+diff --git a/crates/elab/src/check.rs b/crates/elab/src/check.rs
+index aabd4585..534ae0b2 100644
+--- a/crates/elab/src/check.rs
++++ b/crates/elab/src/check.rs
+@@ -132,6 +132,50 @@ pub(crate) struct LocalName {
+     pub ty: Value,
+ }
+ 
++/// EXPERIMENTAL (queue prototype): a [`Ctx`] without its elaborator.
++#[derive(Clone)]
++pub(crate) struct Saved {
++    env: Vec<Value>,
++    types: Vec<Value>,
++    names: Vec<Name>,
++    written: Vec<Option<crate::dot::Written>>,
++    scope: Vec<(String, usize)>,
++    kinds: Vec<Icit>,
++    locals: Vec<LocalName>,
++    lets: Vec<Option<Rc<LetDef>>>,
++    goal: Option<(usize, Rc<Term>)>,
++    order: Vec<usize>,
++    tree_start: usize,
++    scrutinees: Vec<(usize, Term, Span, usize)>,
++    reify_display: Option<ReifyDisplay>,
++    cases: Option<Rc<crate::cases::Run>>,
++    pub span: Span,
++}
++
++impl Saved {
++    pub(crate) fn ctx<'e>(&self, e: &'e Elaborator) -> Ctx<'e> {
++        Ctx {
++            e,
++            env: self.env.clone(),
++            types: self.types.clone(),
++            names: self.names.clone(),
++            written: self.written.clone(),
++            scope: self.scope.clone(),
++            kinds: self.kinds.clone(),
++            locals: self.locals.clone(),
++            lets: self.lets.clone(),
++            goal: self.goal.clone(),
++            written_goal: None,
++            order: self.order.clone(),
++            tree_start: self.tree_start,
++            scrutinees: self.scrutinees.clone(),
++            reify_display: self.reify_display.clone(),
++            cases: self.cases.clone(),
++            span: self.span,
++        }
++    }
++}
++
+ /// A position to return to with [`Ctx::reset`].
+ #[derive(Clone, Copy)]
+ pub struct Mark {
+@@ -195,6 +239,28 @@ impl<'e> Ctx<'e> {
+         }
+     }
+ 
++    /// EXPERIMENTAL (queue prototype, docs/proposals/postponement.md §11):
++    /// everything but `e`, to resume a queued check in later.
++    pub(crate) fn save(&self) -> Saved {
++        Saved {
++            env: self.env.clone(),
++            types: self.types.clone(),
++            names: self.names.clone(),
++            written: self.written.clone(),
++            scope: self.scope.clone(),
++            kinds: self.kinds.clone(),
++            locals: self.locals.clone(),
++            lets: self.lets.clone(),
++            goal: self.goal.clone(),
++            order: self.order.clone(),
++            tree_start: self.tree_start,
++            scrutinees: self.scrutinees.clone(),
++            reify_display: self.reify_display.clone(),
++            cases: self.cases.clone(),
++            span: self.span,
++        }
++    }
++
+     pub fn g(&self) -> &'e Globals {
+         &self.e.globals
+     }
+@@ -1882,6 +1948,7 @@ pub(crate) fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Re
+     }
+     first_try.restore(cx);
+     let second_try = crate::undo::Snapshot::take(cx);
++    crate::queue::note("retrying_late_literals".to_string());
+     cx.e.late_literals.set(1);
+     let again = f(cx);
+     cx.e.late_literals.set(0);
+@@ -1908,6 +1975,7 @@ fn apply_args_postponing(
+     first_error: &mut Option<Diagnostic>,
+ ) -> Result<(Term, Value)> {
+     let (mut term, mut ty) = head;
++    let queue_start = cx.e.queue.items.borrow().len();
+     let mut postponed = Vec::new();
+     // Lambdas to check after the application's type is compared with the
+     // type expected of it, if `infer_expecting` says what that is.
+@@ -1957,6 +2025,7 @@ fn apply_args_postponing(
+                         Err(e) if crate::undo::fatal(&e) => return Err(e),
+                         Err(e) => {
+                             snapshot.restore(cx);
++                            crate::queue::note(format!("lambda_after_expected {}", e.code));
+                             first_error.get_or_insert(e);
+                             late = true;
+                             None
+@@ -1965,6 +2034,7 @@ fn apply_args_postponing(
+                 } else if !postponable {
+                     Some(check_arg(cx, &term, value, &dom)?)
+                 } else if value.section_name().is_some() && !dependents {
++                    crate::queue::note("section_postponed_untried".to_string());
+                     None
+                 } else {
+                     let snapshot = crate::undo::Snapshot::take(cx);
+@@ -1973,6 +2043,7 @@ fn apply_args_postponing(
+                         Err(e) if crate::undo::fatal(&e) => return Err(e),
+                         Err(e) => {
+                             snapshot.restore(cx);
++                            crate::queue::note(format!("lambda_postponed {} {}", e.code, e.message.replace(" ", "_")));
+                             first_error.get_or_insert(e);
+                             None
+                         }
+@@ -2087,6 +2158,7 @@ fn apply_args_postponing(
+                         if crate::interfaces::unsolved_in(cx, &dom)?.is_none() {
+                             return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
+                         }
++                        crate::queue::note(format!("arg_after_expected {}", e.code));
+                         first_error.get_or_insert(e);
+                         let meta = cx.fresh_meta();
+                         let placeholder = cx.eval(&meta)?;
+@@ -2142,6 +2214,13 @@ fn apply_args_postponing(
+         // instead of the call `Text.decEq`, which extraction runs natively).
+         term = fill_placeholder(&term, id, &checked).unwrap_or(term);
+     }
++    // EXPERIMENTAL (`queue.rs`): with `STITCHWORT_QUEUE_APP=1`, an
++    // application's end is a resume point too, as it is for the lambdas
++    // postponed above.
++    if crate::queue::at_applications() {
++        let from = if crate::queue::scoped() { queue_start } else { 0 };
++        cx.e.drain_queue_from(from)?;
++    }
+     if let (false, Some(expected)) = (after_expected.is_empty(), &expecting) {
+         // The type as `fallback` will compare it: with no implicit
+         // parameters left to insert (they'd be made again there).
+diff --git a/crates/elab/src/dot.rs b/crates/elab/src/dot.rs
+index 4c9525fd..32b2afef 100644
+--- a/crates/elab/src/dot.rs
++++ b/crates/elab/src/dot.rs
+@@ -278,7 +278,85 @@ pub(crate) fn infer_dot(
+     let (rterm, rty) = infer_receiver(cx, recv, field)?;
+     let (rterm, rty) = insert(cx, rterm, rty)?;
+     let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
+-    let (owner, f, key) = find(cx, recv, field, start)?;
++    BLOCKED.with(|b| b.borrow_mut().take());
++    let found = find(cx, recv, field, start);
++    // EXPERIMENTAL (`queue.rs`): the type unknown, queued.
++    if crate::queue::on()
++        && let Err(e) = &found
++        && let Some(blocker) = BLOCKED.with(|b| b.borrow_mut().take())
++        && let Some(queued) = crate::queue::dot(
++            cx,
++            recv,
++            field,
++            args,
++            rterm.clone(),
++            rty.clone(),
++            blocker,
++            e.clone(),
++        )?
++    {
++        return Ok(queued);
++    }
++    BLOCKED.with(|b| b.borrow_mut().take());
++    dot_rest(cx, recv, field, args, rterm, rty, found?)
++}
++
++thread_local! {
++    /// EXPERIMENTAL (`queue.rs`): where the last `find_in_view` met an
++    /// unknown.
++    static BLOCKED: std::cell::RefCell<Option<Blocker>> = const { std::cell::RefCell::new(None) };
++}
++
++/// EXPERIMENTAL (`queue.rs`): the step of the type-head view that met an
++/// unknown.
++pub(crate) struct Blocker(Ty);
++
++/// EXPERIMENTAL (`queue.rs`): whether the view can now go past `blocker`.
++pub(crate) fn blocker_solved(cx: &Ctx, blocker: &Blocker) -> Result<bool> {
++    Ok(!matches!(step(cx.g(), blocker.0.clone())?, Step::Unknown))
++}
++
++/// EXPERIMENTAL (`queue.rs`): a queued `recv.field args`, resumed.
++pub(crate) fn resume_dot(
++    cx: &mut Ctx,
++    recv: &Expr,
++    field: &AstName,
++    args: &[Arg],
++    rterm: Term,
++    rty: Value,
++) -> Result<(Term, Value)> {
++    let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
++    BLOCKED.with(|b| b.borrow_mut().take());
++    let found = find(cx, recv, field, start);
++    if let Err(e) = &found
++        && let Some(blocker) = BLOCKED.with(|b| b.borrow_mut().take())
++        && let Some(queued) = crate::queue::dot(
++            cx,
++            recv,
++            field,
++            args,
++            rterm.clone(),
++            rty.clone(),
++            blocker,
++            e.clone(),
++        )?
++    {
++        return Ok(queued);
++    }
++    BLOCKED.with(|b| b.borrow_mut().take());
++    dot_rest(cx, recv, field, args, rterm, rty, found?)
++}
++
++#[allow(clippy::too_many_arguments)]
++fn dot_rest(
++    cx: &mut Ctx,
++    recv: &Expr,
++    field: &AstName,
++    args: &[Arg],
++    rterm: Term,
++    rty: Value,
++    (owner, f, key): (TyHead, DefId, String),
++) -> Result<(Term, Value)> {
+     cx.e.note_dot(field, f);
+     note_left_out(cx, field, f, args)?;
+     // A recursive call of a definition with `decreasing` passes its proof
+@@ -450,11 +528,15 @@ fn find_in_view(
+     let receiver_ty = ty.clone();
+     let mut tried: Vec<TyHead> = Vec::new();
+     loop {
++        let at = ty.clone();
+         match step(g, ty)? {
+             Step::Unknown if matches!(recv, Expr::Var(n) if n.text == SECTION) => {
+                 return Err(section_unknown_name(cx, field));
+             }
+             Step::Unknown => {
++                if crate::queue::on() {
++                    BLOCKED.with(|b| *b.borrow_mut() = Some(Blocker(at)));
++                }
+                 return Err(cx
+                     .error(
+                         "E-CANNOT-INFER",
+diff --git a/crates/elab/src/lib.rs b/crates/elab/src/lib.rs
+index 108e1486..7c4befe3 100644
+--- a/crates/elab/src/lib.rs
++++ b/crates/elab/src/lib.rs
+@@ -50,6 +50,9 @@ mod opaque;
+ mod partial;
+ mod patlet;
+ mod pipe;
++mod queue;
++/// EXPERIMENTAL (`queue.rs`).
++pub use queue::take_notes as queue_notes;
+ mod probe;
+ pub mod project;
+ mod quot;
+@@ -334,6 +337,8 @@ pub struct Elaborator {
+     /// Row comparisons put aside until more is known (`unify_postponing`),
+     /// retried with the obligations.
+     row_constraints: RefCell<Vec<rows::Postponed>>,
++    /// EXPERIMENTAL (`queue.rs`, off by default).
++    pub(crate) queue: queue::Queue,
+     /// Comparisons that met a helper not lifted yet, compared again once it
+     /// is (`lift::await_helpers`).
+     awaiting_helpers: RefCell<Vec<lift::AwaitingHelpers>>,
+@@ -1078,6 +1083,7 @@ impl Elaborator {
+         self.obligations.borrow_mut().clear();
+         self.row_metas.borrow_mut().clear();
+         self.row_constraints.borrow_mut().clear();
++        self.queue.clear();
+         self.awaiting_helpers.borrow_mut().clear();
+         self.defaulted.borrow_mut().clear();
+         self.instance_steps.borrow_mut().clear();
+@@ -1087,7 +1093,14 @@ impl Elaborator {
+     /// solutions into `term`, failing if any are unsolved.
+     fn finish(&self, term: &Term, level: usize) -> Result<Term> {
+         self.compare_awaiting_helpers()?;
+-        let stuck = self.solve_obligations_until_stuck()?;
++        let mut stuck = self.solve_obligations_until_stuck()?;
++        // EXPERIMENTAL (`queue.rs`): defaults, then what is still stuck.
++        while self.default_queue()? {
++            stuck = self.solve_obligations_until_stuck()?;
++        }
++        if let Some(d) = self.stuck_queue() {
++            return Err(d);
++        }
+         self.settle_rows(stuck)?;
+         self.zonk(term, level)
+     }
+diff --git a/crates/elab/src/lift.rs b/crates/elab/src/lift.rs
+index 5395faad..6d46264e 100644
+--- a/crates/elab/src/lift.rs
++++ b/crates/elab/src/lift.rs
+@@ -545,6 +545,14 @@ impl Elaborator {
+     /// those are returned, with their bodies, for the caller to admit with
+     /// the owner.
+     pub(crate) fn lift(&mut self, owner: &str, join: bool) -> Result<Vec<(DefId, Term)>> {
++        // EXPERIMENTAL (`queue.rs`): a queued check may hold a `match`, so
++        // the queue is settled (defaults too) before anything is lifted.
++        if crate::queue::at_lift() {
++            self.solve_obligations_until_stuck()?;
++            while self.default_queue()? {
++                self.solve_obligations_until_stuck()?;
++            }
++        }
+         if self.drafts.borrow().is_empty() {
+             return Ok(Vec::new());
+         }
+diff --git a/crates/elab/src/queue.rs b/crates/elab/src/queue.rs
+new file mode 100644
+index 00000000..f131f150
+--- /dev/null
++++ b/crates/elab/src/queue.rs
+@@ -0,0 +1,353 @@
++//! EXPERIMENTAL, off by default: a prototype of the single postponement
++//! queue of docs/proposals/postponement.md (draft 2, §11), switched on by
++//! the environment variable `STITCHWORT_QUEUE=1`. Only for measuring what
++//! the queue changes; not a design to keep.
++//!
++//! With it on, a record literal whose type is an unknown, and `.field` on a
++//! receiver whose type is an unknown, don't raise `E-CANNOT-INFER`: they
++//! become a placeholder unknown and a queued check, resumed when the
++//! unknown they wait for is solved (in the obligations loop, so at every
++//! `solve_obligations` and at the end of the declaration). A literal still
++//! waiting when nothing else makes progress takes its type from its field
++//! names (SW-805's rule, as a default). One still stuck after that is
++//! reported with the error its site would have raised.
++
++use std::rc::Rc;
++use std::sync::OnceLock;
++
++use stitchwort_core::value::{Head, force};
++use stitchwort_core::{Term, Value};
++use stitchwort_syntax::Diagnostic;
++use stitchwort_syntax::ast::{Expr, Name as AstName};
++
++use crate::Elaborator;
++use crate::check::{Arg, Ctx, Result, Saved};
++
++/// Whether the prototype is switched on.
++pub(crate) fn on() -> bool {
++    static ON: OnceLock<bool> = OnceLock::new();
++    *ON.get_or_init(|| std::env::var("STITCHWORT_QUEUE").is_ok_and(|v| v == "1"))
++}
++
++/// Whether the end of each application is a resume point too
++/// (`STITCHWORT_QUEUE_APP=1`).
++pub(crate) fn at_applications() -> bool {
++    static ON: OnceLock<bool> = OnceLock::new();
++    on() && *ON.get_or_init(|| std::env::var("STITCHWORT_QUEUE_APP").is_ok_and(|v| v == "1"))
++}
++
++/// Whether the queue is settled before lifting (`STITCHWORT_QUEUE_LIFT=1`).
++pub(crate) fn at_lift() -> bool {
++    static ON: OnceLock<bool> = OnceLock::new();
++    on() && *ON.get_or_init(|| std::env::var("STITCHWORT_QUEUE_LIFT").is_ok_and(|v| v == "1"))
++}
++
++/// Whether SW-805's field-name rule runs at the literal, before queueing,
++/// when it finds one type (Agda's order), rather than only as a default
++/// (`STITCHWORT_QUEUE_NAMES_FIRST=1`).
++pub(crate) fn names_first() -> bool {
++    static ON: OnceLock<bool> = OnceLock::new();
++    on() && *ON.get_or_init(|| std::env::var("STITCHWORT_QUEUE_NAMES_FIRST").is_ok_and(|v| v == "1"))
++}
++
++static NOTES: std::sync::Mutex<std::collections::BTreeMap<String, usize>> =
++    std::sync::Mutex::new(std::collections::BTreeMap::new());
++
++/// Counts one firing of an existing catch-and-retry path (with the switch
++/// off too), for the measurement.
++pub(crate) fn note(tag: String) {
++    *NOTES.lock().unwrap().entry(tag).or_insert(0) += 1;
++}
++
++/// The counts [`note`] made since the last call.
++pub fn take_notes() -> std::collections::BTreeMap<String, usize> {
++    std::mem::take(&mut *NOTES.lock().unwrap())
++}
++
++/// Whether an application's end resumes only the items made while the
++/// application was elaborated, as Lean's `withSynthesize` does
++/// (`STITCHWORT_QUEUE_SCOPED=1`).
++pub(crate) fn scoped() -> bool {
++    static ON: OnceLock<bool> = OnceLock::new();
++    on() && *ON.get_or_init(|| std::env::var("STITCHWORT_QUEUE_SCOPED").is_ok_and(|v| v == "1"))
++}
++
++/// An argument of a queued dot call, owned.
++pub(crate) enum OwnedArg {
++    Explicit(Expr),
++    Named(AstName, Expr),
++    NamedExplicit(AstName, Expr),
++}
++
++pub(crate) enum Kind {
++    Record {
++        fields: Vec<(AstName, Expr)>,
++        expected: Value,
++    },
++    Dot {
++        recv: Expr,
++        field: AstName,
++        args: Vec<OwnedArg>,
++        rterm: Term,
++        rty: Value,
++        blocker: crate::dot::Blocker,
++        result: Value,
++    },
++}
++
++pub(crate) struct Item {
++    kind: Kind,
++    saved: Saved,
++    placeholder: Term,
++    /// What the site would have raised without the queue.
++    error: Diagnostic,
++}
++
++/// The queue of the current declaration, and which of its items have been
++/// resumed (by index, in the order they were): both are truncated by
++/// `Snapshot::restore`, so an attempt undone takes its items and its
++/// resumptions with it.
++#[derive(Default)]
++pub(crate) struct Queue {
++    pub items: std::cell::RefCell<Vec<Rc<Item>>>,
++    pub done: std::cell::RefCell<Vec<usize>>,
++    /// Counters, for STITCHWORT_QUEUE_STATS.
++    pub queued: std::cell::Cell<usize>,
++    pub resumed: std::cell::Cell<usize>,
++    pub defaulted: std::cell::Cell<usize>,
++    pub stuck: std::cell::Cell<usize>,
++}
++
++impl Queue {
++    pub(crate) fn clear(&self) {
++        self.items.borrow_mut().clear();
++        self.done.borrow_mut().clear();
++    }
++}
++
++fn push(cx: &Ctx, kind: Kind, placeholder: Term, error: Diagnostic) {
++    let q = &cx.e.queue;
++    q.queued.set(q.queued.get() + 1);
++    if std::env::var("STITCHWORT_QUEUE_TRACE").is_ok() {
++        eprintln!("queue: push #{} at {:?}: {}", q.items.borrow().len(), cx.span, error.message);
++    }
++    q.items.borrow_mut().push(Rc::new(Item {
++        kind,
++        saved: cx.save(),
++        placeholder,
++        error,
++    }));
++}
++
++/// A record literal at the unknown type `expected`, queued.
++pub(crate) fn record(
++    cx: &mut Ctx,
++    fields: &[(AstName, Expr)],
++    expected: &Value,
++    error: Diagnostic,
++) -> Result<Term> {
++    let placeholder = cx.fresh_meta();
++    push(
++        cx,
++        Kind::Record {
++            fields: fields.to_vec(),
++            expected: expected.clone(),
++        },
++        placeholder.clone(),
++        error,
++    );
++    Ok(placeholder)
++}
++
++/// `recv.field args` with the receiver's type unknown, queued; `None` if
++/// an argument is one the prototype can't keep.
++#[allow(clippy::too_many_arguments)]
++pub(crate) fn dot(
++    cx: &mut Ctx,
++    recv: &Expr,
++    field: &AstName,
++    args: &[Arg],
++    rterm: Term,
++    rty: Value,
++    blocker: crate::dot::Blocker,
++    error: Diagnostic,
++) -> Result<Option<(Term, Value)>> {
++    let mut owned = Vec::new();
++    for arg in args {
++        owned.push(match arg {
++            Arg::Explicit(e) => OwnedArg::Explicit((*e).clone()),
++            Arg::Named(n, e) => OwnedArg::Named((*n).clone(), (*e).clone()),
++            Arg::NamedExplicit(n, e) => OwnedArg::NamedExplicit((*n).clone(), (*e).clone()),
++            Arg::Piped(_) | Arg::Default(_) => return Ok(None),
++        });
++    }
++    let result_meta = cx.fresh_meta();
++    let result = cx.eval(&result_meta)?;
++    let placeholder = cx.fresh_meta();
++    push(
++        cx,
++        Kind::Dot {
++            recv: recv.clone(),
++            field: field.clone(),
++            args: owned,
++            rterm,
++            rty,
++            blocker,
++            result: result.clone(),
++        },
++        placeholder.clone(),
++        error,
++    );
++    Ok(Some((placeholder, result)))
++}
++
++fn meta_headed(cx: &Ctx, v: &Value) -> Result<bool> {
++    Ok(matches!(
++        force(cx.g(), v.clone())?,
++        Value::Neutral(Head::Meta(_), _)
++    ))
++}
++
++fn ready(cx: &Ctx, item: &Item) -> Result<bool> {
++    match &item.kind {
++        Kind::Record { expected, .. } => Ok(!meta_headed(cx, expected)?),
++        Kind::Dot { blocker, .. } => crate::dot::blocker_solved(cx, blocker),
++    }
++}
++
++fn fill(cx: &mut Ctx, item: &Item, checked: &Term) -> Result<()> {
++    let value = cx.eval(checked)?;
++    let placeholder = cx.eval(&item.placeholder)?;
++    if !cx.unify(&value, &placeholder)? {
++        return Err(cx.mismatch(&placeholder, &value));
++    }
++    Ok(())
++}
++
++fn resume(cx: &mut Ctx, item: &Item) -> Result<()> {
++    match &item.kind {
++        Kind::Record { fields, expected } => {
++            let checked = crate::records::check_record(cx, None, fields, expected)?;
++            fill(cx, item, &checked)
++        }
++        Kind::Dot {
++            recv,
++            field,
++            args,
++            rterm,
++            rty,
++            result,
++            ..
++        } => {
++            let args: Vec<Arg> = args
++                .iter()
++                .map(|a| match a {
++                    OwnedArg::Explicit(e) => Arg::Explicit(e),
++                    OwnedArg::Named(n, e) => Arg::Named(n, e),
++                    OwnedArg::NamedExplicit(n, e) => Arg::NamedExplicit(n, e),
++                })
++                .collect();
++            let (checked, ty) =
++                crate::dot::resume_dot(cx, recv, field, &args, rterm.clone(), rty.clone())?;
++            if !cx.unify(&ty, result)? {
++                return Err(cx.mismatch(result, &ty));
++            }
++            fill(cx, item, &checked)
++        }
++    }
++}
++
++impl Elaborator {
++    /// EXPERIMENTAL: items queued, resumed, defaulted and reported stuck so
++    /// far (attempts undone included).
++    pub fn queue_stats(&self) -> [usize; 4] {
++        let q = &self.queue;
++        [q.queued.get(), q.resumed.get(), q.defaulted.get(), q.stuck.get()]
++    }
++
++    /// Resumes every queued item whose unknown is now solved, in creation
++    /// order, until none is: whether any was.
++    pub(crate) fn drain_queue(&self) -> Result<bool> {
++        self.drain_queue_from(0)
++    }
++
++    /// [`Elaborator::drain_queue`] for the items from index `from` on.
++    pub(crate) fn drain_queue_from(&self, from: usize) -> Result<bool> {
++        if !on() {
++            return Ok(false);
++        }
++        let mut any = false;
++        loop {
++            let mut progress = false;
++            let mut i = from;
++            while i < self.queue.items.borrow().len() {
++                if self.queue.done.borrow().contains(&i) {
++                    i += 1;
++                    continue;
++                }
++                let item = self.queue.items.borrow()[i].clone();
++                let mut cx = item.saved.ctx(self);
++                if ready(&cx, &item)? {
++                    self.queue.done.borrow_mut().push(i);
++                    self.queue.resumed.set(self.queue.resumed.get() + 1);
++                    let r = resume(&mut cx, &item);
++                    if std::env::var("STITCHWORT_QUEUE_TRACE").is_ok() {
++                        eprintln!("queue: resume #{i} at {:?}: {}", item.saved.span, match &r { Ok(()) => "ok".to_string(), Err(e) => format!("{} {}", e.code, e.message) });
++                    }
++                    r?;
++                    progress = true;
++                }
++                i += 1;
++            }
++            if !progress {
++                return Ok(any);
++            }
++            any = true;
++        }
++    }
++
++    /// The first record literal still waiting, given the type its field
++    /// names say (SW-805's rule, as a default): whether there was one.
++    pub(crate) fn default_queue(&self) -> Result<bool> {
++        if !on() {
++            return Ok(false);
++        }
++        let n = self.queue.items.borrow().len();
++        for i in 0..n {
++            if self.queue.done.borrow().contains(&i) {
++                continue;
++            }
++            let item = self.queue.items.borrow()[i].clone();
++            let Kind::Record { fields, expected } = &item.kind else {
++                continue;
++            };
++            let mut cx = item.saved.ctx(self);
++            self.queue.done.borrow_mut().push(i);
++            self.queue.defaulted.set(self.queue.defaulted.get() + 1);
++            let (checked, ty) = match crate::records::infer_literal_by_names(&mut cx, fields) {
++                Ok(found) => found,
++                Err(e) if crate::undo::fatal(&e) => return Err(e),
++                // Nothing says which type: the site's own error.
++                Err(_) => return Err(item.error.clone()),
++            };
++            if !cx.unify(&ty, expected)? {
++                return Err(cx.mismatch(expected, &ty));
++            }
++            fill(&mut cx, &item, &checked)?;
++            return Ok(true);
++        }
++        Ok(false)
++    }
++
++    /// The error of the first item still waiting, if any.
++    pub(crate) fn stuck_queue(&self) -> Option<Diagnostic> {
++        if !on() {
++            return None;
++        }
++        let items = self.queue.items.borrow();
++        let done = self.queue.done.borrow();
++        let first = (0..items.len()).find(|i| !done.contains(i))?;
++        self.queue.stuck.set(self.queue.stuck.get() + 1);
++        Some(items[first].error.clone())
++    }
++}
+diff --git a/crates/elab/src/records.rs b/crates/elab/src/records.rs
+index e820d2d6..8bb9801c 100644
+--- a/crates/elab/src/records.rs
++++ b/crates/elab/src/records.rs
+@@ -734,6 +734,7 @@ pub(crate) fn last_resort<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) ->
+         Err(e) if !crate::undo::fatal(e) && cx.e.field_names.hits.get() > hits => {}
+         _ => return result,
+     }
++    crate::queue::note("last_resort_rerun".to_string());
+     snapshot.restore(cx);
+     let names = &cx.e.field_names;
+     names.released.set(names.released.get() + 1);
+@@ -781,6 +782,24 @@ fn with_field_names(cx: &Ctx, fields: &[(ast::Name, Expr)]) -> Vec<(DataId, Stri
+ /// A record literal with no type known: the one record type in scope with
+ /// exactly its fields, with its parameters to be inferred.
+ pub(crate) fn infer_literal(cx: &mut Ctx, fields: &[(ast::Name, Expr)]) -> Result<(Term, Value)> {
++    // EXPERIMENTAL (`queue.rs`): queued at a type unknown, the field-name
++    // rule left as a default at the end.
++    if crate::queue::names_first() && with_field_names(cx, fields).len() == 1 {
++        return infer_literal_by_names(cx, fields);
++    }
++    if crate::queue::on() {
++        let meta = cx.fresh_meta();
++        let ty = cx.eval(&meta)?;
++        let error = cx
++            .error(
++                "E-CANNOT-INFER",
++                "can't tell which record type this literal is",
++                "nothing here says what type it should have",
++            )
++            .with_note("add a type annotation, as in `({ x = 0, y = 0 }: Point)`");
++        let term = crate::queue::record(cx, fields, &ty, error)?;
++        return Ok((term, ty));
++    }
+     if cx.e.field_names.hold() {
+         return Err(cx
+             .error(
+@@ -790,6 +809,23 @@ pub(crate) fn infer_literal(cx: &mut Ctx, fields: &[(ast::Name, Expr)]) -> Resul
+             )
+             .with_note("add a type annotation, as in `({ x = 0, y = 0 }: Point)`"));
+     }
++    infer_literal_by_names(cx, fields)
++}
++
++/// [`infer_literal`]'s field-name rule, unconditionally.
++pub(crate) fn infer_literal_by_names(
++    cx: &mut Ctx,
++    fields: &[(ast::Name, Expr)],
++) -> Result<(Term, Value)> {
++    if false {
++        return Err(cx
++            .error(
++                "E-CANNOT-INFER",
++                "can't tell which record type this literal is",
++                "nothing here says what type it should have",
++            )
++            .with_note("add a type annotation, as in `({ x = 0, y = 0 }: Point)`"));
++    }
+     let candidates = with_field_names(cx, fields);
+     let [(d, _)] = candidates[..] else {
+         let mut error = cx
+@@ -830,6 +866,26 @@ pub(crate) fn check_record(
+ ) -> Result<Term> {
+     match base {
+         None => {
++            if crate::queue::on()
++                && let Value::Neutral(stitchwort_core::value::Head::Meta(_), _) =
++                    force(cx.g(), expected.clone())?
++            {
++                if crate::queue::names_first() && with_field_names(cx, fields).len() == 1 {
++                    let (term, ty) = infer_literal_by_names(cx, fields)?;
++                    if !cx.unify(&ty, expected)? {
++                        return Err(cx.mismatch(expected, &ty));
++                    }
++                    return Ok(term);
++                }
++                let error = cx
++                    .error(
++                        "E-CANNOT-INFER",
++                        "can't tell which record type this record literal is",
++                        "its type isn't known here",
++                    )
++                    .with_note("add a type annotation, as in `(p: Person)`");
++                return crate::queue::record(cx, fields, expected, error);
++            }
+             if let Value::Neutral(stitchwort_core::value::Head::Meta(_), _) =
+                 force(cx.g(), expected.clone())?
+                 && !cx.e.field_names.hold()
+diff --git a/crates/elab/src/rewind.rs b/crates/elab/src/rewind.rs
+index 4ed69863..8ffaad8e 100644
+--- a/crates/elab/src/rewind.rs
++++ b/crates/elab/src/rewind.rs
+@@ -147,6 +147,7 @@ impl Elaborator {
+             obligations,
+             row_metas,
+             row_constraints,
++            queue,
+             awaiting_helpers,
+             defaulted,
+             char_patterns,
+@@ -251,6 +252,7 @@ impl Elaborator {
+         obligations.get_mut().clear();
+         row_metas.get_mut().clear();
+         row_constraints.get_mut().clear();
++        queue.clear();
+         awaiting_helpers.get_mut().clear();
+         defaulted.get_mut().clear();
+         char_patterns.get_mut().clear();
+diff --git a/crates/elab/src/undo.rs b/crates/elab/src/undo.rs
+index c8c59fac..0ae0bd71 100644
+--- a/crates/elab/src/undo.rs
++++ b/crates/elab/src/undo.rs
+@@ -40,6 +40,8 @@ pub(crate) struct Snapshot {
+     obligations: usize,
+     row_metas: usize,
+     row_constraints: usize,
++    queue: usize,
++    queue_done: usize,
+     awaiting_helpers: usize,
+     defaulted: usize,
+     drafts: usize,
+@@ -63,6 +65,8 @@ impl Snapshot {
+             obligations: cx.e.obligations.borrow().len(),
+             row_metas: cx.e.row_metas.borrow().len(),
+             row_constraints: cx.e.row_constraints.borrow().len(),
++            queue: cx.e.queue.items.borrow().len(),
++            queue_done: cx.e.queue.done.borrow().len(),
+             awaiting_helpers: cx.e.awaiting_helpers.borrow().len(),
+             defaulted: cx.e.defaulted.borrow().len(),
+             drafts: cx.e.drafts.borrow().len(),
+@@ -125,6 +129,8 @@ impl Snapshot {
+         cx.e.row_constraints
+             .borrow_mut()
+             .truncate(self.row_constraints);
++        cx.e.queue.items.borrow_mut().truncate(self.queue);
++        cx.e.queue.done.borrow_mut().truncate(self.queue_done);
+         cx.e.awaiting_helpers
+             .borrow_mut()
+             .truncate(self.awaiting_helpers);
+diff --git a/dev/queue-prototype/compare.py b/dev/queue-prototype/compare.py
+new file mode 100644
+index 00000000..78f3a8e0
+--- /dev/null
++++ b/dev/queue-prototype/compare.py
+@@ -0,0 +1,85 @@
++"""Scratch: compare two queue_scratch outputs (off, on)."""
++import sys
++from collections import defaultdict
++
++
++def load(path):
++    res = defaultdict(list)
++    hashes = {}
++    times = {}
++    for line in open(path):
++        line = line.rstrip("\n")
++        if line.startswith("R "):
++            _, unit, rest = line.split(" ", 2)
++            res[unit].append(rest)
++        elif line.startswith("H "):
++            parts = line.split(" ")
++            unit = parts[1]
++            name = " ".join(parts[2:-1])
++            hashes[(unit, name)] = parts[-1]
++        elif line.startswith("T "):
++            _, unit, t = line.split(" ")
++            times[unit] = float(t)
++    return res, hashes, times
++
++
++off_r, off_h, off_t = load(sys.argv[1])
++on_r, on_h, on_t = load(sys.argv[2])
++
++print("== times (s): off / on")
++for k in off_t:
++    print(f"  {k:20} {off_t[k]:7.2f} {on_t.get(k, 0):7.2f}")
++
++acc_change = []
++err_change = []
++for unit in sorted(set(off_r) | set(on_r)):
++    a, b = off_r.get(unit, []), on_r.get(unit, [])
++    a_ok = a == ["OK"]
++    b_ok = b == ["OK"]
++    if a_ok != b_ok:
++        acc_change.append((unit, a, b))
++    elif not a_ok and a != b:
++        err_change.append((unit, a, b))
++
++print(f"\n== acceptance changes: {len(acc_change)}")
++for unit, a, b in acc_change:
++    print(f"  {unit}: {'accepted' if a == ['OK'] else 'rejected'} -> {'accepted' if b == ['OK'] else 'rejected'}")
++    for x in (b if a == ["OK"] else a)[:3]:
++        print(f"      {x[:300]}")
++
++code_changes = [(u, a, b) for u, a, b in err_change if [x.split(' |')[0] for x in a] != [x.split(' |')[0] for x in b]]
++print(f"\n== still rejected, error changed: {len(err_change)} (code changed in {len(code_changes)})")
++for unit, a, b in err_change:
++    print(f"  {unit}")
++    print(f"     off: {a[0][:260]}")
++    print(f"     on:  {b[0][:260]}")
++
++changed = defaultdict(list)
++only_off = defaultdict(list)
++only_on = defaultdict(list)
++for k, v in off_h.items():
++    if k in on_h:
++        if on_h[k] != v:
++            changed[k[0].split('/')[0] if '/' in k[0] else k[0]].append(k)
++    else:
++        only_off[k[0]].append(k[1])
++for k in on_h:
++    if k not in off_h:
++        only_on[k[0]].append(k[1])
++print("\n== hash changes (declarations present in both):")
++for group, ks in sorted(changed.items()):
++    units = sorted(set(u for u, _ in ks))
++    print(f"  {group}: {len(ks)} declarations in {len(units)} units")
++total = sum(len(v) for v in changed.values())
++print(f"  total {total}")
++print(f"  declarations only with off: {sum(len(v) for v in only_off.values())}, only with on: {sum(len(v) for v in only_on.values())}")
++with open(sys.argv[3], "w") as f:
++    for group, ks in sorted(changed.items()):
++        for u, n in sorted(ks):
++            f.write(f"{u}\t{n}\n")
++    for u, ns in sorted(only_off.items()):
++        for n in ns:
++            f.write(f"ONLY-OFF {u}\t{n}\n")
++    for u, ns in sorted(only_on.items()):
++        for n in ns:
++            f.write(f"ONLY-ON {u}\t{n}\n")
+diff --git a/dev/queue-prototype/debug.sh b/dev/queue-prototype/debug.sh
+new file mode 100644
+index 00000000..3c6a7858
+--- /dev/null
++++ b/dev/queue-prototype/debug.sh
+@@ -0,0 +1,8 @@
++#!/bin/bash
++# Scratch: exact (Debug) terms of a few declarations, queue off and on.
++cd /Users/matt/repos/mdr/stitchwort/.claude/worktrees/agent-a90adb251a628a470
++bin=$(ls -t target/release/deps/queue_scratch-* | grep -v '\.d$' | head -1)
++for only in ${ONLY:-safe-fields aoc}; do
++  PQ_ONLY=$only PQ_DEBUG=1 PQ_TERMS="$(cat target/pq/terms-debug.txt)" STITCHWORT_QUEUE=0 PQ_OUT=target/pq/dbg-off-$only.txt timeout 900 dev/memguard --cap-gb 2 -- "$bin" --ignored queue_measure 2>&1 | grep "test result"
++  PQ_ONLY=$only PQ_DEBUG=1 PQ_TERMS="$(cat target/pq/terms-debug.txt)" STITCHWORT_QUEUE=1 STITCHWORT_QUEUE_APP=1 STITCHWORT_QUEUE_LIFT=1 PQ_OUT=target/pq/dbg-on-$only.txt timeout 900 dev/memguard --cap-gb 2 -- "$bin" --ignored queue_measure 2>&1 | grep "test result"
++done
+diff --git a/dev/queue-prototype/measure.sh b/dev/queue-prototype/measure.sh
+new file mode 100644
+index 00000000..b10ec9ea
+--- /dev/null
++++ b/dev/queue-prototype/measure.sh
+@@ -0,0 +1,22 @@
++#!/bin/bash
++# Scratch: run the queue measurement in each configuration, with CPU time.
++cd /Users/matt/repos/mdr/stitchwort/.claude/worktrees/agent-a90adb251a628a470
++bin=$(ls -t target/release/deps/queue_scratch-* | grep -v '\.d$' | head -1)
++run() {
++  name=$1; shift
++  echo "== $name: $*"
++  /usr/bin/time -p env "$@" PQ_TERMS="$(cat target/pq/terms.txt)" PQ_OUT=target/pq/$name.txt timeout 1500 dev/memguard --cap-gb 2 -- "$bin" --ignored queue_measure 2>&1 | grep -E "test result|^(real|user|sys)|panicked|doesn't check" | head -8
++}
++for cfg in "$@"; do
++  case $cfg in
++    off) run off STITCHWORT_QUEUE=0 ;;
++    off2) run off2 STITCHWORT_QUEUE=0 ;;
++    lift2) run lift2 STITCHWORT_QUEUE=1 STITCHWORT_QUEUE_APP=1 STITCHWORT_QUEUE_LIFT=1 ;;
++    app) run app STITCHWORT_QUEUE=1 STITCHWORT_QUEUE_APP=1 ;;
++    lift) run lift STITCHWORT_QUEUE=1 STITCHWORT_QUEUE_APP=1 STITCHWORT_QUEUE_LIFT=1 ;;
++    names) run names STITCHWORT_QUEUE=1 STITCHWORT_QUEUE_APP=1 STITCHWORT_QUEUE_LIFT=1 STITCHWORT_QUEUE_NAMES_FIRST=1 ;;
++    finish) run finish STITCHWORT_QUEUE=1 ;;
++    scoped) run scoped STITCHWORT_QUEUE=1 STITCHWORT_QUEUE_APP=1 STITCHWORT_QUEUE_LIFT=1 STITCHWORT_QUEUE_SCOPED=1 ;;
++    nolift) run nolift STITCHWORT_QUEUE=1 STITCHWORT_QUEUE_APP=1 ;;
++  esac
++done
+diff --git a/dev/queue-prototype/report.sh b/dev/queue-prototype/report.sh
+new file mode 100644
+index 00000000..fdbe5bdb
+--- /dev/null
++++ b/dev/queue-prototype/report.sh
+@@ -0,0 +1,51 @@
++#!/bin/bash
++# Scratch: write docs/proposals/postponement/prototype/changes.txt and counts.txt.
++cd /Users/matt/repos/mdr/stitchwort/.claude/worktrees/agent-a90adb251a628a470
++P=/nix/store/0kcws5blwbdyxqxjd1w8hjipz61xny3k-python3-3.14.7/bin/python3
++out=docs/proposals/postponement/prototype
++mkdir -p $out
++{
++  echo "Queue prototype: switch off against switch on, 30 Oct 2026 (docs/proposals/postponement.md §6)."
++  echo "Produced by crates/driver/tests/queue_scratch.rs and target/pq/compare.py, both in queue-prototype.patch."
++  echo
++  echo "######## run 2: off against on (R1 unscoped, R2: STITCHWORT_QUEUE=1 _APP=1 _LIFT=1)"
++  $P -I target/pq/compare.py target/pq/off2.txt target/pq/lift2.txt /dev/null
++  echo
++  echo "######## run 1: off against on (same switches)"
++  $P -I target/pq/compare.py target/pq/off.txt target/pq/lift.txt /dev/null
++  echo
++  echo "######## off (run 2) against on with R1 scoped (_SCOPED=1)"
++  $P -I target/pq/compare.py target/pq/off2.txt target/pq/scoped.txt /dev/null
++  echo
++  echo "######## off (run 1) against the field-name rule at the literal (_NAMES_FIRST=1)"
++  $P -I target/pq/compare.py target/pq/off.txt target/pq/names.txt /dev/null
++  echo
++  echo "######## declarations whose hash changed (run 2, unscoped)"
++  grep -v ONLY target/pq/changed-lift2.txt
++  echo
++  echo "######## the same with R1 scoped"
++  grep -v ONLY target/pq/changed-scoped.txt
++  echo
++  echo "######## exact terms ({:?}) and types of the changed declarations, off against on"
++  $P -I target/pq/termdiff.py target/pq/dbg-off-safe-fields.txt target/pq/dbg-on-safe-fields.txt | grep "^=="
++  $P -I target/pq/termdiff.py target/pq/dbg-off-aoc.txt target/pq/dbg-on-aoc.txt | grep "^=="
++  echo "types:"
++  $P -I target/pq/typediff.py target/pq/dbg-off-safe-fields.txt target/pq/dbg-on-safe-fields.txt
++  $P -I target/pq/typediff.py target/pq/dbg-off-aoc.txt target/pq/dbg-on-aoc.txt
++} > $out/changes.txt
++{
++  echo "Queue prototype counters, 30 Oct 2026 (docs/proposals/postponement.md §2, §5.7)."
++  echo "S: items queued / resumed (attempts undone included) / defaulted / reported stuck, per unit."
++  echo "N: firings of today's catch-and-retry paths, per unit, totalled at the end."
++  for cfg in off2 lift2 scoped; do
++    echo
++    echo "######## $cfg"
++    grep "^S " target/pq/$cfg.txt
++    grep "^S " target/pq/$cfg.txt | awk '{q+=$4; r+=$6; d+=$8; s+=$10} END {print "total: queued "q" resumed "r" defaulted "d" stuck "s}'
++    echo "-- retry paths (totals)"
++    grep "^N " target/pq/$cfg.txt | awk '{k=$3; if ($4 !~ /^[0-9]+$/) k=$3" "$4; v=$NF; s[k]+=v} END {for (k in s) print "  " k, s[k]}' | sort
++    echo "-- retry paths (per unit)"
++    grep "^N " target/pq/$cfg.txt
++  done
++} > $out/counts.txt
++wc -l $out/changes.txt $out/counts.txt
+diff --git a/dev/queue-prototype/termdiff.py b/dev/queue-prototype/termdiff.py
+new file mode 100644
+index 00000000..e6689d32
+--- /dev/null
++++ b/dev/queue-prototype/termdiff.py
+@@ -0,0 +1,32 @@
++"""Scratch: for each B line in two outputs, show where the terms first differ."""
++import sys
++
++
++def load(path):
++    out = {}
++    for line in open(path):
++        if line.startswith("B "):
++            _, unit, rest = line.rstrip("\n").split(" ", 2)
++            name, _, text = rest.partition(" ")
++            # names may contain spaces (tests): match on the known prefix
++            out[(unit, rest[:200])] = rest
++    return out
++
++
++a, b = load(sys.argv[1]), load(sys.argv[2])
++ka = {k[0] + " " + v.split(" App(")[0].split(" Lam(")[0][:80]: v for k, v in a.items()}
++kb = {k[0] + " " + v.split(" App(")[0].split(" Lam(")[0][:80]: v for k, v in b.items()}
++for k in sorted(ka):
++    x, y = ka[k], kb.get(k)
++    if y is None or x == y:
++        print(f"== {k}: {'same' if x == y else 'missing'} ({len(x)} chars)")
++        continue
++    i = 0
++    while i < min(len(x), len(y)) and x[i] == y[i]:
++        i += 1
++    j = 0
++    while j < min(len(x), len(y)) - i and x[-1 - j] == y[-1 - j]:
++        j += 1
++    print(f"== {k}: differs ({len(x)} vs {len(y)} chars)")
++    print(f"   off: ...{x[max(0, i - 120):len(x) - j][:500]}...")
++    print(f"   on:  ...{y[max(0, i - 120):len(y) - j][:500]}...")
+diff --git a/dev/queue-prototype/tests.sh b/dev/queue-prototype/tests.sh
+new file mode 100644
+index 00000000..134ce5ec
+--- /dev/null
++++ b/dev/queue-prototype/tests.sh
+@@ -0,0 +1,12 @@
++#!/bin/bash
++# Scratch: AoC and rogue tests, with the queue prototype on (scoped R1, R2)
++# when the first argument is "on".
++W=/Users/matt/repos/mdr/stitchwort/.claude/worktrees/agent-a90adb251a628a470
++if [ "$1" = on ]; then
++  export STITCHWORT_QUEUE=1 STITCHWORT_QUEUE_APP=1 STITCHWORT_QUEUE_LIFT=1 STITCHWORT_QUEUE_SCOPED=1
++fi
++for dir in aoc games/rogue; do
++  echo "===== $dir ($1)"
++  cd $W/$dir
++  /usr/bin/time -p timeout 3000 $W/dev/memguard --cap-gb 2 -- $W/target/release/stitchwort test 2>&1 | grep -v "✓" | tail -15
++done
+diff --git a/dev/queue-prototype/typediff.py b/dev/queue-prototype/typediff.py
+new file mode 100644
+index 00000000..afda8846
+--- /dev/null
++++ b/dev/queue-prototype/typediff.py
+@@ -0,0 +1,24 @@
++"""Scratch: compare the Y (type) lines of two queue_scratch outputs."""
++import sys
++
++
++def load(path):
++    out = {}
++    for line in open(path):
++        if line.startswith("Y "):
++            _, unit, rest = line.rstrip("\n").split(" ", 2)
++            # the path ends where the Debug text of the type begins
++            for head in ("Pi(", "Eq(", "Data(", "App(", "Sort(", "Def(", "Loc("):
++                i = rest.find(" " + head)
++                if i >= 0:
++                    break
++            out[(unit, rest[:i])] = rest[i + 1:]
++    return out
++
++
++a, b = load(sys.argv[1]), load(sys.argv[2])
++same = sum(1 for k in a if b.get(k) == a[k])
++diff = [k for k in a if k in b and b[k] != a[k]]
++print(f"  {sys.argv[1].split('/')[-1]}: {len(a)} types compared, {same} identical, {len(diff)} differ")
++for k in diff:
++    print(f"    differs: {k}")
+-- 
+2.55.0
+

@@ -1,0 +1,249 @@
+Queue prototype counters, 30 Oct 2026 (docs/proposals/postponement.md §2, §5.7).
+S: items queued / resumed (attempts undone included) / defaulted / reported stuck, per unit.
+N: firings of today's catch-and-retry paths, per unit, totalled at the end.
+
+######## off2
+total: queued  resumed  defaulted  stuck 
+-- retry paths (totals)
+  arg_after_expected E-CANNOT-INFER 2
+  arg_after_expected E-OMEGA 74
+  arg_after_expected E-REWRITE-NOTHING 39
+  arg_after_expected E-REWRITE-RULE 4
+  arg_after_expected E-RING 1
+  arg_after_expected E-TYPE-MISMATCH 46
+  lambda_after_expected E-CASES 3
+  lambda_after_expected E-OMEGA 5
+  lambda_after_expected E-REFL 1
+  lambda_after_expected E-REWRITE-NOTHING 29
+  lambda_after_expected E-REWRITE-RULE 1
+  lambda_after_expected E-TYPE-MISMATCH 28
+  lambda_postponed E-CANNOT-INFER 98
+  lambda_postponed E-OMEGA 2
+  last_resort_rerun 5
+  retrying_late_literals 19
+  section_postponed_untried 46
+-- retry paths (per unit)
+N std arg_after_expected E-CANNOT-INFER 2
+N std arg_after_expected E-TYPE-MISMATCH 1
+N std lambda_after_expected E-REWRITE-NOTHING 3
+N std lambda_after_expected E-TYPE-MISMATCH 2
+N std lambda_postponed E-CANNOT-INFER 12
+N std section_postponed_untried 33
+N accept/cases-bool.sw arg_after_expected E-TYPE-MISMATCH 8
+N accept/derive-ord-own-deceq.sw lambda_postponed E-CANNOT-INFER 1
+N accept/dot-prefix.sw retrying_late_literals 2
+N accept/eq-cong-omega.sw arg_after_expected E-OMEGA 3
+N accept/generic-constructor-literals.sw retrying_late_literals 6
+N accept/lambda-after-expected-dictionary.sw lambda_after_expected E-REWRITE-NOTHING 2
+N accept/lambda-after-expected-le.sw lambda_after_expected E-OMEGA 1
+N accept/lambda-after-expected-le.sw lambda_after_expected E-TYPE-MISMATCH 1
+N accept/lambda-postponed-alias.sw lambda_postponed E-CANNOT-INFER 1
+N accept/lambda-postponed-dependent-argument.sw lambda_postponed E-CANNOT-INFER 2
+N accept/lambda-postponed-dependent.sw lambda_postponed E-CANNOT-INFER 3
+N accept/lambda-postponed-second-parameter.sw lambda_postponed E-CANNOT-INFER 1
+N accept/lambda-postponed.sw lambda_postponed E-CANNOT-INFER 2
+N accept/lambda-sections.sw retrying_late_literals 1
+N accept/literal-first.sw retrying_late_literals 5
+N accept/omega-disjunctions.sw arg_after_expected E-OMEGA 1
+N accept/omega-disjunctions.sw lambda_postponed E-CANNOT-INFER 1
+N accept/record-hole-from-expected.sw arg_after_expected E-TYPE-MISMATCH 1
+N accept/record-literal-inferred.sw last_resort_rerun 1
+N accept/record-literal-inferred.sw retrying_late_literals 2
+N accept/scan-layout.sw lambda_after_expected E-REFL 1
+N accept/scan-layout.sw lambda_postponed E-CANNOT-INFER 7
+N accept/vec-library.sw section_postponed_untried 1
+N reject/decreasing-lambda-in-data.sw retrying_late_literals 1
+N reject/eq-cong-omega-false.sw arg_after_expected E-OMEGA 1
+N reject/generic-constructor-literal-conflict.sw retrying_late_literals 2
+N reject/lambda-after-expected-type.sw lambda_after_expected E-REWRITE-NOTHING 1
+N reject/lambda-after-expected-unfolded.sw lambda_after_expected E-REWRITE-NOTHING 1
+N reject/lambda-body-error-against-goal.sw arg_after_expected E-OMEGA 2
+N reject/lambda-body-error-against-goal.sw lambda_postponed E-OMEGA 2
+N reject/lambda-dependent-never-fixed.sw lambda_postponed E-CANNOT-INFER 2
+N reject/postponed-lambda-second-error.sw lambda_postponed E-CANNOT-INFER 2
+N reject/record-literal-no-such-fields.sw last_resort_rerun 2
+N reject/record-literal-without-type.sw last_resort_rerun 2
+N reject/rewrite-refined-by-match.sw arg_after_expected E-REWRITE-NOTHING 1
+N reject/unify-bool-argument.sw arg_after_expected E-TYPE-MISMATCH 1
+N reject/zero-le-hole.sw lambda_after_expected E-TYPE-MISMATCH 1
+N aoc arg_after_expected E-OMEGA 67
+N aoc arg_after_expected E-REWRITE-NOTHING 38
+N aoc arg_after_expected E-REWRITE-RULE 4
+N aoc arg_after_expected E-RING 1
+N aoc arg_after_expected E-TYPE-MISMATCH 26
+N aoc lambda_after_expected E-CASES 3
+N aoc lambda_after_expected E-OMEGA 4
+N aoc lambda_after_expected E-REWRITE-NOTHING 22
+N aoc lambda_after_expected E-REWRITE-RULE 1
+N aoc lambda_after_expected E-TYPE-MISMATCH 21
+N aoc lambda_postponed E-CANNOT-INFER 61
+N aoc section_postponed_untried 12
+N rogue arg_after_expected E-TYPE-MISMATCH 9
+N rogue lambda_after_expected E-TYPE-MISMATCH 3
+N rogue lambda_postponed E-CANNOT-INFER 3
+
+######## lift2
+S std queued 26 resumed 19 defaulted 0 stuck 0
+S accept/derive-ord-own-deceq.sw queued 2 resumed 2 defaulted 0 stuck 0
+S accept/lambda-postponed-alias.sw queued 1 resumed 1 defaulted 0 stuck 0
+S accept/lambda-postponed-dependent-argument.sw queued 4 resumed 3 defaulted 0 stuck 0
+S accept/lambda-postponed-dependent.sw queued 6 resumed 8 defaulted 0 stuck 0
+S accept/lambda-postponed-second-parameter.sw queued 1 resumed 1 defaulted 0 stuck 0
+S accept/lambda-postponed.sw queued 2 resumed 2 defaulted 0 stuck 0
+S accept/omega-disjunctions.sw queued 1 resumed 1 defaulted 0 stuck 0
+S accept/record-literal-inferred.sw queued 13 resumed 7 defaulted 2 stuck 0
+S accept/safe-fields.sw queued 3 resumed 3 defaulted 0 stuck 0
+S accept/scan-layout.sw queued 7 resumed 7 defaulted 0 stuck 0
+S reject/dot-cannot-infer.sw queued 1 resumed 0 defaulted 0 stuck 1
+S reject/lambda-dependent-never-fixed.sw queued 1 resumed 0 defaulted 0 stuck 1
+S reject/postponed-lambda-second-error.sw queued 1 resumed 3 defaulted 0 stuck 0
+S reject/record-field-of-unknown.sw queued 1 resumed 0 defaulted 0 stuck 1
+S reject/record-literal-no-such-fields.sw queued 3 resumed 0 defaulted 1 stuck 0
+S reject/record-literal-without-type.sw queued 3 resumed 0 defaulted 1 stuck 0
+S reject/section-underscore.sw queued 1 resumed 0 defaulted 0 stuck 1
+S aoc queued 94 resumed 87 defaulted 0 stuck 0
+S rogue queued 7 resumed 5 defaulted 0 stuck 0
+total: queued 178 resumed 149 defaulted 4 stuck 4
+-- retry paths (totals)
+  arg_after_expected E-OMEGA 74
+  arg_after_expected E-REWRITE-NOTHING 39
+  arg_after_expected E-REWRITE-RULE 4
+  arg_after_expected E-RING 1
+  arg_after_expected E-TYPE-MISMATCH 43
+  lambda_after_expected E-CASES 3
+  lambda_after_expected E-OMEGA 5
+  lambda_after_expected E-REFL 1
+  lambda_after_expected E-REWRITE-NOTHING 29
+  lambda_after_expected E-REWRITE-RULE 1
+  lambda_after_expected E-TYPE-MISMATCH 28
+  lambda_postponed E-CANNOT-INFER 6
+  lambda_postponed E-OMEGA 2
+  lambda_postponed E-UNKNOWN-FIELD 1
+  retrying_late_literals 17
+  section_postponed_untried 46
+-- retry paths (per unit)
+N std arg_after_expected E-TYPE-MISMATCH 1
+N std lambda_after_expected E-REWRITE-NOTHING 3
+N std lambda_after_expected E-TYPE-MISMATCH 2
+N std section_postponed_untried 33
+N accept/cases-bool.sw arg_after_expected E-TYPE-MISMATCH 8
+N accept/dot-prefix.sw retrying_late_literals 2
+N accept/eq-cong-omega.sw arg_after_expected E-OMEGA 3
+N accept/generic-constructor-literals.sw retrying_late_literals 6
+N accept/lambda-after-expected-dictionary.sw lambda_after_expected E-REWRITE-NOTHING 2
+N accept/lambda-after-expected-le.sw lambda_after_expected E-OMEGA 1
+N accept/lambda-after-expected-le.sw lambda_after_expected E-TYPE-MISMATCH 1
+N accept/lambda-sections.sw retrying_late_literals 1
+N accept/literal-first.sw retrying_late_literals 5
+N accept/omega-disjunctions.sw arg_after_expected E-OMEGA 1
+N accept/record-hole-from-expected.sw arg_after_expected E-TYPE-MISMATCH 1
+N accept/scan-layout.sw lambda_after_expected E-REFL 1
+N accept/vec-library.sw section_postponed_untried 1
+N reject/decreasing-lambda-in-data.sw retrying_late_literals 1
+N reject/eq-cong-omega-false.sw arg_after_expected E-OMEGA 1
+N reject/generic-constructor-literal-conflict.sw retrying_late_literals 2
+N reject/lambda-after-expected-type.sw lambda_after_expected E-REWRITE-NOTHING 1
+N reject/lambda-after-expected-unfolded.sw lambda_after_expected E-REWRITE-NOTHING 1
+N reject/lambda-body-error-against-goal.sw arg_after_expected E-OMEGA 2
+N reject/lambda-body-error-against-goal.sw lambda_postponed E-OMEGA 2
+N reject/postponed-lambda-second-error.sw lambda_postponed E-UNKNOWN-FIELD 1
+N reject/rewrite-refined-by-match.sw arg_after_expected E-REWRITE-NOTHING 1
+N reject/unify-bool-argument.sw arg_after_expected E-TYPE-MISMATCH 1
+N reject/zero-le-hole.sw lambda_after_expected E-TYPE-MISMATCH 1
+N aoc arg_after_expected E-OMEGA 67
+N aoc arg_after_expected E-REWRITE-NOTHING 38
+N aoc arg_after_expected E-REWRITE-RULE 4
+N aoc arg_after_expected E-RING 1
+N aoc arg_after_expected E-TYPE-MISMATCH 23
+N aoc lambda_after_expected E-CASES 3
+N aoc lambda_after_expected E-OMEGA 4
+N aoc lambda_after_expected E-REWRITE-NOTHING 22
+N aoc lambda_after_expected E-REWRITE-RULE 1
+N aoc lambda_after_expected E-TYPE-MISMATCH 21
+N aoc lambda_postponed E-CANNOT-INFER 6
+N aoc section_postponed_untried 12
+N rogue arg_after_expected E-TYPE-MISMATCH 9
+N rogue lambda_after_expected E-TYPE-MISMATCH 3
+
+######## scoped
+S std queued 26 resumed 19 defaulted 0 stuck 0
+S accept/derive-ord-own-deceq.sw queued 2 resumed 2 defaulted 0 stuck 0
+S accept/lambda-postponed-alias.sw queued 1 resumed 1 defaulted 0 stuck 0
+S accept/lambda-postponed-dependent-argument.sw queued 4 resumed 3 defaulted 0 stuck 0
+S accept/lambda-postponed-dependent.sw queued 6 resumed 6 defaulted 0 stuck 0
+S accept/lambda-postponed-second-parameter.sw queued 1 resumed 1 defaulted 0 stuck 0
+S accept/lambda-postponed.sw queued 2 resumed 2 defaulted 0 stuck 0
+S accept/omega-disjunctions.sw queued 1 resumed 1 defaulted 0 stuck 0
+S accept/record-literal-inferred.sw queued 13 resumed 7 defaulted 2 stuck 0
+S accept/safe-fields.sw queued 3 resumed 2 defaulted 0 stuck 0
+S accept/scan-layout.sw queued 7 resumed 7 defaulted 0 stuck 0
+S reject/dot-cannot-infer.sw queued 1 resumed 0 defaulted 0 stuck 1
+S reject/lambda-dependent-never-fixed.sw queued 1 resumed 0 defaulted 0 stuck 1
+S reject/postponed-lambda-second-error.sw queued 2 resumed 2 defaulted 0 stuck 0
+S reject/record-field-of-unknown.sw queued 1 resumed 0 defaulted 0 stuck 1
+S reject/record-literal-no-such-fields.sw queued 3 resumed 0 defaulted 1 stuck 0
+S reject/record-literal-without-type.sw queued 3 resumed 0 defaulted 1 stuck 0
+S reject/section-underscore.sw queued 1 resumed 0 defaulted 0 stuck 1
+S aoc queued 94 resumed 78 defaulted 0 stuck 0
+S rogue queued 7 resumed 5 defaulted 0 stuck 0
+total: queued 179 resumed 136 defaulted 4 stuck 4
+-- retry paths (totals)
+  arg_after_expected E-OMEGA 74
+  arg_after_expected E-REWRITE-NOTHING 39
+  arg_after_expected E-REWRITE-RULE 4
+  arg_after_expected E-RING 1
+  arg_after_expected E-TYPE-MISMATCH 44
+  lambda_after_expected E-CASES 3
+  lambda_after_expected E-OMEGA 5
+  lambda_after_expected E-REFL 1
+  lambda_after_expected E-REWRITE-NOTHING 29
+  lambda_after_expected E-REWRITE-RULE 1
+  lambda_after_expected E-TYPE-MISMATCH 28
+  lambda_postponed E-CANNOT-INFER 6
+  lambda_postponed E-OMEGA 2
+  retrying_late_literals 17
+  section_postponed_untried 46
+-- retry paths (per unit)
+N std arg_after_expected E-TYPE-MISMATCH 1
+N std lambda_after_expected E-REWRITE-NOTHING 3
+N std lambda_after_expected E-TYPE-MISMATCH 2
+N std section_postponed_untried 33
+N accept/cases-bool.sw arg_after_expected E-TYPE-MISMATCH 8
+N accept/dot-prefix.sw retrying_late_literals 2
+N accept/eq-cong-omega.sw arg_after_expected E-OMEGA 3
+N accept/generic-constructor-literals.sw retrying_late_literals 6
+N accept/lambda-after-expected-dictionary.sw lambda_after_expected E-REWRITE-NOTHING 2
+N accept/lambda-after-expected-le.sw lambda_after_expected E-OMEGA 1
+N accept/lambda-after-expected-le.sw lambda_after_expected E-TYPE-MISMATCH 1
+N accept/lambda-sections.sw retrying_late_literals 1
+N accept/literal-first.sw retrying_late_literals 5
+N accept/omega-disjunctions.sw arg_after_expected E-OMEGA 1
+N accept/record-hole-from-expected.sw arg_after_expected E-TYPE-MISMATCH 1
+N accept/scan-layout.sw lambda_after_expected E-REFL 1
+N accept/vec-library.sw section_postponed_untried 1
+N reject/decreasing-lambda-in-data.sw retrying_late_literals 1
+N reject/eq-cong-omega-false.sw arg_after_expected E-OMEGA 1
+N reject/generic-constructor-literal-conflict.sw retrying_late_literals 2
+N reject/lambda-after-expected-type.sw lambda_after_expected E-REWRITE-NOTHING 1
+N reject/lambda-after-expected-unfolded.sw lambda_after_expected E-REWRITE-NOTHING 1
+N reject/lambda-body-error-against-goal.sw arg_after_expected E-OMEGA 2
+N reject/lambda-body-error-against-goal.sw lambda_postponed E-OMEGA `omega`_can't_prove_`?8_n_x_=_?9_n_x` 1
+N reject/lambda-body-error-against-goal.sw lambda_postponed E-OMEGA `omega`_can't_prove_`n_+_1_=_2_+_n` 1
+N reject/rewrite-refined-by-match.sw arg_after_expected E-REWRITE-NOTHING 1
+N reject/unify-bool-argument.sw arg_after_expected E-TYPE-MISMATCH 1
+N reject/zero-le-hole.sw lambda_after_expected E-TYPE-MISMATCH 1
+N aoc arg_after_expected E-OMEGA 67
+N aoc arg_after_expected E-REWRITE-NOTHING 38
+N aoc arg_after_expected E-REWRITE-RULE 4
+N aoc arg_after_expected E-RING 1
+N aoc arg_after_expected E-TYPE-MISMATCH 24
+N aoc lambda_after_expected E-CASES 3
+N aoc lambda_after_expected E-OMEGA 4
+N aoc lambda_after_expected E-REWRITE-NOTHING 22
+N aoc lambda_after_expected E-REWRITE-RULE 1
+N aoc lambda_after_expected E-TYPE-MISMATCH 21
+N aoc lambda_postponed E-CANNOT-INFER can't_tell_what_`.couldBeTrue`_is_applied_to 2
+N aoc lambda_postponed E-CANNOT-INFER can't_tell_what_`.fst`_is_applied_to 4
+N aoc section_postponed_untried 12
+N rogue arg_after_expected E-TYPE-MISMATCH 9
+N rogue lambda_after_expected E-TYPE-MISMATCH 3
