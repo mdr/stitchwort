@@ -876,6 +876,7 @@ fn replace_occurrences(
     let Some(key) = key(&lhs_term, 0) else {
         return Err(unknown_head(rule, place));
     };
+    let open = equation.open(&lhs_term);
     let level = cx.level();
     let kcx = kernel_context(cx)?;
     let search = Search {
@@ -955,11 +956,27 @@ fn replace_occurrences(
         }
     }
     let motive_value = cx.eval(&motive)?;
-    let next = apply(
-        g,
-        apply(g, motive_value, equation.rhs.clone())?,
-        Value::Refl,
-    )?;
+    // A left side with unknowns of the rule's own (an argument left open)
+    // that a match by conversion solved: the right side was computed with
+    // them unsolved, so it is computed again with their solutions, and the
+    // new goal holds them as the values they are. Left as solved unknowns,
+    // nothing the body is compared with is ever identical to them, so a
+    // comparison `rfl`-close to the goal unfolds both sides in full
+    // (SW-917: `rewrite lcg.unfold in …`, whose `% 2147483648` unfolds a
+    // `Nat.divFuel` step per `Succ` of the `+ 12345`, took 24 s).
+    // Only when the new goal reads back the same either way: one that
+    // computes further now would change what the body (and a later rule)
+    // is elaborated against, and so the hashes.
+    let goal_with = |rhs: Value| apply(g, apply(g, motive_value.clone(), rhs)?, Value::Refl);
+    let mut next = goal_with(equation.rhs.clone())?;
+    if open && found.conversions > 0 {
+        let refreshed = goal_with(crate::interfaces::refresh(cx, &equation.rhs)?)?;
+        if same(&cx.quote_folded(&refreshed)?, &cx.quote_folded(&next)?)
+            && same(&cx.quote(&refreshed)?, &cx.quote(&next)?)
+        {
+            next = refreshed;
+        }
+    }
     Ok(Replaced {
         step: Some(Step {
             motive,
