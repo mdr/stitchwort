@@ -8757,9 +8757,9 @@
     {
       "id": 915,
       "title": "Design note: stitchwort search, lemma search by type (agentic T4)",
-      "status": "backlog",
-      "agent": "",
-      "where": "design + prototype merged f0becb6b (stitchwort dev search); open: D2045, D2046; S1 next",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "search draft 2 lane (D2052): comparison + review page",
       "labels": [
         "tooling",
         "design"
