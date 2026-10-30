@@ -7204,8 +7204,8 @@
       "id": 817,
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
       "status": "doing",
-      "agent": "",
-      "where": "draft 3 merged; D2016 decided yes (Matt); open: D2013, D2014",
+      "agent": "Claude",
+      "where": "stage 1 lane: queue machinery, nothing queued (D2013, D2014, D2016 yes)",
       "labels": [
         "decision"
       ],
