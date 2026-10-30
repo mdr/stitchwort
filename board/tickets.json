@@ -8809,7 +8809,7 @@
       "id": 918,
       "title": "Goals print library names the file can't resolve (List.count without import); goal_index test in no tier",
       "status": "doing",
-      "agent": "",
+      "agent": "Opus",
       "where": "lane (D2061)",
       "labels": [
         "elab",
