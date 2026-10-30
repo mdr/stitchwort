@@ -7203,9 +7203,9 @@
     {
       "id": 817,
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
-      "status": "backlog",
-      "agent": "",
-      "where": "stage 1 merged 3584ec6a (nothing queued; hashes identical; 1 hash from the dictionary pass); stage 2 (K1 record literals, K2 .field) next, on Matt's say",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "stage 2 lane (D2033): K1 record literals, K2 .field; SW-906 first",
       "labels": [
         "decision"
       ],
@@ -8596,9 +8596,9 @@
     {
       "id": 906,
       "title": "HASH_DUMP hash-dump test fails with E-RESOURCE on main (stack too small)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "first commit of the SW-817 stage 2 lane",
       "labels": [
         "tooling",
         "bug"
