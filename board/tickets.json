@@ -1,5 +1,5 @@
 {
-  "next": 909,
+  "next": 910,
   "tickets": [
     {
       "id": 13,
@@ -6979,7 +6979,7 @@
       "labels": [
         "decision"
       ],
-      "body": "Day 12 wrote two 16-case truth tables by hand. Rec: yes, limited to a few Bool variables.\n\n29 Oct (Matt): design lane: compare with other languages, write a design note, then a review artefact. SW-807 (derived list of all values) is in scope as the thing decide ranges over.\n29 Oct (lane): context read (docs, day 12/21 proofs). Finding: today's `cases` already proves day 12's rowEndsSplit (16 cases) and day 21's tabulateSame (25); everyNumericKey via `contains` + List.memContains. Prototypes in docs/proposals/decide/.\n29 Oct (lane): languages read: Lean (decide/native_decide/bv_decide docs and Decide.lean, Native.lean, Mathlib Fintype + DeriveFintype), Rocq (vm/native_compute, casts, MathComp fintype header), Agda (Dec, Fin all?), Idris 2 (So, Dec), Isabelle (codegen §6), F* (SMT fuel, partial), Haskell (Enum/Bounded). Dafny not read. Also: a closed decidable goal is already provable via an auto helper (`byDecision`); 2^16 cases by kernel rfl took ~6 s.\n29 Oct (lane): design drafted and prototypes run; docs/proposals/decide.md on branch worktree-agent-ad5c41ec5a22e812f (41b6957e). Rec: extend `cases` (decision closer + split unstuck finite variable), derive `Finite` (SW-807), never native_decide. D1960-D1962.\n29 Oct (Claude): verified and merged (88e9104b; merge tier 873/873). Checked: all 6 prototypes check --no-cache; rowEndsSplit prototype matches the real theorem; in the real Corners.sw, :=cases fails with the variables after the colon but checks (Day12.Proofs --no-cache) with them as parameters; file restored. Added that caveat to the note; decisions renumbered D1971-D1973 (D1960-62 in use); formatted enumerate.sw. Next: review artefact.\n\n30 Oct (lane, draft 2): review-1 copied; R1 evidence run (real Corners.sw: after-colon := cases is E-CASES, lambda form checks, 519 nodes; restored); R2 simulated by hand in decide/fallback.sw; closer-order and bv_decide checked. Writing decide.md draft 2.\n\n30 Oct (lane, draft 2): done, decide.md draft 2 on branch worktree-agent-a1d5a1c5a3c6346e6 (747f75de). Intro after the closers (intro-first breaks a by-hypothesis Pi proof); decision closer after omega, No falls through (counterexample in closer_order.sw); fallback fewest-then-latest (2 vs 24, 22 vs 11 leaves by hand). D1971-D1973 revised, open; no new decision.\n",
+      "body": "Day 12 wrote two 16-case truth tables by hand. Rec: yes, limited to a few Bool variables.\n\n29 Oct (Matt): design lane: compare with other languages, write a design note, then a review artefact. SW-807 (derived list of all values) is in scope as the thing decide ranges over.\n29 Oct (lane): context read (docs, day 12/21 proofs). Finding: today's `cases` already proves day 12's rowEndsSplit (16 cases) and day 21's tabulateSame (25); everyNumericKey via `contains` + List.memContains. Prototypes in docs/proposals/decide/.\n29 Oct (lane): languages read: Lean (decide/native_decide/bv_decide docs and Decide.lean, Native.lean, Mathlib Fintype + DeriveFintype), Rocq (vm/native_compute, casts, MathComp fintype header), Agda (Dec, Fin all?), Idris 2 (So, Dec), Isabelle (codegen §6), F* (SMT fuel, partial), Haskell (Enum/Bounded). Dafny not read. Also: a closed decidable goal is already provable via an auto helper (`byDecision`); 2^16 cases by kernel rfl took ~6 s.\n29 Oct (lane): design drafted and prototypes run; docs/proposals/decide.md on branch worktree-agent-ad5c41ec5a22e812f (41b6957e). Rec: extend `cases` (decision closer + split unstuck finite variable), derive `Finite` (SW-807), never native_decide. D1960-D1962.\n29 Oct (Claude): verified and merged (88e9104b; merge tier 873/873). Checked: all 6 prototypes check --no-cache; rowEndsSplit prototype matches the real theorem; in the real Corners.sw, :=cases fails with the variables after the colon but checks (Day12.Proofs --no-cache) with them as parameters; file restored. Added that caveat to the note; decisions renumbered D1971-D1973 (D1960-62 in use); formatted enumerate.sw. Next: review artefact.\n\n30 Oct (lane, draft 2): review-1 copied; R1 evidence run (real Corners.sw: after-colon := cases is E-CASES, lambda form checks, 519 nodes; restored); R2 simulated by hand in decide/fallback.sw; closer-order and bv_decide checked. Writing decide.md draft 2.\n\n30 Oct (lane, draft 2): done, decide.md draft 2 on branch worktree-agent-a1d5a1c5a3c6346e6 (747f75de). Intro after the closers (intro-first breaks a by-hypothesis Pi proof); decision closer after omega, No falls through (counterexample in closer_order.sw); fallback fewest-then-latest (2 vs 24, 22 vs 11 leaves by hand). D1971-D1973 revised, open; no new decision.\n\n30 Oct (impl lane): rebased, built; decide.md draft 2, prototypes, review-1, cases.rs, auto.rs read. Baseline pinned: examples/accept/cases-pi-goals.sw hash snapshot from main's elaborator (63f1b329); aoc and rogue hashes dumped to scratch for comparison.\n\n30 Oct (impl lane): part 1 (binder introduction, after the closers) committed f3b3db79; rowEndsAfter hashes the same as before-colon/lambda (8d5e5e07); pinned Pi-goal hashes unchanged; Day12 rowEndsSplit/columnEndsSplit and Day21 tabulateSame converted to := cases. Lanes elab/core/std/examples/hashes pass.\n",
       "created": "2026-10-28",
       "updated": "2026-10-30",
       "commits": [
@@ -8640,6 +8640,20 @@
         "bug"
       ],
       "body": "Found by the SW-871/886 lane (30 Oct 2026): a parameter type written (c: {} Nat) gives E-CANNOT-INFER 'can't tell which record type this literal is'; {} seems to be parsed as an empty record literal rather than an empty ability row. Not reproduced by the orchestrator yet. Also: docs/proposals/direct-style-grammars/gaps.sw's header still says inArgument, inTuple and nested give E-CANNOT-INFER, which SW-805 fixed; update the header.\n",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
+    },
+    {
+      "id": 909,
+      "title": "Research: optimising Stitchwort for agentic (AI) theorem proving",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "research lane",
+      "labels": [
+        "research"
+      ],
+      "body": "Matt, 30 Oct 2026: the primary theorem provers using Stitchwort will be AI agents, not humans. Research how to optimise Stitchwort for agentic theorem proving: literature and tools on the web (full-text reading protocol, counts first), plus ideas of our own grounded in Stitchwort's code and in the friction our own agent lanes recorded while proving AoC and rogue (aoc/NOTES-*.md findings, games/rogue PROOFS.md, board tickets). Output: docs/research/agentic-proving.md in the register format. One research lane at a time.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
