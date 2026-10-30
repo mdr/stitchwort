@@ -3408,7 +3408,8 @@ Proved (`Proofs/`, 1372 lines in 8 files):
   per region, `sidesCorrect`: the program's corner count is the spec's
   count of sides.
 
-The corners-equal-sides step is `cornersEqualSides` (Corners.sw, 488 lines),
+The corners-equal-sides step is `cornersEqualSides` (Corners.sw, 488 lines;
+458 since SW-800 made the truth tables `:= cases`),
 over a region as a grid of booleans with nothing at row or column
 `Succ last`. Each corner is the end of exactly one run of fence along a row
 (`rowEndsSplit`, a 16-case truth table): an outside corner is the end of
@@ -3574,6 +3575,10 @@ two or three `Map` lookups each per plot. Not pursued further.
   (listed under Decision Procedures in
   <https://lean-lang.org/doc/reference/latest/Tactic-Proofs/Tactic-Reference/>).
   Fix: a `decide` for `Bool` identities over variables (by cases).
+  Done (SW-800, 30 October 2026), without a new word: `cases` now
+  introduces a statement's variables bound after the colon, so
+  `rowEndsSplit` and `columnEndsSplit` are each `:= cases` with their
+  statements as written (docs/proposals/decide.md, "As built").
 - `omega` computes `total (Succ last) f` to `f 0 + total last …`, so facts
   had to be stated for every named sum separately (`totalAdd4` per corner
   kind) before `omega` could combine 23 of them in `rowCorners`; its
@@ -6798,7 +6803,13 @@ gap fails `numericFits` and `directionalFits`; costing your own presses at
   Lean's `decide` proves a goal by evaluating its `Decidable` instance
   (<https://lean-lang.org/doc/reference/latest/Tactic-Proofs/Tactic-Reference/#decide>).
   What I did: wrote the lists, the membership proofs and the 25 arms by
-  hand.
+  hand. Since SW-800 (30 October 2026) the membership proofs
+  (`everyNumericKey`, `everyDirectionKey`) and `tabulateSame` are each
+  `:= cases`, statements unchanged: `cases` introduces `from`, `to` and
+  `key`, splits `key` though `key ∈ numericKeys` isn't stuck on it (the
+  fallback split), and closes each membership by running its decision
+  procedure, as `auto` does (docs/proposals/decide.md, "As built"). The
+  lists are still written by hand (SW-807).
 - No array or total map keyed by a finite type for the cost table:
   `tabulate` is a list of lists read with `getOr` and an `index` function,
   with a default of 0 off the end that only the proofs show is never used.
