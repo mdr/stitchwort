@@ -1118,6 +1118,23 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
             _ => {}
         }
     }
+    // For `Finite`: why it wasn't derived.
+    if Some(interface) == finite(e) {
+        match force(g, arg.clone()).unwrap_or(arg.clone()) {
+            Value::Data(t, _) => {
+                if let Some(why) = e.no_finite.get(&t) {
+                    d = d.with_note(format!(
+                        "`Finite` isn't derived for `{}`: {why}",
+                        g.data(t).name
+                    ));
+                }
+            }
+            Value::Pi(..) => {
+                d = d.with_note("there's no list of every function");
+            }
+            _ => {}
+        }
+    }
     // For `Ord`: why it wasn't derived.
     if Some(interface) == ord(e) {
         match force(g, arg.clone()).unwrap_or(arg.clone()) {
@@ -1458,6 +1475,15 @@ pub(crate) fn dec_eq(e: &Elaborator) -> Option<DataId> {
 /// The library's `Show`, once it's declared (§5.14).
 pub(crate) fn show(e: &Elaborator) -> Option<DataId> {
     match e.scope.get("Std.Show") {
+        Some((Global::Data(d), _)) if e.is_interface(d) => Some(d),
+        _ => None,
+    }
+}
+
+/// The library's `Finite`, once it's declared (docs/proposals/decide.md
+/// §6.2).
+pub(crate) fn finite(e: &Elaborator) -> Option<DataId> {
+    match e.scope.get("Std.Finite") {
         Some((Global::Data(d), _)) if e.is_interface(d) => Some(d),
         _ => None,
     }

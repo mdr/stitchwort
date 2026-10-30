@@ -65,6 +65,7 @@ pub const PRELUDE: &[&str] = &[
     "Add",
     "Mul",
     "Show",
+    "Finite",
     "IO",
     "not",
 ];

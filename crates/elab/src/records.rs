@@ -59,6 +59,7 @@ impl Elaborator {
             e.derive_data_eq(d)?;
             e.derive_data_show(d)?;
             e.derive_data_ord(d)?;
+            e.derive_data_finite(d)?;
             e.derive_nested(d)?;
             if !interface {
                 e.derive_record_ext(d)?;

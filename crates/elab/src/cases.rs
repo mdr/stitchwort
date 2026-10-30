@@ -101,6 +101,12 @@ pub(crate) struct Run {
     over: Cell<bool>,
     /// The split that exceeded the budget, `x : T`, when it was a fallback.
     over_fallback: RefCell<Option<String>>,
+    /// For each atom in `atoms`, its type, when it is a variable.
+    atom_types: RefCell<Vec<Option<Value>>>,
+    /// When the budget ran out and every atom split was a variable of a
+    /// type with a `Finite` instance: those variables, `x : T`, for the
+    /// note pointing to `Finite.check`.
+    over_finite: RefCell<Option<Vec<String>>>,
     /// The first case still open when the budget ran out, as shown.
     open_at: RefCell<Option<String>>,
     /// Facts added by taking equations apart, for their names.
@@ -172,6 +178,8 @@ pub(crate) fn check_cases(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
         closed: RefCell::new(Closed::default()),
         over: Cell::new(false),
         over_fallback: RefCell::new(None),
+        atom_types: RefCell::new(Vec::new()),
+        over_finite: RefCell::new(None),
         open_at: RefCell::new(None),
         facts: Cell::new(0),
         splittable: RefCell::new(HashMap::default()),
@@ -240,6 +248,15 @@ fn budget_error(run: &Run) -> Diagnostic {
     ));
     if let Some(open) = &*run.open_at.borrow() {
         d = d.with_note(format!("the first case still open: {open}"));
+    }
+    if let Some(vars) = &*run.over_finite.borrow() {
+        d = d.with_note(format!(
+            "every variable it split has a finite type ({}): to check every value by \
+             computing instead, state it as a `Bool` function `p` of one record or pair \
+             holding them and prove `p v = True` by `Finite.check p rfl v` (`import Std \
+             (Finite)`)",
+            vars.join(", ")
+        ));
     }
     d.with_note(
         "prove a fact that decides some of the cases at once and give it as `cases in t`, \
@@ -551,8 +568,8 @@ fn open_case(
         )),
         None => d.with_note(
             "the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a \
-             contradiction, a hypothesis nor `omega` proves it; give this case's proof as \
-             `cases in t`",
+             contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves \
+             it; give this case's proof as `cases in t`",
         ),
     };
     // The fallback splits on the way here, by what they split.
@@ -1336,15 +1353,21 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
     let g = cx.g();
     let data = g.data(atom.d);
     let shown = cx.show(&atom.value);
-    {
-        let mut atoms = run.atoms.borrow_mut();
-        if !atoms.iter().any(|(a, _)| *a == shown) {
-            atoms.push((shown.clone(), fallback));
-        }
+    let first = !run.atoms.borrow().iter().any(|(a, _)| *a == shown);
+    if first {
+        run.atoms.borrow_mut().push((shown.clone(), fallback));
+        let ty = match &atom.value {
+            Value::Neutral(Head::Var(..), spine) if spine.is_empty() => {
+                Some(atom_type(cx, &cx.quote_folded(&atom.value)?, atom.d)?)
+            }
+            _ => None,
+        };
+        run.atom_types.borrow_mut().push(ty);
     }
     run.cases.set(run.cases.get() + data.ctors.len() - 1);
     if run.cases.get() > CASES {
         run.over.set(true);
+        *run.over_finite.borrow_mut() = finite_atoms(cx, run)?;
         if fallback {
             let ty = atom_type(cx, &cx.quote_folded(&atom.value)?, atom.d)?;
             *run.over_fallback.borrow_mut() = Some(format!("{shown} : {}", cx.show(&ty)));
@@ -1399,6 +1422,29 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         run.span,
         goal,
     )
+}
+
+/// The variables split so far, `x : T`, if every atom split is a variable
+/// whose type has a `Finite` instance: then `Finite.check` can check the
+/// statement for every value of them (docs/proposals/decide.md §6.1.4).
+fn finite_atoms(cx: &mut Ctx, run: &Run) -> Result<Option<Vec<String>>> {
+    let Some(finite) = crate::interfaces::finite(cx.e) else {
+        return Ok(None);
+    };
+    let atoms = run.atoms.borrow().clone();
+    let types = run.atom_types.borrow().clone();
+    let mut shown = Vec::new();
+    for ((atom, _), ty) in atoms.iter().zip(&types) {
+        let Some(ty) = ty else {
+            return Ok(None);
+        };
+        let goal = Value::Data(finite, vec![ty.clone()]);
+        if crate::interfaces::findable(cx, &goal)?.is_some() {
+            return Ok(None);
+        }
+        shown.push(format!("`{atom} : {}`", cx.show(ty)));
+    }
+    Ok(Some(shown))
 }
 
 /// The type of the atom `term`, of data `d`: `d` itself if it has no

@@ -20,6 +20,7 @@ mod decreasing;
 mod defaults;
 mod derive;
 mod derive_ext;
+mod derive_finite;
 mod derive_induct;
 mod derive_ord;
 mod derive_show;
@@ -152,6 +153,7 @@ core_files!(
     "Result",
     "Ordering",
     "Helpers",
+    "Finite",
     "Text",
     "Int",
     "Effect",
@@ -464,6 +466,8 @@ pub struct Elaborator {
     no_eq: HashMap<DataId, String>,
     /// The same for `Show` (`derive_show.rs`).
     no_show: HashMap<DataId, String>,
+    /// The same for `Finite` (`derive_finite.rs`).
+    no_finite: HashMap<DataId, String>,
     /// The same for `Ord` (`derive_ord.rs`).
     no_ord: HashMap<DataId, String>,
     /// The `D.All` generated for each container of the program a nested
@@ -2186,6 +2190,7 @@ impl Elaborator {
                 e.derive_data_eq(d)?;
                 e.derive_data_show(d)?;
                 e.derive_data_ord(d)?;
+                e.derive_data_finite(d)?;
                 e.derive_nested(d)?;
                 if !operations {
                     e.derive_update_lemmas(d, decl)?;

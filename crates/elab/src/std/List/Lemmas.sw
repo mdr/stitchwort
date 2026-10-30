@@ -943,15 +943,8 @@ theorem List.memAppend (x: a): (xs: List a) → (ys: List a) → x ∈ List.appe
       | Inl m => Inl (Inr m)
       | Inr m => Inr m
 
--- And back: an element of either list is in the two joined.
-theorem List.memAppendLeft (x: a): (xs: List a) → (ys: List a) → x ∈ xs → x ∈ List.append xs ys
-  | Nil, ys, m => Void.exfalso m
-  | Cons z zs, ys, Inl e => Inl e
-  | Cons z zs, ys, Inr m => Inr (List.memAppendLeft x zs ys m)
-
-theorem List.memAppendRight (x: a): (xs: List a) → (ys: List a) → x ∈ ys → x ∈ List.append xs ys
-  | Nil, ys, m => m
-  | Cons z zs, ys, m => Inr (List.memAppendRight x zs ys m)
+-- And back, `List.memAppendLeft` and `List.memAppendRight`, are in the core
+-- (core/Finite.sw): derived `Finite` instances use them.
 
 theorem List.memAppendExample: 3 ∈ List.append [1, 2] [3] := List.memAppendRight 3 [1, 2] [3] (Inl rfl)
 

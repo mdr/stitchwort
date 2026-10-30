@@ -8,7 +8,7 @@
 namespace Aoc.Year2024.Day21.Proofs
 import Aoc.Year2024.Day21 (..)
 import Aoc.Year2024.Day21.Spec (..)
-import Std (Bool, DecEq, Eq, List, Nat, Option, Void)
+import Std (Bool, DecEq, Eq, Finite, List, Nat, Option, Void)
 
 -- Where the arrows of `route` take an arm from `aim`: none if it is ever
 -- aimed at a gap or off the keypad.
@@ -37,22 +37,18 @@ def routeFits (rows: List (List (Option k))) (from: Position) (to: Position) (ro
   walk rows from route == Some to && route.length == distance from to
 
 -- How the keys of `keypad` sit on its rows: each key is where the program
--- places it, and there are routes between any two keys, all fitting.
-def fits [auto decEq: DecEq k] (keys: List k) (keypad: Keypad k) (rows: List (List (Option k))): Bool :=
-  keys.all (to => keyAt rows (keypad.place to) == Some to)
-    && keys.all (from =>
-      keys.all (to =>
+-- places it, and there are routes between any two keys, all fitting. Every
+-- key is `Finite.all`, the list derived for the key type, whose
+-- `Finite.complete` says no key is missing.
+def fits [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: List (List (Option k))): Bool :=
+  List.all Finite.all (to => keyAt rows (keypad.place to) == Some to)
+    && List.all Finite.all (from =>
+      List.all Finite.all (to =>
         (keypad.routes from to != []) && (keypad.routes from to).all (routeFits rows (keypad.place from) (keypad.place to))))
 
-def numericKeys: List NumericKey := [Digit0, Digit1, Digit2, Digit3, Digit4, Digit5, Digit6, Digit7, Digit8, Digit9, Enter]
+theorem numericFits: fits Keypad.numeric numericRows = True := rfl
 
-theorem numericFits: fits numericKeys Keypad.numeric numericRows = True := rfl
-
-theorem directionalFits: fits directionKeys Keypad.directional directionalRows = True := rfl
-
-theorem everyNumericKey: (key: NumericKey) → key ∈ numericKeys := cases
-
-theorem everyDirectionKey: (key: DirectionKey) → key ∈ directionKeys := cases
+theorem directionalFits: fits Keypad.directional directionalRows = True := rfl
 
 -- What `fits` gives for one pair of keys.
 type Fitted (k: Type) = {
@@ -71,27 +67,27 @@ theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool): (choice
   | Nil, some, all => Void.exfalso (Bool.falseNotTrue some)
   | Cons first others, some, all => minByStepPasses costs.routeCost passes first (Bool.andLeft _ _ all) others (Bool.andRight _ _ all)
 
-theorem cheapestFits [auto decEq: DecEq k] (keys: List k) (every: (key: k) → key ∈ keys) (keypad: Keypad k) (rows: List (List (Option k)))
-    (checked: fits keys keypad rows = True) (costs: Costs) (from: k) (to: k):
+theorem cheapestFits [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: List (List (Option k)))
+    (checked: fits keypad rows = True) (costs: Costs) (from: k) (to: k):
     routeFits rows (keypad.place from) (keypad.place to) (costs.cheapestRoute (keypad.routes from to)) = True :=
   let pairs := Bool.andRight _ _ checked
-  let fromChecked := allMember _ keys pairs from (every from)
-  let pairChecked := allMember _ keys fromChecked to (every to)
+  let fromChecked := Finite.check _ pairs from
+  let pairChecked := Finite.check _ fromChecked to
   cheapestPasses costs (routeFits rows (keypad.place from) (keypad.place to)) (keypad.routes from to) (Bool.andLeft _ _ pairChecked)
     (Bool.andRight _ _ pairChecked)
 
-def fitted [auto decEq: DecEq k] (keys: List k) (every: (key: k) → key ∈ keys) (keypad: Keypad k) (rows: List (List (Option k)))
-    (checked: fits keys keypad rows = True): Fitted k := {
+def fitted [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: List (List (Option k)))
+    (checked: fits keypad rows = True): Fitted k := {
   keypad,
   rows,
-  onKey = to => DecEq.sound _ _ (allMember (to => keyAt rows (keypad.place to) == Some to) keys (Bool.andLeft _ _ checked) to (every to)),
-  cheapestWalks = costs from to => DecEq.sound _ _ (Bool.andLeft _ _ (cheapestFits keys every keypad rows checked costs from to)),
-  cheapestLength = costs from to => DecEq.sound _ _ (Bool.andRight _ _ (cheapestFits keys every keypad rows checked costs from to))
+  onKey = to => DecEq.sound _ _ (Finite.check (to => keyAt rows (keypad.place to) == Some to) (Bool.andLeft _ _ checked) to),
+  cheapestWalks = costs from to => DecEq.sound _ _ (Bool.andLeft _ _ (cheapestFits keypad rows checked costs from to)),
+  cheapestLength = costs from to => DecEq.sound _ _ (Bool.andRight _ _ (cheapestFits keypad rows checked costs from to))
 }
 
-def numericFitted: Fitted NumericKey := fitted numericKeys everyNumericKey Keypad.numeric numericRows numericFits
+def numericFitted: Fitted NumericKey := fitted Keypad.numeric numericRows numericFits
 
-def directionalFitted: Fitted DirectionKey := fitted directionKeys everyDirectionKey Keypad.directional directionalRows directionalFits
+def directionalFitted: Fitted DirectionKey := fitted Keypad.directional directionalRows directionalFits
 
 -- A robot driven by `drivingKeys` presses the keys, its arm first on `from`.
 theorem drivingKeysType (fit: Fitted k) (costs: Costs): (from: k) → (keys: List k) →

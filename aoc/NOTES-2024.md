@@ -6810,6 +6810,23 @@ gap fails `numericFits` and `directionalFits`; costing your own presses at
   fallback split), and closes each membership by running its decision
   procedure, as `auto` does (docs/proposals/decide.md, "As built"). The
   lists are still written by hand (SW-807).
+
+  Since SW-807 (30 October 2026) every key type has a derived `Finite`
+  instance: `Finite.all` is the list of its values, in declaration order,
+  and `Finite.complete` the proof that each is on it. `fits` takes the keys
+  from `Finite.all` (`[auto fin: Finite k]`) instead of a list argument,
+  `cheapestFits` and `fitted` lose their `keys` and `every` arguments, and
+  `Finite.check` replaces `allMember` with a membership proof: `numericKeys`,
+  `everyNumericKey`, `everyDirectionKey` and `allMember` are gone. Each
+  answer is the same (the 23 tests pass). Kept: the program's
+  `directionKeys`, because `Costs.tabulate` reads its table by
+  `DirectionKey.index`, so its order is part of the program (`tabulateSame`
+  proves the two agree). The derived list is the same list, but a program
+  whose behaviour depends on an order should say the order where it uses
+  it. `fitted` checked in 8.3 + 0.5 ms (was 7.2 + 0.5), `cheapestFits` 3.2
+  + 0.6 (was 1.5 + 0.6); the two membership proofs it no longer needs took
+  31.8 + 0.8 and 9.6 + 0.3, and deriving `Finite` for the three key types
+  costs about 3.5 ms in all.
 - No array or total map keyed by a finite type for the cost table:
   `tabulate` is a list of lists read with `getOr` and an `index` function,
   with a default of 0 off the end that only the proofs show is never used.
@@ -6821,7 +6838,8 @@ gap fails `numericFits` and `directionalFits`; costing your own presses at
   `DecEq`, so with the ascription parsing (item 3) `fits` and
   `cheapestPasses` use `!=` and `hasSome` is gone.
 - Lemmas written in `Lemmas.sw`: `allMember` (`List.all` is true of each
-  member; std's `List.allMem` is about the `Prop` `List.All`),
+  member; std's `List.allMem` is about the `Prop` `List.All`; since SW-807
+  `Finite.check`, and removed),
   `minByStepPasses` (`List.minBy`'s result passes a test every element
   passes), `sumByPairs` (a `zipWithNext` sum as a recursion from the first
   key), `costFromAppend`, `flatMapSome` and `flatMapIntoSome`.
