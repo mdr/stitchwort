@@ -1188,7 +1188,7 @@
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
       "status": "doing",
       "agent": "Claude",
-      "where": "lane (D2051): stage 6 (comparisons wait) then stage 4 (number literals); stage 5 after",
+      "where": "stage 6 merged (no hash/message changes); stage 4 second attempt STOPPED (branch sw817-stage4-experiment, ac4587c9): 3 reject outcomes change, design gap; 3 decisions for Matt; stage 5 later",
       "labels": [
         "decision"
       ],
@@ -1201,7 +1201,13 @@
         "25651c56",
         "3584ec6a",
         "6338d997",
-        "84e7e339"
+        "84e7e339",
+        "b6f8d2ae",
+        "8f24df0f",
+        "37352546",
+        "2907420d",
+        "18762a20",
+        "bd07ea98"
       ]
     },
     {
@@ -1871,7 +1877,7 @@
       "title": "Panic 'internal error: applying a constructor' (value.rs:815) in dev search matching std theorem pairs",
       "status": "backlog",
       "agent": "",
-      "where": "",
+      "where": "unblocked: stage 6 merged, repro still panics",
       "labels": [
         "bug",
         "elab"
@@ -1886,7 +1892,7 @@
       "title": "Unifier: identity shortcut doesn't see through solved unknowns (modLt against % 2^31: 24.7 s)",
       "status": "backlog",
       "agent": "",
-      "where": "",
+      "where": "unblocked: stage 6 merged, V1 still 25.5 s",
       "labels": [
         "elab",
         "perf"
