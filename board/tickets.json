@@ -1008,15 +1008,15 @@
     {
       "id": 804,
       "title": "Consider D1441: Import aliases (import … as)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "design lane (D2071)",
       "labels": [
         "decision"
       ],
-      "body": "Day 13's spec and program both define fewestTokens, so proofs wrote one by its full name. Rec: yes, import Aoc.Year2024.Day13.Spec as Spec.",
+      "body": "Day 13's spec and program both define fewestTokens, so proofs wrote one by its full name. Rec: yes, import Aoc.Year2024.Day13.Spec as Spec.\n\n30 Oct (orchestrator): evidence: 4 lines in aoc+rogue write a project name in full, all Day 13 `Aoc.Year2024.Day13.Spec.fewestTokens` (Proofs/Part1.sw:89,102; Tests/Examples.sw:88,95). `Spec.fewestTokens` is E-UNKNOWN-NAME today (tried, reverted). Options: (a) `import M as A` then `A.x`; (b) parent-relative `Spec.x` after importing the module; (c) per-name renaming `import M (x as y)`. Goal printing (SW-918, shortest resolving name) must take aliases into account; hashes must not change.\nD2071 (Matt, 30 Oct 2026): design lane. Output: docs/proposals/import-aliases.md compared against other languages, plus a reviewer brief with Stitchwort context.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
