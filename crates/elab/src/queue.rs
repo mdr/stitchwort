@@ -506,7 +506,12 @@ impl Comparison {
 
 impl Check for Comparison {
     fn resume(&self, cx: &mut Ctx) -> Result<Resumed> {
-        let (found, expected) = (&self.found, &self.expected);
+        // Evaluated afresh: a call stuck on a placeholder when it was made
+        // stays a stuck value, and computes only when evaluated again with
+        // the placeholder filled (as `unify::run`'s pairs put aside are).
+        let found = cx.eval(&cx.quote_folded(&self.found)?)?;
+        let expected = cx.eval(&cx.quote_folded(&self.expected)?)?;
+        let (found, expected) = (&found, &expected);
         // Its caller's own ways first, as when it was made: a dictionary
         // that the filled placeholder lets be found may be what's in the
         // way now.
@@ -1538,6 +1543,27 @@ mod tests {
         assert!(e.resume_from(0).unwrap());
         assert!(done(&e, 0) && done(&e, 1));
         assert_eq!(*log.borrow(), ["resumed a"]);
+    }
+
+    /// Stage 6: a side that is a call stuck on the placeholder, `pred ?p Z`
+    /// against `S Z`, computes once the placeholder is filled with `two`:
+    /// the comparison is made again on its sides evaluated afresh, not on
+    /// the stuck values it began waiting with.
+    #[test]
+    fn a_waiting_comparison_computes_its_sides_again() {
+        let (e, n, two, pred) = numbers();
+        let mut cx = Ctx::new(&e, span());
+        let log = Log::default();
+        let (blocker, placeholder) = waiting_item(&cx, &log, Term::Def(two));
+        let ph = cx.quote(&placeholder).unwrap();
+        let zero = Term::ctor(n, 0, Vec::new());
+        let stuck = Term::app(Term::app(Term::Def(pred), ph), zero.clone());
+        let stuck = cx.eval(&stuck).unwrap();
+        let one = cx.eval(&Term::ctor(n, 1, vec![zero])).unwrap();
+        assert!(compare_waiting(&mut cx, &stuck, &one, Failure::Mismatch).unwrap());
+        e.globals.solve_meta(blocker, ty(1));
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0) && done(&e, 1));
     }
 
     /// Stage 6: a waiting comparison that the filled placeholder makes
