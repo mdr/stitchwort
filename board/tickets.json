@@ -8390,8 +8390,8 @@
       "id": 894,
       "title": "Literature trawl: dependent types and effect systems, ideas to steal",
       "status": "doing",
-      "agent": "",
-      "where": "all seven registers audited or redone from full texts (last f3fd83b5); next: LaTeX summary report as PDF, on Matt's say",
+      "agent": "Claude",
+      "where": "summary report lane: LaTeX → PDF (Matt, 30 Oct)",
       "labels": [
         "research"
       ],
