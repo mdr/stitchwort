@@ -8747,7 +8747,7 @@
       "labels": [
         "tooling"
       ],
-      "body": "D2044 (Matt). docs/research/agentic-proving.md T3: add structured goals to check --index JSON: goal {hypotheses [{name, type, value?}], target, lemma?}; a structured counterexample note; elide long goal text in human output (full with a flag); lemma = standalone theorem … := ? when its names resolve; bump the index version; document in code-navigation.md.\n- 30 Oct: goal/counterexample data on Diagnostic (syntax), printed apart in goals.rs; index v3 writes goal + counterexample members. Next: lemma round trip, elision.",
+      "body": "D2044 (Matt). docs/research/agentic-proving.md T3: add structured goals to check --index JSON: goal {hypotheses [{name, type, value?}], target, lemma?}; a structured counterexample note; elide long goal text in human output (full with a flag); lemma = standalone theorem … := ? when its names resolve; bump the index version; document in code-navigation.md.\n- 30 Oct: goal/counterexample data on Diagnostic (syntax), printed apart in goals.rs; index v3 writes goal + counterexample members. Next: lemma round trip, elision.\n- 30 Oct: lemma round trip passes (32 lemmas of 46 goals in examples/goals; 14 skipped); --full-goals, 400-char line cut; docs. Running lane tiers.",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
@@ -8755,17 +8755,19 @@
     {
       "id": 915,
       "title": "Design note: stitchwort search, lemma search by type (agentic T4)",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "lane (D2044)",
+      "status": "backlog",
+      "agent": "",
+      "where": "design + prototype merged f0becb6b (stitchwort dev search); open: D2045, D2046; S1 next",
       "labels": [
         "tooling",
         "design"
       ],
-      "body": "D2044 (Matt). docs/research/agentic-proving.md T4: design note for stitchwort search: lemma search by type pattern (holes, conclusion-only, name substrings), matching up to unification on folded types, over std + the project, ranking, JSON output; measure time over std with a prototype; second stage: try candidates at a ?.\n\n\n30 Oct: prototype `stitchwort dev search` (experimental, crates/elab/src/search.rs) works over all std: load all std 4.1 s cold / 0.21 s with the check cache; match one pattern vs 2,328 theorems 0.1-0.5 ms with a constants filter, 20-70 ms without (and then many false matches through unfolding). Writing docs/proposals/search.md.",
+      "body": "D2044 (Matt). docs/research/agentic-proving.md T4: design note for stitchwort search: lemma search by type pattern (holes, conclusion-only, name substrings), matching up to unification on folded types, over std + the project, ranking, JSON output; measure time over std with a prototype; second stage: try candidates at a ?.\n\n\n30 Oct: prototype `stitchwort dev search` (experimental, crates/elab/src/search.rs) works over all std: load all std 4.1 s cold / 0.21 s with the check cache; match one pattern vs 2,328 theorems 0.1-0.5 ms with a constants filter, 20-70 ms without (and then many false matches through unfolding). Writing docs/proposals/search.md.\n\n30 Oct: design note done on branch worktree-agent-a64d6539a9a94644d (ca63fa50 prototype, 8b0ae9ce docs/proposals/search.md). Known lemmas rank 1 with the constants filter (memMap 3); filter needed for precision, not speed; no on-disk index. Decisions D2045 (Loogle constants filter), D2046 (load std through check cache, no index).",
       "created": "2026-10-30",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "f0becb6b"
+      ]
     },
     {
       "id": 916,
