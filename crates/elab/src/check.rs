@@ -2008,6 +2008,7 @@ pub(crate) fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Re
         return result;
     }
     first_try.restore(cx);
+    crate::queue::note_retried();
     let second_try = crate::undo::Snapshot::take(cx);
     cx.e.late_literals.set(1);
     let again = f(cx);

@@ -668,12 +668,20 @@ static REQUEUED: AtomicUsize = AtomicUsize::new(0);
 static KEPT: AtomicUsize = AtomicUsize::new(0);
 static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
 static LAMBDA_POSTPONED: AtomicUsize = AtomicUsize::new(0);
+static RETRIED: AtomicUsize = AtomicUsize::new(0);
 
 /// A lambda argument tried in place, failed, and checked again after the
 /// application's later arguments (`check::apply_args_postponing`): the
 /// path §5.11 removes once its count is 0 in accepted code.
 pub(crate) fn note_lambda_postponed() {
     count(&LAMBDA_POSTPONED);
+}
+
+/// An application, group, list or `if` elaborated a second time with number
+/// literals checked last (`check::retrying`), because the first time failed:
+/// the path §5.11 removes once number literals wait (K4).
+pub(crate) fn note_retried() {
+    count(&RETRIED);
 }
 
 fn count(counter: &AtomicUsize) {
@@ -716,8 +724,10 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// kept as a term (`kept`), of which those whose receiver made a choice
 /// from an unknown (`kept chose`, invariant 6; 0 expected); and lambda
 /// arguments tried in place, failed and checked again after the later
-/// arguments (`lambda postponed`, the path §5.11 removes in stage 5).
-pub fn counts() -> [(&'static str, usize); 14] {
+/// arguments (`lambda postponed`, the path §5.11 removes in stage 5); and
+/// elaborations run a second time with number literals last (`retried`,
+/// `check::retrying`, which K4 makes unneeded).
+pub fn counts() -> [(&'static str, usize); 15] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -734,6 +744,7 @@ pub fn counts() -> [(&'static str, usize); 14] {
         ("kept", get(&KEPT)),
         ("kept chose", get(&KEPT_CHOSE)),
         ("lambda postponed", get(&LAMBDA_POSTPONED)),
+        ("retried", get(&RETRIED)),
     ]
 }
 
