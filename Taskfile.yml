@@ -371,10 +371,8 @@ tasks:
     deps: [build]
     cmds:
       - '{{.SW}} audit Std --no-search'
-      - cmd: '{{.SW}} audit --no-search'
-        dir: aoc
-      - cmd: '{{.SW}} audit --no-search'
-        dir: games/rogue
+      - 'cd aoc && {{.SW}} audit --no-search'
+      - 'cd games/rogue && {{.SW}} audit --no-search'
 
   audit:touched:
     desc: 'Audit the namespaces after -- with the counterexample search, vacuity included (task audit:touched -- Aoc.Year2024.Day06); run before merging a proof lane (D2043)'
