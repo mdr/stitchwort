@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: an ability row can't be written in a parameter's type
+   ╭─[ reject/row-in-parameter-type.sw:8:15 ]
+   │
+ 8 │ def plain (c: {} Nat): Nat := c
+   │               ─┬  
+   │                ╰── this `{…}` is an ability row
+   │ 
+   │ Note: a row written `{}` is no row: `{} Nat` is `Nat`, so write the type without it
+───╯
+[E-PARSE] Error: an ability row can't be written in a parameter's type
+    ╭─[ reject/row-in-parameter-type.sw:10:15 ]
+    │
+ 10 │ def later (c: {IO} Nat): Nat := 0
+    │               ──┬─  
+    │                 ╰─── this `{…}` is an ability row
+    │ 
+    │ Note: a computation type is written only as a result type: to take a computation, take a function returning it, as in `(c: () -> {IO} Nat)`
+────╯

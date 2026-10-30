@@ -521,7 +521,7 @@ impl Parser<'_> {
                 .with_note(format!("write `{written}{close}`")));
         }
         self.bump();
-        let ty = self.expr()?;
+        let ty = self.binder_type()?;
         let default = if self.peek() == Some(&Tok::ColonEq) {
             if implicit {
                 return Err(error(self.here(), DEFAULT_PLACES).with_note(

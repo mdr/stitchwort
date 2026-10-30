@@ -3,9 +3,10 @@
 --
 --   $ stitchwort check docs/proposals/direct-style-grammars/gaps.sw
 --
--- reports E-CANNOT-INFER at `inArgument`, `inTuple` and `nested`,
--- E-TYPE-MISMATCH at `dependent`, and W-NO-EFFECT for `forgotten` (since
--- SW-889; nothing before). `unitInTuple` was E-NOT-EMPTY until SW-886.
+-- reports E-TYPE-MISMATCH at `dependent` and W-NO-EFFECT for `forgotten`
+-- (since SW-889; nothing before), and nothing else. `inArgument`, `inTuple`
+-- and `nested` were E-CANNOT-INFER until SW-805 (a record literal's type
+-- from its field names); `unitInTuple` was E-NOT-EMPTY until SW-886.
 
 import Std (Nat, Parse, Vec)
 import Std.Parse (char, natDigits)
@@ -19,8 +20,9 @@ type Robot = { position: Position, speed: Nat }
 def usePosition (p: Position): Nat := p.x
 
 -- 1. A record literal with an effectful field, where a type is expected
--- but the literal is not the whole result: E-CANNOT-INFER. The same
--- literal as the whole body, or annotated, is fine.
+-- but the literal is not the whole result, was E-CANNOT-INFER; the same
+-- literal as the whole body, or annotated, was fine. Accepted since SW-805,
+-- which finds the record type from the field names.
 def inArgument(): {Parse} Nat := usePosition { x = shortNumber(), y = 0 }
 
 def inTuple(): {Parse} (Position, Nat) := ({ x = shortNumber(), y = 0 }, 1)
