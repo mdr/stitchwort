@@ -55,7 +55,8 @@
 //!    counted (`unify::met_unfilled`).
 //!
 //! The debug assertions below check 1-6 where they can be seen; the unit
-//! tests at the end exercise each with items made directly.
+//! tests at the end exercise each with items made directly, and K1 and K2
+//! on small modules.
 //!
 //! Counters for later stages are printed with `STITCHWORT_TIMINGS`
 //! ([`counts`]).
@@ -1194,5 +1195,192 @@ mod tests {
         assert_eq!(error.code, "E-TYPE-MISMATCH");
         assert_eq!(error.labels[0].span, at);
         assert!(LOSSY.load(Ordering::Relaxed) > lossy);
+    }
+
+    /// Records and a type-level identity for the K1 and K2 tests: `P` and
+    /// `Q` have the same field, `Only` is the one record with `only`.
+    const RECORDS: &str = "type N: Type =\n  | Z\n  | S (n: N)\n\n\
+        type P = { row: N }\n\n\
+        type Q = { row: N }\n\n\
+        type Only = { only: N }\n\n\
+        def Id (a: Type): Type := a\n";
+
+    /// `source` elaborated, with no library, glued as while a declaration
+    /// is checked; and a type's value by its short name.
+    fn module(source: &str) -> (Elaborator, impl Fn(&Elaborator, &str) -> Value) {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test", source);
+        let module = stitchwort_syntax::parse_module(file, source).expect("parses");
+        let mut e = Elaborator::new();
+        e.loading_prelude = true;
+        let errors: Vec<_> = (e.elaborate_module(&module).into_iter())
+            .filter(|d| d.severity == stitchwort_syntax::Severity::Error)
+            .collect();
+        assert!(errors.is_empty(), "{errors:#?}");
+        // Still as the prelude, so that its names are in scope by their
+        // short names, as in a declaration after them.
+        e.globals.glue.set(true);
+        let data = |e: &Elaborator, name: &str| {
+            let d = (e.globals.datas.iter())
+                .position(|d| d.path.rsplit('.').next() == Some(name))
+                .unwrap_or_else(|| panic!("{name} declared"));
+            Value::Data(DataId(d), Vec::new())
+        };
+        (e, data)
+    }
+
+    fn zonked(cx: &Ctx, term: &Term) -> String {
+        let zonked = crate::unify::zonk_in(cx.g(), cx.level(), term, &|_| false, &[]).unwrap();
+        format!("{:?}", zonked.strip_loc())
+    }
+
+    /// K1: a record literal whose type is unknown waits (no
+    /// `E-CANNOT-INFER`, though `P` and `Q` both have its field), and once
+    /// the type is known is checked at it: its placeholder zonks to the
+    /// literal of that type.
+    #[test]
+    fn a_record_literal_waits_for_its_type() {
+        let (e, data) = module(RECORDS);
+        let mut cx = Ctx::new(&e, span());
+        let (term, ty) = crate::check::infer(&mut cx, &expression("{ row = Z }")).unwrap();
+        assert_eq!(e.queue.len(), 1);
+        assert!(waiting(&e, 0));
+        assert!(head_meta(cx.g(), &ty).unwrap().is_some());
+        assert!(cx.unify(&ty, &data(&e, "Q")).unwrap());
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0));
+        let Value::Data(q, _) = data(&e, "Q") else {
+            unreachable!()
+        };
+        assert!(
+            zonked(&cx, &term).starts_with(&format!("Ctor({q:?}, 0")),
+            "{}",
+            zonked(&cx, &term)
+        );
+    }
+
+    /// K1's default (D2013): at the end, the one record type with exactly
+    /// the literal's fields; where there are two, nothing is chosen and the
+    /// literal is reported with the field-name rule's error.
+    #[test]
+    fn a_record_literal_takes_its_field_names_type_only_at_the_end() {
+        let (e, data) = module(RECORDS);
+        let mut cx = Ctx::new(&e, span());
+        let (_, ty) = crate::check::infer(&mut cx, &expression("{ only = Z }")).unwrap();
+        // Not at an application's end, nor before lifting.
+        e.resume_application(0).unwrap();
+        e.resume_before_lifting().unwrap();
+        assert!(waiting(&e, 0));
+        assert!(e.settle_queue().unwrap().is_none());
+        assert!(done(&e, 0));
+        assert!(cx.conv_now(&ty, &data(&e, "Only")).unwrap());
+        e.clear_metas();
+        let mut cx = Ctx::new(&e, span());
+        crate::check::infer(&mut cx, &expression("{ row = Z }")).unwrap();
+        let error = e.settle_queue().expect_err("two types have `row`");
+        assert_eq!(error.code, "E-CANNOT-INFER");
+        assert!(
+            (error.notes.iter()).any(|n| n.contains("more than one record type")),
+            "{error:?}"
+        );
+    }
+
+    /// K2 with the blocker made before the receiver (a variable's type):
+    /// the receiver is kept as syntax, and the call is elaborated from the
+    /// start once the type is known, to the projection applied to `p`.
+    #[test]
+    fn a_field_on_a_variable_of_unknown_type_waits_as_syntax() {
+        let (e, data) = module(RECORDS);
+        let mut cx = Ctx::new(&e, span());
+        let (blocker, ty) = unknown(&cx);
+        cx.bind("p", ty);
+        let metas = e.globals.metas.borrow().len();
+        let (term, _) = crate::check::infer(&mut cx, &expression("p.row")).unwrap();
+        assert_eq!(e.queue.len(), 1);
+        // What inferring the receiver made was undone: the item's
+        // placeholder and its type are all that is new.
+        assert_eq!(e.globals.metas.borrow().len(), metas + 2);
+        assert_eq!(
+            head_meta(cx.g(), &e.queue.waiting(0).unwrap()).unwrap(),
+            Some(blocker)
+        );
+        e.globals.solve_meta(blocker, data(&e, "P"));
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0));
+        let text = zonked(&cx, &term);
+        assert!(
+            text.starts_with("App(Def(") && text.contains("Var(0)"),
+            "{text}"
+        );
+    }
+
+    /// K2 with the blocker made by the receiver (a record literal waiting,
+    /// K1): the receiver's term is kept, the `.row` waits on the literal's
+    /// type, and the literal's default lets both finish.
+    #[test]
+    fn a_field_on_a_waiting_literal_keeps_the_literal() {
+        let (e, _) = module(RECORDS);
+        let mut cx = Ctx::new(&e, span());
+        let kept = KEPT.load(Ordering::Relaxed);
+        crate::check::infer(&mut cx, &expression("({ only = Z }).only")).unwrap();
+        // The literal, and the `.only` on it; the literal queued while the
+        // prefix form was tried was undone with it.
+        assert_eq!(e.queue.len(), 2);
+        assert!(KEPT.load(Ordering::Relaxed) > kept);
+        assert!(e.settle_queue().unwrap().is_none());
+        assert!(done(&e, 0) && done(&e, 1));
+    }
+
+    /// K2 resumed that meets another unknown (§5.7, T4's second measure)
+    /// waits again, on that one: `p : ?A z`, a `.row` waiting on `?A`; then
+    /// `?A` is solved as `z => ?B`, so `p`'s type is `?B`, still unknown.
+    #[test]
+    fn a_field_meeting_another_unknown_waits_again() {
+        let (e, data) = module(RECORDS);
+        let mut cx = Ctx::new(&e, span());
+        cx.bind("z", data(&e, "N"));
+        let applied = cx.fresh_meta();
+        let Term::Meta(first) = *applied.spine().0 else {
+            unreachable!("a fresh metavariable")
+        };
+        cx.bind("p", cx.eval(&applied).unwrap());
+        crate::check::infer(&mut cx, &expression("p.row")).unwrap();
+        assert_eq!(
+            head_meta(cx.g(), &e.queue.waiting(0).unwrap()).unwrap(),
+            Some(first)
+        );
+        let (second, b) = unknown(&cx);
+        let mut outer = Ctx::new(&e, span());
+        outer.bind("z", data(&e, "N"));
+        assert!(outer.unify(&outer.eval(&applied).unwrap(), &b).unwrap());
+        let requeued = REQUEUED.load(Ordering::Relaxed);
+        assert!(e.resume_from(0).unwrap());
+        assert!(REQUEUED.load(Ordering::Relaxed) > requeued);
+        assert!(waiting(&e, 0));
+        assert_eq!(
+            head_meta(cx.g(), &e.queue.waiting(0).unwrap()).unwrap(),
+            Some(second)
+        );
+        e.globals.solve_meta(second, data(&e, "P"));
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0));
+        assert_eq!(e.queue.resumptions(0), 2);
+    }
+
+    /// Invariant 6's assertion: a receiver kept as a term must have made no
+    /// choice of §5.10 from an unknown, such as leaving an operator with a
+    /// generic dictionary. Made by hand here: a debug build's assertion
+    /// says so; a release build counts it.
+    #[test]
+    #[cfg_attr(debug_assertions, should_panic(expected = "invariant 6"))]
+    fn a_kept_receiver_that_chose_from_an_unknown_is_caught() {
+        let e = Elaborator::new();
+        let cx = Ctx::new(&e, span());
+        let before = Snapshot::take(&cx);
+        let (m, _) = unknown(&cx);
+        (e.operator_dictionaries.borrow_mut()).insert(m, (DefId(0), 0));
+        let chose = KEPT_CHOSE.load(Ordering::Relaxed);
+        kept_receiver(&cx, &before);
+        assert!(KEPT_CHOSE.load(Ordering::Relaxed) > chose);
     }
 }
