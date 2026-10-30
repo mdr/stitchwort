@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/plus-unknown-against-zero.sw:6:65 ]
+   │
+ 6 │ def toZero (x: Nat) (f: (d: Nat) → x + d = 0 → Nat): Nat := f _ rfl
+   │                                                                 ─┬─  
+   │                                                                  ╰─── `x + ?0 x f` and `0` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯
