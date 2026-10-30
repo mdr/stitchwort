@@ -8800,7 +8800,7 @@
         "elab",
         "bug"
       ],
-      "body": "Found by the SW-916 lane (30 Oct 2026) while testing the proving guide: with an opaque lcg, 'rewrite lcg.unfold in …' (the lemma's argument left open) took about 25 s to check, while 'rewrite lcg.unfold seed in …' took 0.25 s and 'unfolding lcg' 0.18 s. STITCHWORT_REWRITE_METRICS shows the rewrite itself is cheap, so the time is elsewhere (unification of the open argument against the goal? the motive?). Cause unknown; not yet reproduced by the orchestrator. Reproduce, profile with sample, fix or document.\n\n30 Oct (investigation lane): reproduced on main 82a79b30: scratch file opaque lcg + theorem lcg seed < 2^31 by rewrite lcg.unfold in Std.Nat.modLt …: 24.1 s user; with seed given 0.22 s; unfolding lcg 0.16 s. Profiling next.\n",
+      "body": "Found by the SW-916 lane (30 Oct 2026) while testing the proving guide: with an opaque lcg, 'rewrite lcg.unfold in …' (the lemma's argument left open) took about 25 s to check, while 'rewrite lcg.unfold seed in …' took 0.25 s and 'unfolding lcg' 0.18 s. STITCHWORT_REWRITE_METRICS shows the rewrite itself is cheap, so the time is elsewhere (unification of the open argument against the goal? the motive?). Cause unknown; not yet reproduced by the orchestrator. Reproduce, profile with sample, fix or document.\n\n30 Oct (investigation lane): reproduced on main 82a79b30: scratch file opaque lcg + theorem lcg seed < 2^31 by rewrite lcg.unfold in Std.Nat.modLt …: 24.1 s user; with seed given 0.22 s; unfolding lcg 0.16 s. Profiling next.\n30 Oct (investigation lane): cause found: rewrite builds the new goal from the rule's right side as computed before matching, so it holds the solved unknown ?x, not seed; core::value::identical (same_closure) doesn't see through solved unknowns, so unify descends into both sides' Nat.divFuel unfoldings, one level per Succ of + 12345 (steps ~ C^2; 154M). Fix in rewrite.rs (refresh the right side after a match by conversion): 24.1 s -> 0.20 s. Testing next.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
@@ -8808,14 +8808,14 @@
     {
       "id": 918,
       "title": "Goals print library names the file can't resolve (List.count without import); goal_index test in no tier",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "lane (D2061)",
       "labels": [
         "elab",
         "tooling"
       ],
-      "body": "Found by the SW-914 lane (30 Oct 2026), predates it: the goal printer shows library names as stored (List.count), which can't be written in a file that hasn't imported them (E-UNKNOWN-NAME), so a goal pasted as a lemma doesn't check; the human goal output has the same problem. Print a name the file can resolve (Std.List.count or the imported short form), or mark it. Also: crates/cli/tests/goal_index.rs (~9 s) is in no lane profile and not in the merge tier; decide where it runs.\n",
+      "body": "Found by the SW-914 lane (30 Oct 2026), predates it: the goal printer shows library names as stored (List.count), which can't be written in a file that hasn't imported them (E-UNKNOWN-NAME), so a goal pasted as a lemma doesn't check; the human goal output has the same problem. Print a name the file can resolve (Std.List.count or the imported short form), or mark it. Also: crates/cli/tests/goal_index.rs (~9 s) is in no lane profile and not in the merge tier; decide where it runs.\n\n\nD2061 (Matt, 30 Oct 2026): lane started. Repro on main: `theorem evensLe (xs: List Nat): xs.count (n => n % 2 == 0) ≤ xs.length := ?` prints `⊢ List.count xs (n => Decidable.toBool (Nat.decEq (n % 2) 0)) ≤ List.length xs`; pasting that as a lemma gives E-UNKNOWN-NAME for List.count. Also in scope (separate commit): `==` printed as `Decidable.toBool (Nat.decEq ..)`.\n",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
