@@ -1,5 +1,5 @@
 {
-  "next": 914,
+  "next": 917,
   "tickets": [
     {
       "id": 13,
@@ -8691,9 +8691,9 @@
     {
       "id": 911,
       "title": "Effectful let-bound lambdas: 'expected Nat, but this has type {Fail} Nat' when used twice or only with literals",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "janitorial lane with SW-916 (D2044)",
       "labels": [
         "elab",
         "bug"
@@ -8735,6 +8735,49 @@
       "commits": [
         "ed9eb0b2"
       ]
+    },
+    {
+      "id": 914,
+      "title": "Goals as data in check --index JSON (agentic T3)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "lane (D2044)",
+      "labels": [
+        "tooling"
+      ],
+      "body": "D2044 (Matt). docs/research/agentic-proving.md T3: add structured goals to check --index JSON: goal {hypotheses [{name, type, value?}], target, lemma?}; a structured counterexample note; elide long goal text in human output (full with a flag); lemma = standalone theorem … := ? when its names resolve; bump the index version; document in code-navigation.md.\n",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
+    },
+    {
+      "id": 915,
+      "title": "Design note: stitchwort search, lemma search by type (agentic T4)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "lane (D2044)",
+      "labels": [
+        "tooling",
+        "design"
+      ],
+      "body": "D2044 (Matt). docs/research/agentic-proving.md T4: design note for stitchwort search: lemma search by type pattern (holes, conclusion-only, name substrings), matching up to unification on folded types, over std + the project, ranking, JSON output; measure time over std with a prototype; second stage: try candidates at a ?.\n",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
+    },
+    {
+      "id": 916,
+      "title": "Proving guide for agent lanes (agentic T7)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "janitorial lane with SW-911 (D2044)",
+      "labels": [
+        "docs"
+      ],
+      "body": "D2044 (Matt). docs/research/agentic-proving.md T7: a proving guide for agent lanes (skill-file style, cf. C21): how to finish a proof lane (audit), never weaken statements, use ? and cases/omega/auto/byDecision, counterexample search, common error codes and fixes, lemma discovery, from our own friction (§5).\n",
+      "created": "2026-10-30",
+      "updated": "2026-10-30",
+      "commits": []
     }
   ]
 }
