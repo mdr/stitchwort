@@ -13,7 +13,7 @@ use num_bigint::BigUint;
 use stitchwort_core::chars::Chars;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::{DataId, DefId, Icit, Name, QuotForm, Sort, Term};
+use stitchwort_core::{DataId, DefId, Icit, MAX_LEVEL, Name, QuotForm, Sort, Term};
 use stitchwort_syntax::Span;
 
 /// Why an entry can't be read: it is corrupt, or doesn't fit this session.
@@ -525,9 +525,12 @@ pub fn sort(w: &mut Writer, s: Sort) {
 pub fn read_sort(r: &mut Reader) -> Read<Sort> {
     match r.uint()? {
         0 => Ok(Sort::Prop),
-        n => Ok(Sort::Type(
-            u32::try_from(n - 1).or_else(|_| bad("a universe too large"))?,
-        )),
+        // Nothing the kernel admits is above its top universe (SW-902):
+        // an entry that says otherwise is a miss, not trusted.
+        n => match u32::try_from(n - 1) {
+            Ok(i) if i <= MAX_LEVEL => Ok(Sort::Type(i)),
+            _ => bad("a universe too large"),
+        },
     }
 }
 
