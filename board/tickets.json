@@ -172,9 +172,9 @@
         "kernel",
         "proof"
       ],
-      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conversion skips arguments and fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 including the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.\n\nThird motivating example: Aoc/Day01/Proofs/Part2.sw:65-68 `dialExt`/`dialExtAt`: two `Dial`s at the same position are equal only after a second `J` with `Bool.uniqueEq` on the `inRange` proofs; under D1' the proof field is masked and that step becomes `rfl`.\n\nHistory: Matt (19 Oct): on hold, multi-file first. Multi-file is now done (SW-89, SW-106). Multi-file is done; D240 (Matt, 21 Oct 2026): stays in the backlog.\n\nDone when: tests 1-16 of the note pass, `dialExt` is `rfl`-checkable, the full gate is green and hashes are re-baselined.\n\n\n",
+      "body": "Implement stage 1 of docs/proposals/proof-irrelevance.md (draft 3, decided): conversion skips arguments and fields whose declared type is in Prop; homogeneous-input precondition documented; unifier rule (whole proof metas only); tests 1-16 including the Loop/bad termination test. Kernel work: Opus (spec + implementation or careful review). Stage 2 (remove canonical) follows.\n\nThird motivating example: Aoc/Day01/Proofs/Part2.sw:65-68 `dialExt`/`dialExtAt`: two `Dial`s at the same position are equal only after a second `J` with `Bool.uniqueEq` on the `inRange` proofs; under D1' the proof field is masked and that step becomes `rfl`.\n\nHistory: Matt (19 Oct): on hold, multi-file first. Multi-file is now done (SW-89, SW-106). Multi-file is done; D240 (Matt, 21 Oct 2026): stays in the backlog.\n\nDone when: tests 1-16 of the note pass, `dialExt` is `rfl`-checkable, the full gate is green and hashes are re-baselined.\n\n\n\n\nWARNING, read before starting (Matt, 30 Oct 2026; from the kernel research register, docs/research/kernel.md §5.1, read in full texts): the recursive-proposition trap. If a proposition can be eliminated into data AND holds a proof of itself in a field, definitional proof irrelevance makes conversion undecidable: any proof X can be unfolded once more, X ≡ MkLoop (Loop.inv X), with no bound on how many unfoldings conversion must try (Gilbert et al. POPL19 §2.3; Abel & Coquand; Lean answered with lean4#13851/#14977). Stitchwort accepts such a type TODAY: E-PROP-ELIM (crates/core/src/check.rs:915-929) lets a single-constructor Prop whose fields are all Prop eliminate into data, without asking whether a field mentions the type itself. Checked by the orchestrator on 30 Oct with main's binary: `type Loop: Prop = | MkLoop (next: Loop)` with `def steps (l: Loop): Nat := match l with | MkLoop n => Succ (steps n)` checks. It is harmless now (no definitional irrelevance yet), but becomes the trap once D1′ masks proof positions. proof-irrelevance.md §5.1 currently defends Loop by making D1′ deliberately incomplete; the register recommends closing the hole instead: add a condition to E-PROP-ELIM that no constructor field mentions the type itself (Lean's rule), after measuring that nothing in std, examples, AoC or rogue relies on it (register ticket T2; decision D1980, open). Do this BEFORE or AS PART OF stage 1, with Loop/steps as a must-reject test.\n",
       "created": "2026-10-19",
-      "updated": "2026-10-21",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
@@ -8412,7 +8412,7 @@
       "labels": [
         "diagnostics"
       ],
-      "body": "After SW-787, a stuck sum x + k is read back as Succ x / k + x, so goals and error messages show a different shape from the source. Read back NatAdd(k, x) as x + k (or keep the folded call as written), as glued evaluation does for other calls.\n- 30 Oct: display readback (quote_shown, new quote_unfolded_shown) writes NatAdd(k, x) as x + k; kernel quote unchanged; 15 example snapshots updated, 2 new examples; lanes running.",
+      "body": "After SW-787, a stuck sum x + k is read back as Succ x / k + x, so goals and error messages show a different shape from the source. Read back NatAdd(k, x) as x + k (or keep the folded call as written), as glued evaluation does for other calls.\n- 30 Oct: display readback (quote_shown, new quote_unfolded_shown) writes NatAdd(k, x) as x + k; kernel quote unchanged; 15 example snapshots updated, 2 new examples; lanes running.\n- 30 Oct: done on worktree-agent-ac0033dc3d8b166c3 (1170a94b..4a059967): lanes elab 78, core 153, examples 7 (all files), hashes 3 (no snapshot change), lsp 6, std 21, cli 72 pass; guide outputs updated; aoc CPU branch 37.0/38.4/42.0 s vs main 41.4/44.6/42.3 s. Limit: k = 1 through an elaborated term (rewrite, :t) still prints Succ x.",
       "created": "2026-10-29",
       "updated": "2026-10-30",
       "commits": []
@@ -8420,16 +8420,18 @@
     {
       "id": 896,
       "title": "Unifier: x + ?m against a computed Succ (x + t) (invert R4 of SW-787) so List.memBetween-style implicits are inferred again",
-      "status": "doing",
-      "agent": "Claude",
-      "where": "lane done, branch worktree-agent-a736c6643c901c9a2; awaiting D1982 (change 2: put-aside pairs)",
+      "status": "done",
+      "agent": "",
+      "where": "merged b9d29564 (D1982: with put-aside pairs)",
       "labels": [
         "elab"
       ],
       "body": "Since + computes on its second argument (SW-787), x + ?m no longer unifies with Succ (x + t); aoc and rogue now pass List.memBetween's implicit arguments explicitly. Consider a unification rule: x + ?m =?= Succ s solves ?m := Succ ?m' with x + ?m' =?= s (and the literal case).\n- 10-30 lane: plus_rule in crates/elab/src/unify.rs (R4/R3 and R2/R1 read backwards, a meta-free, ?m a pattern) works for x + ?d =?= Succ (x + t) and x + ?d =?= x; List.memBetween h still fails: its shape is Succ ?hi - ?lo =?= n - 1 (a Nat.sub spine compared before ?lo is known), not a stuck + (investigating)\n- 10-30 lane: memBetween fixed by a second change: run() puts aside a pair that fails while stuck on an unknown, retries it re-evaluated once something is solved (undoing its partial solutions broke std). Standalone x + ?d =?= x dropped (rewrite found Nat.pow 10 k as k + 0 in 2025 day 2); ?d := k only after peeling. aoc + rogue check; 2 explicit implicits reverted; examples + driver test added. Next: docs, timings, clippy\n- 10-30 lane done: 7 commits on worktree-agent-a736c6643c901c9a2 (top b1f3922c); lane tiers green, clippy/fmt clean, aoc + rogue check --no-cache; aoc CPU same as main within noise; docs core.md + note §10.1",
       "created": "2026-10-29",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "b9d29564"
+      ]
     },
     {
       "id": 897,
