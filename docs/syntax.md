@@ -1146,7 +1146,7 @@ Loosest-binding first:
 | `"héllo"` | `Text` literal: a sequence of Unicode scalar values (see [text-and-io.md](proposals/text-and-io.md)) |
 | `"""` … `"""` | `Text` literal over several lines. See "Text blocks" below |
 | `include "inputs/day04.txt"` | The `Text` in a file, read when the program is checked. See [`include`](#include) |
-| `Type`, `Type 1`, `Prop` | Universes |
+| `Type`, `Type 1`, `Prop` | Universes, `Type n` for `n` up to 65534. `Type 65535`, the largest universe, is the type of `Type 65534`; it parses, but has no type itself, so writing it is `E-UNIVERSE`, and a larger level is `E-PARSE` (docs/core.md, "Universes") |
 | `(e: T)` | Type annotation |
 | `[a, b, c]` | `List` literal. In an expression, `[x := e]` supplies an implicit argument and every other `[…]` is a list |
 | `{ name = e, age }`, `{ p \| age = e }` | Record literal (with an expected type) and update ([Records](#records)). After an arrow, `{` starts an ability row instead |
