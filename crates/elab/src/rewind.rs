@@ -203,6 +203,7 @@ impl Elaborator {
             hole_log: _,
             cong_candidates,
             result_heads,
+            decision_order,
             performs,
             total_rows_only,
             total_rows,
@@ -304,6 +305,9 @@ impl Elaborator {
         parameter_metas.get_mut().clear();
         cong_candidates.get_mut().clear();
         result_heads.get_mut().truncate(defs);
+        // It may list definitions declared since the mark, whose numbers the
+        // next declarations reuse.
+        *decision_order.get_mut() = None;
         performs.get_mut().retain(|(id, ..), _| id.0 < defs);
         total_rows_only.set(false);
         total_rows.get_mut().retain(|id, _| id.0 < defs);
