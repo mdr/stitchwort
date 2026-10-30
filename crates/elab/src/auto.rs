@@ -323,8 +323,8 @@ fn hidden_name_note(shown: &str) -> Option<String> {
 }
 
 /// `fromYes [p := goal] decision Trivial`: the proof from a decision that
-/// says `Yes`.
-fn from_yes(cx: &mut Ctx, goal: &Value, decision: Term) -> Result<Term> {
+/// says `Yes`. (`cases`' decision closer writes it too, `cases.rs`.)
+pub(crate) fn from_yes(cx: &mut Ctx, goal: &Value, decision: Term) -> Result<Term> {
     let from_yes = builtin_def(cx, Builtin::FromYes)?;
     let (unit, trivial) = builtin_ctor(cx, Builtin::Trivial)?;
     let goal_term = cx.quote(goal)?;

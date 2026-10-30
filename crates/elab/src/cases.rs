@@ -37,6 +37,11 @@
 //! alternative's body is this `cases` again: so the proof is ordinary
 //! `match`es and the closers' terms, and the kernel checks it as such.
 //!
+//! A case still open then is tried by its goal's decision procedure, as
+//! `auto` finds and runs one (docs/proposals/decide.md §6.1.2): `Yes` closes
+//! it with `auto`'s term, `Decidable.fromYes d Trivial`; `No` doesn't fail
+//! it, since its hypotheses may still contradict each other.
+//!
 //! A case still open then, whose goal is a `Π`, has the goal's leading
 //! binders introduced, and starts again under them (docs/proposals/decide.md
 //! §6.1.1): `theorem t: (x: Bool) → P x := cases` is the proof `x => cases`.
@@ -101,11 +106,17 @@ struct Closed {
     hypothesis: usize,
     term: usize,
     omega: usize,
+    decision: usize,
 }
 
 impl Closed {
     fn total(&self) -> usize {
-        self.computation + self.contradiction + self.hypothesis + self.term + self.omega
+        self.computation
+            + self.contradiction
+            + self.hypothesis
+            + self.term
+            + self.omega
+            + self.decision
     }
 
     fn describe(&self) -> String {
@@ -115,6 +126,7 @@ impl Closed {
             (self.hypothesis, "by a hypothesis"),
             (self.term, "by the term after `in`"),
             (self.omega, "by `omega`"),
+            (self.decision, "by deciding"),
         ]
         .iter()
         .filter(|(n, _)| *n > 0)
@@ -273,13 +285,86 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
         run.closed.borrow_mut().omega += 1;
         return Ok(term);
     }
+    // Only a case that would otherwise be open reaches the steps below, so
+    // a proof that `cases` gave before them keeps its term.
+    let decided = by_decision(cx, goal)?;
+    if let Decided::Yes(term) = decided {
+        run.closed.borrow_mut().decision += 1;
+        return Ok(term);
+    }
     // Everything above saw the goal as it stands, so a `Π` goal that a
     // hypothesis, `omega` or `t` proves whole keeps that proof; only a case
     // that would otherwise be open goes on to have its binders introduced.
     if let Some(term) = introduce(cx, run, goal)? {
         return Ok(term);
     }
-    Err(open_case(cx, run, goal, stuck, failed_body))
+    let error = open_case(cx, run, goal, stuck, failed_body);
+    Err(match decided {
+        Decided::No if !visibly_false(cx, goal)? => {
+            error.with_note("the goal's decision procedure says it is false")
+        }
+        _ => error,
+    })
+}
+
+/// Whether `goal` is an equation between two constructors or literals
+/// (`False = True`), which the note on the goal shows to be false already.
+fn visibly_false(cx: &Ctx, goal: &Value) -> Result<bool> {
+    let g = cx.g();
+    Ok(match force(g, goal.clone())? {
+        Value::Eq(_, l, r) => {
+            is_ctor_form(&force(g, (*l).clone())?) && is_ctor_form(&force(g, (*r).clone())?)
+        }
+        _ => false,
+    })
+}
+
+/// What the decision closer made of a goal.
+enum Decided {
+    /// Its decision procedure says `Yes`: the proof.
+    Yes(Term),
+    /// It says `No`. The case isn't failed for that: its hypotheses may
+    /// still contradict each other (decide/closer_order.sw,
+    /// `falseGoalImpossibleCase`), which a later step may show.
+    No,
+    /// No procedure was found, or running it got stuck.
+    Unknown,
+}
+
+/// The decision closer (docs/proposals/decide.md §6.1.2): the goal's
+/// decision procedure, found as `auto` finds one (`auto::decide`), run now,
+/// and on `Yes` the proof `Decidable.fromYes d Trivial` (`auto::from_yes`).
+///
+/// Trust: nothing new enters the trusted base. The term is the one `auto`
+/// writes for `[auto h: P]`; the kernel checks it by running `d` again
+/// itself, as it does for `auto`, so running it here is only to choose the
+/// closer and to say what happened, never what is believed.
+fn by_decision(cx: &mut Ctx, goal: &Value) -> Result<Decided> {
+    let goal = force(cx.g(), goal.clone())?;
+    if !is_proposition(cx, &goal)? {
+        return Ok(Decided::Unknown);
+    }
+    let mut no = false;
+    let found = crate::undo::transaction(cx, |cx| {
+        let decision = match crate::auto::decide(cx, &goal, 0) {
+            Ok(decision) => decision,
+            Err(e) if crate::undo::fatal(&e) => return Err(e),
+            Err(_) => return Ok(None),
+        };
+        match force(cx.g(), cx.eval(&decision)?)? {
+            Value::Ctor(_, 0, _) => crate::auto::from_yes(cx, &goal, decision).map(Some),
+            Value::Ctor(..) => {
+                no = true;
+                Ok(None)
+            }
+            _ => Ok(None),
+        }
+    })?;
+    Ok(match found {
+        Some(term) => Decided::Yes(term),
+        None if no => Decided::No,
+        None => Decided::Unknown,
+    })
 }
 
 /// The prefix of the names unnamed binders are introduced under: not one a

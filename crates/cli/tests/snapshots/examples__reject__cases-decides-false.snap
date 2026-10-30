@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CASES] Error: `cases` can't close the case b = True
+    ╭─[ reject/cases-decides-false.sw:14:48 ]
+    │
+ 14 │ theorem pickIn (b: Bool): pick b ∈ [K0, K1] := cases
+    │                                                ──┬──  
+    │                                                  ╰──── this `cases`
+    │ 
+    │ Note 1: goal: K0 = K2 ∨ K1 = K2 ∨ Void
+    │ 
+    │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis nor `omega` proves it; give this case's proof as `cases in t`
+    │ 
+    │ Note 3: the goal's decision procedure says it is false
+    │ 
+    │ Note 4: 1 other case was closed (1 by deciding)
+    │ 
+    │ Note 5: this statement is false; a counterexample:
+    │           b = True
+    │         `pick b ∈ [K0, K1]` is false
+────╯
