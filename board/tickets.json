@@ -8708,7 +8708,7 @@
       "title": "stitchwort audit: axioms, unfinished and vacuity check for proof lanes and the merge gate (D2040)",
       "status": "backlog",
       "agent": "",
-      "where": "stage 1 merged c2b8e0f9; open: merge-tier wiring (decision), stages 2-3 (statement hash --base, program/instance changes)",
+      "where": "stage 1 merged; D2043 done (task audit at every merge, audit:touched for proof lanes); stages 2-3 open",
       "labels": [
         "tooling",
         "research"
