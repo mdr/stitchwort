@@ -120,4 +120,4 @@ Std.List` for std ([syntax.md](syntax.md#auditing-theorems-stitchwort-audit)).
   monster at exactly the given cell), say so in a line.
 - The report quotes the summary line (`audited N theorems: …`).
 
-`audit` isn't in `task test:merge` yet.
+**At merge** (D2043, Matt, 30 October 2026): every merge runs `task audit` (std, aoc and the roguelike without the search, about 11 s warm), and a proof lane's touched namespaces are audited with the search (`task audit:touched -- Aoc.Year2024.Day06`) before it is merged. It isn't inside `task test:merge`, whose 60 s budget the search would break.

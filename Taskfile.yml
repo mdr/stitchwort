@@ -361,6 +361,28 @@ tasks:
     cmds:
       - '{{.SW}} check {{.CLI_ARGS}}'
 
+  audit:
+    desc: 'Audit every theorem of std, aoc and the roguelike for axioms beyond the allowed ones and unfinished proofs, without the counterexample search (about 11 s warm); run at every merge (D2043)'
+    summary: |
+      `stitchwort audit --no-search` over std, the AoC project and the
+      roguelike (docs/workflow.md, "How a proof lane finishes"). A proof
+      lane's own namespaces are also audited with the search before its
+      merge: task audit:touched -- Aoc.Year2024.Day06.
+    deps: [build]
+    cmds:
+      - '{{.SW}} audit Std --no-search'
+      - cmd: '{{.SW}} audit --no-search'
+        dir: aoc
+      - cmd: '{{.SW}} audit --no-search'
+        dir: games/rogue
+
+  audit:touched:
+    desc: 'Audit the namespaces after -- with the counterexample search, vacuity included (task audit:touched -- Aoc.Year2024.Day06); run before merging a proof lane (D2043)'
+    deps: [build]
+    dir: '{{.USER_WORKING_DIR}}'
+    cmds:
+      - '{{.SW}} audit {{.CLI_ARGS}}'
+
   aoc:test:
     desc: "Run the AoC project's tests (results cached in aoc/.stitchwort/)"
     deps: [build]
