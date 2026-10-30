@@ -1,31 +1,46 @@
 # Proposal: one postponement queue in the elaborator
 
-**Status:** draft 2, 30 October 2026. Tickets SW-817 (anchor), SW-847 and SW-885; context
+**Status:** draft 3, 30 October 2026. Tickets SW-817 (anchor), SW-847 and SW-885; context
 SW-509, SW-805, SW-896. Follows D1990 (one queue, agreed in principle), D1991 (SW-805's
-field-name rule stays, as name resolution) and D2012 (Matt: design for the best end state; the
-cost of churn is not a criterion). Repros, measurements and the prototype's outputs are in
-[postponement/](postponement/). Two decisions for Matt are in [§10](#10-decisions-for-matt). An
-external reviewer's brief, self-contained, is [postponement/review-brief.md](postponement/review-brief.md).
+field-name rule stays, as name resolution), D2012 (Matt: design for the best end state; the
+cost of churn is not a criterion) and D2015 (Matt: revise after the external review). Repros,
+measurements and the prototype's outputs are in [postponement/](postponement/). Three decisions
+for Matt are in [§10](#10-decisions-for-matt). The reviewer's brief is
+[postponement/review-brief.md](postponement/review-brief.md); the review, as received, is
+[postponement/review-1.md](postponement/review-1.md).
 
-**What changed from draft 1.** Draft 1 proposed the queue only as a second pass over
-declarations that fail (its D2010), because a single pass would change how accepted code
-elaborates. D2012 makes that churn acceptable, so the target is now **one queue, used in the one
-elaboration pass**, as in Lean, Agda and Idris. Today's lambda and method-section postponement,
-record literals, `.field` on an unknown type and effectful parts all become instances of it, and
-today's catch-and-retry paths go away. The second pass is now under
-[alternatives considered](#alternatives-considered). A prototype of the single queue, behind an
-environment variable, was run over std, every example, aoc and rogue
-([§6](#6-what-the-single-queue-changes-today)); its findings drive the design and the stage plan.
-D2011 (SW-847 by a queued field access, not a body-first `let`) still fits and is kept
-([§5.10](#510-let-and-sw-847-d2011-kept)).
+**What changed from draft 2.** The external review approved the design with revisions. Every
+point is worked in; [Review 1 and how it was addressed](#review-1-and-how-it-was-addressed) has
+one row per point. In short:
+- the design now starts from **eight queue invariants** ([§5.1](#51-queue-invariants)), with
+  item states (waiting, running, done, failed);
+- **a `.field` keeps its receiver as syntax** and elaborates it again when resumed, unless the
+  unknown it waits on was made inside the receiver; this is what Stitchwort's dot calls already
+  do ([§5.5](#55-the-receiver-of-a-queued-field-r1)). Measured: same outcomes and same hashes as
+  keeping the term;
+- **termination** is argued from the attempt sites themselves: each of the 42 snapshot sites and
+  48 `transaction`/`attempt` calls has a fixed, finite list of alternatives, and the measure is
+  lexicographic ([§5.7](#57-termination));
+- **scoped W1 is an isolation rule**, not a heuristic ([§5.6](#56-resume-points-isolation-and-order));
+- **placeholders are opaque to elaboration choices**, with the list of the 15 consumers that
+  choose from a type's shape and what each does ([§5.10](#510-placeholders-filling-and-opacity-r7)).
+  They stay solvable by unification until unification can wait: freezing them now breaks one
+  example and four AoC proofs (new decision D2016);
+- **errors**: a resumed item reports against the type now known; stuck items are reported by
+  independent root, at most 3 ([§5.9](#59-stuck-items-and-errors));
+- **stage 6** is now an expected follow-up, tri-state unification, with a trigger
+  ([§8](#8-stage-plan)).
 
 Labels, as in the other notes:
 
-- **[checked: file:line]**: read in the Stitchwort source at `fcb12746` (main, 30 October);
+- **[checked: file:line]**: read in the Stitchwort source at `3d0036f8` (main, 30 October).
+  Nothing under `crates/` changed since draft 2's `fcb12746` (`git log fcb12746..3d0036f8 --
+  crates/` is empty), so draft 2's line numbers still hold;
 - **[run]**: run on 30 October with `target/release/stitchwort` built from `fcb12746` plus the
   prototype, with the switch off (today's behaviour) unless the line says it was on;
-- **[measured]**: the prototype's measurement harness of [§6](#6-what-the-single-queue-changes-today)
-  or draft 1's counters ([§4](#4-p1-how-often-postponement-is-needed));
+- **[measured]**: the prototype's measurement harness of [§6](#6-what-the-single-queue-changes-today),
+  draft 1's counters ([§4](#4-p1-how-often-postponement-is-needed)), or draft 3's counters
+  ([§6.7](#67-draft-3-runs));
 - **[cited: S]**: read in source S under [Sources](#sources), at the commit given there;
 - **[inferred]**: my reasoning from checked, run or cited facts, not tested;
 - **[unverified]**: believed, not confirmed.
@@ -40,7 +55,14 @@ Labels, as in the other notes:
   loop, at the end of the declaration) through one ladder: resume what is unblocked, then
   obligations and rows, then defaults by priority (SW-805's field-name rule, then number
   literals), as in Lean. What is still stuck at the end is reported with the error its site
-  raises today ([§5](#5-the-design)).
+  raises today, one report per independent root ([§5](#5-the-design)).
+- **Eight invariants** say what makes it correct ([§5.1](#51-queue-invariants)). The two the
+  review pressed hardest:
+  - a queued `.field` doesn't freeze its receiver: the receiver is undone and kept as syntax,
+    unless the blocker was made inside it, and in that case the receiver was inferred with no
+    expected type, as it is today;
+  - a placeholder is never more than an unknown to the code around it: no choice that could
+    give a different well-typed meaning is made from it before it is filled.
 - **The prototype** queues record literals and `.field` on an unknown type in the main pass,
   which also turns off the catch-and-retry for them. It accepts all three ticket repros, with
   the right values at run time **[run]**. Over std, the 321 + 53 accepted and extract examples,
@@ -57,22 +79,33 @@ Labels, as in the other notes:
   - **no error message** of any example that stays rejected;
   - **no AoC answer or rogue behaviour**: all 914 AoC tests and 100 rogue tests pass;
   - **CPU time**: aoc 5% faster (38.0 s to 36.0 s), the rest within noise.
-- **Two design facts the prototype found**, which draft 1 didn't have:
+- **Draft 3's runs** of the same prototype with counters added **[measured]**:
+  - of 159 queued `.field`s, 131 have a variable receiver whose blocker was made before it, and
+    28 a blocker made inside the receiver (19 chained `.field`s, 5 applications, 4 record
+    literals). No receiver's inference defaulted a number or chose a generic dictionary;
+  - queueing those 131 as syntax and elaborating them again on resume changes **no outcome and
+    no hash** against keeping the term;
+  - in 14 of 135 fills, unification had already solved the placeholder. Freezing placeholders
+    (Lean's synthetic-opaque metavariables) breaks one example and four AoC proofs.
+- **Three design facts from the prototype**, which draft 1 didn't have:
   - the queue must be drained at the end of each application, not only at the end of the
     declaration, or std fails at `Map/Spec.sw:1862`. The reason is that Stitchwort's unifier
     can't wait on a placeholder. Scoped to the application's own items, as Lean's
     `withSynthesize` is, it changes no reject example (D2014);
-  - it must also be drained before lifting, or a queued literal holding a `match` breaks aoc.
+  - it must also be drained before lifting, or a queued literal holding a `match` breaks aoc;
+  - the unifier already relies on solving placeholders early: that is why they stay solvable
+    by unification until stage 6 (D2016).
 - **SW-805's rule becomes a default** in the ladder. It still looks only at the field names and
   the names in scope (D1991's R1 holds). That subsumes its `held`/`last_resort` machinery
   (its 5 reruns fall to 0), and it means number literals must be defaulted in the same ladder
   at a lower priority, as Lean's `OfNat Nat` default instance is (D2013).
 - **The catch-and-retry paths shrink at once**: the lambda try-then-postpone fires 9 times
   instead of 100. The 6 left in accepted code are method sections, the next kind to queue.
-- **Stage plan** ([§8](#8-stage-plan)): the queue and its resume points; record literals and
-  `.field`; sections; numbers and the defaults ladder; then removing the retry paths, each
-  stage gated on every test, example, AoC answer and rogue test staying right. Hashes may
-  change.
+- **Stage plan** ([§8](#8-stage-plan)): the queue with its invariants, item states, placeholder
+  table and root-grouped stuck report; record literals and `.field`; sections; numbers and the
+  defaults ladder; removing the retry paths; then, as an expected follow-up, tri-state
+  unification. Each stage is gated on every test, example, AoC answer and rogue test staying
+  right. Hashes may change.
 
 ## 1. The problem
 
@@ -135,7 +168,8 @@ is accepted.
 with or without `STITCHWORT_QUEUE_SCOPED=1`) all three files print `checked …`, and copies with
 tests added ([prototype/](postponement/prototype/)) compute the right values:
 `total [1, 2, 3] == 6` for SW-817, `total [(0, {value = 5}), (7, {value = 9})] == 5` for SW-847,
-and all four SW-885 functions run under `Parse.run` to the number they parse **[run]**.
+and all four SW-885 functions run under `Parse.run` to the number they parse **[run]**. They
+still do with draft 3's receiver rule ([§6.7](#67-draft-3-runs)) **[run]**.
 
 ## 2. Stitchwort today
 
@@ -146,7 +180,7 @@ and all four SW-885 functions run under `Parse.run` to the number they parse **[
 - A lambda that fails where the application's expected type is known (`late_able`), and a
   non-lambda argument that fails while its type has unknowns, are checked again after the
   application's type is compared with the expected type (`after_expected`).
-- Under `retrying` (`check.rs:1941`), a failed application is elaborated a second time with
+- Under `retrying` (`check.rs:1874`), a failed application is elaborated a second time with
   `late_literals` on, which checks a constructor or list holding number literals last.
 - Postponed items are resumed at the end of the same `apply_args_postponing`. If one fails,
   the in-place try's error is kept when both are `E-CANNOT-INFER` (`first_error`). The checked
@@ -160,8 +194,8 @@ and all four SW-885 functions run under `Parse.run` to the number they parse **[
 | lambda tried in place, postponed on failure | `check.rs`, `apply_args_postponing` | any non-fatal error | 100 (98 `E-CANNOT-INFER`) |
 | lambda or argument checked after the expected type | same, `late_able` and the `snapshot` of non-lambda arguments | any non-fatal error | 67 lambdas, 166 arguments (2 `E-CANNOT-INFER`) |
 | section postponed without a try | same | (no try) | 46 |
-| `retrying` with `late_literals` | `check.rs:1941` | any non-fatal error | 19 |
-| SW-805's `held` / `last_resort` | `records.rs:690-745`, used by `==` and comparisons (`numbers.rs:754`, `:1125`), `++` (`check.rs:3599`), `calc` (`calc.rs:95`, `:113`) | `E-CANNOT-INFER` after a held literal | 5 reruns |
+| `retrying` with `late_literals` | `check.rs:1874` | any non-fatal error | 19 |
+| SW-805's `held` / `last_resort` | `records.rs:714-745`, used by `==` and comparisons (`numbers.rs:754`, `:1125`), `++` (`check.rs:3599`), `calc` (`calc.rs:95`, `:113`) | `E-CANNOT-INFER` after a held literal | 5 reruns |
 | infer one side, on `E-CANNOT-INFER` infer the other | `append_tried` (`check.rs:3603-3611`), `calc` (`calc.rs:117-121`), `numbers.rs:1135` | `E-CANNOT-INFER` | (inside the above) |
 
 The counts are firings of each path with the switch off, from counters the prototype adds
@@ -172,8 +206,25 @@ found from a goal that only the expected type fixes.
 **Where `E-CANNOT-INFER` is raised for the constructs in the tickets** **[checked]**:
 - a record literal inferred, or checked against an unknown after SW-805's rule finds no single
   type (`records.rs`, `infer_literal` and `check_record`);
-- `.field` on a receiver whose type is unknown (`dot.rs`, `find_in_view`, `Step::Unknown`);
-- a method section whose argument type is unknown (`dot.rs`, `section_unknown_name`).
+- `.field` on a receiver whose type is unknown (`dot.rs:457`, `find_in_view`, `Step::Unknown`);
+- a method section whose argument type is unknown (`dot.rs:454`, `section_unknown_name`).
+
+**How a dot call is elaborated today** **[checked]**, which draft 2 didn't describe and the
+receiver rule of [§5.5](#55-the-receiver-of-a-queued-field-r1) rests on:
+- `infer_call` (`dot.rs:1613-1640`) first tries the **prefix form**. `prefix_form`
+  (`dot.rs:1143-1238`) infers the receiver once, only to find the namespace, and **undoes that
+  inference** (`dot.rs:1166-1174`). The call is then elaborated as the prefix call
+  `T.f recv args`, where the receiver is *checked* against `T.f`'s receiver parameter (SW-129).
+  The namespace found is cached by call (`dot_heads`).
+- Only where the prefix form doesn't apply, or fails non-fatally (then restored,
+  `dot.rs:1628-1636`), does `infer_dot` (`dot.rs:267-302`) elaborate the receiver for keeps: it
+  is *inferred*, with no expected type (`infer_receiver`, `dot.rs:316-322`), its leading
+  implicit arguments are inserted (`insert`, `dot.rs:279`, `check.rs:2843`), its written type
+  is read (`written_type`, `dot.rs:182`), the namespace is found (`find_in_view`,
+  `dot.rs:443`), and the receiver is put in its parameter's place (`call`, `dot.rs:1240`).
+- A prefix form that failed is not tried again in the same metavariable state:
+  `mark_failed`/`has_failed` key it by the call and the lengths of the metavariable table and
+  trail (`dot.rs:1656-1670`).
 
 **Let.** `pure_let` (`effects.rs`) infers an unannotated value first, then checks the body with
 the name as a transparent `let`. A let-bound lambda's parameter types are unknowns that the
@@ -192,12 +243,21 @@ that fails while one side is blocked on an unknown. It compares the pair again a
 of the same call, only if the rest solved something. Nothing outlives the call: the result is
 `true` or `false`, and callers branch on it.
 
+**Opaque unknowns already exist** **[checked]**. `Globals::frozen_metas` (`globals.rs:427-432`)
+are unknowns "unification never solves, so each is equal only to itself" (`unify.rs:278`,
+`:413`, `:590`, `:737`). Two things use them: a lifted `match` or local definition before its
+helper exists (`lift.rs:6-9`), and a goal hole `?` (`goals.rs:3-6`). For the first,
+`Globals::lifted_calls` (`globals.rs:433-438`) records the call that solves it, and zonking puts
+that term in "instead of reading the solution value back, which would write out what the
+arguments of the call unfold to" (`lift.rs:661-666`, `unify.rs:1719-1727`). That is exactly
+what a placeholder needs at its fill ([§5.10](#510-placeholders-filling-and-opacity-r7)).
+
 **Other declaration-level waiting** **[checked]**:
 - obligations (instances) wait and are retried in rounds (`solve_obligations_until_stuck`,
   `auto.rs:100`);
 - row comparisons that can't be decided are kept with their context and retried in that loop
   (`rows.rs`, `retry_rows`);
-- `finish` (`lib.rs:1092`) compares awaited helpers, runs that loop, settles rows and zonks;
+- `finish` (`lib.rs:1088`) compares awaited helpers, runs that loop, settles rows and zonks;
 - `Snapshot` (`undo.rs`) records the length of each per-declaration table, and `restore`
   truncates them;
 - `with_local_retries` (`lib.rs:2270`) re-runs a failing declaration body after admitting
@@ -210,7 +270,7 @@ OmniML paper's full text. Commits and URLs are under [Sources](#sources).
 
 | | What is postponed | Where it lives | When resumed, in what order, how it stops | Still stuck at the end | Errors |
 |---|---|---|---|---|---|
-| **Lean 4** | Any term elaborator that calls `tryPostpone…`: structure instances, `.field` on an unknown type, anonymous constructors, `elab_as_elim` minor premises. Not `fun`. | A synthetic metavariable of kind `.postponed (SavedContext)`, listed in `pendingMVars`. The local context is the metavariable's own. | `synthesizeSyntheticMVars`: steps in creation order while one makes progress. Then, in order, retry with postponing off (errors postponed), default instances (by priority, numerals' `OfNat Nat` at low priority), retry with postponing off (errors reported), tactics. Runs at the end of each definition and at nested `withSynthesize` points, which handle only what was created inside them. | Can't stay stuck. The last retry runs with postponing off, so the elaborator commits or fails. For `.postponed`, `reportStuckSyntheticMVar` is `unreachable!`. | Logged at the postponed syntax (`withRef stx`), against the metavariable's type as now known. The term becomes `sorry` and elaboration goes on. |
+| **Lean 4** | Any term elaborator that calls `tryPostpone…`: structure instances, `.field` on an unknown type, anonymous constructors, `elab_as_elim` minor premises. Not `fun`. | A synthetic metavariable of kind `.postponed (SavedContext)`, listed in `pendingMVars`, created `syntheticOpaque`. The local context is the metavariable's own. | `synthesizeSyntheticMVars`: steps in creation order while one makes progress. Then, in order, retry with postponing off (errors postponed), default instances (by priority, numerals' `OfNat Nat` at low priority), retry with postponing off (errors reported), tactics. Runs at the end of each definition and at nested `withSynthesize` points, which handle only what was created inside them. | Can't stay stuck. The last retry runs with postponing off, so the elaborator commits or fails. For `.postponed`, `reportStuckSyntheticMVar` is `unreachable!`. | Logged at the postponed syntax (`withRef stx`), against the metavariable's type as now known. The term becomes `sorry` and elaboration goes on. |
 | **Agda** | A `TypeCheckingProblem`: `CheckExpr`, `CheckArgs` (the remaining arguments), `CheckProjAppToKnownPrincipalArg`, `CheckLambda`, `DisambiguateConstructor`, `DoQuoteTerm`. Sites include a record expression with several candidate types, a record update, a check blocked on a pattern, and some lambdas. | A metavariable instantiated as `PostponedTypeCheckingProblem (Closure …)`, plus an `UnBlock` constraint with a `Blocker`, in the type checker's constraint lists. Unification constraints sit in the same lists. | Woken when a blocking metavariable is solved (`wakeupConstraints`), then solved one at a time from the awake list. At a declaration's end: wake all, solve sizes, wake again, freeze the metavariables. | Left as constraints. At the end of the module they become the warning `UnsolvedConstraints`, an error in batch mode. There is no defaulting. | Each constraint is printed with its range. Postponed type-checking problems are filtered out as "not interesting", except constructor disambiguation. |
 | **Idris 2** | Elaborators wrapped in `delayOnFailure` (try first, postpone on a matching error) or `delayElab`, with reasons `CaseBlock`, `Ambiguity`, `LazyDelay`, `RecordUpdate`, `Rewrite`. | `delayedElab` in the unifier state: a closed elaborator per hole, with the local hints. It is saved and restored around each `elabTermSub`. | At the end of `elabTermSub`, sorted by reason. Retries keeping recoverable errors repeat while some succeed, with constraint solving in between. Then a pass that reports all errors. Then default and last-chance constraint solving. | Errors. | The delayed elaborator's own error, at its own location. In the last pass it tries the later ones too, and prefers a non-generic error. |
 | **Rocq** | No syntax, except within one application: the arguments after a user-written bidirectionality hint `&`, when an expected type is given, plus `Program`'s constructor parameters. Unification problems are postponed. | `conv_pbs` in the evar map. | `solve_unif_constraints_with_heuristics` retries stuck problems while one makes progress. It is called from `solve_remaining_evars_from` after type classes and hooks. | `error_cannot_unify` or `error_unsolvable_implicit`. | At the problem's or evar's recorded location. |
@@ -223,6 +283,10 @@ OmniML paper's full text. Commits and URLs are under [Sources](#sources).
   (`:1678-1701`, `postponeElabTermCore` at `:1456-1460`). The comment explains the restore:
   in `((f.x a1).x a2).x a3` each `.x` postpones in turn, and without it "dead" metavariables
   would stay on the pending list.
+- **The placeholder is synthetic opaque.** `postponeElabTermCore` makes it with
+  `mkFreshExprMVar expectedType? MetavarKind.syntheticOpaque` (`TermElabM.lean:1458`), so
+  ordinary unification doesn't assign it [cited for the line; the `isDefEq` behaviour is from
+  Lean's documentation of metavariable kinds, unverified in source here].
 - **Resuming.** `resumePostponed` (`SyntheticMVars.lean:32-77`) takes `saveState` again,
   re-elaborates under `withRef stx` against `instantiateMVars mvarDecl.type`, and on
   postpone or error (when `postponeOnError`) restores and reports no progress.
@@ -308,10 +372,12 @@ OmniML paper's full text. Commits and URLs are under [Sources](#sources).
    Stitchwort's unifier answers `true` or `false` at once (SW-896's put-aside pairs live only
    inside one call). So placeholders must be filled before the comparisons that need them,
    which is why the end of every application is a resume point
-   ([§5.3](#53-resume-points-order-and-termination)). The prototype shows this is enough.
-4. **From Agda: keep what was elaborated.** A queued `.field` keeps its receiver's term and
-   type (`CheckProjAppToKnownPrincipalArg`), and a queued literal waits before checking any
-   field, so neither needs Lean's restore when it is queued.
+   ([§5.6](#56-resume-points-isolation-and-order)). The prototype shows this is enough for the
+   corpus; the review is right that it isn't a general substitute ([§5.13](#513-the-unifier-and-placeholders-r4)).
+4. **From Lean, not Agda: re-elaborate the receiver.** A queued `.field` undoes its receiver
+   and keeps the syntax, as Lean's restore does and as Stitchwort's prefix form already does
+   ([§5.5](#55-the-receiver-of-a-queued-field-r1)). Agda's kept principal argument is used only
+   where the receiver itself made the unknown it waits on.
 5. **From OmniML, the ideal; from Lean, the reality.** OmniML's order doesn't matter; ours
    does, through defaults and through `true`/`false` unification. Creation order plus priorities
    makes it deterministic, as in Lean.
@@ -335,50 +401,107 @@ were the same site failing again inside nested tries and the reruns of `retrying
 
 ## 5. The design
 
-### 5.1 What is queued
+### 5.1 Queue invariants
 
-A **queued check** has:
-- what to elaborate, one of the kinds below, with what it already elaborated;
+These say what makes the queue correct; the resume points W1-W4 are how they are met. Each has
+its tests in [§9](#9-tests). They are the review's eight ([review-1.md](postponement/review-1.md),
+"Suggested change to the design's invariants"), with invariants 2 and 8 made precise for a
+unifier that can't wait (D2016).
+
+1. **One placeholder, one occurrence.** A placeholder stands for exactly one queued occurrence
+   of source syntax in one elaboration attempt. An attempt undone takes its items and their
+   placeholders with it; elaborating the same syntax again makes a new item and a new
+   placeholder.
+2. **Only its item fills a placeholder.** Filling means putting the item's checked term in
+   place: zonking writes that term, never a value read back. Until stage 6, unification may
+   *solve* a placeholder as it solves any unknown, because comparisons can't wait; the item's
+   term is then compared with that solution when it fills, and a disagreement is the item's
+   error at its own span (D2016).
+3. **Isolation.** In the review's words: "postponement may delay a choice, but must not expose
+   a postponed item to information outside the lexical elaboration scope that would have been
+   available to that item in a non-postponing elaboration". Operationally, an item is resumed
+   only inside the scope in which it was created: at the end of the application it was created
+   in or of one that encloses it (W1, scoped), or at the declaration-level points W2-W4
+   ([§5.6](#56-resume-points-isolation-and-order)).
+4. **No re-entry.** An item has a state: *waiting* (on its blocker), *running*, *done* or
+   *failed*. Only a waiting item whose blocker is solved is resumed; it is running until its
+   check returns. A running item is never selected by a nested resume point
+   ([§5.7](#57-termination), step T3).
+5. **Restore restores the queue.** Restoring a snapshot restores the items, their states and
+   the resumption log to what they were when it was taken: an item queued since is gone, and an
+   item resumed since is waiting again ([§5.3](#53-where-the-queue-lives-and-how-items-wait)).
+6. **Kept subterms are stable.** An item keeps an elaborated subterm only if that subterm's
+   elaboration can't change with what is learnt later; otherwise it keeps the syntax and its
+   context and elaborates it again when resumed. For a queued `.field`, the receiver is kept as
+   syntax unless the blocker was made inside it ([§5.5](#55-the-receiver-of-a-queued-field-r1)).
+7. **Defaults at quiescence only.** A default is applied only when resuming, obligations and row
+   comparisons have all stopped making progress (ladder step 3, at W4). Effect rows are among
+   the row comparisons.
+8. **Placeholders are opaque to elaboration choices.** No choice that could give a different
+   well-typed meaning is made from an unfilled placeholder's apparent shape: such a choice
+   waits (an item, or the ladder's defaults), or is made at `finish` where only the term, not
+   the meaning, depends on it. A choice whose wrong guess can only be a type error is allowed,
+   as it is for any unknown today ([§5.10](#510-placeholders-filling-and-opacity-r7) lists every
+   consumer).
+
+### 5.2 What is queued
+
+A **queued check** (an *item*) has:
+- what to elaborate, one of the kinds below, as syntax, with a kept elaborated subterm only
+  where invariant 6 allows one;
 - its **blocker**: the unknown at the head of the type it needs;
+- its **state**: waiting, running, done or failed (invariant 4);
 - the saved context: the whole `Ctx` except the elaborator, cloned (the prototype's
   `Ctx::save`, `check.rs`);
-- a **placeholder** unknown standing for its result in the term built so far;
+- a **placeholder** unknown standing for its result in the term built so far, and the unknown
+  for its result type;
 - the error its site raises today, for when it stays stuck;
 - its span.
 
 | kind | created where today raises or retries | blocker | resumed as | prototype |
 |---|---|---|---|---|
 | K1 record literal | `check_record` at an unknown, and `infer_literal` (with a fresh type unknown) | the expected type's head | `check_record` at the type now known | yes |
-| K2 `.field` or dot call | `find_in_view` meets `Step::Unknown`; the receiver's term and type are kept | the unknown that step met (a later step may block again) | the lookup and call from there, with the kept receiver | yes |
+| K2 `.field` or dot call | `find_in_view` meets `Step::Unknown` (`dot.rs:457`) | the unknown that step met (a later step may block again) | `infer_call` from the start, from the syntax ([§5.5](#55-the-receiver-of-a-queued-field-r1)); with a kept receiver only when the blocker was made inside it | yes, both ways |
 | K3 method section | `section_unknown_name`; and today's section postponed without a try | the section's parameter type | a lambda over `x : ?D` whose body is K2 on `?D` | no |
-| K4 number literal | a literal checked against an unknown, today defaulted to `Nat` at once | the expected type | the literal at the type now known; default `Nat` | no |
+| K4 number literal | a literal checked against an unknown, today defaulted to `Nat` at once (`numbers.rs:290-312`), and a number group with no type (`numbers.rs:944-946`) | the expected type | the literal at the type now known; default `Nat` | no |
+
+**States.** A waiting item becomes running when a resume point selects it; running becomes done
+when its check returns and its placeholder is filled, or waiting again, on a new blocker, when a
+K2 meets an unknown at a later step of its view; running becomes failed when the check raises
+an error. Failed is never kept: the error propagates, so either the enclosing attempt is undone
+(and with it the transition, back to waiting, by invariant 5) or the declaration fails with that
+error. The states live in the resumption log, which snapshots record (§5.3). The prototype has
+the running/done distinction already: it marks an item done *before* resuming it
+(`drain_queue_from` in the patch's `queue.rs`), so a nested drain skips it.
 
 Not queued:
 - **a lambda as a whole.** A lambda is always checked in place; what inside it needs its
   parameter's type is queued (K1-K4). This is what removes the lambda try-then-postpone
-  ([§5.7](#57-removing-the-catch-and-retry-paths)). Lean does the same (`fun` is never
+  ([§5.11](#511-removing-the-catch-and-retry-paths)). Lean does the same (`fun` is never
   postponed); Agda postpones some lambdas, and calls committing early "hazardous" for implicit
   lambdas, which Stitchwort doesn't have.
 - **an effectful part (SW-885).** None is needed: the effect pass already binds the part and
   infers a pure literal, which is a K1 ([§2](#2-stitchwort-today)). Draft 1's stage 0 and Q4 are
   dropped.
-- **a unification pair** ([§5.9](#59-the-unifiers-put-aside-pairs)).
+- **a unification pair** ([§5.13](#513-the-unifier-and-placeholders-r4)).
 - other `E-CANNOT-INFER` sites (`rfl`, `J`, quotients). They don't need a type's shape from
   later; they need an annotation.
 
-### 5.2 Where the queue lives, and how items wait
+### 5.3 Where the queue lives, and how items wait
 
 **Per declaration**, as a table on the `Elaborator` beside `obligations` and
 `row_constraints`, **indexed by blocker**:
 - `clear_metas` clears it, `rewind` clears it;
 - `Snapshot` records two lengths, of the items and of the **resumption log** (which items have
-  been resumed, in order), and `restore` truncates both. So an attempt undone takes back both
-  the items it queued and the resumptions it made: an item resumed inside an attempt that fails
-  is waiting again afterwards. The prototype needed this (an item resumed and then undone was
-  otherwise lost) **[run]**;
+  been resumed or re-queued, in order, with their new states), and `restore` truncates both. So
+  an attempt undone takes back both the items it queued and the resumptions it made: an item
+  resumed inside an attempt that fails is waiting again afterwards. The prototype needed this
+  (an item resumed and then undone was otherwise lost) **[run]**;
 - a map from blocker to items lets a resume point look only at items whose blocker was solved
   since the last point (`Globals::meta_trail` lists solved unknowns in order, as
-  `Snapshot::solved_since` already reads it). The prototype scans the whole queue instead.
+  `Snapshot::solved_since` already reads it). The prototype scans the whole queue instead;
+- the **placeholder table**: for each placeholder, its item and, once filled, the checked term
+  ([§5.10](#510-placeholders-filling-and-opacity-r7)). Snapshots record its length too.
 
 **Why per declaration and not per unknown alone.** Metavariables, obligations, rows and
 snapshots are all per declaration in Stitchwort, and a declaration's unknowns never outlive it
@@ -387,12 +510,102 @@ outlives declarations; here that store is the declaration. So items live in the 
 table and wait on an unknown, which is OmniML's wait list with Stitchwort's lifetime.
 
 **Why not wake inside the unifier**, as Agda's `wakeupConstraints` does after an assignment:
-`unify` is a function of `Globals` with no `Ctx` (`unify.rs:30`), called inside many of the 44 snapshot
-sites that branch on its answer, and resuming an item elaborates syntax. Waking from inside it
-would run elaboration in the middle of a comparison. Waking at the resume points below gives
-the same order at fixed, safe places.
+`unify` is a function of `Globals` with no `Ctx` (`unify.rs:30`), called inside many of the 42
+`Snapshot::take` sites and 48 `transaction`/`attempt`/`undo::unify` calls that branch on its
+answer, and resuming an item elaborates syntax. Waking from inside it would run elaboration in
+the middle of a comparison. Waking at the resume points below gives the same order at fixed,
+safe places.
 
-### 5.3 Resume points, order and termination
+### 5.4 Item kinds in detail: K1, K3, K4
+
+- **K1** waits before checking any field, so it keeps nothing elaborated: invariant 6 holds
+  trivially. Resumed, it is `check_record` against the type now known.
+- **K3** is K2 inside a lambda: `.f a` becomes `x => x.f a` with `x : ?D` at once, and the body
+  is an ordinary K2 on `?D` whose receiver is the variable `x`, made before the receiver, so
+  kept as syntax (§5.5). The review agrees this is the right normalisation: "it reduces method
+  sections to the same underlying problem as dot lookup instead of maintaining their own
+  scheduling semantics".
+- **K4** keeps the literal (syntax). Its default, `Nat`, is applied in the ladder after the
+  field-name default (§5.8). The number *group* of `numbers.rs` (a comparison or arithmetic
+  tree typed at once) defaults to `Nat` at its step 6 (`numbers.rs:944-946`) when no leaf
+  decides; under K4 that default also moves into the ladder, at K4's priority, because it is
+  the same choice (invariant 8, §5.10).
+
+### 5.5 The receiver of a queued `.field` (R1)
+
+The review asked that "kept receivers" be a design invariant (invariant 6), since a receiver
+elaborated before its type is known could freeze a choice that would differ once it is known:
+"the kernel will catch an incompatible choice. It will not catch an alternative compatible but
+semantically different one."
+
+**What a receiver's elaboration does today** **[checked]** (§2, "How a dot call is
+elaborated"):
+- The receiver is never elaborated against an expected type before the namespace is known. The
+  prefix form infers it only to find the namespace and undoes that (`dot.rs:1166-1174`); the
+  dot form infers it with no expected type (`dot.rs:316-322`).
+- After the namespace is known, the prefix form elaborates the receiver *again, from syntax*,
+  checked against `T.f`'s receiver parameter. So Stitchwort already does what the review
+  prefers: the receiver is kept as syntax and elaborated again once its type is known.
+- What the receiver's inference can decide from an unknown's shape is listed in §5.10: number
+  literals (`Nat` at once, `numbers.rs:290-312`), operator dictionaries (specialised only if
+  found at once, `interfaces.rs:1490-1521`, `:1705-1738`), the `if` condition's reading
+  (`logic.rs:98-118`), the container of `in` (`membership.rs:98`), and implicit arguments,
+  inserted only where the type is already a function with leading implicit parameters
+  (`insert`, `check.rs:2843-2882`). Effects decide from declared types and syntax:
+  `receiver_passed` (`effects.rs:2000-2009`) reads `target_place`, which reads the receiver's
+  type without elaborating it (`receiver_type`, `dot.rs:1451-1495`), and an unknown counts as
+  not a computation (`is_comp_type`, `effects.rs:1795-1809`).
+
+**What K2 meets in the corpus** (draft-3 counters, [§6.7](#67-draft-3-runs)) **[measured]**:
+159 `.field`s queued, counting those in attempts later undone.
+
+| receiver | blocker made before the receiver | blocker made inside the receiver |
+|---|---|---|
+| a variable (a lambda parameter, a `let`, a pattern variable) | 131 | 0 |
+| a `.field` (chained: itself a K2's placeholder) | 0 | 19 |
+| an application | 0 | 5 |
+| a record literal (a K1's placeholder) | 0 | 4 |
+
+In none of the 159 did the receiver's inference default a number literal or choose a generic
+dictionary, and in none, at resume, did the receiver's type have a leading implicit parameter
+that `insert` would now fill (all three counters 0) **[measured]**.
+
+**The rule** (invariant 6 for K2):
+- **Blocker made before the receiver: keep the syntax.** At queue time, restore the snapshot
+  taken before the receiver was inferred (the one `prefix_form` already takes), queue
+  `recv.field args` with the saved context, and wait on the blocker, which survives the restore
+  because it predates the receiver. Resume by calling `infer_call` from the start: prefix form
+  or dot form, exactly as an elaboration without postponement would choose now. Items queued
+  inside the receiver are undone with it and made again on resume (invariant 1). This covers
+  131 of 159, all variables, where elaborating again costs nothing.
+- **Blocker made inside the receiver: keep the term.** Then the receiver's own unknowns are the
+  only link through which its blocker can be solved; undoing them would leave an item nothing
+  can wake (this is why Agda keeps the principal argument, `Application.hs:1440-1476`). The
+  kept term is stable, which is the review's second clause ("elaboration of that syntactic
+  category is independent of expected-type information"):
+  - it was inferred with no expected type, as `infer_dot` infers it today (`dot.rs:316-322`),
+    so no expected-type information was missing that the resumed item would have;
+  - for a chained `.field` or a record literal (23 of 28), the receiver *is* a placeholder: a
+    choice not yet made, which its own item makes later under these same rules;
+  - for an application (5 of 28), the choices its inference could make from an unknown's shape
+    are §5.10's, and invariant 8 makes each of them wait or not depend on time; a debug
+    assertion checks that no such choice was made inside a receiver kept as a term (the
+    counters above are 0 today);
+  - at resume, everything after inference that reads the type is redone at the type now known:
+    `insert`, `written_type`, `find_in_view` and `call`. (The prototype redid all but `insert`;
+    the counter shows `insert` would have added nothing.)
+
+**Measured** **[measured]**: the prototype was run both ways over the whole corpus (scoped W1,
+W2). Queueing the 131 as syntax and resuming them through `infer_call` gives **the same outcome
+for every file and the same hash for every declaration** as keeping all 159 receivers, and the
+three repros still pass their run-time tests ([§6.7](#67-draft-3-runs)).
+
+**Why not always keep the syntax** (Lean's restore) [inferred]: for the 28 the item would have
+no blocker left to wait on. **Why not always keep the term** (Agda, and draft 2): for a variable
+it saves nothing, and keeping is a claim about stability that elaborating again doesn't need to
+make. The rule takes the simpler claim wherever it can.
+
+### 5.6 Resume points, isolation and order
 
 **Resume points.** The ladder below runs, scoped as in Lean's `withSynthesize`, at:
 - **W1, the end of each application**, after its arguments and before its type is compared with
@@ -401,7 +614,8 @@ the same order at fixed, safe places.
   which must be drafted before helpers are lifted;
 - **W3, every round of the obligations loop** (`solve_obligations_until_stuck`), so any
   `solve_obligations` call (there are several mid-declaration) resumes too;
-- **W4, `finish`**, for the whole declaration, with defaults and the stuck report.
+- **W4, `finish`**, for the items made since the last `finish`, with defaults and the stuck
+  report.
 
 The prototype found W1 and W2 necessary **[run]**:
 - with only W3 and W4, std doesn't load. `Map/Spec.sw:1862` has
@@ -413,36 +627,129 @@ The prototype found W1 and W2 necessary **[run]**:
   `Day08/Proofs/Part2.sw:148`: a record literal `{ forward = …, backward = … }` holding a
   `match` is resumed after its declaration's helpers were lifted.
 
-**Scope.** At W1, only items created during the application are resumed (Lean's
-`withSynthesize`). An item created outside is resumed at the outer application's W1 or at W4.
-This keeps an outer item's failure from being blamed on an inner attempt. The prototype
-measured both versions ([§6.5](#65-variants)).
+**Isolation (invariant 3).** At W1, only items created during the application are resumed
+(Lean's `withSynthesize`). An item created outside is resumed at the outer application's W1 or
+at W4. The review makes this non-negotiable, and the evidence supports it: unscoped, the
+prototype accepts `postponed-lambda-second-error.sw`, because `c.size` is resumed three times
+inside attempts that are later undone, under three different transient states, and the one that
+survives is not the one an elaboration without postponement would reach; scoped, it stays
+rejected with today's error ([§6.2](#62-acceptance-changes), [§6.5](#65-variants)). So the scope
+is an isolation boundary, not an optimisation: an item sees what its own scope learnt, as it
+would without postponement, plus what its own later arguments fixed, which is the point.
+
+W2-W4 are declaration-level: `lift` (`lift.rs:547`), `solve_obligations_until_stuck` and its
+callers (`lib.rs:1090`, `auto.rs:85`, `local.rs:448`, `lift.rs:551`, `:566`, `rows.rs:333`,
+`interfaces.rs:644`) and every `finish` call are methods of the `Elaborator` run between
+elaborations, never from inside `check` **[checked: the callers]**. So no declaration-level
+point runs inside an item's resumption, and the items they see are, by construction, those of
+the declaration part being finished.
 
 **The ladder** (one function; W1-W3 run steps 1-2, W4 runs all):
-1. Resume, in creation order, every item in scope whose blocker is solved (its type's head is
-   no longer an unknown). Fill its placeholder with the checked term
-   ([§5.6](#56-filling-a-placeholder)). Resuming may queue new items; they go at the end. If
-   anything was resumed, repeat step 1.
+1. Resume, in creation order, every waiting item in scope whose blocker is solved (its type's
+   head is no longer an unknown). It is running until its check returns; then fill its
+   placeholder ([§5.10](#510-placeholders-filling-and-opacity-r7)). Resuming may queue new
+   items; they go at the end. If anything was resumed, repeat step 1.
 2. Run a round of obligations and row constraints. If anything was solved, go to 1.
 3. (W4 only) Apply **one default**, the first by priority, then by creation order: priority 1,
    SW-805's field-name rule for a waiting record literal; priority 2, `Nat` for a waiting number
-   literal ([§5.4](#54-defaults-and-sw-805s-rule)). If one applied, go to 1.
-4. (W4 only) If items are still waiting, report ([§5.5](#55-stuck-items-and-errors)).
+   literal or number group ([§5.8](#58-defaults-and-sw-805s-rule)). If one applied, go to 1.
+4. (W4 only) If items are still waiting, report ([§5.9](#59-stuck-items-and-errors)).
 
-**Why it terminates** [inferred]:
-- Each repeat of step 1 resumes at least one item, and an item is resumed once in each
-  surviving elaboration (the resumption log). A resumed K1 is checked at a known type, so it
-  never queues itself again; a resumed K2 can queue a new K2 only at a *later* step of the
-  receiver's type-head view, which is finite.
-- New items come only from elaborating syntax nodes of the declaration, at most once per node
-  per surviving elaboration, so there are finitely many.
-- Each return from step 2 follows a solved unknown or a settled row. Unknowns are solved once,
-  except where a snapshot restores them, and the ladder takes no snapshot.
-- Each default (step 3) resolves one waiting item, and defaults never un-solve anything.
-- Snapshots inside resumed items are ordinary attempts, each finite as today.
-- The elaborator's budget (`budget.step`) remains the backstop, as for unification.
+### 5.7 Termination
 
-### 5.4 Defaults, and SW-805's rule
+Draft 2's argument counted items "per surviving attempt". The review is right that this is not
+a global bound: "rollback can recreate states", and a restored state may elaborate the same
+syntax and queue the same logical item again. The argument below bounds the attempts first,
+then the work inside one branch. It rests on the existing try-and-undo sites, which I read one
+by one (T1, T2); the rest is [inferred] from them and from the ladder.
+
+**T1. Every attempt site has a fixed, finite list of alternatives** **[checked]**. There are 42
+`Snapshot::take` sites outside `undo.rs` and 48 calls of `transaction`, `attempt`,
+`numbers::attempt` and `undo::unify`. Each is one of:
+- **two or three ways in straight-line code**: try one way, undo, then another or fail. For
+  example `pure_first` (`check.rs:1043`), the lambda in place (`check.rs:1970`), `late_able`
+  (`check.rs:1954`), the argument after the expected type (`check.rs:2078`), `retrying`
+  (`check.rs:1874-1899`: a second run with `late_literals` on, and a nested `retrying` inside
+  it runs once, `check.rs:1875-1877`), expected-type propagation (`check.rs:4152`, `:4253`),
+  the prefix form's speculative inference and then the dot form (`dot.rs:1166`, `:1628`),
+  `section_partial` (`dot.rs:667`), `last_resort` (`records.rs:726-745`), a number group's
+  leaf (`numbers.rs:1122`), the `if` condition (`logic.rs:98-118`), `in`'s container
+  (`membership.rs:73`), and the sites in `effects.rs`, `named.rs`, `cases.rs`, `matching.rs`,
+  `no_effect.rs`, `rows.rs`, `defaults.rs`, `lift.rs` and `bind.rs`;
+- **a loop over a finite list, each element tried once**: each hypothesis in context
+  (`rewrite.rs:576`), each atom seen so far (`omega.rs:2055`), each obligation of an instance
+  tree, with a `tried` set (`interfaces.rs:1405-1440`), occurrences in a goal (`rewrite.rs`,
+  bounded by its `remaining` budget), case splits (`omega.rs`, bounded by `splits`), proof
+  search (`auto.rs`, bounded by its depth, `auto.rs:637`);
+- **a loop that repeats only on progress**: the obligations loop (`auto.rs:100-140`, a
+  `progress` flag set only when an obligation is solved or a row settles), row retries
+  (`check.rs:1051`, `rows.rs:330`, each round settling a comparison or stopping), the local
+  retries (`lib.rs:2270-2295`, again only while `preadmitted` grows, bounded by the local
+  definitions), the total-row retype (`lib.rs:2445-2460`, once).
+
+**T2. Which sites run the same alternative again in the same state** **[checked]**. The review
+asks that no attempt "retries the same alternative with the same metavariable state". Three
+sites can, each a fixed number of times, never in a loop:
+- the lambda tried in place and then checked after the later arguments (`check.rs:1970`, resumed
+  at the end of `apply_args_postponing`), when the later arguments solved nothing;
+- the argument after the expected type (`check.rs:2078`, `:2164`), when the comparison with the
+  expected type solved nothing;
+- the `if` condition's `Bool` reading (`logic.rs:114-117`): after a failed proposition reading,
+  when the `Bool` reading had drafted a `match`, the `Bool` reading is run again from the same
+  state, because "undoing the reading drops them, so if it made any, it's done again"
+  (`logic.rs:94-97`), and fails again the same way.
+
+`retrying`'s second run is a different alternative (`late_literals` on), though it repeats the
+work when nothing defers. One site already guards against repetition: the prefix form, not
+tried again in a state it failed in (`dot.rs:1656-1670`). None of the three breaks termination:
+each is a fixed second (or third) try. The first two are catch-and-retry paths stage 5 removes;
+the third is outside the queue's reach and is noted as wasted work.
+
+**T3. A running item is never resumed by a nested resume point** [inferred from §5.6]. Inside a
+running item's check, the only resume points reachable are W1s of applications inside it, and a
+scoped W1 sees only items created during its application, that is after the running item
+started. W2-W4 are never reached from inside `check` (§5.6). The state *running* makes this a
+checked fact rather than a consequence: a debug assertion fails if the ladder selects a running
+item.
+
+**T4. The measure.** Consider one *branch*: a sequence of elaboration steps with no restore
+across them. In it, lexicographically:
+1. the occurrences of the declaration's syntax not yet finished in this branch, an item's
+   occurrence counting as unfinished while it waits;
+2. the remaining steps of each waiting K2's type-head view (finite: `find_in_view` stops at a
+   head seen before, `dot.rs:496-498`);
+3. the obligations not yet solved and the row comparisons not yet settled.
+
+Elaborating syntax finishes occurrences (1 falls) and may make new unknowns and obligations
+(2 and 3 may rise, which is why unknowns are not in the measure, unlike the review's version).
+Resuming an item finishes its occurrence (1 falls), or re-queues a K2 at a strictly later step
+of its view, since within a branch types only get more solved (2 falls). A return from ladder
+step 2 to step 1 needs a solved obligation or a settled comparison (3 falls), and obligations
+made by instance search are bounded by its depth. A default solves a waiting item's blocker and
+the next step 1 finishes that item (1 falls). Queueing a K2 as syntax undoes its receiver
+(§5.5), which leaves 1 where it was before the `.field` and moves on to other syntax.
+
+Across branches: a restore happens only inside an attempt site, which then runs its next
+alternative or fails upward (T1). So the attempts form a tree. It is finitely branching (T1),
+and it has finite depth, because along one branch the nested sites are entered while
+elaborating occurrences that measure 1 counts down, or inside T1's bounded loops. A finitely
+branching tree of finite depth is finite. The review's first component, "unexplored finite
+alternatives in the current attempt tree", is this tree's unvisited part: rollback may raise
+1-3, but only by returning to a node whose next alternative is a different, not yet visited
+node. "The same logical item again" after a restore is an item of that different node.
+
+**The step budget stays** (`budget.step`), as the review recommends. Under T1-T4 it is a
+resource limit, not a patch over a gap, **on condition that every new attempt site keeps T1**:
+a finite, fixed list of alternatives, and loops only on progress. That becomes a review rule
+for `undo.rs`'s callers, written into its module comment in stage 1. The elaborator fuzzer
+already checks that every mutated example finishes within a step limit and a 60 s watchdog
+(`crates/driver/tests/fuzz_elab.rs`, docs/testing.md), which tests the condition from outside.
+
+**Correction to draft 2.** Draft 2 said "the ladder takes no snapshot". Its step 2 runs instance
+search, whose attempts take and restore snapshots (`interfaces.rs:1431`, `auto.rs:232` and
+others). Each is a T1 site, finite, and none spans a resumption.
+
+### 5.8 Defaults, and SW-805's rule
 
 SW-805's rule stays as D1991 has it, a name-resolution rule that looks only at the literal's
 field names and the names in scope (assumption R1), but it runs **as a default**, at step 3,
@@ -466,6 +773,14 @@ after the field-name rule, as Lean defaults numerals by its lowest-priority defa
 waiting, `[1, 4]` waiting; default 1 makes the list's elements `Position`; `p.row` resumes as
 `Int`; `1` and `4` resume as `Int` **[inferred]**. That is D2013.
 
+**The review agrees with the order**, for the reason that matters: SW-805's rule "looks only at
+field *names*. It doesn't perform candidate-directed type checking of fields. So defaulting `1`
+to Nat does not give the SW-805 rule any additional evidence anyway." The review's caveat is
+recorded as a condition on D2013: **if record inference ever checks fields against candidate
+types** (enumerate the record types with these names, check the fields against each, keep the
+viable ones), a number's type would become evidence for the record, and the order must be
+revisited.
+
 **`held` and `last_resort` are subsumed.** They exist so that a literal in one part of `==`,
 `++`, `calc` or a comparison group waits for another part to say its type. With K1, every
 literal waits, so the other part always gets the chance, and the field-name rule applies only
@@ -475,35 +790,112 @@ side, on `E-CANNOT-INFER` infer the other" catches can go once K1 is in (stage 5
 still holds: the default looks at names only. What changes is *when* it runs, which D1991
 doesn't fix.
 
-### 5.5 Stuck items and errors
+### 5.9 Stuck items and errors
 
-**Stuck at the end.** Each item carries the error its site raises today (code, message, span,
-notes). At W4, the first item still waiting, in creation order, gives the declaration's error,
-as today's first `E-CANNOT-INFER` does. With the prototype on, **no reject example's error
-changed** (687 files), and the 4 items left stuck were in those files **[measured]**.
+**Resumed and failing.** A resumed item that fails reports **its new error, against the type
+now known, at its original span**: `Ctx::save` keeps the span, and `cx.mismatch` prints today's
+solutions. This is Lean's `withRef stx` plus `instantiateMVars` (`SyntheticMVars.lean:33-39`).
+The review: "if `q.x` was postponed because `q : ?a`, and eventually `?a = String`, then
+`String has no field or function x` is the real error. Reporting `can't tell what q is` would
+now be false." In the prototype this arose once, in `postponed-lambda-second-error.sw`
+([§6.2](#62-acceptance-changes)), unscoped only.
 
-**Resumed and failing.** A resumed item that fails gives its own error, at its own span, against
-the type now known: `Ctx::save` keeps the span, and `cx.mismatch` prints today's solutions. This
-is Lean's `withRef stx` plus `instantiateMVars` (`SyntheticMVars.lean:33-39`). It is usually the
-more useful error. In the prototype this arose once, in `postponed-lambda-second-error.sw`
-([§6.2](#62-acceptance-changes)).
+**Stuck at the end: by independent root.** Each item carries the error its site raises today
+(code, message, span, notes). At W4, the waiting items are grouped:
+- an item **depends on** another if its blocker is that other item's placeholder or result-type
+  unknown, or is solved only through it (a chained `.field`'s blocker is the inner `.field`'s
+  result type; a `.field` on a waiting record literal waits on the literal's type);
+- the **root** of an item follows that relation to an item that depends on no waiting item;
+- items with the same root, or the same blocker, form one group.
 
-**Several stuck items.** Lean and Idris report every one. Stitchwort reports one error per
-declaration today. Whether to report all stuck items is left open (question 5 of the brief); it
-matters most in the language server.
+The report is **the first item, in creation order, of each group, for at most 3 groups**; the
+others are suppressed as consequences. The first is the declaration's error, as today's first
+`E-CANNOT-INFER` is; the next two go out as further errors through the channel `branch_errors`
+already provides ("a definition that fails reports them after its own error",
+`lib.rs:380-385`). So `A on ?1; B on A's placeholder; C on B's` reports A once, and
+`A on ?1; D on ?7` reports both, as the review proposes.
 
-### 5.6 Filling a placeholder
+With the prototype on (first stuck item only), **no reject example's error changed** (687
+files), and the 4 items left stuck were in those files **[measured]**. With grouping, a
+declaration with independent stuck items gains a second or third error; none of the 4 is such a
+case [inferred: 4 items in 4 different files].
 
-A placeholder must be filled with the **checked term**, as `fill_placeholder` does today, not by
-unifying it with the term's value. The prototype unified, and in `Day06.offRouteFree` that wrote
-`Map.Spec.sameKey.%match1 (Position.%compare blocker other)` where the source and today's term
-have `Map.Spec.sameKey blocker other` **[run]**: reading a value back unfolds calls. The fix is
-to solve the placeholder to the term abstracted over the item's context, since a placeholder is
-a fresh unknown applied to the variables in scope (`Ctx::fresh_meta`), and zonking then puts the
-term itself in place [inferred]. Wherever the placeholder has been copied into types, those see
-the same solution.
+### 5.10 Placeholders: filling and opacity (R7)
 
-### 5.7 Removing the catch-and-retry paths
+**Filling.** A placeholder must be filled with the **checked term**, as `fill_placeholder` does
+today, not by unifying it with the term's value. The prototype unified, and in
+`Day06.offRouteFree` that wrote `Map.Spec.sameKey.%match1 (Position.%compare blocker other)`
+where the source and today's term have `Map.Spec.sameKey blocker other` **[run]**: reading a
+value back unfolds calls. Stitchwort already has the mechanism, for lifted helpers: the
+placeholder table records the item's term, as `lifted_calls` records a helper's call
+(`lift.rs:661-666`), and zonking puts the term in place of the placeholder applied to its
+variables, as it does for a lifted call (`unify.rs:1719-1727`). The types that mention the
+placeholder see its value, as today.
+
+**Solvable by unification, until stage 6 (D2016).** Lean makes a postponed placeholder
+synthetic opaque (`TermElabM.lean:1458`), and the review suggests the same. Stitchwort's
+version would be a frozen metavariable (§2, "Opaque unknowns already exist"). Draft 3's runs
+measured it **[measured]**:
+- with placeholders as ordinary unknowns, 14 of 135 fills found the placeholder **already
+  solved** by unification: a comparison had met the placeholder and solved it as a pattern
+  (for example `?18 diskMap file free := (FreeSpace.moveFile free file).snd`, from an expected
+  type in a day 9 proof), and the item's term later agreed;
+- with placeholders frozen until filled, those comparisons fail instead: one accepted example
+  (`lambda-postponed-dependent.sw`) and four AoC proofs (2024 days 9 and 24) become
+  `E-TYPE-MISMATCH`, for example "expected `File.idAndLength (?18 diskMap file free) =
+  File.idAndLength file`, but this has type `File.idAndLength (FreeSpace.moveFile free
+  file).snd = File.idAndLength file`".
+
+Lean can freeze because its unifier can postpone a comparison; Stitchwort's answers at once. So
+until comparisons can wait (stage 6), a placeholder stays solvable by unification, and
+invariant 2 is kept by the fill: the item's term is compared with any solution, a disagreement
+is the item's error at its span, and zonking writes the item's term, not the solution. A
+solution found by unification is not a guess: a pattern solution is forced by the comparison
+that found it, and other comparisons are put aside or fail (`unify.rs:30-80`). Once stage 6
+lands, placeholders become frozen and those 14 comparisons wait instead (D2016).
+
+**Opaque to elaboration choices (invariant 8).** "A synthetic placeholder representing postponed
+syntax is not ordinary unknown evidence and consumers must not make irreversible elaboration
+choices from its apparent shape." Every place that chooses from a type's shape treats an unknown
+in one of three ways, and a placeholder's type is an unknown like any other **[checked]**:
+
+| consumer | where | with an unknown today | with a placeholder, end state |
+|---|---|---|---|
+| dot namespace lookup | `find_in_view`, `dot.rs:443-461` | `E-CANNOT-INFER` | **waits**: K2 |
+| record literal's type | `check_record`, `infer_literal`, `records.rs:783-890` | SW-805's rule, else `E-CANNOT-INFER` | **waits**: K1, field-name default in the ladder |
+| method section | `section_unknown_name`, `dot.rs:454`, `:696` | `E-CANNOT-INFER` | **waits**: K3 |
+| number literal | `check_literal`, `numbers.rs:290-312` | made `Nat` at once, noted in `defaulted` | **waits**: K4, `Nat` in the ladder |
+| number group's type | `group_in`, `numbers.rs:799-1000` | a leaf of unknown type decides nothing (`Class::Unknown`); with no deciding leaf, `Nat` (`:944-946`) or, for `==` with nothing numeric, the first leaf's type | an unknown leaf decides nothing, as today; the `Nat` default **moves into the ladder** with K4 |
+| instance search | `interfaces::attempt`, `auto.rs:100-140` | waits (`Attempt::Wait`) | waits, as today |
+| `==` and `!=` as `Bool`: the decision | `decide_eq_of`, `interfaces.rs:1490-1521`, via `bind::decide`, `bind.rs:255-313` | found at once if it can be, and then its field is projected (`Nat.decEq x y`); otherwise the generic `DecEq.decide [d] x y` | **decided at `finish`**: the projection is made at zonk, so the term doesn't depend on when the dictionary was found (the `Day05.noRuleBroken` fix) |
+| `+`, `*`, `<`, `<=` through a dictionary | `method_call`, `interfaces.rs:1705-1738`, from `operator`, `numbers.rs:1347-1402` | the same: projected only if found at once | **decided at `finish`**, as above |
+| prefix form or dot form | `infer_call`, `prefix_form`, `dot.rs:1143-1238`, `:1613-1640` | an unknown receiver type: dot form | the choice is made at resume, from the syntax (§5.5) |
+| implicit arguments of an inferred term | `insert`, `check.rs:2843-2882` | none inserted | none inserted at the placeholder; the item's own term has its implicit arguments inserted before it fills (§5.5) |
+| `if c`: `Bool` or proposition | `condition`, `logic.rs:98-118` | the `Bool` reading, tried first, succeeds | the same: allowed, a wrong guess is a type error (below) |
+| `x in c`: list or keys | `container_kind`, `membership.rs:72-98` | a list (`:98`) | the same: allowed, a wrong guess is a type error |
+| an unknown type of types | `check_type`, `check.rs:4864-4866` | `Type` | the same: allowed |
+| applying something of unknown type | `function_parts`, `check.rs:2701` | an explicit function type of two new unknowns | the same: a unification, not a choice among readings |
+| passing or running an effectful part | `receiver_passed`, `effects.rs:2000-2009`; `is_comp_type`, `:1795-1809` | an unknown is not a computation: run | the same: decided from declared types and syntax, not from a placeholder (§5.5) |
+
+So the consumers fall into three classes:
+- **wait** (dot lookup, records, sections, numbers, instance search): the queue and the ladder;
+- **decided at `finish`**, where the choice changes the term but not the meaning (the
+  operators' known-instance projection, the dot call's route). The projection at `finish` is a
+  change to today's code too: wherever an operator's dictionary is found after the operator
+  today, its term becomes the specialised call. The corpus has 486 generic fallbacks today
+  (switch off; 487 on, the extra one `Day05.noRuleBroken`), counting attempts undone and
+  dictionaries that are local variables, which stay generic **[measured]**; how many become
+  specialised is measured in stage 1, as a hash list;
+- **allowed** (the `if` reading, `in`'s container, `Type`, a function's shape): these are
+  irreversible choices from an unknown's shape, so this is a deliberate weakening of the
+  review's invariant 8. They are allowed because their alternatives have different types: a
+  wrong guess fixes the placeholder's type to something its item's result must match at the
+  fill, so it ends as a type error at the item, never as a different well-typed meaning. And
+  each program that reaches one fails today with `E-CANNOT-INFER`, so none can change an
+  accepted program. Queueing them too (an item for the whole `if`) is possible later if a case
+  wants it [inferred].
+
+### 5.11 Removing the catch-and-retry paths
 
 Each path of the table in [§2](#2-stitchwort-today), and what replaces it:
 
@@ -517,14 +909,15 @@ Each path of the table in [§2](#2-stitchwort-today), and what replaces it:
 | lambda or argument checked after the expected type | **kept**, as Rocq's bidirectionality hint: it is about proofs found from the goal (`E-OMEGA`, `E-REWRITE-NOTHING`), not about unknown types; only 2 of its 233 firings were `E-CANNOT-INFER`, and those go with K1-K2 | 233 firings off, 228 on |
 
 The after-expected path is not a postponement of an unknown type but a choice of which
-information a proof search sees. A queue item would need a blocker ("the goal has no unknowns
-left"), which isn't one unknown. It stays, and it can be re-expressed later as a queue item
-with an application-scope blocker if that helps [inferred].
+information a proof search sees. The review agrees strongly: it is "changing the goal supplied
+to a search procedure, rather than delaying syntax because its input type shape is unavailable.
+Trying to force both through one abstraction would make the queue less principled, not more."
+It stays separate.
 
-### 5.8 The existing postponements as instances
+### 5.12 The existing postponements as instances
 
 - **Record literals (SW-817, SW-885).** K1 at the literal, field-name default at W4.
-- **`.field` on an unknown type (SW-847).** K2.
+- **`.field` on an unknown type (SW-847).** K2, its receiver as syntax (a variable).
 - **Method sections.** K3: the section becomes `x => x.f …` at once, with `x : ?D`, and its body
   waits on `?D`. Today's special case "postponed without a try unless a later parameter
   depends on it" goes, and so does `section_unknown_name`'s separate error path (the K2 inside
@@ -532,9 +925,9 @@ with an application-scope blocker if that helps [inferred].
 - **Lambda arguments.** No longer postponed as a whole. Their stuck pieces are K1-K4, resumed at
   the application's W1, which is where today's postponed lambdas are checked.
 - **`late_literals`.** K4.
-- **`after_expected`.** Kept as is ([§5.7](#57-removing-the-catch-and-retry-paths)).
+- **`after_expected`.** Kept as is ([§5.11](#511-removing-the-catch-and-retry-paths)).
 
-### 5.9 The unifier's put-aside pairs
+### 5.13 The unifier and placeholders (R4)
 
 Two levels, kept apart, as in draft 1:
 - **The unifier's pairs (SW-896)** live inside one `unify` call. One still stuck when the call
@@ -542,21 +935,37 @@ Two levels, kept apart, as in draft 1:
 - **The queue** holds *checks* (syntax plus context) across the declaration. A resumed item runs
   ordinary `check`, whose own `unify` calls put pairs aside as usual.
 
-The single pass makes their relation sharper. A placeholder is an unknown that a later resume
-will solve, so a comparison that meets one may fail where it would have succeeded a little
-later: that is the `Map/Spec.sw:1862` failure. Today's design answers this by resuming early
-(W1). The larger lever, a comparison that *waits* (a put-aside pair kept as a declaration-level
-constraint, as `rows::postpone` does for rows and as Agda's `ValueCmp` constraints do), would let
-the queue resume later and less often. Draft 1 measured that 91-94% of put-aside pairs fail with
-nothing solved since. It is a separate change with its own decision; the queue doesn't depend
-on it (question 3 of the brief).
+**W1 is a pragmatic substitute for waiting comparisons, not a complete one.** The review: "No
+number of 'end of application' checkpoints makes that general", for a placeholder that a
+comparison consumes before information that solves its blocker arises later in the same
+non-application construct. The corpus has no such case with W1 scoped, but the 14 placeholders
+that unification solved early (§5.10) show comparisons do meet placeholders, and D2016's
+freeze shows what happens when they can't solve them.
 
-### 5.10 `let`, and SW-847 (D2011 kept)
+The end state is **tri-state unification**: `unify` answers `Yes`, `No`, or `Blocked(unknowns)`,
+the unknowns being the ones a put-aside pair is stuck on. A caller that gets `Blocked` keeps the
+comparison as a declaration-level constraint, woken when one of its unknowns is solved, as
+`rows::postpone` does for rows and as Agda's `ValueCmp` constraints do. Then placeholders can be
+frozen (D2016's end state), and W1 can become less frequent. It is stage 6, an **expected
+follow-up**, not a condition for the queue: the review says "I would not block this queue work
+on it, though. The queue is useful independently." Draft 1 measured that 91-94% of put-aside
+pairs fail with nothing solved since, so most `Blocked` answers would not wake.
+
+**The trigger** for stage 6 is measurable from stage 1: a counter of comparisons that met an
+**unfilled** placeholder and answered `false`, and of fills that found the placeholder already
+solved (14 today). Stage 6 starts when the corpus or the elaborator fuzzer
+(`crates/driver/tests/fuzz_elab.rs`, whose mutations drop annotations) produces a program whose
+placeholder crosses W1 unresolved and makes a comparison fail that would have succeeded once the
+item was resumed.
+
+### 5.14 `let`, and SW-847 (D2011 kept)
 
 `pure_let` still infers the value first. When `item.value` is reached with `item : ?B`
-unknown, it is a K2 item and the lambda's body type is the placeholder's type. The body
-`List.sumBy pairs counted` unifies the parameter with `(Nat, Item)`, and the next resume point
-resumes `.value` with `?B = Item`. The prototype accepts sw847.sw this way, and the test
+unknown, it is a K2 item and the lambda's body type is the placeholder's type. The receiver
+`item` is a variable whose type unknown `?B` was made with the lambda's parameter, so it is
+queued as syntax (§5.5). The body `List.sumBy pairs counted` unifies the parameter with
+`(Nat, Item)`, and the next resume point resumes `item.value` with `?B = Item`. The prototype
+accepts sw847.sw this way, both with the receiver kept and as syntax, and the test
 `total [(0, {value = 5}), (7, {value = 9})] == 5` passes **[run]**. So D2011 still fits the
 single queue and is kept: no body-first `let` (Lean's `let_delayed`), and the `let` stays
 transparent for the body.
@@ -565,29 +974,31 @@ A let-bound method section (`let g := .drop 1; g xs`) works the same way once K3
 moves `examples/reject/section-unknown-receiver.sw` to accept [inferred; the prototype doesn't
 queue sections, and that example is unchanged with it on].
 
-### 5.11 The language server
+### 5.15 The language server
 
 The language server elaborates a file's declarations with the same elaborator
 (`crates/cli/src/lsp.rs`), so the queue's behaviour there is the batch behaviour. What differs:
 - **Broken code.** A stuck item reports the error its site reports today, so diagnostics while
   typing `p.` are unchanged. A resumed item that fails reports at its own span, which is where
   the user is typing.
+- **Several errors.** Up to 3 independent roots are reported (§5.9), so the editor shows an
+  unrelated second stuck item without the cascade behind the first.
 - **Hover and goals** see more: a `?` goal or a hovered variable inside a queued check is noted
   when the check resumes, with its type known, where today the whole declaration stopped at the
   first `E-CANNOT-INFER` [inferred].
 - **Cost.** The queue is per declaration and is cleared with it, so incremental re-checking is
   unaffected. A resume point with nothing in scope costs a length comparison. CPU time over the
   corpus didn't rise ([§6.4](#64-cpu-time)).
-- **Several errors.** If stuck items are all reported (question 5), the editor shows each.
 
-### 5.12 Snapshots (P3 revisited)
+### 5.16 Snapshots (P3 revisited)
 
 D1990's P3 says queued items need no snapshot because they try nothing before waiting. That
-still holds for queueing: K1 waits before checking any field, and K2 keeps the receiver it
-elaborated. It holds for resuming too: an item is resumed only when its blocker is solved, so
-the head test that queued it now passes. What the prototype added is that the *queue itself* is
-part of the state that snapshots around items record (items and resumption log,
-[§5.2](#52-where-the-queue-lives-and-how-items-wait)).
+still holds for K1, K3 and K4, and for resuming: an item is resumed only when its blocker is
+solved, so the head test that queued it now passes. For K2 it changes in one place: a `.field`
+whose blocker predates its receiver restores the snapshot taken before the receiver (§5.5),
+which `prefix_form` already takes, so no new snapshot site is added. And the *queue itself*
+(items, resumption log, placeholder table) is part of the state that every snapshot records
+([§5.3](#53-where-the-queue-lives-and-how-items-wait)).
 
 ## 6. What the single queue changes today
 
@@ -626,8 +1037,8 @@ identical terms and differ only through the hash of a declaration they refer to.
 | declaration | what differs | verdict | work |
 |---|---|---|---|
 | `safe-fields.sw`: tests "record equality", "record inequality" | `counter 3 (-2) == Some ({ … })`: the right side is wrapped in `Ann(…, Option Counter)`, because it is inferred (with a waiting literal) instead of failing and being checked [inferred] | harmless: `Ann` is erased by the kernel | none; or drop the `Ann` the group adds for an inferred leaf |
-| `Day05.noRuleBroken` | `rule.before == laterPage`: `Decidable.toBool (DecEq.decide …)` instead of `Decidable.toBool (Nat.decEq …)` | **needed fix**: the same value, but the generic dictionary call where today's term has the specialised one; extraction and evaluation take the slower route | `==` must choose its specialised form after the operand's type is known: make that choice a K-item or redo it at W1 |
-| `Day06.offRouteFree` | `Map.Spec.sameKey.%match1 (Position.%compare blocker other)` instead of `Map.Spec.sameKey blocker other` | **needed fix**: the placeholder is filled by reading back a value, which unfolds the call ([§5.6](#56-filling-a-placeholder)) | fill placeholders with the checked term |
+| `Day05.noRuleBroken` | `rule.before == laterPage`: `Decidable.toBool (DecEq.decide …)` instead of `Decidable.toBool (Nat.decEq …)` | **needed fix**: the same value, but the generic dictionary call where today's term has the specialised one; extraction and evaluation take the slower route | the known-instance projection decided at `finish` (§5.10) |
+| `Day06.offRouteFree` | `Map.Spec.sameKey.%match1 (Position.%compare blocker other)` instead of `Map.Spec.sameKey blocker other` | **needed fix**: the placeholder is filled by reading back a value, which unfolds the call ([§5.10](#510-placeholders-filling-and-opacity-r7)) | fill placeholders with the checked term |
 | `Day06.part2Correct` | inside `Eq.cong (patrolled => Option.map patrolled (visited => (visited.filter …).size))`, where `.filter` and `.size` are on a lambda parameter whose type `patrolRoute …` fixes later: the lambda's term is the one checked in place (shorter: 10,936 against 11,762 characters of `{:?}`) | harmless [inferred: the same kind as `carriesMentioned`; the kernel re-checked it against the same statement] | none |
 | `Day08.harmonicsCorrect` | `stepFacts`'s motive `_` is solved to the folded goal `point ∈ City.harmonics city first second ↔ …` instead of its unfolding `point ∈ List.flatMap … ↔ …` | harmless, arguably better: definitionally equal, and as written | none |
 | `Day24.carriesMentioned` | `List.memFlatMapIntro (each => [each.left, …])`: the lambda as written appears where today's term has the unifier's copy from `device.wires`'s definition (a different library call, its lambda named `gate`) | harmless, arguably better: today the in-place try fails, and the postponed lambda's own term is not what ends up in that argument [inferred] | none |
@@ -635,8 +1046,8 @@ identical terms and differ only through the hash of a declaration they refer to.
 
 All 24 aoc declarations are in `Proofs` namespaces: proof terms, re-checked by the kernel against
 statements whose types are compared in [§6.3.1](#631-statements). None of the 26 is a sign that
-the design is wrong. Two are bugs of the prototype that the design already rules out (§5.6) or
-must add (the `==` specialisation).
+the design is wrong. Two are bugs of the prototype that the design rules out (§5.10, both the
+fill and the projection).
 
 #### 6.3.1 Statements
 
@@ -668,68 +1079,111 @@ aoc is 5-6% faster: fewer failed tries and reruns. The rest is within noise.
 | W3 and W4 only (`STITCHWORT_QUEUE=1`) | std doesn't load: `Map/Spec.sw:1862`, `E-TYPE-MISMATCH` |
 | W1, W3, W4 (`…_APP=1`) | aoc fails: `Day08/Proofs/Part2.sw:148`, `E-MATCH-MOTIVE` |
 | W1-W4, unscoped (`…_LIFT=1`): **the measured prototype** | as §6.2-6.4 |
-| W1-W4, field-name rule at the literal (`…_NAMES_FIRST=1`) | "in a list" passes; "the other side says" and "appended" fail (§5.4) |
+| W1-W4, field-name rule at the literal (`…_NAMES_FIRST=1`) | "in a list" passes; "the other side says" and "appended" fail (§5.8) |
 | W1-W4, W1 scoped (`…_SCOPED=1`): **the recommended form** (D2014) | one acceptance change, `record-literal-inferred.sw` as above; `postponed-lambda-second-error.sw` stays rejected with today's error, because `c.size` is resumed only at the end of the `twice` application, outside the attempts inside it; the same 26 hash changes; no error message changed; 179 items queued, 136 resumptions (149 unscoped); aoc 36.7 s against 38.0 s off (one run) |
+| scoped, `.field` as syntax when its blocker predates the receiver (draft 3) | identical to the line above: every outcome, every hash (§6.7) |
+| scoped, placeholders frozen (draft 3) | 1 accepted example and 4 aoc proofs fail (§5.10, §6.7) |
 
 ### 6.6 The work this implies
 
-From §6.2-6.5, for the end state:
-1. **Fill placeholders with the term** (§5.6).
-2. **Resume points W1 and W2**, scoped (§5.3).
+From §6.2-6.7, for the end state:
+1. **Fill placeholders with the term**, through a placeholder table zonked as `lifted_calls`
+   is (§5.10).
+2. **Resume points W1 and W2**, scoped (§5.6).
 3. **K4 and the defaults ladder** (D2013), which fixes `record-literal-inferred.sw`.
-4. **`==` specialisation after the type is known** (`Day05.noRuleBroken`).
-5. **K3** for sections, which removes the last 6 lambda postponements in accepted code.
-6. **Examples**: rewrite `record-literal-inferred.sw`'s "in a list" with an annotation until K4
+4. **The known-instance projection at `finish`** (`Day05.noRuleBroken`, §5.10).
+5. **K2's receiver as syntax** when the blocker predates it (§5.5).
+6. **K3** for sections, which removes the last 6 lambda postponements in accepted code.
+7. **Examples**: rewrite `record-literal-inferred.sw`'s "in a list" with an annotation until K4
    (stage 2), unannotated after; move `section-unknown-receiver.sw` to accept after K3.
-7. **The retry paths of §5.7**, removed once 3 and 5 are in.
+8. **The retry paths of §5.11**, removed once 3 and 6 are in.
+
+### 6.7 Draft-3 runs
+
+**What was run.** The prototype patch applied to `fcb12746` in a scratch worktree (removed
+after), with counters added in `dot.rs`, `queue.rs` and `interfaces.rs` (not kept), and two
+switches: `STITCHWORT_QUEUE_RESYNTAX=1` (a `.field` whose blocker predates its receiver restores
+the snapshot taken before the receiver and is queued as syntax, resumed by `infer_call`) and
+`STITCHWORT_QUEUE_FREEZE=1` (placeholders frozen until filled). The measurement test ran four
+times, each under `dev/memguard --cap-gb 2` and `timeout`: off, scoped (W1 scoped, W2),
+scoped + resyntax, scoped + freeze; about 50 s each. The three repros with tests ran with
+`stitchwort test` under scoped + resyntax. Output: [postponement/prototype/draft3-counts.txt](postponement/prototype/draft3-counts.txt).
+
+**Results** **[measured, run]**:
+- K2 receivers: as in §5.5's table; the counters "receiver defaulted a number", "receiver chose
+  a generic dictionary" and "`insert` would add at resume" are all 0;
+- **scoped + resyntax against scoped: 0 outcomes and 0 hashes changed**; 131 `.field`s queued
+  as syntax; the same 179 items, 136 resumptions, 4 defaults and 4 stuck; sw817run, sw847run
+  and sw885run pass all 6 of their tests. Since every declaration's hash is the same, so is
+  every term, so the AoC and rogue tests of §6.3.2 hold unchanged [inferred from the hashes;
+  not re-run];
+- **fills**: 135, of which 14 found the placeholder already solved by unification (10 in aoc,
+  3 in `lambda-postponed-dependent.sw`, 1 in `lambda-postponed-dependent-argument.sw`);
+- **scoped + freeze**: 0 fills found it solved, and `lambda-postponed-dependent.sw` and aoc fail
+  (4 errors, 7 declarations without a hash, in 2024 days 9 and 24);
+- **generic dictionary calls**: 486 off, 487 scoped.
 
 ## 7. Risks
 
 - **Order-dependence through defaults and `true`/`false` unification.** The ladder is
   deterministic (creation order, priorities), not order-free as OmniML is. The two acceptance
   changes of §6.2 are both order effects. The defaults' priorities are a design choice (D2013).
+  The review separates kernel soundness (the kernel gives it), coherence (scheduling choosing
+  between two well-typed elaborations) and predictability; invariants 3, 6 and 8 are what
+  protect coherence.
 - **Resumption inside attempts.** An item resumed inside an attempt that then fails is undone
-  and resumed again later. That is correct but can change routes: one reject example's outcome
-  moved this way. Scoped resume points limit it (§5.3).
-- **Placeholders seen by comparisons.** Anything that compares a type with a placeholder before
-  its resume point may fail where today's order succeeded. W1 covers the corpus; new code may
-  find more. The fallback is waiting comparisons (§5.9).
+  and resumed again later. That is correct, and scoped resume points (invariant 3) keep it from
+  changing which route survives: the one example where it did, unscoped, stays rejected.
+- **Placeholders seen by comparisons.** A comparison that meets an unfilled placeholder may
+  solve it (14 times in the corpus) or fail where today's order succeeded. W1 covers the
+  corpus; new code may find more. The follow-up is tri-state unification (§5.13), with its
+  trigger counted from stage 1.
+- **The allowed choices of §5.10** (`if`'s reading, `in`'s container) can reject a program
+  whose placeholder would have said otherwise. Each such program fails today; the error moves
+  from `E-CANNOT-INFER` to a mismatch at the item.
 - **Lifted helpers.** A placeholder must not reach `lift`. W2 handles `lift` and
   `lift_signature`; other places that zonk mid-declaration (`settle_let_lambda`, `decreasing`'s
   and `partial`'s callers of `finish`) must each be checked [inferred].
-- **Saved contexts.** `Ctx::save` clones the context's vectors. Fine for 178 items; a
+- **Saved contexts.** `Ctx::save` clones the context's vectors. Fine for 179 items; a
   declaration with thousands would want persistent vectors [inferred].
-- **K2's kept receiver** was elaborated under assumptions that may change, for example implicit
-  arguments inserted for dot-call placement before the type is known. Agda's
-  `CheckProjAppToKnownPrincipalArg` carries metavariables for this (`Application.hs:1470-1474`).
-  No case arose in the corpus.
+- **A new attempt site that breaks T1** (an unbounded retry) would make termination rest on the
+  step budget alone. The review rule in `undo.rs` and the elaborator fuzzer's watchdog guard it
+  (§5.7).
 - **Interaction with SW-805.** The rule must stay a name rule (D1991's R1). Running it as a
-  default doesn't change what it looks at.
+  default doesn't change what it looks at. If it ever checks fields against candidate types,
+  D2013's order is revisited (§5.8).
 
 ## 8. Stage plan
 
 Accepted-program identity is no longer a requirement. Each stage must keep every test, every
 example's expectation (accept, reject with its code, extract output), every AoC answer and
 every rogue test right. A changed hash is fine; each changed hash is listed in the stage's
-commit with its kind from §6.3, and the snapshots are re-baselined.
+commit with its kind from §6.3, and the snapshots are re-baselined. The review calls the staged
+rollout "sensible, including only removing each old path after its counter reaches zero".
 
-**Stage 1: the queue and its resume points, nothing queued yet.** The table, `Ctx::save`, the
-resumption log, `Snapshot` and `rewind` handling, the ladder at W1-W4 (scoped), placeholders
-filled with the term (§5.6), the stuck report, and a counter in `STITCHWORT_TIMINGS`.
-*Shown right by:* every hash and every error unchanged (nothing is queued yet); unit tests that
-a snapshot's restore drops items and resumptions made after it, that `rewind` empties the
-queue, and that a placeholder is filled with the term (a call stays folded).
+**Stage 1: the queue, its invariants and its placeholders, nothing queued yet.** The table,
+`Ctx::save`, item states and the resumption log, `Snapshot` and `rewind` handling, the ladder at
+W1-W4 (scoped), the placeholder table (filled with the term, zonked as `lifted_calls` is;
+solvable by unification and checked at the fill, D2016), the stuck report by root (first root
+as the error, up to two more through `branch_errors`), debug assertions for invariants 3, 4 and
+6, and counters in `STITCHWORT_TIMINGS` (items queued, resumed, defaulted, stuck; comparisons
+that met an unfilled placeholder; fills that found it solved). The review rule for attempt sites
+(T1) goes into `undo.rs`'s module comment. As a separate commit, the **known-instance
+projection at `finish`** for operator dictionaries (§5.10), with its own hash list.
+*Shown right by:* every hash and every error unchanged by the queue commits (nothing is queued
+yet); the projection commit's hash list, each one a generic call becoming its specialised form;
+the unit tests of §9 for invariants 1, 2, 4 and 5.
 
-**Stage 2: K1 and K2, with the field-name rule as the default.** As in the prototype.
-*Changes:* the 26 hashes of §6.3, minus `Day06.offRouteFree`'s unfolding (stage 1's fill) and
-minus `Day05.noRuleBroken`'s if the `==` fix lands here (work item 4); `record-literal-inferred.sw`
-"in a list" fails until stage 4, so stage 2 rewrites that one test with an annotation
-(`(p: Position) => p.row`) and stage 4 removes it. With W1 scoped, no reject example changes.
-The ticket repros become accept examples:
-`postpone-record-literal-argument.sw` (sw817), `postpone-let-lambda-field.sw` (sw847),
-`postpone-effectful-record.sw` (sw885's four cases, with the run-time tests of §1).
+**Stage 2: K1 and K2, with the field-name rule as the default.** K2 with the receiver rule of
+§5.5. *Changes:* the 26 hashes of §6.3, minus `Day06.offRouteFree`'s unfolding (stage 1's fill)
+and `Day05.noRuleBroken`'s (stage 1's projection); `record-literal-inferred.sw` "in a list" fails
+until stage 4, so stage 2 rewrites that one test with an annotation (`(p: Position) => p.row`)
+and stage 4 removes it. With W1 scoped, no reject example changes. The ticket repros become
+accept examples: `postpone-record-literal-argument.sw` (sw817), `postpone-let-lambda-field.sw`
+(sw847), `postpone-effectful-record.sw` (sw885's four cases, with the run-time tests of §1).
 *Shown right by:* the merge tier; `task test:aoc` and rogue's tests with every answer unchanged;
-`task snap:examples` writing no changed error message; the hash diff matching the stage's list.
+`task snap:examples` writing no changed error message; the hash diff matching the stage's list;
+§9's must-hold tests for invariants 3, 6 and 8.
 
 **Stage 3: K3, method sections.** Remove the section-without-a-try path and
 `section_unknown_name`'s special case. *Changes:* `section-unknown-receiver.sw` moves to accept
@@ -737,35 +1191,59 @@ The ticket repros become accept examples:
 postponements become section items, so their declarations may change hash.
 *Shown right by:* as stage 2, and the lambda try-then-postpone counter at 0 in accepted code.
 
-**Stage 4: K4 and the defaults ladder** (D2013). Number literals wait; defaults by priority.
-*Changes:* `record-literal-inferred.sw`'s "in a list" passes unannotated again; hashes wherever a
-literal's type is now decided later (to be measured with the prototype extended first, as here).
-*Shown right by:* as stage 2, plus the numbers examples (`examples/accept/*number*`,
-`*literal*`) unchanged in outcome, and `retrying`'s counter at 0.
+**Stage 4: K4 and the defaults ladder** (D2013). Number literals wait; the number group's `Nat`
+default moves into the ladder; defaults by priority. *Changes:* `record-literal-inferred.sw`'s
+"in a list" passes unannotated again; hashes wherever a literal's type is now decided later (to
+be measured with the prototype extended first, as here). *Shown right by:* as stage 2, plus the
+numbers examples (`examples/accept/*number*`, `*literal*`) unchanged in outcome, invariant 7's
+tests, and `retrying`'s counter at 0.
 
-**Stage 5: remove the retry paths** of §5.7: the lambda try-then-postpone, `retrying` and
+**Stage 5: remove the retry paths** of §5.11: the lambda try-then-postpone, `retrying` and
 `late_literals` with `defers_literal`, `else_first` and `check_items`' reordering, `held`,
-`last_resort` and `FieldNames`, the three "infer the other side" catches.
-*Shown right by:* as stage 2; each removal is its own commit with the counters at 0 first.
+`last_resort` and `FieldNames`, the three "infer the other side" catches. This also removes two
+of T2's three same-state reruns (§5.7). *Shown right by:* as stage 2; each removal is its own
+commit with the counters at 0 first.
 
-**Stage 6 (later, each its own decision):** report all stuck items (question 5); waiting
-comparisons in the unifier (§5.9); queueing the after-expected path if useful.
+**Stage 6: tri-state unification (expected follow-up, R4).** `unify` answers `Yes`, `No` or
+`Blocked(unknowns)`; a blocked comparison becomes a declaration-level constraint, woken when one
+of its unknowns is solved; placeholders become frozen (D2016's end state); W1 may then be made
+less frequent. **Triggered** when the corpus or the elaborator fuzzer produces a program whose
+placeholder crosses W1 unresolved and makes a comparison fail that would succeed after the
+item's resumption (stage 1's counters). The queue doesn't wait for it.
+
+**Later, each its own decision:** queueing the after-expected path, if it ever helps (§5.11);
+queueing the allowed choices of §5.10 (`if`, `in`), if a case wants it.
 
 ## 9. Tests
 
+**Per invariant** (unit tests in `crates/elab` unless an example is named; "must hold" marks the
+tests the review's points R1 and R7 depend on):
+
+| invariant | tests | stage |
+|---|---|---|
+| 1. one placeholder, one occurrence | an item queued inside an attempt that is undone leaves no item or placeholder; elaborating the same syntax again makes a new item with a new placeholder | 1 |
+| 2. only its item fills | a placeholder solved by unification to `t` and filled with a term equal to `t` zonks to the item's term, a call kept folded (`Map.Spec.sameKey blocker other`, the `Day06.offRouteFree` case); filled with a term not equal to `t` gives the item's mismatch at its span; `lambda-postponed-dependent.sw` and `lambda-postponed-dependent-argument.sw` (the corpus's early-solved cases) stay accepted | 1, 2 |
+| 3. isolation | **must hold**: `examples/reject/postponed-lambda-second-error.sw` stays rejected with today's error; an item created outside an application isn't resumed at its W1 even when its blocker is solved there; a debug assertion that W1 selects only items made since it began | 1, 2 |
+| 4. no re-entry | an item whose check contains an application is resumed once (its resumption count is 1), not again by the inner W1; a debug assertion that the ladder never selects a running item | 1 |
+| 5. restore restores the queue | a snapshot's restore drops items queued and resumptions made after it; an item resumed inside an undone attempt is waiting again; `rewind` empties the queue | 1 |
+| 6. kept subterms stable (R1) | **must hold**: `p => p.row` with `p`'s type fixed by a later argument elaborates to the same core term as `(p: Position) => p.row` with the annotation stripped (receiver as syntax, prefix form chosen at resume); **must hold**: `((f.x a1).x a2).x a3` with `f`'s type known only later (Lean's chained case: blocker made inside the receiver, receiver kept) is accepted with the same term as with `f` annotated; a debug assertion, and a test that triggers it with a hand-built item, that a receiver kept as a term made no choice of §5.10 from an unknown; a receiver whose resumed type has a leading implicit parameter gets it inserted (a test constructed for it; none in the corpus) | 2 |
+| 7. defaults at quiescence | a waiting record literal whose type a waiting obligation fixes is resumed through the obligation, with no default (defaulted counter 0); `record-literal-inferred.sw`'s "the other side says" and "appended" pass (stage 2), "in a list" unannotated (stage 4) | 2, 4 |
+| 8. opaque to choices (R7) | **must hold**: `rule => rule.before == page`, with `rule`'s type fixed later and `before : Nat`, elaborates to `Nat.decEq` (the term inspected), and so does the same with the type annotated; **must hold**: a number literal next to a waiting `.field` in a group, `p.x + 1 == 3` with `p.x : Int` fixed later, is accepted as `Int` (stage 4; before it, rejected with a mismatch at the item, never accepted as `Nat`); `x in r.items` with `r`'s type fixed later to a record whose `items` is a set: rejected with a mismatch at the item, not accepted with a list (the allowed class) | 1, 2, 4 |
+
+**Others:**
 - **Repros become accept examples** (stage 2), with run-time tests as in §1.
 - **Reject examples** pinning the stuck report: `record-literal-without-type.sw` unchanged; a
   literal whose type is fixed to a non-record (`E-NOT-A-RECORD` at the literal, its own error
   at resume); a `.field` whose receiver's type becomes a record without that field
-  (`E-UNKNOWN-FIELD` at the field, against the type now known).
+  (`E-UNKNOWN-FIELD` at the field, against the type now known); a declaration with two
+  independent stuck items (two errors) and one with a chain of three (one error).
 - **Order examples**: "in a list" from `record-literal-inferred.sw`, unannotated (stage 4); two
-  literals in one application where only the second's type is fixed by a later argument;
-  `((f.x a1).x a2).x a3` with `f`'s type known only later (Lean's own example of chained
-  postponement).
-- **Unit tests in `crates/elab`** (stage 1): snapshot restore and the resumption log; `rewind`;
-  placeholder filled by the term; a K2 re-queued at a later view step.
-- **Counters** in `STITCHWORT_TIMINGS`: items queued, resumed, defaulted, stuck, and each retry
-  path's firings until stage 5 removes it.
+  literals in one application where only the second's type is fixed by a later argument.
+- **Termination**: the elaborator fuzzer (`task fuzz:elab`) at each stage, which checks that
+  every mutated example finishes within its step limit and watchdog.
+- **Counters** in `STITCHWORT_TIMINGS`: items queued, resumed, defaulted, stuck; comparisons
+  that met an unfilled placeholder; fills that found it solved; each retry path's firings until
+  stage 5 removes it.
 - Lane tier for each stage, the merge tier at merge; AoC and rogue tests at each stage.
 
 ## 10. Decisions for Matt
@@ -774,7 +1252,10 @@ comparisons in the unifier (§5.9); queueing the after-expected path if useful.
 literals in the same ladder after it, instead of at the literal?** In the end state a record
 literal or a number literal whose type is unknown waits. When nothing else makes progress at the
 end of the declaration, the ladder applies one default, the field-name rule first, then `Nat` for
-a number, and goes round again. **[Recommend yes.]** The assumptions, in full:
+a number, and goes round again. **[Recommend yes.]** **The reviewer agrees**: "for current
+Stitchwort: record identity first, Nat last", because the field-name rule looks at names only, so
+a number's type gives it no evidence; revisit if record inference ever checks fields against
+candidate types (§5.8). The assumptions, in full:
 - **(R1, from D1991)** The field-name rule looks only at the literal's field names and the names
   in scope at the literal, never at types learned later; running it later doesn't change what it
   looks at, only whether something else decided first.
@@ -784,7 +1265,7 @@ a number, and goes round again. **[Recommend yes.]** The assumptions, in full:
   programs that fail today because a literal was made `Nat` too early. Stage 4 tests this over
   the corpus [inferred, not yet measured: K4 is not in the prototype].
 - **(N2)** The field-name rule has priority over the number default because a record's field
-  types say what its numbers are, never the reverse (§5.4's "in a list").
+  types say what its numbers are, never the reverse (§5.8's "in a list").
 - **(N3)** Lean's numeral default is the precedent: low priority, in the ladder
   (`Prelude.lean:1411`, `SyntheticMVars.lean:237-243`).
 
@@ -795,30 +1276,64 @@ mechanism.
 **D2014. Resume queued checks at the end of every application, scoped to the items made inside
 it, as well as before lifting and at the end of the declaration?** This is instead of only at
 the end of the declaration (Lean's definition-level ladder, Agda's freeze) or inside the unifier
-when the blocker is solved (Agda's wake-up). **[Recommend yes.]** The assumptions, in full:
+when the blocker is solved (Agda's wake-up). **[Recommend yes.]** **The reviewer agrees, and
+would make the scope non-negotiable**: unscoped, postponed syntax "can run inside speculative
+attempts that are later rolled back and then run again under a different interpretation", so
+"the scope isn't merely an optimisation. It's an elaboration isolation boundary" (invariant 3).
+The reviewer also says W1 is "a pragmatic substitute for many cases, but not a complete
+substitute" for waiting comparisons, which is stage 6. The assumptions, in full:
 - **(S1)** Stitchwort's unifier can't wait: a comparison that meets an unfilled placeholder
-  answers `false` at once, and its caller takes another route. So a placeholder must be filled
-  before the comparisons that would need it. The end of the application that created it is the
-  first fixed point after the later arguments that may solve its blocker, and before the
-  application's type is compared with what is expected of it. The prototype shows the end of
-  the declaration is too late for std (`Map/Spec.sw:1862`), and the end of each application is
-  enough for the whole corpus.
+  answers at once, solving it if it can as any unknown (14 times in the corpus) or `false`, and
+  its caller takes another route. So a placeholder must be filled before the comparisons that
+  would need it. The end of the application that created it is the first fixed point after the
+  later arguments that may solve its blocker, and before the application's type is compared
+  with what is expected of it. The prototype shows the end of the declaration is too late for
+  std (`Map/Spec.sw:1862`), and the end of each application is enough for the whole corpus.
 - **(S2)** Scoping to the application's own items keeps a failing item from being blamed on, and
   undone with, an attempt it doesn't belong to, as Lean's `withSynthesize` does; items from
-  outside are resumed at their own application's end or at the declaration's.
+  outside are resumed at their own application's end or at the declaration's. With the scope,
+  `postponed-lambda-second-error.sw` keeps today's outcome; without it, it doesn't.
 - **(S3)** Waking inside the unifier would elaborate syntax in the middle of a comparison that
-  callers inside many of the 44 `Snapshot::take` sites branch on; resume points give the same order at fixed places.
-- **(S4)** If waiting comparisons (§5.9) are ever added, W1 can become less frequent; this
+  callers inside many of the 42 `Snapshot::take` sites and 48 `transaction`/`attempt` calls
+  branch on; resume points give the same order at fixed places.
+- **(S4)** If tri-state unification (stage 6) is added, W1 can become less frequent; this
   decision doesn't preclude that.
+
+**D2016. Keep placeholders solvable by unification until unification can wait (stage 6), and
+freeze them only then?** The review suggests opaque placeholders, as Lean's synthetic-opaque
+postponed metavariables (`TermElabM.lean:1458`). For *elaboration choices* draft 3 adopts that
+(invariant 8, §5.10). For *unification*, the alternative is to freeze each placeholder until its
+item fills it, with Stitchwort's existing frozen metavariables (`globals.rs:427-432`). Measured
+(§6.7): 14 of 135 fills found the placeholder already solved by a comparison, and freezing makes
+those comparisons fail, breaking `lambda-postponed-dependent.sw` and four AoC proofs (2024 days
+9 and 24). **[Recommend yes: solvable now, frozen at stage 6.]** The assumptions, in full:
+- **(P1)** A placeholder that unification solves is solved by a pattern solution forced by the
+  comparison that found it (other comparisons are put aside or answer `false`,
+  `unify.rs:30-80`), so the solution is a constraint the item's result must meet anyway, not a
+  guess.
+- **(P2)** The fill compares the item's term with any such solution, and a disagreement is the
+  item's error at its own span; so solving early can reject a program only where the item's
+  result contradicts a comparison the program makes, which would be an error anyway.
+- **(P3)** Zonking writes the item's term from the placeholder table, never the unifier's
+  solution, so the term is what was written (invariant 2), whoever solved the unknown first.
+- **(P4)** A frozen placeholder needs comparisons that can wait: with a unifier that answers at
+  once, a comparison that meets a frozen placeholder fails where the program is correct, which
+  the 5 measured failures show. Once stage 6's `Blocked` exists, those comparisons wait for the
+  fill instead, and freezing costs nothing.
+
+The alternative, freezing now, would need stage 6 before stage 2, or would reject 1 example and
+4 AoC proofs that today's compiler accepts.
+
+**Still open from earlier drafts:** D2013 and D2014 (above), and now D2016.
 
 ## 11. The prototype
 
 **Where.** Scratch commit `8204158e` on `worktree-agent-a90adb251a628a470`, **dropped** before
-this note was committed: it was built to measure, not to keep (it scans the queue, unifies to
+draft 2 was committed: it was built to measure, not to keep (it scans the queue, unifies to
 fill placeholders, and counts retry paths with the switch off too). Its whole diff, with the
 measurement test (`crates/driver/tests/queue_scratch.rs`) and scripts (`dev/queue-prototype/`), is
 [postponement/prototype/queue-prototype.patch](postponement/prototype/queue-prototype.patch);
-it applies to `fcb12746` with `git apply` (checked).
+it applies to `fcb12746` with `git apply` (checked again for draft 3).
 It adds `crates/elab/src/queue.rs` and touches `check.rs` (`Ctx::save`, the W1 point, retry
 counters), `records.rs` (K1 sites, `infer_literal_by_names`), `dot.rs` (K2, `resume_dot`),
 `lift.rs` (W2), `auto.rs` (W3), `lib.rs` (W4, the table), `undo.rs` and `rewind.rs`.
@@ -830,13 +1345,40 @@ counters), `records.rs` (K1 sites, `infer_literal_by_names`), `dot.rs` (K2, `res
 - `STITCHWORT_QUEUE_NAMES_FIRST=1`: the field-name rule at the literal when it finds one type;
 - `STITCHWORT_QUEUE_TRACE=1`: each item queued and resumed, on standard error.
 
+Draft 3's runs added, in a scratch copy not kept, `STITCHWORT_QUEUE_RESYNTAX=1` and
+`STITCHWORT_QUEUE_FREEZE=1` and the counters of §6.7. Each is a few lines on top of the patch:
+the resyntax switch takes a snapshot before `infer_receiver` in `infer_dot`, and, when the
+blocker's unknown is older than that snapshot, restores it and queues a `DotSyntax` item that
+waits on that unknown and is resumed by `infer_call`; the freeze switch calls `freeze_meta` on
+each placeholder when it is queued and unfreezes it in `fill`.
+
 **Not in it:** K3, K4, the blocker index (it scans), filling with the term (it unifies), the
-`==` specialisation, scoping by default.
+projection at `finish`, the root-grouped report, scoping by default.
 
 **Outputs** kept in [postponement/prototype/](postponement/prototype/): the comparison of the
 off and on runs, with the exact-term and type comparison of the changed declarations
-(`changes.txt`); the queue and retry-path counters per file (`counts.txt`); and the three
-repros with run-time tests (`sw817run.sw`, `sw847run.sw`, `sw885run.sw`).
+(`changes.txt`); the queue and retry-path counters per file (`counts.txt`); draft 3's counters
+and variants (`draft3-counts.txt`); and the three repros with run-time tests (`sw817run.sw`,
+`sw847run.sw`, `sw885run.sw`).
+
+## Review 1 and how it was addressed
+
+The review is [postponement/review-1.md](postponement/review-1.md): "approve with revisions".
+
+| point | the review | what changed, and where |
+|---|---|---|
+| R1 kept receivers | make it a design invariant: keep an elaborated subterm only if it is stable under later information, else keep syntax and environment and re-elaborate | Invariant 6 (§5.1). §2 now describes how a dot call is elaborated: the prefix form already undoes the receiver and re-elaborates it from syntax. §5.5 gives the rule: syntax when the blocker predates the receiver (131 of 159), the term when the receiver made the blocker (28), with why each is stable. Measured: identical outcomes and hashes (§6.7). Must-hold tests in §9 |
+| R2 termination | "per surviving attempt" isn't a global bound; item states; no nested resume of a running item; finite-choice attempts; a lexicographic measure; keep the budget | Item states (§5.2), invariant 4. §5.7 rewritten: T1 classifies every attempt site, with file:line; T2 names the three sites that rerun the same alternative in the same state (bounded, two removed by stage 5); T3 no re-entry; T4 the measure (occurrences unfinished, K2 view steps, obligations and rows, inside a finite attempt tree). The budget stays, as a resource limit on condition T1 holds for new sites. Draft 2's "the ladder takes no snapshot" corrected |
+| R3 scoped W1 | non-negotiable; an isolation rule | Invariant 3 in the review's words (§5.1); §5.6 "Isolation" with the evidence; D2014 records the reviewer's agreement |
+| R4 W1 and delayed unification | W1 is not a complete substitute; plan tri-state unification; don't block the queue on it | §5.13 rewritten; stage 6 is now the expected follow-up with a trigger counted from stage 1 (§8); D2014's S4 |
+| R5 default order | field-name first, then `Nat`; revisit only if record inference checks fields against candidates | §5.8 and D2013 record the agreement and the condition |
+| R6 errors | a resumed item's new error against the known type at its span; several stuck items by independent root, about 3, downstream suppressed | §5.9 rewritten: dependency, roots, groups, at most 3, through `branch_errors`; stage 1; tests in §9. The resumed-item rule was already draft 2's, now with the review's reasoning |
+| R7 opaque placeholders | no irreversible elaboration choice from an unfilled placeholder's shape (the `==` regression); compare Lean's synthetic opaque | Invariant 8. §5.10: the 15 consumers that choose from a type's shape, each classified as wait, decided at `finish` (the `==` fix: the known-instance projection at `finish`) or allowed (a wrong guess can only be a type error, a stated weakening). For unification, freezing was measured and breaks 1 example and 4 AoC proofs, so placeholders stay solvable until stage 6: D2016 |
+| R8 queue invariants | a short section of eight | §5.1, the review's eight with 2 and 8 made precise; §9 lists the tests of each |
+| agreement: K3 | `x : ?D => x.f` is the right normalisation | Recorded in §5.4 |
+| agreement: path 3 | keep the after-expected path separate | Recorded in §5.11 |
+| agreement: staged rollout | sensible, each old path removed after its counter is 0 | Recorded in §8 |
+| bottom line | do not ship on the termination claim as argued; settle the kept-receiver rule before K2 becomes infrastructure | §5.7 and §5.5; both are settled before stage 2, where K2 lands |
 
 ## Alternatives considered
 
@@ -858,7 +1400,7 @@ under D2012:
 std doesn't load ([§6.5](#65-variants)), because the unifier can't wait (D2014's S1).
 
 **The field-name rule at the literal** (Agda's order): breaks `held`'s tests unless `held` stays
-(§5.4, D2013).
+(§5.8, D2013).
 
 **A body-first `let`** for SW-847 (Lean's `let_delayed`): rejected in draft 1 (D2011) because it
 hides the whole value from the body. The queued field access does what SW-847 needs.
@@ -867,10 +1409,17 @@ hides the whole value from the body. The queued field access does what SW-847 ne
 would keep a lambda's body from being checked in place, which is where most of its information
 is. The prototype's 9 remaining lambda postponements are 6 sections and 3 reject examples.
 
+**Always keeping a `.field`'s receiver as a term** (Agda; draft 2): see §5.5. **Always keeping it
+as syntax** (Lean's restore): leaves 28 of 159 items with no blocker to wait on.
+
+**Frozen placeholders now** (Lean's synthetic opaque, without its waiting unifier): breaks 1
+example and 4 AoC proofs (D2016).
+
 ## Sources
 
 Fetched 30 October 2026 with `gh api` into the lane's scratch directory, read as text. Line
-numbers are of those copies. WebSearch was not used.
+numbers are of those copies. WebSearch was not used. Draft 3 made one more `gh api` call, for
+[L2] at line 1458.
 
 **Lean 4**, `leanprover/lean4` at `0f852cc822d54d32c5cb0ef158562796088ce4dc` (as in
 docs/research/elaboration.md):
@@ -878,9 +1427,9 @@ docs/research/elaboration.md):
   `synthesizeUsingDefault` (237-243) and `withSynthesizeImp` / `withSynthesizeLightImp`
   (689-720);
 - [L2] `src/Lean/Elab/Term/TermElabM.lean`: `SavedContext`, `SyntheticMVarKind`, `Context`,
-  `tryPostpone*`, `saveContext`, `postponeElabTermCore`, `postponeElabTerm`,
-  `elabUsingElabFnsAux`, `elabTermAux` (lines 40-120, 300-315, 860-875, 1365-1470,
-  1650-1710, 1940-1970);
+  `tryPostpone*`, `saveContext`, `postponeElabTermCore` (the `syntheticOpaque` placeholder at
+  1458, re-fetched for draft 3), `postponeElabTerm`, `elabUsingElabFnsAux`, `elabTermAux`
+  (lines 40-120, 300-315, 860-875, 1365-1470, 1650-1710, 1940-1970);
 - [L3] `src/Lean/Elab/App.lean`: `synthesizePendingAndNormalizeFunType` (360-380), `ElabElim`
   argument loop (1290-1320), `resolveLValLoop` (1670-1700), overload filtering (2170-2210);
 - [L4] `src/Lean/Elab/Binders.lean`: `elabFun` (678), `elabLetDeclAux` (735-860),
@@ -922,12 +1471,22 @@ docs/research/elaboration.md):
   arXiv 2511.10343v2, PDF via `pdftotext`. Read: §2.1, §2.4, §2.5, §3.2, §4.1 opening, §6, §7.
 
 **Not verified**: which unification problems Rocq's `evarsolve.ml` and `cases.ml` postpone; the
-Idris `delayOnFailure` users other than records; Lean's anonymous-constructor elaborator.
+Idris `delayOnFailure` users other than records; Lean's anonymous-constructor elaborator; that
+Lean's `isDefEq` never assigns a synthetic-opaque metavariable (from its documentation, not read
+in source).
 
-**Stitchwort**, at `fcb12746`: `crates/elab/src/check.rs` (`Ctx`, `apply_args_postponing`,
-`retrying`, `fill_placeholder`, `append_tried`), `records.rs` (`FieldNames`, `held`,
-`last_resort`, `infer_literal`, `check_record`), `dot.rs` (`infer_dot`, `find_in_view`),
-`calc.rs`, `numbers.rs` (`Defaulted`, the comparison group), `auto.rs`, `lib.rs` (`finish`,
-`clear_metas`, `with_local_retries`, zonk errors), `lift.rs` (`lift`), `undo.rs`, `rewind.rs`,
-`unify.rs` (header, `run`), `crates/cli/src/lsp.rs`, `crates/driver/tests/hash_stability.rs`;
-docs/research/elaboration.md §8; docs/syntax.md (records, method sections).
+**Stitchwort**, at `3d0036f8` (crates unchanged since `fcb12746`): `crates/elab/src/check.rs`
+(`Ctx`, `apply_args_postponing`, `retrying`, `fill_placeholder`, `append_tried`, `insert`,
+`compare`, `function_parts`, `check_type`), `records.rs` (`FieldNames`, `held`, `last_resort`,
+`infer_literal`, `check_record`), `dot.rs` (`infer_dot`, `infer_receiver`, `find_in_view`,
+`prefix_form`, `infer_call`, `receiver_type`, `mark_failed`), `calc.rs`, `numbers.rs`
+(`Defaulted`, `check_literal`, `group_in`, `operator`, `equation`), `interfaces.rs`
+(`method_call`, `decide_eq_of`, `solve_tree`, `find_ready_dictionaries`), `bind.rs`
+(`decide`), `logic.rs` (`condition`), `membership.rs` (`container_kind`), `effects.rs`
+(`receiver_passed`, `is_comp_type`, `may_perform_at`), `auto.rs`, `lib.rs` (`finish`,
+`clear_metas`, `with_local_retries`, `branch_errors`, the total-row retype, zonk errors),
+`lift.rs` (`lift`, `lifted_calls`), `goals.rs`, `undo.rs`, `rewind.rs`, `unify.rs` (header,
+`run`, frozen metavariables, `lifted_call`), every `Snapshot::take`, `transaction`, `attempt`
+and `undo::unify` site, `crates/core/src/globals.rs` (`frozen_metas`, `lifted_calls`),
+`crates/cli/src/lsp.rs`, `crates/driver/tests/hash_stability.rs`; docs/testing.md (the
+elaborator fuzzer); docs/research/elaboration.md §8; docs/syntax.md (records, method sections).
