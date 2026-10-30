@@ -8475,8 +8475,8 @@
       "id": 900,
       "title": "Memory blow-up: List.Mem hypothesis + failing proof + Vec-nested type",
       "status": "doing",
-      "agent": "",
-      "where": "",
+      "agent": "Claude",
+      "where": "fix lane (D1976)",
       "labels": [
         "bug"
       ],
