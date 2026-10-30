@@ -1,6 +1,7 @@
 //! The postponement queue's record literals, `.field`s and method sections
 //! (K1, K2 and K3, docs/proposals/postponement.md stages 2 and 3), and the
-//! decision that waits for them (D2035), with the library: §9's must-hold
+//! decision that waits for them (D2035), and comparisons that wait for
+//! their placeholders (stage 6), with the library: §9's must-hold
 //! tests for invariants 3, 6 and 8, and the errors a waiting check gives
 //! once its type is known. The queue's own tests, on items made
 //! by hand and modules without the library, are in `crates/elab/src/queue.rs`.
@@ -317,4 +318,54 @@ def has (b: Box): Bool :=
     let errors = load(set).expect_err("rejected");
     assert_eq!(errors[0].code, "E-TYPE-MISMATCH", "{errors:#?}");
     assert_eq!(pointed_at(set, &errors), "r.items");
+}
+
+/// Stage 6 and D2016's end state: a placeholder is frozen until its check
+/// fills it, and a comparison that meets it waits for it. A lambda whose
+/// parameter's type comes from a later argument, compared with a statement
+/// that mentions it (SW-138's `anyPerm`), was the shape where unification
+/// solved a `.field`'s placeholder before its item could; now the
+/// comparison waits, and the proof is the term it is with `r` annotated.
+#[test]
+fn a_comparison_waits_for_a_frozen_placeholder() {
+    let source = "\
+import Std (List, Nat)
+
+type R = { lo: Nat, hi: Nat }
+
+def R.contains (r: R) (n: Nat): Bool := Nat.leq r.lo n
+
+theorem later (xs: List R) (ys: List R) (h: List.Perm xs ys): List.any xs (r => r.contains 3) = List.any ys (r => r.contains 3) :=
+  List.anyPerm xs ys h (r => r.contains 3)
+
+theorem annotated (xs: List R) (ys: List R) (h: List.Perm xs ys): List.any xs (r => r.contains 3) = List.any ys (r => r.contains 3) :=
+  List.anyPerm xs ys h ((r: R) => r.contains 3)
+";
+    let hashes = hashes(source, &["later", "annotated"]);
+    assert_eq!(hashes[0], hashes[1]);
+}
+
+/// Stage 6: a waiting comparison that is false once the placeholder is
+/// filled is its caller's error, against the type now known, where the
+/// comparison was: here the proof's type against the statement's, which
+/// says `4` where the proof says `3`. Main gives the same message, with
+/// the placeholder solved first.
+#[test]
+fn a_waiting_comparison_that_fails_is_a_mismatch_against_the_type_now_known() {
+    let source = "\
+import Std (List, Nat)
+
+type R = { lo: Nat, hi: Nat }
+
+def R.contains (r: R) (n: Nat): Bool := Nat.leq r.lo n
+
+theorem wrong (xs: List R) (ys: List R) (h: List.Perm xs ys): List.any xs (r => r.contains 4) = List.any ys (r => r.contains 4) :=
+  List.anyPerm xs ys h (r => r.contains 3)
+";
+    let errors = load(source).expect_err("rejected");
+    assert_eq!(errors[0].code, "E-TYPE-MISMATCH", "{errors:#?}");
+    let message = format!("{:?}", errors[0]);
+    assert!(!message.contains('?'), "no unknown is shown: {message}");
+    assert!(message.contains("R.contains r 4") && message.contains("R.contains r 3"));
+    assert!(pointed_at(source, &errors).starts_with("List.anyPerm xs ys h"));
 }

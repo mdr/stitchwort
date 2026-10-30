@@ -438,6 +438,11 @@ pub struct Globals {
     /// its placeholder with here too, for the same reason. Cleared with
     /// `metas`.
     pub lifted_calls: RefCell<crate::collections::HashMap<usize, (usize, Rc<Term>)>>,
+    /// The placeholders of the elaborator's queued checks that their checks
+    /// haven't filled yet (its `queue.rs`): frozen to unification, as
+    /// `frozen_metas` are, until filled (docs/proposals/postponement.md,
+    /// D2016, stage 6). Kept in step with the queue; cleared with `metas`.
+    pub unfilled_placeholders: RefCell<crate::collections::HashSet<usize>>,
     /// How the printer shows calls of local definitions while their owner
     /// is checked (docs/proposals/syntax-conveniences.md §2.5): `go a b`,
     /// not the lifted call with its captures. Cleared with `metas`. Only
@@ -659,6 +664,7 @@ impl Globals {
         self.metas.borrow_mut().clear();
         self.frozen_metas.borrow_mut().clear();
         self.lifted_calls.borrow_mut().clear();
+        self.unfilled_placeholders.borrow_mut().clear();
         self.meta_trail.borrow_mut().clear();
         self.print_labels.borrow_mut().clear();
     }
@@ -697,6 +703,7 @@ impl Globals {
             meta_trail: _,
             frozen_metas: _,
             lifted_calls: _,
+            unfilled_placeholders: _,
             print_labels: _,
             hashes,
             budget,

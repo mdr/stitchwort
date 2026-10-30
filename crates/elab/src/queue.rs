@@ -23,7 +23,11 @@
 //! - K3, a method section whose argument's type is unknown (`dot.rs`,
 //!   `Section`), checked whole once it is known;
 //! - a proposition's decision into a `Bool` where it holds a placeholder
-//!   not filled yet (`check.rs`, `Decide`; D2035), which waits for it.
+//!   not filled yet (`check.rs`, `Decide`; D2035), which waits for it;
+//! - a comparison, against an expected type or by `rfl`, that fails only
+//!   at unknowns the queue still has to settle ([`compare_waiting`],
+//!   [`Comparison`]; stage 6, tri-state unification): it waits for any of
+//!   them, and has no term.
 //!
 //! A resume point with nothing queued in its scope costs a length
 //! comparison.
@@ -33,9 +37,11 @@
 //!    for each item, and a restore drops the items queued since, whose
 //!    placeholders the restore drops too.
 //! 2. *Only its item fills a placeholder*: only [`Elaborator::fill`],
-//!    while the item runs. Unification may solve a placeholder first, as
-//!    any unknown (D2016): the item's term is then compared with that
-//!    solution, and zonking writes the item's term either way.
+//!    while the item runs. Until then the placeholder is frozen
+//!    (`Globals::unfilled_placeholders`, D2016's end state): unification
+//!    never solves it, and a comparison that meets it waits or fails. If
+//!    anything else solved it first, the item's term must agree with that
+//!    solution; zonking writes the item's term either way.
 //! 3. *Isolation*: W1 resumes only the items queued since its application
 //!    began; W2-W4 run between elaborations, never inside a check.
 //! 4. *No re-entry*: an item's [`State`] is running while its check runs,
@@ -68,13 +74,14 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use stitchwort_core::collections::HashMap;
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{Head, force};
 use stitchwort_core::{Globals, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
 use crate::Elaborator;
 use crate::check::{Ctx, Result, Saved};
+use crate::unify::Answer;
 
 /// What a queued check does when it is resumed: one implementation per
 /// kind of item (K1-K4, stages 2-4 of the note).
@@ -93,12 +100,22 @@ pub(crate) trait Check {
     fn apply_default(&self, _cx: &mut Ctx) -> Result<bool> {
         Ok(false)
     }
+
+    /// Whether it may be resumed although the head of what it waits on is
+    /// still unknown: a waiting comparison waits on any of several unknowns
+    /// (stage 6, [`Comparison`]).
+    fn wakes(&self, _g: &Globals) -> Result<bool> {
+        Ok(false)
+    }
 }
 
 /// What a resumed check gives.
 pub(crate) enum Resumed {
     /// Its term, to fill its placeholder with.
     Done(Term),
+    /// It holds, and has no term: a waiting comparison ([`Comparison`]),
+    /// whose placeholder stands for nothing.
+    Holds,
     /// It met another unknown (a `.field` at a later step of its view): it
     /// waits again, on the head of this type.
     Waiting(Value),
@@ -147,6 +164,9 @@ pub(crate) struct Item {
     /// Whether it has been counted as reaching the end of an application
     /// still waiting.
     crossed: Cell<bool>,
+    /// Whether it is a waiting comparison (stage 6, [`Comparison`]), whose
+    /// placeholder stands for nothing.
+    constraint: bool,
 }
 
 /// The current declaration's queued checks, in creation order, with their
@@ -217,25 +237,30 @@ impl Queue {
             "an item outlived its placeholder (invariant 1)"
         );
         if changed {
-            self.sync_unfilled();
+            self.sync_unfilled(g);
         }
     }
 
+    /// Empties the queue; `Globals::clear_metas` empties the placeholders
+    /// it tells the unifier of.
     pub(crate) fn clear(&self) {
         self.items.borrow_mut().clear();
         self.states.borrow_mut().clear();
         self.log.borrow_mut().clear();
-        self.sync_unfilled();
     }
 
-    /// Tells the unifier which placeholders aren't filled yet, for its
-    /// count of comparisons that fail at one (`unify::met_unfilled`).
-    fn sync_unfilled(&self) {
+    /// Tells the unifier which placeholders aren't filled yet
+    /// (`Globals::unfilled_placeholders`): they are frozen until filled
+    /// (D2016), and a comparison that fails at one is counted
+    /// (`unify::met_unfilled`).
+    fn sync_unfilled(&self, g: &Globals) {
         let items = self.items.borrow();
         let states = self.states.borrow();
-        crate::unify::set_unfilled(
+        let mut unfilled = g.unfilled_placeholders.borrow_mut();
+        unfilled.clear();
+        unfilled.extend(
             (0..items.len())
-                .filter(|&i| !matches!(states[i], State::Done))
+                .filter(|&i| !matches!(states[i], State::Done) && !items[i].constraint)
                 .map(|i| items[i].meta),
         );
     }
@@ -248,10 +273,10 @@ impl Queue {
         self.states.borrow()[i].clone()
     }
 
-    fn set(&self, i: usize, state: State) {
+    fn set(&self, i: usize, state: State, g: &Globals) {
         let old = std::mem::replace(&mut self.states.borrow_mut()[i], state);
         self.log.borrow_mut().push((i, old));
-        self.sync_unfilled();
+        self.sync_unfilled(g);
     }
 
     fn waiting(&self, i: usize) -> Option<Value> {
@@ -309,9 +334,10 @@ pub(crate) fn queue(
         ty,
         error,
         crossed: Cell::new(false),
+        constraint: false,
     }));
     q.states.borrow_mut().push(State::Waiting(needs, None));
-    q.sync_unfilled();
+    q.sync_unfilled(cx.g());
     count(&QUEUED);
     Ok(placeholder)
 }
@@ -324,7 +350,7 @@ pub(crate) fn unfilled_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
     let unfilled: Vec<usize> = {
         let (items, states) = (q.items.borrow(), q.states.borrow());
         (0..items.len())
-            .filter(|&i| !matches!(states[i], State::Done))
+            .filter(|&i| !matches!(states[i], State::Done) && !items[i].constraint)
             .map(|i| items[i].meta)
             .filter(|&m| cx.g().meta_solution(m).is_none())
             .collect()
@@ -338,6 +364,229 @@ pub(crate) fn unfilled_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
         Term::Meta(m) if unfilled.contains(m) => Some(*m),
         _ => None,
     }))
+}
+
+/// The unknowns the queue still has to settle (stage 6): each placeholder
+/// not filled yet that unification hasn't solved, and the unknown each
+/// waiting item waits on. Each is solved by the end of the declaration, by
+/// an item's resumption or default, or its item is reported stuck; so a
+/// comparison that fails only on one of them can wait for it.
+fn pending(cx: &Ctx) -> Result<HashSet<usize>> {
+    let g = cx.g();
+    let q = &cx.e.queue;
+    let mut pending = HashSet::default();
+    for i in 0..q.len() {
+        let state = q.state(i);
+        if matches!(state, State::Done) {
+            continue;
+        }
+        let item = q.item(i);
+        if !item.constraint && g.meta_solution(item.meta).is_none() {
+            pending.insert(item.meta);
+        }
+        if let State::Waiting(needs, _) = state
+            && let Some(m) = head_meta(g, &needs)?
+        {
+            pending.insert(m);
+        }
+    }
+    Ok(pending)
+}
+
+/// How a waiting comparison reports that it fails: as the check against an
+/// expected type it came from, or as `rfl` (the two callers of
+/// [`compare_waiting`]).
+#[derive(Clone, Copy)]
+pub(crate) enum Failure {
+    Mismatch,
+    Refl,
+}
+
+impl Failure {
+    /// The error of `found` against `expected`, as its caller reports it.
+    fn error(self, cx: &mut Ctx, found: &Value, expected: &Value) -> Result<Diagnostic> {
+        Ok(match self {
+            Failure::Mismatch => match crate::effects::partial_mismatch(cx, found, expected)? {
+                Some(d) => d,
+                None => crate::numbers::explain_default(cx, cx.mismatch(expected, found), &[found]),
+            },
+            Failure::Refl => crate::check::refl_error(cx, found, expected),
+        })
+    }
+}
+
+/// Stage 6 (docs/proposals/postponement.md, "Stage 6: design"): `found`
+/// against `expected`, where every other way has failed, compared again by
+/// tri-state unification (`unify::unify_waiting`). If it fails only at
+/// pairs stuck on unknowns the queue still has to settle ([`pending`]),
+/// what it could solve stays solved and the rest waits, as a queued
+/// [`Comparison`] that is resumed once one of those unknowns is solved:
+/// `true`. Otherwise nothing is changed: `false`, and the caller reports
+/// its error as before.
+pub(crate) fn compare_waiting(
+    cx: &mut Ctx,
+    found: &Value,
+    expected: &Value,
+    failure: Failure,
+) -> Result<bool> {
+    if cx.e.queue.len() == 0 {
+        return Ok(false);
+    }
+    let pending = pending(cx)?;
+    if pending.is_empty() {
+        return Ok(false);
+    }
+    let snapshot = crate::undo::Snapshot::take(cx);
+    match crate::unify::unify_waiting(cx.g(), cx.level(), found, expected, &pending)? {
+        Answer::Yes => Ok(true),
+        Answer::No => {
+            snapshot.restore(cx);
+            Ok(false)
+        }
+        Answer::Blocked(pairs) => {
+            let comparison = Comparison {
+                pairs,
+                blockers: Vec::new(),
+                found: found.clone(),
+                expected: expected.clone(),
+                failure,
+            };
+            let blockers = comparison.blockers(cx, &pending)?;
+            let Some(&first) = blockers.first() else {
+                snapshot.restore(cx);
+                return Ok(false);
+            };
+            let error = failure.error(cx, found, expected)?;
+            let comparison = Comparison {
+                blockers,
+                ..comparison
+            };
+            queue_constraint(cx, Rc::new(comparison), first, error)?;
+            count(&WAITED);
+            Ok(true)
+        }
+    }
+}
+
+/// A comparison waiting for unknowns the queue still has to settle (stage
+/// 6, [`compare_waiting`]): the pairs that couldn't be decided, what was
+/// compared, and how its caller reports a failure. Resumed once one of its
+/// blockers is solved: each pair is compared again, and it holds, fails
+/// with its caller's error against the types now known, or waits again on
+/// what it is still stuck on.
+struct Comparison {
+    pairs: Vec<crate::unify::Waiting>,
+    /// The pending unknowns its pairs mention, any of which wakes it.
+    blockers: Vec<usize>,
+    found: Value,
+    expected: Value,
+    failure: Failure,
+}
+
+impl Comparison {
+    /// The pending unknowns the pairs mention, in order, each once.
+    fn blockers(&self, cx: &Ctx, pending: &HashSet<usize>) -> Result<Vec<usize>> {
+        let mut found = Vec::new();
+        for pair in &self.pairs {
+            for side in [&pair.a, &pair.b] {
+                let term = stitchwort_core::value::quote(cx.g(), pair.level, side)?;
+                for (t, _) in term.subterms() {
+                    if let Term::Meta(m) = t
+                        && pending.contains(m)
+                        && !found.contains(m)
+                    {
+                        found.push(*m);
+                    }
+                }
+            }
+        }
+        Ok(found)
+    }
+}
+
+impl Check for Comparison {
+    fn resume(&self, cx: &mut Ctx) -> Result<Resumed> {
+        // Evaluated afresh: a call stuck on a placeholder when it was made
+        // stays a stuck value, and computes only when evaluated again with
+        // the placeholder filled (as `unify::run`'s pairs put aside are).
+        let found = cx.eval(&cx.quote_folded(&self.found)?)?;
+        let expected = cx.eval(&cx.quote_folded(&self.expected)?)?;
+        let (found, expected) = (&found, &expected);
+        // Its caller's own ways first, as when it was made: a dictionary
+        // that the filled placeholder lets be found may be what's in the
+        // way now.
+        let holds = match self.failure {
+            Failure::Mismatch => crate::check::unifies_with_instances(cx, found, expected)?,
+            Failure::Refl => {
+                crate::undo::unify(cx, found, expected)?
+                    || crate::check::refl_after_instances(cx, found, expected)?
+            }
+        };
+        if holds {
+            return Ok(Resumed::Holds);
+        }
+        let pending = pending(cx)?;
+        let still =
+            match crate::unify::unify_waiting(cx.g(), cx.level(), found, expected, &pending)? {
+                Answer::Yes => return Ok(Resumed::Holds),
+                Answer::No => return Err(self.failure.error(cx, found, expected)?),
+                Answer::Blocked(pairs) => pairs,
+            };
+        let again = Comparison {
+            pairs: still,
+            blockers: Vec::new(),
+            found: self.found.clone(),
+            expected: self.expected.clone(),
+            failure: self.failure,
+        };
+        let blockers = again.blockers(cx, &pending)?;
+        let Some(&first) = blockers.first() else {
+            return Err(self.failure.error(cx, &self.found, &self.expected)?);
+        };
+        Ok(Resumed::WaitingAs(
+            on(first),
+            Rc::new(Comparison { blockers, ..again }),
+        ))
+    }
+
+    fn wakes(&self, g: &Globals) -> Result<bool> {
+        Ok(self.blockers.iter().any(|&m| g.meta_solution(m).is_some()))
+    }
+}
+
+/// The unknown `m`, as a value with nothing applied.
+fn on(m: usize) -> Value {
+    Value::Neutral(Head::Meta(m), Default::default())
+}
+
+/// Queues `check`, a comparison with no term of its own, waiting on unknown
+/// `blocker`, with `error` if it stays stuck.
+fn queue_constraint(
+    cx: &Ctx,
+    check: Rc<dyn Check>,
+    blocker: usize,
+    error: Diagnostic,
+) -> Result<()> {
+    let placeholder = cx.fresh_meta();
+    let Term::Meta(meta) = *placeholder.spine().0 else {
+        unreachable!("a fresh metavariable")
+    };
+    let q = &cx.e.queue;
+    q.items.borrow_mut().push(Rc::new(Item {
+        check,
+        saved: cx.save(),
+        placeholder,
+        meta,
+        ty: Value::Sort(stitchwort_core::Sort::Prop),
+        error,
+        crossed: Cell::new(false),
+        constraint: true,
+    }));
+    q.states
+        .borrow_mut()
+        .push(State::Waiting(on(blocker), None));
+    q.sync_unfilled(cx.g());
+    Ok(())
 }
 
 /// Whether the head of `needs` is known.
@@ -433,7 +682,8 @@ impl Elaborator {
             let mut i = from;
             while i < self.queue.len() {
                 if let Some(needs) = self.queue.waiting(i)
-                    && ready(&self.globals, &needs)?
+                    && (ready(&self.globals, &needs)?
+                        || self.queue.check(i).wakes(&self.globals)?)
                 {
                     self.resume_item(i)?;
                     progress = true;
@@ -455,7 +705,7 @@ impl Elaborator {
             State::Waiting(_, replaced) => replaced,
             _ => None,
         };
-        self.queue.set(i, State::Running);
+        self.queue.set(i, State::Running, &self.globals);
         count(&RESUMED);
         let mut cx = item.saved.ctx(self);
         let waits = |needs: &Value| {
@@ -467,6 +717,7 @@ impl Elaborator {
         };
         let resumed = check.resume(&mut cx).and_then(|resumed| match resumed {
             Resumed::Done(term) => self.fill(&mut cx, i, &item, &term).map(|()| State::Done),
+            Resumed::Holds => Ok(State::Done),
             Resumed::Waiting(needs) => {
                 waits(&needs);
                 Ok(State::Waiting(needs, replaced))
@@ -478,11 +729,11 @@ impl Elaborator {
         });
         match resumed {
             Ok(state) => {
-                self.queue.set(i, state);
+                self.queue.set(i, state, &self.globals);
                 Ok(())
             }
             Err(e) => {
-                self.queue.set(i, State::Failed);
+                self.queue.set(i, State::Failed, &self.globals);
                 Err(e)
             }
         }
@@ -512,6 +763,7 @@ impl Elaborator {
         }
         let value = cx.eval(term)?;
         let placeholder = cx.eval(&item.placeholder)?;
+        g.unfilled_placeholders.borrow_mut().remove(&item.meta);
         if !cx.unify(&placeholder, &value)? {
             count(&DISAGREED);
             return Err(cx.mismatch(&placeholder, &value));
@@ -608,7 +860,9 @@ impl Elaborator {
         let mut made_by: HashMap<usize, usize> = HashMap::default();
         for (w, &(i, _)) in waiting.iter().enumerate() {
             let item = self.queue.item(i);
-            made_by.insert(item.meta, w);
+            if !item.constraint {
+                made_by.insert(item.meta, w);
+            }
             if let Some(m) = head_meta(g, &item.ty)? {
                 made_by.entry(m).or_insert(w);
             }
@@ -668,12 +922,21 @@ static REQUEUED: AtomicUsize = AtomicUsize::new(0);
 static KEPT: AtomicUsize = AtomicUsize::new(0);
 static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
 static LAMBDA_POSTPONED: AtomicUsize = AtomicUsize::new(0);
+static RETRIED: AtomicUsize = AtomicUsize::new(0);
+static WAITED: AtomicUsize = AtomicUsize::new(0);
 
 /// A lambda argument tried in place, failed, and checked again after the
 /// application's later arguments (`check::apply_args_postponing`): the
 /// path §5.11 removes once its count is 0 in accepted code.
 pub(crate) fn note_lambda_postponed() {
     count(&LAMBDA_POSTPONED);
+}
+
+/// An application, group, list or `if` elaborated a second time with number
+/// literals checked last (`check::retrying`), because the first time failed:
+/// the path §5.11 removes once number literals wait (K4).
+pub(crate) fn note_retried() {
+    count(&RETRIED);
 }
 
 fn count(counter: &AtomicUsize) {
@@ -716,8 +979,11 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// kept as a term (`kept`), of which those whose receiver made a choice
 /// from an unknown (`kept chose`, invariant 6; 0 expected); and lambda
 /// arguments tried in place, failed and checked again after the later
-/// arguments (`lambda postponed`, the path §5.11 removes in stage 5).
-pub fn counts() -> [(&'static str, usize); 14] {
+/// arguments (`lambda postponed`, the path §5.11 removes in stage 5); and
+/// elaborations run a second time with number literals last (`retried`,
+/// `check::retrying`, which K4 makes unneeded); and comparisons queued to
+/// wait for unknowns the queue still has to settle (`waited`, stage 6).
+pub fn counts() -> [(&'static str, usize); 16] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -734,6 +1000,8 @@ pub fn counts() -> [(&'static str, usize); 14] {
         ("kept", get(&KEPT)),
         ("kept chose", get(&KEPT_CHOSE)),
         ("lambda postponed", get(&LAMBDA_POSTPONED)),
+        ("retried", get(&RETRIED)),
+        ("waited", get(&WAITED)),
     ]
 }
 
@@ -1094,9 +1362,10 @@ mod tests {
         Span::new(file, 6, 10)
     }
 
-    /// Invariant 2 and D2016: a placeholder unification solved, filled with
-    /// a term not equal to that solution, is the item's mismatch, at the
-    /// item's own span.
+    /// Invariant 2 and D2016's end state (stage 6): unification can't solve
+    /// a placeholder its item hasn't filled, which is frozen. If anything
+    /// else has solved it, a fill with a term not equal to that solution is
+    /// the item's mismatch, at the item's own span (the fill's guard).
     #[test]
     fn a_fill_that_disagrees_with_unification_is_the_items_error() {
         let (e, n, two, _) = numbers();
@@ -1107,7 +1376,8 @@ mod tests {
         let placeholder = push(&cx, probe("a", &log, Term::Def(two)), needs);
         let solved = cx.eval(&placeholder).unwrap();
         let zero = cx.eval(&Term::ctor(n, 0, Vec::new())).unwrap();
-        assert!(cx.unify(&solved, &zero).unwrap());
+        assert!(!cx.unify(&solved, &zero).unwrap(), "frozen until filled");
+        e.globals.solve_meta(meta_of(&placeholder), zero);
         e.globals.solve_meta(blocker, ty(1));
         let disagreed = DISAGREED.load(Ordering::Relaxed);
         let error = e.resume_from(0).expect_err("disagrees");
@@ -1150,9 +1420,10 @@ mod tests {
         (e, n, two, pred)
     }
 
-    /// Invariant 2: a placeholder that unification solved with a value, and
-    /// that its item fills with a term equal to it, zonks to the item's
-    /// term, a call kept folded: `two`, not `S (S Z)` (the
+    /// Invariant 2: a placeholder solved with a value before its item
+    /// fills it (by nothing but a direct solution: unification can't, as it
+    /// is frozen), filled with a term equal to that value, zonks to the
+    /// item's term, a call kept folded: `two`, not `S (S Z)` (the
     /// `Day06.offRouteFree` case of §6.3).
     #[test]
     fn a_filled_placeholder_zonks_to_the_items_term() {
@@ -1161,11 +1432,13 @@ mod tests {
         let log = Log::default();
         let (blocker, needs) = unknown(&cx);
         let placeholder = push(&cx, probe("a", &log, Term::Def(two)), needs);
-        // Unification solved it first, with `S (S Z)`.
+        // Solved first, with `S (S Z)`.
         let unfolded = cx.quote(&cx.eval(&Term::Def(two)).unwrap()).unwrap();
         assert!(!matches!(unfolded.strip_loc(), Term::Def(_)));
         let solved = cx.eval(&placeholder).unwrap();
-        assert!(cx.unify(&solved, &cx.eval(&unfolded).unwrap()).unwrap());
+        let value = cx.eval(&unfolded).unwrap();
+        assert!(!cx.unify(&solved, &value).unwrap(), "frozen until filled");
+        e.globals.solve_meta(meta_of(&placeholder), value);
         e.globals.solve_meta(blocker, ty(1));
         let first = SOLVED_FIRST.load(Ordering::Relaxed);
         assert!(e.resume_from(0).unwrap());
@@ -1203,36 +1476,177 @@ mod tests {
         assert_eq!(format!("{there:?}"), format!("{:?}", succ(Term::Def(two))));
     }
 
-    /// The caveat to D2016's P1: comparing two calls of a definition stuck
-    /// on an unknown compares their arguments, and for a definition that
-    /// isn't injective that guesses. `pred` ignores its second argument, so
-    /// with `x` a variable, `pred x ?p` against `pred x Z` (both stuck on
-    /// `x`) solves `?p` with `Z`, where anything would do. The item's
-    /// `two` would do as well, but disagrees with the guess: the fill
-    /// reports a mismatch at the item, on a program that is right (an
-    /// incompleteness, never unsoundness: the term is checked). Counted.
+    /// The caveat to D2016's P1, gone with stage 6: comparing two calls of a
+    /// definition stuck on an unknown compares their arguments, which for a
+    /// definition that isn't injective guesses. `pred` ignores its second
+    /// argument; with `x` a variable, `pred x ?p` against `pred x Z` (both
+    /// stuck on `x`) used to solve the placeholder `?p` with `Z`, a guess
+    /// the fill then disagreed with. Frozen, the placeholder is never
+    /// guessed: the comparison fails, or, tri-state, waits for it; its item
+    /// then fills it with `two`, with no disagreement.
     #[test]
-    fn a_placeholder_guessed_by_comparing_calls_is_counted() {
+    fn a_frozen_placeholder_is_never_guessed_by_comparing_calls() {
         let (e, n, two, pred) = numbers();
-        let at = at_span();
-        let mut cx = Ctx::new(&e, at);
+        let mut cx = Ctx::new(&e, at_span());
         cx.bind("x", Value::Data(n, Vec::new()));
         let log = Log::default();
         let (blocker, needs) = unknown(&cx);
         let placeholder = push(&cx, probe("a", &log, Term::Def(two)), needs);
+        let p = meta_of(&placeholder);
         let zero = Term::ctor(n, 0, Vec::new());
         let call = |t: Term| {
             let applied = Term::app(Term::app(Term::Def(pred), Term::Var(0)), t);
             cx.eval(&applied).unwrap()
         };
-        assert!(cx.unify(&call(placeholder.clone()), &call(zero)).unwrap());
-        assert!(crate::unify::solved_lossily(cx.g(), meta_of(&placeholder)));
+        let (a, b) = (call(placeholder.clone()), call(zero));
+        assert!(!cx.unify(&a, &b).unwrap());
+        assert!(cx.g().meta_solution(p).is_none());
+        let pending = pending(&cx).unwrap();
+        assert!(pending.contains(&p));
+        let answer = crate::unify::unify_waiting(cx.g(), 1, &a, &b, &pending).unwrap();
+        assert!(matches!(answer, Answer::Blocked(ref pairs) if pairs.len() == 1));
+        assert!(cx.g().meta_solution(p).is_none());
         e.globals.solve_meta(blocker, ty(1));
         let lossy = LOSSY.load(Ordering::Relaxed);
-        let error = e.resume_from(0).expect_err("the guess disagrees");
-        assert_eq!(error.code, "E-TYPE-MISMATCH");
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0));
+        assert_eq!(LOSSY.load(Ordering::Relaxed), lossy);
+    }
+
+    /// Stage 6: an item `a` of type `N` whose term is `term`, waiting on a
+    /// fresh unknown (its blocker, returned), in `cx`; and its placeholder's
+    /// value.
+    fn waiting_item(cx: &Ctx, log: &Log, term: Term) -> (usize, Value) {
+        let (blocker, needs) = unknown(cx);
+        let placeholder = push(cx, probe("a", log, term), needs);
+        (blocker, cx.eval(&placeholder).unwrap())
+    }
+
+    /// Stage 6: a comparison that fails only at an unfilled placeholder
+    /// waits, as a queued comparison, instead of failing; it is woken once
+    /// the placeholder is filled, after its item, and holds.
+    #[test]
+    fn a_comparison_on_a_placeholder_waits_and_holds_once_it_is_filled() {
+        let (e, _, two, _) = numbers();
+        let mut cx = Ctx::new(&e, span());
+        let log = Log::default();
+        let (blocker, placeholder) = waiting_item(&cx, &log, Term::Def(two));
+        let value = cx.eval(&Term::Def(two)).unwrap();
+        let waited = WAITED.load(Ordering::Relaxed);
+        assert!(compare_waiting(&mut cx, &placeholder, &value, Failure::Mismatch).unwrap());
+        assert_eq!(e.queue.len(), 2);
+        assert!(waiting(&e, 1));
+        assert!(WAITED.load(Ordering::Relaxed) > waited);
+        // Nothing solved yet: neither resumes.
+        assert!(!e.resume_from(0).unwrap());
+        e.globals.solve_meta(blocker, ty(1));
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0) && done(&e, 1));
+        assert_eq!(*log.borrow(), ["resumed a"]);
+    }
+
+    /// Stage 6: a side that is a call stuck on the placeholder, `pred ?p Z`
+    /// against `S Z`, computes once the placeholder is filled with `two`:
+    /// the comparison is made again on its sides evaluated afresh, not on
+    /// the stuck values it began waiting with.
+    #[test]
+    fn a_waiting_comparison_computes_its_sides_again() {
+        let (e, n, two, pred) = numbers();
+        let mut cx = Ctx::new(&e, span());
+        let log = Log::default();
+        let (blocker, placeholder) = waiting_item(&cx, &log, Term::Def(two));
+        let ph = cx.quote(&placeholder).unwrap();
+        let zero = Term::ctor(n, 0, Vec::new());
+        let stuck = Term::app(Term::app(Term::Def(pred), ph), zero.clone());
+        let stuck = cx.eval(&stuck).unwrap();
+        let one = cx.eval(&Term::ctor(n, 1, vec![zero])).unwrap();
+        assert!(compare_waiting(&mut cx, &stuck, &one, Failure::Mismatch).unwrap());
+        e.globals.solve_meta(blocker, ty(1));
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0) && done(&e, 1));
+    }
+
+    /// Stage 6: a waiting comparison that the filled placeholder makes
+    /// false fails with its caller's error, at its own span, against the
+    /// types now known (§5.9); `rfl`'s is `E-REFL`.
+    #[test]
+    fn a_waiting_comparison_that_fails_reports_its_callers_error() {
+        let (e, n, two, _) = numbers();
+        let at = at_span();
+        let mut cx = Ctx::new(&e, at);
+        let log = Log::default();
+        let (blocker, placeholder) = waiting_item(&cx, &log, Term::Def(two));
+        let zero = cx.eval(&Term::ctor(n, 0, Vec::new())).unwrap();
+        assert!(compare_waiting(&mut cx, &placeholder, &zero, Failure::Refl).unwrap());
+        e.globals.solve_meta(blocker, ty(1));
+        let error = e.resume_from(0).expect_err("two isn't zero");
+        assert_eq!(error.code, "E-REFL");
         assert_eq!(error.labels[0].span, at);
-        assert!(LOSSY.load(Ordering::Relaxed) > lossy);
+        assert!(done(&e, 0));
+        assert!(matches!(e.queue.state(1), State::Failed));
+    }
+
+    /// Stage 6: a rigid mismatch doesn't wait, and nothing it solved is
+    /// kept; with nothing queued, nothing waits either.
+    #[test]
+    fn a_comparison_that_can_never_hold_does_not_wait() {
+        let (e, n, two, _) = numbers();
+        let mut cx = Ctx::new(&e, span());
+        let zero = cx.eval(&Term::ctor(n, 0, Vec::new())).unwrap();
+        let two = cx.eval(&Term::Def(two)).unwrap();
+        assert!(!compare_waiting(&mut cx, &two, &zero, Failure::Mismatch).unwrap());
+        assert_eq!(e.queue.len(), 0);
+        let log = Log::default();
+        let (_, placeholder) = waiting_item(&cx, &log, anything());
+        let (x, unknown_value) = unknown(&cx);
+        let a = Value::Eq(
+            Rc::new(ty(0)),
+            Rc::new(unknown_value),
+            Rc::new(zero.clone()),
+        );
+        let b = Value::Eq(Rc::new(ty(0)), Rc::new(placeholder), Rc::new(two));
+        assert!(!compare_waiting(&mut cx, &a, &b, Failure::Mismatch).unwrap());
+        assert_eq!(e.queue.len(), 1);
+        assert!(cx.g().meta_solution(x).is_none(), "undone");
+    }
+
+    /// Stage 6 and invariant 5: a waiting comparison made inside an attempt
+    /// that is undone goes with it; one woken there is waiting again after.
+    #[test]
+    fn restoring_takes_back_a_waiting_comparison() {
+        let (e, _, two, _) = numbers();
+        let mut cx = Ctx::new(&e, span());
+        let log = Log::default();
+        let (blocker, placeholder) = waiting_item(&cx, &log, Term::Def(two));
+        let value = cx.eval(&Term::Def(two)).unwrap();
+        let before = Snapshot::take(&cx);
+        assert!(compare_waiting(&mut cx, &placeholder, &value, Failure::Mismatch).unwrap());
+        assert_eq!(e.queue.len(), 2);
+        before.restore(&mut cx);
+        assert_eq!(e.queue.len(), 1);
+        assert!(compare_waiting(&mut cx, &placeholder, &value, Failure::Mismatch).unwrap());
+        let woken = Snapshot::take(&cx);
+        e.globals.solve_meta(blocker, ty(1));
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 1));
+        woken.restore(&mut cx);
+        assert!(waiting(&e, 0) && waiting(&e, 1));
+    }
+
+    /// Stage 6 and §5.9: a comparison still waiting at the end waits on a
+    /// stuck item's placeholder, so the item is the root that is reported,
+    /// and the comparison is a consequence.
+    #[test]
+    fn a_stuck_comparison_is_reported_through_the_item_it_waits_on() {
+        let (e, _, two, _) = numbers();
+        let mut cx = Ctx::new(&e, span());
+        let log = Log::default();
+        let (_, placeholder) = waiting_item(&cx, &log, Term::Def(two));
+        let value = cx.eval(&Term::Def(two)).unwrap();
+        assert!(compare_waiting(&mut cx, &placeholder, &value, Failure::Refl).unwrap());
+        let reported = e.settle_queue().expect_err("stuck");
+        assert_eq!(reported.message, "a");
+        assert!(e.branch_errors.borrow().is_empty());
     }
 
     /// Records and a type-level identity for the K1 and K2 tests: `P` and
