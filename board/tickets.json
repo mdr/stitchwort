@@ -6973,15 +6973,15 @@
     {
       "id": 800,
       "title": "decide: a proof form that checks every case of a statement over finite types (design lane, with SW-807)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "decide note draft 2 lane (D2034): external review worked in",
       "labels": [
         "decision"
       ],
       "body": "Day 12 wrote two 16-case truth tables by hand. Rec: yes, limited to a few Bool variables.\n\n29 Oct (Matt): design lane: compare with other languages, write a design note, then a review artefact. SW-807 (derived list of all values) is in scope as the thing decide ranges over.\n29 Oct (lane): context read (docs, day 12/21 proofs). Finding: today's `cases` already proves day 12's rowEndsSplit (16 cases) and day 21's tabulateSame (25); everyNumericKey via `contains` + List.memContains. Prototypes in docs/proposals/decide/.\n29 Oct (lane): languages read: Lean (decide/native_decide/bv_decide docs and Decide.lean, Native.lean, Mathlib Fintype + DeriveFintype), Rocq (vm/native_compute, casts, MathComp fintype header), Agda (Dec, Fin all?), Idris 2 (So, Dec), Isabelle (codegen §6), F* (SMT fuel, partial), Haskell (Enum/Bounded). Dafny not read. Also: a closed decidable goal is already provable via an auto helper (`byDecision`); 2^16 cases by kernel rfl took ~6 s.\n29 Oct (lane): design drafted and prototypes run; docs/proposals/decide.md on branch worktree-agent-ad5c41ec5a22e812f (41b6957e). Rec: extend `cases` (decision closer + split unstuck finite variable), derive `Finite` (SW-807), never native_decide. D1960-D1962.\n29 Oct (Claude): verified and merged (88e9104b; merge tier 873/873). Checked: all 6 prototypes check --no-cache; rowEndsSplit prototype matches the real theorem; in the real Corners.sw, :=cases fails with the variables after the colon but checks (Day12.Proofs --no-cache) with them as parameters; file restored. Added that caveat to the note; decisions renumbered D1971-D1973 (D1960-62 in use); formatted enumerate.sw. Next: review artefact.",
       "created": "2026-10-28",
-      "updated": "2026-10-29",
+      "updated": "2026-10-30",
       "commits": []
     },
     {
@@ -8603,7 +8603,7 @@
         "tooling",
         "bug"
       ],
-      "body": "Found by the postponement stage 1 lane (30 Oct 2026): the repo's HASH_DUMP hash-dump test fails on main with E-RESOURCE (the dump recurses too deep for its stack). The lane used a scratch copy with a bigger stack to compare std+aoc (10,420 declarations) and std+rogue (5,164) byte for byte. Not yet reproduced by the orchestrator. Fix: give the dump test a bigger stack (as other corpus tests do with a spawned thread), so later stages can use it for identity checks.\n",
+      "body": "Found by the postponement stage 1 lane (30 Oct 2026): the repo's HASH_DUMP hash-dump test fails on main with E-RESOURCE (the dump recurses too deep for its stack). The lane used a scratch copy with a bigger stack to compare std+aoc (10,420 declarations) and std+rogue (5,164) byte for byte. Not yet reproduced by the orchestrator. Fix: give the dump test a bigger stack (as other corpus tests do with a spawned thread), so later stages can use it for identity checks.\n30 Oct, stage-2 lane: reproduced on main (E-RESOURCE in Day22 part1Correct); fixed in 0caa1f93 on worktree-agent-a0aa020bf904664ef (64 MB thread + eager_for_stack, HASH_DUMP_PROJECT for rogue; docs/testing.md \"Hash dumps\"); baselines 10,420 / 5,164 lines.",
       "created": "2026-10-30",
       "updated": "2026-10-30",
       "commits": []
