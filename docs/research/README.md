@@ -13,6 +13,7 @@ file records how it was searched, so it can be refreshed.
 | Infrastructure and trust | [infrastructure.md](infrastructure.md) | 68 / 29 / 29 / 0 | Audited against full texts (18 OK, 5 minor, 1 wrong: C1's numbers were the submission copy's); searching finished (12 more queries); C23 read in the audit; C31–C33 added; D2030; C3 (Eris) read in full from the PDF Matt fetched: T2's overwrite half becomes error enumeration, kernel first (D2031) |
 | Compilation and runtime | [compilation.md](compilation.md) | 52 / 23 / 22 / 1 | Audited against full texts |
 | Agentic theorem proving (SW-909) | [agentic-proving.md](agentic-proving.md) | 69 / 24 / 12 in full + 12 in part / 0 | New 30 Oct; not yet audited; with a friction count from the AoC and rogue notes; D2040–D2041 |
+| Congruence closure in `cases` (SW-904, D2000) | [congruence-closure-evidence.md](congruence-closure-evidence.md) | evidence survey of the repo, not literature | New 30 Oct; recommends defer: about 150 sites, about 0 lines saved each |
 
 **Summary report:** [summary/literature-review.pdf](summary/literature-review.pdf)
 (LaTeX source and bibliography beside it; build with
