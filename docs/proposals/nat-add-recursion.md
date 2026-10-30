@@ -893,3 +893,42 @@ binding is **[inferred]**, not measured apart.
 
 **Not done.** Rules for `*` (D1772). Printing `k + x` as `x + k`, which
 would match how people write it. The unifier rule inverting R4.
+
+**Printing sums (as built, SW-895, D1977).** The "Not done" item above on
+printing `k + x` as `x + k` is done, for display only. The rule: a value
+`Value::NatAdd(k, x)` (`k ≥ 1` `Succ`s around an `x` that isn't a number)
+is printed `x + k`, `x + 1` included; a `Value::Ctor` `Succ` is printed
+`Succ x`; a number is printed as the number. Evaluation decides which a
+term becomes, and it already keeps the two apart: `+` on either side (R2 by
+the natives' shortcut, R4 by `nat_add::stuck`) returns a `NatAdd`, and so
+does `Succ` of a `NatAdd` (`native::ctor`) and a native taking shared
+`Succ`s off one (`x + 5 - 2` is `x + 3`); but `native::ctor` only compacts
+`Succ` of a number or a `NatAdd`, so `Succ x` written in the source, and a
+pattern's `Succ m` that a `match` or `cases` puts in a goal, stay
+constructors. So `x + 1` and `1 + x` print as `x + 1`; `x + 3` and `3 + x`
+as `x + 3`; `Succ (x + 2)` as `x + 3`; `x + (y + 2)` as `x + y + 2`; `Succ
+x` and `Succ (Succ x)` as written. Where it can't follow the source: which
+side the number was on isn't recorded (R2 and R4 give the same value), so
+`3 + x` written prints `x + 3`, and so does `Succ k * 1`, which is `1 + k *
+1` by `*`'s definition (`k * 1 + 1 = Succ k` in the guide); and a sum that
+passes through an elaborated term, which the kernel's readback writes with
+`Succ x` for `k = 1` (a rewritten hypothesis, an inferred type in `:t`),
+comes back as a constructor and prints `Succ x` (`reject/rewrite-at-
+mismatch.sw`: the goal `a + 1 = 5` against the rewritten `Succ b = 5`).
+Larger `k` survive, as `k + x` terms evaluate back to `NatAdd`.
+
+Where: `native::nat_add_shown` (`crates/core/src/native.rs`) builds the
+printed term, used by the readback's `NatAdd` step for the two printing
+modes, `Readback::Shown` (`quote_shown`: messages, goals, hover) and the
+new `Readback::UnfoldedShown` (`quote_unfolded_shown`: `pretty::value`,
+used by the REPL's `:t` and the JavaScript export's type text, and the
+elaborator's "computing … gives" and "they first differ at" notes);
+`quote` and `quote_folded`, which build the terms the kernel checks,
+hashes and caches, still use `native::nat_add_term` and give the same
+terms as before (`nat_add_rule.rs`, `stuck_sums_are_printed_as_written`,
+checks both). The alternative the ticket named, keeping the sum as a
+glued call (`Value::Call`) as written, would have recorded which side
+the number was on, but `Nat.add` is a native and natives never glue
+(`value::glues`): gluing it would change the values every comparison, the
+unifier, `cases`, `omega` and `ring` see (each matches on `NatAdd`), so it
+isn't display only.

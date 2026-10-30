@@ -1220,12 +1220,12 @@ theorem timesOne (n: Nat): n * 1 = n :=
  4 │     | Succ k => ?
    │                 ┬
    │                 ╰── k: Nat
-   │                     ⊢ Succ (k * 1) = Succ k
+   │                     ⊢ k * 1 + 1 = Succ k
 ───╯
 1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
 ```
 
-- **Inside a branch, the goal is the branch's.** Above, `n` is `Succ k`. Goals are shown *computed*, as `rfl`'s messages are: `Succ (k * 1)`, not `Succ k * 1`. A name the branch replaced isn't listed; one that can't be referred to there (shadowed) is shown as `n✝`. Where nothing says what type the `?` has, the goal says "the type here isn't known yet".
+- **Inside a branch, the goal is the branch's.** Above, `n` is `Succ k`. Goals are shown *computed*, as `rfl`'s messages are: `k * 1 + 1`, not `Succ k * 1`. A sum stuck on an unknown is shown with its number last, as sums are written (`x + 3`, `x + 1`), though `+` computes it to `3 + x` or `Succ x`; a `Succ` written as one, in the source or a pattern, is shown as `Succ k` (the rule: [nat-add-recursion.md](proposals/nat-add-recursion.md) §10, "Printing sums"). A name the branch replaced isn't listed; one that can't be referred to there (shadowed) is shown as `n✝`. Where nothing says what type the `?` has, the goal says "the type here isn't known yet".
 - **A declaration with a `?` is unfinished, not wrong.** It isn't checked, so nothing that depends on it can be trusted, but it isn't an error either: later declarations can use it by its type. So you can state a lemma, leave its proof as `?`, and use it in the main theorem first (Lean's `sorry`). What uses an unfinished declaration is unfinished too, silently: only the `?`s themselves are reported.
 - **`check` fails while any goal is open**, after printing them and "N goals open", so a project with holes never passes in CI. `test` runs the tests of what's finished, then fails the same way. `run` runs `main` if `main` is finished (if what it needs has a `?`, it says so and doesn't run). `build` builds nothing while a goal is open. `eval` and the REPL refuse an expression that uses something unfinished. `axioms` refuses an unfinished definition.
 - **`?` is never filled in by the compiler**, unlike `_`. Where `_` stands for a proof the compiler can't work out (`E-UNSOLVED`), the error suggests writing `?` there to see what's needed.
