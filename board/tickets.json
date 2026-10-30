@@ -7205,14 +7205,16 @@
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
       "status": "backlog",
       "agent": "",
-      "where": "",
+      "where": "design note merged 8cd3cdd6; awaiting D2010, D2011",
       "labels": [
         "decision"
       ],
-      "body": "AoC 2024 day 3: instructions.foldLeft { enabled = True, total = 0 } step fails with E-CANNOT-INFER because foldLeft's accumulator type is a parameter and arguments are checked left to right; step, checked later, would fix it as Tally. Lambdas are already postponed this way (check.rs ~1665). Day 21's record literal inside a tuple on the left of |> is a related case. Alternative or complement: inferring the type from field names (D1442, SW-805).\n30 Oct: design lane for D1990 (one postponement queue) started; repros for SW-817/847/885 written under docs/proposals/postponement/.\n30 Oct: sources read (Lean 0f852cc8, Agda df8c3885, Idris2 c35a6bd1, Rocq 3fb9a904, OmniML 2511.10343v2); P1 measured with a scratch counter (dropped): queueable E-CANNOT-INFER sites fire 1,070 times in accepted code (std, examples, aoc, rogue), always caught, so stage 1 will be a second pass for failing declarations only.",
+      "body": "AoC 2024 day 3: instructions.foldLeft { enabled = True, total = 0 } step fails with E-CANNOT-INFER because foldLeft's accumulator type is a parameter and arguments are checked left to right; step, checked later, would fix it as Tally. Lambdas are already postponed this way (check.rs ~1665). Day 21's record literal inside a tuple on the left of |> is a related case. Alternative or complement: inferring the type from field names (D1442, SW-805).\n30 Oct: design lane for D1990 (one postponement queue) started; repros for SW-817/847/885 written under docs/proposals/postponement/.\n30 Oct: sources read (Lean 0f852cc8, Agda df8c3885, Idris2 c35a6bd1, Rocq 3fb9a904, OmniML 2511.10343v2); P1 measured with a scratch counter (dropped): queueable E-CANNOT-INFER sites fire 1,073 times in accepted code (std, examples, aoc, rogue), always caught, so stage 1 will be a second pass for failing declarations only.\n30 Oct: note written, docs/proposals/postponement.md (commit 7b751873 on worktree-agent-a35c1abaca4753b47); decisions D2010 (second pass), D2011 (SW-847 by a queued field access, not let_delayed).",
       "created": "2026-10-28",
       "updated": "2026-10-30",
-      "commits": []
+      "commits": [
+        "8cd3cdd6"
+      ]
     },
     {
       "id": 818,
