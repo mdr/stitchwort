@@ -1682,6 +1682,14 @@ fn audit(
         }
         session.elab.leave_namespace();
     }
+    // The library's files load as programs need them: for its theorems,
+    // every one.
+    if roots.iter().any(|r| is_std_target(r))
+        && let Err(diagnostics) = session.elab.load_all_libraries()
+    {
+        report(&session.sources, &diagnostics);
+        return ExitCode::FAILURE;
+    }
     let options = audit::Options {
         allowed: allowed_or_default(allowed),
         search,
