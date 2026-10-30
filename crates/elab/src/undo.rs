@@ -140,6 +140,9 @@ impl Snapshot {
             cx.e.operator_dictionaries
                 .borrow_mut()
                 .retain(|m, _| *m < self.metas);
+            cx.e.local_dictionaries
+                .borrow_mut()
+                .retain(|_, trail| *trail < self.trail);
             cx.e.local_defaults
                 .borrow_mut()
                 .retain(|h, _| h.before(self.metas));

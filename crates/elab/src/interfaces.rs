@@ -916,7 +916,12 @@ pub(crate) fn attempt(
         0 => {}
         1 => {
             let (_, value) = distinct.pop().expect("one");
-            return solve(cx, &placeholder, &value);
+            let trail = g.meta_trail.borrow().len();
+            let solved = solve(cx, &placeholder, &value)?;
+            if let Term::Meta(m) = ob.meta.spine().0 {
+                cx.e.local_dictionaries.borrow_mut().insert(*m, trail);
+            }
+            return Ok(solved);
         }
         _ => {
             let mut paths: Vec<String> = distinct.iter().map(|(c, _)| c.path.clone()).collect();
@@ -1814,7 +1819,8 @@ impl Elaborator {
                 return None;
             };
             let (noted, field) = *self.operator_dictionaries.borrow().get(m)?;
-            if noted != *method {
+            // One found in scope stays generic, whatever its `let`'s value.
+            if noted != *method || self.local_dictionaries.borrow().contains_key(m) {
                 return None;
             }
             match self.projected(dict, field, depth + under) {
