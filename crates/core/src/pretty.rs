@@ -14,7 +14,7 @@ use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, Globals};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
-use crate::value::{Value, quote, quote_shown, same_term};
+use crate::value::{Value, quote_shown, quote_unfolded_shown, same_term};
 
 /// A declaration a printed name stands for.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -54,7 +54,7 @@ pub fn term_ascii(g: &Globals, names: &[Name], term: &Term) -> String {
 
 /// [`term_ascii`] for a value.
 pub fn value_ascii(g: &Globals, names: &[Name], value: &Value) -> String {
-    match quote(g, names.len(), value) {
+    match quote_unfolded_shown(g, names.len(), value) {
         Ok(t) => term_ascii(g, names, &t),
         Err(_) => "…".into(),
     }
@@ -78,7 +78,7 @@ const PASS: &str = "printer";
 /// Prints `value`, whose free variables are named by `names` (outermost first).
 /// If the value can't be quoted within the resource limits, it's shown as `…`.
 pub fn value(g: &Globals, names: &[Name], value: &Value) -> String {
-    match quote(g, names.len(), value) {
+    match quote_unfolded_shown(g, names.len(), value) {
         Ok(t) => term(g, names, &t),
         Err(_) => "…".into(),
     }
