@@ -176,6 +176,46 @@ enum Command {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// Check that theorems can be trusted, as a proof lane does before it
+    /// reports (SW-912): each fails if it depends on an axiom beyond the
+    /// allowed ones or is unfinished (it, or something it uses, has a `?`),
+    /// and warns if no input the counterexample search made satisfied its
+    /// hypotheses (it may be vacuous). Exits with status 1 if any theorem
+    /// fails, or with --strict if any warns
+    Audit {
+        /// Files, or namespaces or full theorem names of the project (all
+        /// of its theorems if none are named); `Std` or `Std.List` for the
+        /// standard library's. After one file, names of theorems in it
+        targets: Vec<String>,
+        /// Print JSON (one object: `ok`, `allowed_axioms`, `theorems`,
+        /// `summary`) instead of text
+        #[arg(long)]
+        json: bool,
+        /// Fail on warnings too
+        #[arg(long)]
+        strict: bool,
+        /// The axioms allowed, comma-separated (`--allowed-axioms ''` for
+        /// none), instead of the project's `audit: allowed-axioms:` or the
+        /// default, `Quot.sound`
+        #[arg(long, value_name = "LIST")]
+        allowed_axioms: Option<String>,
+        /// Don't search for counterexamples (no vacuity warnings)
+        #[arg(long)]
+        no_search: bool,
+        /// The time each theorem's search may take, as `500ms` or `2s`
+        /// (default 500ms)
+        #[arg(long, value_name = "TIME", value_parser = parse_millis)]
+        counterexample_budget: Option<u64>,
+        /// Print a line for every theorem, not only those with findings
+        #[arg(long)]
+        verbose: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
     /// Developer tools for measuring the implementation (not a stable interface)
     #[command(hide = true, subcommand)]
     Dev(DevCommand),
@@ -432,6 +472,29 @@ fn run(cli: Cli) -> ExitCode {
             project,
             cache,
         } => axioms(&target, &names, project.as_deref(), &cache),
+        Command::Audit {
+            targets,
+            json,
+            strict,
+            allowed_axioms,
+            no_search,
+            counterexample_budget,
+            verbose,
+            project,
+            cache,
+        } => audit(
+            &targets,
+            &AuditArgs {
+                json,
+                strict,
+                allowed_axioms,
+                no_search,
+                counterexample_budget,
+                verbose,
+            },
+            project.as_deref(),
+            &cache,
+        ),
         Command::Dev(DevCommand::OpcodeCensus {
             target,
             functions,
@@ -872,15 +935,22 @@ fn search_counterexamples(
     };
     let searches = session.search_theorems(budget, keep);
     let verdicts: Vec<_> = searches.iter().map(|s| s.verdict()).collect();
-    let shown = |verdict: Verdict| args.verbose || verdict == Verdict::False;
+    // Without --verbose: the counterexamples, and the theorems that checked
+    // though no input made their hypotheses true, which may be vacuous (T2
+    // of docs/research/agentic-proving.md).
+    let shown = |search: &stitchwort_cli::counterexample::TheoremSearch, verdict: Verdict| {
+        args.verbose
+            || verdict == Verdict::False
+            || (verdict == Verdict::NeverHeld && search.checked && !search.refutes)
+    };
     let width = searches
         .iter()
         .zip(&verdicts)
-        .filter(|(_, (v, _))| shown(*v))
+        .filter(|(s, (v, _))| shown(s, *v))
         .map(|(s, _)| s.name.len())
         .max()
         .unwrap_or(0);
-    let mut counts = [0usize; 5];
+    let mut counts = [0usize; 6];
     // Of those with none found, how many on weak evidence (SW-903).
     let mut weak = 0;
     for (search, (verdict, line)) in searches.iter().zip(verdicts) {
@@ -888,12 +958,13 @@ fn search_counterexamples(
         if verdict == Verdict::NoneFound && search.weak_evidence().is_some() {
             weak += 1;
         }
-        if !shown(verdict) {
+        if !shown(search, verdict) {
             continue;
         }
         let mark = match verdict {
             Verdict::False => "✗",
             Verdict::NoneFound => "~",
+            Verdict::NeverHeld if search.checked && !search.refutes => "!",
             _ => "-",
         };
         println!("  {mark} {:width$}  {line}", search.name);
@@ -912,7 +983,14 @@ fn search_counterexamples(
         }
     }
     let total = searches.len();
-    let [false_, none, gave_up, inconclusive, not_applicable] = counts;
+    let [false_, none, never, gave_up, inconclusive, not_applicable] = counts;
+    // Those whose hypotheses never held gave up too: said apart (T2).
+    let gave_up = gave_up + never;
+    let never = if never > 0 {
+        format!(" ({never} with the hypotheses true in no case)")
+    } else {
+        String::new()
+    };
     let weak = if weak > 0 {
         format!(" ({weak} on weak evidence)")
     } else {
@@ -920,7 +998,7 @@ fn search_counterexamples(
     };
     eprintln!(
         "searched {total} theorem{} for counterexamples: {false_} false, {none} with none \
-         found{weak}, {gave_up} gave up, {inconclusive} inconclusive, {not_applicable} not \
+         found{weak}, {gave_up} gave up{never}, {inconclusive} inconclusive, {not_applicable} not \
          applicable",
         if total == 1 { "" } else { "s" }
     );
@@ -1437,6 +1515,315 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
     }
     discard(session);
     ExitCode::SUCCESS
+}
+
+/// `audit`'s options.
+struct AuditArgs {
+    json: bool,
+    strict: bool,
+    allowed_axioms: Option<String>,
+    no_search: bool,
+    counterexample_budget: Option<u64>,
+    verbose: bool,
+}
+
+/// Whether `target` names the standard library or a namespace of it.
+fn is_std_target(target: &str) -> bool {
+    target == "Std" || target.starts_with("Std.")
+}
+
+/// Whether the full name `path` is `root` or under it.
+fn is_under(path: &str, root: &str) -> bool {
+    path == root || path.strip_prefix(root).is_some_and(|r| r.starts_with('.'))
+}
+
+/// `audit` (SW-912, D2040): loads the files or the project's namespaces,
+/// audits the theorems the targets select (`stitchwort_driver::audit`) and
+/// prints the findings, as text or JSON.
+fn audit(
+    targets: &[String],
+    args: &AuditArgs,
+    project: Option<&Path>,
+    cache: &CacheArgs,
+) -> ExitCode {
+    use stitchwort_driver::audit;
+    // The allowlist from the flag, else the project's, else the default.
+    let mut allowed: Option<Vec<String>> = args.allowed_axioms.as_ref().map(|list| {
+        (list.split(','))
+            .map(str::trim)
+            .filter(|a| !a.is_empty())
+            .map(str::to_string)
+            .collect()
+    });
+    if let Some(list) = &allowed
+        && let Some(unknown) = audit::unknown_axioms(list).first()
+    {
+        eprintln!(
+            "error: `{unknown}` isn't an axiom: the axioms are {}",
+            audit::AXIOMS.join(", ")
+        );
+        return ExitCode::from(2);
+    }
+    let search = (!args.no_search).then(|| {
+        use stitchwort_elab::counterexample::{Budget, ON_REQUEST};
+        Budget {
+            millis: args.counterexample_budget.unwrap_or(ON_REQUEST.millis),
+            ..ON_REQUEST
+        }
+    });
+    let files: Vec<&String> = targets.iter().filter(|t| is_file_target(t)).collect();
+    if !files.is_empty() {
+        let names: Vec<String> = (targets.iter())
+            .filter(|t| !is_file_target(t))
+            .cloned()
+            .collect();
+        if files.len() > 1 && !names.is_empty() {
+            eprintln!("error: name theorems after one file: `stitchwort audit FILE NAME...`");
+            return ExitCode::from(2);
+        }
+        if !is_file_target(&targets[0]) {
+            eprintln!("error: give the file first: `stitchwort audit FILE NAME...`");
+            return ExitCode::from(2);
+        }
+        let options = audit::Options {
+            allowed: allowed_or_default(allowed),
+            search,
+        };
+        let mut audits = Vec::new();
+        // Each file gets its own session, as for `check`.
+        for file in files {
+            let mut session = new_session(false);
+            use_cache(&mut session, cache, Path::new("."));
+            if !load_file(&mut session, Path::new(file.as_str()), Some("checked")) {
+                return ExitCode::FAILURE;
+            }
+            session.elab.leave_namespace();
+            match audit_loaded(&mut session, &[], &names, true, &options) {
+                Ok(found) => audits.extend(found),
+                Err(code) => return code,
+            }
+            discard(session);
+        }
+        return print_audit(&audits, &options.allowed, args);
+    }
+    let mut session = new_session(false);
+    // Which theorems: those under the `roots`, and those `named`.
+    let mut roots: Vec<String> = Vec::new();
+    let mut named: Vec<String> = Vec::new();
+    if !targets.is_empty() && targets.iter().all(|t| is_std_target(t)) {
+        // The standard library is loaded with every session.
+        roots = targets.to_vec();
+    } else {
+        let Some(project) = locate_project(project, "audit", "audit hello.sw") else {
+            return ExitCode::FAILURE;
+        };
+        if allowed.is_none() {
+            let config = project.dir.join("stitchwort.yaml");
+            let text = std::fs::read_to_string(&config).unwrap_or_default();
+            let mut sources = SourceMap::new();
+            let id = sources.add("stitchwort.yaml", text.clone());
+            match stitchwort_cli::project::parse_config(id, "stitchwort.yaml", &text) {
+                Ok(config) => allowed = config.allowed_axioms,
+                Err(d) => {
+                    report(&sources, &[d]);
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+        use_cache(&mut session, cache, &project.dir);
+        session.include_from(std::rc::Rc::new(DiskFiles {
+            root: project.dir.clone(),
+        }));
+        let sources = match project_sources(&project.files, &project.name, &mut session.sources) {
+            Ok(sources) => sources,
+            Err(diagnostics) => {
+                report(&session.sources, &diagnostics);
+                return ExitCode::FAILURE;
+            }
+        };
+        let analysis = analyse(&mut session, &project.name, sources);
+        if !analysis.diagnostics.is_empty() {
+            report(&session.sources, &analysis.diagnostics);
+            return ExitCode::FAILURE;
+        }
+        // Each target is a namespace or a prefix of some (their theorems,
+        // and those of the namespaces under them), or a theorem's full name
+        // (its namespace is loaded).
+        let mut namespaces = Vec::new();
+        for target in targets {
+            if is_std_target(target) {
+                roots.push(target.clone());
+            } else if (analysis.namespaces.iter()).any(|n| is_under(&n.name, target)) {
+                namespaces.push(target.clone());
+                roots.push(target.clone());
+            } else if let Some(namespace) = namespace_of(&analysis, target) {
+                namespaces.push(namespace.to_string());
+                named.push(target.clone());
+            } else {
+                let d = run_unknown_namespace(&project.name, target, &analysis);
+                report(&session.sources, &[d]);
+                return ExitCode::FAILURE;
+            }
+        }
+        let load = if targets.is_empty() {
+            Target::Everything
+        } else {
+            Target::Subtrees(namespaces)
+        };
+        match session.load_analysis(&project.name, analysis, &load) {
+            Ok(_) => {
+                let reported = std::mem::take(&mut session.warnings);
+                report(&session.sources, &reported);
+            }
+            Err(diagnostics) => {
+                report(&session.sources, &diagnostics);
+                return ExitCode::FAILURE;
+            }
+        }
+        session.elab.leave_namespace();
+    }
+    // The library's files load as programs need them: for its theorems,
+    // every one.
+    if roots.iter().any(|r| is_std_target(r))
+        && let Err(diagnostics) = session.elab.load_all_libraries()
+    {
+        report(&session.sources, &diagnostics);
+        return ExitCode::FAILURE;
+    }
+    let options = audit::Options {
+        allowed: allowed_or_default(allowed),
+        search,
+    };
+    let audits = match audit_loaded(&mut session, &roots, &named, false, &options) {
+        Ok(audits) => audits,
+        Err(code) => return code,
+    };
+    discard(session);
+    print_audit(&audits, &options.allowed, args)
+}
+
+/// The allowlist given, or the default.
+fn allowed_or_default(allowed: Option<Vec<String>>) -> BTreeSet<String> {
+    use stitchwort_driver::audit::DEFAULT_ALLOWED;
+    allowed
+        .unwrap_or_else(|| DEFAULT_ALLOWED.iter().map(|a| a.to_string()).collect())
+        .into_iter()
+        .collect()
+}
+
+/// Audits the theorems of a loaded session: those under `roots` and those
+/// `named` (each must be found), or with neither, every one outside the
+/// library. In a file, a name is as written in it (`foo`, not `Main.foo`).
+fn audit_loaded(
+    session: &mut Session,
+    roots: &[String],
+    named: &[String],
+    file: bool,
+    options: &stitchwort_driver::audit::Options,
+) -> Result<Vec<stitchwort_driver::audit::TheoremAudit>, ExitCode> {
+    let matches =
+        |path: &str, name: &str| path == name || (file && path.ends_with(&format!(".{name}")));
+    let everything = roots.is_empty() && named.is_empty();
+    let keep = |path: &str| {
+        if everything {
+            return !path.starts_with("Std.");
+        }
+        roots.iter().any(|r| is_under(path, r)) || named.iter().any(|n| matches(path, n))
+    };
+    let selected = stitchwort_driver::audit::theorems(&session.elab.globals, &keep);
+    for name in named {
+        if !selected.iter().any(|(_, p)| matches(p, name)) {
+            eprintln!("error: there's no theorem `{name}`");
+            return Err(ExitCode::FAILURE);
+        }
+    }
+    // In a file, theorems are shown by the names written in it.
+    let selected: Vec<_> = if file {
+        let g = &session.elab.globals;
+        (selected.into_iter())
+            .map(|(id, _)| (id, g.def(id).name.to_string()))
+            .collect()
+    } else {
+        selected
+    };
+    Ok(session.audit(&selected, options))
+}
+
+/// Prints `audit`'s findings, as text or JSON, and gives its exit status.
+fn print_audit(
+    audits: &[stitchwort_driver::audit::TheoremAudit],
+    allowed: &BTreeSet<String>,
+    args: &AuditArgs,
+) -> ExitCode {
+    use stitchwort_driver::audit;
+    let failed = audits
+        .iter()
+        .filter(|a| a.worst() == Some(audit::Severity::Fail))
+        .count();
+    let warned = audits
+        .iter()
+        .filter(|a| a.worst() == Some(audit::Severity::Warn))
+        .count();
+    let ok = failed == 0 && (!args.strict || warned == 0);
+    let total = audits.len();
+    if args.json {
+        let json = serde_json::json!({
+            "version": 1,
+            "ok": ok,
+            "strict": args.strict,
+            "allowed_axioms": allowed,
+            "searched": !args.no_search,
+            "theorems": audits,
+            "summary": {
+                "theorems": total,
+                "failed": failed,
+                "warned": warned,
+                "passed": total - failed - warned,
+            },
+        });
+        println!("{json}");
+        return exit(ok);
+    }
+    for a in audits {
+        let mark = match a.worst() {
+            Some(audit::Severity::Fail) => "✗",
+            Some(audit::Severity::Warn) => "!",
+            None if args.verbose => "✓",
+            None => continue,
+        };
+        println!("{mark} {}", a.name);
+        for finding in &a.findings {
+            let kind = match finding.severity {
+                audit::Severity::Fail => "fail",
+                audit::Severity::Warn => "warn",
+            };
+            println!("    {kind}: {}", finding.message);
+        }
+        if args.verbose {
+            if a.status == audit::Status::Checked {
+                let axioms = if a.axioms.is_empty() {
+                    "none".to_string()
+                } else {
+                    a.axioms.join(", ")
+                };
+                println!("    axioms: {axioms}");
+            }
+            if let Some(search) = &a.search {
+                println!("    search: {}", search.line);
+            }
+        }
+    }
+    let s = if total == 1 { "" } else { "s" };
+    let strict = if args.strict && warned > 0 {
+        " (--strict: warnings fail)"
+    } else {
+        ""
+    };
+    println!(
+        "audited {total} theorem{s}: {failed} failed, {warned} with warnings{strict}, {} passed",
+        total - failed - warned
+    );
+    exit(ok)
 }
 
 /// `fmt`: formats files or folders in place (`-` is standard input and

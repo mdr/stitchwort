@@ -27,6 +27,10 @@ pub struct TheoremSearch {
     pub name: String,
     /// Whether its proof checked.
     pub checked: bool,
+    /// Whether it concludes an empty type, `Void` or a `Not`: it claims its
+    /// hypotheses contradict each other, so their never holding is no
+    /// warning ([`crate::audit::concludes_empty`]).
+    pub refutes: bool,
     pub log: SearchLog,
     /// The note, if a counterexample was found.
     pub note: Option<String>,
@@ -34,13 +38,19 @@ pub struct TheoremSearch {
 
 /// What a search says about a theorem's statement, as
 /// `check --counterexamples` reports it (§9.3).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Verdict {
     /// A counterexample: the statement is false.
     False,
     /// None found in the inputs tried: evidence, not a proof.
     NoneFound,
-    /// Fewer than one input in ten made the hypotheses true.
+    /// No input made the hypotheses true (T2 of
+    /// docs/research/agentic-proving.md): if they contradict each other,
+    /// the theorem is vacuous. Evidence, not a proof: a narrow hypothesis
+    /// (a list of exactly 50 elements) can hold for none of the inputs made.
+    NeverHeld,
+    /// Fewer than one input in ten made the hypotheses true, but some did.
     GaveUp,
     /// Most inputs ran out of steps.
     Inconclusive,
@@ -77,6 +87,26 @@ impl TheoremSearch {
             return (
                 Verdict::Inconclusive,
                 "inconclusive (ran out of steps)".to_string(),
+            );
+        }
+        if held == 0 && self.refutes {
+            return (
+                Verdict::NeverHeld,
+                format!(
+                    "gave up: the hypotheses held in 0 of {} cases (as it claims: it concludes \
+                     that they contradict each other)",
+                    log.tried
+                ),
+            );
+        }
+        if held == 0 {
+            return (
+                Verdict::NeverHeld,
+                format!(
+                    "gave up: the hypotheses held in 0 of {} cases (if they contradict each \
+                     other, the theorem is vacuous)",
+                    log.tried
+                ),
             );
         }
         if held * 10 < log.tried {
@@ -180,15 +210,7 @@ impl Session {
             .collect();
         theorems
             .into_iter()
-            .map(|(id, name, checked)| {
-                let (log, note) = self.elab.search_counterexample(id, budget);
-                TheoremSearch {
-                    name,
-                    checked,
-                    log,
-                    note,
-                }
-            })
+            .map(|(id, name, checked)| self.search_theorem(id, &name, checked, budget))
             .collect()
     }
 }
