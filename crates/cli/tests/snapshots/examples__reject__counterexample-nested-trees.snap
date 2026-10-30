@@ -1,0 +1,32 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `nope`
+    ╭─[ reject/counterexample-nested-trees.sw:13:34 ]
+    │
+ 13 │ theorem rose (q: Rose): q = q := nope
+    │                                  ──┬─  
+    │                                    ╰─── not in scope
+────╯
+[E-UNKNOWN-NAME] Error: unknown name `nope`
+    ╭─[ reject/counterexample-nested-trees.sw:20:82 ]
+    │
+ 20 │ theorem smaller (items: List Packet) (q: Packet) (h: List.Mem q items): q = q := nope
+    │                                                                                  ──┬─  
+    │                                                                                    ╰─── not in scope
+────╯
+[E-UNKNOWN-NAME] Error: unknown name `nope`
+    ╭─[ reject/counterexample-nested-trees.sw:28:40 ]
+    │
+ 28 │ theorem pair (v: Vec Rose 2): v = v := nope
+    │                                        ──┬─  
+    │                                          ╰─── not in scope
+────╯
+[E-UNKNOWN-NAME] Error: unknown name `nope`
+    ╭─[ reject/counterexample-nested-trees.sw:34:34 ]
+    │
+ 34 │ theorem grid (g: Grid): g = g := nope
+    │                                  ──┬─  
+    │                                    ╰─── not in scope
+────╯
