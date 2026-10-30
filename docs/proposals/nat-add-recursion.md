@@ -554,8 +554,8 @@ rules separately and says termination is not checked
 [The Taming of the Rew](https://doi.org/10.1145/3434341) (POPL 2021), treat
 the extension of a type theory's computation with rewrite rules as the
 problem, with conditions for subject reduction and confluence
-**[cited]** (the paper's abstract and §1; the details below that rely on it
-are marked). So the argument has four parts: typing, confluence,
+**[cited]** (read in full for §9.4, which quotes it with page numbers). So
+the argument has four parts: typing, confluence,
 termination, and that the evaluator computes the normal forms of the
 extended relation.
 
@@ -620,6 +620,12 @@ Each claim below depends on some of these; they are stated once here.
   and `reference.rs`, implement R3 and R4 as described in §9.1, and only
   for the library's `Nat.add`. This is trusted, as the natives are; the
   tests in §10 check it on many inputs, not for all.
+- **A1′ (the core's triangle property).** Without R3 and R4, the kernel's
+  parallel reduction has the triangle property (the Taming of the Rew,
+  Definition 4.1), for a `ρ` that contracts every visible β, ι and δ redex.
+  This is stronger than A1's confluence and is what §9.4 needs in its
+  place; it is proved for PCUIC in MetaCoq, not for Stitchwort's core
+  (quotients, `J`, the natives). Assumed, not proved.
 
 ### 9.3 Typing
 
@@ -632,9 +638,16 @@ variable), left-linear (each variable occurs once on the left), on
 constructor patterns, and non-duplicating (each variable occurs at most once
 on the right) **[checked]** against the four rules above. With A1, a step
 by R3 or R4 replaces a term of type `Nat` by one of type `Nat` in the same
-context, so subject reduction is kept **[inferred]**: the rules leave every
-type alone, which is the easy case of the Taming of the Rew's conditions
-**[inferred]**, not checked against the paper's statement.
+context. That is the Taming of the Rew's rule validity (Fig. 5, p. 0:14):
+for every extension `∆` of the context, every `T` and every instance `σ`,
+if the left side under `σ` has type `T` then so does the right side.
+Stitchwort has no cumulativity (docs/core.md, "Universes"), so a left side
+of type `T` has `T` convertible to `Nat`, and the right side has type
+`Nat`, hence `T` **[inferred]**; the same holds for R5 and A1 to A3 of
+§9.4. Subject reduction then follows as in the paper's Lemma 6.6 (p. 0:17),
+which uses validity for a rewrite step and confluence (§9.4, for
+injectivity of `Π`) for β and ι **[inferred]**: Stitchwort's own proof of
+subject reduction for the core is A1's assumption, not a theorem.
 
 **Consistency.** The equations of R3 and R4 hold in the model of A2:
 `m + 0 = m` and `m + (n + 1) = (m + n) + 1` for all natural numbers. They
@@ -644,66 +657,221 @@ definition (`std/core/Arith.sw`) **[checked]**. So adding them to
 conversion identifies only terms that the model of A2 already identifies;
 under A2 the extended theory has the same model, and is consistent
 **[inferred]**. This is the part of the old argument that stands; it is not
-enough alone, which is why §9.4 and §9.5 follow.
+enough alone, which is why §9.4 and §9.5 follow. The Taming of the Rew
+reaches the same conclusion by another route: its Lemma 6.8 (p. 0:18, "This
+lemma has not been formalized") gives consistency when each rewrite block
+has an instantiation, a witness for each symbol and a proof of each rule's
+equation, and it says of this very example that "the consistency of the
+theory directly follow[s] from the fact that each rewrite rule already holds
+propositionally for the standard plus function". Here the instantiation is
+the library's `Nat.add`, with `rfl` for R1 and R2, `Nat.addZero` and
+`Nat.addSucc` for R3 and R4, and their composites for R5 and A1 to A3
+**[inferred]**.
 
 ### 9.4 Confluence
 
-**Where the rules can overlap.** An overlap needs a term that is a redex of
-two rules at once, at the root or with one redex inside the other's left
-side at a non-variable position. The left sides of R1 to R4 are
-`Nat.add p q` with `p`, `q` each a variable, `Zero` or `Succ` of a
-variable. Their non-variable positions are the root and the constructor
-arguments. A constructor applied to a variable is not a redex of any rule
-of `→` (no rule's left side is headed by a constructor; a number is a
-value). So overlaps are at the root only, between rules whose left side is
-headed by `Nat.add`. `Nat.add` is rigid: a constant, never the result of a
-substitution, so β never produces a new `Nat.add` head that wasn't there
-(β can only substitute into the arguments, which the rules match by
-variables, constructors, or not at all), and no other definition's δ or ι
-step has a left side headed by `Nat.add`. The natives' steps are sequences
-of R1/R2 steps and steps of other definitions (§3 "Trust"). So the only
-overlaps of the whole relation that involve R3 or R4 are those among R1 to
-R4 **[inferred]**, the point the review made. R1 against R2, and R3 against
-R4, are on different constructors and don't overlap.
+The argument rests on Cockx, Tabareau and Winterhalter,
+[The Taming of the Rew](https://doi.org/10.1145/3434341) (POPL 2021), read
+in full for this section (the HAL copy, hal-02901011v2; page numbers below
+are that copy's, `0:N`). Its running example is these four rules. Quotes
+are exact; what Stitchwort adds to them is marked.
 
-**The four critical pairs**, each joined:
+**What the paper proves.** Parallel reduction `⇛` contracts any set of
+redexes at once; `→ ⊆ ⇛ ⊆ →*` (§4.1, Eq. 1, p. 0:9). Then:
 
-| term | one rule | the other | joined at |
-|---|---|---|---|
-| `Zero + Zero` | R1: `Zero` | R3: `Zero` | `Zero` |
-| `Zero + Succ n` | R1: `Succ n` | R4: `Succ (Zero + n)` →R1 `Succ n` | `Succ n` |
-| `Succ m + Zero` | R2: `Succ (m + Zero)` →R3 `Succ m` | R3: `Succ m` | `Succ m` |
-| `Succ m + Succ n` | R2: `Succ (m + Succ n)` →R4 `Succ (Succ (m + n))` | R4: `Succ (Succ m + n)` →R2 `Succ (Succ (m + n))` | `Succ (Succ (m + n))` |
+- *Definition 4.1 (Triangle property)* (p. 0:9): "Parallel reduction of a
+  rewriting system satisfies the triangle property when for every term t,
+  we have t ⇛ ρ(t), and for every u such that t ⇛ u, we also have
+  u ⇛ ρ(t)."
+- *Lemma 4.2 (Confluence of Parallel Reduction)* (p. 0:9, formalised in
+  MetaCoq): "When parallel reduction satisfies the triangle property, then
+  the rewrite system is globally confluent." No termination is needed: "we
+  seek a modular and decidable check for confluence, that does not rely on
+  termination" (§4, p. 0:8).
+- *Definition 6.2* (p. 0:15) fixes `ρ≻` for a total order `≻` on the
+  rules: if `u` matches a rule's left side, take "the first rule for which
+  the left-hand side matches (w.r.t. to ≻)", with `ρ≻` applied to the
+  matched subterms; β and ι redexes are contracted the same way; otherwise
+  `ρ≻` goes into every direct subterm.
+- *Definition 6.3 (triangle criterion)* (p. 0:16): (1) for every instance
+  `u = lσ` of a rule `l → r` whose first matching rule is `l' → r'` with
+  `u = l'τ`, "rσ ⇛ r′(ρ≻τ)"; (2) no rule's left side, applied to more
+  arguments, is an instance of another's ("eval (l | S)σ = l′τ implies
+  S = •").
+- *Theorem 6.4 (Confluence)* (p. 0:17, formalised): "If there exists an
+  order ≻ on R such that (R, ≻) satisfies the triangle criterion, then RTT
+  is confluent." Subject reduction (Lemma 6.6, p. 0:17) follows from
+  confluence and the rules' validity.
+- *Theorem 7.3* (pp. 0:19-0:20) reduces the criterion to a finite check:
+  if the set of left sides, ordered by `≻`, is "closed under unification"
+  (Definition 7.2, p. 0:19: "for every pair of patterns p, q ∈ C such that
+  p unifies with q with most general unifier σ , we also have pσ ∈ C, and
+  pσ ≻ p"), all rules for a
+  symbol take the same number of arguments, and "for every rewrite rule
+  ∆ ⋉ p _ r ∈ R and every parallel reduction step R ⊢ p ⇛ u we have
+  R ⊢ u ⇛ r", then the triangle criterion holds. Auxiliary rules added to
+  close the left sides under unification "are always instances of existing
+  rewrite rules and thus need not be considered by the reduction
+  algorithm" (Algorithm 7.4, p. 0:20).
 
-**[checked]**, by hand, and by the test `the_critical_pairs_join` in
-`crates/driver/tests/nat_add_rule.rs`, which evaluates each term and both
-reducts with both evaluators, natives on and off, with `m` and `n`
-variables, `0`, `4` or `3 + x`, and checks that all three are convertible
-and that the two evaluators give the same normal form (64 combinations
-each).
+*Example 4.3* (pp. 0:9-0:10) is R1 to R4: "Consider a rewrite system with
+symbols 0, suc, and +, and rules 0 + n _ n, m + 0 _ m, (suc m) + n _
+suc (m + n), and m + (suc n) _ suc (m + n)." With "the first rule that
+matches", "the triangle property is not satisfied: we have ρ((suc m) +
+(suc n)) = suc (m+(suc n)), but we also have (suc m)+(suc n) ⇛ suc ((suc
+m)+n) ̸⇛ suc (m+(suc n)). To satisfy the triangle property, we extend the
+rewrite system with an additional 'parallel rewrite rule' (suc m) +
+(suc n) _ suc (suc (m + n))." *Example 7.5* (p. 0:20) runs Algorithm 7.4
+on the same rules: it adds the unifiers `0 + 0 → 0`, `0 + suc n → suc n`,
+`suc m + 0 → suc m` and `suc m + suc n`, finds the check fails at the
+last, and with the parallel rule "we have ρ≻((suc m) + (suc n)) = suc
+(suc (m + n)) … thus making the final check succeed." In Stitchwort's
+names:
 
-**Confluence of R1 to R4.** They form a left-linear first-order rewrite
-system whose critical pairs all join, so it is locally confluent (the
-critical pair lemma, Knuth and Bendix; Huet 1980), and, being terminating
-(§9.5), confluent (Newman's lemma) **[inferred]** from these standard
-results (from memory, **[unverified]** as citations).
+```
+R5  Succ m + Succ n → Succ (Succ (m + n))      (the parallel rule)
+A1  Zero + Zero     → Zero                     (unifier of R1, R3)
+A2  Zero + Succ n   → Succ n                   (unifier of R1, R4)
+A3  Succ m + Zero   → Succ m                   (unifier of R2, R3)
+```
 
-**Confluence with the rest of the kernel.** For λ-calculus extended with
-left-linear first-order (algebraic) rules, confluence of the rules alone
-gives confluence of the combination: Müller, "Confluence of the lambda
-calculus with left-linear algebraic rewriting", Information Processing
-Letters 41 (1992) **[unverified]**, from memory. Stitchwort's core has
-more than β (ι, δ, `J`, quotients, the other trusted rules), so that
-theorem doesn't apply as stated. What carries over is its reason, which
-holds here: no step of the rest of `→` overlaps R3 or R4 (above), and none
-of them duplicates or erases a subterm in a way that breaks a left-linear
-pattern, since R3 and R4 match only `Nat` constructors and variables. The
-Taming of the Rew's triangle criterion is the general check for this
-situation (Agda's `--confluence-check` implements it, with this very
-example, §2) **[cited]**; for two fixed rules a generic checker is out of
-proportion, as the review said, and the critical pairs are checked by the
-test instead. So: confluence of the extended relation is argued, with A1
-and the overlap analysis, not proved **[inferred]**.
+ordered R5, A1, A2, A3 before R1 to R4 (more specific first, as
+Algorithm 7.4 asks).
+
+**The check of Theorem 7.3, for R1 to R5 and A1 to A3** **[checked]** by
+hand. Every left side is `Nat.add` of two patterns, so the arity condition
+holds. The left sides are closed under unification: the pairs that
+overlap are R1/R3 (A1), R1/R4 (A2), R2/R3 (A3) and R2/R4 (R5's left
+side); R1/R2 and R3/R4 are on different constructors; each of R5 and A1
+to A3 unifies with a rule only to give itself. A left side `p` has no
+redex below the root (its arguments are variables, `Zero`, or `Succ` of a
+variable), so the `u` with `p ⇛ u` are `p` and the right sides of the
+rules that match `p`:
+
+| left side | `u` with `p ⇛ u` (other than `p` and the rule's own right side) | `u ⇛` right side |
+|---|---|---|
+| R1 to R4 | none: no other rule matches a left side with a variable where the other rule has a constructor | |
+| A1 `Zero + Zero` | `Zero` (R1, R3) | `Zero` |
+| A2 `Zero + Succ n` | `Succ n` (R1); `Succ (Zero + n)` (R4) | `Succ n`, by R1 under `Succ` |
+| A3 `Succ m + Zero` | `Succ (m + Zero)` (R2); `Succ m` (R3) | `Succ m`, by R3 under `Succ` |
+| R5 `Succ m + Succ n` | `Succ (m + Succ n)` (R2); `Succ (Succ m + n)` (R4) | `Succ (Succ (m + n))`, by R4 or R2 under `Succ` |
+
+So R1 to R5 satisfy the triangle criterion, and by Lemma 4.2 their
+reduction is confluent, whether or not it terminates. These are the same
+joins as the old critical-pair table (whose rows were A1, A2, A3 and R5's
+left side), with one difference that matters: each join is one parallel
+step, which is what makes termination unnecessary. The test
+`the_critical_pairs_join` in `crates/driver/tests/nat_add_rule.rs`
+evaluates each overlap and both reducts with both evaluators, natives on
+and off, with `m` and `n` variables, `0`, `4` or `3 + x`, and checks that
+all three are convertible and that the two evaluators agree (64
+combinations each).
+
+**R5 is not a new rule of Stitchwort's.** Its two sides are joined by two
+steps that are already there (R2 then R4, or R4 then R2), so `→` with R5
+and `→` without it have the same `→*`, the same conversion, and confluence
+of one is confluence of the other **[inferred]**: R5 is part of the proof,
+not of the kernel. (The paper says that of A1 to A3 because they are
+instances of rules; R5 is not an instance, but it is derivable, which is
+what confluence needs.) The evaluator reaches
+R5's right side anyway: `Succ m + Succ n` runs `Nat.add`'s case tree (R2),
+then `m + Succ n` is stuck on `m` and `nat_add::stuck` takes R4. **[checked]**
+by `the_parallel_rule_is_reached` (`nat_add_rule.rs`): `Succ m + Succ n`,
+`Succ (m + Succ n)` and `Succ (Succ m + n)` are each convertible with
+`Succ (Succ (m + n))`, with both evaluators, natives on and off, for the
+same 16 instances. Up to representation: with `m` and `n` variables the
+sum's value is `Value::NatAdd(2, m + n)` (the compact "`Succ` twice
+around"), while `Succ (Succ (m + n))` written as constructors stays two
+`Value::Ctor`s (`native::ctor` compacts only a `Succ` of a number or of a
+`NatAdd`, §10.2), so their quoted terms differ (`2 + (m + n)` against
+`Succ (Succ (m + n))`) and conversion identifies them. And by `stitchwort
+check` on `rfl` proofs: `Succ m + Succ n = Succ (Succ (m + n))`, `Succ (m
++ Succ n) = Succ (Succ (m + n))`, `Succ (Succ m + n) = Succ (Succ (m +
+n))` and `Succ (3 + x) + Succ n = Succ (Succ ((3 + x) + n))` check, and
+the control `Succ m + Succ n = Succ (Succ (n + m))` fails with "computing
+the left side gives `m + n + 2`" **[checked]**.
+
+**What transfers to Stitchwort, and what doesn't.** The paper's theorems
+are about RTT, PCUIC with rewrite blocks (§5, p. 0:11; the formalisation
+"features general inductive types and co-inductive types, a cumulative
+hierarchy of predicative universes, an impredicative universe and a let-in
+construct", §6, p. 0:15). Its conditions, against Stitchwort:
+
+- *Left-linear rules on constructor patterns* (Fig. 5, p. 0:14: "Pattern
+  variables are required to occur linearly"; patterns are variables,
+  symbols, `N`, `zero`, `suc p` and pairs, Fig. 2, p. 0:11). R1 to R5 are
+  left-linear and match only `Zero`, `Succ` and variables **[checked]**.
+- *Rule validity: the rules preserve typing* (Fig. 5, p. 0:14). §9.3.
+- *Rules only on a fresh symbol, declared in the same block* (§3, p. 0:7:
+  "Rewrite rules should only rewrite applications of 'fresh' (i.e.,
+  postulated) symbols, not pre-existing symbols like → or Box"; §4.2, p.
+  0:10: blocks must be "two-by-two orthogonal"). `Nat.add` is a definition,
+  not a postulate. What carries over: the kernel never shows a
+  half-unfolded `Nat.add` (§9.1), so its δ and ι steps are exactly R1 and
+  R2, and the relation is the one RTT would have for a symbol `Nat.add`
+  with the block R1 to R4, instantiated by the library's definition. The
+  paper names this as the way rewrite rules are used in Agda: "the user
+  would first define a function using regular means (i.e. pattern
+  matching), then prove certain equalities about the function, and finally
+  register these equalities as rewrite rules. The confluence checker will
+  then take into account both the 'native' rewrite rules implicit in the
+  definition by pattern matching, and the explicitly declared rewrite
+  rules" (§7.3, p. 0:22); Agda's `--confluence-check` checks the triangle
+  criterion (§7.3, p. 0:22, and footnote 6: since Agda 2.6.2). That is the
+  paper's description of an implementation, not a theorem. The reason for
+  the restriction in §3, that rewriting a type former such as `→` or `Box`
+  breaks injectivity of type constructors, doesn't arise: `Nat.add` returns
+  a `Nat` and no rule's right side is a type **[inferred]**.
+- *Orthogonality to the rest of the reduction.* No other step of the
+  kernel overlaps R1 to R5: their left sides are `Nat.add p q` with `p`, `q`
+  each a variable, `Zero` or `Succ` of a variable; a constructor applied to
+  a variable is not a redex of any rule (no rule's left side is headed by a
+  constructor; a number is a value), so overlaps are at the root only;
+  `Nat.add` is rigid, a constant that β never produces as a new head; and no
+  other definition's δ or ι step has a left side headed by `Nat.add`. The
+  natives' steps are sequences of R1/R2 steps and steps of other
+  definitions (§3 "Trust"), reading a number `k` as `Succ` `k` times around
+  `Zero` and a `NatAdd(k, x)` as `Succ` `k` times around `x` **[inferred]**.
+- *The base theory's own triangle property.* Theorem 6.4's proof shows
+  that parallel reduction of the base theory with the blocks has the
+  triangle property; for PCUIC the base part is MetaCoq's (§4.1, p. 0:9:
+  "This has for instance been formally proven for CIC in the MetaCoq
+  project"). Stitchwort's core is not PCUIC: it has quotients, `J`, the
+  natives and the other trusted rules, and no one has shown its parallel
+  reduction has the triangle property. So Stitchwort needs **A1′**: the
+  core's reduction without R3 and R4 has a parallel reduction with the
+  triangle property, for a `ρ` that contracts every visible β, ι and δ
+  redex. This is stronger than A1's confluence, and is assumed, not proved.
+
+So: **R1 to R5 satisfy the triangle criterion [checked]; that their
+reduction is confluent without termination is the paper's Lemma 4.2 and
+Theorem 6.4 [cited, checked against the text]; that the whole kernel's
+reduction with R3 and R4 is confluent is argued from A1′ and the
+orthogonality above, not proved [inferred].** What the paper does not
+cover: rules on a defined symbol (only as Agda practice, §7.3), quotients,
+the natives, and Stitchwort's core itself.
+
+**What this replaces.** The old argument got confluence of R1 to R4 from
+local confluence and Newman's lemma, which needs the termination of §9.5,
+and confluence with the rest of the kernel by analogy to a theorem about
+λ-calculus with algebraic rules; both citations were from memory and are
+dropped. The paper cites van Oostrom's modularity theorem (§4.2, p. 0:10;
+§8, p. 0:25: "combining two left-linear higher-order rewrite systems is
+confluent if the systems are individually confluent and weakly orthogonal
+… this result does not apply directly to our setting because of the
+presence of inductive types"), which is why it proves its own (Theorem 6.7,
+p. 0:17). Termination is still needed, but only in §9.5, for the
+evaluator to be a decision procedure; confluence no longer depends on it.
+
+**A third rule** (for `*`, D1772, or any other) would need, in this order:
+it is left-linear on constructor patterns and variables, on a rigid head
+whose δ and ι steps are its own case tree; its equation is a theorem of
+the library (consistency, §9.3); it preserves typing (§9.3); the
+unifiers of its left side with the head's existing rules, and any parallel
+rule, are added until Theorem 7.3's one-step check passes; no other
+kernel step has a left side headed by its head; the evaluator reaches each
+added rule's right side (a test like `the_parallel_rule_is_reached`); and
+both evaluators agree on it.
 
 ### 9.5 Termination, and the evaluator's normal forms
 
@@ -732,9 +900,16 @@ non-duplicating, type-preserving and terminating on their own, and results
 of that shape exist for simpler systems (Breazu-Tannen and Gallier,
 "Polymorphic rewriting conserves algebraic strong normalization", 1989/1991,
 for System F with algebraic rules **[unverified]**, from memory). The Taming
-of the Rew assumes normalisation for its decidability results rather than
-proving it **[unverified]** (read in the paper's introduction by the
-research subagent of §2, not checked again). No such theorem covers
+of the Rew neither assumes nor proves it for confluence and subject
+reduction ("without relying on weak or strong normalization", §1, p. 0:2).
+For deciding conversion it says weak normalisation is "the most obvious
+requirement" (§6.5, p. 0:18), and without it proves only partial
+correctness: "If algorithmic conversion terminates on inputs u and v, then
+its answer is true if and only if R ⊢ u = v" (Theorem 6.10, p. 0:19, "not
+been formalized"), for a comparison of weak-head normal forms with two
+stated properties; checking termination is future work (§9, p. 0:25)
+**[checked]** against the text. Since §9.4 no longer uses termination,
+this section is only about the evaluator being a decision procedure. No such theorem covers
 Stitchwort's core (inductive families, large elimination, quotients).
 
 **The evaluator computes `→`-normal forms.** Every evaluator step is a
@@ -743,7 +918,9 @@ sequence of `→` steps (§9.1), so what the evaluator identifies is
 redex: a stuck `m + n` has `m` neither a number nor a constructor (else R1
 or R2 would have run) and `n` neither (else R3 or R4 would have), up to
 A3 for folded calls. So, with confluence, two terms are convertible exactly
-when the evaluator gives them the same normal form **[inferred]**: checking
+when the evaluator gives them the same normal form, reading a
+`NatAdd(k, x)` as `k` `Succ`s around `x` (the two representations of §9.4,
+which the evaluators' conversion identifies) **[inferred]**: checking
 only the first argument first is complete, because if it is a constructor
 R1 or R2 applies, and if it is neutral only R3 or R4 can apply at the root,
 which the evaluator then tries. Once both are neutral, `x + y` has no step,

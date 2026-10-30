@@ -41,12 +41,16 @@
 //! proposal's §9): R3 and R4 are typed, left-linear, first-order rules on
 //! constructor patterns, whose equations are derivable from the definition.
 //! Their overlaps with R1 and R2 are the four critical pairs
-//! [`critical_pairs`] lists, which all join; a `Nat.add` head is rigid (it
-//! is a constant, never the result of substitution), so these are the only
-//! overlaps with the rest of the kernel's reduction. Each of R2 and R4
-//! replaces a sum by a sum of proper subterms under a `Succ`, and R1 and R3
-//! remove the sum, so the four rules terminate. The test
-//! `crates/driver/tests/nat_add_rule.rs` checks the critical pairs with both
+//! [`critical_pairs`] lists; with the derivable "parallel rule"
+//! `Succ m + Succ n → Succ (Succ (m + n))` each joins in one parallel step,
+//! the triangle property of the Taming of the Rew (Example 4.3), which
+//! gives confluence without termination (proposal §9.4). A `Nat.add` head is
+//! rigid (it is a constant, never the result of substitution), so these are
+//! the only overlaps with the rest of the kernel's reduction. Each of R2 and
+//! R4 replaces a sum by a sum of proper subterms under a `Succ`, and R1 and
+//! R3 remove the sum, so the four rules terminate (§9.5). The test
+//! `crates/driver/tests/nat_add_rule.rs` checks the critical pairs, and that
+//! the evaluators reach the parallel rule's right side, with both
 //! evaluators, natives on and off.
 //!
 //! **Binding.** The rules are only for the library's own `Nat.add`, by

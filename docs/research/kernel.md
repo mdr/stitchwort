@@ -698,7 +698,8 @@ nat-add-recursion.md §9.4 argues confluence by the critical pair lemma and Newm
 1. The triangle route replaces the Newman step. R1-R4 plus the parallel rule satisfy the
    triangle property (C9 Example 4.3). For `Succ m + Succ n` Stitchwort's evaluator reaches
    `Succ (Succ (m + n))` (R2 from the case tree, then R4 on the inner sum), which is the
-   parallel rule's right side **[inferred, not run]**. So the evaluator never needs the
+   parallel rule's right side (**[checked]** 30 Oct by T4, up to conversion: the value is
+   the compact `NatAdd(2, m + n)`; test `the_parallel_rule_is_reached`). So the evaluator never needs the
    parallel rule as code, and the argument no longer depends on termination of anything.
 2. The consistency argument is already Stitchwort's: the equations are theorems (C9 Lemma
    6.8's instantiation condition).
