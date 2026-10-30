@@ -13,6 +13,12 @@ file records how it was searched, so it can be refreshed.
 | Infrastructure and trust | [infrastructure.md](infrastructure.md) | 68 / 29 / 28 / 1 | Audited against full texts (18 OK, 5 minor, 1 wrong: C1's numbers were the submission copy's); searching finished (12 more queries); C23 read in the audit; C31–C33 added; D2030; C3 (Eris) left for Matt, open access in a browser |
 | Compilation and runtime | [compilation.md](compilation.md) | 52 / 23 / 22 / 1 | Audited against full texts |
 
+**Summary report:** [summary/literature-review.pdf](summary/literature-review.pdf)
+(LaTeX source and bibliography beside it; build with
+`nix shell nixpkgs#texliveFull -c latexmk -pdf literature-review.tex` in that folder). It
+summarises the seven registers, lists what was already acted on, gives one prioritised list
+of recommendations and the open decisions, and cites only sources read in full.
+
 A card marked NOT READ supports no ranking or recommendation. On 29 Oct
 several of these files were written from abstracts; the lessons are in
 board ticket SW-897.

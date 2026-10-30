@@ -1,0 +1,1261 @@
+\documentclass[11pt,a4paper]{article}
+
+% ------------------------------------------------------------------ setup
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{newpxtext,newpxmath}
+\usepackage[scaled=0.9]{inconsolata}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage[english]{babel}
+\usepackage{microtype}
+% No "--" ligature in code (run --js).
+\DisableLigatures[-]{family = tt*}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage[table]{xcolor}
+\usepackage{xurl}
+\usepackage[style=numeric-comp,sorting=nyt,maxbibnames=8,minbibnames=6,backend=biber,isbn=false,giveninits=false]{biblatex}
+\usepackage{csquotes}
+\usepackage[normalem]{ulem}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+
+\addbibresource{literature-review.bib}
+% The addendum names the register card each source rests on; print it small.
+
+\DeclareFieldFormat{addendum}{\footnotesize #1}
+
+\definecolor{swblue}{HTML}{1F4E79}
+\definecolor{swgreen}{HTML}{2E6B30}
+\definecolor{swred}{HTML}{8B1A1A}
+\definecolor{swgrey}{HTML}{555555}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=swblue,
+  citecolor=swgreen,
+  urlcolor=swred,
+  pdftitle={Ideas to Steal: A Literature Review for Stitchwort},
+  pdfauthor={Stitchwort project, SW-894},
+  pdfsubject={Summary of the SW-894 research registers},
+}
+
+\titleformat{\section}{\Large\bfseries\color{swblue}}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\large\bfseries\color{swblue}}{\thesubsection}{0.7em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.6em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{swgrey}Stitchwort literature review (SW-894)}
+\fancyhead[R]{\small\color{swgrey}30 October 2026}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\setlist{itemsep=2pt,topsep=3pt,parsep=0pt}
+\setlength{\parskip}{3pt}
+\setlength{\emergencystretch}{2em}
+
+% Code and paths. \path breaks at punctuation and needs no escaping.
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\file}[1]{\path{#1}}
+\newcommand{\tkt}[1]{SW-#1}
+\newcommand{\dec}[1]{D#1}
+% Claim labels, used sparingly, as in the registers.
+\newcommand{\inferred}{\textsc{[inferred]}}
+\newcommand{\unverified}{\textsc{[unverified]}}
+\newcommand{\run}{\textsc{[run]}}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\renewcommand{\arraystretch}{1.15}
+
+\title{\color{swblue}\textbf{Ideas to Steal}\\[4pt]
+  \large A literature review for Stitchwort, summarising the seven SW-894 research registers}
+\author{Stitchwort project, board ticket SW-894}
+\date{30 October 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{abstract}
+\noindent
+Stitchwort is a small, total, dependently typed functional language written in Rust, with
+algebraic effects and a small trusted kernel. Between 29 and 30 October 2026 it was the subject
+of a literature review in seven clusters: effects and handlers, elaboration, proof automation,
+the kernel and type theory, inductive types and recursion, infrastructure and trust, and
+compilation and runtime. The window was 2022 onwards. Across the seven registers 449 sources were
+screened and 160 carded; 153 of the cards rest on a full text read for the review and 7 were not
+read. A first attempt on 29 October wrote several registers from abstracts. Every register was
+then redone or audited against full texts on 30 October, and this summary cites only sources
+read in full.
+
+The review has already changed Stitchwort. Porting a 2026 kernel-bug shape from Lean4Lean
+found a real soundness bug, an unchecked universe-level overflow, which was fixed (SW-902).
+Fourteen further must-reject programs, shaped like 2026 bugs in other provers, are all rejected.
+The confluence argument for the extra \code{Nat.add} rules now rests on the Taming of the Rew.
+Two kernel hazards are recorded as decisions against future work (SW-93, SW-55). The rest of the
+findings point the same way. The literature broadly confirms Stitchwort's architecture: an
+untrusted elaborator, certificates checked by the kernel, features fixed when a declaration is
+admitted. What it adds is mostly sharper tests and oracles, a handful of kernel restrictions,
+proof automation that stays inside the elaborator, and one elaborator redesign (a single
+postponement queue). Section~\ref{sec:recs} gives a prioritised list and
+Section~\ref{sec:decisions} the decisions still open.
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+% =====================================================================
+\section{Stitchwort in brief}\label{sec:brief}
+
+This section is for a reader without access to the repository. Everything here is from the
+project's own documents (\file{README.md}, \file{DESIGN.md}, \file{docs/core.md}) as they stand on
+\code{main} on 30 October 2026, and from the registers' descriptions of the code.
+
+\paragraph{The language.} Stitchwort is a strict, pure, dependently typed functional language,
+implemented in Rust (the \file{crates/} directory: \code{syntax}, \code{elab}, \code{core},
+\code{rt}, \code{js}, \code{native}, \code{driver}, \code{cli} and others). It combines four
+ideas that usually live in separate languages: functions terminate by default, and anything
+that might not says so in its type; dependent types let programs carry proofs about themselves;
+effects are tracked in types and implemented by handlers, in direct style; and definitions are
+identified by a hash of their contents, so tests and proofs whose dependencies haven't changed
+are never re-run. \code{Prop} is impredicative and erased at run time; universes are numbered
+and not cumulative; the kernel has axiom K. The one axiom is \code{Quot.sound}, and
+\code{stitchwort axioms} reports whether a definition depends on it.
+
+\paragraph{Abilities.} Effects are called \emph{abilities}, after Unison. A computation with
+abilities is translated into data, \code{Effect.Comp}, with constructors \code{Done} and
+\code{Call}; a handler is a fold over it (\code{Effect.foldComp}), and sequencing is
+\code{Effect.bind} (\file{crates/elab/src/std/core/Effect.sw:12-28}). Handlers are deep and
+resumptions may be used any number of times (decision D1162). Because handlers are ordinary
+folds, the kernel's own positivity and termination checks prove that handled programs
+terminate; what remains trusted is that the translation is faithful to the source semantics.
+
+\paragraph{The kernel.} A small trusted kernel (\file{crates/core}) re-checks every declaration
+the elaborator produces. It has case trees with size-change termination rather than
+recursors, an untyped conversion checker with eta for functions, two extra conversion rules for
+\code{Nat.add} (R3/R4, pinned by content hash), and a short list of natives (fast
+implementations of standard definitions). The elaborator's unifier is untyped and may be
+incomplete; that is safe because the kernel re-checks the result.
+
+\paragraph{The elaborator.} The elaborator (\file{crates/elab}) does pattern unification with
+pruning, keeps glued calls (definitions compared by arguments before unfolding), infers
+implicit arguments, solves instance obligations in a per-declaration loop without
+backtracking, and has records with literals, projections and a field-name rule for literals
+whose type is unknown. It postpones lambda and method-section arguments within one application,
+and since SW-896 puts aside unification pairs stuck on an unknown.
+
+\paragraph{Proof tools.} Proofs are terms, written with \code{match}, \code{J}, \code{rewrite},
+and a few automation words: \code{rfl}; \code{cases} (case splits with closers: computation,
+constructor clash, injectivity, a hypothesis, \code{omega}); \code{omega} and \code{ring}, which
+search outside the kernel and produce a certificate the kernel checks; \code{auto}, which uses
+\code{Decidable} instances and hypotheses in scope; and \code{decreasing} for recursion on a
+measure, with \code{Nat} fuel rather than \code{Acc}. A counterexample search runs on a failing
+theorem, filters random inputs by its hypotheses, and is advisory only. A \code{?} hole leaves a
+goal and checking continues.
+
+\paragraph{Compilation.} Programs run on a fast runtime (\file{crates/rt}): an erased IR,
+register bytecode with moves on last use and Perceus/Lean-style reuse tokens, small numbers
+inline with a bignum fallback, tail recursion modulo context by destination passing, and state
+handlers run as loops.
+Native code is generated with Cranelift (\file{crates/native}) and keeps the machine's reference
+counting decisions. A JavaScript backend serves \code{run --js} and the extraction of proven code
+as an ES module with TypeScript types. A reference evaluator (\code{run --reference}) runs
+programs on the type checker's own evaluator. A browser playground runs the machine as
+WebAssembly.
+
+\paragraph{The corpus.} A standard library (\code{std}); examples, including must-reject
+examples in \file{examples/soundness/} (107 of them after 30 October); Advent of Code 2024 and
+2025 with proofs (\file{aoc/}); and a roguelike, \file{games/rogue}, with its own proof notes.
+Tests run in tiers (lane, merge, daily, full), with fuzzers for the parser, formatter,
+elaborator and kernel, and differential tests across the four ways of running a program.
+
+% =====================================================================
+\section{Method}\label{sec:method}
+
+\subsection{The seven clusters}
+
+The plan, in SW-894, divided the field into seven clusters, each with board hooks:
+\begin{enumerate}[label=\arabic*.]
+  \item \textbf{Kernel and type theory}: rewrite rules, definitional proof irrelevance, record eta,
+        observational type theory, quotients, universe polymorphism.
+  \item \textbf{Inductive types and recursion}: nested and inductive-inductive types, size-change
+        termination, well-founded recursion.
+  \item \textbf{Elaboration}: unification, postponement, implicit arguments, glued evaluation,
+        error messages.
+  \item \textbf{Proof automation}: rewriting, decision procedures, e-graphs, counterexample search.
+  \item \textbf{Effects and handlers}: rows, evidence and capability passing, handler
+        termination, effects with dependent types.
+  \item \textbf{Compilation and runtime}: erasure, reference counting and reuse, interpreters,
+        JS and WebAssembly.
+  \item \textbf{Infrastructure and trust}: content-addressed code, incremental compilation,
+        testing and fuzzing of checkers, agent-driven development.
+\end{enumerate}
+Each cluster has one register in \file{docs/research/}, with the same parts: method and queries,
+screened list, cards (about five lines per kept source), deep reads of the top three to five,
+ranked ``steal next'', proposed tickets, and at most a few decisions for Matt.
+
+\subsection{Window}
+
+Matt set the window at 2022 onwards (D1831), with snowballing inside it. Older work appears only
+where in-window work or Stitchwort's own code relies on it, and is marked \emph{classic} in the
+registers and in this summary (for example the Taming of the Rew, 2021, and Counting Immutable
+Beans, 2019).
+
+\subsection{The reading protocol}
+
+After the failure described next, every register follows one protocol:
+\begin{itemize}
+  \item \textbf{Full text or nothing.} PDFs were read with \code{pdftotext} from
+        \code{nix shell nixpkgs\#poppler-utils}; source files, manual pages and issues were read
+        whole. For a long theory paper, ``read'' means the prose, definitions, examples,
+        evaluation and conclusions, with proofs skimmed; each card names the sections read.
+  \item \textbf{Counts first.} Every register opens with screened, carded, read in full and not
+        read.
+  \item \textbf{NOT READ supports nothing.} Every card says ``Full text: read (source)'' or
+        ``NOT READ''. A card not read cannot be deep-read, ranked or used for a recommendation.
+  \item \textbf{The paywall rule.} Sources were tried in order (arXiv, authors' pages, DBLP,
+        Semantic Scholar, Dagstuhl, HAL, ACM, the Internet Archive). A full text that couldn't be
+        reached goes in a ``for Matt to fetch'' table only if it would change something; the
+        rest are listed as not reached.
+  \item \textbf{No personal data} was sent to any service.
+\end{itemize}
+
+\subsection{The 29 October failure and the 30 October redo}
+
+The first attempt, on 29 October, went badly; SW-897 records how. No PDF tool was installed and
+the web-fetch tool could not read PDFs, and nobody checked before the lanes started, so the
+elaboration, proof-automation and kernel registers were written largely from abstracts. Each
+lane listed its unread sources at the end of its report, and the orchestrator relayed the
+findings and dropped the caveat. Up to four research lanes ran at once and exhausted the
+session's shared web-search pool, and one lane's claim that the budget had run out was relayed
+without checking. The orchestrator once sent Matt's email address to an open-access API. The
+kernel redo's readers later found that the first kernel register misstated four papers.
+
+Matt paused the work (SW-897) and restarted it on 30 October one lane at a time (D1974), with the
+protocol above, a tested \code{pdftotext} toolchain, reserved decision numbers and a planned
+search budget. The elaboration, proof-automation and kernel registers were redone from full
+texts; the effects, inductives, infrastructure and compilation registers were audited card by
+card against full texts. Each redo also lists the 29 October claims it found wrong: five in
+effects, six each in elaboration, proof automation and kernel. The audits found one wrong card
+each in effects (a steal), infrastructure (numbers taken from an anonymous submission copy) and
+compilation (a thesis example attributed to Lean's library), and none in inductives, though one
+of its assumptions about Stitchwort was wrong.
+
+\subsection{Counts}
+
+Table~\ref{tab:counts} gives each register's counts as its first line states them. Some sources
+are carded in two registers (for example Lean's functional induction, the Hazel error-recovery
+paper and the PLDI 2022 inductive-relations paper), so the totals count cards, not distinct
+works.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Counts per cluster, from each register's first line (30 October 2026).}
+\label{tab:counts}
+\begin{tabular}{@{}L{3.2cm}rrrrL{5.6cm}@{}}
+\toprule
+Cluster & Screened & Carded & Read & Not read & How checked \\
+\midrule
+Effects and handlers & 75 & 11 & 11 & 0 & Audited: 6 OK, 4 minor, 1 wrong (fixed). The 11 read are 10 papers and Lean's manual (C3). \\
+Elaboration & 64 & 20 & 20 & 0 & Redone from full texts; 6 old claims wrong. \\
+Proof automation & 72 & 29 & 25 & 4 & Redone from full texts; 6 old claims wrong. \\
+Kernel and type theory & 62 & 27 & 26 & 1 & Redone from full texts; 6 old claims wrong. \\
+Inductive types and recursion & 56 & 21 & 21 & 0 & Audited (19 cards): 11 OK, 8 minor, 0 wrong; 2 cards first NOT READ were read. \\
+Infrastructure and trust & 68 & 29 & 28 & 1 & Audited (24 cards): 18 OK, 5 minor, 1 wrong; searching finished. \\
+Compilation and runtime & 52 & 23 & 22 & 1 & Audited (21 cards): 12 OK, 8 minor, 1 wrong; C12 read at the audit. \\
+\midrule
+\textbf{Total} & \textbf{449} & \textbf{160} & \textbf{153} & \textbf{7} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Web searches were few in the redo: five each for elaboration and kernel, six for proof
+automation, one for the effects audit, none for the inductives audit and twelve for the
+infrastructure audit, which finished the searching its 29 October version had been cut short of.
+
+% =====================================================================
+\section{What has already been acted on}\label{sec:acted}
+
+Table~\ref{tab:acted} lists what the review has already changed, with the commits and tickets
+that did it. Each item was checked in \code{git log} and on the board on 30 October.
+
+\begin{longtable}{@{}L{4.4cm}L{7.0cm}L{3.8cm}@{}}
+\caption{Already acted on.}\label{tab:acted}\\
+\toprule
+Item & What was done & References \\
+\midrule
+\endfirsthead
+\toprule
+Item & What was done & References \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Universe-level overflow (soundness bug) &
+Found by the lane porting 2026 kernel-bug shapes (kernel register T1), on Lean4Lean's
+\code{looseBVarRange} overflow shape \cite{carneiro2026lean4lean}. \code{def wrap: Type 0 := Type
+4294967295} was accepted: levels were \code{u32} and the step to the next universe wrapped. Fixed:
+\code{MAX\_LEVEL} is 65535 and \code{Sort::succ} returns no successor for it
+(\file{crates/core/src/term.rs:33}, \file{:40}); parser, elaborator and cache limits; five
+\file{universe-*.sw} examples and \file{crates/core/tests/universe_levels.rs}. &
+SW-902 (D1984); e1d444d7, da80af16, d8d36404, d3c2dee4; merged 65f6a236. \\
+\addlinespace
+14 must-reject tests for 2026 kernel-bug shapes &
+Programs for Rocq CVE-2026-72703 and 72705, Arena \code{k-rec-conv},
+\code{eta-unit-like-proof-field} and \code{forged-quot-ind}, and Lean's order-dependent cache
+(lean4\#14806); all rejected (\code{E-TERMINATION}, \code{E-REFL}, \code{E-DUPLICATE}), about 0.13\,s
+of CPU each. A kernel-level test builds the same terms by hand
+(\file{crates/core/tests/kernel_bugs_2026.rs}, 6/6). &
+Kernel register T1 (D1983); 3208ab72, 1ae69c78; merged f38544f6. \\
+\addlinespace
+\code{+} confluence on the Taming of the Rew &
+\file{docs/proposals/nat-add-recursion.md} \S9.4 now argues confluence of R1--R4 by the triangle
+property \cite{cockx2021taming} instead of Newman's lemma; a new assumption A1$'$ (the core's own
+triangle property); test \code{the\_parallel\_rule\_is\_reached}
+(\file{crates/driver/tests/nat_add_rule.rs:160}) checks that the evaluator reaches the parallel
+rule's right side. &
+Kernel register T4 (D1983); c1084edd; merged f9521afe. \\
+\addlinespace
+Recursive propositions (SW-93 warning) &
+D1980 (Matt): refuse eliminating a self-referential proposition into data, as part of SW-93,
+after measuring that nothing in the corpus does it. The warning is in SW-93's body. &
+D1980; ba9ba8a7. \\
+\addlinespace
+Record eta reminders &
+D1981 (Matt): once proofs are irrelevant, record eta only for records with a field that isn't a
+proof. Reminders placed on SW-93, SW-55, SW-789 and SW-568. &
+D1981; ba9ba8a7. \\
+\addlinespace
+Counterexample search misses &
+SW-903 records that \code{check --counterexamples} misses a false theorem silently when its
+hypothesis holds only for small inputs; re-run by the orchestrator on \code{main}. &
+SW-903 (backlog); 9094029f. \\
+\addlinespace
+Congruence closure in \code{cases} &
+SW-904 records the idea. D2000 (Matt): not prioritised yet; first survey existing proofs for
+steps it would remove. &
+SW-904 (backlog), D2000; 2a66a5f9. \\
+\addlinespace
+One postponement queue &
+D1990: a design note, \file{docs/proposals/postponement.md}, comparing Lean 4, Agda, Idris~2, Rocq
+and OmniML. D2012 (Matt): design for the best end state, so draft 2 makes one queue in the
+single elaboration pass, with prototype measurements and a brief for an external reviewer. The
+review has been received; draft 3 (D2015) is revising the note. &
+SW-817 (doing); 7b751873 / 8cd3cdd6; c35e458b / bb9e432a; 3d0036f8. \\
+\addlinespace
+SW-805, field-name rule &
+D1991: keep the rule as a name-resolution rule; it was merged as a last resort, used only where
+nothing else gives the literal's type. &
+SW-805 (done); 8f52025b; merged afea8395. \\
+\addlinespace
+\file{decide.md} (D1971--D1973) &
+Design note for SW-800 and SW-807: extend \code{cases} with a decision closer and a split of a
+finite variable, derive a \code{Finite} interface, never \code{native\_decide}. Merged; the
+proof-automation register finds that D1971 stands, and the inductives audit withdrew its D1912
+in favour of D1972. The decisions await a review artefact. &
+88e9104b, 0ddc8e2c; SW-800 (next). \\
+\addlinespace
+Handler termination in \file{DESIGN.md} &
+Effects register T1 (D1852): DESIGN.md described handler termination as a tracked conjecture;
+it now says the kernel checks it and names the two trusted items. &
+SW-899; 4e33920c. \\
+\end{longtable}
+
+% =====================================================================
+\section{Effects and handlers}\label{sec:effects}
+
+\textbf{Register:} \file{docs/research/effects.md}. 75 screened, 11 carded, all read; audited.
+
+\subsection{Key findings}
+\begin{itemize}
+  \item \textbf{Monad laws by conversion have a price.} Yang and Wu get the monad laws
+    judgementally for handlers carried by lawless raw monads, by giving up the law that
+    handling commutes with \code{let}, since with lawless monads it ``would result in
+    inconsistency'' (Remark 2.11) \cite{yang2026judgemental}. Their calculus is System F$\omega$
+    with effects, not dependently typed, and its \S6 leaves open whether a dependently typed
+    language can have all the laws judgementally. Their model is a CPS encoding in which the
+    laws hold by $\beta$.
+  \item \textbf{Hoare triples that yield equations.} Kidney, Yang and Wu's H-elim turns a
+    triple into a program equation that can be substituted in any context
+    \cite{kidney2024hoare}. Its hard part comes from quotients; on Stitchwort's unquotiented
+    \code{Comp} it is an easy induction, but it still needs \code{Quot.funext} at \code{Call}
+    and, the audit found, it helps neither rogue's ``gap 2'' nor SW-548.
+  \item \textbf{Specifications as predicate transformers.} Lean's \code{Std.Do},
+    \code{mvcgen} and \code{vcgen} give each program a weakest-precondition reading and reduce
+    triples to verification conditions with no weakest preconditions left
+    \cite{lean2026mvcgen}. \code{vcgen} accepts any program type with a \code{WP} instance,
+    including syntax trees.
+  \item \textbf{Declared fast paths.} Lexa declares handlers tail-resumptive or abortive and
+    runs them in place, ``reducing running-time complexity from quadratic to linear in some
+    cases'' \cite{ma2024lexa}; it treats multi-shot resumptions as a non-goal. A per-effect
+    strategy chosen by invocation rate gives exceptional effects zero overhead
+    \cite{ma2025zero}.
+  \item \textbf{TRMC through effectful callbacks.} Koka keeps an effectful \code{map} in
+    constant stack either by copying a shared context or by running a second version whenever a
+    multi-shot handler is in scope \cite{leijen2023trmc}.
+  \item \textbf{Termination.} Hamana proves a handler strongly normalising by the argument
+    the kernel uses, that \code{M[x]} is smaller than \code{get(x.M[x])} \cite{hamana2022modular}.
+  \item Smaller points: messages should never show a hidden effect variable
+    \cite{tang2025modal}; Koka closes rows at \code{let}, a related but different rule from
+    Stitchwort's D1124 \cite{ikemori2022closed}; interaction-tree specifications are a
+    further-off fit, for coinductive programs \cite{silver2023itree}; Lean's \code{do}
+    translation targets transformers, later replaced by CPS versions for speed
+    \cite{ullrich2022do}.
+\end{itemize}
+
+\subsection{What Stitchwort could take}
+The register's ranking, by value against effort (it was not re-ranked at the audit):
+\begin{enumerate}
+  \item \sout{Retire the handler-termination conjecture text} \emph{(done, SW-899)}.
+  \item \code{Effect.bindCongAlways}, now narrowed to a small std lemma for rewriting a
+        continuation under a fact the computation guarantees.
+  \item A handler fast-path assertion or report (T5): \file{crates/rt/src/fusion.rs}'s
+        recognisers return \code{Option} with no reason (\file{fusion.rs:242}, \file{:269},
+        \file{:482}), so SW-861's slowdown (9.4\,s against 2.2\,s) passed silently. Re-measure
+        SW-861 first: a later commit may already fuse its natural form \inferred.
+  \item Handler specifications as predicate transformers (T4, D1851).
+  \item The monad laws of \code{Effect.bind} and \code{Effect.foldComp} as trusted conversion
+        rules (T3, D1850): a kernel change, design note only. Unlike R3/R4 these rules are
+        higher-order and need funext, so the \code{Nat.add} confluence argument does not carry
+        over; the note must weigh them against a CPS representation, which would lose induction
+        on computations.
+  \item Messages never show a bare row unknown.
+  \item Guarded TRMC for an effectful \code{map} (SW-868 option (b$'$)).
+  \item A per-ability runtime strategy (research).
+  \item Modal effects instead of \code{\{e\}} on higher-order functions (research; conflicts
+        with ``a plain arrow means pure and total'').
+\end{enumerate}
+
+\subsection{Acted on, and open}
+SW-899 rewrote DESIGN.md's handler-termination text (D1852, closed). Open: D1850 and D1851
+(Section~\ref{sec:decisions}).
+
+% =====================================================================
+\section{Elaboration}\label{sec:elab}
+
+\textbf{Register:} \file{docs/research/elaboration.md}. 64 screened, 20 carded, all read; redone.
+
+\subsection{Key findings}
+\begin{itemize}
+  \item \textbf{One postponement queue.} Lean postpones any elaborator that needs an unknown
+    expected type (record instances, dot notation on an unknown type) and resumes them in a
+    fixed ladder: resume while progress is made, then without postponing, then default
+    instances, then report; it also has a body-first \code{let} \cite{lean2026elabsrc}. OmniML
+    specifies the idea: a construct waits on the shape of one type, each unknown keeps a wait
+    list, and a wait never discharged is an error \cite{obrien2025omniml}. ExEl runs every
+    solver over one constraint store after each declaration \cite{liesnikov2023exel}.
+    Stitchwort postponed only lambda and method-section arguments within one application
+    (\file{crates/elab/src/check.rs:1903}, \code{apply\_args\_postponing}), so record literals
+    (SW-817, SW-885) and let-bound lambdas (SW-847) failed at once.
+  \item \textbf{Stitchwort's unifier is lossy for stuck calls.} Two forced calls of one
+    definition with the same head have their spines unified as ordinary pairs, which may solve
+    unknowns (\file{crates/elab/src/unify.rs:929-944}). That is the approximate rule: Coq and
+    Lean use it by default, Agda only on request because it ``will cause Agda to ignore some
+    possible solutions'' \cite{agda2026lossy}, and smalltt forbids it
+    \cite{kovacs2021smalltt}. Polarity states the precise rule: congruence on arguments is safe
+    for a neutral head, not a blocked one \cite{liesnikov2025polarity}. The kernel's re-check
+    keeps it sound; nothing in \file{docs/core.md} says the elaborator may pick a different
+    solution than the user meant.
+  \item \textbf{SW-805's field-name rule is the one GHC kept.} GHC removed every
+    type-directed field rule but kept ``only one datatype has all the fields'', because it is
+    decided during name resolution \cite{gundry2020ghc366}; OmniML types a literal by the same
+    closed-world reasoning \cite{obrien2025omniml}.
+  \item \textbf{Errors.} In the one controlled study, correct hints raised success and speed
+    for Agda newcomers and incorrect ones did no measurable harm (56 participants, 412
+    submissions) \cite{khakimova2026hints}; flow-based messages showed no quantitative gain,
+    and bare \code{?a} unknowns confused readers (117 participants kept)
+    \cite{bhanuka2024flow}; total recovery needs a type for every erroneous term
+    \cite{zhao2024marking}.
+  \item \textbf{Benchmarks.} smalltt's \code{idTest} (40 nested \code{id}s) and \code{pairTest}
+    (30 nested \code{let} pairs) take 0.000\,s in smalltt and time out in Agda, Coq, Lean and
+    Idris; \code{vecTest} (960 elements) takes 0.078\,s against 0.244\,s in Lean (2021
+    versions) \cite{kovacs2021smalltt}.
+  \item Background: Lean's height-ordered unfolding applies only when neither side has
+    metavariables \cite{lean2026defeq}; \code{@[elab\_as\_elim]} infers a motive from the
+    expected type \cite{lean2026elabsrc}; pairs of values preserve unfoldings
+    \cite{kovacs2024wits}; Rocq ignores mismatched types after postponing and relies on the
+    final re-check \cite{kovacs2026wits}; expression-level \code{unfold} complements opaque
+    definitions \cite{gratzer2025unfolding}.
+\end{itemize}
+
+\subsection{What Stitchwort could take}
+\begin{enumerate}
+  \item One declaration-level postponement queue with Lean's ladder (T1, D1990): now in
+        design as SW-817.
+  \item Document and test the lossy rule for stuck calls (T2): small, no behaviour change.
+  \item SW-805 justified as a name-resolution rule, with an ambiguity message naming both
+        types (T3).
+  \item smalltt's three benchmarks as elaboration probes (T4).
+  \item Motive inference for \code{T.induct} applications (T5).
+  \item Messages say which expression solved an unknown; never a bare \code{?n} (T6).
+  \item Keep both named and forced expected types in \code{check\_inner} (SW-858).
+  \item Expression-level \code{unfold f in e} (SW-796, SW-798).
+  \item Lean's scope-argument constant approximation (measure first, SW-815).
+  \item Pattern-matching unification \cite{richter2026pmu}: research, not now.
+\end{enumerate}
+Not recommended: functions-as-constructors unification \cite{libal2021fcu}, complete search
+\cite{norman2026canonical}, contextual typing \cite{xue2024contextual}, an
+extensible-constraints architecture, and tabled resolution \cite{selsam2020tabled}, which only
+matters with overlapping instances.
+
+\subsection{Acted on, and open}
+D1990 led to \file{docs/proposals/postponement.md}. Its first draft measured that the
+queueable \code{E-CANNOT-INFER} sites fire 1,073 times in accepted code, always caught, and
+proposed a second pass; D2012 made the end state one queue in the single pass. The draft 2
+prototype changed one acceptance and 26 hashes (statements identical), and no error message.
+The external review is being worked into draft 3 (D2015). SW-805 is merged as a last resort
+(D1991). Open: the note's D2013 and D2014 (Section~\ref{sec:decisions}).
+
+% =====================================================================
+\section{Proof automation}\label{sec:pa}
+
+\textbf{Register:} \file{docs/research/proof-automation.md}. 72 screened, 29 carded, 25 read, 4 NOT
+READ; redone.
+
+\subsection{Key findings}
+\begin{itemize}
+  \item \textbf{Equalities among hypotheses.} Three probes fail with \code{cases} today \run:
+    two hypotheses equating a list with \code{Cons} and with \code{Nil}; \code{f a = c} from
+    \code{a = b} and \code{f b = c}; and a local \code{(y: Nat) -> lookup = Some y -> y < 5}
+    applied to \code{lookup = Some y0}. Congruence closure with a proof forest settles the first
+    two \cite{selsam2016cc,lean2026grindsrc}; instantiating local $\forall$ facts settles the
+    third. Selsam and de Moura's subsingleton rule handles proof arguments, and Stitchwort
+    already has the lemmas it needs (axiom K, \code{Bool.uniqueEq}, \code{DecEq.uniqueEq}).
+  \item \textbf{Lean's \code{grind}.} All proofs are by contradiction on a shared whiteboard;
+    it produces ordinary proof terms; constraint propagation closes goals with no case split;
+    case analysis is bounded and ``not exhaustive''; it is ``not designed for goals whose search
+    space explodes combinatorially'' \cite{lean2026grind,demoura2025grind}. Statically
+    predicting the right split is no better than random: on rescuable split failures stock
+    \code{grind} gets 0\%, learned models 30--53\%, uniform random 57\% and one-step lookahead
+    100\% \cite{wang2026learned}.
+  \item \textbf{The counterexample search misses some false theorems silently.}
+    \code{shortIncreasing (xs: List Nat) (h: increasing xs = True): xs.length < 6} is false, yet
+    \code{check --counterexamples} prints ``none in 10000 cases'' \run. The verdict is ``gave
+    up'' only when hypotheses hold in under 10\% of inputs
+    (\file{crates/driver/src/counterexample.rs:82}); here they hold often, but only for short
+    lists. Recent work builds generators from the hypothesis itself: Palamedes synthesises them
+    from Lean \code{Bool} predicates (32 benchmarks; 80\% synthesised in under 3\,s)
+    \cite{goldstein2026palamedes}; QuickChick orders hypotheses by ``density''
+    \cite{mittelman2026testing}; derived checkers are fuel-bounded semi-decision procedures,
+    not \code{Decidable} instances \cite{paraskevopoulou2022computing}. Structural shrinking, the
+    kind Stitchwort has, is competitive \cite{keles2026shrinking}; Plausible filters as
+    Stitchwort does \cite{plausible2026}.
+  \item \textbf{Case theorems from the definition.} Lean's \code{f.fun\_cases} and
+    \code{f.induct} add an equation for each discriminant, ``just as if the user wrote
+    \code{match h : x with \ldots}'', and are generated on first use \cite{lean2026funind}.
+  \item \textbf{Show what search found.} Sledgehammer writes a one-line proof with
+    instantiated facts in 70.0\% of cases \cite{bartl2025instantiations}; querysmt writes a
+    self-contained script so the proof no longer needs the solver \cite{clune2026hint};
+    APOLLO's loop tries built-in tactics at each \code{sorry} \cite{ospanov2025apollo}.
+  \item \textbf{External solvers are expensive.} lean-smt supports about 200 of cvc5's 662
+    proof rules and verifies 15,271 of 21,595 proofs (71\%) \cite{mohamed2025leansmt};
+    Lean-auto reconstructs only through Duper \cite{qian2025leanauto,clune2024duper}; crush
+    closes 693 of 754 conditions (91.9\%) with reconstruction against \code{grind}'s 641
+    (85.0\%) \cite{he2026crush}; premise selection adds 21\% more goals
+    \cite{zhu2026premise}.
+  \item Background: small proofs from congruence closure \cite{flatt2022small}; Lean's
+    \code{omega} \cite{lean2026omega} and termination guessing \cite{lean2026guesslex};
+    reflective rewriting scales where proof-producing rewriting is quadratic in binders
+    \cite{gross2022rewriting}; e-graph rewriting under binders is hard enough that lean-egg's
+    authors moved to \code{grind} \cite{rossel2024egraphs}; keyed matching for reflective
+    \code{ring} \cite{sakaguchi2022reflexive}.
+\end{itemize}
+
+\subsection{What Stitchwort could take}
+\begin{enumerate}
+  \item A congruence-closure closer in \code{cases} (T1, D2000).
+  \item Report ``hypotheses held only up to size $k$'' in the counterexample search, and measure
+        it over std and aoc (T2; SW-903).
+  \item Local $\forall$ hypotheses instantiated once against the classes (stage 2 of 1).
+  \item Generated \code{f.cases} (then \code{f.induct}) on demand (T4, D2001).
+  \item Lookahead over other atoms before \code{E-CASES-BUDGET} (T6).
+  \item Opt-in reports of what \code{cases} and \code{omega} used; ``try automation at each
+        \code{?}'' (T5).
+  \item Hypothesis-directed inputs, only if 2 finds cases (T3).
+  \item Propagation over \code{Bool} connectives before splitting.
+  \item Suggest a \code{decreasing} measure on a termination failure.
+  \item Reflective rewriting, if \code{simp [rules]} is ever built.
+\end{enumerate}
+Not recommended: SMT or ATP back ends, e-graph rewriting under binders, and bit-blasting (its
+card is NOT READ, and no program needs bit vectors).
+
+\subsection{Acted on, and open}
+SW-903 records the silent miss; SW-904 records congruence closure, with Matt's D2000: evidence
+from existing proofs first. On \file{decide.md}: \code{grind}'s own splitting is bounded too,
+which supports D1971; the literature adds propagation before splitting and lookahead as options.
+Open: D2001.
+
+% =====================================================================
+\section{Kernel and type theory}\label{sec:kernel}
+
+\textbf{Register:} \file{docs/research/kernel.md}. 62 screened, 27 carded, 26 read, 1 NOT READ;
+redone.
+
+\subsection{Key findings}
+\begin{itemize}
+  \item \textbf{Recursive propositions and proof irrelevance.} If a proposition can be
+    eliminated into data and holds a proof of itself in a field, definitional irrelevance lets
+    any proof be unfolded once more, and conversion becomes undecidable
+    \cite{gilbert2019sprop,felicissimo2026dpi}. Lean is removing such large eliminations
+    \cite{lean13851,lean14977}. Stitchwort's \code{E-PROP-ELIM}
+    (\file{crates/core/src/check.rs:915-929}) does not ask whether a field mentions the type
+    itself, so \file{proof-irrelevance.md}'s \code{Loop} is accepted. Rocq implements
+    irrelevance in an untyped conversion with relevance marks, the same idea as SW-93's D1$'$
+    masks \cite{gilbert2019sprop}. A cast that reduces on convertible endpoints breaks
+    normalisation with an impredicative \code{Prop} \cite{abel2020failure}; Stitchwort's
+    \code{J} computes only on \code{rfl}, so this is outside the kernel.
+  \item \textbf{Record eta needs a field that isn't a proof.} Once proofs are irrelevant, a
+    record of proofs is unit-like and eta on it breaks transitivity; Rocq requires a relevant
+    field \cite{lennonbertrand2025certify,rosain2026sort}, and Lean's kernel hit the same case
+    \cite{leankernelarena}.
+  \item \textbf{R3/R4 have a published confluence argument that needs no termination.} The
+    Taming of the Rew uses parallel plus, Stitchwort's four rules, as its example: with a fifth
+    ``parallel'' rule they satisfy the triangle property, which gives confluence without
+    normalisation \cite{cockx2021taming}. The Rewster shows the naive typing check unsound under
+    cumulativity, which Stitchwort lacks \cite{leray2026rewster}.
+  \item \textbf{What broke other kernels in 2026.} Rocq's guard checker (CVE-2026-72703, 72705)
+    \cite{rocqcve2026}; Lean's order-dependent cache \cite{lean14806} and name-trusted native
+    \code{Nat.add} \cite{lean15908}; the Arena's forged \code{Quot.ind}
+    \cite{leankernelarena}. An agent team found seven proofs of \code{False} and three other bugs
+    in Rocq, none in the official Lean kernel (four other bugs), two in nanoda and one in
+    lean4lean \cite{sterin2026falsehood}. Stitchwort's natives are bound by name and checked by
+    type and arity only (\file{crates/core/src/native.rs:379-455}), the configuration Lean4Lean
+    calls ``technically unsound'' \cite{carneiro2026lean4lean}. Lean4Lean also reports that
+    soundness bugs occur where ``the developer did not even consider the error condition''.
+  \item \textbf{Quotients and erasure.} Danielsson proves that with quotients and erased
+    transport, closed programs' extractions compute the right numeral even where source
+    reduction is stuck (Theorem 11.3) \cite{danielsson2026erased}: the nearest published result
+    to \file{map-equality.md} \S7.4.5's ``intended invariant'', under different assumptions.
+  \item \textbf{Mechanised checkers and their cost.} Lean4Lean runs 1.21--1.40 times slower
+    than Lean's kernel \cite{carneiro2026lean4lean}; MetaCoq's development is over 300\,kLoC and
+    found one kernel incompleteness, not a soundness bug \cite{sozeau2025metacoq};
+    Martin-L\"of \`a la Coq is about 30\,kLoC \cite{adjedj2024mlacoq}.
+  \item Not recommended now, each sound research no ticket needs: observational equality
+    \cite{pujet2022obs,pujet2025cicobs}, universe polymorphism and cumulativity
+    \cite{geran2026levels,bezem2023universe,sterbac2026fussfree}, a concurrent convertibility
+    checker \cite{courant2026lazy}, definitional inversion without normalisation
+    \cite{carneiro2026definv}, typed confluence \cite{felicissimo2026confluence}.
+\end{itemize}
+
+\subsection{What Stitchwort could take}
+\begin{enumerate}
+  \item No large elimination from recursive propositions, measured first (T2, D1980).
+  \item Must-reject tests for the 2026 shapes (T1) \emph{(done, 14 programs)}.
+  \item Record eta needs a non-proof field (T3, D1981).
+  \item \S9.4 on the triangle property (T4) \emph{(done)}.
+  \item Natives: check the defining equations at binding, or pin by hash (T5; SW-898).
+  \item One sentence in \file{docs/core.md}: memo tables are keyed by exact pairs, never closed
+        transitively (T6). Stitchwort's memos already are: \code{CallMemo}
+        (\file{crates/core/src/value.rs:2334}) and the equal-pairs record of
+        \code{same\_stuck\_trees} (\file{value.rs:2736}).
+  \item Cite Danielsson's Theorem 11.3 in \file{map-equality.md} (T6).
+  \item Courant and Leroy's conversion probes (T7).
+  \item Inputs to a future universe-polymorphism note (research, not now).
+  \item Observational equality for funext and recursion through quotients (research, not now).
+\end{enumerate}
+
+\subsection{Acted on, and open}
+T1 and T4 are done; T1 found SW-902. D1980 and D1981 are decided and recorded on the tickets
+they constrain. SW-898 (pin the natives) is in the backlog. No kernel decision is open.
+
+% =====================================================================
+\section{Inductive types and recursion}\label{sec:inductives}
+
+\textbf{Register:} \file{docs/research/inductives.md}. 56 screened, 21 carded, all read; audited.
+
+\subsection{Key findings}
+\begin{itemize}
+  \item \textbf{Stitchwort's big choices are confirmed.} Lean removed reducible well-founded
+    recursion in 4.25 (\#10714) \cite{leanreleases}, and Leroy's pearl supports recursion on a
+    measure with proofs by induction on the argument \cite{leroy2024wf}. Sized types remain
+    impractical: backward-compatible size inference slowed one file of Coq's standard library,
+    \code{MSetList}, from 15.1\,s to 83.7\,s (5.5$\times$), ``intrinsic and unavoidable''
+    \cite{chan2023sized}; Agda's sized types are inconsistent because Agda proves
+    $\infty < \infty$ \cite{laarakker2026large}.
+  \item \textbf{Generated induction and case principles.} Lean's \code{f.induct} and
+    \code{f.fun\_cases} follow a function's branches, with one hypothesis per recursive call
+    \cite{lean2026funind}. Breitner's warning: facts that exist only inside a termination proof
+    aren't available to the induction principle (``The cake is a lie'')
+    \cite{breitner2025extrinsic}. Generated definitions checked afterwards are Stitchwort's
+    route already; Ko et al.\ show generation costs far more than the definitions
+    themselves (about 66\,s against 5\,s) \cite{ko2022reflection,escot2022generic}.
+  \item \textbf{Automatic \code{attach}} rewrites \code{xs.map f} to its attached form so a
+    recursive call inside \code{map} gets its membership fact \cite{lean2026preprocess}.
+  \item \textbf{Termination-measure suggestions.} GuessLex tries candidate measures and
+    prints the one that works, or a table per call \cite{lean2026guesslex}.
+  \item \textbf{Codata.} Checking termination and productivity separately ``is not enough''
+    once inductive and coinductive types nest \cite{hyvernat2025sizechange}; Lean added only
+    coinductive predicates \cite{leanrecursive}.
+  \item Smaller points: Lean's \code{partial\_fixpoint} reasons about possibly non-terminating
+    functions \cite{leanrecursive}; derived enumerations in linear size
+    \cite{mathlibderivefintype}; derived checkers for relations \cite{paraskevopoulou2022computing};
+    representation of \code{Nat}-like families \cite{theocharis2025custom,idris2builtins};
+    constructors resolved by expected type \cite{leandottedident,agda280changelog}; motive
+    inference by pattern-matching unification \cite{richter2026pmu}.
+\end{itemize}
+
+\subsection{What Stitchwort could take}
+\begin{enumerate}
+  \item Generated \code{f.cases} and \code{f.induct} on \file{derive_induct.rs}'s pattern (T1,
+        D1910); \code{T.induct} itself is done.
+  \item \sout{Derived \code{T.all} for enumerations}: superseded by \file{decide.md}'s D1972.
+  \item \code{E-TERMINATION} suggests a \code{decreasing} clause (T3).
+  \item Automatic \code{attach} for calls inside list callbacks (T2).
+  \item Constructor short form resolved by expected type (T6, SW-510).
+  \item Audit runtime representations of \code{Fin}, \code{Vec}, \code{Member}, \code{Mod} (T5).
+  \item Record that sized types stay closed (SW-199 option D).
+  \item Motive inference by pattern-matching unification as a fallback (research).
+  \item Derived decision procedures and generators for inductive relations (research).
+  \item Partial correctness for \code{Partial} functions; coinductive propositions (research,
+        not now).
+\end{enumerate}
+
+\subsection{Acted on, and open}
+The audit withdrew D1912: it rested on day~21 needing enumerations only, but its
+\code{DirectionKey} has a field. \code{T.induct} (D1823) and \code{auto}'s proof of
+\code{decreasing T.size p} from an attached element (D1450's ask) were built in nested types
+stage~3. Open: D1910 and D1911.
+
+% =====================================================================
+\section{Infrastructure and trust}\label{sec:infra}
+
+\textbf{Register:} \file{docs/research/infrastructure.md}. 68 screened, 29 carded, 28 read, 1 NOT
+READ (Eris); audited.
+
+\subsection{Key findings}
+\begin{itemize}
+  \item \textbf{Oracles from the corpus.} Hephaestus found 156 typing bugs (137 confirmed, 85
+    fixed) in javac, kotlinc and groovyc; 74 of them (52 inference, 22 soundness) came from two
+    mutations of programs that already compile, which its generator alone missed: delete type
+    annotations (must still compile) and replace a type by an incompatible one (must not)
+    \cite{chaliasos2022hephaestus}. Thalia builds programs from library signatures and found 84
+    bugs, at least 42 of them missed by Hephaestus \cite{sotiropoulos2024thalia}. Stitchwort's
+    elaborator fuzzer has neither oracle. Content hashes make the erasure oracle stronger here:
+    removing an inferable annotation must leave the hash unchanged.
+  \item \textbf{Generators.} Generate at the IR the backends share, as Rustlantis does with
+    MIR (22 bugs) \cite{wang2024rustlantis}; choose types non-locally so functions use their
+    arguments (four times faster to find GHC bugs) \cite{frank2024useless}; score generators by
+    mutants \cite{shi2023etna}; a second implementation is an oracle
+    \cite{sharma2023rustsmith}; an LLM can seed inputs for an unfamiliar language
+    \cite{xia2024fuzz4all}.
+  \item \textbf{Keep the reference evaluator in every comparison.} Dafny's compiler fuzzers
+    found 24 new bugs, 9 of them soundness bugs; bugs in a shared front end make ``all
+    back-ends \ldots\ exhibit the same incorrect result'', so they added an independent
+    interpreter \cite{donaldson2024fuzzd}. Stitchwort's runtime and JS backend share their
+    erasure decisions (\file{crates/rt/src/erasure.rs}), while \code{run --reference} uses the
+    kernel's own erasure.
+  \item \textbf{Fuzz the trusted base, not the proofs.} 105,823,818 executions against a
+    zlib proved in Lean found no bug in the verified code, one heap overflow in Lean's C++
+    runtime and one crash in an unproved parser \cite{kirancodes2026leanzip}.
+  \item \textbf{Cache keys.} Lean keeps proofs private to their module, so proof edits don't
+    rebuild importers \cite{leanmodules}; build-system vocabulary \cite{mokhov2020bsalc};
+    durability levels \cite{rustanalyzer2023durable}; coarse roots invalidate everything
+    \cite{mathlibcache2023}; incremental elaboration within declarations \cite{leanreleases}.
+    Stitchwort's tests run erased (\file{crates/driver/src/driver.rs:1241-1243}), so a test
+    result keyed on the erased program can't be changed by a proof edit.
+  \item \textbf{Agent-driven development.} ``The task verifier is nearly perfect, otherwise
+    Claude will solve the wrong problem'' \cite{carlini2026compiler}. Agents under pressure edit
+    tests; a ``flag for human intervention'' exit cut GPT-5's cheating from 54\% to 9\%
+    \cite{zhong2025impossiblebench}. Detailed type errors help agents fix code
+    \cite{krishnamurthi2026ablation}, and compiler feedback took GPT-5 from 22 to 54 of 56 Idris
+    exercises \cite{li2026idris}. Mathlib's bot lists renamed lemmas and debt metrics on each
+    pull request \cite{baanen2025mathlib}; Unison's renames are ``same hash, new name''
+    \cite{unison2026bigidea}.
+  \item \textbf{Editors and machines.} Type definitions are the most useful context for a
+    model filling a hole \cite{blinn2024chatlsp}; LSP is the wrong interface for machines
+    \cite{aniva2025pantograph}; presentations that keep a reference to each subterm
+    \cite{nawrocki2023ui}; check what is on screen first \cite{coqlsp}; total error recovery
+    \cite{zhao2024marking}.
+  \item Also: MutDafny mutates programs to find weak specifications (on average one in every 241 lines)
+    \cite{amaral2026mutdafny}; Sisyphus repairs proofs, cheap only in its first, differential
+    step \cite{gopinathan2023sisyphus}; verified extraction is safe only for first-order
+    interop, which supports Stitchwort's first-order JS exports \cite{forster2024extraction}.
+\end{itemize}
+
+\subsection{What Stitchwort could take}
+\begin{enumerate}
+  \item A lane trust diff: changed statements, renames, must-reject, snapshot and budget
+        changes, axioms (T1, D1930).
+  \item Erase and overwrite oracles in \file{fuzz_elab.rs} (T2; SW-686, SW-687).
+  \item A kernel type-preservation sweep: evaluate, read back, re-check (T3).
+  \item Rotate the sampled sweeps' offset (T4).
+  \item Score fuzzers against missed \code{cargo mutants} mutants (T5, D1932).
+  \item Weak-theorem detection by mutating functions (T6).
+  \item A detailed error mode for agent lanes (T7).
+  \item Goals list the data types they mention (T8).
+  \item SW-688 as an IR-level backend generator, always compared with \code{run --reference}
+        (T9).
+  \item Test results keyed on the erased program (T10, D2030).
+  \item Measure cross-namespace proof unfolding before deciding opaque theorems (T11, D1931).
+  \item Deprecated aliases for std renames (T12).
+\end{enumerate}
+
+\subsection{Acted on, and open}
+The audit corrected Hephaestus's numbers (the 29 October card had the anonymous submission
+copy's) and found that tests run erased, which simplified T10 and produced D2030. Open: D1930,
+D1931, D1932, D2030. Eris is for Matt to fetch (Section~\ref{sec:limits}).
+
+% =====================================================================
+\section{Compilation and runtime}\label{sec:comp}
+
+\textbf{Register:} \file{docs/research/compilation.md}. 52 screened, 23 carded, 22 read, 1 NOT READ;
+audited.
+
+\subsection{Key findings}
+\begin{itemize}
+  \item \textbf{Most standard ideas are already in.} The October runtime survey's ideas
+    (erased IR, register bytecode, reuse tokens, small numbers inline, TRMC, fused state
+    handlers, Cranelift) are built.
+  \item \textbf{Arrays with in-place update.} Lean's \code{Array.write} updates destructively
+    when unshared \cite{ullrich2019beans}; a record of an efficient encoding plus an erased
+    invariant and a view is the general method \cite{allais2023builtin}; FP$^2$'s dynamic
+    uniqueness test costs about 1\% when nothing is reused \cite{lorenzen2023fp2}. The risk:
+    in Huisinga's own \code{Array.groupBy} example, the array also sits in a map, so every
+    \code{push} copies it (``accidentally quadratic''); the thesis presents this as its own
+    illustration, not a bug in Lean's library \cite{huisinga2023uniqueness}.
+  \item \textbf{Borrowing has costs.} Inferring borrows removes 75--100\% of increments on 11 of
+    13 benchmarks against Perceus without reuse, 1.48$\times$ geomean, but blocked 6.4\% of
+    in-place updates in one benchmark \cite{brandon2026borrows}. Koka declined Lean's borrow
+    inference as ``not safe for space'' \cite{lorenzen2022frame}. In Lean's own ablation,
+    removing borrowing made \code{const\_fold} faster (0.90) \cite{ullrich2019beans}; Lean now
+    lets users annotate borrows, with tail calls taking priority \cite{leanreleases,leaninferborrow}.
+  \item \textbf{Forced indices.} A constructor argument that appears in its result indices
+    needn't be stored, saving 10--20\% of memory on vectors \cite{brady2004indices}; Agda's GHC
+    backend drops erased fields \cite{agdaruntimeirrelevance}. Stitchwort's \code{VCons} stores
+    its length, and \file{vec.md} measured 5--10\% per operation.
+  \item \textbf{Dispatch is not the lever.} Tail-call dispatch in Rust ran 1.5--2$\times$ faster
+    natively but 1.2--4.6$\times$ slower in WebAssembly engines, and needs nightly
+    \cite{keeter2026tailcall}; CPython's version gained 1--5\% against a good baseline
+    \cite{elhage2025tailcall,jin2025sorry}; Wizard's threaded dispatch, 14\% on average
+    \cite{titzer2022inplace}; Deegen has no ablation \cite{xu2026deegen}; register bytecode was
+    wasmi's big step \cite{wasmi032}. Dispatch is about 19\% of Stitchwort's machine time
+    (\file{native-compilation.md} \S1.2), so SW-813 should start from the call path.
+  \item \textbf{Small numbers in JS.} The JS backend makes every \code{Nat} a \code{bigint};
+    day~2's brute force took 66.8\,s under \code{--js} against 23.1\,s on the machine. Scala.js
+    measured \code{BigInt} longs 60 times slower than its own, in 2018 \cite{tc39bigint117}.
+  \item \textbf{Measure with instruction counts} on a loaded machine \cite{instrcounts}.
+  \item \textbf{Corner cases in shifts.} Verifying CertiCoq-Wasm found that WasmCert modelled Wasm
+    shifts like C shifts, and a corner case that led to an unsoundness in Rocq's
+    \code{vm\_compute}
+    \cite{meier2025certicoqwasm}.
+  \item Not transferable now: lazy reference counting, which bounds pauses rather than saving
+    time \cite{lam2024lazy}; a Wasm backend, which still needs its own stack for deep recursion
+    \cite{wasmweb2024}. Context: lambda set specialisation is the general form of
+    \file{opt.rs}'s known-argument copying \cite{brandon2023lss}; zipper-based tree updates
+    \cite{lorenzen2024fiptree}.
+\end{itemize}
+
+\subsection{What Stitchwort could take}
+\begin{enumerate}
+  \item Benchmarks record retired instructions and bytecode counts beside time, and gate on
+        instructions (T1; SW-659).
+  \item Shift and bitwise natives tested at and past the word width in every runner (T7;
+        SW-808).
+  \item Count reference-count operations per run, the gate for any borrowing (T2, D1921).
+  \item \code{Array} specified as a list, in place when unique, with a copy counter (T6, D1920;
+        SW-112).
+  \item SW-813: start from the call path; no tail-call dispatch while the playground is Wasm
+        (T4).
+  \item Check reuse-token placement against Koka's fragility examples (T8).
+  \item JS \code{Nat} as \code{number} below $2^{53}$, \code{bigint} above, measured first (T5,
+        D1922).
+  \item A ``runs in place'' report for std functions.
+  \item \code{Map} insert as a zipper loop that reuses every node (SW-814).
+  \item Borrowed parameters, only if item 3 shows a large share.
+  \item Don't store forced indices; drop self-passed relevant arguments.
+  \item A size counter for lowered code.
+  \item Unboxed scalar fields in cells, scalars after pointers.
+\end{enumerate}
+
+\subsection{Acted on, and open}
+The audit corrected C8 and two file references; nothing has been built yet. Open: D1920, D1921,
+D1922.
+
+% =====================================================================
+\section{Cross-cutting themes}\label{sec:themes}
+
+Each theme below appears in at least two registers; none is new to this summary.
+
+\subsection{Soundness hardening, and where real bugs were found}
+The kernel register's 2026 table (\S5.4) was the most productive single exercise. Three of its
+shapes are closed by construction in Stitchwort and two by design, which the 14 tests confirmed;
+one (natives bound by name) is a known small gap. The bit-level shortcut had not been audited,
+and porting it, Lean4Lean's overflow shape, found SW-902. That matches Lean4Lean's observation
+that bugs live where nobody considered the error condition \cite{carneiro2026lean4lean}, and
+Stérin's that adversarial agents given past bugs find new ones \cite{sterin2026falsehood}. The
+natives gap is SW-898. Two hazards were found before the
+features that would expose them: recursive propositions under proof irrelevance (D1980) and
+record eta over proof-only records (D1981). The infrastructure register adds the testing side:
+must-reject examples paired with accepted neighbours, a type-preservation sweep, and an
+``either'' category for honest corner cases \cite{leankernelarena}.
+
+\subsection{Proof automation a small, predictable kernel can afford}
+Every automation register finds the same shape: search outside the kernel, produce an ordinary
+proof term or certificate, and let the kernel check it. \code{grind} does this and reads only
+what it has collected \cite{lean2026grind}; Stitchwort's \code{omega}, \code{ring} and
+\code{cases} already do. External solvers buy a few points at the cost of large
+reconstruction libraries \cite{mohamed2025leansmt,he2026crush}, and Stitchwort's failures are
+about facts in scope, not large lemma libraries. Proposals that keep the kernel unchanged
+(congruence closure in \code{cases}, generated case theorems, write-back of found proofs) come
+first; the one proposal that would trust more, monad laws as conversion rules, is a design note
+only (D1850).
+
+\subsection{Elaboration order and postponement}
+Three registers meet here. Elaboration recommends one postponement queue
+\cite{lean2026elabsrc,obrien2025omniml}; inductives and proof automation recommend motive
+inference from the expected type (\code{elab\_as\_elim}, pattern-matching unification
+\cite{richter2026pmu}); SW-805's field-name rule is acceptable because it depends only on the
+text, not on inference order \cite{gundry2020ghc366}. The common principle: anything that depends
+on inference order must wait in one place, with a fixed ladder of defaults, and anything decided
+from the text alone can run at once.
+
+\subsection{Testing oracles}
+Differential testing against an independent implementation is the oracle the literature trusts
+most: Rustlantis compares backends \cite{wang2024rustlantis}, fuzz-d adds an interpreter
+because shared code fools back-end comparisons \cite{donaldson2024fuzzd}, and Sisyphus runs old
+and new versions on the same inputs \cite{gopinathan2023sisyphus}. Stitchwort's reference
+evaluator is that implementation and must stay in every comparison. Mutation gives oracles
+without a reference: Hephaestus's erase and overwrite \cite{chaliasos2022hephaestus}, MutDafny's
+weak-specification check \cite{amaral2026mutdafny}, ETNA's scoring of generators
+\cite{shi2023etna}. The counterexample search is itself an oracle with a blind spot (SW-903), and
+the remedy is the same as for any oracle: report what it did not reach.
+
+\subsection{Trusted base}
+The registers keep returning to what is trusted: the kernel's re-check is the soundness
+argument for the lossy unifier; natives are trusted and should be pinned to the definitions
+they replace; R3/R4 are trusted conversion rules with a published confluence argument; the
+runtime, JS codecs and natives are where fuzzing finds bugs \cite{kirancodes2026leanzip}; JS
+exports stay first-order because callbacks can be impure \cite{forster2024extraction}; an erased
+test key would add trusted cache code, guarded by a differential test (D2030).
+
+\subsection{Measure before designing}
+Many recommendations are measurements: count reference-count operations before borrowing
+(D1921), time JS \code{number} against \code{bigint} (D1922), measure how often hypotheses hold
+only for small inputs (SW-903), survey existing proofs before congruence closure (D2000), count
+cross-namespace proof unfoldings before opaque theorems (D1931), and the postponement note's
+counter of queueable sites (1,073) before its design.
+
+% =====================================================================
+\section{Recommendations}\label{sec:recs}
+
+Table~\ref{tab:recs} merges the seven registers' rankings into one list. Priority weighs value
+(soundness first, then open tickets and friction in real programs) against effort, as the
+registers do; within a priority band the order follows the registers. ``Open'' means proposed
+and not started; done items are kept for the record.
+
+\begin{longtable}{@{}rL{5.2cm}L{2.45cm}L{1.85cm}L{2.4cm}L{1.6cm}@{}}
+\caption{One prioritised list across all clusters.}\label{tab:recs}\\
+\toprule
+\# & Item & Value & Effort & Ticket / decision & Status \\
+\midrule
+\endfirsthead
+\toprule
+\# & Item & Value & Effort & Ticket / decision & Status \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+1 & Must-reject tests for 2026 kernel-bug shapes (kernel T1) & soundness & small & D1983 & done \\
+2 & Fix universe-level overflow & soundness & small & SW-902, D1984 & done \\
+3 & \S9.4 on the triangle property (kernel T4) & soundness argument & doc & D1983 & done \\
+4 & Refuse large elimination of recursive propositions (kernel T2) & soundness before SW-93 & small kernel & D1980; SW-93 & decided, with SW-93 \\
+5 & Record eta only with a non-proof field (kernel T3) & soundness after SW-93 & doc & D1981; SW-55, SW-789 & decided (reminders) \\
+6 & Pin natives by hash or check their equations (kernel T5) & trusted base & small kernel & SW-898 & open \\
+7 & Lane trust diff (infra T1) & review of agent work & small tooling & D1930 & open \\
+8 & Counterexample search reports the size reached (PA T2) & silent misses & small & SW-903 & open \\
+9 & Erase and overwrite oracles (infra T2) & elaborator soundness & tooling & SW-686, SW-687; D1932 & open \\
+10 & Kernel type-preservation sweep (infra T3) & kernel soundness & small & --- & open \\
+11 & One postponement queue (elab T1) & SW-817, 847, 885, 509 & elaborator & D1990, D2012, D2013, D2014; SW-817 & in progress \\
+12 & SW-805 field-name rule as name resolution (elab T3) & SW-805, SW-817 & small & D1991; SW-805 & done (rule) \\
+13 & Benchmarks gated on instruction counts (comp T1) & every speed lane & small & SW-659 & open \\
+14 & Shift natives at and past the word width (comp T7) & correctness & small tests & SW-808 & open (with SW-808) \\
+15 & Document and test the lossy rule (elab T2) & predictability & small & --- & open \\
+16 & Score fuzzers with missed mutants (infra T5) & choosing SW-688/689 work & small & D1932 & open \\
+17 & Congruence-closure closer in \code{cases} (PA T1) & SW-608 & elaborator & D2000; SW-904 & evidence first \\
+18 & Generated \code{f.cases} and \code{f.induct} (PA T4, inductives T1) & SW-802, SW-809, SW-199 & elaborator & D2001, D1910 & open \\
+19 & Count reference-count operations (comp T2) & gate for borrowing & small & D1921 & open \\
+20 & Test cache keyed on the erased program (infra T10) & warm tests after proof edits & small & D2030 & open \\
+21 & Rotating sample offset (infra T4) & coverage & small & --- & open \\
+22 & Handler fast-path report (effects T5), after re-measuring SW-861 & SW-861, SW-791 & small & --- & open \\
+23 & \code{E-TERMINATION} suggests a \code{decreasing} clause (inductives T3) & messages & small & --- & open \\
+24 & Lookahead before \code{E-CASES-BUDGET} (PA T6) & SW-608 & small & --- & open \\
+25 & Show what automation found; try automation at each \code{?} (PA T5) & readability, agents & small & --- & open \\
+26 & smalltt probes; Courant--Leroy probes (elab T4, kernel T7) & proof-check speed & small & --- & open \\
+27 & \code{decide}: extend \code{cases}, derive \code{Finite} & SW-800, SW-807 & elaborator & D1971, D1972, D1973 & awaiting review \\
+28 & Handler specifications as predicate transformers (effects T4) & SW-570 & design note & D1851 & open \\
+29 & \code{Array} specified as a list, in place when unique (comp T6) & SW-112 & design, runtime & D1920 & open \\
+30 & JS \code{Nat} as \code{number}, measured first (comp T5) & \code{run --js} & measure & D1922 & open \\
+31 & Automatic \code{attach} (inductives T2) & SW-199 & elaborator & --- & open \\
+32 & Agent detail mode; goals list their data types (infra T7, T8) & agents & small & --- & open \\
+33 & Monad laws as trusted conversion rules (effects T3) & SW-548 & kernel & D1850 & design note only \\
+34 & Cross-namespace proof unfolding, then opaque theorems (infra T11) & early cutoff & measure & D1931 & not yet \\
+35 & Codata, sized types, observational equality, universe polymorphism & --- & research & D1911 & not recommended \\
+36 & SMT or ATP back ends; e-graph rewriting under binders & --- & research & --- & not recommended \\
+37 & Tail-call dispatch while the playground is Wasm; a Wasm backend & --- & runtime & --- & not recommended \\
+\end{longtable}
+
+% =====================================================================
+\section{Open decisions for Matt}\label{sec:decisions}
+
+Table~\ref{tab:decisions} lists every decision still open in the registers and design notes,
+with each register's recommendation and its assumptions in full. Each was checked against the
+board and \code{git log} on 30 October; resolved ones are left out (D1852, D1912, D1980, D1981,
+D1983, D1984, D1990, D1991, D2000 and D2012; the postponement note's D2010 was superseded by
+D2012, and its D2011 is kept in draft 2 and not listed there as open). D2013 and D2014 come from
+\file{docs/proposals/postponement.md}, which draft 3 (D2015) is revising after its external
+review, so their wording may change. D1971--D1973 come from \file{docs/proposals/decide.md},
+whose SW-800 awaits a review artefact.
+
+{\small
+\begin{longtable}{@{}L{1.1cm}L{4.1cm}L{2.5cm}L{7.15cm}@{}}
+\caption{Open decisions.}\label{tab:decisions}\\
+\toprule
+ID & Question & Recommended & Assumptions, in full \\
+\midrule
+\endfirsthead
+\toprule
+ID & Question & Recommended & Assumptions, in full \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+D1850 & Should the monad laws of \code{Effect.bind} and \code{Effect.foldComp} hold by conversion
+(trusted kernel rules, as \code{Nat.add}'s two extra rules), though their equations need funext? &
+Yes to a design note (T3) only; decide the kernel change after it. &
+The decision line states none. The deep read (\S4.1) names one: rules whose equations need
+funext are acceptable as trusted conversion (some theorems would stop listing \code{Quot.sound}
+in \code{stitchwort axioms}; consistency should be safe, because funext holds in the models
+Stitchwort's theory already assumes \inferred). Its risks: a normalisation argument for the
+whole system must be written out; the elaborator's unification must apply the same rules. \\
+\addlinespace
+D1851 & A specification layer for handlers in std (\code{wp} per handler, after Lean's
+\code{Std.Do}), aimed at SW-570 and rogue's loop? &
+Yes, design note first (T4), after T2 lands. &
+The decision line states none. The deep read (\S4.3) names one: the cost is in symbolic
+evaluation of handlers, not in the property (rogue's notes support it). Its risks: a \code{wp}
+that recurses through a thunk will need a data form, as \code{AlwaysTree} did; partial programs
+still need fuel. \\
+\addlinespace
+D1910 & Write one design note covering \code{f.cases} and \code{f.induct}, replacing D231--D233's
+``not now'' and answering D1439? &
+Yes. &
+(A1) the elaborator keeps, or can recompute, the pattern variables, the index equations learned
+and the \code{if} conditions at each leaf of a compiled case tree; (A3) generated theorems are
+made only when a program names them. \\
+\addlinespace
+D1911 & Keep codata out of Stitchwort for now (no streams, no coinductive types or propositions),
+and revisit only when a program needs infinite data? &
+Yes. &
+(P1) no planned program needs it; (P2) the \code{Partial} model stays a one-element set.
+Hyvernat's result means a later design needs its own totality checker, not a second size-change
+pass. \\
+\addlinespace
+D1920 & For SW-112, write the design note around a list-specified \code{Array} with in-place
+update on unique values in the machine and native code, rather than a persistent tree or a
+uniqueness type? &
+Yes: design note T6; build only after it settles the JS choice. &
+Users thread arrays linearly most of the time; a copy counter makes the other case visible; JS
+may be slower. \\
+\addlinespace
+D1921 & Spend a small lane counting reference-count operations (T2), and design borrowed
+parameters only if the count shows a large share? &
+Yes. &
+The count is cheap to add next to \code{alloc\_trace}. \\
+\addlinespace
+D1922 & Measure small \code{Nat}s as JS \code{number}s (T5) now, or leave \code{--js} as it is
+because native code is the CLI's speed route? &
+Measure now: JS is the faster runner on parse-heavy programs (SW-593). &
+The 2018 \code{BigInt} gap hasn't closed; T5 tests exactly that. \\
+\addlinespace
+D1930 & Make the trust diff (T1) a standard part of reviewing every lane? &
+Yes: build T1, then add ``read the trust diff first'' to \file{docs/workflow.md}. &
+Agents keep writing most code and proofs; reviewing, not writing, is the bottleneck; the list is
+usually empty. \\
+\addlinespace
+D1931 & Should theorems be opaque to other namespaces, so a proof edit stops at its namespace
+(Lean's module-system rule)? &
+Not yet: run T11 and T10 first, decide on the numbers. &
+T11 finds few cross-namespace proof unfoldings; std lemma edits are common enough to matter; an
+explicit opt-out like Lean's \code{@[expose]} is acceptable. \\
+\addlinespace
+D1932 & For SW-686/687/688, do the corpus oracles (T2, T3) and the mutant scoreboard (T5) before
+building any generator? &
+Yes. &
+Mutating Stitchwort's large example and AoC corpus reaches more code per hour than a new
+generator, as the Rust results suggest. \\
+\addlinespace
+D2030 & Key test results on the erased program (T10), so editing a proof never re-runs a test? &
+Yes, with the differential test; first measure how many tests a typical std proof edit re-runs. &
+(1) every test runs erased, on the fast runtime's erased IR or on the evaluator with erasure
+switched on (\file{crates/driver/src/driver.rs:1229-1243}; tests of partial code too,
+\file{crates/driver/src/run.rs:545}), so no proof body or type argument is computed and a proof
+edit can't change a test's outcome; (2) the erased hash of a test can be computed from
+\file{erase.rs}'s decisions, with each reference hashed by that declaration's own erased hash,
+and it changes whenever anything that runs changes, including a definition's body, a data
+type's constructors and the evaluation modes already in the key; (3) a second hash per
+declaration in trusted cache code is acceptable if a differential test (the same results with
+either key, over the test corpus) guards it, as \file{check-cache.md} \S5.4 guards the check
+cache; (4) the saving matters, because std lemma edits re-run many tests today (unmeasured). \\
+\addlinespace
+D2001 & For SW-802 and SW-809, design generated case theorems (\code{f.cases}, Lean's
+\code{fun\_cases}) instead of per-leaf equation lemmas (D231)? &
+Yes. &
+(F1) the elaborated case tree records which equation each leaf tested, readably enough to state
+the branches; (F2) today's \code{cases} does not already prove the day~16 and day~23 statements
+that failed with \code{E-MATCH-MOTIVE}; T4 checks this first, and if \code{cases} does, the
+decision lapses to ``document \code{cases} for this''. \\
+\addlinespace
+D2013 & Run SW-805's field-name rule as a default in the queue's ladder, and default number
+literals in the same ladder after it, instead of at the literal? &
+Yes. &
+(R1, from D1991) the field-name rule looks only at the literal's field names and the names in
+scope at the literal, never at types learned later; running it later doesn't change what it
+looks at, only whether something else decided first. (N1) a number literal that waits ends with
+the type the rest of the declaration fixes, and \code{Nat} where nothing does; so in a program
+accepted today, where each such literal was made \code{Nat} and everything else agreed with
+that, it still ends as \code{Nat}; the change only accepts programs that fail today because a
+literal was made \code{Nat} too early; stage 4 tests this over the corpus (inferred, not yet
+measured: K4 is not in the prototype). (N2) the field-name rule has priority over the number
+default because a record's field types say what its numbers are, never the reverse (\S5.4's
+``in a list''). (N3) Lean's numeral default is the precedent: low priority, in the ladder
+(\file{Prelude.lean:1411}, \file{SyntheticMVars.lean:237-243}). \\
+\addlinespace
+D2014 & Resume queued checks at the end of every application, scoped to the items made inside
+it, as well as before lifting and at the end of the declaration? &
+Yes. &
+(S1) Stitchwort's unifier can't wait: a comparison that meets an unfilled placeholder answers
+\code{false} at once, and its caller takes another route, so a placeholder must be filled before
+the comparisons that would need it; the end of the application that created it is the first
+fixed point after the later arguments that may solve its blocker, and before the application's
+type is compared with what is expected of it; the prototype shows the end of the declaration is
+too late for std (\file{Map/Spec.sw:1862}), and the end of each application is enough for the
+whole corpus. (S2) scoping to the
+application's own items keeps a failing item from being blamed on, and undone with, an attempt
+it doesn't belong to, as Lean's \code{withSynthesize} does; items from outside are resumed at
+their own application's end or at the declaration's. (S3) waking inside the unifier would
+elaborate syntax in the middle of a comparison that callers inside many of the 44
+\code{Snapshot::take} sites branch on; resume points give the same order at fixed places. (S4) if waiting comparisons (\S5.9) are ever added, W1
+(the resume point at each application's end) can become less frequent; this decision doesn't
+preclude that. \\
+\addlinespace
+D1971 & Close SW-800 by extending \code{cases} (a decision closer at the leaves, and splitting a
+finite variable when nothing is stuck), with no new \code{decide} word? &
+Yes. &
+\file{decide.md} gives the alternative rather than assumptions: a \code{decide} word evaluating
+\code{Decidable} instances, as Lean does, can't do day~21's \code{tabulateSame} and doesn't show
+the failing case. The proof-automation register finds that the literature supports it. \\
+\addlinespace
+D1972 & Build SW-807 as a derived \code{Finite} interface (a list of every value with a
+completeness proof) and \code{Finite.check}, for non-recursive constructor types with finite
+fields? &
+Yes, after D1971's conversion of days 12 and 21. &
+Alternative given: enumerations only, as Haskell's \code{Enum}; day~21's \code{DirectionKey} has
+a field and would be left out (confirmed by the inductives audit). \\
+\addlinespace
+D1973 & Never add native evaluation as a proof (\code{native\_decide})? &
+Never, until a proof needs more than about 10\,s of kernel evaluation; then revisit with that
+proof. &
+Alternative given: trust the fast runtime for closed \code{Bool}s, adding it to the trusted base. \\
+\end{longtable}
+}
+
+D1850 and D1851 state no assumptions in their decision lines; the table gives the assumptions
+and risks their deep reads (effects register \S4.1 and \S4.3) name.
+
+% =====================================================================
+\section{Limits}\label{sec:limits}
+
+\subsection{Not read}
+Seven carded sources were not read. None supports anything in this summary.
+\begin{itemize}
+  \item Proof automation C26: Morrison and de Moura, \emph{grind: an SMT-inspired tactic for Lean
+        4}, I{}JCAR 2026 (no public copy found; its system was read through its manual, source and
+        slides).
+  \item Proof automation C27: Rossel et al., \emph{Towards Pen-and-Paper-Style Equational
+        Reasoning in Interactive Theorem Provers by Equality Saturation}, POPL 2026, doi
+        10.1145/3776667 (ACM 403; its tool's README now points to \code{grind}).
+  \item Proof automation C28: Bhat, B\"oving et al., \emph{Interactive Bitvector Reasoning using
+        Verified Bit-Blasting}, OOPSLA 2025, doi 10.1145/3763167 (no bit vectors yet).
+  \item Proof automation C29: Limperg and From, \emph{Aesop}, CPP 2023, doi
+        10.1145/3573105.3575671 (no tactic language to search over).
+  \item Kernel C27: Liesnikov and Cockx, \emph{Building a Correct-by-Construction Type Checker
+        for a Dependently Typed Core Language} (Agda Core), APLAS 2024, doi
+        10.1007/978-981-97-8943-6\_4 (TU Delft repository unreachable).
+  \item Infrastructure C3: Sotiropoulos and Su, \emph{Enumerating Ill-Typed Programs for Testing
+        Type Analyzers} (Eris), PLDI 2026, doi 10.1145/3808320.
+  \item Compilation C22: IOG, \emph{Stacks in the JS backend} (2023), a blog post that returns
+        404.
+\end{itemize}
+
+\subsection{For Matt to fetch}
+One paper meets the bar: \textbf{Eris} (PLDI 2026, Distinguished Paper, doi
+\href{https://doi.org/10.1145/3808320}{10.1145/3808320}). It is the published form of the
+overwrite oracle in recommendation~9, and would shape that design. It is open access at ACM, so
+it should open in a browser; every scripted route returned 403 or nothing. Its abstract's figures
+(64 bugs, 51 of them unsoundness) are \unverified{} and support nothing here.
+
+\subsection{What wasn't searched}
+Each register's \S9 lists what it did not reach. In short:
+\begin{itemize}
+  \item \textbf{Effects}: Unison's and Koka v3.2's release notes, and the F$^\star$ indexed-effects
+        venue, were not checked; the rows they back stay unverified. The 64 screened-only rows
+        were not re-screened.
+  \item \textbf{Elaboration}: in-window work on elaborating effect rows, incremental elaboration,
+        Agda's and Idris~2's elaborator changelogs, RocqPL and Lean workshop programmes.
+  \item \textbf{Proof automation}: ITP, CPP, I{}JCAR, CADE and FroCoS programmes year by year;
+        Isabelle's Quickcheck and Nitpick after 2022; Agda's and Idris~2's automation.
+  \item \textbf{Kernel}: Idris~2's core and its bugs; Agda's kernel bug history; small trusted
+        kernels as a topic; hash-consing in production kernels beyond Courant and Leroy.
+  \item \textbf{Inductives}: Idris~2's totality changelog, Rocq~9 fixpoints, F$^\star$ and Liquid
+        Haskell termination, views papers, non-empty lists, or-patterns; venue sweeps of TyDe,
+        CPP, ITP, FSCD and TYPES. One query (Dafny's default \code{decreases}) was never run.
+  \item \textbf{Infrastructure}: MetaRocq updates, Agda interface files, F$^\star$ tooling, Nix
+        content-addressed derivations, Dhall's pinned imports, Elm's semantic versioning, and the
+        CoqPL, Lean workshop and ITP/CPP programmes year by year.
+  \item \textbf{Compilation}: the search budget ran out after 36 queries on 29 October, so
+        Unison's and Idris~2's backends, MLKit, deforestation, Koka's recent benchmarks,
+        persistent vectors, Larose et al.'s AST-versus-bytecode paper, Lorenzen's thesis and Roc's
+        docs were not screened.
+\end{itemize}
+
+\subsection{What is inferred, not run}
+The registers mark their reasoning \inferred. The main inferred claims behind the
+recommendations are:
+\begin{itemize}
+  \item that congruence closure would close probes 1 and 2, and that \code{J}-based congruence
+        steps type-check for the dependent calls that matter (D2000's A1--A3);
+  \item the critical pairs of the proposed monad-law rules, worked by hand, with one overlap
+        (R-fuse against R-assoc) still to check properly;
+  \item that \code{f ?a = f x} with \code{f (Succ n) = f n} picks \code{?a := x} (``inferred, not
+        run'');
+  \item that a record of proofs becomes unit-like under D1$'$ and breaks transitivity;
+  \item that Stitchwort's size-change checker would reject \code{f (C2 x) = f (C1 x)}
+        (``inferred, not run'');
+  \item the expected gains of borrowing (0--10\%, possibly negative), of forced indices and of
+        JS \code{number}s, all unmeasured;
+  \item that a test key on the erased program changes whenever anything that runs changes
+        (D2030 (2)).
+\end{itemize}
+What \emph{was} run: the proof-automation probes (three \code{cases} failures and the
+counterexample miss), the 14 must-reject programs, the parallel-rule test, the universe-overflow
+reproduction and fix, and the postponement prototype.
+
+\subsection{This summary}
+It cites only works whose cards say ``Full text: read''. Its numbers are taken from the
+registers as they stand after the 30 October audits. It did not re-read any paper. Where a
+register's file:line reference had moved on \code{main}, the current line is given here (for
+example \code{apply\_args\_postponing} is now at \file{check.rs:1903} and \code{CallMemo} at
+\file{value.rs:2334}). Bibliographic fields missing from a card were looked up in the arXiv API,
+Crossref and DataCite; no DOI was guessed, and entries that couldn't be completed carry a note.
+
+% =====================================================================
+\phantomsection
+\addcontentsline{toc}{section}{References}
+\printbibliography[title={References}]
+
+\end{document}

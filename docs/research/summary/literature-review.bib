@@ -1,0 +1,1577 @@
+% Bibliography for the SW-894 literature review summary.
+% Every entry is a source whose register card says "Full text: read".
+% Fields come from the card; missing fields (full author names, DOIs,
+% pages) were looked up on 30 Oct 2026 in the arXiv API, Crossref and
+% DataCite (no personal data sent). No DOI was guessed: each one is on
+% the card or was returned by one of those services for a matching title.
+% The register and card each entry rests on is in its `addendum`.
+
+% ---------------------------------------------------------------- effects
+
+@article{yang2026judgemental,
+  author    = {Zhixuan Yang and Nicolas Wu},
+  title     = {Handling Higher-Order Effectful Operations with Judgemental Monadic Laws},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {10},
+  number    = {POPL},
+  pages     = {1036--1065},
+  year      = {2026},
+  doi       = {10.1145/3776678},
+  eprint    = {2511.05739},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v1 with appendices (effects.md C1).}
+}
+
+@article{kidney2024hoare,
+  author    = {Donnacha Ois{\'i}n Kidney and Zhixuan Yang and Nicolas Wu},
+  title     = {Algebraic Effects Meet {Hoare} Logic in {Cubical Agda}},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {8},
+  number    = {POPL},
+  pages     = {1663--1695},
+  year      = {2024},
+  doi       = {10.1145/3632898},
+  url       = {https://yangzhixuan.github.io/pdf/free.pdf},
+  addendum  = {Read: author PDF (effects.md C2).}
+}
+
+@manual{lean2026mvcgen,
+  author    = {{Lean developers}},
+  title     = {The {Lean} Language Reference: the \texttt{mvcgen} and \texttt{vcgen} tactics ({Std.Do}, {Std.WP})},
+  year      = {2026},
+  url       = {https://lean-lang.org/doc/reference/latest/The--mvcgen--tactic/Overview/},
+  note      = {Sections 17 and 18 as published on 30 Oct 2026 (4.36.0-rc2); \texttt{vcgen} at \url{https://lean-lang.org/doc/reference/latest/The--vcgen--tactic/}},
+  addendum  = {Read in full as HTML (effects.md C3).}
+}
+
+@article{ma2024lexa,
+  author    = {Cong Ma and Zhaoyi Ge and Edward Lee and Yizhou Zhang},
+  title     = {Lexical Effect Handlers, Directly},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {8},
+  number    = {OOPSLA2},
+  pages     = {1670--1698},
+  year      = {2024},
+  doi       = {10.1145/3689770},
+  url       = {https://cs.uwaterloo.ca/~yizhou/papers/lexa-oopsla2024.pdf},
+  addendum  = {Read: author PDF (effects.md C4).}
+}
+
+@article{ma2025zero,
+  author    = {Cong Ma and Zhaoyi Ge and Max Jung and Yizhou Zhang},
+  title     = {Zero-Overhead Lexical Effect Handlers},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {9},
+  number    = {OOPSLA2},
+  pages     = {3533--3559},
+  year      = {2025},
+  doi       = {10.1145/3763177},
+  url       = {https://cs.uwaterloo.ca/~yizhou/papers/zero-oopsla2025.pdf},
+  addendum  = {Read: author PDF (effects.md C11).}
+}
+
+@article{leijen2023trmc,
+  author    = {Daan Lei{}jen and Anton Lorenzen},
+  title     = {Tail Recursion Modulo Context: An Equational Approach},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {7},
+  number    = {POPL},
+  pages     = {1152--1181},
+  year      = {2023},
+  doi       = {10.1145/3571233},
+  url       = {https://www.microsoft.com/en-us/research/uploads/prod/2023/07/trmc-popl23.pdf},
+  addendum  = {Read: MSR PDF (effects.md C5).}
+}
+
+@article{tang2025modal,
+  author    = {Wenhao Tang and Leo White and Stephen Dolan and Daniel Hillerstr{\"o}m and Sam Lindley and Anton Lorenzen},
+  title     = {Modal Effect Types},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {9},
+  number    = {OOPSLA1},
+  pages     = {1130--1157},
+  year      = {2025},
+  doi       = {10.1145/3720476},
+  eprint    = {2407.11816},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v3 (effects.md C6).}
+}
+
+@inproceedings{ikemori2022closed,
+  author    = {Kazuki Ikemori and Youyou Cong and Hidehiko Masuhara and Daan Lei{}jen},
+  title     = {Sound and Complete Type Inference for Closed Effect Rows},
+  booktitle = {Trends in Functional Programming (TFP 2022)},
+  series    = {LNCS},
+  volume    = {13401},
+  pages     = {144--168},
+  year      = {2022},
+  doi       = {10.1007/978-3-031-21314-4_8},
+  url       = {https://prg.is.titech.ac.jp/papers/pdf/tfp2022inference.pdf},
+  addendum  = {Read: author PDF (effects.md C7).}
+}
+
+@article{hamana2022modular,
+  author    = {Makoto Hamana},
+  title     = {Modular Termination for Second-Order Computation Rules and Application to Algebraic Effect Handlers},
+  journal   = {Logical Methods in Computer Science},
+  volume    = {18},
+  number    = {2:18},
+  year      = {2022},
+  doi       = {10.46298/lmcs-18(2:18)2022},
+  url       = {https://lmcs.episciences.org/9702},
+  addendum  = {Read: LMCS PDF (effects.md C8).}
+}
+
+@inproceedings{silver2023itree,
+  author    = {Lucas Silver and Eddy Westbrook and Matthew Yacavone and Ryan Scott},
+  title     = {Interaction Tree Specifications: A Framework for Specifying Recursive, Effectful Computations That Supports Auto-Active Verification},
+  booktitle = {European Conference on Object-Oriented Programming (ECOOP 2023)},
+  series    = {LIPIcs},
+  volume    = {263},
+  pages     = {30},
+  year      = {2023},
+  doi       = {10.4230/LIPIcs.ECOOP.2023.30},
+  addendum  = {Read: DROPS PDF (effects.md C9).}
+}
+
+@article{ullrich2022do,
+  author    = {Sebastian Ullrich and Leonardo de Moura},
+  title     = {`do' Unchained: Embracing Local Imperativity in a Purely Functional Language (Functional Pearl)},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {6},
+  number    = {ICFP},
+  pages     = {512--539},
+  year      = {2022},
+  doi       = {10.1145/3547640},
+  addendum  = {Read: Internet Archive copy of the ACM PDF (effects.md C10).}
+}
+
+% ------------------------------------------------------------ elaboration
+
+@software{lean2026elabsrc,
+  author    = {{Lean developers}},
+  title     = {{Lean 4} elaborator sources: \texttt{SyntheticMVars.lean}, \texttt{App.lean}, \texttt{StructInst.lean}, \texttt{Binders.lean}},
+  year      = {2026},
+  version   = {commit 0f852cc8},
+  url       = {https://github.com/leanprover/lean4/tree/0f852cc8/src/Lean/Elab},
+  addendum  = {Read: the named functions and their doc comments (elaboration.md C1, C3).}
+}
+
+@software{lean2026defeq,
+  author    = {{Lean developers}},
+  title     = {{Lean 4} unifier sources: \texttt{ExprDefEq.lean}, \texttt{Declaration.lean}},
+  year      = {2026},
+  version   = {commit 0f852cc8},
+  url       = {https://github.com/leanprover/lean4/tree/0f852cc8/src/Lean/Meta},
+  addendum  = {Read: the comment block on approximations, lazy delta and \texttt{isDefEqDeltaStep} (elaboration.md C2).}
+}
+
+@manual{agda2026lossy,
+  author    = {{Agda developers}},
+  title     = {Agda User Manual: Lossy Unification},
+  year      = {2026},
+  url       = {https://github.com/agda/agda/blob/master/doc/user-manual/language/lossy-unification.lagda.rst},
+  addendum  = {Read: whole page (elaboration.md C4).}
+}
+
+@misc{kovacs2021smalltt,
+  author    = {Andr{\'a}s Kov{\'a}cs},
+  title     = {smalltt ({README})},
+  howpublished = {GitHub repository},
+  url       = {https://github.com/AndrasKovacs/smalltt},
+  note      = {Classic system; benchmarks are for 2021 versions of each system},
+  addendum  = {Read: Design and Benchmarks sections (elaboration.md C5).}
+}
+
+@misc{kovacs2024wits,
+  author    = {Andr{\'a}s Kov{\'a}cs},
+  title     = {Efficient Evaluation with Controlled Definition Unfolding},
+  howpublished = {Extended abstract (2 pp.), WITS 2024, on the author's page andraskovacs.github.io},
+  year      = {2024},
+  note      = {No DOI; exact URL not recorded on the card},
+  addendum  = {Read (elaboration.md C6).}
+}
+
+@misc{kovacs2026wits,
+  author    = {Andr{\'a}s Kov{\'a}cs},
+  title     = {Observing Definitional Equality},
+  howpublished = {Slides, WITS 2026, 17 Jan 2026, on the author's page andraskovacs.github.io},
+  year      = {2026},
+  note      = {No DOI; exact URL not recorded on the card},
+  addendum  = {Read: all slides (elaboration.md C7).}
+}
+
+@misc{obrien2025omniml,
+  author    = {Alistair O'Brien and Didier R{\'e}my and Gabriel Scherer},
+  title     = {Omnidirectional type inference for {ML}: principality any way},
+  year      = {2025},
+  eprint    = {2511.10343},
+  eprinttype = {arxiv},
+  note      = {Version read: v2 (May 2026). Crossref also lists a TOPLAS version, doi 10.1145/3848026 (2026), not read},
+  addendum  = {Read: \S1, \S2, \S6--\S9 (elaboration.md C8).}
+}
+
+@misc{gundry2020ghc366,
+  author    = {Adam Gundry},
+  title     = {{GHC} proposal 366: {DuplicateRecordFields} without ambiguous field access},
+  howpublished = {GHC proposals repository, accepted 16 Nov 2020},
+  year      = {2020},
+  url       = {https://github.com/ghc-proposals/ghc-proposals/blob/master/proposals/0366-no-ambiguous-field-access.rst},
+  addendum  = {Read: whole proposal (elaboration.md C9).}
+}
+
+@article{xue2024contextual,
+  author    = {Xu Xue and Bruno C. d. S. Oliveira},
+  title     = {Contextual Typing},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {8},
+  number    = {ICFP},
+  pages     = {880--908},
+  year      = {2024},
+  doi       = {10.1145/3674655},
+  addendum  = {Read: Internet Archive copy of the ACM PDF (elaboration.md C10).}
+}
+
+@article{libal2021fcu,
+  author    = {Tomer Libal and Dale Miller},
+  title     = {Functions-as-constructors Higher-order Unification: Extended Pattern Unification},
+  journal   = {Annals of Mathematics and Artificial Intelligence},
+  volume    = {90},
+  number    = {5},
+  pages     = {455--479},
+  year      = {2021},
+  doi       = {10.1007/s10472-021-09774-y},
+  addendum  = {Read: author's final manuscript (elaboration.md C11).}
+}
+
+@misc{richter2026pmu,
+  author    = {David Richter and Timon B{\"o}hler},
+  title     = {Extended Abstract: From Pattern Unification Towards Pattern Matching Unification},
+  year      = {2026},
+  eprint    = {2607.18455},
+  eprinttype = {arxiv},
+  note      = {To be presented at TyDe 2026 (arXiv comment)},
+  addendum  = {Read in full (elaboration.md C12, inductives.md C17).}
+}
+
+@misc{norman2026canonical,
+  author    = {Chase Norman and Jeremy Avigad},
+  title     = {Implementing Dependent Type Theory Inhabitation and Unification},
+  year      = {2026},
+  eprint    = {2603.01463},
+  eprinttype = {arxiv},
+  addendum  = {Read in full (elaboration.md C13).}
+}
+
+@article{liesnikov2025polarity,
+  author    = {Bohdan Liesnikov and David Binder and Tim S{\"u}berkr{\"u}b},
+  title     = {Filling the Gaps of Polarity: Implementing Dependent Data and Codata Types with Implicit Arguments},
+  journal   = {The Art, Science, and Engineering of Programming},
+  volume    = {10},
+  number    = {3},
+  pages     = {19},
+  year      = {2025},
+  doi       = {10.22152/programming-journal.org/2025/10/19},
+  eprint    = {2511.15819},
+  eprinttype = {arxiv},
+  addendum  = {Read (elaboration.md C14).}
+}
+
+@inproceedings{liesnikov2023exel,
+  author    = {Bohdan Liesnikov and Jesper Cockx},
+  title     = {{ExEl}: Building an Elaborator Using Extensible Constraints},
+  booktitle = {35th Symposium on Implementation and Application of Functional Languages (IFL 2023)},
+  pages     = {1--13},
+  year      = {2023},
+  doi       = {10.1145/3652561.3652565},
+  addendum  = {Read: Internet Archive copy of the ACM PDF (elaboration.md C15).}
+}
+
+@article{gratzer2025unfolding,
+  author    = {Daniel Gratzer and Jonathan Sterling and Carlo Angiuli and Thierry Coquand and Lars Birkedal},
+  title     = {Controlling unfolding in type theory},
+  journal   = {Mathematical Structures in Computer Science},
+  volume    = {35},
+  pages     = {e38},
+  year      = {2025},
+  doi       = {10.1017/S0960129525100327},
+  eprint    = {2210.05420},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v2 (elaboration.md C16).}
+}
+
+@misc{selsam2020tabled,
+  author    = {Daniel Selsam and Sebastian Ullrich and Leonardo de Moura},
+  title     = {Tabled Typeclass Resolution},
+  year      = {2020},
+  eprint    = {2001.04301},
+  eprinttype = {arxiv},
+  note      = {Classic (before the 2022 window)},
+  addendum  = {Read: \S1--\S5.1 (elaboration.md C17).}
+}
+
+@article{zhao2024marking,
+  author    = {Eric Zhao and Raef Maroof and Anand Dukkipati and Andrew Blinn and Zhiyi Pan and Cyrus Omar},
+  title     = {Total Type Error Localization and Recovery with Holes},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {8},
+  number    = {POPL},
+  pages     = {2041--2068},
+  year      = {2024},
+  doi       = {10.1145/3632910},
+  url       = {https://hazel.org/papers/marking-popl24.pdf},
+  addendum  = {Read: hazel.org PDF (elaboration.md C18, infrastructure.md C18).}
+}
+
+@techreport{bhanuka2024flow,
+  author    = {Ishan Bhanuka and Lionel Parreaux and David Binder and Jonathan Immanuel Brachth{\"a}user},
+  title     = {Getting into the Flow: Towards Better Type Error Messages for Constraint-Based Type Inference},
+  type      = {Technical report},
+  year      = {2024},
+  eprint    = {2402.12637},
+  eprinttype = {arxiv},
+  note      = {Version read: arXiv v1, technical report. arXiv's metadata gives the published version as PACMPL 7 (OOPSLA2), Article 237, doi 10.1145/3622812},
+  addendum  = {Read (elaboration.md C19).}
+}
+
+@inproceedings{khakimova2026hints,
+  author    = {Maria Khakimova and S{\'a}ra Juho{\v{s}}ov{\'a} and Jaro Reinders and Jesper Cockx},
+  title     = {Enhancing Interactive Theorem Prover Error Messages with Hints},
+  booktitle = {Interactive Theorem Proving (ITP 2026)},
+  series    = {LIPIcs},
+  volume    = {382},
+  pages     = {5},
+  year      = {2026},
+  doi       = {10.4230/LIPIcs.ITP.2026.5},
+  addendum  = {Read (elaboration.md C20).}
+}
+
+% ------------------------------------------------------- proof automation
+
+@inproceedings{selsam2016cc,
+  author    = {Daniel Selsam and Leonardo de Moura},
+  title     = {Congruence Closure in Intensional Type Theory},
+  booktitle = {Automated Reasoning (I{}JCAR 2016)},
+  series    = {LNCS},
+  pages     = {99--115},
+  year      = {2016},
+  doi       = {10.1007/978-3-319-40229-1_8},
+  eprint    = {1701.04391},
+  eprinttype = {arxiv},
+  note      = {Classic},
+  addendum  = {Read: arXiv v2, \S1--\S4 (proof-automation.md C1).}
+}
+
+@manual{lean2026grind,
+  author    = {{Lean developers}},
+  title     = {The {Lean} Language Reference: The \texttt{grind} tactic},
+  year      = {2026},
+  url       = {https://lean-lang.org/doc/reference/latest/},
+  note      = {Chapter 16, version 4.36.0-rc2, 30 Oct 2026},
+  addendum  = {Read: \S16.1--16.7, 16.9, 16.12, 16.14 (proof-automation.md C2).}
+}
+
+@software{lean2026grindsrc,
+  author    = {{Lean developers}},
+  title     = {{Lean 4} \texttt{grind} sources: \texttt{Proof.lean}, \texttt{EMatchTheorem.lean}, \texttt{Internalize.lean}},
+  year      = {2026},
+  version   = {commit 0f852cc8},
+  url       = {https://github.com/leanprover/lean4/tree/0f852cc8/src/Lean/Meta/Tactic/Grind},
+  addendum  = {Read: module docs and named functions (proof-automation.md C3).}
+}
+
+@misc{demoura2025grind,
+  author    = {Leonardo de Moura},
+  title     = {The grind Tactic: proof automation in {Lean}},
+  howpublished = {Slides, 18 Sep 2025},
+  year      = {2025},
+  url       = {https://leodemoura.github.io/files/grind.pdf},
+  addendum  = {Read: all slides with a text layer (proof-automation.md C4).}
+}
+
+@misc{flatt2022small,
+  author    = {Oliver Flatt and Samuel Coward and Max Willsey and Zachary Tatlock and Pavel Panchekha},
+  title     = {Small Proofs from Congruence Closure},
+  howpublished = {FMCAD 2022},
+  year      = {2022},
+  eprint    = {2209.03398},
+  eprinttype = {arxiv},
+  note      = {DOI not found in Crossref by title; arXiv version read},
+  addendum  = {Read (proof-automation.md C5).}
+}
+
+@misc{wang2026learned,
+  author    = {Evan Wang and Simon Chess and Sophie Szeto and Theodore Meek},
+  title     = {Learned Interventions in {Lean 4} grind},
+  howpublished = {ICML 2026 (per the card)},
+  year      = {2026},
+  eprint    = {2607.22972},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v2 (proof-automation.md C6).}
+}
+
+@software{lean2026omega,
+  author    = {{Lean developers}},
+  title     = {{Lean 4} \texttt{omega}: docstring (\texttt{Init/Tactics.lean}) and \texttt{Omega/Frontend.lean}, \texttt{Omega/Core.lean}},
+  year      = {2026},
+  version   = {commit 0f852cc8},
+  url       = {https://github.com/leanprover/lean4/tree/0f852cc8/src/Lean/Elab/Tactic/Omega},
+  addendum  = {Read (proof-automation.md C7).}
+}
+
+@software{lean2026funind,
+  author    = {{Lean developers}},
+  title     = {{Lean 4} functional induction and \texttt{fun\_cases}: \texttt{Lean.Meta.Tactic.FunInd}},
+  year      = {2026},
+  version   = {commit 0f852cc8},
+  url       = {https://github.com/leanprover/lean4/blob/0f852cc8/src/Lean/Meta/Tactic/FunInd.lean},
+  addendum  = {Read: module documentation and reserved-name registration (proof-automation.md C8; inductives.md C1, C2).}
+}
+
+@software{lean2026guesslex,
+  author    = {{Lean developers}},
+  title     = {{Lean 4} termination-measure guessing: \texttt{Lean.Elab.PreDefinition.WF.GuessLex}},
+  year      = {2026},
+  url       = {https://github.com/leanprover/lean4/blob/0f852cc8/src/Lean/Elab/PreDefinition/WF/GuessLex.lean},
+  addendum  = {Read: module documentation and source (proof-automation.md C9; inductives.md C5).}
+}
+
+@software{lean2026preprocess,
+  author    = {{Lean developers}},
+  title     = {{Lean 4} automatic attach: \texttt{Lean.Elab.PreDefinition.WF.Preprocess}},
+  year      = {2026},
+  url       = {https://github.com/leanprover/lean4/blob/master/src/Lean/Elab/PreDefinition/WF/Preprocess.lean},
+  addendum  = {Read: docstring (inductives.md C3).}
+}
+
+@software{plausible2026,
+  author    = {{Lean community}},
+  title     = {Plausible: property testing for {Lean 4}},
+  year      = {2026},
+  version   = {commit 129d1ba9},
+  url       = {https://github.com/leanprover-community/plausible},
+  addendum  = {Read: README, \texttt{Tactic.lean}, \texttt{Testable.lean} (proof-automation.md C10).}
+}
+
+@article{goldstein2026palamedes,
+  author    = {Harrison Goldstein and Hila Peleg and Cassia Torczon and Daniel Sainati and Leonidas Lampropoulos and Benjamin C. Pierce},
+  title     = {The Search for Constrained Random Generators},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {10},
+  number    = {PLDI},
+  pages     = {251},
+  year      = {2026},
+  doi       = {10.1145/3808329},
+  eprint    = {2511.12253},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v2 (proof-automation.md C11).}
+}
+
+@article{mittelman2026testing,
+  author    = {Segev Elazar Mittelman and Harrison Goldstein and Leonidas Lampropoulos},
+  title     = {Testing Theorems, Fully Automatically},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {10},
+  number    = {OOPSLA2},
+  pages     = {177--204},
+  year      = {2026},
+  doi       = {10.1145/3839453},
+  addendum  = {Read: author PDF (proof-automation.md C12).}
+}
+
+@inproceedings{paraskevopoulou2022computing,
+  author    = {Zoe Paraskevopoulou and Aaron Eline and Leonidas Lampropoulos},
+  title     = {Computing Correctly with Inductive Relations},
+  booktitle = {Proceedings of the 43rd ACM SIGPLAN International Conference on Programming Language Design and Implementation (PLDI 2022)},
+  pages     = {966--980},
+  year      = {2022},
+  doi       = {10.1145/3519939.3523707},
+  addendum  = {Read: author PDF and NSF copy (proof-automation.md C13; inductives.md C10).}
+}
+
+@inproceedings{keles2026shrinking,
+  author    = {Alperen Keles and George Miao and Leonidas Lampropoulos},
+  title     = {Evaluating Shrinking (Experience Report)},
+  booktitle = {Proceedings of the 19th ACM SIGPLAN International Haskell Symposium},
+  year      = {2026},
+  doi       = {10.1145/3830439.3831271},
+  addendum  = {Read: author PDF (proof-automation.md C14).}
+}
+
+@inproceedings{qian2025leanauto,
+  author    = {Yicheng Qian and Joshua Clune and Clark Barrett and Jeremy Avigad},
+  title     = {Lean-Auto: An Interface Between {Lean 4} and Automated Theorem Provers},
+  booktitle = {Computer Aided Verification (CAV 2025)},
+  series    = {LNCS},
+  pages     = {175--196},
+  year      = {2025},
+  doi       = {10.1007/978-3-031-98682-6_10},
+  eprint    = {2505.14929},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v2 (proof-automation.md C15).}
+}
+
+@inproceedings{clune2024duper,
+  author    = {Joshua Clune and Yicheng Qian and Alexander Bentkamp and Jeremy Avigad},
+  title     = {Duper: A Proof-Producing Superposition Theorem Prover for Dependent Type Theory},
+  booktitle = {Interactive Theorem Proving (ITP 2024)},
+  series    = {LIPIcs},
+  volume    = {309},
+  pages     = {10},
+  year      = {2024},
+  doi       = {10.4230/LIPIcs.ITP.2024.10},
+  addendum  = {Read: LIPIcs PDF (proof-automation.md C16).}
+}
+
+@inproceedings{mohamed2025leansmt,
+  author    = {Abdalrhman Mohamed and Tomaz Mascarenhas and Harun Khan and Haniel Barbosa and Andrew Reynolds and Yicheng Qian and Cesare Tinelli and Clark Barrett},
+  title     = {lean-smt: An {SMT} Tactic for Discharging Proof Goals in {Lean}},
+  booktitle = {Computer Aided Verification (CAV 2025)},
+  series    = {LNCS},
+  pages     = {197--212},
+  year      = {2025},
+  doi       = {10.1007/978-3-031-98682-6_11},
+  eprint    = {2505.15796},
+  eprinttype = {arxiv},
+  addendum  = {Read (proof-automation.md C17).}
+}
+
+@misc{clune2026hint,
+  author    = {Joshua Clune and Haniel Barbosa and Jeremy Avigad},
+  title     = {Hint-Based {SMT} Proof Reconstruction},
+  year      = {2026},
+  eprint    = {2601.14495},
+  eprinttype = {arxiv},
+  addendum  = {Read (proof-automation.md C18).}
+}
+
+@misc{zhu2026premise,
+  author    = {Thomas Zhu and Joshua Clune and Jeremy Avigad and Albert Qiaochu Jiang and Sean Welleck},
+  title     = {Premise Selection for a {Lean} Hammer},
+  howpublished = {ICLR 2026 (per the card)},
+  year      = {2025},
+  eprint    = {2506.07477},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v2 (proof-automation.md C19).}
+}
+
+@misc{he2026crush,
+  author    = {Mike He and Dexin Zhang and Aarti Gupta},
+  title     = {crush: Extensible Proof Automation for {Lean}},
+  year      = {2026},
+  eprint    = {2610.40538},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v1, 29 Oct 2026 (proof-automation.md C20).}
+}
+
+@inproceedings{bartl2025instantiations,
+  author    = {Lukas Bartl and Jasmin Blanchette and Tobias Nipkow},
+  title     = {Exploiting Instantiations from Paramodulation Proofs in {Isabelle/HOL}},
+  booktitle = {Automated Deduction (CADE-30)},
+  series    = {LNCS},
+  year      = {2025},
+  doi       = {10.1007/978-3-031-99984-0_30},
+  eprint    = {2508.20738},
+  eprinttype = {arxiv},
+  note      = {DOI from arXiv's metadata},
+  addendum  = {Read (proof-automation.md C21).}
+}
+
+@inproceedings{gross2022rewriting,
+  author    = {Jason Gross and Andres Erbsen and Jade Philipoom and Rajashree Agrawal and Adam Chlipala},
+  title     = {Accelerating Verified-Compiler Development with a Verified Rewriting Engine},
+  booktitle = {13th International Conference on Interactive Theorem Proving (ITP 2022)},
+  series    = {LIPIcs},
+  volume    = {237},
+  pages     = {17},
+  year      = {2022},
+  doi       = {10.4230/LIPIcs.ITP.2022.17},
+  eprint    = {2205.00862},
+  eprinttype = {arxiv},
+  note      = {Author names as on arXiv; DataCite lists the fourth author as Miraya Poddar-Agrawal},
+  addendum  = {Read: arXiv v4 (proof-automation.md C22).}
+}
+
+@misc{rossel2024egraphs,
+  author    = {Marcus Rossel and Andr{\'e}s Goens},
+  title     = {Bridging Syntax and Semantics of {Lean} Expressions in E-Graphs},
+  howpublished = {EGRAPHS 2024},
+  year      = {2024},
+  eprint    = {2405.10188},
+  eprinttype = {arxiv},
+  note      = {With the lean-egg README, fetched 30 Oct 2026},
+  addendum  = {Read: all six pages (proof-automation.md C23).}
+}
+
+@misc{sakaguchi2022reflexive,
+  author    = {Kazuhiko Sakaguchi},
+  title     = {Reflexive tactics for algebra, revisited},
+  howpublished = {ITP 2022 (per the card)},
+  year      = {2022},
+  eprint    = {2202.04330},
+  eprinttype = {arxiv},
+  note      = {DOI not found in Crossref by title},
+  addendum  = {Read: abstract and \S1 (proof-automation.md C24).}
+}
+
+@misc{ospanov2025apollo,
+  author    = {Azim Ospanov and Farzan Farnia and Roozbeh Yousefzadeh},
+  title     = {{APOLLO}: Automated {LLM} and {Lean} Collaboration for Advanced Formal Reasoning},
+  howpublished = {NeurIPS 2025 (per the card)},
+  year      = {2025},
+  eprint    = {2505.05758},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v5 (proof-automation.md C25).}
+}
+
+% ----------------------------------------------------------------- kernel
+
+@inproceedings{felicissimo2026dpi,
+  author    = {Thiago Felicissimo and Yann Leray and Lo{\"i}c Pujet and Nicolas Tabareau and {\'E}ric Tanter and Th{\'e}o Winterhalter},
+  title     = {Definitional Proof Irrelevance Made Accessible},
+  booktitle = {LICS 2026},
+  year      = {2026},
+  url       = {https://hal.science/hal-05474391v4},
+  note      = {DOI not found; HAL version v4 read},
+  addendum  = {Read (kernel.md C1).}
+}
+
+@article{gilbert2019sprop,
+  author    = {Ga{\"e}tan Gilbert and Jesper Cockx and Matthieu Sozeau and Nicolas Tabareau},
+  title     = {Definitional Proof-Irrelevance without {K}},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {3},
+  number    = {POPL},
+  pages     = {1--28},
+  year      = {2019},
+  doi       = {10.1145/3290316},
+  note      = {Classic},
+  addendum  = {Read: HAL copy (kernel.md C2).}
+}
+
+@article{abel2020failure,
+  author    = {Andreas Abel and Thierry Coquand},
+  title     = {Failure of Normalization in Impredicative Type Theory with Proof-Irrelevant Propositional Equality},
+  journal   = {Logical Methods in Computer Science},
+  volume    = {16},
+  number    = {2:14},
+  year      = {2020},
+  doi       = {10.23638/LMCS-16(2:14)2020},
+  eprint    = {1911.08174},
+  eprinttype = {arxiv},
+  note      = {Classic},
+  addendum  = {Read: all 5 pages (kernel.md C3).}
+}
+
+@inproceedings{carneiro2026lean4lean,
+  author    = {Mario Carneiro},
+  title     = {{Lean4Lean}: Verifying a Typechecker for {Lean}, in {Lean}},
+  booktitle = {Types for Proofs and Programs (TYPES 2025)},
+  series    = {LIPIcs},
+  volume    = {384},
+  pages     = {2},
+  year      = {2026},
+  doi       = {10.4230/LIPIcs.TYPES.2025.2},
+  addendum  = {Read (kernel.md C4).}
+}
+
+@article{sozeau2025metacoq,
+  author    = {Matthieu Sozeau and Yannick Forster and Meven Lennon-Bertrand and Jakob Nielsen and Nicolas Tabareau and Th{\'e}o Winterhalter},
+  title     = {Correct and Complete Type Checking and Certified Erasure for {Coq}, in {Coq}},
+  journal   = {Journal of the ACM},
+  volume    = {72},
+  number    = {1},
+  pages     = {1--74},
+  year      = {2025},
+  doi       = {10.1145/3706056},
+  addendum  = {Read: HAL copy (kernel.md C5).}
+}
+
+@inproceedings{lennonbertrand2025certify,
+  author    = {Meven Lennon-Bertrand},
+  title     = {What Does It Take to Certify a Conversion Checker?},
+  booktitle = {10th International Conference on Formal Structures for Computation and Deduction (FSCD 2025)},
+  series    = {LIPIcs},
+  volume    = {337},
+  pages     = {27},
+  year      = {2025},
+  doi       = {10.4230/LIPIcs.FSCD.2025.27},
+  eprint    = {2502.15500},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v3, 16 Jul 2026 (kernel.md C6).}
+}
+
+@article{courant2026lazy,
+  author    = {Nathana{\"e}lle Courant and Xavier Leroy},
+  title     = {A Lazy, Concurrent Convertibility Checker},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {10},
+  number    = {POPL},
+  pages     = {1530--1556},
+  year      = {2026},
+  doi       = {10.1145/3776695},
+  eprint    = {2510.18418},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v2 (kernel.md C7).}
+}
+
+@article{leray2026rewster,
+  author    = {Yann Leray and Ga{\"e}tan Gilbert and Nicolas Tabareau and Th{\'e}o Winterhalter},
+  title     = {The {Rewster}: Type Preserving Rewrite Rules for the {Rocq} Prover},
+  journal   = {Journal of Automated Reasoning},
+  volume    = {70},
+  pages     = {7},
+  year      = {2026},
+  doi       = {10.1007/s10817-026-09753-0},
+  addendum  = {Read: HAL PDF (kernel.md C8).}
+}
+
+@article{cockx2021taming,
+  author    = {Jesper Cockx and Nicolas Tabareau and Th{\'e}o Winterhalter},
+  title     = {The Taming of the Rew: A Type Theory with Computational Assumptions},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {5},
+  number    = {POPL},
+  pages     = {1--29},
+  year      = {2021},
+  doi       = {10.1145/3434341},
+  note      = {Classic},
+  addendum  = {Read (kernel.md C9; and by the T4 lane for nat-add-recursion.md \S9.4).}
+}
+
+@article{felicissimo2026confluence,
+  author    = {Thiago Felicissimo and Th{\'e}o Winterhalter},
+  title     = {Confluence Techniques for Dependent Type Theory with Typed Conversion},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {10},
+  number    = {ICFP},
+  pages     = {551--580},
+  year      = {2026},
+  doi       = {10.1145/3828691},
+  addendum  = {Read: HAL copy (kernel.md C10).}
+}
+
+@misc{carneiro2026definv,
+  author    = {Mario Carneiro and Thierry Coquand and Adrien Frabetti Mathieu and Meven Lennon-Bertrand and Paul-Andr{\'e} Melli{\`e}s and Stephanie Weirich},
+  title     = {Definitional Inversion, Without Normalisation},
+  year      = {2026},
+  eprint    = {2607.13662},
+  eprinttype = {arxiv},
+  addendum  = {Read (kernel.md C11).}
+}
+
+@article{rosain2026sort,
+  author    = {Johann Rosain and Tom{\'a}s D{\'i}az and Kenji Maillard and Matthieu Sozeau and Nicolas Tabareau and {\'E}ric Tanter and Th{\'e}o Winterhalter},
+  title     = {Bounded Sort Polymorphism with Elimination Constraints},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {10},
+  number    = {POPL},
+  pages     = {2614--2642},
+  year      = {2026},
+  doi       = {10.1145/3776732},
+  addendum  = {Read: HAL copy (kernel.md C12).}
+}
+
+@inproceedings{geran2026levels,
+  author    = {Yoan G{\'e}ran},
+  title     = {A Canonical Form for Universe Levels in Impredicative Type Theory},
+  booktitle = {Computer Science Logic (CSL 2026)},
+  series    = {LIPIcs},
+  volume    = {363},
+  pages     = {39},
+  year      = {2026},
+  doi       = {10.4230/LIPIcs.CSL.2026.39},
+  addendum  = {Read (kernel.md C13).}
+}
+
+@inproceedings{bezem2023universe,
+  author    = {Marc Bezem and Thierry Coquand and Peter Dybjer and Mart{\'i}n Escard{\'o}},
+  title     = {Type Theory with Explicit Universe Polymorphism},
+  booktitle = {Types for Proofs and Programs (TYPES 2022)},
+  series    = {LIPIcs},
+  volume    = {269},
+  pages     = {13},
+  year      = {2023},
+  doi       = {10.4230/LIPIcs.TYPES.2022.13},
+  eprint    = {2212.03284},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v5 (kernel.md C14).}
+}
+
+@misc{sterbac2026fussfree,
+  author    = {Rapha{\"e}l Sterbac and Jonathan Sterling},
+  title     = {Fuss-free cumulative universes: theory and practice},
+  year      = {2026},
+  eprint    = {2607.11329},
+  eprinttype = {arxiv},
+  addendum  = {Read (kernel.md C15).}
+}
+
+@article{pujet2022obs,
+  author    = {Lo{\"i}c Pujet and Nicolas Tabareau},
+  title     = {Observational Equality: Now for Good},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {6},
+  number    = {POPL},
+  pages     = {1--27},
+  year      = {2022},
+  doi       = {10.1145/3498693},
+  addendum  = {Read: HAL copy (kernel.md C16).}
+}
+
+@inproceedings{adjedj2024mlacoq,
+  author    = {Arthur Adjedj and Meven Lennon-Bertrand and Kenji Maillard and Pierre-Marie P{\'e}drot and Lo{\"i}c Pujet},
+  title     = {{Martin-L{\"o}f} {\`a} la {Coq}},
+  booktitle = {Proceedings of the 13th ACM SIGPLAN International Conference on Certified Programs and Proofs (CPP 2024)},
+  pages     = {230--245},
+  year      = {2024},
+  doi       = {10.1145/3636501.3636951},
+  eprint    = {2310.06376},
+  eprinttype = {arxiv},
+  addendum  = {Read (kernel.md C17).}
+}
+
+@article{pujet2025cicobs,
+  author    = {Lo{\"i}c Pujet and Yann Leray and Nicolas Tabareau},
+  title     = {Observational Equality Meets {CIC}},
+  journal   = {ACM Transactions on Programming Languages and Systems},
+  volume    = {47},
+  number    = {2},
+  pages     = {1--35},
+  year      = {2025},
+  doi       = {10.1145/3719342},
+  addendum  = {Read: HAL copy (kernel.md C18).}
+}
+
+@misc{danielsson2026erased,
+  author    = {Nils Anders Danielsson},
+  title     = {Erased Postulates, Identity Types and Quotients},
+  year      = {2026},
+  eprint    = {2609.08578},
+  eprinttype = {arxiv},
+  addendum  = {Read (kernel.md C19).}
+}
+
+@misc{lean14977,
+  author    = {Arthur Adjedj and Joachim Breitner},
+  title     = {Meta issue: {Lean} Kernel Logic renovation},
+  howpublished = {\texttt{leanprover/lean4} issue \#14977, opened 31 Aug 2026},
+  year      = {2026},
+  url       = {https://github.com/leanprover/lean4/issues/14977},
+  addendum  = {Read: issue body (kernel.md C20).}
+}
+
+@misc{lean14806,
+  author    = {Leonardo de Moura},
+  title     = {fix: make kernel \texttt{is\_def\_eq} caching order-independent},
+  howpublished = {\texttt{leanprover/lean4} pull request \#14806, merged 18 Aug 2026},
+  year      = {2026},
+  url       = {https://github.com/leanprover/lean4/pull/14806},
+  addendum  = {Read: PR body (kernel.md C21).}
+}
+
+@misc{lean15908,
+  author    = {{Lean developers}},
+  title     = {Native \texttt{Nat.add} reduction trusts the constant's name},
+  howpublished = {\texttt{leanprover/lean4} issue \#15908, reported 24 Oct 2026},
+  year      = {2026},
+  url       = {https://github.com/leanprover/lean4/issues/15908},
+  note      = {Reporter not recorded on the card},
+  addendum  = {Read: issue description and scripts (kernel.md C22).}
+}
+
+@misc{lean13851,
+  author    = {Joachim Breitner},
+  title     = {feat: no large elim of recursive {Prop} inductives in the kernel},
+  howpublished = {\texttt{leanprover/lean4} pull request \#13851, opened 26 May 2026},
+  year      = {2026},
+  url       = {https://github.com/leanprover/lean4/pull/13851},
+  addendum  = {Read: PR body (kernel.md C23).}
+}
+
+@misc{leankernelarena,
+  author    = {{Lean developers}},
+  title     = {Lean Kernel Arena},
+  howpublished = {GitHub repository, created Jan 2026},
+  year      = {2026},
+  url       = {https://github.com/leanprover/lean-kernel-arena},
+  addendum  = {Read: README and four test descriptions (kernel.md C24).}
+}
+
+@online{sterin2026falsehood,
+  author    = {St{\'e}rin},
+  title     = {In search of falsehood},
+  date      = {2026-03-05},
+  url       = {https://tristan.st/blog/in_search_of_falsehood},
+  addendum  = {Read (kernel.md C25).}
+}
+
+@misc{rocqcve2026,
+  author    = {Brossard},
+  title     = {{CVE-2026-72703} and {CVE-2026-72705}: {Rocq} guard checker},
+  howpublished = {oss-security mailing list, items 2026/q4/381 and 2026/q4/383, 25 Oct 2026},
+  year      = {2026},
+  note      = {Author's given name and archive URL not recorded on the card},
+  addendum  = {Read: both advisories (kernel.md C26).}
+}
+
+% ------------------------------------------------------------- inductives
+
+@manual{leanreleases,
+  author    = {{Lean developers}},
+  title     = {{Lean} release notes: v4.8.0, v4.9.0, v4.17.0, v4.18.0, v4.24.0, v4.25.0, v4.30.0},
+  year      = {2026},
+  url       = {https://lean-lang.org/doc/reference/latest/releases/},
+  addendum  = {Read (inductives.md C1--C3, C6, C8, C14; infrastructure.md C15; compilation.md C2).}
+}
+
+@manual{leanrecursive,
+  author    = {{Lean developers}},
+  title     = {The {Lean} Language Reference: Recursive definitions (including \texttt{partial\_fixpoint} and coinductive predicates)},
+  year      = {2026},
+  url       = {https://lean-lang.org/doc/reference/latest/},
+  addendum  = {Read: whole chapter (inductives.md C6, C14).}
+}
+
+@online{breitner2025extrinsic,
+  author    = {Joachim Breitner},
+  title     = {Extrinsic termination proofs for well-founded recursion in {Lean}},
+  date      = {2025-03-10},
+  url       = {https://www.joachim-breitner.de/blog/816},
+  addendum  = {Read (inductives.md C4).}
+}
+
+@misc{leroy2024wf,
+  author    = {Xavier Leroy},
+  title     = {Well-founded recursion done right},
+  howpublished = {CoqPL 2024},
+  year      = {2024},
+  url       = {https://xavierleroy.org/publi/wf-recursion.pdf},
+  addendum  = {Read: whole pearl (inductives.md C7).}
+}
+
+@software{mathlibderivefintype,
+  author    = {{Mathlib community}},
+  title     = {Mathlib: \texttt{Mathlib.Tactic.DeriveFintype}},
+  year      = {2026},
+  url       = {https://github.com/leanprover-community/mathlib4/blob/master/Mathlib/Tactic/DeriveFintype.lean},
+  addendum  = {Read: docs and module docstrings (inductives.md C9).}
+}
+
+@article{chan2023sized,
+  author    = {Jonathan Chan and Yufeng Li and William J. Bowman},
+  title     = {Is Sized Typing for {Coq} Practical?},
+  journal   = {Journal of Functional Programming},
+  volume    = {33},
+  pages     = {e1},
+  year      = {2023},
+  doi       = {10.1017/S0956796822000120},
+  eprint    = {1912.05601},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v4 (inductives.md C11).}
+}
+
+@inproceedings{laarakker2026large,
+  author    = {Bastiaan Laarakker and Dani{\"e}l Otten and Benno {van den Berg}},
+  title     = {Constructing (Co)inductive Types via Large Sizes},
+  booktitle = {Formal Structures for Computation and Deduction (FSCD 2026)},
+  series    = {LIPIcs},
+  volume    = {378},
+  pages     = {21},
+  year      = {2026},
+  doi       = {10.4230/LIPIcs.FSCD.2026.21},
+  eprint    = {2602.18921},
+  eprinttype = {arxiv},
+  addendum  = {Read: LIPIcs PDF (inductives.md C12).}
+}
+
+@article{hyvernat2025sizechange,
+  author    = {Pierre Hyvernat},
+  title     = {The Size-Change Principle for Mixed Inductive and Coinductive Types},
+  journal   = {Logical Methods in Computer Science},
+  volume    = {21},
+  number    = {3:20},
+  year      = {2025},
+  doi       = {10.46298/lmcs-21(3:20)2025},
+  eprint    = {2407.05715},
+  eprinttype = {arxiv},
+  addendum  = {Read (inductives.md C13).}
+}
+
+@inproceedings{theocharis2025custom,
+  author    = {Constantine Theocharis and Edwin Brady},
+  title     = {Custom Representations of Inductive Families},
+  booktitle = {Trends in Functional Programming (TFP 2025)},
+  series    = {LNCS},
+  pages     = {302--328},
+  year      = {2025},
+  doi       = {10.1007/978-3-031-99751-8_13},
+  eprint    = {2505.21225},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v2 (inductives.md C15).}
+}
+
+@manual{idris2builtins,
+  author    = {{Idris 2 developers}},
+  title     = {Idris 2 documentation: Builtins},
+  url       = {https://idris2.readthedocs.io/},
+  addendum  = {Read: the Builtins page (inductives.md C16).}
+}
+
+@manual{agda280changelog,
+  author    = {{Agda developers}},
+  title     = {Agda 2.8.0 changelog},
+  url       = {https://hackage.haskell.org/package/Agda-2.8.0/changelog},
+  addendum  = {Read (inductives.md C18).}
+}
+
+@manual{leandottedident,
+  author    = {{Lean developers}},
+  title     = {The {Lean} Language Reference: error explanation \texttt{invalidDottedIdent}},
+  url       = {https://lean-lang.org/doc/reference/latest/},
+  addendum  = {Read (inductives.md C19).}
+}
+
+@article{escot2022generic,
+  author    = {Lucas Escot and Jesper Cockx},
+  title     = {Practical Generic Programming over a Universe of Native Datatypes},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {6},
+  number    = {ICFP},
+  pages     = {625--649},
+  year      = {2022},
+  doi       = {10.1145/3547644},
+  addendum  = {Read: Internet Archive copy of the ACM PDF (inductives.md C20).}
+}
+
+@article{ko2022reflection,
+  author    = {Hsiang-Shang Ko and Liang-Ting Chen and Tzu-Chi Lin},
+  title     = {Datatype-Generic Programming Meets Elaborator Reflection},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {6},
+  number    = {ICFP},
+  pages     = {225--253},
+  year      = {2022},
+  doi       = {10.1145/3547629},
+  addendum  = {Read: Internet Archive copy of the ACM PDF (inductives.md C21).}
+}
+
+% --------------------------------------------------------- infrastructure
+
+@inproceedings{chaliasos2022hephaestus,
+  author    = {Stefanos Chaliasos and Thodoris Sotiropoulos and Diomidis Spinellis and Arthur Gervais and Benjamin Livshits and Dimitris Mitropoulos},
+  title     = {Finding Typing Compiler Bugs},
+  booktitle = {Proceedings of the 43rd ACM SIGPLAN International Conference on Programming Language Design and Implementation (PLDI 2022)},
+  pages     = {183--198},
+  year      = {2022},
+  doi       = {10.1145/3519939.3523427},
+  url       = {https://theosotr.github.io/assets/pdf/pldi22.pdf},
+  addendum  = {Read: the published version, author copy (infrastructure.md C1).}
+}
+
+@article{sotiropoulos2024thalia,
+  author    = {Thodoris Sotiropoulos and Stefanos Chaliasos and Zhendong Su},
+  title     = {{API}-Driven Program Synthesis for Testing Static Typing Implementations},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {8},
+  number    = {POPL},
+  pages     = {1850--1881},
+  year      = {2024},
+  doi       = {10.1145/3632904},
+  eprint    = {2311.04527},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv extended version (infrastructure.md C2).}
+}
+
+@article{frank2024useless,
+  author    = {Justine Frank and Benjamin Quiring and Leonidas Lampropoulos},
+  title     = {Generating Well-Typed Terms That Are Not ``Useless''},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {8},
+  number    = {POPL},
+  pages     = {2318--2339},
+  year      = {2024},
+  doi       = {10.1145/3632919},
+  url       = {https://lemonidas.github.io/pdf/NotUseless.pdf},
+  addendum  = {Read: author copy (infrastructure.md C4).}
+}
+
+@article{shi2023etna,
+  author    = {Jessica Shi and Alperen Keles and Harrison Goldstein and Benjamin C. Pierce and Leonidas Lampropoulos},
+  title     = {Etna: An Evaluation Platform for Property-Based Testing (Experience Report)},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {7},
+  number    = {ICFP},
+  pages     = {878--894},
+  year      = {2023},
+  doi       = {10.1145/3607860},
+  url       = {https://par.nsf.gov/servlets/purl/10502034},
+  addendum  = {Read: NSF PAR copy (infrastructure.md C5).}
+}
+
+@article{wang2024rustlantis,
+  author    = {Qian Wang and Ralf Jung},
+  title     = {Rustlantis: Randomized Differential Testing of the {Rust} Compiler},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {8},
+  number    = {OOPSLA2},
+  pages     = {1955--1981},
+  year      = {2024},
+  doi       = {10.1145/3689780},
+  addendum  = {Read: Internet Archive copy of the ACM PDF (infrastructure.md C6).}
+}
+
+@inproceedings{sharma2023rustsmith,
+  author    = {Mayank Sharma and Pingshi Yu and Alastair F. Donaldson},
+  title     = {{RustSmith}: Random Differential Compiler Testing for {Rust}},
+  booktitle = {Proceedings of the 32nd ACM SIGSOFT International Symposium on Software Testing and Analysis (ISSTA 2023)},
+  pages     = {1483--1486},
+  year      = {2023},
+  doi       = {10.1145/3597926.3604919},
+  url       = {https://www.doc.ic.ac.uk/~afd/papers/2023/ISSTA-tool.pdf},
+  addendum  = {Read (infrastructure.md C7).}
+}
+
+@inproceedings{xia2024fuzz4all,
+  author    = {Chunqiu Steven Xia and Matteo Paltenghi and Jia Le Tian and Michael Pradel and Lingming Zhang},
+  title     = {{Fuzz4All}: Universal Fuzzing with Large Language Models},
+  booktitle = {Proceedings of the IEEE/ACM 46th International Conference on Software Engineering (ICSE 2024)},
+  year      = {2024},
+  doi       = {10.1145/3597503.3639121},
+  eprint    = {2308.04748},
+  eprinttype = {arxiv},
+  addendum  = {Read (infrastructure.md C8).}
+}
+
+@inproceedings{amaral2026mutdafny,
+  author    = {Isabel Amaral and Alexandra Mendes and Jos{\'e} Campos},
+  title     = {{MutDafny}: A Mutation-Based Approach to Assess {Dafny} Specifications},
+  booktitle = {Proceedings of the 2026 IEEE/ACM 48th International Conference on Software Engineering (ICSE 2026)},
+  pages     = {3573--3585},
+  year      = {2026},
+  doi       = {10.1145/3744916.3787816},
+  eprint    = {2511.15403},
+  eprinttype = {arxiv},
+  addendum  = {Read (infrastructure.md C9).}
+}
+
+@online{kirancodes2026leanzip,
+  author    = {{kirancodes}},
+  title     = {Fuzzing lean-zip (post ``log-who-watches-the-watchers'')},
+  date      = {2026-04},
+  url       = {https://kirancodes.me/posts/log-who-watches-the-watchers.html},
+  note      = {Blog post; its title was not recorded on the card, so this one describes it. Author by blog name},
+  addendum  = {Read (infrastructure.md C10).}
+}
+
+@online{unison2026bigidea,
+  author    = {{Unison developers}},
+  title     = {The big idea; and Updating a dependency with \texttt{lib.install}},
+  url       = {https://www.unison-lang.org/docs/the-big-idea/},
+  addendum  = {Read: both pages (infrastructure.md C11).}
+}
+
+@online{rustanalyzer2023durable,
+  author    = {{rust-analyzer team}},
+  title     = {Durable incrementality},
+  date      = {2023-07-24},
+  url       = {https://rust-analyzer.github.io/blog/2023/07/24/durable-incrementality.html},
+  addendum  = {Read (infrastructure.md C12).}
+}
+
+@article{mokhov2020bsalc,
+  author    = {Andrey Mokhov and Neil Mitchell and Simon {Peyton Jones}},
+  title     = {Build Systems {\`a} la Carte: Theory and Practice},
+  journal   = {Journal of Functional Programming},
+  volume    = {30},
+  pages     = {e11},
+  year      = {2020},
+  doi       = {10.1017/S0956796820000088},
+  note      = {Classic},
+  addendum  = {Read: JFP version (infrastructure.md C13).}
+}
+
+@manual{leanmodules,
+  author    = {{Lean developers}},
+  title     = {The {Lean} Language Reference: Source Files and Modules},
+  url       = {https://lean-lang.org/doc/reference/latest/Source-Files-and-Modules/},
+  addendum  = {Read (infrastructure.md C14).}
+}
+
+@online{mathlibcache2023,
+  author    = {{Lean Zulip}},
+  title     = {Coarseness of {Mathlib.Cache}},
+  date      = {2023-04-13},
+  url       = {https://leanprover-community.github.io/archive/stream/287929-mathlib4/topic/Coarseness.20of.20Mathlib.2ECache.html},
+  addendum  = {Read: thread (infrastructure.md C16).}
+}
+
+@article{blinn2024chatlsp,
+  author    = {Andrew Blinn and Xiang Li and June Hyung Kim and Cyrus Omar},
+  title     = {Statically Contextualizing Large Language Models with Typed Holes},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {8},
+  number    = {OOPSLA2},
+  pages     = {468--498},
+  year      = {2024},
+  doi       = {10.1145/3689728},
+  eprint    = {2409.00921},
+  eprinttype = {arxiv},
+  addendum  = {Read (infrastructure.md C19).}
+}
+
+@inproceedings{aniva2025pantograph,
+  author    = {Leni Aniva and Chuyue Sun and Brando Miranda and Clark Barrett and Sanmi Koyejo},
+  title     = {Pantograph: A Machine-to-Machine Interaction Interface for Advanced Theorem Proving, High Level Reasoning, and Data Extraction in {Lean 4}},
+  booktitle = {Tools and Algorithms for the Construction and Analysis of Systems (TACAS 2025)},
+  series    = {LNCS},
+  pages     = {104--123},
+  year      = {2025},
+  doi       = {10.1007/978-3-031-90643-5_6},
+  eprint    = {2410.16429},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv copy (infrastructure.md C20).}
+}
+
+@software{coqlsp,
+  author    = {{coq-lsp developers}},
+  title     = {coq-lsp ({README})},
+  url       = {https://github.com/LLM4Rocq/coq-lsp},
+  addendum  = {Read (infrastructure.md C21).}
+}
+
+@inproceedings{baanen2025mathlib,
+  author    = {Anne Baanen and Matthew Robert Ballard and Johan Commelin and Bryan Gin-ge Chen and Michael Rothgang and Damiano Testa},
+  title     = {Growing {Mathlib}: Maintenance of a Large Scale Mathematical Library},
+  booktitle = {Intelligent Computer Mathematics (CICM 2025)},
+  series    = {LNCS},
+  pages     = {51--70},
+  year      = {2026},
+  doi       = {10.1007/978-3-032-07021-0_4},
+  eprint    = {2508.21593},
+  eprinttype = {arxiv},
+  addendum  = {Read (infrastructure.md C22).}
+}
+
+@article{gopinathan2023sisyphus,
+  author    = {Kiran Gopinathan and Mayank Keoliya and Ilya Sergey},
+  title     = {Mostly Automated Proof Repair for Verified Libraries},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {7},
+  number    = {PLDI},
+  pages     = {25--49},
+  year      = {2023},
+  doi       = {10.1145/3591221},
+  url       = {https://ilyasergey.net/assets/pdf/papers/sisyphus-pldi23.pdf},
+  addendum  = {Read: author's copy (infrastructure.md C23).}
+}
+
+@online{carlini2026compiler,
+  author    = {Nicholas Carlini},
+  title     = {Building a {C} compiler with a team of parallel {Claudes}},
+  organization = {Anthropic},
+  date      = {2026-02-05},
+  url       = {https://www.anthropic.com/engineering/building-c-compiler},
+  addendum  = {Read (infrastructure.md C26).}
+}
+
+@misc{zhong2025impossiblebench,
+  author    = {Ziqian Zhong and Aditi Raghunathan and Nicholas Carlini},
+  title     = {{ImpossibleBench}: Measuring {LLMs}' Propensity of Exploiting Test Cases},
+  year      = {2025},
+  eprint    = {2510.20270},
+  eprinttype = {arxiv},
+  addendum  = {Read (infrastructure.md C27).}
+}
+
+@misc{krishnamurthi2026ablation,
+  author    = {Shriram Krishnamurthi and Matthew Flatt},
+  title     = {Type-Error Ablation and {AI} Coding Agents},
+  year      = {2026},
+  eprint    = {2606.01522},
+  eprinttype = {arxiv},
+  addendum  = {Read (infrastructure.md C28).}
+}
+
+@misc{li2026idris,
+  author    = {Minda Li and Bhaskar Krishnamachari},
+  title     = {Compiler-Guided Inference-Time Adaptation: Improving {GPT-5} Programming Performance in {Idris}},
+  year      = {2026},
+  eprint    = {2602.11481},
+  eprinttype = {arxiv},
+  addendum  = {Read (infrastructure.md C29).}
+}
+
+@article{forster2024extraction,
+  author    = {Yannick Forster and Matthieu Sozeau and Nicolas Tabareau},
+  title     = {Verified Extraction from {Coq} to {OCaml}},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {8},
+  number    = {PLDI},
+  pages     = {52--75},
+  year      = {2024},
+  doi       = {10.1145/3656379},
+  addendum  = {Read: Internet Archive copy of the ACM PDF (infrastructure.md C31).}
+}
+
+@inproceedings{nawrocki2023ui,
+  author    = {Wojciech Nawrocki and Edward W. Ayers and Gabriel Ebner},
+  title     = {An Extensible User Interface for {Lean 4}},
+  booktitle = {Interactive Theorem Proving (ITP 2023)},
+  series    = {LIPIcs},
+  volume    = {268},
+  pages     = {24},
+  year      = {2023},
+  doi       = {10.4230/LIPIcs.ITP.2023.24},
+  addendum  = {Read (infrastructure.md C32).}
+}
+
+@inproceedings{donaldson2024fuzzd,
+  author    = {Alastair F. Donaldson and Dilan Sheth and Jean-Baptiste Tristan and Alex Usher},
+  title     = {Randomised Testing of the Compiler for a Verification-Aware Programming Language},
+  booktitle = {2024 IEEE Conference on Software Testing, Verification and Validation (ICST)},
+  pages     = {407--418},
+  year      = {2024},
+  doi       = {10.1109/ICST60714.2024.00044},
+  url       = {https://www.doc.ic.ac.uk/~afd/papers/2024/ICST.pdf},
+  addendum  = {Read (infrastructure.md C33).}
+}
+
+% ------------------------------------------------------------ compilation
+
+@inproceedings{ullrich2019beans,
+  author    = {Sebastian Ullrich and Leonardo de Moura},
+  title     = {Counting Immutable Beans: Reference Counting Optimized for Purely Functional Programming},
+  booktitle = {31st Symposium on Implementation and Application of Functional Languages (IFL 2019)},
+  pages     = {1--12},
+  year      = {2019},
+  doi       = {10.1145/3412932.3412935},
+  eprint    = {1908.05647},
+  eprinttype = {arxiv},
+  note      = {Classic},
+  addendum  = {Read: arXiv v3 (compilation.md C1).}
+}
+
+@manual{leaninferborrow,
+  author    = {{Lean developers}},
+  title     = {{Lean} API documentation: \texttt{Lean.Compiler.LCNF.InferBorrow}},
+  url       = {https://lean-lang.org/doc/api/Lean/Compiler/LCNF/InferBorrow.html},
+  addendum  = {Read (compilation.md C2).}
+}
+
+@article{brandon2026borrows,
+  author    = {William Brandon and Benjamin Driscoll and Frank Dai and Jonathan Ragan-Kelley and Mae Milano and Alex Aiken},
+  title     = {Fully-Automatic Type Inference for Borrows with Lifetimes},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {10},
+  number    = {OOPSLA1},
+  pages     = {597--623},
+  year      = {2026},
+  doi       = {10.1145/3798221},
+  addendum  = {Read: Internet Archive copy of theory.stanford.edu's PDF (compilation.md C3).}
+}
+
+@article{lorenzen2022frame,
+  author    = {Anton Lorenzen and Daan Lei{}jen},
+  title     = {Reference Counting with Frame Limited Reuse},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {6},
+  number    = {ICFP},
+  pages     = {357--380},
+  year      = {2022},
+  doi       = {10.1145/3547634},
+  url       = {https://www.microsoft.com/en-us/research/uploads/prod/2023/07/flreuse.pdf},
+  addendum  = {Read: MSR copy (compilation.md C4).}
+}
+
+@article{lorenzen2023fp2,
+  author    = {Anton Lorenzen and Daan Lei{}jen and Wouter Swierstra},
+  title     = {{FP}$^2$: Fully in-Place Functional Programming},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {7},
+  number    = {ICFP},
+  pages     = {275--304},
+  year      = {2023},
+  doi       = {10.1145/3607840},
+  url       = {https://www.microsoft.com/en-us/research/uploads/prod/2023/05/fip-tr-v2.pdf},
+  addendum  = {Read: MSR TR v2 (compilation.md C5).}
+}
+
+@article{lorenzen2024fiptree,
+  author    = {Anton Lorenzen and Daan Lei{}jen and Wouter Swierstra and Sam Lindley},
+  title     = {The Functional Essence of Imperative Binary Search Trees},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {8},
+  number    = {PLDI},
+  pages     = {518--542},
+  year      = {2024},
+  doi       = {10.1145/3656398},
+  url       = {https://homepages.inf.ed.ac.uk/slindley/papers/fiptree.pdf},
+  addendum  = {Read (compilation.md C6).}
+}
+
+@inproceedings{lam2024lazy,
+  author    = {Chun Kit Lam and Lionel Parreaux},
+  title     = {Being Lazy When It Counts: Practical Constant-Time Memory Management for Functional Programming},
+  booktitle = {Functional and Logic Programming (FLOPS 2024)},
+  series    = {LNCS},
+  pages     = {188--216},
+  year      = {2024},
+  doi       = {10.1007/978-981-97-2300-3_11},
+  url       = {https://lptk.github.io/files/ctrc-2024-05-09.pdf},
+  addendum  = {Read (compilation.md C7).}
+}
+
+@mastersthesis{huisinga2023uniqueness,
+  author    = {Huisinga},
+  title     = {Static Uniqueness Analysis for the {Lean 4} Theorem Prover},
+  school    = {Karlsruhe Institute of Technology},
+  year      = {2023},
+  url       = {https://pp.ipd.kit.edu/uploads/publikationen/huisinga23masterarbeit.pdf},
+  note      = {Author's given name not recorded on the card},
+  addendum  = {Read: KIT PDF (compilation.md C8).}
+}
+
+@inproceedings{allais2023builtin,
+  author    = {Guillaume Allais},
+  title     = {Builtin Types Viewed as Inductive Families},
+  booktitle = {Programming Languages and Systems (ESOP 2023)},
+  series    = {LNCS},
+  pages     = {113--139},
+  year      = {2023},
+  doi       = {10.1007/978-3-031-30044-8_5},
+  eprint    = {2301.02194},
+  eprinttype = {arxiv},
+  addendum  = {Read (compilation.md C9).}
+}
+
+@inproceedings{brady2004indices,
+  author    = {Edwin Brady and Conor McBride and James McKinna},
+  title     = {Inductive Families Need Not Store Their Indices},
+  booktitle = {Types for Proofs and Programs (TYPES 2003)},
+  series    = {LNCS},
+  volume    = {3085},
+  pages     = {115--129},
+  year      = {2004},
+  doi       = {10.1007/978-3-540-24849-1_8},
+  note      = {Classic},
+  addendum  = {Read from rendered page images of the author's copy (compilation.md C10).}
+}
+
+@manual{agdaruntimeirrelevance,
+  author    = {{Agda developers}},
+  title     = {Agda User Manual: Run-time Irrelevance},
+  url       = {https://agda.readthedocs.io/en/latest/language/runtime-irrelevance.html},
+  addendum  = {Read (compilation.md C11).}
+}
+
+@article{brandon2023lss,
+  author    = {William Brandon and Benjamin Driscoll and Frank Dai and Wilson Berkow and Mae Milano},
+  title     = {Better Defunctionalization through Lambda Set Specialization},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {7},
+  number    = {PLDI},
+  pages     = {977--1000},
+  year      = {2023},
+  doi       = {10.1145/3591260},
+  addendum  = {Read: Internet Archive capture of the ACM PDF (compilation.md C12).}
+}
+
+@article{xu2026deegen,
+  author    = {Haoran Xu and Fredrik Kjolstad},
+  title     = {Deegen: A {JIT}-Capable {VM} Generator for Dynamic Languages},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {10},
+  number    = {OOPSLA1},
+  pages     = {1266--1294},
+  year      = {2026},
+  doi       = {10.1145/3798246},
+  eprint    = {2411.11469},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v2, not the camera-ready (compilation.md C14).}
+}
+
+@online{wasmi032,
+  author    = {{wasmi developers}},
+  title     = {Wasmi 0.32 (blog post on register-based bytecode)},
+  date      = {2024},
+  url       = {https://wasmi-labs.github.io/blog/posts/wasmi-v0.32},
+  addendum  = {Read; chart images not readable (compilation.md C15).}
+}
+
+@online{keeter2026tailcall,
+  author    = {Matt Keeter},
+  title     = {A tail-call interpreter in (nightly) {Rust}},
+  date      = {2026-04-05},
+  url       = {https://www.mattkeeter.com/blog/2026-04-05-tailcall/},
+  addendum  = {Read (compilation.md C16).}
+}
+
+@online{elhage2025tailcall,
+  author    = {Nelson Elhage},
+  title     = {{CPython}'s tail-calling interpreter},
+  date      = {2025},
+  url       = {https://blog.nelhage.com/post/cpython-tail-call/},
+  note      = {Title as the card describes the post; its exact title was not recorded},
+  addendum  = {Read (compilation.md C17).}
+}
+
+@online{jin2025sorry,
+  author    = {Jin},
+  title     = {No longer sorry},
+  date      = {2025},
+  url       = {https://fidget-spinner.github.io/posts/no-longer-sorry.html},
+  note      = {Author's full name not recorded on the card},
+  addendum  = {Read (compilation.md C17).}
+}
+
+@online{wasmweb2024,
+  author    = {{web.dev}},
+  title     = {{WasmGC} and {Wasm} tail calls are Baseline (as the card describes the post)},
+  date      = {2024-12},
+  url       = {https://web.dev/blog/wasmgc-wasm-tail-call-optimizations-baseline},
+  note      = {Read with the Guile Hoot 0.8 status page and the wasm\_of\_ocaml post of 16 Apr 2026},
+  addendum  = {Read (compilation.md C19).}
+}
+
+@inproceedings{meier2025certicoqwasm,
+  author    = {Wolfgang Meier and Martin Jensen and Jean Pichon-Pharabod and Bas Spitters},
+  title     = {{CertiCoq-Wasm}: A Verified {WebAssembly} Backend for {CertiCoq}},
+  booktitle = {Proceedings of the 14th ACM SIGPLAN International Conference on Certified Programs and Proofs (CPP 2025)},
+  pages     = {127--139},
+  year      = {2025},
+  doi       = {10.1145/3703595.3705879},
+  url       = {https://www.cl.cam.ac.uk/~jp622/certicoq-wasm.pdf},
+  addendum  = {Read (compilation.md C20).}
+}
+
+@online{tc39bigint117,
+  author    = {{TC39}},
+  title     = {proposal-bigint issue 117 ({Scala.js} \texttt{Long} as \texttt{BigInt})},
+  date      = {2018-02},
+  url       = {https://github.com/tc39/proposal-bigint/issues/117},
+  note      = {Read with the V8 blog post ``Adding BigInts to V8'', \url{https://v8.dev/blog/bigint}},
+  addendum  = {Read (compilation.md C21).}
+}
+
+@online{instrcounts,
+  author    = {{tak; rustls; pythonspeed}},
+  title     = {Instruction counts as the benchmark metric: tak methodology, rustls \texttt{ci-bench}, ``Consistent benchmarking in CI''},
+  url       = {https://tak.jdx.dev/guide/methodology},
+  note      = {Also \url{https://github.com/rustls/rustls/blob/main/ci-bench} and \url{https://pythonspeed.com/articles/consistent-benchmarking-in-ci}. tak's page says it is unreviewed AI-written text, so its numbers are weak evidence},
+  addendum  = {Read: three pages (compilation.md C24).}
+}
+
+@article{titzer2022inplace,
+  author    = {Ben L. Titzer},
+  title     = {A Fast In-Place Interpreter for {WebAssembly}},
+  journal   = {Proceedings of the ACM on Programming Languages},
+  volume    = {6},
+  number    = {OOPSLA2},
+  pages     = {646--672},
+  year      = {2022},
+  doi       = {10.1145/3563311},
+  eprint    = {2205.01183},
+  eprinttype = {arxiv},
+  addendum  = {Read: arXiv v1 (compilation.md C25).}
+}

@@ -1,0 +1,12 @@
+# LaTeX build files (the .tex, .bib and final .pdf are committed)
+*.aux
+*.log
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.fdb_latexmk
+*.fls
+*.out
+*.toc
+*.synctex.gz
