@@ -2160,9 +2160,7 @@ fn visit(
         // Read back folded, `Succ` of a call stays that: the call is what
         // was written.
         Value::Ctor(d, 1, args)
-            if mode.unfolds()
-                && Some(d) == g.builtins.nat
-                && has_call_base(g, &args) =>
+            if mode.unfolds() && Some(d) == g.builtins.nat && has_call_base(g, &args) =>
         {
             visit(g, level, succ_unglued(g, &args[0])?, mode, tasks, done)?;
         }
