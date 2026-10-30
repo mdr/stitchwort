@@ -524,8 +524,9 @@ safe places.
 - **K3** is K2 inside a lambda: `.f a` becomes `x => x.f a` with `x : ?D` at once, and the body
   is an ordinary K2 on `?D` whose receiver is the variable `x`, made before the receiver, so
   kept as syntax (§5.5). The review agrees this is the right normalisation: "it reduces method
-  sections to the same underlying problem as dot lookup instead of maintaining their own
-  scheduling semantics".
+  scheduling semantics". *As built, the section is queued whole and checked at its type once
+  `?D` is known, so that it keeps D506's partial application; the scheduling is K2's ("As built
+  (stage 3)", deviation 1).*
 - **K4** keeps the literal (syntax). Its default, `Nat`, is applied in the ladder after the
   field-name default (§5.8). The number *group* of `numbers.rs` (a comparison or arithmetic
   tree typed at once) defaults to `Nat` at its step 6 (`numbers.rs:944-946`) when no leaf
@@ -868,6 +869,7 @@ in one of three ways, and a placeholder's type is an unknown like any other **[c
 | number literal | `check_literal`, `numbers.rs:290-312` | made `Nat` at once, noted in `defaulted` | **waits**: K4, `Nat` in the ladder |
 | number group's type | `group_in`, `numbers.rs:799-1000` | a leaf of unknown type decides nothing (`Class::Unknown`); with no deciding leaf, `Nat` (`:944-946`) or, for `==` with nothing numeric, the first leaf's type | an unknown leaf decides nothing, as today; the `Nat` default **moves into the ladder** with K4 |
 | instance search | `interfaces::attempt`, `auto.rs:100-140` | waits (`Attempt::Wait`) | waits, as today |
+| a proposition where a `Bool` is expected: its decision (added in stage 3, D2035) | `decide_to_bool`, `check.rs:4113`, via `bind::decide` | decided at once; with a placeholder in it, `E-AUTO-NONE` naming the placeholder | **waits** for the placeholder: a `Decide` item (stage 3) |
 | `==` and `!=` as `Bool`: the decision | `decide_eq_of`, `interfaces.rs:1490-1521`, via `bind::decide`, `bind.rs:255-313` | found at once if it can be, and then its field is projected (`Nat.decEq x y`); otherwise the generic `DecEq.decide [d] x y` | **decided at `finish`**: the projection is made at zonk, so the term doesn't depend on when the dictionary was found (the `Day05.noRuleBroken` fix) |
 | `+`, `*`, `<`, `<=` through a dictionary | `method_call`, `interfaces.rs:1705-1738`, from `operator`, `numbers.rs:1347-1402` | the same: projected only if found at once | **decided at `finish`**, as above |
 | prefix form or dot form | `infer_call`, `prefix_form`, `dot.rs:1143-1238`, `:1613-1640` | an unknown receiver type: dot form | the choice is made at resume, from the syntax (§5.5) |
@@ -879,7 +881,7 @@ in one of three ways, and a placeholder's type is an unknown like any other **[c
 | passing or running an effectful part | `receiver_passed`, `effects.rs:2000-2009`; `is_comp_type`, `:1795-1809` | an unknown is not a computation: run | the same: decided from declared types and syntax, not from a placeholder (§5.5) |
 
 So the consumers fall into three classes:
-- **wait** (dot lookup, records, sections, numbers, instance search): the queue and the ladder;
+- **wait** (dot lookup, records, sections, numbers, instance search, a `Bool` decision): the queue and the ladder;
 - **decided at `finish`**, where the choice changes the term but not the meaning (the
   operators' known-instance projection, the dot call's route). The projection at `finish` is a
   change to today's code too: wherever an operator's dictionary is found after the operator
@@ -1713,6 +1715,151 @@ defaults are W4's only, and nothing in the corpus asks otherwise.
 3. Unrelated to the queue: on main and here alike, a `let`-bound curried lambda written `r => p
    => …` with nothing known isn't inferred ("this is a function, but the expected type is `?2
    page r`"), where `r p => …` is **[run]**.
+
+## As built (stage 3)
+
+Built in SW-817's stage-3 lane, on `d031ca0c`, then rebased onto `06865190` (which brings
+SW-910 and SW-800), in two commits: K3 and D2035 (`40651819`), then an inferred section's result
+type (`936da6b9`); this section is the third. Line numbers are of `936da6b9`; "on `d031ca0c`"
+marks a line of the base the lane started from. Everything below was measured on `d031ca0c` and
+its lane, and the hash dumps, tests, AoC and rogue were run again after the rebase (below).
+
+**What changed.**
+- **K3, method sections** (`crates/elab/src/dot.rs`). A section checked against `dom -> cod`
+  whose `dom` has an unknown at its head is queued whole by `queue_section` (`:989`), called
+  first in `check`'s lambda case (`check.rs:3459`), as a `Section` (`:974`) waiting on that
+  unknown. Resumed, it is `check` against the function type, now with `dom` known, so
+  `section_partial` (D506) or the lambda follows exactly as when `dom` is known from the start.
+  Its error, if it is still waiting at the end, is today's "can't tell what `.f` is applied to"
+  (`section_unknown`, `:1010`).
+- **Inferring a section** (`let g := .drop 1`, `(.length) "abcd"`) is inferring a lambda,
+  `infer_section` (`check.rs:1736`, from `:1313`): its type is `(x: ?D) -> ?R`, the result not
+  depending on the argument (deviation 2).
+- **Removed**: the section postponed without a try (`apply_args_postponing`, `check.rs:2037` on
+  `d031ca0c`, with its `dependents`); a section's own early `E-CANNOT-INFER` when inferred
+  (`check.rs:1313` on `d031ca0c`) and in `find_in_view` (`dot.rs:721` on `d031ca0c`). Where a
+  section's argument type is known but its view meets an unknown further on (`Id ?a`), the
+  `.f` inside the lambda is now a K2 waiting with the section's message (`dot.rs:724`).
+- **D2035, the decision into a `Bool`** (`check.rs`). `decide_to_bool` (`:4113`) first asks
+  `queue::unfilled_in` (`queue.rs:322`) for a placeholder in the proposition's value that its
+  check hasn't filled and unification hasn't solved; with one, it queues a `Decide` (`:4152`)
+  waiting on it, whose placeholder is the `Bool`. Resumed, it waits on another such placeholder
+  if there is one, or decides (`decided`, `:4172`, today's decision and error). `unfilled_in` is
+  free while nothing waits; it reads the value back as `interfaces::unsolved_in` does
+  (`scanned`, now `pub(crate)`, `interfaces.rs:1330`). §5.10's table has the consumer.
+- **A counter**: `lambda postponed` (`queue::note_lambda_postponed`, `queue.rs:675`, counted at
+  `check.rs:2101`), the lambda try-then-postpone path's firings.
+
+**Hash changes: none** **[measured]**. The std + aoc (10,420 declarations) and std + rogue
+(5,164) dumps of `61515018` are byte-identical to those of `d031ca0c`, taken before any
+change (and after the rebase, `936da6b9`'s to `06865190`'s, below).
+`hash_stability` at `STITCHWORT_TIER=full` changes only the snapshots of the two new accepted
+examples. So **the 6 aoc lambda postponements that are sections, now section items, have the
+hashes they had**: they were checked at the end of their application, after the later
+arguments, and are now resumed at that application's W1 with the same type known
+[inferred from the code, and measured as identical hashes].
+
+**Statements, answers and errors** **[run]**. `stitchwort check --no-cache` and `stitchwort
+test` pass in `aoc/` (914 tests) and `games/rogue/` (100). `task snap:examples` at the full
+tier changes no error message but the planned move:
+- `reject/section-unknown-receiver.sw`, `E-CANNOT-INFER` "can't tell what `.drop` is applied
+  to" → accepted, as `accept/section-unknown-receiver.sw` (D2011), with run-time tests; its
+  snapshot is removed;
+- `reject/section-never-applied.sw`, new: a section nothing applies, `E-CANNOT-INFER` with the
+  same message at its own span.
+
+**Counters**, `STITCHWORT_TIMINGS`, `stitchwort check --no-cache`, each example checked on its
+own and summed, `d031ca0c` (with a scratch build adding the counters) → `61515018`
+**[measured]**. `requeued`, `read back`, `disagreed` and `kept chose` are 0 everywhere, and
+`defaulted` is as in stage 2 (1, in the accepted examples):
+
+| | queued | resumed | stuck | crossed W1 | met unfilled | solved first | lossy | kept | lambda postponed | section untried (scratch) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| aoc | 117 → 166 | 94 → 143 | 0 → 0 | 15 → 15 | 8 → 8 | 10 → 16 | 7 → 11 | 21 → 21 | **6 → 0** | 43 → (path gone) |
+| rogue | 11 → 35 | 8 → 32 | 0 → 0 | 5 → 5 | 0 → 0 | 0 → 0 | 0 → 0 | 2 → 2 | 0 → 0 | 24 → (gone) |
+| accepted examples | 149 → 2,847 | 133 → 2,830 | 0 → 0 | 80 → 81 | 2 → 2 | 4 → 4 | 3 → 3 | 2 → 2 | 0 → 0 | 2,661 → (gone) |
+| rejected examples | 105 → 4,182 | 88 → 4,158 | 8 → 9 | 66 → 66 | 0 → 0 | 0 → 0 | 0 → 0 | 3 → 3 | 2 → 2 | 4,070 → (gone) |
+
+- With `--no-cache` every run elaborates the library modules it imports, and the library's own
+  sections are now items (the prelude alone queues 5): that is most of the examples' rise, and
+  rogue's. aoc's rise is 49: its 43 sections postponed without a try and its 6 sections tried
+  and then postponed.
+- **The lambda try-then-postpone counter is 0 in accepted code** (aoc, rogue, the accepted
+  examples). Its 2 firings in rejected code are both `reject/lambda-body-error-against-goal.sw`,
+  a proof lambda (not a section) whose `omega` fails both ways; it keeps its `E-OMEGA`.
+- `solved first` +6 and `lossy` +4 in aoc, all agreeing with the item's term (`disagreed` 0):
+  [inferred] the 6 sections that were tried in place because a later parameter's type mentions
+  them, so the later arguments' comparisons meet, and solve, their placeholders before W1.
+- In aoc and rogue the new items are exactly the sections that used to be postponed (aoc 49 =
+  43 + 6, rogue 24 = 24), so no `Decide` is queued there.
+
+**Timing**, `stitchwort check --no-cache` in `aoc/`, user + system CPU, alternating `d031ca0c`'s
+binary with the lane's **[measured]**. The machine was shared (load average 5 to 45). Last set,
+load 5 to 18: base 36.52, 34.61, 35.93 s; lane 34.81, 34.89, 36.47 s. Two earlier sets, under
+heavier load: base 37.65, 38.32, 36.70 and 39.82, 37.95, 36.71 s; lane 42.48, 38.23, 39.66 and
+41.00, 38.54, 37.26 s. Each pair within the noise of the next; no cost shows clearly.
+
+**SW-910: stage 3 doesn't change it** **[run]**. On `d031ca0c`, `let f := r => p => r.before
+== p; f r page` was `E-TYPE-MISMATCH` ("this is a function, but the expected type is `?2 r page
+r`") with and without stage 3, and `r p => …` was accepted by both. SW-910's fix is in
+`06865190`; after the rebase both forms are accepted by main and by the lane. The rebase's one
+conflict was there: `infer_value`'s lambda case, where a section now goes to `infer_section`
+before SW-910's `curried_lambda` (which already leaves a section inside a lambda alone).
+
+**After the rebase onto `06865190`** **[run]**: the std + aoc (now 10,450 declarations) and std
++ rogue (5,164) dumps are byte-identical between `06865190` and the lane; `hash_stability` at
+the full tier and `task snap:examples` change nothing further; aoc (914) and rogue (100) pass;
+the lane tier, the queue's unit tests and `postponement.rs` pass; aoc's and rogue's counters are
+those of the table above.
+
+**Tests.**
+- `queue.rs`, 3 new, on a module without the library, release and debug: a section waits whole
+  (no `.row` queued inside it) and, its argument's type known, is `P.row` itself; one with an
+  argument is the lambda; one nothing fixes, and one whose argument's type is `Id ?a`, are
+  reported with the section's message.
+- `crates/driver/tests/postponement.rs`, 2 new, release and debug: the section's form of
+  invariant 6's must-hold (`anyOf .snd pairs`, with `.snd`'s argument fixed by the later
+  `pairs`, has the hash of `anyOf Pair.snd pairs`); D2035 under invariant 8 (`let check := r =>
+  3 ∈ r.items; check b` against `Bool` decides with the definitions the annotated version uses,
+  and with `items` a set it is a mismatch at `r.items`).
+- Accept examples `section-unknown-receiver.sw` (moved; a let-bound section, a section at an
+  application's head, a section holding another, D506 with the argument fixed later) and
+  `postpone-decide-waiting-field.sw` (D2035, each rejected on `d031ca0c`: `E-CANNOT-INFER` and
+  `E-AUTO-NONE` naming `?5 b b`); reject example `section-never-applied.sw`.
+- Lane tier `elab`, `core`, `std`, `examples`, `hashes`, `lsp`: pass. Clippy with `--deny
+  warnings` and `cargo fmt --check`: clean (clippy's `err_expect` in `postponement.rs`, already
+  failing on `d031ca0c`, is fixed); `stitchwort fmt --check` clean on the new files.
+
+**Deviations from the note, with why.**
+1. **K3 queues the section whole**, not as the lambda `x => x.f …` with a K2 body (§5.2, §5.4,
+   §5.12). The lambda reading loses D506 for every section whose argument's type comes later:
+   the K2 fills the lambda's body with `T.f x`, so `.snd` becomes `x => Pair.snd x`, not
+   `Pair.snd`, and a proof that restates the program with the qualified name no longer finds it
+   by the comparison `match` generalisation makes (method-sections.md §5). Run with a scratch
+   switch for the lambda reading **[run]**: aoc still checks, but 12 declarations change hash
+   (Day24 `Proofs`: `adderAdds`, `inputsNotZ`, `part2Correct` and its `%match1`, `part2Sound`
+   and its `%match1`, `shapeAdds` and its `%match2`, `wellFormedInputs` and its `%match1`,
+   `xNamed`, `yNamed`), and the driver test above fails; queued whole, none changes. The
+   scheduling is K2's (wait on `?D`, resume from syntax, nothing kept elaborated, so invariant
+   6 holds as for K1); only the term differs, and only for sections in D506's shape, since the
+   lambda path is what `check` takes for every other section [inferred from the code]. The
+   K2-inside-a-lambda form remains where `?D` is not the argument's type itself (`Id ?a`).
+2. **An inferred section's result doesn't depend on its argument.** With `infer_lambda`'s
+   `(x: ?D) -> ?R x`, `(.length) "abcd"` against `Nat` compares `?R "abcd"` with `Nat`, which
+   nothing solves, and the declaration was `E-TYPE-MISMATCH` naming that unknown (rejected on
+   `d031ca0c` too, with `E-CANNOT-INFER`). With `?R` alone it is accepted. A section whose
+   result type does depend on its argument would be a mismatch at the section when resumed;
+   there is none in the corpus, and every inferred section was rejected before [inferred].
+3. **D2035 waits as a queue item**, not as an obligation: its blocker is a placeholder, which
+   only the queue fills, and as an item it is restored by snapshots, resumed after the item it
+   waits on (creation order), and in the stuck report depends on that item, so the report names
+   the `.field` that couldn't be resolved, not the decision. It keeps the proposition's term,
+   elaborated before it waited (invariant 6): only the decision is chosen later; what the
+   proposition's elaboration chose from the placeholder's shape is §5.10's allowed class
+   (`in`'s container), as the set test shows.
+4. **`section_unknown_name`** keeps its message as `section_unknown`, the error a stuck section
+   or a section's waiting `.f` reports; what is removed is its separate path, which failed at
+   once.
 
 ## Review 1 and how it was addressed
 

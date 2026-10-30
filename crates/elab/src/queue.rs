@@ -14,13 +14,16 @@
 //!   stuck.
 //!
 //! The queue is per declaration, like the obligations: `clear_metas` and
-//! `rewind` empty it, and a [`crate::undo::Snapshot`] restores it. Two kinds
-//! of check are queued (stage 2 of §8; sections and number literals are
-//! stages 3 and 4):
+//! `rewind` empty it, and a [`crate::undo::Snapshot`] restores it. What is
+//! queued (stages 2 and 3 of §8; number literals are stage 4):
 //! - K1, a record literal whose type is unknown (`records.rs`, `Literal`),
 //!   whose default is SW-805's field-name rule;
 //! - K2, a `.field` or dot call whose receiver's type view meets an
-//!   unknown (`dot.rs`, `DotCall`), with its receiver kept by §5.5's rule.
+//!   unknown (`dot.rs`, `DotCall`), with its receiver kept by §5.5's rule;
+//! - K3, a method section whose argument's type is unknown (`dot.rs`,
+//!   `Section`), checked whole once it is known;
+//! - a proposition's decision into a `Bool` where it holds a placeholder
+//!   not filled yet (`check.rs`, `Decide`; D2035), which waits for it.
 //!
 //! A resume point with nothing queued in its scope costs a length
 //! comparison.
@@ -55,8 +58,8 @@
 //!    counted (`unify::met_unfilled`).
 //!
 //! The debug assertions below check 1-6 where they can be seen; the unit
-//! tests at the end exercise each with items made directly, and K1 and K2
-//! on small modules.
+//! tests at the end exercise each with items made directly, and K1, K2 and
+//! K3 on small modules.
 //!
 //! Counters for later stages are printed with `STITCHWORT_TIMINGS`
 //! ([`counts`]).
@@ -311,6 +314,30 @@ pub(crate) fn queue(
     q.sync_unfilled();
     count(&QUEUED);
     Ok(placeholder)
+}
+
+/// A placeholder that `v` mentions whose check hasn't filled it, and that
+/// unification hasn't solved either, if any: for a choice that must wait for
+/// it (invariant 8; `check::decide_to_bool`). Free while nothing waits.
+pub(crate) fn unfilled_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
+    let q = &cx.e.queue;
+    let unfilled: Vec<usize> = {
+        let (items, states) = (q.items.borrow(), q.states.borrow());
+        (0..items.len())
+            .filter(|&i| !matches!(states[i], State::Done))
+            .map(|i| items[i].meta)
+            .filter(|&m| cx.g().meta_solution(m).is_none())
+            .collect()
+    };
+    if unfilled.is_empty() {
+        return Ok(None);
+    }
+    let term = crate::interfaces::scanned(cx, v)?;
+    let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+    Ok(term.subterms().find_map(|(t, _)| match t {
+        Term::Meta(m) if unfilled.contains(m) => Some(*m),
+        _ => None,
+    }))
 }
 
 /// Whether the head of `needs` is known.
@@ -640,6 +667,14 @@ static READ_BACK: AtomicUsize = AtomicUsize::new(0);
 static REQUEUED: AtomicUsize = AtomicUsize::new(0);
 static KEPT: AtomicUsize = AtomicUsize::new(0);
 static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
+static LAMBDA_POSTPONED: AtomicUsize = AtomicUsize::new(0);
+
+/// A lambda argument tried in place, failed, and checked again after the
+/// application's later arguments (`check::apply_args_postponing`): the
+/// path §5.11 removes once its count is 0 in accepted code.
+pub(crate) fn note_lambda_postponed() {
+    count(&LAMBDA_POSTPONED);
+}
 
 fn count(counter: &AtomicUsize) {
     counter.fetch_add(1, Ordering::Relaxed);
@@ -667,7 +702,7 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 
 /// The queue's counters over the process, attempts undone included, for
 /// `STITCHWORT_TIMINGS` (`timings.rs`) and the stages after this one
-/// (docs/proposals/postponement.md, "As built (stage 1)" and "(stage 2)"):
+/// (docs/proposals/postponement.md, "As built (stage 1)" to "(stage 3)"):
 /// items queued, resumed, defaulted and reported stuck; items that reached
 /// the end of their application still waiting (`crossed W1`, the stage-6
 /// trigger); comparisons that failed at an unfilled placeholder (`met
@@ -679,8 +714,10 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// solution back (`read back`); resumptions that met another unknown and
 /// waited again (`requeued`); and `.field`s queued with their receiver
 /// kept as a term (`kept`), of which those whose receiver made a choice
-/// from an unknown (`kept chose`, invariant 6; 0 expected).
-pub fn counts() -> [(&'static str, usize); 13] {
+/// from an unknown (`kept chose`, invariant 6; 0 expected); and lambda
+/// arguments tried in place, failed and checked again after the later
+/// arguments (`lambda postponed`, the path §5.11 removes in stage 5).
+pub fn counts() -> [(&'static str, usize); 14] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -696,6 +733,7 @@ pub fn counts() -> [(&'static str, usize); 13] {
         ("requeued", get(&REQUEUED)),
         ("kept", get(&KEPT)),
         ("kept chose", get(&KEPT_CHOSE)),
+        ("lambda postponed", get(&LAMBDA_POSTPONED)),
     ]
 }
 
@@ -1382,5 +1420,80 @@ mod tests {
         let chose = KEPT_CHOSE.load(Ordering::Relaxed);
         kept_receiver(&cx, &before);
         assert!(KEPT_CHOSE.load(Ordering::Relaxed) > chose);
+    }
+
+    /// [`RECORDS`], with a function on `P` that takes an argument after its
+    /// receiver, for sections that stay lambdas.
+    fn sections() -> String {
+        format!("{RECORDS}\ndef P.plus (p: P) (n: N): N := n\n")
+    }
+
+    /// A section `source`, inferred: its term, and the type it takes, whose
+    /// domain is what it waits on.
+    fn section(cx: &mut Ctx, source: &str) -> (Term, Value) {
+        let (term, ty) = crate::check::infer(cx, &expression(source)).unwrap();
+        let Value::Pi(_, _, dom, _) = force(cx.g(), ty).unwrap() else {
+            unreachable!("a section's type is a function's")
+        };
+        (term, (*dom).clone())
+    }
+
+    /// K3: a section whose argument's type is unknown waits, as a whole
+    /// (nothing in it is elaborated before then: no `.row` is queued inside
+    /// it), and once that type is known is checked at it: `.row` on a `P`
+    /// is `P.row` itself, not `x => P.row x` (D506), as it is with the type
+    /// known from the start.
+    #[test]
+    fn a_section_waits_and_is_the_function_itself() {
+        let source = sections();
+        let (e, data) = module(&source);
+        let mut cx = Ctx::new(&e, span());
+        let (term, dom) = section(&mut cx, ".row");
+        assert_eq!(e.queue.len(), 1);
+        assert!(waiting(&e, 0));
+        assert!(cx.unify(&dom, &data(&e, "P")).unwrap());
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0));
+        assert_eq!(e.queue.len(), 1);
+        let text = zonked(&cx, &term);
+        assert!(text.starts_with("Ann(") && text.contains("Def("), "{text}");
+        assert!(!text.contains("Lam("), "{text}");
+    }
+
+    /// K3: a section with an argument after its receiver stays the lambda
+    /// `x => P.plus x Z` once its argument's type is known.
+    #[test]
+    fn a_section_with_an_argument_waits_and_is_a_lambda() {
+        let source = sections();
+        let (e, data) = module(&source);
+        let mut cx = Ctx::new(&e, span());
+        let (term, dom) = section(&mut cx, "(.plus Z)");
+        assert!(waiting(&e, 0));
+        assert!(cx.unify(&dom, &data(&e, "P")).unwrap());
+        assert!(e.resume_from(0).unwrap());
+        assert!(done(&e, 0));
+        let text = zonked(&cx, &term);
+        assert!(text.contains("Lam(\"%section\""), "{text}");
+    }
+
+    /// K3: a section nothing ever applies is reported at the end with the
+    /// section's message; so is one whose argument's type is known but meets
+    /// an unknown further along its view (`Id ?a`), where the `.row` inside
+    /// the lambda is what waits (K2, carrying the section's message).
+    #[test]
+    fn a_section_nothing_fixes_is_reported_with_its_message() {
+        for source in [".row", "(.row: Id _ -> N)"] {
+            let module_source = sections();
+            let (e, _) = module(&module_source);
+            let mut cx = Ctx::new(&e, span());
+            crate::check::infer(&mut cx, &expression(source)).unwrap();
+            assert_eq!(e.queue.len(), 1, "{source}");
+            let error = e.settle_queue().expect_err("stuck");
+            assert_eq!(error.code, "E-CANNOT-INFER", "{source}");
+            assert_eq!(
+                error.message, "can't tell what `.row` is applied to",
+                "{source}"
+            );
+        }
     }
 }

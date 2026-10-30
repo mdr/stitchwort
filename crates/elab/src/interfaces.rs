@@ -1344,7 +1344,7 @@ fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
 /// unless that has more than [`SCAN_LIMIT`] nodes (a call whose unfolding
 /// computes a large structure). Then calls are read back as calls, which is
 /// the same value and still shows the unknowns among their arguments.
-fn scanned(cx: &Ctx, v: &Value) -> Result<Term> {
+pub(crate) fn scanned(cx: &Ctx, v: &Value) -> Result<Term> {
     match quote_at_most(cx.g(), cx.level(), v, SCAN_LIMIT)? {
         Some(term) => Ok(term),
         None => cx.quote_folded(v),
