@@ -338,7 +338,7 @@ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cas
    │
    │ Note 2: goal: False = True
    │
-   │ Note 3: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis nor `omega` proves it; give this case's proof as `cases in t`
+   │ Note 3: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases in t`
    │
    │ Note 4: 2 other cases were closed (1 by computation, 1 by contradiction)
    │

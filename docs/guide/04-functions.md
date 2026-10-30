@@ -21,15 +21,15 @@ test "a constructor is a function" := [1, 2].map Some == [Some 1, Some 2]
 
 A lambda passed as an argument needs brackets: `map (n => n * n) xs`. Without them, `map n => …` would be a lambda with two parameters, the first called `map`. The compiler warns about this (`W-LAMBDA-SHADOW`) when the first parameter hides a function in scope.
 
-A lambda's parameter types come from where it is passed or, for one bound by `let`, from its body and how it is used afterwards: `let step := x => x + 1` needs no annotation. Looking something up with `.` needs the type at that point, though, so here `person` must be annotated:
+A lambda's parameter types come from where it is passed or, for one bound by `let`, from its body and how it is used afterwards: `let step := x => x + 1` needs no annotation, and in `let nameOf := person => person.name` followed by `people.map nameOf`, `person` is a `Person` because of the `map`. Looking something up with `.` waits until the type is known. If nothing ever says what it is, as here where `nameOf` is never used, it can't be looked up:
 
 <!-- snippet: errors/unknown-receiver.sw -->
 ```stitchwort
 type Person = { name: Text, age: Nat }
 
-def names (people: List Person): List Text :=
+def headcount (people: List Person): Nat :=
   let nameOf := person => person.name
-  people.map nameOf
+  people.length
 ```
 
 <!-- output: check errors/unknown-receiver.sw -->
@@ -45,7 +45,7 @@ def names (people: List Person): List Text :=
 ───╯
 ```
 
-`let nameOf := (person: Person) => person.name` works, and so does `people.map (person => person.name)`, where the type comes from `people`.
+Annotating it, `let nameOf := (person: Person) => person.name`, always works.
 
 A lambda bound by `let` with no type written may perform abilities ([chapter 8](08-abilities.md)): its body works out which. `let next := () => ask() + n` has type `() -> {Ask} Nat`, and each call `next()` asks again, so it can be called only where `Ask` is allowed.
 

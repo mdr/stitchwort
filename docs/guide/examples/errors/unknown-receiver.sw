@@ -1,5 +1,5 @@
 type Person = { name: Text, age: Nat }
 
-def names (people: List Person): List Text :=
+def headcount (people: List Person): Nat :=
   let nameOf := person => person.name
-  people.map nameOf
+  people.length
