@@ -735,6 +735,44 @@ same "unsupported configuration" **[inferred]**.
 
 **Next step.** T1 then T5.
 
+**T1 results (30 Oct 2026, D1983).** Each shape was written as a program and run; every one is
+refused **[checked: run]**, in about 0.13 s of CPU each. The `.sw` files are in
+`examples/soundness/`, with snapshots, and their accepted neighbours are in
+`examples/accept/kernel-2026-neighbours.sw`. Because the `.sw` versions are refused by the
+elaborator, `crates/core/tests/kernel_bugs_2026.rs` builds the same terms by hand and checks
+that the kernel refuses them with the same code.
+
+- *Bit-level shortcut (C4).* This was **not** closed. The previous lane's first program,
+  `def wrap: Type 0 := Type 4294967295`, was accepted, because the step to the next universe
+  wrapped at `u32::MAX`. It was fixed as SW-902, with tests `universe-*.sw` and
+  `crates/core/tests/universe_levels.rs`.
+- *72703, cross-calls only (C26).* `mutual-cross-calls-grow.sw` and
+  `mutual-cross-calls-three.sw` give `E-TERMINATION`.
+- *72705, a recursive function passed to a recursive function (C26).*
+  `recursive-passed-to-recursive.sw` (under a lambda) and `recursive-passed-bare-to-recursive.sw`
+  (bare) give `E-TERMINATION`. So do `recursive-passed-type.sw`, `type-as-own-negation.sw` and
+  `type-as-own-negation-mutual.sw`, which aim at the advisory's result, `T ≡ T → False`.
+- *`k-rec-conv` (C24).* `identity-is-not-constant.sw` and `j-on-hypothesis-stuck.sw` give
+  `E-REFL`.
+- *`eta-unit-like-proof-field` (C24).* `record-of-proof-not-convertible.sw` gives `E-REFL`:
+  there is no record eta and no definitional proof irrelevance.
+- *Order-dependent cache (C21).* `conversion-memo-other-argument.sw` and
+  `conversion-memo-chain.sw` give `E-REFL`. Both put a pair found equal in the tree memo
+  before the false pair, within one comparison. The memo records only after success
+  (`value.rs:2759-2800`) and answers only a pair `identical` to one recorded
+  (`value.rs:2920-2929`), and `CallMemo` only ever answers "different" (`value.rs:2319-2324`).
+  So no closure is taken.
+- *`forged-quot-ind` (C24).* `forged-quot.sw` and `forged-quot-ind.sw` give `E-DUPLICATE`.
+  The names are reserved (`elab/src/lib.rs:208-218`), and the kernel's quotient is a term
+  former (`Term::Quot`), so no declaration can stand in for it.
+- *`alg-conv-trans-quot` (C24)* was already covered: `quot-of-proposition.sw` gives
+  `E-UNIVERSE`.
+- *Stérin's Lean bug 1 (C25),* an unsigned truncation needing 2^32 fields. It can't be tested
+  in under a second. Counts and indices are `usize` (`term.rs:162`, `:168`). In
+  `crates/core/src`, outside tests, the only narrowing casts are in `float.rs:392-395`, which
+  format a double's digits, with exponents bounded by 1075.
+- *C22 (native `Nat.add` by name)* was left out. It is under SW-898.
+
 ### 5.5 Quotients and erased transport: Danielsson's theorem for map-equality.md §7.4.5 (C19)
 
 **What it says** [checked]. With quotients, transport along erased identity proofs, and no
