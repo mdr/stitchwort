@@ -6,7 +6,19 @@
 //! limits, which are sized for them.
 
 use stitchwort_core::{Limits, ResourceError};
-use stitchwort_driver::driver::{Cache, Outcome, Session};
+use stitchwort_driver::driver::{Cache, Outcome, Session, tier_sample};
+
+/// The CLI's allocator, and so the language server's. With macOS's own,
+/// `running_out_at_any_point_only_ever_means_no_answer` grew to 6.7 GB,
+/// though every session's memory is freed when it's dropped (SW-921): at
+/// about 30 of its limits about 50 of the library's theorems fail, the
+/// counterexample searches on them grow the fast runtime's registers to as
+/// much as 162 MB, and the
+/// system allocator kept those freed blocks, 229 MB more for each such
+/// session (with `MallocLargeCache=0` the same run stays at 61 MB). With
+/// mimalloc it stays under 400 MB.
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 const REPLICATE: &str = "
 import Std (List)
@@ -216,11 +228,22 @@ test "count"    := Pair.fst (counted (u => ticks 3)) == 3
 /// gives the same result as with no limit, or is rejected, and then the first
 /// error is running out (nothing else is wrong with the program). Tests that
 /// run either pass, as they do without a limit, or have no result.
+///
+/// The limits are every one while they're small, then in growing steps: 161
+/// up to enough for everything, about 107 s, most of it the counterexample
+/// searches on the library's theorems that fail at limits from about 2,000
+/// to 8,000. Outside the full tier the test takes a corpus sweep's sample of
+/// them, every 4th in the daily tier (docs/testing.md).
 #[test]
 fn running_out_at_any_point_only_ever_means_no_answer() {
-    let mut finished = false;
+    let mut limits = Vec::new();
     let mut work = 1;
-    while !finished {
+    while work < Limits::default().work {
+        limits.push(work);
+        work += 1 + work / 20;
+    }
+    let mut finished = false;
+    for work in tier_sample(limits, 4) {
         let mut session = Session::new();
         session.elab.limits = Limits {
             work,
@@ -246,9 +269,11 @@ fn running_out_at_any_point_only_ever_means_no_answer() {
                 }
             }
         }
-        // Every limit while it's small, then in growing steps.
-        work += 1 + work / 20;
+        if finished {
+            break;
+        }
     }
+    assert!(finished, "the program never ran within the limits");
 }
 
 #[test]

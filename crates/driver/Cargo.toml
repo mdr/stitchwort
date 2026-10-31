@@ -30,6 +30,8 @@ stitchwort-core = { workspace = true, features = ["reference"] }
 stitchwort-fmt.workspace = true
 # The runtime model of `Partial`, which the runner is compared with.
 stitchwort-partial-model = { path = "../partial-model" }
+# The CLI's allocator, for `tests/resources.rs` (SW-921).
+mimalloc.workspace = true
 
 [lints]
 workspace = true

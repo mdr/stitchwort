@@ -1223,6 +1223,7 @@ dependencies = [
  "ariadne",
  "blake3",
  "insta",
+ "mimalloc",
  "num-bigint",
  "num-traits",
  "serde",
