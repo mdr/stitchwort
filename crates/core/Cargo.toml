@@ -15,6 +15,9 @@ smallvec.workspace = true
 [features]
 # The reference evaluator, for differential tests (src/reference.rs).
 reference = []
+# Panics when a top-level operation's stack limit doesn't fit the thread it
+# runs on (`Budget::start`): on in the tests.
+stack-check = ["stitchwort-syntax/stack-check"]
 
 [lints]
 workspace = true

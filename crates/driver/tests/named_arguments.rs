@@ -24,7 +24,7 @@ use std::path::Path;
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId, Icit, Term};
-use stitchwort_driver::driver::{Session, par_map_with};
+use stitchwort_driver::driver::{Session, par_map_with, with_session, with_stack};
 use stitchwort_driver::rewind::Mark;
 use stitchwort_syntax::ast::{Clause, Decl, Expr, Pattern};
 use stitchwort_syntax::{SourceMap, Span, parse_module};
@@ -54,9 +54,17 @@ fn hashes(session: &Session, first: (usize, usize)) -> Vec<(String, String)> {
     out
 }
 
-/// Loads `text` in a fresh session: its declarations' hashes, or the
+/// Loads `text` in a fresh session, on a thread of the stack the session is
+/// told it has (docs/testing.md, "Stack"): its declarations' hashes, or the
 /// errors.
-fn load(name: &str, text: &str) -> Result<(Session, Vec<(String, String)>), String> {
+fn load(name: &str, text: &str) -> Result<Vec<(String, String)>, String> {
+    with_session(STACK, Session::eager_for_stack, |session| {
+        load_in(session, name, text)
+    })
+}
+
+/// [`load`], keeping the session: on a thread of [`STACK`] bytes.
+fn load_session(name: &str, text: &str) -> Result<(Session, Vec<(String, String)>), String> {
     let mut session = Session::eager_for_stack(STACK);
     let found = load_in(&mut session, name, text)?;
     Ok((session, found))
@@ -556,7 +564,7 @@ def ctorNamed: Shape := Circle (id := "a") (radius := 1)
 def mixedPositional: Nat := clampTo 1 3 2
 def mixedNamed: Nat := clampTo (high := 2) 1 3
 "#;
-    let (_, found) = load("named-forms.sw", text).expect("the file loads");
+    let found = load("named-forms.sw", text).expect("the file loads");
     let by_name: BTreeMap<&str, &str> = found
         .iter()
         .map(|(n, h)| (n.as_str(), h.as_str()))
@@ -580,7 +588,7 @@ def mixedNamed: Nat := clampTo (high := 2) 1 3
 /// The hash of each declaration `text` adds, by full name (`data …` for a
 /// data type).
 fn hashes_by_name(text: &str) -> BTreeMap<String, String> {
-    let (_, found) = load("field-defaults.sw", text).expect("the file loads");
+    let found = load("field-defaults.sw", text).expect("the file loads");
     found.into_iter().collect()
 }
 
@@ -662,7 +670,8 @@ def positional: Shape := Circle 1 "a"
 /// unless it's a variable or a literal (§5.1 rule 1).
 #[test]
 fn a_default_uses_a_written_field_through_a_let() {
-    let text = r#"
+    with_stack(STACK, || {
+        let text = r#"
 type Twice = { x: Nat, twice: Nat := x + x }
 
 def computed (n: Nat): Twice := { x = n * 3 }
@@ -670,21 +679,22 @@ def variable (n: Nat): Twice := { x = n }
 def literal: Twice := { x = 4 }
 def unused (n: Nat): Twice := { x = n * 3, twice = 1 }
 "#;
-    let (session, _) = load("twice.sw", text).expect("the file loads");
-    let g = &session.elab.globals;
-    let has_let = |name: &str| {
-        let def = g
-            .defs
-            .iter()
-            .find(|d| d.name.as_ref() == name)
-            .unwrap_or_else(|| panic!("{name} is defined"));
-        let body = def.body().expect("checked");
-        body.subterms().any(|(t, _)| matches!(t, Term::Let(..)))
-    };
-    assert!(has_let("computed"));
-    assert!(!has_let("variable"));
-    assert!(!has_let("literal"));
-    assert!(!has_let("unused"));
+        let (session, _) = load_session("twice.sw", text).expect("the file loads");
+        let g = &session.elab.globals;
+        let has_let = |name: &str| {
+            let def = g
+                .defs
+                .iter()
+                .find(|d| d.name.as_ref() == name)
+                .unwrap_or_else(|| panic!("{name} is defined"));
+            let body = def.body().expect("checked");
+            body.subterms().any(|(t, _)| matches!(t, Term::Let(..)))
+        };
+        assert!(has_let("computed"));
+        assert!(!has_let("variable"));
+        assert!(!has_let("literal"));
+        assert!(!has_let("unused"));
+    })
 }
 
 /// A lambda whose type is known only from the type expected of the call is
@@ -709,7 +719,7 @@ theorem named (items: List Item): ids items = List.map items (item => item.id) :
   List.mapZipWithScanLeft (h := item => item.id) (k := item => item.id) (g := item offset => item)
     (same := item offset => rfl) (xs := items) (z := 0) (f := offset item => offset + item.size)
 "#;
-    let (_, hashes) = load("named-late.sw", text).unwrap_or_else(|e| panic!("{e}"));
+    let hashes = load("named-late.sw", text).unwrap_or_else(|e| panic!("{e}"));
     let hash = |name: &str| {
         &hashes
             .iter()

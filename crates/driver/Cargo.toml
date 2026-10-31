@@ -25,7 +25,7 @@ insta.workspace = true
 # An independent implementation of integer division, for `tests/int.rs`.
 num-bigint.workspace = true
 num-traits.workspace = true
-stitchwort-core = { workspace = true, features = ["reference"] }
+stitchwort-core = { workspace = true, features = ["reference", "stack-check"] }
 # The formatter, for `tests/fmt_hashes.rs`.
 stitchwort-fmt.workspace = true
 # The runtime model of `Partial`, which the runner is compared with.

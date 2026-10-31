@@ -49,6 +49,21 @@ pub fn with_stack<T: Send>(stack: usize, f: impl FnOnce() -> T + Send) -> T {
     stitchwort_host::with_stack(stack, f)
 }
 
+/// Runs `f` on a new thread with `stack` bytes of stack, with a session made
+/// there by `make` for that same stack (`Session::for_stack`,
+/// `Session::navigable_for_stack` or `Session::eager_for_stack`): the
+/// thread and the session's limits come from one number, so they can't
+/// disagree. A session told it has more stack than its thread does can't
+/// stop with E-RESOURCE before the thread overflows, which aborts the
+/// process (docs/testing.md, "Stack").
+pub fn with_session<T: Send>(
+    stack: usize,
+    make: fn(usize) -> Session,
+    f: impl FnOnce(&mut Session) -> T + Send,
+) -> T {
+    with_stack(stack, || f(&mut make(stack)))
+}
+
 /// How many worker threads the tests' per-file loops use: the machine's
 /// parallelism capped at 8 (each session holds tens of MB), or
 /// `STITCHWORT_TEST_THREADS` if set.
