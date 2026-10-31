@@ -153,33 +153,14 @@ theorem diagonalSame (x1: Nat) (x2: Nat) (y1: Nat) (y2: Nat) (h: (Nat.absDiff x1
 -- first end, and `bx` and `by` whether it is between the ends.
 
 theorem combineVertical (ax: Nat) (ay: Nat) (i: Nat): (bx: Bool) → (by: Bool) → (bx = True → ax = 0) →
-    (bx ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ True) ∧ i == Nat.max ax ay)
-  | False, by, hx => rfl
-  | True, by, hx =>
-    let fx := hx rfl
-    cases
+    (bx ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ True) ∧ i == Nat.max ax ay) := cases
 
 theorem combineHorizontal (ax: Nat) (ay: Nat) (i: Nat): (bx: Bool) → (by: Bool) → (by = True → ay = 0) →
-    ((bx ∧ i == ax) ∧ by) = ((bx ∧ by ∧ True) ∧ i == Nat.max ax ay)
-  | bx, False, hy => cases
-  | bx, True, hy =>
-    let fy := hy rfl
-    cases
+    ((bx ∧ i == ax) ∧ by) = ((bx ∧ by ∧ True) ∧ i == Nat.max ax ay) := cases
 
 theorem combineDiagonal (ax: Nat) (ay: Nat) (i: Nat) (d: Nat) (hi: i ≤ d): (bx: Bool) → (by: Bool) → (e: Bool) →
     (bx = True → ax ≤ d) → (by = True → ay ≤ d) → (e = True → d = 0) →
-    ((bx ∧ i == ax) ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ (e ∨ ax == ay)) ∧ i == Nat.max ax ay)
-  | False, by, e, hx, hy, he => rfl
-  | True, False, e, hx, hy, he => cases
-  | True, True, False, hx, hy, he =>
-    let fx := hx rfl
-    let fy := hy rfl
-    cases
-  | True, True, True, hx, hy, he =>
-    let fx := hx rfl
-    let fy := hy rfl
-    let fe := he rfl
-    cases
+    ((bx ∧ i == ax) ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ (e ∨ ax == ay)) ∧ i == Nat.max ax ay) := cases
 
 -- The `i`th point of a horizontal, vertical or diagonal line, as
 -- comparisons: it is `(x, y)` when `(x, y)` is in the rectangle the ends
