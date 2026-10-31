@@ -8,7 +8,10 @@ refers to (§3.3's third change; +0.7% steps on the `check-closed-*` rows), the
 [namespaces.md](namespaces.md) §4.8 and the guide. Place 3 is fixed for its narrowest case
 (SW-846): a variable whose type is still unknown, checked against a type that names a
 definition, has its type solved with the name (`name_unknown_type` in `check.rs`), which is
-what the day 9 proofs needed. Place 3 in general, and the same-name warning, are open.
+what the day 9 proofs needed. For a call's result (SW-858, D2092), an unknown solved with
+what an alias unfolds to gets only a note of the alias (`name_unknown` in `check.rs`), which
+dot notation and goals read for a variable of that type: the solution, and so every term,
+keeps the unfolded type. The same-name warning is open.
 The experiment in [§3](#3-the-experiment) is commit `5be9ec86` on its own branch, marked
 experimental. Related: [namespaces.md](namespaces.md) §4.8 (the dot rule),
 [dot-receiver.md](dot-receiver.md), [folded-calls.md](folded-calls.md) (glued calls),

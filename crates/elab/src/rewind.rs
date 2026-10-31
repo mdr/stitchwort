@@ -196,6 +196,7 @@ impl Elaborator {
             local_helpers,
             helper_keys,
             local_metas,
+            meta_names,
             operator_dictionaries,
             local_dictionaries,
             local_defaults,
@@ -301,6 +302,7 @@ impl Elaborator {
         *local_helpers = mark.local_helpers.clone();
         *helper_keys = mark.helper_keys.clone();
         local_metas.get_mut().clear();
+        meta_names.get_mut().clear();
         operator_dictionaries.get_mut().clear();
         local_dictionaries.get_mut().clear();
         local_defaults.get_mut().clear();

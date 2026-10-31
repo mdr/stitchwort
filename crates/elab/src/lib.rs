@@ -536,6 +536,12 @@ pub struct Elaborator {
     /// The frozen metavariables standing for local definitions, with their
     /// names, for messages.
     pub(crate) local_metas: RefCell<HashMap<usize, String>>,
+    /// Names for unknowns, newest last: an unknown type solved with what an
+    /// alias unfolds to (`List Nat`) where the alias (`Counts`) was
+    /// expected, with the alias. Only dot notation reads it, for a variable
+    /// of that type (`counts.size`), so terms keep the unfolded type
+    /// (SW-858, D2092). A list, so an attempt undone truncates it.
+    pub(crate) meta_names: RefCell<Vec<(usize, Value)>>,
     /// The dictionaries of operators (`==`, `+`, `<`, …) that weren't found
     /// when the operator was elaborated, by metavariable: the method called
     /// and the field of its interface it projects. One found to be a global
@@ -1117,6 +1123,7 @@ impl Elaborator {
         self.globals.clear_metas();
         self.drafts.borrow_mut().clear();
         self.local_metas.borrow_mut().clear();
+        self.meta_names.borrow_mut().clear();
         self.operator_dictionaries.borrow_mut().clear();
         self.local_dictionaries.borrow_mut().clear();
         self.local_defaults.borrow_mut().clear();

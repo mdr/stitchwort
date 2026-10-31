@@ -390,7 +390,14 @@ impl Elaborator {
             .iter()
             .map(|e| Hypothesis {
                 name: e.name.clone(),
-                ty: show(&e.ty),
+                // With the alias its type was named by, if any (`counts:
+                // Counts`, SW-858).
+                ty: show(
+                    &(crate::dot::meta_name_in(self, p.names.len(), &e.ty)
+                        .ok()
+                        .flatten())
+                    .unwrap_or_else(|| e.ty.clone()),
+                ),
                 value: e.value.as_ref().map(show),
             })
             .collect();
