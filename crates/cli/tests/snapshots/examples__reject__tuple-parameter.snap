@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a parameter's name, but found `(`
+   ╭─[ reject/tuple-parameter.sw:6:17 ]
+   │
+ 6 │ def onDiagonal ((x, y): (Nat, Nat)): Bool := x == y
+   │                 ┬  
+   │                 ╰── expected a parameter's name, but found `(`
+   │ 
+   │ Note: a definition's parameter is a name, not a pattern: name it, `(point: Point)`, and take it apart in the body with `let (x, y) := point` (or a `match`); a lambda's parameter can be a pattern, as in `((x, y)) => …`
+───╯

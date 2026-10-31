@@ -7,41 +7,17 @@ import Aoc.Year2021.Day04.Spec (..)
 import Std (Decidable, Eq, List, Nat)
 
 -- When a number is marked. The draws so far are `drawn`, and `rest` are
--- still to come.
-
--- A number is marked once its first place among all the draws is one of
--- those drawn.
-theorem markedBefore (rest: List Nat) (number: Nat): (drawn: List Nat) →
-    marked drawn number = (List.indexOf (drawn ++ rest) number < List.length drawn)
-  | Nil => rfl
-  | Cons first others => rewrite markedBefore rest number others in cases
+-- still to come. A number is marked once its first place among all the
+-- draws is one of those drawn (`List.containsIndexOfAppend`).
 
 -- Just after the draw of `number`, a number isn't marked when it is first
 -- drawn later.
 theorem unmarkedAfter (drawn: List Nat) (number: Nat) (later: List Nat) (x: Nat):
     not (marked (drawn ++ [number]) x) = (List.length drawn < List.indexOf (drawn ++ Cons number later) x) :=
-  rewrite markedBefore later x (drawn ++ [number]), List.appendAssoc drawn [number] later, List.lengthSnoc drawn number in cases
+  rewrite List.containsIndexOfAppend x later (drawn ++ [number]), List.appendAssoc drawn [number] later, List.lengthSnoc drawn number in cases
 
--- A line's last number is drawn before `k` when the latest so far is and
--- each of its numbers is.
-theorem latestBefore (drawnAt: Nat → Nat) (k: Nat): (line: List Nat) → (latest: Nat) →
-    ((List.foldLeft line latest (latest number => Nat.max latest (drawnAt number)) < k): Bool)
-      = (latest < k ∧ List.all line (number => drawnAt number < k))
-  | Nil, latest => cases
-  | Cons number others, latest => rewrite latestBefore drawnAt k others (Nat.max latest (drawnAt number)) in cases
-
--- The first line is complete before `k` when the earliest so far is, or
--- some line is.
-theorem earliestBefore (k: Nat): (turns: List Nat) → (earliest: Nat) →
-    ((List.foldLeft turns earliest Nat.min < k): Bool) = (earliest < k ∨ List.any turns (turn => turn < k))
-  | Nil, earliest => cases
-  | Cons turn others, earliest => rewrite earliestBefore k others (Nat.min earliest turn) in cases
-
--- Two facts used on the way: a false `p` adds nothing to `p ∨ b`, and the
--- turn after all the draws isn't before the end of any part of them.
+-- A false `p` adds nothing to `p ∨ b`.
 theorem orFalse (p: Bool) (b: Bool) (h: p = False): (p ∨ b) = b := rewrite h in rfl
-
-theorem pastTheEnd (n: Nat) (m: Nat): ((n + m < n): Bool) = False := cases
 
 -- So, once at least one number is drawn, a board has won exactly when the
 -- program's winning turn has come.
@@ -51,11 +27,11 @@ theorem winsBefore (drawn: List Nat) (rest: List Nat) (someDrawn: 0 < List.lengt
   let lineTurn := (line: List Nat) => List.foldLeft line 0 (latest number => Nat.max latest (drawnAt number))
   let complete := (line: List Nat) =>
     calc List.all line (marked drawn)
-      _ = List.all line (number => drawnAt number < List.length drawn) := List.allCong line _ _ (number => markedBefore rest number drawn)
+      _ = List.all line (number => drawnAt number < List.length drawn) := List.allCong line _ _ (number => List.containsIndexOfAppend number rest drawn)
       _ = (0 < List.length drawn ∧ List.all line (number => drawnAt number < List.length drawn)) := cases
-      _ = (lineTurn line < List.length drawn) := Eq.sym (latestBefore drawnAt (List.length drawn) line 0)
+      _ = (lineTurn line < List.length drawn) := Eq.sym (List.foldMaxLt drawnAt (List.length drawn) line 0)
   let notAfterAll: ((List.length (drawn ++ rest) < List.length drawn): Bool) = False :=
-    rewrite List.lengthAppend drawn rest in pastTheEnd (List.length drawn) (List.length rest)
+    omega [List.lengthAppend drawn rest]
   calc wins drawn board
     _ = List.any (board ++ List.transpose board) (line => List.all line (marked drawn)) := Eq.sym (List.anyAppend board (List.transpose board) _)
     _ = List.any (board ++ List.transpose board) (line => lineTurn line < List.length drawn) := List.anyCong _ _ _ complete
@@ -63,7 +39,7 @@ theorem winsBefore (drawn: List Nat) (rest: List Nat) (someDrawn: 0 < List.lengt
     _ = (List.length (drawn ++ rest) < List.length drawn ∨ List.any (List.map (board ++ List.transpose board) lineTurn) (turn => turn < List.length drawn)) :=
       Eq.sym (orFalse _ _ notAfterAll)
     _ = (winningTurn (drawn ++ rest) board < List.length drawn) :=
-      Eq.sym (earliestBefore (List.length drawn) (List.map (board ++ List.transpose board) lineTurn) (List.length (drawn ++ rest)))
+      Eq.sym (List.foldMinLt (turn => turn) (List.length drawn) (List.map (board ++ List.transpose board) lineTurn) (List.length (drawn ++ rest)))
 
 -- The draw at `List.length drawn` is the one after `drawn`.
 theorem drawOn (number: Nat) (later: List Nat): (drawn: List Nat) → List.getOr (drawn ++ Cons number later) (List.length drawn) 0 = number
@@ -75,12 +51,6 @@ theorem drawOn (number: Nat) (later: List Nat): (drawn: List Nat) → List.getOr
 theorem scoreAt (drawn: List Nat) (number: Nat) (later: List Nat) (board: Board):
     finalScore (drawn ++ [number]) number board = score (drawn ++ Cons number later) (List.length drawn) board :=
   rewrite List.filterCongMem (List.concat board) _ _ (x inBoard => unmarkedAfter drawn number later x), drawOn number later drawn in rfl
-
--- Filtering twice is filtering once by both.
-theorem filterFilter (p: a → Bool) (q: a → Bool) (both: a → Bool) (h: (x: a) → (p x ∧ q x) = both x): (xs: List a) →
-    List.filter (List.filter xs p) q = List.filter xs both
-  | Nil => rfl
-  | Cons x others => rewrite <- h x, <- filterFilter p q both h others in cases
 
 -- A board wins on the draw of `number` when its winning turn is no later.
 theorem winsAfterDraw (drawn: List Nat) (number: Nat) (later: List Nat) (board: Board):
@@ -104,12 +74,13 @@ theorem playFrom (playing: List Board): (rest: List Nat) → (drawn: List Nat) �
   | Cons number later, drawn =>
     let turnOf := (board: Board) => winningTurn (drawn ++ Cons number later) board
     let wonNow :=
-      filterFilter (board => List.length drawn ≤ turnOf board) (wins (drawn ++ [number])) (board => turnOf board == List.length drawn)
-        (board => rewrite winsAfterDraw drawn number later board in thisTurn (List.length drawn) (turnOf board)) playing
+      Eq.trans (List.filterFilter (board => List.length drawn ≤ turnOf board) (wins (drawn ++ [number])) playing)
+        (List.filterCongMem playing _ (board => turnOf board == List.length drawn)
+          (board inPlaying => rewrite winsAfterDraw drawn number later board in thisTurn (List.length drawn) (turnOf board)))
     let stillPlaying :=
-      filterFilter (board => List.length drawn ≤ turnOf board) (board => not (wins (drawn ++ [number]) board))
-        (board => Succ (List.length drawn) ≤ turnOf board)
-        (board => rewrite winsAfterDraw drawn number later board in laterTurn (List.length drawn) (turnOf board)) playing
+      Eq.trans (List.filterFilter (board => List.length drawn ≤ turnOf board) (board => not (wins (drawn ++ [number]) board)) playing)
+        (List.filterCongMem playing _ (board => Succ (List.length drawn) ≤ turnOf board)
+          (board inPlaying => rewrite winsAfterDraw drawn number later board in laterTurn (List.length drawn) (turnOf board)))
     let afterNow:
         play (drawn ++ [number]) (List.filter playing (board => Succ (List.length drawn) ≤ turnOf board)) later
           = List.flatMap (List.rangeFrom (List.length later) (Succ (List.length drawn)))

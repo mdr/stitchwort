@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNSOLVED] Error: can't work out an implicit argument
+    ╭─[ reject/record-literal-type-late.sw:15:27 ]
+    │
+ 15 │   let game := made (() => { draws = [1], boards = [[1]] })
+    │                           ───────────────┬───────────────  
+    │                                          ╰───────────────── this record literal's type, `Game`, was only worked out at the end, from its field names
+ 16 │   match game.boards.withIndex.find (((_, board)) => board.length == 5) with
+    │         ──────────────────────────────┬──────────────────────────────  
+    │                                       ╰──────────────────────────────── and so this couldn't be worked out
+    │ 
+    │ Note: what uses the literal needed its type sooner: give it where the literal is made, as in `({ … }: Game)`, or annotate the `let` it's bound to
+────╯

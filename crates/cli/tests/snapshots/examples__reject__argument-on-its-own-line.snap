@@ -1,0 +1,25 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/argument-on-its-own-line.sw:11:3 ]
+    │
+ 11 │   Eq.trans h1
+    │   ─────┬─────  
+    │        ╰─────── this line is a function missing its arguments
+ 12 │   h2
+    │   ─┬  
+    │    ╰── expected `a = c`, but this has type `b = c`
+    │ 
+    │ Note: a line at the same indentation as the one before starts a new statement, so the line after the call isn't its argument: to pass it as one, indent it further than the call (or write it on the call's line)
+────╯
+[W-NO-EFFECT] Warning: this line does nothing: it performs no effects, and its value is dropped
+    ╭─[ reject/argument-on-its-own-line.sw:11:3 ]
+    │
+ 11 │   Eq.trans h1
+    │   ─────┬─────  
+    │        ╰─────── performs nothing
+    │ 
+    │ Note: it's a function missing its arguments: give them to call it
+────╯

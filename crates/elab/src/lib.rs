@@ -371,6 +371,11 @@ pub struct Elaborator {
     awaiting_helpers: RefCell<Vec<lift::AwaitingHelpers>>,
     /// Metavariables that literals made `Nat` in the current declaration.
     defaulted: RefCell<Vec<numbers::Defaulted>>,
+    /// Record literals in the current declaration whose type the
+    /// field-name rule chose at its end (`records.rs`), and that type's
+    /// name: an implicit argument left unsolved after one is reported at it
+    /// (SW-946).
+    defaulted_records: RefCell<Vec<(Span, String)>>,
     /// The characters whose patterns became number patterns (by span), so
     /// a missing case can be reported as characters.
     char_patterns: RefCell<HashMap<Span, char>>,
@@ -1212,6 +1217,7 @@ impl Elaborator {
         crate::unify::forget_lossy_since(0);
         self.awaiting_helpers.borrow_mut().clear();
         self.defaulted.borrow_mut().clear();
+        self.defaulted_records.borrow_mut().clear();
         self.instance_steps.borrow_mut().clear();
     }
 
@@ -1349,9 +1355,37 @@ impl Elaborator {
                 } else {
                     "supply it explicitly with `f [x := …]`, or add a type annotation"
                 };
-                Diagnostic::error("E-UNSOLVED", "can't work out an implicit argument")
-                    .with_label(span, "the compiler couldn't work out what goes here")
-                    .with_note(note)
+                let unsolved =
+                    Diagnostic::error("E-UNSOLVED", "can't work out an implicit argument");
+                // A record literal before it whose type was only chosen at
+                // the end, from its field names: what came after it needed
+                // the type sooner (SW-946).
+                let late = self
+                    .defaulted_records
+                    .borrow()
+                    .iter()
+                    .rev()
+                    .find(|(at, _)| at.file == span.file && at.start < span.start)
+                    .cloned();
+                match late {
+                    Some((at, name)) => unsolved
+                        .with_label(
+                            at,
+                            format!(
+                                "this record literal's type, `{name}`, was only worked out at \
+                                 the end, from its field names"
+                            ),
+                        )
+                        .with_label(span, "and so this couldn't be worked out")
+                        .with_note(format!(
+                            "what uses the literal needed its type sooner: give it where the \
+                             literal is made, as in `({{ … }}: {name})`, or annotate the `let` \
+                             it's bound to"
+                        )),
+                    None => unsolved
+                        .with_label(span, "the compiler couldn't work out what goes here")
+                        .with_note(note),
+                }
             }
         }
     }

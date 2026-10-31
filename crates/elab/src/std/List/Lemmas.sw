@@ -511,6 +511,11 @@ theorem List.lengthFilter: (xs: List a) → (p: a → Bool) → List.length (Lis
         | True => rfl
         | False => rfl
 
+-- Filtering twice is filtering once by both tests.
+theorem List.filterFilter (p: a → Bool) (q: a → Bool): (xs: List a) → List.filter (List.filter xs p) q = List.filter xs (x => p x ∧ q x)
+  | Nil => rfl
+  | Cons x rest => rewrite <- List.filterFilter p q rest in cases
+
 theorem List.countFalse: (xs: List a) → List.count xs (x => False) = 0
   | Nil => rfl
   | Cons x rest => List.countFalse rest

@@ -202,6 +202,52 @@ pub(crate) fn warn(cx: &Ctx, expr: &Expr, ty: &Value) -> Result<()> {
     Ok(())
 }
 
+/// Whether the statement line `expr`, of type `ty`, is a function missing
+/// explicit arguments (a call that stops short, or a function named alone):
+/// the line after it may be meant as its argument (SW-950).
+pub(crate) fn missing_arguments(cx: &Ctx, expr: &Expr, ty: &Value) -> Result<bool> {
+    if !applies(expr) || !call_like(expr) {
+        return Ok(false);
+    }
+    Ok(matches!(
+        force(cx.g(), ty.clone())?,
+        Value::Pi(_, Icit::Explicit, ..)
+    ))
+}
+
+/// `e`, an error in the statement after the line `first`, which is a
+/// function missing its arguments ([`missing_arguments`]): if it's in
+/// `rest`'s first line, the likely cause is that line being an argument of
+/// `first` written at the same indentation, which makes it a statement of
+/// its own. The error then points at `first` first, saying so (SW-950).
+pub(crate) fn argument_on_its_own_line(e: Diagnostic, first: &Expr, rest: &Expr) -> Diagnostic {
+    if crate::undo::fatal(&e) || e.severity != stitchwort_syntax::Severity::Error {
+        return e;
+    }
+    let next = match rest {
+        Expr::Seq(next, _) => next.span(),
+        _ => rest.span(),
+    };
+    let Some(at) = e.primary_span() else {
+        return e;
+    };
+    if at.file != next.file || at.start < next.start || at.end > next.end {
+        return e;
+    }
+    let mut e = e;
+    let mut labels = vec![stitchwort_syntax::Label {
+        span: first.span(),
+        message: "this line is a function missing its arguments".into(),
+    }];
+    labels.append(&mut e.labels);
+    e.labels = labels;
+    e.with_note(
+        "a line at the same indentation as the one before starts a new statement, so the line \
+         after the call isn't its argument: to pass it as one, indent it further than the call \
+         (or write it on the call's line)",
+    )
+}
+
 /// How to write `expr` in a hint, if it's a name or a field of one.
 fn named(expr: &Expr) -> Option<String> {
     match expr {

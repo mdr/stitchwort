@@ -573,6 +573,10 @@ struct Group<'a> {
     /// Whether it has `+`, and `*`.
     adds: bool,
     muls: bool,
+    /// An equation read again with its comparison sides as `Bool`s
+    /// ([`group_tried`]): a side that is `<` or `<=` doesn't decide the
+    /// group's type, and is checked against the type the others decide.
+    bool_comparisons: bool,
 }
 
 /// What decided the group's type, for error messages.
@@ -703,6 +707,12 @@ impl<'a> Group<'a> {
         Ok(None)
     }
 
+    /// Whether leaf `i` waits for the others to decide the group's type: a
+    /// comparison side read as a `Bool` ([`Group::bool_comparisons`]).
+    fn waits(&self, i: usize) -> bool {
+        self.bool_comparisons && is_order(self.leaves[i].expr)
+    }
+
     /// Whether the group has numeric syntax, so that it defaults to `Nat`.
     fn numeric(&self) -> bool {
         self.arith || self.ordering || self.minus.is_some() || self.leaves.iter().any(|l| l.bare)
@@ -757,6 +767,49 @@ pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Resu
 }
 
 fn group_tried(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
+    // An equation with a comparison as a side: the comparison is a
+    // proposition, so the equation is between propositions. If that fails
+    // (the other side is a `Bool`, as in `(m < k) = (m < k && b)`), with
+    // everything it did undone, the comparison sides are read as `Bool`s,
+    // as if written `((m < k): Bool)` (SW-944). If that fails too, the
+    // first error is reported.
+    if let Expr::Binary(BinOp::Eq | BinOp::Ne, a, b) = expr
+        && (is_order(a) || is_order(b))
+        && cx.e.late_literals.get() == 0
+    {
+        let snapshot = crate::undo::Snapshot::take(cx);
+        let first = match group_literals(cx, expr, expected, false) {
+            Err(e) if !crate::undo::fatal(&e) && !snapshot.drafted_since(cx) => e,
+            done => return done,
+        };
+        snapshot.restore(cx);
+        let again = crate::undo::Snapshot::take(cx);
+        return match group_literals(cx, expr, expected, true) {
+            Err(e) if !crate::undo::fatal(&e) => {
+                again.restore(cx);
+                Err(first)
+            }
+            done => done,
+        };
+    }
+    group_literals(cx, expr, expected, false)
+}
+
+/// Whether `expr` is `a < b` or `a <= b` (`>` and `>=` are written with
+/// them).
+fn is_order(expr: &Expr) -> bool {
+    matches!(expr, Expr::Binary(BinOp::Lt | BinOp::Le, ..))
+}
+
+fn group_literals(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: Option<&Value>,
+    bool_comparisons: bool,
+) -> Result<(Term, Value)> {
+    let group_in = |cx: &mut Ctx, expr: &Expr, expected: Option<&Value>| {
+        group_with(cx, expr, expected, bool_comparisons)
+    };
     // A comparison with a constructor with number literals as an operand: as
     // written first, and if that fails, with that operand last.
     if let Expr::Binary(op, a, b) = expr
@@ -816,8 +869,16 @@ fn function_operand_note(cx: &mut Ctx, expr: &Expr, e: Diagnostic) -> Diagnostic
     ))
 }
 
-fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
-    let mut g = Group::default();
+fn group_with(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: Option<&Value>,
+    bool_comparisons: bool,
+) -> Result<(Term, Value)> {
+    let mut g = Group {
+        bool_comparisons,
+        ..Group::default()
+    };
     let (top, sides) = match expr {
         Expr::Binary(op, a, b) if is_comparison(*op) => {
             g.ordering = matches!(op, BinOp::Lt | BinOp::Le);
@@ -904,7 +965,9 @@ fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term
             }
             continue;
         }
-        decided = infer_leaf(cx, &mut g, i, equality)?;
+        if !g.waits(i) {
+            decided = infer_leaf(cx, &mut g, i, equality)?;
+        }
     }
 
     // 4. Minus signs: an otherwise undecided group is an `Int`.
@@ -946,6 +1009,7 @@ fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term
                 let term = check_leaf(cx, &g, i, &t, decider, what)?;
                 g.leaves[i].state = State::Done(term);
             }
+            None if g.waits(i) => {}
             None => decided = infer_leaf(cx, &mut g, i, equality)?,
         }
     }
@@ -976,6 +1040,12 @@ fn group_in(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term
         }
     }
     let Some((t, decider)) = decided else {
+        if g.bool_comparisons {
+            return Err(Diagnostic::error(
+                "E-TYPE-MISMATCH",
+                "no side of the equation decides its type",
+            ));
+        }
         // Nothing could be inferred.
         let failed = g.leaves.into_iter().rev().find_map(|l| match l.state {
             State::Failed(e) => Some(e),

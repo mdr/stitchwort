@@ -396,6 +396,10 @@ enum Prec {
     Atom,
 }
 
+/// A branch of a `Bool` `if`: its parameter, and a body that doesn't use it
+/// (`Printer::bool_if`).
+type Branch = (Name, Rc<Term>);
+
 struct Printer<'g> {
     g: &'g Globals,
     /// Whether something was too deeply nested to print, and shown as `…`.
@@ -1287,7 +1291,46 @@ impl<'g> Printer<'g> {
     /// `a && b` and `a || b` on `Bool`s, as they elaborate: `if a then b
     /// else False` and `if a then True else b`, each branch a lambda whose
     /// body doesn't use its parameter.
+    ///
+    /// `if a then True else False` is both `a && True` and `a || False`
+    /// (SW-946). As the last operand of a chain it's printed with the
+    /// chain's operator (`p && q && True`, `p || q || False`, as a fold of
+    /// `List.all` or `List.any` computes); on its own it stays the `if`,
+    /// since either operator reads as a slip for the other. Each pastes back
+    /// to the same term.
     fn bool_logic(&self, names: &mut Vec<Name>, term: &Term) -> Option<(String, Prec)> {
+        let (cond, then, otherwise) = self.bool_if(term)?;
+        if self.both_constants(&then, &otherwise) {
+            return None;
+        }
+        // `||` and `&&` group to the right.
+        let (op, prec, left, (x, rhs)) = if self.is_ctor(&otherwise.1, Builtin::False) {
+            ("&&", Prec::And, Prec::Eq, then)
+        } else if self.is_ctor(&then.1, Builtin::True) {
+            ("||", Prec::Or, Prec::And, otherwise)
+        } else {
+            return None;
+        };
+        let lhs = self.print(names, cond, left);
+        names.push(x);
+        let rhs = match self.bool_if(&rhs) {
+            Some((last, then, otherwise)) if self.both_constants(&then, &otherwise) => {
+                let (y, constant) = if op == "&&" { then } else { otherwise };
+                let last = self.print(names, last, left);
+                names.push(y);
+                let constant = self.print(names, &constant, prec);
+                names.pop();
+                format!("{last} {op} {constant}")
+            }
+            _ => self.print(names, &rhs, prec),
+        };
+        names.pop();
+        Some((format!("{lhs} {op} {rhs}"), prec))
+    }
+
+    /// `if a then … else …` on `Bool`s: `a`, and each branch's parameter
+    /// and body, for a branch whose body doesn't use its parameter.
+    fn bool_if<'t>(&self, term: &'t Term) -> Option<(&'t Term, Branch, Branch)> {
         let (head, args) = full_spine(term);
         let Term::Def(id) = head else {
             return None;
@@ -1314,20 +1357,13 @@ impl<'g> Printer<'g> {
             }
             _ => None,
         };
-        let (then, otherwise) = (branch(then)?, branch(otherwise)?);
-        // `||` and `&&` group to the right.
-        let (op, prec, left, (x, rhs)) = if self.is_ctor(&otherwise.1, Builtin::False) {
-            ("&&", Prec::And, Prec::Eq, then)
-        } else if self.is_ctor(&then.1, Builtin::True) {
-            ("||", Prec::Or, Prec::And, otherwise)
-        } else {
-            return None;
-        };
-        let lhs = self.print(names, cond, left);
-        names.push(x);
-        let rhs = self.print(names, &rhs, prec);
-        names.pop();
-        Some((format!("{lhs} {op} {rhs}"), prec))
+        Some((cond, branch(then)?, branch(otherwise)?))
+    }
+
+    /// Whether the branches are `True` and `False`: `if a then True else
+    /// False`.
+    fn both_constants(&self, then: &Branch, otherwise: &Branch) -> bool {
+        self.is_ctor(&then.1, Builtin::True) && self.is_ctor(&otherwise.1, Builtin::False)
     }
 
     /// The operator and operands of a `Bool` comparison, as `<` and `<=`

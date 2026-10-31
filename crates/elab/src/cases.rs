@@ -20,7 +20,12 @@
 //! 5. **`t`**, for `cases in t`, elaborated in the case;
 //! 6. **`omega`**, only where nothing is left to split (D1319).
 //!
-//! If none closes it, `cases` finds an *atom* (§5.2): following what the
+//! If none closes it, a hypothesis `h: P → Q` whose premise holds in the
+//! case (an equation whose sides compute to the same thing, such as `b =
+//! True → fact` once `b` is split, or a hypothesis of type `P`) adds `Q`,
+//! and the case starts again (SW-948, [`apply_guarded`]).
+//!
+//! If nothing is added, `cases` finds an *atom* (§5.2): following what the
 //! goal is stuck on inwards (a definition's case tree, run on its arguments,
 //! stops at a `case` on a stuck value; that value may itself be a stuck call,
 //! and so on), the innermost value whose type is *splittable* (data with two
@@ -331,6 +336,9 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
                 failed_body = Some(e);
             }
         }
+    }
+    if let Some(term) = apply_guarded(cx, run, goal)? {
+        return Ok(term);
     }
     let (atom, stuck, fallback) = {
         let mut finder = Finder::new(cx, run);
@@ -952,6 +960,86 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
             Rc::new(Term::Refl),
             Rc::new(Term::Var(cx.level() - 1 - level)),
         );
+        let fact_term = cx.quote(&fact)?;
+        run.facts.set(run.facts.get() + 1);
+        let name = format!("%fact{}", run.facts.get());
+        lets.push((Name::from(name.as_str()), fact_term.clone(), proof.clone()));
+        cx.define(Some(&name), name.as_str().into(), fact, fact_term, proof)?;
+    }
+    let body = node(cx, run, goal);
+    cx.reset(mark);
+    let mut body = body?;
+    for (name, ty, value) in lets.into_iter().rev() {
+        body = Term::let_(name, ty, value, body);
+    }
+    Ok(Some(body))
+}
+
+/// A hypothesis `h: P → Q` (`Q` not mentioning the proof of `P`, `P` an
+/// equation) whose premise holds in this case adds `Q`, as `h rfl` when
+/// `P`'s sides compute to the same thing (`b = True → fact`, after `b` was
+/// split, generalised to `True = True → fact`), or as `h e` for a
+/// hypothesis `e: P`; and the case starts again with it (SW-948). `None` if
+/// there's nothing to add: every such `Q` is already a hypothesis.
+fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> {
+    let g = cx.g();
+    let levels = visible(cx);
+    // Each fact: its type, the hypothesis it comes from, and the premise's
+    // proof (`None` for `rfl`, else a hypothesis's level).
+    let mut facts: Vec<(Value, usize, Option<usize>)> = Vec::new();
+    for &level in &levels {
+        let Value::Pi(_, Icit::Explicit, dom, closure) = force(g, cx.types[level].clone())? else {
+            continue;
+        };
+        if closure.body.mentions(0) {
+            continue;
+        }
+        let premise = force(g, (*dom).clone())?;
+        let Value::Eq(_, l, r) = &premise else {
+            continue;
+        };
+        let given = if cx.conv_now(l, r)? {
+            None
+        } else {
+            let mut found = None;
+            for &k in &levels {
+                if k != level && conv(g, cx.level(), &cx.types[k], &premise)? {
+                    found = Some(k);
+                    break;
+                }
+            }
+            match found {
+                Some(k) => Some(k),
+                None => continue,
+            }
+        };
+        let fact = closure.apply(g, Value::Refl)?;
+        if !is_fact(cx, &fact) && !matches!(force(g, fact.clone())?, Value::Pi(..)) {
+            continue;
+        }
+        let known = levels
+            .iter()
+            .any(|&k| conv(g, cx.level(), &cx.types[k], &fact).unwrap_or(false))
+            || facts
+                .iter()
+                .any(|(f, ..)| conv(g, cx.level(), f, &fact).unwrap_or(false));
+        if known {
+            continue;
+        }
+        facts.push((fact, level, given));
+    }
+    if facts.is_empty() {
+        return Ok(None);
+    }
+    let mark = cx.mark();
+    let mut lets = Vec::new();
+    for (fact, level, given) in facts {
+        let at = |l: usize| Term::Var(cx.level() - 1 - l);
+        let premise = match given {
+            None => Term::Refl,
+            Some(k) => at(k),
+        };
+        let proof = Term::app(at(level), premise);
         let fact_term = cx.quote(&fact)?;
         run.facts.set(run.facts.get() + 1);
         let name = format!("%fact{}", run.facts.get());

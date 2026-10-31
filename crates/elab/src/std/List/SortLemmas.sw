@@ -957,6 +957,31 @@ theorem List.permOfSameMembers [auto eq: DecEq a]: (xs: List a) → (ys: List a)
     rewrite List.occurrencesSplit ys x p, List.occurrencesOnce ys x p dy (there x (Inl rfl)), <- List.occurrencesFilter ys (z => ¬(z == x)) p, <- rest
       in Nat.addComm (Bool.toNat (p x)) (List.occurrences xs p)
 
+-- `n` is the number of values `x` with `p x`: some list without repeats has
+-- exactly those values, and `n` elements. For a `p` true of finitely many
+-- values, where a `Set` isn't at hand: the points where two lines cross,
+-- say. Any two such lists have the same length (`List.numberWithUnique`),
+-- so it says what the number is.
+def List.NumberWith (n: Nat) (p: a → Bool): Prop :=
+  Exists (List a) (xs => List.Distinct xs ∧ ((x: a) → (x ∈ xs ↔ p x = True)) ∧ List.length xs = n)
+
+-- The number of values with `p` is one number.
+theorem List.numberWithUnique [auto eq: DecEq a] (p: a → Bool) (n: Nat) (m: Nat) (first: List.NumberWith n p) (second: List.NumberWith m p):
+    n = m :=
+  match first, second with
+    | Witness xs (Both dx (Both memX lengthX)), Witness ys (Both dy (Both memY lengthY)) =>
+      let same := List.permOfSameMembers xs ys dx dy
+        (x inX => (memY x).backward ((memX x).forward inX))
+        (y inY => (memX y).backward ((memY y).forward inY))
+      rewrite <- lengthX, <- lengthY in List.permLength xs ys same
+
+-- The same number of values, for a test that agrees everywhere.
+theorem List.numberWithCong (n: Nat) (p: a → Bool) (q: a → Bool) (same: (x: a) → p x = q x) (counted: List.NumberWith n p):
+    List.NumberWith n q :=
+  match counted with
+    | Witness xs (Both distinct (Both members length)) =>
+      Witness xs (Both distinct (Both (x => rewrite <- same x in members x) length))
+
 -- Two lists sorted by the same order, with the same elements, are equal,
 -- when the order puts no two different elements both ways round.
 theorem List.sortedPermEq [auto eq: DecEq a] (le: a → a → Bool) (trans: (x: a) → (y: a) → (z: a) → le x y = True → le y z = True → le x z = True)

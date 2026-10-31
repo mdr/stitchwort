@@ -1,7 +1,8 @@
 -- Lemmas about positions in lists, and ranges of numbers, that need
--- `omega` or `DecEq`: where `List.indexOf` finds an element, running sums by
--- position, sorted lists of numbers by position, and `List.all` over
--- `List.between`. Kept out of Index.sw and Sort.sw, which small programs
+-- `omega` or `DecEq`: where `List.indexOf` finds an element (and
+-- `List.contains` by it), folds of `Nat.max` and `Nat.min`, counting a
+-- number in a range, running sums by position, sorted lists of numbers by
+-- position, and `List.all` over `List.between`. Kept out of Index.sw and Sort.sw, which small programs
 -- load, so that those don't load Omega.
 
 -- The element at `x`'s position is `x`.
@@ -25,6 +26,45 @@ theorem List.indexOfLt [auto eq: DecEq a]: (xs: List a) → (x: a) → List.Mem 
         match m with
           | Inl q => Void.exfalso (DecEq.soundFalse y x e q)
           | Inr rest => List.indexOfLt ys x rest
+
+-- `x` is in `xs` exactly when its first place is inside it.
+theorem List.containsIndexOf [auto eq: DecEq a] (x: a): (xs: List a) → List.contains xs x = (List.indexOf xs x < List.length xs)
+  | Nil => rfl
+  | Cons y rest =>
+    match e: y == x with
+      | True => rfl
+      | False => List.containsIndexOf x rest
+
+-- ... and, for a list with more after it, exactly when its first place in
+-- the whole is inside the first part.
+theorem List.containsIndexOfAppend [auto eq: DecEq a] (x: a) (more: List a): (xs: List a) →
+    List.contains xs x = (List.indexOf (List.append xs more) x < List.length xs)
+  | Nil => rfl
+  | Cons y rest =>
+    match e: y == x with
+      | True => rfl
+      | False => List.containsIndexOfAppend x more rest
+
+-- A fold of `Nat.max` is below `k` exactly when its start and every `f x` are.
+theorem List.foldMaxLt (f: a → Nat) (k: Nat): (xs: List a) → (start: Nat) →
+    ((List.foldLeft xs start (m x => Nat.max m (f x)) < k): Bool) = (start < k ∧ List.all xs (x => f x < k))
+  | Nil, start => cases
+  | Cons x rest, start => rewrite List.foldMaxLt f k rest (Nat.max start (f x)) in cases
+
+-- A fold of `Nat.min` is below `k` exactly when its start or some `f x` is.
+theorem List.foldMinLt (f: a → Nat) (k: Nat): (xs: List a) → (start: Nat) →
+    ((List.foldLeft xs start (m x => Nat.min m (f x)) < k): Bool) = (start < k ∨ List.any xs (x => f x < k))
+  | Nil, start => cases
+  | Cons x rest, start => rewrite List.foldMinLt f k rest (Nat.min start (f x)) in cases
+
+-- A run of numbers has `k` once if `k` is in it, and not at all otherwise.
+theorem List.countRangeFromEq (k: Nat): (c: Nat) → (s: Nat) → List.count (List.rangeFrom c s) (== k) = Bool.toNat (s ≤ k ∧ k < s + c)
+  | Zero, s => cases
+  | Succ c, s => rewrite List.countCons (List.rangeFrom c (Succ s)) s (== k), List.countRangeFromEq k c (Succ s) in cases
+
+-- `List.range n` has `k` once if `k < n`, and not at all otherwise.
+theorem List.countRangeEq (n: Nat) (k: Nat): List.count (List.range n) (== k) = Bool.toNat (k < n) :=
+  rewrite List.countRangeFromEq k n 0 in cases
 
 -- Running sums from `start`: entry c is `start` plus the first c elements.
 theorem List.getOrScanAdd: (row: List Nat) → (start: Nat) → (c: Nat) → c ≤ List.length row →
