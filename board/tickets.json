@@ -1,5 +1,5 @@
 {
-  "next": 952,
+  "next": 953,
   "tickets": [
     {
       "id": 47,
@@ -1814,9 +1814,9 @@
     {
       "id": 915,
       "title": "Design note: stitchwort search, lemma search by type (agentic T4)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
-      "where": "lane (D2100): --at in project files + AoC recall",
+      "where": "stage 2b merged (--at in projects); recall: one-lemma AoC goals 39% original found",
       "labels": [
         "tooling",
         "design"
@@ -1838,7 +1838,8 @@
         "77d2e8e3",
         "2033271c",
         "84e9a705",
-        "ecfbee85"
+        "ecfbee85",
+        "5cb4b8ff"
       ]
     },
     {
@@ -2280,14 +2281,16 @@
       "title": "search: say when a pattern computes to a hole; --at should try cases; 'ran out of steps' warnings on every --at",
       "status": "backlog",
       "agent": "",
-      "where": "queued for the search lane after --at in projects (D2102)",
+      "where": "(1)-(3) done in 5cb4b8ff; (4) premise-pattern relaxed pass, (5) naming left",
       "labels": [
         "tooling"
       ],
       "body": "Search: (1) 'List.drop _ 0' is refused as 'a hole on its own' because it computes to xs; the message should say so. (2) search --at doesn't try cases as a closer: (a < b) = ¬(b ≤ a) which cases proves got nothing. (3) every --at run warned '3 comparisons ran out of steps'. (4) premise pattern '(?a < ?b) = not (?b ≤ ?a)' fell to the relaxed pass with unrelated results. (5) Option.map o (x => x) = o offered Option.orElseNone: correct but unexpected name (fine).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\n31 Oct (search lane, in 5cb4b8ff with SW-915 2b): (1) a pattern that computes to a hole says so; (2) cases tried as a closer (alone, obligations, after a rewrite), kernel-checked; (3) the 3 comparisons are always Std.Float.Theory overflowHalf/largestBelow/infinityAbove (magUnits 9218868437227405311 runs out of depth vs any Nat sum): the warning now names them. Not done: (4) relaxed pass for premise patterns.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "5cb4b8ff"
+      ]
     },
     {
       "id": 943,
@@ -2419,6 +2422,20 @@
         "aoc"
       ],
       "body": "AoC 2021 day 6 (Lanternfish) in aoc/src/Aoc/Year2021/Day06: program counting fish per timer value (9 buckets), spec as the puzzle's per-fish simulation, proof that the bucket count equals the per-fish simulation's count for every input and every number of days. Notes in aoc/NOTES-2021.md. Lane worktree agent-a28a64f0e7f540791.\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 952,
+      "title": "search --at polish: noisy lemma list when a tactic closes the goal (unrelated AoC days first); misses after unfolding the goal's definition; slow re-checks",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From verifying search stage 2b (31 Oct 2026): on aoc 2021 Day02 horizontalAfter Nil case (goal start.horizontal = start.horizontal), --at says rfl/omega/cases/byDecision alone close it, then lists lemmas led by Aoc.Year2024.Day08.Proofs.gcdZero (another AoC day, needing an import of its proofs) and Int.natAbsToInt. When a tactic alone closes the goal, keep the lemma list short; prefer std and the file's own project neighbourhood over unrelated project namespaces; rank lemmas whose statement is only reflexive after computation lower. Also from stage 2b misses: lemmas that fit only after unfolding the goal's own definition (most misses), premises fillable only by theorems, goals that can't be written (E-SEARCH-AT on shadowed names), and slow re-checking of heavy namespaces (Day13 61 s).\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
