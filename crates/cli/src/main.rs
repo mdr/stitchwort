@@ -16,7 +16,6 @@ use stitchwort_fmt::Error as FmtError;
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 
 mod build;
-mod search_dev;
 
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
@@ -79,33 +78,6 @@ enum DevCommand {
         /// or, on macOS on Apple Silicon, `map-jit` (the default there)
         #[arg(long)]
         memory: Option<String>,
-    },
-    /// EXPERIMENTAL (SW-915): search the library's theorems by a type
-    /// pattern, printing timings on standard error
-    /// (docs/proposals/search.md §4)
-    Search {
-        /// Comma-separated parts: `"name substring"`, or one type pattern
-        /// (`_` any term, `?x` a named hole, a leading `⊢` for the
-        /// conclusion only)
-        pattern: String,
-        /// How many results to print
-        #[arg(long, default_value_t = 10)]
-        limit: usize,
-        /// Unify with every candidate, without the constants filter
-        #[arg(long)]
-        no_filter: bool,
-        /// Search definitions too, not only theorems
-        #[arg(long)]
-        defs: bool,
-        /// Print JSON
-        #[arg(long)]
-        json: bool,
-        /// Run the matching this many times, for timing
-        #[arg(long, default_value_t = 1)]
-        repeat: usize,
-        /// Load the library through the check cache in this folder
-        #[arg(long)]
-        cache_dir: Option<PathBuf>,
     },
 }
 
@@ -250,6 +222,48 @@ enum Command {
         /// one above it
         #[arg(long)]
         project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Search the library's and the project's theorems, definitions and
+    /// constructors by the shape of their type (docs/syntax.md, "Lemma
+    /// search"). Exits with status 0 with results, 1 with none, 2 if the
+    /// query doesn't elaborate
+    Search {
+        /// Comma-separated parts: a pattern (`_` any term, `?x` a named
+        /// hole, a leading `⊢` for conclusions only), names the type must
+        /// mention (`List.length`), and `"text"` the name must contain
+        query: String,
+        /// A file to search with the library, instead of the project
+        file: Option<PathBuf>,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it (with neither a file nor a project, the library
+        /// alone)
+        #[arg(long)]
+        project: Option<PathBuf>,
+        /// Match the pattern against either side of conclusions stated as
+        /// `=` or `Iff` (rewrite rules), conditional ones included
+        #[arg(long)]
+        rewrite: bool,
+        /// Print JSON (version 1)
+        #[arg(long)]
+        json: bool,
+        /// How many results to show
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+        /// Also the library's hidden helpers (`%` in the name) and
+        /// `…Example` theorems
+        #[arg(long)]
+        all: bool,
+        /// Theorems only (with --definitions or --constructors: those too)
+        #[arg(long)]
+        theorems: bool,
+        /// Definitions (functions and values) only, or with the others named
+        #[arg(long)]
+        definitions: bool,
+        /// Constructors only, or with the others named
+        #[arg(long)]
+        constructors: bool,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -510,6 +524,39 @@ fn run(cli: Cli) -> ExitCode {
             project,
             cache,
         } => axioms(&target, &names, project.as_deref(), &cache),
+        Command::Search {
+            query,
+            file,
+            project,
+            rewrite,
+            json,
+            limit,
+            all,
+            theorems,
+            definitions,
+            constructors,
+            cache,
+        } => {
+            let narrowed = theorems || definitions || constructors;
+            let options = stitchwort_driver::search::Options {
+                rewrite,
+                kinds: stitchwort_driver::search::Kinds {
+                    theorems: theorems || !narrowed,
+                    definitions: definitions || !narrowed,
+                    constructors: constructors || !narrowed,
+                },
+                all,
+                limit,
+            };
+            search(
+                &query,
+                file.as_deref(),
+                project.as_deref(),
+                &options,
+                json,
+                &cache,
+            )
+        }
         Command::Audit {
             targets,
             json,
@@ -588,33 +635,6 @@ fn run(cli: Cli) -> ExitCode {
         ),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
-        }
-        Command::Dev(DevCommand::Search {
-            pattern,
-            limit,
-            no_filter,
-            defs,
-            json,
-            repeat,
-            cache_dir,
-        }) => {
-            let mut session = new_session(false);
-            if let Some(dir) = cache_dir {
-                session.use_check_cache(&dir);
-            }
-            let code = search_dev::run(
-                &mut session,
-                &search_dev::Args {
-                    pattern,
-                    limit,
-                    no_filter,
-                    defs,
-                    json,
-                    repeat,
-                },
-            );
-            discard(session);
-            code
         }
     }
 }
@@ -1580,6 +1600,149 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
     }
     discard(session);
     ExitCode::SUCCESS
+}
+
+/// `search` (SW-915): loads the file, or the project (or neither), and the
+/// whole library, searches it and prints the report.
+fn search(
+    query: &str,
+    file: Option<&Path>,
+    project: Option<&Path>,
+    options: &stitchwort_driver::search::Options,
+    json: bool,
+    cache: &CacheArgs,
+) -> ExitCode {
+    use stitchwort_driver::search::{Scope, render_text};
+    let mut session = new_session(false);
+    let scope = match file {
+        Some(path) => {
+            use_cache(&mut session, cache, Path::new("."));
+            let text = match std::fs::read_to_string(path) {
+                Ok(text) => text,
+                Err(err) => {
+                    eprintln!("error: can't read {}: {err}", path.display());
+                    return ExitCode::from(2);
+                }
+            };
+            let context = file_mode_context(path, &text, "searched");
+            let folder = path
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or(Path::new("."));
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                session.include_in_folder(
+                    std::rc::Rc::new(DiskFiles {
+                        root: folder.to_path_buf(),
+                    }),
+                    name,
+                );
+            }
+            // A file that doesn't check (a proof being written) is
+            // reported, and its declarations that did are still searched.
+            // Its namespace and imports stay, so a pattern names things as
+            // the file does.
+            if let Err(diagnostics) = session.load_file(&path.display().to_string(), &text, context)
+            {
+                report(&session.sources, &diagnostics);
+                eprintln!("warning: the file doesn't check: only what checked is searched");
+            }
+            std::mem::take(&mut session.warnings);
+            Scope::File
+        }
+        None => {
+            let found = match project {
+                Some(_) => locate_project(project, "search", "search 'PATTERN' hello.sw"),
+                None => {
+                    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                    stitchwort_driver::project::find_project(&cwd)
+                        .and_then(|dir| locate_project(Some(&dir), "search", ""))
+                }
+            };
+            match found {
+                Some(project) => {
+                    use_cache(&mut session, cache, &project.dir);
+                    session.include_from(std::rc::Rc::new(DiskFiles {
+                        root: project.dir.clone(),
+                    }));
+                    let sources = match project_sources(
+                        &project.files,
+                        &project.name,
+                        &mut session.sources,
+                    ) {
+                        Ok(sources) => sources,
+                        Err(diagnostics) => {
+                            report(&session.sources, &diagnostics);
+                            return ExitCode::from(2);
+                        }
+                    };
+                    let analysis = analyse(&mut session, &project.name, sources);
+                    if !analysis.diagnostics.is_empty() {
+                        report(&session.sources, &analysis.diagnostics);
+                        return ExitCode::from(2);
+                    }
+                    let names = analysis
+                        .namespaces
+                        .iter()
+                        .map(|ns| ns.name.clone())
+                        .collect();
+                    // A namespace that doesn't check is reported, and its
+                    // declarations that did are still searched.
+                    match session.load_analysis(&project.name, analysis, &Target::Everything) {
+                        Ok(_) => {
+                            std::mem::take(&mut session.warnings);
+                        }
+                        Err(diagnostics) => {
+                            report(&session.sources, &diagnostics);
+                            eprintln!(
+                                "warning: the project doesn't check: only what checked is searched"
+                            );
+                        }
+                    }
+                    session.elab.leave_namespace();
+                    Scope::Project(names)
+                }
+                None if project.is_some() => return ExitCode::from(2),
+                None => {
+                    use_cache(&mut session, cache, Path::new("."));
+                    Scope::Project(Vec::new())
+                }
+            }
+        }
+    };
+    if let Err(diagnostics) = session.elab.load_all_libraries() {
+        report(&session.sources, &diagnostics);
+        return ExitCode::from(2);
+    }
+    let found = session.search(query, options, &scope);
+    let code = match found {
+        Ok(found) => {
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string(&found).expect("a search report serialises")
+                );
+            } else {
+                print!("{}", render_text(&found));
+            }
+            if found.total > 0 {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
+        Err(d) => {
+            if json {
+                println!(
+                    "{}",
+                    serde_json::json!({"version": 1, "error": {"code": d.code, "message": d.message}})
+                );
+            }
+            report(&session.sources, &[d]);
+            ExitCode::from(2)
+        }
+    };
+    discard(session);
+    code
 }
 
 /// `audit`'s options.

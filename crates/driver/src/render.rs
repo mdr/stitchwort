@@ -201,6 +201,21 @@ fn place(sources: &SourceMap, span: stitchwort_syntax::Span) -> (String, std::op
     (shown_name(&file.name, &file.text), span.range())
 }
 
+/// Where `span` starts, as shown: the file's name and the line (from 1),
+/// but for a span in the core, the core's file it is in and the line in it.
+pub fn location(sources: &SourceMap, span: stitchwort_syntax::Span) -> (String, usize) {
+    let (name, range) = place(sources, span);
+    let file = sources.get(span.file);
+    let line = |offset: usize| {
+        file.text[..offset.min(file.text.len())]
+            .matches('\n')
+            .count()
+    };
+    // `place` moved the range into the core's file: count from its start.
+    let base = (span.start as usize).saturating_sub(range.start);
+    (name, line(span.start as usize) - line(base) + 1)
+}
+
 /// The name a source file is shown by: a library file's (`std/List/Sort.sw`
 /// in the session) is its path on disk when the library is read from a
 /// directory (`STITCHWORT_STD_DIR`), so an editor can jump to it.

@@ -1,18 +1,30 @@
-//! EXPERIMENTAL: a measuring prototype of lemma search by type (SW-915,
-//! docs/proposals/search.md §4). Not a stable interface, and not used by
-//! checking: only the hidden `stitchwort dev search` calls it.
+//! Lemma search by type, stage 1 (SW-915, docs/proposals/search.md draft 3
+//! §4, §8 S1a): the matching behind `stitchwort search`. Checking never uses
+//! it.
 //!
 //! A pattern is elaborated as a closed expression whose `_`s are left as
-//! unknowns. Each theorem's binders are opened with fresh unknowns, and the
-//! pattern is unified, folded (glued, with calls compared by their
-//! arguments), against its conclusion, or with `anywhere` against each of
-//! its hypotheses and each call inside it with the pattern's head. Every
-//! attempt runs under its own small budget and is undone afterwards.
+//! unknowns, and whose named holes (`?x`, and lowercase names nothing else
+//! means) are unknowns made once, outside any binder of the pattern. Each
+//! candidate's binders (a theorem's, a definition's or a constructor's) are
+//! opened with fresh unknowns, and the pattern is unified, folded (glued,
+//! with calls compared by their arguments), with each of its targets: the
+//! whole type, the conclusion, each premise, each call inside, or with
+//! `--rewrite` each side of a conclusion that is an equation or an `Iff`.
+//! Every attempt runs under its own step budget and is undone afterwards.
+//!
+//! A match is labelled with how the two sides met (D2062, D2064): an
+//! `instance` (only the candidate's variables took structure), a
+//! `generalisation` (the pattern's named holes took structure, the
+//! candidate's variables stayed variables) or a `commonInstance` (both). A
+//! match two-way unification found crossed is tried again one way, with one
+//! side frozen, since that unification's solution need not be the most
+//! general one (draft 3 §5.1).
 
 use std::collections::BTreeSet;
+use std::rc::Rc;
 
 use stitchwort_core::value::{Head, Value, eval, force};
-use stitchwort_core::{DataId, DefId, Globals, Limits, Term};
+use stitchwort_core::{DataId, DefId, Globals, Icit, Limits, Term};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -20,8 +32,10 @@ use crate::Elaborator;
 use crate::check::{Ctx, infer};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
+type Res<T> = std::result::Result<T, stitchwort_core::ResourceError>;
 
-/// The limits of one match attempt: a comparison that needs more is no match.
+/// The limits of one match attempt: a comparison that needs more is no match
+/// (and is counted, as `outOfBudget`).
 const ATTEMPT: Limits = Limits {
     work: 200_000,
     stack: 4 * 1024 * 1024,
@@ -29,7 +43,8 @@ const ATTEMPT: Limits = Limits {
     frames: 10_000,
 };
 
-/// What a pattern's outermost layer is, for the head filter.
+/// What a pattern's outermost layer is: the calls inside a candidate that
+/// are tried as `subterm` targets have the same.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum HeadKey {
     Def(DefId),
@@ -39,24 +54,48 @@ pub enum HeadKey {
     Other,
 }
 
+/// Which of the instance double search a pattern is (draft 3 §5.6): with
+/// the interface dictionaries elaboration resolved, or with each of them a
+/// hole, so that a generic lemma (`Ord.compareSelf`) is found for a pattern
+/// at a concrete type (`Ord.compare (?x: Nat) ?x`).
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum Via {
+    Resolved,
+    Generic,
+}
+
+impl Via {
+    pub fn name(self) -> &'static str {
+        match self {
+            Via::Resolved => "resolved",
+            Via::Generic => "generic",
+        }
+    }
+}
+
 /// An elaborated pattern.
 pub struct Pattern {
     value: Value,
-    /// The unknowns of each named hole's occurrences (`?x`), which must
-    /// match the same thing.
-    pub groups: Vec<Vec<usize>>,
-    /// The definitions the pattern names: a theorem must mention each.
+    /// The definitions the pattern names: in the filtered pass, a candidate
+    /// must name each.
     pub constants: BTreeSet<DefId>,
-    /// The data types it names (draft 2 §5.6's widened filter).
+    /// The data types it names (D2054): likewise.
     pub data: BTreeSet<usize>,
     pub head: HeadKey,
     /// How many unknowns there were once it was elaborated.
     metas: usize,
+    /// Its size, in nodes: a candidate variable that took a term this
+    /// large absorbed the whole pattern.
+    size: usize,
     /// The unknowns elaboration left unsolved: the pattern's holes (and
     /// their types), which a match may bind.
     free: Vec<usize>,
-    /// Every hole stands for a different variable, as in a pattern made
-    /// from a theorem or a goal: two made the same is an instantiation. In a
+    /// The holes that decide the relation (D2064): the named holes of a
+    /// written pattern, every hole of a pattern made from a theorem or a
+    /// goal. A written `_` may take any structure.
+    decisive: Vec<usize>,
+    /// Every hole stands for a different variable, as in a pattern made from
+    /// a theorem or a goal: two made the same is an instantiation. In a
     /// written pattern, two `_`s may bind the same variable.
     distinct: bool,
     /// What the pattern is: a type, or a term of this type. A target of
@@ -65,6 +104,19 @@ pub struct Pattern {
     /// make computing it take a `case` of one type to a constructor of
     /// another: SW-924).
     ty: Option<Ty>,
+    /// Which half of the instance double search this is; `None` when the
+    /// pattern resolved no dictionary.
+    pub via: Option<Via>,
+}
+
+impl Pattern {
+    /// The pattern, read back folded, for messages and the JSON's `query`.
+    pub fn show(&self, g: &Globals) -> String {
+        match stitchwort_core::value::quote_folded(g, 0, &self.value) {
+            Ok(t) => stitchwort_core::pretty::term(g, &[], &t),
+            Err(_) => "?".into(),
+        }
+    }
 }
 
 /// The type of a pattern or a target, as far as search compares them.
@@ -85,9 +137,9 @@ impl Ty {
     }
 }
 
-/// The type of `term`, a type or a call in a theorem's type whose binders
+/// The type of `term`, a type or a call in a candidate's type whose binders
 /// `env` opened with unknowns, when its head tells: a type former is a
-/// type; a definition or one of the theorem's variables, applied to
+/// type; a definition or one of the candidate's variables, applied to
 /// arguments, has the type its own type gives them. `None` when it can't
 /// tell.
 fn type_of_target(g: &Globals, env: &[Value], term: &Term) -> Res<Option<Ty>> {
@@ -136,114 +188,104 @@ fn types_agree(g: &Globals, ours: Option<&Ty>, theirs: Option<&Ty>) -> Res<bool>
     }
 }
 
-impl Pattern {
-    /// The pattern, read back folded, for messages.
-    pub fn show(&self, g: &Globals) -> String {
-        match stitchwort_core::value::quote_folded(g, 0, &self.value) {
-            Ok(t) => stitchwort_core::pretty::term(g, &[], &t),
-            Err(_) => "?".into(),
-        }
-    }
-}
-
-/// Where a pattern matched a theorem.
+/// Where a pattern matched a candidate, best first.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum Place {
     /// The whole type after its leading implicit parameters, for a pattern
     /// that is a function type (`List ?a → List ?a`).
     Whole,
-    /// With [`Mode::Permute`] or [`Mode::Subset`]: the conclusions match
-    /// and each of the pattern's explicit parameters matches a different one
-    /// of the theorem's, in any order (draft 2 §5.2, measured there).
+    /// The conclusions match, and each of the pattern's explicit
+    /// parameters matches a different one of the candidate's, in any order,
+    /// the candidate having perhaps more (Loogle's `matchHyps`, greedy;
+    /// draft 2 §5.2).
     Reordered,
     Conclusion,
-    /// With [`Mode::Rewrite`]: the left side of an equation `l = r` (or,
-    /// with [`Opts::iff`], of `Iff l r`) that is the conclusion
-    /// (`SearchRewrite`; draft 2 §5.3).
+    /// With `--rewrite`: the left side of an equation `l = r`, or of
+    /// `Iff l r`, that is the conclusion.
     Left,
     /// The right side, for rewriting from right to left.
     Right,
-    Hypothesis,
-    /// A call inside the type (draft 3 names it `subterm`).
-    Inside,
+    /// A premise: an explicit parameter's type.
+    Premise,
+    /// A call inside the type, with the pattern's head.
+    Subterm,
 }
 
-/// How a pattern and a theorem matched (draft 3 §5.1, D2062), best first.
+impl Place {
+    /// The name the JSON contract (version 1) gives it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Place::Whole => "whole",
+            Place::Reordered => "reordered",
+            Place::Conclusion => "conclusion",
+            Place::Left => "left",
+            Place::Right => "right",
+            Place::Premise => "premise",
+            Place::Subterm => "subterm",
+        }
+    }
+}
+
+/// How a pattern and a candidate matched (draft 3 §5.1, D2062), best first.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum Relation {
-    /// The theorem instantiates to the pattern: only the theorem's
-    /// variables took structure; the pattern's holes stayed distinct
-    /// variables (bound to the theorem's, or left alone).
+    /// The candidate instantiates to the pattern: only the candidate's
+    /// variables took structure; the pattern's deciding holes stayed
+    /// distinct variables (bound to the candidate's, or left alone).
     Instance,
-    /// The pattern generalises the theorem: its holes took structure from
-    /// the theorem, whose variables stayed distinct variables.
+    /// The pattern generalises the candidate: its holes took structure from
+    /// the candidate, whose variables stayed distinct variables.
     Generalisation,
     /// Both sides took structure: the two only have a common instance.
     Common,
 }
 
-/// What a search compares, besides the plain targets (EXPERIMENTAL, for
-/// draft 2's measurements).
+impl Relation {
+    /// The name the JSON contract (version 1) gives it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Relation::Instance => "instance",
+            Relation::Generalisation => "generalisation",
+            Relation::Common => "commonInstance",
+        }
+    }
+}
+
+/// What a search compares.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Mode {
-    /// Draft 1: the whole type (for a function pattern), the conclusion,
-    /// and with `anywhere` the hypotheses and calls inside.
+    /// The whole type (for a function pattern), the conclusion, and, unless
+    /// [`Opts::anywhere`] is off, the premises and the calls inside.
     Plain,
-    /// Also, for a function pattern: the same conclusion and the same
-    /// number of explicit parameters, matched in any order.
-    Permute,
-    /// Also, for a function pattern: the same conclusion, and each of the
-    /// pattern's explicit parameters matched by a different one of the
-    /// theorem's, which may have more (Loogle's `matchHyps`).
+    /// [`Mode::Plain`], and for a function pattern, its parameters matched
+    /// in any order by a candidate's, which may have more (the default).
     Subset,
-    /// Only the two sides of a conclusion that is an equation.
+    /// Only the two sides of a conclusion that is an equation (or, with
+    /// [`Opts::iff`], an `Iff`).
     Rewrite,
 }
 
-/// Which theorems the constants filter lets through.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Filter {
-    Off,
-    /// Draft 2: the theorem's type names every definition the pattern
-    /// names (and, with [`Opts::data`], every data type).
-    Pattern,
-    /// That, or the theorem's conclusion names something and the pattern
-    /// names everything it does: a theorem that instantiates to a pasted
-    /// goal brings its own constants, not the goal's (draft 3 §5.6).
-    Either,
-}
-
-/// How a search matches (EXPERIMENTAL; draft 3's measurements).
+/// How a search matches.
 #[derive(Clone, Copy, Debug)]
 pub struct Opts {
     pub mode: Mode,
-    /// Also hypotheses and calls inside.
+    /// Also premises and calls inside (off for a `⊢` pattern).
     pub anywhere: bool,
-    /// Draft 3's relations (D2062): try every target for the best relation,
-    /// and try a match that two-way unification found crossed again one
-    /// way, the pattern's holes frozen (then the theorem's variables).
-    pub tiers: bool,
-    /// Also targets headed by one of the theorem's variables (`p x`), which
-    /// draft 2 skipped; unification solves them as higher-order patterns or
-    /// by its first-order approximation.
-    pub ho: bool,
     /// With [`Mode::Rewrite`], `Iff l r` conclusions too (this data type).
     pub iff: Option<DataId>,
-    pub filter: Filter,
-    /// The filter checks data types too.
-    pub data: bool,
+    /// The first pass is filtered: a candidate's type must name every
+    /// definition and data type the pattern names (D2054). If it finds
+    /// nothing, a second pass runs without the filter (D2063).
+    pub filter: bool,
 }
 
 impl Default for Opts {
     fn default() -> Opts {
         Opts {
-            mode: Mode::Plain,
+            mode: Mode::Subset,
             anywhere: true,
-            tiers: false,
-            ho: false,
             iff: None,
-            filter: Filter::Pattern,
-            data: false,
+            filter: true,
         }
     }
 }
@@ -254,70 +296,249 @@ impl Default for Opts {
 pub enum Side {
     /// The conclusion, with every variable a hole.
     Conclusion,
-    /// The left side of a conclusion `l = r`, with every variable a hole.
+    /// The left side of a conclusion `l = r` (or `Iff l r`), with every
+    /// variable a hole.
     Left,
 }
 
-/// A theorem the pattern matched.
-#[derive(Clone, Debug)]
-pub struct Hit {
-    pub id: DefId,
-    pub place: Place,
-    pub relation: Relation,
-    /// Matched a side of an `Iff`, not of an equation.
-    pub iff: bool,
-    /// The size of what the theorem's own variables took from the pattern:
-    /// smaller is more specific (a lemma `x = x` takes a whole side).
-    pub absorbed: usize,
-    /// How many of the pattern's holes had to become more than one of the
-    /// theorem's variables (or, in a pattern from a theorem or goal, the
-    /// same as another hole): fewer is a closer
-    /// fit (`List.lengthAppend` before `List.lengthSnoc` for
-    /// `List.length (_ ++ _) = _`).
-    pub instantiated: usize,
-    /// The size of the theorem's type, in nodes (Isabelle's, Rocq's and
-    /// Loogle's first ranking key).
-    pub size: usize,
-    /// How many explicit parameters the rest of the type doesn't mention:
-    /// the premises, as against the variables (Isabelle's second key).
-    pub hyps: usize,
+/// A declaration search can find.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Item {
+    Def(DefId),
+    /// A data type's constructor.
+    Ctor(DataId, usize),
 }
 
-/// The size of `id`'s type and the number of its premises (see [`Hit`]).
-pub fn shape(g: &Globals, id: DefId) -> (usize, usize) {
-    let ty = &g.def(id).ty;
-    let mut hyps = 0;
-    let mut t = ty.strip_loc();
-    while let Term::Pi(_, icit, _, cod) = t {
-        if *icit == stitchwort_core::Icit::Explicit && !cod.mentions(0) {
-            hyps += 1;
+/// What kind of declaration an [`Item`] is (D2089).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Kind {
+    Theorem,
+    Definition,
+    Constructor,
+}
+
+impl Kind {
+    pub fn name(self) -> &'static str {
+        match self {
+            Kind::Theorem => "theorem",
+            Kind::Definition => "definition",
+            Kind::Constructor => "constructor",
         }
+    }
+}
+
+impl Item {
+    /// A theorem, or a definition whose type concludes in a proposition (an
+    /// interface's law, such as `Ord.flip`); a definition; a constructor.
+    pub fn kind(self, g: &Globals) -> Kind {
+        match self {
+            Item::Def(id) if g.def(id).theorem || concludes_in_prop(g, &g.def(id).ty) => {
+                Kind::Theorem
+            }
+            Item::Def(_) => Kind::Definition,
+            Item::Ctor(..) => Kind::Constructor,
+        }
+    }
+
+    /// Its full name: `Std.List.lengthAppend`, `Std.List.Cons`.
+    pub fn path(self, g: &Globals) -> String {
+        match self {
+            Item::Def(id) => g.def(id).path.to_string(),
+            Item::Ctor(d, c) => format!("{}.{}", g.data(d).path, g.data(d).ctors[c].name),
+        }
+    }
+
+    /// Its name from the root of its module (`List.lengthAppend`, without
+    /// the module's namespace).
+    pub fn name(self, g: &Globals) -> String {
+        match self {
+            Item::Def(id) => g.def(id).name.to_string(),
+            Item::Ctor(d, c) => format!("{}.{}", g.data(d).name, g.data(d).ctors[c].name),
+        }
+    }
+
+    /// Where it is declared (a constructor: its type's declaration).
+    pub fn span(self, g: &Globals) -> Span {
+        match self {
+            Item::Def(id) => g.def(id).span,
+            Item::Ctor(d, _) => g.data(d).span,
+        }
+    }
+
+    /// Its type: a constructor's is its type's parameters (implicit), its
+    /// fields, then the type applied to the parameters and its indices.
+    pub fn ty(self, g: &Globals) -> Term {
+        match self {
+            Item::Def(id) => g.def(id).ty.clone(),
+            Item::Ctor(d, c) => {
+                let data = g.data(d);
+                let ctor = &data.ctors[c];
+                let (p, f) = (data.params.len(), ctor.fields.len());
+                let mut args: Vec<Term> = (0..p).map(|i| Term::Var(p + f - 1 - i)).collect();
+                args.extend(ctor.result.iter().cloned());
+                let mut ty = Term::data(d, args);
+                for (i, (name, field)) in ctor.fields.iter().enumerate().rev() {
+                    let icit = if ctor.implicit.get(i) == Some(&true) {
+                        Icit::Implicit
+                    } else {
+                        Icit::Explicit
+                    };
+                    ty = Term::Pi(name.clone(), icit, Rc::new(field.clone()), Rc::new(ty));
+                }
+                for (i, (name, param)) in data.params.iter().enumerate().rev() {
+                    let icit = if data.auto_params.get(i) == Some(&true) {
+                        Icit::Auto
+                    } else {
+                        Icit::Implicit
+                    };
+                    ty = Term::Pi(name.clone(), icit, Rc::new(param.clone()), Rc::new(ty));
+                }
+                ty
+            }
+        }
+    }
+}
+
+/// Whether type `ty`, after its parameters, is an equation or a data type
+/// in `Prop`.
+fn concludes_in_prop(g: &Globals, ty: &Term) -> bool {
+    let mut t = ty.strip_loc();
+    while let Term::Pi(_, _, _, cod) = t {
         t = cod.strip_loc();
     }
-    (size(ty), hyps)
+    match t {
+        Term::Eq(..) => true,
+        Term::Data(d, _) => g.data(*d).sort == stitchwort_core::term::Sort::Prop,
+        _ => false,
+    }
 }
 
-/// Counts of what a search did, for measuring.
-#[derive(Default, Debug, Clone)]
-pub struct Stats {
-    pub candidates: usize,
-    pub filtered_out: usize,
-    pub unifications: usize,
-    pub resource_outs: usize,
-    /// Matches two-way unification found crossed that a one-way retry
-    /// found better ([`Opts::tiers`]).
-    pub upgraded: usize,
-}
-
-/// What a theorem's type names, for the filter.
+/// What a candidate's type names, for the filter.
 #[derive(Default, Debug, Clone)]
 pub struct Index {
     /// The definitions its type names (read back folded, and as written).
     pub ty: BTreeSet<DefId>,
     /// The data types its type names.
     pub data: BTreeSet<usize>,
-    /// The definitions its conclusion names, as written.
-    pub conclusion: BTreeSet<DefId>,
+}
+
+/// A declaration to search, with its type and what the type names.
+pub struct Candidate {
+    pub item: Item,
+    pub ty: Term,
+    pub index: Index,
+    /// The size of its type, in nodes (Isabelle's, Rocq's and Loogle's
+    /// first ranking key).
+    pub size: usize,
+    /// How many explicit parameters the rest of the type doesn't mention:
+    /// the premises, as against the variables (Isabelle's second key).
+    pub premises: usize,
+}
+
+/// A candidate the pattern matched.
+#[derive(Clone, Debug)]
+pub struct Hit {
+    pub item: Item,
+    pub place: Place,
+    pub relation: Relation,
+    /// The target is headed by one of the candidate's own variables
+    /// (`p x`): unification lets such a candidate absorb nearly any
+    /// pattern, so it ranks after its relation's other matches (draft 3
+    /// §6.3, as `exact?` treats its `*` key).
+    pub absorbs: bool,
+    /// Matched a side of an `Iff`, not of an equation.
+    pub iff: bool,
+    /// The size of what the candidate's own variables took from the
+    /// pattern: smaller is more specific (a lemma `x = x` takes a whole
+    /// side).
+    pub absorbed: usize,
+    /// How many of the pattern's holes had to become more than one of the
+    /// candidate's variables (or, in a pattern from a theorem or goal, the
+    /// same as another hole): fewer is a closer fit (`List.lengthAppend`
+    /// before `List.lengthSnoc` for `List.length (_ ++ _) = _`).
+    pub instantiated: usize,
+    pub size: usize,
+    pub premises: usize,
+    /// Which halves of the instance double search found it.
+    pub via: Vec<Via>,
+}
+
+/// A hit's sort key: see [`Hit::key`].
+pub type Key = (Relation, bool, Place, usize, usize, usize, usize, String);
+
+impl Hit {
+    /// The ranking (draft 3 §5.1, S1a): the relation, then whether the
+    /// candidate absorbed the pattern whole, where it matched (a left and a
+    /// right side alike), specificity, premises, size, then the name.
+    pub fn key(&self, g: &Globals) -> Key {
+        let place = match self.place {
+            Place::Right => Place::Left,
+            p => p,
+        };
+        (
+            self.relation,
+            self.absorbs,
+            place,
+            self.absorbed,
+            self.instantiated,
+            self.premises,
+            self.size,
+            self.item.path(g),
+        )
+    }
+}
+
+/// Orders `hits` by [`Hit::key`].
+pub fn rank(g: &Globals, hits: &mut [Hit]) {
+    hits.sort_by_cached_key(|h| h.key(g));
+}
+
+/// Counts of what a search did.
+#[derive(Default, Debug, Clone)]
+pub struct Stats {
+    /// Candidates searched (after the caller's own selection).
+    pub candidates: usize,
+    /// Comparisons of a pattern with a candidate the filter let through.
+    pub compared: usize,
+    pub unifications: usize,
+    /// Comparisons that ran out of their step budget: possible missed
+    /// matches.
+    pub out_of_budget: usize,
+    /// Matches two-way unification found crossed that a one-way retry
+    /// found better.
+    pub upgraded: usize,
+    /// Comparisons that failed with an internal error (a panic), each
+    /// counted as no match. Search must have none (SW-919, SW-924).
+    pub internal_errors: usize,
+}
+
+/// Which pass found a search's results (D2063).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SearchTier {
+    /// The constants filter was on.
+    Filtered,
+    /// The filtered pass found nothing, so the search ran again without it.
+    Relaxed,
+    /// The pattern names nothing to filter by (or the filter was off).
+    Unfiltered,
+}
+
+impl SearchTier {
+    pub fn name(self) -> &'static str {
+        match self {
+            SearchTier::Filtered => "filtered",
+            SearchTier::Relaxed => "relaxed",
+            SearchTier::Unfiltered => "unfiltered",
+        }
+    }
+}
+
+/// What [`Elaborator::search`] found.
+pub struct Found {
+    /// Ranked, one per candidate.
+    pub hits: Vec<Hit>,
+    pub tier: SearchTier,
+    pub stats: Stats,
 }
 
 /// What an unknown is after a match.
@@ -365,16 +586,19 @@ fn size(term: &Term) -> usize {
         .count()
 }
 
-/// The conclusion of a type: what is left under its `Pi`s.
-fn conclusion_of(ty: &Term) -> &Term {
+/// The size of type `ty` and the number of its premises (see
+/// [`Candidate`]).
+fn shape(ty: &Term) -> (usize, usize) {
+    let mut premises = 0;
     let mut t = ty.strip_loc();
-    while let Term::Pi(_, _, _, cod) = t {
+    while let Term::Pi(_, icit, _, cod) = t {
+        if *icit == Icit::Explicit && !cod.mentions(0) {
+            premises += 1;
+        }
         t = cod.strip_loc();
     }
-    t
+    (size(ty), premises)
 }
-
-type Res<T> = std::result::Result<T, stitchwort_core::ResourceError>;
 
 /// What unknown `m` is now: another unknown, one of the pattern's binders,
 /// or a term of some size. A solution under the pattern's binders (`x y =>
@@ -395,38 +619,41 @@ fn rep(g: &Globals, m: usize) -> Res<Now> {
 }
 
 /// After a successful unification: `None` if two different named holes
-/// were made the same; otherwise what the theorem's variables (`opened`)
-/// absorbed and how many of the pattern's holes (`free`) were
-/// instantiated (see [`Hit`]).
+/// were made the same variable; otherwise what the candidate's variables
+/// (`opened`) absorbed, how many of the pattern's holes were instantiated,
+/// how many of those decide the relation, and whether one of the
+/// candidate's variables took the whole pattern (see [`Hit`]).
 fn measure(
     g: &Globals,
     pattern: &Pattern,
     opened: &[usize],
-    free: &[usize],
-) -> Res<Option<(usize, usize, usize)>> {
-    let distinct = pattern.distinct;
-    let named = |m: &usize| distinct || pattern.groups.iter().any(|group| group.contains(m));
+) -> Res<Option<(usize, usize, usize, bool)>> {
+    let deciding = |m: &usize| pattern.distinct || pattern.decisive.contains(m);
     // Different named holes must stay different: `Nat.min ?a ?b ≤ ?a`
     // isn't `Nat.minLeRight` with its `m` and `n` made one.
-    let mut seen = Vec::new();
-    for group in &pattern.groups {
-        if let Some(first) = group.first()
-            && let Now::Meta(r) = rep(g, *first)?
-        {
-            if seen.contains(&r) {
-                return Ok(None);
+    if !pattern.distinct {
+        let mut seen = Vec::new();
+        for m in &pattern.decisive {
+            if let Now::Meta(r) = rep(g, *m)? {
+                if seen.contains(&r) {
+                    return Ok(None);
+                }
+                seen.push(r);
             }
-            seen.push(r);
         }
     }
-    // What the theorem's variables took: the size of each that became a
+    // What the candidate's variables took: the size of each that became a
     // term, and one for each that was made the same as another
     // (`Ord.compare c a` for `Ord.compare ?x ?x`).
     let mut absorbed = 0;
+    let mut whole = false;
     let mut classes: Vec<usize> = Vec::new();
     for m in opened {
         match rep(g, *m)? {
-            Now::Size(n) => absorbed += n,
+            Now::Size(n) => {
+                absorbed += n;
+                whole |= n >= pattern.size;
+            }
             Now::Var => {}
             Now::Meta(r) => {
                 if classes.contains(&r) {
@@ -436,25 +663,24 @@ fn measure(
             }
         }
     }
-    // The pattern's holes that had to become more than a variable, or the
-    // same as another hole.
-    // Only named holes (in a pattern from a theorem or goal, every hole)
-    // decide the relation: a written `_` may take any structure, as it
-    // asks to (draft 3 §5.1).
+    // The pattern's holes that had to become more than a variable, or (in
+    // a pattern from a theorem or goal) the same as another hole. Only the
+    // deciding ones decide the relation: a written `_` may take any
+    // structure, as it asks to (D2064).
     let mut instantiated = 0;
     let mut decisive = 0;
     let mut classes: Vec<usize> = Vec::new();
-    for m in free {
+    for m in &pattern.free {
         match rep(g, *m)? {
             Now::Size(_) => {
                 instantiated += 1;
-                if named(m) {
+                if deciding(m) {
                     decisive += 1;
                 }
             }
             Now::Var => {}
             Now::Meta(r) => {
-                if distinct && classes.contains(&r) {
+                if pattern.distinct && classes.contains(&r) {
                     instantiated += 1;
                     decisive += 1;
                 }
@@ -462,27 +688,11 @@ fn measure(
             }
         }
     }
-    Ok(Some((absorbed, instantiated, decisive)))
+    Ok(Some((absorbed, instantiated, decisive, whole)))
 }
 
-/// After the pattern is unified with a target: makes each named hole's
-/// occurrences one unknown (they can be under different binders, so this
-/// waits until the target has solved them).
-fn same_groups(g: &Globals, pattern: &Pattern) -> Res<bool> {
-    for group in &pattern.groups {
-        for pair in group.windows(2) {
-            let a = eval(g, &[], &Term::Meta(pair[0]))?;
-            let b = eval(g, &[], &Term::Meta(pair[1]))?;
-            if !crate::unify::unify_solving_arguments(g, 0, &a, &b)? {
-                return Ok(false);
-            }
-        }
-    }
-    Ok(true)
-}
-
-fn relation_of(absorbed: usize, instantiated: usize) -> Relation {
-    if instantiated == 0 {
+fn relation_of(absorbed: usize, decisive: usize) -> Relation {
+    if decisive == 0 {
         Relation::Instance
     } else if absorbed == 0 {
         Relation::Generalisation
@@ -491,61 +701,138 @@ fn relation_of(absorbed: usize, instantiated: usize) -> Relation {
     }
 }
 
-/// Whether the filter lets theorem `index` through for `pattern`.
-pub fn passes(pattern: &Pattern, index: &Index, opts: &Opts) -> bool {
-    let named = pattern.constants.is_subset(&index.ty)
-        && (!opts.data || pattern.data.is_subset(&index.data));
-    match opts.filter {
-        Filter::Off => true,
-        Filter::Pattern => named,
-        Filter::Either => {
-            named
-                || (!index.conclusion.is_empty() && index.conclusion.is_subset(&pattern.constants))
-        }
+/// Whether the filter lets a candidate whose type names `index` through for
+/// `pattern`: it names every definition and data type the pattern names.
+pub fn passes(pattern: &Pattern, index: &Index) -> bool {
+    pattern.constants.is_subset(&index.ty) && pattern.data.is_subset(&index.data)
+}
+
+/// Puts things back as they were before a comparison, also when it panics
+/// (so a caller that catches the panic can go on).
+struct Restore<'g> {
+    g: &'g Globals,
+    metas: usize,
+    trail: usize,
+    frozen: usize,
+    glue: bool,
+}
+
+impl Drop for Restore<'_> {
+    fn drop(&mut self) {
+        let g = self.g;
+        g.frozen_metas.borrow_mut().truncate(self.frozen);
+        crate::unify::undo_since(g, self.trail);
+        g.metas.borrow_mut().truncate(self.metas);
+        g.glue.set(self.glue);
     }
 }
 
 impl Elaborator {
-    /// Elaborates a search pattern. `named` lists, per named hole, the spans
-    /// of its occurrences, each written as `_` in `expr`.
-    pub fn search_pattern(&mut self, expr: &Expr, named: &[Vec<Span>]) -> Result<Pattern> {
+    /// Elaborates a search pattern. Each name in `holes` is a named hole:
+    /// one unknown, made outside the pattern's binders, so that it means
+    /// the same at every binder depth (`(?a: Nat) ≤ ?b → ?b ≤ ?c → ?a ≤
+    /// ?c`). Returns the pattern as written, and, when elaboration resolved
+    /// interface dictionaries in it, the same with each of them a hole (the
+    /// instance double search). An error for a pattern that doesn't
+    /// elaborate, or that is a hole on its own (it would match everything).
+    pub fn search_pattern(&mut self, expr: &Expr, holes: &[String]) -> Result<Vec<Pattern>> {
         self.clear_metas();
         let was = self.globals.glue.replace(self.glue);
         let saved = self.globals.budget.start(self.limits);
-        let result = (|| -> Result<Pattern> {
-            let mut cx = Ctx::new(self, expr.span());
+        let result = (|| -> Result<Vec<Pattern>> {
+            let span = expr.span();
+            let mut cx = Ctx::new(self, span);
+            let g = &self.globals;
+            let mut decisive = Vec::new();
+            for name in holes {
+                let ty = g.new_meta(span);
+                let hole = g.new_meta(span);
+                let ty_value = eval(g, &[], &Term::Meta(ty))?;
+                g.set_meta_type(hole, ty_value.clone(), 0);
+                cx.define(
+                    Some(name),
+                    name.as_str().into(),
+                    ty_value,
+                    Term::Meta(ty),
+                    Term::Meta(hole),
+                )?;
+                decisive.push(hole);
+            }
             let (term, ty) = infer(&mut cx, expr)?;
             let value = cx.eval(&term)?;
-            let g = &self.globals;
             let ty = Ty::of(g, ty).ok();
-            let zonked =
-                stitchwort_core::value::quote_folded(g, 0, &value).unwrap_or_else(|_| term.clone());
-            // The unknown of a hole is the last one made at its span (an
-            // inferred `_` makes its type's first).
-            let metas = g.metas.borrow();
-            let at = |span: &Span| {
-                (0..metas.len())
-                    .rev()
-                    .find(|m| metas[*m].span == *span && metas[*m].solution.is_none())
+            if let Value::Neutral(Head::Meta(_), s) = force(g, value.clone())?
+                && s.is_empty()
+            {
+                return Err(Diagnostic::error(
+                    "E-SEARCH-PATTERN",
+                    "this pattern is a hole on its own, which would match everything",
+                )
+                .with_label(span, "a hole, with nothing around it")
+                .with_note(
+                    "give it some structure: a name it mentions (`List.length _ = _`), or a \
+                     type (`List _ → Nat`)",
+                ));
+            }
+            let make = |value: Value, via: Option<Via>| -> Pattern {
+                let zonked = stitchwort_core::value::quote_folded(g, 0, &value)
+                    .unwrap_or_else(|_| term.clone());
+                let metas = g.metas.borrow().len();
+                Pattern {
+                    head: head_key(&zonked),
+                    constants: constants(&zonked),
+                    data: data_types(&zonked),
+                    size: size(&zonked),
+                    value,
+                    metas,
+                    free: (0..metas)
+                        .filter(|m| g.meta_solution(*m).is_none())
+                        .collect(),
+                    decisive: decisive.clone(),
+                    distinct: false,
+                    ty: ty.clone(),
+                    via,
+                }
             };
-            let groups = named
-                .iter()
-                .map(|spans| spans.iter().filter_map(at).collect())
-                .collect();
-            let free = (0..metas.len())
-                .filter(|m| metas[*m].solution.is_none())
-                .collect();
-            Ok(Pattern {
-                head: head_key(&zonked),
-                constants: constants(&zonked),
-                data: data_types(&zonked),
-                value,
-                groups,
-                metas: metas.len(),
-                free,
-                distinct: false,
-                ty,
-            })
+            // The instance double search: each dictionary elaboration
+            // resolved, made a hole.
+            let made = std::cell::Cell::new(false);
+            let level = cx.level();
+            let generic = self
+                .zonk_keeping(&term, level, &|_| true)
+                .ok()
+                .and_then(|zonked| {
+                    crate::lift::replace_with(
+                        g,
+                        &zonked,
+                        level,
+                        &|l| Ok(Term::Var(level - 1 - l)),
+                        &|t, _| match t {
+                            Term::App(f, arg, Icit::Auto) if is_dictionary(g, arg) => {
+                                made.set(true);
+                                let hole = Term::Meta(g.new_meta(span));
+                                Some(Term::App(f.clone(), Rc::new(hole), Icit::Auto))
+                            }
+                            _ => None,
+                        },
+                    )
+                    .ok()
+                });
+            match generic {
+                Some(generic_term) if made.get() => {
+                    let generic = cx.eval(&generic_term)?;
+                    let resolved = make(value, Some(Via::Resolved));
+                    let mut generic = make(generic, Some(Via::Generic));
+                    // A generic lemma names the interface, not the type it
+                    // was resolved at (`Ord.compareSelf` doesn't name
+                    // `Nat`): the filter asks only for the data types the
+                    // pattern names outside implicit arguments and
+                    // ascriptions.
+                    generic.data = explicit_data(&generic_term);
+                    Ok(vec![resolved, generic])
+                }
+                _ => Ok(vec![make(value, None)]),
+            }
         })();
         self.globals.budget.restore(saved);
         self.globals.glue.set(was);
@@ -554,7 +841,7 @@ impl Elaborator {
 
     /// A pattern made from theorem `id` itself: its conclusion (or the left
     /// side of it, an equation, or with `iff` an `Iff`), with each of its
-    /// variables a hole. For the self-retrieval measurements (draft 2 §6):
+    /// variables a hole. For the self-retrieval benchmark (draft 2 §6):
     /// searching with it must find `id`, and where `id` ranks measures the
     /// ranking. `None` for a conclusion that is one of the theorem's
     /// variables, or (with [`Side::Left`]) one that isn't an equation.
@@ -615,6 +902,29 @@ impl Elaborator {
                 let m = g.new_meta(def.span);
                 env.push(eval(g, &[], &Term::Meta(m))?);
             }
+            // The proof's variables have no recorded type, so unification
+            // can't tell an ill-typed pairing from a good one (SW-919's
+            // guard needs the types), and an unknown solved with a term of
+            // another type can make computing it panic. Each variable given
+            // as an argument, to the lemma or to a call in its arguments,
+            // gets the type that parameter has.
+            let holes: Vec<usize> = (env.iter())
+                .filter_map(|v| match v {
+                    Value::Neutral(Head::Meta(m), _) => Some(*m),
+                    _ => None,
+                })
+                .collect();
+            type_holes(g, &env, &holes, def.ty_value.clone(), args)?;
+            for arg in args {
+                for (sub, binders) in arg.subterms() {
+                    if binders == 0
+                        && let (Term::Def(id), sub_args) = sub.spine()
+                        && !sub_args.is_empty()
+                    {
+                        type_holes(g, &env, &holes, g.def(*id).ty_value.clone(), &sub_args)?;
+                    }
+                }
+            }
             let mut ty = eval(g, &[], &def.ty)?;
             for arg in args {
                 let Value::Pi(_, _, _, closure) = force(g, ty)? else {
@@ -632,8 +942,8 @@ impl Elaborator {
         made.ok().flatten()
     }
 
-    /// A pattern of `value`, whose unknowns are all holes; `None` if it is
-    /// one.
+    /// A pattern of `value`, whose unknowns are all holes, each a different
+    /// variable; `None` if it is one.
     fn finish_pattern(&self, value: Value, ty: Option<Ty>) -> Res<Option<Pattern>> {
         let g = &self.globals;
         if let Value::Neutral(Head::Meta(_), s) = force(g, value.clone())?
@@ -647,34 +957,62 @@ impl Elaborator {
             head: head_key(&quoted),
             constants: constants(&quoted),
             data: data_types(&quoted),
+            size: size(&quoted),
             value,
-            groups: Vec::new(),
             metas,
             free: (0..metas)
                 .filter(|m| g.meta_solution(*m).is_none())
                 .collect(),
+            decisive: Vec::new(),
             distinct: true,
             ty,
+            via: None,
         }))
     }
 
-    /// What `id`'s type names, read back folded as a pattern is (so a
-    /// field such as `Ord.compare` is named the same way in both), and as
+    /// The candidates: every declaration `keep` keeps (given its full
+    /// name), definitions, theorems and constructors, but those not checked
+    /// in full (unfinished, or failed).
+    pub fn search_candidates(&self, keep: &dyn Fn(Item, &str) -> bool) -> Vec<Candidate> {
+        let g = &self.globals;
+        let defs = (0..g.defs.len())
+            .map(DefId)
+            .filter(|id| !self.is_unfinished(*id))
+            .map(Item::Def);
+        let ctors = (0..g.datas.len()).flat_map(|d| {
+            (0..g.data(DataId(d)).ctors.len()).map(move |c| Item::Ctor(DataId(d), c))
+        });
+        defs.chain(ctors)
+            .filter(|item| keep(*item, &item.path(g)))
+            .map(|item| {
+                let ty = item.ty(g);
+                let (size, premises) = shape(&ty);
+                Candidate {
+                    item,
+                    index: self.type_index(&ty),
+                    ty,
+                    size,
+                    premises,
+                }
+            })
+            .collect()
+    }
+
+    /// What type `ty` names, read back folded as a pattern is (so a field
+    /// such as `Ord.compare` is named the same way in both), and as
     /// written.
-    pub fn type_index(&self, id: DefId) -> Index {
+    pub fn type_index(&self, ty: &Term) -> Index {
         let g = &self.globals;
         let was = g.glue.replace(self.glue);
         let found = (|| {
             let _op = g.budget.operation(ATTEMPT);
-            let v = eval(g, &[], &g.def(id).ty)?;
+            let v = eval(g, &[], ty)?;
             stitchwort_core::value::quote_folded(g, 0, &v)
         })();
         g.glue.set(was);
-        let ty = &g.def(id).ty;
         let mut index = Index {
             ty: constants(ty),
             data: data_types(ty),
-            conclusion: constants(conclusion_of(ty)),
         };
         if let Ok(t) = found {
             index.ty.extend(constants(&t));
@@ -683,67 +1021,128 @@ impl Elaborator {
         index
     }
 
-    /// Matches `pattern` against theorem (or definition) `id`'s type. With
-    /// `filter` (the theorem's [`Elaborator::type_index`]), a theorem the
-    /// filter ([`passes`]) doesn't let through is skipped without unifying.
+    /// Searches `candidates` (those `keep` keeps) for `patterns`, the halves
+    /// of one query: a candidate found by both appears once, at its better
+    /// rank, with both in `via`. The first pass is filtered (unless
+    /// [`Opts::filter`] is off, or the patterns name nothing); if it finds
+    /// nothing, a second runs unfiltered (D2063). An internal error in one
+    /// comparison is counted and taken as no match.
+    pub fn search(
+        &self,
+        patterns: &[Pattern],
+        candidates: &[Candidate],
+        opts: &Opts,
+        keep: &dyn Fn(&Candidate) -> bool,
+    ) -> Found {
+        let g = &self.globals;
+        let names_something = patterns
+            .iter()
+            .any(|p| !p.constants.is_empty() || !p.data.is_empty());
+        let mut tier = if opts.filter && names_something {
+            SearchTier::Filtered
+        } else {
+            SearchTier::Unfiltered
+        };
+        let mut stats = Stats::default();
+        loop {
+            let mut best: Vec<Option<Hit>> = vec![None; candidates.len()];
+            stats.candidates = 0;
+            for (i, candidate) in candidates.iter().enumerate() {
+                if !keep(candidate) {
+                    continue;
+                }
+                stats.candidates += 1;
+                for pattern in patterns {
+                    let filtered = tier == SearchTier::Filtered;
+                    let attempt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        self.search_one(pattern, candidate, opts, filtered, &mut stats)
+                    }));
+                    let hit = attempt.unwrap_or_else(|_| {
+                        stats.internal_errors += 1;
+                        None
+                    });
+                    let Some(mut hit) = hit else { continue };
+                    hit.via = pattern.via.into_iter().collect();
+                    best[i] = Some(match best[i].take() {
+                        None => hit,
+                        Some(mut other) => {
+                            let mut via: Vec<Via> =
+                                other.via.iter().chain(&hit.via).copied().collect();
+                            via.sort();
+                            via.dedup();
+                            if hit.key(g) < other.key(g) {
+                                other = hit;
+                            }
+                            other.via = via;
+                            other
+                        }
+                    });
+                }
+            }
+            let mut hits: Vec<Hit> = best.into_iter().flatten().collect();
+            if hits.is_empty() && tier == SearchTier::Filtered {
+                tier = SearchTier::Relaxed;
+                continue;
+            }
+            rank(g, &mut hits);
+            return Found { hits, tier, stats };
+        }
+    }
+
+    /// Matches `pattern` against `candidate`'s type: its best target (best
+    /// relation, then best place). With `filtered`, a candidate the filter
+    /// ([`passes`]) doesn't let through is skipped without unifying.
     pub fn search_one(
         &self,
         pattern: &Pattern,
-        id: DefId,
+        candidate: &Candidate,
         opts: &Opts,
-        filter: Option<&Index>,
+        filtered: bool,
         stats: &mut Stats,
     ) -> Option<Hit> {
-        let g = &self.globals;
-        let def = g.def(id);
-        stats.candidates += 1;
-        if let Some(theirs) = filter
-            && !passes(pattern, theirs, opts)
-        {
-            stats.filtered_out += 1;
+        if filtered && !passes(pattern, &candidate.index) {
             return None;
         }
-        let was = g.glue.replace(self.glue);
-        let metas = g.metas.borrow().len();
-        let trail = g.meta_trail.borrow().len();
+        stats.compared += 1;
+        let g = &self.globals;
         let frozen = g.frozen_metas.borrow().len();
+        let _restore = Restore {
+            g,
+            metas: g.metas.borrow().len().max(pattern.metas),
+            trail: g.meta_trail.borrow().len(),
+            frozen,
+            glue: g.glue.replace(self.glue),
+        };
+        let span = candidate.item.span(g);
         let mode = opts.mode;
         let found = (|| -> Res<Option<Hit>> {
             let _op = g.budget.operation(ATTEMPT);
-            let free = &pattern.free;
-            // Frozen for a one-way match the pattern's way: its holes, but
-            // only the first occurrence of each named hole, so that the
-            // others can still be made the same as it.
-            let later: Vec<usize> = (pattern.groups.iter())
-                .flat_map(|group| group.iter().skip(1).copied())
-                .collect();
-            let rigid: Vec<usize> = (free.iter().copied())
-                .filter(|m| {
-                    !later.contains(m)
-                        && (pattern.distinct || pattern.groups.iter().any(|gr| gr.contains(m)))
-                })
-                .collect();
+            // Frozen for a one-way match the pattern's way.
+            let rigid: &[usize] = if pattern.distinct {
+                &pattern.free
+            } else {
+                &pattern.decisive
+            };
             // Open the binders with fresh unknowns.
             let mut env: Vec<Value> = Vec::new();
             let mut opened: Vec<usize> = Vec::new();
-            let mut hypotheses: Vec<(Term, usize)> = Vec::new();
-            let mut t = def.ty.strip_loc();
+            let mut premises: Vec<(Term, usize)> = Vec::new();
+            let mut t = candidate.ty.strip_loc();
             let mut whole: Option<(Term, usize)> = None;
             while let Term::Pi(_, icit, dom, cod) = t {
-                if *icit == stitchwort_core::Icit::Explicit {
+                if *icit == Icit::Explicit {
                     if whole.is_none() {
                         whole = Some((t.clone(), env.len()));
                     }
-                    hypotheses.push(((**dom).clone(), env.len()));
+                    premises.push(((**dom).clone(), env.len()));
                 }
-                let m = g.new_meta(def.span);
+                let m = g.new_meta(span);
                 g.set_meta_type(m, eval(g, &env, dom)?, 0);
                 opened.push(m);
                 env.push(eval(g, &[], &Term::Meta(m))?);
                 t = cod.strip_loc();
             }
             let conclusion = t.clone();
-            let (type_size, hyps) = shape(g, id);
             // The targets, in order of preference, and whether each is a
             // side of an `Iff`.
             let mut targets: Vec<(Place, Term, usize, bool)> =
@@ -770,12 +1169,12 @@ impl Elaborator {
                 }
             }
             if opts.anywhere && mode != Mode::Rewrite {
-                for (h, at) in &hypotheses {
-                    targets.push((Place::Hypothesis, h.clone(), *at, false));
+                for (h, at) in &premises {
+                    targets.push((Place::Premise, h.clone(), *at, false));
                 }
                 let mut inside = Vec::new();
                 for (whole, at) in std::iter::once((&conclusion, env.len()))
-                    .chain(hypotheses.iter().map(|(h, at)| (h, *at)))
+                    .chain(premises.iter().map(|(h, at)| (h, *at)))
                 {
                     for (sub, binders) in whole.subterms() {
                         if binders == 0
@@ -784,7 +1183,7 @@ impl Elaborator {
                             && head_key(sub) == pattern.head
                             && pattern.head != HeadKey::Other
                         {
-                            inside.push((Place::Inside, sub.clone(), at, false));
+                            inside.push((Place::Subterm, sub.clone(), at, false));
                         }
                     }
                 }
@@ -792,148 +1191,222 @@ impl Elaborator {
             }
             // Last, the parameters in another order: an exact-order match
             // above is better.
-            if matches!(mode, Mode::Permute | Mode::Subset) && pattern.head == HeadKey::Pi {
+            if mode == Mode::Subset && pattern.head == HeadKey::Pi {
                 targets.push((Place::Reordered, conclusion.clone(), env.len(), false));
             }
             // Unifies the pattern with one target, leaving what it solved;
-            // `None` for a target that can't be a match.
-            let try_target = |place: Place, target: &Term, at: usize| -> Res<Option<bool>> {
-                if place == Place::Reordered {
-                    let theirs: Vec<Value> = (hypotheses.iter())
-                        .map(|(h, at)| eval(g, &env[..*at], h))
-                        .collect::<Res<_>>()?;
-                    let concl = eval(g, &env, &conclusion)?;
-                    let same = reordered(g, &pattern.value, &theirs, &concl, mode)?;
-                    return Ok(Some(same && same_groups(g, pattern)?));
-                }
-                // Of another type, it isn't a match, and unifying could
-                // solve an unknown with a term of the wrong type (SW-924).
-                let theirs = match place {
-                    Place::Left | Place::Right => match conclusion.strip_loc() {
-                        Term::Eq(Some(ty), ..) => Some(Ty::of(g, eval(g, &env, ty)?)?),
-                        Term::Eq(None, ..) => type_of_target(g, &env[..at], target)?,
-                        _ => Some(Ty::Type),
-                    },
-                    Place::Whole | Place::Conclusion | Place::Hypothesis => Some(Ty::Type),
-                    _ => type_of_target(g, &env[..at], target)?,
+            // `None` for a target that can't be a match, else whether it
+            // matched and whether the target is headed by one of the
+            // candidate's variables.
+            let try_target =
+                |place: Place, target: &Term, at: usize| -> Res<Option<(bool, bool)>> {
+                    if place == Place::Reordered {
+                        let theirs: Vec<Value> = (premises.iter())
+                            .map(|(h, at)| eval(g, &env[..*at], h))
+                            .collect::<Res<_>>()?;
+                        let concl = eval(g, &env, &conclusion)?;
+                        let same = reordered(g, &pattern.value, &theirs, &concl)?;
+                        return Ok(Some((same, false)));
+                    }
+                    // Of another type, it isn't a match, and unifying could
+                    // solve an unknown with a term of the wrong type
+                    // (SW-924).
+                    let theirs = match place {
+                        Place::Left | Place::Right => match conclusion.strip_loc() {
+                            Term::Eq(Some(ty), ..) => Some(Ty::of(g, eval(g, &env, ty)?)?),
+                            Term::Eq(None, ..) => type_of_target(g, &env[..at], target)?,
+                            _ => Some(Ty::Type),
+                        },
+                        Place::Whole | Place::Conclusion | Place::Premise => Some(Ty::Type),
+                        _ => type_of_target(g, &env[..at], target)?,
+                    };
+                    if !types_agree(g, pattern.ty.as_ref(), theirs.as_ref())? {
+                        return Ok(Some((false, false)));
+                    }
+                    let target_value = eval(g, &env[..at], target)?;
+                    // A target that is one of the candidate's own variables
+                    // (`(p: Prop) (h: p): p`) matches anything: no match.
+                    // One applied to arguments (`p x`) is tried (D2067), and
+                    // ranks after its relation's other matches.
+                    let absorbs = match force(g, target_value.clone())? {
+                        Value::Neutral(Head::Meta(m), s) if opened.contains(&m) => {
+                            if s.is_empty() {
+                                return Ok(None);
+                            }
+                            true
+                        }
+                        _ => false,
+                    };
+                    let same =
+                        crate::unify::unify_solving_arguments(g, 0, &pattern.value, &target_value)?;
+                    Ok(Some((same, absorbs)))
                 };
-                if !types_agree(g, pattern.ty.as_ref(), theirs.as_ref())? {
-                    return Ok(Some(false));
-                }
-                let target_value = eval(g, &env[..at], target)?;
-                // A target that is one of the theorem's own variables
-                // (`(p: Prop) (h: p): p`) matches anything: no match. Draft
-                // 2 skipped one applied to arguments too (`p x`).
-                if let Value::Neutral(Head::Meta(m), s) = force(g, target_value.clone())?
-                    && opened.contains(&m)
-                    && (s.is_empty() || !opts.ho)
-                {
-                    return Ok(None);
-                }
-                let same =
-                    crate::unify::unify_solving_arguments(g, 0, &pattern.value, &target_value)?;
-                Ok(Some(same && same_groups(g, pattern)?))
-            };
             let mut best: Option<Hit> = None;
             for (place, target, at, iff) in targets {
                 if let Some(b) = &best
-                    && (!opts.tiers || b.relation == Relation::Instance)
+                    && b.relation == Relation::Instance
+                    && !b.absorbs
                 {
                     break;
                 }
                 let inner = g.meta_trail.borrow().len();
                 stats.unifications += 1;
-                let Some(same) = try_target(place, &target, at)? else {
+                let Some((same, mut absorbs)) = try_target(place, &target, at)? else {
                     stats.unifications -= 1;
                     continue;
                 };
                 let measured = if same {
-                    measure(g, pattern, &opened, free)?
+                    measure(g, pattern, &opened)?
                 } else {
                     None
                 };
                 crate::unify::undo_since(g, inner);
-                let Some((mut absorbed, mut instantiated, decisive)) = measured else {
+                let Some((mut absorbed, mut instantiated, decisive, whole)) = measured else {
                     continue;
                 };
+                // A variable of the candidate took the whole pattern (`a`
+                // in a conclusion `{row} a`): as good as no match, so it
+                // ranks after the relation's other matches.
+                absorbs |= whole;
                 let mut relation = relation_of(absorbed, decisive);
                 // Two-way unification may have found a crossed solution
                 // where a one-way one exists (its first-order approximation
                 // isn't most general): try again with one side frozen.
-                if opts.tiers {
-                    for (want, side) in [
-                        (Relation::Instance, &rigid),
-                        (Relation::Generalisation, &opened),
-                    ] {
-                        if want >= relation {
-                            break;
-                        }
-                        g.frozen_metas.borrow_mut().extend(side.iter().copied());
-                        stats.unifications += 1;
-                        let tried = try_target(place, &target, at);
-                        g.frozen_metas.borrow_mut().truncate(frozen);
-                        let m = match tried? {
-                            Some(true) => measure(g, pattern, &opened, free)?,
-                            _ => None,
-                        };
-                        crate::unify::undo_since(g, inner);
-                        if let Some((a, i, d)) = m {
-                            stats.upgraded += 1;
-                            relation = want.max(relation_of(a, d));
-                            absorbed = a;
-                            instantiated = i;
-                            break;
-                        }
+                for (want, side) in [
+                    (Relation::Instance, rigid),
+                    (Relation::Generalisation, &opened[..]),
+                ] {
+                    if want >= relation {
+                        break;
+                    }
+                    g.frozen_metas.borrow_mut().extend(side.iter().copied());
+                    stats.unifications += 1;
+                    let tried = try_target(place, &target, at);
+                    g.frozen_metas.borrow_mut().truncate(frozen);
+                    let m = match tried? {
+                        Some((true, _)) => measure(g, pattern, &opened)?,
+                        _ => None,
+                    };
+                    crate::unify::undo_since(g, inner);
+                    if let Some((a, i, d, _)) = m {
+                        stats.upgraded += 1;
+                        relation = want.max(relation_of(a, d));
+                        absorbed = a;
+                        instantiated = i;
+                        break;
                     }
                 }
                 let better = match &best {
                     None => true,
-                    Some(b) => (relation, place) < (b.relation, b.place),
+                    Some(b) => (relation, absorbs, place) < (b.relation, b.absorbs, b.place),
                 };
                 if better {
                     best = Some(Hit {
-                        id,
+                        item: candidate.item,
                         place,
                         relation,
+                        absorbs,
                         iff,
                         absorbed,
                         instantiated,
-                        size: type_size,
-                        hyps,
+                        size: candidate.size,
+                        premises: candidate.premises,
+                        via: Vec::new(),
                     });
                 }
             }
             Ok(best)
         })();
-        g.frozen_metas.borrow_mut().truncate(frozen);
-        crate::unify::undo_since(g, trail);
-        g.metas.borrow_mut().truncate(metas.max(pattern.metas));
-        g.glue.set(was);
         match found {
             Ok(hit) => hit,
             Err(_) => {
-                stats.resource_outs += 1;
+                stats.out_of_budget += 1;
                 None
             }
         }
     }
 }
 
-/// Whether a function-type pattern matches a theorem whose explicit
+/// For a call of something of type `ty` to `args` (terms in `env`): each
+/// argument that is one of `holes` with no type yet gets its parameter's.
+fn type_holes(g: &Globals, env: &[Value], holes: &[usize], ty: Value, args: &[&Term]) -> Res<()> {
+    let mut ty = ty;
+    for arg in args {
+        let Value::Pi(_, _, dom, closure) = force(g, ty)? else {
+            return Ok(());
+        };
+        let value = eval(g, env, arg)?;
+        if let Value::Neutral(Head::Meta(m), s) = force(g, value.clone())?
+            && s.is_empty()
+            && holes.contains(&m)
+            && g.meta_type(m).is_none()
+        {
+            g.set_meta_type(m, (*dom).clone(), 0);
+        }
+        ty = closure.apply(g, value)?;
+    }
+    Ok(())
+}
+
+/// The data types `term` names outside implicit and `auto` arguments and
+/// ascriptions' types.
+fn explicit_data(term: &Term) -> BTreeSet<usize> {
+    let mut found = BTreeSet::new();
+    let mut work = vec![term];
+    while let Some(t) = work.pop() {
+        match t {
+            Term::App(f, arg, icit) => {
+                work.push(f);
+                if *icit == Icit::Explicit {
+                    work.push(arg);
+                }
+            }
+            Term::Data(d, args) => {
+                found.insert(d.0);
+                work.extend(args.iter().map(|a| &**a));
+            }
+            Term::Loc(_, t) => work.push(t),
+            Term::Pi(_, _, a, b) => {
+                work.push(a);
+                work.push(b);
+            }
+            // An ascription's type says what a hole is, as an implicit
+            // argument would.
+            Term::Ann(a, _) => work.push(a),
+            Term::Eq(ty, a, b) => {
+                work.extend(ty.iter().map(|t| &**t));
+                work.push(a);
+                work.push(b);
+            }
+            Term::Lam(_, _, b) => work.push(b),
+            Term::Ctor(_, _, args) => work.extend(args.iter().map(|a| &**a)),
+            _ => {}
+        }
+    }
+    found
+}
+
+/// Whether `arg`, an `auto` argument, is an interface dictionary that
+/// elaboration resolved: an instance (or a dictionary definition) applied
+/// to arguments.
+fn is_dictionary(g: &Globals, arg: &Term) -> bool {
+    match arg.spine().0.strip_loc() {
+        Term::Def(id) => {
+            let def = g.def(*id);
+            def.instance || def.fold
+        }
+        _ => false,
+    }
+}
+
+/// Whether a function-type pattern matches a candidate whose explicit
 /// parameters' types are `theirs` and whose conclusion is `concl`, with the
 /// parameters in any order: the conclusions unify, and each of the
 /// pattern's explicit parameters unifies with a different one of the
-/// theorem's, chosen greedily left to right as Loogle's `matchHyps` does.
-/// With [`Mode::Permute`] the counts must be equal; with [`Mode::Subset`]
-/// the theorem may have more. The pattern's own binders are opened with
+/// candidate's, chosen greedily left to right as Loogle's `matchHyps` does;
+/// the candidate may have more. The pattern's own binders are opened with
 /// rigid variables.
-fn reordered(
-    g: &Globals,
-    pattern: &Value,
-    theirs: &[Value],
-    concl: &Value,
-    mode: Mode,
-) -> std::result::Result<bool, stitchwort_core::ResourceError> {
+fn reordered(g: &Globals, pattern: &Value, theirs: &[Value], concl: &Value) -> Res<bool> {
     let mut ours: Vec<Value> = Vec::new();
     let mut v = force(g, pattern.clone())?;
     // Rigid variables, not unknowns: a hole under the arrows is an unknown
@@ -941,17 +1414,15 @@ fn reordered(
     // they are variables.
     let mut level = 0;
     while let Value::Pi(_, icit, dom, closure) = v {
-        if icit == stitchwort_core::Icit::Explicit {
+        if icit == Icit::Explicit {
             ours.push((*dom).clone());
         }
         v = force(g, closure.apply(g, Value::var(level))?)?;
         level += 1;
     }
-    let counts_fit = match mode {
-        Mode::Subset => ours.len() <= theirs.len(),
-        _ => ours.len() == theirs.len(),
-    };
-    if ours.len() < 2 || !counts_fit || !crate::unify::unify_solving_arguments(g, level, &v, concl)?
+    if ours.len() < 2
+        || ours.len() > theirs.len()
+        || !crate::unify::unify_solving_arguments(g, level, &v, concl)?
     {
         return Ok(false);
     }
@@ -975,25 +1446,4 @@ fn reordered(
         }
     }
     Ok(true)
-}
-
-/// Draft 3's ranking (§5.1): the relation, where it matched, specificity
-/// (what the theorem's own variables took, then what the pattern's holes
-/// had to become), premises, size, then the name.
-pub fn rank(g: &Globals, hits: &mut [Hit]) {
-    hits.sort_by_cached_key(|h| {
-        let place = match h.place {
-            Place::Right => Place::Left,
-            p => p,
-        };
-        (
-            h.relation,
-            place,
-            h.absorbed,
-            h.instantiated,
-            h.hyps,
-            h.size,
-            g.def(h.id).path.to_string(),
-        )
-    });
 }
