@@ -2348,7 +2348,7 @@
       "labels": [
         "diagnostics"
       ],
-      "body": "Smaller items: (1) goals print b ∨ False as b && True (reproduced in a scratch file); (2) a record literal whose type isn't known yet gives E-UNSOLVED on the next line instead of at the literal; (3) Decidable.toBoolOfNot _ doesn't fill its decision procedure from the expected type.\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "body": "Smaller items: (1) goals print b ∨ False as b && True (reproduced in a scratch file); (2) a record literal whose type isn't known yet gives E-UNSOLVED on the next line instead of at the literal; (3) Decidable.toBoolOfNot _ doesn't fill its decision procedure from the expected type.\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit 9b4a2ba0): (a) b || False and b && True are one term (if b then True else False); now printed as that if on its own, and with the chain's operator as a chain's last operand (b && c && True, b || c || False); pastes back (examples/goals/bool-constant-branches.sw). (b) E-UNSOLVED after a record literal whose type the field-name rule chose at the end is reported at the literal, naming the type (examples/reject/record-literal-type-late.sw). (c) not fillable: toBool (Nat.decLessThan a b) doesn't compute to the Bool a < b (Nat.leq (Succ a) b) on variables, so no d fits; omega proves these (day 4's pastTheEnd replaced by omega).\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
@@ -2407,7 +2407,7 @@
       "labels": [
         "diagnostics"
       ],
-      "body": "(1) An argument written on its own line at the call's indentation is read as a separate statement; the error points at the argument and the real clue is a later warning. (2) A tuple pattern isn't allowed as a def parameter and the parse error doesn't suggest let (x, y) := point. (3) search --at on a project file failed E-IMPORT-UNKNOWN (reads the file alone; in progress in SW-915); in a scratch copy E-SEARCH-AT because a match Nat.decEq leaves a shadowed hypothesis (shape✝) that can't be written.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "body": "(1) An argument written on its own line at the call's indentation is read as a separate statement; the error points at the argument and the real clue is a later warning. (2) A tuple pattern isn't allowed as a def parameter and the parse error doesn't suggest let (x, y) := point. (3) search --at on a project file failed E-IMPORT-UNKNOWN (reads the file alone; in progress in SW-915); in a scratch copy E-SEARCH-AT because a match Nat.decEq leaves a shadowed hypothesis (shape✝) that can't be written.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit ef35041f): items 1-2. (1) An error on the line after a statement that is a function missing its arguments now points first at that statement, with a note that a line at the same indentation is a new statement (indent the argument further). (2) Tuple/record pattern as a def parameter: E-PARSE note suggests naming it and let (x, y) := point or a match. Examples argument-on-its-own-line.sw, tuple-parameter.sw. Item 3 left to the search lane.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
@@ -2498,10 +2498,12 @@
       "labels": [
         "aoc"
       ],
-      "body": "AoC 2021 day 8, Seven Segment Search: program, spec (a decoding is a wiring, a permutation of segments a-g, under which the ten patterns are exactly the ten digit patterns), proofs for every input that keeps the puzzle's promise, parser guarantees (D2108), tests (examples 26 / 61229 / 5353; input 445 / 1043101), NOTES-2021 entry.\n",
+      "body": "AoC 2021 day 8, Seven Segment Search: program, spec (a decoding is a wiring, a permutation of segments a-g, under which the ten patterns are exactly the ten digit patterns), proofs for every input that keeps the puzzle's promise, parser guarantees (D2108), tests (examples 26 / 61229 / 5353; input 445 / 1043101), NOTES-2021 entry.\n\n- 31 Oct: done on worktree-agent-af2241c18cbe2b1aa at 48334d4e: score-based decoding; parser checks each wiring so part1FromInput/part2FromInput have no hypothesis; audit 39/39 passed; Entry.wiring opaque (proof perf). Friction in aoc/NOTES-2021.md day 8.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "48334d4e"
+      ]
     },
     {
       "id": 957,
