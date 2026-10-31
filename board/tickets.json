@@ -1,5 +1,5 @@
 {
-  "next": 944,
+  "next": 947,
   "tickets": [
     {
       "id": 47,
@@ -2286,7 +2286,7 @@
     {
       "id": 943,
       "title": "AoC 2021 day 4: Giant Squid (bingo), solved and proved against a spec",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -2300,6 +2300,49 @@
         "eab5aa61",
         "1b37e639"
       ]
+    },
+    {
+      "id": 944,
+      "title": "Comparison beside Bool && / || in a statement: E-NOT-A-TYPE with no hint to write (… : Bool)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "diagnostics"
+      ],
+      "body": "A comparison next to a Bool && / || in a theorem statement fails E-NOT-A-TYPE: the comparison makes the equation one between propositions. Writing ((… < k): Bool) fixes it, but the note doesn't suggest it. Also: search --at can't re-elaborate such printed goals (E-SEARCH-AT). Related to SW-930's section rule (which covers sections only).\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 945,
+      "title": "std: List.filterFilter, contains/indexOf lemma, Nat.max/min fold lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "std candidates proved locally in Aoc.Year2021.Day04.Proofs: List.filterFilter, a lemma linking contains to indexOf, lemmas for folds of Nat.max / Nat.min.\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 946,
+      "title": "Day 4 small items: b ∨ False printed as b && True; record literal E-UNSOLVED reported on the wrong line; toBoolOfNot _ not filled from expected type",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Smaller items: (1) goals print b ∨ False as b && True (reproduced in a scratch file); (2) a record literal whose type isn't known yet gives E-UNSOLVED on the next line instead of at the literal; (3) Decidable.toBoolOfNot _ doesn't fill its decision procedure from the expected type.\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
     }
   ]
 }
