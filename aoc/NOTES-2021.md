@@ -6,6 +6,56 @@ What was awkward, missing or surprising while writing 2021's days (in
 repository (github.com/mdr/aoc, `src/main/resources/aoc2021/`), committed in
 `aoc/inputs/2021/`; the expected answers are his Scala solution's.
 
+## Parser guarantees (D2108)
+
+From day 5 on, a day whose correctness theorems assume something the
+puzzle promises (every line at one of three angles, every timer at most 8)
+also proves that its parser guarantees it, and states the answers'
+theorems about the parsed input with no hypothesis left. Days 5, 6 and 8
+do; the pattern:
+
+- **"A successful parse"** is `Fail.toResult (() => parse input) = Ok xs`:
+  the parser is `{Fail}` code, and `Fail.toResult` is std's handler that
+  turns it into a `Result`. The theorem is about every `input` and `xs`
+  for which that holds:
+
+  ```stitchwort
+  theorem parseTimersBounded (input: Text) (fish: List Nat) (parsed: Fail.toResult (() => parseTimers input) = Ok fish):
+      fish.all (t => t ≤ 8) = True
+  theorem part2FromInput (input: Text) (fish: List Nat) (parsed: Fail.toResult (() => parseTimers input) = Ok fish):
+      solvePart2 fish = fishCount 256 fish
+  ```
+
+- **Write the parser as a read and a check**, `parse input := check
+  (Parse.eachLine input item)`, with the check a `{Fail}` function of the
+  values read and its test a pure function (`firstBent lines`, `firstAbove8
+  timers`: the first offender, as an `Option`). Two reasons. A `match` on
+  an effect-polymorphic call written inside `{Fail}` code (`timers.withIndex.find
+  …` straight in the `match`) is translated with `Effect.bind`, and a
+  `match e:` on the pure call then doesn't refine the hypothesis; the pure
+  helper's call does. And the check can be proved for *any* read:
+
+  ```stitchwort
+  theorem checkedBounded (read: () → {Fail} (List Nat)) (fish: List Nat) (parsed: Fail.toResult (() => checkTimers (read ())) = Ok fish):
+      fish.all (t => t ≤ 8) = True :=
+    let split := rewrite Fail.toResultThen read checkTimers at parsed
+    Result.flatMapEqOk (Fail.toResult read) (x => Fail.toResult (() => checkTimers x)) fish split
+      (u _ checked => checkTimersOk u fish checked)
+  ```
+
+  `Fail.toResultThen` splits the read from the check, `Result.flatMapEqOk`
+  takes the read's `Ok` apart, and the parser's own theorem is
+  `checkedBounded _ fish parsed` (the `_` is the read, found by
+  unification). Nothing about `Std.Parse` is needed.
+- **The check's lemma** matches on the pure test: the offender's case is
+  `Result.errNotOk`, and in the other the `Ok` gives the checked values
+  back (`Result.okInjective`) and the test's `None` gives the property
+  (`findIndexedNone`: a `find` over `withIndexFrom i xs` that found
+  nothing means no element is bad, by induction on the list).
+- What the parser can't check (that a line has exactly one consistent
+  wiring, day 8) stays a hypothesis of the end-to-end theorem, and the
+  day's notes say so.
+
 ## Day 1: Sonar Sweep
 
 A list of sea-floor depths, one per line. Part 1 counts the measurements
@@ -1051,7 +1101,9 @@ In `Aoc.Year2021.Day05.Proofs` (`Proofs/Proofs.sw`, 270 lines):
   needed: on `0,0 -> 4,2` the program lists (0, 0) to (4, 4) along the
   diagonal, which mostly aren't on the line, and misses (2, 1) and (4, 2)
   (a test checks this). The puzzle promises it, and the
-  parser checks it, but no theorem says the parser's output satisfies it.
+  parser checks it: `parseLinesShapes` proves every line of a successful
+  parse satisfies it, and `part2FromInput` gives part 2 for the parsed
+  input with no hypothesis (see "Parser guarantees" below).
 - `numberOfPointsUnique`: two lists that witness `NumberOfPoints` for the
   same points have the same length, so the spec names one number
   (`List.permOfSameMembers` and `List.permLength`).
@@ -1253,8 +1305,10 @@ In `Aoc.Year2021.Day06.Proofs` (`Proofs/Proofs.sw`, 143 lines):
   input.
 - The hypothesis is needed: a fish at 9 has no count, so `fishAfter 0 [9]`
   is 0 where the puzzle's list has one fish. The puzzle's fish never start
-  above 8 (the input's are 1 to 5), and the parser rejects one above 8,
-  but no theorem says the parser's output satisfies it.
+  above 8 (the input's are 1 to 5), and the parser rejects one above 8;
+  `parseTimersBounded` proves every timer of a successful parse is at
+  most 8, so `part1FromInput` and `part2FromInput` need no hypothesis
+  (see "Parser guarantees" below).
 - On the way: a day keeps every timer at most 8 (`nextDayBounded`); the
   counts of the puzzle's list the next day are the program's next day of
   today's counts (`countsNextDay`, timer by timer through the generated
