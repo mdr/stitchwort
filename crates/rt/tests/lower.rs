@@ -196,6 +196,11 @@ fn every_example_project_lowers() {
 
 #[test]
 fn every_aoc_main_lowers() {
+    // Full tier only: it took 36 minutes in the daily tier (31 Oct 2026,
+    // docs/testing.md); SW-839's fast lowering check is to take its place.
+    if !stitchwort_driver::driver::full_tier("every_aoc_main_lowers") {
+        return;
+    }
     with_stack(STACK, || {
         let mains = lower_project(&root().join("aoc"));
         eprintln!("lowered {mains} AoC mains");

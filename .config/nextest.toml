@@ -183,6 +183,12 @@ corpus-sweeps = { max-threads = 1 }
 filter = "package(stitchwort-cli) & binary(lsp)"
 test-group = "lsp-aoc-copy"
 
+# Also here: a test that isn't a sweep but holds as much memory as one.
+# resources' running_out_at_any_point_only_ever_means_no_answer loads one
+# program hundreds of times and peaked at 6.7 GB (31 Oct 2026); beside
+# lsp's aoc_navigation_matches_check_index (7.9 GB) it took the daily tier
+# past its 16 GB cap.
+#
 # A new test with its own `par_map` over a corpus belongs here too, unless its
 # pool is small: crates/cli/tests/extract.rs's `generated_code_is_stable`
 # peaks at about 320 MB, and in the group it would lengthen the merge tier,
@@ -191,6 +197,9 @@ test-group = "lsp-aoc-copy"
 filter = """
 (package(stitchwort-rt) & binary(machine) & test(=examples_agree))
 | (package(stitchwort-rt) & binary(lower) & test(=every_example_lowers))
+| (package(stitchwort-rt) & binary(machine) & test(=aoc_agrees))
+| (package(stitchwort-rt) & binary(lower) & test(=every_aoc_main_lowers))
+| (package(stitchwort-driver) & binary(resources) & test(=running_out_at_any_point_only_ever_means_no_answer))
 | (package(stitchwort-driver) & binary(differential) & test(=the_evaluators_agree_on_the_prelude_and_every_example))
 | (package(stitchwort-driver) & binary(conv_shortcut) & test(=every_rejected_example_gets_the_same_verdict_without_the_shortcut))
 | (package(stitchwort-driver) & binary(check_cache) & test(/^(the_cache_changes_nothing_for_the_examples|the_cache_changes_nothing_for_the_aoc_project|aocs_namespaces_load_on_their_own_from_the_whole_projects_cache)$/))

@@ -243,6 +243,12 @@ const AOC_ANSWERS: &[(&str, &str, &str, &str)] = &[
 /// what `stitchwort run` prints. The AoC project's tests agree too.
 #[test]
 fn aoc_agrees() {
+    // Full tier only: with its sample of days it took 38 minutes in the
+    // daily tier (31 Oct 2026, docs/testing.md); SW-839's fast lowering
+    // check is to take its place there.
+    if !stitchwort_driver::driver::full_tier("aoc_agrees") {
+        return;
+    }
     with_stack(STACK, || {
         let mut session = aoc();
         let what = "aoc";

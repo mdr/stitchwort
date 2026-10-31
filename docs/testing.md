@@ -27,13 +27,13 @@ Two things make a tier, and the tasks set both:
 
 Both are needed: a profile can only include or leave out a whole test, and the sweeps are single tests whose cost is the size of the corpus. The profiles keep the lists of what runs in one file that nextest checks; the environment variable keeps each sweep's sample next to the code that knows what is in its corpus. A sweep's assertion about how much it covered (say, "more than 1,000 arguments named") scales with the sample, and is exactly the old one in the full tier.
 
-What only the full tier runs: the AoC project in the std_library, rewind and check-cache comparisons, `a_check_cancelled_part_way_rewinds`, the bench `examples` benchmark (in `baseline`, and repeated in `repeat`), the whole corpus in each sampled sweep (below), and half the AoC days in `rt` `aoc_agrees`.
+What only the full tier runs: the AoC project in the std_library, rewind and check-cache comparisons, `a_check_cancelled_part_way_rewinds`, the bench `examples` benchmark (in `baseline`, and repeated in `repeat`), the whole corpus in each sampled sweep (below), and `rt`'s AoC sweeps `aoc_agrees` and `every_aoc_main_lowers` (36 to 38 minutes each in the daily tier on 31 Oct 2026; SW-839 is to give the daily tier a fast check of AoC lowering instead).
 
 | Sweep | Daily share | Merge and lane share |
 |---|---|---|
 | `std_library` `lazy_loading_changes_nothing_*`, `driver` `check_cache` and `rewind` examples | every 8th file (and every 4th project) | every 32nd |
 | `differential` `the_evaluators_agree_on_the_prelude_and_every_example`, `conv_shortcut`, `fmt_hashes` | every 4th | every 16th |
-| `extract` `run_lines_*`, `random_inputs_*`; `rt` `machine` `aoc_agrees` (days) | every 2nd | every 8th |
+| `extract` `run_lines_*`, `random_inputs_*` | every 2nd | every 8th |
 | `cli` `examples` (every folder), `cli` `check_cache` projects | all (projects: every 4th) | every 4th (projects: every 16th); all of those matching `EXAMPLES` when it's set |
 
 When the daily tier grows past 5 minutes, cut it from nextest's own times (`target/nextest/daily/junit.xml`, or the `SLOW` lines): give the slowest sweep a larger stride, or move a test to full only, rather than re-running to see. The merge tier likewise (`target/nextest/merge/junit.xml`); on a loaded machine compare tests with each other, not with the budget.
@@ -50,7 +50,7 @@ Several worktrees test on one 48 GB Mac at once, and a tier that runs away can l
 |---|---|---|
 | lane | 3 GB | up to 0.7 GB (`aoc`, `hashes`, `examples`, `std`, `core`) |
 | merge | 3 GB | 1.7 GB |
-| daily, `test:one`, `test:affected`, `guide:update`, `bench` | 16 GB | not measured |
+| daily, `test:one`, `test:affected`, `guide:update`, `bench` | 16 GB | over 16 GB when `lsp` `aoc_navigation_matches_check_index` (7.9 GB alone) and `resources` `running_out_at_any_point_only_ever_means_no_answer` (6.7 GB alone) ran together (31 Oct 2026); the second is now in `corpus-sweeps` (SW-921) |
 | full, `snap:*` | 16 GB | not measured |
 
 The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times them. The caps are the `MEM_CAP_*` variables at the top of `Taskfile.yml`. `STITCHWORT_MEM_CAP_GB` overrides any of them for one run (`STITCHWORT_MEM_CAP_GB=24 task test:full`; `0` for no cap), and `STITCHWORT_MEM_REPORT=1` prints the peak and the biggest processes at the peak when the command ends, for measuring a tier. A kill means a test regressed, or the cap is out of date: look at the named test before raising the cap. `ulimit -v` is no use here (macOS doesn't enforce it), hence the polling.
