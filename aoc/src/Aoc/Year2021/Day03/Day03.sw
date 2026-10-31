@@ -45,9 +45,6 @@ def parseReport (input: Text): {Fail} (List Bits) :=
 
 def bit(): {Parse} Bool := label "0 or 1" (() => pick [("0", False), ("1", True)])
 
--- The bits as a binary number.
-def Bits.value (bits: Bits): Nat := bits.foldLeft 0 (high bit => high * 2 + bit.toNat)
-
 -- A column's most common bit: 1 when at least half of the bits are 1s, so a
 -- tie is 1.
 def mostCommon (column: List Bool): Bool := column.length ≤ 2 * column.count (bit => bit)
@@ -56,7 +53,7 @@ def mostCommon (column: List Bool): Bool := column.length ≤ 2 * column.count (
 -- bits flipped.
 def solvePart1 (numbers: List Bits): Nat :=
   let gamma: Bits := numbers.transpose |> .map mostCommon
-  gamma.value * (Nat.pow 2 gamma.length - 1 - gamma.value)
+  Nat.fromBits gamma * (Nat.pow 2 gamma.length - 1 - Nat.fromBits gamma)
 
 -- The bits after the first, of a number whose first bit is `bit`.
 def afterBit (bit: Bool): Bits → Option Bits
@@ -79,4 +76,4 @@ def solvePart2 (numbers: List Bits): Option Nat :=
   let width := (numbers.headOr []).length
   let oxygen := rating mostCommon width numbers
   let carbonDioxide := rating (column => not (mostCommon column)) width numbers
-  oxygen.flatMap (o => carbonDioxide.map (c => o.value * c.value))
+  oxygen.flatMap (o => carbonDioxide.map (c => Nat.fromBits o * Nat.fromBits c))

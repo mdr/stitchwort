@@ -37,8 +37,6 @@ test "an empty line" := parsed "01\n\n10" == Err "line 2, column 1: expected 0 o
 test "a number with too few bits" := parsed "0101\n011\n1100" == Err "line 2: 3 bits, but the first line has 4"
 test "no lines" := parsed "" == Ok []
 
-test "binary values" := (Bits.value [], Bits.value [True, False, True, True]) == (0, 11)
-
 -- Ties: the most common bit is 1, the least common 0.
 test "a tie, part 1" := (gammaRate [[True], [False]], epsilonRate [[True], [False]], solvePart1 [[True], [False]]) == (1, 0, 0)
 test "a tie keeps 1s for oxygen and 0s for CO2" :=

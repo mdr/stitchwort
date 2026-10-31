@@ -623,6 +623,12 @@ one the test first guessed.
   which the kernel accepts because `orElse o None` and `map o (x => x)`
   compute to the same match. True, but nobody would look for it under
   that name.
+
+  Added to std (SW-940): `Nat.fromBits` with `Nat.fromBitsFrom`,
+  `Nat.fromBitsCons` and `Nat.fromBitsFlipped`;
+  `List.transposeNColumnsFrom`, `List.transposeNColumns` and
+  `List.transposeColumns`; `Option.mapCong` and `Option.mapId`. The day
+  now uses them in place of `Bits.value` and its own lemmas.
 - **Nothing about `List.count` with `List.filterMap`.** How many of a
   column's bits are 1s, and its length, as counts over the numbers
   (`onesInColumn`, `columnLength`). Std candidates: `List.lengthFilterMap`
