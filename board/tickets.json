@@ -1,5 +1,5 @@
 {
-  "next": 926,
+  "next": 927,
   "tickets": [
     {
       "id": 47,
@@ -1008,9 +1008,9 @@
     {
       "id": 804,
       "title": "Consider D1441: Import aliases (import … as)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "PAUSED 31 Oct (quota): lane stopped; work in .claude/worktrees/agent-a46e2b849068a6684 (1 commits, 28 uncommitted files); relaunch fresh from it",
+      "where": "done: stage 1 (import P (S)) and stage 2 (import M (x as y)) merged",
       "labels": [
         "decision"
       ],
@@ -1018,7 +1018,10 @@
       "created": "2026-10-28",
       "updated": "2026-10-31",
       "commits": [
-        "e4264321"
+        "e4264321",
+        "ab0d04a7",
+        "53317ab6",
+        "ba6712da"
       ]
     },
     {
@@ -1188,7 +1191,7 @@
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
       "status": "doing",
       "agent": "Claude",
-      "where": "PAUSED 31 Oct (quota): lane stopped; work in .claude/worktrees/agent-a1f5e4964c6803384 (0 commits, 0 uncommitted files); relaunch fresh from it",
+      "where": "stage 4 design merged (D2087, D2090, D2091 open); prototype on branch d2086-prototype",
       "labels": [
         "decision"
       ],
@@ -1985,6 +1988,21 @@
         "elab"
       ],
       "body": "Found by the D2086 design lane (SW-817), 31 Oct 2026, on main 8b75b5c7 [run].\n\nA `match` on an expression checks that generalising its scrutinee keeps every type well formed (`check_motive`, crates/elab/src/matching.rs:765-766). When the scrutinee still holds an unsolved unknown, building that type fails (\"can't work out an implicit argument\") and the check is skipped: \"something isn't known yet: checked when it's admitted\". But the helper is admitted with only the variables its body uses, so a generalised hypothesis the body doesn't use is never checked.\n\nRepros (docs/proposals/postponement/, added by the D2086 design commit):\n- motive-field-later.sw: `apply (r => match List.length [r.x, r.x] with ...) p` with `q: two 2 rfl b = 2` in scope; `r.x` waits for `r`'s type (stage 2's K2). Accepted. The same with `(r: P)` is E-MATCH-MOTIVE.\n- motive-param-later.sw: `match List.length [r] with ...`, `r` a lambda parameter of unknown type (an ordinary unknown, no queue item). Accepted; the annotated twin is E-MATCH-MOTIVE.\n\nFix (D2086 design, \"Stage 4: design for the third attempt\" in docs/proposals/postponement.md): the check doesn't skip; the match waits for the unknowns its generalisation reads (a queue item, scrutinee kept as a term), so the motive is checked once they are known. Step 4.0 of the third attempt; can land before K4.\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 926,
+      "title": "E-IMPORT-CLASH note suggests List.length, which doesn't resolve without import Std (List)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "diagnostics"
+      ],
+      "body": "Found by the SW-804 lane (31 Oct 2026), exists on main: the E-IMPORT-CLASH note says \"write `List.length` where you mean that one\", but `List.length` is E-UNKNOWN-NAME without `import Std (List)` (checked: `def x: Nat := List.length [1, 2]`). Repro on main: `import Std.List (length)` plus `def length`. The note should suggest a spelling that resolves in the file (the full `Std.List.length`, or the short form plus the import it needs), as SW-918 made goals do.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
