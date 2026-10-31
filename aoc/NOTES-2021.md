@@ -1343,6 +1343,129 @@ audit with the search 1.6 s.
   proofs (`Aoc.Year2024.Day08.Proofs.natMulSelfZero`) and warned that 8
   comparisons with `Std.Float.Theory` lemmas ran out of steps: noise, but
   harmless.
+## Day 7: The Treachery of Whales
+
+The input is one line of crab positions, comma-separated. The crabs all
+move to one position, each paying fuel for its own distance, and the answer
+is the least total fuel. In part 1 a step costs 1; in part 2 a crab's `n`th
+step costs `n`, so `n` steps cost 1 + 2 + … + n. Answers on Matt's input
+(1000 crabs between 0 and 1986): 340052 and 92948968 (his Scala
+solution's); the puzzle's example gives 37 (at position 2) and 168 (at 5).
+Compiler built from `main` at 27a6367d, 31 October 2026.
+
+### The program
+
+A scan: every position from the leftmost crab to the rightmost, keeping the
+least total.
+
+```stitchwort
+def leastFuel (fuel: Nat → Nat) (crabs: List Nat): Nat :=
+  match List.between (leftmost crabs) (rightmost crabs) |> .map (fuelAt fuel crabs) |> .minimum with
+    | Some least => least
+    | None => 0
+```
+
+`fuelAt fuel crabs position` is `crabs.sumBy (crab => fuel (Nat.absDiff
+crab position))`; part 1's fuel is `steps`, part 2's `Nat.sumBetween 1
+steps` (Gauss's closed form, in std). `rightmost` folds `Nat.max` from 0,
+`leftmost` folds `Nat.min` from the rightmost, so with no crabs both are 0
+and the answer is 0 with no special case. The parser is `Parse.all` with
+`sepBy1 nat (() => char ',')`. Both answers were right on the first run,
+and all 18 tests passed on the first run, including the three parse error
+messages the tests guessed.
+
+**What the spec decides.** The spec (`Spec/Spec.sw`) takes every `Nat` as a
+candidate position, not just the crabs' range, and says "the least fuel" as
+`LeastFuel fuel crabs answer`: some position costs `answer` in total, and
+no position costs less. Distance is written with an `if` (not
+`Nat.absDiff`), part 2's fuel as `(List.between 1 steps).sum`, and the
+total as `crabs.map … |> .sum`, so each differs from the program's form and
+the proofs bridge them. Negative positions are left out: a position left of
+0 is further than 0 from every crab.
+
+### Proved, for every input
+
+In `Aoc.Year2021.Day07.Proofs` (`Proofs/Proofs.sw`, 121 lines), with no
+hypotheses (so D2108's parser theorem has nothing to cover):
+
+- `part1Correct`: for every list of crabs, `solvePart1 crabs` is the least
+  total fuel over every position, with a step costing 1
+  (`Part1Answer crabs (solvePart1 crabs)`).
+- `part2Correct`: the same for part 2, with `n` steps costing 1 + … + n.
+- `leastFuelUnique`: two numbers that are each the least total fuel are
+  equal, so the spec names one number.
+- On the way, for any fuel that never falls as the distance grows
+  (`leastFuelMeetsSpec`, `programLeast`): every position costs at least as
+  much as the nearest one in the scan, `min (max position lo) hi`, since it
+  is at least as far from every crab (`scannedNoWorse`, one `omega` with
+  `Nat.absDiff` unfolded by `rfl` equations); a sum is at most another when
+  each term is, on the list's members (`sumByLeMember`); part 2's fuel
+  never falls (`growingFuelMonotone`, through `Nat.leDivOfMulLe`).
+- The example's answers as `rfl` theorems (`examplePart1`, `examplePart2`,
+  in `Tests/Examples.sw`).
+
+Nothing is left unproved; nothing is opaque. `stitchwort audit
+Aoc.Year2021.Day07` (with the counterexample search): `audited 19 theorems:
+0 failed, 0 with warnings, 19 passed`. Most lemmas take a fuel function, so
+the search is "not applicable" to them; the rest had none found in 10,000
+cases.
+
+Breaking the program breaks the proofs: folding `Nat.min` for `Nat.max` in
+`rightmost` makes `rightmostGe` fail with a counterexample;
+`Nat.sumBetween 2 steps` for `1` makes `part2Correct` fail.
+
+### 1. Std.Parse: none
+
+`Parse.all` with `sepBy1` read the line and its final line break, and its
+errors ("line 1, column 3: expected a number, got ','") were as guessed.
+
+### 2. Missing std
+
+- **`Nat.min` folds.** Std has `List.foldMaxGe` and `List.leFoldMax` for
+  `Nat.max`, but for the minimum only the `Ord.min` ones
+  (`List.foldMinLeStart`, `List.foldMinLeMember`). The day proved
+  `foldMinLe` and `foldMinLeMember` for `Nat.min`. Std candidates.
+- **A sum is at most another, termwise on the members.** `List.sumByLe`
+  needs `g x ≤ f x` for every `x`, not only the list's. The day proved
+  `sumByLeMember` (for `Nat → Nat`). Std candidate: `List.sumByLeMem` for
+  any element type.
+- **Division is monotone** (`a ≤ b → a / d ≤ b / d`), and so
+  `Nat.sumBetween` in its upper bound: neither is in std;
+  `growingFuelMonotone` did it with `Nat.leDivOfMulLe` and `Nat.divMulLe`.
+- **`List.maximum`** has no lemmas (`List.minimum` has `minimumSome` and
+  `minimumExists`), which is why the program folds `Nat.max` itself.
+
+### 3. Confusing errors: none
+
+The one error was mine (`(by omega)`, from Lean: `E-UNKNOWN-NAME`, "unknown
+name `by`", clear enough). Proving `2 ≠ 0` for `Nat.divMulLe` took a grep
+to find `Nat.succNotZero 1`.
+
+### 4. Inference: none
+
+### 5. Performance
+
+`stitchwort run Aoc.Year2021.Day07.main` on the input takes 0.86 s (0.80 s
+user): 1987 positions times 1000 crabs, twice. `check --no-cache` of the
+proofs and tests takes 0.95 s, and the audit with the search 0.6 s.
+
+### 6. Proofs, and the lemma search
+
+Every proof checked on its first full try except the `by` slip. `search
+--at` now works in the project's files (2 to 3 s a goal warm; the first
+run, on a cold cache with the machine under load, took 71 s). Three goals:
+
+- `distanceIs` (the spec's `if` distance is `Nat.absDiff`): "cases alone
+  closes it". Used.
+- `growingFuelMonotone`: nothing closed it, but its 6th "applicable"
+  result, `Nat.leDivOfMulLe ((a + (a * a)) / 2) (b + (b * b)) 2 ?`, was
+  the proof's first step; `omega` with four facts closed what it left.
+- A `foldMaxGe` of my own: its first "applicable" result named std's
+  `List.leFoldMax`, which led to `List.foldMaxGe`; both replaced my lemmas.
+
+So it closed one goal of three, and each of the three proofs used what it
+suggested. The pattern search `'?a ≤ ?b → ?a / ?c ≤ ?b / ?c'` took 52 s
+(cold cache) and found nothing relevant (std has no such lemma).
 
 ### Size and time
 
@@ -1372,3 +1495,19 @@ Release build:
 5. `search --at` lists other days' lemmas and Float comparisons that ran
    out of steps (item 6). Fix: rank the project's other namespaces lower,
    or leave out unimported ones.
+| `stitchwort check --no-cache Aoc.Year2021.Day07.Proofs Aoc.Year2021.Day07.Tests` | 0.90 s user (0.95 s) |
+| `stitchwort run Aoc.Year2021.Day07.main` on the input (1000 crabs) | 0.80 s user (0.86 s) |
+| `stitchwort audit Aoc.Year2021.Day07` (with the search) | 0.53 s user (0.59 s) |
+
+58 lines of program, 44 of spec, 121 of proofs, 51 of tests.
+
+### Ranked
+
+1. No `Nat.min` fold lemmas to match the `Nat.max` ones, no membership
+   form of `List.sumByLe`, no `List.maximum` lemmas, no monotone division
+   (item 2). Fix: add them to std.
+2. A first `search` or `search --at` on a cold cache is slow (52 s and
+   71 s, under load); warm, 2 to 3 s (item 6).
+3. `Nat.divMulLe` takes `d ≠ 0` explicitly, where `Nat.leDivOfMulLe` takes
+   it as `[auto]`; a literal `2` needed `Nat.succNotZero 1`, found by grep
+   (item 3). Fix: make it `[auto]` there too.
