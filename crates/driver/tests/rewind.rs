@@ -21,7 +21,7 @@ use std::sync::atomic::Ordering;
 
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample};
+use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample, with_stack};
 use stitchwort_driver::nav::index_json;
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
@@ -328,7 +328,10 @@ fn a_check_cancelled_part_way_rewinds() {
         return;
     }
     let source = aoc();
-    let fresh = fresh(&source);
+    // On a thread of the stack the session is told it has, as the checks
+    // below are on `par_map`'s: on libtest's 2 MiB thread, AoC day 22's
+    // 2000-deep evaluation overflowed it before the guard could stop it.
+    let fresh = with_stack(STACK, || fresh(&source));
     // Each delay is its own session, so they run side by side; true when
     // that check was cancelled.
     let delays = [1u64, 10, 50, 150, 400, 900];
