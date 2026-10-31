@@ -922,7 +922,9 @@ std and the project loaded through the check cache; helpers and `…Example` the
   ill-typed pairings. Without types, two comparisons panicked (`Eq.trans`'s use in
   `List.sumByGet` against `List.sumByAttach`).
 
-**Not built**: the query log (S1d's `--log`), and everything of stage 2.
+**Built after stage 1** (SW-927): overloaded operators with operands nothing types (`_ ++ _`, `_ + _`) are tried at each reading (lists and texts; `Nat` and `Int`) and the results merged, as §4 promised: the pattern as written first, then with the first hole of each such operator's group ascribed each type, every combination up to 16; a reading what surrounds it rules out doesn't elaborate (`List.length (_ ++ _)` is lists only), and readings that elaborate the same are searched once. If one reading finds something without the relaxed pass, the readings that needed it are dropped. The query log (S1d): `--log FILE` or `STITCHWORT_SEARCH_LOG`, one JSON line per search (syntax.md). The lemma a later `check` used isn't recorded yet; the format has an `event` field for it.
+
+**Not built**: everything of stage 2.
 
 **Tests and tiers** (lane area `search`, docs/testing.md): `crates/driver/tests/search_match.rs`
 (relations, `_`, `p x`, named holes under binders, refusals, rewrite: a small file);

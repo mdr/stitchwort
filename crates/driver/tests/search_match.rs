@@ -142,3 +142,61 @@ fn rewrite_mode_takes_either_side_of_an_equation() {
     );
     assert_eq!(report.results[0].equation, Some("eq"));
 }
+
+/// Overloaded operators with operands nothing types (SW-927).
+const OVERLOADED: &str = "\
+theorem textJoin (a: Text) (b: Text): a ++ b = b ++ a := ?
+theorem listJoin (xs: List Nat) (ys: List Nat): xs ++ ys = ys ++ xs := ?
+theorem natPlus (n: Nat): n + 0 = n := omega
+theorem intPlus (n: Int): n + 0 = n := omega
+";
+
+fn overloaded(query: &str) -> Report {
+    with_session(STACK, Session::for_stack, |session| {
+        // The `?`s make the file fail to load; what checked stays, and the
+        // unfinished theorems aren't searched, but their types are what
+        // the patterns below need to elaborate against.
+        let _ = session.load("overloaded.sw", OVERLOADED);
+        session
+            .search(query, &Options::default(), &Scope::File)
+            .unwrap_or_else(|d| panic!("{query}: {} {}", d.code, d.message))
+    })
+}
+
+fn names(report: &Report) -> Vec<String> {
+    (report.results.iter())
+        .filter_map(|r| r.name.strip_prefix("Main.").map(str::to_string))
+        .collect()
+}
+
+#[test]
+fn an_append_of_holes_is_tried_as_lists_and_as_texts() {
+    // Nothing in `_ ++ _ = _` says lists or texts: both readings are
+    // searched and merged.
+    let report = overloaded("_ ++ _ = _");
+    assert_eq!(
+        report.query.resolutions,
+        ["List.append ?1 ?2 = ?3", "Text.append ?0 ?1 = ?2"],
+        "{:?}",
+        report.query
+    );
+    // `List.length` says lists: the text reading doesn't elaborate, and the
+    // one that does is the only one, where this was an error before.
+    let report = overloaded("List.length (_ ++ _) = _");
+    assert!(report.query.resolutions.is_empty(), "{:?}", report.query);
+    assert_eq!(
+        report.query.elaborated.as_deref(),
+        Some("List.length (List.append ?2 ?3) = ?4")
+    );
+}
+
+#[test]
+fn arithmetic_on_holes_is_tried_at_nat_and_at_int() {
+    let report = overloaded(r#"_ + 0 = _, "Main.""#);
+    let found = names(&report);
+    assert!(found.contains(&"natPlus".to_string()), "{found:?}");
+    assert!(found.contains(&"intPlus".to_string()), "{found:?}");
+    // A leaf with a type decides the group: one reading.
+    let report = overloaded("List.length _ + _ = _");
+    assert!(report.query.resolutions.is_empty(), "{:?}", report.query);
+}

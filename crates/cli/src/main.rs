@@ -264,6 +264,11 @@ enum Command {
         /// Constructors only, or with the others named
         #[arg(long)]
         constructors: bool,
+        /// Append a line of JSON describing this search (the query, what it
+        /// elaborated to, the results with their ranks, the time) to this
+        /// file; also from the environment variable STITCHWORT_SEARCH_LOG
+        #[arg(long, value_name = "FILE")]
+        log: Option<PathBuf>,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -535,6 +540,7 @@ fn run(cli: Cli) -> ExitCode {
             theorems,
             definitions,
             constructors,
+            log,
             cache,
         } => {
             let narrowed = theorems || definitions || constructors;
@@ -548,12 +554,14 @@ fn run(cli: Cli) -> ExitCode {
                 all,
                 limit,
             };
+            let log = log.or_else(|| std::env::var_os("STITCHWORT_SEARCH_LOG").map(PathBuf::from));
             search(
                 &query,
                 file.as_deref(),
                 project.as_deref(),
                 &options,
                 json,
+                log.as_deref(),
                 &cache,
             )
         }
@@ -1610,9 +1618,11 @@ fn search(
     project: Option<&Path>,
     options: &stitchwort_driver::search::Options,
     json: bool,
+    log: Option<&Path>,
     cache: &CacheArgs,
 ) -> ExitCode {
     use stitchwort_driver::search::{Scope, render_text};
+    let started = std::time::Instant::now();
     let mut session = new_session(false);
     let scope = match file {
         Some(path) => {
@@ -1714,6 +1724,18 @@ fn search(
         return ExitCode::from(2);
     }
     let found = session.search(query, options, &scope);
+    if let Some(log) = log {
+        let scope_json = match (file, &scope) {
+            (Some(path), _) => serde_json::json!({"file": path.display().to_string()}),
+            (None, Scope::Project(ns)) => serde_json::json!({"namespaces": ns}),
+            (None, Scope::File) => serde_json::Value::Null,
+        };
+        let entry = match &found {
+            Ok(report) => stitchwort_cli::search_log::entry(report, options, scope_json, started),
+            Err(d) => stitchwort_cli::search_log::error_entry(query, d, started),
+        };
+        stitchwort_cli::search_log::append(log, &entry);
+    }
     let code = match found {
         Ok(found) => {
             if json {

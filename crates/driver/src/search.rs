@@ -21,6 +21,7 @@ use stitchwort_elab::search::{
     Candidate, Found, Hit, Item, Kind, Mode, Opts, Pattern, SearchTier, Stats, Via,
 };
 use stitchwort_syntax::Diagnostic;
+use stitchwort_syntax::ast::{BinOp, Expr};
 
 use crate::driver::Session;
 
@@ -165,6 +166,181 @@ pub fn parse(text: &str) -> Result<Query, String> {
     Ok(query)
 }
 
+/// At most this many readings of a pattern's overloaded operators are tried
+/// (SW-927).
+const MAX_RESOLUTIONS: usize = 16;
+
+/// An overloaded operator whose operands' type nothing in its own group
+/// says: the byte range of the operand to ascribe, and the types to try it
+/// at, besides leaving it as written.
+struct Ambiguity {
+    at: std::ops::Range<usize>,
+    choices: &'static [&'static str],
+}
+
+/// A leaf that says nothing about its type: `_`, or a lowercase name (a
+/// named hole, `?x` written `x`, or a name that becomes one).
+fn says_nothing(expr: &Expr) -> bool {
+    match expr {
+        Expr::Hole(_) => true,
+        Expr::Var(name) => is_hole_name(&name.text) && is_name(&name.text),
+        _ => false,
+    }
+}
+
+fn is_arith(op: BinOp) -> bool {
+    matches!(
+        op,
+        BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod
+    )
+}
+
+/// The leaves of the numeric group at `expr` (a tree of `+ - * / %`, prefix
+/// `-`, and comparisons, as `numbers.rs` groups them), and whether it has
+/// numeric syntax (an arithmetic operator or `<`, `<=`), which defaults it
+/// to `Nat`.
+fn numeric_group<'e>(expr: &'e Expr, leaves: &mut Vec<&'e Expr>) -> bool {
+    match expr {
+        Expr::Binary(op, a, b)
+            if is_arith(*op)
+                || matches!(
+                    op,
+                    BinOp::Lt | BinOp::Le | BinOp::Eq | BinOp::Ne | BinOp::EqEq
+                ) =>
+        {
+            let left = numeric_group(a, leaves);
+            let right = numeric_group(b, leaves);
+            left | right | is_arith(*op) | matches!(op, BinOp::Lt | BinOp::Le)
+        }
+        Expr::Neg(e, ..) => {
+            numeric_group(e, leaves);
+            true
+        }
+        other => {
+            leaves.push(other);
+            false
+        }
+    }
+}
+
+/// The leaves of the `++` chain at `expr`.
+fn append_chain<'e>(expr: &'e Expr, leaves: &mut Vec<&'e Expr>) {
+    match expr {
+        Expr::Binary(BinOp::Append, a, b) => {
+            append_chain(a, leaves);
+            append_chain(b, leaves);
+        }
+        other => leaves.push(other),
+    }
+}
+
+/// The overloaded operators of a pattern whose operands are all holes or
+/// literals, left to right: `++` (lists or texts) and arithmetic and
+/// comparisons (which default to `Nat`, and are tried at `Int` too).
+fn ambiguities(expr: &Expr, out: &mut Vec<Ambiguity>) {
+    let group = |leaves: &[&Expr], choices, out: &mut Vec<Ambiguity>| {
+        let undecided = leaves
+            .iter()
+            .all(|l| says_nothing(l) || matches!(l, Expr::Num(..)));
+        if undecided && let Some(first) = leaves.iter().find(|l| says_nothing(l)) {
+            out.push(Ambiguity {
+                at: first.span().range(),
+                choices,
+            });
+        }
+    };
+    match expr {
+        Expr::Binary(BinOp::Append, ..) => {
+            let mut leaves = Vec::new();
+            append_chain(expr, &mut leaves);
+            group(&leaves, &["List _", "Text"], out);
+            for leaf in leaves {
+                ambiguities(leaf, out);
+            }
+        }
+        Expr::Neg(..) | Expr::Binary(..)
+            if matches!(expr, Expr::Neg(..))
+                || matches!(expr, Expr::Binary(op, ..) if is_arith(*op) || op_compares(*op)) =>
+        {
+            let mut leaves = Vec::new();
+            if numeric_group(expr, &mut leaves) {
+                group(&leaves, &["Int"], out);
+            }
+            for leaf in leaves {
+                ambiguities(leaf, out);
+            }
+        }
+        Expr::Binary(_, a, b)
+        | Expr::App(a, b)
+        | Expr::Arrow(a, b)
+        | Expr::Tuple(a, b, _)
+        | Expr::Pipe(a, b) => {
+            ambiguities(a, out);
+            ambiguities(b, out);
+        }
+        Expr::Bracketed(e, _) | Expr::NamedArg(_, e, ..) | Expr::Effect(_, e) => {
+            ambiguities(e, out)
+        }
+        Expr::Ann(e, _, _) => ambiguities(e, out),
+        Expr::Pi { dom, cod, .. } => {
+            ambiguities(dom, out);
+            ambiguities(cod, out);
+        }
+        Expr::Lam(_, body, _) | Expr::TypedLam(_, _, _, body, _) => ambiguities(body, out),
+        Expr::List(items, _) => items.iter().for_each(|i| ambiguities(i, out)),
+        _ => {}
+    }
+}
+
+fn op_compares(op: BinOp) -> bool {
+    matches!(
+        op,
+        BinOp::Lt | BinOp::Le | BinOp::Eq | BinOp::Ne | BinOp::EqEq
+    )
+}
+
+/// The readings of pattern `text` (SW-927): itself first, then with the
+/// first hole of each overloaded operator's group ascribed each type it
+/// may have (`(_: List _) ++ _`, `(_: Text) ++ _`), every combination, at
+/// most [`MAX_RESOLUTIONS`]. A reading the surrounding structure rules out
+/// (`List.length ((_: Text) ++ _)`) doesn't elaborate, and is dropped by
+/// the caller; the ones that do are searched, and the results merged.
+fn resolutions(expr: &Expr, text: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    ambiguities(expr, &mut found);
+    found.retain(|a| text.get(a.at.clone()).is_some());
+    let mut readings: Vec<Vec<Option<&str>>> = vec![Vec::new()];
+    for a in &found {
+        let mut next = Vec::new();
+        for reading in &readings {
+            for choice in std::iter::once(None).chain(a.choices.iter().copied().map(Some)) {
+                if next.len() < MAX_RESOLUTIONS {
+                    let mut r = reading.clone();
+                    r.push(choice);
+                    next.push(r);
+                }
+            }
+        }
+        readings = next;
+    }
+    readings
+        .into_iter()
+        .map(|reading| {
+            let mut out = text.to_string();
+            let mut edits: Vec<(&std::ops::Range<usize>, &str)> = (found.iter())
+                .zip(reading)
+                .filter_map(|(a, c)| c.map(|c| (&a.at, c)))
+                .collect();
+            edits.sort_by_key(|(at, _)| std::cmp::Reverse(at.start));
+            for (at, ty) in edits {
+                let leaf = &text[at.clone()];
+                out.replace_range(at.clone(), &format!("({leaf}: {ty})"));
+            }
+            out
+        })
+        .collect()
+}
+
 /// A qualified or plain name on its own.
 fn is_name(text: &str) -> bool {
     !text.is_empty()
@@ -225,6 +401,11 @@ pub struct QueryJson {
     /// The pattern as elaborated (read back), when there is one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub elaborated: Option<String>,
+    /// When the pattern has overloaded operators whose operands' type
+    /// nothing says (`_ ++ _`), every reading that elaborated and was
+    /// searched (SW-927), `elaborated` first; absent when there is one.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub resolutions: Vec<String>,
     pub names: Vec<String>,
     pub mentions: Vec<String>,
     pub holes: Vec<String>,
@@ -349,14 +530,6 @@ impl Session {
             query.mentions.push(p);
             query.pattern = None;
         }
-        let patterns = match &query.pattern {
-            Some(text) => Some(self.search_patterns(text, &query.holes)?),
-            None => None,
-        };
-        let holes = match &patterns {
-            Some((_, holes)) => holes.clone(),
-            None => Vec::new(),
-        };
         let g = &self.elab.globals;
         let all = options.all;
         let candidates = self.elab.search_candidates(&|item, path| {
@@ -381,23 +554,58 @@ impl Session {
             filter: true,
         };
         let mut warnings = Vec::new();
-        let (found, elaborated) = match &patterns {
-            Some((patterns, _)) => {
-                let found = self.elab.search(patterns, &candidates, &opts, &keep);
-                (found, Some(patterns[0].show(g)))
+        // Each reading of the pattern's overloaded operators that
+        // elaborates is searched, and the results merged (SW-927).
+        let mut holes = Vec::new();
+        let mut readings: Vec<(String, Found)> = Vec::new();
+        if let Some(text) = &query.pattern {
+            let expr = self.parse_expression("<pattern>", text)?;
+            let mut first_error = None;
+            for reading in resolutions(&expr, text) {
+                match self.search_patterns(&reading, &query.holes) {
+                    Ok((patterns, named)) => {
+                        let g = &self.elab.globals;
+                        let shown = patterns[0].show(g);
+                        if readings.iter().any(|(s, _)| *s == shown) {
+                            continue;
+                        }
+                        for h in named {
+                            if !holes.contains(&h) {
+                                holes.push(h);
+                            }
+                        }
+                        let found = self.elab.search(&patterns, &candidates, &opts, &keep);
+                        readings.push((shown, found));
+                    }
+                    Err(d) => {
+                        first_error.get_or_insert(d);
+                    }
+                }
             }
-            None => {
-                let mut stats = Stats::default();
-                let hits = list(g, &candidates, &keep, &mut stats);
-                let found = Found {
-                    hits,
-                    tier: SearchTier::Unfiltered,
-                    stats,
-                };
-                (found, None)
+            if readings.is_empty() {
+                return Err(first_error.expect("the pattern as written was tried"));
+            }
+        }
+        let g = &self.elab.globals;
+        let elaborated = readings.first().map(|(s, _)| s.clone());
+        let resolutions: Vec<String> = if readings.len() > 1 {
+            readings.iter().map(|(s, _)| s.clone()).collect()
+        } else {
+            Vec::new()
+        };
+        let pattern = !readings.is_empty();
+        let found = if pattern {
+            merge(g, readings.into_iter().map(|(_, f)| f).collect())
+        } else {
+            let mut stats = Stats::default();
+            let hits = list(g, &candidates, &keep, &mut stats);
+            Found {
+                hits,
+                tier: SearchTier::Unfiltered,
+                stats,
             }
         };
-        let tier = patterns.as_ref().map(|_| found.tier);
+        let tier = pattern.then_some(found.tier);
         match tier {
             Some(SearchTier::Relaxed) => warnings.push(
                 "nothing that names everything the pattern names matched, so every declaration was compared (the relaxed pass): read these as weaker".to_string(),
@@ -431,13 +639,14 @@ impl Session {
         }
         let results = (found.hits.iter())
             .take(options.limit)
-            .map(|hit| self.result(hit, patterns.is_some(), options.rewrite, scope))
+            .map(|hit| self.result(hit, pattern, options.rewrite, scope))
             .collect();
         Ok(Report {
             version: 1,
             query: QueryJson {
                 text: text.to_string(),
                 elaborated,
+                resolutions,
                 names: query.names.clone(),
                 mentions: query.mentions.clone(),
                 holes,
@@ -533,6 +742,57 @@ impl Session {
             size: hit.size,
             name: path,
         }
+    }
+}
+
+/// The results of searching several readings of one pattern (SW-927), as
+/// one: a declaration found by more than one appears once, at its best
+/// rank. If some reading found something without the relaxed pass, the
+/// readings that needed it are left out, as weaker.
+fn merge(g: &Globals, mut runs: Vec<Found>) -> Found {
+    if runs.len() == 1 {
+        return runs.pop().expect("one");
+    }
+    let strong = runs
+        .iter()
+        .any(|f| f.tier != SearchTier::Relaxed && !f.hits.is_empty());
+    let mut stats = Stats::default();
+    let mut tier = None;
+    let mut hits: Vec<Hit> = Vec::new();
+    for run in runs {
+        stats.candidates = stats.candidates.max(run.stats.candidates);
+        stats.compared += run.stats.compared;
+        stats.unifications += run.stats.unifications;
+        stats.out_of_budget += run.stats.out_of_budget;
+        stats.upgraded += run.stats.upgraded;
+        stats.internal_errors += run.stats.internal_errors;
+        if strong && run.tier == SearchTier::Relaxed {
+            continue;
+        }
+        // Filtered if any reading was; else what they were.
+        if tier.is_none() || run.tier == SearchTier::Filtered {
+            tier = Some(run.tier);
+        }
+        for hit in run.hits {
+            match hits.iter_mut().find(|h| h.item == hit.item) {
+                Some(have) => {
+                    let mut via: Vec<Via> = have.via.iter().chain(&hit.via).copied().collect();
+                    via.sort();
+                    via.dedup();
+                    if hit.key(g) < have.key(g) {
+                        *have = hit;
+                    }
+                    have.via = via;
+                }
+                None => hits.push(hit),
+            }
+        }
+    }
+    stitchwort_elab::search::rank(g, &mut hits);
+    Found {
+        hits,
+        tier: tier.unwrap_or(SearchTier::Relaxed),
+        stats,
     }
 }
 

@@ -1318,7 +1318,7 @@ $ stitchwort search 'List.length ((_: List _) ++ _) = _'
 
 **The query** is parts separated by commas (a comma inside brackets or quotes doesn't separate):
 
-- **A pattern** (at most one): an expression or a type, elaborated in the scope below. `_` is any term; `?x` is a named hole, the same term at each `?x`, also under the pattern's own arrows (`(?a: Nat) ≤ ?b → ?b ≤ ?c → ?a ≤ ?c` finds `Nat.leTrans`); a lowercase name that means nothing in scope is a named hole too, so a goal can be pasted as it is printed. A leading `⊢` (or `|-`) matches conclusions only. A pattern that is only a hole (`_`, `?x`) is refused.
+- **A pattern** (at most one): an expression or a type, elaborated in the scope below. `_` is any term; `?x` is a named hole, the same term at each `?x`, also under the pattern's own arrows (`(?a: Nat) ≤ ?b → ?b ≤ ?c → ?a ≤ ?c` finds `Nat.leTrans`); a lowercase name that means nothing in scope is a named hole too, so a goal can be pasted as it is printed. A leading `⊢` (or `|-`) matches conclusions only. A pattern that is only a hole (`_`, `?x`) is refused. An operator whose meaning depends on its operands' type, with nothing in its group saying it (`_ ++ _`: lists or texts; `_ + _`, `_ < _`: `Nat`, which is what it defaults to, or `Int`), is tried each way, and the results merged: the JSON's `query.resolutions` lists the readings searched. A reading what surrounds it rules out doesn't elaborate and isn't searched: in `List.length (_ ++ _) = _`, `++` joins lists.
 - **A name on its own** (`List.length`, `Ord`): the type must mention it.
 - **`"text"`**: the full name must contain it.
 
@@ -1358,6 +1358,9 @@ Each result prints its name, kind, relation and place; its type; and where it is
 - `relation`, `place`: as above; absent without a pattern. `equation`: only with `--rewrite`. `via`: only for a pattern searched twice (`resolved`, `generic`).
 - `budget`: the declarations searched, the comparisons made, those that ran out of their step budget (200,000 steps each: a match there may have been missed, and a warning says so), whether `--limit` cut the results, whether every candidate was compared (always, in this stage), and comparisons that failed with an internal error (counted as no match; there should be none).
 - An error prints `{"version": 1, "error": {"code": …, "message": …}}` and exits with 2.
+- `query.resolutions`: only for a pattern searched in more than one reading (above), each as elaborated, `elaborated` first.
+
+**The query log**: `--log FILE`, or the environment variable `STITCHWORT_SEARCH_LOG=FILE`, appends one line of JSON per search to the file (the folder must exist; a log that can't be written is a warning): `log` (the format's version, 1), `event` (`"search"`), `time` (seconds since 1970), `ms` (how long it took), `cwd`, `query`, `elaborated` (each reading), `options`, `scope`, `searchTier`, `total`, `results` (each shown, with `rank`, `name`, `kind`, `relation`, `place`) and `budget`; or `error` (`code`, `message`) for a query refused. New fields and events may be added (the lemma a proof then used); a reader skips what it doesn't know. It is for measuring what agents look for, and tuning the ranking from it (stage 3 of [search.md](proposals/search.md)).
 
 Not yet (stage 2, [search.md](proposals/search.md) §8): searching the goal at a `?` (`--at FILE:LINE:COL`), and trying each result there.
 

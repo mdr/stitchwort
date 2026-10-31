@@ -234,6 +234,40 @@ fn exit_codes_say_found_none_or_refused() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The query log (S1d): with `--log FILE` each search appends one line of
+/// JSON, an error too; the overloaded `++` is searched as lists and texts
+/// (SW-927), and the log has both readings.
+#[test]
+fn the_query_log_gets_a_line_per_search() {
+    let dir = folder("log");
+    let log = dir.join("searches.jsonl");
+    let log_arg = log.display().to_string();
+    let (code, _, err) = search(&dir, &["_ ++ _ = _", "--limit", "3", "--log", &log_arg]);
+    assert_eq!(code, 0, "{err}");
+    let (code, _, _) = search(&dir, &["List.nope _", "--log", &log_arg]);
+    assert_eq!(code, 2);
+    let text = std::fs::read_to_string(&log).unwrap();
+    let lines: Vec<Value> = text
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(lines.len(), 2, "{text}");
+    let first = &lines[0];
+    assert_eq!(first["log"], 1);
+    assert_eq!(first["event"], "search");
+    assert_eq!(first["query"], "_ ++ _ = _");
+    assert_eq!(
+        first["elaborated"],
+        serde_json::json!(["List.append ?1 ?2 = ?3", "Text.append ?0 ?1 = ?2"])
+    );
+    let results = first["results"].as_array().unwrap();
+    assert_eq!(results.len(), 3, "{first}");
+    assert_eq!(results[0]["rank"], 1);
+    assert!(results[0]["name"].is_string() && first["ms"].is_u64());
+    assert_eq!(lines[1]["error"]["code"], "E-UNKNOWN-NAME");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// The JSON contract, version 1 (draft 3 §4.1): a search of a file's own
 /// lemma, in full but for the library's size.
 #[test]
