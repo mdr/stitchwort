@@ -814,10 +814,9 @@ impl<'e> Ctx<'e> {
             Some(note) => d.with_note(note),
             None => d,
         };
-        let d = match self.alias_note(expected, found) {
-            Some(note) => d.with_note(note),
-            None => d,
-        };
+        let mut notes = Vec::new();
+        self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
+        let d = notes.into_iter().fold(d, |d, note| d.with_note(note));
         let d = self.with_opaque_notes(d, &[expected, found]);
         self.unrefined_hint(d, expected, found)
     }
@@ -828,26 +827,65 @@ impl<'e> Ctx<'e> {
     /// kept call: the two then differ in arguments that only the unfolded
     /// form shows. So say what the alias is. When the heads differ
     /// (`expected Nat, but this has type MyList`), the alias isn't what the
-    /// mismatch is about; and when both sides are kept calls (`b ≤ c`
-    /// against `b < c`), both names are already in the message. No note
-    /// then.
-    fn alias_note(&self, expected: &Value, found: &Value) -> Option<String> {
+    /// mismatch is about. When both sides are kept calls of the same
+    /// definition, their arguments are in the message. No note then.
+    ///
+    /// SW-845: the same inside the types, where they differ (`List Q`
+    /// against `List Other`: both aliases are named, since neither name says
+    /// what's different), and for a proposition named by a definition (`Same
+    /// x y` against `y = x`). A call shown in notation isn't named: `b ≤ c`
+    /// and `b < c` are relations in their own notation, and their unfoldings
+    /// would only add noise.
+    fn alias_notes(&self, expected: &Value, found: &Value, depth: usize, notes: &mut Vec<String>) {
         let g = self.g();
-        let (fe, ff) = (
-            force(g, expected.clone()).ok()?,
-            force(g, found.clone()).ok()?,
-        );
-        if !same_type_head(&fe, &ff) {
-            return None;
-        }
-        let (alias, unfolded) = match (expected, found) {
-            (Value::Call(..), Value::Call(..)) => return None,
-            (Value::Call(..), _) => (expected, &fe),
-            (_, Value::Call(..)) => (found, &ff),
-            _ => return None,
+        let (Ok(fe), Ok(ff)) = (force(g, expected.clone()), force(g, found.clone())) else {
+            return;
         };
-        let (shown, full) = (self.show(alias), self.show_unfolded(unfolded));
-        (shown != full).then(|| format!("`{shown}` is `{full}`"))
+        if depth == 0 || !same_type_head(&fe, &ff) {
+            return;
+        }
+        let mut name = |alias: &Value, unfolded: &Value| {
+            let shown = self.show(alias);
+            // A call shown in notation (`n < 3`, whose definition's name
+            // isn't in the text) is a relation, not a name to explain.
+            if let Value::Call(id, ..) = alias
+                && let Some(last) = g.def(*id).path.rsplit('.').next()
+                && !shown.contains(last)
+            {
+                return;
+            }
+            let full = self.show_unfolded(unfolded);
+            let note = format!("`{shown}` is `{full}`");
+            if shown != full && !notes.contains(&note) {
+                notes.push(note);
+            }
+        };
+        match (expected, found) {
+            (Value::Call(a, ..), Value::Call(b, ..)) => {
+                if a != b {
+                    name(expected, &fe);
+                    name(found, &ff);
+                }
+            }
+            (Value::Call(..), _) => name(expected, &fe),
+            (_, Value::Call(..)) => name(found, &ff),
+            _ => {
+                let pairs: Vec<(&Value, &Value)> = match (&fe, &ff) {
+                    (Value::Data(_, xs), Value::Data(_, ys)) => xs.iter().zip(ys).collect(),
+                    (Value::Pi(_, _, x, _), Value::Pi(_, _, y, _)) => vec![(&**x, &**y)],
+                    _ => Vec::new(),
+                };
+                for (x, y) in pairs {
+                    // An alias only where the two differ: the same type
+                    // written two ways says nothing. (Unfolded only for an
+                    // alias, since showing a type unfolded can be costly.)
+                    let alias = matches!(x, Value::Call(..)) || matches!(y, Value::Call(..));
+                    if !alias || self.show_unfolded(x) != self.show_unfolded(y) {
+                        self.alias_notes(x, y, depth - 1, notes);
+                    }
+                }
+            }
+        }
     }
 
     /// D230: inside a generalised `match`, a mismatch whose types still
@@ -953,15 +991,18 @@ impl<'e> Ctx<'e> {
     }
 }
 
+/// How deep inside the two types [`Ctx::alias_notes`] looks for an alias
+/// that hides their difference.
+const ALIAS_NOTE_DEPTH: usize = 4;
+
 /// Whether two forced types are built by the same outermost former (the
-/// same data type, both functions, the same stuck head, …), so that they
-/// differ only in what's inside. `=` is left out: a proposition such as
-/// `b <= c` (which unfolds to an equation) is printed in its own notation, and
-/// naming its unfolding would only add noise.
+/// same data type, both functions, both equations, the same stuck head, …),
+/// so that they differ only in what's inside.
 fn same_type_head(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Sort(_), Value::Sort(_)) => true,
         (Value::Pi(..), Value::Pi(..)) => true,
+        (Value::Eq(..), Value::Eq(..)) => true,
         (Value::Data(x, _), Value::Data(y, _)) => x == y,
         (Value::Neutral(x, _), Value::Neutral(y, _)) => x == y,
         _ => false,
