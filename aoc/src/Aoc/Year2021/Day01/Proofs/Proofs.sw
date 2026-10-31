@@ -30,21 +30,6 @@ theorem part1Correct: (depths: List Nat) → solvePart1 depths = increases depth
   | Nil => rfl
   | Cons x xs => rewrite zipNext x xs in rfl
 
--- The list from position `m` on starts with the element at `m`, when there
--- is one.
-theorem dropAt (d: Nat): (xs: List Nat) → (m: Nat) → m < List.length xs →
-    List.drop xs m = Cons (List.getOr xs m d) (List.drop xs (Succ m))
-  | Nil, m, h => Void.exfalso (Bool.falseNotTrue h)
-  | Cons x xs, Zero, h => rfl
-  | Cons x xs, Succ k, h => dropAt d xs k h
-
--- And there is none past the end.
-theorem dropPast: (xs: List Nat) → (m: Nat) → List.length xs ≤ m → List.drop xs m = Nil
-  | Nil, Zero, h => rfl
-  | Nil, Succ k, h => rfl
-  | Cons x xs, Zero, h => Void.exfalso (Bool.falseNotTrue h)
-  | Cons x xs, Succ k, h => dropPast xs k h
-
 -- A list with a whole window at its start: the first window, then the
 -- windows of the rest.
 theorem windowsLong (m: Nat): (xs: List Nat) → m < List.length xs →
@@ -82,7 +67,7 @@ theorem windowsCorrect (m: Nat): (depths: List Nat) → increasesOver (Succ m) d
         let gained := List.getOr rest m 0
         calc increasesOver (Succ m) (Cons x rest)
           _ = List.count (List.zip (Cons x rest) (Cons gained (List.drop rest (Succ m)))) (pair => pair.fst < pair.snd)
-            := rewrite dropAt 0 rest m h
+            := rewrite List.dropAt 0 rest m h
           _ = Bool.toNat (x < gained) + increasesOver (Succ m) rest
             := increasesOverCons x rest gained (List.drop rest (Succ m))
           _ = Bool.toNat (x + shared < shared + gained) + windowIncreases (Succ m) rest
@@ -97,7 +82,7 @@ theorem windowsCorrect (m: Nat): (depths: List Nat) → increasesOver (Succ m) d
             := Eq.cong (ws => increases (List.map ws List.sum)) (Eq.sym (windowsLong m (Cons x rest) (omega [h])))
       | No h =>
         calc increasesOver (Succ m) (Cons x rest)
-          _ = 0 := rewrite dropPast rest m (omega [h]) in rfl
+          _ = 0 := rewrite List.dropPast rest m (omega [h]) in rfl
           _ = windowIncreases (Succ m) (Cons x rest) := atMostOneWindow m x rest (omega [h])
 
 -- A list with at most one window has no increases between windows.

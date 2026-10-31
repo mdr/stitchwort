@@ -1252,14 +1252,6 @@ theorem Float.Theory.andSwap: (a: Bool) → (b: Bool) → (a ∧ b) = (b ∧ a)
   | False, True => rfl
   | False, False => rfl
 
-theorem Float.Theory.equalSwap (a: Nat) (b: Nat): Nat.equal a b = Nat.equal b a :=
-  match Float.Theory.boolCases (Nat.equal a b) with
-    | Inl e => rewrite Nat.equalSound a b e in rfl
-    | Inr e =>
-      match Float.Theory.boolCases (Nat.equal b a) with
-        | Inl f => Void.exfalso (Nat.equalFalse a b e (Eq.sym (Nat.equalSound b a f)))
-        | Inr f => Eq.trans e (Eq.sym f)
-
 theorem Float.Theory.ifTrue (c: Bool) (x: Nat) (y: Nat) (h: c = True): (if c then x else y) = x := rewrite h in rfl
 
 theorem Float.Theory.ifFalse (c: Bool) (x: Nat) (y: Nat) (h: c = False): (if c then x else y) = y := rewrite h in rfl
@@ -1343,7 +1335,7 @@ theorem Float.Theory.addInfComm (a: Nat) (b: Nat) (ia: Float.Model.isInfinite a 
       rewrite ab in rfl
     | Inr e =>
       Eq.trans (rewrite ib, e in rfl: Float.Theory.addInf a b = 9221120237041090560)
-        (Eq.sym (rewrite ia, Eq.trans (Float.Theory.equalSwap b a) e in rfl: Float.Theory.addInf b a = 9221120237041090560))
+        (Eq.sym (rewrite ia, Eq.trans (Nat.equalComm b a) e in rfl: Float.Theory.addInf b a = 9221120237041090560))
 
 -- A case split that leaves the goal as it is, for goals that are costly to
 -- search.

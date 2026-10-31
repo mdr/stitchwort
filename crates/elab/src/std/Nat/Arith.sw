@@ -565,6 +565,13 @@ theorem Nat.equalOfLess: (b: Nat) → (v: Nat) → b < v → Nat.equal v b = Fal
   | Zero, Succ v, h => rfl
   | Succ b, Succ v, h => Nat.equalOfLess b v h
 
+-- `Nat.equal` doesn't care which number comes first.
+theorem Nat.equalComm: (a: Nat) → (b: Nat) → Nat.equal a b = Nat.equal b a
+  | Zero, Zero => rfl
+  | Zero, Succ b => rfl
+  | Succ a, Zero => rfl
+  | Succ a, Succ b => Nat.equalComm a b
+
 -- A sum is 0 only when both terms are.
 theorem Nat.addEqZero: (a: Nat) → (b: Nat) → a + b = 0 → And (a = 0) (b = 0)
   | Zero, b, h => Both rfl h

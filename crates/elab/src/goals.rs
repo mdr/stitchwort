@@ -21,7 +21,7 @@ use stitchwort_core::globals::HashKey;
 use stitchwort_core::globals::State;
 use stitchwort_core::pretty::{Declaration, NameScope};
 use stitchwort_core::value::{Head, force, quote_shown};
-use stitchwort_core::{DefId, Globals, Icit, Name, Sort, Term, Value, pretty};
+use stitchwort_core::{Globals, Icit, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::{Diagnostic, GoalData, Hypothesis, Span};
 
 use crate::Elaborator;
@@ -112,9 +112,11 @@ impl NameScope for GoalScope<'_> {
     /// What `a == b` decides `a = b` by, for a `ty` that mentions no
     /// variable: `decide_eq_of`, as `a == b` finds it
     /// (`numbers::equation`, `bind::decide_written`), on placeholder
-    /// sides; the definition it applies to the sides, if that's all it is.
-    /// Everything the search did is undone.
-    fn eq_decider(&self, ty: &Term) -> Option<DefId> {
+    /// sides; what it applies to the sides (`Nat.decEq`, or `List.decEq
+    /// [Nat] (x y => Nat.decEq x y)` with the items' decision), if that's
+    /// all it is and the placeholders are nowhere else. Everything the
+    /// search did is undone.
+    fn eq_decision(&self, ty: &Term) -> Option<Term> {
         let closed = ty.subterms().all(|(t, binders)| match t {
             Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) => *i < binders,
             Term::Meta(_) => false,
@@ -129,17 +131,16 @@ impl NameScope for GoalScope<'_> {
             let ty = cx.eval(ty)?;
             let side = Term::Sort(Sort::Prop);
             let decision = crate::interfaces::decide_eq_of(cx, &ty, side.clone(), side.clone())?;
-            let (head, args) = decision.spine();
-            if let (Term::Def(f), [x, y]) = (head.strip_loc(), &args[..])
-                && matches!(
-                    (x.strip_loc(), y.strip_loc()),
-                    (Term::Sort(_), Term::Sort(_))
-                )
-                && !decision
-                    .subterms()
-                    .any(|(t, _)| matches!(t, Term::App(_, _, i) if *i != Icit::Explicit))
+            let decision = cx.e.zonk(&decision, 0)?;
+            let is_side = |t: &Term| matches!(t, Term::Sort(_));
+            if let Term::App(f, y, Icit::Explicit) = decision.strip_loc()
+                && let Term::App(f, x, Icit::Explicit) = f.strip_loc()
+                && is_side(x.strip_loc())
+                && is_side(y.strip_loc())
+                && matches!(f.spine().0.strip_loc(), Term::Def(_))
+                && !f.subterms().any(|(t, _)| is_side(t))
             {
-                found = Some(*f);
+                found = Some((**f).clone());
             }
             Ok(None::<()>)
         })

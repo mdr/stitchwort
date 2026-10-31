@@ -36,6 +36,14 @@ theorem List.takeSucc (d: a): (xs: List a) → (k: Nat) → k < List.length xs �
   | Cons x xs, Zero, h => rfl
   | Cons x xs, Succ k, h => Eq.cong (Cons x) (List.takeSucc d xs k h)
 
+-- What is left after dropping k elements starts with the element at k, when
+-- there is one.
+theorem List.dropAt (d: a): (xs: List a) → (k: Nat) → k < List.length xs →
+    List.drop xs k = Cons (List.getOr xs k d) (List.drop xs (Succ k))
+  | Nil, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, Zero, h => rfl
+  | Cons x xs, Succ k, h => List.dropAt d xs k h
+
 -- `getOr` is `List.get` with the fallback for `None` (`List.get`'s lemmas
 -- are in Lemmas.sw) ...
 theorem List.getOrGet: (xs: List a) → (k: Nat) → (d: a) → List.getOr xs k d = Option.getOrElse (List.get xs k) d

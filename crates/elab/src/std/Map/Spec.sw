@@ -1273,21 +1273,6 @@ theorem Map.Spec.mergeAtDifference (key: k): (a: Option v) → (b: Option w) →
 
 -- Building a balanced tree from a sorted list, in one pass
 
--- `drop` facts for the entries a build leaves over.
-
-theorem Map.Tree.dropNil: (n: Nat) → List.drop (Nil: List a) n = Nil
-  | Zero => rfl
-  | Succ n => rfl
-
-theorem Map.Tree.dropAdd: (n: Nat) → (m: Nat) → (xs: List a) → List.drop xs (n + m) = List.drop (List.drop xs n) m
-  | Zero, m, xs => rfl
-  | Succ n, m, Nil => Eq.sym (Map.Tree.dropNil m)
-  | Succ n, m, Cons x xs => Map.Tree.dropAdd n m xs
-
-theorem Map.Tree.dropLength: (xs: List a) → List.drop xs (List.length xs) = Nil
-  | Nil => rfl
-  | Cons x xs => Map.Tree.dropLength xs
-
 theorem Map.Tree.halfLe (m: Nat): m / 2 ≤ m := Nat.leTrans (m / 2) (m / 2 * 2) m (Nat.leMulPos (m / 2) 2 rfl) (Nat.divFuelLe m m 2)
 
 -- The first key, if any.
@@ -1381,8 +1366,8 @@ theorem Map.Tree.joinBuiltRest (buildRight: List (k, v) → (Map.Tree k v, List 
     (h: (rest: List (k, v)) → (buildRight rest).snd = List.drop rest r):
     (left: (Map.Tree k v, List (k, v))) → (a: Nat) → (xs: List (k, v)) → left.snd = List.drop xs a →
     (Map.Tree.joinBuilt buildRight left).snd = List.drop xs (a + Succ r)
-  | (l, Nil), a, xs, hl => rewrite Map.Tree.dropAdd a (Succ r) xs, Eq.sym hl in rfl
-  | (l, Cons (key, value) rest), a, xs, hl => rewrite Map.Tree.dropAdd a (Succ r) xs, Eq.sym hl in h rest
+  | (l, Nil), a, xs, hl => rewrite List.dropAdd a (Succ r) xs, Eq.sym hl in rfl
+  | (l, Cons (key, value) rest), a, xs, hl => rewrite List.dropAdd a (Succ r) xs, Eq.sym hl in h rest
 
 theorem Map.Tree.buildRest: (fuel: Nat) → (n: Nat) → (xs: List (k, v)) → n ≤ fuel →
     (Map.Tree.buildFuel fuel n xs).snd = List.drop xs n
@@ -1418,7 +1403,7 @@ theorem Map.Spec.countEntriesLength (xs: List (k, v)): Map.Spec.countEntries xs 
   Eq.trans (Map.Spec.countOntoLength 0 xs) (Nat.addZero (List.length xs))
 
 theorem Map.Spec.dropCountEntries (xs: List (k, v)): List.drop xs (Map.Spec.countEntries xs) = Nil :=
-  rewrite Map.Spec.countEntriesLength xs in Map.Tree.dropLength xs
+  rewrite Map.Spec.countEntriesLength xs in List.dropLength xs
 
 -- The raw map of a sorted list's entries, O(n).
 def Map.Raw.fromSorted [auto ord: Ord k] (xs: List (k, v)) (sorted: Map.Spec.Sorted ord xs): Map.Raw k v := {
