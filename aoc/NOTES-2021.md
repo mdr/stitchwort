@@ -728,3 +728,253 @@ Release build:
 5. The search: a pattern that computes to a hole says only "a hole on its
    own"; `search --at` doesn't try `cases`, and warns about comparisons
    out of steps on every goal (item 6).
+
+## Day 4: Giant Squid
+
+Bingo. The input is the numbers to be drawn, in order, on one line, then
+5 by 5 boards separated by blank lines. A drawn number is marked on every
+board that has it, and a board wins once every number of one of its rows
+or columns is marked (diagonals don't count). A board's score is the sum
+of its unmarked numbers times the number just drawn. Part 1 is the score
+of the first board to win, part 2 of the last. Answers on Matt's input:
+49860 and 24628 (his Scala solution's); the puzzle's example gives 4512
+and 1924. Compiler built from `main` at 8208cff5, 31 October 2026.
+
+### The program
+
+The program doesn't play the game draw by draw. A number is drawn on the
+turn of its first place among the draws (`List.indexOf`, which gives the
+list's length for a number never drawn); a row or column is complete on
+the turn its last number is drawn, and a board wins on the turn its first
+row or column is:
+
+```stitchwort
+def Board.lines (board: Board): List (List Nat) := board ++ board.transpose
+
+def winningTurn (draws: List Nat) (board: Board): Nat :=
+  board.lines
+    |> .map (line => line.foldLeft 0 (latest number => Nat.max latest (draws.indexOf number)))
+    |> .foldLeft draws.length Nat.min
+```
+
+The score on that turn adds up the board's numbers drawn after it. The
+boards are then taken turn by turn, `List.range draws.length |> .flatMap
+(turn => …)`, each turn's winners in the order they are listed; part 1 is
+the first score of that list, part 2 the last. The parser is `sepBy1 nat
+(() => char ',')`, `blankLine`, then `sections (() => lines (() => many1
+(() => token nat)))`, and a check that each board is 5 by 5 ("board 1
+isn't 5 by 5"). All 16 tests, the real input's answers among them, passed
+on the first run.
+
+**What the puzzle leaves open, and the spec decides.** The spec
+(`Spec/Spec.sw`) plays the game: draw the next number, then the boards
+still playing that now have a row or column all marked leave the game, in
+the order they are listed, each with its score. The result is the list of
+scores in the order the boards win, and the answers are its first and last
+elements. The spec's header says each decision:
+
+- **Several boards winning on the same draw** win in the order they are
+  listed: the first to win is the earliest listed of those that win first,
+  the last to win the latest listed of those that win last. Matt's input
+  doesn't test it: one board wins first (on the 12th draw) and one last
+  (on the 86th), counted with a scratch script.
+- **Boards that never win** take no part: the last board to win is the
+  last of those that do. With no winner at all both answers are `None`,
+  so the spec is total and the theorems need no hypothesis. (Every board
+  of Matt's input wins.)
+- **Draws after a board has won** don't change its score (it has left the
+  game), and draws after every board has won change nothing.
+- **A number drawn twice** is marked once; "the number that was just
+  called" is the draw that completed the line.
+
+The spec is defined for boards of any shape (its columns are
+`List.transpose`'s), so the theorems hold for every `Game`, not only 5 by
+5 ones.
+
+### Proved, for every input
+
+In `Aoc.Year2021.Day04.Proofs` (`Proofs/Proofs.sw`, 143 lines):
+
+- `part1Correct`: `solvePart1 game = firstWinnerScore game`.
+- `part2Correct`: `solvePart2 game = lastWinnerScore game`.
+- Both from `winningScoresPlay`: the program's scores in winning order are
+  the game's, `winningScores game = play [] game.boards game.draws`.
+- On the way: a number is marked after the draws `drawn` exactly when its
+  first place among all the draws is before `List.length drawn`
+  (`markedBefore`); a line is complete then when the latest of its
+  numbers' places is (`latestBefore`), and a board has won when the
+  earliest of its lines is (`earliestBefore`), so `wins drawn board` is
+  `winningTurn (drawn ++ rest) board < List.length drawn` once a number is
+  drawn (`winsBefore`); the spec's score is the program's (`scoreAt`); and
+  the game from any point, with the boards that haven't won yet, gives the
+  boards turn by turn from there (`playFrom`, the induction).
+- The example's answers as `rfl` theorems (`examplePart1`,
+  `examplePart2`, in `Tests/Examples.sw`).
+
+Nothing is left unproved, no hypothesis was added, and nothing is opaque.
+`stitchwort audit Aoc.Year2021.Day04` (with the counterexample search):
+`audited 21 theorems: 0 failed, 0 with warnings, 21 passed`.
+
+Breaking the program breaks the proofs, with a counterexample each time:
+rows only in `Board.lines` makes `winsBefore` fail with `drawn = [0]`,
+`board = [[0, 1]]` (a column wins); `turn <= draws.indexOf number` in
+`score` makes `scoreAt` fail with `drawn = []`, `number = 1`, `board =
+[[1]]`; `won <= turn` in `winningScores` makes `winningScoresPlay` fail
+with `game = { draws = [0, 0], boards = [[[]]] }` (left `[0, 0]`, right
+`[0]`).
+
+The one idea is `playFrom`'s invariant: the boards still playing after
+the draws `drawn` are those whose winning turn isn't before `List.length
+drawn`, so the boards the next draw removes are exactly those whose turn
+it is. Stated over `drawn ++ rest` (the draws made and to come), the
+induction step rewrites its hypothesis with `List.appendAssoc` to move
+the next draw into `drawn`:
+
+```stitchwort
+rewrite List.appendAssoc drawn [number] later, List.lengthSnoc drawn number at playFrom playing later (drawn ++ [number])
+```
+
+and the step is then `rewrite wonNow, stillPlaying, afterNow, List.mapCong
+_ _ _ (scoreAt drawn number later) in rfl`. Every proof checked as first
+written apart from two statements and one `let` (item 3). The small
+`Bool` facts (`thisTurn`, `laterTurn`, `pastTheEnd`, and the fold
+lemmas' steps) were all `cases`.
+
+### 1. Std.Parse: none
+
+`sepBy1`, `blankLine`, `sections`, `lines`, `many1` and `token` read the
+input as written; `token nat` takes the boards' leading spaces. The error
+the test guessed for a bad draw ("line 1, column 3: expected a number, got
+'x'") came out as written.
+
+### 2. Missing std
+
+- **No `List.filterFilter`.** Filtering twice is filtering once by both
+  conditions. `search --rewrite 'List.filter (List.filter _ _) _'` found
+  only `filterAll`, `filterNone`, `filterSkip` and `filterCongMem`, and
+  `search --at` on the goal in a scratch file found nothing. The day
+  proved it (`filterFilter`, 4 lines). Std candidate:
+  `List.filterFilter: List.filter (List.filter xs p) q = List.filter xs
+  (x => p x ∧ q x)`.
+- **Nothing ties `List.contains` to `List.indexOf`.** Std has two
+  `indexOf` theorems (`indexOfLt`, `getOrIndexOf`). The day proved
+  `markedBefore`: `List.contains drawn x = (List.indexOf (drawn ++ rest) x
+  < List.length drawn)`. Std candidate: `List.containsIndexOf`,
+  `xs.contains x = (xs.indexOf x < xs.length)`, and the `append` form.
+- **No lemmas about a fold of `Nat.max` or `Nat.min`.** `List.maximum`
+  and `List.minimum` give `Option`s and have no lemmas either. The day
+  proved `latestBefore` (the fold of `max` is below `k` when everything
+  is) and `earliestBefore` (the fold of `min` is when something is). Std
+  candidates: the two, for `foldLeft` with `Nat.max` and `Nat.min`.
+- **`List.getOr (xs ++ Cons y ys) (List.length xs) d = y`.** `search --at`
+  offered `List.getOrAppendRight`, which leaves `List.length drawn -
+  List.length drawn` to clear with `Nat.subSelf`; a three-line induction
+  (`drawOn`) was shorter.
+
+### 3. Confusing errors
+
+- **`∧` between a comparison and a `Bool` in a statement.** The fold
+  lemma, written as it reads,
+
+  ```stitchwort
+  (List.foldLeft line latest (latest number => Nat.max latest (drawnAt number)) < k)
+    = (latest < k ∧ List.all line (number => drawnAt number < k))
+  ```
+
+  is `E-NOT-A-TYPE`, "this has type `Bool`, so it isn't a type", at
+  `List.all …`, with the note "`&&` here is on propositions". The left
+  side, a comparison, made the equation one between propositions. Writing
+  the left side as `((… < k): Bool)` fixed it. `markedBefore`, with a
+  `Bool` on the left (`marked drawn number = (… < …)`), was fine as
+  written. The note could suggest the ascription, or the comparison could
+  be a `Bool` when the other side of `=` can only be one.
+- **`b ∨ False` shows as `b && True`.** `earliestBefore`'s `Nil` case
+  (`List.any []` is `False`) printed `⊢ (earliest < k) = (earliest < k &&
+  True)`. On a scratch file, `theorem t (b: Bool): b = (b ∨ False) := ?`
+  shows `⊢ b = (b && True)`. True, but it reads as a typo for `||`.
+  Speculation, not checked: `b || c` computes to an `if`, and the printer
+  folds `if b then c else False` back into `&&`.
+- **`Decidable.toBoolOfNot _` with the procedure left as `_`.** For
+  `((List.length (drawn ++ rest) < List.length drawn): Bool) = False`,
+  `Decidable.toBoolOfNot _ (after => omega [after, List.lengthAppend
+  drawn rest])` failed in `omega`, whose facts didn't include `after`;
+  with `after` annotated it was `E-TYPE-MISMATCH`, "expected `(… < …) =
+  False`, but this has type `Decidable.toBool (?48 drawn rest someDrawn
+  board) = False`": the procedure wasn't solved from the expected type.
+  A lemma, `pastTheEnd (n m: Nat): ((n + m < n): Bool) = False := cases`,
+  and `rewrite List.lengthAppend` replaced it.
+- **A calc step's note shows lambdas applied, not reduced.** With rows
+  only in `Board.lines`, the note read `the line says
+  Std.Bool.ifThenElse ((x x1 => …) (List.length …) (List.length drawn))
+  (_ => True) (_ => List.any … …) = (x x1 => … < …) (winningTurn …) …`
+  where the source says `… < …`. The counterexample under it was right,
+  and was what mattered.
+
+### 4. Inference
+
+- **A record literal inside `Parse.all`'s lambda, and the error a line
+  later.** `let game := Parse.all input (() => … { draws, boards })`,
+  then `game.boards.withIndex.find …`, was `E-UNSOLVED`, "can't work out
+  an implicit argument", pointing at the whole `game.boards.withIndex.find
+  (…)` call on the next line. The literal's type wasn't known where
+  `.boards` needed it. `let game: Game := …` fixed it. A note naming the
+  record literal that is waiting would have pointed straight at it.
+
+### 5. Performance
+
+Nothing to report: `stitchwort check --no-cache` of the proofs and tests
+takes 1.2 s.
+
+### 6. Proofs, and the lemma search
+
+`stitchwort search --rewrite` found the std lemmas the proofs use:
+`List.anyAppend`, `List.anyMap`, `List.anyCong`, `List.allCong`,
+`List.filterOfMap`, `List.mapMap`, `List.filterAll`, `List.filterCongMem`,
+`List.appendAssoc`, `List.lengthSnoc` and `List.lengthAppend`. None was
+written again. Rewriting inside a function argument worked again:
+`rewrite onTurn game.draws _ game.boards in rfl` rewrote under `flatMap`'s
+lambda, with `_` for the turn. What didn't work:
+
+- `search --at` on the project's proof file is `E-FILE-MODE`, as on day 3.
+  Six goals copied into scratch files with std types: two were
+  `E-SEARCH-AT`, "its statement doesn't elaborate on its own" (`(latest <
+  k) = (latest < k && True)` and `(n + m < n) = False`: the goal as
+  printed has a comparison where a `Bool` is meant, item 3). For `(j ≤ t
+  ∧ t < Succ j) = (t == j)` and a fold step it listed only rewrites
+  (`Std.Float.Theory.andSwap` among them, a `Bool` lemma living in
+  `Float.Theory`), and `cases` closes both. For `filterFilter` it found
+  nothing, rightly; for `drawOn` it offered `List.getOrAppendRight` and
+  `List.getOrOfGet` as next steps. It closed none of the six. Every run
+  warned "3 comparisons ran out of steps", as on day 3.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2021.Day04` | 0.84 s user (0.88 s) |
+| `stitchwort check --no-cache Aoc.Year2021.Day04.Proofs Aoc.Year2021.Day04.Tests` | 1.16 s user (1.2 s) |
+| `stitchwort run Aoc.Year2021.Day04.main` on the input (100 boards) | 0.35 s user (0.42 s), warm |
+| `stitchwort audit Aoc.Year2021.Day04` (with the search) | 3.8 s user (3.9 s) |
+
+81 lines of program, 57 of spec, 143 of proofs, 78 of tests.
+
+### Ranked
+
+1. A comparison next to a `Bool` connective in a statement makes the
+   equation one between propositions, and `E-NOT-A-TYPE` doesn't suggest
+   `((…): Bool)`; goals printed in that form can't then be pasted into
+   `search --at` (items 3 and 6). Fix: elaborate the comparison as a
+   `Bool` when the other side of `=` is one, or suggest the ascription.
+2. No `List.filterFilter`, nothing tying `contains` to `indexOf`, no
+   lemmas for folds of `max` and `min` (item 2). Fix: add them to std.
+3. `search --at` still doesn't work in a project's files, doesn't try
+   `cases`, and closed none of six goals here (item 6). Fix: the next
+   stage of SW-915's search, and `cases` among its closers.
+4. A waiting record literal's `E-UNSOLVED` lands on a later line (item 4).
+   Fix: name the literal.
+5. Goal printing: `b ∨ False` as `b && True`; lambdas left applied in a
+   calc step's note (item 3).
+6. `Decidable.toBoolOfNot _`'s procedure isn't solved from the expected
+   type (item 3).

@@ -1,0 +1,144 @@
+-- Day 4 proved, for every input: both answers are those of the game played
+-- draw by draw (Spec/).
+
+namespace Aoc.Year2021.Day04.Proofs
+import Aoc.Year2021.Day04 (..)
+import Aoc.Year2021.Day04.Spec (..)
+import Std (Decidable, Eq, List, Nat)
+
+-- When a number is marked. The draws so far are `drawn`, and `rest` are
+-- still to come.
+
+-- A number is marked once its first place among all the draws is one of
+-- those drawn.
+theorem markedBefore (rest: List Nat) (number: Nat): (drawn: List Nat) →
+    marked drawn number = (List.indexOf (drawn ++ rest) number < List.length drawn)
+  | Nil => rfl
+  | Cons first others => rewrite markedBefore rest number others in cases
+
+-- Just after the draw of `number`, a number isn't marked when it is first
+-- drawn later.
+theorem unmarkedAfter (drawn: List Nat) (number: Nat) (later: List Nat) (x: Nat):
+    not (marked (drawn ++ [number]) x) = (List.length drawn < List.indexOf (drawn ++ Cons number later) x) :=
+  rewrite markedBefore later x (drawn ++ [number]), List.appendAssoc drawn [number] later, List.lengthSnoc drawn number in cases
+
+-- A line's last number is drawn before `k` when the latest so far is and
+-- each of its numbers is.
+theorem latestBefore (drawnAt: Nat → Nat) (k: Nat): (line: List Nat) → (latest: Nat) →
+    ((List.foldLeft line latest (latest number => Nat.max latest (drawnAt number)) < k): Bool)
+      = (latest < k ∧ List.all line (number => drawnAt number < k))
+  | Nil, latest => cases
+  | Cons number others, latest => rewrite latestBefore drawnAt k others (Nat.max latest (drawnAt number)) in cases
+
+-- The first line is complete before `k` when the earliest so far is, or
+-- some line is.
+theorem earliestBefore (k: Nat): (turns: List Nat) → (earliest: Nat) →
+    ((List.foldLeft turns earliest Nat.min < k): Bool) = (earliest < k ∨ List.any turns (turn => turn < k))
+  | Nil, earliest => cases
+  | Cons turn others, earliest => rewrite earliestBefore k others (Nat.min earliest turn) in cases
+
+-- Two facts used on the way: a false `p` adds nothing to `p ∨ b`, and the
+-- turn after all the draws isn't before the end of any part of them.
+theorem orFalse (p: Bool) (b: Bool) (h: p = False): (p ∨ b) = b := rewrite h in rfl
+
+theorem pastTheEnd (n: Nat) (m: Nat): ((n + m < n): Bool) = False := cases
+
+-- So, once at least one number is drawn, a board has won exactly when the
+-- program's winning turn has come.
+theorem winsBefore (drawn: List Nat) (rest: List Nat) (someDrawn: 0 < List.length drawn) (board: Board):
+    wins drawn board = (winningTurn (drawn ++ rest) board < List.length drawn) :=
+  let drawnAt := (number: Nat) => List.indexOf (drawn ++ rest) number
+  let lineTurn := (line: List Nat) => List.foldLeft line 0 (latest number => Nat.max latest (drawnAt number))
+  let complete := (line: List Nat) =>
+    calc List.all line (marked drawn)
+      _ = List.all line (number => drawnAt number < List.length drawn) := List.allCong line _ _ (number => markedBefore rest number drawn)
+      _ = (0 < List.length drawn ∧ List.all line (number => drawnAt number < List.length drawn)) := cases
+      _ = (lineTurn line < List.length drawn) := Eq.sym (latestBefore drawnAt (List.length drawn) line 0)
+  let notAfterAll: ((List.length (drawn ++ rest) < List.length drawn): Bool) = False :=
+    rewrite List.lengthAppend drawn rest in pastTheEnd (List.length drawn) (List.length rest)
+  calc wins drawn board
+    _ = List.any (board ++ List.transpose board) (line => List.all line (marked drawn)) := Eq.sym (List.anyAppend board (List.transpose board) _)
+    _ = List.any (board ++ List.transpose board) (line => lineTurn line < List.length drawn) := List.anyCong _ _ _ complete
+    _ = List.any (List.map (board ++ List.transpose board) lineTurn) (turn => turn < List.length drawn) := Eq.sym (List.anyMap _ _ _)
+    _ = (List.length (drawn ++ rest) < List.length drawn ∨ List.any (List.map (board ++ List.transpose board) lineTurn) (turn => turn < List.length drawn)) :=
+      Eq.sym (orFalse _ _ notAfterAll)
+    _ = (winningTurn (drawn ++ rest) board < List.length drawn) :=
+      Eq.sym (earliestBefore (List.length drawn) (List.map (board ++ List.transpose board) lineTurn) (List.length (drawn ++ rest)))
+
+-- The draw at `List.length drawn` is the one after `drawn`.
+theorem drawOn (number: Nat) (later: List Nat): (drawn: List Nat) → List.getOr (drawn ++ Cons number later) (List.length drawn) 0 = number
+  | Nil => rfl
+  | Cons first others => drawOn number later others
+
+-- The spec's score of a board that wins on the draw of `number`, at
+-- `List.length drawn`, is the program's.
+theorem scoreAt (drawn: List Nat) (number: Nat) (later: List Nat) (board: Board):
+    finalScore (drawn ++ [number]) number board = score (drawn ++ Cons number later) (List.length drawn) board :=
+  rewrite List.filterCongMem (List.concat board) _ _ (x inBoard => unmarkedAfter drawn number later x), drawOn number later drawn in rfl
+
+-- Filtering twice is filtering once by both.
+theorem filterFilter (p: a → Bool) (q: a → Bool) (both: a → Bool) (h: (x: a) → (p x ∧ q x) = both x): (xs: List a) →
+    List.filter (List.filter xs p) q = List.filter xs both
+  | Nil => rfl
+  | Cons x others => rewrite <- h x, <- filterFilter p q both h others in cases
+
+-- A board wins on the draw of `number` when its winning turn is no later.
+theorem winsAfterDraw (drawn: List Nat) (number: Nat) (later: List Nat) (board: Board):
+    wins (drawn ++ [number]) board = (winningTurn (drawn ++ Cons number later) board < Succ (List.length drawn)) :=
+  rewrite winsBefore (drawn ++ [number]) later (omega [List.lengthSnoc drawn number]) board, List.appendAssoc drawn [number] later,
+    List.lengthSnoc drawn number in rfl
+
+-- Not won before turn `j` and won by its end is won on it.
+theorem thisTurn (j: Nat) (t: Nat): ((j ≤ t ∧ t < Succ j): Bool) = (t == j) := cases
+
+-- Not won before turn `j` nor by its end is won later.
+theorem laterTurn (j: Nat) (t: Nat): ((j ≤ t ∧ not (t < Succ j)): Bool) = (Succ j ≤ t) := cases
+
+-- The game from any point: the boards that haven't won yet, playing the
+-- draws to come, win turn by turn.
+theorem playFrom (playing: List Board): (rest: List Nat) → (drawn: List Nat) →
+    play drawn (List.filter playing (board => List.length drawn ≤ winningTurn (drawn ++ rest) board)) rest
+      = List.flatMap (List.rangeFrom (List.length rest) (List.length drawn))
+        (turn => List.map (List.filter playing (board => winningTurn (drawn ++ rest) board == turn)) (score (drawn ++ rest) turn))
+  | Nil, drawn => rfl
+  | Cons number later, drawn =>
+    let turnOf := (board: Board) => winningTurn (drawn ++ Cons number later) board
+    let wonNow :=
+      filterFilter (board => List.length drawn ≤ turnOf board) (wins (drawn ++ [number])) (board => turnOf board == List.length drawn)
+        (board => rewrite winsAfterDraw drawn number later board in thisTurn (List.length drawn) (turnOf board)) playing
+    let stillPlaying :=
+      filterFilter (board => List.length drawn ≤ turnOf board) (board => not (wins (drawn ++ [number]) board))
+        (board => Succ (List.length drawn) ≤ turnOf board)
+        (board => rewrite winsAfterDraw drawn number later board in laterTurn (List.length drawn) (turnOf board)) playing
+    let afterNow:
+        play (drawn ++ [number]) (List.filter playing (board => Succ (List.length drawn) ≤ turnOf board)) later
+          = List.flatMap (List.rangeFrom (List.length later) (Succ (List.length drawn)))
+            (turn => List.map (List.filter playing (board => turnOf board == turn)) (score (drawn ++ Cons number later) turn)) :=
+      rewrite List.appendAssoc drawn [number] later, List.lengthSnoc drawn number at playFrom playing later (drawn ++ [number])
+    rewrite wonNow, stillPlaying, afterNow, List.mapCong _ _ _ (scoreAt drawn number later) in rfl
+
+-- The program's boards on a turn, found from their pairs with their turns.
+theorem onTurn (draws: List Nat) (turn: Nat) (boards: List Board):
+    List.map (List.filter (List.map boards (board => (winningTurn draws board, board))) (((won, _)) => won == turn))
+        (((_, board)) => score draws turn board)
+      = List.map (List.filter boards (board => winningTurn draws board == turn)) (score draws turn) :=
+  rewrite List.filterOfMap boards _ _, List.mapMap _ _ _ in rfl
+
+-- The program's scores, in order, are the game's.
+theorem winningScoresPlay (game: Game): winningScores game = play [] game.boards game.draws :=
+  let everyBoard: List.filter game.boards (board => 0 ≤ winningTurn game.draws board) = game.boards :=
+    List.filterAll _ game.boards (board inBoards => rfl)
+  calc winningScores game
+    _ = List.flatMap (List.range (List.length game.draws))
+        (turn => List.map (List.filter game.boards (board => winningTurn game.draws board == turn)) (score game.draws turn)) :=
+      rewrite onTurn game.draws _ game.boards in rfl
+    _ = play [] (List.filter game.boards (board => 0 ≤ winningTurn game.draws board)) game.draws := Eq.sym (playFrom game.boards game.draws [])
+    _ = play [] game.boards game.draws := rewrite everyBoard in rfl
+
+-- Part 1 is the puzzle's answer, for every input.
+theorem part1Correct (game: Game): solvePart1 game = firstWinnerScore game :=
+  Eq.cong List.head (winningScoresPlay game)
+
+-- Part 2 is the puzzle's answer, for every input.
+theorem part2Correct (game: Game): solvePart2 game = lastWinnerScore game :=
+  Eq.cong List.last (winningScoresPlay game)
