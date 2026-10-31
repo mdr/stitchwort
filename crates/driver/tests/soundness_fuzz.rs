@@ -27,7 +27,7 @@
 //!
 //! The seed is fixed, so a run is reproducible. The daily tier checks
 //! `MUTANTS` mutants of the examples and std, every second generated attempt
-//! and `VOIDS` mutated soundness examples (about 30 s); the full tier four
+//! and `VOIDS` mutated soundness examples (about 20 s); the full tier four
 //! times as many, from every corpus, and every attempt. `SOUND_MUTANTS`,
 //! `SOUND_VOID` (counts; `SOUND_VOID` also means every generated attempt),
 //! `SOUND_SEED` (decimal or `0x…`) and `SOUND_CORPUS` (`examples`, `std`,
@@ -694,7 +694,7 @@ fn render(site: &Site, mutation: &Mutation) -> String {
         }
         Mutation::Closer(closer) => {
             let statement = join(&tokens[..site.statement.end]);
-            format!("{}:= {closer}\n", statement.trim_end().to_string() + " ")
+            format!("{} := {closer}\n", statement.trim_end())
         }
         Mutation::Both(inner, closer) => {
             let changed = render(site, inner);
