@@ -1227,13 +1227,13 @@
     {
       "id": 839,
       "title": "Fast tripwire test: lower every AoC definition and validate, without running the AoC tests on the reference evaluator (every_aoc_main_lowers takes >35 min; aoc_agrees similar) — keep the slow pair for a slow tier",
-      "status": "next",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "\n\n31 Oct 2026: rt aoc_agrees and every_aoc_main_lowers are now full tier only (7e7f986e). The daily tier still lowers and runs every AoC main on the real input (cli aoc_answers, `stitchwort run` uses the machine). D2076 (Matt, 31 Oct): do nothing on this for now.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-10-31",
       "commits": []
     },
     {
