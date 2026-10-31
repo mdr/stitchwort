@@ -71,3 +71,34 @@ fn every_rejected_example_gets_the_same_verdict_without_the_shortcut() {
         );
     });
 }
+
+/// SW-920: unification's identity shortcut sees through a solved unknown.
+/// Here `_` is solved with `seed`, and comparing the two sides of `%`
+/// meets two closures that differ only in holding `?x` (solved with `seed`)
+/// where the other holds `seed`. Without the shortcut seeing that, the
+/// comparison ran both bodies, unfolding `Nat.divFuel` once per `Succ` of
+/// `+ 12345`: about 154 million steps, 25 s.
+#[test]
+fn a_solved_unknown_is_seen_through_by_the_identity_shortcut() {
+    let work = |hole: &str| {
+        with_stack(STACK, || {
+            let mut session = Session::for_stack(STACK);
+            let text = format!(
+                "def body (seed: Nat): Nat := (seed * 1103515245 + 12345) % 2147483648\n\n\
+                 theorem metaSeed (seed: Nat): body seed < 2147483648 :=\n  \
+                 Std.Nat.modLt ({hole} * 1103515245 + 12345) 2147483648\n"
+            );
+            let before = session.elab.globals.budget.total_work();
+            let loaded = session.load("sw920.sw", &text);
+            assert!(loaded.is_ok(), "{hole}: {loaded:?}");
+            session.elab.globals.budget.total_work() - before
+        })
+    };
+    let written = work("seed");
+    let solved = work("_");
+    eprintln!("work: `seed` {written}, `_` {solved}");
+    assert!(
+        solved < written + written / 10,
+        "`_`: {solved} steps, `seed`: {written}"
+    );
+}

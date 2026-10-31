@@ -408,6 +408,12 @@ pub struct Meta {
     /// that argument isn't a variable (SW-323: a proof inside a lambda,
     /// once the lambda is applied to a term).
     pub ignorable: Option<Rc<[bool]>>,
+    /// Its type, where whoever made it knew it: the type of the unknown
+    /// applied to the first `.1` arguments of its spine (the variables in
+    /// scope where it was made), in that context. Unification reads it only
+    /// to refuse pairing values whose types plainly differ (SW-919), so it
+    /// may be missing.
+    pub ty: Option<(Value, usize)>,
 }
 
 #[derive(Default)]
@@ -622,8 +628,20 @@ impl Globals {
             solution: None,
             span,
             ignorable: None,
+            ty: None,
         });
         metas.len() - 1
+    }
+
+    /// Records metavariable `m`'s type (see [`Meta::ty`]): `ty`, the type
+    /// of `m` applied to its first `arity` arguments.
+    pub fn set_meta_type(&self, m: usize, ty: Value, arity: usize) {
+        self.metas.borrow_mut()[m].ty = Some((ty, arity));
+    }
+
+    /// See [`Meta::ty`].
+    pub fn meta_type(&self, m: usize) -> Option<(Value, usize)> {
+        self.metas.borrow()[m].ty.clone()
     }
 
     /// Records which arguments metavariable `m` may ignore (see

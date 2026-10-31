@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/unify-last-arguments-types-differ.sw:10:24 ]
+    │
+ 10 │   let e := use _ (app (mk _))
+    │                        ──┬─  
+    │                          ╰─── expected `?1 t mk use True`, but this has type `t (?2 t mk use)`
+────╯
