@@ -2790,6 +2790,8 @@ Not frames, with why:
 - **Hashes**: `HASH_DUMP` std+aoc (10,658 lines) and `HASH_DUMP_PROJECT=games/rogue` (5,229)
   byte-identical to `b6d3626a`'s.
 - **`task audit`**: std 2,328, aoc 1,363, rogue 190 theorems, all passed.
+- **Time**: aoc `check --no-cache`, user time, base and step 4.1 alternately on a loaded machine:
+  base 40.3, 38.8, 42.2 s; step 4.1 40.7, 43.8, 40.0 s. No difference beyond the noise.
 - Lane tiers `elab`, `core`, `std`, `lsp`, `examples`, `hashes`, `aoc`: pass. Clippy with
   `--deny warnings` and `cargo fmt`: clean.
 
