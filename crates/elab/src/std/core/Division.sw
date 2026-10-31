@@ -10,7 +10,14 @@
 -- recursive (`n` is always enough fuel when `divisor` isn't zero).
 def Nat.divFuel: Nat → Nat → Nat → Nat
   | Zero, n, divisor => 0
-  | Succ fuel, n, divisor => if Nat.leq divisor n then Succ (Nat.divFuel fuel (n - divisor) divisor) else 0
+  | Succ fuel, n, divisor => Nat.divStep (Nat.leq divisor n) fuel n divisor
+
+-- PROTOTYPE (SW-922, P1): one step of `Nat.divFuel`, with the comparison as
+-- its first argument, so a step whose comparison is stuck stays a folded call.
+@[noReceiver]
+def Nat.divStep: Bool → Nat → Nat → Nat → Nat
+  | False, fuel, n, divisor => 0
+  | True, fuel, n, divisor => Succ (Nat.divFuel fuel (n - divisor) divisor)
 
 -- `n / divisor` and `n % divisor` need a proof that `divisor` isn't zero, which `auto` finds.
 def Nat.div (n: Nat) (divisor: Nat): [auto ok: divisor ≠ 0] → Nat := Nat.divFuel n n divisor

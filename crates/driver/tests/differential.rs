@@ -81,11 +81,6 @@ const NORMAL_FORM_TOO_BIG: &[&str] = &[
     "accept/kernel-same-call-arguments.sw: generate",
     "accept/kernel-same-call-arguments.sw: descend",
     "accept/lemma-on-large-normal-form.sw: keep",
-    "accept/partial-handlers.sw: lcg",
-    "accept/partial-handlers.sw: seeded",
-    "accept/partial-handlers.sw: main",
-    "accept/partial-handlers.sw: test \"a seeded loop\"",
-    "accept/partial-handlers.sw: test \"the same seed, the same rolls\"",
 ];
 
 /// Definitions whose type's normal form is exponentially large, so only
@@ -104,10 +99,6 @@ const TYPE_NORMAL_FORM_TOO_BIG: &[&str] = &[
     "accept/kernel-same-call-arguments.sw: descendMakes",
     "accept/kernel-same-call-arguments.sw: descendCells",
     "accept/lemma-on-large-normal-form.sw: applied",
-    "accept/float-playlist.sw: Float.Theory.magUnitsFieldNext",
-    "accept/float-playlist.sw: Float.Theory.magUnitsWholeAt",
-    "accept/float-playlist.sw: Float.Theory.magUnitsWhole",
-    "accept/float-playlist.sw: Float.Theory.magUnitsCarry",
 ];
 
 /// Definitions left out of [`compare_conversion`], because the reference's
@@ -123,12 +114,6 @@ const TYPE_NORMAL_FORM_TOO_BIG: &[&str] = &[
 /// took about a minute each against the other definitions.
 const CONVERSION_TOO_SLOW: &[&str] = &[
     "accept/lemma-on-large-normal-form.sw: applied",
-    "accept/float-playlist.sw: Float.Theory.magUnitsFieldNext",
-    "accept/float-playlist.sw: Float.Theory.magUnitsWholeAt",
-    "accept/float-playlist.sw: Float.Theory.magUnitsWhole",
-    "accept/float-playlist.sw: Float.Theory.magUnitsCarry",
-    "accept/partial-handlers.sw: test \"a seeded loop\"",
-    "accept/partial-handlers.sw: test \"the same seed, the same rolls\"",
 ];
 
 /// Whether `list` names definition `name` of `what` (the prelude or an
@@ -258,6 +243,10 @@ fn examples() -> Vec<(String, String)> {
                 .lines()
                 .any(|l| l.starts_with("-- differential: skip"))
             {
+                continue;
+            }
+            // PROTOTYPE (SW-922): only the examples named in SW922_ONLY.
+            if let Ok(only) = std::env::var("SW922_ONLY") && !only.split(',').any(|o| name.contains(o)) {
                 continue;
             }
             found.push((name, source));
