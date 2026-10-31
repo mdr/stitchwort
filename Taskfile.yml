@@ -216,6 +216,21 @@ tasks:
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-capture -E ''binary(fuzz_elab)'' {{.CLI_ARGS}}'
 
+  fuzz:soundness:
+    desc: 'Soundness fuzzer, release, a few minutes (task fuzz:soundness MUTANTS=600 VOID=400 SEED=0x2 CORPUS=aoc,rogue)'
+    summary: Runs crates/driver/tests/soundness_fuzz.rs (SW-687) on every corpus (examples, std, aoc, rogue; CORPUS narrows it). MUTANTS statement and proof mutants, VOID mutated soundness examples besides every generated Void attempt. A finding saves its program to target/soundness-fuzz/.
+    vars:
+      MUTANTS: '{{.MUTANTS | default "400"}}'
+      VOID: '{{.VOID | default "200"}}'
+      CORPUS: '{{.CORPUS | default "all"}}'
+    env:
+      SOUND_MUTANTS: '{{.MUTANTS}}'
+      SOUND_VOID: '{{.VOID}}'
+      SOUND_SEED: '{{.SEED}}'
+      SOUND_CORPUS: '{{.CORPUS}}'
+    cmds:
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace {{.TEST_FEATURES}} --no-capture -E ''binary(soundness_fuzz)'' {{.CLI_ARGS}}'
+
   fuzz:syntax:
     desc: 'Lexer and parser fuzzer, release (task fuzz:syntax CASES=100000)'
     summary: Runs crates/syntax/tests/fuzz.rs.
