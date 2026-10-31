@@ -3779,11 +3779,7 @@ pub(crate) fn check_if(
     // prove a proposition would fail with a universe mismatch that says
     // nothing useful: say what's going on.
     if crate::omega::is_prop(cx, expected)? == Some(true) {
-        return Err(cx.error(
-            "E-UNIVERSE",
-            "`if` can't choose between proofs yet",
-            "this `if` has proofs as its branches; use `match b with | True => … | False => …`",
-        ));
+        return Err(proof_if_error(cx, binder, cond));
     }
     if unknown && defers_literal(cx, then)? {
         return retrying(cx, |cx| {
@@ -3791,6 +3787,89 @@ pub(crate) fn check_if(
         });
     }
     check_if_in(cx, binder, cond, then, otherwise, expected)
+}
+
+/// The error for an `if` whose branches are proofs (`ifThenElse` and
+/// `elimDec` return a `Type`; SW-373). It suggests matching on the
+/// condition's decision procedure, named when one is found
+/// (`match Nat.decLessThan m n with | Yes h => … | No h => …`), which keeps
+/// the proof of the condition (or of its negation) in each branch, as
+/// `if h:` would (SW-933); or, for a `Bool` condition, matching on it.
+#[inline(never)]
+fn proof_if_error(cx: &mut Ctx, binder: Option<&AstName>, cond: &Expr) -> Diagnostic {
+    let h = binder.map_or("h", |h| h.text.as_str()).to_string();
+    // The condition as a decided proposition, and as a `Bool`, each printed
+    // and then undone.
+    let mut decision = None;
+    let mut boolean = None;
+    let level = cx.level();
+    let printed = |cx: &Ctx, term: &Term| -> Option<String> {
+        let term = crate::unify::zonk_in(cx.g(), level, term, &|_| true, &[]).ok()?;
+        let term = beta_head(cx.g(), &term).ok()?;
+        Some(pretty::term_for_message_in(cx.g(), cx.e, &cx.names, &term))
+    };
+    let _ = crate::undo::transaction(cx, |cx| {
+        let (prop, sort) = check_type(cx, cond)?;
+        if sort == Sort::Prop {
+            let term = crate::bind::decide(cx, &prop)?.term(cx)?;
+            decision = printed(cx, &term);
+        }
+        Ok(None::<()>)
+    });
+    if binder.is_none() && decision.is_none() {
+        let _ = crate::undo::transaction(cx, |cx| {
+            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+            let term = check(cx, cond, &bool_ty)?;
+            // A decided proposition, as `a == b` is: its decision.
+            let (head, args) = term.spine();
+            if let (Term::Def(f), Some(d)) = (head.strip_loc(), args.last())
+                && Some(*f) == cx.g().registry.loaded_def(Builtin::ToBool)
+            {
+                decision = printed(cx, d);
+            } else {
+                boolean = printed(cx, &term);
+            }
+            Ok(None::<()>)
+        });
+    }
+    let error = cx.error(
+        "E-UNIVERSE",
+        "`if` can't choose between proofs yet",
+        "this `if` has proofs as its branches",
+    );
+    match (decision, boolean) {
+        (Some(decision), _) => error.with_note(format!(
+            "match on the condition's decision procedure instead, which keeps the proof of it \
+             (or of its negation) as `{h}` in each branch: `match {decision} with | Yes {h} => … \
+             | No {h} => …`"
+        )),
+        (None, Some(boolean)) => error.with_note(format!(
+            "match on the condition instead: `match {boolean} with | True => … | False => …`; \
+             to have its proof in each branch, write `match e: {boolean} with`, which binds \
+             `e: {boolean} = True` (or `= False`)"
+        )),
+        (None, None) => error.with_note(format!(
+            "match on a decision procedure for the condition instead, `match d with | Yes {h} => \
+             … | No {h} => …`; `stitchwort search 'Decidable (…)'` finds one by its type"
+        )),
+    }
+}
+
+/// `term` with the lambdas applied at its head taken in, for a message:
+/// `(x => Nat.decLessThan m x) n` is `Nat.decLessThan m n`.
+fn beta_head(g: &Globals, term: &Term) -> Result<Term> {
+    let Term::App(f, arg, icit) = term.strip_loc() else {
+        return Ok(term.clone());
+    };
+    let f = beta_head(g, f)?;
+    let lam = match f.strip_loc() {
+        Term::Ann(inner, _) => inner.strip_loc(),
+        other => other,
+    };
+    match lam {
+        Term::Lam(_, _, body) => beta_head(g, &body.instantiate(g, arg)?),
+        _ => Ok(Term::App(Rc::new(f), arg.clone(), *icit)),
+    }
 }
 
 fn check_if_in(
