@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `length`
+   ╭─[ reject/import-rename-old-name.sw:6:15 ]
+   │
+ 6 │ def x: Nat := length [1, 2]
+   │               ───┬──  
+   │                  ╰──── not in scope
+   │ 
+   │ Note 1: this file imports `List.length` as `count`: write the name it has here
+   │ 
+   │ Note 2: the library has `Std.List.length`, `Std.Text.length` or `Std.Vec.length`: write it in full, or `import Std.List (length)`
+───╯

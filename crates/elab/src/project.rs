@@ -297,15 +297,15 @@ impl Elaborator {
                         Some(k)
                             if self
                                 .project_prefixes
-                                .contains(&format!("{k}.{}", item.text)) =>
+                                .contains(&format!("{k}.{}", item.name.text)) =>
                         {
                             qualifiers[f]
-                                .entry(item.text.as_str())
+                                .entry(item.local().text.as_str())
                                 .or_default()
-                                .push(format!("{k}.{}", item.text));
+                                .push(format!("{k}.{}", item.name.text));
                         }
                         _ => {
-                            imported[f].insert(item.text.as_str());
+                            imported[f].insert(item.local().text.as_str());
                         }
                     }
                 }
@@ -367,9 +367,9 @@ impl Elaborator {
                 // it, so it is checked first, whatever the order of names.
                 for item in &import.items {
                     if let Some(k) = target {
-                        let key = format!("{k}.{}", item.text);
+                        let key = format!("{k}.{}", item.name.text);
                         if self.project_namespaces.contains(&key) && key != ns.name {
-                            found(key, item.span);
+                            found(key, item.name.span);
                         }
                     }
                 }

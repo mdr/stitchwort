@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: `length` starts with a lower-case letter, so its new name must too
+   ╭─[ reject/import-rename-case.sw:3:28 ]
+   │
+ 3 │ import Std.List (length as Count)
+   │                            ──┬──  
+   │                              ╰──── `Count` would change what kind of name it is
+   │ 
+   │ Note: a type, ability or namespace is written with a capital letter, and a function or theorem without one: e.g. `length as len`
+───╯

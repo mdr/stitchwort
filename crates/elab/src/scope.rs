@@ -125,6 +125,10 @@ pub struct Scope {
     /// short name, to the namespaces' keys. Such an item brings none of the
     /// namespace's names: `Spec.total` means `Shop.Spec.total`.
     qualifiers: Vec<HashMap<String, Vec<(String, Span)>>>,
+    /// Each file's items imported under another name (`import M (x as
+    /// y)`): the key, to the names this file gives it. Also in `imports`
+    /// or `qualifiers`, under those names.
+    renamed: Vec<HashMap<String, Vec<String>>>,
     /// Each file's `import N (..)`: short name to keys, each with the span
     /// of the import that brought it. Empty for a program without `(..)`.
     wildcards: Vec<BTreeMap<String, Vec<(String, Span)>>>,
@@ -173,6 +177,7 @@ pub(crate) enum ScopeOp {
 pub(crate) struct SavedImports {
     imports: Vec<HashMap<String, Vec<(String, Span)>>>,
     qualifiers: Vec<HashMap<String, Vec<(String, Span)>>>,
+    renamed: Vec<HashMap<String, Vec<String>>>,
     wildcards: Vec<BTreeMap<String, Vec<(String, Span)>>>,
     extenders: Vec<BTreeSet<String>>,
     wildcard_failed: BTreeSet<usize>,
@@ -488,6 +493,7 @@ impl Scope {
         SavedImports {
             imports: std::mem::take(&mut self.imports),
             qualifiers: std::mem::take(&mut self.qualifiers),
+            renamed: std::mem::take(&mut self.renamed),
             wildcards: std::mem::take(&mut self.wildcards),
             extenders: std::mem::take(&mut self.extenders),
             wildcard_failed: std::mem::take(&mut self.wildcard_failed),
@@ -498,6 +504,7 @@ impl Scope {
     pub(crate) fn restore_imports(&mut self, saved: SavedImports) {
         self.imports = saved.imports;
         self.qualifiers = saved.qualifiers;
+        self.renamed = saved.renamed;
         self.wildcards = saved.wildcards;
         self.extenders = saved.extenders;
         self.wildcard_failed = saved.wildcard_failed;
@@ -549,6 +556,7 @@ impl Scope {
     pub fn clear_imports(&mut self) {
         self.imports.clear();
         self.qualifiers.clear();
+        self.renamed.clear();
         self.wildcards.clear();
         self.extenders.clear();
         self.import_failed.clear();
@@ -1023,12 +1031,20 @@ impl Elaborator {
                 for (key, _) in imports.and_then(|t| t.get(x)).into_iter().flatten() {
                     found(key);
                 }
+                let renamed = self.scope.renamed.get(self.current_file());
                 for key in followed() {
                     let owner = parent(key).unwrap_or("");
                     let imported = imports
                         .and_then(|t| t.get(short(owner)))
                         .is_some_and(|v| v.iter().any(|(k, _)| k == owner));
-                    if imported && self.visible_as(owner) {
+                    // A type imported under another name brings its
+                    // constructors under their own names.
+                    let renamed = || {
+                        renamed.and_then(|r| r.get(owner)).is_some_and(|locals| {
+                            locals.iter().any(|l| self.visible_as_named(owner, l))
+                        })
+                    };
+                    if (imported && self.visible_as(owner)) || renamed() {
                         found(key);
                     }
                 }
@@ -1085,7 +1101,12 @@ impl Elaborator {
     /// Whether the type or ability `owner` is what its short name means
     /// here, so its constructors or operations are visible (decision 6).
     fn visible_as(&self, owner: &str) -> bool {
-        match self.resolve_short(short(owner), false) {
+        self.visible_as_named(owner, short(owner))
+    }
+
+    /// Whether the type or ability `owner` is what `local` means here.
+    fn visible_as_named(&self, owner: &str, local: &str) -> bool {
+        match self.resolve_short(local, false) {
             Resolved::Found { key, .. } => key == owner,
             // Constructors of each of two types that share a name are
             // ambiguous too, not unknown.
@@ -1513,9 +1534,24 @@ impl Elaborator {
         }
     }
 
-    /// How `key` is written here: without `Std.` unless that would mean
-    /// something else.
+    /// How `key` is written here: by the name this file imports it under,
+    /// if it has one (`import M (x as y)`); else without `Std.` unless that
+    /// would mean something else.
     pub(crate) fn written(&self, key: &str) -> String {
+        for alias in self.aliases(key) {
+            if matches!(
+                self.resolve_any(&alias),
+                Resolved::Found { key: k, rest, .. } if k == key && rest.is_empty()
+            ) {
+                return alias;
+            }
+        }
+        self.written_in_full(key)
+    }
+
+    /// [`Self::written`], ignoring the names this file gives imports: for
+    /// saying where a declaration is.
+    fn written_in_full(&self, key: &str) -> String {
         let short = display(key);
         match self.resolve_any(short) {
             Resolved::Found { key: k, rest, .. } if k == key && rest.is_empty() => {
@@ -1699,6 +1735,28 @@ impl Elaborator {
                 ))
             };
         }
+        // The name of something this file imports under another name.
+        if !self.loading_prelude
+            && let Some(renamed) = self.scope.renamed.get(self.current_file())
+        {
+            let (first, rest) = match name.text.split_once('.') {
+                Some((first, rest)) => (first, format!(".{rest}")),
+                None => (name.text.as_str(), String::new()),
+            };
+            let mut keys: Vec<(&String, &Vec<String>)> =
+                renamed.iter().filter(|(k, _)| short(k) == first).collect();
+            keys.sort();
+            let shown: Vec<String> = keys
+                .iter()
+                .map(|(key, locals)| format!("`{}{rest}` as `{}{rest}`", display(key), locals[0]))
+                .collect();
+            if !shown.is_empty() {
+                d = d.with_note(format!(
+                    "this file imports {}: write the name it has here",
+                    or_list(&shown).replacen(" or ", " and ", 1)
+                ));
+            }
+        }
         // A namespace imported as a qualifier names nothing on its own.
         if !name.text.contains('.') && !self.loading_prelude {
             let imported = self.imported_namespaces(&name.text);
@@ -1777,8 +1835,8 @@ impl Elaborator {
                         && parent(k).is_some_and(|p| p.contains('.'))
                 })
                 .collect();
-            keys.sort_by_key(|k| self.written(k));
-            let found: Vec<String> = keys.iter().map(|k| self.written(k)).collect();
+            keys.sort_by_key(|k| self.written_in_full(k));
+            let found: Vec<String> = keys.iter().map(|k| self.written_in_full(k)).collect();
             if let Some(first_key) = keys.first() {
                 // The import path names the namespace in full: `written`
                 // may drop the `Std.` that it needs (SW-403).
@@ -1829,7 +1887,7 @@ impl Elaborator {
                         diagnostics.push(d);
                         self.scope
                             .import_failed
-                            .extend(import.items.iter().map(|i| i.text.clone()));
+                            .extend(import.items.iter().map(|i| i.local().text.clone()));
                         self.wildcard_failed(import);
                         continue;
                     }
@@ -1842,7 +1900,7 @@ impl Elaborator {
                     // The first component may be a name this file imports:
                     // an import's path isn't read through another import.
                     let first = import.path.text.split('.').next().unwrap_or_default();
-                    let example = import.items.first().map_or("..", |i| i.text.as_str());
+                    let example = import.items.first().map_or("..", |i| i.name.text.as_str());
                     if !self.loading_prelude
                         && first != STD
                         && self.scope.is_namespace(&format!("Std.{first}"))
@@ -1853,7 +1911,7 @@ impl Elaborator {
                         ));
                     } else if let Some(source) = imports
                         .iter()
-                        .find(|i| i.items.iter().any(|n| n.text == first))
+                        .find(|i| i.items.iter().any(|n| n.local().text == first))
                     {
                         d = d.with_note(format!(
                             "`{first}` is imported in this file, but an import's namespace is never found through another import: write it in full, e.g. `import {}.{} ({example})`",
@@ -1891,14 +1949,15 @@ impl Elaborator {
                 self.add_wildcard(import, &namespace, diagnostics);
                 continue;
             }
-            for item in &import.items {
-                let key = format!("{namespace}.{}", item.text);
+            for whole in &import.items {
+                let (name, item) = (&whole.name, whole.local());
+                let key = format!("{namespace}.{}", name.text);
                 // An item may be a namespace that declares no name of its
                 // own (`import Std (Eq)`).
-                if item.text.starts_with('%')
+                if name.text.starts_with('%')
                     || (self.scope.get(&key).is_none() && !self.scope.is_namespace(&key))
                 {
-                    diagnostics.push(self.import_unknown(&namespace, item));
+                    diagnostics.push(self.import_unknown(&namespace, name));
                     continue;
                 }
                 // A declaration of the module's own with this name would hide
@@ -1909,15 +1968,16 @@ impl Elaborator {
                     ..
                 } = self.resolve_short(&item.text, true)
                 {
+                    let imported = match &whole.alias {
+                        Some(_) => format!("`{}` is imported as `{}`", name.text, item.text),
+                        None => format!("`{}` is imported", item.text),
+                    };
                     let message = match self.current_namespace() {
                         Some(namespace) if span.file != item.span.file => format!(
-                            "`{}` is imported, but `{}` is also defined in another file of namespace {namespace}",
-                            item.text, item.text
+                            "{imported}, but `{}` is also defined in another file of namespace {namespace}",
+                            item.text
                         ),
-                        _ => format!(
-                            "`{}` is imported, but this file also defines `{}`",
-                            item.text, item.text
-                        ),
+                        _ => format!("{imported}, but this file also defines `{}`", item.text),
                     };
                     let write = if self.scope.get(&key).is_none() {
                         format!("`{}.x` for a name `x` in that namespace", display(&key))
@@ -1937,8 +1997,20 @@ impl Elaborator {
                 if qualifier && own && self.own_namespace_clash(item, &key, diagnostics) {
                     continue;
                 }
-                self.note_import(item, &key);
+                self.note_import(name, &key);
                 let file = self.current_file();
+                if let Some(alias) = &whole.alias {
+                    self.note_import(alias, &key);
+                    if alias.text != name.text {
+                        if self.scope.renamed.len() <= file {
+                            self.scope.renamed.resize_with(file + 1, HashMap::default);
+                        }
+                        let locals = self.scope.renamed[file].entry(key.clone()).or_default();
+                        if !locals.contains(&alias.text) {
+                            locals.push(alias.text.clone());
+                        }
+                    }
+                }
                 let table = if qualifier {
                     &mut self.scope.qualifiers
                 } else {
@@ -2022,8 +2094,9 @@ impl Elaborator {
         diagnostics: &mut Vec<Diagnostic>,
     ) {
         let file = self.current_file();
-        for item in &import.items {
-            let key = format!("{namespace}.{}", item.text);
+        for whole in &import.items {
+            let item = whole.local();
+            let key = format!("{namespace}.{}", whole.name.text);
             if !self.imported_namespaces(&item.text).contains(&key)
                 || !self.own_namespace_clash(item, &key, diagnostics)
             {
@@ -2335,6 +2408,36 @@ impl NameScope for Elaborator {
 
     fn full_name(&self, declaration: Declaration) -> String {
         self.declaration_key_of(declaration)
+    }
+
+    fn aliases(&self, full: &str) -> Vec<String> {
+        Elaborator::aliases(self, full)
+    }
+}
+
+impl Elaborator {
+    /// How the key `full` can be written through a name this file imports
+    /// under another name: `y` for `M.x` after `import M (x as y)`, `T.f`
+    /// for `M.Tree.f` after `import M (Tree as T)`. Nothing checks here that
+    /// the spelling means `full`.
+    pub(crate) fn aliases(&self, full: &str) -> Vec<String> {
+        let Some(renamed) = self.scope.renamed.get(self.current_file()) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for (key, locals) in renamed {
+            let rest = if full == key {
+                Some("")
+            } else {
+                full.strip_prefix(key.as_str())
+                    .filter(|r| r.starts_with('.'))
+            };
+            if let Some(rest) = rest {
+                out.extend(locals.iter().map(|local| format!("{local}{rest}")));
+            }
+        }
+        out.sort();
+        out
     }
 }
 

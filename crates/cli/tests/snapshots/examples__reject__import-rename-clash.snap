@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPORT-CLASH] Error: `length` is imported as `count`, but this file also defines `count`
+   ╭─[ reject/import-rename-clash.sw:4:28 ]
+   │
+ 4 │ import Std.List (length as count)
+   │                            ──┬──  
+   │                              ╰──── `length` is imported as `count`, but this file also defines `count`
+   │ 
+ 6 │ def count: Nat := 3
+   │     ──┬──  
+   │       ╰──── defined here, which would hide the import
+   │ 
+   │ Note: remove the import, and write `List.length` where you mean that one
+───╯

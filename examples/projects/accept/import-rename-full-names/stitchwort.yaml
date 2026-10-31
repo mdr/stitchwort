@@ -1,0 +1,2 @@
+# import-rename with every renamed name written in full: its hashes must
+# be the same as that project's (hash_stability.rs).

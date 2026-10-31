@@ -2,14 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-PARSE] Error: a whole namespace can't be imported under another name
+[E-PARSE] Error: `import M as A` isn't Stitchwort: a namespace is imported as an item of the namespace above it
    ╭─[ reject/import-as.sw:4:17 ]
    │
  4 │ import Std.List as L
    │                 ─┬  
-   │                  ╰── `import … as …` isn't supported
+   │                  ╰── `as` goes inside the brackets, after an item
    │ 
-   │ Note 1: to write `List.x` for `Std.List.x`, import the namespace by its own last name: `import Std (List)`
-   │ 
-   │ Note 2: a namespace is always written by its own name, so `L` can't stand for `Std.List`
+   │ Note: to write `L.x` for `Std.List.x`: `import Std (List as L)`; or `import Std (List)` to write `List.x`
 ───╯

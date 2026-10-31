@@ -331,10 +331,11 @@ fn printed_goals_paste_back_as_lemmas() {
 
 /// In a project, a name reached through a namespace imported as a
 /// qualifier (`import Shop (Spec)`) is printed `Spec.total`, the shortest
-/// name that means it in the file (docs/proposals/import-aliases.md §6.3),
-/// and the goal pasted back as a lemma checks as the same goal.
+/// name that means it in the file (docs/proposals/import-aliases.md §6.3);
+/// one imported under another name (`total as charged`) by that name. The
+/// goal pasted back as a lemma checks as the same goal.
 #[test]
-fn goals_print_imported_namespaces_by_their_last_name() {
+fn goals_print_imported_names_as_the_file_writes_them() {
     let dir = scratch("namespace-item");
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
@@ -353,6 +354,9 @@ fn goals_print_imported_namespaces_by_their_last_name() {
     let cases = [
         ("Spec", "Spec.total xs = Shop.total xs"),
         ("Spec, total", "Spec.total xs = total xs"),
+        // Under other names (`import M (x as y)`): the names this file uses.
+        ("Spec as S, total as charged", "S.total xs = charged xs"),
+        ("Spec, Spec as S", "Spec.total xs = Shop.total xs"),
     ];
     for (items, expected) in cases {
         let text = format!(

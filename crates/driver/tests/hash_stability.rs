@@ -248,11 +248,12 @@ fn projects() {
 }
 
 /// A project namespace imported as a qualifier (`import Shop (Spec)`, then
-/// `Spec.total`) only chooses which declaration a name means: the project
-/// written with every name in full has the same hashes, declaration for
-/// declaration (docs/proposals/import-aliases.md §6.7).
+/// `Spec.total`), or a name imported under another (`import M (x as y)`),
+/// only chooses which declaration a name means: the project written with
+/// every name in full has the same hashes, declaration for declaration
+/// (docs/proposals/import-aliases.md §6.7, §11).
 #[test]
-fn namespace_items_hash_as_full_names() {
+fn import_items_hash_as_full_names() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects/accept");
     let load = |name: &str| {
         let mut session = Session::new();
@@ -264,9 +265,11 @@ fn namespace_items_hash_as_full_names() {
         }
         lines(&session, 0, 0)
     };
-    let short = load("import-namespace-item");
-    assert!(short.contains("Shop.Spec.total "), "{short}");
-    assert_eq!(short, load("import-namespace-item-full-names"));
+    for name in ["import-namespace-item", "import-rename"] {
+        let short = load(name);
+        assert!(short.contains("Shop.Spec.total "), "{short}");
+        assert_eq!(short, load(&format!("{name}-full-names")), "{name}");
+    }
 }
 
 /// Checking a namespace on its own gives the same hashes as checking the

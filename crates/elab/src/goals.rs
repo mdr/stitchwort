@@ -105,6 +105,10 @@ impl NameScope for GoalScope<'_> {
         self.e.full_name(declaration)
     }
 
+    fn aliases(&self, full: &str) -> Vec<String> {
+        self.e.aliases(full)
+    }
+
     /// What `a == b` decides `a = b` by, for a `ty` that mentions no
     /// variable: `decide_eq_of`, as `a == b` finds it
     /// (`numbers::equation`, `bind::decide_written`), on placeholder
