@@ -15,12 +15,17 @@
 
 use std::path::{Path, PathBuf};
 
-use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample};
+use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_elab::cache::{Stats, canonical_dump};
 use stitchwort_syntax::Diagnostic;
 
+/// The stack every session here runs on, and is told it has
+/// ([`Session::for_stack`]): a thread of this size ([`with_stack`] or
+/// [`par_map`]), never the test's own thread, whose 2 MiB the session's
+/// limits would overrun before stopping it (AoC 2024 day 22's
+/// `Nat.iterate 2000` in a test overflowed it).
 const STACK: usize = 16 * 1024 * 1024;
 
 /// A new, empty directory for one cache.
@@ -73,6 +78,11 @@ const UNCACHEABLE: &[&str] = &["Float/Float.sw"];
 /// Loads `source` in a new session (navigation recorded or not), through
 /// the cache in `cache` if there is one.
 fn run(source: &Source, nav: bool, cache: Option<&Path>) -> Run {
+    with_stack(STACK, || run_here(source, nav, cache))
+}
+
+/// [`run`], on this thread.
+fn run_here(source: &Source, nav: bool, cache: Option<&Path>) -> Run {
     let mut session = if nav {
         Session::navigable_for_stack(STACK)
     } else {
@@ -477,15 +487,17 @@ fn writing_an_entry_deletes_the_units_older_ones() {
 fn a_file_that_runs_out_of_resources_is_not_written() {
     let dir = temp_dir("resource");
     let attempt = || {
-        let mut session = Session::for_stack(STACK);
-        session.elab.limits.work = 20_000;
-        session.use_check_cache(&dir);
-        let result = session.elab.load_all_libraries();
-        (
-            result,
-            session.elab.check_cache_stats(),
-            session.elab.loaded_library_files().len(),
-        )
+        with_stack(STACK, || {
+            let mut session = Session::for_stack(STACK);
+            session.elab.limits.work = 20_000;
+            session.use_check_cache(&dir);
+            let result = session.elab.load_all_libraries();
+            (
+                result,
+                session.elab.check_cache_stats(),
+                session.elab.loaded_library_files().len(),
+            )
+        })
     };
     let (result, cold, loaded) = attempt();
     let errors = result.expect_err("the limit is too low for the library");
@@ -664,6 +676,19 @@ fn run_target(
 
 /// [`run_target`], also recording the type of every expression if `exprs`.
 fn run_target_recording(
+    dir: &Path,
+    target: &Target,
+    cache: Option<&Path>,
+    fail_late: bool,
+    exprs: bool,
+) -> (Run, Vec<String>) {
+    with_stack(STACK, || {
+        run_target_here(dir, target, cache, fail_late, exprs)
+    })
+}
+
+/// [`run_target_recording`], on this thread.
+fn run_target_here(
     dir: &Path,
     target: &Target,
     cache: Option<&Path>,
@@ -912,6 +937,11 @@ fn attributed_project(key: &str) -> Vec<(&'static str, String)> {
 /// logical hashes of every declaration of the project's two namespaces, and
 /// what the cache did.
 fn build_app(dir: &Path, cache: Option<&Path>) -> (stitchwort_js::Output, Vec<String>, Stats) {
+    with_stack(STACK, || build_app_here(dir, cache))
+}
+
+/// [`build_app`], on this thread.
+fn build_app_here(dir: &Path, cache: Option<&Path>) -> (stitchwort_js::Output, Vec<String>, Stats) {
     let mut session = Session::for_stack(STACK);
     if let Some(dir) = cache {
         session.use_check_cache(dir);
