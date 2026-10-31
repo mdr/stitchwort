@@ -43,8 +43,7 @@ theorem windowsShort (m: Nat): (xs: List Nat) → List.length xs ≤ m → slidi
   | Nil, h => rfl
   | Cons x rest, h =>
     Eq.trans
-      (List.filterSkip (List.map (List.tails rest) (.take (Succ m))) (window => window.length == Succ m) (Cons x (List.take rest m))
-        (rewrite List.takeAll rest m (omega [h]) in Decidable.toBoolOfNot _ (same => omega [same, h])))
+      (List.filterSkip _ _ _ (rewrite List.takeAll rest m (omega [h]) in Decidable.toBoolOfNot _ (same => omega [same, h])))
       (windowsShort m rest (omega [h]))
 
 -- Two windows next to each other share all but their ends, so the later sum

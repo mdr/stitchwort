@@ -185,6 +185,17 @@ theorem slideCompare (x: Nat) (shared: Nat) (y: Nat):
   were fine, because there the call is the whole proof and its type is
   known; inside `Eq.trans` the middle term isn't.
 
+  Fixed (SW-931): the holes were filled; the message was wrong. The
+  failing try was a different proof, `rewrite List.takeAll …,
+  equalBelow … in rfl`, which fails with the holes written out too
+  (`E-REWRITE-MOTIVE`); the rewrite that worked came with the written-out
+  arguments. `Eq.trans`'s type is compared with the goal first, so the
+  `rewrite` is checked against `(… == Succ m) = False`. When that fails,
+  the call is elaborated again without the goal to keep old messages, and
+  that second error (the goal of unknowns) was the one shown. Now the
+  first is shown when both are inside the same argument, as it already
+  was for a lambda. `windowsShort` writes `List.filterSkip _ _ _ (…)`.
+
 ### 5. Performance
 
 Nothing to report: `stitchwort check --no-cache` of the day's four
@@ -235,7 +246,8 @@ Release build:
 2. Holes in a lemma call aren't solved before its proof argument is
    checked, inside `Eq.trans` (item 4; NOTES-2024 day 1 item 4). Fix:
    postpone a `rewrite`/lambda argument until the call's other arguments
-   are known.
+   are known. Fixed (SW-931): they were solved; the error shown came from
+   a second try without the goal (item 4).
 3. No `List.windows`, and no `List.dropAt`/`List.dropPast`; three list
    lemmas live in `Std.Map.Tree` (item 2). Fix: add them to `List`, move
    the three.
