@@ -2230,7 +2230,7 @@
     {
       "id": 939,
       "title": "cases splits two stuck calls on the same variable separately (impossible combinations) instead of splitting the variable",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "batch lane (D2102)",
       "labels": [
@@ -2239,12 +2239,14 @@
       "body": "cases splits stuck calls separately (List.get t 0, List.head t) instead of the variable they are stuck on (t), creating impossible case combinations (one None, the other Some False); matching on t by hand fixed it. Related: SW-608 item 4 (an unfolded Bool test split as independent atoms).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nD2102 (Matt, 31 Oct 2026): batch lane.\n\n- 31 Oct, lane: committed 7aa41bf0: survey pass splits a shared recursive-type value (not Nat) once before stuck calls' atoms; day 3 getAfterPrefix/keepAfterPrefix by cases; example accept/cases-shared-list.sw. Hashes: Day03, 2024 Day02 (safeKept…) and Day05 (brokenHasBoth…) proofs change; std, rogue, examples unchanged. SW-608 item 4 not addressed.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "7aa41bf0"
+      ]
     },
     {
       "id": 940,
       "title": "std: binary number from List Bool, transpose column lemma, Option.mapCong / Option.mapId",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "batch lane (D2102)",
       "labels": [
@@ -2253,12 +2255,14 @@
       "body": "std candidates proved locally in Aoc.Year2021.Day03.Proofs: reading a List Bool as a binary number (and its lemmas), what transpose's columns are, Option.mapCong / Option.mapId.\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nD2102 (Matt, 31 Oct 2026): batch lane.\n\n- 31 Oct, lane: committed 9ee951f1 (worktree agent-a2838d0205dd855ff): Nat.fromBits(+From/Cons/Flipped), List.transposeNColumns(From)/transposeColumns, Option.mapId/mapCong; day 3 uses them; search finds each.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "9ee951f1"
+      ]
     },
     {
       "id": 941,
       "title": "E-TERMINATION: matching on a tuple of parameters loses structural recursion, and the message doesn't say so",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "batch lane (D2102)",
       "labels": [
@@ -2267,7 +2271,9 @@
       "body": "Matching on a tuple of parameters loses structural recursion, and the E-TERMINATION message doesn't say that the tuple match is why (or suggest matching the parameters directly).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nD2102 (Matt, 31 Oct 2026): batch lane.\n\n- 31 Oct, lane: committed f40f88d4: E-TERMINATION at a call inside `match (xs, n) with` gets a note naming the tuple match as why, suggesting `match xs, n with` or `decreasing`; reject example termination-tuple-match.sw. Making tuple matches structural not done (see report).\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "f40f88d4"
+      ]
     },
     {
       "id": 942,
@@ -2347,16 +2353,19 @@
     {
       "id": 947,
       "title": "AoC 2021 day 5: Hydrothermal Venture, solved and proved",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "worktree-agent-aeb1c100461c9580a",
       "labels": [
         "aoc"
       ],
-      "body": "AoC 2021 day 5 (Hydrothermal Venture) in aoc/src/Aoc/Year2021/Day05/: program, spec in the puzzle's terms (the points each line covers; points where at least two overlap), proofs for every input, tests (example 5/12, input 8060/21577), NOTES-2021.md section.\n\nProgress:\n- 31 Oct: program, spec, tests committed (9448f1a8); answers 8060/21577 right first run, run 3.0 s. Proofs next.\n",
+      "body": "AoC 2021 day 5 (Hydrothermal Venture) in aoc/src/Aoc/Year2021/Day05/: program, spec in the puzzle's terms (the points each line covers; points where at least two overlap), proofs for every input, tests (example 5/12, input 8060/21577), NOTES-2021.md section.\n\nProgress:\n- 31 Oct: program, spec, tests committed (9448f1a8); answers 8060/21577 right first run, run 3.0 s. Proofs next.\n- 31 Oct: proofs done (2ae48b91): part1Correct (no hypothesis), part2Correct (every line horizontal, vertical or 45-degree diagonal), numberOfPointsUnique; audit 40 theorems, 0 failed, 0 warnings. NOTES-2021.md day 5 added. Ready for review.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "9448f1a8",
+        "2ae48b91"
+      ]
     }
   ]
 }
