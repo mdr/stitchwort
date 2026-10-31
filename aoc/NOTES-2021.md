@@ -246,3 +246,197 @@ Release build:
 6. The search: `++` on holes doesn't elaborate; premise patterns fall to a
    relaxed pass of unrelated results; project errors repeat on every
    search (item 6).
+
+## Day 2: Dive!
+
+A list of submarine commands, one per line: `forward X`, `down X`, `up X`.
+Part 1 reads forward as moving ahead and down and up as changing the
+depth; part 2 reads down and up as changing an aim, and forward as moving
+ahead and sinking by the aim times X. Each answer is the final horizontal
+position times the final depth. Answers on Matt's input: 1635930 and
+1781819478 (his Scala solution's); the puzzle's example gives 150 and 900.
+Compiler built from `main` at 61b4e4ca, 31 October 2026.
+
+### The program
+
+The program doesn't steer the submarine command by command. The horizontal
+position is the sum of the forward moves; part 1's depth is the sum of the
+downs less the ups; part 2's aim before each command is a running sum of
+the same thing, so its depth is the sum of each forward move times the aim
+it is made at:
+
+```stitchwort
+def horizontal (commands: List Command): Nat := commands.sumBy .ahead
+
+def solvePart1 (commands: List Command): Int :=
+  (horizontal commands).toInt * commands.sumBy .down
+
+def solvePart2 (commands: List Command): Int :=
+  (horizontal commands).toInt * aimedDepth 0 commands
+
+def aimedDepth (aim: Int) (commands: List Command): Int :=
+  commands
+    |> .scanLeft aim (aimSoFar command => aimSoFar + command.down)
+    |> .zipWith commands (aimThen command => aimThen * command.ahead.toInt)
+    |> .sum
+```
+
+`Command.ahead` is X for `forward X` and 0 otherwise; `Command.down` is X
+for `down X`, -X for `up X` and 0 for forward. The parser is
+`pick [("forward", Forward), ("down", Down), ("up", Up)]` under a `label`,
+then `spaces1` and `nat`. All four error messages the tests guessed
+("line 2, column 1: expected forward, down or up, got 'b'", "expected a
+space", "expected a number, got the end of the line", "got '-'") came out
+as written, first time. The program gave both answers on its first run.
+
+**`Int` or `Nat`.** Depth and aim are `Int`. The puzzle never says the
+submarine stops at the surface, and Matt's input never goes above it, so
+`Nat` would be right on the input. But with `Nat`, `up` past 0 would
+truncate, and the spec would then either model a rule the puzzle doesn't
+have or need a hypothesis ("the commands never go above the surface") on
+every theorem. With `Int` the spec follows `up` as written, there is no
+hypothesis, and a test pins what happens past the surface
+(`solvePart1 [Up 3, Forward 2] == -6`, and the spec agrees). The
+horizontal position stays a `Nat`: only forward moves it. `ring` reads
+`x.toInt` as arithmetic, so the casts cost nothing in the proofs.
+
+The spec (`Spec/Spec.sw`) is the puzzle's way: a `Submarine` record
+(`horizontal`, `depth`, and `aim` for part 2), a `follow` function per
+part with one case per command in the puzzle's words, and
+`commands.foldLeft surface follow`.
+
+### Proved, for every list of commands
+
+In `Aoc.Year2021.Day02.Proofs` (`Proofs/Proofs.sw`, 63 lines):
+
+- `part1Correct`: `solvePart1 commands = part1 commands`.
+- `part2Correct`: `solvePart2 commands = part2 commands`.
+- On the way, from any starting submarine: the horizontal position grows
+  by `horizontal commands` (`horizontalAfter`, `aimedHorizontalAfter`),
+  part 1's depth by the sum of `Command.down` (`depthAfter`), part 2's aim
+  by the same sum (`aimAfter`, not needed by `part2Correct`), and part 2's
+  depth by `aimedDepth` at the starting aim (`aimedDepthAfter`).
+- The example's answers as `rfl` theorems (`examplePart1`,
+  `examplePart2`, in `Tests/Examples.sw`).
+
+Nothing is left unproved, no hypothesis was added, and nothing is opaque.
+`stitchwort audit Aoc.Year2021.Day02`: `audited 13 theorems: 0 failed, 0
+with warnings, 13 passed`.
+
+Every induction step is the same line, and `cases` did the rest, splitting
+the command and closing each case with `omega` (horizontal and depth are
+the IH plus one term):
+
+```stitchwort
+theorem aimedDepthAfter (start: AimedSubmarine): (commands: List Command) →
+    (List.foldLeft commands start AimedSubmarine.follow).depth = start.depth + aimedDepth start.aim commands
+  | Nil => omega
+  | Cons command rest =>
+    rewrite aimedDepthAfter (start.follow command) rest, aimedDepthCons start.aim command rest in cases
+```
+
+The final theorems are `rewrite` with two of these lemmas, `in ring`. Every
+proof checked the first time it was written.
+
+Breaking the program breaks the proofs, with a counterexample each time:
+`Up units => units.toInt` in `Command.down` makes `depthAfter` and
+`aimAfter` fail with `commands = [Up 1]` (left -1, right 1) and
+`aimedDepthAfter` with `commands = [Up 1, Forward 1]`;
+`aimedDepth 1` in `solvePart2` makes `part2Correct` fail with
+`commands = [Forward 1]` (left 1, right 0); zipping with `commands.drop 1`
+makes `aimedDepthCons` fail with `command = Forward 1`. One attempted
+break wasn't one: using the aim *after* each command,
+`(aimThen + command.down) * command.ahead.toInt`, gives the same answers,
+since a command that moves ahead doesn't change the aim. Only
+`aimedDepthCons`'s proof (`List.sumCons _ _`) stopped checking, with no
+counterexample, which is right.
+
+### 1. Std.Parse: none
+
+`pick`, `label`, `spaces1` and `nat` did it.
+
+### 2. Missing std: none
+
+`List.sumBy`, `List.scanLeft`, `List.zipWith`, `List.sumByCons` and
+`List.sumCons` were all there.
+
+### 3. Confusing errors
+
+- **A false `cases` goal over `Int` shows `Int`'s insides, and runs out of
+  cases.** With `up` broken (above), `depthAfter`'s open case reads
+
+  ```text
+  [E-CASES] Error: `cases` can't close the case command = Up units✝, start.depth = OfNat n✝, Int.neg (OfNat units✝) = NegSucc n✝, Int.subNatNatFrom n✝ (Succ n✝) (Succ n✝ - n✝) = OfNat n✝, List.foldLeft rest 0 (acc x => acc + Command.down x) = OfNat n✝
+    Note 1: goal: OfNat (n✝ + n✝) = OfNat (n✝ + (units✝ + n✝))
+  ```
+
+  and `aimedDepthAfter`'s is `E-CASES-BUDGET` ("made more than 64 cases
+  without closing them all"), its first open case splitting
+  `Int.subNatNatFrom` and `Int.neg (OfNat (n✝ * 0))`. `cases`, finding
+  nothing that closes the case, falls back to splitting the `Int`s
+  themselves (`OfNat`/`NegSucc`) and the helpers they compute to. The
+  counterexample note under each was right and is what pointed at the
+  bug; the case description didn't help. A `cases` that stops splitting
+  at `Int` (it isn't a finite type, and `omega` already knows it), and
+  reports the case as `command = Up units` with the goal in `+` and `-`,
+  would read better.
+- **A goal shows `List.sumBy []` over `Int` but not over `Nat`.** The
+  `Nil` cases printed `⊢ start.horizontal = start.horizontal` for the
+  `Nat` field and `⊢ start.depth = start.depth + List.sumBy [] Command.down`
+  for the `Int` one. `omega` closed the second, so it computes, but the
+  printed goal made it look stuck. Speculation, not checked: `Int`'s `+`
+  doesn't compute on an unknown left side, so the goal printer keeps the
+  form as written.
+- **Importing constructors is refused, helpfully.**
+  `import Aoc.Year2021.Day02 (Command, Forward, Down, Up)` is
+  `E-IMPORT-UNKNOWN` with "`Forward` is a constructor of `Command`, and
+  constructors come with their type: import `Command` instead". Not
+  friction: the note said the fix.
+
+### 4. Inference: none
+
+### 5. Performance
+
+Nothing to report: `stitchwort check --no-cache` of the proofs and tests
+takes 1.9 s.
+
+### 6. Proofs, and the lemma search
+
+`stitchwort search --rewrite 'List.sumBy (Cons _ _) _'` gave
+`List.sumByCons` first, and `--rewrite 'List.sum (Cons (_: Int) _)'`
+gave `List.sumCons`. Both were used, and nothing was proved again. What
+didn't work:
+
+- `--rewrite 'List.sum (Cons (_: Int) _)'` ranked `List.sumInts`
+  (`List.sum [3, -5, 1] = -1`, a closed example) above `List.sumCons`.
+  `--rewrite 'List.scanLeft (Cons _ _) _ _'` gave `List.scanLeftSums`
+  (`List.scanLeft [1, 2, 3] 0 … = [0, 1, 3, 6]`) first. The search hides
+  examples only when their name ends in `Example`; these two don't. Fix:
+  rename them, or rank a closed statement (no variables) last.
+- `--rewrite 'List.sumBy [] _'` found 36 results, none about `[]` (there
+  is no `List.sumByNil`; it computes, so none was needed). An `instance`
+  match whose left side is any list ranks the same as one for `[]`.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2021.Day02` | 0.71 s user (1.3 s) |
+| `stitchwort check --no-cache Aoc.Year2021.Day02.Proofs Aoc.Year2021.Day02.Tests` | 1.2 s user (1.9 s) |
+| `stitchwort run Aoc.Year2021.Day02.main` on the input (1000 lines) | 0.24 s user (0.53 s), warm |
+
+80 lines of program, 45 of spec, 63 of proofs, 50 of tests.
+
+### Ranked
+
+1. A failed `cases` over `Int` describes the case by `Int`'s
+   constructors and helpers (`Int.subNatNatFrom …`), and can run out of
+   its 64 cases (item 3). Fix: don't split `Int`s in the fallback; show
+   the case in the program's terms.
+2. The search ranks closed examples (`List.sumInts`,
+   `List.scanLeftSums`) above the general lemma (item 6). Fix: hide or
+   rank last theorems with no variables, or rename them `…Example`.
+3. The goal printer shows `List.sumBy [] f` unreduced over `Int` (item 3;
+   cause not established).
