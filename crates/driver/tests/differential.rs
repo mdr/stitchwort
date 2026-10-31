@@ -59,9 +59,18 @@ fn param_icits(g: &Globals, id: DefId) -> Vec<Icit> {
 /// random-seed.sw rolls with the seed `IO.randomSeed` gives, a variable in its
 /// normal form. In lemma-on-large-normal-form.sw, `keep x k` on an unknown
 /// `k` is stuck on `k` around `grow 30 (Leaf x)`, a tree of 2^30 nodes written
-/// out (the example is about exactly that). An entry is a name, or
-/// `example: name` for one example's definition. Their closed uses (the
-/// module's and the example's tests) are still compared.
+/// out (the example is about exactly that). In partial-handlers.sw, `lcg seed`
+/// is `(seed * 1103515245 + 12345) % 2^31`. Since `+` computes on its second
+/// argument (R4, `nat_add.rs`, 1ed90886), the dividend is
+/// `12345 + seed * 1103515245`, so `%`'s `Nat.divFuel` has 12345 known steps
+/// of fuel. Each step is stuck on `seed` with the next step inside it, and
+/// each step's subtraction is one longer than the last. `seeded` and `main`
+/// call `lcg` on the handler's unknown state. So do the two tests that run
+/// `seeded`, closed as they are: the loop they handle is `Partial`, so it
+/// doesn't run while checking, and the handler's step stays a lambda over the
+/// state. An entry is a name, or `example: name` for one example's
+/// definition. Their closed uses (the module's and the example's tests) are
+/// still compared, except the tests listed here.
 const NORMAL_FORM_TOO_BIG: &[&str] = &[
     "Random.xor64",
     "Random.next",
@@ -72,17 +81,33 @@ const NORMAL_FORM_TOO_BIG: &[&str] = &[
     "accept/kernel-same-call-arguments.sw: generate",
     "accept/kernel-same-call-arguments.sw: descend",
     "accept/lemma-on-large-normal-form.sw: keep",
+    "accept/partial-handlers.sw: lcg",
+    "accept/partial-handlers.sw: seeded",
+    "accept/partial-handlers.sw: main",
+    "accept/partial-handlers.sw: test \"a seeded loop\"",
+    "accept/partial-handlers.sw: test \"the same seed, the same rolls\"",
 ];
 
 /// Definitions whose type's normal form is exponentially large, so only
 /// their types' conversion is compared: in kernel-same-call-arguments.sw,
 /// `mix 16 seed` on an unknown seed mentions the seed 3^16 times; in
 /// lemma-on-large-normal-form.sw, `applied`'s type mentions `keep x key`
-/// (see [`NORMAL_FORM_TOO_BIG`]).
+/// (see [`NORMAL_FORM_TOO_BIG`]). Std's `Float.Theory` (which
+/// float-playlist.sw brings in) has four theorems about
+/// `magUnits (e * 2^52 + 2^52 + …)`, and `magUnits m` is
+/// `Nat.divFuel m m 2^52`. Since `+` computes on its second argument (R4,
+/// `nat_add.rs`, 1ed90886), that argument is `2^52 + (e * 2^52 + …)`: 2^52
+/// known steps of fuel. Each step leaves `Succ (if Nat.leq 2^52 n then … else
+/// 0)` stuck on `n`, with the next step inside it, so the normal form is
+/// 2^52 levels deep. No evaluator builds it while checking.
 const TYPE_NORMAL_FORM_TOO_BIG: &[&str] = &[
     "accept/kernel-same-call-arguments.sw: descendMakes",
     "accept/kernel-same-call-arguments.sw: descendCells",
     "accept/lemma-on-large-normal-form.sw: applied",
+    "accept/float-playlist.sw: Float.Theory.magUnitsFieldNext",
+    "accept/float-playlist.sw: Float.Theory.magUnitsWholeAt",
+    "accept/float-playlist.sw: Float.Theory.magUnitsWhole",
+    "accept/float-playlist.sw: Float.Theory.magUnitsCarry",
 ];
 
 /// Definitions left out of [`compare_conversion`], because the reference's
@@ -90,9 +115,28 @@ const TYPE_NORMAL_FORM_TOO_BIG: &[&str] = &[
 /// to compare one with itself, while the machine's takes under a
 /// microsecond. In lemma-on-large-normal-form.sw, `applied`'s type, compared
 /// with itself, reaches `keep x key`, which has the 2^30 nodes of
-/// `grow 30 (Leaf x)` on each side. Its type is still compared by the
-/// machine in [`compare_definitions`].
-const CONVERSION_TOO_SLOW: &[&str] = &["accept/lemma-on-large-normal-form.sw: applied"];
+/// `grow 30 (Leaf x)` on each side. The four `Float.Theory` theorems of
+/// [`TYPE_NORMAL_FORM_TOO_BIG`] are here too: the reference's `conv` of
+/// their types recurses down the 2^52 levels and overflows its stack. Their
+/// types are still compared by the machine in [`compare_definitions`]. The
+/// two seeded tests of partial-handlers.sw (see [`NORMAL_FORM_TOO_BIG`])
+/// took about a minute each against the other definitions.
+const CONVERSION_TOO_SLOW: &[&str] = &[
+    "accept/lemma-on-large-normal-form.sw: applied",
+    "accept/float-playlist.sw: Float.Theory.magUnitsFieldNext",
+    "accept/float-playlist.sw: Float.Theory.magUnitsWholeAt",
+    "accept/float-playlist.sw: Float.Theory.magUnitsWhole",
+    "accept/float-playlist.sw: Float.Theory.magUnitsCarry",
+    "accept/partial-handlers.sw: test \"a seeded loop\"",
+    "accept/partial-handlers.sw: test \"the same seed, the same rolls\"",
+];
+
+/// Whether `list` names definition `name` of `what` (the prelude or an
+/// example): by its name alone, or as `what: name`.
+fn listed(list: &[&str], what: &str, name: &str) -> bool {
+    list.iter()
+        .any(|entry| *entry == name || *entry == format!("{what}: {name}"))
+}
 
 /// Compares the two evaluators on everything `g` defines: each definition
 /// applied to fresh variables (open terms, stuck case trees, partial
@@ -109,9 +153,7 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
         // Applied to every prefix of its parameters, so partial
         // applications are covered too; none for a definition whose normal
         // form on variables is too big to build (its type is still compared).
-        let too_big = NORMAL_FORM_TOO_BIG
-            .iter()
-            .any(|entry| *entry == &*def.name || *entry == format!("{what}: {}", def.name));
+        let too_big = listed(NORMAL_FORM_TOO_BIG, what, &def.name);
         let prefixes = if too_big { 0..0 } else { 0..icits.len() + 1 };
         for n in prefixes {
             let mut fast = value::eval(g, &[], &Term::Def(id)).expect("no limits");
@@ -146,10 +188,7 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
         }
         let ty = reference::eval(g, &[], &def.ty).expect("no limits");
         assert!(value::conv(g, 0, &def.ty_value, &ty).expect("no limits"));
-        let type_too_big = TYPE_NORMAL_FORM_TOO_BIG
-            .iter()
-            .any(|entry| *entry == format!("{what}: {}", def.name));
-        if type_too_big {
+        if listed(TYPE_NORMAL_FORM_TOO_BIG, what, &def.name) {
             continue;
         }
         assert_eq!(
@@ -170,11 +209,7 @@ fn compare_definitions(g: &Globals, what: &str) -> usize {
 fn compare_conversion(g: &Globals, what: &str) -> usize {
     let defs: Vec<(String, Value, Value)> = (0..g.defs.len())
         .filter(|&i| g.defs[i].body().is_some())
-        .filter(|&i| {
-            !CONVERSION_TOO_SLOW
-                .iter()
-                .any(|entry| *entry == format!("{what}: {}", g.defs[i].name))
-        })
+        .filter(|&i| !listed(CONVERSION_TOO_SLOW, what, &g.defs[i].name))
         .map(|i| {
             let def = &g.defs[i];
             let value = value::eval(g, &[], &Term::Def(DefId(i))).expect("no limits");
@@ -251,6 +286,9 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
             compare_definitions(g, name);
             compare_conversion(g, name);
             for test in &session.elab.tests {
+                if listed(NORMAL_FORM_TOO_BIG, name, &g.def(test.def).name) {
+                    continue;
+                }
                 let term = Term::Def(test.def);
                 let fast = value::eval(g, &[], &term).expect("no limits");
                 let slow = reference::eval(g, &[], &term).expect("no limits");
