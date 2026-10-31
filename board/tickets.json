@@ -1194,7 +1194,7 @@
       "title": "Consider postponing record literals as lambdas are postponed: check an untyped record literal argument after the arguments that fix its type",
       "status": "doing",
       "agent": "Claude",
-      "where": "step 4.2 lane (D2087)",
+      "where": "step 4.2 merged; next 4.3 = K4 (numbers wait): Day17 cause to find first",
       "labels": [
         "decision"
       ],
@@ -1216,7 +1216,8 @@
         "bd07ea98",
         "4e765fba",
         "a8a7f0f7",
-        "eebef7f9"
+        "eebef7f9",
+        "32ff38fd"
       ]
     },
     {
@@ -2291,7 +2292,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "Solve AoC 2021 day 4 (Giant Squid: bingo) in aoc/src/Aoc/Year2021/Day04 with a spec in the puzzle's words, proofs that the solution equals the spec for every input, tests (worked example, real input), and a day 4 section in aoc/NOTES-2021.md. Lane in worktree agent-a3b0b025e90ad7b65.\n\nProgress (lane):\n- started; rebased on main, input copied.\n",
+      "body": "Solve AoC 2021 day 4 (Giant Squid: bingo) in aoc/src/Aoc/Year2021/Day04 with a spec in the puzzle's words, proofs that the solution equals the spec for every input, tests (worked example, real input), and a day 4 section in aoc/NOTES-2021.md. Lane in worktree agent-a3b0b025e90ad7b65.\n\nProgress (lane):\n- started; rebased on main, input copied.\n- program, spec, tests written; all 16 tests pass first run, both answers right (49860, 24628), example 4512/1924; proofs next.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
