@@ -1820,6 +1820,40 @@ fn infer_section(cx: &mut Ctx, section: &Expr) -> Result<(Term, Value)> {
     Ok((ann, ty))
 }
 
+/// For the body of a section that is a comparison, `(<)`, `(> 3)` or
+/// `(.size <= n)`, whose result type `cod` nothing has fixed yet (SW-930):
+/// solves that unknown (or, for a computation `{e} ?t`, its result) with
+/// `Bool`, so the comparison is decided, as `a < b` is where a `Bool` is
+/// expected. So `xs.zipWith ys (<)` is a `List Bool`, and `xs.map (> 3) |>
+/// .count (b => b)` counts. A written lambda's comparison is a proposition
+/// there, as before, and so is a section's where a proposition is expected
+/// (`List.All (< 5) xs`). `param` is the lambda's last parameter.
+fn settle_section_comparison(
+    cx: &mut Ctx,
+    param: &AstName,
+    body: &Expr,
+    cod: &Value,
+) -> Result<()> {
+    // `%right` is the second parameter of a bare operator, `(<)`.
+    if !matches!(param.text.as_str(), SECTION | "%right")
+        || !matches!(body, Expr::Binary(BinOp::Lt | BinOp::Le, ..))
+    {
+        return Ok(());
+    }
+    let result = match crate::effects::comp_parts(cx, cod)? {
+        Some((_, result)) => result,
+        None => cod.clone(),
+    };
+    if matches!(
+        force(cx.g(), result.clone())?,
+        Value::Neutral(Head::Meta(_), _)
+    ) {
+        let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+        crate::undo::unify(cx, &result, &bool_ty)?;
+    }
+    Ok(())
+}
+
 /// Records each parameter type of `ty` still unknown after checking the
 /// lambda, so that if nothing works it out, the error names the parameter.
 fn note_parameter_metas(cx: &mut Ctx, ty: &Value) -> Result<()> {
@@ -3597,7 +3631,8 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Re
             let cod = cod.apply(g, var)?;
             let check_body = |cx: &mut Ctx| {
                 let result = if rest.is_empty() {
-                    check(cx, body, &cod)
+                    settle_section_comparison(cx, first, body, &cod)
+                        .and_then(|()| check(cx, body, &cod))
                 } else {
                     check(cx, &Expr::Lam(rest.to_vec(), body.clone(), *span), &cod)
                 };
