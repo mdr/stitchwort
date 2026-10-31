@@ -152,6 +152,7 @@ fn self_retrieval(left: bool) -> Score {
             anywhere: false,
             iff,
             filter: true,
+            deadline: None,
         };
         let side = if left { Side::Left } else { Side::Conclusion };
         run(session, &candidates, &queries, &opts, &|session, n| {
@@ -270,6 +271,7 @@ fn proof_uses_find_their_lemma_among_the_first_ten() {
             anywhere: false,
             iff: None,
             filter: true,
+            deadline: None,
         };
         run(session, &candidates, &queries, &opts, &|session, n| {
             let (_, lemma, args, depth) = &uses[n];

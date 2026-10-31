@@ -79,6 +79,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
     {
       "at": "a <= c",
       "checked": "kernel",
+      "closes": "cases",
       "direction": "rightToLeft",
       "equation": "eq",
       "file": "std/List/SortLemmas.sw",
@@ -91,15 +92,16 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
     }
   ],
   "tactics": [
-    "omega"
+    "omega",
+    "cases"
   ],
   "total": {
-    "applicable": 9,
-    "closing": 4,
+    "applicable": 8,
+    "closing": 5,
     "rewrites": 1
   },
   "version": 1,
   "warnings": [
-    "3 comparisons ran out of steps: a match may have been missed"
+    "3 comparisons ran out of steps (with Std.Float.Theory.overflowHalf, Std.Float.Theory.largestBelow, Std.Float.Theory.infinityAbove): those may match and weren't listed"
   ]
 }

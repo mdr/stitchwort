@@ -263,12 +263,14 @@ impl Main<'_> {
         Ok(())
     }
 
-    /// `textDocument/codeAction` on an open goal `?` of a file on its own
-    /// (SW-915 stage 2): replacing it with what closes it, the top three
-    /// kernel-checked suggestions of `search --at` (and a tactic that
-    /// closes it alone). The search takes about a second, so it runs on a
-    /// thread of its own, with sessions of its own, and answers from there;
-    /// anywhere else, or in a project's file, the answer is empty at once.
+    /// `textDocument/codeAction` on an open goal `?` (SW-915 stage 2):
+    /// replacing it with what closes it, the top three kernel-checked
+    /// suggestions of `search --at` (and a tactic that closes it alone). In
+    /// a project's file (D2100) the project is read with the editor's text
+    /// of its open files, and loaded through its check cache. The search
+    /// takes a second or two, so it runs on a thread of its own, with
+    /// sessions of its own, and answers from there; anywhere else the
+    /// answer is empty at once.
     fn code_action(&self, request: Request) {
         let id = request.id.clone();
         let empty = || Response::new_ok(id.clone(), serde_json::Value::Null);
@@ -277,22 +279,24 @@ impl Main<'_> {
             return;
         };
         let uri = p.text_document.uri;
-        let goal = {
+        let (goal, project) = {
             let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
-            let in_project = locate(&nav, &uri).is_some_and(|(root, _, _)| root.is_dir());
+            // A project's file: its folder and its path in it.
+            let project = locate(&nav, &uri).and_then(|(root, _, place)| match place {
+                Place::Program(relative) if root.is_dir() => Some((root.to_path_buf(), relative)),
+                _ => None,
+            });
             let key = |p: Position| (p.line, p.character);
-            (!in_project)
-                .then(|| nav.goals.get(&uri))
-                .flatten()
-                .and_then(|goals| {
-                    goals
-                        .iter()
-                        .find(|d| {
-                            key(d.range.start) <= key(p.range.end)
-                                && key(p.range.start) <= key(d.range.end)
-                        })
-                        .map(|d| d.range)
-                })
+            let goal = nav.goals.get(&uri).and_then(|goals| {
+                goals
+                    .iter()
+                    .find(|d| {
+                        key(d.range.start) <= key(p.range.end)
+                            && key(p.range.start) <= key(d.range.end)
+                    })
+                    .map(|d| d.range)
+            });
+            (goal, project)
         };
         let text = self.texts.borrow().get(&uri).cloned();
         let path = uri.to_file_path().ok();
@@ -300,6 +304,17 @@ impl Main<'_> {
             let _ = self.connection.sender.send(empty().into());
             return;
         };
+        // In a project, the other open files' text too, as the editor has
+        // it (by path in the project).
+        let project = project.map(|(root, path_in)| {
+            let open: BTreeMap<String, String> = (self.texts.borrow().iter())
+                .filter_map(|(u, t)| {
+                    let p = u.to_file_path().ok()?;
+                    Some((relative(&root, &p)?, t.clone()))
+                })
+                .collect();
+            (root, path_in, open)
+        });
         let sender = self.connection.sender.clone();
         let stack = self.stack;
         let reply = id.clone();
@@ -307,7 +322,12 @@ impl Main<'_> {
             .name("stitchwort-search-at".into())
             .stack_size(stack)
             .spawn(move || {
-                let actions = closing_actions(stack, &uri, &path, &text, range);
+                let actions = match project {
+                    Some((root, relative, open)) => {
+                        project_closing_actions(stack, &uri, &root, &relative, open, range)
+                    }
+                    None => closing_actions(stack, &uri, &path, &text, range),
+                };
                 let _ = sender.send(Response::new_ok(reply, actions).into());
             });
         if spawned.is_err() {
@@ -1576,12 +1596,8 @@ fn closing_actions(
     text: &str,
     range: lsp_types::Range,
 ) -> serde_json::Value {
-    use stitchwort_driver::search_at::{AtOptions, GoalAt, search_at_text};
-    let options = AtOptions {
-        limit: 3,
-        time: Duration::from_secs(5),
-        ..AtOptions::default()
-    };
+    use stitchwort_driver::search_at::{GoalAt, search_at_text};
+    let options = action_options();
     let at = GoalAt::Line(
         range.start.line as usize + 1,
         Some(range.start.character as usize + 1),
@@ -1597,15 +1613,92 @@ fn closing_actions(
     let Ok(report) = search_at_text(stack, name, text, at, &options, cache.as_deref()) else {
         return serde_json::Value::Null;
     };
+    actions_for(&report, uri, text, range)
+}
+
+/// Options for the code action's search: the top three, within 5 s.
+fn action_options() -> stitchwort_driver::search_at::AtOptions {
+    stitchwort_driver::search_at::AtOptions {
+        limit: 3,
+        time: Duration::from_secs(5),
+        ..Default::default()
+    }
+}
+
+/// [`closing_actions`] for a goal in the file `relative` of the project in
+/// folder `root`, read from disk except for the files open in the editor
+/// (`open`, by path in the project): the project's namespaces through its
+/// check cache, the goal read and the proofs checked in the file's
+/// namespace, as `search --at` does.
+fn project_closing_actions(
+    stack: usize,
+    uri: &Url,
+    root: &Path,
+    relative: &str,
+    open: BTreeMap<String, String>,
+    range: lsp_types::Range,
+) -> serde_json::Value {
+    use stitchwort_driver::search_at::{GoalAt, Overlay, ProjectGoal};
+    let Some(text) = open.get(relative).cloned() else {
+        return serde_json::Value::Null;
+    };
+    let disk = DiskFiles {
+        root: root.to_path_buf(),
+    };
+    let files = Overlay {
+        base: &disk,
+        texts: open,
+    };
+    let name = root
+        .file_name()
+        .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
+    let cache = cache_dir(root);
+    let goal = ProjectGoal {
+        project: &name,
+        files: &files,
+        path: relative,
+        cache: cache.as_deref(),
+        at: GoalAt::Line(
+            range.start.line as usize + 1,
+            Some(range.start.character as usize + 1),
+        ),
+    };
+    let mut session = Session::for_stack(stack);
+    let found = session.search_at_project(&goal, &action_options());
+    drop(session);
+    match found {
+        Ok(report) => actions_for(&report, uri, &text, range),
+        Err(_) => serde_json::Value::Null,
+    }
+}
+
+/// The code actions for what `search --at` found at the `?` at `range` of
+/// `text`: each tactic that closes it alone, then the top three closing
+/// proofs, written as they go there (in brackets where the `?` is an
+/// argument).
+fn actions_for(
+    report: &stitchwort_driver::search_at::AtReport,
+    uri: &Url,
+    text: &str,
+    range: lsp_types::Range,
+) -> serde_json::Value {
+    use stitchwort_driver::search_at::{paste_text, tactic_proof};
+    let span = (offset_at(text, range.start), offset_at(text, range.end));
     let action = |title: String, proof: &str| {
         serde_json::json!({
             "title": title,
             "kind": "quickfix",
-            "edit": {"changes": {uri.as_str(): [{"range": range, "newText": proof}]}},
+            "edit": {"changes": {uri.as_str(): [{"range": range, "newText": paste_text(text, span, proof)}]}},
         })
     };
     let mut actions: Vec<serde_json::Value> = (report.tactics.iter())
-        .map(|t| action(format!("Replace ? with `{t}` (closes it alone)"), t))
+        .map(|t| {
+            let proof = tactic_proof(report, t);
+            action(
+                format!("Replace ? with `{proof}` (closes it alone)"),
+                &proof,
+            )
+        })
         .collect();
     for s in report
         .results

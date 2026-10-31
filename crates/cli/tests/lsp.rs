@@ -1612,6 +1612,69 @@ fn a_code_action_at_a_goal_offers_what_closes_it() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The code action at a `?` in a project's file (SW-915, D2100): the goal
+/// read in the file's namespace, from the editor's unsaved text (on disk
+/// the file has no goal), with the project's lemma written as the file can
+/// write it (its full name: the file doesn't import it), checked in the
+/// file.
+#[test]
+fn a_code_action_at_a_goal_in_a_project_offers_what_closes_it() {
+    let dir = temp_dir("code-action-project");
+    let write = |path: &str, text: &str| {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, text).unwrap();
+    };
+    write("stitchwort.yaml", "# for the code action test\n");
+    write(
+        "src/Shop/Spec/Spec.sw",
+        "namespace Shop.Spec\n\
+         import Std (Nat)\n\n\
+         def double (n: Nat): Nat := n + n\n\n\
+         theorem doubleSwap (m: Nat) (n: Nat): double (m + n) = double (n + m) :=\n  \
+         rewrite Nat.addComm m n in rfl\n",
+    );
+    let saved = "namespace Shop.Proofs\n\
+                 import Shop.Spec (double as twice)\n\
+                 import Std (Nat)\n\n\
+                 theorem twiceTwo (a: Nat): twice a = a + a := rfl\n";
+    write("src/Shop/Proofs/Proofs.sw", saved);
+    let file = dir.join("src/Shop/Proofs/Proofs.sw");
+    let uri = uri(&file);
+    let text =
+        format!("{saved}\ntheorem swapped (a: Nat) (b: Nat): twice (a + b) = twice (b + a) := ?\n");
+    let mut client = Client::start();
+    client.open(&uri, &text);
+    let published = client.diagnostics(&uri, 1);
+    assert_eq!(published.len(), 1, "{published:?}");
+    let at = json!({"line": 6, "character": 69});
+    let found = client.request(
+        "textDocument/codeAction",
+        json!({"textDocument": {"uri": uri}, "range": {"start": at, "end": at},
+               "context": {"diagnostics": []}}),
+    );
+    let titles: Vec<&str> = (found.as_array().expect("actions").iter())
+        .map(|a| a["title"].as_str().unwrap())
+        .collect();
+    assert!(
+        titles.contains(&"Replace ? with `Shop.Spec.doubleSwap a b` (exact, Shop.Spec.doubleSwap)"),
+        "{titles:?}"
+    );
+    let first = (found.as_array().unwrap().iter())
+        .find(|a| {
+            a["title"]
+                .as_str()
+                .unwrap()
+                .contains("doubleSwap a b` (exact")
+        })
+        .unwrap();
+    let edit = &first["edit"]["changes"][uri.as_str()][0];
+    assert_eq!(edit["newText"], "Shop.Spec.doubleSwap a b");
+    assert_eq!(edit["range"]["start"], json!({"line": 6, "character": 68}));
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn named_arguments_hover_and_complete_parameter_names() {
     let dir = temp_dir("named-arguments");

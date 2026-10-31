@@ -277,6 +277,9 @@ pub struct Opts {
     /// definition and data type the pattern names (D2054). If it finds
     /// nothing, a second pass runs without the filter (D2063).
     pub filter: bool,
+    /// Past this, no more candidates are compared (`Stats::stopped`):
+    /// `search --at`'s time limit covers its search too.
+    pub deadline: Option<std::time::Instant>,
 }
 
 impl Default for Opts {
@@ -286,6 +289,7 @@ impl Default for Opts {
             anywhere: true,
             iff: None,
             filter: true,
+            deadline: None,
         }
     }
 }
@@ -504,6 +508,10 @@ pub struct Stats {
     /// Comparisons that ran out of their step budget: possible missed
     /// matches.
     pub out_of_budget: usize,
+    /// The candidates of those comparisons, in the order compared.
+    pub out_of_budget_items: Vec<Item>,
+    /// [`Opts::deadline`] passed before every candidate was compared.
+    pub stopped: bool,
     /// Matches two-way unification found crossed that a one-way retry
     /// found better.
     pub upgraded: usize,
@@ -775,6 +783,21 @@ impl Elaborator {
             if let Value::Neutral(Head::Meta(_), s) = force(g, value.clone())?
                 && s.is_empty()
             {
+                // Written as more than a hole, it computed to one (SW-942):
+                // `List.drop _ 0` is its list argument.
+                if !matches!(term.strip_loc(), Term::Meta(_) | Term::Var(_)) {
+                    return Err(Diagnostic::error(
+                        "E-SEARCH-PATTERN",
+                        "this pattern computes to a hole on its own, which would match everything",
+                    )
+                    .with_label(span, "this is what one of its holes is, once computed")
+                    .with_note(
+                        "the library's definitions compute on what the pattern gives them: \
+                         `List.drop _ 0` is the list `_`, so it is a hole. Search for what \
+                         it is about instead (`List.drop _ _ = _`), or give the hole \
+                         some structure",
+                    ));
+                }
                 return Err(Diagnostic::error(
                     "E-SEARCH-PATTERN",
                     "this pattern is a hole on its own, which would match everything",
@@ -1061,6 +1084,13 @@ impl Elaborator {
             for (i, candidate) in candidates.iter().enumerate() {
                 if !keep(candidate) {
                     continue;
+                }
+                if opts
+                    .deadline
+                    .is_some_and(|d| std::time::Instant::now() >= d)
+                {
+                    stats.stopped = true;
+                    break;
                 }
                 stats.candidates += 1;
                 for pattern in patterns {
@@ -1349,8 +1379,12 @@ impl Elaborator {
         })();
         match found {
             Ok(hit) => hit,
-            Err(_) => {
+            Err(why) => {
+                if std::env::var_os("STITCHWORT_SEARCH_DEBUG").is_some() {
+                    eprintln!("search: {} ran out ({why:?})", candidate.item.path(g));
+                }
                 stats.out_of_budget += 1;
+                stats.out_of_budget_items.push(candidate.item);
                 None
             }
         }

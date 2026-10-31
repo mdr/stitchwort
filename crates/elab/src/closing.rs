@@ -53,6 +53,8 @@ pub struct Goal {
     pub prop: bool,
     /// The target, as the file writes it, with the introduced variables.
     pub target: String,
+    /// Past this, the search stops comparing candidates (set by the caller).
+    pub deadline: Option<std::time::Instant>,
 }
 
 /// One argument of a planned application.
@@ -215,6 +217,7 @@ impl Elaborator {
                 intros,
                 prop,
                 target: shown,
+                deadline: None,
             })
         })();
         self.globals.budget.restore(saved);
@@ -266,6 +269,7 @@ impl Elaborator {
             anywhere: false,
             iff: None,
             filter: false,
+            deadline: goal.deadline,
         };
         let found = self.search(std::slice::from_ref(&goal.pattern), candidates, &opts, keep);
         let plans = (found.hits.iter())
@@ -453,6 +457,7 @@ impl Elaborator {
             anywhere: false,
             iff,
             filter: false,
+            deadline: goal.deadline,
         };
         let mut out = Vec::new();
         let mut seen: Vec<String> = Vec::new();
@@ -463,11 +468,17 @@ impl Elaborator {
             let HeadKey::Def(head) = head_key(&call) else {
                 continue;
             };
-            let Some(pattern) = self.call_pattern(&call) else {
-                continue;
+            // Reading the call's type and printing it evaluate it, which can
+            // compute it (a closed list of 130,000 sequences in AoC 2024 day
+            // 22 took minutes and gigabytes): under a comparison's budget.
+            let opened = {
+                let _op = g.budget.operation(ATTEMPT);
+                self.call_pattern(&call).map(|p| {
+                    let shown = eval(g, &[], &call).map(|v| self.show_with_vars(&goal.vars, &v));
+                    (p, shown)
+                })
             };
-            let Ok(Ok(subterm)) = eval(g, &[], &call).map(|v| self.show_with_vars(&goal.vars, &v))
-            else {
+            let Some((pattern, Ok(Ok(subterm)))) = opened else {
                 continue;
             };
             if seen.contains(&subterm) {

@@ -1,0 +1,112 @@
+---
+source: crates/cli/tests/search.rs
+expression: "serde_json::to_string_pretty(&report).unwrap()"
+---
+{
+  "budget": {
+    "candidates": "(the library's size)",
+    "checks": "(varies)",
+    "exhausted": true,
+    "inFile": {
+      "checked": 4,
+      "rejected": 0
+    },
+    "internalErrors": 0,
+    "matched": 33,
+    "maxCandidates": 50,
+    "outOfBudget": 3,
+    "tried": 33,
+    "truncated": false
+  },
+  "goal": {
+    "column": 69,
+    "file": "shop/src/Shop/Proofs/Proofs.sw",
+    "hypotheses": [
+      {
+        "name": "a",
+        "type": "Nat"
+      },
+      {
+        "name": "b",
+        "type": "Nat"
+      }
+    ],
+    "index": 1,
+    "line": 7,
+    "target": "twice (a + b) = twice (b + a)"
+  },
+  "results": [
+    {
+      "checked": "kernel",
+      "class": "exact",
+      "file": "shop/src/Shop/Spec/Spec.sw",
+      "import": "import Shop.Spec (doubleSwap)",
+      "kind": "theorem",
+      "line": 6,
+      "name": "Shop.Spec.doubleSwap",
+      "proof": "Shop.Spec.doubleSwap a b",
+      "searchRank": 1,
+      "type": "(m: Nat) → (n: Nat) → Shop.Spec.double (m + n) = Shop.Spec.double (n + m)"
+    },
+    {
+      "checked": "kernel",
+      "class": "afterObligations",
+      "file": "shop/src/Shop/Spec/Spec.sw",
+      "import": "import Shop.Spec (doubleSwap)",
+      "kind": "theorem",
+      "line": 6,
+      "name": "Shop.Spec.doubleSwap",
+      "obligations": [
+        {
+          "closer": "rfl",
+          "target": "twice (b + a) = b + a + (b + a)"
+        }
+      ],
+      "proof": "rewrite Shop.Spec.doubleSwap a b in rfl",
+      "type": "(m: Nat) → (n: Nat) → Shop.Spec.double (m + n) = Shop.Spec.double (n + m)"
+    }
+  ],
+  "rewrites": [
+    {
+      "at": "a + b + (a + b)",
+      "checked": "kernel",
+      "closes": "rfl",
+      "direction": "leftToRight",
+      "equation": "eq",
+      "file": "shop/src/Shop/Spec/Spec.sw",
+      "goal": "twice (b + a) = b + a + (b + a)",
+      "import": "import Shop.Spec (doubleSwap)",
+      "line": 6,
+      "name": "Shop.Spec.doubleSwap",
+      "proof": "rewrite Shop.Spec.doubleSwap a b in ?",
+      "type": "(m: Nat) → (n: Nat) → Shop.Spec.double (m + n) = Shop.Spec.double (n + m)"
+    },
+    {
+      "at": "a + b + (a + b)",
+      "checked": "kernel",
+      "closes": "omega",
+      "direction": "leftToRight",
+      "equation": "eq",
+      "file": "shop/src/Shop/Proofs/Proofs.sw",
+      "goal": "a + b + (a + b) = b + a + (b + a)",
+      "import": null,
+      "line": 5,
+      "name": "Shop.Proofs.twiceTwo",
+      "proof": "rewrite twiceTwo (a + b) in ?",
+      "type": "(a: Nat) → Shop.Spec.double a = a + a"
+    }
+  ],
+  "tactics": [
+    "omega",
+    "cases"
+  ],
+  "total": {
+    "applicable": 0,
+    "closing": 5,
+    "rewrites": 7
+  },
+  "version": 1,
+  "warnings": [
+    "3 comparisons ran out of steps (with Std.Float.Theory.overflowHalf, Std.Float.Theory.largestBelow, Std.Float.Theory.infinityAbove): those may match and weren't listed"
+  ]
+}

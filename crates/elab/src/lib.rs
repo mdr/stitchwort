@@ -1005,6 +1005,18 @@ impl Elaborator {
         self.module = module::ModuleState::default();
     }
 
+    /// After a namespace was elaborated (and not left): names typed in from
+    /// now on are looked up as `file`, one of its files, writes them, with
+    /// that file's imports (`search --at` in a project's file, SW-915).
+    /// False if `file` isn't one of the namespace's files.
+    pub fn use_file_scope(&mut self, file: stitchwort_syntax::FileId) -> bool {
+        let found = (self.module.files.iter()).position(|f| f.id == Some(file));
+        if found.is_some() {
+            self.module.file = found;
+        }
+        found.is_some()
+    }
+
     /// Adds `import` lines typed into the REPL to the imports names typed in
     /// see, after any the loaded file has: they accumulate. Returns the
     /// errors and warnings, as a file's imports would give.
