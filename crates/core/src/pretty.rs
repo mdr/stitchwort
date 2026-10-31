@@ -44,10 +44,11 @@ pub trait NameScope {
         Vec::new()
     }
 
-    /// The definition `a == b` decides an equation `a = b` of type `ty` by
-    /// here, applied to `a` and `b`: `Nat.decEq` for `Nat`. `None` if `ty`
-    /// mentions a variable, or `==` decides it some other way.
-    fn eq_decider(&self, _ty: &Term) -> Option<DefId> {
+    /// What `a == b` decides an equation `a = b` of type `ty` by here, a
+    /// closed term applied to `a` and `b`: `Nat.decEq` for `Nat`,
+    /// `List.decEq [Nat] (x y => Nat.decEq x y)` for `List Nat`. `None` if
+    /// `ty` mentions a variable, or `==` decides it some other way.
+    fn eq_decision(&self, _ty: &Term) -> Option<Term> {
         None
     }
 }
@@ -972,7 +973,7 @@ impl<'g> Printer<'g> {
                         let rhs = self.print(names, rhs, Prec::Add);
                         return (format!("{lhs} {op} {rhs}"), Prec::Eq);
                     }
-                    if let Some((lhs, rhs)) = self.decided_equation(term) {
+                    if let Some((lhs, rhs)) = self.decided_equation(names.len(), term) {
                         let lhs = self.print(names, lhs, Prec::Add);
                         let rhs = self.print(names, rhs, Prec::Add);
                         return (format!("{lhs} == {rhs}"), Prec::Eq);
@@ -1317,11 +1318,15 @@ impl<'g> Printer<'g> {
         Some((op, lhs, rhs))
     }
 
-    /// The sides of `Decidable.toBool {a = b} (f a b)`, to be written
-    /// `a == b`: only where that elaborates to exactly this, which is where
-    /// the scope's `==` decides an equation of its type by `f`
-    /// ([`NameScope::eq_decider`]), and only in a goal.
-    fn decided_equation<'t>(&self, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
+    /// The sides of `Decidable.toBool {a = b} d`, to be written `a == b`:
+    /// only where that elaborates to this term or one it computes to, and
+    /// only in a goal. `a == b` elaborates to `toBool {a = b} (f a b)`, `f`
+    /// what the scope's `==` decides an equation of the type by
+    /// ([`NameScope::eq_decision`]). `d` is that, or something it computes
+    /// to with the goal's `level` variables unknown: `Nat.decEq (Succ m)
+    /// (Succ n)` is a goal's `Nat.decEqFrom (Succ m) (Succ n) (Nat.equal m
+    /// n) rfl` once computed, and `a == b` pasted back checks as the same.
+    fn decided_equation<'t>(&self, level: usize, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
         if !self.equations.get() || self.show_hidden.get() {
             return None;
         }
@@ -1339,15 +1344,25 @@ impl<'g> Printer<'g> {
         let Term::Eq(Some(ty), a, b) = prop.strip_loc() else {
             return None;
         };
-        let (f, sides) = full_spine(decision);
-        let Term::Def(f) = f else {
+        let f = scope.eq_decision(ty)?;
+        let written = Term::app(Term::app(f, (**a).clone()), (**b).clone());
+        if same_term(&written, decision) {
+            return Some((&**a, &**b));
+        }
+        // Computed: compare the two with the goal's variables unknown. A
+        // goal with a metavariable in it is left as it is.
+        if [decision, &**a, &**b]
+            .iter()
+            .any(|t| t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))
+        {
             return None;
-        };
-        let [(x, Icit::Explicit), (y, Icit::Explicit)] = sides[..] else {
-            return None;
-        };
-        let decided = same_term(x, a) && same_term(y, b) && scope.eq_decider(ty) == Some(*f);
-        decided.then_some((&**a, &**b))
+        }
+        let env: Vec<Value> = (0..level).map(Value::var).collect();
+        let written = crate::value::eval(self.g, &env, &written).ok()?;
+        let decision = crate::value::eval(self.g, &env, decision).ok()?;
+        crate::value::conv(self.g, level, &written, &decision)
+            .ok()?
+            .then_some((&**a, &**b))
     }
 
     /// The operator and operands of `a < b` or `a <= b` as propositions
