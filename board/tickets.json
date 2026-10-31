@@ -650,13 +650,13 @@
     {
       "id": 687,
       "title": "Soundness fuzzing: mutate proofs in examples, AoC and rogue (change constants, swap lemmas, drop hypotheses); an accepted mutated theorem must have no counterexample (counterexample search as oracle); plus automated attempts to prove Void, as the 19 Oct pilot did by hand (27 Oct discussion)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
-      "where": "",
+      "where": "queued: starts when a lane frees (D2070)",
       "labels": [],
-      "body": "",
+      "body": "\n\nD2070 (Matt, 31 Oct 2026): yes; start when a lane frees. Oracle: stitchwort audit (SW-912) counterexample search on accepted mutants.\n",
       "created": "2026-10-27",
-      "updated": "2026-10-27",
+      "updated": "2026-10-31",
       "commits": []
     },
     {
