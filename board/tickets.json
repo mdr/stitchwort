@@ -1,5 +1,5 @@
 {
-  "next": 930,
+  "next": 936,
   "tickets": [
     {
       "id": 47,
@@ -2062,6 +2062,92 @@
         "elab"
       ],
       "body": "From SW-817 step 4.0 (D2095, 31 Oct 2026): a generalising match now waits while what it reads holds an unknown. If the only thing that would fix that unknown is the waiting match's own alternatives, it waits for ever and the program is rejected, e.g.\n  let g := acc => match List.length [acc] with | Zero => 0 | Succ k => plus acc k\n  n   -- g never applied\nMain accepted this before step 4.0. Fix as Lean does as a last resort: at the end, generalise anyway, then re-check the choices (occurrence test, motive) once the alternatives have solved the unknown. See postponement.md \"As built (step 4.0)\". No corpus program has this shape.\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 930,
+      "title": "Operator section (<) gives a Prop, not a Bool: zipWith … (<) |> .count fails E-AUTO-NONE, error points at the lambda not at (<)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "diagnostics"
+      ],
+      "body": "Repro in NOTES-2021 item 1. Either a section of a comparison where a Bool is expected should be the Bool comparison (as a < b written inline in a Bool position is decided), or the error must point at the section and say how to get the Bool form.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 931,
+      "title": "Blanks (_) in a lemma call aren't filled before its proof argument is checked (Eq.trans (List.filterSkip _ _ _ (rewrite …)) fails)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "NOTES-2021 item 2; same friction as AoC 2024 day 1. Find whether postponement (SW-817) or the order of argument checking explains it; fix or report.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 932,
+      "title": "std: List.windows and drop lemmas (dropAt, dropPast); move list drop lemmas out of Std.Map.Tree and an equalSwap out of Std.Float.Theory",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "NOTES-2021 item 3: std lacks List.windows and drop counterparts of takeSucc/takeAll (dropAt, dropPast proved in Aoc.Year2021.Day01.Proofs); three list drop lemmas live in Std.Map.Tree; Nat.equalSwap's equivalent lives in Std.Float.Theory. Move them where search and readers expect.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 933,
+      "title": "if h: inside a proof is an error, and its suggestion (match on a Bool) loses h",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "diagnostics"
+      ],
+      "body": "NOTES-2021 item 4. Either allow the dependent if (h) in proofs, or make the suggestion one that keeps h (match on the decision procedure, e.g. Nat.decLessThan).\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 934,
+      "title": "Goals print a == b as Decidable.toBool (Nat.decEqFrom …) in some cases, hiding that DecEq.refl closes it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "NOTES-2021 item 5. SW-918 made goals print == when the decider is what == would choose; extend it to the decEqFrom form (and List's decEq taking the items' decider) where it reads back to the same term.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 935,
+      "title": "search: premise patterns fall back to the relaxed pass with unrelated results; project errors reprinted on every search",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From AoC 2021 day 1's use of stitchwort search (List.sum (_ ++ _) is SW-926, in progress). Rank or filter the relaxed pass better for premise patterns; print project errors once (or summarise) rather than on every search.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
