@@ -1,5 +1,5 @@
 {
-  "next": 953,
+  "next": 954,
   "tickets": [
     {
       "id": 47,
@@ -2415,16 +2415,18 @@
     {
       "id": 951,
       "title": "AoC 2021 day 6: Lanternfish, bucket count proved equal to the per-fish simulation",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "aoc"
       ],
-      "body": "AoC 2021 day 6 (Lanternfish) in aoc/src/Aoc/Year2021/Day06: program counting fish per timer value (9 buckets), spec as the puzzle's per-fish simulation, proof that the bucket count equals the per-fish simulation's count for every input and every number of days. Notes in aoc/NOTES-2021.md. Lane worktree agent-a28a64f0e7f540791.\n",
+      "body": "AoC 2021 day 6 (Lanternfish) in aoc/src/Aoc/Year2021/Day06: program counting fish per timer value (9 buckets), spec as the puzzle's per-fish simulation, proof that the bucket count equals the per-fish simulation's count for every input and every number of days. Notes in aoc/NOTES-2021.md. Lane worktree agent-a28a64f0e7f540791.\n\n- 31 Oct: done in lane, commit 6a80cc6a on worktree-agent-a28a64f0e7f540791. fishAfterCorrect/part1Correct/part2Correct proved for every number of days and every list of timers ≤ 8 (hypothesis needed: a fish at 9 has no count; parser rejects >8). Audit: 21 theorems, 0 failed, 0 warnings. Answers 380243, 1708791884591; run 0.24 s. Ready for review.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "6a80cc6a"
+      ]
     },
     {
       "id": 952,
@@ -2436,6 +2438,20 @@
         "tooling"
       ],
       "body": "From verifying search stage 2b (31 Oct 2026): on aoc 2021 Day02 horizontalAfter Nil case (goal start.horizontal = start.horizontal), --at says rfl/omega/cases/byDecision alone close it, then lists lemmas led by Aoc.Year2024.Day08.Proofs.gcdZero (another AoC day, needing an import of its proofs) and Int.natAbsToInt. When a tactic alone closes the goal, keep the lemma list short; prefer std and the file's own project neighbourhood over unrelated project namespaces; rank lemmas whose statement is only reflexive after computation lower. Also from stage 2b misses: lemmas that fit only after unfolding the goal's own definition (most misses), premises fillable only by theorems, goals that can't be written (E-SEARCH-AT on shadowed names), and slow re-checking of heavy namespaces (Day13 61 s).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 953,
+      "title": "AoC 2021 day 7: The Treachery of Whales (program, spec, proofs)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "agent-a6b7e5d108eef7b9b",
+      "labels": [
+        "aoc"
+      ],
+      "body": "AoC 2021 day 7 (crab alignment, minimal fuel) in aoc/src/Aoc/Year2021/Day07: program, spec (least total fuel over all positions), proofs for every input, tests, notes in aoc/NOTES-2021.md. Lane worktree agent-a6b7e5d108eef7b9b.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
