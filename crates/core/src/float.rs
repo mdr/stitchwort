@@ -738,8 +738,7 @@ pub fn register_def(g: &mut Globals, id: DefId, b: Builtin) -> Result<()> {
     if g.builtins.float.data.is_none() {
         return Err(refused(span, b.name(), "`Float` isn't bound"));
     }
-    // PROTOTYPE (SW-922): skip the pin while measuring a redefined division.
-    if std::env::var_os("SW922_NO_FLOAT_PIN").is_none() && hex_of(g, || def_hash(g, id)).as_deref() != Some(pinned) {
+    if hex_of(g, || def_hash(g, id)).as_deref() != Some(pinned) {
         return Err(refused(
             span,
             b.name(),

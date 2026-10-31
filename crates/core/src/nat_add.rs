@@ -95,13 +95,6 @@ pub fn stuck(
         return Ok(None);
     }
     let (k, base) = view_with(g, n, force)?;
-    // PROTOTYPE (SW-922, option b): R4 only for constants up to
-    // SW922_R4_MAX, when that is set.
-    if let Some(max) = std::env::var("SW922_R4_MAX").ok().and_then(|s| s.parse::<u64>().ok())
-        && k > BigUint::from(max)
-    {
-        return Ok(None);
-    }
     Ok(match base {
         // `m + k`: R4 `k` times, then R3.
         None => Some((k, m.clone())),
