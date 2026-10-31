@@ -738,7 +738,7 @@ or columns is marked (diagonals don't count). A board's score is the sum
 of its unmarked numbers times the number just drawn. Part 1 is the score
 of the first board to win, part 2 of the last. Answers on Matt's input:
 49860 and 24628 (his Scala solution's); the puzzle's example gives 4512
-and 1924. Compiler built from `main` at 8208cff5, 31 October 2026.
+and 1924. Compiler built from `main` at fcab7cf9, 31 October 2026.
 
 ### The program
 
