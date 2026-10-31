@@ -1,5 +1,5 @@
 {
-  "next": 936,
+  "next": 937,
   "tickets": [
     {
       "id": 47,
@@ -2135,7 +2135,7 @@
       "labels": [
         "diagnostics"
       ],
-      "body": "NOTES-2021 item 5. SW-918 made goals print == when the decider is what == would choose; extend it to the decEqFrom form (and List's decEq taking the items' decider) where it reads back to the same term.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n",
+      "body": "NOTES-2021 item 5. SW-918 made goals print == when the decider is what == would choose; extend it to the decEqFrom form (and List's decEq taking the items' decider) where it reads back to the same term.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nProgress (lane agent-a9ff062c, efb35637): goals fold toBool {a = b} d to a == b when d is (or is definitionally, goal variables unknown) what == applies; eq_decider -> eq_decision returns the closed decision term, so List's (with items' decider) counts. decEqFrom and List.decCons forms now print (Succ m == Succ m) = True / (Cons m xs == Cons m xs) = True; paste-back test extended.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
@@ -2153,6 +2153,22 @@
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
+    },
+    {
+      "id": 936,
+      "title": "AoC 2021 day 2: Dive! (program, spec, proofs)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "worktree-agent-a00a254fc4c1f8211",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Solve AoC 2021 day 2 (Dive!) in aoc/src/Aoc/Year2021/Day02: program, spec (step-by-step simulation), proofs that the solution equals the spec for every input, tests, friction report in aoc/NOTES-2021.md.\n\nProgress:\n- started; worktree agent-a00a254fc4c1f8211\n- program, spec, proofs (part1Correct, part2Correct, no hypotheses, Int depth/aim) and tests done; audit: 13 theorems, 0 failed, 0 with warnings\n- committed 2851eab6 on worktree-agent-a00a254fc4c1f8211; ready to merge (aoc_answers year2021_day02 passes, task audit clean, fmt clean)\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": [
+        "2851eab6"
+      ]
     }
   ]
 }
