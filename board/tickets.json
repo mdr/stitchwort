@@ -1999,9 +1999,9 @@
     {
       "id": 925,
       "title": "A match's motive check is skipped when its scrutinee holds an unsolved unknown (E-MATCH-MOTIVE missed)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
-      "where": "",
+      "where": "fixed by SW-817 step 4.0 (4e765fba)",
       "labels": [
         "bug",
         "elab"
@@ -2014,7 +2014,7 @@
     {
       "id": 926,
       "title": "E-IMPORT-CLASH note suggests List.length, which doesn't resolve without import Std (List)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
