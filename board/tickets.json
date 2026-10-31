@@ -1,5 +1,5 @@
 {
-  "next": 939,
+  "next": 943,
   "tickets": [
     {
       "id": 47,
@@ -2209,7 +2209,7 @@
     {
       "id": 938,
       "title": "AoC 2021 day 3: Binary Diagnostic, solved and proved against a spec",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -2222,6 +2222,62 @@
         "6ae8a904",
         "a8cf75b6"
       ]
+    },
+    {
+      "id": 939,
+      "title": "cases splits two stuck calls on the same variable separately (impossible combinations) instead of splitting the variable",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "cases splits stuck calls separately (List.get t 0, List.head t) instead of the variable they are stuck on (t), creating impossible case combinations (one None, the other Some False); matching on t by hand fixed it. Related: SW-608 item 4 (an unfolded Bool test split as independent atoms).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 940,
+      "title": "std: binary number from List Bool, transpose column lemma, Option.mapCong / Option.mapId",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "std candidates proved locally in Aoc.Year2021.Day03.Proofs: reading a List Bool as a binary number (and its lemmas), what transpose's columns are, Option.mapCong / Option.mapId.\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 941,
+      "title": "E-TERMINATION: matching on a tuple of parameters loses structural recursion, and the message doesn't say so",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Matching on a tuple of parameters loses structural recursion, and the E-TERMINATION message doesn't say that the tuple match is why (or suggest matching the parameters directly).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 942,
+      "title": "search: say when a pattern computes to a hole; --at should try cases; 'ran out of steps' warnings on every --at",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "Search: (1) 'List.drop _ 0' is refused as 'a hole on its own' because it computes to xs; the message should say so. (2) search --at doesn't try cases as a closer: (a < b) = ¬(b ≤ a) which cases proves got nothing. (3) every --at run warned '3 comparisons ran out of steps'. (4) premise pattern '(?a < ?b) = not (?b ≤ ?a)' fell to the relaxed pass with unrelated results. (5) Option.map o (x => x) = o offered Option.orElseNone: correct but unexpected name (fine).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
     }
   ]
 }
