@@ -1,5 +1,5 @@
 {
-  "next": 948,
+  "next": 951,
   "tickets": [
     {
       "id": 47,
@@ -2353,7 +2353,7 @@
     {
       "id": 947,
       "title": "AoC 2021 day 5: Hydrothermal Venture, solved and proved",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree-agent-aeb1c100461c9580a",
       "labels": [
@@ -2366,6 +2366,48 @@
         "9448f1a8",
         "2ae48b91"
       ]
+    },
+    {
+      "id": 948,
+      "title": "cases doesn't use Bool-guarded implication hypotheses (b = True → fact); two-coordinate goals hit the case budget",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "cases doesn't use hypotheses of the form b = True → fact (implications guarded by a Bool); the proof had to match on b by hand and apply them. Also: proving both coordinates at once ran past the 64-case budget.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 949,
+      "title": "std: Nat.mulRightCancel, List.countRangeEq, a counting notion with uniqueness",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "std candidates from day 5: Nat.mulRightCancel (with a Bool form), List.countRangeEq, a general 'number of x with p x' with a uniqueness lemma. Search by pattern for factor cancellation found nothing; grep found Nat.mulSuccCancel.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 950,
+      "title": "Day 5 small items: argument on its own line misread (error points wrong place); tuple def parameter error lacks a hint; --at fails on shadowed hypotheses",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "(1) An argument written on its own line at the call's indentation is read as a separate statement; the error points at the argument and the real clue is a later warning. (2) A tuple pattern isn't allowed as a def parameter and the parse error doesn't suggest let (x, y) := point. (3) search --at on a project file failed E-IMPORT-UNKNOWN (reads the file alone; in progress in SW-915); in a scratch copy E-SEARCH-AT because a match Nat.decEq leaves a shadowed hypothesis (shape✝) that can't be written.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
     }
   ]
 }
