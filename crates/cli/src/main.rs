@@ -1836,6 +1836,52 @@ fn search_at(
     code
 }
 
+/// For `search` of a file or project that doesn't check (SW-935): one
+/// line saying so, with the first error, instead of every error again on
+/// every search; `check` shows them all.
+fn unchecked_summary(
+    sources: &stitchwort_syntax::SourceMap,
+    diagnostics: &[stitchwort_syntax::Diagnostic],
+    what: &str,
+) {
+    use stitchwort_syntax::Severity;
+    let errors: Vec<_> = (diagnostics.iter())
+        .filter(|d| d.severity == Severity::Error)
+        .collect();
+    let goals = (diagnostics.iter())
+        .filter(|d| d.severity == Severity::Goal)
+        .count();
+    let plural = |n: usize, one: &str, many: &str| {
+        if n == 1 {
+            format!("1 {one}")
+        } else {
+            format!("{n} {many}")
+        }
+    };
+    let Some(first) = errors.first() else {
+        if goals > 0 {
+            eprintln!(
+                "note: {what} has {} open: the declarations with them aren't searched",
+                plural(goals, "goal", "goals")
+            );
+        }
+        return;
+    };
+    let place = first
+        .primary_span()
+        .map(|span| {
+            let (file, line) = stitchwort_driver::render::location(sources, span);
+            format!(" at {file}:{line}")
+        })
+        .unwrap_or_default();
+    eprintln!(
+        "warning: {what} doesn't check ({}; the first{place}: [{}] {}): only what checked is searched; `stitchwort check` shows the errors",
+        plural(errors.len(), "error", "errors"),
+        first.code,
+        first.message
+    );
+}
+
 /// `search` (SW-915): loads the file, or the project (or neither), and the
 /// whole library, searches it and prints the report.
 fn search(
@@ -1879,8 +1925,7 @@ fn search(
             // the file does.
             if let Err(diagnostics) = session.load_file(&path.display().to_string(), &text, context)
             {
-                report(&session.sources, &diagnostics);
-                eprintln!("warning: the file doesn't check: only what checked is searched");
+                unchecked_summary(&session.sources, &diagnostics, "the file");
             }
             std::mem::take(&mut session.warnings);
             Scope::File
@@ -1928,10 +1973,7 @@ fn search(
                             std::mem::take(&mut session.warnings);
                         }
                         Err(diagnostics) => {
-                            report(&session.sources, &diagnostics);
-                            eprintln!(
-                                "warning: the project doesn't check: only what checked is searched"
-                            );
+                            unchecked_summary(&session.sources, &diagnostics, "the project");
                         }
                     }
                     session.elab.leave_namespace();

@@ -201,10 +201,11 @@ fn a_file_is_searched_with_its_own_names_even_if_it_doesnt_check() {
     std::fs::write(dir.join("a.sw"), FILE).unwrap();
     let (code, out, err) = search(&dir, &["List.length (twice _) = _", "a.sw"]);
     assert_eq!(code, 0, "{out}{err}");
-    assert!(err.contains("E-REFL"), "{err}");
-    assert!(
-        err.contains("warning: the file doesn't check: only what checked is searched"),
-        "{err}"
+    // One line, with the first error, not the errors in full (SW-935).
+    assert_eq!(
+        err.trim_end(),
+        "warning: the file doesn't check (1 error; the first at a.sw:8: [E-REFL] `rfl` can't \
+         prove this): only what checked is searched; `stitchwort check` shows the errors",
     );
     assert_eq!(
         out,

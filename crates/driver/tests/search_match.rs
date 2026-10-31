@@ -143,6 +143,20 @@ fn rewrite_mode_takes_either_side_of_an_equation() {
     assert_eq!(report.results[0].equation, Some("eq"));
 }
 
+#[test]
+fn the_relaxed_pass_lists_only_related_candidates() {
+    // Nothing names both `f` and `Nat.min`: the relaxed pass runs. For a
+    // pattern with premises it lists neither `pAt` (its `p k` takes any
+    // pattern whole) nor anything that names neither (SW-935).
+    let report = search(r#"(n: Nat) → f n n = n → Nat.min n n = n, "Main.""#).unwrap();
+    assert_eq!(report.search_tier, Some("relaxed"), "{report:?}");
+    let rows = rows(&report);
+    assert!(
+        !rows.iter().any(|(n, _, _)| n == "pAt" || n == "anything"),
+        "{rows:?}"
+    );
+}
+
 /// Overloaded operators with operands nothing types (SW-927).
 const OVERLOADED: &str = "\
 theorem textJoin (a: Text) (b: Text): a ++ b = b ++ a := ?

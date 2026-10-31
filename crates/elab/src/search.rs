@@ -707,6 +707,17 @@ pub fn passes(pattern: &Pattern, index: &Index) -> bool {
     pattern.constants.is_subset(&index.ty) && pattern.data.is_subset(&index.data)
 }
 
+/// Whether a candidate whose type names `index` names a definition
+/// `pattern` names; for a pattern that names none, a data type it names
+/// (always, for a pattern that names neither).
+pub fn overlaps(pattern: &Pattern, index: &Index) -> bool {
+    if !pattern.constants.is_empty() {
+        // A data type in common (`List`, `Nat`) says little.
+        return !pattern.constants.is_disjoint(&index.ty);
+    }
+    pattern.data.is_empty() || !pattern.data.is_disjoint(&index.data)
+}
+
 /// Puts things back as they were before a comparison, also when it panics
 /// (so a caller that catches the panic can go on).
 pub(crate) struct Restore<'g> {
@@ -1054,6 +1065,20 @@ impl Elaborator {
                 stats.candidates += 1;
                 for pattern in patterns {
                     let filtered = tier == SearchTier::Filtered;
+                    // In the relaxed pass, a pattern with premises (a
+                    // function type) still asks for a definition or data
+                    // type in common: matched through their higher-order
+                    // variables, `Exists.map` and `Quot.funext` fit nearly
+                    // any (SW-935). A conclusion pattern, as a goal's is,
+                    // keeps the whole pass: the lemma used in a proof often
+                    // names nothing the goal does (the proof-use benchmark
+                    // loses 7 points of recall@10 with the rule).
+                    if tier == SearchTier::Relaxed
+                        && pattern.head == HeadKey::Pi
+                        && !overlaps(pattern, &candidate.index)
+                    {
+                        continue;
+                    }
                     let attempt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                         self.search_one(pattern, candidate, opts, filtered, &mut stats)
                     }));
@@ -1062,6 +1087,11 @@ impl Elaborator {
                         None
                     });
                     let Some(mut hit) = hit else { continue };
+                    // Nor, for such a pattern, one whose own variable took
+                    // the whole pattern (`List.foldLeft`'s result `b`).
+                    if tier == SearchTier::Relaxed && pattern.head == HeadKey::Pi && hit.absorbs {
+                        continue;
+                    }
                     hit.via = pattern.via.into_iter().collect();
                     best[i] = Some(match best[i].take() {
                         None => hit,
