@@ -59,6 +59,81 @@ pub struct Pattern {
     /// from a theorem or a goal: two made the same is an instantiation. In a
     /// written pattern, two `_`s may bind the same variable.
     distinct: bool,
+    /// What the pattern is: a type, or a term of this type. A target of
+    /// another type is no match, and isn't unified (unification doesn't
+    /// look at types, and an unknown solved by a term of another type can
+    /// make computing it take a `case` of one type to a constructor of
+    /// another: SW-924).
+    ty: Option<Ty>,
+}
+
+/// The type of a pattern or a target, as far as search compares them.
+#[derive(Clone)]
+enum Ty {
+    /// A type (its type is a sort).
+    Type,
+    /// A term of this type.
+    Of(Value),
+}
+
+impl Ty {
+    fn of(g: &Globals, ty: Value) -> Res<Ty> {
+        Ok(match force(g, ty)? {
+            Value::Sort(_) => Ty::Type,
+            other => Ty::Of(other),
+        })
+    }
+}
+
+/// The type of `term`, a type or a call in a theorem's type whose binders
+/// `env` opened with unknowns, when its head tells: a type former is a
+/// type; a definition or one of the theorem's variables, applied to
+/// arguments, has the type its own type gives them. `None` when it can't
+/// tell.
+fn type_of_target(g: &Globals, env: &[Value], term: &Term) -> Res<Option<Ty>> {
+    let (head, args) = term.spine();
+    let mut ty = match head {
+        Term::Pi(..) | Term::Data(..) | Term::Eq(..) | Term::Sort(..) if args.is_empty() => {
+            return Ok(Some(Ty::Type));
+        }
+        Term::Nat(_) if args.is_empty() => match g.builtins.nat {
+            Some(nat) => return Ok(Some(Ty::Of(Value::Data(nat, Vec::new())))),
+            None => return Ok(None),
+        },
+        Term::Def(id) => g.def(*id).ty_value.clone(),
+        Term::Var(_) => match force(g, eval(g, env, head)?)? {
+            Value::Neutral(Head::Meta(m), s) if s.is_empty() => match g.meta_type(m) {
+                Some((ty, 0)) => ty,
+                _ => return Ok(None),
+            },
+            _ => return Ok(None),
+        },
+        _ => return Ok(None),
+    };
+    for arg in args {
+        let Value::Pi(_, _, _, closure) = force(g, ty)? else {
+            return Ok(None);
+        };
+        ty = closure.apply(g, eval(g, env, arg)?)?;
+    }
+    Ty::of(g, ty).map(Some)
+}
+
+/// Whether a pattern of type `ours` may match a target of type `theirs`:
+/// the two types unify (solving what they leave open), or both are types.
+/// An unknown type, on either side, doesn't rule a match out.
+fn types_agree(g: &Globals, ours: Option<&Ty>, theirs: Option<&Ty>) -> Res<bool> {
+    let is_type = |v: &Value| -> Res<bool> {
+        Ok(matches!(
+            force(g, v.clone())?,
+            Value::Sort(_) | Value::Neutral(Head::Meta(_), _)
+        ))
+    };
+    match (ours, theirs) {
+        (Some(Ty::Of(a)), Some(Ty::Of(b))) => crate::unify::unify(g, 0, a, b),
+        (Some(Ty::Type), Some(Ty::Of(v))) | (Some(Ty::Of(v)), Some(Ty::Type)) => is_type(v),
+        _ => Ok(true),
+    }
 }
 
 impl Pattern {
@@ -439,9 +514,10 @@ impl Elaborator {
         let saved = self.globals.budget.start(self.limits);
         let result = (|| -> Result<Pattern> {
             let mut cx = Ctx::new(self, expr.span());
-            let (term, _) = infer(&mut cx, expr)?;
+            let (term, ty) = infer(&mut cx, expr)?;
             let value = cx.eval(&term)?;
             let g = &self.globals;
+            let ty = Ty::of(g, ty).ok();
             let zonked =
                 stitchwort_core::value::quote_folded(g, 0, &value).unwrap_or_else(|_| term.clone());
             // The unknown of a hole is the last one made at its span (an
@@ -468,6 +544,7 @@ impl Elaborator {
                 metas: metas.len(),
                 free,
                 distinct: false,
+                ty,
             })
         })();
         self.globals.budget.restore(saved);
@@ -501,15 +578,21 @@ impl Elaborator {
                 env.push(eval(g, &[], &Term::Meta(m))?);
                 t = cod.strip_loc();
             }
-            let value = match (side, t) {
-                (Side::Conclusion, _) => eval(g, &env, t)?,
-                (Side::Left, Term::Eq(_, left, _)) => eval(g, &env, left)?,
+            let (value, ty) = match (side, t) {
+                (Side::Conclusion, _) => (eval(g, &env, t)?, Some(Ty::Type)),
+                (Side::Left, Term::Eq(ty, left, _)) => {
+                    let ty = match ty {
+                        Some(ty) => Some(Ty::of(g, eval(g, &env, ty)?)?),
+                        None => type_of_target(g, &env, left)?,
+                    };
+                    (eval(g, &env, left)?, ty)
+                }
                 (Side::Left, Term::Data(d, args)) if Some(*d) == iff && args.len() == 2 => {
-                    eval(g, &env, &args[0])?
+                    (eval(g, &env, &args[0])?, Some(Ty::Type))
                 }
                 _ => return Ok(None),
             };
-            self.finish_pattern(value)
+            self.finish_pattern(value, ty)
         })();
         g.glue.set(was);
         made.ok().flatten()
@@ -543,7 +626,7 @@ impl Elaborator {
             if matches!(ty, Value::Pi(..)) {
                 return Ok(None);
             }
-            self.finish_pattern(ty)
+            self.finish_pattern(ty, Some(Ty::Type))
         })();
         g.glue.set(was);
         made.ok().flatten()
@@ -551,7 +634,7 @@ impl Elaborator {
 
     /// A pattern of `value`, whose unknowns are all holes; `None` if it is
     /// one.
-    fn finish_pattern(&self, value: Value) -> Res<Option<Pattern>> {
+    fn finish_pattern(&self, value: Value, ty: Option<Ty>) -> Res<Option<Pattern>> {
         let g = &self.globals;
         if let Value::Neutral(Head::Meta(_), s) = force(g, value.clone())?
             && s.is_empty()
@@ -571,6 +654,7 @@ impl Elaborator {
                 .filter(|m| g.meta_solution(*m).is_none())
                 .collect(),
             distinct: true,
+            ty,
         }))
     }
 
@@ -721,6 +805,20 @@ impl Elaborator {
                     let concl = eval(g, &env, &conclusion)?;
                     let same = reordered(g, &pattern.value, &theirs, &concl, mode)?;
                     return Ok(Some(same && same_groups(g, pattern)?));
+                }
+                // Of another type, it isn't a match, and unifying could
+                // solve an unknown with a term of the wrong type (SW-924).
+                let theirs = match place {
+                    Place::Left | Place::Right => match conclusion.strip_loc() {
+                        Term::Eq(Some(ty), ..) => Some(Ty::of(g, eval(g, &env, ty)?)?),
+                        Term::Eq(None, ..) => type_of_target(g, &env[..at], target)?,
+                        _ => Some(Ty::Type),
+                    },
+                    Place::Whole | Place::Conclusion | Place::Hypothesis => Some(Ty::Type),
+                    _ => type_of_target(g, &env[..at], target)?,
+                };
+                if !types_agree(g, pattern.ty.as_ref(), theirs.as_ref())? {
+                    return Ok(Some(false));
                 }
                 let target_value = eval(g, &env[..at], target)?;
                 // A target that is one of the theorem's own variables
