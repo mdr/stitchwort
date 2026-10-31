@@ -6,6 +6,14 @@ running, so wall times are rough; user times are steadier). The prototype is
 on branch `worktree-agent-aa5219c3981af5a43`, commit `bf47f1d3` (reverted by `ad6bcb34`, so the branch itself changes nothing);
 it is not for merging as it stands (§9).*
 
+*Status: D2080 (Matt): yes. Stage 1 (§8.1) built: `Nat.divStep`
+(`std/core/Division.sw`), printed as `/` where it reads back
+(`pretty.rs`), `Float`'s pins and the runtimes' natives re-pinned (nine of
+them: `Nat.toText` and eight `Int` operations, which the prototype hadn't
+noticed), `crates/driver/tests/pinned_hashes.rs` failing if any binding by
+hash stops applying, `crates/driver/tests/division.rs`, and the R4
+exclusions gone from the differential test. Stage 2 not started (D2081).*
+
 Labels: **[measured]** I ran it; **[read]** I read it in the source named;
 **[inferred]** my reasoning from measured or read facts; **[unverified]**
 from memory, not confirmed, and not used to support a conclusion.

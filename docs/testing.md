@@ -70,7 +70,7 @@ The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times
 | AREA | Runs | Time |
 |---|---|---|
 | `syntax` | `stitchwort-syntax`: lexer, parser, layout, fuzzing | 6 s |
-| `core` | `stitchwort-core` unit tests and the `kernel`, `hash`, `admission`, `opaque` and `trusted` tests; the driver's `nested_oracle` (nested data types against their mutual encoding, 50 cases) | 6 s |
+| `core` | `stitchwort-core` unit tests and the `kernel`, `hash`, `admission`, `opaque` and `trusted` tests; the driver's `nested_oracle` (nested data types against their mutual encoding, 50 cases) and `division` (an open dividend's normal form stays small and prints as `/`; SW-922) | 6 s |
 | `elab` | `stitchwort-elab` unit tests, but for five slow `omega_search` ones | 4 s |
 | `effects` | `ability_errors`, `empty_row_kernel`, and the quick `effect_runtime` tests of `rt` and `cli` | 3 s |
 | `std` | the quick `std_library` tests (the loader, the index, cycles); not the sweeps | 3 s |
@@ -82,7 +82,7 @@ The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times
 | `fmt` | `stitchwort-fmt` (not `repo` or `fuzz`) and the `cli` `fmt` tests | 2 s |
 | `aoc` | six AoC days on their real input, by exact name (`aoc_answers`: `year2024_day02`, `04`, `07`, `year2025_day01`, `05`, `07`; the rest are for merge and up) | 2 s |
 | `cli` | `cli` `session`, `keys_mode` (`run` in a pseudo-terminal), `run` but for its five slowest, and `stitchwort build`: `crates/standalone`, and `build` (with and without `--native`) but for the roguelike's two tests (merge runs those too) | 12 s at load 70 (`build --native`'s `set_nat` the longest) |
-| `hashes` | `hash_stability` `examples`, `projects` and `prelude`; `NAME=` keeps only the examples whose names contain it | 6 s |
+| `hashes` | `hash_stability` `examples`, `projects` and `prelude`; `NAME=` keeps only the examples whose names contain it; and `pinned_hashes`: every native, representation and kernel rule bound by content hash still applies to the library (a changed declaration drops its native silently otherwise; SW-922) | 6 s |
 | `examples` | `cli` `examples`: a quarter of each folder, or with `NAME=synonym` every example whose name contains it | 7 s (2 s with `NAME`) |
 | `bench` | the `stitchwort-bench` unit tests and the quick `check_work` tests | 6 s |
 | `web` | the quick `stitchwort-web` unit tests (not the playground, guide or AoC sweeps) | 3 s |
