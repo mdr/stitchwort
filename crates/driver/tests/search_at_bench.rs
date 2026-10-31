@@ -95,6 +95,7 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
         line: 0,
         column: 0,
         index: 1,
+        span: (0, 0),
         data: GoalData {
             hypotheses,
             target,

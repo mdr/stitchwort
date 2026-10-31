@@ -331,6 +331,12 @@ stitchwort test Day05             -- Day05's tests, its children's, and its depe
 stitchwort test path/file.sw      -- file mode
 ```
 
+One command reads a path in the project rather than in file mode:
+`stitchwort search --at path/file.sw:LINE`, what closes the goal `?` there,
+reads the file in its project (found from the file's folder up), with its
+namespace and imports, and searches the project's lemmas as well as the
+library's ([syntax.md](syntax.md#what-closes-this--stitchwort-search---at)).
+
 `check` accepts several names at once. `test` and `run` take a single target.
 A namespace target may be dotted, as in `check Aoc.Year2025.Day05`. On success `check` prints one line to standard error, `checked 43 namespaces of aoc` (a file: `checked path/file.sw`); errors print as before and the exit status is unchanged.
 

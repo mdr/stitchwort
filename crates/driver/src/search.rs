@@ -482,6 +482,13 @@ pub enum Scope {
     /// One file: a pattern sees names as the file does, and the file's own
     /// declarations need no import.
     File,
+    /// A file of a project (`search --at`): names are seen as the file sees
+    /// them; the declarations of its namespace `own` need no import, and
+    /// another of the project's `namespaces` is imported by name.
+    ProjectFile {
+        namespaces: Vec<String>,
+        own: String,
+    },
 }
 
 impl Session {
@@ -552,6 +559,7 @@ impl Session {
             anywhere: !query.conclusion_only,
             iff,
             filter: true,
+            deadline: None,
         };
         let mut warnings = Vec::new();
         // Each reading of the pattern's overloaded operators that
@@ -615,16 +623,8 @@ impl Session {
             ),
             _ => {}
         }
-        if found.stats.out_of_budget > 0 {
-            warnings.push(format!(
-                "{} comparison{} ran out of steps: a match may have been missed",
-                found.stats.out_of_budget,
-                if found.stats.out_of_budget == 1 {
-                    ""
-                } else {
-                    "s"
-                }
-            ));
+        if let Some(w) = out_of_budget_warning(&self.elab.globals, &found.stats) {
+            warnings.push(w);
         }
         if found.stats.internal_errors > 0 {
             warnings.push(format!(
@@ -764,6 +764,7 @@ fn merge(g: &Globals, mut runs: Vec<Found>) -> Found {
         stats.compared += run.stats.compared;
         stats.unifications += run.stats.unifications;
         stats.out_of_budget += run.stats.out_of_budget;
+        (stats.out_of_budget_items).extend(run.stats.out_of_budget_items.iter().copied());
         stats.upgraded += run.stats.upgraded;
         stats.internal_errors += run.stats.internal_errors;
         if strong && run.tier == SearchTier::Relaxed {
@@ -836,6 +837,38 @@ pub(crate) fn hidden(path: &str) -> bool {
                 .is_some_and(|l| l.ends_with("Example")))
 }
 
+/// The warning for comparisons that ran out of their budget, naming the
+/// declarations (SW-942): they are almost always the same few whose own
+/// statement computes far (std's `Float.Theory` lemmas about
+/// `magUnits 9218868437227405311` run out of depth against any `Nat`
+/// sum), so a reader can tell whether one of them could be what they want.
+pub(crate) fn out_of_budget_warning(
+    g: &Globals,
+    stats: &stitchwort_elab::search::Stats,
+) -> Option<String> {
+    if stats.out_of_budget == 0 {
+        return None;
+    }
+    let mut names: Vec<String> = Vec::new();
+    for item in &stats.out_of_budget_items {
+        let path = item.path(g).to_string();
+        if !names.contains(&path) {
+            names.push(path);
+        }
+    }
+    let shown: Vec<&str> = names.iter().take(3).map(String::as_str).collect();
+    let more = match names.len().saturating_sub(3) {
+        0 => String::new(),
+        n => format!(" and {n} more"),
+    };
+    let n = stats.out_of_budget;
+    Some(format!(
+        "{n} comparison{} ran out of steps (with {}{more}): those may match and weren't listed",
+        if n == 1 { "" } else { "s" },
+        shown.join(", ")
+    ))
+}
+
 /// The import that brings `item` into scope: `import Std (List)` for
 /// `Std.List.lengthAppend`, `import Lib (Range)` for a project's
 /// `Lib.Range.size` in a project with namespace `Lib`; `None` for a
@@ -845,12 +878,17 @@ pub(crate) fn import_line(g: &Globals, item: Item, scope: &Scope) -> Option<Stri
     let (namespace, rest) = match path.strip_prefix("Std.") {
         Some(rest) => ("Std", rest),
         None => {
-            let Scope::Project(namespaces) = scope else {
-                return None;
+            let (namespaces, own) = match scope {
+                Scope::Project(namespaces) => (namespaces, None),
+                Scope::ProjectFile { namespaces, own } => (namespaces, Some(own)),
+                Scope::File => return None,
             };
-            let ns = (namespaces.iter())
+            let ns = (namespaces.iter().chain(own))
                 .filter(|ns| path.starts_with(&format!("{ns}.")))
                 .max_by_key(|ns| ns.len())?;
+            if Some(ns) == own {
+                return None;
+            }
             (ns.as_str(), &path[ns.len() + 1..])
         }
     };

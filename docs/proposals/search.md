@@ -964,7 +964,7 @@ action.
   unknown in it (`?3 m n`) is dropped; so is an `afterObligations` one whose obligation is the
   goal itself (`omega` alone closes it: `tactics` says so once).
 - **Rewrites that then close**: `rewrite L … in rfl` (or `omega`) is a closing suggestion too.
-- **Project files** aren't supported yet: the file is checked on its own, as `check FILE` does.
+- **Project files** weren't supported (stage 2b, below, adds them): the file was checked on its own, as `check FILE` does.
   The goal's statement must be writable on its own (SW-914's `lemma` rules); otherwise
   `E-SEARCH-AT`.
 
@@ -976,7 +976,7 @@ in the first five for 63.0%. Most misses are concrete `…Example` goals (`3 ∈
 [3]`), where the goal as elaborated has computed past the lemma's conclusion. Every 10th std
 statement as a goal (222 goals, the theorem itself left out): something else closes 23.4%. About
 0.5 s a goal on std (std loaded through the check cache; 200 to 400 checks).
-AoC goals were not measured: they are a project's, which `--at` doesn't read yet.
+AoC goals were not measured then: they are a project's, which `--at` didn't read yet (now it does: stage 2b below).
 
 **Tests**: `crates/driver/tests/search_at.rs` (lane `search`): a goal per class, a rewrite, an
 introduced variable, a false goal; every closing suggestion is pasted in place of its `?` and the
@@ -1004,3 +1004,79 @@ The query counts are higher than §6's (2,301 conclusions) because interface law
 theorems. Draft 3's script, with a build of 20fd3dc2 (SW-924's fix alone): the self and left
 sections had no internal error in any of their 10 runs; the proof-use section had 1 in three of its
 six runs and 3 unfiltered, the cases fixed above.
+
+## As built (stage 2b)
+
+Stage 2b (SW-915, D2100) is `search --at` in a project's files, and the code action there, as
+[syntax.md](../syntax.md#what-closes-this--stitchwort-search---at) documents. The driver's half is
+`Session::search_at_project` (`crates/driver/src/search_at.rs`) with `load_for_goal` and
+`recheck_for_goal` (`crates/driver/src/project.rs`).
+
+- **One session.** It loads the whole library first (as the language server does), then every
+  namespace of the project but those that use the goal's (they can't be imported by it), through
+  the check cache, the goal's namespace last, with a mark just before it. It stays in that
+  namespace's scope, with the file's own imports (`Elaborator::use_file_scope`), so the goal is
+  read, and the proofs written (aliases, `import P (S)`, full names for what the file doesn't
+  import) and checked, as the file sees them. The goal's declaration and what uses it are
+  unfinished, so not searched.
+- **Checked in the file.** Every closing suggestion shown, and every tactic, is pasted in place of
+  the `?` and the namespace checked again from the mark; one with an error there, or that leaves
+  the goal open, is dropped with a warning. On the benchmark below none was dropped. Each such
+  check costs a check of the namespace, so they have a `--time` of their own.
+- **Not built**: suggestions don't promote unshown ones when a shown one is dropped; a namespace's
+  own theorems aren't used to fill premises (only hypotheses are).
+
+Found on the way and fixed: planning rewrites printed each call of the target unbudgeted, which for
+AoC 2024 day 22's `mostBananas possibleSequences 2000 buyers` computed a list of 130,000 sequences
+(minutes, 5 GB): now under a comparison's budget. The search now stops at `--time` too. The tactics
+are written as the file writes them (`Std.byDecision` without the import: pasting `byDecision`
+failed). SW-942: `cases` is a closer (alone, for obligations, and after a rewrite, but a rewrite
+whose closer closes the goal alone isn't suggested); a pattern that computes to a hole says so; the
+out-of-steps warning names the declarations (always std's three `Float.Theory` lemmas about
+`magUnits 9218868437227405311`, whose statements run out of depth against any `Nat` sum or `≤`).
+
+**Measured** (31 October 2026, `crates/driver/tests/search_at_aoc.rs`, full tier; one run, three
+workers, on a machine with a load average near 30). Every AoC theorem whose proof is one lemma
+applied to plain arguments (28), or a closer alone (25), had its proof replaced by `?` in memory
+and was asked about:
+
+| | goals | a closer found | the original among the closers | first | in the first 5 |
+|---|---|---|---|---|---|
+| one-lemma proofs | 28 | 42.9% | 39.3% | 35.7% | 39.3% |
+| closer alone (`rfl`, `omega`, …) | 25 | 92.0% | 92.0% | | |
+| all | 53 | 66.0% | | | |
+
+Times: a median of 16 s a goal in the benchmark (load and three at once), 290 s at most (a
+namespace of heavy `rfl` proofs, checked again for each suggestion, before the in-file checks had
+their own time limit). With the command alone and a warm cache: 1.9 s (2025 day 7), 2.1 s (2021
+day 2), 24 s (2024 day 22, whose proofs namespace takes 11 s to check). The cost beyond the
+library's 0.2 s is checking the goal's namespace, once and again for each suggestion.
+
+The misses, with why:
+
+- **Goals that can't be written on their own** (4: 2024 day 18 `containsCons`, day 22
+  `digitChangesPossible`, 2025 day 3 `leftmostLargest`, day 5 `stackSorted`): `E-SEARCH-AT`, as
+  for SW-914's `lemma`.
+- **The lemma fits only once the goal's definition is unfolded** (most of the rest): 2021 day 2
+  `aimedDepthCons` (`List.sumCons _ _` proves `aimedDepth aim (Cons command rest) = …` because
+  `aimedDepth` is a `List.sum`), 2024 day 16 `scoreCons` and `scoreAppend` (`List.sumBy…` for
+  `score`), day 11 `part2Correct` and days 20 and 21's `part1Correct`/`part2Correct` (the
+  `solvePartN` of the goal is the lemma's left side only after unfolding). Search matches
+  conclusions without unfolding the goal first; stage 2's std benchmark misses the same way.
+- **A premise only a theorem fills** (2024 day 21 `shortestWithoutRobots`): `shortestIfOptimal 0
+  ? code` is listed as applicable, leaving `optimalWithoutRobots`, which is a theorem in the
+  namespace, not a hypothesis.
+- **Out of time** (2024 day 21 `numericWalksYours`, day 22 `pruneMix`): heavy namespaces.
+- **A lemma whose conclusion names nothing** (2024 day 17 `finishedInjective := Eq.cong …`):
+  never suggested by design; `cases` closes it alone, so a closer was found.
+- Not diagnosed: 2024 day 11 `blinkPerm` (`List.permFlatMap`, 41 matched, nothing closing).
+
+One found at 2: 2024 day 15 `coversSelf := Inl rfl` came after day 23's `firstOfTwo`, which proves
+the same statement: a lemma of an unrelated namespace, written in full with its import.
+
+**Tests**: `search_at_aoc.rs` (daily: `Aoc.Common` and the 2021 days, 6 goals, through a view of
+the project's files; full: all), `crates/cli/tests/search.rs` `what_closes_a_goal_in_a_project` (a
+three-namespace project: alias, full name and import, nothing that uses the goal, run from another
+folder; JSON snapshot), `crates/cli/tests/lsp.rs`
+`a_code_action_at_a_goal_in_a_project_offers_what_closes_it` (the editor's unsaved text), and
+`search_at.rs` `cases_closes_a_goal_alone`.

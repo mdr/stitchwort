@@ -367,11 +367,22 @@ leaves ([syntax.md](syntax.md#what-closes-this--stitchwort-search---at)):
 ```
 stitchwort search --at proofs.sw:42        # the goal `?` on line 42
 stitchwort search --at proofs.sw --goal 2  # the file's second goal
+stitchwort search --at src/Aoc/Year2024/Day06/Proofs/Loops.sw:120  # in AoC
+stitchwort search --at src/Rogue/Proofs/Reach.sw --goal 1          # in the roguelike
 ```
 
 Read its `applicable` results as next steps (`Nat.leOfEq a c ?` leaves
-`a = c`). It works on a file on its own; for a project's file, copy the
-goal's `lemma` (from `check --index -`) into a scratch file.
+`a = c`). **In AoC and the roguelike, put a `?` where the proof goes and
+run `search --at` on the file** (from any folder: the project is found from
+the file's). It reads the goal in the file's namespace with its imports,
+searches std and the project (not the theorem itself or what uses it), and
+checks each closing proof pasted into the file. A project lemma the file
+doesn't import comes as its full name (`Aoc.Year2024.Day23.Proofs.firstOfTwo a b`), with
+the import that would shorten it. A warm check cache makes it about 2 s a goal (more where the namespace
+takes long to check); in the AoC benchmark (search.md, "As built (stage 2b)")
+it found the lemma the proof used for 11 of 28 one-lemma proofs (most misses
+needed the goal's own definition unfolded first: try `rewrite` with its
+equation, or a `stitchwort search` pattern on the unfolded form).
 
 Paste a goal as it is printed (its lowercase variables become named holes).
 Read `relation` first: an `instance` result's statement fits the pattern as

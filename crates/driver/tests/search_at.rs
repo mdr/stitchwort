@@ -14,7 +14,7 @@ use stitchwort_syntax::{Diagnostic, FileId, Severity};
 const STACK: usize = 64 * 1024 * 1024;
 
 const GOALS: &str = "\
-import Std (Nat, List)
+import Std (Bool, Nat, List)
 
 theorem exactly (xs: List Nat) (ys: List Nat): List.length (xs ++ ys) = List.length xs + List.length ys := ?
 
@@ -27,6 +27,8 @@ theorem rewriting (xs: List Nat) (ys: List Nat): List.length (xs ++ ys) = List.l
 theorem introducing: (n: Nat) → n + 0 = n := ?
 
 theorem falseOne (m: Nat) (n: Nat): m + n = n + m + 1 := ?
+
+theorem byCases (x: Nat) (shared: Nat) (y: Nat): Bool.toNat (x + shared < shared + y) = Bool.toNat (x < y) := ?
 ";
 
 /// Loads `text` as `goals.sw`: the diagnostics, goals included.
@@ -144,7 +146,7 @@ fn premises_are_filled_from_hypotheses_or_closed_by_omega_or_left() {
         "{report:#?}"
     );
     // `omega` closes this goal on its own, and says so.
-    assert_eq!(report.tactics, ["omega"]);
+    assert!(report.tactics.iter().any(|t| t == "omega"), "{report:#?}");
     // Some apply leaving a goal, each listed, kernel-checked with it as a
     // hypothesis.
     let applicable: Vec<_> = (report.results.iter())
@@ -201,4 +203,20 @@ fn nothing_closes_a_false_goal() {
     let report = at(GOALS, line_of("falseOne"));
     assert_eq!(report.total.closing, 0, "{report:#?}");
     assert!(report.tactics.is_empty());
+}
+
+/// `cases` is tried as a closer too (SW-942): AoC 2021 day 3's last step,
+/// which `cases` proves alone; and a rewrite after which `cases` closes it
+/// adds nothing, so isn't suggested.
+#[test]
+fn cases_closes_a_goal_alone() {
+    let line = line_of("byCases");
+    let report = at(GOALS, line);
+    assert!(report.tactics.iter().any(|t| t == "cases"), "{report:#?}");
+    assert!(
+        !(report.results.iter()).any(|s| s.proof.ends_with(" in cases")),
+        "{report:#?}"
+    );
+    pastes(GOALS, line, "cases");
+    all_paste(&report, line);
 }

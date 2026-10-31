@@ -5,18 +5,20 @@
 //! premise filled from a hypothesis where one fits. Here each plan becomes
 //! proof text, and is checked: elaborated in the file's scope inside
 //! `(((h: A) => …): (h: A) → … → T)`, and, with no `?` left, checked by
-//! the kernel. A `?` the plan leaves is tried with `rfl`, `omega` and
+//! the kernel. A `?` the plan leaves is tried with `rfl`, `omega`, `cases` and
 //! `byDecision`; what still fails is a goal the suggestion leaves.
 //!
 //! Results come in four classes (review point 12): `exact` (the lemma
 //! applied to the goal's terms), `withHypotheses` (premises filled from
-//! hypotheses), `afterObligations` (premises closed by `rfl`, `omega` or
+//! hypotheses), `afterObligations` (premises closed by `rfl`, `omega`, `cases` or
 //! `byDecision`), each kernel-checked; and `applicable` (it applies,
 //! leaving goals, listed). Separately, `rewrites`: equations and `Iff`s
 //! whose side is a call in the target, as `rewrite L in ?` with the goal
 //! that leaves (`rw?`'s direction, S2c). Nothing is reported as closing
 //! the goal unless the kernel accepted it.
 
+use std::cell::Cell;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -27,6 +29,7 @@ use stitchwort_elab::search::{Candidate, Kind};
 use stitchwort_syntax::{Diagnostic, FileId, GoalData, Severity, SourceMap};
 
 use crate::driver::Session;
+use crate::project::Files;
 use crate::search::{Scope, hidden, import_line};
 
 /// What `search --at` was asked for.
@@ -75,24 +78,27 @@ pub struct FoundGoal {
     pub column: usize,
     /// 1-based among the file's goals, in source order.
     pub index: usize,
+    /// The `?`, as byte offsets in the file's text.
+    pub span: (usize, usize),
     pub data: GoalData,
 }
 
 /// The goals among `diagnostics` that are in `file`, in source order.
 pub fn goals_in(sources: &SourceMap, file: FileId, diagnostics: &[Diagnostic]) -> Vec<FoundGoal> {
     let text = &sources.get(file).text;
-    let mut found: Vec<(u32, GoalData)> = (diagnostics.iter())
+    let mut found: Vec<(u32, u32, GoalData)> = (diagnostics.iter())
         .filter(|d| d.severity == Severity::Goal)
         .filter_map(|d| {
             let span = d.primary_span()?;
-            (span.file == file).then(|| Some((span.start, (**d.goal.as_ref()?).clone())))?
+            (span.file == file)
+                .then(|| Some((span.start, span.end, (**d.goal.as_ref()?).clone())))?
         })
         .collect();
-    found.sort_by_key(|(at, _)| *at);
+    found.sort_by_key(|(at, _, _)| *at);
     found
         .into_iter()
         .enumerate()
-        .map(|(i, (at, data))| {
+        .map(|(i, (at, end, data))| {
             let before = &text[..(at as usize).min(text.len())];
             let line = before.matches('\n').count() + 1;
             let column = before.rsplit('\n').next().unwrap_or("").chars().count() + 1;
@@ -100,10 +106,46 @@ pub fn goals_in(sources: &SourceMap, file: FileId, diagnostics: &[Diagnostic]) -
                 line,
                 column,
                 index: i + 1,
+                span: (at as usize, end as usize),
                 data,
             }
         })
         .collect()
+}
+
+/// `text` with the goal `?` at `span` replaced by `proof`: in brackets
+/// unless the `?` is a whole body or argument already (after `:=`, `=>`,
+/// `in`, `then`, `else`, an opening bracket or a comma, at the start of a
+/// line), or the proof is one word.
+pub fn paste(text: &str, span: (usize, usize), proof: &str) -> String {
+    format!(
+        "{}{}{}",
+        &text[..span.0],
+        paste_text(text, span, proof),
+        &text[span.1..]
+    )
+}
+
+/// What [`paste`] writes in place of the `?`.
+pub fn paste_text(text: &str, span: (usize, usize), proof: &str) -> String {
+    let before = text[..span.0].trim_end_matches([' ', '\t']);
+    let alone = before.is_empty()
+        || before.ends_with('\n')
+        || [":=", "=>", "(", "[", ",", "→", "->"]
+            .iter()
+            .any(|t| before.ends_with(t))
+        || ["in", "then", "else"].iter().any(|w| {
+            before.ends_with(w)
+                && !before[..before.len() - w.len()]
+                    .ends_with(|c: char| c.is_alphanumeric() || c == '_')
+        });
+    let after = text[span.1..].trim_start_matches([' ', '\t']);
+    let ends = after.is_empty() || after.starts_with(['\n', ')', ']', ',']);
+    if (alone && ends) || atom(proof) == proof {
+        proof.to_string()
+    } else {
+        format!("({proof})")
+    }
 }
 
 /// The goal `at` asks for among `goals`, or why there is none.
@@ -136,11 +178,12 @@ pub fn pick(goals: &[FoundGoal], at: GoalAt) -> Result<&FoundGoal, String> {
 pub struct AtReport {
     pub version: u32,
     pub goal: GoalJson,
+    /// The closers that close the goal on their own (`rfl`, `omega`,
+    /// `byDecision`), kernel-checked, written as the file writes them
+    /// (`Std.byDecision` without `import Std (byDecision)`).
+    pub tactics: Vec<String>,
     /// Suggestions that close the goal, every one checked by the kernel,
     /// then those that apply leaving goals; best first.
-    /// The closers that close the goal on their own (`rfl`, `omega`,
-    /// `byDecision`), kernel-checked.
-    pub tactics: Vec<&'static str>,
     pub results: Vec<Suggestion>,
     pub rewrites: Vec<Rewrite>,
     pub total: Totals,
@@ -270,6 +313,24 @@ pub struct AtBudget {
     pub out_of_budget: usize,
     #[serde(rename = "internalErrors")]
     pub internal_errors: usize,
+    /// In a project's file: the suggestions checked in the file (pasted in,
+    /// its namespace checked again), and those that failed there and were
+    /// dropped.
+    #[serde(rename = "inFile", skip_serializing_if = "Option::is_none")]
+    pub in_file: Option<InFile>,
+}
+
+#[derive(Serialize, Debug, Default, Clone, Copy)]
+pub struct InFile {
+    pub checked: usize,
+    pub rejected: usize,
+    /// Not checked in the file before the time ran out, so not listed.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub unchecked: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 /// The order of the classes.
@@ -426,8 +487,9 @@ impl Session {
         let expr = self
             .parse_expression("<goal>", &stmt)
             .map_err(|d| cannot_open(&data, d))?;
-        let goal: Goal = (self.elab.open_goal(&expr, data.hypotheses.len()))
+        let mut goal: Goal = (self.elab.open_goal(&expr, data.hypotheses.len()))
             .map_err(|d| cannot_open(&data, d))?;
+        goal.deadline = Some(started + options.time);
         let g = &self.elab.globals;
         let all = options.all;
         let prop = goal.prop;
@@ -437,12 +499,14 @@ impl Session {
                 && !options.exclude.iter().any(|e| e == path)
         });
         let keep = |_: &Candidate| true;
+        debug_time("opened", started);
         let closing = self
             .elab
             .closing_plans(&goal, &candidates, &keep, options.max_candidates);
         let iff = (0..g.datas.len())
             .map(DataId)
             .find(|d| &*g.data(*d).path == "Std.Iff");
+        debug_time("closing searched", started);
         let rewrite_plans = if prop {
             self.elab
                 .rewrite_plans(&goal, &candidates, &keep, iff, 3, 30)
@@ -452,6 +516,7 @@ impl Session {
         let closers: Vec<(&'static str, String)> = [
             ("rfl", Some("rfl".to_string())),
             ("omega", Some("omega".to_string())),
+            ("cases", Some("cases".to_string())),
             ("byDecision", self.elab.write_name("Std.byDecision")),
         ]
         .into_iter()
@@ -468,10 +533,11 @@ impl Session {
             tried: closing.plans.len(),
             max_candidates: options.max_candidates,
             truncated: matched > closing.plans.len(),
-            exhausted: true,
+            exhausted: !closing.found.stats.stopped,
             out_of_budget: closing.found.stats.out_of_budget,
             internal_errors: closing.found.stats.internal_errors,
             checks: 0,
+            in_file: None,
         };
         // Each declaration's place in the search's ranking.
         let ranks: Vec<_> = closing.found.hits.iter().map(|h| h.item).collect();
@@ -489,10 +555,11 @@ impl Session {
         };
         // The closers on their own first: a goal `omega` closes needs no
         // lemma.
+        debug_time("rewrites planned", started);
         let mut tactics = Vec::new();
-        for (name, text) in &closers {
+        for (_, text) in &closers {
             if matches!(checker.check(text, &[]), Outcome::Closed) {
-                tactics.push(*name);
+                tactics.push(text.clone());
             }
         }
         let mut results: Vec<(Suggestion, usize)> = Vec::new();
@@ -524,6 +591,7 @@ impl Session {
                 results.push((s, rank));
             }
         }
+        debug_time("closing checked", started);
         let mut rewrites = Vec::new();
         for rp in &rewrite_plans {
             if checker.out_of_time() {
@@ -541,7 +609,11 @@ impl Session {
         for r in &rewrites {
             if let Some(closer) = r.closes {
                 let proof = r.proof.replacen(" in ?", &format!(" in {closer}"), 1);
-                if results.iter().any(|(s, _)| s.proof == proof) {
+                // Not when the closer alone closes the goal: the rewrite
+                // adds nothing.
+                if tactics.iter().any(|t| t == closer)
+                    || results.iter().any(|(s, _)| s.proof == proof)
+                {
                     continue;
                 }
                 let suggestion = Suggestion {
@@ -564,6 +636,7 @@ impl Session {
                 results.push((suggestion, usize::MAX));
             }
         }
+        debug_time("checks done", started);
         budget.checks = checker.checks;
         drop(checker);
         let session = &*self;
@@ -606,11 +679,10 @@ impl Session {
                 budget.matched, budget.tried
             ));
         }
-        if budget.out_of_budget > 0 {
-            warnings.push(format!(
-                "{} comparisons ran out of steps: a match may have been missed",
-                budget.out_of_budget
-            ));
+        if let Some(w) =
+            crate::search::out_of_budget_warning(&self.elab.globals, &closing.found.stats)
+        {
+            warnings.push(w);
         }
         let mut shown_closing = 0;
         let mut shown_applicable = 0;
@@ -878,7 +950,7 @@ fn try_rewrite(
         return None;
     }
     let mut closes = None;
-    for closer in ["rfl", "omega"] {
+    for closer in ["rfl", "omega", "cases"] {
         let closed = format!("rewrite {arrow}{rule} in {closer}");
         if matches!(checker.check(&closed, &[]), Outcome::Closed) {
             closes = Some(closer);
@@ -968,6 +1040,273 @@ pub fn search_at_text(
     session
         .search_at(&found, name, options, &Scope::File, Some(&mut checking))
         .map_err(|d| format!("{}: {}", d.code, d.message))
+}
+
+/// A project's files, with some of them given other text (the editor's
+/// unsaved text, a benchmark's goal), by path within the project.
+pub struct Overlay<'a> {
+    pub base: &'a dyn Files,
+    pub texts: std::collections::BTreeMap<String, String>,
+}
+
+impl Files for Overlay<'_> {
+    fn entries(&self, dir: &str) -> std::io::Result<Vec<crate::project::Entry>> {
+        self.base.entries(dir)
+    }
+    fn read(&self, path: &str) -> std::io::Result<String> {
+        match self.texts.get(path) {
+            Some(text) => Ok(text.clone()),
+            None => self.base.read(path),
+        }
+    }
+    fn include_files(&self) -> Option<Rc<dyn stitchwort_elab::project::IncludeFiles>> {
+        self.base.include_files()
+    }
+}
+
+/// A goal in a file of a project, for [`Session::search_at_project`].
+pub struct ProjectGoal<'a> {
+    /// The project's name, for display (its folder's name).
+    pub project: &'a str,
+    pub files: &'a dyn Files,
+    /// The file, by its path within the project (`src/Aoc/…/Proofs.sw`).
+    pub path: &'a str,
+    /// The check cache's folder, if one is used.
+    pub cache: Option<&'a std::path::Path>,
+    pub at: GoalAt,
+}
+
+/// The check cache, with writing switched off while the goal's namespace
+/// is checked with a suggestion pasted in: that text isn't the file's, and
+/// an entry for it would only churn the cache.
+struct Gated {
+    inner: crate::check_cache::CheckCache,
+    writable: Rc<Cell<bool>>,
+}
+
+impl stitchwort_elab::cache::Store for Gated {
+    fn compiler(&self) -> &str {
+        self.inner.compiler()
+    }
+    fn salt(&self) -> [u8; 16] {
+        self.inner.salt()
+    }
+    fn read(&self, unit: &str, key: &stitchwort_elab::cache::Key) -> Option<Vec<u8>> {
+        self.inner.read(unit, key)
+    }
+    fn write(&self, unit: &str, key: &stitchwort_elab::cache::Key, entry: &[u8]) {
+        if self.writable.get() {
+            self.inner.write(unit, key, entry);
+        }
+    }
+}
+
+impl Session {
+    /// What closes a goal in a file of a project (SW-915, D2100). This
+    /// session (a fresh one) loads the whole library, then the project's
+    /// namespaces through the check cache: every one except those that use
+    /// the file's (they can't be imported by it), the file's last, whose
+    /// scope it stays in. So the goal is read, and the proofs written and
+    /// checked, with the file's namespace and imports; the candidates are
+    /// the library's and those namespaces' declarations, less the goal's own
+    /// declaration and what uses it (unfinished, so not searched).
+    ///
+    /// Then each closing suggestion shown (and each tactic that closes it
+    /// alone) is checked in the file: pasted in place of the `?`, the
+    /// file's namespace checked again (from a mark, the rest as it was).
+    /// One that leaves an error there, or doesn't close the goal, is
+    /// dropped (`budget.inFile`).
+    pub fn search_at_project(
+        &mut self,
+        goal: &ProjectGoal,
+        options: &AtOptions,
+    ) -> Result<AtReport, Diagnostic> {
+        let t0 = Instant::now();
+        let fail = |message: String| Diagnostic::error("E-SEARCH-AT", message);
+        let writable = Rc::new(Cell::new(true));
+        if let Some(dir) = goal.cache {
+            self.elab.set_check_cache(Rc::new(Gated {
+                inner: crate::check_cache::CheckCache::at(dir),
+                writable: writable.clone(),
+            }));
+        }
+        if let Some(include) = goal.files.include_files() {
+            self.include_from(include);
+        }
+        // Every library file first, before the project, as the language
+        // server loads them (`LiveProject::new`): then rewinding to check
+        // the namespace again unloads none.
+        if self.elab.load_all_libraries().is_err() {
+            return Err(fail("the library didn't load".into()));
+        }
+        let sources = crate::project::project_sources(goal.files, goal.project, &mut self.sources)
+            .map_err(|ds| first_error(&ds, "the project can't be read"))?;
+        if !sources.iter().any(|(p, _)| p == goal.path) {
+            return Err(fail(format!(
+                "{} isn't one of the project {}'s source files",
+                goal.path, goal.project
+            )));
+        }
+        debug_time("project: library loaded", t0);
+        let parsed = crate::project::parse_files(self, goal.project, sources);
+        let file = (parsed.iter())
+            .find(|f| f.path == goal.path)
+            .map(|f| (f.id, f.text.clone(), f.display.clone()))
+            .expect("the file was read");
+        let (file_id, text, display) = file;
+        let analysis = crate::project::analyse_parsed(&mut self.elab, goal.project, parsed.clone());
+        let ns = (analysis.namespaces.iter())
+            .find(|n| n.files.contains(&file_id))
+            .map(|n| n.name.clone())
+            .ok_or_else(|| first_error(&analysis.diagnostics, "the file has no namespace"))?;
+        let namespaces: Vec<String> = analysis.namespaces.iter().map(|n| n.name.clone()).collect();
+        debug_time("project: analysed", t0);
+        let load = self
+            .load_for_goal(goal.project, &analysis, &ns)
+            .map_err(|ds| first_error(&ds, "the project can't be checked"))?;
+        let errors =
+            |ds: &[Diagnostic]| ds.iter().filter(|d| d.severity == Severity::Error).count();
+        let mut warnings = Vec::new();
+        if errors(&load.diagnostics) > 0 {
+            let first = first_error(&load.diagnostics, "");
+            warnings.push(format!(
+                "{ns} doesn't check ({} errors; the first: [{}] {}): its goals are searched as they stand",
+                errors(&load.diagnostics),
+                first.code,
+                first.message
+            ));
+        }
+        let goals = goals_in(&self.sources, file_id, &load.diagnostics);
+        let found = pick(&goals, goal.at)
+            .map_err(|m| fail(format!("{display}: {m}")))?
+            .clone();
+        self.elab.use_file_scope(file_id);
+        let scope = Scope::ProjectFile {
+            namespaces,
+            own: ns.clone(),
+        };
+        debug_time("project: loaded", t0);
+        if std::env::var_os("STITCHWORT_SEARCH_DEBUG").is_some() {
+            eprintln!("search --at: cache {:?}", self.elab.check_cache_stats());
+        }
+        let mut report = self.search_at(&found, &display, options, &scope, None)?;
+        report.warnings.extend(warnings);
+        // Each closing suggestion shown, checked in the file.
+        writable.set(false);
+        let mut in_file = InFile::default();
+        let mut dropped: Vec<String> = Vec::new();
+        let errors_before = errors(&load.diagnostics);
+        // Each check here checks the whole namespace again: for a namespace
+        // of heavy proofs, seconds each. They have a `--time` of their own;
+        // past it (after the first), the rest aren't checked, so not listed.
+        let deadline = Instant::now() + options.time;
+        let mut confirm = |session: &mut Session, proof: &str| -> bool {
+            if in_file.checked > 0 && Instant::now() >= deadline {
+                in_file.unchecked += 1;
+                return false;
+            }
+            let pasted = paste(&text, found.span, proof);
+            let (diagnostics, id) =
+                session.recheck_for_goal(goal.project, &parsed, (goal.path, &pasted), &ns, &load);
+            in_file.checked += 1;
+            let left = goals_in(&session.sources, id, &diagnostics).len();
+            // The namespace's errors before (a file being written may have
+            // some) may stay; none may come from the proof, and none more.
+            let pasted_end = found.span.0 + paste_text(&text, found.span, proof).len();
+            let at_proof = |d: &&&Diagnostic| {
+                d.primary_span().is_some_and(|s| {
+                    s.file == id && (s.start as usize) < pasted_end && s.end as usize > found.span.0
+                })
+            };
+            let new_errors = (diagnostics.iter())
+                .filter(|d| d.severity == Severity::Error)
+                .collect::<Vec<_>>();
+            let culprit = (new_errors.iter())
+                .find(at_proof)
+                .or_else(|| (new_errors.len() > errors_before).then(|| &new_errors[0]));
+            let why = match culprit {
+                Some(d) => format!("[{}] {}", d.code, d.message),
+                None if left + 1 != goals.len() => "the goal is still open".to_string(),
+                None => return true,
+            };
+            in_file.rejected += 1;
+            dropped.push(format!("`{proof}`: {why}"));
+            false
+        };
+        let mut tactics = Vec::new();
+        for t in std::mem::take(&mut report.tactics) {
+            if confirm(self, &tactic_proof(&report, &t)) {
+                tactics.push(t);
+            }
+        }
+        report.tactics = tactics;
+        let mut results = Vec::new();
+        for s in std::mem::take(&mut report.results) {
+            if s.class == "applicable" || confirm(self, &s.proof) {
+                results.push(s);
+            } else {
+                report.total.closing -= 1;
+            }
+        }
+        report.results = results;
+        for d in dropped {
+            (report.warnings).push(format!(
+                "checked at the goal but not in the file, so dropped: {d}"
+            ));
+        }
+        if in_file.unchecked > 0 {
+            report.warnings.push(format!(
+                "the time ran out checking suggestions in the file (each checks {ns} again): \
+                 {} more weren't checked there, so aren't listed (--time for more)",
+                in_file.unchecked
+            ));
+        }
+        debug_time("project: confirmed", t0);
+        report.budget.in_file = Some(in_file);
+        report.goal.file = display;
+        writable.set(true);
+        Ok(report)
+    }
+}
+
+/// What to write in place of the `?` for tactic `tactic`, which closes the
+/// goal alone: after the variables the target introduces, as the other
+/// suggestions are.
+pub fn tactic_proof(report: &AtReport, tactic: &str) -> String {
+    let mut proof = String::new();
+    for x in &report.goal.introduced {
+        proof.push_str(&format!("{x} => "));
+    }
+    proof.push_str(tactic);
+    proof
+}
+
+/// The first error of `diagnostics`, as one, or `why` if there is none.
+fn first_error(diagnostics: &[Diagnostic], why: &str) -> Diagnostic {
+    let errors: Vec<&Diagnostic> = (diagnostics.iter())
+        .filter(|d| d.severity == Severity::Error)
+        .collect();
+    match errors.first() {
+        Some(d) => {
+            let mut d = (*d).clone();
+            if errors.len() > 1 {
+                d = d.with_note(format!("and {} more errors", errors.len() - 1));
+            }
+            d
+        }
+        None => Diagnostic::error("E-SEARCH-AT", why.to_string()),
+    }
+}
+
+/// With `STITCHWORT_SEARCH_DEBUG` set, how long `search --at` has taken by
+/// each of its phases.
+fn debug_time(phase: &str, started: Instant) {
+    if std::env::var_os("STITCHWORT_SEARCH_DEBUG").is_some() {
+        eprintln!(
+            "search --at: {phase} at {:.2} s",
+            started.elapsed().as_secs_f64()
+        );
+    }
 }
 
 /// The report as text.

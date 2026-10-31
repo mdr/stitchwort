@@ -1679,7 +1679,7 @@ fn search_at(
     cache: &CacheArgs,
 ) -> ExitCode {
     use stitchwort_driver::search::Scope;
-    use stitchwort_driver::search_at::{GoalAt, goals_in, pick, render_text};
+    use stitchwort_driver::search_at::{GoalAt, goals_in, pick};
     let started = std::time::Instant::now();
     let fail = |code: &str, message: String| {
         if json {
@@ -1718,12 +1718,25 @@ fn search_at(
         (None, None) => GoalAt::Index(1),
     };
     let path = Path::new(path);
-    if project.is_some() {
-        return fail(
-            "E-SEARCH-AT",
-            "--at checks the file on its own (file mode); --project isn't supported with it yet"
-                .into(),
-        );
+    // A file of a project (found from the file's folder, or --project) is
+    // searched in the project: its namespace, imports and declarations.
+    match project_of_file(path, project) {
+        Ok(Some((dir, relative))) => {
+            let mut session = new_session(false);
+            let cache_dir = cache_dir(cache, &dir);
+            let files = DiskFiles { root: dir.clone() };
+            let goal = stitchwort_driver::search_at::ProjectGoal {
+                project: &project_name(&dir),
+                files: &files,
+                path: &relative,
+                cache: cache_dir.as_deref(),
+                at: which,
+            };
+            let result = session.search_at_project(&goal, options);
+            return finish_search_at(session, result, json, log, at, started);
+        }
+        Ok(None) => {}
+        Err(message) => return fail("E-SEARCH-AT", message),
     }
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
@@ -1798,6 +1811,67 @@ fn search_at(
     std::mem::take(&mut checking.warnings);
     let result = session.search_at(&found, &name, options, &Scope::File, Some(&mut checking));
     discard(checking);
+    finish_search_at(session, result, json, log, at, started)
+}
+
+/// The project that file `path` is a source file of: `--project`'s, or the
+/// one found from the file's folder up; its folder and the file's path in
+/// it. `None` for a file on its own (no project, or not one of its source
+/// files when found by looking).
+fn project_of_file(path: &Path, flag: Option<&Path>) -> Result<Option<(PathBuf, String)>, String> {
+    let absolute = std::fs::canonicalize(path)
+        .map_err(|err| format!("can't read {}: {err}", path.display()))?;
+    let dir = match flag {
+        Some(dir) => Some(
+            std::fs::canonicalize(dir)
+                .map_err(|err| format!("can't read the project {}: {err}", dir.display()))?,
+        ),
+        None => absolute.parent().and_then(find_project),
+    };
+    let Some(dir) = dir else {
+        return Ok(None);
+    };
+    let not_source = |why: &str| {
+        if flag.is_some() {
+            Err(format!(
+                "{} isn't a source file of the project {}: {why}",
+                path.display(),
+                dir.display()
+            ))
+        } else {
+            Ok(None)
+        }
+    };
+    let Ok(relative) = absolute.strip_prefix(&dir) else {
+        return not_source("it isn't in its folder");
+    };
+    let relative: Vec<String> = (relative.components())
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect();
+    let relative = relative.join("/");
+    let mut sources = stitchwort_syntax::SourceMap::new();
+    let files = DiskFiles { root: dir.clone() };
+    match project_sources(&files, &project_name(&dir), &mut sources) {
+        Ok(found) if found.iter().any(|(p, _)| *p == relative) => Ok(Some((dir, relative))),
+        Ok(_) => not_source("it isn't under its source folders"),
+        Err(errors) if flag.is_some() => Err(errors
+            .first()
+            .map_or("the project can't be read".into(), |d| d.message.clone())),
+        Err(_) => Ok(None),
+    }
+}
+
+/// Prints what `search --at` found (or why it couldn't), logs it, and
+/// gives the exit status.
+fn finish_search_at(
+    session: Session,
+    result: Result<stitchwort_driver::search_at::AtReport, stitchwort_syntax::Diagnostic>,
+    json: bool,
+    log: Option<&Path>,
+    at: &str,
+    started: std::time::Instant,
+) -> ExitCode {
+    use stitchwort_driver::search_at::render_text;
     if let Some(log) = log {
         let entry = match &result {
             Ok(report) => stitchwort_cli::search_log::at_entry(at, report, started),
@@ -1996,7 +2070,7 @@ fn search(
         let scope_json = match (file, &scope) {
             (Some(path), _) => serde_json::json!({"file": path.display().to_string()}),
             (None, Scope::Project(ns)) => serde_json::json!({"namespaces": ns}),
-            (None, Scope::File) => serde_json::Value::Null,
+            (None, Scope::File | Scope::ProjectFile { .. }) => serde_json::Value::Null,
         };
         let entry = match &found {
             Ok(report) => stitchwort_cli::search_log::entry(report, options, scope_json, started),

@@ -209,6 +209,134 @@ impl Session {
         (found, outcome)
     }
 
+    /// For `search --at` in a project's file (SW-915): checks every
+    /// namespace of `analysis` except those that use `ns` (directly or not,
+    /// so they can't be imported by it), in canonical order but with `ns`
+    /// last, and stays in `ns`'s scope. Returns `ns`'s diagnostics (goals
+    /// included), those of the namespaces before it, the order, and a mark
+    /// taken just before `ns` was checked, to check it again with other
+    /// text ([`Session::recheck_for_goal`]).
+    pub fn load_for_goal(
+        &mut self,
+        project: &str,
+        analysis: &Analysis,
+        ns: &str,
+    ) -> Result<GoalLoad, Vec<Diagnostic>> {
+        if !analysis.diagnostics.is_empty() {
+            return Err(analysis.diagnostics.clone());
+        }
+        let users: BTreeSet<String> = (analysis.namespaces.iter())
+            .filter(|m| {
+                m.name != ns
+                    && closure(analysis, std::slice::from_ref(&m.name))
+                        .iter()
+                        .any(|n| n == ns)
+            })
+            .map(|m| m.name.clone())
+            .collect();
+        let needed: BTreeSet<String> = (analysis.namespaces.iter())
+            .map(|m| m.name.clone())
+            .filter(|m| !users.contains(m))
+            .collect();
+        let mut order = canonical_order(analysis, &needed).map_err(|cycles| {
+            (cycles.iter())
+                .map(|c| cycle_diagnostic(analysis, c))
+                .collect::<Vec<_>>()
+        })?;
+        // Nothing among these uses `ns`, so it can go last.
+        order.retain(|m| m != ns);
+        order.push(ns.to_string());
+        if self.elab.uses_check_cache() {
+            let sources = self.namespace_sources(project, analysis);
+            self.elab.set_namespace_sources(sources);
+        }
+        let mut before = Vec::new();
+        let mut outcomes: BTreeMap<String, NamespaceOutcome> = BTreeMap::new();
+        for name in &order[..order.len() - 1] {
+            let namespace = analysis.namespace(name).expect("a namespace");
+            let (found, outcome) =
+                self.check_project_namespace(analysis, &order, namespace, &|m| {
+                    outcomes.get(m).copied()
+                });
+            outcomes.insert(name.clone(), outcome);
+            before.extend(found);
+        }
+        let mark = self.mark();
+        let namespace = analysis.namespace(ns).expect("a namespace");
+        let (diagnostics, _) = self
+            .check_project_namespace(analysis, &order, namespace, &|m| outcomes.get(m).copied());
+        Ok(GoalLoad {
+            diagnostics,
+            before,
+            order,
+            outcomes,
+            mark,
+        })
+    }
+
+    /// Checks namespace `ns` again, from `load.mark`, with the file at
+    /// `path` (one of its files) now `text`; `parsed` are the project's
+    /// files as first read (before the mark). Stays in its scope: its
+    /// diagnostics, and the file's new id.
+    pub fn recheck_for_goal(
+        &mut self,
+        project: &str,
+        parsed: &[ParsedFile],
+        (path, text): (&str, &str),
+        ns: &str,
+        load: &GoalLoad,
+    ) -> (Vec<Diagnostic>, FileId) {
+        self.rewind(&load.mark);
+        let changed = parse_file(self, project, path.to_string(), text.to_string());
+        let id = changed.id;
+        let files: Vec<ParsedFile> = (parsed.iter())
+            .map(|f| {
+                if f.path == path {
+                    changed.clone()
+                } else {
+                    f.clone()
+                }
+            })
+            .collect();
+        let analysis = analyse_parsed(&mut self.elab, project, files);
+        (self.recheck_analysed(project, &analysis, ns, load), id)
+    }
+
+    fn recheck_analysed(
+        &mut self,
+        project: &str,
+        analysis: &Analysis,
+        ns: &str,
+        load: &GoalLoad,
+    ) -> Vec<Diagnostic> {
+        if !analysis.diagnostics.is_empty() {
+            return analysis.diagnostics.clone();
+        }
+        if self.elab.uses_check_cache() {
+            let sources = self.namespace_sources(project, analysis);
+            self.elab.set_namespace_sources(sources);
+        }
+        let Some(namespace) = analysis.namespace(ns) else {
+            return vec![Diagnostic::error(
+                "E-SEARCH-AT",
+                format!("namespace {ns} is gone"),
+            )];
+        };
+        let outcomes = &load.outcomes;
+        // A namespace it uses now that wasn't checked (it uses `ns`).
+        if let Some(edge) = (namespace.edges.iter()).find(|e| !outcomes.contains_key(&e.target)) {
+            return vec![
+                Diagnostic::error("E-NAMESPACE-CYCLE", format!("{} uses {ns}", edge.target))
+                    .with_label(edge.span, "used here"),
+            ];
+        }
+        let (diagnostics, _) =
+            self.check_project_namespace(analysis, &load.order, namespace, &|m| {
+                outcomes.get(m).copied()
+            });
+        diagnostics
+    }
+
     /// For the check cache (docs/proposals/check-cache.md §4.2): a hash of
     /// each namespace's own sources (its name, and each file's name and
     /// text), the names of all the project's namespaces, and
@@ -243,6 +371,20 @@ impl Session {
             .collect();
         namespace_keys(config, &namespaces)
     }
+}
+
+/// What [`Session::load_for_goal`] checked.
+pub struct GoalLoad {
+    /// The goal's namespace's diagnostics, its goals among them.
+    pub diagnostics: Vec<Diagnostic>,
+    /// Those of the namespaces checked before it.
+    pub before: Vec<Diagnostic>,
+    /// The namespaces checked, the goal's last.
+    pub order: Vec<String>,
+    /// How each before the goal's went.
+    pub outcomes: BTreeMap<String, NamespaceOutcome>,
+    /// Just before the goal's namespace was checked.
+    pub mark: crate::rewind::Mark,
 }
 
 /// How checking one namespace of a project went.
@@ -393,26 +535,39 @@ impl Analysis {
 
 /// Reads the namespaces of a project's files: `files` are (path within the
 /// project, text); `project` is the project's name for display (`aoc`).
-pub fn analyse(session: &mut Session, project: &str, mut files: Vec<(String, String)>) -> Analysis {
-    files.sort();
-    let parsed = files
-        .into_iter()
-        .map(|(path, text)| {
-            let display = format!("{project}/{path}");
-            let id = session.sources.add(display.clone(), text.clone());
-            session.elab.set_include_location(id, path.clone());
-            let (module, errors) = parse_module_recovering(id, &text, session.elab.limits.stack);
-            ParsedFile {
-                path,
-                display,
-                id,
-                text,
-                module,
-                errors,
-            }
-        })
-        .collect();
+pub fn analyse(session: &mut Session, project: &str, files: Vec<(String, String)>) -> Analysis {
+    let parsed = parse_files(session, project, files);
     analyse_parsed(&mut session.elab, project, parsed)
+}
+
+/// Adds a project's files to the session's sources and parses them, sorted
+/// by path: what [`analyse`] reads, for a caller that keeps them.
+pub fn parse_files(
+    session: &mut Session,
+    project: &str,
+    mut files: Vec<(String, String)>,
+) -> Vec<ParsedFile> {
+    files.sort();
+    files
+        .into_iter()
+        .map(|(path, text)| parse_file(session, project, path, text))
+        .collect()
+}
+
+/// One file of a project, added to the session's sources and parsed.
+pub fn parse_file(session: &mut Session, project: &str, path: String, text: String) -> ParsedFile {
+    let display = format!("{project}/{path}");
+    let id = session.sources.add(display.clone(), text.clone());
+    session.elab.set_include_location(id, path.clone());
+    let (module, errors) = parse_module_recovering(id, &text, session.elab.limits.stack);
+    ParsedFile {
+        path,
+        display,
+        id,
+        text,
+        module,
+        errors,
+    }
 }
 
 /// A file of a project, parsed.

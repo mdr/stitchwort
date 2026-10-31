@@ -232,6 +232,18 @@ fn exit_codes_say_found_none_or_refused() {
     let (code, report) = json(&dir, &["_"]);
     assert_eq!(code, 2, "{report}");
     assert_eq!(report["error"]["code"], "E-SEARCH-PATTERN");
+    assert!(
+        (report["error"]["message"].as_str().unwrap()).contains("is a hole on its own"),
+        "{report}"
+    );
+    // One that computes to a hole says so (SW-942): `List.drop _ 0` is `_`.
+    let (code, report) = json(&dir, &["List.drop _ 0"]);
+    assert_eq!(code, 2, "{report}");
+    assert_eq!(report["error"]["code"], "E-SEARCH-PATTERN");
+    assert!(
+        (report["error"]["message"].as_str().unwrap()).contains("computes to a hole on its own"),
+        "{report}"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -332,4 +344,105 @@ fn what_closes_a_goal() {
     let (code, _, _) = search(&dir, &["_ = _", "--at", "goals.sw:3"]);
     assert_eq!(code, 2);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A project of three namespaces for `search --at` in a project's file:
+/// `Shop.Spec` (a definition and a lemma), `Shop.Proofs` (the goal, which
+/// imports `double` as `twice`), and `Shop.Main`, which uses `Shop.Proofs`.
+/// `swappedAgain` (after the goal, and using it) and `Shop.Main`'s
+/// `swappedHere` prove the goal's statement too; neither may be suggested.
+fn shop(name: &str) -> PathBuf {
+    let dir = folder(name).join("shop");
+    let write = |path: &str, text: &str| {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, text).unwrap();
+    };
+    write("stitchwort.yaml", "# for the search --at tests\n");
+    write(
+        "src/Shop/Spec/Spec.sw",
+        "namespace Shop.Spec\n\
+         import Std (Nat)\n\n\
+         def double (n: Nat): Nat := n + n\n\n\
+         theorem doubleSwap (m: Nat) (n: Nat): double (m + n) = double (n + m) :=\n  \
+         rewrite Nat.addComm m n in rfl\n",
+    );
+    write(
+        "src/Shop/Proofs/Proofs.sw",
+        "namespace Shop.Proofs\n\
+         import Shop.Spec (double as twice)\n\
+         import Std (Nat)\n\n\
+         theorem twiceTwo (a: Nat): twice a = a + a := rfl\n\n\
+         theorem swapped (a: Nat) (b: Nat): twice (a + b) = twice (b + a) := ?\n\n\
+         theorem swappedAgain (a: Nat) (b: Nat): twice (a + b) = twice (b + a) := swapped a b\n",
+    );
+    write(
+        "src/Shop/Main/Main.sw",
+        "namespace Shop.Main\n\
+         import Shop.Proofs (..)\n\
+         import Shop.Spec (..)\n\n\
+         theorem swappedHere (a: Nat) (b: Nat): double (a + b) = double (b + a) := doubleSwap a b\n",
+    );
+    dir
+}
+
+/// `search --at` in a file of a project (D2100): the goal read with the
+/// file's namespace and imports (`twice` for `double`), the project's
+/// lemmas suggested by the names the file can write (the full name, with
+/// the import that would shorten it; its own namespace's short), nothing
+/// that uses the goal's declaration, and each suggestion checked in the
+/// file. Run from the project folder and from elsewhere; JSON snapshot.
+#[test]
+fn what_closes_a_goal_in_a_project() {
+    let dir = shop("at-project");
+    let (code, out, err) = search(&dir, &["--at", "src/Shop/Proofs/Proofs.sw:7"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(out.contains("  ⊢ twice (a + b) = twice (b + a)"), "{out}");
+    assert!(
+        out.contains(
+            " 1. Shop.Spec.doubleSwap a b  [exact]\n    Shop.Spec.doubleSwap  \
+             shop/src/Shop/Spec/Spec.sw:6  (import Shop.Spec (doubleSwap))"
+        ),
+        "{out}"
+    );
+    assert!(out.contains("rewrite twiceTwo (a + b) in ?"), "{out}");
+    assert!(
+        !out.contains("swappedAgain") && !out.contains("swappedHere"),
+        "{out}"
+    );
+    // From another folder: the project is found from the file's.
+    let elsewhere = dir.parent().unwrap();
+    let (code, report) = json(
+        elsewhere,
+        &[
+            "--at",
+            "shop/src/Shop/Proofs/Proofs.sw",
+            "--goal",
+            "1",
+            "--limit",
+            "2",
+        ],
+    );
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["results"][0]["proof"], "Shop.Spec.doubleSwap a b");
+    assert_eq!(report["budget"]["inFile"]["rejected"], 0);
+    let mut report = report;
+    report["budget"]["candidates"] = "(the library's size)".into();
+    report["budget"]["checks"] = "(varies)".into();
+    insta::assert_snapshot!(serde_json::to_string_pretty(&report).unwrap());
+    // `--project` naming another project than the file's is refused.
+    let other = shop("at-project-other");
+    let (code, report) = json(
+        elsewhere,
+        &[
+            "--at",
+            "shop/src/Shop/Proofs/Proofs.sw:7",
+            "--project",
+            other.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(code, 2, "{report}");
+    assert_eq!(report["error"]["code"], "E-SEARCH-AT");
+    let _ = std::fs::remove_dir_all(elsewhere);
+    let _ = std::fs::remove_dir_all(other.parent().unwrap());
 }
