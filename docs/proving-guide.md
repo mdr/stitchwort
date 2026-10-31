@@ -345,8 +345,26 @@ report: messages get fixed from those reports.
 Std has about 2,300 theorems (`grep -rhoE "^theorem [A-Za-z.]+"
 crates/elab/src/std | wc -l` counts 2282). Our lanes twice rewrote lemmas
 std already had, and found others only by grepping (aoc/NOTES-2024.md:373,
-7906–7907). Until `stitchwort search` exists (SW-915), grep before writing a
-lemma. Std's theorems are top-level with their full name, in
+7906–7907). Search by type before writing a lemma: `stitchwort search`
+finds std's and the project's theorems (and functions) by the shape of their
+statement, and says what to import
+([syntax.md](syntax.md#lemma-search-stitchwort-search)):
+
+```
+stitchwort search 'List.length ((_: List _) ++ _) = _'   # a statement's shape
+stitchwort search '⊢ Not (Less = Greater)'              # conclusions only
+stitchwort search '(?a: Nat) ≤ ?b → ?b ≤ ?c → ?a ≤ ?c'  # ?x: the same term each time
+stitchwort search --rewrite 'List.map (List.map _ _) _' # equations and Iffs to rewrite with
+stitchwort search 'Nat → List _ → List _' --definitions # a function by its type
+```
+
+Paste a goal as it is printed (its lowercase variables become named holes).
+Read `relation` first: an `instance` result's statement fits the pattern as
+it stands; a `generalisation` or `commonInstance` one only fits once your
+holes or its variables take some structure. A `relaxed pass` means nothing
+naming everything the pattern names matched: read those results as weaker.
+Grep is still the way to search by name, or by text a pattern can't say.
+Std's theorems are top-level with their full name, in
 `crates/elab/src/std/<Namespace>/*.sw`:
 
 ```

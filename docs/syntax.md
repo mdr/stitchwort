@@ -1290,6 +1290,75 @@ It prints a line for each theorem with a finding (`✗` fails, `!` warns; `--ver
 
 Lean's `lake comparator` checks a solution against a challenge: the same statements, axioms from an allowlist, and the kernel's acceptance on replay. `audit` stage 1 does the second, and has the third through `check`; the same-statement check (`--base REV`, `--challenge FILE`) is stage 2, and changes to the program and instances a proof-only change shouldn't touch are stage 3. The vacuity warning has no counterpart in the comparator.
 
+### Lemma search, `stitchwort search`
+
+`stitchwort search` finds the theorems, functions and constructors whose type has a given shape, in the standard library and the project (or a file), so a lemma std already has isn't missed or proved again (SW-915; the design and its measurements: [search.md](proposals/search.md)).
+
+```
+stitchwort search 'List.length ((_: List _) ++ _) = _'      # a statement's shape
+stitchwort search 'Nat → List _ → List _'                   # a function's type
+stitchwort search --rewrite 'List.map (List.map _ _) _'     # lemmas to rewrite this with
+stitchwort search '"compare", Ord.compare ?x ?x = _'        # name contains "compare", and a pattern
+stitchwort search 'Shape.scale _ _ = _' --project ../shop   # another project
+stitchwort search 'List.length (twice _) = _' proofs.sw     # with a file instead of the project
+```
+
+```
+$ stitchwort search 'List.length ((_: List _) ++ _) = _'
+ 1. Std.List.lengthAppend  theorem · instance · conclusion
+    [a: Type] → (xs: List a) → (ys: List a) → List.length (List.append xs ys) = List.length xs + List.length ys
+    std/List/Lemmas.sw:5  (import Std (List))
+ 2. Std.List.lengthSnoc  theorem · instance · conclusion
+    [a: Type] → (xs: List a) → (x: a) → List.length (List.append xs [x]) = Succ (List.length xs)
+    std/List/Lemmas.sw:824  (import Std (List))
+2 results, filtered pass
+```
+
+**The query** is parts separated by commas (a comma inside brackets or quotes doesn't separate):
+
+- **A pattern** (at most one): an expression or a type, elaborated in the scope below. `_` is any term; `?x` is a named hole, the same term at each `?x`, also under the pattern's own arrows (`(?a: Nat) ≤ ?b → ?b ≤ ?c → ?a ≤ ?c` finds `Nat.leTrans`); a lowercase name that means nothing in scope is a named hole too, so a goal can be pasted as it is printed. A leading `⊢` (or `|-`) matches conclusions only. A pattern that is only a hole (`_`, `?x`) is refused.
+- **A name on its own** (`List.length`, `Ord`): the type must mention it.
+- **`"text"`**: the full name must contain it.
+
+**What is searched**: every theorem, definition and constructor of the library (loaded whole, through the check cache) and of the project found from the folder you're in (or `--project DIR`), or of `FILE` instead of the project. A pattern sees the library's namespaces as `import Std (List, Map, …)` brings them and the project's as `import N (..)` does; with a file, it sees names as the file does. A project or file that doesn't check is reported, and what checked is searched. Declarations with an open `?` aren't searched. Hidden unless `--all`: generated helpers (a `%` in the name) and the library's `…Example` theorems. `--theorems`, `--definitions` and `--constructors` narrow to those kinds (any of them together); each result says its kind. An interface's law (a field whose type is a proposition, `Ord.flip`) is a `theorem`.
+
+**Where a pattern matches**: the pattern is unified, two ways, with each candidate's type, its parameters opened as unknowns, without unfolding definitions first (calls are compared by their arguments, then unfolded if they differ). Each match has a **place**: `whole` (a function-type pattern against the whole type), `reordered` (its parameters matched by the candidate's in any order, the candidate having perhaps more), `conclusion`, `premise`, or `subterm` (a call inside with the pattern's head); with `--rewrite` only `left` and `right`, the two sides of a conclusion stated as `=` or as `Iff`, with `equation` `eq` or `iff`. A conditional equation (`m ≤ n → Nat.min m n = m`) is a rewrite result too, its premises left open and counted in `premises`. A target of another type than the pattern's isn't tried. A target that is one of the candidate's variables (`(p: Prop) (h: p): p`) matches anything, and isn't tried; one applied to arguments (`p k`) is tried, and ranks last.
+
+**The relation** says how the two met: `instance` (the candidate instantiates to the pattern: only its variables took structure), `generalisation` (the pattern's named holes took structure from the candidate), `commonInstance` (both did: the weakest). A written `_` may take any structure without lowering the relation; a named hole may not. Results are ranked by relation, then whether a candidate's variable absorbed the whole pattern (a lemma ending in `p x`, a computation type `{row} a`: last), place, how much the candidate's variables took (`absorbed`), how many holes took structure (`instantiated`), `premises`, the type's size, then the name.
+
+**The filter and the relaxed pass**: a candidate is compared only if its type names every definition and data type the pattern names (`"searchTier": "filtered"`). If that finds nothing, every candidate is compared, and the results say `relaxed` with a warning: read them as weaker. A pattern that names nothing is searched unfiltered from the start (`unfiltered`).
+
+**Interfaces**: a pattern with an interface method at a known type (`Ord.compare (?x: Nat) ?x = _`) is searched twice, as resolved (`Nat.compareSelf`) and with the instance a hole (the generic `Ord.compareSelf`); a result found both ways is listed once, and `via` says which found it.
+
+Each result prints its name, kind, relation and place; its type; and where it is declared, with the import line that brings it into scope. Ten are shown (`--limit N`). **Exit status**: 0 with results, 1 with none, 2 if the query doesn't parse or elaborate.
+
+**`--json`** prints one object, the contract's version 1 (a field that changes meaning or goes changes the version; new fields don't):
+
+```json
+{"version": 1,
+ "query": {"text": "List.length (twice _) = _", "elaborated": "List.length (twice ?1) = ?2",
+           "names": [], "mentions": [], "holes": [], "rewrite": false,
+           "kinds": ["theorem", "definition", "constructor"]},
+ "searchTier": "filtered",
+ "results": [
+   {"name": "Main.twiceLength", "kind": "theorem",
+    "type": "(xs: List Nat) → List.length (twice xs) = List.length xs + List.length xs",
+    "file": "a.sw", "line": 5, "import": null,
+    "relation": "instance", "place": "conclusion",
+    "absorbed": 0, "instantiated": 1, "premises": 0, "size": 25}],
+ "total": 1,
+ "budget": {"candidates": 3609, "compared": 1, "outOfBudget": 0, "truncated": false,
+            "exhausted": true, "internalErrors": 0},
+ "warnings": []}
+```
+
+- `kind`: `theorem`, `definition` or `constructor`. `import`: the line to add, or `null` for the file's own declarations.
+- `relation`, `place`: as above; absent without a pattern. `equation`: only with `--rewrite`. `via`: only for a pattern searched twice (`resolved`, `generic`).
+- `budget`: the declarations searched, the comparisons made, those that ran out of their step budget (200,000 steps each: a match there may have been missed, and a warning says so), whether `--limit` cut the results, whether every candidate was compared (always, in this stage), and comparisons that failed with an internal error (counted as no match; there should be none).
+- An error prints `{"version": 1, "error": {"code": …, "message": …}}` and exits with 2.
+
+Not yet (stage 2, [search.md](proposals/search.md) §8): searching the goal at a `?` (`--at FILE:LINE:COL`), and trying each result there.
+
 ### `include`
 
 `include "path"` is a `Text` with the contents of a file, read when the program is checked: `(include "../../../../../inputs/2025/day04.txt").lines` is the lines of a puzzle input. The path is a literal in quotes, written like an argument (put it in brackets before a `.`, as above).

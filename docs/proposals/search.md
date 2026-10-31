@@ -7,8 +7,8 @@ Lean's tools; draft 2 (D2052) compared the wider field and measured the design w
 ([search/review-1.md](search/review-1.md), from the brief
 [search/review-brief.md](search/review-brief.md)) and approved it with changes. Matt accepted
 D2054–D2056 and decided D2062 and D2063 (30 October). Draft 3 folds in those decisions and the
-review, measures what changes, and gives the staged plan. Stage 1 is not started: Matt reads this
-draft first. New decisions are in [§10](#10-decisions-for-matt).
+review, measures what changes, and gives the staged plan. Stage 1 is built, after Matt read this draft (D2088):
+[As built (stage 1)](#as-built-stage-1). New decisions are in [§10](#10-decisions-for-matt).
 
 Labels:
 
@@ -872,3 +872,75 @@ The assumptions, in full:
   no query log exists.
 - **The Lean documentation the review cites**: not read.
 - **Quiet-machine timings.**
+
+## As built (stage 1)
+
+Stage 1 (S1a–S1d) is `stitchwort search`, documented in
+[syntax.md](../syntax.md#lemma-search-stitchwort-search) (SW-915; D2088 accepted D2064–D2067,
+D2089 decided the kinds). The matching is `crates/elab/src/search.rs`, the command
+`crates/driver/src/search.rs` and `crates/cli/src/main.rs`. The prototype `stitchwort dev search`
+and its directives are gone; its benchmarks are tests (below), and
+`search/queries-draft3.sh` runs only with a build of 20fd3dc2 or earlier.
+
+**As planned**: the three relations ranked first, with the one-way retry; a written `_` free to
+take structure (D2064); `p x` targets tried with the unifier as it is (D2067); the filter with data
+types, and the relaxed second pass (`searchTier`); named holes made once, outside the pattern's
+binders; a pattern that is a bare hole refused (`E-SEARCH-PATTERN`); places as §4.1, `equation`
+(D2065); `--rewrite` with `Iff` and conditional equations; the instance double search with `via`;
+std and the project loaded through the check cache; helpers and `…Example` theorems hidden unless
+`--all`; exit codes 0, 1, 2.
+
+**Changed from the plan:**
+
+- **Kinds (D2089)**: theorems, definitions and constructors are all searched by default, and each
+  result has `kind`. `--theorems`, `--definitions` and `--constructors` narrow it (any of them
+  together), in place of draft 3's `--defs`. An interface's law (a field whose type is a
+  proposition, `Ord.flip`) is a `theorem`.
+- **Types before unification (SW-924)**: a target whose type differs from the pattern's isn't
+  unified (20fd3dc2).
+- **Whole-pattern absorption** ranks last within its relation when the target's head is one of the
+  candidate's variables (`p x`), as planned, and also when one of the candidate's variables took a
+  term as large as the whole pattern. Definitions made the second rule necessary: a conclusion
+  `{row} a` unifies with any pattern by taking `a` to be it, and in the relaxed pass such
+  definitions came first.
+- **`p x` targets in practice** match patterns headed by a variable or a hole (`(?q: Nat → Prop)
+  3`, a theorem's own statement); the unifier can't solve `?p ?k` against an `=` or a `≤` (no
+  pattern, and the first-order approximation needs an application), so they rarely match a written
+  pattern. As D2067 expected; no new algorithm.
+- **Scope**: a project's namespaces are in a pattern's scope as `import N (..)` brings them, and
+  the import line names the namespace; with a `FILE`, a pattern sees names as the file does. A
+  project or file that doesn't check is reported, and what checked is searched.
+- **JSON version 1** has, beyond §4.1: `kind`; `query.text` (draft 3's `query.pattern`), with
+  `mentions`, `holes` and `kinds`; `budget.internalErrors`; and on an error, `{"version": 1,
+  "error": {"code", "message"}}`. `via` is left out for a pattern searched once.
+- **A unifier fix**: matching last arguments (`first_order`) could solve the head unknown itself
+  (`?m a b = f c ?m` pairs `b` with `?m`) with a constructor, and then apply it: a panic in core,
+  found by the proof-use benchmark. It now fails, taking the solution back (unit test in
+  `unify.rs`). Only comparisons that panicked before change, so no hash moves.
+- **The proof-use benchmark's holes have types**: each proof variable given as an argument (to the
+  lemma, or a call in its arguments) gets its parameter's type, so SW-919's guard can refuse
+  ill-typed pairings. Without types, two comparisons panicked (`Eq.trans`'s use in
+  `List.sumByGet` against `List.sumByAttach`).
+
+**Not built**: the query log (S1d's `--log`), and everything of stage 2.
+
+**Tests and tiers** (lane area `search`, docs/testing.md): `crates/driver/tests/search_match.rs`
+(relations, `_`, `p x`, named holes under binders, refusals, rewrite: a small file);
+`crates/driver/tests/search_bench.rs` (self-retrieval: every theorem found, no internal error,
+strict top-1 at least 86% of conclusions and 78% of left sides over all std in the daily tier, two
+points less on the merge and lane tiers' sample of every 8th; the hand queries in every tier; the
+proof-use benchmark, recall@10 at least 50%, in the full tier only); `crates/cli/tests/search.rs`
+(the command end to end, and a snapshot of the JSON).
+
+**Measured** (31 October 2026, on a loaded machine, so times are rough):
+
+| Benchmark | queries | not found | strict top-1 | MRR | R@5 | R@10 | internal errors | time |
+|---|---|---|---|---|---|---|---|---|
+| conclusions (all std) | 2,324 | 0 | 87.7% | 0.917 | 96.4% | 98.3% | 0 | 7 s |
+| left sides, `Iff` included | 1,587 | 0 | 81.2% | 0.883 | 97.6% | 99.4% | 0 | 4 s |
+| proof uses | 5,197 | 1,830 | 38.2% | 0.428 | 47.6% | 51.0% | 0 | 126 s |
+
+The query counts are higher than §6's (2,301 conclusions) because interface laws now count as
+theorems. Draft 3's script, with a build of 20fd3dc2 (SW-924's fix alone): the self and left
+sections had no internal error in any of their 10 runs; the proof-use section had 1 in three of its
+six runs and 3 unfiltered, the cases fixed above.

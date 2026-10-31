@@ -1,7 +1,9 @@
 #!/bin/bash
 # The measurements of docs/proposals/search.md draft 3 (§6), run with the
-# experimental `stitchwort dev search` (SW-915). From the repository root,
-# after `task build`:
+# experimental `stitchwort dev search` (SW-915). Stage 1 removed `dev search`
+# (its benchmarks are now tests: crates/driver/tests/search_bench.rs), so this
+# runs only with a build of commit 20fd3dc2 (the SW-924 fix) or earlier. From
+# the repository root of such a checkout, after `task build`:
 #
 #   docs/proposals/search/queries-draft3.sh [CACHE_DIR] [SECTION...]
 #
