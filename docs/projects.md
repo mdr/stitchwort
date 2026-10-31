@@ -235,7 +235,18 @@ same way (`import Std (Eq)`, then `Eq.sym`).
   means the same declaration in the file, so it can be pasted back. Hashes
   don't depend on how a name was written.
 - **There is no `import M as A`.** It is `E-PARSE`, with a note giving the
-  item form.
+  item form. To use another name, rename the item: `import
+  Aoc.Year2024.Day13 (Spec as S)`, then `S.fewestTokens`.
+
+### Importing a name under another name: `import M (x as y)`
+
+`import Aoc (Range as Span)` makes `Span` mean `Aoc.Range` in this file
+(and `Span.size` mean `Aoc.Range.size`); it doesn't bring `Range`. A
+type's constructors keep their own names. Clashes are as for any import:
+`E-IMPORT-CLASH` with a declaration of the file's, `E-AMBIGUOUS` where a
+name two items share is used. Goals and messages print `Span`, and hashes
+are as if the name were written in full. See
+[syntax.md](syntax.md#namespaces-and-imports).
 
 ## Cycles between namespaces
 

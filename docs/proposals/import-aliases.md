@@ -585,3 +585,53 @@ a qualifier for `P.S` in that file and imports none of its names. This is
   same goal). Day 13's four full names are now `Spec.fewestTokens`; the
   aoc hash dump (`HASH_DUMP`) is byte-identical before and after (10,657
   lines).
+
+### Stage 2: per-name renaming, `import M (x as y)` (31 October 2026)
+
+- **Syntax.** An item is `name` or `name as alias` (`ast::ImportItem`).
+  `as` is not a keyword: it is read only there, so it stays usable as a
+  name elsewhere. The alias starts with a capital letter exactly when the
+  name does (`E-PARSE` otherwise), since that says what kind of name it
+  is. `(..)` takes no `as`. `stitchwort fmt` needed no change (the golden
+  `imports` test now has renamed items).
+- **Meaning.** `y` is bound where `x` would be (the import table for a
+  declaration, the qualifier table for a namespace) and `x` is not. Decided
+  for each kind of item:
+  - a definition or theorem: `y` names it;
+  - a type or ability: `y` names it and is a qualifier for its namespace
+    (`Owing.f`, `Owing.Paid`); its constructors or operations keep their
+    own names, visible while `y` means the type (a table `Scope::renamed`,
+    key to new names, lets the follower rule find them);
+  - a namespace: allowed, and simply a renamed qualifier (`import Shop
+    (Spec as S)`, then `S.total`). This gives a module alias for any
+    namespace below a root, through the item form; a root namespace has
+    no parent to import it from, so it can't be renamed.
+- **Clashes** are an ordinary import's, by the new name: `E-IMPORT-CLASH`
+  with a declaration of the module's, `E-AMBIGUOUS` at a use of a name two
+  items share. Writing the old name is `E-UNKNOWN-NAME` with a note giving
+  the new one.
+- **Printing.** `NameScope::aliases` gives, for a full name, its spellings
+  through renamed items (`y` for `M.x`, `S.total` for `Shop.Spec.total`).
+  `Printer::short_name` tries each after the trailing part with as many
+  components, and keeps the first that means the declaration here, so the
+  printed name always pastes back (review 1's invariant). Messages'
+  `written` tries them first too; a note that says where a declaration is
+  (the library's names for an unknown one) still uses its full name.
+- **Tools.** The navigation index records both names of an item and every
+  use of the new name as references to the declaration, so hover and go
+  to definition show the declaration itself, and find references lists the
+  new name's uses. The language server has no rename (it offers
+  definition, hover, references, symbols and formatting), so there is
+  nothing to teach about the new names; if rename is added, renaming a
+  declaration should leave an alias alone and renaming an alias should
+  edit the item and its uses.
+- **Hashes.** `examples/projects/accept/import-rename` and its
+  `-full-names` twin hash the same, line for line
+  (`hash_stability::import_items_hash_as_full_names`). The aoc and rogue
+  hash dumps with stages 1 and 2 are byte-identical to `main`'s before
+  them (10,657 and 5,228 lines).
+- **Tests.** Goals: `goal_index::goals_print_imported_names_as_the_file_writes_them`
+  (`S.total xs = charged xs`, pasted back as the same goal). Navigation:
+  `navigation::renamed_imports_refer_to_the_declaration`. Parser:
+  `import_items_may_be_renamed`. Rejects: `examples/reject/import-rename-*`
+  (clash, ambiguous, old name, case).
