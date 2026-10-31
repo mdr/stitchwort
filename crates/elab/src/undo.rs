@@ -54,6 +54,7 @@ pub(crate) struct Snapshot {
     queue: crate::queue::Mark,
     awaiting_helpers: usize,
     defaulted: usize,
+    defaulted_records: usize,
     drafts: usize,
     local_keys: usize,
     local_types: usize,
@@ -79,6 +80,7 @@ impl Snapshot {
             queue: cx.e.queue.mark(),
             awaiting_helpers: cx.e.awaiting_helpers.borrow().len(),
             defaulted: cx.e.defaulted.borrow().len(),
+            defaulted_records: cx.e.defaulted_records.borrow().len(),
             drafts: cx.e.drafts.borrow().len(),
             local_keys: cx.e.local_keys.borrow().len(),
             local_types: cx.e.pending_local_types(),
@@ -164,6 +166,9 @@ impl Snapshot {
             .borrow_mut()
             .truncate(self.awaiting_helpers);
         cx.e.defaulted.borrow_mut().truncate(self.defaulted);
+        cx.e.defaulted_records
+            .borrow_mut()
+            .truncate(self.defaulted_records);
         cx.e.drafts.borrow_mut().truncate(self.drafts);
         cx.e.local_keys.borrow_mut().truncate(self.local_keys);
         cx.e.drop_local_types_since(self.local_types);

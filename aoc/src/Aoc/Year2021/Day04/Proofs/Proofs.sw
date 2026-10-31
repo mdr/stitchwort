@@ -16,11 +16,8 @@ theorem unmarkedAfter (drawn: List Nat) (number: Nat) (later: List Nat) (x: Nat)
     not (marked (drawn ++ [number]) x) = (List.length drawn < List.indexOf (drawn ++ Cons number later) x) :=
   rewrite List.containsIndexOfAppend x later (drawn ++ [number]), List.appendAssoc drawn [number] later, List.lengthSnoc drawn number in cases
 
--- Two facts used on the way: a false `p` adds nothing to `p ∨ b`, and the
--- turn after all the draws isn't before the end of any part of them.
+-- A false `p` adds nothing to `p ∨ b`.
 theorem orFalse (p: Bool) (b: Bool) (h: p = False): (p ∨ b) = b := rewrite h in rfl
-
-theorem pastTheEnd (n: Nat) (m: Nat): ((n + m < n): Bool) = False := cases
 
 -- So, once at least one number is drawn, a board has won exactly when the
 -- program's winning turn has come.
@@ -34,7 +31,7 @@ theorem winsBefore (drawn: List Nat) (rest: List Nat) (someDrawn: 0 < List.lengt
       _ = (0 < List.length drawn ∧ List.all line (number => drawnAt number < List.length drawn)) := cases
       _ = (lineTurn line < List.length drawn) := Eq.sym (List.foldMaxLt drawnAt (List.length drawn) line 0)
   let notAfterAll: ((List.length (drawn ++ rest) < List.length drawn): Bool) = False :=
-    rewrite List.lengthAppend drawn rest in pastTheEnd (List.length drawn) (List.length rest)
+    omega [List.lengthAppend drawn rest]
   calc wins drawn board
     _ = List.any (board ++ List.transpose board) (line => List.all line (marked drawn)) := Eq.sym (List.anyAppend board (List.transpose board) _)
     _ = List.any (board ++ List.transpose board) (line => lineTurn line < List.length drawn) := List.anyCong _ _ _ complete

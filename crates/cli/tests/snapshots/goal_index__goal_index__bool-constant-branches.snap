@@ -1,0 +1,206 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "b",
+          "type": "Bool"
+        }
+      ],
+      "lemma": "theorem orFalseGoal1 (b: Bool): b = (if b then True else False) := ?",
+      "target": "b = (if b then True else False)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "b: Bool\n⊢ b = (if b then True else False)",
+        "range": [
+          8,
+          47,
+          8,
+          48
+        ]
+      }
+    ],
+    "message": "in `orFalse`",
+    "notes": [],
+    "range": [
+      8,
+      47,
+      8,
+      48
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "b",
+          "value": "True"
+        },
+        {
+          "name": "c",
+          "value": "False"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "b",
+          "type": "Bool"
+        },
+        {
+          "name": "c",
+          "type": "Bool"
+        }
+      ],
+      "lemma": "theorem allTwoGoal1 (b: Bool) (c: Bool): (b && c && True) = b := ?",
+      "target": "(b && c && True) = b"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "b: Bool\nc: Bool\n⊢ (b && c && True) = b",
+        "range": [
+          10,
+          68,
+          10,
+          69
+        ]
+      }
+    ],
+    "message": "in `allTwo`",
+    "notes": [
+      "this statement is false; a counterexample:\n  b = True\n  c = False\n`List.all [b, c] (x => x) = b` is false:\n  left:  False\n  right: True"
+    ],
+    "range": [
+      10,
+      68,
+      10,
+      69
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "b",
+          "value": "False"
+        },
+        {
+          "name": "c",
+          "value": "True"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "b",
+          "type": "Bool"
+        },
+        {
+          "name": "c",
+          "type": "Bool"
+        }
+      ],
+      "lemma": "theorem anyTwoGoal1 (b: Bool) (c: Bool): (b || c || False) = b := ?",
+      "target": "(b || c || False) = b"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "b: Bool\nc: Bool\n⊢ (b || c || False) = b",
+        "range": [
+          12,
+          68,
+          12,
+          69
+        ]
+      }
+    ],
+    "message": "in `anyTwo`",
+    "notes": [
+      "this statement is false; a counterexample:\n  b = False\n  c = True\n`List.any [b, c] (x => x) = b` is false:\n  left:  True\n  right: False"
+    ],
+    "range": [
+      12,
+      68,
+      12,
+      69
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "k",
+          "value": "0"
+        },
+        {
+          "name": "b",
+          "value": "False"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "k",
+          "type": "Nat"
+        },
+        {
+          "name": "b",
+          "type": "Bool"
+        }
+      ],
+      "lemma": "theorem besideBoolGoal1 (k: Nat) (b: Bool): (k <= 2) = (k <= 2 && b) := ?",
+      "target": "(k <= 2) = (k <= 2 && b)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "k: Nat\nb: Bool\n⊢ (k <= 2) = (k <= 2 && b)",
+        "range": [
+          14,
+          65,
+          14,
+          66
+        ]
+      }
+    ],
+    "message": "in `besideBool`",
+    "notes": [
+      "this statement is false; a counterexample:\n  k = 0\n  b = False\n`(k <= 2) = (k <= 2 && b)` is false:\n  left:  True\n  right: False"
+    ],
+    "range": [
+      14,
+      65,
+      14,
+      66
+    ],
+    "severity": "goal"
+  }
+]

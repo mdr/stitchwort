@@ -150,6 +150,7 @@ impl Elaborator {
             queue,
             awaiting_helpers,
             defaulted,
+            defaulted_records,
             char_patterns,
             char_proofs,
             loading_prelude,
@@ -261,6 +262,7 @@ impl Elaborator {
         queue.clear();
         awaiting_helpers.get_mut().clear();
         defaulted.get_mut().clear();
+        defaulted_records.get_mut().clear();
         char_patterns.get_mut().clear();
         char_proofs.get_mut().clear();
         *loading_prelude = mark.loading_prelude;

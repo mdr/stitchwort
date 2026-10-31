@@ -807,6 +807,10 @@ pub(crate) fn infer_literal(cx: &mut Ctx, fields: &[(ast::Name, Expr)]) -> Resul
 struct Literal {
     fields: Vec<(ast::Name, Expr)>,
     expected: Value,
+    /// The literal, for the error at an implicit argument left unsolved
+    /// after its type was chosen at the end ([`crate::Elaborator`]'s
+    /// `defaulted_records`).
+    span: Span,
 }
 
 impl crate::queue::Check for Literal {
@@ -841,7 +845,12 @@ impl crate::queue::Check for Literal {
                 cx.eval(&meta)
             })
             .collect::<Result<Vec<_>>>()?;
-        cx.unify(&Value::Data(d, params), &self.expected)
+        let chosen = cx.unify(&Value::Data(d, params), &self.expected)?;
+        if chosen {
+            let name = cx.g().data(d).name.to_string();
+            cx.e.defaulted_records.borrow_mut().push((self.span, name));
+        }
+        Ok(chosen)
     }
 }
 
@@ -870,6 +879,7 @@ fn queue_literal(cx: &mut Ctx, fields: &[(ast::Name, Expr)], expected: &Value) -
     let literal = Literal {
         fields: fields.to_vec(),
         expected: expected.clone(),
+        span: cx.span,
     };
     crate::queue::queue(
         cx,
