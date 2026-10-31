@@ -826,7 +826,7 @@ fn list(
 /// A declaration hidden unless `--all`: a generated helper (`%` in its
 /// name, or a session's own `<…>`), or an `…Example` theorem of the
 /// library.
-fn hidden(path: &str) -> bool {
+pub(crate) fn hidden(path: &str) -> bool {
     path.contains('%')
         || path.contains('<')
         || (path.starts_with("Std.")
@@ -840,7 +840,7 @@ fn hidden(path: &str) -> bool {
 /// `Std.List.lengthAppend`, `import Lib (Range)` for a project's
 /// `Lib.Range.size` in a project with namespace `Lib`; `None` for a
 /// declaration of the file searched.
-fn import_line(g: &Globals, item: Item, scope: &Scope) -> Option<String> {
+pub(crate) fn import_line(g: &Globals, item: Item, scope: &Scope) -> Option<String> {
     let path = item.path(g);
     let (namespace, rest) = match path.strip_prefix("Std.") {
         Some(rest) => ("Std", rest),

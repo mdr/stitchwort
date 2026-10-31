@@ -14,6 +14,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::{Value, json};
 use stitchwort_driver::search::{Options, Report};
+use stitchwort_driver::search_at::AtReport;
 use stitchwort_syntax::Diagnostic;
 
 /// The log format's version: it changes when a field changes meaning or
@@ -82,6 +83,34 @@ pub fn entry(report: &Report, options: &Options, scope: Value, started: Instant)
             "outOfBudget": report.budget.out_of_budget,
             "internalErrors": report.budget.internal_errors,
         }),
+    );
+    Value::Object(entry)
+}
+
+/// The line for `search --at`: `event: "at"`, `query` the `--at` text, the
+/// goal, and each suggestion with its rank, class, name and proof.
+pub fn at_entry(at: &str, report: &AtReport, started: Instant) -> Value {
+    let mut entry = base("at", at, started);
+    entry.insert(
+        "goal".into(),
+        json!({"hypotheses": report.goal.hypotheses.len(), "target": report.goal.target}),
+    );
+    let results: Vec<Value> = (report.results.iter().enumerate())
+        .map(|(i, s)| {
+            json!({"rank": i + 1, "class": s.class, "name": s.name, "proof": s.proof,
+                   "goals": s.goals.len()})
+        })
+        .collect();
+    entry.insert("results".into(), json!(results));
+    let rewrites: Vec<Value> = (report.rewrites.iter().enumerate())
+        .map(|(i, r)| json!({"rank": i + 1, "name": r.name, "proof": r.proof, "closes": r.closes}))
+        .collect();
+    entry.insert("rewrites".into(), json!(rewrites));
+    entry.insert("total".into(), json!(report.total));
+    entry.insert(
+        "budget".into(),
+        json!({"matched": report.budget.matched, "tried": report.budget.tried,
+               "checks": report.budget.checks, "exhausted": report.budget.exhausted}),
     );
     Value::Object(entry)
 }

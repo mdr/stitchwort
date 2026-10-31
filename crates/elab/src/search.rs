@@ -36,7 +36,7 @@ type Res<T> = std::result::Result<T, stitchwort_core::ResourceError>;
 
 /// The limits of one match attempt: a comparison that needs more is no match
 /// (and is counted, as `outOfBudget`).
-const ATTEMPT: Limits = Limits {
+pub(crate) const ATTEMPT: Limits = Limits {
     work: 200_000,
     stack: 4 * 1024 * 1024,
     size: 100_000,
@@ -75,7 +75,7 @@ impl Via {
 
 /// An elaborated pattern.
 pub struct Pattern {
-    value: Value,
+    pub(crate) value: Value,
     /// The definitions the pattern names: in the filtered pass, a candidate
     /// must name each.
     pub constants: BTreeSet<DefId>,
@@ -83,27 +83,27 @@ pub struct Pattern {
     pub data: BTreeSet<usize>,
     pub head: HeadKey,
     /// How many unknowns there were once it was elaborated.
-    metas: usize,
+    pub(crate) metas: usize,
     /// Its size, in nodes: a candidate variable that took a term this
     /// large absorbed the whole pattern.
-    size: usize,
+    pub(crate) size: usize,
     /// The unknowns elaboration left unsolved: the pattern's holes (and
     /// their types), which a match may bind.
-    free: Vec<usize>,
+    pub(crate) free: Vec<usize>,
     /// The holes that decide the relation (D2064): the named holes of a
     /// written pattern, every hole of a pattern made from a theorem or a
     /// goal. A written `_` may take any structure.
-    decisive: Vec<usize>,
+    pub(crate) decisive: Vec<usize>,
     /// Every hole stands for a different variable, as in a pattern made from
     /// a theorem or a goal: two made the same is an instantiation. In a
     /// written pattern, two `_`s may bind the same variable.
-    distinct: bool,
+    pub(crate) distinct: bool,
     /// What the pattern is: a type, or a term of this type. A target of
     /// another type is no match, and isn't unified (unification doesn't
     /// look at types, and an unknown solved by a term of another type can
     /// make computing it take a `case` of one type to a constructor of
     /// another: SW-924).
-    ty: Option<Ty>,
+    pub(crate) ty: Option<Ty>,
     /// Which half of the instance double search this is; `None` when the
     /// pattern resolved no dictionary.
     pub via: Option<Via>,
@@ -121,7 +121,7 @@ impl Pattern {
 
 /// The type of a pattern or a target, as far as search compares them.
 #[derive(Clone)]
-enum Ty {
+pub(crate) enum Ty {
     /// A type (its type is a sort).
     Type,
     /// A term of this type.
@@ -129,7 +129,7 @@ enum Ty {
 }
 
 impl Ty {
-    fn of(g: &Globals, ty: Value) -> Res<Ty> {
+    pub(crate) fn of(g: &Globals, ty: Value) -> Res<Ty> {
         Ok(match force(g, ty)? {
             Value::Sort(_) => Ty::Type,
             other => Ty::Of(other),
@@ -142,7 +142,7 @@ impl Ty {
 /// type; a definition or one of the candidate's variables, applied to
 /// arguments, has the type its own type gives them. `None` when it can't
 /// tell.
-fn type_of_target(g: &Globals, env: &[Value], term: &Term) -> Res<Option<Ty>> {
+pub(crate) fn type_of_target(g: &Globals, env: &[Value], term: &Term) -> Res<Option<Ty>> {
     let (head, args) = term.spine();
     let mut ty = match head {
         Term::Pi(..) | Term::Data(..) | Term::Eq(..) | Term::Sort(..) if args.is_empty() => {
@@ -569,7 +569,7 @@ pub fn data_types(term: &Term) -> BTreeSet<usize> {
         .collect()
 }
 
-fn head_key(term: &Term) -> HeadKey {
+pub(crate) fn head_key(term: &Term) -> HeadKey {
     match term.spine().0.strip_loc() {
         Term::Def(id) => HeadKey::Def(*id),
         Term::Data(d, _) => HeadKey::Data(*d),
@@ -580,7 +580,7 @@ fn head_key(term: &Term) -> HeadKey {
 }
 
 /// The size of a term, in nodes.
-fn size(term: &Term) -> usize {
+pub(crate) fn size(term: &Term) -> usize {
     term.subterms()
         .filter(|(t, _)| !matches!(t, Term::Loc(..)))
         .count()
@@ -709,12 +709,12 @@ pub fn passes(pattern: &Pattern, index: &Index) -> bool {
 
 /// Puts things back as they were before a comparison, also when it panics
 /// (so a caller that catches the panic can go on).
-struct Restore<'g> {
-    g: &'g Globals,
-    metas: usize,
-    trail: usize,
-    frozen: usize,
-    glue: bool,
+pub(crate) struct Restore<'g> {
+    pub(crate) g: &'g Globals,
+    pub(crate) metas: usize,
+    pub(crate) trail: usize,
+    pub(crate) frozen: usize,
+    pub(crate) glue: bool,
 }
 
 impl Drop for Restore<'_> {

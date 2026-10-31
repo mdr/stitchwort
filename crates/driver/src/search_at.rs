@@ -1,0 +1,1002 @@
+//! `stitchwort search --at`, stage 2 (SW-915; docs/proposals/search.md
+//! §5.7, §8 S2): what closes the goal at a `?`. The elaborator plans
+//! (`stitchwort_elab::closing`): the candidates whose conclusion the goal's
+//! target is an instance of (the hypotheses rigid, unfiltered: D2066), each
+//! premise filled from a hypothesis where one fits. Here each plan becomes
+//! proof text, and is checked: elaborated in the file's scope inside
+//! `(((h: A) => …): (h: A) → … → T)`, and, with no `?` left, checked by
+//! the kernel. A `?` the plan leaves is tried with `rfl`, `omega` and
+//! `byDecision`; what still fails is a goal the suggestion leaves.
+//!
+//! Results come in four classes (review point 12): `exact` (the lemma
+//! applied to the goal's terms), `withHypotheses` (premises filled from
+//! hypotheses), `afterObligations` (premises closed by `rfl`, `omega` or
+//! `byDecision`), each kernel-checked; and `applicable` (it applies,
+//! leaving goals, listed). Separately, `rewrites`: equations and `Iff`s
+//! whose side is a call in the target, as `rewrite L in ?` with the goal
+//! that leaves (`rw?`'s direction, S2c). Nothing is reported as closing
+//! the goal unless the kernel accepted it.
+
+use std::time::{Duration, Instant};
+
+use serde::Serialize;
+use stitchwort_core::DataId;
+use stitchwort_elab::Checked;
+use stitchwort_elab::closing::{Arg, Goal, Plan};
+use stitchwort_elab::search::{Candidate, Kind};
+use stitchwort_syntax::{Diagnostic, FileId, GoalData, Severity, SourceMap};
+
+use crate::driver::Session;
+use crate::search::{Scope, hidden, import_line};
+
+/// What `search --at` was asked for.
+#[derive(Clone, Debug)]
+pub struct AtOptions {
+    /// How many results of each list to show.
+    pub limit: usize,
+    /// How many of the matching candidates are tried, in rank order.
+    pub max_candidates: usize,
+    /// How long the checking may take in all; past it, what is left isn't
+    /// tried, and the JSON says so (`exhausted: false`).
+    pub time: Duration,
+    /// Also the library's hidden helpers.
+    pub all: bool,
+}
+
+impl Default for AtOptions {
+    fn default() -> AtOptions {
+        AtOptions {
+            limit: 10,
+            max_candidates: 50,
+            time: Duration::from_secs(10),
+            all: false,
+        }
+    }
+}
+
+/// Which goal: the one at a line (and column), or the n-th of the file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GoalAt {
+    /// 1-based; with a column (1-based, in characters), the goal there,
+    /// else the line's first.
+    Line(usize, Option<usize>),
+    /// 1-based, in source order.
+    Index(usize),
+}
+
+/// A goal of a file: where it is, and its data.
+#[derive(Clone, Debug)]
+pub struct FoundGoal {
+    pub line: usize,
+    pub column: usize,
+    /// 1-based among the file's goals, in source order.
+    pub index: usize,
+    pub data: GoalData,
+}
+
+/// The goals among `diagnostics` that are in `file`, in source order.
+pub fn goals_in(sources: &SourceMap, file: FileId, diagnostics: &[Diagnostic]) -> Vec<FoundGoal> {
+    let text = &sources.get(file).text;
+    let mut found: Vec<(u32, GoalData)> = (diagnostics.iter())
+        .filter(|d| d.severity == Severity::Goal)
+        .filter_map(|d| {
+            let span = d.primary_span()?;
+            (span.file == file).then(|| Some((span.start, (**d.goal.as_ref()?).clone())))?
+        })
+        .collect();
+    found.sort_by_key(|(at, _)| *at);
+    found
+        .into_iter()
+        .enumerate()
+        .map(|(i, (at, data))| {
+            let before = &text[..(at as usize).min(text.len())];
+            let line = before.matches('\n').count() + 1;
+            let column = before.rsplit('\n').next().unwrap_or("").chars().count() + 1;
+            FoundGoal {
+                line,
+                column,
+                index: i + 1,
+                data,
+            }
+        })
+        .collect()
+}
+
+/// The goal `at` asks for among `goals`, or why there is none.
+pub fn pick(goals: &[FoundGoal], at: GoalAt) -> Result<&FoundGoal, String> {
+    let listing = || {
+        if goals.is_empty() {
+            "the file has no open goal `?`".to_string()
+        } else {
+            let places: Vec<String> = (goals.iter())
+                .map(|g| format!("{}:{} (goal {})", g.line, g.column, g.index))
+                .collect();
+            format!("its goals are at {}", places.join(", "))
+        }
+    };
+    let found = match at {
+        GoalAt::Index(n) => goals.iter().find(|g| g.index == n),
+        GoalAt::Line(line, None) => goals.iter().find(|g| g.line == line),
+        GoalAt::Line(line, Some(col)) => (goals.iter())
+            .filter(|g| g.line == line)
+            .min_by_key(|g| g.column.abs_diff(col)),
+    };
+    found.ok_or_else(|| match at {
+        GoalAt::Index(n) => format!("there is no goal {n}: {}", listing()),
+        GoalAt::Line(line, _) => format!("there is no goal `?` on line {line}: {}", listing()),
+    })
+}
+
+/// The JSON contract of `search --at`, version 1.
+#[derive(Serialize, Debug)]
+pub struct AtReport {
+    pub version: u32,
+    pub goal: GoalJson,
+    /// Suggestions that close the goal, every one checked by the kernel,
+    /// then those that apply leaving goals; best first.
+    /// The closers that close the goal on their own (`rfl`, `omega`,
+    /// `byDecision`), kernel-checked.
+    pub tactics: Vec<&'static str>,
+    pub results: Vec<Suggestion>,
+    pub rewrites: Vec<Rewrite>,
+    pub total: Totals,
+    pub budget: AtBudget,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Serialize, Debug)]
+pub struct GoalJson {
+    pub file: String,
+    pub line: usize,
+    pub column: usize,
+    pub index: usize,
+    pub hypotheses: Vec<HypJson>,
+    pub target: String,
+    /// Variables the target's leading arrows bind, which each proof below
+    /// introduces (`x => …`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub introduced: Vec<String>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct HypJson {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub ty: String,
+}
+
+/// One suggestion.
+#[derive(Serialize, Debug)]
+pub struct Suggestion {
+    /// `exact`, `withHypotheses`, `afterObligations` or `applicable`.
+    pub class: &'static str,
+    /// What to write in place of the `?`.
+    pub proof: String,
+    /// The declaration applied: its full name, kind, type, place and the
+    /// import that brings it into scope (`null` if none is needed).
+    pub name: String,
+    pub kind: &'static str,
+    #[serde(rename = "type")]
+    pub ty: String,
+    pub file: String,
+    pub line: usize,
+    pub import: Option<String>,
+    /// `kernel`: the proof (for `applicable`, with each goal it leaves as a
+    /// hypothesis) was elaborated and the kernel accepted it; `elaborated`:
+    /// only elaborated (an `applicable` one whose goals can't be written).
+    pub checked: &'static str,
+    /// For `afterObligations`: each premise closed by a tactic, as the
+    /// goal it was and what closed it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub obligations: Vec<Obligation>,
+    /// For `applicable`: the goals the proof leaves, at its `?`s in order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub goals: Vec<LeftGoal>,
+    /// Its rank in the search of the target (stage 1's order); absent for
+    /// a rewrite followed by `rfl` or `omega`.
+    #[serde(rename = "searchRank", skip_serializing_if = "Option::is_none")]
+    pub search_rank: Option<usize>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct Obligation {
+    pub target: String,
+    pub closer: &'static str,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct LeftGoal {
+    pub target: String,
+    /// The goal as a declaration of its own, when it can be written so.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lemma: Option<String>,
+}
+
+/// A rewrite suggestion.
+#[derive(Serialize, Debug)]
+pub struct Rewrite {
+    /// `rewrite L … in ?`.
+    pub proof: String,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub ty: String,
+    pub file: String,
+    pub line: usize,
+    pub import: Option<String>,
+    /// The call of the target it rewrites.
+    pub at: String,
+    /// `leftToRight` or `rightToLeft` (`rewrite <-`).
+    pub direction: &'static str,
+    /// `eq` or `iff`.
+    pub equation: &'static str,
+    /// The goal at the `?` after rewriting.
+    pub goal: String,
+    /// What closes the rewritten goal, if `rfl` or `omega` does (kernel
+    /// checked, with it in place of the `?`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub closes: Option<&'static str>,
+    /// `kernel` (with the rewritten goal as a hypothesis) or `elaborated`.
+    pub checked: &'static str,
+}
+
+#[derive(Serialize, Debug, Default)]
+pub struct Totals {
+    pub closing: usize,
+    pub applicable: usize,
+    pub rewrites: usize,
+}
+
+#[derive(Serialize, Debug, Default)]
+pub struct AtBudget {
+    /// The declarations searched.
+    pub candidates: usize,
+    /// Those whose conclusion the target is an instance of.
+    pub matched: usize,
+    /// Those tried (the first `maxCandidates` matched, in rank order).
+    pub tried: usize,
+    #[serde(rename = "maxCandidates")]
+    pub max_candidates: usize,
+    /// Proofs elaborated (and, when complete, kernel-checked).
+    pub checks: usize,
+    /// More matched than were tried.
+    pub truncated: bool,
+    /// Everything planned was checked: false if the time ran out first.
+    pub exhausted: bool,
+    #[serde(rename = "outOfBudget")]
+    pub out_of_budget: usize,
+    #[serde(rename = "internalErrors")]
+    pub internal_errors: usize,
+}
+
+/// The order of the classes.
+fn class_rank(class: &str) -> usize {
+    match class {
+        "exact" => 0,
+        "withHypotheses" => 1,
+        "afterObligations" => 2,
+        _ => 3,
+    }
+}
+
+/// `text` as an argument: in brackets unless it is one word or already
+/// bracketed.
+fn atom(text: &str) -> String {
+    let simple = !text.contains([' ', '→', '=']) && !text.starts_with('-');
+    let bracketed = (text.starts_with('(') && text.ends_with(')'))
+        || (text.starts_with('[') && text.ends_with(']'));
+    if simple || bracketed {
+        text.to_string()
+    } else {
+        format!("({text})")
+    }
+}
+
+/// A plan as proof text: each `Open` argument in turn takes the next of
+/// `fills` (`?` once they run out); with `infer`, solved arguments are `_`.
+fn render(plan: &Plan, fills: &[String], infer: bool) -> String {
+    let mut out = plan.head.clone();
+    let mut fills = fills.iter();
+    for arg in &plan.args {
+        out.push(' ');
+        match arg {
+            Arg::Given(_) if infer => out.push('_'),
+            Arg::Given(text) => out.push_str(&atom(text)),
+            Arg::Infer => out.push('_'),
+            Arg::Hyp(name) => out.push_str(name),
+            Arg::Open => out.push_str(&atom(fills.next().map_or("?", String::as_str))),
+        }
+    }
+    out
+}
+
+/// A type after `:` in a binder: a record update would read as a block.
+fn bracket_type(ty: &str) -> String {
+    if ty.starts_with('{') {
+        format!("({ty})")
+    } else {
+        ty.to_string()
+    }
+}
+
+/// The checking context of a goal: `body` checked against the goal, its
+/// hypotheses bound, `extra` hypotheses added after them.
+fn wrap(goal: &GoalData, extra: &[(String, String)], body: &str) -> String {
+    let binders: Vec<(String, String)> = (goal.hypotheses.iter())
+        .map(|h| (h.name.clone(), bracket_type(&h.ty)))
+        .chain(extra.iter().map(|(n, t)| (n.clone(), bracket_type(t))))
+        .collect();
+    if binders.is_empty() {
+        return format!("(({body}): {})", goal.target);
+    }
+    let lambdas: String = binders
+        .iter()
+        .map(|(n, t)| format!("({n}: {t}) => "))
+        .collect();
+    let arrows: String = binders
+        .iter()
+        .map(|(n, t)| format!("({n}: {t}) → "))
+        .collect();
+    format!("(({lambdas}{body}): {arrows}{})", goal.target)
+}
+
+/// The goal's statement, `(h: A) → … → T`.
+fn statement(goal: &GoalData) -> String {
+    let mut out = String::new();
+    for h in &goal.hypotheses {
+        out.push_str(&format!("({}: {}) → ", h.name, bracket_type(&h.ty)));
+    }
+    out.push_str(&goal.target);
+    out
+}
+
+/// What checking a proof found.
+enum Outcome {
+    Closed,
+    Goals(Vec<GoalData>),
+    Failed,
+}
+
+/// The checker of one `search --at`: counts checks, and stops at the
+/// deadline.
+struct Checker<'s> {
+    session: &'s mut Session,
+    goal: GoalData,
+    intros: Vec<String>,
+    /// The target, printed as goals are (the introduced variables named).
+    target_now: String,
+    checks: usize,
+    deadline: Instant,
+}
+
+impl Checker<'_> {
+    fn out_of_time(&self) -> bool {
+        Instant::now() >= self.deadline
+    }
+
+    /// Checks `proof` at the goal, with `extra` hypotheses.
+    fn check(&mut self, proof: &str, extra: &[(String, String)]) -> Outcome {
+        let body = if self.intros.is_empty() {
+            proof.to_string()
+        } else {
+            format!("{} => {proof}", self.intros.join(" => "))
+        };
+        let text = wrap(&self.goal, extra, &body);
+        self.checks += 1;
+        let Ok(expr) = self.session.parse_expression("<search --at>", &text) else {
+            return Outcome::Failed;
+        };
+        match self.session.elab.check_proof(&expr) {
+            Ok(Checked::Closed) => Outcome::Closed,
+            Ok(Checked::Goals(goals)) => Outcome::Goals(
+                goals
+                    .into_iter()
+                    .filter_map(|d| d.goal.map(|g| *g))
+                    .collect(),
+            ),
+            Err(_) => Outcome::Failed,
+        }
+    }
+}
+
+impl Session {
+    /// What closes `goal` (one of this session's goals, `found` in a file
+    /// whose names this session's scope sees): the four classes and the
+    /// rewrites, every closing one kernel-checked.
+    ///
+    /// This session searches, so it has the whole library loaded. The
+    /// proofs are checked in `checker` if given: a session with only the
+    /// file loaded, as it would be with the proof pasted in, so that
+    /// nothing a library file the file doesn't load provides (an instance,
+    /// a decision procedure) makes a proof check here and fail there.
+    pub fn search_at(
+        &mut self,
+        found: &FoundGoal,
+        file: &str,
+        options: &AtOptions,
+        scope: &Scope,
+        checker: Option<&mut Session>,
+    ) -> Result<AtReport, Diagnostic> {
+        let started = Instant::now();
+        let data = found.data.clone();
+        let stmt = statement(&data);
+        let expr = self
+            .parse_expression("<goal>", &stmt)
+            .map_err(|d| cannot_open(&data, d))?;
+        let goal: Goal = (self.elab.open_goal(&expr, data.hypotheses.len()))
+            .map_err(|d| cannot_open(&data, d))?;
+        let g = &self.elab.globals;
+        let all = options.all;
+        let prop = goal.prop;
+        let candidates = self.elab.search_candidates(&|item, path| {
+            (all || !hidden(path)) && (!prop || item.kind(g) != Kind::Definition)
+        });
+        let keep = |_: &Candidate| true;
+        let closing = self
+            .elab
+            .closing_plans(&goal, &candidates, &keep, options.max_candidates);
+        let iff = (0..g.datas.len())
+            .map(DataId)
+            .find(|d| &*g.data(*d).path == "Std.Iff");
+        let rewrite_plans = if prop {
+            self.elab
+                .rewrite_plans(&goal, &candidates, &keep, iff, 3, 30)
+        } else {
+            Vec::new()
+        };
+        let closers: Vec<(&'static str, String)> = [
+            ("rfl", Some("rfl".to_string())),
+            ("omega", Some("omega".to_string())),
+            ("byDecision", self.elab.write_name("Std.byDecision")),
+        ]
+        .into_iter()
+        .filter_map(|(name, text)| Some((name, text?)))
+        .collect();
+        let intros = goal.intros.clone();
+        let target_now = goal.target.clone();
+        let matched = (closing.found.hits.iter())
+            .filter(|h| h.relation == stitchwort_elab::search::Relation::Instance)
+            .count();
+        let mut budget = AtBudget {
+            candidates: closing.found.stats.candidates,
+            matched,
+            tried: closing.plans.len(),
+            max_candidates: options.max_candidates,
+            truncated: matched > closing.plans.len(),
+            exhausted: true,
+            out_of_budget: closing.found.stats.out_of_budget,
+            internal_errors: closing.found.stats.internal_errors,
+            checks: 0,
+        };
+        // Each declaration's place in the search's ranking.
+        let ranks: Vec<_> = closing.found.hits.iter().map(|h| h.item).collect();
+        let checking: &mut Session = match checker {
+            Some(other) => other,
+            None => self,
+        };
+        let mut checker = Checker {
+            session: checking,
+            goal: data.clone(),
+            intros: intros.clone(),
+            target_now: target_now.clone(),
+            checks: 0,
+            deadline: started + options.time,
+        };
+        // The closers on their own first: a goal `omega` closes needs no
+        // lemma.
+        let mut tactics = Vec::new();
+        for (name, text) in &closers {
+            if matches!(checker.check(text, &[]), Outcome::Closed) {
+                tactics.push(*name);
+            }
+        }
+        let mut results: Vec<(Suggestion, usize)> = Vec::new();
+        'hits: for (hit, plans) in &closing.plans {
+            let rank = ranks.iter().position(|i| *i == hit.item).unwrap_or(0) + 1;
+            let mut best: Option<Suggestion> = None;
+            for plan in plans {
+                if checker.out_of_time() {
+                    budget.exhausted = false;
+                    break 'hits;
+                }
+                let Some(s) = try_plan(&mut checker, plan, &closers, rank) else {
+                    continue;
+                };
+                let better = best.as_ref().is_none_or(|b| {
+                    (class_rank(s.class), s.goals.len()) < (class_rank(b.class), b.goals.len())
+                });
+                if better {
+                    let closes = s.class != "applicable";
+                    best = Some(s);
+                    if closes {
+                        break;
+                    }
+                }
+            }
+            if let Some(s) = best
+                && !results.iter().any(|(r, _)| r.proof == s.proof)
+            {
+                results.push((s, rank));
+            }
+        }
+        let mut rewrites = Vec::new();
+        for rp in &rewrite_plans {
+            if checker.out_of_time() {
+                budget.exhausted = false;
+                break;
+            }
+            if let Some(r) = try_rewrite(&mut checker, rp, &target_now)
+                && !rewrites.iter().any(|x: &Rewrite| x.goal == r.goal)
+            {
+                rewrites.push(r);
+            }
+        }
+        // A rewrite after which `rfl` or `omega` closes the goal closes it:
+        // a suggestion of its own, after the lemmas that close it directly.
+        for r in &rewrites {
+            if let Some(closer) = r.closes {
+                let proof = r.proof.replacen(" in ?", &format!(" in {closer}"), 1);
+                if results.iter().any(|(s, _)| s.proof == proof) {
+                    continue;
+                }
+                let suggestion = Suggestion {
+                    class: "afterObligations",
+                    proof,
+                    name: r.name.clone(),
+                    kind: "theorem",
+                    ty: String::new(),
+                    file: String::new(),
+                    line: 0,
+                    import: None,
+                    checked: "kernel",
+                    obligations: vec![Obligation {
+                        target: r.goal.clone(),
+                        closer,
+                    }],
+                    goals: Vec::new(),
+                    search_rank: None,
+                };
+                results.push((suggestion, usize::MAX));
+            }
+        }
+        budget.checks = checker.checks;
+        drop(checker);
+        let session = &*self;
+        results.sort_by_key(|(s, rank)| (class_rank(s.class), s.goals.len(), *rank));
+        let mut results: Vec<Suggestion> = results.into_iter().map(|(s, _)| s).collect();
+        for s in results.iter_mut() {
+            session.describe(s, scope);
+        }
+        for r in rewrites.iter_mut() {
+            session.describe_rewrite(r, scope);
+        }
+        // Closing rewrites first.
+        rewrites.sort_by_key(|r| r.closes.is_none());
+        // The proofs as written at the `?`: introducing the target's
+        // variables first.
+        if !intros.is_empty() {
+            let prefix = format!("{} => ", intros.join(" => "));
+            for s in results.iter_mut() {
+                s.proof.insert_str(0, &prefix);
+            }
+            for r in rewrites.iter_mut() {
+                r.proof.insert_str(0, &prefix);
+            }
+        }
+        let totals = Totals {
+            closing: results.iter().filter(|s| s.class != "applicable").count(),
+            applicable: results.iter().filter(|s| s.class == "applicable").count(),
+            rewrites: rewrites.len(),
+        };
+        let mut warnings = Vec::new();
+        if !budget.exhausted {
+            warnings.push(format!(
+                "the time ran out ({} s) before every candidate was checked: --time for more",
+                options.time.as_secs_f32()
+            ));
+        }
+        if budget.truncated {
+            warnings.push(format!(
+                "{} declarations match the target; the first {} were tried (--candidates N for more)",
+                budget.matched, budget.tried
+            ));
+        }
+        if budget.out_of_budget > 0 {
+            warnings.push(format!(
+                "{} comparisons ran out of steps: a match may have been missed",
+                budget.out_of_budget
+            ));
+        }
+        let mut shown_closing = 0;
+        let mut shown_applicable = 0;
+        results.retain(|s| {
+            let n = if s.class == "applicable" {
+                &mut shown_applicable
+            } else {
+                &mut shown_closing
+            };
+            *n += 1;
+            *n <= options.limit
+        });
+        rewrites.truncate(options.limit);
+        Ok(AtReport {
+            version: 1,
+            goal: GoalJson {
+                file: file.to_string(),
+                line: found.line,
+                column: found.column,
+                index: found.index,
+                hypotheses: (data.hypotheses.iter())
+                    .map(|h| HypJson {
+                        name: h.name.clone(),
+                        ty: h.ty.clone(),
+                    })
+                    .collect(),
+                target: data.target.clone(),
+                introduced: intros,
+            },
+            tactics,
+            results,
+            rewrites,
+            total: totals,
+            budget,
+            warnings,
+        })
+    }
+
+    /// Fills in a suggestion's declaration: name, kind, type, place, import.
+    fn describe(&self, s: &mut Suggestion, scope: &Scope) {
+        let g = &self.elab.globals;
+        let Some(item) = find_item(self, &s.name) else {
+            return;
+        };
+        let (file, line) = crate::render::location(&self.sources, item.span(g));
+        s.kind = item.kind(g).name();
+        s.ty = stitchwort_core::pretty::term(g, &[], &item.ty(g));
+        s.file = file;
+        s.line = line;
+        s.import = import_line(g, item, scope);
+    }
+
+    fn describe_rewrite(&self, r: &mut Rewrite, scope: &Scope) {
+        let g = &self.elab.globals;
+        let Some(item) = find_item(self, &r.name) else {
+            return;
+        };
+        let (file, line) = crate::render::location(&self.sources, item.span(g));
+        r.ty = stitchwort_core::pretty::term(g, &[], &item.ty(g));
+        r.file = file;
+        r.line = line;
+        r.import = import_line(g, item, scope);
+    }
+}
+
+/// The declaration with full name `path`.
+fn find_item(session: &Session, path: &str) -> Option<stitchwort_elab::search::Item> {
+    let g = &session.elab.globals;
+    if let Some(id) = session.elab.lookup_def(path) {
+        return Some(stitchwort_elab::search::Item::Def(id));
+    }
+    (0..g.datas.len()).find_map(|d| {
+        let data = g.data(DataId(d));
+        (0..data.ctors.len())
+            .map(|c| stitchwort_elab::search::Item::Ctor(DataId(d), c))
+            .find(|item| item.path(g) == path)
+    })
+}
+
+/// The error for a goal that can't be opened here.
+fn cannot_open(goal: &GoalData, d: Diagnostic) -> Diagnostic {
+    let why = if goal.lemma.is_none() {
+        "it can't be written as a statement of its own here (a name is shadowed or \
+         compiler-made, a `let` of data is in scope, or a part isn't known yet)"
+    } else {
+        "its statement doesn't elaborate on its own"
+    };
+    Diagnostic::error(
+        "E-SEARCH-AT",
+        format!("can't search for what closes this goal: {why}"),
+    )
+    .with_note(format!("{}: {}", d.code, d.message))
+}
+
+/// Checks one plan: what it closes, or the goals it leaves.
+fn try_plan(
+    checker: &mut Checker,
+    plan: &Plan,
+    closers: &[(&'static str, String)],
+    rank: usize,
+) -> Option<Suggestion> {
+    let mut text = render(plan, &[], false);
+    let mut first = checker.check(&text, &[]);
+    let has_given = plan.args.iter().any(|a| matches!(a, Arg::Given(_)));
+    if matches!(first, Outcome::Failed) && has_given {
+        text = render(plan, &[], true);
+        first = checker.check(&text, &[]);
+    }
+    let infer = text != render(plan, &[], false);
+    let uses_hyp = plan.args.iter().any(|a| matches!(a, Arg::Hyp(_)));
+    let base = |class: &'static str, proof: String| Suggestion {
+        class,
+        proof,
+        name: String::new(),
+        kind: "theorem",
+        ty: String::new(),
+        file: String::new(),
+        line: 0,
+        import: None,
+        checked: "kernel",
+        obligations: Vec::new(),
+        goals: Vec::new(),
+        search_rank: Some(rank),
+    };
+    let mut suggestion = match first {
+        Outcome::Failed => return None,
+        Outcome::Closed => {
+            let class = if uses_hyp { "withHypotheses" } else { "exact" };
+            base(class, text)
+        }
+        Outcome::Goals(goals) => {
+            // A lemma about any `x = y` (`Nat.succInjective`) leaves the
+            // goal in another form: worth suggesting only if it closes it
+            // with what the goal has.
+            if plan.general {
+                return None;
+            }
+            // Close each `?` in turn with the first closer that does.
+            let n = goals.len();
+            let mut fills: Vec<String> = vec!["?".to_string(); n];
+            let mut obligations = Vec::new();
+            for (j, left) in goals.iter().enumerate() {
+                for (name, closer) in closers {
+                    if checker.out_of_time() {
+                        break;
+                    }
+                    let mut trial = fills.clone();
+                    trial[j] = closer.clone();
+                    let ok = match checker.check(&render(plan, &trial, infer), &[]) {
+                        Outcome::Closed => true,
+                        Outcome::Goals(g) => g.len() < n - obligations.len(),
+                        Outcome::Failed => false,
+                    };
+                    if ok {
+                        fills[j] = closer.clone();
+                        obligations.push(Obligation {
+                            target: left.target.clone(),
+                            closer: name,
+                        });
+                        break;
+                    }
+                }
+            }
+            let proof = render(plan, &fills, infer);
+            // An obligation that is the goal itself: the closer alone
+            // does it (reported once, as `tactics`).
+            if obligations
+                .iter()
+                .any(|o| o.target == checker.target_now || o.target.contains('?'))
+            {
+                return None;
+            }
+            if obligations.len() == n {
+                match checker.check(&proof, &[]) {
+                    Outcome::Closed => {
+                        let mut s = base("afterObligations", proof);
+                        s.obligations = obligations;
+                        s
+                    }
+                    _ => return None,
+                }
+            } else {
+                // Applicable: the goals it leaves, and a kernel check with
+                // each as a hypothesis when they can all be written.
+                let left = match checker.check(&proof, &[]) {
+                    Outcome::Goals(g) => g,
+                    _ => return None,
+                };
+                // A goal with an unknown in it (`?3 m n`) says nothing
+                // about what to prove next.
+                if left.iter().any(|g| g.target.contains('?')) {
+                    return None;
+                }
+                let mut s = base("applicable", proof.clone());
+                s.obligations = obligations;
+                let writable = checker.intros.is_empty()
+                    && left.iter().all(|g| g.lemma.is_some())
+                    && left
+                        .iter()
+                        .all(|g| g.hypotheses.len() == checker.goal.hypotheses.len());
+                s.checked = "elaborated";
+                if writable {
+                    let taken: Vec<&str> = (checker.goal.hypotheses.iter())
+                        .map(|h| h.name.as_str())
+                        .collect();
+                    let names: Vec<String> = (1..)
+                        .map(|i| format!("goal{i}"))
+                        .filter(|n| !taken.contains(&n.as_str()))
+                        .take(left.len())
+                        .collect();
+                    let extra: Vec<(String, String)> = (names.iter().cloned())
+                        .zip(left.iter().map(|g| g.target.clone()))
+                        .collect();
+                    let mut k = 0;
+                    let filled: Vec<String> = fills
+                        .iter()
+                        .map(|f| {
+                            if f == "?" {
+                                k += 1;
+                                names[k - 1].clone()
+                            } else {
+                                f.clone()
+                            }
+                        })
+                        .collect();
+                    if k == names.len()
+                        && matches!(
+                            checker.check(&render(plan, &filled, infer), &extra),
+                            Outcome::Closed
+                        )
+                    {
+                        s.checked = "kernel";
+                    }
+                }
+                s.goals = left
+                    .into_iter()
+                    .map(|g| LeftGoal {
+                        target: g.target,
+                        lemma: g.lemma,
+                    })
+                    .collect();
+                s
+            }
+        }
+    };
+    suggestion.name = plan.item_path.clone();
+    Some(suggestion)
+}
+
+/// Checks one rewrite: the goal it leaves, whether `rfl` or `omega` then
+/// closes it, and a kernel check with the rewritten goal as a hypothesis.
+fn try_rewrite(
+    checker: &mut Checker,
+    rp: &stitchwort_elab::closing::RewritePlan,
+    target_now: &str,
+) -> Option<Rewrite> {
+    let rule = render(&rp.plan, &[], false);
+    let arrow = if rp.backwards { "<- " } else { "" };
+    let proof = format!("rewrite {arrow}{rule} in ?");
+    let left = match checker.check(&proof, &[]) {
+        Outcome::Goals(mut g) if g.len() == 1 => g.pop()?,
+        _ => return None,
+    };
+    if left.target == target_now || left.target == checker.goal.target {
+        return None;
+    }
+    let mut closes = None;
+    for closer in ["rfl", "omega"] {
+        let closed = format!("rewrite {arrow}{rule} in {closer}");
+        if matches!(checker.check(&closed, &[]), Outcome::Closed) {
+            closes = Some(closer);
+            break;
+        }
+    }
+    let mut checked = "elaborated";
+    if left.lemma.is_some() && checker.intros.is_empty() {
+        let taken: Vec<&str> = (checker.goal.hypotheses.iter())
+            .map(|h| h.name.as_str())
+            .collect();
+        let name = (0..)
+            .map(|i| {
+                if i == 0 {
+                    "rewritten".to_string()
+                } else {
+                    format!("rewritten{i}")
+                }
+            })
+            .find(|n| !taken.contains(&n.as_str()))
+            .expect("a free name");
+        let with = format!("rewrite {arrow}{rule} in {name}");
+        if matches!(
+            checker.check(&with, &[(name, left.target.clone())]),
+            Outcome::Closed
+        ) {
+            checked = "kernel";
+        }
+    }
+    Some(Rewrite {
+        proof,
+        name: rp.plan.item_path.clone(),
+        ty: String::new(),
+        file: String::new(),
+        line: 0,
+        import: None,
+        at: rp.subterm.clone(),
+        direction: if rp.backwards {
+            "rightToLeft"
+        } else {
+            "leftToRight"
+        },
+        equation: if rp.iff { "iff" } else { "eq" },
+        goal: left.target,
+        closes,
+        checked,
+    })
+}
+
+/// The report as text.
+pub fn render_text(report: &AtReport) -> String {
+    let mut out = String::new();
+    let g = &report.goal;
+    out.push_str(&format!(
+        "goal {} at {}:{}:{}\n",
+        g.index, g.file, g.line, g.column
+    ));
+    for h in &g.hypotheses {
+        out.push_str(&format!("  {}: {}\n", h.name, h.ty));
+    }
+    out.push_str(&format!("  ⊢ {}\n", g.target));
+    if !report.tactics.is_empty() {
+        out.push_str(&format!(
+            "\n{} alone closes it (checked by the kernel)\n",
+            report.tactics.join(", ")
+        ));
+    }
+    let closing: Vec<&Suggestion> = (report.results.iter())
+        .filter(|s| s.class != "applicable")
+        .collect();
+    let applicable: Vec<&Suggestion> = (report.results.iter())
+        .filter(|s| s.class == "applicable")
+        .collect();
+    let place = |s: &Suggestion| {
+        let import = s
+            .import
+            .as_ref()
+            .map(|i| format!("  ({i})"))
+            .unwrap_or_default();
+        format!("{}  {}:{}{import}", s.name, s.file, s.line)
+    };
+    if !closing.is_empty() {
+        out.push_str("\ncloses it (checked by the kernel):\n");
+        for (i, s) in closing.iter().enumerate() {
+            out.push_str(&format!("{:>2}. {}  [{}]\n", i + 1, s.proof, s.class));
+            out.push_str(&format!("    {}\n", place(s)));
+            for o in &s.obligations {
+                out.push_str(&format!("    {} closes ⊢ {}\n", o.closer, o.target));
+            }
+        }
+    }
+    if !applicable.is_empty() {
+        out.push_str("\napplies, leaving goals:\n");
+        for (i, s) in applicable.iter().enumerate() {
+            out.push_str(&format!("{:>2}. {}\n", i + 1, s.proof));
+            out.push_str(&format!("    {}\n", place(s)));
+            for left in &s.goals {
+                out.push_str(&format!("    leaves ⊢ {}\n", left.target));
+            }
+        }
+    }
+    if !report.rewrites.is_empty() {
+        out.push_str("\nrewrites:\n");
+        for (i, r) in report.rewrites.iter().enumerate() {
+            let closes = r
+                .closes
+                .map(|c| format!("  (then {c} closes it)"))
+                .unwrap_or_default();
+            out.push_str(&format!("{:>2}. {}{closes}\n", i + 1, r.proof));
+            out.push_str(&format!("    leaves ⊢ {}\n", r.goal));
+        }
+    }
+    let t = &report.total;
+    out.push_str(&format!(
+        "\n{} closing, {} applicable, {} rewrites; tried {} of {} matching declarations, {} checks\n",
+        t.closing,
+        t.applicable,
+        t.rewrites,
+        report.budget.tried,
+        report.budget.matched,
+        report.budget.checks
+    ));
+    for w in &report.warnings {
+        out.push_str(&format!("warning: {w}\n"));
+    }
+    out
+}
