@@ -1,5 +1,5 @@
 {
-  "next": 954,
+  "next": 955,
   "tickets": [
     {
       "id": 47,
@@ -2334,7 +2334,7 @@
       "labels": [
         "stdlib"
       ],
-      "body": "std candidates proved locally in Aoc.Year2021.Day04.Proofs: List.filterFilter, a lemma linking contains to indexOf, lemmas for folds of Nat.max / Nat.min.\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "body": "std candidates proved locally in Aoc.Year2021.Day04.Proofs: List.filterFilter, a lemma linking contains to indexOf, lemmas for folds of Nat.max / Nat.min.\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nLane (31 Oct, friction-batch worktree, commit 613a95c5): List.filterFilter, List.containsIndexOf (+ containsIndexOfAppend), List.foldMaxLt, List.foldMinLt in std; day 4 uses them (markedBefore, latestBefore, earliestBefore, filterFilter removed). Audit day 4: 17 passed.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
@@ -2393,7 +2393,7 @@
       "labels": [
         "stdlib"
       ],
-      "body": "std candidates from day 5: Nat.mulRightCancel (with a Bool form), List.countRangeEq, a general 'number of x with p x' with a uniqueness lemma. Search by pattern for factor cancellation found nothing; grep found Nat.mulSuccCancel.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "body": "std candidates from day 5: Nat.mulRightCancel (with a Bool form), List.countRangeEq, a general 'number of x with p x' with a uniqueness lemma. Search by pattern for factor cancellation found nothing; grep found Nat.mulSuccCancel.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nLane (31 Oct, commit 613a95c5): Nat.mulRightCancel, Nat.mulRightCancelBool, List.countRangeEq (+ countRangeFromEq), List.NumberWith with numberWithUnique/numberWithCong in std; day 5's spec and proofs use them. Audit day 5: 36 passed.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
@@ -2415,7 +2415,7 @@
     {
       "id": 951,
       "title": "AoC 2021 day 6: Lanternfish, bucket count proved equal to the per-fish simulation",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -2452,6 +2452,21 @@
         "aoc"
       ],
       "body": "AoC 2021 day 7 (crab alignment, minimal fuel) in aoc/src/Aoc/Year2021/Day07: program, spec (least total fuel over all positions), proofs for every input, tests, notes in aoc/NOTES-2021.md. Lane worktree agent-a6b7e5d108eef7b9b.\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 954,
+      "title": "Day 6 friction: cases on bounded Nat (x ≤ 8) runs out of cases; match wildcard gives omega no bound; omega messages unfolded; And tuple hint; std count lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "diagnostics"
+      ],
+      "body": "From AoC 2021 day 6 (aoc/NOTES-2021.md, 31 Oct 2026). (1) cases can't prove \"x ≤ 8, so x is one of 0..8\": it splits all nine comparisons without seeing x == 0 and x == 1 exclude each other, and runs out of cases; a match with patterns 0..8 works but a final `_ => omega` fails because the wildcard doesn't tell omega x ≥ 9 (nine nested Succs needed). (2) omega prints List.count and == unfolded. (3) (rfl, rest) for an And gives \"add a type annotation\"; the note should mention Both. Std candidates: List.count of replicate, countSum, a simulation-through-Nat.iterate lemma. Also: the parser rejects timers > 8 but no theorem says so (same pattern as day 5's diagonals): consider proving parser postconditions.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
