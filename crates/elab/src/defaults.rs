@@ -345,6 +345,22 @@ impl Elaborator {
 }
 
 /// A default's error, with what to know about defaults.
+/// A local definition's parameter default, as an error frame (D2091):
+/// [`helper_error`], also for a check inside the default that waits and
+/// fails after it is checked. (A top-level default's helper is finished
+/// inside its own mapping, so nothing in it fails later.)
+struct HelperFrame {
+    of: Of,
+    earlier: Vec<String>,
+    later: Vec<String>,
+}
+
+impl crate::queue::ErrorFrame for HelperFrame {
+    fn map(&self, _cx: &mut Ctx, e: Diagnostic) -> Diagnostic {
+        helper_error(self.of, e, &self.earlier, &self.later)
+    }
+}
+
 fn helper_error(of: Of, e: Diagnostic, earlier: &[String], later: &[String]) -> Diagnostic {
     match e.code {
         // The usual note, to add the ability (or `Partial`) to the function's type,
@@ -488,10 +504,13 @@ pub(crate) fn construct(
         for (i, (field, field_ty)) in ctor.fields.iter().enumerate() {
             let ty = eval(g, &env, field_ty)?;
             let mut term = match given(i) {
-                Some((_, expr)) => match check(cx, expr, &ty) {
-                    Ok(term) => term,
-                    Err(e) => return Err(left_out_note(cx, e, d, c, i, np, &env, &defaulted)),
-                },
+                Some((_, expr)) => crate::queue::framed(
+                    cx,
+                    |cx| check(cx, expr, &ty),
+                    |cx| LeftOutFrame {
+                        notes: left_out_notes(cx, d, c, i, np, &env, &defaulted),
+                    },
+                )?,
                 None => match cx.e.field_default(d, c, i) {
                     Some(default) => {
                         defaulted.push(i);
@@ -578,35 +597,49 @@ fn call(
 /// A written field's type error, with a note when its type mentions a
 /// field left out: that field is its default (§5.1 rule 3).
 #[allow(clippy::too_many_arguments)]
-fn left_out_note(
+fn left_out_notes(
     cx: &Ctx,
-    e: Diagnostic,
     d: DataId,
     c: usize,
     i: usize,
     np: usize,
     env: &[Value],
     defaulted: &[usize],
-) -> Diagnostic {
-    if e.code != "E-TYPE-MISMATCH" {
-        return e;
-    }
+) -> Vec<String> {
     let g = cx.g();
     let ctor = &g.data(d).ctors[c];
-    let mut e = e;
+    let mut notes = Vec::new();
     for &j in defaulted {
         if ctor.fields[i].1.mentions(i - 1 - j) {
             let value = force(g, env[np + j].clone())
                 .map(|v| cx.show(&v))
                 .unwrap_or_else(|_| "its default".into());
-            e = e.with_note(format!(
+            notes.push(format!(
                 "`{}` is left out, so it is its default value, `{value}`; give `{}` to use \
                  another",
                 ctor.fields[j].0, ctor.fields[j].0
             ));
         }
     }
-    e
+    notes
+}
+
+/// A given field of a value whose earlier fields were left out, as an
+/// error frame (D2091): [`left_out_notes`] on a type mismatch, also for a
+/// check inside the field that waits and fails later.
+struct LeftOutFrame {
+    notes: Vec<String>,
+}
+
+impl crate::queue::ErrorFrame for LeftOutFrame {
+    fn map(&self, _cx: &mut Ctx, e: Diagnostic) -> Diagnostic {
+        if e.code != "E-TYPE-MISMATCH" {
+            return e;
+        }
+        self.notes
+            .iter()
+            .fold(e, |e, note| e.with_note(note.clone()))
+    }
 }
 
 /// `C { f = e, … }` leaving out fields with defaults, checked against
@@ -1313,20 +1346,27 @@ fn local_helper(
     let span = value.span();
     let mark = cx.mark();
     let saved = cx.span;
-    let checked = (|| -> Result<Term> {
-        for (x, ty, icit) in &telescope[..i] {
-            let ty = cx.eval(ty)?;
-            cx.bind(x, ty);
-            cx.set_kind(*icit);
-        }
-        cx.span = span;
-        let expected = cx.eval(dom)?;
-        let term = check(cx, value, &expected)?;
-        cx.e.zonk_keeping(&term, cx.level(), &|_| true)
-    })();
-    cx.reset(mark);
-    cx.span = saved;
-    let term = checked.map_err(|e| helper_error(Of::Param, e, earlier, later))?;
+    let body = |cx: &mut Ctx| {
+        let checked = (|| -> Result<Term> {
+            for (x, ty, icit) in &telescope[..i] {
+                let ty = cx.eval(ty)?;
+                cx.bind(x, ty);
+                cx.set_kind(*icit);
+            }
+            cx.span = span;
+            let expected = cx.eval(dom)?;
+            let term = check(cx, value, &expected)?;
+            cx.e.zonk_keeping(&term, cx.level(), &|_| true)
+        })();
+        cx.reset(mark);
+        cx.span = saved;
+        checked
+    };
+    let term = crate::queue::framed(cx, body, |_| HelperFrame {
+        of: Of::Param,
+        earlier: earlier.to_vec(),
+        later: later.to_vec(),
+    })?;
     // What it needs: the parameters the value and its type mention, and
     // those their types mention.
     let depth = base + i;

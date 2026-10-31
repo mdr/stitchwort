@@ -602,20 +602,80 @@ pub(crate) fn apply_slots(
     }
     let mark = cx.mark();
     let base = cx.level();
-    match bind_missing(cx, head.clone(), slots, base, false) {
-        // `x… => call`, annotated for the kernel, which doesn't infer a
-        // lambda's type.
-        Ok((term, ty, Some(pi))) => Ok((Term::Ann(Rc::new(term), Rc::new(pi)), ty)),
-        Ok((term, ty, None)) => Ok((term, ty)),
-        Err(e) => {
-            cx.reset(mark);
-            if crate::undo::fatal(&e) {
-                Err(e)
-            } else if e.code == "E-TYPE-MISMATCH" {
-                Err(rigid_note(cx, head, slots, e))
-            } else {
+    crate::queue::framed(
+        cx,
+        |cx| match bind_missing(cx, head.clone(), slots, base, false) {
+            // `x… => call`, annotated for the kernel, which doesn't infer a
+            // lambda's type.
+            Ok((term, ty, Some(pi))) => Ok((Term::Ann(Rc::new(term), Rc::new(pi)), ty)),
+            Ok((term, ty, None)) => Ok((term, ty)),
+            Err(e) => {
+                cx.reset(mark);
                 Err(e)
             }
+        },
+        |_| RigidFrame {
+            head: head.clone(),
+            slots: slots.iter().map(OwnedSlot::of).collect(),
+        },
+    )
+}
+
+/// A call that leaves out explicit parameters, as an error frame (D2091):
+/// [`rigid_notes`] on a type mismatch inside it, also for a check inside it
+/// that waits and fails later. It keeps the call, which the notes are
+/// worked out from.
+struct RigidFrame {
+    head: (Term, Value),
+    slots: Vec<OwnedSlot>,
+}
+
+impl crate::queue::ErrorFrame for RigidFrame {
+    fn map(&self, cx: &mut Ctx, e: Diagnostic) -> Diagnostic {
+        if e.code != "E-TYPE-MISMATCH" {
+            return e;
+        }
+        let slots: Vec<Slot> = self.slots.iter().map(OwnedSlot::slot).collect();
+        let notes = rigid_notes(cx, self.head.clone(), &slots);
+        notes.into_iter().fold(e, |e, note| e.with_note(note))
+    }
+}
+
+/// A [`Slot`] that owns what it holds, for [`RigidFrame`].
+enum OwnedSlot {
+    Explicit(Expr),
+    Named(stitchwort_syntax::ast::Name, Expr),
+    NamedExplicit(stitchwort_syntax::ast::Name, Expr),
+    Piped(Piped),
+    Default(crate::defaults::DefaultRef),
+    Missing(Name),
+    Receiver,
+}
+
+impl OwnedSlot {
+    fn of(slot: &Slot) -> OwnedSlot {
+        match slot {
+            Slot::Given(Arg::Explicit(e)) => OwnedSlot::Explicit((*e).clone()),
+            Slot::Given(Arg::Named(n, e)) => OwnedSlot::Named((*n).clone(), (*e).clone()),
+            Slot::Given(Arg::NamedExplicit(n, e)) => {
+                OwnedSlot::NamedExplicit((*n).clone(), (*e).clone())
+            }
+            Slot::Given(Arg::Piped(p)) => OwnedSlot::Piped((*p).clone()),
+            Slot::Given(Arg::Default(d)) => OwnedSlot::Default(*d),
+            Slot::Missing(x) => OwnedSlot::Missing(x.clone()),
+            Slot::Receiver => OwnedSlot::Receiver,
+        }
+    }
+
+    fn slot(&self) -> Slot<'_> {
+        match self {
+            OwnedSlot::Explicit(e) => Slot::Given(Arg::Explicit(e)),
+            OwnedSlot::Named(n, e) => Slot::Given(Arg::Named(n, e)),
+            OwnedSlot::NamedExplicit(n, e) => Slot::Given(Arg::NamedExplicit(n, e)),
+            OwnedSlot::Piped(p) => Slot::Given(Arg::Piped(p)),
+            OwnedSlot::Default(d) => Slot::Given(Arg::Default(*d)),
+            OwnedSlot::Missing(x) => Slot::Missing(x.clone()),
+            OwnedSlot::Receiver => Slot::Receiver,
         }
     }
 }
@@ -777,7 +837,7 @@ fn infer_missing(cx: &mut Ctx, head: Typed, slots: &[Slot]) -> Result<Vec<(Name,
 /// A type mismatch in a call with missing parameters: they're variables,
 /// so the call must work for every value of them (§4.2 rule 5). If giving
 /// them unknowns instead would have worked, the note says what to write.
-fn rigid_note(cx: &mut Ctx, head: (Term, Value), slots: &[Slot], e: Diagnostic) -> Diagnostic {
+fn rigid_notes(cx: &mut Ctx, head: (Term, Value), slots: &[Slot]) -> Vec<String> {
     let missing: Vec<&Name> = (slots.iter())
         .filter_map(|s| match s {
             Slot::Missing(name) => Some(name),
@@ -800,17 +860,17 @@ fn rigid_note(cx: &mut Ctx, head: (Term, Value), slots: &[Slot], e: Diagnostic) 
     };
     snapshot.restore(cx);
     let names = list(missing.iter().map(|x| format!("`{x}`")).collect());
-    let mut e = e.with_note(format!(
+    let mut notes = vec![format!(
         "this call leaves out {names}, so it must work for every value of {}",
         if missing.len() == 1 { "it" } else { "them" }
-    ));
+    )];
     if !solved.is_empty() {
-        e = e.with_note(format!(
+        notes.push(format!(
             "to give a particular value, write {}",
             list(solved)
         ));
     }
-    e
+    notes
 }
 
 /// For each parameter of a function of type `ty`, as [`signature`] walks

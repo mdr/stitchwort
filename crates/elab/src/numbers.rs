@@ -765,7 +765,27 @@ fn group_tried(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(T
     {
         return crate::check::retrying(cx, |cx| group_in(cx, expr, expected));
     }
-    group_in(cx, expr, expected).map_err(|e| function_operand_note(cx, expr, e))
+    if !matches!(expr, Expr::Neg(_, _, NegForm::Argument)) {
+        return group_in(cx, expr, expected);
+    }
+    crate::queue::framed(
+        cx,
+        |cx| group_in(cx, expr, expected),
+        |_| NegatedFrame { expr: expr.clone() },
+    )
+}
+
+/// An unbracketed negative argument, as an error frame (D2091):
+/// [`function_operand_note`], also for a check inside it that waits and
+/// fails later.
+struct NegatedFrame {
+    expr: Expr,
+}
+
+impl crate::queue::ErrorFrame for NegatedFrame {
+    fn map(&self, cx: &mut Ctx, e: Diagnostic) -> Diagnostic {
+        function_operand_note(cx, &self.expr, e)
+    }
 }
 
 /// `f -g x` is `f (-g) x`: when `g` is a function, the mismatch on it is
@@ -1163,37 +1183,70 @@ fn check_leaf(
         }
         return Ok(term);
     }
-    check(cx, expr, t).map_err(|e| {
-        if let Some(d) = prop_not_equal(cx, g, &e, i, t, decider) {
+    crate::queue::framed(
+        cx,
+        |cx| check(cx, expr, t),
+        |_| LeafFrame {
+            leaf: expr.clone(),
+            decided: decided_leaf(g, decider).map(|(e, op)| (e.clone(), op)),
+            t: t.clone(),
+            decider,
+            what: what.to_string(),
+        },
+    )
+}
+
+/// What decided a group's type, if a leaf did: that leaf's expression and
+/// operator.
+fn decided_leaf<'a>(g: &Group<'a>, decider: Decider) -> Option<(&'a Expr, &'static str)> {
+    match decider {
+        Decider::Leaf(j) => Some((g.leaves[j].expr, g.leaves[j].op)),
+        _ => None,
+    }
+}
+
+/// A group's leaf checked against the group's type, as an error frame
+/// (D2091): [`check_leaf`]'s explanation of what decided the type, also for
+/// a check inside the leaf that waits and fails later.
+struct LeafFrame {
+    leaf: Expr,
+    decided: Option<(Expr, &'static str)>,
+    t: Value,
+    decider: Decider,
+    what: String,
+}
+
+impl crate::queue::ErrorFrame for LeafFrame {
+    fn map(&self, cx: &mut Ctx, e: Diagnostic) -> Diagnostic {
+        let decided = self.decided.as_ref().map(|(e, op)| (e, *op));
+        if let Some(d) = prop_not_equal(cx, &e, &self.leaf, &self.t, decided) {
             d
-        } else if e.code == "E-TYPE-MISMATCH" && e.primary_span() == Some(expr.span()) {
-            decided_by(cx, g, e, t, decider, what)
+        } else if e.code == "E-TYPE-MISMATCH" && e.primary_span() == Some(self.leaf.span()) {
+            let at = decided.map(|(e, _)| e.span());
+            decided_by(cx, e, &self.t, self.decider, at, &self.what)
         } else {
             e
         }
-    })
+    }
 }
 
-/// Leaf `i` isn't a proposition, but the group is on propositions because
-/// another side is `x != y`, which in a statement is `Not (x = y)`: the
-/// error is reported at that `!=`, saying how to get the `Bool` instead.
+/// `leaf` isn't a proposition, but the group is on propositions because
+/// another side, `decided` (with its operator), is `x != y`, which in a
+/// statement is `Not (x = y)`: the error is reported at that `!=`, saying
+/// how to get the `Bool` instead.
 fn prop_not_equal(
     cx: &Ctx,
-    g: &Group,
     e: &Diagnostic,
-    i: usize,
+    leaf: &Expr,
     t: &Value,
-    decider: Decider,
+    decided: Option<(&Expr, &str)>,
 ) -> Option<Diagnostic> {
     if !matches!(e.code, "E-NOT-A-TYPE" | "E-TYPE-MISMATCH")
         || !matches!(force(cx.g(), t.clone()), Ok(Value::Sort(Sort::Prop)))
     {
         return None;
     }
-    let Decider::Leaf(j) = decider else {
-        return None;
-    };
-    let mut decided = g.leaves[j].expr;
+    let (mut decided, op) = decided?;
     while let Expr::Bracketed(inner, _) = decided {
         decided = inner;
     }
@@ -1209,10 +1262,10 @@ fn prop_not_equal(
             decided.span(),
             format!(
                 "this `!=` is `Not (… = …)`, a proposition, so this `{}` compares propositions",
-                g.leaves[j].op
+                op
             ),
         )
-        .with_label(g.leaves[i].expr.span(), "but this isn't a proposition")
+        .with_label(leaf.span(), "but this isn't a proposition")
         .with_note(
             "for the `Bool` that `!=` computes, ascribe it: `((x != y): Bool)`; or compare \
              with `==` instead, as `(x == y) = False`",
@@ -1272,29 +1325,31 @@ fn mixed(
         ),
     };
     let d = explain_default(cx, d, &[found]);
-    decided_by(cx, g, d, t, decider, what)
+    let at = decided_leaf(g, decider).map(|(e, _)| e.span());
+    decided_by(cx, d, t, decider, at, what)
 }
 
-/// Adds to `d` what decided the group's type `t`.
+/// Adds to `d` what decided the group's type `t`; `at` is where the leaf
+/// that decided it is, if one did.
 fn decided_by(
     cx: &Ctx,
-    g: &Group,
     d: Diagnostic,
     t: &Value,
     decider: Decider,
+    at: Option<Span>,
     what: &str,
 ) -> Diagnostic {
     let shown = cx.show(t);
-    match decider {
-        Decider::Expected => d.with_note(format!(
+    match (decider, at) {
+        (Decider::Expected, _) => d.with_note(format!(
             "this {what} is on `{shown}` because `{shown}` is expected here"
         )),
-        Decider::Leaf(j) => d.with_label(
-            g.leaves[j].expr.span(),
-            format!("this {what} is on `{shown}` because of this"),
-        ),
-        Decider::Minus(span) => d.with_label(span, "this `-` makes it an `Int`"),
-        Decider::Default => d.with_note(format!(
+        (Decider::Leaf(_), Some(at)) => {
+            d.with_label(at, format!("this {what} is on `{shown}` because of this"))
+        }
+        (Decider::Leaf(_), None) => d,
+        (Decider::Minus(span), _) => d.with_label(span, "this `-` makes it an `Int`"),
+        (Decider::Default, _) => d.with_note(format!(
             "this {what} is on `Nat` because nothing in it says otherwise"
         )),
     }

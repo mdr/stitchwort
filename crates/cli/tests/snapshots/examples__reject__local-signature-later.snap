@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/local-signature-later.sw:23:76 ]
+    │
+ 23 │ def later (rest: List Nat) (k: Nat) (p: P): Bool := apply (r => reach.left r.x k Zero) p
+    │                                                                            ─┬─  
+    │                                                                             ╰─── expected `List Nat`, but this has type `Nat`
+    │ 
+    │ Note: `reach.left` is a local definition with the signature `(rest: List Nat) -> (k: Nat) -> Nat -> Bool`; its leading parameters are the variables it uses, in the order they are written (the header's parameters, then the arm's pattern variables from left to right)
+────╯
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/local-signature-later.sw:25:85 ]
+    │
+ 25 │ def annotated (rest: List Nat) (k: Nat) (p: P): Bool := apply ((r: P) => reach.left r.x k Zero) p
+    │                                                                                     ─┬─  
+    │                                                                                      ╰─── expected `List Nat`, but this has type `Nat`
+    │ 
+    │ Note: `reach.left` is a local definition with the signature `(rest: List Nat) -> (k: Nat) -> Nat -> Bool`; its leading parameters are the variables it uses, in the order they are written (the header's parameters, then the arm's pattern variables from left to right)
+────╯

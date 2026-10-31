@@ -218,14 +218,42 @@ fn check_step(
     prop_term: &Term,
     line: &str,
 ) -> Result<Term> {
-    // A `rewrite` shows the line as it was built in its messages (rewrite.rs).
-    cx.written_goal = matches!(proof, Expr::Rewrite { .. }).then(|| prop_term.clone());
-    let checked = check(cx, proof, prop);
-    cx.written_goal = None;
-    match checked {
-        Err(e)
-            if matches!(e.code, "E-TYPE-MISMATCH" | "E-REFL")
-                && e.primary_span() == Some(proof.span()) =>
+    crate::queue::framed(
+        cx,
+        |cx| {
+            // A `rewrite` shows the line as it was built in its messages
+            // (rewrite.rs).
+            cx.written_goal = matches!(proof, Expr::Rewrite { .. }).then(|| prop_term.clone());
+            let checked = check(cx, proof, prop);
+            cx.written_goal = None;
+            checked
+        },
+        |_| StepFrame {
+            proof: proof.clone(),
+            line: line.to_string(),
+        },
+    )
+}
+
+/// A `calc` step, as an error frame (D2091): a check inside its proof that
+/// waits and fails later is reported as [`check_step`] reports it inline.
+struct StepFrame {
+    proof: Expr,
+    line: String,
+}
+
+impl crate::queue::ErrorFrame for StepFrame {
+    fn map(&self, cx: &mut Ctx, e: Diagnostic) -> Diagnostic {
+        step_error(cx, &self.proof, &self.line, e)
+    }
+}
+
+/// [`check_step`]'s error, `e` from the proof: `E-CALC-STEP` if the proof
+/// proves something else.
+fn step_error(cx: &mut Ctx, proof: &Expr, line: &str, e: Diagnostic) -> Diagnostic {
+    match e {
+        e if matches!(e.code, "E-TYPE-MISMATCH" | "E-REFL")
+            && e.primary_span() == Some(proof.span()) =>
         {
             let mut label = e
                 .labels
@@ -243,9 +271,9 @@ fn check_step(
             for note in e.notes {
                 error = error.with_note(note);
             }
-            Err(error)
+            error
         }
-        result => result,
+        e => e,
     }
 }
 

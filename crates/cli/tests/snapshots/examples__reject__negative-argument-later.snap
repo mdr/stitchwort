@@ -1,0 +1,26 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/negative-argument-later.sw:14:20 ]
+    │
+ 14 │   let h := r => f -r.g x
+    │                    ─┬─  
+    │                     ╰─── expected `Int`, but this has type `Int → Int`
+    │ 
+    │ Note 1: this arithmetic is on `Int` because `Int` is expected here
+    │ 
+    │ Note 2: `-this` negates `this` alone here, not a call of it (a `-` right before an argument negates just that argument); to negate a call such as `g x`, write `(-(g x))`
+────╯
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/negative-argument-later.sw:18:25 ]
+    │
+ 18 │   let h := (r: P) => f -r.g x
+    │                         ─┬─  
+    │                          ╰─── expected `Int`, but this has type `Int → Int`
+    │ 
+    │ Note 1: this arithmetic is on `Int` because `Int` is expected here
+    │ 
+    │ Note 2: `-this` negates `this` alone here, not a call of it (a `-` right before an argument negates just that argument); to negate a call such as `g x`, write `(-(g x))`
+────╯

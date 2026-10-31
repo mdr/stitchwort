@@ -476,6 +476,22 @@ fn keep_receiver(
 }
 
 impl crate::queue::Check for DotCall {
+    fn display(&self, _cx: &Ctx) -> Option<String> {
+        let field = Expr::Field(Box::new(self.recv.clone()), self.field.clone());
+        let mut text = crate::queue::syntax(&field);
+        for arg in &self.args {
+            text.push(' ');
+            text.push_str(&match arg {
+                OwnedArg::Explicit(e) => crate::queue::atom(e),
+                OwnedArg::Named(n, e) => format!("[{} := {}]", n.text, crate::queue::syntax(e)),
+                OwnedArg::NamedExplicit(n, e) => {
+                    format!("({} := {})", n.text, crate::queue::syntax(e))
+                }
+            });
+        }
+        Some(text)
+    }
+
     fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
         let args: Vec<Arg> = self.args.iter().map(OwnedArg::arg).collect();
         let (recv, field) = (&self.recv, &self.field);
@@ -978,6 +994,10 @@ struct Section {
 }
 
 impl crate::queue::Check for Section {
+    fn display(&self, _cx: &Ctx) -> Option<String> {
+        Some(crate::queue::syntax(&self.section))
+    }
+
     fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
         let term = crate::check::check(cx, &self.section, &self.expected)?;
         Ok(crate::queue::Resumed::Done(term))

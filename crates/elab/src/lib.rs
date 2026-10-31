@@ -2753,7 +2753,7 @@ impl Elaborator {
             }
             cx.span = span;
             cx.e.in_instance_signature.set(instance);
-            let checked = check_type(&mut cx, ty);
+            let checked = crate::queue::framed(&mut cx, |cx| check_type(cx, ty), |_| auto.frame());
             cx.e.in_instance_signature.set(false);
             let (mut term, _) = checked?;
             for (x, dom) in binders.into_iter().rev() {
@@ -2762,7 +2762,7 @@ impl Elaborator {
             Ok(term)
         })();
         self.owner.borrow_mut().clear();
-        let ty = ty.map_err(|d| with_notes(autobind::explain(&auto, d)))?;
+        let ty = ty.map_err(with_notes)?;
         // A `match` in the signature is admitted before it (§2.2): it can't
         // refer to the definition, which isn't declared yet.
         self.lift_signature(key).map_err(with_notes)?;

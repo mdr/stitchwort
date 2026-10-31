@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/placeholder-shown-as-source.sw:14:21 ]
+    │
+ 14 │   let same := r => (rfl: (r.items, 1) = (r.items, 2))
+    │                     ─┬─  
+    │                      ╰─── `(r.items, 1)` and `(r.items, 2)` aren't equal
+    │ 
+    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+────╯
