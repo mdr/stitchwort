@@ -628,6 +628,24 @@ def List.tails: List a → List (List a)
   | Nil => Cons Nil Nil
   | Cons x xs => Cons (Cons x xs) (List.tails xs)
 
+-- Every run of `size` consecutive elements, in order (sliding windows):
+-- `[1, 2, 3, 4].windows 3` is `[[1, 2, 3], [2, 3, 4]]`. A list of length n
+-- has n + 1 - size of them: none when it is shorter than `size`, and for
+-- `size = 0`, n + 1 empty windows (one before each element and one at the
+-- end). Lemmas: `List.lengthWindows`, `List.lengthOfMemWindows`,
+-- `List.windowsCons`, `List.windowsShort`, `List.windowsTails`.
+def List.windows (xs: List a) (size: Nat): List (List a) := List.windowsCount size (List.length xs + 1 - size) xs
+
+-- The first `count` windows of `size` elements of `xs`, one step apart.
+@[noReceiver]
+def List.windowsCount (size: Nat): (count: Nat) → (xs: List a) → List (List a)
+  | Zero, xs => Nil
+  | Succ count, xs => Cons (List.take xs size) (List.windowsCount size count (List.drop xs 1))
+
+test "List.windows" :=
+  [1, 2, 3, 4].windows 3 == [[1, 2, 3], [2, 3, 4]] ∧ [1, 2].windows 3 == Nil ∧ [1, 2].windows 2 == [[1, 2]]
+    ∧ [1, 2].windows 0 == [Nil, Nil, Nil] ∧ (Nil: List Nat).windows 1 == Nil
+
 -- The index of the first element satisfying `p`.
 @[noReceiver]
 def List.findIndexFrom (i: Nat) (p: a → Bool): List a → Option Nat

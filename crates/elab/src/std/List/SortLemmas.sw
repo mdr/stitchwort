@@ -1,7 +1,8 @@
 -- Lemmas about the sorting functions of List/Sort.sw (sorted, a permutation,
 -- the same length, sorting what is already sorted), with the Nat and List
 -- lemmas around them: sums of lists, Gauss, counting occurrences, keys,
--- subsequences and splitting runs of positions.
+-- subsequences and splitting runs of positions, and `drop` past the end and
+-- sliding windows (`List.windows`).
 
 -- `<=` is total: if `m <= n` is false, then `n <= m`.
 theorem Nat.leqTotal (m: Nat) (n: Nat) (h: Nat.leq m n = False): Nat.leq n m = True := Nat.lessLe n m (Nat.leqFalse m n h)
@@ -139,6 +140,71 @@ theorem List.takeAll: (xs: List a) → (k: Nat) → List.length xs ≤ k → Lis
   | Cons x xs, Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Nil, Succ k, h => rfl
   | Cons x xs, Succ k, h => Eq.cong (Cons x) (List.takeAll xs k h)
+
+-- Dropping at least the whole length leaves nothing.
+theorem List.dropPast: (xs: List a) → (k: Nat) → List.length xs ≤ k → List.drop xs k = Nil
+  | Nil, k, h => List.dropNil k
+  | Cons x xs, Zero, h => Void.exfalso (Bool.falseNotTrue h)
+  | Cons x xs, Succ k, h => List.dropPast xs k h
+
+-- Sliding windows (`List.windows`): how many there are, how long each is,
+-- one step at a time, and the same as the suffixes cut to `size`, keeping
+-- the whole ones.
+
+theorem List.lengthWindowsCount (size: Nat): (count: Nat) → (xs: List a) → List.length (List.windowsCount size count xs) = count
+  | Zero, xs => rfl
+  | Succ count, xs => Eq.cong Succ (List.lengthWindowsCount size count (List.drop xs 1))
+
+-- A list of length n has n + 1 - size windows.
+theorem List.lengthWindows (xs: List a) (size: Nat): List.length (List.windows xs size) = List.length xs + 1 - size :=
+  List.lengthWindowsCount size (List.length xs + 1 - size) xs
+
+theorem List.lengthOfMemWindowsCount (size: Nat): (count: Nat) → (xs: List a) → count ≤ List.length xs + 1 - size →
+    (w: List a) → w ∈ List.windowsCount size count xs → List.length w = size
+  | Zero, xs, h, w, m => Void.exfalso m
+  | Succ count, Nil, h, w, Inl e => Eq.trans (Eq.cong List.length (Eq.sym e)) (List.lengthTake Nil size (omega [h]))
+  | Succ count, Nil, h, w, Inr m => List.lengthOfMemWindowsCount size count Nil (omega [h]) w m
+  | Succ count, Cons x rest, h, w, Inl e => Eq.trans (Eq.cong List.length (Eq.sym e)) (List.lengthTake (Cons x rest) size (omega [h]))
+  | Succ count, Cons x rest, h, w, Inr m => List.lengthOfMemWindowsCount size count rest (omega [h]) w m
+
+-- Each window has `size` elements.
+theorem List.lengthOfMemWindows (xs: List a) (size: Nat) (w: List a) (m: w ∈ List.windows xs size): List.length w = size :=
+  List.lengthOfMemWindowsCount size (List.length xs + 1 - size) xs (Nat.leRefl (List.length xs + 1 - size)) w m
+
+-- A list with a whole window at its start: that window, then the windows of
+-- the rest.
+theorem List.windowsCons (x: a) (rest: List a) (size: Nat) (h: size ≤ List.length (Cons x rest)):
+    List.windows (Cons x rest) size = Cons (List.take (Cons x rest) size) (List.windows rest size) :=
+  Eq.cong (count => List.windowsCount size count (Cons x rest)) (omega [h]: List.length (Cons x rest) + 1 - size = Succ (List.length rest + 1 - size))
+
+-- A list shorter than a window has none.
+theorem List.windowsShort (xs: List a) (size: Nat) (h: List.length xs < size): List.windows xs size = Nil :=
+  Eq.cong (count => List.windowsCount size count xs) (omega [h]: List.length xs + 1 - size = 0)
+
+-- The windows are the suffixes cut to `size`, keeping those that are whole.
+theorem List.windowsTails: (xs: List a) → (size: Nat) →
+    List.windows xs size = List.filter (List.map (List.tails xs) (.take size)) (window => window.length == size)
+  | Nil, Zero => rfl
+  | Nil, Succ size => List.windowsShort Nil (Succ size) rfl
+  | Cons x rest, size =>
+    match Nat.decLessEq size (List.length (Cons x rest)) with
+      | Yes h =>
+        calc List.windows (Cons x rest) size
+          _ = Cons (List.take (Cons x rest) size) (List.windows rest size) := List.windowsCons x rest size h
+          _ = Cons (List.take (Cons x rest) size) (List.filter (List.map (List.tails rest) (.take size)) (window => window.length == size))
+            := Eq.cong (Cons (List.take (Cons x rest) size)) (List.windowsTails rest size)
+          _ = List.filter (List.map (List.tails (Cons x rest)) (.take size)) (window => window.length == size)
+            := Eq.sym (List.filterKeep _ _ _ (rewrite List.lengthTake (Cons x rest) size h in DecEq.refl size))
+      | No h =>
+        calc List.windows (Cons x rest) size
+          _ = Nil := List.windowsShort (Cons x rest) size (omega [h])
+          _ = List.windows rest size := Eq.sym (List.windowsShort rest size (omega [h]))
+          _ = List.filter (List.map (List.tails rest) (.take size)) (window => window.length == size) := List.windowsTails rest size
+          _ = List.filter (List.map (List.tails (Cons x rest)) (.take size)) (window => window.length == size)
+            := Eq.sym (List.filterSkip (List.map (List.tails rest) (.take size)) (window => window.length == size) (List.take (Cons x rest) size)
+              (rewrite List.takeAll (Cons x rest) size (omega [h]) in Decidable.toBoolOfNot _ (same => omega [same, h])))
+
+theorem List.windowsExample: List.windows [1, 2, 3, 4] 3 = [[1, 2, 3], [2, 3, 4]] := rfl
 
 -- Dropping n elements of a list at least n long leaves the rest.
 theorem List.lengthDrop: (xs: List a) → (n: Nat) → n ≤ List.length xs → n + List.length (List.drop xs n) = List.length xs

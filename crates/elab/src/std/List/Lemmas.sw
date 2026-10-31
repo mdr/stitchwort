@@ -547,6 +547,22 @@ theorem List.dropAppend: (start: List a) → (rest: List a) → List.drop (List.
   | Nil, rest => rfl
   | Cons x xs, rest => List.dropAppend xs rest
 
+-- Nothing is left of the empty list, however much is dropped.
+theorem List.dropNil: (n: Nat) → List.drop (Nil: List a) n = Nil
+  | Zero => rfl
+  | Succ n => rfl
+
+-- Dropping `n + m` is dropping `n`, then `m`.
+theorem List.dropAdd: (n: Nat) → (m: Nat) → (xs: List a) → List.drop xs (n + m) = List.drop (List.drop xs n) m
+  | Zero, m, xs => rfl
+  | Succ n, m, Nil => Eq.sym (List.dropNil m)
+  | Succ n, m, Cons x xs => List.dropAdd n m xs
+
+-- Dropping the whole length leaves nothing.
+theorem List.dropLength: (xs: List a) → List.drop xs (List.length xs) = Nil
+  | Nil => rfl
+  | Cons x xs => List.dropLength xs
+
 -- A list starts with what was appended to.
 theorem List.startsWithAppend [auto eq: DecEq a]: (prefix: List a) → (rest: List a) → List.startsWith (List.append prefix rest) prefix = True
   | Nil, rest => rfl
