@@ -2313,7 +2313,7 @@
     {
       "id": 944,
       "title": "Comparison beside Bool && / || in a statement: E-NOT-A-TYPE with no hint to write (… : Bool)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "friction batch (D2106)",
       "labels": [
@@ -2323,12 +2323,14 @@
       "body": "A comparison next to a Bool && / || in a theorem statement fails E-NOT-A-TYPE: the comparison makes the equation one between propositions. Writing ((… < k): Bool) fixes it, but the note doesn't suggest it. Also: search --at can't re-elaborate such printed goals (E-SEARCH-AT). Related to SW-930's section rule (which covers sections only).\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit d25940b0): made it work rather than a note. An = or != with a < / <= side that fails is elaborated again (first try undone) with those sides as the Bool the other side decides, as if ascribed ((…): Bool); if that fails too, the first error. Only previously failing equations change. docs/syntax.md, examples/accept/comparison-beside-bool.sw. Printed goals of this shape paste back (search --at part left to the search lane).\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "d25940b0"
+      ]
     },
     {
       "id": 945,
       "title": "std: List.filterFilter, contains/indexOf lemma, Nat.max/min fold lemmas",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "friction batch (D2106)",
       "labels": [
@@ -2337,12 +2339,14 @@
       "body": "std candidates proved locally in Aoc.Year2021.Day04.Proofs: List.filterFilter, a lemma linking contains to indexOf, lemmas for folds of Nat.max / Nat.min.\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nLane (31 Oct, friction-batch worktree, commit 613a95c5): List.filterFilter, List.containsIndexOf (+ containsIndexOfAppend), List.foldMaxLt, List.foldMinLt in std; day 4 uses them (markedBefore, latestBefore, earliestBefore, filterFilter removed). Audit day 4: 17 passed.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "613a95c5"
+      ]
     },
     {
       "id": 946,
       "title": "Day 4 small items: b ∨ False printed as b && True; record literal E-UNSOLVED reported on the wrong line; toBoolOfNot _ not filled from expected type",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "friction batch (D2106)",
       "labels": [
@@ -2351,7 +2355,9 @@
       "body": "Smaller items: (1) goals print b ∨ False as b && True (reproduced in a scratch file); (2) a record literal whose type isn't known yet gives E-UNSOLVED on the next line instead of at the literal; (3) Decidable.toBoolOfNot _ doesn't fill its decision procedure from the expected type.\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit 9b4a2ba0): (a) b || False and b && True are one term (if b then True else False); now printed as that if on its own, and with the chain's operator as a chain's last operand (b && c && True, b || c || False); pastes back (examples/goals/bool-constant-branches.sw). (b) E-UNSOLVED after a record literal whose type the field-name rule chose at the end is reported at the literal, naming the type (examples/reject/record-literal-type-late.sw). (c) not fillable: toBool (Nat.decLessThan a b) doesn't compute to the Bool a < b (Nat.leq (Succ a) b) on variables, so no d fits; omega proves these (day 4's pastTheEnd replaced by omega).\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "9b4a2ba0"
+      ]
     },
     {
       "id": 947,
@@ -2373,7 +2379,7 @@
     {
       "id": 948,
       "title": "cases doesn't use Bool-guarded implication hypotheses (b = True → fact); two-coordinate goals hit the case budget",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "friction batch (D2106)",
       "labels": [
@@ -2382,12 +2388,14 @@
       "body": "cases doesn't use hypotheses of the form b = True → fact (implications guarded by a Bool); the proof had to match on b by hand and apply them. Also: proving both coordinates at once ran past the 64-case budget.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit ab64d895): before splitting, cases applies a hypothesis P → Q whose premise (an equation) holds in the case (sides compute equal, e.g. True = True → fact after splitting b, or a hypothesis says P), adding Q and starting the case again. Day 5's combine lemmas are now := cases. Hash dumps: only Day05.Proofs changes (the combine lemmas and their users); no std/other aoc/rogue hash changed. Two-coordinate pointLinear by one cases still over budget (20 atoms): its open cases are infeasible comparisons omega only sees at leaves (D1319); a fix would be pruning by omega during splitting, a design change, not done.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "ab64d895"
+      ]
     },
     {
       "id": 949,
       "title": "std: Nat.mulRightCancel, List.countRangeEq, a counting notion with uniqueness",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "friction batch (D2106)",
       "labels": [
@@ -2396,12 +2404,14 @@
       "body": "std candidates from day 5: Nat.mulRightCancel (with a Bool form), List.countRangeEq, a general 'number of x with p x' with a uniqueness lemma. Search by pattern for factor cancellation found nothing; grep found Nat.mulSuccCancel.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\nLane (31 Oct, commit 613a95c5): Nat.mulRightCancel, Nat.mulRightCancelBool, List.countRangeEq (+ countRangeFromEq), List.NumberWith with numberWithUnique/numberWithCong in std; day 5's spec and proofs use them. Audit day 5: 36 passed.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "613a95c5"
+      ]
     },
     {
       "id": 950,
       "title": "Day 5 small items: argument on its own line misread (error points wrong place); tuple def parameter error lacks a hint; --at fails on shadowed hypotheses",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "friction batch (D2106)",
       "labels": [
@@ -2410,7 +2420,9 @@
       "body": "(1) An argument written on its own line at the call's indentation is read as a separate statement; the error points at the argument and the real clue is a later warning. (2) A tuple pattern isn't allowed as a def parameter and the parse error doesn't suggest let (x, y) := point. (3) search --at on a project file failed E-IMPORT-UNKNOWN (reads the file alone; in progress in SW-915); in a scratch copy E-SEARCH-AT because a match Nat.decEq leaves a shadowed hypothesis (shape✝) that can't be written.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit ef35041f): items 1-2. (1) An error on the line after a statement that is a function missing its arguments now points first at that statement, with a note that a line at the same indentation is a new statement (indent the argument further). (2) Tuple/record pattern as a def parameter: E-PARSE note suggests naming it and let (x, y) := point or a match. Examples argument-on-its-own-line.sw, tuple-parameter.sw. Item 3 left to the search lane.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "ef35041f"
+      ]
     },
     {
       "id": 951,
