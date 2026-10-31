@@ -3,7 +3,9 @@
 **Status:** draft 3, 30 October 2026; **stages 1, 2, 3 and 6 are built** ([As built (stage
 1)](#as-built-stage-1), [As built (stage 2)](#as-built-stage-2), [As built (stage
 3)](#as-built-stage-3), [As built (stage 6)](#as-built-stage-6)); stage 4's second attempt is
-stopped for decisions ([Stage 4, second attempt: stopped](#stage-4-second-attempt-stopped)). Tickets SW-817 (anchor), SW-847 and SW-885; context
+stopped for decisions ([Stage 4, second attempt: stopped](#stage-4-second-attempt-stopped)), and the third
+attempt's design is written ([Stage 4: design for the third attempt](#stage-4-design-for-the-third-attempt);
+decisions D2087, D2090, D2091). Tickets SW-817 (anchor), SW-847 and SW-885; context
 SW-509, SW-805, SW-896. Follows D1990 (one queue, agreed in principle), D1991 (SW-805's
 field-name rule stays, as name resolution), D2012 (Matt: design for the best end state; the
 cost of churn is not a criterion) and D2015 (Matt: revise after the external review). Repros,
@@ -2210,6 +2212,376 @@ literal), and the rest below.
 - D2013's N1 restated: accepted programs keep their literals' types (measured so far: yes, every
   changed term is a folded/unfolded difference), and some rejected ones are now accepted (list:
   `int-binding-nat.sw`, syntax.md's "Known limit" `let v = chooseFirst 5 i`).
+
+## Stage 4: design for the third attempt
+
+Written in the D2086 design lane (SW-817), 31 October 2026, on main `7d9544dc`, from the stopped
+experiment `ac4587c9` and two commits on top of it, `71d5f1fd` and `9ca412a0` (branch
+`d2086-prototype`, **PROTOTYPE, not for merge**: everything behind switches, off by default).
+Labels in this section: **[run]** run on 31 October; **[read]** read in source (Stitchwort at
+`ac4587c9` unless a line says main; Lean 4 at `0f852cc8`, the commit of [L1]-[L7]); **[inferred]**
+my reasoning, not tested. Repros, the Lean files and their output are in
+[postponement/d2086/](postponement/d2086/).
+
+### In short
+
+**The issue.** Stage 4 makes a number literal wait for its type instead of becoming `Nat` at
+once. While it waits, it is a placeholder: an unknown that stands for `3` but doesn't look like
+`3`. Some parts of the compiler look at the *shape* of a term, not only at its type: a `match`
+looks for its scrutinee in the types around it, a `rewrite` looks for its rule in the goal, an
+error message prints the terms it is about. Meeting a waiting literal, they see an unknown. Then
+they either decide something wrong (a `match` accepts a program that its annotated twin rejects)
+or print `?1 = ?2`. The second attempt patched these one at a time and didn't converge.
+
+**The options**, for each part that reads shapes:
+- (a) it **waits** until the unknown is settled, as a queued check;
+- (b) the literal is **settled first**: given its default (`Nat`) early, but only inside the bit
+  of code being looked at;
+- (c) it learns to **see through** a waiting literal, as Lean does: there a numeral is an
+  ordinary term whose type is unknown, so a search can match `1` against `(1: Int)`.
+
+**The recommendation.**
+- A `match` **waits** until what it reads holds no unsolved unknown. This also fixes a bug that
+  main has today, without stage 4 (two repros below).
+- A `rewrite` rule is **settled first**, defaults included, but only its own literals: the rule
+  is read like a small statement of its own, which is what main does with it today. This is the
+  only place a default runs early, and invariant 7 is restated to say so (D2087).
+- A proof search (`rewrite`, `cases`) that fails on a goal holding an unknown the declaration
+  will still settle **waits** and tries again, as in the experiment. "Will still settle" must
+  include the dictionaries that obligations will find, which the experiment left out.
+- **Errors.** A construct that turns the errors inside it into its own (a `calc` step's
+  `E-CALC-STEP`) still does so when the failure comes later, at a resume point: the waiting check
+  carries an *error frame* from that construct. A waiting check's placeholder prints as the
+  source it stands for (`0`, `r.items`). An unknown that is a waiting literal's *type* is never
+  printed: what would print it waits too.
+- **Attempt 3** lands these rules on main first, before number literals wait, then K4 on top.
+
+**What the prototype shows** [run]: with all its switches on, against stage 6's base
+(`18762a20`), the examples change only where they should: `record-literal-inferred.sw` is
+fixed and `int-binding-nat.sw` is accepted (D2084). Every other reject example keeps its code and
+its message, except two messages that blame the literal instead of the other side (better, and
+a decision). The experiment's two wrong reject outcomes (`match-bad-motive`,
+`calc-step-callback`) and its two messages with unknowns are gone. aoc fails only where the
+experiment did (2024 Day17; my reading of why, speculative, is below).
+
+### What the prototype is, and what it shows
+
+**Switches** (`71d5f1fd`, `9ca412a0`; all off by default) [read]:
+- `D2086_MATCH_WAIT=1`: a generalising `match` whose scrutinee as elaborated, goal, or a
+  variable's type mentions an unknown the queue still has to settle waits for it, whole, its
+  scrutinees kept as elaborated (`WaitingMatch`, `matching.rs`). `D2086_MATCH_WAIT_ANY=1` adds
+  any unsolved unknown in the scrutinee, not only the queue's.
+- `D2086_FRAMES=1`: items and waiting comparisons carry the error frames they were made in; a
+  `calc` step is one (`StepFrame`, `calc.rs`).
+- `D2086_DISPLAY=1`: a waiting number's placeholder prints as the number (a print label).
+- `D2086_NO_RULE_DEFAULT=1`: a rewrite rule's own items are resumed but not defaulted before the
+  search (the experiment's addition 2 taken back, to test it).
+
+**Runs** [run]. Binaries: base `18762a20` (stage 6), the experiment `ac4587c9`, the prototype
+`9ca412a0`. Outcomes are the first error line or `checked` of every file under
+`examples/{accept,reject,soundness}` (1,140); messages are the whole output of every reject and
+soundness example (804).
+
+| | base | experiment | prototype, all switches |
+|---|---|---|---|
+| outcomes changed from base | | 5: `record-literal-inferred` passes; `int-binding-nat`, `match-bad-motive` accepted; `calc-step-callback` `E-TYPE-MISMATCH` | 2: `record-literal-inferred` passes; `int-binding-nat` accepted |
+| messages changed from base | | 7 | 3: `int-binding-nat`, `expected-type-retry`, `operators-generic-literal` |
+| messages that print an unknown (`?N`) | 15 | 17: also `let-refutable` (`Option ?0`), `quot-of-proposition` (`?1 = ?2`) | 15, the same files as base |
+| aoc (`check --no-cache`) | checks | `E-REWRITE-NOTHING` at 2024 `Day17/Proofs/Search.sw:46` | the same, only that; 6 matches waited (0 with the queue's unknowns only) |
+| rogue | checks | checks | checks; 0 matches waited |
+
+One switch at a time [run]:
+- `match-bad-motive.sw`: `MATCH_WAIT` gives base's `E-MATCH-MOTIVE`, message identical.
+- `calc-step-callback.sw`: `FRAMES` alone gives `E-CALC-STEP`, but "this proves `?16 n = ?17 n`";
+  with `DISPLAY` too, base's message exactly.
+- `let-refutable.sw`: `MATCH_WAIT` gives "doesn't match every `Option Nat`" (the refutable `let`
+  is a one-alternative `match`, which now waits, so its message is built after the default).
+- `quot-of-proposition.sw`: `DISPLAY` gives "`0 = 0` is a proposition".
+- `NO_RULE_DEFAULT`: std doesn't load: `List/Lemmas.sw:625`, `E-REWRITE-NOTHING`, "looking for
+  `List.sumBy (Cons x rest) (x => ?3)`".
+
+Not measured: hashes, and `stitchwort test` in aoc and rogue (the prototype only checks).
+
+### Question 1: parts that read a term's shape
+
+#### What really happened in `match-bad-motive.sw`
+
+Not what the stop report guessed. The occurrence test is `matching::same` on normal forms
+[read]. `List.length [?1, ?2]` computes to `2` (length doesn't look at the elements), so the
+occurrence in `q`'s type *is* found [run, scratch print]. What fails is the check after it:
+`check_motive` (`matching.rs:736`, on main too) builds the helper's type, and when an unknown in
+it isn't solved yet it returns `Ok` (`:766`, "something isn't known yet: checked when it's
+admitted") [read]. Here building it fails with "can't work out an implicit argument" [run,
+scratch print]. Admission checks the helper with only the variables its body uses, so `q`'s
+copy, which the body doesn't use, is never checked: the helper admitted is `bad.%match1: Nat →
+Nat` [run, scratch print in `declare_helper`, `lift.rs:791`].
+
+**Main has the same hole today, without stage 4** [run, main's binary and base]:
+- `motive-field-later.sw`: the scrutinee holds `r.x` waiting for `r`'s type (stage 2's K2).
+  Accepted. Its twin with `(r: P)` is `E-MATCH-MOTIVE`.
+- `motive-param-later.sw`: the scrutinee holds a lambda parameter whose type is an ordinary
+  unknown (no queue item). Accepted. Its annotated twin is `E-MATCH-MOTIVE`.
+
+**And the occurrence test can decide from a placeholder too** [run]: `motive-literal-later.sw`,
+`match 1 + 1 with …` with `q: two 2 rfl b = 2` in scope. Main and base: `E-MATCH-MOTIVE`. The
+experiment accepts it: `1 + 1` is a group built at an unknown type, `?a + ?b`, which computes to
+nothing and is found nowhere, so nothing is generalised. Making `check_motive` stop skipping
+would not catch this one: nothing was copied, so there is nothing to check [inferred]. So the
+`match` must not *decide* anything while what it reads holds an unsolved unknown.
+
+#### Lean 4, for comparison
+
+Run with Lean 4.34.1 [run, `lean-m1.lean` to `lean-m5.lean`, output in `lean-runs.txt`] and read
+at `0f852cc8` [read]:
+- **Lean's term `match` generalises less.** Only variable scrutinees have their dependents
+  generalised (the remark before `generalize`, `Match.lean:870-880`), so
+  `match-bad-motive.sw` written in Lean is accepted (m1's `bad`).
+- **It finds occurrences by unification.** The expected type's occurrences of a scrutinee are
+  abstracted by `kabstract` (`Match.lean:137`), which compares with `isDefEq`
+  (`Meta/KAbstract.lean:30-60`). A pending numeral takes its type from the occurrence: m1's `t2`
+  prints its scrutinee's list as `List Int`.
+- **`rw` too.** A rule whose numeral's type is pending, `myLen 3 1`, rewrites
+  `(List.replicate 3 (1 : Int)).length` (m2's and m5's first example); the same rule written at
+  `Nat` doesn't (m2's second, "did not find"). `rw` applies defaults only after the rewrite: the
+  rule and the search both run inside `withSynthesize` (`Tactic/Rewrite.lean:54`, `:65`).
+- **Lean also defaults early, and unscoped.** A term `match` runs
+  `synthesizeSyntheticMVarsUsingDefault` after its alternatives (`Match.lean:1150`), which
+  defaults *every* pending numeral, also ones made before the `match`. m4: `let m := 3 - 5; m + i
+  == 0` makes `m` an `Int` (`f 2` is `true`, D2084's check), but the same with an unrelated
+  `match` in between makes `m` a `Nat` (`g 2` is `false`). `calc` defaults after each step
+  (`Calc.lean:123`, `:128`); `induction` and `cases` targets are elaborated with postponing off
+  (`Tactic/Induction.lean:807`).
+- **Messages.** Numerals print as written (`0 = 0`, m2, m3), because they are terms; their
+  pending *types* print as `?m.2` (`Option ?m.2`, m3).
+
+So Lean avoids most of this by making a numeral a term of an unknown type,
+`@OfNat.ofNat ?α 1 ?inst`, which unification can match, and pays with early defaults that reach
+outside the construct. Stitchwort can't build a literal before its type is known: a `Nat` literal
+and an `Int` literal are different terms (`check_literal`, `numbers.rs`) [read]. So its
+placeholder is opaque, and waiting is the price; in exchange, defaults stay late and scoped.
+
+#### Every part that reads a term's shape, and its rule
+
+"Pending" below means an unknown the declaration's ladder will still settle: a placeholder no
+check has filled, the unknown a waiting item waits on, **and an unknown in a waiting obligation**
+(the last is new; see addition 3). "Unsolved" also counts ordinary unknowns.
+
+| part | where [read] | what it reads | from a placeholder it would | rule | evidence |
+|---|---|---|---|---|---|
+| a `match` that generalises: `match e`, `match h: e`, a refutable `let` or lambda pattern (a one-alternative `match`), `cases`' split (`cases.rs:1413`, `generalised_named`), `match reify` (`reify.rs:62`) | `matching.rs`: `generalised`, the occurrence test `same`, `check_motive` | the scrutinee's normal form, the goal, the types in scope | generalise the wrong hypotheses, or skip the motive check: **a different outcome** | **waits**, whole, while any of them holds an **unsolved** unknown; the scrutinee is kept as elaborated | the three repros and `match-bad-motive.sw` are rejected as their twins; `let-refutable`'s message; aoc 6 waits, no new failure [run] |
+| a `rewrite` rule, the pattern searched for | `rewrite.rs`, `elaborate_rule` | the rule's two sides | find nothing (`x => ?3`) | **settled first**: the rule's own items resumed, obligations, then defaults, scoped to the rule (D2087) | without the default std doesn't load (`Lemmas.sw:625`) [run] |
+| the `rewrite` search over a goal; `cases` looking for atoms and closers | `rewrite.rs`, `replace_occurrences`; `cases.rs` | the goal and hypotheses | find nothing, or split nothing | **try; if it fails while the goal holds a pending unknown, wait whole** and try again when it is settled (the experiment's `tactic_or_wait`) | `PrefixSums/BlockSum.sw:40`, `cases-solved-unknown.sw` in the experiment [run there]; Day17 [inferred, below] |
+| `rfl` against an expected type whose head is pending | `check.rs`, `check_value` | the head `Eq` | `E-TYPE-MISMATCH` | `rfl` is `?x = ?x` compared with it, which waits (stage 6) | `List/Lemmas.sw:977` in the experiment [run there] |
+| a `calc` step joined to its line, a comparison | `calc.rs` | the step's relation | a mismatch | waits (stage 6); its error goes through the step's frame (Q2) | `calc-step-callback.sw` [run] |
+| a decision (`if`, a proposition where a `Bool` is expected) | `bind::decide`, `decide_to_bool` | the proposition | `E-AUTO-NONE` | waits (D2035, built) | stage 3 |
+| `omega`, `ring`, congruence closure, `auto`: atoms compared by `same` | `omega.rs`, `ring.rs`, `congruence.rs`, `auto.rs` | the goal's atoms | no proof found | as `rewrite`: try, then wait if the goal holds a pending unknown | no failure in the experiment names them [run]; counted in step 4.2 before it is decided |
+| a written motive (`J`, `infer_j`) | `check.rs:5104` | nothing: the motive is written | | no change; its comparisons wait (stage 6) | |
+| head-only checks: a quotient's carrier is a type (`quot.rs`), a termination measure is a `Nat` | | the type's head | a type error | allowed, as §5.10's third class; `Eq ?T ?a ?b` is a proposition whatever `?T` is | `quot-of-proposition.sw` keeps `E-UNIVERSE` [run] |
+
+So the parts fall into §5.10's classes plus one: a choice that changes the outcome **waits**
+(`match`); a search **tries, then waits** (a different successful search proves the same
+statement, so only failure needs care); a comparison **waits** (stage 6); and a pattern made only
+to be searched for is **settled first**.
+
+**Why a `match` waits on any unsolved unknown, not only the queue's.** `motive-param-later.sw` is
+the same mistake with an ordinary unknown. Waiting costs nothing when the unknown is solved
+later, and an ordinary unknown still unsolved at the end is an error anyway. Measured: 6 waits in
+aoc, none in rogue, no new failure; no example's outcome changes [run]. Hashes not compared.
+
+**Why the scrutinee is kept as elaborated** (invariant 6): it was inferred with no expected type,
+like a `.field`'s receiver kept as a term (§5.5), so nothing learnt later would have changed it.
+What it holds that waits is its own items, which resume on their own.
+
+**Why not settle the scrutinee first, as a rule is.** It isn't closed: its value and type flow
+into the alternatives and the generalised types, and the `match` has to wait anyway for unknowns
+no default settles (a `.field`, an ordinary unknown). One rule, waiting, covers every case. A
+literal only the alternatives could type (`match 3 - 5 with | n => n + i`, `i: Int`) ends as `Nat`
+either way, as on main; Lean would make it `Int` [inferred].
+
+**Option (c), seeing through, later.** A unifier rule "a waiting literal `k` meets the numeral `k`
+at a known type and takes that type" would let a `rewrite` rule find `(1: Int)` as Lean does. It
+is more permissive than main, and attempt 3 doesn't need it.
+
+#### Invariant 7, restated (D2087)
+
+> **7. Defaults at quiescence only.** A default is applied only when resuming, obligations and row
+> comparisons have all stopped making progress, at one of three points: the end of the
+> declaration (W4); a part about to be lifted (W2); and a **closed pattern**, a term elaborated
+> only to be searched for (a `rewrite` rule), whose own items, and only those, are settled,
+> defaults included, before the search. Nothing else applies a default early: a `match`, a `calc`
+> step, `cases` and the proof searches wait instead.
+
+- **W2 isn't a bend** [inferred]. A part's helpers are lifted at its end: everything in the part
+  has been elaborated, and nothing outside it can mention the unknowns inside its `match`es'
+  alternatives. It is the part's own quiescence (the experiment's addition 4).
+- **Why a `rewrite` rule may settle early**: the search can't wait for its own pattern; the rule
+  is elaborated with no expected type, so its literals' types are new unknowns nothing outside
+  it mentions before the search reads them [read: `elaborate_rule` calls `infer`]; and it gives
+  what main gives today, where the literal is `Nat` at once, so no program main accepts changes
+  [inferred]. It is how Lean elaborates `induction` and `cases` targets
+  (`Tactic/Induction.lean:807`), not how it elaborates `rw` rules (above).
+- **What "closed" is checked by.** A debug assertion at the settle: no unknown the rule's items
+  waited on occurs in the goal, the context or another item's saved state [inferred design].
+
+### Question 2: errors from waiting checks
+
+**Three problems** [run, experiment]: a failure reported outside the construct that maps it
+(`calc-step-callback.sw` is `E-TYPE-MISMATCH`, not `E-CALC-STEP`); a waiting literal printed as
+an unknown (`?1 = ?2`); a waiting literal's type printed as an unknown (`Option ?0`).
+
+**The mechanism, three rules.**
+1. **Error frames: the construct that made a check reports its error.** A construct that turns
+   the errors of a check inside it into its own (a code, a label, a note) runs that check inside a
+   frame. Every item and waiting comparison made inside records the frames active then (part of
+   the item, so a restore takes it back, invariant 5). If it fails after the construct returned,
+   at a resume point, its error goes through those frames, innermost first, exactly as it would
+   have inline; a frame still active is skipped, since the inline path applies it. Each construct
+   has one mapping function, used both ways: today's `match check(…) { Err(e) if … }` becomes the
+   frame. The frame decides the location, as inline (`calc`: the step's proof). Prototype: `calc`'s
+   step as a frame; `calc-step-callback.sw` gets back base's message, code and span [run]. Lean
+   has no step-specific error here (m2: plain "Type mismatch"); Idris reports a delayed elaborator's
+   error at its own location (§3).
+2. **A placeholder prints as the syntax it stands for**: `0` for a waiting number, `r.items` for a
+   waiting `.field`, the literal for a record literal, the proposition for a `Decide`. Prototype
+   for numbers: `quot-of-proposition.sw` prints `0 = 0` again [run]. This also fixes the stage-2
+   finding where `E-AUTO-NONE` named `?5 b b` [inferred].
+3. **An unknown that is a waiting check's type is never printed as the answer.** It isn't known
+   yet, so no printing rule can be honest about it. Whatever would print it reads that type, so it
+   falls under question 1's rules and waits: the refutable `let` is a `match`, waits, and is
+   reported after the default, `Option Nat` [run]. A message may show `?N` only for an unknown
+   that is genuinely unsolved at the end. **Tested**: the examples test fails if a reject or
+   soundness message prints `?N` and the file isn't on a list (today's 15 files).
+
+**Constructs with their own error mapping of a check that can now wait** [read, `ac4587c9`]; each
+becomes a frame in step 4.1:
+
+| construct | where | what it does to the inner error |
+|---|---|---|
+| a `calc` step | `calc.rs:250` (`check_step`) | `E-TYPE-MISMATCH`/`E-REFL` at the proof becomes `E-CALC-STEP`, the line in a note |
+| an argument of a callback parameter | `check.rs:2436` (`check_arg`) | partial and total callback notes, the local signature |
+| a call's last comparison | `check.rs:4003` (`fallback`) | the awaiting and negative-argument notes |
+| a proposition decided as a `Bool` | `check.rs:4190` (`decided`); `logic.rs:145` | `E-AUTO-NONE` relabelled with its own note |
+| a value against a `Comp` type | `check.rs:3297` (`check_inner`) | the SW-851 note |
+| a number group's leaf | `numbers.rs:1444` (`check_leaf`), `:1463` (`prop_not_equal`), `:837` (`function_operand_note`) | "decided by" labels; a proposition compared with `=` |
+| named and default arguments | `named.rs:614` (`apply_slots`); `defaults.rs:591`, `:897` | the rigid-parameter and left-out-default notes |
+| a record update | `records.rs:1275` (`update_fields`) | the pinned-field note |
+| an automatically bound name | `autobind.rs:67` (`explain`) | the "bound automatically" note |
+| a `match`'s alternatives | `matching.rs`, `in_context` | the alternative's context |
+| a termination measure | `decreasing.rs:1125` | the measure note |
+
+Only the first was in the prototype. The rest are found by the same search (`grep` for `e.code
+==` and `map_err`) and each gets a test only where a check inside it can wait.
+
+**The two re-blamed messages** [run]: `expected-type-retry.sw` (`chooseFirst 5 True` against
+`Int`) and `operators-generic-literal.sw` (`xs.foldLeft 0 …` in generic code) now point at the
+literal, "expected `Bool`, but this has type `Nat`" with the note "a numeral can only be the
+prelude's `Nat` or `Int`", where base points at the other part with "this literal made it a
+`Nat`". With K4 no literal makes anything `Nat` early, so base's explanation is no longer true.
+The examples' comments change with them (D2091).
+
+### Question 3: the six additions, and the plan
+
+**The six additions of the second attempt** [read `ac4587c9`; evidence as cited]:
+
+| addition | verdict | why | the test that would have caught its problem |
+|---|---|---|---|
+| 1. `rfl` against a pending head is `?x = ?x`, compared | **right** | `rfl` reads its expected type's head, like a record literal; the comparison waits (stage 6) | `List/Lemmas.sw:977`'s shape as an accept example |
+| 2. a rewrite rule settled before its search, defaults included | **right, once stated** | the closed-pattern default of invariant 7 (D2087); without it std fails [run] | `Lemmas.sw:625`'s shape (`(x => 1)` in a rule) as an accept example |
+| 3. `rewrite` and `cases` wait whole when they fail on a pending goal | **right in kind, boundary too narrow** | for a proof search, only failure needs care. But "pending" there is the queue's placeholders and blockers only (`queue::pending`) [read], not unknowns in waiting obligations | a cut-down Day17 (below) |
+| 4. W2 applies defaults | **right** | a part's quiescence (invariant 7 restated) | `match-eq-auto.sw` (in the examples) |
+| 5. a pending placeholder applied twice waits | **right** | comparing a frozen placeholder's arguments is a choice from its shape: its term may ignore one (invariant 8, in the unifier) | `quot-lift-types.sw` (in the examples) |
+| 6. a group nothing decides is built at an unknown type | **right, as the base design** | its shape (`Eq`, `<`) is known at once, as Lean's `@Eq ?α 0 0`; only its literals wait. It moved the group's dictionaries into obligations, out of addition 3's "pending" | the 12 accepted examples (already caught it) |
+
+**Day17** (`Search.sw:46`, `rewrite outputs in DecEq.refl target` inside `Bool.andIntro _ _
+positive …`, with the filter's `0 < a ∧ …` in the goal). It checked before addition 6 and fails
+after it. My reading, **speculative** [inferred]: addition 6 turned the group `0 < a` from one
+waiting placeholder (pending) into a term whose `<` dictionary is an obligation (not pending), so
+the `rewrite` fails on a goal stuck on that dictionary and doesn't wait. Step 4.2 tests this
+first, with a trace of what the goal is stuck on.
+
+**What the second attempt lacked**, as a process: a rule for each shape-reading part before
+literals waited, so each failure was met one at a time; a check that no message prints an
+unknown; reject examples with annotated twins.
+
+**Attempt 3, in steps.** Each step stops if an example's outcome or message changes beyond its
+list, or a hash changes beyond its classified list.
+
+- **4.0, on main, no K4: the `match` rule.** A generalising `match` whose scrutinee as elaborated,
+  goal or types in scope hold an unsolved unknown waits whole (a `WaitingMatch` item, the
+  scrutinee kept). `check_motive` no longer skips: after waiting nothing is unknown, and a debug
+  assertion says so. *Tests*: `motive-field-later.sw`, `motive-param-later.sw` as reject examples
+  (`E-MATCH-MOTIVE`), their twins as reject examples too; `match-bad-motive.sw` unchanged.
+  *Changes*: a bug fix on main (programs main accepts wrongly become `E-MATCH-MOTIVE`); aoc's 6
+  waits may change hashes, each classified.
+- **4.1, on main, no K4: errors.** Error frames for the constructs above; every kind of
+  placeholder printed as its syntax; the examples test's list of messages allowed to print `?N`.
+  *Tests*: a unit test that an item failing after a framed construct returned gets the frame's
+  code and span; a `calc` step whose `rfl` waits on a `.field` keeps `E-CALC-STEP`; the stage-2
+  `E-AUTO-NONE` case prints `r.items`. *Changes*: none expected in the examples.
+- **4.2, on main, no K4: searches and the pending set.** "Pending" includes unknowns in waiting
+  obligations; `rewrite` and `cases` try, then wait (addition 3); a counter of `omega`, `ring`,
+  congruence and `auto` failures on a goal holding a pending unknown, to decide whether they join.
+  *Tests*: a `rewrite` and a `cases` whose goal holds a waiting `.field` (accept examples); the
+  Day17 shape once cut down.
+- **4.3: K4.** Literals wait; groups built at an unknown type (6); `rfl` (1); a placeholder applied
+  twice (5); W2 defaults (4); the rule settled (2). *Changes, from the prototype* [run]:
+  `record-literal-inferred.sw` unannotated; `int-binding-nat.sw` to accept, with syntax.md's "a
+  `let` keeps its own type" changed (D2084); the two re-blamed messages (D2091); nothing else in
+  the examples. *Gates*: the 11 proofs of the first attempt and `k4-proof.sw`; Day17; the hash
+  dumps classified; aoc 914 and rogue 100 tests; `task audit`.
+- **4.4: stage 5**, as planned (§8).
+
+### Decisions for Matt
+
+D2088 and D2089 are taken (SW-915), so these are D2087, D2090 and D2091.
+
+**D2087. Restate invariant 7 so that defaults run at the end of the declaration, at the end of a
+part before lifting, and in a `rewrite` rule before its search, and nowhere else?** **[Recommend
+yes.]** The text is above. The alternative for the rule is to keep invariant 7 as it is and have
+the whole `rewrite` wait until W2 or W4; that gives the same answers here (nothing outside the rule
+can type its literal before the search) but holds a proof back as a placeholder for longer. The
+other alternative is Lean's, option (c), later. The assumptions, in full:
+- **(C1)** A `rewrite` rule is elaborated with no expected type, so the unknowns its literals wait
+  on are made inside it and nothing outside it mentions them before its search reads them.
+- **(C2)** Settling them early gives what main gives today, where a literal is `Nat` at once, so no
+  program main accepts is rejected because of it.
+- **(C3)** At W2, every part of the declaration that a lifted helper is made from has been
+  elaborated, so a default there can't pre-empt information that comes later.
+- **(C4)** Every other early default (a `match` scrutinee, a `calc` step, `cases`) is replaced by
+  waiting, which ends with the same default at W4 where nothing else decides.
+
+**D2090. Make a `match` wait, whole, while what its generalisation reads holds any unsolved
+unknown, and land it on main first as a fix of today's bug?** **[Recommend yes.]** Alternatives:
+only the queue's unknowns (leaves `motive-param-later.sw` accepted); only stop `check_motive`
+skipping (misses `motive-literal-later.sw`: nothing is copied); Lean's rule, generalising only
+variable scrutinees (a language change, and proofs rely on generalisation by occurrence,
+method-sections.md §5). The assumptions, in full:
+- **(M1)** The occurrence test and the motive check are choices whose result can change the
+  outcome (which hypotheses are refined, whether the `match` is accepted), so they may not be made
+  from an unsolved unknown (invariant 8's "different well-typed meaning" class).
+- **(M2)** The scrutinee, inferred with no expected type, is stable (invariant 6), so keeping it
+  elaborated while the `match` waits loses nothing.
+- **(M3)** An ordinary unknown still unsolved when the declaration ends is an error anyway, so
+  waiting on one can't turn an accepted program into a stuck one.
+- **(M4)** Measured with the prototype: no example's outcome changes, and aoc and rogue gain no
+  failure (6 waits in aoc). Hashes are measured in step 4.0.
+
+**D2091. Report a waiting check's error through the error frames of the constructs it was made in,
+print its placeholder as its syntax, and never print a waiting check's type unknown (what would
+print it waits)? And take K4's two re-blamed messages (`expected-type-retry.sw`,
+`operators-generic-literal.sw`) as the new messages, their comments changed?** **[Recommend
+yes.]** The alternative is to render every message after the
+declaration's defaults, which needs messages to hold terms instead of text, a larger change with
+no case that frames and waiting leave over (the prototype keeps every base message). The
+assumptions, in full:
+- **(E1)** Every construct that maps the errors inside it does so by a function of the error and
+  of what it saved, so the same function can run later, at a resume point.
+- **(E2)** An item's error happens in its own saved context, so a frame applied then sees what it
+  would have seen inline.
+- **(E3)** A placeholder's syntax is what the user wrote, so printing it is never wrong, only less
+  resolved than its filled term (which zonking prints once it is filled).
+- **(E4)** A message that prints a type unknown of a waiting check is produced by a check that reads
+  that type, which question 1's rules make wait; the examples test's list catches any that doesn't.
 
 ## Review 1 and how it was addressed
 
