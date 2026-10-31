@@ -2071,9 +2071,9 @@
     {
       "id": 930,
       "title": "Operator section (<) gives a Prop, not a Bool: zipWith … (<) |> .count fails E-AUTO-NONE, error points at the lambda not at (<)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
-      "where": "",
+      "where": "built (6160d345 on branch sw930-comparison-section), not merged: semantics change awaiting Matt (D2098)",
       "labels": [
         "elab",
         "diagnostics"
@@ -2100,7 +2100,7 @@
     {
       "id": 932,
       "title": "std: List.windows and drop lemmas (dropAt, dropPast); move list drop lemmas out of Std.Map.Tree and an equalSwap out of Std.Float.Theory",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -2109,12 +2109,14 @@
       "body": "NOTES-2021 item 3: std lacks List.windows and drop counterparts of takeSucc/takeAll (dropAt, dropPast proved in Aoc.Year2021.Day01.Proofs); three list drop lemmas live in Std.Map.Tree; Nat.equalSwap's equivalent lives in Std.Float.Theory. Move them where search and readers expect.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nProgress (lane agent-a9ff062c, cfdceb9e): List.windows (n+1-size windows; size 0 gives n+1 empty ones) with lengthWindows, lengthOfMemWindows, windowsCons, windowsShort, windowsTails; List.dropAt/dropPast (AoC uses them); Map.Tree.drop* -> List.dropNil/dropAdd/dropLength; Float.Theory.equalSwap -> Nat.equalComm. Lane tiers std/hashes/aoc pass.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "cfdceb9e"
+      ]
     },
     {
       "id": 933,
       "title": "if h: inside a proof is an error, and its suggestion (match on a Bool) loses h",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -2124,12 +2126,14 @@
       "body": "NOTES-2021 item 4. Either allow the dependent if (h) in proofs, or make the suggestion one that keeps h (match on the decision procedure, e.g. Nat.decLessThan).\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nProgress (lane agent-a9ff062c, abdbe349): suggestion route (allowing proof-valued if is SW-373's design, waiting on Matt). The E-UNIVERSE note now names the decision procedure and keeps h: `match Std.Nat.decLessThan m (List.length rest) with | Yes h => … | No h => …`; for a == b its decEq; for a plain Bool `match e: c with`. New examples/reject/if-h-chooses-proofs.sw.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "abdbe349"
+      ]
     },
     {
       "id": 934,
       "title": "Goals print a == b as Decidable.toBool (Nat.decEqFrom …) in some cases, hiding that DecEq.refl closes it",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -2138,7 +2142,9 @@
       "body": "NOTES-2021 item 5. SW-918 made goals print == when the decider is what == would choose; extend it to the decEqFrom form (and List's decEq taking the items' decider) where it reads back to the same term.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nProgress (lane agent-a9ff062c, efb35637): goals fold toBool {a = b} d to a == b when d is (or is definitionally, goal variables unknown) what == applies; eq_decider -> eq_decision returns the closed decision term, so List's (with items' decider) counts. decEqFrom and List.decCons forms now print (Succ m == Succ m) = True / (Cons m xs == Cons m xs) = True; paste-back test extended.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "efb35637"
+      ]
     },
     {
       "id": 935,
