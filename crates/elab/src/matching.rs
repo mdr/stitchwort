@@ -142,9 +142,45 @@ fn compile<'a>(
         .collect();
     let types: Vec<Option<Value>> = columns.iter().map(|l| Some(cx.types[*l].clone())).collect();
     let tree = (cx.e.compile(&rows, cx.level(), columns, &types, span))
-        .map_err(|d| in_context(cx, d, kind, alts, columns))?;
+        .map_err(|d| in_context(cx, d, kind, first_patterns(alts), columns))?;
     cx.e.warn_redundant(&rows[..alts.len()], &tree);
     Ok(tree)
+}
+
+/// The first alternative's patterns: a refutable `let`'s or lambda's.
+fn first_patterns(alts: &[Alt]) -> &[Pattern] {
+    alts.first().map_or(&[], |alt| &alt.patterns)
+}
+
+/// `body`, the checking of the alternatives `alts` of a `match` of `kind`
+/// on `columns`, with [`in_context`] as its error frame (D2091): a coverage
+/// error inside it, also from a check that waits and fails later, is worded
+/// as the construct words it.
+fn in_alternatives<T>(
+    cx: &mut Ctx,
+    kind: MatchKind,
+    alts: &[Alt],
+    columns: &[usize],
+    body: impl FnOnce(&mut Ctx) -> Result<T>,
+) -> Result<T> {
+    crate::queue::framed(cx, body, |_| AltsFrame {
+        kind,
+        patterns: first_patterns(alts).to_vec(),
+        columns: columns.to_vec(),
+    })
+}
+
+/// A `match`'s alternatives, as an error frame ([`in_alternatives`]).
+struct AltsFrame {
+    kind: MatchKind,
+    patterns: Vec<Pattern>,
+    columns: Vec<usize>,
+}
+
+impl crate::queue::ErrorFrame for AltsFrame {
+    fn map(&self, cx: &mut Ctx, d: Diagnostic) -> Diagnostic {
+        in_context(cx, d, self.kind, &self.patterns, &self.columns)
+    }
 }
 
 /// A coverage error as the construct being matched words it: the same for
@@ -155,7 +191,7 @@ fn in_context(
     cx: &Ctx,
     d: Diagnostic,
     kind: MatchKind,
-    alts: &[Alt],
+    patterns: &[Pattern],
     columns: &[usize],
 ) -> Diagnostic {
     if d.code != "E-NONEXHAUSTIVE" || !d.message.contains("no arm matches") {
@@ -172,19 +208,23 @@ fn in_context(
             }
             d
         }
-        MatchKind::Let | MatchKind::Lambda => refutable(cx, &d, alts, columns),
+        MatchKind::Let | MatchKind::Lambda => refutable(cx, &d, patterns, columns),
     }
 }
 
 /// `E-LET-REFUTABLE` (§5.1): a pattern in `let` or in a lambda must match
 /// every value of its type, which is decided by the ordinary coverage check
 /// of its one-alternative `match`; `missing` is what that check reported.
-fn refutable(cx: &Ctx, missing: &Diagnostic, alts: &[Alt], columns: &[usize]) -> Diagnostic {
+fn refutable(
+    cx: &Ctx,
+    missing: &Diagnostic,
+    patterns: &[Pattern],
+    columns: &[usize],
+) -> Diagnostic {
     let what = missing
         .message
         .split_once("no arm matches ")
         .map_or("every case", |(_, what)| what);
-    let patterns = &alts[0].patterns;
     let span = patterns[0].span().to(patterns[patterns.len() - 1].span());
     let message = match columns {
         [column] => match stitchwort_core::value::force(cx.g(), cx.types[*column].clone()) {
@@ -225,8 +265,9 @@ pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<
     }
     Some(
         compile(cx, alts, &[], &columns, span, kind).and_then(|tree| {
-            crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
-                .map_err(|d| in_context(cx, d, kind, alts, &columns))
+            in_alternatives(cx, kind, alts, &columns, |cx| {
+                crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
+            })
         }),
     )
 }
@@ -378,8 +419,9 @@ fn lifted(
             })
             .collect();
         let tree = compile(cx, alts, &[], &levels, span, kind)?;
-        let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
-            .map_err(|d| in_context(cx, d, kind, alts, &levels))?;
+        let body = in_alternatives(cx, kind, alts, &levels, |cx| {
+            crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
+        })?;
         return lift::draft(cx, base, Vec::new(), body, goal, span);
     }
     generalised(cx, columns, exprs, alts, &[], span, kind, goal, base, None)
@@ -672,6 +714,10 @@ impl crate::queue::Check for WaitingMatch {
         (!e.globals.unfilled_placeholders.borrow().contains(&m)).then(|| e.unsolved_error(m))
     }
 
+    fn display(&self, _cx: &Ctx) -> Option<String> {
+        Some("match … with …".into())
+    }
+
     fn settles_type(&self) -> bool {
         // An expected type that is an unknown (an inferred `match`'s,
         // `unknown_type`) is fixed by the alternatives once it resumes: a
@@ -834,9 +880,11 @@ fn generalised_now(
             .filter(|(_, s)| !matches!(s.normal.strip_loc(), Term::Var(_)))
             .map(|(i, s)| (base, s.normal.clone(), s.span, base + i)),
     );
-    let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, &motive));
-    cx.scrutinees.truncate(known);
-    let body = body.map_err(|d| in_context(cx, d, kind, alts, &levels))?;
+    let body = in_alternatives(cx, kind, alts, &levels, |cx| {
+        let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, &motive));
+        cx.scrutinees.truncate(known);
+        body
+    })?;
     if !not_found.is_empty() {
         let used = free_levels(&body, depth);
         let mut warnings = cx.e.lambda_warnings.borrow_mut();

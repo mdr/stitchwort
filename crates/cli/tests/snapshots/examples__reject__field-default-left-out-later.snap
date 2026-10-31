@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/field-default-left-out-later.sw:18:31 ]
+    │
+ 18 │   let made := r => ({ cells = r.cells }: Sized)
+    │                               ───┬───  
+    │                                  ╰───── expected `Vec Bool 0`, but this has type `Vec Bool 3`
+    │ 
+    │ Note: `size` is left out, so it is its default value, `0`; give `size` to use another
+────╯
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/field-default-left-out-later.sw:22:36 ]
+    │
+ 22 │   let made := (r: P) => ({ cells = r.cells }: Sized)
+    │                                    ───┬───  
+    │                                       ╰───── expected `Vec Bool 0`, but this has type `Vec Bool 3`
+    │ 
+    │ Note: `size` is left out, so it is its default value, `0`; give `size` to use another
+────╯

@@ -828,6 +828,9 @@ impl<'g> Printer<'g> {
                 names.pop();
                 (format!("let {x} := {value}; {body}"), Prec::Arrow)
             }
+            Term::Meta(_) | Term::App(..) if let Some(shown) = self.placeholder(names, term) => {
+                shown
+            }
             Term::Meta(_) if let Some(name) = self.label(names, term) => name,
             Term::Meta(m) => (format!("?{m}"), Prec::Atom),
             Term::App(..) if let Some(shown) = self.label(names, term) => shown,
@@ -1515,6 +1518,40 @@ impl<'g> Printer<'g> {
         }
     }
 
+    /// An unfilled placeholder of a queued check, as the source it stands
+    /// for (`Globals::placeholder_syntax`, D2091), if it is applied to the
+    /// variables it was made with: those left out, any further arguments
+    /// shown. Applied to anything else (a lambda's parameter replaced by an
+    /// argument), the source would name the wrong variables: `None`.
+    fn placeholder(&self, names: &mut Vec<Name>, term: &Term) -> Option<(String, Prec)> {
+        let (context, text) = {
+            let shown = self.g.placeholder_syntax.borrow();
+            if shown.is_empty() {
+                return None;
+            }
+            let Term::Meta(m) = term.spine().0 else {
+                return None;
+            };
+            shown.get(m)?.clone()
+        };
+        let (_, args) = term.spine();
+        let depth = names.len();
+        let same = context.len() <= args.len()
+            && context.iter().zip(&args).all(|(name, arg)| {
+                matches!(arg.strip_loc(), Term::Var(ix) if *ix < depth && names[depth - 1 - ix] == *name)
+            });
+        if !same {
+            return None;
+        }
+        let context = context.len();
+        let text = if text.contains(' ') && !bracketed(&text) {
+            format!("({text})")
+        } else {
+            text.to_string()
+        };
+        Some(self.applied(names, text, args.into_iter().skip(context)))
+    }
+
     /// A call of a local definition, by its name (`Globals::print_labels`).
     fn label(&self, names: &mut Vec<Name>, term: &Term) -> Option<(String, Prec)> {
         let labels = self.g.print_labels.borrow();
@@ -1887,6 +1924,28 @@ impl<'g> Printer<'g> {
         }
         (text, if any { Prec::App } else { Prec::Atom })
     }
+}
+
+/// Whether `text` is one bracketed whole, `{ … }`, `( … )` or `[ … ]`: its
+/// first bracket closes at its end.
+fn bracketed(text: &str) -> bool {
+    if !text.starts_with(['{', '(', '[']) {
+        return false;
+    }
+    let mut depth = 0usize;
+    for (i, c) in text.char_indices() {
+        match c {
+            '{' | '(' | '[' => depth += 1,
+            '}' | ')' | ']' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return i + c.len_utf8() == text.len();
+                }
+            }
+            _ => {}
+        }
+    }
+    false
 }
 
 /// Whether `x` names a `let` a record update binds: its record (`%record`,

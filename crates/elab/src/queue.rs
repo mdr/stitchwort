@@ -39,6 +39,17 @@
 //! A resume point with nothing queued in its scope costs a length
 //! comparison.
 //!
+//! Errors from checks that wait (step 4.1 of stage 4, D2091):
+//! - a construct that turns the errors of a check inside it into its own (a
+//!   `calc` step's `E-CALC-STEP`, a callback argument's notes) runs that
+//!   check in [`framed`], with an [`ErrorFrame`]: the items still waiting
+//!   when it returns keep the frame, and an error they give later, at a
+//!   resume point or stuck at the end, goes through it, innermost first, as
+//!   it would have inline; what an item queues while it is resumed keeps the
+//!   item's frames;
+//! - an unfilled placeholder prints as the source its check stands for
+//!   ([`Check::display`], `Globals::placeholder_syntax`), not as `?N`.
+//!
 //! The queue's invariants (§5.1), and how each is kept here:
 //! 1. *One placeholder, one occurrence*: [`queue`] makes a fresh unknown
 //!    for each item, and a restore drops the items queued since, whose
@@ -85,6 +96,7 @@ use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{Head, force};
 use stitchwort_core::{Globals, Term, Value};
 use stitchwort_syntax::Diagnostic;
+use stitchwort_syntax::ast::Expr;
 
 use crate::Elaborator;
 use crate::check::{Ctx, Result, Saved};
@@ -130,6 +142,13 @@ pub(crate) trait Check {
     /// (`matching.rs`, `WaitingMatch`).
     fn settles_type(&self) -> bool {
         false
+    }
+
+    /// The source its placeholder stands for, shown in messages while the
+    /// check waits (D2091): `r.items` for a waiting `.field`, the literal
+    /// for a record literal. Asked once, when it is queued.
+    fn display(&self, _cx: &Ctx) -> Option<String> {
+        None
     }
 }
 
@@ -191,6 +210,25 @@ pub(crate) struct Item {
     /// Whether it is a waiting comparison (stage 6, [`Comparison`]), whose
     /// placeholder stands for nothing.
     constraint: bool,
+    /// How its placeholder is shown while unfilled ([`Check::display`]).
+    display: Option<stitchwort_core::globals::PlaceholderSyntax>,
+    /// The error frames of the constructs it was made inside that returned
+    /// while it still waited, innermost first ([`framed`]).
+    frames: RefCell<Vec<Rc<Frame>>>,
+    /// The frames of the item being resumed when it was queued, innermost
+    /// first: it was made inside those constructs too.
+    outer: Rc<[Rc<Frame>]>,
+}
+
+impl Item {
+    /// Every error frame it was made inside, innermost first.
+    fn all_frames(&self) -> Rc<[Rc<Frame>]> {
+        let own = self.frames.borrow();
+        if own.is_empty() {
+            return self.outer.clone();
+        }
+        own.iter().chain(self.outer.iter()).cloned().collect()
+    }
 }
 
 /// The current declaration's queued checks, in creation order, with their
@@ -206,6 +244,7 @@ pub(crate) struct Queue {
     /// Whether the end of a declaration part (W4) is settling the queue:
     /// the only place a default may be applied (invariants 7 and 8).
     settling: Cell<bool>,
+    frames: Frames,
 }
 
 /// The queue's lengths at a snapshot.
@@ -281,12 +320,18 @@ impl Queue {
         let items = self.items.borrow();
         let states = self.states.borrow();
         let mut unfilled = g.unfilled_placeholders.borrow_mut();
+        let mut shown = g.placeholder_syntax.borrow_mut();
         unfilled.clear();
-        unfilled.extend(
-            (0..items.len())
-                .filter(|&i| !matches!(states[i], State::Done) && !items[i].constraint)
-                .map(|i| items[i].meta),
-        );
+        shown.clear();
+        for (i, item) in items.iter().enumerate() {
+            if matches!(states[i], State::Done) || item.constraint {
+                continue;
+            }
+            unfilled.insert(item.meta);
+            if let Some(display) = &item.display {
+                shown.insert(item.meta, display.clone());
+            }
+        }
     }
 
     fn item(&self, i: usize) -> Rc<Item> {
@@ -350,6 +395,19 @@ pub(crate) fn queue(
         unreachable!("a fresh metavariable")
     };
     let q = &cx.e.queue;
+    // Shown as its source only applied to the variables it was made with,
+    // by name: applied to others (a lambda's parameter given an argument),
+    // the source would name the wrong variables.
+    let display = check.display(cx).map(|text| {
+        let depth = cx.level();
+        let names: Rc<[stitchwort_core::Name]> = (placeholder.spine().1.iter())
+            .map(|a| match a.strip_loc() {
+                Term::Var(ix) => cx.names[depth - 1 - ix].clone(),
+                _ => unreachable!("a placeholder is applied to variables"),
+            })
+            .collect();
+        (names, Rc::from(text))
+    });
     q.items.borrow_mut().push(Rc::new(Item {
         check,
         saved: cx.save(),
@@ -359,11 +417,190 @@ pub(crate) fn queue(
         error,
         crossed: Cell::new(false),
         constraint: false,
+        display,
+        frames: RefCell::default(),
+        outer: q.frames.resuming.borrow().clone(),
     }));
     q.states.borrow_mut().push(State::Waiting(needs, None));
     q.sync_unfilled(cx.g());
     count(&QUEUED);
     Ok(placeholder)
+}
+
+/// [`syntax`], bracketed if it is an application or an operator's.
+pub(crate) fn atom(e: &Expr) -> String {
+    let text = syntax(e);
+    match e {
+        Expr::App(..) | Expr::Binary(..) | Expr::Neg(..) | Expr::Pipe(..) => {
+            format!("({text})")
+        }
+        _ => text,
+    }
+}
+
+/// `expr` as written, near enough for a message to show a waiting check's
+/// placeholder by (D2091): names, numbers, fields, applications, operators
+/// and record literals in full, anything larger as `…`.
+pub(crate) fn syntax(expr: &Expr) -> String {
+    use stitchwort_syntax::ast::{Bracket, SECTION};
+    fn fields(fields: &[(stitchwort_syntax::ast::Name, Expr)]) -> String {
+        let fields: Vec<String> = (fields.iter())
+            .map(|(name, value)| match value {
+                Expr::Var(v) if v.text == name.text => name.text.clone(),
+                _ => format!("{} = {}", name.text, syntax(value)),
+            })
+            .collect();
+        format!("{{ {} }}", fields.join(", "))
+    }
+    match expr {
+        Expr::Var(name) => name.text.clone(),
+        Expr::Num(k, _) => k.to_string(),
+        Expr::Float(text, _) => text.clone(),
+        Expr::Str(text, _) => format!("{text:?}"),
+        Expr::Char(c, _) => format!("{c:?}"),
+        Expr::Unit(_) => "()".into(),
+        Expr::Hole(_) => "_".into(),
+        Expr::Bracketed(e, _) | Expr::Interpolated(e, _) => syntax(e),
+        Expr::App(f, a) => format!("{} {}", syntax(f), atom(a)),
+        Expr::NamedArg(name, value, _, bracket) => match bracket {
+            Bracket::Round => format!("({} := {})", name.text, syntax(value)),
+            Bracket::Square => format!("[{} := {}]", name.text, syntax(value)),
+        },
+        Expr::Binary(op, a, b) => format!("{} {} {}", atom(a), op.symbol(), atom(b)),
+        Expr::Neg(e, ..) => format!("-{}", atom(e)),
+        Expr::Field(recv, name) => match &**recv {
+            // A method section's lambda's parameter: `.f a`.
+            Expr::Var(v) if v.text == SECTION => format!(".{}", name.text),
+            recv => format!("{}.{}", atom(recv), name.text),
+        },
+        // `.f a` is `%section => %section.f a`.
+        Expr::Lam(params, body, _) if params.len() == 1 && params[0].text == SECTION => {
+            format!("({})", syntax(body))
+        }
+        Expr::Tuple(a, b, _) => format!("({}, {})", syntax(a), syntax(b)),
+        Expr::List(items, _) => {
+            let items: Vec<String> = items.iter().map(syntax).collect();
+            format!("[{}]", items.join(", "))
+        }
+        Expr::Record {
+            base: None,
+            fields: fs,
+            ..
+        } => fields(fs),
+        Expr::Record {
+            base: Some(base),
+            fields: fs,
+            ..
+        } => format!("{{ {} | {}", syntax(base), &fields(fs)[2..]),
+        Expr::CtorFields {
+            ctor, fields: fs, ..
+        } => format!("{} {}", ctor.text, fields(fs)),
+        _ => "…".into(),
+    }
+}
+
+/// A construct that turns the errors of a check inside it into its own (a
+/// code, a label, a note): a `calc` step's `E-CALC-STEP`, a callback
+/// argument's notes (step 4.1 of stage 4, D2091). Its mapping is run on the
+/// error inline, as before, and also on the error of a check queued inside
+/// it that fails after it has returned, at a resume point or stuck at the
+/// end ([`framed`]), so the error reads as it would have inline.
+pub(crate) trait ErrorFrame {
+    /// `e`, an error of a check inside the construct, as the construct
+    /// reports it; `cx` is the context the construct ran in.
+    fn map(&self, cx: &mut Ctx, e: Diagnostic) -> Diagnostic;
+}
+
+/// A construct's error frame, kept by the items still waiting when it
+/// returned: its mapping, and the context it ran in.
+pub(crate) struct Frame {
+    id: u64,
+    saved: Saved,
+    map: Box<dyn ErrorFrame>,
+}
+
+/// The error frames of the constructs being elaborated.
+#[derive(Default)]
+struct Frames {
+    /// The ids of the constructs running ([`framed`]), innermost last.
+    active: RefCell<Vec<u64>>,
+    next: Cell<u64>,
+    /// While an item is resumed, its frames: those of the items it queues,
+    /// and active, since its constructs are what is running again.
+    resuming: RefCell<Rc<[Rc<Frame>]>>,
+}
+
+/// Runs `body`, a check inside a construct whose errors it maps by the
+/// frame `frame` makes: an error `body` returns is mapped at once, and the
+/// items `body` queued that still wait when it returns keep the frame, which
+/// maps their errors if they fail later (rule 1 of D2091). The frame is made
+/// only when it is needed, in the context the construct runs in, so a frame
+/// costs nothing where nothing fails or waits. The resumption log doesn't
+/// record the frames an item is given (invariant 5): they are given only to
+/// items queued since the construct began, which a restore to a snapshot
+/// taken before it drops, and a snapshot taken inside it is restored inside
+/// it, before they are given.
+pub(crate) fn framed<T, F: ErrorFrame + 'static>(
+    cx: &mut Ctx,
+    body: impl FnOnce(&mut Ctx) -> Result<T>,
+    frame: impl FnOnce(&mut Ctx) -> F,
+) -> Result<T> {
+    let frames = &cx.e.queue.frames;
+    let id = frames.next.get();
+    frames.next.set(id + 1);
+    let from = cx.e.queue.len();
+    frames.active.borrow_mut().push(id);
+    let result = body(cx);
+    let frames = &cx.e.queue.frames;
+    {
+        let mut active = frames.active.borrow_mut();
+        debug_assert_eq!(active.last(), Some(&id), "frames nest");
+        active.pop();
+    }
+    match result {
+        Err(e) if !crate::undo::fatal(&e) => Err(frame(cx).map(cx, e)),
+        Err(e) => Err(e),
+        Ok(t) => {
+            let q = &cx.e.queue;
+            let waiting: Vec<usize> = (from.min(q.len())..q.len())
+                .filter(|&i| !matches!(q.state(i), State::Done))
+                .collect();
+            if !waiting.is_empty() {
+                let map = Box::new(frame(cx));
+                let q = &cx.e.queue;
+                let frame = Rc::new(Frame {
+                    id,
+                    saved: cx.save(),
+                    map,
+                });
+                for i in waiting {
+                    q.item(i).frames.borrow_mut().push(frame.clone());
+                }
+            }
+            Ok(t)
+        }
+    }
+}
+
+impl Elaborator {
+    /// `e`, the error of `item`, through the frames it was made inside,
+    /// innermost first, except those still running: their constructs map it
+    /// themselves as it passes through them, as inline.
+    fn through_frames(&self, item: &Item, mut e: Diagnostic) -> Diagnostic {
+        let frames = item.all_frames();
+        if frames.is_empty() || crate::undo::fatal(&e) {
+            return e;
+        }
+        let running = |id: u64| {
+            let f = &self.queue.frames;
+            f.active.borrow().contains(&id) || f.resuming.borrow().iter().any(|r| r.id == id)
+        };
+        for frame in frames.iter().filter(|f| !running(f.id)) {
+            let mut cx = frame.saved.ctx(self);
+            e = frame.map.map(&mut cx, e);
+        }
+        e
+    }
 }
 
 /// A placeholder that `v` mentions whose check hasn't filled it, and that
@@ -612,6 +849,9 @@ fn queue_constraint(
         error,
         crossed: Cell::new(false),
         constraint: true,
+        display: None,
+        frames: RefCell::default(),
+        outer: q.frames.resuming.borrow().clone(),
     }));
     q.states
         .borrow_mut()
@@ -738,6 +978,8 @@ impl Elaborator {
         };
         self.queue.set(i, State::Running, &self.globals);
         count(&RESUMED);
+        // What it queues while it runs is made inside its constructs too.
+        let outer = (self.queue.frames.resuming).replace(item.all_frames());
         let mut cx = item.saved.ctx(self);
         let waits = |needs: &Value| {
             debug_assert!(
@@ -758,6 +1000,7 @@ impl Elaborator {
                 Ok(State::Waiting(needs, Some(check)))
             }
         });
+        self.queue.frames.resuming.replace(outer);
         match resumed {
             Ok(state) => {
                 self.queue.set(i, state, &self.globals);
@@ -765,7 +1008,7 @@ impl Elaborator {
             }
             Err(e) => {
                 self.queue.set(i, State::Failed, &self.globals);
-                Err(e)
+                Err(self.through_frames(&item, e))
             }
         }
     }
@@ -934,8 +1177,10 @@ impl Elaborator {
         }
         let mut errors = (reports.iter()).map(|&(_, w)| {
             let (i, blocker) = waiting[w];
-            (self.queue.check(i).stuck_error(self, blocker))
-                .unwrap_or_else(|| self.queue.item(i).error.clone())
+            let item = self.queue.item(i);
+            let error = (self.queue.check(i).stuck_error(self, blocker))
+                .unwrap_or_else(|| item.error.clone());
+            self.through_frames(&item, error)
         });
         let first = errors.next();
         self.branch_errors.borrow_mut().extend(errors.take(2));
@@ -1963,5 +2208,188 @@ mod tests {
                 "{source}"
             );
         }
+    }
+
+    /// An item whose check fails once resumed, or, given an unknown,
+    /// queues another such item waiting on it and holds.
+    struct Failing {
+        then: RefCell<Option<Value>>,
+    }
+
+    impl Check for Failing {
+        fn resume(&self, cx: &mut Ctx) -> Result<Resumed> {
+            match self.then.take() {
+                Some(needs) => {
+                    push_failing(cx, needs, None);
+                    Ok(Resumed::Holds)
+                }
+                None => {
+                    Err(Diagnostic::error("E-TYPE-MISMATCH", "fails").with_label(span(), "here"))
+                }
+            }
+        }
+    }
+
+    fn push_failing(cx: &Ctx, needs: Value, then: Option<Value>) {
+        let failing = Failing {
+            then: RefCell::new(then),
+        };
+        let (_, result) = unknown(cx);
+        queue(cx, Rc::new(failing), needs, result, error("stuck")).expect("queued");
+    }
+
+    /// An error frame that notes its name on the errors it maps.
+    struct Tag(&'static str);
+
+    impl ErrorFrame for Tag {
+        fn map(&self, _cx: &mut Ctx, e: Diagnostic) -> Diagnostic {
+            e.with_note(self.0)
+        }
+    }
+
+    /// The notes `e` has, which the tags left.
+    fn notes(e: &Diagnostic) -> Vec<&str> {
+        e.notes.iter().map(String::as_str).collect()
+    }
+
+    /// Rule 1 of D2091: a check queued inside a construct that fails after
+    /// the construct returned, at a resume point, is reported through the
+    /// construct's mapping, as an error inside it inline is; innermost
+    /// first when constructs nest.
+    #[test]
+    fn an_item_failing_after_its_construct_returned_goes_through_its_frames() {
+        let e = Elaborator::new();
+        let mut cx = Ctx::new(&e, span());
+        // Inline: the mapping, once.
+        let inline = framed(
+            &mut cx,
+            |_| -> Result<()> { Err(error("inline")) },
+            |_| Tag("a"),
+        );
+        assert_eq!(notes(&inline.unwrap_err()), ["a"]);
+        // Later: through both frames, the inner one first.
+        let (blocker, needs) = unknown(&cx);
+        framed(
+            &mut cx,
+            |cx| {
+                framed(
+                    cx,
+                    |cx| {
+                        push_failing(cx, needs, None);
+                        Ok(())
+                    },
+                    |_| Tag("inner"),
+                )
+            },
+            |_| Tag("outer"),
+        )
+        .unwrap();
+        e.globals.solve_meta(blocker, ty(0));
+        let later = e.resume_from(0).expect_err("fails");
+        assert_eq!(notes(&later), ["inner", "outer"]);
+    }
+
+    /// A frame still running when its item fails is left to the construct,
+    /// which maps the error as it passes: applied once, not twice.
+    #[test]
+    fn a_frame_still_running_maps_its_items_error_once() {
+        let e = Elaborator::new();
+        let mut cx = Ctx::new(&e, span());
+        let (blocker, needs) = unknown(&cx);
+        let result = framed(
+            &mut cx,
+            |cx| {
+                framed(
+                    cx,
+                    |cx| {
+                        push_failing(cx, needs, None);
+                        Ok(())
+                    },
+                    |_| Tag("inner"),
+                )?;
+                // A resume point inside the outer construct.
+                cx.g().solve_meta(blocker, ty(0));
+                cx.e.resume_from(0)?;
+                Ok(())
+            },
+            |_| Tag("outer"),
+        );
+        assert_eq!(notes(&result.unwrap_err()), ["inner", "outer"]);
+    }
+
+    /// An item still waiting at the end is reported through its frames too.
+    #[test]
+    fn a_stuck_item_is_reported_through_its_frames() {
+        let e = Elaborator::new();
+        let mut cx = Ctx::new(&e, span());
+        let (_, needs) = unknown(&cx);
+        let queued = |cx: &mut Ctx| {
+            push_failing(cx, needs, None);
+            Ok(())
+        };
+        framed(&mut cx, queued, |_| Tag("a")).unwrap();
+        let stuck = e.settle_queue().expect_err("stuck");
+        assert_eq!(
+            (stuck.message.as_str(), notes(&stuck)),
+            ("stuck", vec!["a"])
+        );
+    }
+
+    /// What an item queues while it is resumed was made inside its
+    /// constructs too: it keeps their frames, applied once whether it fails
+    /// during that resumption or after it.
+    #[test]
+    fn an_item_queued_by_a_resumed_item_keeps_its_frames() {
+        for during in [false, true] {
+            let e = Elaborator::new();
+            let mut cx = Ctx::new(&e, span());
+            let (first, needs) = unknown(&cx);
+            let (second, next) = unknown(&cx);
+            let queued = |cx: &mut Ctx| {
+                push_failing(cx, needs, Some(next));
+                Ok(())
+            };
+            framed(&mut cx, queued, |_| Tag("a")).unwrap();
+            if during {
+                e.globals.solve_meta(second, ty(0));
+            }
+            e.globals.solve_meta(first, ty(0));
+            let error = match e.resume_from(0) {
+                Err(error) => error,
+                Ok(_) => {
+                    assert!(!during);
+                    assert_eq!(e.queue.len(), 2);
+                    e.globals.solve_meta(second, ty(0));
+                    e.resume_from(0).expect_err("fails")
+                }
+            };
+            assert_eq!(notes(&error), ["a"], "during: {during}");
+        }
+    }
+
+    /// Rule 2 of D2091: a waiting check's placeholder prints as the source
+    /// it stands for while it waits, and as its term once filled.
+    #[test]
+    fn a_waiting_placeholder_prints_as_its_source() {
+        let (e, data) = module(RECORDS);
+        let mut cx = Ctx::new(&e, span());
+        let (blocker, ty) = unknown(&cx);
+        cx.bind("p", ty);
+        let (term, _) = crate::check::infer(&mut cx, &expression("p.row")).unwrap();
+        assert_eq!(e.queue.len(), 1);
+        let shown = |cx: &Ctx| cx.show(&cx.eval(&term).unwrap());
+        assert_eq!(shown(&cx), "p.row");
+        e.globals.solve_meta(blocker, data(&e, "P"));
+        assert!(e.resume_from(0).unwrap());
+        assert!(e.globals.placeholder_syntax.borrow().is_empty());
+        assert_eq!(shown(&cx), "p.row");
+        // Taken back with its item.
+        let before = Snapshot::take(&cx);
+        let (_, other) = unknown(&cx);
+        cx.bind("q", other);
+        crate::check::infer(&mut cx, &expression("q.row")).unwrap();
+        assert_eq!(e.globals.placeholder_syntax.borrow().len(), 1);
+        before.restore(&mut cx);
+        assert!(e.globals.placeholder_syntax.borrow().is_empty());
     }
 }

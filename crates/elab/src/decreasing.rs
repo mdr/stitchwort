@@ -813,6 +813,24 @@ struct Gen {
     made: Vec<DefId>,
 }
 
+/// A `decreasing` measure, as an error frame (D2091): a measure that isn't a
+/// `Nat` is told what a measure is, also when a check inside it waits and
+/// fails when the measure is finished.
+struct MeasureFrame;
+
+impl crate::queue::ErrorFrame for MeasureFrame {
+    fn map(&self, _cx: &mut Ctx, d: Diagnostic) -> Diagnostic {
+        if d.code == "E-TYPE-MISMATCH" {
+            d.with_note(
+                "the measure after `decreasing` is a `Nat` that gets smaller at every recursive \
+                 call",
+            )
+        } else {
+            d
+        }
+    }
+}
+
 impl Elaborator {
     /// A definition with `decreasing`, on its own (a group of one): its
     /// signature, then everything [the module's documentation](self) lists.
@@ -1121,13 +1139,7 @@ impl Elaborator {
                 cx.bind(&b.name, ty);
             }
             let nat_ty = cx.eval(&Term::data(nat, Vec::new()))?;
-            check(&mut cx, measure, &nat_ty).map_err(|d| {
-                if d.code == "E-TYPE-MISMATCH" {
-                    d.with_note("the measure after `decreasing` is a `Nat` that gets smaller at every recursive call")
-                } else {
-                    d
-                }
-            })
+            crate::queue::framed(&mut cx, |cx| check(cx, measure, &nat_ty), |_| MeasureFrame)
         })();
         self.owner.borrow_mut().clear();
         let term = term?;

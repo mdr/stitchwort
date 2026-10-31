@@ -315,7 +315,7 @@ fn local_type(
             cx.set_kind(Icit::Implicit);
         }
         cx.span = span;
-        let (mut term, _) = check_type(cx, ty)?;
+        let (mut term, _) = crate::queue::framed(cx, |cx| check_type(cx, ty), |_| auto.frame())?;
         for (n, dom) in auto.names.iter().zip(domains).rev() {
             term = Term::Pi(
                 n.text.as_str().into(),
@@ -328,7 +328,7 @@ fn local_type(
     })();
     cx.reset(mark);
     cx.span = saved;
-    result.map_err(|d| crate::autobind::explain(&auto, d))
+    result
 }
 
 /// Makes `name` mean the admitted local definition `id`, applied to its

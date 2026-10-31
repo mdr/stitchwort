@@ -411,6 +411,77 @@ fn rejected_projects_fail_for_the_expected_reason() {
     });
 }
 
+/// The reject examples whose messages print an unknown (`?N`), the only ones
+/// allowed to (D2091; docs/proposals/postponement.md, "Stage 4: design for
+/// the third attempt", rule 3). An unknown a waiting check stands for or
+/// waits on is never printed: the placeholder prints as the source it
+/// stands for, and whatever would print a waiting check's type waits too.
+/// Each of these prints an ordinary unknown left unsolved where its error
+/// is found (an implicit argument, a hole, a row, a rewrite rule's
+/// argument). The design counted 15 on 31 October 2026;
+/// `unify-last-arguments-types-differ.sw` (SW-919) came the same day,
+/// after it. A file added here needs the same reading first.
+const PRINTS_UNKNOWNS: &[&str] = &[
+    "reject/case-tree-chains-meta.sw",
+    "reject/eqeq-nil-nil.sw",
+    "reject/fin-literal-unknown-bound.sw",
+    "reject/instance-stuck.sw",
+    "reject/instance-unknown-type.sw",
+    "reject/lambda-after-expected-unfolded.sw",
+    "reject/lambda-pattern-annotation-shape.sw",
+    "reject/pipe-wrong-type.sw",
+    "reject/plus-unknown-against-itself.sw",
+    "reject/plus-unknown-against-zero.sw",
+    "reject/rewrite-inside-function-no-lemma.sw",
+    "reject/rewrite-under-binder.sw",
+    "reject/row-defaulted.sw",
+    "reject/section-minus-is-negation.sw",
+    "reject/unify-bool-argument.sw",
+    "reject/unify-last-arguments-types-differ.sw",
+];
+
+/// Whether `text` shows an unknown: a `?` followed by a digit.
+fn shows_unknown(text: &str) -> bool {
+    text.as_bytes()
+        .windows(2)
+        .any(|w| w[0] == b'?' && w[1].is_ascii_digit())
+}
+
+/// Whether one of `diagnostics` shows an unknown in its words (its
+/// message, labels or notes; not the source lines it quotes).
+fn prints_unknown(diagnostics: &[Diagnostic]) -> bool {
+    diagnostics.iter().any(|d| {
+        shows_unknown(&d.message)
+            || d.labels.iter().any(|l| shows_unknown(&l.message))
+            || d.notes.iter().any(|n| shows_unknown(n))
+    })
+}
+
+/// A rejected example's messages print an unknown only if it is on
+/// [`PRINTS_UNKNOWNS`], and one on it still does.
+fn assert_unknowns_allowed(example: &Example, diagnostics: &[Diagnostic], output: &str) {
+    let allowed = PRINTS_UNKNOWNS.contains(&example.name.as_str());
+    let prints = prints_unknown(diagnostics);
+    assert!(
+        !prints || allowed,
+        "{} prints an unknown (`?N`), which only the files on `PRINTS_UNKNOWNS` may (D2091): \
+         a waiting check's placeholder prints as its source, and what reads a waiting check's \
+         type waits:\n\n{output}",
+        example.name
+    );
+    assert!(
+        prints || !allowed,
+        "{} no longer prints an unknown: take it off `PRINTS_UNKNOWNS`\n\n{output}",
+        example.name
+    );
+}
+
+#[test]
+fn unknowns_are_found_in_messages() {
+    assert!(shows_unknown("expected `?0 n`"));
+    assert!(!shows_unknown("`?` is an open goal; `?x` too"));
+}
+
 fn assert_rejected(example: &Example) {
     let Some(expected) = example.expected_error() else {
         panic!(
@@ -427,6 +498,7 @@ fn assert_rejected(example: &Example) {
                 "{} was rejected, but not with {expected}:\n\n{output}",
                 example.name
             );
+            assert_unknowns_allowed(example, &diagnostics, &output);
             insta::assert_snapshot!(snapshot_name(example), output);
         }
     }

@@ -1,0 +1,26 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/named-argument-rigid-later.sw:16:31 ]
+    │
+ 16 │   let made := r => use (xs := r.xs)
+    │                               ──┬─  
+    │                                 ╰─── expected `Vec Nat n`, but this has type `Vec Nat 3`
+    │ 
+    │ Note 1: this call leaves out `n`, so it must work for every value of it
+    │ 
+    │ Note 2: to give a particular value, write `(n := 3)`
+────╯
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/named-argument-rigid-later.sw:20:36 ]
+    │
+ 20 │   let made := (r: P) => use (xs := r.xs)
+    │                                    ──┬─  
+    │                                      ╰─── expected `Vec Nat n`, but this has type `Vec Nat 3`
+    │ 
+    │ Note 1: this call leaves out `n`, so it must work for every value of it
+    │ 
+    │ Note 2: to give a particular value, write `(n := 3)`
+────╯

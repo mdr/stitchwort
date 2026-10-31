@@ -57,13 +57,13 @@ pub struct AutoBound {
 }
 
 /// `d`, a failure elaborating the signature, with a note if it's a type
-/// mismatch at a bound name used as a value argument of a type: the uses'
-/// types disagree.
-pub fn explain(auto: &AutoBound, d: Diagnostic) -> Diagnostic {
+/// mismatch at a bound name used as a value argument of a type (one of
+/// `values`): the uses' types disagree.
+fn explain_values(values: &[Name], d: Diagnostic) -> Diagnostic {
     let Some(at) = d.labels.first().map(|l| l.span) else {
         return d;
     };
-    match auto.values.iter().find(|n| n.span == at) {
+    match values.iter().find(|n| n.span == at) {
         Some(name) if d.code == "E-TYPE-MISMATCH" => d.with_note(format!(
             "`{0}` isn't declared, so it's bound automatically, its type taken from its first \
              use; its uses here need different types. Bind it yourself (`[{0}: …]`), or use \
@@ -71,6 +71,27 @@ pub fn explain(auto: &AutoBound, d: Diagnostic) -> Diagnostic {
             name.text
         )),
         _ => d,
+    }
+}
+
+/// A signature with automatically bound names, as an error frame (D2091):
+/// the note of [`explain_values`], also for a check inside the signature that waits and fails
+/// after it is elaborated, when the declaration finishes.
+pub(crate) struct AutoFrame {
+    values: Vec<Name>,
+}
+
+impl AutoBound {
+    pub(crate) fn frame(&self) -> AutoFrame {
+        AutoFrame {
+            values: self.values.clone(),
+        }
+    }
+}
+
+impl crate::queue::ErrorFrame for AutoFrame {
+    fn map(&self, _cx: &mut crate::check::Ctx, d: Diagnostic) -> Diagnostic {
+        explain_values(&self.values, d)
     }
 }
 

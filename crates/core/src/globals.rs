@@ -449,6 +449,13 @@ pub struct Globals {
     /// `frozen_metas` are, until filled (docs/proposals/postponement.md,
     /// D2016, stage 6). Kept in step with the queue; cleared with `metas`.
     pub unfilled_placeholders: RefCell<crate::collections::HashSet<usize>>,
+    /// How the printer shows a placeholder of those while it is unfilled:
+    /// as the source its check stands for (`r.items`, a record literal),
+    /// not as an unknown (D2091), with the names of the variables it is
+    /// applied to: it is shown so only while applied to those, which then
+    /// aren't shown. Kept in step with the queue; cleared with `metas`.
+    /// Only affects messages.
+    pub placeholder_syntax: RefCell<crate::collections::HashMap<usize, PlaceholderSyntax>>,
     /// How the printer shows calls of local definitions while their owner
     /// is checked (docs/proposals/syntax-conveniences.md §2.5): `go a b`,
     /// not the lifted call with its captures. Cleared with `metas`. Only
@@ -544,6 +551,11 @@ impl Drop for TransparencyGuard {
         }
     }
 }
+
+/// How the printer shows an unfilled placeholder (see
+/// [`Globals::placeholder_syntax`]): the names of the variables it is applied
+/// to when made, and the source its check stands for.
+pub type PlaceholderSyntax = (Rc<[Name]>, Rc<str>);
 
 /// A call the printer shows by a local name (see
 /// [`Globals::print_labels`]): `head` applied first to the variables at
@@ -683,6 +695,7 @@ impl Globals {
         self.frozen_metas.borrow_mut().clear();
         self.lifted_calls.borrow_mut().clear();
         self.unfilled_placeholders.borrow_mut().clear();
+        self.placeholder_syntax.borrow_mut().clear();
         self.meta_trail.borrow_mut().clear();
         self.print_labels.borrow_mut().clear();
     }
@@ -722,6 +735,7 @@ impl Globals {
             frozen_metas: _,
             lifted_calls: _,
             unfilled_placeholders: _,
+            placeholder_syntax: _,
             print_labels: _,
             hashes,
             budget,

@@ -1082,6 +1082,7 @@ fn finished_call<'a>(cx: &Ctx, expr: &'a Expr) -> Option<(&'a Expr, Vec<Arg<'a>>
 }
 
 /// The left side of `x |> f`, elaborated, as `f`'s first argument.
+#[derive(Clone)]
 pub(crate) struct Piped {
     pub term: Term,
     pub ty: Value,
@@ -2481,19 +2482,40 @@ pub(crate) fn found_dictionaries(cx: &mut Ctx, own: &[usize], ty: Value) -> Resu
 
 /// Checks an explicit argument of `head` against its parameter type `dom`.
 fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Term> {
-    match check(cx, value, dom) {
-        Err(e) if e.code == "E-PARTIAL-ESCAPE" => {
-            Err(partial_callback(cx, head, value, dom).unwrap_or(e))
+    crate::queue::framed(
+        cx,
+        |cx| check(cx, value, dom),
+        |_| ArgFrame {
+            head: head.clone(),
+            value: value.clone(),
+            dom: dom.clone(),
+        },
+    )
+}
+
+/// An explicit argument, as an error frame (D2091): the callback notes of
+/// [`check_arg`], also for a check inside it that waits and fails later.
+struct ArgFrame {
+    head: Term,
+    value: Expr,
+    dom: Value,
+}
+
+impl crate::queue::ErrorFrame for ArgFrame {
+    fn map(&self, cx: &mut Ctx, e: Diagnostic) -> Diagnostic {
+        let (head, value, dom) = (&self.head, &self.value, &self.dom);
+        match e.code {
+            "E-PARTIAL-ESCAPE" => partial_callback(cx, head, value, dom).unwrap_or(e),
+            "E-TYPE-MISMATCH" => {
+                let e = local_signature(cx, head, e);
+                total_callback_note(cx, head, value, dom, e)
+            }
+            "E-PARTIAL" => {
+                let e = total_rows_note(cx, head, e);
+                total_lambda_note(cx, head, value, dom, e)
+            }
+            _ => e,
         }
-        Err(e) if e.code == "E-TYPE-MISMATCH" => {
-            let e = local_signature(cx, head, e);
-            Err(total_callback_note(cx, head, value, dom, e))
-        }
-        Err(e) if e.code == "E-PARTIAL" => {
-            let e = total_rows_note(cx, head, e);
-            Err(total_lambda_note(cx, head, value, dom, e))
-        }
-        result => result,
     }
 }
 
@@ -3343,15 +3365,37 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         };
     }
     name_unknown_type(cx, expr, named)?;
-    check_value(cx, expr, &expected, named).or_else(|e| {
-        // A `Comp` whose results aren't its row's is a data type, not a
-        // computation in the row (SW-851): say why a value didn't fit.
+    if !effects::comp_headed(cx, &expected) {
+        return check_value(cx, expr, &expected, named);
+    }
+    crate::queue::framed(
+        cx,
+        |cx| check_value(cx, expr, &expected, named),
+        |_| CompFrame {
+            expected: expected.clone(),
+        },
+    )
+}
+
+/// A value checked against a `Comp` type, as an error frame (D2091): a
+/// `Comp` whose results aren't its row's is a data type, not a computation
+/// in the row (SW-851), and a value that didn't fit is told why, also when
+/// a check inside it waits and fails later.
+struct CompFrame {
+    expected: Value,
+}
+
+impl crate::queue::ErrorFrame for CompFrame {
+    fn map(&self, cx: &mut Ctx, e: Diagnostic) -> Diagnostic {
         if e.code != "E-TYPE-MISMATCH" {
-            return Err(e);
+            return e;
         }
-        let notes = effects::foreign_results_notes(cx, &expected)?;
-        Err(notes.into_iter().fold(e, |e, n| e.with_note(n)))
-    })
+        match effects::foreign_results_notes(cx, &self.expected) {
+            Ok(notes) => notes.into_iter().fold(e, |e, n| e.with_note(n)),
+            // Out of resources: that is the error, as before.
+            Err(fatal) => fatal,
+        }
+    }
 }
 
 /// A variable whose type isn't known yet, checked against a type that names
@@ -3551,13 +3595,21 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Re
             let var = Value::var(cx.level());
             cx.bind(&first.text, (**dom).clone());
             let cod = cod.apply(g, var)?;
-            let result = if rest.is_empty() {
-                check(cx, body, &cod)
-            } else {
-                check(cx, &Expr::Lam(rest.to_vec(), body.clone(), *span), &cod)
+            let check_body = |cx: &mut Ctx| {
+                let result = if rest.is_empty() {
+                    check(cx, body, &cod)
+                } else {
+                    check(cx, &Expr::Lam(rest.to_vec(), body.clone(), *span), &cod)
+                };
+                cx.reset(mark);
+                result
             };
-            cx.reset(mark);
-            let result = result.map_err(|d| shadow_note(d, shadowed.as_ref()));
+            let result = match &shadowed {
+                None => check_body(cx),
+                Some(shadowed) => crate::queue::framed(cx, check_body, |_| ShadowFrame {
+                    shadowed: shadowed.clone(),
+                }),
+            };
             Ok(Term::Lam(
                 first.text.as_str().into(),
                 Icit::Explicit,
@@ -4155,12 +4207,37 @@ fn fallback_named(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) ->
     if let Some(term) = decide_to_bool(cx, expr, &term, &found, expected)? {
         return Ok(term);
     }
-    match compare(cx, term, &found, expected) {
-        Err(e) if e.code == "E-TYPE-MISMATCH" && matches!(expr, Expr::App(..)) => {
-            let e = awaiting_note(cx, e, expr, &found, expected);
-            Err(extra_negative_argument_note(cx, e, expr, &found, expected))
+    if !matches!(expr, Expr::App(..)) {
+        return compare(cx, term, &found, expected);
+    }
+    crate::queue::framed(
+        cx,
+        |cx| compare(cx, term, &found, expected),
+        |_| CallFrame {
+            expr: expr.clone(),
+            found: found.clone(),
+            expected: expected.clone(),
+        },
+    )
+}
+
+/// A call's last comparison with its expected type, as an error frame
+/// (D2091): the awaiting and negative-argument notes of [`fallback`], also
+/// for a comparison that waits and fails later.
+struct CallFrame {
+    expr: Expr,
+    found: Value,
+    expected: Value,
+}
+
+impl crate::queue::ErrorFrame for CallFrame {
+    fn map(&self, cx: &mut Ctx, e: Diagnostic) -> Diagnostic {
+        if e.code != "E-TYPE-MISMATCH" {
+            return e;
         }
-        result => result,
+        let (expr, found, expected) = (&self.expr, &self.found, &self.expected);
+        let e = awaiting_note(cx, e, expr, found, expected);
+        extra_negative_argument_note(cx, e, expr, found, expected)
     }
 }
 
@@ -4326,6 +4403,11 @@ struct Decide {
 }
 
 impl crate::queue::Check for Decide {
+    fn display(&self, cx: &Ctx) -> Option<String> {
+        // The proposition, as written where a `Bool` is expected.
+        Some(cx.show(&cx.eval(&self.term).ok()?))
+    }
+
     fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
         // Another placeholder still unfilled: wait on that one.
         if let Some(placeholder) = crate::queue::unfilled_in(cx, &cx.eval(&self.term)?)? {
@@ -4744,6 +4826,19 @@ fn shadow_advice(first: &AstName, second: &AstName) -> String {
          otherwise rename the parameter",
         first.text, second.text
     )
+}
+
+/// A lambda whose second parameter shadows a function, as an error frame
+/// (D2091): `W-LAMBDA-SHADOW`'s advice on an error in its body, also from a
+/// check that waits and fails later.
+struct ShadowFrame {
+    shadowed: (AstName, AstName),
+}
+
+impl crate::queue::ErrorFrame for ShadowFrame {
+    fn map(&self, _cx: &mut Ctx, d: Diagnostic) -> Diagnostic {
+        shadow_note(d, Some(&self.shadowed))
+    }
 }
 
 /// `d`, with `W-LAMBDA-SHADOW`'s advice added if it was reported inside or at

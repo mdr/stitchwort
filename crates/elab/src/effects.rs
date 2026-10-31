@@ -656,6 +656,18 @@ pub(crate) fn settle_results(cx: &mut Ctx, ty: &Value) -> Result<bool> {
     })
 }
 
+/// Whether `ty`, computed, is headed by `Comp` or `Delay`: whether
+/// [`foreign_results_notes`] may have notes for it. Cheap.
+pub(crate) fn comp_headed(cx: &Ctx, ty: &Value) -> bool {
+    match ty {
+        Value::Data(d, _) => data(cx, Builtin::Comp).is_ok_and(|comp| *d == comp),
+        Value::Neutral(Head::Def(d), _) => {
+            cx.g().builtins.primitive_id(Primitive::Delay) == Some(*d)
+        }
+        _ => false,
+    }
+}
+
 /// If `ty` is a `Comp ops res t` or a `Delay ops res t` whose `ops` is a
 /// row's: that row, `res` as written, and the row's own results.
 fn written_results(cx: &Ctx, ty: &Value) -> Result<Option<(Row, Value, Value)>> {

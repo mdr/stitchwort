@@ -2693,6 +2693,108 @@ but more machinery; a decision for Matt.
 - **Debug build**: the `builtins` test (the prelude in the debug profile) passes; the assertion
   above first fired there on the `let` case, and was corrected to include it.
 
+## As built (step 4.1)
+
+Built on main (`b6d3626a`, no K4) in the D2091 lane, 31 October 2026. Labels as in the design
+section above.
+
+**Error frames** [read, `queue.rs`]. A construct that maps the errors of a check inside it runs
+the check in `queue::framed(cx, body, frame)`. On an error from `body` the frame's mapping runs
+at once, as the old `match … Err(e) if …` did. If `body` returns with items it queued still
+waiting, the frame is made then (its mapping and the context the construct ran in, `Saved`) and
+each such item keeps it. An item that fails later, when resumed (W1-W4) or stuck at the end
+(`stuck_report`), has its error passed through its frames, innermost first, skipping those still
+running: their constructs map the error as it passes through them, as inline. What an item
+queues while it is resumed inherits that item's frames, which count as running during the
+resumption. So each mapping runs once, at the time and in the context it would have inline.
+Frames are made only when something waits, so a construct that waits for nothing costs a push
+and a pop. Each construct's mapping is one function used both ways (`ErrorFrame::map`). Two
+mappings that work the call out again now get the call kept (`named.rs`: `RigidFrame` keeps the
+head and the slots, owned) rather than notes worked out early. Worked out at the call's end, the
+"write `(n := 3)`" note was missing: the argument's type wasn't known yet [run].
+
+**Placeholders print as their source** [read, `queue.rs`, `pretty.rs`]. `Check::display` gives
+the source a waiting check stands for: `r.items` for a `.field` (with its arguments), the literal
+for a record literal, `(.f a)` for a section, the proposition for a decision, `match … with …`
+for a waiting `match`. A comparison has no placeholder. `queue::syntax` writes an expression back
+out: names, numbers, fields, calls, operators and record literals in full, anything larger as
+`…`. The queue keeps `Globals::placeholder_syntax` in step with its unfilled placeholders, as it
+does `unfilled_placeholders`, so a restore takes an entry back with its item. The printer shows a
+placeholder that way only while it is applied to the variables it was made with, by name. Applied
+to others (a lambda's parameter replaced by its argument), the source would name the wrong
+variable, so it prints as before (`?4 b b`) [run, scratch file, not an example].
+
+**Type unknowns** (rule 3). On main without K4, every check that waits has a type that is an
+ordinary unknown, which unification solves or the stuck report names. The 16 messages that print
+`?N` today are each read: each prints an ordinary unknown left unsolved where its error is found
+(an implicit argument, a hole, a row, a rewrite rule's argument, the callback's type a
+`List.sumByCong` call has not fixed yet). None is a queue placeholder or a waiting check's type,
+so none changes here. The design counted 15; `unify-last-arguments-types-differ.sw` (SW-919) was
+added after it, the same day. `lambda-after-expected-unfolded.sw`'s goal (`?3 xs x = ?4 xs x`) is
+a `rewrite` on a goal holding unknowns, which is step 4.2's.
+
+**The allowlist** [read, `crates/cli/tests/examples.rs`]. `PRINTS_UNKNOWNS` lists those 16 files,
+with a comment. The reject and soundness tests fail if a message (its text, labels or notes, not
+the source it quotes) shows `?` followed by a digit and the file isn't on the list, and also if a
+file on the list no longer does, so the list can't go stale.
+
+**Constructs with their own error mapping** [read; run where an example is named]. Found by the
+design's search (`e.code ==`, `map_err`) on main. "Example" means a reject example whose waiting
+check gets the mapping only through its frame. Each has an annotated twin in the same file, and
+the two messages are the same.
+
+| construct | where | frame | through a waiting check |
+|---|---|---|---|
+| a `calc` step | `calc.rs`, `check_step` | `StepFrame` | `calc-step-later.sw`: `E-CALC-STEP`; before, `E-REFL` |
+| an explicit argument | `check.rs`, `check_arg` | `ArgFrame` | `local-signature-later.sw`: the local signature note; before, none |
+| a call's last comparison | `check.rs`, `fallback` | `CallFrame` | none found (a call whose type holds a pending unknown when compared); the mechanism's unit tests |
+| a value against a `Comp` type | `check.rs`, `check_inner` (only when the type is `Comp` or `Delay`) | `CompFrame` | none found; the mechanism's unit tests |
+| a number group's leaf | `numbers.rs`, `check_leaf` | `LeafFrame` | `negative-argument-later.sw`: "this arithmetic is on `Int`…"; before, none |
+| an unbracketed negative argument | `numbers.rs`, `group_tried` | `NegatedFrame` | `negative-argument-later.sw`: the `-g` note; before, none |
+| named arguments leaving a parameter out | `named.rs`, `apply_slots` | `RigidFrame` | `named-argument-rigid-later.sw`: both notes; before, none |
+| a field given after one left out | `defaults.rs` (`left_out_notes`) | `LeftOutFrame` | `field-default-left-out-later.sw`: the default's note; before, none |
+| a local definition's parameter default | `defaults.rs`, `local_helper` | `HelperFrame` | none found; the mechanism's unit tests (a top-level default's helper is finished inside its mapping, so nothing in it fails later) |
+| a record update's replaced field | `records.rs`, `update_fields` | `PinnedFrame` | `record-update-pinned-later.sw`: the pinned note; before, none |
+| a signature's automatically bound names | `lib.rs`, `local.rs` (`autobind`) | `AutoFrame` | none found; the mechanism's unit tests |
+| a `match`'s alternatives | `matching.rs`, `in_alternatives` | `AltsFrame` | none found; the mechanism's unit tests (a waiting `match` maps its own coverage error when resumed) |
+| a `decreasing` measure | `decreasing.rs`, `measure_term` | `MeasureFrame` | `decreasing-measure-later.sw`: the measure note; before, none |
+| a lambda whose parameter shadows a function | `check.rs`, `check_value` (not in the design's list) | `ShadowFrame` | none found; the mechanism's unit tests |
+
+Not frames, with why:
+- **A proposition decided as a `Bool`** (`check.rs`, `decided`; `logic.rs`). The waiting decision
+  (`Decide`, D2035) runs `decided`, mapping included, when it resumes. The decision is a proof
+  search and queues nothing, so no waiting check fails inside it.
+- **`check`'s own `explain_default`.** A waiting comparison applies it itself
+  (`Failure::error`), and with K4 no literal is made `Nat` early.
+- **Hints the caller of `check_arg` adds** (`unit_call_hint`, `not_a_function_hint`), `if h:`'s
+  note on its guard, and `PureFirst::error`. They are not mapped at a resume point, so a waiting
+  check that fails inside one of these loses that hint. No example reaches them; they can become
+  frames the same way if one does.
+- **Operator dictionaries** (`numbers.rs`, `E-INSTANCE-NONE`): obligations, not queue items.
+
+**Tests** [run]:
+- Unit tests in `queue.rs`: a later failure goes through nested frames, innermost first; a frame
+  still running maps once; a stuck item is reported through its frames; an item queued by a
+  resumed item keeps its frames, failing during or after that resumption, mapped once; a waiting
+  `.field` prints as `p.row`, and the entry goes when it is filled or taken back by a restore.
+- The 7 frame examples above, and `placeholder-shown-as-source.sw`: an `E-REFL` while
+  `r.items` waits, shown as `(r.items, 1)` and `(r.items, 2)` (before, `(?4 b r, 1)` and
+  `(?6 b r, 2)`). The design's test for the stage-2 `E-AUTO-NONE` naming `?5 b b` has no
+  program left to run: stage 3 (D2035) made that decision wait, and the program is accepted
+  (`accept/postpone-decide-waiting-field.sw`).
+
+**Measured** [run]:
+- **Messages**: the examples test at the daily tier (every file, every snapshot) passes with no
+  snapshot changed. The only message changes are the new files above, each an improvement
+  (before: base's code or a missing note, or `?N` for a placeholder).
+- **Hashes**: `HASH_DUMP` std+aoc (10,658 lines) and `HASH_DUMP_PROJECT=games/rogue` (5,229)
+  byte-identical to `b6d3626a`'s.
+- **`task audit`**: std 2,328, aoc 1,363, rogue 190 theorems, all passed.
+- **Time**: aoc `check --no-cache`, user time, base and step 4.1 alternately on a loaded machine:
+  base 40.3, 38.8, 42.2 s; step 4.1 40.7, 43.8, 40.0 s. No difference beyond the noise.
+- Lane tiers `elab`, `core`, `std`, `lsp`, `examples`, `hashes`, `aoc`: pass. Clippy with
+  `--deny warnings` and `cargo fmt`: clean.
+
 ## Review 1 and how it was addressed
 
 The review is [postponement/review-1.md](postponement/review-1.md): "approve with revisions".

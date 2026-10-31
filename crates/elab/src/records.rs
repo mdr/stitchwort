@@ -810,6 +810,14 @@ struct Literal {
 }
 
 impl crate::queue::Check for Literal {
+    fn display(&self, cx: &Ctx) -> Option<String> {
+        Some(crate::queue::syntax(&Expr::Record {
+            base: None,
+            fields: self.fields.clone(),
+            span: cx.span,
+        }))
+    }
+
     fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
         let term = check_record(cx, None, &self.fields, &self.expected)?;
         Ok(crate::queue::Resumed::Done(term))
@@ -1241,6 +1249,26 @@ fn update(
     }
 }
 
+/// A replaced field of a record update, as an error frame (D2091): if the
+/// field's value didn't fit and its type mentions a parameter a kept field
+/// pins (`pinned`, the parameter and that field), it says so, also for a
+/// check inside the value that waits and fails later.
+struct PinnedFrame {
+    pinned: Option<(String, String)>,
+}
+
+impl crate::queue::ErrorFrame for PinnedFrame {
+    fn map(&self, _cx: &mut Ctx, e: Diagnostic) -> Diagnostic {
+        match &self.pinned {
+            Some((param, kept)) if e.code == "E-TYPE-MISMATCH" => e.with_note(format!(
+                "`{param}` can't change here: the kept field `{kept}` has a type that mentions \
+                 it; replace `{kept}` too, or keep `{param}`"
+            )),
+            _ => e,
+        }
+    }
+}
+
 /// The fields of an update, in the context where `base` is a variable.
 fn update_fields(
     cx: &mut Ctx,
@@ -1262,23 +1290,22 @@ fn update_fields(
     for (i, (field, field_ty)) in ctor.fields.iter().enumerate() {
         let ty = eval(g, &env, field_ty)?;
         let term = match fields.iter().find(|(n, _)| *n.text == **field) {
-            Some((_, expr)) => check(cx, expr, &ty).map_err(|e| {
-                // A type parameter a kept field fixes, which this field's
-                // type mentions: say so, if the field's value didn't fit.
-                let pinned = (0..np).find_map(|k| match &uses[k] {
-                    ParamUse::KeptField(kept) if field_ty.mentions(i + np - 1 - k) => {
-                        Some((&data.params[k].0, kept))
-                    }
-                    _ => None,
-                });
-                match pinned {
-                    Some((param, kept)) if e.code == "E-TYPE-MISMATCH" => e.with_note(format!(
-                        "`{param}` can't change here: the kept field `{kept}` has a type that mentions it; \
-                         replace `{kept}` too, or keep `{param}`"
-                    )),
-                    _ => e,
-                }
-            })?,
+            Some((_, expr)) => crate::queue::framed(
+                cx,
+                |cx| check(cx, expr, &ty),
+                |_| {
+                    // A type parameter a kept field fixes, which this
+                    // field's type mentions: said, if the field's value
+                    // didn't fit.
+                    let pinned = (0..np).find_map(|k| match &uses[k] {
+                        ParamUse::KeptField(kept) if field_ty.mentions(i + np - 1 - k) => {
+                            Some((data.params[k].0.to_string(), kept.to_string()))
+                        }
+                        _ => None,
+                    });
+                    PinnedFrame { pinned }
+                },
+            )?,
             None => {
                 let Some(proj) = cx.e.records.get(&d).and_then(|r| r.projections[i]) else {
                     return Err(cx.error(
