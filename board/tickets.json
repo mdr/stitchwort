@@ -1,5 +1,5 @@
 {
-  "next": 922,
+  "next": 923,
   "tickets": [
     {
       "id": 47,
@@ -1913,6 +1913,21 @@
         "tooling"
       ],
       "body": "Found while getting the daily tier green (31 Oct 2026). Measured alone with /usr/bin/time -l (peak memory footprint), STITCHWORT_TIER=daily:\n- crates/driver/tests/resources.rs `running_out_at_any_point_only_ever_means_no_answer`: 6.7 GB on main (6.35 GB at 6e25695e, 28 Oct). It loads one small PROGRAM in a fresh `Session::new()` at every work limit from 1 up, so peak memory should be about one session. 6.7 GB suggests sessions (or something global they register: interned names, metas, caches, Rc cycles) aren't freed when dropped. A long-running language server creating sessions would leak the same way. Find what grows per iteration (e.g. measure footprint every N iterations) and fix the leak.\n- crates/cli/tests/lsp.rs `aoc_navigation_matches_check_index`: 7.9 GB on main, 33 s (9.9 GB, 176 s on 28 Oct, so better than it was). Find whether that's inherent (the whole AoC project in the LSP plus check --index) or held longer than needed.\nTogether they took `task test:daily` past its 16 GB cap. Workaround merged tonight: the resources test (and rt's aoc_agrees / every_aoc_main_lowers, which are AoC sweeps) joined the `corpus-sweeps` one-at-a-time group in .config/nextest.toml. docs/testing.md's table still says the daily peak is \"not measured\".\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 922,
+      "title": "R4 (SW-787) makes x % D with a + K literal unfold Nat.divFuel K levels: huge normal forms (Float.Theory magUnits*, lcg), slow unification (SW-920)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "perf"
+      ],
+      "body": "Found while getting the full tier green (31 Oct 2026; differential test fix 817c3ad7). Since 1ed90886 (SW-787, R4: `+` also computes on its second argument), `x + K` with a literal K normalises to `Nat.add K x`-style forms that hand known fuel to recursions such as `Nat.divFuel`. So `m % D` or `m / D` where m contains `+ K` and an unknown unfolds `divFuel` up to K levels, each stuck on the unknown with the next inside it: the normal form grows with K (measured for small K = 4, 8, 16, 32: 1.6k, 4.1k, 11.9k, 37.6k characters, faster than linear).\nWhere it bites today:\n- std Float.Theory `magUnitsFieldNext`, `magUnitsWholeAt`, `magUnitsWhole`, `magUnitsCarry` (types about `magUnits (e * 2^52 + 2^52 + …)`, `magUnits m = Nat.divFuel m m 2^52`): quoting a type passes 4 GB; the reference `conv` overflows.\n- examples/accept/partial-handlers.sw `lcg seed = (seed * 1103515245 + 12345) % 2^31`: normal forms over 4 GB; two closed tests take ~55 s in conversion.\n- SW-920 (unifier `modLt` against `% 2^31`, 24.7 s) and SW-917 (rewrite, fixed separately) are the same unfolding.\nThese are left out of the differential test for now. Not yet decided: whether R4 should stop handing literal fuel to such recursions (e.g. don't commute when the result feeds a fuel argument, a fuel-free Nat.div/mod (SW-554), or lazy unfolding), measured on std/AoC/rogue. Inferred, not tested: these passed before 1ed90886.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
