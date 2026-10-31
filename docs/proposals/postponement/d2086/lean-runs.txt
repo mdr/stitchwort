@@ -1,0 +1,92 @@
+Lean 4.34.1 (nixpkgs, arm64-apple-darwin), 31 October 2026: `lean mN.lean`, linter hints dropped.
+The files are kept here as lean-mN.lean.
+
+=== lean m1.lean
+m1.lean:11:20: warning: Variable name `q` is not explicitly referenced.
+m1.lean:18:4: warning: declaration uses `sorry`
+m1.lean:18:0: warning: Definition `t1` is a proposition; use `theorem` instead of `def`
+m1.lean:25:4: warning: declaration uses `sorry`
+m1.lean:25:0: warning: Definition `t2` is a proposition; use `theorem` instead of `def`
+m1.lean:31:4: warning: declaration uses `sorry`
+m1.lean:31:0: warning: Definition `t3` is a proposition; use `theorem` instead of `def`
+def t2 : @Eq Nat
+  (@List.length Int
+    (@List.cons Int (@OfNat.ofNat Int (nat_lit 1) (@instOfNat (nat_lit 1)))
+      (@List.cons Int (@OfNat.ofNat Int (nat_lit 1) (@instOfNat (nat_lit 1))) (@List.nil Int))))
+  (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))) :=
+t1.match_1 (fun x => @Eq Nat x (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))
+  (@List.length Int
+    (@List.cons Int (@OfNat.ofNat Int (nat_lit 1) (@instOfNat (nat_lit 1)))
+      (@List.cons Int (@OfNat.ofNat Int (nat_lit 1) (@instOfNat (nat_lit 1))) (@List.nil Int))))
+  (fun _ =>
+    sorryAx
+      (∀ (tag : Lean.Name),
+        @Eq Nat (@OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)))
+          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))
+      false `m1.27.9.27.14.9.14._sorry._@.m1.3319159063._hygCtx._hyg.37)
+  fun n =>
+  have this :=
+    sorryAx
+      (∀ (tag : Lean.Name),
+        @Eq Nat
+          (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) n
+            (@OfNat.ofNat Nat (nat_lit 1) (instOfNatNat (nat_lit 1))))
+          (@OfNat.ofNat Nat (nat_lit 2) (instOfNatNat (nat_lit 2))))
+      false `m1.28.34.28.39.34.39._sorry._@.m1.3319159063._hygCtx._hyg.60;
+  this
+=== lean m2.lean
+m2.lean:11:60: error: Tactic `rewrite` failed: Did not find an occurrence of the pattern
+  (List.replicate 3 1).length
+in the target expression
+  (List.replicate 3 1).length = 3
+⊢ (List.replicate 3 1).length = 3
+m2.lean:14:18: error: Type mismatch
+  rfl
+has type
+  0 = 0
+but is expected to have type
+  True
+m2.lean:20:59: error: Type mismatch
+  rfl
+has type
+  0 = 0
+but is expected to have type
+  List.foldl (fun x1 x2 => x1 + x2) 0 (List.range n) = List.foldl (fun a r => a + (r + 0)) 0 (List.range n)
+m2.lean:25:2: error(lean.unknownIdentifier): Unknown identifier `x`
+=== lean m3.lean
+m3.lean:4:18: error: Type mismatch
+  some 3
+has type
+  Option ?m.2
+but is expected to have type
+  Bool
+m3.lean:9:2: error: Type mismatch
+  x
+has type
+  Option ?m.3
+but is expected to have type
+  Nat
+m3.lean:12:17: error: Type mismatch
+  0 = 0
+has type
+  Prop
+but is expected to have type
+  Nat
+=== lean m4.lean
+def f : Int → Bool :=
+fun i =>
+  have m := (3 : Int) - (5 : Int);
+  m + i == (0 : Int)
+def g : Int → Bool :=
+fun i =>
+  have m := (3 : Nat) - (5 : Nat);
+  have k :=
+    match i with
+    | x => (0 : Int);
+  ↑m + i == k
+true
+false
+=== lean m5.lean
+m5.lean:9:0: warning: declaration uses `sorry`
+m5.lean:13:4: warning: declaration uses `sorry`
+m5.lean:13:0: warning: Definition `t2` is a proposition; use `theorem` instead of `def`
