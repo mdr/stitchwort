@@ -452,3 +452,279 @@ Release build:
    rank last theorems with no variables, or rename them `…Example`.
 3. The goal printer shows `List.sumBy [] f` unreduced over `Int` (item 3;
    cause not established).
+
+## Day 3: Binary Diagnostic
+
+A diagnostic report: a list of binary numbers, one per line, all with the
+same number of bits. Part 1 builds the gamma rate from each column's most
+common bit and the epsilon rate from each column's least common bit, and
+multiplies them. Part 2 filters the report one column at a time, keeping
+the numbers with the column's most common bit (the oxygen generator
+rating; a tie keeps 1s) or its least common bit (the CO2 scrubber rating;
+a tie keeps 0s), until one number is left, and multiplies the two
+ratings. Answers on Matt's input: 4191876 and 3414905 (his Scala
+solution's); the puzzle's example gives gamma 22 and epsilon 9 (198),
+oxygen 23 and CO2 10 (230). Compiler built from `main` at 45960bff, 31
+October 2026.
+
+### The program
+
+A number is `type Bits = List Bool`, most significant bit first, and its
+value is `bits.foldLeft 0 (high bit => high * 2 + bit.toNat)`. A column's
+most common bit is 1 when at least half its bits are:
+
+```stitchwort
+def mostCommon (column: List Bool): Bool := column.length ≤ 2 * column.count (bit => bit)
+
+def solvePart1 (numbers: List Bits): Nat :=
+  let gamma: Bits := numbers.transpose |> .map mostCommon
+  gamma.value * (Nat.pow 2 gamma.length - 1 - gamma.value)
+```
+
+Part 1 works out only the gamma rate. The least common bit of a column is
+the one the most common bit isn't, so the epsilon rate is the gamma rate
+with its bits flipped, `2^width - 1 - gamma`. Part 2 never looks a column
+up by position: it keeps, of each number whose first bit is the chosen
+one, the bits after it, so the next column is always the first, and puts
+the chosen bits back on the front of the one number left:
+
+```stitchwort
+def rating (choose: List Bool → Bool): (columns: Nat) → List Bits → Option Bits
+  | _, [number] => Some number
+  | Zero, _ => None
+  | Succ later, numbers =>
+    let bit := choose (numbers.filterMap .head)
+    rating choose later (numbers.filterMap (afterBit bit)) |> .map (Cons bit)
+```
+
+`choose` is `mostCommon` for oxygen and `not (mostCommon column)` for
+CO2. The parser is `Parse.eachLine input (() => many1 bit)`, with `bit` a
+`pick` of `"0"` and `"1"` under a `label`, then a check that every line
+has the first line's number of bits ("line 2: 3 bits, but the first line
+has 4"). Both answers were right on the program's first run.
+
+**What the puzzle leaves open, and the spec decides.** The spec
+(`Spec/Spec.sw`) reads the puzzle's way: `howMany numbers position bit`
+counts the numbers with that bit at that position, the rates read
+`List.range width` through `mostCommonAt` and `leastCommonAt`, and
+`findRating` goes through the positions in turn, stopping when one number
+is left and otherwise keeping the numbers with the criterion's bit there.
+Three things needed deciding, and the spec's header says each:
+
+- **Ties in part 1.** The puzzle gives tie rules only in part 2, and its
+  part 1 inputs have no ties (Matt's has no tied column). Part 1 takes
+  part 2's rules: a tie's most common bit is 1, its least common bit 0.
+- **A bit no number has.** "The least common value (0 or 1)" counts both
+  values, so in a column where every number left has a 1, 0 is the least
+  common (0 times), and keeping the numbers with a 0 keeps none. The
+  other reading, the least common of the values present, would keep the
+  filter from ever emptying, but the puzzle doesn't say it, and it would
+  make part 1's least common bit differ from part 2's. Matt's input can't
+  tell the two apart: the CO2 filter never meets a column that is all one
+  bit (the oxygen filter does, at the 11th bit with two numbers left,
+  where both readings agree).
+- **Where it stops.** "If you only have one number left, stop", and
+  otherwise go on to the next bit. If no bit is left (the same number
+  twice) or no number is (above), the puzzle has no rating. The spec's
+  ratings are `Option Nat`, `None` there, and `lifeSupportRating` is
+  `None` unless both exist. So the spec is total, and part 2's theorem
+  needs no hypothesis (no "the numbers are distinct", no "exactly one is
+  left").
+
+The spec takes the width from the first number, and a number too short to
+have a bit at a position counts as neither a 0 nor a 1 there. The parser
+rejects such input, but the spec is defined for it, and so is the
+program: `List.transpose` also takes the first row's width and leaves a
+short row out of a column. With that, the theorems hold for every
+`List Bits`.
+
+### Proved, for every list of numbers
+
+In `Aoc.Year2021.Day03.Proofs` (`Proofs/Proofs.sw`, 250 lines):
+
+- `part1Correct`: `solvePart1 report = powerConsumption report`.
+- `part2Correct`: `solvePart2 report = lifeSupportRating report`: the
+  same answer, or `None` on both sides.
+- `epsilonComplement`: `gammaRate report + epsilonRate report + 1 =
+  Nat.pow 2 (width report)`, in the spec's terms: the epsilon rate is the
+  gamma rate's complement within the width. `part1Correct` rests on it.
+- On the way: column i of `transposeN` is the bit at i of every number
+  that has one (`columnsFrom`, `columns`); the program's `mostCommon` of a
+  column is the spec's comparison of counts (`mostCommonColumn`); the
+  least common bit is `not` the most common, ties included
+  (`leastIsNotMost`); a number plus its bits flipped is `2^length - 1`
+  (`valueFlipped`); and, for numbers that share a prefix, the spec's
+  filtering from the position after it is the program's rating of their
+  rests (`ratingAfterPrefix`, for any criterion that agrees with the
+  program's `choose`; `ratingCorrect` from the empty prefix).
+- The example's answers as `rfl` theorems (`examplePart1`,
+  `examplePart2`, in `Tests/Examples.sw`).
+
+Nothing is left unproved, no hypothesis was added, and nothing is opaque.
+`stitchwort audit Aoc.Year2021.Day03` (with the counterexample search):
+`audited 28 theorems: 0 failed, 0 with warnings, 28 passed`.
+
+Not attempted: that the oxygen generator rating exists when the numbers
+are distinct, there is at least one, and all have the same width. It
+should hold (the most common bit is always one some number has), but
+neither answer needs it. The CO2 rating has no such theorem under the
+spec's reading: `[10, 11]` has no CO2 rating (a test pins it).
+
+Breaking the program breaks the proofs: dropping the `- 1` in
+`solvePart1` makes `part1Correct` fail with `report = [[True]]` (left 1,
+right 0); `rating mostCommon` for CO2 makes `part2Correct` fail with
+`report = [[False], []]` (left `Some 0`, right `None`); an `afterBit` that
+keeps a number whatever its first bit makes `keepAfterPrefix` fail with
+`prefix = [], bit = False, rests = [[True]]`. `<` for `≤` in `mostCommon`
+makes `mostCommonColumn` fail with an open case but no counterexample (it
+is stated for any `bitOf` function, which the search doesn't make);
+`| Zero, numbers => numbers.head` in `rating` makes a `rfl` in
+`ratingAfterPrefix` fail, with no counterexample for the same reason.
+
+Most proofs are a `rewrite` with std lemmas, then `rfl`, `cases` or
+`omega`. Rewriting under a binder, with the bound variable left as `_`,
+worked every time, for example in `columnsFrom`:
+
+```stitchwort
+rewrite List.filterMapMap numbers (x => List.get x 0) (number => List.drop number p),
+  List.mapMap numbers (x => List.drop x 1) (number => List.drop number p), List.getDrop _ p 0, Nat.addZero p,
+  <- List.dropAdd p 1 in
+  Eq.cong (later => Cons (List.filterMap numbers (number => List.get number p)) later) (columnsFrom numbers k (p + 1))
+```
+
+and the induction's `p + 1` met the goal's `Succ p` with no lemma. Part
+2's one idea is to generalise over the prefix the numbers share, so that
+the spec's "bit at position `length prefix`" is the program's "first bit
+of the rest" (`getAfterPrefix`). Every proof checked as first written
+(after adding `import Std (Eq)`) except two, `getAfterPrefix` and
+`keepAfterPrefix` (item 3).
+
+### 1. Std.Parse: none
+
+`many1`, `pick` and `label` did it. The message for a bad bit
+("expected 0 or 1 or the end of the line, got '2'") was better than the
+one the test first guessed.
+
+### 2. Missing std
+
+- **No binary numbers.** `Nat.fromDigits` is base 10 only, and nothing
+  reads a `List Bool` as a number. The day wrote `Bits.value` and proved
+  `valueFrom`, `valueCons` and `valueFlipped` for it. Std candidate:
+  `Nat.fromBits (bits: List Bool): Nat` with those three lemmas.
+- **No lemma for what `transpose`'s columns are.** Std has
+  `transposeNLength`, `transposeTwice` and the like. Std candidate:
+  `List.transposeNColumns`, this day's `columnsFrom`: column i of
+  `transposeN k (rows.map (.drop p))` is `rows.filterMap (.get i)`, for
+  i from p.
+- **No `Option.mapCong` or `Option.mapId`.** `List` has both. The day
+  proved them for `Option Bits` (`optionMapCong`, `optionMapId`). At
+  `Option.map o (x => x) = o` (in a scratch file), `search --at` offered
+  `Option.orElseNone o`, `Map.orElseNone o` and `Map.Tree.orElseNone o`,
+  which the kernel accepts because `orElse o None` and `map o (x => x)`
+  compute to the same match. True, but nobody would look for it under
+  that name.
+- **Nothing about `List.count` with `List.filterMap`.** How many of a
+  column's bits are 1s, and its length, as counts over the numbers
+  (`onesInColumn`, `columnLength`). Std candidates: `List.lengthFilterMap`
+  (the count of `Some`s) and `List.countFilterMap`.
+
+### 3. Confusing errors
+
+- **`cases` splits calls instead of the variable under them, and loses
+  what ties them together.** `getAfterPrefix`'s `Nil` case is
+  `List.get t 0 = List.head t`, and `cases` failed with
+
+  ```text
+  [E-CASES] Error: `cases` can't close the case List.get t 0 = None, List.head t = Some False, value✝ = False (fallback)
+    Note 1: goal: None = Some False
+  ```
+
+  It split `List.get t 0` and `List.head t` as two separate `Option`s,
+  making cases that can't happen (one `None`, the other `Some`), instead
+  of splitting `t`, which both are stuck on. `keepAfterPrefix` did the
+  same with `List.head rest` and `afterBit False rest`, then said the goal
+  was stuck on `others`. `match t with | Nil => rfl | Cons … => rfl`
+  proved it. When the stuck calls are stuck on the same variable,
+  splitting it would close them all.
+- **Goals show `List.count` as its insides, and `==` on an `Option` as a
+  decision procedure.** With `mostCommon` broken, the open case read
+  `List.foldLeft numbers 0 (n x => Nat.succIf n (Std.Decidable.toBool
+  (Option.decEq (x y => …) (bitOf x) (Some …))))` where the source says
+  `List.count numbers (number => bitOf number == Some True)`. Day 1 item 3
+  again, now for `count` as well as `==`.
+- **A `match` on a tuple loses structural recursion, and the message
+  doesn't say so.** The first `rating` was `match (numbers, columns) with
+  | ([number], _) => … | (_, Succ later) => … rating choose later …`,
+  which is `E-TERMINATION`, "the 1st argument stays the same", though
+  `later` comes from matching `columns`. Clauses on the parameters
+  (`| _, [number] => …`, `| Succ later, numbers => …`) checked. A note
+  that matching a tuple of the parameters hides their pieces, with the
+  clause form as the fix, would have saved the guess.
+
+### 4. Inference: none
+
+### 5. Performance
+
+Nothing to report: `stitchwort check --no-cache` of the proofs and tests
+takes 3.0 s (0.9 s user).
+
+### 6. Proofs, and the lemma search
+
+`stitchwort search --rewrite` found every std lemma the proofs use, first
+or nearly first, each from its left side (`'List.get (List.drop _ _) _'`,
+`'List.count (List.map _ _) _'`, …): `List.countCons`, `List.countMap`,
+`List.filterMapMap`, `List.mapMap`, `List.mapId`, `List.mapCong`,
+`List.getDrop`, `List.dropAdd`, `List.appendAssoc`, `List.lengthMap`,
+`List.lengthRangeFrom` and `Option.mapMap`. None was written again. What
+didn't work:
+
+- `stitchwort search --at` on the project's proof file is
+  `E-FILE-MODE` ("searched as a single file, so it can use only the
+  standard library"), as syntax.md says it is for now. Five goals copied
+  into a scratch file with std types only: it closed
+  `List.get (List.drop xs p) 0 = List.get xs p` (`rewrite List.getDrop xs
+  p 0 in rfl`) and `List.append prefix (Cons bit rest) = List.append
+  (List.append prefix [bit]) rest` (`rewrite List.appendAssoc prefix [bit]
+  rest in rfl`), both checked by the kernel, and offered
+  `List.getAppendRight` as a first rewrite for `getAfterPrefix`'s goal.
+  For `(a < b) = ¬(b ≤ a)` it found nothing and named no tactic, though
+  `cases` proves it (`leastIsNotMost`): `cases` isn't among the closers
+  it tries.
+- Every `search --at` run warned "3 comparisons ran out of steps: a match
+  may have been missed", whatever the goal.
+- `search --rewrite 'List.drop _ 0'` is `E-SEARCH-PATTERN`, "this pattern
+  is a hole on its own", pointing at the whole pattern. It is one, once
+  computed: `List.drop xs 0` computes to `xs`. The message should say the
+  pattern computes to a hole (so the equation holds by `rfl`).
+- `search '(?a < ?b) = not (?b ≤ ?a)'` went to the relaxed pass and
+  listed `Eq.sym` and `Option.someInjective`.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2021.Day03` | 0.73 s user (2.8 s) |
+| `stitchwort check --no-cache Aoc.Year2021.Day03.Proofs Aoc.Year2021.Day03.Tests` | 0.93 s user (3.0 s) |
+| `stitchwort run Aoc.Year2021.Day03.main` on the input (1000 lines) | 0.34 s user (0.39 s), warm |
+| `stitchwort audit Aoc.Year2021.Day03` (with the search) | 4.4 s user (6.2 s) |
+
+82 lines of program, 81 of spec, 250 of proofs, 68 of tests.
+
+### Ranked
+
+1. `cases` splits stuck calls as separate values instead of the variable
+   they are stuck on, making cases that can't happen (item 3). Fix: split
+   the variable when the stuck calls share it.
+2. `search --at` doesn't work in a project's files, so each goal has to
+   be copied into a scratch file with std types (item 6). Fix: the next
+   stage of SW-915's search.
+3. No binary numbers, no lemma for `transpose`'s columns, no
+   `Option.mapCong` or `Option.mapId` in std (item 2). Fix:
+   `Nat.fromBits`, `List.transposeNColumns`, the two `Option` lemmas.
+4. A `match` on a tuple of parameters hides structural recursion, with no
+   hint (item 3). Fix: a note suggesting clauses on the parameters.
+5. The search: a pattern that computes to a hole says only "a hole on its
+   own"; `search --at` doesn't try `cases`, and warns about comparisons
+   out of steps on every goal (item 6).
