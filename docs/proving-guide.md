@@ -358,6 +358,21 @@ stitchwort search --rewrite 'List.map (List.map _ _) _' # equations and Iffs to 
 stitchwort search 'Nat → List _ → List _' --definitions # a function by its type
 ```
 
+**At a `?`, run `stitchwort search --at FILE:LINE` before writing a proof by
+hand.** It lists the lemmas that close the goal there, as proofs to paste,
+each checked by the kernel (`exact`, `withHypotheses`, `afterObligations`),
+then those that apply leaving smaller goals, then rewrites with the goal each
+leaves ([syntax.md](syntax.md#what-closes-this--stitchwort-search---at)):
+
+```
+stitchwort search --at proofs.sw:42        # the goal `?` on line 42
+stitchwort search --at proofs.sw --goal 2  # the file's second goal
+```
+
+Read its `applicable` results as next steps (`Nat.leOfEq a c ?` leaves
+`a = c`). It works on a file on its own; for a project's file, copy the
+goal's `lemma` (from `check --index -`) into a scratch file.
+
 Paste a goal as it is printed (its lowercase variables become named holes).
 Read `relation` first: an `instance` result's statement fits the pattern as
 it stands; a `generalisation` or `commonInstance` one only fits once your

@@ -1362,7 +1362,42 @@ Each result prints its name, kind, relation and place; its type; and where it is
 
 **The query log**: `--log FILE`, or the environment variable `STITCHWORT_SEARCH_LOG=FILE`, appends one line of JSON per search to the file (the folder must exist; a log that can't be written is a warning): `log` (the format's version, 1), `event` (`"search"`), `time` (seconds since 1970), `ms` (how long it took), `cwd`, `query`, `elaborated` (each reading), `options`, `scope`, `searchTier`, `total`, `results` (each shown, with `rank`, `name`, `kind`, `relation`, `place`) and `budget`; or `error` (`code`, `message`) for a query refused. New fields and events may be added (the lemma a proof then used); a reader skips what it doesn't know. It is for measuring what agents look for, and tuning the ranking from it (stage 3 of [search.md](proposals/search.md)).
 
-Not yet (stage 2, [search.md](proposals/search.md) §8): searching the goal at a `?` (`--at FILE:LINE:COL`), and trying each result there.
+### What closes this `?`, `stitchwort search --at`
+
+`stitchwort search --at FILE:LINE[:COL]` reads the goal at the `?` there (`--at FILE --goal N` for the file's N-th goal, in source order; with neither a line nor `--goal`, the first) and lists what closes it: lemmas applied to it, with the proof to write in place of the `?`, every one checked by the kernel; then those that apply leaving goals; then rewrites (stage 2 of [search.md](proposals/search.md)).
+
+```
+$ stitchwort search --at chain.sw:5
+goal 1 at chain.sw:5:73
+  a: Nat
+  b: Nat
+  c: Nat
+  h1: a ≤ b
+  h2: b ≤ c
+  ⊢ a ≤ c
+
+omega alone closes it (checked by the kernel)
+
+closes it (checked by the kernel):
+ 1. Nat.leTrans a b c h1 h2  [withHypotheses]
+    Std.Nat.leTrans  std/core/Division.sw:41  (import Std (Nat))
+ …
+applies, leaving goals:
+ 1. Nat.leOfEq a c ?
+    Std.Nat.leOfEq  std/Nat/Arith.sw:96  (import Std (Nat))
+    leaves ⊢ a = c
+ …
+```
+
+- **How**: the goal's hypotheses become fixed variables (a lemma's own variables take the goal's terms, never the other way: `instance` matches only), and the target is searched as a conclusion over every theorem and constructor of the library and the file (and definitions, for a goal that isn't a proposition), without the filter, since a lemma that fits a goal names fewer things than the goal does. A target that starts with arrows (`(n: Nat) → …`) has its variables introduced: each proof starts `n => …`. For each of the first 50 matches (`--candidates N`), in the order `search` ranks them, each premise (an explicit parameter whose type is a proposition) is filled with a hypothesis whose type fits, else left `?`; each `?` left is tried with `rfl`, `omega` and `byDecision`.
+- **Checked**: every proof is elaborated at the goal (its hypotheses bound as they are at the `?`) in a session with only the file loaded, as it is once pasted, and, with no `?` left, checked by the kernel. Nothing is listed as closing the goal unless the kernel accepted it.
+- **The classes**: `exact` (the lemma applied to the goal's terms), `withHypotheses` (premises filled with hypotheses), `afterObligations` (premises closed by `rfl`, `omega` or `byDecision`, each listed; also a rewrite after which `rfl` or `omega` closes the goal), and `applicable` (it applies, leaving goals, each listed; checked by the kernel with those goals as hypotheses when they can be written so, else only elaborated). `tactics` lists the closers that close the goal on their own. A lemma whose conclusion names nothing (`Eq.sym`'s `b = a`, `Nat.succInjective`'s `m = n`) fits nearly any goal, so it is listed only if it closes it.
+- **Rewrites**: each call in the target against the sides of every equation and `Iff` that names its head: `rewrite L … in ?` (or `rewrite <- …`), with the goal it leaves, checked, and whether `rfl` or `omega` then closes it.
+- **Scope**: the file on its own, as `check FILE` sees it (a file of a project isn't supported yet). The proofs name things as the file can write them; `import` says what would let it write a shorter name.
+- **Limits**: 50 candidates, three ways of filling each one's premises, 10 s of checking (`--time 30s`); the JSON's `budget` says whether more matched than were tried (`truncated`) and whether the time ran out (`exhausted: false`). `--limit N` (10) of each list are shown.
+- **Exit status**: 0 if something closes the goal, 1 if nothing does (what applies and the rewrites are still listed), 2 if there is no goal there, or it can't be written as a statement on its own (`E-SEARCH-AT`: a shadowed or compiler-made name, a `let` of data in scope).
+- **`--json`**: `version` (1), `goal` (`file`, `line`, `column`, `index`, `hypotheses` with `name` and `type`, `target`, `introduced`), `tactics`, `results` (each `class`, `proof`, `name`, `kind`, `type`, `file`, `line`, `import`, `checked`: `kernel` or `elaborated`, `obligations` with `target` and `closer`, `goals` with `target` and `lemma`, `searchRank`), `rewrites` (each `proof`, `name`, `at`, `direction`: `leftToRight` or `rightToLeft`, `equation`, `goal`, `closes`, `checked`), `total` (`closing`, `applicable`, `rewrites`), `budget` (`candidates`, `matched`, `tried`, `maxCandidates`, `checks`, `truncated`, `exhausted`, `outOfBudget`, `internalErrors`) and `warnings`. With `--log`, each `--at` search appends a line with `event: "at"`.
+- **In the editor**: the language server's code action at a `?` of a file on its own offers to replace it with each of the top three closing proofs (and a tactic that closes it alone).
 
 ### `include`
 

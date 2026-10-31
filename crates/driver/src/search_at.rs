@@ -928,6 +928,48 @@ fn try_rewrite(
     })
 }
 
+/// What closes goal `at` of `text`, a file on its own named `name`: loaded
+/// into a session that then loads the whole library to search, and into a
+/// second with only the file, to check the proofs in (as
+/// [`Session::search_at`] explains). With `cache`, both load through that
+/// check cache. For the language server's code action; the command does
+/// the same with the file's includes and project context.
+pub fn search_at_text(
+    stack: usize,
+    name: &str,
+    text: &str,
+    at: GoalAt,
+    options: &AtOptions,
+    cache: Option<&std::path::Path>,
+) -> Result<AtReport, String> {
+    let load = |session: &mut Session| -> Vec<Diagnostic> {
+        if let Some(dir) = cache {
+            session.use_check_cache(dir);
+        }
+        let mut diagnostics = session.load(name, text).err().unwrap_or_default();
+        diagnostics.append(&mut session.warnings);
+        diagnostics
+    };
+    let mut session = Session::for_stack(stack);
+    let diagnostics = load(&mut session);
+    let file = (session.sources.iter())
+        .filter(|(_, f)| f.name == name)
+        .map(|(id, _)| id)
+        .last()
+        .ok_or("the file didn't load")?;
+    let goals = goals_in(&session.sources, file, &diagnostics);
+    let found = pick(&goals, at)?.clone();
+    session
+        .elab
+        .load_all_libraries()
+        .map_err(|_| "the library didn't load".to_string())?;
+    let mut checking = Session::for_stack(stack);
+    load(&mut checking);
+    session
+        .search_at(&found, name, options, &Scope::File, Some(&mut checking))
+        .map_err(|d| format!("{}: {}", d.code, d.message))
+}
+
 /// The report as text.
 pub fn render_text(report: &AtReport) -> String {
     let mut out = String::new();

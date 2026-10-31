@@ -924,7 +924,65 @@ std and the project loaded through the check cache; helpers and `…Example` the
 
 **Built after stage 1** (SW-927): overloaded operators with operands nothing types (`_ ++ _`, `_ + _`) are tried at each reading (lists and texts; `Nat` and `Int`) and the results merged, as §4 promised: the pattern as written first, then with the first hole of each such operator's group ascribed each type, every combination up to 16; a reading what surrounds it rules out doesn't elaborate (`List.length (_ ++ _)` is lists only), and readings that elaborate the same are searched once. If one reading finds something without the relaxed pass, the readings that needed it are dropped. The query log (S1d): `--log FILE` or `STITCHWORT_SEARCH_LOG`, one JSON line per search (syntax.md). The lemma a later `check` used isn't recorded yet; the format has an `event` field for it.
 
-**Not built**: everything of stage 2.
+**Not built**: everything of stage 2 (now built: below).
+
+## As built (stage 2)
+
+Stage 2 is `stitchwort search --at FILE:LINE[:COL]` (or `--at FILE --goal N`), documented in
+[syntax.md](../syntax.md#what-closes-this--stitchwort-search---at) (SW-915, D2094). The elaborator's
+half is `crates/elab/src/closing.rs`, the driver's `crates/driver/src/search_at.rs`.
+
+**As planned (§5.7, D2066, review §8)**: the goal read from the file's goals (the same data as
+`check --index`, SW-914); hypotheses opened as frozen unknowns, so matches are `instance` only;
+unfiltered; candidates in stage 1's rank order, at most 50, each comparison under its step budget;
+premises filled from hypotheses (by unification), then `rfl`, `omega` and `byDecision`; every
+proof elaborated and kernel-checked before it is called closing; the four classes; rewrites in
+`rw?`'s direction; JSON version 1 with a budget saying `truncated` and `exhausted`; the code
+action.
+
+**Changed from the plan:**
+
+- **Checking is by text.** Each plan is printed as the proof an agent would paste, and that text is
+  elaborated inside `(((h: A) => …) : (h: A) → … → T)` (`Elaborator::check_proof`: no `?`, kernel;
+  with `?`, the goals left, printed as a file's). So what is checked is what is shown, and the
+  goals an `applicable` result leaves are the elaborator's own. A solved argument that can't be
+  printed is `_`; if the printed form fails, the proof is tried again with every solved argument
+  `_`.
+- **Two sessions.** The search needs the whole library loaded; a proof checked there can use an
+  instance or decision procedure from a library file the goal's file doesn't load (found:
+  `byDecision` closed `m + n = n + m` with every file loaded, and fails in the file). So the
+  proofs are checked in a second session with only the file loaded.
+- **Depth.** One application, its premises filled by hypotheses (as a whole, by unification,
+  backtracking over the choices, at most three plans and 200 choices a candidate) or by one
+  closer each. Draft 3's "depth 3" (a hypothesis applied to further premises, or a closer leaving
+  goals for another round) isn't built: no measured goal needed it yet.
+- **`auto`**: an `[auto]` parameter is filled by elaboration as always; for an explicit premise,
+  the closer is `byDecision` (Lean's `decide`).
+- **Noise rules, from the first runs**: a lemma whose conclusion names nothing (`r = l`,
+  `Nat.succInjective`'s `m = n`) is suggested only if it closes the goal (30 of 31 `applicable`
+  results on `List.length (xs ++ ys) = …` were such); an `applicable` result whose goal has an
+  unknown in it (`?3 m n`) is dropped; so is an `afterObligations` one whose obligation is the
+  goal itself (`omega` alone closes it: `tactics` says so once).
+- **Rewrites that then close**: `rewrite L … in rfl` (or `omega`) is a closing suggestion too.
+- **Project files** aren't supported yet: the file is checked on its own, as `check FILE` does.
+  The goal's statement must be writable on its own (SW-914's `lemma` rules); otherwise
+  `E-SEARCH-AT`.
+
+**Measured** (31 October 2026, `crates/driver/tests/search_at_bench.rs`, full tier): std theorems
+whose whole proof is one lemma applied to their own variables (46 goals once the reflective
+tactics' lemmas, `Ring.prove…` and `Omega.prove…`, are left out): a kernel-checked closer (or a
+tactic alone) for 80.9%; the lemma the proof used is among the closers for 67.4%, first for 54.3%,
+in the first five for 63.0%. Most misses are concrete `…Example` goals (`3 ∈ List.append [1, 2]
+[3]`), where the goal as elaborated has computed past the lemma's conclusion. Every 10th std
+statement as a goal (222 goals, the theorem itself left out): something else closes 23.4%. About
+0.5 s a goal on std (std loaded through the check cache; 200 to 400 checks).
+AoC goals were not measured: they are a project's, which `--at` doesn't read yet.
+
+**Tests**: `crates/driver/tests/search_at.rs` (lane `search`): a goal per class, a rewrite, an
+introduced variable, a false goal; every closing suggestion is pasted in place of its `?` and the
+file checked again. `search_at_bench.rs` (daily a quarter, full all). `crates/cli/tests/search.rs`
+`what_closes_a_goal` (the command, exit codes, the JSON snapshot). `crates/cli/tests/lsp.rs`
+`a_code_action_at_a_goal_offers_what_closes_it`.
 
 **Tests and tiers** (lane area `search`, docs/testing.md): `crates/driver/tests/search_match.rs`
 (relations, `_`, `p x`, named holes under binders, refusals, rewrite: a small file);
