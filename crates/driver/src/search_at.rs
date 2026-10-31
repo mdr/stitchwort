@@ -41,6 +41,9 @@ pub struct AtOptions {
     pub time: Duration,
     /// Also the library's hidden helpers.
     pub all: bool,
+    /// Declarations not to suggest, by full name (a benchmark leaves out
+    /// the theorem whose statement is the goal).
+    pub exclude: Vec<String>,
 }
 
 impl Default for AtOptions {
@@ -50,6 +53,7 @@ impl Default for AtOptions {
             max_candidates: 50,
             time: Duration::from_secs(10),
             all: false,
+            exclude: Vec::new(),
         }
     }
 }
@@ -428,7 +432,9 @@ impl Session {
         let all = options.all;
         let prop = goal.prop;
         let candidates = self.elab.search_candidates(&|item, path| {
-            (all || !hidden(path)) && (!prop || item.kind(g) != Kind::Definition)
+            (all || !hidden(path))
+                && (!prop || item.kind(g) != Kind::Definition)
+                && !options.exclude.iter().any(|e| e == path)
         });
         let keep = |_: &Candidate| true;
         let closing = self

@@ -293,3 +293,42 @@ fn the_json_contract() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+const GOALS: &str = "\
+import Std (Nat)
+
+theorem swap (m: Nat) (n: Nat): m + n = n + m := ?
+
+theorem chain (a: Nat) (b: Nat) (c: Nat) (h1: a ≤ b) (h2: b ≤ c): a ≤ c := ?
+
+theorem wrong (m: Nat): m + 1 = m := ?
+";
+
+/// `search --at` (stage 2): a goal by line or by index, exit codes, and the
+/// JSON contract's snapshot.
+#[test]
+fn what_closes_a_goal() {
+    let dir = folder("at");
+    std::fs::write(dir.join("goals.sw"), GOALS).unwrap();
+    let (code, out, err) = search(&dir, &["--at", "goals.sw:3", "--limit", "2"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(out.contains(" 1. Nat.addComm m n  [exact]"), "{out}");
+    let (code, report) = json(&dir, &["--at", "goals.sw", "--goal", "2", "--limit", "1"]);
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["goal"]["line"], 5);
+    assert_eq!(report["results"][0]["proof"], "Nat.leTrans a b c h1 h2");
+    let mut report = report;
+    report["budget"]["candidates"] = "(the library's size)".into();
+    report["budget"]["checks"] = "(varies)".into();
+    insta::assert_snapshot!(serde_json::to_string_pretty(&report).unwrap());
+    // Nothing closes a false goal: 1. No goal there, or a query too: 2.
+    let (code, report) = json(&dir, &["--at", "goals.sw:7"]);
+    assert_eq!(code, 1, "{report}");
+    assert_eq!(report["total"]["closing"], 0);
+    let (code, report) = json(&dir, &["--at", "goals.sw:4"]);
+    assert_eq!(code, 2, "{report}");
+    assert_eq!(report["error"]["code"], "E-SEARCH-AT");
+    let (code, _, _) = search(&dir, &["_ = _", "--at", "goals.sw:3"]);
+    assert_eq!(code, 2);
+    let _ = std::fs::remove_dir_all(&dir);
+}

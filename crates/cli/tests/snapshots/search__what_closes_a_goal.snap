@@ -1,0 +1,106 @@
+---
+source: crates/cli/tests/search.rs
+assertion_line: 323
+expression: "serde_json::to_string_pretty(&report).unwrap()"
+---
+{
+  "budget": {
+    "candidates": "(the library's size)",
+    "checks": "(varies)",
+    "exhausted": true,
+    "internalErrors": 0,
+    "matched": 50,
+    "maxCandidates": 50,
+    "outOfBudget": 3,
+    "tried": 50,
+    "truncated": false
+  },
+  "goal": {
+    "column": 76,
+    "file": "goals.sw",
+    "hypotheses": [
+      {
+        "name": "a",
+        "type": "Nat"
+      },
+      {
+        "name": "b",
+        "type": "Nat"
+      },
+      {
+        "name": "c",
+        "type": "Nat"
+      },
+      {
+        "name": "h1",
+        "type": "a ≤ b"
+      },
+      {
+        "name": "h2",
+        "type": "b ≤ c"
+      }
+    ],
+    "index": 2,
+    "line": 5,
+    "target": "a ≤ c"
+  },
+  "results": [
+    {
+      "checked": "kernel",
+      "class": "withHypotheses",
+      "file": "std/core/Division.sw",
+      "import": "import Std (Nat)",
+      "kind": "theorem",
+      "line": 41,
+      "name": "Std.Nat.leTrans",
+      "proof": "Nat.leTrans a b c h1 h2",
+      "searchRank": 15,
+      "type": "(a: Nat) → (b: Nat) → (c: Nat) → a ≤ b → b ≤ c → a ≤ c"
+    },
+    {
+      "checked": "kernel",
+      "class": "applicable",
+      "file": "std/Nat/Arith.sw",
+      "goals": [
+        {
+          "lemma": "theorem goal1 (a: Nat) (b: Nat) (c: Nat) (h1: a ≤ b) (h2: b ≤ c): a = c := ?",
+          "target": "a = c"
+        }
+      ],
+      "import": "import Std (Nat)",
+      "kind": "theorem",
+      "line": 96,
+      "name": "Std.Nat.leOfEq",
+      "proof": "Nat.leOfEq a c ?",
+      "searchRank": 1,
+      "type": "(a: Nat) → (b: Nat) → a = b → a ≤ b"
+    }
+  ],
+  "rewrites": [
+    {
+      "at": "a <= c",
+      "checked": "kernel",
+      "direction": "rightToLeft",
+      "equation": "eq",
+      "file": "std/List/SortLemmas.sw",
+      "goal": "Std.Ordering.isLessEq (Nat.compare a c) = True",
+      "import": "import Std (Nat)",
+      "line": 417,
+      "name": "Std.Nat.compareLeq",
+      "proof": "rewrite <- Nat.compareLeq a c in ?",
+      "type": "(m: Nat) → (n: Nat) → Ordering.isLessEq (Nat.compare m n) = (m <= n)"
+    }
+  ],
+  "tactics": [
+    "omega"
+  ],
+  "total": {
+    "applicable": 9,
+    "closing": 4,
+    "rewrites": 1
+  },
+  "version": 1,
+  "warnings": [
+    "3 comparisons ran out of steps: a match may have been missed"
+  ]
+}

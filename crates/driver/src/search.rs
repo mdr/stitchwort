@@ -670,7 +670,7 @@ impl Session {
 
     /// Imports every namespace of the library (`import Std (List, Map,
     /// …)`), so that a query can say `List.length` or `Map.insert`.
-    fn import_library_namespaces(&mut self) {
+    pub fn import_library_namespaces(&mut self) {
         let g = &self.elab.globals;
         let tops = (0..g.defs.len())
             .map(|i| g.def(stitchwort_core::DefId(i)).path.to_string())

@@ -579,6 +579,7 @@ fn run(cli: Cli) -> ExitCode {
                     max_candidates: candidates,
                     time,
                     all,
+                    exclude: Vec::new(),
                 };
                 return search_at(
                     &at,
