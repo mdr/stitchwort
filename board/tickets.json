@@ -2192,14 +2192,14 @@
     {
       "id": 937,
       "title": "cases on Int goals: case descriptions show Int internals (subNatNatFrom) and can hit the 64-case budget",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
-      "where": "",
+      "where": "lane (D2099)",
       "labels": [
         "elab",
         "diagnostics"
       ],
-      "body": "From AoC 2021 day 2 (aoc/NOTES-2021.md, 31 Oct 2026). When cases fails on a false Int goal it describes the case by Int's internals (Int.subNatNatFrom …), and in one theorem ran past its 64-case budget (E-CASES-BUDGET); the counterexample note was right but the case description was unhelpful. Print cases in user terms (Int literals/negation), and avoid splitting Int internals (cf. SW-608 item 3 for Float internals).\n",
+      "body": "From AoC 2021 day 2 (aoc/NOTES-2021.md, 31 Oct 2026). When cases fails on a false Int goal it describes the case by Int's internals (Int.subNatNatFrom …), and in one theorem ran past its 64-case budget (E-CASES-BUDGET); the counterexample note was right but the case description was unhelpful. Print cases in user terms (Int literals/negation), and avoid splitting Int internals (cf. SW-608 item 3 for Float internals).\n\n\nD2099 (Matt, 31 Oct 2026): yes. Print Int values as numbers in cases and goals (OfNat n as n, NegSucc n as -(n+1)); stop cases splitting Int's internals unless an existing proof needs it (if one does, keep the split and ship the printing only).\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
