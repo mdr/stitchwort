@@ -1,5 +1,5 @@
 {
-  "next": 957,
+  "next": 958,
   "tickets": [
     {
       "id": 47,
@@ -2445,7 +2445,7 @@
     {
       "id": 953,
       "title": "AoC 2021 day 7: The Treachery of Whales (program, spec, proofs)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "agent-a6b7e5d108eef7b9b",
       "labels": [
@@ -2482,10 +2482,12 @@
       "labels": [
         "aoc"
       ],
-      "body": "AoC 2021 days 5 and 6: prove the parsers guarantee what the correctness theorems assume (D2108). Day 5: every line of a successful `parseLines` is horizontal, vertical or diagonal at 45 degrees, so `part2Correct` composes into an end-to-end theorem about the input text. Day 6: every timer of a successful `parseTimers` is at most 8, with the end-to-end theorems. Pattern for \"a successful parse\" documented in aoc/NOTES-2021.md.\n",
+      "body": "AoC 2021 days 5 and 6: prove the parsers guarantee what the correctness theorems assume (D2108). Day 5: every line of a successful `parseLines` is horizontal, vertical or diagonal at 45 degrees, so `part2Correct` composes into an end-to-end theorem about the input text. Day 6: every timer of a successful `parseTimers` is at most 8, with the end-to-end theorems. Pattern for \"a successful parse\" documented in aoc/NOTES-2021.md.\n\n- 31 Oct: done on worktree-agent-af2241c18cbe2b1aa at 6df69251: parseLinesShapes + part2FromInput (day 5), parseTimersBounded + part1FromInput/part2FromInput (day 6); audit 45/45 and 27/27 passed.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "6df69251"
+      ]
     },
     {
       "id": 956,
@@ -2497,6 +2499,20 @@
         "aoc"
       ],
       "body": "AoC 2021 day 8, Seven Segment Search: program, spec (a decoding is a wiring, a permutation of segments a-g, under which the ten patterns are exactly the ten digit patterns), proofs for every input that keeps the puzzle's promise, parser guarantees (D2108), tests (examples 26 / 61229 / 5353; input 445 / 1043101), NOTES-2021 entry.\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 957,
+      "title": "Day 7: std min-fold/sumBy/div-monotone/List.maximum lemmas; inconsistent d ≠ 0 conventions; cold-cache search slow",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "From AoC 2021 day 7 (aoc/NOTES-2021.md, 31 Oct 2026). Std candidates: foldMinLe / foldMinLeMember (Nat.min versions of List.foldMaxGe / List.leFoldMax), sumByLeMember (sumByLe when terms are smaller only on members), division monotone (a ≤ b → a / d ≤ b / d), List.maximum lemmas. Also: Nat.divMulLe takes d ≠ 0 explicitly unlike Nat.leDivOfMulLe (inconsistent argument conventions). Search: the first search on a cold cache was slow (52 s pattern, 71 s --at, machine under load); warm --at 2-3 s.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
