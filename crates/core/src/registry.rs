@@ -219,6 +219,8 @@ builtins! {
     EqNatSound = "Nat.equalSound": Def,
     NatNeq = "Nat.equalFalse": Def,
     DivFuel = "Nat.divFuel": Def,
+    // One step of `divFuel`, which goals show as the `/` it comes from
+    DivStep = "Nat.divStep": Def,
     DecEqNat = "Nat.decEq": Def,
     // Integers
     Int = "Int": Data,

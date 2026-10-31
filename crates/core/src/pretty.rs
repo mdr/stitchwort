@@ -1117,9 +1117,7 @@ impl<'g> Printer<'g> {
             }
             return Some((op, prec, lhs, rhs));
         }
-        if self.g.registry.is_def(Builtin::DivFuel, id)
-            && let Some((n, d)) = self.quotient_args(id, args)
-        {
+        if let Some((n, d)) = self.quotient_args(id, args) {
             return Some(("/", Prec::Mul, n, d));
         }
         let path = &self.g.def(id).path;
@@ -1152,13 +1150,81 @@ impl<'g> Printer<'g> {
     }
 
     /// `n` and `d` if the explicit arguments of a call of `Nat.divFuel` are
-    /// `n n d`: the fuel is the number divided.
+    /// `n n d`: the fuel is the number divided. Or if they're those of a
+    /// call of `Nat.divStep` that `n / d` computes to: `Nat.divFuel n n d`,
+    /// with `n` one more than something, takes one step, to `Nat.divStep
+    /// (Nat.leq d n) f n d` with `f + 1 = n`, which is stuck when the
+    /// comparison is (`n` has an unknown part). Then it is shown as the `n /
+    /// d` it came from, which reads back to the same value
+    /// (docs/proposals/division.md).
     fn quotient_args<'t>(&self, id: DefId, args: &[&'t Term]) -> Option<(&'t Term, &'t Term)> {
         match args {
             [fuel, n, d] if self.g.registry.is_def(Builtin::DivFuel, id) && same_term(fuel, n) => {
                 Some((n, d))
             }
+            [fits, fuel, n, d]
+                if self.g.registry.is_def(Builtin::DivStep, id)
+                    && self.first_step(fits, fuel, n, d) =>
+            {
+                Some((n, d))
+            }
             _ => None,
+        }
+    }
+
+    /// Whether `Nat.divStep fits fuel n d` is the first step of `n / d`:
+    /// `fuel + 1` is `n`, and `fits` is `Nat.leq d n`, possibly with the same
+    /// number of `Succ`s taken off both sides, as `Nat.leq` computes on them
+    /// (`Nat.leq 100 (3 + x)` is `Nat.leq 97 x`).
+    fn first_step(&self, fits: &Term, fuel: &Term, n: &Term, d: &Term) -> bool {
+        let (kn, bn) = self.nat_parts(n);
+        let (kf, bf) = self.nat_parts(fuel);
+        if kn != kf + 1u32 || !same_base(bn, bf) {
+            return false;
+        }
+        let (head, compared) = explicit_spine(fits);
+        let (Term::Def(leq), [a, b]) = (head, &compared[..]) else {
+            return false;
+        };
+        if !self.g.registry.is_def(Builtin::Leq, *leq) {
+            return false;
+        }
+        let (kd, bd) = self.nat_parts(d);
+        let (ka, ba) = self.nat_parts(a);
+        let (kb, bb) = self.nat_parts(b);
+        same_base(bd, ba) && same_base(bn, bb) && kd >= ka && kn >= kb && &kd - &ka == &kn - &kb
+    }
+
+    /// A number term as `k + base`: the `Succ`s and literal `+`s around its
+    /// base (none for a literal), however they are written (`Succ x`, `3 +
+    /// x`, `x + 3`, `3`).
+    fn nat_parts<'t>(&self, term: &'t Term) -> (BigUint, Option<&'t Term>) {
+        let mut k = BigUint::from(0u32);
+        let mut term = term.strip_loc();
+        loop {
+            match term {
+                Term::Nat(n) => return (k + &**n, None),
+                Term::Ctor(d, 0, _) if is(self.g, Builtin::Nat, *d) => return (k, None),
+                Term::Ctor(d, 1, args) if is(self.g, Builtin::Nat, *d) && args.len() == 1 => {
+                    k += 1u32;
+                    term = args[0].strip_loc();
+                }
+                _ => {
+                    let (head, args) = explicit_spine(term);
+                    match (head, &args[..]) {
+                        (Term::Def(add), [x, y]) if self.g.registry.is_def(Builtin::Add, *add) => {
+                            match (x.strip_loc(), y.strip_loc()) {
+                                (Term::Nat(n), rest) | (rest, Term::Nat(n)) => {
+                                    k += &**n;
+                                    term = rest;
+                                }
+                                _ => return (k, Some(term)),
+                            }
+                        }
+                        _ => return (k, Some(term)),
+                    }
+                }
+            }
         }
     }
 
@@ -2151,6 +2217,16 @@ fn is(g: &Globals, b: Builtin, d: DataId) -> bool {
 /// Whether `d` is the library built-in `b`, if its file is loaded.
 fn is_loaded(g: &Globals, b: Builtin, d: DataId) -> bool {
     g.registry.loaded_data(b) == Some(d)
+}
+
+/// Whether two bases of [`Printer::nat_parts`] are the same: both absent (the
+/// numbers are literals), or the same term.
+fn same_base(a: Option<&Term>, b: Option<&Term>) -> bool {
+    match (a, b) {
+        (None, None) => true,
+        (Some(a), Some(b)) => same_term(a, b),
+        _ => false,
+    }
 }
 
 /// `Succ (Succ Zero)` as `2`.

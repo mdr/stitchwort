@@ -10,7 +10,21 @@
 -- recursive (`n` is always enough fuel when `divisor` isn't zero).
 def Nat.divFuel: Nat → Nat → Nat → Nat
   | Zero, n, divisor => 0
-  | Succ fuel, n, divisor => if Nat.leq divisor n then Succ (Nat.divFuel fuel (n - divisor) divisor) else 0
+  | Succ fuel, n, divisor => Nat.divStep (Nat.leq divisor n) fuel n divisor
+
+-- One step of `Nat.divFuel`, given whether `divisor` fits into `n`: if it
+-- does, one more than the count for `n - divisor`. The comparison is an
+-- argument, rather than `divFuel` writing `if … then Succ (…) else 0`, so
+-- that a step whose comparison can't be decided (`n` has an unknown part) is
+-- one call stuck on it, `Nat.divStep (d <= n) …`, not an `if` holding the
+-- next step in its branch. Since `x + 12345` computes to 12345 `Succ`s
+-- around `x`, the `if` put 12345 nested steps into the normal form of
+-- `(x + 12345) / d`, a term growing with the square of the constant
+-- (docs/proposals/division.md). Goals show a step as the `/` it comes from.
+@[noReceiver]
+def Nat.divStep: Bool → Nat → Nat → Nat → Nat
+  | False, fuel, n, divisor => 0
+  | True, fuel, n, divisor => Succ (Nat.divFuel fuel (n - divisor) divisor)
 
 -- `n / divisor` and `n % divisor` need a proof that `divisor` isn't zero, which `auto` finds.
 def Nat.div (n: Nat) (divisor: Nat): [auto ok: divisor ≠ 0] → Nat := Nat.divFuel n n divisor

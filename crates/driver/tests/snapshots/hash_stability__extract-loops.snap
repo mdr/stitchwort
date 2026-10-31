@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.sumFrom 5fab116e9719b9bfdd0ac90667f3caa22980544309ec1421ce1faf8d208d522f
 Main.sumTo ce5027728ce763621468c0226eee7ce97ce2b6a90c9b0061ac4262d6f9d11ff3
@@ -13,4 +13,4 @@ Main.applyAll 2a3d847cf25fe449e1d4a26cf0c15a9fd488bf90a4369f9ef77c70ab4c9b661a
 Main.closures 559a34769424e4e0e8150e6b5dc9dee3434c4410bf55e6a0db7f477b969f0cba
 Main.twice 2f3ad899646cb1bb54c13e5727e961941c9bf5c81927924c362757748b680e72
 Main.reused e22f61290a01a137185eb0103cd9f195a4b1163584223c08e20f90d88ead1615
-Main.digits bcd170df5b946025d37882891cb506a30ea47fdeb329b55a4bb858c93532546c
+Main.digits 460bc48ea11d100c21e3192453247d09d50d026afa598934318369019e3795f5

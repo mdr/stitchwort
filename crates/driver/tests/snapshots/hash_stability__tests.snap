@@ -1,11 +1,11 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.reverse 1ebf8f43fc885501ddabec1574e20b9f2317461eda71abdd8a2220dd44220ab2
 Main.equalLists 2e09ddffadc35634777463cd99c2907c45718b02fcbf4e61fbf0b75f6c8384e8
 Main.test "reverse reverses" 00d582a039a3fd5617ab225a8f77858f505308b8a9f36fa8df452bc923d8bd7c
 Main.test "reverse twice is the identity" 4b468862aba551be381e0376a78d4601d06ac2e3689f20cbdbd95002662b73a3
-Main.test "division rounds down" 92e0e2010ad3f16eb930ade47d20d7e6762268eb83b55eec2d304b5c24dda146
-Main.test "remainder" c0eefbed6b77ef90af78aca8008e335135f75a3ae6099ec0e8e1b0f08642d9f6
+Main.test "division rounds down" 4fee329528029839d67bd143df9b424c3569227e7c1d423cf57f38c2506e0bfc
+Main.test "remainder" a87aa5a954c00792ad9c80f3c725afc32a1def4ffc374dcf73289178eba5f7ea
 Main.reverseOfSingleton 972638410b9c0ef3ab0e57ceedd23d2e68acbe67661ccf08d545da173e639104

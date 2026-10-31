@@ -66,7 +66,7 @@ slow-timeout = { period = "30s" }
 default-filter = """
 package(stitchwort-syntax)
 | package(stitchwort-core)
-| (package(stitchwort-driver) & binary(nested_oracle))
+| (package(stitchwort-driver) & (binary(nested_oracle) | binary(pinned_hashes) | binary(division)))
 | (package(stitchwort-elab) & !test(/^omega_search::tests::(replay_refuses_a_missing_case|integer_model|needs_nonnegativity|not_equal_splits|disconnected)$/))
 | binary(ability_errors) | binary(empty_row_kernel)
 | (package(stitchwort-rt) & binary(effect_runtime) & test(/^(state_handlers_run_as_a_loop_where_they_fit|io_operations_cross_translations_on_their_way_to_the_runner|closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/))
@@ -106,7 +106,7 @@ path = "junit.xml"
 default-filter = "package(stitchwort-syntax)"
 
 [profile.lane-core]
-default-filter = "(package(stitchwort-core) & (kind(lib) | binary(kernel) | binary(hash) | binary(admission) | binary(opaque) | binary(trusted) | binary(universe_levels) | binary(kernel_bugs_2026))) | (package(stitchwort-driver) & binary(nested_oracle))"
+default-filter = "(package(stitchwort-core) & (kind(lib) | binary(kernel) | binary(hash) | binary(admission) | binary(opaque) | binary(trusted) | binary(universe_levels) | binary(kernel_bugs_2026))) | (package(stitchwort-driver) & (binary(nested_oracle) | binary(division)))"
 
 [profile.lane-elab]
 default-filter = "(package(stitchwort-elab) & !test(/^omega_search::tests::(replay_refuses_a_missing_case|integer_model|needs_nonnegativity|not_equal_splits|disconnected)$/)) | (package(stitchwort-driver) & binary(conv_shortcut) & test(=a_solved_unknown_is_seen_through_by_the_identity_shortcut))"
@@ -153,7 +153,7 @@ default-filter = "package(stitchwort-standalone) | (package(stitchwort-cli) & (b
 
 # With NAME (EXAMPLES): only the examples whose names contain it.
 [profile.lane-hashes]
-default-filter = "binary(hash_stability) & test(/^(examples|projects|prelude)$/)"
+default-filter = "(binary(hash_stability) & test(/^(examples|projects|prelude)$/)) | (package(stitchwort-driver) & binary(pinned_hashes))"
 
 # With NAME (EXAMPLES): only the examples whose names contain it; without,
 # the lane sample (a quarter of each folder).

@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Say 85e15a549ff296bcf87d90c255b1c9261440e6ebb7a0452e42c74614d2e8b22d
 Main.sign 780592c3472ab9ab2e30192966050f8504105ef4490e17ce8ea8eb79f26b5efc
@@ -8,7 +8,7 @@ Main.grade 5ee749a462694e79c317d487530d0746a75d93a9fb43cbaf7700c704c80a729d
 Main.describe 06a1774ae04e3f84cf90b9c789f20ee795c13d525b4473860fdf82b557554670
 Main.nested cda155e5f87864e4992a288382d527864858fe1af7f5175bc8d9ae2266461bc2
 Main.inLet 83d983e46138c35bc29ab7b45071b96a96f647f5b6982465d3352116b344f903
-Main.safeDiv 5751860fce375a983b5dd7660badbd0b42946975341bdac9fda122a81db98789
+Main.safeDiv 2f8aa2d5f628bb45352281da2787e707dd872cee77c6f4e0d60dd3a0d0fdb87d
 Main.Say.%res 703105179b4d0c340d755824a6a2a621d4bc8a801622b7b9941977f606573b39
 Main.Say.%elim 9b0a340e6bf6d990ce518bd1053be63ab5d6fa072b602805a8210d8da92ac78c
 Main.withHandler 407642106db425ca51e0e67f1326aeaec385db1d593345da9d3cea1a9b5eedc0
@@ -22,8 +22,8 @@ Main.test "describe, block branch" 18bcf855f55351b68f5dbd41b39058aead976fffe5c79
 Main.test "nested" 817da5028697be9aff9717f01b826239c099fbd422ed6146bd671a6193f892f5
 Main.test "nested, outer else" f04440abcc84b5e1cee556554a04039736bef9370ed669a0b600021479adc095
 Main.test "inLet" 39b794d8138f8393c1b995621130bd807a05e3f88b647ef4fca3ebc81e814ad3
-Main.test "safeDiv" ad4088171d8699231e0d9b19713d6b6315a20ced4857e687974518d4828fe087
-Main.test "safeDiv, zero" 2a8e4ad3ce5a3a543bb47bb74413864e50164675b3358e71916b0d4597ff3c7c
+Main.test "safeDiv" cd7debd80bcbeb6cead7f99bdbb67c12cd7ec2744d17eccaf7f0f98fba99df5c
+Main.test "safeDiv, zero" 3a7873dac4d029d2cea2fbd387784366aef250782298cac35c94b452d5b1538d
 Main.test "withHandler" 90fe6c0337cee949fc27bfa1eb21b14465fe921331d350f45044adadc63943ff
 Main.test "withHandler, else if" 3d5b4e043025f5dde2d9026dc3d5c163a87d595b617c5837a4eaeab76c778f2f
 Main.test "withHandler, last else" 490900bd8b24794dcebd23ec481c3be8f1e22cee36d4026158a1702c86bdcd0a

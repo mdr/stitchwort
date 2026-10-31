@@ -104,7 +104,7 @@ theorem Nat.subLtAdd: (n: Nat) → (x: Nat) → (d: Nat) → x ≤ n → n < d +
 
 theorem Nat.divFuelLeStep (fuel: Nat) (n: Nat) (d: Nat): (b: Bool) → Nat.leq d n = b →
     ((m: Nat) → Nat.divFuel fuel m d * d ≤ m) →
-    (if b then Succ (Nat.divFuel fuel (n - d) d) else 0) * d ≤ n
+    Nat.divStep b fuel n d * d ≤ n
   | True, h, ih =>
     Nat.leCongRight (d + Nat.divFuel fuel (n - d) d * d) (d + (n - d)) n (Nat.addSubCancel d n h)
       (Nat.leAddCong d (Nat.divFuel fuel (n - d) d * d) (n - d) (ih (n - d)))
@@ -121,7 +121,7 @@ theorem Nat.fuelSub: (n: Nat) → (d: Nat) → (f: Nat) → Not (d = 0) → n �
 
 theorem Nat.divFuelBoundStep (fuel: Nat) (n: Nat) (d: Nat) (ok: Not (d = 0)) (hn: n ≤ Succ fuel): (b: Bool) → Nat.leq d n = b →
     ((m: Nat) → m ≤ fuel → m < Succ (Nat.divFuel fuel m d) * d) →
-    n < Succ (if b then Succ (Nat.divFuel fuel (n - d) d) else 0) * d
+    n < Succ (Nat.divStep b fuel n d) * d
   | True, h, ih =>
     Nat.ltCongLeft (d + (n - d)) n (d + Succ (Nat.divFuel fuel (n - d) d) * d) (Nat.addSubCancel d n h)
       (Nat.ltAddCong d (n - d) (Succ (Nat.divFuel fuel (n - d) d) * d) (ih (n - d) (Nat.fuelSub n d fuel ok hn)))
