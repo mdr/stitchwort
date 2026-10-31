@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 Main.bigSum 2a0b5e80a4b641fa5f4f85144800eab2b32f722692d10f5f38752edc4e6f2ca6
 Main.bigProduct 08c90c97884fd2a0c0fe54fefd26b182714f16a7a06d5f9eedf1fb5fafabc985
@@ -9,8 +9,8 @@ Main.isZero 6fcfc2d8f2604c232c3538fbad6e2ae9378a34d231da22168644d7befebe270c
 Main.test "a big number isn't zero" 07b3cf27e5a9435d9da255f103cb5f003bf925e4c1abc38d7446af216aa0cc7f
 Main.predOf 614cd8835ad00bea1f72d0fbe1e65d3f3aefc66df4a329f13136e950fc3806de
 Main.test "pred" 8cea842da5a738c8328d982f31be5360406f97b3e37c2083161709a2e7261786
-Main.test "division" e97c19eb7b069a08bfcfd8b045c69b29a1aac74a50b3cb2922f0ba513c31e814
-Main.test "remainder" 753438b4877434792cc007142ed8b6b3a8e20570f06bc1b9ff60434944b5a911
+Main.test "division" 8c67e474bf50f8803ffac5c4368cfaf8d8b34f0a1e325b9e0ba4ec79c2ba067f
+Main.test "remainder" cafcccc9b878ddc102b922e2655d425985eb16e4e0416cb99151b46a030d3f31
 Main.test "subtraction stops at zero" 1435b5ac378b8957baba738333a73ed09a9c95cbdecd36401c39f8eab8a107af
 Main.test "comparison" 436ee14a9eea6f7464802dbc134d54f2dedd78dc3f38c8f78865e84654f47de5
 Main.under 5e6d1ee6c5232ff47ca09f8fc7be465ed15f006867520f2b2f2d8346bfd48ec9
