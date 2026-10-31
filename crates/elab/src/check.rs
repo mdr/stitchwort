@@ -4671,11 +4671,13 @@ fn propagate(
             })();
             let off = &cx.e.no_propagation;
             off.set(off.get() - 1);
-            // Both fail inside the same lambda argument: the first knew what
-            // the lambda must prove, where the second only had unknowns.
+            // Both fail inside the same argument: the first knew what the
+            // argument must prove, where the second only had unknowns (a
+            // `rewrite` in `Eq.trans (List.filterSkip _ _ _ (rewrite …)) e`
+            // against a goal of `?p ?x = False`, SW-931).
             match old {
                 Err(old)
-                    if !crate::undo::fatal(&old) && in_same_lambda(args, &propagated, &old) =>
+                    if !crate::undo::fatal(&old) && in_same_argument(args, &propagated, &old) =>
                 {
                     Ok(Some(Err(propagated)))
                 }
@@ -4686,8 +4688,12 @@ fn propagate(
 }
 
 /// Whether the errors `first` and `second` both point inside the same
-/// lambda among `args`.
-fn in_same_lambda(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bool {
+/// explicit argument among `args`: anywhere in a lambda, and strictly inside
+/// any other argument, so in one of its parts (the `rewrite` in
+/// `List.filterSkip _ _ _ (rewrite …)`). An error about a whole argument
+/// that isn't a lambda (`True` in `chooseFirst 5 True` at `Int`) keeps the
+/// second's message, which says how its type was fixed.
+fn in_same_argument(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bool {
     let (Some(first), Some(second)) = (first.labels.first(), second.labels.first()) else {
         return false;
     };
@@ -4697,6 +4703,11 @@ fn in_same_lambda(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bool
     args.iter().any(|arg| match arg {
         Arg::Explicit(lambda @ (Expr::Lam(..) | Expr::TypedLam(..))) => {
             inside(lambda.span(), first.span) && inside(lambda.span(), second.span)
+        }
+        Arg::Explicit(value) => {
+            let whole = value.span();
+            let part = |span: Span| inside(whole, span) && span != whole;
+            part(first.span) && part(second.span)
         }
         _ => false,
     })

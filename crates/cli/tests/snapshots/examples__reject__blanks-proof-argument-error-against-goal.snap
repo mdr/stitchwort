@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/blanks-proof-argument-error-against-goal.sw:11:49 ]
+    │
+ 11 │   Eq.trans (List.filterSkip _ _ _ (rewrite h in rfl)) e
+    │                                                 ─┬─  
+    │                                                  ╰─── `True` and `False` aren't equal
+    │ 
+    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 2: this statement is false; a counterexample:
+    │           x = 0
+    │           rest = []
+    │         `x = 0` holds
+    │         `zeros rest = []` holds
+    │         `zeros (Cons x rest) = []` is false:
+    │           left:  [0]
+    │           right: []
+    │           first difference at [0]: right ends, left has 0 (left has 1 element, right has 0 elements)
+────╯
