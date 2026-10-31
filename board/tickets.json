@@ -2094,7 +2094,7 @@
     {
       "id": 931,
       "title": "Blanks (_) in a lemma call aren't filled before its proof argument is checked (Eq.trans (List.filterSkip _ _ _ (rewrite …)) fails)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree-agent-ac7e942e67cd1a855",
       "labels": [
@@ -2103,7 +2103,10 @@
       "body": "NOTES-2021 item 2; same friction as AoC 2024 day 1. Find whether postponement (SW-817) or the order of argument checking explains it; fix or report.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\nProgress (Opus lane, worktree-agent-ac7e942e67cd1a855):\n- Repro: the holes form of windowsShort checks on main, and on 0eb53617 (the day 1 lane's base). The lane's failing try had a different proof (`rewrite List.takeAll …, equalBelow … in rfl`), which fails with the holes written out too (E-REWRITE-MOTIVE). The holes are filled; the wrong error was shown.\n- Cause: `propagate` (check.rs) compares Eq.trans's type with the goal first. When the application then fails, it is elaborated again without the goal (to keep old messages), and that error (goal `?6 … = False`) wins. Only a lambda argument kept the first error (in_same_lambda, 338e0e50).\n- Fix: keep the first error when both are inside the same explicit argument (in_same_argument). Failure path only, so accepted programs and hashes can't change. 2024 day 1 already uses `_ _` (fixed earlier).\n- Refined: strictly inside a non-lambda argument (an error about the whole argument, as in reject/expected-type-retry, keeps the old message). Reject snapshots: only the new one. Hashes: check.rs alone gives byte-identical std+aoc and std+rogue dumps; with windowsShort simplified, 6 Day01.Proofs hashes change (windowsShort and the 5 that depend on it).\n- Done on branch worktree-agent-ac7e942e67cd1a855 (0ebe8197, 063ccdaa), rebased on main; ready for review.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "0ebe8197",
+        "063ccdaa"
+      ]
     },
     {
       "id": 932,
