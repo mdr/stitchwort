@@ -287,6 +287,15 @@ fn printed_goals_paste_back_as_lemmas() {
              ∧ (xs == []) = True := ?\n"
                 .to_string(),
         ),
+        // SW-937: an `Int` that isn't a literal is printed as written,
+        // `OfNat n` as `n.toInt`, `NegSucc m` as `-(m + 1).toInt` and
+        // `Int.neg x` as `-x`.
+        (
+            "integers",
+            "theorem ints (n: Nat) (m: Nat) (x: Int): \
+             OfNat n + x = -x * NegSucc m + (5).toInt + (n * 2).toInt := ?\n"
+                .to_string(),
+        ),
         // SW-934: a decision computed a step (`Nat.decEq (Succ m) (Succ
         // m)` is `Nat.decEqFrom (Succ m) (Succ m) (Nat.equal m m) rfl`, and
         // a list's is `List.decCons …`) is printed as the `==` it came from.
