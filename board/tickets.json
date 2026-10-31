@@ -1,5 +1,5 @@
 {
-  "next": 955,
+  "next": 957,
   "tickets": [
     {
       "id": 47,
@@ -2320,7 +2320,7 @@
         "elab",
         "diagnostics"
       ],
-      "body": "A comparison next to a Bool && / || in a theorem statement fails E-NOT-A-TYPE: the comparison makes the equation one between propositions. Writing ((… < k): Bool) fixes it, but the note doesn't suggest it. Also: search --at can't re-elaborate such printed goals (E-SEARCH-AT). Related to SW-930's section rule (which covers sections only).\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "body": "A comparison next to a Bool && / || in a theorem statement fails E-NOT-A-TYPE: the comparison makes the equation one between propositions. Writing ((… < k): Bool) fixes it, but the note doesn't suggest it. Also: search --at can't re-elaborate such printed goals (E-SEARCH-AT). Related to SW-930's section rule (which covers sections only).\n\nFrom AoC 2021 day 4 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit d25940b0): made it work rather than a note. An = or != with a < / <= side that fails is elaborated again (first try undone) with those sides as the Bool the other side decides, as if ascribed ((…): Bool); if that fails too, the first error. Only previously failing equations change. docs/syntax.md, examples/accept/comparison-beside-bool.sw. Printed goals of this shape paste back (search --at part left to the search lane).\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
@@ -2451,10 +2451,12 @@
       "labels": [
         "aoc"
       ],
-      "body": "AoC 2021 day 7 (crab alignment, minimal fuel) in aoc/src/Aoc/Year2021/Day07: program, spec (least total fuel over all positions), proofs for every input, tests, notes in aoc/NOTES-2021.md. Lane worktree agent-a6b7e5d108eef7b9b.\n",
+      "body": "AoC 2021 day 7 (crab alignment, minimal fuel) in aoc/src/Aoc/Year2021/Day07: program, spec (least total fuel over all positions), proofs for every input, tests, notes in aoc/NOTES-2021.md. Lane worktree agent-a6b7e5d108eef7b9b.\n\n31 Oct: done in lane, commit 980024e3 (branch worktree-agent-a6b7e5d108eef7b9b). part1Correct/part2Correct for every list of crabs, no hypotheses (so D2108's parser theorem has nothing to cover); audit 19 theorems, 0 failed, 0 warnings; run 0.86 s. Ready to merge; expect a NOTES-2021.md conflict with day 6.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "980024e3"
+      ]
     },
     {
       "id": 954,
@@ -2467,6 +2469,34 @@
         "diagnostics"
       ],
       "body": "From AoC 2021 day 6 (aoc/NOTES-2021.md, 31 Oct 2026). (1) cases can't prove \"x ≤ 8, so x is one of 0..8\": it splits all nine comparisons without seeing x == 0 and x == 1 exclude each other, and runs out of cases; a match with patterns 0..8 works but a final `_ => omega` fails because the wildcard doesn't tell omega x ≥ 9 (nine nested Succs needed). (2) omega prints List.count and == unfolded. (3) (rfl, rest) for an And gives \"add a type annotation\"; the note should mention Both. Std candidates: List.count of replicate, countSum, a simulation-through-Nat.iterate lemma. Also: the parser rejects timers > 8 but no theorem says so (same pattern as day 5's diagonals): consider proving parser postconditions.\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 955,
+      "title": "AoC 2021 days 5-6: parser guarantees (D2108)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "AoC 2021 days 5 and 6: prove the parsers guarantee what the correctness theorems assume (D2108). Day 5: every line of a successful `parseLines` is horizontal, vertical or diagonal at 45 degrees, so `part2Correct` composes into an end-to-end theorem about the input text. Day 6: every timer of a successful `parseTimers` is at most 8, with the end-to-end theorems. Pattern for \"a successful parse\" documented in aoc/NOTES-2021.md.\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 956,
+      "title": "AoC 2021 day 8: Seven Segment Search",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "AoC 2021 day 8, Seven Segment Search: program, spec (a decoding is a wiring, a permutation of segments a-g, under which the ten patterns are exactly the ten digit patterns), proofs for every input that keeps the puzzle's promise, parser guarantees (D2108), tests (examples 26 / 61229 / 5353; input 445 / 1043101), NOTES-2021 entry.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
