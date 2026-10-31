@@ -231,8 +231,15 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
     Ok((Term::let_(x, ty_term, term, body), block_ty))
 }
 
-/// `rewrite` against a goal.
+/// `rewrite` against a goal. One that fails while the goal holds an unknown
+/// the declaration will still settle waits for it, whole, and tries again
+/// (`queue::tactic_or_wait`; docs/proposals/postponement.md, step 4.2).
 pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    crate::queue::tactic_or_wait(cx, expr, expected, rewrite_goal)
+}
+
+/// [`check_rewrite`]'s rewrite itself.
+fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let Expr::Rewrite {
         rules,
         target,
@@ -430,9 +437,18 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
     let g = cx.g();
     let rule_metas = g.metas.borrow().len();
     let outer = cx.e.hole_log.replace(Some(Vec::new()));
+    let queued = cx.e.queue.len();
     let inferred = infer(cx, &rule.proof).and_then(|(proof, ty)| insert(cx, proof, ty));
     let logged = cx.e.hole_log.replace(outer).unwrap_or_default();
     let (mut proof, mut ty) = inferred?;
+    // What the rule itself left waiting (a record literal whose type only
+    // its field names say) is settled first, defaults included, scoped to
+    // the rule: the search can't wait for its own pattern (invariant 7,
+    // D2087; `queue.rs`). Computed again if anything was: what was stuck on
+    // the rule's checks computes now.
+    if crate::Elaborator::settle_rule(cx, queued, rule_metas)? {
+        ty = cx.eval(&cx.quote_folded(&ty)?)?;
+    }
     let level = cx.level();
     let mut premises: Vec<Premise> = logged
         .into_iter()

@@ -441,7 +441,9 @@ unifier that can't wait (D2016).
    syntax unless the blocker was made inside it ([§5.5](#55-the-receiver-of-a-queued-field-r1)).
 7. **Defaults at quiescence only.** A default is applied only when resuming, obligations and row
    comparisons have all stopped making progress (ladder step 3, at W4). Effect rows are among
-   the row comparisons.
+   the row comparisons. *Restated by D2087 (31 October 2026; built in step 4.2): at one of three
+   points, W4, W2, and a `rewrite` rule's own checks before its search; see
+   [Invariant 7, restated](#invariant-7-restated-d2087).*
 8. **Placeholders are opaque to elaboration choices.** No choice that could give a different
    well-typed meaning is made from an unfilled placeholder's apparent shape: such a choice
    waits (an item, or the ladder's defaults), or is made at `finish` where only the term, not
@@ -2794,6 +2796,127 @@ Not frames, with why:
   base 40.3, 38.8, 42.2 s; step 4.1 40.7, 43.8, 40.0 s. No difference beyond the noise.
 - Lane tiers `elab`, `core`, `std`, `lsp`, `examples`, `hashes`, `aoc`: pass. Clippy with
   `--deny warnings` and `cargo fmt`: clean.
+
+## As built (step 4.2)
+
+Built on main (`a4638278`, no K4) in the D2087 lane, 31 October 2026. Labels as in the design
+section above.
+
+**Invariant 7, restated (D2087)** [read, `queue.rs`]. Defaults run at three points, each with
+`Queue::settling` set, and `apply_default` asserts it (debug):
+- **W4**, `settle_queue`, as before.
+- **W2**, `resume_before_lifting`: after the obligations loop, while anything waits, one default
+  and the loop again, as at W4. Every caller of `lift` and `lift_signature` calls `finish` right
+  after (`lib.rs`, `decreasing.rs`, `defaults.rs`, `partial.rs`), so this is the part's own
+  quiescence (C3). What still waits is reported at W4, as before.
+- **A `rewrite` rule**, `Elaborator::settle_rule`, called by `elaborate_rule` after the rule is
+  inferred: the items queued since the rule began are resumed, then defaulted one at a time and
+  resumed again; items queued before the rule are not touched (invariant 3). Where something was
+  settled, the rule's type is computed again. The design's "closed" check is a debug assertion
+  (`assert_rule_closed`): an item about to be defaulted waits on an unknown made inside the rule,
+  which no variable's type in scope mentions and no item from before the rule waits on. The goal
+  isn't checked: the rule is elaborated before the goal is read, and an unknown made inside the
+  rule can be in the goal only through a solution made while the rule was elaborated, which the
+  context check would see first [inferred].
+
+One shared loop (`defaults_from`) runs the three. On main the only default is K1's field-name
+rule, so W2 and the rule are reachable only with a record literal; K4 adds `Nat`.
+
+**The pending set of the searches** [read]. `queue::search_pending` is the queue's `pending` plus
+the unknown of each obligation not proved yet (an operator's dictionary, an instance, an `auto`
+argument), which the obligations loop solves (W3) or reports (W4). The unknowns *in* an
+obligation's type (`Add ?T`'s `?T`) are not added: finding the instance doesn't settle them. Only
+the searches use it; `pending` itself, which the waiting comparisons (stage 6) and the waiting
+`match` (step 4.0) use, is unchanged, so their behaviour is as built.
+
+**`rewrite` and `cases` try, then wait** (`queue::tactic_or_wait`, `WaitingTactic`, the
+experiment's addition 3). The tactic runs at once. If it fails while its goal holds an unknown of
+`search_pending`, what it did is undone and it is queued, whole, on that unknown; resumed (W1-W4),
+it runs on the goal computed afresh, and fails with its own error, or waits again if the goal
+still holds such an unknown. Still waiting at the end, it reports the error it first gave. A
+`cases` inside a split of a `cases` doesn't wait (the split can't wait in the middle of itself).
+Its placeholder prints as `(rewrite …)` or `(cases …)`.
+
+**Counters** (`STITCHWORT_TIMINGS`): `rule settled` (a rule whose own items still waited after
+resuming), `rule defaulted`, `tactic waited`, and for `omega`, `ring` and `auto` the runs on a goal
+holding an unknown of `search_pending` and the failures among them (`omega on pending`, `omega
+failed on pending`, and the same for `ring` and `auto`; `queue::counted_search`). There is no
+congruence-closure tactic to count: `congruence.rs` is the lemma lookup used by `rewrite` and
+`decreasing`. The `auto` count sees the obligations still in the list when it runs; the round being
+proved has been taken out of it, so a goal holding a sibling's dictionary from the same round is
+not counted [read, `auto.rs`].
+
+**Day17's hypothesis: refuted** [run, on the experiment `ac4587c9` with scratch traces, not kept].
+The design guessed that the `rewrite` at 2024 `Day17/Proofs/Search.sw:46` fails on a goal stuck on
+the `<` dictionary, which addition 6 made an obligation. The trace at the failure says otherwise:
+- the goal is `?9 output shape target other positive outputs = True`, and `?9` is the only
+  unknown in it: `Bool.andIntro`'s second `_`, an ordinary unknown, not a placeholder and not an
+  obligation's;
+- the obligations then are `Ord Nat` (the `<` dictionary, its type already known), `DecEq (List
+  Nat)` and `DecEq Nat`; none is in the goal;
+- with the obligations' unknowns counted as pending, for the tactics only and in `pending` itself,
+  the result is the same `E-REWRITE-NOTHING`.
+`?9` would be solved by comparing `Bool.andIntro`'s result type, `(?8 && ?9) = True`, with the
+expected type first (`check::propagate`). That doesn't happen: the expected type of the
+`Bool.andIntro …` argument is itself a bare unknown when it is elaborated (`?0 output shape target
+other positive outputs`, not pending, made before any queue item), so `propagate` is skipped and
+the `rewrite` is elaborated before `?9` is known. Why that argument's type is a bare unknown with
+K4 and not on main is not established [not run]; it is the first thing step 4.3 has to look at.
+So the widened pending set is right in kind (`rewrite-waits-for-dictionary.sw` needs it) but is
+not Day17's fix.
+
+**Tests** [run]. Each accept example is rejected by main (`a4638278`) and has an annotated twin in
+the same file that main accepts:
+
+| example | main | step 4.2 | what it shows |
+|---|---|---|---|
+| `accept/rewrite-waits-for-field.sw` | `E-REWRITE-RULE` | checks | a `rewrite` waits on a waiting `.field` |
+| `accept/rewrite-waits-for-dictionary.sw` | `E-REWRITE-NOTHING` | checks | a `rewrite` waits on an obligation's unknown (`Add ?`), with nothing queued |
+| `accept/cases-waits-for-field.sw` | `E-CASES` | checks | `cases` waits on waiting `.field`s |
+| `accept/rewrite-rule-settled.sw` | `E-REWRITE-RULE` | checks | a rule's record literal gets its field-name default before the search |
+| `accept/match-type-default-before-lifting.sw` | `E-UNSOLVED` | checks, test passes | W2's default: a `match`'s helper made with its type known |
+| `reject/rewrite-waits-then-fails.sw` | `E-REWRITE-NOTHING`, "looking for `Succ ?8`" | the same code, "looking for `Succ c.size`", as its twin | a waiting `rewrite` that still fails gives its own error against the known goal |
+
+Unit tests in `queue.rs`: W2 applies the defaults as W4 does; a rule's own items are resumed and
+defaulted and an item from before the rule is not; the closed assertion fires on a default whose
+unknown was made before the rule (debug only). The existing tests that said W2 applies no default
+were changed to say it does. `an_item_queued_by_a_resumed_item_keeps_its_frames` (step 4.1)
+failed in the debug profile on main (it queued an item on an unknown already solved, which
+`queue` asserts against); its item is now solved right after it is queued, and it passes in both
+profiles.
+
+**Measured** [run]:
+- **Examples**: the examples test at the full tier and `hash_stability` pass; no existing
+  snapshot or message changed; the only new snapshots are the new files'.
+- **Hashes**: `HASH_DUMP` std+aoc (10,897 lines) and `HASH_DUMP_PROJECT=games/rogue` (5,240)
+  byte-identical to `a4638278`'s.
+- **Counters** (`check --no-cache`): std+aoc and std+rogue, all of this step's counters are 0
+  (no rule settled or defaulted, no tactic waited, no `omega`, `ring` or `auto` run on a pending
+  goal); the queue's other counters are `a4638278`'s exactly (aoc: 176 queued, 170 resumed, 17
+  waited, 8 matches waited, 23 motives later; rogue: 35 queued, 32 resumed). So on main the change
+  is reached only by programs main rejects, which is why no hash moves.
+- **Time**: aoc `check --no-cache`, user time, base and step 4.2 alternately on a loaded machine:
+  base 36.5, 42.1, 36.7 s; step 4.2 42.5, 37.9, 36.3 s. No difference beyond the noise.
+- **`task audit`**: std 2,338, aoc 1,388, rogue 190 theorems, all passed. aoc 944 and rogue 100
+  tests pass. The `builtins` test in the debug profile passes, so the new assertions hold on the
+  prelude.
+- Lane tiers `elab`, `examples`, `hashes`, `aoc`, `std`: pass. Clippy with `--deny warnings` and
+  `cargo fmt`: clean.
+
+**What step 4.3 (K4) still needs**, from this step:
+- Day17: find why `Bool.andIntro`'s argument is checked against a bare unknown with K4 on (the
+  `List.memFilterIntro` call's lambda `a => 0 < a ∧ …` and its group at an unknown type are the
+  first suspects) and give it a rule of §5.10's kinds, not a patch; the widened pending set is
+  already in.
+- K4's `Nat` default plugs into the ladder as it is: `Priority::Nat` loses its `dead_code`
+  allowance, and the three points of invariant 7 apply it with no other change. The rule's settle
+  should also find the dictionaries its operators need once their types are known
+  (`solve_ready_instances`, as the experiment did), which K4's groups at an unknown type create.
+- The experiment's additions 1 (`rfl` against a pending head), 5 (a placeholder applied twice
+  waits) and 6 (groups built at an unknown type) are not in; additions 2, 3 and 4 are, with
+  addition 3's pending set widened.
+- The counters decide whether `omega`, `ring` and `auto` join the try-then-wait rule: measure them
+  again with K4, where literals wait.
 
 ## Review 1 and how it was addressed
 

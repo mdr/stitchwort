@@ -159,8 +159,20 @@ pub(crate) fn no_goal(_cx: &Ctx, expr: &Expr) -> Diagnostic {
         .with_note("give it a type: `(cases: P)`")
 }
 
-/// `cases` against the goal `expected`.
+/// `cases` against the goal `expected`. Outside a split of a `cases`, one
+/// that fails while the goal holds an unknown the declaration will still
+/// settle waits for it, whole, and tries again (`queue::tactic_or_wait`;
+/// docs/proposals/postponement.md, step 4.2). Inside a split it runs as
+/// before: the split's alternatives can't wait in the middle of it.
 pub(crate) fn check_cases(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    if cx.cases.is_some() {
+        return cases_goal(cx, expr, expected);
+    }
+    crate::queue::tactic_or_wait(cx, expr, expected, cases_goal)
+}
+
+/// [`check_cases`]'s `cases` itself.
+fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let Expr::Cases { body, span } = expr else {
         unreachable!("only called on `cases`")
     };

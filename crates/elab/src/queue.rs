@@ -6,12 +6,16 @@
 //! - W1, the end of each application, for the checks queued while it was
 //!   elaborated and only those (`check::apply_args_postponing`; D2014);
 //! - W2, before helpers are lifted (`lift.rs`), so a check holding a
-//!   `match` drafts it first;
+//!   `match` drafts it first, and the part's defaults are applied as at W4
+//!   (helpers are lifted at the end of a part, just before W4);
 //! - W3, each round of the obligations loop (`auto.rs`), so resuming and
 //!   finding instances go round together;
 //! - W4, the end of a declaration part ([`Elaborator::finish`]), which also
 //!   applies defaults, one at a time by priority, and reports what is still
-//!   stuck.
+//!   stuck;
+//! - and a `rewrite` rule's own checks, settled before the rule is looked
+//!   for in the goal, defaults included, scoped to the rule
+//!   ([`Elaborator::settle_rule`]; D2087).
 //!
 //! The queue is per declaration, like the obligations: `clear_metas` and
 //! `rewind` empty it, and a [`crate::undo::Snapshot`] restores it. What is
@@ -34,7 +38,13 @@
 //!   D2090): it waits, whole, and has no default; its own type, which its
 //!   alternatives fix, is pending meanwhile ([`Check::settles_type`]); still
 //!   waiting at the end, it reports the unknown as finishing would
-//!   ([`Check::stuck_error`]).
+//!   ([`Check::stuck_error`]);
+//! - a `rewrite` or `cases` that failed while its goal held an unknown the
+//!   declaration will still settle ([`search_pending`]: the queue's, and
+//!   the unknown of an obligation not proved yet, such as an operator's
+//!   dictionary), whole ([`tactic_or_wait`], `WaitingTactic`; step 4.2):
+//!   resumed, it tries again on the goal now known. A search that would
+//!   succeed does so at once; only failure waits.
 //!
 //! A resume point with nothing queued in its scope costs a length
 //! comparison.
@@ -70,13 +80,23 @@
 //!    receiver as syntax where the blocker predates it, and as a term only
 //!    where the receiver made the blocker, which [`kept_receiver`] checks
 //!    made no choice from an unknown.
-//! 7. *Defaults at quiescence only*: only W4 applies one, after the
-//!    obligations loop has stopped making progress.
+//! 7. *Defaults at quiescence only* (restated, D2087): a default is applied
+//!    only once resuming, obligations and row comparisons have stopped
+//!    making progress, at one of three points: the end of a declaration
+//!    part (W4, [`Elaborator::settle_queue`]); a part about to be lifted
+//!    (W2, [`Elaborator::resume_before_lifting`]); and a closed pattern, a
+//!    `rewrite` rule, whose own checks and only those are settled before
+//!    its search ([`Elaborator::settle_rule`]). Nothing else applies one: a
+//!    `match`, `cases` and the searches wait instead. [`Queue::settling`]
+//!    is set at those three points only, and a default asserts it; the
+//!    rule's settle asserts it is closed (nothing outside the rule waits on
+//!    what its checks wait on).
 //! 8. *Placeholders are opaque to elaboration choices*: a placeholder is an
 //!    unknown like any other to the code around it; the consumers that
 //!    choose from a type's shape wait or decide at `finish` (§5.10). Debug
-//!    assertions: the field-name rule chooses a literal's type only as W4's
-//!    default ([`Queue::settling`]), and a resumed dot call has its implicit
+//!    assertions: the field-name rule chooses a literal's type only as a
+//!    default at one of invariant 7's points ([`Queue::settling`]), and a
+//!    resumed dot call has its implicit
 //!    arguments inserted before it fills a placeholder that doesn't take
 //!    them (`dot.rs`). Comparisons that fail at an unfilled placeholder are
 //!    counted (`unify::met_unfilled`).
@@ -241,8 +261,9 @@ pub(crate) struct Queue {
     items: RefCell<Vec<Rc<Item>>>,
     states: RefCell<Vec<State>>,
     log: RefCell<Vec<(usize, State)>>,
-    /// Whether the end of a declaration part (W4) is settling the queue:
-    /// the only place a default may be applied (invariants 7 and 8).
+    /// Whether the queue is being settled at one of the points where a
+    /// default may be applied (invariants 7 and 8): W4, W2, or a `rewrite`
+    /// rule's own checks.
     settling: Cell<bool>,
     frames: Frames,
 }
@@ -259,10 +280,11 @@ impl Queue {
         self.items.borrow().len()
     }
 
-    /// Whether W4 is settling the queue, the only place a default is
-    /// applied: a choice an item's default makes (the field-name rule) is
-    /// made from nothing else having said what the item is, never from a
-    /// placeholder's apparent shape in the middle of elaboration
+    /// Whether the queue is being settled at one of invariant 7's points
+    /// (W4, W2, a `rewrite` rule's own checks), the only places a default
+    /// is applied: a choice an item's default makes (the field-name rule)
+    /// is made from nothing else having said what the item is, never from
+    /// a placeholder's apparent shape in the middle of elaboration
     /// (invariant 8).
     pub(crate) fn settling(&self) -> bool {
         self.settling.get()
@@ -661,6 +683,158 @@ pub(crate) fn pending(cx: &Ctx) -> Result<HashSet<usize>> {
     Ok(pending)
 }
 
+/// The unknowns a proof search treats as ones the declaration will still
+/// settle (step 4.2; docs/proposals/postponement.md, "Every part that reads
+/// a term's shape"): the queue's ([`pending`]), and the unknown of each
+/// obligation not proved yet (an operator's dictionary, an instance, an
+/// `auto` argument), which the obligations loop (W3, W4) solves or
+/// reports. Not the unknowns in an obligation's type (`Add ?T`'s `?T`):
+/// finding the instance doesn't settle those.
+pub(crate) fn search_pending(cx: &Ctx) -> Result<HashSet<usize>> {
+    let g = cx.g();
+    let mut pending = pending(cx)?;
+    for ob in cx.e.obligations.borrow().iter() {
+        if let Term::Meta(m) = ob.meta.spine().0
+            && g.meta_solution(*m).is_none()
+        {
+            pending.insert(*m);
+        }
+    }
+    Ok(pending)
+}
+
+/// An unknown of [`search_pending`] that `v` mentions, if any. Free while
+/// nothing is queued and no obligation waits.
+pub(crate) fn search_pending_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
+    if cx.e.queue.len() == 0 && cx.e.obligations.borrow().is_empty() {
+        return Ok(None);
+    }
+    let pending = search_pending(cx)?;
+    if pending.is_empty() {
+        return Ok(None);
+    }
+    let term = crate::interfaces::scanned(cx, v)?;
+    let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+    Ok(term.subterms().find_map(|(t, _)| match t {
+        Term::Meta(m) if pending.contains(m) => Some(*m),
+        _ => None,
+    }))
+}
+
+/// A tactic run against a goal: `rewrite`'s, `cases`'.
+pub(crate) type Tactic = fn(&mut Ctx, &Expr, &Value) -> Result<Term>;
+
+/// `run`, a tactic, against `expected` (step 4.2 of stage 4). It is tried
+/// at once; if it fails while the goal holds an unknown the declaration
+/// will still settle ([`search_pending_in`]), what it did is undone and it
+/// waits for that unknown, whole, as a queued [`WaitingTactic`]: its
+/// search can't see through the unknown, and can't wait in the middle. A
+/// search that succeeds proves the statement whatever it found, so only
+/// failure needs to wait. Otherwise its result or error is as before.
+pub(crate) fn tactic_or_wait(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    run: Tactic,
+) -> Result<Term> {
+    let before = crate::undo::Snapshot::take(cx);
+    match run(cx, expr, expected) {
+        Err(e) if !crate::undo::fatal(&e) => {
+            before.restore(cx);
+            let Some(m) = search_pending_in(cx, expected)? else {
+                return Err(e);
+            };
+            let check = WaitingTactic {
+                expr: expr.clone(),
+                expected: expected.clone(),
+                run,
+            };
+            count(&TACTIC_WAITED);
+            queue(cx, Rc::new(check), on(m), expected.clone(), e)
+        }
+        result => result,
+    }
+}
+
+/// A tactic waiting for an unknown in its goal ([`tactic_or_wait`]): its
+/// syntax, the goal, and the tactic. Resumed, it runs on the goal now
+/// known; if it fails while the goal still holds an unknown the
+/// declaration will settle, it waits again; otherwise its error is its
+/// own, against the goal now known.
+struct WaitingTactic {
+    expr: Expr,
+    expected: Value,
+    run: Tactic,
+}
+
+impl Check for WaitingTactic {
+    fn resume(&self, cx: &mut Ctx) -> Result<Resumed> {
+        // Evaluated afresh, as a waiting comparison's sides are: what was
+        // stuck on the unknown computes now.
+        let expected = cx.eval(&cx.quote_folded(&self.expected)?)?;
+        let before = crate::undo::Snapshot::take(cx);
+        match (self.run)(cx, &self.expr, &expected) {
+            Ok(term) => Ok(Resumed::Done(term)),
+            Err(e) if !crate::undo::fatal(&e) => {
+                before.restore(cx);
+                match search_pending_in(cx, &expected)? {
+                    Some(m) => Ok(Resumed::Waiting(on(m))),
+                    None => Err(e),
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    fn display(&self, _cx: &Ctx) -> Option<String> {
+        Some(match &self.expr {
+            Expr::Cases { .. } => "(cases …)".into(),
+            _ => "(rewrite …)".into(),
+        })
+    }
+}
+
+/// The proof searches whose runs on a goal holding an unknown the
+/// declaration will still settle are counted (step 4.2), to decide whether
+/// they should try and then wait as `rewrite` and `cases` do.
+#[derive(Clone, Copy)]
+pub(crate) enum Search {
+    Omega,
+    Ring,
+    Auto,
+}
+
+impl Search {
+    /// Its counters: runs on such a goal, and of those, failures.
+    fn counters(self) -> (&'static AtomicUsize, &'static AtomicUsize) {
+        match self {
+            Search::Omega => (&OMEGA_PENDING, &OMEGA_PENDING_FAILED),
+            Search::Ring => (&RING_PENDING, &RING_PENDING_FAILED),
+            Search::Auto => (&AUTO_PENDING, &AUTO_PENDING_FAILED),
+        }
+    }
+}
+
+/// `run`, the search `search` on `goal`, counted if `goal` holds an unknown
+/// of [`search_pending`] (and if it then fails); its result unchanged.
+pub(crate) fn counted_search<T>(
+    cx: &mut Ctx,
+    goal: &Value,
+    search: Search,
+    run: impl FnOnce(&mut Ctx) -> Result<T>,
+) -> Result<T> {
+    let pending = search_pending_in(cx, goal)?.is_some();
+    let result = run(cx);
+    if pending {
+        let (ran, failed) = search.counters();
+        count(ran);
+        if result.is_err() {
+            count(failed);
+        }
+    }
+    result
+}
+
 /// How a waiting comparison reports that it fails: as the check against an
 /// expected type it came from, or as `rfl` (the two callers of
 /// [`compare_waiting`]).
@@ -1055,12 +1229,19 @@ impl Elaborator {
 
     /// W2, before helpers are lifted: the resume points of the obligations
     /// loop, if anything is waiting, so that a queued check holding a
-    /// `match` has drafted it.
+    /// `match` has drafted it; then, as at W4, while anything still waits,
+    /// one default and the loop again (invariant 7, D2087). Helpers are
+    /// lifted at the end of a declaration part, just before its `finish`
+    /// (every caller of `lift` and `lift_signature`), so nothing else in the
+    /// part is elaborated after this: it is the part's own quiescence, and a
+    /// `match` whose type only a default says needs it before its helper is
+    /// made. What still waits is reported at W4.
     pub(crate) fn resume_before_lifting(&self) -> Result<()> {
-        if self.queue.any_waiting() {
-            self.solve_obligations_until_stuck()?;
+        if !self.queue.any_waiting() {
+            return Ok(());
         }
-        Ok(())
+        self.solve_obligations_until_stuck()?;
+        self.defaults_from(0, |e| e.solve_obligations_until_stuck().map(drop))
     }
 
     /// W4, the end of a declaration part: the obligations loop, which
@@ -1069,25 +1250,116 @@ impl Elaborator {
     /// Otherwise what [`Elaborator::solve_obligations_until_stuck`] gives.
     pub(crate) fn settle_queue(&self) -> Result<Option<Diagnostic>> {
         let mut stuck = self.solve_obligations_until_stuck()?;
-        let settling = self.queue.settling.replace(true);
-        let defaulted = (|| -> Result<()> {
-            while self.queue.any_waiting() && self.apply_default()? {
-                stuck = self.solve_obligations_until_stuck()?;
-            }
+        self.defaults_from(0, |e| {
+            stuck = e.solve_obligations_until_stuck()?;
             Ok(())
-        })();
-        self.queue.settling.set(settling);
-        defaulted?;
+        })?;
         match self.stuck_report()? {
             Some(error) => Err(error),
             None => Ok(stuck),
         }
     }
 
+    /// Ladder step 3 at one of invariant 7's points, for the items from
+    /// `from` on: while any of them waits, one default among them and then
+    /// `again` (the ladder's steps 1 and 2 at that point), with
+    /// [`Queue::settling`] set throughout.
+    fn defaults_from(&self, from: usize, mut again: impl FnMut(&Self) -> Result<()>) -> Result<()> {
+        let settling = self.queue.settling.replace(true);
+        let defaulted = (|| -> Result<()> {
+            while (from..self.queue.len()).any(|i| self.queue.waiting(i).is_some())
+                && self.apply_default(from)?
+            {
+                again(self)?;
+            }
+            Ok(())
+        })();
+        self.queue.settling.set(settling);
+        defaulted
+    }
+
+    /// A `rewrite` rule's own checks, those queued since `from` while the
+    /// rule was elaborated, settled before its equation is looked for in
+    /// the goal (D2087): ladder step 1 for them, then while any still
+    /// waits, one default among them by priority and step 1 again; what
+    /// still waits is left for W4 to report. A search for occurrences can't
+    /// wait for what its own pattern holds, so the rule is a closed
+    /// elaboration of its own: it is elaborated with no expected type, so
+    /// what its checks wait on was made inside it and nothing outside it
+    /// mentions that before the search reads it (asserted for each default,
+    /// below the `metas` it began with). Items queued before the rule are
+    /// not touched (invariant 3). Whether anything was resumed or
+    /// defaulted.
+    pub(crate) fn settle_rule(cx: &Ctx, from: usize, metas: usize) -> Result<bool> {
+        let e = cx.e;
+        if e.queue.len() <= from {
+            return Ok(false);
+        }
+        let mut any = e.resume_from(from)?;
+        if (from..e.queue.len()).any(|i| e.queue.waiting(i).is_some()) {
+            count(&RULE_SETTLED);
+        }
+        #[cfg(debug_assertions)]
+        e.assert_rule_closed(cx, from, metas)?;
+        #[cfg(not(debug_assertions))]
+        let _ = metas;
+        e.defaults_from(from, |e| {
+            any = true;
+            count(&RULE_DEFAULTED);
+            e.resume_from(from).map(drop)
+        })?;
+        Ok(any)
+    }
+
+    /// Invariant 7's closed pattern, for [`Elaborator::settle_rule`]: each
+    /// rule check that waits, waits on an unknown made inside the rule (at
+    /// or after `metas`) that no variable's type in scope mentions and no
+    /// check queued before the rule waits on.
+    #[cfg(debug_assertions)]
+    fn assert_rule_closed(&self, cx: &Ctx, from: usize, metas: usize) -> Result<()> {
+        let g = &self.globals;
+        let blocker = |i: usize| -> Result<Option<usize>> {
+            match self.queue.waiting(i) {
+                Some(needs) => head_meta(g, &needs),
+                None => Ok(None),
+            }
+        };
+        let mut outside: HashSet<usize> = HashSet::default();
+        for i in 0..from {
+            outside.extend(blocker(i)?);
+        }
+        for ty in &cx.types {
+            let term = crate::interfaces::scanned(cx, ty)?;
+            let term = self.zonk_keeping(&term, cx.level(), &|_| true)?;
+            for (t, _) in term.subterms() {
+                if let Term::Meta(m) = t {
+                    outside.insert(*m);
+                }
+            }
+        }
+        for i in from..self.queue.len() {
+            if self.queue.check(i).default_priority().is_none() {
+                continue;
+            }
+            if let Some(m) = blocker(i)? {
+                debug_assert!(
+                    m >= metas && !outside.contains(&m),
+                    "a rewrite rule's default would settle an unknown from outside it (invariant 7)"
+                );
+            }
+        }
+        Ok(())
+    }
+
     /// Ladder step 3: the first default that applies, by priority and then
-    /// creation order, among the waiting items: whether one did.
-    fn apply_default(&self) -> Result<bool> {
-        let mut candidates: Vec<(Priority, usize)> = (0..self.queue.len())
+    /// creation order, among the waiting items from `from` on: whether one
+    /// did.
+    fn apply_default(&self, from: usize) -> Result<bool> {
+        debug_assert!(
+            self.queue.settling(),
+            "a default outside invariant 7's points"
+        );
+        let mut candidates: Vec<(Priority, usize)> = (from..self.queue.len())
             .filter(|&i| self.queue.waiting(i).is_some())
             .filter_map(|i| Some((self.queue.check(i).default_priority()?, i)))
             .collect();
@@ -1205,6 +1477,15 @@ static RETRIED: AtomicUsize = AtomicUsize::new(0);
 static WAITED: AtomicUsize = AtomicUsize::new(0);
 static MATCH_WAITED: AtomicUsize = AtomicUsize::new(0);
 static MOTIVE_LATER: AtomicUsize = AtomicUsize::new(0);
+static RULE_SETTLED: AtomicUsize = AtomicUsize::new(0);
+static RULE_DEFAULTED: AtomicUsize = AtomicUsize::new(0);
+static TACTIC_WAITED: AtomicUsize = AtomicUsize::new(0);
+static OMEGA_PENDING: AtomicUsize = AtomicUsize::new(0);
+static OMEGA_PENDING_FAILED: AtomicUsize = AtomicUsize::new(0);
+static RING_PENDING: AtomicUsize = AtomicUsize::new(0);
+static RING_PENDING_FAILED: AtomicUsize = AtomicUsize::new(0);
+static AUTO_PENDING: AtomicUsize = AtomicUsize::new(0);
+static AUTO_PENDING_FAILED: AtomicUsize = AtomicUsize::new(0);
 
 /// A generalising `match` queued to wait for an unknown its generalisation
 /// would read (`matching.rs`, `WaitingMatch`; step 4.0 of stage 4).
@@ -1279,8 +1560,13 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// wait for unknowns the queue still has to settle (`waited`, stage 6); and
 /// generalising `match`es that waited for an unknown their generalisation
 /// would read (`match waited`, step 4.0 of stage 4), and motive checks left
-/// for lifting (`motive later`).
-pub fn counts() -> [(&'static str, usize); 18] {
+/// for lifting (`motive later`); and, step 4.2, `rewrite` rules whose own
+/// checks still waited after resuming (`rule settled`) and the defaults
+/// applied to them (`rule defaulted`), `rewrite`s and `cases` that waited
+/// (`tactic waited`), and runs of `omega`, `ring` and `auto` on a goal
+/// holding an unknown the declaration will still settle, and of those the
+/// failures (`… on pending`, `… failed on pending`).
+pub fn counts() -> [(&'static str, usize); 27] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -1301,6 +1587,15 @@ pub fn counts() -> [(&'static str, usize); 18] {
         ("waited", get(&WAITED)),
         ("match waited", get(&MATCH_WAITED)),
         ("motive later", get(&MOTIVE_LATER)),
+        ("rule settled", get(&RULE_SETTLED)),
+        ("rule defaulted", get(&RULE_DEFAULTED)),
+        ("tactic waited", get(&TACTIC_WAITED)),
+        ("omega on pending", get(&OMEGA_PENDING)),
+        ("omega failed on pending", get(&OMEGA_PENDING_FAILED)),
+        ("ring on pending", get(&RING_PENDING)),
+        ("ring failed on pending", get(&RING_PENDING_FAILED)),
+        ("auto on pending", get(&AUTO_PENDING)),
+        ("auto failed on pending", get(&AUTO_PENDING_FAILED)),
     ]
 }
 
@@ -1586,36 +1881,111 @@ mod tests {
         assert_eq!(*log.borrow(), ["resumed inner", "resumed outer"]);
     }
 
-    /// Invariant 7 and D2013: defaults only at the end (W4), one at a time,
-    /// by priority before creation order, each followed by resuming.
+    /// Two probes with defaults, a number and then a record, waiting.
+    fn two_with_defaults(cx: &Ctx, log: &Log) {
+        let (n, needs) = unknown(cx);
+        let mut number = probe("number", log, anything());
+        number.default = Some((Priority::Nat, n));
+        push(cx, number, needs);
+        let (r, needs) = unknown(cx);
+        let mut record = probe("record", log, anything());
+        record.default = Some((Priority::FieldNames, r));
+        push(cx, record, needs);
+    }
+
+    /// The order D2013 gives: one default at a time, by priority before
+    /// creation order, each followed by resuming.
+    const IN_ORDER: [&str; 4] = [
+        "default record",
+        "resumed record",
+        "default number",
+        "resumed number",
+    ];
+
+    /// Invariant 7 (restated, D2087) and D2013: W4 applies defaults, one at
+    /// a time, by priority before creation order, each followed by
+    /// resuming; W1 and resuming alone apply none.
     #[test]
     fn defaults_apply_one_at_a_time_field_names_before_nat() {
         let e = Elaborator::new();
         let cx = Ctx::new(&e, span());
         let log = Log::default();
-        let (n, needs) = unknown(&cx);
-        let mut number = probe("number", &log, anything());
-        number.default = Some((Priority::Nat, n));
-        push(&cx, number, needs);
-        let (r, needs) = unknown(&cx);
-        let mut record = probe("record", &log, anything());
-        record.default = Some((Priority::FieldNames, r));
-        push(&cx, record, needs);
-        // No other resume point applies a default.
+        two_with_defaults(&cx, &log);
         e.resume_application(0).unwrap();
         assert!(!e.resume_from(0).unwrap());
-        e.resume_before_lifting().unwrap();
         assert!(log.borrow().is_empty());
         assert!(e.settle_queue().unwrap().is_none());
+        assert_eq!(*log.borrow(), IN_ORDER);
+    }
+
+    /// Invariant 7: W2, before lifting, is a part's own quiescence and
+    /// applies the defaults as W4 does, so a `match`'s helper is made with
+    /// its type known; W4 then has nothing left.
+    #[test]
+    fn defaults_apply_before_lifting() {
+        let e = Elaborator::new();
+        let cx = Ctx::new(&e, span());
+        let log = Log::default();
+        two_with_defaults(&cx, &log);
+        e.resume_before_lifting().unwrap();
+        assert_eq!(*log.borrow(), IN_ORDER);
+        assert!(!e.queue.settling(), "settling only while W2 runs");
+        assert!(e.settle_queue().unwrap().is_none());
+        assert_eq!(log.borrow().len(), 4);
+    }
+
+    /// Invariant 7's closed pattern (D2087): a `rewrite` rule's own items,
+    /// those queued since the rule began, are resumed and defaulted before
+    /// its search; an item queued before the rule is neither resumed nor
+    /// defaulted there (invariant 3), though its blocker is solved too.
+    #[test]
+    fn a_rules_own_items_are_settled_and_only_those() {
+        let e = Elaborator::new();
+        let cx = Ctx::new(&e, span());
+        let log = Log::default();
+        let (outer_blocker, needs) = unknown(&cx);
+        let mut outer = probe("outer", &log, anything());
+        outer.default = Some((Priority::FieldNames, outer_blocker));
+        push(&cx, outer, needs.clone());
+        let from = e.queue.len();
+        let metas = cx.g().metas.borrow().len();
+        // Ready already: resumed, no default needed.
+        let (ready, ready_needs) = unknown(&cx);
+        push(&cx, probe("ready", &log, anything()), ready_needs);
+        cx.g().solve_meta(ready, ty(0));
+        let (r, needs) = unknown(&cx);
+        let mut rule = probe("rule", &log, anything());
+        rule.default = Some((Priority::FieldNames, r));
+        push(&cx, rule, needs);
+        assert!(Elaborator::settle_rule(&cx, from, metas).unwrap());
         assert_eq!(
             *log.borrow(),
-            [
-                "default record",
-                "resumed record",
-                "default number",
-                "resumed number"
-            ]
+            ["resumed ready", "default rule", "resumed rule"]
         );
+        assert!(waiting(&e, 0) && done(&e, 1) && done(&e, 2));
+        assert!(!e.queue.settling());
+        // Nothing of the rule's left: settling again does nothing.
+        assert!(!Elaborator::settle_rule(&cx, from, metas).unwrap());
+        assert!(e.settle_queue().unwrap().is_none());
+        assert_eq!(log.borrow()[3..], ["default outer", "resumed outer"]);
+    }
+
+    /// The closed pattern's assertion: a rule whose own item waits on an
+    /// unknown made before the rule would settle something outside it.
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "from outside it (invariant 7)")]
+    fn a_rules_default_on_an_outside_unknown_is_caught() {
+        let e = Elaborator::new();
+        let cx = Ctx::new(&e, span());
+        let log = Log::default();
+        let (outside, needs) = unknown(&cx);
+        let from = e.queue.len();
+        let metas = cx.g().metas.borrow().len();
+        let mut rule = probe("rule", &log, anything());
+        rule.default = Some((Priority::FieldNames, outside));
+        push(&cx, rule, needs);
+        let _ = Elaborator::settle_rule(&cx, from, metas);
     }
 
     /// §5.9: what still waits at the end is reported once per independent
@@ -2018,11 +2388,17 @@ mod tests {
         let (e, data) = module(RECORDS);
         let mut cx = Ctx::new(&e, span());
         let (_, ty) = crate::check::infer(&mut cx, &expression("{ only = Z }")).unwrap();
-        // Not at an application's end, nor before lifting.
+        // Not at an application's end.
         e.resume_application(0).unwrap();
-        e.resume_before_lifting().unwrap();
         assert!(waiting(&e, 0));
         assert!(e.settle_queue().unwrap().is_none());
+        assert!(done(&e, 0));
+        assert!(cx.conv_now(&ty, &data(&e, "Only")).unwrap());
+        // Before lifting, a part's quiescence, too (invariant 7, D2087).
+        e.clear_metas();
+        let mut cx = Ctx::new(&e, span());
+        let (_, ty) = crate::check::infer(&mut cx, &expression("{ only = Z }")).unwrap();
+        e.resume_before_lifting().unwrap();
         assert!(done(&e, 0));
         assert!(cx.conv_now(&ty, &data(&e, "Only")).unwrap());
         e.clear_metas();
@@ -2213,14 +2589,19 @@ mod tests {
     /// An item whose check fails once resumed, or, given an unknown,
     /// queues another such item waiting on it and holds.
     struct Failing {
-        then: RefCell<Option<Value>>,
+        /// What the item it queues when resumed waits on, and an unknown
+        /// to solve once it is queued (so it is resumed in the same pass).
+        then: RefCell<Option<(Value, Option<usize>)>>,
     }
 
     impl Check for Failing {
         fn resume(&self, cx: &mut Ctx) -> Result<Resumed> {
             match self.then.take() {
-                Some(needs) => {
+                Some((needs, solve)) => {
                     push_failing(cx, needs, None);
+                    if let Some(m) = solve {
+                        cx.g().solve_meta(m, ty(0));
+                    }
                     Ok(Resumed::Holds)
                 }
                 None => {
@@ -2230,7 +2611,7 @@ mod tests {
         }
     }
 
-    fn push_failing(cx: &Ctx, needs: Value, then: Option<Value>) {
+    fn push_failing(cx: &Ctx, needs: Value, then: Option<(Value, Option<usize>)>) {
         let failing = Failing {
             then: RefCell::new(then),
         };
@@ -2346,13 +2727,11 @@ mod tests {
             let (first, needs) = unknown(&cx);
             let (second, next) = unknown(&cx);
             let queued = |cx: &mut Ctx| {
-                push_failing(cx, needs, Some(next));
+                // During: the item it queues is ready as soon as it is queued.
+                push_failing(cx, needs, Some((next, during.then_some(second))));
                 Ok(())
             };
             framed(&mut cx, queued, |_| Tag("a")).unwrap();
-            if during {
-                e.globals.solve_meta(second, ty(0));
-            }
             e.globals.solve_meta(first, ty(0));
             let error = match e.resume_from(0) {
                 Err(error) => error,
