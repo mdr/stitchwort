@@ -732,6 +732,19 @@ impl<'g> Printer<'g> {
                         (n.to_string(), Prec::Atom)
                     };
                 }
+                // An `Int` that isn't a literal, in the terms it's written
+                // in (SW-937): `OfNat n` is `n.toInt`, and `NegSucc n`,
+                // `-(n + 1)`, is `-(n + 1).toInt`, which computes to it.
+                if is(self.g, Builtin::Int, *d)
+                    && let [n] = &args[..]
+                    && self.g.registry.loaded_def(Builtin::NatToInt).is_some()
+                {
+                    if *c == 0 {
+                        return (self.to_int(names, n), Prec::Atom);
+                    }
+                    let n = self.print(names, n, Prec::Add);
+                    return (format!("-({n} + 1).toInt"), Prec::Neg);
+                }
                 if let Some(n) = nat_literal(self.g, term) {
                     return (n.to_string(), Prec::Atom);
                 }
@@ -942,6 +955,15 @@ impl<'g> Printer<'g> {
                         let arg = self.print(names, arg, Prec::Atom);
                         return (format!("{arg}.{field}"), Prec::Atom);
                     }
+                    // `-x` and `n.toInt`, as they're written (SW-937).
+                    if let [arg] = &args[..] {
+                        if self.g.registry.loaded_def(Builtin::IntNeg) == Some(*id) {
+                            return self.int_negation(names, arg);
+                        }
+                        if self.g.registry.loaded_def(Builtin::NatToInt) == Some(*id) {
+                            return (self.to_int(names, arg), Prec::Atom);
+                        }
+                    }
                     if let Some(shown) = self.bool_logic(names, term) {
                         return shown;
                     }
@@ -1060,6 +1082,30 @@ impl<'g> Printer<'g> {
 
     /// `Not p` as the operators that write it, in their Unicode spellings
     /// (D1204): `a ≠ b`, `x ∉ xs`, or `¬p`.
+    /// `n.toInt`: `Nat.toInt n`, or `OfNat n`, which it computes to. A
+    /// number is put in brackets, `(5).toInt`, so the `.` isn't read as
+    /// its decimal point.
+    fn to_int(&self, names: &mut Vec<Name>, n: &Term) -> String {
+        let shown = self.print(names, n, Prec::Atom);
+        if shown.starts_with(|c: char| c.is_ascii_digit()) {
+            format!("({shown}).toInt")
+        } else {
+            format!("{shown}.toInt")
+        }
+    }
+
+    /// `-x`: `Int.neg x`, which `-x` elaborates to on an `Int`. An operand
+    /// that starts with a minus itself is put in brackets, `-(-x)`, as
+    /// `--` would start a comment.
+    fn int_negation(&self, names: &mut Vec<Name>, x: &Term) -> (String, Prec) {
+        let shown = self.print(names, x, Prec::Neg);
+        if shown.starts_with('-') {
+            (format!("-({shown})"), Prec::Neg)
+        } else {
+            (format!("-{shown}"), Prec::Neg)
+        }
+    }
+
     fn not(&self, names: &mut Vec<Name>, prop: &Term) -> (String, Prec) {
         if let Term::Eq(_, a, b) = prop.strip_loc() {
             let a = self.print(names, a, Prec::Add);
