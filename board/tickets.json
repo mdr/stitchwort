@@ -1256,7 +1256,7 @@
     {
       "id": 845,
       "title": "Mismatch alias notes: nested aliases (List Q vs List Other) and Prop aliases get no unfolded note",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "re-check lane (D2085)",
       "labels": [
@@ -1265,7 +1265,9 @@
       "body": "SW-832 adds a note only when a top-level folded call (type alias) faces a non-call of the same head. Not covered: an alias nested inside the printed type (List Q vs List Other), and Prop aliases (unfolding to an equation, skipped to avoid noise on b <= c vs b < c).\n\n\nD2085 (Matt, 31 Oct 2026): re-check on main after postponement stages 1-3 and 6; close if fixed, else fix.\n\n\n31 Oct (D2085 lane, worktree-agent-ab0acb2ae177e62ab, 0bf921ab): not fixed on main (02e83151). `List Q` vs `List Other` and `List (Vec Bool)` vs `List (List Nat)` gave no note; `h: Same x y` against `y = x` gave none. Fixed in check.rs (alias_notes): looks inside Data args and Pi domains where the sides differ, names both aliases when two different ones meet, allows equations, skips calls shown in notation (`n < 3` vs `n ≤ 3` stays note-free). Examples reject/mismatch-alias-nested.sw, reject/mismatch-alias-prop.sw. No existing snapshot or hash changed. Ready for review.\n",
       "created": "2026-10-28",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "0bf921ab"
+      ]
     },
     {
       "id": 847,
@@ -1284,9 +1286,9 @@
     {
       "id": 858,
       "title": "Alias place 3 in general: expressions of unknown type other than variables lose the alias name when checked",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
-      "where": "re-check lane (D2085)",
+      "where": "not fixed: keeping alias names changes compiled terms (E-BUILTIN on Float, hashes); decision needed; patch in scratchpad/d2085",
       "labels": [
         "bug"
       ],
@@ -1298,9 +1300,9 @@
     {
       "id": 859,
       "title": "Postponable lambda kept from its in-place try can settle a shared type before an earlier postponed lambda is checked (argument-order dependence)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
-      "where": "re-check lane (D2085)",
+      "where": "not fixed: belongs to postponement stage 5 (lambda checked at once)",
       "labels": [
         "bug",
         "decision"
