@@ -36,6 +36,14 @@ pub trait NameScope {
     /// module's root.
     fn full_name(&self, declaration: Declaration) -> String;
 
+    /// Other ways to write the full name `full` here than its trailing
+    /// parts: through names imported under another name (`import M (x as
+    /// y)` gives `y` for `M.x`, and `import P (Spec as S)` gives `S.total`
+    /// for `P.Spec.total`). Each is tried like a trailing part.
+    fn aliases(&self, _full: &str) -> Vec<String> {
+        Vec::new()
+    }
+
     /// The definition `a == b` decides an equation `a = b` of type `ty` by
     /// here, applied to `a` and `b`: `Nat.decEq` for `Nat`. `None` if `ty`
     /// mentions a variable, or `==` decides it some other way.
@@ -439,11 +447,25 @@ impl<'g> Printer<'g> {
         }
         let full = scope.full_name(declaration);
         let parts: Vec<&str> = full.split('.').collect();
-        for start in (1..parts.len()).rev() {
-            if names.iter().any(|x| **x == *parts[start]) {
+        // The trailing parts, shortest first, and the aliases, each after
+        // the trailing part with as many components.
+        let mut tried: Vec<String> = (1..parts.len())
+            .rev()
+            .map(|start| parts[start..].join("."))
+            .collect();
+        for alias in scope.aliases(&full) {
+            let n = alias.split('.').count();
+            let at = tried
+                .iter()
+                .position(|t| t.split('.').count() > n)
+                .unwrap_or(tried.len());
+            tried.insert(at, alias);
+        }
+        for written in tried {
+            let first = written.split('.').next().unwrap_or("");
+            if names.iter().any(|x| **x == *first) {
                 continue;
             }
-            let written = parts[start..].join(".");
             let meant = *self
                 .meant
                 .borrow_mut()

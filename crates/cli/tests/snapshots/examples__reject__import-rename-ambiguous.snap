@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `n` could mean `Std.List.length` or `Std.List.reverse`
+   ╭─[ reject/import-rename-ambiguous.sw:5:15 ]
+   │
+ 5 │ def x: Nat := n [1, 2]
+   │               ┬  
+   │               ╰── write `Std.List.length` or `Std.List.reverse` in full
+───╯

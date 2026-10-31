@@ -1,0 +1,4 @@
+# Names imported under other names: `import M (x as y)`. Shop.Proofs and
+# Shop.Checks sort before Shop.Spec, which they import. import-rename-full-
+# names is this project with the names written in full: the hashes must be
+# the same (hash_stability.rs).

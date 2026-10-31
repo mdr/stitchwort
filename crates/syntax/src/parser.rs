@@ -12,9 +12,9 @@
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, Bracket, CalcStep, Clause, CtorDecl, Decl, Expr, Import, LocalDef,
-    MatchKind, Mode, Module, Name, NamespaceDecl, NegForm, Pattern, RewriteRule, Row, SECTION,
-    Scrutinee,
+    Alt, BinOp, Binder, Bracket, CalcStep, Clause, CtorDecl, Decl, Expr, Import, ImportItem,
+    LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm, Pattern, RewriteRule, Row,
+    SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
 use crate::negation::{argument_bang, argument_minus, argument_prefix, negative_numeral};
@@ -1135,6 +1135,9 @@ impl<'t> Parser<'t> {
             }
             _ => return Err(self.unexpected("a namespace, such as `List`").into()),
         };
+        if matches!(self.peek(), Some(Tok::Lower(word)) if word == "as") {
+            return Err(self.import_as(&path).into());
+        }
         self.expect(Tok::LParen, "`(` and the names to import")?;
         let mixed = |dots: Span, path: &Name| {
             error(
@@ -1158,11 +1161,13 @@ impl<'t> Parser<'t> {
         while everything.is_none() {
             match self.peek() {
                 Some(Tok::Lower(text) | Tok::Upper(text)) if !text.contains('.') => {
-                    items.push(Name {
+                    let name = Name {
                         text: text.clone(),
                         span: self.here(),
-                    });
+                    };
                     self.bump();
+                    let alias = self.import_alias(&name)?;
+                    items.push(ImportItem { name, alias });
                 }
                 Some(Tok::DotDot) if !items.is_empty() => {
                     return Err(mixed(self.here(), &path).into());
@@ -1180,6 +1185,86 @@ impl<'t> Parser<'t> {
             everything,
             span: start.to(end),
         })
+    }
+
+    /// After an import's item `name`: `as y`, the name it has in this file.
+    /// A name and its alias both start with a capital letter, or neither
+    /// does, since that says what kind of name it is.
+    fn import_alias(&mut self, name: &Name) -> Result<Option<Name>> {
+        if !matches!(self.peek(), Some(Tok::Lower(word)) if word == "as") {
+            return Ok(None);
+        }
+        self.bump();
+        let alias = match self.peek() {
+            Some(Tok::Lower(text) | Tok::Upper(text)) if !text.contains('.') => Name {
+                text: text.clone(),
+                span: self.here(),
+            },
+            _ => {
+                return Err(self
+                    .unexpected("the name to use instead, as in `x as y`")
+                    .into());
+            }
+        };
+        let upper = |n: &Name| n.text.starts_with(|c: char| c.is_uppercase());
+        if upper(name) != upper(&alias) {
+            let (case, example) = if upper(name) {
+                ("a capital letter", "`Tree as T`")
+            } else {
+                ("a lower-case letter", "`length as len`")
+            };
+            return Err(Diagnostic::error(
+                "E-PARSE",
+                format!(
+                    "`{}` starts with {case}, so its new name must too",
+                    name.text
+                ),
+            )
+            .with_label(
+                alias.span,
+                format!("`{}` would change what kind of name it is", alias.text),
+            )
+            .with_note(format!(
+                "a type, ability or namespace is written with a capital letter, and a function \
+                 or theorem without one: e.g. {example}"
+            ))
+            .into());
+        }
+        self.bump();
+        Ok(Some(alias))
+    }
+
+    /// `import M as A`, which isn't Stitchwort: what to write instead
+    /// (docs/proposals/import-aliases.md, D2072). The cursor is at `as`.
+    fn import_as(&self, path: &Name) -> Diagnostic {
+        let at = self.here();
+        let alias = match self.tokens.get(self.pos + 1).map(|t| &t.tok) {
+            Some(Tok::Upper(a) | Tok::Lower(a)) => Some(a.as_str()),
+            _ => None,
+        };
+        let d = Diagnostic::error(
+            "E-PARSE",
+            "`import M as A` isn't Stitchwort: a namespace is imported as an item of the \
+             namespace above it",
+        )
+        .with_label(at, "`as` goes inside the brackets, after an item");
+        match (path.text.rsplit_once('.'), alias) {
+            (Some((parent, last)), Some(alias)) if alias != last => d.with_note(format!(
+                "to write `{alias}.x` for `{0}.x`: `import {parent} ({last} as {alias})`; \
+                 or `import {parent} ({last})` to write `{last}.x`",
+                path.text
+            )),
+            (Some((parent, last)), _) => d.with_note(format!(
+                "to write `{last}.x` for `{}.x`: `import {parent} ({last})`",
+                path.text
+            )),
+            (None, _) => d.with_note(format!(
+                "`{0}` is a root namespace, which has no other name: write `{0}.x` (no import \
+                 needed in a project), or import names, `import {0} (x)`, `import {0} (x as y)` \
+                 or `import {0} (..)`",
+                path.text
+            )),
+        }
     }
 
     fn pattern(&mut self) -> Result<Pattern> {
@@ -6901,6 +6986,42 @@ mod tests {
         let module = parse("namespace Aoc.Day05\ndef x: Nat := 1\n");
         assert_eq!(module.namespace.unwrap().path.text, "Aoc.Day05");
         assert!(parse("def x: Nat := 1\n").namespace.is_none());
+    }
+
+    #[test]
+    fn import_items_may_be_renamed() {
+        let module = parse("import List (map as each, length, Tree as T)\n");
+        let items = &module.imports[0].items;
+        let read: Vec<(&str, Option<&str>, &str)> = items
+            .iter()
+            .map(|i| {
+                (
+                    i.name.text.as_str(),
+                    i.alias.as_ref().map(|a| a.text.as_str()),
+                    i.local().text.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            read,
+            [
+                ("map", Some("each"), "each"),
+                ("length", None, "length"),
+                ("Tree", Some("T"), "T")
+            ]
+        );
+        // The alias keeps the name's kind; `import M as A` says what to write.
+        let e = parse_error("import List (map as Each)\n");
+        assert!(e.message.contains("so its new name must too"), "{e:?}");
+        let e = parse_error("import Shop.Spec as S\n");
+        assert!(
+            e.notes
+                .iter()
+                .any(|n| n.contains("import Shop (Spec as S)")),
+            "{e:?}"
+        );
+        let e = parse_error("import List (map as)\n");
+        assert_eq!(e.code, "E-PARSE");
     }
 
     #[test]

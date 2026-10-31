@@ -328,3 +328,62 @@ fn printed_goals_paste_back_as_lemmas() {
     }
     insta::assert_snapshot!("goal_index__pasted", shown.join("\n"));
 }
+
+/// In a project, a name reached through a namespace imported as a
+/// qualifier (`import Shop (Spec)`) is printed `Spec.total`, the shortest
+/// name that means it in the file (docs/proposals/import-aliases.md §6.3);
+/// one imported under another name (`total as charged`) by that name. The
+/// goal pasted back as a lemma checks as the same goal.
+#[test]
+fn goals_print_imported_names_as_the_file_writes_them() {
+    let dir = scratch("namespace-item");
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(
+        dir.join("src/shop.sw"),
+        "namespace Shop\n\ndef total (prices: List Nat): Nat := prices.sum\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("src/spec.sw"),
+        "namespace Shop.Spec\n\n\
+         def total: List Nat -> Nat\n  | [] => 0\n  | Cons p rest => p + total rest\n",
+    )
+    .unwrap();
+    // The import's items, and the goal printed.
+    let cases = [
+        ("Spec", "Spec.total xs = Shop.total xs"),
+        ("Spec, total", "Spec.total xs = total xs"),
+        // Under other names (`import M (x as y)`): the names this file uses.
+        ("Spec as S, total as charged", "S.total xs = charged xs"),
+        ("Spec, Spec as S", "Spec.total xs = Shop.total xs"),
+    ];
+    for (items, expected) in cases {
+        let text = format!(
+            "namespace Shop.Proofs\n\nimport Shop ({items})\n\n\
+             theorem agree (xs: List Nat): Shop.Spec.total xs = Shop.total xs := ?\n"
+        );
+        std::fs::write(dir.join("src/proofs.sw"), &text).unwrap();
+        let index = index_of(&dir, "Shop.Proofs");
+        let goals: Vec<Value> = diagnostics(&index).into_iter().filter(is_goal).collect();
+        assert_eq!(goals.len(), 1, "{items}: {index:#}");
+        let goal = &goals[0]["goal"];
+        let printed = goal["target"].as_str().unwrap();
+        assert_eq!(printed, expected, "{items}");
+        // Pasted back, it checks, and is the same goal.
+        std::fs::write(
+            dir.join("src/proofs.sw"),
+            format!("{text}\ntheorem pasted (xs: List Nat): {printed} := ?\n"),
+        )
+        .unwrap();
+        let again = diagnostics(&index_of(&dir, "Shop.Proofs"));
+        let errors: Vec<&Value> = again.iter().filter(|d| d["severity"] == "error").collect();
+        assert!(errors.is_empty(), "{items}: {errors:#?}");
+        let found: Vec<&Value> = again
+            .iter()
+            .filter(|d| d["message"] == "in `pasted`")
+            .collect();
+        assert_eq!(found.len(), 1, "{items}: {again:#?}");
+        assert_eq!(found[0]["goal"]["target"], goal["target"], "{items}");
+    }
+}

@@ -927,10 +927,28 @@ pub struct Import {
     /// The namespace, as written: `List`, or `Std.List`.
     pub path: Name,
     /// The names listed: at least one, or none for `(..)`.
-    pub items: Vec<Name>,
+    pub items: Vec<ImportItem>,
     /// `(..)`: the span of the `..`.
     pub everything: Option<Span>,
     pub span: Span,
+}
+
+/// One name an `import` lists: `map`, or `map as each` to use the
+/// namespace's `map` under the name `each` in this file
+/// (docs/proposals/import-aliases.md §11).
+#[derive(Clone, Debug)]
+pub struct ImportItem {
+    /// The name in the namespace.
+    pub name: Name,
+    /// `as y`: the name it has in this file instead.
+    pub alias: Option<Name>,
+}
+
+impl ImportItem {
+    /// The name this file uses: the alias if there is one.
+    pub fn local(&self) -> &Name {
+        self.alias.as_ref().unwrap_or(&self.name)
+    }
 }
 
 /// `namespace Day05`: the first line of a file, saying which namespace its

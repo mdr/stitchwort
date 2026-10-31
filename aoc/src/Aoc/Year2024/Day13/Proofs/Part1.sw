@@ -6,6 +6,7 @@
 
 namespace Aoc.Year2024.Day13.Proofs
 import Aoc.Year2024.Day13 (..)
+import Aoc.Year2024.Day13 (Spec)
 import Aoc.Year2024.Day13.Spec (part1, winningCosts)
 import Std (And, Bool, Decidable, Eq, Exists, Int, List, Nat, Option, Void)
 
@@ -86,7 +87,7 @@ theorem cramerWithinCosts (machine: Machine) (nonzero: machine.determinant ≠ 0
             noneNotSome _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))))
 
 -- The program's search is the spec's.
-theorem searchIsSpec (machine: Machine): machine.searchTokens 100 = Aoc.Year2024.Day13.Spec.fewestTokens machine := rfl
+theorem searchIsSpec (machine: Machine): machine.searchTokens 100 = Spec.fewestTokens machine := rfl
 
 -- Each machine's part 1 tokens are the least of the costs, whatever its
 -- determinant, for costs as `cramerWithinCosts` has them that the search
@@ -99,5 +100,5 @@ theorem withinCosts (machine: Machine) (costs: List Nat) (costsWin: (tokensSpent
     | Yes isZero => searched
     | No nonzero => cramerWithinCosts machine nonzero costs costsWin winsListed
 
-theorem withinCorrect (machine: Machine): machine.fewestTokensWithin 100 = Aoc.Year2024.Day13.Spec.fewestTokens machine :=
+theorem withinCorrect (machine: Machine): machine.fewestTokensWithin 100 = Spec.fewestTokens machine :=
   withinCosts machine (winningCosts machine) (winningCostsWin machine) (winListed machine) (searchIsSpec machine)

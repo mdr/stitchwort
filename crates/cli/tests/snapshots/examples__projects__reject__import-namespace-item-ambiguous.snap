@@ -1,0 +1,33 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `Spec.answer` could mean `Day12.Spec.answer` or `Day13.Spec.answer`
+    ╭─[ import-namespace-item-ambiguous/src/use.sw:10:21 ]
+    │
+  5 │ import Day12 (Spec)
+    │               ──┬─  
+    │                 ╰─── `Spec` imported here
+  6 │ import Day13 (Spec)
+    │               ──┬─  
+    │                 ╰─── `Spec` imported here
+    │ 
+ 10 │ test "two specs" := Spec.answer == 12
+    │                     ─────┬─────  
+    │                          ╰─────── write `Day12.Spec.answer` or `Day13.Spec.answer` in full
+    │ 
+    │ Note: `Spec` here could be the namespace `Day12.Spec` (imported by name) or the namespace `Day13.Spec` (imported by name); an imported namespace never hides another meaning, so write the full name, or import only one `Spec`
+────╯
+[E-AMBIGUOUS] Error: `List.length` could mean `Lib.List.length` or `Std.List.length`
+    ╭─[ import-namespace-item-ambiguous/src/use.sw:15:16 ]
+    │
+  7 │ import Lib (List)
+    │             ──┬─  
+    │               ╰─── `List` imported here
+    │ 
+ 15 │ test "list" := List.length [1] == 1
+    │                ─────┬─────  
+    │                     ╰─────── write `Lib.List.length` or `Std.List.length` in full
+    │ 
+    │ Note: `List` here could be the namespace `Lib.List` (imported by name) or `Std.List`; an imported namespace never hides another meaning, so write the full name, or import only one `List`
+────╯

@@ -135,6 +135,45 @@ fn the_entries_of_each_kind() {
     }
 }
 
+/// A name imported under another name (`import M (x as y)`): the item's
+/// old and new names, and each use of the new one, refer to the
+/// declaration, so hover and go to definition show the real one
+/// (docs/proposals/import-aliases.md §11).
+#[test]
+fn renamed_imports_refer_to_the_declaration() {
+    const USE: &str = "namespace Use
+
+import Lib (Range as Span)
+import Lib.Range (size as width)
+
+def whole (s: Span): Nat := width s
+
+def made: Nat := Span.size { lo = 1, hi = 2 }
+";
+    let mut session = Session::navigable();
+    let files = vec![
+        ("proj/src/Use/Use.sw".to_string(), USE.to_string()),
+        ("proj/src/Lib/Lib.sw".to_string(), LIB.to_string()),
+    ];
+    let target = stitchwort_driver::project::Target::Everything;
+    session
+        .load_project_sources("proj", files, &target)
+        .expect("checks");
+    let index = index_of(&session);
+    let all = lines(&session, &index, "Use.sw");
+    for expected in [
+        "Use.sw:3:13 Range -> Lib.Range [record] Lib.sw:3:6",
+        "Use.sw:3:22 Span -> Lib.Range [record] Lib.sw:3:6",
+        "Use.sw:4:19 size -> Lib.Range.size [def] Lib.sw:5:5",
+        "Use.sw:4:27 width -> Lib.Range.size [def] Lib.sw:5:5",
+        "Use.sw:6:15 Span -> Lib.Range [record] Lib.sw:3:6",
+        "Use.sw:6:29 width -> Lib.Range.size [def] Lib.sw:5:5",
+        "Use.sw:8:18 Span.size -> Lib.Range.size [def] Lib.sw:5:5",
+    ] {
+        assert!(all.contains(expected), "missing `{expected}` in\n{all}");
+    }
+}
+
 /// With recording off, nothing is kept.
 #[test]
 fn off_by_default() {

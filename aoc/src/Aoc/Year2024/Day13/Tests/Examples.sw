@@ -3,6 +3,7 @@
 
 namespace Aoc.Year2024.Day13.Tests
 import Aoc.Year2024.Day13 (..)
+import Aoc.Year2024.Day13 (Spec)
 import Aoc.Year2024.Day13.Spec (correctedMachine, part1)
 import Std (Fail, Int, List, Nat, Option, Result, Text)
 
@@ -85,11 +86,11 @@ def collinear: List Machine := [
 test "the same line: determinant 0" := collinear.all (machine => machine.determinant == 0)
 test "the same line: cheapest" :=
   collinear.map .fewestTokens == [Some 5, Some 6, Some 6, Some 7, Some 7, None, Some 2, Some 6, Some 0, None, Some 8, Some 11]
-test "the same line, part 1, by the spec" := collinear.all (machine => part1Tokens machine == Aoc.Year2024.Day13.Spec.fewestTokens machine)
+test "the same line, part 1, by the spec" := collinear.all (machine => part1Tokens machine == Spec.fewestTokens machine)
 test "the same line, no limit, against a search" := collinear.all (machine => machine.fewestTokens == machine.searchTokens 40)
 test "the same line, B cheaper per step" := (claw 2 2 1 1 701 701).fewestTokens == Some 701
 test "the same line, A cheaper per step" := (claw 70 70 1 1 700 700).fewestTokens == Some 30
 
 test "edge cases, part 1, the spec agrees" :=
   [claw 2 1 1 2 1 5, claw 3 1 1 3 2 2, claw 1 0 0 1 101 5, claw 1 0 0 1 100 100, claw 94 34 22 67 0 0].all (machine =>
-    part1Tokens machine == Aoc.Year2024.Day13.Spec.fewestTokens machine)
+    part1Tokens machine == Spec.fewestTokens machine)

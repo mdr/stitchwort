@@ -1,8 +1,11 @@
 # Import aliases: `Spec.x` for a namespace you import
 
-**Status:** draft 1, 30 October 2026 (SW-804, D2071). Design only; nothing
-is built. Decisions for Matt are D2072-D2074 (§9). A brief for an outside
-reviewer is [import-aliases/review-brief.md](import-aliases/review-brief.md).
+**Status:** draft 1, 30 October 2026 (SW-804, D2071). Decided 31 October
+(D2072, after [review 1](import-aliases/review-1.md)): stage 1 is (b′) with
+the review's clash rules, stage 2 is per-name renaming `import M (x as y)`;
+`(..)` bringing sub-namespaces (D2073) and whole-module `as` are not built.
+What was built is in [§11](#11-as-built). A brief for an outside reviewer
+is [import-aliases/review-brief.md](import-aliases/review-brief.md).
 
 **In one paragraph.** The ticket asked for `import M as A`. The evidence for
 it is four lines, and none of them needed a full name: the two
@@ -20,7 +23,8 @@ N (..)` also bring `N`'s sub-namespaces as qualifiers, as Agda's `open` does
 error that points at the item form (D2074). Nothing here changes a hash.
 
 Contents: 1 Problem · 2 Evidence · 3 Current system · 4 Other languages ·
-5 Options · 6 Recommendation · 7 Plan · 8 Risks · 9 Decisions · 10 Sources
+5 Options · 6 Recommendation · 7 Plan · 8 Risks · 9 Decisions · 10 Sources ·
+11 As built
 
 ## 1. Problem
 
@@ -217,8 +221,8 @@ means the pages I read don't settle it.
 | Language | Rename a module | Use a sub-module by its last name | Glob brings sub-modules? | Rename one name | Clash rule |
 |---|---|---|---|---|---|
 | Haskell 2010 | `import qualified M as N`; then only `N.x` (§5.3.2, 5.3.4). Several modules may share one `as` name "provided that all names can still be resolved unambiguously" (§5.3.3) | No (hierarchical names are just names) | n/a | No | Error "only reported if y is actually mentioned" (§5.5.2). One entity reached two ways isn't ambiguous |
-| Rust | `use a::b as c` ("change the name of an imported entity") | Yes: `use crate::stuff::{self}` then `stuff::bar()`; `use path::m` binds `m` | "all importable entities" (stated); modules are items, so yes (inferred) | `use m::f as g` | Items and named imports shadow glob names (stated); duplicate named bindings are an error |
-| Lean 4 | **None** on the pages read; `export` aliases single names "completely transparent[ly]" | Inside `namespace A`, `B.x` is tried as `A.B.x` ("a prefix of the current namespace appended to the identifier"); `open A` then `B.x`: unverified | `open A.B` makes `A.B.x` visible as `x` (stated) | `open X renaming a → b` | Several candidates: elaborate each, error unless exactly one succeeds (overloading by type) |
+| Rust | `use a::b as c` ("change the name of an imported entity") | Yes: `use crate::stuff::{self}` then `stuff::bar()`; `use path::m` binds `m` | "all importable entities" (stated); modules are importable items (stated by review 1, citing the `use` keyword docs; not re-read here), so yes | `use m::f as g` | Items and named imports shadow glob names (stated); duplicate named bindings are an error |
+| Lean 4 | **None** on the pages read; `export` aliases single names "completely transparent[ly]" | Inside `namespace A`, `B.x` is tried as `A.B.x` ("a prefix of the current namespace appended to the identifier"); after `open A`, `B.x` is also tried as `A.B.x` (stated by review 1, which cites the Identifiers page [L2]; not re-read here) | `open A.B` makes `A.B.x` visible as `x` (stated) | `open X renaming a → b` | Several candidates: elaborate each, error unless exactly one succeeds (overloading by type) |
 | Scala 3 | `import scala.annotation as ann`, `import java as j` | Yes: import a package or object by name | `*` excludes givens and extensions; `given` selector imports them | `import A.{min as minimum}`; hide with `as _` | (not read) |
 | OCaml | `module M = A.B` is a type-level alias; with `-no-alias-deps` no link dependency until used | Via aliases or `open` | `open M` "simply affects the parsing of the following items"; `include` re-exports | No | (not read) |
 | Python | `import a.b.c as d` binds `d` to the leaf | `from a.b import c` binds the sub-module `c` (stated: it tries "a submodule with that name") | `from m import *`: public names (`__all__`) | `from a import b as c` | Last binding wins |
@@ -531,5 +535,103 @@ quoted passages; 0 read in full; 0 web searches.**
 
 **Not read, so supporting nothing here:** GHC's user guide (e.g.
 `ImportQualifiedPost`); the Rust Reference's name-resolution chapter (glob
-ambiguity); the end of Lean's resolution rules for `open A` followed by
-`B.x`; OCaml's shadowing rules for `open!`; Scala 3's ambiguity rules.
+ambiguity); OCaml's shadowing rules for `open!`; Scala 3's ambiguity rules.
+(Lean's rule for `open A` then `B.x`, unread in draft 1, is settled by review 1: see §4.)
+
+## 11. As built
+
+### Stage 1: a namespace as an import item (31 October 2026)
+
+`import P (S)`, where `P.S` is a namespace and not a declaration, makes `S`
+a qualifier for `P.S` in that file and imports none of its names. This is
+§6 with review 1's changes to R2 and R3:
+
+- **Its own binding.** Namespace items go in a table of their own
+  (`Scope::qualifiers`, per file), not among the names imported by name.
+  `qualifier` (scope.rs) consults it after the module's own declarations
+  and own namespaces. `Std` items (`import Std (Eq)`) use the same table;
+  the old step 5 (`library_namespace` reading the import table) now reads
+  it too.
+- **Clashes.** The module's own names come first, as for any import: an
+  item hidden by a declaration of the module's (`def Spec`) or by a
+  namespace of its own (`def Spec.f`) is `E-IMPORT-CLASH` at the item.
+  Anything else that the name also means here (another namespace item, a
+  type imported by name or by `(..)`, a project root namespace, a prelude
+  name) makes each use `E-AMBIGUOUS`, which lists the full names and what
+  each meaning is. Nothing hides silently. Two items naming the same
+  namespace are not ambiguous.
+- **Order (R4).** The pre-pass (project.rs) reads each import's path as
+  before, sorts its items into names and namespace items, and makes an edge
+  to an item that is a project namespace. A use `S.x` of an item that is
+  only a prefix of project namespaces makes an edge to the namespace it
+  lands in.
+- **Messages.** `S` alone is `E-UNKNOWN-NAME` with a note that it is a
+  qualifier. `S.x` with no import, where some project namespace ends in
+  `.S`, gets a note naming the import to add (the namespace sharing most
+  leading components with the file's first). `import M as A` is `E-PARSE`
+  with a note giving `import P (S)` (and saying `A` can't stand for `M` if
+  it isn't `M`'s last name).
+- **Printing.** No printer change: `Printer::short_name` tries
+  `Spec.total` before `Shop.Spec.total`, and it now resolves.
+- **Evidence.** `examples/projects/accept/import-namespace-item` (with
+  `Shop.Proofs` and `Shop.Checks`, which sort before `Shop.Spec`) and
+  `import-namespace-item-full-names`, the same project with full names:
+  `hash_stability::namespace_items_hash_as_full_names` checks the two have
+  the same hashes, line for line. Rejects: `import-namespace-item-ambiguous`,
+  `import-namespace-item-own`, `import-namespace-item-alone`,
+  `examples/reject/import-as.sw`. Goals:
+  `goal_index::goals_print_imported_namespaces_by_their_last_name` (the
+  goal prints `Spec.total xs = Shop.total xs`, pasted back it checks as the
+  same goal). Day 13's four full names are now `Spec.fewestTokens`; the
+  aoc hash dump (`HASH_DUMP`) is byte-identical before and after (10,657
+  lines).
+
+### Stage 2: per-name renaming, `import M (x as y)` (31 October 2026)
+
+- **Syntax.** An item is `name` or `name as alias` (`ast::ImportItem`).
+  `as` is not a keyword: it is read only there, so it stays usable as a
+  name elsewhere. The alias starts with a capital letter exactly when the
+  name does (`E-PARSE` otherwise), since that says what kind of name it
+  is. `(..)` takes no `as`. `stitchwort fmt` needed no change (the golden
+  `imports` test now has renamed items).
+- **Meaning.** `y` is bound where `x` would be (the import table for a
+  declaration, the qualifier table for a namespace) and `x` is not. Decided
+  for each kind of item:
+  - a definition or theorem: `y` names it;
+  - a type or ability: `y` names it and is a qualifier for its namespace
+    (`Owing.f`, `Owing.Paid`); its constructors or operations keep their
+    own names, visible while `y` means the type (a table `Scope::renamed`,
+    key to new names, lets the follower rule find them);
+  - a namespace: allowed, and simply a renamed qualifier (`import Shop
+    (Spec as S)`, then `S.total`). This gives a module alias for any
+    namespace below a root, through the item form; a root namespace has
+    no parent to import it from, so it can't be renamed.
+- **Clashes** are an ordinary import's, by the new name: `E-IMPORT-CLASH`
+  with a declaration of the module's, `E-AMBIGUOUS` at a use of a name two
+  items share. Writing the old name is `E-UNKNOWN-NAME` with a note giving
+  the new one.
+- **Printing.** `NameScope::aliases` gives, for a full name, its spellings
+  through renamed items (`y` for `M.x`, `S.total` for `Shop.Spec.total`).
+  `Printer::short_name` tries each after the trailing part with as many
+  components, and keeps the first that means the declaration here, so the
+  printed name always pastes back (review 1's invariant). Messages'
+  `written` tries them first too; a note that says where a declaration is
+  (the library's names for an unknown one) still uses its full name.
+- **Tools.** The navigation index records both names of an item and every
+  use of the new name as references to the declaration, so hover and go
+  to definition show the declaration itself, and find references lists the
+  new name's uses. The language server has no rename (it offers
+  definition, hover, references, symbols and formatting), so there is
+  nothing to teach about the new names; if rename is added, renaming a
+  declaration should leave an alias alone and renaming an alias should
+  edit the item and its uses.
+- **Hashes.** `examples/projects/accept/import-rename` and its
+  `-full-names` twin hash the same, line for line
+  (`hash_stability::import_items_hash_as_full_names`). The aoc and rogue
+  hash dumps with stages 1 and 2 are byte-identical to `main`'s before
+  them (10,657 and 5,228 lines).
+- **Tests.** Goals: `goal_index::goals_print_imported_names_as_the_file_writes_them`
+  (`S.total xs = charged xs`, pasted back as the same goal). Navigation:
+  `navigation::renamed_imports_refer_to_the_declaration`. Parser:
+  `import_items_may_be_renamed`. Rejects: `examples/reject/import-rename-*`
+  (clash, ambiguous, old name, case).
