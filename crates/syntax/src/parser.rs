@@ -1028,6 +1028,18 @@ impl<'t> Parser<'t> {
                 ))
                 .into());
         }
+        // `((x, y): Point)` or `({ x, y }: Point)`: a pattern, which a
+        // definition's parameter can't be (SW-950).
+        if matches!(self.peek(), Some(Tok::LParen | Tok::LBrace)) {
+            return Err(self
+                .unexpected("a parameter's name")
+                .with_note(
+                    "a definition's parameter is a name, not a pattern: name it, `(point: \
+                     Point)`, and take it apart in the body with `let (x, y) := point` (or a \
+                     `match`); a lambda's parameter can be a pattern, as in `((x, y)) => …`",
+                )
+                .into());
+        }
         self.lower("a parameter's name")
     }
 
