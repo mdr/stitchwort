@@ -752,6 +752,17 @@ impl<'e> Ctx<'e> {
         term
     }
 
+    /// [`Ctx::fresh_meta`], of type `ty`, recorded for unification
+    /// ([`stitchwort_core::globals::Meta::ty`]).
+    pub fn fresh_meta_of(&self, ty: &Value) -> Term {
+        let term = self.fresh_meta();
+        let (head, args) = term.spine();
+        if let Term::Meta(m) = head {
+            self.g().set_meta_type(*m, ty.clone(), args.len());
+        }
+        term
+    }
+
     pub(crate) fn mismatch(&self, expected: &Value, found: &Value) -> Diagnostic {
         let expected_shown = self.show(expected);
         let found_shown = self.show(found);
@@ -3019,7 +3030,7 @@ fn insert_with(
 }
 
 pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
-    let meta = cx.fresh_meta();
+    let meta = cx.fresh_meta_of(ty);
     crate::rows::note_row_meta(cx, ty, &meta);
     if icit == Icit::Auto {
         let tree = match meta.spine().0 {
@@ -3362,7 +3373,7 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             Ok(Term::Ctor(unit, trivial, Vec::new()))
         }
         (Expr::Hole(_), _) => {
-            let hole = cx.fresh_meta();
+            let hole = cx.fresh_meta_of(&expected);
             if let Some(log) = cx.e.hole_log.borrow_mut().as_mut() {
                 log.push((hole.clone(), cx.level(), expected.clone()));
             }

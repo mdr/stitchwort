@@ -1331,6 +1331,12 @@ fn push_eta(g: &Globals, level: usize, a: &Value, b: &Value, work: &mut Vec<Task
 /// matching the last arguments and then the rest: `?m … = f …` and `x = y`.
 /// This finds *a* solution, not necessarily the most general one, which is
 /// fine because the kernel re-checks the result.
+///
+/// Unlike every other rule here, this one pairs values that needn't have the
+/// same type: `?p True = t ?g` (with `?p: Bool → Type` and `t: (Nat → Nat)
+/// → Type`) would solve `?g: Nat → Nat` with `True`, and the elaborator
+/// evaluates `?g 0` long before the kernel sees it (SW-919). So the pairs
+/// are refused when their types are known to differ ([`apart`]).
 fn first_order(g: &Globals, level: usize, m: usize, spine: &[Elim], other: &Value) -> Result<bool> {
     let Value::Neutral(head, other_spine) = other else {
         return Ok(false);
@@ -1340,14 +1346,114 @@ fn first_order(g: &Globals, level: usize, m: usize, spine: &[Elim], other: &Valu
     else {
         return Ok(false);
     };
-    Ok(i1 == i2
-        && unify(g, level, x, y)?
-        && unify(
-            g,
-            level,
-            &Value::Neutral(Head::Meta(m), rest1.to_vec().into()),
-            &Value::Neutral(*head, rest2.to_vec().into()),
-        )?)
+    if i1 != i2 {
+        return Ok(false);
+    }
+    let left = Value::Neutral(Head::Meta(m), rest1.to_vec().into());
+    let right = Value::Neutral(*head, rest2.to_vec().into());
+    if apart(g, level, x, y)? || apart(g, level, &left, &right)? {
+        return Ok(false);
+    }
+    Ok(unify(g, level, x, y)? && unify(g, level, &left, &right)?)
+}
+
+/// What a value's type is known to be, for [`apart`]: the type itself, or
+/// only its outermost form.
+enum Known {
+    Type(Value),
+    Form(Rigid),
+}
+
+/// Whether values `a` and `b` (in a context of `level` variables) surely
+/// have different types: both types are known, as far as their outermost
+/// forms (and a function type's domain and codomain), and those differ. Only
+/// a guard: `false` whenever either type is unknown.
+fn apart(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    let (Some(ta), Some(tb)) = (type_of(g, a)?, type_of(g, b)?) else {
+        return Ok(false);
+    };
+    match (ta, tb) {
+        (Known::Type(ta), Known::Type(tb)) => types_apart(g, level, &ta, &tb, 2),
+        (Known::Type(t), Known::Form(f)) | (Known::Form(f), Known::Type(t)) => {
+            Ok(form(g, &t)?.is_some_and(|tf| tf != f))
+        }
+        (Known::Form(fa), Known::Form(fb)) => Ok(fa != fb),
+    }
+}
+
+/// Whether types `a` and `b` surely differ: their forms do, or (for
+/// `depth` levels of function types) their domains or codomains do.
+fn types_apart(g: &Globals, level: usize, a: &Value, b: &Value, depth: usize) -> Result<bool> {
+    let a = force(g, a.clone())?;
+    let b = force(g, b.clone())?;
+    if let (Value::Pi(_, i1, d1, c1), Value::Pi(_, i2, d2, c2)) = (&a, &b) {
+        if i1 != i2 {
+            return Ok(true);
+        }
+        if depth == 0 {
+            return Ok(false);
+        }
+        let fresh = Value::var(level);
+        return Ok(types_apart(g, level, d1, d2, depth - 1)?
+            || types_apart(
+                g,
+                level + 1,
+                &c1.apply(g, fresh.clone())?,
+                &c2.apply(g, fresh)?,
+                depth - 1,
+            )?);
+    }
+    Ok(match (form(g, &a)?, form(g, &b)?) {
+        (Some(fa), Some(fb)) => fa != fb,
+        _ => false,
+    })
+}
+
+/// The outermost form of type `ty`, if no solution of an unknown can change
+/// it ([`rigid_head`]). A type variable doesn't count: an unknown's
+/// recorded type is in the context it was made in, where its arguments may
+/// since stand for other values.
+fn form(g: &Globals, ty: &Value) -> Result<Option<Rigid>> {
+    let ty = force(g, ty.clone())?;
+    Ok(rigid_head(g, &ty).filter(|r| *r != Rigid::Var))
+}
+
+/// What's known of `v`'s type without a context: a constructor's, a
+/// number's, a type's, a function's form; a definition's, or an unknown's
+/// recorded one ([`stitchwort_core::globals::Meta::ty`]), applied to its
+/// arguments. `None` for a variable, or anything else.
+fn type_of(g: &Globals, v: &Value) -> Result<Option<Known>> {
+    let v = force(g, v.clone())?;
+    let (ty, args) = match &v {
+        Value::Ctor(d, ..) => return Ok(Some(Known::Form(Rigid::Data(*d)))),
+        Value::Nat(_) | Value::NatAdd(..) => {
+            return Ok(g.builtins.nat.map(|d| Known::Form(Rigid::Data(d))));
+        }
+        Value::Sort(_) | Value::Pi(..) | Value::Data(..) | Value::Eq(..) => {
+            return Ok(Some(Known::Form(Rigid::Sort)));
+        }
+        Value::Refl => return Ok(Some(Known::Form(Rigid::Eq))),
+        Value::Lam(..) => return Ok(Some(Known::Form(Rigid::Pi))),
+        Value::Neutral(Head::Def(id), spine) | Value::Call(id, spine, _) => {
+            (g.def(*id).ty_value.clone(), &spine[..])
+        }
+        Value::Neutral(Head::Meta(m), spine) => match g.meta_type(*m) {
+            Some((ty, arity)) if arity <= spine.len() => (ty, &spine[arity..]),
+            _ => return Ok(None),
+        },
+        _ => return Ok(None),
+    };
+    let mut ty = ty;
+    for elim in args {
+        let Elim::App(arg, _) = elim else {
+            return Ok(None);
+        };
+        let Value::Pi(_, _, _, cod) = force(g, ty)? else {
+            return Ok(None);
+        };
+        ty = cod.apply(g, arg.clone())?;
+    }
+    Ok(Some(Known::Type(ty)))
 }
 
 /// An unsolved metavariable against a glued call (`?x` against `invalid r`):
@@ -2883,6 +2989,56 @@ mod tests {
         assert!(unify(&g, 4, &lam(0), &lam(1)).unwrap());
         assert_eq!(g.budget.total_work() - before, 1, "one step: the shortcut");
         assert!(g.meta_solution(m).is_none());
+    }
+
+    /// SW-919: `?p t Type = t ?g` isn't a pattern; matching the last
+    /// arguments pairs `Type` (a type) with `?g`. If `?g` is known to be a
+    /// function, they can't be equal and nothing is solved; if its type is
+    /// unknown, or a sort, the last arguments are matched as before.
+    #[test]
+    fn matching_last_arguments_refuses_values_of_different_types() {
+        let attempt = |g_ty: Option<Value>| {
+            let g = globals();
+            let (p, _) = meta(&g, &[]);
+            let (m, unknown) = meta(&g, &[]);
+            if let Some(t) = g_ty {
+                g.set_meta_type(m, t, 0);
+            }
+            let left = Value::Neutral(
+                Head::Meta(p),
+                vec![
+                    Elim::App(Value::var(0), Icit::Explicit),
+                    Elim::App(ty(), Icit::Explicit),
+                ]
+                .into(),
+            );
+            // `t`, the variable at level 0, applied to `?g`.
+            let right = Value::Neutral(
+                Head::Var(0, Apart::NONE),
+                vec![Elim::App(unknown, Icit::Explicit)].into(),
+            );
+            let same = unify(&g, 1, &left, &right).unwrap();
+            (
+                same,
+                g.meta_solution(m).is_some(),
+                g.meta_solution(p).is_some(),
+            )
+        };
+        let function = Value::Pi(
+            "x".into(),
+            Icit::Explicit,
+            Rc::new(ty()),
+            Closure {
+                env: Vec::new().into(),
+                body: Rc::new(Term::Sort(Sort::Type(0))),
+            },
+        );
+        assert_eq!(attempt(Some(function)), (false, false, false));
+        assert_eq!(attempt(None), (true, true, true));
+        assert_eq!(
+            attempt(Some(Value::Sort(Sort::Type(1)))),
+            (true, true, true)
+        );
     }
 
     fn pending_of(ms: &[usize]) -> HashSet<usize> {

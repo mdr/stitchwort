@@ -495,8 +495,9 @@ impl Elaborator {
             let def = g.def(id);
             let mut env: Vec<Value> = Vec::new();
             let mut t = def.ty.strip_loc();
-            while let Term::Pi(_, _, _, cod) = t {
+            while let Term::Pi(_, _, dom, cod) = t {
                 let m = g.new_meta(def.span);
+                g.set_meta_type(m, eval(g, &env, dom)?, 0);
                 env.push(eval(g, &[], &Term::Meta(m))?);
                 t = cod.strip_loc();
             }
@@ -652,6 +653,7 @@ impl Elaborator {
                     hypotheses.push(((**dom).clone(), env.len()));
                 }
                 let m = g.new_meta(def.span);
+                g.set_meta_type(m, eval(g, &env, dom)?, 0);
                 opened.push(m);
                 env.push(eval(g, &[], &Term::Meta(m))?);
                 t = cod.strip_loc();
