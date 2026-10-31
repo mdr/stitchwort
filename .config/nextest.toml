@@ -87,6 +87,7 @@ package(stitchwort-syntax)
 | (package(stitchwort-cli) & binary(examples))
 | (package(stitchwort-cli) & binary(goal_index))
 | (package(stitchwort-bench) & binary(check_work) & !test(=checking_does_not_compute_unneeded_values))
+| binary(search_match) | binary(search_bench) | (package(stitchwort-cli) & binary(search))
 """
 
 # Every test's time, for cutting the tier when it grows past its budget:
@@ -164,6 +165,13 @@ default-filter = "package(stitchwort-bench) & (kind(lib) | (binary(check_work) &
 
 [profile.lane-web]
 default-filter = "package(stitchwort-web) & !test(/(effectful_maps_run_at_a_million_elements|the_guide_examples_check|every_aoc_day_checks_passes_its_tests_and_runs_on_its_example|the_playground_examples_check_and_pass_their_tests|evaluates_with_full_names_and_extracts_a_namespace|a_partial_main_that_may_fail_shows_its_output_then_the_error|a_second_source_replaces_the_remembered_one)$/)"
+
+# `stitchwort search` (SW-915): its matching on a small file, the library's
+# self-retrieval benchmarks on the lane sample (every 8th theorem) with the
+# hand queries, and the command end to end. About 6 s with the check cache
+# the tests share filled.
+[profile.lane-search]
+default-filter = "binary(search_match) | binary(search_bench) | (package(stitchwort-cli) & binary(search))"
 
 [test-groups]
 # crates/cli/tests/lsp.rs keeps one warm copy of the AoC project under

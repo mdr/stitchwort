@@ -1,0 +1,47 @@
+---
+source: crates/cli/tests/search.rs
+expression: "serde_json::to_string_pretty(&report).unwrap()"
+---
+{
+  "budget": {
+    "candidates": "(the library's size)",
+    "compared": 1,
+    "exhausted": true,
+    "internalErrors": 0,
+    "outOfBudget": 0,
+    "truncated": false
+  },
+  "query": {
+    "elaborated": "List.length (twice ?1) = ?2",
+    "holes": [],
+    "kinds": [
+      "theorem",
+      "definition",
+      "constructor"
+    ],
+    "mentions": [],
+    "names": [],
+    "rewrite": false,
+    "text": "List.length (twice _) = _"
+  },
+  "results": [
+    {
+      "absorbed": 0,
+      "file": "a.sw",
+      "import": null,
+      "instantiated": 1,
+      "kind": "theorem",
+      "line": 5,
+      "name": "Main.twiceLength",
+      "place": "conclusion",
+      "premises": 0,
+      "relation": "instance",
+      "size": 25,
+      "type": "(xs: List Nat) → List.length (twice xs) = List.length xs + List.length xs"
+    }
+  ],
+  "searchTier": "filtered",
+  "total": 1,
+  "version": 1,
+  "warnings": []
+}

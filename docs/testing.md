@@ -27,7 +27,7 @@ Two things make a tier, and the tasks set both:
 
 Both are needed: a profile can only include or leave out a whole test, and the sweeps are single tests whose cost is the size of the corpus. The profiles keep the lists of what runs in one file that nextest checks; the environment variable keeps each sweep's sample next to the code that knows what is in its corpus. A sweep's assertion about how much it covered (say, "more than 1,000 arguments named") scales with the sample, and is exactly the old one in the full tier.
 
-What only the full tier runs: the AoC project in the std_library, rewind, check-cache and `fmt_hashes` comparisons, `a_check_cancelled_part_way_rewinds`, the bench `examples` benchmark (in `baseline`, and repeated in `repeat`), the whole corpus in each sampled sweep (below), and `rt`'s AoC sweeps `aoc_agrees` and `every_aoc_main_lowers` (36 to 38 minutes each in the daily tier on 31 Oct 2026; SW-839 is to give the daily tier a fast check of AoC lowering instead).
+What only the full tier runs: the AoC project in the std_library, rewind, check-cache and `fmt_hashes` comparisons, `a_check_cancelled_part_way_rewinds`, the bench `examples` benchmark (in `baseline`, and repeated in `repeat`), `search_bench`'s proof-use benchmark, the whole corpus in each sampled sweep (below), and `rt`'s AoC sweeps `aoc_agrees` and `every_aoc_main_lowers` (36 to 38 minutes each in the daily tier on 31 Oct 2026; SW-839 is to give the daily tier a fast check of AoC lowering instead).
 
 | Sweep | Daily share | Merge and lane share |
 |---|---|---|
@@ -86,6 +86,7 @@ The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times
 | `examples` | `cli` `examples`: a quarter of each folder, or with `NAME=synonym` every example whose name contains it | 7 s (2 s with `NAME`) |
 | `bench` | the `stitchwort-bench` unit tests and the quick `check_work` tests | 6 s |
 | `web` | the quick `stitchwort-web` unit tests (not the playground, guide or AoC sweeps) | 3 s |
+| `search` | `stitchwort search` (SW-915): `search_match` (the relations and places on a small file), `search_bench` on the lane sample (every 8th std theorem's conclusion and left side must find it, no internal error, strict top-1 at least 86% and 78%; the hand queries), and `cli` `search` (the command end to end, the JSON contract's snapshot). The daily tier runs the self-retrieval benchmarks over all std (about 7 s and 4 s); only the full tier runs the proof-use benchmark (recall@10 at least 50%, minutes) | 6 s with the shared check cache filled |
 
 A lane that needs more than its area runs `task test:one -- NAME` for the tests it changed. The browser and VS Code tests are separate: `task test:browser`, `task test:vscode` and `task test:colour` (the playground tokenizer's colouring tests, run by node with no browser).
 
