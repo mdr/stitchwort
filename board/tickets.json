@@ -2079,17 +2079,19 @@
     {
       "id": 930,
       "title": "Operator section (<) gives a Prop, not a Bool: zipWith … (<) |> .count fails E-AUTO-NONE, error points at the lambda not at (<)",
-      "status": "review",
+      "status": "done",
       "agent": "",
-      "where": "built (6160d345 on branch sw930-comparison-section), not merged: semantics change awaiting Matt (D2098)",
+      "where": "merged (D2098 a)",
       "labels": [
         "elab",
         "diagnostics"
       ],
-      "body": "Repro in NOTES-2021 item 1. Either a section of a comparison where a Bool is expected should be the Bool comparison (as a < b written inline in a Bool position is decided), or the error must point at the section and say how to get the Bool form.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nProgress (lane agent-a9ff062c, 6160d345): made it work. A section comparing with < <= > >= (incl. method sections) whose result type is still an unknown (or {e} ?t) solves it with Bool before checking the body, so zipWith … (<) and map (> 3) give List Bool. Where a Prop is expected (List.All (< 5)) unchanged; a written lambda (a b => a < b) stays Prop (the one place a section differs from its lambda; docs/syntax.md says so). Example examples/accept/section-comparison-bool.sw; no other example hash/message changed.\n",
+      "body": "Repro in NOTES-2021 item 1. Either a section of a comparison where a Bool is expected should be the Bool comparison (as a < b written inline in a Bool position is decided), or the error must point at the section and say how to get the Bool form.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nProgress (lane agent-a9ff062c, 6160d345): made it work. A section comparing with < <= > >= (incl. method sections) whose result type is still an unknown (or {e} ?t) solves it with Bool before checking the body, so zipWith … (<) and map (> 3) give List Bool. Where a Prop is expected (List.All (< 5)) unchanged; a written lambda (a b => a < b) stays Prop (the one place a section differs from its lambda; docs/syntax.md says so). Example examples/accept/section-comparison-bool.sw; no other example hash/message changed.\n\n\nD2098 (Matt, 31 Oct 2026): (a) accept the section rule as built; a written-out lambda keeps today's behaviour (option b is a possible follow-up). Cherry-picked onto main.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "723d7784"
+      ]
     },
     {
       "id": 931,
@@ -2199,7 +2201,7 @@
         "elab",
         "diagnostics"
       ],
-      "body": "From AoC 2021 day 2 (aoc/NOTES-2021.md, 31 Oct 2026). When cases fails on a false Int goal it describes the case by Int's internals (Int.subNatNatFrom …), and in one theorem ran past its 64-case budget (E-CASES-BUDGET); the counterexample note was right but the case description was unhelpful. Print cases in user terms (Int literals/negation), and avoid splitting Int internals (cf. SW-608 item 3 for Float internals).\n\n\nD2099 (Matt, 31 Oct 2026): yes. Print Int values as numbers in cases and goals (OfNat n as n, NegSucc n as -(n+1)); stop cases splitting Int's internals unless an existing proof needs it (if one does, keep the split and ship the printing only).\n",
+      "body": "From AoC 2021 day 2 (aoc/NOTES-2021.md, 31 Oct 2026). When cases fails on a false Int goal it describes the case by Int's internals (Int.subNatNatFrom …), and in one theorem ran past its 64-case budget (E-CASES-BUDGET); the counterexample note was right but the case description was unhelpful. Print cases in user terms (Int literals/negation), and avoid splitting Int internals (cf. SW-608 item 3 for Float internals).\n\n\nD2099 (Matt, 31 Oct 2026): yes. Print Int values as numbers in cases and goals (OfNat n as n, NegSucc n as -(n+1)); stop cases splitting Int's internals unless an existing proof needs it (if one does, keep the split and ship the printing only).\n\n\n31 Oct (D2099 lane): repro confirmed on main in a scratch copy of day 2 (E-CASES case `start.depth = OfNat n✝, Int.neg (OfNat units✝) = NegSucc n✝, Int.subNatNatFrom …`, and E-CASES-BUDGET for aimedDepthAfter). Baseline hash dumps taken (std+aoc 10,897, std+rogue 5,240). Next: printer (OfNat/NegSucc/Int.neg/Nat.toInt) and the atom rule.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
