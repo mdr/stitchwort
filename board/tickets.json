@@ -1937,9 +1937,9 @@
     {
       "id": 922,
       "title": "R4 (SW-787) makes x % D with a + K literal unfold Nat.divFuel K levels: huge normal forms (Float.Theory magUnits*, lcg), slow unification (SW-920)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "PAUSED 31 Oct (quota): lane stopped; work in .claude/worktrees/agent-a34e9da4171290b2e (0 commits, 243 uncommitted files); relaunch fresh from it",
+      "where": "stage 1 merged (P1); stage 2 / SW-554 later (D2081); bench times need re-recording on a quiet machine",
       "labels": [
         "bug",
         "perf"
@@ -1950,7 +1950,10 @@
       "commits": [
         "bf47f1d3",
         "ad6bcb34",
-        "768497c8"
+        "768497c8",
+        "42d6e454",
+        "6425ad64",
+        "1a67964b"
       ]
     },
     {
