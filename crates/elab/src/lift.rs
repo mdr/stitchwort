@@ -1609,6 +1609,43 @@ impl Elaborator {
                  a `def` and use it in both places",
             );
         }
+        self.explain_tuple_match(d)
+    }
+
+    /// A termination error at a call inside `match (xs, n) with` (SW-941):
+    /// the pieces its patterns bind come from the tuple, so they aren't seen
+    /// as parts of `xs` or `n`. Matching the variables themselves,
+    /// `match xs, n with`, keeps that.
+    fn explain_tuple_match(&self, mut d: Diagnostic) -> Diagnostic {
+        if d.code != "E-TERMINATION" {
+            return d;
+        }
+        let inside = |outer: Span, inner: Span| {
+            outer.file == inner.file && outer.start <= inner.start && inner.end <= outer.end
+        };
+        let matches = self.tuple_matches.borrow();
+        let Some((_, shown, names)) = matches
+            .iter()
+            .filter(|(span, _, _)| d.labels.iter().any(|l| inside(*span, l.span)))
+            // The innermost, if they nest.
+            .min_by_key(|(span, _, _)| span.end - span.start)
+        else {
+            return d;
+        };
+        let quoted: Vec<String> = names.iter().map(|x| format!("`{x}`")).collect();
+        let (last, rest) = quoted.split_last().expect("a tuple has two parts");
+        let and = format!("{} and {last}", rest.join(", "));
+        let or = format!("{} or {last}", rest.join(", "));
+        let note = format!(
+            "`match {shown} with` takes apart a tuple built from {and}, and what its patterns \
+             bind isn't seen as a part of {or}, so it isn't seen as smaller: match them \
+             directly, `match {} with` (without the brackets), or give a measure with \
+             `decreasing`",
+            names.join(", ")
+        );
+        if !d.notes.contains(&note) {
+            d.notes.insert(0, note);
+        }
         d
     }
 }

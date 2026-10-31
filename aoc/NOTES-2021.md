@@ -666,6 +666,8 @@ one the test first guessed.
   (`| _, [number] => …`, `| Succ later, numbers => …`) checked. A note
   that matching a tuple of the parameters hides their pieces, with the
   clause form as the fix, would have saved the guess.
+  Fixed (SW-941): the error now has a note saying the tuple match is why,
+  suggesting `match numbers, columns with` (no brackets) or `decreasing`.
 
 ### 4. Inference: none
 

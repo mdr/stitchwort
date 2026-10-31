@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `rating` terminates
+    ╭─[ reject/termination-tuple-match.sw:10:26 ]
+    │
+ 10 │     | (_, Succ later) => rating later numbers
+    │                          ──────────┬─────────  
+    │                                    ╰─────────── this recursive call might not terminate: the 2nd argument stays the same
+    │ 
+    │ Note 1: `match (numbers, columns) with` takes apart a tuple built from `numbers` and `columns`, and what its patterns bind isn't seen as a part of `numbers` or `columns`, so it isn't seen as smaller: match them directly, `match numbers, columns with` (without the brackets), or give a measure with `decreasing`
+    │ 
+    │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+────╯
