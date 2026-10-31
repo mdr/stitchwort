@@ -3334,7 +3334,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             let (term, found) = insert(cx, term, found)?;
             return compare(cx, term, &found, &expected);
         }
-        let plain = |cx: &mut Ctx| Ok((check_value(cx, expr, &expected)?, expected.clone()));
+        let plain = |cx: &mut Ctx| Ok((check_value(cx, expr, &expected, named)?, expected.clone()));
         return match pure_first(cx, expr, Some(&expected), plain)? {
             PureFirst::Done((term, _)) => Ok(term),
             PureFirst::Run(plain_error) => effects::run_pure(cx, expr, Some(&expected))
@@ -3343,7 +3343,7 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         };
     }
     name_unknown_type(cx, expr, named)?;
-    check_value(cx, expr, &expected).or_else(|e| {
+    check_value(cx, expr, &expected, named).or_else(|e| {
         // A `Comp` whose results aren't its row's is a data type, not a
         // computation in the row (SW-851): say why a value didn't fit.
         if e.code != "E-TYPE-MISMATCH" {
@@ -3385,13 +3385,42 @@ fn name_unknown_type(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<()> 
         // Only a better name for the same type: if it doesn't unify, the
         // ordinary check below reports the mismatch.
         crate::undo::attempt(cx, |cx| crate::undo::unify(cx, &found, &named))?;
+        return Ok(());
     }
+    // An unknown that a name was only noted for (`same counts` against
+    // `Counts`): the variable's type gets the note too.
+    name_unknown(cx, &found, expected)
+}
+
+/// Notes `named`'s name for `found`, a type not known yet, where `named` is
+/// an alias (`Counts`) or an unknown with a noted name, before `found` is
+/// solved with what that unfolds to (`List Nat`): `same counts` against
+/// `Counts` notes it for `same`'s `a`, and then for `counts`'s type, so a
+/// lambda parameter of that type still finds `Counts.size` (SW-858). Unlike
+/// [`name_unknown_type`], only a note (`Elaborator::meta_names`), read by dot
+/// notation: the solution, and so every term, keeps the unfolded type
+/// (D2092), so hidden type arguments, hashes and the built-in shape checks
+/// are unchanged.
+fn name_unknown(cx: &mut Ctx, found: &Value, named: &Value) -> Result<()> {
+    let g = cx.g();
+    let Value::Neutral(Head::Meta(m), _) = stitchwort_core::value::force_solved(g, found.clone())?
+    else {
+        return Ok(());
+    };
+    let name = match stitchwort_core::value::force_solved(g, named.clone())? {
+        call @ Value::Call(..) => call,
+        _ => match crate::dot::meta_name(cx, named)? {
+            Some(name) => name,
+            None => return Ok(()),
+        },
+    };
+    cx.e.meta_names.borrow_mut().push((m, name));
     Ok(())
 }
 
 /// [`check_inner`] once it's known that `expr` isn't run as a whole, against
 /// a forced `expected` that isn't a computation.
-fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
     let g = cx.g();
     let expected = expected.clone();
     if let Some(logic) = crate::logic::classify(cx, expr) {
@@ -3588,7 +3617,7 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
             let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
             if *d != list {
-                return fallback(cx, expr, &expected);
+                return fallback_named(cx, expr, &expected, named);
             }
             let elem = params[0].clone();
             // An element type not known yet is settled by the first item
@@ -3665,7 +3694,7 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                     if Some(d) != cx.g().registry.data(Builtin::Comp)
                         && returns_computation(cx, &expected)? =>
                 {
-                    fallback(cx, expr, &expected)
+                    fallback_named(cx, expr, &expected, named)
                 }
                 Some((d, c, args)) => {
                     let (term, ty) = ctor_app(cx, d, c, &args, Some(&expected))?;
@@ -3675,7 +3704,7 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                         Err(cx.mismatch(&expected, &ty))
                     }
                 }
-                None => fallback(cx, expr, &expected),
+                None => fallback_named(cx, expr, &expected, named),
             }
         }
         (Expr::Record { base, fields, .. }, _) => {
@@ -3698,7 +3727,7 @@ fn check_value(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             let (term, ty) = crate::quot::elaborate(cx, form, &args, Some(&expected))?;
             compare(cx, term, &ty, &expected)
         }
-        _ => fallback(cx, expr, &expected),
+        _ => fallback_named(cx, expr, &expected, named),
     }
 }
 
@@ -4019,6 +4048,13 @@ fn returns_computation(cx: &mut Ctx, ty: &Value) -> Result<bool> {
 }
 
 fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    fallback_named(cx, expr, expected, expected)
+}
+
+/// [`fallback`], where `named` is `expected` before it was forced (`Counts`
+/// for its `List Nat`): a result type not known yet is named with it
+/// ([`name_unknown`]).
+fn fallback_named(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
     // `[1, 2] |> List.map (x => x)` is the call `List.map [1, 2] (x => x)`
     // (D304), and checked as one, so a literal on the left takes its type
     // from the expected type and the other arguments as it would there.
@@ -4027,15 +4063,16 @@ fn fallback(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         && !matches!(&**f, Expr::Lam(..) | Expr::TypedLam(..))
     {
         let call = crate::pipe::as_call((**value).clone(), f);
-        return fallback(cx, &call, expected);
+        return fallback_named(cx, &call, expected, named);
     }
     if cx.e.no_propagation.get() == 0
-        && let Some(found) = propagate(cx, expr, expected)?
+        && let Some(found) = propagate(cx, expr, expected, named)?
     {
         return found;
     }
     let (term, found) = infer_expecting(cx, expr, expected)?;
     let (term, found) = insert(cx, term, found)?;
+    name_unknown(cx, &found, named)?;
     if let Some(term) = decide_to_bool(cx, expr, &term, &found, expected)? {
         return Ok(term);
     }
@@ -4373,7 +4410,12 @@ pub(crate) fn ordered_args<'a>(
     })
 }
 
-fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Result<Term>>> {
+fn propagate(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<Option<Result<Term>>> {
     if matches!(
         force(cx.g(), expected.clone())?,
         Value::Neutral(Head::Meta(_), _)
@@ -4412,7 +4454,7 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
         (head, &args)
     };
     let snapshot = crate::undo::Snapshot::take(cx);
-    let Some((written, mut supply)) = written_result(cx, &head.1, args)? else {
+    let Some((written, mut supply, doms)) = written_result(cx, &head.1, args)? else {
         snapshot.restore(cx);
         return Ok(None);
     };
@@ -4421,9 +4463,22 @@ fn propagate(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Resul
     // callback with abilities makes it effectful (D1124) before the
     // comparison at the end settles it.
     let written = effects::unknown_bare_value(cx, &written)?.unwrap_or(written);
+    name_unknown(cx, &written, named)?;
     if !cx.unify(&written, expected)? {
         snapshot.restore(cx);
         return Ok(None);
+    }
+    // A variable passed where that unknown is expected (`counts` in `same
+    // counts`) gets the name too: checked against the unknown's solution, it
+    // couldn't tell the name from there.
+    for (arg, dom) in args.iter().zip(&doms) {
+        if let Arg::Explicit(Expr::Var(name)) = arg
+            && cx.local(&name.text)?.is_none()
+            && let Some(level) = cx.lookup(&name.text)
+        {
+            let found = cx.types[level].clone();
+            name_unknown(cx, &found, dom)?;
+        }
     }
     // As `infer` and then `insert` would, for the application.
     let span = expr.span();
@@ -4513,7 +4568,7 @@ pub(crate) fn propagate_comp(
         return Ok(None);
     }
     let snapshot = crate::undo::Snapshot::take(cx);
-    let Some((written, mut supply)) = written_result(cx, &head.1, args)? else {
+    let Some((written, mut supply, _)) = written_result(cx, &head.1, args)? else {
         snapshot.restore(cx);
         return Ok(None);
     };
@@ -4690,11 +4745,16 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
 /// mentions those variables (it depends on the arguments' values), or isn't
 /// known, or an auto parameter is met after an argument (its proposition
 /// could mention it) or in the result.
-fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Value, Supply)>> {
+fn written_result(
+    cx: &mut Ctx,
+    ty: &Value,
+    args: &[Arg],
+) -> Result<Option<(Value, Supply, Vec<Value>)>> {
     let g = cx.g();
     let base = cx.level();
     let mut ty = ty.clone();
     let mut supply = Supply::new();
+    let mut doms = Vec::new();
     let mut written = 0;
     for arg in args {
         let stop = |x: &Name, icit: Icit| match arg {
@@ -4702,13 +4762,15 @@ fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Valu
             Arg::NamedExplicit(..) => icit == Icit::Explicit,
             Arg::Explicit(_) | Arg::Piped(_) | Arg::Default(_) => icit == Icit::Explicit,
         };
-        let Some(Value::Pi(_, icit, _, cod)) = implicits(cx, &mut ty, &mut supply, written, stop)?
+        let Some(Value::Pi(_, icit, dom, cod)) =
+            implicits(cx, &mut ty, &mut supply, written, stop)?
         else {
             return Ok(None);
         };
         if icit == Icit::Auto {
             return Ok(None);
         }
+        doms.push((*dom).clone());
         ty = cod.apply(g, Value::var(base + written))?;
         written += 1;
     }
@@ -4734,7 +4796,7 @@ fn written_result(cx: &mut Ctx, ty: &Value, args: &[Arg]) -> Result<Option<(Valu
     if (0..written).any(|i| term.mentions(i)) {
         return Ok(None);
     }
-    Ok(Some((ty, supply)))
+    Ok(Some((ty, supply, doms)))
 }
 
 /// Gives the implicit parameters at the front of `ty` metavariables, added

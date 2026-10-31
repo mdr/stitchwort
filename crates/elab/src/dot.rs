@@ -215,6 +215,64 @@ fn written_type(cx: &Ctx, term: &Term) -> Result<Option<Ty>> {
     Ok(Some(Ty::Term(ty, env)))
 }
 
+/// The name noted for the unknown `ty` is, or was solved through
+/// (`Elaborator::meta_names`): `Counts` for a lambda parameter's type solved with
+/// `List Nat` where a `Counts` was expected (SW-858, D2092). Only while it
+/// is the same type as `ty`'s solution, so a stale note never moves a
+/// lookup to another namespace.
+pub(crate) fn meta_name(cx: &Ctx, ty: &Value) -> Result<Option<Value>> {
+    meta_name_in(cx.e, cx.level(), ty)
+}
+
+/// [`meta_name`] with `level` variables in scope.
+pub(crate) fn meta_name_in(
+    e: &crate::Elaborator,
+    level: usize,
+    ty: &Value,
+) -> Result<Option<Value>> {
+    if e.meta_names.borrow().is_empty() {
+        return Ok(None);
+    }
+    let g = &e.globals;
+    let mut value = ty.clone();
+    let name = loop {
+        let Value::Neutral(Head::Meta(m), spine) = &value else {
+            return Ok(None);
+        };
+        let noted = (e.meta_names.borrow().iter().rev())
+            .find(|(n, _)| n == m)
+            .map(|(_, name)| name.clone());
+        if let Some(name) = noted {
+            break name;
+        }
+        let Some(solution) = g.meta_solution(*m) else {
+            return Ok(None);
+        };
+        let mut applied = solution;
+        for elim in spine.iter() {
+            let stitchwort_core::value::Elim::App(arg, icit) = elim else {
+                return Ok(None);
+            };
+            applied = stitchwort_core::value::apply_icit(g, applied, arg.clone(), *icit)?;
+        }
+        value = applied;
+    };
+    let same =
+        stitchwort_core::value::conv(g, level, &force(g, name.clone())?, &force(g, ty.clone())?);
+    Ok(matches!(same, Ok(true)).then_some(name))
+}
+
+/// Where the type-head view of a receiver starts: its type as written, else
+/// a name noted for it ([`meta_name`]), else its type.
+fn view_start(cx: &Ctx, rterm: &Term, rty: &Value) -> Result<Ty> {
+    if let Some(ty) = written_type(cx, rterm)? {
+        return Ok(ty);
+    }
+    Ok(Ty::Value(
+        meta_name(cx, rty)?.unwrap_or_else(|| rty.clone()),
+    ))
+}
+
 /// What `term`'s type is as written, to record for a variable bound to it
 /// (a `let`), if known.
 pub(crate) fn written_of(cx: &Ctx, term: &Term) -> Result<Option<Written>> {
@@ -331,7 +389,7 @@ fn dot_on(
     rterm: Term,
     rty: Value,
 ) -> Result<std::result::Result<(Term, Value), (usize, Diagnostic)>> {
-    let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
+    let start = view_start(cx, &rterm, &rty)?;
     let (owner, f, key) = match find_or_block(cx, recv, field, start)? {
         Lookup::Found(owner, f, key) => (owner, f, key),
         Lookup::Blocked(blocker, error) => return Ok(Err((blocker, error))),
@@ -1481,7 +1539,7 @@ pub(crate) fn prefix_form<'a>(
         let found = (|| -> Result<(TyHead, DefId)> {
             let (rterm, rty) = infer_receiver(cx, recv, field)?;
             let (rterm, rty) = insert(cx, rterm, rty)?;
-            let start = written_type(cx, &rterm)?.unwrap_or_else(|| Ty::Value(rty.clone()));
+            let start = view_start(cx, &rterm, &rty)?;
             let (owner, f, _) = find(cx, recv, field, start)?;
             Ok((owner, f))
         })();
@@ -1792,7 +1850,9 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
         match &cx.written[level] {
             Some(Written::Here(t)) => Ty::Term(t.clone(), cx.env[..level].to_vec()),
             Some(Written::With(t, env)) => Ty::Term(t.clone(), env.clone()),
-            None => Ty::Value(cx.types[level].clone()),
+            None => Ty::Value(
+                meta_name(cx, &cx.types[level])?.unwrap_or_else(|| cx.types[level].clone()),
+            ),
         }
     } else {
         match cx.e.named(&name.text) {

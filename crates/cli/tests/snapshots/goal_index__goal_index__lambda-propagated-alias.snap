@@ -1,0 +1,45 @@
+---
+source: crates/cli/tests/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "counts",
+          "type": "Counts"
+        }
+      ],
+      "lemma": "def withGoalGoal1 (n: Nat) (counts: Counts): Nat := ?",
+      "target": "Nat"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\ncounts: Counts\n⊢ Nat",
+        "range": [
+          14,
+          39,
+          14,
+          40
+        ]
+      }
+    ],
+    "message": "in `withGoal`",
+    "notes": [],
+    "range": [
+      14,
+      39,
+      14,
+      40
+    ],
+    "severity": "goal"
+  }
+]

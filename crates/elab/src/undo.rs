@@ -57,6 +57,7 @@ pub(crate) struct Snapshot {
     drafts: usize,
     local_keys: usize,
     local_types: usize,
+    meta_names: usize,
     goals: usize,
     branch_errors: usize,
     /// How many warnings were noted: a `W-NO-EFFECT` found in an attempt
@@ -81,6 +82,7 @@ impl Snapshot {
             drafts: cx.e.drafts.borrow().len(),
             local_keys: cx.e.local_keys.borrow().len(),
             local_types: cx.e.pending_local_types(),
+            meta_names: cx.e.meta_names.borrow().len(),
             goals: cx.e.pending_goals(),
             branch_errors: cx.e.branch_errors.borrow().len(),
             noted_warnings: cx.e.lambda_warnings.borrow().len(),
@@ -165,6 +167,7 @@ impl Snapshot {
         cx.e.drafts.borrow_mut().truncate(self.drafts);
         cx.e.local_keys.borrow_mut().truncate(self.local_keys);
         cx.e.drop_local_types_since(self.local_types);
+        cx.e.meta_names.borrow_mut().truncate(self.meta_names);
         cx.e.drop_goals_since(self.goals);
         // The errors of other bad branches of an attempt undone here.
         cx.e.branch_errors.borrow_mut().truncate(self.branch_errors);

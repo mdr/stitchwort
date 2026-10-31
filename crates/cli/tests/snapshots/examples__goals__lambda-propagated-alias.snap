@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+assertion_line: 258
+expression: output
+---
+[GOAL] Goal: in `withGoal`
+    ╭─[ goals/lambda-propagated-alias.sw:15:40 ]
+    │
+ 15 │ def withGoal: Nat := both (n counts => ?) (n counts => Counts.add (same counts) n) 1 [2, 3]
+    │                                        ┬  
+    │                                        ╰── n: Nat
+    │                                            counts: Counts
+    │                                            ⊢ Nat
+────╯

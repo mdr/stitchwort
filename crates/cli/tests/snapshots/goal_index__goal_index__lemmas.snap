@@ -2,7 +2,7 @@
 source: crates/cli/tests/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-34 lemmas, 12 goals without one
+35 lemmas, 12 goals without one
 
 beside-error goal 1: theorem zeroMulGoal1: 0 = 0 := ?
 call-under-binder goal 1: theorem shownGoal1 (xs: List Nat): List.any xs isSmall = List.any xs (n => isSmall n) := ?
@@ -15,6 +15,7 @@ counterexample-weak-evidence goal 1: theorem shortIncreasingGoal1 (xs: List Nat)
 implicit-parameter goal 1: def identityGoal1 (a: Type) (x: a): a := ?
 implicit-parameter goal 2: theorem symmetricGoal1 (a: Type) (x: a) (y: a) (h: x = y): y = x := ?
 inferring-position goal 1: no lemma
+lambda-propagated-alias goal 1: def withGoalGoal1 (n: Nat) (counts: Counts): Nat := ?
 lemma-used-later goal 1: theorem addZeroGoal1 (n: Nat): n = n := ?
 let-proofs goal 1: no lemma
 let-values goal 1: no lemma
