@@ -1813,9 +1813,9 @@
     {
       "id": 915,
       "title": "Design note: stitchwort search, lemma search by type (agentic T4)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
-      "where": "lane (D2094): SW-926 + log, then stage 2",
+      "where": "stage 2 merged (search --at); not built: --at in project files, depth-3 closing; closed-example ranking left",
       "labels": [
         "tooling",
         "design"
@@ -1833,7 +1833,11 @@
         "6e4eef9d",
         "3b8e08f7",
         "45c99e95",
-        "acfbd130"
+        "acfbd130",
+        "77d2e8e3",
+        "2033271c",
+        "84e9a705",
+        "ecfbee85"
       ]
     },
     {
@@ -2029,7 +2033,7 @@
     {
       "id": 927,
       "title": "search: overloaded operators with an unknown operand (List.length (_ ++ _)) not tried at each resolution; query log not built",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -2038,7 +2042,9 @@
       "body": "Found verifying search stage 1 (31 Oct 2026): `stitchwort search 'List.length (_ ++ _) = _'` fails with E-TYPE-MISMATCH \"`++` joins two texts or two lists … this is a `?1`\", although List.length fixes the operand as a list; `List.length ((_: List _) ++ _) = _` works. Draft 1 section 3.1 / draft 3 section 4 promised overloaded operators with an unknown operand type are tried at each resolution and the results merged: not built. A natural agent query. Also not built from S1d: the opt-in query log (--log).\n\n\n31 Oct: done in 77d2e8e3 on worktree-agent-a6ada3b771b4b7037 (readings merged; --log).\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "77d2e8e3"
+      ]
     },
     {
       "id": 928,
@@ -2088,13 +2094,13 @@
     {
       "id": 931,
       "title": "Blanks (_) in a lemma call aren't filled before its proof argument is checked (Eq.trans (List.filterSkip _ _ _ (rewrite …)) fails)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "worktree-agent-ac7e942e67cd1a855",
       "labels": [
         "elab"
       ],
-      "body": "NOTES-2021 item 2; same friction as AoC 2024 day 1. Find whether postponement (SW-817) or the order of argument checking explains it; fix or report.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\nProgress (Opus lane, worktree-agent-ac7e942e67cd1a855):\n- Repro: the holes form of windowsShort checks on main, and on 0eb53617 (the day 1 lane's base). The lane's failing try had a different proof (`rewrite List.takeAll …, equalBelow … in rfl`), which fails with the holes written out too (E-REWRITE-MOTIVE). The holes are filled; the wrong error was shown.\n- Cause: `propagate` (check.rs) compares Eq.trans's type with the goal first. When the application then fails, it is elaborated again without the goal (to keep old messages), and that error (goal `?6 … = False`) wins. Only a lambda argument kept the first error (in_same_lambda, 338e0e50).\n- Fix: keep the first error when both are inside the same explicit argument (in_same_argument). Failure path only, so accepted programs and hashes can't change. 2024 day 1 already uses `_ _` (fixed earlier).\n",
+      "body": "NOTES-2021 item 2; same friction as AoC 2024 day 1. Find whether postponement (SW-817) or the order of argument checking explains it; fix or report.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\nProgress (Opus lane, worktree-agent-ac7e942e67cd1a855):\n- Repro: the holes form of windowsShort checks on main, and on 0eb53617 (the day 1 lane's base). The lane's failing try had a different proof (`rewrite List.takeAll …, equalBelow … in rfl`), which fails with the holes written out too (E-REWRITE-MOTIVE). The holes are filled; the wrong error was shown.\n- Cause: `propagate` (check.rs) compares Eq.trans's type with the goal first. When the application then fails, it is elaborated again without the goal (to keep old messages), and that error (goal `?6 … = False`) wins. Only a lambda argument kept the first error (in_same_lambda, 338e0e50).\n- Fix: keep the first error when both are inside the same explicit argument (in_same_argument). Failure path only, so accepted programs and hashes can't change. 2024 day 1 already uses `_ _` (fixed earlier).\n- Refined: strictly inside a non-lambda argument (an error about the whole argument, as in reject/expected-type-retry, keeps the old message). Reject snapshots: only the new one. Hashes: check.rs alone gives byte-identical std+aoc and std+rogue dumps; with windowsShort simplified, 6 Day01.Proofs hashes change (windowsShort and the 5 that depend on it).\n- Done on branch worktree-agent-ac7e942e67cd1a855 (0ebe8197, 063ccdaa), rebased on main; ready for review.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
@@ -2151,7 +2157,7 @@
     {
       "id": 935,
       "title": "search: premise patterns fall back to the relaxed pass with unrelated results; project errors reprinted on every search",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -2160,7 +2166,9 @@
       "body": "From AoC 2021 day 1's use of stitchwort search (List.sum (_ ++ _) is SW-926, in progress). Rank or filter the relaxed pass better for premise patterns; print project errors once (or summarise) rather than on every search.\n\nFrom AoC 2021 day 1 (aoc/NOTES-2021.md, 31 Oct 2026; D2096, Matt).\n\n\nAoC 2021 day 2 (31 Oct): closed examples rank above general lemmas (List.sumInts above List.sumCons; List.scanLeftSums first): search hides only names ending in Example. Rank closed instances (no variables) below general lemmas, or hide std examples by marking them.\n\n\n31 Oct: f0d919a6 on worktree-agent-a6ada3b771b4b7037: a premise pattern's relaxed pass needs a definition in common, absorbing matches dropped; an unchecked project or file is one line. Not done: closed examples (List.sumInts) ranked above general lemmas (the day 2 note).\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "f0d919a6"
+      ]
     },
     {
       "id": 936,
