@@ -1197,3 +1197,178 @@ Release build:
    doesn't suggest `let (x, y) := …` (item 3).
 6. A proof argument (`rfl`) is checked before a later `_` it depends on is
    solved from the goal (item 4).
+
+## Day 6: Lanternfish
+
+Each fish has a timer. Every day each timer goes down by one, except that
+a fish at 0 goes back to 6 and spawns a new fish with a timer of 8. The
+input is the starting timers, separated by commas. Part 1 counts the fish
+after 80 days, part 2 after 256. Answers on Matt's input (300 fish): 380243
+and 1708791884591 (his Scala solution's); the puzzle's example gives 5934
+and 26984457539. Compiler built from `main` at 27a6367d, 31 October 2026.
+
+### The program
+
+Fish with the same timer behave alike, so the program keeps only how many
+fish have each timer, a record of nine counts (`Counts`, fields `t0` to
+`t8`), and moves them along a day at a time:
+
+```stitchwort
+def Counts.nextDay (counts: Counts): Counts := {
+  t0 = counts.t1, …, t5 = counts.t6,
+  t6 = counts.t7 + counts.t0,
+  t7 = counts.t8,
+  t8 = counts.t0
+}
+
+def fishAfter (days: Nat) (timers: List Nat): Nat :=
+  Nat.iterate days Counts.nextDay (Counts.ofTimers timers) |> .total
+```
+
+`Counts.ofTimers` counts the timers equal to each of 0 to 8. The parser is
+`Parse.line` with `sepBy1 nat (char ',')`, and it rejects a timer above 8
+("timer 2 is above 8"). Both answers were right on the first run. One of
+the 15 tests was wrong on the first run (it had a new fish spawn a day
+late); the program was right.
+
+**What the spec decides.** The spec (`Spec/Spec.sw`) is the puzzle's list
+of every fish: a day maps each timer to the next (`nextTimer`: down by one,
+or 0 to 6) and adds a fish at 8 at the end for each fish that was at 0, so
+the example's lists come out in the puzzle's order (`2,3,2,0,1`, then
+`1,2,1,6,0,8`, then 26 fish after 18 days, all checked by tests). The
+answer is that list's length after `days` days (`fishCount`). After 256
+days on the real input that list would have about 1.7 trillion elements,
+so only the proof can connect the two there.
+
+### Proved, for every input
+
+In `Aoc.Year2021.Day06.Proofs` (`Proofs/Proofs.sw`, 143 lines):
+
+- `fishAfterCorrect`: for every number of days and every list of timers
+  in which every timer is at most 8 (`fish.all (t => t ≤ 8) = True`),
+  `fishAfter days fish = fishCount days fish`: the program's count is the
+  length of the puzzle's list of every fish.
+- `part1Correct` and `part2Correct`: the same for 80 and 256 days, so
+  `solvePart1` and `solvePart2` are the puzzle's answers for every such
+  input.
+- The hypothesis is needed: a fish at 9 has no count, so `fishAfter 0 [9]`
+  is 0 where the puzzle's list has one fish. The puzzle's fish never start
+  above 8 (the input's are 1 to 5), and the parser rejects one above 8,
+  but no theorem says the parser's output satisfies it.
+- On the way: a day keeps every timer at most 8 (`nextDayBounded`); the
+  counts of the puzzle's list the next day are the program's next day of
+  today's counts (`countsNextDay`, timer by timer through the generated
+  `Counts.ext`: a fish is at `v` the next day if it was at `v + 1`, at 7
+  or 0 for `v = 6`, plus the new fish for `v = 8`); so after any number
+  of days the program's counts are those of the puzzle's list
+  (`iterateCounts`, by induction on the days); and the counts add up to
+  the list's length (`totalCounts`, using that a timer of at most 8 is one
+  of 0 to 8, `oneTimer`).
+- The example after 18 and 80 days as `rfl` theorems (`exampleAfter18`,
+  `examplePart1`, in `Tests/Examples.sw`).
+
+Nothing is left unproved; the one hypothesis is above; nothing is opaque.
+`stitchwort audit Aoc.Year2021.Day06` (with the counterexample search):
+`audited 21 theorems: 0 failed, 0 with warnings, 21 passed`. The search is
+"not applicable" to most lemmas, because they take `Bounded fish`, a
+`List.All` proposition nothing decides, and to `part1Correct` and
+`part2Correct` (their normal forms are too large); `fishAfterCorrect`, with
+the `Bool` hypothesis, had none found in 2,651 cases.
+
+Breaking the program breaks the proofs: `t6 = counts.t7` for `t6 =
+counts.t7 + counts.t0` in `Counts.nextDay` makes `countsNextDay` fail
+(`E-OMEGA` at the `v = 6` field).
+
+### 1. Std.Parse: none
+
+`Parse.line` with `sepBy1 nat (() => char ',')` read the line, and the
+errors came out as the tests guessed.
+
+### 2. Missing std
+
+- **Counting copies.** `List.count (List.replicate n x) p = n *
+  Bool.toNat (p x)` (`countReplicate`) isn't in std. Std candidate.
+- **Counting by a predicate that is two others.** If at every element
+  `Bool.toNat (p t) = Bool.toNat (q t) + Bool.toNat (r t)`, then `count xs
+  p = count xs q + count xs r` (`countSum`). Std candidate.
+- **A simulation through `Nat.iterate`.** `iterateCounts` is the general
+  fact that if `f (h x) = g (f x)` for every `x` in an invariant `I` that
+  `h` keeps, then `Nat.iterate n g (f x) = f (Nat.iterate n h x)`. Std
+  candidate (`Nat.iterateCommute`); here it was four lines.
+
+### 3. Confusing errors
+
+- **A tuple for `And`.** `Both rfl rest` builds `List.All p (Cons x xs)`;
+  `(rfl, rest)` is `E-CANNOT-INFER`, "can't work out what `rfl` proves
+  here … add a type annotation", though the expected type (an `And`) was
+  known. The note could say that an `And` is built with `Both`.
+- **`omega` shows what it was given unfolded.** Its facts and atoms print
+  `List.count fish (== 7)` as `List.foldLeft fish 0 (n x => Nat.succIf n
+  (Std.Decidable.toBool (Nat.decEq x 7)))`, so a failing `omega` over nine
+  counts is hard to read. Printing the atoms as written would help.
+
+### 4. Inference: none
+
+`Counts.ext _ _` with the two records given and the nine field equations
+by `omega` checked as written, the record fields of `Counts.ofTimers` and
+`Counts.nextDay` computed by projection.
+
+### 5. Performance
+
+`stitchwort run Aoc.Year2021.Day06.main` on the input takes 0.24 s (0.19 s
+user). `check --no-cache` of the proofs and tests takes 0.9 s, and the
+audit with the search 1.6 s.
+
+### 6. Proofs, and the lemma search
+
+- **`cases` can't close "x ≤ 8, so x is one of 0 to 8".** `oneTimer`
+  (`Bool.toNat (x == 0) + … + Bool.toNat (x == 8) = 1` given `x ≤ 8`) was
+  `E-CASES-BUDGET`: it split all nine `Nat.decEq x k`, and the open case
+  it showed had `Nat.decEq x 0 = Yes` and `Nat.decEq x 1 = Yes` together,
+  which it didn't see as contradictory. A `match` on `x` with patterns
+  `0` to `8` did it, but a last case `_ => omega` failed: the wildcard
+  doesn't tell `omega` that `x ≥ 9`. The last case had to be written
+  `Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ above))))))))`.
+- `cases` did the rest of the per-timer facts in one word each:
+  `nextTimer t == v` is `t == v + 1` when `v ≠ 6`, the three-way split at
+  6, and `nextTimer t ≤ 8`.
+- `stitchwort search '(_: Counts) = _'` found the compiler-made
+  `Counts.ext`, after I had written the same lemma by hand (`countsMk`,
+  over 18 `Nat`s); it replaced it.
+- **`search --at` now works in a project's file.** At the `?` in
+  `agedSix` it gave the closing proof, `countSum … cases fish`, checked by
+  the kernel. At `noneAtNine` it listed `List.countNone fish (== 9) ?` first
+  among those that apply, leaving `(x: Nat) → x ∈ fish → (x == 9) = False`,
+  which is how the proof goes. It also listed lemmas from other days'
+  proofs (`Aoc.Year2024.Day08.Proofs.natMulSelfZero`) and warned that 8
+  comparisons with `Std.Float.Theory` lemmas ran out of steps: noise, but
+  harmless.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2021.Day06.Proofs Aoc.Year2021.Day06.Tests` | 0.8 s user (0.9 s) |
+| `stitchwort run Aoc.Year2021.Day06.main` on the input (300 fish) | 0.19 s user (0.24 s) |
+| `stitchwort audit --no-cache Aoc.Year2021.Day06` (with the search) | 1.5 s user (1.6 s) |
+
+74 lines of program, 22 of spec, 143 of proofs, 44 of tests.
+
+### Ranked
+
+1. `cases` doesn't see that `x == 0` and `x == 1` can't both hold, so
+   "`x ≤ 8` means `x` is 0 to 8" goes over the budget, and a `match` with
+   literal patterns gives its wildcard no `x ≥ 9` for `omega` (item 6).
+   Fix: substitute `x = k` after a `Yes` split, and give a wildcard after
+   literal patterns the fact that it is above them.
+2. `omega`'s messages print counts and `==` unfolded (item 3). Fix: print
+   atoms as written.
+3. No `List.countReplicate`, no count by a sum of predicates, no
+   `Nat.iterate` simulation lemma (item 2). Fix: add them to std.
+4. `(proof, proof)` for an `And` gives a "type annotation" note instead of
+   naming `Both` (item 3).
+5. `search --at` lists other days' lemmas and Float comparisons that ran
+   out of steps (item 6). Fix: rank the project's other namespaces lower,
+   or leave out unimported ones.
