@@ -1355,7 +1355,23 @@ fn first_order(g: &Globals, level: usize, m: usize, spine: &[Elim], other: &Valu
     if apart(g, level, x, y)? || apart(g, level, &left, &right)? {
         return Ok(false);
     }
-    Ok(unify(g, level, x, y)? && unify(g, level, &left, &right)?)
+    let mark = g.meta_trail.borrow().len();
+    if !unify(g, level, x, y)? {
+        return Ok(false);
+    }
+    // Pairing the last arguments can solve `?m` itself: `?m a b = f c ?m`
+    // pairs `b` with `?m`. If that made it something that can't be applied
+    // (a constructor, say), the two sides differ, and the solution is taken
+    // back: comparing anything with `?m a` would apply it, and core panics
+    // on that (SW-924, found by search).
+    if !rest1.is_empty()
+        && let Some(solved) = g.meta_solution(m)
+        && !can_apply(&force(g, solved)?)
+    {
+        undo_since(g, mark);
+        return Ok(false);
+    }
+    unify(g, level, &left, &right)
 }
 
 /// What a value's type is known to be, for [`apart`]: the type itself, or
@@ -3040,6 +3056,28 @@ mod tests {
             attempt(Some(Value::Sort(Sort::Type(1)))),
             (true, true, true)
         );
+    }
+
+    /// SW-924: `?m x Type = t ?m` isn't a pattern; matching the last
+    /// arguments pairs `Type` with `?m` itself and solves it, so `?m x` would
+    /// apply `Type` (a panic in core, found by search). They differ instead.
+    #[test]
+    fn matching_last_arguments_that_solves_the_head_with_a_non_function_fails() {
+        let g = globals();
+        let (m, unknown) = meta(&g, &[]);
+        let left = Value::Neutral(
+            Head::Meta(m),
+            vec![
+                Elim::App(Value::var(0), Icit::Explicit),
+                Elim::App(ty(), Icit::Explicit),
+            ]
+            .into(),
+        );
+        let right = Value::Neutral(
+            Head::Var(0, Apart::NONE),
+            vec![Elim::App(unknown, Icit::Explicit)].into(),
+        );
+        assert!(!unify(&g, 1, &left, &right).unwrap());
     }
 
     fn pending_of(ms: &[usize]) -> HashSet<usize> {

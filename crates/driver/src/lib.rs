@@ -14,3 +14,4 @@ pub mod project;
 pub mod render;
 pub mod rewind;
 pub mod run;
+pub mod search;
