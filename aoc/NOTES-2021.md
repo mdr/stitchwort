@@ -652,6 +652,7 @@ one the test first guessed.
   was stuck on `others`. `match t with | Nil => rfl | Cons … => rfl`
   proved it. When the stuck calls are stuck on the same variable,
   splitting it would close them all.
+  Fixed (SW-939): `cases` now splits `t` first; both proofs are `cases`.
 - **Goals show `List.count` as its insides, and `==` on an `Option` as a
   decision procedure.** With `mostCommon` broken, the open case read
   `List.foldLeft numbers 0 (n x => Nat.succIf n (Std.Decidable.toBool

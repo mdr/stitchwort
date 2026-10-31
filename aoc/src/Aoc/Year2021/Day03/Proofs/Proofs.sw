@@ -89,10 +89,7 @@ theorem part1Correct (report: List Bits): solvePart1 report = powerConsumption r
 
 -- The bit after a shared prefix is the first bit of the rest.
 theorem getAfterPrefix (t: Bits): (prefix: Bits) → List.get (List.append prefix t) (List.length prefix) = List.head t
-  | Nil =>
-    match t with
-      | Nil => rfl
-      | Cons first rest => rfl
+  | Nil => cases
   | Cons first rest => getAfterPrefix t rest
 
 -- Keeping the numbers with `bit` after the prefix is keeping the rests that
@@ -102,10 +99,7 @@ theorem keepAfterPrefix (prefix: Bits) (bit: Bool): (rests: List Bits) →
       = List.map (List.filterMap rests (afterBit bit)) (rest => List.append prefix (Cons bit rest))
   | Nil => rfl
   | Cons rest others =>
-    rewrite getAfterPrefix rest prefix, keepAfterPrefix prefix bit others in
-      match rest with
-        | Nil => rfl
-        | Cons first after => cases
+    rewrite getAfterPrefix rest prefix, keepAfterPrefix prefix bit others in cases
 
 -- The bit kept moves onto the prefix.
 theorem growPrefix (prefix: Bits) (bit: Bool) (rests: List Bits):

@@ -31,6 +31,16 @@
 //! latest first. Unfolding doesn't make a new atom: the atom is the value
 //! the case tree tested, so `Float.isNaN x`, not its body.
 //!
+//! Before that, a survey of the same chains (SW-939): when two or more of
+//! them, each with an atom on it, end at the same value of a recursive type
+//! other than `Nat`, with nothing but recursive types between their last
+//! atom and it (`List.get t 0 = List.head t`, both waiting for `t`), that
+//! value is split first, so they compute together; splitting their atoms
+//! one by one would make cases that can't happen (one `None`, the other
+//! `Some`). Only once: a field of an earlier split of its type (`xs` after
+//! `t = Cons x xs`) isn't split again, so `cases` never does induction by
+//! itself ([`Finder::shared`]).
+//!
 //! `Int`'s own arithmetic (`-x`, `+`, `-`, `*`, `/`, `%`, `<=`, `<`, and
 //! `Int.subNatNat`, which they compute through) is as far in as the search
 //! goes (SW-937): what its case trees test (`OfNat`/`NegSucc` of an
@@ -985,6 +995,23 @@ struct Finder<'a, 'e> {
     under_stuck: usize,
     /// The variables met in the goal, by level: the fallback's candidates.
     mentioned: Vec<usize>,
+    /// Set for the survey pass ([`Finder::shared`]): `chain` records each
+    /// chain instead of choosing an atom.
+    survey: Option<Survey>,
+}
+
+/// What the survey pass found (SW-939): the chains of stuck calls whose
+/// innermost value is of a recursive type, which `cases` doesn't otherwise
+/// split.
+#[derive(Default)]
+struct Survey {
+    /// Every value on a chain so far, quoted: a stuck call met again inside
+    /// another's chain isn't a chain of its own.
+    seen: Vec<Term>,
+    /// For each chain with an atom outside its innermost value, when that
+    /// value's type is recursive: the value, quoted and as it is, and its
+    /// type.
+    ends: Vec<(Term, Value, DataId)>,
 }
 
 /// The most values the search for an atom visits in one case.
@@ -1013,13 +1040,16 @@ impl<'a, 'e> Finder<'a, 'e> {
             in_goal: false,
             under_stuck: 0,
             mentioned: Vec::new(),
+            survey: None,
         }
     }
 
     /// The atom to split on in this case, if any (§5.2, §5.3).
     fn find(&mut self, goal: &Value) -> Result<Option<Atom>> {
         let cx = self.cx;
-        let g = cx.g();
+        if let Some(atom) = self.shared(goal)? {
+            return Ok(Some(atom));
+        }
         self.in_goal = true;
         // The goal's whole side (`Nat.leq n 2 = True` on `Nat.leq n 2`) waits
         // for the hypotheses: what they are stuck on says more.
@@ -1030,26 +1060,150 @@ impl<'a, 'e> Finder<'a, 'e> {
             None => {}
         }
         self.in_goal = false;
-        for level in visible(cx) {
-            if is_equation(cx, level) {
-                continue;
-            }
-            let Value::Eq(_, l, r) = force(g, cx.types[level].clone())? else {
-                continue;
-            };
-            let (l, r) = (force(g, (*l).clone())?, force(g, (*r).clone())?);
-            let stuck_side = if is_ctor_form(&r) && is_stuck(&l) {
-                l
-            } else if is_ctor_form(&l) && is_stuck(&r) {
-                r
-            } else {
-                continue;
-            };
+        for (_, stuck_side) in stuck_sides(cx)? {
             if let Some(atom) = self.walk(&stuck_side)? {
                 return Ok(Some(atom));
             }
         }
         Ok(side.or_else(|| self.single.take()))
+    }
+
+    /// A value of a recursive type that two or more chains of stuck calls
+    /// end at, each with an atom outside it (SW-939): `List.get t 0 =
+    /// List.head t` splits `t`, not `List.get t 0` and then `List.head t`,
+    /// which would make cases that can't happen (one `None`, the other
+    /// `Some`) and lose what ties them together. Split once: a value that
+    /// is itself a field of an earlier split of its type isn't split again,
+    /// so `cases` never follows a list down by itself. `Nat` is left to
+    /// `omega`.
+    fn shared(&self, goal: &Value) -> Result<Option<Atom>> {
+        let cx = self.cx;
+        let mut survey = Finder::new(cx, self.run);
+        survey.survey = Some(Survey::default());
+        survey.in_goal = true;
+        survey.walk(goal)?;
+        survey.in_goal = false;
+        // The whole equation, so its stuck side counts as one that would be
+        // split, as the goal's sides do.
+        for (equation, _) in stuck_sides(cx)? {
+            survey.walk(&equation)?;
+        }
+        let Survey { ends, .. } = survey.survey.take().expect("set above");
+        for (term, value, d) in &ends {
+            let chains = ends
+                .iter()
+                .filter(|(other, _, _)| crate::matching::same(other, term))
+                .count();
+            if chains >= 2
+                && !self.is_known(value)?
+                && !has_meta(cx, value)?
+                && !self.split_field(term, *d)?
+            {
+                return Ok(Some(Atom {
+                    value: value.clone(),
+                    d: *d,
+                    side: false,
+                }));
+            }
+        }
+        Ok(None)
+    }
+
+    /// [`Finder::chain`] in the survey pass: follows what `stuck` waits for
+    /// inwards, as `chain` does, and records where it ends.
+    fn survey_chain(&mut self, stuck: &Value, first: Option<(Value, DataId)>) -> Result<()> {
+        let cx = self.cx;
+        let g = cx.g();
+        let start = quote(g, cx.level(), stuck)?;
+        let survey = self.survey.as_ref().expect("in the survey pass");
+        if survey.seen.iter().any(|t| crate::matching::same(t, &start)) {
+            return Ok(());
+        }
+        let mut seen = vec![start];
+        let mut atom_outside = false;
+        // Whether everything after the last atom is of a recursive type: a
+        // chain through a number (`Nat.leq (List.count xs p) k`) isn't decided
+        // by taking one element off `xs`.
+        let mut direct = false;
+        let mut end = None;
+        let mut current = stuck.clone();
+        let mut first = first;
+        loop {
+            if int_arithmetic(g, &current) {
+                end = None;
+                break;
+            }
+            let (raw, d, is_first) = match first.take() {
+                Some((raw, d)) => (raw, d, true),
+                None => match blocker(cx, &current)? {
+                    Some((raw, d)) => (raw, d, false),
+                    None => break,
+                },
+            };
+            if self.ctors(d).is_some_and(|n| n >= 2)
+                && !self.is_known(&raw)?
+                && !has_meta(cx, &raw)?
+            {
+                atom_outside = true;
+                direct = true;
+            } else if !recursive(cx, d) {
+                direct = false;
+            }
+            if is_first {
+                continue;
+            }
+            seen.push(quote(g, cx.level(), &raw)?);
+            end = Some((raw.clone(), d));
+            let next = force(g, raw)?;
+            current = if is_folded(g, &next) {
+                match unfold_folded(g, &next)? {
+                    Some(u) => u,
+                    None => break,
+                }
+            } else {
+                next
+            };
+            if !matches!(current, Value::Neutral(Head::Def(_), _)) {
+                break;
+            }
+        }
+        let end = match end {
+            Some((raw, d)) if atom_outside && direct && recursive(cx, d) => {
+                Some((quote(g, cx.level(), &raw)?, raw, d))
+            }
+            _ => None,
+        };
+        let survey = self.survey.as_mut().expect("in the survey pass");
+        survey.seen.extend(seen);
+        survey.ends.extend(end);
+        Ok(())
+    }
+
+    /// Whether `term`, of type `d`, is a field of a constructor of `d` that
+    /// an earlier split in this case found (`xs` after `t = Cons x xs`).
+    fn split_field(&self, term: &Term, d: DataId) -> Result<bool> {
+        let cx = self.cx;
+        let g = cx.g();
+        for level in 0..cx.level() {
+            if !is_equation(cx, level) {
+                continue;
+            }
+            let Value::Eq(_, _, r) = force(g, cx.types[level].clone())? else {
+                continue;
+            };
+            let Value::Ctor(of, _, fields) = force(g, (*r).clone())? else {
+                continue;
+            };
+            if of != d {
+                continue;
+            }
+            for field in fields.iter() {
+                if crate::matching::same(&quote(g, cx.level(), field)?, term) {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
     }
 
     fn walk(&mut self, value: &Value) -> Result<Option<Atom>> {
@@ -1148,6 +1302,10 @@ impl<'a, 'e> Finder<'a, 'e> {
     /// The innermost splittable value on the chain of what the stuck call
     /// `stuck` waits for.
     fn chain(&mut self, stuck: &Value, first: Option<(Value, DataId)>) -> Result<Option<Atom>> {
+        if self.survey.is_some() {
+            self.survey_chain(stuck, first)?;
+            return Ok(None);
+        }
         let g = self.cx.g();
         let mut best: Option<Atom> = None;
         let mut current = stuck.clone();
@@ -1325,21 +1483,59 @@ fn int_arithmetic(g: &stitchwort_core::Globals, value: &Value) -> bool {
         )
 }
 
+/// The hypotheses that `cases` follows (D1318), latest first: each equation
+/// between a constructor and a stuck term, with the stuck term.
+fn stuck_sides(cx: &Ctx) -> Result<Vec<(Value, Value)>> {
+    let g = cx.g();
+    let mut sides = Vec::new();
+    for level in visible(cx) {
+        if is_equation(cx, level) {
+            continue;
+        }
+        let equation = force(g, cx.types[level].clone())?;
+        let Value::Eq(_, l, r) = &equation else {
+            continue;
+        };
+        let (l, r) = (force(g, (**l).clone())?, force(g, (**r).clone())?);
+        if is_ctor_form(&r) && is_stuck(&l) {
+            sides.push((equation, l));
+        } else if is_ctor_form(&l) && is_stuck(&r) {
+            sides.push((equation, r));
+        }
+    }
+    Ok(sides)
+}
+
 /// The constructor count of `d` if a value of it can be split: data that
 /// isn't a proposition, an indexed family or recursive.
 fn splittable(cx: &Ctx, d: DataId) -> Option<usize> {
-    let g = cx.g();
-    let data = g.data(d);
+    let data = cx.g().data(d);
     if data.sort == Sort::Prop || !data.indices.is_empty() || data.ctors.is_empty() {
         return None;
     }
-    let recursive = data.ctors.iter().any(|c| {
+    (!is_recursive(data)).then_some(data.ctors.len())
+}
+
+/// Whether `d` is splittable but for being recursive, and isn't `Nat`
+/// (which `omega` reasons about instead): what [`Finder::shared`] may split
+/// once, where several stuck calls wait for the same value of it.
+fn recursive(cx: &Ctx, d: DataId) -> bool {
+    let g = cx.g();
+    let data = g.data(d);
+    data.sort != Sort::Prop
+        && data.indices.is_empty()
+        && data.ctors.len() >= 2
+        && g.builtins.nat != Some(d)
+        && is_recursive(data)
+}
+
+fn is_recursive(data: &stitchwort_core::globals::Data) -> bool {
+    data.ctors.iter().any(|c| {
         c.fields.iter().any(|(_, ty)| {
             ty.subterms()
                 .any(|(t, _)| matches!(t, Term::Data(x, _) if data.group.contains(x)))
         })
-    });
-    (!recursive).then_some(data.ctors.len())
+    })
 }
 
 /// What the stuck call `value` (forced) waits for: the value its case tree
