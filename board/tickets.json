@@ -1905,14 +1905,14 @@
     {
       "id": 921,
       "title": "Memory: resources test reaches 6.7 GB loading one small program repeatedly (sessions not freed?); lsp aoc_navigation test 7.9 GB",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "lane (D2079): daily tier time + resources memory",
       "labels": [
         "bug",
         "tooling"
       ],
-      "body": "Found while getting the daily tier green (31 Oct 2026). Measured alone with /usr/bin/time -l (peak memory footprint), STITCHWORT_TIER=daily:\n- crates/driver/tests/resources.rs `running_out_at_any_point_only_ever_means_no_answer`: 6.7 GB on main (6.35 GB at 6e25695e, 28 Oct). It loads one small PROGRAM in a fresh `Session::new()` at every work limit from 1 up, so peak memory should be about one session. 6.7 GB suggests sessions (or something global they register: interned names, metas, caches, Rc cycles) aren't freed when dropped. A long-running language server creating sessions would leak the same way. Find what grows per iteration (e.g. measure footprint every N iterations) and fix the leak.\n- crates/cli/tests/lsp.rs `aoc_navigation_matches_check_index`: 7.9 GB on main, 33 s (9.9 GB, 176 s on 28 Oct, so better than it was). Find whether that's inherent (the whole AoC project in the LSP plus check --index) or held longer than needed.\nTogether they took `task test:daily` past its 16 GB cap. Workaround merged tonight: the resources test (and rt's aoc_agrees / every_aoc_main_lowers, which are AoC sweeps) joined the `corpus-sweeps` one-at-a-time group in .config/nextest.toml. docs/testing.md's table still says the daily peak is \"not measured\".\n",
+      "body": "Found while getting the daily tier green (31 Oct 2026). Measured alone with /usr/bin/time -l (peak memory footprint), STITCHWORT_TIER=daily:\n- crates/driver/tests/resources.rs `running_out_at_any_point_only_ever_means_no_answer`: 6.7 GB on main (6.35 GB at 6e25695e, 28 Oct). It loads one small PROGRAM in a fresh `Session::new()` at every work limit from 1 up, so peak memory should be about one session. 6.7 GB suggests sessions (or something global they register: interned names, metas, caches, Rc cycles) aren't freed when dropped. A long-running language server creating sessions would leak the same way. Find what grows per iteration (e.g. measure footprint every N iterations) and fix the leak.\n- crates/cli/tests/lsp.rs `aoc_navigation_matches_check_index`: 7.9 GB on main, 33 s (9.9 GB, 176 s on 28 Oct, so better than it was). Find whether that's inherent (the whole AoC project in the LSP plus check --index) or held longer than needed.\nTogether they took `task test:daily` past its 16 GB cap. Workaround merged tonight: the resources test (and rt's aoc_agrees / every_aoc_main_lowers, which are AoC sweeps) joined the `corpus-sweeps` one-at-a-time group in .config/nextest.toml. docs/testing.md's table still says the daily peak is \"not measured\".\n\n\nD2079 (Matt, 31 Oct 2026): lane to cut the daily tier toward 5 min. Evidence: daily 606 s of tests; the one-at-a-time corpus-sweeps group took 562 s over 33 tests run serially; resources 109 s and fmt_hashes 102 s are a third of it. Do: sparser fmt_hashes daily sample; SW-921 (why the resources test holds 6.7 GB and takes 109 s); re-time the tier.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
