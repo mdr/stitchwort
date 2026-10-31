@@ -2583,6 +2583,116 @@ assumptions, in full:
 - **(E4)** A message that prints a type unknown of a waiting check is produced by a check that reads
   that type, which question 1's rules make wait; the examples test's list catches any that doesn't.
 
+## As built (step 4.0)
+
+Built on main (`02e83151`, no K4) in the D2090 lane, 31 October 2026. Labels as in the design
+section above.
+
+**What waits** [read, `matching.rs`]. `generalised` is the entry of every generalising `match`
+(`match e`, `match h: e`, a refutable `let` or lambda pattern, `match reify`). Before it reads
+anything it asks `blocker` for an unknown, and if there is one the `match` is queued whole as a
+`WaitingMatch` on it, with a placeholder standing for it:
+- **an unsolved unknown in a scrutinee as elaborated or in its type, or in a variable's type in
+  scope**, whatever made it (a lambda parameter's type, a `.field` waiting for its receiver's
+  type, a dictionary the obligations will find). Frozen unknowns (a helper's call, a local
+  definition, an open goal) are never solved by elaboration and are not waited for;
+- **an unknown the queue has to settle** (`queue::pending`) **in the expected type**.
+
+The scrutinees are kept as elaborated, the alternatives as syntax. Resumed (W1-W4, like any
+item), it evaluates the expected type, the types in scope and the scrutinees afresh, asks
+`blocker` again (and waits again if needed), and only then generalises (`generalised_now`, the old
+body). It has no default. Still waiting at the end, it reports the unknown it waits on as
+finishing would (`Check::stuck_error`, `Elaborator::unsolved_error`): a lambda parameter's type is
+base's `E-CANNOT-INFER`, unchanged (`reject/match-waits-unknown-parameter.sw`). `cases`' split
+(`skip`) doesn't wait: it is a proof search, step 4.2's.
+
+**Its own type is pending while it waits** (`Check::settles_type`). An inferred `match`'s type is
+a new unknown (`unknown_type`) that its alternatives fix. Without this, a comparison meeting it
+before the `match` resumes failed: `let g := acc => match List.length [acc] with …; g 0` gave
+"expected `Nat`, but this has type `?2 n 0`" [run, before the fix], where main accepts it. With
+it, the comparison waits (stage 6) and holds once the `match` resumes
+(`accept/match-waits-inferred-type.sw`). A waiting `match` doesn't wait for its own type.
+
+**One change from the design: an ordinary unknown in the expected type is not waited for.** The
+design said "goal or types in scope hold an unsolved unknown". An inferred `match`'s expected
+type is the unknown above, which only its own alternatives solve: waiting for it would wait for
+ever, and every inferred generalising `match` would be stuck [read: `infer_match`,
+`unknown_type`]. So for the expected type only the queue's unknowns are waited for. The motive
+check can then still meet an unknown there; it no longer skips: `check_motive` leaves it for the
+lifting of the helper (`Draft::motive_later`), and `check_motive_when_lifted` runs it then, with
+every variable the `match` copied, once the alternatives have solved the unknown (`lift`,
+`lift_signature`; `preadmit` admits such a helper only if it holds). The same happens when a
+`let` in scope holds an auto argument not proved yet (the prelude has one: a `let` whose value
+divides by 2, its proof an obligation) [run, debug build]: the occurrence test doesn't read a
+`let`'s value, so there is nothing to wait for. A debug assertion says the unknown is in one of
+these two places, never in a variable's type or a scrutinee. This closes the expected type's form of the
+hole: `reject/match-motive-goal-later.sw` (`apply2 (r => match List.length [n] with …) n`,
+`apply2: (a → c) → a → c`) was accepted on main and is `E-MATCH-MOTIVE` now;
+`accept/match-motive-goal-later.sw` is the same with a motive that holds. What is left
+[inferred, no repro]: the occurrence test can't find a scrutinee inside the expected type's
+unknown, so where the alternatives solve it to a type that mentions the scrutinee, the expected
+type isn't abstracted. Its annotated twin would abstract it, and could be rejected if that
+abstraction alone made the motive ill-formed, while the unannotated one is accepted. Main has the
+same behaviour; waiting can't fix it (the alternatives are what solve it); Lean's last resort
+below could.
+
+**M3 doesn't always hold** [run]. D2090's assumption M3 says an ordinary unknown still unsolved at
+the end is an error anyway, so waiting can't turn an accepted program into a stuck one. It can,
+when the only thing that fixes the unknown is the waiting `match`'s own alternatives:
+
+```
+let g := acc => match List.length [acc] with   -- or `[n]`: `acc` is in scope
+  | Zero => 0
+  | Succ k => plus acc k
+n                                              -- `g` never applied
+```
+
+main accepts both forms (the alternatives make `acc` a `Nat`); step 4.0 rejects both with "can't
+work out the type of this function's parameter `acc`". The first form follows from the approved
+scrutinee rule; the second from waiting on types in scope. No example, std, aoc or rogue program
+has this shape (all check). The alternative that keeps them is Lean's last resort: at quiescence,
+generalise anyway, then check the choices once the alternatives have solved the unknown (redo
+the occurrence test; reject if it would now copy differently). That is a check, not a default,
+but more machinery; a decision for Matt.
+
+**Repros** [run, `sw` at `02e83151` and this branch]:
+
+| file | main | step 4.0 |
+|---|---|---|
+| `motive-field-later.sw` (`reject/match-motive-field-later.sw`) | checks | `E-MATCH-MOTIVE`, as its twin |
+| `motive-param-later.sw` (`reject/match-motive-param-later.sw`) | checks | `E-MATCH-MOTIVE`, as its twin |
+| `reject/match-motive-hypothesis-later.sw` (a hypothesis's type fixed later) | checks | `E-MATCH-MOTIVE`, as its twin |
+| `reject/match-motive-goal-later.sw` (the expected type fixed by the alternatives) | checks | `E-MATCH-MOTIVE` |
+| the three `-annotated` twins (`reject/match-motive-*-annotated.sw`) | `E-MATCH-MOTIVE` | the same |
+| `motive-literal-later.sw` | `E-MATCH-MOTIVE` | the same (on main its literals are `Nat` at once) |
+| `reject/match-bad-motive.sw` | `E-MATCH-MOTIVE` | the same message |
+
+**Measured** [run]:
+- **Examples**: the examples test at the full tier passes (every accept, reject, soundness and
+  project example, with their snapshots): no outcome or message changes beyond the new files.
+- **Hashes**: `HASH_DUMP_PROJECT=games/rogue` (std and rogue, 5,228 declarations): identical.
+  `HASH_DUMP` for std and aoc (10,657): 8 change, all in 2024 Day15's `Proofs/Part2.sw`:
+  `moveWideSeparate`, its helpers `%match1` and `%match4`, and the five theorems that use it
+  (`moveAllWideCount`, `moveAllWideSeparate`, `moveAllWideWhole`, `part2Count`, `part2Whole`).
+  Why [run, scratch prints, removed]: the `match after box held` inside
+  `Bool.falseOfNotTrue _ (heldRight => …)` waits for `heldRight`'s type (the `_`, solved by the
+  application around it). Nothing is generalised differently: the same scrutinees, no copies,
+  either way. What differs is `%match4`'s type (the waiting one): a subterm that comes from the
+  solved unknown is a folded call when the `match` is drafted before the unknown is solved (as on
+  main) and its unfolding (a `Quot.lift` term) when drafted after; the binders are the same. So
+  the change is the form of a definitionally equal type, and the hashes that include it. With only the queue's unknowns
+  waited for in the types in scope, no hash changed (the first build of this step), and the
+  hypothesis repro was accepted.
+- **`task audit`**: std 2,328, aoc 1,363, rogue 190 theorems, all passed.
+- **Counters** (`STITCHWORT_TIMINGS`, `check --no-cache`): std and aoc, 8 matches waited, 23
+  motive checks left for lifting, 0 stuck; the queue's other counters are base's except `queued`
+  and `resumed` (166 and 160 before, 174 and 168 after) and `crossed W1` (15 before, 17 after:
+  two waiting `match`es outlived their application). Rogue: 0 and 0, all counters as base.
+- **Time**: aoc `check --no-cache`, user time over three runs, base 39.2, 37.0, 37.5 s; step 4.0
+  37.1, 36.6, 36.5 s. No difference beyond the noise of a loaded machine.
+- **Debug build**: the `builtins` test (the prelude in the debug profile) passes; the assertion
+  above first fired there on the `let` case, and was corrected to include it.
+
 ## Review 1 and how it was addressed
 
 The review is [postponement/review-1.md](postponement/review-1.md): "approve with revisions".

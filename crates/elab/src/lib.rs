@@ -1200,7 +1200,15 @@ impl Elaborator {
     ) -> Result<Term> {
         unify::zonk_in(&self.globals, level, term, keep, lets).map_err(|e| match e {
             unify::ZonkError::Resource(e) => e.into(),
-            unify::ZonkError::Unsolved(m) if self.local_metas.borrow().contains_key(&m) => {
+            unify::ZonkError::Unsolved(m) => self.unsolved_error(m),
+        })
+    }
+
+    /// The error of metavariable `m`, unsolved where a term is finished:
+    /// also a waiting `match`'s, stuck on it at the end (`matching.rs`).
+    pub(crate) fn unsolved_error(&self, m: usize) -> Diagnostic {
+        match m {
+            m if self.local_metas.borrow().contains_key(&m) => {
                 let span = self.globals.metas.borrow()[m].span;
                 let name = self.local_metas.borrow()[&m].clone();
                 Diagnostic::error(
@@ -1213,7 +1221,7 @@ impl Elaborator {
                      body; here, define it at top level instead",
                 )
             }
-            unify::ZonkError::Unsolved(m) if self.globals.meta_frozen(m) => {
+            m if self.globals.meta_frozen(m) => {
                 let span = self.globals.metas.borrow()[m].span;
                 Diagnostic::error(
                     "E-MATCH-MOTIVE",
@@ -1232,12 +1240,10 @@ impl Elaborator {
             // A metavariable made for a goal whose type nothing worked out
             // (`?` where a type isn't known): the goal says so; it isn't an
             // error of its own.
-            unify::ZonkError::Unsolved(m)
-                if self.has_goal_at(self.globals.metas.borrow()[m].span) =>
-            {
+            m if self.has_goal_at(self.globals.metas.borrow()[m].span) => {
                 goals::open_goal(self.globals.metas.borrow()[m].span)
             }
-            unify::ZonkError::Unsolved(m) if self.parameter_metas.borrow().contains_key(&m) => {
+            m if self.parameter_metas.borrow().contains_key(&m) => {
                 let span = self.globals.metas.borrow()[m].span;
                 let name = self.parameter_metas.borrow()[&m].clone();
                 Diagnostic::error(
@@ -1250,7 +1256,7 @@ impl Elaborator {
                      function's body or how the function is used, and none of them fixes it here",
                 )
             }
-            unify::ZonkError::Unsolved(m) => {
+            m => {
                 let span = self.globals.metas.borrow()[m].span;
                 let note = if self.proof_holes.borrow().contains(&m) {
                     // A proof left as `_` (D641).
@@ -1262,7 +1268,7 @@ impl Elaborator {
                     .with_label(span, "the compiler couldn't work out what goes here")
                     .with_note(note)
             }
-        })
+        }
     }
 
     fn test(&mut self, name: &str, expr: &Expr, span: Span) -> Result<()> {

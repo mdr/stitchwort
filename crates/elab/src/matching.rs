@@ -280,6 +280,7 @@ fn unit_parameter<'e>(cx: &mut Ctx, expr: &'e Expr, goal: &Value) -> Result<Opti
 }
 
 /// What a scrutinee is matched as.
+#[derive(Clone)]
 enum Column {
     /// A variable in scope, by name (looked up once copies are bound).
     Var(Option<usize>, ast::Name),
@@ -406,6 +407,7 @@ fn tested_bool(cx: &Ctx, normal: &Term) -> Option<Term> {
 }
 
 /// An expression scrutinee, elaborated in the `match`'s context.
+#[derive(Clone)]
 struct Scrut {
     term: Term,
     /// As types hold it (evaluated and read back), for the occurrence test.
@@ -498,8 +500,189 @@ pub(crate) fn generalised_named(
     result
 }
 
+/// A `match` with expression scrutinees, generalised: now, or, if what its
+/// generalisation reads holds an unknown not solved yet, once it is solved
+/// (step 4.0 of stage 4, D2090; docs/proposals/postponement.md). The
+/// occurrence test and the motive check are choices that change the
+/// outcome (which hypotheses are refined, whether the `match` is
+/// accepted), so neither is made from an unknown: the `match` waits, whole,
+/// as a queued [`WaitingMatch`], and a placeholder stands for it. What it
+/// waits for is [`blocker`]'s. `cases`' split (`skip`) doesn't wait: it is a
+/// proof search, which step 4.2 makes wait when it fails.
 #[allow(clippy::too_many_arguments)]
 fn generalised(
+    cx: &mut Ctx,
+    columns: Vec<Column>,
+    exprs: Vec<Scrut>,
+    alts: &[Alt],
+    absurd: &[Vec<Pattern>],
+    span: stitchwort_syntax::Span,
+    kind: MatchKind,
+    goal: &Value,
+    base: usize,
+    skip: Option<Skip>,
+) -> Result<Term> {
+    if skip.is_none()
+        && let Some(m) = blocker(cx, &exprs, goal, base, None)?
+    {
+        crate::queue::note_match_waited();
+        let error = motive_error(
+            span,
+            "this `match` can't be generalised: what it matches on isn't known",
+        );
+        let error = match exprs.first() {
+            Some(s) => error.with_label(s.span, "nothing worked out what this is"),
+            None => error,
+        };
+        let check = WaitingMatch {
+            columns,
+            exprs,
+            alts: alts.to_vec(),
+            absurd: absurd.to_vec(),
+            span,
+            kind,
+            goal: goal.clone(),
+        };
+        return crate::queue::queue(cx, Rc::new(check), crate::queue::on(m), goal.clone(), error);
+    }
+    generalised_now(
+        cx, columns, exprs, alts, absurd, span, kind, goal, base, skip,
+    )
+}
+
+/// The unknown a generalisation in context `base` would read unsolved, if
+/// any:
+/// - one in a scrutinee as elaborated or in its type, or in a variable's
+///   type in scope, whatever made it (a lambda parameter's type, a `.field`
+///   waiting for its receiver's type, a dictionary the obligations will
+///   find): the occurrence test can't find a scrutinee in an unknown, nor
+///   an unknown scrutinee anywhere;
+/// - one in the expected type that the queue still has to settle
+///   ([`crate::queue::pending`]), except `own`, the type of the waiting
+///   `match` asking, which it settles itself.
+///
+/// An ordinary unknown in the expected type isn't waited for: an inferred
+/// `match`'s type is a new unknown ([`unknown_type`]) that only its
+/// alternatives fix, so waiting for it would wait for ever. A motive check
+/// it holds up is made when the helper is lifted ([`check_motive`]).
+/// Frozen unknowns (a helper's call, a local definition, an open goal) are
+/// never solved by elaboration, so never waited for.
+fn blocker(
+    cx: &Ctx,
+    exprs: &[Scrut],
+    goal: &Value,
+    base: usize,
+    own: Option<usize>,
+) -> Result<Option<usize>> {
+    let g = cx.g();
+    let unsolved = |m: usize| g.meta_solution(m).is_none() && !g.meta_frozen(m);
+    for s in exprs {
+        for t in [&s.term, &s.ty_term] {
+            let t = cx.e.zonk_keeping(t, base, &|_| true)?;
+            if let Some(m) = first_meta(&t, &unsolved) {
+                return Ok(Some(m));
+            }
+        }
+    }
+    for l in 0..base {
+        if let Some(m) = first_meta(&quote(g, base, &cx.types[l])?, &unsolved) {
+            return Ok(Some(m));
+        }
+    }
+    if cx.e.queue.len() == 0 {
+        return Ok(None);
+    }
+    let pending = crate::queue::pending(cx)?;
+    let is_pending = |m: usize| pending.contains(&m) && Some(m) != own;
+    Ok(first_meta(&quote(g, base, goal)?, &is_pending))
+}
+
+/// The first unknown in `t` that `which` picks.
+fn first_meta(t: &Term, which: &dyn Fn(usize) -> bool) -> Option<usize> {
+    t.subterms().find_map(|(t, _)| match t {
+        Term::Meta(m) if which(*m) => Some(*m),
+        _ => None,
+    })
+}
+
+/// A generalised `match` waiting for an unknown its generalisation would
+/// read ([`generalised`], [`blocker`]). Its scrutinees are kept as
+/// elaborated (invariant 6): each was inferred with no expected type, so
+/// nothing learnt later would elaborate it differently; what it holds that
+/// waits is its own queued checks, which resume on their own. Its
+/// alternatives are kept as syntax, elaborated when it is resumed. It has
+/// no default: an unknown still unsolved at the end is reported as
+/// finishing would report it.
+struct WaitingMatch {
+    columns: Vec<Column>,
+    exprs: Vec<Scrut>,
+    alts: Vec<Alt>,
+    absurd: Vec<Vec<Pattern>>,
+    span: stitchwort_syntax::Span,
+    kind: MatchKind,
+    goal: Value,
+}
+
+impl crate::queue::Check for WaitingMatch {
+    fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
+        let g = cx.g();
+        let base = cx.level();
+        // Evaluated afresh, so that a call stuck on an unknown solved since
+        // computes (as a waiting comparison's sides are).
+        let goal = cx.eval(&cx.quote_folded(&self.goal)?)?;
+        for l in 0..base {
+            let ty = cx.quote_folded(&cx.types[l])?;
+            cx.types[l] = cx.eval(&ty)?;
+        }
+        let mut exprs = self.exprs.clone();
+        for s in &mut exprs {
+            s.normal = quote(g, base, &cx.eval(&s.term)?)?;
+            s.ty = cx.eval(&cx.quote_folded(&s.ty)?)?;
+            s.ty_term = cx.quote(&s.ty)?;
+        }
+        // Its own type, which it settles, is pending only for others.
+        let own = match stitchwort_core::value::force(g, goal.clone())? {
+            Value::Neutral(Head::Meta(m), _) => Some(m),
+            _ => None,
+        };
+        if let Some(m) = blocker(cx, &exprs, &goal, base, own)? {
+            return Ok(crate::queue::Resumed::Waiting(crate::queue::on(m)));
+        }
+        let mark = cx.mark();
+        let result = generalised_now(
+            cx,
+            self.columns.clone(),
+            exprs,
+            &self.alts,
+            &self.absurd,
+            self.span,
+            self.kind,
+            &goal,
+            base,
+            None,
+        );
+        cx.reset(mark);
+        Ok(crate::queue::Resumed::Done(result?))
+    }
+
+    fn stuck_error(&self, e: &crate::Elaborator, blocker: Option<usize>) -> Option<Diagnostic> {
+        // Still waiting at the end on an unknown no check of the queue
+        // fills: what finishing reports for it (a lambda parameter's type).
+        let m = blocker?;
+        (!e.globals.unfilled_placeholders.borrow().contains(&m)).then(|| e.unsolved_error(m))
+    }
+
+    fn settles_type(&self) -> bool {
+        // An expected type that is an unknown (an inferred `match`'s,
+        // `unknown_type`) is fixed by the alternatives once it resumes: a
+        // comparison meeting it meanwhile waits for it (stage 6).
+        true
+    }
+}
+
+/// [`generalised`], now: nothing it reads is waited for.
+#[allow(clippy::too_many_arguments)]
+fn generalised_now(
     cx: &mut Ctx,
     columns: Vec<Column>,
     exprs: Vec<Scrut>,
@@ -632,9 +815,7 @@ fn generalised(
     };
     let goal_term = generalise.apply(g, &quote(g, base, goal)?)?;
     let motive = cx.eval(&goal_term)?;
-    if skip.is_none() {
-        check_motive(cx, base, &extra, &motive, span)?;
-    }
+    let motive_later = skip.is_none() && check_motive(cx, base, &extra, &motive, span)?;
     let levels: Vec<usize> = columns
         .iter()
         .map(|c| match c {
@@ -669,7 +850,7 @@ fn generalised(
             }
         }
     }
-    lift::draft(cx, base, extra, body, &motive, span)
+    lift::draft_with(cx, base, extra, body, &motive, span, motive_later)
 }
 
 /// The warnings for the named expression scrutinees that occur neither in
@@ -730,22 +911,23 @@ fn scrutinee_name(_: &Scrut) -> Name {
     "s".into()
 }
 
-/// Checks the helper's type before its alternatives (§4.4, rule 3), when
-/// everything in it is known by now: a motive is never accepted just because
-/// each alternative happened to check.
+/// Checks the helper's type before its alternatives (§4.4, rule 3): a
+/// motive is never accepted just because each alternative happened to
+/// check. Whether it is left for when the helper is lifted
+/// ([`check_motive_when_lifted`]): the type can't be built yet because the
+/// expected type holds an unknown that isn't the queue's, which the
+/// alternatives may solve ([`blocker`]), or a `let` in scope holds an auto
+/// argument not proved yet. Nothing the occurrence test reads is unknown
+/// here: it waited for it (asserted).
 fn check_motive(
     cx: &Ctx,
     base: usize,
     extra: &[Term],
     motive: &Value,
     span: stitchwort_syntax::Span,
-) -> Result<()> {
+) -> Result<bool> {
     // The type it would have if it used every variable the `match` added
     // (the body is only looked at for the variables it mentions).
-    let mut uses = Term::Refl;
-    for level in base..cx.level() {
-        uses = Term::app(uses, Term::Var(cx.level() - 1 - level));
-    }
     let draft = Draft {
         meta: usize::MAX,
         span,
@@ -754,19 +936,100 @@ fn check_motive(
         names: cx.names.clone(),
         base,
         extra: extra.to_vec(),
-        body: uses,
+        body: uses_all(base, cx.level()),
         goal: cx.quote(motive)?,
         kinds: cx.kinds.clone(),
         lets: cx.lets.clone(),
         order: cx.order.clone(),
         local: None,
         update: None,
+        motive_later: false,
     };
-    let Ok(ty) = cx.e.lifted_type(&draft) else {
-        return Ok(()); // something isn't known yet: checked when it's admitted
+    match cx.e.lifted_type(&draft) {
+        Ok(ty) => motive_holds(cx.e, &ty, span).map(|()| false),
+        Err(d) if crate::undo::fatal(&d) => Err(d),
+        Err(_) => {
+            debug_assert!(
+                unknown_left_for_lifting(cx, &draft)?,
+                "a generalised `match` met an unknown it should have waited for (D2090)"
+            );
+            crate::queue::note_motive_later();
+            Ok(true)
+        }
+    }
+}
+
+/// The body of a helper that uses every variable from `base` to `depth`:
+/// its type is then the whole motive (the body is only looked at for the
+/// variables it mentions).
+fn uses_all(base: usize, depth: usize) -> Term {
+    let mut uses = Term::Refl;
+    for level in base..depth {
+        uses = Term::app(uses, Term::Var(depth - 1 - level));
+    }
+    uses
+}
+
+/// Whether what [`check_motive`] couldn't build the helper's type from is
+/// what it leaves for lifting: no variable's type holds an unsolved
+/// unknown that isn't frozen ([`blocker`] waited for those), and the
+/// expected type or a `let`'s value does (an auto argument the obligations
+/// will prove, which the occurrence test doesn't read).
+fn unknown_left_for_lifting(cx: &Ctx, draft: &Draft) -> Result<bool> {
+    let g = cx.g();
+    let depth = draft.env.len();
+    let unsolved = |m: usize| g.meta_solution(m).is_none() && !g.meta_frozen(m);
+    for ty in &draft.types {
+        if first_meta(&quote(g, depth, ty)?, &unsolved).is_some() {
+            return Ok(false);
+        }
+    }
+    let goal = cx.e.zonk_keeping(&draft.goal, depth, &|_| true)?;
+    if first_meta(&goal, &unsolved).is_some() {
+        return Ok(true);
+    }
+    for (l, def) in draft.lets.iter().enumerate() {
+        if let Some(def) = def {
+            let value = cx.e.zonk_keeping(&def.value, l, &|_| true)?;
+            if first_meta(&value, &unsolved).is_some() {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// The motive check left for when the `match` of `d` is lifted
+/// ([`Draft::motive_later`]): its type with every variable the `match`
+/// added, now that what its alternatives worked out is known.
+pub(crate) fn check_motive_when_lifted(e: &crate::Elaborator, d: &Draft) -> Result<()> {
+    let draft = Draft {
+        meta: usize::MAX,
+        span: d.span,
+        env: d.env.clone(),
+        types: d.types.clone(),
+        names: d.names.clone(),
+        base: d.base,
+        extra: d.extra.clone(),
+        body: uses_all(d.base, d.env.len()),
+        goal: d.goal.clone(),
+        kinds: d.kinds.clone(),
+        lets: d.lets.clone(),
+        order: d.order.clone(),
+        local: None,
+        update: None,
+        motive_later: false,
     };
-    let mut kcx = kernel::Ctx::new(cx.g(), span);
-    match kernel::without_glue(cx.g(), || kernel::check_type(&mut kcx, &ty)) {
+    let ty = e.lifted_type(&draft)?;
+    motive_holds(e, &ty, d.span)
+}
+
+/// Checks `ty`, a generalised `match`'s helper's type with every variable it
+/// added: [`check_motive`]'s error if it is ill-formed.
+fn motive_holds(e: &crate::Elaborator, ty: &Term, span: stitchwort_syntax::Span) -> Result<()> {
+    let g = &e.globals;
+    let mut kcx = kernel::Ctx::new(g, span);
+    match kernel::without_glue(g, || kernel::check_type(&mut kcx, ty)) {
         Ok(_) => Ok(()),
         Err(d) if crate::undo::fatal(&d) => Err(d),
         Err(d) => Err(motive_error(

@@ -86,6 +86,11 @@ pub(crate) struct Draft {
     /// For the `match` of a record update, what it updates, so a call of
     /// the helper is shown as the update.
     pub update: Option<UpdateDraft>,
+    /// For a generalised `match` whose motive check met an unknown that
+    /// only its alternatives could solve (an inferred `match`'s type): the
+    /// check, made when it is lifted, once they have
+    /// (`matching::check_motive_when_lifted`).
+    pub motive_later: bool,
 }
 
 /// A record update's `match` (`shared.rs`): the variable of the record
@@ -148,6 +153,20 @@ pub(crate) fn draft(
     goal: &Value,
     span: Span,
 ) -> Result<Term> {
+    draft_with(cx, base, extra, body, goal, span, false)
+}
+
+/// [`draft`], for a `match` whose motive is checked when it is lifted if
+/// `motive_later` ([`Draft::motive_later`]).
+pub(crate) fn draft_with(
+    cx: &Ctx,
+    base: usize,
+    extra: Vec<Term>,
+    body: Term,
+    goal: &Value,
+    span: Span,
+    motive_later: bool,
+) -> Result<Term> {
     let g = cx.g();
     let goal = cx.quote_folded(goal)?;
     let meta = g.new_meta(span);
@@ -171,6 +190,7 @@ pub(crate) fn draft(
         order: cx.order.clone(),
         local: None,
         update: None,
+        motive_later,
     });
     Ok(call)
 }
@@ -552,8 +572,18 @@ impl Elaborator {
             return Ok(Vec::new());
         }
         self.solve_obligations()?;
+        self.check_motives_later()?;
         let drafts = std::mem::take(&mut *self.drafts.borrow_mut());
         Ok(self.resolve_batch(owner, drafts, join)?.0)
+    }
+
+    /// The motive checks left for lifting ([`Draft::motive_later`]), now
+    /// that what the `match`es' alternatives worked out is known.
+    fn check_motives_later(&self) -> Result<()> {
+        for d in self.drafts.borrow().iter().filter(|d| d.motive_later) {
+            crate::matching::check_motive_when_lifted(self, d)?;
+        }
+        Ok(())
     }
 
     /// Resolves the drafts made while elaborating the type of the
@@ -568,6 +598,7 @@ impl Elaborator {
             return Ok(());
         }
         self.solve_obligations()?;
+        self.check_motives_later()?;
         let drafts = std::mem::take(&mut *self.drafts.borrow_mut());
         let mut counts: HashMap<String, usize> = HashMap::default();
         for prefix in match_prefixes(owner, &drafts).into_iter().flatten() {
