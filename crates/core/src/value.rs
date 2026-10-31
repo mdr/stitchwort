@@ -2922,7 +2922,8 @@ impl TreeMemo {
             && TREE_MEMO.with(|m| {
                 m.borrow().pairs.get(&self.key).is_some_and(|pairs| {
                     pairs.iter().any(|(x, y)| {
-                        identical(Same::Values(x, &self.a)) && identical(Same::Values(y, &self.b))
+                        identical(Same::Values(x, &self.a), None)
+                            && identical(Same::Values(y, &self.b), None)
                     })
                 })
             })
@@ -3233,6 +3234,16 @@ fn shape_hash(g: &Globals, cache: &mut ShapeCache, value: &Value) -> Result<u64>
 // unifying identical values succeeds without solving any metavariable (a
 // metavariable against itself only unifies the identical arguments), so
 // answering at once changes nothing there either.
+//
+// There, a solved metavariable is the value it was solved with: a closure
+// whose environment holds `?x`, solved with `seed`, and one holding `seed`
+// itself are the same function (SW-920: without this, unification ran both
+// bodies, which with `%` on a large number is most of a check). So the
+// elaborator's form, [`same_closure_solved`], compares a solved
+// metavariable by its solution, where the two sides would otherwise differ.
+// That is still no evaluation of either body, and both sides are equal
+// under the solutions made, which unification never takes back without
+// undoing the comparison too.
 
 #[cfg(any(test, feature = "reference"))]
 thread_local! {
@@ -3266,14 +3277,40 @@ fn shortcuts_disabled() -> bool {
 /// environment, identical values. Variables the body doesn't use can differ:
 /// they're never looked at.
 pub fn same_closure(a: &Closure, b: &Closure) -> bool {
-    !shortcuts_disabled() && identical(Same::Closures(a, b))
+    !shortcuts_disabled() && identical(Same::Closures(a, b), None)
+}
+
+/// [`same_closure`], with a solved metavariable alike to its solution: where
+/// a value headed by one differs from the value on the other side, it is
+/// compared again with the solution applied. For the elaborator.
+pub fn same_closure_solved(g: &Globals, a: &Closure, b: &Closure) -> bool {
+    !shortcuts_disabled() && identical(Same::Closures(a, b), Some(g))
+}
+
+/// Whether `a` and `b`, which differ as they are, are alike once a solved
+/// metavariable heading either is replaced by its solution ([`identical`]
+/// with `g`). `false` if neither is headed by one, or if applying a
+/// solution runs out of resources (the caller then takes the long way,
+/// which reports that).
+#[cold]
+#[inline(never)]
+fn same_when_solved(g: &Globals, a: &Value, b: &Value) -> bool {
+    let solved =
+        |v: &Value| matches!(v, Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_some());
+    if !solved(a) && !solved(b) {
+        return false;
+    }
+    let (Ok(a), Ok(b)) = (force_solved(g, a.clone()), force_solved(g, b.clone())) else {
+        return false;
+    };
+    identical(Same::Values(&a, &b), Some(g))
 }
 
 /// Whether two terms are alike apart from names and source locations, as
 /// [`same_closure`] compares bodies. The elaborator uses it to find the
 /// same recursive call written twice (`crates/elab/src/decreasing.rs`).
 pub fn same_term(a: &Term, b: &Term) -> bool {
-    identical(Same::Terms(a, b))
+    identical(Same::Terms(a, b), None)
 }
 
 /// A pair still to compare for [`identical`].
@@ -3285,12 +3322,21 @@ enum Same<'v> {
 
 /// Whether two values, closures or terms are exactly alike (see
 /// [`same_closure`]). A work list, not recursion, as values can nest deeply.
-/// No evaluation: the cost is at most the size of the smaller side.
-fn identical(first: Same) -> bool {
+/// No evaluation: the cost is at most the size of the smaller side. With
+/// `g`, a solved metavariable is alike to its solution
+/// ([`same_when_solved`]), which applies the solution.
+fn identical(first: Same, g: Option<&Globals>) -> bool {
     let mut work = vec![first];
     while let Some(pair) = work.pop() {
         let alike = match pair {
-            Same::Values(a, b) => same_layer(a, b, &mut work),
+            Same::Values(a, b) => {
+                let len = work.len();
+                same_layer(a, b, &mut work)
+                    || g.is_some_and(|g| {
+                        work.truncate(len);
+                        same_when_solved(g, a, b)
+                    })
+            }
             Same::Closures(a, b) => same_closure_layer(a, b, &mut work),
             Same::Terms(a, b) => same_term_layer(a, b, &mut work),
         };
@@ -3634,7 +3680,7 @@ mod tests {
             )
         };
         let (x, y) = (wrap(a), wrap(b));
-        assert!(identical(Same::Values(&x, &y)));
+        assert!(identical(Same::Values(&x, &y), None));
         let mut shared = ShapeCache::default();
         let hash = shape_hash(&g, &mut shared, &x).unwrap();
         assert_eq!(hash, shape_hash(&g, &mut shared, &y).unwrap());
@@ -3645,7 +3691,7 @@ mod tests {
         // A used variable's value counts.
         let c = closure(vec![Value::var(7), Value::var(4)], call_last());
         let z = wrap(c);
-        assert!(!identical(Same::Values(&x, &z)));
+        assert!(!identical(Same::Values(&x, &z), None));
         assert_ne!(hash, shape_hash(&g, &mut shared, &z).unwrap());
     }
 
@@ -3656,6 +3702,30 @@ mod tests {
         assert!(!same_closure(&a, &b));
         let g = Globals::default();
         assert!(!conv_both(&g, &lam(a), &lam(b)).0);
+    }
+
+    /// SW-920: for the elaborator, a solved metavariable is its solution.
+    #[test]
+    fn a_solved_metavariable_is_the_same_as_its_solution_for_the_elaborator() {
+        let g = Globals::default();
+        let span =
+            stitchwort_syntax::Span::point(stitchwort_syntax::SourceMap::new().add("t", ""), 0);
+        let m = g.new_meta(span);
+        let unknown = Value::Neutral(Head::Meta(m), Spine::from(Vec::new()));
+        let a = closure(vec![unknown], call_last());
+        let b = closure(vec![Value::var(3)], call_last());
+        assert!(!same_closure_solved(&g, &a, &b), "unsolved");
+        g.solve_meta(m, Value::var(3));
+        assert!(same_closure_solved(&g, &a, &b));
+        assert!(
+            !same_closure(&a, &b),
+            "the kernel's form looks at no solution"
+        );
+        g.solve_meta(m, Value::var(4));
+        assert!(
+            !same_closure_solved(&g, &a, &b),
+            "solved with another value"
+        );
     }
 
     #[test]
