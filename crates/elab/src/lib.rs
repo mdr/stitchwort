@@ -13,6 +13,7 @@ mod bind;
 pub mod cache;
 mod calc;
 mod check;
+pub mod closing;
 mod congruence;
 pub mod counterexample;
 mod data_auto;
@@ -257,6 +258,15 @@ enum Global {
 }
 
 /// A `test "name" = expr` declaration, checked as a definition of type `Bool`.
+/// What [`Elaborator::check_proof`] found.
+pub enum Checked {
+    /// It elaborated with no `?`, and the kernel accepted it.
+    Closed,
+    /// It elaborated, with these goals open: one diagnostic per `?`, each
+    /// with its [`stitchwort_syntax::GoalData`].
+    Goals(Vec<Diagnostic>),
+}
+
 pub struct TestDecl {
     /// A test of the core or of a library file: run by the library test
     /// target, never by a project's `stitchwort test`
@@ -1063,6 +1073,58 @@ impl Elaborator {
 
     fn infer_expr_in_operation(&mut self, expr: &Expr) -> Result<(Term, Value)> {
         self.glued(|e| e.infer_expr_glued(expr))
+    }
+
+    /// Checks a closed expression, a proof being tried by `stitchwort
+    /// search --at` (SW-915 stage 2): if it has no `?`, it is elaborated and
+    /// its type inferred by the kernel, as [`Elaborator::infer_expr`] does
+    /// ([`Checked::Closed`]); if it has some, the goals at them, printed as
+    /// a file's are ([`Checked::Goals`]), and nothing reaches the kernel.
+    /// One operation, with its own resource limits.
+    pub fn check_proof(&mut self, expr: &Expr) -> Result<Checked> {
+        let saved = self.globals.budget.start(self.limits);
+        let result = self.glued(|e| e.check_proof_glued(expr));
+        self.globals.budget.restore(saved);
+        self.clear_metas();
+        self.clear_goals();
+        result.map_err(|d| self.locate(d, expr.span()))
+    }
+
+    fn check_proof_glued(&mut self, expr: &Expr) -> Result<Checked> {
+        self.clear_metas();
+        self.clear_goals();
+        self.standalone_inputs += 1;
+        let key = format!("<input {}>", self.standalone_inputs);
+        *self.owner.borrow_mut() = vec![key.clone()];
+        self.local_keys.borrow_mut().clear();
+        let elaborated = (|| -> Result<(Term, Term)> {
+            let mut cx = Ctx::new(self, expr.span());
+            let (term, ty) = infer(&mut cx, expr)?;
+            Ok((term, cx.quote(&ty)?))
+        })();
+        let goals = if elaborated.is_ok() && self.pending_goals() > 0 {
+            Some(self.take_goals())
+        } else {
+            None
+        };
+        self.owner.borrow_mut().clear();
+        let (term, _) = elaborated?;
+        if let Some(goals) = goals {
+            return Ok(Checked::Goals(goals));
+        }
+        self.lift(&key, false)?;
+        let term = self.finish(&term, 0)?;
+        let unfinished = term.subterms().any(|(t, _)| match t {
+            Term::Def(id) => self.is_unfinished(*id),
+            _ => false,
+        });
+        if unfinished {
+            return Err(goals::uses_unfinished(Some(expr.span())));
+        }
+        kernel::without_glue(&self.globals, || {
+            kernel::infer_closed(&self.globals, &term, expr.span())
+        })?;
+        Ok(Checked::Closed)
     }
 
     fn infer_expr_glued(&mut self, expr: &Expr) -> Result<(Term, Value)> {

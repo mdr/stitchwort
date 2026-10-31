@@ -232,8 +232,9 @@ enum Command {
     Search {
         /// Comma-separated parts: a pattern (`_` any term, `?x` a named
         /// hole, a leading `⊢` for conclusions only), names the type must
-        /// mention (`List.length`), and `"text"` the name must contain
-        query: String,
+        /// mention (`List.length`), and `"text"` the name must contain.
+        /// Not with --at
+        query: Option<String>,
         /// A file to search with the library, instead of the project
         file: Option<PathBuf>,
         /// The project folder, if not the folder you're in or the nearest
@@ -264,6 +265,25 @@ enum Command {
         /// Constructors only, or with the others named
         #[arg(long)]
         constructors: bool,
+        /// Append a line of JSON describing this search (the query, what it
+        /// elaborated to, the results with their ranks, the time) to this
+        /// file; also from the environment variable STITCHWORT_SEARCH_LOG
+        #[arg(long, value_name = "FILE")]
+        log: Option<PathBuf>,
+        /// What closes the goal `?` at FILE:LINE[:COL] (or with --goal N, the
+        /// file's N-th goal): lemmas applied to it, kernel-checked, and
+        /// rewrites (docs/syntax.md, "What closes this ?")
+        #[arg(long, value_name = "FILE:LINE[:COL]")]
+        at: Option<String>,
+        /// With --at FILE: the file's N-th goal, in source order
+        #[arg(long, value_name = "N")]
+        goal: Option<usize>,
+        /// With --at: how many matching declarations to try
+        #[arg(long, value_name = "N", default_value_t = 50)]
+        candidates: usize,
+        /// With --at: how long checking may take, as `10s` or `500ms`
+        #[arg(long, value_name = "TIME", default_value = "10s")]
+        time: String,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -535,8 +555,46 @@ fn run(cli: Cli) -> ExitCode {
             theorems,
             definitions,
             constructors,
+            log,
+            at,
+            goal,
+            candidates,
+            time,
             cache,
         } => {
+            let log = log.or_else(|| std::env::var_os("STITCHWORT_SEARCH_LOG").map(PathBuf::from));
+            if let Some(at) = at {
+                if query.is_some() || file.is_some() {
+                    eprintln!(
+                        "error: --at takes no query or file: it searches for what closes the goal there"
+                    );
+                    return ExitCode::from(2);
+                }
+                let Some(time) = parse_duration(&time) else {
+                    eprintln!("error: --time takes a time such as `10s` or `500ms`, not `{time}`");
+                    return ExitCode::from(2);
+                };
+                let options = stitchwort_driver::search_at::AtOptions {
+                    limit,
+                    max_candidates: candidates,
+                    time,
+                    all,
+                    exclude: Vec::new(),
+                };
+                return search_at(
+                    &at,
+                    goal,
+                    project.as_deref(),
+                    &options,
+                    json,
+                    log.as_deref(),
+                    &cache,
+                );
+            }
+            let Some(query) = query else {
+                eprintln!("error: give a query, or --at FILE:LINE for what closes the goal there");
+                return ExitCode::from(2);
+            };
             let narrowed = theorems || definitions || constructors;
             let options = stitchwort_driver::search::Options {
                 rewrite,
@@ -554,6 +612,7 @@ fn run(cli: Cli) -> ExitCode {
                 project.as_deref(),
                 &options,
                 json,
+                log.as_deref(),
                 &cache,
             )
         }
@@ -1602,6 +1661,227 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
     ExitCode::SUCCESS
 }
 
+fn parse_duration(text: &str) -> Option<std::time::Duration> {
+    parse_millis(text)
+        .ok()
+        .map(std::time::Duration::from_millis)
+}
+
+/// `search --at FILE:LINE[:COL]` (SW-915 stage 2): checks the file, finds
+/// the goal, and prints what closes it.
+fn search_at(
+    at: &str,
+    index: Option<usize>,
+    project: Option<&Path>,
+    options: &stitchwort_driver::search_at::AtOptions,
+    json: bool,
+    log: Option<&Path>,
+    cache: &CacheArgs,
+) -> ExitCode {
+    use stitchwort_driver::search::Scope;
+    use stitchwort_driver::search_at::{GoalAt, goals_in, pick, render_text};
+    let started = std::time::Instant::now();
+    let fail = |code: &str, message: String| {
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({"version": 1, "error": {"code": code, "message": message}})
+            );
+        }
+        eprintln!("error: {message}");
+        ExitCode::from(2)
+    };
+    // FILE, FILE:LINE or FILE:LINE:COL.
+    let mut path = at;
+    let mut numbers = Vec::new();
+    for _ in 0..2 {
+        match path.rsplit_once(':') {
+            Some((head, tail)) if tail.parse::<usize>().is_ok() => {
+                numbers.push(tail.parse::<usize>().expect("just parsed"));
+                path = head;
+            }
+            _ => break,
+        }
+    }
+    numbers.reverse();
+    let which = match numbers[..] {
+        [line, col] => Some(GoalAt::Line(line, Some(col))),
+        [line] => Some(GoalAt::Line(line, None)),
+        _ => None,
+    };
+    let which = match (which, index) {
+        (Some(_), Some(_)) => {
+            return fail("E-SEARCH-AT", "give a line or --goal N, not both".into());
+        }
+        (Some(w), None) => w,
+        (None, Some(n)) => GoalAt::Index(n),
+        (None, None) => GoalAt::Index(1),
+    };
+    let path = Path::new(path);
+    if project.is_some() {
+        return fail(
+            "E-SEARCH-AT",
+            "--at checks the file on its own (file mode); --project isn't supported with it yet"
+                .into(),
+        );
+    }
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(err) => {
+            return fail(
+                "E-SEARCH-AT",
+                format!("can't read {}: {err}", path.display()),
+            );
+        }
+    };
+    let mut session = new_session(false);
+    use_cache(&mut session, cache, Path::new("."));
+    let context = file_mode_context(path, &text, "searched");
+    let folder = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+        session.include_in_folder(
+            std::rc::Rc::new(DiskFiles {
+                root: folder.to_path_buf(),
+            }),
+            name,
+        );
+    }
+    let name = path.display().to_string();
+    let diagnostics = match session.load_file(&name, &text, context) {
+        Ok(_) => std::mem::take(&mut session.warnings),
+        Err(diagnostics) => {
+            let errors: Vec<_> = (diagnostics.iter())
+                .filter(|d| d.severity == stitchwort_syntax::Severity::Error)
+                .cloned()
+                .collect();
+            if !errors.is_empty() && !json {
+                report(&session.sources, &errors);
+                eprintln!("warning: the file doesn't check: its goals are searched as they stand");
+            }
+            let mut all = diagnostics;
+            all.extend(std::mem::take(&mut session.warnings));
+            all
+        }
+    };
+    let Some(file) = (session.sources.iter())
+        .filter(|(_, f)| f.name == name)
+        .map(|(id, _)| id)
+        .last()
+    else {
+        return fail("E-SEARCH-AT", format!("{name} didn't load"));
+    };
+    let goals = goals_in(&session.sources, file, &diagnostics);
+    let found = match pick(&goals, which) {
+        Ok(found) => found.clone(),
+        Err(message) => return fail("E-SEARCH-AT", format!("{name}: {message}")),
+    };
+    if let Err(diagnostics) = session.elab.load_all_libraries() {
+        report(&session.sources, &diagnostics);
+        return ExitCode::from(2);
+    }
+    // The proofs are checked in a session with only the file loaded, as it
+    // is when one is pasted in (the search's has the whole library).
+    let mut checking = new_session(false);
+    use_cache(&mut checking, cache, Path::new("."));
+    if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+        checking.include_in_folder(
+            std::rc::Rc::new(DiskFiles {
+                root: folder.to_path_buf(),
+            }),
+            file_name,
+        );
+    }
+    let _ = checking.load_file(&name, &text, file_mode_context(path, &text, "searched"));
+    std::mem::take(&mut checking.warnings);
+    let result = session.search_at(&found, &name, options, &Scope::File, Some(&mut checking));
+    discard(checking);
+    if let Some(log) = log {
+        let entry = match &result {
+            Ok(report) => stitchwort_cli::search_log::at_entry(at, report, started),
+            Err(d) => stitchwort_cli::search_log::error_entry(at, d, started),
+        };
+        stitchwort_cli::search_log::append(log, &entry);
+    }
+    let code = match result {
+        Ok(report) => {
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string(&report).expect("a report serialises")
+                );
+            } else {
+                print!("{}", render_text(&report));
+            }
+            if report.total.closing > 0 || !report.tactics.is_empty() {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
+        Err(d) => {
+            if json {
+                println!(
+                    "{}",
+                    serde_json::json!({"version": 1, "error": {"code": d.code, "message": d.message}})
+                );
+            }
+            report(&session.sources, &[d]);
+            ExitCode::from(2)
+        }
+    };
+    discard(session);
+    code
+}
+
+/// For `search` of a file or project that doesn't check (SW-935): one
+/// line saying so, with the first error, instead of every error again on
+/// every search; `check` shows them all.
+fn unchecked_summary(
+    sources: &stitchwort_syntax::SourceMap,
+    diagnostics: &[stitchwort_syntax::Diagnostic],
+    what: &str,
+) {
+    use stitchwort_syntax::Severity;
+    let errors: Vec<_> = (diagnostics.iter())
+        .filter(|d| d.severity == Severity::Error)
+        .collect();
+    let goals = (diagnostics.iter())
+        .filter(|d| d.severity == Severity::Goal)
+        .count();
+    let plural = |n: usize, one: &str, many: &str| {
+        if n == 1 {
+            format!("1 {one}")
+        } else {
+            format!("{n} {many}")
+        }
+    };
+    let Some(first) = errors.first() else {
+        if goals > 0 {
+            eprintln!(
+                "note: {what} has {} open: the declarations with them aren't searched",
+                plural(goals, "goal", "goals")
+            );
+        }
+        return;
+    };
+    let place = first
+        .primary_span()
+        .map(|span| {
+            let (file, line) = stitchwort_driver::render::location(sources, span);
+            format!(" at {file}:{line}")
+        })
+        .unwrap_or_default();
+    eprintln!(
+        "warning: {what} doesn't check ({}; the first{place}: [{}] {}): only what checked is searched; `stitchwort check` shows the errors",
+        plural(errors.len(), "error", "errors"),
+        first.code,
+        first.message
+    );
+}
+
 /// `search` (SW-915): loads the file, or the project (or neither), and the
 /// whole library, searches it and prints the report.
 fn search(
@@ -1610,9 +1890,11 @@ fn search(
     project: Option<&Path>,
     options: &stitchwort_driver::search::Options,
     json: bool,
+    log: Option<&Path>,
     cache: &CacheArgs,
 ) -> ExitCode {
     use stitchwort_driver::search::{Scope, render_text};
+    let started = std::time::Instant::now();
     let mut session = new_session(false);
     let scope = match file {
         Some(path) => {
@@ -1643,8 +1925,7 @@ fn search(
             // the file does.
             if let Err(diagnostics) = session.load_file(&path.display().to_string(), &text, context)
             {
-                report(&session.sources, &diagnostics);
-                eprintln!("warning: the file doesn't check: only what checked is searched");
+                unchecked_summary(&session.sources, &diagnostics, "the file");
             }
             std::mem::take(&mut session.warnings);
             Scope::File
@@ -1692,10 +1973,7 @@ fn search(
                             std::mem::take(&mut session.warnings);
                         }
                         Err(diagnostics) => {
-                            report(&session.sources, &diagnostics);
-                            eprintln!(
-                                "warning: the project doesn't check: only what checked is searched"
-                            );
+                            unchecked_summary(&session.sources, &diagnostics, "the project");
                         }
                     }
                     session.elab.leave_namespace();
@@ -1714,6 +1992,18 @@ fn search(
         return ExitCode::from(2);
     }
     let found = session.search(query, options, &scope);
+    if let Some(log) = log {
+        let scope_json = match (file, &scope) {
+            (Some(path), _) => serde_json::json!({"file": path.display().to_string()}),
+            (None, Scope::Project(ns)) => serde_json::json!({"namespaces": ns}),
+            (None, Scope::File) => serde_json::Value::Null,
+        };
+        let entry = match &found {
+            Ok(report) => stitchwort_cli::search_log::entry(report, options, scope_json, started),
+            Err(d) => stitchwort_cli::search_log::error_entry(query, d, started),
+        };
+        stitchwort_cli::search_log::append(log, &entry);
+    }
     let code = match found {
         Ok(found) => {
             if json {

@@ -201,10 +201,11 @@ fn a_file_is_searched_with_its_own_names_even_if_it_doesnt_check() {
     std::fs::write(dir.join("a.sw"), FILE).unwrap();
     let (code, out, err) = search(&dir, &["List.length (twice _) = _", "a.sw"]);
     assert_eq!(code, 0, "{out}{err}");
-    assert!(err.contains("E-REFL"), "{err}");
-    assert!(
-        err.contains("warning: the file doesn't check: only what checked is searched"),
-        "{err}"
+    // One line, with the first error, not the errors in full (SW-935).
+    assert_eq!(
+        err.trim_end(),
+        "warning: the file doesn't check (1 error; the first at a.sw:8: [E-REFL] `rfl` can't \
+         prove this): only what checked is searched; `stitchwort check` shows the errors",
     );
     assert_eq!(
         out,
@@ -234,6 +235,40 @@ fn exit_codes_say_found_none_or_refused() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The query log (S1d): with `--log FILE` each search appends one line of
+/// JSON, an error too; the overloaded `++` is searched as lists and texts
+/// (SW-927), and the log has both readings.
+#[test]
+fn the_query_log_gets_a_line_per_search() {
+    let dir = folder("log");
+    let log = dir.join("searches.jsonl");
+    let log_arg = log.display().to_string();
+    let (code, _, err) = search(&dir, &["_ ++ _ = _", "--limit", "3", "--log", &log_arg]);
+    assert_eq!(code, 0, "{err}");
+    let (code, _, _) = search(&dir, &["List.nope _", "--log", &log_arg]);
+    assert_eq!(code, 2);
+    let text = std::fs::read_to_string(&log).unwrap();
+    let lines: Vec<Value> = text
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(lines.len(), 2, "{text}");
+    let first = &lines[0];
+    assert_eq!(first["log"], 1);
+    assert_eq!(first["event"], "search");
+    assert_eq!(first["query"], "_ ++ _ = _");
+    assert_eq!(
+        first["elaborated"],
+        serde_json::json!(["List.append ?1 ?2 = ?3", "Text.append ?0 ?1 = ?2"])
+    );
+    let results = first["results"].as_array().unwrap();
+    assert_eq!(results.len(), 3, "{first}");
+    assert_eq!(results[0]["rank"], 1);
+    assert!(results[0]["name"].is_string() && first["ms"].is_u64());
+    assert_eq!(lines[1]["error"]["code"], "E-UNKNOWN-NAME");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// The JSON contract, version 1 (draft 3 §4.1): a search of a file's own
 /// lemma, in full but for the library's size.
 #[test]
@@ -257,5 +292,44 @@ fn the_json_contract() {
         result(&report, "Std.Nat.compareSelf")["via"],
         serde_json::json!(["resolved"])
     );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+const GOALS: &str = "\
+import Std (Nat)
+
+theorem swap (m: Nat) (n: Nat): m + n = n + m := ?
+
+theorem chain (a: Nat) (b: Nat) (c: Nat) (h1: a ≤ b) (h2: b ≤ c): a ≤ c := ?
+
+theorem wrong (m: Nat): m + 1 = m := ?
+";
+
+/// `search --at` (stage 2): a goal by line or by index, exit codes, and the
+/// JSON contract's snapshot.
+#[test]
+fn what_closes_a_goal() {
+    let dir = folder("at");
+    std::fs::write(dir.join("goals.sw"), GOALS).unwrap();
+    let (code, out, err) = search(&dir, &["--at", "goals.sw:3", "--limit", "2"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(out.contains(" 1. Nat.addComm m n  [exact]"), "{out}");
+    let (code, report) = json(&dir, &["--at", "goals.sw", "--goal", "2", "--limit", "1"]);
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["goal"]["line"], 5);
+    assert_eq!(report["results"][0]["proof"], "Nat.leTrans a b c h1 h2");
+    let mut report = report;
+    report["budget"]["candidates"] = "(the library's size)".into();
+    report["budget"]["checks"] = "(varies)".into();
+    insta::assert_snapshot!(serde_json::to_string_pretty(&report).unwrap());
+    // Nothing closes a false goal: 1. No goal there, or a query too: 2.
+    let (code, report) = json(&dir, &["--at", "goals.sw:7"]);
+    assert_eq!(code, 1, "{report}");
+    assert_eq!(report["total"]["closing"], 0);
+    let (code, report) = json(&dir, &["--at", "goals.sw:4"]);
+    assert_eq!(code, 2, "{report}");
+    assert_eq!(report["error"]["code"], "E-SEARCH-AT");
+    let (code, _, _) = search(&dir, &["_ = _", "--at", "goals.sw:3"]);
+    assert_eq!(code, 2);
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -1318,17 +1318,17 @@ $ stitchwort search 'List.length ((_: List _) ++ _) = _'
 
 **The query** is parts separated by commas (a comma inside brackets or quotes doesn't separate):
 
-- **A pattern** (at most one): an expression or a type, elaborated in the scope below. `_` is any term; `?x` is a named hole, the same term at each `?x`, also under the pattern's own arrows (`(?a: Nat) ≤ ?b → ?b ≤ ?c → ?a ≤ ?c` finds `Nat.leTrans`); a lowercase name that means nothing in scope is a named hole too, so a goal can be pasted as it is printed. A leading `⊢` (or `|-`) matches conclusions only. A pattern that is only a hole (`_`, `?x`) is refused.
+- **A pattern** (at most one): an expression or a type, elaborated in the scope below. `_` is any term; `?x` is a named hole, the same term at each `?x`, also under the pattern's own arrows (`(?a: Nat) ≤ ?b → ?b ≤ ?c → ?a ≤ ?c` finds `Nat.leTrans`); a lowercase name that means nothing in scope is a named hole too, so a goal can be pasted as it is printed. A leading `⊢` (or `|-`) matches conclusions only. A pattern that is only a hole (`_`, `?x`) is refused. An operator whose meaning depends on its operands' type, with nothing in its group saying it (`_ ++ _`: lists or texts; `_ + _`, `_ < _`: `Nat`, which is what it defaults to, or `Int`), is tried each way, and the results merged: the JSON's `query.resolutions` lists the readings searched. A reading what surrounds it rules out doesn't elaborate and isn't searched: in `List.length (_ ++ _) = _`, `++` joins lists.
 - **A name on its own** (`List.length`, `Ord`): the type must mention it.
 - **`"text"`**: the full name must contain it.
 
-**What is searched**: every theorem, definition and constructor of the library (loaded whole, through the check cache) and of the project found from the folder you're in (or `--project DIR`), or of `FILE` instead of the project. A pattern sees the library's namespaces as `import Std (List, Map, …)` brings them and the project's as `import N (..)` does; with a file, it sees names as the file does. A project or file that doesn't check is reported, and what checked is searched. Declarations with an open `?` aren't searched. Hidden unless `--all`: generated helpers (a `%` in the name) and the library's `…Example` theorems. `--theorems`, `--definitions` and `--constructors` narrow to those kinds (any of them together); each result says its kind. An interface's law (a field whose type is a proposition, `Ord.flip`) is a `theorem`.
+**What is searched**: every theorem, definition and constructor of the library (loaded whole, through the check cache) and of the project found from the folder you're in (or `--project DIR`), or of `FILE` instead of the project. A pattern sees the library's namespaces as `import Std (List, Map, …)` brings them and the project's as `import N (..)` does; with a file, it sees names as the file does. A project or file that doesn't check is reported in one line (how many errors, and the first; `stitchwort check` shows them all), and what checked is searched. Declarations with an open `?` aren't searched. Hidden unless `--all`: generated helpers (a `%` in the name) and the library's `…Example` theorems. `--theorems`, `--definitions` and `--constructors` narrow to those kinds (any of them together); each result says its kind. An interface's law (a field whose type is a proposition, `Ord.flip`) is a `theorem`.
 
 **Where a pattern matches**: the pattern is unified, two ways, with each candidate's type, its parameters opened as unknowns, without unfolding definitions first (calls are compared by their arguments, then unfolded if they differ). Each match has a **place**: `whole` (a function-type pattern against the whole type), `reordered` (its parameters matched by the candidate's in any order, the candidate having perhaps more), `conclusion`, `premise`, or `subterm` (a call inside with the pattern's head); with `--rewrite` only `left` and `right`, the two sides of a conclusion stated as `=` or as `Iff`, with `equation` `eq` or `iff`. A conditional equation (`m ≤ n → Nat.min m n = m`) is a rewrite result too, its premises left open and counted in `premises`. A target of another type than the pattern's isn't tried. A target that is one of the candidate's variables (`(p: Prop) (h: p): p`) matches anything, and isn't tried; one applied to arguments (`p k`) is tried, and ranks last.
 
 **The relation** says how the two met: `instance` (the candidate instantiates to the pattern: only its variables took structure), `generalisation` (the pattern's named holes took structure from the candidate), `commonInstance` (both did: the weakest). A written `_` may take any structure without lowering the relation; a named hole may not. Results are ranked by relation, then whether a candidate's variable absorbed the whole pattern (a lemma ending in `p x`, a computation type `{row} a`: last), place, how much the candidate's variables took (`absorbed`), how many holes took structure (`instantiated`), `premises`, the type's size, then the name.
 
-**The filter and the relaxed pass**: a candidate is compared only if its type names every definition and data type the pattern names (`"searchTier": "filtered"`). If that finds nothing, every candidate is compared, and the results say `relaxed` with a warning: read them as weaker. A pattern that names nothing is searched unfiltered from the start (`unfiltered`).
+**The filter and the relaxed pass**: a candidate is compared only if its type names every definition and data type the pattern names (`"searchTier": "filtered"`). If that finds nothing, every candidate is compared, and the results say `relaxed` with a warning: read them as weaker. For a pattern with premises (a function type), that pass still asks for a definition the pattern names (or, if it names none, a data type), and doesn't list a candidate whose own variable took the whole pattern: such patterns otherwise list `Exists.map` and `Quot.funext`, which fit nearly anything through their higher-order variables (SW-935). A conclusion pattern keeps the whole pass, since the lemma that proves a goal often names nothing the goal does. A pattern that names nothing is searched unfiltered from the start (`unfiltered`).
 
 **Interfaces**: a pattern with an interface method at a known type (`Ord.compare (?x: Nat) ?x = _`) is searched twice, as resolved (`Nat.compareSelf`) and with the instance a hole (the generic `Ord.compareSelf`); a result found both ways is listed once, and `via` says which found it.
 
@@ -1358,8 +1358,46 @@ Each result prints its name, kind, relation and place; its type; and where it is
 - `relation`, `place`: as above; absent without a pattern. `equation`: only with `--rewrite`. `via`: only for a pattern searched twice (`resolved`, `generic`).
 - `budget`: the declarations searched, the comparisons made, those that ran out of their step budget (200,000 steps each: a match there may have been missed, and a warning says so), whether `--limit` cut the results, whether every candidate was compared (always, in this stage), and comparisons that failed with an internal error (counted as no match; there should be none).
 - An error prints `{"version": 1, "error": {"code": …, "message": …}}` and exits with 2.
+- `query.resolutions`: only for a pattern searched in more than one reading (above), each as elaborated, `elaborated` first.
 
-Not yet (stage 2, [search.md](proposals/search.md) §8): searching the goal at a `?` (`--at FILE:LINE:COL`), and trying each result there.
+**The query log**: `--log FILE`, or the environment variable `STITCHWORT_SEARCH_LOG=FILE`, appends one line of JSON per search to the file (the folder must exist; a log that can't be written is a warning): `log` (the format's version, 1), `event` (`"search"`), `time` (seconds since 1970), `ms` (how long it took), `cwd`, `query`, `elaborated` (each reading), `options`, `scope`, `searchTier`, `total`, `results` (each shown, with `rank`, `name`, `kind`, `relation`, `place`) and `budget`; or `error` (`code`, `message`) for a query refused. New fields and events may be added (the lemma a proof then used); a reader skips what it doesn't know. It is for measuring what agents look for, and tuning the ranking from it (stage 3 of [search.md](proposals/search.md)).
+
+### What closes this `?`, `stitchwort search --at`
+
+`stitchwort search --at FILE:LINE[:COL]` reads the goal at the `?` there (`--at FILE --goal N` for the file's N-th goal, in source order; with neither a line nor `--goal`, the first) and lists what closes it: lemmas applied to it, with the proof to write in place of the `?`, every one checked by the kernel; then those that apply leaving goals; then rewrites (stage 2 of [search.md](proposals/search.md)).
+
+```
+$ stitchwort search --at chain.sw:5
+goal 1 at chain.sw:5:73
+  a: Nat
+  b: Nat
+  c: Nat
+  h1: a ≤ b
+  h2: b ≤ c
+  ⊢ a ≤ c
+
+omega alone closes it (checked by the kernel)
+
+closes it (checked by the kernel):
+ 1. Nat.leTrans a b c h1 h2  [withHypotheses]
+    Std.Nat.leTrans  std/core/Division.sw:41  (import Std (Nat))
+ …
+applies, leaving goals:
+ 1. Nat.leOfEq a c ?
+    Std.Nat.leOfEq  std/Nat/Arith.sw:96  (import Std (Nat))
+    leaves ⊢ a = c
+ …
+```
+
+- **How**: the goal's hypotheses become fixed variables (a lemma's own variables take the goal's terms, never the other way: `instance` matches only), and the target is searched as a conclusion over every theorem and constructor of the library and the file (and definitions, for a goal that isn't a proposition), without the filter, since a lemma that fits a goal names fewer things than the goal does. A target that starts with arrows (`(n: Nat) → …`) has its variables introduced: each proof starts `n => …`. For each of the first 50 matches (`--candidates N`), in the order `search` ranks them, each premise (an explicit parameter whose type is a proposition) is filled with a hypothesis whose type fits, else left `?`; each `?` left is tried with `rfl`, `omega` and `byDecision`.
+- **Checked**: every proof is elaborated at the goal (its hypotheses bound as they are at the `?`) in a session with only the file loaded, as it is once pasted, and, with no `?` left, checked by the kernel. Nothing is listed as closing the goal unless the kernel accepted it.
+- **The classes**: `exact` (the lemma applied to the goal's terms), `withHypotheses` (premises filled with hypotheses), `afterObligations` (premises closed by `rfl`, `omega` or `byDecision`, each listed; also a rewrite after which `rfl` or `omega` closes the goal), and `applicable` (it applies, leaving goals, each listed; checked by the kernel with those goals as hypotheses when they can be written so, else only elaborated). `tactics` lists the closers that close the goal on their own. A lemma whose conclusion names nothing (`Eq.sym`'s `b = a`, `Nat.succInjective`'s `m = n`) fits nearly any goal, so it is listed only if it closes it.
+- **Rewrites**: each call in the target against the sides of every equation and `Iff` that names its head: `rewrite L … in ?` (or `rewrite <- …`), with the goal it leaves, checked, and whether `rfl` or `omega` then closes it.
+- **Scope**: the file on its own, as `check FILE` sees it (a file of a project isn't supported yet). The proofs name things as the file can write them; `import` says what would let it write a shorter name.
+- **Limits**: 50 candidates, three ways of filling each one's premises, 10 s of checking (`--time 30s`); the JSON's `budget` says whether more matched than were tried (`truncated`) and whether the time ran out (`exhausted: false`). `--limit N` (10) of each list are shown.
+- **Exit status**: 0 if something closes the goal, 1 if nothing does (what applies and the rewrites are still listed), 2 if there is no goal there, or it can't be written as a statement on its own (`E-SEARCH-AT`: a shadowed or compiler-made name, a `let` of data in scope).
+- **`--json`**: `version` (1), `goal` (`file`, `line`, `column`, `index`, `hypotheses` with `name` and `type`, `target`, `introduced`), `tactics`, `results` (each `class`, `proof`, `name`, `kind`, `type`, `file`, `line`, `import`, `checked`: `kernel` or `elaborated`, `obligations` with `target` and `closer`, `goals` with `target` and `lemma`, `searchRank`), `rewrites` (each `proof`, `name`, `at`, `direction`: `leftToRight` or `rightToLeft`, `equation`, `goal`, `closes`, `checked`), `total` (`closing`, `applicable`, `rewrites`), `budget` (`candidates`, `matched`, `tried`, `maxCandidates`, `checks`, `truncated`, `exhausted`, `outOfBudget`, `internalErrors`) and `warnings`. With `--log`, each `--at` search appends a line with `event: "at"`.
+- **In the editor**: the language server's code action at a `?` of a file on its own offers to replace it with each of the top three closing proofs (and a tactic that closes it alone).
 
 ### `include`
 

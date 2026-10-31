@@ -96,7 +96,8 @@ pub fn capabilities() -> serde_json::Value {
         "documentSymbolProvider": true,
         "workspaceSymbolProvider": true,
         "documentFormattingProvider": true,
-        "documentRangeFormattingProvider": true
+        "documentRangeFormattingProvider": true,
+        "codeActionProvider": { "codeActionKinds": ["quickfix"] }
     })
 }
 
@@ -137,6 +138,7 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
         cancel,
         to_checker,
         texts: Default::default(),
+        stack: options.stack,
     };
     let result = main.run();
     drop(main);
@@ -231,6 +233,8 @@ struct Main<'a> {
     to_checker: Sender<Edit>,
     /// The text of each open document, to trim a selection against.
     texts: std::cell::RefCell<HashMap<Url, String>>,
+    /// The stack of a thread that searches for what closes a goal.
+    stack: usize,
 }
 
 impl Main<'_> {
@@ -245,6 +249,10 @@ impl Main<'_> {
                     {
                         return Ok(());
                     }
+                    if request.method == request::CodeActionRequest::METHOD {
+                        self.code_action(request);
+                        continue;
+                    }
                     let response = self.answer(request);
                     let _ = self.connection.sender.send(response.into());
                 }
@@ -253,6 +261,58 @@ impl Main<'_> {
             }
         }
         Ok(())
+    }
+
+    /// `textDocument/codeAction` on an open goal `?` of a file on its own
+    /// (SW-915 stage 2): replacing it with what closes it, the top three
+    /// kernel-checked suggestions of `search --at` (and a tactic that
+    /// closes it alone). The search takes about a second, so it runs on a
+    /// thread of its own, with sessions of its own, and answers from there;
+    /// anywhere else, or in a project's file, the answer is empty at once.
+    fn code_action(&self, request: Request) {
+        let id = request.id.clone();
+        let empty = || Response::new_ok(id.clone(), serde_json::Value::Null);
+        let Ok(p) = serde_json::from_value::<lsp_types::CodeActionParams>(request.params) else {
+            let _ = self.connection.sender.send(empty().into());
+            return;
+        };
+        let uri = p.text_document.uri;
+        let goal = {
+            let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
+            let in_project = locate(&nav, &uri).is_some_and(|(root, _, _)| root.is_dir());
+            let key = |p: Position| (p.line, p.character);
+            (!in_project)
+                .then(|| nav.goals.get(&uri))
+                .flatten()
+                .and_then(|goals| {
+                    goals
+                        .iter()
+                        .find(|d| {
+                            key(d.range.start) <= key(p.range.end)
+                                && key(p.range.start) <= key(d.range.end)
+                        })
+                        .map(|d| d.range)
+                })
+        };
+        let text = self.texts.borrow().get(&uri).cloned();
+        let path = uri.to_file_path().ok();
+        let (Some(range), Some(text), Some(path)) = (goal, text, path) else {
+            let _ = self.connection.sender.send(empty().into());
+            return;
+        };
+        let sender = self.connection.sender.clone();
+        let stack = self.stack;
+        let reply = id.clone();
+        let spawned = std::thread::Builder::new()
+            .name("stitchwort-search-at".into())
+            .stack_size(stack)
+            .spawn(move || {
+                let actions = closing_actions(stack, &uri, &path, &text, range);
+                let _ = sender.send(Response::new_ok(reply, actions).into());
+            });
+        if spawned.is_err() {
+            let _ = self.connection.sender.send(empty().into());
+        }
     }
 
     fn edit(&self, edit: Edit) {
@@ -1505,6 +1565,60 @@ fn diagnostic(
         tags: None,
         data: None,
     }
+}
+
+/// The code actions that replace the goal `?` at `range` of `text` (the
+/// file at `path`, on its own) with a proof that closes it.
+fn closing_actions(
+    stack: usize,
+    uri: &Url,
+    path: &Path,
+    text: &str,
+    range: lsp_types::Range,
+) -> serde_json::Value {
+    use stitchwort_driver::search_at::{AtOptions, GoalAt, search_at_text};
+    let options = AtOptions {
+        limit: 3,
+        time: Duration::from_secs(5),
+        ..AtOptions::default()
+    };
+    let at = GoalAt::Line(
+        range.start.line as usize + 1,
+        Some(range.start.character as usize + 1),
+    );
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("file.sw");
+    let cache = path
+        .parent()
+        .map(|dir| dir.join(".stitchwort").join("cache"))
+        .filter(|dir| dir.is_dir());
+    let Ok(report) = search_at_text(stack, name, text, at, &options, cache.as_deref()) else {
+        return serde_json::Value::Null;
+    };
+    let action = |title: String, proof: &str| {
+        serde_json::json!({
+            "title": title,
+            "kind": "quickfix",
+            "edit": {"changes": {uri.as_str(): [{"range": range, "newText": proof}]}},
+        })
+    };
+    let mut actions: Vec<serde_json::Value> = (report.tactics.iter())
+        .map(|t| action(format!("Replace ? with `{t}` (closes it alone)"), t))
+        .collect();
+    for s in report
+        .results
+        .iter()
+        .filter(|s| s.class != "applicable")
+        .take(3)
+    {
+        actions.push(action(
+            format!("Replace ? with `{}` ({}, {})", s.proof, s.class, s.name),
+            &s.proof,
+        ));
+    }
+    serde_json::Value::Array(actions)
 }
 
 /// The custom request for the goal at the cursor (docs/proposals/

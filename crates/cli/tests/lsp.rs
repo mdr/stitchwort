@@ -1573,6 +1573,45 @@ fn goal_at_answers_for_the_goal_at_or_near_the_cursor() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The code action at a `?` (SW-915 stage 2): replace it with what closes
+/// it, kernel-checked by `search --at`; none away from a goal.
+#[test]
+fn a_code_action_at_a_goal_offers_what_closes_it() {
+    let dir = temp_dir("code-action");
+    let file = dir.join("swap.sw");
+    let text = "import Std (Nat)\n\ntheorem swap (m: Nat) (n: Nat): m + n = n + m := ?\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    client.diagnostics(&uri, 1);
+    let actions = |client: &mut Client, line: u32, character: u32| {
+        let at = json!({"line": line, "character": character});
+        client.request(
+            "textDocument/codeAction",
+            json!({"textDocument": {"uri": uri}, "range": {"start": at, "end": at},
+                   "context": {"diagnostics": []}}),
+        )
+    };
+    let found = actions(&mut client, 2, 50);
+    let titles: Vec<&str> = (found.as_array().expect("actions").iter())
+        .map(|a| a["title"].as_str().unwrap())
+        .collect();
+    assert!(
+        titles.contains(&"Replace ? with `Nat.addComm m n` (exact, Std.Nat.addComm)"),
+        "{titles:?}"
+    );
+    let first = (found.as_array().unwrap().iter())
+        .find(|a| a["title"].as_str().unwrap().contains("Nat.addComm"))
+        .unwrap();
+    let edit = &first["edit"]["changes"][uri.as_str()][0];
+    assert_eq!(edit["newText"], "Nat.addComm m n");
+    assert_eq!(edit["range"]["start"], json!({"line": 2, "character": 49}));
+    assert_eq!(actions(&mut client, 0, 3), Value::Null);
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn named_arguments_hover_and_complete_parameter_names() {
     let dir = temp_dir("named-arguments");

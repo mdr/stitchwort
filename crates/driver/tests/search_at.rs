@@ -1,0 +1,204 @@
+//! `stitchwort search --at`, stage 2 (SW-915; docs/proposals/search.md
+//! §5.7, §8 S2): what closes a goal, on a small file of goals with known
+//! closers: an exact lemma, one that needs the goal's hypotheses, one whose
+//! premise `omega` closes, one that applies leaving a goal, a rewrite, and
+//! a goal whose target binds a variable. Every suggestion said to close a
+//! goal is pasted in place of its `?`, and the file checked again: the
+//! goal must be gone, with no error.
+
+use stitchwort_driver::driver::{Session, with_session};
+use stitchwort_driver::search::Scope;
+use stitchwort_driver::search_at::{AtOptions, AtReport, GoalAt, goals_in, pick};
+use stitchwort_syntax::{Diagnostic, FileId, Severity};
+
+const STACK: usize = 64 * 1024 * 1024;
+
+const GOALS: &str = "\
+import Std (Nat, List)
+
+theorem exactly (xs: List Nat) (ys: List Nat): List.length (xs ++ ys) = List.length xs + List.length ys := ?
+
+theorem withHyps (a: Nat) (b: Nat) (c: Nat) (h1: a ≤ b) (h2: b ≤ c): a ≤ c := ?
+
+theorem afterOmega (a: Nat) (c: Nat): a ≤ a + c := ?
+
+theorem rewriting (xs: List Nat) (ys: List Nat): List.length (xs ++ ys) = List.length ys + List.length xs := ?
+
+theorem introducing: (n: Nat) → n + 0 = n := ?
+
+theorem falseOne (m: Nat) (n: Nat): m + n = n + m + 1 := ?
+";
+
+/// Loads `text` as `goals.sw`: the diagnostics, goals included.
+fn load(session: &mut Session, text: &str) -> (FileId, Vec<Diagnostic>) {
+    session
+        .use_check_cache(&std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("search-cache"));
+    let mut diagnostics = match session.load("goals.sw", text) {
+        Ok(_) => Vec::new(),
+        Err(d) => d,
+    };
+    diagnostics.append(&mut session.warnings);
+    let file = (session.sources.iter())
+        .filter(|(_, f)| f.name == "goals.sw")
+        .map(|(id, _)| id)
+        .last()
+        .expect("loaded");
+    (file, diagnostics)
+}
+
+/// What closes the goal on `line` of `text`.
+fn at(text: &str, line: usize) -> AtReport {
+    with_session(STACK, Session::for_stack, |session| {
+        let (file, diagnostics) = load(session, text);
+        assert!(
+            !diagnostics.iter().any(|d| d.severity == Severity::Error),
+            "{diagnostics:?}"
+        );
+        let goals = goals_in(&session.sources, file, &diagnostics);
+        let found = pick(&goals, GoalAt::Line(line, None)).unwrap().clone();
+        session
+            .elab
+            .load_all_libraries()
+            .expect("the library checks");
+        let mut checking = Session::for_stack(STACK);
+        load(&mut checking, text);
+        session
+            .search_at(
+                &found,
+                "goals.sw",
+                &AtOptions::default(),
+                &Scope::File,
+                Some(&mut checking),
+            )
+            .unwrap_or_else(|d| panic!("{}: {}", d.code, d.message))
+    })
+}
+
+/// `text` with the `?` on `line` replaced by `proof` has no goal there and
+/// no error.
+fn pastes(text: &str, line: usize, proof: &str) {
+    let lines: Vec<String> = (text.lines().enumerate())
+        .map(|(i, l)| {
+            if i + 1 == line {
+                l.replacen(":= ?", &format!(":= {proof}"), 1)
+            } else {
+                l.to_string()
+            }
+        })
+        .collect();
+    let pasted = lines.join("\n") + "\n";
+    with_session(STACK, Session::for_stack, |session| {
+        let (file, diagnostics) = load(session, &pasted);
+        let errors: Vec<_> = (diagnostics.iter())
+            .filter(|d| d.severity == Severity::Error)
+            .map(|d| format!("{} {}", d.code, d.message))
+            .collect();
+        assert!(errors.is_empty(), "`{proof}` pasted: {errors:?}");
+        let goals = goals_in(&session.sources, file, &diagnostics);
+        assert!(
+            !goals.iter().any(|g| g.line == line),
+            "`{proof}` pasted leaves the goal"
+        );
+    });
+}
+
+fn line_of(name: &str) -> usize {
+    GOALS
+        .lines()
+        .position(|l| l.contains(&format!("theorem {name}")))
+        .expect("the theorem")
+        + 1
+}
+
+/// Every closing suggestion of `report` pastes.
+fn all_paste(report: &AtReport, line: usize) {
+    for s in report.results.iter().filter(|s| s.class != "applicable") {
+        assert_eq!(s.checked, "kernel");
+        pastes(GOALS, line, &s.proof);
+    }
+}
+
+#[test]
+fn an_exact_lemma_comes_first() {
+    let line = line_of("exactly");
+    let report = at(GOALS, line);
+    let first = &report.results[0];
+    assert_eq!(
+        (first.class, first.proof.as_str()),
+        ("exact", "List.lengthAppend xs ys"),
+        "{report:#?}"
+    );
+    assert_eq!(first.name, "Std.List.lengthAppend");
+    assert_eq!(first.import.as_deref(), Some("import Std (List)"));
+    all_paste(&report, line);
+}
+
+#[test]
+fn premises_are_filled_from_hypotheses_or_closed_by_omega_or_left() {
+    let line = line_of("withHyps");
+    let report = at(GOALS, line);
+    let first = &report.results[0];
+    assert_eq!(
+        (first.class, first.proof.as_str()),
+        ("withHypotheses", "Nat.leTrans a b c h1 h2"),
+        "{report:#?}"
+    );
+    // `omega` closes this goal on its own, and says so.
+    assert_eq!(report.tactics, ["omega"]);
+    // Some apply leaving a goal, each listed, kernel-checked with it as a
+    // hypothesis.
+    let applicable: Vec<_> = (report.results.iter())
+        .filter(|s| s.class == "applicable")
+        .collect();
+    assert!(!applicable.is_empty(), "{report:#?}");
+    for s in &applicable {
+        assert!(!s.goals.is_empty() && s.proof.contains('?'), "{s:?}");
+    }
+    assert!(applicable.iter().any(|s| s.checked == "kernel"));
+    all_paste(&report, line);
+
+    let line = line_of("afterOmega");
+    let report = at(GOALS, line);
+    assert_eq!(report.results[0].proof, "Nat.leAddRight a c", "{report:#?}");
+    let obligation = (report.results.iter())
+        .find(|s| s.class == "afterObligations")
+        .expect("one closed after an obligation");
+    assert_eq!(obligation.obligations[0].closer, "omega");
+    all_paste(&report, line);
+}
+
+#[test]
+fn rewrites_show_the_goal_they_leave() {
+    let line = line_of("rewriting");
+    let report = at(GOALS, line);
+    let first = &report.rewrites[0];
+    assert_eq!(first.proof, "rewrite List.lengthAppend xs ys in ?");
+    assert_eq!(
+        first.goal,
+        "List.length xs + List.length ys = List.length ys + List.length xs"
+    );
+    assert_eq!((first.closes, first.checked), (Some("omega"), "kernel"));
+    // Then `omega` closes it: a closing suggestion.
+    assert_eq!(
+        report.results[0].proof, "rewrite List.lengthAppend xs ys in omega",
+        "{report:#?}"
+    );
+    all_paste(&report, line);
+}
+
+#[test]
+fn a_target_that_binds_a_variable_is_introduced() {
+    let line = line_of("introducing");
+    let report = at(GOALS, line);
+    assert_eq!(report.goal.introduced, ["n"]);
+    let first = &report.results[0];
+    assert!(first.proof.starts_with("n => "), "{report:#?}");
+    all_paste(&report, line);
+}
+
+#[test]
+fn nothing_closes_a_false_goal() {
+    let report = at(GOALS, line_of("falseOne"));
+    assert_eq!(report.total.closing, 0, "{report:#?}");
+    assert!(report.tactics.is_empty());
+}
