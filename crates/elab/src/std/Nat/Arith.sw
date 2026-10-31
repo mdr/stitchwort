@@ -415,6 +415,20 @@ theorem Nat.mulCancelLeft: (n: Nat) → 1 ≤ n → (a: Nat) → (b: Nat) → n 
   | Zero, h, a, b, e => Void.exfalso (Bool.falseNotTrue h)
   | Succ m, h, a, b, e => Nat.mulSuccCancel a b m (Eq.trans (Nat.mulComm a (Succ m)) (Eq.trans e (Nat.mulComm (Succ m) b)))
 
+-- Cancelling a nonzero factor on the right.
+theorem Nat.mulRightCancel (a: Nat) (b: Nat): (c: Nat) → c ≠ 0 → a * c = b * c → a = b
+  | Zero, nz, e => Void.exfalso (nz rfl)
+  | Succ m, nz, e => Nat.mulSuccCancel a b m e
+
+-- ... and as a `Bool`: a nonzero factor on the right doesn't change `==`.
+theorem Nat.mulRightCancelBool (a: Nat) (b: Nat) (c: Nat) (nz: c ≠ 0): (a * c == b * c) = (a == b) :=
+  match Nat.decEq a b with
+    | Yes same => rewrite same, DecEq.refl (b * c) in rfl
+    | No differ =>
+      match Nat.decEq (a * c) (b * c) with
+        | Yes e => Void.exfalso (differ (Nat.mulRightCancel a b c nz e))
+        | No e => rfl
+
 theorem Nat.addSelfNotSelf (a: Nat) (h: 1 ≤ a) (e: a + a = a): Void :=
   Nat.lessIrrefl a (Nat.leCongRight (Succ a) (a + a) a e (Nat.leCongLeft (a + 1) (Succ a) (a + a) (Nat.addOne a) (Nat.leAddCong a 1 a h)))
 

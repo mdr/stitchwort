@@ -15,9 +15,8 @@
 --   points of a line at another angle (the parser rejects those).
 -- - "The number of points": a count of a set of points, so a list of them
 --   without repeats, which has every such point and only those, has that
---   many elements (`NumberOfPoints`). Any two such lists have the same
---   length (`numberOfPointsUnique` in the proofs), so it says what the
---   number is.
+--   many elements (std's `List.NumberWith`). Any two such lists have the
+--   same length (`List.numberWithUnique`), so it says what the number is.
 -- - Several lines over the same stretch cover each point of it once each,
 --   and a line of one point (both ends the same) covers that point.
 
@@ -49,14 +48,9 @@ def coveredBy (lines: List Line) (point: Point): Nat := lines.count (line => cov
 -- "A point where at least two lines overlap".
 def overlap (lines: List Line) (point: Point): Bool := 2 ≤ coveredBy lines point
 
--- `n` is the number of points `p` with `wanted p`: some list of points
--- without repeats has exactly those, and `n` elements.
-def NumberOfPoints (n: Nat) (wanted: Point → Bool): Prop :=
-  exists (points: List Point) => List.Distinct points ∧ ((p: Point) → (p ∈ points ↔ wanted p = True)) ∧ points.length = n
-
 -- Part 1: "Consider only horizontal and vertical lines. At how many points
 -- do at least two lines overlap?"
-def Part1Answer (lines: List Line) (answer: Nat): Prop := NumberOfPoints answer (overlap (lines.filter horizontalOrVertical))
+def Part1Answer (lines: List Line) (answer: Nat): Prop := List.NumberWith answer (overlap (lines.filter horizontalOrVertical))
 
 -- Part 2: the same, with every line.
-def Part2Answer (lines: List Line) (answer: Nat): Prop := NumberOfPoints answer (overlap lines)
+def Part2Answer (lines: List Line) (answer: Nat): Prop := List.NumberWith answer (overlap lines)

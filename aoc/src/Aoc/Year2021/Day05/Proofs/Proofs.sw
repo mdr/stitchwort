@@ -24,29 +24,11 @@ theorem part2Correct (lines: List Line) (shapes: lines.all (line => horizontalOr
     Part2Answer lines (solvePart2 lines) :=
   overlapsCorrect lines shapes
 
--- The spec's count says what the number is: two lists of the same points,
--- each without repeats, have the same length.
-theorem numberOfPointsUnique (wanted: Point → Bool) (n: Nat) (m: Nat) (first: NumberOfPoints n wanted) (second: NumberOfPoints m wanted):
-    n = m :=
-  match first, second with
-    | Witness xs (Both dx (Both memX lengthX)), Witness ys (Both dy (Both memY lengthY)) =>
-      let same := List.permOfSameMembers xs ys dx dy
-        (p inX => (memY p).backward ((memX p).forward inX))
-        (p inY => (memX p).backward ((memY p).forward inY))
-      rewrite <- lengthX, <- lengthY in List.permLength xs ys same
-
 -- Both parts count the overlaps of their lines.
 theorem overlapsCorrect (lines: List Line) (shapes: lines.all (line => horizontalOrVertical line ∨ diagonal line) = True):
-    NumberOfPoints (overlaps lines) (overlap lines) :=
-  numberOfPointsCong (overlaps lines) _ (overlap lines) (p => rewrite listedCoveredBy lines shapes p in rfl)
+    List.NumberWith (overlaps lines) (overlap lines) :=
+  List.numberWithCong (overlaps lines) _ (overlap lines) (p => rewrite listedCoveredBy lines shapes p in rfl)
     (countedTwice (lines.flatMap Line.points))
-
--- The same number of points, of the same points.
-theorem numberOfPointsCong (n: Nat) (first: Point → Bool) (second: Point → Bool) (same: (p: Point) → first p = second p)
-    (counted: NumberOfPoints n first): NumberOfPoints n second :=
-  match counted with
-    | Witness points (Both distinct (Both members length)) =>
-      Witness points (Both distinct (Both (p => rewrite <- same p in members p) length))
 
 -- The program's straight lines are the spec's horizontal and vertical ones.
 theorem straightLines (lines: List Line): lines.filter Line.isStraight = lines.filter horizontalOrVertical := rfl
@@ -73,7 +55,7 @@ theorem containsTwice (listed: List Point) (p: Point):
 -- The points listed at least twice in `listed`: the keys of the counts
 -- that are at least 2.
 theorem countedTwice (listed: List Point):
-    NumberOfPoints (Map.counts listed |> .filter (_ times => 2 ≤ times) |> .size) (p => 2 ≤ listed.count (== p)) :=
+    List.NumberWith (Map.counts listed |> .filter (_ times => 2 ≤ times) |> .size) (p => 2 ≤ listed.count (== p)) :=
   let twice := Map.counts listed |> .filter (_ times => 2 ≤ times)
   Witness twice.keys
     (Both (Map.keysDistinct twice)
@@ -110,9 +92,7 @@ theorem listedCoveredBy (lines: List Line) (shapes: lines.all (line => horizonta
 -- steps `0` to `n - 1` count it once if it is one of them.
 theorem countRangeOnce (n: Nat) (k: Nat): (c: Bool) → (c = True → k < n) → (List.range n).count (i => c ∧ i == k) = Bool.toNat c
   | False, inRange => List.countFalse (List.range n)
-  | True, inRange =>
-    rewrite List.countOccurrences (List.range n) (i => True ∧ i == k) in
-    List.occurrencesOnce (List.range n) k (i => True) (List.distinctRangeFrom n 0) (List.memRangeFromIntro k n 0 (Nat.zeroLe k) (inRange rfl))
+  | True, inRange => rewrite inRange rfl at List.countRangeEq n k
 
 theorem stepInRange (steps: Nat) (i: Nat) (inRange: i ∈ List.range (steps + 1)): i ≤ steps :=
   let bounds := List.memRangeFrom i (steps + 1) 0 inRange
@@ -238,19 +218,6 @@ theorem productZeroLeft (ax: Nat) (ay: Nat) (dx: Nat) (dy: Nat) (h1: ax = 0) (h2
 theorem productZeroRight (ax: Nat) (ay: Nat) (dx: Nat) (dy: Nat) (h1: ay = 0) (h2: dy = 0): (ax * dy == ay * dx) = True :=
   rewrite h1, h2, Nat.mulZero ax in rfl
 
-theorem productSucc (ax: Nat) (ay: Nat) (m: Nat): (ax * Succ m == ay * Succ m) = (ax == ay) :=
-  match Nat.decEq ax ay with
-    | Yes h => rewrite h in cases
-    | No h =>
-      match Nat.decEq (ax * Succ m) (ay * Succ m) with
-        | Yes e => Void.exfalso (h (Nat.mulSuccCancel ax ay m e))
-        | No e => rfl
-
-theorem productDiagonal (ax: Nat) (ay: Nat) (d: Nat) (nz: Not (d = 0)): (ax * d == ay * d) = (ax == ay) :=
-  match d with
-    | Zero => Void.exfalso (nz rfl)
-    | Succ m => productSucc ax ay m
-
 -- On a horizontal or vertical line, every point in the rectangle the ends
 -- span is on the line; on a diagonal one, those as far across as down.
 theorem coversLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (x: Nat) (y: Nat)
@@ -267,4 +234,4 @@ theorem coversLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (x: Nat) (y: Nat)
             rewrite productZeroRight (Nat.absDiff x1 x) (Nat.absDiff y1 y) (Nat.absDiff x1 x2) (Nat.absDiff y1 y2) (betweenFixed y1 y y2 hh by) (absDiffFixed y1 y2 hh) in rfl
           | No nh =>
             let same := diagonalSame x1 x2 y1 y2 shape
-            rewrite <- same in productDiagonal _ _ _ (absDiffPositive x1 x2 nv))
+            rewrite <- same in Nat.mulRightCancelBool _ _ _ (absDiffPositive x1 x2 nv))
