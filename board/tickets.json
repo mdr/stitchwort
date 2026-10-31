@@ -1,5 +1,5 @@
 {
-  "next": 923,
+  "next": 924,
   "tickets": [
     {
       "id": 47,
@@ -1928,6 +1928,21 @@
         "perf"
       ],
       "body": "Found while getting the full tier green (31 Oct 2026; differential test fix 817c3ad7). Since 1ed90886 (SW-787, R4: `+` also computes on its second argument), `x + K` with a literal K normalises to `Nat.add K x`-style forms that hand known fuel to recursions such as `Nat.divFuel`. So `m % D` or `m / D` where m contains `+ K` and an unknown unfolds `divFuel` up to K levels, each stuck on the unknown with the next inside it: the normal form grows with K (measured for small K = 4, 8, 16, 32: 1.6k, 4.1k, 11.9k, 37.6k characters, faster than linear).\nWhere it bites today:\n- std Float.Theory `magUnitsFieldNext`, `magUnitsWholeAt`, `magUnitsWhole`, `magUnitsCarry` (types about `magUnits (e * 2^52 + 2^52 + …)`, `magUnits m = Nat.divFuel m m 2^52`): quoting a type passes 4 GB; the reference `conv` overflows.\n- examples/accept/partial-handlers.sw `lcg seed = (seed * 1103515245 + 12345) % 2^31`: normal forms over 4 GB; two closed tests take ~55 s in conversion.\n- SW-920 (unifier `modLt` against `% 2^31`, 24.7 s) and SW-917 (rewrite, fixed separately) are the same unfolding.\nThese are left out of the differential test for now. Not yet decided: whether R4 should stop handing literal fuel to such recursions (e.g. don't commute when the result feeds a fuel argument, a fuel-free Nat.div/mod (SW-554), or lazy unfolding), measured on std/AoC/rogue. Inferred, not tested: these passed before 1ed90886.\n\n\nD2077 (Matt, 31 Oct 2026): design lane. Compare the fix options (1) a division that does not step through the number one unit at a time (SW-554), (2) narrowing R4, (3) lazier unfolding; measure each on std, AoC and rogue; and compare what other languages in our space do for Nat division/mod (definitions, kernel/native support, reduction behaviour) and how well they handle this case compared to us. Design note before any code.\n",
+      "created": "2026-10-31",
+      "updated": "2026-10-31",
+      "commits": []
+    },
+    {
+      "id": 923,
+      "title": "Tests (and hosts) running a checker session on a thread smaller than its limits claim: audit, fix, helper",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "lane (D2078)",
+      "labels": [
+        "tooling",
+        "bug"
+      ],
+      "body": "Found getting the full tier green (31 Oct 2026). Two full-tier tests (driver check_cache aocs_namespaces_load_on_their_own_from_the_whole_projects_cache, fixed 1bc65f72; driver rewind a_check_cancelled_part_way_rewinds, fixed dc331002) ran a checker session on libtest's default 2 MiB thread while the session's limits said 16 MiB (`Session::for_stack` / `navigable_for_stack`), so the stack guard could never fire before the real stack ran out: a hard abort instead of E-RESOURCE. Latent until AoC day 22 (28 Oct) evaluated ~2000 deep while checking.\nD2078 (Matt, 31 Oct 2026): audit every test for sessions created or used outside a thread of the size their limits claim (Session::new / for_stack / navigable_for_stack / load / check run on the test's own thread), fix each, and add a helper that makes the thread and session together so they can't disagree; point tests at it. Also check the language server (crates/lsp or wherever it checks) and any other non-CLI host gives its checker a thread matching its limits.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
