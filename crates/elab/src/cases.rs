@@ -31,6 +31,15 @@
 //! latest first. Unfolding doesn't make a new atom: the atom is the value
 //! the case tree tested, so `Float.isNaN x`, not its body.
 //!
+//! `Int`'s own arithmetic (`-x`, `+`, `-`, `*`, `/`, `%`, `<=`, `<`, and
+//! `Int.subNatNat`, which they compute through) is as far in as the search
+//! goes (SW-937): what its case trees test (`OfNat`/`NegSucc` of an
+//! operand, `Int.subNatNatFrom …`) is never an atom, and a call of it is one
+//! only when a definition outside it tests the call (a program's own `match`
+//! on `a + b`). `omega` and `ring` reason about the arithmetic instead. An
+//! `Int` variable is still split as a fallback (below), which
+//! `aimedDepthAfter` in AoC 2021 day 2 needs.
+//!
 //! The split is the generated `match` that `match e: atom with` writes
 //! (`matching::generalised_named`, lifted as `owner.%matchN`), one
 //! alternative per constructor, the equation bound as `%splitN`, and each
@@ -563,8 +572,13 @@ fn open_case(
     d = cx.with_unused_equation_notes(d, &searched);
     let d = match stuck {
         Some((what, ty)) => d.with_note(format!(
-            "it stopped here because the goal is stuck on `{what}`, a `{ty}`, which `cases` \
-             doesn't take apart; give this case's proof as `cases in t`"
+            "it stopped here because the goal is stuck on `{what}`, {} `{ty}`, which `cases` \
+             doesn't take apart; give this case's proof as `cases in t`",
+            if ty.starts_with(['A', 'E', 'I', 'O', 'U']) {
+                "an"
+            } else {
+                "a"
+            }
         )),
         None => d.with_note(
             "the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a \
@@ -1140,6 +1154,20 @@ impl<'a, 'e> Finder<'a, 'e> {
         let mut last_unsplittable = None;
         let mut first = first;
         loop {
+            // A call of `Int`'s own arithmetic is as far in as the chain
+            // goes (SW-937): it is neither an atom itself, unless a
+            // definition outside that arithmetic tests it (the previous
+            // step, already taken), nor is what it waits for, which would
+            // be `Int`'s internals (`Int.subNatNatFrom n (Succ m) …`).
+            // `omega` and `ring` take the arithmetic as it is.
+            if int_arithmetic(g, &current) {
+                if last_unsplittable.is_none()
+                    && let Some(int) = g.registry.loaded_data(Builtin::Int)
+                {
+                    last_unsplittable = Some((current.clone(), int));
+                }
+                break;
+            }
             // `stuck` itself first, if it's a candidate; then what it waits
             // for, and so on inwards.
             let (raw, d, is_first) = match first.take() {
@@ -1267,6 +1295,34 @@ fn is_ctor_form(value: &Value) -> bool {
 
 fn is_stuck(value: &Value) -> bool {
     matches!(value, Value::Neutral(..) | Value::NatAdd(..))
+}
+
+/// Whether `value` (forced) is a call of `Int`'s own arithmetic: the
+/// definitions `omega` reads (`-`, `+`, `-` between two, `*`, `/`, `%`,
+/// `<=`, `<`, and the subtraction of naturals they compute through). Their
+/// case trees test `OfNat`/`NegSucc`, which `cases` doesn't split for them
+/// (SW-937), as it doesn't split `Float`'s bits for `Float.isNaN`.
+fn int_arithmetic(g: &stitchwort_core::Globals, value: &Value) -> bool {
+    let Value::Neutral(Head::Def(id), _) = value else {
+        return false;
+    };
+    const ARITHMETIC: [Builtin; 8] = [
+        Builtin::IntNeg,
+        Builtin::IntAdd,
+        Builtin::IntSub,
+        Builtin::IntMul,
+        Builtin::IntDiv,
+        Builtin::IntMod,
+        Builtin::IntLeq,
+        Builtin::IntLess,
+    ];
+    ARITHMETIC
+        .iter()
+        .any(|b| g.registry.loaded_def(*b) == Some(*id))
+        || matches!(
+            &*g.def(*id).path,
+            "Std.Int.subNatNat" | "Std.Int.subNatNatFrom"
+        )
 }
 
 /// The constructor count of `d` if a value of it can be split: data that

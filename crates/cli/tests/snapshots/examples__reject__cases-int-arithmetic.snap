@@ -1,0 +1,28 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-CASES] Error: `cases` can't close the case command = Up units✝, depth = n✝.toInt (fallback)
+    ╭─[ reject/cases-int-arithmetic.sw:15:140 ]
+    │
+ 15 │ theorem upAfter (depth: Int) (command: Command): depth + command.down = depth - (match command with | Forward u => 0 | Up u => u.toInt) := cases
+    │                                                                                                                                            ──┬──  
+    │                                                                                                                                              ╰──── this `cases`
+    │ 
+    │ Note 1: goal: (n✝ + units✝).toInt = n✝.toInt + (-units✝.toInt)
+    │ 
+    │ Note 2: it stopped here because the goal is stuck on `n✝`, a `Nat`, which `cases` doesn't take apart; give this case's proof as `cases in t`
+    │ 
+    │ Note 3: it split `depth` as a fallback, though the goal wasn't stuck on it
+    │ 
+    │ Note 4: 1 other case couldn't be closed either
+    │ 
+    │ Note 5: 1 other case was closed (1 by computation)
+    │ 
+    │ Note 6: this statement is false; a counterexample:
+    │           depth = 0
+    │           command = Up 1
+    │         `depth + Command.down command = depth - upAfter.%match1 command` is false:
+    │           left:  1
+    │           right: -1
+────╯
