@@ -52,9 +52,11 @@ do; the pattern:
   back (`Result.okInjective`) and the test's `None` gives the property
   (`findIndexedNone`: a `find` over `withIndexFrom i xs` that found
   nothing means no element is bad, by induction on the list).
-- What the parser can't check (that a line has exactly one consistent
-  wiring, day 8) stays a hypothesis of the end-to-end theorem, and the
-  day's notes say so.
+- A promise that is cheap to check at run time can move into the parser
+  too: day 8's parser works out each display's wiring and fails unless it
+  decodes the display, so its end-to-end theorems have no hypothesis.
+  What a parser can't check stays a hypothesis, and the day's notes say
+  so.
 
 ## Day 1: Sonar Sweep
 
@@ -1426,3 +1428,203 @@ Release build:
 5. `search --at` lists other days' lemmas and Float comparisons that ran
    out of steps (item 6). Fix: rank the project's other namespaces lower,
    or leave out unimported ones.
+
+## Day 8: Seven Segment Search
+
+Each line of the input is one seven-segment display whose signal wires
+are connected to the segments in a scrambled order: the patterns of wires
+lit by its ten digits, in no order, then the four patterns of its output.
+Part 1 counts the output digits that are 1, 4, 7 or 8 (the digits whose
+number of segments no other digit has); part 2 works out each display's
+wiring, reads its four-digit output and adds the outputs up. Answers on
+Matt's input (200 displays): 445 and 1043101 (his Scala solution's); the
+puzzle's ten-line example gives 26 and 61229, and its single display reads
+5353. Compiler: the installed release build, on `main` at d574a248, 31
+October 2026.
+
+### The program
+
+A pattern is a record of seven `Bool`s, one per wire, so the order the
+letters come in doesn't matter. The program never searches the 5040
+wirings. It reads each pattern by a score that renaming the wires can't
+change: for each wire the pattern has on, the number of the display's ten
+patterns that have it on, added up.
+
+```stitchwort
+def score (patterns: List Pattern) (pattern: Pattern): Nat :=
+  segments.sumBy (wire => if pattern.has wire then litIn patterns wire else 0)
+
+def decodeDigit (patterns: List Pattern) (pattern: Pattern): Nat := digitScores.indexOf (score patterns pattern)
+```
+
+`digitScores` is the scores of the display as drawn (42 for 0, 17 for 1,
+34, 39, 30, 37, 41, 25, 49, 45), computed from the drawing, and no two are
+the same. Part 1 counts the outputs with 2, 3, 4 or 7 wires on. Part 2
+reads each output's digits in base 10 and adds the values.
+
+The parser (`Parse.eachLine` with `Parse.repeat 10 10` and `repeat 4 4`
+of `takeWhile1` letters from a to g) also checks the puzzle's promise for
+every display (D2108): from the digits read it works out the wiring
+(`Entry.wiring`: wire `x` drives the segment that is on in the digits of
+exactly the patterns with `x` on) and fails unless that wiring is a
+permutation of the segments (its seven segments, sorted, are A to G), the
+ten patterns read as 0 to 9 once each (sorted, they are `List.range 10`),
+and every pattern, outputs too, has exactly the wires on that drive its
+digit's segments (`Entry.wired`). Both answers were right on the first
+run, and every test passed on its first run except one placeholder
+written to learn an error message.
+
+**What the spec decides.** The spec (`Spec/Spec.sw`) is the puzzle's
+picture: `digitSegments` lists each digit's segments as drawn; a wiring is
+any function from wires to segments that is a permutation (`IsWiring
+wiring := List.Perm (segments.map wiring) segments`); a pattern shows a
+digit under it when each wire is on exactly when the segment it drives is
+one the digit lights (`Shows`); a wiring decodes a display when the ten
+patterns show the ten digits, each once (`List.Perm (patterns.map (shown
+wiring)) (digits.map Some)`), and each output shows a digit
+(`Decodes`). The answers read the outputs through a decoding wiring
+chosen for each display (`Part1Answer`, `Part2Answer`, an `∃` over the
+choice). The puzzle promises exactly one decoding wiring per display; the
+spec needs only one, since any two give the same answers (proved).
+
+### Proved, for every input
+
+In `Aoc.Year2021.Day08.Proofs` (`Proofs/Facts.sw`, `Proofs.sw`,
+`Parse.sw`, 324 lines):
+
+- `part1FromInput` and `part2FromInput`: if `parseEntries` reads `input`
+  as `entries` (`Fail.toResult (() => parseEntries input) = Ok
+  entries`), then `Part1Answer entries (solvePart1 entries)` and
+  `Part2Answer entries (solvePart2 entries)`. No other hypothesis: the
+  wiring each display needs is the one the parser checked
+  (`parsedDecode`, from `wiredDecodes`: an entry that passes the check is
+  decoded by its own wiring).
+- `part1Correct` and `part2Correct`: for every list of displays and every
+  choice `wiringOf` of a wiring for each, if `wiringOf entry` decodes
+  `entry` for every `entry` in the list, `solvePart1 entries` is the sum
+  of each display's 1s, 4s, 7s and 8s read through it, and `solvePart2
+  entries` the sum of its output values read through it.
+- `part1AnswerUnique`, `part2AnswerUnique`, `decodedValueUnique`: the
+  answers don't depend on which decoding wirings are chosen.
+- On the way: under a decoding wiring, the number of patterns with a wire
+  on is the number of digits lighting the segment it drives (`litDrawn`,
+  through the `Perm` of the digits shown), so a pattern's score is the
+  drawn score of the digit it shows (`scoreDrawn`, reindexing the sum
+  over the wires by the permutation, `sumRewired`), which reads back as
+  that digit (`decodeDrawn`); a pattern's size is its digit's number of
+  segments (`sizeDrawn`); under a wiring a pattern shows at most one
+  digit (`sameDigit`, as no two digits light the same segments). The
+  facts about the drawing (`displayDrawn`, `decodeDrawn`, `digitsDiffer`,
+  `easyDrawn`) are each a `Bool` over the ten digits, by `rfl`.
+- Tests: both examples, the single display's digits and wiring as the
+  puzzle draws them, the spec on that display (each pattern shows its
+  digit, it reads 5353), and the parser's errors.
+
+Nothing is left unproved, and no hypothesis was added beyond the parse.
+One definition is opaque: `Entry.wiring`, the wiring the parser works
+out. The proofs need only its name, because `Entry.wired` checks
+everything they use of it. Transparent, its body (a `find` over the
+decoded patterns) was computed on an unknown entry: checking
+`Proofs/Parse.sw` ran past two minutes, and 19 s for a `match` with two
+`?` arms. Opaque, the whole day checks in 7 s cold.
+`stitchwort audit Aoc.Year2021.Day08` (with the counterexample search):
+`audited 39 theorems: 0 failed, 0 with warnings, 39 passed`. The search
+is "not applicable" to most theorems (a wiring is a function); `notNone`
+gave up because its hypotheses contradict each other, which is its point.
+
+Breaking the program breaks the proofs: `else 1` for `else 0` in `score`
+makes `decodeDrawn`'s `rfl` and a `scoreDrawn` `calc` step fail; dropping
+the wiring's sort check from `Entry.wired` makes `wiredDecodes` fail.
+
+### 1. Std.Parse: none
+
+`repeat 10 10`, `takeWhile1` and `text "| "` read the lines as written. A
+letter past g gives "expected ' '" at the letter (the pattern stops before
+it), not "expected a letter from a to g"; fine for this input.
+
+### 2. Missing std
+
+- **`all` of a mapped list.** `List.all (xs.map f) q = List.all xs (x =>
+  q (f x))` (`allMapped`): `stitchwort search 'List.all (List.map _ _) _
+  = _'` finds only project lemmas. Std has the `count`, `sumBy` and
+  `List.All` forms. Std candidate.
+- **A member of a `Bool` `all`.** `xs.all p = True → x ∈ xs → p x =
+  True` (`allElim`) takes `List.allToAll` then `List.allMem`. Std
+  candidate.
+- **Reindexing by a permutation.** For `List.Perm (xs.map f) xs`, the
+  count, sum and `all` over `xs` of `h ∘ f` are those of `h`
+  (`countRewired`, `sumRewired`, `allRewired`): two lines each from
+  `countMap`/`sumByMap` and `countPerm`/`sumByPerm`. Std candidates.
+- **`find` over `withIndex` found nothing** (`findIndexedNone`), now on
+  days 5, 6 and 8. Std candidate.
+
+### 3. Confusing errors
+
+- **`_` for a `Perm`'s lists.** `List.memPerm _ _ perm …` and
+  `List.countPerm _ _ wired h` were `E-TYPE-MISMATCH`: the expected type
+  showed `List.Perm` unfolded to its `occurrences` equation, with the
+  right-hand list already computed (`digits.map Some` as a sum of ten
+  `Bool.toNat (p (Some k))`), so unification couldn't recover the list.
+  Writing the lists out fixed it. The note could say to give them.
+- **`_` for a `Bool` predicate.** `eachDigit _ all digit below`, with `all:
+  digits.all (d => …) = True`, was `E-TYPE-MISMATCH` against `?9 digit
+  below segment`: the predicate isn't found from the argument. Naming it
+  with `let q := …` fixed it.
+- **`rewrite … at (term) in`** needs a name (`E-REWRITE-TARGET`); the note
+  says so.
+
+### 4. Inference: none beyond the two above
+
+### 5. Performance
+
+`stitchwort run Aoc.Year2021.Day08.main` on the input takes 0.39 s (0.34
+s user). `check --no-cache` of the proofs and tests takes 7.1 s, and the
+audit with the search 8.9 s cold. Two traps:
+
+- `rewrite e1, e2, <- part1Correct …` in `part1AnswerUnique` was
+  `E-REWRITE-BUDGET`: the rule's sides compute to the whole decoding. An
+  `Eq.trans` chain did it at once.
+- `Entry.wiring` transparent (above, under "Proved").
+
+### 6. Proofs, and the lemma search
+
+Most lemmas checked as first written; the fixes were the `_`s and
+rewrites above. `search --at` closed nothing this day. At
+`countRewired`'s goal (`List.count segments (wire => h (wiring wire)) =
+List.count segments h`, with `wired: IsWiring wiring` in scope) it took 44
+s and offered only `List.countCongMem`, leaving `h (wiring x) = h x`,
+which is false; the proof is `List.countMap` then `List.countPerm`. At
+`hasDrawn` (one wire of a `Bool` `all`) it found nothing in 7.5 s; the
+proof is `List.allToAll` then `List.allMem`. Both warned about `Float`
+comparisons that ran out of steps. Grep and `stitchwort search` by
+pattern found std's `sumByPerm`, `countPerm`, `findRangeSome`,
+`memMapElim` and `foldLeftCongMem`, which carried the proof.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2021.Day08.Proofs Aoc.Year2021.Day08.Tests` | 7.0 s user (7.1 s) |
+| `stitchwort run Aoc.Year2021.Day08.main` on the input (200 displays) | 0.34 s user (0.39 s) |
+| `stitchwort audit --no-cache Aoc.Year2021.Day08` (with the search) | 8.8 s user (8.9 s) |
+
+162 lines of program, 79 of spec, 324 of proofs, 79 of tests.
+
+### Ranked
+
+1. A transparent definition computed on an unknown argument made a small
+   proof file take minutes, with no message saying what was unfolding
+   (item 5). Fix: report the definition being unfolded when a check runs
+   long, as `E-RESOURCE` does.
+2. `_` for a `List.Perm`'s lists or a `Bool` predicate doesn't infer
+   (item 3). Fix: unify against the folded `Perm` before unfolding it, or
+   say in the note to give the arguments.
+3. `search --at` missed two two-lemma proofs, took 44 s on one, and its
+   one suggestion left a false goal (item 6). Fix: don't list an
+   applicable lemma whose leftover goal the counterexample search refutes.
+4. No `List.all` of a map, no member of a `Bool` `all`, no reindexing by a
+   permutation, no `find` over `withIndex` (item 2). Fix: add them to std.
+5. `rewrite` with an equation whose sides compute to large terms runs out
+   of budget (item 5); `Eq.trans` works. The note could suggest it.
