@@ -27,11 +27,16 @@ def main(): {IO, Fail} () :=
 
 -- The timers on one line, separated by commas. A timer above 8 fails,
 -- naming its place: no fish's timer starts above 8.
-def parseTimers (input: Text): {Fail} (List Nat) :=
-  let timers := Parse.line input (() => sepBy1 nat (() => char ','))
-  match timers.withIndex.find (((_, timer)) => 8 < timer) with
+def parseTimers (input: Text): {Fail} (List Nat) := checkTimers (Parse.line input (() => sepBy1 nat (() => char ',')))
+
+-- The timers, if none is above 8; otherwise fail, naming the first that is.
+def checkTimers (timers: List Nat): {Fail} (List Nat) :=
+  match firstAbove8 timers with
     | Some (index, _) => Fail.fail "timer ${index + 1} is above 8"
     | None => timers
+
+-- The first timer above 8, with its index.
+def firstAbove8 (timers: List Nat): Option (Nat, Nat) := timers.withIndex.find (((_, timer)) => 8 < timer)
 
 -- How many fish have each timer, `t0` the fish at 0 to `t8` those at 8.
 type Counts = { t0: Nat, t1: Nat, t2: Nat, t3: Nat, t4: Nat, t5: Nat, t6: Nat, t7: Nat, t8: Nat }
