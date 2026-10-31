@@ -2194,7 +2194,7 @@
     {
       "id": 937,
       "title": "cases on Int goals: case descriptions show Int internals (subNatNatFrom) and can hit the 64-case budget",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "lane (D2099)",
       "labels": [
@@ -2204,7 +2204,10 @@
       "body": "From AoC 2021 day 2 (aoc/NOTES-2021.md, 31 Oct 2026). When cases fails on a false Int goal it describes the case by Int's internals (Int.subNatNatFrom …), and in one theorem ran past its 64-case budget (E-CASES-BUDGET); the counterexample note was right but the case description was unhelpful. Print cases in user terms (Int literals/negation), and avoid splitting Int internals (cf. SW-608 item 3 for Float internals).\n\n\nD2099 (Matt, 31 Oct 2026): yes. Print Int values as numbers in cases and goals (OfNat n as n, NegSucc n as -(n+1)); stop cases splitting Int's internals unless an existing proof needs it (if one does, keep the split and ship the printing only).\n\n\n31 Oct (D2099 lane): repro confirmed on main in a scratch copy of day 2 (E-CASES case `start.depth = OfNat n✝, Int.neg (OfNat units✝) = NegSucc n✝, Int.subNatNatFrom …`, and E-CASES-BUDGET for aimedDepthAfter). Baseline hash dumps taken (std+aoc 10,897, std+rogue 5,240). Next: printer (OfNat/NegSucc/Int.neg/Nat.toInt) and the atom rule.\n\n\n31 Oct (D2099 lane): done on worktree-agent-a74107ae92b748389: 84e52988 printing (OfNat n as n.toInt, NegSucc m as -(m + 1).toInt, Int.neg x as -x; paste-back test), ab34f117 atom rule (no atom inside Int arithmetic: neg/add/sub/mul/div/mod/leq/less/subNatNat(From); the fallback still splits an Int variable, which aimedDepthAfter needs: omega fails on depth + aim*units + F = depth + (aim*units + F) without it). Day 2 repro: E-CASES at `command = Up units✝`, no Int.subNatNatFrom, no budget error. Hashes: std, rogue unchanged; aoc only Day02 proofs (fewer matches). audit, lanes elab/examples/goals/hashes/aoc pass.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
-      "commits": []
+      "commits": [
+        "84e52988",
+        "ab34f117"
+      ]
     },
     {
       "id": 938,
