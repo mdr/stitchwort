@@ -8,4 +8,6 @@ expression: output
  3 │ def g: Nat := Z.z + Grid.f
    │                     ───┬──  
    │                        ╰──── not in scope
+   │ 
+   │ Note: `Grid` is the namespace `Aoc.Grid`: add `import Aoc (Grid)`, or write `Aoc.Grid.f`
 ───╯

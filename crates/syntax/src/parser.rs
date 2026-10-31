@@ -1135,6 +1135,9 @@ impl<'t> Parser<'t> {
             }
             _ => return Err(self.unexpected("a namespace, such as `List`").into()),
         };
+        if matches!(self.peek(), Some(Tok::Lower(word)) if word == "as") {
+            return Err(self.import_as(&path).into());
+        }
         self.expect(Tok::LParen, "`(` and the names to import")?;
         let mixed = |dots: Span, path: &Name| {
             error(
@@ -1180,6 +1183,42 @@ impl<'t> Parser<'t> {
             everything,
             span: start.to(end),
         })
+    }
+
+    /// `import M as A`, which isn't Stitchwort: what to write instead
+    /// (docs/proposals/import-aliases.md, D2072). The cursor is at `as`.
+    fn import_as(&self, path: &Name) -> Diagnostic {
+        let at = self.here();
+        let alias = match self.tokens.get(self.pos + 1).map(|t| &t.tok) {
+            Some(Tok::Upper(a) | Tok::Lower(a)) => Some(a.as_str()),
+            _ => None,
+        };
+        let mut d = Diagnostic::error(
+            "E-PARSE",
+            "a whole namespace can't be imported under another name",
+        )
+        .with_label(at, "`import … as …` isn't supported");
+        d = match path.text.rsplit_once('.') {
+            Some((parent, last)) => d.with_note(format!(
+                "to write `{last}.x` for `{}.x`, import the namespace by its own last name: \
+                 `import {parent} ({last})`",
+                path.text
+            )),
+            None => d.with_note(format!(
+                "write `{0}.x` for a name in `{0}` (no import needed in a project), or import \
+                 names: `import {0} (x)`, `import {0} (..)`",
+                path.text
+            )),
+        };
+        if let Some(alias) = alias
+            && Some(alias) != path.text.rsplit('.').next()
+        {
+            d = d.with_note(format!(
+                "a namespace is always written by its own name, so `{alias}` can't stand for `{}`",
+                path.text
+            ));
+        }
+        d
     }
 
     fn pattern(&mut self) -> Result<Pattern> {

@@ -1,0 +1,30 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-IMPORT-CLASH] Error: `Spec` is imported as a namespace, but this module has its own `Spec.…`
+   ╭─[ import-namespace-item-own/src/other.sw:3:14 ]
+   │
+ 3 │ import Shop (Spec)
+   │              ──┬─  
+   │                ╰─── `Spec` is imported as a namespace, but this module has its own `Spec.…`
+   │ 
+ 5 │ def Spec.mine: Nat := 3
+   │     ────┬────  
+   │         ╰────── declared in `Shop.Other.Spec`, which would hide the import
+   │ 
+   │ Note: `Spec.x` here means `Shop.Other.Spec.x`; remove the import and write `Shop.Spec.x` for the imported one
+───╯
+[E-IMPORT-CLASH] Error: `Spec` is imported, but this file also defines `Spec`
+   ╭─[ import-namespace-item-own/src/proofs.sw:7:14 ]
+   │
+ 7 │ import Shop (Spec)
+   │              ──┬─  
+   │                ╰─── `Spec` is imported, but this file also defines `Spec`
+   │ 
+ 9 │ def Spec: Nat := 3
+   │     ──┬─  
+   │       ╰─── defined here, which would hide the import
+   │ 
+   │ Note: remove the import, and write `Shop.Spec.x` for a name `x` in that namespace
+───╯

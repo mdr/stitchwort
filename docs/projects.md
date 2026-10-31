@@ -176,7 +176,8 @@ brings every name declared directly in `Aoc`, from all its files: its
 types (with their constructors), abilities (with their operations) and
 definitions. It doesn't bring names inside them (`Range.size` is still
 written `Range.size`, or `size` after `import Aoc.Range (size)`), `Aoc`'s
-own imports, or namespaces under it such as `Aoc.Grid`.
+own imports, or namespaces under it such as `Aoc.Grid` (import one by name
+for that, `import Aoc (Grid)`: see below).
 
 - **Lowest priority among imports.** A short name means, first found: a
   local variable; a declaration of this namespace (any file); a name this
@@ -198,6 +199,43 @@ own imports, or namespaces under it such as `Aoc.Grid`.
 - **A wildcard name can also be a qualifier.** If `Aoc` declares `Range`,
   `Range.parse` means `Aoc.Range.parse`; if it declared a type `Text`,
   `Text.split` would mean `Aoc.Text.split` (write `Std.Text.split`).
+
+### Importing a namespace by its last name: `import P (S)`
+
+```
+namespace Aoc.Year2024.Day13.Proofs
+import Aoc.Year2024.Day13 (Spec)
+
+theorem withinCorrect (machine: Machine):
+  machine.fewestTokensWithin 100 = Spec.fewestTokens machine := …
+```
+
+An import item may be a namespace under the import's namespace. Then the
+item's name is a qualifier for that namespace in this file: `Spec.x` means
+`Aoc.Year2024.Day13.Spec.x`. Nothing in it is imported: `x` alone still
+needs `import Aoc.Year2024.Day13.Spec (x)` or `(..)`. The library works the
+same way (`import Std (Eq)`, then `Eq.sym`).
+([import-aliases.md](proposals/import-aliases.md))
+
+- **It counts as using the namespace**, which is checked first, whatever
+  the order of the namespaces' names (`Day13.Proofs` sorts before
+  `Day13.Spec`). A cycle through it is `E-NAMESPACE-CYCLE`.
+- **The module's own names come first.** If this namespace declares `Spec`,
+  or has a namespace `Spec` of its own (from `def Spec.f`), the item is
+  `E-IMPORT-CLASH`.
+- **It never hides another meaning silently.** If `Spec` also means
+  something else here (a second `import Day12 (Spec)`, a type `Spec` from
+  an import or a `(..)`, a root namespace `Spec`, or a prelude name such as
+  `List`), each use of `Spec.x` is `E-AMBIGUOUS`, which lists the full
+  names. Write one in full, or import only one `Spec`.
+- **`Spec` alone names nothing** (`E-UNKNOWN-NAME`, with a note).
+- **Per file, and not passed on**, like any import. `(..)` doesn't bring
+  sub-namespaces: `import Aoc.Year2024.Day13 (..)` gives no `Spec.`.
+- **Goals print it short.** A goal writes `Spec.fewestTokens` where that
+  means the same declaration in the file, so it can be pasted back. Hashes
+  don't depend on how a name was written.
+- **There is no `import M as A`.** It is `E-PARSE`, with a note giving the
+  item form.
 
 ## Cycles between namespaces
 

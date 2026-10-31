@@ -120,6 +120,11 @@ pub struct Scope {
     namespaces: HashSet<String>,
     /// Each file of the current module's imports: short name to keys.
     imports: Vec<HashMap<String, Vec<(String, Span)>>>,
+    /// Each file's imported qualifiers: an item that is a namespace and
+    /// not a declaration (`import Shop (Spec)`, `import Std (Eq)`), by its
+    /// short name, to the namespaces' keys. Such an item brings none of the
+    /// namespace's names: `Spec.total` means `Shop.Spec.total`.
+    qualifiers: Vec<HashMap<String, Vec<(String, Span)>>>,
     /// Each file's `import N (..)`: short name to keys, each with the span
     /// of the import that brought it. Empty for a program without `(..)`.
     wildcards: Vec<BTreeMap<String, Vec<(String, Span)>>>,
@@ -167,6 +172,7 @@ pub(crate) enum ScopeOp {
 #[derive(Default)]
 pub(crate) struct SavedImports {
     imports: Vec<HashMap<String, Vec<(String, Span)>>>,
+    qualifiers: Vec<HashMap<String, Vec<(String, Span)>>>,
     wildcards: Vec<BTreeMap<String, Vec<(String, Span)>>>,
     extenders: Vec<BTreeSet<String>>,
     wildcard_failed: BTreeSet<usize>,
@@ -176,13 +182,22 @@ pub(crate) struct SavedImports {
 /// What the first component of a qualified name means, in order
 /// (docs/proposals/multi-file.md §4.5, §4.6): `Std`; a short name (a local
 /// variable is the caller's business); a namespace of the module's own; a
-/// project namespace; a library namespace.
+/// project namespace; a library namespace. A namespace this file imports
+/// as an item (`import Shop (Spec)`) is its own kind of binding: below the
+/// module's own declarations and namespaces, and ambiguous with any other
+/// meaning the qualifier has here (docs/proposals/import-aliases.md, D2072).
 pub(crate) enum Qualifier<S> {
     Std,
     Short(S),
     Own,
     Project,
     Library,
+    /// A namespace imported as an item: its key.
+    Imported(String),
+    /// An imported namespace and some other meaning, or two imported
+    /// namespaces: each meaning's key (a namespace's, or a declaration's),
+    /// sorted. `None` for a meaning the pre-pass can't name.
+    Ambiguous(Vec<Option<String>>),
     Missing,
 }
 
@@ -193,30 +208,85 @@ pub(crate) trait QualifierLevels {
     /// Levels 2-4 (own declarations, this file's imports, the defaults),
     /// without constructors or operations.
     fn short(&self, first: &str) -> Option<Self::Short>;
+    /// Whether `found` is one of the module's own declarations.
+    fn own_declaration(&self, found: &Self::Short) -> bool;
     fn own_namespace(&self, first: &str) -> bool;
     fn project_namespace(&self, first: &str) -> bool;
     fn library_namespace(&self, first: &str) -> bool;
+    /// The namespaces this file imports as items under the name `first`,
+    /// without repeats.
+    fn imported_namespaces(&self, first: &str) -> Vec<String>;
     /// The key a short name found by `short` means, if it's known.
     fn short_key(&self, first: &str, found: &Self::Short) -> Option<String>;
+    /// Every key a short name found by `short` means (several if it's
+    /// ambiguous); `None` for one that isn't known.
+    fn short_keys(&self, first: &str, found: &Self::Short) -> Vec<Option<String>> {
+        vec![self.short_key(first, found)]
+    }
 }
 
 pub(crate) fn qualifier<L: QualifierLevels>(levels: &L, first: &str) -> Qualifier<L::Short> {
     if first == STD {
         return Qualifier::Std;
     }
-    if let Some(s) = levels.short(first) {
-        return Qualifier::Short(s);
+    let short = levels.short(first);
+    let imported = levels.imported_namespaces(first);
+    if imported.is_empty() {
+        if let Some(s) = short {
+            return Qualifier::Short(s);
+        }
+        if levels.own_namespace(first) {
+            return Qualifier::Own;
+        }
+        if levels.project_namespace(first) {
+            return Qualifier::Project;
+        }
+        if levels.library_namespace(first) {
+            return Qualifier::Library;
+        }
+        return Qualifier::Missing;
+    }
+    // The module's own names come first, as for any import (an import that
+    // they hide is refused where it's written).
+    if let Some(s) = short {
+        if levels.own_declaration(&s) {
+            return Qualifier::Short(s);
+        }
+        let mut all: Vec<Option<String>> = imported.into_iter().map(Some).collect();
+        for key in levels.short_keys(first, &s) {
+            if !all.contains(&key) {
+                all.push(key);
+            }
+        }
+        return imported_or_ambiguous(levels, first, all);
     }
     if levels.own_namespace(first) {
         return Qualifier::Own;
     }
-    if levels.project_namespace(first) {
-        return Qualifier::Project;
+    imported_or_ambiguous(levels, first, imported.into_iter().map(Some).collect())
+}
+
+/// [`qualifier`] for a name some import brings as a namespace: the meanings
+/// found so far are `all`, to which a project or library namespace of that
+/// name adds one.
+fn imported_or_ambiguous<L: QualifierLevels>(
+    levels: &L,
+    first: &str,
+    mut all: Vec<Option<String>>,
+) -> Qualifier<L::Short> {
+    for (here, key) in [
+        (levels.project_namespace(first), first.to_string()),
+        (levels.library_namespace(first), format!("{STD}.{first}")),
+    ] {
+        if here && !all.contains(&Some(key.clone())) {
+            all.push(Some(key));
+        }
     }
-    if levels.library_namespace(first) {
-        return Qualifier::Library;
+    if let [Some(key)] = all.as_slice() {
+        return Qualifier::Imported(key.clone());
     }
-    Qualifier::Missing
+    all.sort();
+    Qualifier::Ambiguous(all)
 }
 
 /// Checking's meaning of each test. The flag says whether this file's imports
@@ -246,14 +316,41 @@ impl<'e> QualifierLevels for CheckingLevels<'e> {
         !self.0.loading_prelude && !self.0.root().is_empty() && self.0.scope.is_namespace(first)
     }
 
+    fn own_declaration(&self, found: &Resolved<'e>) -> bool {
+        matches!(
+            found,
+            Resolved::Found {
+                level: Level::Module,
+                ..
+            } | Resolved::Ambiguous(_, Level::Module)
+        )
+    }
+
     fn library_namespace(&self, first: &str) -> bool {
-        self.0.library_namespace(first, self.1)
+        // Elsewhere a library namespace is a qualifier only if it is
+        // imported, which `imported_namespaces` finds.
+        self.0.loading_prelude && self.0.scope.is_namespace(&format!("{STD}.{first}"))
+    }
+
+    fn imported_namespaces(&self, first: &str) -> Vec<String> {
+        if !self.1 {
+            return Vec::new();
+        }
+        self.0.imported_namespaces(first)
     }
 
     fn short_key(&self, _: &str, found: &Resolved<'e>) -> Option<String> {
         match found {
             Resolved::Found { key, .. } => Some(key.to_string()),
             _ => None,
+        }
+    }
+
+    fn short_keys(&self, _: &str, found: &Resolved<'e>) -> Vec<Option<String>> {
+        match found {
+            Resolved::Found { key, .. } => vec![Some(key.to_string())],
+            Resolved::Ambiguous(keys, _) => keys.iter().cloned().map(Some).collect(),
+            Resolved::Missing => Vec::new(),
         }
     }
 }
@@ -278,7 +375,8 @@ pub(crate) fn import_target<L: QualifierLevels>(
     let base = match qualifier(levels, first) {
         Qualifier::Std => STD.to_string(),
         Qualifier::Short(found) => levels.short_key(first, &found)?,
-        Qualifier::Missing => return None,
+        Qualifier::Missing | Qualifier::Ambiguous(_) => return None,
+        Qualifier::Imported(key) => key,
         Qualifier::Own => format!("{own_root}{first}"),
         Qualifier::Project => first.to_string(),
         Qualifier::Library => format!("Std.{first}"),
@@ -389,6 +487,7 @@ impl Scope {
     pub(crate) fn take_imports(&mut self) -> SavedImports {
         SavedImports {
             imports: std::mem::take(&mut self.imports),
+            qualifiers: std::mem::take(&mut self.qualifiers),
             wildcards: std::mem::take(&mut self.wildcards),
             extenders: std::mem::take(&mut self.extenders),
             wildcard_failed: std::mem::take(&mut self.wildcard_failed),
@@ -398,6 +497,7 @@ impl Scope {
 
     pub(crate) fn restore_imports(&mut self, saved: SavedImports) {
         self.imports = saved.imports;
+        self.qualifiers = saved.qualifiers;
         self.wildcards = saved.wildcards;
         self.extenders = saved.extenders;
         self.wildcard_failed = saved.wildcard_failed;
@@ -448,6 +548,7 @@ impl Scope {
 
     pub fn clear_imports(&mut self) {
         self.imports.clear();
+        self.qualifiers.clear();
         self.wildcards.clear();
         self.extenders.clear();
         self.import_failed.clear();
@@ -533,14 +634,37 @@ impl Elaborator {
     pub(crate) fn library_namespace(&self, first: &str, imports: bool) -> bool {
         let key = format!("Std.{first}");
         self.scope.is_namespace(&key)
-            && (self.loading_prelude
-                || (imports
-                    && self
-                        .scope
-                        .imports
-                        .get(self.current_file())
-                        .and_then(|m| m.get(first))
-                        .is_some_and(|v| v.iter().any(|(k, _)| *k == key))))
+            && (self.loading_prelude || (imports && self.imported_namespaces(first).contains(&key)))
+    }
+
+    /// The namespaces this file imports as items under the name `first`
+    /// (`import Shop (Spec)`: `Shop.Spec`), without repeats.
+    pub(crate) fn imported_namespaces(&self, first: &str) -> Vec<String> {
+        let mut keys: Vec<String> = Vec::new();
+        for (key, _) in self
+            .scope
+            .qualifiers
+            .get(self.current_file())
+            .and_then(|m| m.get(first))
+            .into_iter()
+            .flatten()
+        {
+            if !keys.contains(key) {
+                keys.push(key.clone());
+            }
+        }
+        keys
+    }
+
+    /// The `import` items that bring `first` as a namespace here, as
+    /// `import P (S)`, with their spans.
+    fn qualifier_imports(&self, first: &str) -> Vec<(String, Span)> {
+        self.scope
+            .qualifiers
+            .get(self.current_file())
+            .and_then(|m| m.get(first))
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// The current module's root, as a key prefix: `Std.` for the prelude,
@@ -725,6 +849,16 @@ impl Elaborator {
             Qualifier::Own => format!("{}{first}", self.root()),
             Qualifier::Project => first.to_string(),
             Qualifier::Library => format!("Std.{first}"),
+            Qualifier::Imported(key) => key,
+            // Each meaning of the qualifier, with the rest of the name.
+            Qualifier::Ambiguous(keys) => {
+                let keys = keys
+                    .into_iter()
+                    .flatten()
+                    .map(|k| format!("{k}.{after}"))
+                    .collect();
+                return Resolved::Ambiguous(keys, Level::Import);
+            }
         };
         // The longest prefix that names a declaration.
         for k in (0..rest.len()).rev() {
@@ -1429,6 +1563,37 @@ impl Elaborator {
                 d = d.with_label(span, format!("`{}` is declared here", display(key)));
             }
         }
+        // A qualifier that an import brings as a namespace, and that means
+        // something else here too.
+        if let Some((first, after)) = name.text.split_once('.')
+            && level == Level::Import
+            && !self.qualifier_imports(first).is_empty()
+        {
+            let imported = self.imported_namespaces(first);
+            let meanings: Vec<String> = keys
+                .iter()
+                .filter_map(|k| k.strip_suffix(&format!(".{after}")))
+                .map(|k| {
+                    if imported.iter().any(|i| i == k) {
+                        format!("the namespace `{k}` (imported by name)")
+                    } else if self.scope.get(k).is_some() {
+                        format!("`{k}`")
+                    } else {
+                        format!("the namespace `{k}`")
+                    }
+                })
+                .collect();
+            d = d.with_note(format!(
+                "`{first}` here could be {}; an imported namespace never hides another meaning, \
+                 so write the full name, or import only one `{first}`",
+                or_list(&meanings)
+            ));
+            for (_, span) in self.qualifier_imports(first) {
+                if span.file == name.span.file {
+                    d = d.with_label(span, format!("`{first}` imported here"));
+                }
+            }
+        }
         if level == Level::Wildcard {
             // What to import by name: the name's first component (a type
             // used as a qualifier), or the type a constructor belongs to.
@@ -1533,6 +1698,63 @@ impl Elaborator {
                     "`{first}` is `Std.{first}`; add `import Std ({first})`, or write `{full}`"
                 ))
             };
+        }
+        // A namespace imported as a qualifier names nothing on its own.
+        if !name.text.contains('.') && !self.loading_prelude {
+            let imported = self.imported_namespaces(&name.text);
+            if let Some(key) = imported.first() {
+                d = d.with_note(format!(
+                    "`{}` is the namespace `{}`, imported as a qualifier: write `{}.x` for a name `x` in it",
+                    name.text,
+                    key,
+                    name.text
+                ));
+            }
+        }
+        // A project namespace written by its last name, not imported.
+        if let Some((first, _)) = name.text.split_once('.')
+            && !self.loading_prelude
+            && matches!(
+                qualifier(&CheckingLevels(self, true), first),
+                Qualifier::Missing
+            )
+        {
+            let suffix = format!(".{first}");
+            let own = self.current_namespace().unwrap_or("");
+            // Those sharing the most leading components with this one first.
+            let mut found: Vec<(usize, &String)> = self
+                .project_namespaces
+                .iter()
+                .filter(|q| q.ends_with(&suffix))
+                .map(|q| {
+                    let shared = q
+                        .split('.')
+                        .zip(own.split('.'))
+                        .take_while(|(a, b)| a == b)
+                        .count();
+                    (usize::MAX - shared, q)
+                })
+                .collect();
+            found.sort();
+            if let Some((_, q)) = found.first() {
+                let parent = &q[..q.len() - suffix.len()];
+                let mut note = format!(
+                    "`{first}` is the namespace `{q}`: add `import {parent} ({first})`, or write `{q}.{}`",
+                    &name.text[first.len() + 1..]
+                );
+                if found.len() > 1 {
+                    let others: Vec<String> = found[1..]
+                        .iter()
+                        .take(2)
+                        .map(|(_, q)| format!("`{q}`"))
+                        .collect();
+                    note.push_str(&format!(
+                        " (other namespaces named `{first}`: {})",
+                        others.join(", ")
+                    ));
+                }
+                d = d.with_note(note);
+            }
         }
         // A library type outside the prelude (D266).
         if !name.text.contains('.')
@@ -1657,6 +1879,12 @@ impl Elaborator {
             let is_own =
                 self.loading_prelude || !(namespace == STD || namespace.starts_with("Std."));
             if is_own != own {
+                // A library namespace imported as a qualifier was added
+                // before the module's qualified declarations: now that they
+                // are, one of the module's own namespaces may hide it.
+                if own {
+                    self.own_namespace_clashes(import, &namespace, diagnostics);
+                }
                 continue;
             }
             if import.everything.is_some() {
@@ -1691,24 +1919,35 @@ impl Elaborator {
                             item.text, item.text
                         ),
                     };
+                    let write = if self.scope.get(&key).is_none() {
+                        format!("`{}.x` for a name `x` in that namespace", display(&key))
+                    } else {
+                        format!("`{}` where you mean that one", display(&key))
+                    };
                     diagnostics.push(
                         error("E-IMPORT-CLASH", item.span, message)
                             .with_label(span, "defined here, which would hide the import")
-                            .with_note(format!(
-                                "remove the import, and write `{}` where you mean that one",
-                                display(&key)
-                            )),
+                            .with_note(format!("remove the import, and write {write}")),
                     );
+                    continue;
+                }
+                // A namespace and not a declaration: a qualifier
+                // (docs/proposals/import-aliases.md, D2072).
+                let qualifier = self.scope.get(&key).is_none();
+                if qualifier && own && self.own_namespace_clash(item, &key, diagnostics) {
                     continue;
                 }
                 self.note_import(item, &key);
                 let file = self.current_file();
-                if self.scope.imports.len() <= file {
-                    self.scope.imports.resize_with(file + 1, HashMap::default);
+                let table = if qualifier {
+                    &mut self.scope.qualifiers
+                } else {
+                    &mut self.scope.imports
+                };
+                if table.len() <= file {
+                    table.resize_with(file + 1, HashMap::default);
                 }
-                let entry = self.scope.imports[file]
-                    .entry(item.text.clone())
-                    .or_default();
+                let entry = table[file].entry(item.text.clone()).or_default();
                 if entry.iter().any(|(k, _)| *k == key) {
                     diagnostics.push(
                         Diagnostic::warning(
@@ -1720,6 +1959,83 @@ impl Elaborator {
                     continue;
                 }
                 entry.push((key, item.span));
+            }
+        }
+    }
+
+    /// `E-IMPORT-CLASH` if the namespace `key`, imported as the qualifier
+    /// `item`, is hidden by a namespace of the module's own of that name
+    /// (from `def Spec.f` in this module): the module's own names come
+    /// first, as for any import.
+    fn own_namespace_clash(
+        &self,
+        item: &ast::Name,
+        key: &str,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) -> bool {
+        if self.loading_prelude || !CheckingLevels(self, true).own_namespace(&item.text) {
+            return false;
+        }
+        let own = format!("{}{}", self.root(), item.text);
+        let mut d = error(
+            "E-IMPORT-CLASH",
+            item.span,
+            format!(
+                "`{}` is imported as a namespace, but this module has its own `{}.…`",
+                item.text, item.text
+            ),
+        );
+        // Where the module's own namespace comes from: a declaration in it.
+        let prefix = format!("{own}.");
+        if let Some(span) = self
+            .scope
+            .entries
+            .iter()
+            .filter(|(k, _)| k.starts_with(&prefix))
+            .map(|(_, (_, span))| *span)
+            .min_by_key(|s| (s.file.index(), s.start))
+        {
+            d = d.with_label(
+                span,
+                format!(
+                    "declared in `{}`, which would hide the import",
+                    display(&own)
+                ),
+            );
+        }
+        diagnostics.push(d.with_note(format!(
+            "`{0}.x` here means `{1}.x`; remove the import and write `{2}.x` for the imported one",
+            item.text,
+            display(&own),
+            display(key)
+        )));
+        true
+    }
+
+    /// [`Self::own_namespace_clash`] for the namespace items of a library
+    /// import, which were added before the module's own namespaces were
+    /// known: a clashing one is taken out again.
+    fn own_namespace_clashes(
+        &mut self,
+        import: &Import,
+        namespace: &str,
+        diagnostics: &mut Vec<Diagnostic>,
+    ) {
+        let file = self.current_file();
+        for item in &import.items {
+            let key = format!("{namespace}.{}", item.text);
+            if !self.imported_namespaces(&item.text).contains(&key)
+                || !self.own_namespace_clash(item, &key, diagnostics)
+            {
+                continue;
+            }
+            if let Some(entry) = self
+                .scope
+                .qualifiers
+                .get_mut(file)
+                .and_then(|t| t.get_mut(&item.text))
+            {
+                entry.retain(|(k, _)| *k != key);
             }
         }
     }

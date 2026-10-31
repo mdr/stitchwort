@@ -247,6 +247,28 @@ fn projects() {
     });
 }
 
+/// A project namespace imported as a qualifier (`import Shop (Spec)`, then
+/// `Spec.total`) only chooses which declaration a name means: the project
+/// written with every name in full has the same hashes, declaration for
+/// declaration (docs/proposals/import-aliases.md §6.7).
+#[test]
+fn namespace_items_hash_as_full_names() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects/accept");
+    let load = |name: &str| {
+        let mut session = Session::new();
+        let files = DiskFiles {
+            root: root.join(name),
+        };
+        if let Err(errors) = session.load_project(&files, name, &Target::Everything) {
+            panic!("{name} doesn't load: {errors:#?}");
+        }
+        lines(&session, 0, 0)
+    };
+    let short = load("import-namespace-item");
+    assert!(short.contains("Shop.Spec.total "), "{short}");
+    assert_eq!(short, load("import-namespace-item-full-names"));
+}
+
 /// Checking a namespace on its own gives the same hashes as checking the
 /// whole project (docs/proposals/multi-file.md: a target never changes
 /// meaning): every declaration of the target, and of what it uses, has the

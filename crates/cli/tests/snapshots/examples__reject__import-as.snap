@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a whole namespace can't be imported under another name
+   ╭─[ reject/import-as.sw:4:17 ]
+   │
+ 4 │ import Std.List as L
+   │                 ─┬  
+   │                  ╰── `import … as …` isn't supported
+   │ 
+   │ Note 1: to write `List.x` for `Std.List.x`, import the namespace by its own last name: `import Std (List)`
+   │ 
+   │ Note 2: a namespace is always written by its own name, so `L` can't stand for `Std.List`
+───╯

@@ -1,0 +1,4 @@
+# Shop.Proofs and Shop.Checks use Shop.Spec by its last name, after
+# `import Shop (Spec)`. Both sort before Spec, so Spec must be checked
+# first because of the import. import-namespace-item-full-names is this
+# project with the names written in full: the hashes must be the same.

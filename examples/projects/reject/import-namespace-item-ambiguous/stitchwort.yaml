@@ -1,0 +1,2 @@
+# expect-error: E-AMBIGUOUS
+sources: [src]

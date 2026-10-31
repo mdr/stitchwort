@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `Spec`
+   ╭─[ import-namespace-item-alone/src/proofs.sw:8:18 ]
+   │
+ 8 │ def spec: Nat := Spec
+   │                  ──┬─  
+   │                    ╰─── not in scope
+   │ 
+   │ Note 1: `Spec` is the namespace `Shop.Spec`, imported as a qualifier: write `Spec.x` for a name `x` in it
+   │ 
+   │ Note 2: the library has `Std.Map.Spec`: write it in full, or `import Std.Map (Spec)`
+───╯
+[E-UNKNOWN-NAME] Error: unknown name `Spec.total`
+   ╭─[ import-namespace-item-alone/src/tests.sw:3:17 ]
+   │
+ 3 │ test "total" := Spec.total [1, 2] == 3
+   │                 ─────┬────  
+   │                      ╰────── not in scope
+   │ 
+   │ Note: `Spec` is the namespace `Shop.Spec`: add `import Shop (Spec)`, or write `Shop.Spec.total`
+───╯
