@@ -2379,7 +2379,7 @@
       "labels": [
         "elab"
       ],
-      "body": "cases doesn't use hypotheses of the form b = True → fact (implications guarded by a Bool); the proof had to match on b by hand and apply them. Also: proving both coordinates at once ran past the 64-case budget.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n",
+      "body": "cases doesn't use hypotheses of the form b = True → fact (implications guarded by a Bool); the proof had to match on b by hand and apply them. Also: proving both coordinates at once ran past the 64-case budget.\n\nFrom AoC 2021 day 5 (aoc/NOTES-2021.md, 31 Oct 2026).\n\nLane (31 Oct, commit ab64d895): before splitting, cases applies a hypothesis P → Q whose premise (an equation) holds in the case (sides compute equal, e.g. True = True → fact after splitting b, or a hypothesis says P), adding Q and starting the case again. Day 5's combine lemmas are now := cases. Hash dumps: only Day05.Proofs changes (the combine lemmas and their users); no std/other aoc/rogue hash changed. Two-coordinate pointLinear by one cases still over budget (20 atoms): its open cases are infeasible comparisons omega only sees at leaves (D1319); a fix would be pruning by omega during splitting, a design change, not done.\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
       "commits": []
