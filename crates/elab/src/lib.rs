@@ -687,6 +687,10 @@ pub struct Elaborator {
     pub untimed_counterexamples: bool,
     /// What each counterexample search did, in this session.
     pub counterexample_log: RefCell<Vec<counterexample::SearchLog>>,
+    /// Each `match` on a tuple of variables, `match (xs, n) with`: its span,
+    /// the tuple as written, and the variables, so a termination error inside
+    /// it can say why (SW-941, `lift.rs`). A log that only grows.
+    tuple_matches: RefCell<Vec<(Span, String, Vec<String>)>>,
 }
 
 /// A pattern that matches a constructor.

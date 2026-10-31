@@ -2053,6 +2053,29 @@ theorem List.getDrop: (xs: List a) → (k: Nat) → (j: Nat) → List.get (List.
   | Nil, Succ k, j => rfl
   | Cons x xs, Succ k, j => List.getDrop xs k j
 
+-- What `List.transposeN`'s columns are: column i holds element i of every
+-- row that has one. From column `p` on, for the rows with their first `p`
+-- elements dropped (`transposeN`'s own loop):
+theorem List.transposeNColumnsFrom (rows: List (List a)): (k: Nat) → (p: Nat) →
+    List.transposeN k (List.map rows (row => List.drop row p))
+      = List.map (List.rangeFrom k p) (i => List.filterMap rows (row => List.get row i))
+  | Zero, p => rfl
+  | Succ k, p =>
+    rewrite List.filterMapMap rows (x => List.get x 0) (row => List.drop row p),
+      List.mapMap rows (x => List.drop x 1) (row => List.drop row p), List.getDrop _ p 0, Nat.addZero p, <- List.dropAdd p 1 in
+      Eq.cong (later => Cons (List.filterMap rows (row => List.get row p)) later) (List.transposeNColumnsFrom rows k (p + 1))
+
+-- And from the first column.
+theorem List.transposeNColumns (rows: List (List a)) (k: Nat):
+    List.transposeN k rows = List.map (List.range k) (i => List.filterMap rows (row => List.get row i)) :=
+  Eq.trans (Eq.cong (rows => List.transposeN k rows) (Eq.sym (List.mapId rows))) (List.transposeNColumnsFrom rows k 0)
+
+-- So column i of `List.transpose` holds element i of every row that has one,
+-- for each i below the first row's length.
+theorem List.transposeColumns (rows: List (List a)):
+    List.transpose rows = List.map (List.range (List.length (List.headOr rows Nil))) (i => List.filterMap rows (row => List.get row i)) :=
+  List.transposeNColumns rows (List.length (List.headOr rows Nil))
+
 -- Entry k of the running accumulations is the fold of the first k
 -- elements (`List.getOrScanLeft`, std/List/Index.sw, with a fallback).
 theorem List.getScanLeft (f: b → a → b): (xs: List a) → (z: b) → (k: Nat) → k ≤ List.length xs →

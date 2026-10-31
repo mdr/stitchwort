@@ -86,6 +86,41 @@ fn variable(cx: &Ctx, s: &Scrutinee) -> Option<usize> {
     is_var(&cx.env[level], level).then_some(level)
 }
 
+/// Records a `match` on a tuple of variables, `match (xs, n) with`, for a
+/// termination error inside it to explain (SW-941): the recursion can't see
+/// that the pieces its patterns take apart came from `xs` and `n`.
+fn note_tuple_match(cx: &Ctx, scrutinees: &[Scrutinee], span: stitchwort_syntax::Span) {
+    let [Scrutinee { name: None, expr }] = scrutinees else {
+        return;
+    };
+    if !matches!(expr, Expr::Tuple(..)) {
+        return;
+    }
+    // `(a, b, c)` is `(a, (b, c))`: a variable, then the rest.
+    let local = |e: &Expr| match e {
+        Expr::Var(x) if cx.lookup(&x.text).is_some() => Some(x.text.to_string()),
+        _ => None,
+    };
+    let mut names = Vec::new();
+    let mut part = expr;
+    while let Expr::Tuple(first, rest, _) = part {
+        let Some(name) = local(first) else {
+            return;
+        };
+        names.push(name);
+        part = rest;
+    }
+    let Some(last) = local(part) else {
+        return;
+    };
+    names.push(last);
+    let shown = format!("({})", names.join(", "));
+    let mut log = cx.e.tuple_matches.borrow_mut();
+    if !log.iter().any(|(s, _, _)| *s == span) {
+        log.push((span, shown, names));
+    }
+}
+
 fn motive_error(span: stitchwort_syntax::Span, message: impl Into<String>) -> Diagnostic {
     Diagnostic::error("E-MATCH-MOTIVE", message)
         .with_label(span, "this `match`")
@@ -281,6 +316,7 @@ pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Ter
         return crate::check::check(cx, body, goal);
     }
     let (scrutinees, alts, span, kind) = parts(expr);
+    note_tuple_match(cx, scrutinees, span);
     let base = cx.level();
     let mark = cx.mark();
     let result = lifted(cx, scrutinees, alts, span, kind, goal, base);

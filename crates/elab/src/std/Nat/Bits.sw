@@ -327,3 +327,31 @@ theorem Nat.xorBelow (k: Nat) (x: Nat) (y: Nat) (smallX: x < Nat.pow 2 k) (small
   let kept := Nat.xorModPow k x y
   rewrite Nat.modSmall x (Nat.pow 2 k) smallX, Nat.modSmall y (Nat.pow 2 k) smallY at kept in
     rewrite Eq.sym kept in Nat.modLess (Nat.xor x y) (Nat.pow 2 k) positive
+
+-- Binary numbers written as their bits, the most significant first, `True`
+-- for a 1: `Nat.fromBits [True, False, True]` is 5. As `Nat.fromDigits` reads
+-- decimal digits.
+def Nat.fromBits (bits: List Bool): Nat := List.foldLeft bits 0 (acc bit => acc * 2 + Bool.toNat bit)
+
+theorem Nat.fromBitsExample: Nat.fromBits [True, False, True, True] = 11 := rfl
+
+-- `Nat.fromBits` starting from `a` instead of 0: `a` is shifted left past
+-- every bit.
+theorem Nat.fromBitsFrom: (a: Nat) → (bits: List Bool) →
+    List.foldLeft bits a (acc bit => acc * 2 + Bool.toNat bit) = a * Nat.pow 2 (List.length bits) + Nat.fromBits bits
+  | a, Nil => ring
+  | a, Cons bit rest => ring [Nat.fromBitsFrom (a * 2 + Bool.toNat bit) rest, Nat.fromBitsFrom (0 * 2 + Bool.toNat bit) rest]
+
+-- The first bit counts 2^n, for the n bits after it.
+theorem Nat.fromBitsCons (bit: Bool) (rest: List Bool):
+    Nat.fromBits (Cons bit rest) = Bool.toNat bit * Nat.pow 2 (List.length rest) + Nat.fromBits rest :=
+  rewrite Nat.fromBitsFrom (0 * 2 + Bool.toNat bit) rest in ring
+
+-- A number and its bits flipped add up to all 1s, `2^n - 1` for n bits.
+theorem Nat.fromBitsFlipped: (bits: List Bool) → Nat.fromBits bits + Nat.fromBits (List.map bits Bool.not) + 1 = Nat.pow 2 (List.length bits)
+  | Nil => rfl
+  | Cons bit rest =>
+    rewrite Nat.fromBitsCons bit rest, Nat.fromBitsCons (Bool.not bit) (List.map rest Bool.not), List.lengthMap rest Bool.not in
+      match bit with
+        | True => omega [Nat.fromBitsFlipped rest]
+        | False => omega [Nat.fromBitsFlipped rest]

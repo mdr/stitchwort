@@ -623,6 +623,12 @@ one the test first guessed.
   which the kernel accepts because `orElse o None` and `map o (x => x)`
   compute to the same match. True, but nobody would look for it under
   that name.
+
+  Added to std (SW-940): `Nat.fromBits` with `Nat.fromBitsFrom`,
+  `Nat.fromBitsCons` and `Nat.fromBitsFlipped`;
+  `List.transposeNColumnsFrom`, `List.transposeNColumns` and
+  `List.transposeColumns`; `Option.mapCong` and `Option.mapId`. The day
+  now uses them in place of `Bits.value` and its own lemmas.
 - **Nothing about `List.count` with `List.filterMap`.** How many of a
   column's bits are 1s, and its length, as counts over the numbers
   (`onesInColumn`, `columnLength`). Std candidates: `List.lengthFilterMap`
@@ -646,6 +652,7 @@ one the test first guessed.
   was stuck on `others`. `match t with | Nil => rfl | Cons … => rfl`
   proved it. When the stuck calls are stuck on the same variable,
   splitting it would close them all.
+  Fixed (SW-939): `cases` now splits `t` first; both proofs are `cases`.
 - **Goals show `List.count` as its insides, and `==` on an `Option` as a
   decision procedure.** With `mostCommon` broken, the open case read
   `List.foldLeft numbers 0 (n x => Nat.succIf n (Std.Decidable.toBool
@@ -660,6 +667,8 @@ one the test first guessed.
   (`| _, [number] => …`, `| Succ later, numbers => …`) checked. A note
   that matching a tuple of the parameters hides their pieces, with the
   clause form as the fix, would have saved the guess.
+  Fixed (SW-941): the error now has a note saying the tuple match is why,
+  suggesting `match numbers, columns with` (no brackets) or `decreasing`.
 
 ### 4. Inference: none
 
