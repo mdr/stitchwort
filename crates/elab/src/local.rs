@@ -287,6 +287,7 @@ fn component(cx: &mut Ctx, defs: &[LocalDef], keys: &[String], members: &[usize]
                 whole,
             }),
             update: None,
+            motive_later: false,
         });
     }
     Ok(())
@@ -431,6 +432,7 @@ pub(crate) fn draft(
             whole: span,
         }),
         update: None,
+        motive_later: false,
     });
     Ok(call)
 }
@@ -491,6 +493,14 @@ impl Elaborator {
                         }
                     }
                     Err(d) if crate::undo::fatal(&d) => return Err(d),
+                    Err(_) => ok = false,
+                }
+            }
+            // A `match` whose motive is checked when lifted: only if it holds.
+            if ok && d.motive_later {
+                match crate::matching::check_motive_when_lifted(self, d) {
+                    Ok(()) => {}
+                    Err(e) if crate::undo::fatal(&e) => return Err(e),
                     Err(_) => ok = false,
                 }
             }

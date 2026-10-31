@@ -27,7 +27,14 @@
 //! - a comparison, against an expected type or by `rfl`, that fails only
 //!   at unknowns the queue still has to settle ([`compare_waiting`],
 //!   [`Comparison`]; stage 6, tri-state unification): it waits for any of
-//!   them, and has no term.
+//!   them, and has no term;
+//! - a generalising `match` whose scrutinee or a variable's type in scope
+//!   holds an unsolved unknown, or whose expected type holds one the queue
+//!   has to settle (`matching.rs`, `WaitingMatch`; step 4.0 of stage 4,
+//!   D2090): it waits, whole, and has no default; its own type, which its
+//!   alternatives fix, is pending meanwhile ([`Check::settles_type`]); still
+//!   waiting at the end, it reports the unknown as finishing would
+//!   ([`Check::stuck_error`]).
 //!
 //! A resume point with nothing queued in its scope costs a length
 //! comparison.
@@ -106,6 +113,23 @@ pub(crate) trait Check {
     /// (stage 6, [`Comparison`]).
     fn wakes(&self, _g: &Globals) -> Result<bool> {
         Ok(false)
+    }
+
+    /// Its error if it is still waiting at the end, on `blocker` (the
+    /// unknown at the head of what it waits on, if one is): `None` for the
+    /// error its site raised before it could wait. A `match` waiting on an
+    /// ordinary unknown reports that unknown as finishing would
+    /// (`matching.rs`, `WaitingMatch`).
+    fn stuck_error(&self, _e: &Elaborator, _blocker: Option<usize>) -> Option<Diagnostic> {
+        None
+    }
+
+    /// Whether resuming it settles the unknown at the head of its type,
+    /// which is then one the queue still has to settle ([`pending`]): a
+    /// waiting `match` whose type is inferred, which its alternatives fix
+    /// (`matching.rs`, `WaitingMatch`).
+    fn settles_type(&self) -> bool {
+        false
     }
 }
 
@@ -367,11 +391,13 @@ pub(crate) fn unfilled_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
 }
 
 /// The unknowns the queue still has to settle (stage 6): each placeholder
-/// not filled yet that unification hasn't solved, and the unknown each
-/// waiting item waits on. Each is solved by the end of the declaration, by
+/// not filled yet that unification hasn't solved, the unknown each
+/// waiting item waits on, and the unknown at the head of a waiting item's
+/// type where its resumption settles it ([`Check::settles_type`], a waiting
+/// `match`). Each is solved by the end of the declaration, by
 /// an item's resumption or default, or its item is reported stuck; so a
 /// comparison that fails only on one of them can wait for it.
-fn pending(cx: &Ctx) -> Result<HashSet<usize>> {
+pub(crate) fn pending(cx: &Ctx) -> Result<HashSet<usize>> {
     let g = cx.g();
     let q = &cx.e.queue;
     let mut pending = HashSet::default();
@@ -384,10 +410,15 @@ fn pending(cx: &Ctx) -> Result<HashSet<usize>> {
         if !item.constraint && g.meta_solution(item.meta).is_none() {
             pending.insert(item.meta);
         }
-        if let State::Waiting(needs, _) = state
-            && let Some(m) = head_meta(g, &needs)?
-        {
-            pending.insert(m);
+        if let State::Waiting(needs, _) = state {
+            if let Some(m) = head_meta(g, &needs)? {
+                pending.insert(m);
+            }
+            if q.check(i).settles_type()
+                && let Some(m) = head_meta(g, &item.ty)?
+            {
+                pending.insert(m);
+            }
         }
     }
     Ok(pending)
@@ -555,7 +586,7 @@ impl Check for Comparison {
 }
 
 /// The unknown `m`, as a value with nothing applied.
-fn on(m: usize) -> Value {
+pub(crate) fn on(m: usize) -> Value {
     Value::Neutral(Head::Meta(m), Default::default())
 }
 
@@ -901,8 +932,11 @@ impl Elaborator {
                 None => reports.push((root, w)),
             }
         }
-        let mut errors =
-            (reports.iter()).map(|&(_, w)| self.queue.item(waiting[w].0).error.clone());
+        let mut errors = (reports.iter()).map(|&(_, w)| {
+            let (i, blocker) = waiting[w];
+            (self.queue.check(i).stuck_error(self, blocker))
+                .unwrap_or_else(|| self.queue.item(i).error.clone())
+        });
         let first = errors.next();
         self.branch_errors.borrow_mut().extend(errors.take(2));
         Ok(first)
@@ -924,6 +958,21 @@ static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
 static LAMBDA_POSTPONED: AtomicUsize = AtomicUsize::new(0);
 static RETRIED: AtomicUsize = AtomicUsize::new(0);
 static WAITED: AtomicUsize = AtomicUsize::new(0);
+static MATCH_WAITED: AtomicUsize = AtomicUsize::new(0);
+static MOTIVE_LATER: AtomicUsize = AtomicUsize::new(0);
+
+/// A generalising `match` queued to wait for an unknown its generalisation
+/// would read (`matching.rs`, `WaitingMatch`; step 4.0 of stage 4).
+pub(crate) fn note_match_waited() {
+    count(&MATCH_WAITED);
+}
+
+/// A `match`'s motive check left for when its helper is lifted, because the
+/// expected type or a copied variable's type held an unknown that only its
+/// alternatives may solve (`matching.rs`, `check_motive`).
+pub(crate) fn note_motive_later() {
+    count(&MOTIVE_LATER);
+}
 
 /// A lambda argument tried in place, failed, and checked again after the
 /// application's later arguments (`check::apply_args_postponing`): the
@@ -982,8 +1031,11 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// arguments (`lambda postponed`, the path §5.11 removes in stage 5); and
 /// elaborations run a second time with number literals last (`retried`,
 /// `check::retrying`, which K4 makes unneeded); and comparisons queued to
-/// wait for unknowns the queue still has to settle (`waited`, stage 6).
-pub fn counts() -> [(&'static str, usize); 16] {
+/// wait for unknowns the queue still has to settle (`waited`, stage 6); and
+/// generalising `match`es that waited for an unknown their generalisation
+/// would read (`match waited`, step 4.0 of stage 4), and motive checks left
+/// for lifting (`motive later`).
+pub fn counts() -> [(&'static str, usize); 18] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -1002,6 +1054,8 @@ pub fn counts() -> [(&'static str, usize); 16] {
         ("lambda postponed", get(&LAMBDA_POSTPONED)),
         ("retried", get(&RETRIED)),
         ("waited", get(&WAITED)),
+        ("match waited", get(&MATCH_WAITED)),
+        ("motive later", get(&MOTIVE_LATER)),
     ]
 }
 
