@@ -42,7 +42,8 @@ def agrees (l: Line): Bool := around.all (p => covers l p == l.points.contains p
 test "the spec's points" := [line 1 1 1 3, line 9 7 7 7, line 1 1 3 3, line 9 7 7 9, line 4 4 4 4, line 8 0 0 8, line 5 5 8 2].all agrees
 -- A line at another angle: the spec has its grid points, (0, 0), (2, 1)
 -- and (4, 2); the program, which steps one point at a time, wouldn't.
-test "a line at another angle" := around.filter (covers (line 0 0 4 2)) == [(0, 0), (2, 1), (4, 2)]
+test "a line at another angle" :=
+  around.filter (covers (line 0 0 4 2)) == [(0, 0), (2, 1), (4, 2)] ∧ (line 0 0 4 2).points == [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4)]
 
 -- The example's overlaps, as the spec counts them: part 1 has 5 points
 -- with two lines or more, part 2 has 12.

@@ -978,3 +978,213 @@ Release build:
    calc step's note (item 3).
 6. `Decidable.toBoolOfNot _`'s procedure isn't solved from the expected
    type (item 3).
+
+## Day 5: Hydrothermal Venture
+
+Each line of the input is a line of vents, `x1,y1 -> x2,y2`, which covers
+the grid points from one end to the other, both included. Every line is
+horizontal, vertical or diagonal at exactly 45 degrees. Part 1 takes only
+the horizontal and vertical lines and counts the points where at least two
+of them overlap; part 2 counts the same with every line. Answers on Matt's
+input (500 lines on a grid about 1000 by 1000): 8060 and 21577 (his Scala
+solution's); the puzzle's example gives 5 and 12. Compiler built from
+`main` at a093f9e9, 31 October 2026.
+
+### The program
+
+A line's points are `List.range (steps + 1)` mapped to the point `step`
+steps along, where `steps` is the larger of the line's two extents and
+`towards start stop step` moves one coordinate a step at a time (up, down,
+or not at all). Then:
+
+```stitchwort
+def overlaps (lines: List Line): Nat :=
+  Map.counts (lines.flatMap Line.points) |> .filter (_ times => 2 ≤ times) |> .size
+```
+
+with part 1 `overlaps (lines.filter Line.isStraight)` and part 2
+`overlaps lines`. The parser is `Parse.eachLine` with `nat`, `char ','`
+and `text " -> "`, and it rejects a line at any other angle ("line 1 isn't
+horizontal, vertical or diagonal"). Both answers were right on the first
+run; all 20 tests passed on the first run.
+
+**What the spec decides.** The spec (`Spec/Spec.sw`) says which points a
+line covers as geometry, not as a recipe: a point is on the segment when
+it is within the rectangle the two ends span and its distances across and
+down from the first end are in the segment's proportion,
+
+```stitchwort
+between line.x1 x line.x2 ∧ between line.y1 y line.y2
+  ∧ Nat.absDiff line.x1 x * Nat.absDiff line.y1 line.y2 == Nat.absDiff line.y1 y * Nat.absDiff line.x1 line.x2
+```
+
+which holds for a segment at any angle. "The number of points where at
+least two lines overlap" is the size of a set, so the spec says it with a
+list: `NumberOfPoints n wanted` is that some list of points without
+repeats has exactly the points `p` with `wanted p`, and `n` elements. A
+test checks the spec against the program point by point on seven lines
+over an 11 by 11 grid, and that the spec gives a 30-degree line its grid
+points ((0, 0), (2, 1), (4, 2)), which the program's step-at-a-time
+listing wouldn't.
+
+### Proved, for every input
+
+In `Aoc.Year2021.Day05.Proofs` (`Proofs/Proofs.sw`, 270 lines):
+
+- `part1Correct`: for every list of lines, `solvePart1 lines` is the
+  number of points where at least two of the horizontal and vertical
+  lines overlap (`Part1Answer lines (solvePart1 lines)`). No hypothesis.
+- `part2Correct`: for every list of lines in which every line is
+  horizontal (`y1 = y2`), vertical (`x1 = x2`) or diagonal at 45 degrees
+  (`|x1 - x2| = |y1 - y2|`), stated as `lines.all (line =>
+  horizontalOrVertical line ∨ diagonal line) = True`, `solvePart2 lines` is
+  the number of points where at least two lines overlap. The hypothesis is
+  needed: on `0,0 -> 4,2` the program lists (0, 0) to (4, 4) along the
+  diagonal, which mostly aren't on the line, and misses (2, 1) and (4, 2)
+  (a test checks this). The puzzle promises it, and the
+  parser checks it, but no theorem says the parser's output satisfies it.
+- `numberOfPointsUnique`: two lists that witness `NumberOfPoints` for the
+  same points have the same length, so the spec names one number
+  (`List.permOfSameMembers` and `List.permLength`).
+- On the way: the map's keys with a count of at least 2 are exactly the
+  points listed at least twice (`countedTwice`, from `Map.getOrCounts`,
+  `Map.getFilter`, `Map.memKeys` and `Map.keysDistinct`); a horizontal,
+  vertical or diagonal line lists a point once if it covers it and not at
+  all otherwise (`pointsCount`); so all the lines' points list a point
+  once per line covering it (`listedCoveredBy`). Under the shape
+  hypothesis the spec's proportion is linear (`coversLinear`: on a
+  horizontal or vertical line every point of the rectangle is on it, on a
+  diagonal those as far across as down, cancelling the common factor with
+  `Nat.mulSuccCancel`), and the line's `i`th point is `(x, y)` exactly
+  when the line covers `(x, y)` and `i` is its distance from the first end
+  (`pointLinear`, by the line's shape).
+- The example's answers as `rfl` theorems (`examplePart1`,
+  `examplePart2`, in `Tests/Examples.sw`).
+
+Nothing is left unproved; the one hypothesis is part 2's, above; nothing is
+opaque. `stitchwort audit Aoc.Year2021.Day05` (with the counterexample
+search): `audited 40 theorems: 0 failed, 0 with warnings, 40 passed`. The
+answers' theorems are "not applicable" to the search (their conclusions
+are `∃`); the lemmas under them had none found in 5,000 to 10,000 cases.
+
+Breaking the program breaks the proofs: `start + step` for `start - step`
+in `towards` makes `towardsEq` fail with a counterexample (`a = 1`, `b =
+0`); `1 ≤ times` for `2 ≤ times` in `overlaps` makes `overlapsCorrect`
+fail.
+
+### 1. Std.Parse: none
+
+`eachLine`, `nat`, `char` and `text` read the input as written, and the
+error for a bad number ("line 1, column 3: expected a number, got 'x'")
+came out as the test guessed.
+
+### 2. Missing std
+
+- **No cancellation of a nonzero factor.** `stitchwort search '(?a: Nat) *
+  ?c = ?b * ?c → _'` found nothing; grep found `Nat.mulSuccCancel` (`b *
+  Succ m = v * Succ m → b = v`) and `Nat.mulCancelLeft` (`1 ≤ n`, on the
+  left). The day proved the `Bool` form, `productDiagonal: d ≠ 0 → (ax * d
+  == ay * d) = (ax == ay)`. Std candidates: `Nat.mulRightCancel` with `c ≠
+  0`, and that `Bool` form.
+- **Counting one index of a range.** `count (range n) (i => c ∧ i == k) =
+  toNat c` when `k < n` (`countRangeOnce`) took `List.countOccurrences`,
+  `List.occurrencesOnce`, `List.distinctRangeFrom` and
+  `List.memRangeFromIntro`. Std candidate: `List.countRangeEq: (List.range
+  n).count (== k) = Bool.toNat (k < n)`.
+- **No size of a set of points that isn't a `Set`.** The spec defines
+  `NumberOfPoints` itself (a list without repeats with exactly those
+  points). A std notion of "the number of `x` with `p x`" for a `p` true
+  of finitely many, with the uniqueness lemma, would have saved the
+  definition and `numberOfPointsUnique`.
+
+### 3. Confusing errors
+
+- **A tuple pattern as a `def` parameter.** `def covers (line: Line) ((x,
+  y): Point): Bool` is `E-PARSE`, "expected a parameter's name, but found
+  `(`". A theorem in equation style takes `| (x, y) =>`, and `let (x, y)
+  := point` works in the body; the note could say so.
+- **An argument on its own line, indented like the call.** In
+  `pointStep`, `Eq.trans (Pair.mkBeqMk …)` then `(Eq.trans …)` on the next
+  line at the same indentation gave `E-TYPE-MISMATCH` on the second line,
+  as if it were the whole proof, and only after it `W-NO-EFFECT`, "this
+  line does nothing … it's a function missing its arguments", on the first.
+  The warning was the real cause. Reporting it first, or noting in the
+  error that the line before is a call missing its arguments, would point
+  at it.
+- **`cases` doesn't use implications.** With `hx: bx = True → ax ≤ d` in
+  scope, `cases` split `bx` but didn't apply `hx` in the case `bx = True`,
+  and couldn't close it ("goal: False = True"). Matching on `bx` by hand
+  and writing `let fx := hx rfl` in that case fixed it (`combineDiagonal`).
+- `if h: x1 = x2` with proofs as branches was `E-UNIVERSE`, whose note
+  gave the fix (`match Nat.decEq x1 x2 with | Yes h => … | No h => …`).
+
+### 4. Inference
+
+- `combineHorizontal _ _ i _ rfl …`, with the `Bool` `e` left `_` and its
+  proof `e = True` given as `rfl`, was `E-UNSOLVED` at the `_`: `rfl` was
+  checked before the goal fixed `e`. Stating the lemma with `True` in
+  place of `e` (the goal computes to it) avoided it.
+
+### 5. Performance
+
+`stitchwort run Aoc.Year2021.Day05.main` on the input takes 3.0 s (2.9 s
+user): `Map.counts` over all the lines' points. `check --no-cache` of the
+proofs and tests takes 2.1 s, and the audit with the search 2.4 s.
+
+### 6. Proofs, and the lemma search
+
+`stitchwort search` found `List.countFlatMap`, `List.countAppend`,
+`List.countMap` and `List.countCongMem`, and `search --rewrite
+'((_, _) == (_, _))'` found `Pair.mkBeqMk`, which the proof needed because
+`==` on pairs computes to `Pair.decMk …`, not to a conjunction. The `Map`
+and `Distinct` lemmas were found by grep. `cases` did most of the
+arithmetic: `towardsEq` (one coordinate, four `Nat`s, three `if`s, `min`,
+`max` and `absDiff`) closed with one `cases`. Both coordinates at once
+went over the 64-case budget (21 splits), so the proof splits by the
+line's shape (`match Nat.decEq x1 x2`, then `y1 y2`) and combines the
+coordinates with lemmas over abstract `Bool`s (`combineVertical`,
+`combineHorizontal`, `combineDiagonal`).
+
+- `search --at` on the project's proof file is `E-IMPORT-UNKNOWN` (it
+  reads the file on its own, as on days 3 and 4). In a scratch copy of the
+  lemmas it was `E-SEARCH-AT` at the goal `i ≤ Nat.absDiff y1 y2`: inside
+  `match Nat.decEq x1 x2`, the refined hypothesis `shape` leaves a
+  shadowed `shape✝`, which can't be written ("E-PARSE: unexpected
+  character `✝`"). It closed no goal this day.
+- `rewrite <- (p => listedCoveredBy lines shapes p) in counted`, to
+  rewrite under the spec's `(p: Point) → …` binder, was
+  `E-REWRITE-NOTHING`; a small congruence lemma (`numberOfPointsCong`) did
+  it.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2021.Day05.Proofs Aoc.Year2021.Day05.Tests` | 2.0 s user (2.1 s) |
+| `stitchwort run Aoc.Year2021.Day05.main` on the input (500 lines) | 2.9 s user (3.0 s) |
+| `stitchwort audit Aoc.Year2021.Day05` (with the search) | 2.3 s user (2.4 s) |
+
+76 lines of program, 62 of spec, 270 of proofs, 75 of tests.
+
+### Ranked
+
+1. `search --at` can't be used in a project's files, and in a scratch file
+   a `match` on a decision leaves shadowed hypotheses (`shape✝`) that make
+   the goal unwritable (item 6). Fix: project files (in progress
+   elsewhere), and skip or rename shadowed hypotheses.
+2. `cases` doesn't apply implication hypotheses (`b = True → fact`) in the
+   case that makes their premise hold (item 3). Fix: in each case, apply
+   such hypotheses whose premise the case fixed.
+3. No `Nat` cancellation by a nonzero factor, no count of one index of a
+   range, no "number of points with `p`" notion (item 2). Fix: add them to
+   std.
+4. An argument on the next line at the call's indentation reads as a new
+   statement; the error lands on the argument, the real clue is a warning
+   after it (item 3). Fix: report the warning first, or mention it in the
+   error.
+5. Tuple patterns aren't allowed as `def` parameters, and the parse error
+   doesn't suggest `let (x, y) := …` (item 3).
+6. A proof argument (`rfl`) is checked before a later `_` it depends on is
+   solved from the goal (item 4).
