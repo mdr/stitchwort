@@ -162,7 +162,14 @@ impl Elaborator {
                     continue; // already determined by unification
                 }
                 progress = true;
-                let proof = match prove(&mut cx, &ob.goal, 0) {
+                let goal = ob.goal.clone();
+                let proved = crate::queue::counted_search(
+                    &mut cx,
+                    &goal,
+                    crate::queue::Search::Auto,
+                    |cx| prove(cx, &goal, 0),
+                );
+                let proof = match proved {
                     Ok(proof) => proof,
                     Err(e) => {
                         return Err(crate::decreasing::explain_obligation(&mut cx, &ob.goal, e));

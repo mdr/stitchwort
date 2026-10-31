@@ -174,7 +174,9 @@ pub(crate) fn check_omega(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
         });
     }
     let lib = Lib::new(cx, *span)?;
-    prove_goal(cx, &lib, expected, &extra, *span)
+    crate::queue::counted_search(cx, expected, crate::queue::Search::Omega, |cx| {
+        prove_goal(cx, &lib, expected, &extra, *span)
+    })
 }
 
 /// `omega` for a premise of a `rewrite` rule left unknown (`rewrite.rs`,

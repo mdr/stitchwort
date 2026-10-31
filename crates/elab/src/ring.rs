@@ -87,8 +87,16 @@ pub(crate) fn no_goal(_cx: &Ctx, expr: &Expr) -> Diagnostic {
         .with_note("give it a type: `(ring: a * (b + c) = a * b + a * c)`")
 }
 
-/// `ring` against the goal `expected`.
+/// `ring` against the goal `expected`, counted where the goal holds an
+/// unknown the declaration will still settle (`queue::counted_search`).
 pub(crate) fn check_ring(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    crate::queue::counted_search(cx, expected, crate::queue::Search::Ring, |cx| {
+        ring_goal(cx, expr, expected)
+    })
+}
+
+/// [`check_ring`]'s `ring` itself.
+fn ring_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let Expr::Ring { facts, span } = expr else {
         unreachable!("only called on `ring`")
     };

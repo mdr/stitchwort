@@ -1,0 +1,34 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-NOTHING] Error: `rewrite` found no `Succ c.size` in the goal
+    ╭─[ reject/rewrite-waits-then-fails.sw:11:26 ]
+    │
+ 11 │   let f := c => (rewrite Nat.addComm c.size 1 in rfl: c.size = c.size)
+    │                          ──────────┬─────────  
+    │                                    ╰─────────── looking for `Succ c.size`
+    │ 
+    │ Note 1: goal: `c.size = c.size`
+    │ 
+    │ Note 2: the goal already holds by computing, so `rfl` proves it without a `rewrite`
+    │ 
+    │ Note 3: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
+    │ 
+    │ Note 4: to replace the right side by the left, write `rewrite <- …`
+────╯
+[E-REWRITE-NOTHING] Error: `rewrite` found no `Succ c.size` in the goal
+    ╭─[ reject/rewrite-waits-then-fails.sw:15:33 ]
+    │
+ 15 │   let f := (c: Box) => (rewrite Nat.addComm c.size 1 in rfl: c.size = c.size)
+    │                                 ──────────┬─────────  
+    │                                           ╰─────────── looking for `Succ c.size`
+    │ 
+    │ Note 1: goal: `c.size = c.size`
+    │ 
+    │ Note 2: the goal already holds by computing, so `rfl` proves it without a `rewrite`
+    │ 
+    │ Note 3: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
+    │ 
+    │ Note 4: to replace the right side by the left, write `rewrite <- …`
+────╯
