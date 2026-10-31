@@ -18,5 +18,10 @@ stitchwort-fmt.workspace = true
 # Must match the wasm-bindgen CLI in the Nix dev shell exactly.
 wasm-bindgen = "=0.2.129"
 
+[dev-dependencies]
+# Panics when a session runs on a thread smaller than its limits assume
+# (docs/testing.md, "Stack").
+stitchwort-core = { workspace = true, features = ["stack-check"] }
+
 [lints]
 workspace = true

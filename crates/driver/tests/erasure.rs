@@ -8,7 +8,7 @@
 use std::io::Cursor;
 use std::path::Path;
 
-use stitchwort_driver::driver::{Cache, Outcome, Session, par_map, with_stack};
+use stitchwort_driver::driver::{Cache, Outcome, Session, par_map, with_session, with_stack};
 use stitchwort_driver::run::Policy;
 
 const STACK: usize = 64 * 1024 * 1024;
@@ -239,13 +239,15 @@ fn proofs_in_data_cost_nothing_at_runtime() {
 }
 
 /// Loads `source`; every test must pass with and without erasure. Returns
-/// the steps taken with and without.
+/// the steps taken with and without. On a thread of the stack the session
+/// is told it has (docs/testing.md, "Stack").
 fn tests_pass_both_ways(source: &str, expected: usize) -> (u64, u64) {
-    let mut session = Session::for_stack(STACK);
-    if let Err(errors) = session.load("t.sw", source) {
-        panic!("{errors:#?}");
-    }
-    let ((a, wa), (b, wb)) = both(&mut session, outcomes);
+    let ((a, wa), (b, wb)) = with_session(STACK, Session::for_stack, |session| {
+        if let Err(errors) = session.load("t.sw", source) {
+            panic!("{errors:#?}");
+        }
+        both(session, outcomes)
+    });
     assert_eq!(a.len(), expected);
     for (name, o) in a.iter().chain(b.iter()) {
         assert_eq!(*o, "passed", "{name}");

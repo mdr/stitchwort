@@ -216,6 +216,18 @@ The test tiers run the counts part (`crates/bench/tests/baseline.rs`): one run o
 - **For a new export shape or codec, add an extraction example.** The random differential test then exercises it automatically.
 - **Before trusting a new test, break the code it tests and watch it fail.** `cargo mutants` does this systematically.
 
+### Stack
+
+A session is told how much stack it has: `Session::new()` and the other constructors without a size assume 2 MiB, a test thread's stack (`Limits::default()`); `Session::for_stack(n)`, `navigable_for_stack(n)` and `eager_for_stack(n)` assume `n`. Its stack guard stops deep code with `E-RESOURCE` a quarter short of that. A session told more than its thread has can't stop in time: deep code overflows the real stack first, which aborts the whole test binary instead of failing one test (SW-923: AoC day 22's 2000-deep evaluation did this to two tests run on libtest's 2 MiB thread with 16 MiB limits).
+
+So a session sized for a big stack runs on a thread of that size, made from the same number:
+
+- `with_session(STACK, Session::for_stack, |session| …)` (`stitchwort_driver::driver`) makes the thread and the session together, so they can't disagree. Prefer it for a new test.
+- `with_stack(STACK, || …)` around code that makes `Session::for_stack(STACK)` itself, and `par_map(STACK, …)`, whose workers have `STACK` each, do the same when the session is made inside.
+- A session with the default limits runs anywhere with at least 2 MiB.
+
+The tests check this. The `stack-check` feature of `stitchwort-core`, which the crates' dev-dependencies turn on, makes every outermost operation compare its stack limit with the stack its thread has left (`check_thread_fits` in `crates/core/src/budget.rs`, asking the thread library on Linux and macOS) and panic if the limit doesn't fit, naming this section. It's off in the builds people run.
+
 ## Where the time went
 
 25 Oct 2026, when the tiers came in (times under load, from the gate's nextest log, so relative): the slowest sweeps each built an eager session (the whole library, about 1.7 s) for every example, twice in `named_arguments`. A worker now builds one and rewinds it to a mark before each example (`par_map_with`; the `rewind` tests check that a rewound session is a fresh one): `named_arguments` `named_calls_keep_every_hash` went from 796 s to 3 s for the whole corpus, `hash_stability` `examples` from 532 s to 3 s, and `int` `metavariables_under_int_operations` from 175 s to 7 s. The `extract` tests each checked all 48 extraction examples to use one or two; they now check only the ones they use (about 10 s to under 1 s each, 54 tests). `rt` `lower` and `machine`'s example sweeps and `cli` `run_reference`'s examples moved from serial loops onto `par_map`.

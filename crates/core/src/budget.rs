@@ -111,6 +111,27 @@ impl Limits {
     }
 }
 
+/// With the `stack-check` feature (on in the tests), for an outermost
+/// operation: panics if `stack` bytes from here run past the end of this
+/// thread's stack, where the guard couldn't stop the operation before the
+/// thread overflowed (a hard abort). That's a session whose limits assume a
+/// bigger thread than it runs on: run it on one of the size its limits were
+/// made for (`stitchwort_driver::driver::with_session`).
+#[cfg(feature = "stack-check")]
+fn check_thread_fits(stack: usize) {
+    let Some(low) = stitchwort_syntax::stack::thread_stack_low() else {
+        return;
+    };
+    let here = stack_position();
+    let room = here.saturating_sub(low);
+    assert!(
+        stack <= room,
+        "an operation may use {stack} bytes of stack, but its thread has {room} left: \
+         its session's limits assume a bigger thread than it runs on \
+         (run it with stitchwort_driver::driver::with_session, docs/testing.md)"
+    );
+}
+
 impl Default for Limits {
     /// Safe on a 2 MiB thread: Rust's default for spawned threads and tests.
     fn default() -> Limits {
@@ -231,6 +252,10 @@ impl Budget {
     /// Like [`Budget::operation`], for callers that can't hold a borrow of
     /// the budget: the operation ends with [`Budget::restore`].
     pub fn start(&self, limits: Limits) -> Saved {
+        #[cfg(feature = "stack-check")]
+        if self.stack_floor.get() == 0 {
+            check_thread_fits(limits.stack);
+        }
         let saved = Saved {
             work: self.work.replace(0),
             limit: self.limit.replace(limits.work),
