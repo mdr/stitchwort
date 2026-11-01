@@ -1,5 +1,5 @@
 {
-  "next": 1046,
+  "next": 1047,
   "tickets": [
     {
       "id": 47,
@@ -3800,7 +3800,7 @@
     {
       "id": 1040,
       "title": "Documentation: editorial pass on std summaries that read badly",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3809,7 +3809,9 @@
       "body": "From SW-1036 review (1 Nov 2026). Summaries to fix (rewording allowed here): 22 core file headers start \"core/X.sw.\"; group headings attached to the first declaration (Nat.min, Map.Tree.Shape \"Rebalancing.\", Parse \"The operations.\", Mod.addNatZero \"The laws.\", List.length, Nat.leq, Bool.xor, Float.mul); about 30 List lemmas and the Graph chains start with So/And/The same; too short (Mod.zero \"0.\", Map.Tree, foldRight, Int.div, Omega.check, operator-only docs); describes something else (Text.splitCons, Text.wordsClose, Text.joinTextChars, Set.present, type Map, Parse.Reads); cut short by the summary splitter (Nat.sumBetween, Nat.isRun); no doc attached for types Float, Set, Vec, Fin, Mod, SafeNat, SafeInt (file header doesn't attach). Decided (Claude): references to the user guide (docs/syntax.md) stay --| since they help a caller.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "8e498bfe"
+      ]
     },
     {
       "id": 1041,
@@ -3885,6 +3887,21 @@
         "docs"
       ],
       "body": "Known limits from SW-1042 (accepted for now, 1 Nov 2026): (1) doc and check --index resolve links without the file's imports (they don't elaborate), so a link that only an import makes resolve gets no W-DOC-LINK from check but shows unresolved in doc and null in the index; (2) W-DOC-LINK is cached with the namespace check and links add no dependency, so a cached warning about a link into another namespace can go stale until that namespace changes or --no-cache; (3) the nearest-name suggestion scans every name in scope (~2 ms per unresolved link).\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1046,
+      "title": "Doc links aren't checked in std core/ files; restore the 16 reverted links; remaining summary fixes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs",
+        "bug"
+      ],
+      "body": "Found by SW-1040 (1 Nov 2026): a nonexistent [`Name`] link in a std core/ file (core/Logic.sw) passes `stitchwort audit Std --no-search`, while the same link in Vec/Grid.sw fails std's load. core files go through a different load path, so W-DOC-LINK never runs on them; 16 core links were reverted to plain backticks. Fix: check links in core files too, then restore those links. Also left by SW-1040: ~30 summaries still cut by the splitter (Parse findAll/labelWhole/Failure.found, Graph SearchResult/SearchState/BreadthState, Float Model/Theory, Omega ITerm/Fact.splits, Terminal Key.ofCsi/drawFrame, Effect.alwaysBind/foldCompD, byDecision, PrefixSums, IO.simulateWith); some theorem docs sum up several lemmas; 1426 std theorems and most instances have no doc.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
