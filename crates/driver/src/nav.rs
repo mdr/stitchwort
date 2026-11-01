@@ -2,6 +2,7 @@
 //! for the command line and the playground; and as data ([`Index`]), for
 //! the language server.
 
+use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use stitchwort_core::collections::HashMap;
@@ -333,8 +334,7 @@ pub fn index_data_of(
     };
     let mut parens: HashMap<FileId, Parens> = HashMap::default();
     // Each file's docs, read once from the text the session checked.
-    let mut docs: HashMap<FileId, std::collections::HashMap<u32, stitchwort_syntax::docs::Doc>> =
-        HashMap::default();
+    let mut docs: HashMap<FileId, BTreeMap<u32, stitchwort_syntax::docs::Doc>> = HashMap::default();
     let mut symbols = Vec::with_capacity(index.symbols.len());
     for symbol in &index.symbols {
         let file = file_of(symbol.span, &mut files);

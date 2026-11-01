@@ -5,7 +5,7 @@
 //! index, hover) calls [`docs`] on the file's text, which lexes it with
 //! trivia, and looks the declaration up by the byte offset of its name.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ast::{Decl, Module};
 use crate::lexer::{Comment, Tok, Trivia, lex_with_trivia};
@@ -61,8 +61,8 @@ impl Doc {
 /// declarations, and the constructors, fields and operations that have a line
 /// to themselves. A file that doesn't lex has none, and a declaration that
 /// doesn't parse is left out.
-pub fn docs(file: FileId, text: &str) -> HashMap<u32, Doc> {
-    let mut found = HashMap::new();
+pub fn docs(file: FileId, text: &str) -> BTreeMap<u32, Doc> {
+    let mut found = BTreeMap::new();
     let Ok(lexed) = lex_with_trivia(file, text) else {
         return found;
     };
@@ -76,7 +76,7 @@ pub fn docs(file: FileId, text: &str) -> HashMap<u32, Doc> {
     // A top-level declaration's doc is above the first token of its group,
     // so above its attributes. A group has one declaration (a signature's
     // equations have no name of their own here).
-    let mut done: HashSet<usize> = HashSet::new();
+    let mut done: BTreeSet<usize> = BTreeSet::new();
     for offset in tops {
         let group = groups.partition_point(|g| tokens[g.start].span.start <= offset);
         let Some(group) = group.checked_sub(1) else {
@@ -93,7 +93,7 @@ pub fn docs(file: FileId, text: &str) -> HashMap<u32, Doc> {
     // A member's doc is above its line, if it is the only member there and
     // starts it (after the `|` or `,` that introduces it), and the line isn't
     // the declaration's own.
-    let mut lines: HashMap<usize, Vec<u32>> = HashMap::new();
+    let mut lines: BTreeMap<usize, Vec<u32>> = BTreeMap::new();
     for offset in members {
         let Ok(i) = tokens.binary_search_by_key(&offset, |t| t.span.start) else {
             continue;

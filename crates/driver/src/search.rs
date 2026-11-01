@@ -13,9 +13,10 @@
 //!   means nothing in scope a named hole too (so a goal can be pasted), and
 //!   a leading `⊢` (or `|-`) matches conclusions only.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::{DataId, Globals};
 use stitchwort_elab::search::{
     Candidate, Found, Hit, Item, Kind, Mode, Opts, Pattern, SearchTier, Stats, Via,
@@ -835,7 +836,7 @@ impl Session {
 /// The docs of the files results are in, each read once from the text the
 /// session checked.
 #[derive(Default)]
-struct DocCache(HashMap<FileId, HashMap<u32, stitchwort_syntax::docs::Doc>>);
+struct DocCache(HashMap<FileId, BTreeMap<u32, stitchwort_syntax::docs::Doc>>);
 
 impl DocCache {
     /// The summary of the doc of the declaration whose name starts at `span`.
@@ -848,15 +849,12 @@ impl DocCache {
         // A definition's span is its header, from its keyword: the doc is
         // keyed by its name, which is inside. A generated definition's span
         // is its type's, whose name isn't the definition's: no doc.
-        let at = *docs
-            .keys()
-            .filter(|offset| span.start <= **offset && **offset < span.end)
-            .min()?;
+        let (&at, doc) = docs.range(span.start..span.end).next()?;
         let written = text[at as usize..]
             .split(|c: char| !(c.is_alphanumeric() || matches!(c, '_' | '\'' | '.')))
             .next()?;
         let last = |name: &str| name.rsplit('.').next().unwrap_or_default().to_string();
-        (last(written) == last(path)).then(|| docs[&at].summary.clone())
+        (last(written) == last(path)).then(|| doc.summary.clone())
     }
 }
 
