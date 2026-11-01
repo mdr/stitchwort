@@ -1,9 +1,9 @@
---| `Float`: a 64-bit IEEE 754 double, the JavaScript `number`
---| (docs/proposals/float.md). At run time it is the real double (a Rust
---| `f64`, a JS `number`); in the logic it is the record of its 64 bits, with
---| every NaN as the one NaN, `0x7FF8000000000000`. Two doubles are equal
---| exactly when their bits are, so `0.0` and `-0.0` differ and the NaN equals
---| itself (`Object.is`, not `===`; `===` is `Float.ieeeEq`).
+--| `Float`: a 64-bit IEEE 754 double, the JavaScript `number`. At run time
+--| it is the real double (a Rust `f64`, a JS `number`); in the logic it is
+--| the record of its 64 bits, with every NaN as the one NaN,
+--| `0x7FF8000000000000`. Two doubles are equal exactly when their bits are,
+--| so `0.0` and `-0.0` differ and the NaN equals itself (`Object.is`, not
+--| `===`; `===` is `Float.ieeeEq`).
 --|
 --| The exact operations (`neg`, `abs`, `isNaN`, `isFinite`, `==`, the
 --| order, the IEEE comparisons, `toInt`) are ordinary definitions over the
@@ -14,9 +14,10 @@
 --| `ceil`, `trunc`, `round`, `ofInt`, `ofNat`) are primitives: the checker
 --| computes them on known doubles with Rust's `f64`, under the contract of
 --| docs/proposals/float.md §3.3, and otherwise they are unknown functions.
---|
 --| `toText` is a primitive the checker never computes: each runtime supplies
 --| it (JS's `String(x)`).
+-- (docs/proposals/float.md)
+--
 -- The kernel, the runtime and the JS backend rely on these exact
 -- declarations, by content hash: `FLOAT_DATA_HASH` and the native hashes in
 -- `crates/core/src/float.rs`. Change one, and update those (a test prints
@@ -36,10 +37,11 @@ def Float.isValid (n: Nat): Bool :=
 
 type Float = { bits: Nat, valid: Float.isValid bits = True }
 
--- The witness `Float.make` puts in a record: on a known `b` it is
--- `Eq.refl True` whatever `p` is, so every way of building a `Float` with
--- known bits (a literal, a primitive's result, a definition, a native) gives
--- the same record (docs/proposals/float.md §3.4, D731).
+--| The witness `Float.make` puts in a record: on a known `b` it is
+--| `Eq.refl True` whatever `p` is, so every way of building a `Float` with
+--| known bits (a literal, a primitive's result, a definition, a native) gives
+--| the same record.
+-- (docs/proposals/float.md §3.4, D731)
 def Bool.canonicalTrue: (b: Bool) → b = True → b = True
   | True, _ => rfl
   | False, p => p
@@ -250,8 +252,8 @@ def Float.ofNat: Nat → Float
 
 --| JS's `String(x)`: `0.30000000000000004`, `1e+21`, `NaN`, `-Infinity`, and
 --| `0` for both zeros. The checker doesn't compute it (each runtime supplies
---| it; docs/proposals/float.md §2.6), so a test about its result runs only at
---| run time.
+--| it), so a test about its result runs only at run time.
+-- (docs/proposals/float.md §2.6)
 def Float.toText: Float → Text
 
 --| Neither infinite nor the NaN.
@@ -574,10 +576,10 @@ def Float.withSign (negative: Bool) (n: Nat): Int := if negative then Int.neg (O
 
 --| From the sign and the exponent field `e`, and the rest of the bits, `m =
 --| e * 2^52 + f`.
--- The significand `f + 2^52` is written `m - (e - 1) * 2^52`
--- (`e` isn't 0 there): `f + 2^52` computes to `2^52 + f` (`+` computes on
--- both sides), and `*` and `Nat.divFuel` in `wholeMagnitude` would count
--- that down 2^52 times while checking.
+-- The significand `f + 2^52` is written `m - (e - 1) * 2^52` (`e` isn't 0
+-- there): `f + 2^52` computes to `2^52 + f` (`+` computes on both sides),
+-- and `*` and `Nat.divFuel` in `wholeMagnitude` would count that down 2^52
+-- times while checking.
 def Float.toIntFrom (negative: Bool) (e: Nat) (m: Nat): Option Int :=
   if Nat.equal e 2047 then None
   else if Nat.equal e 0 then (if Nat.equal m 0 then Some (OfNat 0) else None)

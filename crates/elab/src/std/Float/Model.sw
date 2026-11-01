@@ -1,13 +1,13 @@
---| `Float.Model`: IEEE 754 double arithmetic, exact then rounded
---| (docs/proposals/float-laws.md §8). Every finite double is a whole number
---| of units of 2^-1074, the smallest subnormal; an operation computes its
---| exact result from those numbers, then rounds it once to the nearest
---| double, ties to even. `Float`'s rounding operations are these
+--| `Float.Model`: IEEE 754 double arithmetic, exact then rounded. Every
+--| finite double is a whole number of units of 2^-1074, the smallest
+--| subnormal; an operation computes its exact result from those numbers,
+--| then rounds it once to the nearest double, ties to even. `Float`'s rounding operations are these
 --| definitions; while a program runs, the machine's double arithmetic
 --| computes them instead.
 --|
 --| Everything here is over a double's 64 bits as a `Nat` (the NaN
 --| canonical), so that `Float` can use it.
+-- (docs/proposals/float-laws.md §8)
 
 import Float.Model.Location (Exact, BelowHalf, Half, AboveHalf)
 

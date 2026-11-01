@@ -1,8 +1,9 @@
---| The soundness of `Omega.check` (std/Omega/Omega.sw; docs/proposals/omega.md
---| §6.6): `Omega.prove` says that a certificate the checker accepts proves the
---| goal from the facts, for every environment, whatever the lengths of its
---| lists. Every lemma is about values at a given environment: no function or
---| propositional extensionality, no assumptions.
+--| The soundness of `Omega.check` (std/Omega/Omega.sw): `Omega.prove` says
+--| that a certificate the checker accepts proves the goal from the facts, for
+--| every environment, whatever the lengths of its lists. Every lemma is about
+--| values at a given environment: no function or propositional
+--| extensionality, no assumptions.
+-- (docs/proposals/omega.md §6.6)
 
 import Omega.Env (MkEnv)
 import Omega.NTerm (NV, NLit, NAdd, NSucc, MulLeft, MulRight)
