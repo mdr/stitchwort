@@ -43,6 +43,18 @@ theorem DecEq.neFalse [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = Fa
 theorem DecEq.neTrue [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = True): Not (x = y) :=
   same => Bool.falseNotTrue (rewrite Decidable.toBoolOfNot (Decidable.not (DecEq.decide x y)) (differ => differ same) at h)
 
+--| A nonzero factor on the right doesn't change `==`: cancelling, as a `Bool`.
+-- It is here, not beside [`Nat.mulRightCancel`] in std/Nat/Arith.sw, because
+-- it uses [`DecEq.refl`]: in Arith.sw it made every program that loads the
+-- list toolkit load this file too.
+theorem Nat.mulRightCancelBool (a: Nat) (b: Nat) (c: Nat) (nz: c ≠ 0): (a * c == b * c) = (a == b) :=
+  match Nat.decEq a b with
+    | Yes same => rewrite same, DecEq.refl (b * c) in rfl
+    | No differ =>
+      match Nat.decEq (a * c) (b * c) with
+        | Yes e => Void.exfalso (differ (Nat.mulRightCancel a b c nz e))
+        | No e => rfl
+
 --| `x == y` is `y == x`.
 theorem DecEq.eqComm [auto eq: DecEq a] (x: a) (y: a): (x == y) = (y == x) :=
   Bool.eqOf (x == y) (y == x) (h => rewrite DecEq.sound x y h in DecEq.refl y) (h => rewrite DecEq.sound y x h in DecEq.refl x)
