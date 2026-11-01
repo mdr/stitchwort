@@ -19,4 +19,4 @@ test "real input, no lone antennas" :=
 -- directions, so there are no antinodes between antennas: each pair has one
 -- on either side, as the puzzle says.
 test "real input, no antinodes between antennas" :=
-  inputCity.antennaPairs.all (((far, near)) => (near.minus far).row % 3 != 0 || (near.minus far).column % 3 != 0)
+  inputCity.antennaPairs.all (((far, near)) => (near.minus far).rows % 3 != 0 || (near.minus far).columns % 3 != 0)

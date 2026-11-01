@@ -10,24 +10,13 @@
 -- `Aoc.Year2024.Day08.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day08
+import Aoc.Common (Offset, Position)
 import Std (Char, Fail, IO, Int, List, Nat, Option, Parse, Set, Text)
 
 def main(): {IO, Fail} () :=
   let city := parseCity IO.readAll()
   IO.print "Part 1: ${solvePart1 city}"
   IO.print "Part 2: ${solvePart2 city}"
-
--- A grid point, on the map or off it, or the difference between two.
-type Position = { row: Int, column: Int }
-
-def Position.plus (position: Position) (other: Position): Position :=
-  { row = position.row + other.row, column = position.column + other.column }
-
-def Position.minus (position: Position) (other: Position): Position :=
-  { row = position.row - other.row, column = position.column - other.column }
-
-def Position.times (position: Position) (factor: Int): Position :=
-  { row = position.row * factor, column = position.column * factor }
 
 type Antenna = { frequency: Char, position: Position }
 
@@ -47,11 +36,10 @@ def parseCity (input: Text): {Fail} City :=
     rows.withIndex.flatMap (((row, cells)) =>
       Fail.ensure (cells.length == width) "line ${row + 1}: expected ${width} characters, as on the first line, got ${cells.length}"
       cells.withIndex.filterMap (((column, cell)) =>
-        cell.map (frequency => ({ frequency, position = { row = row.toInt, column = column.toInt } }: Antenna))))
+        cell.map (frequency => ({ frequency, position = { row, column } }: Antenna))))
   { height = rows.length, width, antennas }
 
-def City.contains (city: City) (position: Position): Bool :=
-  0 <= position.row && position.row < city.height.toInt && 0 <= position.column && position.column < city.width.toInt
+def City.contains (city: City) (position: Position): Bool := position.within city.height city.width
 
 -- Every pair of two antennas with the same frequency, both ways round.
 def City.antennaPairs (city: City): List (Position, Position) :=
@@ -65,34 +53,35 @@ def City.antennaPairs (city: City): List (Position, Position) :=
 def City.locations (city: City) (positions: List Position): Set Position := positions.filter city.contains |> Set.fromList
 
 -- The points in line with `far` and `near` where `far` is twice as far away
--- as `near`: past `near`, and a third of the way from `near` to `far` when
--- that is a grid point.
+-- as `near`: past `near` by the step from `far` to it, and a third of the
+-- way back from `near` to `far` when that is a grid point. Those above or
+-- left of the map are left out here, the rest past it by `locations`.
 def antinodesOf (far: Position) (near: Position): List Position :=
   let difference := near.minus far
-  let past := near.plus difference
-  if difference.row % 3 == 0 && difference.column % 3 == 0 then
-    [past, near.minus { row = difference.row / 3, column = difference.column / 3 }]
-  else [past]
+  let steps := if difference.rows % 3 == 0 && difference.columns % 3 == 0 then [difference, (divideBy difference 3).negate] else [difference]
+  steps.filterMap near.offset
 
 -- Both parts divided by `divisor`, rounding down; unchanged for 0.
-def Position.divideBy (position: Position): Nat → Position
-  | Zero => position
+def divideBy (offset: Offset): Nat → Offset
+  | Zero => offset
   | Succ below =>
     let divisor := (Succ below).toInt
-    { row = position.row / divisor, column = position.column / divisor }
+    { rows = offset.rows / divisor, columns = offset.columns / divisor }
 
 -- The smallest step from `start` towards `end` that lands on grid points:
--- the difference divided by the greatest common divisor of its parts.
-def Position.stepToward (start: Position) (end: Position): Position :=
+-- the offset between them divided by the greatest common divisor of its
+-- parts.
+def Position.stepToward (start: Position) (end: Position): Offset :=
   let difference := end.minus start
-  difference.divideBy (Nat.gcd difference.row.natAbs difference.column.natAbs)
+  divideBy difference (Nat.gcd difference.rows.natAbs difference.columns.natAbs)
 
 -- The grid points in line with `start` and `end`: whole steps from `start`
 -- either way, as many as the map is high or wide, which reaches past it.
+-- Those above or left of the map are left out here.
 def City.harmonics (city: City) (start: Position) (end: Position): List Position :=
   let step := start.stepToward end
   List.range (Nat.max city.height city.width)
-    |> .flatMap (count => [start.plus (step.times count.toInt), start.minus (step.times count.toInt)])
+    |> .flatMap (count => [step.times count.toInt, (step.times count.toInt).negate] |> .filterMap start.offset)
 
 def solvePart1 (city: City): Nat :=
   city.antennaPairs |> .flatMap (((far, near)) => antinodesOf far near) |> city.locations |> .size
