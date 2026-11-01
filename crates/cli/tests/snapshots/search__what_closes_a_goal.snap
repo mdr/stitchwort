@@ -50,7 +50,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "file": "std/core/Division.sw",
       "import": "import Std (Nat)",
       "kind": "theorem",
-      "line": 43,
+      "line": 42,
       "name": "Std.Nat.leTrans",
       "proof": "Nat.leTrans a b c h1 h2",
       "searchRank": 15,
@@ -85,7 +85,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "file": "std/List/SortLemmas.sw",
       "goal": "Std.Ordering.isLessEq (Nat.compare a c) = True",
       "import": "import Std (Nat)",
-      "line": 492,
+      "line": 491,
       "name": "Std.Nat.compareLeq",
       "proof": "rewrite <- Nat.compareLeq a c in ?",
       "type": "(m: Nat) → (n: Nat) → Ordering.isLessEq (Nat.compare m n) = (m <= n)"
