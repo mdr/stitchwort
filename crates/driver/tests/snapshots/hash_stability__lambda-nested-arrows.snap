@@ -4,8 +4,8 @@ expression: "lines(session, d, f)"
 ---
 Main.roll b64f3067c458c3ff8187530de2e4f55b191a8a8c57eb859b4b8cc9c7ec3e214c
 Main.test "let, fixed by the body" a5e506f187849001ffdbe5aa76d91408359627d15321ba5ddf3cfb94c03700ee
-Main.test "let, fixed by the use" 01b71dad4fb8d74b8301f2bf7b5e6d3bb8bc92abb9d92643b49733ba26163368
-Main.test "let, three parameters" 374c4ec08dec0666eb4e608ab8342f3ff523332343b4bc43dc4abd8c460e9c09
+Main.test "let, fixed by the use" 701a7e86ae189a9749ddd104df205f4fd7d3111ba5f09259e0615e8c5176a25a
+Main.test "let, three parameters" 798f3f66f13baff1a3e24c19945808b902e11f5a3c0ff8721241ad024702df62
 Main.checkedNested a64e5c538e285d132ed8217a425206e5bee66f6aa5331ff5ee44459c18b7ca93
 Main.checkedFlat a64e5c538e285d132ed8217a425206e5bee66f6aa5331ff5ee44459c18b7ca93
 Main.test "let, with effects" 45674cb3f83b5ed1af3d851f28c766af90d179cbfe1e3dc142bad15c47c9e81c

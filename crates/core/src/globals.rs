@@ -456,6 +456,12 @@ pub struct Globals {
     /// aren't shown. Kept in step with the queue; cleared with `metas`.
     /// Only affects messages.
     pub placeholder_syntax: RefCell<crate::collections::HashMap<usize, PlaceholderSyntax>>,
+    /// The unfilled placeholders of number literals waiting for their type
+    /// (K4, step 4.3): the literal, and the type it waits on. A comparison
+    /// meeting one against the same numeral at a known type takes that type
+    /// (D2110; `unify`). Kept in step with the queue; cleared with `metas`.
+    pub waiting_literals:
+        RefCell<crate::collections::HashMap<usize, (Rc<num_bigint::BigUint>, crate::value::Value)>>,
     /// How the printer shows calls of local definitions while their owner
     /// is checked (docs/proposals/syntax-conveniences.md §2.5): `go a b`,
     /// not the lifted call with its captures. Cleared with `metas`. Only
@@ -696,6 +702,7 @@ impl Globals {
         self.lifted_calls.borrow_mut().clear();
         self.unfilled_placeholders.borrow_mut().clear();
         self.placeholder_syntax.borrow_mut().clear();
+        self.waiting_literals.borrow_mut().clear();
         self.meta_trail.borrow_mut().clear();
         self.print_labels.borrow_mut().clear();
     }
@@ -736,6 +743,7 @@ impl Globals {
             lifted_calls: _,
             unfilled_placeholders: _,
             placeholder_syntax: _,
+            waiting_literals: _,
             print_labels: _,
             hashes,
             budget,

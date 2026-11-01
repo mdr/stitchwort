@@ -170,6 +170,27 @@ pub(crate) trait Check {
     fn display(&self, _cx: &Ctx) -> Option<String> {
         None
     }
+
+    /// Whether what fills its placeholder is a literal, cheap to compute
+    /// (a number literal waiting for its type, K4): a decision's search
+    /// then keeps the placeholder as an operand, as it keeps a literal,
+    /// rather than binding it (`bind::operand`).
+    fn literal(&self) -> Option<Rc<num_bigint::BigUint>> {
+        None
+    }
+}
+
+/// Whether `term` is the placeholder of a check whose term is a literal
+/// ([`Check::literal`]), not filled yet: a waiting number.
+pub(crate) fn waiting_literal(e: &Elaborator, term: &Term) -> bool {
+    let Term::Meta(m) = term.strip_loc().spine().0 else {
+        return false;
+    };
+    let q = &e.queue;
+    (0..q.len()).rev().any(|i| {
+        let item = q.item(i);
+        item.meta == *m && !matches!(q.state(i), State::Done) && q.check(i).literal().is_some()
+    })
 }
 
 /// What a resumed check gives.
@@ -194,7 +215,6 @@ pub(crate) enum Resumed {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub(crate) enum Priority {
     FieldNames,
-    #[cfg_attr(not(test), expect(dead_code, reason = "K4's default, stage 4"))]
     Nat,
 }
 
@@ -343,8 +363,10 @@ impl Queue {
         let states = self.states.borrow();
         let mut unfilled = g.unfilled_placeholders.borrow_mut();
         let mut shown = g.placeholder_syntax.borrow_mut();
+        let mut literals = g.waiting_literals.borrow_mut();
         unfilled.clear();
         shown.clear();
+        literals.clear();
         for (i, item) in items.iter().enumerate() {
             if matches!(states[i], State::Done) || item.constraint {
                 continue;
@@ -352,6 +374,9 @@ impl Queue {
             unfilled.insert(item.meta);
             if let Some(display) = &item.display {
                 shown.insert(item.meta, display.clone());
+            }
+            if let Some(k) = item.check.literal() {
+                literals.insert(item.meta, (k, item.ty.clone()));
             }
         }
     }
@@ -642,7 +667,34 @@ pub(crate) fn unfilled_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
         return Ok(None);
     }
     let term = crate::interfaces::scanned(cx, v)?;
-    let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+    unfilled_among(cx, &term, &unfilled)
+}
+
+/// [`unfilled_in`] for the term `term` as written, not its value: the
+/// placeholders among its own subterms, not those inside what its
+/// variables or calls stand for. It computes nothing, so it costs nothing
+/// on a term whose value is large to compute (step 4.3: `bananasBySequence
+/// 50 buyers == …`).
+pub(crate) fn unfilled_in_term(cx: &Ctx, term: &Term) -> Result<Option<usize>> {
+    let q = &cx.e.queue;
+    let unfilled: Vec<usize> = {
+        let (items, states) = (q.items.borrow(), q.states.borrow());
+        (0..items.len())
+            .filter(|&i| !matches!(states[i], State::Done) && !items[i].constraint)
+            .map(|i| items[i].meta)
+            .filter(|&m| cx.g().meta_solution(m).is_none())
+            .collect()
+    };
+    if unfilled.is_empty() {
+        return Ok(None);
+    }
+    unfilled_among(cx, term, &unfilled)
+}
+
+/// The first of the placeholders `unfilled` that `term`, with the solved
+/// unknowns written in, mentions.
+fn unfilled_among(cx: &Ctx, term: &Term, unfilled: &[usize]) -> Result<Option<usize>> {
+    let term = cx.e.zonk_keeping(term, cx.level(), &|_| true)?;
     Ok(term.subterms().find_map(|(t, _)| match t {
         Term::Meta(m) if unfilled.contains(m) => Some(*m),
         _ => None,
@@ -719,6 +771,27 @@ pub(crate) fn search_pending_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
         Term::Meta(m) if pending.contains(m) => Some(*m),
         _ => None,
     }))
+}
+
+/// Whether `v`'s shape may still change once the queue settles an unknown
+/// it still has to ([`pending`]): `v` is one, applied, or is flexible (a
+/// call stuck, an unknown applied) and mentions one (`unify::on_pending`).
+/// A check against it that needs its shape (`rfl` needs an equation) can
+/// wait for it through a comparison. Free while nothing is queued.
+pub(crate) fn headed_by_pending(cx: &Ctx, v: &Value) -> Result<bool> {
+    if cx.e.queue.len() == 0 {
+        return Ok(false);
+    }
+    let pending = pending(cx)?;
+    if pending.is_empty() {
+        return Ok(false);
+    }
+    Ok(crate::unify::on_pending_in(
+        cx.g(),
+        cx.level(),
+        v,
+        &pending,
+    )?)
 }
 
 /// A tactic run against a goal: `rewrite`'s, `cases`'.
@@ -1003,7 +1076,7 @@ pub(crate) fn on(m: usize) -> Value {
 
 /// Queues `check`, a comparison with no term of its own, waiting on unknown
 /// `blocker`, with `error` if it stays stuck.
-fn queue_constraint(
+pub(crate) fn queue_constraint(
     cx: &Ctx,
     check: Rc<dyn Check>,
     blocker: usize,
@@ -1087,6 +1160,29 @@ fn placeholder_call(cx: &Ctx, placeholder: &Term, term: &Term) -> Result<Option<
 }
 
 impl Elaborator {
+    /// The terms the checks filled their placeholders with, with their
+    /// operators specialised as the declaration's own term is at the end
+    /// ([`Elaborator::specialise_operators`], §5.10): a check resumed late
+    /// (a decision waiting for a literal, step 4.3) may have left an
+    /// operator generic whose dictionary was found after it. Zonking writes
+    /// these terms in place of the placeholders, so they are specialised
+    /// before it.
+    pub(crate) fn specialise_fills(&self) -> Result<()> {
+        if self.operator_dictionaries.borrow().is_empty() {
+            return Ok(());
+        }
+        for i in 0..self.queue.len() {
+            let m = self.queue.item(i).meta;
+            let Some((s, call)) = self.globals.lifted_calls.borrow().get(&m).cloned() else {
+                continue;
+            };
+            if let Some(call) = self.specialise_operators(&call, s)? {
+                (self.globals.lifted_calls.borrow_mut()).insert(m, (s, Rc::new(call)));
+            }
+        }
+        Ok(())
+    }
+
     /// W1: the end of an application, which began with `from` items
     /// queued. Resumes those queued since that can be, and only those
     /// (invariant 3).
@@ -1291,6 +1387,20 @@ impl Elaborator {
     /// not touched (invariant 3). Whether anything was resumed or
     /// defaulted.
     pub(crate) fn settle_rule(cx: &Ctx, from: usize, metas: usize) -> Result<bool> {
+        Self::settle_closed(cx, from, Some(metas))
+    }
+
+    /// A search pattern, the whole of what its elaboration made (`search.rs`):
+    /// settled as a rule is ([`Elaborator::settle_rule`]). It is closed by
+    /// construction (nothing else is elaborated with it); its holes' types,
+    /// which the rule's check would count as outside, are its own.
+    pub(crate) fn settle_pattern(cx: &Ctx) -> Result<bool> {
+        Self::settle_closed(cx, 0, None)
+    }
+
+    /// [`Elaborator::settle_rule`], with invariant 7's closed check for a
+    /// rule that began at unknown `metas`.
+    fn settle_closed(cx: &Ctx, from: usize, metas: Option<usize>) -> Result<bool> {
         let e = cx.e;
         if e.queue.len() <= from {
             return Ok(false);
@@ -1300,14 +1410,29 @@ impl Elaborator {
             count(&RULE_SETTLED);
         }
         #[cfg(debug_assertions)]
-        e.assert_rule_closed(cx, from, metas)?;
-        #[cfg(not(debug_assertions))]
-        let _ = metas;
+        if let Some(metas) = metas {
+            e.assert_rule_closed(cx, from, metas)?;
+        }
+        let metas = metas.unwrap_or(0);
         e.defaults_from(from, |e| {
             any = true;
             count(&RULE_DEFAULTED);
             e.resume_from(from).map(drop)
         })?;
+        // The dictionaries the rule's operators need whose types are now
+        // known (`m + 1` on a number whose type only a waiting literal
+        // said: its `Add`), found as `check::compare` finds them: only the
+        // rule's own (made at or after `metas`), and only those whose type
+        // has no unknown left, so the answer can't depend on when.
+        let own: Vec<usize> = (e.obligations.borrow().iter())
+            .filter_map(|ob| match ob.meta.spine().0 {
+                Term::Meta(m) if *m >= metas => Some(*m),
+                _ => None,
+            })
+            .collect();
+        if !own.is_empty() {
+            any |= e.solve_ready_instances_keeping(&[], Some(&own))?;
+        }
         Ok(any)
     }
 

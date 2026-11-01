@@ -779,7 +779,17 @@ impl Elaborator {
                 )?;
                 decisive.push(hole);
             }
-            let (term, ty) = infer(&mut cx, expr)?;
+            let (term, mut ty) = infer(&mut cx, expr)?;
+            // A pattern is a closed pattern, as a `rewrite` rule is
+            // (invariant 7, D2087): its own waiting checks are settled,
+            // defaults included, before it is searched for, so `_ + 0 = _`
+            // is on `Nat` (its `0` waited, K4) and not on an unknown type.
+            let term = if crate::Elaborator::settle_pattern(&cx)? {
+                ty = cx.eval(&cx.quote_folded(&ty)?)?;
+                self.zonk_keeping(&term, 0, &|_| true)?
+            } else {
+                term
+            };
             let value = cx.eval(&term)?;
             let ty = Ty::of(g, ty).ok();
             if let Value::Neutral(Head::Meta(_), s) = force(g, value.clone())?

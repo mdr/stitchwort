@@ -3697,14 +3697,26 @@ pub(crate) fn check_value(
                 Err(refl_error(cx, a, b))
             }
         }
-        (Expr::Var(name), _) if name.text == "rfl" && cx.lookup("rfl").is_none() => Err(cx.error(
-            "E-TYPE-MISMATCH",
-            "type mismatch",
-            format!(
-                "`rfl` proves an equation, but the expected type is `{}`",
-                cx.show(&expected)
-            ),
-        )),
+        (Expr::Var(name), _) if name.text == "rfl" && cx.lookup("rfl").is_none() => {
+            // The expected type is a placeholder its check hasn't filled (a
+            // number group waiting for its type, stage 4): `rfl` is `?x = ?x`,
+            // compared with it, which waits for it (stage 6).
+            if crate::queue::headed_by_pending(cx, &expected)? {
+                let ty = cx.fresh_meta();
+                let x = cx.fresh_meta();
+                let (ty, x) = (cx.eval(&ty)?, cx.eval(&x)?);
+                let eq = Value::Eq(Rc::new(ty), Rc::new(x.clone()), Rc::new(x));
+                return compare(cx, Term::Refl, &eq, &expected);
+            }
+            Err(cx.error(
+                "E-TYPE-MISMATCH",
+                "type mismatch",
+                format!(
+                    "`rfl` proves an equation, but the expected type is `{}`",
+                    cx.show(&expected)
+                ),
+            ))
+        }
         (Expr::List(items, _), Value::Data(d, params)) => {
             let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
             let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
@@ -4012,8 +4024,16 @@ fn check_if_in(
     match binder {
         None => {
             let unit_data = builtin_data(cx, Builtin::Unit)?;
-            let cond = match crate::logic::condition(cx, cond, "if")? {
+            let condition = crate::logic::condition(cx, cond, "if")?;
+            // A decision that has to wait is made now for the branches'
+            // proofs; if they don't use them, the `Bool` it is waits.
+            let waiting =
+                matches!(condition, crate::logic::Condition::Waiting { .. }).then(|| cond.span());
+            let cond = match condition.decided_now(cx, cond.span())? {
                 crate::logic::Condition::Bool(cond) => cond,
+                crate::logic::Condition::Waiting { .. } => {
+                    unreachable!("decided_now decides a waiting condition")
+                }
                 crate::logic::Condition::Decided { prop, decision } => {
                     let as_bool = decision.clone();
                     let decision = decision.term(cx)?;
@@ -4027,7 +4047,7 @@ fn check_if_in(
                         then,
                         otherwise,
                     )?;
-                    return unused_proof_if(cx, decided, as_bool, prop, result_ty);
+                    return unused_proof_if(cx, decided, as_bool, prop, result_ty, waiting);
                 }
             };
             let unit = Value::Data(unit_data, Vec::new());
@@ -4095,6 +4115,7 @@ fn unused_proof_if(
     decision: crate::bind::Decision,
     prop: Term,
     result_ty: Term,
+    waiting: Option<Span>,
 ) -> Result<Term> {
     let Term::App(rest, otherwise, _) = &decided else {
         return Ok(decided);
@@ -4111,8 +4132,17 @@ fn unused_proof_if(
             }
         })
     };
+    // A number literal waiting for its type (K4) is applied to every
+    // variable in scope, the proof too, but it is a literal once filled:
+    // it doesn't use the proof (step 4.3).
+    let literals = |t: &Term, _: usize| {
+        crate::queue::waiting_literal(cx.e, t).then(|| Term::Nat(Rc::new(0u32.into())))
+    };
     let uses_proof = |branch: &Term| match branch.strip_loc() {
-        Term::Lam(_, _, body) => body.mentions(0),
+        Term::Lam(_, _, body) => match crate::unify::fold_back(cx.g(), body, 0, &literals) {
+            Ok(Some(body)) => body.mentions(0),
+            _ => body.mentions(0),
+        },
         _ => true,
     };
     let mut branches = [zonked(cx, then)?, zonked(cx, otherwise)?];
@@ -4135,7 +4165,15 @@ fn unused_proof_if(
             return Ok(decided);
         }
     }
-    let cond = decision.into_bool(cx, prop)?;
+    // A decision that had to wait (`decision_blocker`) is the `Bool` it
+    // decides once it can be decided, not the one made at once.
+    let cond = match waiting {
+        Some(span) => {
+            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+            decide_or_wait(cx, span, &prop, &bool_ty, Depth::Written)?
+        }
+        None => decision.into_bool(cx, prop)?,
+    };
     let ite = builtin_def(cx, Builtin::IfThenElse)?;
     let head = Term::app_icit(Term::Def(ite), result_ty, Icit::Implicit);
     Ok(Term::app(
@@ -4415,21 +4453,96 @@ fn decide_to_bool(
     {
         return Ok(None);
     }
-    let span = expr.span();
-    if let Some(placeholder) = crate::queue::unfilled_in(cx, &cx.eval(term)?)? {
-        // Reported only if it is what nothing unblocks, which it never is
-        // while the check its placeholder stands for waits (§5.9).
-        let error = Diagnostic::error("E-CANNOT-INFER", "can't decide this proposition yet")
-            .with_label(span, "it holds a value whose type isn't known here");
-        let decide = Decide {
-            span,
-            term: term.clone(),
-        };
-        let needs = Value::Neutral(Head::Meta(placeholder), Default::default());
-        let term = crate::queue::queue(cx, Rc::new(decide), needs, expected.clone(), error)?;
-        return Ok(Some(term));
+    decide_or_wait(cx, expr.span(), term, expected, Depth::Value).map(Some)
+}
+
+/// Where [`decision_blocker`] looks for a placeholder.
+#[derive(Clone, Copy)]
+pub(crate) enum Depth {
+    /// In the proposition's value, through its variables and calls (D2035:
+    /// `check b`, with `check := r => 3 ∈ r.items`).
+    Value,
+    /// In the proposition as written: an operand that is itself a
+    /// placeholder (a literal waiting for its type). Computes nothing (an
+    /// operand's value may be costly: `bananasBySequence 50 buyers`).
+    Written,
+}
+
+/// The proposition `term`, written at `span`, decided as a `Bool`
+/// (`expected`): at once, or, while it holds what its decision can't be
+/// made from yet ([`decision_blocker`]), as a queued [`Decide`] that waits
+/// for it (D2035; step 4.3).
+pub(crate) fn decide_or_wait(
+    cx: &mut Ctx,
+    span: Span,
+    term: &Term,
+    expected: &Value,
+    depth: Depth,
+) -> Result<Term> {
+    let Some(blocker) = decision_blocker(cx, term, depth)? else {
+        return decided(cx, span, term);
+    };
+    // Reported only if it is what nothing unblocks, which it never is while
+    // the check its placeholder stands for waits (§5.9).
+    let error = Diagnostic::error("E-CANNOT-INFER", "can't decide this proposition yet")
+        .with_label(span, "it holds a value whose type isn't known here");
+    let decide = Decide {
+        span,
+        term: term.clone(),
+        depth,
+    };
+    crate::queue::queue(
+        cx,
+        Rc::new(decide),
+        crate::queue::on(blocker),
+        expected.clone(),
+        error,
+    )
+}
+
+/// What the decision of the proposition `term` has to wait for, if
+/// anything: a placeholder in it that its check hasn't filled (a `.field`
+/// or a number literal waiting for its type), or the dictionary of an
+/// operator in it that wasn't found where the operator was written and
+/// can't be found yet (its type isn't known: a number group built at an
+/// unknown type, K4). The decision is chosen from the proposition's form
+/// (a relation through a dictionary is decided by its paired decider, a
+/// call such as `Nat.lessThan` by the search, and the standard decisions
+/// become their comparisons, `Nat.leq (Succ m) n`), so it is made only
+/// once that form is the one the operator has when its type is known at
+/// once (§5.10, invariant 8). Dictionaries whose types are known by now
+/// are found here.
+pub(crate) fn decision_blocker(cx: &Ctx, term: &Term, depth: Depth) -> Result<Option<usize>> {
+    let placeholder = match depth {
+        Depth::Value => crate::queue::unfilled_in(cx, &cx.eval(term)?)?,
+        Depth::Written => crate::queue::unfilled_in_term(cx, term)?,
+    };
+    if let Some(placeholder) = placeholder {
+        return Ok(Some(placeholder));
     }
-    decided(cx, span, term).map(Some)
+    let e = cx.e;
+    if e.operator_dictionaries.borrow().is_empty() {
+        return Ok(None);
+    }
+    let unsolved = || -> Result<Vec<usize>> {
+        let zonked = e.zonk_keeping(term, cx.level(), &|_| true)?;
+        let noted = e.operator_dictionaries.borrow();
+        Ok(zonked
+            .subterms()
+            .filter_map(|(t, _)| match t {
+                Term::Meta(m) if noted.contains_key(m) && cx.g().meta_solution(*m).is_none() => {
+                    Some(*m)
+                }
+                _ => None,
+            })
+            .collect())
+    };
+    let waiting = unsolved()?;
+    if waiting.is_empty() {
+        return Ok(None);
+    }
+    e.solve_ready_instances_keeping(&[], Some(&waiting))?;
+    Ok(unsolved()?.first().copied())
 }
 
 /// A proposition's decision into a `Bool`, waiting for a placeholder in it
@@ -4440,6 +4553,7 @@ fn decide_to_bool(
 struct Decide {
     span: Span,
     term: Term,
+    depth: Depth,
 }
 
 impl crate::queue::Check for Decide {
@@ -4449,20 +4563,79 @@ impl crate::queue::Check for Decide {
     }
 
     fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
-        // Another placeholder still unfilled: wait on that one.
-        if let Some(placeholder) = crate::queue::unfilled_in(cx, &cx.eval(&self.term)?)? {
-            let needs = Value::Neutral(Head::Meta(placeholder), Default::default());
-            return Ok(crate::queue::Resumed::Waiting(needs));
+        // Something it still can't be decided from: wait on that.
+        if let Some(blocker) = decision_blocker(cx, &self.term, self.depth)? {
+            return Ok(crate::queue::Resumed::Waiting(crate::queue::on(blocker)));
         }
-        Ok(crate::queue::Resumed::Done(decided(
-            cx, self.span, &self.term,
-        )?))
+        // With what it waited for written in (a literal's number, not its
+        // placeholder applied), so the decision sees the operands it would
+        // have seen had nothing waited: `bind::decide` binds an operand
+        // that isn't a literal or a variable. (After the operators are
+        // specialised: that reads their dictionaries' unknowns.)
+        let term = (cx.e.specialise_operators(&self.term, cx.level())?)
+            .unwrap_or_else(|| self.term.clone());
+        let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+        Ok(crate::queue::Resumed::Done(decided(cx, self.span, &term)?))
+    }
+}
+
+/// A decision procedure for the proposition `prop`, written at `span`,
+/// where the decision itself is needed as a term (`if`'s branches, or `b`
+/// in `a && b`, using its proof): found at once, or, while the proposition
+/// holds what its decision can't be made from yet ([`decision_blocker`]),
+/// a placeholder of type `Decidable prop` that a queued [`DecideTerm`]
+/// fills once it can be (step 4.3).
+pub(crate) fn decision_or_wait(
+    cx: &mut Ctx,
+    span: Span,
+    prop: &Term,
+) -> Result<crate::bind::Decision> {
+    let Some(blocker) = decision_blocker(cx, prop, Depth::Written)? else {
+        return crate::bind::decide(cx, prop);
+    };
+    let decidable = builtin_data(cx, Builtin::Decidable)?;
+    let ty = Value::Data(decidable, vec![cx.eval(prop)?]);
+    let error = Diagnostic::error("E-CANNOT-INFER", "can't decide this proposition yet")
+        .with_label(span, "it holds a value whose type isn't known here");
+    let check = DecideTerm { term: prop.clone() };
+    let placeholder =
+        crate::queue::queue(cx, Rc::new(check), crate::queue::on(blocker), ty, error)?;
+    Ok(crate::bind::Decision::Plain(placeholder))
+}
+
+/// A decision procedure waiting for what its proposition holds
+/// ([`decision_or_wait`]), as [`Decide`] waits for its `Bool`.
+struct DecideTerm {
+    term: Term,
+}
+
+impl crate::queue::Check for DecideTerm {
+    fn display(&self, cx: &Ctx) -> Option<String> {
+        Some(format!(
+            "(decision of {})",
+            cx.show(&cx.eval(&self.term).ok()?)
+        ))
+    }
+
+    fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
+        if let Some(blocker) = decision_blocker(cx, &self.term, Depth::Written)? {
+            return Ok(crate::queue::Resumed::Waiting(crate::queue::on(blocker)));
+        }
+        let term = (cx.e.specialise_operators(&self.term, cx.level())?)
+            .unwrap_or_else(|| self.term.clone());
+        let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+        let decision = crate::bind::decide(cx, &term)?.term(cx)?;
+        Ok(crate::queue::Resumed::Done(decision))
     }
 }
 
 /// [`decide_to_bool`]'s decision of `term`, a proposition written at `span`,
 /// as a `Bool`.
 fn decided(cx: &mut Ctx, span: Span, term: &Term) -> Result<Term> {
+    // Its operators as they are once their dictionaries are known
+    // ([`decision_blocker`]).
+    let specialised = cx.e.specialise_operators(term, cx.level())?;
+    let term = specialised.as_ref().unwrap_or(term);
     let decision = match crate::bind::decide(cx, term) {
         Ok(decision) => decision,
         Err(mut e) if e.code == "E-AUTO-NONE" && !e.notes.is_empty() => {
