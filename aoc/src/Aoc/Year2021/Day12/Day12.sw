@@ -10,8 +10,10 @@
 --
 -- The program lists the paths by a depth-first search that carries the
 -- small caves not yet visited and whether the second visit is still
--- spare, and counts them. The count is finite only because no passage joins two big caves
--- (two of them could be walked between for ever); the parser checks that.
+-- spare, and counts them. The search goes a bounded number of steps deep,
+-- which the proofs show is enough. The count is finite only because no
+-- passage joins two big caves (two of them could be walked between for
+-- ever); the parser checks that.
 -- The proofs that both counts are the number of the puzzle's paths are in
 -- `Aoc.Year2021.Day12.Proofs` (Proofs/); the tests in
 -- `Aoc.Year2021.Day12.Tests` (Tests/). `run` checks neither.
@@ -113,7 +115,8 @@ def reach (unvisited: List Text) (spare: Bool) (cave: Text): Nat :=
   3 * unvisited.length + 2 * Bool.toNat spare + Bool.toNat (not (isBig cave))
 
 -- The paths from `start` to `end`: with `spare`, one small cave may be
--- visited twice. Searching `3 * unvisited.length + 4` steps deep is enough.
+-- visited twice. Searching `3 * unvisited.length + 4` steps deep is enough
+-- (`pathsCorrect`).
 def paths (passages: List (Text, Text)) (spare: Bool): List (List Text) :=
   let table := neighbourTable passages
   let unvisited := smallCaves passages
