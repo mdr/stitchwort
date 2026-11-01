@@ -3,7 +3,7 @@
 
 namespace Aoc.Year2025.Day01.Tests
 import Aoc.Year2025.Day01 (..)
-import Std (Fail, Int, List, Mod, Nat, Option, Parse, Text)
+import Std (Fail, Int, List, Mod, Nat, Option, Parse, Result, Text)
 
 def example: Text := """
   L68
@@ -18,11 +18,11 @@ def example: Text := """
   L82
   """
 
-def exampleTurns: List Turn := Fail.orElse [] (() => parseTurns example)
-
 def parsed (input: Text): Result (List Turn) Text := Fail.toResult (() => parseTurns input)
 
-test "example" := (solvePart1 exampleTurns, solvePart2 exampleTurns) == (3, 6)
+def exampleTurns: Result (List Turn) Text := parsed example
+
+test "example" := exampleTurns.map (turns => (solvePart1 turns, solvePart2 turns)) == Ok (3, 6)
 test "a line that isn't a turn" := parsed "L68\nL30\nX12" == Err "line 3, column 1: expected a turn like L68, got 'X'"
 test "a turn without a distance" := parsed "R" == Err "line 1, column 2: expected a number, got the end of the line"
 test "a blank line" := parsed "L1\n\n" == Err "line 2, column 1: expected a turn like L68, got the end of the line"

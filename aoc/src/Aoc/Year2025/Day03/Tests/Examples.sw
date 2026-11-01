@@ -3,7 +3,7 @@
 
 namespace Aoc.Year2025.Day03.Tests
 import Aoc.Year2025.Day03 (..)
-import Std (Fail, List, Text)
+import Std (Fail, List, Result, Text)
 
 def example: Text := """
   987654321111111
@@ -14,11 +14,11 @@ def example: Text := """
 
 def banksOf (input: Text): Result (List Bank) Text := Fail.toResult (() => parseBanks input)
 
-def exampleBanks: List Bank := Fail.orElse [] (() => parseBanks example)
+def exampleBanks: Result (List Bank) Text := banksOf example
 
-test "example" := (solvePart1 exampleBanks, solvePart2 exampleBanks) == (357, 3121910778619)
-test "banks part 1" := exampleBanks.map (.maxJoltage 2) == [98, 89, 78, 92]
-test "banks part 2" := exampleBanks.map (.maxJoltage 12) == [987654321111, 811111111119, 434234234278, 888911112111]
+test "example" := exampleBanks.map (banks => (solvePart1 banks, solvePart2 banks)) == Ok (357, 3121910778619)
+test "banks part 1" := exampleBanks.map (banks => banks.map (.maxJoltage 2)) == Ok [98, 89, 78, 92]
+test "banks part 2" := exampleBanks.map (banks => banks.map (.maxJoltage 12)) == Ok [987654321111, 811111111119, 434234234278, 888911112111]
 
 test "parse" := banksOf " 100200300400 " == Ok [[1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0]]
 test "a bank that isn't a row of numbers" := banksOf "123456789012\n1234567x9012" == Err "line 2, column 8: expected a digit or the end of the line, got 'x'"

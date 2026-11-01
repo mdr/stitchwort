@@ -50,7 +50,7 @@ test "the pairs after one step" :=
 
 test "a pair without a rule stays" := solvePart1 (manualOf "AB\n\nCD -> E\n") == 0 && afterSteps 3 (manualOf "AB\n\nCD -> E\n") == ['A', 'B']
 
-test "a one-element template" := solvePart2 (manualOf "A\n\nAA -> B\n") == 0
+test "a one-element template" := parsed "A\n\nAA -> B\n" |> .map solvePart2 == Ok 0
 
 test "two rules for one pair" := parsed "AB\n\nAB -> C\nCD -> E\nAB -> D\n" == Err "two rules for the pair AB"
 

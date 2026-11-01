@@ -3,7 +3,9 @@
 -- the input reruns exactly these tests.
 namespace Aoc.Year2025.Day05.Tests
 import Aoc.Year2025.Day05 (..)
-import Std (Fail)
+import Std (Fail, Result, Text)
 
-test "real input, part 1" := solvePart1 (Fail.orElse Database.empty (() => parseDatabase (include "../../../../../inputs/2025/day05.txt"))) == 525
-test "real input, part 2" := solvePart2 (Fail.orElse Database.empty (() => parseDatabase (include "../../../../../inputs/2025/day05.txt"))) == 333892124923577
+def inputDatabase: Result Database Text := Fail.toResult (() => parseDatabase (include "../../../../../inputs/2025/day05.txt"))
+
+test "real input, part 1" := inputDatabase.map solvePart1 == Ok 525
+test "real input, part 2" := inputDatabase.map solvePart2 == Ok 333892124923577

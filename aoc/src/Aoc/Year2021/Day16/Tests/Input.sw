@@ -3,10 +3,10 @@
 namespace Aoc.Year2021.Day16.Tests
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (versionTotal)
-import Std (Fail)
+import Std (Fail, Text)
 
-def inputPacket: Packet := Fail.orElse (Literal 0 []) (() => parsePacket (include "../../../../../inputs/2021/day16.txt"))
+def inputPacket: Result Packet Text := Fail.toResult (() => parsePacket (include "../../../../../inputs/2021/day16.txt"))
 
-test "real input, part 1" := solvePart1 inputPacket == 901
-test "real input, part 2" := solvePart2 inputPacket == 110434737925
-test "real input, part 1 by the spec" := versionTotal inputPacket == 901
+test "real input, part 1" := inputPacket.map solvePart1 == Ok 901
+test "real input, part 2" := inputPacket.map solvePart2 == Ok 110434737925
+test "real input, part 1 by the spec" := inputPacket.map versionTotal == Ok 901

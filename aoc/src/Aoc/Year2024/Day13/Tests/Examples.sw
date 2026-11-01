@@ -27,7 +27,7 @@ def example: Text := """
 
 def parsed (input: Text): Result (List Machine) Text := Fail.toResult (() => parseMachines input)
 
-def exampleMachines: List Machine := Fail.orElse [] (() => parseMachines example)
+def exampleMachines: Result (List Machine) Text := parsed example
 
 -- A machine from its buttons' and prize's coordinates.
 def claw (ax: Int) (ay: Int) (bx: Int) (by: Int) (px: Int) (py: Int): Machine :=
@@ -35,16 +35,16 @@ def claw (ax: Int) (ay: Int) (bx: Int) (by: Int) (px: Int) (py: Int): Machine :=
 
 def part1Tokens (machine: Machine): Option Nat := machine.fewestTokensWithin 100
 
-test "example, part 1" := solvePart1 exampleMachines == 480
-test "example, part 1, each machine" := exampleMachines.map part1Tokens == [Some 280, None, Some 200, None]
-test "example, the first machine's presses" := exampleMachines.map (machine => machine.wins 80 40) == [True, False, False, False]
-test "example, the spec agrees" := part1 exampleMachines == 480
-test "example, part 2" := solvePart2 exampleMachines == 875318608908
+test "example, part 1" := exampleMachines.map solvePart1 == Ok 480
+test "example, part 1, each machine" := exampleMachines.map (machines => machines.map part1Tokens) == Ok [Some 280, None, Some 200, None]
+test "example, the first machine's presses" := exampleMachines.map (machines => machines.map (machine => machine.wins 80 40)) == Ok [True, False, False, False]
+test "example, the spec agrees" := exampleMachines.map part1 == Ok 480
+test "example, part 2" := exampleMachines.map solvePart2 == Ok 875318608908
 test "example, part 2, only the second and fourth machines" :=
-  exampleMachines.map (machine => machine.corrected.fewestTokens.isSome) == [False, True, False, True]
+  exampleMachines.map (machines => machines.map (machine => machine.corrected.fewestTokens.isSome)) == Ok [False, True, False, True]
 test "example, many more than 100 presses" :=
-  exampleMachines.all (machine => machine.corrected.fewestTokensWithin 100 == None)
-test "the program's correction is the spec's" := exampleMachines.all (machine => machine.corrected == correctedMachine machine)
+  exampleMachines.map (machines => machines.all (machine => machine.corrected.fewestTokensWithin 100 == None)) == Ok True
+test "the program's correction is the spec's" := exampleMachines.map (machines => machines.all (machine => machine.corrected == correctedMachine machine)) == Ok True
 
 test "parse" :=
   parsed "Button A: X+1, Y+2\nButton B: X+3, Y+4\nPrize: X=5, Y=6\n" == Ok [claw 1 2 3 4 5 6]

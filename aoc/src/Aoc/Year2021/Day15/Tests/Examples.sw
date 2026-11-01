@@ -33,8 +33,8 @@ def agreeOn (cave: Cave) (rows: Nat) (columns: Nat): Bool :=
 def tiledAgreeOn (cave: Cave) (rows: Nat) (columns: Nat): Bool :=
   List.range rows |> .all (row => List.range columns |> .all (column => tiledLevelAt cave (at row column) == cave.tiled.levelAt (at row column)))
 
-test "the example's levels" := agreeOn example 12 12
-test "the full example's levels" := tiledAgreeOn example 52 52
+test "the example's levels" := parsed exampleText |> .map (cave => agreeOn cave 12 12) == Ok True
+test "the full example's levels" := parsed exampleText |> .map (cave => tiledAgreeOn cave 52 52) == Ok True
 
 -- The puzzle's own illustration: a single 8, tiled, raises to 9, then
 -- wraps to 1, 2 and 3 along the top row; the bottom right tile is 8 + 8,

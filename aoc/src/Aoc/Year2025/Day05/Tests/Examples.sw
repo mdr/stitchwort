@@ -3,7 +3,7 @@
 
 namespace Aoc.Year2025.Day05.Tests
 import Aoc.Year2025.Day05 (..)
-import Std (Fail, List, Text)
+import Std (Fail, List, Result, Text)
 
 def example: Text := """
   3-5
@@ -21,16 +21,16 @@ def example: Text := """
 
 def parsed (input: Text): Result Database Text := Fail.toResult (() => parseDatabase input)
 
-def exampleDatabase: Database := Fail.orElse Database.empty (() => parseDatabase example)
+def exampleDatabase: Result Database Text := parsed example
 
-test "example parse" := exampleDatabase.available == [1, 5, 8, 11, 17, 32]
+test "example parse" := exampleDatabase.map (database => database.available) == Ok [1, 5, 8, 11, 17, 32]
 
-test "example part 1" := solvePart1 exampleDatabase == 3
+test "example part 1" := exampleDatabase.map solvePart1 == Ok 3
 
-test "example part 2" := solvePart2 exampleDatabase == 14
+test "example part 2" := exampleDatabase.map solvePart2 == Ok 14
 test "no ranges" := solvePart2 { fresh = [], available = [] } == 0
 
-test "example merged" := merge exampleDatabase.fresh == [{ from = 3, to = 5 }, { from = 10, to = 20 }]
+test "example merged" := exampleDatabase.map (database => merge database.fresh) == Ok [{ from = 3, to = 5 }, { from = 10, to = 20 }]
 test "touching ranges merge" := merge [{ from = 4, to = 6 }, { from = 1, to = 3 }] == [{ from = 1, to = 6 }]
 test "nested range" := merge [{ from = 1, to = 9 }, { from = 2, to = 3 }] == [{ from = 1, to = 9 }]
 test "gap stays" := merge [{ from = 1, to = 2 }, { from = 4, to = 5 }] == [{ from = 1, to = 2 }, { from = 4, to = 5 }]

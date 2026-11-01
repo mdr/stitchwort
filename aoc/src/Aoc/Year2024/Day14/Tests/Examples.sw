@@ -75,7 +75,7 @@ test "a velocity of more than the width wraps more than once" :=
 test "a velocity of the width stays put" := exampleSpace.positionAfter 7 (robotAt 4 2 11 (-7)) == tile 4 2
 test "no seconds" := exampleSpace.positionAfter 0 (robotAt 4 2 3 3) == tile 4 2
 test "back after width times height seconds" :=
-  (robotsOf example).all (robot => exampleSpace.positionAfter 77 robot == robot.position)
+  parsed example |> .map (robots => robots.all (robot => exampleSpace.positionAfter 77 robot == robot.position)) == Ok True
 
 test "the middle column is in no quadrant" := [0, 1, 2, 3, 4, 5, 6].all (y => exampleSpace.quadrantOf (tile 5 y) == None)
 test "the middle row is in no quadrant" := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].all (x => exampleSpace.quadrantOf (tile x 3) == None)
