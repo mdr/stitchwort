@@ -298,11 +298,13 @@ and a known character is decided by `byDecision` **[run: p3.sw]**:
 
 ```
 kind.eq3 (n: Nat) (notArm1: n ≠ 3) (notArm2: n ≠ 7): kind n = 0
-commandOf.eq1.alt3 (char: Char) (notListed: char ∉ ['k', 'j']): commandOf char = None
+commandOf.eq.alt3 (char: Char) (notListed: char ∉ ['k', 'j']): commandOf char = None
 ```
 
 (Numbers stay one `≠` each: `omega` can't use `n ∉ [3, 7]`, `E-OMEGA` with the model `n = 10`
-**[run: p3.sw]**.) Stitchwort has no `Text` literal patterns (`crates/syntax/src/ast.rs:704-745`),
+**[run: p3.sw]**.) `Int` literals are split by sign first and `Fin` literals are `FZero`/`FSucc`
+patterns (`crates/elab/src/lib.rs:3512-3524`); they give `x ≠ k` for `Int` and the constructor form
+for `Fin`, as the pattern compiler sees them [inferred]. Stitchwort has no `Text` literal patterns (`crates/syntax/src/ast.rs:704-745`),
 so there is nothing to generate for them.
 
 **Nested patterns** need nothing new: `explode.eq2`'s left side is `explode depth (Pair (Regular
@@ -310,7 +312,9 @@ a) (Regular b))`, and `notArm2` above quantifies arm 2's nested variables.
 
 **`if` in tail position.** A `Bool` `if c` gives `c = True` / `c = False`; a decided `if p`
 gives `p` / `Not p`; `if h: p` gives `h: p` / `h: Not p`, named as written. Suffixes `.ifTrue`
-and `.ifFalse`. `gcd` (`examples/accept/decreasing.sw:45-48`):
+and `.ifFalse`. Which of these an `if` on a comparison is depends on how it was elaborated (`if 4
+≤ depth` is a `Bool` `if` in one place and `Decidable.elim` in another, SW-980 item 5); the
+hypothesis follows the elaborated form, which `doc` shows. `gcd` (`examples/accept/decreasing.sw:45-48`):
 
 ```
 gcd.eq.ifTrue (a: Nat) (b: Nat) (h: b = 0): gcd a b = a
@@ -325,8 +329,8 @@ in lower case (`.some`, `.none`, `.cons`, `.true`), as `T.induct`'s cases are na
 otherwise `.alt1`, `.alt2`, … in written order (literals, nested patterns, several scrutinees, a
 catch-all). On a **variable** of the arm (compiled into the case tree), the alternative's pattern
 goes into the left side, like an arm's. On an **expression**, the hypothesis is `e = pattern`,
-named after the `match`'s equation name if it has one (`match found: …`), else `found`; earlier
-overlapping alternatives add `notAlt…` hypotheses as arms do:
+named after the `match`'s equation name if it has one (`match found: …`), else `found` (`found2`,
+… for those below it); earlier overlapping alternatives add `notAlt…` hypotheses as arms do:
 
 ```
 explode.eq3.some (depth) (left) (right) (inLeft: Explosion) (notArm2: …) (found: explode (depth + 1) left = Some inLeft):
@@ -362,8 +366,9 @@ member is just a call.
   type has no spelling in a statement (`docs/syntax.md:871`, the same reason `match h: reify t`
   is refused); `match reify` is the tool there. **Effect-polymorphic** ones (`List.filter: … {e}
   List a`) get their equations at the empty row, as the hand-written std lemmas about them are
-  stated (`List.filterFilter` with a pure `p`) [inferred; stage 1 checks that the arm computes
-  there, and skips the definition if not];
+  stated (`List.filterFilter` with a pure `p`). `List.filter (Cons x xs) p = List.filterStep x
+  (List.filter xs p) (p x)` with `p: Nat → Bool` is `rfl` **[run: p8.sw]**; stage 1 checks each
+  such definition the same way and skips one whose arm doesn't compute at the empty row;
 - `Partial` definitions: `Effect.pfix` has no computation rule (`docs/core.md:349-362`: "no computation rules");
 - an `opaque` definition with an `unfolding` clause: it has no `f.unfold` either
   (`docs/syntax.md:1100-1104`);
@@ -537,8 +542,9 @@ theorem fillCorrect … (state: FillState garden plant start stack visited membe
 The motive is the goal with the call replaced by `result` and the targets by the motive's
 parameters; variables in scope whose types mention a target (`state`) are generalised, as a
 `match` on an expression already does (`matching.rs:10-19`), so each arm sees them refined and
-each `ih` takes them as premises. Arms are named by case, in any order, all required
-(`E-NONEXHAUSTIVE`). The proof it writes is `Garden.fill.induct` applied, and the kernel checks it.
+each `ih` takes them as premises. The arguments in the motive's places must be distinct
+variables (the fixed prefix may be any terms); otherwise it is an error that says to generalise
+them first. Arms are named by case, in any order, all required (`E-NONEXHAUSTIVE`). The proof it writes is `Garden.fill.induct` applied, and the kernel checks it.
 
 ## 6. Worked examples
 
@@ -553,8 +559,10 @@ converts `garden.plantAt position == Some plant` back to a `Prop` (`DecEq.sound`
 `other`) because it splits with `match taken:`/`match growing:` on `Bool`s.
 
 **After stage 1.** The three step lemmas are `Garden.fill.eq.cons.ifFalse`,
-`.eq.cons.ifTrue.ifTrue` and `.eq.cons.ifTrue.ifFalse`: delete `Fill.sw:98-118` and rename the
-three uses (`:145`, `:164`, `:179`).
+`.eq.cons.ifTrue.ifTrue` and `.eq.cons.ifTrue.ifFalse`: delete `Fill.sw:98-118` and use those at
+the three call sites (`:145`, `:164`, `:179`). The hypotheses come in the program's form: the
+skip step takes `Not (visited.contains position = False)` where `fillSkip` took `taken: … = True`,
+and the third takes `fresh` as well as `other`, both in scope at `:179`.
 
 **After stage 2.** `fillCorrect` by `Garden.fill.induct`: the prototype
 (`scratchpad/aoc/…/Day12/Proofs/Induct.sw`, a copy of the AoC project with `fillInduct` and the
@@ -620,11 +628,10 @@ demand, which would need the kernel to hold unchecked theorems: refused.
 
 - **Discovery needs them to exist.** `doc` and `search` read the elaborated library; on-demand
   lemmas wouldn't be listed unless those commands generated them, which is (a) again.
-- **The cost is small.** A scratch file of 1,000 definitions of 5 arms each checks in 0.22 s;
-  with one equation per arm written as source (5,000 theorems, one per definition with an
-  overlap hypothesis and a case split) 0.62 s: about **0.08 ms an equation**, elaboration from
-  source included, which generated kernel terms skip [measured: `scratchpad/gen_cost.py`, three
-  runs, `check --no-cache`]. Equations about bigger bodies cost more, about as much as checking
+- **The cost is small.** A scratch file of 1,000 definitions of 5 arms each checks in 0.22 to 0.24 s user;
+  with one equation per arm written as source (5,000 theorems: per definition, four by `rfl` and
+  one with two overlap hypotheses proved by a case split) 0.61 to 0.66 s: about **0.08 ms an equation**, elaboration from
+  source included, which generated kernel terms skip [measured: `scratchpad/gen_cost.py`, three  runs, `check --no-cache`]. Equations about bigger bodies cost more, about as much as checking
   the arm again, so a bound: generating everything costs at most one more check of every
   definition body, and definitions are a minority of std's declarations (1,108 `def`s to 2,496
   theorems [measured: `scratchpad/count.py`]).
@@ -658,12 +665,14 @@ demand, which would need the kernel to hold unchecked theorems: refused.
 - **`T.induct`** is induction on a type; `f.induct` on a function's recursion. A function whose
   recursion is plain structural recursion on a list gets an `f.induct` whose cases are `T.induct`'s
   split further by the arms' conditions.
-- **`rewrite`** with an arm equation of a transparent `f` whose left side is constructors finds
-  the computed form in the goal and rewrites it to itself, a no-op (goals and rules are both
-  searched computed, `docs/syntax.md:1748`). The useful ones are those whose left side is stuck:
-  overlap hypotheses (`f x` with `x` a variable), `decreasing` and `opaque` definitions, and
-  branches (stuck on the condition). `rewrite` takes the hypotheses as arguments, or leaves them
-  as goals for `cases`/`omega` when written with `_`.
+- **`rewrite`** with an arm equation of a transparent `f` whose left side is constructors has
+  nothing to do: the goal has already computed the call, and the rule's left side is read
+  computed too (`docs/syntax.md:1748`), so it is `E-REWRITE-NOTHING`, with the note "the goal
+  already holds by computing, so `rfl` proves it without a `rewrite`" (`p9.sw`, `exReg`)
+  **[run]**. The useful ones are those whose left side is stuck: overlap hypotheses (`f x` with
+  `x` a variable: `rewrite exEq3 depth left right h in omega` checks, `p9.sw` `exAtLeast`
+  **[run]**), `decreasing` and `opaque` definitions, and branches (stuck on the condition). The
+  hypotheses are the equation's arguments, like any lemma's.
 - **`match e:`** and **`cases`** keep working; the equations are what to use where they fail
   (§1.2).
 
@@ -694,7 +703,9 @@ Each with my recommendation in [brackets] and its assumptions in full.
   transparent, `decreasing` or `opaque` without `unfolding`; effect-polymorphic ones at the empty
   row; not theorems, instances, ability-performing or `Partial` definitions.** [Yes, including
   the equations that hold by `rfl`.] Generating only the "useful" ones (stuck left sides) would
-  save some hundreds of lemmas but make agents guess which functions have equations. Assumes the
+  save over a thousand std lemmas, and the `rfl` ones can't be used by `rewrite` (§7.3); but
+  they are what `doc` shows for each arm and what `f.induct`'s cases are named after, and
+  without them agents must guess which functions have equations. Assumes the
   `rfl` ones are cheap (§7.1) and that `doc`'s separate section keeps them from crowding search.
 - **D2178. Generate eagerly with the definition, with the 10% gate of §7.1; on demand (Lean)
   only if the gate trips.** [Yes.] Assumes std's cold check is dominated by theorems (§7.1).
@@ -748,8 +759,8 @@ std change does.
 - **Names change with the program.** Adding an arm renumbers the arms after it; proofs naming
   them break, as they would break on the changed behaviour anyway, with `E-UNKNOWN-NAME` and the
   `doc` command in the note.
-- **`rewrite` no-ops** on transparent arms (§7.3) may puzzle; the doc section says which
-  equations have stuck left sides.
+- **`rewrite` with a transparent constructor arm** finds nothing (§7.3); the existing note
+  says why, and the doc section marks which equations have stuck left sides.
 - **Not here:** Lean's `simp`-style automatic use of equations (Stitchwort has no simp set;
   `search --at` suggests them); equations for `Partial` or ability-performing definitions;
   closed, shared matchers (D233 stays "not now": equations make the inner `match` statable
