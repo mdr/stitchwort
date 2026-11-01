@@ -18,7 +18,7 @@ import Std (Bool, DecEq, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Pa
 def main(): {IO, Fail} () :=
   let maze := parseMaze IO.readAll()
   let fromStart := maze.fromStart
-  IO.print "Part 1: ${part1From maze fromStart}"
+  IO.print "Part 1: ${bestScore maze fromStart}"
   IO.print "Part 2: ${part2From maze fromStart}"
 
 -- The open tiles (S, E and `.`), the start and the end.
@@ -222,7 +222,13 @@ def Maze.bestTilesFrom (maze: Maze) (fromStart: Map Reindeer Nat): Set Position 
 
 def Maze.bestTiles (maze: Maze): Set Position := maze.bestTilesFrom maze.fromStart
 
--- Each part from the start's scores, so `main` searches forward once.
+-- The lowest score; a maze whose end can't be reached fails, rather than
+-- printing 0.
+def bestScore (maze: Maze) (fromStart: Map Reindeer Nat): {Fail} Nat :=
+  Fail.need (maze.lowestScore fromStart) "no path from the start to the end"
+
+-- Each part from the start's scores, so `main` searches forward once. Part 1
+-- is 0 where the end can't be reached (`bestScore` is what `main` prints).
 def part1From (maze: Maze) (fromStart: Map Reindeer Nat): Nat := maze.lowestScore fromStart |> .getOrElse 0
 
 def part2From (maze: Maze) (fromStart: Map Reindeer Nat): Nat := (maze.bestTilesFrom fromStart).size

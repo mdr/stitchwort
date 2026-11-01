@@ -79,6 +79,12 @@ test "two equal paths round a pillar" :=
 test "no way to the end" :=
   let walled := maze "#####\n#S#E#\n#####\n"
   solvePart1 walled == 0 && solvePart2 walled == 0
+test "no way to the end fails in main's score" :=
+  let walled := maze "#####\n#S#E#\n#####\n"
+  Fail.toResult (() => bestScore walled walled.fromStart) == Err "no path from the start to the end"
+test "a reachable end scores" :=
+  let nextTo := maze "####\n#SE#\n####\n"
+  Fail.toResult (() => bestScore nextTo nextTo.fromStart) == Ok 1
 
 test "the spec's moves on the one-turn maze" :=
   let turned := maze oneTurn
