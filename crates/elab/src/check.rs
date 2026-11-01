@@ -35,6 +35,14 @@ const LITERAL_CHUNK: usize = 64;
 /// A literal whose chain would use more than the limit's stack is chunked.
 const LITERAL_BYTES: usize = 2400;
 
+/// `k` in superscript digits, numbering names shown alike: `¹`, `¹²`.
+fn superscript(k: usize) -> String {
+    const DIGITS: [char; 10] = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+    (k.to_string().chars())
+        .map(|d| DIGITS[d.to_digit(10).unwrap_or(0) as usize])
+        .collect()
+}
+
 pub struct Ctx<'e> {
     pub e: &'e Elaborator,
     /// What each variable evaluates to (inside a case branch, the matched
@@ -546,20 +554,75 @@ impl<'e> Ctx<'e> {
         Ok(stitchwort_core::value::conv(g, self.level(), &a, &b)?)
     }
 
+    /// The names the variables are shown by in a message (SW-1000): each by
+    /// the name it can be referred to by here, if any (a `match` arm's own
+    /// name for a variable an earlier arm named otherwise), else by its own;
+    /// and never two different variables alike. Of variables shown alike,
+    /// those that can't be referred to get a `✝`, and those still alike are
+    /// numbered, the innermost unnumbered: `x✝`, then `x✝¹`, `x✝²`
+    /// outwards. With `dagger`, every variable that can't be referred to
+    /// gets a `✝`, as a goal's context lists it. A compiler-made `%x` or a
+    /// `_` is left as it is.
+    pub(crate) fn shown_names(&self, dagger: bool) -> Vec<Name> {
+        let level = self.level();
+        let mut referable: Vec<Option<&str>> = vec![None; level];
+        let mut seen: std::collections::HashSet<&str> = Default::default();
+        for (position, (n, l)) in self.scope.iter().enumerate().rev() {
+            if !seen.insert(n.as_str()) {
+                continue;
+            }
+            let shadowed = (self.locals.iter()).any(|x| x.name == *n && x.scope > position);
+            if !shadowed && *l < level && referable[*l].is_none() {
+                referable[*l] = Some(n);
+            }
+        }
+        let mut shown: Vec<Name> = (referable.iter().zip(&self.names))
+            .map(|(r, raw)| r.map_or_else(|| raw.clone(), Name::from))
+            .collect();
+        let mut count: std::collections::HashMap<Name, usize> = Default::default();
+        for n in &shown {
+            *count.entry(n.clone()).or_default() += 1;
+        }
+        for l in 0..level {
+            let n = &shown[l];
+            if referable[l].is_some() || n.starts_with('%') || &**n == "_" || n.ends_with('✝') {
+                continue;
+            }
+            if dagger || count[n] > 1 {
+                shown[l] = format!("{n}✝").into();
+            }
+        }
+        // Those still alike, numbered from the innermost out.
+        let mut later: std::collections::HashMap<Name, usize> = Default::default();
+        for l in (0..level).rev() {
+            if !shown[l].ends_with('✝') {
+                continue;
+            }
+            let k = later.entry(shown[l].clone()).or_default();
+            if *k > 0 {
+                shown[l] = format!("{}{}", shown[l], superscript(*k)).into();
+            }
+            *k += 1;
+        }
+        shown
+    }
+
     pub fn show(&self, value: &Value) -> String {
-        pretty::value_for_message_in(self.g(), self.e, &self.names, value)
+        pretty::value_for_message_in(self.g(), self.e, &self.shown_names(false), value)
     }
 
     /// [`Ctx::show`] for one side of an equation written `a = b`.
     pub fn show_side(&self, value: &Value) -> String {
-        pretty::side_for_message_in(self.g(), self.e, &self.names, value)
+        pretty::side_for_message_in(self.g(), self.e, &self.shown_names(false), value)
     }
 
     /// [`Ctx::show`], but with calls unfolded: what `value` computes to,
     /// for a message that says so.
     pub fn show_unfolded(&self, value: &Value) -> String {
         match stitchwort_core::value::quote_unfolded_shown(self.g(), self.level(), value) {
-            Ok(term) => pretty::term_for_message_in(self.g(), self.e, &self.names, &term),
+            Ok(term) => {
+                pretty::term_for_message_in(self.g(), self.e, &self.shown_names(false), &term)
+            }
             Err(_) => "…".into(),
         }
     }
@@ -632,7 +695,7 @@ impl<'e> Ctx<'e> {
             if !hay.iter().any(under_binder) {
                 continue;
             }
-            let shown = pretty::term_for_message_in(g, self.e, &self.names, &needle);
+            let shown = pretty::term_for_message_in(g, self.e, &self.shown_names(false), &needle);
             let ty = self.show(&self.types[l]);
             let matched = self.scrutinees.iter().any(|(base, s, _, _)| {
                 s.shift(g, level - base, 0)
@@ -657,7 +720,7 @@ impl<'e> Ctx<'e> {
 
     /// [`Ctx::show`], with the arguments the compiler fills in.
     pub fn show_hidden(&self, value: &Value) -> String {
-        pretty::value_for_message_hidden_in(self.g(), self.e, &self.names, value)
+        pretty::value_for_message_hidden_in(self.g(), self.e, &self.shown_names(false), value)
     }
 
     /// Whether `a` and `b` differ only in arguments the compiler fills in,
@@ -682,7 +745,7 @@ impl<'e> Ctx<'e> {
         let level = self.level();
         let shown = |v| stitchwort_core::value::quote_unfolded_shown(g, level, v).ok();
         let (x, y) = (shown(a)?, shown(b)?);
-        let found = pretty::first_difference_in(g, self.e, &self.names, &x, &y)?;
+        let found = pretty::first_difference_in(g, self.e, &self.shown_names(false), &x, &y)?;
         let within = found
             .within
             .map(|call| format!(", in `{call}`"))
@@ -3798,7 +3861,12 @@ fn proof_if_error(cx: &mut Ctx, binder: Option<&AstName>, cond: &Expr) -> Diagno
     let printed = |cx: &Ctx, term: &Term| -> Option<String> {
         let term = crate::unify::zonk_in(cx.g(), level, term, &|_| true, &[]).ok()?;
         let term = beta_head(cx.g(), &term).ok()?;
-        Some(pretty::term_for_message_in(cx.g(), cx.e, &cx.names, &term))
+        Some(pretty::term_for_message_in(
+            cx.g(),
+            cx.e,
+            &cx.shown_names(false),
+            &term,
+        ))
     };
     let _ = crate::undo::transaction(cx, |cx| {
         let (prop, sort) = check_type(cx, cond)?;
@@ -5532,7 +5600,7 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
     if !same(ga, a)? || !same(gb, b)? {
         return None;
     }
-    let show = |t: &Term| pretty::term_for_message_in(cx.g(), cx.e, &cx.names, t);
+    let show = |t: &Term| pretty::term_for_message_in(cx.g(), cx.e, &cx.shown_names(false), t);
     Some((show(ga), show(gb)))
 }
 

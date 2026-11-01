@@ -4336,7 +4336,7 @@ fn unfolded_arguments_note(
         return Ok(None);
     };
     let g = &cx.e.globals;
-    let shown = pretty::term_for_message_in(g, cx.e, &cx.names, written);
+    let shown = pretty::term_for_message_in(g, cx.e, &cx.shown_names(false), written);
     let definition = g.def(*id).name.to_string();
     let mut added = Vec::new();
     let mut ty = ty;

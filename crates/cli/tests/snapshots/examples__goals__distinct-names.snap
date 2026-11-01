@@ -1,0 +1,37 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `below`
+    ╭─[ goals/distinct-names.sw:11:54 ]
+    │
+ 11 │ theorem below (x: Nat) (xs: List Nat): Below x xs := ?
+    │                                                      ┬  
+    │                                                      ╰── x: Nat
+    │                                                          xs: List Nat
+    │                                                          ⊢ ∃ (x1: Nat) => x1 < x
+────╯
+[GOAL] Goal: in `samePoint`
+    ╭─[ goals/distinct-names.sw:15:43 ]
+    │
+ 15 │   | { x = _, y = _ }, { x = _, y = _ } => ?
+    │                                           ┬  
+    │                                           ╰── h: x✝¹ = x✝
+    │                                               x✝¹: Nat
+    │                                               y✝¹: Nat
+    │                                               x✝: Nat
+    │                                               y✝: Nat
+    │                                               ⊢ { x = x✝¹, y = y✝¹ } = { x = x✝, y = y✝ }
+────╯
+[GOAL] Goal: in `symmetric`
+    ╭─[ goals/distinct-names.sw:26:51 ]
+    │
+ 26 │   | Pair left1 right1, Pair left2 right2, same => ?
+    │                                                   ┬  
+    │                                                   ╰── same: Pair left1 right1 = Pair left2 right2
+    │                                                       left1: Tree
+    │                                                       right1: Tree
+    │                                                       left2: Tree
+    │                                                       right2: Tree
+    │                                                       ⊢ Pair left2 right2 = Pair left1 right1
+────╯

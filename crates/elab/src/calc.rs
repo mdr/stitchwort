@@ -167,7 +167,7 @@ fn ordering(cx: &Ctx, which: Builtin, a: Term, b: Term) -> Result<Term> {
 
 /// A term as written, for messages (orders print as `a <= b`).
 fn written(cx: &Ctx, term: &Term) -> String {
-    stitchwort_core::pretty::term_for_message_in(cx.g(), cx.e, &cx.names, term)
+    stitchwort_core::pretty::term_for_message_in(cx.g(), cx.e, &cx.shown_names(false), term)
 }
 
 /// A step's proof, checked against its line's proposition. A proof that

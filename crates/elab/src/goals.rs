@@ -207,6 +207,9 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     let mut term = Term::Meta(m);
     let mut context = Vec::new();
     let mut hidden = Vec::new();
+    // Each variable as its hypothesis is named, `n✝` for one that can't be
+    // referred to here, numbered where two would be alike (SW-1000).
+    let shown_names = cx.shown_names(true);
     for (level, value) in cx.env.iter().enumerate() {
         let own =
             matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
@@ -224,11 +227,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
             }
             continue;
         }
-        let name = match cx.name_of_level(level) {
-            Some(n) => n.to_string(),
-            None if name.ends_with('✝') => name.to_string(),
-            None => format!("{name}✝"),
-        };
+        let name = shown_names[level].to_string();
         let ty = cx.types[level].clone();
         // A proof's value is its proof term: only its statement is shown.
         let shows_value = is_let && !crate::rewrite::is_proof_type(cx, &ty).unwrap_or(false);
@@ -250,7 +249,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         meta: m,
         expected: shown.unwrap_or_else(|| expected.clone()),
         target: expected.clone(),
-        names: cx.names.clone(),
+        names: shown_names,
         context,
         hidden,
         owner,

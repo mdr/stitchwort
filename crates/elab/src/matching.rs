@@ -1055,9 +1055,13 @@ fn not_found(
         {
             continue;
         }
-        let shown =
-            pretty::term_for_message_in(g, cx.e, &cx.names, normal.as_ref().unwrap_or(&s.term));
-        let goal_shown = pretty::term_for_message_in(g, cx.e, &cx.names, goal_normal);
+        let shown = pretty::term_for_message_in(
+            g,
+            cx.e,
+            &cx.shown_names(false),
+            normal.as_ref().unwrap_or(&s.term),
+        );
+        let goal_shown = pretty::term_for_message_in(g, cx.e, &cx.shown_names(false), goal_normal);
         out.push((
             i,
             Diagnostic::warning(
