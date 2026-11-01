@@ -554,7 +554,11 @@ fn small_programs_load_only_the_library_files_they_can_use() {
     // by dot notation only on a `Mod`, so programs that make none don't
     // load `Mod/Mod.sw` (nor `Map`, `Set` or `Vec`).
     // `Result` is a core type, so the toolkit's dot calls (`.map`, `.flatMap`,
-    // ...) may mean its functions too, and `Result/Result.sw` loads with it.
+    // ...) may mean its functions too, but `Result/Result.sw` doesn't load
+    // with it: since SW-998 it needs `List/Lemmas.sw` (`List.All2`, in
+    // `Result.traverseAll2`), which needs the toolkit, and the toolkit can't
+    // need a file that needs it (a cycle). The toolkit has no call on a
+    // `Result`, so nothing is lost.
     // The toolkit's lemmas are in `List/Lemmas.sw` and the `Option` helpers'
     // in `Option/Lemmas.sw`, so neither loads, nor what only they use
     // (`Decidable/Decidable.sw`, `Logic/Logic.sw`). `Nat/Arith.sw` is for
@@ -564,7 +568,6 @@ fn small_programs_load_only_the_library_files_they_can_use() {
         "Nat/Arith.sw",
         "Option/Option.sw",
         "Ord/Ord.sw",
-        "Result/Result.sw",
         "List/Toolkit.sw",
     ];
     assert_eq!(
@@ -584,7 +587,6 @@ fn small_programs_load_only_the_library_files_they_can_use() {
         "Nat/Arith.sw",
         "Option/Option.sw",
         "Ord/Ord.sw",
-        "Result/Result.sw",
         "List/Toolkit.sw",
         "List/Sort.sw",
     ];
@@ -727,7 +729,10 @@ fn no_library_file_declares_a_decision_procedure() {
     // binds a native to it. The same holds for `Map`'s and `Set`'s equality
     // (docs/proposals/map-equality.md §8.3): an equation between maps or sets
     // needs their file loaded. So does `List.decMem` (D1201), which decides
-    // `List.Mem`, declared beside it in std/List/Toolkit.sw. And `Float.decLessEq` and
+    // `List.Mem`, declared beside it in std/List/Toolkit.sw. So does
+    // `List.decDistinct` (SW-983), which decides `List.Distinct`, declared
+    // beside it in the same file: only a goal that is or unfolds to
+    // `List.Distinct` matches it, and that needs the toolkit loaded. And `Float.decLessEq` and
     // `Float.decLessThan`, which decide `Float.LessEq` and `Float.LessThan`,
     // what `x <= y` and `x < y` on `Float` are, declared beside them. And
     // `Nat.decPowSuccNotZero`, which decides `Nat.pow (Succ b) e ≠ 0`: only a
@@ -738,6 +743,7 @@ fn no_library_file_declares_a_decision_procedure() {
         [
             "Std.Nat.decPowSuccNotZero",
             "Std.List.decMem",
+            "Std.List.decDistinct",
             "Std.Float.decEqFrom",
             "Std.Float.decEq",
             "Std.Float.decLessEq",
