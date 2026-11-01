@@ -8,9 +8,9 @@
 --
 -- The puzzle input is committed in aoc/inputs/2021/.
 --
--- The program counts the paths by a depth-first search that carries the
+-- The program lists the paths by a depth-first search that carries the
 -- small caves not yet visited and whether the second visit is still
--- spare. The count is finite only because no passage joins two big caves
+-- spare, and counts them. The count is finite only because no passage joins two big caves
 -- (two of them could be walked between for ever); the parser checks that.
 -- The proofs that both counts are the number of the puzzle's paths are in
 -- `Aoc.Year2021.Day12.Proofs` (Proofs/); the tests in
@@ -69,41 +69,55 @@ def lookupNeighbours (table: List (Text, List Text)) (cave: Text): List Text := 
 def smallCaves (passages: List (Text, Text)): List Text :=
   caves passages |> .filter (cave => not (isBig cave || cave == "start" || cave == "end"))
 
--- How many ways there are on from `cave` to `end`, stepping along `next`:
--- `unvisited` is the small caves not yet visited (`start` and `end` aside),
--- and `spare` whether one of the visited ones may still be visited again.
--- Each step goes to a cave not yet visited (or a big one, or, once, a
--- visited one), so the search ends: the measure is the caves left, then
--- the spare visit, then whether we stand in a small cave. A step between
--- two big caves isn't taken (the parser rules them out).
-def pathsOnFrom (next: Text → List Text) (unvisited: List Text) (spare: Bool) (cave: Text): Nat
-    decreasing (unvisited.length, 2 * Bool.toNat spare + Bool.toNat (not (isBig cave)))
-:=
-  next cave |> .sumBy (other =>
-    if other == "end" then 1
-    else if other == "start" then 0
-    else if bigOther: isBig other = True then
-      if bigHere: isBig cave = True then 0
-      else
-        pathsOnFrom next unvisited spare other
-          [decreasing := Nat.LexLess.Second rfl (rewrite bigOther, Bool.falseOfNotTrue (isBig cave) bigHere in omega)]
-    else if fresh: unvisited.contains other = True then
-      pathsOnFrom next (without unvisited other) spare other
-        [decreasing := Nat.LexLess.First (withoutShorter unvisited other ((List.memContains unvisited other).forward fresh))]
-    else if again: spare = True then
-      pathsOnFrom next unvisited False other
-        [decreasing := Nat.LexLess.Second rfl (rewrite again, Bool.falseOfNotTrue (isBig other) bigOther in omega)]
-    else 0)
+-- What a step from `cave` to `other` does, given the small caves not yet
+-- visited (`start` and `end` aside) and whether one of the visited ones may
+-- still be visited again: it reaches the end, isn't allowed, or goes on
+-- with the caves then unvisited and the spare visit then left.
+type Step =
+  | Finish
+  | Blocked
+  | Continue (unvisited: List Text) (spare: Bool)
 
--- The caves but `cave`. (A function of its own: a lambda written in the
--- recursive call's argument, inside `sumBy`'s, shows in the termination
--- goal as an unknown `x`.)
+def step (unvisited: List Text) (spare: Bool) (cave: Text) (other: Text): Step :=
+  if other == "end" then Finish
+  else if other == "start" then Blocked
+  else if isBig other then (if isBig cave then Blocked else Continue unvisited spare)
+  else if unvisited.contains other then Continue (without unvisited other) spare
+  else if spare then Continue unvisited False
+  else Blocked
+
+-- The caves but `cave`.
 def without (caves: List Text) (cave: Text): List Text := caves.filter (c => not (c == cave))
 
-def solvePart1 (passages: List (Text, Text)): Nat :=
-  let table := neighbourTable passages
-  pathsOnFrom (lookupNeighbours table) (smallCaves passages) False "start"
+-- The ways on from `cave` to `end`, stepping along `next`, each as the
+-- caves after `cave`, in at most `steps` steps.
+def routesFrom (next: Text → List Text) (unvisited: List Text) (spare: Bool) (cave: Text): (steps: Nat) → List (List Text)
+  | Zero => Nil
+  | Succ more =>
+    List.concat (next cave |> .map (other =>
+      routesVia other (match step unvisited spare cave other with
+        | Finish => [Nil]
+        | Blocked => Nil
+        | Continue left stillSpare => routesFrom next left stillSpare other more)))
 
-def solvePart2 (passages: List (Text, Text)): Nat :=
+-- The routes on from `other`, with `other` in front.
+def routesVia (other: Text) (after: List (List Text)): List (List Text) := after.map (Cons other)
+
+-- How far a search can still go: each step that goes on visits a small
+-- cave not visited before, or uses up the spare visit, or leaves a small
+-- cave for a big one (never a big one for another), so this goes down by
+-- at least 1 (`stepDecreases`), and a route has at most this many steps
+-- and one more.
+def reach (unvisited: List Text) (spare: Bool) (cave: Text): Nat :=
+  3 * unvisited.length + 2 * Bool.toNat spare + Bool.toNat (not (isBig cave))
+
+-- The paths from `start` to `end`: with `spare`, one small cave may be
+-- visited twice. Searching `3 * unvisited.length + 4` steps deep is enough.
+def paths (passages: List (Text, Text)) (spare: Bool): List (List Text) :=
   let table := neighbourTable passages
-  pathsOnFrom (lookupNeighbours table) (smallCaves passages) True "start"
+  let unvisited := smallCaves passages
+  routesFrom (lookupNeighbours table) unvisited spare "start" (3 * unvisited.length + 4) |> .map (Cons "start")
+
+def solvePart1 (passages: List (Text, Text)): Nat := (paths passages False).length
+
+def solvePart2 (passages: List (Text, Text)): Nat := (paths passages True).length
