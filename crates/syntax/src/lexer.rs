@@ -238,11 +238,20 @@ pub struct Lexed {
     /// What follows the last token: own-line comments, and the blank lines
     /// after them (or after the last token). Never has a trailing comment.
     pub eof: Trivia,
+    /// The spans of the `--|` comments (to the end of the line, without a
+    /// trailing `\r`), kept even without trivia: the doc links checked after
+    /// a namespace (docs/proposals/documentation.md §7) are read from them.
+    pub bars: Vec<Span>,
 }
 
 /// The tokens of `text`, without comments.
 pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
     lex_keeping(file, text, false).map(|lexed| lexed.tokens)
+}
+
+/// [`lex`], and the spans of the `--|` comments.
+pub fn lex_with_bars(file: FileId, text: &str) -> Result<(Vec<Token>, Vec<Span>), Diagnostic> {
+    lex_keeping(file, text, false).map(|lexed| (lexed.tokens, lexed.bars))
 }
 
 /// The tokens of `text` with the comments and blank lines around each. A
@@ -269,6 +278,7 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
     let mut line_start = 0;
     let mut fresh_line = true;
     let mut interps: Vec<Interp> = Vec::new();
+    let mut bars: Vec<Span> = Vec::new();
 
     while i < bytes.len() {
         if tokens.len() != seen {
@@ -323,14 +333,17 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                 while i < bytes.len() && bytes[i] != b'\n' {
                     i += 1;
                 }
-                if !keep_trivia {
-                    continue;
-                }
                 let end = if bytes[start..i].ends_with(b"\r") {
                     i - 1
                 } else {
                     i
                 };
+                if fresh_line && bytes[start..end].starts_with(b"--|") {
+                    bars.push(Span::new(file, start as u32, end as u32));
+                }
+                if !keep_trivia {
+                    continue;
+                }
                 let mut comment = Comment {
                     text: text[start..end].to_string(),
                     span: Span::new(file, start as u32, end as u32),
@@ -742,6 +755,7 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
             blank_lines_before: blank_run,
             trailing: None,
         },
+        bars,
     })
 }
 

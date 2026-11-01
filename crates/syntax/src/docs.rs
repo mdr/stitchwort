@@ -39,21 +39,107 @@ pub struct Doc {
     /// The first sentence of the first paragraph ([`summary`]).
     pub summary: String,
     pub marker: DocMarker,
+    /// The links in a `--|` doc (§7), in the order [`link_ranges`] finds them
+    /// in `text`; none for a doc of `--` lines, which isn't checked.
+    pub links: Vec<DocLink>,
     /// From the first doc line to the end of the last, for diagnostics and
     /// links.
     pub span: Span,
 }
 
 impl Doc {
-    fn new(lines: &[String], marker: DocMarker, span: Span) -> Doc {
+    fn new(lines: &[String], marker: DocMarker, links: Vec<DocLink>, span: Span) -> Doc {
         let text = lines.join("\n");
         Doc {
             summary: summary(&text),
             text,
             marker,
+            links,
             span,
         }
     }
+}
+
+/// A link in a doc: ``[`Name`]``, where `Name` is name-shaped (§7, D2149).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DocLink {
+    /// The name between the backticks.
+    pub name: String,
+    /// The whole link, in the source.
+    pub span: Span,
+}
+
+/// Whether `name` is name-shaped: letters, digits, `_`, `'` and `.`,
+/// starting with a letter or `_`.
+fn name_shaped(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars.next().is_some_and(|c| c.is_alphabetic() || c == '_')
+        && name
+            .chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, '_' | '\'' | '.'))
+}
+
+/// The links in one line of doc text, as `(start, end, name)`: byte ranges
+/// of the whole ``[`Name`]``.
+pub fn link_ranges(line: &str) -> Vec<(usize, usize, &str)> {
+    let mut found = Vec::new();
+    let mut from = 0;
+    while let Some(open) = line[from..].find("[`") {
+        let start = from + open;
+        let name_at = start + 2;
+        let Some(close) = line[name_at..].find("`]") else {
+            break;
+        };
+        let name = &line[name_at..name_at + close];
+        if name_shaped(name) {
+            let end = name_at + close + 2;
+            found.push((start, end, name));
+            from = end;
+        } else {
+            from = name_at;
+        }
+    }
+    found
+}
+
+/// The links of one `--|` comment (its text from `--|` to the end of the
+/// line, at `span`).
+fn comment_links(comment: &str, span: Span) -> Vec<DocLink> {
+    link_ranges(comment)
+        .into_iter()
+        .map(|(start, end, name)| DocLink {
+            name: name.to_string(),
+            span: Span::new(
+                span.file,
+                span.start + start as u32,
+                span.start + end as u32,
+            ),
+        })
+        .collect()
+}
+
+/// The links in the `--|` comments at `bars` (as the lexer records them) of
+/// `text`: what a file's namespace checks after it is checked (§7).
+pub fn bar_links(text: &str, bars: &[Span]) -> Vec<DocLink> {
+    bars.iter()
+        .flat_map(|s| comment_links(&text[s.start as usize..s.end as usize], *s))
+        .collect()
+}
+
+/// The names a doc link `name` may mean, in the order they are tried after
+/// the file's own resolution (D2153): a full name, then a library name
+/// without `Std.`, then (in a namespace) one of its own: `namespace` is the
+/// namespace of the file, if it has one.
+pub fn link_candidates(name: &str, namespace: Option<&str>) -> Vec<String> {
+    let mut out = Vec::new();
+    if let Some(ns) = namespace {
+        out.push(format!("{ns}.{name}"));
+    }
+    out.push(name.to_string());
+    if !name.starts_with("Std.") {
+        out.push(format!("Std.{name}"));
+    }
+    out
 }
 
 /// The docs of a file's declarations, by the byte offset of the declaration's
@@ -143,6 +229,7 @@ pub fn file_doc(file: FileId, text: &str) -> Option<Doc> {
     let comments = &comments[..comments.len() - own];
     let bar = comments.iter().any(|c| c.text.starts_with("--|"));
     let mut lines: Vec<String> = Vec::new();
+    let mut links = Vec::new();
     let mut span: Option<Span> = None;
     for (n, comment) in comments.iter().enumerate() {
         // A new run starts after a blank line: a paragraph break.
@@ -156,6 +243,9 @@ pub fn file_doc(file: FileId, text: &str) -> Option<Doc> {
         if let Some(line) = body(comment, bar) {
             lines.push(line);
             span = Some(span.map_or(comment.span, |s| s.to(comment.span)));
+            if bar {
+                links.extend(comment_links(&comment.text, comment.span));
+            }
         }
     }
     let marker = if bar {
@@ -163,7 +253,7 @@ pub fn file_doc(file: FileId, text: &str) -> Option<Doc> {
     } else {
         DocMarker::Plain
     };
-    finish(lines, marker, span?)
+    finish(lines, marker, links, span?)
 }
 
 /// The namespace a file's doc belongs to (§4). A library file's doc belongs
@@ -238,11 +328,15 @@ fn attached_doc(trivia: &[Trivia], at: usize) -> Option<Doc> {
     let run = attached(trivia.get(at)?);
     let bar = run.iter().any(|c| c.text.starts_with("--|"));
     let mut lines = Vec::new();
+    let mut links = Vec::new();
     let mut span: Option<Span> = None;
     for comment in run {
         if let Some(line) = body(comment, bar) {
             lines.push(line);
             span = Some(span.map_or(comment.span, |s| s.to(comment.span)));
+            if bar {
+                links.extend(comment_links(&comment.text, comment.span));
+            }
         }
     }
     let marker = if bar {
@@ -250,7 +344,7 @@ fn attached_doc(trivia: &[Trivia], at: usize) -> Option<Doc> {
     } else {
         DocMarker::Plain
     };
-    finish(lines, marker, span?)
+    finish(lines, marker, links, span?)
 }
 
 /// A comment's line of the doc: with `bar`, the text after `--|` (and one
@@ -268,13 +362,18 @@ fn body(comment: &Comment, bar: bool) -> Option<String> {
 
 /// A doc from its lines, with the blank lines at its ends dropped; none if
 /// nothing is left.
-fn finish(mut lines: Vec<String>, marker: DocMarker, span: Span) -> Option<Doc> {
+fn finish(
+    mut lines: Vec<String>,
+    marker: DocMarker,
+    links: Vec<DocLink>,
+    span: Span,
+) -> Option<Doc> {
     while lines.last().is_some_and(|l| l.is_empty()) {
         lines.pop();
     }
     let skip = lines.iter().take_while(|l| l.is_empty()).count();
     lines.drain(..skip);
-    (!lines.is_empty()).then(|| Doc::new(&lines, marker, span))
+    (!lines.is_empty()).then(|| Doc::new(&lines, marker, links, span))
 }
 
 /// The longest a summary is, in characters.
@@ -625,5 +724,70 @@ type Own = | One
         let inside = format!("{}`{}`.", "w ".repeat(78), "x y ".repeat(10));
         let cut = summary(&inside);
         assert_eq!(cut.matches('`').count() % 2, 0, "{cut}");
+    }
+
+    fn names(line: &str) -> Vec<&str> {
+        link_ranges(line).into_iter().map(|(_, _, n)| n).collect()
+    }
+
+    #[test]
+    fn only_a_backticked_name_shaped_name_in_brackets_is_a_link() {
+        assert_eq!(
+            names("See [`List.filterMap`] and [`_x'1`], [`Std.Nat`]."),
+            ["List.filterMap", "_x'1", "Std.Nat"]
+        );
+        // Bare brackets, and anything that isn't a name (D2149).
+        assert!(names("[x] [List.map] [`not a name`] [``] [`1x`] [`a-b`]").is_empty());
+        // The prose that looked like links in the aoc docs.
+        assert!(names("every `[` has its `]`; its `[` is; its `]`").is_empty());
+        assert!(names("`ESC [` then bytes, and an unclosed [`").is_empty());
+        // A failed candidate doesn't hide the link after it.
+        assert_eq!(names("`[` [`a`]"), ["a"]);
+    }
+
+    #[test]
+    fn a_link_has_its_span_in_the_source() {
+        let text = "def a: Nat := 1\n--| Uses [`a`] and\n--| [`b`].\ndef b: Nat := 2\n";
+        let (_, doc) = docs(file(), text).into_iter().next_back().unwrap();
+        let shown: Vec<(&str, &str)> = doc
+            .links
+            .iter()
+            .map(|l| {
+                (
+                    l.name.as_str(),
+                    &text[l.span.start as usize..l.span.end as usize],
+                )
+            })
+            .collect();
+        assert_eq!(shown, [("a", "[`a`]"), ("b", "[`b`]")]);
+    }
+
+    #[test]
+    fn plain_notes_and_trailing_comments_have_no_links() {
+        let text = "-- [`a`]\ndef a: Nat := 1 --| [`a`]\n--| [`a`]\n-- [`b`]\ndef b: Nat := 2\n";
+        let docs = docs(file(), text);
+        // `a`'s own-line `--` note is its doc, with the link unchecked.
+        let first = docs.values().next().unwrap();
+        assert_eq!((first.marker, first.links.len()), (DocMarker::Plain, 0));
+        let second = docs.values().nth(1).unwrap();
+        assert_eq!((second.marker, second.links.len()), (DocMarker::Bar, 1));
+    }
+
+    #[test]
+    fn a_module_has_the_links_of_its_bar_comments_only() {
+        let text = "\
+--| File doc, [`a`].
+-- note [`no`]
+namespace N
+
+--| Above [`b`].
+def a: Nat := 1 --| trailing [`no`]
+def s := \"--| [`no`]\"
+";
+        let mut sources = SourceMap::new();
+        let id = sources.add("input.sw", text);
+        let (module, _) = crate::parse_module_recovering(id, text, crate::DEFAULT_STACK);
+        let links: Vec<&str> = module.doc_links.iter().map(|l| l.name.as_str()).collect();
+        assert_eq!(links, ["a", "b"]);
     }
 }

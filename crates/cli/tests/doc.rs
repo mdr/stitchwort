@@ -776,3 +776,155 @@ fn coverage_of_a_library_namespace_has_the_shape() {
     assert_eq!(code, 0);
     assert!(text.starts_with("Std.Vec\n  documented: "), "{text}");
 }
+
+// ---- Checked links (SW-1042, §7, D2149, D2153) ------------------------------
+
+/// A project of two namespaces whose docs link: some well, some not.
+fn links_project(name: &str) -> PathBuf {
+    let dir = folder(name);
+    std::fs::write(dir.join("stitchwort.yaml"), "# for the link tests\n").unwrap();
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(
+        dir.join("src/lib.sw"),
+        "\
+namespace Lib
+
+--| Adds one. Like [`later`] (below), [`Lib.later`], [`Other.double`], [`List.map`],
+--| [`Std.List.filter`], [`Lib`] and the type [`Box`]; but not [`Lib.lateer`] or
+--| [`nothere`], and [x] and the pair \"its `[` is; its `]`\" are no links.
+def good (n: Nat): Nat := n + 1
+
+-- A note: [`nothere`] is not checked.
+def later (n: Nat): Nat := n
+
+type Box = | Box (n: Nat)
+",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("src/other.sw"),
+        "\
+namespace Other
+
+--| Doubles. Compare [`Lib.good`].
+def double (n: Nat): Nat := n + n
+",
+    )
+    .unwrap();
+    dir
+}
+
+fn check_in(dir: &Path, args: &[&str]) -> (i32, String, String) {
+    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .arg("check")
+        .args(args)
+        .arg("--cache-dir")
+        .arg(dir.join("cache"))
+        .current_dir(dir)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run stitchwort");
+    (
+        output.status.code().unwrap_or(-1),
+        String::from_utf8(output.stdout).unwrap(),
+        String::from_utf8(output.stderr).unwrap(),
+    )
+}
+
+#[test]
+fn check_warns_of_a_link_that_names_nothing_and_suggests_the_nearest() {
+    let dir = links_project("links-check");
+    // Twice: the second run replays the namespaces from the cache, with
+    // the warnings they had.
+    for _ in 0..2 {
+        let (code, out, err) = check_in(&dir, &[]);
+        assert_eq!(code, 0, "{out}\n{err}");
+        let text = format!("{out}{err}");
+        assert_eq!(text.matches("[W-DOC-LINK]").count(), 2, "{text}");
+        assert!(
+            text.contains("the doc link `Lib.lateer` names nothing"),
+            "{text}"
+        );
+        assert!(text.contains("did you mean `Lib.later`?"), "{text}");
+        assert!(
+            text.contains("the doc link `nothere` names nothing"),
+            "{text}"
+        );
+        // The plain note, the bare `[x]` and the prose are not links.
+        assert!(!text.contains("`x`"), "{text}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn doc_json_has_links_and_the_text_marks_the_unresolved() {
+    let dir = links_project("links-doc");
+    let (code, out, err) = doc_in(
+        &dir,
+        &shared_cache(),
+        &["Lib.good", "--theorems", "0", "--json"],
+    );
+    assert_eq!(code, 0, "{out}\n{err}");
+    let report: Value = serde_json::from_str(&out).unwrap();
+    let links: Vec<(&str, Option<&str>)> = (report["links"].as_array().unwrap().iter())
+        .map(|l| (l["text"].as_str().unwrap(), l["target"].as_str()))
+        .collect();
+    assert_eq!(
+        links,
+        [
+            ("later", Some("Lib.later")),
+            ("Lib.later", Some("Lib.later")),
+            ("Other.double", Some("Other.double")),
+            ("List.map", Some("Std.List.map")),
+            ("Std.List.filter", Some("Std.List.filter")),
+            ("Lib", Some("Lib")),
+            ("Box", Some("Lib.Box")),
+            ("Lib.lateer", None),
+            ("nothere", None),
+        ]
+    );
+    let first = &report["links"][0];
+    assert_eq!(first["status"], "resolved");
+    assert!(
+        first["file"].as_str().unwrap().ends_with("src/lib.sw"),
+        "{first}"
+    );
+    assert_eq!(first["line"], 9);
+    assert_eq!(report["links"][7]["status"], "unresolved");
+    assert!(report["links"][7]["file"].is_null());
+    let (code, text, _) = doc_in(&dir, &shared_cache(), &["Lib.good", "--theorems", "0"]);
+    assert_eq!(code, 0);
+    assert!(text.contains("Like `later` (below), `Lib.later`"), "{text}");
+    assert!(text.contains("`Lib.lateer` (unresolved link)"), "{text}");
+    assert!(text.contains("`nothere` (unresolved link)"), "{text}");
+    assert!(!text.contains("`Lib.later` (unresolved"), "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_index_has_links_per_doc() {
+    let dir = links_project("links-index");
+    let (code, out, err) = check_in(&dir, &["--index", "-"]);
+    assert_eq!(code, 0, "{err}");
+    let start = out.find("{\"version\"").expect("the index");
+    let index: Value = serde_json::from_str(&out[start..]).unwrap();
+    let symbols = index["symbols"].as_array().unwrap();
+    let good = symbols
+        .iter()
+        .find(|s| s["name"] == "Lib.good")
+        .expect("Lib.good");
+    let links = good["links"].as_array().unwrap();
+    assert_eq!(links.len(), 9);
+    assert_eq!(links[0]["text"], "later");
+    assert_eq!(links[0]["target"], "Lib.later");
+    assert_eq!(links[3]["target"], "Std.List.map");
+    assert_eq!(links[7]["text"], "Lib.lateer");
+    assert!(links[7]["target"].is_null());
+    // Its doc is a `--` note: no links.
+    let later = symbols
+        .iter()
+        .find(|s| s["name"] == "Lib.later")
+        .expect("Lib.later");
+    assert_eq!(later["links"].as_array().unwrap().len(), 0);
+    let _ = std::fs::remove_dir_all(&dir);
+}

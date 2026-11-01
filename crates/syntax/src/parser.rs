@@ -16,7 +16,7 @@ use crate::ast::{
     LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm, Pattern, RewriteRule, Row,
     SECTION, Scrutinee,
 };
-use crate::lexer::{Tok, Token, lex};
+use crate::lexer::{Tok, Token, lex, lex_with_bars};
 use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
 };
@@ -86,8 +86,8 @@ pub fn parse_module_recovering(
     stack: usize,
 ) -> (Module, Vec<Diagnostic>) {
     let limit = StackLimit::from_here(stack);
-    let tokens = match lex(file, text) {
-        Ok(tokens) => tokens,
+    let (tokens, bars) = match lex_with_bars(file, text) {
+        Ok(lexed) => lexed,
         Err(d) => return (Module::default(), vec![d]),
     };
     let mut namespace = None;
@@ -205,6 +205,7 @@ pub fn parse_module_recovering(
             imports,
             decls,
             failed,
+            doc_links: crate::docs::bar_links(text, &bars),
         },
         errors,
     )

@@ -1104,6 +1104,7 @@ impl Elaborator {
                 || d.code == "W-RECEIVER-NOT-FIRST"
                 || d.code == "W-REDUNDANT"
                 || d.code == crate::no_effect::CODE
+                || d.code == crate::doc_links::CODE
         });
         if let (Some(before), Some((unit, key))) = (before, &cached) {
             self.cache_after(f, before, ok, unit, key);

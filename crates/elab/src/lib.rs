@@ -26,6 +26,7 @@ mod derive_finite;
 mod derive_induct;
 mod derive_ord;
 mod derive_show;
+mod doc_links;
 mod dot;
 mod effects;
 mod families;

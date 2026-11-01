@@ -593,6 +593,14 @@ test fails if any std doc has a `W-DOC-LINK`, so std stays clean while projects 
 "target", "file", "line"}]`. With D2141, a doc that states a property writes "see
 [`List.filterMapAppend`]" instead of restating it.
 
+### As built (stage 3, SW-1042)
+
+- **Lexer and reader.** The lexer records the span of every own-line `--|` comment even without trivia (`Lexed::bars`, `lex_with_bars`), and the parser turns them into `Module::doc_links` (name and span of each ``[`Name`]``). Without trivia this costs a few spans per file. A trailing `--|` is no doc and has no links. `Doc::links` (for `docs` and `file_doc`) carries the same links, for `--|` docs only.
+- **Resolution** is `Elaborator::doc_link_warnings`, called at the end of `elaborate_namespace_untimed` (so also for a single file, a library file and the core), once there are no errors in the namespace. Each file's links resolve with `module.file` set to that file: `Elaborator::resolve` (imports and namespace), then the candidates `Namespace.Name`, `Name`, `Std.Name` against the scope, the namespaces, and the names the project pre-pass has for namespaces not yet checked (so checking order doesn't matter). A type and its same-named constructor count as one. Ambiguous is `Resolved::Ambiguous` between two other things. The nearest name is within two edits among the library's names without `Std.` and the file's namespace's names.
+- **The cache.** `W-DOC-LINK` is computed inside the namespace's check, so it is part of the diagnostics the cache stores and replays. The key is unchanged (the doc text is in the file's text, as it always was), and a link adds no dependency, so a cached warning about a link into another namespace can be stale (§7 says links add no dependency; `--no-cache` rechecks). A library file with the warning fails to load, like `W-REDUNDANT` (a test, `the_library_has_no_broken_doc_links`, loads them all).
+- **`doc` and the index.** `doc` resolves a link in the driver, as `Decls::links`: the file's namespace, then the name as written, then with `Std.`, with no imports (it doesn't elaborate, D2152). JSON `links` is `[{"text", "status", "target", "file", "line"}]`, the file and line being the target's (§7 left these open). The text output prints the name and marks `(unresolved link)` or `(ambiguous link)`. `check --index` gives `"links": [{"text", "target"}]` per symbol doc, resolved the same way against the session's scope (the namespace of a symbol's file is that of its first top-level declaration). A link resolved only through the file's own imports shows `null` there and no warning in `check`.
+- **Not built:** hover shows the doc text as written (no link rendering); aoc and the roguelike have no check beyond the warning, as §7 asks only that std be clean (none of the three uses a link yet, so none was broken).
+
 ## 8. Costs, dependencies, and later stages
 
 Estimates are mine [inferred], in Sonnet lanes of about a day, from the size of similar

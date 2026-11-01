@@ -53,6 +53,7 @@ fn units(index: &LibraryIndex, f: usize) -> Vec<Unit> {
                 imports: Vec::new(),
                 decls: vec![(*decl).clone()],
                 failed: Vec::new(),
+                doc_links: Vec::new(),
             },
             names: Vec::new(),
             edges: Vec::new(),
