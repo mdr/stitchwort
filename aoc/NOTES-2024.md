@@ -2200,6 +2200,9 @@ when two printed terms differ.
   <https://leanprover-community.github.io/mathlib4_docs/Mathlib/Data/Int/GCD.html>),
   and Haskell's Prelude exports `gcd`
   (<https://hackage-content.haskell.org/package/base-4.22.0.0/docs/Prelude.html>).
+  Since SW-1011 (1 Nov 2026) the facts are in std too (`Nat.gcdDivides`,
+  `Nat.gcdBezout`, `Nat/Divides.sw`), with the `Int` zero-product and square
+  lemmas (`Int/Lemmas.sw`); `Proofs/Gcd.sw` and `Proofs/Ints.sw` are gone.
 - `Char.isAsciiLetter` and `Char.isAsciiAlphanumeric`: added to std
   (`Text/Text.sw`), with tests; std had `digitValue` and the whitespace
   tests only.
