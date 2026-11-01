@@ -1,0 +1,10 @@
+---
+source: crates/driver/tests/hash_stability.rs
+assertion_line: 121
+expression: "lines(session, d, f)"
+---
+Main.search 368b22a628c8ddca80d845f4ae9e286b12453ed21110f14cfdd2dfc5e9ca38fa
+Main.answer fae935ae385aab0318ff6f4c54dec3a41cb22125e799f9bc95c057fe01a3a4b7
+Main.describe dbac99b30706712dcc4e61da8c386ca418ff980d37cbad9806972b7ea7c79372
+Main.describe.%match1 5d8eb6a7bfe639fe878a42223d61cc02601c13569661442c6cc369d7b556d4b8
+Main.test "a bounded search" b45ecd90f7dc512b28d63da6bb7cfaf0d56f656ee89f1878bcce10da291614c8
