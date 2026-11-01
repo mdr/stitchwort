@@ -21,19 +21,18 @@ def ToEnd (racetrack: Racetrack) (position: Position) (time: Nat): Prop :=
   And (onTrack racetrack position = True)
     (Exists (List Direction) (moves => And (race racetrack position moves = Some racetrack.end) (moves.length = time)))
 
--- The only source is `source`, at 0.
-theorem onlySource (source: Position) (state: Position) (start: Nat) (member: (state, start) ∈ [(source, 0)]): And (state = source) (start = 0) :=
+-- The only source is `source`.
+theorem onlySource (source: Position) (state: Position) (member: state ∈ [source]): state = source :=
   match member with
-    | Inl here => Both (Eq.sym (Eq.cong Pair.fst here)) (Eq.sym (Eq.cong Pair.snd here))
+    | Inl here => Eq.sym here
     | Inr none => Void.exfalso none
 
 -- The search from a start on track.
 theorem fromStartResult (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True):
     Graph.SearchResult racetrack.graph [(racetrack.start, 0)] (FromStart racetrack) racetrack.fromStart :=
-  Graph.distancesCorrect racetrack.graph [(racetrack.start, 0)] (FromStart racetrack)
-    (source start member =>
-      let (Both atStart isZero) := onlySource racetrack.start source start member
-      rewrite atStart, isZero in Both startOnTrack (Witness Nil (Both rfl rfl)))
+  Graph.breadthFirstCorrect racetrack.graph [racetrack.start] (FromStart racetrack)
+    (source member =>
+      rewrite onlySource racetrack.start source member in Both startOnTrack (Witness Nil (Both rfl rfl)))
     (state time reached next weight edge =>
       let (Both moves isOne) := edgesSound racetrack state next weight edge
       Exists.elim moves (direction moved =>
@@ -42,14 +41,14 @@ theorem fromStartResult (racetrack: Racetrack) (startOnTrack: onTrack racetrack 
             (Witness (steps ++ [direction])
               (Both (raceSnoc racetrack racetrack.start steps state (And.left parts) direction next moved)
                 (rewrite List.lengthAppend steps [direction], isOne, <- And.right parts in rfl))))))
+    (state next weight edge => And.right (edgesSound racetrack state next weight edge))
 
 -- The search from an end on track, every move taken back.
 theorem toEndResult (racetrack: Racetrack) (endOnTrack: onTrack racetrack racetrack.end = True):
     Graph.SearchResult racetrack.graph [(racetrack.end, 0)] (ToEnd racetrack) racetrack.toEnd :=
-  Graph.distancesCorrect racetrack.graph [(racetrack.end, 0)] (ToEnd racetrack)
-    (source start member =>
-      let (Both atEnd isZero) := onlySource racetrack.end source start member
-      rewrite atEnd, isZero in Both endOnTrack (Witness Nil (Both rfl rfl)))
+  Graph.breadthFirstCorrect racetrack.graph [racetrack.end] (ToEnd racetrack)
+    (source member =>
+      rewrite onlySource racetrack.end source member in Both endOnTrack (Witness Nil (Both rfl rfl)))
     (state time reaches next weight edge =>
       let (Both moves isOne) := edgesSound racetrack state next weight edge
       Exists.elim moves (direction moved =>
@@ -60,6 +59,7 @@ theorem toEndResult (racetrack: Racetrack) (endOnTrack: onTrack racetrack racetr
                 (Eq.trans (raceCons racetrack next (opposite direction) state (moveBack racetrack state (And.left reaches) direction next moved) steps)
                   (And.left parts))
                 (rewrite isOne, <- And.right parts in omega))))))
+    (state next weight edge => And.right (edgesSound racetrack state next weight edge))
 
 -- Along any race, the search's bound grows by no more than its moves.
 theorem boundFrom (racetrack: Racetrack) (result: Map Position Nat)

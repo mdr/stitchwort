@@ -96,10 +96,10 @@ def Racetrack.graph (racetrack: Racetrack): Graph Position := {
 }
 
 -- The fewest picoseconds from the start to each track position.
-def Racetrack.fromStart (racetrack: Racetrack): Map Position Nat := racetrack.graph.distances [(racetrack.start, 0)]
+def Racetrack.fromStart (racetrack: Racetrack): Map Position Nat := racetrack.graph.breadthFirst [racetrack.start]
 
 -- The fewest picoseconds from each track position to the end.
-def Racetrack.toEnd (racetrack: Racetrack): Map Position Nat := racetrack.graph.distances [(racetrack.end, 0)]
+def Racetrack.toEnd (racetrack: Racetrack): Map Position Nat := racetrack.graph.breadthFirst [racetrack.end]
 
 -- The picoseconds from one position to another through walls: the
 -- Manhattan distance.

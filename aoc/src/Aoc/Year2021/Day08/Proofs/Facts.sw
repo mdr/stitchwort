@@ -18,14 +18,7 @@ theorem eachDigit (q: Nat → Bool) (all: digits.all q = True) (digit: Nat) (bel
   List.allRangeElim q 10 0 all digit (Nat.zeroLe digit) below
 
 -- Every segment is one of the seven.
-theorem segmentsComplete: (segment: Segment) → segment ∈ segments
-  | A => Inl rfl
-  | B => Inr (Inl rfl)
-  | C => Inr (Inr (Inl rfl))
-  | D => Inr (Inr (Inr (Inl rfl)))
-  | E => Inr (Inr (Inr (Inr (Inl rfl))))
-  | F => Inr (Inr (Inr (Inr (Inr (Inl rfl)))))
-  | G => Inr (Inr (Inr (Inr (Inr (Inr (Inl rfl))))))
+theorem segmentsComplete: (segment: Segment) → segment ∈ segments := cases
 
 -- What `all` says of a member.
 theorem allElim (p: a → Bool) (xs: List a) (h: xs.all p = True) (x: a) (m: x ∈ xs): p x = True :=

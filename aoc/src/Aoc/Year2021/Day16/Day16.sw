@@ -187,14 +187,20 @@ def readPacket (bits: List Bool): Option (Packet, List Bool) :=
     | Some ([packet], rest) => Some (packet, rest)
     | _ => None
 
--- The outermost packet of the transmission (the bits after it are
--- padding). It checks the puzzle's promise about the operators it
+-- The outermost packet of the transmission. Only zero bits may follow it
+-- (the padding), and it checks the puzzle's promise about the operators it
 -- evaluates.
 def parsePacket (input: Text): {Fail} Packet := decodeTransmission (readBits input)
 
+-- The bits are all zero.
+def zeroBits (bits: List Bool): Bool := bits.all (bit => not bit)
+
 def decodeTransmission (bits: List Bool): {Fail} Packet :=
   match readPacket bits with
-    | Some ((packet, _)) => checkOperators packet
+    | Some ((packet, rest)) =>
+      match zeroBits rest with
+        | True => checkOperators packet
+        | False => Fail.fail "the bits after the packet aren't all zero padding"
     | None => Fail.fail "the transmission isn't a packet"
 
 -- How many sub-packets an operation takes: none if any number does.

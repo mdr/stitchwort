@@ -104,4 +104,4 @@ theorem part1FromInput (input: Text) (packet: Packet) (parsed: Fail.toResult (()
 
 theorem part2FromInput (input: Text) (packet: Packet) (parsed: Fail.toResult (() => parsePacket input) = Ok packet): HasValue packet (solvePart2 packet) :=
   match parsePacketReads input packet parsed with
-    | Witness bits (Witness rest (Both _ (Both _ (Both formed kept)))) => part2Correct packet formed kept
+    | Witness bits (Witness rest (Both _ (Both _ (Both _ (Both formed kept))))) => part2Correct packet formed kept

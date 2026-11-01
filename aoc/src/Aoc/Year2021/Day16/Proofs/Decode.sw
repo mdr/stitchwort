@@ -36,20 +36,24 @@ theorem encodingUnique (first: Packet) (second: Packet) (rest1: List Bool) (rest
   rewrite same at read1 in somePairInjective _ _ _ _ (Eq.trans (Eq.sym read1) read2)
 
 -- The parser's guarantee: the input is hexadecimal digits, and the packet
--- it reads is well formed, its encoding starts the transmission's bits,
--- and it keeps the puzzle's promise about the operators.
+-- it reads is well formed, its encoding starts the transmission's bits and
+-- only zero bits (the padding) follow it, and it keeps the puzzle's promise
+-- about the operators.
 theorem parsePacketReads (input: Text) (packet: Packet) (parsed: Fail.toResult (() => parsePacket input) = Ok packet):
     ∃ (bits: List Bool) => ∃ (rest: List Bool) =>
-      transmissionBits input.trim.toList = Some bits ∧ bits = encode packet ++ rest ∧ wellFormed packet = True ∧ promised packet = True :=
+      transmissionBits input.trim.toList = Some bits ∧ bits = encode packet ++ rest ∧ rest.all (bit => not bit) = True ∧ wellFormed packet = True ∧ promised packet = True :=
   let split := rewrite Fail.toResultThen (() => readBits input) decodeTransmission at parsed in parsed
   Result.flatMapEqOk (Fail.toResult (() => readBits input)) (bits => Fail.toResult (() => decodeTransmission bits)) packet split
     (bits got decoded =>
       match e: readPacket bits with
         | None => cases
         | Some (found, rest) =>
-          match b: badOperator found with
-            | Some (operation, count) => cases
-            | None =>
-              let sound := readPacketSound bits found rest e
-              rewrite <- Result.okInjective found packet decoded in
-                Witness bits (Witness rest (Both (readBitsHex input bits got) (Both sound.left (Both sound.right (badOperatorNone found b))))))
+          match z: zeroBits rest with
+            | False => cases
+            | True =>
+              match b: badOperator found with
+                | Some (operation, count) => cases
+                | None =>
+                  let sound := readPacketSound bits found rest e
+                  rewrite <- Result.okInjective found packet decoded in
+                    Witness bits (Witness rest (Both (readBitsHex input bits got) (Both sound.left (Both z (Both sound.right (badOperatorNone found b)))))))

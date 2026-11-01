@@ -122,11 +122,7 @@ def Maze.endReindeer (maze: Maze): List Reindeer := headings.map (facing => ({ p
 
 def Maze.startReindeer (maze: Maze): Reindeer := { position = maze.start, facing = East }
 
-theorem headingsComplete: (facing: Heading) → facing ∈ headings
-  | East => Inl rfl
-  | South => Inr (Inl rfl)
-  | West => Inr (Inr (Inl rfl))
-  | North => Inr (Inr (Inr (Inl rfl)))
+theorem headingsComplete: (facing: Heading) → facing ∈ headings := cases
 
 -- A way of standing on an open tile is on the list.
 theorem Maze.holdsListed (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → reindeer ∈ maze.reindeer
