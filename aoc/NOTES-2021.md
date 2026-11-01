@@ -153,12 +153,44 @@ their own: their proofs needed only `directions` in its new order (day
 12's `countDirections`, day 20's `directionsComplete`), and day 20's
 diamond `Position.around length` is now `Position.diamond`. Not migrated:
 day 8 (`Int` vector arithmetic), days 14 and 15 (`Int` positions; day
-14's are `{ x, y }` on a torus), day 18 (`{ x, y }` positions, which its
-spec uses throughout), day 16 (compass directions, `East` to `North`,
-which its spec quotes), day 10 (its own `neighbours`, split into
-`above`, `leftOf` and `rightAndBelow`, with proofs about each; it could
-move onto the shared `neighbours` and its lemmas, a rewrite of its
-proofs).
+14's are `{ x, y }` on a torus).
+
+**2024, days 10, 16 and 18 (SW-991).** Matt: aim for the best end state,
+in the puzzle's words.
+- Day 10: positions, `neighbours`, `cells` and `parseGrid` are shared;
+  its `above`, `leftOf` and `rightAndBelow` and the proofs about them
+  are gone. `memUphill` uses `neighbourAdjacent` and `adjacentNeighbour`,
+  `uphillDistinct` uses `neighboursDistinct`, and `positions` (now the
+  cells' positions) gets `positionsComplete` from `memCellsOfCellAt` and
+  `positionsDistinct` from `cellPositionsDistinct`. The spec's
+  `isOrthogonalStep` is the shared `adjacent` (the same definition).
+  Statements unchanged otherwise; 154 lines out, 41 in.
+- Day 16: the spec's compass stays: a day-local `Heading` (`East`,
+  `South`, `West`, `North`) with `clockwise` and `counterclockwise`, and
+  `Heading.toDirection` onto the shared `Direction` (north up: east is a
+  column on, south a row on). Proofs/Headings.sw shows it is a bijection
+  (`headingOf` is its inverse) and turns as the heading does
+  (`clockwiseTurnsRight`, `counterclockwiseTurnsLeft`). Steps are the
+  shared `Position.step` through it, so the spec's forward move is
+  `position.step facing.toDirection`; its old `stepBack` is the shared
+  `stepOpposite`. The graph stays the day's own: its states are a
+  position and a heading, with turns, which `stepGraph` (positions only)
+  doesn't model. 105 lines out, 95 in (27 of them Headings.sw).
+- Day 18: a byte at `X,Y` is read as `{ row = Y, column = X }`, and the
+  spec says once that X is the column and Y the row. The graph is
+  `stepGraph` (entering a safe position costs 1). The spec's path is now
+  the shared `isPath` (the positions entered, each adjacent to the one
+  before and safe, from `{ row = 0, column = 0 }` to the bottom right
+  corner) instead of a list of directions walked; `IsFewestSteps` counts
+  its positions. The proofs use `walkPath`, `pathWalk` and
+  `Graph.breadthFirstShortest` instead of their own walk lemmas. 277
+  lines out, 144 in.
+- Added to `Aoc.Common.Proofs`: `stepOpposite` (a step back the opposite
+  way returns, for day 16's backward moves), `isPathWeaken` (a path by one
+  test is a path by any test that allows its positions too: day 18's
+  "more bytes fallen, fewer paths"), and `unitPathCost` with
+  `unitEnterCost` (where entering costs 1, a path costs its number of
+  steps: for `breadthFirst`).
 
 **Friction.**
 - `Up.turnRight` is `E-UNKNOWN-NAME`; dot calls don't reach a
