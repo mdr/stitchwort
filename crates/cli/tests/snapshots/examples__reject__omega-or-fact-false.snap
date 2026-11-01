@@ -1,0 +1,30 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `probe.x + probe.dx < left`
+    ╭─[ reject/omega-or-fact-false.sw:18:133 ]
+    │
+ 18 │ theorem pastStays (left: Int) (right: Int) (probe: Probe) (h: past left right probe = True): past left right (step probe) = True := omega
+    │                                                                                                                                     ──┬──  
+    │                                                                                                                                       ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+    │ 
+    │ Note 1: facts: `probe.x < left` (case), `¬(right < probe.x + probe.dx)` (case)
+    │ 
+    │ Note 2: atoms: `probe.x`, `probe.dx`, `left`, `right`
+    │ 
+    │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): probe.x = -1, probe.dx = 1, left = 0, right = 0
+    │ 
+    │ Note 4: in the case `(right < (step probe).x) = False` of the disjunction from case
+    │ 
+    │ Note 5: in the case `short left probe = True` of the disjunction from h
+    │ 
+    │ Note 6: this statement is false; a counterexample:
+    │           left = 0
+    │           right = 0
+    │           probe = { x = -1, dx = 1 }
+    │         `past left right probe = True` holds
+    │         `past left right (step probe) = True` is false:
+    │           left:  False
+    │           right: True
+────╯

@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `(n + 1).toInt - 2 = n.toInt`
+   ╭─[ reject/omega-computed-sub-false.sw:7:60 ]
+   │
+ 7 │ theorem predTwice (n: Nat): (n + 1).toInt - 2 = n.toInt := omega
+   │                                                            ──┬──  
+   │                                                              ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │ 
+   │ Note 1: facts: none in scope
+   │ 
+   │ Note 2: atoms: `n`
+   │ 
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): n = 0
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           n = 0
+   │         `(n + 1).toInt - 2 = n.toInt` is false:
+   │           left:  -1
+   │           right: 0
+───╯

@@ -36,7 +36,9 @@
 //! `(p && q) = False`) are split as Lean's `omega` splits them: only when
 //! the goal doesn't follow without them, by proving it in each case with
 //! that case's side as a fact, joined by `Or.elim` or `Bool.orElim`, within
-//! [`search::Limits::splits`]. A disjunctive goal is proved by cases
+//! [`search::Limits::splits`]. A disjunction one of whose sides contradicts
+//! the facts at once is taken first and costs no split (unit propagation,
+//! [`split_first`]). A disjunctive goal is proved by cases
 //! (`Bool.inspect`) on the `Bool` deciding one side.
 //!
 //! **Quoting** mirrors the computed value's shape, so the tree's meaning
@@ -51,16 +53,21 @@
 //! the certificate may split on (`Cases`); `Not (a = b)` facts have cases
 //! too (`FNe`). `x * y` and `y * x` are two atoms with the fact
 //! `Nat.mulComm x y` between them. `x / k` for a number `k > 0` (as
-//! `Nat.divFuel x x k`, which it computes to) is an atom `q` with the facts
-//! `q * k <= x` and `x < (q + 1) * k` (`Nat.divFuelLe`, `Nat.divFuelBound`);
-//! `x % k` computes to `x - q * k`, a subtraction atom over it.
+//! `Nat.divFuel x x k`, which it computes to, or the `Nat.divStep b f x k`
+//! that takes a step to when `x` has a number added) is an atom `q` with the
+//! facts `q * k <= x` and `x < (q + 1) * k` (`Nat.divFuelLe`,
+//! `Nat.divFuelBound`, whose fuel `f + 1` is `x` or a number more,
+//! `Nat.leAddLeft`); `x % k` computes to `x - q * k`, a subtraction atom
+//! over it.
 //!
 //! **`Int`** works the same way over `Int` syntax (`ITerm`), read as `Int`
 //! arithmetic computes: `a <= b` is `Int.leq a b = True`, `a < b` is
 //! `Int.less a b = True`, `x - y` is `x + Int.neg y`, `n.toInt` and a
 //! literal are `OfNat n` (whose inside is quoted as a `Nat` term, so a `Nat`
 //! atom there keeps its `0 <= x`), and `n.toInt - 1` is
-//! `Int.subNatNatFrom n 1 (1 - n)`. `Int` atoms have no bound. `x / k` and
+//! `Int.subNatNatFrom n 1 (1 - n)`, read as `Int.subNatNat n 1` whenever its
+//! last argument is what `1 - n` computes to (`(n + 1).toInt - 1` has
+//! `0 - n` there). `Int` atoms have no bound. `x / k` and
 //! `x % k` for a nonzero number `k` are atoms with the facts
 //! `k * (x / k) + x % k = x`, `0 <= x % k` and `x % k < |k|`
 //! (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`). A goal that
@@ -135,6 +142,7 @@ pub(crate) const LIBRARY: &[&str] = &[
     "Std.Nat.mulComm",
     "Std.Nat.divFuelLe",
     "Std.Nat.divFuelBound",
+    "Std.Nat.leAddLeft",
     "Std.Int.mulComm",
     "Std.Int.divAddMod",
     "Std.Int.modNonneg",
@@ -362,6 +370,7 @@ struct Lib {
     int_mod_lt_abs: DefId,
     succ_not_zero: DefId,
     le_refl: DefId,
+    le_add_left: DefId,
     // The core's.
     leq: DefId,
     sub: DefId,
@@ -374,6 +383,7 @@ struct Lib {
     mul: DefId,
     div: DefId,
     div_fuel: DefId,
+    div_step: DefId,
     ite: DefId,
     to_bool: DefId,
     not: DefId,
@@ -402,6 +412,7 @@ struct Lib {
     mk_pair: (DataId, usize),
     of_nat: (DataId, usize),
     neg_succ: (DataId, usize),
+    succ: (DataId, usize),
     /// How far the search may go.
     limits: search::Limits,
 }
@@ -510,6 +521,7 @@ impl Lib {
             int_mod_lt_abs: def("Std.Int.modLtAbs")?,
             succ_not_zero: def("Std.Nat.succNotZero")?,
             le_refl: def("Std.Nat.leRefl")?,
+            le_add_left: def("Std.Nat.leAddLeft")?,
             leq: builtin_def(cx, Builtin::Leq)?,
             sub: builtin_def(cx, Builtin::Sub)?,
             nat_equal: builtin_def(cx, Builtin::EqNat)?,
@@ -521,6 +533,7 @@ impl Lib {
             mul: builtin_def(cx, Builtin::Mul)?,
             div: builtin_def(cx, Builtin::Div)?,
             div_fuel: builtin_def(cx, Builtin::DivFuel)?,
+            div_step: builtin_def(cx, Builtin::DivStep)?,
             ite: builtin_def(cx, Builtin::IfThenElse)?,
             to_bool: builtin_def(cx, Builtin::ToBool)?,
             not: builtin_def(cx, Builtin::Not)?,
@@ -549,6 +562,7 @@ impl Lib {
             mk_pair: builtin_ctor(cx, Builtin::MkPair)?,
             of_nat: builtin_ctor(cx, Builtin::OfNat)?,
             neg_succ: builtin_ctor(cx, Builtin::NegSucc)?,
+            succ: builtin_ctor(cx, Builtin::Succ)?,
             limits: search::LIMITS,
         })
     }
@@ -1100,7 +1114,9 @@ fn prove_or(
     let case = |cx: &mut Ctx, extra: &[Extra], split: &Split, splits: &mut usize| {
         prove_or(cx, lib, goal, p, q, extra, span, split, splits)
     };
-    split_first(cx, lib, goal, extra, found, split, splits, failure, case)
+    split_first(
+        cx, lib, goal, extra, found, split, splits, failure, span, case,
+    )
 }
 
 fn unsupported_goal(cx: &Ctx, goal: &Value, span: Span) -> Diagnostic {
@@ -1618,6 +1634,9 @@ struct Atom {
 struct Division {
     q: usize,
     numerator: Value,
+    /// The fuel of the `Nat.divFuel` call the atom is: the numerator, or
+    /// (after steps) a number at least as big.
+    fuel: Value,
     quoted: NTerm,
     divisor: BigUint,
 }
@@ -1741,7 +1760,7 @@ impl Quoter {
             }
             return Ok(Ok(NTerm::V(t)));
         }
-        if let Some((numerator, divisor)) = self.division(cx, lib, &base)? {
+        if let Some((numerator, fuel, divisor)) = self.division(cx, lib, &base)? {
             let q = self.atom(cx, base, None, false)?;
             if !self.divisions.iter().any(|d| d.q == q)
                 && let Ok(quoted) = self.quote(cx, lib, &numerator, span)?
@@ -1749,6 +1768,7 @@ impl Quoter {
                 self.divisions.push(Division {
                     q,
                     numerator,
+                    fuel,
                     quoted,
                     divisor,
                 });
@@ -1873,31 +1893,60 @@ impl Quoter {
             return Ok(None);
         };
         let gap = force(cx.g(), gap.clone())?;
-        let gap_args = call_args(&gap, lib.sub);
-        let Some([n2, m2]) = gap_args.as_deref() else {
-            return Ok(None);
-        };
         let same = crate::matching::same;
-        let matches = same(&cx.quote(n2)?, &cx.quote(n)?) && same(&cx.quote(m2)?, &cx.quote(m)?);
+        if let Some([n2, m2]) = call_args(&gap, lib.sub).as_deref()
+            && same(&cx.quote(n2)?, &cx.quote(n)?)
+            && same(&cx.quote(m2)?, &cx.quote(m)?)
+        {
+            return Ok(Some((m.clone(), n.clone())));
+        }
+        // `n - m` may have computed further: `(i + 1).toInt - 1` is
+        // `Int.subNatNatFrom (i + 1) 1 (0 - i)`, since `1 - (i + 1)` takes a
+        // step to `0 - i`. Compute `n - m` and compare.
+        let gap_of = apps(
+            Term::Def(lib.sub),
+            vec![cx.quote_folded(n)?, cx.quote_folded(m)?],
+        );
+        let computed = force(cx.g(), cx.eval(&gap_of)?)?;
+        let matches = same(&cx.quote(&computed)?, &cx.quote(&gap)?);
         Ok(matches.then(|| (m.clone(), n.clone())))
     }
 
-    /// `x / k` for a number `k > 0`: `Nat.div x k`, or `Nat.divFuel x x k`,
-    /// which it computes to.
-    fn division(&self, cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<(Value, BigUint)>> {
-        let (numerator, divisor) =
+    /// `x / k` for a number `k > 0`: `Nat.div x k`, `Nat.divFuel f x k`
+    /// (which it computes to, `f` being `x`), or `Nat.divStep b f x k`, which
+    /// `Nat.divFuel (Succ f) x k` computes to once `x` has a number added:
+    /// `(n + 1) / 2` is `Nat.divStep (1 <= n) n (n + 1) 2`, and `(n + 3) / 2`
+    /// is one more than `Nat.divStep (1 <= n) (n + 1) (n + 1) 2`. Returns the
+    /// numerator, the fuel and the divisor.
+    fn division(
+        &self,
+        cx: &Ctx,
+        lib: &Lib,
+        value: &Value,
+    ) -> Result<Option<(Value, Value, BigUint)>> {
+        let (numerator, fuel, divisor) =
             if let Some([fuel, n, d]) = call_args(value, lib.div_fuel).as_deref() {
-                if !crate::matching::same(&cx.quote(fuel)?, &cx.quote(n)?) {
+                (n.clone(), fuel.clone(), d.clone())
+            } else if let Some([n, d, _]) = call_args(value, lib.div).as_deref() {
+                (n.clone(), n.clone(), d.clone())
+            } else if let Some([_, fuel, n, d]) = call_args(value, lib.div_step).as_deref() {
+                let fuel = Term::ctor(lib.succ.0, lib.succ.1, vec![cx.quote_folded(fuel)?]);
+                // Only the step that `Nat.divFuel (Succ fuel) n d` takes, so
+                // that the facts about that call are about this atom.
+                let call = apps(
+                    Term::Def(lib.div_fuel),
+                    vec![fuel.clone(), cx.quote_folded(n)?, cx.quote_folded(d)?],
+                );
+                let computed = force(cx.g(), cx.eval(&call)?)?;
+                if !crate::matching::same(&cx.quote(&computed)?, &cx.quote(value)?) {
                     return Ok(None);
                 }
-                (n.clone(), d.clone())
-            } else if let Some([n, d, _]) = call_args(value, lib.div).as_deref() {
-                (n.clone(), d.clone())
+                (n.clone(), cx.eval(&fuel)?, d.clone())
             } else {
                 return Ok(None);
             };
         Ok(match force(cx.g(), divisor)? {
-            Value::Nat(k) if *k != BigUint::default() => Some((numerator, (*k).clone())),
+            Value::Nat(k) if *k != BigUint::default() => Some((numerator, fuel, (*k).clone())),
             _ => None,
         })
     }
@@ -2357,7 +2406,7 @@ fn linear_split(
         linear_split(cx, lib, goal, expected, extra, span, split, splits)
     };
     split_first(
-        cx, lib, expected, extra, found, split, splits, failure, case,
+        cx, lib, expected, extra, found, split, splits, failure, span, case,
     )
 }
 
@@ -2365,10 +2414,17 @@ fn linear_split(
 /// at.
 type Split = [(Term, usize)];
 
-/// `expected` by splitting the first of `found` that isn't in `split` and
-/// whose sides both say something `omega` reads, each case proved by `case`
-/// with its side in scope; `failure` if there is none, or no splits are
-/// left.
+/// `expected` by splitting a disjunction of `found` that isn't in `split`
+/// and whose sides both say something `omega` reads, each case proved by
+/// `case` with its side in scope; `failure` if there is none, or no splits
+/// are left.
+///
+/// A disjunction one of whose sides contradicts the facts without any
+/// splitting (a unit, as in DPLL) is taken first, and costs no split: its
+/// other side is all that's left. Otherwise the first is split. So a fact
+/// such as `(a <= b && c < d) = False` from a goal's other side, which only
+/// one case of some other disjunction settles, waits until that case is
+/// split rather than doubling every case before it.
 #[allow(clippy::too_many_arguments)]
 fn split_first(
     cx: &mut Ctx,
@@ -2379,8 +2435,10 @@ fn split_first(
     split: &Split,
     splits: &mut usize,
     failure: Diagnostic,
+    span: Span,
     mut case: impl FnMut(&mut Ctx, &[Extra], &Split, &mut usize) -> Result<Term>,
 ) -> Result<Term> {
+    let mut open = Vec::new();
     for d in found {
         let mut done = false;
         for (proof, level) in split {
@@ -2393,51 +2451,107 @@ fn split_first(
         if done || !says_something(cx, lib, &d.left)? || !says_something(cx, lib, &d.right)? {
             continue;
         }
-        if *splits == 0 {
-            return Err(failure.with_note(format!(
-                "`omega` splits at most {} disjunctions among the facts, and more are left (the one from {}); split some by `match` first",
-                lib.limits.splits, d.origin
-            )));
-        }
-        *splits -= 1;
-        let mut split = split.to_vec();
-        split.push((d.proof.clone(), cx.level()));
-        let mut prove_case = |cx: &mut Ctx, side: &Value| {
-            assuming(cx, "case", side, extra, |cx, extra| {
-                case(cx, extra, &split, splits).map_err(|e| {
-                    e.with_note(format!(
-                        "in the case `{}` of the disjunction from {}",
-                        cx.show(side),
-                        d.origin
-                    ))
-                })
-            })
-        };
-        let left = prove_case(cx, &d.left)?;
-        let right = prove_case(cx, &d.right)?;
-        let goal_term = cx.quote_folded(expected)?;
-        return Ok(match &d.bools {
-            Some((p, q)) => apps(
-                Term::Def(lib.or_elim),
-                vec![
-                    cx.quote_folded(p)?,
-                    cx.quote_folded(q)?,
-                    goal_term,
-                    d.proof,
-                    left,
-                    right,
-                ],
-            ),
-            None => {
-                let implicit = |t: Term, arg: Term| Term::app_icit(t, arg, Icit::Implicit);
-                let elim = implicit(Term::Def(lib.prop_or_elim), cx.quote_folded(&d.left)?);
-                let elim = implicit(elim, cx.quote_folded(&d.right)?);
-                let elim = implicit(elim, goal_term);
-                apps(elim, vec![d.proof, left, right])
-            }
-        });
+        open.push(d);
     }
-    Err(failure)
+    let mut unit = None;
+    if is_prop(cx, expected)?.is_some() {
+        'units: for (i, d) in open.iter().enumerate() {
+            for (side, left) in [(&d.left, true), (&d.right, false)] {
+                if let Some(closed) = refuted_case(cx, lib, expected, side, extra, span)? {
+                    unit = Some((i, Some((closed, left))));
+                    break 'units;
+                }
+            }
+        }
+    }
+    let (i, closed) = match unit {
+        Some(unit) => unit,
+        None => {
+            let Some(d) = open.first() else {
+                return Err(failure);
+            };
+            if *splits == 0 {
+                return Err(failure.with_note(format!(
+                    "`omega` splits at most {} disjunctions among the facts, and more are left (the one from {}); split some by `match` first",
+                    lib.limits.splits, d.origin
+                )));
+            }
+            *splits -= 1;
+            (0, None)
+        }
+    };
+    let d = open.swap_remove(i);
+    let mut split = split.to_vec();
+    split.push((d.proof.clone(), cx.level()));
+    let mut prove_case = |cx: &mut Ctx, side: &Value| {
+        assuming(cx, "case", side, extra, |cx, extra| {
+            case(cx, extra, &split, splits).map_err(|e| {
+                e.with_note(format!(
+                    "in the case `{}` of the disjunction from {}",
+                    cx.show(side),
+                    d.origin
+                ))
+            })
+        })
+    };
+    let (left, right) = match closed {
+        Some((closed, true)) => (closed, prove_case(cx, &d.right)?),
+        Some((closed, false)) => (prove_case(cx, &d.left)?, closed),
+        None => (prove_case(cx, &d.left)?, prove_case(cx, &d.right)?),
+    };
+    let goal_term = cx.quote_folded(expected)?;
+    Ok(match &d.bools {
+        Some((p, q)) => apps(
+            Term::Def(lib.or_elim),
+            vec![
+                cx.quote_folded(p)?,
+                cx.quote_folded(q)?,
+                goal_term,
+                d.proof,
+                left,
+                right,
+            ],
+        ),
+        None => {
+            let implicit = |t: Term, arg: Term| Term::app_icit(t, arg, Icit::Implicit);
+            let elim = implicit(Term::Def(lib.prop_or_elim), cx.quote_folded(&d.left)?);
+            let elim = implicit(elim, cx.quote_folded(&d.right)?);
+            let elim = implicit(elim, goal_term);
+            apps(elim, vec![d.proof, left, right])
+        }
+    })
+}
+
+/// `case => …` proving `expected` with `case: side` in scope, if the facts
+/// with `side` contradict each other without splitting anything; `None`
+/// (with nothing kept) if they don't.
+fn refuted_case(
+    cx: &mut Ctx,
+    lib: &Lib,
+    expected: &Value,
+    side: &Value,
+    extra: &[Extra],
+    span: Span,
+) -> Result<Option<Term>> {
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let void = Value::Data(lib.void, Vec::new());
+    let made = assuming(cx, "case", side, extra, |cx, extra| {
+        let reader = read_context(cx, lib, extra)?;
+        let proof = linear_once(cx, lib, &Goal::Void, &void, span, reader)?;
+        let which = match is_prop(cx, expected)? {
+            Some(false) => lib.absurd,
+            _ => lib.exfalso,
+        };
+        Ok(lemma(cx, which, &[both(cx, expected)?, (proof, void.clone())])?.0)
+    });
+    match made {
+        Ok(term) => Ok(Some(term)),
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) => {
+            snapshot.restore(cx);
+            Ok(None)
+        }
+    }
 }
 
 /// The hypotheses in scope and `extra`, read.
@@ -2761,19 +2875,42 @@ fn int_division_facts(cx: &Ctx, lib: &Lib, division: &IntDivision) -> Result<Vec
 fn division_facts(cx: &Ctx, lib: &Lib, quoter: &Quoter, division: &Division) -> Result<Vec<Fact>> {
     let number = |k: BigUint| (nat_term(k.clone()), Value::Nat(Rc::new(k)));
     let numerator = both(cx, &division.numerator)?;
+    let fuel = both(cx, &division.fuel)?;
     let divisor = number(division.divisor.clone());
     let low = lemma(
         cx,
         lib.div_fuel_le,
-        &[numerator.clone(), numerator.clone(), divisor.clone()],
+        &[fuel.clone(), numerator.clone(), divisor.clone()],
     )?;
     let nonzero = lemma(cx, lib.succ_not_zero, &[number(&division.divisor - 1u32)])?;
-    let enough_fuel = lemma(cx, lib.le_refl, std::slice::from_ref(&numerator))?;
-    let high = lemma(
-        cx,
-        lib.div_fuel_bound,
-        &[numerator.clone(), numerator, divisor, nonzero, enough_fuel],
-    )?;
+    // The bound needs the fuel to be enough, `numerator <= fuel`: by
+    // `Nat.leRefl` when they're the same, and by `Nat.leAddLeft k x` when the
+    // fuel is `k` more (`n + 1 <= n + 2` computes to `n <= 1 + n`).
+    // Otherwise only the lower bound is a fact.
+    let same = crate::matching::same;
+    let enough_fuel = if same(&cx.quote(&division.numerator)?, &cx.quote(&division.fuel)?) {
+        Some(lemma(cx, lib.le_refl, std::slice::from_ref(&numerator))?)
+    } else {
+        let (k, base) = stitchwort_core::native::view(cx.g(), &division.numerator)?;
+        let (k_fuel, base_fuel) = stitchwort_core::native::view(cx.g(), &division.fuel)?;
+        match (base, base_fuel) {
+            (Some(base), Some(base_fuel))
+                if k_fuel >= k && same(&cx.quote(&base)?, &cx.quote(&base_fuel)?) =>
+            {
+                let more = number(&k_fuel - &k);
+                Some(lemma(cx, lib.le_add_left, &[more, both(cx, &base)?])?)
+            }
+            _ => None,
+        }
+    };
+    let high = match enough_fuel {
+        Some(enough_fuel) => Some(lemma(
+            cx,
+            lib.div_fuel_bound,
+            &[fuel, numerator, divisor, nonzero, enough_fuel],
+        )?),
+        None => None,
+    };
     let origin = format!("what `{}` is", atom_name(cx, quoter, division.q));
     let mut reader = Reader {
         lib,
@@ -2781,7 +2918,7 @@ fn division_facts(cx: &Ctx, lib: &Lib, quoter: &Quoter, division: &Division) -> 
         disjunctions: Vec::new(),
         skipped: Vec::new(),
     };
-    for (proof, prop) in [low, high] {
+    for (proof, prop) in std::iter::once(low).chain(high) {
         reader.read(cx, proof, &prop, &origin, 0)?;
     }
     Ok(reader.facts)
