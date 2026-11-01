@@ -1,5 +1,6 @@
--- Day 3's tests: the example from the puzzle and unit tests. Kept apart from
--- the program, so `stitchwort run Aoc.Year2021.Day03.main` doesn't check them.
+--| Day 3's tests: the example from the puzzle and unit tests.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2021.Day03.main`
+-- doesn't check them.
 
 namespace Aoc.Year2021.Day03.Tests
 import Aoc.Year2021.Day03 (..)
@@ -37,20 +38,20 @@ test "an empty line" := parsed "01\n\n10" == Err "line 2, column 1: expected 0 o
 test "a number with too few bits" := parsed "0101\n011\n1100" == Err "line 2: 3 bits, but the first line has 4"
 test "no lines" := parsed "" == Ok []
 
--- Ties: the most common bit is 1, the least common 0.
+--| Ties: the most common bit is 1, the least common 0.
 test "a tie, part 1" := (gammaRate [[True], [False]], epsilonRate [[True], [False]], solvePart1 [[True], [False]]) == (1, 0, 0)
 test "a tie keeps 1s for oxygen and 0s for CO2" :=
   (oxygenGeneratorRating [[False, True], [True, False]], co2ScrubberRating [[False, True], [True, False]]) == (Some 2, Some 1)
 
--- Every number left has a 1 there: the least common bit is 0, and no number
--- is kept, so there is no CO2 scrubber rating.
+--| Every number left has a 1 there: the least common bit is 0, and no number
+--| is kept, so there is no CO2 scrubber rating.
 test "no number left" := (co2ScrubberRating [[True, False], [True, True]], solvePart2 [[True, False], [True, True]]) == (None, None)
--- The same number twice: no bit tells them apart, so more than one is left.
+--| The same number twice: no bit tells them apart, so more than one is left.
 test "the same number twice" := (oxygenGeneratorRating [[True], [True]], solvePart2 [[True], [True]]) == (None, None)
--- One number is its own rating, with no filtering at all.
+--| One number is its own rating, with no filtering at all.
 test "one number" := solvePart2 [[True, True, False]] == Some 36
 test "no numbers" := (solvePart1 [], solvePart2 [], lifeSupportRating []) == (0, None, None)
 
--- The examples, proved by computing them.
+--| The examples, proved by computing them.
 theorem examplePart1: solvePart1 exampleReport = 198 := rfl
 theorem examplePart2: solvePart2 exampleReport = Some 230 := rfl

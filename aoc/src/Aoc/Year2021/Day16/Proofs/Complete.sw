@@ -1,12 +1,12 @@
--- Completeness: the decoder reads every well-formed packet back from its
--- encoding, whatever follows it.
+--| Completeness: the decoder reads every well-formed packet back from its
+--| encoding, whatever follows it.
 
 namespace Aoc.Year2021.Day16.Proofs
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (allWellFormed, bitsOf, encode, encodeAll, groupBits, typeId, wellFormed)
 import Std (Bool, Decidable, Eq, List, Nat, Option, Void)
 
--- One step of the decoder on a literal's header, its groups read.
+--| One step of the decoder on a literal's header, its groups read.
 theorem literalStep (wanted: Wanted) (later: Wanted) (a: Bool) (b: Bool) (c: Bool) (rest6: List Bool) (version: Nat) (groups: List Nat) (more: List Bool)
     (next: nextWanted wanted (Cons a (Cons b (Cons c (Cons True (Cons False (Cons False rest6)))))) = Some later) (versionRead: Nat.fromBits [a, b, c] = version)
     (groupsRead: readGroups rest6 = Some (groups, more)) (shorter: more.length < (Cons a (Cons b (Cons c (Cons True (Cons False (Cons False rest6)))))).length):
@@ -16,7 +16,7 @@ theorem literalStep (wanted: Wanted) (later: Wanted) (a: Bool) (b: Bool) (c: Boo
       | Yes _ => rewrite versionRead in rfl
       | No longer => Void.exfalso (longer shorter)
 
--- One step on an operator's header with a total length, its pieces read.
+--| One step on an operator's header with a total length, its pieces read.
 theorem totalStep (wanted: Wanted) (later: Wanted) (a: Bool) (b: Bool) (c: Bool) (d: Bool) (e: Bool) (f: Bool) (fields: List Bool) (version: Nat)
     (operation: Operation) (length: Nat) (after: List Bool) (inside: List Bool) (following: List Bool) (subPackets: List Packet)
     (next: nextWanted wanted (Cons a (Cons b (Cons c (Cons d (Cons e (Cons f (Cons False fields))))))) = Some later) (versionRead: Nat.fromBits [a, b, c] = version)
@@ -33,8 +33,8 @@ theorem totalStep (wanted: Wanted) (later: Wanted) (a: Bool) (b: Bool) (c: Bool)
             | No longer => Void.exfalso (longer shorterAfter)
             | Yes _ => rewrite versionRead in rfl
 
--- One step on an operator's header with a number of sub-packets, its
--- pieces read.
+--| One step on an operator's header with a number of sub-packets, its
+--| pieces read.
 theorem countStep (wanted: Wanted) (later: Wanted) (a: Bool) (b: Bool) (c: Bool) (d: Bool) (e: Bool) (f: Bool) (fields: List Bool) (version: Nat)
     (operation: Operation) (count: Nat) (after: List Bool) (following: List Bool) (subPackets: List Packet)
     (next: nextWanted wanted (Cons a (Cons b (Cons c (Cons d (Cons e (Cons f (Cons True fields))))))) = Some later) (versionRead: Nat.fromBits [a, b, c] = version)
@@ -53,17 +53,17 @@ theorem countStep (wanted: Wanted) (later: Wanted) (a: Bool) (b: Bool) (c: Bool)
 
 theorem typeIdSmall (operation: Operation): typeId operation < 8 := cases
 
--- An operation's type id, in its three bits, is read back as it.
+--| An operation's type id, in its three bits, is read back as it.
 theorem operationReadBack (operation: Operation): operationOf (Nat.fromBits (bitsOf 3 (typeId operation))) = Some operation := cases
 
--- A packet's bits aren't empty, so when filling bits, another is wanted.
+--| A packet's bits aren't empty, so when filling bits, another is wanted.
 theorem fillingNext (rest: List Bool): (packet: Packet) → nextWanted Filling (encode packet ++ rest) = Some Filling
   | Literal _ _ => rfl
   | Operator _ _ TotalLength _ => rfl
   | Operator _ _ Count _ => rfl
 
--- Reading what was wanted after a well-formed packet's bits reads the
--- packet, then goes on.
+--| Reading what was wanted after a well-formed packet's bits reads the
+--| packet, then goes on.
 theorem stepComplete (wanted: Wanted) (later: Wanted) (more: List Bool): (packet: Packet) → wellFormed packet = True → nextWanted wanted (encode packet ++ more) = Some later →
     readPackets wanted (encode packet ++ more) = andThen packet (readPackets later more)
   | Literal version groups, formed, next =>
@@ -96,7 +96,7 @@ theorem stepComplete (wanted: Wanted) (later: Wanted) (more: List Bool): (packet
       (fromBitsOf 3 version small) (operationReadBack operation) (readNumberBits 11 count (encodeAll subPackets ++ more) fits)
       (omega [length]) (countComplete subPackets (Bool.andRight _ _ others) more) (omega [length])
 
--- Reading as many packets as there are reads them all back.
+--| Reading as many packets as there are reads them all back.
 theorem countComplete: (packets: List Packet) → allWellFormed packets = True → (more: List Bool) →
     readPackets (Packets packets.length) (encodeAll packets ++ more) = Some (packets, more)
   | Nil, formed, more => rewrite readPackets.unfold (Packets 0) more in rfl
@@ -104,7 +104,7 @@ theorem countComplete: (packets: List Packet) → allWellFormed packets = True �
     let step := stepComplete (Packets (Succ rest.length)) (Packets rest.length) (encodeAll rest ++ more) packet (Bool.andLeft _ _ formed) rfl
     rewrite List.appendAssoc (encode packet) (encodeAll rest) more, step, countComplete rest (Bool.andRight _ _ formed) more in rfl
 
--- Filling packets' bits reads them all back.
+--| Filling packets' bits reads them all back.
 theorem fillComplete: (packets: List Packet) → allWellFormed packets = True → readPackets Filling (encodeAll packets) = Some (packets, Nil)
   | Nil, formed => rewrite readPackets.unfold Filling Nil in rfl
   | Cons packet rest, formed =>

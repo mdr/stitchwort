@@ -1,5 +1,5 @@
--- How deep the numbers get while reducing: an explosion makes nothing
--- deeper, and a split makes a number at most one pair deeper.
+--| How deep the numbers get while reducing: an explosion makes nothing
+--| deeper, and a split makes a number at most one pair deeper.
 
 namespace Aoc.Year2021.Day18.Proofs
 import Aoc.Year2021.Day18 (..)

@@ -1,21 +1,21 @@
--- Day 16 as the puzzle states it: how a packet is written in bits, and what
--- the two parts ask of the packet. The packet type is the program's (a
--- literal keeps its groups, an operator its length type, so that the bits
--- of a packet are fixed); nothing else is shared with it. The proofs
--- (Proofs/) show the program's decoder reads exactly these encodings, and
--- that its answers are these.
+--| Day 16 as the puzzle states it: how a packet is written in bits, and what
+--| the two parts ask of the packet. The packet type is the program's (a
+--| literal keeps its groups, an operator its length type, so that the bits
+--| of a packet are fixed); nothing else is shared with it. The proofs
+--| (Proofs/) show the program's decoder reads exactly these encodings, and
+--| that its answers are these.
 
 namespace Aoc.Year2021.Day16.Spec
 import Aoc.Year2021.Day16 (LengthType, Operation, Packet)
 import Std (List, Nat, Option)
 
--- A number written in `width` bits, the most significant first: the last
--- bit says whether it is odd, and the bits before it are its half.
+--| A number written in `width` bits, the most significant first: the last
+--| bit says whether it is odd, and the bits before it are its half.
 def bitsOf: Nat → Nat → List Bool
   | 0, _ => Nil
   | Succ width, n => bitsOf width (n / 2) ++ [n % 2 == 1]
 
--- The puzzle's hexadecimal digits and their bits.
+--| The puzzle's hexadecimal digits and their bits.
 def hexDigitBits: Char → Option (List Bool)
   | '0' => Some [False, False, False, False]
   | '1' => Some [False, False, False, True]
@@ -35,8 +35,8 @@ def hexDigitBits: Char → Option (List Bool)
   | 'F' => Some [True, True, True, True]
   | _ => None
 
--- A transmission's bits: each character a hexadecimal digit, written as
--- its four bits; none if a character isn't one.
+--| A transmission's bits: each character a hexadecimal digit, written as
+--| its four bits; none if a character isn't one.
 def transmissionBits: List Char → Option (List Bool)
   | Nil => Some Nil
   | Cons char rest =>
@@ -44,7 +44,7 @@ def transmissionBits: List Char → Option (List Bool)
       | Some bits, Some more => Some (bits ++ more)
       | _, _ => None
 
--- The type id of each operator.
+--| The type id of each operator.
 def typeId: Operation → Nat
   | Sum => 0
   | Product => 1
@@ -54,17 +54,17 @@ def typeId: Operation → Nat
   | LessThan => 6
   | EqualTo => 7
 
--- A literal's groups: each is four bits after a bit that is 1, except the
--- last group's, which is 0.
+--| A literal's groups: each is four bits after a bit that is 1, except the
+--| last group's, which is 0.
 def groupBits: List Nat → List Bool
   | Nil => Nil
   | Cons group Nil => Cons False (bitsOf 4 group)
   | Cons group rest => Cons True (bitsOf 4 group ++ groupBits rest)
 
--- A packet's bits: its version in three bits, its type id in three bits
--- (4 for a literal), then a literal's groups; or an operator's length type
--- id (0 or 1), the length of its sub-packets in 15 bits or their number in
--- 11 bits, and the sub-packets.
+--| A packet's bits: its version in three bits, its type id in three bits (4
+--| for a literal), then a literal's groups; or an operator's length type id
+--| (0 or 1), the length of its sub-packets in 15 bits or their number in 11
+--| bits, and the sub-packets.
 def encode: Packet → List Bool
   | Literal version groups => bitsOf 3 version ++ bitsOf 3 4 ++ groupBits groups
   | Operator version operation TotalLength subPackets =>
@@ -72,14 +72,14 @@ def encode: Packet → List Bool
   | Operator version operation Count subPackets =>
     bitsOf 3 version ++ bitsOf 3 (typeId operation) ++ Cons True (bitsOf 11 subPackets.length ++ encodeAll subPackets)
 
--- Packets one after another.
+--| Packets one after another.
 def encodeAll: List Packet → List Bool
   | Nil => Nil
   | Cons packet rest => encode packet ++ encodeAll rest
 
--- A packet whose numbers fit their fields: the version in three bits, at
--- least one group, each in four bits, and the sub-packets' length or
--- number in its 15 or 11 bits. Only these have the encoding above.
+--| A packet whose numbers fit their fields: the version in three bits, at
+--| least one group, each in four bits, and the sub-packets' length or
+--| number in its 15 or 11 bits. Only these have the encoding above.
 def wellFormed: Packet → Bool
   | Literal version groups => version < 8 && groups != Nil && groups.all (group => group < 16)
   | Operator version _ TotalLength subPackets => version < 8 && (encodeAll subPackets).length < 32768 && allWellFormed subPackets
@@ -89,7 +89,7 @@ def allWellFormed: List Packet → Bool
   | Nil => True
   | Cons packet rest => wellFormed packet && allWellFormed rest
 
--- A packet and every packet inside it, at any depth.
+--| A packet and every packet inside it, at any depth.
 def packetsIn: Packet → List Packet
   | Literal version groups => [Literal version groups]
   | Operator version operation lengthType subPackets => Cons (Operator version operation lengthType subPackets) (packetsInAll subPackets)
@@ -102,12 +102,12 @@ def versionOf: Packet → Nat
   | Literal version _ => version
   | Operator version _ _ _ => version
 
--- Part 1: the versions of all the packets, added up.
+--| Part 1: the versions of all the packets, added up.
 def versionTotal (packet: Packet): Nat := (packetsIn packet).sumBy versionOf
 
--- What the puzzle promises of the operators it evaluates: a minimum or a
--- maximum has at least one sub-packet, and a comparison exactly two. (A sum
--- or product of none is 0 or 1.)
+--| What the puzzle promises of the operators it evaluates: a minimum or a
+--| maximum has at least one sub-packet, and a comparison exactly two. (A sum
+--| or product of none is 0 or 1.)
 def promised: Packet → Bool
   | Literal _ _ => True
   | Operator _ operation _ subPackets => fitsOperation operation subPackets.length && allPromised subPackets
@@ -124,22 +124,22 @@ def fitsOperation: Operation → Nat → Bool
   | EqualTo, count => count == 2
   | _, _ => True
 
--- Part 2: a packet's value. A literal's is its groups' bits read as one
--- binary number; an operator's is computed from its sub-packets' values.
+--| Part 2: a packet's value. A literal's is its groups' bits read as one
+--| binary number; an operator's is computed from its sub-packets' values.
 type HasValue: Packet → Nat → Prop =
   | LiteralValue (version: Nat) (groups: List Nat): HasValue (Literal version groups) (Nat.fromBits (groups.flatMap (bitsOf 4)))
   | OperatorValue (each: Values subPackets values) (computed: Computes operation values value):
     HasValue (Operator version operation lengthType subPackets) value
 
--- Each packet's value, in order.
+--| Each packet's value, in order.
 type Values: List Packet → List Nat → Prop =
   | NoValues: Values Nil Nil
   | NextValue (first: HasValue packet value) (rest: Values packets values): Values (Cons packet packets) (Cons value values)
 
--- What each operator makes of its sub-packets' values: their sum, their
--- product, their minimum or maximum (one of them, and no other below or
--- above it), or 1 if the first is greater than, less than, or equal to the
--- second (of exactly two), and 0 if not.
+--| What each operator makes of its sub-packets' values: their sum, their
+--| product, their minimum or maximum (one of them, and no other below or
+--| above it), or 1 if the first is greater than, less than, or equal to the
+--| second (of exactly two), and 0 if not.
 type Computes: Operation → List Nat → Nat → Prop =
   | SumOf (values: List Nat): Computes Sum values values.sum
   | ProductOf (values: List Nat): Computes Product values values.product

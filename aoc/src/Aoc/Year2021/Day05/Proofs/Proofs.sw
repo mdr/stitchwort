@@ -1,39 +1,39 @@
--- Day 5 proved, for every input: both answers are the number of points
--- where at least two lines overlap (Spec/). Part 2's theorem takes as a
--- hypothesis what the puzzle promises, that every line is horizontal,
--- vertical or diagonal at 45 degrees; part 1's needs none, since it takes
--- only the horizontal and vertical lines.
+--| Day 5 proved, for every input: both answers are the number of points
+--| where at least two lines overlap (Spec/). Part 2's theorem takes as a
+--| hypothesis what the puzzle promises, that every line is horizontal,
+--| vertical or diagonal at 45 degrees; part 1's needs none, since it takes
+--| only the horizontal and vertical lines.
 
 namespace Aoc.Year2021.Day05.Proofs
 import Aoc.Year2021.Day05 (..)
 import Aoc.Year2021.Day05.Spec (..)
 import Std (And, Bool, Eq, Exists, Iff, List, Map, Nat, Pair, Void)
 
--- The answers.
+--| The answers.
 
--- Part 1: the program's answer is the number of points where at least two
--- horizontal or vertical lines overlap, for every list of lines.
+--| Part 1: the program's answer is the number of points where at least two
+--| horizontal or vertical lines overlap, for every list of lines.
 theorem part1Correct (lines: List Line): Part1Answer lines (solvePart1 lines) :=
   let straight := lines.filter Line.isStraight
   rewrite <- straightLines lines in overlapsCorrect straight (straightShapes lines)
 
--- Part 2: the program's answer is the number of points where at least two
--- lines overlap, for every list of lines each horizontal, vertical or
--- diagonal at 45 degrees.
+--| Part 2: the program's answer is the number of points where at least two
+--| lines overlap, for every list of lines each horizontal, vertical or
+--| diagonal at 45 degrees.
 theorem part2Correct (lines: List Line) (shapes: lines.all (line => horizontalOrVertical line ∨ diagonal line) = True):
     Part2Answer lines (solvePart2 lines) :=
   overlapsCorrect lines shapes
 
--- Both parts count the overlaps of their lines.
+--| Both parts count the overlaps of their lines.
 theorem overlapsCorrect (lines: List Line) (shapes: lines.all (line => horizontalOrVertical line ∨ diagonal line) = True):
     List.NumberWith (overlaps lines) (overlap lines) :=
   List.numberWithCong (overlaps lines) _ (overlap lines) (p => rewrite listedCoveredBy lines shapes p in rfl)
     (countedTwice (lines.flatMap Line.points))
 
--- The program's straight lines are the spec's horizontal and vertical ones.
+--| The program's straight lines are the spec's horizontal and vertical ones.
 theorem straightLines (lines: List Line): lines.filter Line.isStraight = lines.filter horizontalOrVertical := rfl
 
--- ... and each of them is horizontal or vertical.
+--| ... and each of them is horizontal or vertical.
 theorem straightShapes: (lines: List Line) →
     (lines.filter Line.isStraight).all (line => horizontalOrVertical line ∨ diagonal line) = True
   | Nil => rfl
@@ -44,7 +44,7 @@ theorem straightShapes: (lines: List Line) →
 
 -- Counting with a map.
 
--- The counts of `listed` keep a point when it is listed at least twice.
+--| The counts of `listed` keep a point when it is listed at least twice.
 theorem containsTwice (listed: List Point) (p: Point):
     Map.contains (Map.counts listed |> .filter (_ times => 2 ≤ times)) p = (2 ≤ listed.count (== p)) :=
   rewrite <- Map.getOrCounts p listed in
@@ -52,8 +52,8 @@ theorem containsTwice (listed: List Point) (p: Point):
     | None => rewrite Map.getFilter (Map.counts listed) p (_ times => 2 ≤ times), e in rfl
     | Some times => rewrite Map.getFilter (Map.counts listed) p (_ times => 2 ≤ times), e in cases
 
--- The points listed at least twice in `listed`: the keys of the counts
--- that are at least 2.
+--| The points listed at least twice in `listed`: the keys of the counts
+--| that are at least 2.
 theorem countedTwice (listed: List Point):
     List.NumberWith (Map.counts listed |> .count (_ times => 2 ≤ times)) (p => 2 ≤ listed.count (== p)) :=
   let twice := Map.counts listed |> .filter (_ times => 2 ≤ times)
@@ -64,8 +64,8 @@ theorem countedTwice (listed: List Point):
 
 -- Each line's points.
 
--- A line lists a point once if it covers it, and not at all if it
--- doesn't.
+--| A line lists a point once if it covers it, and not at all if it
+--| doesn't.
 theorem pointsCount (line: Line) (shape: (horizontalOrVertical line ∨ diagonal line) = True): (p: Point) →
     line.points.count (== p) = Bool.toNat (covers line p)
   | (x, y) =>
@@ -77,8 +77,8 @@ theorem pointsCount (line: Line) (shape: (horizontalOrVertical line ∨ diagonal
           (i inRange => pointStep line shape x y i (stepInRange steps i inRange)))
         (countRangeOnce (steps + 1) k (covers line (x, y)) (c => coveredWithin line x y c)))
 
--- So every line's points, together, list a point once for each line that
--- covers it.
+--| So every line's points, together, list a point once for each line that
+--| covers it.
 theorem listedCoveredBy (lines: List Line) (shapes: lines.all (line => horizontalOrVertical line ∨ diagonal line) = True) (p: Point):
     (lines.flatMap Line.points).count (== p) = coveredBy lines p :=
   let each := List.allToAll (line => horizontalOrVertical line ∨ diagonal line) lines shapes
@@ -88,8 +88,8 @@ theorem listedCoveredBy (lines: List Line) (shapes: lines.all (line => horizonta
         (line inLines => pointsCount line (List.allMem _ line lines each inLines) p))
       (Eq.sym (List.countSumBy lines (line => covers line p))))
 
--- The step a line takes to reach a point, `k`, is the only one there: the
--- steps `0` to `n - 1` count it once if it is one of them.
+--| The step a line takes to reach a point, `k`, is the only one there: the
+--| steps `0` to `n - 1` count it once if it is one of them.
 theorem countRangeOnce (n: Nat) (k: Nat): (c: Bool) → (c = True → k < n) → (List.range n).count (i => c ∧ i == k) = Bool.toNat c
   | False, inRange => List.countFalse (List.range n)
   | True, inRange => rewrite inRange rfl at List.countRangeEq n k
@@ -98,7 +98,7 @@ theorem stepInRange (steps: Nat) (i: Nat) (inRange: i ∈ List.range (steps + 1)
   let bounds := List.memRangeFrom i (steps + 1) 0 inRange
   omega [And.right bounds]
 
--- A point a line covers is within its steps.
+--| A point a line covers is within its steps.
 theorem coveredWithin (line: Line) (x: Nat) (y: Nat) (c: covers line (x, y) = True):
     Nat.max (Nat.absDiff line.x1 x) (Nat.absDiff line.y1 y) < Nat.max (Nat.absDiff line.x1 line.x2) (Nat.absDiff line.y1 line.y2) + 1 :=
   let bx := betweenBound line.x1 x line.x2 (firstOf _ _ _ c)
@@ -108,8 +108,8 @@ theorem coveredWithin (line: Line) (x: Nat) (y: Nat) (c: covers line (x, y) = Tr
 theorem firstOf: (a: Bool) → (b: Bool) → (c: Bool) → (a ∧ b ∧ c) = True → a = True := cases
 theorem secondOf: (a: Bool) → (b: Bool) → (c: Bool) → (a ∧ b ∧ c) = True → b = True := cases
 
--- The `i`th point of a line is the point `(x, y)` when the line covers it
--- and it is `k` steps from the first end.
+--| The `i`th point of a line is the point `(x, y)` when the line covers it
+--| and it is `k` steps from the first end.
 theorem pointStep (line: Line) (shape: (horizontalOrVertical line ∨ diagonal line) = True) (x: Nat) (y: Nat) (i: Nat)
     (hi: i ≤ Nat.max (Nat.absDiff line.x1 line.x2) (Nat.absDiff line.y1 line.y2)):
     ((towards line.x1 line.x2 i, towards line.y1 line.y2 i) == (x, y))
@@ -121,12 +121,12 @@ theorem pointStep (line: Line) (shape: (horizontalOrVertical line ∨ diagonal l
 
 -- One coordinate at a time.
 
--- Stepping from `a` towards `b`, at most as many steps as they are apart,
--- reaches `x` when `x` is between them and that many steps from `a`.
+--| Stepping from `a` towards `b`, at most as many steps as they are apart,
+--| reaches `x` when `x` is between them and that many steps from `a`.
 theorem towardsEq (a: Nat) (b: Nat) (i: Nat) (x: Nat) (h: i ≤ Nat.absDiff a b):
     (towards a b i == x) = (between a x b ∧ i == Nat.absDiff a x) := cases
 
--- When `a` and `b` are the same, stepping stays put.
+--| When `a` and `b` are the same, stepping stays put.
 theorem towardsFixed (a: Nat) (b: Nat) (i: Nat) (x: Nat) (h: a = b): (towards a b i == x) = between a x b := rewrite h in cases
 
 theorem betweenBound (a: Nat) (x: Nat) (b: Nat) (h: between a x b = True): Nat.absDiff a x ≤ Nat.absDiff a b := cases
@@ -162,9 +162,9 @@ theorem combineDiagonal (ax: Nat) (ay: Nat) (i: Nat) (d: Nat) (hi: i ≤ d): (bx
     (bx = True → ax ≤ d) → (by = True → ay ≤ d) → (e = True → d = 0) →
     ((bx ∧ i == ax) ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ (e ∨ ax == ay)) ∧ i == Nat.max ax ay) := cases
 
--- The `i`th point of a horizontal, vertical or diagonal line, as
--- comparisons: it is `(x, y)` when `(x, y)` is in the rectangle the ends
--- span (and, on a diagonal, as far across as down), `i` steps along.
+--| The `i`th point of a horizontal, vertical or diagonal line, as
+--| comparisons: it is `(x, y)` when `(x, y)` is in the rectangle the ends
+--| span (and, on a diagonal, as far across as down), `i` steps along.
 theorem pointLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (i: Nat) (x: Nat) (y: Nat)
     (shape: ((x1 == x2 ∨ y1 == y2) ∨ Nat.absDiff x1 x2 == Nat.absDiff y1 y2) = True)
     (hi: i ≤ Nat.max (Nat.absDiff x1 x2) (Nat.absDiff y1 y2)):
@@ -199,8 +199,8 @@ theorem productZeroLeft (ax: Nat) (ay: Nat) (dx: Nat) (dy: Nat) (h1: ax = 0) (h2
 theorem productZeroRight (ax: Nat) (ay: Nat) (dx: Nat) (dy: Nat) (h1: ay = 0) (h2: dy = 0): (ax * dy == ay * dx) = True :=
   rewrite h1, h2, Nat.mulZero ax in rfl
 
--- On a horizontal or vertical line, every point in the rectangle the ends
--- span is on the line; on a diagonal one, those as far across as down.
+--| On a horizontal or vertical line, every point in the rectangle the ends
+--| span is on the line; on a diagonal one, those as far across as down.
 theorem coversLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (x: Nat) (y: Nat)
     (shape: ((x1 == x2 ∨ y1 == y2) ∨ Nat.absDiff x1 x2 == Nat.absDiff y1 y2) = True):
     (between x1 x x2 ∧ between y1 y y2 ∧ Nat.absDiff x1 x * Nat.absDiff y1 y2 == Nat.absDiff y1 y * Nat.absDiff x1 x2)

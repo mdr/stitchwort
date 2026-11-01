@@ -1,20 +1,21 @@
--- The parser keeps the promise the answers' theorems need (D2108): no
--- passage of a successful parse joins two big caves.
+--| The parser keeps the promise the answers' theorems need: no
+--| passage of a successful parse joins two big caves.
+-- (D2108)
 
 namespace Aoc.Year2021.Day12.Proofs
 import Aoc.Year2021.Day12 (..)
 import Aoc.Year2021.Day12.Spec (NoBigNeighbours, connected)
 import Std (Bool, DecEq, Eq, Fail, List, Option, Result, Void)
 
--- `checkPassages` gives the passages back, and only if none joins two big
--- caves...
+--| `checkPassages` gives the passages back, and only if none joins two big
+--| caves...
 theorem checkPassagesOk (passages: List (Text, Text)) (result: List (Text, Text)) (h: Fail.toResult (() => checkPassages passages) = Ok result):
     result = passages ∧ passages.all (passage => not (joinsBig passage)) = True :=
   match e: firstBigPair passages with
     | Some (index, (from, to)) => Void.exfalso (Result.errNotOk _ result h)
     | None => Both (Eq.sym (Result.okInjective _ result h)) (List.findNoneAll passages joinsBig (List.findWithIndexFromNone joinsBig 0 passages e))
 
--- ...whatever reads them.
+--| ...whatever reads them.
 theorem parsedChecked (read: () → {Fail} (List (Text, Text))) (passages: List (Text, Text))
     (parsed: Fail.toResult (() => checkPassages (read ())) = Ok passages): passages.all (passage => not (joinsBig passage)) = True :=
   let split := rewrite Fail.toResultThen read checkPassages at parsed
@@ -23,16 +24,16 @@ theorem parsedChecked (read: () → {Fail} (List (Text, Text))) (passages: List 
       let (Both same none) := checkPassagesOk readPassages passages checked
       rewrite same in none)
 
--- Of a passage that doesn't join two big caves, if one end is big the
--- other isn't.
+--| Of a passage that doesn't join two big caves, if one end is big the
+--| other isn't.
 theorem otherSmall (from: Text) (to: Text) (fine: not (isBig from && isBig to) = True): isBig from = True → isBig to = False :=
   cases
 
 theorem otherSmallBack (from: Text) (to: Text) (fine: not (isBig from && isBig to) = True): isBig to = True → isBig from = False :=
   cases
 
--- If `parsePassages` reads `input` as `passages`, no two big caves are
--- connected.
+--| If `parsePassages` reads `input` as `passages`, no two big caves are
+--| connected.
 theorem parseNoBigNeighbours (input: Text) (passages: List (Text, Text)) (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
     NoBigNeighbours passages :=
   let none := List.allToAll _ passages (parsedChecked _ passages parsed)

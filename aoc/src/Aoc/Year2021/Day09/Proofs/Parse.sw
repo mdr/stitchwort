@@ -1,8 +1,9 @@
--- The parser keeps the puzzle's promises (D2108): every height is a digit,
--- 0 to 9, by its type (`Fin 10`; `heightBelow10` in Facts.sw), and every
--- row of a successful parse is as long as the first, so the map is a
--- rectangle (the shared grid parser's `parseGridRectangle`). Neither theorem of
--- the answers needs either: they hold for every map, rectangular or not.
+--| The parser keeps the puzzle's promises: every height is a digit, 0 to 9, by
+--| its type (`Fin 10`; `heightBelow10` in Facts.sw), and every row of a
+--| successful parse is as long as the first, so the map is a rectangle (the
+--| shared grid parser's `parseGridRectangle`). Neither theorem of the answers
+--| needs either: they hold for every map, rectangular or not.
+-- (D2108)
 
 namespace Aoc.Year2021.Day09.Proofs
 import Aoc.Year2021.Day09 (..)
@@ -11,7 +12,7 @@ import Aoc.Common.Proofs (parseGridRectangle)
 import Std (Eq, Fail, Fin, List, Result)
 import Std.Parse (digit)
 
--- Every row `parseHeightMap` reads is as long as the first.
+--| Every row `parseHeightMap` reads is as long as the first.
 theorem parseRectangular (input: Text) (map: HeightMap) (parsed: Fail.toResult (() => parseHeightMap input) = Ok map) (row: List (Fin 10))
     (member: row ∈ map.rows): row.length = firstWidth map.rows :=
   let split := rewrite Fail.toResultThen (() => parseGrid input digit) HeightMap.ofGrid at parsed

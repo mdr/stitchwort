@@ -1,17 +1,17 @@
--- Both answers are the puzzle's, over every whole-number velocity, for a
--- target right of the start (`0 < left`) and below it (`top < 0`).
+--| Both answers are the puzzle's, over every whole-number velocity, for a
+--| target right of the start (`0 < left`) and below it (`top < 0`).
 
 namespace Aoc.Year2021.Day17.Proofs
 import Aoc.Year2021.Day17 (..)
 import Aoc.Year2021.Day17.Spec (..)
 import Std (Bool, Eq, Exists, Int, List, Nat, Option, Void)
 
--- The spec's "within" is the program's `inTarget`.
+--| The spec's "within" is the program's `inTarget`.
 theorem withinOf (target: Target) (probe: Probe) (h: inTarget target probe = True): Within target probe := omega
 
 theorem inTargetOf (target: Target) (probe: Probe) (h: Within target probe): inTarget target probe = True := omega
 
--- Every velocity that hits is a candidate: it is in the box.
+--| Every velocity that hits is a candidate: it is in the box.
 theorem hitsCandidate (target: Target) (right: 0 < target.left) (below: target.top < 0) (velocity: Velocity) (n: Nat)
     (h: inTarget target (flight n velocity) = True): velocity ∈ candidates target :=
   let low := dxAtLeastOne target right velocity n h
@@ -30,7 +30,7 @@ theorem hitsCandidate (target: Target) (right: 0 < target.left) (below: target.t
   List.memFlatMapIntro (i => List.range (steps target) |> .map (aimed target i)) i velocity (List.range (Int.toNat target.right)) iIn
     (rewrite same at (List.memMap (List.range (steps target)) j jIn (aimed target i)))
 
--- The velocities that hit, over every velocity: the program's list.
+--| The velocities that hit, over every velocity: the program's list.
 theorem hittingCorrect (target: Target) (right: 0 < target.left) (below: target.top < 0) (velocity: Velocity):
     Hits target velocity ↔ velocity ∈ hitting target := {
   forward = hits =>
@@ -48,7 +48,7 @@ theorem hittingCorrect (target: Target) (right: 0 < target.left) (below: target.
       | Witness n (Both early inside) => Witness n (rewrite <- flightIsAfter n velocity in withinOf target _ inside)
 }
 
--- The candidates are distinct, so the hitting velocities are.
+--| The candidates are distinct, so the hitting velocities are.
 theorem candidatesDistinct (target: Target): List.Distinct (candidates target) :=
   List.distinctFlatMap (i => List.range (steps target) |> .map (aimed target i)) (v => Int.toNat (v.dx - 1)) (List.range (Int.toNat target.right))
     (List.distinctRangeFrom (Int.toNat target.right) 0)
@@ -60,12 +60,12 @@ theorem candidatesDistinct (target: Target): List.Distinct (candidates target) :
 theorem hittingDistinct (target: Target): List.Distinct (hitting target) :=
   List.distinctFilter (candidates target) (v => hitsWithin target (steps target) (launch v)) (candidatesDistinct target)
 
--- Part 2: the number of distinct hitting velocities.
+--| Part 2: the number of distinct hitting velocities.
 theorem part2Correct (target: Target) (right: 0 < target.left) (below: target.top < 0): HittingCount target (solvePart2 target) :=
   Witness (hitting target) (Both (hittingDistinct target) (Both (hittingCorrect target right below) rfl))
 
--- Part 1: the highest y position any hitting velocity reaches, if any
--- velocity hits ...
+--| Part 1: the highest y position any hitting velocity reaches, if any
+--| velocity hits ...
 theorem part1Correct (target: Target) (right: 0 < target.left) (below: target.top < 0) (height: Nat) (found: solvePart1 target = Some height):
     Highest target height.toInt :=
   let most := List.maximumSome (List.map (hitting target) peak) height found
@@ -79,7 +79,7 @@ theorem part1Correct (target: Target) (right: 0 < target.left) (below: target.to
     let below := most.right (peak velocity) (List.memMap (hitting target) velocity member peak)
     rewrite <- flightIsAfter n velocity in omega [peakAbove velocity n])
 
--- ... and none does when the program finds none.
+--| ... and none does when the program finds none.
 theorem part1None (target: Target) (right: 0 < target.left) (below: target.top < 0) (found: solvePart1 target = None) (velocity: Velocity):
     Not (Hits target velocity) :=
   hits => List.maximumNone (List.map (hitting target) peak) found (peak velocity)

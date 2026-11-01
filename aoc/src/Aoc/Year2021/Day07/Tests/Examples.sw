@@ -1,5 +1,6 @@
--- Day 7's tests: the example from the puzzle and unit tests. Kept apart from
--- the program, so `stitchwort run Aoc.Year2021.Day07.main` doesn't check them.
+--| Day 7's tests: the example from the puzzle and unit tests.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2021.Day07.main`
+-- doesn't check them.
 
 namespace Aoc.Year2021.Day07.Tests
 import Aoc.Year2021.Day07 (..)
@@ -16,8 +17,8 @@ test "parse the example" := parsed example == Ok exampleCrabs
 test "example, part 1" := solvePart1 exampleCrabs == 37
 test "example, part 2" := solvePart2 exampleCrabs == 168
 
--- The puzzle's worked positions: part 1 is cheapest at 2 (1, 3 and 10 cost
--- 41, 39 and 71), part 2 at 5 (2 costs 206).
+--| The puzzle's worked positions: part 1 is cheapest at 2 (1, 3 and 10 cost
+--| 41, 39 and 71), part 2 at 5 (2 costs 206).
 test "example, part 1's positions" :=
   (totalFuel part1Fuel exampleCrabs 2, totalFuel part1Fuel exampleCrabs 1, totalFuel part1Fuel exampleCrabs 3, totalFuel part1Fuel exampleCrabs 10) == (37, 41, 39, 71)
 test "example, part 2's positions" := (totalFuel part2Fuel exampleCrabs 5, totalFuel part2Fuel exampleCrabs 2) == (168, 206)
@@ -36,6 +37,6 @@ test "a space after a comma" := parsed "1, 2" == Err "line 1, column 3: expected
 test "a missing number" := parsed "1,,2" == Err "line 1, column 3: expected a number, got ','"
 test "nothing" := parsed "" == Err "line 1, column 1: expected a number, got the end of the input"
 
--- The examples, proved by computing them.
+--| The examples, proved by computing them.
 theorem examplePart1: solvePart1 exampleCrabs = 37 := rfl
 theorem examplePart2: solvePart2 exampleCrabs = 168 := rfl

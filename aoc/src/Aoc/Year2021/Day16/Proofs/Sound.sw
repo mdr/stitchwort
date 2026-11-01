@@ -1,19 +1,19 @@
--- Soundness: whatever the decoder reads is well formed, and its encoding
--- is where the bits start.
+--| Soundness: whatever the decoder reads is well formed, and its encoding
+--| is where the bits start.
 
 namespace Aoc.Year2021.Day16.Proofs
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (allWellFormed, bitsOf, encode, encodeAll, groupBits, typeId, wellFormed)
 import Std (Bool, DecEq, Decidable, Eq, List, Nat, Option, Pair, Void)
 
--- What was wanted was read: that many packets, or packets up to the end
--- of the bits.
+--| What was wanted was read: that many packets, or packets up to the end
+--| of the bits.
 def Done: Wanted → List Packet → List Bool → Prop
   | Packets count, packets, _ => packets.length = count
   | Filling, _, rest => rest = Nil
 
--- After the next packet, what is still wanted, if read, completes what
--- was wanted.
+--| After the next packet, what is still wanted, if read, completes what
+--| was wanted.
 theorem doneNext (wanted: Wanted) (later: Wanted) (bits: List Bool) (packet: Packet) (more: List Packet) (left: List Bool)
     (next: nextWanted wanted bits = Some later) (done: Done later more left): Done wanted (Cons packet more) left :=
   match wanted, bits with
@@ -22,7 +22,7 @@ theorem doneNext (wanted: Wanted) (later: Wanted) (bits: List Bool) (packet: Pac
     | Filling, Nil => cases
     | Filling, Cons _ _ => rewrite <- Option.someInjective _ _ next at done in done
 
--- Nothing more wanted: none was what was wanted.
+--| Nothing more wanted: none was what was wanted.
 theorem doneNone (wanted: Wanted) (bits: List Bool) (none: nextWanted wanted bits = None): Done wanted Nil bits :=
   match wanted, bits with
     | Packets 0, _ => rfl
@@ -30,17 +30,17 @@ theorem doneNone (wanted: Wanted) (bits: List Bool) (none: nextWanted wanted bit
     | Filling, Nil => rfl
     | Filling, Cons _ _ => cases
 
--- A literal with a version below 8 and groups, each below 16.
+--| A literal with a version below 8 and groups, each below 16.
 theorem literalWellFormed (version: Nat) (groups: List Nat) (small: version < 8) (some: groups ≠ Nil) (each: groups.all (group => group < 16) = True):
     wellFormed (Literal version groups) = True :=
   Bool.andIntro _ _ (omega [small]) (Bool.andIntro _ _ (Decidable.toBoolOf _ some) each)
 
--- The bits of a packet, then of the packets after it.
+--| The bits of a packet, then of the packets after it.
 theorem soundStep (bits: List Bool) (after: List Bool) (left: List Bool) (packet: Packet) (more: List Packet)
     (here: bits = encode packet ++ after) (later: after = encodeAll more ++ left): bits = encodeAll (Cons packet more) ++ left :=
   rewrite here, later in Eq.sym (List.appendAssoc (encode packet) (encodeAll more) left)
 
--- One packet read, then what was still wanted.
+--| One packet read, then what was still wanted.
 theorem finishStep (wanted: Wanted) (later: Wanted) (bits: List Bool) (after: List Bool) (left: List Bool) (rest: List Bool) (packet: Packet)
     (more: List Packet) (packets: List Packet) (parts: Cons packet more = packets ∧ left = rest) (next: nextWanted wanted bits = Some later)
     (here: bits = encode packet ++ after) (formed: wellFormed packet = True) (laterRead: after = encodeAll more ++ left ∧ allWellFormed more = True ∧ Done later more left):
@@ -48,7 +48,7 @@ theorem finishStep (wanted: Wanted) (later: Wanted) (bits: List Bool) (after: Li
   rewrite <- parts.left, <- parts.right in
     Both (soundStep bits after left packet more here laterRead.left) (Both (Bool.andIntro _ _ formed laterRead.right.left) (doneNext wanted later bits packet more left next laterRead.right.right))
 
--- A type id below 8 that is no operation's is 4.
+--| A type id below 8 that is no operation's is 4.
 theorem operationOfNone (n: Nat) (small: n < 8) (none: operationOf n = None): n = 4 :=
   match n with
     | 4 => rfl
@@ -61,14 +61,14 @@ theorem operationOfNone (n: Nat) (small: n < 8) (none: operationOf n = None): n 
     | 7 => cases
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ k))))))) => omega
 
--- Three bits read as a number are that number in three bits.
+--| Three bits read as a number are that number in three bits.
 theorem threeBits (a: Bool) (b: Bool) (c: Bool): [a, b, c] = bitsOf 3 (Nat.fromBits [a, b, c]) := Eq.sym (bitsOfFromBits [a, b, c])
 
 theorem appendCong3 (a1: List Bool) (a2: List Bool) (b1: List Bool) (b2: List Bool) (c1: List Bool) (c2: List Bool) (ea: a1 = a2) (eb: b1 = b2) (ec: c1 = c2):
     a1 ++ (b1 ++ c1) = a2 ++ (b2 ++ c2) :=
   rewrite ea, eb, ec in rfl
 
--- A literal's bits, then more.
+--| A literal's bits, then more.
 theorem literalThen (version: Nat) (groups: List Nat) (after: List Bool):
     encode (Literal version groups) ++ after = bitsOf 3 version ++ (bitsOf 3 4 ++ (groupBits groups ++ after)) :=
   rfl
@@ -76,7 +76,7 @@ theorem literalThen (version: Nat) (groups: List Nat) (after: List Bool):
 theorem consAppendCong (bit: Bool) (a1: List Bool) (a2: List Bool) (b1: List Bool) (b2: List Bool) (ea: a1 = a2) (eb: b1 = b2): Cons bit (a1 ++ b1) = Cons bit (a2 ++ b2) :=
   rewrite ea, eb in rfl
 
--- An operator's bits, then more.
+--| An operator's bits, then more.
 theorem totalThen (version: Nat) (operation: Operation) (subPackets: List Packet) (after: List Bool):
     encode (Operator version operation TotalLength subPackets) ++ after =
       bitsOf 3 version ++ (bitsOf 3 (typeId operation) ++ Cons False (bitsOf 15 (encodeAll subPackets).length ++ (encodeAll subPackets ++ after))) :=
@@ -87,9 +87,10 @@ theorem countThen (version: Nat) (operation: Operation) (subPackets: List Packet
       bitsOf 3 version ++ (bitsOf 3 (typeId operation) ++ Cons True (bitsOf 11 subPackets.length ++ (encodeAll subPackets ++ after))) :=
   rfl
 
--- An operator's fields: a bit, a number field, then the sub-packets and
--- what follows. (Stated for any field, so that no `bitsOf` is computed
--- while rewriting.)
+--| An operator's fields: a bit, a number field, then the sub-packets
+--| and what follows.
+-- (Stated for any field, so that no `bitsOf` is computed while
+-- rewriting.)
 theorem fieldsCong (bit: Bool) (fields: List Bool) (after: List Bool) (inside: List Bool) (following: List Bool) (field: List Bool) (field2: List Bool)
     (sub: List Bool) (read: fields = field ++ after) (split: after = inside ++ following) (exact: inside = sub) (same: field = field2):
     Cons bit fields = Cons bit (field2 ++ (sub ++ following)) :=

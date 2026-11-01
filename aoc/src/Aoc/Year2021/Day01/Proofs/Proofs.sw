@@ -1,15 +1,15 @@
--- Day 1 proved, for every list of depths: part 1 counts the measurements
--- deeper than the one before, and part 2, which compares each measurement
--- with the one three places earlier, counts the window sums larger than the
--- one before, as the puzzle adds them up. Part 2 is proved for windows of
--- any size, not just three.
+--| Day 1 proved, for every list of depths: part 1 counts the measurements
+--| deeper than the one before, and part 2, which compares each measurement
+--| with the one three places earlier, counts the window sums larger than the
+--| one before, as the puzzle adds them up. Part 2 is proved for windows of
+--| any size, not just three.
 
 namespace Aoc.Year2021.Day01.Proofs
 import Aoc.Year2021.Day01 (..)
 import Aoc.Year2021.Day01.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, List, Nat, Void)
 
--- Counting increases one pair at a time.
+--| Counting increases one pair at a time.
 theorem increasesCons (a: Nat) (b: Nat) (rest: List Nat):
     increases (Cons a (Cons b rest)) = Bool.toNat (a < b) + increases (Cons b rest) :=
   List.countCons (List.zipWithNext (Cons b rest)) (MkPair a b) (pair => pair.fst < pair.snd)
@@ -19,26 +19,26 @@ theorem increasesOverCons (x: Nat) (rest: List Nat) (y: Nat) (ys: List Nat):
       = Bool.toNat (x < y) + List.count (List.zip rest ys) (pair => pair.fst < pair.snd) :=
   List.countCons (List.zip rest ys) (MkPair x y) (pair => pair.fst < pair.snd)
 
--- A list zipped with itself one place on is each element paired with the
--- next.
+--| A list zipped with itself one place on is each element paired with the
+--| next.
 theorem zipNext (x: Nat): (xs: List Nat) → List.zip (Cons x xs) xs = List.zipWithNext (Cons x xs)
   | Nil => rfl
   | Cons y rest => Eq.cong (Cons (MkPair x y)) (zipNext y rest)
 
--- Part 1 is the puzzle's count, for every list of depths.
+--| Part 1 is the puzzle's count, for every list of depths.
 theorem part1Correct: (depths: List Nat) → solvePart1 depths = increases depths
   | Nil => rfl
   | Cons x xs => rewrite zipNext x xs in rfl
 
--- A list with a whole window at its start: the first window, then the
--- windows of the rest.
+--| A list with a whole window at its start: the first window, then the
+--| windows of the rest.
 theorem windowsLong (m: Nat): (xs: List Nat) → m < List.length xs →
     slidingWindows (Succ m) xs = Cons (List.take xs (Succ m)) (slidingWindows (Succ m) (List.drop xs 1))
   | Nil, h => Void.exfalso (Bool.falseNotTrue h)
   | Cons x rest, h =>
     List.filterKeep _ _ _ (rewrite List.lengthTake rest m (omega [h]) in DecEq.refl (Succ m))
 
--- A list shorter than a window has none.
+--| A list shorter than a window has none.
 theorem windowsShort (m: Nat): (xs: List Nat) → List.length xs ≤ m → slidingWindows (Succ m) xs = Nil
   | Nil, h => rfl
   | Cons x rest, h =>
@@ -46,15 +46,15 @@ theorem windowsShort (m: Nat): (xs: List Nat) → List.length xs ≤ m → slidi
       (List.filterSkip _ _ _ (rewrite List.takeAll rest m (omega [h]) in Decidable.toBoolOfNot _ (same => omega [same, h])))
       (windowsShort m rest (omega [h]))
 
--- Two windows next to each other share all but their ends, so the later sum
--- is larger exactly when the element it gains is larger than the one it
--- loses.
+--| Two windows next to each other share all but their ends, so the later sum
+--| is larger exactly when the element it gains is larger than the one it
+--| loses.
 theorem slideCompare (x: Nat) (shared: Nat) (y: Nat):
     Bool.toNat (x + shared < shared + y) = Bool.toNat (x < y) :=
   cases
 
--- Part 2, for windows of any size `Succ m`: comparing each measurement with
--- the one `Succ m` places earlier counts the window sums that increase.
+--| Part 2, for windows of any size `Succ m`: comparing each measurement with
+--| the one `Succ m` places earlier counts the window sums that increase.
 theorem windowsCorrect (m: Nat): (depths: List Nat) → increasesOver (Succ m) depths = windowIncreases (Succ m) depths
   | Nil => rfl
   | Cons x rest =>
@@ -84,7 +84,7 @@ theorem windowsCorrect (m: Nat): (depths: List Nat) → increasesOver (Succ m) d
           _ = 0 := rewrite List.dropPast rest m (omega [h]) in rfl
           _ = windowIncreases (Succ m) (Cons x rest) := atMostOneWindow m x rest (omega [h])
 
--- A list with at most one window has no increases between windows.
+--| A list with at most one window has no increases between windows.
 theorem atMostOneWindow (m: Nat) (x: Nat) (rest: List Nat) (short: List.length rest ≤ m): 0 = windowIncreases (Succ m) (Cons x rest) :=
   match Nat.decLessThan m (List.length (Cons x rest)) with
     | Yes one =>
@@ -98,5 +98,5 @@ theorem atMostOneWindow (m: Nat) (x: Nat) (rest: List Nat) (short: List.length r
     | No none =>
       Eq.sym (Eq.cong (ws => increases (List.map ws List.sum)) (windowsShort m (Cons x rest) (omega [none])))
 
--- Part 2 is the puzzle's count, for every list of depths.
+--| Part 2 is the puzzle's count, for every list of depths.
 theorem part2Correct (depths: List Nat): solvePart2 depths = windowIncreases 3 depths := windowsCorrect 2 depths

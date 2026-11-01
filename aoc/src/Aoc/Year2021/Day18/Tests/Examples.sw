@@ -1,4 +1,4 @@
--- The puzzle's worked examples, by the program and by the spec.
+--| The puzzle's worked examples, by the program and by the spec.
 
 namespace Aoc.Year2021.Day18.Tests
 import Aoc.Year2021.Day18 (..)
@@ -6,7 +6,7 @@ import Aoc.Year2021.Day18.Spec (explodeLeaves, leaves, splitLeaves)
 import Aoc.Year2021.Day18.Proofs (explodeSome, height, reduceExplodes, reduceSplits, splitHeight, splitSome, splitSomeLeaves)
 import Std (Fail, List, Option, Parse, Result, Text)
 
--- One number from its text, or `Regular 0` if it doesn't parse.
+--| One number from its text, or `Regular 0` if it doesn't parse.
 def numberOf (text: Text): Number :=
   match Fail.toResult (() => Parse.line text (() => number text.length)) with
     | Ok read => read
@@ -27,7 +27,7 @@ test "nothing to explode" := numberResult "[[3,[2,[8,0]]],[9,[5,[7,0]]]]" |> .ma
 test "split 15" := split (numberOf "[[[[0,7],4],[15,[0,13]]],[1,1]]") == Some (numberOf "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]")
 test "split 13" := split (numberOf "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]") == Some (numberOf "[[[[0,7],4],[[7,8],[0,[6,7]]]],[1,1]]")
 
--- The spec's steps on the leaves give the same numbers' leaves.
+--| The spec's steps on the leaves give the same numbers' leaves.
 test "spec explode" :=
   explodeLeaves (leaves 0 (numberOf "[[6,[5,[4,[3,2]]]],1]")) == Some (leaves 0 (numberOf "[[6,[5,[7,0]]],3]"))
 test "spec split" :=
@@ -59,8 +59,8 @@ test "the homework parses" := homeworkNumbers.length == 10
 test "the homework's total" := solvePart1 homeworkNumbers == Some 4140
 test "the homework's largest sum" := solvePart2 homeworkNumbers == Some 3993
 
--- The parser refuses a number that isn't reduced, and anything else that
--- isn't a number.
+--| The parser refuses a number that isn't reduced, and anything else that
+--| isn't a number.
 def refuses (input: Text): Bool :=
   match Fail.toResult (() => parseNumbers input) with
     | Ok _ => False
@@ -71,10 +71,11 @@ test "the parser refuses a number above 9" := refuses "[10,1]"
 test "the parser refuses junk" := refuses "[1,2" ∧ refuses "[1;2]" ∧ refuses "[1,2]x"
 test "the parser takes reduced numbers" := not (refuses "[1,2]\n[[[[1,2],3],4],5]")
 
--- The hypotheses of `splitSome`, `splitSomeLeaves`, `splitHeight`,
--- `reduceSplits`, `explodeSome` and `reduceExplodes` can hold (the
--- audit's random numbers never split or explode to the random number it
--- picks): two of the puzzle's first examples.
+--| The hypotheses of `splitSome`, `splitSomeLeaves`, `splitHeight`,
+--| `reduceSplits`, `explodeSome` and `reduceExplodes` can hold: two of
+--| the puzzle's first examples.
+-- (the audit's random numbers never split or explode to the random
+-- number it picks)
 def tenAndOne: Number := Pair (Regular 10) (Regular 1)
 
 def tenSplit: Number := Pair (Pair (Regular 5) (Regular 5)) (Regular 1)

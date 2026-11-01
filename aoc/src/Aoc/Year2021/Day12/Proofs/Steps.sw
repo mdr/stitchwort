@@ -1,15 +1,15 @@
--- Each step that goes on makes the search's `reach` smaller, so its
--- depth is enough.
+--| Each step that goes on makes the search's `reach` smaller, so its
+--| depth is enough.
 
 namespace Aoc.Year2021.Day12.Proofs
 import Aoc.Year2021.Day12 (..)
 import Std (Bool, DecEq, Eq, List, Nat, Void)
 
--- Leaving out a cave that is there makes the list shorter.
+--| Leaving out a cave that is there makes the list shorter.
 theorem withoutShorter (caves: List Text) (cave: Text) (member: cave ∈ caves): (without caves cave).length < caves.length :=
   List.lengthFilterLt (c => not (c == cave)) cave (rewrite DecEq.refl cave in rfl) caves member
 
--- A step that goes on makes the search's reach smaller.
+--| A step that goes on makes the search's reach smaller.
 theorem stepDecreases (unvisited: List Text) (spare: Bool) (cave: Text) (other: Text) (left: List Text) (stillSpare: Bool)
     (e: step unvisited spare cave other = Continue left stillSpare):
     reach left stillSpare other < reach unvisited spare cave :=

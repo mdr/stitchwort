@@ -1,5 +1,6 @@
--- Day 12's tests: the puzzle's example and unit tests. Kept apart from the
--- program, so `stitchwort run Aoc.Year2021.Day12.main` doesn't check them.
+--| Day 12's tests: the puzzle's example and unit tests.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2021.Day12.main`
+-- doesn't check them.
 
 namespace Aoc.Year2021.Day12.Tests
 import Aoc.Year2021.Day12 (..)
@@ -12,8 +13,8 @@ def passagesOf (input: Text): List (Text, Text) := Fail.orElse [] (() => parsePa
 
 def example: List (Text, Text) := passagesOf "start-A\nstart-b\nA-c\nA-b\nb-d\nA-end\nb-end\n"
 
--- The hypotheses of `parseNoBigNeighbours` and `endsVisited` can hold
--- (the audit's random inputs never parse, nor start at `start`).
+--| The hypotheses of `parseNoBigNeighbours` and `endsVisited` can hold.
+-- (the audit's random inputs never parse, nor start at `start`)
 theorem smallParses: Fail.toResult (() => parsePassages "start-A\nA-end\n") = Ok [("start", "A"), ("A", "end")] := rfl
 
 theorem shortPath: startToEnd ["start", "A", "end"] = True := rfl
