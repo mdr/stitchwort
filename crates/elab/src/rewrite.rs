@@ -702,7 +702,7 @@ fn rewrite_once(
     let mut equation = elaborate_rule(cx, rule, place)?;
     let lhs_term = cx.quote(&equation.lhs)?;
     let Some(key) = key(&lhs_term, 0) else {
-        return Err(unknown_head(rule, place));
+        return Err(waiting_head(cx, &lhs_term)?.unwrap_or_else(|| unknown_head(rule, place)));
     };
     // First the calls with occurrences inside the functions passed to them
     // that use the functions' variables, each rewritten by its congruence
@@ -890,7 +890,7 @@ fn replace_occurrences(
     let g = cx.g();
     let lhs_term = cx.quote(&equation.lhs)?;
     let Some(key) = key(&lhs_term, 0) else {
-        return Err(unknown_head(rule, place));
+        return Err(waiting_head(cx, &lhs_term)?.unwrap_or_else(|| unknown_head(rule, place)));
     };
     let open = equation.open(&lhs_term);
     let level = cx.level();
@@ -1514,6 +1514,15 @@ fn holds_by_computing(cx: &mut Ctx, goal: &Value, remaining: &mut u64) -> Result
             snapshot.restore(cx);
             Ok(matches!(outcome, Ok(Some(true))) && solved_nothing)
         }
+    }
+}
+
+/// The error of the waiting check whose placeholder heads `side`, a rule's
+/// side with no head to look for, if one does.
+fn waiting_head(cx: &Ctx, side: &Term) -> Result<Option<Diagnostic>> {
+    match side.strip_loc().spine().0.strip_loc() {
+        Term::Meta(m) => cx.e.waiting_error_for(*m),
+        _ => Ok(None),
     }
 }
 

@@ -12,8 +12,8 @@ design (proof searches last; inferred literals wait, D2118) is written ([Stage 7
 design](#stage-7-design-expected-type-first-proof-searches-last); SW-988; decisions D2126 to D2130)
 and built in SW-1010 ([As built (stage 7)](#as-built-stage-7)): proof searches and `rfl` as
 arguments are checked last, a failed `omega` or `ring` waits as `rewrite` and `cases` do, and
-inferred number literals wait; D2128's "any unsolved unknown" is stopped for a decision (it hides
-the failure the after-expected path needs). Tickets SW-817 (anchor), SW-847 and SW-885; context
+inferred number literals wait; D2128's "any unsolved unknown" is left out (D2140: it hides the
+failure the after-expected path needs; SW-1014 reworks that path first). Tickets SW-817 (anchor), SW-847 and SW-885; context
 SW-509, SW-805, SW-896. Follows D1990 (one queue, agreed in principle), D1991 (SW-805's
 field-name rule stays, as name resolution), D2012 (Matt: design for the best end state; the
 cost of churn is not a criterion) and D2015 (Matt: revise after the external review). Repros,
@@ -3696,7 +3696,9 @@ on the goal now known (`WaitingTactic` shows them as `(omega …)`, `(ring …)`
 alternative fails, so a wait there would stop it. In aoc this changes nothing (`tactic waited` 1,
 `omega failed on pending` 0); `omega-waits.sw` shows it.
 
-**Part (b), "any unsolved unknown", is stopped: it needs a decision.** Built (every unsolved
+**Part (b), "any unsolved unknown", is not built (D2140, Matt, 1 November 2026: stage 7 keeps
+part (a) only; part (b) is SW-1014, a rework so that the after-expected comparison doesn't depend
+on a failure).** Built (every unsolved
 unknown in the zonked goal, any of which wakes the item), it fixes case 4 (`lambdaFirst`) and turns
 `reject/lambda-after-expected-unfolded.sw` into an accepted program, but breaks the library and
 aoc: `std/List/Grid.sw:52` (`E-UNSOLVED`), `std/Parse/Reads.sw` (4 sites, `E-TYPE-MISMATCH`), so
@@ -3710,8 +3712,8 @@ and the `rewrite` failing with no blocker, then succeeding). With (b) the `rewri
 instead, the lambdas succeed in place, the after-expected path never runs, and nothing solves
 `?48`. So the design's assumption W1 ("an unknown still unsolved at the end is an error anyway, so
 waiting on it can't turn an accepted program into a stuck one") doesn't hold: the failure itself is
-what makes the call compare its type with the goal by `unify_solving_arguments`. Options, none
-chosen:
+what makes the call compare its type with the goal by `unify_solving_arguments`. The options
+that were put to Matt (D2140 chose (i) now, and (iii) as SW-1014):
 - **(i) keep (a) only** (built): case 4 stays open (it is in a `let`, where nothing is expected and
   there is no after-expected path);
 - **(ii) (b) only where no after-expected attempt encloses the search**: a flag set while an
@@ -3761,8 +3763,8 @@ Every other output is byte-identical to main's. `accept/argument-order-expected.
 forms are the theorem-body ones, which still go through the after-expected path); its header now
 says which twins check.
 
-**The cases** [run]: 1, 2, 3, 5 and 8 check; 4 needs rule 2 (b); 6 and 7 are SW-1009 and
-SW-1008; 9 was not reproduced.
+**The cases** [run]: 1, 2, 3, 5 and 8 check; 4 is open until SW-1014 (rule 2 (b)); 6 and 7 are
+SW-1009 and SW-1008; 9 was not reproduced.
 
 **Hashes** [run]: `hash_stability`'s prelude snapshot (std and the core) is unchanged. Three
 example snapshots change, each with the statement unchanged:
@@ -3794,7 +3796,26 @@ and `guide`; `check --no-cache` over aoc (207 namespaces) and rogue (3); `task a
 aoc 2,113, rogue 190: all passed, no warnings); the `hashes` lane tier, snapshots regenerated
 (`task snap:hashes`); `cargo clippy --workspace --all-targets -D warnings`; `cargo fmt`.
 
-**Open**: rule 2 (b), above; step 7.0's afresh read for after-expected arguments that aren't
+**Search patterns and `rewrite` rules** (after the first merge attempt, which the merge tier
+stopped) [run]. With `++` waiting, the search pattern `_ ++ _ = _` as written elaborated, its `++`
+a placeholder no default fills, and was searched as a third reading beside the list and text ones
+(`search_match`'s `an_append_of_holes_is_tried_as_lists_and_as_texts`, `search`'s
+`the_query_log_gets_a_line_per_search`). Now a pattern whose own checks still wait once settled
+doesn't elaborate (`Elaborator::pattern_stuck`, in `search.rs`), as on main, where the `++` failed
+at once. One more change from it: `_.length = _`, whose `.length` waits on a receiver nothing
+types, is now that check's `E-CANNOT-INFER`; main searched it with the placeholder as a hole and
+listed `Eq.sym` first. And `List.length (_ ++ _) = _` as written now elaborates (its `++` waits
+until `List.length` says lists), giving the same pattern as the list reading up to how its holes
+are numbered; readings are now compared with their holes renumbered, so it is searched once, and
+the test's elaborated pattern is `… = ?5` where it was `… = ?4` (the waiting `++` made an unknown
+first). A `rewrite` rule whose side is headed by a waiting check's placeholder reports that check's
+error rather than "starts with an unknown function" (`rewrite.rs`, `waiting_head`; new
+`reject/rewrite-rule-append-holes.sw`), and a `++` whose operands' type stays unknown now says
+"nothing here says whether this joins texts or lists" where main printed `?0 xs` (D2091). Waiting
+literals in patterns are settled to their defaults as before (`settle_pattern`); `search --at`'s
+goal benchmarks (`search_at_on_aoc_goals`) pass.
+
+**Open**: rule 2 (b), SW-1014; step 7.0's afresh read for after-expected arguments that aren't
 searches; the stage 5 lambda gap (a lambda checked against an unknown applied to variables), after
 which `retrying` can go.
 

@@ -1429,6 +1429,42 @@ impl Elaborator {
         Ok((term, ty))
     }
 
+    /// The error of the first check of a settled search pattern that still
+    /// waits, as it would be reported stuck at W4: a reading of the pattern
+    /// with such a check (`_ ++ _ = _`, whose `++` waits to be told texts
+    /// or lists, stage 7) doesn't elaborate, so its search isn't run with a
+    /// placeholder standing for a choice not made.
+    pub(crate) fn pattern_stuck(&self) -> Result<Option<Diagnostic>> {
+        self.waiting_error(|_| true)
+    }
+
+    /// The error of the waiting check whose placeholder is unknown `m`, as
+    /// it would be reported stuck: a `rewrite` rule whose side is headed by
+    /// it (`(rfl: (_ ++ _) = (_ ++ _))`, its `++` waiting to be told texts
+    /// or lists) reports what its own check couldn't decide, not only that
+    /// the side's head is unknown.
+    pub(crate) fn waiting_error_for(&self, m: usize) -> Result<Option<Diagnostic>> {
+        self.waiting_error(|item| item.meta == m)
+    }
+
+    /// The error of the first waiting check `which` picks, as it would be
+    /// reported stuck at W4.
+    fn waiting_error(&self, which: impl Fn(&Item) -> bool) -> Result<Option<Diagnostic>> {
+        for i in 0..self.queue.len() {
+            let item = self.queue.item(i);
+            if let Some(needs) = self.queue.waiting(i)
+                && !item.constraint
+                && which(&item)
+            {
+                let blocker = head_meta(&self.globals, &needs)?;
+                let error = (self.queue.check(i).stuck_error(self, blocker))
+                    .unwrap_or_else(|| item.error.clone());
+                return Ok(Some(self.through_frames(&item, error)));
+            }
+        }
+        Ok(None)
+    }
+
     /// A search pattern, the whole of what its elaboration made (`search.rs`):
     /// settled as a rule is ([`Elaborator::settle_rule`]). It is closed by
     /// construction (nothing else is elaborated with it); its holes' types,

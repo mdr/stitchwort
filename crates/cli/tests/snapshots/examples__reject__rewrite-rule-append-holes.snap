@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: `++` joins two texts or two lists
+   ╭─[ reject/rewrite-rule-append-holes.sw:9:18 ]
+   │
+ 9 │   rewrite (rfl: (_ ++ _) = (_ ++ _)) in List.appendNil xs
+   │                  ───┬──  
+   │                     ╰──── nothing here says whether this joins texts or lists
+   │ 
+   │ Note: give one side a type: `(xs: List Nat) ++ ys`
+───╯

@@ -195,12 +195,14 @@ fn an_append_of_holes_is_tried_as_lists_and_as_texts() {
         report.query
     );
     // `List.length` says lists: the text reading doesn't elaborate, and the
-    // one that does is the only one, where this was an error before.
+    // pattern as written, whose `++` waits until `List.length` says lists
+    // (stage 7), is the same as the list reading, so it is the only one.
+    // Its last hole is `?5`: the waiting `++` made an unknown first.
     let report = overloaded("List.length (_ ++ _) = _");
     assert!(report.query.resolutions.is_empty(), "{:?}", report.query);
     assert_eq!(
         report.query.elaborated.as_deref(),
-        Some("List.length (List.append ?2 ?3) = ?4")
+        Some("List.length (List.append ?2 ?3) = ?5")
     );
 }
 

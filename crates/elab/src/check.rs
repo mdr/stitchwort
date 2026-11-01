@@ -3961,8 +3961,18 @@ impl Append {
         Ok(Term::app(Term::app(head, self.a.clone()), self.b.clone()))
     }
 
-    /// What they are isn't a text or a list.
+    /// What they are isn't a text or a list, or (while their type is an
+    /// unknown, the error if it stays one) nothing says which.
     fn error(&self, cx: &Ctx) -> Diagnostic {
+        if let Ok(Value::Neutral(Head::Meta(_), _)) = force(cx.g(), self.ty.clone()) {
+            return cx
+                .error(
+                    "E-TYPE-MISMATCH",
+                    "`++` joins two texts or two lists",
+                    "nothing here says whether this joins texts or lists",
+                )
+                .with_note("give one side a type: `(xs: List Nat) ++ ys`");
+        }
         let other = cx.show(&self.ty);
         cx.error(
             "E-TYPE-MISMATCH",
