@@ -13,8 +13,10 @@
 -- `SAFE_NAT_HASH` and `SAFE_INT_HASH` in `crates/rt/src/natives.rs` with the
 -- codec.
 
+--| A `Nat` of at most 2^53 - 1, which a JavaScript `number` holds exactly.
 type SafeNat = { value: Nat, fits: value ≤ 9007199254740991 }
 
+--| An `Int` from -(2^53 - 1) to 2^53 - 1, which a JavaScript `number` holds exactly.
 type SafeInt = { value: Int, fits: Int.natAbs value ≤ 9007199254740991 }
 
 --| `Some` of the number as a `SafeNat`, if it is small enough.
@@ -26,7 +28,7 @@ def SafeInt.ofInt (n: Int): Option SafeInt :=
   if h: Int.natAbs n ≤ 9007199254740991 then Some ({ value = n, fits = h }) else None
 
 --| Two numbers with the same value are equal: their `fits` proofs are too,
---| being proofs that a `Bool` is `True` (`Bool.uniqueEq`).
+--| being proofs that a `Bool` is `True` ([`Bool.uniqueEq`]).
 theorem SafeNat.mkExt (a: Nat) (b: Nat) (p: a ≤ 9007199254740991) (e: a = b):
     (q: b ≤ 9007199254740991) → ({ value = a, fits = p }: SafeNat) = { value = b, fits = q } :=
   J (b' e' => (q': b' ≤ 9007199254740991) → ({ value = a, fits = p }: SafeNat) = { value = b', fits = q' })
@@ -49,9 +51,10 @@ theorem SafeInt.ext (i: SafeInt) (j: SafeInt) (e: i.value = j.value): i = j :=
   match i, j with
     | { value = a, fits = p }, { value = b, fits = q } => SafeInt.mkExt a b p e q
 
---| The number as a `Nat` or `Int`.
+--| The number as a `Nat`.
 def SafeNat.toNat (n: SafeNat): Nat := n.value
 
+--| The number as an `Int`.
 def SafeInt.toInt (n: SafeInt): Int := n.value
 
 --| `==` on numbers: equal exactly when their values are.

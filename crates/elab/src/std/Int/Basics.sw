@@ -4,6 +4,7 @@
 -- This file depends on the core alone, so a program that divides doesn't also
 -- load the lemmas in `Int.sw`.
 
+--| The number as an `Int`: `(5: Nat).toInt` is `5`.
 def Nat.toInt (n: Nat): Int := OfNat n
 
 --| `|x|`, as an `Int`.
@@ -16,7 +17,7 @@ def Int.toNatChecked: Int → Option Nat
   | OfNat n => Some n
   | NegSucc n => None
 
---| `-1`, `0` or `1`.
+--| The sign of `x`: `-1`, `0` or `1`.
 def Int.sign: Int → Int
   | OfNat Zero => OfNat Zero
   | OfNat (Succ n) => OfNat 1
@@ -37,6 +38,7 @@ def Int.tdiv: (dividend: Int) → (divisor: Int) → [auto ok: divisor ≠ OfNat
   | OfNat m, NegSucc n => Int.neg (OfNat (m / Succ n))
   | NegSucc m, NegSucc n => OfNat (Succ m / Succ n)
 
+--| The remainder of truncating division (`Int.tdiv`), with the dividend's sign: `Int.tmod (-7) 2` is `-1`.
 def Int.tmod: (dividend: Int) → (divisor: Int) → [auto ok: divisor ≠ OfNat 0] → Int
   | dividend, OfNat Zero => Void.absurd (ok rfl)
   | OfNat m, OfNat (Succ n) => OfNat (m % Succ n)
@@ -55,6 +57,7 @@ def Int.fdiv: (dividend: Int) → (divisor: Int) → [auto ok: divisor ≠ OfNat
   | OfNat (Succ m), NegSucc n => NegSucc (m / Succ n)
   | NegSucc m, NegSucc n => OfNat (Succ m / Succ n)
 
+--| The remainder of flooring division (`Int.fdiv`), with the divisor's sign: `Int.fmod 7 (-2)` is `-1`.
 def Int.fmod: (dividend: Int) → (divisor: Int) → [auto ok: divisor ≠ OfNat 0] → Int
   | dividend, OfNat Zero => Void.absurd (ok rfl)
   | OfNat m, OfNat (Succ n) => OfNat (m % Succ n)

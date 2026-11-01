@@ -7,6 +7,7 @@
 --| each operation.
 -- docs/proposals/vec.md.
 
+--| A list of exactly n elements, the length in its type: `VCons 1 (VCons 2 VNil)` is a `Vec Nat 2`.
 type Vec (a: Type): Nat → Type =
   | VNil: Vec a 0
   | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
@@ -14,9 +15,11 @@ type Vec (a: Type): Nat → Type =
 --| The length, which the type already says.
 def Vec.length (v: Vec a n): Nat := n
 
+--| The first element of a vector that has one: no default is needed.
 def Vec.head: Vec a (Succ n) → a
   | VCons x _ => x
 
+--| A non-empty vector without its first element, one shorter.
 def Vec.tail: Vec a (Succ n) → Vec a n
   | VCons _ xs => xs
 
@@ -39,23 +42,27 @@ def Vec.tabulate: (n: Nat) → (f: Fin n → a) → Vec a n
   | Zero, f => VNil
   | Succ k, f => VCons (f FZero) (Vec.tabulate k (i => f (FSucc i)))
 
+--| `f` on each element, in order, keeping the length ([`Vec.toListMap`], [`Vec.getMap`]).
 def Vec.map: Vec a n → (f: a → b) → Vec b n
   | VNil, f => VNil
   | VCons x xs, f => VCons (f x) (Vec.map xs f)
 
+--| `f` of the elements of two vectors of the same length, position by position.
 def Vec.zipWith: Vec a n → Vec b n → (f: a → b → c) → Vec c n
   | VNil, VNil, f => VNil
   | VCons x xs, VCons y ys, f => VCons (f x y) (Vec.zipWith xs ys f)
 
+--| `f` of the elements of three vectors of the same length, position by position.
 def Vec.zipWith3: Vec a n → Vec b n → Vec c n → (f: a → b → c → d) → Vec d n
   | VNil, VNil, VNil, f => VNil
   | VCons x xs, VCons y ys, VCons z zs, f => VCons (f x y z) (Vec.zipWith3 xs ys zs f)
 
---| Left fold; tail-recursive. `Vec.foldLeft [x, y] initial f` is `f (f initial x) y`.
+--| Left fold, tail-recursive: `Vec.foldLeft [x, y] initial f` is `f (f initial x) y`.
 def Vec.foldLeft: Vec a n → (initial: b) → (f: b → a → b) → b
   | VNil, initial, f => initial
   | VCons x xs, initial, f => Vec.foldLeft xs (f initial x) f
 
+--| The sum of a vector of numbers.
 def Vec.sum (v: Vec Nat n): Nat := Vec.foldLeft v 0 Nat.add
 
 --| The sum of `f` over the elements, as `List.sumBy`.
@@ -64,6 +71,7 @@ def Vec.sumBy (v: Vec a n) (f: a → Nat): Nat := Vec.foldLeft v 0 (acc x => acc
 --| How many elements satisfy `p`, as `List.count`.
 def Vec.count (v: Vec a n) (p: a → Bool): Nat := Vec.foldLeft v 0 (k x => Nat.succIf k (p x))
 
+--| The elements as a list, of length n ([`Vec.lengthToList`]).
 def Vec.toList: Vec a n → List a
   | VNil => Nil
   | VCons x xs => Cons x (Vec.toList xs)
@@ -79,6 +87,7 @@ def Vec.fromListN: (n: Nat) → (xs: List a) → List.length xs = n → Vec a n
   | Zero, Cons x xs, ok => Void.absurd (Nat.succNotZero (List.length xs) ok)
   | Succ k, Nil, ok => Void.absurd (Nat.zeroNotSucc k ok)
 
+--| A list as a vector of its length.
 def Vec.fromList (xs: List a): Vec a (List.length xs) := Vec.fromListN (List.length xs) xs rfl
 
 --| The list as a vector of length n, given whether its length is n.
@@ -92,7 +101,7 @@ def Vec.ofList (n: Nat) (xs: List a): Option (Vec a n) := Vec.ofListDec n xs (Na
 
 --| `f` of every element, or `None` if any is `None`: parsing a vector of
 --| lines into a vector of rows of a fixed width. A loop into a list, then
---| `Vec.ofList`, so stack-safe on long vectors; `Vec.traverseOptionVCons` is
+--| `Vec.ofList`, so stack-safe on long vectors; [`Vec.traverseOptionVCons`] is
 --| its step.
 def Vec.traverseOption (v: Vec a n) (f: a → Option b): Option (Vec b n) :=
   Option.flatMap (Vec.traverseOptionLoop f Nil v) (Vec.ofList n)
@@ -387,6 +396,7 @@ theorem Vec.extGetOr (u: Vec a n) (d: a) (v: Vec a n) (h: (i: Nat) → Vec.getOr
   Vec.toListInjective u v
     (List.extGetOr d (Vec.toList u) (Vec.toList v) (rewrite Vec.lengthToList u, Vec.lengthToList v in rfl) (i hi => h i))
 
+--| A small vector for the tests below: 1, 2, 3.
 def Vec.example: Vec Nat 3 := VCons 1 (VCons 2 (VCons 3 VNil))
 
 theorem Vec.getLtExample: Vec.getLt Vec.example 2 = 3 := rfl
