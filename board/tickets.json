@@ -1,5 +1,5 @@
 {
-  "next": 993,
+  "next": 995,
   "tickets": [
     {
       "id": 47,
@@ -3002,13 +3002,13 @@
     {
       "id": 989,
       "title": "search on real goals (D2116): AoC benchmark, then stop --at refusals, then better candidates",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "search"
       ],
-      "body": "From AoC 2021 days 9-18 (1 Nov 2026). (1) Benchmark: the ~40 goals AoC lanes recorded with what closed them (NOTES-2021 day sections, friction tickets SW-960..980) plus the query log; record search --at's hit rate on main first. (2) Refusals: --at fails on goals that don't survive printing and reparsing: context order (SW-969 1), ✝ names (SW-976 8), %match1 names (SW-980 2, SW-971 3), record after constructor (SW-980 1), captured variables (SW-967 5). Root fix: search the goal term directly, or guarantee printed goals are valid source (pasteable names). (3) Candidates: folded and computed goal (SW-965 3, SW-978 3), symmetric lemmas (SW-971 2), local hypotheses and IH (SW-971 5, SW-976 8), index conjunct conclusions (SW-973 7) and class laws (SW-971 4) and generated T.ext (SW-960 7), drop no-op results (Bool.canonicalTrue) and undecidable byDecision, pattern premises anywhere (SW-969 4), --in NAMESPACE (SW-960 7). Cold-start speed later. Related: SW-952, SW-935, SW-942.\n\n1 Nov (lane SW-989): step 1 done, cc569049: benchmark of 29 real AoC 2021 goals (search_at_aoc, daily). Main: 9 refused, hit 14/29 (48%), median 1.8 s, max 39 s. Query log: never enabled (no file anywhere); transcripts of 11 AoC lanes on 1 Nov show 44 --at runs (9 refused, 9 closed) and 50 pattern/rewrite searches. Starting step 2 (search the elaborated goal).\n\n\n1 Nov (lane SW-989): step 2 done, a6447bcc: search --at opens the goal from the elaborator's own terms (GoalSnapshot) and checks proofs in that context, no printed text read back. Benchmark: refused 9 -> 0, hit 14/29 -> 19/29. Starting step 3 (candidates).\n",
+      "body": "From AoC 2021 days 9-18 (1 Nov 2026). (1) Benchmark: the ~40 goals AoC lanes recorded with what closed them (NOTES-2021 day sections, friction tickets SW-960..980) plus the query log; record search --at's hit rate on main first. (2) Refusals: --at fails on goals that don't survive printing and reparsing: context order (SW-969 1), ✝ names (SW-976 8), %match1 names (SW-980 2, SW-971 3), record after constructor (SW-980 1), captured variables (SW-967 5). Root fix: search the goal term directly, or guarantee printed goals are valid source (pasteable names). (3) Candidates: folded and computed goal (SW-965 3, SW-978 3), symmetric lemmas (SW-971 2), local hypotheses and IH (SW-971 5, SW-976 8), index conjunct conclusions (SW-973 7) and class laws (SW-971 4) and generated T.ext (SW-960 7), drop no-op results (Bool.canonicalTrue) and undecidable byDecision, pattern premises anywhere (SW-969 4), --in NAMESPACE (SW-960 7). Cold-start speed later. Related: SW-952, SW-935, SW-942.\n\n1 Nov (lane SW-989): step 1 done, cc569049: benchmark of 29 real AoC 2021 goals (search_at_aoc, daily). Main: 9 refused, hit 14/29 (48%), median 1.8 s, max 39 s. Query log: never enabled (no file anywhere); transcripts of 11 AoC lanes on 1 Nov show 44 --at runs (9 refused, 9 closed) and 50 pattern/rewrite searches. Starting step 2 (search the elaborated goal).\n\n\n1 Nov (lane SW-989): step 2 done, a6447bcc: search --at opens the goal from the elaborator's own terms (GoalSnapshot) and checks proofs in that context, no printed text read back. Benchmark: refused 9 -> 0, hit 14/29 -> 19/29. Starting step 3 (candidates).\n\n\n1 Nov (lane SW-989, done for review): branch worktree-agent-a584b5a1f9de4ca58, commits cc569049 (benchmark), a6447bcc (goal snapshots: no refusals), 8f7c1a45 (specific lemmas first, Eq.sym, hypotheses as closers/rewrites, no-op results dropped), 05c3571b (witness ?s), d7061912 (docs: syntax.md, search.md As built (stage 3), testing.md). Benchmark 29 real goals: refused 9 -> 0, hit 14/29 (48%) -> 23/29 (79%), median 1.8 -> 1.5 s a goal. Not built: induction hypothesis (4 misses), rewrite-then-lemma second round, conjuncts, class laws, T.ext, --in, premise patterns anywhere. Lanes search, cli, elab, goals green; clippy, fmt clean.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -3051,6 +3051,34 @@
         "aoc"
       ],
       "body": "Matt, 1 Nov 2026. Position stays Nat (on the board); Offset = { rows: Int, columns: Int } for how far to move (Vec is taken by std's sized lists). Position.minus a b: Offset; Position.offset p o: Option Position (None off the board/negative); Offset plus and scaling; wrap for a wrapping board (day 14). Day 8: antinode = b.offset (b minus a). Day 14: velocity is an Offset, position after t = wrap. Day 15: check whether Int is needed at all (walled board, Nat steps may do).\n\nProgress (lane, 1 Nov): Aoc.Common Offset.sw + Proofs/Offset.sw + Tests/Offset.sw done (98d3327d). Day 14 moved (25ce608f), audit 28/28. Day 15: Int is needed (proofs are for every warehouse, step must be total); using Offset as its cell type. Next: days 8, 15.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 993,
+      "title": "search stage 3 follow-ups: induction hypothesis in --at, second-round rewrites, conjunct/class-law/T.ext indexing, --in NAMESPACE; query log was never on",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search"
+      ],
+      "body": "From SW-989 (1 Nov 2026), benchmark search_at_on_real_2021_goals at 23/29. Misses: induction hypothesis (4 goals: days 10, 12, 16, 17; needs binding the theorem being proved in the goal context, termination checked on paste); a hypothesis rewrite then a lemma (day 16); day 9 Map.sizeToList. Not done: conjuncts of a defined conjunction (Graph.distancesShortest), class laws (Ord.equal; search 'Ord.compare ?x ?y = Equal → ?x = ?y' still misses it), generated T.ext, byDecision on undecidable goals, premise patterns in any position, --in NAMESPACE. The search query log was never switched on (no log file anywhere): decide whether to turn it on for lanes. Printer bugs (split.%match1, captured variables) remain in displayed goals; --at no longer depends on them.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 994,
+      "title": "cases on Std.Float.Theory.magUnitsLeReflect's premise takes ~1.2 GB",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "body": "Found by SW-989: checking cases on that premise uses about 1.2 GB and a few seconds; a smaller step budget per check didn't stop it. search --at's lane tests skip the lemma to stay under the 3 GB tier cap. Related: SW-985 (cases splitting library arithmetic).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
