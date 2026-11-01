@@ -1,39 +1,39 @@
--- `Fail`: give up on a computation and say why, as an exception with a
--- message does in Unison or Koka. Code that may fail says `{Fail}` in its
--- row and fails with `fail msg`, or reads an `Option` with `need o msg`; a
--- handler (`Fail.toResult`, `Fail.orElse`, ...) decides what failing means.
+--| `Fail`: give up on a computation and say why, as an exception with a
+--| message does in Unison or Koka. Code that may fail says `{Fail}` in its
+--| row and fails with `fail msg`, or reads an `Option` with `need o msg`; a
+--| handler (`Fail.toResult`, `Fail.orElse`, ...) decides what failing means.
+--|
+--|   def turn (t: Text): {Fail} Int :=
+--|     let (c, rest) := need t.uncons "expected a turn like L68, got '${t}'"
+--|     ensure (c == 'L' || c == 'R') "expected L or R, got '${t}'"
+--|     let n := rest.toIntOrFail
+--|     if c == 'L' then -n else n
+--|
+--|   def parse (t: Text): Result Int Text := Fail.toResult (() => turn t)
 -- `Abort` is the same without the message (docs/proposals/errors.md).
---
---   def turn (t: Text): {Fail} Int :=
---     let (c, rest) := need t.uncons "expected a turn like L68, got '${t}'"
---     ensure (c == 'L' || c == 'R') "expected L or R, got '${t}'"
---     let n := rest.toIntOrFail
---     if c == 'L' then -n else n
---
---   def parse (t: Text): Result Int Text := Fail.toResult (() => turn t)
 
--- The one operation. It returns `Empty`, so no handler can resume the
--- computation: there's no value to resume it with. Code calls
--- `Fail.fail msg`, which has any result type; handlers match on `stop`.
+--| The one operation. It returns `Empty`, so no handler can resume the
+--| computation: there's no value to resume it with. Code calls
+--| `Fail.fail msg`, which has any result type; handlers match on `stop`.
 ability Fail where
   stop: Text → {Fail} Empty
 
--- Fails with `msg`, whatever result was expected.
+--| Fails with `msg`, whatever result was expected.
 def Fail.fail (msg: Text): {Fail} a := Empty.absurd (Fail.stop msg)
 
--- The value in an `Option`, or fail with `msg`.
+--| The value in an `Option`, or fail with `msg`.
 def Fail.need (option: Option a) (msg: Text): {Fail} a :=
   match option with
     | Some x => x
     | None => Fail.fail msg
 
--- The same, for dot notation: `t.toNat.orFail "expected a number, got '${t}'"`.
+--| The same, for dot notation: `t.toNat.orFail "expected a number, got '${t}'"`.
 def Option.orFail (option: Option a) (msg: Text): {Fail} a := Fail.need option msg
 
--- Fail with `msg` unless `ok`.
+--| Fail with `msg` unless `ok`.
 def Fail.ensure (ok: Bool) (msg: Text): {Fail} () := if ok then () else Fail.fail msg
 
--- The value in a `Result`, or fail with its error: `Fail.toResult` undone.
+--| The value in a `Result`, or fail with its error: `Fail.toResult` undone.
 def Result.orFail: Result a Text → {Fail} a
   | Ok x => x
   | Err m => Fail.fail m
@@ -41,33 +41,33 @@ def Result.orFail: Result a Text → {Fail} a
 -- Handlers. Other abilities pass through all of them, so `{IO, Fail}` code
 -- works: what was printed before the failure stays printed.
 
--- `Ok` of the result, or `Err` of the message if the computation failed.
+--| `Ok` of the result, or `Err` of the message if the computation failed.
 def Fail.toResult (prog: () → {Fail | e} a): {e} Result a Text :=
   handle prog() with
     | return x => Ok x
     | Fail.stop msg, k => Err msg
 
--- `Some` of the result, or `None` if the computation failed.
+--| `Some` of the result, or `None` if the computation failed.
 def Fail.toOption (prog: () → {Fail | e} a): {e} Option a :=
   handle prog() with
     | return x => Some x
     | Fail.stop msg, k => None
 
--- The result, or `fallback` if the computation failed.
+--| The result, or `fallback` if the computation failed.
 def Fail.orElse (fallback: a) (prog: () → {Fail | e} a): {e} a :=
   handle prog() with
     | return x => x
     | Fail.stop msg, k => fallback
 
--- The result, or `handler` of the message if the computation failed.
+--| The result, or `handler` of the message if the computation failed.
 def Fail.recover (handler: Text → {e} a) (prog: () → {Fail | e} a): {e} a :=
   handle prog() with
     | return x => x
     | Fail.stop msg, k => handler msg
 
--- The same computation, with `label: ` in front of its failure's message:
--- `Fail.context "line 3" (() => parseLine l)`. The `fail` in the clause
--- isn't caught by this handler: it goes to the next one out.
+--| The same computation, with `label: ` in front of its failure's message:
+--| `Fail.context "line 3" (() => parseLine l)`. The `fail` in the clause
+--| isn't caught by this handler: it goes to the next one out.
 def Fail.context (label: Text) (prog: () → {Fail | e} a): {Fail | e} a :=
   handle prog() with
     | return x => x
@@ -75,13 +75,13 @@ def Fail.context (label: Text) (prog: () → {Fail | e} a): {Fail | e} a :=
 
 -- `Abort` and `Fail`, each as the other.
 
--- A computation that gave up fails with `msg`.
+--| A computation that gave up fails with `msg`.
 def Abort.orFail (msg: Text) (prog: () → {Abort | e} a): {Fail | e} a :=
   handle prog() with
     | return x => x
     | Abort.stop u, k => Fail.fail msg
 
--- A computation that failed gives up; its message is dropped.
+--| A computation that failed gives up; its message is dropped.
 def Fail.toAbort (prog: () → {Fail | e} a): {Abort | e} a :=
   handle prog() with
     | return x => x
@@ -90,10 +90,10 @@ def Fail.toAbort (prog: () → {Fail | e} a): {Abort | e} a :=
 -- Reading numbers, with the same message everywhere (D1051). Spaces at
 -- either end are allowed; the text is quoted as it was given.
 
--- `text` as a `Nat`, or fail with `expected a whole number, got 't'`.
+--| `text` as a `Nat`, or fail with `expected a whole number, got 't'`.
 def Text.toNatOrFail (text: Text): {Fail} Nat := Fail.need text.trim.toNat "expected a whole number, got '${text}'"
 
--- `text` as an `Int`, or fail with `expected a whole number, got 't'`.
+--| `text` as an `Int`, or fail with `expected a whole number, got 't'`.
 def Text.toIntOrFail (text: Text): {Fail} Int := Fail.need text.trim.toInt "expected a whole number, got '${text}'"
 
 -- Theorems. A handled computation computes, so each holds by `rfl`, case
@@ -103,7 +103,7 @@ theorem Fail.toResultPure (v: a): Fail.toResult (() => v) = Ok v := rfl
 
 theorem Fail.toResultFail (msg: Text): Fail.toResult (() => (Fail.fail msg: a)) = Err msg := rfl
 
--- `need` and `toResult` give `Option.toResult`.
+--| `need` and `toResult` give `Option.toResult`.
 theorem Fail.toResultNeed (msg: Text): (o: Option a) → Fail.toResult (() => Fail.need o msg) = Option.toResult o msg
   | None => rfl
   | Some x => rfl
@@ -112,12 +112,12 @@ theorem Fail.toResultEnsure (msg: Text): (ok: Bool) → Fail.toResult (() => Fai
   | True => rfl
   | False => rfl
 
--- `orFail` and `toResult` undo each other.
+--| `orFail` and `toResult` undo each other.
 theorem Fail.toResultOrFail: (r: Result a Text) → Fail.toResult (() => Result.orFail r) = r
   | Ok x => rfl
   | Err m => rfl
 
--- Reading an `Option` and going on: the form a proof about a parser uses.
+--| Reading an `Option` and going on: the form a proof about a parser uses.
 theorem Fail.toResultNeedThen (k: a → {Fail} b) (msg: Text): (o: Option a) →
     Fail.toResult (() => k (Fail.need o msg)) = Option.fold o (Err msg) (x => Fail.toResult (() => k x))
   | None => rfl
@@ -135,7 +135,7 @@ theorem Abort.orFailNeed (msg: Text): (o: Option a) → Fail.toResult (() => Abo
 -- first, with `match reify` (docs/proposals/proof-reification.md): in each
 -- clause it has finished or failed, and the handlers compute.
 
--- Running `t`, then `k` on its result: fails as `t` does, or as `k` does.
+--| Running `t`, then `k` on its result: fails as `t` does, or as `k` does.
 theorem Fail.toResultThen (t: () → {Fail} a) (k: a → {Fail} b):
     Fail.toResult (() => k (t ())) = Result.flatMap (Fail.toResult t) (x => Fail.toResult (() => k x)) :=
   match reify t with
@@ -148,7 +148,7 @@ theorem Fail.toOptionThen (t: () → {Fail} a) (k: a → {Fail} b):
     | return x => rfl
     | Fail.stop msg, _ => rfl
 
--- `toOption` is `toResult` with the message dropped.
+--| `toOption` is `toResult` with the message dropped.
 theorem Fail.toOptionToResult (t: () → {Fail} a): Fail.toOption t = Result.toOption (Fail.toResult t) :=
   match reify t with
     | return x => rfl
@@ -158,7 +158,7 @@ theorem Fail.toOptionToResult (t: () → {Fail} a): Fail.toOption t = Result.toO
 -- `Abort.needEqSome` and the lemmas after it do for `Abort.toOption`: each
 -- passes `use` what the block's first step gave and `toResult` of the rest.
 
--- A block starting with `need x msg` (or `x.orFail msg`) gave `Ok v`: `x` held a value.
+--| A block starting with `need x msg` (or `x.orFail msg`) gave `Ok v`: `x` held a value.
 theorem Fail.needEqOk [goal: Prop] [x: Option a] [msg: Text] [k: a → {Fail} b] [v: b]
     (h: Fail.toResult (() => k (Fail.need x msg)) = Ok v)
     (use: (u: a) → x = Some u → Fail.toResult (() => k u) = Ok v → goal): goal :=
@@ -166,7 +166,7 @@ theorem Fail.needEqOk [goal: Prop] [x: Option a] [msg: Text] [k: a → {Fail} b]
     | None => Void.exfalso (Result.errNotOk msg v h)
     | Some u => use u rfl h
 
--- A block starting with `ensure ok msg` gave `Ok v`: `ok` held.
+--| A block starting with `ensure ok msg` gave `Ok v`: `ok` held.
 theorem Fail.ensureEqOk [goal: Prop] [ok: Bool] [msg: Text] [k: () → {Fail} b] [v: b]
     (h: Fail.toResult (() => k (Fail.ensure ok msg)) = Ok v)
     (use: ok = True → Fail.toResult (() => k ()) = Ok v → goal): goal :=
@@ -174,7 +174,7 @@ theorem Fail.ensureEqOk [goal: Prop] [ok: Bool] [msg: Text] [k: () → {Fail} b]
     | False => Void.exfalso (Result.errNotOk msg v h)
     | True => use rfl h
 
--- A block starting with `r.orFail` gave `Ok v`: `r` was `Ok`.
+--| A block starting with `r.orFail` gave `Ok v`: `r` was `Ok`.
 theorem Fail.orFailEqOk [goal: Prop] [r: Result a Text] [k: a → {Fail} b] [v: b]
     (h: Fail.toResult (() => k (Result.orFail r)) = Ok v)
     (use: (u: a) → r = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal :=
@@ -182,15 +182,16 @@ theorem Fail.orFailEqOk [goal: Prop] [r: Result a Text] [k: a → {Fail} b] [v: 
     | Err m => Void.exfalso (Result.errNotOk m v h)
     | Ok u => use u rfl h
 
--- A block starting with any computation `t` gave `Ok v`: so did `t`. `t` is
--- found from `h`.
+--| A block starting with any computation `t` gave `Ok v`: so did `t`. `t` is
+--| found from `h`.
 theorem Fail.thenEqOk [goal: Prop] [t: () → {Fail} a] [k: a → {Fail} b] [v: b]
     (h: Fail.toResult (() => k (t ())) = Ok v)
     (use: (u: a) → Fail.toResult t = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal :=
   Result.flatMapEqOk (Fail.toResult t) (x => Fail.toResult (() => k x)) v (rewrite Fail.toResultThen t k at h) use
 
--- A map over a list fails with the first element's failure, or gives every
--- result. By induction on the list; in the step, `Result.traverseCons` says
+--| A map over a list fails with the first element's failure, or gives every
+--| result.
+-- By induction on the list; in the step, `Result.traverseCons` says
 -- what `traverse` (a loop) does with the first element, then a split on
 -- `f x`: if it finishes, `toResultThen` and the induction hypothesis say
 -- what the rest gives.

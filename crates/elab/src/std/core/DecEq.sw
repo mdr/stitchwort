@@ -1,5 +1,6 @@
--- core/DecEq.sw. The `DecEq` interface, its instances for the core types, and
--- the uniqueness of equality proofs it gives. Loaded with the core: `==`,
+--| core/DecEq.sw. The `DecEq` interface, its instances for the core types, and
+--| the uniqueness of equality proofs it gives.
+-- Loaded with the core: `==`,
 -- `!=`, `if h: x = y` and `auto` deciding an equation all use `DecEq`
 -- instances, found by full key (docs/proposals/prelude-slim.md §2.1).
 
@@ -23,7 +24,7 @@ instance Text.instDecEq: DecEq Text := { decide = Text.decEq }
 
 instance Ordering.instDecEq: DecEq Ordering := { decide = Ordering.decEq }
 
--- `()` has one value, so any two are equal.
+--| `()` has one value, so any two are equal.
 def Builtin.UnitType.decEq: (x: Builtin.UnitType) → (y: Builtin.UnitType) → Decidable (x = y)
   | Builtin.UnitType.UnitValue, Builtin.UnitType.UnitValue => Yes rfl
 
@@ -41,10 +42,10 @@ instance Option.instDecEq [auto decEq: DecEq a]: DecEq (Option a) :=
 instance Result.instDecEq [auto decEqA: DecEq a] [auto decEqE: DecEq e]: DecEq (Result a e) :=
   { decide = Result.decEq (x y => DecEq.decide x y) (x y => DecEq.decide x y) }
 
--- Proofs of an equation in a type with decidable equality are unique:
--- Hedberg's argument, as for `Bool` above. `DecEq.canon` turns any proof of
--- `x = y` into the one the decision gives, ignoring which proof it was
--- given, and every proof can be recovered from its canonical one.
+--| Proofs of an equation in a type with decidable equality are unique:
+--| Hedberg's argument, as for `Bool` above. `DecEq.canon` turns any proof of
+--| `x = y` into the one the decision gives, ignoring which proof it was
+--| given, and every proof can be recovered from its canonical one.
 def DecEq.canon: [x y: a] → Decidable (x = y) → x = y → x = y
   | Yes e, p => e
   | No r, p => Void.exfalso (r p)

@@ -1,22 +1,23 @@
--- `Std.Ring`: equations between polynomials, by normalising both sides
--- (docs/proposals/proof-automation.md §6.2, stage 2). A side of a `Nat` or
--- `Int` equation is written as syntax over numbered atoms (`Ring.NExpr`,
--- `Ring.ZExpr`); `poly` turns it into a polynomial in a normal form; and
--- `Ring.proveNat` / `Ring.proveInt` (std/Ring/Sound.sw) say that two sides
--- with the same normal form are equal, in every environment. The compiler's
--- `ring` writes the syntax and applies the theorem to `rfl`, so the kernel
--- checks the equation by running `poly` on both sides. Nothing here is
--- trusted beyond the kernel.
---
--- The normal form is a list of monomials, each a nonzero `Int` coefficient
--- and the sorted list of its variables (with repeats: `x * x` is `[x, x]`),
--- sorted by `Ring.cmp` with no two alike. Every operation builds its result
--- by inserting one monomial at a time (`Ring.insert`), which keeps that form,
--- so two polynomials are equal exactly when their normal forms are the same
--- list. Both `Nat` and `Int` sides are normalised over `Int` coefficients: a
--- `Nat` side means `OfNat` of its value. Variables are numbered so that `Nat`
--- atom `i` is `2 * i` and `Int` atom `j` is `2 * j + 1` (`Ring.lookup`), so
--- an `Int` side may mention a `Nat` atom under `OfNat`.
+--| `Std.Ring`: equations between polynomials, by normalising both sides.
+--| A side of a `Nat` or
+--| `Int` equation is written as syntax over numbered atoms (`Ring.NExpr`,
+--| `Ring.ZExpr`); `poly` turns it into a polynomial in a normal form; and
+--| `Ring.proveNat` / `Ring.proveInt` (std/Ring/Sound.sw) say that two sides
+--| with the same normal form are equal, in every environment. The compiler's
+--| `ring` writes the syntax and applies the theorem to `rfl`, so the kernel
+--| checks the equation by running `poly` on both sides. Nothing here is
+--| trusted beyond the kernel.
+--|
+--| The normal form is a list of monomials, each a nonzero `Int` coefficient
+--| and the sorted list of its variables (with repeats: `x * x` is `[x, x]`),
+--| sorted by `Ring.cmp` with no two alike. Every operation builds its result
+--| by inserting one monomial at a time (`Ring.insert`), which keeps that form,
+--| so two polynomials are equal exactly when their normal forms are the same
+--| list. Both `Nat` and `Int` sides are normalised over `Int` coefficients: a
+--| `Nat` side means `OfNat` of its value. Variables are numbered so that `Nat`
+--| atom `i` is `2 * i` and `Int` atom `j` is `2 * j + 1` (`Ring.lookup`), so
+--| an `Int` side may mention a `Nat` atom under `OfNat`.
+-- (docs/proposals/proof-automation.md §6.2, stage 2)
 
 import Ring.Env (MkEnv)
 import Ring.NExpr (NAtom, NNum, NAdd, NMul, NSucc)
@@ -25,12 +26,12 @@ import Ring.Mono (MkMono)
 
 -- Syntax and meaning
 
--- The atoms' values: `Nat` atoms and `Int` atoms, each numbered from 0 in
--- its own list.
+--| The atoms' values: `Nat` atoms and `Int` atoms, each numbered from 0 in
+--| its own list.
 type Ring.Env: Type =
   | MkEnv (nats: List Nat) (ints: List Int)
 
--- The `i`th entry, or 0 past the end.
+--| The `i`th entry, or 0 past the end.
 def Ring.natAt: List Nat → Nat → Nat
   | Nil, i => 0
   | Cons x xs, Zero => x
@@ -41,9 +42,9 @@ def Ring.intAt: List Int → Nat → Int
   | Cons x xs, Zero => x
   | Cons x xs, Succ i => Ring.intAt xs i
 
--- `Nat`-valued syntax. Each node means what the surface syntax computes to,
--- so a quoted side converts with the side it quotes: `NSucc` is `Succ`,
--- which `x + 1` and `1 + x` compute to, and `NMul` is `Nat.mul`.
+--| `Nat`-valued syntax. Each node means what the surface syntax computes to,
+--| so a quoted side converts with the side it quotes: `NSucc` is `Succ`,
+--| which `x + 1` and `1 + x` compute to, and `NMul` is `Nat.mul`.
 type Ring.NExpr: Type =
   | NAtom (i: Nat)
   | NNum (n: Nat)
@@ -59,9 +60,9 @@ def Ring.NExpr.eval (env: Ring.Env): Ring.NExpr → Nat
   | NMul a b => Ring.NExpr.eval env a * Ring.NExpr.eval env b
   | NSucc a => Succ (Ring.NExpr.eval env a)
 
--- `Int`-valued syntax. `ZOfNat e` is a `Nat` side embedded (`OfNat`), which
--- is what `x.toInt` and `Int` arithmetic on `OfNat`s compute to, and
--- `ZNegSucc e` is `-(e + 1)`.
+--| `Int`-valued syntax. `ZOfNat e` is a `Nat` side embedded (`OfNat`), which
+--| is what `x.toInt` and `Int` arithmetic on `OfNat`s compute to, and
+--| `ZNegSucc e` is `-(e + 1)`.
 type Ring.ZExpr: Type =
   | ZAtom (i: Nat)
   | ZNum (c: Int)
@@ -83,8 +84,8 @@ def Ring.ZExpr.eval (env: Ring.Env): Ring.ZExpr → Int
   | ZOfNat e => OfNat (Ring.NExpr.eval env e)
   | ZNegSucc e => NegSucc (Ring.NExpr.eval env e)
 
--- Hypotheses for `ring [h1, h2]`: each a pair of sides `MkPair l r` with
--- `l = r`, as `Both h1 (Both h2 Trivial)`.
+--| Hypotheses for `ring [h1, h2]`: each a pair of sides `MkPair l r` with
+--| `l = r`, as `Both h1 (Both h2 Trivial)`.
 def Ring.NExpr.allHold (env: Ring.Env): List (Pair Ring.NExpr Ring.NExpr) → Prop
   | Nil => Unit
   | Cons (MkPair l r) hs => And (Ring.NExpr.eval env l = Ring.NExpr.eval env r) (Ring.NExpr.allHold env hs)
@@ -93,7 +94,7 @@ def Ring.ZExpr.allHold (env: Ring.Env): List (Pair Ring.ZExpr Ring.ZExpr) → Pr
   | Nil => Unit
   | Cons (MkPair l r) hs => And (Ring.ZExpr.eval env l = Ring.ZExpr.eval env r) (Ring.ZExpr.allHold env hs)
 
--- The hypotheses' left sides added up (`lefts`), and their right sides.
+--| The hypotheses' left sides added up (`lefts`), and their right sides.
 def Ring.NExpr.lefts: List (Pair Ring.NExpr Ring.NExpr) → Ring.NExpr
   | Nil => NNum 0
   | Cons (MkPair l r) hs => NAdd l (Ring.NExpr.lefts hs)
@@ -112,7 +113,7 @@ def Ring.ZExpr.rights: List (Pair Ring.ZExpr Ring.ZExpr) → Ring.ZExpr
 
 -- Variables
 
--- `Nat` atom `i` is variable `2 * i`, `Int` atom `j` is variable `2 * j + 1`.
+--| `Nat` atom `i` is variable `2 * i`, `Int` atom `j` is variable `2 * j + 1`.
 def Ring.twice: Nat → Nat
   | Zero => Zero
   | Succ i => Succ (Succ (Ring.twice i))
@@ -134,7 +135,7 @@ def Ring.var (env: Ring.Env) (v: Nat): Int := Ring.lookup (Ring.Env.nats env) (R
 
 -- Polynomials
 
--- `c` times the product of the variables `vs`.
+--| `c` times the product of the variables `vs`.
 type Ring.Mono: Type =
   | MkMono (c: Int) (vs: List Nat)
 
@@ -150,31 +151,31 @@ def Ring.Poly.eval (env: Ring.Env): List Ring.Mono → Int
   | Nil => OfNat 0
   | Cons m p => Int.add (Ring.Mono.eval env m) (Ring.Poly.eval env p)
 
--- The order of monomials: by their variable lists, lexicographically.
+--| The order of monomials: by their variable lists, lexicographically.
 def Ring.cmp: List Nat → List Nat → Ordering
   | Nil, Nil => Equal
   | Nil, Cons w ws => Less
   | Cons v vs, Nil => Greater
   | Cons v vs, Cons w ws => if Nat.equal v w then Ring.cmp vs ws else (if Nat.leq v w then Less else Greater)
 
--- A variable into a sorted list of variables.
+--| A variable into a sorted list of variables.
 def Ring.insertVar (v: Nat): List Nat → List Nat
   | Nil => Cons v Nil
   | Cons w ws => if Nat.leq v w then Cons v (Cons w ws) else Cons w (Ring.insertVar v ws)
 
--- The variables of a product of two monomials.
+--| The variables of a product of two monomials.
 def Ring.mulVars: List Nat → List Nat → List Nat
   | Nil, ws => ws
   | Cons v vs, ws => Ring.insertVar v (Ring.mulVars vs ws)
 
--- `c * vs` in front of `p`, unless `c` is 0.
+--| `c * vs` in front of `p`, unless `c` is 0.
 def Ring.cons: Int → List Nat → List Ring.Mono → List Ring.Mono
   | OfNat Zero, vs, p => p
   | OfNat (Succ n), vs, p => Cons (MkMono (OfNat (Succ n)) vs) p
   | NegSucc n, vs, p => Cons (MkMono (NegSucc n) vs) p
 
--- `c * vs + p`, in normal form when `p` is: before the first monomial
--- that comes after it, or added to the one alike (dropped if that makes 0).
+--| `c * vs + p`, in normal form when `p` is: before the first monomial
+--| that comes after it, or added to the one alike (dropped if that makes 0).
 def Ring.insert (c: Int) (vs: List Nat): List Ring.Mono → List Ring.Mono
   | Nil => Ring.cons c vs Nil
   | Cons (MkMono d ws) p =>
@@ -187,7 +188,7 @@ def Ring.add: List Ring.Mono → List Ring.Mono → List Ring.Mono
   | Nil, q => q
   | Cons (MkMono c vs) p, q => Ring.insert c vs (Ring.add p q)
 
--- `(c * vs) * q`
+--| `(c * vs) * q`
 def Ring.scale (c: Int) (vs: List Nat): List Ring.Mono → List Ring.Mono
   | Nil => Nil
   | Cons (MkMono d ws) q => Ring.insert (Int.mul c d) (Ring.mulVars vs ws) (Ring.scale c vs q)
@@ -202,7 +203,7 @@ def Ring.const (c: Int): List Ring.Mono := Ring.cons c Nil Nil
 
 def Ring.single (v: Nat): List Ring.Mono := Cons (MkMono (OfNat 1) (Cons v Nil)) Nil
 
--- The normal forms of the two kinds of side.
+--| The normal forms of the two kinds of side.
 def Ring.NExpr.poly: Ring.NExpr → List Ring.Mono
   | NAtom i => Ring.single (Ring.twice i)
   | NNum n => Ring.const (OfNat n)
@@ -224,7 +225,7 @@ def Ring.ZExpr.poly: Ring.ZExpr → List Ring.Mono
 -- checked as `rfl` examples (the kernel computes both sides), and the parts
 -- that return numbers and lists of numbers as tests.
 
--- `Nat` atoms 0 and 1 are variables 0 and 2.
+--| `Nat` atoms 0 and 1 are variables 0 and 2.
 theorem Ring.polyAddCommExample: Ring.NExpr.poly (NAdd (NAtom 0) (NAtom 1)) = Ring.NExpr.poly (NAdd (NAtom 1) (NAtom 0)) := rfl
 
 theorem Ring.polyMulExample: Ring.NExpr.poly (NMul (NAtom 1) (NAtom 0)) = [MkMono (OfNat 1) [0, 2]] := rfl
@@ -235,14 +236,14 @@ theorem Ring.polySquareExample:
 
 theorem Ring.polyLikeTermsExample: Ring.NExpr.poly (NAdd (NAtom 0) (NAdd (NNum 2) (NAtom 0))) = [MkMono (OfNat 2) [], MkMono (OfNat 2) [0]] := rfl
 
--- Zero is the empty list, however it comes about.
+--| Zero is the empty list, however it comes about.
 theorem Ring.polyZeroExample: Ring.NExpr.poly (NMul (NNum 0) (NAtom 0)) = Nil := rfl
 
 theorem Ring.polySubSelfExample: Ring.ZExpr.poly (ZSub (ZAtom 0) (ZAtom 0)) = Nil := rfl
 
 theorem Ring.polyNegSuccExample: Ring.ZExpr.poly (ZNeg (ZOfNat (NSucc (NAtom 0)))) = Ring.ZExpr.poly (ZNegSucc (NAtom 0)) := rfl
 
--- A `Nat` atom under `OfNat` is variable `2 * i`, an `Int` atom `2 * j + 1`.
+--| A `Nat` atom under `OfNat` is variable `2 * i`, an `Int` atom `2 * j + 1`.
 theorem Ring.polyAtomsExample: Ring.ZExpr.poly (ZAdd (ZOfNat (NAtom 3)) (ZAtom 3)) = [MkMono (OfNat 1) [6], MkMono (OfNat 1) [7]] := rfl
 
 theorem Ring.polySquaresExample:

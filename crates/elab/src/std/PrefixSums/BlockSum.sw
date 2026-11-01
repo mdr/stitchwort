@@ -1,10 +1,11 @@
--- The summed-area table is right: `PrefixSums.block` of `PrefixSums.of rows`
--- is the sum of the cells in the block (`PrefixSums.blockSum`), whenever the
--- block is inside the grid. Kept out of PrefixSums.sw because the proofs
+--| The summed-area table is right: `PrefixSums.block` of `PrefixSums.of rows`
+--| is the sum of the cells in the block (`PrefixSums.blockSum`), whenever the
+--| block is inside the grid.
+-- Kept out of PrefixSums.sw because the proofs
 -- need `omega`.
 
--- Row r of the table, entry c: the entry of `above`, plus entry c of each of
--- the first r rows of sums.
+--| Row r of the table, entry c: the entry of `above`, plus entry c of each of
+--| the first r rows of sums.
 theorem PrefixSums.tableAt (c: Nat): (above: List Nat) → (sums: List (List Nat)) → c < List.length above →
     ((i: Nat) → i < List.length sums → c < List.length (List.getOr sums i Nil)) → (r: Nat) → r ≤ List.length sums →
     List.getOr (List.getOr (PrefixSums.table above sums) r Nil) c 0 = List.getOr above c 0 + List.sumBy (List.range r) (i => List.getOr (List.getOr sums i Nil) c 0)
@@ -20,8 +21,8 @@ theorem PrefixSums.tableAt (c: Nat): (above: List Nat) → (sums: List (List Nat
       List.sumByRangeSucc (i => List.getOr (List.getOr (Cons row rest) i Nil) c 0) r
       in omega
 
--- Entry (r, c) of the table is the sum of the cells above row r and left of
--- column c.
+--| Entry (r, c) of the table is the sum of the cells above row r and left of
+--| column c.
 theorem PrefixSums.atOf (rows: List (List Nat)) (r: Nat) (c: Nat) (hr: r ≤ List.length rows) (hc: c ≤ List.maxLength rows):
     PrefixSums.at (PrefixSums.of rows) r c = PrefixSums.blockSpec rows 0 r 0 c :=
   let width := List.maxLength rows
@@ -55,7 +56,7 @@ theorem PrefixSums.atOf (rows: List (List Nat)) (r: Nat) (c: Nat) (hr: r ≤ Lis
     _ = PrefixSums.blockSpec rows 0 r 0 c :=
       List.sumByCongRange (i => List.getOr (List.getOr sums i Nil) c 0) (i => List.sumBy (List.rangeFrom (c - 0) 0) (j => PrefixSums.cell rows i j)) r 0 rowSum
 
--- The block from four entries of the table is the sum of its cells.
+--| The block from four entries of the table is the sum of its cells.
 theorem PrefixSums.blockSum (rows: List (List Nat)) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat)
     (tb: top ≤ bottom) (bh: bottom ≤ List.length rows) (lr: left ≤ right) (rw: right ≤ List.maxLength rows):
     PrefixSums.block (PrefixSums.of rows) top bottom left right = PrefixSums.blockSpec rows top bottom left right :=

@@ -1,53 +1,55 @@
--- core/Decidable.sw. `Decidable`, its combinators, the decisions for `Nat`
--- and `Bool`, and the uniqueness of equality proofs on `Bool`. Loaded with
+--| core/Decidable.sw. `Decidable`, its combinators, the decisions for `Nat`
+--| and `Bool`, and the uniqueness of equality proofs on `Bool`.
+-- Loaded with
 -- the core: `==`, `if h: x = y` and `auto` run on `Decidable`, and `deriving
 -- (DecEq)` writes `Decidable.Yes` and `Nat.equal` in full
 -- (docs/proposals/prelude-slim.md §2.1).
 
 -- Decisions
 
--- Either a proof of `p` or a proof that `p` is false. Whether it's `Yes` or
--- `No` exists at runtime; the proofs inside are erased.
+--| Either a proof of `p` or a proof that `p` is false. Whether it's `Yes` or
+--| `No` exists at runtime; the proofs inside are erased.
 type Decidable (p: Prop): Type =
   | Yes (proof: p)
   | No (refutation: Not p)
 
--- `Decidable.IsYes d` is `Unit` (provable) exactly when `d` is `Yes`.
+--| `Decidable.IsYes d` is `Unit` (provable) exactly when `d` is `Yes`.
 def Decidable.IsYes: Decidable p → Prop
   | Yes h => Unit
   | No r => Void
 
--- How `auto` turns a decision into a proof: `Decidable.fromYes d Trivial` only checks
--- when `d` computes to `Yes`.
+--| How `auto` turns a decision into a proof: `Decidable.fromYes d Trivial` only checks
+--| when `d` computes to `Yes`.
 def Decidable.fromYes: [p: Prop] → (d: Decidable p) → Decidable.IsYes d → p
   | Yes h, u => h
   | No r, u => Void.exfalso u
 
--- `a == b` is `Decidable.toBool d`, for a decision procedure `d` for `a = b`.
+--| `a == b` is `Decidable.toBool d`, for a decision procedure `d` for `a = b`.
 def Decidable.toBool: [p: Prop] → Decidable p → Bool
   | Yes h => True
   | No r => False
 
--- `if h: p then a else b`
+--| `if h: p then a else b`
 def Decidable.elim: [p: Prop] → [a: Type] → Decidable p → (p → a) → (Not p → a) → a
   | Yes h, yes, no => yes h
   | No r, yes, no => no r
 
--- An `if` gives equal results when its branches do, whichever way it goes.
+--| An `if` gives equal results when its branches do, whichever way it goes.
 -- The proofs that `decreasing` generates (`f.unfold`) take a step through an
 -- `if` with these (docs/proposals/well-founded-recursion.md §6.2).
 theorem Decidable.elimCong: [p: Prop] → [a: Type] → (d: Decidable p) → (y1: p → a) → (y2: p → a) → (n1: Not p → a) → (n2: Not p → a) → ((h: p) → y1 h = y2 h) → ((r: Not p) → n1 r = n2 r) → Decidable.elim d y1 n1 = Decidable.elim d y2 n2
   | Yes h, y1, y2, n1, n2, ey, en => ey h
   | No r, y1, y2, n1, n2, ey, en => en r
 
--- `Decidable.elim` for a proof: `if` with proofs as branches is this
--- (SW-1015), and a theorem with `decreasing (m1, m2)` makes its recursive
--- calls through it (docs/proposals/well-founded-recursion.md, stage 3d).
+--| `Decidable.elim` for a proof: `if` with proofs as branches is this
+--| (SW-1015), and a theorem with `decreasing (m1, m2)` makes its recursive
+--| calls through it (docs/proposals/well-founded-recursion.md, stage 3d).
 theorem Decidable.elimProof: [p: Prop] → [a: Prop] → Decidable p → (p → a) → (Not p → a) → a
   | Yes h, yes, no => yes h
   | No r, yes, no => no r
 
--- An `if` equals `z` when both its branches do. What `decreasing (m1, m2)`
+--| An `if` equals `z` when both its branches do.
+-- What `decreasing (m1, m2)`
 -- generates proves `f.unfold` with it (docs/proposals/well-founded-recursion.md,
 -- stage 3d).
 theorem Decidable.elimEq: [p: Prop] → [a: Type] → (d: Decidable p) → (y: p → a) → (n: Not p → a) → (z: a) → ((h: p) → y h = z) → ((r: Not p) → n r = z) → Decidable.elim d y n = z
@@ -68,13 +70,14 @@ def Bool.decTrue: (b: Bool) → Decidable (b = True)
   | True => Yes rfl
   | False => No Bool.falseNotTrue
 
--- A decision from what `Nat.equal` says.
+--| A decision from what `Nat.equal` says.
 def Nat.decEqFrom (m: Nat) (n: Nat): (b: Bool) → Nat.equal m n = b → Decidable (m = n)
   | True, h => Yes (Nat.equalSound m n h)
   | False, h => No (Nat.equalFalse m n h)
 
--- For two numbers this computes `Yes rfl` or `No (Nat.equalFalse m n rfl)`, and the
--- native gives exactly that, however big they are. (Recursing on both numbers
+--| For two numbers this computes `Yes rfl` or `No (Nat.equalFalse m n rfl)`, and the
+--| native gives exactly that, however big they are.
+-- (Recursing on both numbers
 -- one step at a time would build a refutation as deep as the smaller number.)
 -- It matches on both numbers so it waits until they're known, rather than
 -- unfolding around an unknown one.
@@ -97,9 +100,9 @@ instance Decidable.not: [p: Prop] → Decidable p → Decidable (Not p)
   | Yes h => No (n => n h)
   | No r => Yes r
 
--- `p && q` and `p || q` are decided from decisions of each side. Both are
--- worked out before these are called, so `if h: p && q` decides `q` even when
--- `p` is false (`if p && q`, without a name, doesn't).
+--| `p && q` and `p || q` are decided from decisions of each side. Both are
+--| worked out before these are called, so `if h: p && q` decides `q` even when
+--| `p` is false (`if p && q`, without a name, doesn't).
 instance Decidable.and: [p q: Prop] → Decidable p → Decidable q → Decidable (And p q)
   | Yes a, Yes b => Yes (Both a b)
   | Yes a, No r => No (h => r (And.right h))
@@ -114,10 +117,10 @@ instance Nat.decLessEq (m: Nat) (n: Nat): Decidable (m ≤ n) := Bool.decTrue (N
 
 instance Nat.decLessThan (m: Nat) (n: Nat): Decidable (m < n) := Bool.decTrue (Nat.leq (Succ m) n)
 
--- Proofs that two booleans are equal are unique. This is Hedberg's argument,
--- which works for any type with decidable equality: `Bool.canon` turns any proof
--- of `x = y` into one chosen by `Bool.decEq`, so it ignores which proof it was
--- given, and every proof can be recovered from its canonical one.
+--| Proofs that two booleans are equal are unique. This is Hedberg's argument,
+--| which works for any type with decidable equality: `Bool.canon` turns any proof
+--| of `x = y` into one chosen by `Bool.decEq`, so it ignores which proof it was
+--| given, and every proof can be recovered from its canonical one.
 def Bool.canon: [x y: Bool] → Decidable (x = y) → x = y → x = y
   | Yes e, p => e
   | No r, p => Void.exfalso (r p)
@@ -140,11 +143,12 @@ theorem Bool.uniqueEq (x: Bool) (y: Bool) (p: x = y) (q: x = y): p = q :=
       (Bool.fromCanon x y p) (Bool.canonConst (Bool.decEq x y) p q))
     (J (z e => z = q) rfl (Bool.fromCanon x y q))
 
--- `Void` is decided: it is false. Membership in a list written out computes
--- to `y = x || … || Void`, decided one disjunct at a time, and this is the
--- last. In the core, so `auto` never depends on what is loaded (D58).
+--| `Void` is decided: it is false. Membership in a list written out computes
+--| to `y = x || … || Void`, decided one disjunct at a time, and this is the
+--| last.
+-- In the core, so `auto` never depends on what is loaded (D58).
 instance Void.dec: Decidable Void := No (none => none)
 
--- `Unit` is decided: it is true. `List.Distinct` of a list written out
--- computes to `… ∧ Unit`, and this is the last.
+--| `Unit` is decided: it is true. `List.Distinct` of a list written out
+--| computes to `… ∧ Unit`, and this is the last.
 instance Unit.dec: Decidable Unit := Yes Trivial

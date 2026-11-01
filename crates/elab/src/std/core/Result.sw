@@ -1,21 +1,22 @@
--- core/Result.sw. `Result`, a value or the reason there isn't one, and its
--- decidable equality. Loaded with the core: `Result` is in the prelude, next
+--| core/Result.sw. `Result`, a value or the reason there isn't one, and its
+--| decidable equality. Its other functions are in
+--| `std/Result/Result.sw`.
+-- Loaded with the core: `Result` is in the prelude, next
 -- to `Option`, so `Ok` and `Err` need no import, and its `DecEq` instance
 -- (in `DecEq.sw`) lets tests compare results with `==`
--- (docs/proposals/errors.md §3.2). Its other functions are in
--- `std/Result/Result.sw`.
+-- (docs/proposals/errors.md §3.2).
 
--- A computation's value, or why it failed: `Std.Fail.toResult` gives one.
+--| A computation's value, or why it failed: `Std.Fail.toResult` gives one.
 type Result (a: Type) (e: Type): Type =
   | Ok (value: a)
   | Err (error: e)
 
--- The value, or `fallback` if there isn't one.
+--| The value, or `fallback` if there isn't one.
 def Result.getOrElse: Result a e → (fallback: a) → a
   | Ok x, fallback => x
   | Err m, fallback => fallback
 
--- The error, or `fallback` if there isn't one.
+--| The error, or `fallback` if there isn't one.
 def Result.errorOrElse: Result a e → (fallback: e) → e
   | Ok x, fallback => fallback
   | Err m, fallback => m
@@ -38,7 +39,7 @@ def Result.decErr (m: e) (n: e): Decidable (m = n) → Decidable ((Err m: Result
   | Yes p => Yes (Eq.cong Err p)
   | No r => No (p => r (Eq.cong (.errorOrElse m) p))
 
--- Equality of results, from equality of the values and of the errors.
+--| Equality of results, from equality of the values and of the errors.
 @[noReceiver]
 def Result.decEq (da: (x: a) → (y: a) → Decidable (x = y)) (de: (m: e) → (n: e) → Decidable (m = n)):
     (r: Result a e) → (s: Result a e) → Decidable (r = s)

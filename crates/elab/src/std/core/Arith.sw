@@ -1,6 +1,7 @@
--- core/Arith.sw. Arithmetic laws for `Nat` and `Int` (associativity,
--- commutativity, distributivity), with `Bool.xor` and the sign lemmas
--- `Int.mulAssoc` uses. Loaded with the core: `Nat.instAdd`, `Nat.instMul`,
+--| core/Arith.sw. Arithmetic laws for `Nat` and `Int` (associativity,
+--| commutativity, distributivity), with `Bool.xor` and the sign lemmas
+--| `Int.mulAssoc` uses.
+-- Loaded with the core: `Nat.instAdd`, `Nat.instMul`,
 -- `Int.instAdd` and `Int.instMul` need their laws, and `+` and `*` go through
 -- those instances (docs/proposals/prelude-slim.md §2.1).
 
@@ -75,7 +76,7 @@ theorem Int.addComm: (a: Int) → (b: Int) → Int.add a b = Int.add b a
   | NegSucc m, OfNat n => rfl
   | NegSucc m, NegSucc n => Eq.cong (t => NegSucc (Succ t)) (Nat.addComm m n)
 
--- Adding a natural number to a difference.
+--| Adding a natural number to a difference.
 theorem Int.ofNatAddSubNatNat (k: Nat): (m: Nat) → (n: Nat) →
     Int.add (OfNat k) (Int.subNatNat m n) = Int.subNatNat (m + k) n
   | Zero, Zero =>
@@ -92,7 +93,7 @@ theorem Int.subNatNatAddOfNat (k: Nat) (m: Nat) (n: Nat):
     Int.add (Int.subNatNat m n) (OfNat k) = Int.subNatNat (m + k) n :=
   Eq.trans (Int.addComm (Int.subNatNat m n) (OfNat k)) (Int.ofNatAddSubNatNat k m n)
 
--- Adding a negative number to a difference.
+--| Adding a negative number to a difference.
 theorem Int.negSuccAddSubNatNat (k: Nat): (m: Nat) → (n: Nat) →
     Int.add (NegSucc k) (Int.subNatNat m n) = Int.subNatNat m (Succ (n + k))
   | Zero, Zero => rfl
@@ -131,8 +132,8 @@ theorem Int.addAssoc: (a: Int) → (b: Int) → (c: Int) →
 
 theorem Nat.oneMul (n: Nat): 1 * n = n := Nat.addZero n
 
--- `Int` multiplication by signs and sizes: `a * b` has `a`'s size times
--- `b`'s, negated when exactly one of them is negative.
+--| `Int` multiplication by signs and sizes: `a * b` has `a`'s size times
+--| `b`'s, negated when exactly one of them is negative.
 def Bool.xor: Bool → Bool → Bool
   | False, b => b
   | True, b => ¬b
@@ -147,7 +148,7 @@ def Int.isNeg: Int → Bool
   | OfNat n => False
   | NegSucc n => True
 
--- `k`, negated if `neg`.
+--| `k`, negated if `neg`.
 def Int.signed: Bool → Nat → Int
   | False, k => OfNat k
   | True, k => Int.neg (OfNat k)

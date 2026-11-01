@@ -1,9 +1,11 @@
--- The soundness of `Std.Ring` (std/Ring/Ring.sw; docs/proposals/proof-automation.md
--- §6.2): a polynomial's normal form means the same as the polynomial, in
--- every environment (`Ring.NExpr.sound`, `Ring.ZExpr.sound`), so two sides
--- with the same normal form are equal (`Ring.proveNat`, `Ring.proveInt`), and
--- with hypotheses added to the other side, equal once they are cancelled
--- (`Ring.proveNatWith`, `Ring.proveIntWith`). It uses `Int`'s ring laws and
+--| The soundness of `Std.Ring` (std/Ring/Ring.sw):
+--| a polynomial's normal form means the same as the polynomial, in
+--| every environment (`Ring.NExpr.sound`, `Ring.ZExpr.sound`), so two sides
+--| with the same normal form are equal (`Ring.proveNat`, `Ring.proveInt`), and
+--| with hypotheses added to the other side, equal once they are cancelled
+--| (`Ring.proveNatWith`, `Ring.proveIntWith`).
+-- (docs/proposals/proof-automation.md §6.2)
+-- It uses `Int`'s ring laws and
 -- nothing about lists from the library: soundness doesn't need the normal
 -- form to be sorted, only that monomials `Ring.cmp` calls alike are.
 
@@ -209,9 +211,9 @@ theorem Ring.flipNat (l: Nat) (r: Nat) (h: l = r): r = l := Eq.sym h
 
 theorem Ring.flipInt (l: Int) (r: Int) (h: l = r): r = l := Eq.sym h
 
--- A hypothesis with a coefficient, `ring [c * h]`: `c * l = c * r`, so the
--- sides checked are `a + (c * r + ...)` and `b + (c * l + ...)`, that is,
--- `a - b` is the combination `c * (l - r) + ...`.
+--| A hypothesis with a coefficient, `ring [c * h]`: `c * l = c * r`, so the
+--| sides checked are `a + (c * r + ...)` and `b + (c * l + ...)`, that is,
+--| `a - b` is the combination `c * (l - r) + ...`.
 theorem Ring.scaleNat (c: Nat) (l: Nat) (r: Nat) (h: l = r): c * l = c * r := Eq.cong (Nat.mul c) h
 
 theorem Ring.scaleInt (c: Int) (l: Int) (r: Int) (h: l = r): Int.mul c l = Int.mul c r := Eq.cong (Int.mul c) h
@@ -245,8 +247,8 @@ theorem Ring.proveIntWith (env: Ring.Env) (a: Ring.ZExpr) (b: Ring.ZExpr) (hs: L
     (Eq.trans (Ring.proveInt env (ZAdd a (Ring.ZExpr.rights hs)) (ZAdd b (Ring.ZExpr.lefts hs)) ok)
       (Eq.cong (Int.add (Ring.ZExpr.eval env b)) (Ring.ZExpr.sidesAgree env hs h)))
 
--- Hand-written uses, as `ring` writes them: `x * (y + 1) = x + y * x`, and
--- `(a + b) * (a - b) = a * a - b * b` at `Int`.
+--| Hand-written uses, as `ring` writes them: `x * (y + 1) = x + y * x`, and
+--| `(a + b) * (a - b) = a * a - b * b` at `Int`.
 theorem Ring.proveNatExample (x: Nat) (y: Nat): x * (y + 1) = x + y * x :=
   Ring.proveNat (MkEnv [x, y] []) (NMul (NAtom 0) (NAdd (NAtom 1) (NNum 1))) (NAdd (NAtom 0) (NMul (NAtom 1) (NAtom 0))) rfl
 
@@ -254,14 +256,14 @@ theorem Ring.proveIntExample (a: Int) (b: Int): (a + b) * (a - b) = a * a - b * 
   Ring.proveInt (MkEnv [] [a, b]) (ZMul (ZAdd (ZAtom 0) (ZAtom 1)) (ZSub (ZAtom 0) (ZAtom 1)))
     (ZSub (ZMul (ZAtom 0) (ZAtom 0)) (ZMul (ZAtom 1) (ZAtom 1))) rfl
 
--- `h: p + p + n = n * n` gives `(n + p) + (n + p) + Succ n = Succ n * Succ n`
--- (`List.pairsStep`).
+--| `h: p + p + n = n * n` gives `(n + p) + (n + p) + Succ n = Succ n * Succ n`
+--| (`List.pairsStep`).
 theorem Ring.proveNatWithExample (n: Nat) (p: Nat) (h: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n :=
   Ring.proveNatWith (MkEnv [n, p] [])
     (NAdd (NAdd (NAdd (NAtom 0) (NAtom 1)) (NAdd (NAtom 0) (NAtom 1))) (NSucc (NAtom 0))) (NMul (NSucc (NAtom 0)) (NSucc (NAtom 0)))
     [MkPair (NAdd (NAdd (NAtom 1) (NAtom 1)) (NAtom 0)) (NMul (NAtom 0) (NAtom 0))] rfl (Both h Trivial)
 
--- `h: a = 2 * b` times 4 gives `4 * a = 8 * b` (`ring [4 * h]`).
+--| `h: a = 2 * b` times 4 gives `4 * a = 8 * b` (`ring [4 * h]`).
 theorem Ring.proveIntScaledExample (a: Int) (b: Int) (h: a = 2 * b): 4 * a = 8 * b :=
   Ring.proveIntWith (MkEnv [] [a, b]) (ZMul (ZNum 4) (ZAtom 0)) (ZMul (ZNum 8) (ZAtom 1))
     [MkPair (ZMul (ZNum 4) (ZAtom 0)) (ZMul (ZNum 4) (ZMul (ZNum 2) (ZAtom 1)))] rfl (Both (Ring.scaleInt 4 a (2 * b) h) Trivial)

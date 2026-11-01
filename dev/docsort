@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""Propose the documentation sorting pass (docs/proposals/documentation.md
+§6.1, D2134, D2151) for .sw files.
+
+Every comment run that is a doc today (directly above a declaration, or above
+a member that has a line to itself, or before a file's first declaration) is
+rewritten: its lines become `--|` user docs, except the lines that match a
+maintainer marker (a ticket SW-n, a D number, a § reference, a docs/ or .md path) and the
+sentences joined to them, which stay `--` and move below the `--|` lines.
+"Timing" words are not markers (§6.1).
+
+A run that already has a `--|` line is left alone, so the script is
+idempotent. Code and comments that are not docs are never touched. A
+one-line run without a final stop, before a file's first declaration, is a
+heading and is left alone. Only markers and order change, never wording.
+
+Usage: dev/docsort [--check] PATH...   (files, or folders searched for .sw).
+With --check it writes nothing and exits 1 if a file would change. Prints one
+line per changed file: blocks, lines moved to `--` notes.
+Run it once, before the hand review: a run that hand review left wholly `--`
+(no marker in it) looks unsorted, so a later run would mark it `--|` again.
+Tests: python3 dev/docsort_test.py (use /usr/bin/python3 if `python3` is wrapped)
+"""
+import os
+import re
+import sys
+
+MARKERS = re.compile(r"\bSW-\d+|\bD\d{2,4}\b|§|docs/|\bproposals?/|\.md\b")
+TOP = re.compile(r"(def|theorem|test|instance|type|interface|ability|opaque|@\[)")
+TYPELIKE = re.compile(r"(type|interface|ability|opaque)\b")
+MEMBER = re.compile(r"\s+(\||[{(,]|[A-Za-z_][\w']*\s*:)")
+END = re.compile(r"[.!?:][)\]`\"']*$")
+
+
+def is_comment(line):
+    return line.lstrip().startswith("--")
+
+
+def body(line):
+    """The text after the `--` and one space."""
+    t = line.lstrip()[2:]
+    return t[1:] if t.startswith(" ") else t
+
+
+def sort_run(run):
+    """Rewrite one run (lines with one indent). Returns (lines, moved), or
+    None if it has a `--|` line already."""
+    indent = run[0][: len(run[0]) - len(run[0].lstrip())]
+    if any(l.lstrip().startswith("--|") for l in run):
+        return None
+    # Units: a unit ends at a blank line or at a line ending a sentence; a
+    # list item or an indented line starts a new unit.
+    units, cur = [], []
+    for t in map(body, run):
+        if t.strip() == "":
+            if cur:
+                units.append(cur)
+            units.append([""])
+            cur = []
+            continue
+        if cur and (t.lstrip().startswith("- ") or t.startswith("  ")):
+            units.append(cur)
+            cur = []
+        cur.append(t)
+        if END.search(t.rstrip()):
+            units.append(cur)
+            cur = []
+    if cur:
+        units.append(cur)
+    user, notes = [], []
+    for u in units:
+        if u == [""]:
+            if user and user[-1] != [""]:
+                user.append(u)
+        elif any(MARKERS.search(t) for t in u):
+            notes.append(u)
+        else:
+            user.append(u)
+    while user and user[-1] == [""]:
+        user.pop()
+    lines = [
+        indent + ("--| " + t if t else "--|") for u in user for t in u
+    ]
+    lines += [indent + ("-- " + t if t else "--") for u in notes for t in u]
+    return lines, sum(len(u) for u in notes)
+
+
+def runs_of(lines):
+    """Yield (start, end) of each comment run that is a doc today."""
+    n = len(lines)
+    i = 0
+    seen_decl = False
+    in_type = False
+    while i < n:
+        if not is_comment(lines[i]):
+            l = lines[i]
+            if l and not l[0].isspace() and l[0] not in "}):" and TOP.match(l):
+                seen_decl = True
+                in_type = bool(TYPELIKE.match(l))
+            i += 1
+            continue
+        j = i
+        indent = len(lines[i]) - len(lines[i].lstrip())
+        while (
+            j < n
+            and is_comment(lines[j])
+            and len(lines[j]) - len(lines[j].lstrip()) == indent
+        ):
+            j += 1
+        nxt = lines[j] if j < n else ""
+        attached = nxt.strip() != "" and not is_comment(nxt)
+        if indent == 0:
+            if not seen_decl:
+                heading = j - i == 1 and not END.search(lines[i].rstrip())
+                if not heading or attached:
+                    yield i, j
+            elif attached and TOP.match(nxt):
+                yield i, j
+        elif in_type and attached and MEMBER.match(nxt):
+            yield i, j
+        i = j
+
+
+def sort_text(text):
+    """Returns (new text, blocks changed, lines moved to notes)."""
+    lines = text.split("\n")
+    out, pos, blocks, moved = [], 0, 0, 0
+    for s, e in runs_of(lines):
+        r = sort_run(lines[s:e])
+        if r is None:
+            continue
+        out.extend(lines[pos:s])
+        out.extend(r[0])
+        pos = e
+        blocks += 1
+        moved += r[1]
+    out.extend(lines[pos:])
+    return "\n".join(out), blocks, moved
+
+
+def files(paths):
+    for p in paths:
+        if os.path.isdir(p):
+            for dp, _, fs in sorted(os.walk(p)):
+                for f in sorted(fs):
+                    if f.endswith(".sw"):
+                        yield os.path.join(dp, f)
+        else:
+            yield p
+
+
+def main(argv):
+    check = "--check" in argv
+    changed = 0
+    for f in files(a for a in argv if not a.startswith("--")):
+        with open(f, encoding="utf-8") as h:
+            text = h.read()
+        new, blocks, moved = sort_text(text)
+        if new != text:
+            changed += 1
+            print(f"{f}: {blocks} blocks, {moved} lines moved to -- notes")
+            if not check:
+                with open(f, "w", encoding="utf-8") as h:
+                    h.write(new)
+    return 1 if (check and changed) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

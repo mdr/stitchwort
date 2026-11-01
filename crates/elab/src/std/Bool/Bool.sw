@@ -1,11 +1,12 @@
--- `Bool` lemmas: `||` and `&&` from their sides and back, implication as
--- `not a || b`, and `Not (x = True)` as `x = False`. They were the opening
+--| `Bool` lemmas: `||` and `&&` from their sides and back, implication as
+--| `not a || b`, and `Not (x = True)` as `x = False`.
+-- They were the opening
 -- section of std/List/Sort.sw; they are a file of their own so that a proof
 -- that takes a `&&` apart (`omega`'s bridge lemmas, docs/proposals/omega.md
 -- §6.4) needn't load the sorting proofs.
 
--- `||` on `Bool`s: `False` is its unit, `True` absorbs, and it groups and
--- commutes.
+--| `||` on `Bool`s: `False` is its unit, `True` absorbs, and it groups and
+--| commutes.
 theorem Bool.orFalse: (b: Bool) → (b ∨ False) = b
   | True => rfl
   | False => rfl
@@ -24,8 +25,8 @@ theorem Bool.orComm: (a: Bool) → (b: Bool) → (a ∨ b) = (b ∨ a)
   | False, True => rfl
   | False, False => rfl
 
--- `&&` from its sides and back; `not a || b` as "a implies b"; two booleans
--- are equal when each implies the other.
+--| `&&` from its sides and back; `not a || b` as "a implies b"; two booleans
+--| are equal when each implies the other.
 theorem Bool.andIntro: (a: Bool) → (b: Bool) → a = True → b = True → (a ∧ b) = True
   | True, b, ha, hb => hb
   | False, b, ha, hb => Void.exfalso (Bool.falseNotTrue ha)
@@ -52,8 +53,8 @@ theorem Bool.eqOf: (a: Bool) → (b: Bool) → (a = True → b = True) → (b = 
   | False, True, f, g => Void.exfalso (Bool.falseNotTrue (g rfl))
   | False, False, f, g => rfl
 
--- A `Bool` that isn't `True` is `False`: `Not (a <= b)` is `Not (Nat.leq a b = True)`,
--- and `Nat.leqFalse` takes it from there.
+--| A `Bool` that isn't `True` is `False`: `Not (a <= b)` is `Not (Nat.leq a b = True)`,
+--| and `Nat.leqFalse` takes it from there.
 theorem Bool.falseOfNotTrue: (x: Bool) → Not (x = True) → x = False
   | True, h => Void.exfalso (h rfl)
   | False, h => rfl
@@ -72,13 +73,13 @@ theorem Bool.orRight (a: Bool) (b: Bool) (h: b = True): (a ∨ b) = True :=
     | True => rfl
     | False => h
 
--- The same for a proposition: prove `goal` from each side.
+--| The same for a proposition: prove `goal` from each side.
 theorem Or.elim [p q: Prop] [goal: Prop] (h: Or p q) (left: p → goal) (right: q → goal): goal :=
   match h with
     | Inl x => left x
     | Inr y => right y
 
--- `||` is `False` exactly when both sides are.
+--| `||` is `False` exactly when both sides are.
 theorem Bool.orFalseLeft: (a: Bool) → (b: Bool) → (a ∨ b) = False → a = False
   | True, b, h => Void.exfalso (Bool.trueNotFalse h)
   | False, b, h => rfl
@@ -91,7 +92,7 @@ theorem Bool.orFalseIntro: (a: Bool) → (b: Bool) → a = False → b = False �
   | True, b, ha, hb => Void.exfalso (Bool.trueNotFalse ha)
   | False, b, ha, hb => hb
 
--- `&&` is `False` exactly when one side is.
+--| `&&` is `False` exactly when one side is.
 theorem Bool.andFalseElim: (a: Bool) → (b: Bool) → (a ∧ b) = False → Or (a = False) (b = False)
   | True, b, h => Inr h
   | False, b, h => Inl rfl
@@ -104,7 +105,7 @@ theorem Bool.andFalseRight: (a: Bool) → (b: Bool) → b = False → (a ∧ b) 
   | True, b, h => h
   | False, b, h => rfl
 
--- `not a` is `True` exactly when `a` is `False`, and the other way round.
+--| `not a` is `True` exactly when `a` is `False`, and the other way round.
 theorem Bool.notTrue: (a: Bool) → (¬a) = True → a = False
   | True, h => Void.exfalso (Bool.falseNotTrue h)
   | False, h => rfl
@@ -121,7 +122,7 @@ theorem Bool.notOfTrue: (a: Bool) → a = True → (¬a) = False
   | True, h => rfl
   | False, h => Void.exfalso (Bool.falseNotTrue h)
 
--- `Bool.toNat` is 0 or 1, for `omega` (`omega [Bool.toNatLeOne b]`).
+--| `Bool.toNat` is 0 or 1, for `omega` (`omega [Bool.toNatLeOne b]`).
 theorem Bool.toNatLeOne: (b: Bool) → Bool.toNat b ≤ 1
   | True => rfl
   | False => rfl

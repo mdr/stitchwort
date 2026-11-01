@@ -1,27 +1,28 @@
--- core/Effect.sw. The effect machinery: computations (`Effect.Comp`, `bind`),
--- signatures and mappings between them, `Rec` and `Delay`. Loaded with the
+--| core/Effect.sw. The effect machinery: computations (`Effect.Comp`, `bind`),
+--| signatures and mappings between them, `Rec` and `Delay`.
+-- Loaded with the
 -- core: The registry's `sigCase` and the `Partial` and `Rec` built-ins use
 -- these, so they are checked before any program
 -- (docs/proposals/prelude-slim.md §2.1).
 
 -- Computations (docs/proposals/abilities.md)
 
--- A computation that returns an `a`, performing operations from a signature:
--- `op` is the type of operation calls, and `res o` is what call `o` gives
--- back. Every computation is a finite tree, so folds over it terminate.
+--| A computation that returns an `a`, performing operations from a signature:
+--| `op` is the type of operation calls, and `res o` is what call `o` gives
+--| back. Every computation is a finite tree, so folds over it terminate.
 type Effect.Comp (op: Type) (res: op → Type) (a: Type): Type =
   | Done (value: a)
   | Call (o: op) (rest: res o → Comp op res a)
 
--- The fold over a computation. `call` gets each operation together with the
--- results of folding every way it could continue, and may use them any
--- number of times. A deep handler is a fold.
+--| The fold over a computation. `call` gets each operation together with the
+--| results of folding every way it could continue, and may use them any
+--| number of times. A deep handler is a fold.
 def Effect.foldComp [op: Type] [res: op → Type] [a r: Type]
     (done: a → r) (call: (o: op) → (res o → r) → r): Comp op res a → r
   | Done x => done x
   | Call o rest => call o (y => foldComp done call (rest y))
 
--- Sequencing: run `c`, then `next` with its result.
+--| Sequencing: run `c`, then `next` with its result.
 def Effect.bind: [op: Type] → [res: op → Type] → [a b: Type] →
     Comp op res a → (a → Comp op res b) → Comp op res b
   | Done x, next => next x
@@ -29,7 +30,7 @@ def Effect.bind: [op: Type] → [res: op → Type] → [a b: Type] →
 
 -- Rows: signatures side by side, and mappings between signatures.
 
--- The operations of two signatures: the row `{l, r}`.
+--| The operations of two signatures: the row `{l, r}`.
 type Effect.Plus (l: Type) (r: Type): Type =
   | L (o: l)
   | R (o: r)
@@ -38,9 +39,9 @@ def Effect.PlusRes [l r: Type] (lres: l → Type) (rres: r → Type): Plus l r �
   | L o => lres o
   | R o => rres o
 
--- A mapping from one signature into another. Because what an operation
--- returns depends on the operation, a mapping says both where each
--- operation goes and how its response comes back.
+--| A mapping from one signature into another. Because what an operation
+--| returns depends on the operation, a mapping says both where each
+--| operation goes and how its response comes back.
 type Effect.SigMap (op1: Type) (res1: op1 → Type) (op2: Type) (res2: op2 → Type): Type =
   | MkSigMap (inject: op1 → op2) (reply: (o: op1) → res2 (inject o) → res1 o)
 
@@ -52,8 +53,8 @@ def Effect.sigReply: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [r
     (m: SigMap op1 res1 op2 res2) → (o: op1) → res2 (sigInject m o) → res1 o
   | MkSigMap inj rep, o, r => rep o r
 
--- Moves a computation along a mapping. Operations stay in the same order;
--- only their names in the signature change.
+--| Moves a computation along a mapping. Operations stay in the same order;
+--| only their names in the signature change.
 def Effect.translate [op1: Type] [res1: op1 → Type] [op2: Type] [res2: op2 → Type] [a: Type]
     (m: SigMap op1 res1 op2 res2): Comp op1 res1 a → Comp op2 res2 a
   | Done x => Done x
@@ -67,14 +68,14 @@ def Effect.sigCompose: [op1: Type] → [res1: op1 → Type] → [op2: Type] → 
   | MkSigMap i1 r1, MkSigMap i2 r2 =>
     MkSigMap (o => i2 (i1 o)) (o r => r1 o (r2 (i1 o) r))
 
--- Weakening: a signature into a row with something else on the right or left.
+--| Weakening: a signature into a row with something else on the right or left.
 def Effect.sigLeft: [l r: Type] → [lres: l → Type] → [rres: r → Type] →
     SigMap l lres (Plus l r) (PlusRes lres rres) := MkSigMap (o => L o) (o x => x)
 
 def Effect.sigRight: [l r: Type] → [lres: l → Type] → [rres: r → Type] →
     SigMap r rres (Plus l r) (PlusRes lres rres) := MkSigMap (o => R o) (o x => x)
 
--- Reordering: `{l, r}` to `{r, l}`.
+--| Reordering: `{l, r}` to `{r, l}`.
 def Effect.swapOp: [l r: Type] → Plus l r → Plus r l
   | L o => R o
   | R o => L o
@@ -90,17 +91,17 @@ def Effect.sigSwap: [l r: Type] → [lres: l → Type] → [rres: r → Type] �
 -- Support for abilities (docs/proposals/abilities.md). The elaborator
 -- translates `ability`, rows `{A | e}`, effectful code and `handle` into these.
 
--- `()`: the unit type and its only value.
+--| `()`: the unit type and its only value.
 type Builtin.UnitType: Type =
   | UnitValue
 
--- The signature with no operations: the end of a closed row.
+--| The signature with no operations: the end of a closed row.
 type Effect.NoOp: Type
 
 def Effect.NoRes: NoOp → Type
   | ()
 
--- Combining two mappings into one from `{l, r}`.
+--| Combining two mappings into one from `{l, r}`.
 def Effect.caseInject [l r t: Type] [lres: l → Type] [rres: r → Type] [tres: t → Type]
     (ml: SigMap l lres t tres) (mr: SigMap r rres t tres): Plus l r → t
   | L o => sigInject ml o
@@ -115,7 +116,7 @@ def Effect.caseReply [l r t: Type] [lres: l → Type] [rres: r → Type] [tres: 
 def Effect.sigCase [l r t: Type] [lres: l → Type] [rres: r → Type] [tres: t → Type]
     (ml: SigMap l lres t tres) (mr: SigMap r rres t tres): SigMap (Plus l r) (PlusRes lres rres) t tres := MkSigMap (caseInject ml mr) (caseReply ml mr)
 
--- The empty signature maps into anything.
+--| The empty signature maps into anything.
 def Effect.noInject: [t: Type] → NoOp → t
   | ()
 
@@ -124,18 +125,20 @@ def Effect.noReply: [t: Type] → [tres: t → Type] → (o: NoOp) → tres (noI
 
 def Effect.sigFromNo: [t: Type] → [tres: t → Type] → SigMap NoOp NoRes t tres := MkSigMap noInject noReply
 
--- A handler's step for the row `{l, r}`, from steps for each side.
+--| A handler's step for the row `{l, r}`, from steps for each side.
 def Effect.handlePlus [l r: Type] [lres: l → Type] [rres: r → Type] [res: Type]
     (fl: (o: l) → (lres o → res) → res) (fr: (o: r) → (rres o → res) → res):
     (o: Plus l r) → (PlusRes lres rres o → res) → res
   | L o, k => fl o k
   | R o, k => fr o k
 
--- A computation that performs nothing is just its result.
+--| A computation that performs nothing is just its result.
 def Effect.runPure: [a: Type] → Comp NoOp NoRes a → a
   | Done x => x
   | Call () rest
 
+-- The elaborator never builds `Ops NoOp NoRes`: a row with no abilities is
+-- always `Empty` (the canonical form).
 -- Effect-row parameters (docs/proposals/effect-polymorphism.md, design C). A
 -- row parameter `e` in `{e}` or `{A | e}` is an `Effects`, used only as an
 -- index: either the empty row, or the operations and results of a row with at
@@ -145,13 +148,11 @@ def Effect.runPure: [a: Type] → Comp NoOp NoRes a → a
 -- can't construct, inspect, compare or branch on it. This is not
 -- parametricity in the strong sense: the type theory computes differently at
 -- the empty row by design (`CompIn Empty a` is `a`).
--- The elaborator never builds `Ops NoOp NoRes`: a row with no abilities is
--- always `Empty` (the canonical form).
 type Effect.Effects: Type 1 =
   | Empty
   | Ops (op: Type) (res: op → Type)
 
--- The operation type of a row: what `{A | e}` puts after `A`.
+--| The operation type of a row: what `{A | e}` puts after `A`.
 def Effect.rowOp: Effects → Type
   | Empty => NoOp
   | Ops op res => op
@@ -160,37 +161,38 @@ def Effect.rowRes: (row: Effects) → rowOp row → Type
   | Empty, o => NoRes o
   | Ops op res, o => res o
 
--- `{e} a`: a computation in the row `e`. In the empty row it is the plain
--- type, so pure uses of an effect-polymorphic function compute as pure code.
+--| `{e} a`: a computation in the row `e`. In the empty row it is the plain
+--| type, so pure uses of an effect-polymorphic function compute as pure code.
 def Effect.CompIn: Effects → Type → Type
   | Empty, a => a
   | Ops op res, a => Comp op res a
 
--- `Done`, in any row.
+--| `Done`, in any row.
 def Effect.doneIn [a: Type]: (row: Effects) → a → CompIn row a
   | Empty, value => value
   | Ops op res, value => Done value
 
--- `bind`, in any row. In the empty row it is application.
+--| `bind`, in any row. In the empty row it is application.
 def Effect.bindIn [a b: Type]: (row: Effects) → CompIn row a → (a → CompIn row b) → CompIn row b
   | Empty, computation, next => next computation
   | Ops op res, computation, next => bind computation next
 
--- A computation in `{e}` as a tree, to move into a row with abilities.
+--| A computation in `{e}` as a tree, to move into a row with abilities.
 def Effect.liftIn [a: Type]: (row: Effects) → CompIn row a → Comp (rowOp row) (rowRes row) a
   | Empty, value => Done value
   | Ops op res, computation => computation
 
--- The converse: what a handler whose remaining row is `{e}` ends with.
+--| The converse: what a handler whose remaining row is `{e}` ends with.
 def Effect.lowerIn [a: Type]: (row: Effects) → Comp (rowOp row) (rowRes row) a → CompIn row a
   | Empty, computation => runPure computation
   | Ops op res, computation => computation
 
--- A computation over closed abilities moved into the same abilities
--- followed by a row (`{A, B}` into `{A, B | e}`). `pre t` is the abilities
--- followed by `t`, `preRes` their results. In the empty row it is the
--- computation itself, so a closed computation moved into a row that turns
--- out empty is left as written (docs/proposals/delayed-translate.md).
+--| A computation over closed abilities moved into the same abilities
+--| followed by a row (`{A, B}` into `{A, B | e}`). `pre t` is the abilities
+--| followed by `t`, `preRes` their results. In the empty row it is the
+--| computation itself, so a closed computation moved into a row that turns
+--| out empty is left as written.
+-- (docs/proposals/delayed-translate.md).
 def Effect.widenIn [a: Type] (pre: Type → Type) (preRes: (t: Type) → (t → Type) → pre t → Type):
     (row: Effects) → SigMap (pre NoOp) (preRes NoOp NoRes) (pre (rowOp row)) (preRes (rowOp row) (rowRes row)) →
     Comp (pre NoOp) (preRes NoOp NoRes) a → Comp (pre (rowOp row)) (preRes (rowOp row) (rowRes row)) a
@@ -203,12 +205,12 @@ def Effect.widenIn [a: Type] (pre: Type → Type) (preRes: (t: Type) → (t → 
 -- proofs need function extensionality (`bindDone`, `bindAssoc`,
 -- `foldCompBind`) are in `Effect/Laws.sw`.
 
--- Folding a finished computation gives `done` of its result.
+--| Folding a finished computation gives `done` of its result.
 theorem Effect.foldCompDone [op: Type] [res: op → Type] [a r: Type]
     (done: a → r) (call: (o: op) → (res o → r) → r) (x: a):
     foldComp done call (Done x: Comp op res a) = done x := rfl
 
--- Running a sequence that performs nothing runs its first part, then the rest.
+--| Running a sequence that performs nothing runs its first part, then the rest.
 theorem Effect.runPureBind [a b: Type]:
     (computation: Comp NoOp NoRes a) → (next: a → Comp NoOp NoRes b) →
     runPure (bind computation next) = runPure (next (runPure computation))
@@ -217,45 +219,46 @@ theorem Effect.runPureBind [a b: Type]:
 
 -- Partial computations (docs/proposals/partial.md)
 
--- A recursion request: run the definition being defined again on `x`. A
--- partial definition's body makes these instead of calling itself.
+--| A recursion request: run the definition being defined again on `x`. A
+--| partial definition's body makes these instead of calling itself.
 type Effect.Rec (req: Type): Type =
   | Recur (x: req)
 
--- What a request is answered with.
+--| What a request is answered with.
 def Effect.RecRes [req: Type] (ans: req → Type): Rec req → Type
   | Recur x => ans x
 
--- A computation that may not finish: what `{Partial | e} a` stands for.
--- These have no definitions, and nothing can look inside a `Delay`: only
--- the runtime runs one, a step at a time. The kernel admits them as
+--| A computation that may not finish: what `{Partial | e} a` stands for.
+--| These have no definitions, and nothing can look inside a `Delay`: only
+--| the runtime runs one, a step at a time.
+-- The kernel admits them as
 -- primitives, after checking their types are exactly these.
 def Effect.Delay: (op: Type) → (res: op → Type) → Type → Type
 
--- Finished, with this result.
+--| Finished, with this result.
 def Effect.now: [op: Type] → [res: op → Type] → [a: Type] → a → Delay op res a
 
--- A computation that finishes, as one that might not.
+--| A computation that finishes, as one that might not.
 def Effect.lift: [op: Type] → [res: op → Type] → [a: Type] → Comp op res a → Delay op res a
 
--- Sequencing.
+--| Sequencing.
 def Effect.bindD: [op: Type] → [res: op → Type] → [a b: Type] →
   Delay op res a → (a → Delay op res b) → Delay op res b
 
--- Moves a computation along a mapping between signatures.
+--| Moves a computation along a mapping between signatures.
 def Effect.mapSig: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [res2: op2 → Type] → [a: Type] →
   SigMap op1 res1 op2 res2 → Delay op1 res1 a → Delay op2 res2 a
 
--- The recursive function a description defines: each `Recur y` its body
--- requests is answered by running the body on `y`.
+--| The recursive function a description defines: each `Recur y` its body
+--| requests is answered by running the body on `y`.
 def Effect.pfix: [op: Type] → [res: op → Type] → [req: Type] → [ans: req → Type] →
   ((x: req) → Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)) →
   (x: req) → Delay op res (ans x)
 
+--| `foldComp` with every result a `Delay`, so a handler around partial code is
+--| partial. `done` gets the result, `call` each operation and the rest of
+--| the computation, still handled.
 -- The handler fold for a partial computation (docs/proposals/partial-handlers.md):
--- `foldComp` with every result a `Delay`, so a handler around partial code is
--- partial. `done` gets the result, `call` each operation and the rest of
--- the computation, still handled.
 def Effect.foldD: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [res2: op2 → Type] → [a b: Type] →
   (done: a → Delay op2 res2 b) →
   (call: (o: op1) → (res1 o → Delay op2 res2 b) → Delay op2 res2 b) →
@@ -263,38 +266,38 @@ def Effect.foldD: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [res2
 
 -- Partiality through a bare row (docs/proposals/partial-stage-3.md, D1213).
 
--- Whether a computation in a bare row `{e}` may not finish. A signature whose
--- row variable `e` appears only bare takes one of these beside `e` (D1214),
--- so a function like `List.map` takes partial callbacks: at `MayDiverge`
--- its computations are `Delay`s. Like `Effects`, only the library may name
--- it, its constructors and the definitions below (D1122).
+--| Whether a computation in a bare row `{e}` may not finish. A signature whose
+--| row variable `e` appears only bare takes one of these beside `e` (D1214),
+--| so a function like `List.map` takes partial callbacks: at `MayDiverge`
+--| its computations are `Delay`s. Like `Effects`, only the library may name
+--| it, its constructors and the definitions below (D1122).
 type Effect.Divergence: Type =
   | Total
   | MayDiverge
 
--- `{e} a` once `e` may be partial: today's `CompIn e a` when total, and the
--- partial computation `{Partial | e} a` when not.
+--| `{e} a` once `e` may be partial: today's `CompIn e a` when total, and the
+--| partial computation `{Partial | e} a` when not.
 def Effect.CompD: Divergence → Effects → Type → Type
   | Total, row, a => CompIn row a
   | MayDiverge, row, a => Delay (rowOp row) (rowRes row) a
 
--- `doneIn`, where `e` may be partial.
+--| `doneIn`, where `e` may be partial.
 def Effect.doneD [a: Type]: (d: Divergence) → (row: Effects) → a → CompD d row a
   | Total, row, value => doneIn row value
   | MayDiverge, row, value => now value
 
--- `bindIn`, where `e` may be partial.
+--| `bindIn`, where `e` may be partial.
 def Effect.bindDv [a b: Type]: (d: Divergence) → (row: Effects) →
     CompD d row a → (a → CompD d row b) → CompD d row b
   | Total, row, c, next => bindIn row c next
   | MayDiverge, row, c, next => bindD c next
 
--- A total computation in `{e}`, moved to where `e` may be partial.
+--| A total computation in `{e}`, moved to where `e` may be partial.
 def Effect.liftD [a: Type]: (d: Divergence) → (row: Effects) → CompIn row a → CompD d row a
   | Total, row, c => c
   | MayDiverge, row, c => lift (liftIn row c)
 
--- A computation in `{e}`, moved into the partial row `{Partial | e}`.
+--| A computation in `{e}`, moved into the partial row `{Partial | e}`.
 def Effect.delayD [a: Type]: (d: Divergence) → (row: Effects) →
     CompD d row a → Delay (rowOp row) (rowRes row) a
   | Total, row, c => lift (liftIn row c)
@@ -303,24 +306,24 @@ def Effect.delayD [a: Type]: (d: Divergence) → (row: Effects) →
 -- Partiality through a row with abilities, `{A | e}` (docs/proposals/partial-handlers.md
 -- §4.2, D1255): `e`'s divergence index is the whole row's.
 
--- The handler fold, where the handled code may be partial: today's
--- `foldComp` when total, so proofs about handlers compute as before, and
--- `foldD` when not, whose result is partial too.
+--| The handler fold, where the handled code may be partial: today's
+--| `foldComp` when total, so proofs about handlers compute as before, and
+--| `foldD` when not, whose result is partial too.
 def Effect.foldCompD [op1: Type] [res1: op1 → Type] [a b: Type]: (d: Divergence) → (out: Effects) →
     (a → CompD d out b) → ((o: op1) → (res1 o → CompD d out b) → CompD d out b) →
     CompD d (Ops op1 res1) a → CompD d out b
   | Total, out, done, call, c => foldComp done call c
   | MayDiverge, out, done, call, c => Effect.foldD done call c
 
--- Moves a computation along a mapping between two rows that may be partial:
--- `translate` when total, `mapSig` when not.
+--| Moves a computation along a mapping between two rows that may be partial:
+--| `translate` when total, `mapSig` when not.
 def Effect.translateD [a: Type]: (d: Divergence) → (from to: Effects) →
     SigMap (rowOp from) (rowRes from) (rowOp to) (rowRes to) → CompD d from a → CompD d to a
   | Total, from, to, m, c => lowerIn to (translate m (liftIn from c))
   | MayDiverge, from, to, m, c => mapSig m c
 
--- Performs operation `o` of a row that may be partial, then goes on with
--- `k`: what a handler does with an operation it doesn't handle.
+--| Performs operation `o` of a row that may be partial, then goes on with
+--| `k`: what a handler does with an operation it doesn't handle.
 def Effect.callD [b: Type]: (d: Divergence) → (row: Effects) → (o: rowOp row) →
     (rowRes row o → CompD d row b) → CompD d row b
   | Total, row, o, k => bindIn row (lowerIn row (Call o ((y: rowRes row o) => Done y))) k
