@@ -1,9 +1,10 @@
--- `Nat` arithmetic and its lemmas. This file was the prelude's arithmetic,
+--| `Nat` arithmetic and its lemmas.
+-- This file was the prelude's arithmetic,
 -- division and number-helper blocks after the core's division primitives.
 
--- Arithmetic lemmas (the basic laws of `+` and `*` are in the core, for the
--- `Add` and `Mul` instances): order and subtraction facts proved by induction,
--- then the division law and `n % d < d`.
+--| Arithmetic lemmas (the basic laws of `+` and `*` are in the core, for the
+--| `Add` and `Mul` instances): order and subtraction facts proved by induction,
+--| then the division law and `n % d < d`.
 
 theorem Nat.addCancelLeft: (a: Nat) → (b: Nat) → (c: Nat) → a + b = a + c → b = c
   | Zero, b, c, h => h
@@ -139,22 +140,22 @@ theorem Nat.divFuelBound: (fuel: Nat) → (n: Nat) → (d: Nat) → Not (d = 0) 
   | Zero, Succ n, d, ok, hn => Void.exfalso (Bool.falseNotTrue hn)
   | Succ fuel, n, d, ok, hn => Nat.divFuelBoundStep fuel n d ok hn (Nat.leq d n) rfl (m hm => Nat.divFuelBound fuel m d ok hm)
 
--- `(n / d) * d <= n`: the quotient never overshoots.
+--| `(n / d) * d <= n`: the quotient never overshoots.
 theorem Nat.divMulLe (n: Nat) (d: Nat) (ok: d ≠ 0): (n / d) * d ≤ n := Nat.divFuelLe n n d
 
 theorem Nat.divModEq (n: Nat) (d: Nat) (ok: d ≠ 0): n = (n / d) * d + n % d := Eq.sym (Nat.addSubCancel ((n / d) * d) n (Nat.divMulLe n d ok))
 
--- Quotient and remainder together, as `/` and `%` give them: `Nat.divMod 17 5`
--- is `MkPair 3 2`. `n` is the main value; `divisor` isn't zero, found by `auto`.
+--| Quotient and remainder together, as `/` and `%` give them: `Nat.divMod 17 5`
+--| is `MkPair 3 2`. `n` is the main value; `divisor` isn't zero, found by `auto`.
 def Nat.divMod (n: Nat) (divisor: Nat) [auto ok: divisor ≠ 0]: Pair Nat Nat := MkPair (n / divisor) (n % divisor)
 
 test "Nat.divMod" := Nat.divMod 17 5 == MkPair 3 2 ∧ Nat.divMod 3 5 == MkPair 0 3
 
 theorem Nat.modLess (n: Nat) (d: Nat) (ok: d ≠ 0): n % d < d := Nat.subLtAdd n ((n / d) * d) d (Nat.divMulLe n d ok) (Nat.divFuelBound n n d ok (Nat.leRefl n))
 
--- Division with remainder is unique: if `n = q * d + r` and `r < d`, then
--- `n / d = q` and `n % d = r`. Consequences for small numbers and for adding
--- `d`, and a few facts about subtraction.
+--| Division with remainder is unique: if `n = q * d + r` and `r < d`, then
+--| `n / d = q` and `n % d = r`. Consequences for small numbers and for adding
+--| `d`, and a few facts about subtraction.
 theorem Nat.notBelowAdd (d: Nat) (r: Nat) (m: Nat) (h: r < d) (e: r = d + m): Void := Nat.lessIrrefl r (Nat.leTrans (Succ r) d r h (Nat.leCongRight d (d + m) r (Eq.sym e) (Nat.leAddRight d m)))
 
 theorem Nat.quotUnique (d: Nat): (q: Nat) → (r: Nat) → (q2: Nat) → (r2: Nat) → r < d → r2 < d →
@@ -208,8 +209,8 @@ theorem Nat.subSuccRight: (j: Nat) → (t: Nat) → Succ j ≤ t → t - j = Suc
   | Zero, Succ t, h => rfl
   | Succ j, Succ t, h => Nat.subSuccRight j t h
 
--- `n + 1 - m` (the size of the interval `m..n`): one more than `n - m` when
--- `m <= n`, and 0 otherwise.
+--| `n + 1 - m` (the size of the interval `m..n`): one more than `n - m` when
+--| `m <= n`, and 0 otherwise.
 theorem Nat.addOneSub (n: Nat) (m: Nat) (h: m ≤ n): n + 1 - m = n - m + 1 :=
   Eq.trans (Eq.cong (t => t - m) (Nat.addOne n))
     (Eq.trans (Nat.subSuccRight m (Succ n) h) (Eq.sym (Nat.addOne (n - m))))
@@ -221,7 +222,7 @@ theorem Nat.succSub: (t: Nat) → Succ t - t = 1
   | Zero => rfl
   | Succ t => Nat.succSub t
 
--- `n / d` is the largest `q` with `q * d <= n`.
+--| `n / d` is the largest `q` with `q * d <= n`.
 theorem Nat.mulLeOfLeDiv (q: Nat) (n: Nat) (d: Nat) [auto ok: d ≠ 0] (h: q ≤ n / d): q * d ≤ n :=
   Nat.leTrans (q * d) ((n / d) * d) n (Nat.leMulRight q (n / d) d h) (Nat.divMulLe n d ok)
 
@@ -237,19 +238,19 @@ theorem Nat.divLeOfLtMul (n: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0] (h: n < S
       (Nat.leTrans (Succ n) (Succ b * d) n h
         (Nat.leTrans (Succ b * d) ((n / d) * d) n (Nat.leMulRight (Succ b) (n / d) d (Nat.leqFalse (n / d) b f)) (Nat.divMulLe n d ok)))))
 
--- Dividing never makes a number bigger, and makes it smaller when the number
--- is positive and the divisor is at least 2. `omega` knows division by a
--- number itself; for a division by a variable, give the instance as a hint:
--- `omega [Nat.divLe n k]`.
+--| Dividing never makes a number bigger, and makes it smaller when the number
+--| is positive and the divisor is at least 2. `omega` knows division by a
+--| number itself; for a division by a variable, give the instance as a hint:
+--| `omega [Nat.divLe n k]`.
 theorem Nat.divLe (n: Nat) (k: Nat) [auto ok: k ≠ 0]: n / k ≤ n :=
   Nat.leTrans (n / k) ((n / k) * k) n (Nat.leMulPos (n / k) k (Nat.nonzeroPos k ok)) (Nat.divMulLe n k ok)
 
--- `(n + n) / 2 = n`
+--| `(n + n) / 2 = n`
 theorem Nat.halfDouble (n: Nat): (n + n) / 2 = n :=
   Nat.divUnique (n + n) 2 n 0 rfl (Eq.sym (Eq.trans (Nat.addZero (n * 2)) (Eq.trans (Nat.mulSucc n 1) (Eq.cong (t => n + t) (Nat.mulOne n)))))
 
--- Remainders and shifts. A multiple of `d` can be added or dropped without
--- changing the remainder, and a sum can be reduced early.
+--| Remainders and shifts. A multiple of `d` can be added or dropped without
+--| changing the remainder, and a sum can be reduced early.
 theorem Nat.addMulDivMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: a + b * d = (a / d + b) * d + a % d :=
   Eq.trans (Eq.cong (t => t + b * d) (Nat.divModEq a d ok))
     (Eq.trans (Nat.addAssoc ((a / d) * d) (a % d) (b * d))
@@ -257,18 +258,18 @@ theorem Nat.addMulDivMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: a + b * 
         (Eq.trans (Eq.sym (Nat.addAssoc ((a / d) * d) (b * d) (a % d)))
           (Eq.cong (t => t + a % d) (Eq.sym (Nat.mulDistribRight (a / d) b d))))))
 
--- `(a + b * d) % d = a % d`
+--| `(a + b * d) % d = a % d`
 theorem Nat.modAddMul (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: (a + b * d) % d = a % d :=
   Nat.modUnique (a + b * d) d (a / d + b) (a % d) (Nat.modLess a d ok) (Nat.addMulDivMod a b d)
 
--- `(a + b * d) / d = a / d + b`
+--| `(a + b * d) / d = a / d + b`
 theorem Nat.divAddMul (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: (a + b * d) / d = a / d + b :=
   Nat.divUnique (a + b * d) d (a / d + b) (a % d) (Nat.modLess a d ok) (Nat.addMulDivMod a b d)
 
--- `a % d % d = a % d`
+--| `a % d % d = a % d`
 theorem Nat.modMod (a: Nat) (d: Nat) [auto ok: d ≠ 0]: a % d % d = a % d := Nat.modSmall (a % d) d (Nat.modLess a d ok)
 
--- `(a % d + b) % d = (a + b) % d`: reducing the first summand early.
+--| `(a % d + b) % d = (a + b) % d`: reducing the first summand early.
 theorem Nat.modAddMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: (a % d + b) % d = (a + b) % d :=
   Eq.sym (Eq.trans
     (Eq.cong (t => t % d)
@@ -276,12 +277,12 @@ theorem Nat.modAddMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: (a % d + b)
         (Eq.trans (Nat.addAssoc ((a / d) * d) (a % d) b) (Nat.addComm ((a / d) * d) (a % d + b)))))
     (Nat.modAddMul (a % d + b) (a / d) d))
 
--- `(a + b % d) % d = (a + b) % d`: the second.
+--| `(a + b % d) % d = (a + b) % d`: the second.
 theorem Nat.addModMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: (a + b % d) % d = (a + b) % d :=
   Eq.trans (Eq.cong (t => t % d) (Nat.addComm a (b % d)))
     (Eq.trans (Nat.modAddMod b a d) (Eq.cong (t => t % d) (Nat.addComm b a)))
 
--- `a * b` in two parts: the product of the remainder, and whole multiples of `d`.
+--| `a * b` in two parts: the product of the remainder, and whole multiples of `d`.
 theorem Nat.mulSplit (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: a * b = a % d * b + (a / d * b) * d :=
   Eq.trans (Eq.cong (t => t * b) (Nat.divModEq a d ok))
     (Eq.trans (Nat.mulDistribRight (a / d * d) (a % d) b)
@@ -290,11 +291,11 @@ theorem Nat.mulSplit (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: a * b = a % 
           (Eq.trans (Nat.mulAssoc (a / d) d b)
             (Eq.trans (Eq.cong (t => a / d * t) (Nat.mulComm d b)) (Eq.sym (Nat.mulAssoc (a / d) b d)))))))
 
--- `(a % d * b) % d = (a * b) % d`: reducing the first factor early.
+--| `(a % d * b) % d = (a * b) % d`: reducing the first factor early.
 theorem Nat.modMulMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: (a % d * b) % d = (a * b) % d :=
   Eq.sym (Eq.trans (Eq.cong (t => t % d) (Nat.mulSplit a b d)) (Nat.modAddMul (a % d * b) (a / d * b) d))
 
--- `(a * (b % d)) % d = (a * b) % d`: the second.
+--| `(a * (b % d)) % d = (a * b) % d`: the second.
 theorem Nat.mulModMod (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: (a * (b % d)) % d = (a * b) % d :=
   Eq.trans (Eq.cong (t => t % d) (Nat.mulComm a (b % d)))
     (Eq.trans (Nat.modMulMod b a d) (Eq.cong (t => t % d) (Nat.mulComm b a)))
@@ -304,7 +305,7 @@ theorem Nat.leqFalseOfLess (a: Nat) (b: Nat) (h: a < b): Nat.leq b a = False :=
     (t => Void.exfalso (Nat.lessIrrefl a (Nat.leTrans (Succ a) b a h t)))
     (f => rfl)
 
--- `lo <= x && x <= hi`, by cases on where `x` is.
+--| `lo <= x && x <= hi`, by cases on where `x` is.
 theorem Nat.betweenYes (lo: Nat) (hi: Nat) (x: Nat) (h1: lo ≤ x) (h2: x ≤ hi): (lo ≤ x ∧ x ≤ hi) = True :=
   J (c q => Bool.ifThenElse c (u => Nat.leq x hi) (u => False) = True)
     h2 (Eq.sym h1)
@@ -319,12 +320,12 @@ theorem Nat.betweenAbove (lo: Nat) (hi: Nat) (x: Nat) (h1: lo ≤ x) (h2: Nat.le
 theorem Nat.betweenOver (lo: Nat) (hi: Nat) (x: Nat) (h: Nat.leq x hi = False): (lo ≤ x ∧ x ≤ hi) = False :=
   Bool.inspect (Nat.leq lo x) (c => (lo ≤ x ∧ x ≤ hi) = False) (t => Nat.betweenAbove lo hi x t h) (f => Nat.betweenBelow lo hi x f)
 
--- `lo <= x && x <= hi` once `lo <= x` is known.
+--| `lo <= x && x <= hi` once `lo <= x` is known.
 theorem Nat.betweenFrom (lo: Nat) (hi: Nat) (x: Nat) (h: lo ≤ x): (lo ≤ x ∧ x ≤ hi) = Nat.leq x hi :=
   J (c q => Bool.ifThenElse c (u => Nat.leq x hi) (u => False) = Nat.leq x hi)
     rfl (Eq.sym h)
 
--- Each end, from the whole test.
+--| Each end, from the whole test.
 theorem Nat.betweenLo (lo: Nat) (hi: Nat) (x: Nat) (h: (lo ≤ x ∧ x ≤ hi) = True): lo ≤ x :=
   Bool.inspect (Nat.leq lo x) (c => c = True) (t => rfl)
     (f => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Nat.betweenBelow lo hi x f)) h)))
@@ -333,8 +334,8 @@ theorem Nat.betweenHi (lo: Nat) (hi: Nat) (x: Nat) (h: (lo ≤ x ∧ x ≤ hi) =
   Bool.inspect (Nat.leq x hi) (c => c = True) (t => rfl)
     (f => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Nat.betweenOver lo hi x f)) h)))
 
--- Rounding up and down: with `d = Succ m`, `lo <= b * d` exactly when
--- `(lo + d - 1) / d <= b`, and `b * d <= hi` exactly when `b <= hi / d`.
+--| Rounding up and down: with `d = Succ m`, `lo <= b * d` exactly when
+--| `(lo + d - 1) / d <= b`, and `b * d <= hi` exactly when `b <= hi / d`.
 theorem Nat.roundUpArg (lo: Nat) (m: Nat): lo + Succ m - 1 = lo + m := Eq.cong (t => t - 1) (Nat.addSucc lo m)
 
 theorem Nat.roundUpLe (lo: Nat) (m: Nat) (b: Nat) (h: lo ≤ b * Succ m): (lo + Succ m - 1) / Succ m ≤ b :=
@@ -358,22 +359,22 @@ theorem Nat.roundDownNo (hi: Nat) (m: Nat) (b: Nat) (h: Nat.leq b (hi / Succ m) 
     (t => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym h) (Nat.leDivOfMulLe b hi (Succ m) t))))
     (f => rfl)
 
--- Division rounding up: `Nat.ceilDiv 7 2 = 4`. For `divisor != 0` it is the
--- smallest `b` with `n <= b * divisor` (`Nat.ceilDivLe`, `Nat.leMulOfCeilDivLe`),
--- just as `n / divisor` is the largest `q` with `q * divisor <= n`.
+--| Division rounding up: `Nat.ceilDiv 7 2 = 4`. For `divisor != 0` it is the
+--| smallest `b` with `n <= b * divisor` (`Nat.ceilDivLe`, `Nat.leMulOfCeilDivLe`),
+--| just as `n / divisor` is the largest `q` with `q * divisor <= n`.
 def Nat.ceilDiv (n: Nat) (divisor: Nat) [auto ok: divisor ≠ 0]: Nat := (n + divisor - 1) / divisor
 
--- Any `b` with `n <= b * d` is at least `Nat.ceilDiv n d`.
+--| Any `b` with `n <= b * d` is at least `Nat.ceilDiv n d`.
 theorem Nat.ceilDivLe (n: Nat) (b: Nat): (d: Nat) → [auto ok: d ≠ 0] → n ≤ b * d → Nat.ceilDiv n d ≤ b
   | Zero, h => Void.exfalso (ok rfl)
   | Succ m, h => Nat.roundUpLe n m b h
 
--- And any `b` at least `Nat.ceilDiv n d` has `n <= b * d`.
+--| And any `b` at least `Nat.ceilDiv n d` has `n <= b * d`.
 theorem Nat.leMulOfCeilDivLe (n: Nat) (b: Nat): (d: Nat) → [auto ok: d ≠ 0] → Nat.ceilDiv n d ≤ b → n ≤ b * d
   | Zero, h => Void.exfalso (ok rfl)
   | Succ m, h => Nat.roundUpGe n m b h
 
--- `Nat.ceilDiv n d` copies of `d` cover `n`.
+--| `Nat.ceilDiv n d` copies of `d` cover `n`.
 theorem Nat.leCeilDivMul (n: Nat) (d: Nat) [auto ok: d ≠ 0]: n ≤ Nat.ceilDiv n d * d :=
   Nat.leMulOfCeilDivLe n (Nat.ceilDiv n d) d (Nat.leRefl (Nat.ceilDiv n d))
 
@@ -385,7 +386,7 @@ theorem Nat.powTenPredLe: (k: Nat) → Nat.pow 10 (k - 1) ≤ Nat.pow 10 k
   | Zero => rfl
   | Succ k => Nat.leMulPos (Nat.pow 10 k) 10 rfl
 
--- `y * p + p` is at most `t * p` when `y < t`.
+--| `y * p + p` is at most `t * p` when `y < t`.
 theorem Nat.nextMultipleLe (y: Nat) (t: Nat) (p: Nat) (h: y < t): y * p + p ≤ t * p :=
   Nat.leCongLeft (Succ y * p) (y * p + p) (t * p) (Nat.addComm p (y * p)) (Nat.leMulRight (Succ y) t p h)
 
@@ -394,7 +395,7 @@ theorem Nat.headLessArith (y: Nat) (t: Nat) (p: Nat) (vs: Nat) (vr: Nat) (bound:
     (Nat.leTrans (y * p + vs) (y * p + p) (t * p) (Nat.lessLe (y * p + vs) (y * p + p) (Nat.ltAddCong (y * p) vs p bound)) (Nat.nextMultipleLe y t p h))
     (Nat.leAddRight (t * p) vr)
 
--- `k + (n - k) <= n` when `k <= n`, and the other way round.
+--| `k + (n - k) <= n` when `k <= n`, and the other way round.
 theorem Nat.addSubLe (k: Nat) (n: Nat) (room: k ≤ n): k + (n - k) ≤ n :=
   Nat.leCongRight (k + (n - k)) (k + (n - k)) n (Nat.addSubCancel k n room) (Nat.leRefl (k + (n - k)))
 
@@ -406,7 +407,7 @@ theorem Nat.addSuccLeSucc (k: Nat) (w: Nat) (n: Nat) (h: k + Succ w ≤ Succ n):
 
 theorem Nat.leOfAddLe (k: Nat) (w: Nat) (n: Nat) (h: k + w ≤ n): k ≤ n := Nat.leTrans k (k + w) n (Nat.leAddRight k w) h
 
--- Cancelling a positive factor; doubles; stepping along a run `s .. s + c`.
+--| Cancelling a positive factor; doubles; stepping along a run `s .. s + c`.
 theorem Nat.mulSuccCancel (b: Nat) (v: Nat) (m: Nat) (e: b * Succ m = v * Succ m): b = v :=
   Eq.trans (Eq.sym (Nat.divUnique (b * Succ m) (Succ m) b 0 rfl (Eq.sym (Nat.addZero (b * Succ m)))))
     (Eq.trans (Eq.cong (t => t / Succ m) e) (Nat.divUnique (v * Succ m) (Succ m) v 0 rfl (Eq.sym (Nat.addZero (v * Succ m)))))
@@ -415,12 +416,12 @@ theorem Nat.mulCancelLeft: (n: Nat) → 1 ≤ n → (a: Nat) → (b: Nat) → n 
   | Zero, h, a, b, e => Void.exfalso (Bool.falseNotTrue h)
   | Succ m, h, a, b, e => Nat.mulSuccCancel a b m (Eq.trans (Nat.mulComm a (Succ m)) (Eq.trans e (Nat.mulComm (Succ m) b)))
 
--- Cancelling a nonzero factor on the right.
+--| Cancelling a nonzero factor on the right.
 theorem Nat.mulRightCancel (a: Nat) (b: Nat): (c: Nat) → c ≠ 0 → a * c = b * c → a = b
   | Zero, nz, e => Void.exfalso (nz rfl)
   | Succ m, nz, e => Nat.mulSuccCancel a b m e
 
--- ... and as a `Bool`: a nonzero factor on the right doesn't change `==`.
+--| ... and as a `Bool`: a nonzero factor on the right doesn't change `==`.
 theorem Nat.mulRightCancelBool (a: Nat) (b: Nat) (c: Nat) (nz: c ≠ 0): (a * c == b * c) = (a == b) :=
   match Nat.decEq a b with
     | Yes same => rewrite same, DecEq.refl (b * c) in rfl
@@ -456,8 +457,8 @@ theorem Nat.predLeSucc: (l: Nat) → (j: Nat) → l - 1 ≤ j → l ≤ Succ j
   | Zero, j, h => rfl
   | Succ l, j, h => h
 
--- In the run `s .. s + (n - s) - 1` means below `n`, even when `n < s`
--- (then the run is empty).
+--| In the run `s .. s + (n - s) - 1` means below `n`, even when `n < s`
+--| (then the run is empty).
 theorem Nat.ltOfRunSub (s: Nat) (d: Nat) (n: Nat) (h1: s ≤ d) (h2: d < s + (n - s)): d < n :=
   match e: Nat.leq s n with
     | True => Nat.ltCongRight d (s + (n - s)) n (Nat.addSubCancel s n e) h2
@@ -470,7 +471,7 @@ def Ordering.isLess: Ordering → Bool
   | Equal => False
   | Greater => False
 
--- Number helpers.
+--| Number helpers.
 def Nat.min (m: Nat) (n: Nat): Nat := if Nat.leq m n then m else n
 
 def Nat.max (m: Nat) (n: Nat): Nat := if Nat.leq m n then n else m
@@ -481,7 +482,7 @@ theorem Nat.minLeft (m: Nat) (n: Nat) (h: m ≤ n): Nat.min m n = m :=
 theorem Nat.minRight (m: Nat) (n: Nat) (h: Nat.leq m n = False): Nat.min m n = n :=
   J (b q => Bool.ifThenElse b (u => m) (u => n) = n) rfl (Eq.sym h)
 
--- `max` and `min` when the order is known, and their bounds.
+--| `max` and `min` when the order is known, and their bounds.
 theorem Nat.maxLeft (m: Nat) (n: Nat) (h: n ≤ m): Nat.max m n = m :=
   Bool.inspect (Nat.leq m n) (c => Bool.ifThenElse c (u => n) (u => m) = m) (t => Nat.leAntisym n m h t) (f => rfl)
 
@@ -491,7 +492,7 @@ theorem Nat.maxRight (m: Nat) (n: Nat) (h: m ≤ n): Nat.max m n = n :=
 theorem Nat.leMaxLeft (m: Nat) (n: Nat): m ≤ Nat.max m n :=
   Bool.inspect (Nat.leq m n) (c => m ≤ Bool.ifThenElse c (u => n) (u => m)) (t => t) (f => Nat.leRefl m)
 
--- `max` from the right, and `x <= max a b` when `x` is above `a`.
+--| `max` from the right, and `x <= max a b` when `x` is above `a`.
 theorem Nat.leMaxRight (m: Nat) (n: Nat): n ≤ Nat.max m n :=
   Bool.inspect (Nat.leq m n) (c => n ≤ Bool.ifThenElse c (u => n) (u => m)) (t => Nat.leRefl n) (f => Nat.lessLe n m (Nat.leqFalse m n f))
 
@@ -512,32 +513,32 @@ theorem Nat.leMin (a: Nat) (m: Nat) (n: Nat) (hm: a ≤ m) (hn: a ≤ n): a ≤ 
 theorem Nat.minSucc (m: Nat) (n: Nat): Nat.min (Succ m) (Succ n) = Succ (Nat.min m n) :=
   Bool.inspect (Nat.leq m n) (c => Bool.ifThenElse c (u => Succ m) (u => Succ n) = Succ (Bool.ifThenElse c (u => m) (u => n))) (t => rfl) (f => rfl)
 
--- The distance between two numbers; `(a - b) + (b - a)`, as one of them is 0.
+--| The distance between two numbers; `(a - b) + (b - a)`, as one of them is 0.
 def Nat.absDiff (m: Nat) (n: Nat): Nat := (m - n) + (n - m)
 
--- The distance from a number to itself is 0.
+--| The distance from a number to itself is 0.
 theorem Nat.absDiffSelf (m: Nat): Nat.absDiff m m = 0 :=
   Eq.trans (Eq.cong (t => t + (m - m)) (Nat.subSelf m))
     (Eq.trans (Eq.cong (t => 0 + t) (Nat.subSelf m)) rfl)
 
--- The distance is symmetric.
+--| The distance is symmetric.
 theorem Nat.absDiffComm (m: Nat) (n: Nat): Nat.absDiff m n = Nat.absDiff n m :=
   Nat.addComm (m - n) (n - m)
 
--- When `m <= n`, the distance is the difference `n - m`.
+--| When `m <= n`, the distance is the difference `n - m`.
 theorem Nat.absDiffOfLe (m: Nat) (n: Nat) (h: m ≤ n): Nat.absDiff m n = n - m :=
   Eq.trans (Eq.cong (t => t + (n - m)) (Nat.subEqZero m n h)) rfl
 
--- `Nat.pow b e` is b to the power e.
+--| `Nat.pow b e` is b to the power e.
 def Nat.pow (b: Nat): Nat → Nat
   | Zero => 1
   | Succ e => Nat.pow b e * b
 
--- The power with the base on the left, as `b * b^e`.
+--| The power with the base on the left, as `b * b^e`.
 theorem Nat.powSucc (b: Nat) (e: Nat): Nat.pow b (Succ e) = b * Nat.pow b e := Nat.mulComm (Nat.pow b e) b
 
--- Powers: adding exponents, positive for a positive base, growing with the
--- exponent.
+--| Powers: adding exponents, positive for a positive base, growing with the
+--| exponent.
 theorem Nat.powAdd (b: Nat): (e1: Nat) → (e2: Nat) → Nat.pow b (e1 + e2) = Nat.pow b e1 * Nat.pow b e2
   | Zero, e2 => Eq.sym (Nat.addZero (Nat.pow b e2))
   | Succ e1, e2 =>
@@ -548,9 +549,9 @@ theorem Nat.powSuccPos (b: Nat): (e: Nat) → 0 < Nat.pow (Succ b) e
   | Zero => rfl
   | Succ e => Nat.leTrans 1 (Nat.pow (Succ b) e) (Nat.pow (Succ b) e * Succ b) (Nat.powSuccPos b e) (Nat.leMulPos (Nat.pow (Succ b) e) (Succ b) rfl)
 
--- A power of a positive base is never 0: this decides it, so `auto` proves
--- `Nat.pow 10 k ≠ 0` (`x % Nat.pow 10 k`), and the same of a definition that
--- unfolds to such a power.
+--| A power of a positive base is never 0: this decides it, so `auto` proves
+--| `Nat.pow 10 k ≠ 0` (`x % Nat.pow 10 k`), and the same of a definition that
+--| unfolds to such a power.
 instance Nat.decPowSuccNotZero (b: Nat) (e: Nat): Decidable (Not (Nat.pow (Succ b) e = 0)) :=
   Yes (Nat.nonzeroOfPos (Nat.pow (Succ b) e) (Nat.powSuccPos b e))
 
@@ -561,8 +562,8 @@ theorem Nat.powMono (b: Nat) (e: Nat) (f: Nat) (h: e ≤ f): Nat.pow (Succ b) e 
 
 theorem Nat.addTwo (n: Nat): n + 2 = Succ (Succ n) := rewrite Nat.addSucc n 1, Nat.addOne n
 
--- `m == n` on numbers is `Nat.equal m n`, which computes one step at a time
--- (`Succ m == Succ n` becomes `m == n` only through this).
+--| `m == n` on numbers is `Nat.equal m n`, which computes one step at a time
+--| (`Succ m == Succ n` becomes `m == n` only through this).
 theorem Nat.decEqFromToBool (m: Nat) (n: Nat): (b: Bool) → (h: Nat.equal m n = b) → Decidable.toBool (Nat.decEqFrom m n b h) = b
   | True, h => rfl
   | False, h => rfl
@@ -573,20 +574,20 @@ theorem Nat.eqIsEqual: (m: Nat) → (n: Nat) → (m == n) = Nat.equal m n
   | Succ m, Zero => rfl
   | Succ m, Succ n => Nat.decEqFromToBool (Succ m) (Succ n) (Nat.equal m n) rfl
 
--- A number differs from every smaller one.
+--| A number differs from every smaller one.
 theorem Nat.equalOfLess: (b: Nat) → (v: Nat) → b < v → Nat.equal v b = False
   | b, Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Zero, Succ v, h => rfl
   | Succ b, Succ v, h => Nat.equalOfLess b v h
 
--- `Nat.equal` doesn't care which number comes first.
+--| `Nat.equal` doesn't care which number comes first.
 theorem Nat.equalComm: (a: Nat) → (b: Nat) → Nat.equal a b = Nat.equal b a
   | Zero, Zero => rfl
   | Zero, Succ b => rfl
   | Succ a, Zero => rfl
   | Succ a, Succ b => Nat.equalComm a b
 
--- A sum is 0 only when both terms are.
+--| A sum is 0 only when both terms are.
 theorem Nat.addEqZero: (a: Nat) → (b: Nat) → a + b = 0 → And (a = 0) (b = 0)
   | Zero, b, h => Both rfl h
   | Succ a, b, h => Void.exfalso (Nat.succNotZero (a + b) h)
@@ -597,7 +598,7 @@ theorem Nat.compareSelf: (n: Nat) → Nat.compare n n = Equal
   | Zero => rfl
   | Succ n => Nat.compareSelf n
 
--- `x < u` is "not u <= x".
+--| `x < u` is "not u <= x".
 theorem Nat.lessNotLe: (x: Nat) → (u: Nat) → Nat.leq (Succ x) u = Bool.not (Nat.leq u x)
   | x, Zero => rfl
   | Zero, Succ u => rfl

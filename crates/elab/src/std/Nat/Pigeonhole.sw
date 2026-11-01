@@ -1,8 +1,8 @@
--- The pigeonhole principle, for values numbered below a bound: a finite
--- set of states is numbered by an injection into `Nat`, and two of any
--- `n + 1` states below `n` are the same.
+--| The pigeonhole principle, for values numbered below a bound: a finite
+--| set of states is numbered by an injection into `Nat`, and two of any
+--| `n + 1` states below `n` are the same.
 
--- `f` takes `n + 1` values below `n` at `0, …, n`, so two of them are equal.
+--| `f` takes `n + 1` values below `n` at `0, …, n`, so two of them are equal.
 -- If none of the first `n` equals the last value, swap the values `n - 1`
 -- and `f n` in them: they are then all below `n - 1`.
 theorem Nat.pigeonhole: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → i ≤ n → f i < n) →
