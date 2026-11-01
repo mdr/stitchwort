@@ -5,6 +5,7 @@
 namespace Aoc.Year2021.Day12.Proofs
 import Aoc.Year2021.Day12 (..)
 import Aoc.Year2021.Day12.Spec (..)
+import Aoc.Year2021.Day10.Proofs (toNatAtMostOne)
 import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Text, Void)
 
 -- The visit rule as far as a path has gone: with `twice` (part 2) one
@@ -60,8 +61,6 @@ theorem visitsMember (cave: Text): (xs: List Text) → cave ∈ xs → 1 ≤ vis
 -- A path on: what was so far, the next cave, then the rest.
 theorem appendStep (sofar: List Text) (y: Text) (more: List Text): sofar ++ Cons y more = (sofar ++ [y]) ++ more :=
   Eq.sym (List.appendAssoc sofar [y] more)
-
-theorem toNatAtMostOne (b: Bool): Bool.toNat b ≤ 1 := cases
 
 theorem endNotStart: Not ("end" = "start") := same => DecEq.soundFalse "end" "start" rfl same
 

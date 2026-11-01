@@ -5,6 +5,7 @@
 namespace Aoc.Year2021.Day12.Proofs
 import Aoc.Year2021.Day12 (..)
 import Aoc.Year2021.Day12.Spec (..)
+import Aoc.Year2021.Day10.Proofs (toNatAtMostOne)
 import Std (Bool, DecEq, Eq, Exists, Fail, List, Nat, Option, Result, Void)
 
 -- The search starts in `start`, with every small cave unvisited and the
