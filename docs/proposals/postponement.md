@@ -3028,6 +3028,25 @@ term dump]. Every statement is identical; no literal changes type outside the pl
 1,470, rogue 190) passes. aoc `check --no-cache`, one pair on a loaded machine: main 36.8 s, lane
 37.2 s wall.
 
+**Stopped after the rebase: 2021 Day08** [run]. Everything above was measured on `c3d51826`.
+Rebased onto `a937906d`, which adds AoC 2021 days 6 to 9, aoc fails once, in a proof main
+accepts: `Day08/Proofs/Proofs.sw:54`, `E-TYPE-MISMATCH`, "expected `10 * n + decodeDigit …
+output = ?4 wiring entry wired perm outputs n output`, but this has type `… = 10 * n + digit`"
+(an unknown printed, too). The proof is `List.foldLeftCongMem entry.outputs 0 _ _ (n output m =>
+…)`. With `(0: Nat)` written it checks [run], so the waiting literal is the cause. My reading,
+**speculative** [inferred, not traced]: `foldLeftCongMem`'s `b` is fixed only by the `0`, the
+lambda fails in place (its `n` has no type), and the after-expected path compares
+`List.foldLeft xs ?z ?f1 = List.foldLeft xs ?z ?f2` with the statement's unfolding, `List.foldLeft
+entry.outputs 0 (…)`; `?z` is the waiting literal's placeholder, frozen (stage 6), and that
+comparison is a boolean try-and-undo, so it can't wait or solve it, fails, and `?f1`/`?f2` (the
+`_`s) stay unknown. On main `0` is the number and the comparison solves both `_`s. This is the
+design's option (c), "seeing through" a waiting literal (a waiting `k` met by the numeral `k` at
+a known type takes that type), which the design left for later; it is a decision for Matt, not
+a patch. Also from the rebase, on main itself (not this lane) [run, main's binary]:
+`reject/if-guard-bracketed-true.sw` checks (SW-944's second reading accepts
+`(Succ low < high) = True`), and `goals/bool-constant-branches.sw` has no snapshot (SW-946), so
+the examples test fails at the full tier on main.
+
 **What stage 5 can now delete** [inferred from the counters and code]: `retrying` and
 `late_literals` with `defers_literal`, `else_first` and `check_items`' reordering (no retry is
 about a literal any more; the 1 + 3 left are the cases above, which stage 5 must look at
