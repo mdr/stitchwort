@@ -3111,6 +3111,33 @@ widened to inferred literals, with its own consumers to find).
   one by one], every one agreeing with its fill (`disagreed` 0).
 - **Time**: aoc `check --no-cache`, one pair at load 5 to 17: main 61.7 s, lane 60.1 s.
 
+**Search patterns, found at merge** [run]. The merge tier failed two `stitchwort search` tests
+(`search_match`'s `arithmetic_on_holes_is_tried_at_nat_and_at_int`: `_ + 0 = _` found only
+`intPlus`; `search_bench`'s hand query `(_: Nat) ≤ _ → _ ≤ _ → _ ≤ _` lost `Nat.leTrans`). Two
+causes, both K4's:
+- **A pattern is never finished.** `Elaborator::search_pattern` infers it and searches with it;
+  nothing settles its queue, so `_ + 0 = _`'s `0` stayed a placeholder and its group on an unknown
+  type, and the reading that should be `Nat` matched only what the `Int` reading did. A pattern is
+  invariant 7's closed pattern, as a `rewrite` rule is (it is elaborated only to be searched
+  for, and nothing else is elaborated with it): it is now settled as a rule is, its own checks
+  resumed and defaulted before the search (`Elaborator::settle_pattern`, `settle_rule` without
+  the rule's "closed" assertion, since the holes' types it would count as outside are the
+  pattern's own).
+- **A group with no literal had no default.** `_ ≤ _` on holes (or `a < b` on two values of
+  unknown type) is built at an unknown type with its dictionary an obligation, and only its
+  literals' defaults made that type `Nat`; with none, nothing did, where main made it `Nat` at
+  once. Such a group now queues its type's own default (`GroupType`, a waiting constraint with
+  no term, priority `Nat`), so "Nat where nothing says" holds for every undecided group, as §5.4
+  says. The tests' expectations are unchanged.
+
+Re-measured after this, rebased onto `8f632914` [run]: aoc 207 namespaces and 1,237 tests, rogue
+100, `task audit` (std 2,397, aoc 2,104, rogue 190), the search lane tier (30 tests) and every
+lane tier pass. Examples: the same planned changes only. Hashes against `8f632914` (std + aoc
+13,820 lines; std + rogue): 24 and 2 change, every statement identical, six in their own terms:
+the five above and `Aoc.Common.Proofs.sumByThree` (new on main: `List.sumBy` kept folded, as in
+`sumByOne`); the other 18 refer to them. On main itself, `reject/export-record-unchecked-proof.sw`
+checks (main's binary too), so the examples test fails at the full tier there.
+
 **What stage 5 can now delete** [inferred from the counters and code]: `retrying` and
 `late_literals` with `defers_literal`, `else_first` and `check_items`' reordering (no retry is
 about a literal any more; the 1 + 3 left are the cases above, which stage 5 must look at

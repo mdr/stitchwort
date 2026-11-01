@@ -1137,6 +1137,21 @@ fn group_with(
                     return Err(mixed(cx, &g, i, ty, &t, Decider::Default, what));
                 }
             }
+            // Its type defaults to `Nat` where nothing else says, as its
+            // literals' would, also when it has none (`_ ≤ _`, `a < b` with
+            // `a` and `b` of unknown type): a default of the type alone.
+            if let Some(m) = head_meta(cx, &t)? {
+                let error = cx.error(
+                    "E-CANNOT-INFER",
+                    format!("can't tell what type this {what} is on"),
+                    "nothing here says what type its numbers are",
+                );
+                let check = GroupType {
+                    t: t.clone(),
+                    span: expr.span(),
+                };
+                crate::queue::queue_constraint(cx, Rc::new(check), m, error)?;
+            }
             decided = Some((t, Decider::Default));
         } else {
             // An equality with nothing numeric about it: the first leaf's
@@ -1385,6 +1400,43 @@ impl crate::queue::Check for NumberGroup {
             cx.e.defaulted.borrow_mut().push(Defaulted {
                 meta,
                 span: self.expr.span(),
+                literal: None,
+            });
+        }
+        Ok(true)
+    }
+}
+
+/// The type of a group built at an unknown type (K4), waiting to be said:
+/// nothing to resume (the group is built), only its `Nat` default, in the
+/// ladder after the field-name rule (D2013), as its literals have.
+struct GroupType {
+    t: Value,
+    span: Span,
+}
+
+impl crate::queue::Check for GroupType {
+    fn resume(&self, _cx: &mut Ctx) -> Result<crate::queue::Resumed> {
+        Ok(crate::queue::Resumed::Holds)
+    }
+
+    fn default_priority(&self) -> Option<crate::queue::Priority> {
+        Some(crate::queue::Priority::Nat)
+    }
+
+    fn apply_default(&self, cx: &mut Ctx) -> Result<bool> {
+        debug_assert!(
+            cx.e.queue.settling(),
+            "a group's type was defaulted outside invariant 7's points"
+        );
+        let meta = head_meta(cx, &self.t)?;
+        if !cx.unify(&num_type(cx, Kind::Nat)?, &self.t)? {
+            return Ok(false);
+        }
+        if let Some(meta) = meta {
+            cx.e.defaulted.borrow_mut().push(Defaulted {
+                meta,
+                span: self.span,
                 literal: None,
             });
         }

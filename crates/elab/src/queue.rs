@@ -1076,7 +1076,7 @@ pub(crate) fn on(m: usize) -> Value {
 
 /// Queues `check`, a comparison with no term of its own, waiting on unknown
 /// `blocker`, with `error` if it stays stuck.
-fn queue_constraint(
+pub(crate) fn queue_constraint(
     cx: &Ctx,
     check: Rc<dyn Check>,
     blocker: usize,
@@ -1387,6 +1387,20 @@ impl Elaborator {
     /// not touched (invariant 3). Whether anything was resumed or
     /// defaulted.
     pub(crate) fn settle_rule(cx: &Ctx, from: usize, metas: usize) -> Result<bool> {
+        Self::settle_closed(cx, from, Some(metas))
+    }
+
+    /// A search pattern, the whole of what its elaboration made (`search.rs`):
+    /// settled as a rule is ([`Elaborator::settle_rule`]). It is closed by
+    /// construction (nothing else is elaborated with it); its holes' types,
+    /// which the rule's check would count as outside, are its own.
+    pub(crate) fn settle_pattern(cx: &Ctx) -> Result<bool> {
+        Self::settle_closed(cx, 0, None)
+    }
+
+    /// [`Elaborator::settle_rule`], with invariant 7's closed check for a
+    /// rule that began at unknown `metas`.
+    fn settle_closed(cx: &Ctx, from: usize, metas: Option<usize>) -> Result<bool> {
         let e = cx.e;
         if e.queue.len() <= from {
             return Ok(false);
@@ -1396,7 +1410,10 @@ impl Elaborator {
             count(&RULE_SETTLED);
         }
         #[cfg(debug_assertions)]
-        e.assert_rule_closed(cx, from, metas)?;
+        if let Some(metas) = metas {
+            e.assert_rule_closed(cx, from, metas)?;
+        }
+        let metas = metas.unwrap_or(0);
         e.defaults_from(from, |e| {
             any = true;
             count(&RULE_DEFAULTED);
