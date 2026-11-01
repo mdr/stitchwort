@@ -398,3 +398,257 @@ fn search_at_on_aoc_goals() {
         "a suggestion checked at the goal failed in the file"
     );
 }
+
+/// A real goal of AoC 2021 days 9 to 18 (SW-989): what the proof lanes asked
+/// `search --at` about (aoc/NOTES-2021.md, each day's "search" paragraphs,
+/// and the friction tickets SW-960 to SW-980), made again by replacing the
+/// proof written there with `?` (in memory).
+struct Real {
+    /// The theorem, and what the goal shows (the note's words).
+    label: &'static str,
+    /// What the notes say went wrong, or `works` for a goal it closed.
+    kind: &'static str,
+    path: &'static str,
+    /// The text replaced: from `from` (it must occur once) to just before
+    /// `until`, if given, else `from` alone.
+    from: &'static str,
+    until: Option<&'static str>,
+    /// What replaces it (with a `?` in it: the goal).
+    to: &'static str,
+    /// What closes it: a lemma's name (a word of a closing proof) or a
+    /// tactic. Empty: only that the goal is read (it was refused).
+    want: &'static [&'static str],
+}
+
+const D: &str = "src/Aoc/Year2021/";
+
+#[rustfmt::skip]
+const REAL: &[Real] = &[
+    Real { label: "landsFoldDot after `match fold`: `cases`", kind: "context order", path: "Day13/Proofs/Fold.sw",
+        from: "| AlongX line => cases", until: None, to: "| AlongX line => ?", want: &["cases"] },
+    Real { label: "widthCovers, equation-style `Cons dot rest, spot, Inl same`", kind: "context order", path: "Day13/Proofs/Picture.sw",
+        from: "| Cons dot rest, spot, Inl same => rewrite <- same in omega [widthCons dot rest, Nat.leMaxLeft (dot.x + 1) (width rest)]", until: None,
+        to: "| Cons dot rest, spot, Inl same => ?", want: &[] },
+    Real { label: "widthCons: `List.foldRightCons`", kind: "works", path: "Day13/Proofs/Picture.sw",
+        from: "List.foldRightCons rest dot 0 (dot widest => Nat.max (dot.x + 1) widest)", until: None, to: "?", want: &["foldRightCons"] },
+    Real { label: "addToFirstZero's `Cons leaf rest` (a record after `Cons`)", kind: "record after a constructor", path: "Day18/Proofs/Leaves.sw",
+        from: "| Cons leaf rest => Eq.cong (l => Cons l rest) (addZeroLeaf leaf)", until: None, to: "| Cons leaf rest => ?", want: &[] },
+    Real { label: "shiftAppend's `Some found` (a record update in `Some`)", kind: "record after a constructor", path: "Day18/Proofs/Explode.sw",
+        from: "| Some found => Eq.cong Some (Exploding.ext", until: Some("\n"), to: "| Some found => ?", want: &[] },
+    Real { label: "leavesShallow's `Regular value, small`", kind: "context order", path: "Day18/Proofs/Reduced.sw",
+        from: "| Regular value, small => And.left (And.left small)", until: None, to: "| Regular value, small => ?", want: &[] },
+    Real { label: "leavesSmall's `Pair left right` (`split.%match1` in a hypothesis)", kind: "hidden %match name", path: "Day18/Proofs/Reduced.sw",
+        from: "match el: split left with", until: Some("\n\ntheorem leavesShallow"), to: "?", want: &[] },
+    Real { label: "memberPairs: `(if i == j then None else Some (x, y)) = Some (x, y)`", kind: "works", path: "Day18/Proofs/Answers.sw",
+        from: "atJ) cases)", until: None, to: "atJ) ?)", want: &["cases"] },
+    Real { label: "takeAppendLength: `rewrite <- h in List.takeAppend xs ys`", kind: "hypothesis as a rewrite", path: "Day16/Proofs/Fields.sw",
+        from: "rewrite <- h in List.takeAppend xs ys", until: None, to: "?", want: &["takeAppend"] },
+    Real { label: "fromBitsBelow: `Nat.fromBitsFlipped` then `omega`", kind: "works", path: "Day16/Proofs/Bits.sw",
+        from: "omega [Nat.fromBitsFlipped bits]", until: None, to: "?", want: &["fromBitsFlipped"] },
+    Real { label: "lengthBitsOf's step: `List.lengthSnoc` and the induction hypothesis", kind: "induction hypothesis", path: "Day16/Proofs/Bits.sw",
+        from: "rewrite List.lengthSnoc (bitsOf width (n / 2)) (n % 2 == 1), lengthBitsOf width (n / 2) in rfl", until: None, to: "?", want: &["lengthSnoc", "lengthBitsOf"] },
+    Real { label: "lengthEvaluateAll's `Cons _ rest` (a `✝` name)", kind: "✝ name", path: "Day16/Proofs/Answers.sw",
+        from: "| Cons _ rest => rewrite lengthEvaluateAll rest in rfl", until: None, to: "| Cons _ rest => ?", want: &["lengthEvaluateAll"] },
+    Real { label: "groupsValue's `inner` (a lambda's binder named as a variable)", kind: "captured variable", path: "Day16/Proofs/Answers.sw",
+        from: "rewrite Nat.fromBitsFrom acc (bitsOf 4 group), fromBitsOf 4 group fits in rfl", until: None, to: "?", want: &["fromBitsFrom"] },
+    Real { label: "neighboursMono: `List.countLeMem` (count unfolded)", kind: "folded goal", path: "Day11/Proofs/Rounds.sw",
+        from: "List.countLeMem levels.gridCells (cell => adjacent at cell.fst", until: Some("\n\n"), to: "?", want: &["countLeMem"] },
+    Real { label: "stepRepresents' calc step: `Eq.sym (List.sumByFlatMap …)`", kind: "symmetric lemma", path: "Day14/Proofs/Counts.sw",
+        from: "Eq.sym (List.sumByFlatMap (List.zipWithNext polymer) f (expand rules))", until: None, to: "?", want: &["sumByFlatMap"] },
+    Real { label: "pairsStep's step: `pairsStepCons` and the induction hypothesis", kind: "induction hypothesis", path: "Day14/Proofs/Pairs.sw",
+        from: "rewrite pairsStepCons rules a b rest, pairsStep rules (Cons b rest) in rfl", until: None, to: "?", want: &["pairsStepCons", "pairsStep"] },
+    Real { label: "memPositions: `List.memFlatMapIntro` (flatMap unfolded)", kind: "folded goal", path: "Day15/Steps.sw",
+        from: "List.memFlatMapIntro (row => List.range risks.width", until: Some("\n\n"), to: "?", want: &["memFlatMapIntro"] },
+    Real { label: "candidatesDistinct: `List.distinctFlatMap` (flatMap unfolded)", kind: "folded goal", path: "Day17/Proofs/Answers.sw",
+        from: "List.distinctFlatMap (i => List.range (steps target)", until: Some("\n\ntheorem hittingDistinct"), to: "?", want: &["distinctFlatMap"] },
+    Real { label: "hittingDistinct: `List.distinctFilter`", kind: "works", path: "Day17/Proofs/Answers.sw",
+        from: "List.distinctFilter (candidates target) (v => hitsWithin target (steps target) (launch v)) (candidatesDistinct target)", until: None, to: "?", want: &["distinctFilter"] },
+    Real { label: "dyAfter's base case: `omega`", kind: "works", path: "Day17/Proofs/Motion.sw",
+        from: "| 0, probe => omega", until: None, to: "| 0, probe => ?", want: &["omega"] },
+    Real { label: "dyAfter's step: the induction hypothesis", kind: "induction hypothesis", path: "Day17/Proofs/Motion.sw",
+        from: "| Succ n, probe => omega [dyAfter n (step probe)]", until: None, to: "| Succ n, probe => ?", want: &["dyAfter"] },
+    Real { label: "differ: `(x == y) = False` from `x ≠ y`", kind: "works", path: "Day12/Proofs/Neighbours.sw",
+        from: "match e: x == y with", until: Some("\n\n"), to: "?", want: &["toBoolOfNot", "equalFalse", "soundFalse"] },
+    Real { label: "appendStep: `List.appendAssoc` backwards", kind: "works", path: "Day12/Proofs/Rules.sw",
+        from: "Eq.sym (List.appendAssoc sofar [y] more)", until: None, to: "?", want: &["appendAssoc"] },
+    Real { label: "visitsMember's `Cons x rest, Inl same`", kind: "context order", path: "Day12/Proofs/Rules.sw",
+        from: "| Cons x rest, Inl same => rewrite same, DecEq.refl cave in omega", until: None, to: "| Cons x rest, Inl same => ?", want: &[] },
+    Real { label: "visitsMember's `Cons x rest, Inr later`: the induction hypothesis", kind: "induction hypothesis", path: "Day12/Proofs/Rules.sw",
+        from: "| Cons x rest, Inr later => omega [visitsMember cave rest later]", until: None, to: "| Cons x rest, Inr later => ?", want: &["visitsMember"] },
+    Real { label: "toNatAtMostOne: `cases`", kind: "works", path: "Day10/Proofs/Middle.sw",
+        from: "Bool.toNat b ≤ 1 := cases", until: None, to: "Bool.toNat b ≤ 1 := ?", want: &["cases"] },
+    Real { label: "notBelow: `omega`", kind: "works", path: "Day10/Proofs/Middle.sw",
+        from: "(y < x) = False := omega", until: None, to: "(y < x) = False := ?", want: &["omega"] },
+    Real { label: "countAtMostLength's step: `List.countCons` and the induction hypothesis", kind: "induction hypothesis", path: "Day10/Proofs/Middle.sw",
+        from: "let below := countAtMostLength p rest", until: Some("\n\n"), to: "?", want: &["countCons", "countAtMostLength"] },
+    Real { label: "basinSizeOpen: `length (keys r) = size r` (`Map.sizeToList`)", kind: "rewrite step", path: "Day09/Proofs/Part2.sw",
+        from: "(Eq.trans (List.lengthMap result.toList Pair.fst) (Eq.sym (Map.sizeToList result)))", until: None, to: "?", want: &["sizeToList", "lengthMap"] },
+];
+
+/// What one real goal found.
+struct RealOutcome {
+    refused: Option<String>,
+    /// Something closes it.
+    closed: bool,
+    /// A wanted lemma or tactic closes it.
+    wanted: bool,
+    /// A wanted lemma is a step: among those that leave goals, or the
+    /// rewrites.
+    step: bool,
+    time: Duration,
+    first: String,
+}
+
+fn has_word(text: &str, word: &str) -> bool {
+    text.split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .any(|w| w == word)
+}
+
+fn run_real(real: &Real, files: &dyn Files, cache: &Path) -> RealOutcome {
+    let path = format!("{D}{}", real.path);
+    let text = files.read(&path).expect("the file reads");
+    assert_eq!(
+        text.matches(real.from).count(),
+        1,
+        "{path}: `{}` isn't in it once",
+        real.from
+    );
+    let start = text.find(real.from).expect("found");
+    let end = match real.until {
+        // The end of the file, if `until` isn't after it.
+        Some(until) => start + text[start..].find(until).unwrap_or(text.len() - start),
+        None => start + real.from.len(),
+    };
+    let new = format!("{}{}{}", &text[..start], real.to, &text[end..]);
+    let at = start + real.to.find('?').expect("a `?`");
+    let line = new[..at].matches('\n').count() + 1;
+    let column = new[..at].rsplit('\n').next().unwrap_or("").chars().count() + 1;
+    let overlay = Overlay {
+        base: files,
+        texts: BTreeMap::from([(path.clone(), new)]),
+    };
+    let goal = ProjectGoal {
+        project: "aoc",
+        files: &overlay,
+        path: &path,
+        cache: Some(cache),
+        at: GoalAt::Line(line, Some(column)),
+    };
+    let started = Instant::now();
+    let mut session = Session::for_stack(STACK);
+    let found = session.search_at_project(&goal, &AtOptions::default());
+    drop(session);
+    let time = started.elapsed();
+    let report = match found {
+        Ok(report) => report,
+        Err(d) => {
+            return RealOutcome {
+                refused: Some(format!(
+                    "[{}] {} {}",
+                    d.code,
+                    d.message,
+                    d.notes.first().map(String::as_str).unwrap_or("")
+                )),
+                closed: false,
+                wanted: false,
+                step: false,
+                time,
+                first: String::new(),
+            };
+        }
+    };
+    let closing: Vec<&str> = (report.results.iter())
+        .filter(|s| s.class != "applicable")
+        .map(|s| s.proof.as_str())
+        .chain(report.tactics.iter().map(String::as_str))
+        .collect();
+    let steps: Vec<&str> = (report.results.iter())
+        .filter(|s| s.class == "applicable")
+        .map(|s| s.proof.as_str())
+        .chain(report.rewrites.iter().map(|r| r.proof.as_str()))
+        .collect();
+    let wanted =
+        |proofs: &[&str]| (proofs.iter()).any(|p| real.want.iter().any(|w| has_word(p, w)));
+    RealOutcome {
+        refused: None,
+        closed: !closing.is_empty(),
+        wanted: wanted(&closing),
+        step: wanted(&steps),
+        time,
+        first: (closing.first().or(steps.first())).map_or("nothing".to_string(), |s| s.to_string()),
+    }
+}
+
+/// The benchmark of real goals (SW-989): AoC 2021 days 9 to 18, in the
+/// project (`Aoc.Common`, the 2021 days, and 2024 day 24, which day 12
+/// imports). Daily and full tiers; `STITCHWORT_AT_BENCH_ONLY` as above.
+/// Reported: how many are refused, read and closed, and how many are closed
+/// (or offered a step) by what their proof used; the time of each.
+#[test]
+fn search_at_on_real_2021_goals() {
+    if matches!(tier(), Tier::Lane | Tier::Merge) {
+        eprintln!("skipped: daily and full tiers only");
+        return;
+    }
+    let cache = Path::new(env!("CARGO_TARGET_TMPDIR")).join("search-at-aoc-cache");
+    let files = Only {
+        base: DiskFiles { root: aoc() },
+        keep: vec![
+            "src/Aoc/Common".to_string(),
+            "src/Aoc/Year2021".to_string(),
+            "src/Aoc/Year2024/Day24".to_string(),
+        ],
+    };
+    let only = std::env::var("STITCHWORT_AT_BENCH_ONLY").ok();
+    let reals: Vec<&Real> = (REAL.iter())
+        .filter(|r| only.as_ref().is_none_or(|o| r.path.contains(o.as_str())))
+        .collect();
+    let (first, rest) = reals.split_at(1);
+    let mut outcomes = vec![stitchwort_driver::driver::with_stack(STACK, || {
+        run_real(first[0], &files, &cache)
+    })];
+    outcomes.extend(par_map(STACK, rest, |r| run_real(r, &files, &cache)));
+    let n = reals.len();
+    let count = |f: &dyn Fn(&RealOutcome) -> bool| outcomes.iter().filter(|o| f(o)).count();
+    let with_want = reals.iter().filter(|r| !r.want.is_empty()).count();
+    let hit = |r: &Real, o: &RealOutcome| {
+        if r.want.is_empty() {
+            o.refused.is_none()
+        } else {
+            o.wanted || o.step
+        }
+    };
+    let hits = (reals.iter().zip(&outcomes))
+        .filter(|(r, o)| hit(r, o))
+        .count();
+    let mut times: Vec<f64> = outcomes.iter().map(|o| o.time.as_secs_f64()).collect();
+    times.sort_by(f64::total_cmp);
+    eprintln!(
+        "real 2021 goals: {n}; refused {}, closed by something {}; of {with_want} with a known closer, closed by it {}, offered it as a step {}; hit rate {hits}/{n} ({:.0}%); a goal {:.1} s median, {:.1} s max",
+        count(&|o| o.refused.is_some()),
+        count(&|o| o.closed),
+        count(&|o| o.wanted),
+        count(&|o| !o.wanted && o.step),
+        100.0 * hits as f64 / n.max(1) as f64,
+        times.get(times.len() / 2).copied().unwrap_or(0.0),
+        times.last().copied().unwrap_or(0.0),
+    );
+    for (r, o) in reals.iter().zip(&outcomes) {
+        let what = match (&o.refused, o.wanted, o.step, o.closed) {
+            (Some(_), ..) => "REFUSED",
+            (None, true, ..) => "closed",
+            (None, false, true, _) => "step",
+            (None, false, false, true) if r.want.is_empty() => "read, closed",
+            (None, false, false, _) if r.want.is_empty() => "read",
+            (None, false, false, true) => "MISS (closed otherwise)",
+            (None, false, false, false) => "MISS",
+        };
+        eprintln!(
+            "  {what:<24} {:>5.1} s  [{}] {}  -> {}",
+            o.time.as_secs_f64(),
+            r.kind,
+            r.label,
+            o.refused.as_deref().unwrap_or(&o.first)
+        );
+    }
+}
