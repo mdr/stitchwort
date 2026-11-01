@@ -6,7 +6,8 @@
 stopped for decisions ([Stage 4, second attempt: stopped](#stage-4-second-attempt-stopped)), and the third
 attempt's design is written ([Stage 4: design for the third attempt](#stage-4-design-for-the-third-attempt);
 decisions D2087, D2090, D2091) and built in steps 4.0 to 4.3 ([As built (step
-4.3)](#as-built-step-43): number literals wait). Tickets SW-817 (anchor), SW-847 and SW-885; context
+4.3)](#as-built-step-43): number literals wait); stage 5 removes the retry paths nothing
+uses any more and keeps two that are still used ([As built (stage 5)](#as-built-stage-5)). Tickets SW-817 (anchor), SW-847 and SW-885; context
 SW-509, SW-805, SW-896. Follows D1990 (one queue, agreed in principle), D1991 (SW-805's
 field-name rule stays, as name resolution), D2012 (Matt: design for the best end state; the
 cost of churn is not a criterion) and D2015 (Matt: revise after the external review). Repros,
@@ -3146,6 +3147,103 @@ catches; the lambda try-then-postpone (0 in accepted code since stage 3; 2 in
 `lambda-body-error-against-goal.sw`); and `explain_default`'s "this literal made it a `Nat`"
 note with `Defaulted`'s literal list, which no literal reaches now except the ladder's own
 default.
+
+## As built (stage 5)
+
+Built on main (`7ed84de5`, after step 4.3) in the SW-987 lane, 1 November 2026: step 4.4, the
+catch-and-retry paths of §5.11 removed where nothing uses them any more. Labels as in the design
+section above.
+
+**Method** [run]. A first commit adds a `STITCHWORT_TIMINGS` counter for each path that had none
+(`retried for a constructor`, `last resort`, `append other side`, `calc from goal`, `leaf
+uninferred`; `lambda postponed` and `retried` were there). Each counter was read over std and aoc
+(`check --no-cache` in `aoc/`), std and rogue, and every example (each accept, reject, soundness,
+extract and goals file and each project, checked alone). A path is removed only with its counter
+at 0, or, where it fired only in a rejected example, with that example's message unchanged without
+it. Each removal is its own commit, and removes its counter.
+
+| path | counter before | commit | what replaces it |
+|---|---|---|---|
+| `held`, `last_resort`, `FieldNames` | `last resort` 0 everywhere (`FieldNames::hold` was already dead code) | `fa1a45b3` | K1 and the field-name default (stage 2) |
+| `++`'s "infer the other side" | `append other side` 0 everywhere | `594ae4c7` | the left side always infers: what can't say its type waits; `[] ++ xs`, a `match` of lists and a mapped list on the left were tried and infer |
+| `calc`'s first term checked against the goal (`hint`) | `calc from goal` 0 everywhere | `28e96524` | the same; `elaborate` no longer takes the expected type |
+| the lambda try-then-postpone (`unknown_domain`) | `lambda postponed` 0 in std, aoc, rogue and accepted code; 2 in `reject/lambda-body-error-against-goal.sw` | `7a08a533` | K1-K4 and the waiting `match` inside the lambda, resumed at W1. The reject example's lambda now takes the after-expected path (kept, §5.11) and gives the same `E-OMEGA`, byte for byte |
+| a constructor with literals put last: `defers_literal`, `else_first`, `check_items`' reordering, the `if`, list and comparison retries, the group's pass-2 reordering | `retried for a constructor` 0 in std, aoc, rogue and accepted code; 2 in `reject/generic-constructor-literal-conflict.sw` | `98d768a6` | K4: the literal waits, so order doesn't matter. The reject example's first and second runs gave the same error; its message is unchanged |
+
+About 310 lines of the elaborator go (416 removed, 103 added, counters included). Two of T2's three
+same-state reruns (§5.7) were the lambda postponed and the constructor retry; the first is gone,
+and `retrying`'s second run now happens only for a list of numbers.
+
+**Kept: `retrying` and `late_literals`, for a list of numbers in an application** [run]. `retried`
+is 1 in aoc and 2 in the examples, and in two of them the second run is what makes the program
+check (or fail the right way). Each is a gap in what waits, not a literal ordering:
+- **2021 Day17's tests**, `[(7, 2), (6, 3), (9, 0), (6, 9)].map (((dx, dy)) => firstHit
+  exampleTarget { dx, dy }) == …` (`Tests/Examples.sw:27`). The first run fails with "expected
+  `Int`, but this has type `Nat`" at `dx`: a tuple checked against an unknown *infers* its parts,
+  so its literals are `Nat` at once (step 4.3 found the same for item 4 of SW-978). The second run
+  checks the list after the lambda, against `List (Int, Int)`. Fix in kind: a tuple checked
+  against an unknown makes it a pair of two new unknowns and checks its parts against them, so
+  its literals wait (K4 widened to tuples); not done here.
+- **`reject/decreasing-lambda-in-data.sw`**, `List.map [d => if h: d < n then stored d else 0]
+  ((g: Nat → Nat) => g (n - 1))`. The first run fails with "this is a function, but the expected
+  type is `?2 n rec`": a lambda checked against an unknown applied to variables fails rather than
+  making it a function type or waiting. The second run checks the list after the second lambda
+  has said the element type, and the file gets its intended `E-DECREASING`. Without the retry its
+  error would be that `E-TYPE-MISMATCH`, printing `?2 n rec`.
+- The other two firings change nothing: `accept/lambda-propagated-alias.sw`'s `summed` fails both
+  runs with the same `E-UNKNOWN-FIELD`, and the file checks anyway (an attempt around the
+  application succeeds; which one wasn't traced), and the reject
+  example above's constructor firings are gone with `98d768a6`.
+
+**Kept: the group leaf's "infer the other side"** (`numbers::speculate`) [run]. `leaf uninferred`
+is 4 in every run: the core's `Bool.symThenSelf` and `DecEq.symThenSelf`, `rfl = Eq.trans (Eq.sym
+q) q` (`core/Decidable.sw:130`, `core/DecEq.sw:57`, each elaborated twice). `rfl` alone can't be
+inferred; the other side gives the equation's type. Addition 1 makes `rfl` wait only when it is
+*checked* against a type whose shape is pending. Fix in kind: `rfl` inferred as `?x = ?x` at a new
+unknown type, or the leaf waiting; not done here.
+
+**Not in the list, left as it is**: `explain_default`'s "this literal made it a `Nat`" note with
+`Defaulted`'s literal list (step 4.3 listed it as deletable); and the after-expected path, kept by
+design (§5.11).
+
+**The attempt site SW-981 added** (`effects.rs`, `plain_value`, `performs_nothing`, used for an
+argument run first, a `let`'s value and an `if`'s condition in a computation's row) [read]. It
+keeps T1: two fixed alternatives (as plain calls through `check::pure_first`, then, undone, run
+with `bind` as before), and its only loop is `pure_first`'s row retry, which repeats only on
+progress. It shouldn't become a queued item waiting on the row. The enclosing callback's row,
+the unknown one, isn't what decides: whether the expression performs is decided by its own
+callbacks, which its own elaboration settles (`retry_rows_from`), so waiting on the enclosing row
+would wait for nothing that helps. And the choice changes the shape of the term around the rest of
+the block (a transparent `let` or a `bind`), which a placeholder fill can't stand for. Two things
+to note: a bare row of the expression still unknown after it is elaborated is set to the empty row
+at once (`settle_empty`, from stage 3 of effect polymorphism, D1123): a choice made from an
+unknown, the one place a wait could matter, but older than SW-981 and with no repro of a later
+argument making that row effectful. And `performs_nothing` elaborates an `if`'s condition as plain
+calls, undoes it, and `check_if` then elaborates it again the same way (`check` reaches
+`pure_first` for it): a same-state rerun, bounded (once per condition), so T1 holds, but wasted
+work that doubles per nested condition of this kind.
+
+**Gates, per removal** [run]: lane tiers `elab` and `examples`; `check --no-cache` over aoc (std
+included) and rogue; `task audit` (std 2,397, aoc 2,124, rogue 190, all passed); and every
+example's `check` output and exit code compared with the counters build's (`1c863e6c`, whose
+output is main's). No outcome or message changed. One run differed, once:
+`reject/rfl-long-computed.sw` lost its counterexample note during the last gate, which ran beside
+a hash dump at load 35-40; three more runs each of the counters build and the last build all
+show the note, so it is the counterexample search's time limit, not this stage.
+
+**Hashes** [run]: `HASH_DUMP` std + aoc (13,809 lines) and std + rogue (5,366), main and this
+lane: byte-identical. `hash_stability`'s examples, projects and prelude (lane tier): pass.
+
+**Counters after** (aoc): `retried` 1 (Day17), `leaf uninferred` 4; the queue's own counters
+exactly main's (1,071 queued, 983 resumed, 63 defaulted, 0 stuck). Rogue: `retried` 0, `leaf
+uninferred` 4.
+
+**Time**: aoc `check --no-cache`, one pair at load 35 to 40: main 66.9 s user (103 s wall), this
+lane 65.6 s user (89 s wall). No slowdown.
+
+**Open**: the two gaps above (tuples checked against an unknown; a lambda checked against an
+unknown applied to variables), after which `retrying` and `late_literals` can go; `rfl` as a
+comparison leaf, after which the leaf catch can go; `explain_default`'s literal note.
 
 ## Review 1 and how it was addressed
 
