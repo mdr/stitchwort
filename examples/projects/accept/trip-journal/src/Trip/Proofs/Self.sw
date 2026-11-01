@@ -95,7 +95,7 @@ theorem mergePinsSelf (trip: Trip) (ids: List.Distinct (List.map trip.legs (leg 
     _ = List.sortWith (entries.filterMap (entry => placePin trip.legs entry.fst entry.snd)) byStart :=
       rewrite List.appendNewBySelf entries (entry => entry.fst.id) in rfl
     _ = List.sortWith trip.pins byStart :=
-      rewrite filterMapMapSelf (pin => (pin, locate trip.legs pin.start)) (entry => placePin trip.legs entry.fst entry.snd) trip.pins
+      rewrite List.filterMapMapSelf (pin => (pin, locate trip.legs pin.start)) (entry => placePin trip.legs entry.fst entry.snd) trip.pins
         (pin m => placePinSelf trip.legs ids pin (List.memOfAll (p => pinFits trip.legs p = True) trip.pins fit pin m)) in
       rfl
     _ = trip.pins := List.sortWithOfSorted byStart byStartTrans trip.pins sorted
@@ -116,8 +116,8 @@ theorem holderOf: (albums: List Album) → List.Distinct (photoIds albums) → (
       List.memFlatMapIntro (a => a.photos.map Photo.id) album photo.id rest m (List.memMap album.photos photo p Photo.id)
     let notHere: holds first photo.id = False :=
       Decidable.toBoolOfNot (List.decMem photo.id (first.photos.map Photo.id))
-        (h => distinctAppendApart (first.photos.map Photo.id) (photoIds rest) d photo.id h inRest)
-    rewrite notHere in holderOf rest (distinctAppendRight (first.photos.map Photo.id) (photoIds rest) d) album m photo p
+        (h => List.distinctAppendApart (first.photos.map Photo.id) (photoIds rest) d photo.id h inRest)
+    rewrite notHere in holderOf rest (List.distinctAppendRight (first.photos.map Photo.id) (photoIds rest) d) album m photo p
 
 theorem ownerSelf (albums: List Album) (ids: List.Distinct (List.map albums (album => album.id))) (pd: List.Distinct (photoIds albums))
     (album: Album) (m: album ∈ albums) (photo: Photo) (p: photo ∈ album.photos): owner albums albums albums photo.id = Some album.id :=

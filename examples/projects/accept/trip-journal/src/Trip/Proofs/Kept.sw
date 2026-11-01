@@ -21,7 +21,7 @@ theorem remotePinsKept (local: Trip) (remote: Trip) (pin: Pin) (m: pin ∈ remot
       (List.differenceBy (local.pins.map (p => (p, locate local.legs p.start))) (remote.pins.map (p => (p, locate remote.legs p.start))) (e => e.fst.id))
       (List.memMap remote.pins pin m (p => (p, locate remote.legs p.start)))
   List.memPerm (placedPins local remote legs) (mergePins local remote legs)
-    (permSym (mergePins local remote legs) (placedPins local remote legs) (List.sortWithPerm (placedPins local remote legs) byStart)) placed
+    (List.permSym (mergePins local remote legs) (placedPins local remote legs) (List.sortWithPerm (placedPins local remote legs) byStart)) placed
     (List.memFilterMapIntro (e => placePin legs e.fst e.snd) entry placed (pinEntries local remote) inEntries fits)
 
 -- When the merged legs are the remote legs (the local copy changed no
@@ -46,14 +46,14 @@ theorem stopIdsKept (local: Trip) (remote: Trip) (id: Nat)
         (List.memMapAny local.stops (stop => stop.id) id inLocal)
         (stop inStops e =>
           rewrite <- e, <- localStopId replaced stop in
-          keyKeptLeft (entry => entry.fst.id) fromLocal fromRemote ((if replaced then unlink stop else stop), locate local.legs stop.start)
+          List.keyMemAppendNewByLeft (entry => entry.fst.id) fromLocal fromRemote ((if replaced then unlink stop else stop), locate local.legs stop.start)
             (List.memMap local.stops stop inStops (s => ((if replaced then unlink s else s), locate local.legs s.start))))
     | Inr inRemote =>
       List.anyElim (stop => stop.id = id) (id ∈ List.map (stopEntries local remote) (entry => entry.fst.id)) remote.stops
         (List.memMapAny remote.stops (stop => stop.id) id inRemote)
         (stop inStops e =>
           rewrite <- e in
-          keyKeptRight (entry => entry.fst.id) fromLocal fromRemote (stop, locate remote.legs stop.start)
+          List.keyMemAppendNewByRight (entry => entry.fst.id) fromLocal fromRemote (stop, locate remote.legs stop.start)
             (List.memMap remote.stops stop inStops (s => (s, locate remote.legs s.start))))
 
 theorem albumIdsKept (local: Trip) (remote: Trip) (id: Nat)
@@ -70,14 +70,14 @@ theorem albumIdsKept (local: Trip) (remote: Trip) (id: Nat)
         (List.memMapAny local.albums (album => album.id) id inLocal)
         (album inAlbums e =>
           rewrite <- e, <- withPhotosOfId remote.albums album in
-          keyKeptLeft (entry => entry.fst.id) fromLocal fromRemote (withPhotosOf remote.albums album, locate local.legs album.start)
+          List.keyMemAppendNewByLeft (entry => entry.fst.id) fromLocal fromRemote (withPhotosOf remote.albums album, locate local.legs album.start)
             (List.memMap local.albums album inAlbums (a => (withPhotosOf remote.albums a, locate local.legs a.start))))
     | Inr inRemote =>
       List.anyElim (album => album.id = id) (id ∈ List.map (albumEntries local remote) (entry => entry.fst.id)) remote.albums
         (List.memMapAny remote.albums (album => album.id) id inRemote)
         (album inAlbums e =>
           rewrite <- e in
-          keyKeptRight (entry => entry.fst.id) fromLocal fromRemote (album, locate remote.legs album.start)
+          List.keyMemAppendNewByRight (entry => entry.fst.id) fromLocal fromRemote (album, locate remote.legs album.start)
             (List.memMap remote.albums album inAlbums (a => (a, locate remote.legs a.start))))
 
 -- The summary, if there is one, is a copy's summary whose legs are exactly

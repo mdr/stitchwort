@@ -6,11 +6,6 @@ import Std (Float, List, Option, Eq, Void, Bool, Decidable, DecEq, Exists)
 import Trip.Model (..)
 import Trip.Merge (..)
 
-theorem anyIntro (p: a → Prop): (xs: List a) → (x: a) → x ∈ xs → p x → List.Any p xs
-  | Nil, x, m, px => m
-  | Cons y ys, x, Inl e, px => Inl (rewrite e in px)
-  | Cons y ys, x, Inr m, px => Inr (anyIntro p ys x m px)
-
 theorem holdsMem (album: Album) (id: Nat) (h: holds album id = True): id ∈ album.photos.map Photo.id :=
   Decidable.toBoolSound (List.decMem id (album.photos.map Photo.id)) h
 
@@ -22,7 +17,7 @@ theorem stillHoldsGives (albums: List Album) (id: Nat):
       | Some album =>
         match List.findSome albums (a => a.id == albumId) album e with
           | Both same inAlbums =>
-            anyIntro (a => And (Some albumId = Some a.id) (holds a id = True)) albums album inAlbums
+            List.anyIntro (a => And (Some albumId = Some a.id) (holds a id = True)) album albums inAlbums
               (Both (rewrite DecEq.sound album.id albumId same in rfl) h)
       | None => Void.exfalso (Bool.falseNotTrue h)
   | None, h => Void.exfalso (Bool.falseNotTrue h)
@@ -39,7 +34,7 @@ theorem ownerGives (local: List Album) (remote: List Album) (merged: List Album)
           match f: merged.find (album => holds album id) with
             | Some album =>
               match List.findSome merged (a => holds a id) album f with
-                | Both h inMerged => anyIntro (a => And (Some album.id = Some a.id) (holds a id = True)) merged album inMerged (Both rfl h)
+                | Both h inMerged => List.anyIntro (a => And (Some album.id = Some a.id) (holds a id = True)) album merged inMerged (Both rfl h)
             | None =>
               List.anyElim (a => id ∈ a.photos.map Photo.id) (List.Any (a => And (None = Some a.id) (holds a id = True)) merged) merged
                 (List.memFlatMapElim (a => a.photos.map Photo.id) id merged m)
@@ -86,7 +81,7 @@ theorem withPhotosOfKeeps (remote: List Album) (album: Album) (id: Nat) (m: id �
     | Some other =>
       Exists.elim (List.memMapElim Photo.id id album.photos m) (photo both =>
         match both with
-          | Both inPhotos same => rewrite <- same in keyKeptRight Photo.id other.photos album.photos photo inPhotos)
+          | Both inPhotos same => rewrite <- same in List.keyMemAppendNewByRight Photo.id other.photos album.photos photo inPhotos)
     | None => m
 
 -- Every photo id of either copy is in the albums before ownership is
@@ -128,7 +123,7 @@ theorem inCombined (local: Trip) (remote: Trip) (dr: List.Distinct (List.map rem
                       (rewrite found in
                         Exists.elim (List.memMapElim Photo.id id album.photos inAlbum) (photo pb =>
                           match pb with
-                            | Both inPhotos same => rewrite <- same in keyKeptLeft Photo.id album.photos mine.photos photo inPhotos)))
+                            | Both inPhotos same => rewrite <- same in List.keyMemAppendNewByLeft Photo.id album.photos mine.photos photo inPhotos)))
             | No fresh =>
               let freshKey: album.id ∉ List.map fromLocal (entry => entry.fst.id) :=
                 rewrite List.mapMap local.albums (entry => entry.fst.id) (a => (withPhotosOf remote.albums a, locate local.legs a.start)),

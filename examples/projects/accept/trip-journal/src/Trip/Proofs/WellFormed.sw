@@ -62,7 +62,7 @@ def placedPins (local: Trip) (remote: Trip) (legs: List Leg): List Pin :=
 theorem mergePinsIs (local: Trip) (remote: Trip) (legs: List Leg): mergePins local remote legs = List.sortWith (placedPins local remote legs) byStart :=
   rfl
 
-theorem byStartTotal (a: Pin) (b: Pin) (h: byStart a b = False): byStart b a = True := floatLeTotal a.start b.start h
+theorem byStartTotal (a: Pin) (b: Pin) (h: byStart a b = False): byStart b a = True := Float.leTotal a.start b.start h
 
 theorem byStartTrans (a: Pin) (b: Pin) (c: Pin) (h1: byStart a b = True) (h2: byStart b c = True): byStart a c = True :=
   floatLeTrans a.start b.start c.start h1 h2
@@ -98,8 +98,8 @@ def AlbumOk (album: Album): Prop := List.Distinct (album.photos.map Photo.id)
 theorem albumsOk: (albums: List Album) → List.Distinct (photoIds albums) → List.All AlbumOk albums
   | Nil, d => Trivial
   | Cons album rest, d =>
-    Both (distinctAppendLeft (album.photos.map Photo.id) (photoIds rest) d)
-      (albumsOk rest (distinctAppendRight (album.photos.map Photo.id) (photoIds rest) d))
+    Both (List.distinctAppendLeft (album.photos.map Photo.id) (photoIds rest) d)
+      (albumsOk rest (List.distinctAppendRight (album.photos.map Photo.id) (photoIds rest) d))
 
 theorem withPhotosOfOk (remote: List Album) (okr: List.All AlbumOk remote) (album: Album) (ok: AlbumOk album):
     AlbumOk (withPhotosOf remote album) :=
