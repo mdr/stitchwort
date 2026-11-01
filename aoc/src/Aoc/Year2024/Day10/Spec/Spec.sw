@@ -4,14 +4,8 @@
 
 namespace Aoc.Year2024.Day10.Spec
 import Aoc.Year2024.Day10 (..)
+import Aoc.Common (Position, adjacent)
 import Std (Bool, List, Nat, Option)
-
--- "Hiking trails never include diagonal steps - only up, down, left, or
--- right": one column apart in the same row, or one row apart in the same
--- column.
-def isOrthogonalStep (from: Position) (to: Position): Bool :=
-  (from.row == to.row && (from.column + 1 == to.column || to.column + 1 == from.column))
-    || (from.column == to.column && (from.row + 1 == to.row || to.row + 1 == from.row))
 
 -- "Always increases by a height of exactly 1 at each step".
 def increasesByOne (map: TopographicMap) (from: Position) (to: Position): Bool :=
@@ -19,7 +13,10 @@ def increasesByOne (map: TopographicMap) (from: Position) (to: Position): Bool :
     | Some height => map.heightAt to == Some (height + 1)
     | None => False
 
-def isStep (map: TopographicMap) (from: Position) (to: Position): Bool := isOrthogonalStep from to && increasesByOne map from to
+-- "Hiking trails never include diagonal steps - only up, down, left, or
+-- right": a step is to an `adjacent` position (one column apart in the
+-- same row, or one row apart in the same column; the shared grid code's).
+def isStep (map: TopographicMap) (from: Position) (to: Position): Bool := adjacent from to && increasesByOne map from to
 
 -- "A hiking trail is any path that starts at height 0, ends at height 9, and
 -- always increases by a height of exactly 1 at each step."

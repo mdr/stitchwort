@@ -4,7 +4,8 @@
 
 namespace Aoc.Year2024.Day10.Tests
 import Aoc.Year2024.Day10 (..)
-import Aoc.Year2024.Day10.Spec (isHikingTrail, isOrthogonalStep, pathsOf)
+import Aoc.Year2024.Day10.Spec (isHikingTrail, isStep, pathsOf)
+import Aoc.Common (Position)
 import Std (Fail, List, Nat, Option, Result, Text)
 
 def example: Text := """
@@ -121,8 +122,12 @@ test "the spec's trails" :=
     && !isHikingTrail map []
     && !isHikingTrail map [at 0 5, at 1 5, at 2 5, at 3 5, at 4 5, at 5 5, at 5 4, at 5 3, at 6 2, at 6 2]
 
-test "the spec's steps are orthogonal" :=
-  isOrthogonalStep (at 1 1) (at 0 1) && isOrthogonalStep (at 1 1) (at 1 2) && !isOrthogonalStep (at 1 1) (at 2 2) && !isOrthogonalStep (at 1 1) (at 1 1)
+-- Up, down, left or right, and one higher: not diagonally, and not on the
+-- spot.
+test "the spec's steps" :=
+  let map := topography "012\n123\n234\n"
+  isStep map (at 1 1) (at 1 2) && isStep map (at 1 1) (at 2 1) && !isStep map (at 1 1) (at 0 1) && !isStep map (at 1 1) (at 2 2)
+    && !isStep map (at 1 1) (at 1 1)
 
 test "the spec's paths" :=
   let map := topography "01\n"
@@ -130,13 +135,9 @@ test "the spec's paths" :=
 
 test "parse" := parsed "01\n.9\n" == Ok ({ rows = [[Some 0, Some 1], [None, Some 9]] })
 test "parse without a final line break" := parsed "01\n23" == Ok ({ rows = [[Some 0, Some 1], [Some 2, Some 3]] })
-test "nothing" := parsed "" == Err "line 1, column 1: expected a digit or '.', got the end of the input"
+test "nothing" := parsed "" == Err "expected a grid, got no cells"
 test "a bad tile" := parsed "0123\n12x4\n" == Err "line 2, column 3: expected a digit or '.' or the end of the line, got 'x'"
-test "a short row" := parsed "0123\n124\n" == Err "line 2: expected 4 tiles, as on the first line, got 3"
-
-test "neighbours in the corner" := (at 0 0).neighbours == [at 0 1, at 1 0]
-test "neighbours on the top row" := (at 0 3).neighbours == [at 0 2, at 0 4, at 1 3]
-test "neighbours inside" := (at 2 3).neighbours == [at 1 3, at 2 2, at 2 4, at 3 3]
+test "a short row" := parsed "0123\n124\n" == Err "line 2: expected 4 cells, as on the first line, got 3"
 
 test "heights off the map" :=
   let map := topography "01\n23\n"
