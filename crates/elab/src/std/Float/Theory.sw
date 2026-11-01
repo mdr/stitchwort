@@ -1,16 +1,16 @@
--- `Float.Theory`: laws about `Float`'s rounding operations, proved from the
--- model (std/Float/Model.sw). The rounding specification says what
--- `Float.Model.roundRatio` computes: the double nearest the exact value,
--- ties to even, an infinity from the overflow threshold on, and the sign
--- rules for zeros. The lemmas about rounding are proved from that
--- specification, and the laws about `Float.add` from those lemmas.
+--| `Float.Theory`: laws about `Float`'s rounding operations, proved from the
+--| model (std/Float/Model.sw). The rounding specification says what
+--| `Float.Model.roundRatio` computes: the double nearest the exact value,
+--| ties to even, an infinity from the overflow threshold on, and the sign
+--| rules for zeros. The lemmas about rounding are proved from that
+--| specification, and the laws about `Float.add` from those lemmas.
 
--- A double's value in units of 2^-1074.
+--| A double's value in units of 2^-1074.
 def Float.Theory.units (x: Float): Int := Float.Model.units x.bits
 
 -- Powers of two and bit lengths
 
--- `pow2From` is `Nat.pow 2`, whatever its fuel.
+--| `pow2From` is `Nat.pow 2`, whatever its fuel.
 theorem Float.Theory.pow2FromPow: (fuel: Nat) → (k: Nat) → Float.Model.pow2From fuel k = Nat.pow 2 k
   | Zero, k => rfl
   | Succ fuel, k =>
@@ -35,12 +35,12 @@ theorem Float.Theory.pow2Pow (k: Nat): Float.Model.pow2 k = Nat.pow 2 k :=
     | True => Float.Theory.pow2FromPow 16 k
     | False => rfl
 
--- Every number is below its power of two.
+--| Every number is below its power of two.
 theorem Float.Theory.ltPow: (n: Nat) → n < Nat.pow 2 n
   | Zero => rfl
   | Succ n => omega [Float.Theory.ltPow n]
 
--- `b` is the number of binary digits of a positive `n`: `n < 2^b <= 2n`.
+--| `b` is the number of binary digits of a positive `n`: `n < 2^b <= 2n`.
 def Float.Theory.IsBitLength (n: Nat) (b: Nat): Prop := And (n < Nat.pow 2 b) (Nat.pow 2 b ≤ n + n)
 
 theorem Float.Theory.bitLengthSlowZero: (fuel: Nat) → Float.Model.bitLengthSlow fuel 0 = 0
@@ -63,7 +63,7 @@ theorem Float.Theory.bitLengthSlowSpec: (fuel: Nat) → (n: Nat) → 0 < n → n
           Float.Theory.bitLengthSlowSpec fuel (Nat.divFuel n n 2) omega omega
         Both (omega [And.left ih]) (omega [And.right ih])
 
--- `powers` are 2^width, 2^(width / 2), …, as `bitLengthBy` needs them.
+--| `powers` are 2^width, 2^(width / 2), …, as `bitLengthBy` needs them.
 def Float.Theory.powersFit: List Nat → Nat → Bool
   | Nil, width => True
   | Cons p rest, width => Nat.equal p (Float.Model.pow2 width) ∧ Float.Theory.powersFit rest (Nat.divFuel width width 2)
@@ -99,7 +99,7 @@ theorem Float.Theory.bitLengthBySpec: (powers: List Nat) → (width: Nat) → (n
           Nat.mulDistribRight (Nat.divFuel n n p) (Nat.divFuel n n p) p
         rewrite Nat.powAdd 2 width b, <- pe in Both omega omega
 
--- `bitLength` gives the number of binary digits.
+--| `bitLength` gives the number of binary digits.
 theorem Float.Theory.bitLengthSpec (n: Nat) (pos: 0 < n): Float.Theory.IsBitLength n (Float.Model.bitLength n) :=
   match c: Nat.leq n 65535 with
     | True => Float.Theory.bitLengthSlowSpec 16 n pos omega
@@ -113,8 +113,8 @@ theorem Float.Theory.bitLengthSpec (n: Nat) (pos: 0 < n): Float.Theory.IsBitLeng
 -- kept to the right of `+` and `*` when the other side is unknown, since
 -- both recurse on their left.
 
--- A pattern's value in units of 2^-1074, without its sign: what
--- `Float.Model.units` gives the magnitude.
+--| A pattern's value in units of 2^-1074, without its sign: what
+--| `Float.Model.units` gives the magnitude.
 def Float.Theory.magUnits (m: Nat): Nat :=
   let e: Nat := Nat.divFuel m m 4503599627370496
   let f: Nat := m - e * 4503599627370496
@@ -124,7 +124,7 @@ theorem Float.Theory.unitsMag (bits: Nat):
     Float.Model.units bits = Int.signed (Float.Model.signBit bits) (Float.Theory.magUnits (Float.Model.magnitude bits)) :=
   rfl
 
--- The units of the pattern with exponent field `e` and fraction `f`.
+--| The units of the pattern with exponent field `e` and fraction `f`.
 theorem Float.Theory.magUnitsField (e: Nat) (f: Nat) (h: f < 4503599627370496):
     Float.Theory.magUnits (e * 4503599627370496 + f)
       = (if Nat.equal e 0 then f else Nat.pow 2 (e - 1) * (f + 4503599627370496)) :=
@@ -132,7 +132,7 @@ theorem Float.Theory.magUnitsField (e: Nat) (f: Nat) (h: f < 4503599627370496):
     Nat.divUnique (e * 4503599627370496 + f) 4503599627370496 e f h rfl
   rewrite d, (omega: e * 4503599627370496 + f - e * 4503599627370496 = f), Float.Theory.pow2Pow (e - 1) in rfl
 
--- A normal pattern, exponent field `e + 1`.
+--| A normal pattern, exponent field `e + 1`.
 theorem Float.Theory.magUnitsFieldNext (e: Nat) (f: Nat) (h: f < 4503599627370496):
     Float.Theory.magUnits (e * 4503599627370496 + 4503599627370496 + f) = Nat.pow 2 e * (f + 4503599627370496) :=
   Eq.trans
@@ -141,12 +141,12 @@ theorem Float.Theory.magUnitsFieldNext (e: Nat) (f: Nat) (h: f < 450359962737049
     (Eq.trans (Float.Theory.magUnitsField (e + 1) f h)
       rfl)
 
--- A subnormal's units are its bits.
+--| A subnormal's units are its bits.
 theorem Float.Theory.magUnitsLow (q: Nat) (h: q < 4503599627370496): Float.Theory.magUnits q = q :=
   Float.Theory.magUnitsField 0 q h
 
--- `e × 2^52 + q`, for a significand `q` with its leading bit, is
--- `2^e × q` units.
+--| `e × 2^52 + q`, for a significand `q` with its leading bit, is
+--| `2^e × q` units.
 theorem Float.Theory.magUnitsNormal (e: Nat) (q: Nat) (lo: 4503599627370496 ≤ q) (hi: q < 9007199254740992):
     Float.Theory.magUnits (e * 4503599627370496 + q) = Nat.pow 2 e * q :=
   Eq.trans
@@ -155,7 +155,7 @@ theorem Float.Theory.magUnitsNormal (e: Nat) (q: Nat) (lo: 4503599627370496 ≤ 
     (Eq.trans (Float.Theory.magUnitsFieldNext e (q - 4503599627370496) omega)
       (Eq.cong (t => Nat.pow 2 e * t) (omega: q - 4503599627370496 + 4503599627370496 = q)))
 
--- The first pattern of exponent field `e + 1`, and of `e + 2`.
+--| The first pattern of exponent field `e + 1`, and of `e + 2`.
 theorem Float.Theory.magUnitsWholeAt (e: Nat) (z: Nat) (hz: z = 0):
     Float.Theory.magUnits (e * 4503599627370496 + 4503599627370496 + z) = Nat.pow 2 e * 4503599627370496 :=
   Eq.trans (Float.Theory.magUnitsFieldNext e z (omega: z < 4503599627370496))
@@ -178,7 +178,7 @@ theorem Float.Theory.magUnitsCarry (e: Nat):
       (Eq.trans (Eq.cong (t => Nat.pow 2 t * 4503599627370496) (Nat.addOne e))
         (ring: Nat.pow 2 e * 2 * 4503599627370496 = Nat.pow 2 e * 9007199254740992)))
 
--- A pattern as its exponent field and fraction.
+--| A pattern as its exponent field and fraction.
 theorem Float.Theory.magUnitsSplit (m: Nat) (e: Nat) (low: e * 4503599627370496 ≤ m)
     (high: m < e * 4503599627370496 + 4503599627370496):
     Float.Theory.magUnits m
@@ -222,7 +222,7 @@ theorem Float.Theory.magUnitsStepAcross (m: Nat) (e: Nat) (low: e * 450359962737
           = Nat.pow 2 (e - 1) * (m - e * 4503599627370496) + Nat.pow 2 (e - 1))
       ]
 
--- The next pattern has more units.
+--| The next pattern has more units.
 theorem Float.Theory.magUnitsStep (m: Nat): Float.Theory.magUnits m < Float.Theory.magUnits (Succ m) :=
   match c: Nat.equal (Succ m) (Nat.divFuel m m 4503599627370496 * 4503599627370496 + 4503599627370496) with
     | True =>
@@ -241,7 +241,7 @@ theorem Float.Theory.magUnitsAbove: (k: Nat) → (m: Nat) → Float.Theory.magUn
     Nat.lessTrans (Float.Theory.magUnits m) (Float.Theory.magUnits (Succ k + m)) (Float.Theory.magUnits (Succ (Succ k) + m))
       (Float.Theory.magUnitsAbove k m) (Float.Theory.magUnitsStep (Succ k + m))
 
--- `magUnits` is strictly increasing.
+--| `magUnits` is strictly increasing.
 theorem Float.Theory.magUnitsLess (m: Nat) (n: Nat) (h: m < n): Float.Theory.magUnits m < Float.Theory.magUnits n :=
   rewrite (omega: n = Succ (n - Succ m) + m) in Float.Theory.magUnitsAbove (n - Succ m) m
 
@@ -250,7 +250,7 @@ theorem Float.Theory.magUnitsLe (m: Nat) (n: Nat) (h: m ≤ n): Float.Theory.mag
     | True => rewrite Nat.equalSound m n c in Nat.leRefl (Float.Theory.magUnits n)
     | False => omega [Float.Theory.magUnitsLess m n (omega [Nat.equalFalse m n c])]
 
--- So it reflects order, and is injective.
+--| So it reflects order, and is injective.
 theorem Float.Theory.magUnitsLeReflect (m: Nat) (n: Nat) (h: Float.Theory.magUnits m ≤ Float.Theory.magUnits n): m ≤ n :=
   match c: Nat.leq m n with
     | True => omega [c]
@@ -259,8 +259,8 @@ theorem Float.Theory.magUnitsLeReflect (m: Nat) (n: Nat) (h: Float.Theory.magUni
 theorem Float.Theory.magUnitsInjective (m: Nat) (n: Nat) (e: Float.Theory.magUnits m = Float.Theory.magUnits n): m = n :=
   omega [Float.Theory.magUnitsLeReflect m n (omega [e]), Float.Theory.magUnitsLeReflect n m (omega [e])]
 
--- The pattern `e × 2^52 + q`, for `q ≤ 2^53` with its leading bit unless
--- `e` is 0, is `2^e × q` units.
+--| The pattern `e × 2^52 + q`, for `q ≤ 2^53` with its leading bit unless
+--| `e` is 0, is `2^e × q` units.
 theorem Float.Theory.magUnitsGrid (e: Nat) (q: Nat) (hq: q ≤ 9007199254740992)
     (lead: Or (e = 0) (4503599627370496 ≤ q)):
     Float.Theory.magUnits (e * 4503599627370496 + q) = Nat.pow 2 e * q :=
@@ -281,20 +281,20 @@ theorem Float.Theory.absDiffDef (a: Nat) (b: Nat): Nat.absDiff a b = (a - b) + (
 theorem Float.Theory.mulLtRight (a: Nat) (c: Nat) (d: Nat) (h: a < c) (pos: 0 < d): a * d < c * d :=
   omega [Nat.leMulRight (Succ a) c d h, (ring: Succ a * d = a * d + d)]
 
--- The pattern's last bit is 0.
+--| The pattern's last bit is 0.
 def Float.Theory.IsEven (n: Nat): Prop := Nat.equal (n - Nat.divFuel n n 2 * 2) 0 = True
 
 theorem Float.Theory.isEvenOf (n: Nat) (h: Nat) (e: n = h * 2): Float.Theory.IsEven n :=
   let d: Nat.divFuel n n 2 = h := Nat.divUnique n 2 h 0 rfl (omega [e])
   rewrite d, (omega [e]: n - h * 2 = 0) in rfl
 
--- Halfway between the largest finite double and 2^1024, in units: from
--- here on, a value rounds to infinity.
+--| Halfway between the largest finite double and 2^1024, in units: from
+--| here on, a value rounds to infinity.
 def Float.Theory.overflowUnits: Nat := Float.Model.pow2 2044 * 18014398509481983
 
--- What rounding `t / d` units to a magnitude pattern gives: at most
--- infinity's pattern, infinity exactly from the overflow threshold on, and
--- otherwise the nearest finite pattern, the even one of two equally near.
+--| What rounding `t / d` units to a magnitude pattern gives: at most
+--| infinity's pattern, infinity exactly from the overflow threshold on, and
+--| otherwise the nearest finite pattern, the even one of two equally near.
 type Float.Theory.RoundsTo (t: Nat) (d: Nat) (r: Nat): Prop = {
   bounded: r ≤ 9218868437227405312,
   overflow: r = 9218868437227405312 → d * Float.Theory.overflowUnits ≤ t,
@@ -306,11 +306,11 @@ type Float.Theory.RoundsTo (t: Nat) (d: Nat) (r: Nat): Prop = {
     → Float.Theory.IsEven r
 }
 
--- Infinity's pattern if `r` is at it or beyond, as `roundCore` clamps.
+--| Infinity's pattern if `r` is at it or beyond, as `roundCore` clamps.
 def Float.Theory.clamp (r: Nat): Nat := if Nat.leq 9218868437227405312 r then 9218868437227405312 else r
 
--- Between patterns `p` and `p + 1`, taking the lower: the value is at most
--- halfway, and even `p` at halfway. And taking the upper.
+--| Between patterns `p` and `p + 1`, taking the lower: the value is at most
+--| halfway, and even `p` at halfway. And taking the upper.
 def Float.Theory.PickLow (t: Nat) (b: Nat) (p: Nat) (r: Nat): Prop :=
   And (r = p)
     (And (t + t ≤ Float.Theory.magUnits p * b + Float.Theory.magUnits (Succ p) * b)
@@ -327,7 +327,7 @@ theorem Float.Theory.unitsAtLargest: Float.Theory.magUnits 9218868437227405311 =
 
 theorem Float.Theory.largestOdd: Not (Float.Theory.IsEven 9218868437227405311) := Bool.falseNotTrue
 
--- The threshold, times `b`, is halfway between the two patterns' values.
+--| The threshold, times `b`, is halfway between the two patterns' values.
 theorem Float.Theory.overflowHalf (b: Nat):
     Float.Theory.magUnits 9218868437227405311 * b + Float.Theory.magUnits 9218868437227405312 * b
       = b * Float.Theory.overflowUnits + b * Float.Theory.overflowUnits :=
@@ -351,7 +351,7 @@ theorem Float.Theory.infinityAbove (b: Nat):
     (Nat.leMulRight Float.Theory.overflowUnits (Float.Theory.magUnits 9218868437227405312) b rfl)
     (Nat.mulComm Float.Theory.overflowUnits b)
 
--- A pattern's value times `b`, against `p`'s.
+--| A pattern's value times `b`, against `p`'s.
 theorem Float.Theory.scaledLe (m: Nat) (p: Nat) (b: Nat) (h: m ≤ p):
     Float.Theory.magUnits m * b ≤ Float.Theory.magUnits p * b :=
   Nat.leMulRight (Float.Theory.magUnits m) (Float.Theory.magUnits p) b (Float.Theory.magUnitsLe m p h)
@@ -368,8 +368,8 @@ theorem Float.Theory.halfLess (x: Nat) (y: Nat) (z: Nat) (w: Nat) (e: x + y = z 
 
 theorem Float.Theory.notLessSelf (n: Nat) (h: n < n): Void := omega
 
--- Rounding between neighbouring patterns `p` and `p + 1`, at or past
--- infinity's pattern.
+--| Rounding between neighbouring patterns `p` and `p + 1`, at or past
+--| infinity's pattern.
 theorem Float.Theory.roundsToInfinity (t: Nat) (b: Nat) (p: Nat) (r: Nat) (pos: 0 < b)
     (low: Float.Theory.magUnits p * b ≤ t) (hr: 9218868437227405312 ≤ r)
     (pick: Or (Float.Theory.PickLow t b p r) (Float.Theory.PickHigh t b p r)):
@@ -511,7 +511,7 @@ theorem Float.Theory.roundsToFinite (t: Nat) (b: Nat) (p: Nat) (r: Nat) (pos: 0 
                       Float.Theory.scaledLess (Succ p) m b (omega [c, Nat.equalFalse m (Succ p) z]) pos
                     ])
   }
--- Rounding to one of two neighbouring patterns, clamped at infinity.
+--| Rounding to one of two neighbouring patterns, clamped at infinity.
 theorem Float.Theory.roundsToNeighbour (t: Nat) (b: Nat) (p: Nat) (r: Nat) (pos: 0 < b)
     (low: Float.Theory.magUnits p * b ≤ t) (high: t < Float.Theory.magUnits (Succ p) * b)
     (pick: Or (Float.Theory.PickLow t b p r) (Float.Theory.PickHigh t b p r)):
@@ -532,13 +532,13 @@ theorem Float.Theory.mulLeLeft (a: Nat) (c: Nat) (d: Nat) (h: a ≤ c): d * a �
 
 theorem Float.Theory.isEvenOfZero (n: Nat) (e: n - Nat.divFuel n n 2 * 2 = 0): Float.Theory.IsEven n := rewrite e in rfl
 
--- An even significand makes an even pattern.
+--| An even significand makes an even pattern.
 theorem Float.Theory.evenShift (e: Nat) (q: Nat) (h: Float.Theory.IsEven q): Float.Theory.IsEven (e * 4503599627370496 + q) :=
   Float.Theory.isEvenOf (e * 4503599627370496 + q) (e * 2251799813685248 + Nat.divFuel q q 2)
     (omega [Nat.equalSound (q - Nat.divFuel q q 2 * 2) 0 h])
 
--- What `roundsUp` decides: down when below halfway, or at it with `q`
--- even; up when above, or at it with `q` odd.
+--| What `roundsUp` decides: down when below halfway, or at it with `q`
+--| even; up when above, or at it with `q` odd.
 theorem Float.Theory.locateDown (q: Nat) (rem: Nat) (b: Nat) (pos: 0 < b) (h: Float.Model.roundsUp q (Float.Model.locate rem b) = False):
     Or (rem + rem < b) (And (rem + rem = b) (Float.Theory.IsEven q)) :=
   match c0: Nat.equal rem 0 with
@@ -569,8 +569,8 @@ theorem Float.Theory.locateUp (q: Nat) (rem: Nat) (b: Nat) (h: Float.Model.round
             | True => Void.exfalso (Bool.falseNotTrue h)
             | False => Inl (omega [c2])
 
--- `roundCore` rounds `2^e × (q + rem / b)` units, given the significand
--- range it assumes.
+--| `roundCore` rounds `2^e × (q + rem / b)` units, given the significand
+--| range it assumes.
 theorem Float.Theory.roundCoreAt (e: Nat) (top: Nat) (b: Nat) (q: Nat) (rem: Nat) (pos: 0 < b)
     (split: top = q * b + rem) (hr: rem < b) (hq: q < 9007199254740992)
     (lead: Or (e = 0) (4503599627370496 ≤ q)):
@@ -669,7 +669,7 @@ theorem Float.Theory.eqAcross (a: Nat) (b: Nat) (c: Nat) (d: Nat) (k1: Nat) (k2:
     Float.Theory.cancelLe b a k2 p2 (omega [ea, eb, Eq.cong (x => x * k1) h])
   ]
 
--- Rounding `t1 / d1` is rounding any equal fraction.
+--| Rounding `t1 / d1` is rounding any equal fraction.
 theorem Float.Theory.roundsToScale (t1: Nat) (d1: Nat) (t2: Nat) (d2: Nat) (r: Nat) (p1: 0 < d1) (p2: 0 < d2)
     (e: t1 * d2 = t2 * d1) (h: Float.Theory.RoundsTo t1 d1 r): Float.Theory.RoundsTo t2 d2 r := {
   bounded = h.bounded,
@@ -694,7 +694,7 @@ theorem Float.Theory.roundsToScale (t1: Nat) (d1: Nat) (t2: Nat) (d2: Nat) (r: N
 
 -- Scaling by 2^k
 
--- 2^k as a fraction `upPow k / downPow k` of whole numbers.
+--| 2^k as a fraction `upPow k / downPow k` of whole numbers.
 def Float.Theory.upPow: Int → Nat
   | OfNat k => Nat.pow 2 k
   | NegSucc k => 1
@@ -719,7 +719,7 @@ theorem Float.Theory.downPowPos: (k: Int) → 0 < Float.Theory.downPow k
   | OfNat k => rfl
   | NegSucc k => Nat.powSuccPos 1 (Succ k)
 
--- One step up doubles the fraction.
+--| One step up doubles the fraction.
 theorem Float.Theory.powStep: (m: Int) →
     Float.Theory.upPow m * Float.Theory.downPow (Int.add m (OfNat 1)) * 2
       = Float.Theory.upPow (Int.add m (OfNat 1)) * Float.Theory.downPow m
@@ -736,7 +736,7 @@ theorem Float.Theory.powChain (p: Nat) (q: Nat) (r: Nat) (s: Nat) (u: Nat) (v: N
       (Eq.trans (ring: u * v * (q * 2) = v * (u * q * 2))
         (Eq.trans (Eq.cong (x => v * x) step) (ring: v * (w * s) = s * (w * v)))))
 
--- `j` steps up multiply it by 2^j.
+--| `j` steps up multiply it by 2^j.
 theorem Float.Theory.powShift (k: Int): (j: Nat) →
     Float.Theory.upPow k * Float.Theory.downPow (Int.add k (OfNat j)) * Nat.pow 2 j
       = Float.Theory.upPow (Int.add k (OfNat j)) * Float.Theory.downPow k
@@ -762,7 +762,7 @@ theorem Float.Theory.quotAtLeast (q: Nat) (b: Nat) (t: Nat) (k: Nat) (high: t < 
     | False =>
       Void.exfalso
         (omega [high, h, Nat.leMulRight (Succ q) k b (omega [c]), (ring: b * k = k * b)])
--- `roundMagnitude`'s last step, at exponent `e` and shift `sh`.
+--| `roundMagnitude`'s last step, at exponent `e` and shift `sh`.
 def Float.Theory.roundAt (n: Nat) (den: Nat) (e: Nat) (sh: Int): Nat :=
   let top: Nat := Float.Model.scaleUp n sh
   let bottom: Nat := Float.Model.scaleDown den sh
@@ -771,8 +771,8 @@ def Float.Theory.roundAt (n: Nat) (den: Nat) (e: Nat) (sh: Int): Nat :=
 
 -- Choosing the exponent
 
--- Cross-multiplied steps between fractions `nk / dk` at neighbouring
--- scales.
+--| Cross-multiplied steps between fractions `nk / dk` at neighbouring
+--| scales.
 theorem Float.Theory.halveLow (nc: Nat) (dc: Nat) (nh: Nat) (dh: Nat) (pos: 0 < dc) (rel: nh * dc * 2 = nc * dh)
     (h: dc * 9007199254740992 ≤ nc): dh * 4503599627370496 ≤ nh :=
   Float.Theory.cancelLe (dh * 4503599627370496) nh (dc * 2) (omega [pos])
@@ -801,8 +801,8 @@ theorem Float.Theory.lowerHigh (na: Nat) (da: Nat) (nb: Nat) (db: Nat) (p: Nat) 
       (ring: db * 9007199254740992 * da = da * 9007199254740992 * db)
     ])
 
--- At `c = bitLength den + 53 - bitLength n`, `n / den × 2^c` is between
--- 2^52 and 2^54.
+--| At `c = bitLength den + 53 - bitLength n`, `n / den × 2^c` is between
+--| 2^52 and 2^54.
 theorem Float.Theory.firstLow (n: Nat) (den: Nat) (u: Nat) (v: Nat) (a: Nat) (dd: Nat) (pa: 0 < a) (pv: 0 < v)
     (rel: u * a = dd * 9007199254740992 * v) (ba: a ≤ n + n) (bd: den < dd):
     den * v * 4503599627370496 < n * u :=
@@ -838,7 +838,7 @@ theorem Float.Theory.subNatNatCancel (x: Nat) (a: Nat): Int.subNatNat (x + a) a 
   rewrite (omega: x + a - a = x) in
   rfl
 
--- `2^E × top / bottom` at `shift + E = s` is `n / den × 2^s`.
+--| `2^E × top / bottom` at `shift + E = s` is `n / den × 2^s`.
 theorem Float.Theory.shiftCross (n: Nat) (den: Nat) (u: Nat) (v: Nat) (us: Nat) (vs: Nat) (x: Nat)
     (rel: u * vs * x = us * v): x * (n * u) * (den * vs) = n * us * (den * v) :=
   Eq.trans (ring: x * (n * u) * (den * vs) = n * den * (u * vs * x))
@@ -878,7 +878,7 @@ theorem Float.Theory.crossTwo (n: Nat) (den: Nat) (u: Nat) (v: Nat) (us: Nat) (v
     (rel: u * vs * x = us * v): n * u * (den * vs) * x = n * us * (den * v) :=
   Eq.trans (ring: n * u * (den * vs) * x = x * (n * u) * (den * vs)) (Float.Theory.shiftCross n den u v us vs x rel)
 
--- The exponent and shift for a scale `c'` at which `n / den` has 53 bits.
+--| The exponent and shift for a scale `c'` at which `n / den` has 53 bits.
 theorem Float.Theory.afterExponent (n: Nat) (den: Nat) (s: Int) (c: Int) (pn: 0 < n) (pd: 0 < den)
     (lo: den * Float.Theory.downPow c * 4503599627370496 ≤ n * Float.Theory.upPow c)
     (hi: n * Float.Theory.upPow c < den * Float.Theory.downPow c * 9007199254740992):
@@ -906,8 +906,8 @@ theorem Float.Theory.afterExponent (n: Nat) (den: Nat) (s: Int) (c: Int) (pn: 0 
           hi)
         (Inl rfl)
 
--- `roundMagnitude` rounds `n / den × 2^s` units, for positive `n` and
--- `den`.
+--| `roundMagnitude` rounds `n / den × 2^s` units, for positive `n` and
+--| `den`.
 theorem Float.Theory.roundMagnitudeSpec (n: Nat) (den: Nat) (s: Int) (pn: 0 < n) (pd: 0 < den):
     Float.Theory.RoundsTo (Float.Model.scaleUp n s) (Float.Model.scaleDown den s) (Float.Model.roundMagnitude False n den s) :=
   let a: Nat := Float.Model.bitLength n
@@ -967,7 +967,7 @@ theorem Float.Theory.notEvenBoth (n: Nat) (a: Float.Theory.IsEven n) (b: Float.T
 
 theorem Float.Theory.orderAbsurd (x: Nat) (t1: Nat) (t2: Nat) (a: x ≤ t1) (b: t2 < x) (le: t1 ≤ t2): Void := omega
 
--- Two roundings with the same denominator keep the order of the values.
+--| Two roundings with the same denominator keep the order of the values.
 theorem Float.Theory.roundsToMono (t1: Nat) (t2: Nat) (d: Nat) (r1: Nat) (r2: Nat) (pd: 0 < d)
     (h1: Float.Theory.RoundsTo t1 d r1) (h2: Float.Theory.RoundsTo t2 d r2) (le: t1 ≤ t2): r1 ≤ r2 :=
   match c: Nat.leq r1 r2 with
@@ -1019,9 +1019,9 @@ theorem Float.Theory.roundsToMono (t1: Nat) (t2: Nat) (d: Nat) (r1: Nat) (r2: Na
 
 -- `roundRatio`
 
--- Its three cases: a zero numerator gives the zero with sign `z`, a
--- positive one the rounded magnitude, a negative one that with the sign
--- bit.
+--| Its three cases: a zero numerator gives the zero with sign `z`, a
+--| positive one the rounded magnitude, a negative one that with the sign
+--| bit.
 theorem Float.Theory.roundRatioZeroNum (den: Nat) (scale: Int) (z: Bool):
     Float.Model.roundRatio (OfNat 0) den scale z = Float.Model.zeroBits z :=
   rfl
@@ -1044,7 +1044,7 @@ theorem Float.Theory.magnitudeBound (n: Nat) (den: Nat) (s: Int) (pn: 0 < n) (pd
     Float.Model.roundMagnitude False n den s ≤ 9218868437227405312 :=
   (Float.Theory.roundMagnitudeSpec n den s pn pd).bounded
 
--- A larger numerator rounds to a pattern at least as large.
+--| A larger numerator rounds to a pattern at least as large.
 theorem Float.Theory.magnitudeMono (n1: Nat) (n2: Nat) (den: Nat) (s: Int) (pn: 0 < n1) (pd: 0 < den) (h: n1 ≤ n2):
     Float.Model.roundMagnitude False n1 den s ≤ Float.Model.roundMagnitude False n2 den s :=
   Float.Theory.roundsToMono (Float.Model.scaleUp n1 s) (Float.Model.scaleUp n2 s) (Float.Model.scaleDown den s)
@@ -1067,7 +1067,7 @@ theorem Float.Theory.roundRatioValid (den: Nat) (scale: Int) (z: Bool) (pd: 0 < 
       (omega)
       (omega [Float.Theory.magnitudeBound (Succ k) den (Int.add scale (OfNat 1074)) rfl pd])
 
--- Keys in the total order.
+--| Keys in the total order.
 theorem Float.Theory.keyLow (m: Nat) (h: m ≤ 9218868437227405312):
     Float.keyOf m (Nat.leq 9223372036854775808 m) = OfNat m :=
   rewrite (omega [h]: Nat.leq 9223372036854775808 m = False) in rfl
@@ -1080,7 +1080,7 @@ theorem Float.Theory.leqVia (a: Int) (b: Int) (c: Int) (d: Int) (ea: a = c) (eb:
     Int.leq a b = True :=
   rewrite ea, eb in h
 
--- The key of a rounding.
+--| The key of a rounding.
 def Float.Theory.roundKey (num: Int) (den: Nat) (scale: Int) (z: Bool): Int :=
   Float.keyOf (Float.Model.roundRatio num den scale z) (Nat.leq 9223372036854775808 (Float.Model.roundRatio num den scale z))
 
@@ -1095,8 +1095,8 @@ theorem Float.Theory.roundKeyNeg (k: Nat) (den: Nat) (scale: Int) (z: Bool):
       = NegSucc (Float.Model.roundMagnitude False (Succ k) den (Int.add scale (OfNat 1074))) :=
   Float.Theory.keyHigh (Float.Model.roundMagnitude False (Succ k) den (Int.add scale (OfNat 1074)))
 
--- A zero numerator's key is -1 or 0, below every positive one's and above
--- every negative one's.
+--| A zero numerator's key is -1 or 0, below every positive one's and above
+--| every negative one's.
 theorem Float.Theory.roundKeyZeroLe (den: Nat) (scale: Int) (z: Bool) (m: Nat):
     Int.leq (Float.Theory.roundKey (OfNat 0) den scale z) (OfNat m) = True :=
   match z with
@@ -1109,7 +1109,7 @@ theorem Float.Theory.roundKeyZeroGe (den: Nat) (scale: Int) (z: Bool) (m: Nat):
     | True => rfl
     | False => rfl
 
--- A smaller numerator rounds to a double no greater, whatever the zero signs.
+--| A smaller numerator rounds to a double no greater, whatever the zero signs.
 theorem Float.Theory.roundKeyMono (den: Nat) (scale: Int) (z1: Bool) (z2: Bool) (pd: 0 < den):
     (num1: Int) → (num2: Int) → Int.less num1 num2 = True
       → Int.leq (Float.Theory.roundKey num1 den scale z1) (Float.Theory.roundKey num2 den scale z2) = True
@@ -1167,7 +1167,7 @@ theorem Float.Theory.zeroOrPos: (m: Nat) → Or (m = 0) (0 < m)
   | Zero => Inl rfl
   | Succ k => Inr rfl
 
--- Rounding a finite pattern's own units gives that pattern.
+--| Rounding a finite pattern's own units gives that pattern.
 theorem Float.Theory.roundsToExact (m: Nat) (r: Nat) (hm: m < 9218868437227405312)
     (spec: Float.Theory.RoundsTo (Float.Theory.magUnits m * 1) 1 r): r = m :=
   match c: Nat.leq 9218868437227405312 r with
@@ -1225,7 +1225,7 @@ theorem Float.Theory.splitBits (bits: Nat):
     | True => omega [c]
     | False => rfl
 
--- A finite pattern: its magnitude is below infinity's.
+--| A finite pattern: its magnitude is below infinity's.
 def Float.Theory.FiniteBits (bits: Nat): Prop := Float.Model.magnitude bits < 9218868437227405312
 
 theorem Float.Theory.roundRatioUnitsBits (bits: Nat) (fin: Float.Theory.FiniteBits bits):
@@ -1256,8 +1256,8 @@ theorem Float.Theory.ifTrue (c: Bool) (x: Nat) (y: Nat) (h: c = True): (if c the
 
 theorem Float.Theory.ifFalse (c: Bool) (x: Nat) (y: Nat) (h: c = False): (if c then x else y) = y := rewrite h in rfl
 
--- `addBits`'s branches past the NaN check: an infinite first argument,
--- and two finite ones.
+--| `addBits`'s branches past the NaN check: an infinite first argument,
+--| and two finite ones.
 def Float.Theory.addInf (a: Nat) (b: Nat): Nat :=
   if Float.Model.isInfinite b ∧ ¬(Nat.equal a b) then 9221120237041090560 else a
 
@@ -1303,7 +1303,7 @@ theorem Float.Theory.addRestFin (a: Nat) (b: Nat) (ha: Float.Model.isInfinite a 
 
 theorem Float.Theory.orFalse (x: Bool) (y: Bool) (hx: x = False) (hy: y = False): (x ∨ y) = False := rewrite hx, hy in rfl
 
--- A valid pattern that is neither the NaN nor infinite is finite.
+--| A valid pattern that is neither the NaN nor infinite is finite.
 theorem Float.Theory.finiteOf (a: Nat) (v: Float.isValid a = True) (na: Float.Model.isNaN a = False)
     (ia: Float.Model.isInfinite a = False): Float.Theory.FiniteBits a :=
   match Float.Theory.boolCases (Nat.leq 9223372036854775808 a) with
@@ -1311,7 +1311,7 @@ theorem Float.Theory.finiteOf (a: Nat) (v: Float.isValid a = True) (na: Float.Mo
       omega [Float.highBound a v (omega [c]), c, (rewrite c in rfl: Float.Model.magnitude a = a - 9223372036854775808), Nat.equalFalse (Float.Model.magnitude a) 9218868437227405312 ia]
     | Inr c => omega [Float.lowBound a v na c, c, (rewrite c in rfl: Float.Model.magnitude a = a), Nat.equalFalse (Float.Model.magnitude a) 9218868437227405312 ia]
 
--- `addFin` is `addBits` with neither argument the NaN nor infinite.
+--| `addFin` is `addBits` with neither argument the NaN nor infinite.
 theorem Float.Theory.addFiniteBits (a: Nat) (b: Nat) (na: Float.Model.isNaN a = False) (nb: Float.Model.isNaN b = False)
     (ia: Float.Model.isInfinite a = False) (ib: Float.Model.isInfinite b = False):
     Float.Model.addBits a b
@@ -1337,8 +1337,8 @@ theorem Float.Theory.addInfComm (a: Nat) (b: Nat) (ia: Float.Model.isInfinite a 
       Eq.trans (rewrite ib, e in rfl: Float.Theory.addInf a b = 9221120237041090560)
         (Eq.sym (rewrite ia, Eq.trans (Nat.equalComm b a) e in rfl: Float.Theory.addInf b a = 9221120237041090560))
 
--- A case split that leaves the goal as it is, for goals that are costly to
--- search.
+--| A case split that leaves the goal as it is, for goals that are costly to
+--| search.
 theorem Float.Theory.orCase [p: Prop] [q: Prop] [goal: Prop] (h: Or p q) (l: p → goal) (r: q → goal): goal :=
   match h with
     | Inl a => l a
@@ -1395,7 +1395,7 @@ theorem Float.Theory.keySet (a: Nat) (c: Nat.leq 9223372036854775808 a = True):
 theorem Float.Theory.keyClear (a: Nat) (c: Nat.leq 9223372036854775808 a = False): Float.Theory.key a = OfNat a :=
   rewrite c in rfl
 
--- Every valid pattern's key is at most the NaN's.
+--| Every valid pattern's key is at most the NaN's.
 theorem Float.Theory.keyLeNaN (a: Nat) (v: Float.isValid a = True):
     Int.leq (Float.Theory.key a) (Float.Theory.key 9221120237041090560) = True :=
   Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 9223372036854775808 a))
@@ -1407,7 +1407,7 @@ theorem Float.Theory.keyLeNaN (a: Nat) (v: Float.isValid a = True):
         (e => (omega [Nat.equalSound a 9221120237041090560 e]: Nat.leq a 9221120237041090560 = True))
         (e => (omega [Float.lowBound a v e c]: Nat.leq a 9221120237041090560 = True))))
 
--- A finite pattern's key is below +infinity's.
+--| A finite pattern's key is below +infinity's.
 theorem Float.Theory.keyLeInf (a: Nat) (fin: Float.Theory.FiniteBits a):
     Int.leq (Float.Theory.key a) (OfNat 9218868437227405312) = True :=
   Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 9223372036854775808 a))
@@ -1417,7 +1417,7 @@ theorem Float.Theory.keyLeInf (a: Nat) (fin: Float.Theory.FiniteBits a):
       (Float.Theory.keyClear a c) rfl
       (omega [fin, (rewrite c in rfl: Float.Model.magnitude a = a)]: Nat.leq a 9218868437227405312 = True))
 
--- Both zeros' keys are at most `0.0`'s.
+--| Both zeros' keys are at most `0.0`'s.
 theorem Float.Theory.zeroLeZeroBits (a: Nat) (h: Or (a = 0) (a = 9223372036854775808)):
     Int.leq (Float.Theory.key a) (OfNat 0) = True :=
   match h with
@@ -1431,7 +1431,7 @@ theorem Float.Theory.signedZero: (s: Bool) → (x: Nat) → Int.signed s x = OfN
   | True, Zero, h => rfl
   | True, Succ k, h => Void.exfalso (Int.negSuccNotOfNat k 0 h)
 
--- A pattern with no units is a zero.
+--| A pattern with no units is a zero.
 theorem Float.Theory.unitsZeroIsZeroBits (a: Nat) (h: Float.Model.units a = OfNat 0): Or (a = 0) (a = 9223372036854775808) :=
   let m0: Float.Model.magnitude a = 0 :=
     Float.Theory.magUnitsInjective (Float.Model.magnitude a) 0
@@ -1452,14 +1452,14 @@ theorem Float.Theory.unitsZeroIsZeroBits (a: Nat) (h: Float.Model.units a = OfNa
             (Float.Theory.splitBits a) s: a = Float.Model.magnitude a)
         ]))
 
--- Both zeros have no units.
+--| Both zeros have no units.
 theorem Float.Theory.unitsZeroBits (a: Nat) (h: Or (a = 0) (a = 9223372036854775808)): Float.Model.units a = OfNat 0 :=
   match h with
     | Inl e => J (y w => Float.Model.units y = OfNat 0) rfl (Eq.sym e)
     | Inr e => J (y w => Float.Model.units y = OfNat 0) rfl (Eq.sym e)
 
--- The zero sign matters only for a zero
--- numerator.
+--| The zero sign matters only for a zero
+--| numerator.
 theorem Float.Theory.roundRatioSignIrrelevant (den: Nat) (scale: Int) (z1: Bool) (z2: Bool):
     (num: Int) → Not (num = OfNat 0) → Float.Model.roundRatio num den scale z1 = Float.Model.roundRatio num den scale z2
   | OfNat Zero, ne => Void.exfalso (ne rfl)
@@ -1486,7 +1486,7 @@ theorem Float.Theory.orRightFalse: (x: Bool) → (y: Bool) → (x ∨ y) = False
   | x, True, h => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (Bool.orTrue x)) h))
   | x, False, h => rfl
 
--- The result of `addBits` is a valid pattern.
+--| The result of `addBits` is a valid pattern.
 theorem Float.Theory.addBitsValid (a: Nat) (b: Nat) (va: Float.isValid a = True) (vb: Float.isValid b = True):
     Float.isValid (Float.Model.addBits a b) = True :=
   Float.Theory.orCase (Float.Theory.boolCases (Float.Model.isNaN a ∨ Float.Model.isNaN b))
@@ -1509,8 +1509,8 @@ theorem Float.Theory.addBitsValid (a: Nat) (b: Nat) (va: Float.isValid a = True)
                   (Float.Theory.roundRatioValid 1 (-1074) (Float.Model.signBit a ∧ Float.Model.signBit b) rfl
                     (Int.add (Float.Model.units a) (Float.Model.units b)))))))
 
--- The trigger law on patterns: adding a pattern with the sign bit clear
--- never moves down the total order.
+--| The trigger law on patterns: adding a pattern with the sign bit clear
+--| never moves down the total order.
 theorem Float.Theory.addFinMono (a: Nat) (b: Nat) (fa: Float.Theory.FiniteBits a) (sb: Nat.leq 9223372036854775808 b = False):
     Int.leq (Float.Theory.key a) (Float.Theory.key (Float.Theory.addFin a b)) = True :=
   let ub: Float.Model.units b = OfNat (Float.Theory.magUnits b) := rewrite sb in rfl
@@ -1611,7 +1611,7 @@ theorem Float.Theory.addNegZeroBits (a: Nat) (va: Float.isValid a = True): Float
                   (Int.addZero (Float.Model.units a)) (Float.Theory.andTrueRight (Float.Model.signBit a)))
                 (Float.Theory.roundRatioUnitsBits a (Float.Theory.finiteOf a va n ia))))))
 
--- Reading a valid pattern back.
+--| Reading a valid pattern back.
 theorem Float.Theory.ofBitsFromBits (b: Nat): (c: Bool) → (h: Float.isValid b = c) → c = True → (Float.ofBitsFrom b c h).bits = b
   | True, h, e => rfl
   | False, h, e => Void.exfalso (Bool.falseNotTrue e)
@@ -1643,7 +1643,7 @@ theorem Float.Theory.finiteNotInfinite (a: Nat) (fin: Float.Theory.FiniteBits a)
   Bool.falseOfNotTrue (Float.Model.isInfinite a)
     (h => omega [fin, Nat.equalSound (Float.Model.magnitude a) 9218868437227405312 h])
 
--- The patterns of a zero.
+--| The patterns of a zero.
 theorem Float.Theory.zeroBits (x: Float) (h: Float.isZero x = True): Or (x.bits = 0) (x.bits = 9223372036854775808) :=
   Float.Theory.orCase (Float.Theory.boolCases (Nat.equal x.bits 0))
     (e => Inl (Nat.equalSound x.bits 0 e))
@@ -1657,7 +1657,7 @@ theorem Float.Theory.zeroOfBits (x: Float) (h: Or (x.bits = 0) (x.bits = 9223372
     | Inl e => J (y w => (Nat.equal y 0 ∨ Nat.equal y 9223372036854775808) = True) rfl (Eq.sym e)
     | Inr e => J (y w => (Nat.equal y 0 ∨ Nat.equal y 9223372036854775808) = True) rfl (Eq.sym e)
 
--- A zero has no units.
+--| A zero has no units.
 theorem Float.Theory.unitsZero (x: Float) (h: Float.isZero x = True): Float.Theory.units x = OfNat 0 :=
   Float.Theory.unitsZeroBits x.bits (Float.Theory.zeroBits x h)
 
@@ -1665,14 +1665,14 @@ test "Float.Theory.unitsZero" :=
   Float.Theory.units 0.0 == OfNat 0 ∧ Float.Theory.units (-0.0) == OfNat 0 ∧ Float.Theory.units 5e-324 == OfNat 1
     ∧ Float.Theory.units (-5e-324) == NegSucc 0
 
--- A double with no units is a zero.
+--| A double with no units is a zero.
 theorem Float.Theory.unitsZeroIsZero (x: Float) (h: Float.Theory.units x = OfNat 0): Float.isZero x = True :=
   Float.Theory.zeroOfBits x (Float.Theory.unitsZeroIsZeroBits x.bits h)
 
 test "Float.Theory.unitsZeroIsZero" :=
   Float.isZero (-0.0) ∧ ¬(Float.Theory.units 5e-324 == OfNat 0) ∧ ¬(Float.Theory.units (-5e-324) == OfNat 0)
 
--- A double above `0.0` has positive units.
+--| A double above `0.0` has positive units.
 theorem Float.Theory.unitsPositive (x: Float) (h: 0.0 < x): Int.less (OfNat 0) (Float.Theory.units x) = True :=
   Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 9223372036854775808 x.bits))
     (c => Void.exfalso (Bool.falseNotTrue (J (y w => Int.less (OfNat 0) (Float.keyOf x.bits y) = True) h c)))
@@ -1687,8 +1687,8 @@ test "Float.Theory.unitsPositive" :=
   Float.Theory.units 5e-324 == OfNat 1 ∧ Float.Theory.units 1.0 == OfNat (Float.Model.pow2 1074)
     ∧ Float.Theory.units 1.7976931348623157e308 == OfNat (Float.Model.pow2 2045 * 9007199254740991)
 
--- Rounding a finite double's units, with its own sign for a zero, gives it
--- back.
+--| Rounding a finite double's units, with its own sign for a zero, gives it
+--| back.
 theorem Float.Theory.roundRatioUnits (x: Float) (fin: Float.isFinite x = True):
     Float.ofBits (Float.Model.roundRatio (Float.Theory.units x) 1 (-1074) (Float.Model.signBit x.bits)) = x :=
   Float.bitsExt (Float.ofBits (Float.Model.roundRatio (Float.Theory.units x) 1 (-1074) (Float.Model.signBit x.bits))) x
@@ -1716,7 +1716,7 @@ test "Float.Theory.roundRatioZero" :=
   Float.ofBits (Float.Model.roundRatio (OfNat 0) 7 (-1074) False) == 0.0
     ∧ Float.ofBits (Float.Model.roundRatio (OfNat 0) 7 (-1074) True) == -0.0
 
--- Rounding is strictly monotone in the numerator, for any zero signs.
+--| Rounding is strictly monotone in the numerator, for any zero signs.
 theorem Float.Theory.roundRatioStrictMono (den: Nat) (scale: Int) (z1: Bool) (z2: Bool) (pd: 0 < den) (num1: Int) (num2: Int)
     (lt: Int.less num1 num2 = True):
     Float.ofBits (Float.Model.roundRatio num1 den scale z1) <= Float.ofBits (Float.Model.roundRatio num2 den scale z2) :=
@@ -1729,15 +1729,15 @@ theorem Float.Theory.roundRatioStrictMono (den: Nat) (scale: Int) (z1: Bool) (z2
       (Float.Theory.ofBitsBits (Float.Model.roundRatio num2 den scale z2) (Float.Theory.roundRatioValid den scale z2 pd num2)))
     (Float.Theory.roundKeyMono den scale z1 z2 pd num1 num2 lt)
 
--- The non-strict form is false: equal numerators of `0` differ by the sign.
+--| The non-strict form is false: equal numerators of `0` differ by the sign.
 test "Float.Theory.roundRatioStrictMono" :=
   Float.ofBits (Float.Model.roundRatio (NegSucc 0) 1 (-1074) False) <= Float.ofBits (Float.Model.roundRatio (OfNat 0) 1 (-1074) True)
     ∧ Float.ofBits (Float.Model.roundRatio (OfNat 0) 1 (-1074) True) <= Float.ofBits (Float.Model.roundRatio (OfNat 1) 3 (-1074) True)
     ∧ Float.ofBits (Float.Model.roundRatio (OfNat 1) 3 (-1074) False) <= Float.ofBits (Float.Model.roundRatio (OfNat 2) 3 (-1074) False)
     ∧ ¬(Float.ofBits (Float.Model.roundRatio (OfNat 0) 1 (-1074) False) <= Float.ofBits (Float.Model.roundRatio (OfNat 0) 1 (-1074) True))
 
--- The sum of two finite doubles: their units' sum, rounded, with `-0.0` only
--- when both are negative.
+--| The sum of two finite doubles: their units' sum, rounded, with `-0.0` only
+--| when both are negative.
 theorem Float.Theory.addFinite: (x: Float) → (y: Float) → Float.isFinite x = True → Float.isFinite y = True
     → x + y
     = Float.ofBits
@@ -1756,7 +1756,7 @@ test "Float.Theory.addFinite" :=
     ∧ 1.7976931348623157e308 + 1.7976931348623157e308 == Float.infinity
     ∧ 5e-324 + 5e-324 == Float.ofBits 2
 
--- A zero is at most `0.0`.
+--| A zero is at most `0.0`.
 theorem Float.Theory.zeroLeZero (x: Float) (h: Float.isZero x = True): x <= 0.0 :=
   Float.Theory.zeroLeZeroBits x.bits (Float.Theory.zeroBits x h)
 
@@ -1764,8 +1764,8 @@ test "Float.Theory.zeroLeZero" := -0.0 <= 0.0 ∧ 0.0 <= 0.0 ∧ ¬(0.0 <= -0.0)
 
 -- The laws
 
--- Adding a non-negative double never moves down the total order, for every
--- `s` and `d`, the NaN and infinities included.
+--| Adding a non-negative double never moves down the total order, for every
+--| `s` and `d`, the NaN and infinities included.
 theorem Float.addMonotoneRight: (s: Float) → (d: Float) → 0.0 <= d → s <= s + d
   | { bits = a, valid = p }, { bits = b, valid = q }, h =>
     J (y w => Int.leq (Float.Theory.key a) (Float.Theory.key y) = True)
@@ -1778,12 +1778,12 @@ test "Float.addMonotoneRight" :=
     ∧ -Float.infinity <= -Float.infinity + Float.infinity ∧ Float.infinity <= Float.infinity + 1.0
     ∧ Float.nan <= Float.nan + 1.0 ∧ 1.0 <= 1.0 + Float.nan ∧ -1.0 <= -1.0 + Float.nan ∧ -2.0 <= -2.0 + Float.infinity
 
--- `x <= y → x + z <= y + z` is false: `-infinity <= 0.0`, but with `z =
--- +infinity` the left side is the NaN, above `+infinity`.
+--| `x <= y → x + z <= y + z` is false: `-infinity <= 0.0`, but with `z =
+--| +infinity` the left side is the NaN, above `+infinity`.
 test "adding to both sides of `<=` is not monotone" :=
   -Float.infinity <= 0.0 ∧ ¬(-Float.infinity + Float.infinity <= 0.0 + Float.infinity)
 
--- `0.0 <= d → s - d <= s` is false at `d = NaN`.
+--| `0.0 <= d → s - d <= s` is false at `d = NaN`.
 test "subtracting a non-negative double can go up" := 0.0 <= Float.nan ∧ ¬(1.0 - Float.nan <= 1.0)
 
 theorem Float.addComm: (x: Float) → (y: Float) → x + y = y + x
@@ -1800,7 +1800,7 @@ test "Float.subAddNeg" :=
   1.0 - 0.0 == 1.0 + (-0.0) ∧ 0.0 - 0.0 == 0.0 + (-0.0) ∧ Float.infinity - Float.infinity == Float.infinity + (-Float.infinity)
     ∧ 1.0 - Float.nan == 1.0 + (-Float.nan) ∧ 5e-324 - 5e-324 == 5e-324 + (-5e-324)
 
--- `x + (-0.0)` is `x`, zeros included.
+--| `x + (-0.0)` is `x`, zeros included.
 theorem Float.addNegZero: (x: Float) → x + (-0.0) = x
   | { bits = a, valid = p } =>
     Float.bitsExt (Float.ofBits (Float.Model.addBits a 9223372036854775808)) { bits = a, valid = p }
@@ -1814,8 +1814,8 @@ test "Float.addNegZero" :=
     ∧ Float.infinity + (-0.0) == Float.infinity ∧ (-Float.infinity) + (-0.0) == -Float.infinity
     ∧ (Float.nan + (-0.0)).bits == Float.nan.bits
 
--- `x + 0.0 = x` is false at `x = -0.0`.
+--| `x + 0.0 = x` is false at `x = -0.0`.
 test "adding 0.0 is not the identity" := ¬((-0.0) + 0.0 == -0.0)
 
--- `-(x + y) = (-x) + (-y)` is false at `x = 0.0`, `y = -0.0`.
+--| `-(x + y) = (-x) + (-y)` is false at `x = 0.0`, `y = -0.0`.
 test "negation does not distribute over addition" := ¬(-(0.0 + (-0.0)) == (-0.0) + 0.0)
