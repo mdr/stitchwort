@@ -11,9 +11,11 @@ repository (github.com/mdr/aoc, `src/main/resources/aoc2021/`), committed in
 From day 5 on, a day whose correctness theorems assume something the
 puzzle promises (every line at one of three angles, every timer at most 8)
 also proves that its parser guarantees it, and states the answers'
-theorems about the parsed input with no hypothesis left. Days 5, 6 and 8
-do; day 9's answers need no promise at all, and its parser's guarantees
-(digits, a rectangle) are proved anyway. The pattern:
+theorems about the parsed input with no hypothesis left. Days 5, 6, 8
+and 12 do (day 12's promise, that no passage joins two big caves, is one
+the puzzle leaves unsaid); day 9's answers need no promise at all, and
+its parser's guarantees (digits, a rectangle) are proved anyway. The
+pattern:
 
 - **"A successful parse"** is `Fail.toResult (() => parse input) = Ok xs`:
   the parser is `{Fail}` code, and `Fail.toResult` is std's handler that
@@ -2529,3 +2531,293 @@ Release build:
    `Fail`, hiding `Ok (map …)` from proofs (item 3).
 5. A reusable least-fixed-point toolkit would cover most of Cascade.sw
    (item 2).
+
+## Day 12: Passage Pathing
+
+A map of caves joined by passages, one per line (`start-A`). Caves named
+in capitals are big, the others small. Part 1 counts the paths from
+`start` to `end` that visit no small cave more than once; big caves may be
+visited any number of times. Part 2 lets one small cave (not `start` or
+`end`) be visited twice. Answers on Matt's input (24 passages): 3510 and
+122880 (his Scala solution's); the puzzle's first example gives 10 and 36,
+and its ten part 1 paths are a test. Compiler: the installed release
+build of `main`, 1 November 2026.
+
+### The program
+
+Passages are `(Text, Text)` pairs. `isBig` says a name starts with a
+capital. The program builds a table of each cave's neighbours once
+(`neighbourTable`, a list of pairs looked up with `List.lookup`), then
+lists the routes from `start` by a depth-first search (`routesFrom`) and
+counts them. The search state is the small caves not yet visited
+(`start` and `end` aside) and whether the second visit is still spare
+(part 1 starts without it, part 2 with it). One step is a pure function,
+`step`, which says whether moving to a neighbour ends the path (`end`),
+is not allowed (`start`; a small cave already visited with no spare
+visit; a big cave from a big cave), or goes on with the new state. Both
+answers were right on the first run.
+
+The search is bounded: it goes at most `3 * (small caves) + 4` steps
+deep, and the proofs show that is enough (`reach` goes down by at least 1
+each step). It was first written with `decreasing` on the same measure;
+item 4 says why it isn't. It also counted instead of listing (1.3 s
+instead of 2.0 s for both parts); item 4 again.
+
+The parser reads `name-name` with `takeWhile1` on letters, then checks
+(`checkPassages`, with a pure `firstBigPair`, as in the D2108 pattern)
+that no passage joins two big caves, failing with "line 2: A-BC joins two
+big caves, so there would be no end to the paths".
+
+**The spec** (Spec/Spec.sw) uses the program's `isBig` and says the rest
+in the puzzle's terms. Two caves are `connected` when a line names them,
+either way round. A path is a list of caves, each `connected` to the
+next (`followsPassages`, over `zipWithNext`), whose first is `start` and
+last is `end` (`startToEnd`). `visits path cave` counts a cave in a path.
+Part 1's rule (`SmallOnce`): every small cave is visited at most once.
+Part 2's (`OneSmallTwice`): every small cave at most twice, no two small
+caves twice or more, and `start` and `end` exactly once each. The answer
+is `PathCount isPath n`: a list of `n` paths, without repeats, holding
+exactly the paths that satisfy `isPath`.
+
+**The assumption.** The count is finite only if no passage joins two big
+caves; otherwise a path can walk between them for ever. The puzzle never
+says so. In full, `NoBigNeighbours passages` is: for all caves `a` and
+`b`, if `connected passages a b = True` and `isBig a = True`, then
+`isBig b = False` (so also no passage from a big cave to itself). The
+answers' theorems take it as a hypothesis, the parser checks it, and the
+theorems from the input have no hypothesis but the successful parse.
+
+### Proved
+
+In `Aoc.Year2021.Day12.Proofs` (Proofs/Steps.sw, Neighbours.sw,
+Routes.sw, Rules.sw, Parts.sw, Parse.sw, 807 lines):
+
+- `part1Correct (passages) (promise: NoBigNeighbours passages)`:
+  `PathCount (Part1Path passages) (solvePart1 passages)`, where
+  `Part1Path passages path` is `startToEnd path = True ∧
+  followsPassages passages path = True ∧ SmallOnce path`.
+- `part2Correct (passages) (promise: NoBigNeighbours passages)`:
+  `PathCount (Part2Path passages) (solvePart2 passages)`, the same with
+  `OneSmallTwice path`.
+- `parseNoBigNeighbours (input) (passages) (parsed: Fail.toResult (() =>
+  parsePassages input) = Ok passages)`: `NoBigNeighbours passages`.
+- `part1FromInput`, `part2FromInput (input) (passages) (parsed:
+  Fail.toResult (() => parsePassages input) = Ok passages)`: the two
+  answers' `PathCount`, with no other hypothesis.
+- Underneath: the neighbour table gives exactly the connected caves,
+  each once (`tableMem`, `tableDistinct`); a route is listed if and only
+  if it `Follows` the steps (`routesFollow`; `followRoutes`, given a
+  depth above `reach`, which each step lowers, `stepDecreases`); routes
+  are listed once (`routesDistinct`, by `List.distinctFlatMap` keyed on
+  the first cave). `Tracks` says what the search's state means for the
+  path so far (which small caves it has visited, `start` once, `end` not
+  yet, the rule kept so far, whether a cave was visited twice), and each
+  kind of step keeps it (`tracksBig`, `tracksFresh`, `tracksAgain`).
+  `followsCompletes` and `completesFollows` then show, by induction on
+  the rest of the path, that the routes the steps allow are exactly the
+  ways to finish a path by the rule; `completesFollows` is where the
+  promise is used (a step from a big cave to a big one is never taken,
+  and no path by the rules takes one).
+- Tests: the example's ten paths and both answers, a passage between two
+  big caves, a missing dash, `isBig`, `start-end` alone, no passages,
+  neighbours of a cave with a passage to itself and a passage listed
+  twice, and both answers on the input.
+
+Not proved: nothing left open. One hypothesis, `NoBigNeighbours`, on
+`part1Correct` and `part2Correct`; without it the statements are false
+whenever two big caves are joined and reachable (there is no finite
+list of all the paths). The parser checks it, and `part1FromInput` and
+`part2FromInput` drop it. No opaque definitions.
+
+`stitchwort audit Aoc.Year2021.Day12` (with the counterexample search):
+`audited 64 theorems: 0 failed, 2 with warnings, 62 passed`. The two
+warnings are `parseNoBigNeighbours` and `endsVisited`: random texts
+never parse and random lists never start at `start`, so the search met
+no case. Neither hypothesis is contradictory: `smallParses` and
+`shortPath` (test theorems, `rfl`) satisfy them.
+
+Breaking the program breaks the proofs: `Continue unvisited spare` for
+`Continue unvisited False` (the spare visit never used up) fails
+`stepDecreases` with a counterexample, and `followsCompletes` and
+`completesFollows`; searching `3 * unvisited.length + 3` steps deep
+instead of `+ 4` fails `pathsCorrect` (omega: `3 * len + 2 * toNat
+twice ≤ 3 * len + 1`); dropping the `start` check fails `followsCompletes`.
+
+### 1. Std.Parse: none
+
+`takeWhile1 "a cave name" Char.isAsciiLetter`, `char '-'`, and
+`Parse.eachLine` did it; the missing dash says "line 2, column 3:
+expected '-', got the end of the line".
+
+### 2. Missing std
+
+- **Constructor injectivity and disjointness.** To use `step … = Continue
+  left spare` I wrote `Step.goesOn`, `Step.leftOr`, `Step.spareOr` and
+  four lemmas through `Eq.cong` (`Finish ≠ Continue …`, `Continue a s =
+  Continue b t → b = a`, …). Fix: generate `T.C.injective` and
+  constructor-disjointness lemmas for each data type, or let `match` on
+  an equation of constructors take them apart. Medium.
+- **Looking up a table built by `map`.** `List.lookup (cs.map (c => (c, f
+  c))) cave` is `Some (f cave)` for a member, `None` otherwise
+  (`lookupBuilt`, `lookupMissing`). Std candidates, small.
+- **Lists and counts**, each small: `(xs.filter p).length ≤ xs.length`
+  (2024 day 24's `filterNoLonger`, imported) and `<` when a member fails
+  `p` (`filterDropsShorter`); `Bool.toNat b ≤ 1`, now written three
+  times (day 10's `toNatAtMostOne`, imported; 2024 day 24's
+  `toNatSmall`); a member is counted at least once (`visitsMember`, over
+  `List.occurrences`); counts grow along `++` (`visitsGrow`); membership
+  in a filtered-out list (`withoutMem`).
+- **No `List.flatMapCong`**, so a `decreasing` call inside `flatMap`'s
+  function has no congruence lemma; `List.concat (List.map …)` works.
+  Small.
+- **Path enumeration.** Routes.sw (`Follows`, membership both ways,
+  distinctness) is generic in the step function. A std "walks of a
+  graph under a state machine" module, listing walks and characterising
+  them one step at a time, would make counting-paths puzzles a matter of
+  the visit rule (Rules.sw). Medium.
+
+### 3. Confusing errors and displays
+
+- **The goal shown after `match e:` wasn't the refined one.** In
+  `routesFollow`, after `match e: step unvisited spare cave other with |
+  Finish => ?`, the `[GOAL]` showed `⊢ other ∈ next cave ∧
+  Aoc.Year2021.Day12.Proofs.Follows.%match1 next other tail (step
+  unvisited spare cave other)`, unrefined; `rewrite e in …` at the same
+  place then said "found no `step unvisited spare cave other` in the goal
+  … goal: `List.Any (y => y = other) (next cave) ∧ tail = []`": the goal
+  was already refined. I added a `rewrite` that wasn't needed. Small.
+- **Printed goals capture variables.** `y ∈ neighboursOf passages cave`
+  printed as `⊢ List.Any (y => y = y) (neighboursOf passages cave)`, and
+  `search --at` printed `omega closes ⊢ List.occurrences sofar (c => c ==
+  c) ≤ …` for `visits sofar c`. Fix: rename a bound variable that shadows
+  a free one when printing. Small.
+- Good: `if bigOther: isBig other then` was `E-NOT-A-TYPE` with "for a
+  `Bool`, write …"; `(x != x) = False` in a statement said `!=` is the
+  proposition there and how to ascribe the `Bool`; `if same: c = y then
+  (proof) else (proof)` gave the `match Std.Text.decEq c y with | Yes …`
+  to write. `cases` closed 48 of the 56 cases of `stepDecreases` on its
+  own, and said the rest were stuck on `left`, a `List`.
+
+### 4. Termination, and proving things about the search
+
+The worst friction of the day. The search's natural measure has three
+parts (small caves left; the spare visit; whether we stand in a small
+cave), and `decreasing` takes at most two, so I folded the last two into
+one number. Then:
+
+- **A lambda in a recursive call's argument, inside `sumBy`'s callback,
+  becomes an unknown `x`.** `pathsOnFrom next (unvisited.filter (c => not
+  (c == other))) spare other [decreasing := …]` inside `next cave |>
+  .sumBy (other => …)` had the goal `Nat.LexLess (List.length x) … `, and
+  the proof about the filter was a mismatch ("expected `List.length x <
+  List.length unvisited`, but this has type `List.length (List.filter
+  unvisited (c => …)) < …`"). A `let left := …` before the call was as
+  opaque ("expected `List.length left < …`"). Three-line repro (file
+  mode): `def g (xs: List Nat) (k: Nat): Nat decreasing xs.length := [1,
+  2] |> .sumBy (other => if k == 0 then 0 else g (xs.filter (c => c ==
+  other)) k [decreasing := ?])` shows `⊢ List.length x < List.length
+  xs`; outside a callback, or with `xs.drop 1`, the goal shows the real
+  argument. Workaround: a top-level `without caves cave`. Fix: keep the
+  argument's term in the obligation. Medium (a bug).
+- **`match e:` in a `decreasing` definition blocks proofs about it.** The
+  recursive call needed `e: step … = Continue left spare` for its
+  decrease, so the program read `match e: step unvisited spare cave other
+  with …`. The compiler lifts that `match` to a function taking the
+  scrutinee and `rfl`. In a proof, `match e: step unvisited spare cave
+  other` with a hypothesis mentioning the lifted `match` was
+  `E-MATCH-MOTIVE`: "generalising this `match`'s scrutinee makes its type
+  ill-formed … checking the type it would have: `rfl` can't prove this".
+  The note's advice, "a top-level helper with a written signature", can't
+  be followed: the lifted `match` has no name. Workaround: a depth bound
+  instead of `decreasing`, with no `e:`, and `stepDecreases` proving the
+  bound enough. Fix: generalise the `rfl` with the scrutinee (as Lean's
+  `match h : e with` does), or let source name the lifted `match`.
+  Medium to large.
+- **Count and list couldn't be related.** I meant to keep the counting
+  program and prove `pathsOnFrom … = (walksOnFrom …).length` pointwise
+  under `sumBy`. `List.sumByCong (next cave) _ _ (other => match …)` left
+  both functions as holes (the callback's goal was `?14 … = ?14 …`), and
+  writing them out makes new lifted `match`es, which syntax.md says are
+  different functions. Workaround: the program lists the paths and
+  counts the list (2.0 s rather than 1.3 s). Fix: elaborate a
+  congruence lemma's function arguments from the expected type before
+  the callback (close to SW-963's lambda-before-later-argument). Medium.
+- `walksOnFrom.unfold` showed the body as `walksOnFrom.%step next … (… =>
+  walksOnFrom …)`, not unfolded further; harmless, but the goal was hard
+  to read.
+
+With the depth bound, the rest went smoothly: `match e:` on `step`
+refines the hypotheses (`inTail: [] = tail ∨ Void` in the `Finish`
+case), and matching on `other == "end"`, `isBig other` and the rest one
+by one, as `stepDecreases` does, refines `step`'s computed `if` chain in
+every hypothesis. Rules.sw (359 lines) is mostly bookkeeping of visit
+counts; most lemmas checked first or second time, the misses being
+`Bool.trueNotFalse` against `Bool.falseNotTrue`, and `let`-bound
+lambdas, which have no expected type, so a `rewrite` inside was
+`E-REWRITE-NO-GOAL` and an `Exists.elim` inside had a hole for its goal
+until the `let` had a type.
+
+### 5. Inference
+
+- `List.distinctNil` after a `rewrite` was `E-UNSOLVED` ("can't work out
+  an implicit argument"); `List.distinctNil [a := Text]` fixed it.
+- `routesFollow … _ rest listed`, with the depth a hole, was a mismatch:
+  `listed` showed `routesFrom` one step unfolded, the depth as `… + 3`,
+  and the hole wasn't solved from it. Writing the depth out fixed it.
+
+### 6. Search
+
+- `search --at` (2 to 7 s a goal) closed four of the five goals I tried
+  it on, but I ran it only after writing those lemmas by hand: `differ`
+  (`(x == y) = False` from `x ≠ y`) by `Decidable.toBoolOfNot`;
+  `appendStep` by `rewrite List.appendAssoc sofar [y] more in rfl`;
+  `Bool.toNat b ≤ 1` by day 10's `toNatAtMostOne` and 2024 day 24's
+  `toNatSmall` (and "`cases` alone closes it"); `visitsGrow` by exactly
+  my proof. `visitsMember` (an induction) got nothing that closed it.
+  Pattern search found `filterNoLonger` in 2024 day 24.
+- Noise in `applies`: `Bool.canonicalTrue … ?` leaving the goal itself,
+  2025 day 9's `outsideFlagZero`, `Finite.check`, as on day 11; and the
+  first closing proof for `differ` was `Nat.untilStableDecNo`, a
+  `Nat.Iterate` lemma, ahead of `Decidable.toBoolOfNot`. Fix: drop
+  results that leave the goal unchanged; rank by how specific the lemma
+  is. Small.
+- `stitchwort search '(?b: Bool) ≠ True → ?b = False'` and `'Not ((?b:
+  Bool) = True) → ?b = False'` return one result, `List.findKeySome` (a
+  premise match), and miss `Bool.falseOfNotTrue: (x: Bool) → Not (x =
+  True) → x = False`; `'⊢ (_: Bool) = False'` lists it third. Why isn't
+  established (perhaps `True` in the pattern isn't read as the `Bool`).
+  Small to medium.
+- `stitchwort audit` warns on any theorem about a successful parse,
+  since random texts never parse. A test theorem showing the hypothesis
+  can hold silences the doubt but not the warning. Fix: let the
+  counterexample search try the namespace's test inputs, or say "a test
+  theorem satisfies the hypotheses". Small to medium.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort run Aoc.Year2021.Day12.main` on the input | 2.0 s user (2.1 s) |
+| `stitchwort check --no-cache Aoc.Year2021.Day12.Proofs Aoc.Year2021.Day12.Tests` | 4.1 s user (4.2 s) |
+| `stitchwort audit Aoc.Year2021.Day12` (with the search) | 3.3 s user (3.4 s) |
+
+127 lines of program, 53 of spec, 807 of proofs, 55 of tests.
+
+### Ranked
+
+1. Proofs about a `decreasing` search were out of reach: `match e:` in
+   the definition makes proofs `E-MATCH-MOTIVE` on an unnamable lifted
+   `match`, and a lambda in a recursive call's argument inside `sumBy`
+   shows as an unknown `x` (item 4). Workaround: a depth bound proved
+   enough. Fix: generalise the `rfl` with the scrutinee; keep argument
+   terms in the obligation.
+2. A count couldn't be proved equal to the length of a list built by the
+   same search, as `sumByCong`'s functions weren't inferred from the goal
+   (item 4). Workaround: list and count (50% slower).
+3. The goal display after `match e:` showed the unrefined goal, and
+   printed goals capture variables (`y => y = y`) (item 3).
+4. No generated constructor injectivity or disjointness lemmas (item 2).
+5. `Bool.toNat b ≤ 1` is now in three days; `List.lookup` of a mapped
+   table, filter lengths, counts of members belong in std (item 2).
