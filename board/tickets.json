@@ -1,5 +1,5 @@
 {
-  "next": 1026,
+  "next": 1027,
   "tickets": [
     {
       "id": 47,
@@ -3568,6 +3568,20 @@
         "tooling"
       ],
       "body": "docs/proposals/documentation.md §6.2, D2138, D2148. Reports only; never fails.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1026,
+      "title": "Docs accuracy sweep: DESIGN.md (LSP non-goal), compared.md, README and the current docs/guide against the code",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "Matt, 1 Nov 2026: 'JFDI fix this and any other inaccuracies in our docs'. Known: DESIGN.md:97 lists an LSP as a non-goal; docs/compared.md:121 'no tactics' (omega/cases/ring exist), :165 'elaboration always re-runs' (check cache built). Scope: living docs (top-level .md, docs/*.md, docs/guide). Not proposals/research notes (historical records).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
