@@ -730,9 +730,6 @@ define(info$Main$dCard, [
 ], true, [
 ]);
 
-// A partial computation, which nothing here can run.
-const delayed = Symbol("Delay");
-
 
 // The effect runtime (docs/proposals/effect-runtime.md §9). A computation is
 // `Done`, `Call` or a `Bind` node, which only this runtime builds and takes
@@ -991,50 +988,6 @@ const $Std$dEffect$dhandlePlus = (v5, v6, v7, v8) => {
   throw new Error("unreachable");
 };
 const $Std$dEffect$drunPure = effRunPure;
-const $Std$dEffect$ddoneIn = (v1, v2) => {
-  switch (v1.tag) {
-    case "Empty": {
-      return v2;
-    }
-    case "Ops": {
-      return { tag: "Done", value: v2 };
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dEffect$dbindIn = (v2, v3, v4) => {
-  switch (v2.tag) {
-    case "Empty": {
-      return (v4)(v3);
-    }
-    case "Ops": {
-      return $Std$dEffect$dbind(v3, v4);
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dEffect$ddoneD = (v1, v2, v3) => {
-  switch (v1.tag) {
-    case "Total": {
-      return $Std$dEffect$ddoneIn(v2, v3);
-    }
-    case "MayDiverge": {
-      return delayed;
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dEffect$dbindDv = (v2, v3, v4, v5) => {
-  switch (v2.tag) {
-    case "Total": {
-      return $Std$dEffect$dbindIn(v3, v4, v5);
-    }
-    case "MayDiverge": {
-      return delayed;
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dDecEq$d$gdecide = (v1) => {
   const v2 = v1;
   return v2;
@@ -1075,19 +1028,6 @@ const $Std$dList$dfilterStep = (v1, v2, v3) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$dfilter = (v1, v2, v3, v4) => {
-  switch (v3.tag) {
-    case "Nil": {
-      return $Std$dEffect$ddoneD(v2, v1, { tag: "Nil" });
-    }
-    case "Cons": {
-      const v5 = v3.head;
-      const v6 = v3.tail;
-      return $Std$dEffect$dbindDv(v2, v1, (v4)(v5), ((v7) => $Std$dEffect$dbindDv(v2, v1, $Std$dList$dfilter(v1, v2, v6, v4), ((v8) => $Std$dEffect$ddoneD(v2, v1, $Std$dList$dfilterStep(v5, v8, v7))))));
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dList$dfilter$e = (v3, v4) => {
   let s3 = v3, s4 = v4;
   let h$ = null, l$ = null, k$ = null;
@@ -1124,19 +1064,6 @@ const $Std$dList$dfilter$e = (v3, v4) => {
     }
     throw new Error("unreachable");
   }
-};
-const $Std$dList$dfoldLeft = (v2, v3, v4, v5, v6) => {
-  switch (v4.tag) {
-    case "Nil": {
-      return $Std$dEffect$ddoneD(v3, v2, v5);
-    }
-    case "Cons": {
-      const v7 = v4.head;
-      const v8 = v4.tail;
-      return $Std$dEffect$dbindDv(v3, v2, (v6)(v5)(v7), ((v9) => $Std$dList$dfoldLeft(v2, v3, v8, v9, v6)));
-    }
-  }
-  throw new Error("unreachable");
 };
 const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
   let s4 = v4, s5 = v5, s6 = v6;
@@ -1258,7 +1185,7 @@ const $Main$dLog$d$gelim = (v1, v2, v3) => {
   throw new Error("unreachable");
 };
 const $Main$dcollect = (v0) => $Std$dEffect$drunPure(effFoldCompLazy(((v1) => ({ tag: "Done", value: { tag: "Cons", head: v1, tail: { tag: "Nil" } } })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dLog$d$gelim($s1, $p2, $p3)))(((v1) => ((v2) => ({ tag: "Done", value: $Std$dList$dappend({ tag: "Cons", head: v1, tail: { tag: "Nil" } }, $Std$dEffect$drunPure((v2)({ tag: "UnitValue" }))) })))), ((v1) => ((v2) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigFromNo, v1), rest: ((v3) => (v2)($Std$dEffect$dsigReply($Std$dEffect$dsigFromNo, v1, v3))) })))), (v0)({ tag: "UnitValue" })));
-const $Main$dsteps = (v0, v1) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: 100n } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => { const v3 = $Std$dNat$dadd(v1, 1n); return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: v3 } }, rest: ((v4) => ({ tag: "Done", value: v4 })) }, ((v4) => $Std$dEffect$dbind($Std$dList$dfilter({ tag: "Ops" }, { tag: "Total" }, v0, ((v5) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dDecidable$dtoBool($Std$dDecidable$dnot($Std$dNat$ddecEq(v5, v3)))))), ((v5) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: $Std$dList$dlength(v5) } }, rest: ((v6) => ({ tag: "Done", value: v6 })) }, ((v6) => $Std$dEffect$dbind($Std$dList$dfoldLeft({ tag: "Ops" }, { tag: "Total" }, v5, 0n, ((v7) => ((v8) => $Std$dEffect$ddoneIn({ tag: "Ops" }, $Std$dNat$dadd(v7, $Std$dNat$dmul(v8, v3)))))), ((v7) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: v7 } }, rest: ((v8) => ({ tag: "Done", value: v8 })) }, ((v8) => ({ tag: "Done", value: $Std$dNat$dadd(v7, v3) }))))))))))); }));
+const $Main$dsteps = (v0, v1) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: 100n } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => { const v3 = $Std$dNat$dadd(v1, 1n); return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: v3 } }, rest: ((v4) => ({ tag: "Done", value: v4 })) }, ((v4) => { const v5 = $Std$dList$dfilter$e(v0, ((v5) => $Std$dDecidable$dtoBool($Std$dDecidable$dnot($Std$dNat$ddecEq(v5, v3))))); return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: $Std$dList$dlength(v5) } }, rest: ((v6) => ({ tag: "Done", value: v6 })) }, ((v6) => { const v7 = $Std$dList$dfoldLeft$e(v5, 0n, ((v7) => ((v8) => $Std$dNat$dadd(v7, $Std$dNat$dmul(v8, v3))))); return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: v7 } }, rest: ((v8) => ({ tag: "Done", value: v8 })) }, ((v8) => ({ tag: "Done", value: $Std$dNat$dadd(v7, v3) }))); })); })); }));
 const $Main$dlogged = (v0, v1) => $Main$dcollect(((v2) => $Main$dsteps(v0, v1)));
 
 function $$notIn(arg0, arg1) {
