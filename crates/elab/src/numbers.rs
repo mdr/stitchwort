@@ -865,14 +865,6 @@ fn group_literals(
     let group_in = |cx: &mut Ctx, expr: &Expr, expected: Option<&Value>| {
         group_with(cx, expr, expected, bool_comparisons)
     };
-    // A comparison with a constructor with number literals as an operand: as
-    // written first, and if that fails, with that operand last.
-    if let Expr::Binary(op, a, b) = expr
-        && is_comparison(*op)
-        && (crate::check::defers_literal(cx, a)? || crate::check::defers_literal(cx, b)?)
-    {
-        return crate::check::retrying(cx, true, |cx| group_in(cx, expr, expected));
-    }
     if !matches!(expr, Expr::Neg(_, _, NegForm::Argument)) {
         return group_in(cx, expr, expected);
     }
@@ -1062,19 +1054,7 @@ fn group_with(
     }
 
     // 5. Pass 2: the rest, except bare literals.
-    // A constructor with a number in it comes last, so it doesn't settle the
-    // group's type (`Point 1 "p" 10 == m`: a `Mark Nat …`) before the others.
-    let mut order = Vec::new();
-    let mut late = Vec::new();
-    for (i, leaf) in g.leaves.iter().enumerate() {
-        if cx.e.late_literals.get() > 0 && crate::check::defers_literal(cx, leaf.expr)? {
-            late.push(i);
-        } else {
-            order.push(i);
-        }
-    }
-    order.extend(late);
-    for i in order {
+    for i in 0..g.leaves.len() {
         if g.leaves[i].bare || !matches!(g.leaves[i].state, State::Waiting) {
             continue;
         }

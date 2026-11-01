@@ -1598,7 +1598,6 @@ static REQUEUED: AtomicUsize = AtomicUsize::new(0);
 static KEPT: AtomicUsize = AtomicUsize::new(0);
 static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
 static RETRIED: AtomicUsize = AtomicUsize::new(0);
-static RETRIED_CONSTRUCTOR: AtomicUsize = AtomicUsize::new(0);
 static LEAF_UNINFERRED: AtomicUsize = AtomicUsize::new(0);
 static WAITED: AtomicUsize = AtomicUsize::new(0);
 static MATCH_WAITED: AtomicUsize = AtomicUsize::new(0);
@@ -1628,14 +1627,10 @@ pub(crate) fn note_motive_later() {
 
 /// An application, group, list or `if` elaborated a second time with number
 /// literals checked last (`check::retrying`), because the first time failed:
-/// the path §5.11 removes once number literals wait (K4). Those that only
-/// a constructor with number literals asked for, not a list of numbers, are
-/// also counted apart (`retried for a constructor`).
-pub(crate) fn note_retried(constructor: bool) {
+/// the path §5.11 meant to remove once number literals wait (K4); kept by
+/// stage 5 for the two gaps `check::retrying` names.
+pub(crate) fn note_retried() {
     count(&RETRIED);
-    if constructor {
-        count(&RETRIED_CONSTRUCTOR);
-    }
 }
 
 /// A leaf of a number group or comparison that couldn't be inferred, so it
@@ -1695,10 +1690,8 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// (`tactic waited`), and runs of `omega`, `ring` and `auto` on a goal
 /// holding an unknown the declaration will still settle, and of those the
 /// failures (`… on pending`, `… failed on pending`); and, for stage 5, the
-/// catch-and-retry paths it removes: the retries only a constructor with
-/// number literals asked for (`retried for a constructor`), and the "infer
-/// the other side" catch left (`leaf uninferred`).
-pub fn counts() -> [(&'static str, usize); 28] {
+/// "infer the other side" catch it keeps (`leaf uninferred`).
+pub fn counts() -> [(&'static str, usize); 27] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -1715,7 +1708,6 @@ pub fn counts() -> [(&'static str, usize); 28] {
         ("kept", get(&KEPT)),
         ("kept chose", get(&KEPT_CHOSE)),
         ("retried", get(&RETRIED)),
-        ("retried for a constructor", get(&RETRIED_CONSTRUCTOR)),
         ("leaf uninferred", get(&LEAF_UNINFERRED)),
         ("waited", get(&WAITED)),
         ("match waited", get(&MATCH_WAITED)),

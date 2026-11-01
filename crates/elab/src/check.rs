@@ -2051,14 +2051,8 @@ pub(crate) fn apply_args_with(
     } else {
         args
     };
-    let (mut constructor, mut list) = (false, false);
-    for arg in args {
-        if let Arg::Explicit(value) = arg {
-            constructor |= defers_literal(cx, value)?;
-            list |= numbers_in_list(value);
-        }
-    }
-    let relevant = constructor || list;
+    let relevant =
+        (args.iter()).any(|a| matches!(a, Arg::Explicit(value) if numbers_in_list(value)));
     let run = |cx: &mut Ctx, head: (Term, Value), supply: &mut Supply| {
         let mut first_error = None;
         match apply_args_postponing(cx, head, args, supply, &mut first_error) {
@@ -2069,11 +2063,10 @@ pub(crate) fn apply_args_with(
     if !relevant {
         return run(cx, head, supply);
     }
-    // A constructor or list with number literals among the arguments: as
-    // written first, and only if that fails with it checked last
-    // (`defers_literal`, `numbers_in_list`).
+    // A list with number literals among the arguments: as written first,
+    // and only if that fails with it checked last (`numbers_in_list`).
     let saved = supply.clone();
-    let (result, left) = retrying(cx, !list, |cx| {
+    let (result, left) = retrying(cx, |cx| {
         let mut left = saved.clone();
         run(cx, head.clone(), &mut left).map(|result| (result, left))
     })?;
@@ -2081,17 +2074,18 @@ pub(crate) fn apply_args_with(
     Ok(result)
 }
 
-/// Runs `f`; if it fails, once more with a constructor of a generic type
-/// that has number literals in it checked after its siblings
-/// ([`defers_literal`]), so what already elaborated is elaborated as before.
-/// If that fails too, its error is the one given. `constructor`: only a
-/// constructor with number literals made it worth a second run, not a list
-/// of numbers (counted apart, for stage 5).
-pub(crate) fn retrying<T>(
-    cx: &mut Ctx,
-    constructor: bool,
-    f: impl Fn(&mut Ctx) -> Result<T>,
-) -> Result<T> {
+/// Runs `f`, an application; if it fails, once more with an argument that
+/// is a list of numbers whose element type isn't known checked after the
+/// arguments after it ([`numbers_in_list`]), so what already elaborated is
+/// elaborated as before. If that fails too, its error is the one given.
+///
+/// Kept by stage 5 (docs/proposals/postponement.md, "As built (stage 5)"):
+/// two programs still need it, each a gap in what waits. A tuple checked
+/// against an unknown infers its parts, so its literals are `Nat` at once
+/// (2021 Day17's `[(7, 2), …].map (((dx, dy)) => …)`), and a lambda checked
+/// against a type that is an unknown applied to variables fails rather
+/// than waiting (`reject/decreasing-lambda-in-data.sw`).
+fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Result<T> {
     if cx.e.late_literals.get() > 0 {
         return f(cx);
     }
@@ -2101,7 +2095,7 @@ pub(crate) fn retrying<T>(
         return result;
     }
     first_try.restore(cx);
-    crate::queue::note_retried(constructor);
+    crate::queue::note_retried();
     let second_try = crate::undo::Snapshot::take(cx);
     cx.e.late_literals.set(1);
     let again = f(cx);
@@ -2227,25 +2221,18 @@ fn apply_args_postponing(
                 let (dom, cod) = function_parts(cx, &ty).map_err(|e| {
                     not_a_function_hint(cx, &term, previous_function_name, value, e)
                 })?;
-                // `pair (Point 1 "p" 10) m`, where `m: Mark Int Nat`: the
-                // constructor's number would be defaulted to a `Nat` before
-                // `m` said what the parameter is, so it's checked last, as a
-                // lambda whose parameter type isn't known is. So is a list
-                // of numbers whose element type isn't known: in
-                // `List.map [1, 2] (x => x): List Int` the list comes first
-                // (D303), and only the lambda ties its elements to `Int`.
+                // When retrying, a list of numbers whose element type isn't
+                // known is checked last: in `List.map [1, 2] (x => x): List
+                // Int` the list comes first (D303), and only the lambda ties
+                // its elements to `Int`.
                 let later = args[i + 1..]
                     .iter()
                     .any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
                 if later
                     && cx.e.late_literals.get() > 0
                     && only_lambdas_depend_on_it(&cod.body, &args[i + 1..])
-                    && ((matches!(
-                        force(cx.g(), dom.clone())?,
-                        Value::Neutral(Head::Meta(_), _)
-                    ) && defers_literal(cx, value)?)
-                        || (numbers_in_list(value)
-                            && crate::interfaces::unsolved_in(cx, &dom)?.is_some()))
+                    && numbers_in_list(value)
+                    && crate::interfaces::unsolved_in(cx, &dom)?.is_some()
                 {
                     let meta = cx.fresh_meta();
                     let placeholder = cx.eval(&meta)?;
@@ -2375,45 +2362,6 @@ fn apply_args_postponing(
     Ok((term, found_dictionaries(cx, &own, ty)?))
 }
 
-/// The items of a list literal checked against `elem`, in order, or when
-/// retrying (`retrying`) and the element type isn't known, those with a
-/// constructor with number literals last (`defers_literal`).
-fn check_items(cx: &mut Ctx, items: &[Expr], elem: &Value) -> Result<Vec<Term>> {
-    let mut order: Vec<usize> = (0..items.len()).collect();
-    if cx.e.late_literals.get() > 0
-        && matches!(
-            force(cx.g(), elem.clone())?,
-            Value::Neutral(Head::Meta(_), _)
-        )
-    {
-        let mut late = Vec::new();
-        order.clear();
-        for (i, item) in items.iter().enumerate() {
-            if defers_literal(cx, item)? {
-                late.push(i);
-            } else {
-                order.push(i);
-            }
-        }
-        order.extend(late);
-    }
-    let mut checked: Vec<Option<Term>> = vec![None; items.len()];
-    for i in order {
-        checked[i] = Some(check(cx, &items[i], elem)?);
-    }
-    Ok(checked.into_iter().flatten().collect())
-}
-
-/// Whether the `else` branch of an `if` whose type isn't known yet
-/// (`unknown`) is checked first: the `then` branch is a constructor with a
-/// number in it and the `else` isn't (`defers_literal`).
-fn else_first(cx: &Ctx, then: &Expr, otherwise: &Expr, unknown: bool) -> Result<bool> {
-    Ok(unknown
-        && cx.e.late_literals.get() > 0
-        && defers_literal(cx, then)?
-        && !defers_literal(cx, otherwise)?)
-}
-
 /// Whether `expr` is a number literal or a list of numbers: what it is
 /// depends on where it's used.
 pub(crate) fn literal_value(expr: &Expr) -> bool {
@@ -2425,21 +2373,6 @@ pub(crate) fn literal_value(expr: &Expr) -> bool {
 /// settle it as `Nat` before the arguments after it could say otherwise.
 fn numbers_in_list(expr: &Expr) -> bool {
     matches!(expr, Expr::List(..)) && crate::numbers::has_number(expr)
-}
-
-/// Whether `expr` is a constructor of a parameterised type applied to
-/// arguments with a number literal in them: checked against a type not yet
-/// known, the number would settle a parameter as `Nat` before the other
-/// operands of the application, list, `if` or comparison it's in could say
-/// otherwise, so it's checked after them.
-pub(crate) fn defers_literal(cx: &Ctx, expr: &Expr) -> Result<bool> {
-    if !matches!(expr, Expr::App(..)) || !crate::numbers::has_number(expr) {
-        return Ok(false);
-    }
-    Ok(match ctor_head(cx, expr)? {
-        Some((d, ..)) => !cx.g().data(d).params.is_empty(),
-        None => false,
-    })
 }
 
 /// `term`, an application, with its argument that is the metavariable `id`
@@ -3684,25 +3617,11 @@ pub(crate) fn check_value(
                 return fallback_named(cx, expr, &expected, named);
             }
             let elem = params[0].clone();
-            // An element type not known yet is settled by the first item
-            // that can: if `[Point 1 "p" 10, m]` fails as written, it's
-            // checked as `[m, Point …]` (the terms stay in place), so the
-            // `1` isn't defaulted to a `Nat` first.
-            let unknown = matches!(
-                force(cx.g(), elem.clone())?,
-                Value::Neutral(Head::Meta(_), _)
-            );
-            let mut relevant = false;
-            if unknown {
-                for item in items {
-                    relevant |= defers_literal(cx, item)?;
-                }
-            }
-            let terms = if relevant {
-                retrying(cx, true, |cx| check_items(cx, items, &elem))?
-            } else {
-                check_items(cx, items, &elem)?
-            };
+            // In order: a number literal in an item waits while the element
+            // type is unknown (K4), so a later item can still say it.
+            let terms = (items.iter())
+                .map(|item| check(cx, item, &elem))
+                .collect::<Result<Vec<_>>>()?;
             // A long literal would be a `Cons` chain as deep as it is long,
             // and every pass over terms recurses on that depth (the checker,
             // zonking, lowering, code generation, …): so it's cut into chunks
@@ -3853,20 +3772,11 @@ pub(crate) fn check_if(
     otherwise: &Expr,
     expected: &Value,
 ) -> Result<Term> {
-    let unknown = matches!(
-        force(cx.g(), expected.clone())?,
-        Value::Neutral(Head::Meta(_), _)
-    );
     // `ifThenElse` and `elimDec` return a `Type`, so an `if` whose branches
     // prove a proposition would fail with a universe mismatch that says
     // nothing useful: say what's going on.
     if crate::omega::is_prop(cx, expected)? == Some(true) {
         return Err(proof_if_error(cx, binder, cond));
-    }
-    if unknown && defers_literal(cx, then)? {
-        return retrying(cx, true, |cx| {
-            check_if_in(cx, binder, cond, then, otherwise, expected)
-        });
     }
     check_if_in(cx, binder, cond, then, otherwise, expected)
 }
@@ -4000,17 +3910,8 @@ fn check_if_in(
                 }
             };
             let unit = Value::Data(unit_data, Vec::new());
-            let unknown = matches!(
-                force(cx.g(), expected.clone())?,
-                Value::Neutral(Head::Meta(_), _)
-            );
-            let (then, otherwise) = if else_first(cx, then, otherwise, unknown)? {
-                let otherwise = branch(cx, "_", unit.clone(), otherwise)?;
-                (branch(cx, "_", unit, then)?, otherwise)
-            } else {
-                let then = branch(cx, "_", unit.clone(), then)?;
-                (then, branch(cx, "_", unit, otherwise)?)
-            };
+            let then = branch(cx, "_", unit.clone(), then)?;
+            let otherwise = branch(cx, "_", unit, otherwise)?;
             let ite = builtin_def(cx, Builtin::IfThenElse)?;
             let head = Term::app_icit(Term::Def(ite), result_ty, Icit::Implicit);
             Ok(Term::app(Term::app(Term::app(head, cond), then), otherwise))
@@ -4152,18 +4053,8 @@ fn decided_if(
     let not = builtin_def(cx, Builtin::Not)?;
     let not_prop =
         stitchwort_core::value::apply(cx.g(), cx.eval(&Term::Def(not))?, prop_value.clone())?;
-    let (then, otherwise) = if else_first(
-        cx,
-        then,
-        otherwise,
-        matches!(result_ty.strip_loc().spine().0, Term::Meta(_)),
-    )? {
-        let otherwise = branch(cx, name, not_prop, otherwise)?;
-        (branch(cx, name, prop_value, then)?, otherwise)
-    } else {
-        let then = branch(cx, name, prop_value, then)?;
-        (then, branch(cx, name, not_prop, otherwise)?)
-    };
+    let then = branch(cx, name, prop_value, then)?;
+    let otherwise = branch(cx, name, not_prop, otherwise)?;
     let elim = builtin_def(cx, Builtin::ElimDec)?;
     let head = Term::app_icit(
         Term::app_icit(Term::Def(elim), prop, Icit::Implicit),
