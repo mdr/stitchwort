@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Point` has no field `y`
+   ╭─[ reject/record-in-statement-unknown-field.sw:9:36 ]
+   │
+ 9 │ theorem misspelt (p: Point): { p | y = 3 }.x = p.x := rfl
+   │                                    ┬  
+   │                                    ╰── `Point` has no field `y`
+   │ 
+   │ Note: its fields are `id`, `x`
+───╯

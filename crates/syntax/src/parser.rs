@@ -17,7 +17,9 @@ use crate::ast::{
     SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex};
-use crate::negation::{argument_bang, argument_minus, argument_prefix, negative_numeral};
+use crate::negation::{
+    argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
+};
 use crate::stack::StackLimit;
 use crate::{Diagnostic, FileId, Span};
 
@@ -541,6 +543,50 @@ struct Parser<'t> {
 }
 
 const NO_PARTNER: u32 = u32::MAX;
+
+/// Whether the `{` at `tokens[open]`, where a result type starts (after a
+/// declaration's `:` or an arrow), is a record literal or update rather
+/// than an ability row (SW-1015): a theorem's statement may start with one,
+/// `{ p | x = 3 }.x = 3`. A row is always followed by its type, and holds
+/// only abilities and a row variable, never an `=` outside brackets. So the
+/// braces are a record when they hold such an `=` (`{ id = 2 }`,
+/// `{ p | x = 3 }`), or when they don't start with an ability's name and
+/// what follows them can't start a type (`{ p | x }.x`, `{} = r`). A row
+/// missing its type (`{IO} :=`) is still read as a row, and reported as one,
+/// and so is a record type (`{ name: Nat }`), which `row` explains can't be
+/// written there. The parser and the formatter (which spaces a row's braces
+/// tightly) both ask this.
+pub fn record_braces(tokens: &[Token], open: usize) -> bool {
+    let first = tokens.get(open + 1).map(|t| &t.tok);
+    if matches!(first, Some(Tok::Lower(_)))
+        && tokens.get(open + 2).map(|t| &t.tok) == Some(&Tok::Colon)
+    {
+        return false;
+    }
+    let mut depth = 0usize;
+    let mut close = None;
+    for (i, token) in tokens.iter().enumerate().skip(open + 1) {
+        match token.tok {
+            Tok::Equals if depth == 0 => return true,
+            Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
+            Tok::RParen | Tok::RBracket | Tok::RBrace if depth > 0 => depth -= 1,
+            Tok::RBrace => {
+                close = Some(i);
+                break;
+            }
+            _ => {}
+        }
+    }
+    let Some(close) = close else {
+        return false;
+    };
+    if matches!(first, Some(Tok::Upper(_))) {
+        return false;
+    }
+    tokens
+        .get(close + 1)
+        .is_some_and(|t| !(opens_atom(&t.tok) || matches!(t.tok, Tok::TypeU | Tok::Prop)))
+}
 
 /// For each opening bracket in `tokens`, the index of its closing partner.
 /// The table is its own stack: while an opener is unmatched its entry holds
@@ -2128,8 +2174,11 @@ impl<'t> Parser<'t> {
     }
 
     /// A function's result type, possibly with abilities: `{State s} Nat`.
+    ///
+    /// A theorem's statement is a result type too, and may start with a
+    /// record literal or update: `{ p | x = 3 }.x = 3` ([`record_braces`]).
     fn result_type(&mut self) -> Result<Expr> {
-        if self.peek() != Some(&Tok::LBrace) {
+        if self.peek() != Some(&Tok::LBrace) || record_braces(self.tokens, self.pos) {
             return self.expr();
         }
         let row = self.row()?;
@@ -5224,6 +5273,48 @@ mod tests {
         assert_eq!(row("{e}"), (0, Some("e".into())));
         assert_eq!(row("{| e}"), (0, Some("e".into())));
         assert_eq!(row("{}"), (0, None));
+    }
+
+    /// SW-1015: a statement (a result type) may start with a record literal
+    /// or update; the braces are a row only when a type follows them and
+    /// they hold no `=`.
+    #[test]
+    fn a_statement_may_start_with_a_record() {
+        // The result type, under the parameters.
+        let result = |text: &str| {
+            let module = parse(text);
+            let Decl::Signature { ty, .. } = &module.decls[0] else {
+                panic!("{:?}", module.decls[0])
+            };
+            let mut ty = ty;
+            while let Expr::Pi { cod, .. } | Expr::Arrow(_, cod) = ty {
+                ty = cod;
+            }
+            ty.clone()
+        };
+        for text in [
+            "theorem t (p: P): { p | x = 3 }.x = 3 := rfl\n",
+            "theorem t: { id = 2, x = 1 }.x = 1 := rfl\n",
+            "theorem t: { id = 2, x = 1 } = p := rfl\n",
+            "theorem t (p: P): { p | x }.x = x := rfl\n",
+            "theorem t (r: R): {} = r := rfl\n",
+            "def f: Nat -> { p | x = 3 }.x = 3 := rfl\n",
+        ] {
+            let ty = result(text);
+            assert!(matches!(ty, Expr::Binary(BinOp::Eq, ..)), "{text}: {ty:?}");
+        }
+        // Rows: a type follows, or the braces start with an ability.
+        for text in [
+            "def f: {IO} Nat := 0\n",
+            "def f: {e} Nat := 0\n",
+            "def f: {} Nat := 0\n",
+            "def f: {State s | e} (Nat, Nat) := 0\n",
+        ] {
+            assert!(matches!(result(text), Expr::Effect(..)), "{text}");
+        }
+        // A row missing its type is still reported as a row.
+        let e = parse_error("def f: {IO} := 0\n");
+        assert!(!e.message.contains("fields to update"), "{}", e.message);
     }
 
     /// SW-908: a parameter's type can't start with an ability row; the error
