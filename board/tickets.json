@@ -1,5 +1,5 @@
 {
-  "next": 1034,
+  "next": 1035,
   "tickets": [
     {
       "id": 47,
@@ -3595,7 +3595,7 @@
     {
       "id": 1027,
       "title": "E-NONEXHAUSTIVE lists every missing case as pasteable patterns (text and JSON)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3604,7 +3604,9 @@
       "body": "D2165 (Matt, 1 Nov 2026), from the language-productivity review: today the error names only the first missing case (a 3-constructor match with one arm reports Square _ but not Tri _ _). List all missing rows as patterns an agent can paste as arms, in the text message and the JSON diagnostics, leaving out impossible indexed cases.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "2308bc9a"
+      ]
     },
     {
       "id": 1028,
@@ -3667,7 +3669,7 @@
     {
       "id": 1032,
       "title": "Documentation stage 2a part 3: sort std Map and Parse",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3688,6 +3690,20 @@
         "docs"
       ],
       "body": "",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1034,
+      "title": "Missing-case follow-ups: number/Char/Int/Fin misses listed as arms too; a later branch's error can now hide the missing case",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1027 (1 Nov 2026). (1) Literal misses (number, character, Int, exact Fin) keep the old 'other than …, add _' message with no missing member, and are reported before constructor splits, so they can hide constructor cases in other columns. (2) Possibly-missing indexed cases appear only after the certain ones are added. (3) A match with a missing arm and an unrelated error in a later branch may report the later error instead (still rejected).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
