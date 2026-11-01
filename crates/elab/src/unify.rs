@@ -2172,6 +2172,15 @@ fn zonk_call(
     lets: &[Around],
 ) -> std::result::Result<Term, ZonkError> {
     let n = args.len();
+    // A call of no arguments that is a leaf other than an unknown (a waiting
+    // literal's number, most often) has nothing in it to zonk or replace.
+    if n == 0 && !matches!(call, Term::Meta(_)) {
+        let mut leaf = true;
+        call.for_each_child(|_, _| leaf = false);
+        if leaf {
+            return refold(g, call.clone(), level, lets);
+        }
+    }
     let mut zonked = Vec::with_capacity(n);
     for a in args {
         zonked.push(zonk_in(g, level, a, keep, lets)?);
@@ -2192,6 +2201,11 @@ fn zonk_call(
         _ => None,
     }) {
         return Err(ZonkError::Unsolved(m));
+    }
+    // A call of no arguments (a waiting literal's number, say) has no
+    // variable to replace.
+    if n == 0 {
+        return refold(g, call.clone(), level, lets);
     }
     let failed = std::cell::Cell::new(false);
     let hook = |t: &Term, under: usize| {

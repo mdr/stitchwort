@@ -283,11 +283,23 @@ pub(crate) fn check_literal(
     negative: bool,
     expected: &Value,
 ) -> Result<Term> {
+    check_literal_with(cx, k, negative, expected, || Rc::new(k.clone()))
+}
+
+/// [`check_literal`], with `shared` giving the number as a `Nat`'s term
+/// holds it: a waiting literal ([`Number`]) shares the one it keeps.
+fn check_literal_with(
+    cx: &mut Ctx,
+    k: &BigUint,
+    negative: bool,
+    expected: &Value,
+    shared: impl FnOnce() -> Rc<BigUint>,
+) -> Result<Term> {
     match classify(cx, expected)? {
         Class::Num(Kind::Nat) if negative => Err(negative_nat()
             .with_label(cx.span, "this is negative, but a `Nat` is expected here")
             .with_note("use an `Int` for numbers that can be negative")),
-        Class::Num(Kind::Nat) => Ok(Term::Nat(Rc::new(k.clone()))),
+        Class::Num(Kind::Nat) => Ok(Term::Nat(shared())),
         Class::Num(Kind::Int) => int_literal(cx, k, negative),
         Class::Num(Kind::Float) => float_term(cx, whole_bits(cx, k, negative)?, negative),
         // `-k` can only be an `Int` or a `Float`, and is an `Int` at once,
@@ -334,44 +346,45 @@ pub(crate) fn check_literal(
 /// its default, in the ladder after the field-name rule, is `Nat` (D2013),
 /// noted as the literal that made the type `Nat` ([`explain_default`]).
 fn queue_number(cx: &mut Ctx, k: &BigUint, expected: &Value) -> Result<Term> {
-    let error = cx.error(
-        "E-CANNOT-INFER",
-        format!("can't tell what type the number `{k}` is"),
-        "nothing here says what type it should have",
-    );
     let number = Number {
-        k: k.clone(),
+        k: Rc::new(k.clone()),
         expected: expected.clone(),
         span: cx.span,
     };
-    crate::queue::queue(
-        cx,
-        Rc::new(number),
-        expected.clone(),
-        expected.clone(),
-        error,
-    )
+    // Its error is made only if it is reported ([`Number::stuck_error`]): a
+    // list of thousands of numbers queues thousands of these (SW-1048).
+    crate::queue::queue_without_error(cx, Rc::new(number), expected.clone(), expected.clone())
 }
 
-/// A number literal waiting for its type ([`queue_number`]).
+/// A number literal waiting for its type ([`queue_number`]). Messages show
+/// its placeholder as the number (D2091), from [`Check::literal`].
+///
+/// [`Check::literal`]: crate::queue::Check::literal
 struct Number {
-    k: BigUint,
+    /// Shared by what holds the number: the unifier's table of waiting
+    /// literals, the printer's, and the term it is filled with at `Nat`.
+    k: Rc<BigUint>,
     expected: Value,
     span: Span,
 }
 
 impl crate::queue::Check for Number {
-    fn display(&self, _cx: &Ctx) -> Option<String> {
-        // The number as written (D2091).
-        Some(self.k.to_string())
+    fn literal(&self) -> Option<Rc<BigUint>> {
+        Some(self.k.clone())
     }
 
-    fn literal(&self) -> Option<Rc<BigUint>> {
-        Some(Rc::new(self.k.clone()))
+    fn stuck_error(&self, _e: &crate::Elaborator, _blocker: Option<usize>) -> Option<Diagnostic> {
+        Some(
+            Diagnostic::error(
+                "E-CANNOT-INFER",
+                format!("can't tell what type the number `{}` is", self.k),
+            )
+            .with_label(self.span, "nothing here says what type it should have"),
+        )
     }
 
     fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
-        let term = check_literal(cx, &self.k, false, &self.expected)?;
+        let term = check_literal_with(cx, &self.k, false, &self.expected, || self.k.clone())?;
         Ok(crate::queue::Resumed::Done(term))
     }
 
@@ -392,7 +405,7 @@ impl crate::queue::Check for Number {
             cx.e.defaulted.borrow_mut().push(Defaulted {
                 meta,
                 span: self.span,
-                literal: Some(self.k.clone()),
+                literal: Some((*self.k).clone()),
             });
         }
         Ok(true)

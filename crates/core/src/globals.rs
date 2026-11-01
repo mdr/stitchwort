@@ -561,7 +561,17 @@ impl Drop for TransparencyGuard {
 /// How the printer shows an unfilled placeholder (see
 /// [`Globals::placeholder_syntax`]): the names of the variables it is applied
 /// to when made, and the source its check stands for.
-pub type PlaceholderSyntax = (Rc<[Name]>, Rc<str>);
+pub type PlaceholderSyntax = (Rc<[Name]>, PlaceholderText);
+
+/// The source an unfilled placeholder stands for ([`PlaceholderSyntax`]).
+#[derive(Clone, Debug)]
+pub enum PlaceholderText {
+    /// As written (`r.items`, a record literal).
+    Source(Rc<str>),
+    /// A number literal waiting for its type, shown as the number: kept as
+    /// the number, so that queuing one (a list of thousands) writes no text.
+    Number(Rc<num_bigint::BigUint>),
+}
 
 /// A call the printer shows by a local name (see
 /// [`Globals::print_labels`]): `head` applied first to the variables at
