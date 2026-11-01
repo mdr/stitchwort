@@ -1,5 +1,5 @@
 {
-  "next": 1011,
+  "next": 1012,
   "tickets": [
     {
       "id": 47,
@@ -3065,8 +3065,8 @@
     {
       "id": 993,
       "title": "search stage 3 follow-ups: induction hypothesis in --at, second-round rewrites, conjunct/class-law/T.ext indexing, --in NAMESPACE; query log was never on",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "search"
@@ -3201,8 +3201,8 @@
     {
       "id": 1002,
       "title": "Std.Parse reading lemmas, part 2: section/sections/blankLine/findAll/repeat/natDigits/recursive; specs about what follows",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "std"
@@ -3323,6 +3323,20 @@
         "elaborator"
       ],
       "body": "Matt, 1 Nov 2026: D2126 yes (inferred literals wait, with calc resume point, scope-independent type unknown and placeholder, and the four message rules); D2127 yes (rule 1: omega/cases/ring/rewrite after the rest of the call; rfl in its own step once the float-playlist break is understood; find the scan-layout break first); D2128 yes (omega and ring join rewrite/cases in waiting on a failed search, any unsolved unknown); D2129 keep today's expected-type propagation (no Lean per-argument comparison); D2130 two backlog tickets. Design: docs/proposals/postponement.md 'Stage 7: design'. Fixes SW-1007 (rfl stale goal) via rule 1.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1011,
+      "title": "std lemmas asked for by AoC 2024 days 8, 11, 13 (SW-741, SW-758, SW-762)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "D2132 (Matt, 1 Nov 2026). The std-lemma items only: gcd / Int / subset-size lemmas, List.each/contains (SW-741); occurrencesFlatMap, permFlatMap, sumBy (_ => 1) = length (SW-758); Int (d*a)/d = a, List.minimum lemmas, natAbsMul/natAbsZero moved to std (SW-762). Check what already exists first (SW-1006 found its helpers already in std).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
