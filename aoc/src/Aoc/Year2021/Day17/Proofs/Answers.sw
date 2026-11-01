@@ -55,7 +55,7 @@ theorem candidatesDistinct (target: Target): List.Distinct (candidates target) :
     (i _ => List.distinctMap (List.range (steps target)) (List.distinctRangeFrom (steps target) 0) (aimed target i) (a b same => omega [Eq.cong (v => v.dy) same]))
     (i _ v member =>
       match List.memMapElim (aimed target i) v (List.range (steps target)) member with
-        | Witness j (Both _ made) => rewrite <- made in Eq.trans (Eq.cong Int.toNat (ring: i.toInt + 1 - 1 = i.toInt)) (Int.toNatToInt i))
+        | Witness j (Both _ made) => rewrite <- made in Eq.trans (Eq.cong Int.toNat (omega: i.toInt + 1 - 1 = i.toInt)) (Int.toNatToInt i))
 
 theorem hittingDistinct (target: Target): List.Distinct (hitting target) :=
   List.distinctFilter (candidates target) (v => hitsWithin target (steps target) (launch v)) (candidatesDistinct target)

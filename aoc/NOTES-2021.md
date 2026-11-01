@@ -4259,6 +4259,9 @@ the equation, and a lemma over a variable (`toNatBack z i (h: z =
 i.toInt)`) keeps the computed form out. Fix: let `omega` read the
 arithmetic as written, or teach it `Int.subNatNatFrom` (small-medium).
 
+Fixed since SW-997: `omega` reads `i.toInt + 1 - 1` as written. `candidatesDistinct`
+uses `omega` where it used `ring`; the variable-lemma workaround was never kept there.
+
 ### 2. `omega` has no `(p || q) = True`
 
 `past` is three conditions joined by `∨`, and `cases` on `pastStays`
@@ -4270,6 +4273,11 @@ parts (`overshot`, `short`, `fallen`), prove each lasts by `omega`, and
 put them together with `Bool.orElim`, `Bool.orLeft` and `Bool.orRight`;
 a three-way `signCases` lemma took `Int.sign` apart. Fix: `omega` splits
 a `(p || q) = True` fact and tries each side of such a goal (small).
+
+Fixed since SW-997: `omega` settles a disjunction with one side refuted at once,
+and `pastStays` is one `omega [signCases probe.dx]`. `overshotStays`,
+`shortStays`, `fallenStays` and `dragKeepsSign` are gone (Box.sw's `fast`
+takes the same `signCases` fact).
 
 ### 3. `search --at` and lemma search
 
@@ -4341,10 +4349,11 @@ Release build:
 ### Ranked
 
 1. `omega` fails on `i.toInt + 1 - 1`: the goal computes into
-   `Int.subNatNatFrom` first (item 1).
+   `Int.subNatNatFrom` first (item 1). Fixed since SW-997.
 2. `search --at` misses `List.distinctFlatMap` once `flatMap` has
    computed (item 3; SW-965 item 3).
 3. `omega` has no `(p || q) = True`, as a goal or a fact (item 2).
+   Fixed since SW-997.
 4. A negative literal is rejected as a `Nat` before its type is known
    (item 4).
 5. Std lacks `Nat.iterate` congruence and invariant lemmas, `Int.toNat`

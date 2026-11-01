@@ -77,15 +77,11 @@ theorem offsetNoneOf (position: Position) (offset: Offset)
 -- A step is an offset by its direction's.
 theorem stepOffset: (position: Position) → (direction: Direction) → position.step direction = position.offset direction.offset
   | { row = Zero, column }, Up => Eq.sym (offsetNoneOf { row = Zero, column } (Direction.offset Up) (Inl (omega)))
-  | { row = Succ above, column }, Up => Eq.sym (offsetOf { row = Succ above, column } (Direction.offset Up) { row = above, column } (predToInt above (Succ above) rfl) (omega))
+  | { row = Succ above, column }, Up => Eq.sym (offsetOf { row = Succ above, column } (Direction.offset Up) { row = above, column } (omega) (omega))
   | { row, column }, Right => Eq.sym (offsetOf { row, column } (Direction.offset Right) { row, column = column + 1 } (omega) (omega))
   | { row, column }, Down => Eq.sym (offsetOf { row, column } (Direction.offset Down) { row = row + 1, column } (omega) (omega))
   | { row, column = Zero }, Left => Eq.sym (offsetNoneOf { row, column = Zero } (Direction.offset Left) (Inr (omega)))
-  | { row, column = Succ before }, Left => Eq.sym (offsetOf { row, column = Succ before } (Direction.offset Left) { row, column = before } (omega) (predToInt before (Succ before) rfl))
-
--- Stated over a variable `m`: on `(n + 1).toInt - 1` itself `omega` sees what it
--- computes to, `Int.subNatNatFrom (n + 1) 1 (0 - n)`, an atom.
-theorem predToInt (n: Nat) (m: Nat) (after: m = n + 1): n.toInt = m.toInt + -1 := omega
+  | { row, column = Succ before }, Left => Eq.sym (offsetOf { row, column = Succ before } (Direction.offset Left) { row, column = before } (omega) (omega))
 
 -- The laws
 
