@@ -1,0 +1,62 @@
+Runs of D2118's case in the other systems, 1 November 2026 (nixpkgs builds).
+Paths shortened; output otherwise as printed.
+
+=== Idris 2 0.8.0: idris2 idris-s7.idr --exec main
+[(7, 2), (17, -4)]
+[7, 17]
+[(7, 2), (17, -4)]
+
+(`vs` checks: the record's `Integer` fields fix the literals. `firsts`
+checks: the first components are `Nat`, the second have no type until the
+`%defaulthint defaultInteger : Num Integer` makes them `Integer`. The last
+line prints a list nothing typed, all `Integer` by the same hint.)
+
+=== GHC 9.10.3: runghc -Wtype-defaults haskell-s7.hs
+hs.hs:9:23: warning: [GHC-18042] [-Wtype-defaults]
+    • Defaulting the type variable ‘b0’ to type ‘Integer’ in the following constraint
+        Num b0 arising from the literal ‘2’
+    • In the expression: 2
+      In the expression: (7, 2)
+      In the second argument of ‘map’, namely ‘[(7, 2), (17, - 4)]’
+hs.hs:15:3: warning: [GHC-18042] [-Wtype-defaults]
+    • Defaulting the type variable ‘b0’ to type ‘Integer’ in the following constraints
+        (Show b0) arising from a use of ‘print’ at hs.hs:15:3-7
+        (Num b0) arising from the literal ‘2’ at hs.hs:15:14
+hs.hs:15:3: warning: [GHC-18042] [-Wtype-defaults]
+    • Defaulting the type variable ‘a0’ to type ‘Integer’ in the following constraints
+[V {dx = 7, dy = 2},V {dx = 17, dy = -4}]
+[7,17]
+[(7,2),(17,-4)]
+
+(`vs` needs no default: the record's `Int` fields fix the literals.)
+
+=== Agda 2.8.0: agda --no-libraries agda-s7.agda
+agda-s7.agda:42.7-19: error: [UnsolvedMetaVariables]
+Unsolved metas at the following locations:
+  agda-s7.agda:42.7-8
+  agda-s7.agda:42.9-10
+  agda-s7.agda:42.11-12
+  agda-s7.agda:42.17-19
+
+agda-s7.agda:42.7-19: error: [UnsolvedConstraints]
+Failed to solve the following constraints:
+  Resolve instance argument _67 : _r_66 .Number.Constraint 17
+  No candidates yet
+    (blocked on _r_66)
+  Resolve instance argument _r_66 : Number _A_54
+  Candidates
+    NumberNat : Number Nat
+    NumberInt : Number Int
+    (stuck)
+  Resolve instance argument _r_62 : Number (_B_55 7)
+  Candidates
+    NumberNat : Number Nat
+    NumberInt : Number Int
+    (stuck)
+  …
+
+(Line 42 is `ws`, the list nothing types. `vs`, line 39, checks: its
+literals wait on their instances until the record's `Int` fields fix them.
+Agda has no defaulting. Note `_B_55 7`: the pair's second type is an
+unknown applied to the first component, the shape of let-patterns.sw's
+`?0 (Node x kids)`.)
