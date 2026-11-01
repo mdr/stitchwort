@@ -1,5 +1,5 @@
 {
-  "next": 1000,
+  "next": 1001,
   "tickets": [
     {
       "id": 47,
@@ -3150,6 +3150,20 @@
         "friction"
       ],
       "body": "From SW-996, 1 Nov 2026. (1) Record literals/updates can't appear in a theorem statement: { l | start = … } or { id = 2, … } is a parse error ('expected }, found ='); workaround a def (also SW-978 item 5). (2) if h: P then … else … can't produce a proof: misleading E-UNIVERSE; workaround match on a decision (also the grid lane's if h: on Bool). (3) No record eta: per-record take-apart lemmas (SW-960 item 4, seen again). (4) Failing-test output prints Floats inside lists as { bits = …, valid = ?1 }; a lone Float prints as 0.4: use toSource. (5) Type-mismatch notes on Float order show the unfolded Int-key form instead of t <= hi: fold Float.leq/less when printing. (6) The counterexample search can't run on mergeSelf/mergeWellFormed because nothing decides WellFormed (a record of Props): derive Decidable for Prop records with decidable fields. (7) 'at' as a variable clashes with rewrite … at (also SW-990). Std candidates: Float.leOfNotLess, Float.leTotal, Float.notLessOfLe (Bool forms); distinctAppendLeft/Right/Apart, appendNewBy key lemmas, filterMapMapSelf, permSym, anyIntro. Open by design: where an item lands in a moved leg needs a relative-error law for Float + and - (std Float.Theory has the rounding spec but no such law).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1000,
+      "title": "Goal printing: captured variables, x✝ clashes, stale arm names, %match1 names, unfolded definitions",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "D2123 (Matt, 1 Nov 2026). From AoC 2021 friction: printed goals capture variables (SW-967 item 5: List.Any (y => y = y), search printed (c => c == c)); two different variables printed alike as x✝ / refutation✝ / MkChar code✝ valid✝ (SW-969 item 5, SW-971); a goal showing the previous arm's names (SW-980 item 4: last arm binds left1 right1 but goal printed Pair left right = Pair left2 right2); lifted matches and class fields printed by internal names (SW-971 item 3: expand.%match1, Ord.%compare, Add.%zero, DecEq.%decide); definitions shown unfolded (List.Any … for membership, ∃ for Legal; SW-960 item 6, SW-963); records after a constructor (Cons { value = … } rest, SW-980 item 1); Float printed as { bits = …, valid = ?1 } in lists and Float order as its Int-key unfolding (SW-996 friction); goals list every superseded read✝ after each match (SW-976 item 7). search --at no longer depends on printing (SW-989), but agents read goals.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
