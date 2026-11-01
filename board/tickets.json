@@ -1,5 +1,5 @@
 {
-  "next": 1018,
+  "next": 1020,
   "tickets": [
     {
       "id": 47,
@@ -3438,6 +3438,36 @@
         "bug"
       ],
       "body": "From SW-993 (1 Nov 2026). The time limit is only read between checks, so one check is never stopped once started. In the daily sample of search_at_aoc, goal Day16/Proofs/Sound.sw:83 totalThen takes 45-392 s; nearly all in one closing check (289 s with timings). One earlier run hit the 16 GB memory guard (goal not identified). Probably predates SW-993 (not run on main). Remaining benchmark misses: Eq.cong wrapping (day 18 Some a = Some b); lemma rewrite then induction hypothesis (days 10, 14, 16 lengthBitsOf); day 16 groupsValue.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1018,
+      "title": "Documentation stage 1a: syntax::docs attachment, search summary, index doc/summary, hover",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs",
+        "tooling"
+      ],
+      "body": "Matt, 1 Nov 2026: build the documentation proposal (docs/proposals/documentation.md), taking the recommendation on every open question (D2142-D2149, D2151-D2154 as recommended; D2145 no). Stage 1a per §8's table: syntax::docs (§5.1) with attachment unit tests; summary in search text+JSON (§5.2); doc/summary/docMarker on check --index symbols (§5.6); LSP and playground hover (§5.7); syntax.md and code-navigation.md. Next: 1b stitchwort doc (Opus or Sonnet), 2a/2b, 3.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1019,
+      "title": "Documentation stage 1b: stitchwort doc NAME (examples by name, theorems about X, parse-only mode), exact-name search rank",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs",
+        "tooling"
+      ],
+      "body": "After 1a. docs/proposals/documentation.md §5.3-5.5, D2144, D2146, D2152, D2154.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
