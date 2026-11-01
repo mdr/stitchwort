@@ -1,5 +1,5 @@
 {
-  "next": 1050,
+  "next": 1054,
   "tickets": [
     {
       "id": 47,
@@ -3954,6 +3954,62 @@
         "proof"
       ],
       "body": "docs/proposals/function-equations.md stage 1b; D2174, D2180, D2186 decided. Includes 1a's leftovers: arms whose right side is a match on their own variables (3 in std, 5 in AoC).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1050,
+      "title": "Daily/full fallout: doc-track failures (prelude W-DOC-LINK, nav docs/snapshot, guide 09 quote, aoc cache + LSP)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1051,
+      "title": "Daily/full fallout: elaboration regressions (interfaces waits, counterexamples, check_work steps, effect differential E-RESOURCE)",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1052,
+      "title": "Daily/full fallout: memory blowups (differential 14 GB, lsp workspace_symbols 8.8 GB, operators 4.7 GB)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "Daily/full 1 Nov: memguard (16 GB cap) killed both runs. Daily: differential the_evaluators_agree_on_the_prelude_and_every_example at 14.08 GB. Full: lsp workspace_symbols_cover_namespaces_not_checked_yet 8.77 GB + operators primitive_and_uniform_lowering_agree_on_the_library_and_aoc 4.71 GB. Related to SW-921. Waits for SW-1050/1051 (usage budget).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1053,
+      "title": "Number-arm equations are quadratic: a catch-all arm's f.eqK carries one hypothesis per earlier arm and the kernel refines the whole context at each number case (check-number-wide 2.8 ms -> 6.9 s at 1,000 arms; 250 arms 0.59 s). Options: one merged hypothesis (as character patterns do) or a cap",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "performance"
+      ],
+      "body": "",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
