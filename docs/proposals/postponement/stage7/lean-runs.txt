@@ -1,0 +1,11 @@
+[{ dx := 7, dy := 2 }, { dx := 17, dy := -4 }]
+[(7, 2), (17, -4)] : List (Nat × Int)
+[(7, 2), (17, 4)] : List (Nat × Nat)
+lean-s7.lean:33:15: error: Application type mismatch: The argument
+  rfl
+has type
+  ?m.10 = ?m.10
+but is expected to have type
+  q.y = (shift b p).y
+in the application
+  ext' q (shift b p) ?m.8 rfl
