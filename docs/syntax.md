@@ -8,7 +8,7 @@ Interim rule, until the full layout specification (DESIGN.md §14):
 
 - A declaration starts at column 0.
 - Every following line that's indented continues it.
-- Tabs aren't allowed. `--` starts a comment that runs to the end of the line.
+- Tabs aren't allowed. `--` starts a comment that runs to the end of the line; a run of them above a declaration is its doc ([Doc comments](#doc-comments)).
 - Names are ASCII: letters, digits, `_` and `'`, starting with a letter or `_`. Other characters are fine in text, characters and comments, but `def café` is an error ("unexpected character").
 - **ASCII is the base syntax, with a fixed set of Unicode spellings of operators** (D1200): `∈` `∉` `→` `↔` `∧` `∨` `¬` `≤` `≥` `≠` `∃` for `in` `!in` `->` `<->` `&&` `||` `!` `<=` `>=` `!=` `exists`. Each is exactly the token its ASCII form is, so meaning, precedence, errors and hashes are the same either way, and the two mix freely. Any other symbol from logic or mathematics (`∀`, `⊆`, `∪`, `≡`, `λ`, `⇒` …) is an error saying what to write instead, or that it isn't supported. See [Logic notation](#logic-notation-in--and-exists).
 - **Blocks.** An expression that starts on a new line is a block: each line at that line's column is a statement, and lines indented further continue it. A statement is `let x := e` (or `let x: T := e`), binding `x` for the following lines, or an expression run for its effects, whose value is dropped. The last line is the result. A statement line that performs no effects does nothing, so it warns (`W-NO-EFFECT`, D1702): a parser named but not called (`shortNumber` for `shortNumber()`, with the note "call it: `shortNumber()`"), a function missing its argument (`char` for `char ','`), `x + 1`, or `list.map f` written as if it changed `list`. A line whose value is dropped but which performs something, such as `shortNumber()` read only to skip a number, doesn't warn, nor does a `()` line, a `handle`, or a line whose type isn't known yet where it's checked (a call of a parameter whose type later lines settle). A call of an effect-polymorphic function (`List.map`) warns only when its callbacks perform nothing. The standard library has no such lines: a library file with one doesn't check (`examples/accept/no-effect-line.sw`). A `let` may hold a proof as well as data, and later lines know its value: after `let p := n`, `p` *is* `n` to the checker, so `Nat.leAddRight p 1` proves `n <= n + 1` ([proposals/let.md](proposals/let.md)). A `match` or local definition after a `let` knows it too, and a recursive call on `let r := rest` is as small as `rest`. The value is computed once when the program runs, before the lines after it; a proof or a type isn't computed at all (as for a proof parameter). Messages may show the value where you wrote the name. A `let` performs only what its right-hand side does: binding an effectful function performs nothing until it's called. A `let` whose right-hand side performs an operation (`let k := ask()`) is opaque: its value isn't known until the program runs. A line at the block's column straight after a line ending in an operator (such as `->`) continues that line.
@@ -19,6 +19,27 @@ Interim rule, until the full layout specification (DESIGN.md §14):
 ## Style
 
 Whitespace around `:` doesn't matter to the parser: `(n : Nat)`, `(n: Nat)` and `(n:Nat)` are the same binder. The house style is `x: T`, with no space before the colon and one after, as in Scala and TypeScript: `(n: Nat)`, `[a: Type]`, `{ lo: Nat }`, `def f (n: Nat): Nat`, `def x: Nat := 1`, `let x: T := e`, `(e: T)`, `match h: e with`, `if h: P then …`. `:=` has a space on both sides. A call with no arguments is written `f()`, with no space before the `()`. **`name()` with no space is a call**, and it is a single atom, so it is one argument: `parseTurns IO.readAllLines()` is `parseTurns (IO.readAllLines())`, `f x()` is `f (x())`, and `f().x` is `(f()).x`: dot notation applies to the result of the call (`IO.readAll().lines`, `f().g y`). With a space, `f ()` is the ordinary application to the unit, so `f x ()` is `f x ()` and `f ().x` is `f (().x)`. The compiler's messages and printed types use the house style.
+
+## Doc comments
+
+A declaration's **doc** is the comment above it (docs/proposals/documentation.md; stage 1a, SW-1018). No syntax is new: `--|` is a `--` comment, and the compiler ignores both. Tools read the text when they show it: `stitchwort search` prints a one-line summary under each result, `check --index` gives each symbol its `doc`, `summary` and `docMarker`, and the language server shows the full doc when you hover a name (the playground shows only the summary).
+
+```
+--| Keeps the `Some` results, in order.
+--|
+--| `f` may perform abilities, which run in list order.
+-- A function of its own so the recursive call is written once.
+def List.filterMap: List a → (f: a → {e} Option b) → {e} List b
+```
+
+- **What gets a doc.** A top-level declaration, from the first token of its group, so the doc goes above its attributes (`@[noReceiver]`); a comment between an attribute and its `def` is not a doc. A constructor, a record or interface field and an ability operation, when its name is on a line of its own, after at most the `|`, `,` or `{` that introduces it, and no other member is on that line. A member on the declaration's own line, or sharing a line with another (`type Pair = { first: Nat, second: Nat }`), has no doc of its own. The equations and arms of a definition have none, and neither has a trailing comment (a comment after code on its line).
+- **The comment run.** The comments directly above the declaration, with no blank line between them or before the declaration. Of the comments above it, only the last such group counts; a blank line ends the run.
+- **The doc.** The `--|` lines of the run, in order, each without the `--|` and the one space after it; a `--|` line with nothing after it is a paragraph break. The plain `--` lines of the run are maintainer notes: they stay out of the doc, above or below it.
+- **Until the sorting pass** (D2142), a run with no `--|` line is a doc as a whole, its `--` lines with the `--` and one space removed, and `docMarker` is `"--"` where it would be `"--|"`. The pass will mark the user-facing comments `--|` and the fallback will go, so a plain `--` block is then only a note.
+- **File docs.** The comment runs before a file's first declaration, other than the run attached to it, are the file's doc, joined as paragraphs: `--|` lines, or the `--` runs if there are none. A `namespace` or `import` line is not a declaration here, so every run above one is the file's. A project file's doc belongs to its `namespace` line's namespace; a std file's to its folder's (`List/Toolkit.sw` to `Std.List`), and a `core/` file's to none, since the prelude's files mix namespaces.
+- **The summary** is the doc's first sentence: the first paragraph's lines joined by single spaces, up to the first `.` outside backticks that is followed by whitespace or the end (not the ones in `e.g.` and `i.e.`). One over 160 characters is cut at the last space before the 160th that is outside backticks, and ends in `…`. It is never made from the type.
+
+Docs are read from the declaration's file as it is, when they are shown. They are not part of elaboration, hashes or the check cache, so editing one re-elaborates and re-hashes nothing. The code is `stitchwort_syntax::docs`.
 
 ## Declarations
 
@@ -1317,6 +1338,17 @@ $ stitchwort search 'List.length ((_: List _) ++ _) = _'
 2 results, filtered pass
 ```
 
+A result whose declaration has a doc (above) gets one more line, its summary: `stitchwort search '"filterMap"' --definitions` ends
+
+```
+ 2. Std.List.filterMap  definition
+    [a: Type] → [e: Effect.Effects] → [div: Effect.Divergence] → [b: Type] → List a → (a → {e} Option b) → {e} List b
+    std/List/Toolkit.sw:204  (import Std (List))
+    Keeps the `Some` results, in order.
+```
+
+The summary is shown, never matched: no query finds a result by the words of its doc. A constructor has none, since its location is its type's.
+
 **The query** is parts separated by commas (a comma inside brackets or quotes doesn't separate):
 
 - **A pattern** (at most one): an expression or a type, elaborated in the scope below. `_` is any term; `?x` is a named hole, the same term at each `?x`, also under the pattern's own arrows (`(?a: Nat) ≤ ?b → ?b ≤ ?c → ?a ≤ ?c` finds `Nat.leTrans`); a lowercase name that means nothing in scope is a named hole too, so a goal can be pasted as it is printed. A leading `⊢` (or `|-`) matches conclusions only. A pattern that is only a hole (`_`, `?x`) is refused, and so is one that computes to a hole, which the error says (`List.drop _ 0` is its list argument `_`). An operator whose meaning depends on its operands' type, with nothing in its group saying it (`_ ++ _`: lists or texts; `_ + _`, `_ < _`: `Nat`, which is what it defaults to, or `Int`), is tried each way, and the results merged: the JSON's `query.resolutions` lists the readings searched. A reading what surrounds it rules out doesn't elaborate and isn't searched: in `List.length (_ ++ _) = _`, `++` joins lists.
@@ -1348,7 +1380,7 @@ Each result prints its name, kind, relation and place; its type; and where it is
  "results": [
    {"name": "Main.twiceLength", "kind": "theorem",
     "type": "(xs: List Nat) → List.length (twice xs) = List.length xs + List.length xs",
-    "file": "a.sw", "line": 5, "import": null,
+    "file": "a.sw", "line": 5, "summary": null, "import": null,
     "relation": "instance", "place": "conclusion",
     "absorbed": 0, "instantiated": 1, "premises": 0, "size": 25}],
  "total": 1,
@@ -1358,6 +1390,7 @@ Each result prints its name, kind, relation and place; its type; and where it is
 ```
 
 - `kind`: `theorem`, `definition` or `constructor`. `import`: the line to add, or `null` for the file's own declarations. `conjunct`: only for a conjunct (above).
+- `summary`: the first sentence of the declaration's doc (above), or `null`; always present. It was added without a version change, as the contract says.
 - `relation`, `place`: as above; absent without a pattern. `equation`: only with `--rewrite`. `via`: only for a pattern searched twice (`resolved`, `generic`).
 - `budget`: the declarations searched, the comparisons made, those that ran out of their step budget (200,000 steps each: a match there may have been missed, and a warning says so, naming the declarations: usually std's `Float.Theory` lemmas about `magUnits 9218868437227405311`, whose own statements compute too far to compare with any `Nat` sum), whether `--limit` cut the results, whether every candidate was compared (always, in this stage), and comparisons that failed with an internal error (counted as no match; there should be none).
 - An error prints `{"version": 1, "error": {"code": …, "message": …}}` and exits with 2.

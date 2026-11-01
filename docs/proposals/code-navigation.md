@@ -60,7 +60,8 @@ Local definitions aren't listed (they are binders).
   "symbols": [
     {"name": "Main.sum", "kind": "def", "file": 0, "range": [2, 4, 2, 7],
      "fullRange": [2, 0, 4, 20], "container": null,
-     "type": "(xs: List Nat) -> Nat"},
+     "type": "(xs: List Nat) -> Nat",
+     "doc": "Adds up the list.", "summary": "Adds up the list.", "docMarker": "--|"},
     {"name": "Std.List.map", "kind": "def", "file": 1, "range": [10, 4, 10, 7],
      "type": "[a: Type] -> [b: Type] -> (f: a -> b) -> (xs: List a) -> List b"}
   ],
@@ -98,7 +99,17 @@ Local definitions aren't listed (they are binders).
   an index into `symbols`, or `null`, and always present; `fullRange` is
   present for definitions of the checked files. Symbols of the project files
   come first, in source order; those of the library are only the ones
-  referenced. `type` may be missing.
+  referenced. `type` may be missing. `doc`, `summary` and `docMarker` are
+  present when the declaration has a doc (docs/proposals/documentation.md §4,
+  docs/syntax.md "Doc comments"): the `--|` lines above it with the markers
+  removed, lines joined with `\n`; its first sentence; and how it was
+  marked, `"--|"`, or `"--"` for a plain comment run, which counts as a doc
+  until the sorting pass. A constructor, field or operation has one only when
+  its name is on a line of its own. They were added to version 3 without a
+  version change (a field that changes meaning or goes would change it). The
+  text is read from the source the check used, so a library symbol has the
+  doc of the embedded std file; the cost is one more lex, with comments, of
+  each file the index covers.
 - `refs`: sorted by file, then position. Exactly one of `symbol` (index into
   `symbols`; the target is `symbols[i].file/range`) and `binder` is present.
   `type` may be missing. Ranges never overlap each other except that `p.name`
@@ -216,6 +227,12 @@ Ranges are the same UTF-16 ranges, which is what a `<textarea>` or
 CodeMirror offset counts. A UI is then: map the click position to a ref,
 and on click or Cmd-click call the page's `goTo(path, line, column)` (add 1
 to the 0-based values), or open the std text for a `std` file.
+
+**Docs (SW-1018, D2147).** The hover tooltip adds the symbol's `summary`
+on a line after the type, and nothing else of the doc: the tooltip is a small
+`div`, and the whole doc is for the language server, whose hover shows it as
+Markdown after the type and the kind and name (`LiveRef::doc`, the symbol's
+`doc`), before the defaults a call left out.
 
 **Type of a selection (SW-295, D526).** Both calls turn on expression types
 (`Elaborator::enable_expression_types`, as the language server does, SW-293),
