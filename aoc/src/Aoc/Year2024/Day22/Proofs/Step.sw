@@ -38,12 +38,6 @@ theorem nextSecretEvolves (secret: Nat): nextSecret secret = evolve secret :=
     rewrite pruneMix (first / 32) first, Nat.modSmall (first / 32) modulus (omega [firstSmall]), Nat.modSmall first modulus firstSmall in
       rewrite pruneMix (second * 2048) second, Nat.modSmall second modulus secondSmall in rfl
 
--- Iterating equal steps gives equal results.
-theorem iterateCong (step: Nat → Nat) (other: Nat → Nat) (same: (secret: Nat) → step secret = other secret): (count: Nat) → (secret: Nat) →
-    Nat.iterate count step secret = Nat.iterate count other secret
-  | Zero, secret => rfl
-  | Succ count, secret => rewrite same secret in iterateCong step other same count (other secret)
-
 theorem part1Correct (buyers: List Nat): solvePart1 buyers = part1 buyers :=
   List.sumByCong buyers (buyer => Nat.iterate 2000 nextSecret buyer) (buyer => Nat.iterate 2000 evolve buyer)
-    (buyer => iterateCong nextSecret evolve nextSecretEvolves 2000 buyer)
+    (buyer => Nat.iterateCong nextSecret evolve nextSecretEvolves 2000 buyer)

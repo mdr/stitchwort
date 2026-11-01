@@ -4,7 +4,6 @@
 namespace Aoc.Year2021.Day18.Proofs
 import Aoc.Year2021.Day18 (..)
 import Aoc.Year2021.Day18.Spec (AddsUpTo, IsReduced, IsSum, Part1, Part2, leaves)
-import Aoc.Year2021.Day14.Proofs (maximumSome)
 import Std (DecEq, Eq, Exists, List, Nat, Option, Void)
 
 -- The program's magnitude is the puzzle's.
@@ -120,7 +119,7 @@ theorem part2Correct (numbers: List Number) (reduced: List.All IsReduced numbers
     | None => Void.exfalso (Option.noneNotSome answer solved)
     | Some magnitudes =>
       let sound := sumMagnitudesSound (orderedPairs numbers) magnitudes s
-      let most := maximumSome magnitudes answer solved
+      let most := List.maximumSome magnitudes answer solved
       Both
         (match And.left sound answer (And.left most) with
           | Witness x (Witness y (Witness sum (Both member (Both added size)))) =>

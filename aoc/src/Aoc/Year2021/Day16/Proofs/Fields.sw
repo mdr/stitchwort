@@ -7,10 +7,6 @@ import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (bitsOf, groupBits, typeId)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Void)
 
-theorem takeAppendLength (xs: List a) (ys: List a) (k: Nat) (h: xs.length = k): (xs ++ ys).take k = xs := rewrite <- h in List.takeAppend xs ys
-
-theorem dropAppendLength (xs: List a) (ys: List a) (k: Nat) (h: xs.length = k): (xs ++ ys).drop k = ys := rewrite <- h in List.dropAppend xs ys
-
 -- `Some` of two pairs: the same parts.
 theorem somePairInjective (x1: a) (y1: b) (x2: a) (y2: b) (h: Some (x1, y1) = Some (x2, y2)): x1 = x2 ∧ y1 = y2 :=
   let both := Option.someInjective _ _ h
@@ -18,7 +14,7 @@ theorem somePairInjective (x1: a) (y1: b) (x2: a) (y2: b) (h: Some (x1, y1) = So
 
 -- A field of the right length is split off.
 theorem splitFieldAppend (field: List Bool) (rest: List Bool) (count: Nat) (length: field.length = count): splitField count (field ++ rest) = Some (field, rest) :=
-  rewrite takeAppendLength field rest count length, dropAppendLength field rest count length, length, DecEq.refl count in rfl
+  rewrite List.takeAppendLength field rest count length, List.dropAppendLength field rest count length, length, DecEq.refl count in rfl
 
 -- What `splitField` splits off is a field of the right length.
 theorem splitFieldSome (count: Nat) (bits: List Bool) (field: List Bool) (rest: List Bool) (split: splitField count bits = Some (field, rest)):

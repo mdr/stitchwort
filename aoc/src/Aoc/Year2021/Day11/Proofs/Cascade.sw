@@ -86,12 +86,6 @@ theorem stableOfCount (levels: List (List Nat)) (k: Nat) (same: flashedCount lev
           (x member => grows levels k x) q (onGridAfter levels (Succ k) q flashes) flashes e
         Void.exfalso (omega)
 
--- No more octopuses flash than there are.
-theorem countLeLength (xs: List a) (p: a → Bool): xs.count p ≤ xs.length :=
-  calc xs.count p
-    _ ≤ xs.count (x => True) := List.countLeMem xs p (x => True) (x member passes => rfl)
-    _ = xs.length := Eq.trans (List.countOccurrences xs (x => True)) (List.occurrencesTrue xs)
-
 -- After k rounds, k have flashed, or a round has added nobody.
 theorem stableOrCount (levels: List (List Nat)): (k: Nat) → Or (Stable levels k) (k + 1 ≤ flashedCount levels (Succ k))
   | Zero =>
@@ -111,7 +105,7 @@ theorem stableAtSize (levels: List (List Nat)): Stable levels (positions levels)
   match stableOrCount levels (positions levels).length with
     | Inl stable => stable
     | Inr tooMany =>
-      let bound := countLeLength (positions levels) (flashedAt (flashedAfter levels (Succ (positions levels).length)))
+      let bound := List.countLeLength (positions levels) (flashedAt (flashedAfter levels (Succ (positions levels).length)))
       Void.exfalso (omega)
 
 -- ...nor any later one.

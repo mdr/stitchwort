@@ -144,3 +144,7 @@ theorem Bool.uniqueEq (x: Bool) (y: Bool) (p: x = y) (q: x = y): p = q :=
 -- to `y = x || … || Void`, decided one disjunct at a time, and this is the
 -- last. In the core, so `auto` never depends on what is loaded (D58).
 instance Void.dec: Decidable Void := No (none => none)
+
+-- `Unit` is decided: it is true. `List.Distinct` of a list written out
+-- computes to `… ∧ Unit`, and this is the last.
+instance Unit.dec: Decidable Unit := Yes Trivial

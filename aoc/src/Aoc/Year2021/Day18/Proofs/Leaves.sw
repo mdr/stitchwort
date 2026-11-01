@@ -12,18 +12,10 @@ def height: Number → Nat
   | Regular _ => 0
   | Pair left right => Nat.max (height left) (height right) + 1
 
-theorem appendLeftNotNil (ys: List Leaf): (xs: List Leaf) → xs ≠ Nil → xs ++ ys ≠ Nil
-  | Nil, some, _ => some rfl
-  | Cons _ _, _, empty => cases
-
-theorem appendRightNotNil (ys: List Leaf) (some: ys ≠ Nil): (xs: List Leaf) → xs ++ ys ≠ Nil
-  | Nil, empty => some empty
-  | Cons _ _, empty => cases
-
 -- A number has at least one leaf.
 theorem leavesNotNil (depth: Nat): (number: Number) → leaves depth number ≠ Nil
   | Regular _, empty => cases
-  | Pair left right, empty => appendLeftNotNil (leaves (depth + 1) right) (leaves (depth + 1) left) (leavesNotNil (depth + 1) left) empty
+  | Pair left right, empty => List.appendNotNilLeft (leaves (depth + 1) left) (leaves (depth + 1) right) (leavesNotNil (depth + 1) left) empty
 
 theorem addToFirstAppend (amount: Nat) (ys: List Leaf): (xs: List Leaf) → xs ≠ Nil → addToFirst amount (xs ++ ys) = addToFirst amount xs ++ ys
   | Nil, some => Void.exfalso (some rfl)
@@ -36,7 +28,7 @@ theorem addToLastCons (amount: Nat) (leaf: Leaf): (rest: List Leaf) → rest ≠
 theorem addToLastAppend (amount: Nat) (ys: List Leaf) (some: ys ≠ Nil): (xs: List Leaf) → addToLast amount (xs ++ ys) = xs ++ addToLast amount ys
   | Nil => rfl
   | Cons x rest =>
-    rewrite addToLastCons amount x (rest ++ ys) (appendRightNotNil ys some rest), addToLastAppend amount ys some rest in rfl
+    rewrite addToLastCons amount x (rest ++ ys) (List.appendNotNilRight rest ys some), addToLastAppend amount ys some rest in rfl
 
 -- Adding 0 to a leaf leaves it as it was.
 theorem addZeroLeaf (leaf: Leaf): ({ value = leaf.value + 0, depth = leaf.depth }: Leaf) = leaf := Leaf.ext { value = leaf.value + 0, depth = leaf.depth } leaf (Nat.addZero leaf.value) rfl

@@ -5,8 +5,7 @@
 
 namespace Aoc.Year2021.Day11.Proofs
 import Aoc.Year2021.Day11 (..)
-import Aoc.Year2021.Day09.Proofs (findIndexedNone, sameOfNotDiffer)
-import Std (Eq, Exists, Fail, Fin, List, Nat, Option, Result, Void)
+import Std (Bool, DecEq, Eq, Exists, Fail, Fin, List, Nat, Option, Result, Void)
 
 -- Every level `parseLevels` reads is 9 or less...
 theorem parseDigits (input: Text) (levels: List (List Nat)) (parsed: Fail.toResult (() => parseLevels input) = Ok levels)
@@ -26,7 +25,7 @@ theorem parseRectangular (input: Text) (levels: List (List Nat)) (parsed: Fail.t
     Exists.elim (List.memMapElim (digits => digits.map Fin.toNat) row rows (rewrite <- same in rowIn)) (digits found =>
       let (Both digitsIn made) := found
       let atRow := List.allMem _ digits rows (List.allToAll _ rows notRagged) digitsIn
-      rewrite same, <- made, List.lengthMap digits Fin.toNat, firstLength rows in sameOfNotDiffer digits.length (width rows) atRow))
+      rewrite same, <- made, List.lengthMap digits Fin.toNat, firstLength rows in DecEq.neFalse digits.length (width rows) (Bool.notTrue _ atRow)))
 
 -- Whatever reads the rows, `checkRows` gives the rows' digits as numbers,
 -- and only if no row is ragged.
@@ -42,7 +41,7 @@ theorem checkRowsOk (rows: List (List (Fin 10))) (levels: List (List Nat)) (h: F
     levels = rows.map (digits => digits.map Fin.toNat) ∧ rows.all (digits => not (digits.length != width rows)) = True :=
   match e: firstRagged rows with
     | Some (index, _) => Void.exfalso (Result.errNotOk _ levels h)
-    | None => Both (Eq.sym (Result.okInjective _ levels h)) (findIndexedNone (row => row.length != width rows) 0 rows e)
+    | None => Both (Eq.sym (Result.okInjective _ levels h)) (List.findNoneAll rows (row => row.length != width rows) (List.findWithIndexFromNone (row => row.length != width rows) 0 rows e))
 
 -- The first row read as numbers is as long as the first row of digits.
 theorem firstLength: (rows: List (List (Fin 10))) → ((rows.map (digits => digits.map Fin.toNat)).headOr []).length = width rows

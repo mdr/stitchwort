@@ -120,3 +120,8 @@ theorem Bool.notOfFalse: (a: Bool) → a = False → (¬a) = True
 theorem Bool.notOfTrue: (a: Bool) → a = True → (¬a) = False
   | True, h => rfl
   | False, h => Void.exfalso (Bool.falseNotTrue h)
+
+-- `Bool.toNat` is 0 or 1, for `omega` (`omega [Bool.toNatLeOne b]`).
+theorem Bool.toNatLeOne: (b: Bool) → Bool.toNat b ≤ 1
+  | True => rfl
+  | False => rfl

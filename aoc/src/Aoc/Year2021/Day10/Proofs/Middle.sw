@@ -7,23 +7,8 @@ import Aoc.Year2021.Day10 (..)
 import Aoc.Year2021.Day10.Spec (..)
 import Std (Bool, Eq, List, Nat, Void)
 
--- An element of a list, by index.
-theorem getOrMem: (xs: List a) → (i: Nat) → (fallback: a) → i < xs.length → xs.getOr i fallback ∈ xs
-  | Nil, i, fallback, h => Void.exfalso (Bool.falseNotTrue h)
-  | Cons x rest, Zero, fallback, h => Inl rfl
-  | Cons x rest, Succ i, fallback, h => Inr (getOrMem rest i fallback h)
-
 -- `y < x` is false when `x ≤ y`.
 theorem notBelow (x: Nat) (y: Nat) (h: x ≤ y): (y < x) = False := omega
-
-theorem toNatAtMostOne: (b: Bool) → Bool.toNat b ≤ 1 := cases
-
-theorem countAtMostLength (p: a → Bool): (xs: List a) → xs.count p ≤ xs.length
-  | Nil => Nat.leRefl 0
-  | Cons x rest =>
-    let below := countAtMostLength p rest
-    let one := toNatAtMostOne (p x)
-    rewrite List.countCons rest x p in omega
 
 -- In a sorted list, at most k elements are below the one at index k.
 theorem countBelowSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → (k: Nat) → k < sorted.length →
@@ -34,7 +19,7 @@ theorem countBelowSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → 
     rewrite List.countCons rest x (score => score < x), notBelow x x (Nat.leRefl x), none in Nat.leRefl 0
   | Cons x rest, Both _ s, Succ k, h =>
     let below := countBelowSorted rest s k h
-    let one := toNatAtMostOne (x < rest.getOr k 0)
+    let one := Bool.toNatLeOne (x < rest.getOr k 0)
     rewrite List.countCons rest x (score => score < rest.getOr k 0) in omega
 
 -- And at most length - 1 - k above it.
@@ -42,7 +27,7 @@ theorem countAboveSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → 
     sorted.count (score => sorted.getOr k 0 < score) + k + 1 ≤ sorted.length
   | Nil, s, k, h => Void.exfalso (Bool.falseNotTrue h)
   | Cons x rest, s, Zero, h =>
-    let most := countAtMostLength (score => x < score) rest
+    let most := List.countLeLength rest (score => x < score)
     rewrite List.countCons rest x (score => x < score), notBelow x x (Nat.leRefl x) in omega
   | Cons x rest, Both first s, Succ k, h =>
     let above := countAboveSorted rest s k h
@@ -64,7 +49,7 @@ theorem middleIsMiddle (scores: List Nat) (some: Not (scores = Nil)): Middle sco
   let inRange: k < sorted.length := omega
   let isSorted := List.sortSortedNat scores
   let m := sorted.getOr k 0
-  let member: m ∈ scores := List.memPerm sorted scores (List.sortPerm scores) m (getOrMem sorted k 0 inRange)
+  let member: m ∈ scores := List.memPerm sorted scores (List.sortPerm scores) m (List.getOrMem sorted k 0 inRange)
   let below := countBelowSorted sorted isSorted k inRange
   let above := countAboveSorted sorted isSorted k inRange
   let belowSame := List.countPerm sorted scores (List.sortPerm scores) (score => score < m)

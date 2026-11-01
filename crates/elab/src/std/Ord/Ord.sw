@@ -76,6 +76,39 @@ theorem Ord.minEither [auto ord: Ord a] (x: a) (y: a): Or (Ord.min x y = x) (Ord
     | Less => Inl rfl
     | Equal => Inl rfl
 
+-- The larger of a value and itself is that value.
+theorem Ord.maxSelf [auto ord: Ord a] (x: a): Ord.max x x = x := rewrite Ord.compareSelf x in rfl
+
+-- The larger of two values is at least each, and is one of them.
+theorem Ord.leMaxLeft [auto ord: Ord a] (x: a) (y: a): x <= Ord.max x y :=
+  match order: Ord.compare x y with
+    | Less => ord.lessEqOf x y (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))
+    | Greater => Ord.leRefl x
+    | Equal => Ord.leRefl x
+
+theorem Ord.leMaxRight [auto ord: Ord a] (x: a) (y: a): y <= Ord.max x y :=
+  match order: Ord.compare x y with
+    | Less => Ord.leRefl y
+    | Greater =>
+      let flipped: Ord.compare y x = Less := rewrite order at ord.flip x y
+      ord.lessEqOf y x (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym flipped) greater))
+    | Equal => rewrite ord.equal x y order in Ord.leRefl y
+
+theorem Ord.maxEither [auto ord: Ord a] (x: a) (y: a): Or (Ord.max x y = x) (Ord.max x y = y) :=
+  match order: Ord.compare x y with
+    | Less => Inr rfl
+    | Greater => Inl rfl
+    | Equal => Inl rfl
+
+-- Values at most each other are equal.
+theorem Ord.leAntisymm [auto ord: Ord a] (x: a) (y: a) (h1: x <= y) (h2: y <= x): x = y :=
+  match order: Ord.compare x y with
+    | Equal => ord.equal x y order
+    | Greater => Void.exfalso (ord.lessEqTo x y h1 order)
+    | Less =>
+      let flipped: Ord.compare y x = Greater := rewrite order at ord.flip x y
+      Void.exfalso (ord.lessEqTo y x h2 flipped)
+
 -- `c3` isn't `Greater` when `c1` and `c2` aren't, given what `Ord`'s laws
 -- say of three comparisons `x y`, `y z` and `x z`: `Less` is transitive,
 -- and an `Equal` makes two of them the same.

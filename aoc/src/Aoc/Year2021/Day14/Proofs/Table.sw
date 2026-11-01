@@ -17,9 +17,6 @@ theorem findAbsent (key: (Char, Char)) (rules: List Rule) (absent: key ∉ rules
       let same := DecEq.sound (rule.left, rule.right) key passes
       Void.exfalso (absent (rewrite <- same in List.memMap rules rule member (rule => (rule.left, rule.right))))
 
--- `compare` says equal only of equal values.
-theorem compareEqual [auto ord: Ord k] (x: k) (y: k) (e: Ord.compare x y = Equal): x = y := ord.equal x y e
-
 theorem lookupRules (key: (Char, Char)): (rules: List Rule) → OneRulePerPair rules →
     Map.lookupLast key (rules.map (rule => (rule.pair, rule.insert))) = Option.map (rules.find (rule => (rule.left, rule.right) == key)) (rule => rule.insert)
   | Nil, _ => rfl
@@ -37,7 +34,7 @@ theorem lookupRules (key: (Char, Char)): (rules: List Rule) → OneRulePerPair r
             | Some c => rfl
             | None =>
               match c: Ord.compare key (rule.left, rule.right) with
-                | Equal => Void.exfalso (DecEq.soundFalse (rule.left, rule.right) key t (Eq.sym (compareEqual key (rule.left, rule.right) c)))
+                | Equal => Void.exfalso (DecEq.soundFalse (rule.left, rule.right) key t (Eq.sym (Ord.equal key (rule.left, rule.right) c)))
                 | Less => rfl
                 | Greater => rfl
 

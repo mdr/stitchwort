@@ -34,6 +34,15 @@ theorem DecEq.soundFalse [auto eq: DecEq a] (x: a) (y: a) (h: (x == y) = False) 
 -- `x == x`.
 theorem DecEq.refl [auto eq: DecEq a] (x: a): (x == x) = True := Decidable.toBoolOf (DecEq.decide x x) rfl
 
+-- `x != y` false says `x = y`; true says they differ.
+theorem DecEq.neFalse [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = False): x = y :=
+  match d: DecEq.decide x y with
+    | Yes same => same
+    | No differ => Void.exfalso (Bool.trueNotFalse h)
+
+theorem DecEq.neTrue [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = True): Not (x = y) :=
+  same => Bool.falseNotTrue (rewrite Decidable.toBoolOfNot (Decidable.not (DecEq.decide x y)) (differ => differ same) at h)
+
 -- `x == y` is `y == x`.
 theorem DecEq.eqComm [auto eq: DecEq a] (x: a) (y: a): (x == y) = (y == x) :=
   Bool.eqOf (x == y) (y == x) (h => rewrite DecEq.sound x y h in DecEq.refl y) (h => rewrite DecEq.sound y x h in DecEq.refl x)

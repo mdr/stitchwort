@@ -4,7 +4,6 @@
 namespace Aoc.Year2021.Day12.Proofs
 import Aoc.Year2021.Day12 (..)
 import Aoc.Year2021.Day12.Spec (NoBigNeighbours, connected)
-import Aoc.Year2021.Day09.Proofs (findIndexedNone)
 import Std (Bool, DecEq, Eq, Fail, List, Option, Result, Void)
 
 -- `checkPassages` gives the passages back, and only if none joins two big
@@ -13,7 +12,7 @@ theorem checkPassagesOk (passages: List (Text, Text)) (result: List (Text, Text)
     result = passages ∧ passages.all (passage => not (joinsBig passage)) = True :=
   match e: firstBigPair passages with
     | Some (index, (from, to)) => Void.exfalso (Result.errNotOk _ result h)
-    | None => Both (Eq.sym (Result.okInjective _ result h)) (findIndexedNone joinsBig 0 passages e)
+    | None => Both (Eq.sym (Result.okInjective _ result h)) (List.findNoneAll passages joinsBig (List.findWithIndexFromNone joinsBig 0 passages e))
 
 -- ...whatever reads them.
 theorem parsedChecked (read: () → {Fail} (List (Text, Text))) (passages: List (Text, Text))

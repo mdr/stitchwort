@@ -37,17 +37,9 @@ theorem checkWiredOk (entries: List Entry) (checked: List Entry) (h: Fail.toResu
     checked.all Entry.wired = True :=
   match e: firstUnwired entries with
     | Some (index, _) => Void.exfalso (Result.errNotOk _ checked h)
-    | None => rewrite <- Result.okInjective entries checked h in findIndexedNone Entry.wired 0 entries e
-
--- No element of a list paired with its index fails `good`: every element
--- passes it.
-theorem findIndexedNone (good: a → Bool): (i: Nat) → (xs: List a) →
-    (List.withIndexFrom i xs).find (((_, x)) => not (good x)) = None → xs.all good = True
-  | i, Nil, h => rfl
-  | i, Cons x rest, h =>
-    match e: good x with
-      | True => findIndexedNone good (Succ i) rest h
-      | False => Void.exfalso (Option.noneNotSome _ (Eq.sym h))
+    | None =>
+      rewrite <- Result.okInjective entries checked h in
+        List.findNotNoneAll entries Entry.wired (List.findWithIndexFromNone (entry => not entry.wired) 0 entries e)
 
 -- An entry that passes the program's check is decoded by its wiring.
 theorem wiredDecodes (entry: Entry) (ok: entry.wired = True): Decodes entry.wiring.at entry :=
