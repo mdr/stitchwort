@@ -38,6 +38,8 @@ pub struct Options {
     pub all: bool,
     /// How many results to show.
     pub limit: usize,
+    /// Only declarations in these namespaces (`--in`, SW-993); none: all.
+    pub within: Vec<String>,
 }
 
 impl Default for Options {
@@ -47,8 +49,32 @@ impl Default for Options {
             kinds: Kinds::default(),
             all: false,
             limit: 10,
+            within: Vec::new(),
         }
     }
+}
+
+/// Whether the declaration with full name `path` is in one of the
+/// namespaces `within` (`--in`, SW-993): the namespace itself (`Std.List`
+/// for `Std.List.lengthAppend`) or one inside it; with none given, every
+/// declaration is.
+pub fn in_namespaces(path: &str, within: &[String]) -> bool {
+    within.is_empty()
+        || (within.iter()).any(|ns| {
+            path.strip_prefix(ns.as_str())
+                .is_some_and(|rest| rest.starts_with('.'))
+        })
+}
+
+/// The warning when `--in` leaves nothing to search: a namespace not
+/// written in full, or not loaded.
+pub(crate) fn within_warning(within: &[String], candidates: usize) -> Option<String> {
+    (!within.is_empty() && candidates == 0).then(|| {
+        format!(
+            "no declaration is in {}: --in takes a namespace in full (`Std.List`, `Aoc.Year2021.Day16`)",
+            within.join(" or ")
+        )
+    })
 }
 
 /// Which kinds of declaration are searched.
@@ -446,6 +472,11 @@ pub struct QueryJson {
 pub struct Result1 {
     /// The full name.
     pub name: String,
+    /// For a conjunct of the theorem `name` (SW-993): which (`left`,
+    /// `right.left`); `type` is the conjunct's, taken with `And.left (name
+    /// …)` and the like.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conjunct: Option<String>,
     /// `theorem`, `definition` or `constructor`.
     pub kind: &'static str,
     #[serde(rename = "type")]
@@ -571,6 +602,7 @@ impl Session {
             options.kinds.allows(item.kind(g))
                 && (all || !hidden(path))
                 && query.names.iter().all(|n| path.contains(n.as_str()))
+                && in_namespaces(path, &options.within)
         });
         let keep = |c: &Candidate| {
             mentions_defs.is_subset(&c.index.ty) && mentions_data.is_subset(&c.index.data)
@@ -589,7 +621,9 @@ impl Session {
             filter: true,
             deadline: None,
         };
-        let mut warnings = Vec::new();
+        let mut warnings: Vec<String> = within_warning(&options.within, candidates.len())
+            .into_iter()
+            .collect();
         // Each reading of the pattern's overloaded operators that
         // elaborates is searched, and the results merged (SW-927).
         let mut holes = Vec::new();
@@ -775,6 +809,7 @@ impl Session {
             premises: hit.premises,
             size: hit.size,
             name: path,
+            conjunct: item.part().map(|p| p.name()),
         }
     }
 }
@@ -948,7 +983,11 @@ pub fn render_text(report: &Report) -> String {
             }
             _ => String::new(),
         };
-        out.push_str(&format!("{:>2}. {}  {}{how}\n", i + 1, r.name, r.kind));
+        let name = match &r.conjunct {
+            Some(part) => format!("{} (its {part} conjunct)", r.name),
+            None => r.name.clone(),
+        };
+        out.push_str(&format!("{:>2}. {name}  {}{how}\n", i + 1, r.kind));
         out.push_str(&format!("    {}\n", r.ty));
         let import = r
             .import

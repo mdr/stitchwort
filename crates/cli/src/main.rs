@@ -265,6 +265,12 @@ enum Command {
         /// Constructors only, or with the others named
         #[arg(long)]
         constructors: bool,
+        /// Only declarations in this namespace, written in full
+        /// (`Std.List`, `Aoc.Year2021.Day16`), or one inside it; repeat for
+        /// more than one. With --at, the induction hypothesis and the
+        /// goal's hypotheses are offered too
+        #[arg(long = "in", value_name = "NAMESPACE")]
+        within: Vec<String>,
         /// Append a line of JSON describing this search (the query, what it
         /// elaborated to, the results with their ranks, the time) to this
         /// file; also from the environment variable STITCHWORT_SEARCH_LOG
@@ -555,6 +561,7 @@ fn run(cli: Cli) -> ExitCode {
             theorems,
             definitions,
             constructors,
+            within,
             log,
             at,
             goal,
@@ -580,6 +587,7 @@ fn run(cli: Cli) -> ExitCode {
                     time,
                     all,
                     exclude: Vec::new(),
+                    within,
                 };
                 return search_at(
                     &at,
@@ -605,6 +613,7 @@ fn run(cli: Cli) -> ExitCode {
                 },
                 all,
                 limit,
+                within,
             };
             search(
                 &query,
@@ -1875,7 +1884,11 @@ fn finish_search_at(
     if let Some(log) = log {
         let entry = match &result {
             Ok(report) => stitchwort_cli::search_log::at_entry(at, report, started),
-            Err(d) => stitchwort_cli::search_log::error_entry(at, d, started),
+            Err(d) => stitchwort_cli::search_log::error_entry(
+                &stitchwort_cli::search_log::private_at(at),
+                d,
+                started,
+            ),
         };
         stitchwort_cli::search_log::append(log, &entry);
     }
@@ -2068,7 +2081,9 @@ fn search(
     let found = session.search(query, options, &scope);
     if let Some(log) = log {
         let scope_json = match (file, &scope) {
-            (Some(path), _) => serde_json::json!({"file": path.display().to_string()}),
+            (Some(path), _) => serde_json::json!({
+                "file": stitchwort_cli::search_log::private_path(&path.display().to_string())
+            }),
             (None, Scope::Project(ns)) => serde_json::json!({"namespaces": ns}),
             (None, Scope::File | Scope::ProjectFile { .. }) => serde_json::Value::Null,
         };

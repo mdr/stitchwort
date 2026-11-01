@@ -266,8 +266,11 @@ fn the_query_log_gets_a_line_per_search() {
         .collect();
     assert_eq!(lines.len(), 2, "{text}");
     let first = &lines[0];
-    assert_eq!(first["log"], 1);
+    assert_eq!(first["log"], 2);
     assert_eq!(first["event"], "search");
+    // Nothing personal (SW-993): no folder the command ran in.
+    assert!(first.get("cwd").is_none(), "{first}");
+    assert!(!text.contains(&*dir.display().to_string()), "{text}");
     assert_eq!(first["query"], "_ ++ _ = _");
     assert_eq!(
         first["elaborated"],

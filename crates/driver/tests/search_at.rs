@@ -388,3 +388,119 @@ fn goals_that_dont_print_back_are_searched() {
         }
     }
 }
+
+/// Recursive theorems whose step needs the induction hypothesis (SW-993):
+/// in `omega`, as a rewrite whose argument matching solved (`x + 2`), and
+/// as a rewrite after which `rfl` closes.
+const RECURSIVE: &str = "\
+import Std (Bool, Nat, List, Void)
+
+def total: List Nat → Nat
+  | Nil => 0
+  | Cons x rest => x + total rest
+
+theorem totalAtLeast: (xs: List Nat) → (y: Nat) → y ∈ xs → y ≤ total xs
+  | Nil, y, member => Void.exfalso member
+  | Cons x rest, y, Inl same => rewrite same in omega
+  | Cons x rest, y, Inr later => ?
+
+def steps: Nat → Nat → Nat
+  | 0, x => x
+  | Succ n, x => steps n (x + 2)
+
+theorem stepsAdd: (n: Nat) → (x: Nat) → steps n x = x + 2 * n
+  | 0, x => omega
+  | Succ n, x => ?
+
+def size: List Nat → Nat
+  | Nil => 0
+  | Cons _ rest => size rest + 1
+
+theorem sizeMap: (xs: List Nat) → size (List.map xs (x => x + 1)) = size xs
+  | Nil => rfl
+  | Cons _ rest => ?
+";
+
+/// Each step is closed by a suggestion using the induction hypothesis on
+/// the smaller argument, marked so and, in a file on its own, `elaborated`
+/// (not `kernel`: nothing there checks that the call terminates); the
+/// one wanted pastes, and the file then checks, termination included.
+#[test]
+fn the_induction_hypothesis_closes_a_step() {
+    let cases: [(&str, &str); 3] = [
+        ("theorem totalAtLeast", "omega [totalAtLeast rest y later]"),
+        ("theorem stepsAdd", "stepsAdd n (x + 2)"),
+        ("theorem sizeMap", "sizeMap rest"),
+    ];
+    // Each theorem's last `?`: its step's.
+    let lines: Vec<usize> = (cases.iter())
+        .map(|(marker, _)| {
+            let start = RECURSIVE.find(marker).expect("the theorem");
+            let end = (RECURSIVE[start..].find("\n\n")).map_or(RECURSIVE.len(), |e| start + e);
+            let at = start + RECURSIVE[start..end].rfind('?').expect("a `?`");
+            RECURSIVE[..at].matches('\n').count() + 1
+        })
+        .collect();
+    let reports = at_each(RECURSIVE, &lines);
+    for (((marker, want), line), report) in cases.iter().zip(&lines).zip(&reports) {
+        let recursive: Vec<&str> = (report.results.iter())
+            .filter(|s| s.recursive)
+            .map(|s| s.proof.as_str())
+            .collect();
+        assert!(
+            recursive.iter().any(|p| p.contains(want)),
+            "{marker}: `{want}` not among {recursive:?}\n{report:#?}"
+        );
+        for s in report.results.iter().filter(|s| s.recursive) {
+            assert_eq!(s.checked, "elaborated", "{marker}: {}", s.proof);
+        }
+        // One each: a check of the file takes a second.
+        let first = recursive.iter().find(|p| p.contains(want)).expect("found");
+        pastes_at(RECURSIVE, *line, first);
+    }
+}
+
+/// A rewrite by a hypothesis, then a lemma that closes what it leaves
+/// (SW-993; AoC 2021 day 16's `takeAppendLength`).
+#[test]
+fn a_hypothesis_rewrite_then_a_lemma_closes() {
+    let text = "\
+import Std (Bool, Nat, List)
+
+theorem takeLength (xs: List Nat) (ys: List Nat) (k: Nat) (h: xs.length = k): (xs ++ ys).take k = xs := ?
+";
+    let report = &at_each(text, &[3])[0];
+    let want = "rewrite <- h in List.takeAppend xs ys";
+    assert!(
+        (report.results.iter()).any(|s| s.proof == want && s.class == "withHypotheses"),
+        "`{want}` not suggested: {report:#?}"
+    );
+    pastes_at(text, 3, want);
+}
+
+/// A conjunct of a theorem whose conclusion is a definition that unfolds
+/// to a conjunction (SW-993; std's `Graph.distancesShortest`), nested.
+#[test]
+fn a_conjunct_of_a_theorem_closes() {
+    let text = "\
+import Std (Nat, List)
+
+def total: List Nat → Nat
+  | Nil => 0
+  | Cons x rest => x + total rest
+
+def Bounded (xs: List Nat) (n: Nat): Prop := And (total xs ≤ n) (And (List.length xs ≤ n) (0 < n + 1))
+
+theorem boundedSelf (xs: List Nat): Bounded xs (total xs + List.length xs) := Both (omega) (Both (omega) (omega))
+
+theorem useTotal (ys: List Nat): List.length ys ≤ total ys + List.length ys := ?
+";
+    let report = &at_each(text, &[11])[0];
+    let want = "And.left (And.right (boundedSelf ys))";
+    let found = (report.results.iter()).find(|s| s.proof == want);
+    assert!(
+        found.is_some_and(|s| s.conjunct.as_deref() == Some("right.left")),
+        "`{want}` not suggested as the right.left conjunct: {report:#?}"
+    );
+    pastes_at(text, 11, want);
+}

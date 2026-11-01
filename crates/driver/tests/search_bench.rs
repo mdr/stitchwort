@@ -157,7 +157,7 @@ fn self_retrieval(left: bool) -> Score {
             (candidates.iter())
                 .filter_map(|c| match c.item {
                     Item::Def(id) => Some((g.def(id).path.to_string(), (id, None))),
-                    Item::Ctor(..) => None,
+                    Item::Ctor(..) | Item::Part(..) => None,
                 })
                 .collect(),
         );
@@ -272,7 +272,7 @@ fn proof_uses_find_their_lemma_among_the_first_ten() {
         let ids: BTreeSet<DefId> = (candidates.iter())
             .filter_map(|c| match c.item {
                 Item::Def(id) => Some(id),
-                Item::Ctor(..) => None,
+                Item::Ctor(..) | Item::Part(..) => None,
             })
             .collect();
         let uses = lemma_uses(g, &ids);
@@ -321,7 +321,7 @@ fn hand_queries_rank_their_lemma() {
         rewrite: true,
         ..Options::default()
     };
-    let cases: [(&str, &Options, &str, usize); 12] = [
+    let cases: [(&str, &Options, &str, usize); 14] = [
         (
             "List.length ((_: List _) ++ _) = _",
             &theorems,
@@ -371,6 +371,15 @@ fn hand_queries_rank_their_lemma() {
             1,
         ),
         ("List.map (List.map _ _) _", &rewrite, "Std.List.mapMap", 1),
+        // One premise after explicit parameters (SW-993): an interface's
+        // law, and a lemma.
+        (
+            "Ord.compare ?x ?y = Equal → ?x = ?y",
+            &theorems,
+            "Std.Ord.equal",
+            1,
+        ),
+        ("(?a: Nat) < ?b → ?a ≤ ?b", &theorems, "Std.Nat.lessLe", 1),
     ];
     let failures = with_session(STACK, Session::for_stack, |session| {
         load_library(session);

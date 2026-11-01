@@ -216,3 +216,35 @@ fn arithmetic_on_holes_is_tried_at_nat_and_at_int() {
     let report = overloaded("List.length _ + _ = _");
     assert!(report.query.resolutions.is_empty(), "{:?}", report.query);
 }
+
+/// `--in` (SW-993): only declarations in the namespaces given, the
+/// namespace written in full; one that names nothing says so.
+#[test]
+fn in_limits_the_search_to_a_namespace() {
+    let within = |namespaces: &[&str]| {
+        with_session(STACK, Session::for_stack, |session| {
+            session.load("search.sw", SOURCE).expect("the file checks");
+            let options = Options {
+                within: namespaces.iter().map(|n| n.to_string()).collect(),
+                limit: usize::MAX,
+                ..Options::default()
+            };
+            (session.search("_ ≤ _", &options, &Scope::File)).expect("searched")
+        })
+    };
+    let report = within(&["Std.Nat"]);
+    let found: Vec<&str> = report.results.iter().map(|r| r.name.as_str()).collect();
+    assert!(!found.is_empty());
+    assert!(found.iter().all(|n| n.starts_with("Std.Nat.")), "{found:?}");
+    let report = within(&["Main"]);
+    let found: Vec<&str> = report.results.iter().map(|r| r.name.as_str()).collect();
+    assert!(found.contains(&"Main.myTrans"), "{found:?}");
+    assert!(found.iter().all(|n| n.starts_with("Main.")), "{found:?}");
+    let report = within(&["Std.Na"]);
+    assert!(report.results.is_empty());
+    assert!(
+        (report.warnings.iter()).any(|w| w.contains("no declaration is in Std.Na")),
+        "{:?}",
+        report.warnings
+    );
+}

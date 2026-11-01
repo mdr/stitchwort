@@ -64,6 +64,14 @@ pub(crate) struct Pending {
     /// Whether the goal is a proposition, if that was known when the hole
     /// was checked: a lemma of it is then a `theorem`, else a `def`.
     prop: Option<bool>,
+    /// The definition being elaborated, whose recursive call is the
+    /// induction hypothesis at the goal (SW-993).
+    owner_def: Option<stitchwort_core::DefId>,
+    /// What the definition's parameters stand for at the goal: the
+    /// context's first variables as they are there (`Cons x rest` for a
+    /// list a case split took apart), at most one for each of its type's
+    /// binders.
+    owner_args: Vec<Value>,
 }
 
 #[derive(Clone)]
@@ -255,6 +263,19 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     };
     let shown = display_goal(cx);
     let (owner, lemma_base) = cx.e.goal_owner();
+    let owner_def = cx.e.owner_def();
+    let owner_args = match owner_def {
+        Some(d) => {
+            let mut binders = 0;
+            let mut t = g.def(d).ty.strip_loc();
+            while let Term::Pi(_, _, _, cod) = t {
+                binders += 1;
+                t = cod.strip_loc();
+            }
+            cx.env.iter().take(binders).cloned().collect()
+        }
+        None => Vec::new(),
+    };
     cx.e.goals.borrow_mut().pending.push(Pending {
         span: cx.span,
         meta: m,
@@ -267,6 +288,8 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         owner,
         lemma_base,
         prop,
+        owner_def,
+        owner_args,
     });
     term
 }
@@ -419,6 +442,19 @@ impl Elaborator {
             }
             None => ("this expression".to_string(), None),
         }
+    }
+
+    /// The definition of the item being elaborated: the first its
+    /// declaration made (not a lifted helper), if it is a definition.
+    fn owner_def(&self) -> Option<stitchwort_core::DefId> {
+        let item = self.module.item?;
+        if self.module.items.get(item)?.kind != crate::module::Kind::Def {
+            return None;
+        }
+        (self.module.def_items.iter())
+            .filter(|(_, i)| **i == item)
+            .map(|(id, _)| *id)
+            .min_by_key(|id| id.0)
     }
 
     /// Prints the goals noted, while the metavariables in them still have
@@ -739,6 +775,19 @@ pub struct GoalSnapshot {
     /// that context.
     pub(crate) level: usize,
     pub(crate) target: Term,
+    /// The definition the goal is in (SW-993): a call of it is the
+    /// induction hypothesis.
+    pub(crate) owner: Option<stitchwort_core::DefId>,
+    /// What its parameters stand for at the goal (`Pending::owner_args`),
+    /// in this context; empty if one couldn't be kept.
+    pub(crate) owner_args: Vec<Term>,
+}
+
+impl GoalSnapshot {
+    /// The definition the goal is in, if it is in one.
+    pub fn owner(&self) -> Option<stitchwort_core::DefId> {
+        self.owner
+    }
 }
 
 pub(crate) struct SnapVar {
@@ -802,6 +851,16 @@ impl Elaborator {
         let target = quote(&p.target)?;
         // What each mentions, of the variables kept.
         let known: Vec<usize> = vars.iter().map(|v| v.level).collect();
+        let owner_args: Vec<Term> = (p.owner_args.iter())
+            .map(|v| {
+                let t = quote(v)?;
+                levels_in(&t, level)?
+                    .iter()
+                    .all(|l| known.contains(l))
+                    .then_some(t)
+            })
+            .collect::<Option<Vec<Term>>>()
+            .unwrap_or_default();
         let mut needs: Vec<Vec<usize>> = Vec::new();
         for v in &vars {
             let mut n = levels_in(&v.ty, level)?;
@@ -836,6 +895,8 @@ impl Elaborator {
             vars,
             level,
             target,
+            owner: p.owner_def,
+            owner_args,
         })
     }
 

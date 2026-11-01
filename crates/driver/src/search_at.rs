@@ -47,6 +47,10 @@ pub struct AtOptions {
     /// Declarations not to suggest, by full name (a benchmark leaves out
     /// the theorem whose statement is the goal).
     pub exclude: Vec<String>,
+    /// Only declarations in these namespaces (`--in`, SW-993); none: all.
+    /// The induction hypothesis and the goal's hypotheses are offered
+    /// regardless.
+    pub within: Vec<String>,
 }
 
 impl Default for AtOptions {
@@ -57,6 +61,7 @@ impl Default for AtOptions {
             time: Duration::from_secs(10),
             all: false,
             exclude: Vec::new(),
+            within: Vec::new(),
         }
     }
 }
@@ -202,6 +207,12 @@ pub struct AtReport {
     /// then those that apply leaving goals; best first.
     pub results: Vec<Suggestion>,
     pub rewrites: Vec<Rewrite>,
+    /// The induction hypothesis (SW-993), when nothing above uses it: calls
+    /// of the declaration being proved on structurally smaller arguments,
+    /// the others as at the goal. Termination is checked only once a proof
+    /// using one is pasted.
+    #[serde(rename = "inductionHypotheses", skip_serializing_if = "Vec::is_empty")]
+    pub induction: Vec<String>,
     pub total: Totals,
     pub budget: AtBudget,
     pub warnings: Vec<String>,
@@ -262,6 +273,19 @@ pub struct Suggestion {
     /// It has a `?` for a witness, nothing solved (shown after the rest).
     #[serde(skip)]
     pub witnesses: bool,
+    /// It uses the induction hypothesis, a call of the declaration being
+    /// proved on a structurally smaller argument (SW-993): checked given
+    /// that call; termination only once pasted (in a project's file, as
+    /// every closing suggestion is).
+    #[serde(rename = "inductionHypothesis", skip_serializing_if = "is_false")]
+    pub recursive: bool,
+    /// For a conjunct of the theorem `name` (SW-993): which (`left`,
+    /// `right.left`); the proof takes it with `And.left` and the like.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conjunct: Option<String>,
+    /// The declaration applied, when known.
+    #[serde(skip)]
+    pub item: Option<stitchwort_elab::search::Item>,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -303,6 +327,12 @@ pub struct Rewrite {
     pub closes: Option<&'static str>,
     /// `kernel` (with the rewritten goal as a hypothesis) or `elaborated`.
     pub checked: &'static str,
+    /// The rule is the induction hypothesis (SW-993), as for a suggestion.
+    #[serde(rename = "inductionHypothesis", skip_serializing_if = "is_false")]
+    pub recursive: bool,
+    /// The goal left, for a second round.
+    #[serde(skip)]
+    pub left: Option<GoalData>,
 }
 
 #[derive(Serialize, Debug, Default)]
@@ -352,6 +382,10 @@ fn is_zero(n: &usize) -> bool {
     *n == 0
 }
 
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
 /// The order of the classes.
 fn class_rank(class: &str) -> usize {
     match class {
@@ -380,7 +414,16 @@ fn atom(text: &str) -> String {
 fn render(plan: &Plan, fills: &[String], infer: bool) -> String {
     let mut out = plan.head.clone();
     let mut fills = fills.iter();
-    for arg in &plan.args {
+    for (i, arg) in plan.args.iter().enumerate() {
+        // A conjunct (SW-993): the theorem's arguments, then the projections
+        // that take it (`And.left (T …)`), then its own.
+        if let Some((fields, own)) = &plan.part
+            && i == *own
+        {
+            for field in fields {
+                out = format!("{field} ({out})");
+            }
+        }
         out.push(' ');
         match arg {
             Arg::Given(_) if infer => out.push('_'),
@@ -388,6 +431,13 @@ fn render(plan: &Plan, fills: &[String], infer: bool) -> String {
             Arg::Infer | Arg::Unsolved => out.push('_'),
             Arg::Hyp(name) => out.push_str(name),
             Arg::Open => out.push_str(&atom(fills.next().map_or("?", String::as_str))),
+        }
+    }
+    if let Some((fields, own)) = &plan.part
+        && plan.args.len() <= *own
+    {
+        for field in fields {
+            out = format!("{field} ({out})");
         }
     }
     match &plan.sym {
@@ -457,6 +507,9 @@ struct Checker<'s> {
     target_now: String,
     checks: usize,
     deadline: Instant,
+    /// While trying the induction hypothesis: the name the proofs call
+    /// the declaration being proved by, bound as a hypothesis (SW-993).
+    recursive: Option<String>,
 }
 
 impl Checker<'_> {
@@ -485,8 +538,10 @@ impl Checker<'_> {
                     };
                     hyps.push((name.clone(), ty));
                 }
-                self.session.elab.check_proof_at(snapshot, &hyps, &expr)
+                let recursive = self.recursive.as_deref();
+                (self.session.elab).check_proof_at(snapshot, &hyps, recursive, &expr)
             }
+            None if self.recursive.is_some() => return Outcome::Failed,
             None => {
                 let text = wrap(&self.goal, extra, &body);
                 let Ok(expr) = self.session.parse_expression("<search --at>", &text) else {
@@ -552,13 +607,8 @@ impl Session {
         };
         goal.deadline = Some(started + options.time);
         let g = &self.elab.globals;
-        let all = options.all;
         let prop = goal.prop;
-        let candidates = self.elab.search_candidates(&|item, path| {
-            (all || !hidden(path))
-                && (!prop || item.kind(g) != Kind::Definition)
-                && !options.exclude.iter().any(|e| e == path)
-        });
+        let candidates = searchable(&self.elab, options, prop);
         let keep = |_: &Candidate| true;
         debug_time("opened", started);
         let closing = self
@@ -574,6 +624,22 @@ impl Session {
         } else {
             Vec::new()
         };
+        // Calls of the declaration being proved (SW-993), for a goal in one.
+        let recursive_plans = match snapshot.as_ref().and_then(|s| s.owner()) {
+            Some(owner) if prop => self.elab.recursive_plans(&goal, owner, iff, 8),
+            _ => Vec::new(),
+        };
+        // Its type and place, for what uses it (it isn't a declaration
+        // the search found, and a file's own may not be found by name).
+        let owner_place = (snapshot.as_ref().and_then(|s| s.owner())).map(|id| {
+            let item = stitchwort_elab::search::Item::Def(id);
+            let (file, line) = crate::render::location(&self.sources, item.span(g));
+            (
+                stitchwort_core::pretty::term(g, &[], &item.ty(g)),
+                file,
+                line,
+            )
+        });
         let closers: Vec<(&'static str, String)> = [
             ("rfl", Some("rfl".to_string())),
             ("omega", Some("omega".to_string())),
@@ -602,6 +668,8 @@ impl Session {
         };
         // Each declaration's place in the search's ranking.
         let ranks: Vec<_> = closing.found.hits.iter().map(|h| h.item).collect();
+        // A file on its own: its proofs aren't checked again pasted in.
+        let on_its_own = checker.is_some();
         let checking: &mut Session = match checker {
             Some(other) => other,
             None => self,
@@ -618,6 +686,7 @@ impl Session {
             target_now: target_now.clone(),
             checks: 0,
             deadline: started + options.time,
+            recursive: None,
         };
         // The closers on their own first: a goal `omega` closes needs no
         // lemma.
@@ -653,6 +722,9 @@ impl Session {
                     goals: Vec::new(),
                     search_rank: None,
                     witnesses: false,
+                    recursive: false,
+                    conjunct: None,
+                    item: None,
                 };
                 results.push((s, 0));
             }
@@ -720,8 +792,91 @@ impl Session {
                 if let Some(r) = try_rule(&mut checker, &rule, &target_now)
                     && !rewrites.iter().any(|x: &Rewrite| x.goal == r.goal)
                 {
+                    // Then a lemma (SW-993): `rewrite <- h in L …`.
+                    if let (None, Some(left)) = (r.closes, &r.left) {
+                        let arrow = if backwards { "<- " } else { "" };
+                        let prefix = format!("rewrite {arrow}{} in ", h.name);
+                        let mine = (!on_its_own).then_some(candidates.as_slice());
+                        for s in after_rewrite(&mut checker, left, &prefix, mine, options, 3) {
+                            if !results.iter().any(|(r, _)| r.proof == s.proof) {
+                                results.push((s, usize::MAX - 2));
+                            }
+                        }
+                    }
                     rewrites.push(r);
                 }
+            }
+        }
+        // The induction hypothesis (SW-993): calls of the declaration being
+        // proved, on smaller arguments, checked with it bound as a
+        // hypothesis. Alone, in `omega [IH]`, or as a rewrite.
+        let mut induction: Vec<String> = Vec::new();
+        if let Some(place) = owner_place.as_ref().filter(|_| checker.snapshot.is_some()) {
+            let mut used = false;
+            for rp in &recursive_plans {
+                if checker.out_of_time() {
+                    budget.exhausted = false;
+                    break;
+                }
+                let call = render(&rp.plan, &[], false);
+                checker.recursive = Some(rp.plan.head.clone());
+                // Alone or in `omega` (a rewrite's call too: what matching a
+                // side solved may be what `omega` needs, `dyAfter n (step
+                // probe)`).
+                let alone = rp.rewrite.is_none().then(|| call.clone());
+                if !call.contains('?') {
+                    for proof in alone.into_iter().chain([format!("omega [{call}]")]) {
+                        if results.iter().any(|(s, _)| s.proof == proof) {
+                            continue;
+                        }
+                        if matches!(checker.check(&proof, &[]), Outcome::Closed) {
+                            used = true;
+                            let s = Suggestion {
+                                class: "withHypotheses",
+                                proof,
+                                name: rp.plan.item_path.clone(),
+                                kind: "theorem",
+                                ty: place.0.clone(),
+                                file: place.1.clone(),
+                                line: place.2,
+                                import: None,
+                                checked: "kernel",
+                                obligations: Vec::new(),
+                                goals: Vec::new(),
+                                search_rank: None,
+                                witnesses: false,
+                                recursive: true,
+                                conjunct: None,
+                                item: None,
+                            };
+                            results.push((s, usize::MAX - 1));
+                            break;
+                        }
+                    }
+                }
+                if let Some(backwards) = rp.rewrite {
+                    let rule = Rule {
+                        text: &call,
+                        backwards,
+                        iff: false,
+                        name: &rp.plan.item_path,
+                        at: "",
+                    };
+                    if let Some(mut r) = try_rule(&mut checker, &rule, &target_now)
+                        && !rewrites.iter().any(|x: &Rewrite| x.goal == r.goal)
+                    {
+                        used = true;
+                        (r.ty, r.file, r.line) = place.clone();
+                        rewrites.push(r);
+                    }
+                }
+                checker.recursive = None;
+                if rp.rewrite.is_none() && !induction.contains(&call) {
+                    induction.push(call);
+                }
+            }
+            if used {
+                induction.clear();
             }
         }
         // A rewrite after which `rfl` or `omega` closes the goal closes it:
@@ -741,9 +896,11 @@ impl Session {
                     proof,
                     name: r.name.clone(),
                     kind: "theorem",
-                    ty: String::new(),
-                    file: String::new(),
-                    line: 0,
+                    // Empty but for the induction hypothesis's: filled in
+                    // below, as the rewrite's are.
+                    ty: r.ty.clone(),
+                    file: r.file.clone(),
+                    line: r.line,
                     import: None,
                     checked: "kernel",
                     obligations: vec![Obligation {
@@ -753,6 +910,9 @@ impl Session {
                     goals: Vec::new(),
                     search_rank: None,
                     witnesses: false,
+                    recursive: r.recursive,
+                    conjunct: None,
+                    item: None,
                 };
                 results.push((suggestion, usize::MAX));
             }
@@ -763,6 +923,12 @@ impl Session {
         let session = &*self;
         results.sort_by_key(|(s, rank)| (class_rank(s.class), s.witnesses, s.goals.len(), *rank));
         let mut results: Vec<Suggestion> = results.into_iter().map(|(s, _)| s).collect();
+        // A proof using the induction hypothesis is checked given it; in a
+        // file on its own, nothing checks that its call terminates
+        // (SW-993). In a project's file each is checked pasted in.
+        for s in results.iter_mut().filter(|s| s.recursive && on_its_own) {
+            s.checked = "elaborated";
+        }
         for s in results.iter_mut() {
             session.describe(s, scope);
         }
@@ -787,7 +953,9 @@ impl Session {
             applicable: results.iter().filter(|s| s.class == "applicable").count(),
             rewrites: rewrites.len(),
         };
-        let mut warnings = Vec::new();
+        let mut warnings: Vec<String> =
+            (crate::search::within_warning(&options.within, candidates.len()).into_iter())
+                .collect();
         if !budget.exhausted {
             warnings.push(format!(
                 "the time ran out ({} s) before every candidate was checked: --time for more",
@@ -836,6 +1004,7 @@ impl Session {
             tactics,
             results,
             rewrites,
+            induction,
             total: totals,
             budget,
             warnings,
@@ -845,10 +1014,11 @@ impl Session {
     /// Fills in a suggestion's declaration: name, kind, type, place, import.
     fn describe(&self, s: &mut Suggestion, scope: &Scope) {
         let g = &self.elab.globals;
-        if s.kind == "hypothesis" {
+        // A hypothesis, or the declaration being proved (filled in already).
+        if s.kind == "hypothesis" || s.recursive {
             return;
         }
-        let Some(item) = find_item(self, &s.name) else {
+        let Some(item) = s.item.or_else(|| find_item(self, &s.name)) else {
             return;
         };
         let (file, line) = crate::render::location(&self.sources, item.span(g));
@@ -861,6 +1031,9 @@ impl Session {
 
     fn describe_rewrite(&self, r: &mut Rewrite, scope: &Scope) {
         let g = &self.elab.globals;
+        if r.recursive {
+            return;
+        }
         let Some(item) = find_item(self, &r.name) else {
             return;
         };
@@ -872,11 +1045,102 @@ impl Session {
     }
 }
 
+/// The declarations `elab` searches for a goal (a proposition if `prop`):
+/// all but hidden helpers (unless `--all`), definitions for a proposition,
+/// and those `options` leaves out.
+fn searchable(
+    elab: &stitchwort_elab::Elaborator,
+    options: &AtOptions,
+    prop: bool,
+) -> Vec<Candidate> {
+    let g = &elab.globals;
+    elab.search_candidates(&|item, path| {
+        (options.all || !hidden(path))
+            && (!prop || item.kind(g) != Kind::Definition)
+            && !options.exclude.iter().any(|e| e == path)
+            && crate::search::in_namespaces(path, &options.within)
+    })
+}
+
+/// A second round after a rewrite by a hypothesis (SW-993): the goal it
+/// leaves, `left`, opened from its statement in the checking session, and
+/// the lemmas that close it there (premises from hypotheses, nothing left
+/// open), each checked at the first goal after `prefix` (`rewrite <- h
+/// in `). At most `max` found.
+fn after_rewrite(
+    checker: &mut Checker,
+    left: &GoalData,
+    prefix: &str,
+    candidates: Option<&[Candidate]>,
+    options: &AtOptions,
+    max: usize,
+) -> Vec<Suggestion> {
+    let mut out = Vec::new();
+    let Ok(expr) = checker.session.parse_expression("<goal>", &statement(left)) else {
+        return out;
+    };
+    let Ok(mut goal) = checker.session.elab.open_goal(&expr, left.hypotheses.len()) else {
+        return out;
+    };
+    goal.deadline = Some(checker.deadline);
+    // The search session's own, when it is the checking session (in a
+    // project); else the checking session's.
+    let own;
+    let candidates = match candidates {
+        Some(c) => c,
+        None => {
+            own = searchable(&checker.session.elab, options, goal.prop);
+            &own
+        }
+    };
+    let keep = |_: &Candidate| true;
+    let closing = (checker.session.elab).closing_plans(&goal, candidates, &keep, 20);
+    for (_, plans) in &closing.plans {
+        let Some(plan) = plans.iter().find(|p| !p.args.contains(&Arg::Open)) else {
+            continue;
+        };
+        if out.len() >= max || checker.out_of_time() {
+            break;
+        }
+        let proof = format!("{prefix}{}", render(plan, &[], false));
+        if proof.contains('?') || !matches!(checker.check(&proof, &[]), Outcome::Closed) {
+            continue;
+        }
+        out.push(Suggestion {
+            class: "withHypotheses",
+            proof,
+            name: plan.item_path.clone(),
+            kind: "theorem",
+            ty: String::new(),
+            file: String::new(),
+            line: 0,
+            import: None,
+            checked: "kernel",
+            obligations: Vec::new(),
+            goals: Vec::new(),
+            search_rank: None,
+            witnesses: false,
+            recursive: false,
+            conjunct: None,
+            item: None,
+        });
+    }
+    out
+}
+
 /// The declaration with full name `path`.
 fn find_item(session: &Session, path: &str) -> Option<stitchwort_elab::search::Item> {
     let g = &session.elab.globals;
     if let Some(id) = session.elab.lookup_def(path) {
         return Some(stitchwort_elab::search::Item::Def(id));
+    }
+    // A file's own (`Main.…`, its scope's keys have no `Main.`), a
+    // generated `T.ext`: by its path.
+    let def = (0..g.defs.len())
+        .map(|id| stitchwort_elab::search::Item::Def(stitchwort_core::DefId(id)))
+        .find(|item| item.path(g) == path);
+    if def.is_some() {
+        return def;
     }
     (0..g.datas.len()).find_map(|d| {
         let data = g.data(DataId(d));
@@ -975,6 +1239,9 @@ fn try_plan_with(
         goals: Vec::new(),
         search_rank: Some(rank),
         witnesses: !witness.is_empty(),
+        recursive: false,
+        conjunct: None,
+        item: None,
     };
     let mut suggestion = match first {
         Outcome::Failed => return None,
@@ -1111,6 +1378,8 @@ fn try_plan_with(
         }
     };
     suggestion.name = plan.item_path.clone();
+    suggestion.item = Some(plan.item);
+    suggestion.conjunct = plan.item.part().map(|p| p.name());
     Some(suggestion)
 }
 
@@ -1152,6 +1421,7 @@ fn try_rule(checker: &mut Checker, rp: &Rule, target_now: &str) -> Option<Rewrit
         Outcome::Goals(mut g) if g.len() == 1 => g.pop()?,
         _ => return None,
     };
+    let left_goal = left.clone();
     if left.target == target_now || left.target == checker.goal.target {
         return None;
     }
@@ -1203,6 +1473,8 @@ fn try_rule(checker: &mut Checker, rp: &Rule, target_now: &str) -> Option<Rewrit
         goal: left.target,
         closes,
         checked,
+        recursive: checker.recursive.is_some(),
+        left: Some(left_goal),
     })
 }
 
@@ -1551,7 +1823,13 @@ pub fn render_text(report: &AtReport) -> String {
         out.push_str("\ncloses it (checked by the kernel):\n");
         for (i, s) in closing.iter().enumerate() {
             out.push_str(&format!("{:>2}. {}  [{}]\n", i + 1, s.proof, s.class));
+            if let Some(part) = &s.conjunct {
+                out.push_str(&format!("    the {part} conjunct of:\n"));
+            }
             out.push_str(&format!("    {}\n", place(s)));
+            if s.recursive {
+                out.push_str("    uses the induction hypothesis: a call of the declaration being proved, on a structurally smaller argument; termination is checked once the proof is pasted\n");
+            }
             for o in &s.obligations {
                 out.push_str(&format!("    {} closes ⊢ {}\n", o.closer, o.target));
             }
@@ -1575,7 +1853,16 @@ pub fn render_text(report: &AtReport) -> String {
                 .map(|c| format!("  (then {c} closes it)"))
                 .unwrap_or_default();
             out.push_str(&format!("{:>2}. {}{closes}\n", i + 1, r.proof));
+            if r.recursive {
+                out.push_str("    uses the induction hypothesis: a call of the declaration being proved, on a structurally smaller argument; termination is checked once the proof is pasted\n");
+            }
             out.push_str(&format!("    leaves ⊢ {}\n", r.goal));
+        }
+    }
+    if !report.induction.is_empty() {
+        out.push_str("\ninduction hypothesis (calls of the declaration being proved, on structurally smaller arguments; termination is checked once the proof is pasted), for a closer such as omega [h], or to rewrite with:\n");
+        for (i, call) in report.induction.iter().enumerate() {
+            out.push_str(&format!("{:>2}. {call}\n", i + 1));
         }
     }
     let t = &report.total;
