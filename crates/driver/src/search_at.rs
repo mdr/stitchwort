@@ -259,6 +259,9 @@ pub struct Suggestion {
     /// a rewrite followed by `rfl` or `omega`.
     #[serde(rename = "searchRank", skip_serializing_if = "Option::is_none")]
     pub search_rank: Option<usize>,
+    /// It has a `?` for a witness, nothing solved (shown after the rest).
+    #[serde(skip)]
+    pub witnesses: bool,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -382,7 +385,7 @@ fn render(plan: &Plan, fills: &[String], infer: bool) -> String {
         match arg {
             Arg::Given(_) if infer => out.push('_'),
             Arg::Given(text) => out.push_str(&atom(text)),
-            Arg::Infer => out.push('_'),
+            Arg::Infer | Arg::Unsolved => out.push('_'),
             Arg::Hyp(name) => out.push_str(name),
             Arg::Open => out.push_str(&atom(fills.next().map_or("?", String::as_str))),
         }
@@ -649,6 +652,7 @@ impl Session {
                     obligations: Vec::new(),
                     goals: Vec::new(),
                     search_rank: None,
+                    witnesses: false,
                 };
                 results.push((s, 0));
             }
@@ -748,6 +752,7 @@ impl Session {
                     }],
                     goals: Vec::new(),
                     search_rank: None,
+                    witnesses: false,
                 };
                 results.push((suggestion, usize::MAX));
             }
@@ -756,7 +761,7 @@ impl Session {
         budget.checks = checker.checks;
         drop(checker);
         let session = &*self;
-        results.sort_by_key(|(s, rank)| (class_rank(s.class), s.goals.len(), *rank));
+        results.sort_by_key(|(s, rank)| (class_rank(s.class), s.witnesses, s.goals.len(), *rank));
         let mut results: Vec<Suggestion> = results.into_iter().map(|(s, _)| s).collect();
         for s in results.iter_mut() {
             session.describe(s, scope);
@@ -903,6 +908,35 @@ fn try_plan(
     closers: &[(&'static str, String)],
     rank: usize,
 ) -> Option<Suggestion> {
+    let tried = try_plan_with(checker, plan, closers, rank, &[]);
+    if tried.is_some() || !plan.specific || !plan.args.contains(&Arg::Unsolved) {
+        return tried;
+    }
+    // What nothing solved and `_` can't work out (`List.memFlatMapIntro`'s
+    // `x`, `List.distinctFlatMap`'s `key`): a `?` for the writer, the goals
+    // after it mentioning it (SW-989). Which `?`s are such.
+    let witness: Vec<bool> = (plan.args.iter())
+        .filter(|a| matches!(a, Arg::Open | Arg::Unsolved))
+        .map(|a| *a == Arg::Unsolved)
+        .collect();
+    let mut witnesses = plan.clone();
+    for arg in &mut witnesses.args {
+        if *arg == Arg::Unsolved {
+            *arg = Arg::Open;
+        }
+    }
+    try_plan_with(checker, &witnesses, closers, rank, &witness)
+}
+
+/// [`try_plan`]; with `witnesses` (`?`s that stand for data), the goals it
+/// leaves may mention an unknown.
+fn try_plan_with(
+    checker: &mut Checker,
+    plan: &Plan,
+    closers: &[(&'static str, String)],
+    rank: usize,
+    witness: &[bool],
+) -> Option<Suggestion> {
     let mut text = render(plan, &[], false);
     let mut first = checker.check(&text, &[]);
     let has_given = plan.args.iter().any(|a| matches!(a, Arg::Given(_)));
@@ -940,6 +974,7 @@ fn try_plan(
         obligations: Vec::new(),
         goals: Vec::new(),
         search_rank: Some(rank),
+        witnesses: !witness.is_empty(),
     };
     let mut suggestion = match first {
         Outcome::Failed => return None,
@@ -959,6 +994,12 @@ fn try_plan(
             let mut fills: Vec<String> = vec!["?".to_string(); n];
             let mut obligations = Vec::new();
             for (j, left) in goals.iter().enumerate() {
+                // With a witness to give, every goal is the writer's: the
+                // goals needn't line up with the `?`s (a witness's goal may
+                // not be listed), and a closer could take a witness's place.
+                if !witness.is_empty() {
+                    break;
+                }
                 for (name, closer) in closers {
                     if checker.out_of_time() {
                         break;
@@ -1007,7 +1048,7 @@ fn try_plan(
                 };
                 // A goal with an unknown in it (`?3 m n`) says nothing
                 // about what to prove next.
-                if left.iter().any(|g| g.target.contains('?')) {
+                if witness.is_empty() && left.iter().any(|g| g.target.contains('?')) {
                     return None;
                 }
                 // Nor does one that leaves the goal as it was

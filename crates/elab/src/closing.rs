@@ -70,6 +70,10 @@ pub enum Arg {
     Hyp(String),
     /// A premise nothing filled: `?`, for the closing step.
     Open,
+    /// Nothing solved it and it isn't a premise (a witness, a function a
+    /// premise mentions): `_`, or `?` for the proof's writer where
+    /// elaboration can't work it out (SW-989).
+    Unsolved,
 }
 
 /// An application of a declaration, planned: its explicit arguments.
@@ -88,6 +92,10 @@ pub struct Plan {
     /// Its conclusion is the goal's equation the other way round: the
     /// application goes inside `Eq.sym` (as the file writes it).
     pub sym: Option<String>,
+    /// Its conclusion names a definition inside its relation (`List.Distinct
+    /// (List.flatMap xs f)`, not `a ≤ c`): worth offering with a `?` for
+    /// what nothing solved (a witness), as one that leaves goals.
+    pub specific: bool,
 }
 
 /// A rewrite planned: `rewrite [<-] PLAN in ?` at the call `subterm`.
@@ -461,8 +469,10 @@ impl Elaborator {
             self.fill_premises(&mut search, 0)?;
             let mut plans = search.plans;
             let general = named(&opened.conclusion) == 0;
+            let specific = inner_defs(&opened.conclusion) > 0;
             for plan in &mut plans {
                 plan.general = general;
+                plan.specific = specific;
             }
             plans.sort_by_key(|p| p.args.iter().filter(|a| **a == Arg::Open).count());
             Ok(plans)
@@ -535,6 +545,7 @@ impl Elaborator {
             args,
             general: false,
             sym: None,
+            specific: false,
         })
     }
 
@@ -543,7 +554,7 @@ impl Elaborator {
     fn arg(&self, goal: &Goal, m: usize, premise: bool) -> Res<Arg> {
         let g = &self.globals;
         let Some(solution) = g.meta_solution(m) else {
-            return Ok(if premise { Arg::Open } else { Arg::Infer });
+            return Ok(if premise { Arg::Open } else { Arg::Unsolved });
         };
         let text = self.show_with_vars(&goal.vars, &solution)?;
         let unwritable = text.contains(['?', '…', '✝', '\n'])
@@ -706,12 +717,40 @@ impl Elaborator {
                 return Ok(None);
             }
             let mut plan = self.plan(goal, candidate.item, &opened.binders, &[], &[])?;
-            while plan.args.last() == Some(&Arg::Infer) {
+            while matches!(plan.args.last(), Some(Arg::Infer | Arg::Unsolved)) {
                 plan.args.pop();
             }
             Ok(Some(plan))
         })();
         made.ok().flatten()
+    }
+}
+
+/// How many definitions a conclusion names inside its relation: in the
+/// explicit arguments of its head (`List.Distinct (List.flatMap xs f)`: 1;
+/// `a ≤ c`, which is `Nat.leq a c = True`: 0).
+fn inner_defs(conclusion: &Term) -> usize {
+    let mut t = conclusion.strip_loc();
+    // `x = True`, a `Bool` fact: `x`'s relation.
+    if let Term::Eq(_, a, b) = t
+        && matches!(b.strip_loc(), Term::Ctor(_, _, args) if args.is_empty())
+    {
+        t = a.strip_loc();
+    }
+    let mut args = Vec::new();
+    while let Term::App(f, a, icit) = t {
+        if *icit == Icit::Explicit {
+            args.push(&**a);
+        }
+        t = f.strip_loc();
+    }
+    match t {
+        Term::Eq(_, a, b) => defs_named(a) + defs_named(b),
+        Term::Data(_, params) => {
+            params.iter().map(|p| defs_named(p)).sum::<usize>()
+                + args.into_iter().map(defs_named).sum::<usize>()
+        }
+        _ => args.into_iter().map(defs_named).sum(),
     }
 }
 
