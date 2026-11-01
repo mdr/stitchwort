@@ -43,6 +43,7 @@ use std::ops::Range;
 
 use stitchwort_syntax::{
     Comment, Lexed, Tok, Token, argument_minus, closes_operand, equivalence, lex_with_trivia,
+    record_braces,
 };
 
 use crate::doc::{Doc, print};
@@ -141,8 +142,12 @@ fn roles(lexed: &Lexed) -> Vec<Role> {
         match t.tok {
             Tok::LBrace => {
                 // Only a function's result type has a row, and it follows
-                // the `:` or `->` before it (`result_type` in the parser).
-                let row = k > 0 && matches!(tokens[k - 1].tok, Tok::Colon | Tok::Arrow);
+                // the `:` or `->` before it (`result_type` in the parser),
+                // unless the braces are a record (a theorem's statement may
+                // start with one, `{ p | x = 3 }.x = 3`).
+                let row = k > 0
+                    && matches!(tokens[k - 1].tok, Tok::Colon | Tok::Arrow)
+                    && !record_braces(tokens, k);
                 if row {
                     roles[k] = Role::Row;
                 }

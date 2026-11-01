@@ -4321,6 +4321,8 @@ small.
   "expected `}`, but found `=`", with no hint. syntax.md says this for
   arrows. Workaround: `({ dx = 7, dy = 2 }: Velocity)`. Fix: a note
   suggesting the brackets when `=` follows a name there (small).
+  Fixed (SW-1015): braces there are a row only when a type follows them,
+  so the statement is now written `{ dx = 7, dy = 2 } ∈ …`.
 - `cases`' open-case line in the break test listed fallback splits as
   `top = n✝.toInt` and a vacuous `n✝ ≤ n✝`, which made the case hard to
   read; the counterexample note under it was clear (small).

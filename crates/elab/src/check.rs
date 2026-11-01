@@ -4012,101 +4012,129 @@ pub(crate) fn check_if(
     otherwise: &Expr,
     expected: &Value,
 ) -> Result<Term> {
-    // `ifThenElse` and `elimDec` return a `Type`, so an `if` whose branches
-    // prove a proposition would fail with a universe mismatch that says
-    // nothing useful: say what's going on.
-    if crate::omega::is_prop(cx, expected)? == Some(true) {
-        return Err(proof_if_error(cx, binder, cond));
+    // `ifThenElse` and `elimDec` return a `Type`; an `if` whose branches
+    // prove a proposition is `Decidable.elimProof` instead (SW-1015).
+    if proof_expected(cx, expected)? {
+        return check_proof_if(cx, binder, cond, then, otherwise, expected);
     }
     check_if_in(cx, binder, cond, then, otherwise, expected)
 }
 
-/// The error for an `if` whose branches are proofs (`ifThenElse` and
-/// `elimDec` return a `Type`; SW-373). It suggests matching on the
-/// condition's decision procedure, named when one is found
-/// (`match Nat.decLessThan m n with | Yes h => … | No h => …`), which keeps
-/// the proof of the condition (or of its negation) in each branch, as
-/// `if h:` would (SW-933); or, for a `Bool` condition, matching on it.
-#[inline(never)]
-fn proof_if_error(cx: &mut Ctx, binder: Option<&AstName>, cond: &Expr) -> Diagnostic {
-    let h = binder.map_or("h", |h| h.text.as_str()).to_string();
-    // The condition as a decided proposition, and as a `Bool`, each printed
-    // and then undone.
-    let mut decision = None;
-    let mut boolean = None;
-    let level = cx.level();
-    let printed = |cx: &Ctx, term: &Term| -> Option<String> {
-        let term = crate::unify::zonk_in(cx.g(), level, term, &|_| true, &[]).ok()?;
-        let term = beta_head(cx.g(), &term).ok()?;
-        Some(pretty::term_for_message_in(
-            cx.g(),
-            cx.e,
-            &cx.shown_names(false),
-            &term,
-        ))
-    };
-    let _ = crate::undo::transaction(cx, |cx| {
-        let (prop, sort) = check_type(cx, cond)?;
-        if sort == Sort::Prop {
-            let term = crate::bind::decide(cx, &prop)?.term(cx)?;
-            decision = printed(cx, &term);
-        }
-        Ok(None::<()>)
-    });
-    if binder.is_none() && decision.is_none() {
-        let _ = crate::undo::transaction(cx, |cx| {
-            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
-            let term = check(cx, cond, &bool_ty)?;
-            // A decided proposition, as `a == b` is: its decision.
-            let (head, args) = term.spine();
-            if let (Term::Def(f), Some(d)) = (head.strip_loc(), args.last())
-                && Some(*f) == cx.g().registry.loaded_def(Builtin::ToBool)
-            {
-                decision = printed(cx, d);
-            } else {
-                boolean = printed(cx, &term);
-            }
-            Ok(None::<()>)
-        });
+/// Whether `expected` is known to be a proposition: an equation or a
+/// proposition's data type at once, or anything else whose type the kernel
+/// infers to be `Prop` (`x ∈ xs`, a `Prop`-valued definition stuck on a
+/// variable). Not when that can't be inferred yet (a metavariable).
+fn proof_expected(cx: &Ctx, expected: &Value) -> Result<bool> {
+    if let Some(known) = crate::omega::is_prop(cx, expected)? {
+        return Ok(known);
     }
-    let error = cx.error(
-        "E-UNIVERSE",
-        "`if` can't choose between proofs yet",
-        "this `if` has proofs as its branches",
-    );
-    match (decision, boolean) {
-        (Some(decision), _) => error.with_note(format!(
-            "match on the condition's decision procedure instead, which keeps the proof of it \
-             (or of its negation) as `{h}` in each branch: `match {decision} with | Yes {h} => … \
-             | No {h} => …`"
-        )),
-        (None, Some(boolean)) => error.with_note(format!(
-            "match on the condition instead: `match {boolean} with | True => … | False => …`; \
-             to have its proof in each branch, write `match e: {boolean} with`, which binds \
-             `e: {boolean} = True` (or `= False`)"
-        )),
-        (None, None) => error.with_note(format!(
-            "match on a decision procedure for the condition instead, `match d with | Yes {h} => \
-             … | No {h} => …`; `stitchwort search 'Decidable (…)'` finds one by its type"
-        )),
+    let g = cx.g();
+    let ty = force(g, expected.clone())?;
+    if matches!(ty, Value::Sort(_)) {
+        return Ok(false);
+    }
+    let term = cx.quote(&ty)?;
+    let mut kcx = crate::rewrite::kernel_context(cx)?;
+    match crate::kernel::without_glue(g, || crate::kernel::infer(&mut kcx, &term)) {
+        Ok((_, sort)) => Ok(matches!(force(g, sort)?, Value::Sort(Sort::Prop))),
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) => Ok(false),
     }
 }
 
-/// `term` with the lambdas applied at its head taken in, for a message:
-/// `(x => Nat.decLessThan m x) n` is `Nat.decLessThan m n`.
-fn beta_head(g: &Globals, term: &Term) -> Result<Term> {
-    let Term::App(f, arg, icit) = term.strip_loc() else {
-        return Ok(term.clone());
+/// An `if` whose branches are proofs (SW-1015, before which it was
+/// `E-UNIVERSE`, SW-373): `if h: P then a else b` is `Decidable.elimProof d
+/// (h => a) (h => b)`, the `Prop` form of `Decidable.elim`, with `h: P` in
+/// `a` and `h: Not P` in `b`, as for data. `if c then a else b` on a `Bool`
+/// `c` decides `c = True` with `Bool.decTrue c`, and on a decided
+/// proposition is `if _: c`. Being a proof, the whole `if` is erased: the
+/// decision is never run, and any two such proofs are equal (`elimProof` is
+/// an ordinary theorem, matching on the decision, which the kernel checks).
+fn check_proof_if(
+    cx: &mut Ctx,
+    binder: Option<&AstName>,
+    cond: &Expr,
+    then: &Expr,
+    otherwise: &Expr,
+    expected: &Value,
+) -> Result<Term> {
+    let (name, prop, decision) = match binder {
+        Some(h) => {
+            let (prop, decision) = if_h_condition(cx, h, cond)?;
+            (h.text.as_str(), prop, decision)
+        }
+        None => match crate::logic::condition(cx, cond, "if")?.decided_now(cx, cond.span())? {
+            crate::logic::Condition::Decided { prop, decision } => ("_", prop, decision.term(cx)?),
+            crate::logic::Condition::Bool(c) => {
+                let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+                let (d, t) = builtin_ctor(cx, Builtin::True)?;
+                let prop = Term::Eq(
+                    Some(Rc::new(bool_ty)),
+                    Rc::new(c.clone()),
+                    Rc::new(Term::Ctor(d, t, Vec::new())),
+                );
+                let dec_true = builtin_def(cx, Builtin::DecTrue)?;
+                ("_", prop, Term::app(Term::Def(dec_true), c))
+            }
+            crate::logic::Condition::Waiting { .. } => {
+                unreachable!("decided_now decides a waiting condition")
+            }
+        },
     };
-    let f = beta_head(g, f)?;
-    let lam = match f.strip_loc() {
-        Term::Ann(inner, _) => inner.strip_loc(),
-        other => other,
+    let result_ty = cx.quote_folded(expected)?;
+    let prop_value = cx.eval(&prop)?;
+    let not = builtin_def(cx, Builtin::Not)?;
+    let not_prop =
+        stitchwort_core::value::apply(cx.g(), cx.eval(&Term::Def(not))?, prop_value.clone())?;
+    let branch = |cx: &mut Ctx, ty: Value, body: &Expr| -> Result<Term> {
+        let mark = cx.mark();
+        cx.bind(name, ty);
+        let result = check(cx, body, expected);
+        cx.reset(mark);
+        Ok(Term::Lam(name.into(), Icit::Explicit, Rc::new(result?)))
     };
-    match lam {
-        Term::Lam(_, _, body) => beta_head(g, &body.instantiate(g, arg)?),
-        _ => Ok(Term::App(Rc::new(f), arg.clone(), *icit)),
+    let then = branch(cx, prop_value, then)?;
+    let otherwise = branch(cx, not_prop, otherwise)?;
+    let elim = builtin_def(cx, Builtin::ElimDecProof)?;
+    let head = Term::app_icit(
+        Term::app_icit(Term::Def(elim), prop, Icit::Implicit),
+        result_ty,
+        Icit::Implicit,
+    );
+    Ok(Term::app(
+        Term::app(Term::app(head, decision), then),
+        otherwise,
+    ))
+}
+
+/// The proposition of `if h: cond` and a decision for it.
+fn if_h_condition(cx: &mut Ctx, h: &AstName, cond: &Expr) -> Result<(Term, Term)> {
+    let (prop, sort) = check_type(cx, cond).map_err(|e| {
+        if e.code == "E-NOT-A-TYPE" {
+            e.with_note(format!(
+                "`if {0}: P` needs a proposition `P`; for a `Bool` `c`, write `if c then … else …`, \
+                 or `if {0}: c = True then … else …` to have `{0}: c = True` in the branches",
+                h.text
+            ))
+        } else if is_true_test(cond) {
+            e.with_note(format!(
+                "in `if {}: …` the guard is already a proposition: write `if {}: a < b then` \
+                 for `a < b`, without `= True`",
+                h.text, h.text
+            ))
+        } else {
+            e
+        }
+    })?;
+    if sort != Sort::Prop {
+        return Err(cx.error(
+            "E-TYPE-MISMATCH",
+            "`if h: …` needs a proposition",
+            "this is a type of data; use `if c then … else …` for a `Bool`",
+        ));
     }
+    let decision = crate::bind::decide(cx, &prop)?.term(cx)?;
+    Ok((prop, decision))
 }
 
 fn check_if_in(
@@ -4162,27 +4190,7 @@ fn check_if_in(
             Ok(Term::app(Term::app(Term::app(head, cond), then), otherwise))
         }
         Some(h) => {
-            let (prop, sort) = check_type(cx, cond).map_err(|e| {
-                if e.code == "E-NOT-A-TYPE" {
-                    e.with_note("`if h: P` needs a proposition `P`; for a `Bool`, write `if c then … else …`")
-                } else if is_true_test(cond) {
-                    e.with_note(format!(
-                        "in `if {}: …` the guard is already a proposition: write `if {}: a < b then` \
-                         for `a < b`, without `= True`",
-                        h.text, h.text
-                    ))
-                } else {
-                    e
-                }
-            })?;
-            if sort != Sort::Prop {
-                return Err(cx.error(
-                    "E-TYPE-MISMATCH",
-                    "`if h: …` needs a proposition",
-                    "this is a type of data; use `if c then … else …` for a `Bool`",
-                ));
-            }
-            let decision = crate::bind::decide(cx, &prop)?.term(cx)?;
+            let (prop, decision) = if_h_condition(cx, h, cond)?;
             decided_if(
                 cx, &h.text, prop, decision, result_ty, &branch, then, otherwise,
             )

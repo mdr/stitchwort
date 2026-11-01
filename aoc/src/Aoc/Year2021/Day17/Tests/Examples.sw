@@ -46,5 +46,5 @@ theorem examplePart2: solvePart2 exampleTarget = 112 := rfl
 
 -- `hitsCandidate`'s hypotheses hold (the audit's random velocities never
 -- hit): 7,2 is in the example's target after 7 steps.
-theorem exampleHitIsCandidate: ({ dx = 7, dy = 2 }: Velocity) ∈ candidates exampleTarget :=
+theorem exampleHitIsCandidate: { dx = 7, dy = 2 } ∈ candidates exampleTarget :=
   Aoc.Year2021.Day17.Proofs.hitsCandidate exampleTarget rfl rfl { dx = 7, dy = 2 } 7 rfl

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AUTO-NONE] Error: no way to decide `Checked n`
+    ╭─[ reject/derive-decidable-record-field.sw:16:33 ]
+    │
+ 16 │ def isChecked (n: Nat): Bool := if h: Checked n then True else False
+    │                                 ──────────────────┬─────────────────  
+    │                                                   ╰─────────────────── the compiler needs a proof of this
+    │ 
+    │ Note 1: supply a proof by name, or write a decision procedure: an `instance` returning `Decidable …`
+    │ 
+    │ Note 2: `Checked` has no derived decision: deriving it failed: no way to decide `Even n`
+────╯

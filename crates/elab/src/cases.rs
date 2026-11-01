@@ -1068,7 +1068,7 @@ fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
 
 /// Whether field type `ty` (in the context of the parameters and the
 /// previous `i` fields) mentions a previous field.
-fn mentions_fields(ty: &Term, i: usize) -> bool {
+pub(crate) fn mentions_fields(ty: &Term, i: usize) -> bool {
     ty.subterms().any(|(t, under)| {
         matches!(t, Term::Var(ix) | Term::Case(ix, ..) | Term::NumCase(ix, ..)
             if *ix >= under && *ix - under < i)
