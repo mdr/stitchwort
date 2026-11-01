@@ -39,12 +39,13 @@
 //!   alternatives fix, is pending meanwhile ([`Check::settles_type`]); still
 //!   waiting at the end, it reports the unknown as finishing would
 //!   ([`Check::stuck_error`]);
-//! - a `rewrite` or `cases` that failed while its goal held an unknown the
-//!   declaration will still settle ([`search_pending`]: the queue's, and
-//!   the unknown of an obligation not proved yet, such as an operator's
-//!   dictionary), whole ([`tactic_or_wait`], `WaitingTactic`; step 4.2):
-//!   resumed, it tries again on the goal now known. A search that would
-//!   succeed does so at once; only failure waits.
+//! - a `rewrite`, `cases`, `omega` or `ring` that failed while its goal
+//!   held an unknown the declaration will still settle ([`search_pending`]:
+//!   the queue's, and the unknown of an obligation not proved yet, such as
+//!   an operator's dictionary), whole ([`tactic_or_wait`], `WaitingTactic`;
+//!   step 4.2, and rule 2 of stage 7 for `omega` and `ring`): resumed, it
+//!   tries again on the goal now known. A search that would succeed does so
+//!   at once; only failure waits.
 //!
 //! A resume point with nothing queued in its scope costs a length
 //! comparison.
@@ -794,10 +795,11 @@ pub(crate) fn headed_by_pending(cx: &Ctx, v: &Value) -> Result<bool> {
     )?)
 }
 
-/// A tactic run against a goal: `rewrite`'s, `cases`'.
+/// A tactic run against a goal: `rewrite`'s, `cases`', `omega`'s, `ring`'s.
 pub(crate) type Tactic = fn(&mut Ctx, &Expr, &Value) -> Result<Term>;
 
-/// `run`, a tactic, against `expected` (step 4.2 of stage 4). It is tried
+/// `run`, a tactic, against `expected` (step 4.2 of stage 4; `omega` and
+/// `ring` by rule 2 of stage 7). It is tried
 /// at once; if it fails while the goal holds an unknown the declaration
 /// will still settle ([`search_pending_in`]), what it did is undone and it
 /// waits for that unknown, whole, as a queued [`WaitingTactic`]: its
@@ -862,6 +864,8 @@ impl Check for WaitingTactic {
     fn display(&self, _cx: &Ctx) -> Option<String> {
         Some(match &self.expr {
             Expr::Cases { .. } => "(cases …)".into(),
+            Expr::Omega { .. } => "(omega …)".into(),
+            Expr::Ring { .. } => "(ring …)".into(),
             _ => "(rewrite …)".into(),
         })
     }

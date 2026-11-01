@@ -166,8 +166,23 @@ pub(crate) fn no_goal(_cx: &Ctx, expr: &Expr) -> Diagnostic {
         .with_note("give it a type: `(omega: a <= b)`")
 }
 
-/// `omega` against the goal `expected`.
+/// `omega` against the goal `expected`. Outside a split of a `cases`, one
+/// that fails while the goal holds an unknown the declaration will still
+/// settle waits for it, whole, and tries again, as `rewrite` and `cases`
+/// do (`queue::tactic_or_wait`; stage 7, rule 2, in
+/// docs/proposals/postponement.md). Inside a split it runs as before, as
+/// `cases` does there: the split goes on splitting where an alternative
+/// fails.
 pub(crate) fn check_omega(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    if cx.cases.is_some() {
+        return omega_goal(cx, expr, expected);
+    }
+    crate::queue::tactic_or_wait(cx, expr, expected, omega_goal)
+}
+
+/// [`check_omega`]'s `omega` itself, counted where the goal holds an
+/// unknown the declaration will still settle (`queue::counted_search`).
+fn omega_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let Expr::Omega { facts, span } = expr else {
         unreachable!("only called on `omega`")
     };
