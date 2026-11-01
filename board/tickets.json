@@ -1,5 +1,5 @@
 {
-  "next": 990,
+  "next": 991,
   "tickets": [
     {
       "id": 47,
@@ -2930,13 +2930,13 @@
     {
       "id": 984,
       "title": "Aoc.Common.Grid (D2112): Position, Direction, step, 4/8 neighbours, rectangular grid + parser guarantee, Graph bridge; move 2021 days 9, 11, 15 onto it",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "aoc"
       ],
-      "body": "Queued after the bug lanes, Matt 1 Nov 2026. AoC shared code, not std (Matt: std is for broadly applicable code). Lives beside Aoc.Common.Range. Requirements from the existing copies: 2021 day 9 (Position, 4 neighbours, adjacency lemmas), day 11 (~210 lines: mapCells, cellAt, positions, OnGrid, 8 neighbours), day 15 (imports day 9's Position), 2024 days 6, 8, 10, 12, 14, 15, 16, 18, 20 (own Position/Direction/step). Grid parser whose result proves rectangularity (replaces each day's checkRows; D2108). Bridge to std Graph for BFS/Dijkstra. Open choices: Nat vs Int coordinates (2024 day 8 does vector arithmetic), list vs map representation (day 15 used Map.byPosition for speed). Migrate 2021 days 9, 11, 15 (hash churn fine); 2024 days optional, say which.\n\nProgress (Opus lane, 1 Nov): done in worktree branch worktree-agent-a6843839aa94880ea, commit c571fdda. Aoc.Common grid (Grid.sw, GridGraph.sw, Proofs/Grid*.sw, Tests/Grid.sw); 2021 days 9, 11, 15 and 2024 days 6, 12, 20 migrated; audits clean (Aoc.Common 99 passed); day 15 run time unchanged. Ready for review and merge.\n",
+      "body": "Queued after the bug lanes, Matt 1 Nov 2026. AoC shared code, not std (Matt: std is for broadly applicable code). Lives beside Aoc.Common.Range. Requirements from the existing copies: 2021 day 9 (Position, 4 neighbours, adjacency lemmas), day 11 (~210 lines: mapCells, cellAt, positions, OnGrid, 8 neighbours), day 15 (imports day 9's Position), 2024 days 6, 8, 10, 12, 14, 15, 16, 18, 20 (own Position/Direction/step). Grid parser whose result proves rectangularity (replaces each day's checkRows; D2108). Bridge to std Graph for BFS/Dijkstra. Open choices: Nat vs Int coordinates (2024 day 8 does vector arithmetic), list vs map representation (day 15 used Map.byPosition for speed). Migrate 2021 days 9, 11, 15 (hash churn fine); 2024 days optional, say which.\n\nProgress (Opus lane, 1 Nov): done in worktree branch worktree-agent-a6843839aa94880ea, commit 58984a08 (rebased on main after SW-983; uses std's findWithIndexFromNone, DecEq.neFalse, allMapBool). Aoc.Common grid (Grid.sw, GridGraph.sw, Proofs/Grid*.sw, Tests/Grid.sw); 2021 days 9, 11, 15 and 2024 days 6, 12, 20 migrated; audits clean (Aoc.Common 97 passed); day 15 run time unchanged. Ready for review and merge.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -3008,7 +3008,21 @@
       "labels": [
         "search"
       ],
-      "body": "From AoC 2021 days 9-18 (1 Nov 2026). (1) Benchmark: the ~40 goals AoC lanes recorded with what closed them (NOTES-2021 day sections, friction tickets SW-960..980) plus the query log; record search --at's hit rate on main first. (2) Refusals: --at fails on goals that don't survive printing and reparsing: context order (SW-969 1), ✝ names (SW-976 8), %match1 names (SW-980 2, SW-971 3), record after constructor (SW-980 1), captured variables (SW-967 5). Root fix: search the goal term directly, or guarantee printed goals are valid source (pasteable names). (3) Candidates: folded and computed goal (SW-965 3, SW-978 3), symmetric lemmas (SW-971 2), local hypotheses and IH (SW-971 5, SW-976 8), index conjunct conclusions (SW-973 7) and class laws (SW-971 4) and generated T.ext (SW-960 7), drop no-op results (Bool.canonicalTrue) and undecidable byDecision, pattern premises anywhere (SW-969 4), --in NAMESPACE (SW-960 7). Cold-start speed later. Related: SW-952, SW-935, SW-942.\n\n1 Nov (lane SW-989): step 1 done, cc569049: benchmark of 29 real AoC 2021 goals (search_at_aoc, daily). Main: 9 refused, hit 14/29 (48%), median 1.8 s, max 39 s. Query log: never enabled (no file anywhere); transcripts of 11 AoC lanes on 1 Nov show 44 --at runs (9 refused, 9 closed) and 50 pattern/rewrite searches. Starting step 2 (search the elaborated goal).\n",
+      "body": "From AoC 2021 days 9-18 (1 Nov 2026). (1) Benchmark: the ~40 goals AoC lanes recorded with what closed them (NOTES-2021 day sections, friction tickets SW-960..980) plus the query log; record search --at's hit rate on main first. (2) Refusals: --at fails on goals that don't survive printing and reparsing: context order (SW-969 1), ✝ names (SW-976 8), %match1 names (SW-980 2, SW-971 3), record after constructor (SW-980 1), captured variables (SW-967 5). Root fix: search the goal term directly, or guarantee printed goals are valid source (pasteable names). (3) Candidates: folded and computed goal (SW-965 3, SW-978 3), symmetric lemmas (SW-971 2), local hypotheses and IH (SW-971 5, SW-976 8), index conjunct conclusions (SW-973 7) and class laws (SW-971 4) and generated T.ext (SW-960 7), drop no-op results (Bool.canonicalTrue) and undecidable byDecision, pattern premises anywhere (SW-969 4), --in NAMESPACE (SW-960 7). Cold-start speed later. Related: SW-952, SW-935, SW-942.\n\n1 Nov (lane SW-989): step 1 done, cc569049: benchmark of 29 real AoC 2021 goals (search_at_aoc, daily). Main: 9 refused, hit 14/29 (48%), median 1.8 s, max 39 s. Query log: never enabled (no file anywhere); transcripts of 11 AoC lanes on 1 Nov show 44 --at runs (9 refused, 9 closed) and 50 pattern/rewrite searches. Starting step 2 (search the elaborated goal).\n\n\n1 Nov (lane SW-989): step 2 done, a6447bcc: search --at opens the goal from the elaborator's own terms (GoalSnapshot) and checks proofs in that context, no printed text read back. Benchmark: refused 9 -> 0, hit 14/29 -> 19/29. Starting step 3 (candidates).\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 990,
+      "title": "Friction from Aoc.Common.Grid (SW-984): Up.turnRight unknown name; if h: on a Bool refused; 'at' keyword in rewrite lists; std filterMap/distinctOfMap/mapConcat lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "friction"
+      ],
+      "body": "From the SW-984 lane, 1 Nov 2026. (1) Up.turnRight gives an unknown-name error; must write Direction.turnRight Up (dot notation on a constructor value). (2) if h: b with b: Bool is refused; the message says drop h:, but the proof was wanted; if h: b = True works (suggest that in the message). (3) A variable named at can't be used inside a rewrite rule list (at is a keyword there). (4) No record eta (seen again, SW-960 4). Std candidates proved locally in Aoc.Common.Proofs: distinctOfMap, mapConcat, a filterMap length lemma (lengthFilterMapLe) or filterMap = map of filter; Map.byPosition get lemma. Not migrated: 2024 days 8, 14, 15, 18 (Int or x/y positions), 16 (compass directions), 10 (own neighbours proofs).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
