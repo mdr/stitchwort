@@ -32,7 +32,7 @@ theorem List.memConcatMap (f: a → List b) (x: a) (y: b): (xs: List a) → x �
 --| constructors' fields all have one and it isn't recursive (`T.%instFinite`):
 --| the constructors in the order they're declared, each with every value of its
 --| fields, the first field varying slowest, which is the order the derived `<`
---| puts them in. A module's own `instance` replaces it. [`Finite.check`]
+--| puts them in. A module's own `instance` replaces it. `Finite.check`
 --| (std/Finite/Finite.sw) checks a statement for every value by computing it.
 -- (docs/proposals/decide.md §6.2)
 interface Finite (a: Type) = {

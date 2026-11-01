@@ -17,7 +17,7 @@ def Ordering.compare (first: Ordering) (second: Ordering): Ordering := Nat.compa
 
 --| A total order: a comparison with its laws, and the relations `<` and `<=`
 --| with their decisions, agreeing with it (the fields are `lessThan` and
---| `lessEq`). Build one with [`Ord.fromCompare`] or [`Ord.byKey`].
+--| `lessEq`). Build one with [`Ord.fromCompare`] or `Ord.byKey`.
 -- (docs/proposals/interfaces.md §6.2, D180; D200)
 -- The relations are fields so that `Nat`'s can be `Nat.LessThan` and
 -- `Nat.LessEq` themselves.

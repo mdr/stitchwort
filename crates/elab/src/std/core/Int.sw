@@ -129,7 +129,7 @@ def Int.toText: Int → Text
   | NegSucc n => MkText (Cons '-' (Text.toList (Nat.toText (Succ n))))
 
 --| `dividend / divisor`, Euclidean: the remainder it leaves is at least 0 and below `|divisor|`, so `-18 / 100` is `-1`.
---| ([`Int.divAddMod`], [`Int.modNonneg`], [`Int.modLtAbs`].)
+--| (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`.)
 --| With [`Int.mod`], `dividend = divisor * (dividend / divisor) + dividend % divisor`
 --| with `0 <= dividend % divisor < |divisor|`, whatever the signs, so `-18 % 100` is `82`.
 -- Each case divides naturals by a `Succ n`, which `auto` sees isn't zero.
