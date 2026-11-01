@@ -1,5 +1,5 @@
 {
-  "next": 1030,
+  "next": 1031,
   "tickets": [
     {
       "id": 47,
@@ -3577,7 +3577,7 @@
     {
       "id": 1026,
       "title": "Docs accuracy sweep: DESIGN.md (LSP non-goal), compared.md, README and the current docs/guide against the code",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3586,7 +3586,9 @@
       "body": "Matt, 1 Nov 2026: 'JFDI fix this and any other inaccuracies in our docs'. Known: DESIGN.md:97 lists an LSP as a non-goal; docs/compared.md:121 'no tactics' (omega/cases/ring exist), :165 'elaboration always re-runs' (check cache built). Scope: living docs (top-level .md, docs/*.md, docs/guide). Not proposals/research notes (historical records).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "892b83a6"
+      ]
     },
     {
       "id": 1027,
@@ -3628,6 +3630,20 @@
         "correctness"
       ],
       "body": "D2164 (Matt, 1 Nov 2026), queued. Catches an agent quietly weakening a theorem: added hypotheses (8 disclosed cases in AoC lanes, docs/research/agentic-proving.md:83, §5 row J) or a changed definition. --base REF: per theorem, compare a statement-only hash with the base (proof ignored); report changed or removed statements; also definitions theorems depend on, by erased program hash. --minimal (opt-in): drop each hypothesis, re-check, report unused ones. Lanes run audit --base main before reporting and justify each change; merges add it. Opus design (what counts as the same statement across renames/moves, new theorems, which definitions are 'the program'), then Sonnet CLI. Also update SW-912 (stage 1 shipped).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1030,
+      "title": "E-PROJECT-CONFIG note says 'the known key is sources' but audit is also a key (project.rs:1057)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Found by the docs accuracy sweep (SW-1026). Also left doubtful there: publishing.md:6 'nothing pushed or enabled' vs the live site link; core.md/DESIGN.md status dates; DESIGN must-reject row for runState/IsData; guide claims about row arguments, property tests, runtimes agreeing on every example, reserved namespaces.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
