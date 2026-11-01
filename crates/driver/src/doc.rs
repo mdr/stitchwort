@@ -9,6 +9,9 @@
 //! and its header, doc and examples are found, without a check. The theorems
 //! come from [`Session::search`] through [`Session::theorems_about`].
 
+mod coverage;
+pub use coverage::{Coverage, NamespaceCoverage, render_coverage};
+
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -549,6 +552,21 @@ impl Decls {
     /// The examples of declaration `i` (§5.4, D2144): the `test`s whose
     /// description names it, and the `…Example` theorems named after it.
     fn examples(&self, i: usize, within: &Within) -> Vec<Example> {
+        self.example_decls(i, within, true)
+            .into_iter()
+            .map(|x| Example {
+                kind: x.kind,
+                name: x.name,
+                line: self.line_of(x.file, x.start),
+                file: self.files[x.file].display.clone(),
+                source: x.source,
+            })
+            .collect()
+    }
+
+    /// [`Decls::examples`] as found; `with_source` false leaves each
+    /// source empty (counting examples doesn't need it).
+    fn example_decls(&self, i: usize, within: &Within, with_source: bool) -> Vec<ExampleDecl> {
         let e = &self.entries[i];
         let allowed = |file: usize| {
             let f = &self.files[file];
@@ -604,22 +622,17 @@ impl Decls {
                         name: other.path.clone(),
                         file: other.file,
                         start: other.start,
-                        source: self.source_of(j),
+                        source: if with_source {
+                            self.source_of(j)
+                        } else {
+                            String::new()
+                        },
                     });
                 }
             }
         }
         found.sort_by_key(|x| (x.file, x.start));
         found
-            .into_iter()
-            .map(|x| Example {
-                kind: x.kind,
-                name: x.name,
-                line: self.line_of(x.file, x.start),
-                file: self.files[x.file].display.clone(),
-                source: x.source,
-            })
-            .collect()
     }
 
     /// The source of a declaration: from its keyword to the end of its

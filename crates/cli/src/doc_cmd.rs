@@ -14,7 +14,8 @@ use std::process::ExitCode;
 use serde::Serialize;
 use stitchwort_cli::project::{self, Analysis, DiskFiles, Target, analyse, project_sources};
 use stitchwort_driver::doc::{
-    Decls, Input, Kind, Matches, Resolution, Within, render_matches, render_namespace, render_text,
+    Decls, Input, Kind, Matches, Resolution, Within, render_coverage, render_matches,
+    render_namespace, render_text,
 };
 use stitchwort_driver::driver::Session;
 use stitchwort_driver::search::Scope;
@@ -29,6 +30,8 @@ use super::{
 pub(super) struct Args<'a> {
     pub name: &'a str,
     pub file: Option<&'a Path>,
+    /// `--coverage`: the namespaces asked for (none: the default).
+    pub coverage: Option<&'a [String]>,
     pub project: Option<&'a Path>,
     pub json: bool,
     /// How many theorems to show; 0: none, and no check.
@@ -138,10 +141,42 @@ pub(super) fn doc(args: &Args) -> ExitCode {
     }
 
     let decls = Decls::new(inputs);
+    if let Some(names) = args.coverage {
+        let code = coverage(&decls, names, program.is_some(), args);
+        discard(session);
+        return code;
+    }
     let resolution = decls.resolve(args.name);
     let code = answer(&mut session, &decls, &resolution, args, file, program);
     discard(session);
     code
+}
+
+/// `--coverage` (SW-1025): from parsing alone, never fails for what it
+/// finds; a name that isn't a namespace is an error (2).
+fn coverage(decls: &Decls, names: &[String], program: bool, args: &Args) -> ExitCode {
+    let report = if names.is_empty() {
+        decls.default_coverage(program)
+    } else {
+        let mut found: Vec<String> = Vec::new();
+        for name in names {
+            let namespaces = decls.resolve(name).namespaces;
+            if namespaces.is_empty() {
+                eprintln!(
+                    "error: `{name}` is not a namespace (`stitchwort doc {name}` shows what it is)"
+                );
+                return ExitCode::from(2);
+            }
+            for ns in namespaces {
+                if !found.contains(&ns) {
+                    found.push(ns);
+                }
+            }
+        }
+        decls.coverage(&found)
+    };
+    emit(args, || render_coverage(&report), &report);
+    ExitCode::SUCCESS
 }
 
 /// Prints a report as JSON, or as the text made from it.
