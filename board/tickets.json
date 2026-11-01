@@ -1,5 +1,5 @@
 {
-  "next": 964,
+  "next": 966,
   "tickets": [
     {
       "id": 47,
@@ -2617,6 +2617,35 @@
         "friction"
       ],
       "body": "From AoC 2021 day 10 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) Std.Parse has no lemmas about what it reads: a Parse.eachLine/many1/pick parser gave right answers but couldn't be proved, so the parser was rewritten by hand to prove parseReadsLines (D2108). Fix: std lemmas for eachLine, many1, pick (medium-large). Also `pick` with 8 choices says \"expected '(' or '[' or …\"; a comma list reads better (small).\n(2) Elaboration order: a lambda argument checked before a later argument fixed its type (hypothesis showed `?8 … = Ok token`; rewrite found nothing). Workaround: put the lambda parameter last. `firstIllegalOfScan _ Curly rfl` failed E-REFL with `scan [] […, …]` but checked with the line written (guess, unverified: rfl checked before the hole was solved; the … hid what was stuck). Relevant to postponement (SW-817).\n(3) Absurd pattern `()` in a multi-column match arm: E-NOT-EMPTY shows a type not refined by the other columns' patterns; two unrelated later arms then get false W-REDUNDANT. Nested `match h with | ()` was a parse error blaming the next arm. Workaround `h => cases`. Fix: refine by other columns; failed arm doesn't count toward coverage (medium).\n(4) Implicit argument not found through a definition: fitting `Completes line (Cons …)` into a constructor failed because `map` was computed one step before unifying; workaround explicit `[closers := …]` (medium).\n(5) No normaliser for `++` shapes: chains of appendAssoc (medium).\n(6) Small: no \"did you mean foldLeft\" for `foldl`; goals print `Legal` unfolded as ∃; search printed a type with an unreduced `(x => …) y`; search --at \"applicable\" list includes Bool.canonicalTrue which leaves the goal unchanged (drop no-op results).\nStd candidates: getOrMem, countAtMostLength, countSplit, traverseMap, mapSndWithIndex (small each); median lemmas (≤ k below index k of a sorted list; odd-count median unique) (medium); generated constructor injectivity lemmas (medium).\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 964,
+      "title": "AoC 2021 day 11: Dumbo Octopus, solved and proved",
+      "status": "done",
+      "agent": "Opus",
+      "where": "agent-a3080ee55522a9759",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Solve AoC 2021 day 11 (Dumbo Octopus) in aoc/src/Aoc/Year2021/Day11, with a spec in the puzzle terms (flashers as the least fixed point), proofs that the step equals the spec step, part 2 statement, parser guarantee (D2108), friction list.\n\nLane worktree: .claude/worktrees/agent-a3080ee55522a9759\n\nProgress:\n- 1 Nov: program, spec, tests; answers 1773 / 494 (run 4.1 s, 1.3 s --native).\n- 1 Nov: proved flashersCorrect (cascade = least closed set, bound proved enough), stepCorrect, zerosCorrect, part1Correct/part1Unique, part2Correct (Some n -> first all-flash step) and part2None (None -> none up to 10000), parseDigits/parseRectangular. Nothing open; audit: 75 theorems, 0 failed, 1 warning (onGridAfter, narrow hypothesis, satisfiable by a test theorem).\n- 1 Nov: notes in aoc/NOTES-2021.md; branch worktree-agent-a3080ee55522a9759 ready for review (commits 5ad9dfd6..c9b26c5a).\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 965,
+      "title": "Day 11: match on bounded search hits E-RESOURCE; pure map in Fail code; search --at sees unfolded goal; std grid + least-fixed-point toolkit",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "friction"
+      ],
+      "body": "From AoC 2021 day 11 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) `match solvePart2 levels with …` failed E-RESOURCE \"a value was too large to show … a call of `solvePart2`\": checking the match unfolds the 10,000-step search bound. Lane has a 13-line repro (bound 100: 0.11 s, 1000: 0.68 s, 10000: fails). Workaround: pass the Option to a helper. Fix: don't compute a scrutinee stuck on a variable; name the match in the message (medium).\n(2) A pure `map` at the end of `{Fail}` code runs in Fail: proofs see `Effect.foldComp … Done` not `Ok (List.map …)`, so Result.okInjective doesn't fit. Workaround: pure helper. Fix: pure-argument calls get the empty effect, or a std lemma (small-medium).\n(3) search --at searched the unfolded goal: at neighboursMono (44 s) it missed List.countLeMem because List.count had been unfolded to foldLeft. Fix: search with definitions folded (medium). An \"applicable\" result offered byDecision for an equation over variables, which it can't decide (small).\n(4) The lane rewrote lemmas the project had (countLeLength = day 10's countAtMostLength; allMapBool = day 8's allMapped) and imported Aoc.Year2021.Day09.Proofs for findIndexedNone/sameOfNotDiffer: shared helpers belong in std.\nStd candidates: grid module (~210 lines here: mapCells, cellAt, gridCells after mapCells, distinct positions, eight neighbours with membership/distinctness/count lemmas; extends SW-960's); a least-fixed-point toolkit (most of Day11/…/Cascade.sw, 160 lines, is generic); a one-pass stencil or O(1) array (run 4.1 s interpreted, mostly list neighbour lookups) (medium-large).\nGood: `if` between proofs gives E-UNIVERSE with the exact match to write; E-ARITY names parameters to add; cases closed all six adjacency facts (day 9 hit E-MATCH-MOTIVE on similar goals).\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
