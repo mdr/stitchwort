@@ -3347,14 +3347,14 @@
     },
     {
       "id": 1012,
-      "title": "Std.Parse: Parse.ReadsLeaving, a reading spec that also sees the rest of the input (D2133)",
+      "title": "Consider: Parse.ReadsLeaving, a reading spec that also sees the rest of the input",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
-      "body": "From SW-1002 item 3 (design sketch). Options: A ReadsLeaving p spec (spec read left value), Reads defined from it so existing lemmas keep their shape; rest-aware lemmas for end, lineEnd, span/nat/natDigits stopping, findAll; wholeReads/allReads derived from readsEnd + sequencing. B separate Leaves p cond (cheap, composes badly). C next char only. D keep as is. Lane recommends A. Awaiting Matt (D2133).",
+      "body": "From SW-1002 item 3 (design sketch). Options: A ReadsLeaving p spec (spec read left value), Reads defined from it so existing lemmas keep their shape; rest-aware lemmas for end, lineEnd, span/nat/natDigits stopping, findAll; wholeReads/allReads derived from readsEnd + sequencing. B separate Leaves p cond (cheap, composes badly). C next char only. D keep as is. Lane recommends A. D2133 (Matt, 1 Nov 2026): backlog, to consider; nothing is blocked on it.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
