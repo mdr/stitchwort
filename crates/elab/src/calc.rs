@@ -64,13 +64,13 @@ struct Link {
 
 /// `calc` with no type expected: it proves what its steps add up to.
 pub(crate) fn infer_calc(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
-    let (term, prop, _) = elaborate(cx, expr, None)?;
+    let (term, prop, _) = elaborate(cx, expr)?;
     Ok((term, prop))
 }
 
 /// `calc` against a goal: the chain must prove it, up to computation.
 pub(crate) fn check_calc(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
-    let (term, prop, ends) = elaborate(cx, expr, Some(expected))?;
+    let (term, prop, ends) = elaborate(cx, expr)?;
     if cx.unify(&prop, expected)? {
         Ok(term)
     } else {
@@ -89,25 +89,14 @@ struct Ends {
     end_term: Term,
 }
 
-fn elaborate(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value, Ends)> {
+/// The chain `expr`. Its first term is inferred: what in it can't say its
+/// type yet (a record literal, a `.field`, a number) waits in the queue.
+fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
     let Expr::Calc { first, steps, .. } = expr else {
         unreachable!("only called on a calc");
     };
-    let ordered = steps.iter().any(|s| s.rel != BinOp::Eq);
-    let hint = match expected {
-        Some(goal) => hint(cx, goal, ordered)?,
-        None => None,
-    };
-    let inferred = infer(cx, first).and_then(|(t, ty)| insert(cx, t, ty));
-    let (start, ty) = match inferred {
-        Ok(found) => found,
-        Err(e) if e.code == "E-CANNOT-INFER" && hint.is_some() => {
-            crate::queue::note_calc_from_goal();
-            let hint = hint.expect("just checked");
-            (check(cx, first, &hint)?, hint)
-        }
-        Err(e) => return Err(e),
-    };
+    let (start, ty) = infer(cx, first)?;
+    let (start, ty) = insert(cx, start, ty)?;
     let ty_term = Rc::new(cx.quote(&ty)?);
     let nat_ty = Value::Data(nat(cx)?, Vec::new());
     let mut link: Option<Link> = None;
@@ -160,19 +149,6 @@ fn elaborate(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Ter
         end_term: link.end.clone(),
     };
     Ok((link.proof, link.prop, ends))
-}
-
-/// A type to check the first expression against if it can't be inferred
-/// (`[]`): the goal's, where the goal is an equation or the chain is of
-/// orders.
-fn hint(cx: &mut Ctx, goal: &Value, ordered: bool) -> Result<Option<Value>> {
-    if ordered {
-        return Ok(Some(Value::Data(nat(cx)?, Vec::new())));
-    }
-    Ok(match force(cx.g(), goal.clone())? {
-        Value::Eq(ty, _, _) => Some((*ty).clone()),
-        _ => None,
-    })
 }
 
 /// A step's proposition `end rel next`.

@@ -1600,7 +1600,6 @@ static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
 static LAMBDA_POSTPONED: AtomicUsize = AtomicUsize::new(0);
 static RETRIED: AtomicUsize = AtomicUsize::new(0);
 static RETRIED_CONSTRUCTOR: AtomicUsize = AtomicUsize::new(0);
-static CALC_FROM_GOAL: AtomicUsize = AtomicUsize::new(0);
 static LEAF_UNINFERRED: AtomicUsize = AtomicUsize::new(0);
 static WAITED: AtomicUsize = AtomicUsize::new(0);
 static MATCH_WAITED: AtomicUsize = AtomicUsize::new(0);
@@ -1645,13 +1644,6 @@ pub(crate) fn note_retried(constructor: bool) {
     if constructor {
         count(&RETRIED_CONSTRUCTOR);
     }
-}
-
-/// A `calc` whose first term couldn't be inferred, so it was checked
-/// against the type the goal gives (`calc::elaborate`): one of the three
-/// "infer the other side" catches.
-pub(crate) fn note_calc_from_goal() {
-    count(&CALC_FROM_GOAL);
 }
 
 /// A leaf of a number group or comparison that couldn't be inferred, so it
@@ -1715,8 +1707,8 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// failures (`… on pending`, `… failed on pending`); and, for stage 5, the
 /// catch-and-retry paths it removes: the retries only a constructor with
 /// number literals asked for (`retried for a constructor`), and the "infer
-/// the other side" catches left (`calc from goal`, `leaf uninferred`).
-pub fn counts() -> [(&'static str, usize); 30] {
+/// the other side" catch left (`leaf uninferred`).
+pub fn counts() -> [(&'static str, usize); 29] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -1735,7 +1727,6 @@ pub fn counts() -> [(&'static str, usize); 30] {
         ("lambda postponed", get(&LAMBDA_POSTPONED)),
         ("retried", get(&RETRIED)),
         ("retried for a constructor", get(&RETRIED_CONSTRUCTOR)),
-        ("calc from goal", get(&CALC_FROM_GOAL)),
         ("leaf uninferred", get(&LEAF_UNINFERRED)),
         ("waited", get(&WAITED)),
         ("match waited", get(&MATCH_WAITED)),
