@@ -2775,7 +2775,8 @@ instead of 2.0 s for both parts); item 4 again.
 The parser reads `name-name` with `takeWhile1` on letters, then checks
 (`checkPassages`, with a pure `firstBigPair`, as in the D2108 pattern)
 that no passage joins two big caves, failing with "line 2: A-BC joins two
-big caves, so there would be no end to the paths".
+big caves, so a path could cross it back and forth forever and there would
+be infinitely many paths".
 
 **The spec** (Spec/Spec.sw) uses the program's `isBig` and says the rest
 in the puzzle's terms. Two caves are `connected` when a line names them,

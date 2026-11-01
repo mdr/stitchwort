@@ -7725,7 +7725,7 @@ in `aoc_answers.rs` or `machine.rs` yet. `examples/2024/day24.txt` is the
 puzzle's larger example: part 1 is 2024, as the puzzle says (the small
 example's 4 is a test). Part 2 has no example of its own that this program
 can run: the puzzle's part 2 example is a device that ANDs, not adds, and
-the program answers "no four swaps make an adder" for the larger example.
+the program answers "the repair search found no four swaps that make an adder" for the larger example.
 Part 2 is tested instead on ripple-carry adders the tests generate, with
 swaps planted, and was cross-checked against an independent Python
 generator (`/usr/bin/python3 -I`, not committed) that builds adders of 1
