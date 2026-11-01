@@ -1,7 +1,7 @@
--- The program's steps are the spec's: `step` reaches exactly the positions
--- one orthogonal step away (`stepOrthogonal`, `orthogonalStep`), and
--- `neighboursGrowing` gives exactly the touching plots (`memNeighboursGrowing`).
--- Touching goes both ways (`touchesSymmetric`).
+--| The program's steps are the spec's: `step` reaches exactly the positions
+--| one orthogonal step away (`stepOrthogonal`, `orthogonalStep`), and
+--| `neighboursGrowing` gives exactly the touching plots (`memNeighboursGrowing`).
+--| Touching goes both ways (`touchesSymmetric`).
 
 namespace Aoc.Year2024.Day12.Proofs
 import Aoc.Year2024.Day12 (..)
@@ -9,7 +9,7 @@ import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Or, Void)
 
--- `isOrthogonalStep` as a proposition.
+--| `isOrthogonalStep` as a proposition.
 def Orthogonal (from: Position) (to: Position): Prop :=
   Or (And (from.row = to.row) (Or (from.column + 1 = to.column) (to.column + 1 = from.column)))
     (And (from.column = to.column) (Or (from.row + 1 = to.row) (to.row + 1 = from.row)))
@@ -42,7 +42,7 @@ theorem orthogonalElim (from: Position) (to: Position) (step: isOrthogonalStep f
         (Both (DecEq.sound _ _ (Bool.andLeft _ _ upOrDown))
           (Bool.orElim _ _ _ (Bool.andRight _ _ upOrDown) (down => Inl (DecEq.sound _ _ down)) (up => Inr (DecEq.sound _ _ up)))))
 
--- A step in any direction is one orthogonal step.
+--| A step in any direction is one orthogonal step.
 theorem stepOrthogonal: (from: Position) → (side: Direction) → (to: Position) → from.step side = Some to → Orthogonal from to
   | { row = Succ above, column }, Up, to, stepped => rewrite <- Option.someInjective _ _ stepped in Inr (Both rfl (Inr (omega)))
   | { row = Zero, column }, Up, to, stepped => Void.exfalso (Option.noneNotSome to stepped)
@@ -51,7 +51,7 @@ theorem stepOrthogonal: (from: Position) → (side: Direction) → (to: Position
   | { row, column = Zero }, Left, to, stepped => Void.exfalso (Option.noneNotSome to stepped)
   | { row, column }, Right, to, stepped => rewrite <- Option.someInjective _ _ stepped in Inl (Both rfl (Inl (omega)))
 
--- One orthogonal step is a step in some direction.
+--| One orthogonal step is a step in some direction.
 theorem orthogonalStep: (from: Position) → (to: Position) → Orthogonal from to → Exists Direction (side => from.step side = Some to)
   | { row, column }, { row = toRow, column = toColumn }, Inl (Both rows (Inl right)) =>
     let same: Succ column = toColumn := omega
@@ -75,14 +75,14 @@ theorem orthogonalSymmetric (from: Position) (to: Position) (orthogonal: Orthogo
     | Inr (Both columns (Inl down)) => Inr (Both (Eq.sym columns) (Inr down))
     | Inr (Both columns (Inr up)) => Inr (Both (Eq.sym columns) (Inl up))
 
--- Every direction is one of `directions`.
+--| Every direction is one of `directions`.
 theorem memDirections: (side: Direction) → side ∈ directions
   | Up => Inl rfl
   | Right => Inr (Inl rfl)
   | Down => Inr (Inr (Inl rfl))
   | Left => Inr (Inr (Inr (Inl rfl)))
 
--- `growSame` as an equation.
+--| `growSame` as an equation.
 theorem growSameElim (garden: Garden) (plot: Position) (other: Position) (same: growSame garden plot other = True):
     Exists Char (plant => And (garden.plantAt plot = Some plant) (garden.plantAt other = Some plant)) :=
   match grows: garden.plantAt plot with
@@ -98,8 +98,8 @@ theorem touchesSymmetric (garden: Garden) (plot: Position) (other: Position) (to
     Bool.andIntro _ _ (orthogonalIntro other plot (orthogonalSymmetric plot other (orthogonalElim plot other (Bool.andLeft _ _ touching))))
       (growSameIntro garden other plot plant (And.right both) (And.left both)))
 
--- The neighbours a fill pushes are exactly the plots touching `plot` that
--- grow `plant`.
+--| The neighbours a fill pushes are exactly the plots touching `plot` that
+--| grow `plant`.
 theorem memNeighboursGrowing (garden: Garden) (plant: Char) (plot: Position) (other: Position):
     other ∈ garden.neighboursGrowing plant plot ↔ And (Orthogonal plot other) (garden.plantAt other = Some plant) := {
   forward = member =>
@@ -114,7 +114,7 @@ theorem memNeighboursGrowing (garden: Garden) (plant: Char) (plot: Position) (ot
         (List.memFilterMapIntro plot.step side other directions (memDirections side) stepped) (rewrite And.right has in DecEq.refl (Some plant)))
 }
 
--- A plot touching one that grows `plant` is a neighbour the fill pushes.
+--| A plot touching one that grows `plant` is a neighbour the fill pushes.
 theorem touchingGrowing (garden: Garden) (plant: Char) (plot: Position) (other: Position) (grows: garden.plantAt plot = Some plant)
     (touching: touches garden plot other = True): other ∈ garden.neighboursGrowing plant plot :=
   Exists.elim (growSameElim garden plot other (Bool.andRight _ _ touching)) (same both =>
@@ -122,7 +122,7 @@ theorem touchingGrowing (garden: Garden) (plant: Char) (plot: Position) (other: 
     (memNeighboursGrowing garden plant plot other).backward
       (Both (orthogonalElim plot other (Bool.andLeft _ _ touching)) (rewrite <- plantSame in And.right both)))
 
--- A neighbour the fill pushes from a plot growing `plant` touches it.
+--| A neighbour the fill pushes from a plot growing `plant` touches it.
 theorem growingTouches (garden: Garden) (plant: Char) (plot: Position) (other: Position) (grows: garden.plantAt plot = Some plant)
     (member: other ∈ garden.neighboursGrowing plant plot): touches garden plot other = True :=
   let both := (memNeighboursGrowing garden plant plot other).forward member

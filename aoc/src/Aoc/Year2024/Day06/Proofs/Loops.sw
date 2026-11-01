@@ -1,6 +1,8 @@
--- The program's loop test is `Loops`, for sightlines whose next turns are
--- turns of the walk (`Simulates`; proved for the program's sightlines in
--- Proofs/Sightlines.sw): `loopsWithCorrect`. A repeated turn is a repeated
+--| The program's loop test is `Loops`, for sightlines whose next turns are
+--| turns of the walk (`Simulates`; proved for the program's sightlines in
+--| Proofs/Sightlines.sw): `loopsWithCorrect`.
+--
+-- A repeated turn is a repeated
 -- state, and running out of budget means `stateCount` steps on the map.
 
 namespace Aoc.Year2024.Day06.Proofs
@@ -9,31 +11,31 @@ import Aoc.Common (Direction, Position)
 import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, Nat, Not, Option, Or, Set, Void)
 
--- Each next turn `sightlines` finds is where the walk in `lab` is some
--- steps on, and when there is none, the walk leaves.
+--| Each next turn `sightlines` finds is where the walk in `lab` is some
+--| steps on, and when there is none, the walk leaves.
 def Simulates (sightlines: Sightlines) (lab: Lab): Prop :=
   (guard: Guard) → onMap lab guard.position = True →
     And
       ((next: Guard) → sightlines.nextTurn guard = Some next → Exists Nat (steps => And (0 < steps) (walk lab (Some guard) steps = Some next)))
       (sightlines.nextTurn guard = None → Exists Nat (steps => walk lab (Some guard) steps = None))
 
--- `steps` more steps from the state after `now`.
+--| `steps` more steps from the state after `now`.
 theorem afterAdd (lab: Lab) (now: Nat) (guard: Guard) (reached: after lab now = Some guard) (steps: Nat):
     after lab (now + steps) = walk lab (Some guard) steps :=
   rewrite walkAdd lab now (Some lab.startGuard) steps in rewrite reached in rfl
 
--- Seen once, at a step no later than `now`.
+--| Seen once, at a step no later than `now`.
 def SeenBy (lab: Lab) (seen: Set Guard) (now: Nat): Prop :=
   (guard: Guard) → seen.contains guard = True → Exists Nat (earlier => And (earlier ≤ now) (after lab earlier = Some guard))
 
--- What a set has after an insert: the key, or what it had.
+--| What a set has after an insert: the key, or what it had.
 theorem containsInsertEither (seen: Set Guard) (key: Guard) (guard: Guard) (has: (seen.insert key).contains guard = True):
     Or (guard = key) (seen.contains guard = True) :=
   match same: guard == key with
     | True => Inl (DecEq.sound guard key same)
     | False => Inr (rewrite Set.containsInsertOther seen key guard (DecEq.soundFalse guard key same) at has)
 
--- A `True` from the loop test means she loops.
+--| A `True` from the loop test means she loops.
 theorem loopsFromSound (lab: Lab) (sightlines: Sightlines) (simulates: Simulates sightlines lab) (inside: onMap lab lab.start = True):
     (budget: Nat) → (guard: Guard) → (seen: Set Guard) → (now: Nat) → after lab now = Some guard → lab.stateCount ≤ now + budget →
       SeenBy lab seen now → sightlines.loopsFrom guard seen budget = True → Loops lab
@@ -61,7 +63,7 @@ theorem loopsFromSound (lab: Lab) (sightlines: Sightlines) (simulates: Simulates
               loopsFromSound lab sightlines simulates inside budget next (seen.insert next) (now + steps) later
                 (omega [And.left both, enough]) seenByNext rest)) anySteps gone)
 
--- And when she loops, the test says so.
+--| And when she loops, the test says so.
 theorem loopsFromComplete (lab: Lab) (sightlines: Sightlines) (simulates: Simulates sightlines lab) (inside: onMap lab lab.start = True)
     (loops: Loops lab): (budget: Nat) → (guard: Guard) → (seen: Set Guard) → (now: Nat) → after lab now = Some guard →
       sightlines.loopsFrom guard seen budget = True
@@ -78,14 +80,14 @@ theorem loopsFromComplete (lab: Lab) (sightlines: Sightlines) (simulates: Simula
             (loopsFromComplete lab sightlines simulates inside loops budget next (seen.insert next) (now + steps)
               (Eq.trans (afterAdd lab now guard reached steps) (And.right both))))
 
--- The start, seen at step 0.
+--| The start, seen at step 0.
 theorem seenStart (lab: Lab): SeenBy lab (Set.singleton lab.startGuard) 0 :=
   guard has =>
     match containsInsertEither Set.empty lab.startGuard guard has with
       | Inl isStart => Witness 0 (Both rfl (rewrite isStart in rfl))
       | Inr inEmpty => Void.exfalso (Bool.falseNotTrue inEmpty)
 
--- The program's loop test decides `Loops`.
+--| The program's loop test decides `Loops`.
 theorem loopsWithCorrect (lab: Lab) (sightlines: Sightlines) (simulates: Simulates sightlines lab) (inside: onMap lab lab.start = True):
     Iff (lab.loopsWith sightlines = True) (Loops lab) := {
   forward = says =>

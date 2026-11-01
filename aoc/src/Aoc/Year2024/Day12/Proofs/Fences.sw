@@ -1,7 +1,7 @@
--- Fences: in a region, a side of a plot faces the same plant exactly when
--- it touches a plot of the region (`sameAcrossFaces`), so the program's
--- perimeter, which counts sides not facing the same plant, is the spec's
--- (`perimeterCorrect`).
+--| Fences: in a region, a side of a plot faces the same plant exactly when
+--| it touches a plot of the region (`sameAcrossFaces`), so the program's
+--| perimeter, which counts sides not facing the same plant, is the spec's
+--| (`perimeterCorrect`).
 
 namespace Aoc.Year2024.Day12.Proofs
 import Aoc.Year2024.Day12 (..)
@@ -9,8 +9,8 @@ import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Or, Void)
 
--- A side of a plot in a region faces the same plant exactly when it
--- touches a plot of the region.
+--| A side of a plot in a region faces the same plant exactly when it
+--| touches a plot of the region.
 theorem sameAcrossFaces (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: List Position)
     (isRegion: IsRegion garden start region) (plot: Position) (member: plot ∈ region) (side: Direction):
     garden.sameAcross plot side = facesRegion region plot side :=
@@ -34,7 +34,7 @@ theorem sameAcrossFaces (garden: Garden) (start: Position) (plant: Char) (grows:
                 let sameGrows := joinedPlant garden plant start other grows ((isRegion other).forward otherIn)
                 Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym otherGrows) (rewrite sameGrows in DecEq.refl (Some plant))))
 
--- The program's perimeter of a region is the spec's.
+--| The program's perimeter of a region is the spec's.
 theorem perimeterCorrect (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: List Position)
     (isRegion: IsRegion garden start region): garden.perimeter region = perimeter region :=
   List.sumByCongMem region garden.fences (plot => directions.count (side => !facesRegion region plot side)) (plot member =>

@@ -1,13 +1,13 @@
--- Advent of Code 2024, day 23: a map of a LAN, one connection between two
--- computers per line. Part 1 counts the sets of three computers, each
--- connected to the other two, with a computer whose name starts with t.
--- Part 2 finds the largest set of computers all connected to each other and
--- prints their names, sorted and joined with commas.
---
---   $ cd aoc && stitchwort run Aoc.Year2024.Day23.main < examples/2024/day23.txt
---
--- The proofs are in `Aoc.Year2024.Day23.Proofs` (Proofs/) and the tests in
--- `Aoc.Year2024.Day23.Tests` (Tests/); `run` checks neither.
+--| Advent of Code 2024, day 23: a map of a LAN, one connection between two
+--| computers per line. Part 1 counts the sets of three computers, each
+--| connected to the other two, with a computer whose name starts with t.
+--| Part 2 finds the largest set of computers all connected to each other and
+--| prints their names, sorted and joined with commas.
+--|
+--|   $ cd aoc && stitchwort run Aoc.Year2024.Day23.main < examples/2024/day23.txt
+--|
+--| The proofs are in `Aoc.Year2024.Day23.Proofs` (Proofs/) and the tests in
+--| `Aoc.Year2024.Day23.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day23
 import Std (Bool, Char, Eq, Fail, IO, List, Map, Nat, Pair, Parse, Set, Text)
@@ -18,10 +18,10 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 network}"
   IO.print "Part 2: ${solvePart2 network}"
 
--- A computer, by its two-letter name.
+--| A computer, by its two-letter name.
 def Computer: Type := Text
 
--- "Connections aren't directional": `kh-tc` and `tc-kh` are the same.
+--| "Connections aren't directional": `kh-tc` and `tc-kh` are the same.
 type Network = { connections: List (Computer, Computer) }
 
 def computer(): {Parse} Computer :=
@@ -29,7 +29,7 @@ def computer(): {Parse} Computer :=
   let second := satisfy "a lowercase letter" Char.isAsciiLowercase
   Text.fromList [first, second]
 
--- One connection: "kh-tc".
+--| One connection: "kh-tc".
 def connection(): {Parse} (Computer, Computer) :=
   let one := computer()
   text "-"
@@ -38,10 +38,10 @@ def connection(): {Parse} (Computer, Computer) :=
 
 def parseNetwork (input: Text): {Fail} Network := { connections = Parse.all input (() => lines connection) }
 
--- Each computer's neighbours.
+--| Each computer's neighbours.
 def Links: Type := Map Computer (Set Computer)
 
--- Each connection, both ways round.
+--| Each connection, both ways round.
 def Network.bothWays (network: Network): List (Computer, Computer) :=
   network.connections.flatMap (connection => [connection, (connection.snd, connection.fst)])
 
@@ -50,26 +50,26 @@ def Network.links (network: Network): Links :=
 
 def Links.neighbours (links: Links) (computer: Computer): Set Computer := links.getOr computer Set.empty
 
--- The sets of `first`, one of its neighbours, and a neighbour of both.
+--| The sets of `first`, one of its neighbours, and a neighbour of both.
 def Links.setsWith (links: Links) (first: Computer): List (Set Computer) :=
   let firstNeighbours := links.neighbours first
   firstNeighbours.toList.flatMap (second =>
     links.neighbours second |> .intersect firstNeighbours |> .toList |> .map (third => Set.fromList [first, second, third]))
 
--- Every set of three different computers, each connected to the other two.
+--| Every set of three different computers, each connected to the other two.
 def Links.setsOfThree (links: Links): Set (Set Computer) :=
   links.keySet.toList.flatMap links.setsWith |> Set.fromList |> .filter (set => set.size == 3)
 
--- Whether a computer's name starts with t, as the Chief Historian's does.
+--| Whether a computer's name starts with t, as the Chief Historian's does.
 def mightBeChiefs (set: Set Computer): Bool := set.any (computer => computer.startsWith "t")
 
 def solvePart1 (network: Network): Nat := network.links.setsOfThree |> .filter mightBeChiefs |> .size
 
--- The larger of `best` and the largest set of computers all connected to
--- each other made of `clique` and some of `candidates`, each of which is
--- connected to all of `clique`. Each candidate in turn is either in the set
--- (and then only its neighbours stay candidates) or not. A search that
--- can't beat `best`, with too few candidates left, stops.
+--| The larger of `best` and the largest set of computers all connected to
+--| each other made of `clique` and some of `candidates`, each of which is
+--| connected to all of `clique`. Each candidate in turn is either in the set
+--| (and then only its neighbours stay candidates) or not. A search that
+--| can't beat `best`, with too few candidates left, stops.
 def Links.largestFrom (links: Links) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer): Set Computer
     decreasing candidates.size
 :=
@@ -89,11 +89,11 @@ def Links.largestFrom (links: Links) (clique: Set Computer) (candidates: Set Com
           links.largestFrom clique others withIt
         else best
 
--- The largest set of computers that are all connected to each other.
+--| The largest set of computers that are all connected to each other.
 def Links.largestClique (links: Links): Set Computer := links.largestFrom Set.empty links.keySet Set.empty
 
--- "the name of every computer at the LAN party, sorted alphabetically, then
--- joined together with commas".
+--| "the name of every computer at the LAN party, sorted alphabetically, then
+--| joined together with commas".
 def password (party: Set Computer): Text := party.toList.sort.joinWith ","
 
 def solvePart2 (network: Network): Text := network.links.largestClique |> password

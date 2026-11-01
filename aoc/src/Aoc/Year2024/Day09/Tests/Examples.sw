@@ -1,4 +1,6 @@
--- Day 9's tests: the examples from the puzzle and unit tests. Kept apart from
+--| Day 9's tests: the examples from the puzzle and unit tests.
+--
+-- Kept apart from
 -- the program, so `stitchwort run Aoc.Year2024.Day09.main` doesn't check them.
 
 namespace Aoc.Year2024.Day09.Tests
@@ -10,19 +12,19 @@ def example: Text := "2333133121414131402"
 
 def parsed (input: Text): Result (List Nat) Text := Fail.toResult (() => parseDiskMap input)
 
--- A function of the parsed disk map, or why it didn't parse: a parse failure fails the test.
+--| A function of the parsed disk map, or why it didn't parse: a parse failure fails the test.
 def onDisk (input: Text) (f: List Nat -> a): Result a Text := parsed input |> .map f
 
--- The blocks as the puzzle draws them: a file block as its file's number,
--- free space as `.`.
+--| The blocks as the puzzle draws them: a file block as its file's number,
+--| free space as `.`.
 def picture (blocks: List (Option Nat)): Text :=
   Text.joinWith (blocks.map (block => block.map (id => "${id}") |> .getOrElse ".")) ""
 
--- The pictures after each of part 1's moves, until there are no gaps.
+--| The pictures after each of part 1's moves, until there are no gaps.
 def movePictures (blocks: List (Option Nat)): List Text :=
   List.range (blocks.length + 1) |> .map (moves => picture (compactOneAtATime moves blocks)) |> .dedup
 
--- Both parts agree with the spec.
+--| Both parts agree with the spec.
 def agrees (input: Text): Result Bool Text :=
   onDisk input (diskMap => solvePart1 diskMap == part1 diskMap && solvePart2 diskMap == part2 diskMap)
 

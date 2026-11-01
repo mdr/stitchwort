@@ -1,4 +1,6 @@
--- The presses from `pressesFor` type the code (`pressesForTypes`). On one
+--| The presses from `pressesFor` type the code (`pressesForTypes`).
+--
+-- On one
 -- keypad, a route's arrows walk the arm from one key to the next without
 -- aiming at a gap, and A presses it (`routeTypes`); that is checked by
 -- computing, for every pair of keys on both keypads (`numericFits`,
@@ -10,13 +12,13 @@ import Aoc.Year2024.Day21 (..)
 import Aoc.Year2024.Day21.Spec (..)
 import Std (Bool, DecEq, Eq, Finite, List, Nat, Option, Void)
 
--- Where the arrows of `route` take an arm from `aim`: none if it is ever
--- aimed at a gap or off the keypad.
+--| Where the arrows of `route` take an arm from `aim`: none if it is ever
+--| aimed at a gap or off the keypad.
 def walk (rows: List (List (Option k))) (aim: Position): List Direction → Option Position
   | Nil => Some aim
   | Cons direction rest => moved aim direction |> .flatMap (next => keyAt rows next |> .flatMap (key => walk rows next rest))
 
--- Arrows, then other keys: the arrows walk the arm first.
+--| Arrows, then other keys: the arrows walk the arm first.
 theorem operateArrows (rows: List (List (Option k))): (aim: Position) → (route: List Direction) → (rest: List DirectionKey) →
     operate rows aim (List.append (route.map Arrow) rest) = walk rows aim route |> .flatMap (end => operate rows end rest)
   | aim, Nil, rest => rfl
@@ -28,18 +30,18 @@ theorem operateArrows (rows: List (List (Option k))): (aim: Position) → (route
           | None => rfl
           | Some key => operateArrows rows next others rest
 
--- The number of moves between two places, along rows and columns.
+--| The number of moves between two places, along rows and columns.
 def distance (from: Position) (to: Position): Nat := from.row - to.row + (to.row - from.row) + (from.column - to.column) + (to.column - from.column)
 
--- Whether `route` walks from `from` to `to` on `rows`, as few moves as
--- there can be.
+--| Whether `route` walks from `from` to `to` on `rows`, as few moves as
+--| there can be.
 def routeFits (rows: List (List (Option k))) (from: Position) (to: Position) (route: List Direction): Bool :=
   walk rows from route == Some to && route.length == distance from to
 
--- How the keys of `keypad` sit on its rows: each key is where the program
--- places it, and there are routes between any two keys, all fitting. Every
--- key is `Finite.all`, the list derived for the key type, whose
--- `Finite.complete` says no key is missing.
+--| How the keys of `keypad` sit on its rows: each key is where the program
+--| places it, and there are routes between any two keys, all fitting. Every
+--| key is `Finite.all`, the list derived for the key type, whose
+--| `Finite.complete` says no key is missing.
 def fits [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: List (List (Option k))): Bool :=
   List.all Finite.all (to => keyAt rows (keypad.place to) == Some to)
     && List.all Finite.all (from =>
@@ -50,7 +52,7 @@ theorem numericFits: fits Keypad.numeric numericRows = True := rfl
 
 theorem directionalFits: fits Keypad.directional directionalRows = True := rfl
 
--- What `fits` gives for one pair of keys.
+--| What `fits` gives for one pair of keys.
 type Fitted (k: Type) = {
   keypad: Keypad k,
   rows: List (List (Option k)),
@@ -61,7 +63,7 @@ type Fitted (k: Type) = {
     (costs.cheapestRoute (keypad.routes from to)).length = distance (keypad.place from) (keypad.place to)
 }
 
--- The cheapest of a non-empty list of routes passes a test they all pass.
+--| The cheapest of a non-empty list of routes passes a test they all pass.
 theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool): (choices: List (List Direction)) → ((choices != []): Bool) = True →
     List.all choices passes = True → passes (costs.cheapestRoute choices) = True
   | Nil, some, all => Void.exfalso (Bool.falseNotTrue some)
@@ -89,7 +91,7 @@ def numericFitted: Fitted NumericKey := fitted Keypad.numeric numericRows numeri
 
 def directionalFitted: Fitted DirectionKey := fitted Keypad.directional directionalRows directionalFits
 
--- A robot driven by `drivingKeys` presses the keys, its arm first on `from`.
+--| A robot driven by `drivingKeys` presses the keys, its arm first on `from`.
 theorem drivingKeysType (fit: Fitted k) (costs: Costs): (from: k) → (keys: List k) →
     operate fit.rows (fit.keypad.place from) (drivingKeys fit.keypad costs from keys) = Some keys
   | from, Nil => rfl
@@ -102,7 +104,7 @@ theorem drivingKeysType (fit: Fitted k) (costs: Costs): (from: k) → (keys: Lis
       drivingKeysType fit costs to rest
       in rfl
 
--- Your presses passed through `robots` robots on directional keypads.
+--| Your presses passed through `robots` robots on directional keypads.
 def throughRobots: (robots: Nat) → List DirectionKey → Option (List DirectionKey)
   | Zero, presses => Some presses
   | Succ others, presses => operate directionalRows directionalStart presses |> .flatMap (throughRobots others)
@@ -115,7 +117,7 @@ theorem typedThrough: (robots: Nat) → (presses: List DirectionKey) →
       | None => rfl
       | Some keys => typedThrough others keys
 
--- The robot nearest the door is the last one the presses pass through.
+--| The robot nearest the door is the last one the presses pass through.
 theorem throughRobotsLast: (robots: Nat) → (presses: List DirectionKey) →
     throughRobots (Succ robots) presses = throughRobots robots presses |> .flatMap (operate directionalRows directionalStart)
   | Zero, presses => flatMapIntoSome (operate directionalRows directionalStart presses)

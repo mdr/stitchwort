@@ -1,9 +1,9 @@
--- The count: the program adds up, over the track, how many cheats from each
--- position save enough. Those cheats, listed (`counted`), are as many as
--- the program counts (`lengthCounted`), each once (`distinctCounted`), and
--- are exactly the cheats saving at least the threshold (`countedSound`,
--- `countedComplete`). So `countCheatsCorrect`: the program's count is the
--- number of such cheats, for every racetrack whose S and E are track.
+--| The count: the program adds up, over the track, how many cheats from each
+--| position save enough. Those cheats, listed (`counted`), are as many as
+--| the program counts (`lengthCounted`), each once (`distinctCounted`), and
+--| are exactly the cheats saving at least the threshold (`countedSound`,
+--| `countedComplete`). So `countCheatsCorrect`: the program's count is the
+--| number of such cheats, for every racetrack whose S and E are track.
 
 namespace Aoc.Year2024.Day20.Proofs
 import Aoc.Year2024.Day20 (..)
@@ -11,32 +11,32 @@ import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day20.Spec (..)
 import Std (And, Bool, Eq, Exists, Iff, List, Map, Nat, Option, Set, Void)
 
--- The cheats from `start` that the program counts.
+--| The cheats from `start` that the program counts.
 def countedFrom (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat) (threshold: Nat) (start: Position):
     List Cheat :=
   match fromStart.get start with
     | Some before => start.diamond length |> .filter (savesFrom toEnd honest threshold start before) |> .map (end => ({ start, end }: Cheat))
     | None => Nil
 
--- The cheats the program counts.
+--| The cheats the program counts.
 def counted (racetrack: Racetrack) (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat) (threshold: Nat):
     List Cheat :=
   racetrack.track.toList |> .flatMap (countedFrom fromStart toEnd honest length threshold)
 
--- From a start the search reached, the cheats counted.
+--| From a start the search reached, the cheats counted.
 theorem countedFromSome (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat) (threshold: Nat) (start: Position)
     (before: Nat) (got: fromStart.get start = Some before):
     countedFrom fromStart toEnd honest length threshold start
       = (start.diamond length |> .filter (savesFrom toEnd honest threshold start before) |> .map (end => ({ start, end }: Cheat))) :=
   rewrite got in rfl
 
--- To an end the search back reached, whether the race is short enough.
+--| To an end the search back reached, whether the race is short enough.
 theorem savesFromSome (toEnd: Map Position Nat) (honest: Nat) (threshold: Nat) (start: Position) (before: Nat) (end: Position) (after: Nat)
     (got: toEnd.get end = Some after):
     savesFrom toEnd honest threshold start before end = (before + start.distance end + after + threshold ≤ honest) :=
   rewrite got in rfl
 
--- As many cheats from `start` as the program counts there...
+--| As many cheats from `start` as the program counts there...
 theorem lengthCountedFrom (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat) (threshold: Nat)
     (start: Position):
     (countedFrom fromStart toEnd honest length threshold start).length = cheatsFrom fromStart toEnd honest length threshold start :=
@@ -47,7 +47,7 @@ theorem lengthCountedFrom (fromStart: Map Position Nat) (toEnd: Map Position Nat
         List.lengthFilter (start.diamond length) (savesFrom toEnd honest threshold start before)
     | None => rfl
 
--- ...and so as many in all.
+--| ...and so as many in all.
 theorem lengthCounted (racetrack: Racetrack) (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat)
     (threshold: Nat):
     (counted racetrack fromStart toEnd honest length threshold).length
@@ -55,7 +55,7 @@ theorem lengthCounted (racetrack: Racetrack) (fromStart: Map Position Nat) (toEn
   rewrite List.lengthFlatMap (countedFrom fromStart toEnd honest length threshold) racetrack.track.toList in
     List.sumByCong racetrack.track.toList _ _ (start => lengthCountedFrom fromStart toEnd honest length threshold start)
 
--- No cheat is counted twice.
+--| No cheat is counted twice.
 theorem distinctCounted (racetrack: Racetrack) (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat)
     (threshold: Nat): List.Distinct (counted racetrack fromStart toEnd honest length threshold) :=
   List.distinctFlatMap (countedFrom fromStart toEnd honest length threshold) (cheat => cheat.start) racetrack.track.toList
@@ -74,11 +74,11 @@ theorem distinctCounted (racetrack: Racetrack) (fromStart: Map Position Nat) (to
             (end both => rewrite <- And.right both in rfl)
         | None => Void.exfalso inStart)
 
--- A position listed by the track is on it, and the other way round.
+--| A position listed by the track is on it, and the other way round.
 theorem listedOnTrack (racetrack: Racetrack) (position: Position): Iff (position ∈ racetrack.track.toList) (onTrack racetrack position = True) :=
   Map.memKeys racetrack.track.items position
 
--- Every cheat counted saves at least the threshold.
+--| Every cheat counted saves at least the threshold.
 theorem countedSound (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True)
     (endOnTrack: onTrack racetrack racetrack.end = True) (length: Nat) (threshold: Nat) (honest: Nat)
     (honestFound: racetrack.fromStart.get racetrack.end = Some honest) (cheat: Cheat)
@@ -112,7 +112,7 @@ theorem countedSound (racetrack: Racetrack) (startOnTrack: onTrack racetrack rac
                           (Both (And.left (fromStartFastest racetrack startOnTrack racetrack.end honest honestFound))
                             (Both (And.left (fromStartFastest racetrack startOnTrack start before got)) (Both afterFast fits))))))))
 
--- Every cheat saving at least the threshold is counted.
+--| Every cheat saving at least the threshold is counted.
 theorem countedComplete (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True)
     (endOnTrack: onTrack racetrack racetrack.end = True) (length: Nat) (threshold: Nat) (honest: Nat)
     (honestFound: racetrack.fromStart.get racetrack.end = Some honest):
@@ -139,8 +139,8 @@ theorem countedComplete (racetrack: Racetrack) (startOnTrack: onTrack racetrack 
                   (aroundComplete start length end near) saved)
                 (other => ({ start, end = other }: Cheat))))))
 
--- The program's count is the number of cheats of up to `length`
--- picoseconds saving at least `threshold`.
+--| The program's count is the number of cheats of up to `length`
+--| picoseconds saving at least `threshold`.
 theorem countCheatsCorrect (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True)
     (endOnTrack: onTrack racetrack racetrack.end = True) (length: Nat) (threshold: Nat):
     IsCount racetrack length threshold (racetrack.countCheats length threshold) :=

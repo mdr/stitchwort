@@ -1,12 +1,12 @@
--- Advent of Code 2024, day 12: a map of garden plots, each growing one plant
--- (a letter). Plots with the same plant touching up, down, left or right form
--- a region. Part 1 adds up, over the regions, area times perimeter; part 2
--- adds up area times the number of sides.
---
---   $ cd aoc && stitchwort run Aoc.Year2024.Day12.main < examples/2024/day12.txt
---
--- The proofs are in `Aoc.Year2024.Day12.Proofs` (Proofs/) and the tests in
--- `Aoc.Year2024.Day12.Tests` (Tests/); `run` checks neither.
+--| Advent of Code 2024, day 12: a map of garden plots, each growing one plant
+--| (a letter). Plots with the same plant touching up, down, left or right form
+--| a region. Part 1 adds up, over the regions, area times perimeter; part 2
+--| adds up area times the number of sides.
+--|
+--|   $ cd aoc && stitchwort run Aoc.Year2024.Day12.main < examples/2024/day12.txt
+--|
+--| The proofs are in `Aoc.Year2024.Day12.Proofs` (Proofs/) and the tests in
+--| `Aoc.Year2024.Day12.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day12
 import Aoc.Common (Direction, Position, directions)
@@ -17,13 +17,13 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 garden}"
   IO.print "Part 2: ${solvePart2 garden}"
 
--- The plant of each plot, by position.
+--| The plant of each plot, by position.
 type Garden = { plots: Map Position Char }
 
--- One plot: its plant, a letter.
+--| One plot: its plant, a letter.
 def plantLetter(): {Parse} Char := Parse.satisfy "a letter" (char => char.isAsciiLetter)
 
--- One row per line, all as long as the first.
+--| One row per line, all as long as the first.
 def parseGarden (input: Text): {Fail} Garden :=
   let rows := Parse.all input (() => Parse.grid plantLetter)
   let width := rows.headOr [] |> .length
@@ -32,33 +32,33 @@ def parseGarden (input: Text): {Fail} Garden :=
   let plots := rows.gridCells |> .map ((((row, column), plant)) => (({ row, column }: Position), plant))
   { plots = Map.fromList plots }
 
--- The plant at `position`; `None` off the map.
+--| The plant at `position`; `None` off the map.
 def Garden.plantAt (garden: Garden) (position: Position): Option Char := garden.plots.get position
 
--- Every plot of the map, row by row.
+--| Every plot of the map, row by row.
 def Garden.positions (garden: Garden): List Position := garden.plots.keys
 
 -- Positions, directions and a step (none above row 0 or left of column 0)
 -- are the shared grid code's (`Aoc.Common`).
 
--- Whether the plot one step in `direction` grows the same plant.
+--| Whether the plot one step in `direction` grows the same plant.
 def Garden.sameAcross (garden: Garden) (position: Position) (direction: Direction): Bool :=
   (position.step direction |> .flatMap garden.plantAt) == garden.plantAt position
 
--- The neighbours growing `plant`.
+--| The neighbours growing `plant`.
 def Garden.neighboursGrowing (garden: Garden) (plant: Char) (position: Position): List Position :=
   directions.filterMap position.step |> .filter (next => garden.plantAt next == Some plant)
 
--- How many positions the fill has still to visit: it gets smaller each time
--- the fill takes a plot.
+--| How many positions the fill has still to visit: it gets smaller each time
+--| the fill takes a plot.
 def Garden.unvisited (garden: Garden) (visited: Set Position): Nat := garden.positions.count (position => !visited.contains position)
 
--- A position growing a plant is on the list.
+--| A position growing a plant is on the list.
 theorem Garden.positionsComplete (garden: Garden) (position: Position) (plant: Char) (grows: garden.plantAt position = Some plant):
     position ∈ garden.positions :=
   Map.memKeysOfContains garden.plots position (Map.containsOfGet garden.plots position plant grows)
 
--- Taking a plot not yet visited leaves fewer to visit.
+--| Taking a plot not yet visited leaves fewer to visit.
 theorem Garden.unvisitedInsert (garden: Garden) (visited: Set Position) (position: Position) (plant: Char)
     (grows: garden.plantAt position = Some plant) (fresh: visited.contains position = False):
     garden.unvisited (visited.insert position) < garden.unvisited visited :=
@@ -69,8 +69,8 @@ theorem Garden.unvisitedInsert (garden: Garden) (visited: Set Position) (positio
         | False => rfl)
     position (garden.positionsComplete position plant grows) (rewrite fresh in rfl) (rewrite Set.containsInsert position visited in rfl)
 
--- The plots growing `plant` reachable from the stack, joined to `members`:
--- a depth-first flood fill. `visited` has the members, for quick lookup.
+--| The plots growing `plant` reachable from the stack, joined to `members`:
+--| a depth-first flood fill. `visited` has the members, for quick lookup.
 def Garden.fill (garden: Garden) (plant: Char) (stack: List Position) (visited: Set Position) (members: List Position): List Position
     decreasing (garden.unvisited visited, stack.length)
 :=
@@ -84,13 +84,13 @@ def Garden.fill (garden: Garden) (plant: Char) (stack: List Position) (visited: 
         else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
       else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
 
--- The region containing `start`: the plots joined to it.
+--| The region containing `start`: the plots joined to it.
 def Garden.regionOf (garden: Garden) (start: Position): List Position :=
   match garden.plantAt start with
     | Some plant => garden.fill plant [start] Set.empty Nil
     | None => Nil
 
--- The regions, each once, from the positions not yet in a region.
+--| The regions, each once, from the positions not yet in a region.
 def Garden.regionsFrom (garden: Garden): (starts: List Position) → (seen: Set Position) → List (List Position)
   | Nil, seen => Nil
   | Cons start rest, seen =>
@@ -101,22 +101,22 @@ def Garden.regionsFrom (garden: Garden): (starts: List Position) → (seen: Set 
 
 def Garden.regions (garden: Garden): List (List Position) := garden.regionsFrom garden.positions Set.empty
 
--- A plot's sides with a fence: those not facing the same plant.
+--| A plot's sides with a fence: those not facing the same plant.
 def Garden.fences (garden: Garden) (position: Position): Nat := directions.count (direction => !garden.sameAcross position direction)
 
 def Garden.perimeter (garden: Garden) (region: List Position): Nat := region.sumBy garden.fences
 
--- The four corners of a plot: the side up or down, and the side left or
--- right.
+--| The four corners of a plot: the side up or down, and the side left or
+--| right.
 def quadrants: List (Direction, Direction) := [(Up, Left), (Up, Right), (Down, Left), (Down, Right)]
 
--- The grid point diagonally across a plot's corner.
+--| The grid point diagonally across a plot's corner.
 def Position.diagonal (position: Position) (vertical: Direction) (horizontal: Direction): Option Position :=
   position.step vertical |> .flatMap (next => next.step horizontal)
 
--- A corner of the region's fence at a plot: outside, where neither side
--- faces the same plant, or inside, where both do but the plot diagonally
--- across doesn't.
+--| A corner of the region's fence at a plot: outside, where neither side
+--| faces the same plant, or inside, where both do but the plot diagonally
+--| across doesn't.
 def Garden.isCorner (garden: Garden) (position: Position) (vertical: Direction) (horizontal: Direction): Bool :=
   match garden.sameAcross position vertical, garden.sameAcross position horizontal with
     | False, False => True
@@ -125,7 +125,7 @@ def Garden.isCorner (garden: Garden) (position: Position) (vertical: Direction) 
 
 def Garden.cornerCount (garden: Garden) (position: Position): Nat := quadrants.count (quadrant => garden.isCorner position quadrant.fst quadrant.snd)
 
--- The number of sides equals the number of corners.
+--| The number of sides equals the number of corners.
 def Garden.sides (garden: Garden) (region: List Position): Nat := region.sumBy garden.cornerCount
 
 def solvePart1 (garden: Garden): Nat := garden.regions |> .sumBy (region => region.length * garden.perimeter region)

@@ -1,4 +1,6 @@
--- Day 13's tests: the example from the puzzle and unit tests. Kept apart from
+--| Day 13's tests: the example from the puzzle and unit tests.
+--
+-- Kept apart from
 -- the program, so `stitchwort run Aoc.Year2024.Day13.main` doesn't check them.
 
 namespace Aoc.Year2024.Day13.Tests
@@ -29,7 +31,7 @@ def parsed (input: Text): Result (List Machine) Text := Fail.toResult (() => par
 
 def exampleMachines: Result (List Machine) Text := parsed example
 
--- A machine from its buttons' and prize's coordinates.
+--| A machine from its buttons' and prize's coordinates.
 def claw (ax: Int) (ay: Int) (bx: Int) (by: Int) (px: Int) (py: Int): Machine :=
   { buttonA = { x = ax, y = ay }, buttonB = { x = bx, y = by }, prize = { x = px, y = py } }
 
@@ -59,15 +61,15 @@ test "a missing blank line" :=
     == Err "line 4, column 1: expected a blank line or the end of the input, got 'B'"
 test "a missing prize" := parsed "Button A: X+1, Y+2\nButton B: X+3, Y+4\n" == Err "line 3, column 1: expected 'Prize: ', got the end of the input"
 
--- One solution, but negative, not whole, or over 100 presses.
+--| One solution, but negative, not whole, or over 100 presses.
 test "a negative solution" := (claw 2 1 1 2 1 5).fewestTokens == None && part1Tokens (claw 2 1 1 2 1 5) == None
 test "a solution that isn't whole" := (claw 3 1 1 3 2 2).fewestTokens == None && part1Tokens (claw 3 1 1 3 2 2) == None
 test "over 100 presses" := part1Tokens (claw 1 0 0 1 101 5) == None && (claw 1 0 0 1 101 5).fewestTokens == Some 308
 test "exactly 100 presses" := part1Tokens (claw 1 0 0 1 100 100) == Some 400
 test "the prize where the claw starts" := part1Tokens (claw 94 34 22 67 0 0) == Some 0 && (claw 94 34 22 67 0 0).fewestTokens == Some 0
 
--- Buttons along the same line: the determinant is 0, and there may be many
--- solutions.
+--| Buttons along the same line: the determinant is 0, and there may be many
+--| solutions.
 def collinear: List Machine := [
   claw 1 1 2 2 10 10,
   claw 4 4 1 1 8 8,

@@ -1,9 +1,9 @@
--- std's search gives the fastest times: from the start, what it settles
--- is reached in that time (`fromStartResult`) and no race there is faster
--- (`boundFrom`), so its time is the fastest (`fromStartFastest`), and a
--- fastest time is what it settles (`fastestFromStart`). The same search
--- from the end, every move taken back, gives the fastest times to the end
--- (`toEndFastest`, `fastestToEnd`).
+--| std's search gives the fastest times: from the start, what it settles
+--| is reached in that time (`fromStartResult`) and no race there is faster
+--| (`boundFrom`), so its time is the fastest (`fromStartFastest`), and a
+--| fastest time is what it settles (`fastestFromStart`). The same search
+--| from the end, every move taken back, gives the fastest times to the end
+--| (`toEndFastest`, `fastestToEnd`).
 
 namespace Aoc.Year2024.Day20.Proofs
 import Aoc.Year2024.Day20 (..)
@@ -11,23 +11,23 @@ import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day20.Spec (..)
 import Std (And, Bool, Eq, Exists, Graph, List, Map, Nat, Option, Void)
 
--- On track, and some moves from the start reach `position` in `time`.
+--| On track, and some moves from the start reach `position` in `time`.
 def FromStart (racetrack: Racetrack) (position: Position) (time: Nat): Prop :=
   And (onTrack racetrack position = True)
     (Exists (List Direction) (moves => And (race racetrack racetrack.start moves = Some position) (moves.length = time)))
 
--- On track, and some moves from `position` reach the end in `time`.
+--| On track, and some moves from `position` reach the end in `time`.
 def ToEnd (racetrack: Racetrack) (position: Position) (time: Nat): Prop :=
   And (onTrack racetrack position = True)
     (Exists (List Direction) (moves => And (race racetrack position moves = Some racetrack.end) (moves.length = time)))
 
--- The only source is `source`.
+--| The only source is `source`.
 theorem onlySource (source: Position) (state: Position) (member: state ∈ [source]): state = source :=
   match member with
     | Inl here => Eq.sym here
     | Inr none => Void.exfalso none
 
--- The search from a start on track.
+--| The search from a start on track.
 theorem fromStartResult (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True):
     Graph.SearchResult racetrack.graph [(racetrack.start, 0)] (FromStart racetrack) racetrack.fromStart :=
   Graph.breadthFirstCorrect racetrack.graph [racetrack.start] (FromStart racetrack)
@@ -43,7 +43,7 @@ theorem fromStartResult (racetrack: Racetrack) (startOnTrack: onTrack racetrack 
                 (rewrite List.lengthAppend steps [direction], isOne, <- And.right parts in rfl))))))
     (state next weight edge => And.right (edgesSound racetrack state next weight edge))
 
--- The search from an end on track, every move taken back.
+--| The search from an end on track, every move taken back.
 theorem toEndResult (racetrack: Racetrack) (endOnTrack: onTrack racetrack racetrack.end = True):
     Graph.SearchResult racetrack.graph [(racetrack.end, 0)] (ToEnd racetrack) racetrack.toEnd :=
   Graph.breadthFirstCorrect racetrack.graph [racetrack.end] (ToEnd racetrack)
@@ -61,7 +61,7 @@ theorem toEndResult (racetrack: Racetrack) (endOnTrack: onTrack racetrack racetr
                 (rewrite isOne, <- And.right parts in omega))))))
     (state next weight edge => And.right (edgesSound racetrack state next weight edge))
 
--- Along any race, the search's bound grows by no more than its moves.
+--| Along any race, the search's bound grows by no more than its moves.
 theorem boundFrom (racetrack: Racetrack) (result: Map Position Nat)
     (closed: (state: Position) → (time: Nat) → result.get state = Some time → (next: Position) → (weight: Nat) →
       (next, weight) ∈ racetrack.edges state → Graph.Bound result (time + weight) next):
@@ -79,7 +79,7 @@ theorem boundFrom (racetrack: Racetrack) (result: Map Position Nat)
             (Graph.boundWeaken result (found + 1) (time + 1) next stepped (omega [And.right both])) rest last ended
           Graph.boundWeaken result (time + 1 + rest.length) (time + List.length (Cons direction rest)) last along (omega))
 
--- From track, a race to the end takes at least the search back's bound.
+--| From track, a race to the end takes at least the search back's bound.
 theorem boundTo (racetrack: Racetrack) (result: Map Position Nat) (endBound: Graph.Bound result 0 racetrack.end)
     (closed: (state: Position) → (time: Nat) → result.get state = Some time → (next: Position) → (weight: Nat) →
       (next, weight) ∈ racetrack.edges state → Graph.Bound result (time + weight) next):
@@ -96,7 +96,7 @@ theorem boundTo (racetrack: Racetrack) (result: Map Position Nat) (endBound: Gra
             (edgesComplete racetrack next (opposite direction) position (moveBack racetrack position onIt direction next moved))
           Graph.boundWeaken result (found + 1) (List.length (Cons direction rest)) position stepped (omega [And.right both]))
 
--- The search's time from the start is the fastest, to a position on track.
+--| The search's time from the start is the fastest, to a position on track.
 theorem fromStartFastest (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True) (position: Position) (time: Nat)
     (found: racetrack.fromStart.get position = Some time):
     And (IsFastest racetrack racetrack.start position time) (onTrack racetrack position = True) :=
@@ -112,7 +112,7 @@ theorem fromStartFastest (racetrack: Racetrack) (startOnTrack: onTrack racetrack
             omega [same, And.right both])))
     onIt
 
--- A fastest time from the start is the search's.
+--| A fastest time from the start is the search's.
 theorem fastestFromStart (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True) (position: Position) (time: Nat)
     (fastest: IsFastest racetrack racetrack.start position time): racetrack.fromStart.get position = Some time :=
   let (Both reachedAll (Both sourcesBound closed)) := fromStartResult racetrack startOnTrack
@@ -126,7 +126,7 @@ theorem fastestFromStart (racetrack: Racetrack) (startOnTrack: onTrack racetrack
         let same: time = other := omega [le, atMost, length, And.right parts]
         rewrite same in got))
 
--- The search's time to the end is the fastest, from a position on track.
+--| The search's time to the end is the fastest, from a position on track.
 theorem toEndFastest (racetrack: Racetrack) (endOnTrack: onTrack racetrack racetrack.end = True) (position: Position) (time: Nat)
     (found: racetrack.toEnd.get position = Some time):
     And (IsFastest racetrack position racetrack.end time) (onTrack racetrack position = True) :=
@@ -141,7 +141,7 @@ theorem toEndFastest (racetrack: Racetrack) (endOnTrack: onTrack racetrack racet
             omega [same, And.right both])))
     onIt
 
--- A fastest time to the end, from track, is the search's.
+--| A fastest time to the end, from track, is the search's.
 theorem fastestToEnd (racetrack: Racetrack) (endOnTrack: onTrack racetrack racetrack.end = True) (position: Position)
     (onIt: onTrack racetrack position = True) (time: Nat) (fastest: IsFastest racetrack position racetrack.end time):
     racetrack.toEnd.get position = Some time :=

@@ -1,13 +1,13 @@
--- The spec's `combinations` is what the puzzle's "any combination of
--- operators" says: exactly the lists of the right length made of the
--- operators allowed.
+--| The spec's `combinations` is what the puzzle's "any combination of
+--| operators" says: exactly the lists of the right length made of the
+--| operators allowed.
 
 namespace Aoc.Year2024.Day07.Proofs
 import Aoc.Year2024.Day07 (..)
 import Aoc.Year2024.Day07.Spec (..)
 import Std (And, Eq, List, Nat, Void)
 
--- Every list of allowed operators is among the combinations of its length.
+--| Every list of allowed operators is among the combinations of its length.
 theorem combinationsComplete (operators: List Operator): (chosen: List Operator) → ((operator: Operator) → operator ∈ chosen → operator ∈ operators) →
     chosen ∈ combinations operators chosen.length
   | Nil, allowed => Inl rfl
@@ -16,7 +16,7 @@ theorem combinationsComplete (operators: List Operator): (chosen: List Operator)
       (allowed operator (Inl rfl))
       (List.memMap (combinations operators rest.length) rest (combinationsComplete operators rest (other has => allowed other (Inr has))) (Cons operator))
 
--- Every combination has the length asked for and only allowed operators.
+--| Every combination has the length asked for and only allowed operators.
 theorem combinationsSound (operators: List Operator): (count: Nat) → (chosen: List Operator) → chosen ∈ combinations operators count →
     And (chosen.length = count) ((operator: Operator) → operator ∈ chosen → operator ∈ operators)
   | Zero, chosen, listed =>

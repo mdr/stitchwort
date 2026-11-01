@@ -1,6 +1,6 @@
--- Counting a region's corners counts its sides: the region as a grid of
--- booleans `inside row column`, finite (nothing at row or column `size` or
--- beyond), has as many corners as sides (`cornersEqualSides`).
+--| Counting a region's corners counts its sides: the region as a grid of
+--| booleans `inside row column`, finite (nothing at row or column `size` or
+--| beyond), has as many corners as sides (`cornersEqualSides`).
 --
 -- A side is a run of fence along a row or a column, so it has a first and a
 -- last section, and as many runs start as end along any line
@@ -14,7 +14,7 @@
 namespace Aoc.Year2024.Day12.Proofs
 import Std (Bool, Eq, Nat)
 
--- `f 0 + f 1 + … + f (n - 1)`.
+--| `f 0 + f 1 + … + f (n - 1)`.
 def total: (n: Nat) → (f: Nat → Nat) → Nat
   | Zero, f => 0
   | Succ n, f => f 0 + total n (i => f (Succ i))
@@ -35,12 +35,12 @@ theorem totalSnoc: (n: Nat) → (f: Nat → Nat) → total (Succ n) f = total n 
   | Zero, f => omega
   | Succ n, f => omega [totalSnoc n (i => f (Succ i))]
 
--- `g` one place later: `0, g 0, g 1, …`.
+--| `g` one place later: `0, g 0, g 1, …`.
 def later (g: Nat → Nat): Nat → Nat
   | Zero => 0
   | Succ i => g i
 
--- Shifting a sum one place either way changes it only at the ends.
+--| Shifting a sum one place either way changes it only at the ends.
 theorem totalLater (n: Nat) (g: Nat → Nat): total (Succ n) (later g) + g n = total (Succ n) g :=
   omega [totalSnoc n g, totalCong n (i => later g (Succ i)) g (i => rfl)]
 
@@ -51,7 +51,7 @@ theorem totalSwap: (n: Nat) → (k: Nat) → (f: Nat → Nat → Nat) → total 
   | Succ n, k, f =>
     rewrite totalSwap n k (r => f (Succ r)) in Eq.sym (totalAdd k (c => f 0 c) (c => total n (r => f (Succ r) c)))
 
--- `b` one place later, with `first` before it.
+--| `b` one place later, with `first` before it.
 def previous (first: Bool) (b: Nat → Bool): Nat → Bool
   | Zero => first
   | Succ i => b i
@@ -60,8 +60,8 @@ theorem previousShift (b: Nat → Bool) (first: Bool): (n: Nat) → previous (b 
   | Zero => rfl
   | Succ n => rfl
 
--- Along a line, runs of `b` start where the one before isn't in `b`, and
--- end where the one after isn't; the count differs only at the ends.
+--| Along a line, runs of `b` start where the one before isn't in `b`, and
+--| end where the one after isn't; the count differs only at the ends.
 theorem telescope: (n: Nat) → (b: Nat → Bool) → (first: Bool) →
     total n (i => Bool.toNat (b i ∧ ¬(previous first b i))) + Bool.toNat (first ∧ b 0)
       = total n (i => Bool.toNat (b i ∧ ¬(b (Succ i)))) + Bool.toNat (previous first b n ∧ b n)
@@ -82,13 +82,13 @@ theorem telescope: (n: Nat) → (b: Nat → Bool) → (first: Bool) →
         | False, False, True => omega [rest]
         | False, False, False => omega [rest]
 
--- As many runs start as end, on a line with nothing at `n`.
+--| As many runs start as end, on a line with nothing at `n`.
 theorem startsEqualEnds (n: Nat) (b: Nat → Bool) (stop: b n = False):
     total n (i => Bool.toNat (b i ∧ ¬(previous False b i))) = total n (i => Bool.toNat (b i ∧ ¬(b (Succ i)))) :=
   let both := telescope n b False
   rewrite stop, Bool.andFalse (previous False b n) at both in omega [both]
 
--- The grid around a plot.
+--| The grid around a plot.
 def above (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool :=
   match row with
     | Zero => False
@@ -103,38 +103,38 @@ def leftOf (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool :=
 
 def rightOf (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := inside row (Succ column)
 
--- Fence on each side of a plot: the plot is in, its neighbour isn't.
+--| Fence on each side of a plot: the plot is in, its neighbour isn't.
 def fenceUp (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := inside row column ∧ ¬(above inside row column)
 def fenceDown (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := inside row column ∧ ¬(below inside row column)
 def fenceLeft (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := inside row column ∧ ¬(leftOf inside row column)
 def fenceRight (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := inside row column ∧ ¬(rightOf inside row column)
 
--- The first section of a side: fence with no fence on the same side before
--- it, left of it for a side above or below, above it for one on the left
--- or right.
+--| The first section of a side: fence with no fence on the same side before
+--| it, left of it for a side above or below, above it for one on the left
+--| or right.
 def startUp (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := fenceUp inside row column ∧ ¬(leftOf (fenceUp inside) row column)
 def startDown (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := fenceDown inside row column ∧ ¬(leftOf (fenceDown inside) row column)
 def startLeft (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := fenceLeft inside row column ∧ ¬(above (fenceLeft inside) row column)
 def startRight (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := fenceRight inside row column ∧ ¬(above (fenceRight inside) row column)
 
--- The last section of a side.
+--| The last section of a side.
 def endUp (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := fenceUp inside row column ∧ ¬(rightOf (fenceUp inside) row column)
 def endDown (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := fenceDown inside row column ∧ ¬(rightOf (fenceDown inside) row column)
 def endLeft (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := fenceLeft inside row column ∧ ¬(below (fenceLeft inside) row column)
 def endRight (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := fenceRight inside row column ∧ ¬(below (fenceRight inside) row column)
 
--- The sides starting at a plot.
+--| The sides starting at a plot.
 def starts (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Nat :=
   Bool.toNat (startUp inside row column) + Bool.toNat (startDown inside row column) + Bool.toNat (startLeft inside row column)
     + Bool.toNat (startRight inside row column)
 
--- A corner of a plot, between its `vertical` and `horizontal` neighbours:
--- outside, with neither in, or inside, with both in but not the plot
--- `diagonal`ly across.
+--| A corner of a plot, between its `vertical` and `horizontal` neighbours:
+--| outside, with neither in, or inside, with both in but not the plot
+--| `diagonal`ly across.
 def convex (plot: Bool) (vertical: Bool) (horizontal: Bool): Bool := plot ∧ ¬vertical ∧ ¬horizontal
 def concave (plot: Bool) (vertical: Bool) (horizontal: Bool) (diagonal: Bool): Bool := plot ∧ vertical ∧ horizontal ∧ ¬diagonal
 
--- The corners of a plot, up and left of it and so on, outside and inside.
+--| The corners of a plot, up and left of it and so on, outside and inside.
 def convexUpLeft (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Nat :=
   Bool.toNat (convex (inside row column) (above inside row column) (leftOf inside row column))
 
@@ -167,18 +167,18 @@ def cornerDownRight (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Nat
 def corners (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Nat :=
   cornerUpLeft inside row column + cornerUpRight inside row column + cornerDownLeft inside row column + cornerDownRight inside row column
 
--- One end of a run along a row: an outside corner of the plot, or an
--- inside corner of the plot next to it along the row.
+--| One end of a run along a row: an outside corner of the plot, or an
+--| inside corner of the plot next to it along the row.
 theorem rowEndsSplit: (plot: Bool) → (out: Bool) → (side: Bool) → (sideOut: Bool) →
     Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
   cases
 
--- One end of a run along a column, likewise.
+--| One end of a run along a column, likewise.
 theorem columnEndsSplit: (plot: Bool) → (out: Bool) → (side: Bool) → (sideOut: Bool) →
     Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot side out) + Bool.toNat (concave side plot sideOut out) :=
   cases
 
--- No inside corner without the horizontal neighbour, or the plot itself.
+--| No inside corner without the horizontal neighbour, or the plot itself.
 theorem concaveNoHorizontal: (plot: Bool) → (vertical: Bool) → (diagonal: Bool) → concave plot vertical False diagonal = False
   | True, True, diagonal => rfl
   | True, False, diagonal => rfl
@@ -188,9 +188,9 @@ theorem concaveNoVertical: (plot: Bool) → (horizontal: Bool) → (diagonal: Bo
   | True, horizontal, diagonal => rfl
   | False, horizontal, diagonal => rfl
 
--- A plot's sections of fence above it that start or end a side are the
--- corners on that side: outside corners of the plot, or inside corners of
--- the plots either side of it.
+--| A plot's sections of fence above it that start or end a side are the
+--| corners on that side: outside corners of the plot, or inside corners of
+--| the plots either side of it.
 theorem cellUp (inside: Nat → Nat → Bool): (row: Nat) → (column: Nat) →
     Bool.toNat (startUp inside row column) + Bool.toNat (endUp inside row column)
       = convexUpLeft inside row column + convexUpRight inside row column + later (concaveUpRight inside row) column
@@ -228,7 +228,7 @@ theorem cellDown (inside: Nat → Nat → Bool) (row: Nat): (column: Nat) →
       rowEndsSplit (inside row (Succ before)) (inside (Succ row) (Succ before)) (inside row (Succ (Succ before))) (inside (Succ row) (Succ (Succ before)))
     ]
 
--- Likewise down a column, for fence left and right of a plot.
+--| Likewise down a column, for fence left and right of a plot.
 theorem cellLeft (inside: Nat → Nat → Bool) (column: Nat): (row: Nat) →
     Bool.toNat (startLeft inside row column) + Bool.toNat (endLeft inside row column)
       = convexUpLeft inside row column + convexDownLeft inside row column + later (r => concaveDownLeft inside r column) row
@@ -271,8 +271,8 @@ theorem totalAdd4 (n: Nat) (f: Nat → Nat) (g: Nat → Nat) (h: Nat → Nat) (k
     totalAdd n f g
   ]
 
--- Along a row with nothing at `Succ last`, the corners above and below the
--- plots are twice the sides above and below them.
+--| Along a row with nothing at `Succ last`, the corners above and below the
+--| plots are twice the sides above and below them.
 theorem rowCorners (inside: Nat → Nat → Bool) (last: Nat) (row: Nat) (edge: inside row (Succ last) = False):
     total (Succ last) (column => corners inside row column)
       = 2 * total (Succ last) (column => Bool.toNat (startUp inside row column))
@@ -343,8 +343,8 @@ theorem rowCorners (inside: Nat → Nat → Bool) (last: Nat) (row: Nat) (edge: 
     totalAdd size (column => Bool.toNat (startDown inside row column)) (column => Bool.toNat (endDown inside row column))
   ]
 
--- Down a column with nothing at `Succ last`, the corners left and right of
--- the plots are twice the sides left and right of them.
+--| Down a column with nothing at `Succ last`, the corners left and right of
+--| the plots are twice the sides left and right of them.
 theorem columnCorners (inside: Nat → Nat → Bool) (last: Nat) (column: Nat) (edge: inside (Succ last) column = False):
     total (Succ last) (row => corners inside row column)
       = 2 * total (Succ last) (row => Bool.toNat (startLeft inside row column))
@@ -418,8 +418,8 @@ theorem columnCorners (inside: Nat → Nat → Bool) (last: Nat) (column: Nat) (
     totalAdd size (row => Bool.toNat (startRight inside row column)) (row => Bool.toNat (endRight inside row column))
   ]
 
--- A finite region has as many corners as sides: nothing at row or column
--- `Succ last`, so none beyond.
+--| A finite region has as many corners as sides: nothing at row or column
+--| `Succ last`, so none beyond.
 theorem cornersEqualSides (inside: Nat → Nat → Bool) (last: Nat) (right: (row: Nat) → inside row (Succ last) = False)
     (bottom: (column: Nat) → inside (Succ last) column = False):
     total (Succ last) (row => total (Succ last) (column => corners inside row column))

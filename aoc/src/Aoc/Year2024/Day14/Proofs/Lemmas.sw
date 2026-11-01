@@ -1,11 +1,11 @@
--- General lemmas the day's proofs use: wrapping one tile at a time is
--- `Int.modNat`, and iterating a wrapped step is wrapping the sum.
+--| General lemmas the day's proofs use: wrapping one tile at a time is
+--| `Int.modNat`, and iterating a wrapped step is wrapping the sum.
 
 namespace Aoc.Year2024.Day14.Proofs
 import Aoc.Common.Proofs (modNatSmall)
 import Std (Bool, DecEq, Eq, Int, List, Nat, Option, Void)
 
--- One tile forward on a line of `size` tiles is adding 1 and wrapping.
+--| One tile forward on a line of `size` tiles is adding 1 and wrapping.
 theorem forwardWrap: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size →
     (if x + 1 == size then 0 else x + 1) = Int.modNat (x.toInt + 1) size [ok := ok]
   | Zero, ok, x, inside => Void.exfalso (ok rfl)
@@ -14,8 +14,8 @@ theorem forwardWrap: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size 
       | True => rewrite (omega [DecEq.sound (x + 1) (Succ n) e]: x = n) in Eq.sym (Nat.modSelf (Succ n))
       | False => Eq.sym (Nat.modSmall (x + 1) (Succ n) omega)
 
--- Counting `wanted` among the `Some` results is counting the elements that
--- give `Some wanted`.
+--| Counting `wanted` among the `Some` results is counting the elements that
+--| give `Some wanted`.
 theorem countFilterMap [auto eq: DecEq b] (f: a → Option b) (wanted: b):
     (xs: List a) → (xs.filterMap f).count (== wanted) = xs.count (x => f x == Some wanted)
   | Nil => rfl
@@ -32,7 +32,7 @@ theorem mulNeZero: (a: Nat) → (b: Nat) → a ≠ 0 → b ≠ 0 → a * b ≠ 0
   | a, Zero, aPositive, bPositive, zero => bPositive rfl
   | Succ a, Succ b, aPositive, bPositive, zero => omega
 
--- One tile back is subtracting 1 and wrapping.
+--| One tile back is subtracting 1 and wrapping.
 theorem backwardWrap: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size →
     (if x == 0 then size - 1 else x - 1) = Int.modNat (x.toInt - 1) size [ok := ok]
   | Zero, ok, x, inside => Void.exfalso (ok rfl)
@@ -40,8 +40,8 @@ theorem backwardWrap: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size
   | Succ n, ok, Succ x, inside =>
     rewrite (omega: (Succ x).toInt - 1 = x.toInt) in Eq.sym (Nat.modSmall x (Succ n) omega)
 
--- A step that adds `distance` and wraps, taken `times` times, adds
--- `times * distance` and wraps.
+--| A step that adds `distance` and wraps, taken `times` times, adds
+--| `times * distance` and wraps.
 theorem iterateWrap (size: Nat) (ok: size ≠ 0) (distance: Int) (step: Nat → Nat)
     (wraps: (x: Nat) → x < size → step x = Int.modNat (x.toInt + distance) size [ok := ok]):
     (times: Nat) → (x: Nat) → x < size → times.iterate step x = Int.modNat (x.toInt + times.toInt * distance) size [ok := ok]

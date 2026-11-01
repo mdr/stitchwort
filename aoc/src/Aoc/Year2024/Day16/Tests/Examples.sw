@@ -1,4 +1,6 @@
--- Day 16's tests: the examples from the puzzle and unit tests. Kept apart
+--| Day 16's tests: the examples from the puzzle and unit tests.
+--
+-- Kept apart
 -- from the program, so `stitchwort run Aoc.Year2024.Day16.main` doesn't
 -- check them.
 
@@ -46,7 +48,7 @@ def second: Text := """
   #################
   """
 
--- Forward, a turn to the north, forward.
+--| Forward, a turn to the north, forward.
 def oneTurn: Text := """
   ####
   ##E#
@@ -56,7 +58,7 @@ def oneTurn: Text := """
 
 def parsed (input: Text): Result Maze Text := Fail.toResult (() => parseMaze input)
 
--- A function of the parsed maze, or why it didn't parse: a parse failure fails the test.
+--| A function of the parsed maze, or why it didn't parse: a parse failure fails the test.
 def onMaze (input: Text) (f: Maze -> a): Result a Text := parsed input |> .map f
 
 def at (row: Nat) (column: Nat): Position := { row, column }
@@ -89,7 +91,7 @@ test "the spec's moves on the one-turn maze" :=
 test "the spec's moves stop at a wall" :=
   onMaze oneTurn (turned => follow turned (startingReindeer turned) [Clockwise, Forward]) == Ok None
 
--- North is up, east a column on.
+--| North is up, east a column on.
 test "steps" :=
   let step := (position: Position) (heading: Heading) => position.step heading.toDirection
   step (at 0 0) North == None && step (at 0 0) West == None && step (at 0 0) East == Some (at 0 1) && step (at 0 0) South == Some (at 1 0)

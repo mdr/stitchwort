@@ -1,7 +1,9 @@
--- Optimality, reduced to one fact per keypad and level: if every walk of an
--- arm between two keys costs at least the program's cheapest route between
--- them (`CheapestWalks`), then no presses typing a code are shorter than the
--- program's length (`optimalIfCheapestWalks`). Any presses on a keypad are
+--| Optimality, reduced to one fact per keypad and level: if every walk of an
+--| arm between two keys costs at least the program's cheapest route between
+--| them (`CheapestWalks`), then no presses typing a code are shorter than the
+--| program's length (`optimalIfCheapestWalks`).
+--
+-- Any presses on a keypad are
 -- walks, each ended by an A, so they cost at least the cheapest routes
 -- between the keys they press (`walksCost`); down the chain, that bounds
 -- each keypad's cost by the one before it, out to your presses.
@@ -11,13 +13,13 @@ import Aoc.Year2024.Day21 (..)
 import Aoc.Year2024.Day21.Spec (..)
 import Std (Eq, List, Nat, Option, Void)
 
--- Every walk of an arm on `keypad` from a key to a key, typed with
--- `costs`, costs at least the program's cheapest route between the keys.
+--| Every walk of an arm on `keypad` from a key to a key, typed with
+--| `costs`, costs at least the program's cheapest route between the keys.
 def CheapestWalks (keypad: Keypad k) (rows: List (List (Option k))) (costs: Costs): Prop :=
   (start: Position) → (from: k) → keyAt rows start = Some from → (route: List Direction) → (end: Position) →
     walk rows start route = Some end → (to: k) → keyAt rows end = Some to → cheapestBetween keypad costs from to ≤ costs.routeCost route
 
--- A walk, then more of it.
+--| A walk, then more of it.
 theorem walkAppend (rows: List (List (Option k))): (aim: Position) → (route: List Direction) → (more: List Direction) →
     walk rows aim (List.append route more) = walk rows aim route |> .flatMap (end => walk rows end more)
   | aim, Nil, more => rfl
@@ -29,9 +31,9 @@ theorem walkAppend (rows: List (List (Option k))): (aim: Position) → (route: L
           | None => rfl
           | Some key => walkAppend rows next others more
 
--- The keys a robot presses cost, by the cheapest routes between them, at
--- most what its driving keys cost, those keys following a walk `route`
--- from a key `from` to the arm's `aim`.
+--| The keys a robot presses cost, by the cheapest routes between them, at
+--| most what its driving keys cost, those keys following a walk `route`
+--| from a key `from` to the arm's `aim`.
 theorem walksCost (keypad: Keypad k) (rows: List (List (Option k))) (costs: Costs) (cheapest: CheapestWalks keypad rows costs):
     (keys: List DirectionKey) → (start: Position) → (from: k) → keyAt rows start = Some from → (route: List Direction) → (aim: Position) →
       walk rows start route = Some aim → (pressed: List k) → operate rows aim keys = Some pressed →
@@ -65,8 +67,8 @@ theorem walksCost (keypad: Keypad k) (rows: List (List (Option k))) (costs: Cost
               rewrite List.mapAppend route [direction] Arrow, List.appendAssoc (route.map Arrow) [Arrow direction] rest in rfl
             rewrite <- shape in walksCost keypad rows costs cheapest rest start from onFrom (List.append route [direction]) next walkedOn pressed operated
 
--- Your presses cost at least what the keys they make the robot `level`
--- keypads away press cost, with the walk fact at each level before.
+--| Your presses cost at least what the keys they make the robot `level`
+--| keypads away press cost, with the walk fact at each level before.
 theorem throughRobotsCost:
     (level: Nat) → (walks: (below: Nat) → below < level → CheapestWalks Keypad.directional directionalRows (robotCosts below)) →
       (presses: List DirectionKey) → (keys: List DirectionKey) → throughRobots level presses = Some keys →
@@ -87,8 +89,8 @@ theorem throughRobotsCost:
             Activate keys
         rewrite Nat.iterateSuccLast Costs.next level Costs.yours in omega [pressedBound, drivingBound, same]
 
--- With the walk fact on each directional keypad between you and the door,
--- and on the numeric one, the program's length is the least.
+--| With the walk fact on each directional keypad between you and the door,
+--| and on the numeric one, the program's length is the least.
 theorem optimalIfCheapestWalks (robots: Nat) (walks: (level: Nat) → level < robots → CheapestWalks Keypad.directional directionalRows (robotCosts level))
     (numericWalks: CheapestWalks Keypad.numeric numericRows (robotCosts robots)): Optimal robots :=
   code presses types =>

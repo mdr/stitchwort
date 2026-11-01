@@ -1,4 +1,6 @@
--- Day 3's tests: the puzzle's examples and unit tests. Kept apart from the
+--| Day 3's tests: the puzzle's examples and unit tests.
+--
+-- Kept apart from the
 -- program, so `stitchwort run Aoc.Year2024.Day03.main` doesn't check them.
 
 namespace Aoc.Year2024.Day03.Tests
@@ -9,10 +11,10 @@ def parsed (memory: Text): Result (List Instruction) Text := Fail.toResult (() =
 
 def found (memory: Text): List Instruction := parsed memory |> .getOrElse []
 
--- The error from parsing `memory` as exactly one instruction.
+--| The error from parsing `memory` as exactly one instruction.
 def instructionError (memory: Text): Text := Fail.toResult (() => Parse.line memory instruction) |> .errorOrElse ""
 
--- Part 2's example adds a `don't()` and a `do()` to part 1's.
+--| Part 2's example adds a `don't()` and a `do()` to part 1's.
 def example1: Text := "xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))"
 
 def example2: Text := "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))"
@@ -46,7 +48,7 @@ test "don't disables" := solvePart2 [Dont, Mul 2 3] == 0
 test "do enables again" := solvePart2 [Dont, Mul 2 3, Do, Mul 4 5] == 20
 test "the most recent one applies" := solvePart2 [Do, Dont, Mul 2 3, Dont, Do, Mul 4 5] == 20
 
--- Error messages, from parsing exactly one instruction.
+--| Error messages, from parsing exactly one instruction.
 test "error, four digits" := instructionError "mul(1234,5)" == "column 5: expected a number of 1 to 3 digits, got '1'"
 test "error, no closing bracket" := instructionError "mul(1,2" == "column 8: expected ')', got the end of the line"
 test "error, a space" := instructionError "mul ( 1,2)" == "column 1: expected 'mul(' or 'do()' or 'don't()', got 'mul ( 1'"

@@ -1,6 +1,6 @@
--- Part 1: the program's sets of three are the puzzle's (`setsOfThreeIff`),
--- so it counts the sets of three inter-connected computers with a t name,
--- for every network (`part1Correct`).
+--| Part 1: the program's sets of three are the puzzle's (`setsOfThreeIff`),
+--| so it counts the sets of three inter-connected computers with a t name,
+--| for every network (`part1Correct`).
 --
 -- A set the program makes is a computer, a neighbour and a neighbour of
 -- both, so each is connected to the other two; it keeps those of size 3.
@@ -14,11 +14,11 @@ import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Not, Or, Set, Voi
 
 theorem sizeThree (set: Set Computer) (three: (set.size == 3) = True): set.size = 3 := DecEq.sound set.size 3 three
 
--- What the program makes before keeping the sets of three: the sets from
--- each computer with links.
+--| What the program makes before keeping the sets of three: the sets from
+--| each computer with links.
 def madeSets (links: Links): List (Set Computer) := links.keySet.toList.flatMap links.setsWith
 
--- A set the program makes is three computers, each pair neighbours.
+--| A set the program makes is three computers, each pair neighbours.
 theorem madeElim (network: Network) (set: Set Computer) (made: List.Mem set (madeSets network.links)) (goal: Prop)
     (found: (first: Computer) → (second: Computer) → (third: Computer) → set = Set.fromList [first, second, third] →
       (network.links.neighbours first).contains second = True → (network.links.neighbours first).contains third = True →
@@ -43,7 +43,7 @@ theorem madeElim (network: Network) (set: Set Computer) (made: List.Mem set (mad
                   ((Set.memToList (network.links.neighbours second |> .intersect firstNeighbours) third).forward thirdListed)
               found first second third (Eq.sym isSet) ((Set.memToList firstNeighbours second).forward secondListed) firstThird secondThird)))
 
--- The sets the program makes are all connected.
+--| The sets the program makes are all connected.
 theorem madeConnected (network: Network) (set: Set Computer) (made: List.Mem set (madeSets network.links)): AllConnected network set :=
   madeElim network set made (AllConnected network set)
     (first second third isSet firstSecond firstThird secondThird one other heldOne heldOther different =>
@@ -69,8 +69,8 @@ theorem madeConnected (network: Network) (set: Set Computer) (made: List.Mem set
             (otherIs => rewrite oneIs, otherIs in back second third secondThird)
             (otherIs => same third oneIs otherIs)))
 
--- A set of three is the set of its three computers, in order, and they
--- are different.
+--| A set of three is the set of its three computers, in order, and they
+--| are different.
 theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
     (found: (first: Computer) → (second: Computer) → (third: Computer) → set = Set.fromList [first, second, third] →
       Not (first = second) → Not (first = third) → Not (second = third) → goal):
@@ -94,7 +94,7 @@ theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
         (same => firstOut (Inr (Inl (Eq.sym same))))
         (same => secondOut (Inl (Eq.sym same)))
 
--- The program's sets of three are the puzzle's.
+--| The program's sets of three are the puzzle's.
 theorem setsOfThreeIff (network: Network) (set: Set Computer):
     Iff (network.links.setsOfThree.contains set = True) (InterConnectedThree network set) := {
   forward = held =>
@@ -133,7 +133,7 @@ theorem setsOfThreeIff (network: Network) (set: Set Computer):
           in rfl)
 }
 
--- "How many contain at least one computer with a name that starts with t?"
+--| "How many contain at least one computer with a name that starts with t?"
 theorem part1Correct (network: Network): IsPart1 network (solvePart1 network) :=
   Witness (network.links.setsOfThree.filter mightBeChiefs)
     (Both

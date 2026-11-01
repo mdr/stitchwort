@@ -1,12 +1,12 @@
--- The positions `around` lists are exactly those at most `length` away
--- (`aroundSound`, `aroundComplete`), each once (`distinctAround`).
+--| The positions `around` lists are exactly those at most `length` away
+--| (`aroundSound`, `aroundComplete`), each once (`distinctAround`).
 
 namespace Aoc.Year2024.Day20.Proofs
 import Aoc.Year2024.Day20 (..)
 import Aoc.Common (Direction, Position, directions)
 import Std (And, Eq, Exists, List, Nat)
 
--- The row of positions in the diamond, `spare` either side of the column.
+--| The row of positions in the diamond, `spare` either side of the column.
 def aroundRow (position: Position) (length: Nat) (row: Nat): List Position :=
   let spare := length - Nat.absDiff row position.row
   List.between (position.column - spare) (position.column + spare) |> .map (column => ({ row, column }: Position))
@@ -15,7 +15,7 @@ theorem aroundRows (position: Position) (length: Nat):
     position.diamond length = List.between (position.row - length) (position.row + length) |> .flatMap (aroundRow position length) :=
   rfl
 
--- Every position listed is at most `length` away.
+--| Every position listed is at most `length` away.
 theorem aroundSound (position: Position) (length: Nat) (other: Position) (member: other ∈ position.diamond length):
     position.distance other ≤ length :=
   let rows := List.between (position.row - length) (position.row + length)
@@ -27,7 +27,7 @@ theorem aroundSound (position: Position) (length: Nat) (other: Position) (member
         let (Both columnLow columnHigh) := List.memBetween columnMember
         rewrite <- same in omega [rowLow, rowHigh, columnLow, columnHigh]))
 
--- Every position at most `length` away is listed.
+--| Every position at most `length` away is listed.
 theorem aroundComplete (position: Position) (length: Nat): (other: Position) → position.distance other ≤ length → other ∈ position.diamond length
   | { row, column }, near =>
     let spare := length - Nat.absDiff row position.row
@@ -40,7 +40,7 @@ theorem aroundComplete (position: Position) (length: Nat): (other: Position) →
             (omega [near]) (omega [near]))
           (other => ({ row, column = other }: Position)))
 
--- No position is listed twice.
+--| No position is listed twice.
 theorem distinctAround (position: Position) (length: Nat): List.Distinct (position.diamond length) :=
   rewrite aroundRows position length in
     List.distinctFlatMap (aroundRow position length) (other => other.row) (List.between (position.row - length) (position.row + length))

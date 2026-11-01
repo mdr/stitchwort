@@ -1,8 +1,8 @@
--- Part 2: the program's best total, over the sequences some buyer's prices
--- show, is the puzzle's most bananas over every sequence of four changes
--- from -9 to 9 (`part2Correct`). Every total is a possible sequence's
--- bananas (Keys.sw, Totals.sw), and a possible sequence with no total earns
--- nothing.
+--| Part 2: the program's best total, over the sequences some buyer's prices
+--| show, is the puzzle's most bananas over every sequence of four changes
+--| from -9 to 9 (`part2Correct`). Every total is a possible sequence's
+--| bananas (Keys.sw, Totals.sw), and a possible sequence with no total earns
+--| nothing.
 
 namespace Aoc.Year2024.Day22.Proofs
 import Aoc.Year2024.Day22 (..)
@@ -16,8 +16,8 @@ theorem getOrNone (totals: Map Changes Nat) (key: Changes) (missing: totals.get 
 
 theorem leBoth (m: Nat) (n: Nat) (below: m ≤ n) (above: n ≤ m): m = n := omega
 
--- The best total is no more than the most bananas over any list holding
--- the changes of every five digits.
+--| The best total is no more than the most bananas over any list holding
+--| the changes of every five digits.
 theorem bestTotalAtMost (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat) (buyers: List Nat):
     bestTotal count buyers ≤ mostBananas possible count buyers :=
   let totals := bananasBySequence count buyers
@@ -34,7 +34,7 @@ theorem bestTotalAtMost (possible: List Changes) (contains: HoldsDigitChanges po
               (List.memMap possible key (totalsKeysIn possible contains count buyers key value found) (bananas count buyers))
           omega [same, earns, bound])
 
--- And no less than the most bananas over any list of sequences.
+--| And no less than the most bananas over any list of sequences.
 theorem bestTotalAtLeast (possible: List Changes) (count: Nat) (buyers: List Nat):
     mostBananas possible count buyers ≤ bestTotal count buyers :=
   let totals := bananasBySequence count buyers
@@ -52,9 +52,9 @@ theorem bestTotalAtLeast (possible: List Changes) (count: Nat) (buyers: List Nat
               omega [same, earns, getOrSome totals sequence value found, bound]
             | None => omega [same, earns, getOrNone totals sequence found])
 
--- Stated for any such list and only then for `possibleSequences`: a `≤`
--- about `possibleSequences` itself makes the checker fold all 130,321
--- sequences, and run out of stack.
+--| Stated for any such list and only then for `possibleSequences`: a `≤`
+--| about `possibleSequences` itself makes the checker fold all 130,321
+--| sequences, and run out of stack.
 theorem bestTotalAmong (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat) (buyers: List Nat):
     bestTotal count buyers = mostBananas possible count buyers :=
   leBoth (bestTotal count buyers) (mostBananas possible count buyers) (bestTotalAtMost possible contains count buyers)

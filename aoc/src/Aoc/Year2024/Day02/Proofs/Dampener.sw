@@ -1,13 +1,13 @@
--- Part 2 proved: the one-pass check is the spec's "safe, or safe with some
--- one level removed", for every report.
+--| Part 2 proved: the one-pass check is the spec's "safe, or safe with some
+--| one level removed", for every report.
 
 namespace Aoc.Year2024.Day02.Proofs
 import Aoc.Year2024.Day02 (..)
 import Aoc.Year2024.Day02.Spec (..)
 import Std (Bool, Eq, List, Nat)
 
--- Some one element removed, and `holds` of what is left: the spec's
--- `removals` with `.any`, in a form that unfolds one element at a time.
+--| Some one element removed, and `holds` of what is left: the spec's
+--| `removals` with `.any`, in a form that unfolds one element at a time.
 def anyRemoved (holds: List Nat → Bool): List Nat → Bool
   | Nil => False
   | Cons level rest => holds rest || anyRemoved (levels => holds (Cons level levels)) rest
@@ -22,8 +22,8 @@ theorem anyRemovedNever: (levels: List Nat) → (holds: List Nat → Bool) → (
   | Cons level rest, holds, never =>
     rewrite never rest, anyRemovedNever rest (levels => holds (Cons level levels)) (levels => never (Cons level levels)) in rfl
 
--- After a good step from `before` to `level`, the one pass is "passes, or
--- passes with one of `level` and the rest removed".
+--| After a good step from `before` to `level`, the one pass is "passes, or
+--| passes with one of `level` and the rest removed".
 theorem passesDampenedAfterCorrect (ok: Nat → Nat → Bool): (before: Nat) → (level: Nat) → (rest: List Nat) → ok before level = True →
     passesDampenedAfter ok before level rest =
       ((Cons level rest).chain ok || anyRemoved (levels => (Cons before levels).chain ok) (Cons level rest))
@@ -33,7 +33,7 @@ theorem passesDampenedAfterCorrect (ok: Nat → Nat → Bool): (before: Nat) →
       | True => rewrite passesDampenedAfterCorrect ok level next rest step, step, good in cases
       | False => rewrite anyRemovedNever rest (levels => ok before level && False) (levels => cases) in cases
 
--- The one pass is "passes, or passes with one level removed".
+--| The one pass is "passes, or passes with one level removed".
 theorem passesDampenedCorrect (ok: Nat → Nat → Bool): (levels: List Nat) →
     passesDampened ok levels = (levels.chain ok || anyRemoved (rest => rest.chain ok) levels)
   | Nil => rfl
@@ -43,7 +43,7 @@ theorem passesDampenedCorrect (ok: Nat → Nat → Bool): (levels: List Nat) →
       | True => rewrite passesDampenedAfterCorrect ok level next rest step, step in cases
       | False => rewrite anyRemovedNever rest (levels => False) (levels => rfl) in cases
 
--- With the dampener, the program's check is the puzzle's rule.
+--| With the dampener, the program's check is the puzzle's rule.
 theorem isSafeWithDampenerCorrect (report: Report): report.isSafeWithDampener = safeWithDampener report :=
   rewrite <- isSafeCorrect report,
     List.anyCong (removals report.levels) (levels => safe { levels }) (levels => Report.isSafe { levels }) (levels => Eq.sym (isSafeCorrect { levels })),
@@ -53,6 +53,6 @@ theorem isSafeWithDampenerCorrect (report: Report): report.isSafeWithDampener = 
     passesDampenedCorrect risesGently report.levels, passesDampenedCorrect (level next => risesGently next level) report.levels in
   cases
 
--- Part 2 counts the reports that are safe with the dampener.
+--| Part 2 counts the reports that are safe with the dampener.
 theorem part2Correct (reports: List Report): solvePart2 reports = safeReportsWithDampener reports :=
   List.countCongMem reports Report.isSafeWithDampener safeWithDampener (report _ => isSafeWithDampenerCorrect report)

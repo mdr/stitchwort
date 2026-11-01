@@ -1,9 +1,9 @@
--- Part 2: the program counts a region's corners, the spec its sides, and
--- the two agree for every region (`sidesCorrect`), through the grid of
--- booleans of Corners.sw: the program's corners at a plot are the grid's
--- (`programCornersCell`), the spec's first sections of fence the grid's
--- starts (`specSidesCell`), and a sum over the region's plots is a sum over
--- a square of the grid big enough to hold it (`sumOverGrid`).
+--| Part 2: the program counts a region's corners, the spec its sides, and
+--| the two agree for every region (`sidesCorrect`), through the grid of
+--| booleans of Corners.sw: the program's corners at a plot are the grid's
+--| (`programCornersCell`), the spec's first sections of fence the grid's
+--| starts (`specSidesCell`), and a sum over the region's plots is a sum over
+--| a square of the grid big enough to hold it (`sumOverGrid`).
 
 namespace Aoc.Year2024.Day12.Proofs
 import Aoc.Year2024.Day12 (..)
@@ -11,7 +11,7 @@ import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Or, Void)
 
--- The region as a grid of booleans.
+--| The region as a grid of booleans.
 def insideOf (region: List Position) (row: Nat) (column: Nat): Bool := region.contains { row, column }
 
 theorem countDirections (f: Direction → Bool): directions.count f = Bool.toNat (f Up) + Bool.toNat (f Down) + Bool.toNat (f Left) + Bool.toNat (f Right) :=
@@ -22,7 +22,7 @@ theorem countQuadrants (f: (Direction, Direction) → Bool):
   rewrite List.countCons [(Up, Right), (Down, Left), (Down, Right)] (Up, Left) f, List.countCons [(Down, Left), (Down, Right)] (Up, Right) f,
     List.countCons [(Down, Right)] (Down, Left) f, List.countCons Nil (Down, Right) f in omega
 
--- The spec's first sections of fence at a plot are the grid's starts.
+--| The spec's first sections of fence at a plot are the grid's starts.
 theorem specSidesCell (region: List Position): (row: Nat) → (column: Nat) →
     directions.count (isFirstSection region { row, column }) = starts (insideOf region) row column
   | Zero, Zero => Eq.trans (countDirections (isFirstSection region _)) rfl
@@ -30,7 +30,7 @@ theorem specSidesCell (region: List Position): (row: Nat) → (column: Nat) →
   | Succ up, Zero => Eq.trans (countDirections (isFirstSection region _)) rfl
   | Succ up, Succ before => Eq.trans (countDirections (isFirstSection region _)) rfl
 
--- Each side of a plot touches the region where the grid's neighbour is in.
+--| Each side of a plot touches the region where the grid's neighbour is in.
 theorem facesUp (region: List Position): (row: Nat) → (column: Nat) → facesRegion region { row, column } Up = above (insideOf region) row column
   | Zero, column => rfl
   | Succ up, column => rfl
@@ -43,8 +43,8 @@ theorem facesLeft (region: List Position): (row: Nat) → (column: Nat) → face
 
 theorem facesRight (region: List Position) (row: Nat) (column: Nat): facesRegion region { row, column } Right = rightOf (insideOf region) row column := rfl
 
--- Whether the plot diagonally across a corner, one step `vertical` then one
--- `horizontal`, is in the region.
+--| Whether the plot diagonally across a corner, one step `vertical` then one
+--| `horizontal`, is in the region.
 def diagonalIn (region: List Position) (plot: Position) (vertical: Direction) (horizontal: Direction): Bool :=
   match plot.step vertical with
     | Some next => facesRegion region next horizontal
@@ -69,14 +69,14 @@ theorem diagonalDownLeft (region: List Position): (row: Nat) → (column: Nat) �
 theorem diagonalDownRight (region: List Position) (row: Nat) (column: Nat):
     diagonalIn region { row, column } Down Right = below (rightOf (insideOf region)) row column := rfl
 
--- `!=` is `!` of `==`.
+--| `!=` is `!` of `==`.
 theorem notEqualNot (x: Option Char) (y: Option Char): ((x != y): Bool) = Bool.not (x == y) :=
   match decision: DecEq.decide x y with
     | Yes same => rfl
     | No differ => rfl
 
--- Where a side of a plot in a region faces the same plant, the plot
--- diagonally across grows another exactly when it isn't in the region.
+--| Where a side of a plot in a region faces the same plant, the plot
+--| diagonally across grows another exactly when it isn't in the region.
 theorem diagonalSame (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: List Position)
     (isRegion: IsRegion garden start region) (plot: Position) (member: plot ∈ region) (vertical: Direction) (horizontal: Direction)
     (same: garden.sameAcross plot vertical = True):
@@ -90,7 +90,7 @@ theorem diagonalSame (garden: Garden) (start: Position) (plant: Char) (grows: ga
       let nextGrows := joinedPlant garden plant start next grows ((isRegion next).forward nextIn)
       rewrite notEqualNot, plotGrows, <- sameAcrossFaces garden start plant grows region isRegion next nextIn horizontal, nextGrows in rfl
 
--- A corner of the program's, split into outside and inside.
+--| A corner of the program's, split into outside and inside.
 theorem isCornerSplit (garden: Garden) (plot: Position) (vertical: Direction) (horizontal: Direction) (verticalIn: Bool) (horizontalIn: Bool)
     (diagonal: Bool) (verticalSame: garden.sameAcross plot vertical = verticalIn) (horizontalSame: garden.sameAcross plot horizontal = horizontalIn)
     (across: verticalIn = True → (((plot.diagonal vertical horizontal |> .flatMap garden.plantAt) != garden.plantAt plot): Bool) = Bool.not diagonal):
@@ -107,7 +107,7 @@ theorem isCornerSplit (garden: Garden) (plot: Position) (vertical: Direction) (h
             | True => rfl
             | False => rfl
 
--- The program's corners at a plot of a region are the grid's.
+--| The program's corners at a plot of a region are the grid's.
 theorem programCornersCell (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: List Position)
     (isRegion: IsRegion garden start region): (plot: Position) → plot ∈ region → garden.cornerCount plot = corners (insideOf region) plot.row plot.column
   | { row, column }, member =>
@@ -142,12 +142,12 @@ theorem programCornersCell (garden: Garden) (start: Position) (plant: Char) (gro
             + Bool.toNat (concave True (below inside row column) (rightOf inside row column) (below (rightOf inside) row column))))
     ]
 
--- `total` is the sum over `List.range`.
+--| `total` is the sum over `List.range`.
 theorem totalRange: (n: Nat) → (f: Nat → Nat) → (List.range n).sumBy f = total n f
   | Zero, f => rfl
   | Succ n, f => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i)) in rfl
 
--- The square of the grid with rows and columns up to `last`, row by row.
+--| The square of the grid with rows and columns up to `last`, row by row.
 def square (last: Nat): List Position :=
   List.range (Succ last) |> .flatMap (row => List.range (Succ last) |> .map (column => ({ row, column }: Position)))
 
@@ -167,8 +167,8 @@ theorem squareDistinct (last: Nat): List.Distinct (square last) :=
         (List.memMapAny (List.range (Succ last)) (column => ({ row, column }: Position)) position member)
         (column inColumns built => rewrite <- built in rfl))
 
--- A sum over a region's plots, of something that is 0 off the region, is
--- the sum over a square of the grid that holds the region.
+--| A sum over a region's plots, of something that is 0 off the region, is
+--| the sum over a square of the grid that holds the region.
 theorem sumOverGrid (region: List Position) (distinct: List.Distinct region) (last: Nat)
     (within: (plot: Position) → plot ∈ region → And (plot.row ≤ last) (plot.column ≤ last)) (f: Nat → Nat → Nat)
     (zero: (row: Nat) → (column: Nat) → insideOf region row column = False → f row column = 0):
@@ -203,8 +203,8 @@ theorem sumOverGrid (region: List Position) (distinct: List.Distinct region) (la
         (totalRange (Succ last) (row => total (Succ last) (column => f row column))))
   Eq.trans (Eq.sym (List.sumByPerm kept region same term)) (Eq.trans filtered bySquare)
 
--- The program's count of a region's corners is the spec's count of its
--- sides.
+--| The program's count of a region's corners is the spec's count of its
+--| sides.
 theorem sidesCorrect (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: List Position)
     (isRegion: IsRegion garden start region) (distinct: List.Distinct region): garden.sides region = sides region :=
   let inside := insideOf region

@@ -1,8 +1,8 @@
--- The program's table holds, for each suffix, the number of towel lists
--- that make it (`tableCorrect`): entry `index` is the suffix after `index`
--- stripes, made by lists of any length up to `count`, once `count` is at
--- least the suffix's length. So the table's first entry is the spec's
--- number of ways (`waysCorrect`).
+--| The program's table holds, for each suffix, the number of towel lists
+--| that make it (`tableCorrect`): entry `index` is the suffix after `index`
+--| stripes, made by lists of any length up to `count`, once `count` is at
+--| least the suffix's length. So the table's first entry is the spec's
+--| number of ways (`waysCorrect`).
 
 namespace Aoc.Year2024.Day19.Proofs
 import Aoc.Year2024.Day19 (..)
@@ -30,13 +30,13 @@ theorem tableCorrect (patterns: List Pattern) (striped: Striped patterns): (desi
                     (omega [enough])
                 | False => rfl)
 
--- The table's first entry is its entry 0.
+--| The table's first entry is its entry 0.
 theorem firstEntry (patterns: List Pattern): (design: Design) →
     (waysForSuffixes patterns design).headOr 0 = (waysForSuffixes patterns design).getOr 0 0
   | Nil => rfl
   | Cons first rest => rfl
 
--- The program counts the puzzle's ways to make any design.
+--| The program counts the puzzle's ways to make any design.
 theorem waysCorrect (patterns: List Pattern) (striped: Striped patterns) (design: Design): waysToMake patterns design = ways patterns design :=
   rewrite List.lengthFilter (towelLists patterns design.length) (towels => towels.concat == design), firstEntry patterns design in
     tableCorrect patterns striped design 0 (omega) design.length (omega)

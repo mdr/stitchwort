@@ -1,12 +1,12 @@
--- Advent of Code 2024, day 3: corrupted memory with instructions like
--- `mul(44,46)` scattered through noise. Part 1 adds up the products of every
--- well-formed `mul`; part 2 also obeys `do()` and `don't()`, which turn the
--- `mul`s after them on and off.
---
---   $ cd aoc && stitchwort run Aoc.Year2024.Day03.main < inputs/2024/day03.txt
---
--- The proofs are in `Aoc.Year2024.Day03.Proofs` (Proofs/) and the tests in
--- `Aoc.Year2024.Day03.Tests` (Tests/); `run` checks neither.
+--| Advent of Code 2024, day 3: corrupted memory with instructions like
+--| `mul(44,46)` scattered through noise. Part 1 adds up the products of every
+--| well-formed `mul`; part 2 also obeys `do()` and `don't()`, which turn the
+--| `mul`s after them on and off.
+--|
+--|   $ cd aoc && stitchwort run Aoc.Year2024.Day03.main < inputs/2024/day03.txt
+--|
+--| The proofs are in `Aoc.Year2024.Day03.Proofs` (Proofs/) and the tests in
+--| `Aoc.Year2024.Day03.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day03
 import Std (Bool, Fail, IO, List, Nat, Option, Parse, Text)
@@ -17,26 +17,26 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 instructions}"
   IO.print "Part 2: ${solvePart2 instructions}"
 
--- An uncorrupted instruction.
+--| An uncorrupted instruction.
 type Instruction =
   | Mul (left: Nat) (right: Nat)
   | Do
   | Dont
 
--- A number of one to three digits.
+--| A number of one to three digits.
 def shortNumber(): {Parse} Nat := natDigits 1 3
 
--- "mul(44,46)", "do()" or "don't()", exactly: no spaces, no other brackets.
+--| "mul(44,46)", "do()" or "don't()", exactly: no spaces, no other brackets.
 def instruction(): {Parse} Instruction :=
   oneOf [
     () => Mul (text "mul("; shortNumber()) (char ','; shortNumber()) |> before ")",
     () => pick [("do()", Do), ("don't()", Dont)]
   ]
 
--- Every instruction in the memory, in order; everything else is noise.
+--| Every instruction in the memory, in order; everything else is noise.
 def parseInstructions (memory: Text): {Fail} (List Instruction) := Parse.all memory (() => findAll instruction)
 
--- What a `mul` adds; `do()` and `don't()` add nothing.
+--| What a `mul` adds; `do()` and `don't()` add nothing.
 def Instruction.result: Instruction → Nat
   | Mul left right => left * right
   | Do => 0
@@ -44,10 +44,10 @@ def Instruction.result: Instruction → Nat
 
 def solvePart1 (instructions: List Instruction): Nat := instructions.sumBy .result
 
--- Part 2's running state: whether `mul` is enabled, and the sum so far.
+--| Part 2's running state: whether `mul` is enabled, and the sum so far.
 type Tally = { enabled: Bool, total: Nat }
 
--- `mul` starts enabled.
+--| `mul` starts enabled.
 def Tally.start: Tally := { enabled = True, total = 0 }
 
 def Tally.step (tally: Tally): Instruction → Tally

@@ -1,7 +1,7 @@
--- Part 1: a point in line with `far` and `near`, with `far` twice as far
--- away, is past `near` or a third of the way from `near` to `far`
--- (`twiceAsFarCases`), which are the points `antinodesOf` gives
--- (`antinodesOfCorrect`).
+--| Part 1: a point in line with `far` and `near`, with `far` twice as far
+--| away, is past `near` or a third of the way from `near` to `far`
+--| (`twiceAsFarCases`), which are the points `antinodesOf` gives
+--| (`antinodesOfCorrect`).
 
 namespace Aoc.Year2024.Day08.Proofs
 import Aoc.Common (Offset, Position)
@@ -10,8 +10,10 @@ import Aoc.Year2024.Day08 (..)
 import Aoc.Year2024.Day08.Spec (..)
 import Std (And, Bool, DecEq, Eq, Int, Iff, List, Nat, Option, Or, Set, Void)
 
--- With `u` the direction from the point to `far` and `v` to `near`: in line
--- (`u × v = 0`) with `|u|² = 4|v|²` means `u = 2v` or `u = -2v`. By
+--| With `u` the direction from the point to `far` and `v` to `near`: in line
+--| (`u × v = 0`) with `|u|² = 4|v|²` means `u = 2v` or `u = -2v`.
+--
+-- By
 -- Lagrange's identity `(u·v)² + (u×v)² = |u|²|v|²`, `u·v` is `±2|v|²`, and
 -- then `|u ∓ 2v|²` is 0.
 theorem twiceAsFarCases (ur: Int) (uc: Int) (vr: Int) (vc: Int) (cross: ur * vc - uc * vr = 0)
@@ -27,7 +29,7 @@ theorem twiceAsFarCases (ur: Int) (uc: Int) (vr: Int) (vc: Int) (cross: ur * vc 
       let zero := Int.sumSquaresZero (ur + 2 * vr) (uc + 2 * vc) (ring [distance, 4 * opposite])
       Inr (Both (ring [And.left zero]) (ring [And.right zero]))
 
--- And back: `u = ±2v` is in line, and twice as far.
+--| And back: `u = ±2v` is in line, and twice as far.
 theorem twiceAsFarOfCases (ur: Int) (uc: Int) (vr: Int) (vc: Int)
     (choice: Or (And (ur = 2 * vr) (uc = 2 * vc)) (And (ur = 0 - 2 * vr) (uc = 0 - 2 * vc))):
     And (ur * vc - uc * vr = 0) (ur * ur + uc * uc = 4 * (vr * vr + vc * vc)) :=
@@ -35,33 +37,33 @@ theorem twiceAsFarOfCases (ur: Int) (uc: Int) (vr: Int) (vc: Int)
     | Inl (Both row column) => rewrite row, column in Both (ring) (ring)
     | Inr (Both row column) => rewrite row, column in Both (ring) (ring)
 
--- The two steps from `near` that `antinodesOf` can take.
+--| The two steps from `near` that `antinodesOf` can take.
 def pastStep (far: Position) (near: Position): Offset := near.minus far
 
 def thirdStep (far: Position) (near: Position): Offset := (divideBy (near.minus far) 3).negate
 
--- `antinodesOf`, written out.
+--| `antinodesOf`, written out.
 theorem antinodesOfUnfold (far: Position) (near: Position):
     antinodesOf far near =
       ((if (near.minus far).rows % 3 == 0 && (near.minus far).columns % 3 == 0 then [pastStep far near, thirdStep far near]
       else [pastStep far near]).filterMap near.offset) :=
   rfl
 
--- One coordinate at a time, with `far`, `near` and the point at `f`, `n`
--- and `p`. Past `near` is where `far` is twice as far in the same
--- direction...
+--| One coordinate at a time, with `far`, `near` and the point at `f`, `n`
+--| and `p`. Past `near` is where `far` is twice as far in the same
+--| direction...
 theorem pastIff (f: Int) (n: Int) (p: Int): Iff (p = n + (n - f)) (f - p = 2 * (n - p)) := {
   forward = e => ring [e],
   backward = h => ring [h]
 }
 
--- ...and a third of the way from `near` to `far` (when that is a whole
--- number) is where it is twice as far in the other direction.
+--| ...and a third of the way from `near` to `far` (when that is a whole
+--| number) is where it is twice as far in the other direction.
 theorem thirdOf (f: Int) (n: Int) (p: Int) (h: f - p = 0 - 2 * (n - p)): And ((n - f) % 3 = 0) (p = n + (0 - (n - f) / 3)) := omega
 
 theorem thirdBack (f: Int) (n: Int) (p: Int) (multiple: (n - f) % 3 = 0) (e: p = n + (0 - (n - f) / 3)): f - p = 0 - 2 * (n - p) := omega
 
--- The spec's test, as equations: `u = ±2v`.
+--| The spec's test, as equations: `u = ±2v`.
 theorem specCases (far: Position) (near: Position) (point: Position):
     Iff ((inLine point far near && twiceAsFar point far near) = True)
       (Or
@@ -81,8 +83,8 @@ theorem specCases (far: Position) (near: Position) (point: Position):
       Bool.andIntro _ _ (rewrite And.left both in DecEq.refl 0) (rewrite And.right both in DecEq.refl (4 * (vr * vr + vc * vc)))
   }
 
--- The step past `near` reaches the points where `far` is twice as far in
--- the same direction...
+--| The step past `near` reaches the points where `far` is twice as far in
+--| the same direction...
 theorem pastAt (far: Position) (near: Position) (point: Position):
     Iff (near.offset (pastStep far near) = Some point)
       (And (far.row.toInt - point.row.toInt = 2 * (near.row.toInt - point.row.toInt))
@@ -96,8 +98,8 @@ theorem pastAt (far: Position) (near: Position) (point: Position):
               ((pastIff far.column.toInt near.column.toInt point.column.toInt).backward (And.right h))
         }
 
--- ...and the step a third of the way back, those where it is twice as far
--- in the other direction, when the third is whole.
+--| ...and the step a third of the way back, those where it is twice as far
+--| in the other direction, when the third is whole.
 theorem thirdAt (far: Position) (near: Position) (point: Position)
     (multiples: And ((near.row.toInt - far.row.toInt) % 3 = 0) ((near.column.toInt - far.column.toInt) % 3 = 0)):
     Iff (near.offset (thirdStep far near) = Some point)
@@ -112,7 +114,7 @@ theorem thirdAt (far: Position) (near: Position) (point: Position)
               (And.right (thirdOf far.column.toInt near.column.toInt point.column.toInt (And.right h)))
         }
 
--- Twice as far in the other direction makes the third whole.
+--| Twice as far in the other direction makes the third whole.
 theorem thirdWhole (far: Position) (near: Position) (point: Position)
     (h:
       And (far.row.toInt - point.row.toInt = 0 - 2 * (near.row.toInt - point.row.toInt))
@@ -121,7 +123,7 @@ theorem thirdWhole (far: Position) (near: Position) (point: Position)
   Both (And.left (thirdOf far.row.toInt near.row.toInt point.row.toInt (And.left h)))
     (And.left (thirdOf far.column.toInt near.column.toInt point.column.toInt (And.right h)))
 
--- The program's two cases, with its test as a variable.
+--| The program's two cases, with its test as a variable.
 theorem antinodesIff (far: Position) (near: Position) (point: Position) (condition: Bool)
     (multiples:
       Iff (condition = True) (And ((near.row.toInt - far.row.toInt) % 3 = 0) ((near.column.toInt - far.column.toInt) % 3 = 0))):
@@ -163,7 +165,7 @@ theorem antinodesOfCorrect (far: Position) (near: Position) (point: Position):
     backward = m => Bool.andIntro _ _ (rewrite And.left m in rfl) (rewrite And.right m in rfl)
   }
 
--- Part 1 counts the puzzle's antinodes, for every city.
+--| Part 1 counts the puzzle's antinodes, for every city.
 theorem part1Correct (city: City): solvePart1 city = part1 city :=
   Eq.cong Set.size
     (locationsCorrect city (((far, near)) => antinodesOf far near) (point far near => inLine point far near && twiceAsFar point far near)

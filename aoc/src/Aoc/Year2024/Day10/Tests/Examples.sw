@@ -1,4 +1,6 @@
--- Day 10's tests: the examples from the puzzle and unit tests. Kept apart
+--| Day 10's tests: the examples from the puzzle and unit tests.
+--
+-- Kept apart
 -- from the program, so `stitchwort run Aoc.Year2024.Day10.main` doesn't
 -- check them.
 
@@ -19,7 +21,7 @@ def example: Text := """
   10456732
   """
 
--- The first small example: one trailhead, reaching one 9.
+--| The first small example: one trailhead, reaching one 9.
 def smallest: Text := """
   0123
   1234
@@ -27,7 +29,7 @@ def smallest: Text := """
   9876
   """
 
--- One trailhead with a score of 2.
+--| One trailhead with a score of 2.
 def scoreTwo: Text := """
   ...0...
   ...1...
@@ -38,7 +40,7 @@ def scoreTwo: Text := """
   9.....9
   """
 
--- One trailhead with a score of 4 and a rating of 13.
+--| One trailhead with a score of 4 and a rating of 13.
 def scoreFour: Text := """
   ..90..9
   ...1.98
@@ -49,7 +51,7 @@ def scoreFour: Text := """
   987....
   """
 
--- Two trailheads, with scores of 1 and 2.
+--| Two trailheads, with scores of 1 and 2.
 def twoTrailheads: Text := """
   10..9..
   2...8..
@@ -60,7 +62,7 @@ def twoTrailheads: Text := """
   .....01
   """
 
--- One trailhead with a rating of 3.
+--| One trailhead with a rating of 3.
 def ratingThree: Text := """
   .....0.
   ..4321.
@@ -71,7 +73,7 @@ def ratingThree: Text := """
   ..9....
   """
 
--- One trailhead with a rating of 227.
+--| One trailhead with a rating of 227.
 def ratingLarge: Text := """
   012345
   123456
@@ -83,7 +85,7 @@ def ratingLarge: Text := """
 
 def parsed (input: Text): Result TopographicMap Text := Fail.toResult (() => parseMap input)
 
--- A function of the parsed map, or why it didn't parse: a parse failure fails the test.
+--| A function of the parsed map, or why it didn't parse: a parse failure fails the test.
 def onMap (input: Text) (f: TopographicMap -> a): Result a Text := parsed input |> .map f
 
 def at (row: Nat) (column: Nat): Position := { row, column }
@@ -108,8 +110,8 @@ test "a rating of 3" := onMap ratingThree solvePart2 == Ok 3
 test "a rating of 13" := onMap scoreFour solvePart2 == Ok 13
 test "a rating of 227" := onMap ratingLarge solvePart2 == Ok 227 && onMap ratingLarge solvePart1 == Ok 2
 
--- The three trails of the rating-3 example, and some paths that aren't
--- trails, by the spec.
+--| The three trails of the rating-3 example, and some paths that aren't
+--| trails, by the spec.
 test "the spec's trails" :=
   let down := [at 0 5, at 1 5, at 2 5, at 3 5, at 4 5, at 5 5, at 5 4, at 5 3, at 5 2, at 6 2]
   let across := [at 0 5, at 1 5, at 1 4, at 1 3, at 1 2, at 2 2, at 3 2, at 4 2, at 5 2, at 6 2]
@@ -121,8 +123,8 @@ test "the spec's trails" :=
       && !isHikingTrail map []
       && !isHikingTrail map [at 0 5, at 1 5, at 2 5, at 3 5, at 4 5, at 5 5, at 5 4, at 5 3, at 6 2, at 6 2]) == Ok True
 
--- Up, down, left or right, and one higher: not diagonally, and not on the
--- spot.
+--| Up, down, left or right, and one higher: not diagonally, and not on the
+--| spot.
 test "the spec's steps" :=
   onMap "012\n123\n234\n" (map =>
     isStep map (at 1 1) (at 1 2) && isStep map (at 1 1) (at 2 1) && !isStep map (at 1 1) (at 0 1) && !isStep map (at 1 1) (at 2 2)
@@ -143,14 +145,14 @@ test "heights off the map" :=
 test "no trailheads" := onMap "123\n456\n" solvePart1 == Ok 0 && onMap "123\n456\n" solvePart2 == Ok 0
 test "one straight trail" := onMap "0123456789\n" solvePart1 == Ok 1 && onMap "0123456789\n" solvePart2 == Ok 1
 test "a trail must reach 9" := onMap "012345678\n" solvePart1 == Ok 0 && onMap "012345678\n" solvePart2 == Ok 0
--- Each row climbs its own way, and a trail can switch rows where a 4 meets a
--- 5: each 0 reaches both 9s, by one trail each.
+--| Each row climbs its own way, and a trail can switch rows where a 4 meets a
+--| 5: each 0 reaches both 9s, by one trail each.
 test "trails cross between rows" := onMap "0123456789\n9876543210\n" solvePart1 == Ok 4 && onMap "0123456789\n9876543210\n" solvePart2 == Ok 4
 
--- A ladder two wide: the one step right can come at any of the nine steps,
--- so one 9 and nine trails.
+--| A ladder two wide: the one step right can come at any of the nine steps,
+--| so one 9 and nine trails.
 test "many trails to one 9" :=
   onMap "01\n12\n23\n34\n45\n56\n67\n78\n89\n" solvePart1 == Ok 1 && onMap "01\n12\n23\n34\n45\n56\n67\n78\n89\n" solvePart2 == Ok 9
 
--- A trailhead whose 1 leads nowhere.
+--| A trailhead whose 1 leads nowhere.
 test "a dead end" := onMap "01.\n...\n" solvePart1 == Ok 0 && onMap "01\n" (map => map.uphill (at 0 0)) == Ok [at 0 1]

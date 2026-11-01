@@ -1,5 +1,7 @@
--- Day 14's tests: the example from the puzzle, unit tests, and small
--- generated inputs whose answers were computed separately in Python. Kept
+--| Day 14's tests: the example from the puzzle, unit tests, and small
+--| generated inputs whose answers were computed separately in Python.
+--
+-- Kept
 -- apart from the program, so `stitchwort run Aoc.Year2024.Day14.main`
 -- doesn't check them.
 
@@ -32,7 +34,7 @@ def exampleSpace: Space := Space.of 11 7
 
 def puzzleSpace: Space := Space.of 101 103
 
--- The tile at `x` and `y`, as the puzzle writes them: column, then row.
+--| The tile at `x` and `y`, as the puzzle writes them: column, then row.
 def tile (x: Nat) (y: Nat): Position := { row = y, column = x }
 
 def robotAt (x: Nat) (y: Nat) (dx: Int) (dy: Int): Robot := { position = tile x y, velocity = { rows = dy, columns = dx } }
@@ -41,7 +43,7 @@ test "example, part 1" := solvePart1 exampleSpace (robotsOf example) == 12
 test "example, part 2: two robots share 3,0 at the start" := solvePart2 exampleSpace (robotsOf example) == Some 1
 test "example, the spec's part 1" := part1 exampleSpace (robotsOf example) == 12
 
--- "the quadrants contain 1, 3, 4, and 1 robot".
+--| "the quadrants contain 1, 3, 4, and 1 robot".
 test "example, the quadrant counts" :=
   let inQuadrants := exampleSpace.positionsAfter 100 (robotsOf example) |> .filterMap exampleSpace.quadrantOf
   quadrants.map (quadrant => inQuadrants.count (== quadrant)) == [1, 3, 4, 1]
@@ -62,7 +64,7 @@ test "example, the tiles after 100 seconds" :=
     tile 6 6
   ]
 
--- "Here is what robot p=2,4 v=2,-3 does for the first few seconds".
+--| "Here is what robot p=2,4 v=2,-3 does for the first few seconds".
 test "the puzzle's robot, second by second" :=
   [0, 1, 2, 3, 4, 5].map (seconds => exampleSpace.positionAfter seconds (robotAt 2 4 2 (-3)))
     == [tile 2 4, tile 4 1, tile 6 5, tile 8 2, tile 10 6, tile 1 3]
@@ -100,8 +102,8 @@ test "no robots don't overlap" := ([]: List Position).allDistinct
 test "a robot already in place" := solvePart2 exampleSpace [robotAt 0 0 1 1] == Some 0
 test "the period is width times height" := exampleSpace.period == 77 && puzzleSpace.period == 10403
 
--- Generated with Python's `random` (seed 1): 15 robots on the example's
--- space, some with velocities of the full width; Python gives 64 and 3.
+--| Generated with Python's `random` (seed 1): 15 robots on the example's
+--| space, some with velocities of the full width; Python gives 64 and 3.
 def generatedSmall: Text := """
   p=2,4 v=-9,-3
   p=1,3 v=3,0
@@ -123,8 +125,8 @@ def generatedSmall: Text := """
 test "generated, 15 robots" :=
   solvePart1 exampleSpace (robotsOf generatedSmall) == 64 && solvePart2 exampleSpace (robotsOf generatedSmall) == Some 3
 
--- Seed 2: 40 robots on the 77 tiles never all on different tiles; Python
--- gives 3564 and none.
+--| Seed 2: 40 robots on the 77 tiles never all on different tiles; Python
+--| gives 3564 and none.
 def generatedCrowded: Text := """
   p=0,0 v=-9,-2
   p=2,5 v=10,6
@@ -171,7 +173,7 @@ def generatedCrowded: Text := """
 test "generated, 40 robots, never apart" :=
   solvePart1 exampleSpace (robotsOf generatedCrowded) == 3564 && solvePart2 exampleSpace (robotsOf generatedCrowded) == None
 
--- Seed 3: 30 robots on the puzzle's space; Python gives 2200 and 0.
+--| Seed 3: 30 robots on the puzzle's space; Python gives 2200 and 0.
 def generatedLarge: Text := """
   p=30,75 v=38,-70
   p=47,77 v=20,57
@@ -215,8 +217,8 @@ test "a negative position" := parsed "p=-1,4 v=3,-3\n" == Err "line 1, column 3:
 test "a missing velocity" := parsed "p=1,4\n" == Err "line 1, column 6: expected ' v=', got the end of the line"
 test "a bad number" := parsed "p=1,4 v=3,x\n" == Err "line 1, column 11: expected a number, got 'x'"
 
--- What `main` prints on the example's space and how it ends, for some
--- input lines.
+--| What `main` prints on the example's space and how it ends, for some
+--| input lines.
 def ran (lines: List Text): Pair (List Text) (Result Bool Text) :=
   IO.simulate lines (() => Result.map (Fail.toResult (() => solveIn exampleSpace)) (unit => True))
 

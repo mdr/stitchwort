@@ -1,5 +1,5 @@
--- All buyers: the program's total for a sequence is the bananas the puzzle
--- says it earns (`totalsBananas`).
+--| All buyers: the program's total for a sequence is the bananas the puzzle
+--| says it earns (`totalsBananas`).
 
 namespace Aoc.Year2024.Day22.Proofs
 import Aoc.Year2024.Day22 (..)
@@ -12,7 +12,7 @@ theorem mergeGetOr: (x: Option Nat) → (y: Option Nat) → (Option.merge x y Na
   | None, Some y => (omega: y = 0 + y)
   | None, None => rfl
 
--- Adding one buyer's sales to the totals adds its price to each total.
+--| Adding one buyer's sales to the totals adds its price to each total.
 theorem unionGetOr (totals: Map Changes Nat) (sales: Map Changes Nat) (key: Changes):
     (totals.unionWith sales Nat.add).getOr key 0 = totals.getOr key 0 + sales.getOr key 0 :=
   rewrite Map.getUnionWith totals key sales Nat.add in mergeGetOr (totals.get key) (sales.get key)
@@ -29,7 +29,7 @@ theorem totalsGetOr (count: Nat) (key: Changes): (buyers: List Nat) → (totals:
         List.sumByCons rest buyer (buyer => (firstSales (prices count buyer)).getOr key 0)
       ])
 
--- What the monkey sells for, as the program finds it.
+--| What the monkey sells for, as the program finds it.
 theorem salesGetOr (count: Nat) (key: Changes) (buyer: Nat):
     (firstSales (prices count buyer)).getOr key 0 = sellingPrice key (offeredPrices count buyer) |> .getOrElse 0 :=
   rewrite firstSalesSells (prices count buyer) key, pricesMatch count buyer in rfl
