@@ -1,19 +1,21 @@
 --| `Key`: the keys a terminal program reads, and `Key.next`, which decodes
---| them from the bytes a terminal sends (docs/proposals/terminal-io.md §3.2).
---| Decoding is ordinary code: total, structural, with no `IO`, so it's
---| tested here and proved about (`Key.nextBytes`). `Terminal.readKey` gives
---| these keys; `Terminal.toIO` reads the bytes and calls `Key.next`.
+--| them from the bytes a terminal sends. Decoding is ordinary code: total,
+--| structural, with no `IO`, so it's tested here and proved about
+--| (`Key.nextBytes`). `Terminal.readKey` gives these keys; `Terminal.toIO`
+--| reads the bytes and calls `Key.next`.
 --|
 --|   Key.next [27, 91, 65, 113] = Got Up [113]   -- ESC [ A is the up arrow
 --|   Key.next [27] = Incomplete                  -- a lone ESC, or the start of a sequence?
 --|   Key.next [] = NoBytes
+-- (docs/proposals/terminal-io.md §3.2)
 
 import Key.Decoded (Got, Incomplete, NoBytes)
 
 --| A key. Arrows and the other named keys are what a terminal sends for
---| them; anything it sends that isn't one of these is `Unknown` (D1259), so
---| a program's catch-all case skips it. Not here: function keys, Alt, and
+--| them; anything it sends that isn't one of these is `Unknown`, so a
+--| program's catch-all case skips it. Not here: function keys, Alt, and
 --| modified arrows (Ctrl-Up arrives as `Unknown`).
+-- (D1259)
 type Key: Type =
   | Printable (char: Char) -- a printable character, space included
   | Enter
@@ -287,7 +289,8 @@ theorem Key.nextBytes (rest: List Nat): (key: Key) → Key.isNamed key = True �
   | Unknown, h => rfl
 
 --| `Escape` comes back when the next byte isn't `[` or `O`; a lone `ESC` at
---| the end of the bytes is `Incomplete` (the handler decides, §3.2).
+--| the end of the bytes is `Incomplete` (the handler decides).
+-- (§3.2)
 theorem Key.nextEscape (byte: Nat) (rest: List Nat) (notCsi: (byte == 91) = False) (notSs3: (byte == 79) = False):
     Key.next (List.append (Key.bytes Escape) (Cons byte rest)) = Got Escape (Cons byte rest) :=
   rewrite notCsi, notSs3 in rfl

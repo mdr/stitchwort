@@ -1,7 +1,7 @@
 --| Sums of lists over `Int`: the lemmas that need both `Int/Int.sw` and the
 --| `List.sumBy` lemmas of `List/Lemmas.sw`.
--- They live here so that a program
--- using only `Int` does not load the list files.
+-- They live here so that a program using only `Int` does not load the list
+-- files.
 
 --| The cast of a sum is the sum of the casts.
 theorem Int.toIntSumBy (f: a → Nat): (xs: List a) → (List.sumBy xs f).toInt = List.sumBy xs (x => (f x).toInt)

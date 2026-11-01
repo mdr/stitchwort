@@ -1,6 +1,5 @@
---| `Terminal`: read single keys and draw whole screens
---| (docs/proposals/terminal-io.md). A program reads keys with
---| `Terminal.readKey` and draws frames with `Terminal.draw`; it never sees
+--| `Terminal`: read single keys and draw whole screens. A program reads keys
+--| with `Terminal.readKey` and draws frames with `Terminal.draw`; it never sees
 --| escape bytes, raw mode or the cursor. `Terminal.toIO` runs it on the
 --| console, and `Terminal.simulate` runs it in tests, from scripted keys.
 --|
@@ -16,13 +15,15 @@
 --|     IO.print "You quit with ${final.gold} gold."
 --|
 --| Key decoding is `Key.next` (Key.sw), colours are `Ansi` (Ansi.sw).
+-- (docs/proposals/terminal-io.md)
 
 import Key.Decoded (Got, Incomplete, NoBytes)
 
 --| A terminal's size, in characters.
 type Terminal.Size = { columns: Nat, rows: Nat }
 
---| The three operations (D1247): keys in, whole frames out.
+--| The three operations: keys in, whole frames out.
+-- (D1247)
 ability Terminal where
   readKey: () → {Terminal} (Option Key) -- the next key; None only at end of input
   draw: List Text → {Terminal} () -- replaces the whole screen with these lines
@@ -61,11 +62,12 @@ def Terminal.moreReads: Nat := 16
 --| A key cut off at the end of the bytes is finished by reading more
 --| (at most `moreReads` times), except an escape sequence cut off on a
 --| terminal: a terminal writes a sequence in one go, so the end of its read
---| ends the sequence (terminal-io.md §3.2). A cut-off lone `ESC` is
---| `Escape`, and any other cut-off key `Unknown`.
+--| ends the sequence. A cut-off lone `ESC` is `Escape`, and any other cut-off
+--| key `Unknown`.
 --|
 --| Generic in how bytes are read, so tests can give the reads as a list
 --| (`Terminal.keysOfReads`), and `Terminal.toIO` reads from the host.
+-- (terminal-io.md §3.2)
 def Terminal.nextKey (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s) (pending: List Nat) (source: s): {e} Terminal.Read s :=
   match pending with
     | [] => Terminal.afterRead inputIsTerminal read Terminal.moreReads [] (read source)
@@ -155,9 +157,10 @@ def Terminal.printLines: List Text → {IO} ()
 --| program that only asks the size never changes the terminal), and off when
 --| the program returns. Each `readKey` reads at most `1 + Terminal.moreReads`
 --| times, so this handler is total: around a total program it's total, and
---| around a partial one partial (D1259). The program's own `IO.print` and
---| `IO.readLine` pass through to the host, which leaves keys mode for them
---| (D1260).
+--| around a partial one partial. The program's own `IO.print` and
+--| `IO.readLine` pass through to the host, which leaves keys mode for them.
+-- (D1259)
+-- (D1260)
 def Terminal.toIO (prog: () → {Terminal, IO | e} a): {IO | e} a :=
   let inputIsTerminal := (IO.console ()).inputIsTerminal
   let run: List Nat → {IO | e} a :=
@@ -267,9 +270,10 @@ test "toIO: the size, unknown on a pipe" :=
 --| `reads`, in order (then `None`). Records every `write` and `print`, and
 --| every time keys mode goes on or off (as "keys on" and "keys off"), in
 --| order. Like the real host, `keysMode` does nothing when the mode is
---| already as asked, and `print` leaves keys mode first (D1260). There are no
---| lines to read: `readLine` gives `None`, `readAll` "", `randomSeed` 0, and
---| `args` no arguments.
+--| already as asked, and `print` leaves keys mode first. There are no lines to
+--| read: `readLine` gives `None`, `readAll` "", `randomSeed` 0, and `args` no
+--| arguments.
+-- (D1260)
 def Terminal.scriptedHost (console: Console) (reads: List (List Nat)) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
   let run: List (List Nat) → Bool → List Text → {e} Pair (List Text) a :=
     handle prog() with

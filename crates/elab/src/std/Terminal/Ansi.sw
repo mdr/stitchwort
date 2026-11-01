@@ -1,12 +1,13 @@
 --| `Ansi`: colour, bold and reverse video for a frame's lines, as ANSI
---| escape codes (docs/proposals/terminal-io.md §1). They're plain text, so
---| a frame can hold them and a test can `Ansi.strip` them off:
+--| escape codes. They're plain text, so a frame can hold them and a test can
+--| `Ansi.strip` them off:
 --|
 --|   Terminal.draw ["You see a ${Ansi.colour Red "dragon"}."]
 --|   Ansi.strip (Ansi.bold "hi") = "hi"
 --|
 --| Each one ends by switching off only what it switched on, so they nest:
 --| `Ansi.bold (Ansi.colour Red "!")` is bold and red.
+-- (docs/proposals/terminal-io.md §1)
 
 import Ansi.Colour (Black, Red, Green, Yellow, Blue, Magenta, Cyan, White)
 import Ansi.Scan (Plain, AfterEscape, InSequence)
