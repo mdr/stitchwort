@@ -1,14 +1,16 @@
--- Cross-check against brute force: for each example bank, try every choice of
--- k batteries, and take the largest number. For banks of at least k batteries,
--- that is what `bank.maxJoltage k` computes greedily (a shorter bank has no choice
--- of k, and brute force gives 0), and it is also proved (`Aoc.Year2025.Day03.Proofs`,
--- Proofs/Best.sw). Kept apart from the program, so `stitchwort run Aoc.Year2025.Day03.main` doesn't check it.
+--| Cross-check against brute force: for each example bank, try every choice of
+--| k batteries, and take the largest number. For banks of at least k batteries,
+--| that is what `bank.maxJoltage k` computes greedily (a shorter bank has no choice
+--| of k, and brute force gives 0), and it is also proved (`Aoc.Year2025.Day03.Proofs`,
+--| Proofs/Best.sw).
+--
+-- Kept apart from the program, so `stitchwort run Aoc.Year2025.Day03.main` doesn't check it.
 
 namespace Aoc.Year2025.Day03.Tests
 import Aoc.Year2025.Day03 (..)
 import Std (List, Nat, Result)
 
--- Every way to pick k batteries of the bank, in order.
+--| Every way to pick k batteries of the bank, in order.
 def choices: Nat → Bank → List Bank
   | Zero, _ => [[]]
   | Succ _, [] => []

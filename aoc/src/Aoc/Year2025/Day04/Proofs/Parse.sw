@@ -1,13 +1,13 @@
--- `parseGrid` reads the lines as the puzzle does: when it makes a grid, the
--- cell in row r, column c is `Cell.ofChar` of line r's character c (`@` is a
--- roll, `.` floor), and floor past the lines (`parseGridCells`).
+--| `parseGrid` reads the lines as the puzzle does: when it makes a grid, the
+--| cell in row r, column c is `Cell.ofChar` of line r's character c (`@` is a
+--| roll, `.` floor), and floor past the lines (`parseGridCells`).
 
 namespace Aoc.Year2025.Day04.Proofs
 import Aoc.Year2025.Day04 (..)
 import Aoc.Year2025.Day04.Spec (..)
 import Std (Bool, Eq, Fin, List, Nat, Option, Result, Text, Vec, Void)
 
--- Rows that `traverseOption` accepted, cell by cell.
+--| Rows that `traverseOption` accepted, cell by cell.
 theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (List.headOr lines ""))) lines.length)
     (ok: Vec.traverseOption (Vec.fromList lines) (line => Vec.ofList (Text.length (List.headOr lines "")) (parseLine line)) = Some rows) (r: Nat) (c: Nat):
     rowsCells rows r c = List.getOr (parseLine (List.getOr lines r "")) c Floor :=

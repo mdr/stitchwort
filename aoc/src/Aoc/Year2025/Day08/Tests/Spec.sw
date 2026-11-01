@@ -1,4 +1,4 @@
--- Day 8's specification (Spec/Spec.sw) on the puzzle's example and small cases.
+--| Day 8's specification (Spec/Spec.sw) on the puzzle's example and small cases.
 
 namespace Aoc.Year2025.Day08.Tests
 import Aoc.Year2025.Day08 (..)

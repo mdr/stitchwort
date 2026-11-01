@@ -1,6 +1,6 @@
--- The real puzzle input (aoc/inputs/2025/day07.txt, committed), through
--- `include`: the answers are checked on it when the tests run, and editing
--- the input reruns exactly these tests.
+--| The real puzzle input (aoc/inputs/2025/day07.txt, committed), through
+--| `include`: the answers are checked on it when the tests run, and editing
+--| the input reruns exactly these tests.
 namespace Aoc.Year2025.Day07.Tests
 import Aoc.Year2025.Day07 (..)
 import Std (Option)

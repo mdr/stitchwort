@@ -1,5 +1,7 @@
--- Day 3, proved: the greedy `Bank.best` is the largest k-digit number that can
--- be picked from a bank, in order, for any k and any bank. Kept apart from
+--| Day 3, proved: the greedy `Bank.best` is the largest k-digit number that can
+--| be picked from a bank, in order, for any k and any bank.
+--
+-- Kept apart from
 -- the program, so `stitchwort run Aoc.Year2025.Day03.main` doesn't check it.
 
 namespace Aoc.Year2025.Day03.Proofs
@@ -7,15 +9,16 @@ import Aoc.Year2025.Day03 (..)
 import Aoc.Year2025.Day03.Spec (..)
 import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 
--- Four facts about `best k bank` (plain-words summary in docs/aoc-2025.md):
---   1. `bestSub`: it is a subsequence of `bank` (batteries taken in order).
---   2. `bestLength`: it has `min k (length bank)` digits.
---   3. `bestOptimal`: no k batteries of `bank`, taken in order, make a
---      larger joltage.
---   4. `maxJoltageIsLargest`: so no k batteries make more joltage than
---      `bank.maxJoltage k`.
---   5. `maxJoltageIsMaximum`, the headline: `bank.maxJoltage k` is the
---      largest joltage from turning on exactly k batteries of the bank.
+--| Four facts about `best k bank` (plain-words summary in docs/aoc-2025.md):
+--|   1. `bestSub`: it is a subsequence of `bank` (batteries taken in order).
+--|   2. `bestLength`: it has `min k (length bank)` digits.
+--|   3. `bestOptimal`: no k batteries of `bank`, taken in order, make a
+--|      larger joltage.
+--|   4. `maxJoltageIsLargest`: so no k batteries make more joltage than
+--|      `bank.maxJoltage k`.
+--|   5. `maxJoltageIsMaximum`, the headline: `bank.maxJoltage k` is the
+--|      largest joltage from turning on exactly k batteries of the bank.
+--
 -- The optimality argument: every choice starts with some digit y inside the
 -- window that `pick` scans (it must leave k - 1 digits after it). If y is
 -- below pick's digit, the choice loses on its first digit
@@ -24,7 +27,7 @@ import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 -- comes from what follows pick's digit, where `best` (by induction on k)
 -- does at least as well.
 
--- Digits as numbers are digits.
+--| Digits as numbers are digits.
 theorem finDigits: (ds: List Battery) → Nat.Digits (List.map ds Fin.toNat)
   | Nil => Trivial
   | Cons d ds => Both (Fin.toNatLt d) (finDigits ds)
@@ -33,17 +36,17 @@ theorem mapLength (s: List Battery) (r: List Battery) (hl: s.length = r.length):
     List.length (List.map s Fin.toNat) = List.length (List.map r Fin.toNat) :=
   rewrite List.lengthMap s Fin.toNat, List.lengthMap r Fin.toNat in hl
 
--- Equal-length numbers: a smaller first digit gives a smaller number.
+--| Equal-length numbers: a smaller first digit gives a smaller number.
 theorem joltageOfHeadLess (y: Battery) (t: Battery) (s: List Battery) (r: List Battery) (hl: s.length = r.length)
     (h: y.toNat < t.toNat): joltageOf (Cons y s) ≤ joltageOf (Cons t r) :=
   Nat.fromDigitsHeadLess y.toNat t.toNat (List.map s Fin.toNat) (List.map r Fin.toNat) (mapLength s r hl) (finDigits s) h
 
--- Equal-length numbers with the same first digit: the rest decides.
+--| Equal-length numbers with the same first digit: the rest decides.
 theorem joltageOfConsLe (c: Battery) (s: List Battery) (r: List Battery) (hl: s.length = r.length)
     (h: joltageOf s ≤ joltageOf r): joltageOf (Cons c s) ≤ joltageOf (Cons c r) :=
   Nat.fromDigitsConsLe c.toNat (List.map s Fin.toNat) (List.map r Fin.toNat) (mapLength s r hl) h
 
--- What `pick` returns.
+--| What `pick` returns.
 theorem pickGe: (w: Nat) → (xs: Bank) → (c: Battery) → (after: Bank) → c.toNat ≤ Fin.toNat (Pair.fst (Bank.best.pick w xs c after))
   | Zero, xs, c, after => omega
   | Succ w, Nil, c, after => omega
@@ -61,8 +64,8 @@ theorem pickLen (k: Nat): (w: Nat) → (xs: Bank) → (c: Battery) → (after: B
       | True => pickLen k w more x more omega omega
       | False => pickLen k w more c after omega h2
 
--- If the candidate followed by `after`, and what is left to scan, are taken in
--- order from `t`, so is pick's digit followed by what comes after it.
+--| If the candidate followed by `after`, and what is left to scan, are taken in
+--| order from `t`, so is pick's digit followed by what comes after it.
 theorem pickSub (t: Bank): (w: Nat) → (xs: Bank) → (c: Battery) → (after: Bank) →
     xs.Subsequence t → List.Subsequence (Cons c after) t →
     List.Subsequence (Cons (Pair.fst (Bank.best.pick w xs c after)) (Pair.snd (Bank.best.pick w xs c after))) t
@@ -73,7 +76,7 @@ theorem pickSub (t: Bank): (w: Nat) → (xs: Bank) → (c: Battery) → (after: 
       | True => pickSub t w more x more (List.subsequenceTail x more t hx) hx
       | False => pickSub t w more c after (List.subsequenceTail x more t hx) hc
 
--- 1. `best k bank` is a subsequence of `bank`.
+--| 1. `best k bank` is a subsequence of `bank`.
 theorem bestSub: (k: Nat) → (bank: Bank) → List.Subsequence (bank.best k) bank
   | Zero, bank => Trivial
   | Succ k, Nil => Trivial
@@ -97,7 +100,7 @@ theorem bestLengthStep (k: Nat) (d: Battery) (rest: Bank)
         (omega: rest.length - k = 0),
         (omega: Nat.min k rest.length = rest.length)
 
--- 2. `best k bank` has k digits, or all of them if there are fewer.
+--| 2. `best k bank` has k digits, or all of them if there are fewer.
 theorem bestLength: (k: Nat) → (bank: Bank) → List.length (bank.best k) = Nat.min k bank.length
   | Zero, bank => rfl
   | Succ k, Nil => rfl
@@ -105,37 +108,37 @@ theorem bestLength: (k: Nat) → (bank: Bank) → List.length (bank.best k) = Na
 
 -- 3. No k digits of `bank`, in order, make a larger number than `best k bank`.
 
--- What `best k` is claimed to do: beat every k digits taken from `l`.
+--| What `best k` is claimed to do: beat every k digits taken from `l`.
 def BestBelow (k: Nat): Prop :=
   (l: Bank) → (s: Bank) → s.Subsequence l → s.length = k → joltageOf s ≤ joltageOf (l.best k)
 
--- The choices `pick` has seen so far: `y` followed by `s` is either the
--- current candidate `c` followed by digits from `after`, or a digit within
--- the next `w` of `xs` followed by digits from after it.
+--| The choices `pick` has seen so far: `y` followed by `s` is either the
+--| current candidate `c` followed by digits from `after`, or a digit within
+--| the next `w` of `xs` followed by digits from after it.
 def Candidate (k: Nat) (w: Nat) (xs: Bank) (c: Battery) (after: Bank) (y: Battery) (s: Bank): Prop :=
   (y = c ∧ s.Subsequence after) ∨ (List.Subsequence (Cons y s) xs ∧ xs.length ≤ w + k)
 
--- `pick`'s choice, followed by `best k` of what comes after it, beats them all.
+--| `pick`'s choice, followed by `best k` of what comes after it, beats them all.
 def PickBeats (k: Nat) (w: Nat) (xs: Bank) (c: Battery) (after: Bank): Prop :=
   k + w ≤ xs.length → k ≤ after.length → xs.Subsequence after →
   (y: Battery) → (s: Bank) → s.length = k → Candidate k w xs c after y s →
     let (top, rest) := Bank.best.pick w xs c after
     joltageOf (Cons y s) ≤ joltageOf (Cons top (Bank.best rest k))
 
--- `best k` of what follows the pick has k digits.
+--| `best k` of what follows the pick has k digits.
 theorem pickRestLength (k: Nat) (w: Nat) (more: Bank) (c: Battery) (after: Bank) (h1: k + w ≤ more.length) (h2: k ≤ after.length):
     List.length (Bank.best (Pair.snd (Bank.best.pick w more c after)) k) = k :=
   calc List.length (Bank.best (Pair.snd (Bank.best.pick w more c after)) k)
     _ = Nat.min k (List.length (Pair.snd (Bank.best.pick w more c after))) := bestLength k (Pair.snd (Bank.best.pick w more c after))
     _ = k := omega [pickLen k w more c after h1 h2]
 
--- A choice starting below pick's choice loses.
+--| A choice starting below pick's choice loses.
 theorem pickBeatsSmaller (k: Nat) (w: Nat) (more: Bank) (c: Battery) (after: Bank) (h1: k + w ≤ more.length) (h2: k ≤ after.length)
     (y: Battery) (s: Bank) (hk: s.length = k) (lt: y.toNat < Fin.toNat (Pair.fst (Bank.best.pick w more c after))):
     joltageOf (Cons y s) ≤ joltageOf (Cons (Pair.fst (Bank.best.pick w more c after)) (Bank.best (Pair.snd (Bank.best.pick w more c after)) k)) :=
   joltageOfHeadLess y (Pair.fst (Bank.best.pick w more c after)) s (Bank.best (Pair.snd (Bank.best.pick w more c after)) k) (Eq.trans hk (Eq.sym (pickRestLength k w more c after h1 h2))) lt
 
--- With nothing left to scan, `pick` keeps `c`.
+--| With nothing left to scan, `pick` keeps `c`.
 theorem pickBase (k: Nat) (ih: BestBelow k) (c: Battery) (after: Bank) (h2: k ≤ after.length)
     (y: Battery) (s: Bank) (hk: s.length = k) (e: y = c) (hs: s.Subsequence after):
     joltageOf (Cons y s) ≤ joltageOf (Cons c (after.best k)) :=
@@ -143,8 +146,8 @@ theorem pickBase (k: Nat) (ih: BestBelow k) (c: Battery) (after: Bank) (h2: k �
     _ = joltageOf (Cons c s) := rewrite e
     _ ≤ joltageOf (Cons c (after.best k)) := joltageOfConsLe c s (after.best k) (omega [bestLength k after]) (ih after s hs hk)
 
--- When `x` ties with `c`, starting from `x` is no better than from `c`, which
--- comes earlier.
+--| When `x` ties with `c`, starting from `x` is no better than from `c`, which
+--| comes earlier.
 theorem pickTie (k: Nat) (w: Nat) (x: Battery) (more: Bank) (c: Battery) (after: Bank)
     (rec: (c2: Battery) → (a2: Bank) → PickBeats k w more c2 a2)
     (h1: k + w ≤ more.length) (h2: k ≤ after.length) (hsa: List.Subsequence (Cons x more) after)
@@ -199,16 +202,16 @@ theorem bestOptimalStep (k: Nat) (d: Battery) (rest: Bank) (y: Battery) (s: Bank
   pickBest k ih (rest.length - k) rest d rest omega enough (List.subsequenceRefl rest) y s hk
     (Or.andWith omega h)
 
--- 4. Whichever k batteries you turn on, they produce no more than `bank.maxJoltage k`.
+--| 4. Whichever k batteries you turn on, they produce no more than `bank.maxJoltage k`.
 theorem maxJoltageIsLargest (k: Nat) (bank: Bank) (on: List Battery)
     (turnsOn: TurnsOn k bank on):
     joltageOf on ≤ bank.maxJoltage k := bestOptimal k bank on turnsOn.left turnsOn.right
 
--- 5. The headline, in the puzzle's words. When the bank has at least k
--- batteries, `bank.maxJoltage k` is the largest joltage you can get by
--- turning on exactly k of them: some k batteries of the bank, turned on in
--- order, do produce it (the ones `Bank.best bank k` picks), and no k batteries
--- of the bank produce more.
+--| 5. The headline, in the puzzle's words. When the bank has at least k
+--| batteries, `bank.maxJoltage k` is the largest joltage you can get by
+--| turning on exactly k of them: some k batteries of the bank, turned on in
+--| order, do produce it (the ones `Bank.best bank k` picks), and no k batteries
+--| of the bank produce more.
 theorem maxJoltageIsMaximum (k: Nat) (bank: Bank) (enough: k ≤ bank.length):
     (TurnsOn k bank (bank.best k) ∧ joltageOf (bank.best k) = bank.maxJoltage k)
       ∧ ((on: List Battery) → TurnsOn k bank on → joltageOf on ≤ bank.maxJoltage k) :=

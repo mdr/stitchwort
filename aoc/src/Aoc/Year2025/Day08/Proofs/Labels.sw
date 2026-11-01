@@ -1,6 +1,6 @@
--- Day 8's circuit labels, proved: after joining any connections in order,
--- two boxes have the same label exactly when the connections join them
--- (`labelsTell`, at the bottom). Part1.sw and Part2.sw build on it.
+--| Day 8's circuit labels, proved: after joining any connections in order,
+--| two boxes have the same label exactly when the connections join them
+--| (`labelsTell`, at the bottom). Part1.sw and Part2.sw build on it.
 --
 -- The argument: four facts hold of the labels after every connection
 -- (`Labelled`), from the start (`labelledAtStart`) and through each join
@@ -21,16 +21,16 @@ import Aoc.Year2025.Day08 (..)
 import Aoc.Year2025.Day08.Spec (..)
 import Std (And, Bool, DecEq, Eq, List, Map, Nat, Option, Ord, Ordering, Pair, Void)
 
--- Joining the connections in order, from the circuits given: `solvePart1`'s fold.
+--| Joining the connections in order, from the circuits given: `solvePart1`'s fold.
 def joinAll (circuits: Circuits) (connections: List (Nat, Nat)): Circuits :=
   connections.foldLeft circuits (c pair => c.join pair.fst pair.snd)
 
--- Both boxes of the pair are among the boxes 0 to n - 1.
+--| Both boxes of the pair are among the boxes 0 to n - 1.
 def boxesBelow (n: Nat) (pair: (Nat, Nat)): Bool := Nat.leq (Succ pair.fst) n ∧ Nat.leq (Succ pair.snd) n
 
 -- Facts about `Joined` -------------------------------------------------------
 
--- More connections join at least the same boxes.
+--| More connections join at least the same boxes.
 theorem joinedMore (xs: List (Nat, Nat)) (ys: List (Nat, Nat)) (more: (e: (Nat, Nat)) → List.Mem e xs → List.Mem e ys):
     (a: Nat) → (b: Nat) → Joined xs a b → Joined ys a b
   | a, a, Itself a => Itself a
@@ -38,12 +38,12 @@ theorem joinedMore (xs: List (Nat, Nat)) (ys: List (Nat, Nat)) (more: (e: (Nat, 
   | a, b, Backwards j => Backwards (joinedMore xs ys more b a j)
   | a, c, Chain [b := m] j k => Chain (joinedMore xs ys more a m j) (joinedMore xs ys more m c k)
 
--- ... in particular, connections added at the end.
+--| ... in particular, connections added at the end.
 theorem joinedAppend (xs: List (Nat, Nat)) (extra: List (Nat, Nat)) (a: Nat) (b: Nat) (j: Joined xs a b): Joined (List.append xs extra) a b :=
   joinedMore xs (List.append xs extra) (e m => List.anyAppendLeft (y => y = e) xs extra m) a b j
 
--- If the two boxes of every connection have the same label, so do any two
--- joined boxes: each link of the chain keeps the label.
+--| If the two boxes of every connection have the same label, so do any two
+--| joined boxes: each link of the chain keeps the label.
 theorem sameLabelOfJoined (label: Nat → Nat) (xs: List (Nat, Nat)) (agree: (a: Nat) → (b: Nat) → List.Mem (a, b) xs → label a = label b):
     (a: Nat) → (b: Nat) → Joined xs a b → label a = label b
   | a, a, Itself a => rfl
@@ -51,10 +51,10 @@ theorem sameLabelOfJoined (label: Nat → Nat) (xs: List (Nat, Nat)) (agree: (a:
   | a, b, Backwards j => Eq.sym (sameLabelOfJoined label xs agree b a j)
   | a, c, Chain [b := m] j k => Eq.trans (sameLabelOfJoined label xs agree a m j) (sameLabelOfJoined label xs agree m c k)
 
--- The connection just added.
+--| The connection just added.
 theorem memLast (e: (Nat, Nat)) (xs: List (Nat, Nat)): List.Mem e (List.append xs [e]) := List.anyAppendRight (y => y = e) xs [e] (Inl rfl)
 
--- A connection of `xs` then `e` is one of `xs`, or `e`.
+--| A connection of `xs` then `e` is one of `xs`, or `e`.
 theorem memSnoc (a: Nat) (b: Nat) (e: (Nat, Nat)) (xs: List (Nat, Nat)) (m: List.Mem (a, b) (List.append xs [e])) (goal: Prop)
     (old: List.Mem (a, b) xs → goal) (new: And (a = e.fst) (b = e.snd) → goal): goal :=
   match List.memAppend (a, b) xs [e] m with
@@ -64,8 +64,8 @@ theorem memSnoc (a: Nat) (b: Nat) (e: (Nat, Nat)) (xs: List (Nat, Nat)) (m: List
 
 -- Labels ---------------------------------------------------------------------
 
--- What the labels of `circuits` say about the boxes 0 to n - 1 after the
--- connections `done` (the four facts at the top).
+--| What the labels of `circuits` say about the boxes 0 to n - 1 after the
+--| connections `done` (the four facts at the top).
 type Labelled (n: Nat) (done: List (Nat, Nat)) (circuits: Circuits): Prop = {
   stored: (b: Nat) → b < n → Map.get circuits.labels b = Some (circuits.labelOf b),
   inRange: (a: Nat) → (b: Nat) → List.Mem (a, b) done → And (a < n) (b < n),
@@ -75,7 +75,7 @@ type Labelled (n: Nat) (done: List (Nat, Nat)) (circuits: Circuits): Prop = {
 
 -- At the start each box is its own label ----------------------------------
 
--- The map built from (s, s), (s + 1, s + 1), ..., has nothing for a box below s ...
+--| The map built from (s, s), (s + 1, s + 1), ..., has nothing for a box below s ...
 theorem lookupBelow (b: Nat): (c: Nat) → (s: Nat) → b < s →
     Map.lookupLast b (List.map (List.rangeFrom c s) (box => (box, box))) = None
   | Zero, s, h => rfl
@@ -86,7 +86,7 @@ theorem lookupBelow (b: Nat): (c: Nat) → (s: Nat) → b < s →
         | Equal => omega [Nat.compareEqual b s e]
         | Greater => rfl
 
--- ... and each box from s on is its own label.
+--| ... and each box from s on is its own label.
 theorem lookupRange (b: Nat): (c: Nat) → (s: Nat) → s ≤ b → b < s + c →
     Map.lookupLast b (List.map (List.rangeFrom c s) (box => (box, box))) = Some b
   | Zero, s, h1, h2 => omega
@@ -112,11 +112,11 @@ theorem labelledAtStart (n: Nat): Labelled n Nil (Circuits.separate n) :=
 
 -- A join keeps the four facts ------------------------------------------------
 
--- After joining two boxes with different labels, a box labelled like the
--- first takes the second's label, and the others keep theirs.
+--| After joining two boxes with different labels, a box labelled like the
+--| first takes the second's label, and the others keep theirs.
 def relabel (from: Nat) (to: Nat) (label: Nat): Nat := if label == from then to else label
 
--- What `join` makes of two boxes with different labels.
+--| What `join` makes of two boxes with different labels.
 def moved (c: Circuits) (f: Nat) (s: Nat): Circuits :=
   { labels = c.labels |> Map.map (relabel (c.labelOf f) (c.labelOf s)), count = c.count - 1 }
 
@@ -126,7 +126,7 @@ theorem joinSame (c: Circuits) (f: Nat) (s: Nat) (same: (c.labelOf f == c.labelO
 theorem joinDiffers (c: Circuits) (f: Nat) (s: Nat) (differ: (c.labelOf f == c.labelOf s) = False): c.join f s = moved c f s :=
   rewrite differ in rfl
 
--- The new labels: the old ones, relabelled.
+--| The new labels: the old ones, relabelled.
 theorem movedStored (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (stored: (b: Nat) → b < n → Map.get c.labels b = Some (c.labelOf b))
     (b: Nat) (h: b < n): Map.get (moved c f s).labels b = Some (relabel (c.labelOf f) (c.labelOf s) (c.labelOf b)) :=
   rewrite Map.getMap c.labels b (relabel (c.labelOf f) (c.labelOf s)), stored b h in rfl
@@ -135,7 +135,7 @@ theorem movedLabel (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (stored: (b: Nat) �
     (b: Nat) (h: b < n): (moved c f s).labelOf b = relabel (c.labelOf f) (c.labelOf s) (c.labelOf b) :=
   rewrite movedStored c f s n stored b h in rfl
 
--- s's label stays, f's moves to it.
+--| s's label stays, f's moves to it.
 theorem relabelTo (from: Nat) (to: Nat) (differ: (from == to) = False): relabel from to to = to :=
   match g: to == from with
     | True => Void.exfalso (DecEq.soundFalse from to differ (Eq.sym (DecEq.sound to from g)))
@@ -184,7 +184,7 @@ theorem labelledJoin (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
       }
     | False => labelledMoved n done c f s hf hs e inv
 
--- Joining a list of connections keeps them.
+--| Joining a list of connections keeps them.
 theorem labelledJoinAll (n: Nat): (rest: List (Nat, Nat)) → (done: List (Nat, Nat)) → (c: Circuits) →
     List.all rest (boxesBelow n) = True → Labelled n done c →
     Labelled n (List.append done rest) (joinAll c rest)
@@ -199,7 +199,7 @@ theorem labelledJoinAll (n: Nat): (rest: List (Nat, Nat)) → (done: List (Nat, 
 
 -- The label theorem -----------------------------------------------------------
 
--- Two boxes have the same label exactly when they're joined.
+--| Two boxes have the same label exactly when they're joined.
 theorem labelsTellOf (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled n done c):
     Tells n done (a b => c.labelOf a == c.labelOf b) :=
   a b ha hb => {
@@ -207,8 +207,8 @@ theorem labelsTellOf (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labell
     backward = j => rewrite sameLabelOfJoined c.labelOf done inv.agree a b j in DecEq.refl (c.labelOf b)
   }
 
--- After joining any connections between the boxes 0 to n - 1, in order, two
--- of the boxes have the same label exactly when the connections join them.
+--| After joining any connections between the boxes 0 to n - 1, in order, two
+--| of the boxes have the same label exactly when the connections join them.
 theorem labelsTell (n: Nat) (connections: List (Nat, Nat)) (ok: List.all connections (boxesBelow n) = True):
     Tells n connections (a b => (joinAll (Circuits.separate n) connections).labelOf a == (joinAll (Circuits.separate n) connections).labelOf b) :=
   labelsTellOf n connections (joinAll (Circuits.separate n) connections) (labelledJoinAll n connections Nil (Circuits.separate n) ok (labelledAtStart n))

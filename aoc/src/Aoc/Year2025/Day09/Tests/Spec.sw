@@ -1,13 +1,13 @@
--- Day 9's specification (Spec/Spec.sw) on the puzzle's example and small
--- cases: the spec's own reading, tile by tile, gives the puzzle's answers.
+--| Day 9's specification (Spec/Spec.sw) on the puzzle's example and small
+--| cases: the spec's own reading, tile by tile, gives the puzzle's answers.
 
 namespace Aoc.Year2025.Day09.Tests
 import Aoc.Year2025.Day09 (..)
 import Aoc.Year2025.Day09.Spec (..)
 import Std (List, Nat, Result)
 
--- The largest area the spec allows, worked out tile by tile (slow: only
--- for small floors).
+--| The largest area the spec allows, worked out tile by tile (slow: only
+--| for small floors).
 def specPart2 (tiles: List Tile): Nat := rectangles tiles |> .filter (allRedOrGreen tiles) |> .map pairArea |> largest
 
 test "the spec's rectangles" := rectangles [tile 1 1, tile 2 2, tile 3 3] == [(tile 1 1, tile 2 2), (tile 1 1, tile 3 3), (tile 2 2, tile 3 3)]

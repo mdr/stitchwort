@@ -1,6 +1,8 @@
--- Day 8, part 1, proved for every list of boxes and every number of
--- connections (`part1Correct`, at the bottom): the program's answer is the
--- product of the three largest circuits of Spec/Spec.sw. The argument:
+--| Day 8, part 1, proved for every list of boxes and every number of
+--| connections (`part1Correct`, at the bottom): the program's answer is the
+--| product of the three largest circuits of Spec/Spec.sw.
+--
+-- The argument:
 --   1. The program's sorted pairs are the spec's connection order, each
 --      with its key (`closestFirstIsOrder`): numbering the boxes and taking
 --      every pair is `allPairs`, and sorting the keyed pairs is sorting the
@@ -19,8 +21,8 @@ import Std (And, Bool, Eq, List, Nat, Ord, Ordering, Pair, Void)
 
 -- The program's order is the spec's ----------------------------------------
 
--- The program's pairs, closest first, are the spec's connections in order,
--- each with its key: sorting the keys is sorting the pairs by their keys.
+--| The program's pairs, closest first, are the spec's connections in order,
+--| each with its key: sorting the keys is sorting the pairs by their keys.
 theorem closestFirstIsOrder (points: List Point): closestFirst points = List.map (connectionOrder points) (connectionKey points) :=
   calc closestFirst points
     _ = List.sort (List.map (allPairs points.length) (connectionKey points)) :=
@@ -29,7 +31,7 @@ theorem closestFirstIsOrder (points: List Point): closestFirst points = List.map
         in rfl
     _ = List.map (connectionOrder points) (connectionKey points) := Eq.sym (List.sortOnMap (allPairs points.length) (connectionKey points))
 
--- The program's fold joins the first k connections.
+--| The program's fold joins the first k connections.
 theorem joinedIsJoinAll (k: Nat) (points: List Point):
     List.foldLeft (List.take (closestFirst points) k) (Circuits.separate points.length) Circuits.connect
       = joinAll (Circuits.separate points.length) (firstConnections k points) :=
@@ -54,7 +56,7 @@ theorem allTake (p: a → Bool): (k: Nat) → (xs: List a) → List.all xs p = T
       | True => allTake p k xs h
       | False => h
 
--- If every element passes q, so do both ends of every pair.
+--| If every element passes q, so do both ends of every pair.
 theorem allPairsBoth (q: Nat → Bool): (xs: List Nat) → List.all xs q = True → List.all (List.pairs xs) (pair => q pair.fst ∧ q pair.snd) = True
   | Nil, h => rfl
   | Cons x xs, h =>
@@ -81,22 +83,22 @@ theorem connectionsInRange (k: Nat) (points: List Point): List.all (firstConnect
 
 -- The program's sizes are the spec's ----------------------------------------
 
--- Two tests that agree on the boxes give the same sizes.
+--| Two tests that agree on the boxes give the same sizes.
 theorem circuitSizesCongRange (n: Nat) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)
     (agree: (a: Nat) → (b: Nat) → a < n → b < n → same1 a b = same2 a b): circuitSizes n same1 = circuitSizes n same2 :=
   let below: (x: Nat) → List.Mem x (List.range n) → x < n := x m => And.right (List.memRangeFrom x n 0 m)
   rewrite agree, agree _ _ _ (below _ (And.left (List.memFilter (List.range n) _ _ _)))
 
--- Two tests that tell agree.
+--| Two tests that tell agree.
 theorem tellersAgree (n: Nat) (connections: List (Nat, Nat)) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)
     (t1: Tells n connections same1) (t2: Tells n connections same2) (a: Nat) (b: Nat) (ha: a < n) (hb: b < n): same1 a b = same2 a b :=
   Bool.eqOf (same1 a b) (same2 a b)
     (s => (t2 a b ha hb).backward ((t1 a b ha hb).forward s))
     (s => (t1 a b ha hb).backward ((t2 a b ha hb).forward s))
 
--- Part 1 is right: for every list of boxes and every k, the program's
--- answer is the product of the three largest circuits after the first k
--- connections, whatever test is used to tell the circuits.
+--| Part 1 is right: for every list of boxes and every k, the program's
+--| answer is the product of the three largest circuits after the first k
+--| connections, whatever test is used to tell the circuits.
 theorem part1Correct (k: Nat) (points: List Point) (sameCircuit: Nat → Nat → Bool)
     (tells: Tells points.length (firstConnections k points) sameCircuit):
     solvePart1 k (Boxes.of points) = threeLargestProduct (circuitSizes points.length sameCircuit) :=

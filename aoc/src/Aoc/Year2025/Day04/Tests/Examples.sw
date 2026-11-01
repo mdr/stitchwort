@@ -1,4 +1,6 @@
--- Day 4's tests: the example from the puzzle and unit tests. Kept apart from
+--| Day 4's tests: the example from the puzzle and unit tests.
+--
+-- Kept apart from
 -- the program, so `stitchwort run Aoc.Year2025.Day04.main` doesn't check them.
 
 namespace Aoc.Year2025.Day04.Tests
@@ -18,7 +20,7 @@ def example: List Text := """
   @.@.@@@.@.
   """.lines
 
--- Both answers for some lines, if they make a grid.
+--| Both answers for some lines, if they make a grid.
 def answers (lines: List Text): Result (Nat, Nat) Text := Result.map (parseGrid lines) (grid => (solvePart1 grid, solvePart2 grid))
 
 test "example" := answers example == Ok (13, 43)
@@ -35,7 +37,7 @@ test "rolls" := Result.map (parseGrid example) Grid.rolls == Ok 71
 test "one wide row" := answers ["@@@@@"] == Ok (5, 5)
 test "one narrow column" := answers ["@", "@", "@", "@", "@"] == Ok (5, 5)
 
--- What `main` prints and how it ends, for some input lines.
+--| What `main` prints and how it ends, for some input lines.
 def ran (lines: List Text): Pair (List Text) (Result Bool Text) :=
   IO.simulate lines (() => Result.map (Fail.toResult main) (u => True))
 

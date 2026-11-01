@@ -1,18 +1,18 @@
--- Advent of Code 2025, day 3: each line is a bank of batteries with a digit
--- on each. Pick k batteries, in order, to make the largest k-digit number
--- (2 digits in part 1, 12 in part 2). Sum the best number over the banks.
---
---   $ cd aoc && stitchwort run Aoc.Year2025.Day03.main < inputs/2025/day03.txt
---
--- The puzzle input is committed in aoc/inputs/2025/.
---
--- Greedy: the first digit is the largest one in the part of the bank that
--- still leaves k - 1 digits after it, taking the leftmost such digit so the
--- most is left over; then repeat on what follows it.
---
--- That this is the largest number is proved in `Aoc.Year2025.Day03.Proofs`
--- (Proofs/Best.sw); the tests are in `Aoc.Year2025.Day03.Tests` (Tests/). `run` checks
--- neither.
+--| Advent of Code 2025, day 3: each line is a bank of batteries with a digit
+--| on each. Pick k batteries, in order, to make the largest k-digit number
+--| (2 digits in part 1, 12 in part 2). Sum the best number over the banks.
+--|
+--|   $ cd aoc && stitchwort run Aoc.Year2025.Day03.main < inputs/2025/day03.txt
+--|
+--| The puzzle input is committed in aoc/inputs/2025/.
+--|
+--| Greedy: the first digit is the largest one in the part of the bank that
+--| still leaves k - 1 digits after it, taking the leftmost such digit so the
+--| most is left over; then repeat on what follows it.
+--|
+--| That this is the largest number is proved in `Aoc.Year2025.Day03.Proofs`
+--| (Proofs/Best.sw); the tests are in `Aoc.Year2025.Day03.Tests` (Tests/). `run` checks
+--| neither.
 
 namespace Aoc.Year2025.Day03
 import Std (Char, Fail, Fin, IO, Nat, Parse)
@@ -23,34 +23,34 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 banks}"
   IO.print "Part 2: ${solvePart2 banks}"
 
--- One bank per line. Spaces around a bank are allowed; anything else fails,
--- naming the line and column.
+--| One bank per line. Spaces around a bank are allowed; anything else fails,
+--| naming the line and column.
 def parseBanks (input: Text): {Fail} (List Bank) := Parse.eachLine input bank
 
 def solvePart1 (banks: List Bank): Nat := banks |> .sumBy (.maxJoltage 2)
 
 def solvePart2 (banks: List Bank): Nat := banks |> .sumBy (.maxJoltage part2Batteries)
 
--- Part 2 turns on exactly this many batteries of each bank.
+--| Part 2 turns on exactly this many batteries of each bank.
 def part2Batteries: Nat := 12
 
--- The joltage of some batteries turned on: the number their digits spell, in order.
+--| The joltage of some batteries turned on: the number their digits spell, in order.
 def joltageOf (on: List Battery): Nat := on.map .toNat |> Nat.fromDigits
 
--- The most joltage from turning on count batteries of the bank, or all of them if the bank has fewer.
+--| The most joltage from turning on count batteries of the bank, or all of them if the bank has fewer.
 def Bank.maxJoltage (bank: Bank) (count: Nat): Nat := joltageOf (bank.best count)
 
--- A battery, labelled with its joltage rating, a digit.
+--| A battery, labelled with its joltage rating, a digit.
 def Battery: Type := Fin 10
 
--- A bank of batteries: a digit on each.
+--| A bank of batteries: a digit on each.
 def Bank: Type := List Battery
 
--- A row of digits is a bank of that many batteries. A bank must have the
--- `part2Batteries` that part 2 turns on (and so the 2 of part 1), so the
--- program only runs on banks the headline theorem covers (`enough` in
--- Proofs/Best.sw). A shorter one is an input error, once the whole line is
--- known to be digits.
+--| A row of digits is a bank of that many batteries. A bank must have the
+--| `part2Batteries` that part 2 turns on (and so the 2 of part 1), so the
+--| program only runs on banks the headline theorem covers (`enough` in
+--| Proofs/Best.sw). A shorter one is an input error, once the whole line is
+--| known to be digits.
 def bank(): {Parse} Bank :=
   spaces()
   let batteries := many1 digit
@@ -59,7 +59,7 @@ def bank(): {Parse} Bank :=
   Parse.ensure (batteries.length ≥ part2Batteries) "expected at least ${part2Batteries} batteries, got ${batteries.length}"
   batteries
 
--- The digits of the largest number of `count` digits that is a subsequence of the bank (`count` is the second argument; all the digits if the bank has fewer).
+--| The digits of the largest number of `count` digits that is a subsequence of the bank (`count` is the second argument; all the digits if the bank has fewer).
 def Bank.best: Bank → Nat → Bank
   | _, Zero => []
   | [], Succ _ => []

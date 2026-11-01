@@ -1,6 +1,8 @@
--- Day 4, part 1 proved for every grid: the printed answer is the number of
--- accessible rolls as Spec/Spec.sw states it (`part1Correct`, at the
--- bottom). The argument: a round leaves each cell as `keep cell window`
+--| Day 4, part 1 proved for every grid: the printed answer is the number of
+--| accessible rolls as Spec/Spec.sw states it (`part1Correct`, at the
+--| bottom).
+--
+-- The argument: a round leaves each cell as `keep cell window`
 -- (`cellRound`, Proofs/Window.sw), where the window is the 3 by 3 block
 -- around it; the window is the spec's neighbours plus the cell itself
 -- (`windowIsNeighbours`); and a round only removes rolls (`keepLe`), so the
@@ -11,7 +13,7 @@ import Aoc.Year2025.Day04 (..)
 import Aoc.Year2025.Day04.Spec (..)
 import Std (Bool, Eq, List, Nat, Vec)
 
--- The rolls of all the rows, cell by cell.
+--| The rolls of all the rows, cell by cell.
 theorem rollsCells (rows: Vec (Vec Cell w) h): countRolls rows = List.sumBy (List.range h) (r => List.sumBy (List.range w) (c => (rowsCells rows r c).count)) :=
   let gap := Vec.replicate w Floor
   calc countRolls rows
@@ -19,7 +21,7 @@ theorem rollsCells (rows: Vec (Vec Cell w) h): countRolls rows = List.sumBy (Lis
     _ = List.sumBy (List.range h) (r => List.sumBy (List.range w) (c => (rowsCells rows r c).count))
       := rewrite Vec.sumByGetOr _ Floor Cell.count
 
--- What a round takes from one cell: 1 when it holds an accessible roll.
+--| What a round takes from one cell: 1 when it holds an accessible roll.
 theorem taken: (a: Cell) → (n: Nat) → Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll ∧ n < 4)
   | Floor, n => rfl
   | Roll, n =>
@@ -28,8 +30,8 @@ theorem taken: (a: Cell) → (n: Nat) → Cell.count a - Cell.count (keep a (n +
         | True => rfl
         | False => rfl
 
--- Part 1 is right for every grid: the printed answer is the number of rolls
--- with fewer than four rolls around them.
+--| Part 1 is right for every grid: the printed answer is the number of rolls
+--| with fewer than four rolls around them.
 theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
   let cells := grid.cells
   let below := (r: Nat) => (c: Nat) => (h: grid.height ≤ r) => rowsCellsBelow grid.rows r c h
