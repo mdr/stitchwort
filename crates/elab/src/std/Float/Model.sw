@@ -25,6 +25,7 @@ def Float.Model.pow2From: Nat → Nat → Nat
 --| instead of unfolding into its squarings.
 def Float.Model.pow2 (k: Nat): Nat := Float.Model.pow2When (Nat.leq k 65535) k
 
+--| 2^k, given whether `k` is at most 65535: by squarings then, otherwise by `Nat.pow`.
 def Float.Model.pow2When: Bool → Nat → Nat
   | True, k => Float.Model.pow2From 16 k
   | False, k => Nat.pow 2 k
@@ -54,6 +55,7 @@ def Float.Model.bitLengthBy: List Nat → Nat → Nat → Nat
 -- Split on the size first, so that for an unknown `n` it stays a call.
 def Float.Model.bitLength (n: Nat): Nat := Float.Model.bitLengthWhen (Nat.leq n 65535) n
 
+--| The number of binary digits of `n`, given whether `n` is at most 65535.
 def Float.Model.bitLengthWhen: Bool → Nat → Nat
   | True, n => Float.Model.bitLengthSlow 16 n
   | False, n => Float.Model.bitLengthBy (Float.Model.squaresFrom 13 2 Nil) 4096 n
@@ -113,12 +115,14 @@ def Float.Model.roundCore (negative: Bool) (exponent: Nat) (q: Nat) (loc: Float.
   let finite: Nat := if Nat.leq 9218868437227405312 bits then 9218868437227405312 else bits
   if negative then finite + 9223372036854775808 else finite
 
---| `n × 2^shift` and `d`, or `n` and `d × 2^-shift`: a fraction scaled by
---| `2^shift`, both parts whole.
+--| The numerator of `n / d` scaled by `2^shift`: `n × 2^shift`, or `n` when the shift is negative.
+-- `n × 2^shift` and `d`, or `n` and `d × 2^-shift`: a fraction scaled by
+-- `2^shift`, both parts whole.
 def Float.Model.scaleUp (n: Nat): Int → Nat
   | OfNat k => n * Float.Model.pow2 k
   | NegSucc k => n
 
+--| The denominator of `n / d` scaled by `2^shift`: `d`, or `d × 2^-shift` when the shift is negative.
 def Float.Model.scaleDown (d: Nat): Int → Nat
   | OfNat k => d
   | NegSucc k => d * Float.Model.pow2 (Succ k)
@@ -148,8 +152,10 @@ def Float.Model.roundRatio (num: Int) (den: Nat) (scale: Int) (zeroSign: Bool): 
 --| The double nearest `n × 2^e`.
 def Float.Model.roundScaled (n: Int) (e: Int) (zeroSign: Bool): Nat := Float.Model.roundRatio n 1 e zeroSign
 
+--| Whether a bit pattern is the NaN's.
 def Float.Model.isNaN (bits: Nat): Bool := Nat.equal bits 9221120237041090560
 
+--| Whether a bit pattern is an infinity's, of either sign.
 def Float.Model.isInfinite (bits: Nat): Bool := Nat.equal (Float.Model.magnitude bits) 9218868437227405312
 
 --| `x + y`: the NaN if either is, or for infinities of opposite signs; an
