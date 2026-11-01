@@ -1,5 +1,6 @@
--- core/Ordering.sw. `Ordering`, `Nat.compare`, and the combinators `andThen`
--- and `index` with decidable equality. Loaded with the core: Every `Ord`
+--| core/Ordering.sw. `Ordering`, `Nat.compare`, and the combinators `andThen`
+--| and `index` with decidable equality.
+-- Loaded with the core: Every `Ord`
 -- instance compares to an `Ordering`, and `deriving (Ord)` writes
 -- `Ordering.andThen` in full (docs/proposals/prelude-slim.md §2.1).
 
@@ -12,7 +13,7 @@ type Ordering: Type =
 
 def Nat.compare (m: Nat) (n: Nat): Ordering := if Nat.equal m n then Equal else (if Nat.leq m n then Less else Greater)
 
--- The first comparison, unless it's `Equal`.
+--| The first comparison, unless it's `Equal`.
 def Ordering.andThen: Ordering → Ordering → Ordering
   | Less, second => Less
   | Equal, second => second

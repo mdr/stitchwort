@@ -1,5 +1,6 @@
--- core/Show.sw. The `Show` interface, its quoting and bracketing helpers, and
--- the `Show` instances for the core types. Loaded with the core:
+--| core/Show.sw. The `Show` interface, its quoting and bracketing helpers, and
+--| the `Show` instances for the core types.
+-- Loaded with the core:
 -- Interpolation (`"${e}"`) and `deriving (Show)` use `Show`, and the elements
 -- of lists and tuples print through it (docs/proposals/prelude-slim.md §2.1).
 
@@ -10,13 +11,13 @@
 -- parse back. A data type or record declared in a program gets both
 -- derived (`T.%instShow`); a module's own `instance` replaces that.
 
--- Itself: so `"${text}"` works when `text` is already text.
+--| Itself: so `"${text}"` works when `text` is already text.
 def Text.toText (text: Text): Text := text
 
--- The character on its own: `'a'.toText` is `"a"`.
+--| The character on its own: `'a'.toText` is `"a"`.
 def Char.toText (char: Char): Text := MkText [char]
 
--- `"True"` or `"False"`, as the constructors are written.
+--| `"True"` or `"False"`, as the constructors are written.
 def Bool.toText: Bool → Text
   | True => "True"
   | False => "False"
@@ -31,11 +32,11 @@ interface Show (a: Type) = {
   toSource: a → Text
 }
 
--- An instance whose two fields are the same: for numbers, and for a user's
--- own type with a `toText`: `instance Point.instShow: Show Point := Show.fromText Point.toText`.
+--| An instance whose two fields are the same: for numbers, and for a user's
+--| own type with a `toText`: `instance Point.instShow: Show Point := Show.fromText Point.toText`.
 def Show.fromText (f: a → Text): Show a := { toText = f, toSource = f }
 
--- A character as it's written in a literal quoted with `quote`, then `rest`.
+--| A character as it's written in a literal quoted with `quote`, then `rest`.
 def Show.escapeChar (quote: Char) (char: Char) (rest: List Char): List Char :=
   if Nat.equal (Char.toNat char) 92 then Cons '\\' (Cons '\\' rest)
   else if Nat.equal (Char.toNat char) (Char.toNat quote) then Cons '\\' (Cons char rest)
@@ -44,8 +45,8 @@ def Show.escapeChar (quote: Char) (char: Char) (rest: List Char): List Char :=
   else if Nat.equal (Char.toNat char) 13 then Cons '\\' (Cons 'r' rest)
   else Cons char rest
 
--- As above, for a character that's followed by `next`: a `$` before a `{`
--- would start an interpolation.
+--| As above, for a character that's followed by `next`: a `$` before a `{`
+--| would start an interpolation.
 def Show.escapeBefore (quote: Char) (char: Char) (rest: List Char): List Char → List Char
   | Nil => Show.escapeChar quote char rest
   | Cons next _ =>
@@ -57,29 +58,29 @@ def Show.escapeChars (quote: Char): List Char → List Char
   | Nil => Nil
   | Cons char chars => Show.escapeBefore quote char (Show.escapeChars quote chars) chars
 
--- `"tea"` with its quotes and escapes.
+--| `"tea"` with its quotes and escapes.
 def Show.quoteText (text: Text): Text :=
   MkText (Cons '"' (List.append (Show.escapeChars '"' (Text.toList text)) (Cons '"' Nil)))
 
--- `'a'`.
+--| `'a'`.
 def Show.quoteChar (char: Char): Text := MkText (Cons '\'' (Show.escapeChar '\'' char (Cons '\'' Nil)))
 
 def Show.hasSpace: List Char → Bool
   | Nil => False
   | Cons char chars => if Nat.equal (Char.toNat char) 32 then True else Show.hasSpace chars
 
--- Whether text starts like a bracketed or quoted thing, which reads as one
--- piece: `[`, `(`, `"`, `'`. (`{` is not one: braces straight after a
--- constructor name its fields, so a record argument is bracketed.)
+--| Whether text starts like a bracketed or quoted thing, which reads as one
+--| piece: `[`, `(`, `"`, `'`. (`{` is not one: braces straight after a
+--| constructor name its fields, so a record argument is bracketed.)
 def Show.startsBracketed (char: Char): Bool :=
   if Nat.equal (Char.toNat char) 91 then True
   else if Nat.equal (Char.toNat char) 40 then True
   else if Nat.equal (Char.toNat char) 34 then True
   else Nat.equal (Char.toNat char) 39
 
--- An argument of a constructor: bracketed when it has spaces and isn't
--- already one piece (`Some (Some 1)`, `Some (-5)`, `Some [1, 2]`,
--- `Some ({ price = 3 })`).
+--| An argument of a constructor: bracketed when it has spaces and isn't
+--| already one piece (`Some (Some 1)`, `Some (-5)`, `Some [1, 2]`,
+--| `Some ({ price = 3 })`).
 def Show.argOf (text: Text): List Char → Text
   | Nil => text
   | Cons char chars =>
@@ -99,7 +100,7 @@ def Show.items (f: a → Text): List a → Text
   | Nil => ""
   | Cons x xs => Text.append (f x) (Show.itemsAfter f xs)
 
--- `[1, 2, 3]`, the elements through `f`.
+--| `[1, 2, 3]`, the elements through `f`.
 def Show.list (f: a → Text) (xs: List a): Text :=
   Text.append "[" (Text.append (Show.items f xs) "]")
 

@@ -1,16 +1,17 @@
--- core/Text.sw. `Text`: the type, conversion to and from lists of characters,
--- decidable equality, comparison, and `Nat.toText`. Loaded with the core:
+--| core/Text.sw. `Text`: the type, conversion to and from lists of characters,
+--| decidable equality, comparison, and `Nat.toText`.
+-- Loaded with the core:
 -- `Text` is pinned by content hash in the JS backend, and the `Show`
 -- instances need `Nat.toText` and `Text.compare`
 -- (docs/proposals/prelude-slim.md §2.1).
 
 -- Text (docs/proposals/text-and-io.md)
 
--- A sequence of Unicode scalar values. `"héllo"` is a `Text`. Equality and
--- ordering compare the sequence exactly, by scalar value, and length counts
--- scalar values; nothing is normalised, so `"\u{E9}"` and `"e\u{301}"` are
--- different texts. Code that goes through `Text.toList` and `Text.fromList`
--- and their lemmas, rather than `MkText`, won't depend on the representation.
+--| A sequence of Unicode scalar values. `"héllo"` is a `Text`. Equality and
+--| ordering compare the sequence exactly, by scalar value, and length counts
+--| scalar values; nothing is normalised, so `"\u{E9}"` and `"e\u{301}"` are
+--| different texts. Code that goes through `Text.toList` and `Text.fromList`
+--| and their lemmas, rather than `MkText`, won't depend on the representation.
 type Text: Type =
   | MkText (chars: List Char)
 
@@ -22,7 +23,7 @@ def Text.fromList (cs: List Char): Text := MkText cs
 theorem Text.fromToList: (t: Text) → Text.fromList (Text.toList t) = t
   | MkText cs => rfl
 
--- `a ++ b`
+--| `a ++ b`
 def Text.append (a: Text) (b: Text): Text := MkText (List.append (Text.toList a) (Text.toList b))
 
 def Text.decEqFrom (a: Text) (b: Text): Decidable (Text.toList a = Text.toList b) → Decidable (a = b)
@@ -38,8 +39,8 @@ def Text.compareChars: List Char → List Char → Ordering
   | Cons x xs, Cons y ys =>
     Ordering.andThen (Nat.compare (Char.toNat x) (Char.toNat y)) (Text.compareChars xs ys)
 
--- Lexicographic, by scalar value. (Not JavaScript's order, which compares
--- UTF-16 code units: there, "\u{10000}" sorts before "\u{E000}".)
+--| Lexicographic, by scalar value. (Not JavaScript's order, which compares
+--| UTF-16 code units: there, "\u{10000}" sorts before "\u{E000}".)
 def Text.compare (a: Text) (b: Text): Ordering := Text.compareChars (Text.toList a) (Text.toList b)
 
 -- Numbers as text
@@ -56,12 +57,12 @@ def Nat.digitChar: Nat → Char
   | 8 => '8'
   | _ => '9'
 
--- The digits of `n` in front of `acc`. `fuel` keeps it structurally
--- recursive; `n + 1` is always enough.
+--| The digits of `n` in front of `acc`. `fuel` keeps it structurally
+--| recursive; `n + 1` is always enough.
 def Nat.digitsOnto: Nat → Nat → List Char → List Char
   | Zero, n, acc => acc
   | Succ fuel, n, acc =>
     if Nat.leq n 9 then Cons (Nat.digitChar n) acc else Nat.digitsOnto fuel (n / 10) (Cons (Nat.digitChar (n % 10)) acc)
 
--- Decimal, without leading zeros: `Nat.toText 42` is `"42"`.
+--| Decimal, without leading zeros: `Nat.toText 42` is `"42"`.
 def Nat.toText (n: Nat): Text := MkText (Nat.digitsOnto (Succ n) n Nil)

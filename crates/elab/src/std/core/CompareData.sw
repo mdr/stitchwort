@@ -1,10 +1,11 @@
--- core/CompareData.sw. The same laws for `List` (lexicographic), `Pair`,
--- `Option`, `Char` and `Text`. Loaded with the core: `List.instOrd`,
+--| core/CompareData.sw. The same laws for `List` (lexicographic), `Pair`,
+--| `Option`, `Char` and `Text`.
+-- Loaded with the core: `List.instOrd`,
 -- `Pair.instOrd`, `Option.instOrd`, `Char.instOrd` and `Text.instOrd` need
 -- them (docs/proposals/prelude-slim.md §2.1).
 
--- Lexicographic comparison of lists, by a comparison of their elements:
--- the first difference decides, and a list comes before its extensions.
+--| Lexicographic comparison of lists, by a comparison of their elements:
+--| the first difference decides, and a list comes before its extensions.
 @[noReceiver]
 def List.compareLex (cmp: a → a → Ordering): List a → List a → Ordering
   | Nil, Nil => Equal
@@ -47,7 +48,7 @@ theorem List.compareLexTrans (cmp: a → a → Ordering) (equal: (x: a) → (y: 
       (e => Eq.sym (Eq.cong (t => cmp x t) (equal y z e)))
       (p q => List.compareLexTrans cmp equal trans xs ys zs p q) h1 h2
 
--- Pairs, by their first parts, then their second.
+--| Pairs, by their first parts, then their second.
 @[noReceiver]
 def Pair.compareWith (ca: a → a → Ordering) (cb: b → b → Ordering): Pair a b → Pair a b → Ordering
   | MkPair x1 y1, MkPair x2 y2 => Ordering.andThen (ca x1 x2) (cb y1 y2)
@@ -78,7 +79,7 @@ theorem Pair.compareWithTrans (ca: a → a → Ordering) (cb: b → b → Orderi
       (e => Eq.sym (Eq.cong (t => ca x1 t) (ea x2 x3 e)))
       (tb y1 y2 y3) h1 h2
 
--- Optional values: `None` first.
+--| Optional values: `None` first.
 @[noReceiver]
 def Option.compareWith (cmp: a → a → Ordering): Option a → Option a → Ordering
   | None, None => Equal
@@ -111,7 +112,7 @@ theorem Option.compareWithTrans (cmp: a → a → Ordering)
   | Some x, Some y, None, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
   | Some x, Some y, Some z, h1, h2 => trans x y z h1 h2
 
--- Characters, by scalar value.
+--| Characters, by scalar value.
 def Char.compare (x: Char) (y: Char): Ordering := Nat.compare (Char.toNat x) (Char.toNat y)
 
 theorem Char.compareEqual (x: Char) (y: Char) (h: Char.compare x y = Equal): x = y :=
@@ -124,8 +125,8 @@ theorem Char.compareTrans (x: Char) (y: Char) (z: Char) (h1: Char.compare x y = 
     Char.compare x z = Less :=
   Nat.compareTrans (Char.toNat x) (Char.toNat y) (Char.toNat z) h1 h2
 
--- `Text.compare` is lexicographic by characters: `List.compareLex` with
--- `Char.compare`, step for step. So its laws are the list's.
+--| `Text.compare` is lexicographic by characters: `List.compareLex` with
+--| `Char.compare`, step for step. So its laws are the list's.
 theorem Text.compareCharsLex: (xs: List Char) → (ys: List Char) → Text.compareChars xs ys = List.compareLex Char.compare xs ys
   | Nil, Nil => rfl
   | Nil, Cons y ys => rfl

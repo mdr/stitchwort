@@ -1,12 +1,13 @@
--- core/Compare.sw. The laws of comparison for `Ordering`, `Nat` and `Int`:
--- `compareEqual`, `compareFlip`, `compareTrans`, and `less`/`le` from
--- `compare`. Loaded with the core: Each `Ord` instance needs its `compare`
+--| core/Compare.sw. The laws of comparison for `Ordering`, `Nat` and `Int`:
+--| `compareEqual`, `compareFlip`, `compareTrans`, and `less`/`le` from
+--| `compare`.
+-- Loaded with the core: Each `Ord` instance needs its `compare`
 -- laws, and `Ord` instances are in the core (docs/proposals/prelude-slim.md
 -- §2.1).
 
 -- Orderings (docs/proposals/interfaces.md §6.2)
 
--- The comparison the other way round.
+--| The comparison the other way round.
 def Ordering.flip: Ordering → Ordering
   | Less => Greater
   | Equal => Equal
@@ -52,9 +53,9 @@ theorem Ordering.flipAndThen: (c: Ordering) → (d: Ordering) →
   | Equal, d => rfl
   | Greater, d => rfl
 
--- `Less` is transitive for `c1` then `r1` (lexicographic), given that it
--- is for the first comparisons and for the rest, and that an `Equal` first
--- comparison passes the other one on.
+--| `Less` is transitive for `c1` then `r1` (lexicographic), given that it
+--| is for the first comparisons and for the rest, and that an `Equal` first
+--| comparison passes the other one on.
 theorem Ordering.andThenTrans: (c1: Ordering) → (c2: Ordering) → (c3: Ordering) →
     (r1: Ordering) → (r2: Ordering) → (r3: Ordering) →
     (c1 = Less → c2 = Less → c3 = Less) → (c1 = Equal → c3 = c2) → (c2 = Equal → c3 = c1) →
@@ -115,8 +116,8 @@ theorem Nat.compareOfLe: (m: Nat) → (n: Nat) → m ≤ n → Not (Nat.compare 
   | Succ m, Zero, h, e => Bool.falseNotTrue h
   | Succ m, Succ n, h, e => Nat.compareOfLe m n h e
 
--- A number at least `Succ k` isn't 0: how `auto` proves `d ≠ 0` from a fact
--- `0 < d` in scope.
+--| A number at least `Succ k` isn't 0: how `auto` proves `d ≠ 0` from a fact
+--| `0 < d` in scope.
 theorem Nat.nonzeroOfSuccLe: (k: Nat) → (d: Nat) → Succ k ≤ d → Not (d = 0)
   | k, Zero, h, e => Bool.falseNotTrue h
   | k, Succ d, h, e => Nat.succNotZero d e

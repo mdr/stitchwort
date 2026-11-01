@@ -1,13 +1,15 @@
+--| core/Imports.sw holds this header and the effect imports.
 -- The Stitchwort prelude (the core), loaded before every file. It is the files
 -- of `std/core/`, checked as one module in the order `CORE_FILES` lists them
 -- (crates/elab/src/lib.rs): this file first, so the import below covers all of
 -- them, and each file only uses what the files before it declare. Why each
 -- file is in the core: docs/proposals/prelude-slim.md §2.1.
--- core/Imports.sw holds this header and the effect imports.
 
--- The library's root is `Std` (docs/proposals/namespaces.md). What's declared
--- here without a namespace is visible in every program; the rest is written
--- with its namespace (`List.length`), or imported. The effect machinery is
+--| The library's root is `Std`. What's declared
+--| here without a namespace is visible in every program; the rest is written
+--| with its namespace (`List.length`), or imported.
+-- (docs/proposals/namespaces.md).
+-- The effect machinery is
 -- used throughout what follows, so it's imported here.
 import Effect (
   Comp,
