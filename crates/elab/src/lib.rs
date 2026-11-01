@@ -436,14 +436,11 @@ pub struct Elaborator {
     /// `List.map`'s): those are elaborated as plain calls first, and the row
     /// is settled by unification (`check::pure_first`).
     pub(crate) bare_rows_pure: std::cell::Cell<bool>,
-    /// Above zero while an application, list, `if` or comparison is
-    /// elaborated again after failing, with a constructor of a generic type
-    /// that has number literals in it checked after its siblings, so they
-    /// can say what its parameters are (`check::defers_literal`).
+    /// Above zero while an application is elaborated again after failing,
+    /// with an argument that is a list of numbers checked after the
+    /// arguments after it, so they can say its element type
+    /// (`check::retrying`).
     pub(crate) late_literals: std::cell::Cell<usize>,
-    /// When the field-name rule for record literals is held back, so that a
-    /// construct that tries another way first gets to (`records::held`).
-    pub(crate) field_names: records::FieldNames,
     /// What each receiver's dot call was found to call, by the receiver
     /// expression and the field written after it: so a chain `x.f.g.h` finds
     /// each head once instead of inferring the receiver again at every

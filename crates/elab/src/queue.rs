@@ -1597,8 +1597,8 @@ static READ_BACK: AtomicUsize = AtomicUsize::new(0);
 static REQUEUED: AtomicUsize = AtomicUsize::new(0);
 static KEPT: AtomicUsize = AtomicUsize::new(0);
 static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
-static LAMBDA_POSTPONED: AtomicUsize = AtomicUsize::new(0);
 static RETRIED: AtomicUsize = AtomicUsize::new(0);
+static LEAF_UNINFERRED: AtomicUsize = AtomicUsize::new(0);
 static WAITED: AtomicUsize = AtomicUsize::new(0);
 static MATCH_WAITED: AtomicUsize = AtomicUsize::new(0);
 static MOTIVE_LATER: AtomicUsize = AtomicUsize::new(0);
@@ -1625,18 +1625,19 @@ pub(crate) fn note_motive_later() {
     count(&MOTIVE_LATER);
 }
 
-/// A lambda argument tried in place, failed, and checked again after the
-/// application's later arguments (`check::apply_args_postponing`): the
-/// path §5.11 removes once its count is 0 in accepted code.
-pub(crate) fn note_lambda_postponed() {
-    count(&LAMBDA_POSTPONED);
-}
-
 /// An application, group, list or `if` elaborated a second time with number
 /// literals checked last (`check::retrying`), because the first time failed:
-/// the path §5.11 removes once number literals wait (K4).
+/// the path §5.11 meant to remove once number literals wait (K4); kept by
+/// stage 5 for the two gaps `check::retrying` names.
 pub(crate) fn note_retried() {
     count(&RETRIED);
+}
+
+/// A leaf of a number group or comparison that couldn't be inferred, so it
+/// was undone and checked later against the type the other leaves gave
+/// (`numbers::speculate`): one of the three "infer the other side" catches.
+pub(crate) fn note_leaf_uninferred() {
+    count(&LEAF_UNINFERRED);
 }
 
 fn count(counter: &AtomicUsize) {
@@ -1677,9 +1678,7 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// solution back (`read back`); resumptions that met another unknown and
 /// waited again (`requeued`); and `.field`s queued with their receiver
 /// kept as a term (`kept`), of which those whose receiver made a choice
-/// from an unknown (`kept chose`, invariant 6; 0 expected); and lambda
-/// arguments tried in place, failed and checked again after the later
-/// arguments (`lambda postponed`, the path §5.11 removes in stage 5); and
+/// from an unknown (`kept chose`, invariant 6; 0 expected); and
 /// elaborations run a second time with number literals last (`retried`,
 /// `check::retrying`, which K4 makes unneeded); and comparisons queued to
 /// wait for unknowns the queue still has to settle (`waited`, stage 6); and
@@ -1690,7 +1689,8 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// applied to them (`rule defaulted`), `rewrite`s and `cases` that waited
 /// (`tactic waited`), and runs of `omega`, `ring` and `auto` on a goal
 /// holding an unknown the declaration will still settle, and of those the
-/// failures (`… on pending`, `… failed on pending`).
+/// failures (`… on pending`, `… failed on pending`); and, for stage 5, the
+/// "infer the other side" catch it keeps (`leaf uninferred`).
 pub fn counts() -> [(&'static str, usize); 27] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
@@ -1707,8 +1707,8 @@ pub fn counts() -> [(&'static str, usize); 27] {
         ("requeued", get(&REQUEUED)),
         ("kept", get(&KEPT)),
         ("kept chose", get(&KEPT_CHOSE)),
-        ("lambda postponed", get(&LAMBDA_POSTPONED)),
         ("retried", get(&RETRIED)),
+        ("leaf uninferred", get(&LEAF_UNINFERRED)),
         ("waited", get(&WAITED)),
         ("match waited", get(&MATCH_WAITED)),
         ("motive later", get(&MOTIVE_LATER)),

@@ -821,16 +821,7 @@ pub(crate) fn map_leaves(
 /// Elaborates the group `expr` (arithmetic, a comparison, or a prefix `-`
 /// that isn't part of a negative literal), against `expected` if
 /// it's an arithmetic tree and that's given: its term and type.
-///
-/// Its leaves are inferred with the field-name rule held back, so a record
-/// literal among them takes its type from the other leaves; only if the
-/// group can't be elaborated that way is the rule used
-/// ([`crate::records::last_resort`]).
 pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
-    crate::records::last_resort(cx, |cx| group_tried(cx, expr, expected))
-}
-
-fn group_tried(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
     // An equation with a comparison as a side: the comparison is a
     // proposition, so the equation is between propositions. If that fails
     // (the other side is a `Bool`, as in `(m < k) = (m < k && b)`), with
@@ -874,14 +865,6 @@ fn group_literals(
     let group_in = |cx: &mut Ctx, expr: &Expr, expected: Option<&Value>| {
         group_with(cx, expr, expected, bool_comparisons)
     };
-    // A comparison with a constructor with number literals as an operand: as
-    // written first, and if that fails, with that operand last.
-    if let Expr::Binary(op, a, b) = expr
-        && is_comparison(*op)
-        && (crate::check::defers_literal(cx, a)? || crate::check::defers_literal(cx, b)?)
-    {
-        return crate::check::retrying(cx, |cx| group_in(cx, expr, expected));
-    }
     if !matches!(expr, Expr::Neg(_, _, NegForm::Argument)) {
         return group_in(cx, expr, expected);
     }
@@ -1071,19 +1054,7 @@ fn group_with(
     }
 
     // 5. Pass 2: the rest, except bare literals.
-    // A constructor with a number in it comes last, so it doesn't settle the
-    // group's type (`Point 1 "p" 10 == m`: a `Mark Nat …`) before the others.
-    let mut order = Vec::new();
-    let mut late = Vec::new();
-    for (i, leaf) in g.leaves.iter().enumerate() {
-        if cx.e.late_literals.get() > 0 && crate::check::defers_literal(cx, leaf.expr)? {
-            late.push(i);
-        } else {
-            order.push(i);
-        }
-    }
-    order.extend(late);
-    for i in order {
+    for i in 0..g.leaves.len() {
         if g.leaves[i].bare || !matches!(g.leaves[i].state, State::Waiting) {
             continue;
         }
@@ -1566,20 +1537,17 @@ fn speculate(
     passed: bool,
 ) -> Result<std::result::Result<(Term, Value), Diagnostic>> {
     let snapshot = crate::undo::Snapshot::take(cx);
-    // A record literal here takes its type from the other leaves, if any
-    // can say it ([`group`]).
-    let inferred = crate::records::held(cx, |cx| {
-        if passed {
-            crate::check::infer_unrun(cx, expr)
-        } else {
-            infer(cx, expr)
-        }
-        .and_then(|(term, ty)| insert(cx, term, ty))
-    });
+    let inferred = if passed {
+        crate::check::infer_unrun(cx, expr)
+    } else {
+        infer(cx, expr)
+    }
+    .and_then(|(term, ty)| insert(cx, term, ty));
     match inferred {
         Ok(found) => Ok(Ok(found)),
         Err(e) if e.code == "E-CANNOT-INFER" => {
             snapshot.restore(cx);
+            crate::queue::note_leaf_uninferred();
             Ok(Err(e))
         }
         Err(e) => Err(e),
