@@ -3259,13 +3259,13 @@
     {
       "id": 1006,
       "title": "std helpers from AoC: Text.padLeft, Option.toList, List (Option a) -> Option (List a)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "std"
       ],
-      "body": "D2131 (Matt, 1 Nov 2026): one small Sonnet lane near the quota limit. From SW-816 (2024 day 24 findings). Add only those missing, each with a few lemmas and tests.",
+      "body": "D2131 (Matt, 1 Nov 2026). No change needed: all three already exist — Text.padLeft (std/Text/Text.sw:21), Option.toList (std/Option/Option.sw:87), List.allSome (std/List/Toolkit.sw:318, List (Option a) -> Option (List a)). SW-816's item for these is stale.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
