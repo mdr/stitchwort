@@ -116,16 +116,25 @@ theorem offsetPlus (position: Position) (first: Offset) (second: Offset) (middle
             | Inl below => Inl (omega [And.left both])
             | Inr before => Inr (omega [And.right both])))
 
--- Positions the same offset from one place are the same.
-theorem offsetInjective (position: Position) (offset: Offset) (next: Position) (other: Position) (landed: position.offset offset = Some next)
-    (also: position.offset offset = Some other): next = other :=
-  Option.someInjective _ _ (Eq.trans (Eq.sym landed) also)
-
 -- The offset back is the negation.
 theorem minusNegate (position: Position) (from: Position): (position.minus from).negate = from.minus position :=
   offsetExt (position.minus from).negate (from.minus position) (omega) (omega)
 
 theorem minusSelf (position: Position): position.minus position = Offset.zero := offsetExt (position.minus position) Offset.zero (omega) (omega)
+
+-- Steps of offsets: different offsets step to different ones, two steps
+-- can be taken in either order, and the opposite step undoes one.
+theorem offsetStepInjective (offset: Offset) (other: Offset) (direction: Direction) (same: offset.step direction = other.step direction): offset = other :=
+  offsetExt offset other (omega [Eq.cong Offset.rows same]) (omega [Eq.cong Offset.columns same])
+
+theorem offsetStepComm (offset: Offset) (first: Direction) (second: Direction): (offset.step first).step second = (offset.step second).step first :=
+  offsetExt ((offset.step first).step second) ((offset.step second).step first) (omega) (omega)
+
+theorem offsetStepOpposite (offset: Offset): (direction: Direction) → (offset.step direction).step direction.opposite = offset
+  | Up => offsetExt ((offset.step Up).step Down) offset (omega) (omega)
+  | Right => offsetExt ((offset.step Right).step Left) offset (omega) (omega)
+  | Down => offsetExt ((offset.step Down).step Up) offset (omega) (omega)
+  | Left => offsetExt ((offset.step Left).step Right) offset (omega) (omega)
 
 -- On a grid
 

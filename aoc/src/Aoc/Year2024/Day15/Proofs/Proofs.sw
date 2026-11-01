@@ -17,6 +17,7 @@
 -- puzzle pushes. NOTES-2024.md says why.
 
 namespace Aoc.Year2024.Day15.Proofs
+import Aoc.Common (Direction)
 import Aoc.Year2024.Day15 (..)
 import Aoc.Year2024.Day15.Spec (..)
 import Std (And, List)

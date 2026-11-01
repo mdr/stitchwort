@@ -34,6 +34,10 @@ def Direction.offset: Direction → Offset
   | Down => { rows = 1, columns = 0 }
   | Left => { rows = 0, columns = -1 }
 
+-- One step further in `direction`: for a day whose cells are offsets from
+-- a corner, so that a step is always defined (2024's day 15).
+def Offset.step (offset: Offset) (direction: Direction): Offset := offset.plus direction.offset
+
 -- The offset from `from` to `position`.
 def Position.minus (position: Position) (from: Position): Offset :=
   { rows = position.row.toInt - from.row.toInt, columns = position.column.toInt - from.column.toInt }

@@ -12,6 +12,7 @@
 -- `Aoc.Year2024.Day15.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day15
+import Aoc.Common (Direction, Offset)
 import Std (Fail, IO, Int, List, Nat, Option, Parse, Set, Text)
 import Std.Parse (grid, lines, many1, pick, section)
 
@@ -20,25 +21,17 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 document}"
   IO.print "Part 2: ${solvePart2 document}"
 
-type Position = { row: Int, column: Int }
-
-type Direction =
-  | Up
-  | Down
-  | Left
-  | Right
-
--- The neighbouring position in `direction`.
-def Position.step (position: Position) (direction: Direction): Position :=
-  match direction with
-    | Up => { position | row = position.row - 1 }
-    | Down => { position | row = position.row + 1 }
-    | Left => { position | column = position.column - 1 }
-    | Right => { position | column = position.column + 1 }
+-- A cell of the warehouse, as its offset from the top left corner, so
+-- `cell.step direction` is the neighbouring cell. Not a shared `Position`:
+-- those are `Nat`s, and a step up from row 0 is `None`. Here a step is
+-- always a cell, so the proofs hold for every warehouse, walled in or not,
+-- with no edge cases (the puzzle's walls keep the robot inside, but
+-- nothing in the type says so).
+def Cell: Type := Offset
 
 -- The walls, the boxes and the robot. In the wide warehouse of part 2 a box
 -- is where its left half is, and also covers the cell to its right.
-type Warehouse = { walls: Set Position, boxes: Set Position, robot: Position }
+type Warehouse = { walls: Set Cell, boxes: Set Cell, robot: Cell }
 
 -- The warehouse as first mapped, and the moves the robot attempts.
 type Document = { warehouse: Warehouse, moves: List Direction }
@@ -61,10 +54,10 @@ def document(): {Parse} (List (List Tile), List Direction) :=
   (rows, moves)
 
 -- The positions of every `wanted` tile, row by row.
-def positionsOf (rows: List (List Tile)) (wanted: Tile): List Position :=
+def positionsOf (rows: List (List Tile)) (wanted: Tile): List Cell :=
   rows.gridCells
     |> .filter (((position, here)) => here == wanted)
-    |> .map ((((row, column), here)) => ({ row = row.toInt, column = column.toInt }: Position))
+    |> .map ((((row, column), here)) => ({ rows = row.toInt, columns = column.toInt }: Cell))
 
 def parseDocument (input: Text): {Fail} Document :=
   let (rows, moves) := Parse.all input document
@@ -78,7 +71,7 @@ def parseDocument (input: Text): {Fail} Document :=
 
 -- The first position from `position` on, going `direction`, without a box:
 -- `None` if there are more than `fuel` boxes in a line.
-def firstFree (boxes: Set Position) (direction: Direction) (position: Position): (fuel: Nat) → Option Position
+def firstFree (boxes: Set Cell) (direction: Direction) (position: Cell): (fuel: Nat) → Option Cell
   | Zero => None
   | Succ fuel => if boxes.contains position then firstFree boxes direction (position.step direction) fuel else Some position
 
@@ -99,38 +92,38 @@ def Warehouse.move (warehouse: Warehouse) (direction: Direction): Warehouse :=
 def Warehouse.moveAll (warehouse: Warehouse) (moves: List Direction): Warehouse := moves.foldLeft warehouse Warehouse.move
 
 -- 100 times the distance from the top edge plus the distance from the left.
-def Position.gps (box: Position): Int := 100 * box.row + box.column
+def Cell.gps (box: Cell): Int := 100 * box.rows + box.columns
 
-def Warehouse.gpsSum (warehouse: Warehouse): Int := warehouse.boxes.toList.sumBy .gps
+def Warehouse.gpsSum (warehouse: Warehouse): Int := warehouse.boxes.toList.sumBy Cell.gps
 
 def solvePart1 (document: Document): Int := document.warehouse.moveAll document.moves |> .gpsSum
 
 -- Part 2.
 
 -- The cells a box covers: where it is, and the cell to the right.
-def cellsOf (box: Position): List Position := [box, box.step Right]
+def cellsOf (box: Cell): List Cell := [box, box.step Right]
 
 -- Where a tile's left half is in the map twice as wide.
-def Position.widen (position: Position): Position := { position | column = 2 * position.column }
+def Cell.widen (position: Cell): Cell := { position | columns = 2 * position.columns }
 
 -- The warehouse twice as wide: each tile becomes two, the robot the left.
 def Warehouse.widen (warehouse: Warehouse): Warehouse := {
-  walls = warehouse.walls.toList.flatMap (wall => cellsOf wall.widen) |> Set.fromList,
-  boxes = warehouse.boxes.map Position.widen,
-  robot = warehouse.robot.widen
+  walls = warehouse.walls.toList.flatMap (wall => cellsOf (Cell.widen wall)) |> Set.fromList,
+  boxes = warehouse.boxes.map Cell.widen,
+  robot = (Cell.widen warehouse.robot)
 }
 
 -- The boxes covering `cell`.
-def Warehouse.boxesAt (warehouse: Warehouse) (cell: Position): List Position :=
+def Warehouse.boxesAt (warehouse: Warehouse) (cell: Cell): List Cell :=
   [cell, cell.step Left] |> .filter (box => warehouse.boxes.contains box)
 
 -- The cells a box moves into when it moves `direction`, other than its own.
-def frontOf (box: Position) (direction: Direction): List Position :=
+def frontOf (box: Cell) (direction: Direction): List Cell :=
   cellsOf (box.step direction) |> .filter (cell => cell ∉ cellsOf box)
 
 -- The boxes that move with `group` when the cells in `pending` must be
 -- emptied: `None` if one of those cells is a wall, or after `fuel` cells.
-def Warehouse.gather (warehouse: Warehouse) (direction: Direction) (group: Set Position): (pending: List Position) → (fuel: Nat) → Option (Set Position)
+def Warehouse.gather (warehouse: Warehouse) (direction: Direction) (group: Set Cell): (pending: List Cell) → (fuel: Nat) → Option (Set Cell)
   | Nil, fuel => Some group
   | Cons cell rest, Zero => None
   | Cons cell rest, Succ fuel =>

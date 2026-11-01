@@ -2,6 +2,7 @@
 -- program, so `stitchwort run Aoc.Year2024.Day15.main` doesn't check them.
 
 namespace Aoc.Year2024.Day15.Tests
+import Aoc.Common (Direction)
 import Aoc.Year2024.Day15 (..)
 import Std (Fail, Int, List, Nat, Option, Result, Set, Text)
 
@@ -60,16 +61,16 @@ def wideExample: Text := """
 def parsed (input: Text): Result Document Text := Fail.toResult (() => parseDocument input)
 
 def documentOf (input: Text): Document :=
-  Fail.orElse { warehouse = { walls = Set.empty, boxes = Set.empty, robot = { row = 0, column = 0 } }, moves = [] } (() => parseDocument input)
+  Fail.orElse { warehouse = { walls = Set.empty, boxes = Set.empty, robot = { rows = 0, columns = 0 } }, moves = [] } (() => parseDocument input)
 
 -- A warehouse drawn as the puzzle draws it, in a map whose rows are `rows`,
 -- with no moves: for edge cases.
 def warehouseOf (rows: Text): Warehouse := (documentOf "${rows}\n\n<\n").warehouse
 
-def at (row: Int) (column: Int): Position := { row, column }
+def at (row: Int) (column: Int): Cell := { rows = row, columns = column }
 
 -- The boxes, row by row.
-def boxesOf (warehouse: Warehouse): List Position := warehouse.boxes.toList
+def boxesOf (warehouse: Warehouse): List Cell := warehouse.boxes.toList
 
 -- The puzzle's map of a warehouse, `wide` for part 2's boxes.
 def draw (wide: Bool) (warehouse: Warehouse) (height: Nat) (width: Nat): List Text :=
@@ -204,7 +205,7 @@ test "pushing a wide box left" := draw True ((wideOf ".O@").moveWide Left |> .mo
 test "pushing a wide box right" := draw True ((wideOf "@O..").moveWide Right) 1 8 == [".@[]...."]
 -- A box under two others, the robot under its right half, and `walls`: the
 -- push up meets both boxes above.
-def stacked (walls: List Position): Warehouse :=
+def stacked (walls: List Cell): Warehouse :=
   { walls = Set.fromList walls, boxes = Set.fromList [at 1 2, at 1 4, at 2 3], robot = at 3 4 }
 
 test "pushing a box up pushes both boxes on it" :=
