@@ -1,5 +1,5 @@
 {
-  "next": 1017,
+  "next": 1018,
   "tickets": [
     {
       "id": 47,
@@ -3426,6 +3426,21 @@
       "commits": [
         "05c8ffb8"
       ]
+    },
+    {
+      "id": 1017,
+      "title": "search --at: a single closing check can run for minutes (Day16 Sound.sw:83 totalThen, List.consInjective _ (Cons …) 289 s); add a step and memory limit per check",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search",
+        "bug"
+      ],
+      "body": "From SW-993 (1 Nov 2026). The time limit is only read between checks, so one check is never stopped once started. In the daily sample of search_at_aoc, goal Day16/Proofs/Sound.sw:83 totalThen takes 45-392 s; nearly all in one closing check (289 s with timings). One earlier run hit the 16 GB memory guard (goal not identified). Probably predates SW-993 (not run on main). Remaining benchmark misses: Eq.cong wrapping (day 18 Some a = Some b); lemma rewrite then induction hypothesis (days 10, 14, 16 lengthBitsOf); day 16 groupsValue.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
     }
   ]
 }
