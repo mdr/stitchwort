@@ -11,8 +11,7 @@ theorem Nat.divTenLess: (n: Nat) → Nat.leq n 9 = False → Succ (n / 10) ≤ n
         (Nat.leCongRight n (n + n * 9) (n * 10) ring (Nat.leAddRight n (n * 9)))
         (Nat.leAddLeft 8 (n * 10)))
 
---| Decimal digits, most significant first: `Nat.digits 1205` is `[1, 2, 0, 5]`
---| and `Nat.digits 0` is `[0]`. `Nat.digitsAcc n acc` puts them onto `acc`.
+--| The decimal digits of `n`, most significant first, in front of `acc`.
 def Nat.digitsAcc (n: Nat) (acc: List Nat): List Nat
     decreasing n
 :=
@@ -20,6 +19,9 @@ def Nat.digitsAcc (n: Nat) (acc: List Nat): List Nat
   then Nat.digitsAcc (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n big]
   else Cons n acc
 
+--| Decimal digits, most significant first: `Nat.digits 1205` is `[1, 2, 0, 5]`
+--| and `Nat.digits 0` is `[0]`. `Nat.fromDigits` undoes it ([`Nat.fromDigitsDigits`]),
+--| and each is a digit ([`Nat.digitsDigits`]).
 def Nat.digits (n: Nat): List Nat := Nat.digitsAcc n Nil
 
 --| The number whose decimal digits these are, most significant first. Digits
@@ -81,7 +83,7 @@ theorem Or.andWith: [p q r: Prop] → r → Or p q → Or p (And q r)
   | hr, Inl a => Inl a
   | hr, Inr b => Inr (Both b hr)
 
---| `Nat.fromDigitsCons`, with the power written for another list of the
+--| [`Nat.fromDigitsCons`], with the power written for another list of the
 --| same length.
 theorem Nat.fromDigitsConsLen (d: Nat) (s: List Nat) (r: List Nat) (hl: List.length s = List.length r):
     Nat.fromDigits (Cons d s) = d * Nat.pow 10 (List.length r) + Nat.fromDigits s :=
@@ -118,10 +120,12 @@ theorem Nat.fromDigitsConsLe (c: Nat) (s: List Nat) (r: List Nat) (hl: List.leng
       (Eq.sym (Nat.fromDigitsCons c r))
       (Nat.leAddCong (c * Nat.pow 10 (List.length r)) (Nat.fromDigits s) (Nat.fromDigits r) h))
 
---| `Nat.digits` and `Nat.fromDigits` undo each other; the digits are digits,
---| the first is not 0 (for n >= 1), and there are k of them for 10^(k-1) <=
---| n < 10^k; digits shifted left by more digits are the digit lists appended
---| (`Nat.digitsShift`).
+-- `Nat.digits` and `Nat.fromDigits` undo each other; the digits are digits,
+-- the first is not 0 (for n >= 1), and there are k of them for 10^(k-1) <=
+-- n < 10^k; digits shifted left by more digits are the digit lists appended
+-- (`Nat.digitsShift`).
+
+--| The digits of `n` in front of `acc` are its digits, then `acc`.
 -- Each is a proof by the same measure as `Nat.digitsAcc`, and the accumulator
 -- is just appended.
 theorem Nat.digitsAccAppend (n: Nat) (acc: List Nat): Nat.digitsAcc n acc = List.append (Nat.digitsAcc n Nil) acc
@@ -269,8 +273,8 @@ theorem Nat.digitsLengthMono (x: Nat) (y: Nat) (h: x ≤ y): List.length (Nat.di
 
 theorem Nat.digitsLengthMonoExample: List.length (Nat.digits 99) ≤ List.length (Nat.digits 100) := Nat.digitsLengthMono 99 100 rfl
 
---| `Char.digitValue` gives a digit, or nothing (so `Char.toDigit` loses
---| nothing).
+--| The option is nothing, or a decimal digit, below 10: what `Char.digitValue`
+--| gives (so `Char.toDigit` loses nothing).
 def Option.IsDigit: Option Nat → Prop
   | None => Unit
   | Some n => n < 10
