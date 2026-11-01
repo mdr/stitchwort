@@ -1,5 +1,5 @@
 {
-  "next": 991,
+  "next": 992,
   "tickets": [
     {
       "id": 47,
@@ -3023,6 +3023,20 @@
         "friction"
       ],
       "body": "From the SW-984 lane, 1 Nov 2026. (1) Up.turnRight gives an unknown-name error; must write Direction.turnRight Up (dot notation on a constructor value). (2) if h: b with b: Bool is refused; the message says drop h:, but the proof was wanted; if h: b = True works (suggest that in the message). (3) A variable named at can't be used inside a rewrite rule list (at is a keyword there). (4) No record eta (seen again, SW-960 4). Std candidates proved locally in Aoc.Common.Proofs: distinctOfMap, mapConcat, a filterMap length lemma (lengthFilterMapLe) or filterMap = map of filter; Map.byPosition get lemma. Not migrated: 2024 days 8, 14, 15, 18 (Int or x/y positions), 16 (compass directions), 10 (own neighbours proofs).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 991,
+      "title": "Move 2024 days 10, 16, 18 onto Aoc.Common.Grid (names via mapping; day 10's neighbour proofs rewritten)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Matt, 1 Nov 2026: groups 1 and 3 of the follow-up to SW-984; migration cost isn't a concern. Day 16: own Heading type (East/South/West/North) kept in the spec, mapped to Aoc.Common Direction with a bijection lemma; steps/neighbours from the shared code. Day 18: { x, y } read into Position { row = y, column = x }; spec says x is the column. Day 10: use shared neighbours and rewrite its proofs. Int/Vec days (8, 14, 15) wait for discussion.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
