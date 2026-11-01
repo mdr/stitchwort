@@ -1,0 +1,52 @@
+-- Day 9's tests: the example from the puzzle and unit tests. Kept apart from
+-- the program, so `stitchwort run Aoc.Year2021.Day09.main` doesn't check them.
+
+namespace Aoc.Year2021.Day09.Tests
+import Aoc.Year2021.Day09 (..)
+import Aoc.Year2021.Day09.Spec (..)
+import Std (Fail, Graph, List, Map, Text)
+
+def exampleText: Text := "2199943210\n3987894921\n9856789892\n8767896789\n9899965678\n"
+
+def parsed (input: Text): Result HeightMap Text := Fail.toResult (() => parseHeightMap input)
+
+def example: HeightMap := Fail.orElse { rows = [] } (() => parseHeightMap exampleText)
+
+def at (row: Nat) (column: Nat): Position := { row, column }
+
+test "parse the example" := example.rows.length == 5 ∧ example.rows.all (row => row.length == 10)
+test "heights" := example.heightAt (at 0 0) == Some 2 ∧ example.heightAt (at 4 9) == Some 8 ∧ example.heightAt (at 5 0) == None
+test "a short row" := parsed "123\n45\n" == Err "line 2: expected 3 digits, as on the first line, got 2"
+test "a letter" := parsed "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
+
+test "the example's low points" :=
+  example.lowPoints == [(at 0 1, 1), (at 0 9, 0), (at 2 2, 5), (at 4 6, 5)] ∧ lowPoints example == example.lowPoints
+test "example, part 1" := solvePart1 example == 15 ∧ part1 example == 15
+test "the example's basins" := example.basinSizes == [3, 9, 14, 9]
+test "example, part 2" := solvePart2 example == 1134
+
+test "neighbours in a corner" := (at 0 0).neighbours == [at 0 1, at 1 0]
+test "neighbours inside" := (at 2 3).neighbours == [at 1 3, at 2 2, at 2 4, at 3 3]
+test "adjacent" := adjacent (at 2 3) (at 1 3) ∧ adjacent (at 2 3) (at 2 4) ∧ not (adjacent (at 2 3) (at 3 4)) ∧ not (adjacent (at 2 3) (at 2 3))
+test "a path in the example's top left basin" := isPath example (at 0 1) [at 0 0, at 1 0] (at 1 0) ∧ not (isPath example (at 0 1) [at 1 1] (at 1 1))
+
+test "a map of one 9" := solvePart1 { rows = [[9]] } == 10 ∧ solvePart2 { rows = [[9]] } == 0
+test "a flat map has no low points" := solvePart1 { rows = [[5, 5], [5, 5]] } == 0
+test "fewer than three basins" := solvePart2 { rows = [[1, 9, 0, 1]] } == 2
+
+-- The locations each basin has, by the flood fill.
+def basinLocations (map: HeightMap): List (List Position) :=
+  let graph := map.graph
+  map.lowPoints.map (((low, _)) => (graph.breadthFirst [low]).keys)
+
+-- The puzzle's promise (`EachInOneBasin`), as far as a test can say it:
+-- the basins have every location that isn't a 9 between them (no
+-- location is in none), and their sizes add up to the number of those
+-- locations (none is in two).
+def eachInOneBasin (map: HeightMap): Bool :=
+  let open := map.cells.filter (((at, _)) => map.isOpen at) |> .map Pair.fst
+  let found := basinLocations map |> .concat
+  open.all (location => found.contains location) ∧ found.length == open.length
+
+test "the example keeps the promise" := eachInOneBasin example
+test "two low points in one area break it" := not (eachInOneBasin { rows = [[0, 1, 0]] })
