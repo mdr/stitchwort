@@ -15,7 +15,8 @@ SRC = """-- A heading without a stop
 -- Adds two numbers. Costs O(n).
 -- It recurses on the first argument
 -- (SW-12, so the check is cheap).
--- Faster than the old one.
+-- Faster than the old one. Kept (D58).
+-- Elsewhere in §2.1.
 def add: Nat -> Nat -> Nat
     | Zero, n => n
 

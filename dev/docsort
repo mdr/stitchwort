@@ -5,7 +5,7 @@
 Every comment run that is a doc today (directly above a declaration, or above
 a member that has a line to itself, or before a file's first declaration) is
 rewritten: its lines become `--|` user docs, except the lines that match a
-maintainer marker (a ticket SW-n, a D number, a docs/ or .md path) and the
+maintainer marker (a ticket SW-n, a D number, a § reference, a docs/ or .md path) and the
 sentences joined to them, which stay `--` and move below the `--|` lines.
 "Timing" words are not markers (§6.1).
 
@@ -23,7 +23,7 @@ import os
 import re
 import sys
 
-MARKERS = re.compile(r"\bSW-\d+|\bD\d{3,4}\b|docs/|\bproposals?/|\.md\b")
+MARKERS = re.compile(r"\bSW-\d+|\bD\d{2,4}\b|§|docs/|\bproposals?/|\.md\b")
 TOP = re.compile(r"(def|theorem|test|instance|type|interface|ability|opaque|@\[)")
 TYPELIKE = re.compile(r"(type|interface|ability|opaque)\b")
 MEMBER = re.compile(r"\s+(\||[{(,]|[A-Za-z_][\w']*\s*:)")
