@@ -12,9 +12,9 @@ From day 5 on, a day whose correctness theorems assume something the
 puzzle promises (every line at one of three angles, every timer at most 8)
 also proves that its parser guarantees it, and states the answers'
 theorems about the parsed input with no hypothesis left. Days 5, 6, 8,
-12 and 13 do (day 12's promise, that no passage joins two big caves, is
+12, 13 and 14 do (day 12's promise, that no passage joins two big caves, is
 one the puzzle leaves unsaid; day 13's parser folds the paper to check
-each fold's promise); day 9's answers need no promise at all, and
+each fold's promise; day 14's is one rule per pair); day 9's answers need no promise at all, and
 its parser's guarantees (digits, a rectangle) are proved anyway. The
 pattern:
 
@@ -3080,3 +3080,251 @@ Release build:
    expected type did, giving `spot = spot` (item 2).
 3. `List.foldRight` doesn't compute on `Cons` (item 3).
 4. Std has no `List.get` of a mapped range (item 3).
+
+## Day 14: Extended Polymerization
+
+A polymer template (a line of capital letters, each an element), a blank
+line, then pair insertion rules `AB -> C`. A step puts, between every two
+neighbouring elements whose pair has a rule, that rule's element; all
+pairs are taken from the polymer before the step. Part 1 is the count of
+the most common element less that of the least common after 10 steps;
+part 2 the same after 40, when the polymer has about 20 trillion
+elements. Answers on Matt's input (20 elements, 100 rules): 2712 and
+8336623059567 (his Scala solution's); the puzzle's example gives 1588
+and 2188189693529. Compiler: the installed release build of `main`,
+1 November 2026.
+
+### The program
+
+Both parts count pairs. `countPairs` puts the template's neighbouring
+pairs in a `Map (Char, Char) Nat`; a step (`stepCounts`) sends each
+pair's count to the pairs it `becomes` (`a c` and `c b` if the rule
+table, a `Map.fromList` of the rules, has `c` for it; itself if not), and
+adds them up with `insertWith … Nat.add` (`addAll`). Every element but
+the first ends exactly one pair, and a step never changes the first, so
+an element's count is whether the first element is it plus the counts of
+the pairs ending with it (`elementCount`). The answer (`spread`) is the
+largest less the smallest of those counts, over the first element and
+the second element of every counted pair, leaving out a count of 0 (none
+is 0, but the filter saves proving it). Both answers were right on the
+first run; all 15 tests passed on the first run, including the three
+parse error messages, which came out as guessed.
+
+The parser is `Parse.all input readManual`: `takeWhile1` of capital
+letters, `blankLine`, then `lines readRule` (two `satisfy`s, `text " ->
+"`, a `satisfy`). It then checks the one promise the proofs need
+(`checkManual`, with a pure `firstRepeated`, the D2108 pattern): no two
+rules are for the same pair ("two rules for the pair AB").
+
+**The spec** (Spec/Spec.sw) builds the polymer. `insertionFor rules a b`
+is what the rule for `a b` inserts (the first rule with that pair, via
+`find`); `step` is
+
+```stitchwort
+def step (rules: List Rule): List Char → List Char
+  | Cons a (Cons b rest) => Cons a (between rules a b ++ step rules (Cons b rest))
+  | polymer => polymer
+```
+
+`afterSteps n manual` iterates it, and `answer n manual` is `spreadOf`
+the result: over `polymer.distinct`, the largest `polymer.count (==
+element)` less the smallest (`List.maximum`/`List.minimum`, 0 for an
+empty polymer). Tests check the puzzle's polymers after 1, 2 and 4
+steps, the length 3073 and the counts of B, C, H and N after 10 steps
+by the spec, and the spec's own part 1 answer on the example (1588).
+
+**The assumption.** `OneRulePerPair rules` is `List.Distinct (rules.map
+(rule => (rule.left, rule.right)))`: no two rules are for the same pair.
+It is needed: the program's table keeps the last rule for a pair
+(`Map.fromList`), the spec the first, so `AB -> C` then `AB -> D`
+disagree. The puzzle's inputs have one rule per pair; the parser checks
+it. Not assumed: that every pair that turns up has a rule (the puzzle's
+input does give one for all 100 pairs of its 10 letters). A pair with
+no rule stays as it is, in the spec and the program alike, and a test
+covers it. No assumption on the template either: an empty one gives 0 in
+both.
+
+### Proved, for every number of steps
+
+In `Aoc.Year2021.Day14.Proofs` (Proofs/, 8 files, 512 lines):
+
+- `spreadAfterCorrect (steps) (manual) (one: OneRulePerPair
+  manual.rules)`: `spreadAfter steps manual = answer steps manual`.
+  `part1Correct` and `part2Correct` are it at 10 and 40.
+- `parseOneRulePerPair (input) (manual) (parsed: Fail.toResult (() =>
+  parseManual input) = Ok manual)`: `OneRulePerPair manual.rules`; and
+  `part1FromInput`, `part2FromInput`: `solvePart1 manual = answer 10
+  manual` (and 40) with no hypothesis but the successful parse.
+- **The pair abstraction commutes with a step.** `pairsStep`: the pairs
+  of `step rules polymer` are the pairs of `polymer`, each replaced by
+  what its rule makes of it: `List.zipWithNext (step rules polymer) =
+  List.flatMap (List.zipWithNext polymer) (expand rules)`, a list
+  equation, by induction (`expand` is the puzzle's side of `becomes`,
+  stated with `insertionFor`).
+- **The counts stand for the pairs.** `Represents counts polymer` says
+  that for every `f: (Char, Char) → Nat`, the sum of each count times
+  `f` of its pair (`weight counts f`, over `Map.toList`) is the sum of
+  `f` over the polymer's pairs. Counting all functions at once makes
+  the step a chain of equations (`stepRepresents`, a `calc` of five
+  lines): the new counts' weight of `f` is the old counts' weight of
+  `pair => sum of f over becomes pair` (`stepWeight`, from
+  `weightAddAll`), which is that sum over the polymer's pairs
+  (`Represents`), which is the sum of `f` over the flatMap
+  (`List.sumByFlatMap`), which is over the stepped polymer's pairs
+  (`pairsStep`). `becomesExpand` needs `OneRulePerPair`: `lookupRules`
+  shows `Map.lookupLast` on distinct keys is `find`. `weightAddAll`
+  rests on `specInsertWithWeight`, about `Map.Spec.insertWith`, which
+  `Map.toListInsertWith` relates to the real map. `iterateRepresents`
+  carries it through any number of steps.
+- **Element counts come back.** `stepsKeepFirst` (any number of steps
+  keeps the first element), `countByPairs` (an element's count in
+  `Cons a rest` is `Bool.toNat (a == c)` plus the pairs ending with
+  `c`), so `elementCountQuantity`: the program's `elementCount` is the
+  element's count in the polymer the counts stand for.
+- **Same counts, same answer.** `quantitiesInto` and `quantitiesBack`:
+  the program's list of counts and the spec's have the same members (an
+  element of the polymer ends a pair, `memAfterFirst`, which has a
+  positive count and so is a key of the map, `pairCounted`); then
+  `maximumSame` and `minimumSame` give the same largest and smallest.
+
+Not proved: nothing left open. One hypothesis, `OneRulePerPair`, on the
+`Correct` theorems, needed as said; the parser checks it and the
+`FromInput` theorems drop it. No opaque definitions.
+
+`stitchwort audit Aoc.Year2021.Day14` (with the counterexample search):
+`audited 54 theorems: 0 failed, 2 with warnings, 52 passed`. The two
+warnings are `part1FromInput` and `part2FromInput` (random texts never
+parse; SW-967 item 8); the test theorem `smallParses` shows a parse
+that succeeds. The search is "not applicable" to 30 theorems, among them
+every one with `OneRulePerPair` (nothing decides `List.Distinct`), and
+to those taking an `f`.
+
+Breaking the program breaks the proofs: `becomes` giving `(c, pair.fst)`
+for `(c, pair.snd)` fails `becomesExpand` (`E-REFL`, `[(a, c), (c, a)]`
+against `[(a, c), (c, b)]`); `elementCount` testing `entry.fst.fst`
+fails `elementCountWeight` with a counterexample (`first = 'a'`, `counts
+= Map.fromList [(('a', 'b'), 1)]`, `c = 'a'`: left 2).
+
+The proofs went quickly: most lemmas checked the first time they were
+written out, `cases` proved `Ord.max` of two numbers is one of them, and
+`omega` took the weighted sums as atoms.
+
+### 1. `search --at`
+
+Used on 5 goals. It closed none; once its "applies" list had the right
+step (`List.sumByCong`, with the goal it leaves).
+
+- **It missed a lemma used backwards.** On `List.sumBy xs (pair =>
+  List.sumBy (expand rules pair) f) = List.sumBy (List.flatMap xs
+  (expand rules)) f`, `Eq.sym (List.sumByFlatMap …)` closes it, and
+  `stitchwort search 'List.sumBy (List.flatMap _ _) _'` lists
+  `List.sumByFlatMap` first, but `search --at` offered only four
+  rewrites (`zipWithNextZip`, `sumByReverse`, …). Fix: try each closing
+  candidate's symmetric form too. Small-medium.
+- **Lifted matches print by their internal names.** Goals and its
+  "leaves" lines show `Aoc.Year2021.Day14.Proofs.expand.%match1 x
+  (Std.Option.map …)`, `Map.lookupLast.%match1 (Char, Char) Char
+  Std.Pair.instOrd key …`, `Ord.%compare ord key kk`, `Add.%zero`,
+  `DecEq.%decide`: a definition whose body is a `match` is shown half
+  unfolded, as a call of a lifted function no source names. The plain
+  `check` goals do the same. Fix: print such a call folded back as the
+  definition (`expand rules x`), or as the `match`. Small-medium.
+- The first `search --at` took 41 s; the next ones 2 to 4.5 s (as SW-960
+  item 8). It can't offer the induction hypothesis: on `pairsStep`'s
+  inductive case, the closing proof was `rewrite pairsStepCons …,
+  pairsStep rules (Cons b rest) in rfl`, and the recursive call isn't a
+  candidate. Medium.
+- Pattern search: `Ord.compare ?x ?y = Equal → ?x = ?y` found nothing
+  (relaxed pass, one unrelated result): the law is the field `equal` of
+  the `Ord` record, reached as `ord.equal x y e`, and fields of a class
+  aren't searched. Fix: index class laws as lemmas (`Ord.equal`).
+  Small-medium.
+
+### 2. Inference: holes that don't say so
+
+Both are the elaboration-order family (SW-963 item 2, SW-969 item 2),
+with a new symptom: no error at the hole, only a failing `omega` whose
+atom contains it.
+
+- `sumByPositive (entry => entry.snd * Bool.toNat (entry.fst == pair))
+  (Map.toList counts) (omega […])`: the lambda comes before the list
+  that fixes its parameter's type, and `entry.snd` became a hole: the
+  `omega` goal read `?15 counts polymer represents pair member x * …`.
+  No `E-CANNOT-INFER`. Workaround: `(entry: ((Char, Char), Nat)) => …`.
+- `positiveMember c (Cons first tail) (omega [equal, same, positive])`,
+  where `positiveMember` takes `[auto eq: DecEq a]`: `omega` ran before
+  the instance was found, so its goal had `DecEq.%decide (… first tail
+  counts represents v member c left✝ same) first c` where the facts had
+  `Std.Char.decEq first c`, and failed. Workaround: `let counted: 0 <
+  List.count (Cons first tail) (== c) := omega […]` first. Fix: solve
+  `auto` arguments before checking later explicit ones, or report an
+  unsolved hole in an `omega` goal as such. Medium.
+
+### 3. Std
+
+- **`List.maximum` has no lemmas**; `List.minimum` has `minimumSome`,
+  `minimumExists`, `minimumEmpty`. `Maximum.sw` here (60 lines) copies
+  them for `Nat` (`maximumSome`, `foldMaxGeStart`, `foldMaxGeMember`,
+  `foldMaxMember`, `maximumNone`). Std candidate: the `Ord` versions.
+  Small.
+- **No decision procedure for `List.Distinct`.** With `DecEq` it is
+  decidable, but the counterexample search says "nothing decides
+  `Std.List.Distinct …`: no way to decide `Std.List.Distinct …`" (the
+  same text twice) for every theorem taking `OneRulePerPair`, so the
+  main theorems got no search, and breaking `becomes` gave no
+  counterexample. Fix: a `Decidable (List.Distinct xs)` instance for
+  `DecEq a`; say the reason once. Small.
+- Std candidates, small each: `countPositive`/`positiveMember` (`c ∈ xs
+  ↔ 0 < List.count xs (== c)`; `search '(?x: _) ∈ ?xs → 0 < List.count
+  ?xs _'` found nothing); `sumByPositive` (a positive `sumBy` has a
+  member with a positive term); `Map.lookupLast` on distinct keys is
+  `find` (`lookupRules`, generalised); the weight of `Map.insertWith …
+  Nat.add` (`specInsertWithWeight`, `weightInsertWith`: a sum over a
+  map's entries gains `n * f key`); `compareEqual` (`Ord.compare x y =
+  Equal → x = y` as a named theorem); `countByPairs` (an element count
+  from `zipWithNext`).
+- Good: `List.sumByFlatMap`, `List.sumByMap`, `List.sumByMulLeft`,
+  `List.sumByCong`, `List.countSumBy`, `List.countLtMem`,
+  `Map.getFromList`, `Map.toListInsertWith`, `List.memDistinct`,
+  `List.memMapElim`, `List.memFilter(Intro)` were all there.
+
+### 4. Messages and smaller things
+
+- Good: `Some { left = 'C', … }` in a test said "`Some` has no field
+  `left` … to build the `Rule` it holds, write `Some ({ … })`".
+  `rewrite none in earlier` (meant for the hypothesis) said "`earlier`
+  has … name it with `at`". `rewrite t at gives` after `match t:` said
+  "`gives` is already refined: use it as it is". `if h:` between proofs
+  gave the `match Nat.decLessThan 0 (f x)` to write.
+- Seen again: the context lists `e: insertionFor rules a b = Some c`
+  above `c: Char` (SW-969 item 1); `cases` printed `a` and `b` both as
+  `MkChar code✝ valid✝` (SW-969 item 5); `∃ (x: a) => x ∈ Cons x rest`
+  for a bound `x` beside the pattern's `x` (SW-967 item 5); `Represents`
+  being a function type needed an `f` pattern in `iterateRepresents`
+  (SW-969 item 6, the message said exactly what to add).
+- No eta for pairs (SW-960 item 4): `tableInsertion` is stated for `(a,
+  b)` and `becomesExpand` matches `pair` as `(a, b)` first, since
+  `insertionFor rules pair.fst pair.snd` looks for `(pair.fst,
+  pair.snd)`, not `pair`.
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort run Aoc.Year2021.Day14.main` on the input | 0.30 s user (0.36 s) |
+| `stitchwort check --no-cache Aoc.Year2021.Day14.Proofs Aoc.Year2021.Day14.Tests` | 2.8 s user |
+| `stitchwort audit Aoc.Year2021.Day14` (with the search) | 3.6 s |
+
+124 lines of program, 42 of spec, 512 of proofs, 69 of tests.
+
+### Ranked
+
+1. Holes from elaboration order show up only inside a failing `omega`
+   goal, not as an error at the hole (item 2).
+2. `search --at` doesn't try a lemma backwards (`Eq.sym`), and prints
+   lifted matches by internal names (item 1).
+3. No `Decidable (List.Distinct xs)`: the counterexample search skips
+   every theorem with that hypothesis (item 3).
+4. No `List.maximum` lemmas (item 3).
