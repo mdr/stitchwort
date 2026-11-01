@@ -1,5 +1,5 @@
 {
-  "next": 996,
+  "next": 997,
   "tickets": [
     {
       "id": 47,
@@ -3094,6 +3094,20 @@
         "friction"
       ],
       "body": "From SW-992, 1 Nov 2026. (1) omega can't prove (n + 1).toInt - 1 = n.toInt: reduces to Int.subNatNatFrom (n + 1) 1 (0 - n), an atom (same as SW-978 item 1; second sighting). (2) A type nickname is lost through record fields: warehouse.robot declared Cell (def Cell: Type := Offset) has type Offset, so .widen/.step aren't found. (3) rewrite couldn't find moved.step direction inside (moved.step direction).step Right because the inner step had computed to a record literal (E-REWRITE-NOTHING); Eq.cong worked. Fix: also look for the left side in the goal as written. (4) Up.offset unknown: dot notation on a bare constructor (also SW-990's Up.turnRight). Design note: 2024 day 15 keeps Int cells as def Cell: Type := Offset, because its theorems hold for every warehouse and Nat steps up from row 0 would need an off-map rule or a walled-in hypothesis.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 996,
+      "title": "Trip journal: a Float-timed conflict-resolution example project (two-device merge), examples/projects/accept",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "examples"
+      ],
+      "body": "Matt, 1 Nov 2026 (D2119-D2121): a non-proprietary example capturing the essence of event conflict resolution, in a different setting: a trip journal synced between two devices. Built fresh from a written description of the structure (not from the proprietary proof of concept). Times as Float (D2120: we have little Float example code). Lives in examples/projects/accept as a test-corpus project (D2121).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
