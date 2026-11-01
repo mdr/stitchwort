@@ -12,7 +12,8 @@ sentences joined to them, which stay `--` and move below the `--|` lines.
 A run that already has a `--|` line is left alone, so the script is
 idempotent. Code and comments that are not docs are never touched. A
 one-line run without a final stop, before a file's first declaration, is a
-heading and is left alone. Only markers and order change, never wording.
+heading and is left alone. Only markers and order change, never wording. A sentence ending in `:` is a
+lead-in and goes with the unit after it, wherever that goes.
 
 Usage: dev/docsort [--check] PATH...   (files, or folders searched for .sw).
 With --check it writes nothing and exits 1 if a file would change. Prints one
@@ -67,6 +68,19 @@ def sort_run(run):
             cur = []
     if cur:
         units.append(cur)
+    # A unit ending in `:` is a lead-in: it joins the unit after it.
+    merged = []
+    for u in units:
+        if (
+            merged
+            and merged[-1] != [""]
+            and merged[-1][-1].rstrip().endswith(":")
+            and u != [""]
+        ):
+            merged[-1] = merged[-1] + u
+        else:
+            merged.append(u)
+    units = merged
     user, notes = [], []
     for u in units:
         if u == [""]:

@@ -1,11 +1,12 @@
--- Lemmas about positions in lists, and ranges of numbers, that need
--- `omega` or `DecEq`: where `List.indexOf` finds an element (and
--- `List.contains` by it), folds of `Nat.max` and `Nat.min`, counting a
--- number in a range, running sums by position, sorted lists of numbers by
--- position, and `List.all` over `List.between`. Kept out of Index.sw and Sort.sw, which small programs
+--| Lemmas about positions in lists, and ranges of numbers, that need
+--| `omega` or `DecEq`: where `List.indexOf` finds an element (and
+--| `List.contains` by it), folds of `Nat.max` and `Nat.min`, counting a
+--| number in a range, running sums by position, sorted lists of numbers by
+--| position, and `List.all` over `List.between`.
+-- Kept out of Index.sw and Sort.sw, which small programs
 -- load, so that those don't load Omega.
 
--- The element at `x`'s position is `x`.
+--| The element at `x`'s position is `x`.
 theorem List.getOrIndexOf [auto eq: DecEq a]: (xs: List a) → (d: a) → (x: a) → List.Mem x xs → List.getOr xs (List.indexOf xs x) d = x
   | Nil, d, x, m => Void.exfalso m
   | Cons y ys, d, x, m =>
@@ -16,7 +17,7 @@ theorem List.getOrIndexOf [auto eq: DecEq a]: (xs: List a) → (d: a) → (x: a)
           | Inl q => Void.exfalso (DecEq.soundFalse y x e q)
           | Inr rest => List.getOrIndexOf ys d x rest
 
--- An element's position is inside the list.
+--| An element's position is inside the list.
 theorem List.indexOfLt [auto eq: DecEq a]: (xs: List a) → (x: a) → List.Mem x xs → List.indexOf xs x < List.length xs
   | Nil, x, m => Void.exfalso m
   | Cons y ys, x, m =>
@@ -27,7 +28,7 @@ theorem List.indexOfLt [auto eq: DecEq a]: (xs: List a) → (x: a) → List.Mem 
           | Inl q => Void.exfalso (DecEq.soundFalse y x e q)
           | Inr rest => List.indexOfLt ys x rest
 
--- `x` is in `xs` exactly when its first place is inside it.
+--| `x` is in `xs` exactly when its first place is inside it.
 theorem List.containsIndexOf [auto eq: DecEq a] (x: a): (xs: List a) → List.contains xs x = (List.indexOf xs x < List.length xs)
   | Nil => rfl
   | Cons y rest =>
@@ -35,8 +36,8 @@ theorem List.containsIndexOf [auto eq: DecEq a] (x: a): (xs: List a) → List.co
       | True => rfl
       | False => List.containsIndexOf x rest
 
--- ... and, for a list with more after it, exactly when its first place in
--- the whole is inside the first part.
+--| ... and, for a list with more after it, exactly when its first place in
+--| the whole is inside the first part.
 theorem List.containsIndexOfAppend [auto eq: DecEq a] (x: a) (more: List a): (xs: List a) →
     List.contains xs x = (List.indexOf (List.append xs more) x < List.length xs)
   | Nil => rfl
@@ -45,28 +46,28 @@ theorem List.containsIndexOfAppend [auto eq: DecEq a] (x: a) (more: List a): (xs
       | True => rfl
       | False => List.containsIndexOfAppend x more rest
 
--- A fold of `Nat.max` is below `k` exactly when its start and every `f x` are.
+--| A fold of `Nat.max` is below `k` exactly when its start and every `f x` are.
 theorem List.foldMaxLt (f: a → Nat) (k: Nat): (xs: List a) → (start: Nat) →
     ((List.foldLeft xs start (m x => Nat.max m (f x)) < k): Bool) = (start < k ∧ List.all xs (x => f x < k))
   | Nil, start => cases
   | Cons x rest, start => rewrite List.foldMaxLt f k rest (Nat.max start (f x)) in cases
 
--- A fold of `Nat.min` is below `k` exactly when its start or some `f x` is.
+--| A fold of `Nat.min` is below `k` exactly when its start or some `f x` is.
 theorem List.foldMinLt (f: a → Nat) (k: Nat): (xs: List a) → (start: Nat) →
     ((List.foldLeft xs start (m x => Nat.min m (f x)) < k): Bool) = (start < k ∨ List.any xs (x => f x < k))
   | Nil, start => cases
   | Cons x rest, start => rewrite List.foldMinLt f k rest (Nat.min start (f x)) in cases
 
--- A run of numbers has `k` once if `k` is in it, and not at all otherwise.
+--| A run of numbers has `k` once if `k` is in it, and not at all otherwise.
 theorem List.countRangeFromEq (k: Nat): (c: Nat) → (s: Nat) → List.count (List.rangeFrom c s) (== k) = Bool.toNat (s ≤ k ∧ k < s + c)
   | Zero, s => cases
   | Succ c, s => rewrite List.countCons (List.rangeFrom c (Succ s)) s (== k), List.countRangeFromEq k c (Succ s) in cases
 
--- `List.range n` has `k` once if `k < n`, and not at all otherwise.
+--| `List.range n` has `k` once if `k < n`, and not at all otherwise.
 theorem List.countRangeEq (n: Nat) (k: Nat): List.count (List.range n) (== k) = Bool.toNat (k < n) :=
   rewrite List.countRangeFromEq k n 0 in cases
 
--- Running sums from `start`: entry c is `start` plus the first c elements.
+--| Running sums from `start`: entry c is `start` plus the first c elements.
 theorem List.getOrScanAdd: (row: List Nat) → (start: Nat) → (c: Nat) → c ≤ List.length row →
     List.getOr (List.scanLeft row start Nat.add) c 0 = start + List.sumBy (List.range c) (i => List.getOr row i 0)
   | Nil, start, Zero, h => Eq.sym (Nat.addZero start)
@@ -75,7 +76,7 @@ theorem List.getOrScanAdd: (row: List Nat) → (start: Nat) → (c: Nat) → c �
   | Cons x xs, start, Succ c, h =>
     rewrite List.getOrScanAdd xs (Nat.add start x) c h, List.sumByRangeSucc (i => List.getOr (Cons x xs) i 0) c in omega
 
--- In a sorted list of numbers, an element is at most every later one.
+--| In a sorted list of numbers, an element is at most every later one.
 theorem List.sortedGetOrLe: (xs: List Nat) → (d: Nat) → List.Sorted Nat.leq xs → (i: Nat) → (j: Nat) → i ≤ j → j < List.length xs →
     List.getOr xs i d ≤ List.getOr xs j d
   | Nil, d, s, i, j, h, lt => Void.exfalso (Bool.falseNotTrue lt)
@@ -86,9 +87,9 @@ theorem List.sortedGetOrLe: (xs: List Nat) → (d: Nat) → List.Sorted Nat.leq 
   | Cons x rest, d, s, Succ i, Zero, h, lt => Void.exfalso (Bool.falseNotTrue h)
   | Cons x rest, d, Both first s, Succ i, Succ j, h, lt => List.sortedGetOrLe rest d s i j h lt
 
--- A value of a sorted list that lies between the elements at positions i and
--- j (i <= j) is the element at a position from i to j: so anything true of
--- those elements is true of it.
+--| A value of a sorted list that lies between the elements at positions i and
+--| j (i <= j) is the element at a position from i to j: so anything true of
+--| those elements is true of it.
 theorem List.sortedBetween (d: Nat) (p: Nat → Prop) (xs: List Nat) (s: List.Sorted Nat.leq xs) (i: Nat) (j: Nat) (ij: i ≤ j) (jIn: j < List.length xs)
     (each: (k: Nat) → i ≤ k → k ≤ j → p (List.getOr xs k d))
     (v: Nat) (m: List.Mem v xs) (above: List.getOr xs i d ≤ v) (below: v ≤ List.getOr xs j d): p v :=

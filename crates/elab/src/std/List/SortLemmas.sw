@@ -1,19 +1,20 @@
--- Lemmas about the sorting functions of List/Sort.sw (sorted, a permutation,
--- the same length, sorting what is already sorted), with the Nat and List
--- lemmas around them: sums of lists, Gauss, counting occurrences, keys,
--- subsequences and splitting runs of positions, and `drop` past the end and
--- sliding windows (`List.windows`).
+--| Lemmas about the sorting functions of List/Sort.sw (sorted, a permutation,
+--| the same length, sorting what is already sorted), with the Nat and List
+--| lemmas around them: sums of lists, Gauss, counting occurrences, keys,
+--| subsequences and splitting runs of positions, and `drop` past the end and
+--| sliding windows (`List.windows`).
 
--- `<=` is total: if `m <= n` is false, then `n <= m`.
+--| `<=` is total: if `m <= n` is false, then `n <= m`.
 theorem Nat.leqTotal (m: Nat) (n: Nat) (h: Nat.leq m n = False): Nat.leq n m = True := Nat.lessLe n m (Nat.leqFalse m n h)
 
--- Sums of lists: one element at a time, sums of intervals (Gauss), and
--- rewriting under `map`, `filter` and `foldLeft`.
+--| Sums of lists: one element at a time, sums of intervals (Gauss), and
+--| rewriting under `map`, `filter` and `foldLeft`.
 theorem Nat.addSwap (a: Nat) (b: Nat) (c: Nat) (d: Nat): (a + b) + (c + d) = (a + c) + (b + d) := ring
 
--- Sums from a starting total, one element at a time and of two lists, for
--- any `Add` (docs/proposals/interfaces.md §7.7). At `Nat` they state the
--- facts about `Nat` sums, by computation.
+--| Sums from a starting total, one element at a time and of two lists, for
+--| any `Add`. At `Nat` they state the
+--| facts about `Nat` sums, by computation.
+-- (docs/proposals/interfaces.md §7.7)
 theorem List.sumFrom [auto add: Add a]: (xs: List a) → (z: a) → List.foldLeft xs z Add.add = z + List.sum xs
   | Nil, z => Eq.sym (Add.addZero z)
   | Cons x xs, z =>
@@ -47,7 +48,7 @@ theorem List.sumByRangeShift (f: Nat → Nat): (n: Nat) → (s: Nat) →
       (Eq.trans (Eq.cong (t => f (Succ s) + t) (List.sumByRangeShift f n (Succ s)))
         (Eq.sym (List.sumByCons (List.rangeFrom n (Succ s)) s (i => f (Succ i)))))
 
--- A sum over `s, s + 1, ..., s + n - 1`, as one over `0, 1, ..., n - 1`.
+--| A sum over `s, s + 1, ..., s + n - 1`, as one over `0, 1, ..., n - 1`.
 theorem List.sumByRangeOffset (f: Nat → Nat): (s: Nat) → (n: Nat) →
     List.sumBy (List.rangeFrom n s) f = List.sumBy (List.range n) (i => f (s + i))
   | Zero, n => List.sumByCong (List.range n) f (i => f (0 + i)) (i => rfl)
@@ -55,7 +56,7 @@ theorem List.sumByRangeOffset (f: Nat → Nat): (s: Nat) → (n: Nat) →
 
 theorem List.sumByRangeOffsetExample: List.sumBy (List.rangeFrom 3 10) (i => i) = List.sumBy (List.range 3) (i => 10 + i) := rfl
 
--- Gauss: twice the sum of `x, x + 1, ..., x + d` is `(d + 1) * (x + (x + d))`.
+--| Gauss: twice the sum of `x, x + 1, ..., x + d` is `(d + 1) * (x + (x + d))`.
 theorem List.gaussSum: (d: Nat) → (x: Nat) →
     List.sum (List.rangeFrom (Succ d) x) + List.sum (List.rangeFrom (Succ d) x) = Succ d * (x + (x + d))
   | Zero, x => ring
@@ -66,7 +67,7 @@ theorem Nat.spanEmpty (x: Nat) (y: Nat) (h: y ≤ x): Nat.span x y = 0 := Eq.con
 theorem Nat.spanStep (s: Nat) (y: Nat) (h: Succ s ≤ y): Nat.span s y = s + Nat.span (Succ s) y :=
   Eq.trans (Eq.cong (t => List.sum (List.rangeFrom t s)) (Nat.subSuccRight s y h)) (List.sumCons s (List.rangeFrom (y - Succ s) (Succ s)))
 
--- The closed form is the sum of `lo..hi`.
+--| The closed form is the sum of `lo..hi`.
 theorem Nat.gaussSpan (d: Nat) (lo: Nat) (hi: Nat) (h: lo ≤ hi): d * ((lo + hi) * (hi - lo + 1) / 2) = d * Nat.span lo (Succ hi) :=
   Eq.trans
     (Eq.cong (t => d * (t / 2))
@@ -76,7 +77,7 @@ theorem Nat.gaussSpan (d: Nat) (lo: Nat) (hi: Nat) (h: lo ≤ hi): d * ((lo + hi
     (Eq.trans (Eq.cong (t => d * t) (Nat.halfDouble (List.sum (List.rangeFrom (Succ (hi - lo)) lo))))
       (Eq.sym (Eq.cong (t => d * List.sum (List.rangeFrom t lo)) (Nat.subSuccRight lo (Succ hi) h))))
 
--- Gauss's formula is the sum of the numbers from first to last, for any bounds.
+--| Gauss's formula is the sum of the numbers from first to last, for any bounds.
 theorem Nat.sumBetweenCorrect (first: Nat) (last: Nat): Nat.sumBetween first last = (List.between first last).sum :=
   match h: Nat.leq first last with
     | True =>
@@ -92,12 +93,12 @@ theorem Nat.sumBetweenCorrect (first: Nat) (last: Nat): Nat.sumBetween first las
         _ = 0 := rewrite Nat.mulZero (first + last)
         _ = (List.between first last).sum := rewrite Nat.addOneSubEqZero last first h
 
--- How many pairs `List.pairs` makes: n(n - 1)/2. One step of the count:
--- `x` is paired with the n others, and p is the number of pairs among those.
+--| How many pairs `List.pairs` makes: n(n - 1)/2. One step of the count:
+--| `x` is paired with the n others, and p is the number of pairs among those.
 theorem List.pairsStep (n: Nat) (p: Nat) (h: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n :=
   ring [h]
 
--- Twice the number of pairs, and the number of elements, make n * n.
+--| Twice the number of pairs, and the number of elements, make n * n.
 theorem List.lengthPairsDouble: (xs: List a) →
     List.length (List.pairs xs) + List.length (List.pairs xs) + List.length xs = List.length xs * List.length xs
   | Nil => rfl
@@ -109,16 +110,16 @@ theorem List.pairsDoubleSub: (n: Nat) → (p: Nat) → p + p + n = n * n → p +
   | Zero, p, h => ring [h]
   | Succ m, p, h => ring [h]
 
--- Twice the number of pairs is n * (n - 1).
+--| Twice the number of pairs is n * (n - 1).
 theorem List.lengthPairsDoubled (xs: List a):
     List.length (List.pairs xs) + List.length (List.pairs xs) = List.length xs * (List.length xs - 1) :=
   List.pairsDoubleSub (List.length xs) (List.length (List.pairs xs)) (List.lengthPairsDouble xs)
 
--- n(n - 1)/2 pairs.
+--| n(n - 1)/2 pairs.
 theorem List.lengthPairs (xs: List a): List.length (List.pairs xs) = List.length xs * (List.length xs - 1) / 2 :=
   rewrite Eq.sym (List.lengthPairsDoubled xs), Nat.halfDouble (List.length (List.pairs xs)) in rfl
 
--- `p` written n times: n times as long, and one more copy goes on the end.
+--| `p` written n times: n times as long, and one more copy goes on the end.
 theorem List.lengthConcatReplicate (p: List a): (n: Nat) → List.length (List.concat (List.replicate n p)) = n * List.length p
   | Zero => rfl
   | Succ n => Eq.trans (List.lengthAppend p (List.concat (List.replicate n p))) (Eq.cong (t => List.length p + t) (List.lengthConcatReplicate p n))
@@ -141,7 +142,7 @@ theorem List.takeAll: (xs: List a) → (k: Nat) → List.length xs ≤ k → Lis
   | Nil, Succ k, h => rfl
   | Cons x xs, Succ k, h => Eq.cong (Cons x) (List.takeAll xs k h)
 
--- Dropping at least the whole length leaves nothing.
+--| Dropping at least the whole length leaves nothing.
 theorem List.dropPast: (xs: List a) → (k: Nat) → List.length xs ≤ k → List.drop xs k = Nil
   | Nil, k, h => List.dropNil k
   | Cons x xs, Zero, h => Void.exfalso (Bool.falseNotTrue h)
@@ -155,7 +156,7 @@ theorem List.lengthWindowsCount (size: Nat): (count: Nat) → (xs: List a) → L
   | Zero, xs => rfl
   | Succ count, xs => Eq.cong Succ (List.lengthWindowsCount size count (List.drop xs 1))
 
--- A list of length n has n + 1 - size windows.
+--| A list of length n has n + 1 - size windows.
 theorem List.lengthWindows (xs: List a) (size: Nat): List.length (List.windows xs size) = List.length xs + 1 - size :=
   List.lengthWindowsCount size (List.length xs + 1 - size) xs
 
@@ -167,21 +168,21 @@ theorem List.lengthOfMemWindowsCount (size: Nat): (count: Nat) → (xs: List a) 
   | Succ count, Cons x rest, h, w, Inl e => Eq.trans (Eq.cong List.length (Eq.sym e)) (List.lengthTake (Cons x rest) size (omega [h]))
   | Succ count, Cons x rest, h, w, Inr m => List.lengthOfMemWindowsCount size count rest (omega [h]) w m
 
--- Each window has `size` elements.
+--| Each window has `size` elements.
 theorem List.lengthOfMemWindows (xs: List a) (size: Nat) (w: List a) (m: w ∈ List.windows xs size): List.length w = size :=
   List.lengthOfMemWindowsCount size (List.length xs + 1 - size) xs (Nat.leRefl (List.length xs + 1 - size)) w m
 
--- A list with a whole window at its start: that window, then the windows of
--- the rest.
+--| A list with a whole window at its start: that window, then the windows of
+--| the rest.
 theorem List.windowsCons (x: a) (rest: List a) (size: Nat) (h: size ≤ List.length (Cons x rest)):
     List.windows (Cons x rest) size = Cons (List.take (Cons x rest) size) (List.windows rest size) :=
   Eq.cong (count => List.windowsCount size count (Cons x rest)) (omega [h]: List.length (Cons x rest) + 1 - size = Succ (List.length rest + 1 - size))
 
--- A list shorter than a window has none.
+--| A list shorter than a window has none.
 theorem List.windowsShort (xs: List a) (size: Nat) (h: List.length xs < size): List.windows xs size = Nil :=
   Eq.cong (count => List.windowsCount size count xs) (omega [h]: List.length xs + 1 - size = 0)
 
--- The windows are the suffixes cut to `size`, keeping those that are whole.
+--| The windows are the suffixes cut to `size`, keeping those that are whole.
 theorem List.windowsTails: (xs: List a) → (size: Nat) →
     List.windows xs size = List.filter (List.map (List.tails xs) (.take size)) (window => window.length == size)
   | Nil, Zero => rfl
@@ -206,7 +207,7 @@ theorem List.windowsTails: (xs: List a) → (size: Nat) →
 
 theorem List.windowsExample: List.windows [1, 2, 3, 4] 3 = [[1, 2, 3], [2, 3, 4]] := rfl
 
--- Dropping n elements of a list at least n long leaves the rest.
+--| Dropping n elements of a list at least n long leaves the rest.
 theorem List.lengthDrop: (xs: List a) → (n: Nat) → n ≤ List.length xs → n + List.length (List.drop xs n) = List.length xs
   | xs, Zero, h => rfl
   | Nil, Succ n, h => Void.exfalso (Bool.falseNotTrue h)
@@ -218,8 +219,8 @@ theorem List.takeAppend: (xs: List a) → (ys: List a) → List.take (List.appen
   | Nil, ys => rfl
   | Cons x xs, ys => Eq.cong (Cons x) (List.takeAppend xs ys)
 
--- `List.takeAppend` and `List.dropAppend` at a count known to be the
--- first list's length.
+--| `List.takeAppend` and `List.dropAppend` at a count known to be the
+--| first list's length.
 theorem List.takeAppendLength (xs: List a) (ys: List a) (k: Nat) (h: List.length xs = k): List.take (List.append xs ys) k = xs :=
   rewrite <- h in List.takeAppend xs ys
 
@@ -231,7 +232,7 @@ theorem List.headTake: (xs: List a) → (d: a) → (k: Nat) → 1 ≤ k → List
   | Nil, d, Succ k, h => rfl
   | Cons x xs, d, Succ k, h => rfl
 
--- `if b then x else 0` is `keepIf x b`.
+--| `if b then x else 0` is `keepIf x b`.
 theorem Nat.ifKeep (x: Nat): (b: Bool) → (if b then x else 0) = Nat.keepIf x b
   | True => rfl
   | False => rfl
@@ -248,12 +249,12 @@ theorem Nat.keepIfOne: (b: Bool) → Nat.keepIf 1 b = Bool.toNat b
   | True => rfl
   | False => rfl
 
--- Keeping a sum is keeping each term.
+--| Keeping a sum is keeping each term.
 theorem Nat.keepIfSumBy (g: a → Nat) (xs: List a): (b: Bool) → Nat.keepIf (List.sumBy xs g) b = List.sumBy xs (x => Nat.keepIf (g x) b)
   | True => rfl
   | False => Eq.sym (List.sumByZero [add := Nat.instAdd] xs)
 
--- `keepIf` as multiplying by 1 or 0.
+--| `keepIf` as multiplying by 1 or 0.
 theorem Nat.mulToNat (x: Nat): (a: Bool) → x * Bool.toNat a = Nat.keepIf x a
   | True => ring
   | False => ring
@@ -273,7 +274,7 @@ theorem List.sumByAdd [auto add: Add c]: (xs: List a) → (f: a → c) → (g: a
           (Eq.sym (Eq.trans (Eq.cong (t => t + List.sumBy (Cons x xs) g) (List.sumByCons xs x f))
             (Eq.cong (t => (f x + List.sumBy xs f) + t) (List.sumByCons xs x g))))))
 
--- A double sum of two terms is two double sums.
+--| A double sum of two terms is two double sums.
 theorem List.sumByNestedAdd (xs: List a) (ys: List b) (f: a → b → Nat) (g: a → b → Nat):
     List.sumBy xs (x => List.sumBy ys (y => f x y + g x y))
       = List.sumBy xs (x => List.sumBy ys (y => f x y)) + List.sumBy xs (x => List.sumBy ys (y => g x y)) :=
@@ -297,14 +298,14 @@ theorem List.sumByMap [auto add: Add c]: (xs: List a) → (g: b → c) → (f: a
     Eq.trans (List.sumByCons (List.map xs f) (f x) g)
       (Eq.trans (Eq.cong (t => g (f x) + t) (List.sumByMap xs g f)) (Eq.sym (List.sumByCons xs x (x => g (f x)))))
 
--- Summing over a `flatMap` is summing the sums.
+--| Summing over a `flatMap` is summing the sums.
 theorem List.sumByFlatMap [auto add: Add c]: (xs: List a) → (f: b → c) → (g: a → List b) → List.sumBy (List.flatMap xs g) f = List.sumBy xs (x => List.sumBy (g x) f)
   | Nil, f, g => rfl
   | Cons x xs, f, g =>
     Eq.trans (List.sumByAppend (g x) (List.flatMap xs g) f)
       (Eq.trans (Eq.cong (t => List.sumBy (g x) f + t) (List.sumByFlatMap xs f g)) (Eq.sym (List.sumByCons xs x (x => List.sumBy (g x) f))))
 
--- Summing over a `filter` is summing the terms that pass, the rest counting 0.
+--| Summing over a `filter` is summing the terms that pass, the rest counting 0.
 theorem List.sumByFilter [auto add: Add c]: (xs: List a) → (f: a → c) → (p: a → Bool) → List.sumBy (List.filter xs p) f = List.sumBy xs (x => if p x then f x else Add.zero)
   | Nil, f, p => rfl
   | Cons x xs, f, p =>
@@ -332,7 +333,7 @@ theorem List.sumFilter: (xs: List Nat) → (p: Nat → Bool) → List.sum (List.
           (Eq.trans (Eq.cong (t => Nat.keepIf x (p x) + t) (List.sumFilter xs p))
             (Eq.sym (List.sumByCons xs x (x => Nat.keepIf x (p x)))))))
 
--- Sums over a run of numbers that pick nothing, or pick one.
+--| Sums over a run of numbers that pick nothing, or pick one.
 theorem List.sumRangeNone (q: Nat → Bool) (g: Nat → Nat): (c: Nat) → (s: Nat) →
     ((b: Nat) → s ≤ b → b < s + c → q b = False) →
     List.sumBy (List.rangeFrom c s) (b => Nat.keepIf (g b) (q b)) = 0
@@ -361,7 +362,7 @@ theorem List.sumRangeOne (q: Nat → Bool) (g: Nat → Nat) (v: Nat) (hv: q v = 
             (Nat.leNeSucc s v h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym hv) (Eq.trans (Eq.cong q (Eq.sym e)) hs))))
             (Nat.ltSuccAdd s c v h2))))
 
--- A sum over a run of numbers that is 0 has every term 0.
+--| A sum over a run of numbers that is 0 has every term 0.
 theorem List.sumRangeZero (f: Nat → Nat): (c: Nat) → (s: Nat) → List.sumBy (List.rangeFrom c s) f = 0 →
     (x: Nat) → s ≤ x → x < s + c → f x = 0
   | Zero, s, h, x, h1, h2 => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s ring h2) h1))
@@ -372,15 +373,15 @@ theorem List.sumRangeZero (f: Nat → Nat): (c: Nat) → (s: Nat) → List.sumBy
       | False =>
         List.sumRangeZero f c (Succ s) (And.right parts) x (Nat.leNeSucc s x h1 (Nat.equalFalse s x e)) (Nat.ltSuccAdd s c x h2)
 
--- Sums over the ids of a run that pick out `y`.
+--| Sums over the ids of a run that pick out `y`.
 theorem List.sumRangeEq (y: Nat) (c: Nat) (s: Nat) (h1: s ≤ y) (h2: y < s + c): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = y :=
   List.sumRangeOne (x => y == x) (x => x) y (Decidable.toBoolOf (Nat.decEq y y) rfl) (b h => Eq.sym (Decidable.toBoolSound (Nat.decEq y b) h)) c s h1 h2
 
 theorem List.sumRangeEqNone (y: Nat) (c: Nat) (s: Nat) (h: (x: Nat) → s ≤ x → x < s + c → Not (y = x)): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = 0 :=
   List.sumRangeNone (x => y == x) (x => x) c s (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq y b) (h b h1 h2))
 
--- A sum over 0, 1, …, n - 1 that picks out `v`: `g v`, which must be 0
--- when `v` is past the end.
+--| A sum over 0, 1, …, n - 1 that picks out `v`: `g v`, which must be 0
+--| when `v` is past the end.
 theorem List.sumRangePick (g: Nat → Nat) (n: Nat) (v: Nat) (hz: n ≤ v → g v = 0):
     List.sumBy (List.range n) (x => Nat.keepIf (g x) (Nat.equal v x)) = g v :=
   match e: Nat.leq (Succ v) n with
@@ -390,7 +391,7 @@ theorem List.sumRangePick (g: Nat → Nat) (n: Nat) (v: Nat) (hz: n ≤ v → g 
         List.sumRangeNone (x => Nat.equal v x) g n 0
           (b h1 h2 => Nat.equalOfLess b v (Nat.leTrans (Succ b) n v h2 (Nat.leqFalse (Succ v) n e)))
 
--- `any` over a run of numbers: a witness out, a witness in.
+--| `any` over a run of numbers: a witness out, a witness in.
 theorem List.anyRangeElim (q: Nat → Bool) (goal: Prop): (c: Nat) → (s: Nat) → List.any (List.rangeFrom c s) q = True →
     ((k: Nat) → s ≤ k → k < s + c → q k = True → goal) → goal
   | Zero, s, h, k => Void.exfalso (Bool.falseNotTrue h)
@@ -409,9 +410,9 @@ theorem List.anyRangeIntro (q: Nat → Bool): (c: Nat) → (s: Nat) → (k: Nat)
       (f => Eq.trans (Eq.cong (b => Bool.ifThenElse b (u => True) (u => List.any (List.rangeFrom c (Succ s)) q)) f)
         (List.anyRangeIntro q c (Succ s) k (Nat.leNeSucc s k h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym hk) (Eq.trans (Eq.cong q (Eq.sym e)) f)))) (Nat.ltSuccAdd s c k h2) hk))
 
--- `all` over a run of numbers: each element passes, and back. With a check
--- that computes to `True`, the first turns a finite computation into a fact
--- about every number of the run.
+--| `all` over a run of numbers: each element passes, and back. With a check
+--| that computes to `True`, the first turns a finite computation into a fact
+--| about every number of the run.
 theorem List.allRangeElim (q: Nat → Bool): (c: Nat) → (s: Nat) → List.all (List.rangeFrom c s) q = True →
     (k: Nat) → s ≤ k → k < s + c → q k = True
   | Zero, s, h, k, h1, h2 => Void.exfalso (Nat.lessIrrefl k (Nat.leTrans (Succ k) s k (Nat.ltCongRight k (s + 0) s ring h2) h1))
@@ -473,7 +474,7 @@ theorem Nat.firstFromLe (q: Nat → Bool) (c: Nat) (s: Nat) (k: Nat) (h1: s ≤ 
     | True => rfl
     | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym hk) (Nat.firstFromBefore q c s k h1 (Nat.leqFalse (Nat.firstFrom q c s) k e))))
 
--- Sums that agree on the elements passing a check `all` says they all pass.
+--| Sums that agree on the elements passing a check `all` says they all pass.
 theorem List.sumByCongAll (p: a → Bool) (f: a → Nat) (g: a → Nat) (h: (x: a) → p x = True → f x = g x):
     (xs: List a) → List.all xs p = True → List.sumBy xs f = List.sumBy xs g
   | Nil, ok => rfl
@@ -487,7 +488,7 @@ theorem Ordering.isLessEqIf: (d: Bool) → Ordering.isLessEq (if d then Less els
   | True => rfl
   | False => rfl
 
--- `Nat.compare` agrees with `<=`, so `List.sortBy` with it is total.
+--| `Nat.compare` agrees with `<=`, so `List.sortBy` with it is total.
 theorem Nat.compareLeq (m: Nat) (n: Nat): Ordering.isLessEq (Nat.compare m n) = Nat.leq m n :=
   Bool.inspect (Nat.equal m n)
     (c => Ordering.isLessEq (if c then Equal else (if Nat.leq m n then Less else Greater)) = Nat.leq m n)
@@ -497,7 +498,7 @@ theorem Nat.compareLeq (m: Nat) (n: Nat): Ordering.isLessEq (Nat.compare m n) = 
 theorem Nat.compareTotal (m: Nat) (n: Nat)
     (h: Ordering.isLessEq (Nat.compare m n) = False): Ordering.isLessEq (Nat.compare n m) = True := Eq.trans (Nat.compareLeq n m) (Nat.leqTotal m n (Eq.trans (Eq.sym (Nat.compareLeq m n)) h))
 
--- The correctness proofs need only that `le` is total: `tot` below.
+--| The correctness proofs need only that `le` is total: `tot` below.
 theorem List.mergeLeHead (le: a → a → Bool) (z: a): (xs: List a) → (ys: List a) →
     List.LeHead le z xs → List.LeHead le z ys → List.LeHead le z (List.merge le xs ys)
   | Nil, ys, hx, hy => hy
@@ -517,7 +518,7 @@ theorem List.mergeSorted (le: a → a → Bool) (tot: (x: a) → (y: a) → le x
       (e => Both (List.mergeLeHead le x xs (Cons y ys) hx e) (List.mergeSorted le tot xs (Cons y ys) sxs (Both hy sys)))
       (e => Both (List.mergeLeHead le y (Cons x xs) ys (tot x y e) hy) (List.mergeSorted le tot (Cons x xs) ys (Both hx sxs) sys))
 
--- Every run in the counter is sorted.
+--| Every run in the counter is sorted.
 @[noReceiver]
 def List.RunsSorted (le: a → a → Bool): List (Option (List a)) → Prop
   | Nil => Unit
@@ -552,13 +553,14 @@ theorem List.sortBySorted (cmp: a → a → Ordering)
     (tot: (x: a) → (y: a) → Ordering.isLessEq (cmp x y) = False → Ordering.isLessEq (cmp y x) = True)
     (xs: List a): List.Sorted (x y => Ordering.isLessEq (cmp x y)) (List.sortBy xs cmp) := List.sortWithSorted (x y => Ordering.isLessEq (cmp x y)) tot xs
 
--- If `o` isn't `Less` or `Equal`, its opposite is.
+--| If `o` isn't `Less` or `Equal`, its opposite is.
 theorem Ordering.flipNotLessEq: (o: Ordering) → Ordering.isLessEq o = False → Ordering.isLessEq (Ordering.flip o) = True
   | Less, h => Void.exfalso (Bool.trueNotFalse h)
   | Equal, h => Void.exfalso (Bool.trueNotFalse h)
   | Greater, h => rfl
 
--- An `Ord`'s comparison is total, by its `flip` law (§7.6).
+--| An `Ord`'s comparison is total, by its `flip` law.
+-- (§7.6)
 theorem Ord.leTotal [auto ord: Ord a] (x: a) (y: a)
     (h: Ordering.isLessEq (Ord.compare x y) = False): Ordering.isLessEq (Ord.compare y x) = True :=
   rewrite ord.flip x y in Ordering.flipNotLessEq (Ord.compare x y) h
@@ -567,7 +569,7 @@ theorem List.sortSorted [auto ord: Ord a] (xs: List a):
     List.Sorted (x y => Ordering.isLessEq (Ord.compare x y)) (List.sort xs) :=
   List.sortBySorted Ord.compare Ord.leTotal xs
 
--- `isLessEq` is "not `Greater`".
+--| `isLessEq` is "not `Greater`".
 theorem Ordering.notGreaterOfIsLessEq (c: Ordering) (h: Ordering.isLessEq c = True): Not (c = Greater) :=
   e => Bool.falseNotTrue (rewrite e at h)
 
@@ -576,8 +578,8 @@ theorem Ordering.isLessEqOfNotGreater: (c: Ordering) → Not (c = Greater) → O
   | Equal, n => rfl
   | Greater, n => Void.exfalso (n rfl)
 
--- The test `List.sort` sorts by is transitive, and holds both ways round
--- only for equal values, by the `Ord`'s laws.
+--| The test `List.sort` sorts by is transitive, and holds both ways round
+--| only for equal values, by the `Ord`'s laws.
 theorem Ord.isLessEqTrans [auto ord: Ord a] (x: a) (y: a) (z: a)
     (h1: Ordering.isLessEq (Ord.compare x y) = True) (h2: Ordering.isLessEq (Ord.compare y z) = True):
     Ordering.isLessEq (Ord.compare x z) = True :=
@@ -594,7 +596,7 @@ theorem Ord.isLessEqAntisymm [auto ord: Ord a] (x: a) (y: a)
     | Less => Void.exfalso (Bool.falseNotTrue (rewrite ord.flip x y, e at h2))
     | Greater => Void.exfalso (Bool.falseNotTrue h1)
 
--- Sorted by one test is sorted by another that agrees with it.
+--| Sorted by one test is sorted by another that agrees with it.
 theorem List.leHeadCong (le1: a → a → Bool) (le2: a → a → Bool) (h: (x: a) → (y: a) → le1 x y = le2 x y) (z: a):
     (xs: List a) → List.LeHead le1 z xs → List.LeHead le2 z xs
   | Nil, p => p
@@ -605,7 +607,7 @@ theorem List.sortedCong (le1: a → a → Bool) (le2: a → a → Bool) (h: (x: 
   | Nil, p => p
   | Cons x xs, Both p q => Both (List.leHeadCong le1 le2 h x xs p) (List.sortedCong le1 le2 h xs q)
 
--- `Sorted le xs` is `xs.chain le = True`, both ways.
+--| `Sorted le xs` is `xs.chain le = True`, both ways.
 theorem List.sortedOfChain (le: a → a → Bool): (xs: List a) → List.chain xs le = True → List.Sorted le xs
   | Nil, chained => Trivial
   | Cons x Nil, chained => Both Trivial Trivial
@@ -616,11 +618,12 @@ theorem List.chainOfSorted (le: a → a → Bool): (xs: List a) → List.Sorted 
   | Cons x Nil, sorted => rfl
   | Cons x (Cons next rest), Both first sorted => Bool.andIntro _ _ first (List.chainOfSorted le (Cons next rest) sorted)
 
--- For numbers, that's `Nat.leq`.
+--| For numbers, that's `Nat.leq`.
 theorem List.sortSortedNat (xs: List Nat): List.Sorted Nat.leq (List.sort xs) :=
   List.sortedCong (x y => Ordering.isLessEq (Nat.compare x y)) Nat.leq Nat.compareLeq (List.sort [ord := Nat.instOrd] xs) (List.sortSorted [ord := Nat.instOrd] xs)
 
--- The front and the back of a sorted list are sorted (SW-363).
+--| The front and the back of a sorted list are sorted.
+-- (SW-363)
 theorem List.sortedPrefix (le: a → a → Bool): (xs: List a) → (ys: List a) → List.Sorted le (List.append xs ys) → List.Sorted le xs
   | Nil, ys, s => Trivial
   | Cons x Nil, ys, s => Both Trivial Trivial
@@ -630,24 +633,25 @@ theorem List.sortedSuffix (le: a → a → Bool): (xs: List a) → (ys: List a) 
   | Nil, ys, s => s
   | Cons x xs, ys, Both hx s => List.sortedSuffix le xs ys s
 
--- For a transitive `le`, the first element of a sorted list may come before
--- every later one.
+--| For a transitive `le`, the first element of a sorted list may come before
+--| every later one.
 theorem List.sortedHeadLe (le: a → a → Bool) (trans: (x: a) → (y: a) → (z: a) → le x y = True → le y z = True → le x z = True)
     (x: a) (z: a): (rest: List a) → List.Sorted le (Cons x rest) → List.Mem z rest → le x z = True
   | Nil, s, m => Void.exfalso m
   | Cons y ys, Both hxy s, Inl e => rewrite <- e in hxy
   | Cons y ys, Both hxy s, Inr m => trans x y z hxy (List.sortedHeadLe le trans y z ys s m)
 
--- For a transitive `le`, sorted is pairwise.
+--| For a transitive `le`, sorted is pairwise.
 theorem List.pairwiseOfSorted (le: a → a → Bool) (trans: (x: a) → (y: a) → (z: a) → le x y = True → le y z = True → le x z = True):
     (xs: List a) → List.Sorted le xs → List.Pairwise (x y => le x y = True) xs
   | Nil, s => Trivial
   | Cons x rest, Both hx s =>
     Both (List.allOfMem (y => le x y = True) rest (z m => List.sortedHeadLe le trans x z rest (Both hx s) m)) (List.pairwiseOfSorted le trans rest s)
 
--- Sorting a list whose elements all pass `p` needs `le` total only on the
--- values that pass `p`, not on every value: doubles other than the NaN under
--- `Float.ieeeLe`, say (`examples/accept/sort-on-subset.sw`). Merging and
+--| Sorting a list whose elements all pass `p` needs `le` total only on the
+--| values that pass `p`, not on every value: doubles other than the NaN under
+--| `Float.ieeeLe`, say (`examples/accept/sort-on-subset.sw`).
+-- Merging and
 -- the sort's runs keep every element passing, so every comparison the sort
 -- makes is between two of them.
 theorem List.mergeAll (le: a → a → Bool) (p: a → Prop): (xs: List a) → (ys: List a) →
@@ -670,7 +674,7 @@ theorem List.mergeSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) �
       (e => Both (List.mergeLeHead le x xs (Cons y ys) hx e) (List.mergeSortedOn le p tot xs (Cons y ys) ax (Both py ay) sxs (Both hy sys)))
       (e => Both (List.mergeLeHead le y (Cons x xs) ys (tot x y px py e) hy) (List.mergeSortedOn le p tot (Cons x xs) ys (Both px ax) ay (Both hx sxs) sys))
 
--- Every run in the counter passes `p`.
+--| Every run in the counter passes `p`.
 @[noReceiver]
 def List.RunsAll (p: a → Prop): List (Option (List a)) → Prop
   | Nil => Unit
@@ -695,7 +699,7 @@ theorem List.mergeRunsAll (le: a → a → Bool) (p: a → Prop) (acc: List a): 
   | Cons None rest, a, h => List.mergeRunsAll le p acc rest a h
   | Cons (Some r) rest, a, Both ar h => List.mergeRunsAll le p (List.merge le r acc) rest (List.mergeAll le p r acc ar a) h
 
--- What every element passes, every element of the sorted list passes.
+--| What every element passes, every element of the sorted list passes.
 theorem List.allSortWith (le: a → a → Bool) (p: a → Prop) (xs: List a) (a: List.All p xs): List.All p (List.sortWith xs le) :=
   List.mergeRunsAll le p Nil (List.buildRuns le Nil xs) Trivial (List.buildRunsAll le p Nil xs a Trivial)
 
@@ -723,14 +727,14 @@ theorem List.mergeRunsSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: 
   | Cons (Some r) rest, a, Both ar ha, s, Both sr h =>
     List.mergeRunsSortedOn le p tot (List.merge le r acc) rest (List.mergeAll le p r acc ar a) ha (List.mergeSortedOn le p tot r acc ar a sr s) h
 
--- `List.sortWithSorted` for a `le` total only on the values passing `p`.
+--| `List.sortWithSorted` for a `le` total only on the values passing `p`.
 theorem List.sortWithSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) → (y: a) → p x → p y → le x y = False → le y x = True)
     (xs: List a) (a: List.All p xs): List.Sorted le (List.sortWith xs le) :=
   List.mergeRunsSortedOn le p tot Nil (List.buildRuns le Nil xs) Trivial (List.buildRunsAll le p Nil xs a Trivial) Trivial
     (List.buildRunsSortedOn le p tot Nil xs a Trivial Trivial)
 
--- `List.sortedHeadLe` and `List.pairwiseOfSorted` for a `le` transitive only
--- on the values passing `p`.
+--| `List.sortedHeadLe` and `List.pairwiseOfSorted` for a `le` transitive only
+--| on the values passing `p`.
 theorem List.sortedHeadLeOn (le: a → a → Bool) (p: a → Prop)
     (trans: (x: a) → (y: a) → (z: a) → p x → p y → p z → le x y = True → le y z = True → le x z = True)
     (x: a) (z: a) (px: p x): (rest: List a) → List.All p rest → List.Sorted le (Cons x rest) → List.Mem z rest → le x z = True
@@ -747,7 +751,7 @@ theorem List.pairwiseOfSortedOn (le: a → a → Bool) (p: a → Prop)
     Both (List.allOfMem (y => le x y = True) rest (z m => List.sortedHeadLeOn le p trans x z px rest a (Both hx s) m))
       (List.pairwiseOfSortedOn le p trans rest a s)
 
--- `Nat.leq` restricted to even numbers is still total there.
+--| `Nat.leq` restricted to even numbers is still total there.
 theorem List.sortWithSortedOnExample: List.Sorted Nat.leq (List.sortWith [4, 2, 6] Nat.leq) :=
   List.sortWithSortedOn Nat.leq (n => n % 2 = 0) (x y px py h => Nat.leqTotal x y h) [4, 2, 6] (Both rfl (Both rfl (Both rfl Trivial)))
 
@@ -755,28 +759,28 @@ theorem List.pairwiseAppendLeft (rel: a → a → Prop): (xs: List a) → (ys: L
   | Nil, ys, h => Trivial
   | Cons x xs, ys, Both a h => Both (List.allAppendLeft (y => rel x y) xs ys a) (List.pairwiseAppendLeft rel xs ys h)
 
--- Each element of the front is related to each of the back.
+--| Each element of the front is related to each of the back.
 theorem List.pairwiseAppendAcross (rel: a → a → Prop): (xs: List a) → (ys: List a) → List.Pairwise rel (List.append xs ys) →
     (x: a) → List.Mem x xs → (y: a) → List.Mem y ys → rel x y
   | Nil, ys, h, x, mx, y, my => Void.exfalso mx
   | Cons z zs, ys, Both a h, x, Inl e, y, my => rewrite <- e in List.allMem (w => rel z w) y ys (List.allAppendRight (w => rel z w) zs ys a) my
   | Cons z zs, ys, Both a h, x, Inr mx, y, my => List.pairwiseAppendAcross rel zs ys h x mx y my
 
--- Merging, when everything in the first list may come before everything in
--- the second, joins the lists.
+--| Merging, when everything in the first list may come before everything in
+--| the second, joins the lists.
 theorem List.mergeAppend (le: a → a → Bool): (xs: List a) → (ys: List a) → ((x: a) → List.Mem x xs → (y: a) → List.Mem y ys → le x y = True) →
     List.merge le xs ys = List.append xs ys
   | Nil, ys, h => rfl
   | Cons x xs, Nil, h => Eq.sym (List.appendNil (Cons x xs))
   | Cons x xs, Cons y ys, h => rewrite h x (Inl rfl) y (Inl rfl), List.mergeAppend le xs (Cons y ys) (z m => h z (Inr m)) in rfl
 
--- The runs of `List.sortWith`'s counter, oldest first, joined.
+--| The runs of `List.sortWith`'s counter, oldest first, joined.
 def List.runsJoined: List (Option (List a)) → List a
   | Nil => Nil
   | Cons None rest => List.runsJoined rest
   | Cons (Some run) rest => List.append (List.runsJoined rest) run
 
--- When the runs joined are in order, merging two neighbours joins them.
+--| When the runs joined are in order, merging two neighbours joins them.
 theorem List.pairwiseRunsMerge (le: a → a → Bool) (front: List a) (older: List a) (newer: List a)
     (h: List.Pairwise (x y => le x y = True) (List.append (List.append front older) newer)):
     List.merge le older newer = List.append older newer :=
@@ -824,8 +828,9 @@ theorem List.mergeRunsJoined (le: a → a → Bool): (acc: List a) → (c: List 
         (List.mergeRunsJoined le (List.append older acc) rest (rewrite List.appendAssoc (List.runsJoined rest) older acc at h))
         (Eq.sym (List.appendAssoc (List.runsJoined rest) older acc)))
 
--- Sorting a list that is already sorted gives it back, for a transitive `le`
--- (D725). No totality is needed: every merge takes the older run whole.
+--| Sorting a list that is already sorted gives it back, for a transitive `le`.
+--| No totality is needed: every merge takes the older run whole.
+-- (D725)
 theorem List.sortWithOfSorted (le: a → a → Bool) (trans: (x: a) → (y: a) → (z: a) → le x y = True → le y z = True → le x z = True)
     (xs: List a) (s: List.Sorted le xs): List.sortWith xs le = xs :=
   Eq.trans
@@ -840,8 +845,8 @@ theorem List.sortWithOfSortedExample (xs: List Nat) (s: List.Sorted Nat.leq xs):
 -- (SW-363). Here rather than with `List.find` and `List.Distinct` in the
 -- toolkit because they decide equality with `DecEq`.
 
--- Finding by key: what is found has the key, and when some element has the
--- key, something is found.
+--| Finding by key: what is found has the key, and when some element has the
+--| key, something is found.
 theorem List.findKey [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (y: a) (h: List.find xs (x => key x == kk) = Some y): key y = kk :=
   match List.findSome xs (x => key x == kk) y h with
     | Both py m => Decidable.toBoolSound (DecEq.decide (key y) kk) py
@@ -851,13 +856,13 @@ theorem List.findKeySome [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) 
   h => List.anyElim (x => key x = kk) Void xs (List.memMapAny xs key kk m)
     (x inXs e => List.findNoneNotMem xs (z => key z == kk) x (Decidable.toBoolOf (DecEq.decide (key x) kk) e) inXs h)
 
--- Permutations have the same elements.
+--| Permutations have the same elements.
 theorem List.memPerm [auto eq: DecEq a] (xs: List a) (ys: List a) (h: List.Perm xs ys) (x: a) (m: List.Mem x xs): List.Mem x ys :=
   List.anyTrueElim ys (y => y == x) (List.Mem x ys)
     (Eq.trans (Eq.sym (List.anyPerm xs ys h (y => y == x))) (List.anyOfMem xs (y => y == x) x (Decidable.toBoolOf (DecEq.decide x x) rfl) m))
     (y inYs e => rewrite <- Decidable.toBoolSound (DecEq.decide y x) e in inYs)
 
--- Counting with a test the first element passes.
+--| Counting with a test the first element passes.
 theorem List.occurrencesConsTrue (xs: List a) (p: a → Bool) (x: a) (px: p x = True): List.occurrences (Cons x xs) p = Succ (List.occurrences xs p) :=
   rewrite px in rfl
 
@@ -866,7 +871,7 @@ theorem Bool.toNatAddLeOne: (b: Bool) → (n: Nat) → Bool.toNat b + n ≤ 1 �
   | True, Zero, h => rfl
   | True, Succ n, h => Void.exfalso (Bool.falseNotTrue h)
 
--- Distinct keys: at most one element has any key.
+--| Distinct keys: at most one element has any key.
 theorem List.occurrencesKeyDistinct [auto eq: DecEq k]: (xs: List a) → (key: a → k) → (kk: k) → List.Distinct (List.map xs key) →
     List.occurrences xs (x => key x == kk) ≤ 1
   | Nil, key, kk, d => rfl
@@ -882,7 +887,7 @@ theorem List.occurrencesKeyDistinct [auto eq: DecEq k]: (xs: List a) → (key: a
                   in List.memMap xs y inXs key))))
       (f => List.occurrencesKeyDistinct xs key kk d)
 
--- And back: when at most one element has any key, the keys are distinct.
+--| And back: when at most one element has any key, the keys are distinct.
 theorem List.distinctOfOccurrences [auto eq: DecEq k]: (xs: List a) → (key: a → k) → ((kk: k) → List.occurrences xs (x => key x == kk) ≤ 1) →
     List.Distinct (List.map xs key)
   | Nil, key, h => Trivial
@@ -899,12 +904,12 @@ theorem List.distinctOfOccurrences [auto eq: DecEq k]: (xs: List a) → (key: a 
                 (List.occurrencesConsTrue xs (z => key z == key x) x (Decidable.toBoolOf (DecEq.decide (key x) (key x)) rfl)))) (h (key x)))))
       (List.distinctOfOccurrences xs key (kk => Bool.toNatAddLeOne (key x == kk) (List.occurrences xs (z => key z == kk)) (h kk)))
 
--- Rearranging a list keeps its keys distinct.
+--| Rearranging a list keeps its keys distinct.
 theorem List.distinctMapPerm [auto eq: DecEq k] (xs: List a) (key: a → k) (ys: List a) (h: List.Perm xs ys) (d: List.Distinct (List.map ys key)):
     List.Distinct (List.map xs key) :=
   List.distinctOfOccurrences xs key (kk => Eq.trans (Eq.cong (n => Nat.leq n 1) (h (x => key x == kk))) (List.occurrencesKeyDistinct ys key kk d))
 
--- Counting `p`, apart from `v` and at `v`.
+--| Counting `p`, apart from `v` and at `v`.
 theorem List.occurrencesSplit [auto eq: DecEq a]: (xs: List a) → (v: a) → (p: a → Bool) →
     List.occurrences xs p = List.occurrences xs (x => p x ∧ ¬(x == v)) + List.occurrences xs (x => p x ∧ (x == v))
   | Nil, v, p => rfl
@@ -920,7 +925,7 @@ theorem List.occurrencesSplit [auto eq: DecEq a]: (xs: List a) → (v: a) → (p
         (Nat.addSwap (Bool.toNat (p x ∧ ¬(x == v))) (Bool.toNat (p x ∧ (x == v)))
           (List.occurrences xs (y => p y ∧ ¬(y == v))) (List.occurrences xs (y => p y ∧ (y == v)))))
 
--- Counting at `x` in a list without `x` finds nothing ...
+--| Counting at `x` in a list without `x` finds nothing ...
 theorem List.occurrencesAbsent [auto eq: DecEq a]: (xs: List a) → (x: a) → (p: a → Bool) → Not (List.Mem x xs) →
     List.occurrences xs (y => p y ∧ (y == x)) = 0
   | Nil, x, p, n => rfl
@@ -929,7 +934,7 @@ theorem List.occurrencesAbsent [auto eq: DecEq a]: (xs: List a) → (x: a) → (
       | True => Void.exfalso (n (Inl (DecEq.sound y x e)))
       | False => rewrite Bool.andFalse (p y), List.occurrencesAbsent ys x p (m => n (Inr m)) in rfl
 
--- ... and in a list with `x` once, finds `x` if it passes `p`.
+--| ... and in a list with `x` once, finds `x` if it passes `p`.
 theorem List.occurrencesOnce [auto eq: DecEq a]: (xs: List a) → (x: a) → (p: a → Bool) → List.Distinct xs → List.Mem x xs →
     List.occurrences xs (y => p y ∧ (y == x)) = Bool.toNat (p x)
   | Nil, x, p, d, m => Void.exfalso m
@@ -940,8 +945,8 @@ theorem List.occurrencesOnce [auto eq: DecEq a]: (xs: List a) → (x: a) → (p:
       | True => Void.exfalso (notMem (rewrite DecEq.sound y x e in m))
       | False => rewrite Bool.andFalse (p y), List.occurrencesOnce ys x p d m in rfl
 
--- Two lists without repeats and with the same members are the same elements
--- in another order.
+--| Two lists without repeats and with the same members are the same elements
+--| in another order.
 theorem List.permOfSameMembers [auto eq: DecEq a]: (xs: List a) → (ys: List a) → List.Distinct xs → List.Distinct ys →
     ((x: a) → List.Mem x xs → List.Mem x ys) → ((y: a) → List.Mem y ys → List.Mem y xs) → List.Perm xs ys
   | Nil, Nil, dx, dy, there, back, p => rfl
@@ -965,15 +970,15 @@ theorem List.permOfSameMembers [auto eq: DecEq a]: (xs: List a) → (ys: List a)
     rewrite List.occurrencesSplit ys x p, List.occurrencesOnce ys x p dy (there x (Inl rfl)), <- List.occurrencesFilter ys (z => ¬(z == x)) p, <- rest
       in Nat.addComm (Bool.toNat (p x)) (List.occurrences xs p)
 
--- `n` is the number of values `x` with `p x`: some list without repeats has
--- exactly those values, and `n` elements. For a `p` true of finitely many
--- values, where a `Set` isn't at hand: the points where two lines cross,
--- say. Any two such lists have the same length (`List.numberWithUnique`),
--- so it says what the number is.
+--| `n` is the number of values `x` with `p x`: some list without repeats has
+--| exactly those values, and `n` elements. For a `p` true of finitely many
+--| values, where a `Set` isn't at hand: the points where two lines cross,
+--| say. Any two such lists have the same length (`List.numberWithUnique`),
+--| so it says what the number is.
 def List.NumberWith (n: Nat) (p: a → Bool): Prop :=
   Exists (List a) (xs => List.Distinct xs ∧ ((x: a) → (x ∈ xs ↔ p x = True)) ∧ List.length xs = n)
 
--- The number of values with `p` is one number.
+--| The number of values with `p` is one number.
 theorem List.numberWithUnique [auto eq: DecEq a] (p: a → Bool) (n: Nat) (m: Nat) (first: List.NumberWith n p) (second: List.NumberWith m p):
     n = m :=
   match first, second with
@@ -983,15 +988,15 @@ theorem List.numberWithUnique [auto eq: DecEq a] (p: a → Bool) (n: Nat) (m: Na
         (y inY => (memX y).backward ((memY y).forward inY))
       rewrite <- lengthX, <- lengthY in List.permLength xs ys same
 
--- The same number of values, for a test that agrees everywhere.
+--| The same number of values, for a test that agrees everywhere.
 theorem List.numberWithCong (n: Nat) (p: a → Bool) (q: a → Bool) (same: (x: a) → p x = q x) (counted: List.NumberWith n p):
     List.NumberWith n q :=
   match counted with
     | Witness xs (Both distinct (Both members length)) =>
       Witness xs (Both distinct (Both (x => rewrite <- same x in members x) length))
 
--- Two lists sorted by the same order, with the same elements, are equal,
--- when the order puts no two different elements both ways round.
+--| Two lists sorted by the same order, with the same elements, are equal,
+--| when the order puts no two different elements both ways round.
 theorem List.sortedPermEq [auto eq: DecEq a] (le: a → a → Bool) (trans: (x: a) → (y: a) → (z: a) → le x y = True → le y z = True → le x z = True)
     (antisymm: (x: a) → (y: a) → le x y = True → le y x = True → x = y):
     (xs: List a) → (ys: List a) → List.Sorted le xs → List.Sorted le ys → List.Perm xs ys → xs = ys
@@ -1012,21 +1017,21 @@ theorem List.sortedPermEq [auto eq: DecEq a] (le: a → a → Bool) (trans: (x: 
           (Eq.trans (p q) (Eq.cong (t => Bool.toNat (q t) + List.occurrences ys q) (Eq.sym same))))
     rewrite same, rest in rfl
 
--- A list sorted by an `Ord` is the sort of any list with the same elements.
+--| A list sorted by an `Ord` is the sort of any list with the same elements.
 theorem List.sortOfSorted [auto ord: Ord a] (xs: List a) (ys: List a)
     (sorted: List.Sorted (x y => Ordering.isLessEq (Ord.compare x y)) ys) (same: List.Perm ys xs): ys = xs.sort :=
   List.sortedPermEq (x y => Ordering.isLessEq (Ord.compare x y)) Ord.isLessEqTrans Ord.isLessEqAntisymm ys xs.sort sorted (List.sortSorted xs)
     (List.permTrans ys xs xs.sort same (List.permSym xs.sort xs (List.sortPerm xs)))
 
--- Lists with the same elements sort to the same list.
+--| Lists with the same elements sort to the same list.
 theorem List.sortEqOfPerm [auto ord: Ord a] (xs: List a) (ys: List a) (same: List.Perm xs ys): xs.sort = ys.sort :=
   List.sortOfSorted ys xs.sort (List.sortSorted xs) (List.permTrans xs.sort xs ys (List.sortPerm xs) same)
 
--- For numbers, sorted by `Nat.leq`.
+--| For numbers, sorted by `Nat.leq`.
 theorem List.sortOfSortedNat (xs: List Nat) (ys: List Nat) (sorted: List.Sorted Nat.leq ys) (same: List.Perm ys xs): ys = xs.sort :=
   List.sortOfSorted xs ys (List.sortedCong Nat.leq (x y => Ordering.isLessEq (Nat.compare x y)) (x y => Eq.sym (Nat.compareLeq x y)) ys sorted) same
 
--- Without `x` in the list, nothing is taken out.
+--| Without `x` in the list, nothing is taken out.
 theorem List.removeFirstAbsent [auto eq: DecEq a]: (xs: List a) → (x: a) → Not (List.Mem x xs) → xs.removeFirst x = xs
   | Nil, x, n => rfl
   | Cons y ys, x, n =>
@@ -1034,7 +1039,7 @@ theorem List.removeFirstAbsent [auto eq: DecEq a]: (xs: List a) → (x: a) → N
       | True => Void.exfalso (n (Inl (DecEq.sound y x e)))
       | False => rewrite List.removeFirstAbsent ys x (m => n (Inr m)) in rfl
 
--- With `x` in the list, `x` and the rest are the list in another order.
+--| With `x` in the list, `x` and the rest are the list in another order.
 theorem List.occurrencesRemoveFirst [auto eq: DecEq a]: (ys: List a) → (x: a) → List.Mem x ys → (p: a → Bool) →
     List.occurrences ys p = Bool.toNat (p x) + List.occurrences (ys.removeFirst x) p
   | Nil, x, m, p => Void.exfalso m
@@ -1054,8 +1059,8 @@ theorem List.permRemoveFirst [auto eq: DecEq a] (ys: List a) (x: a) (m: List.Mem
 theorem List.lengthRemoveFirst [auto eq: DecEq a] (ys: List a) (x: a) (m: List.Mem x ys): List.length ys = Succ (List.length (ys.removeFirst x)) :=
   Eq.sym (List.permLength (Cons x (ys.removeFirst x)) ys (List.permRemoveFirst ys x m))
 
--- Taking the same element off the front of one list and out of the other
--- leaves a permutation.
+--| Taking the same element off the front of one list and out of the other
+--| leaves a permutation.
 theorem List.permRemoveFirstOfCons [auto eq: DecEq a] (x: a) (xs: List a) (ys: List a) (same: List.Perm (Cons x xs) ys):
     List.Perm xs (ys.removeFirst x) :=
   p =>
@@ -1075,7 +1080,7 @@ theorem List.sumByRemoveFirst [auto eq: DecEq a] [auto add: Add b]: (ys: List a)
             | Inr rest => rest
         rewrite List.sumByCons ys y f, List.sumByCons (ys.removeFirst x) y f, List.sumByRemoveFirst ys x later f in Add.addLeftComm (f y) (f x) _
 
--- Sums and counts are the same in any order.
+--| Sums and counts are the same in any order.
 theorem List.sumByPerm [auto eq: DecEq a] [auto add: Add b]: (xs: List a) → (ys: List a) → List.Perm xs ys → (f: a → b) →
     List.sumBy xs f = List.sumBy ys f
   | Nil, Nil, same, f => rfl
@@ -1091,15 +1096,15 @@ theorem List.sumPerm [auto eq: DecEq a] [auto add: Add a] (xs: List a) (ys: List
 theorem List.countPerm (xs: List a) (ys: List a) (same: List.Perm xs ys) (p: a → Bool): List.count xs p = List.count ys p :=
   rewrite List.countOccurrences xs p, List.countOccurrences ys p in same p
 
--- A `flatMap` of lists that are permutations of each other gives
--- permutations.
+--| A `flatMap` of lists that are permutations of each other gives
+--| permutations.
 theorem List.permFlatMap [auto eq: DecEq a] (xs: List a) (ys: List a) (same: List.Perm xs ys) (f: a → List b):
     List.Perm (List.flatMap xs f) (List.flatMap ys f) := p =>
   rewrite List.occurrencesFlatMap f p xs, List.occurrencesFlatMap f p ys in List.sumByPerm xs ys same (x => List.occurrences (f x) p)
 
 theorem List.findKeyExample: List.find [MkPair "a" 1, MkPair "b" 2, MkPair "b" 3] (x => Pair.fst x == "b") = Some (MkPair "b" 2) := rfl
 
--- Adding an element in front keeps every subsequence.
+--| Adding an element in front keeps every subsequence.
 theorem List.subsequenceCons (x: a): (s: List a) → (ys: List a) → List.Subsequence s ys → List.Subsequence s (Cons x ys)
   | Nil, ys, h => Trivial
   | Cons y s, ys, h => Inr h
@@ -1115,13 +1120,13 @@ theorem List.subsequenceLength: (s: List a) → (ys: List a) → List.Subsequenc
   | Cons x xs, Cons y ys, Inr h =>
     Nat.leTrans (List.length (Cons x xs)) (List.length ys) (Succ (List.length ys)) (List.subsequenceLength (Cons x xs) ys h) (Nat.leSucc (List.length ys))
 
--- Dropping the first element keeps a subsequence.
+--| Dropping the first element keeps a subsequence.
 theorem List.subsequenceTail (x: a): (s: List a) → (ys: List a) → List.Subsequence (Cons x s) ys → List.Subsequence s ys
   | s, Nil, h => Void.exfalso h
   | s, Cons y ys, Inl (Both e h) => List.subsequenceCons y s ys h
   | s, Cons y ys, Inr h => List.subsequenceCons y s ys (List.subsequenceTail x s ys h)
 
--- A subsequence of a subsequence is a subsequence.
+--| A subsequence of a subsequence is a subsequence.
 theorem List.subsequenceTrans: (xs: List a) → (ys: List a) → (zs: List a) →
     List.Subsequence xs ys → List.Subsequence ys zs → List.Subsequence xs zs
   | Nil, ys, zs, h1, h2 => Trivial
@@ -1143,7 +1148,7 @@ theorem List.mergeCount: (xs: List a) → (ys: List a) → (le: a → a → Bool
       (e => ring [List.mergeCount xs (Cons y ys) le p])
       (e => ring [List.mergeCount (Cons x xs) ys le p])
 
--- How many elements of all the runs satisfy `p`.
+--| How many elements of all the runs satisfy `p`.
 @[noReceiver]
 def List.runsCount (p: a → Bool): List (Option (List a)) → Nat
   | Nil => 0
@@ -1195,12 +1200,12 @@ theorem List.splitStepJoin (x: a): (st: Pair (List a) (List (List a))) → List.
 theorem List.finishGroupsClose: (st: Pair (List a) (List (List a))) → List.finishGroups st = List.closeGroup (Pair.fst st) (Pair.snd st)
   | MkPair cur done => rfl
 
--- The run from `s` up to the first separator (looking as far as `s + m`).
+--| The run from `s` up to the first separator (looking as far as `s + m`).
 theorem List.runStop (sep: Nat → Bool) (m: Nat) (s: Nat) (h: sep s = True): Nat.firstFrom sep (Succ m) s - s = 0 :=
   rewrite Nat.firstFromStop sep m s h, Nat.subSelf s
 
--- The group still open after reading positions s .. s + m - 1 (from the
--- right) is the run from s to the first separator; s + m is a separator.
+--| The group still open after reading positions s .. s + m - 1 (from the
+--| right) is the run from s to the first separator; s + m is a separator.
 theorem List.splitGroupsOpen (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: (c: Nat) → p (f c) = sep c):
     (m: Nat) → (s: Nat) → sep (s + m) = True →
     Pair.fst (List.splitGroups (List.map (List.rangeFrom m s) f) p) = List.map (List.rangeFrom (Nat.firstFrom sep (Succ m) s - s) s) f
@@ -1219,12 +1224,12 @@ theorem List.splitGroupsOpen (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) 
 
 theorem Nat.addSubLeft (s: Nat) (m: Nat): (s + m) - s = m := rewrite Nat.addComm s m in Nat.addSub m s
 
--- The run of positions from `lo` up to the first separator, looking no
--- further than `n`.
+--| The run of positions from `lo` up to the first separator, looking no
+--| further than `n`.
 def List.runAt (f: Nat → a) (sep: Nat → Bool) (n: Nat) (lo: Nat): List a :=
   List.map (List.rangeFrom (Nat.firstFrom sep (Succ (n - lo)) lo - lo) lo) f
 
--- Closing the open group adds its term, unless it is empty.
+--| Closing the open group adds its term, unless it is empty.
 theorem List.closeRunSum (g: List a → Nat) (done: List (List a)) (m: Nat) (s: Nat) (f: Nat → a) (sep: Nat → Bool):
     List.sumBy (List.closeGroup (List.map (List.rangeFrom (Nat.firstFrom sep (Succ m) s - s) s) f) done) g
       = Nat.keepIf (g (List.map (List.rangeFrom (Nat.firstFrom sep (Succ m) s - s) s) f)) (¬(sep s)) + List.sumBy done g :=
@@ -1234,8 +1239,8 @@ theorem List.closeRunSum (g: List a → Nat) (done: List (List a)) (m: Nat) (s: 
       rewrite Nat.subSuccRight s (Nat.firstFrom sep m (Succ s)) (Nat.firstFromAtLeast sep m (Succ s)) in
         List.sumByCons done (Cons (f s) (List.map (List.rangeFrom (Nat.firstFrom sep m (Succ s) - Succ s) (Succ s)) f)) g
 
--- The groups closed after reading positions s .. s + m - 1: one for every
--- separator c followed by a position c + 1 that isn't one.
+--| The groups closed after reading positions s .. s + m - 1: one for every
+--| separator c followed by a position c + 1 that isn't one.
 theorem List.splitGroupsDone (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: (c: Nat) → p (f c) = sep c) (g: List a → Nat):
     (m: Nat) → (s: Nat) → sep (s + m) = True →
     List.sumBy (Pair.snd (List.splitGroups (List.map (List.rangeFrom m s) f) p)) g
@@ -1262,8 +1267,8 @@ theorem List.splitGroupsDone (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) 
       _ = List.sumBy (List.rangeFrom (Succ m) s) (c => Nat.keepIf (g (List.runAt f sep (s + Succ m) (Succ c))) (¬(sep (Succ c)) ∧ sep c)) :=
         Eq.sym (List.sumByCons (List.rangeFrom m (Succ s)) s (c => Nat.keepIf (g (List.runAt f sep (Succ (s + m)) (Succ c))) (¬(sep (Succ c)) ∧ sep c)))
 
--- All the groups: the run from 0, then one for every separator followed by
--- a position that isn't one.
+--| All the groups: the run from 0, then one for every separator followed by
+--| a position that isn't one.
 theorem List.splitByStarts (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: (c: Nat) → p (f c) = sep c) (g: List a → Nat) (n: Nat) (end: sep n = True):
     List.sumBy (List.splitBy (List.map (List.range n) f) p) g
       = Nat.keepIf (g (List.runAt f sep n 0)) (¬(sep 0))
@@ -1273,9 +1278,9 @@ theorem List.splitByStarts (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (h
     List.closeRunSum g (Pair.snd (List.splitGroups (List.map (List.rangeFrom n 0) f) p)) n 0 f sep,
     List.splitGroupsDone p f sep hsep g n 0 end
 
--- `lo .. hi - 1` is a maximal run of positions that aren't separators: the
--- one before it is a separator (or lo is 0), it isn't empty, none in it is a
--- separator, and hi is one.
+--| `lo .. hi - 1` is a maximal run of positions that aren't separators: the
+--| one before it is a separator (or lo is 0), it isn't empty, none in it is a
+--| separator, and hi is one.
 @[noReceiver]
 def Nat.isRun (sep: Nat → Bool) (lo: Nat) (hi: Nat): Bool :=
   (lo == 0 ∨ sep (lo - 1)) ∧ (lo < hi ∧ (List.all (List.rangeFrom (hi - lo) lo) (i => ¬(sep i)) ∧ sep hi))
@@ -1294,7 +1299,7 @@ theorem List.isRunSepStart (sep: Nat → Bool) (lo: Nat) (hi: Nat) (h: sep lo = 
         | True => rewrite Nat.subSuccRight lo hi e, h
     _ = False := Bool.andFalse (lo == 0 ∨ sep (lo - 1))
 
--- A run that starts at lo ends at the first separator after it.
+--| A run that starts at lo ends at the first separator after it.
 theorem List.isRunEnd (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end: sep n = True) (hi: Nat) (h: Nat.isRun sep lo hi = True):
     hi = Nat.firstFrom sep (Succ (n - lo)) lo :=
   let rest := Bool.andRight (lo == 0 ∨ sep (lo - 1)) (lo < hi ∧ (List.all (List.rangeFrom (hi - lo) lo) (c => ¬(sep c)) ∧ sep hi)) h
@@ -1315,7 +1320,7 @@ theorem List.isRunEnd (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end:
             (Nat.firstFromAtLeast sep (Succ (n - lo)) lo)
             (rewrite Nat.addSubCancel lo hi (Nat.lessLe lo hi long) in Nat.leqFalse hi (Nat.firstFrom sep (Succ (n - lo)) lo) e))))
 
--- The run that starts at lo (it does start there) is a maximal run.
+--| The run that starts at lo (it does start there) is a maximal run.
 theorem List.isRunRun (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end: sep n = True)
     (h1: sep lo = False) (h2: (lo == 0 ∨ sep (lo - 1)) = True): Nat.isRun sep lo (Nat.firstFrom sep (Succ (n - lo)) lo) = True :=
   let v := Nat.firstFrom sep (Succ (n - lo)) lo
@@ -1342,7 +1347,7 @@ theorem List.runsFromEdge (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat)
       (List.isRunEnd sep n lo hlo end) (Succ n) 0 (Nat.zeroLe (Nat.firstFrom sep (Succ (n - lo)) lo))
       (Nat.firstFromLe sep (Succ (n - lo)) lo n (Nat.lessLe lo n hlo) end)
 
--- For each lo, the maximal runs starting there: one if a run starts at lo, none otherwise.
+--| For each lo, the maximal runs starting there: one if a run starts at lo, none otherwise.
 theorem List.runsFrom (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat) (n: Nat) (end: sep n = True) (lo: Nat) (hlo: lo < n):
     List.sumBy (List.range (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))
       = Nat.keepIf (g (List.runAt f sep n lo)) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))) :=
@@ -1361,7 +1366,7 @@ theorem List.sumRangeLast (f: Nat → Nat) (n: Nat): List.sumBy (List.range (Suc
     _ = List.sumBy (List.append (List.rangeFrom n 0) (List.rangeFrom 1 (0 + n))) f := rewrite <- List.rangeFromAppend n 1 0 in rfl
     _ = List.sumBy (List.range n) f + f n := List.sumByAppend (List.rangeFrom n 0) (List.rangeFrom 1 n) f
 
--- The runs by where they start: at 0, or just after a separator.
+--| The runs by where they start: at 0, or just after a separator.
 theorem List.runStarts (sep: Nat → Bool) (r: Nat → Nat): (n: Nat) → sep n = True →
     List.sumBy (List.range n) (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
       = Nat.keepIf (r 0) (¬(sep 0)) + List.sumBy (List.range n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c))
@@ -1378,8 +1383,8 @@ theorem List.runStarts (sep: Nat → Bool) (r: Nat → Nat): (n: Nat) → sep n 
       _ = Nat.keepIf (r 0) (¬(sep 0)) + List.sumBy (List.range (Succ n)) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c))
         := rewrite List.sumRangeLast (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c)) n, end
 
--- Splitting the positions 0 .. n - 1 at the separators gives exactly the
--- maximal runs `lo .. hi - 1` (`Nat.isRun`), when position n is a separator.
+--| Splitting the positions 0 .. n - 1 at the separators gives exactly the
+--| maximal runs `lo .. hi - 1` (`Nat.isRun`), when position n is a separator.
 theorem List.splitByRuns (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: (c: Nat) → p (f c) = sep c) (g: List a → Nat) (n: Nat) (end: sep n = True):
     List.sumBy (List.splitBy (List.map (List.range n) f) p) g
       = List.sumBy (List.range n) (lo => List.sumBy (List.range (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))) :=
@@ -1394,7 +1399,7 @@ theorem List.splitByRuns (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hse
         (lo => List.sumBy (List.range (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))) n 0
         (lo l1 l2 => Eq.sym (List.runsFrom sep f g n end lo l2))
 
--- Sums and products don't mind the order.
+--| Sums and products don't mind the order.
 theorem List.sumReverse (xs: List Nat): List.sum (List.reverse xs) = List.sum xs := List.sumByReverse xs (x => x)
 
 theorem List.productFrom [auto mul: Mul a]: (xs: List a) → (z: a) → List.foldLeft xs z Mul.mul = z * List.product xs
@@ -1417,7 +1422,7 @@ theorem List.productReverseOnto: (xs: List Nat) → (acc: List Nat) → List.pro
 theorem List.productReverse (xs: List Nat): List.product (List.reverse xs) = List.product xs :=
   rewrite List.productReverseOnto xs Nil in ring
 
--- Taking away a smaller sum term by term.
+--| Taking away a smaller sum term by term.
 theorem List.sumBySplit (xs: List a) (f: a → Nat) (g: a → Nat) (h: (x: a) → g x ≤ f x):
     List.sumBy xs f = List.sumBy xs g + List.sumBy xs (x => f x - g x) :=
   calc List.sumBy xs f
@@ -1431,7 +1436,7 @@ theorem List.sumBySub (xs: List a) (f: a → Nat) (g: a → Nat) (h: (x: a) → 
     List.sumBy xs f - List.sumBy xs g = List.sumBy xs (x => f x - g x) :=
   rewrite List.sumBySplit xs f g h in Nat.addSubLeft (List.sumBy xs g) (List.sumBy xs (x => f x - g x))
 
--- A filter that keeps more keeps at least as large a sum.
+--| A filter that keeps more keeps at least as large a sum.
 theorem List.sumByFilterMono (keep1: a → Bool) (keep2: a → Bool) (value: a → Nat) (xs: List a)
     (included: (x: a) → keep1 x = True → keep2 x = True): List.sumBy (List.filter xs keep1) value ≤ List.sumBy (List.filter xs keep2) value :=
   rewrite List.sumByFilter xs value keep1, List.sumByFilter xs value keep2 in
@@ -1440,8 +1445,8 @@ theorem List.sumByFilterMono (keep1: a → Bool) (keep2: a → Bool) (value: a �
         | True => rewrite included x kept in Nat.leRefl (value x)
         | False => Nat.zeroLe (if keep2 x then value x else 0))
 
--- Counting with a test that passes wherever another does, on the list's
--- elements, counts at least as many.
+--| Counting with a test that passes wherever another does, on the list's
+--| elements, counts at least as many.
 theorem List.countLeMem: (xs: List a) → (p: a → Bool) → (q: a → Bool) → ((x: a) → (m: List.Mem x xs) → p x = True → q x = True) →
     List.count xs p ≤ List.count xs q
   | Nil, p, q, weaker => Nat.leRefl 0
@@ -1452,7 +1457,7 @@ theorem List.countLeMem: (xs: List a) → (p: a → Bool) → (q: a → Bool) �
       | True => rewrite weaker x (Inl rfl) passes in below
       | False => Nat.leTrans _ _ _ below (Nat.leAddLeft (Bool.toNat (q x)) (List.count rest q))
 
--- And strictly fewer when some element passes `q` but not `p`.
+--| And strictly fewer when some element passes `q` but not `p`.
 theorem List.countLtMem: (xs: List a) → (p: a → Bool) → (q: a → Bool) → ((x: a) → (m: List.Mem x xs) → p x = True → q x = True) →
     (y: a) → List.Mem y xs → q y = True → p y = False → List.count xs p < List.count xs q
   | Nil, p, q, weaker, y, none, passes, fails => Void.exfalso none
@@ -1466,7 +1471,7 @@ theorem List.countLtMem: (xs: List a) → (p: a → Bool) → (q: a → Bool) �
       | True => rewrite weaker x (Inl rfl) kept in below
       | False => Nat.leTrans _ _ _ below (Nat.leAddLeft (Bool.toNat (q x)) (List.count rest q))
 
--- `all` is "no element fails", so a permutation keeps it.
+--| `all` is "no element fails", so a permutation keeps it.
 theorem List.allNotAny: (xs: List a) → (p: a → Bool) → List.all xs p = ¬(List.any xs (x => ¬(p x)))
   | Nil, p => rfl
   | Cons x xs, p =>
@@ -1474,7 +1479,7 @@ theorem List.allNotAny: (xs: List a) → (p: a → Bool) → List.all xs p = ¬(
       | True => List.allNotAny xs p
       | False => rfl
 
--- "No x is related to any y" read either way round.
+--| "No x is related to any y" read either way round.
 theorem List.allNotAnyComm (related: a → b → Bool): (xs: List a) → (ys: List b) →
     List.all xs (x => ¬(List.any ys (y => related x y))) = List.all ys (y => ¬(List.any xs (x => related x y)))
   | Nil, ys => Eq.sym (List.allTrue ys (y => True) (y => rfl))
@@ -1497,14 +1502,14 @@ theorem List.sortOnEq [auto ord: Ord k] (xs: List a) (key: a → k):
 theorem List.sortOnPerm [auto ord: Ord k] (xs: List a) (key: a → k): List.Perm (List.sortOn xs key) xs :=
   List.sortByPerm xs (x y => Ord.compare (key x) (key y))
 
--- The keys of the sorted list are the sorted keys.
+--| The keys of the sorted list are the sorted keys.
 theorem List.sortOnMap [auto ord: Ord k] (xs: List a) (key: a → k):
     List.map (List.sortOn xs key) key = List.sort (List.map xs key) :=
   List.sortByMap xs key Ord.compare (x y => Ord.compare (key x) (key y)) (x y => rfl)
 
 -- dedup ---------------------------------------------------------------------
 
--- What `List.dedupAfter` keeps was in the list.
+--| What `List.dedupAfter` keeps was in the list.
 theorem List.memDedupAfter [auto eq: DecEq a] (x: a): (previous: a) → (xs: List a) → List.Mem x (List.dedupAfter previous xs) → List.Mem x xs
   | previous, Nil, m => m
   | previous, Cons y ys, m =>
@@ -1515,7 +1520,7 @@ theorem List.memDedupAfter [auto eq: DecEq a] (x: a): (previous: a) → (xs: Lis
           | Inl q => Inl q
           | Inr rest => Inr (List.memDedupAfter x y ys rest)
 
--- And it drops only elements equal to the one before.
+--| And it drops only elements equal to the one before.
 theorem List.memDedupAfterIntro [auto eq: DecEq a] (x: a): (previous: a) → (xs: List a) → List.Mem x xs →
     Or (previous = x) (List.Mem x (List.dedupAfter previous xs))
   | previous, Nil, m => Void.exfalso m
@@ -1533,13 +1538,13 @@ theorem List.memDedupAfterIntro [auto eq: DecEq a] (x: a): (previous: a) → (xs
               | Inl q => Inr (Inl q)
               | Inr later => Inr (Inr later)
 
--- What `List.dedup` keeps was in the list.
+--| What `List.dedup` keeps was in the list.
 theorem List.memDedupElim [auto eq: DecEq a] (x: a): (xs: List a) → List.Mem x (List.dedup xs) → List.Mem x xs
   | Nil, m => m
   | Cons y ys, Inl q => Inl q
   | Cons y ys, Inr rest => Inr (List.memDedupAfter x y ys rest)
 
--- `List.dedup` keeps every value.
+--| `List.dedup` keeps every value.
 theorem List.memDedupIntro [auto eq: DecEq a] (x: a): (xs: List a) → List.Mem x xs → List.Mem x (List.dedup xs)
   | Nil, m => m
   | Cons y ys, Inl q => Inl q
@@ -1548,7 +1553,7 @@ theorem List.memDedupIntro [auto eq: DecEq a] (x: a): (xs: List a) → List.Mem 
       | Inl q => Inl q
       | Inr later => Inr later
 
--- `List.dedup` keeps a list sorted.
+--| `List.dedup` keeps a list sorted.
 theorem List.sortedDedupAfter [auto eq: DecEq a] (le: a → a → Bool): (previous: a) → (xs: List a) → List.Sorted le (Cons previous xs) →
     List.Sorted le (Cons previous (List.dedupAfter previous xs))
   | previous, Nil, s => s
@@ -1561,6 +1566,6 @@ theorem List.sortedDedup [auto eq: DecEq a] (le: a → a → Bool): (xs: List a)
   | Nil, s => s
   | Cons y ys, s => List.sortedDedupAfter le y ys s
 
--- A sum over the first n + 1 numbers is the first term and the sum over the rest.
+--| A sum over the first n + 1 numbers is the first term and the sum over the rest.
 theorem List.sumByRangeSucc (f: Nat → Nat) (n: Nat): List.sumBy (List.range (Succ n)) f = f 0 + List.sumBy (List.range n) (i => f (Succ i)) :=
   rewrite List.sumByCons (List.rangeFrom n 1) 0 f, List.sumByRangeShift f n 0 in rfl
