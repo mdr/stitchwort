@@ -1,5 +1,5 @@
 {
-  "next": 986,
+  "next": 989,
   "tickets": [
     {
       "id": 47,
@@ -2594,14 +2594,14 @@
     {
       "id": 962,
       "title": "Proof hashes differ between debug and release builds (float-playlist example)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "elab",
         "hashes"
       ],
-      "body": "Found 1 Nov 2026 while merging AoC day 10. examples/accept/float-playlist.sw's proofs hash differently in debug and release builds, every run:\n- `cargo nextest run --release -p stitchwort-driver --test hash_stability examples` passes (Main.nextStartNotEarlier 460aa8c3…).\n- the same without --release fails: nextStartNotEarlier 087ab8f8…, startTimesAscend and playlistAscends also differ. Repeated twice, same values.\nSo the elaborated proof term depends on the build profile. Hashes are meant to depend only on content.\nUntraced suspects: `#[cfg(debug_assertions)]` code in elab: queue.rs:1302 `assert_rule_closed` (runs head_meta on waiting items in a debug build only; if that forces or fills a meta, terms can differ) and rows.rs:742; or a float computation that differs in debug.\nImpact: merge tier runs --release so it's green; a lane running hash_stability in debug sees a false failure. Correctness: debug assertions must not change what is elaborated.\n",
+      "body": "Found 1 Nov 2026 while merging AoC day 10. examples/accept/float-playlist.sw's proofs hash differently in debug and release builds, every run:\n- `cargo nextest run --release -p stitchwort-driver --test hash_stability examples` passes (Main.nextStartNotEarlier 460aa8c3…).\n- the same without --release fails: nextStartNotEarlier 087ab8f8…, startTimesAscend and playlistAscends also differ. Repeated twice, same values.\nSo the elaborated proof term depends on the build profile. Hashes are meant to depend only on content.\nUntraced suspects: `#[cfg(debug_assertions)]` code in elab: queue.rs:1302 `assert_rule_closed` (runs head_meta on waiting items in a debug build only; if that forces or fills a meta, terms can differ) and rows.rs:742; or a float computation that differs in debug.\nImpact: merge tier runs --release so it's green; a lane running hash_stability in debug sees a false failure. Correctness: debug assertions must not change what is elaborated.\n\n1 Nov (Opus lane, commit a515d3e1 on worktree-agent-a0344c35ed5b905d8): cause found. Not debug_assertions (skipping assert_rule_closed changed nothing). 41 std declarations hash differently in debug (Std.Nat.partitionPointBounds first; float-playlist inherits it via Float.addMonotoneRight). Cheap attempts that are taken as \"no\" when they fail (unify::cheaply's let refolding, omega/ring atom comparisons, closing/search match attempts) each had their own 128 KiB / 4 MiB stack budget in bytes; debug frames are bigger, so cheaply failed 790 times in debug vs 7 in release. Fix: Budget::attempt keeps the enclosing operation's stack floor (steps/size/frames limits are the same in every build); an attempt that reaches the floor ends the operation. Regression test: builtins::the_library_hashes_as_in_the_release_build (debug-builtins gate) + 2 budget unit tests. Release hashes unchanged (std, aoc, examples); all examples now match in debug.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -2885,14 +2885,14 @@
     {
       "id": 981,
       "title": "BUG: lambda argument becomes unknown x in a termination goal inside a callback (from SW-967 item 2)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "",
+      "where": "worktree-agent-a3273d15ea1ee4a35",
       "labels": [
         "bug",
         "elab"
       ],
-      "body": "Split from SW-967 item 2 (AoC 2021 day 12). Repro in aoc/NOTES-2021.md day 12: def g (xs: List Nat) (k: Nat): Nat decreasing xs.length := [1, 2] |> .sumBy (other => if k == 0 then 0 else g (xs.filter (c => c == other)) k [decreasing := ?]) shows ⊢ List.length x < List.length xs.",
+      "body": "Split from SW-967 item 2 (AoC 2021 day 12). Repro in aoc/NOTES-2021.md day 12: def g (xs: List Nat) (k: Nat): Nat decreasing xs.length := [1, 2] |> .sumBy (other => if k == 0 then 0 else g (xs.filter (c => c == other)) k [decreasing := ?]) shows ⊢ List.length x < List.length xs.\n\n2026-11-01 Opus: cause: sumBy's callback is checked as a computation in an unknown row {e}; the argument xs.filter (…) may perform (filter is effect-polymorphic), so effects::run_first bound it with bind into a hidden variable %4 (trace: the call was rec %4 k, cx names [xs, k, %rec, other, %4]). Same for a let (sequence) and if h: on such a condition (E-ABILITY).\n2026-11-01 Opus: fix 517d8d1e: such an expression is first elaborated as plain calls (check::pure_first); if pure it's a transparent let (args, lets) or a pure if. Goal now shows List.length (List.filter xs (c => c == other)) < List.length xs. Tests: examples/goals + examples/accept decreasing-callback-argument. Hashes: 975 of 13877 std+aoc decls change (mostly AoC tests/mains/parsers in Fail/Parse/IO rows: bind of a pure call became a let).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -2900,14 +2900,14 @@
     {
       "id": 982,
       "title": "BUG: match on a bounded search computes the scrutinee (E-RESOURCE) (from SW-965 item 1)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "",
+      "where": "worktree-agent-a11b6d4a28891900d",
       "labels": [
         "bug",
         "elab"
       ],
-      "body": "Split from SW-965 item 1 (AoC 2021 day 11). Repro in aoc/NOTES-2021.md day 11 (13 lines): match on search xs 1 10000 fails E-RESOURCE 'a value was too large to show'; 100 steps 0.11 s, 1000 0.68 s.",
+      "body": "Split from SW-965 item 1 (AoC 2021 day 11). Repro in aoc/NOTES-2021.md day 11 (13 lines): match on search xs 1 10000 fails E-RESOURCE 'a value was too large to show'; 100 steps 0.11 s, 1000 0.68 s.\n\nProgress (Opus, 1 Nov): cause: matching.rs `lifted` read every expression scrutinee back in full for the occurrence test (backtrace check_match -> quote -> quote_as at the size limit); the unfolded search is quadratic in the bound. Fix 4a3c6c77 on worktree-agent-a11b6d4a28891900d: a single scrutinee is read back capped at the size of the largest term it could occur in (goal, variable types, its own type); larger means it occurs nowhere. Several scrutinees are still read in full (match-overlapping.sw). Resource errors there now label the match. Hashes unchanged. A bound of 10^9 checks in 0.11 s. Open: a goal that really mentions the huge scrutinee still runs out (now labelled at the match).\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -2952,6 +2952,49 @@
         "tactics"
       ],
       "body": "Seen by the SW-975 lane (1 Nov 2026): after the panic fix, the 74-line day 16 repro (scratchpad cases-panic-repro.sw; in-repo: flip 'if more' in Day16 readGroups) ends with E-CASES-BUDGET (more than 64 cases) after about 100 s on a release build, because cases keeps splitting on Nat.divStep's internals. Should give up fast, or not split inside library arithmetic.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 986,
+      "title": "Postponement step 4.3 (K4) finish: a waiting literal is seen through by the same numeral at a known type, so 2021 Day08 checks; then merge (D2110 pending)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "postponement"
+      ],
+      "body": "Branch worktree-agent-acd1a9e4928ec210f (commits 69c83d0b, a658d461) built K4 and fixes Day17; after rebase 2021 Day08/Proofs/Proofs.sw:54 (List.foldLeftCongMem entry.outputs 0 _ _ (…)) fails; with (0: Nat) it checks. Proposed fix (design option (c)): a waiting k met by the numeral k at a known type takes that type. Blocked on D2110 (Matt). Also problems found on main by that lane were fixed 1 Nov (if-guard example, bool-constant goal snapshot). Recheck SW-978 item 4 (negative literal in a list fixed as Nat) after merge.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 987,
+      "title": "Postponement step 4.4 (stage 5): remove the catch-and-retry paths (§5.11) after 4.3",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "postponement"
+      ],
+      "body": "As planned in docs/proposals/postponement.md §8 stage 5 and 'As built (step 4.3)': the lambda try-then-postpone, retrying + late_literals + defers_literal, else_first and check_items' reordering, held and last_resort, FieldNames, the three 'infer the other side' catches. Each removal its own commit with its counter at 0 first. Also review the new attempt site added by SW-981 (effects.rs: an expression in an unknown row is first elaborated as plain calls via check::pure_first, then undone and bound if it performs) against the T1 rule for attempt sites; it may become a queued item waiting on the row instead.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 988,
+      "title": "Postponement stage 7 design: expected type first, tactic arguments last (from AoC 2021 friction)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "postponement",
+        "design"
+      ],
+      "body": "Design lane, may run beside stage 5. Evidence (AoC 2021 overnight, 1 Nov 2026): proof arguments checked before the call's expected type and other arguments fill its holes. SW-969 (2) P.ext _ _ cases cases: cases solved holes as q = q (6-line repro in NOTES-2021 day 13); SW-971 (1) an omega argument checked before an earlier [auto] argument was solved, and a lambda's entry.snd became ?15; SW-963 (2) a lambda argument typed before a later argument fixed its type (workaround: lambda last), and rfl before a hole was solved; SW-967 (3) List.sumByCong's function arguments not inferred; SW-976 (3) _ arguments read from an already-computed expected type, E-RESOURCE with no location; 2024: SW-771 'lambdas inferred after other arguments'. Steps: (1) turn each case into an example and run it against main with step 4.3 merged, to see which K4 already fixes; (2) read Lean 4's app elaborator (propagateExpectedType; postponing by-blocks to the end via synthesizeSyntheticMVars) and Agda/Idris equivalents; (3) write the rules into docs/proposals/postponement.md: tactic arguments (cases, omega, ring, auto, rfl?) as queued checks run after the call's other arguments and expected type; unify the expected type with the result type first where safe (first-order, no dependency hazards); say what changes in hashes and messages.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
