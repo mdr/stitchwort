@@ -1,0 +1,199 @@
+diff --git a/crates/elab/src/calc.rs b/crates/elab/src/calc.rs
+index f8e83d97..ba333054 100644
+--- a/crates/elab/src/calc.rs
++++ b/crates/elab/src/calc.rs
+@@ -108,6 +108,7 @@ fn elaborate_tried(
+         Some(goal) => hint(cx, goal, ordered)?,
+         None => None,
+     };
++    let queued_from = cx.e.queue.len();
+     let infer_first = |cx: &mut Ctx| infer(cx, first).and_then(|(t, ty)| insert(cx, t, ty));
+     let inferred = if hint.is_some() {
+         crate::records::held(cx, infer_first)
+@@ -130,6 +131,10 @@ fn elaborate_tried(
+         if rel != Rel::Eq && !cx.unify(&ty, &nat_ty)? {
+             return Err(relation_error(cx, step, rel, &ty));
+         }
++        // SCRATCH (SW-988): a resume point for the calc's own checks.
++        if std::env::var("SCRATCH_CALC_RESUME").is_ok() {
++            cx.e.resume_application(queued_from)?;
++        }
+         let end = link
+             .as_ref()
+             .map_or_else(|| start.clone(), |l| l.end.clone());
+@@ -285,6 +290,13 @@ fn by_computation(cx: &mut Ctx, step: &CalcStep, prop: &Value, line: &str) -> Re
+     {
+         return Ok(Term::Refl);
+     }
++    // SCRATCH (SW-988): wait as `rfl` does.
++    if std::env::var("SCRATCH_CALC_WAIT").is_ok()
++        && let Value::Eq(_, a, b) = &computed
++        && crate::queue::compare_waiting(cx, a, b, crate::queue::Failure::Refl)?
++    {
++        return Ok(Term::Refl);
++    }
+     let mut error = Diagnostic::error(
+         "E-CALC-STEP",
+         "this step has no proof, and `rfl` doesn't prove it",
+diff --git a/crates/elab/src/check.rs b/crates/elab/src/check.rs
+index e35a7319..17ade09b 100644
+--- a/crates/elab/src/check.rs
++++ b/crates/elab/src/check.rs
+@@ -1297,6 +1297,14 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+         )),
+         // `-k` with nothing expected is an `Int`.
+         Expr::Neg(..) => crate::numbers::group(cx, expr, None),
++        Expr::Num(n, _) if std::env::var("SCRATCH_INFER_WAIT").is_ok() => {
++            // SCRATCH (SW-988 experiment, not for merge): an inferred
++            // literal waits too, on a fresh type unknown.
++            let ty = if std::env::var("SCRATCH_CLOSED").is_ok() { Term::Meta(cx.g().new_meta(cx.span)) } else { cx.fresh_meta() };
++            let ty = cx.eval(&ty)?;
++            let term = crate::numbers::check_literal(cx, n, false, &ty)?;
++            Ok((term, ty))
++        }
+         Expr::Num(n, _) => Ok((
+             Term::Nat(Rc::new(n.clone())),
+             Value::Data(nat(cx)?, Vec::new()),
+@@ -2139,10 +2147,43 @@ fn apply_args_postponing(
+         _ => None,
+     };
+     let mut after_expected = Vec::new();
++    let mut tactics_last: Vec<(&Expr, Value, Value, usize)> = Vec::new();
+     // The argument just passed, when it was a name given as a function.
+     let mut function_name: Option<&AstName> = None;
++    let mut propagated = false;
+     for (i, arg) in args.iter().enumerate() {
+         let previous_function_name = function_name.take();
++        // SCRATCH (SW-988, stage 7 prototype): Lean's and Agda's rule. Before
++        // each explicit argument that isn't a `_` or a proof search, until it
++        // has once succeeded: if the result type no longer depends on the
++        // arguments still to come, compare it with the expected type.
++        if std::env::var("SCRATCH_PROPAGATE_EACH").is_ok()
++            && !propagated
++            && supply.is_empty()
++            && let (Some(expected), Arg::Explicit(value)) = (&expecting, arg)
++            && !matches!(value, Expr::Hole(_))
++            && !is_tactic_arg(value)
++        {
++            let snapshot = crate::undo::Snapshot::take(cx);
++            let w = written_result(cx, &ty, &args[i..])?;
++            if std::env::var("SCRATCH_TRACE").is_ok() {
++                eprintln!(
++                    "propagate at {i}: {:?} against {}",
++                    w.as_ref().map(|(w, _, _)| cx.show(w)),
++                    cx.show(expected)
++                );
++            }
++            match w {
++                Some((written, sup, _))
++                    if cx.unify(&written, expected)?
++                        || crate::undo::unify_solving_arguments(cx, &written, expected)? =>
++                {
++                    *supply = sup;
++                    propagated = true;
++                }
++                _ => snapshot.restore(cx),
++            }
++        }
+         match arg {
+             Arg::Explicit(value @ Expr::Lam(..)) => {
+                 (term, ty) = insert_with(cx, term, ty, supply)?;
+@@ -2279,6 +2320,25 @@ fn apply_args_postponing(
+                     postponed.push((*value, dom, placeholder, id));
+                     continue;
+                 }
++                // SCRATCH (SW-988, stage 7 prototype): a tactic argument is
++                // checked last, after the other arguments, the application's
++                // own queued checks, the expected type and the instances
++                // that are ready.
++                if std::env::var("SCRATCH_TACTICS_LAST").is_ok()
++                    && is_tactic_arg(value)
++                    && only_lambdas_depend_on_it(&cod.body, &args[i + 1..])
++                {
++                    let meta = cx.fresh_meta();
++                    let placeholder = cx.eval(&meta)?;
++                    ty = cod.apply(cx.g(), placeholder.clone())?;
++                    let id = match meta.spine().0 {
++                        Term::Meta(m) => *m,
++                        _ => unreachable!("a fresh metavariable is headed by one"),
++                    };
++                    term = Term::app(term, meta);
++                    tactics_last.push((*value, dom, placeholder, id));
++                    continue;
++                }
+                 let next_is_unit = matches!(args.get(i + 1), Some(Arg::Explicit(Expr::Unit(_))));
+                 // An argument that fails in place while its type has
+                 // unknowns is checked again once the application's type has
+@@ -2362,6 +2422,32 @@ fn apply_args_postponing(
+     // expected of it: the checks queued while it was elaborated, and only
+     // those, are resumed if they can be (W1, scoped; D2014).
+     cx.e.resume_application(queued_from)?;
++    if !tactics_last.is_empty() {
++        if let Some(expected) = &expecting {
++            let implicit_next = matches!(
++                force(cx.g(), ty.clone())?,
++                Value::Pi(_, Icit::Implicit | Icit::Auto, ..)
++            );
++            if !implicit_next {
++                // A failure is left for the call's own comparison to report.
++                let _ = crate::undo::unify(cx, &ty, expected)?
++                    || crate::undo::unify_solving_arguments(cx, &ty, expected)?;
++            }
++        }
++        cx.e.solve_ready_instances()?;
++        cx.e.resume_application(queued_from)?;
++        for (value, dom, placeholder, id) in std::mem::take(&mut tactics_last) {
++            // The goal as it now stands, read afresh.
++            let dom = cx.eval(&cx.quote_folded(&dom)?)?;
++            let checked = check_arg(cx, &term, value, &dom)?;
++            let evaluated = cx.eval(&checked)?;
++            if !cx.unify(&evaluated, &placeholder)? {
++                return Err(cx.mismatch(&placeholder, &evaluated));
++            }
++            term = fill_placeholder(&term, id, &checked).unwrap_or(term);
++        }
++        cx.e.resume_application(queued_from)?;
++    }
+     if let (false, Some(expected)) = (after_expected.is_empty(), &expecting) {
+         // The type as `fallback` will compare it: with no implicit
+         // parameters left to insert (they'd be made again there).
+@@ -2394,6 +2480,16 @@ fn apply_args_postponing(
+     Ok((term, found_dictionaries(cx, &own, ty)?))
+ }
+ 
++/// SCRATCH (SW-988): an argument that is a proof search, checked last.
++fn is_tactic_arg(value: &Expr) -> bool {
++    match value {
++        Expr::Omega { .. } | Expr::Cases { .. } | Expr::Ring { .. } | Expr::Rewrite { .. } => true,
++        Expr::Var(name) => name.text == "rfl" && std::env::var("SCRATCH_RFL_LAST").is_ok(),
++        Expr::Bracketed(inner, _) => is_tactic_arg(inner),
++        _ => false,
++    }
++}
++
+ /// The items of a list literal checked against `elem`, in order, or when
+ /// retrying (`retrying`) and the element type isn't known, those with a
+ /// constructor with number literals last (`defers_literal`).
+diff --git a/crates/elab/src/queue.rs b/crates/elab/src/queue.rs
+index cb0b405a..8f9389f3 100644
+--- a/crates/elab/src/queue.rs
++++ b/crates/elab/src/queue.rs
+@@ -437,7 +437,17 @@ pub(crate) fn queue(
+     error: Diagnostic,
+ ) -> Result<Term> {
+     debug_assert!(!ready(cx.g(), &needs)?, "an item waits on an unknown head");
+-    let placeholder = cx.fresh_meta();
++    // SCRATCH (SW-988): a number literal whose type mentions no variable
++    // gets a placeholder that mentions none either.
++    let closed = std::env::var("SCRATCH_CLOSED").is_ok() && check.literal().is_some() && {
++        let t = cx.quote(&ty)?;
++        (0..cx.level()).all(|i| !t.mentions(i))
++    };
++    let placeholder = if closed {
++        Term::Meta(cx.g().new_meta(cx.span))
++    } else {
++        cx.fresh_meta()
++    };
+     let Term::Meta(meta) = *placeholder.spine().0 else {
+         unreachable!("a fresh metavariable")
+     };

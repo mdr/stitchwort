@@ -7,7 +7,9 @@ stopped for decisions ([Stage 4, second attempt: stopped](#stage-4-second-attemp
 attempt's design is written ([Stage 4: design for the third attempt](#stage-4-design-for-the-third-attempt);
 decisions D2087, D2090, D2091) and built in steps 4.0 to 4.3 ([As built (step
 4.3)](#as-built-step-43): number literals wait); stage 5 removes the retry paths nothing
-uses any more and keeps two that are still used ([As built (stage 5)](#as-built-stage-5)). Tickets SW-817 (anchor), SW-847 and SW-885; context
+uses any more and keeps two that are still used ([As built (stage 5)](#as-built-stage-5)). Stage 7's
+design (proof searches last; inferred literals wait, D2118) is written, with five questions ([Stage 7:
+design](#stage-7-design-expected-type-first-proof-searches-last); SW-988). Tickets SW-817 (anchor), SW-847 and SW-885; context
 SW-509, SW-805, SW-896. Follows D1990 (one queue, agreed in principle), D1991 (SW-805's
 field-name rule stays, as name resolution), D2012 (Matt: design for the best end state; the
 cost of churn is not a criterion) and D2015 (Matt: revise after the external review). Repros,
@@ -3244,6 +3246,388 @@ lane 65.6 s user (89 s wall). No slowdown.
 **Open**: the two gaps above (tuples checked against an unknown; a lambda checked against an
 unknown applied to variables), after which `retrying` and `late_literals` can go; `rfl` as a
 comparison leaf, after which the leaf catch can go; `explain_default`'s literal note.
+## Stage 7: design (expected type first, proof searches last)
+
+Written in the SW-988 design lane, 1 November 2026, on main `0602e074` (step 4.3 merged).
+Labels as in the stage 4 design: **[run]** run on 1 November; **[read]** read in source
+(Stitchwort at `0602e074`; Lean 4, Agda and Idris 2 at the commits of [Sources](#sources)); **[inferred]**
+my reasoning, not tested. The repros, the other systems' versions of them and their output, and
+the scratch prototype's patch (**PROTOTYPE, not for merge**: everything behind `SCRATCH_*`
+switches) are in [postponement/stage7/](postponement/stage7/).
+
+### In short
+
+- **The problem.** AoC 2021 met, on six days, a call whose proof argument was checked before
+  what fixes its goal: the call's `_`s, the expected type, a later argument, a dictionary. The
+  proof search then fails, or worse, succeeds by guessing (`cases` proving `?a.x = ?b.x` by making
+  `?b` be `?a`, SW-969).
+- **What main already does.** Some forms of the cases check on main: cases 2 and 4 as a theorem's
+  body (the after-expected path catches the failure), case 6 where its goal is known, case 7 over
+  a list that doesn't compute. `examples/accept/argument-order-expected.sw` keeps them. In the
+  forms AoC met, eight of the nine cases fail on main and one couldn't be reproduced (the table
+  below).
+- **Rule 1, proof searches last** (the prototype): an `omega`, `cases`, `ring`, `rewrite` or `rfl`
+  argument is checked after the call's other arguments, its own waiting checks, its comparison
+  with the expected type and the instances now findable. It fixes SW-969 and both SW-971 shapes,
+  and `rfl` under a hole (SW-963), and every aoc namespace still checks **[run]**.
+- **Rule 2, a failed search waits on any unknown**: today `rewrite` and `cases` wait only on the
+  queue's unknowns. Widened to any unsolved unknown, and to `omega` and `ring`, as D2090 widened
+  the `match` rule. It is for proofs inside lambdas, which rule 1 can't reach [inferred].
+- **Not recommended now: Lean's expected type before every argument.** Built in the prototype, it
+  fixed none of the cases and broke nine accepted examples (the `Float` builtins, an alias) and
+  changed twelve reject messages [run].
+  Today's `propagate` before the first argument and the after-expected path stay.
+- **D2118: inferred literals can wait**, with two fixes beyond the plain change: the
+  literal's type unknown and its placeholder made with no variables, and a resume point inside
+  `calc`. With these, `calc.sw`, `let-patterns.sw`, Day 17's list and every aoc namespace check
+  [run]. Five messages and two warnings change; each has its own small fix, listed below.
+- **Two cases are not about order**: a `_` against an expected type that reached the call already
+  computed (SW-771 item 2, SW-976 (3)), and a congruence lemma inside a `rewrite` rule, where
+  nothing says its functions (SW-967 (3)). They need folded expected types and stage 6's waiting
+  for flex-flex pairs; separate tickets.
+
+### The cases
+
+Each repro is in [postponement/stage7/](postponement/stage7/); "main" is `0602e074`'s binary.
+
+| # | ticket, AoC | repro | main | why it fails | fixed by |
+|---|---|---|---|---|---|
+| 1 | SW-969 (2), 2021 day 13 | `ext-cases.sw`: `P.ext _ _ cases cases` | `E-TYPE-MISMATCH` "expected `q = shift b p`, but this has type `q = q`" | `P.ext`'s result `x = y` mentions its explicit `_`s, so `propagate` doesn't run (`written_result` gives `None`, `check.rs`). The first `cases` is checked in place against `?a.x = ?b.x` and succeeds by solving `?b := ?a` [inferred from the message]; it didn't fail, so the after-expected path never runs [read] | rule 1 [run] |
+| 2 | SW-971 (1), 2021 day 14 | `omega-before-later.sw`, `lambdaFirst` | `E-OMEGA`, its goal holding `?2 counts pair given x` (the waiting `entry.snd`) | the call is a `match` scrutinee, so nothing is expected of it and there is no after-expected path; `omega` runs before W1 resumes the lambda's `.snd` and `==`. As a theorem's body it checks [run] | rule 1 [run] |
+| 3 | SW-971 (1), 2021 day 14 | `omega-before-later.sw`, `autoFirst` | `E-OMEGA`, `DecEq.%decide ?1 first c` in the goal, `Char.decEq first c` in the fact | the `[auto eq: DecEq a]` dictionary is found in the obligations loop (W3), after the call. Even the after-expected retry sees `?1` [run] | rule 1's step "instances now findable" [run] |
+| 4 | SW-963 (2), 2021 day 10 | `lambda-before-later.sw`, `lambdaFirst` | `E-OMEGA` "needs to know the goal" | the lambda's domain `f x = Some y` is not headed by an unknown, so it isn't postponed (`unknown_domain`); it is checked in place, and its `omega` meets `?f a`. In a `let`, nothing is expected, so no retry. As a theorem's body it checks [run] | rule 2 [inferred]; rule 1 alone doesn't [run] |
+| 5 | SW-963 (2), 2021 day 10 | `lambda-before-later.sw`, `rflUnderHole` | `E-REFL` "`firstOf [3, 4]` and `Some 3` aren't equal" | a bug on main, apart from order: `rfl` fails in place and is retried after the expected type, but against its goal *as computed before* the `_` was solved, so `List.head ?xs`, stuck, stays stuck. With the goal evaluated afresh (`quote`, then `eval`) it checks [run, scratch]. This is day 10's "the message printed the solved hole" | rule 1, which reads the goal afresh [run]; or a one-line fix in the after-expected loop now |
+| 6 | SW-967 (3), 2021 day 12 | `congruence-holes.sw` | `sums` (a theorem's body) checks; `viaRewrite`: "expected `?4 xs (Succ k) = ?4 xs (Succ k)`"; `viaTrans`: "`1` and `?8 xs 0` aren't equal" | a `rewrite` rule is elaborated with nothing expected (D2087), so nothing says `f1` and `f2`; the callback's `rfl` compares `?f1 0` with `?f2 0` and the unifier makes them one unknown, a guess [inferred: the message shows one unknown on both sides]. In `Eq.trans` the goal's right side is itself unknown | not order: stage 6 would keep the flex-flex pair waiting instead of guessing [inferred]; meanwhile, write the functions |
+| 7 | SW-771 item 2 (2024 day 16), SW-976 (3) (2021 day 16) | `predicate-hole-literal-list.sw` | `E-TYPE-MISMATCH` "expected `?1 x member found x`, but this has type `lookup x = Some 2`" | the expected type reaches the call already computed, `lookup 1 = Some 2 ∨ …` (a scratch trace at the call) [run], so `?p` is met applied to numbers, not a pattern. Comparing before each argument (Lean's rule, prototyped) doesn't help: both sides are disjunctions by then [run]. With a list that doesn't compute it checks | not order: keep the statement folded where it is the body's expected type (folded-calls.md), so `List.Any ?p xs` meets `List.Any f xs` by arguments first, as Lean seems to [unconfirmed in source]. Lean accepts it [run] |
+| 8 | D2118, SW-978 (4), 2021 day 17 | `literal-tuples.sw`: `[(7, 2), (6, 3), (17, -4)].map (((dx, dy)) => { dx, dy })` | `E-TYPE-MISMATCH` "a `Nat` can't be negative" at `-4` | a tuple checked against an unknown infers its parts, and an inferred literal is `Nat` at once (`infer_inner`, `Expr::Num`); the first tuple makes the list `(Nat, Nat)`, then `-4` is checked against `Nat` | K4 widened to inferred literals (below) [run] |
+| 9 | SW-976 (3), 2021 day 16 | none | | `E-RESOURCE` with no location: **not reproduced**. AoC's code no longer has the shape; three reconstructions in a scratch copy of aoc (`appendCong3 _ _ _ _ _ _`, `soundStep _ after left _ …`, `fieldsCong False _ _ _ _ _ _ _` in `Day16/Proofs/Sound.sw`) all check on main [run] | probably case 7's family [inferred] |
+
+SW-771's first item (a lambda before the argument that fixes its type, 2024 day 16) was fixed
+before stage 7 (`lambda-postponed-dependent-argument.sw`).
+
+### D2118: inferred literals waiting
+
+**The experiment.** `infer` of a number literal makes a fresh unknown type and checks the literal
+against it, so it waits (K4) like a checked one (`SCRATCH_INFER_WAIT`, the step 4.3 lane's
+change) [run]. Day 17's list checks and its test passes. Two accepted examples fail, and seven
+example outputs change: five reject messages (the step 4.3 lane counted four; its `?0 a b h` is
+`ring-coefficient-after.sw`'s) and the warnings of two accepted examples. One by one:
+
+**`calc.sw`, `zeroLe`** (`calc 0` / `_ ≤ n` / `_ ≤ m := h`), "`0 ≤ n` doesn't hold by
+computation" [run]. `calc` infers its first expression, so `0` is a waiting literal of type `?T`.
+The first step's `≤` unifies `?T` with `Nat` (`elaborate_tried`, `calc.rs`), but nothing resumes
+the literal: `calc` is not an application, so it has no W1. `by_computation` then compares
+`Nat.leq ?p n` with `True` by plain `unify`, which can't wait, and fails. (The message prints `0`
+for the placeholder, as D2091 asks, which hides the cause.) Making `by_computation` wait (stage 6's
+`compare_waiting`) moves the failure to `check_calc`'s own last comparison, `E-CALC-GOAL`, which
+can't wait either [run]. **What works**: a resume point in `calc` after each step's type is fixed,
+scoped to the items made since the `calc` began (`resume_application(queued_from)`, a W1 for
+`calc`) [run: `SCRATCH_CALC_RESUME`]. This is close to Lean, which defaults after each `calc`
+step (`Calc.lean:123`, `:128`, as the stage 4 design notes), except that a resume point applies no default.
+
+**`let-patterns.sw`, `sumTreeLifted`** (`let one := 1` / `let Node x kids := t` / `x * one + …`),
+"expected `Nat`, but this has type `?0 (Node x kids)`" [run]. The literal's type unknown is made
+by `fresh_meta`, which applies it to every variable in scope, so `one: ?0 t`. Matching on the
+variable `t` substitutes `Node x kids` for `t` in the types in scope, so `one: ?0 (Node x kids)`,
+and `?0 (Node x kids) = Nat` is not a pattern: the unifier can't solve it. On main `one` is a
+`Nat`, closed. It isn't the step 4.0 `match` rule: the `match` doesn't wait (`match waited` 0
+[run]), since a match on a variable refines the context rather than generalising. Agda shows the
+same shape, `Number (_B_55 7)`, for a pair's second type (other-runs.txt). **What works**: make the
+type unknown with no variables (`Term::Meta(new_meta)`) [run: `SCRATCH_CLOSED`]. A numeral's type
+is `Nat`, `Int`, `Float`, `SafeNat`, `SafeInt` or `Fin n`, and only `Fin n` can mention a
+variable; a closed unknown can't become `Fin n` for a local `n`, which main can't do for an
+inferred literal either (it is `Nat`). Lean's fresh type is a metavariable of the local context,
+not applied to its variables, so a `match` doesn't touch it (`lateInt` in lean-s7.lean, a literal
+typed `Int` by a use inside a later `match`, checks [run]).
+
+**The same, for the placeholder.** With only the type closed, aoc fails at 2024
+`Day16/Proofs/Part2.sw:203` [run]: `(way => (way, 0))`'s `0` is a placeholder applied to `way`, and
+after β it meets `(…, 0)` applied to a record, not a variable, so the seeing-through rule (D2110)
+can't solve it. A literal's value at a closed type mentions no variable either, so its placeholder
+is made closed too (in `queue`, for a literal whose type quotes with no variable). Then Day16
+checks [run].
+
+**With the three changes** (inferred literals wait; type and placeholder closed; a resume point in
+`calc`): `literal-tuples.sw` checks and its test passes; `check --no-cache` checks all 207 aoc
+namespaces; every accepted example checks [run]. Hashes, `stitchwort test`, rogue and the debug
+build were not run. What changes, against main, in the whole output of every accept, reject and
+soundness example [run]:
+
+| example | change | why | what a correct version does |
+|---|---|---|---|
+| `accept/sequence-expression.sw`, `accept/abilities-edge.sw` | the `W-NO-EFFECT` warnings for a dropped literal (`(1; 2)`, a `3` line) are gone | the no-effect check sees a placeholder, not a literal | count a waiting literal as pure, as `bind::operand` does already (`queue::waiting_literal`) |
+| `reject/ring-coefficient-after.sw` (`ring [h * 2]`) | "this is `?0`" (unclosed: "`?0 a b h`") where main says "this is `Nat`" | `ring` reads its fact's type while the `2` waits: a type unknown printed, against D2091's rule 3 | a `ring` or `omega` fact list is a closed pattern, settled as a `rewrite` rule is (D2087): its `2` defaults to `Nat` first, main's message |
+| `reject/append-numbers.sw` (`1 ++ 2`) | label "this is a `?0`" | `++` chooses its instance from the left operand's type at once | `++` waits like a number group's operator (an obligation), so the message is made after the default: main's |
+| `reject/tuple-value-for-type.sw` (`(1, 2) → Nat`) | `E-TYPE-MISMATCH` "expected `Type`" where main says `E-NOT-A-TYPE` | `check_type` makes an unknown type of types `Type` (§5.10's allowed class), and the literal resumes against `Type` | a numeral where a type is expected is decided by its syntax: `E-NOT-A-TYPE` at once |
+| `reject/unfold-of-failed-definition.sw` (`2 [decreasing := …]`) | "the parameter names of this function aren't known here" where main says "this function has no parameter named `decreasing`" | named arguments read the head's type, an unknown | a numeral as a function head is decided by its syntax: never a function |
+| `reject/sequence-in-let-value.sw` (`let x := 1; 2; x` as `Text`) | the error moves from `x` to the `1`, with "a numeral can only be the prelude's `Nat` or `Int`"; the `W-NO-EFFECT` for `2` is gone | `x`'s type is fixed by `Text` before the literal resumes | the new place is right (the literal is what can't be `Text`), as D2091's re-blamed messages; the warning as above |
+
+So a correct version is the three changes plus the four small rules of the last column. Each is a
+consumer that reads a literal's type or shape at once, the kind step 4.0 listed: the same method
+(find every consumer, give each wait, a closed-pattern default or a syntactic decision) covers them.
+
+**What the other systems do** with D2118's case [run, other-runs.txt and lean-runs.txt]:
+- **Lean 4**: a numeral with nothing expected is `@OfNat.ofNat ?α n ?inst` with `?α` a fresh
+  type metavariable (`mkLitTypeFor`, `BuiltinTerm.lean:208-226` [L8]); `?α` is decided by
+  unification or, at quiescence, by default instances in priority order (`synthesizeUsingDefault`,
+  [L1] `:237-243`). `-4` adds `Neg ?β`, whose default `instNegInt` is `mid`, above `instOfNatNat`'s
+  `low` (`Int/Basic.lean:120-135` [L9], `Prelude.lean:1411` [L7]). So `[(7, 2), (17, -4)]` alone is
+  `List (Nat × Int)`, and mapped to a record of `Int`s it is all `Int` [run].
+- **Idris 2**: with the prelude, a literal is `fromInteger n` (`Desugar.idr:434-442` [I5]), its
+  `Num ty` found by search; where nothing fixes `ty`, the `%defaulthint defaultInteger : Num
+  Integer` does (`Prelude/Num.idr:99-104` [I6]). All three forms check [run].
+- **Haskell**: numerals are `fromInteger n :: Num a => a`; an ambiguous type variable with a
+  numeric class constraint is defaulted by the module's `default (Integer, Double)` declaration
+  (Haskell 2010 Report §4.3.4 [unconfirmed: cited from memory]). GHC reports each default under
+  `-Wtype-defaults` [run].
+- **Agda**: literals are overloaded through `Number` and `Negative` instances
+  (`Agda.Builtin.FromNat`, `FromNeg`), which wait until their type is known; there is no
+  defaulting, so the unannotated list is "unsolved metas" while the mapped one checks [run].
+
+So every system with overloaded numerals makes them wait for their type, also with nothing
+expected; Lean, Idris and Haskell then default, Agda reports. Stitchwort's K4 does this for checked
+literals; D2118 extends it to inferred ones, which is where Lean starts (it has no checked/inferred
+split for numerals).
+
+### What the other systems do with argument order
+
+- **Lean 4** [L10, `Elab/App.lean`]:
+  - *The expected type first.* Before each explicit argument that isn't `_`, `?_` or `by …`
+    (`shouldPropagateExpectedTypeFor`, `:516-523`), until it once succeeds, `propagateExpectedType`
+    (`:525-608`) computes the result type after the remaining arguments (`getResultingTypeCore?`,
+    `:449-502`) and, unless it depends on them (`hasLooseBVars`) or has optional or auto
+    parameters, unifies it with the expected type; a failure is ignored. It is skipped when the
+    expected type is `Prop` itself (`:577-596`) and when eta arguments are pending (`:567`).
+    `finalize` (`:610-657`) compares again at the end, after trying the instances
+    (`trySynthesizeAppInstMVars`).
+  - *`etaArgs`*: named arguments that leave an explicit parameter out make the call a lambda over
+    it (`:199-206`, `:731-738`); propagation is skipped while there are any (`:567`).
+  - *First-order unification*: `?m a₁ … aₙ =?= f b₁ … bₖ` with a non-variable `aᵢ` is solved as
+    `?m a₁ … aᵢ =?= f` and the rest pairwise, when the `foApprox` setting is on
+    (`Meta/ExprDefEq.lean:900-925`, `:1366-1395` [L11]); whether the application elaborator turns
+    it on is [unconfirmed].
+  - *`by` blocks last.* `by tac` against a known type is a synthetic-opaque metavariable of kind
+    `.tactic` (`elabByTactic`, `BuiltinTerm.lean:178-187` [L8]; `mkTacticMVar`,
+    `TermElabM.lean:1474-1482` [L2]); `synthesizeSyntheticMVars` runs tactics only after resuming,
+    defaults and the postponing-off retries have all stopped making progress
+    ([L1] `:661-667`, `runTactics` at `:590-598`). With nothing expected, `by` postpones
+    (`tryPostpone`).
+  - Our cases in Lean (lean-s7.lean, lean-runs.txt) [run]: `holesTac` (`ext' _ _ (by first | rfl |
+    exact sameX) …`) checks: the blocks see `q.x = (shift b p).x`; so does `holesNoExpected`, a
+    `have` with no type, since blocks wait to the end of the declaration. `holesTerm`
+    (`ext' _ _ rfl rfl`) shows the propagation: the error's application is `ext' q (shift b p) ?m.8
+    rfl`, the `_`s solved from the expected type before `rfl` was checked. `anyHole` (case 7),
+    `autoFirst` (case 3, `by omega` after `[DecidableEq α]`), `sumTreeLifted`, `lateInt` and
+    `zeroLe` check.
+- **Agda** [A5, `Rules/Application.hs`]: before each visible argument, "check the target type if
+  we can get away with it" (`:710-800`): if the type after the remaining visible Πs is rigid and
+  doesn't mention them, it is compared with the expected type, constraints allowed. Lean's rule,
+  with "rigid" for Lean's "not a metavariable". A lambda whose expected type isn't yet a Π is
+  postponed (`CheckExpr` on its blocker, `Rules/Term.hs:575-606`, [A4]; `checkPostponedLambda`,
+  `:795-810`). Agda has no built-in tactics; a reflected tactic argument runs at once and, if it
+  is blocked on a metavariable, becomes an `UnquoteTactic` constraint woken when that is solved
+  (`unquoteTactic`, `Rules/Term.hs:1539-1557`): "try, then wait", step 4.2's rule.
+- **Idris 2** [I7, `TTImp/Elab/App.idr`]: `checkRestApp` (`:411-455`) "choose[s] elaboration order
+  depending on whether we know the return type now": where it is known (concrete) and the argument
+  "needs delay" (a lambda, `case`, a local definition, a record update, an ambiguous name,
+  `%search` or `rewrite`, `needsDelayExpr`, `:297-316`), the rest of the application is elaborated
+  first, the result unified with the expected type at its end (`checkExp`), and the argument after.
+  That is rule 1 with lambdas included. With the return type unknown it goes left to right.
+- **Haskell**: no proof arguments; GHC's bidirectional checking pushes a known result type into
+  arguments, which doesn't bear on our cases [not read].
+
+What each would do with our cases [inferred from the above unless run]: Lean checks 1, 3, 7 and
+D2118 [run]; 2 and 4 as `by omega` blocks (run last) [inferred]; 5 as `by rfl` [inferred]; 6 would
+need its functions (Lean postpones `?f1 0 =?= ?f2 0` rather than guess, but in a `rw` rule nothing
+fixes them later either) [inferred]. Idris would check 1, 2, 4, 5 by elaborating the `rewrite`,
+lambda and searches after the rest when the return type is concrete [inferred, not run]. Agda would
+take case 7's target check by arguments first if the target is rigid [inferred].
+
+### The rules
+
+**Rule 1: proof searches last.** In an application, an explicit argument that is `omega`, `cases`,
+`ring`, `rewrite … [in …]` or `rfl` (bracketed or not) is not checked where it stands, if no
+later parameter's type depends on it (`only_lambdas_depend_on_it`). Its place holds a placeholder,
+and it is checked once all of this has happened, in this order:
+1. the other arguments, and the lambdas the call already postpones;
+2. W1, the application's own waiting checks (D2014);
+3. where something is expected of the call and no implicit parameter is left to insert, the
+   call's type compared with it (`unify`, then `unify_solving_arguments`, as the after-expected
+   path does); a failure is left for the call's own last comparison to report;
+4. the instances whose types are now known (`solve_ready_instances`), then W1 again;
+5. the searches, in written order, each against its goal read afresh (`quote_folded`, then
+   `eval`, so a call stuck on an unknown solved since computes, case 5).
+
+This is Lean's "`by` last" scoped to one application, and Idris's order for searches. It is not
+a queue item: it runs inside the application, as the after-expected path does, and never crosses
+W1 (invariant 3 holds trivially). The `auto` arguments need nothing new: they are obligations,
+and step 4 finds those that are ready before a search reads them.
+
+*Why `rfl` with the searches*: `rfl` is a comparison, not a search, but it chooses as a search
+does: proving `?a.x = ?b.x` by `?b := ?a` is SW-969's harm, and `reject/partial-constructor-mismatch.sw`
+is the same with `rfl` (`Eq.cong (Call o) rfl` against `Call o f = Call o g` today reports
+"`Call o f = Call o f`"; with rule 1, "`f` and `g` aren't equal" at the `rfl`, a better message)
+[run]. But with `rfl` included the prototype broke `std/Float/Theory.sw:1215` (an `rfl` inside
+`magnitudeExact (Succ k) rfl hm`, whose result type is an unknown) [run, cause not established];
+hence question Q2.
+
+*Why not lambdas* (Idris does them): stage 7 keeps §5.2's end state, a lambda checked in place with
+its stuck pieces waiting; Lean and Agda do the same. A lambda that holds a search is rule 2's.
+
+**Rule 2: a failed proof search waits on any unsolved unknown.** Step 4.2's `tactic_or_wait`
+(`queue.rs`) runs `rewrite` and `cases` at once and waits, whole, only if the goal holds an unknown
+of `search_pending`. Widen it: (a) to `omega` and `ring`; (b) to any unsolved, unfrozen unknown in
+the goal, as D2090 widened the `match` rule. A search inside a lambda (case 4) then waits for
+`?f`, which the later argument solves, and is resumed at W1. An unknown still unsolved at the end is
+an error anyway; the search reports the error it first gave (as built). Step 4.3 counted `omega on
+pending` 1 in aoc, failing 0, so (a) changes nothing in the corpus [run, step 4.3's counters];
+(b) is not measured.
+
+**Rule 3 (not recommended now): the expected type before every argument.** Lean's and Agda's rule
+in full: before each explicit argument but `_` and searches, until it once holds. The prototype
+(`SCRATCH_PROPAGATE_EACH`) fixed none of the nine cases: 1 to 5 by rule 1 alone, 7 because the
+expected type is already computed [run]. And it broke nine accepted examples: eight through
+`std/Float/Float.sw` (`E-BUILTIN`, "the library's `Float.neg` isn't the declaration the
+compiler's `Float` support was written for": a pinned native's term changed, and the same error
+replaced the messages of eight `float-*` reject examples and `counterexample-library-types.sw`), and
+`lambda-propagated-alias.sw` ("`List` has no field or function `total`"). Two effect reject
+examples lost their `E-ABILITY` (`map-callback-effectful-later.sw`, `map-effectful-callback-pure.sw`):
+`propagate` keeps a result's bare row for the arguments (`effects::unknown_bare_value`, D1124) and
+the prototype didn't [run]. Each could be handled as `propagate` handles it, but with
+no case wanting it, today's `propagate` before the first argument plus the after-expected path
+stay.
+
+**Rule 4: inferred literals wait** (D2118). An inferred number literal has a fresh type unknown
+and is checked against it (K4). For every number literal whose type mentions no variable, the type
+unknown and the placeholder are made with no variables. `calc` gets a resume point after each
+step's type is fixed, for the items made inside it. The four consumers of the table above get
+their rules: a waiting literal is pure for `W-NO-EFFECT`; `ring` and `omega` facts are closed
+patterns (D2087's settle); `++` waits as an operator does; a numeral as a type or as a function
+head is decided by its syntax.
+
+**When the expected type is compared first, and when that is unsafe.** As today: before the
+arguments only if the result type mentions none of them (`written_result`); after the arguments
+(the after-expected path, and rule 1's step 3) in all other cases. Unsafe, and so not done:
+- a result type that mentions an argument not yet checked: the comparison would solve the
+  argument's unknown from the goal, a guess when the argument is a lambda or a term the goal
+  only partly determines (Lean's `hasLooseBVars`, Agda's `freeInTgt`);
+- an auto parameter in the rest (`written_result` returns `None`): its proposition may mention
+  an argument, and finding it early fixes a dictionary from a guess;
+- an expected type that is a bare unknown: nothing to learn, and the comparison would fix the
+  call's type before its arguments;
+- an effect row left bare in the result (D1124): compared by value type only, as `propagate`
+  does;
+- an expected type already computed (case 7): the comparison happens, but on unfolded sides; this
+  is for folded expected types, not for order.
+
+**What the queue's invariants need.**
+- Invariant 3 (isolation): rule 1 runs inside the application; nothing it checks outlives it, and
+  what its searches queue is resumed by the same W1.
+- Invariant 4 (no re-entry): unchanged; a search checked last is not a queue item.
+- Invariant 7 (defaults at quiescence): rule 1's step 4 finds instances, which is not a default
+  (only instances whose types are fully known). Rule 4's closed patterns for `ring`/`omega` facts
+  are a fourth place where a default runs early, beside W4, W2 and a `rewrite` rule: the restated
+  invariant 7 (D2087) names "a closed pattern", so it is an instance, not a change, but the text
+  should list it. The `calc` resume point applies no default.
+- Invariant 8 (opaque placeholders): a search reads its goal only at step 5, after W1 has filled
+  the application's placeholders; what is still a placeholder then falls under rule 2.
+- Termination (§5.7, T1): rule 1 adds no attempt site; rule 2's waiting search is an existing kind
+  of item (`WaitingTactic`).
+
+### Expected changes
+
+- **Examples** [run, prototype]: rules 1 (with `rfl`) and 4 together are not measured; separately:
+  - rule 1 without `rfl`: one accepted example fails, `scan-layout.sw` (an `omega` argument of a
+    `rewrite` rule, `List.getOrZipWithScanLeft … k omega`; the closing `rfl` then compares
+    `List.getOr items k blank` with its unfolding and fails) [run, cause not established: the
+    prototype unifies the placeholder with the checked term, where the queue would fill it and
+    zonk the term, which may be the difference [inferred]];
+  - rule 1 with `rfl`: also `float-playlist.sw` (through `std/Float/Theory.sw:1215`) and the better
+    message of `partial-constructor-mismatch.sw`;
+  - rule 4: the seven outputs of the D2118 table, each to be brought back by its rule.
+- **AoC**: all 207 namespaces check with rule 1 (with `rfl`) and with rule 4 [run]; `stitchwort
+  test` and `task audit` not run.
+- **Hashes** [inferred, not measured]: rule 1 changes the term only where a search's proof differs
+  once its goal is known (the cases above were failures); rule 4 changes a literal's type where an
+  inferred literal was `Nat` and a later use says otherwise (only programs main rejects, N1), and
+  terms where a waiting literal's placeholder is filled (an `Ann`, as in step 4.3's list). Expect a
+  hash list of step 4.3's size, every statement identical.
+- **Messages**: rule 1 moves a search's error to its goal as known (better); rule 4's seven.
+
+### Risks
+
+- **Rule 1 changes which proof a search finds.** A search that succeeded early with a guess now
+  sees the real goal; where the guess happened to be what the proof needed, the search may now fail
+  (no case found). Every accepted example and aoc checked [run]; `scan-layout.sw` is the one
+  failure, not understood yet.
+- **Rule 2 waits longer.** A search failing on an unknown that only a default settles is resumed
+  after the default, so its error comes later, against the type now known: better, but a
+  different message where today's shows `?N`.
+- **Rule 4's closed unknowns** can't become `Fin n` for a local `n`; main can't either.
+- **The `calc` resume point** is a new scope boundary, like W1; an item made in a step and resumed
+  there sees only what the `calc` learnt (invariant 3 kept) [inferred].
+- **Stage 5 is removing the retry paths at the same time.** Rule 1 assumes the after-expected path
+  stays (§5.11, "kept"); if stage 5 changes it, rule 1's step 3 is where it moves.
+
+### Step plan
+
+Each step stops if an example's outcome or message changes beyond its list, or a hash beyond its
+classified list (as stage 4's).
+- **7.0, on main: the stale goal.** In the after-expected loop, read each argument's goal afresh
+  (case 5). Test: `rflUnderHole` as an accept example (from `stage7/lambda-before-later.sw`).
+- **7.1: rule 1** without `rfl`, as a step in `apply_args_postponing`; the placeholder filled
+  through the queue's fill (invariant 2), not by unification; find `scan-layout.sw`'s cause first.
+  Tests: `ext-cases.sw`, both `omega-before-later.sw` shapes as accept examples; a reject example
+  whose search still fails, with the goal as known in its message.
+- **7.2: `rfl` joins** (Q2), after `std/Float/Theory.sw:1215` is understood;
+  `partial-constructor-mismatch.sw`'s message re-baselined.
+- **7.3: rule 2** (Q3): `omega` and `ring` through `tactic_or_wait`, and any unsolved unknown;
+  `lambda-before-later.sw`'s `lambdaFirst` as an accept example; counters as step 4.2's.
+- **7.4: rule 4** (Q1): the three changes, then the four consumers, one commit each with its
+  example's message back to main's (or the new one, for `sequence-in-let-value.sw`); `literal-tuples.sw`
+  as an accept example; hashes classified; aoc tests, rogue and `task audit`.
+- **Separately** (new tickets): folded expected types for case 7; stage 6's flex-flex pairs for
+  case 6.
+
+### Questions for Matt
+
+**Q1 (D2118). Make inferred number literals wait, with their type and placeholder closed, a resume
+point in `calc`, and the four consumer rules?** **[Recommend yes.]** The assumptions, in full:
+- **(L1)** A numeral's possible types are `Nat`, `Int`, `Float`, `SafeNat`, `SafeInt` and `Fin n`;
+  only `Fin n` can mention a variable, and an inferred literal can't be `Fin n` on main, so a
+  closed type unknown loses nothing main has.
+- **(L2)** A literal's value at a closed type is closed, so a closed placeholder is a faithful
+  stand-in (invariant 2: its fill compares the same term).
+- **(L3)** Nothing in `calc` between steps relies on a waiting literal staying unresolved; resuming
+  the calc's own items there is a W1 for a construct that isn't an application.
+- **(L4)** Main's behaviour is kept where nothing types the literal: the default is `Nat` (D2013),
+  as main gives at once.
+Alternative: leave inferred literals as they are and annotate (Day 17's workaround); Lean, Idris,
+Haskell and Agda all make such numerals wait.
+
+**Q2. Include `rfl` in rule 1?** **[Recommend yes, in its own step (7.2), once
+`std/Float/Theory.sw:1215` is understood.]** It has SW-969's harm in the same form
+(`partial-constructor-mismatch.sw`), and its message improves. Assumption: **(R1)** `rfl` against a
+goal whose unknowns the call will fix is never better checked early: checked early it can only
+solve them by equating its sides, which is the expected type's job. The alternative is to leave
+`rfl` in place, where step 7.0 already fixes case 5.
+
+**Q3. Widen the failed-search wait (rule 2) to `omega` and `ring`, and to any unsolved unknown?**
+**[Recommend yes.]** It is what reaches searches inside lambdas (case 4), which rule 1 can't.
+Assumptions: **(W1)** an unknown still unsolved at the end is an error anyway, so waiting on it
+can't turn an accepted program into a stuck one, except where the search itself would have solved
+it (step 4.0's M3 caveat: here that is exactly a search solving its goal's unknowns, the guess rule 1
+removes); **(W2)** a search that succeeds at once is unchanged (only failure waits).
+
+**Q4. Keep today's expected-type propagation (before the first argument, and after the arguments
+on the after-expected path), rather than Lean's and Agda's comparison before every argument?**
+**[Recommend yes.]** The prototype of Lean's rule fixed none of the cases and broke nine accepted
+examples [run]. Revisit if a case needs the expected type between two non-search arguments.
+
+**Q5. Open two tickets for what isn't order: (a) the body's expected type kept folded, so a `_`
+meets `List.Any ?p xs` against `List.Any f xs` by arguments (case 7, SW-771 item 2, likely SW-976
+(3)); (b) stage 6's waiting for a flex-flex pair instead of equating the unknowns (case 6,
+SW-967 (3))?** **[Recommend yes, both to backlog.]**
 
 ## Review 1 and how it was addressed
 
@@ -3322,6 +3706,17 @@ docs/research/elaboration.md):
 - [L6] `src/Lean/Elab/StructInst.lean`: lines 1355-1366 (by grep for `postpone`);
 - [L7] `src/Init/Prelude.lean`: `instOfNatNat` and its `@[default_instance 100]` (1400-1413).
 
+Fetched 1 November 2026 for stage 7, at the same commit:
+- [L8] `src/Lean/Elab/BuiltinTerm.lean`: `elabByTactic` (178-187), `mkLitTypeFor` and
+  `elabNumLit` (208-232);
+- [L9] `src/Init/Data/Int/Basic.lean`: `instNegInt` and its `@[default_instance mid]` (120-135);
+- [L10] `src/Lean/Elab/App.lean`, whole file (2,332 lines): `etaArgs` (199-206, 731-738),
+  `getResultingTypeCore?` (449-502), `shouldPropagateExpectedTypeFor` (516-523),
+  `propagateExpectedType` (525-608), `finalize` (610-657);
+- [L11] `src/Lean/Meta/ExprDefEq.lean`: first-order approximation (900-925, 1366-1395);
+- [L1] and [L2] again for `synthesizeSyntheticMVars`' tactic step (590-598, 661-667) and
+  `mkTacticMVar` (1474-1482).
+
 **Agda**, `agda/agda` at `df8c38856ecce561ef8fd0834755c46a6d397a0a`:
 - [A1] `src/full/Agda/TypeChecking/Monad/Base.hs`: `ProblemConstraint`, `Constraint`
   (1655-1712), `MetaInstantiation` (1990-1994), `TypeCheckingProblem` (2058-2086);
@@ -3335,13 +3730,24 @@ docs/research/elaboration.md):
 - [A6] `src/full/Agda/TypeChecking/Rules/Decl.hs`: `checkDecl`'s tail (146, 205-250);
 - [A7] `src/full/Agda/TypeChecking/Records.hs`: `findPossibleRecords` (214-236);
 - [A8] `src/full/Agda/TypeChecking/Pretty/Warning.hs` (100-116, 925-1005) and
-  `Pretty/Constraint.hs` (40-120).
+  `Pretty/Constraint.hs` (40-120);
+- for stage 7, fetched 1 November 2026 at the same commit: [A5] again, whole file (the target
+  check, 700-800), and [A4] again (`checkLambda`'s postponement and its "hazardous" comment,
+  575-606; `checkPostponedLambda`, 795-810; `unquoteTactic`, 1539-1557).
 
 **Idris 2**, `idris-lang/Idris2` at `c35a6bd16ca2adea9484c64507bfc2041ceec75a`:
 - [I1] `src/TTImp/Elab/Delayed.idr`, whole file (319 lines);
 - [I2] `src/Core/UnifyState.idr`: `DelayReason`, `UState` (45-110);
 - [I3] `src/TTImp/Elab.idr`: `elabTermSub` (85-175);
-- [I4] `src/TTImp/Elab/Record.idr`: `checkUpdate` (240-260).
+- [I4] `src/TTImp/Elab/Record.idr`: `checkUpdate` (240-260);
+- [I5] `src/Idris/Desugar.idr`: integer literals (434-442), fetched 1 November 2026 for stage 7,
+  as [I6] and [I7];
+- [I6] `libs/prelude/Prelude/Num.idr`: `%defaulthint defaultInteger` (99-104);
+- [I7] `src/TTImp/Elab/App.idr`, whole file (881 lines): `needsDelayExpr` (297-316),
+  `checkRestApp` (411-455).
+
+**Runs** for stage 7 (1 November 2026, nixpkgs builds): Lean 4.34.1, Idris 2 0.8.0, GHC 9.10.3,
+Agda 2.8.0 (`--no-libraries`); files and output in [postponement/stage7/](postponement/stage7/).
 
 **Rocq**, `rocq-prover/rocq` at `3fb9a904fc271e9fbe15f3bdcfdc13e008ed8794`:
 - [R1] `pretyping/pretyping.ml`: bidirectionality hints (56-70), `solve_remaining_evars_from`
