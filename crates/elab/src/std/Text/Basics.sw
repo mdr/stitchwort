@@ -1,8 +1,8 @@
---| Text functions that were in the core:
---| the text natives no compiler path names, and the helpers they need. This file
---| depends on the core alone (and `Option.map`), so a program that splits or
---| trims text doesn't also load the lemmas in `Text.sw`.
+--| Text functions that were in the core: the text natives no compiler path
+--| names, and the helpers they need.
 -- (docs/proposals/prelude-slim.md stage 3)
+-- This file depends on the core alone (and `Option.map`), so a program that
+-- splits or trims text doesn't also load the lemmas in `Text.sw`.
 
 --| The number of scalar values.
 def Text.length (text: Text): Nat := text.toList.length

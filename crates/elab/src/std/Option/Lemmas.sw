@@ -12,8 +12,7 @@ theorem Option.mapId: (x: Option a) → Option.map x (y => y) = x
   | Some y => rfl
 
 --| Mapping with functions that agree everywhere gives the same result.
--- Its
--- shape is `List.mapCong`'s, which `decreasing` looks up by name
+-- Its shape is `List.mapCong`'s, which `decreasing` looks up by name
 -- (List/Toolkit.sw).
 theorem Option.mapCong: (x: Option a) → (f1: a → b) → (f2: a → b) → ((y: a) → f1 y = f2 y) → Option.map x f1 = Option.map x f2
   | None, f1, f2, ef => rfl

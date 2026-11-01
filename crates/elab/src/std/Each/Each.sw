@@ -19,7 +19,7 @@
 --| for both answers to a yes/no question, and `stop` gives none. They're
 --| enough for `each` over a list of any type; an operation can't be
 --| polymorphic in the element type.
--- (docs/proposals/abilities.md).
+-- (docs/proposals/abilities.md)
 ability Each where
   fork: () → {Each} Bool
   stop: () → {Each} Empty
@@ -42,8 +42,8 @@ def Each.collect (prog: () → {Each} a): List a :=
     | Each.stop u, k => []
 
 --| The results for `True`, then those for `False`.
--- `k` is a plain function
--- here, so `collect`'s clause performs nothing and its lemmas compute.
+-- `k` is a plain function here, so `collect`'s clause performs nothing and its
+-- lemmas compute.
 def Each.both (k: Bool → List a): List a := List.append (k True) (k False)
 
 --| The same, inside other abilities, which pass through: each continuation

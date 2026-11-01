@@ -1,12 +1,11 @@
---| `Std.Ring`: equations between polynomials, by normalising both sides.
---| A side of a `Nat` or
---| `Int` equation is written as syntax over numbered atoms (`Ring.NExpr`,
---| `Ring.ZExpr`); `poly` turns it into a polynomial in a normal form; and
---| `Ring.proveNat` / `Ring.proveInt` (std/Ring/Sound.sw) say that two sides
---| with the same normal form are equal, in every environment. The compiler's
---| `ring` writes the syntax and applies the theorem to `rfl`, so the kernel
---| checks the equation by running `poly` on both sides. Nothing here is
---| trusted beyond the kernel.
+--| `Std.Ring`: equations between polynomials, by normalising both sides. A
+--| side of a `Nat` or `Int` equation is written as syntax over numbered atoms
+--| (`Ring.NExpr`, `Ring.ZExpr`); `poly` turns it into a polynomial in a normal
+--| form; and `Ring.proveNat` / `Ring.proveInt` (std/Ring/Sound.sw) say that
+--| two sides with the same normal form are equal, in every environment. The
+--| compiler's `ring` writes the syntax and applies the theorem to `rfl`, so
+--| the kernel checks the equation by running `poly` on both sides. Nothing
+--| here is trusted beyond the kernel.
 --|
 --| The normal form is a list of monomials, each a nonzero `Int` coefficient
 --| and the sorted list of its variables (with repeats: `x * x` is `[x, x]`),

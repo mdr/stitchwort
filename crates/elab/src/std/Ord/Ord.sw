@@ -1,7 +1,7 @@
 --| Helpers over `Ord`: ordering by a key, `max` and `min`, and the order
 --| lemmas `leTrans`, `lessLe` and `lessTrans`.
--- The helpers were in the
--- core (docs/proposals/prelude-slim.md stage 3); no instance needs them.
+-- The helpers were in the core (docs/proposals/prelude-slim.md stage 3); no
+-- instance needs them.
 
 --| A comparison that's its own opposite is `Equal`.
 theorem Ordering.flipSelf: (c: Ordering) → c = Ordering.flip c → c = Equal

@@ -3,7 +3,7 @@
 --| result (`Quot.funext`, so `Quot.sound` is the one axiom these use). The laws
 --| that don't need it, `Effect.foldCompDone` and `Effect.runPureBind`, are in
 --| core/Effect.sw.
--- (docs/proposals/effect-polymorphism.md, "Proof tooling").
+-- (docs/proposals/effect-polymorphism.md, "Proof tooling")
 
 import Effect (Comp, foldComp, bind, NoOp, NoRes, translate, noInject, noReply, runPure, SigMap)
 import Effect.Comp (Done, Call)
@@ -58,10 +58,10 @@ theorem Effect.foldCompBind [op: Type] [res: op → Type] [a b r: Type]
 
 --| A computation that performs nothing, moved into a row with abilities, is
 --| its result.
--- A handler whose result is a function, run inside another
--- ability, calls its continuation this way, where the handler's own
--- definition has `runPure` (SW-1002, `Parse.labelWholeFrom`). Needs no
--- extensionality: there are no operations to map.
+-- A handler whose result is a function, run inside another ability, calls its
+-- continuation this way, where the handler's own definition has `runPure`
+-- (SW-1002, `Parse.labelWholeFrom`). Needs no extensionality: there are no
+-- operations to map.
 theorem Effect.translateNoOp [op: Type] [res: op → Type] [a: Type]:
     (computation: Comp NoOp NoRes a) → translate (MkSigMap noInject noReply: SigMap NoOp NoRes op res) computation = Done (runPure computation)
   | Done x => rfl

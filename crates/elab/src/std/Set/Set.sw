@@ -1,9 +1,9 @@
 --| `Set k`: finite sets of keys, a `Map` from the keys to `()`, with the
---| ordering in the type as for `Map`:
---| `Set Nat` is `Set Nat [ord := Nat.instOrd]`. A record around the map, not
---| a synonym for it, so that dot notation on a set finds `Set`'s functions
---| (`s.insert 3`, `s.toList`). The map is a quotient, so sets with the same
---| keys are equal and `==` compares keys.
+--| ordering in the type as for `Map`: `Set Nat` is `Set Nat [ord :=
+--| Nat.instOrd]`. A record around the map, not a synonym for it, so that dot
+--| notation on a set finds `Set`'s functions (`s.insert 3`, `s.toList`). The
+--| map is a quotient, so sets with the same keys are equal and `==` compares
+--| keys.
 -- (docs/proposals/interfaces.md §7.5)
 -- (docs/proposals/map-equality.md §8)
 -- docs/proposals/map-set.md.

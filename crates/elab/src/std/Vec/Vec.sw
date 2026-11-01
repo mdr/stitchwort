@@ -70,9 +70,9 @@ def Vec.toList: Vec a n → List a
 
 --| A list as a vector of its length, given the length: each `VCons` stores
 --| `k`, a number already computed.
--- (Building `VCons x (fromList xs)` against
--- the type `Vec a (List.length (Cons x xs))` would store `List.length xs`
--- at every element, which is quadratic: indexed-families.md §8.1.)
+-- (Building `VCons x (fromList xs)` against the type `Vec a (List.length (Cons
+-- x xs))` would store `List.length xs` at every element, which is quadratic:
+-- indexed-families.md §8.1.)
 def Vec.fromListN: (n: Nat) → (xs: List a) → List.length xs = n → Vec a n
   | Zero, Nil, _ => VNil
   | Succ k, Cons x xs, ok => VCons [n := k] x (Vec.fromListN k xs (Nat.succInjective (List.length xs) k ok))
@@ -142,10 +142,9 @@ theorem Vec.toListInjective: (u: Vec a n) → (v: Vec a n) → Vec.toList u = Ve
       (Eq.cong (VCons y) (Vec.toListInjective xs ys (Eq.cong List.tailOf h)))
 
 --| `==` on vectors: they're equal exactly when their lists are.
--- A library
--- file may declare instances for its own types: they're loaded with the
--- type, so they're there wherever a vector is (docs/proposals/interfaces.md,
--- "As built (stage 2)").
+-- A library file may declare instances for its own types: they're loaded with
+-- the type, so they're there wherever a vector is
+-- (docs/proposals/interfaces.md, "As built (stage 2)").
 instance Vec.instDecEq [auto decEq: DecEq a]: DecEq (Vec a n) :=
   { decide = u v =>
     if h: Vec.toList u = Vec.toList v then Yes (Vec.toListInjective u v h)

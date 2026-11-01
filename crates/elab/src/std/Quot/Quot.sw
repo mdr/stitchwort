@@ -1,6 +1,5 @@
---| Lemmas about quotient types:
---| function extensionality, for functions whose results are data
---| (`Quot.funext`) and for functions whose results are proofs
+--| Lemmas about quotient types: function extensionality, for functions whose
+--| results are data (`Quot.funext`) and for functions whose results are proofs
 --| (`Quot.funextProp`), and `Quot.exactDec`, which gets the relation back from
 --| an equation between two `Quot.mk`s when the relation can be decided. Each
 --| is proved from the kernel's quotient rules; the only axiom any of them uses
@@ -11,7 +10,7 @@
 --| `Type 1` restates the same proof under a level-suffixed name
 --| (`Quot.funext1`).
 -- (docs/proposals/map-equality.md §8.6-§8.8)
--- §8.8.
+-- (§8.8)
 
 --| Two functions agree at every input.
 def Quot.Pointwise (a: Type) (b: a → Type) (f: (x: a) → b x) (g: (x: a) → b x): Prop :=
@@ -30,9 +29,9 @@ def Quot.rebuild (a: Type) (b: a → Type) (q: Quot.Functions a b): (x: a) → b
   x => Quot.evalAt a b q x
 
 --| Functions that agree at every input are equal.
--- (§8.7) `Quot.sound` says the
--- classes of `f` and `g` are equal, and rebuilding a function from each class
--- gives back `f` and `g`.
+-- (§8.7)
+-- `Quot.sound` says the classes of `f` and `g` are equal, and rebuilding a
+-- function from each class gives back `f` and `g`.
 theorem Quot.funext (a: Type) (b: a → Type) (f: (x: a) → b x) (g: (x: a) → b x)
     (h: (x: a) → f x = g x): f = g :=
   Eq.cong (Quot.rebuild a b) (Quot.sound [x := f] [y := g] h)
@@ -45,8 +44,9 @@ type ProofBox (p: Prop) = { proof: p }
 
 --| Functions whose results are proofs, and that agree at every input, are
 --| equal.
--- (§8.7) Box each result, use `Quot.funext` on the boxed functions,
--- then take the proofs back out of the boxes.
+-- (§8.7)
+-- Box each result, use `Quot.funext` on the boxed functions, then take the
+-- proofs back out of the boxes.
 theorem Quot.funextProp (a: Type) (p: a → Prop) (f: (x: a) → p x) (g: (x: a) → p x)
     (h: (x: a) → f x = g x): f = g :=
   let boxF: (x: a) → ProofBox (p x) := x => { proof = f x }
@@ -65,10 +65,10 @@ theorem Quot.boolEq: (b: Bool) → (c: Bool) → (b = True → c = True) → (c 
 
 --| If `r` decides `rel`, and `rel` is an equivalence, then `Quot.mk x` and
 --| `Quot.mk y` are equal only when `x` and `y` are related.
--- (§8.6) Fix `x`;
--- `z => r x z` gives the same answer on related inputs, so it lifts to the
--- quotient; applied to both sides of the equation it gives `r x x = r x y`,
--- and `r x x` is `True`. It proves an equation between `Bool`s, never
+-- (§8.6)
+-- Fix `x`; `z => r x z` gives the same answer on related inputs, so it lifts
+-- to the quotient; applied to both sides of the equation it gives `r x x = r x
+-- y`, and `r x x` is `True`. It proves an equation between `Bool`s, never
 -- between propositions, so it needs no more than the quotient rules.
 theorem Quot.exactDec (a: Type) (rel: a → a → Prop) (r: a → a → Bool)
     (decides: (x: a) → (y: a) → Iff (r x y = True) (rel x y))
