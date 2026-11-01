@@ -1,5 +1,5 @@
 {
-  "next": 1006,
+  "next": 1008,
   "tickets": [
     {
       "id": 47,
@@ -3255,6 +3255,35 @@
       "commits": [
         "f979a876"
       ]
+    },
+    {
+      "id": 1006,
+      "title": "std helpers from AoC: Text.padLeft, Option.toList, List (Option a) -> Option (List a)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "D2131 (Matt, 1 Nov 2026): one small Sonnet lane near the quota limit. From SW-816 (2024 day 24 findings). Add only those missing, each with a few lemmas and tests.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1007,
+      "title": "rfl in a call is checked against its goal as computed before a later hole was solved",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elaborator",
+        "bug"
+      ],
+      "body": "Found by the stage 7 design (SW-988, case 5, SW-963): the retry checks rfl against the goal computed before the hole was solved; recomputing the goal makes it check. Repro in docs/proposals/postponement/stage7/. Fixed by stage 7 rule 1 if D2127 goes ahead; otherwise fix on its own.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
     }
   ]
 }
