@@ -81,6 +81,22 @@ theorem List.distinctKeysAppendNewBy [auto eq: DecEq k] (xs: List a) (ys: List a
     (List.distinctMapFilter ys key (y => key y ∉ List.map xs key) dy)
     (List.disjointKeysDifferenceBy ys xs key)
 
+-- A key of either list is a key of `appendNewBy`.
+theorem List.keyMemAppendNewByLeft [auto eq: DecEq k] (key: a → k) (xs: List a) (ys: List a) (x: a) (m: x ∈ xs):
+    key x ∈ List.map (List.appendNewBy xs ys key) key :=
+  List.memMap (List.appendNewBy xs ys key) x (List.memAppendLeft x xs (List.differenceBy ys xs key) m) key
+
+theorem List.keyMemAppendNewByRight [auto eq: DecEq k] (key: a → k) (xs: List a) (ys: List a) (y: a) (m: y ∈ ys):
+    key y ∈ List.map (List.appendNewBy xs ys key) key :=
+  match List.decMem (key y) (List.map xs key) with
+    | Yes h =>
+    rewrite List.mapAppend xs (List.differenceBy ys xs key) key in
+    List.memAppendLeft (key y) (List.map xs key) (List.map (List.differenceBy ys xs key) key) h
+    | No h =>
+    List.memMap (List.appendNewBy xs ys key) y
+      (List.memAppendRight y xs (List.differenceBy ys xs key) ((List.memDifferenceBy y ys xs key).backward (Both m h)))
+      key
+
 -- `differenceBy` keeps nothing when every key of `xs` is a key of `ys` ...
 theorem List.differenceByCovered [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
     (covered: (x: a) → x ∈ xs → key x ∈ List.map ys key): List.differenceBy xs ys key = Nil :=

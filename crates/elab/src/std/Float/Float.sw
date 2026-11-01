@@ -315,6 +315,20 @@ instance Float.instOrd: Ord Float := {
   lessEqTo = x y => Int.compareOfLe (Float.orderKey x) (Float.orderKey y)
 }
 
+-- The total order as `Bool`s, by its keys (`Int`s): `Float.leq` is total, and
+-- not `Float.less` is `Float.leq` the other way round.
+theorem Float.leOfNotLess (x: Float) (y: Float) (h: Float.less x y = False): Float.leq y x = True :=
+  let keys: Int.less (Float.orderKey x) (Float.orderKey y) = False := h
+  (omega: Int.leq (Float.orderKey y) (Float.orderKey x) = True)
+
+theorem Float.leTotal (x: Float) (y: Float) (h: Float.leq x y = False): Float.leq y x = True :=
+  let keys: Int.leq (Float.orderKey x) (Float.orderKey y) = False := h
+  (omega: Int.leq (Float.orderKey y) (Float.orderKey x) = True)
+
+theorem Float.notLessOfLe (x: Float) (y: Float) (h: Float.leq x y = True): Float.less y x = False :=
+  let keys: Int.leq (Float.orderKey x) (Float.orderKey y) = True := h
+  (omega: Int.less (Float.orderKey y) (Float.orderKey x) = False)
+
 -- JavaScript's `<` and `<=`: false when either is the NaN, and `0.0` and
 -- `-0.0` are equal. Port `a > b` as `Float.ieeeLt b a` (docs/syntax.md).
 def Float.ieeeLt (x: Float) (y: Float): Bool :=

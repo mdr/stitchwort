@@ -1142,6 +1142,20 @@ theorem List.distinctAppend: (xs: List a) → (ys: List a) → List.Distinct xs 
         | Inr inYs => hj inYs)
       (List.distinctAppend xs ys dx dy dj)
 
+-- The parts of a list with no repeats have none, and nothing in common.
+theorem List.distinctAppendLeft: (xs: List a) → (ys: List a) → List.Distinct (List.append xs ys) → List.Distinct xs
+  | Nil, ys, d => Trivial
+  | Cons x rest, ys, Both out d => Both (m => out (List.memAppendLeft x rest ys m)) (List.distinctAppendLeft rest ys d)
+
+theorem List.distinctAppendRight: (xs: List a) → (ys: List a) → List.Distinct (List.append xs ys) → List.Distinct ys
+  | Nil, ys, d => d
+  | Cons x rest, ys, Both out d => List.distinctAppendRight rest ys d
+
+theorem List.distinctAppendApart: (xs: List a) → (ys: List a) → List.Distinct (List.append xs ys) → (z: a) → z ∈ xs → z ∈ ys → Void
+  | Nil, ys, d, z, inXs, inYs => inXs
+  | Cons x rest, ys, Both out d, z, Inl e, inYs => out (List.memAppendRight x rest ys (rewrite e in inYs))
+  | Cons x rest, ys, Both out d, z, Inr inRest, inYs => List.distinctAppendApart rest ys d z inRest inYs
+
 -- The same head in front of two lists gives the same list only if the tails
 -- were the same.
 theorem List.consInjective (x: a) (ys: List a) (zs: List a) (p: Cons x ys = Cons x zs): ys = zs := Eq.cong (.drop 1) p
@@ -1819,6 +1833,11 @@ theorem List.filterMapSomeMem (xs: List a) (f: a → Option b) (g: a → b) (h: 
 theorem List.filterMapAll (f: a → Option a): (xs: List a) → ((x: a) → x ∈ xs → f x = Some x) → List.filterMap xs f = xs
   | Nil, h => rfl
   | Cons x xs, h => rewrite h x (Inl rfl) in Eq.cong (Cons x) (List.filterMapAll f xs (y m => h y (Inr m)))
+
+-- `filterMap` after `map`, when each element maps back to itself.
+theorem List.filterMapMapSelf (g: a → b) (f: b → Option a) (xs: List a) (h: (x: a) → x ∈ xs → f (g x) = Some x):
+    List.filterMap (List.map xs g) f = xs :=
+  Eq.trans (List.filterMapMap xs f g) (List.filterMapAll (x => f (g x)) xs h)
 
 test "List.pairsMap" := (List.map [1, 2, 3] Succ).pairs == List.map [1, 2, 3].pairs (p => MkPair (Succ p.fst) (Succ p.snd))
 
