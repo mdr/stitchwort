@@ -42,9 +42,10 @@ class Sort(unittest.TestCase):
         # The sentence joined to SW-12 moves below; the rest is user docs.
         self.assertIn(
             "--| Adds two numbers. Costs O(n).\n"
-            "--| Faster than the old one.\n"
             "-- It recurses on the first argument\n"
             "-- (SW-12, so the check is cheap).\n"
+            "-- Faster than the old one. Kept (D58).\n"
+            "-- Elsewhere in §2.1.\n"
             "def add",
             self.new,
         )
@@ -53,7 +54,7 @@ class Sort(unittest.TestCase):
         self.assertIn("  --| A constructor.\n  -- See docs/proposals/x.md.\n  | A", self.new)
 
     def test_counts(self):
-        self.assertEqual((self.blocks, self.moved), (2, 3))
+        self.assertEqual((self.blocks, self.moved), (2, 5))
 
     def test_untouched(self):
         for kept in [
