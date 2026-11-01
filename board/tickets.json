@@ -1,5 +1,5 @@
 {
-  "next": 1023,
+  "next": 1024,
   "tickets": [
     {
       "id": 47,
@@ -3400,7 +3400,7 @@
     {
       "id": 1015,
       "title": "Trip-journal friction, language: record literals/updates in theorem statements; if h: P producing proofs; Decidable for records of decidable Props",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3409,7 +3409,9 @@
       "body": "D2150 option 2 (Matt, 1 Nov 2026), from SW-999 items 1, 2, 6. (1) { l | start = … } / { id = 2, … } in a theorem statement is a parse error ('expected }, found ='), also SW-978 item 5. (2) if h: P then … else … can't produce a proof: misleading E-UNIVERSE (also the grid lane's if h: on Bool). (6) nothing decides WellFormed (a record of Props), so counterexample search can't test mergeSelf/mergeWellFormed: derive Decidable for Prop records whose fields are decidable. Queued until stage 7 (SW-1010) merges, since it touches the elaborator.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "ffacc3c5"
+      ]
     },
     {
       "id": 1016,
@@ -3514,6 +3516,21 @@
         "aoc"
       ],
       "body": "D2162 (Matt, 1 Nov 2026), from the AoC corpus review: (a) enum membership proved by hand in 2021/Day08/Proofs/Facts.sw:21-28 and 2024/Day16/Day16.sw:125; (b) 2024 day 20 could use std Graph.breadthFirst (Graph/Search.sw:610) instead of distances; (c) 2021 day 16 decodeTransmission ignores trailing bits (Day16.sw:197 matches Some ((packet, _))): check the leftover. Not doing: the main speed-ups (C2-C4; standard structure kept) and 2024 inputs past day 10 (none yet).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1023,
+      "title": "auto: find decisions that take a function argument ((x: a) → Decidable (p x)), so generic List.All / List.Sorted deciders in std are found",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elaborator",
+        "std"
+      ],
+      "body": "From SW-1015 (1 Nov 2026): the trip journal needed seven small Decidable instances (decAll, decSorted) because auto can't search under a binder; a generic std List.All decider wouldn't be found. Small design question. Also open: records whose field types depend on earlier fields get no derived decision; several AoC NOTES still describe the old if-in-proof error.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
