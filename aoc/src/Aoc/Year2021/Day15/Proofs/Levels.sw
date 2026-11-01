@@ -1,8 +1,8 @@
--- The program's maps have the spec's levels: the cave's own (`levelsAgree`)
--- and the full cave's (`tiledLevelsAgree`), on a rectangle. The cave's
--- levels are looked up in the shared grid code's table (`lookupOrAt`), and
--- on a rectangle a position has a level exactly when it is on the map
--- (`atOfWithin`, `withinOfAt`).
+--| The program's maps have the spec's levels: the cave's own (`levelsAgree`)
+--| and the full cave's (`tiledLevelsAgree`), on a rectangle. The cave's
+--| levels are looked up in the shared grid code's table (`lookupOrAt`), and
+--| on a rectangle a position has a level exactly when it is on the map
+--| (`atOfWithin`, `withinOfAt`).
 
 namespace Aoc.Year2021.Day15.Proofs
 import Aoc.Year2021.Day15 (..)
@@ -11,18 +11,18 @@ import Aoc.Common (Position, cellAt)
 import Aoc.Common.Proofs (atOfWithin, cellAtMapCells, lookupOrAt, withinOfAt)
 import Std (Bool, Eq, Exists, Fin, List, Map, Nat, Option, Void)
 
--- The spec's level is the digit at the position.
+--| The spec's level is the digit at the position.
 theorem levelAtCell (cave: Cave) (position: Position): levelAt cave position = (cellAt cave.rows position).map Fin.toNat :=
   match cave.rows.get position.row with
     | None => rfl
     | Some row => rfl
 
--- The program's level is the digit at the position, or 0 off the cave.
+--| The program's level is the digit at the position, or 0 off the cave.
 theorem levelsAt (cave: Cave) (position: Position): cave.levels position = ((cellAt cave.rows position).map Fin.toNat).getOrElse 0 :=
   rewrite lookupOrAt (cave.grid.map (_ digit => digit.toNat)) 0 position in
     Eq.cong (found => Option.getOrElse found 0) (cellAtMapCells cave.rows (_ digit => digit.toNat) position)
 
--- On a rectangle, the cave's map has the spec's levels.
+--| On a rectangle, the cave's map has the spec's levels.
 theorem levelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Position): levelAt cave position = cave.risks.levelAt position :=
   rewrite levelAtCell cave position in
     match inside: position.within cave.height cave.width with
@@ -35,10 +35,10 @@ theorem levelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Position
           | None => rfl
           | Some digit => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym inside) (withinOfAt cave.grid (And.right rectangle) position digit found)))
 
--- `wrap` leaves a level up to 9...
+--| `wrap` leaves a level up to 9...
 theorem wrapSmall (level: Nat) (small: level ≤ 9): wrap level = level := rewrite Nat.leqFalseOfLess level 10 (omega [small]) in rfl
 
--- ...and takes 9 from one above.
+--| ...and takes 9 from one above.
 theorem wrapLarge (level: Nat) (large: 9 < level): wrap level = level - 9 := rewrite large in rfl
 
 theorem iterateRaise: (count: Nat) → (level: Nat) → level ≤ 9 → level + count ≤ 17 → count.iterate raise level = wrap (level + count)
@@ -53,7 +53,7 @@ theorem iterateRaise: (count: Nat) → (level: Nat) → level ≤ 9 → level + 
         let same: level + 1 + count = level + Succ count := omega
         rewrite later, same in rfl
 
--- On a rectangle, the full cave's map has the spec's levels.
+--| On a rectangle, the full cave's map has the spec's levels.
 theorem tiledLevelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Position): tiledLevelAt cave position = cave.tiled.levelAt position :=
   let wide: Not (cave.width = 0) := omega [And.left rectangle]
   let tall: Not (cave.height = 0) := heightNotZero cave rectangle
@@ -81,12 +81,12 @@ theorem tiledLevelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Pos
                       (omega [levelBelow10 cave place base found, tileRow, tileColumn])
                   rewrite found, raised in rfl
 
--- A rectangle has a row.
+--| A rectangle has a row.
 theorem heightNotZero: (cave: Cave) → Rectangle cave → Not (cave.height = 0)
   | { rows = Nil }, rectangle, zero => omega [And.left rectangle]
   | { rows = Cons first rest }, rectangle, zero => omega [zero]
 
--- A level of the cave is a digit's.
+--| A level of the cave is a digit's.
 theorem levelBelow10 (cave: Cave) (position: Position) (level: Nat) (found: levelAt cave position = Some level): level < 10 :=
   match r: cave.rows.get position.row with
     | None => Void.exfalso (Option.noneNotSome level found)

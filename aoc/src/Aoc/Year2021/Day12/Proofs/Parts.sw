@@ -1,14 +1,14 @@
--- Both answers are the spec's: the program's list of paths holds each
--- path once, and exactly the puzzle's paths, when no passage joins two big
--- caves.
+--| Both answers are the spec's: the program's list of paths holds each path
+--| once, and exactly the puzzle's paths, when no passage joins two big
+--| caves.
 
 namespace Aoc.Year2021.Day12.Proofs
 import Aoc.Year2021.Day12 (..)
 import Aoc.Year2021.Day12.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, Fail, List, Nat, Option, Result, Void)
 
--- The search starts in `start`, with every small cave unvisited and the
--- spare visit left in part 2.
+--| The search starts in `start`, with every small cave unvisited and the
+--| spare visit left in part 2.
 theorem tracksStart (passages: List (Text, Text)) (twice: Bool): Tracks passages twice (smallCaves passages) twice ["start"] :=
   let once := (c: Text) => (Bool.toNatLeOne ("start" == c): visits ["start"] c ≤ 1)
   Both
@@ -26,8 +26,8 @@ theorem tracksStart (passages: List (Text, Text)) (twice: Bool): Tracks passages
             (Both (a b smallA smallB twiceA twiceB => Void.exfalso (omega [once a])) (Both (omega) (omega))))
           (Both (part2 => Both part2 (c small => once c)) (part1 => Inl part1)))))
 
--- The paths the program lists are those from `start` to `end` along the
--- passages that keep the visit rule.
+--| The paths the program lists are those from `start` to `end` along the
+--| passages that keep the visit rule.
 theorem pathsCorrect (passages: List (Text, Text)) (promise: NoBigNeighbours passages) (twice: Bool) (path: List Text):
     path ∈ paths passages twice ↔ (startToEnd path = True ∧ followsPassages passages path = True ∧ Within twice path) := {
   forward = found =>
@@ -64,12 +64,12 @@ theorem pathsCorrect (passages: List (Text, Text)) (promise: NoBigNeighbours pas
             (Cons "start")
 }
 
--- The program lists each path once.
+--| The program lists each path once.
 theorem pathsDistinct (passages: List (Text, Text)) (twice: Bool): List.Distinct (paths passages twice) :=
   viaDistinct "start" _
     (routesDistinct (lookupNeighbours (neighbourTable passages)) (tableDistinct passages) (smallCaves passages) twice "start" (3 * (smallCaves passages).length + 4))
 
--- Part 1's rule is `Within False`...
+--| Part 1's rule is `Within False`...
 theorem withinOnce (path: List Text): Within False path ↔ SmallOnce path := {
   forward = within => And.left within,
   backward = once =>
@@ -78,7 +78,7 @@ theorem withinOnce (path: List Text): Within False path ↔ SmallOnce path := {
         (Both (once "start" startSmall) (once "end" endSmall)))
 }
 
--- A path from `start` to `end` visits both.
+--| A path from `start` to `end` visits both.
 theorem endsVisited (path: List Text) (ends: startToEnd path = True): 1 ≤ visits path "start" ∧ 1 ≤ visits path "end" :=
   let isLast := DecEq.sound (List.last path) (Some "end") (Bool.andRight _ _ ends)
   Both
@@ -89,7 +89,7 @@ theorem endsVisited (path: List Text) (ends: startToEnd path = True): 1 ≤ visi
         visitsMember "start" (Cons first rest) (Inl isStart))
     (visitsMember "end" path (List.lastMem path "end" isLast))
 
--- ...and part 2's, on a path from `start` to `end`, is `Within True`.
+--| ...and part 2's, on a path from `start` to `end`, is `Within True`.
 theorem withinTwice (path: List Text) (ends: startToEnd path = True): Within True path ↔ OneSmallTwice path :=
   let (Both startSeen endSeen) := endsVisited path ends
   {
@@ -101,8 +101,8 @@ theorem withinTwice (path: List Text) (ends: startToEnd path = True): Within Tru
       Both each (Both once (Both (omega) (omega)))
   }
 
--- Part 1: the program's answer is the number of paths that visit no small
--- cave twice, when no passage joins two big caves.
+--| Part 1: the program's answer is the number of paths that visit no small
+--| cave twice, when no passage joins two big caves.
 theorem part1Correct (passages: List (Text, Text)) (promise: NoBigNeighbours passages): PathCount (Part1Path passages) (solvePart1 passages) :=
   Witness (paths passages False)
     (Both (pathsDistinct passages False)
@@ -117,8 +117,8 @@ theorem part1Correct (passages: List (Text, Text)) (promise: NoBigNeighbours pas
         })
         rfl))
 
--- Part 2: the number of paths that visit one small cave (not `start` or
--- `end`) at most twice and the others at most once.
+--| Part 2: the number of paths that visit one small cave (not `start` or
+--| `end`) at most twice and the others at most once.
 theorem part2Correct (passages: List (Text, Text)) (promise: NoBigNeighbours passages): PathCount (Part2Path passages) (solvePart2 passages) :=
   Witness (paths passages True)
     (Both (pathsDistinct passages True)
@@ -133,7 +133,7 @@ theorem part2Correct (passages: List (Text, Text)) (promise: NoBigNeighbours pas
         })
         rfl))
 
--- From the input: no hypothesis left, as the parser checks the promise.
+--| From the input: no hypothesis left, as the parser checks the promise.
 theorem part1FromInput (input: Text) (passages: List (Text, Text)) (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
     PathCount (Part1Path passages) (solvePart1 passages) :=
   part1Correct passages (parseNoBigNeighbours input passages parsed)

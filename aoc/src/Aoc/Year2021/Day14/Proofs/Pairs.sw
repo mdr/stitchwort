@@ -1,22 +1,22 @@
--- The pairs of the polymer after a step are the pairs before it, each
--- replaced by what its rule makes of it (`pairsStep`); a step keeps the
--- first element (`stepFirst`); and an element's count is whether the first
--- element is it plus how many pairs end with it (`countByPairs`).
+--| The pairs of the polymer after a step are the pairs before it, each
+--| replaced by what its rule makes of it (`pairsStep`); a step keeps the
+--| first element (`stepFirst`); and an element's count is whether the first
+--| element is it plus how many pairs end with it (`countByPairs`).
 
 namespace Aoc.Year2021.Day14.Proofs
 import Aoc.Year2021.Day14 (..)
 import Aoc.Year2021.Day14.Spec (..)
 import Std (Bool, List, Nat, Option)
 
--- What a pair becomes in a step, by the puzzle's rules: with a rule, the
--- pairs either side of the inserted element; without one, itself.
+--| What a pair becomes in a step, by the puzzle's rules: with a rule, the
+--| pairs either side of the inserted element; without one, itself.
 def expand (rules: List Rule) (pair: (Char, Char)): List (Char, Char) :=
   match insertionFor rules pair.fst pair.snd with
     | Some c => [(pair.fst, c), (c, pair.snd)]
     | None => [pair]
 
--- The first pairs of a step's result: those `a b` becomes, then the pairs
--- of the step from `b` on.
+--| The first pairs of a step's result: those `a b` becomes, then the pairs
+--| of the step from `b` on.
 theorem pairsAcross (rules: List Rule) (a: Char) (b: Char) (tail: List Char):
     List.zipWithNext (Cons a (List.append (between rules a b) (Cons b tail))) = List.append (expand rules (a, b)) (List.zipWithNext (Cons b tail)) :=
   match e: insertionFor rules a b with

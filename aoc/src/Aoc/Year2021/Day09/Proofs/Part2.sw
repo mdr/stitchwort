@@ -1,10 +1,10 @@
--- Part 2: a walk in the program's graph is a path of the spec's, and back
--- (`walkPath`, `pathWalk`, from the shared grid code's lemmas about its
--- graphs). Std's breadth-first search finds exactly the locations some
--- walk from the low point reaches (`Graph.breadthFirstShortest`), so the
--- keys of its result are the basin, with no repeats as a map's keys have
--- none, and the map's size is the basin's (`basinSizeOpen`). A low point
--- that is a 9 has no basin, and the program says 0 (`basinSizeClosed`).
+--| Part 2: a walk in the program's graph is a path of the spec's, and back
+--| (`walkPath`, `pathWalk`, from the shared grid code's lemmas about its
+--| graphs). Std's breadth-first search finds exactly the locations some
+--| walk from the low point reaches (`Graph.breadthFirstShortest`), so the
+--| keys of its result are the basin, with no repeats as a map's keys have
+--| none, and the map's size is the basin's (`basinSizeOpen`). A low point
+--| that is a 9 has no basin, and the program says 0 (`basinSizeClosed`).
 
 namespace Aoc.Year2021.Day09.Proofs
 import Aoc.Year2021.Day09 (..)
@@ -13,20 +13,20 @@ import Aoc.Common (Position, adjacent, cellAt, cells, cellsEnter, cellsEnterList
 import Aoc.Common.Proofs (canEnter, enterCost, isPathCong, isPathEnd, stepEdgeElim)
 import Std (Bool, DecEq, Decidable, Eq, Exists, Graph, List, Map, Nat, Option, Void)
 
--- Part 2 is the product of the three largest basins' sizes, for every
--- map.
+--| Part 2 is the product of the three largest basins' sizes, for every
+--| map.
 theorem part2Correct (map: HeightMap): Part2Answer map (solvePart2 map) :=
   Witness (low => map.basinSize map.graph low)
     (Both (low height member => basinSizeCorrect map low height member) (rewrite lowPointsAgree map in rfl))
 
--- Each low point's basin has the size the program finds.
+--| Each low point's basin has the size the program finds.
 theorem basinSizeCorrect (map: HeightMap) (low: Position) (height: Nat) (member: (low, height) ∈ lowPoints map):
     BasinSize map low (map.basinSize map.graph low) :=
   match open: map.isOpen low with
     | True => basinSizeOpen map low open
     | False => basinSizeClosed map low height member open
 
--- The graph can enter exactly the locations that aren't 9s.
+--| The graph can enter exactly the locations that aren't 9s.
 theorem canEnterOpen (map: HeightMap) (position: Position): canEnter (cellsEnter map.rows enterOpen) position = inSomeBasin map position :=
   match cellAt map.rows position with
     | None => rfl
@@ -35,7 +35,7 @@ theorem canEnterOpen (map: HeightMap) (position: Position): canEnter (cellsEnter
         | True => rfl
         | False => rfl
 
--- A walk in the graph is a path, through the walk's locations...
+--| A walk in the graph is a path, through the walk's locations...
 theorem walkPath (map: HeightMap) (start: Position) (path: List (Position, Nat)) (finish: Position) (walked: map.graph.Walk start path finish):
     isPath map start (path.map Pair.fst) finish = True :=
   let entered :=
@@ -44,19 +44,19 @@ theorem walkPath (map: HeightMap) (start: Position) (path: List (Position, Nat))
         (position c found => cellsEnterListed map.rows enterOpen position c found) start path finish walked)
   rewrite <- isPathCong (canEnter (cellsEnter map.rows enterOpen)) (inSomeBasin map) (canEnterOpen map) start (path.map Pair.fst) finish in entered
 
--- ...and a path is a walk.
+--| ...and a path is a walk.
 theorem pathWalk (map: HeightMap) (start: Position) (steps: List Position) (finish: Position) (path: isPath map start steps finish = True):
     map.graph.Walk start (steps.map (next => (next, enterCost (cellsEnter map.rows enterOpen) next))) finish :=
   Aoc.Common.Proofs.pathWalk (cellsEnter map.rows enterOpen) ((cells map.rows).map Pair.fst)
     (position c found => cellsEnterListed map.rows enterOpen position c found) start steps finish
     (rewrite isPathCong (canEnter (cellsEnter map.rows enterOpen)) (inSomeBasin map) (canEnterOpen map) start steps finish in path)
 
--- A path from a location that isn't a 9 ends at one.
+--| A path from a location that isn't a 9 ends at one.
 theorem pathOpen (map: HeightMap) (start: Position) (steps: List Position) (finish: Position) (open: inSomeBasin map start = True)
     (path: isPath map start steps finish = True): inSomeBasin map finish = True :=
   isPathEnd (inSomeBasin map) start steps finish open path
 
--- Every step of the graph costs 1.
+--| Every step of the graph costs 1.
 theorem unitSteps (map: HeightMap) (state: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ map.graph.edges state): weight = 1 :=
   let found := And.right (stepEdgeElim (cellsEnter map.rows enterOpen) state next weight edge)
   match cellAt map.rows next with
@@ -66,7 +66,7 @@ theorem unitSteps (map: HeightMap) (state: Position) (next: Position) (weight: N
         | True => Eq.sym (Option.someInjective _ _ found)
         | False => Void.exfalso (Option.noneNotSome weight found)
 
--- What the search from a low point finds is in its basin...
+--| What the search from a low point finds is in its basin...
 theorem foundInBasin (map: HeightMap) (low: Position) (open: map.isOpen low = True) (location: Position)
     (found: location ∈ (map.graph.breadthFirst [low]).keys): InBasin map low location :=
   let result := map.graph.breadthFirst [low]
@@ -83,7 +83,7 @@ theorem foundInBasin (map: HeightMap) (low: Position) (open: map.isOpen low = Tr
               let fromLow: isPath map low (path.map Pair.fst) location = True := rewrite Eq.cong Pair.fst same in steps
               Both (pathOpen map low (path.map Pair.fst) location open fromLow) (Witness (path.map Pair.fst) fromLow)))))
 
--- ...and the search finds everything in it.
+--| ...and the search finds everything in it.
 theorem inBasinFound (map: HeightMap) (low: Position) (location: Position) (inBasin: InBasin map low location):
     location ∈ (map.graph.breadthFirst [low]).keys :=
   let result := map.graph.breadthFirst [low]
@@ -93,7 +93,7 @@ theorem inBasinFound (map: HeightMap) (low: Position) (location: Position) (inBa
     Exists.elim (And.right shortest low 0 (Inl rfl) _ location walked) (found both =>
       (Map.memKeys result location).backward (Map.containsOfGet result location found (And.left both))))
 
--- A low point that isn't a 9: its basin has the search's size.
+--| A low point that isn't a 9: its basin has the search's size.
 theorem basinSizeOpen (map: HeightMap) (low: Position) (open: map.isOpen low = True): BasinSize map low (map.graph.breadthFirst [low]).size :=
   let result := map.graph.breadthFirst [low]
   Witness result.keys
@@ -101,15 +101,15 @@ theorem basinSizeOpen (map: HeightMap) (low: Position) (open: map.isOpen low = T
       (Both (location => { forward = found => foundInBasin map low open location found, backward = inBasin => inBasinFound map low location inBasin })
         (Map.lengthKeys result)))
 
--- A height that isn't "not 9" is 9...
+--| A height that isn't "not 9" is 9...
 theorem nineOfClosed (height: Nat) (closed: (height != 9) = False): height = 9 :=
   Decidable.elimProof (Nat.decEq height 9) (same => same) (other => Void.exfalso (Decidable.toBoolFalse _ closed other))
 
--- ...and one that is "not 9" isn't.
+--| ...and one that is "not 9" isn't.
 theorem notNineOfOpen (height: Nat) (open: (height != 9) = True): Not (height = 9) := Decidable.toBoolSound _ open
 
--- A low point that is a 9 has no neighbours on the map (they would be
--- higher than 9), so no path leaves it, and it isn't in a basin itself.
+--| A low point that is a 9 has no neighbours on the map (they would be
+--| higher than 9), so no path leaves it, and it isn't in a basin itself.
 theorem closedNoBasin (map: HeightMap) (low: Position) (height: Nat) (member: (low, height) ∈ lowPoints map) (closed: map.isOpen low = False)
     (location: Position): (steps: List Position) → inSomeBasin map location = True → isPath map low steps location = True → Void
   | Nil, locationOpen, path => Bool.falseNotTrue (Eq.trans (Eq.sym closed) (rewrite DecEq.sound low location path in locationOpen))

@@ -1,16 +1,16 @@
--- What the program's pair counts add up to. A map of counts is read
--- through its weighted sums: for a function `f` on pairs, the sum of each
--- count times `f` of its pair. `addAll` adds each entry's count times `f`
--- of its pair to every such sum (`weightAddAll`).
+--| What the program's pair counts add up to. A map of counts is read
+--| through its weighted sums: for a function `f` on pairs, the sum of each
+--| count times `f` of its pair. `addAll` adds each entry's count times `f`
+--| of its pair to every such sum (`weightAddAll`).
 
 namespace Aoc.Year2021.Day14.Proofs
 import Aoc.Year2021.Day14 (..)
 import Std (List, Map, Nat, Ord)
 
--- Each entry's count times `f` of its key, added up.
+--| Each entry's count times `f` of its key, added up.
 def entriesWeight (entries: List (k, Nat)) (f: k → Nat): Nat := entries.sumBy (entry => entry.snd * f entry.fst)
 
--- The same for the entries of a map.
+--| The same for the entries of a map.
 def weight (counts: Map k Nat [ord := o]) (f: k → Nat): Nat := entriesWeight (Map.toList counts) f
 
 theorem entriesWeightCons (key: k) (n: Nat) (rest: List (k, Nat)) (f: k → Nat):

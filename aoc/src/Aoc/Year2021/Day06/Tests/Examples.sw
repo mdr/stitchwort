@@ -1,5 +1,6 @@
--- Day 6's tests: the example from the puzzle and unit tests. Kept apart from
--- the program, so `stitchwort run Aoc.Year2021.Day06.main` doesn't check them.
+--| Day 6's tests: the example from the puzzle and unit tests.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2021.Day06.main`
+-- doesn't check them.
 
 namespace Aoc.Year2021.Day06.Tests
 import Aoc.Year2021.Day06 (..)
@@ -29,6 +30,6 @@ test "no fish" := fishAfter 256 [] == 0
 test "the counts after a day" :=
   (Counts.ofTimers [0, 0, 7, 8]).nextDay.total == 6 ∧ (Counts.ofTimers [0, 0, 7, 8]).nextDay.t6 == 3
 
--- The examples, proved by computing them.
+--| The examples, proved by computing them.
 theorem exampleAfter18: fishAfter 18 exampleTimers = 26 := rfl
 theorem examplePart1: solvePart1 exampleTimers = 5934 := rfl

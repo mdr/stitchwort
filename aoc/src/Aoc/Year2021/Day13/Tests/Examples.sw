@@ -1,5 +1,6 @@
--- Day 13's tests: the puzzle's example, the parser, and a reader for the
--- letters part 2's picture spells. Kept apart from the program, so
+--| Day 13's tests: the puzzle's example, the parser, and a reader for
+--| the letters part 2's picture spells.
+-- Kept apart from the program, so
 -- `stitchwort run Aoc.Year2021.Day13.main` doesn't check them.
 
 namespace Aoc.Year2021.Day13.Tests
@@ -16,14 +17,14 @@ def exampleInput: Text :=
 
 def example: Paper := paperOf exampleInput
 
--- The hypotheses of `cellSomeInside` and `rowWidth` can hold (the audit's
--- random inputs never met them).
+--| The hypotheses of `cellSomeInside` and `rowWidth` can hold.
+-- (the audit's random inputs never met them)
 theorem oneDotShown: cellAt (render [{ x = 0, y = 0 }]) { x = 0, y = 0 } = Some '#' := rfl
 
 theorem oneDotRow: ['#'] ∈ render [{ x = 0, y = 0 }] := Inl rfl
 
--- The hypothesis of the parser's theorems can hold (the audit's random
--- texts never parse).
+--| The hypothesis of the parser's theorems can hold.
+-- (the audit's random texts never parse)
 theorem smallParses: Fail.toResult (() => parsePaper "1,2\n3,0\n\nfold along y=1\n") = Ok ({ dots = [{ x = 1, y = 2 }, { x = 3, y = 0 }], folds = [AlongY 1] }) := rfl
 
 test "parse the example" := example.dots.length == 18 && example.folds == [AlongY 7, AlongX 5]
@@ -45,9 +46,9 @@ test "no blank line" := parsed "1,2\nfold along y=1\n" == Err "line 2, column 1:
 test "a dot listed twice is one dot" := solvePart1 (paperOf "1,0\n1,0\n1,2\n\nfold along y=1\n") == 1
 test "no folds: the dots as listed, each once" := solvePart1 { dots = [{ x = 1, y = 0 }, { x = 1, y = 0 }, { x = 0, y = 2 }], folds = [] } == 2
 
--- A reader for the capital letters part 2's picture spells, each 4
--- columns wide with a column of space after it, in the puzzle's font. Not
--- proved: the proofs are about the picture.
+--| A reader for the capital letters part 2's picture spells, each 4
+--| columns wide with a column of space after it, in the puzzle's font. Not
+--| proved: the proofs are about the picture.
 def glyphs: List (Text, Char) := [
   (".##.#..##...#...#..#.##.", 'C'),
   ("..##...#...#...##..#.##.", 'J'),

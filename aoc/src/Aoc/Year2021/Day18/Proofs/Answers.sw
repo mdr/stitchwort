@@ -1,18 +1,18 @@
--- The answers: a sum `add` finishes is the spec's sum, so part 1's total
--- and part 2's largest magnitude are the spec's.
+--| The answers: a sum `add` finishes is the spec's sum, so part 1's total
+--| and part 2's largest magnitude are the spec's.
 
 namespace Aoc.Year2021.Day18.Proofs
 import Aoc.Year2021.Day18 (..)
 import Aoc.Year2021.Day18.Spec (AddsUpTo, IsReduced, IsSum, Part1, Part2, leaves)
 import Std (DecEq, Eq, Exists, List, Nat, Option, Void)
 
--- The program's magnitude is the puzzle's.
+--| The program's magnitude is the puzzle's.
 theorem magnitudeSame: (number: Number) → Aoc.Year2021.Day18.Spec.magnitude number = magnitude number
   | Regular _ => rfl
   | Pair left right => rewrite magnitudeSame left, magnitudeSame right in rfl
 
--- A sum of two reduced numbers that `add` finishes is their sum, and is
--- reduced.
+--| A sum of two reduced numbers that `add` finishes is their sum, and is
+--| reduced.
 theorem addSound (x: Number) (y: Number) (sum: Number) (reducedX: IsReduced x) (reducedY: IsReduced y) (added: add x y = Some sum):
     IsSum x y sum ∧ IsReduced sum :=
   let reduced := reduceSound steps (Pair x y) sum added (omega [reducedHeight x reducedX, reducedHeight y reducedY])
@@ -28,8 +28,8 @@ theorem addAllSound: (total: Number) → (numbers: List Number) → (final: Numb
         AddNext (And.left added) (addAllSound sum rest final (And.right added) reducedRest done)
       | None => Void.exfalso (Option.noneNotSome final done)
 
--- Part 1: for reduced numbers, if the program's sums finish, its answer
--- is the spec's.
+--| Part 1: for reduced numbers, if the program's sums finish, its answer
+--| is the spec's.
 theorem part1Correct (numbers: List Number) (reduced: List.All IsReduced numbers) (answer: Nat) (solved: solvePart1 numbers = Some answer): Part1 numbers answer :=
   match numbers with
     | Nil => Void.exfalso (Option.noneNotSome answer solved)
@@ -44,7 +44,7 @@ theorem part1Correct (numbers: List Number) (reduced: List.All IsReduced numbers
                     (rewrite magnitudeSame final in Option.someInjective _ answer solved)))))
         | None => Void.exfalso (Option.noneNotSome answer solved)
 
--- Adding up is one number, so part 1's answer is one number.
+--| Adding up is one number, so part 1's answer is one number.
 theorem addsUpToUnique (final2: Number): (total: Number) → (numbers: List Number) → (final1: Number) → AddsUpTo total numbers final1 → AddsUpTo total numbers final2 → final1 = final2
   | total, Nil, final1, NothingAdded _, NothingAdded _ => rfl
   | total, Cons next rest, final1, AddNext [total2 := sum1] first1 rest1, AddNext [total2 := sum2] first2 rest2 =>
@@ -60,13 +60,13 @@ theorem part1Unique (numbers: List Number) (answer1: Nat) (answer2: Nat) (first:
       let finals := addsUpToUnique final2 first2 rest2 final1 (rewrite firsts, rests at adds1 in adds1) adds2
       rewrite <- magnitude1, <- magnitude2, finals in rfl
 
--- Two numbers on different lines are a pair `orderedPairs` lists.
+--| Two numbers on different lines are a pair `orderedPairs` lists.
 theorem memberPairs (numbers: List Number) (i: Nat) (j: Nat) (x: Number) (y: Number) (different: i ≠ j) (atI: numbers.get i = Some x) (atJ: numbers.get j = Some y):
     (x, y) ∈ orderedPairs numbers :=
   List.memFlatMapIntro _ (i, x) (x, y) numbers.withIndex ((List.memWithIndex numbers i x).backward atI)
     (List.memFilterMapIntro _ (j, y) (x, y) numbers.withIndex ((List.memWithIndex numbers j y).backward atJ) cases)
 
--- And every pair it lists is two numbers on different lines.
+--| And every pair it lists is two numbers on different lines.
 theorem pairsMember (numbers: List Number) (x: Number) (y: Number) (member: (x, y) ∈ orderedPairs numbers):
     ∃ (i: Nat) => ∃ (j: Nat) => i ≠ j ∧ numbers.get i = Some x ∧ numbers.get j = Some y :=
   match List.anyMember _ numbers.withIndex (List.memFlatMapElim _ (x, y) numbers.withIndex member) with
@@ -83,8 +83,8 @@ theorem pairsMember (numbers: List Number) (x: Number) (y: Number) (member: (x, 
                     (Both (rewrite <- Eq.cong Std.Pair.fst pairs in (List.memWithIndex numbers i a).forward atI)
                       (rewrite <- Eq.cong Std.Pair.snd pairs in (List.memWithIndex numbers j b).forward atJ))))
 
--- What `sumMagnitudes` gives: each magnitude is that of a listed pair's sum,
--- and each listed pair's sum finished, its magnitude among them.
+--| What `sumMagnitudes` gives: each magnitude is that of a listed pair's sum,
+--| and each listed pair's sum finished, its magnitude among them.
 theorem sumMagnitudesSound: (pairs: List (Number, Number)) → (magnitudes: List Nat) → sumMagnitudes pairs = Some magnitudes →
     ((k: Nat) → k ∈ magnitudes → ∃ (x: Number) => ∃ (y: Number) => ∃ (sum: Number) => (x, y) ∈ pairs ∧ add x y = Some sum ∧ magnitude sum = k)
       ∧ ((x: Number) → (y: Number) → (x, y) ∈ pairs → ∃ (sum: Number) => add x y = Some sum ∧ magnitude sum ∈ magnitudes)
@@ -112,8 +112,8 @@ theorem sumMagnitudesSound: (pairs: List (Number, Number)) → (magnitudes: List
                       match And.right later x2 y2 there with
                         | Witness sum2 (Both added inOthers) => Witness sum2 (Both added (Inr inOthers)))
 
--- Part 2: for reduced numbers, if the program's sums finish, its answer
--- is the spec's.
+--| Part 2: for reduced numbers, if the program's sums finish, its answer
+--| is the spec's.
 theorem part2Correct (numbers: List Number) (reduced: List.All IsReduced numbers) (answer: Nat) (solved: solvePart2 numbers = Some answer): Part2 numbers answer :=
   match s: sumMagnitudes (orderedPairs numbers) with
     | None => Void.exfalso (Option.noneNotSome answer solved)

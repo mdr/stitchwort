@@ -1,16 +1,16 @@
--- Reducing: when `reduce` finishes within its budget, its steps are the
--- spec's steps on the leaves, and what it gives is reduced.
+--| Reducing: when `reduce` finishes within its budget, its steps are the
+--| spec's steps on the leaves, and what it gives is reduced.
 
 namespace Aoc.Year2021.Day18.Proofs
 import Aoc.Year2021.Day18 (..)
 import Aoc.Year2021.Day18.Spec (Leaf, ReducesTo, leaves, reduceStep)
 import Std (Eq, Exists, Nat, Option, Void)
 
--- Starting from a number with nothing inside more than five pairs, as the
--- pair of two reduced numbers is: if `reduce` finishes within its budget,
--- the spec's reduction of the number's leaves ends at the leaves of what it
--- gives, which has nothing inside more than four pairs and nothing to
--- split.
+--| Starting from a number with nothing inside more than five pairs, as the
+--| pair of two reduced numbers is: if `reduce` finishes within its budget,
+--| the spec's reduction of the number's leaves ends at the leaves of what it
+--| gives, which has nothing inside more than four pairs and nothing to
+--| split.
 theorem reduceSound: (budget: Nat) → (number: Number) → (final: Number) → reduce budget number = Some final → height number ≤ 5 →
     ReducesTo (leaves 0 number) (leaves 0 final) ∧ height final ≤ 4 ∧ split final = None
   | 0, number, final, none, _ => Void.exfalso (Option.noneNotSome final none)
@@ -31,7 +31,7 @@ theorem reduceSound: (budget: Nat) → (number: Number) → (final: Number) → 
             let step: reduceStep (leaves 0 number) = None := rewrite And.right shallow, splitNone number sp in rfl
             rewrite <- Option.someInjective _ final done in Both (Reduced step) (Both (And.left shallow) sp)
 
--- One step of `reduce`, by what it found.
+--| One step of `reduce`, by what it found.
 theorem reduceExplodes (budget: Nat) (number: Number) (exploded: Explosion) (ex: explode 0 number = Some exploded):
     reduce (Succ budget) number = reduce budget exploded.number :=
   rewrite ex in rfl
@@ -43,9 +43,9 @@ theorem reduceSplits (budget: Nat) (number: Number) (split2: Number) (ex: explod
 theorem reduceStops (budget: Nat) (number: Number) (ex: explode 0 number = None) (sp: split number = None): reduce (Succ budget) number = Some number :=
   rewrite ex, sp in rfl
 
--- The budget is the only gap: whenever the spec's reduction of a number's
--- leaves ends (the number nested at most five pairs deep), a large enough
--- budget lets `reduce` finish, and it finishes there.
+--| The budget is the only gap: whenever the spec's reduction of a number's
+--| leaves ends (the number nested at most five pairs deep), a large enough
+--| budget lets `reduce` finish, and it finishes there.
 theorem reduceComplete (final: List Leaf): (start: List Leaf) → ReducesTo start final → (number: Number) → leaves 0 number = start → height number ≤ 5 →
     ∃ (budget: Nat) => ∃ (result: Number) => reduce budget number = Some result ∧ leaves 0 result = final
   | start, Reduced done, number, is, fits =>

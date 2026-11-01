@@ -1,5 +1,6 @@
--- Day 1's tests: the example from the puzzle and unit tests. Kept apart from
--- the program, so `stitchwort run Aoc.Year2021.Day01.main` doesn't check them.
+--| Day 1's tests: the example from the puzzle and unit tests.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2021.Day01.main`
+-- doesn't check them.
 
 namespace Aoc.Year2021.Day01.Tests
 import Aoc.Year2021.Day01 (..)
@@ -39,6 +40,6 @@ test "equal depths aren't an increase" := solvePart1 [5, 5, 5] == 0
 test "fewer than four depths make no window increase" := solvePart2 [1, 2, 3] == 0
 test "equal window sums aren't an increase" := solvePart2 [1, 9, 9, 1] == 0
 
--- The examples, proved by computing them.
+--| The examples, proved by computing them.
 theorem examplePart1: solvePart1 exampleDepths = 7 := rfl
 theorem examplePart2: solvePart2 exampleDepths = 5 := rfl

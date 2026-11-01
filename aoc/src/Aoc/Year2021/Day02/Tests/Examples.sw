@@ -1,5 +1,6 @@
--- Day 2's tests: the example from the puzzle and unit tests. Kept apart from
--- the program, so `stitchwort run Aoc.Year2021.Day02.main` doesn't check them.
+--| Day 2's tests: the example from the puzzle and unit tests.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2021.Day02.main`
+-- doesn't check them.
 
 namespace Aoc.Year2021.Day02.Tests
 import Aoc.Year2021.Day02 (..)
@@ -35,6 +36,6 @@ test "no commands, no movement" := (solvePart1 [], solvePart2 []) == (0, 0)
 test "up past the surface goes above it" := (solvePart1 [Up 3, Forward 2], part1 [Up 3, Forward 2]) == (-6, -6)
 test "forward first moves at aim 0" := solvePart2 [Forward 4, Down 1, Forward 3] == 21
 
--- The examples, proved by computing them.
+--| The examples, proved by computing them.
 theorem examplePart1: solvePart1 exampleCommands = 150 := rfl
 theorem examplePart2: solvePart2 exampleCommands = 900 := rfl

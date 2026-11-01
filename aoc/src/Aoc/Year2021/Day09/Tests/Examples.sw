@@ -1,5 +1,6 @@
--- Day 9's tests: the example from the puzzle and unit tests. Kept apart from
--- the program, so `stitchwort run Aoc.Year2021.Day09.main` doesn't check them.
+--| Day 9's tests: the example from the puzzle and unit tests.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2021.Day09.main`
+-- doesn't check them.
 
 namespace Aoc.Year2021.Day09.Tests
 import Aoc.Year2021.Day09 (..)
@@ -35,15 +36,15 @@ test "a map of one 9" := solvePart1 { rows = [[9]] } == 10 ∧ solvePart2 { rows
 test "a flat map has no low points" := solvePart1 { rows = [[5, 5], [5, 5]] } == 0
 test "fewer than three basins" := solvePart2 { rows = [[1, 9, 0, 1]] } == 2
 
--- The locations each basin has, by the flood fill.
+--| The locations each basin has, by the flood fill.
 def basinLocations (map: HeightMap): List (List Position) :=
   let graph := map.graph
   map.lowPoints.map (((low, _)) => (graph.breadthFirst [low]).keys)
 
--- The puzzle's promise (`EachInOneBasin`), as far as a test can say it:
--- the basins have every location that isn't a 9 between them (no
--- location is in none), and their sizes add up to the number of those
--- locations (none is in two).
+--| The puzzle's promise (`EachInOneBasin`), as far as a test can say it:
+--| the basins have every location that isn't a 9 between them (no
+--| location is in none), and their sizes add up to the number of those
+--| locations (none is in two).
 def eachInOneBasin (map: HeightMap): Bool :=
   let open := map.cells.filter (((at, _)) => map.isOpen at) |> .map Pair.fst
   let found := basinLocations map |> .concat

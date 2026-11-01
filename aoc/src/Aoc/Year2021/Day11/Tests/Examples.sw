@@ -1,5 +1,6 @@
--- Day 11's tests: the puzzle's examples and unit tests. Kept apart from the
--- program, so `stitchwort run Aoc.Year2021.Day11.main` doesn't check them.
+--| Day 11's tests: the puzzle's examples and unit tests.
+-- Kept apart from the program, so `stitchwort run Aoc.Year2021.Day11.main`
+-- doesn't check them.
 
 namespace Aoc.Year2021.Day11.Tests
 import Aoc.Year2021.Day11 (..)
@@ -32,23 +33,23 @@ test "example, part 2" := solvePart2 example == Some 195
 
 test "touching" := touching (at 1 1) (at 0 0) ∧ touching (at 1 1) (at 2 1) ∧ not (touching (at 1 1) (at 1 1)) ∧ not (touching (at 1 1) (at 3 1))
 
--- Two adjacent 8s: each would be above 9 if both flashed, but neither
--- reaches 10 on its own, so nothing flashes.
+--| Two adjacent 8s: each would be above 9 if both flashed, but neither
+--| reaches 10 on its own, so nothing flashes.
 test "a pair of 8s doesn't start itself" := step [[8, 8]] == [[9, 9]]
 test "a 9 sets off its neighbour" := step [[9, 8]] == [[0, 0]] ∧ zeros (step [[9, 8]]) == 2
 test "an empty grid" := step [] == ([]: List (List Nat)) ∧ solvePart2 [] == Some 1
 test "a ragged grid" := step [[9], [8, 8]] == [[0], [0, 0]]
 
--- Why the spec's flashers are the least closed set: with two 8s, "both
--- flash" is closed (each would be at 10), but it isn't the flashers.
+--| Why the spec's flashers are the least closed set: with two 8s, "both
+--| flash" is closed (each would be at 10), but it isn't the flashers.
 theorem eightsClosed: Closed [[8, 8]] (q => True) := q level member above => rfl
 
 theorem eightsNotFlashers: Not (Flashers [[8, 8]] (at => True)) :=
   both => Bool.falseNotTrue (And.right both (flashedAt (flashers [[8, 8]])) (And.left (flashersCorrect [[8, 8]])) (at 0 0) rfl)
 
--- The hypotheses of `onGridAfter`, `grows` and `stableOfCount` (an
--- octopus has flashed after some rounds; and a round added nobody), which
--- the counterexample search may not meet, can hold.
+--| The hypotheses of `onGridAfter`, `grows` and `stableOfCount` (an
+--| octopus has flashed after some rounds; and a round added nobody), which
+--| the counterexample search may not meet, can hold.
 theorem flashedAfterOneRound: flashedAt (flashedAfter [[9]] 1) (at 0 0) = True := rfl
 
 theorem stableAfterOneRound: flashedCount [[9]] 2 ≤ flashedCount [[9]] 1 ∧ flashedAt (flashedAfter [[9]] 2) (at 0 0) = True := Both (omega [(rfl: flashedCount [[9]] 2 = 1), (rfl: flashedCount [[9]] 1 = 1)]) rfl

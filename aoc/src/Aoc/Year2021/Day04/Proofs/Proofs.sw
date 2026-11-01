@@ -1,26 +1,26 @@
--- Day 4 proved, for every input: both answers are those of the game played
--- draw by draw (Spec/).
+--| Day 4 proved, for every input: both answers are those of the game played
+--| draw by draw (Spec/).
 
 namespace Aoc.Year2021.Day04.Proofs
 import Aoc.Year2021.Day04 (..)
 import Aoc.Year2021.Day04.Spec (..)
 import Std (Decidable, Eq, List, Nat)
 
--- When a number is marked. The draws so far are `drawn`, and `rest` are
--- still to come. A number is marked once its first place among all the
--- draws is one of those drawn (`List.containsIndexOfAppend`).
+--| When a number is marked. The draws so far are `drawn`, and `rest` are
+--| still to come. A number is marked once its first place among all the
+--| draws is one of those drawn (`List.containsIndexOfAppend`).
 
--- Just after the draw of `number`, a number isn't marked when it is first
--- drawn later.
+--| Just after the draw of `number`, a number isn't marked when it is first
+--| drawn later.
 theorem unmarkedAfter (drawn: List Nat) (number: Nat) (later: List Nat) (x: Nat):
     not (marked (drawn ++ [number]) x) = (List.length drawn < List.indexOf (drawn ++ Cons number later) x) :=
   rewrite List.containsIndexOfAppend x later (drawn ++ [number]), List.appendAssoc drawn [number] later, List.lengthSnoc drawn number in cases
 
--- A false `p` adds nothing to `p ∨ b`.
+--| A false `p` adds nothing to `p ∨ b`.
 theorem orFalse (p: Bool) (b: Bool) (h: p = False): (p ∨ b) = b := rewrite h in rfl
 
--- So, once at least one number is drawn, a board has won exactly when the
--- program's winning turn has come.
+--| So, once at least one number is drawn, a board has won exactly when the
+--| program's winning turn has come.
 theorem winsBefore (drawn: List Nat) (rest: List Nat) (someDrawn: 0 < List.length drawn) (board: Board):
     wins drawn board = (winningTurn (drawn ++ rest) board < List.length drawn) :=
   let drawnAt := (number: Nat) => List.indexOf (drawn ++ rest) number
@@ -41,31 +41,31 @@ theorem winsBefore (drawn: List Nat) (rest: List Nat) (someDrawn: 0 < List.lengt
     _ = (winningTurn (drawn ++ rest) board < List.length drawn) :=
       Eq.sym (List.foldMinLt (turn => turn) (List.length drawn) (List.map (board ++ List.transpose board) lineTurn) (List.length (drawn ++ rest)))
 
--- The draw at `List.length drawn` is the one after `drawn`.
+--| The draw at `List.length drawn` is the one after `drawn`.
 theorem drawOn (number: Nat) (later: List Nat): (drawn: List Nat) → List.getOr (drawn ++ Cons number later) (List.length drawn) 0 = number
   | Nil => rfl
   | Cons first others => drawOn number later others
 
--- The spec's score of a board that wins on the draw of `number`, at
--- `List.length drawn`, is the program's.
+--| The spec's score of a board that wins on the draw of `number`, at
+--| `List.length drawn`, is the program's.
 theorem scoreAt (drawn: List Nat) (number: Nat) (later: List Nat) (board: Board):
     finalScore (drawn ++ [number]) number board = score (drawn ++ Cons number later) (List.length drawn) board :=
   rewrite List.filterCongMem (List.concat board) _ _ (x inBoard => unmarkedAfter drawn number later x), drawOn number later drawn in rfl
 
--- A board wins on the draw of `number` when its winning turn is no later.
+--| A board wins on the draw of `number` when its winning turn is no later.
 theorem winsAfterDraw (drawn: List Nat) (number: Nat) (later: List Nat) (board: Board):
     wins (drawn ++ [number]) board = (winningTurn (drawn ++ Cons number later) board < Succ (List.length drawn)) :=
   rewrite winsBefore (drawn ++ [number]) later (omega [List.lengthSnoc drawn number]) board, List.appendAssoc drawn [number] later,
     List.lengthSnoc drawn number in rfl
 
--- Not won before turn `j` and won by its end is won on it.
+--| Not won before turn `j` and won by its end is won on it.
 theorem thisTurn (j: Nat) (t: Nat): ((j ≤ t ∧ t < Succ j): Bool) = (t == j) := cases
 
--- Not won before turn `j` nor by its end is won later.
+--| Not won before turn `j` nor by its end is won later.
 theorem laterTurn (j: Nat) (t: Nat): ((j ≤ t ∧ not (t < Succ j)): Bool) = (Succ j ≤ t) := cases
 
--- The game from any point: the boards that haven't won yet, playing the
--- draws to come, win turn by turn.
+--| The game from any point: the boards that haven't won yet, playing the
+--| draws to come, win turn by turn.
 theorem playFrom (playing: List Board): (rest: List Nat) → (drawn: List Nat) →
     play drawn (List.filter playing (board => List.length drawn ≤ winningTurn (drawn ++ rest) board)) rest
       = List.flatMap (List.rangeFrom (List.length rest) (List.length drawn))
@@ -88,14 +88,14 @@ theorem playFrom (playing: List Board): (rest: List Nat) → (drawn: List Nat) �
       rewrite List.appendAssoc drawn [number] later, List.lengthSnoc drawn number at playFrom playing later (drawn ++ [number])
     rewrite wonNow, stillPlaying, afterNow, List.mapCong _ _ _ (scoreAt drawn number later) in rfl
 
--- The program's boards on a turn, found from their pairs with their turns.
+--| The program's boards on a turn, found from their pairs with their turns.
 theorem onTurn (draws: List Nat) (turn: Nat) (boards: List Board):
     List.map (List.filter (List.map boards (board => (winningTurn draws board, board))) (((won, _)) => won == turn))
         (((_, board)) => score draws turn board)
       = List.map (List.filter boards (board => winningTurn draws board == turn)) (score draws turn) :=
   rewrite List.filterOfMap boards _ _, List.mapMap _ _ _ in rfl
 
--- The program's scores, in order, are the game's.
+--| The program's scores, in order, are the game's.
 theorem winningScoresPlay (game: Game): winningScores game = play [] game.boards game.draws :=
   let everyBoard: List.filter game.boards (board => 0 ≤ winningTurn game.draws board) = game.boards :=
     List.filterAll _ game.boards (board inBoards => rfl)
@@ -106,10 +106,10 @@ theorem winningScoresPlay (game: Game): winningScores game = play [] game.boards
     _ = play [] (List.filter game.boards (board => 0 ≤ winningTurn game.draws board)) game.draws := Eq.sym (playFrom game.boards game.draws [])
     _ = play [] game.boards game.draws := rewrite everyBoard in rfl
 
--- Part 1 is the puzzle's answer, for every input.
+--| Part 1 is the puzzle's answer, for every input.
 theorem part1Correct (game: Game): solvePart1 game = firstWinnerScore game :=
   Eq.cong List.head (winningScoresPlay game)
 
--- Part 2 is the puzzle's answer, for every input.
+--| Part 2 is the puzzle's answer, for every input.
 theorem part2Correct (game: Game): solvePart2 game = lastWinnerScore game :=
   Eq.cong List.last (winningScoresPlay game)

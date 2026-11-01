@@ -1,18 +1,18 @@
--- One fold: where the program moves a dot is where the puzzle says it
--- lands, and the dots after `foldOnce` are the image of the dots before.
+--| One fold: where the program moves a dot is where the puzzle says it
+--| lands, and the dots after `foldOnce` are the image of the dots before.
 
 namespace Aoc.Year2021.Day13.Proofs
 import Aoc.Year2021.Day13 (..)
 import Aoc.Year2021.Day13.Spec (..)
 import Std (Eq, Exists, List, Nat)
 
--- A dot clear of the fold lands where `foldDot` puts it...
+--| A dot clear of the fold lands where `foldDot` puts it...
 theorem landsFoldDot (fold: Fold) (dot: Dot) (clear: Clear fold dot): Lands fold dot (foldDot fold dot) :=
   match fold with
     | AlongY line => cases
     | AlongX line => cases
 
--- ...and nowhere else.
+--| ...and nowhere else.
 theorem landsOnly (fold: Fold) (dot: Dot) (spot: Dot) (lands: Lands fold dot spot): spot = foldDot fold dot :=
   match fold with
     | AlongY line =>
@@ -24,11 +24,11 @@ theorem landsOnly (fold: Fold) (dot: Dot) (spot: Dot) (lands: Lands fold dot spo
         | Both sameY (Inl (Both lt sameX)) => Dot.ext spot (foldDot (AlongX line) dot) cases cases
         | Both sameY (Inr (Both gt sum)) => Dot.ext spot (foldDot (AlongX line) dot) cases cases
 
--- A list holds a set of dots when its members are exactly the set's dots.
+--| A list holds a set of dots when its members are exactly the set's dots.
 def Holds (dots: List Dot) (marked: Dot → Prop): Prop := (spot: Dot) → spot ∈ dots ↔ marked spot
 
--- If a list holds the dots before a fold, and every one of them is clear
--- of it, `foldOnce` holds the dots after it.
+--| If a list holds the dots before a fold, and every one of them is clear
+--| of it, `foldOnce` holds the dots after it.
 theorem foldOnceHolds (dots: List Dot) (marked: Dot → Prop) (fold: Fold) (holds: Holds dots marked) (clear: (dot: Dot) → marked dot → Clear fold dot):
     Holds (foldOnce dots fold) (AfterFold fold marked) :=
   spot => {

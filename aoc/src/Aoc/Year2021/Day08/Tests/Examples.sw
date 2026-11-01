@@ -1,6 +1,6 @@
--- Day 8's tests: the examples from the puzzle and unit tests. Kept apart
--- from the program, so `stitchwort run Aoc.Year2021.Day08.main` doesn't
--- check them.
+--| Day 8's tests: the examples from the puzzle and unit tests.
+-- Kept apart from the program, so
+-- `stitchwort run Aoc.Year2021.Day08.main` doesn't check them.
 
 namespace Aoc.Year2021.Day08.Tests
 import Aoc.Year2021.Day08 (..)
@@ -47,7 +47,7 @@ test "the display reads as itself" := display.map (decodeDigit display) == List.
 test "the spec's digits are the display's" :=
   List.range 10 |> .all (digit => segments.all (segment => (digitPattern digit).has segment == (digitSegments digit).contains segment))
 
--- The spec on the single entry: its wiring decodes it, and reads 5353.
+--| The spec on the single entry: its wiring decodes it, and reads 5353.
 def singleWiring: Segment → Segment := ({ a = C, b = F, c = G, d = A, e = B, f = D, g = E }: Wiring).at
 test "the spec reads the single entry as 5353" :=
   (entriesOf single).map (decodedValue singleWiring) == [5353] ∧ (entriesOf single).map (easyDigits singleWiring) == [0]

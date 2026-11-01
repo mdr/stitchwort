@@ -1,6 +1,6 @@
--- Day 15's tests: the example from the puzzle and unit tests. Kept apart
--- from the program, so `stitchwort run Aoc.Year2021.Day15.main` doesn't
--- check them.
+--| Day 15's tests: the example from the puzzle and unit tests.
+-- Kept apart from the program, so
+-- `stitchwort run Aoc.Year2021.Day15.main` doesn't check them.
 
 namespace Aoc.Year2021.Day15.Tests
 import Aoc.Year2021.Day15 (..)
@@ -26,7 +26,7 @@ test "a letter" := parsed "123\n4x6\n" == Err "line 2, column 2: expected a digi
 test "example, part 1" := solvePart1 example == 40
 test "example, part 2" := solvePart2 example == 315
 
--- The program's map has the spec's levels, on and off the example.
+--| The program's map has the spec's levels, on and off the example.
 def agreeOn (cave: Cave) (rows: Nat) (columns: Nat): Bool :=
   List.range rows |> .all (row => List.range columns |> .all (column => levelAt cave (at row column) == cave.risks.levelAt (at row column)))
 
@@ -36,18 +36,18 @@ def tiledAgreeOn (cave: Cave) (rows: Nat) (columns: Nat): Bool :=
 test "the example's levels" := parsed exampleText |> .map (cave => agreeOn cave 12 12) == Ok True
 test "the full example's levels" := parsed exampleText |> .map (cave => tiledAgreeOn cave 52 52) == Ok True
 
--- The puzzle's own illustration: a single 8, tiled, raises to 9, then
--- wraps to 1, 2 and 3 along the top row; the bottom right tile is 8 + 8,
--- wrapped to 7.
+--| The puzzle's own illustration: a single 8, tiled, raises to 9, then
+--| wraps to 1, 2 and 3 along the top row; the bottom right tile is 8 + 8,
+--| wrapped to 7.
 test "a single 8, tiled" :=
   [0, 1, 2, 3, 4].map (column => tiledLevelAt { rows = [[8]] } (at 0 column)) == [Some 8, Some 9, Some 1, Some 2, Some 3]
     ∧ tiledLevelAt { rows = [[8]] } (at 4 4) == Some 7 ∧ tiledLevelAt { rows = [[8]] } (at 5 0) == None
--- The full example's first row, from the puzzle.
+--| The full example's first row, from the puzzle.
 test "the full example's first row" :=
   (List.range 50 |> .map (column => tiledLevelAt example (at 0 column) |> .getOrElse 0))
     == [1, 1, 6, 3, 7, 5, 1, 7, 4, 2, 2, 2, 7, 4, 8, 6, 2, 8, 5, 3, 3, 3, 8, 5, 9, 7, 3, 9, 6, 4, 4, 4, 9, 6, 1, 8, 4, 1, 7, 5, 5, 5, 1, 7, 2, 9, 5, 2, 8, 6]
 
--- Paths and their total risk, in the spec's terms.
+--| Paths and their total risk, in the spec's terms.
 test "along the top, then down" :=
   isPath (levelAt example) topLeft (route 10 10) (bottomRight 10 10) ∧ totalRisk (levelAt example) (route 10 10) == 75
 test "a diagonal step isn't a path" := not (isPath (levelAt example) topLeft [at 1 1] (at 1 1))

@@ -1,22 +1,22 @@
--- The decoder's pieces that read no packets: a number in a field, a
--- literal's groups, an operator's type id. Each reads exactly the spec's
--- bits for what it gives back.
+--| The decoder's pieces that read no packets: a number in a field, a
+--| literal's groups, an operator's type id. Each reads exactly the spec's
+--| bits for what it gives back.
 
 namespace Aoc.Year2021.Day16.Proofs
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (bitsOf, groupBits, typeId)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Void)
 
--- `Some` of two pairs: the same parts.
+--| `Some` of two pairs: the same parts.
 theorem somePairInjective (x1: a) (y1: b) (x2: a) (y2: b) (h: Some (x1, y1) = Some (x2, y2)): x1 = x2 ∧ y1 = y2 :=
   let both := Option.someInjective _ _ h
   Both (Pair.mkInjectiveFst _ _ _ _ both) (Pair.mkInjectiveSnd _ _ _ _ both)
 
--- A field of the right length is split off.
+--| A field of the right length is split off.
 theorem splitFieldAppend (field: List Bool) (rest: List Bool) (count: Nat) (length: field.length = count): splitField count (field ++ rest) = Some (field, rest) :=
   rewrite List.takeAppendLength field rest count length, List.dropAppendLength field rest count length, length, DecEq.refl count in rfl
 
--- What `splitField` splits off is a field of the right length.
+--| What `splitField` splits off is a field of the right length.
 theorem splitFieldSome (count: Nat) (bits: List Bool) (field: List Bool) (rest: List Bool) (split: splitField count bits = Some (field, rest)):
     bits = field ++ rest ∧ field.length = count :=
   let taken := bits.take count
@@ -27,11 +27,11 @@ theorem splitFieldSome (count: Nat) (bits: List Bool) (field: List Bool) (rest: 
       rewrite <- parts.left, <- parts.right in Both (Eq.sym (List.appendTakeDrop bits count)) (DecEq.sound _ _ e)
     | False => cases
 
--- A number that fits its field is read back.
+--| A number that fits its field is read back.
 theorem readNumberBits (width: Nat) (n: Nat) (rest: List Bool) (small: n < Nat.pow 2 width): readNumber width (bitsOf width n ++ rest) = Some (n, rest) :=
   rewrite splitFieldAppend (bitsOf width n) rest width (lengthBitsOf width n), fromBitsOf width n small in rfl
 
--- What `readNumber` reads is the number's bits, and the number fits.
+--| What `readNumber` reads is the number's bits, and the number fits.
 theorem readNumberSome (width: Nat) (bits: List Bool) (n: Nat) (rest: List Bool) (read: readNumber width bits = Some (n, rest)):
     bits = bitsOf width n ++ rest ∧ n < Nat.pow 2 width :=
   match e: splitField width bits with
@@ -43,7 +43,7 @@ theorem readNumberSome (width: Nat) (bits: List Bool) (n: Nat) (rest: List Bool)
       rewrite split.right, parts.left at written in
         Both (rewrite <- parts.right, written in split.left) (rewrite <- parts.left in (rewrite split.right at (fromBitsBelow field)))
 
--- A literal's groups, each below 16, are read back from their bits.
+--| A literal's groups, each below 16, are read back from their bits.
 theorem readGroupsBits (rest: List Bool): (groups: List Nat) → groups ≠ Nil → groups.all (group => group < 16) = True → readGroups (groupBits groups ++ rest) = Some (groups, rest)
   | Nil, some, small => Void.exfalso (some rfl)
   | Cons group Nil, some, small => rewrite fromBitsOf 4 group (omega [small]) in rfl
@@ -52,8 +52,8 @@ theorem readGroupsBits (rest: List Bool): (groups: List Nat) → groups ≠ Nil 
     let others: (Cons next more).all (group => group < 16) = True := Bool.andRight _ _ small
     rewrite readGroupsBits rest (Cons next more) (u => cases) others, fromBitsOf 4 group fits in rfl
 
--- What `readGroups` reads is the spec's bits for the groups it gives,
--- at least one, each below 16.
+--| What `readGroups` reads is the spec's bits for the groups it gives,
+--| at least one, each below 16.
 theorem readGroupsSome: (bits: List Bool) → (groups: List Nat) → (rest: List Bool) → readGroups bits = Some (groups, rest) →
     bits = groupBits groups ++ rest ∧ groups ≠ Nil ∧ groups.all (group => group < 16) = True
   | Cons more (Cons a (Cons b (Cons c (Cons d tail)))), groups, rest, read =>
@@ -87,10 +87,10 @@ theorem readGroupsSome: (bits: List Bool) → (groups: List Nat) → (rest: List
   | Cons _ (Cons _ (Cons _ Nil)), groups, rest, read => cases
   | Cons _ (Cons _ (Cons _ (Cons _ Nil))), groups, rest, read => cases
 
--- Each operation is read back from its type id.
+--| Each operation is read back from its type id.
 theorem operationOfTypeId (operation: Operation): operationOf (typeId operation) = Some operation := cases
 
--- An operation is read only from its type id.
+--| An operation is read only from its type id.
 theorem operationOfSome (n: Nat) (operation: Operation) (read: operationOf n = Some operation): n = typeId operation :=
   match n with
     | 0 => rewrite <- Option.someInjective _ _ read in rfl

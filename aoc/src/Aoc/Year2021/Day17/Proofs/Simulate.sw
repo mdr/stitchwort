@@ -1,16 +1,16 @@
--- The program's bounded simulation decides whether the probe is in the
--- target within its number of steps, though it stops early once the probe
--- is past it.
+--| The program's bounded simulation decides whether the probe is in the
+--| target within its number of steps, though it stops early once the probe
+--| is past it.
 
 namespace Aoc.Year2021.Day17.Proofs
 import Aoc.Year2021.Day17 (..)
 import Std (Bool, Eq, Exists, Nat, Void)
 
--- A probe past the target is never in it again.
+--| A probe past the target is never in it again.
 theorem pastNever (target: Target) (probe: Probe) (h: past target probe = True) (n: Nat): inTarget target (Nat.iterate n step probe) = False :=
   pastOutside target _ (Nat.iterateKeeps step (q => past target q = True) (pastStays target) n probe h)
 
--- What `hitsWithin` finds is there.
+--| What `hitsWithin` finds is there.
 theorem hitsWithinSound (target: Target): (steps: Nat) → (probe: Probe) → hitsWithin target steps probe = True →
     ∃ (n: Nat) => n ≤ steps ∧ inTarget target (Nat.iterate n step probe) = True
   | 0, probe, h => Witness 0 (Both (omega) h)
@@ -24,7 +24,7 @@ theorem hitsWithinSound (target: Target): (steps: Nat) → (probe: Probe) → hi
             match hitsWithinSound target steps (step probe) h with
               | Witness n (Both early inside) => Witness (Succ n) (Both (omega) inside)
 
--- And it finds every hit within its steps.
+--| And it finds every hit within its steps.
 theorem hitsWithinComplete (target: Target): (steps: Nat) → (n: Nat) → (probe: Probe) → n ≤ steps → inTarget target (Nat.iterate n step probe) = True →
     hitsWithin target steps probe = True
   | 0, 0, probe, early, h => h
