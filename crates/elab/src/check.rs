@@ -2186,8 +2186,10 @@ fn apply_args_postponing(
     first_error: &mut Option<Diagnostic>,
 ) -> Result<(Term, Value)> {
     let (mut term, mut ty) = head;
-    // The checks queued from here on are this application's (`queue.rs`).
+    // The checks queued from here on are this application's (`queue.rs`),
+    // and so are the unknowns made from here on.
     let queued_from = cx.e.queue.len();
+    let metas_from = cx.g().metas.borrow().len();
     let mut postponed = Vec::new();
     // Lambdas to check after the application's type is compared with the
     // type expected of it, if `infer_expecting` says what that is.
@@ -2388,7 +2390,8 @@ fn apply_args_postponing(
     // those, are resumed if they can be (W1, scoped; D2014).
     cx.e.resume_application(queued_from)?;
     if !searches.is_empty() {
-        check_searches_last(cx, &mut term, &mut ty, searches, expecting.as_ref(), queued_from)?;
+        let from = (queued_from, metas_from);
+        check_searches_last(cx, &mut term, &mut ty, searches, expecting.as_ref(), from)?;
     }
     if let (false, Some(expected)) = (after_expected.is_empty(), &expecting) {
         // The type as `fallback` will compare it: with no implicit
@@ -2464,6 +2467,15 @@ fn hold_argument(
 /// then each search, in written order, against its goal read afresh, so a
 /// call stuck on an unknown solved since computes.
 ///
+/// Only the application's own instances are found here, those made since
+/// it began (`metas_from`), as W1 resumes only its own checks (invariant
+/// 3). One of a call around it may belong to a lambda whose literal still
+/// waits for that call's W1 (`Eq.cong (x => x + 5) (f (Succ k) (omega))`):
+/// found now, the outer call's type would compute through it to a value
+/// stuck on the literal's placeholder (`Succ (k + ?5)`), which isn't
+/// computed again once the literal is filled, and so no longer matches
+/// its expected type (`std/Float/Theory.sw`'s `unitsRoundNonpos`).
+///
 /// If instances were found, `ty` is read afresh too: a value computed while
 /// a dictionary was unknown stays stuck on it (`Add.%add [Nat] ?d x y`), and
 /// whoever reads the type next may not compute it again. A `rewrite` rule
@@ -2476,7 +2488,7 @@ fn check_searches_last(
     ty: &mut Value,
     searches: Vec<(&Expr, Value, Value, usize)>,
     expecting: Option<&Value>,
-    queued_from: usize,
+    (queued_from, metas_from): (usize, usize),
 ) -> Result<()> {
     if let Some(expected) = expecting {
         let implicit_next = matches!(
@@ -2488,7 +2500,13 @@ fn check_searches_last(
                 || crate::undo::unify_solving_arguments(cx, ty, expected)?;
         }
     }
-    if cx.e.solve_ready_instances()? {
+    let own: Vec<usize> = (cx.e.obligations.borrow().iter())
+        .filter_map(|ob| match ob.meta.spine().0 {
+            Term::Meta(m) if *m >= metas_from => Some(*m),
+            _ => None,
+        })
+        .collect();
+    if !own.is_empty() && cx.e.solve_ready_instances_keeping(&[], Some(&own))? {
         *ty = cx.eval(&cx.quote_folded(ty)?)?;
     }
     cx.e.resume_application(queued_from)?;

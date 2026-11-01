@@ -29,3 +29,22 @@ def lambdaFirst (counts: List ((Char, Char), Nat)) (pair: (Char, Char)) (given: 
 theorem autoFirst (c: Char) (first: Char) (tail: List Char) (positive: 0 < List.count (Cons first tail) (== c)):
     c ∈ Cons first tail :=
   List.memOfCountPositive c (Cons first tail) (omega [positive])
+
+-- Only the call's own instances are found before its searches: here the
+-- `+` of the lambda of the call around it (`x => x + 5`) is left until
+-- that call has resumed its waiting `5`. Found early, the outer call's
+-- type would compute through it to a value stuck on the `5`'s
+-- placeholder, which isn't computed again once the `5` is filled
+-- (`std/Float/Theory.sw`'s `unitsRoundNonpos` has this shape).
+def capped (m: Nat): Nat := if m < 100 then m + 0 else m
+
+theorem cappedExact (m: Nat) (pm: 0 < m) (hm: m < 100): capped m = m :=
+  match c: m < 100 with
+    | True => rfl
+    | False => rfl
+
+theorem cappedSelf: (x: Nat) → 0 < x → capped x + 5 = capped x + 5
+  | _, p => rfl
+
+theorem outerLambda (k: Nat) (hm: Succ k < 100): capped (Succ k) + 5 = Succ k + 5 :=
+  Eq.trans (cappedSelf (Succ k) (omega)) (Eq.cong (x => x + 5) (cappedExact (Succ k) (omega) hm))
