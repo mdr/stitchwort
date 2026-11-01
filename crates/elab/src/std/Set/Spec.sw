@@ -282,6 +282,16 @@ theorem Set.containsFoldInsert [auto ord: Ord k]: (s: Set k) → (key: k) → (x
 theorem Set.containsFromList [auto ord: Ord k] (key: k) (xs: List k): Set.contains (Set.fromList xs) key = List.any xs (x => Map.Spec.sameKey key x) :=
   Set.containsFoldInsert Set.empty key xs
 
+-- `contains` on a set built from a list is membership.
+theorem Set.containsFromListIff [auto ord: Ord k] (xs: List k) (key: k): Iff (Set.contains (Set.fromList xs) key = True) (key ∈ xs) := {
+  forward = there =>
+    List.anyTrueElim xs (x => Map.Spec.sameKey key x) (key ∈ xs) (rewrite Set.containsFromList key xs at there in there) (x member same =>
+      rewrite Map.Spec.sameKeySound key x same in member),
+  backward = member =>
+    rewrite Set.containsFromList key xs in
+      List.anyOfMem xs (x => Map.Spec.sameKey key x) key (rewrite Map.Spec.sameKeyDecide key key in DecEq.refl key) member
+}
+
 -- `isSubset`: every key of `a` is in `b`
 
 -- `all`'s fold over a set's entries is `List.all` over them.

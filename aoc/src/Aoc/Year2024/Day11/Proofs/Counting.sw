@@ -18,16 +18,17 @@ theorem weighCong (first: Nat → Nat) (second: Nat → Nat) (same: (stone: Nat)
   | Nil => rfl
   | Cons (stone, count) rest => rewrite same stone, weighCong first second same rest in rfl
 
+-- The weight as a sum over the entries (std's `Map.weightInsertWith` and
+-- `Map.sumByCounts` are about this form).
+theorem weighSumBy (weight: Nat → Nat): (entries: List (Nat, Nat)) → weigh weight entries = entries.sumBy (entry => entry.snd * weight entry.fst)
+  | Nil => rfl
+  | Cons (stone, count) rest => rewrite List.sumByCons rest (stone, count) (entry => entry.snd * weight entry.fst), weighSumBy weight rest in rfl
+
 -- Adding `count` stones of one number adds their weight, whether the number
 -- is new or already there.
-theorem weighInsertWith (weight: Nat → Nat) (key: Nat) (count: Nat):
-    (entries: List (Nat, Nat)) → weigh weight (Map.Spec.insertWith Nat.add key count entries) = count * weight key + weigh weight entries
-  | Nil => rfl
-  | Cons (stone, other) rest =>
-    match order: Ord.compare key stone with
-      | Less => rfl
-      | Equal => rewrite Nat.instOrd.equal key stone order in ring
-      | Greater => rewrite weighInsertWith weight key count rest in ring
+theorem weighInsertWith (weight: Nat → Nat) (key: Nat) (count: Nat) (entries: List (Nat, Nat)):
+    weigh weight (Map.Spec.insertWith Nat.add key count entries) = count * weight key + weigh weight entries :=
+  rewrite weighSumBy weight (Map.Spec.insertWith Nat.add key count entries), weighSumBy weight entries in Map.specInsertWithWeight weight key count entries
 
 theorem weighAddStones (weight: Nat → Nat): (counts: Map Nat Nat) → (stones: List Nat) → (count: Nat) →
     weigh weight (addStones counts stones count).toList = count * stones.sumBy weight + weigh weight counts.toList
@@ -55,7 +56,7 @@ theorem weighBlinkCounts (weight: Nat → Nat) (counts: Map Nat Nat):
 def Represents (counts: Map Nat Nat) (stones: List Nat): Prop := (weight: Nat → Nat) → weigh weight counts.toList = stones.sumBy weight
 
 theorem representsCounts (stones: List Nat): Represents (Map.counts stones) stones := weight =>
-  rewrite weighAddStones weight Map.empty stones 1 in ring
+  rewrite weighSumBy weight (Map.toList (Map.counts stones)) in Map.sumByCounts stones weight
 
 -- A blink on the counts stands for a blink on the line.
 theorem representsBlink (counts: Map Nat Nat) (stones: List Nat) (represents: Represents counts stones):

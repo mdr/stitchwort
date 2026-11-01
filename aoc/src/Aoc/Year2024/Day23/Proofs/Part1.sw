@@ -86,9 +86,9 @@ theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
       let (Both firstOut (Both secondOut unused)) := distinct
       found first second third
         (Set.extIff set (Set.fromList [first, second, third]) (key => {
-          forward = held => containsFromListOfMem key [first, second, third] (rewrite keys at ((Set.memToList set key).backward held: List.Mem key set.toList)),
+          forward = held => (Set.containsFromListIff [first, second, third] key).backward (rewrite keys at ((Set.memToList set key).backward held: List.Mem key set.toList)),
           backward = held =>
-            (Set.memToList set key).forward (rewrite keys in memOfContainsFromList key [first, second, third] held)
+            (Set.memToList set key).forward (rewrite keys in (Set.containsFromListIff [first, second, third] key).forward held)
         }))
         (same => firstOut (Inl (Eq.sym same)))
         (same => firstOut (Inr (Inl (Eq.sym same))))
@@ -99,13 +99,13 @@ theorem setsOfThreeIff (network: Network) (set: Set Computer):
     Iff (network.links.setsOfThree.contains set = True) (InterConnectedThree network set) := {
   forward = held =>
     let kept := Eq.trans (Eq.sym (Set.containsFilter (Set.fromList (madeSets network.links)) set (set => set.size == 3))) held
-    let made := memOfContainsFromList set (madeSets network.links) (Bool.andLeft _ _ kept)
+    let made := (Set.containsFromListIff (madeSets network.links) set).forward (Bool.andLeft _ _ kept)
     Both (sizeThree set (Bool.andRight _ _ kept)) (madeConnected network set made),
   backward = (Both three connected) =>
     threeListed set three (network.links.setsOfThree.contains set = True)
       (first second third isSet firstSecond firstThird secondThird =>
         let inSet: (member: Computer) → List.Mem member [first, second, third] → set.contains member = True :=
-          member listed => rewrite isSet in containsFromListOfMem member [first, second, third] listed
+          member listed => rewrite isSet in (Set.containsFromListIff [first, second, third] member).backward listed
         let linked: (one: Computer) → (other: Computer) → List.Mem one [first, second, third] → List.Mem other [first, second, third] →
             Not (one = other) → (network.links.neighbours one).contains other = True :=
           one other oneListed otherListed different =>
@@ -129,7 +129,7 @@ theorem setsOfThreeIff (network: Network) (set: Set Computer):
               (List.memMap (network.links.neighbours second |> .intersect (network.links.neighbours first) |> .toList) third thirdCommon
                 (third => Set.fromList [first, second, third])))
         rewrite Set.containsFilter (Set.fromList (madeSets network.links)) set (set => set.size == 3), three, isSet,
-          containsFromListOfMem (Set.fromList [first, second, third]) (madeSets network.links) made
+          (Set.containsFromListIff (madeSets network.links) (Set.fromList [first, second, third])).backward made
           in rfl)
 }
 

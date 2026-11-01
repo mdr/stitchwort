@@ -118,18 +118,18 @@ theorem lowestScoreCorrect (maze: Maze) (startOpen: maze.isOpen maze.start = Tru
   Exists.elim reachable (moves rest =>
     Exists.elim rest (standings path =>
       Exists.elim (pathCandidate moves standings path) (found both =>
-        Exists.elim (minimumSome candidates found (And.left both)) (best least =>
+        Exists.elim (List.minimumExists candidates found (And.left both)) (best least =>
           Witness best
             (Both least
               (Both
                 (Exists.elim (List.anyMember (reindeer => maze.fromStart.get reindeer = Some best) maze.endReindeer (List.memFilterMapElim maze.fromStart.get best maze.endReindeer
-                    (minimumMember candidates best least))) (last parts =>
+                    (And.left (List.minimumSome candidates best least)))) (last parts =>
                   Exists.elim (reachedAll last best (And.right parts)) (bestMoves reached =>
                     Exists.elim (pathOfFinal maze bestMoves last (And.left reached) (listedAtEnd maze last (And.left parts))) (bestStandings isPath =>
                       Witness bestMoves (Witness bestStandings (Both isPath (And.right reached)))))))
                 (otherMoves otherStandings otherPath =>
                   Exists.elim (pathCandidate otherMoves otherStandings otherPath) (other both =>
-                    omega [minimumLeast candidates best least other (And.left both), And.right both]))))))))
+                    omega [And.right (List.minimumSome candidates best least) other (And.left both), And.right both]))))))))
 
 -- Part 1: on a maze whose S is open, with some path from S to E, the
 -- answer is the lowest score.

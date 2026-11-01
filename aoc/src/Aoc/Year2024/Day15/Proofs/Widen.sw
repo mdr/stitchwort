@@ -8,17 +8,12 @@ import Aoc.Year2024.Day15 (..)
 import Aoc.Year2024.Day15.Spec (..)
 import Std (And, Bool, Eq, Exists, Iff, List, Map, Nat, Not, Or, Set, Void)
 
--- A set built from a list holds only what the list holds.
-theorem fromListElim (keys: List Cell) (key: Cell) (held: (Set.fromList keys).contains key = True): key ∈ keys :=
-  List.anyTrueElim keys _ _ (rewrite Set.containsFromList key keys at held)
-    (other member same => rewrite Map.Spec.sameKeySound key other same in member)
-
 -- Each wall of the wide warehouse is half of a wall of the narrow one.
 theorem wideWall (warehouse: Warehouse) (cell: Cell) (held: warehouse.widen.walls.contains cell = True):
     ∃ (wall: Cell) => warehouse.walls.contains wall = True ∧ cell ∈ cellsOf (Cell.widen wall) :=
   List.anyElim _ _ warehouse.walls.toList
     (List.memFlatMapElim ((wall: Cell) => cellsOf (Cell.widen wall)) cell warehouse.walls.toList
-      (fromListElim (warehouse.walls.toList.flatMap (wall => cellsOf (Cell.widen wall))) cell held))
+      ((Set.containsFromListIff (warehouse.walls.toList.flatMap (wall => cellsOf (Cell.widen wall))) cell).forward held))
     (wall member half => Witness wall (Both (Iff.forward (Set.memToList warehouse.walls wall) member) half))
 
 -- Each box of the wide warehouse is a box of the narrow one, widened.

@@ -134,11 +134,6 @@ def Wire.xBit (wire: Wire): Option Nat :=
     | X bit => Some bit
     | _ => None
 
--- All the values, if every option has one.
-def allSome: List (Option a) → Option (List a)
-  | Nil => Some Nil
-  | Cons first rest => first.flatMap (value => allSome rest |> .map (Cons value))
-
 -- The number with these bits, lowest first.
 def fromBits: List Bool → Nat
   | Nil => 0
@@ -150,7 +145,7 @@ def Device.zBits (device: Device) (values: Values): Option (List Bool) :=
   let wires := device.wires
   List.range (bitCount Wire.zBit wires)
     |> .map (bit => if wires.contains (Z bit) then values.get (Z bit) else Some False)
-    |> allSome
+    |> List.allSome
 
 def Device.settled (device: Device): Values := settle (Map.fromList device.initial) device.gates
 
@@ -268,16 +263,9 @@ def zWithin (gates: List Gate) (bits: Nat): Bool :=
 def isAdder (gates: List Gate) (bits: Nat): Bool :=
   wellWired gates ∧ zWithin gates bits ∧ checkAdder gates bits == Passes (Z bits)
 
--- Every pair of wires from the list.
-def pairsOf (wires: List Wire): List (Wire, Wire) :=
-  wires.tails |> .flatMap (tail =>
-    match tail with
-      | Cons first rest => rest.map (second => (first, second))
-      | Nil => Nil)
-
 -- The swaps to try at a fault: the suggested fixes, then every pair of
 -- the faulty bit's gate outputs.
-def swapsToTry (fixes: List (Wire, Wire)) (suspects: List Wire): List (Wire, Wire) := List.append fixes (pairsOf suspects)
+def swapsToTry (fixes: List (Wire, Wire)) (suspects: List Wire): List (Wire, Wire) := List.append fixes suspects.pairs
 
 -- Swaps after `swaps` that make the gates an adder, at most `budget` more:
 -- try each swap for the first fault in turn, and go on from there.
