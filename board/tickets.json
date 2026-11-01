@@ -1,5 +1,5 @@
 {
-  "next": 1015,
+  "next": 1017,
   "tickets": [
     {
       "id": 47,
@@ -3385,6 +3385,34 @@
         "design"
       ],
       "body": "D2140 (Matt, 1 Nov 2026): stage 7 keeps D2128 part (a) only. Part (b) (a failed search waits on any unsolved unknown) broke std/List/Grid.sw:52, four sites in std/Parse/Reads.sw and 9 sites in 7 aoc proof files: the after-expected path only runs when something fails, so a waiting rewrite on a bare ?48 leaves it unsolved (SW-1010 lane trace). Fix needs a design for running the expected-type comparison without depending on failure; then part (b) is safe and case 4 (a search inside a lambda checked before the argument fixing its type, 2024 day 13 / SW-963) checks. Relates to D2129 (Lean per-argument comparison rejected for now).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1015,
+      "title": "Trip-journal friction, language: record literals/updates in theorem statements; if h: P producing proofs; Decidable for records of decidable Props",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elaborator"
+      ],
+      "body": "D2150 option 2 (Matt, 1 Nov 2026), from SW-999 items 1, 2, 6. (1) { l | start = … } / { id = 2, … } in a theorem statement is a parse error ('expected }, found ='), also SW-978 item 5. (2) if h: P then … else … can't produce a proof: misleading E-UNIVERSE (also the grid lane's if h: on Bool). (6) nothing decides WellFormed (a record of Props), so counterexample search can't test mergeSelf/mergeWellFormed: derive Decidable for Prop records whose fields are decidable. Queued until stage 7 (SW-1010) merges, since it touches the elaborator.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1016,
+      "title": "Trip-journal friction, std lemmas: Float Bool-form order, Distinct over appends, appendNewBy keys, and friends",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "D2150 option 3 (Matt, 1 Nov 2026), from SW-999's std candidates: Float.leOfNotLess, Float.leTotal, Float.notLessOfLe (Bool forms); List distinctAppendLeft/Right/Apart, appendNewBy key lemmas, filterMapMapSelf, permSym, anyIntro. Check what exists first; switch trip-journal's local copies to std.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
