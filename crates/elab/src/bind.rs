@@ -428,7 +428,9 @@ fn operand(
     binders: &mut Vec<(Name, Term)>,
     operands: &mut Vec<Term>,
 ) -> Result<Shape> {
-    if cheap(arg) && !costly_let(cx, outer, arg) {
+    // A number literal waiting for its type (K4) is kept as a literal is:
+    // its placeholder becomes the literal (step 4.3).
+    if (cheap(arg) && !costly_let(cx, outer, arg)) || crate::queue::waiting_literal(cx.e, arg) {
         return Ok(Shape::Kept(arg.clone()));
     }
     let name: Name = format!("%{}", operands.len()).as_str().into();

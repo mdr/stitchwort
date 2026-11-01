@@ -1301,6 +1301,7 @@ impl Elaborator {
         self.compare_awaiting_helpers()?;
         let stuck = self.settle_queue()?;
         self.settle_rows(stuck)?;
+        self.specialise_fills()?;
         match self.specialise_operators(term, level)? {
             Some(term) => self.zonk(&term, level),
             None => self.zonk(term, level),

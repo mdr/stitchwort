@@ -108,6 +108,20 @@ fn sets_aside(g: &Globals, level: usize, a: &Value, b: &Value) -> Result<bool> {
     Ok(true)
 }
 
+/// [`on_pending`], with `pending` as the unknowns the queue still has to
+/// settle: for a check that needs `v`'s shape (`queue::headed_by_pending`).
+pub(crate) fn on_pending_in(
+    g: &Globals,
+    level: usize,
+    v: &Value,
+    pending: &HashSet<usize>,
+) -> Result<bool> {
+    let saved = PENDING.with(|p| p.replace(pending.clone()));
+    let result = on_pending(g, level, v);
+    PENDING.with(|p| p.replace(saved));
+    result
+}
+
 /// Whether `v` may yet become something else once the queue settles a
 /// pending unknown: it is a pending unknown applied to anything, or it is
 /// flexible (another unknown applied, a stuck call, a sum on either) and
@@ -1100,6 +1114,18 @@ fn unify_step(
         (Value::Refl, Value::Refl) => true,
         // Compact lists, as in `conv`: two ranges by their characters.
         (Value::Chars(x), Value::Chars(y)) => x.as_slice() == y.as_slice(),
+        // A pending placeholder applied twice (`?p a` against `?p b`, stage
+        // 6): its term may ignore an argument, so different arguments don't
+        // make the two differ. Its arguments are compared on their own, and
+        // if they differ, the whole pair waits for the placeholder.
+        (Value::Neutral(Head::Meta(m1), s1), Value::Neutral(Head::Meta(m2), s2))
+            if m1 == m2 && pending(*m1) =>
+        {
+            match spine_pairs(level, s1, s2) {
+                Some(pairs) => nested(|| run(g, pairs.into_iter().rev().collect()))?,
+                None => false,
+            }
+        }
         (Value::Neutral(Head::Meta(m1), s1), Value::Neutral(Head::Meta(m2), s2)) if m1 == m2 => {
             match spine_pairs(level, s1, s2) {
                 Some(pairs) => {

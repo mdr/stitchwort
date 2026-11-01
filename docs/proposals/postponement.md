@@ -5,7 +5,8 @@
 3)](#as-built-stage-3), [As built (stage 6)](#as-built-stage-6)); stage 4's second attempt is
 stopped for decisions ([Stage 4, second attempt: stopped](#stage-4-second-attempt-stopped)), and the third
 attempt's design is written ([Stage 4: design for the third attempt](#stage-4-design-for-the-third-attempt);
-decisions D2087, D2090, D2091). Tickets SW-817 (anchor), SW-847 and SW-885; context
+decisions D2087, D2090, D2091) and built in steps 4.0 to 4.3 ([As built (step
+4.3)](#as-built-step-43): number literals wait). Tickets SW-817 (anchor), SW-847 and SW-885; context
 SW-509, SW-805, SW-896. Follows D1990 (one queue, agreed in principle), D1991 (SW-805's
 field-name rule stays, as name resolution), D2012 (Matt: design for the best end state; the
 cost of churn is not a criterion) and D2015 (Matt: revise after the external review). Repros,
@@ -2917,6 +2918,124 @@ profiles.
   addition 3's pending set widened.
 - The counters decide whether `omega`, `ring` and `auto` join the try-then-wait rule: measure them
   again with K4, where literals wait.
+
+## As built (step 4.3)
+
+Built on main (`c3d51826`) in the D2103 lane, 31 October to 1 November 2026: K4, number literals
+wait. Labels as in the design section above.
+
+**What changed** [read].
+- **K4** (`numbers.rs`, the experiment's literal and group code, `ac4587c9`): a literal checked
+  against a type whose head is an unknown is a `Number` item waiting on it; a number group that
+  nothing decides is built at once at an unknown type when it has only `+`, `*`, `<`, `<=` and
+  equations (its literals wait, its dictionaries are obligations: addition 6), and waits whole
+  (`NumberGroup`) when it has `-`, `/` or `%`. Both default to `Nat` (`Priority::Nat`, no longer
+  `dead_code`) at invariant 7's three points, after the field-name rule. A waiting number prints
+  as the number, a waiting group as its source (D2091; without that three messages showed `?N`).
+- **Addition 1** (`check.rs`): `rfl` against an expected type whose shape is pending is `?x = ?x`
+  compared with it, which waits (`queue::headed_by_pending`).
+- **Addition 5** (`unify.rs`): a pending placeholder applied twice (`?p a` against `?p b`) is
+  not compared by its arguments; the pair waits.
+- **The rule settled** (`queue::settle_rule`): after its own checks are settled, the dictionaries
+  made inside the rule whose types are now known are found (only those, at or after the rule's
+  first unknown). Nothing in the corpus needs it today [run: with it switched off in a scratch
+  build, std, aoc and the new example check]; it is kept as the design asks.
+- **Decisions wait for their form** (`check.rs`, `decide_or_wait`, `decision_blocker`,
+  `DecideTerm`; `logic.rs`, `Condition::Waiting`; `numbers.rs`, `==`): Day17's fix, below.
+- **The fills are specialised** (`Elaborator::specialise_fills`, from `finish` and lifting): a
+  check resumed late (a decision of `==` waiting for a literal) leaves its operator generic when
+  its dictionary is found after it; the projection at the end (§5.10) now runs on the terms the
+  checks filled their placeholders with, as on the declaration's own term. Without it
+  `effect-rows-uses.sw`'s "a pure use on a computed receiver" lost stage 1's `List.decEq`.
+- **A waiting literal is an operand like a literal** (`bind::operand`,
+  `queue::waiting_literal`): a decision's search keeps it rather than binding it as a variable,
+  and an `if`'s branches holding one don't count as using the proof (`unused_proof_if`).
+  Without these, `x == 3` and `if 5 > 0` were written in their bound form, `(%0 => …) 3`.
+
+**Day17: the cause** [run, scratch traces, removed]. Step 4.2's reading (an argument checked
+against a bare unknown) was off; the argument's expected type is
+`(?4 … other < other && toBool (…)) = True`. What breaks it is the *form* of `0 < a`:
+- With K4, in `List.memFilterIntro _ (a => 0 < a ∧ output a == target) …`, `a`'s type is unknown
+  when `0 < a` is elaborated (only the later `output a` says it is a `Nat`). Addition 6 builds the
+  group at an unknown type, so `<` is the generic `Ord.lessThan [?d]`, and its literal waits.
+- `0 < a` is a `&&` operand, a condition: `logic::condition` decides it **at once**
+  (`bind::decide`), not through D2035's waiting `Decide`. The decision of a relation written
+  through a dictionary is its paired decider, `Ord.decLessThan [?d]`, later projected to
+  `toBool (Nat.decLessThan 0 a)`.
+- On main, `0` is a `Nat` at once, `0 < a` is `Nat.lessThan 0 a`, the search decides it, and
+  `bind::comparison` writes the `Bool` as `Nat.leq 1 a`. `toBool (Nat.decLessThan 0 a)` does not
+  compute to `Nat.leq 1 a` (it is stuck on `a`), so they are different values.
+- `Bool.andIntro _ _ positive (…)`: `positive: 0 < other` solves the first `_` with main's form,
+  `Nat.leq 1 other`; the comparison of `(Nat.leq 1 other && ?9) = True` with the expected type
+  (the after-expected path) then fails, `?9` stays unknown, and the `rewrite` finds nothing.
+- Evidence: the cut-down repro (now `positiveKept` in `accept/number-literals-wait.sw`) gave the
+  same `E-REWRITE-NOTHING`; with the expected type printed, the after-expected comparison read
+  `(1 <= other && ?9 …) = True against (Decidable.toBool (Nat.decLessThan 0 other) && …) = True`;
+  `positiveAlone` (`positive` passed straight as `p v = True`) was `E-TYPE-MISMATCH` the same
+  way; both check once the decision is made from the specialised form.
+
+**The rule** (invariant 8, a consumer §5.10 lacked): a decision is chosen from the
+proposition's form, so it waits while the form isn't the one the proposition has when its types
+are known at once: while it holds an unfilled placeholder (D2035, as before) or an operator
+whose dictionary isn't found yet (found first if its type is known now). Then it is made from
+the proposition with its operators specialised and its fills written in. Every decision of a
+proposition into a `Bool` follows it: `decide_to_bool` (D2035's, scanning the value, as built),
+a condition's (`&&`, `||`, `not`, `if`), and `==`'s (scanning the proposition as written: an
+operand's value may be costly to compute, and scanning it ran `bananasBySequence 50 buyers` in
+2024 Day22's tests, which then didn't finish). Where the decision itself is a term (`if`'s or
+`&&`'s branches using the proof), it is a placeholder of type `Decidable p` that a `DecideTerm`
+fills.
+
+**Not needed: resuming between arguments.** I first resumed an application's checks between its
+arguments (so the later argument's type held `0`, not its placeholder); Day17 failed the same
+way, since the form of `<` was the cause, and once decisions wait it checks without it (the
+after-expected path fills in the second conjunct). Dropped.
+
+**Outcomes and messages** [run, every accept, reject and soundness example's whole output,
+`c3d51826` against the lane]: exactly the planned ones. `int-binding-nat.sw` moved to accept
+(D2084, with tests that `m` is `-2`), `record-literal-inferred.sw`'s "in a list" checks
+unannotated, and `expected-type-retry.sw` and `operators-generic-literal.sw` blame the literal
+(D2091; the first's comment rewritten). The `?N` allowlist test passes; no other message moved.
+syntax.md's "a `let` keeps its own type" and its "Known limit" (`let v := chooseFirst 5 i`, now
+accepted) are rewritten.
+
+**Hashes** [measured, `HASH_DUMP` against `c3d51826`, each changed term compared with a scratch
+term dump]. Every statement is identical; no literal changes type outside the planned files.
+- std + aoc (11,279 lines): 17 change. 5 in their own terms, each a call kept folded where
+  main's term has its unfolding: `Std.List.sumByOne` (`List.sumBy` for `List.foldLeft …`),
+  `Std.PrefixSums.atOf`, `Std.List.memDifferenceByExample` (`List.Mem` for its unfolding), 2025
+  `Day08.Proofs.oneAfterTells` (`joinAll`, `Circuits.separate`) and `Day09.Proofs.allRedOrGreenKeys.%match1`
+  (`PrefixSums.block`, `Floor.outside`). 12 only refer to those (2024 Day11's four through
+  `sumByOne`; 2025 Day08's two and Day09's five; `PrefixSums.blockSum`).
+- std + rogue (5,251): the same 4 std declarations.
+- accepted examples (`hash_stability`, full tier): 4 files besides the two new ones, all
+  harmless: `generic-constructor-literals.sw` (the constructor wrapped in an `Ann`, the alias
+  `IntMark` written as `Mark Int Nat`), `literal-first.sw` (an `Ann`), `rewrite-waits-for-field.sw`
+  (the `let`'s type with `Nat.add` read back as `Add.%add [Nat] Nat.instAdd`, its unfolding), and
+  `lambda-nested-arrows.sw` (a filled placeholder's `let` value folded back to the other `let`
+  with the same value, `nested` for `flat`, as stage 1's deviation 5 allows: equal values).
+
+**Counters** (`STITCHWORT_TIMINGS`, `check --no-cache`) [measured], main → lane:
+- aoc: queued 182 → 884, defaulted 0 → 62, waited 17 → 55, rule settled/defaulted 0 → 6, tactic
+  waited 0 → 2, stuck 0, `retried` 0 → 0; rogue: defaulted 52, rule 1, retried 0.
+- accepted examples, each checked alone and summed: `retried` 1 (main 14 in stage 4's lane),
+  in `lambda-propagated-alias.sw`, which main retries too (SW-858's alias, not a literal);
+  rejected: 3 (`decreasing-lambda-in-data.sw`, `generic-constructor-literal-conflict.sw`).
+- `omega`, `ring` and `auto` on a goal holding a pending unknown: **0 runs** in std, aoc, rogue
+  and every example. So they don't join the try-then-wait rule: nothing asks for it.
+
+**Answers and time** [run]: aoc 998 and rogue 100 tests pass; `task audit` (std 2,347, aoc
+1,470, rogue 190) passes. aoc `check --no-cache`, one pair on a loaded machine: main 36.8 s, lane
+37.2 s wall.
+
+**What stage 5 can now delete** [inferred from the counters and code]: `retrying` and
+`late_literals` with `defers_literal`, `else_first` and `check_items`' reordering (no retry is
+about a literal any more; the 1 + 3 left are the cases above, which stage 5 must look at
+first); `FieldNames::hold`, `held`, `last_resort` (stage 2); the three "infer the other side"
+catches; the lambda try-then-postpone (0 in accepted code since stage 3; 2 in
+`lambda-body-error-against-goal.sw`); and `explain_default`'s "this literal made it a `Nat`"
+note with `Defaulted`'s literal list, which no literal reaches now except the ladder's own
+default.
 
 ## Review 1 and how it was addressed
 

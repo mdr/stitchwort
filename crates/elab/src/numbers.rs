@@ -31,7 +31,8 @@ use crate::check::{
 pub(crate) struct Defaulted {
     meta: usize,
     span: Span,
-    literal: BigUint,
+    /// The literal, or `None` for a number group defaulted as a whole.
+    literal: Option<BigUint>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -289,28 +290,16 @@ pub(crate) fn check_literal(
         Class::Num(Kind::Nat) => Ok(Term::Nat(Rc::new(k.clone()))),
         Class::Num(Kind::Int) => int_literal(cx, k, negative),
         Class::Num(Kind::Float) => float_term(cx, whole_bits(cx, k, negative)?, negative),
-        Class::Unknown => {
-            let kind = if negative { Kind::Int } else { Kind::Nat };
-            let found = num_type(cx, kind)?;
-            let meta = match force(cx.g(), expected.clone())? {
-                Value::Neutral(Head::Meta(m), _) => Some(m),
-                _ => None,
-            };
+        // `-k` can only be an `Int` or a `Float`, and is an `Int` at once,
+        // as a group with a `-` is (step 4 of `group_in`).
+        Class::Unknown if negative => {
+            let found = num_type(cx, Kind::Int)?;
             if !cx.unify(&found, expected)? {
                 return Err(cx.mismatch(expected, &found));
             }
-            if negative {
-                return int_literal(cx, k, true);
-            }
-            if let Some(meta) = meta {
-                cx.e.defaulted.borrow_mut().push(Defaulted {
-                    meta,
-                    span: cx.span,
-                    literal: k.clone(),
-                });
-            }
-            Ok(Term::Nat(Rc::new(k.clone())))
+            int_literal(cx, k, true)
         }
+        Class::Unknown => queue_number(cx, k, expected),
         Class::Other => {
             if let Some(term) = fin_literal(cx, k, negative, expected)? {
                 return Ok(term);
@@ -334,6 +323,79 @@ pub(crate) fn check_literal(
             }
             Err(e)
         }
+    }
+}
+
+/// K4 (docs/proposals/postponement.md §5.4): the literal `k` checked against
+/// `expected`, whose head is an unknown, waits for it instead of making it
+/// `Nat` at once. It keeps only its syntax, the number. Resumed, it is
+/// [`check_literal`] at the type now known (a `Nat`, an `Int`, a `Float`, a
+/// `Fin n`, a `SafeNat` or `SafeInt`, or the error any other type gives);
+/// its default, in the ladder after the field-name rule, is `Nat` (D2013),
+/// noted as the literal that made the type `Nat` ([`explain_default`]).
+fn queue_number(cx: &mut Ctx, k: &BigUint, expected: &Value) -> Result<Term> {
+    let error = cx.error(
+        "E-CANNOT-INFER",
+        format!("can't tell what type the number `{k}` is"),
+        "nothing here says what type it should have",
+    );
+    let number = Number {
+        k: k.clone(),
+        expected: expected.clone(),
+        span: cx.span,
+    };
+    crate::queue::queue(
+        cx,
+        Rc::new(number),
+        expected.clone(),
+        expected.clone(),
+        error,
+    )
+}
+
+/// A number literal waiting for its type ([`queue_number`]).
+struct Number {
+    k: BigUint,
+    expected: Value,
+    span: Span,
+}
+
+impl crate::queue::Check for Number {
+    fn display(&self, _cx: &Ctx) -> Option<String> {
+        // The number as written (D2091).
+        Some(self.k.to_string())
+    }
+
+    fn literal(&self) -> bool {
+        true
+    }
+
+    fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
+        let term = check_literal(cx, &self.k, false, &self.expected)?;
+        Ok(crate::queue::Resumed::Done(term))
+    }
+
+    fn default_priority(&self) -> Option<crate::queue::Priority> {
+        Some(crate::queue::Priority::Nat)
+    }
+
+    fn apply_default(&self, cx: &mut Ctx) -> Result<bool> {
+        debug_assert!(
+            cx.e.queue.settling(),
+            "a number literal was defaulted before the end (invariant 7)"
+        );
+        let meta = head_meta(cx, &self.expected)?;
+        if !cx.unify(&num_type(cx, Kind::Nat)?, &self.expected)? {
+            return Ok(false);
+        }
+        if let Some(meta) = meta {
+            cx.e.defaulted.borrow_mut().push(Defaulted {
+                meta,
+                span: self.span,
+                literal: Some(self.k.clone()),
+            });
+        }
+        Ok(true)
     }
 }
 
@@ -511,8 +573,9 @@ pub(crate) fn explain_default(cx: &Ctx, d: Diagnostic, types: &[&Value]) -> Diag
         let Value::Neutral(Head::Meta(m), _) = ty else {
             continue;
         };
-        if let Some(found) = defaulted.iter().find(|x| x.meta == *m) {
-            let k = &found.literal;
+        if let Some((found, k)) = (defaulted.iter())
+            .find_map(|x| Some((x, x.literal.as_ref()?)).filter(|(x, _)| x.meta == *m))
+        {
             return d
                 .with_label(found.span, "this literal made it a `Nat`")
                 .with_note(format!(
@@ -546,6 +609,7 @@ struct Leaf<'a> {
     state: State,
 }
 
+#[derive(Clone)]
 enum State {
     Waiting,
     Inferred(Term, Value),
@@ -869,12 +933,17 @@ fn function_operand_note(cx: &mut Ctx, expr: &Expr, e: Diagnostic) -> Diagnostic
     ))
 }
 
-fn group_with(
+/// The two sides of a comparison, or the one tree of an arithmetic group.
+type Sides = (Node, Option<Node>);
+
+/// The group `expr` taken apart into its leaves, none elaborated yet: the
+/// group, its comparison if it is one, and its sides. With
+/// `bool_comparisons`, its comparison sides are read as `Bool`s (SW-944).
+fn prepare<'a>(
     cx: &mut Ctx,
-    expr: &Expr,
-    expected: Option<&Value>,
+    expr: &'a Expr,
     bool_comparisons: bool,
-) -> Result<(Term, Value)> {
+) -> Result<(Group<'a>, Option<BinOp>, Sides)> {
     let mut g = Group {
         bool_comparisons,
         ..Group::default()
@@ -897,13 +966,28 @@ fn group_with(
         }
         _ => (None, (g.tree(cx, expr, "")?, None)),
     };
-    // Comparisons constrain their operands, not their result.
-    let expected = if top.is_some() { None } else { expected };
-    let what = if top.is_some() {
+    Ok((g, top, sides))
+}
+
+/// What the group is called in messages.
+fn what(top: Option<BinOp>) -> &'static str {
+    if top.is_some() {
         "comparison"
     } else {
         "arithmetic"
-    };
+    }
+}
+
+fn group_with(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: Option<&Value>,
+    bool_comparisons: bool,
+) -> Result<(Term, Value)> {
+    let (mut g, top, sides) = prepare(cx, expr, bool_comparisons)?;
+    // Comparisons constrain their operands, not their result.
+    let expected = if top.is_some() { None } else { expected };
+    let what = what(top);
     // An equation with no arithmetic in it may be on any type.
     let equality =
         matches!(top, Some(BinOp::Eq | BinOp::Ne | BinOp::EqEq)) && !g.arith && g.minus.is_none();
@@ -1027,7 +1111,33 @@ fn group_with(
     }
     if decided.is_none() {
         if g.numeric() {
-            decided = Some((num_type(cx, Kind::Nat)?, Decider::Default));
+            // Nothing in it says its type (K4). With only `+`, `*`, `<`,
+            // `<=` and equations, which any type with the instances has, it
+            // is built now at an unknown type: its bare literals wait for
+            // it (`queue_number`), its operators' dictionaries are
+            // obligations on it, and its shape (`a = b`, `a < b`) is known
+            // at once, as Lean elaborates `@Eq ?α 0 0`. `Nat` is the
+            // literals' default, in the ladder (D2013); the operators are
+            // then specialised at the end (§5.10). With `-`, `/` or `%`,
+            // only a number type will do, and the group waits whole.
+            if !g.generic(cx) {
+                return queue_group(cx, expr, g, top, expected);
+            }
+            let t = match expected {
+                Some(e) => e.clone(),
+                None => {
+                    let meta = cx.fresh_meta();
+                    cx.eval(&meta)?
+                }
+            };
+            for (i, leaf) in g.leaves.iter().enumerate() {
+                if let State::Inferred(_, ty) = &leaf.state
+                    && !cx.unify(ty, &t)?
+                {
+                    return Err(mixed(cx, &g, i, ty, &t, Decider::Default, what));
+                }
+            }
+            decided = Some((t, Decider::Default));
         } else {
             // An equality with nothing numeric about it: the first leaf's
             // type, as before groups.
@@ -1053,25 +1163,44 @@ fn group_with(
         });
         return Err(failed.expect("a group with no type has a leaf that failed"));
     };
+    finish(cx, expr, g, top, sides, expected, &t, decider)
+}
 
+/// Steps 7 and 8 of a group whose type `t` is decided: its leaves finished
+/// at `t`, and its term built.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the group's parts, as `group_in` has them"
+)]
+fn finish(
+    cx: &mut Ctx,
+    expr: &Expr,
+    mut g: Group,
+    top: Option<BinOp>,
+    sides: Sides,
+    expected: Option<&Value>,
+    t: &Value,
+    decider: Decider,
+) -> Result<(Term, Value)> {
+    let what = what(top);
     // 7. Finish the leaves.
     for i in 0..g.leaves.len() {
         let state = std::mem::replace(&mut g.leaves[i].state, State::Waiting);
         let term = match state {
             State::Done(term) => term,
             State::Inferred(term, ty) => {
-                if !cx.unify(&ty, &t)? {
-                    return Err(mixed(cx, &g, i, &ty, &t, decider, what));
+                if !cx.unify(&ty, t)? {
+                    return Err(mixed(cx, &g, i, &ty, t, decider, what));
                 }
                 term
             }
-            State::Waiting | State::Failed(_) => check_leaf(cx, &g, i, &t, decider, what)?,
+            State::Waiting | State::Failed(_) => check_leaf(cx, &g, i, t, decider, what)?,
         };
         g.leaves[i].state = State::Done(term);
     }
 
     // 8. Build.
-    let kind = match classify(cx, &t)? {
+    let kind = match classify(cx, t)? {
         Class::Num(kind) => Some(kind),
         _ => None,
     };
@@ -1083,28 +1212,192 @@ fn group_with(
             _ => unreachable!("every leaf is finished"),
         })
         .collect();
-    let a = build(cx, sides.0, &t, kind, &mut leaves)?;
+    let a = build(cx, sides.0, t, kind, &mut leaves)?;
     let Some(op) = top else {
         if let Some(e) = expected
-            && !cx.unify(&t, e)?
+            && !cx.unify(t, e)?
         {
-            return Err(cx.mismatch(e, &t));
+            return Err(cx.mismatch(e, t));
         }
-        return Ok((a, t));
+        return Ok((a, t.clone()));
     };
     let b = build(
         cx,
         sides.1.expect("a comparison has two sides"),
-        &t,
+        t,
         kind,
         &mut leaves,
     )?;
     crate::probe::record_sides(cx, expr, op, &a, &b);
     let prop = Value::Sort(Sort::Prop);
     match op {
-        BinOp::Lt | BinOp::Le => Ok((operator(cx, op, &t, kind, a, b)?, prop)),
-        _ => equation(cx, op, a, b, &t),
+        BinOp::Lt | BinOp::Le => Ok((operator(cx, op, t, kind, a, b)?, prop)),
+        _ => equation(cx, op, a, b, t),
     }
+}
+
+/// K4 for a group (docs/proposals/postponement.md §5.4): a group that
+/// nothing decides (no expected type, no leaf of a known type, no `-`, no
+/// decimal) waits for its type instead of becoming `Nat` at once. The type
+/// is the expected type, an unknown, for arithmetic, or a fresh unknown.
+/// Every leaf inferred so far has an unknown type, and each is made that
+/// type now, so that whatever fixes one of them later fixes the group. The
+/// leaves inferred are kept as terms: their unknowns were made inside the
+/// group, so undoing them would lose what fixes it (as for a `.field`'s
+/// receiver, invariant 6). The bare literals and the leaves that failed are
+/// still syntax. Resumed, the group is finished at its type as if that had
+/// decided it from the start; its default, in the ladder after the
+/// field-name rule, is `Nat` (D2013).
+fn queue_group(
+    cx: &mut Ctx,
+    expr: &Expr,
+    g: Group,
+    top: Option<BinOp>,
+    expected: Option<&Value>,
+) -> Result<(Term, Value)> {
+    let t = match expected {
+        Some(e) => e.clone(),
+        None => {
+            let meta = cx.fresh_meta();
+            cx.eval(&meta)?
+        }
+    };
+    for (i, leaf) in g.leaves.iter().enumerate() {
+        if let State::Inferred(_, ty) = &leaf.state
+            && !cx.unify(ty, &t)?
+        {
+            return Err(mixed(cx, &g, i, ty, &t, Decider::Default, what(top)));
+        }
+    }
+    let ty = match top {
+        None => t.clone(),
+        Some(BinOp::EqEq) => Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new()),
+        Some(_) => Value::Sort(Sort::Prop),
+    };
+    let error = cx.error(
+        "E-CANNOT-INFER",
+        format!("can't tell what type this {} is on", what(top)),
+        "nothing here says what type its numbers are",
+    );
+    let item = NumberGroup {
+        expr: expr.clone(),
+        bool_comparisons: g.bool_comparisons,
+        states: g.leaves.into_iter().map(|l| l.state).collect(),
+        expected: expected.cloned(),
+        t: t.clone(),
+    };
+    let placeholder = crate::queue::queue(cx, Rc::new(item), t, ty.clone(), error)?;
+    Ok((placeholder, ty))
+}
+
+/// A group waiting for its type (K4, [`queue_group`]): its syntax, what
+/// each leaf had come to, and its type.
+struct NumberGroup {
+    expr: Expr,
+    /// As the group was read (SW-944).
+    bool_comparisons: bool,
+    states: Vec<State>,
+    expected: Option<Value>,
+    t: Value,
+}
+
+impl crate::queue::Check for NumberGroup {
+    fn display(&self, _cx: &Ctx) -> Option<String> {
+        // The group as written (D2091).
+        Some(crate::queue::syntax(&self.expr))
+    }
+
+    fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
+        let (mut g, top, sides) = prepare(cx, &self.expr, self.bool_comparisons)?;
+        for (leaf, state) in g.leaves.iter_mut().zip(&self.states) {
+            leaf.state = state.clone();
+        }
+        let t = force(cx.g(), self.t.clone())?;
+        let defaulted = (cx.e.defaulted.borrow().iter())
+            .any(|d| d.literal.is_none() && d.span == self.expr.span());
+        // What a message says decided it: the ladder's default; the
+        // expected type; or the first leaf whose type is now known.
+        let decider = if defaulted {
+            Decider::Default
+        } else if self.expected.is_some() {
+            Decider::Expected
+        } else {
+            let mut leaf = Decider::Default;
+            for (i, l) in g.leaves.iter().enumerate() {
+                if let State::Inferred(_, ty) = &l.state
+                    && !matches!(classify(cx, ty)?, Class::Unknown)
+                {
+                    leaf = Decider::Leaf(i);
+                    break;
+                }
+            }
+            leaf
+        };
+        // A type other than `Nat`, `Int` and `Float` must have what the
+        // operators need, as when it is expected from the start (step 1).
+        let equality = matches!(top, Some(BinOp::Eq | BinOp::Ne | BinOp::EqEq)) && !g.arith;
+        if !equality
+            && matches!(classify(cx, &t)?, Class::Other)
+            && let Some(note) = g.unsupported(cx, &t)?
+        {
+            let op = match &sides.0 {
+                Node::Op(op, ..) => op_text(*op),
+                _ => top.map_or("-", op_text),
+            };
+            let error = cx.error(
+                "E-TYPE-MISMATCH",
+                format!("`{op}` works on `Nat` and `Int`"),
+                format!("but this is on `{}`", cx.show(&t)),
+            );
+            return Err(if note.is_empty() {
+                error
+            } else {
+                error.with_note(note)
+            });
+        }
+        let (term, _) = finish(
+            cx,
+            &self.expr,
+            g,
+            top,
+            sides,
+            self.expected.as_ref(),
+            &t,
+            decider,
+        )?;
+        Ok(crate::queue::Resumed::Done(term))
+    }
+
+    fn default_priority(&self) -> Option<crate::queue::Priority> {
+        Some(crate::queue::Priority::Nat)
+    }
+
+    fn apply_default(&self, cx: &mut Ctx) -> Result<bool> {
+        debug_assert!(
+            cx.e.queue.settling(),
+            "a number group was defaulted before the end (invariant 7)"
+        );
+        let meta = head_meta(cx, &self.t)?;
+        if !cx.unify(&num_type(cx, Kind::Nat)?, &self.t)? {
+            return Ok(false);
+        }
+        if let Some(meta) = meta {
+            cx.e.defaulted.borrow_mut().push(Defaulted {
+                meta,
+                span: self.expr.span(),
+                literal: None,
+            });
+        }
+        Ok(true)
+    }
+}
+
+/// The unknown at the head of `v`, if it is one.
+fn head_meta(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
+    Ok(match force(cx.g(), v.clone())? {
+        Value::Neutral(Head::Meta(m), _) => Some(m),
+        _ => None,
+    })
 }
 
 /// `a = b`, `a != b` or `a == b`, with both sides of type `t`.
@@ -1123,13 +1416,24 @@ fn equation(cx: &mut Ctx, op: BinOp, a: Term, b: Term, t: &Value) -> Result<(Ter
         // found as for `if h : a = b`.
         // The search sees the operands as variables where it can
         // (`bind.rs`), so they aren't computed here or by the kernel.
+        // An operand still waiting (a literal whose type nothing has said
+        // yet, K4) is waited for (`check::decide_or_wait`), so the search
+        // sees it as written, as it would have had nothing waited.
         _ => {
+            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+            if crate::check::decision_blocker(cx, &eq, crate::check::Depth::Written)?.is_some() {
+                let span = cx.span;
+                let waiting = crate::check::decide_or_wait(
+                    cx,
+                    span,
+                    &eq,
+                    &bool_ty,
+                    crate::check::Depth::Written,
+                )?;
+                return Ok((waiting, bool_ty));
+            }
             let decision = crate::bind::decide(cx, &eq)?;
-            let bool_data = builtin_data(cx, Builtin::Bool)?;
-            Ok((
-                decision.into_bool(cx, eq)?,
-                Value::Data(bool_data, Vec::new()),
-            ))
+            Ok((decision.into_bool(cx, eq)?, bool_ty))
         }
     }
 }

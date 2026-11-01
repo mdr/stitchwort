@@ -82,6 +82,31 @@ pub(crate) enum Condition {
         prop: Term,
         decision: crate::bind::Decision,
     },
+    /// A proposition whose decision has to wait (`check::decision_blocker`,
+    /// step 4.3): a placeholder in it isn't filled yet, or an operator's
+    /// dictionary in it isn't known yet. As a `Bool` it is a waiting
+    /// decision; where the decision itself is needed as a term, it
+    /// waits as a term ([`Condition::decided_now`]).
+    Waiting { prop: Term },
+}
+
+impl Condition {
+    /// A [`Condition::Waiting`] as a decision term, which waits
+    /// (`check::decision_or_wait`): for an `if` whose branches may use its
+    /// proof. Any other condition as it is.
+    pub(crate) fn decided_now(
+        self,
+        cx: &mut Ctx,
+        span: stitchwort_syntax::Span,
+    ) -> Result<Condition> {
+        match self {
+            Condition::Waiting { prop } => {
+                let decision = crate::check::decision_or_wait(cx, span, &prop)?;
+                Ok(Condition::Decided { prop, decision })
+            }
+            other => Ok(other),
+        }
+    }
 }
 
 /// `cond` as a `Bool`; or if that fails, with everything it did undone, as a
@@ -130,6 +155,9 @@ fn decided(
     let Some((prop, Sort::Prop)) = crate::undo::attempt(cx, |cx| check_type(cx, cond))? else {
         return Ok(None);
     };
+    if crate::check::decision_blocker(cx, &prop, crate::check::Depth::Written)?.is_some() {
+        return Ok(Some(Condition::Waiting { prop }));
+    }
     // No decision procedure. If the `Bool` reading already found an operand
     // nothing decides (`x < 3 && g = h`), that's the more precise error.
     // Otherwise say so at the condition, keeping the search's explanations
@@ -161,6 +189,16 @@ pub(crate) fn bool_operand(cx: &mut Ctx, expr: &Expr, what: &str) -> Result<Term
     let term = match condition(cx, expr, what)? {
         Condition::Bool(term) => term,
         Condition::Decided { prop, decision } => decision.into_bool(cx, prop)?,
+        Condition::Waiting { prop } => {
+            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+            crate::check::decide_or_wait(
+                cx,
+                expr.span(),
+                &prop,
+                &bool_ty,
+                crate::check::Depth::Written,
+            )?
+        }
     };
     crate::probe::record_truth(cx, expr, &term);
     Ok(term)
@@ -223,7 +261,15 @@ pub(crate) fn short_circuit(
             cx.reset(mark);
             (ite, a, b?)
         }
-        Condition::Decided { prop, decision } => {
+        condition @ (Condition::Decided { .. } | Condition::Waiting { .. }) => {
+            // A decision that waits is made here, as a term, only if `b`
+            // needs `a`'s proof (`elimDec`, below); as the `Bool` of `if a
+            // then b else False` it waits (`check::decide_or_wait`).
+            let (prop, decision) = match condition {
+                Condition::Decided { prop, decision } => (prop, Some(decision)),
+                Condition::Waiting { prop } => (prop, None),
+                Condition::Bool(_) => unreachable!("matched above"),
+            };
             // The assumption's type is `a`'s value, and the evaluator is
             // strict: evaluating `cost < 5` computes `cost`. So `b` is
             // checked first with the assumption's type left as `Unit`, and
@@ -265,6 +311,10 @@ pub(crate) fn short_circuit(
             if needs_proofs(cx, before)? {
                 // `if _ : a then b else False`, as `if` makes it: `elimDec`.
                 let elim = builtin_def(cx, Builtin::ElimDec)?;
+                let decision = match decision {
+                    Some(decision) => decision,
+                    None => crate::check::decision_or_wait(cx, lhs.span(), &prop)?,
+                };
                 if let Ok(truth) = decision.clone().into_bool(cx, prop.clone()) {
                     crate::probe::record_truth(cx, lhs, &truth);
                 }
@@ -280,7 +330,19 @@ pub(crate) fn short_circuit(
                 // `if a then b else False` on the decision's `Bool`, as
                 // ever: the same term as `Bool.and (toBool …) b` reads, so
                 // the library's facts about `&&` on `Bool`s apply to it.
-                let truth = decision.into_bool(cx, prop)?;
+                let truth = match decision {
+                    Some(decision) => decision.into_bool(cx, prop)?,
+                    None => {
+                        let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+                        crate::check::decide_or_wait(
+                            cx,
+                            lhs.span(),
+                            &prop,
+                            &bool_ty,
+                            crate::check::Depth::Written,
+                        )?
+                    }
+                };
                 crate::probe::record_truth(cx, lhs, &truth);
                 (ite, truth, b)
             }

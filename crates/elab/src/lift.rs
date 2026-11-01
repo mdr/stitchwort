@@ -952,6 +952,7 @@ impl Elaborator {
         let g = &self.globals;
         // The obligations are solved by now (`lift`): an operator's
         // dictionary found since is projected, as `finish` does.
+        self.specialise_fills()?;
         let specialised = self.specialise_operators(term, depth)?;
         let term = specialised.as_ref().unwrap_or(term);
         let t = if lets {
