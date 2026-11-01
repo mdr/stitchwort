@@ -1,5 +1,5 @@
 --| `Map.byPosition xs` looks up like `List.getOr` on `xs`
---| (`Map.getOrByPosition`).
+--| ([`Map.getOrByPosition`]).
 -- Kept out of Map.sw because the proof needs `omega`.
 
 --| No position below `s` is numbered from `s`.
