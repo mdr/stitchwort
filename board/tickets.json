@@ -1,5 +1,5 @@
 {
-  "next": 974,
+  "next": 977,
   "tickets": [
     {
       "id": 47,
@@ -2768,6 +2768,56 @@
         "friction"
       ],
       "body": "From AoC 2021 day 15 (aoc/NOTES-2021.md, 1 Nov 2026). Run: 17.6 s interpreted (20.3 s --no-cache; ~50 s in the loaded merge tier, now daily-only), 4.5 s --native, 2.9 s --js.\n(1) Std Map/Set are slow in the interpreter: 250,000 ordered inserts into Map Nat Nat ~1.7 s, ~3.8 s with Position keys; most of part 2's search time. Building every edge 1.6 s. Fix: heap-based priority queue for Graph.distances (medium); runtime-backed maps (large).\n(2) A field read inside a lambda is recomputed every call: `position.row % cave.height` recomputed rows.length 4x per call; 31.7 s -> 17.6 s by hoisting `let height := cave.height`. Nothing warns. Fix: performance doc line (small); lift such reads when compiling (medium).\n(3) Counterexample search skips the main theorems: \"no inputs for `risks`\" (record with a function field) and \"nothing decides\" Rectangle (∀ over list members). Fix: decide that ∀ as xs.all (small-medium); generate function fields from finite tables (medium).\n(4) rewrite with an equation between functions fails with a hidden difference: `rewrite same in …` (same: levelAt cave = cave.risks.levelAt) E-TYPE-MISMATCH with both sides printed the same (difference inside …); `rewrite <- height` likewise; J with explicit motive works. Cause speculative. Fix: print the first differing subterm (small-medium).\n(5) / and % need a nonzero-divisor proof: nested `if tall: … if wide:` in program and spec, Nat.decEq matches in proofs. Fix: total division as in Lean, or variants (design question; ties to division track).\n(6) Messages: Bool.andLeft _ _ rest2 on a refined rest2 gave E-UNSOLVED without the helpful \"already refined\" note (small). A goal printed a Map's internal tree over thousands of characters (small). Errors printed twice when a namespace failed to load (small).\n(7) search --at couldn't see Graph.distancesShortest closes the minimality goal because the conclusion is a defined Prop of two conjuncts; fix: index each conjunct (medium). Plain search missed Nat.divLeOfLtMul (stated with Succ b * d, ≤ b).\nStd candidates: Graph.distancesReach (small); grid module: day 15 imports day 9's Position just for its lemmas (medium; SW-960, SW-965).\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 974,
+      "title": "AoC 2021 day 16: Packet Decoder, decoder proved against an encoding",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "AoC 2021 day 16 (Packet Decoder) in aoc/src/Aoc/Year2021/Day16/: program, spec (an encoding function from packet trees to bits), proofs that the decoder is the encoding's inverse (soundness and completeness), part 1 and 2 against the spec, parser guarantee (D2108), friction list in aoc/NOTES-2021.md. Lane worktree agent-a09b01acc7df1cac0.\nProgress: program right first run (901, 110434737925; 0.22 s). Spec: encode function from packet trees. Soundness of readPackets proved (6f1f5328). The proof exposed a bug: a total-length operator whose length runs past the end was accepted; fixed.\nProgress: completeness, uniqueness (encodingUnique), parser guarantee (parsePacketReads), part1Correct/part2Correct and FromInput proved; nothing open. audit: 77 theorems, 0 failed, 6 warnings (narrow hypotheses). Proofs check in 14 s cold (bitsOf 15 on unknowns is exponential, notes item 2). Found: cases panics (value.rs:1011) when the program is broken (notes item 1). Branch worktree-agent-a09b01acc7df1cac0, commits 052d3e9a..e83fe232. Ready for review.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": [
+        "052d3e9a",
+        "6f1f5328",
+        "a55e7157",
+        "a576fbd7",
+        "e83fe232"
+      ]
+    },
+    {
+      "id": 975,
+      "title": "BUG: cases panics (value.rs:1011 index underflow) when a proof stops matching the program",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "elab"
+      ],
+      "body": "Found by the AoC 2021 day 16 lane (1 Nov 2026), confirmed on main's release binary: `stitchwort check` on the repro below panics at crates/core/src/value.rs:1011:31 \"index out of bounds: the len is 1 but the index is 18446744073709551615\" (an index underflow, likely a de Bruijn shift). In the repo: flip `if more` to `if not more` in Day16's readGroups, then `stitchwort check Aoc.Year2021.Day16.Proofs`. It happens when a `cases` proof stops matching the program, i.e. exactly when an agent breaks the program on purpose (proving-guide rule 6). Should be an error, never a panic; add the repro to examples/reject once fixed.\n\nRepro (74 lines):\nimport Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Void)\n\n\n\ndef readGroups: List Bool → Option (List Nat, List Bool)\n  | Cons more (Cons a (Cons b (Cons c (Cons d rest)))) =>\n    let group := Nat.fromBits [a, b, c, d]\n    if not more then\n      match readGroups rest with\n        | Some (groups, after) => Some (Cons group groups, after)\n        | None => None\n    else Some ([group], rest)\n  | _ => None\n\ndef bitsOf: Nat → Nat → List Bool\n  | 0, _ => Nil\n  | Succ width, n => bitsOf width (n / 2) ++ [n % 2 == 1]\n\ndef groupBits: List Nat → List Bool\n  | Nil => Nil\n  | Cons group Nil => Cons False (bitsOf 4 group)\n  | Cons group rest => Cons True (bitsOf 4 group ++ groupBits rest)\n\ntheorem halfOfDouble (acc: Nat) (bit: Bool): (acc * 2 + Bool.toNat bit) / 2 = acc :=\n  let split := Nat.divModEq (acc * 2 + Bool.toNat bit) 2 (omega)\n  let below := Nat.modLess (acc * 2 + Bool.toNat bit) 2 (omega)\n  match bit with\n    | True => omega\n    | False => omega\n\ntheorem parityOfDouble (acc: Nat) (bit: Bool): ((acc * 2 + Bool.toNat bit) % 2 == 1) = bit :=\n  let split := Nat.divModEq (acc * 2 + Bool.toNat bit) 2 (omega)\n  let below := Nat.modLess (acc * 2 + Bool.toNat bit) 2 (omega)\n  match bit with\n    | True =>\n      let odd: (acc * 2 + 1) % 2 = 1 := omega\n      rewrite odd in rfl\n    | False =>\n      let even: (acc * 2 + 0) % 2 = 0 := omega\n      rewrite even in rfl\n\ntheorem bitsOfFold (k: Nat): (acc: Nat) → (bits: List Bool) →\n    bitsOf (k + bits.length) (List.foldLeft bits acc (acc bit => acc * 2 + Bool.toNat bit)) = bitsOf k acc ++ bits\n  | acc, Nil => rewrite Nat.addZero k, List.appendNil (bitsOf k acc) in rfl\n  | acc, Cons bit rest =>\n    let more := bitsOfFold (Succ k) (acc * 2 + Bool.toNat bit) rest\n    let step: bitsOf (Succ k) (acc * 2 + Bool.toNat bit) ++ rest = bitsOf k acc ++ Cons bit rest :=\n      rewrite parityOfDouble acc bit, halfOfDouble acc bit, List.appendAssoc (bitsOf k acc) [bit] rest in rfl\n    Eq.trans more step\n\ntheorem bitsOfFromBits (bits: List Bool): bitsOf bits.length (Nat.fromBits bits) = bits := bitsOfFold 0 0 bits\n\ntheorem fromBitsBelow (bits: List Bool): Nat.fromBits bits < Nat.pow 2 bits.length := omega [Nat.fromBitsFlipped bits]\n\n\ntheorem somePairInjective (x1: a) (y1: b) (x2: a) (y2: b) (h: Some (x1, y1) = Some (x2, y2)): x1 = x2 ∧ y1 = y2 :=\n  let both := Option.someInjective _ _ h\n  Both (Pair.mkInjectiveFst _ _ _ _ both) (Pair.mkInjectiveSnd _ _ _ _ both)\n\ntheorem readGroupsSome: (bits: List Bool) → (groups: List Nat) → (rest: List Bool) → readGroups bits = Some (groups, rest) →\n    bits = groupBits groups ++ rest ∧ groups ≠ Nil ∧ groups.all (group => group < 16) = True\n  | Cons more (Cons a (Cons b (Cons c (Cons d tail)))), groups, rest, read =>\n    let written: bitsOf 4 (Nat.fromBits [a, b, c, d]) = [a, b, c, d] := bitsOfFromBits [a, b, c, d]\n    match more with\n      | True =>\n        match e: readGroups tail with\n          | None => cases\n          | Some (gs, after) => ?\n      | False => ?\n  | Nil, groups, rest, read => cases\n  | Cons _ Nil, groups, rest, read => cases\n  | Cons _ (Cons _ Nil), groups, rest, read => cases\n  | Cons _ (Cons _ (Cons _ Nil)), groups, rest, read => cases\n  | Cons _ (Cons _ (Cons _ (Cons _ Nil))), groups, rest, read => cases\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 976,
+      "title": "Day 16: bitsOf check time doubles per bit; rewrite of x/2 rewrites inside x%2; catch-all arm learns nothing; search --at fails on ✝ names",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "friction"
+      ],
+      "body": "From AoC 2021 day 16 (aoc/NOTES-2021.md, 1 Nov 2026). The cases panic is its own ticket (see below in the board).\n(1) Checking `bitsOf w n` on an unknown n doubles in time per bit: 8-line repro in NOTES (0.15 s at 9 bits, 0.63 s at 15, 10.1 s at 19). Guess, unverified: nested / 2 and % 2 copy the term. Day 16 proofs take 14 s cold because of it. Workaround: state each step over variables (medium).\n(2) rewrite ran out of budget comparing a term with itself (fields vs fields), a side effect of (1). Fix: syntactic comparison first (small).\n(3) E-RESOURCE \"a value was too large to show … Eq.trans\" with no location where a type mismatch belonged: `_` arguments inferred from an already-computed expected type. Same family as SW-963 (2), SW-969 (2), SW-971 (1) (medium).\n(4) rewrite of `x / 2` also rewrote inside `x % 2` (which computes to x - x / 2 * 2). Workaround: rewrite % first. Docs line (small).\n(5) In `match n with | 0 … | 7 … | _`, the `_` arm learns nothing about n; omega found the model n = 5. Workaround: Succ×8 pattern. Fix: give the catch-all arm the facts n ≠ 0 … n ≠ 7 (small-medium).\n(6) Decreasing through an earlier recursive call's result isn't possible; run-time length guards stand in. Docs example (small); results carrying their decrease (large).\n(7) Goals list every superseded `read✝` after each match (small).\n(8) search --at: refused a goal after a `_` pattern (\"E-PARSE: unexpected character `✝`\", new, small); refused another \"unknown name `group`\" (SW-967 (5)); didn't offer a hypothesis as a rewrite (small-medium). ~14 s per query from re-checking the slow namespace.\nNew evidence SW-960 (3): Bool `a > b` on Nat isn't Nat.decLessThan.\nProof found a real decoder bug (a total-length operator whose length ran past the transmission was accepted; all tests passed).\nStd candidates: fixed-width Nat.toBits with round-trip lemmas; takeAppend/dropAppend with a length hypothesis; Some (a, b) injectivity; List.maximum lemmas (imported day 14's maximumSome; SW-971 (7)).\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
