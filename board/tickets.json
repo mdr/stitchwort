@@ -1,5 +1,5 @@
 {
-  "next": 1013,
+  "next": 1014,
   "tickets": [
     {
       "id": 47,
@@ -3355,6 +3355,21 @@
         "std"
       ],
       "body": "From SW-1002 item 3 (design sketch). Options: A ReadsLeaving p spec (spec read left value), Reads defined from it so existing lemmas keep their shape; rest-aware lemmas for end, lineEnd, span/nat/natDigits stopping, findAll; wholeReads/allReads derived from readsEnd + sequencing. B separate Leaves p cond (cheap, composes badly). C next char only. D keep as is. Lane recommends A. D2133 (Matt, 1 Nov 2026): backlog, to consider; nothing is blocked on it.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1013,
+      "title": "Documentation proposal: rewrite docs/research/documentation.md as docs/proposals/documentation.md (agent-first), then independent review",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "docs",
+        "design"
+      ],
+      "body": "Matt, 1 Nov 2026: D2134 --| marker plus a one-off sorting pass (user docs vs maintainer notes); D2135 examples attached by name (tests named after a definition, X.yExample theorems), no in-comment code first; D2136 first release = search one-line summary (text+JSON), check --index doc field, stitchwort doc NAME, hover; site later; D2137 AoC and roguelike included from the start; D2138 coverage report first, enforce on std later; D2139 rewrite as a proposal with evidence, per-stage cost, D numbers, then an independent review; D2141 stitchwort doc lists the theorems about a definition, docs link theorems rather than restate properties. Order: proposal+review; stage 1 (summary, index doc, doc command with examples and theorems, hover); --| sorting pass + coverage (Sonnet); checked doc links; later maybe in-comment examples and a site. Evidence: query log from SW-993.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
