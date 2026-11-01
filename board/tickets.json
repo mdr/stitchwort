@@ -144,7 +144,7 @@
     {
       "id": 373,
       "title": "Proof-valued if: let if/then/else choose between proofs (D1059 b)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -152,8 +152,10 @@
       ],
       "body": "Trigger: Day 1 review; case-by-case proofs via if hit E-UNIVERSE because Bool.ifThenElse/Decidable.elim require a Type result. Needs a short design (Prop-valued variant or universe-polymorphic helpers). Matt 23 Oct: backlog.",
       "created": "2026-10-23",
-      "updated": "2026-10-23",
-      "commits": []
+      "updated": "2026-11-01",
+      "commits": [
+        "ffacc3c5"
+      ]
     },
     {
       "id": 467,
@@ -3464,7 +3466,7 @@
     {
       "id": 1019,
       "title": "Documentation stage 1b: stitchwort doc NAME (examples by name, theorems about X, parse-only mode), exact-name search rank",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3509,7 +3511,7 @@
     {
       "id": 1022,
       "title": "AoC: hand-written enum membership proofs and day 20 BFS onto std; 2021 day 16 rejects trailing bits",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3518,7 +3520,9 @@
       "body": "D2162 (Matt, 1 Nov 2026), from the AoC corpus review: (a) enum membership proved by hand in 2021/Day08/Proofs/Facts.sw:21-28 and 2024/Day16/Day16.sw:125; (b) 2024 day 20 could use std Graph.breadthFirst (Graph/Search.sw:610) instead of distances; (c) 2021 day 16 decodeTransmission ignores trailing bits (Day16.sw:197 matches Some ((packet, _))): check the leftover. Not doing: the main speed-ups (C2-C4; standard structure kept) and 2024 inputs past day 10 (none yet).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "00fcad71"
+      ]
     },
     {
       "id": 1023,
