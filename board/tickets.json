@@ -1,5 +1,5 @@
 {
-  "next": 1029,
+  "next": 1030,
   "tickets": [
     {
       "id": 47,
@@ -3434,7 +3434,7 @@
     {
       "id": 1017,
       "title": "search --at: a single closing check can run for minutes (Day16 Sound.sw:83 totalThen, List.consInjective _ (Cons …) 289 s); add a step and memory limit per check",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3560,7 +3560,7 @@
     {
       "id": 1025,
       "title": "Documentation stage 2b: stitchwort doc --coverage",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -3570,7 +3570,9 @@
       "body": "docs/proposals/documentation.md §6.2, D2138, D2148. Reports only; never fails.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "d3cfebdf"
+      ]
     },
     {
       "id": 1026,
@@ -3611,6 +3613,21 @@
         "proof"
       ],
       "body": "D2163 (Matt, 1 Nov 2026). One design covering SW-802 (D1439 per-branch equations), SW-199's f.induct, SW-809, SW-980. Output: docs/proposals/function-equations.md plus an artifact for Matt's review. Mini literature review: Lean 4, Agda, Idris 2, Coq/Rocq (Equations plugin, Function), Isabelle (function package), F*/Dafny where relevant.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1029,
+      "title": "audit stage 2: --base (statements and the program unchanged against a base branch) and --minimal (unused hypotheses)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "tooling",
+        "correctness"
+      ],
+      "body": "D2164 (Matt, 1 Nov 2026), queued. Catches an agent quietly weakening a theorem: added hypotheses (8 disclosed cases in AoC lanes, docs/research/agentic-proving.md:83, §5 row J) or a changed definition. --base REF: per theorem, compare a statement-only hash with the base (proof ignored); report changed or removed statements; also definitions theorems depend on, by erased program hash. --minimal (opt-in): drop each hypothesis, re-check, report unused ones. Lanes run audit --base main before reporting and justify each change; merges add it. Opus design (what counts as the same statement across renames/moves, new theorems, which definitions are 'the program'), then Sonnet CLI. Also update SW-912 (stage 1 shipped).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
