@@ -970,6 +970,10 @@ pub struct Module {
     /// Names declared by declarations that failed to parse, so aren't in
     /// `decls` (only `parse_module_recovering` fills it).
     pub failed: Vec<Name>,
+    /// The doc links (``[`Name`]``) in the file's `--|` comments, in order:
+    /// resolved after the namespace is checked
+    /// (docs/proposals/documentation.md §7).
+    pub doc_links: Vec<crate::docs::DocLink>,
 }
 
 /// How a [`Expr::Neg`] was written. Only the elaborator's messages read it;

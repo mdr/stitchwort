@@ -85,6 +85,20 @@ pub struct SymbolDoc {
     pub text: String,
     pub summary: String,
     pub marker: &'static str,
+    /// Its links (documentation.md §7), in the order they are written;
+    /// none for a doc of `--` lines.
+    pub links: Vec<SymbolLink>,
+}
+
+/// A doc link, and what it names, found as `doc` finds it: without the
+/// imports of the file (`check` warns by those).
+#[derive(Clone, Debug)]
+pub struct SymbolLink {
+    /// The name written between the backticks.
+    pub text: String,
+    /// The full name of the declaration or namespace; `None` if the link
+    /// names nothing.
+    pub target: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -170,11 +184,23 @@ pub fn index_json(
         if let Some(doc) = &symbol.doc {
             let _ = write!(
                 symbols,
-                r#","doc":{},"summary":{},"docMarker":"{}""#,
+                r#","doc":{},"summary":{},"docMarker":"{}","links":["#,
                 string(&doc.text),
                 string(&doc.summary),
                 doc.marker
             );
+            for (i, link) in doc.links.iter().enumerate() {
+                if i > 0 {
+                    symbols.push(',');
+                }
+                let target = link.target.as_deref().map_or("null".to_string(), string);
+                let _ = write!(
+                    symbols,
+                    r#"{{"text":{},"target":{target}}}"#,
+                    string(&link.text)
+                );
+            }
+            symbols.push(']');
         }
         symbols.push('}');
     }
@@ -341,6 +367,19 @@ pub fn index_data_of(
     let mut parens: HashMap<FileId, Parens> = HashMap::default();
     // Each file's docs, read once from the text the session checked.
     let mut docs: HashMap<FileId, BTreeMap<u32, stitchwort_syntax::docs::Doc>> = HashMap::default();
+    // Each file's namespace, from its first top-level declaration, which a
+    // doc link in it may name things in.
+    let mut namespaces: HashMap<FileId, Option<String>> = HashMap::default();
+    for symbol in &index.symbols {
+        if symbol.container.is_none()
+            && symbol.kind != "test"
+            && let Some((namespace, _)) = symbol.name.rsplit_once('.')
+        {
+            namespaces
+                .entry(symbol.span.file)
+                .or_insert_with(|| Some(namespace.to_string()));
+        }
+    }
     let mut symbols = Vec::with_capacity(index.symbols.len());
     for symbol in &index.symbols {
         let file = file_of(symbol.span, &mut files);
@@ -368,6 +407,17 @@ pub fn index_data_of(
                 text: doc.text.clone(),
                 summary: doc.summary.clone(),
                 marker: doc.marker.as_str(),
+                links: doc
+                    .links
+                    .iter()
+                    .map(|link| SymbolLink {
+                        text: link.name.clone(),
+                        target: session.elab.doc_link_target(
+                            &link.name,
+                            namespaces.get(&symbol.span.file).and_then(|n| n.as_deref()),
+                        ),
+                    })
+                    .collect(),
             });
         symbols.push(Symbol {
             name: symbol.name.clone(),

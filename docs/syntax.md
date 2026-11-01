@@ -39,7 +39,21 @@ def List.filterMap: List a → (f: a → {e} Option b) → {e} List b
 - **File docs.** The comment runs before a file's first declaration, other than the run attached to it, are the file's doc, joined as paragraphs: `--|` lines, or the `--` runs if there are none. A `namespace` or `import` line is not a declaration here, so every run above one is the file's. A project file's doc belongs to its `namespace` line's namespace; a std file's to its folder's (`List/Toolkit.sw` to `Std.List`), and a `core/` file's to none, since the prelude's files mix namespaces.
 - **The summary** is the doc's first sentence: the first paragraph's lines joined by single spaces, up to the first `.` outside backticks that is followed by whitespace or the end (not the ones in `e.g.` and `i.e.`). One over 160 characters is cut at the last space before the 160th that is outside backticks, and ends in `…`. It is never made from the type.
 
-Docs are read from the declaration's file as it is, when they are shown. They are not part of elaboration, hashes or the check cache, so editing one re-elaborates and re-hashes nothing. The code is `stitchwort_syntax::docs`.
+Docs are read from the declaration's file as it is, when they are shown. They are not part of elaboration, hashes or the check cache's key, so editing one changes no hash. The code is `stitchwort_syntax::docs`.
+
+### Doc links
+
+A `--|` line may link to another declaration with ``[`Name`]`` (SW-1042; docs/proposals/documentation.md §7, D2149, D2153). `Name` must be name-shaped: letters, digits, `_`, `'` and `.`, starting with a letter or `_`. Only that is a link: bare `[Name]` is not (`[x]` is list notation), and neither is prose such as ``its `[` is; its `]` `` or a plain `--` note.
+
+```
+--| Keeps the `Some` results, in order. Like [`List.map`] when `f` never gives `None`;
+--| see [`List.filterMapSome`].
+```
+
+- **Resolution.** After a namespace is checked, each link in its files resolves first as the file resolves names (its imports and its namespace, so a link may point forward or at the declaration it is on). Failing that, a full name (`Std.List.filterMapSome`), a library name without `Std.` (`List.filterMapSome`) or a name in the file's own namespace resolves, whatever the file imports: a link never forces an `import`. A project namespace's names count before it is checked, so a link to another namespace doesn't depend on checking order. A type and its constructor of the same name are one link to the type. A link may name a namespace (``[`Std.List`]``).
+- **`W-DOC-LINK`** is the warning for a link that names nothing, or two different things. It points at the link and, for a name that isn't there, says `did you mean` the nearest name within two edits. A namespace with errors isn't checked for links. A library file with the warning doesn't load, as for `W-REDUNDANT`, so the library has none (a test loads every file). A project only warns.
+- **No dependency.** A link adds no dependency between declarations or namespaces, and the check cache's key is unchanged. The cache keeps the warnings a namespace had, so one for a link into another namespace, which the cache doesn't track, can be out of date until the namespace's own files change or the check runs with `--no-cache`.
+- **`doc` and the index.** `stitchwort doc NAME --json` gives each link of a `--|` doc in `links`: `{"text", "status", "target", "file", "line"}`, in the order written, where `target` is the full name (`null` unless `status` is `"resolved"`; it can also be `"unresolved"` or `"ambiguous"`) and `file`/`line` say where it is declared (`null` for a namespace). The text output prints a link as its name and marks one that does not resolve with `(unresolved link)` after its name. `check --index` gives each symbol's doc `links`: `{"text", "target"}` with `target` `null` when it names nothing. Both resolve without the file's imports (`doc` doesn't check, and the index is the same on every run), so a link that only an import makes resolve shows unresolved there and is quiet in `check`.
 
 ### What a declaration does, `stitchwort doc`
 

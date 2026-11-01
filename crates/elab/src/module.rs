@@ -523,6 +523,12 @@ impl Elaborator {
         {
             diagnostics.retain(|d| d.code != "E-FAILED-DEPENDENCY");
         }
+        // Doc links last, once everything the files declare is checked
+        // (documentation.md §7); not in a namespace with errors, whose
+        // names may be missing for another reason.
+        if !diagnostics.iter().any(|d| d.severity == Severity::Error) {
+            diagnostics.extend(self.doc_link_warnings(files));
+        }
         diagnostics
     }
 

@@ -18,7 +18,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::Serialize;
 use stitchwort_core::{DataId, DefId, Globals, Term};
 use stitchwort_syntax::ast::{Decl, Expr, Module};
-use stitchwort_syntax::docs::{Doc, docs, file_doc, file_doc_namespace};
+use stitchwort_syntax::docs::{
+    Doc, docs, file_doc, file_doc_namespace, link_candidates, link_ranges,
+};
 use stitchwort_syntax::{
     DEFAULT_STACK, FileId, SourceMap, Tok, Token, decl_ranges, lex, parse_module_recovering,
 };
@@ -420,6 +422,55 @@ impl Decls {
         docs.get(&e.name_at).cloned()
     }
 
+    /// The namespace of file `file`: a library folder's, or a program's
+    /// `namespace` line's.
+    fn file_namespace(&self, file: usize) -> Option<String> {
+        let file = &self.files[file];
+        let text = &self.sources.get(file.id).text;
+        file_doc_namespace(file.id, text, file.std.as_deref())
+            .or_else(|| file.namespace.clone().filter(|_| file.std.is_none()))
+    }
+
+    /// The links of `doc`, which is in file `file`, and what each names (§7,
+    /// D2153): a name in the file's namespace, a full name, or a library
+    /// name without `Std.`. Not by the file's imports, which `check` reads
+    /// (and warns by): `doc` doesn't elaborate (D2152).
+    pub fn links(&self, file: usize, doc: &Doc) -> Vec<LinkReport> {
+        let namespace = self.file_namespace(file);
+        doc.links
+            .iter()
+            .map(|link| {
+                let mut report = LinkReport {
+                    text: link.name.clone(),
+                    status: "unresolved",
+                    target: None,
+                    file: None,
+                    line: None,
+                };
+                let hit = link_candidates(&link.name, namespace.as_deref())
+                    .into_iter()
+                    .find(|c| self.by_path.contains_key(c) || self.is_namespace(c));
+                if let Some(path) = hit {
+                    match self.by_path.get(&path).map(Vec::as_slice) {
+                        Some([i]) => {
+                            let (file, line) = self.location(*i);
+                            report.status = "resolved";
+                            report.file = Some(file);
+                            report.line = Some(line);
+                        }
+                        Some(_) => {
+                            report.status = "ambiguous";
+                            return report;
+                        }
+                        None => report.status = "resolved",
+                    }
+                    report.target = Some(path);
+                }
+                report
+            })
+            .collect()
+    }
+
     /// The names a user may write for `name`: as written, without `Std.`,
     /// or as `import N (..)` sees it for each namespace of the program.
     fn candidates(&self, name: &str) -> Vec<String> {
@@ -673,6 +724,10 @@ impl Decls {
             container: e.container.map(|c| self.entries[c].path.clone()),
             summary: doc.as_ref().map(|d| d.summary.clone()),
             doc_marker: doc.as_ref().map(|d| d.marker.as_str()),
+            links: doc
+                .as_ref()
+                .map(|d| self.links(e.file, d))
+                .unwrap_or_default(),
             doc: doc.map(|d| d.text),
             members,
             examples: self.examples(i, within),
@@ -860,6 +915,8 @@ pub struct Report {
     pub summary: Option<String>,
     #[serde(rename = "docMarker")]
     pub doc_marker: Option<&'static str>,
+    /// The links in the doc (`--|` docs only), in the order written.
+    pub links: Vec<LinkReport>,
     /// A type's constructors or fields, an interface's fields, an ability's
     /// operations.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -871,6 +928,45 @@ pub struct Report {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub namespace: Option<NamespaceReport>,
     pub warnings: Vec<String>,
+}
+
+/// A doc link and what it names (§7).
+#[derive(Serialize, Debug)]
+pub struct LinkReport {
+    /// The name written between the backticks.
+    pub text: String,
+    /// `resolved`, `unresolved` or `ambiguous`.
+    pub status: &'static str,
+    /// The full name of what it names; `null` unless resolved.
+    pub target: Option<String>,
+    /// Where the target is declared; `null` for a namespace or no target.
+    pub file: Option<String>,
+    pub line: Option<usize>,
+}
+
+/// A doc's text with its links printed as their names: a link that names
+/// nothing, or more than one thing, is marked.
+fn linked(doc: &str, links: &[LinkReport]) -> String {
+    let mut links = links.iter();
+    let mut out = String::new();
+    for (n, line) in doc.lines().enumerate() {
+        if n > 0 {
+            out.push('\n');
+        }
+        let mut at = 0;
+        for (start, end, name) in link_ranges(line) {
+            out.push_str(&line[at..start]);
+            out.push_str(&format!("`{name}`"));
+            match links.next().map(|l| l.status) {
+                Some("unresolved") => out.push_str(" (unresolved link)"),
+                Some("ambiguous") => out.push_str(" (ambiguous link)"),
+                _ => {}
+            }
+            at = end;
+        }
+        out.push_str(&line[at..]);
+    }
+    out
 }
 
 /// A line of a listing: a member of a type, or a declaration of a namespace.
@@ -1130,7 +1226,7 @@ pub fn render_text(r: &Report, show_theorems: bool) -> String {
     out.push('\n');
     match &r.doc {
         Some(doc) => {
-            for line in doc.lines() {
+            for line in linked(doc, &r.links).lines() {
                 if line.is_empty() {
                     out.push('\n');
                 } else {
