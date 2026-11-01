@@ -8,9 +8,11 @@
 //!   for with the statement it proved there, the proof's variables as holes;
 //!   it must be among the first ten for at least half of them.
 //!
-//! The merge and lane tiers take every 8th theorem (about 300 queries each,
-//! with two points of margin on the shares: [`bar`]); the daily tier all of
-//! them (about 7 s and 4 s); proof uses take minutes, so only the full tier
+//! The merge and lane tiers take the theorems whose qualified name hashes to
+//! a multiple of 8 (about 300 queries each, with two points of margin on the
+//! shares: [`bar`]), so adding a theorem to std adds at most itself to the
+//! sample and doesn't reshuffle the rest, as every 8th by declaration order
+//! did; the daily tier all of them (about 7 s and 4 s); proof uses take minutes, so only the full tier
 //! runs them. The hand queries (draft 3 §6.3) run in every tier.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -82,13 +84,25 @@ fn iff(g: &Globals) -> Option<DataId> {
         .find(|d| &*g.data(*d).path == "Std.Iff")
 }
 
-/// The sample of `items` this tier runs.
-fn sample<T>(items: Vec<T>) -> Vec<T> {
+/// FNV-1a, 64 bits: a hash fixed by its definition, the same on every Rust
+/// version and platform (`DefaultHasher` is neither).
+fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf29ce484222325, |h, b| {
+        (h ^ u64::from(*b)).wrapping_mul(0x100000001b3)
+    })
+}
+
+/// The sample of `items` (each with its fully qualified name) this tier
+/// runs: the items whose name hashes to a multiple of the stride.
+fn sample<T>(items: Vec<(String, T)>) -> Vec<T> {
     let stride = match tier() {
         Tier::Merge | Tier::Lane => 8,
         Tier::Daily | Tier::Full => 1,
     };
-    items.into_iter().step_by(stride).collect()
+    (items.into_iter())
+        .filter(|(name, _)| fnv1a(name.as_bytes()).is_multiple_of(stride))
+        .map(|(_, item)| item)
+        .collect()
 }
 
 /// The least strict top-1 share a benchmark must reach: `whole` over every
@@ -142,7 +156,7 @@ fn self_retrieval(left: bool) -> Score {
         let queries: Vec<(DefId, Option<DefId>)> = sample(
             (candidates.iter())
                 .filter_map(|c| match c.item {
-                    Item::Def(id) => Some((id, None)),
+                    Item::Def(id) => Some((g.def(id).path.to_string(), (id, None))),
                     Item::Ctor(..) => None,
                 })
                 .collect(),
