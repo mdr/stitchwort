@@ -1,8 +1,8 @@
--- `Map.byPosition xs` looks up like `List.getOr` on `xs`
--- (`Map.getOrByPosition`). Kept out of Map.sw because the proof needs
--- `omega`.
+--| `Map.byPosition xs` looks up like `List.getOr` on `xs`
+--| (`Map.getOrByPosition`).
+-- Kept out of Map.sw because the proof needs `omega`.
 
--- No position below `s` is numbered from `s`.
+--| No position below `s` is numbered from `s`.
 theorem Map.lookupLastBelow (k: Nat): (s: Nat) → (xs: List a) → k < s → Map.lookupLast k (List.withIndexFrom s xs) = None
   | s, Nil, h => rfl
   | s, Cons x xs, h =>
@@ -12,7 +12,7 @@ theorem Map.lookupLastBelow (k: Nat): (s: Nat) → (xs: List a) → k < s → Ma
         | Less => rfl
         | Greater => rfl
 
--- Position s + i of the elements numbered from s is element i.
+--| Position s + i of the elements numbered from s is element i.
 theorem Map.lookupLastWithIndex (d: a): (s: Nat) → (i: Nat) → (xs: List a) →
     Option.getOrElse (Map.lookupLast (s + i) (List.withIndexFrom s xs)) d = List.getOr xs i d
   | s, i, Nil => rfl
@@ -30,7 +30,7 @@ theorem Map.lookupLastWithIndex (d: a): (s: Nat) → (i: Nat) → (xs: List a) �
             | Less => ih
             | Greater => ih
 
--- Looking up a position in `Map.byPosition xs` is `List.getOr` on `xs`,
--- inside the list and past its end.
+--| Looking up a position in `Map.byPosition xs` is `List.getOr` on `xs`,
+--| inside the list and past its end.
 theorem Map.getOrByPosition (xs: List a) (i: Nat) (d: a): Map.getOr (Map.byPosition xs) i d = List.getOr xs i d :=
   rewrite Map.getFromList i (List.withIndex xs) in Map.lookupLastWithIndex d 0 i xs
