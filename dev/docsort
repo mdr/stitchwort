@@ -4,33 +4,71 @@
 
 Every comment run that is a doc today (directly above a declaration, or above
 a member that has a line to itself, or before a file's first declaration) is
-rewritten: its lines become `--|` user docs, except the lines that match a
-maintainer marker (a ticket SW-n, a D number, a § reference, a docs/ or .md path) and the
-sentences joined to them, which stay `--` and move below the `--|` lines.
-"Timing" words are not markers (§6.1).
+rewritten: its sentences become `--|` user docs, except the sentences that
+match a maintainer marker (a ticket SW-n, a D number, a § reference, a docs/
+or .md path) which stay `--` and move below the `--|` text. References to the
+user guide (docs/syntax.md) are not markers. "Timing" words are not markers
+(§6.1).
+
+Steps for each run:
+1. Lift citations: a bracketed group made only of markers (and words such as
+   "see", "and", "stage 2") is cut out of its sentence and emitted word for
+   word as a `-- (...)` note with no trailing period; the sentence keeps its
+   own period and stays `--|`.
+2. Sort by sentence, not by line. A sentence ending in `:` is a lead-in and
+   goes with the unit after it, wherever that goes. A list item is one unit.
+3. Blank lines are kept: between the `--|` paragraphs, between the `--`
+   paragraphs, and before the notes when the notes were a paragraph of their
+   own.
+4. A paragraph that was split or lost a citation is rewrapped to the width of
+   its longest original line; other paragraphs keep their lines.
 
 A run that already has a `--|` line is left alone, so the script is
 idempotent. Code and comments that are not docs are never touched. A
 one-line run without a final stop, before a file's first declaration, is a
-heading and is left alone. Only markers and order change, never wording. A sentence ending in `:` is a
-lead-in and goes with the unit after it, wherever that goes.
+heading and is left alone. Only markers, order, line breaks and minimal
+punctuation change, never wording.
 
 Usage: dev/docsort [--check] PATH...   (files, or folders searched for .sw).
 With --check it writes nothing and exits 1 if a file would change. Prints one
 line per changed file: blocks, lines moved to `--` notes.
-Run it once, before the hand review: a run that hand review left wholly `--`
-(no marker in it) looks unsorted, so a later run would mark it `--|` again.
-Tests: python3 dev/docsort_test.py (use /usr/bin/python3 if `python3` is wrapped)
+       dev/docsort --report PATH...
+Writes nothing; prints the doc lines a hand review should look at: ragged
+lines (a line that left room for the next word), rationale phrases in `--|`
+text ("of its own", "By induction", "Kept apart", ...), and runs left wholly
+`--` above a declaration. Exits 1 if it flagged anything.
+Run the sort once, before the hand review: a run that hand review left wholly
+`--` (no marker in it) looks unsorted, so a later run would mark it `--|`
+again. Tests: python3 dev/docsort_test.py (use /usr/bin/python3 if `python3`
+is wrapped)
 """
 import os
 import re
 import sys
 
 MARKERS = re.compile(r"\bSW-\d+|\bD\d{2,4}\b|§|docs/|\bproposals?/|\.md\b")
+# The user guide is for readers, so a reference to it is not a marker.
+USER_GUIDE = re.compile(r"docs/syntax\.md")
+CITE_PARTS = re.compile(
+    r"\bSW-\d+|\bD\d{2,4}\b|§+\s*[\d.]*\w*|\bstages?\s+\d+\w*"
+    r"|[\w./-]*(?:docs/|proposals?/)[\w./-]*|[\w./-]*\.md\b",
+    re.I,
+)
+CITE_FILLER = re.compile(
+    r"\b(?:see|and|or|in|per|cf|also|from|of|the|at|to|section|sections|part)\b",
+    re.I,
+)
+CITE = re.compile(r"(?:(?<=\s)|^)([(\[])([^()\[\]]*)([)\]])")
+SENT_END = re.compile(r"[.!?][)\]`\"']*\s+(?=[A-Z`\"(\[])")
+ABBREV = {"e.g", "i.e", "etc", "cf", "vs", "eg", "ie"}
 TOP = re.compile(r"(def|theorem|test|instance|type|interface|ability|opaque|@\[)")
 TYPELIKE = re.compile(r"(type|interface|ability|opaque)\b")
 MEMBER = re.compile(r"\s+(\||[{(,]|[A-Za-z_][\w']*\s*:)")
 END = re.compile(r"[.!?:][)\]`\"']*$")
+RATIONALE = [
+    "of its own", "By induction", "Kept apart", "Kept out of", "This file",
+    "Written by hand", "so that programs", "The argument:", "The outline:",
+]
 
 
 def is_comment(line):
@@ -43,60 +81,226 @@ def body(line):
     return t[1:] if t.startswith(" ") else t
 
 
+def has_marker(text):
+    return bool(MARKERS.search(USER_GUIDE.sub("", text)))
+
+
+def is_citation(content):
+    """A bracket group made only of markers and filler words."""
+    if not (has_marker(content) or re.search(r"\bstages?\s+\d", content, re.I)):
+        return False
+    rest = CITE_PARTS.sub(" ", USER_GUIDE.sub("", content))
+    rest = CITE_FILLER.sub(" ", rest)
+    return re.sub(r"[\s\d,;:./`–—-]", "", rest) == ""
+
+
+def lift(text):
+    """Cut the citations out of text, with the space before each.
+    Returns (text, [citations])."""
+    cites = []
+
+    def cut(m):
+        if is_citation(m.group(2)):
+            cites.append(m.group(0))
+            return "\x01"
+        return m.group(0)
+
+    t = CITE.sub(cut, text)
+    if not cites:
+        return text, []
+    if t.startswith("\x01"):
+        t = t.replace("\x01 ", "", 1).replace("\x01", "", 1)
+    t = re.sub(r"\s*\x01", "", t)
+    return t, cites
+
+
+def sentences(text):
+    out, pos = [], 0
+    for m in SENT_END.finditer(text):
+        last = text[: m.start() + 1].split()[-1].lower().rstrip(".")
+        if last in ABBREV:
+            continue
+        out.append(text[pos : m.end()].strip())
+        pos = m.end()
+    out.append(text[pos:].strip())
+    return [s for s in out if s]
+
+
+def segments(lines):
+    """Split a paragraph's lines into ['text'|'item'|'pre', [lines]]."""
+    segs = []
+
+    def open_item():
+        return (
+            segs
+            and segs[-1][0] == "item"
+            and not END.search(segs[-1][1][-1].rstrip())
+        )
+
+    for t in lines:
+        if t.startswith("- "):
+            segs.append(["item", [t]])
+        elif open_item():
+            segs[-1][1].append(t)
+        elif t.startswith("  "):
+            if segs and segs[-1][0] == "pre":
+                segs[-1][1].append(t)
+            else:
+                segs.append(["pre", [t]])
+        elif segs and segs[-1][0] == "text":
+            segs[-1][1].append(t)
+        else:
+            segs.append(["text", [t]])
+    return segs
+
+
+def units_of(lines):
+    """Units of one paragraph: lists of blocks (kind, text)."""
+    units = []
+    for kind, ls in segments(lines):
+        if kind == "text":
+            # A line ending in `:` ends a sentence (a lead-in).
+            chunk = []
+            for t in ls:
+                chunk.append(t.strip())
+                if t.rstrip().endswith(":"):
+                    units.extend([("para", s)] for s in sentences(" ".join(chunk)))
+                    chunk = []
+            if chunk:
+                units.extend([("para", s)] for s in sentences(" ".join(chunk)))
+        elif kind == "item":
+            units.append([("item", " ".join(t.strip() for t in ls))])
+        else:
+            units.append([("pre", "\n".join(ls))])
+    merged = []
+    for u in units:
+        if merged and merged[-1][-1][0] == "para" and merged[-1][-1][1].endswith(":"):
+            merged[-1] = merged[-1] + u
+        else:
+            merged.append(u)
+    return merged
+
+
+def words_of(text):
+    """Tokens, keeping a backtick span whole."""
+    out, cur = [], None
+    for w in text.split(" "):
+        if w == "":
+            continue
+        cur = w if cur is None else cur + " " + w
+        if cur.count("`") % 2 == 0:
+            out.append(cur)
+            cur = None
+    if cur is not None:
+        out.append(cur)
+    return out
+
+
+def wrap(text, first, rest, width):
+    lines, cur, empty = [], first, True
+    for w in words_of(text):
+        if not empty and len(cur) + 1 + len(w) > width:
+            lines.append(cur)
+            cur = rest + w
+        else:
+            cur = cur + ("" if empty else " ") + w
+        empty = False
+    lines.append(cur)
+    return lines
+
+
+def render(blocks, prefix, width):
+    """Full lines for a list of blocks, flowing adjacent paragraphs."""
+    out, para = [], []
+
+    def flush():
+        if para:
+            out.extend(wrap(" ".join(para), prefix, prefix, width))
+            para.clear()
+
+    for kind, text in blocks:
+        if kind == "para":
+            para.append(text)
+        else:
+            flush()
+            if kind in ("item", "cite"):
+                hang = "  " if kind == "item" else ""
+                out.extend(wrap(text, prefix, prefix + hang, width))
+            else:
+                out.extend(
+                    prefix + l if l.strip() else prefix.rstrip()
+                    for l in text.split("\n")
+                )
+    flush()
+    return out
+
+
 def sort_run(run):
     """Rewrite one run (lines with one indent). Returns (lines, moved), or
     None if it has a `--|` line already."""
     indent = run[0][: len(run[0]) - len(run[0].lstrip())]
     if any(l.lstrip().startswith("--|") for l in run):
         return None
-    # Units: a unit ends at a blank line or at a line ending a sentence; a
-    # list item or an indented line starts a new unit.
-    units, cur = [], []
-    for t in map(body, run):
+    U, N = indent + "--| ", indent + "-- "
+    pars, cur = [], []
+    for l in run:
+        t = body(l)
         if t.strip() == "":
             if cur:
-                units.append(cur)
-            units.append([""])
-            cur = []
-            continue
-        if cur and (t.lstrip().startswith("- ") or t.startswith("  ")):
-            units.append(cur)
-            cur = []
-        cur.append(t)
-        if END.search(t.rstrip()):
-            units.append(cur)
-            cur = []
+                pars.append(cur)
+                cur = []
+        else:
+            cur.append((t, len(l)))
     if cur:
-        units.append(cur)
-    # A unit ending in `:` is a lead-in: it joins the unit after it.
-    merged = []
-    for u in units:
-        if (
-            merged
-            and merged[-1] != [""]
-            and merged[-1][-1].rstrip().endswith(":")
-            and u != [""]
-        ):
-            merged[-1] = merged[-1] + u
-        else:
-            merged.append(u)
-    units = merged
-    user, notes = [], []
-    for u in units:
-        if u == [""]:
-            if user and user[-1] != [""]:
-                user.append(u)
-        elif any(MARKERS.search(t) for t in u):
-            notes.append(u)
-        else:
-            user.append(u)
-    while user and user[-1] == [""]:
-        user.pop()
-    lines = [
-        indent + ("--| " + t if t else "--|") for u in user for t in u
-    ]
-    lines += [indent + ("-- " + t if t else "--") for u in notes for t in u]
-    return lines, sum(len(u) for u in notes)
+        pars.append(cur)
+    users = []  # (paragraph index, lines)
+    groups = []  # (paragraph index, lines, split)
+    for k, par in enumerate(pars):
+        width = max(w for _, w in par)
+        touched, order = False, []
+        for u in units_of([t for t, _ in par]):
+            parts = [lift(t) if kind != "pre" else (t, []) for kind, t in u]
+            if has_marker(" ".join(t for t, _ in parts)):
+                order.append(("N", u))
+                continue
+            cites = [c for _, cs in parts for c in cs]
+            if cites:
+                touched = True
+                order.append(("U", [(kind, t) for (kind, _), (t, _) in zip(u, parts)]))
+                order.extend(("N", [("cite", c)]) for c in cites)
+            else:
+                order.append(("U", u))
+        has_u = any(c == "U" for c, _ in order)
+        has_n = any(c == "N" for c, _ in order)
+        split = has_u and has_n
+        if not touched and not split:
+            pre = U if has_u else N
+            ls = [pre + t if t else pre.rstrip() for t, _ in par]
+            if has_u:
+                users.append((k, ls))
+            else:
+                groups.append((k, ls, False))
+            continue
+        ub = [b for c, u in order if c == "U" for b in u]
+        nb = [b for c, u in order if c == "N" for b in u]
+        if ub:
+            users.append((k, render(ub, U, width)))
+        if nb:
+            groups.append((k, render(nb, N, width), split))
+    lines = []
+    for i, (_, u) in enumerate(users):
+        if i:
+            lines.append(U.rstrip())
+        lines.extend(u)
+    last_user = users[-1][0] if users else None
+    for i, (k, g, split) in enumerate(groups):
+        # A split paragraph's notes follow its user lines with no blank line,
+        # when that is where the user lines end.
+        attached = i == 0 and split and k == last_user
+        if (i or users) and not attached:
+            lines.append(N.rstrip())
+        lines.extend(g)
+    return lines, sum(len(g) for _, g, _ in groups)
 
 
 def runs_of(lines):
@@ -152,6 +356,52 @@ def sort_text(text):
     return "\n".join(out), blocks, moved
 
 
+def body_of(line):
+    """The text after `--` or `--|` and one space."""
+    t = line.lstrip()
+    t = t[3:] if t.startswith("--|") else t[2:]
+    return t[1:] if t.startswith(" ") else t
+
+
+def report_text(text):
+    """Doc lines worth a hand look: (line number, kind, text)."""
+    lines = text.split("\n")
+    out = []
+    for s, e in runs_of(lines):
+        run = lines[s:e]
+        kinds = ["|" if l.lstrip().startswith("--|") else "-" for l in run]
+        nxt = lines[e] if e < len(lines) else ""
+        if all(k == "-" for k in kinds) and nxt.strip():
+            out.append((s + 1, "run wholly `--` above a declaration", run[0].strip()))
+        # Paragraphs: consecutive lines of one marker, up to a blank line.
+        i = 0
+        while i < len(run):
+            j = i
+            while j < len(run) and kinds[j] == kinds[i] and body_of(run[j]).strip():
+                j += 1
+            if j == i:
+                i += 1
+                continue
+            par = run[i:j]
+            texts = [body_of(l) for l in par]
+            width = max(len(l) for l in par)
+            plain = [not t.startswith("- ") and not t.startswith("  ") for t in texts]
+            for k in range(len(par) - 1):
+                if plain[k] and plain[k + 1] and not END.search(texts[k].rstrip()):
+                    nxt = texts[k + 1].split()
+                    if nxt and len(par[k]) + 1 + len(nxt[0]) <= width:
+                        out.append((s + i + k + 1, "ragged line", par[k].strip()))
+            if kinds[i] == "|":
+                joined = " ".join(t.strip() for t in texts)
+                for ph in RATIONALE:
+                    if re.search(re.escape(ph), joined, re.I):
+                        out.append(
+                            (s + i + 1, f"rationale phrase '{ph}'", par[0].strip())
+                        )
+            i = j
+    return sorted(out)
+
+
 def files(paths):
     for p in paths:
         if os.path.isdir(p):
@@ -165,10 +415,16 @@ def files(paths):
 
 def main(argv):
     check = "--check" in argv
+    report = "--report" in argv
     changed = 0
     for f in files(a for a in argv if not a.startswith("--")):
         with open(f, encoding="utf-8") as h:
             text = h.read()
+        if report:
+            for n, kind, t in report_text(text):
+                changed += 1
+                print(f"{f}:{n}: {kind}: {t}")
+            continue
         new, blocks, moved = sort_text(text)
         if new != text:
             changed += 1
@@ -176,7 +432,7 @@ def main(argv):
             if not check:
                 with open(f, "w", encoding="utf-8") as h:
                     h.write(new)
-    return 1 if (check and changed) else 0
+    return 1 if ((check or report) and changed) else 0
 
 
 if __name__ == "__main__":
