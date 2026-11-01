@@ -17,7 +17,9 @@ heading and is left alone. Only markers and order change, never wording.
 Usage: dev/docsort [--check] PATH...   (files, or folders searched for .sw).
 With --check it writes nothing and exits 1 if a file would change. Prints one
 line per changed file: blocks, lines moved to `--` notes.
-Tests: python3 dev/docsort_test.py
+Run it once, before the hand review: a run that hand review left wholly `--`
+(no marker in it) looks unsorted, so a later run would mark it `--|` again.
+Tests: python3 dev/docsort_test.py (use /usr/bin/python3 if `python3` is wrapped)
 """
 import os
 import re
