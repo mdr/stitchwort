@@ -402,7 +402,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "PARKED (D1373, 26 Oct): fix on branch worktree-agent-ac491657f1ca98e31 (da92a677): one shared T.%update.f helper per field set, nested for independent fields, fallback to simultaneous match for dependent ones; makes restated updates equal so alignWith/update lemmas apply in proof bodies. Contradicts D1091's 'no updater functions'. Revisit only if a proof gets stuck. Also on the branch: better E-UNKNOWN-NAME for missing update lemmas.",
+      "body": "PARKED (D1373, 26 Oct): fix kept as tag parked/sw-597-update-helpers (da92a677; worktree deleted 1 Nov, D2115): one shared T.%update.f helper per field set, nested for independent fields, fallback to simultaneous match for dependent ones; makes restated updates equal so alignWith/update lemmas apply in proof bodies. Contradicts D1091's 'no updater functions'. Revisit only if a proof gets stuck. Also on the branch: better E-UNKNOWN-NAME for missing update lemmas.",
       "created": "2026-10-26",
       "updated": "2026-10-26",
       "commits": []
