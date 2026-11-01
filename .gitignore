@@ -12,3 +12,4 @@ mutants.out*
 
 # Local search query logs from lanes (STITCHWORT_SEARCH_LOG); never committed
 /search-logs/
+__pycache__/
