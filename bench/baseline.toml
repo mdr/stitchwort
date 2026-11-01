@@ -70,18 +70,18 @@ peak_bytes = 412617
 time_ms = 1.3
 
 [check-list-rfl]
-steps = 720069
+steps = 720063
 visits = 380038
-allocations = 920348
-peak_bytes = 41341530
-time_ms = 49.5
+allocations = 1280540
+peak_bytes = 91590612
+time_ms = 78.5
 
 [check-list-sym-rfl]
-steps = 1480250
+steps = 1640264
 visits = 580063
-allocations = 1800744
-peak_bytes = 62085051
-time_ms = 92.6
+allocations = 2361003
+peak_bytes = 92463619
+time_ms = 133.9
 
 [check-long-sum]
 steps = 233984
