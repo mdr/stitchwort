@@ -9,8 +9,8 @@
 -- Positions are `Nat`s, row then column, counting from the top left: the
 -- cells of a grid are rows of a list, so a position is two indices, and a
 -- step above row 0 or left of column 0 is `None` rather than a negative
--- index. (A day that does vector arithmetic on positions, as 2024's day 8
--- does, wants `Int`s and keeps its own.)
+-- index. How far to move, which can be negative, is an `Offset`
+-- (Offset.sw).
 
 namespace Aoc.Common
 import Std (Fail, Fin, List, Map, Nat, Option, Parse, Text)

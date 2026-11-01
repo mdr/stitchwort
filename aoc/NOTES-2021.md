@@ -112,10 +112,49 @@ gone (days 9, 11 and 15 lost 142, 215 and 187 lines net).
 
 **`Nat`, not `Int`.** A grid's cells are rows of a list, so a position is
 two list indices, and a step off the top or left is `None` rather than a
-negative index that every lookup would have to refuse. 2024's day 8 does
-vector arithmetic on positions (antinodes past the map); it keeps its own
-`Int` positions, as do 2024's days 14 and 15. No offset type was added:
-no migrated day needed one.
+negative index that every lookup would have to refuse.
+
+**Offsets (SW-992).** How far to move is an `Offset = { rows, columns }`
+of `Int`s (`Common/Offset.sw`; not `Vec`, std's sized lists). `zero`,
+`plus`, `negate`, `times`, `Direction.offset`, `Offset.step`;
+`Position.minus a b` is the offset from `b` to `a`, `position.offset o`
+moves by one (`None` above row 0 or left of column 0), `Grid.offset` also
+`None` off the grid, and `Position.wrap position offset height width`
+moves on a board whose edges wrap round. Proved (`Proofs/Offset.sw`):
+where an offset lands, in `Int`s (`offsetSome`, `offsetOf`,
+`offsetNone`, `offsetNoneOf`), a step is an offset by its direction's
+(`stepOffset`), `offsetZero`, `offsetMinus` (from `b` by `a.minus b` is
+`a`), `minusOffset` (and back), `offsetPlus` (offsets compose while the
+middle is on the board), `gridOffsetSome`/`gridOffsetOf`; `wrapWithin`,
+`wrapZero`, `wrapPlus` (wrapping twice is wrapping by the sum),
+`wrapIterate`; and the step laws of offsets. 2024's days 8 (antinodes
+`near.offset (near.minus far)`), 14 (a velocity is an `Offset`, the
+position after `t` seconds a `wrap`) and 15 (its cells are `Offset`s
+from the corner, so a step is always defined) use them.
+
+- **2024's day 8.** Antennas and antinodes are the shared `Position`; an
+  antinode is `near.offset (near.minus far)` or the offset a third of the
+  way back, and `harmonics` offsets `start` by whole multiples of the
+  reduced step either way. `offset` gives `None` above or left of the map,
+  and `locations` drops those past it, as before. The spec's cross product
+  and squared distance are over offsets, its locations
+  `Aoc.Common.positions`. The proofs work in `Int` coordinates through
+  `offsetSome`/`offsetOf`; `place`, `positionEq` and `containsElim` are
+  gone. Statements as before: part 2 still needs the antennas on the map
+  (a test: rows 100 and 101 below a 1 by 1 map).
+- **2024's day 14.** A tile is a `Position` (`x` its column, `y` its row,
+  said once in the spec), a velocity an `Offset`, and `positionAfter` is
+  `wrap` by the velocity times the seconds. `afterCorrect` is one spec
+  second per `wrap` (`secondWrap`) and the shared `wrapIterate`.
+- **2024's day 15** keeps `Int` cells: its proofs hold for every
+  warehouse, walled in or not, because a step is always a cell. The
+  walls keep the robot inside, but nothing in the types says so; with a
+  `Nat` `Position` a step up from row 0 is `None`, and every move and
+  theorem would need an off-the-map rule or a walled-in hypothesis. So a
+  cell is an `Offset` from the top left corner (`def Cell: Type :=
+  Offset`), with the shared `Direction` and `Offset.step`; its step laws
+  are the shared `offsetStepInjective`, `offsetStepComm` and
+  `offsetStepOpposite`.
 
 **Lists of rows, with a table for lookups.** The grid is its rows, so
 `cells`, `mapCells` and the proofs are list induction, and nothing has to

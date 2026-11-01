@@ -2,8 +2,9 @@
 -- the program, so `stitchwort run Aoc.Year2024.Day08.main` doesn't check them.
 
 namespace Aoc.Year2024.Day08.Tests
+import Aoc.Common (Position, positions)
 import Aoc.Year2024.Day08 (..)
-import Aoc.Year2024.Day08.Spec (isAntinode, isHarmonicAntinode, part1, part2, positions)
+import Aoc.Year2024.Day08.Spec (isAntinode, isHarmonicAntinode, part1, part2)
 import Std (Fail, List, Nat, Result, Text)
 
 def example: Text := """
@@ -81,7 +82,7 @@ def city (input: Text): City := Fail.orElse { height = 0, width = 0, antennas = 
 
 def parsed (input: Text): Result City Text := Fail.toResult (() => parseCity input)
 
-def at (row: Int) (column: Int): Position := { row, column }
+def at (row: Nat) (column: Nat): Position := { row, column }
 
 -- The program's part 1 antinodes on the map, as a sorted list.
 def antinodes (input: Text): List Position :=
@@ -124,4 +125,11 @@ test "example, the spec agrees" := part1 (city example) == 14 && part2 (city exa
 test "small examples, the spec agrees" :=
   [twoAntennas, threeAntennas, loneA, threeT, "a...\n....\n....\n...a", "c.....\n......\n..c...\n......\n......\n......"].all (input =>
     part1 (city input) == solvePart1 (city input) && part2 (city input) == solvePart2 (city input))
-test "every location on the map" := positions (city "ab\n..\n..") |> .length == 6
+test "every location on the map" := (let map := city "ab\n..\n.."; positions map.height map.width |> .length == 6)
+
+-- Why part 2 is proved only for antennas on the map: two antennas far
+-- below a map one cell big are in line with its cell, 100 steps away, more
+-- than `harmonics` takes. (The parser only makes antennas on the map.)
+def pastTheMap: City := { height = 1, width = 1, antennas = [{ frequency = 'a', position = at 100 0 }, { frequency = 'a', position = at 101 0 }] }
+
+test "antennas past the map, part 2" := solvePart2 pastTheMap == 0 && part2 pastTheMap == 1

@@ -22,7 +22,7 @@ These aren't style. A lane that breaks one has to say so in its report.
    with why the statement is false or out of reach without it. Our lanes did
    this every time (8 cases, all disclosed: agentic-proving.md §5 J). For example, AoC day 8
    proves part 2 only for antennas on the map, and says why that's needed:
-   antennas at rows -100 and -99 would break it (aoc/NOTES-2024.md:2090–2096).
+   antennas at rows 100 and 101 below a 1 by 1 map would break it (aoc/NOTES-2024.md:2090–2096).
    Day 19 states that every theorem takes `Striped patterns`
    (aoc/NOTES-2024.md:6019); day 21 that `part1Correct` and `part2Correct`
    assume `Optimal` (aoc/NOTES-2024.md:6988).

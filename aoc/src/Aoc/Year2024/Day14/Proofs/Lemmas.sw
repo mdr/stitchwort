@@ -2,6 +2,7 @@
 -- `Int.modNat`, and iterating a wrapped step is wrapping the sum.
 
 namespace Aoc.Year2024.Day14.Proofs
+import Aoc.Common.Proofs (modNatSmall)
 import Std (Bool, DecEq, Eq, Int, List, Nat, Option, Void)
 
 -- One tile forward on a line of `size` tiles is adding 1 and wrapping.
@@ -42,11 +43,6 @@ theorem backwardWrap: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size
 -- Stated over a variable so that `omega` sees `y.toInt - 1`, not what
 -- `Succ x` computes to.
 theorem toIntPred (y: Nat) (positive: 0 < y): y.toInt - 1 = (y - 1).toInt := omega
-
--- A tile inside the space wraps to itself.
-theorem modNatSmall: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size → Int.modNat x.toInt size [ok := ok] = x
-  | Zero, ok, x, inside => Void.exfalso (ok rfl)
-  | Succ n, ok, x, inside => Nat.modSmall x (Succ n) inside
 
 -- A step that adds `distance` and wraps, taken `times` times, adds
 -- `times * distance` and wraps.

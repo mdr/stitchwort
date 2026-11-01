@@ -2090,9 +2090,9 @@ and 1 wide).
 Not proved: the parser (tested); that `solvePart1 city ≤ solvePart2 city`
 (the subset is proved, but std has no lemma that a subset is no bigger,
 item 4); and part 2 without the hypothesis that antennas are on the map,
-which would be false: antennas at rows -100 and -99 of column 0 are in line
-with (0, 0), 100 steps away, more than `harmonics` takes on a small map.
-The parser only makes antennas on the map.
+which would be false: antennas at rows 100 and 101 of column 0 are in line
+with (0, 0) of a 1 by 1 map, 100 steps away, more than `harmonics` takes
+(a test; rows -100 and -99 before SW-992). The parser only makes antennas on the map.
 
 ### 1. `omega` doesn't work on `Int`
 

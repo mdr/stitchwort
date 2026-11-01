@@ -2,25 +2,21 @@
 -- computes these, for every city (part 2: whose antennas are on the map).
 
 namespace Aoc.Year2024.Day08.Spec
+import Aoc.Common (Position, positions)
 import Aoc.Year2024.Day08 (..)
 import Std (Bool, Int, List, Nat, Set)
-
--- Every location on the map.
-def positions (city: City): List Position :=
-  List.range city.height
-    |> .flatMap (row => List.range city.width |> .map (column => ({ row = row.toInt, column = column.toInt }: Position)))
 
 -- "Perfectly in line": the directions from `point` to `first` and to
 -- `second` are parallel (their cross product is 0), or one of them is 0.
 def inLine (point: Position) (first: Position) (second: Position): Bool :=
   let toFirst := first.minus point
   let toSecond := second.minus point
-  toFirst.row * toSecond.column - toFirst.column * toSecond.row == 0
+  toFirst.rows * toSecond.columns - toFirst.columns * toSecond.rows == 0
 
 -- The square of the distance between two points.
 def squaredDistance (from: Position) (to: Position): Int :=
   let difference := to.minus from
-  difference.row * difference.row + difference.column * difference.column
+  difference.rows * difference.rows + difference.columns * difference.columns
 
 -- "One of the antennas is twice as far away as the other": `far` is twice as
 -- far from `point` as `near` is (compared squared, since distances are never
@@ -46,7 +42,7 @@ def isAntinode (city: City) (point: Position): Bool :=
 def isHarmonicAntinode (city: City) (point: Position): Bool := twoAntennas city (first second => inLine point first second)
 
 -- "Unique locations within the bounds of the map" that `isAntinode`.
-def antinodeLocations (city: City) (isAntinode: Position → Bool): Set Position := Set.fromList (positions city) |> .filter isAntinode
+def antinodeLocations (city: City) (isAntinode: Position → Bool): Set Position := Set.fromList (positions city.height city.width) |> .filter isAntinode
 
 -- "How many unique locations within the bounds of the map contain an
 -- antinode?"

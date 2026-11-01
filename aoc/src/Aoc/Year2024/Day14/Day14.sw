@@ -11,6 +11,7 @@
 -- `Aoc.Year2024.Day14.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day14
+import Aoc.Common (Offset, Position)
 import Std (Fail, IO, Int, List, Nat, Option, Parse, Text)
 import Std.Parse (int, nat, text)
 
@@ -37,13 +38,8 @@ def solveIn (space: Space): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 space robots}"
   IO.print "Part 2: ${solvePart2 space robots |> .fold "none" Nat.toText}"
 
--- A tile: `x` tiles from the left wall, `y` from the top.
-type Position = { x: Nat, y: Nat }
-
--- Tiles per second; positive `x` is right, positive `y` down.
-type Velocity = { x: Int, y: Int }
-
-type Robot = { position: Position, velocity: Velocity }
+-- Where a robot is, and its velocity: tiles moved per second.
+type Robot = { position: Position, velocity: Offset }
 
 -- The space the robots are in, `width` tiles wide and `height` tall.
 type Space = { width: Nat, height: Nat, widthPositive: width ≠ 0, heightPositive: height ≠ 0 }
@@ -51,33 +47,31 @@ type Space = { width: Nat, height: Nat, widthPositive: width ≠ 0, heightPositi
 def Space.of (width: Nat) (height: Nat) [auto widthPositive: width ≠ 0] [auto heightPositive: height ≠ 0]: Space :=
   { width, height, widthPositive, heightPositive }
 
--- One robot: "p=0,4 v=3,-3".
+-- One robot: "p=0,4 v=3,-3", `x` then `y` (a column, then a row).
 def robotLine(): {Parse} Robot :=
   text "p="
-  let x := nat()
+  let column := nat()
   text ","
-  let y := nat()
+  let row := nat()
   text " v="
-  let dx := int()
+  let columns := int()
   text ","
-  let dy := int()
-  { position = { x, y }, velocity = { x = dx, y = dy } }
+  let rows := int()
+  { position = { row, column }, velocity = { rows, columns } }
 
 -- One robot per line.
 def parseRobots (input: Text): {Fail} (List Robot) := Parse.eachLine input robotLine
 
 -- Whether a tile is inside the space.
-def Space.contains (space: Space) (position: Position): Bool := position.x < space.width && position.y < space.height
+def Space.contains (space: Space) (position: Position): Bool := position.within space.height space.width
 
--- `coordinate` on a line of `size` tiles that wraps round.
-def wrap (size: Nat) [auto ok: size ≠ 0] (coordinate: Int): Nat := Int.modNat coordinate size
+-- The tile `offset` from `position`, wrapping round the space's edges.
+def Space.wrap (space: Space) (position: Position) (offset: Offset): Position :=
+  position.wrap offset space.height space.width [tall := space.heightPositive] [wide := space.widthPositive]
 
--- Where `robot` is after `seconds` seconds: each coordinate moves the
--- velocity times the seconds, wrapping round the space.
-def Space.positionAfter (space: Space) (seconds: Nat) (robot: Robot): Position := {
-  x = wrap space.width [ok := space.widthPositive] (robot.position.x.toInt + seconds.toInt * robot.velocity.x),
-  y = wrap space.height [ok := space.heightPositive] (robot.position.y.toInt + seconds.toInt * robot.velocity.y)
-}
+-- Where `robot` is after `seconds` seconds: the velocity times the
+-- seconds away, wrapping round the space.
+def Space.positionAfter (space: Space) (seconds: Nat) (robot: Robot): Position := space.wrap robot.position (robot.velocity.times seconds.toInt)
 
 def Space.positionsAfter (space: Space) (seconds: Nat) (robots: List Robot): List Position := robots.map (space.positionAfter seconds)
 
@@ -93,9 +87,9 @@ def quadrants: List Quadrant := [TopLeft, TopRight, BottomLeft, BottomRight]
 def Space.quadrantOf (space: Space) (position: Position): Option Quadrant :=
   let middleColumn := space.width / 2
   let middleRow := space.height / 2
-  if position.x == middleColumn || position.y == middleRow then None
-  else if position.y < middleRow then Some (if position.x < middleColumn then TopLeft else TopRight)
-  else Some (if position.x < middleColumn then BottomLeft else BottomRight)
+  if position.column == middleColumn || position.row == middleRow then None
+  else if position.row < middleRow then Some (if position.column < middleColumn then TopLeft else TopRight)
+  else Some (if position.column < middleColumn then BottomLeft else BottomRight)
 
 -- The numbers of robots in the four quadrants, multiplied.
 def Space.safetyFactor (space: Space) (positions: List Position): Nat :=

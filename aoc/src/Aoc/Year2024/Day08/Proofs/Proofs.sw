@@ -6,39 +6,22 @@
 -- Part2.sw, and the integer arithmetic they need in Ints.sw.
 
 namespace Aoc.Year2024.Day08.Proofs
+import Aoc.Common (Position, positions)
+import Aoc.Common.Proofs (memPositions)
 import Aoc.Year2024.Day08 (..)
 import Aoc.Year2024.Day08.Spec (..)
 import Std (And, Bool, DecEq, Eq, Int, Iff, List, Map, Nat, Set, Void)
 
--- The map location at a row and a column.
-def place (row: Nat) (column: Nat): Position := { row = row.toInt, column = column.toInt }
-
 -- A location on the map is in `positions`, and only those are.
-theorem positionsOnMap (city: City): (position: Position) → city.contains position = True →
-    (positions city).any (other => Map.Spec.sameKey position other) = True
-  | { row = OfNat row, column = OfNat column }, inside =>
-    let inRow := List.memMap (List.range city.width) column (List.memRangeFromIntro column city.width 0 (omega) (omega)) (place row)
-    let member :=
-      List.memFlatMapIntro (row => List.range city.width |> .map (place row)) row (place row column) (List.range city.height)
-        (List.memRangeFromIntro row city.height 0 (omega) (omega)) inRow
-    List.anyOfMem (positions city) (other => Map.Spec.sameKey (place row column) other) (place row column)
-      (rewrite Map.Spec.sameKeyDecide (place row column) (place row column) in DecEq.refl (place row column)) member
-  | { row = OfNat row, column = NegSucc column }, inside => omega
-  | { row = NegSucc row, column }, inside => Void.exfalso (Bool.falseNotTrue inside)
+theorem positionsOnMap (city: City) (position: Position) (inside: city.contains position = True):
+    (positions city.height city.width).any (other => Map.Spec.sameKey position other) = True :=
+  List.anyOfMem (positions city.height city.width) (other => Map.Spec.sameKey position other) position
+    (rewrite Map.Spec.sameKeyDecide position position in DecEq.refl position) ((memPositions city.height city.width position).backward inside)
 
-theorem positionsOnlyOnMap (city: City) (position: Position) (has: (positions city).any (other => Map.Spec.sameKey position other) = True):
+theorem positionsOnlyOnMap (city: City) (position: Position) (has: (positions city.height city.width).any (other => Map.Spec.sameKey position other) = True):
     city.contains position = True :=
-  List.anyTrueElim (positions city) (other => Map.Spec.sameKey position other) (city.contains position = True) has (other member same =>
-    rewrite Map.Spec.sameKeySound position other same in
-    List.anyElim (row => other ∈ (List.range city.width |> .map (place row))) (city.contains other = True) (List.range city.height)
-      (List.memFlatMapElim (row => List.range city.width |> .map (place row)) other (List.range city.height) member)
-      (row rowMember inRow =>
-        List.anyElim (column => place row column = other) (city.contains other = True) (List.range city.width)
-          (List.memMapAny (List.range city.width) (place row) other inRow)
-          (column columnMember built =>
-            let rowSmall := List.memRangeFrom row city.height 0 rowMember
-            let columnSmall := List.memRangeFrom column city.width 0 columnMember
-            rewrite <- built in omega [rowSmall, columnSmall])))
+  List.anyTrueElim (positions city.height city.width) (other => Map.Spec.sameKey position other) (city.contains position = True) has (other member same =>
+    rewrite Map.Spec.sameKeySound position other same in (memPositions city.height city.width other).forward member)
 
 -- Two antennas the spec pairs: of the same frequency, at different places.
 def sameFrequency (first: Antenna) (second: Antenna): Bool := first.frequency == second.frequency && first.position != second.position
@@ -77,8 +60,8 @@ theorem locationsCorrect (city: City) (pick: (Position, Position) → List Posit
   let found := city.antennaPairs.flatMap pick
   let isSpec := (point: Position) => twoAntennas city (holds point)
   Set.ext (city.locations found) (antinodeLocations city isSpec) (key =>
-    rewrite Set.containsFromList key (found.filter city.contains), Set.containsFilter (Set.fromList (positions city)) key isSpec,
-      Set.containsFromList key (positions city) in
+    rewrite Set.containsFromList key (found.filter city.contains), Set.containsFilter (Set.fromList (positions city.height city.width)) key isSpec,
+      Set.containsFromList key (positions city.height city.width) in
     Bool.eqOf _ _
       (has =>
         List.anyTrueElim (found.filter city.contains) (other => Map.Spec.sameKey key other) _ has (point member same =>

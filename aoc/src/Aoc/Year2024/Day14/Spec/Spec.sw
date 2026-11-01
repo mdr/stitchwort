@@ -3,8 +3,13 @@
 -- quadrants by how many tiles lie on each side, and, for part 2, the
 -- criterion this solution takes for the picture. The proofs (Proofs/) show
 -- the program computes these, for every list of robots in the space.
+--
+-- The puzzle's `x` is a tile's column, counted from the left wall, and its
+-- `y` the tile's row, counted from the top: a position's `column` and
+-- `row`, and a velocity's `columns` and `rows`.
 
 namespace Aoc.Year2024.Day14.Spec
+import Aoc.Common (Offset, Position)
 import Aoc.Year2024.Day14 (..)
 import Std (List, Nat)
 
@@ -24,10 +29,10 @@ def move (size: Nat) (tiles: Int) (coordinate: Nat): Nat :=
     | NegSucc steps => (Succ steps).iterate (backward size) coordinate
 
 -- "x and y are given in tiles per second": one second moves the robot
--- `velocity.x` tiles across and `velocity.y` tiles down.
-def second (space: Space) (velocity: Velocity) (position: Position): Position := {
-  x = move space.width velocity.x position.x,
-  y = move space.height velocity.y position.y
+-- `velocity.columns` tiles across and `velocity.rows` tiles down.
+def second (space: Space) (velocity: Offset) (position: Position): Position := {
+  row = move space.height velocity.rows position.row,
+  column = move space.width velocity.columns position.column
 }
 
 -- Where a robot is after `seconds` seconds, one second at a time.
@@ -39,13 +44,13 @@ def after (space: Space) (seconds: Nat) (robot: Robot): Position := seconds.iter
 -- tile is in the left half when more tiles lie to its right than to its
 -- left, and in the right half when fewer do; the middle column has as many
 -- each side. The same for the top and bottom halves.
-def isLeft (space: Space) (position: Position): Bool := position.x < space.width - 1 - position.x
+def isLeft (space: Space) (position: Position): Bool := position.column < space.width - 1 - position.column
 
-def isRight (space: Space) (position: Position): Bool := space.width - 1 - position.x < position.x
+def isRight (space: Space) (position: Position): Bool := space.width - 1 - position.column < position.column
 
-def isTop (space: Space) (position: Position): Bool := position.y < space.height - 1 - position.y
+def isTop (space: Space) (position: Position): Bool := position.row < space.height - 1 - position.row
 
-def isBottom (space: Space) (position: Position): Bool := space.height - 1 - position.y < position.y
+def isBottom (space: Space) (position: Position): Bool := space.height - 1 - position.row < position.row
 
 -- How many of `positions` satisfy both.
 def countWhere (positions: List Position) (first: Position → Bool) (second: Position → Bool): Nat :=
