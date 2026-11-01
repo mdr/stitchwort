@@ -1629,7 +1629,10 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
             // type turns out to be: decided by its syntax, as a `Nat`, not
             // by the literal waiting for its type while the arguments ask
             // for a function (stage 7, D2126).
-            Expr::Num(n, _) => (Term::Nat(Rc::new(n.clone())), Value::Data(nat(cx)?, Vec::new())),
+            Expr::Num(n, _) => (
+                Term::Nat(Rc::new(n.clone())),
+                Value::Data(nat(cx)?, Vec::new()),
+            ),
             _ => infer(cx, head)?,
         };
         return apply_args(cx, head, args);
@@ -3917,7 +3920,11 @@ fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     let (a, ty) = infer(cx, a)?;
     let (a, ty) = insert(cx, a, ty)?;
     let b = check(cx, b, &ty)?;
-    let joined = Append { a, b, ty: ty.clone() };
+    let joined = Append {
+        a,
+        b,
+        ty: ty.clone(),
+    };
     if let Value::Neutral(Head::Meta(_), _) = force(cx.g(), ty.clone())? {
         let error = joined.error(cx);
         let term = crate::queue::queue(cx, Rc::new(joined), ty.clone(), ty.clone(), error)?;
