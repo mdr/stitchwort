@@ -9,7 +9,7 @@ Tests are only useful while they aren't friction, so they run in four tiers, eac
 | Tier | Command | Budget | When | What |
 |---|---|---|---|---|
 | lane | `task test:lane AREA=…` | under 10 s | while working, in a subagent lane | a handful of fast tests for one area (the map below) |
-| merge | `task test:merge` | under 60 s | after every merge | rustfmt, then a broad smoke test: every lane area, a quarter of the accepted, rejected and soundness examples, every AoC day's answers, every example's hash snapshots, every extraction example's generated JS and `.d.ts` snapshots, the `goal_index` tests |
+| merge | `task test:merge` | under 60 s | after every merge | rustfmt, then a broad smoke test: every lane area, a quarter of the accepted, rejected and soundness examples, every AoC day's answers but 2021 day 15's (about 50 s under load, interpreted Dijkstra on 250,000 cells; daily and up), every example's hash snapshots, every extraction example's generated JS and `.d.ts` snapshots, the `goal_index` tests |
 | daily | `task test:daily` | under 5 minutes | a daily checkpoint; `nix flake check` runs the same | rustfmt, clippy, every test with each corpus sweep on a fixed sample, the doctests, `builtins` in the debug profile, the board's tests |
 | full | `task test:full` | tens of minutes | only when Matt asks | every test, every sweep over the whole corpus, the full-only tests |
 
