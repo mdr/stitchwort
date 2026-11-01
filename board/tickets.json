@@ -3929,7 +3929,7 @@
     {
       "id": 1048,
       "title": "Waiting literals: slim the per-literal queue item (check-list-rfl still +72% steps, +139% allocations, +227% peak heap vs baseline)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3939,7 +3939,9 @@
       "body": "From SW-1047 (1 Nov 2026). After the quadratic fix, a linear cost remains from SW-986 (step 4.3): each queued literal carries its saved context and an error diagnostic (~13 steps, 32 allocations, 2.5 KB heap per literal). Slim it (e.g. build the error lazily, share context); then re-record the bench baseline for what remains, with the reason.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "9d3cc4b0"
+      ]
     },
     {
       "id": 1049,
