@@ -4184,7 +4184,7 @@ exactly when it is in the list.
 
 ### Proved, for every target the parser accepts
 
-In `Aoc.Year2021.Day17.Proofs` (Proofs/, 6 files, 356 lines, 48
+In `Aoc.Year2021.Day17.Proofs` (Proofs/, 6 files, 317 lines, 44
 theorems):
 
 - **The step is the puzzle's**: `stepIsMove` (the program's `dx - sign
@@ -4232,8 +4232,8 @@ Not proved: nothing left open. The two hypotheses, `0 < left` and `top
 `left ≤ right` or `bottom ≤ top`. No opaque definitions. Day 14's
 `maximumSome` and `maximumNone` are imported.
 
-`stitchwort audit Aoc.Year2021.Day17`: `audited 54 theorems: 0 failed, 2
-with warnings, 52 passed`. Both warnings are narrow hypotheses:
+`stitchwort audit Aoc.Year2021.Day17`: `audited 50 theorems: 0 failed, 2
+with warnings, 48 passed`. Both warnings are narrow hypotheses:
 `parseTargetPlaced` (random texts never parse; SW-967 item 8) and
 `hitsCandidate` (random velocities never hit the random target). The
 test theorem `exampleHitIsCandidate` applies `hitsCandidate` to 7,2 on
@@ -4344,7 +4344,7 @@ Release build:
 | `stitchwort run Aoc.Year2021.Day17.main` on the input | 0.41 s user (0.97 s with `--no-cache`) |
 | `stitchwort check --no-cache Aoc.Year2021.Day17.Proofs Aoc.Year2021.Day17.Tests` | 3.9 s user |
 
-117 lines of program, 38 of spec, 356 of proofs, 60 of tests.
+117 lines of program, 38 of spec, 317 of proofs, 60 of tests.
 
 ### Ranked
 
