@@ -1,5 +1,5 @@
 {
-  "next": 970,
+  "next": 972,
   "tickets": [
     {
       "id": 47,
@@ -2706,6 +2706,37 @@
         "friction"
       ],
       "body": "From AoC 2021 day 13 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) search --at refuses goals after a match on a constructor with fields: `E-SEARCH-AT … unknown name 'line'`. The goal context lists a refined hypothesis before the pattern variable it mentions (`h: line < 3` above `line: Nat`); equation-style inductions do the same. 13-line repro in NOTES-2021 day 13. No workaround. Fix: order the context by dependency in the goal display and in search (small-medium). High value: it blocks search --at on most proofs after a match.\n(2) A `cases` argument solved its call's holes before the expected type: `P.ext _ _ cases cases` said \"expected `q = shift b p`, but this has type `q = q`\". 6-line repro in notes. Workaround: write the values. Fix: unify result with expected type before checking proof arguments (medium; same family as SW-963 (2), SW-967 (3)).\n(3) List.foldRight doesn't compute on Cons (it's foldLeft over the reverse), so omega can't use it. Workaround: lemmas from List.foldRightCons. Fix: note at foldRight or a structural definition (small).\n(4) Search pattern `P → _` seems to match P only as the first premise: `List.find _ _ = None → _` missed List.findNoneNotMem (small).\n(5) cases prints two different variables both as x✝/y✝ (`spot = { x = x✝, … }, dot = { x = x✝, … }`). Fix: number them (small).\n(6) Definitions/theorems whose result is a defined function type need a pattern for the hidden argument; the message explains it well; worth a doc line (small).\n(7) New evidence for SW-967 (8): audit also warns when a hypothesis is membership in a function's output.\nSeen again: no eta for records (SW-960 (4)).\nStd candidates: List.get of map over List.range (Some below n, None past it); List.get (List.range n) i; members below the list maximum.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 970,
+      "title": "AoC 2021 day 14: Extended Polymerization (pair counts proved against string spec)",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "AoC 2021 day 14 (Extended Polymerization) in aoc/src/Aoc/Year2021/Day14: pair-count program, string spec, proof that pair counts commute with a step for all n, parser guarantee (one rule per pair), friction list in NOTES-2021.\n\nProgress:\n- 1 Nov: answers right first run (2712, 8336623059567; 0.30 s). 15 tests pass.\n- 1 Nov: all proved, nothing open. spreadAfterCorrect for every n under OneRulePerPair (distinct rule pairs); parser proves it; part1/2FromInput hypothesis-free. audit: 54 theorems, 0 failed, 2 warnings (FromInput parse hypotheses, SW-967 item 8).\n- 1 Nov: committed 01c4f769 on worktree-agent-acfd22a1ac7d5f686 (not merged). New friction: holes from elaboration order seen only inside failing omega goals; search --at misses Eq.sym of a lemma and prints lifted %match names; no Decidable List.Distinct (counterexample search skips main theorems); no List.maximum lemmas.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": [
+        "01c4f769"
+      ]
+    },
+    {
+      "id": 971,
+      "title": "Day 14: unsolved holes surface only in omega goals; search --at no symmetric/IH candidates; %match1 names printed; class laws unsearchable; no Decidable List.Distinct; List.maximum lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "friction"
+      ],
+      "body": "From AoC 2021 day 14 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) Holes appear only inside a failing omega goal, with no error at the hole: a lambda's `entry.snd` became `?15 …` (lambda before the argument fixing its type; workaround annotate); an `[auto eq: DecEq a]` argument still unsolved when a later omega argument was checked (workaround: prove the fact first in a typed let). Same family as SW-963 (2), SW-967 (3), SW-969 (2), new symptom. Fix: solve auto arguments first, or name the unsolved hole (medium).\n(2) search --at doesn't try a lemma backwards: missed Eq.sym (List.sumByFlatMap …) though plain search lists it first. Fix: try each closing candidate's symmetric form (small-medium).\n(3) Lifted matches/fields print by internal names in goals and search --at: expand.%match1, Map.lookupLast.%match1, Ord.%compare, Add.%zero, DecEq.%decide. Fix: fold back to the definition (small-medium).\n(4) Class laws aren't searchable: `search 'Ord.compare ?x ?y = Equal → ?x = ?y'` finds nothing (law is record field ord.equal). Fix: index class laws as lemmas (small-medium).\n(5) search --at can't offer the induction hypothesis (medium).\n(6) No Decidable (List.Distinct xs); audit message says it twice (\"nothing decides X: no way to decide X\") (small).\n(7) No List.maximum lemmas though List.minimum has them; copied for Nat (small).\nStd candidates: membership ↔ 0 < count; sumByPositive; Map.lookupLast on distinct keys = find; weighted sum after Map.insertWith Nat.add; Ord.compare x y = Equal → x = y; element count from zipWithNext; List.maximum lemmas.\nsearch --at: 5 goals, closed none; once its applies list had the right next step.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
