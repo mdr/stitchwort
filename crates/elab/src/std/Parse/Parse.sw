@@ -380,10 +380,15 @@ def Parse.many1 (parser: () → {Parse} a): {Parse} (List a) :=
 def Parse.repeatOptional (count: Nat) (parser: () → {Parse} a) (found: List a): {Parse} (List a) :=
   match count with
     | Zero => found.reverse
-    | Succ more =>
-      match Parse.optional parser with
-        | Some value => Parse.repeatOptional more parser (Cons value found)
-        | None => found.reverse
+    | Succ more => Parse.onFound (Parse.optional parser) (value => Parse.repeatOptional more parser (Cons value found)) (() => found.reverse)
+
+-- `next` of what was found, else `done`. A function of its own, not a
+-- `match` in the loops that use it, so that proofs (Parse/Reads.sw) can
+-- name it.
+def Parse.onFound (found: Option a) (next: a → {Parse} b) (done: () → {Parse} b): {Parse} b :=
+  match found with
+    | Some value => next value
+    | None => done()
 
 -- `parser` `count` times, failing as it fails, then at most `extra` more
 -- times while it succeeds. `found` is newest first.
@@ -474,8 +479,10 @@ def Parse.looseGrid (cell: () → {Parse} a): {Parse} (List (List a)) := Parse.m
 
 -- `parser`'s value and whether it read anything, or `None` with the input
 -- as it was if it fails: `optional` with the progress check built in.
-def Parse.attempt (parser: () → {Parse} a): {Parse} (Option (a, Bool)) :=
-  let start := Parse.mark()
+def Parse.attempt (parser: () → {Parse} a): {Parse} (Option (a, Bool)) := Parse.attemptFrom Parse.mark() parser
+
+-- `attempt` once it has marked where it started.
+def Parse.attemptFrom (start: Parse.Mark) (parser: () → {Parse} a): {Parse} (Option (a, Bool)) :=
   handle parser() with
     | return value =>
       let finish := Parse.mark()
@@ -503,10 +510,7 @@ def Parse.findAllFuel (fuel: Nat) (skipNoise: () → {Parse} ()) (parser: () →
       let attempt := Parse.attempt parser
       let foundNow := attempt.map (matched => Cons matched.fst found) |> .getOrElse found
       if attempt.map (matched => matched.snd) |> .getOrElse False then Parse.findAllFuel more skipNoise parser foundNow
-      else
-        match Parse.next (char => True) with
-          | Some skipped => Parse.findAllFuel more skipNoise parser foundNow
-          | None => foundNow.reverse
+      else Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise parser foundNow) (() => foundNow.reverse)
 
 -- The values of `parser` everywhere it matches in the rest of the input,
 -- left to right, without overlapping, as Python's `re.findall`: where it
