@@ -1,5 +1,5 @@
 {
-  "next": 972,
+  "next": 974,
   "tickets": [
     {
       "id": 47,
@@ -2737,6 +2737,37 @@
         "friction"
       ],
       "body": "From AoC 2021 day 14 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) Holes appear only inside a failing omega goal, with no error at the hole: a lambda's `entry.snd` became `?15 …` (lambda before the argument fixing its type; workaround annotate); an `[auto eq: DecEq a]` argument still unsolved when a later omega argument was checked (workaround: prove the fact first in a typed let). Same family as SW-963 (2), SW-967 (3), SW-969 (2), new symptom. Fix: solve auto arguments first, or name the unsolved hole (medium).\n(2) search --at doesn't try a lemma backwards: missed Eq.sym (List.sumByFlatMap …) though plain search lists it first. Fix: try each closing candidate's symmetric form (small-medium).\n(3) Lifted matches/fields print by internal names in goals and search --at: expand.%match1, Map.lookupLast.%match1, Ord.%compare, Add.%zero, DecEq.%decide. Fix: fold back to the definition (small-medium).\n(4) Class laws aren't searchable: `search 'Ord.compare ?x ?y = Equal → ?x = ?y'` finds nothing (law is record field ord.equal). Fix: index class laws as lemmas (small-medium).\n(5) search --at can't offer the induction hypothesis (medium).\n(6) No Decidable (List.Distinct xs); audit message says it twice (\"nothing decides X: no way to decide X\") (small).\n(7) No List.maximum lemmas though List.minimum has them; copied for Nat (small).\nStd candidates: membership ↔ 0 < count; sumByPositive; Map.lookupLast on distinct keys = find; weighted sum after Map.insertWith Nat.add; Ord.compare x y = Equal → x = y; element count from zipWithNext; List.maximum lemmas.\nsearch --at: 5 goals, closed none; once its applies list had the right next step.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 972,
+      "title": "AoC 2021 day 15: Chiton (Dijkstra via std Graph, proofs)",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "AoC 2021 day 15 (Chiton) in aoc/src/Aoc/Year2021/Day15/: lowest total risk through a grid of levels, part 2 on the map tiled 5x5. Uses std Graph.distances + Graph.distancesShortest. Spec in the puzzle terms (a path with that risk exists, none lower), tiled level as a function of position; parser guarantee (D2108). Friction list in NOTES-2021. Lane worktree agent-aed04f17f1d0c4748.\n\nProgress 1 Nov: commit 769b3908 on worktree-agent-aed04f17f1d0c4748. Answers 656/2979; fully proved (part1FromInput, part2FromInput, no hypothesis); audit 35 passed, 0 warnings. Run 17.6 s interpreted (20 s --no-cache, merge-tier test 23 s), 4.5 s --native, 2.9 s --js. Ready for review; friction ranked in NOTES-2021 day 15 (std Map/Set speed + heap for Dijkstra; closure recomputing a list length doubled the run; counterexample search inapplicable to all main theorems; rewrite with a function equation fails with an elided mismatch, J works; total div/mod).\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": [
+        "769b3908"
+      ]
+    },
+    {
+      "id": 973,
+      "title": "Day 15: Map/Set slow in interpreter (heap PQ for Dijkstra); hoisting field reads 2x speed; counterexample search skips records with functions; rewrite fn-equation hidden diff; division needs nonzero proof",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "friction"
+      ],
+      "body": "From AoC 2021 day 15 (aoc/NOTES-2021.md, 1 Nov 2026). Run: 17.6 s interpreted (20.3 s --no-cache; ~50 s in the loaded merge tier, now daily-only), 4.5 s --native, 2.9 s --js.\n(1) Std Map/Set are slow in the interpreter: 250,000 ordered inserts into Map Nat Nat ~1.7 s, ~3.8 s with Position keys; most of part 2's search time. Building every edge 1.6 s. Fix: heap-based priority queue for Graph.distances (medium); runtime-backed maps (large).\n(2) A field read inside a lambda is recomputed every call: `position.row % cave.height` recomputed rows.length 4x per call; 31.7 s -> 17.6 s by hoisting `let height := cave.height`. Nothing warns. Fix: performance doc line (small); lift such reads when compiling (medium).\n(3) Counterexample search skips the main theorems: \"no inputs for `risks`\" (record with a function field) and \"nothing decides\" Rectangle (∀ over list members). Fix: decide that ∀ as xs.all (small-medium); generate function fields from finite tables (medium).\n(4) rewrite with an equation between functions fails with a hidden difference: `rewrite same in …` (same: levelAt cave = cave.risks.levelAt) E-TYPE-MISMATCH with both sides printed the same (difference inside …); `rewrite <- height` likewise; J with explicit motive works. Cause speculative. Fix: print the first differing subterm (small-medium).\n(5) / and % need a nonzero-divisor proof: nested `if tall: … if wide:` in program and spec, Nat.decEq matches in proofs. Fix: total division as in Lean, or variants (design question; ties to division track).\n(6) Messages: Bool.andLeft _ _ rest2 on a refined rest2 gave E-UNSOLVED without the helpful \"already refined\" note (small). A goal printed a Map's internal tree over thousands of characters (small). Errors printed twice when a namespace failed to load (small).\n(7) search --at couldn't see Graph.distancesShortest closes the minimality goal because the conclusion is a defined Prop of two conjuncts; fix: index each conjunct (medium). Plain search missed Nat.divLeOfLtMul (stated with Succ b * d, ≤ b).\nStd candidates: Graph.distancesReach (small); grid module: day 15 imports day 9's Position just for its lemmas (medium; SW-960, SW-965).\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
