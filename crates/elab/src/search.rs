@@ -35,7 +35,9 @@ type Result<T> = std::result::Result<T, Diagnostic>;
 type Res<T> = std::result::Result<T, stitchwort_core::ResourceError>;
 
 /// The limits of one match attempt: a comparison that needs more is no match
-/// (and is counted, as `outOfBudget`).
+/// (and is counted, as `outOfBudget`). Run as an attempt
+/// ([`stitchwort_core::budget::Budget::attempt`]): inside an operation, it
+/// may go as deep as that may, and `stack` only applies outside one.
 pub(crate) const ATTEMPT: Limits = Limits {
     work: 200_000,
     stack: 4 * 1024 * 1024,
@@ -889,7 +891,7 @@ impl Elaborator {
         let g = &self.globals;
         let was = g.glue.replace(self.glue);
         let made = (|| -> Res<Option<Pattern>> {
-            let _op = g.budget.operation(ATTEMPT);
+            let _op = g.budget.attempt(ATTEMPT);
             let def = g.def(id);
             let mut env: Vec<Value> = Vec::new();
             let mut t = def.ty.strip_loc();
@@ -929,7 +931,7 @@ impl Elaborator {
         let g = &self.globals;
         let was = g.glue.replace(self.glue);
         let made = (|| -> Res<Option<Pattern>> {
-            let _op = g.budget.operation(ATTEMPT);
+            let _op = g.budget.attempt(ATTEMPT);
             let def = g.def(lemma);
             let mut env: Vec<Value> = Vec::new();
             for _ in 0..depth {
@@ -1039,7 +1041,7 @@ impl Elaborator {
         let g = &self.globals;
         let was = g.glue.replace(self.glue);
         let found = (|| {
-            let _op = g.budget.operation(ATTEMPT);
+            let _op = g.budget.attempt(ATTEMPT);
             let v = eval(g, &[], ty)?;
             stitchwort_core::value::quote_folded(g, 0, &v)
         })();
@@ -1176,7 +1178,7 @@ impl Elaborator {
         let span = candidate.item.span(g);
         let mode = opts.mode;
         let found = (|| -> Res<Option<Hit>> {
-            let _op = g.budget.operation(ATTEMPT);
+            let _op = g.budget.attempt(ATTEMPT);
             // Frozen for a one-way match the pattern's way.
             let rigid: &[usize] = if pattern.distinct {
                 &pattern.free

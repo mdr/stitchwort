@@ -926,7 +926,7 @@ impl Reader {
             if a.sort != sort {
                 continue;
             }
-            let _op = g.budget.operation(Limits {
+            let _op = g.budget.attempt(Limits {
                 work: 20_000,
                 stack: 128 * 1024,
                 size: 10_000,
