@@ -50,8 +50,9 @@ def checkPassages (passages: List (Text, Text)): {Fail} (List (Text, Text)) :=
     | None => passages
 
 -- The first passage between two big caves, with its index.
-def firstBigPair (passages: List (Text, Text)): Option (Nat, (Text, Text)) :=
-  passages.withIndex.find (((_, (from, to))) => isBig from && isBig to)
+def firstBigPair (passages: List (Text, Text)): Option (Nat, (Text, Text)) := passages.withIndex.find (((_, passage)) => joinsBig passage)
+
+def joinsBig (passage: (Text, Text)): Bool := isBig passage.fst && isBig passage.snd
 
 -- Every cave named in a passage, each once.
 def caves (passages: List (Text, Text)): List Text := passages.flatMap (((from, to)) => [from, to]) |> .distinct

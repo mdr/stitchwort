@@ -17,6 +17,20 @@ test "two big caves joined" := parsed "start-A\nA-BC\nb-end\n" == Err "line 2: A
 test "no dash" := parsed "start-A\nAb\n" == Err "line 2, column 3: expected '-', got the end of the line"
 test "big and small" := isBig "A" ∧ isBig "HN" ∧ ¬isBig "start" ∧ ¬isBig "end" ∧ ¬isBig "dc" ∧ ¬isBig ""
 
+test "the example's ten paths" :=
+  ((paths example False).map (path => Text.join path ',') |> .sort)
+    == [
+      "start,A,b,A,c,A,end",
+      "start,A,b,A,end",
+      "start,A,b,end",
+      "start,A,c,A,b,A,end",
+      "start,A,c,A,b,end",
+      "start,A,c,A,end",
+      "start,A,end",
+      "start,b,A,c,A,end",
+      "start,b,A,end",
+      "start,b,end"
+    ]
 test "example, part 1" := solvePart1 example == 10
 test "example, part 2" := solvePart2 example == 36
 test "only start-end" := solvePart1 [("start", "end")] == 1 ∧ solvePart2 [("end", "start")] == 1
