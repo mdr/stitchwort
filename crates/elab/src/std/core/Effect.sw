@@ -1,8 +1,7 @@
 --| core/Effect.sw. The effect machinery: computations (`Effect.Comp`, `bind`),
 --| signatures and mappings between them, `Rec` and `Delay`.
--- Loaded with the
--- core: The registry's `sigCase` and the `Partial` and `Rec` built-ins use
--- these, so they are checked before any program
+-- Loaded with the core: The registry's `sigCase` and the `Partial` and `Rec`
+-- built-ins use these, so they are checked before any program
 -- (docs/proposals/prelude-slim.md §2.1).
 
 -- Computations (docs/proposals/abilities.md)
@@ -137,17 +136,18 @@ def Effect.runPure: [a: Type] → Comp NoOp NoRes a → a
   | Done x => x
   | Call () rest
 
+--| Effect-row parameters. A row parameter `e` in `{e}` or `{A | e}` is an
+--| `Effects`, used only as an index: either the empty row, or the operations
+--| and results of a row with at least one ability. Only the library may name
+--| the constructors of `Effects` and the definitions below that take a row
+--| apart; programs get rows only through `{e}` in types. So code abstract
+--| over an effects parameter can't construct, inspect, compare or branch on
+--| it. This is not parametricity in the strong sense: the type theory
+--| computes differently at the empty row by design (`CompIn Empty a` is `a`).
+-- (docs/proposals/effect-polymorphism.md, design C)
+-- (D1122)
 -- The elaborator never builds `Ops NoOp NoRes`: a row with no abilities is
 -- always `Empty` (the canonical form).
--- Effect-row parameters (docs/proposals/effect-polymorphism.md, design C). A
--- row parameter `e` in `{e}` or `{A | e}` is an `Effects`, used only as an
--- index: either the empty row, or the operations and results of a row with at
--- least one ability. Only the library may name the constructors of `Effects`
--- and the definitions below that take a row apart (D1122); programs get rows
--- only through `{e}` in types. So code abstract over an effects parameter
--- can't construct, inspect, compare or branch on it. This is not
--- parametricity in the strong sense: the type theory computes differently at
--- the empty row by design (`CompIn Empty a` is `a`).
 type Effect.Effects: Type 1 =
   | Empty
   | Ops (op: Type) (res: op → Type)
@@ -192,7 +192,7 @@ def Effect.lowerIn [a: Type]: (row: Effects) → Comp (rowOp row) (rowRes row) a
 --| followed by `t`, `preRes` their results. In the empty row it is the
 --| computation itself, so a closed computation moved into a row that turns
 --| out empty is left as written.
--- (docs/proposals/delayed-translate.md).
+-- (docs/proposals/delayed-translate.md)
 def Effect.widenIn [a: Type] (pre: Type → Type) (preRes: (t: Type) → (t → Type) → pre t → Type):
     (row: Effects) → SigMap (pre NoOp) (preRes NoOp NoRes) (pre (rowOp row)) (preRes (rowOp row) (rowRes row)) →
     Comp (pre NoOp) (preRes NoOp NoRes) a → Comp (pre (rowOp row)) (preRes (rowOp row) (rowRes row)) a
@@ -231,8 +231,8 @@ def Effect.RecRes [req: Type] (ans: req → Type): Rec req → Type
 --| A computation that may not finish: what `{Partial | e} a` stands for.
 --| These have no definitions, and nothing can look inside a `Delay`: only
 --| the runtime runs one, a step at a time.
--- The kernel admits them as
--- primitives, after checking their types are exactly these.
+-- The kernel admits them as primitives, after checking their types are
+-- exactly these.
 def Effect.Delay: (op: Type) → (res: op → Type) → Type → Type
 
 --| Finished, with this result.
@@ -255,10 +255,11 @@ def Effect.pfix: [op: Type] → [res: op → Type] → [req: Type] → [ans: req
   ((x: req) → Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)) →
   (x: req) → Delay op res (ans x)
 
---| `foldComp` with every result a `Delay`, so a handler around partial code is
---| partial. `done` gets the result, `call` each operation and the rest of
---| the computation, still handled.
--- The handler fold for a partial computation (docs/proposals/partial-handlers.md):
+--| The handler fold for a partial computation: `foldComp` with every result a
+--| `Delay`, so a handler around partial code is partial. `done` gets the
+--| result, `call` each operation and the rest of the computation, still
+--| handled.
+-- (docs/proposals/partial-handlers.md)
 def Effect.foldD: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [res2: op2 → Type] → [a b: Type] →
   (done: a → Delay op2 res2 b) →
   (call: (o: op1) → (res1 o → Delay op2 res2 b) → Delay op2 res2 b) →
@@ -267,10 +268,12 @@ def Effect.foldD: [op1: Type] → [res1: op1 → Type] → [op2: Type] → [res2
 -- Partiality through a bare row (docs/proposals/partial-stage-3.md, D1213).
 
 --| Whether a computation in a bare row `{e}` may not finish. A signature whose
---| row variable `e` appears only bare takes one of these beside `e` (D1214),
---| so a function like `List.map` takes partial callbacks: at `MayDiverge`
---| its computations are `Delay`s. Like `Effects`, only the library may name
---| it, its constructors and the definitions below (D1122).
+--| row variable `e` appears only bare takes one of these beside `e`, so a
+--| function like `List.map` takes partial callbacks: at `MayDiverge` its
+--| computations are `Delay`s. Like `Effects`, only the library may name it,
+--| its constructors and the definitions below.
+-- (D1214)
+-- (D1122)
 type Effect.Divergence: Type =
   | Total
   | MayDiverge

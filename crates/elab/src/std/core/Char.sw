@@ -1,8 +1,8 @@
 --| core/Char.sw. `Char`: scalar values, conversion to and from `Nat`,
 --| extensionality and decidable equality.
--- Loaded with the core: `Char` is
--- pinned by content hash for compact text and the JS backend, and `Text` is a
--- list of them (docs/proposals/prelude-slim.md §2.1).
+-- Loaded with the core: `Char` is pinned by content hash for compact text and
+-- the JS backend, and `Text` is a list of them (docs/proposals/prelude-slim.md
+-- §2.1).
 
 -- Characters
 

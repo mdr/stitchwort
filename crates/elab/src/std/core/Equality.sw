@@ -1,9 +1,8 @@
 --| core/Equality.sw. Equality lemmas (`Eq.cong`, `Eq.sym`, `Eq.trans`) and the
 --| facts that different constructors are different.
--- Loaded with the core:
--- `calc` and `deriving` write `Eq.sym` and `Eq.trans` in full, and every
--- decision procedure after this uses them (docs/proposals/prelude-slim.md
--- §2.1).
+-- Loaded with the core: `calc` and `deriving` write `Eq.sym` and `Eq.trans` in
+-- full, and every decision procedure after this uses them
+-- (docs/proposals/prelude-slim.md §2.1).
 
 --| Equality lemmas, all built from `J`.
 

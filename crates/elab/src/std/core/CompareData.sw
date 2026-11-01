@@ -1,8 +1,8 @@
 --| core/CompareData.sw. The same laws for `List` (lexicographic), `Pair`,
 --| `Option`, `Char` and `Text`.
--- Loaded with the core: `List.instOrd`,
--- `Pair.instOrd`, `Option.instOrd`, `Char.instOrd` and `Text.instOrd` need
--- them (docs/proposals/prelude-slim.md §2.1).
+-- Loaded with the core: `List.instOrd`, `Pair.instOrd`, `Option.instOrd`,
+-- `Char.instOrd` and `Text.instOrd` need them (docs/proposals/prelude-slim.md
+-- §2.1).
 
 --| Lexicographic comparison of lists, by a comparison of their elements:
 --| the first difference decides, and a list comes before its extensions.

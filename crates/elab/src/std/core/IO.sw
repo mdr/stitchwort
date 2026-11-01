@@ -1,16 +1,14 @@
 --| core/IO.sw. The `IO` ability and `IO.simulate`, which interprets it as
 --| data.
--- Loaded with the core: The runner calls `Std.Pair.fst (Std.IO.simulate
--- ...)`, and `IO` is a registry built-in (docs/proposals/prelude-slim.md
--- §2.1).
+-- Loaded with the core: The runner calls `Std.Pair.fst (Std.IO.simulate ...)`,
+-- and `IO` is a registry built-in (docs/proposals/prelude-slim.md §2.1).
 
 -- Input and output (docs/proposals/text-and-io.md, Part 2)
 
 --| What `IO.console` reports: whether standard input and output are
 --| terminals, and the terminal's size, 0 by 0 when it isn't known.
--- (docs/proposals/terminal-io.md §4.2).
--- A registry built-in, so the runners
--- can build it.
+-- (docs/proposals/terminal-io.md §4.2)
+-- A registry built-in, so the runners can build it.
 type Console = {
   inputIsTerminal: Bool,
   outputIsTerminal: Bool,
@@ -20,10 +18,9 @@ type Console = {
 
 --| The console. Only a host interpreter performs these for real; in Stitchwort
 --| code, `IO.simulate` interprets them as data. `console`, `keysMode`,
---| `readBytes` and `write` are what a terminal handler is built on.
---| The host's
+--| `readBytes` and `write` are what a terminal handler is built on. The host's
 --| `print`, `readLine` and `readAll` leave keys mode first, if it's on.
--- (docs/proposals/terminal-io.md §4).
+-- (docs/proposals/terminal-io.md §4)
 ability IO where
   print: Text → {IO} () -- writes the text, then a line ending
   readLine: () → {IO} (Option Text) -- None only at end of input
@@ -72,9 +69,8 @@ def IO.noConsole: Console := { inputIsTerminal = False, outputIsTerminal = False
 --| writes each `print` payload followed by a line ending. `IO.console` says
 --| there's no terminal (`IO.noConsole`), `IO.keysMode` does nothing,
 --| `IO.randomSeed` gives 0 and `IO.args` gives no arguments.
--- The payloads are collected in reverse and turned
--- round at the end, so a long run doesn't build a deep chain of pending
--- pairs.
+-- The payloads are collected in reverse and turned round at the end, so a
+-- long run doesn't build a deep chain of pending pairs.
 def IO.simulateWith (seed: Nat) (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
   let run: List Text → List Text → {e} Pair (List Text) a :=
     handle prog() with

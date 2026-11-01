@@ -1,13 +1,13 @@
 --| core/OrdDerived.sw. The laws `deriving (Ord)` puts together:
 --| `Ordering.thenEqual`, `thenFlip`, `thenTrans`, `byTagTrans`.
--- Loaded with
--- the core: A derived `Ord` instance writes `Ordering.byTagTrans` and its
--- siblings in full (docs/proposals/prelude-slim.md §2.1).
+-- Loaded with the core: A derived `Ord` instance writes `Ordering.byTagTrans`
+-- and its siblings in full (docs/proposals/prelude-slim.md §2.1).
 
---| The comparisons are implicit, found from the proofs' types.
--- Derived orderings (docs/proposals/interfaces.md §5.11, stage 7) compare
--- constructors by position (their tags), then fields left to right with
--- `Ordering.andThen`. Their laws are put together from these, proved once.
+--| Derived orderings compare constructors by position (their tags), then
+--| fields left to right with `Ordering.andThen`. Their laws are put together
+--| from these, proved once. The comparisons are implicit, found from the
+--| proofs' types.
+-- (docs/proposals/interfaces.md §5.11, stage 7)
 
 --| Both are `Equal` when `c` then `d` is.
 theorem Ordering.thenEqual [c d: Ordering] (h: Ordering.andThen c d = Equal): And (c = Equal) (d = Equal) :=
@@ -67,8 +67,8 @@ theorem Ordering.andThenTransWhen: (c1: Ordering) → (c2: Ordering) → (c3: Or
 --| Transitivity with the tags compared first. A derived `trans` uses it for
 --| values not all of one constructor, where `tr` is never needed: the tags
 --| can't all be equal.
--- (The rest are explicit here: where the tags are
--- numbers, the comparisons compute without them.)
+-- (The rest are explicit here: where the tags are numbers, the comparisons
+-- compute without them.)
 theorem Ordering.byTagTrans (i: Nat) (j: Nat) (k: Nat) (r1: Ordering) (r2: Ordering) (r3: Ordering)
     (h1: Ordering.andThen (Nat.compare i j) r1 = Less) (h2: Ordering.andThen (Nat.compare j k) r2 = Less)
     (tr: Nat.compare i j = Equal → Nat.compare j k = Equal → r1 = Less → r2 = Less → r3 = Less):

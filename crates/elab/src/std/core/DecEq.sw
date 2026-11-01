@@ -1,8 +1,8 @@
 --| core/DecEq.sw. The `DecEq` interface, its instances for the core types, and
 --| the uniqueness of equality proofs it gives.
--- Loaded with the core: `==`,
--- `!=`, `if h: x = y` and `auto` deciding an equation all use `DecEq`
--- instances, found by full key (docs/proposals/prelude-slim.md §2.1).
+-- Loaded with the core: `==`, `!=`, `if h: x = y` and `auto` deciding an
+-- equation all use `DecEq` instances, found by full key
+-- (docs/proposals/prelude-slim.md §2.1).
 
 -- Decidable equality (docs/proposals/interfaces.md §6.1): `a == b`,
 -- `a != b`, `if h: a = b` and `auto` deciding an equation all use the

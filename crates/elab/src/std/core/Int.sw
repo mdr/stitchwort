@@ -1,9 +1,8 @@
 --| core/Int.sw. `Int`: the type, its arithmetic, decidable equality,
 --| comparison, `toText`, and Euclidean `div`/`mod`.
--- Loaded with the core:
--- `Int` is pinned by content hash, and `+ * < <=` on `Int` go through
--- instances that need these definitions (docs/proposals/prelude-slim.md
--- §2.1).
+-- Loaded with the core: `Int` is pinned by content hash, and `+ * < <=` on
+-- `Int` go through instances that need these definitions
+-- (docs/proposals/prelude-slim.md §2.1).
 
 -- Integers (docs/proposals/integers.md)
 
@@ -21,8 +20,8 @@ def Int.neg: Int → Int
   | NegSucc n => OfNat (Succ n)
 
 --| `m - n` for naturals, as an integer.
--- One subtraction decides which side
--- is bigger: `n - m` is zero exactly when `n <= m`.
+-- One subtraction decides which side is bigger: `n - m` is zero exactly
+-- when `n <= m`.
 def Int.subNatNatFrom (m: Nat) (n: Nat): Nat → Int
   | Zero => OfNat (m - n)
   | Succ k => NegSucc k
@@ -135,8 +134,8 @@ def Int.div: (dividend: Int) → (divisor: Int) → [auto ok: divisor ≠ OfNat 
   | NegSucc m, NegSucc n => OfNat (Succ (m / Succ n))
 
 --| Never negative.
--- For `NegSucc m`, `m % Succ n <= n`, so the subtraction
--- doesn't stop at zero.
+-- For `NegSucc m`, `m % Succ n <= n`, so the subtraction doesn't stop at
+-- zero.
 def Int.mod: (dividend: Int) → (divisor: Int) → [auto ok: divisor ≠ OfNat 0] → Int
   | dividend, OfNat Zero => Void.absurd (ok rfl)
   | OfNat m, OfNat (Succ n) => OfNat (m % Succ n)

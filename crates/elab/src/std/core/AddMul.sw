@@ -1,13 +1,12 @@
 --| core/AddMul.sw. The `Add` and `Mul` interfaces and their instances for
 --| `Nat` and `Int`.
--- Loaded with the core: `+` and `*` go through `Add` and
--- `Mul` dictionaries, so they are checked before any program that adds two
--- numbers (docs/proposals/prelude-slim.md §2.1).
+-- Loaded with the core: `+` and `*` go through `Add` and `Mul` dictionaries, so
+-- they are checked before any program that adds two numbers
+-- (docs/proposals/prelude-slim.md §2.1).
 
 --| Things you can add, starting from zero, in any order (a commutative
 --| monoid): what `+` means, for every type.
--- (docs/proposals/interfaces.md
--- §6.3, §5.13).
+-- (docs/proposals/interfaces.md §6.3, §5.13)
 interface Add (a: Type) = {
   zero: a,
   add: a → a → a,

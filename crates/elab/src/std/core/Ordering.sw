@@ -1,8 +1,8 @@
 --| core/Ordering.sw. `Ordering`, `Nat.compare`, and the combinators `andThen`
 --| and `index` with decidable equality.
--- Loaded with the core: Every `Ord`
--- instance compares to an `Ordering`, and `deriving (Ord)` writes
--- `Ordering.andThen` in full (docs/proposals/prelude-slim.md §2.1).
+-- Loaded with the core: Every `Ord` instance compares to an `Ordering`, and
+-- `deriving (Ord)` writes `Ordering.andThen` in full
+-- (docs/proposals/prelude-slim.md §2.1).
 
 -- Comparisons
 

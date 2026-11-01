@@ -1,9 +1,9 @@
 --| core/Arith.sw. Arithmetic laws for `Nat` and `Int` (associativity,
 --| commutativity, distributivity), with `Bool.xor` and the sign lemmas
 --| `Int.mulAssoc` uses.
--- Loaded with the core: `Nat.instAdd`, `Nat.instMul`,
--- `Int.instAdd` and `Int.instMul` need their laws, and `+` and `*` go through
--- those instances (docs/proposals/prelude-slim.md §2.1).
+-- Loaded with the core: `Nat.instAdd`, `Nat.instMul`, `Int.instAdd` and
+-- `Int.instMul` need their laws, and `+` and `*` go through those instances
+-- (docs/proposals/prelude-slim.md §2.1).
 
 -- Arithmetic laws (docs/proposals/interfaces.md §5.13, D187): what the
 -- `Add` and `Mul` instances for `Nat` and `Int` need. They come before the
