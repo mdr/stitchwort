@@ -2979,7 +2979,7 @@
       "labels": [
         "postponement"
       ],
-      "body": "As planned in docs/proposals/postponement.md §8 stage 5 and 'As built (step 4.3)': the lambda try-then-postpone, retrying + late_literals + defers_literal, else_first and check_items' reordering, held and last_resort, FieldNames, the three 'infer the other side' catches. Each removal its own commit with its counter at 0 first. Also review the new attempt site added by SW-981 (effects.rs: an expression in an unknown row is first elaborated as plain calls via check::pure_first, then undone and bound if it performs) against the T1 rule for attempt sites; it may become a queued item waiting on the row instead.",
+      "body": "As planned in docs/proposals/postponement.md §8 stage 5 and 'As built (step 4.3)': the lambda try-then-postpone, retrying + late_literals + defers_literal, else_first and check_items' reordering, held and last_resort, FieldNames, the three 'infer the other side' catches. Each removal its own commit with its counter at 0 first. Also review the new attempt site added by SW-981 (effects.rs: an expression in an unknown row is first elaborated as plain calls via check::pure_first, then undone and bound if it performs) against the T1 rule for attempt sites; it may become a queued item waiting on the row instead.\nProgress 1 Nov: counters added (1c863e6c). Before: last resort 0, append/calc catches 0; lambda postponed 0 except reject/lambda-body-error-against-goal.sw (2); retried 1 aoc (2021 Day17 tests, list of tuples) + 4 in examples; leaf uninferred 4 (prelude rfl = Eq.trans …). retrying and the leaf catch are still used: kept, reported.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -2987,8 +2987,8 @@
     {
       "id": 988,
       "title": "Postponement stage 7 design: expected type first, tactic arguments last (from AoC 2021 friction)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "postponement",
@@ -3115,13 +3115,13 @@
     {
       "id": 997,
       "title": "omega: read (n + 1).toInt - 1 and Bool || / && facts and goals",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "tactics"
       ],
-      "body": "D2122 (Matt, 1 Nov 2026). From AoC 2021 day 17 (SW-978 items 1-2) and the Offset lane (SW-993 item 1): omega fails on (n + 1).toInt - 1 = n.toInt because the goal computes to Int.subNatNatFrom (n + 1) 1 (0 - n) before omega reads it (4-line repro in aoc/NOTES-2021.md day 17); omega doesn't use (p || q) = True as a goal or a fact, so cases hit its 64-case budget.",
+      "body": "D2122 (Matt, 1 Nov 2026). From AoC 2021 day 17 (SW-978 items 1-2) and the Offset lane (SW-993 item 1): omega fails on (n + 1).toInt - 1 = n.toInt because the goal computes to Int.subNatNatFrom (n + 1) 1 (0 - n) before omega reads it (4-line repro in aoc/NOTES-2021.md day 17); omega doesn't use (p || q) = True as a goal or a fact, so cases hit its 64-case budget.\n\nProgress (1 Nov, lane worktree-agent-a41b75bd6add56af8, commit efeef16d, not merged): (1) omega's quoter matched Int.subNatNatFrom m n gap only when gap was literally n - m; now it computes n - m and compares, so (n+1).toInt - 1 and the family (1 - (n+1).toInt, (n+2).toInt - (m+1).toInt, ...) read as subtraction. Same gap in Nat division: (n+1)/2 computes to Nat.divStep (1 <= n) n (n+1) 2, which was an opaque atom; now read as a division (fuel bound by leRefl / leAddLeft). (2) (p || q) = True facts and goals were already read (omega-disjunctions.sw); the real failure is the 8-split budget: the goal (a || b || c) = True leaves (p && q) = False disjunctions that were split before the ones that settle them. Now a disjunction with a side refuted at once is taken first and costs no split; day 17 pastStays is omega [signCases probe.dx]. aoc check 65.6 s -> 66.0 s user; audit 0 failed; hashes: 47 aoc lines (Day16 Bits division, Day15 sameTile, and dependents), std unchanged.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
