@@ -1,5 +1,5 @@
 {
-  "next": 999,
+  "next": 1000,
   "tickets": [
     {
       "id": 47,
@@ -3101,13 +3101,13 @@
     {
       "id": 996,
       "title": "Trip journal: a Float-timed conflict-resolution example project (two-device merge), examples/projects/accept",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "worktree-agent-aaa83419791bed272",
       "labels": [
         "examples"
       ],
-      "body": "Matt, 1 Nov 2026 (D2119-D2121): a non-proprietary example capturing the essence of event conflict resolution, in a different setting: a trip journal synced between two devices. Built fresh from a written description of the structure (not from the proprietary proof of concept). Times as Float (D2120: we have little Float example code). Lives in examples/projects/accept as a test-corpus project (D2121).\n\nProgress, 1 Nov (lane worktree-agent-aaa83419791bed272): model, merge and 19 worked-scenario tests written and passing; proofs next.",
+      "body": "Matt, 1 Nov 2026 (D2119-D2121): a non-proprietary example capturing the essence of event conflict resolution, in a different setting: a trip journal synced between two devices. Built fresh from a written description of the structure (not from the proprietary proof of concept). Times as Float (D2120: we have little Float example code). Lives in examples/projects/accept as a test-corpus project (D2121).\n\nProgress, 1 Nov (lane worktree-agent-aaa83419791bed272): model, merge and 19 worked-scenario tests written and passing; proofs next.\nProgress, 1 Nov: c50eb982 on worktree-agent-aaa83419791bed272 (not merged, not pushed). mergeWellFormed, mergeSelf and the kept-theorems (legs, pins, stops, albums, photos, summary) proved, no open goals; audit 129 theorems, 0 failed, 4 narrow-hypothesis warnings (each witnessed in Tests). Open: no theorem about where an item lands in a moved leg (needs a relative-error law for Float + and -). Std candidates: Float leOfNotLess/leTotal/notLessOfLe, Distinct-append parts, appendNewBy keys kept. Ready for review.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
@@ -3136,6 +3136,20 @@
         "std"
       ],
       "body": "D2122 (Matt, 1 Nov 2026). From AoC 2021 day 10 (SW-963 item 1): a Parse.eachLine/many1/pick parser gave right answers but nothing proves what Std.Parse reads, so the day rewrote its parser by hand to prove parseReadsLines. Every AoC day now proves a parser guarantee (D2108).",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 999,
+      "title": "Friction from the trip-journal example (SW-996): record literals in theorem statements; if h: P in proofs; Float printing in test output and notes; derive Decidable for Prop records; Float Bool-form order lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "friction"
+      ],
+      "body": "From SW-996, 1 Nov 2026. (1) Record literals/updates can't appear in a theorem statement: { l | start = … } or { id = 2, … } is a parse error ('expected }, found ='); workaround a def (also SW-978 item 5). (2) if h: P then … else … can't produce a proof: misleading E-UNIVERSE; workaround match on a decision (also the grid lane's if h: on Bool). (3) No record eta: per-record take-apart lemmas (SW-960 item 4, seen again). (4) Failing-test output prints Floats inside lists as { bits = …, valid = ?1 }; a lone Float prints as 0.4: use toSource. (5) Type-mismatch notes on Float order show the unfolded Int-key form instead of t <= hi: fold Float.leq/less when printing. (6) The counterexample search can't run on mergeSelf/mergeWellFormed because nothing decides WellFormed (a record of Props): derive Decidable for Prop records with decidable fields. (7) 'at' as a variable clashes with rewrite … at (also SW-990). Std candidates: Float.leOfNotLess, Float.leTotal, Float.notLessOfLe (Bool forms); distinctAppendLeft/Right/Apart, appendNewBy key lemmas, filterMapMapSelf, permSym, anyIntro. Open by design: where an item lands in a moved leg needs a relative-error law for Float + and - (std Float.Theory has the rounding spec but no such law).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
