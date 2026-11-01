@@ -2915,8 +2915,8 @@
     {
       "id": 983,
       "title": "Std lemmas from AoC 2021 (D2112): List.maximum, count/filter, Bool.toNat, Ord.compare law, Decidable List.Distinct, etc.; remove cross-day copies",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "std",
@@ -2930,8 +2930,8 @@
     {
       "id": 984,
       "title": "Aoc.Common.Grid (D2112): Position, Direction, step, 4/8 neighbours, rectangular grid + parser guarantee, Graph bridge; move 2021 days 9, 11, 15 onto it",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "aoc"
@@ -2958,7 +2958,7 @@
     },
     {
       "id": 986,
-      "title": "Postponement step 4.3 (K4) finish: a waiting literal is seen through by the same numeral at a known type, so 2021 Day08 checks; then merge (D2110 pending)",
+      "title": "Postponement step 4.3 (K4) finish: a waiting literal is seen through by the same numeral at a known type, so 2021 Day08 checks; then merge (D2110: yes, 1 Nov)",
       "status": "next",
       "agent": "",
       "where": "",
@@ -2972,7 +2972,7 @@
     },
     {
       "id": 987,
-      "title": "Postponement step 4.4 (stage 5): remove the catch-and-retry paths (§5.11) after 4.3",
+      "title": "Postponement step 4.4 (stage 5): remove the catch-and-retry paths (§5.11) after 4.3 (D2114: beside stage 7 design)",
       "status": "next",
       "agent": "",
       "where": "",
