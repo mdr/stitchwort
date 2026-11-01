@@ -12,9 +12,10 @@ From day 5 on, a day whose correctness theorems assume something the
 puzzle promises (every line at one of three angles, every timer at most 8)
 also proves that its parser guarantees it, and states the answers'
 theorems about the parsed input with no hypothesis left. Days 5, 6, 8,
-12, 13, 14 and 15 do (day 15's is a rectangle with a digit; day 12's promise, that no passage joins two big caves, is
+12, 13, 14, 15 and 16 do (day 15's is a rectangle with a digit; day 12's promise, that no passage joins two big caves, is
 one the puzzle leaves unsaid; day 13's parser folds the paper to check
-each fold's promise; day 14's is one rule per pair); day 9's answers need no promise at all, and
+each fold's promise; day 14's is one rule per pair; day 16's is that a
+minimum or maximum has a sub-packet and a comparison exactly two); day 9's answers need no promise at all, and
 its parser's guarantees (digits, a rectangle) are proved anyway. The
 pattern:
 
@@ -3598,3 +3599,332 @@ proofs, 68 of tests.
    program, the spec and two proofs (item 3).
 6. A std grid module, now evidenced by a type imported across days
    (item 2).
+
+## Day 16: Packet Decoder
+
+The input is one line of hexadecimal: a transmission, four bits a digit,
+holding one packet. A packet starts with a three-bit version and a
+three-bit type id. Type 4 is a literal number, written as groups of four
+bits, each after a bit saying whether another group follows. Every other
+type is an operator holding sub-packets: a length type bit, then either
+the sub-packets' total length in bits (15 bits) or their number (11
+bits), then the sub-packets. Bits after the outermost packet are padding.
+Part 1 adds up the versions of every packet in the tree; part 2 evaluates
+it (types 0 to 3: sum, product, minimum, maximum; 5 to 7: greater than,
+less than, equal to, as 1 or 0). Answers on Matt's input (1,350 digits):
+901 and 110434737925 (his Scala solution's). Compiler: the installed
+release build of `main`, 1 November 2026.
+
+### The program
+
+`readBits` turns each digit into its four bits (`hexValue`, then
+`Nat.testBit`), and `readPackets` reads packets from the bits into a tree:
+
+```stitchwort
+type Packet =
+  | Literal (version: Nat) (groups: List Nat)
+  | Operator (version: Nat) (operation: Operation) (lengthType: LengthType) (subPackets: List Packet)
+```
+
+The tree keeps what the bits say: a literal's groups (not just its
+value) and an operator's length type, so that the bits of a packet are a
+function of it. Both parts are folds: `versionSum` and `evaluate` (with
+`apply` for each operation; a comparison looks at the first two values).
+
+`readPackets (wanted: Wanted) (bits)` reads `Packets n` (that many
+packets) or `Filling` (packets until no bits are left; a total-length
+operator's sub-packets are read this way from exactly that many bits).
+One function does all of it, since `decreasing` takes no mutual
+definitions; its measure is `bits.length`, and each recursive call is
+guarded by `if shorter: rest.length < bits.length`, checked at run time
+(item 6). `parsePacket` then checks the puzzle's promise
+(`checkOperators`, the D2108 pattern with a pure `badOperator`): a
+minimum or maximum has a sub-packet, a comparison exactly two.
+
+Both answers were right on the first run, as were all the tests.
+
+**The spec** (Spec/Spec.sw) writes a packet out as the puzzle describes:
+`bitsOf width n` is a number in a field (the last bit is whether it is
+odd, the bits before it are its half), `groupBits` flags each group with
+1 except the last, and `encode`/`encodeAll` lay out a packet: version,
+type id, then the groups, or the length type bit, the length or count
+field and the sub-packets. `wellFormed` says the numbers fit their
+fields (version below 8, groups below 16 and at least one, the
+sub-packets' length below 2^15 or their number below 2^11): only those
+packets have this encoding. `transmissionBits` reads the input's digits
+by the puzzle's table. Part 1 is `versionTotal`: the sum of `versionOf`
+over `packetsIn` (the packet and every packet inside it, as a list).
+Part 2 is a relation, `HasValue packet value`, with `Values` for a list
+of sub-packets and `Computes operation values value` for each operation
+(a minimum is one of the values with none below it; a comparison takes
+exactly two values). `promised` is the puzzle's promise.
+
+Why an encoding function and not a relation: with the tree keeping the
+groups and the length type, a packet has exactly one encoding, so
+soundness is an equation (`bits = encode packet ++ rest`), and soundness
+with completeness make the decoder exactly the encoding's inverse on
+well-formed packets. A relation over a tree without those details (any
+groups for the value, either length type) would say the same less
+directly.
+
+### Proved, for every input
+
+In `Aoc.Year2021.Day16.Proofs` (Proofs/, 7 files, 758 lines, 68
+theorems):
+
+- **Soundness**, `readPacketsSound (wanted) (bits) (packets) (rest)
+  (read: readPackets wanted bits = Some (packets, rest))`: `bits =
+  encodeAll packets ++ rest ∧ allWellFormed packets = True ∧ Done wanted
+  packets rest` (`Done`: that many packets, or no bits left). By
+  recursion on `bits.length`, through every branch of the decoder:
+  `readNumberSome`, `splitFieldSome`, `readGroupsSome` and
+  `operationOfSome` say what each piece read. For one packet,
+  `readPacketSound`: `bits = encode packet ++ rest ∧ wellFormed packet =
+  True`.
+- **Completeness**, `readPacketComplete (packet) (formed: wellFormed
+  packet = True) (rest)`: `readPacket (encode packet ++ rest) = Some
+  (packet, rest)`, whatever `rest` is. `stepComplete`, `countComplete`
+  and `fillComplete` are defined together, recursing structurally
+  through the tree and its nested `List Packet`. Each decoder step is a
+  lemma over variables (`literalStep`, `totalStep`, `countStep`), so the
+  big bit patterns are only instantiated, never rewritten.
+- **The packet is unique**, `encodingUnique`: if `encode first ++ rest1
+  = encode second ++ rest2` with both well formed, then `first = second
+  ∧ rest1 = rest2`.
+- **The parser's guarantee**, `parsePacketReads (input) (packet) (parsed:
+  Fail.toResult (() => parsePacket input) = Ok packet)`: there are
+  `bits` and `rest` with `transmissionBits input.trim.toList = Some
+  bits` (every character is a hexadecimal digit, and the bits are
+  theirs), `bits = encode packet ++ rest`, `wellFormed packet = True` and
+  `promised packet = True`.
+- **Part 1**, `part1Correct (packet)`: `solvePart1 packet = versionTotal
+  packet`, for every packet, with no hypothesis.
+- **Part 2**, `part2Correct (packet) (formed: wellFormed packet = True)
+  (kept: promised packet = True)`: `HasValue packet (solvePart2
+  packet)`. `wellFormed` is needed for literals (the program reads groups
+  as base 16, the spec as four bits each, which agree only below 16);
+  `promised` for minimum, maximum and the comparisons, whose spec value
+  doesn't exist otherwise. `part2FromInput` drops both through
+  `parsePacketReads`: for every input the parser accepts, the answer is
+  the spec's value of the transmission's packet.
+- Tests: the puzzle's examples (the literal 2021's bits and tree, both
+  operator examples as trees, all of part 1's and part 2's examples, by
+  the program and the spec), the spec's encoding of each example packet
+  is its bits up to the padding, the digits against the puzzle's table,
+  the parser's errors, and the real input.
+
+Not proved: nothing left open. No hypothesis beyond `wellFormed` and
+`promised`, which the parser is proved to give. No opaque definitions.
+Day 14's `maximumSome` is imported (std has no `List.maximum` lemmas,
+SW-971 item 7).
+
+**The proof found a bug.** The first decoder read a total-length
+operator's sub-packets from `after.take length`, which is shorter than
+`length` when the transmission ends early, and accepted the result. The
+tests all passed. Soundness couldn't hold (the encoding writes the
+sub-packets' real length), and `3801934528B` (an operator claiming 100
+bits, holding 22) was read as a packet. Now `splitField` fails unless
+the whole field is there, and a test covers it.
+
+`stitchwort audit Aoc.Year2021.Day16`: `audited 77 theorems: 0 failed, 6
+with warnings, 71 passed`. The warnings are narrow hypotheses, not
+contradictory ones: `part1FromInput` and `readPacketSound` (random texts
+and bits never parse; SW-967 item 8; `smallParses` and `literalPacket`
+in the tests show both can hold), `literalStep`, `totalStep` and
+`countStep` (a decoder step's pieces all read; completeness instantiates
+them), and `soundStep` (two list equations, which `bits := encode packet
+++ (encodeAll more ++ left)` satisfies).
+
+Breaking the program breaks the proofs: `nextWanted` keeping the count
+(`Packets (Succ count)` for `Packets count`) fails `doneNext` and
+`countComplete` (`E-REFL`); a literal's value as `value * 10 + group`
+fails `evaluateCorrect` (`E-REWRITE-NOTHING`: the program's fold isn't
+the spec's any more). Two other breaks crashed the compiler (item 1).
+
+### 1. BUG: `cases` panics
+
+Flipping `if more then` to `if not more then` in `readGroups`, or
+reading the length field with `readNumber 14`, and checking the proofs
+gives no error but
+
+```
+thread '<unnamed>' panicked at crates/core/src/value.rs:1011:31:
+index out of bounds: the len is 1 but the index is 18446744073709551615
+```
+
+(exit 101), from `stitchwort_elab::cases::take_apart` → `value::eval` →
+`value::quick`: a `Term::Var` index past the environment. Each `cases`
+whose hypothesis `read` no longer matches the program panics: with
+`readNumber 14`, any one of the six `cases` under `match l: readNumber
+15 fields` in `readPacketsSound`; with `if not more`, the `| None =>
+cases` in `readGroupsSome`. A standalone file of 74 lines reproduces it
+(the day's `readGroups` with `if not more`, `bitsOf`, `groupBits`, five
+`Bits.sw` lemmas and `readGroupsSome`); the `let written: bitsOf 4
+(Nat.fromBits [a, b, c, d]) = [a, b, c, d]` before the `match` is needed
+(without it, an ordinary `E-CASES`). Smaller attempts didn't panic. To
+reproduce in the repo: make the `readGroups` change and run `stitchwort
+check Aoc.Year2021.Day16.Proofs`. Fix: find the unscoped variable
+(perhaps a `let`-bound hypothesis evaluated in the wrong environment;
+speculative) (small-medium). High value: rule 6 of the proving guide
+(break the program) is where it shows.
+
+### 2. Checking `bitsOf` on an unknown number is exponential in the width
+
+Comparing `bitsOf w n ++ …` for an unknown `n` by computing takes time
+that doubles with each bit. On a scratch file,
+
+```stitchwort
+def bitsOf: Nat → Nat → List Bool
+  | 0, _ => Nil
+  | Succ width, n => bitsOf width (n / 2) ++ [n % 2 == 1]
+
+def wrap (w: Nat) (n: Nat) (xs: List Bool): List Bool := Cons False (bitsOf w n ++ xs)
+
+theorem t (n: Nat) (xs: List Bool) (ys: List Bool): wrap 15 n xs ++ ys = Cons False (bitsOf 15 n ++ (xs ++ ys)) := rfl
+```
+
+checks in 0.15 s with 9 for 15, 0.26 s with 13, 0.63 s with 15, 2.4 s
+with 17 and 10.1 s with 19. A guess at the cause (speculative): the
+nested `n / 2 / 2 / …`, each `/` or `%` copying its numerator as it
+computes. The day's proofs hit it with the 15-bit length field:
+`Aoc.Year2021.Day16.Proofs` takes 14 s to check cold (`Sound.sw` about
+7 s, 6 s of it the total-length branch of `readPacketsSound`;
+`Complete.sw` about 4 s; the rest 3 s), and it caused item 3's errors.
+Workarounds used: state each step over variables (`fieldsCong`,
+`totalStep`) and give lemmas their arguments. A `bitsOf` with one
+division per bit (`n / Nat.pow 2 k % 2`) might avoid it (not tried: the
+round-trip lemmas would need redoing). Fix: keep terms shared while
+comparing, or compute `/` and `%` on unknowns without copying (medium).
+
+### 3. Errors that hid the real problem
+
+- **`rewrite` ran out of budget comparing a term with itself**:
+  `E-REWRITE-BUDGET`, "the part of the goal, as it computes: `fields`;
+  the rule's left side: `fields`" (also `rest` against `rest`, and
+  `List.length (encodeAll subPackets)` against itself), in a goal
+  holding `bitsOf 15` of an unknown length (item 2). The note ("about
+  cost, not truth") is right, but identical terms shouldn't need
+  computing. Fix: compare syntactically first (small). Workaround: a
+  lemma over variables (`fieldsCong`).
+- **`E-RESOURCE` "a value was too large to show … a call of `Eq.trans`",
+  pointing at the whole theorem**, in place of a type mismatch, when a
+  lemma's arguments were holes to be found from an expected type that
+  had been computed (`consAppendCong False _ _ _ _ …` and `appendCong3 _
+  _ _ _ _ _ …` against `bitsOf 15 …`). Found by replacing pieces with
+  `?` one at a time (with a `?` open the error vanished, so the culprit
+  was the piece whose `?` made it go). Workaround: write the arguments,
+  and a typed `let` for each step. Also `soundStep _ after left _ more
+  here …`: the packet hole wasn't solved before `here` was checked
+  against `encode ?46 ++ after` (`E-TYPE-MISMATCH` with the computed
+  side). The elaboration-order family (SW-963 item 2, SW-969 item 2,
+  SW-971 item 1) with a new symptom: no location at all. Fix: unify with
+  the expected type before computing it; print a mismatch without
+  computing the term (medium).
+- `rewrite halfOfDouble acc bit, parityOfDouble acc bit` (`(acc * 2 + b)
+  / 2 = acc`, then `((acc * 2 + b) % 2 == 1) = b`) failed: the first
+  rule had also rewritten the `/ 2` inside the `% 2` (as it computes,
+  `x - x / 2 * 2`), leaving `x - acc * 2`. The message showed the goal.
+  Workaround: the `%` rule first. Fix: a line in the `rewrite` docs
+  (small).
+
+### 4. `search --at`
+
+Used on six goals. It closed one: `Nat.fromBits bits < Nat.pow 2
+bits.length`, with `rewrite <- Nat.fromBitsFlipped bits in omega` (I
+had found the lemma by grep). At `lengthBitsOf` its first rewrite
+(`List.lengthSnoc`) was the right step.
+
+- **Refused after a `_` pattern**: at `| Cons _ rest => ?` it said
+  `E-SEARCH-AT` "can't be written as a statement of its own here", with
+  "E-PARSE: unexpected character `✝`": the unnamed pattern variable.
+  Fix: give such variables fresh names when writing the goal out
+  (small). At `groupsValue`'s `Cons group rest` case: "unknown name
+  `group`"; the goal has a lambda `(value group => …)` whose binder is
+  also the pattern's name (the printer's capture, SW-967 item 5).
+- **Hypotheses aren't tried as rewrite rules**: at `takeAppendLength`
+  (`(xs ++ ys).take k = xs` with `h: xs.length = k`) and `soundStep`
+  (`here: bits = encode packet ++ after`, `later: after = …`) it found
+  nothing; `rewrite <- h in List.takeAppend xs ys` and `rewrite here,
+  later in …` close them. Fix: try the context's equations as rewrites
+  (small-medium).
+- Each query took 14 s (27 s the first), mostly checking the namespace
+  (item 2).
+
+### 5. Lemma search and std
+
+- `stitchwort search 'Nat.fromBits (_ ++ _) = _'` listed
+  `Nat.fromBitsFrom` and `List.foldLeftAppend` first (62 s, cold, while
+  a build ran). Std's `Nat.fromBits`, `Nat.fromBitsFrom` and
+  `Nat.fromBitsFlipped` were all used.
+- Std candidates: a fixed-width `Nat.toBits width n` with its round
+  trips (`fromBitsOf`: `n < 2^width → fromBits (bitsOf width n) = n`;
+  `bitsOfFromBits`: `bitsOf bits.length (fromBits bits) = bits`;
+  `fromBitsSnoc`; `fromBitsBelow`), small; `List.takeAppend` and
+  `List.dropAppend` with a length hypothesis (`takeAppendLength`),
+  small; `Some (a, b) = Some (c, d) → a = c ∧ b = d`
+  (`somePairInjective`), small; `List.maximum` lemmas (again).
+- Seen again (SW-960 item 3): a `Bool` `if second < first` on `Nat` isn't
+  `Decidable.toBool (Nat.decLessThan second first)`, so `match
+  Nat.decLessThan second first` didn't refine the goal
+  (`E-TYPE-MISMATCH`, "expected `… (if second < first then 1 else 0)`,
+  but this has type `… 1`"). `match h: (second < first: Bool)` with
+  `omega [h]` worked. `==` on `Nat` is `Nat.decEq`, and matching on that
+  worked.
+
+### 6. Writing the decoder
+
+- **A later call's decrease can't come from an earlier recursive call.**
+  After reading an operator's sub-packets, `readPackets later following`
+  needs `following` shorter than `bits`: a fact about `readPackets`
+  itself, which its own definition can't use. Lean would return a
+  subtype (`{ rest // rest.length ≤ bits.length }`) or use fuel. Here
+  each call has a run-time guard, `if shorter: following.length <
+  bits.length` (three in a branch, each linear; the run is still 0.22
+  s), and completeness discharges each with `match Nat.decLessThan … with
+  | No longer => Void.exfalso (longer shorter)`, which worked well. Fix:
+  this pattern as a worked example in the `decreasing` docs (small);
+  results that carry their own decrease (large).
+- **The wildcard after numeric patterns learns nothing**: in `match n
+  with | 0 => … | 7 => … | _ => omega`, `omega`'s model was `n = 5`.
+  Workaround: `| Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ k)))))))
+  => omega`. Fix: give the wildcard arm `8 ≤ n` (or `n ≠ k` for each
+  number above it) as a fact (small-medium).
+- Good: `match e:` refined the `read` hypothesis through every branch of
+  the unfolded decoder, so soundness was a walk down the program's
+  matches; mutual inductive propositions (`HasValue`, `Values`) and
+  theorems defined together over the nested `Packet` (`stepComplete`,
+  `countComplete`, `fillComplete`) worked the first time; the three step
+  lemmas checked as first written; `omega` proved `Bool` goals such as
+  `(group <= 15) = True`; `rewrite … at (term) in` explained itself
+  ("drop `in …` to use the rewritten term directly").
+- Small: after each `match`, the context lists every superseded version
+  of the matched hypothesis (`read✝` five times, with the decoder's
+  lifted `%match` functions), which buries the current one. Fix: hide
+  hypotheses a `match` replaced (small).
+
+### Size and time
+
+Release build:
+
+| command | time |
+| --- | --- |
+| `stitchwort run Aoc.Year2021.Day16.main` on the input | 0.22 s user (0.69 s with `--no-cache`) |
+| `stitchwort check --no-cache Aoc.Year2021.Day16.Proofs Aoc.Year2021.Day16.Tests` | 14.0 s user |
+| `stitchwort audit Aoc.Year2021.Day16` (with the search) | 8.5 s |
+
+274 lines of program, 153 of spec, 758 of proofs, 91 of tests.
+
+### Ranked
+
+1. `cases` panics (index out of bounds in `value.rs`) when a proof stops
+   matching the program: breaking the program crashed the compiler twice
+   (item 1).
+2. Computing `bitsOf w n` on an unknown `n` doubles with each bit; the
+   proofs take 14 s to check, and it surfaced as budget and resource
+   errors (items 2, 3).
+3. `E-RESOURCE` "too large to show … `Eq.trans`" for the whole theorem
+   in place of a located mismatch (item 3).
+4. `search --at` refuses goals with an unnamed pattern variable (`✝`),
+   and doesn't try hypotheses as rewrites (item 4).
+5. A recursive call's result can't justify the next call's decrease, so
+   run-time guards stand in (item 6).
