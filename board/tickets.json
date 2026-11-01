@@ -1,5 +1,5 @@
 {
-  "next": 1049,
+  "next": 1050,
   "tickets": [
     {
       "id": 47,
@@ -3721,7 +3721,7 @@
     {
       "id": 1035,
       "title": "Function equations stage 1a: generated arm equations (f.eqK) with overlap and literal hypotheses, E-NO-EQUATION, library index, cost gate",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -3731,7 +3731,9 @@
       "body": "docs/proposals/function-equations.md (SW-1028). Matt, 1 Nov 2026: build stage 1 on the design's recommendations: D2173-D2180 and D2183-D2187 as recommended. Stage 2 (D2181 f.induct, D2182 match induct) waits for Matt. Summary: https://claude.ai/artifact/4KMnCJoY8rn53HA4Z6UVn5. Next: 1b branch equations (Opus), 1c doc/search/hover/messages (Sonnet), 1d acceptance (Sonnet, Opus review).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
-      "commits": []
+      "commits": [
+        "64ee5077"
+      ]
     },
     {
       "id": 1036,
@@ -3935,6 +3937,21 @@
         "performance"
       ],
       "body": "From SW-1047 (1 Nov 2026). After the quadratic fix, a linear cost remains from SW-986 (step 4.3): each queued literal carries its saved context and an error diagnostic (~13 steps, 32 allocations, 2.5 KB heap per literal). Slim it (e.g. build the error lazily, share context); then re-record the bench baseline for what remains, with the reason.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1049,
+      "title": "Function equations stage 1b: branch equations (tail if with Bool normalisation, if h: via uniqueEq, match on variables and expressions, named match by J)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elaborator",
+        "proof"
+      ],
+      "body": "docs/proposals/function-equations.md stage 1b; D2174, D2180, D2186 decided. Includes 1a's leftovers: arms whose right side is a match on their own variables (3 in std, 5 in AoC).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
