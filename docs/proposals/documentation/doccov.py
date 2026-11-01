@@ -9,7 +9,7 @@ MAINT = {
     'ticket': re.compile(r'\bSW-\d+'),
     'dnum': re.compile(r'\bD\d{3,4}\b'),
     'proposal': re.compile(r'docs/|proposals?/|\.md\b'),
-    'timing': re.compile(r'\b\d+(\.\d+)?\s*(s|ms|seconds?)\b|check(s|ing)? (time|in)|slow|fast(er)?\b'),
+    # No 'timing' marker: review 1 found its hits were cost notes users need.
 }
 
 def blocks(path):

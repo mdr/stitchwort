@@ -1,15 +1,18 @@
 # Proposal: documentation of Stitchwort code
 
-**Status:** draft 1, 1 November 2026. Ticket SW-1013. Starts from the research note
-[research/documentation.md](../research/documentation.md) (written by Codex; its claims were
-treated as unverified and re-checked here) and an Opus review of that note. Matt's decisions
-D2134–D2139 and D2141 (1 November) are stated as decided. New questions are D2142–D2151 in
-[§9](#9-decisions-for-matt). An independent review follows in
-[Review 1 and how it was addressed](#review-1-and-how-it-was-addressed).
+**Status:** draft 2, 1 November 2026. Ticket SW-1013. Starts from a research note written by
+Codex (`docs/research/documentation.md` in the main checkout; not committed, so not linked; its
+claims were treated as unverified and re-checked here) and an Opus review of that note. Matt's
+decisions D2134–D2139 and D2141 (1 November) are stated as decided. New questions are
+D2142–D2153 in [§9](#9-decisions-for-matt). Draft 1 was reviewed independently ("approve with
+changes"); every point is worked in, one row each, in
+[Review 1 and how it was addressed](#review-1-and-how-it-was-addressed); the review is
+[documentation/review-1.md](documentation/review-1.md).
 
 Labels:
 
 - **[checked: file:line]**: read in this repo at `f464c595` (main, 1 November);
+- **[review]**: found by review 1; the review table says which I re-checked;
 - **[run]**: run with `target/release/stitchwort` built from main on 1 November;
 - **[measured]**: counted by a script in [documentation/](documentation/) (named at each use),
   run from the repo root. The scripts read source text with regular expressions, so their counts
@@ -35,12 +38,12 @@ Labels:
   are examples of `List.unzip` and `Text.padLeft`. Today that attaches 181 of std's 594 tests and
   96 of its 115 `…Example` theorems; only 129 of 1,108 std definitions have one [measured].
   AoC and roguelike tests are named in prose and attach almost nowhere.
-- **Theorems about X** (D2141) come from the existing search, ranked: theorems named after X
-  first, rewrite rules with X on the left first within them, at most 8 shown with the total and
-  the command for the rest.
+- **Theorems about X** (D2141) come from the existing search, ranked: rewrite rules with X on
+  the left and named after X, then others named after X, then the rest; at most 8 shown with the
+  total and the command for the rest.
 - **Then** (stage 2) the `--|` sorting pass and a coverage report (D2138); (stage 3) checked
   links ``[`Name`]`` with a warning `W-DOC-LINK`; (later) examples in comments and a website.
-- **Cost:** stage 1 about two Sonnet lanes; stage 2 is mostly review of about 5,000 comment
+- **Cost:** stage 1 about two to three Sonnet lanes; stage 2 is mostly review of about 5,000 comment
   blocks; stage 3 one lane [inferred, §7].
 
 ## 1. The problem, with evidence
@@ -81,7 +84,7 @@ def List.filterMap: List a → (f: a → {e} Option b) → {e} List b
 ```
 
 Its examples (none attached by name; §5.4) and its 22 theorems (`stitchwort search
-'List.filterMap' --theorems`) are separate searches [run]. So answering "what does it do, how is
+'List.filterMap' --theorems --limit 22`; the default limit is 10) are separate searches [run]. So answering "what does it do, how is
 it used, what is proved about it" is three or four commands and some slicing.
 
 ### 1.2 Coverage of existing comments
@@ -100,8 +103,8 @@ declaration with no blank line between" [checked: docs/proposals/formatter.md:64
 (The review of the research note counted 891/1,189 std definitions; it seems to have included
 `%` helpers or counted differently. The order of magnitude agrees.)
 
-Not every block is for users. 47 of std's 1,945 blocks name a ticket, a D number, a proposal
-file or a timing [measured: doccov.py]; across all of std, 141 comment lines name a ticket, a D
+Not every block is for users. 42 of std's 1,945 blocks name a ticket, a D number or a proposal
+file [measured: doccov.py]; across all of std, 141 comment lines name a ticket, a D
 number or a `.md` file (`grep -rhE '^\s*--.*(SW-[0-9]+|\bD[0-9]{3,4}\b|proposals/|\.md\b)'
 crates/elab/src/std | wc -l`) [run]. Markers undercount: `List.filterStep`'s block is about why
 the function exists ("A function of its own so the recursive call is written once…"), with no
@@ -111,9 +114,11 @@ First sentences are short enough to be summaries: over std's 915 commented non-t
 declarations, the median is 64 characters, 90% are at most 139, and 44 exceed 160 (longest 355)
 [measured: [summ.py](documentation/summ.py)].
 
-### 1.3 Lane notes: functions missed or misused
+### 1.3 Lane notes: functions missed, or behaviour not seen
 
-The evidence is a handful of cases, not a measured rate. Each is quoted with what it shows.
+The evidence is a handful of cases, not a measured rate. Each is quoted with what it shows. The
+ticket hoped for evidence from the search query log of SW-993; that log "was never switched on
+(no log file anywhere)" [checked: board/tickets.json, SW-993], so there is none.
 
 - **Rewrote lemmas std had.** "I first wrote `compareSelf` and `lessNotGreater` too, then found
   std's `Ord.compareSelf` and `Ordering.lessNotGreater` by grepping the std sources; with no
@@ -128,15 +133,17 @@ The evidence is a handful of cases, not a measured rate. Each is quoted with wha
   the three were added on 28 October (`f7264e47`, SW-831); SW-1006 came from a stale item in
   SW-816. So it shows that "does std have X?" is not quick to answer, for the orchestrator as
   well as lanes. It is not a case of a lane failing to find a function while coding.
-- **A cost the comment states, found by measuring.** Day 15 moved boxes with `boxes.difference
+- **A cost the comment stated, found by measuring.** Day 15 moved boxes with `boxes.difference
   group |> .union moved`; part 2 took 19.8 s, and 0.97 s with the arguments the other way, because
-  `union` and `difference` are fast only when one set is small [checked:
-  aoc/NOTES-2024.md:4656-4667]. `Set.union`'s comment has said so since 24 October ("O(n log m)
-  when one set, of n keys, is much smaller … see `Map.union`") [checked: Set/Set.sw:40-42;
-  `git log -S'much smaller'` gives `96b79502`, 24 October]; the note was written on 28 October
-  (`155a64e1`). Whether the lane read that comment isn't recorded; nothing it ran would have shown
-  it [inferred].
-- **Where evidence is thin.** Most "No `X`" items in aoc/NOTES-2021.md were true when written:
+  `union` and `difference` were fast only when the first set was small [checked:
+  aoc/NOTES-2024.md:4656-4667]. On 24 October `Set.union`'s comment already said "O(n + m), or
+  O(n log m) when `a` is much smaller (likewise `intersect` and `difference`; see `Map.union`)"
+  [checked: Set/Set.sw:40-41 as of commit `96b79502`]; the note was committed on 28 October at
+  04:51 (`155a64e1`). Whether the lane read that comment isn't recorded; nothing it ran would have
+  shown it [inferred]. The cost itself was removed 26 minutes later (`e947353f`: "union and
+  difference fast when either side is small") [review; re-checked], so the case is historical.
+- **Where evidence is thin.** No case of misuse in the sense of a wrong result was found. Most
+  "No `X`" items in aoc/NOTES-2021.md were true when written:
   `Option.mapCong`, `List.filterFilter` and `List.flatMapCong` were each added to std after the
   note that asked for them [checked: `git log -S` on each, 31 October–1 November]. I found no
   note where an agent misread what a std function computes. The case for this work is cheaper
@@ -149,12 +156,12 @@ The evidence is a handful of cases, not a measured rate. Each is quoted with wha
 | The `--` comment; no block or doc comments | docs/syntax.md:11; lexer skips to end of line [checked: crates/syntax/src/lexer.rs:321-326] | **Reused.** `--|` is already a comment; no lexer change (D2134). No `.sw` file in the repo contains `--|` today [run: `grep -rln --include='*.sw' -- '--\|' .`] |
 | The convention: `--` lines directly above a declaration | formatter.md:64-65 | **Extended**: stage 1 reads it; stage 2 replaces it by `--|` for user docs |
 | The formatter's comment trivia | `lex_with_trivia`, `Comment`, `Trivia` (leading comments, blank lines) [checked: lexer.rs:204-252]; `decl_ranges`, the column-0 split, attributes belonging to the declaration after them [checked: crates/syntax/src/parser.rs:387-392]; used by the formatter [checked: crates/fmt/src/lib.rs:92-94] and the language server [checked: crates/cli/src/lsp.rs:633-655] | **Reused** as the attachment machinery (§4) |
-| `check --index` (JSON version 3) | symbols with name, kind, file, range, container, type; kinds include `ctor`, `field`, `op`, `test`; library symbols only if referenced [checked: docs/proposals/code-navigation.md:94-101; crates/driver/src/nav.rs:59-75] | **Extended**: `doc`, `summary` on symbols |
+| `check --index` (JSON version 3) | symbols with name, kind, file, range, container, type, and `signature` (parameters with their names); kinds include `ctor`, `field`, `op`, `test`; library symbols only if referenced [checked: docs/proposals/code-navigation.md:94-101; crates/driver/src/nav.rs:59-75] | **Extended**: `doc`, `summary`, `docMarker` on symbols |
 | `stitchwort search` (JSON version 1) | results with name, kind, type, file, line, import; no docs [checked: crates/driver/src/search.rs:418-451, 901-948]; `…Example` and `%` hidden unless `--all` [checked: search.rs:827-837] | **Extended**: `summary`. D2063's "no natural language" stands: summaries are shown, never matched (§5.2) |
 | `stitchwort std-source PATH` | prints an embedded std file [run: `stitchwort --help`; checked: crates/cli/src/main.rs:503] | **Kept**; `doc` reads the same embedded text |
 | Hover | language server: type, then `kind name`, then omitted defaults [checked: lsp.rs:897-914]; playground tooltip: name, kind, type from the index [checked: web/index.html:2751-2770] | **Extended** with the doc (§5.5) |
 | The guide and its harness | quoted snippets and outputs are checked [checked: crates/cli/tests/guide.rs:1-25]; the library tour [checked: docs/guide/06-namespaces-and-library.md:166-274] | **Kept** as the narrative; not replaced by generated docs. The tour can quote `stitchwort doc` output through the harness's `<!-- output: … -->` |
-| Std tests and `…Example` theorems | 594 `test`s, 115 `…Example` theorems, all checked [measured: [examples.py](documentation/examples.py)] | **Reused** as examples, by name (D2135) |
+| Std tests and `…Example` theorems | 594 `test`s, 115 `…Example` theorems, run or checked by the test tiers [measured: [examples.py](documentation/examples.py)] | **Reused** as examples, by name (D2135) |
 | `private` | does not exist: "There is no `private`: anything can be named from anywhere" [checked: docs/guide/06-namespaces-and-library.md:162] | Nothing to design; the research note's "private implementation scope" (its line 168) does not apply. `%` helpers stay hidden as search hides them |
 | Proving guide, "search first" | docs/proving-guide.md:343-371 [checked] | **Extended**: add `stitchwort doc` there once built |
 
@@ -181,9 +188,14 @@ The evidence is a handful of cases, not a measured rate. Each is quoted with wha
 **The doc block of a declaration** is found from the first token of the declaration:
 
 1. For a top-level declaration, the first token of its `decl_ranges` group, so attributes
-   (`@[noReceiver]`) belong to it and the doc goes above them. For a member (a constructor `|`
-   line, a record or interface field, an ability operation), the first token of the line its name
-   is on.
+   (`@[noReceiver]`) belong to it and the doc goes above them. A comment between an attribute
+   line and the declaration is not a doc (none exist today in std, aoc or the roguelike
+   [review]); stage 3's check warns about a `--|` there. For a member (a constructor `|` line, a
+   record or interface field, an ability operation), the first token of the line its name is on,
+   **only if** the member is the first thing on that line and the only member on it. A member on
+   the declaration's own line, or sharing a line with another member (one-line records such as
+   `type Parse.Mark = { rest: …, offset: …, left: … }`, Parse/Parse.sw:31 [review]), has no doc
+   of its own.
 2. Take that token's leading comments (`Trivia::leading`). The **comment run** is the last group
    of them with no blank line inside it and none between it and the token
    (`blank_lines_before == 0` on the token and on each comment after the first).
@@ -197,24 +209,30 @@ The evidence is a handful of cases, not a measured rate. Each is quoted with wha
 
 **Equations and arms** (`| Nil, f => Nil`) get no docs: only the declaration does.
 
-**File and namespace docs.** A `--|` block at the top of a file followed by a blank line (or
-directly above a `namespace` line) is the file's doc. `stitchwort doc` on a namespace prints the
-docs of its files, in file order, then its declarations with their summaries (§5.3). There is no
-"one primary overview per namespace" rule: several files may each have one, as Go concatenates
-package comments of a multi-file package [cited: go.dev/doc/comment]. Std has no `namespace`
-lines; its namespaces come from the names (`def List.map` is in `Std.List`), so a std file's doc
-belongs to the namespaces of the declarations in it [inferred; checked that
-List/Toolkit.sw:1-4 is such a header].
+**File and namespace docs.** The `--|` lines of the comment runs before a file's first
+declaration (or its `namespace` line), other than a run attached to that declaration, are the
+file's doc; several runs (List/Toolkit.sw has two, lines 1-4 and 6-22 [checked]) are joined as
+paragraphs. D2142's fallback applies here too: until the sorting pass, `--` runs there are the
+file's doc. A project file's doc belongs to its `namespace` line's namespace. Std has no
+`namespace` lines, and 45 of its 90 files declare names in more than one namespace [review], so
+a std file's doc belongs to the namespace of its folder: `List/Toolkit.sw` to `Std.List`,
+`Text/Text.sw` to `Std.Text`; files under `core/` belong to none (they mix the prelude's
+namespaces). `stitchwort doc` on a namespace prints its files' docs, in file order, then its
+declarations with their summaries (§5.3). Several files may each have a doc, as Go concatenates
+the package comments of a multi-file package [cited: go.dev/doc/comment].
 
 **Text.** Docs are plain text with Markdown-ish conventions already used in std comments:
 backticks for code, blank `--|` lines for paragraphs, `-` lists. Nothing is rendered in stage 1:
 the CLI prints the text; the language server sends it as Markdown (it already sends Markdown
 [checked: lsp.rs:907-910]).
 
-**Summary.** The first sentence of the first paragraph: up to the first `.` that is outside
-backticks and followed by a space or the end, skipping `e.g.` and `i.e.`. If that is over 160
-characters, cut at the last space before 160 and add `…`. Measured on std: 44 of 915 would be cut
-[measured: summ.py]. A summary is never generated from the type.
+**Summary.** The first sentence of the first paragraph, its lines joined by single spaces: up
+to the first `.` that is outside backticks and followed by whitespace or the end, skipping `e.g.`
+and `i.e.`. If that is over 160 characters, cut at the last space before 160 that is outside
+backticks and add `…`. Measured on std with this rule: 44 of 915 would be cut [measured: summ.py,
+which joins lines the same way]. `Text.padLeft`'s first sentence is 162 characters, so its summary
+is cut inside its parenthesis (§5.3); a sorting-pass reviewer can shorten such sentences. A
+summary is never generated from the type.
 
 **Why not attach during elaboration.** Docs are read from the source text when they are shown,
 by re-lexing the declaration's file with trivia. The checker lexes without trivia because trivia
@@ -223,7 +241,8 @@ results, one `doc` call or one hover re-lexes a few files. Nothing in the elabor
 the core hashes or the check cache changes, so a doc edit invalidates nothing it doesn't today
 (today a comment edit re-elaborates its namespace: check-cache.md:177-178). The cost is that a doc
 shown from a project file is read from the file on disk, which may have changed since the check
-that found the name; the line is then wrong. The index and the language server have the text
+that found the name; the line is then wrong. Std docs are read from the std the check used:
+`--std-dir` or `STITCHWORT_STD_DIR` when set, else the embedded text [review]. The index and the language server have the text
 they checked, so only `search` and `doc` can see this, and they reload the project through the
 check cache, which re-checks a changed file first [inferred from check-cache.md: the key
 includes the source text]. This is D2143.
@@ -239,6 +258,7 @@ pub struct Doc {
     pub text: String,          // the doc, markers removed, lines joined with '\n'
     pub summary: String,       // §4's first sentence
     pub marker: DocMarker,     // Bar (`--|`) or Plain (`--`, D2142's fallback)
+    // `text` joins lines with '\n'; `summary` joins them with spaces (§4).
     pub span: Span,            // the doc lines, for diagnostics and links (stage 3)
 }
 pub fn docs(file: FileId, text: &str) -> HashMap<u32 /* byte offset of the name */, Doc>
@@ -265,9 +285,9 @@ JSON: a `summary` field, a string or `null`. A new field doesn't change the vers
 §4.1's rule). Ranking and matching don't change: D2063 ruled out natural-language search, and a
 summary is never matched against the query.
 
-One search change belongs here, D2150: with only `"text"` name parts, a result whose name *is*
-the text after its namespace (`List.filterMap` for `"filterMap"`) ranks first. Today it ranks
-last (§1.1).
+One search change belongs here, D2150: with only `"text"` name parts, a result whose last name
+component equals the text (`List.filterMap` for `"filterMap"`) ranks first. Today it ranks last
+(§1.1).
 
 ### 5.3 `stitchwort doc NAME`
 
@@ -275,18 +295,32 @@ last (§1.1).
 stitchwort doc NAME [--project DIR | FILE] [--json] [--theorems N]
 ```
 
+- **Project.** As search: the project found from the folder you're in, or `--project DIR`, or
+  `FILE`; with none, std alone.
 - **NAME** is resolved as search resolves names: the full name (`Std.List.filterMap`), the name
   without `Std.` (`List.filterMap`), or a project name as `import N (..)` sees it. Several matches
-  print a list of them and exit 2; none prints the closest names (a `"text"` search on the last
-  component) and exits 1. A namespace name (`List`, `Aoc.Year2024.Day06`) prints the namespace's
-  file docs, then each definition, type, interface and ability in it (not theorems) with its
-  summary, one per line, grouped by file.
+  print a list of them (JSON `{"version": 1, "matches": [{"name", "kind", "file", "line"}]}`) and
+  exit 2; none prints the closest names (a `"text"` search on the last component) and exits 1.
+- **A namespace** (`Aoc.Year2024.Day06`) prints its file docs, then each definition, type,
+  interface and ability in it (not theorems) with its summary, one per line, grouped by file
+  (JSON `{"version": 1, "namespace", "fileDocs": [{"file", "doc"}], "members": [{"name", "kind",
+  "file", "line", "summary"}]}`). A name that is both a type and a namespace (`List`, `Option`,
+  `Map`) prints the type's entry first, then the namespace listing.
+- **What it checks.** The doc, summary, header and examples need only parsing. The elaborated
+  type and the theorems need the check, through the check cache; cold, that is about 18 s for std
+  alone [review: 17.7 s with a fresh `--cache-dir`; warm, about 1 s, run]. With `--theorems 0`,
+  `doc` doesn't check, and the JSON has no `type` (D2152).
 - **What it prints**, for a definition:
   1. name, kind, the **header as written** (the declaration's source up to `:=` or its first
      equation; it keeps parameter names that the elaborated type drops), location and import line;
   2. the doc, or `(no doc)`;
   3. examples (§5.4), each with its source text, not run;
   4. theorems (§5.5), at most 8 by default (`--theorems N`, `0` for none).
+- **By kind:** a type adds its constructors or fields, each with its summary; an interface its
+  fields (laws included); an ability its operations; a constructor, field or operation shows its
+  container's name; a theorem shows its statement, its examples (`X.yExample` of a theorem, §5.4)
+  and no theorem list; an instance shows its header and doc only. The JSON has the same fields
+  for every kind, plus `members` for types, interfaces and abilities.
 - Exit 0 when the name is found, documented or not.
 
 Worked example (the output is designed, not run; the theorem order is computed by hand from the
@@ -301,7 +335,8 @@ Std.List.filterMap  definition
   Keeps the `Some` results, in order. `f` may perform abilities, which run in
   list order (`f x` is the first argument, so it runs before the rest).
 
-Examples: none (a `test "List.filterMap"` or `theorem List.filterMapExample` would be one)
+Examples: none (a `test "List.filterMap"` or `theorem List.filterMapExample` would be one;
+  List.memFilterMapExample (std/List/Lemmas.sw:2015) uses it but isn't named after it)
 
 Theorems: 22 mention it; 8 shown
   List.filterMapSome       List.filterMap xs (x => Some (f x)) = List.map xs f
@@ -312,11 +347,12 @@ Theorems: 22 mention it; 8 shown
   List.filterMapCongMem    ((x: a) → x ∈ xs → f1 x = f2 x) → List.filterMap xs f1 = List.filterMap xs f2
   List.filterMapSomeMem    ((x: a) → x ∈ xs → f x = Some (g x)) → List.filterMap xs f = List.map xs g
   List.findMapIsHeadFilterMap  …
-  all 22: stitchwort search 'List.filterMap' --theorems
+  all 22: stitchwort search 'List.filterMap' --theorems --limit 22
 ```
 
-Theorem statements are printed without their leading type and value parameters (`[a: Type] →
-(xs: List a) → …`), which the search prints in full; the JSON keeps the full type.
+Theorem statements are printed without their leading parameters that are only used later
+(`[a: Type] → (xs: List a) → …`); named premises (`(h: n < m) → …`) and unnamed ones stay. The
+JSON keeps the full type.
 
 A second example, where examples exist [run: `stitchwort search '"padLeft"' --all`]:
 
@@ -350,50 +386,68 @@ JSON (version 1):
  "examples": [],
  "theorems": {"total": 22, "shown": [
    {"name": "Std.List.filterMapSome", "type": "…", "file": "std/List/Lemmas.sw", "line": 803,
-    "group": "rewrite"}]},
+    "group": "rewrite"}],
+   "command": "stitchwort search 'List.filterMap' --theorems --limit 22"},
  "warnings": []}
 ```
 
 - `doc`, `summary` and `docMarker` are `null` when there is no doc.
 - An example is `{"kind": "test" | "theorem", "name", "file", "line", "source"}`.
-- `group` is `rewrite` or `other` (§5.5).
-- `docMarker` disappears with D2142's fallback after the sorting pass.
+- `group` is `rewrite`, `named` or `other` (§5.5).
+- `docMarker` stays after the sorting pass, then always `"--|"`, so no field goes and the version
+  stays 1 (search.md §4.1's rule: the version changes when a field changes meaning or goes).
+- `header` is the declaration's source as written. The index's `signature` (parameters with their
+  names, the elaborator's `NavSymbol::signature` [checked: crates/elab/src/nav.rs:203-208]) is the
+  checked alternative; the header is used because it needs no check and reads as the source does.
+- `Text.padLeft`'s summary, as search would print it, is cut: "`Text.padLeft text n char` is
+  enough copies of `char` followed by `text` to make it n characters long (it is `text` itself
+  when that is already n long or…" (§4).
 
 ### 5.4 Examples, by name (D2135)
 
 An **example of X** is:
 
-1. a `test` whose description, as written, is X's name as the test's file would write it
-   (`test "List.unzip"`, or `test "orElse"` in the file declaring `Option.orElse`), or starts with
-   a *qualified* name of X followed by a space, `,` or `:` (`test "Result.map, an error"`,
-   `test "Nat.divisors of zero"`);
+1. a `test` whose description, as written, is a *qualified* name of X (`test "List.unzip"`), or
+   starts with one followed by a space, `,` or `:` (`test "Result.map, an error"`, `test
+   "Nat.divisors of zero"`), or is X's unqualified name (`test "orElse"` in the file declaring
+   `Option.orElse`) when X is a function, a definition with parameters;
 2. a theorem named `X.yExample` or `X.yExample2`, `X.yExample3`, … for X = `X.y`, if `X.y` is a
    declaration (a definition or a theorem).
 
 Single-word prefixes don't count: "need Some" would attach to `Fail.need`, but "example part 1"
 would attach to every AoC day's `example` value [measured: examples.py, "first word" counts].
-Tests are found in the parsed source of X's namespace's files (tests are `test` symbols in the
-index already [checked: code-navigation.md:94-97]); `…Example` theorems by name.
+Exact one-word names have the same problem in AoC: of the 7 exact matches there, `test
+"example"` (4 times) and `test "square"` name input values (`def square: List Tile`,
+Day09/Tests/Examples.sw:32) and test the solvers, and `test "at"` tests `Grid.at` but resolves to
+another `at`; only `choices` is right [review]. Hence the "function" condition, which excludes
+the values; `at` still shows that an unqualified name may resolve differently from what the
+author meant, which is why std writes its test names qualified. Tests are searched for in the
+same namespaces as theorems (§5.5's scope), because AoC puts them in `X.Tests` namespaces in other
+files [checked: docs/guide/06-namespaces-and-library.md:164]. They are `test` symbols in the
+index already [checked: code-navigation.md:94-97]; `…Example` theorems are found by name.
 
 What this attaches today [measured: examples.py]:
 
 | | tests | attached (exact / qualified prefix) | `…Example` theorems | attached |
 |---|---|---|---|---|
-| std | 594 | 181 (123 / 58), to 133 declarations | 115 | 96 (42 to a definition, 54 to a theorem) |
-| aoc/src | 1,246 | 7 exact, all one-word (`square`, `example`, `at`) | 5 | 0 |
+| std | 594 | 181 (123 / 58), to 133 declarations, before the "function" condition (not re-measured) | 115 | 96 (42 to a definition, 54 to a theorem) |
+| aoc/src | 1,246 | 7 exact, all one-word (`square`, `example`, `at`, `choices`); 1 right [review] | 5 | 0 |
 | games/rogue/src | 100 | 0 | 0 | 0 |
 
 So for std, 129 of 1,108 definitions have an example; AoC and the roguelike name their tests in
 prose ("a wall above blocks the way"), and `doc` will show no examples there unless tests are
-renamed (not proposed). The coverage report (§6.2) counts definitions with an example.
+renamed (not proposed). The coverage report (§6.2) counts definitions with an example, and lists
+the 19 std `…Example` theorems whose base name is no declaration (`List.memFilterMapExample`,
+List/Lemmas.sw:2015, is about `filterMap`) so they can be renamed; until then `doc` attaches
+nothing to them.
 
 **Not counted:** theorems that are examples in all but name, such as `Text.padLeftLongEnough:
 Text.padLeft "123" 2 '0' = "123" := rfl` [checked: Text/Text.sw:26]. They appear among the
 theorems. D2145 asks whether a closed theorem (no parameters) proved by `rfl` should count.
 
 Examples are shown, never run, by `doc` or hover. Tests run under `stitchwort test` as now;
-`…Example` theorems are checked by `check`. Both are already checked by the test tiers, so a
-shown example has passed at the last merge [checked: workflow.md, the tiers].
+`…Example` theorems are checked by `check`. Std's are run by the daily and full tiers; the merge
+tier samples the corpus sweeps, so not every one runs at each merge [review: docs/testing.md:26].
 
 ### 5.5 Theorems about X (D2141)
 
@@ -403,34 +457,48 @@ examples) and `%` helpers hidden as search hides them.
 
 **Ranked**, in groups, then by search's existing keys (premises, size, name):
 
-1. *rewrite*: named after X (the name contains X's last component, ignoring case:
-   `filterMapAppend`, `memFilterMapElim`) and an equation or `Iff` whose left side is headed by X
-   (search's `--rewrite` with the pattern `X _ … _`, place `left`);
-2. *other*, named after X;
-3. *other*, the rest (`Char.toTextDigits` mentions `List.filterMap` but is about digits).
+1. `rewrite`: named after X and an equation or `Iff` whose left side is headed by X, read off
+   each statement directly (no second search);
+2. `named`: the other theorems named after X;
+3. `other`: the rest (`Char.toTextDigits` mentions `List.filterMap` but is about digits).
+
+"Named after X" means the theorem's last name component contains X's last component as whole
+camel-case words, ignoring the case of the first letter (`filterMapAppend` and
+`memFilterMapElim` for `filterMap`; `lengthMap` for `map`). This is loose for short names: for
+`List.map`, 66 of 121 theorems are "named after" it, `filterMapSome` among them [review]. The
+review's simulation still gave a sensible top 8 for `List.map`; stage 1b must check the ranking
+on `List.map` and `Nat.add` (268 theorems) as well as `List.filterMap`, and tests pin all three.
 
 Std's convention, "Most functions come with theorems about them, named after what they say" (docs/guide/06-namespaces-and-library.md:172), is what makes
 group 1 and 2 meaningful [checked]. For `List.filterMap` the search gives 22 theorems [run]; 7
 are rewrites named after it, 8 are other theorems named after it, 7 are the rest (the transpose
 and digit lemmas) [run: the `--rewrite` and plain searches, sorted by hand].
 
-**Capped** at 8, with the total and the command that lists all. A congruence lemma (`…Cong`,
-`…CongMem`) is kept: proofs need it.
+**Capped** at 8, with the total and the command that lists all (with `--limit` set to the
+total). Congruence lemmas (`…Cong`, `…CongMem`) are ranked like any other and count towards the
+cap: proofs need them, so they aren't filtered out.
 
 **Scope.** For a std name: std only (`--project` adds the project). For a project name: the
-name's namespace and the namespaces that import it, directly or not, found from the project's
-import lines without checking (D2146). Search today loads the whole project through the check
-cache; in a fresh worktree (cold cache) a search inside `aoc/` was still checking after 120 s
-[run, stopped], while a std-only search took about 1 s [run: `time stitchwort search
-'List.filterMap' --theorems`]. Lanes start in fresh worktrees, so the narrower scope matters.
+name's namespace and the namespaces that depend on it, directly or not, in the project's
+dependency graph (D2146). A namespace depends on another if it imports from it *or* writes a
+qualified name that resolves into it [checked: docs/projects.md:253-254], so the graph is the
+driver's own (the one it checks in order with), not one read from import lines [review]. Search
+today loads the whole project through the check cache; in a fresh worktree (cold cache) a search
+inside `aoc/` was still checking after 120 s [run, stopped], while a std-only search took about
+1 s warm [run] and 17.7 s cold [review]. Lanes start in fresh worktrees, so the narrower scope
+matters, but less for widely used namespaces: for `Aoc.Common`, the dependents are most of AoC
+[review].
 
 ### 5.6 `check --index`: `doc` and `summary`
 
-Each symbol gets `doc` and `summary` (strings), absent when it has none. Version stays 3: a new
-optional field changes no meaning [inferred; code-navigation.md moved to 3 when goals were
-added]. The index writer re-lexes each indexed file once with trivia. Library symbols are only the
-referenced ones (code-navigation.md:100-101), so the cost is bounded by what the program uses.
-The summary is included so the playground doesn't reimplement §4's rule in JavaScript.
+Each symbol gets `doc`, `summary` and `docMarker` (strings), absent when it has no doc. Version
+stays 3: `signature` was added to symbols the same way, without a version change (`ec84e6d2`, 24
+October) [review; re-checked]. The index writer re-lexes each indexed file once with trivia.
+Library symbols are only the referenced ones (code-navigation.md:100-101), but the library's own
+references count: a two-line file importing `List` and `Text` gave an index of 40 std files,
+1,231 symbols and 4.9 MB [review]. Docs add text for those symbols; what bounds the cost is the
+std files the program loads, not what it calls [inferred]. The summary is included so the
+playground doesn't reimplement §4's rule in JavaScript.
 
 ### 5.7 Hover
 
@@ -446,8 +514,10 @@ The summary is included so the playground doesn't reimplement §4's rule in Java
 For each comment run that is a doc today (§4 rule 4):
 
 1. a script marks every line `--|`, except lines that match the maintainer markers (a ticket, a D
-   number, a `docs/` or `.md` path, a timing) and the sentences joined to them, which stay `--`
-   and move below the `--|` lines;
+   number, a `docs/` or `.md` path) and the sentences joined to them, which stay `--` and move
+   below the `--|` lines. Not timings: in std all 6 "timing" hits of draft 1's marker were cost
+   or behaviour notes a caller needs ("`Parse.eachLine` is faster", Parse.sw:668) or "1s" meaning
+   ones [review];
 2. a model reviews each file's diff and splits the rest by hand: rationale ("A function of its
    own so…"), check-time notes and proof strategy stay `--`; what a caller needs (what it
    computes, order, effects, edge cases, cost) becomes `--|`;
@@ -458,7 +528,8 @@ roguelike 185 blocks (277 lines). Comments only, so no hash or behaviour changes
 text, so every std cache is rebuilt once [inferred: the cache key includes source text]. The
 formatter keeps comments as written [checked: formatter.md:9, 47], so `--|` survives `fmt`.
 
-Then D2142's fallback is removed: a `--` block above a declaration is no longer a doc.
+Then D2142's fallback is removed: a `--` block above a declaration, or at the top of a file, is
+no longer a doc.
 
 ### 6.2 The coverage report (D2138)
 
@@ -474,14 +545,19 @@ it never fails. Enforcing it on chosen std namespaces is a later decision, after
 
 ## 7. Stage 3: checked links
 
-**Syntax.** ``[`Name`]`` in a `--|` line: a name in backticks inside square brackets, as rustdoc
-accepts [cited: rustdoc "Linking to items by name": "Backticks around the link will be stripped,
-so ``[`Option`]`` will correctly link to `Option`"]. Plain backticks stay plain code. Bare
-`[Name]` (Go's form) is not a link, because `[x]` is a list literal in Stitchwort prose (D2149).
+**Syntax.** ``[`Name`]`` in a `--|` line, where `Name` is name-shaped (letters, digits, `_`,
+`'`, `.`, starting with a letter or `_`), as rustdoc accepts [cited: rustdoc "Linking to items by
+name": "Backticks around the link will be stripped, so ``[`Option`]`` will correctly link to
+`Option`"]. The name-shape rule keeps prose such as "its `[` is; its `]`" (aoc Day15/Spec/Spec.sw:40
+[review]) from being a link. Plain backticks stay plain code. Bare `[Name]` (Go's form) is not a
+link, because `[x]` is list notation in Stitchwort comments (D2149).
 
-**Resolution.** The name is resolved as the doc's file resolves names: its imports and its
-namespace, after the file's namespace is checked, so a link may point forward or to the
-declaration itself. Links add no dependency between declarations or namespaces.
+**Resolution** (D2153). A link resolves first as the doc's file resolves names (its imports and
+its namespace), after the file's namespace is checked, so a link may point forward or to the
+declaration itself. Failing that, a full name (`Std.List.filterMapAppend`) or a std name without
+`Std.` (`List.filterMapAppend`) resolves as search resolves it, whatever the file imports, so a
+link never forces an `import` [review]. Links add no dependency between declarations or
+namespaces.
 
 **Diagnostics.** `check` reports an unresolved or ambiguous link as the warning `W-DOC-LINK` at
 the link's span, with the closest names; the language server shows it live. Warnings have this
@@ -502,9 +578,9 @@ features (search's stage 1, the index's `signature` field).
 | Stage | Work | Cost | Depends on |
 |---|---|---|---|
 | 1a | `syntax::docs` (§5.1) with unit tests on attachment (attributes, members, blank lines, mixed `--`/`--|` runs, trailing comments); `summary` in search text and JSON; `doc`/`summary` in the index; LSP and playground hover; syntax.md and code-navigation.md | 1 lane | nothing new |
-| 1b | `stitchwort doc`: name resolution, header as written, examples by name, theorems through the search API with the groups and cap, namespace listing, JSON; the project import-graph scope (D2146); search's exact-name rank (D2150); proving-guide and guide updates; CLI tests | 1 lane | 1a |
+| 1b | `stitchwort doc`: name resolution, header as written, every kind (§5.3), examples by name, theorems through the search API with the groups and cap, namespace listing, JSON; the dependency-graph scope (D2146); parse-only mode (D2152); search's exact-name rank (D2150); ranking tests on `List.filterMap`, `List.map`, `Nat.add`; proving-guide and guide updates; CLI tests | 1–2 lanes | 1a |
 | 2a | the sorting script, then review of std (1,945 blocks) | 1 lane for the script and std's first namespaces; then about a lane per 500 blocks reviewed [inferred] | 1a (to see the result through `doc`) |
-| 2b | `doc --coverage` | under a lane | 1a |
+| 2b | `doc --coverage`, with the unattached `…Example` theorems | under a lane | 1a |
 | 2c | the sorting pass on aoc and the roguelike (3,055 blocks) | as 2a, can wait | 2a |
 | 3 | `--|` kept by the lexer, link resolution after each namespace, `W-DOC-LINK`, the std test, `links` in JSON; then rewriting prose that restates theorems into links (editorial, ongoing) | 1 lane, plus editing | 2a for std (links in `--` text aren't checked) |
 | later | examples inside comments (D2135 defers them); a static website from the same `Doc` data (D2136) | medium each; the site needs a Markdown renderer (none in Cargo.lock today [run: no `pulldown`, `comrak` or `markdown` in it]) and upkeep | 1–3 |
@@ -517,9 +593,10 @@ Assumptions, in full:
 1. Stage 1 is built before the sorting pass (the agreed build order).
 2. Without the fallback, stage 1 shows no doc anywhere until stage 2, since no `.sw` file has
    `--|` today [run].
-3. Some of what it shows will be maintainer notes; 47 of 1,945 std blocks carry a marker, and
+3. Some of what it shows will be maintainer notes; 42 of 1,945 std blocks carry a marker, and
    more are rationale without one [measured; §1.2]. That noise is visible and temporary.
-4. The fallback is removed when the pass is done, so `--` keeps its D2134 meaning in the end.
+4. It covers declaration docs and file docs (§4).
+5. The fallback is removed when the pass is done, so `--` keeps its D2134 meaning in the end.
 
 **D2143. Should docs be read from the source text when shown (§4), rather than carried through
 elaboration and the check cache?** [Recommended: **yes**.]
@@ -534,12 +611,17 @@ Assumptions, in full:
 4. Stage 3 still needs `check` to see `--|` lines for link warnings; that is a lexer change of its
    own, not this one.
 
-**D2144. Should a test attach to X when its description is X's name, or starts with a qualified
-name of X followed by a space, `,` or `:` (§5.4)?** [Recommended: **yes**.]
+**D2144. Should a test attach to X when its description is a qualified name of X, or starts with
+one followed by a space, `,` or `:`, or is X's unqualified name and X is a function (§5.4)?**
+[Recommended: **yes**.]
 Assumptions, in full:
-1. The rule attaches 181 of 594 std tests to 133 declarations [measured].
-2. Allowing one-word prefixes adds wrong attachments ("example part 1" in AoC) [measured].
-3. AoC and roguelike tests stay unattached; renaming them is not proposed.
+1. Without the function condition the rule attaches 181 of 594 std tests to 133 declarations
+   [measured]; with it, slightly fewer (not re-measured).
+2. One-word prefixes, and one-word exact names of values, attach wrongly: in AoC 6 of 7 exact
+   one-word matches are wrong [review].
+3. Tests are looked for in X's namespace and those that depend on it (D2146), since projects put
+   tests in `X.Tests`.
+4. AoC and roguelike tests stay mostly unattached; renaming them is not proposed.
 
 **D2145. Should a closed theorem (no parameters) proved by `rfl` that mentions X count as an
 example of X?** [Recommended: **no, not in stage 1**; revisit after the coverage report.]
@@ -548,13 +630,17 @@ Assumptions, in full:
 2. Such theorems (e.g. `Text.padLeftLongEnough`) already appear in X's theorem list.
 3. A closed theorem can mention several functions, so it would attach to each of them.
 
-**D2146. For a project name, should `doc` look for theorems only in the name's namespace and the
-namespaces that import it, not the whole project?** [Recommended: **yes**.]
+**D2146. For a project name, should `doc` look for theorems and tests only in the name's
+namespace and the namespaces that depend on it, not the whole project?** [Recommended: **yes**.]
 Assumptions, in full:
-1. A theorem about X can only be in a namespace that sees X: X's own or one that imports it,
-   directly or through others (namespaces can't depend on each other in a cycle: docs/guide/06-namespaces-and-library.md:160).
-2. The import graph comes from the import lines without checking.
-3. Lanes run in fresh worktrees with cold caches, where a search inside `aoc/` took over 120 s [run].
+1. A theorem about X can only be in a namespace that can name X: X's own, or one that depends on
+   it, directly or through others. A namespace depends on another if it imports from it or writes
+   a qualified name that resolves into it (docs/projects.md:253-254); namespaces can't depend on
+   each other in a cycle (docs/guide/06-namespaces-and-library.md:160).
+2. The graph is the driver's own dependency graph, the one the project check is ordered by, not
+   one read from import lines alone (which would miss namespaces that only write full names).
+3. Lanes run in fresh worktrees with cold caches, where a search inside `aoc/` took over 120 s
+   [run]. For a widely used namespace (`Aoc.Common`) the saving is small.
 4. For a std name, std only, unless `--project` is given.
 
 **D2147. Hover: the full doc in the language server, the summary only in the playground's
@@ -571,10 +657,11 @@ Assumptions, in full:
 2. Std has short real docs ("Joins a list of lists.", List/Toolkit.sw:208, 5 words), so the
    threshold must stay low.
 
-**D2149. Should only ``[`Name`]`` be a link, not bare `[Name]`?** [Recommended: **yes**.]
+**D2149. Should only ``[`Name`]`` with a name-shaped `Name` be a link, not bare `[Name]`?**
+[Recommended: **yes**.]
 Assumptions, in full:
-1. `[x]`, `[1, 2]` are list literals and appear in comments (`[1, 2, 3, 4].findMap` in std
-   tests; prose quotes code).
+1. List literals appear in std comments: "`Vec.foldLeft [x, y] initial f` is `f (f initial x)
+   y`" (Vec/Vec.sw:53), "`Some [1, 2]`" (core/Show.sw:81) [checked].
 2. rustdoc accepts the backticked form [cited]; Go uses bare `[Name]` [cited: go.dev/doc/comment],
    but Go has no list literal of that shape.
 
@@ -591,6 +678,23 @@ Assumptions, in full:
 1. The split is judgement (rationale versus behaviour), so DeepSeek is not used for it.
 2. About 5,000 blocks in all [measured]; std's 1,945 matter most to other code.
 3. The pass changes comments only; `fmt` and the test tiers confirm nothing else moved.
+
+**D2152. Should `stitchwort doc --theorems 0` skip checking, showing the doc, summary, header and
+examples from parsing alone (no elaborated `type`)?** [Recommended: **yes**; the default (8
+theorems) checks.]
+Assumptions, in full:
+1. Everything but the elaborated type and the theorem list comes from the source text (§4, §5.4).
+2. A cold check of std alone took 17.7 s [review]; warm, about 1 s [run].
+3. Name resolution without a check uses declared names from parsing; an ambiguous or unknown name
+   is reported the same way.
+
+**D2153. Should a doc link resolve a full name, or a std name without `Std.`, even when the doc's
+file doesn't import its namespace?** [Recommended: **yes**.]
+Assumptions, in full:
+1. Otherwise a project doc linking ``[`List.filterMapAppend`]`` needs `import Std (List)`, a
+   dependency added for a comment [review].
+2. Links add no dependency either way (§7).
+3. Names in scope are tried first, so a short name the file imports still works.
 
 ## 10. Other systems
 
@@ -612,3 +716,39 @@ Short, and only what bears on a decision here.
 - Costs (§8) are estimates.
 - The cost of re-lexing for an index over a large project was not timed.
 - The [memory] cells of §10.
+- The [review] items not marked re-checked: taken from review 1's own runs.
+
+## Review 1 and how it was addressed
+
+The review is [documentation/review-1.md](documentation/review-1.md): "approve with changes". It
+re-ran the three scripts and confirmed every count, the search runs, the 7 / 8 / 7 theorem split
+and every file:line citation. I re-checked points 2, 3, 4, 5 and 19 myself (projects.md:253-254;
+`git ls-files docs/research`; `git show 96b79502:crates/elab/src/std/Set/Set.sw`; SW-993's body;
+`ec84e6d2`) and re-ran doccov.py without the timing marker (point 14).
+
+| # | the review | what changed, and where |
+|---|---|---|
+| 1 | std file docs would go to every namespace in the file (45 of 90 files mix namespaces) | A std file's doc belongs to its folder's namespace; `core/` files to none (§4) |
+| 2 | D2146's import-line graph misses namespaces that only write full names | Scope is the driver's dependency graph; assumption restated in full with projects.md:253-254; noted that `Aoc.Common`'s dependents are most of AoC (§5.5, D2146) |
+| 3 | the research note link is broken (the note is untracked); review anchor missing | The note is named by path in the main checkout, not linked (Matt asked that it not be moved or edited); this section added |
+| 4 | the Set.union quote postdates the note | Quotes the 24 October text; adds that `e947353f` removed the cost 26 minutes after the note (§1.3) |
+| 5 | the query log of SW-993 was never switched on; no "misused" case | Said in §1.3; heading renamed; "no case of misuse" stated |
+| 6 | one-word exact test names in AoC attach wrongly (6 of 7) | Unqualified exact names attach only to functions; D2144 restated, with the AoC count |
+| 7 | project tests are in `X.Tests` namespaces | Tests searched in the same namespaces as theorems (§5.4, D2144, D2146) |
+| 8 | 19 `…Example` theorems with no base are invisible | Listed by the coverage report for renaming; the `filterMap` worked example names one (§5.3, §5.4, §8 2b) |
+| 9 | output unspecified for most kinds and for type/namespace clashes | §5.3: project default, several-matches JSON, namespace JSON, type-and-namespace order, a rule per kind |
+| 10 | cold std check is 17.7 s; `doc` needs a check only for type and theorems | §5.3 "What it checks"; new D2152 (`--theorems 0` doesn't check); project default stated |
+| 11 | "all 22" command shows 10 | `--limit 22` in §1.1, §5.3 text and JSON (`command`) |
+| 12 | members sharing a line; comments between attribute and `def` | §4 rule 1: such members have no doc; a comment after an attribute is not a doc, and stage 3 warns on a `--|` there |
+| 13 | summary rule versus `\n`-joined text; cutting inside backticks | §4: lines joined by spaces for the summary, "whitespace", no cut inside backticks; `Text.padLeft`'s cut summary shown (§5.3) |
+| 14 | the timing marker hits user cost notes | Dropped from the script and §6.1; 42 blocks, not 47 (§1.2, D2142); doccov.py changed |
+| 15 | links needing imports | Full names and std names without `Std.` resolve regardless of imports; new D2153 (§7) |
+| 16 | link targets must be name-shaped | §7 syntax |
+| 17 | D2149 cited test code | Cites Vec/Vec.sw:53 and core/Show.sw:81 |
+| 18 | removing `docMarker` would change a field | Kept, reading `--|` after the pass; the index carries it too (§5.3, §5.6) |
+| 19 | `signature` was added to the index without a version bump; it is an alternative to the header | Cited in §5.6; §5.3 says why the header is used (no check, reads as the source) |
+| 20 | index cost: 40 std files, 1,231 symbols, 4.9 MB for a two-line file | §5.6 restated: the cost is bounded by the std files loaded |
+| 21 | "named after" is loose; `group` values; congruence lemmas and the cap; left side read directly; which binders to drop | §5.5: camel-case-word rule with the `List.map` numbers, tests on `List.map` and `Nat.add` required in stage 1b; three `group` values; congruence lemmas count towards the cap; left side read off the statement; only binders used later are dropped (§5.3) |
+| 22 | docs from the std the check used | §4: `--std-dir` / `STITCHWORT_STD_DIR` |
+| 23 | "passed at the last merge" overstates | §5.4: run by the daily and full tiers; the merge tier samples |
+| 24 | file docs during the fallback; two header blocks | §4: the fallback covers file docs; several runs before the first declaration are joined (D2142 assumption 4) |
