@@ -13,7 +13,8 @@
 --|   def parse (t: Text): Result Int Text := Fail.toResult (() => turn t)
 -- (docs/proposals/errors.md)
 
---| The one operation. It returns `Empty`, so no handler can resume the
+--| Failing with a message: a computation that may stop with a reason, through
+--| its one operation, `stop`. It returns `Empty`, so no handler can resume the
 --| computation: there's no value to resume it with. Code calls
 --| `Fail.fail msg`, which has any result type; handlers match on `stop`.
 ability Fail where
@@ -28,7 +29,8 @@ def Fail.need (option: Option a) (msg: Text): {Fail} a :=
     | Some x => x
     | None => Fail.fail msg
 
---| The same, for dot notation: `t.toNat.orFail "expected a number, got '${t}'"`.
+--| The value in an `Option`, or fail with `msg`: `Fail.need` for dot notation,
+--| `t.toNat.orFail "expected a number, got '${t}'"`.
 def Option.orFail (option: Option a) (msg: Text): {Fail} a := Fail.need option msg
 
 --| Fail with `msg` unless `ok`.
@@ -66,7 +68,7 @@ def Fail.recover (handler: Text → {e} a) (prog: () → {Fail | e} a): {e} a :=
     | return x => x
     | Fail.stop msg, k => handler msg
 
---| The same computation, with `label: ` in front of its failure's message:
+--| Runs `prog` with `label: ` in front of its failure's message:
 --| `Fail.context "line 3" (() => parseLine l)`. The `fail` in the clause
 --| isn't caught by this handler: it goes to the next one out.
 def Fail.context (label: Text) (prog: () → {Fail | e} a): {Fail | e} a :=

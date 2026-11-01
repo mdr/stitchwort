@@ -1,4 +1,4 @@
---| `Finite.check`: a statement about every value of a finite type, checked
+--| [`Finite.check`]: a statement about every value of a finite type, checked
 --| by computing it for each one. The interface and its instances are in the
 --| core (core/Finite.sw), since derived instances need them; this isn't.
 -- (docs/proposals/decide.md §6.2)

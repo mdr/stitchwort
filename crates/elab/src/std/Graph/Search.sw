@@ -8,8 +8,8 @@
 --| out of a found state leads to one found for no more than the two costs
 --| together. With reaching taken as walking the graph's edges from a source
 --| (`Graph.Reached`), that is `Graph.Shortest`: each cost found is a walk's,
---| and no walk costs less (`Graph.distancesShortest`,
---| `Graph.breadthFirstShortest`). `Graph.boundAlong` turns the spec into
+--| and no walk costs less ([`Graph.distancesShortest`],
+--| [`Graph.breadthFirstShortest`]). [`Graph.boundAlong`] turns the spec into
 --| bounds along any walk, for proofs about a program's own paths.
 --|
 --| Both searches end without fuel because every edge leads to one of the
@@ -149,14 +149,14 @@ def Graph.pushEdges [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (q
   | Nil, queue => queue
   | Cons (next, weight) rest, queue => Graph.pushEdges cost rest (queue.insert (cost + weight, next))
 
---| Pushing edges keeps what the queue had...
+--| Pushing edges keeps what the queue had.
 theorem Graph.containsPushedKeeps [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (entry: (Nat, s)) →
     queue.contains entry = True → (Graph.pushEdges cost edges queue).contains entry = True
   | Nil, queue, entry, there => there
   | Cons (next, weight) rest, queue, entry, there =>
     Graph.containsPushedKeeps cost rest (queue.insert (cost + weight, next)) entry (Set.containsInsertMono queue (cost + weight, next) entry there)
 
---| ...adds each edge's state at `cost` plus its cost...
+--| Pushing edges adds each edge's state at `cost` plus its cost.
 theorem Graph.containsPushedEdge [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (next: s) → (weight: Nat) →
     (next, weight) ∈ edges → (Graph.pushEdges cost edges queue).contains (cost + weight, next) = True
   | Nil, queue, next, weight, member => Void.exfalso member
@@ -167,7 +167,7 @@ theorem Graph.containsPushedEdge [auto ord: Ord s] (cost: Nat): (edges: List (s,
   | Cons (first, firstWeight) rest, queue, next, weight, Inr later =>
     Graph.containsPushedEdge cost rest (queue.insert (cost + firstWeight, first)) next weight later
 
---| ...and nothing else.
+--| Pushing edges adds nothing but each edge's state at `cost` plus its cost.
 theorem Graph.containsPushed [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (total: Nat) → (state: s) →
     (Graph.pushEdges cost edges queue).contains (total, state) = True →
     Or (queue.contains (total, state) = True) (Exists Nat (weight => And ((state, weight) ∈ edges) (total = cost + weight)))
@@ -211,7 +211,7 @@ theorem Graph.minLeast [auto ord: Ord s] (queue: Set (Nat, s)) (cost: Nat) (stat
 --| What the search may settle: the sources' states and the listed ones.
 def Graph.universe (graph: Graph s) (sources: List (s, Nat)): List s := sources.map Pair.fst ++ graph.states
 
---| Every state queued is in the universe: at the start...
+--| Every state queued at the start is in the universe.
 theorem Graph.startQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (cost: Nat) (state: s)
     (there: (Graph.pushEdges 0 sources Set.empty).contains (cost, state) = True): state ∈ graph.universe sources :=
   match Graph.containsPushed 0 sources Set.empty cost state there with
@@ -219,7 +219,7 @@ theorem Graph.startQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s, 
     | Inr (Witness start (Both member costs)) =>
       List.memAppendLeft state (sources.map Pair.fst) graph.states (List.memMap sources (state, start) member Pair.fst)
 
---| ...after popping the least pair...
+--| Every state queued after popping the least pair is in the universe.
 theorem Graph.restQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (queue: Set (Nat, s)) (popped: (Nat, s))
     (rest: Set (Nat, s)) (found: queue.popMin = Some (popped, rest))
     (queued: (cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources) (cost: Nat) (state: s)
@@ -227,7 +227,7 @@ theorem Graph.restQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s, N
   let (Both least restIs) := Set.popMinSome queue popped rest found
   queued cost state (Set.containsOfRemove queue popped (cost, state) (rewrite restIs at there in there))
 
---| ...and after pushing a state's edges.
+--| Every state queued after pushing a state's edges is in the universe.
 theorem Graph.pushedQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (from: s) (fromCost: Nat) (rest: Set (Nat, s))
     (queued: (cost: Nat) → (state: s) → rest.contains (cost, state) = True → state ∈ graph.universe sources) (cost: Nat) (state: s)
     (there: (Graph.pushEdges fromCost (graph.edges from) rest).contains (cost, state) = True): state ∈ graph.universe sources :=
@@ -264,13 +264,13 @@ def Graph.distances [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)):
   let queue := Graph.pushEdges 0 sources Set.empty
   graph.searchFrom sources queue Map.empty (Graph.startQueued graph sources) queue.popMin rfl
 
---| One step of the search: an empty queue ends it...
+--| One step of the search: an empty queue ends it.
 theorem Graph.searchEmpty [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (queue: Set (Nat, s)) (settled: Map s Nat)
     (queued: (cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources) (found: queue.popMin = None):
     graph.searchFrom sources queue settled queued None found = settled :=
   rewrite Graph.searchFrom.unfold graph sources queue settled queued None found in rfl
 
---| ...a state already settled is dropped...
+--| One step of the search: a state already settled is dropped.
 theorem Graph.searchSkip [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (queue: Set (Nat, s)) (settled: Map s Nat)
     (queued: (cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources) (cost: Nat) (state: s)
     (rest: Set (Nat, s)) (found: queue.popMin = Some ((cost, state), rest)) (taken: settled.contains state = True):
@@ -279,7 +279,7 @@ theorem Graph.searchSkip [auto ord: Ord s] (graph: Graph s) (sources: List (s, N
   rewrite Graph.searchFrom.unfold graph sources queue settled queued (Some ((cost, state), rest)) found in
     Decidable.elimEq _ _ _ _ (fresh => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) taken))) (other => rfl)
 
---| ...and one not settled yet is settled, with its edges queued.
+--| One step of the search: a state not settled yet is settled, with its edges queued.
 theorem Graph.searchSettle [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (queue: Set (Nat, s)) (settled: Map s Nat)
     (queued: (cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources) (cost: Nat) (state: s)
     (rest: Set (Nat, s)) (found: queue.popMin = Some ((cost, state), rest)) (fresh: settled.contains state = False):
@@ -474,7 +474,7 @@ def Graph.visitEdges [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → 
     if settled.contains state then Graph.visitEdges depth rest settled next
     else Graph.visitEdges depth rest (settled.insert state depth) (Cons state next)
 
---| What visiting edges settled stays settled...
+--| What visiting edges settled stays settled.
 theorem Graph.visitGrows [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     (cost: Nat) → settled.get state = Some cost → (Graph.visitEdges depth edges settled next).fst.get state = Some cost
   | Nil, settled, next, state, cost, got => got
@@ -485,7 +485,7 @@ theorem Graph.visitGrows [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) 
         Graph.visitGrows depth rest (settled.insert target depth) (Cons target next) state cost
           (Map.getInsertKeeps settled target depth there state cost got)
 
---| ...what was on the list stays on it...
+--| Visiting edges keeps what was on the list on it.
 theorem Graph.visitListed [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     state ∈ next → state ∈ (Graph.visitEdges depth edges settled next).snd
   | Nil, settled, next, state, member => member
@@ -494,7 +494,7 @@ theorem Graph.visitListed [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat))
       | True => Graph.visitListed depth rest settled next state member
       | False => Graph.visitListed depth rest (settled.insert target depth) (Cons target next) state (Inr member)
 
---| ...what it settles anew is at `depth`, and put on the list...
+--| What visiting edges settles anew is at `depth`, and put on the list.
 theorem Graph.visitNew [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     (cost: Nat) → (Graph.visitEdges depth edges settled next).fst.get state = Some cost →
     Or (settled.get state = Some cost)
@@ -518,8 +518,8 @@ theorem Graph.visitNew [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) �
                     (Both (Graph.visitListed depth rest (settled.insert target depth) (Cons target next) state (Inl (Eq.sym same)))
                       (Witness weight (Inl (rewrite same in rfl)))))
 
---| ...what is on it was on it, or wasn't settled before and is now, at
---| `depth`, an edge's state...
+--| What is on the list after visiting edges was on it, or wasn't settled
+--| before and is now, at `depth`, an edge's state.
 theorem Graph.visitAdded [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     state ∈ (Graph.visitEdges depth edges settled next).snd →
     Or (state ∈ next)
@@ -550,7 +550,7 @@ theorem Graph.visitAdded [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) 
                 | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) (Map.containsInsertKeeps settled target depth state was)))
             Inr (Both before (Both got (Witness found (Inr edge))))
 
---| ...and every edge's state is settled.
+--| After visiting edges, every edge's state is settled.
 theorem Graph.visitCovers [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → (settled: Map s Nat) → (next: List s) → (state: s) →
     (weight: Nat) → (state, weight) ∈ edges → (Graph.visitEdges depth edges settled next).fst.contains state = True
   | Nil, settled, next, state, weight, member => Void.exfalso member

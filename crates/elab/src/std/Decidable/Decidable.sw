@@ -1,4 +1,4 @@
---| What `Decidable.toBool` says about the decision, and `DecEq.sound`.
+--| What `Decidable.toBool` says about the decision, and [`DecEq.sound`].
 -- These were in the core (docs/proposals/prelude-slim.md stage 3); no compiler
 -- path names them.
 
@@ -31,7 +31,7 @@ theorem DecEq.sound [auto decEq: DecEq a] (x: a) (y: a) (h: (x == y) = True): x 
 theorem DecEq.soundFalse [auto eq: DecEq a] (x: a) (y: a) (h: (x == y) = False) (same: x = y): Void :=
   Bool.falseNotTrue (Eq.trans (Eq.sym h) (Decidable.toBoolOf (DecEq.decide x y) same))
 
---| `x == x`.
+--| `x == x` is `True`, for any `DecEq` instance.
 theorem DecEq.refl [auto eq: DecEq a] (x: a): (x == x) = True := Decidable.toBoolOf (DecEq.decide x x) rfl
 
 --| `x != y` false says `x = y`; true says they differ.
@@ -53,6 +53,6 @@ theorem DecEq.eqComm [auto eq: DecEq a] (x: a) (y: a): (x == y) = (y == x) :=
 --| again: `theorem small: 2 + 2 < 5 := byDecision`, `theorem found: Enter ∈
 --| keys := byDecision`. A false one is `E-AUTO-FALSE`; one whose procedure is
 --| stuck on a variable is `E-AUTO-STUCK` (split the variable with `cases`, or
---| check every value with `Finite.check`).
+--| check every value with [`Finite.check`]).
 -- (docs/proposals/decide.md §2, §6.2)
 def byDecision [p: Prop] [auto h: p]: p := h

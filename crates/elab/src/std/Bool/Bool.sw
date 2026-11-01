@@ -53,7 +53,7 @@ theorem Bool.eqOf: (a: Bool) → (b: Bool) → (a = True → b = True) → (b = 
   | False, False, f, g => rfl
 
 --| A `Bool` that isn't `True` is `False`: `Not (a <= b)` is `Not (Nat.leq a b = True)`,
---| and `Nat.leqFalse` takes it from there.
+--| and [`Nat.leqFalse`] takes it from there.
 theorem Bool.falseOfNotTrue: (x: Bool) → Not (x = True) → x = False
   | True, h => Void.exfalso (h rfl)
   | False, h => rfl
@@ -72,7 +72,7 @@ theorem Bool.orRight (a: Bool) (b: Bool) (h: b = True): (a ∨ b) = True :=
     | True => rfl
     | False => h
 
---| The same for a proposition: prove `goal` from each side.
+--| To use `p || q` as a proposition, prove `goal` from each side.
 theorem Or.elim [p q: Prop] [goal: Prop] (h: Or p q) (left: p → goal) (right: q → goal): goal :=
   match h with
     | Inl x => left x

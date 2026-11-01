@@ -1,7 +1,7 @@
 --| Laws of computations whose proofs need function extensionality: the rest of
 --| a `Call` is a function, and two of them are equal when they agree at every
---| result (`Quot.funext`, so `Quot.sound` is the one axiom these use). The laws
---| that don't need it, `Effect.foldCompDone` and `Effect.runPureBind`, are in
+--| result ([`Quot.funext`], so `Quot.sound` is the one axiom these use). The laws
+--| that don't need it, [`Effect.foldCompDone`] and [`Effect.runPureBind`], are in
 --| core/Effect.sw.
 -- (docs/proposals/effect-polymorphism.md, "Proof tooling")
 
@@ -19,7 +19,7 @@ theorem Effect.bindDone [op: Type] [res: op → Type] [a: Type]:
     let same := Quot.funext (res o) (y => Comp op res a) (y => bind (rest y) Done) rest pointwise
     Eq.cong (Call o) same
 
---| Sequencing is associative.
+--| Sequencing computations is associative.
 theorem Effect.bindAssoc [op: Type] [res: op → Type] [a b r: Type]
     (first: a → Comp op res b) (second: b → Comp op res r):
     (computation: Comp op res a) →

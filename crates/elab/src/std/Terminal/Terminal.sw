@@ -37,6 +37,7 @@ ability Terminal where
 --| last line, so a frame as tall as the screen doesn't scroll it.
 def Frame.ansi (lines: List Text): Text := "\u{1b}[H${Frame.ansiLines lines}\u{1b}[J"
 
+--| The lines of a frame, each followed by "clear to end of line", separated by line breaks.
 def Frame.ansiLines: List Text → Text
   | [] => ""
   | [line] => "${line}\u{1b}[K"
@@ -145,6 +146,7 @@ def Terminal.drawFrame (console: Console) (lines: List Text): {IO} () :=
   if console.outputIsTerminal then lines.take (Terminal.sizeOf console).rows |> Frame.ansi |> IO.write
   else Terminal.printLines (Frame.plain lines)
 
+--| Prints each line, in order.
 def Terminal.printLines: List Text → {IO} ()
   | [] => ()
   | [line, ..more] =>
@@ -295,6 +297,7 @@ def Terminal.scriptedHost (console: Console) (reads: List (List Nat)) (prog: () 
       | IO.args u, resume => readsLeft keysOn written => resume [] readsLeft keysOn written
   run reads False []
 
+--| A terminal of 20 columns and 2 rows for the tests below.
 def Terminal.testTerminal: Console := { inputIsTerminal = True, outputIsTerminal = True, columns = 20, rows = 2 }
 
 test "toIO: on a terminal, keys mode on at the first draw and off at the end; frames as ANSI text cut to the screen" :=
