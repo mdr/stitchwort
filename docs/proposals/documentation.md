@@ -1,10 +1,11 @@
 # Proposal: documentation of Stitchwort code
 
-**Status:** draft 2, 1 November 2026. Ticket SW-1013. Starts from a research note written by
+**Status:** draft 2, 1 November 2026; every question of §9 decided. Ticket SW-1013; stage 1a is SW-1018. Starts from a research note written by
 Codex (`docs/research/documentation.md` in the main checkout; not committed, so not linked; its
 claims were treated as unverified and re-checked here) and an Opus review of that note. Matt's
-decisions D2134–D2139 and D2141 (1 November) are stated as decided. New questions are
-D2142–D2153 in [§9](#9-decisions-for-matt). Draft 1 was reviewed independently ("approve with
+decisions D2134–D2139 and D2141 (1 November) are stated as decided. The questions
+D2142–D2149 and D2151–D2154 in [§9](#9-decisions-for-matt) were decided on 1 November as
+recommended (D2145: no). Draft 1 was reviewed independently ("approve with
 changes"); every point is worked in, one row each, in
 [Review 1 and how it was addressed](#review-1-and-how-it-was-addressed); the review is
 [documentation/review-1.md](documentation/review-1.md).
@@ -182,6 +183,28 @@ ticket hoped for evidence from the search query log of SW-993; that log "was nev
   and is reviewed independently.
 - **D2141**: `stitchwort doc NAME` lists theorems about the definition, found with the search
   machinery. Docs link a theorem (``[`Name`]``, checked) rather than restate a property in prose.
+- **D2142**: stage 1 reads plain `--` runs as docs until the sorting pass, marked
+  `docMarker: "--"`.
+- **D2143**: docs are read from the source text when shown, not carried through elaboration and
+  the check cache.
+- **D2144**: a test attaches to X by the qualified-name rules of §5.4, with the function
+  condition for an unqualified name.
+- **D2145**: **no**: a closed theorem proved by `rfl` is not an example in stage 1; revisit after
+  the coverage report.
+- **D2146**: for a project name, `doc` looks for theorems and tests in the name's namespace and
+  those that depend on it.
+- **D2147**: hover shows the full doc in the language server and the summary only in the
+  playground.
+- **D2148**: in the coverage report, a doc under 4 words or one that repeats the name counts as
+  missing.
+- **D2149**: only ``[`Name`]`` with a name-shaped `Name` is a link, not bare `[Name]`.
+- **D2151**: a script proposes the sorting pass, Sonnet lanes split each namespace, Opus reviews;
+  std first.
+- **D2152**: `doc --theorems 0` skips checking.
+- **D2153**: a doc link resolves a full name, or a std name without `Std.`, whatever the file
+  imports.
+- **D2154**: in `search` with only `"text"` parts, a result whose last name component equals the
+  text ranks first (stage 1b).
 
 ## 4. Attachment rules
 
@@ -587,8 +610,11 @@ features (search's stage 1, the index's `signature` field).
 
 ## 9. Decisions for Matt
 
+All decided on 1 November 2026, as recommended (D2145: no). The assumptions are kept as they
+were put to Matt.
+
 **D2142. Should stage 1 read plain `--` runs as docs until the sorting pass, marked
-`docMarker: "--"`?** [Recommended: **yes**.]
+`docMarker: "--"`?** **Decided: yes.** [Recommended: **yes**.]
 Assumptions, in full:
 1. Stage 1 is built before the sorting pass (the agreed build order).
 2. Without the fallback, stage 1 shows no doc anywhere until stage 2, since no `.sw` file has
@@ -599,7 +625,7 @@ Assumptions, in full:
 5. The fallback is removed when the pass is done, so `--` keeps its D2134 meaning in the end.
 
 **D2143. Should docs be read from the source text when shown (§4), rather than carried through
-elaboration and the check cache?** [Recommended: **yes**.]
+elaboration and the check cache?** **Decided: yes.** [Recommended: **yes**.]
 Assumptions, in full:
 1. Every consumer already has the declaration's file and name position (index symbols, search
    results, `LiveRef`s) [checked: §2].
@@ -612,7 +638,7 @@ Assumptions, in full:
    own, not this one.
 
 **D2144. Should a test attach to X when its description is a qualified name of X, or starts with
-one followed by a space, `,` or `:`, or is X's unqualified name and X is a function (§5.4)?**
+one followed by a space, `,` or `:`, or is X's unqualified name and X is a function (§5.4)?** **Decided: yes.**
 [Recommended: **yes**.]
 Assumptions, in full:
 1. Without the function condition the rule attaches 181 of 594 std tests to 133 declarations
@@ -624,14 +650,14 @@ Assumptions, in full:
 4. AoC and roguelike tests stay mostly unattached; renaming them is not proposed.
 
 **D2145. Should a closed theorem (no parameters) proved by `rfl` that mentions X count as an
-example of X?** [Recommended: **no, not in stage 1**; revisit after the coverage report.]
+example of X?** **Decided: no.** [Recommended: **no, not in stage 1**; revisit after the coverage report.]
 Assumptions, in full:
 1. D2135 names the two ways examples attach; this would add a third.
 2. Such theorems (e.g. `Text.padLeftLongEnough`) already appear in X's theorem list.
 3. A closed theorem can mention several functions, so it would attach to each of them.
 
 **D2146. For a project name, should `doc` look for theorems and tests only in the name's
-namespace and the namespaces that depend on it, not the whole project?** [Recommended: **yes**.]
+namespace and the namespaces that depend on it, not the whole project?** **Decided: yes.** [Recommended: **yes**.]
 Assumptions, in full:
 1. A theorem about X can only be in a namespace that can name X: X's own, or one that depends on
    it, directly or through others. A namespace depends on another if it imports from it or writes
@@ -644,20 +670,20 @@ Assumptions, in full:
 4. For a std name, std only, unless `--project` is given.
 
 **D2147. Hover: the full doc in the language server, the summary only in the playground's
-tooltip?** [Recommended: **yes**.]
+tooltip?** **Decided: yes.** [Recommended: **yes**.]
 Assumptions, in full:
 1. Editors show Markdown hovers with scrolling; the playground's tooltip is a small `div`
    [checked: web/index.html:2520, 2751-2770].
 2. Neither shows examples or theorems; those are `doc`'s.
 
 **D2148. In the coverage report, should a doc of fewer than 4 words, or one that only repeats the
-name, count as missing?** [Recommended: **yes**.]
+name, count as missing?** **Decided: yes.** [Recommended: **yes**.]
 Assumptions, in full:
 1. The report measures (D2138); it doesn't enforce.
 2. Std has short real docs ("Joins a list of lists.", List/Toolkit.sw:208, 5 words), so the
    threshold must stay low.
 
-**D2149. Should only ``[`Name`]`` with a name-shaped `Name` be a link, not bare `[Name]`?**
+**D2149. Should only ``[`Name`]`` with a name-shaped `Name` be a link, not bare `[Name]`?** **Decided: yes.**
 [Recommended: **yes**.]
 Assumptions, in full:
 1. List literals appear in std comments: "`Vec.foldLeft [x, y] initial f` is `f (f initial x)
@@ -666,13 +692,13 @@ Assumptions, in full:
    but Go has no list literal of that shape.
 
 **D2154. In `stitchwort search` with only `"text"` parts, should a result whose last name
-component equals the text rank first?** [Recommended: **yes**, in stage 1b.]
+component equals the text rank first?** **Decided: yes.** [Recommended: **yes**, in stage 1b.]
 Assumptions, in full:
 1. Today `'"filterMap"'` ranks `List.filterMap` 9th of 9, after its theorems [run].
 2. It changes ranking only for text-only queries; pattern ranking (D2062–D2064) is untouched.
 3. Search's JSON version doesn't change (ranking isn't a field's meaning).
 
-**D2151. Who does the sorting pass?** [Recommended: **a script proposes, Sonnet lanes split each
+**D2151. Who does the sorting pass?** **Decided: as recommended.** [Recommended: **a script proposes, Sonnet lanes split each
 namespace, Opus reviews; std first, aoc and the roguelike after**.]
 Assumptions, in full:
 1. The split is judgement (rationale versus behaviour), so DeepSeek is not used for it.
@@ -680,7 +706,7 @@ Assumptions, in full:
 3. The pass changes comments only; `fmt` and the test tiers confirm nothing else moved.
 
 **D2152. Should `stitchwort doc --theorems 0` skip checking, showing the doc, summary, header and
-examples from parsing alone (no elaborated `type`)?** [Recommended: **yes**; the default (8
+examples from parsing alone (no elaborated `type`)?** **Decided: yes.** [Recommended: **yes**; the default (8
 theorems) checks.]
 Assumptions, in full:
 1. Everything but the elaborated type and the theorem list comes from the source text (§4, §5.4).
@@ -689,7 +715,7 @@ Assumptions, in full:
    is reported the same way.
 
 **D2153. Should a doc link resolve a full name, or a std name without `Std.`, even when the doc's
-file doesn't import its namespace?** [Recommended: **yes**.]
+file doesn't import its namespace?** **Decided: yes.** [Recommended: **yes**.]
 Assumptions, in full:
 1. Otherwise a project doc linking ``[`List.filterMapAppend`]`` needs `import Std (List)`, a
    dependency added for a comment [review].
