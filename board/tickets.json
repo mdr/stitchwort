@@ -1,5 +1,5 @@
 {
-  "next": 981,
+  "next": 985,
   "tickets": [
     {
       "id": 47,
@@ -2594,8 +2594,8 @@
     {
       "id": 962,
       "title": "Proof hashes differ between debug and release builds (float-playlist example)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "elab",
@@ -2795,8 +2795,8 @@
     {
       "id": 975,
       "title": "BUG: cases panics (value.rs:1011 index underflow) when a proof stops matching the program",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "bug",
@@ -2878,6 +2878,65 @@
         "friction"
       ],
       "body": "From AoC 2021 day 18 (aoc/NOTES-2021.md, 1 Nov 2026). Termination of snailfish reduction left open (fuel 1000 per sum; completeness up to budget proved).\n(1) Printed goals aren't valid source: a record passed to a constructor prints `Cons { value = … } rest` / `Some { found | … }`, which search --at can't read back (E-PARSE: braces after Cons name its fields). Fix: print in brackets (small).\n(2) search --at fails on a hidden name: a goal mentioning `split.%match1` gives E-PARSE \"expected a field name after '.'\" (new effect of SW-971 (3)).\n(3) The program had to be reshaped to prove one arm: with a specific `Pair (Regular a) (Regular b)` arm before the general Pair arm, the general arm's equation can't be stated (a written-out match is a different hidden function, E-REFL). Workaround: named helper explodeIn. Fix: generate an equation per arm, like Lean's f.eq_3 (medium).\n(4) A goal showed the previous arm's variable names: last arm binds `left1 right1` but goal printed `Pair left right = Pair left2 right2` (printer bug, small-medium).\n(5) `if 4 ≤ depth` stays a Bool if (only Nat.leq matching refines it) while `if 10 ≤ value` becomes Decidable.elim (Nat.decLessThan 9 value). Cause guessed. Fix: one form or a proving-guide line (small).\n(6) audit can't satisfy `f x = Some y` with y free; fix: compute y from f x rather than random (small-medium; different from SW-967 (8)).\n(7) Small: `import Std (Pair)` hides a local Pair constructor (clear message); braces after a constructor bit three times (LSP quick fix); no multi-line string literals (example is Text.join of a list); a recursive {Parse} function needs an explicit bound.\nSeen again: no record eta (SW-960 (4)); holes before expected type (SW-969 (2)); context order breaks search --at (SW-969 (1)); search misses DecEq.soundFalse / Nat.equalFalse for == facts (SW-960 (3)); day 14's maximumSome imported again (SW-971 (7)).\nStd candidates: xs ≠ Nil → xs ++ ys ≠ Nil (both sides); findIndexFrom = None → p false on every element; List.maximum lemmas.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 981,
+      "title": "BUG: lambda argument becomes unknown x in a termination goal inside a callback (from SW-967 item 2)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "bug",
+        "elab"
+      ],
+      "body": "Split from SW-967 item 2 (AoC 2021 day 12). Repro in aoc/NOTES-2021.md day 12: def g (xs: List Nat) (k: Nat): Nat decreasing xs.length := [1, 2] |> .sumBy (other => if k == 0 then 0 else g (xs.filter (c => c == other)) k [decreasing := ?]) shows ⊢ List.length x < List.length xs.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 982,
+      "title": "BUG: match on a bounded search computes the scrutinee (E-RESOURCE) (from SW-965 item 1)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "bug",
+        "elab"
+      ],
+      "body": "Split from SW-965 item 1 (AoC 2021 day 11). Repro in aoc/NOTES-2021.md day 11 (13 lines): match on search xs 1 10000 fails E-RESOURCE 'a value was too large to show'; 100 steps 0.11 s, 1000 0.68 s.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 983,
+      "title": "Std lemmas from AoC 2021 (D2112): List.maximum, count/filter, Bool.toNat, Ord.compare law, Decidable List.Distinct, etc.; remove cross-day copies",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std",
+        "aoc"
+      ],
+      "body": "Queued after the bug lanes (SW-975, 962, 981, 982), Matt 1 Nov 2026. General lemmas only (broad applicability); AoC-specific shared code goes to Aoc.Common (separate ticket). Candidates from friction tickets SW-960..980: List.maximum lemmas (mirror List.minimum), count/filter lemmas (count ≥ 1 for a member, filter length ≤ and strict, countLeLength), findIndexed-none, Map.keys length = Map.size, Bool.toNat b ≤ 1, Nat.iterateCong/iterateKeeps, Ord.compare x y = Equal → x = y as a theorem, Decidable (List.Distinct xs) for DecEq, List.flatMapCong, takeAppend/dropAppend with length, Int.toNat round-trips, xs ≠ Nil → xs ++ ys ≠ Nil. Then make AoC days (2021 and 2024 day 24, etc.) use std's versions instead of their own or imported copies.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 984,
+      "title": "Aoc.Common.Grid (D2112): Position, Direction, step, 4/8 neighbours, rectangular grid + parser guarantee, Graph bridge; move 2021 days 9, 11, 15 onto it",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Queued after the bug lanes, Matt 1 Nov 2026. AoC shared code, not std (Matt: std is for broadly applicable code). Lives beside Aoc.Common.Range. Requirements from the existing copies: 2021 day 9 (Position, 4 neighbours, adjacency lemmas), day 11 (~210 lines: mapCells, cellAt, positions, OnGrid, 8 neighbours), day 15 (imports day 9's Position), 2024 days 6, 8, 10, 12, 14, 15, 16, 18, 20 (own Position/Direction/step). Grid parser whose result proves rectangularity (replaces each day's checkRows; D2108). Bridge to std Graph for BFS/Dijkstra. Open choices: Nat vs Int coordinates (2024 day 8 does vector arithmetic), list vs map representation (day 15 used Map.byPosition for speed). Migrate 2021 days 9, 11, 15 (hash churn fine); 2024 days optional, say which.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
