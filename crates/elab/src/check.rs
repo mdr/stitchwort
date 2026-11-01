@@ -3850,19 +3850,13 @@ fn char_term(cx: &Ctx, c: char) -> Result<Term> {
 }
 
 /// `a ++ b`: `textAppend` for texts, `append` for lists, chosen by the type of
-/// whichever side can be inferred.
+/// `a`. What in `a` can't say its type yet (a record literal, a `.field`, a
+/// number) waits in the queue, so `a` is always inferred first and `b`
+/// checked against it.
 fn append(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
-    let first = infer(cx, a).and_then(|(t, ty)| insert(cx, t, ty));
-    let (a, b, ty) = match first {
-        Ok((a, ty)) => (a, check(cx, b, &ty)?, ty),
-        Err(e) if e.code == "E-CANNOT-INFER" => {
-            crate::queue::note_append_other_side();
-            let (b, ty) = infer(cx, b)?;
-            let (b, ty) = insert(cx, b, ty)?;
-            (check(cx, a, &ty)?, b, ty)
-        }
-        Err(e) => return Err(e),
-    };
+    let (a, ty) = infer(cx, a)?;
+    let (a, ty) = insert(cx, a, ty)?;
+    let b = check(cx, b, &ty)?;
     let text = builtin_data(cx, Builtin::Text)?;
     let list = builtin_data(cx, Builtin::List)?;
     let head = match force(cx.g(), ty.clone())? {

@@ -1600,7 +1600,6 @@ static KEPT_CHOSE: AtomicUsize = AtomicUsize::new(0);
 static LAMBDA_POSTPONED: AtomicUsize = AtomicUsize::new(0);
 static RETRIED: AtomicUsize = AtomicUsize::new(0);
 static RETRIED_CONSTRUCTOR: AtomicUsize = AtomicUsize::new(0);
-static APPEND_OTHER_SIDE: AtomicUsize = AtomicUsize::new(0);
 static CALC_FROM_GOAL: AtomicUsize = AtomicUsize::new(0);
 static LEAF_UNINFERRED: AtomicUsize = AtomicUsize::new(0);
 static WAITED: AtomicUsize = AtomicUsize::new(0);
@@ -1646,13 +1645,6 @@ pub(crate) fn note_retried(constructor: bool) {
     if constructor {
         count(&RETRIED_CONSTRUCTOR);
     }
-}
-
-/// `a ++ b` whose left side couldn't be inferred, so the right side was
-/// inferred first (`check::append`): one of the three "infer the other
-/// side" catches §5.11 removes in stage 5.
-pub(crate) fn note_append_other_side() {
-    count(&APPEND_OTHER_SIDE);
 }
 
 /// A `calc` whose first term couldn't be inferred, so it was checked
@@ -1722,10 +1714,9 @@ pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
 /// holding an unknown the declaration will still settle, and of those the
 /// failures (`… on pending`, `… failed on pending`); and, for stage 5, the
 /// catch-and-retry paths it removes: the retries only a constructor with
-/// number literals asked for (`retried for a constructor`), and the three
-/// "infer the other side" catches (`append other side`, `calc from goal`,
-/// `leaf uninferred`).
-pub fn counts() -> [(&'static str, usize); 31] {
+/// number literals asked for (`retried for a constructor`), and the "infer
+/// the other side" catches left (`calc from goal`, `leaf uninferred`).
+pub fn counts() -> [(&'static str, usize); 30] {
     let get = |c: &AtomicUsize| c.load(Ordering::Relaxed);
     [
         ("queued", get(&QUEUED)),
@@ -1744,7 +1735,6 @@ pub fn counts() -> [(&'static str, usize); 31] {
         ("lambda postponed", get(&LAMBDA_POSTPONED)),
         ("retried", get(&RETRIED)),
         ("retried for a constructor", get(&RETRIED_CONSTRUCTOR)),
-        ("append other side", get(&APPEND_OTHER_SIDE)),
         ("calc from goal", get(&CALC_FROM_GOAL)),
         ("leaf uninferred", get(&LEAF_UNINFERRED)),
         ("waited", get(&WAITED)),
