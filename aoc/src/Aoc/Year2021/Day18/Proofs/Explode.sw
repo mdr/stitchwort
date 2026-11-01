@@ -50,7 +50,7 @@ theorem pairNone (depth: Nat) (left: Number) (right: Number) (none: explode dept
 theorem explodeNoneShallow: (depth: Nat) → (number: Number) → explode depth number = None → depth ≤ 4 → depth + height number ≤ 5 →
     depth + height number ≤ 4 ∧ ((rest: List Leaf) → firstDeep (leaves depth number ++ rest) = shift (leaves depth number) (firstDeep rest))
   | depth, Regular value, none, shallow, fits => Both shallow (rest => cases)
-  | depth, Pair left right, none, shallow, fits => 
+  | depth, Pair left right, none, shallow, fits =>
     let parts := pairNone depth left right none fits
     let inLeft := explodeNoneShallow (depth + 1) left (And.left parts) (And.right (And.right parts)) omega
     let inRight := explodeNoneShallow (depth + 1) right (And.left (And.right parts)) (And.right (And.right parts)) omega

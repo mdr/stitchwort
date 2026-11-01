@@ -161,7 +161,7 @@ def checkNumbers (numbers: List Number): {Fail} (List Number) :=
 
 -- The index of the first number that isn't reduced.
 def firstUnreduced (numbers: List Number): Option Nat :=
-  numbers.withIndex.find (((_, x)) => not (reduced 0 x)) |> .map (((i, _)) => i)
+  numbers.findIndex (x => not (reduced 0 x))
 
 -- No pair inside four pairs and no regular number above 9, for a number
 -- inside `depth` pairs.

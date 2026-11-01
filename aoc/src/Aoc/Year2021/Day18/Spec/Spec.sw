@@ -83,6 +83,11 @@ type ReducesTo: List Leaf → List Leaf → Prop =
   | Reduced (done: reduceStep final = None): ReducesTo final final
   | Steps (step: reduceStep start = Some next) (rest: ReducesTo next final): ReducesTo start final
 
+-- A reduced number: no pair is nested inside four pairs (no regular number
+-- is inside more than four), and no regular number is 10 or more. The
+-- puzzle's numbers are all reduced.
+def IsReduced (number: Number): Prop := List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves 0 number)
+
 -- `x + y` is `sum`: the pair of `x` and `y`, reduced, has `sum`'s leaves.
 def IsSum (x: Number) (y: Number) (sum: Number): Prop := ReducesTo (leaves 0 (Pair x y)) (leaves 0 sum)
 
