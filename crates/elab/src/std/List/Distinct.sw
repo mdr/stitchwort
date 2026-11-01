@@ -2,7 +2,7 @@
 --| ordering, in O(n log n). A `Set` holds what has been seen, so each element
 --| costs a lookup, not a scan of the elements kept before it as
 --| `List.distinctEq` (the `DecEq`-only version, std/List/Toolkit.sw) does.
---| The result is the same (`List.distinctIsDistinctEq`), so what is proved
+--| The result is the same ([`List.distinctIsDistinctEq`]), so what is proved
 --| here for `distinctEq` holds for `distinct` too.
 -- (SW-454, D1191)
 -- The theorems are here, not beside `distinctEq`, so that programs using the
@@ -16,9 +16,9 @@ def List.distinctLoop [auto ord: Ord a] (seen: Set a) (acc: List a): List a → 
   | Cons x xs => if Set.contains seen x then List.distinctLoop seen acc xs else List.distinctLoop (Set.insert seen x) (Cons x acc) xs
 
 --| The elements without repeats, keeping the first occurrence of each, in the
---| original order. `xs` is the main value: `xs.distinct`. `[3, 1, 3, 2,
---| 1].distinct` is `[3, 1, 2]`. O(n log n); for a type with `==` but no
---| ordering, `List.distinctEq`.
+--| original order: `[3, 1, 3, 2, 1].distinct` is `[3, 1, 2]`. It has exactly
+--| the list's elements ([`List.memDistinct`]). O(n log n); for a type with `==`
+--| but no ordering, `List.distinctEq`.
 def List.distinct [auto ord: Ord a] (xs: List a): List a := List.distinctLoop Set.empty Nil xs
 
 -- What `distinctFrom` (so `distinctEq`) keeps: elements of the list, none of
@@ -83,7 +83,7 @@ theorem List.distinctFromNoRepeats [auto eq: DecEq a]: (seen: List a) → (xs: L
         Both (m => Bool.trueNotFalse (Eq.trans (Eq.sym (List.anyConsSelf y seen)) (List.distinctFromFresh y (Cons y seen) ys m)))
           (List.distinctFromNoRepeats (Cons y seen) ys)
 
---| `distinctEq` keeps exactly the list's elements ...
+--| `distinctEq` keeps exactly the list's elements.
 theorem List.memDistinctEq [auto eq: DecEq a] (x: a) (xs: List a): x ∈ List.distinctEq xs ↔ x ∈ xs := {
   forward = m => List.memDistinctFromElim x Nil xs m,
   backward = m =>
@@ -92,7 +92,7 @@ theorem List.memDistinctEq [auto eq: DecEq a] (x: a) (xs: List a): x ∈ List.di
       | Inr found => found
 }
 
---| ... each once.
+--| `distinctEq` keeps each element once.
 theorem List.distinctEqNoRepeats [auto eq: DecEq a] (xs: List a): List.Distinct (List.distinctEq xs) := List.distinctFromNoRepeats Nil xs
 
 -- The loop is `distinctFrom` when the set has the same elements as the list
@@ -123,18 +123,20 @@ theorem List.distinctLoopFrom [auto ord: Ord a]: (seen: Set a) → (seenList: Li
 theorem List.distinctIsDistinctEq [auto ord: Ord a] (xs: List a): List.distinct xs = List.distinctEq [eq := ord.eq] xs :=
   List.distinctLoopFrom Set.empty Nil (z => rfl) Nil xs
 
---| So it keeps exactly the list's elements ...
+--| `distinct` keeps exactly the list's elements.
 theorem List.memDistinct [auto ord: Ord a] (x: a) (xs: List a): x ∈ List.distinct xs ↔ x ∈ xs :=
   rewrite List.distinctIsDistinctEq xs in List.memDistinctEq [eq := ord.eq] x xs
 
---| ... each once.
+--| `distinct` keeps each element once.
 theorem List.distinctNoRepeats [auto ord: Ord a] (xs: List a): List.Distinct (List.distinct xs) :=
   rewrite List.distinctIsDistinctEq xs in List.distinctEqNoRepeats [eq := ord.eq] xs
 
---| What `distinctFrom` keeps of lists built up: a list with no repeats and
---| nothing seen is kept whole; elements all seen are all dropped; elements
---| appended that are seen or earlier are dropped; a new element appended is
---| kept.
+-- What `distinctFrom` keeps of lists built up: a list with no repeats and
+-- nothing seen is kept whole; elements all seen are all dropped; elements
+-- appended that are seen or earlier are dropped; a new element appended is
+-- kept.
+
+--| An element seen before is still seen after another is added in front.
 theorem List.anyConsEqTrue [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (h: List.any seen (== y) = True): List.any (Cons x seen) (== y) = True :=
   match d: x == y with
     | True => rfl
@@ -196,21 +198,21 @@ theorem List.distinctFromSnoc [auto eq: DecEq a] (y: a): (seen: List a) → (xs:
           (List.distinctFromSnoc y (Cons x seen) xs (m => out (Inr m))
             (List.anyConsEqFalse x y seen (e => out (Inl e)) fresh))
 
---| A list with no repeats is its own `distinct` ...
+--| A list with no repeats is its own `distinct`.
 theorem List.distinctOfNoRepeats [auto ord: Ord a] (xs: List a) (d: List.Distinct xs): List.distinct xs = xs :=
   rewrite List.distinctIsDistinctEq xs in List.distinctFromKeep [eq := ord.eq] Nil xs d (z m => rfl)
 
---| ... so `distinct` twice is `distinct` once.
+--| `distinct` twice is `distinct` once.
 theorem List.distinctDistinct [auto ord: Ord a] (xs: List a): List.distinct (List.distinct xs) = List.distinct xs :=
   List.distinctOfNoRepeats (List.distinct xs) (List.distinctNoRepeats xs)
 
---| Appending elements the list has already changes nothing ...
+--| Appending elements the list has already doesn't change its `distinct`.
 theorem List.distinctAppendSeen [auto ord: Ord a] (xs: List a) (ys: List a) (sub: (y: a) → List.Mem y ys → List.Mem y xs):
     List.distinct (List.append xs ys) = List.distinct xs :=
   rewrite List.distinctIsDistinctEq (List.append xs ys), List.distinctIsDistinctEq xs in
   List.distinctFromAppendSeen [eq := ord.eq] Nil xs ys (y m => Inr (sub y m))
 
---| ... and appending a new element appends it.
+--| Appending a new element appends it to the list's `distinct`.
 theorem List.distinctSnoc [auto ord: Ord a] (xs: List a) (y: a) (out: Not (List.Mem y xs)):
     List.distinct (List.append xs (Cons y Nil)) = List.append (List.distinct xs) (Cons y Nil) :=
   rewrite List.distinctIsDistinctEq (List.append xs (Cons y Nil)), List.distinctIsDistinctEq xs in
@@ -220,13 +222,14 @@ theorem List.distinctAppendSeenExample (xs: List Nat): List.distinct (List.appen
   List.distinctAppendSeen xs xs (y m => m)
 
 --| Whether no element appears twice: `List.Distinct` as a `Bool`
---| (`List.allDistinctCorrect`). A `Set` holds what has been seen, so it is
+--| ([`List.allDistinctCorrect`]). A `Set` holds what has been seen, so it is
 --| O(n log n) and stops at the first repeat.
 @[noReceiver]
 def List.allDistinctFrom [auto ord: Ord a] (seen: Set a): List a → Bool
   | Nil => True
   | Cons x rest => if Set.contains seen x then False else List.allDistinctFrom (Set.insert seen x) rest
 
+--| Whether no element appears twice, in O(n log n): `List.Distinct` as a `Bool` ([`List.allDistinctCorrect`]).
 def List.allDistinct [auto ord: Ord a] (xs: List a): Bool := List.allDistinctFrom Set.empty xs
 
 --| What has been seen is not ahead in a list that passes.

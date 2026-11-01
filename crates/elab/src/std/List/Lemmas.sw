@@ -90,7 +90,7 @@ theorem List.chainInitCons: (x: a) → (rest: List a) → (holds: a → a → Bo
     let kept := List.chainInitCons next (Cons after more) holds (Bool.andRight _ _ chained)
     Bool.andIntro _ _ first kept
 
---| Both tests hold of every pair when each one does.
+--| A `chain` of two tests together holds when the chain of each one does.
 theorem List.chainAnd: (xs: List a) → (holds1: a → a → Bool) → (holds2: a → a → Bool) →
     List.chain xs (x y => holds1 x y ∧ holds2 x y) = (List.chain xs holds1 ∧ List.chain xs holds2)
   | Nil, holds1, holds2 => rfl
@@ -98,9 +98,10 @@ theorem List.chainAnd: (xs: List a) → (holds1: a → a → Bool) → (holds2: 
   | Cons x (Cons next rest), holds1, holds2 =>
     rewrite List.chainAnd (Cons next rest) holds1 holds2 in cases
 
---| `all` and `any` over a cons: the head's answer, then the rest's.
+--| `all` over a cons: the head's answer, then the rest's.
 theorem List.allCons (p: a → Bool) (x: a) (xs: List a): List.all (Cons x xs) p = (p x ∧ List.all xs p) := rfl
 
+--| `any` over a cons: the head's answer, then the rest's.
 theorem List.anyCons (p: a → Bool) (x: a) (xs: List a): List.any (Cons x xs) p = (p x ∨ List.any xs p) := rfl
 
 --| A run of `a + b` numbers is a run of `a` followed by a run of `b`.
@@ -112,7 +113,7 @@ theorem List.rangeFromAppend: (a: Nat) → (b: Nat) → (s: Nat) → List.rangeF
 --| `between` is a `rangeFrom` of the right length.
 theorem List.betweenRangeFrom (lo: Nat) (hi: Nat): List.between lo hi = List.rangeFrom (hi + 1 - lo) lo := rfl
 
---| It has `hi + 1 - lo` elements: none when `lo > hi`, one when `lo = hi`.
+--| `List.between lo hi` has `hi + 1 - lo` elements: none when `lo > hi`, one when `lo = hi`.
 theorem List.lengthBetween (lo: Nat) (hi: Nat): List.length (List.between lo hi) = hi + 1 - lo := List.lengthRangeFrom (hi + 1 - lo) lo
 
 test "List.lengthBetween" := List.length (List.between 3 3) == 1 ∧ List.length (List.between 5 2) == 0 ∧ List.length (List.between 2 6) == 5
@@ -157,8 +158,10 @@ theorem List.padRightExample: List.padRight [1, 2] 4 0 = [1, 2, 0, 0] := rfl
 
 theorem List.padRightLongEnough: List.padRight [1, 2] 1 0 = [1, 2] := rfl
 
---| Lemmas about `List.transpose`: it has as many columns as the first row is
---| long, and for a rectangular list, doing it twice gives back the list.
+-- Lemmas about `List.transpose`: it has as many columns as the first row is
+-- long, and for a rectangular list, doing it twice gives back the list.
+
+--| `map` keeps the length.
 theorem List.lengthMap: (xs: List a) → (f: a → b) → List.length (List.map xs f) = List.length xs
   | Nil, f => rfl
   | Cons x xs, f => Eq.cong Succ (List.lengthMap xs f)
@@ -320,7 +323,7 @@ theorem List.finishGroupsSum: (st: Pair (List a) (List (List a))) →
     List.sumBy (List.finishGroups st) List.length = List.splitTotal st
   | MkPair cur done => List.closeGroupSum cur done
 
---| The groups hold every element that isn't a separator, and nothing else.
+--| `[1, 2, 0, 0, 3]` split at its zeros is `[[1, 2], [3]]`.
 theorem List.splitByExample: List.splitBy [1, 2, 0, 0, 3] (x => x == 0) = [[1, 2], [3]] := rfl
 
 theorem List.splitByEdges: List.splitBy [0, 4, 0] (x => x == 0) = [[4]] := rfl
@@ -400,9 +403,11 @@ theorem List.splitByAppendSeparators (xs: List a) (p: a → Bool) (ys: List a) (
     List.splitBy (List.append xs ys) p = List.splitBy xs p :=
   Eq.cong List.finishGroups (List.splitGroupsAppendSeparators ys p h xs)
 
---| Sums from a starting total, and one element at a time, for any `Add`:
---| the laws `zeroAdd`, `assoc` and `comm`.
+-- Sums from a starting total, and one element at a time, for any `Add`:
+-- the laws `zeroAdd`, `assoc` and `comm`.
 -- (docs/proposals/interfaces.md §7.7)
+
+--| Adding zero on the right changes nothing, for any `Add`.
 theorem Add.addZero [auto add: Add a] (x: a): x + Add.zero = x :=
   Eq.trans (add.comm x Add.zero) (add.zeroAdd x)
 
@@ -446,9 +451,11 @@ theorem List.foldLeftAppend: (xs: List a) → (z: b) → (ys: List a) → (f: b 
   | Nil, z, ys, f => rfl
   | Cons x xs, z, ys, f => List.foldLeftAppend xs (f z x) ys f
 
---| Appending and taking; sums of `Nat.keepIf` terms, which pick out some
---| elements; swapping two sums; sums and `any` over a run `s .. s + c` that
---| pick nothing or exactly one element.
+-- Appending and taking; sums of `Nat.keepIf` terms, which pick out some
+-- elements; swapping two sums; sums and `any` over a run `s .. s + c` that
+-- pick nothing or exactly one element.
+
+--| Appending the empty list changes nothing.
 theorem List.appendNil: (xs: List a) → List.append xs Nil = xs
   | Nil => rfl
   | Cons x xs => Eq.cong (Cons x) (List.appendNil xs)
@@ -463,6 +470,7 @@ theorem List.appendNotNilRight: (xs: List a) → (ys: List a) → Not (ys = Nil)
   | Nil, ys, some, empty => some empty
   | Cons x rest, ys, some, empty => List.consNotNil x (List.append rest ys) empty
 
+--| Appending is associative: `(xs ++ ys) ++ zs = xs ++ (ys ++ zs)`.
 theorem List.appendAssoc: (xs: List a) → (ys: List a) → (zs: List a) → List.append (List.append xs ys) zs = List.append xs (List.append ys zs)
   | Nil, ys, zs => rfl
   | Cons x xs, ys, zs => Eq.cong (Cons x) (List.appendAssoc xs ys zs)
@@ -743,7 +751,9 @@ theorem List.anyOccurrences: (xs: List a) → (p: a → Bool) → List.any xs p 
 theorem List.anyPerm (xs: List a) (ys: List a) (h: List.Perm xs ys) (p: a → Bool): List.any xs p = List.any ys p :=
   Eq.trans (List.anyOccurrences xs p) (Eq.trans (Eq.cong (n => Nat.leq 1 n) (h p)) (Eq.sym (List.anyOccurrences ys p)))
 
---| Reversing is a permutation, and keeps sums.
+-- Reversing is a permutation, and keeps sums.
+
+--| Counting in a list reversed onto `acc` counts in the list and in `acc`.
 theorem List.occurrencesReverseOnto: (xs: List a) → (acc: List a) → (p: a → Bool) →
     List.occurrences (List.reverseOnto xs acc) p = List.occurrences xs p + List.occurrences acc p
   | Nil, acc, p => rfl
@@ -752,6 +762,7 @@ theorem List.occurrencesReverseOnto: (xs: List a) → (acc: List a) → (p: a �
       (Eq.trans (Nat.addLeftComm (List.occurrences xs p) (Bool.toNat (p x)) (List.occurrences acc p))
         (Eq.sym (Nat.addAssoc (Bool.toNat (p x)) (List.occurrences xs p) (List.occurrences acc p))))
 
+--| Reversing a list gives a permutation of it.
 theorem List.reversePerm (xs: List a): List.Perm (List.reverse xs) xs := p =>
   Eq.trans (List.occurrencesReverseOnto xs Nil p) (Nat.addZero (List.occurrences xs p))
 
@@ -768,7 +779,7 @@ theorem List.sumByReverseOnto: (xs: List a) → (acc: List a) → (f: a → Nat)
 theorem List.sumByReverse (xs: List a) (f: a → Nat): List.sumBy (List.reverse xs) f = List.sumBy xs f :=
   Eq.trans (List.sumByReverseOnto xs Nil f) (Nat.addZero (List.sumBy xs f))
 
---| Counting with a test nothing passes, and with either of two tests.
+--| Counting with a test nothing passes finds nothing.
 theorem List.occurrencesNone: (xs: List a) → (p: a → Bool) → (h: (x: a) → p x = False) → List.occurrences xs p = 0
   | Nil, p, h => rfl
   | Cons x xs, p, h => Eq.trans (Eq.cong (b => Bool.toNat b + List.occurrences xs p) (h x)) (List.occurrencesNone xs p h)
@@ -787,13 +798,16 @@ theorem List.occurrencesOr: (xs: List a) → (p: a → Bool) → (q: a → Bool)
       (f => Eq.trans (Eq.cong (n => Bool.toNat (q x) + n) (List.occurrencesOr xs p q h))
         (Nat.addLeftComm (Bool.toNat (q x)) (List.occurrences xs p) (List.occurrences xs q)))
 
---| Lemmas for proofs about grids: runs' lengths, `map` and `filterMap` fused,
---| `init`, `last` and `reverse` of a `map`, and transposing a grid given cell
---| by cell.
+-- Lemmas for proofs about grids: runs' lengths, `map` and `filterMap` fused,
+-- `init`, `last` and `reverse` of a `map`, and transposing a grid given cell
+-- by cell.
+
+--| `List.rangeFrom n s` has `n` elements.
 theorem List.lengthRangeFrom: (n: Nat) → (s: Nat) → List.length (List.rangeFrom n s) = n
   | Zero, s => rfl
   | Succ n, s => rewrite List.lengthRangeFrom n (Succ s)
 
+--| Mapping twice is mapping once by the composed function.
 theorem List.mapMap: (xs: List a) → (f: b → c) → (g: a → b) → List.map (List.map xs g) f = List.map xs (x => f (g x))
   | Nil, f, g => rfl
   | Cons x xs, f, g => rewrite List.mapMap xs f g
@@ -884,6 +898,7 @@ theorem List.lengthReverseOnto: (xs: List a) → (acc: List a) → List.length (
   | Nil, acc => rfl
   | Cons x rest, acc => Eq.trans (List.lengthReverseOnto rest (Cons x acc)) (Nat.addSucc (List.length rest) (List.length acc))
 
+--| Reversing keeps the length.
 theorem List.lengthReverse (xs: List a): List.length (List.reverse xs) = List.length xs :=
   Eq.trans (List.lengthReverseOnto xs Nil) (Nat.addZero (List.length xs))
 
@@ -1033,8 +1048,8 @@ theorem List.anyElim (p: a → Prop) (goal: Prop): (xs: List a) → List.Any p x
   | Cons z zs, Inl h, k => k z (Inl rfl) h
   | Cons z zs, Inr h, k => List.anyElim p goal zs h (x inZs px => k x (Inr inZs) px)
 
---| And to prove it: an element of the list that satisfies `p`. (For the
---| `Bool` `List.any`, `List.anyOfMem`.)
+--| To prove that some element satisfies `p`, give an element of the list that does. (For the
+--| `Bool` `List.any`, [`List.anyOfMem`].)
 theorem List.anyIntro (p: a → Prop) (x: a): (xs: List a) → x ∈ xs → p x → List.Any p xs
   | Nil, m, px => Void.exfalso m
   | Cons z zs, Inl e, px => Inl (rewrite e in px)
@@ -1099,7 +1114,7 @@ theorem List.memBetween [x lo hi: Nat] (h: x ∈ List.between lo hi): And (lo �
   match List.memRangeFrom x (hi + 1 - lo) lo h with
     | Both above below => Both above (Nat.ltCongRight x (hi + 1) (Succ hi) (Nat.addOne hi) (Nat.ltOfRunSub lo x (hi + 1) above below))
 
---| The other way: every number from `s` up to, not including, `s + c` is in
+--| Every number from `s` up to, not including, `s + c` is in
 --| the run `List.rangeFrom c s`.
 theorem List.memRangeFromIntro (x: Nat): (c: Nat) → (s: Nat) → s ≤ x → x < s + c → x ∈ List.rangeFrom c s
   | Zero, s, lo, hi => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) hi) lo))
@@ -1108,7 +1123,7 @@ theorem List.memRangeFromIntro (x: Nat): (c: Nat) → (s: Nat) → s ≤ x → x
       | True => Inr (List.memRangeFromIntro x c (Succ s) e (Nat.ltSuccAdd s c x hi))
       | False => Inl (Nat.leAntisym s x lo (Nat.leqFalse (Succ s) x e))
 
---| And for `List.between lo hi`: every number from `lo` to `hi`, both included.
+--| Every number from `lo` to `hi`, both included, is in `List.between lo hi`.
 theorem List.memBetweenIntro (x: Nat) (lo: Nat) (hi: Nat) (above: lo ≤ x) (below: x ≤ hi): x ∈ List.between lo hi :=
   List.memRangeFromIntro x (hi + 1 - lo) lo above
     (Nat.ltCongRight x (hi + 1) (lo + (hi + 1 - lo))
@@ -1121,7 +1136,7 @@ theorem List.memFlatMapIntro (f: a → List b) (x: a) (y: b): (xs: List a) → x
   | Cons z zs, Inl h, m => List.anyAppendLeft (w => w = y) (f z) (List.concat (List.map zs f)) (rewrite h in m)
   | Cons z zs, Inr h, m => List.anyAppendRight (w => w = y) (f z) (List.concat (List.map zs f)) (List.memFlatMapIntro f x y zs h m)
 
---| And back: what is in a `flatMap` is in `f x` for some `x` of the list.
+--| What is in a `flatMap` is in `f x` for some `x` of the list.
 theorem List.memFlatMapElim (f: a → List b) (y: b): (xs: List a) → y ∈ List.flatMap xs f → List.Any (x => y ∈ f x) xs
   | Nil, h => h
   | Cons z zs, h =>
@@ -1158,8 +1173,7 @@ theorem List.distinctAppendApart: (xs: List a) → (ys: List a) → List.Distinc
   | Cons x rest, ys, Both out d, z, Inl e, inYs => out (List.memAppendRight x rest ys (rewrite e in inYs))
   | Cons x rest, ys, Both out d, z, Inr inRest, inYs => List.distinctAppendApart rest ys d z inRest inYs
 
---| The same head in front of two lists gives the same list only if the tails
---| were the same.
+--| Two lists with the same head are equal only if their tails are.
 theorem List.consInjective (x: a) (ys: List a) (zs: List a) (p: Cons x ys = Cons x zs): ys = zs := Eq.cong (.drop 1) p
 
 --| A list starting with x isn't among lists that all start with y, a
@@ -1269,7 +1283,7 @@ theorem List.findNoneNotMem: (xs: List a) → (p: a → Bool) → (x: a) → (px
       | True => Option.someNotNone z h
       | False => List.findNoneNotMem zs p x px m h
 
---| Finding nothing means every element fails, as an `all`:
+--| Finding nothing means every element fails, as an `all`. So
 --| `find xs bad = None` gives `xs.all (x => ¬(bad x))`, and a search for
 --| one that isn't `good` finding nothing gives `xs.all good`.
 theorem List.findNoneAll: (xs: List a) → (p: a → Bool) → List.find xs p = None → List.all xs (x => ¬(p x)) = True
@@ -1517,7 +1531,7 @@ theorem List.anyOfMem: (xs: List a) → (q: a → Bool) → (y: a) → (qy: q y 
       | True => rfl
       | False => List.anyOfMem xs q y qy m
 
---| And back: when `List.any` is true, some element of the list passes.
+--| When `List.any` is true, some element of the list passes.
 theorem List.anyTrueElim: (xs: List a) → (p: a → Bool) → (goal: Prop) → List.any xs p = True → ((x: a) → x ∈ xs → p x = True → goal) → goal
   | Nil, p, goal, h, k => Void.exfalso (Bool.falseNotTrue h)
   | Cons z zs, p, goal, h, k =>
@@ -1525,7 +1539,7 @@ theorem List.anyTrueElim: (xs: List a) → (p: a → Bool) → (goal: Prop) → 
       | True => k z (Inl rfl) c
       | False => List.anyTrueElim zs p goal h (x inZs px => k x (Inr inZs) px)
 
---| `List.contains` is membership.
+--| `List.contains xs x` is `True` exactly when `x` is in `xs`.
 theorem List.memContains [auto eq: DecEq a] (xs: List a) (x: a): Iff (List.contains xs x = True) (x ∈ xs) := {
   forward = found =>
     List.anyTrueElim xs (member => member == x) (x ∈ xs) found (member isIn same => rewrite <- DecEq.sound member x same in isIn),
@@ -1538,7 +1552,7 @@ theorem List.findAny (xs: List a) (p: a → Bool) (q: a → Bool) (y: a) (qy: q 
     | Both py m => List.anyOfMem xs q y qy m
 
 --| With distinct keys, finding by an element's key finds that element (and
---| `List.findKey`, std/List/SortLemmas.sw, says what is found has the key).
+--| [`List.findKey`], std/List/SortLemmas.sw, says what is found has the key).
 theorem List.findKeyDistinct [auto eq: DecEq k] (key: a → k): (xs: List a) → List.Distinct (List.map xs key) → (x: a) → x ∈ xs →
     List.find xs (y => key y == key x) = Some x
   | Nil, d, x, m => Void.exfalso m
@@ -1596,7 +1610,7 @@ theorem List.memMapFilterMap (f: a → Option b) (ka: a → k) (kb: b → k) (hk
           | Inl q => Inl (Eq.trans (Eq.sym (hk x y e)) q)
           | Inr r => Inr (List.memMapFilterMap f ka kb hk z xs r)
 
---| So `filterMap` keeps keys distinct.
+--| `filterMap` keeps keys distinct, when `f` keeps each element's key.
 theorem List.distinctMapFilterMap (f: a → Option b) (ka: a → k) (kb: b → k) (hk: (x: a) → (y: b) → f x = Some y → kb y = ka x):
     (xs: List a) → List.Distinct (List.map xs ka) → List.Distinct (List.map (List.filterMap xs f) kb)
   | Nil, d => Trivial
@@ -1756,7 +1770,7 @@ theorem List.anyMap: (xs: List a) → (p: b → Bool) → (f: a → b) → List.
   | Nil, p, f => rfl
   | Cons x xs, p, f => rewrite List.anyMap xs p f
 
---| The same for `List.all`. (`List.allMap` is about the proposition `List.All`.)
+--| `List.all` of a `map` is `List.all` of the composed test. ([`List.allMap`] is about the proposition `List.All`.)
 theorem List.allMapBool: (xs: List a) → (p: b → Bool) → (f: a → b) → List.all (List.map xs f) p = List.all xs (x => p (f x))
   | Nil, p, f => rfl
   | Cons x xs, p, f => rewrite List.allMapBool xs p f in rfl
@@ -1932,7 +1946,7 @@ theorem List.countFilter (xs: List a) (p: a → Bool) (q: a → Bool) (h: (x: a)
 
 -- membership through zip, take, drop and filter ------------------------------
 
---| Each pair of `List.zip xs ys` is an element of `xs` with one of `ys`.
+--| A pair in `List.zip xs ys` is an element of `xs` with one of `ys`.
 theorem List.memZip (p: (a, b)): (xs: List a) → (ys: List b) → p ∈ List.zip xs ys → And (p.fst ∈ xs) (p.snd ∈ ys)
   | Nil, ys, m => Void.exfalso m
   | Cons x xs, Nil, m => Void.exfalso m
@@ -1969,7 +1983,7 @@ theorem List.filterOfMap: (xs: List a) → (q: b → Bool) → (g: a → b) → 
       | True => rewrite List.filterOfMap xs q g in rfl
       | False => List.filterOfMap xs q g
 
---| Each pair of `List.pairs xs` is two elements of `xs`.
+--| A pair in `List.pairs xs` is two elements of `xs`.
 theorem List.memPairs (p: (a, a)): (xs: List a) → p ∈ List.pairs xs → And (p.fst ∈ xs) (p.snd ∈ xs)
   | Nil, m => Void.exfalso m
   | Cons x xs, m =>
@@ -1995,7 +2009,7 @@ theorem List.lastSnoc (x: a): (xs: List a) → List.last (List.append xs [x]) = 
   | Cons y Nil => rfl
   | Cons y (Cons z zs) => List.lastSnoc x (Cons z zs)
 
---| `filterMap` keeps `y` when an element maps to `Some y` ...
+--| `filterMap` keeps `y` when an element maps to `Some y`.
 theorem List.memFilterMapIntro (f: a → Option b) (x: a) (y: b): (xs: List a) → x ∈ xs → f x = Some y → y ∈ List.filterMap xs f
   | Nil, m, e => Void.exfalso m
   | Cons z zs, Inl q, e => rewrite q, e in Inl rfl
@@ -2004,7 +2018,7 @@ theorem List.memFilterMapIntro (f: a → Option b) (x: a) (y: b): (xs: List a) �
       | None => List.memFilterMapIntro f x y zs m e
       | Some w => Inr (List.memFilterMapIntro f x y zs m e)
 
---| ... and keeps nothing else.
+--| What `filterMap` keeps is `Some` of some element.
 theorem List.memFilterMapElim (f: a → Option b) (y: b): (xs: List a) → y ∈ List.filterMap xs f → List.Any (x => f x = Some y) xs
   | Nil, m => m
   | Cons z zs, m =>
@@ -2076,8 +2090,8 @@ theorem List.anyIff (xs: List a) (p: a → Bool): List.any xs p = True ↔ List.
   { forward = List.anyToAny p xs, backward = List.anyOfAny p xs }
 
 --| Membership written with `any` and `==` is `x ∈ xs`. (`x ∈ xs` as a
---| `Bool` is `List.decMem`'s decision: `Decidable.toBoolSound` and
---| `Decidable.toBoolOf` take it to the proposition and back.)
+--| `Bool` is `List.decMem`'s decision: [`Decidable.toBoolSound`] and
+--| [`Decidable.toBoolOf`] take it to the proposition and back.)
 theorem List.anyEqIff [auto eq: DecEq a] (x: a) (xs: List a): List.any xs (== x) = True ↔ x ∈ xs := {
   forward = h => List.anyTrueElim xs (== x) (x ∈ xs) h (y m e => rewrite <- DecEq.sound y x e in m),
   backward = m => List.anyOfMem xs (== x) x (DecEq.refl x) m
@@ -2093,18 +2107,18 @@ theorem List.anyFind (p: a → Bool): (xs: List a) → List.any xs p = Option.is
       | True => rfl
       | False => List.anyFind p xs
 
---| Running accumulations beside the elements: `List.zipWith xs
---| (List.scanLeft xs z f) g` is `g` of each element and the fold of the
---| elements before it (`List.getOrZipWithScanLeft`, std/List/Index.sw). It
+--| The first step, for induction, of running accumulations beside the elements, by computation.
+--| `List.zipWith xs (List.scanLeft xs z f) g` is `g` of each element and the fold of the
+--| elements before it ([`List.getOrZipWithScanLeft`], std/List/Index.sw). It
 --| lays items end to end from `z`, say, with `f` adding an item's size and
---| `g` placing it. Its first step, for induction, is by computation:
+--| `g` placing it.
 theorem List.zipWithScanLeftCons (x: a) (xs: List a) (z: b) (f: b → a → b) (g: a → b → c):
     List.zipWith (Cons x xs) (List.scanLeft (Cons x xs) z f) g = Cons (g x z) (List.zipWith xs (List.scanLeft xs (f z x) f) g) := rfl
 
 theorem List.zipWithScanLeftExample:
     List.zipWith [2, 3, 4] (List.scanLeft [2, 3, 4] 10 (offset width => offset + width)) (width offset => (offset, width)) = [(10, 2), (12, 3), (15, 4)] := rfl
 
---| It has an element for each element.
+--| Running accumulations beside the elements have one for each element.
 theorem List.lengthZipWithScanLeft (f: b → a → b) (g: a → b → c): (xs: List a) → (z: b) →
     List.length (List.zipWith xs (List.scanLeft xs z f) g) = List.length xs
   | Nil, z => rfl
@@ -2178,7 +2192,7 @@ theorem List.getMap: (xs: List a) → (f: a → b) → (k: Nat) → List.get (Li
   | Cons x xs, f, Zero => rfl
   | Cons x xs, f, Succ k => List.getMap xs f k
 
---| Each element with its index: as long as the list, and element k is the
+--| `withIndexFrom` is as long as the list; element k is the
 --| list's element k with k (counted from `start`).
 theorem List.lengthWithIndexFrom: (start: Nat) → (xs: List a) → List.length (List.withIndexFrom start xs) = List.length xs
   | start, Nil => rfl
@@ -2297,19 +2311,19 @@ theorem List.transposeNColumnsFrom (rows: List (List a)): (k: Nat) → (p: Nat) 
       List.mapMap rows (x => List.drop x 1) (row => List.drop row p), List.getDrop _ p 0, Nat.addZero p, <- List.dropAdd p 1 in
       Eq.cong (later => Cons (List.filterMap rows (row => List.get row p)) later) (List.transposeNColumnsFrom rows k (p + 1))
 
---| And from the first column.
+--| `transposeN k` gives column i, for each i below k, as element i of every row that has one.
 theorem List.transposeNColumns (rows: List (List a)) (k: Nat):
     List.transposeN k rows = List.map (List.range k) (i => List.filterMap rows (row => List.get row i)) :=
   Eq.trans (Eq.cong (rows => List.transposeN k rows) (Eq.sym (List.mapId rows))) (List.transposeNColumnsFrom rows k 0)
 
---| So column i of `List.transpose` holds element i of every row that has one,
+--| Column i of `List.transpose` holds element i of every row that has one,
 --| for each i below the first row's length.
 theorem List.transposeColumns (rows: List (List a)):
     List.transpose rows = List.map (List.range (List.length (List.headOr rows Nil))) (i => List.filterMap rows (row => List.get row i)) :=
   List.transposeNColumns rows (List.length (List.headOr rows Nil))
 
 --| Entry k of the running accumulations is the fold of the first k
---| elements (`List.getOrScanLeft`, std/List/Index.sw, with a fallback).
+--| elements ([`List.getOrScanLeft`], std/List/Index.sw, with a fallback).
 theorem List.getScanLeft (f: b → a → b): (xs: List a) → (z: b) → (k: Nat) → k ≤ List.length xs →
     List.get (List.scanLeft xs z f) k = Some (List.foldLeft (List.take xs k) z f)
   | Nil, z, Zero, h => rfl
@@ -2333,7 +2347,7 @@ theorem List.getMapExample (xs: List Nat) (k: Nat) (v: Nat) (h: List.get (List.m
 
 --| `List.All2 r xs ys`: the lists are as long, and `r` holds of each pair of
 --| elements at the same place (Coq's `Forall2`, Lean's `List.Forall₂`). What
---| `Parse.eachLineReads` says of the lines and the values read from them.
+--| [`Parse.eachLineReads`] says of the lines and the values read from them.
 @[noReceiver]
 def List.All2 (r: a → b → Prop): List a → List b → Prop
   | Nil, Nil => Unit
