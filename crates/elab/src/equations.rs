@@ -1019,7 +1019,9 @@ impl Elaborator {
         }
         let mut names: Vec<Name> = Vec::new();
         let mut icits = Vec::new();
-        for (j, &l) in tele.iter().enumerate() {
+        // `x1`, `x2`, … for those with no name to take (§3.1).
+        let mut unnamed = 0;
+        for &l in &tele {
             let base = if (1..=n).contains(&l) {
                 let given = d.binders[l - 1].name.to_string();
                 match cx.name_of_level(l) {
@@ -1032,7 +1034,8 @@ impl Elaborator {
                     .unwrap_or_else(|| cx.names[l].trim_end_matches('✝').to_string())
             };
             let base = if base.is_empty() || base == "_" || base.starts_with('%') {
-                format!("x{}", j + 1)
+                unnamed += 1;
+                format!("x{unnamed}")
             } else {
                 base
             };
