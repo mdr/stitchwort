@@ -1,5 +1,5 @@
 {
-  "next": 1024,
+  "next": 1026,
   "tickets": [
     {
       "id": 47,
@@ -3539,6 +3539,35 @@
         "std"
       ],
       "body": "From SW-1015 (1 Nov 2026): the trip journal needed seven small Decidable instances (decAll, decSorted) because auto can't search under a binder; a generic std List.All decider wouldn't be found. Small design question. Also open: records whose field types depend on earlier fields get no derived decision; several AoC NOTES still describe the old if-in-proof error.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1024,
+      "title": "Documentation stage 2a: --| sorting script, then std's small namespaces (core and folders under ~110 comment lines)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "docs/proposals/documentation.md §6.1, D2134, D2151. Script proposes (maintainer markers stay --, below the --| lines); a model splits the rest by hand per file; Opus reviews per namespace afterwards. This lane: the script plus core/ and the small std folders. Next lanes: List; Map+Parse; Float, Nat, Terminal, Omega, Int, Graph. Then aoc and rogue (2c), then remove the D2142 fallback.",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 1025,
+      "title": "Documentation stage 2b: stitchwort doc --coverage",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs",
+        "tooling"
+      ],
+      "body": "docs/proposals/documentation.md §6.2, D2138, D2148. Reports only; never fails.",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
