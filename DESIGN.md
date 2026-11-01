@@ -509,7 +509,7 @@ Possible outcomes, each with its own error message:
 
 ### Dependent pattern matching
 
-Pattern matching in proofs requires the compiler to learn facts about types in each branch. In full generality this is one of the hardest parts of any dependently-typed language. **For the POC, patterns are kept simple:** constructors (nested), variables, numbers and `()`, compiled into a tree of simple `case` expressions. Equations are tried top to bottom. Indexed families add one thing, unification of the constructor's indices with the scrutinee's (the kernel's `case` rule, `docs/core.md`): a branch where that finds a conflict is impossible and needs no arm, a stuck one is `E-INDEX-STUCK`, and an arm that can never match is the warning `W-UNREACHABLE`. There's no other overlap or redundancy warning yet.
+Pattern matching in proofs requires the compiler to learn facts about types in each branch. In full generality this is one of the hardest parts of any dependently-typed language. **For the POC, patterns are kept simple:** constructors (nested), variables, numbers and `()`, compiled into a tree of simple `case` expressions. Equations are tried top to bottom. Indexed families add one thing, unification of the constructor's indices with the scrutinee's (the kernel's `case` rule, `docs/core.md`): a branch where that finds a conflict is impossible and needs no arm, a stuck one is `E-INDEX-STUCK`, and an arm that can never match is the warning `W-UNREACHABLE`. An arm that earlier arms already cover is the warning `W-REDUNDANT` ([docs/core.md](docs/core.md#error-codes)).
 
 ### Effects and dependent types
 
