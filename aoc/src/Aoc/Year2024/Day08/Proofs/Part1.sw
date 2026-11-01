@@ -19,12 +19,12 @@ theorem twiceAsFarCases (ur: Int) (uc: Int) (vr: Int) (vc: Int) (cross: ur * vc 
     Or (And (ur = 2 * vr) (uc = 2 * vc)) (And (ur = 0 - 2 * vr) (uc = 0 - 2 * vc)) :=
   let lagrange: (ur * vr + uc * vc) * (ur * vr + uc * vc) = (2 * (vr * vr + vc * vc)) * (2 * (vr * vr + vc * vc)) :=
     ring [(vr * vr + vc * vc) * distance, (ur * vc - uc * vr) * cross]
-  match squaresEq (ur * vr + uc * vc) (2 * (vr * vr + vc * vc)) lagrange with
+  match Int.squaresEq (ur * vr + uc * vc) (2 * (vr * vr + vc * vc)) lagrange with
     | Inl same =>
-      let zero := sumSquaresZero (ur - 2 * vr) (uc - 2 * vc) (ring [distance, 4 * same])
-      Inl (Both (subEqZero ur (2 * vr) (And.left zero)) (subEqZero uc (2 * vc) (And.right zero)))
+      let zero := Int.sumSquaresZero (ur - 2 * vr) (uc - 2 * vc) (ring [distance, 4 * same])
+      Inl (Both (Int.subEqZero ur (2 * vr) (And.left zero)) (Int.subEqZero uc (2 * vc) (And.right zero)))
     | Inr opposite =>
-      let zero := sumSquaresZero (ur + 2 * vr) (uc + 2 * vc) (ring [distance, 4 * opposite])
+      let zero := Int.sumSquaresZero (ur + 2 * vr) (uc + 2 * vc) (ring [distance, 4 * opposite])
       Inr (Both (ring [And.left zero]) (ring [And.right zero]))
 
 -- And back: `u = ±2v` is in line, and twice as far.

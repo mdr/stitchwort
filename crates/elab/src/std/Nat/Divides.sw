@@ -67,6 +67,18 @@ theorem Nat.divLt (n: Nat) (k: Nat) [auto ok: k ≠ 0] (h0: 0 < n) (h1: 1 < k): 
     | Zero => Void.exfalso (Bool.falseNotTrue h0)
     | Succ m => Nat.divLtSucc m k h1
 
+-- A product is 0 only when a factor is (Lean's `Nat.mul_eq_zero`).
+theorem Nat.mulEqZero: (m: Nat) → (n: Nat) → m * n = 0 → Or (m = 0) (n = 0)
+  | Zero, n, h => Inl rfl
+  | Succ m, Zero, h => Inr rfl
+  | Succ m, Succ n, h => omega [Nat.leMulPos (Succ m) (Succ n) (omega)]
+
+-- A square is 0 only for 0.
+theorem Nat.mulSelfZero (n: Nat) (h: n * n = 0): n = 0 :=
+  match Nat.mulEqZero n n h with
+    | Inl z => z
+    | Inr z => z
+
 -- The greatest common divisor, by Euclid's algorithm: `Nat.gcd 12 18` is 6,
 -- and `Nat.gcd n 0` is `n`, so `Nat.gcd 0 0` is 0.
 def Nat.gcd (a: Nat) (b: Nat): Nat
@@ -77,3 +89,35 @@ def Nat.gcd (a: Nat) (b: Nat): Nat
     | Succ c => Nat.gcd (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)]
 
 test "Nat.gcd" := Nat.gcd 12 18 == 6 ∧ Nat.gcd 18 12 == 6 ∧ Nat.gcd 7 0 == 7 ∧ Nat.gcd 0 7 == 7 ∧ Nat.gcd 0 0 == 0 ∧ Nat.gcd 17 5 == 1
+
+-- One step of Euclid's algorithm.
+theorem Nat.gcdStep (a: Nat) (c: Nat): Nat.gcd a (Succ c) = Nat.gcd (Succ c) (a % Succ c) := rewrite Nat.gcd.unfold a (Succ c) in rfl
+
+theorem Nat.gcdZero (a: Nat): Nat.gcd a 0 = a := rewrite Nat.gcd.unfold a 0 in rfl
+
+-- The gcd divides both numbers (Lean's `Nat.gcd_dvd_left` and `_right`).
+theorem Nat.gcdDivides (a: Nat) (b: Nat): And (∃ (x: Nat) => a = x * Nat.gcd a b) (∃ (y: Nat) => b = y * Nat.gcd a b)
+    decreasing b
+:=
+  match b with
+    | Zero => Both (Witness 1 (ring)) (Witness 0 rfl)
+    | Succ c =>
+      let divided := Nat.divModEq a (Succ c) (omega)
+      match Nat.gcdDivides (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)] with
+        | Both (Witness x hx) (Witness y hy) =>
+          rewrite Nat.gcdStep a c in
+          Both (Witness (a / Succ c * x + y) (ring [divided, a / Succ c * hx, hy])) (Witness x hx)
+
+-- Bézout's identity: the gcd is `s * a + t * b` for some integers `s` and
+-- `t` (Mathlib's `Nat.gcd_eq_gcd_ab`).
+theorem Nat.gcdBezout (a: Nat) (b: Nat): ∃ (s: Int) => ∃ (t: Int) => s * a.toInt + t * b.toInt = (Nat.gcd a b).toInt
+    decreasing b
+:=
+  match b with
+    | Zero => Witness 1 (Witness 0 (ring))
+    | Succ c =>
+      let divided := Eq.cong Nat.toInt (Nat.divModEq a (Succ c) (omega))
+      match Nat.gcdBezout (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)] with
+        | Witness s (Witness t h) =>
+          rewrite Nat.gcdStep a c in
+          Witness t (Witness (s - t * (a / Succ c).toInt) (ring [h, t * divided]))

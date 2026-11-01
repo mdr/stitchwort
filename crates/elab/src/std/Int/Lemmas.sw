@@ -87,5 +87,56 @@ theorem Int.modModAdd (x: Int) (y: Int) (d: Int) [auto ok: d ≠ 0]: (x % d + y)
   rewrite Int.remainderAddRegroup x y d (x / d) (x % d) (Int.divAddMod x d)
   in Int.modAddMul (x + y) d (0 - x / d)
 
+-- `a - b = 0` means `a = b`.
+theorem Int.subEqZero (a: Int) (b: Int) (h: a - b = 0): a = b := omega
+
+theorem Int.negOfNatZero (k: Nat) (h: Int.neg (OfNat k) = 0): k = 0 := omega
+
+-- No zero divisors (Lean's `Int.mul_eq_zero`).
+theorem Int.mulEqZero: (a: Int) → (b: Int) → a * b = 0 → Or (a = 0) (b = 0)
+  | OfNat m, OfNat n, h =>
+    match Nat.mulEqZero m n (Int.ofNatInjective (m * n) 0 h) with
+      | Inl z => Inl (Eq.cong OfNat z)
+      | Inr z => Inr (Eq.cong OfNat z)
+  | OfNat m, NegSucc n, h =>
+    match Nat.mulEqZero m (Succ n) (Int.negOfNatZero (m * Succ n) h) with
+      | Inl z => Inl (Eq.cong OfNat z)
+      | Inr z => Void.exfalso (omega [z])
+  | NegSucc m, OfNat n, h =>
+    match Nat.mulEqZero (Succ m) n (Int.negOfNatZero (Succ m * n) h) with
+      | Inl z => Void.exfalso (omega [z])
+      | Inr z => Inr (Eq.cong OfNat z)
+  | NegSucc m, NegSucc n, h =>
+    match Nat.mulEqZero (Succ m) (Succ n) (Int.ofNatInjective (Succ m * Succ n) 0 h) with
+      | Inl z => Void.exfalso (omega [z])
+      | Inr z => Void.exfalso (omega [z])
+
+-- A nonzero factor cancels (Lean's `Int.mul_left_cancel`).
+theorem Int.mulCancelLeft (c: Int) (a: Int) (b: Int) (nonzero: Not (c = 0)) (h: c * a = c * b): a = b :=
+  match Int.mulEqZero c (a - b) (calc c * (a - b)
+      _ = c * a - c * b := ring
+      _ = c * b - c * b := rewrite h
+      _ = 0 := ring) with
+    | Inl z => Void.exfalso (nonzero z)
+    | Inr z => Int.subEqZero a b z
+
+-- A square is the square of the size.
+theorem Int.mulSelf: (x: Int) → x * x = OfNat (Int.natAbs x * Int.natAbs x)
+  | OfNat n => rfl
+  | NegSucc n => rfl
+
+-- Two squares add up to 0 only when both are 0.
+theorem Int.sumSquaresZero (x: Int) (y: Int) (h: x * x + y * y = 0): And (x = 0) (y = 0) :=
+  let natural: Int.natAbs x * Int.natAbs x + Int.natAbs y * Int.natAbs y = 0 :=
+    Int.ofNatInjective _ 0 (rewrite Int.mulSelf x, Int.mulSelf y at h in h)
+  Both (Int.natAbsZero x (Nat.mulSelfZero (Int.natAbs x) (omega))) (Int.natAbsZero y (Nat.mulSelfZero (Int.natAbs y) (omega)))
+
+-- Equal squares: the same number, or its negation.
+theorem Int.squaresEq (x: Int) (y: Int) (h: x * x = y * y): Or (x = y) (x + y = 0) :=
+  match Int.mulEqZero (x - y) (x + y) (ring [h]) with
+    | Inl z => Inl (Int.subEqZero x y z)
+    | Inr z => Inr z
+
+test "Int.mulEqZero" := (0 * -3 == 0) && (-4 * 5 != 0)
 test "Int.mulDivCancel" := (-7 * 13) / -7 == 13 && (5 * -4) / 5 == -4
 test "Int.modAddMul" := (3 + -5 * 4) % -5 == 3 % -5 && (-2 + 7 * -3) % 7 == -2 % 7
