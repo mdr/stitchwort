@@ -2271,7 +2271,7 @@ Part 1 counts the flashes in 100 steps, part 2 finds the first step in
 which every octopus flashes. Answers on Matt's input (10 by 10): 1773
 and 494 (his Scala solution's); the puzzle's 10 by 10 example gives 204
 flashes in 10 steps, 1656 and 195, and its 5 by 5 example is checked
-step by step. Compiler: release build of `main` at 4b51f4a5, 1 November
+step by step. Compiler: release build of `main` at 9ae31b2a, 1 November
 2026.
 
 ### The program
