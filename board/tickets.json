@@ -1,5 +1,5 @@
 {
-  "next": 977,
+  "next": 979,
   "tickets": [
     {
       "id": 47,
@@ -2818,6 +2818,37 @@
         "friction"
       ],
       "body": "From AoC 2021 day 16 (aoc/NOTES-2021.md, 1 Nov 2026). The cases panic is its own ticket (see below in the board).\n(1) Checking `bitsOf w n` on an unknown n doubles in time per bit: 8-line repro in NOTES (0.15 s at 9 bits, 0.63 s at 15, 10.1 s at 19). Guess, unverified: nested / 2 and % 2 copy the term. Day 16 proofs take 14 s cold because of it. Workaround: state each step over variables (medium).\n(2) rewrite ran out of budget comparing a term with itself (fields vs fields), a side effect of (1). Fix: syntactic comparison first (small).\n(3) E-RESOURCE \"a value was too large to show … Eq.trans\" with no location where a type mismatch belonged: `_` arguments inferred from an already-computed expected type. Same family as SW-963 (2), SW-969 (2), SW-971 (1) (medium).\n(4) rewrite of `x / 2` also rewrote inside `x % 2` (which computes to x - x / 2 * 2). Workaround: rewrite % first. Docs line (small).\n(5) In `match n with | 0 … | 7 … | _`, the `_` arm learns nothing about n; omega found the model n = 5. Workaround: Succ×8 pattern. Fix: give the catch-all arm the facts n ≠ 0 … n ≠ 7 (small-medium).\n(6) Decreasing through an earlier recursive call's result isn't possible; run-time length guards stand in. Docs example (small); results carrying their decrease (large).\n(7) Goals list every superseded `read✝` after each match (small).\n(8) search --at: refused a goal after a `_` pattern (\"E-PARSE: unexpected character `✝`\", new, small); refused another \"unknown name `group`\" (SW-967 (5)); didn't offer a hypothesis as a rewrite (small-medium). ~14 s per query from re-checking the slow namespace.\nNew evidence SW-960 (3): Bool `a > b` on Nat isn't Nat.decLessThan.\nProof found a real decoder bug (a total-length operator whose length ran past the transmission was accepted; all tests passed).\nStd candidates: fixed-width Nat.toBits with round-trip lemmas; takeAppend/dropAppend with a length hypothesis; Some (a, b) injectivity; List.maximum lemmas (imported day 14's maximumSome; SW-971 (7)).\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": []
+    },
+    {
+      "id": 977,
+      "title": "AoC 2021 day 17: Trick Shot (search box and step bound proved)",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "AoC 2021 day 17 lane (worktree agent-ad70b205ce82224f6). Solve, spec over all integer velocities and steps, prove the search box and step bound, parser guarantee (D2108), friction list in NOTES-2021.\n\nProgress (1 Nov): solved (6786, 2313, run 0.4 s); both parts proved over every integer velocity for a target right of and below the start, parser proves that (D2108); nothing open; audit 54 theorems, 0 failed, 2 narrow warnings. Commit 5be51d49 on worktree-agent-ad70b205ce82224f6. Friction in NOTES-2021 day 17: omega fails on i.toInt + 1 - 1 (computes into Int.subNatNatFrom), omega has no (p || q) = True, search --at misses distinctFlatMap after flatMap computes, negative literal rejected as Nat before type known, record literal after theorem colon parsed as ability row; std candidates iterateCong/iterateKeeps, Int.toNat lemmas, signCases, 2*sumBetween.\n",
+      "created": "2026-11-01",
+      "updated": "2026-11-01",
+      "commits": [
+        "5be51d49"
+      ]
+    },
+    {
+      "id": 978,
+      "title": "Day 17: omega blind to Int.subNatNatFrom and Bool ||; negative literal fixed as Nat too early (K4); record literal after theorem colon parsed as ability row",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "friction"
+      ],
+      "body": "From AoC 2021 day 17 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) omega fails on `i.toInt + 1 - 1` (both `0 ≤ i.toInt + 1 - 1` and `= i.toInt`): the goal computes to `Int.subNatNatFrom (i + 1) 1 (0 - i)` before omega reads it, an atom it knows nothing about. `0 ≤ i.toInt - 1 + 1` works. 4-line repro in NOTES. Workaround: ring or a lemma over a variable. Fix: read arithmetic as written, or teach omega that call (small-medium).\n(2) omega doesn't handle `(p || q) = True` as goal or fact; cases then hit its 64-case budget. Workaround: split into named parts + Bool.orElim/orLeft/orRight. Fix: split such facts, try each side of such goals (small).\n(3) New evidence SW-965 (3): search --at missed List.distinctFlatMap because flatMap had computed to List.concat (List.map …).\n(4) A negative literal is rejected as Nat too early: in `[(7,2), …, (17,-4)].map (…)`, `-4` gets \"a `Nat` can't be negative\"; without -4 the numbers become Int. Workaround: annotate List (Int, Int). This is exactly what postponement step 4.3 (K4, number literals wait; branch kept, D2110 pending) addresses; recheck after it lands.\n(5) A record literal right after a theorem's `:` is read as an ability row: E-PARSE \"expected `}`, but found `=`\", no hint. Fix: note suggesting brackets (small).\n(6) cases open-case output lists fallback splits like `top = n✝.toInt`, `n✝ ≤ n✝` (small).\nStd candidates: Nat.iterateCong (2024 day 22 has a copy too), Nat.iterateKeeps, Int.toNat round-trip lemmas, Int.signCases, 0 ≤ d*(d+1) on Int, 2 * Nat.sumBetween 1 k = k*(k+1).\nsearch --at: 4 goals; correct \"omega closes it\" on a base case; right next step on hittingDistinct; first query 56 s (index build), later ~2 s.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
       "commits": []
