@@ -566,7 +566,7 @@ impl<'e> Ctx<'e> {
     pub(crate) fn shown_names(&self, dagger: bool) -> Vec<Name> {
         let level = self.level();
         let mut referable: Vec<Option<&str>> = vec![None; level];
-        let mut seen: std::collections::HashSet<&str> = Default::default();
+        let mut seen: stitchwort_core::collections::HashSet<&str> = Default::default();
         for (position, (n, l)) in self.scope.iter().enumerate().rev() {
             if !seen.insert(n.as_str()) {
                 continue;
@@ -579,7 +579,7 @@ impl<'e> Ctx<'e> {
         let mut shown: Vec<Name> = (referable.iter().zip(&self.names))
             .map(|(r, raw)| r.map_or_else(|| raw.clone(), Name::from))
             .collect();
-        let mut count: std::collections::HashMap<Name, usize> = Default::default();
+        let mut count: stitchwort_core::collections::HashMap<Name, usize> = Default::default();
         for n in &shown {
             *count.entry(n.clone()).or_default() += 1;
         }
@@ -593,7 +593,7 @@ impl<'e> Ctx<'e> {
             }
         }
         // Those still alike, numbered from the innermost out.
-        let mut later: std::collections::HashMap<Name, usize> = Default::default();
+        let mut later: stitchwort_core::collections::HashMap<Name, usize> = Default::default();
         for l in (0..level).rev() {
             if !shown[l].ends_with('✝') {
                 continue;
