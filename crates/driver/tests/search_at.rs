@@ -48,6 +48,17 @@ fn load(session: &mut Session, text: &str) -> (FileId, Vec<Diagnostic>) {
     (file, diagnostics)
 }
 
+/// The options the tests search with: the defaults, less
+/// `Float.Theory.magUnitsLeReflect`, which fits every `a ≤ b` and whose
+/// premise `cases` takes about 1.2 GB and seconds to fail on, more than the
+/// lane tier's memory allows beside the other tests (SW-989).
+fn options() -> AtOptions {
+    AtOptions {
+        exclude: vec!["Std.Float.Theory.magUnitsLeReflect".to_string()],
+        ..AtOptions::default()
+    }
+}
+
 /// What closes the goal on `line` of `text`.
 fn at(text: &str, line: usize) -> AtReport {
     with_session(STACK, Session::for_stack, |session| {
@@ -68,7 +79,7 @@ fn at(text: &str, line: usize) -> AtReport {
             .search_at(
                 &found,
                 "goals.sw",
-                &AtOptions::default(),
+                &options(),
                 &Scope::File,
                 Some(&mut checking),
             )
@@ -219,4 +230,161 @@ fn cases_closes_a_goal_alone() {
     );
     pastes(GOALS, line, "cases");
     all_paste(&report, line);
+}
+
+/// Goals whose printed form doesn't read back as the same statement, each a
+/// kind `search --at` refused before it searched the goal as the elaborator
+/// had it (SW-989; AoC 2021 days 12 to 18).
+const UNPRINTABLE: &str = "\
+import Std (Bool, Nat, List, Option, Void)
+
+type Fold =
+  | AlongX (line: Nat)
+  | AlongY (line: Nat)
+
+def lineOf (fold: Fold): Nat :=
+  match fold with
+    | AlongX line => line
+    | AlongY line => line
+
+theorem afterMatch (fold: Fold) (h: lineOf fold = 3): lineOf fold + 1 = 4 :=
+  match fold with
+    | AlongX line => ?
+    | AlongY line => omega
+
+theorem unnamed: (xs: List Nat) → List.length (List.map xs (x => x + 1)) = List.length xs
+  | Nil => rfl
+  | Cons _ rest => ?
+
+type Leaf = { value: Nat, depth: Nat }
+
+def deeper (xs: List Leaf): List Leaf := List.map xs (leaf => { value = leaf.value, depth = leaf.depth + 1 })
+
+theorem recordInCons (leaf: Leaf) (rest: List Leaf): deeper (Cons leaf rest) = Cons ({ value = leaf.value, depth = leaf.depth + 1 }) (deeper rest) := ?
+
+type Tree =
+  | Tip (n: Nat)
+  | Node (l: Tree) (r: Tree)
+
+def find: Tree → Option Nat
+  | Tip n => if 10 ≤ n then Some n else None
+  | Node l r =>
+    match find l with
+      | Some v => Some v
+      | None => find r
+
+theorem liftedMatch: (t: Tree) → find t = None → find t = None
+  | Tip n, h => h
+  | Node l r, h => ?
+
+theorem captured: (y: Nat) → (xs: List Nat) → y ∈ xs → y ∈ Cons 0 xs
+  | y, Nil, member => Void.exfalso member
+  | y, Cons x rest, member => ?
+";
+
+/// The line of the `?` after `marker` in `text`.
+fn goal_line(text: &str, marker: &str) -> usize {
+    let start = text.find(marker).expect("the marker");
+    let at = start + text[start..].find('?').expect("a `?` after it");
+    text[..at].matches('\n').count() + 1
+}
+
+/// `text` with the last `?` on `line` replaced by `proof` checks, and that
+/// goal is gone.
+fn pastes_at(text: &str, line: usize, proof: &str) {
+    let lines: Vec<String> = (text.lines().enumerate())
+        .map(|(i, l)| {
+            if i + 1 == line {
+                let q = l.rfind('?').expect("a `?`");
+                format!("{}({proof}){}", &l[..q], &l[q + 1..])
+            } else {
+                l.to_string()
+            }
+        })
+        .collect();
+    let pasted = lines.join("\n") + "\n";
+    with_session(STACK, Session::for_stack, |session| {
+        let (file, diagnostics) = load(session, &pasted);
+        let errors: Vec<_> = (diagnostics.iter())
+            .filter(|d| d.severity == Severity::Error)
+            .map(|d| format!("{} {}", d.code, d.message))
+            .collect();
+        assert!(errors.is_empty(), "`{proof}` pasted: {errors:?}");
+        let goals = goals_in(&session.sources, file, &diagnostics);
+        assert!(
+            !goals.iter().any(|g| g.line == line),
+            "`{proof}` pasted leaves the goal"
+        );
+    });
+}
+
+/// What closes each goal of `text` at `lines`: one search session and one
+/// checking session for them all.
+fn at_each(text: &str, lines: &[usize]) -> Vec<AtReport> {
+    with_session(STACK, Session::for_stack, |session| {
+        let (file, diagnostics) = load(session, text);
+        assert!(
+            !diagnostics.iter().any(|d| d.severity == Severity::Error),
+            "{diagnostics:?}"
+        );
+        let goals = goals_in(&session.sources, file, &diagnostics);
+        session
+            .elab
+            .load_all_libraries()
+            .expect("the library checks");
+        let mut checking = Session::for_stack(STACK);
+        load(&mut checking, text);
+        (lines.iter())
+            .map(|line| {
+                let found = pick(&goals, GoalAt::Line(*line, None)).unwrap().clone();
+                session
+                    .search_at(
+                        &found,
+                        "goals.sw",
+                        &options(),
+                        &Scope::File,
+                        Some(&mut checking),
+                    )
+                    .unwrap_or_else(|d| {
+                        panic!("line {line}: {}: {} {:?}", d.code, d.message, d.notes)
+                    })
+            })
+            .collect()
+    })
+}
+
+/// Each goal is searched, not refused (`E-SEARCH-AT`), and what closes it
+/// pastes: a hypothesis printed before the pattern variable it mentions
+/// (after a `match` on a constructor with fields), a `✝` name (a `_`
+/// pattern), a record literal as a constructor's argument, a lifted
+/// `%match` in a hypothesis, and a lambda whose binder is named as a
+/// variable in scope (the printer's capture).
+#[test]
+fn goals_that_dont_print_back_are_searched() {
+    let cases: [(&str, &[&str]); 5] = [
+        ("theorem afterMatch", &["omega"]),
+        ("theorem unnamed", &["lengthMap"]),
+        ("theorem recordInCons", &["rfl"]),
+        ("theorem liftedMatch", &[]),
+        ("theorem captured", &["Inr member"]),
+    ];
+    let lines: Vec<usize> = cases
+        .iter()
+        .map(|(m, _)| goal_line(UNPRINTABLE, m))
+        .collect();
+    let reports = at_each(UNPRINTABLE, &lines);
+    for (((marker, want), line), report) in cases.iter().zip(&lines).zip(&reports) {
+        let closing: Vec<&str> = (report.results.iter())
+            .filter(|s| s.class != "applicable")
+            .map(|s| s.proof.as_str())
+            .chain(report.tactics.iter().map(String::as_str))
+            .collect();
+        assert!(
+            want.iter().all(|w| closing.iter().any(|p| p.contains(w))),
+            "{marker}: {want:?} not among {closing:?}\n{report:#?}"
+        );
+        for proof in closing {
+            pastes_at(UNPRINTABLE, *line, proof);
+        }
+    }
 }

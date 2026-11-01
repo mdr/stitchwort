@@ -42,10 +42,16 @@ pub(crate) struct Pending {
     /// The frozen metavariable standing for the hole.
     meta: usize,
     expected: Value,
+    /// The type checked against, as it is (`expected` may be a display
+    /// form of it), for [`GoalSnapshot`].
+    target: Value,
     /// The context's display names, for printing.
     names: Vec<Name>,
     /// The entries of the context shown.
     context: Vec<Entry>,
+    /// The context's own variables not shown (a compiler-made `%x`, a `_`):
+    /// each one's level and type, for [`GoalSnapshot`].
+    hidden: Vec<(usize, Value)>,
     /// What the hole is in: "`addZero`".
     owner: String,
     /// What a lemma of the goal is named after: the declaration's name less
@@ -200,6 +206,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     g.freeze_meta(m);
     let mut term = Term::Meta(m);
     let mut context = Vec::new();
+    let mut hidden = Vec::new();
     for (level, value) in cx.env.iter().enumerate() {
         let own =
             matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
@@ -212,6 +219,9 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         // compiler-made one (`%…`), or one bound as `_`, means nothing to the
         // reader.
         if !(own || is_let) || name.starts_with('%') || &**name == "_" {
+            if own {
+                hidden.push((level, cx.types[level].clone()));
+            }
             continue;
         }
         let name = match cx.name_of_level(level) {
@@ -239,8 +249,10 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         span: cx.span,
         meta: m,
         expected: shown.unwrap_or_else(|| expected.clone()),
+        target: expected.clone(),
         names: cx.names.clone(),
         context,
+        hidden,
         owner,
         lemma_base,
         prop,
@@ -367,7 +379,16 @@ impl Elaborator {
                 // under binders.
                 let was = g.glue.replace(self.glue);
                 let printed = self.print_goal(p);
+                let snapshot = self.goal_snapshot_of(p);
                 g.glue.set(was);
+                if let Some(snapshot) = snapshot {
+                    let mut kept = self.goal_snapshots.borrow_mut();
+                    kept.retain(|(span, _)| *span != p.span);
+                    if kept.len() >= MAX_SNAPSHOTS {
+                        kept.remove(0);
+                    }
+                    kept.push((p.span, std::rc::Rc::new(snapshot)));
+                }
                 printed
             })
             .collect();
@@ -627,4 +648,203 @@ fn is_identifier(name: &str) -> bool {
     chars.next().is_some_and(|c| c.is_alphabetic() || c == '_')
         && chars.all(|c| c.is_alphanumeric() || c == '_' || c == '\'')
         && name != "_"
+}
+
+/// How many goals' [`GoalSnapshot`]s an elaborator keeps, the latest.
+const MAX_SNAPSHOTS: usize = 256;
+
+/// A goal as the elaborator had it at its `?` (SW-989), for `search --at`:
+/// the context's variables and the target as terms, not as printed text, so
+/// a goal is searched, and proofs checked at it, whether or not its printed
+/// form reads back as the same statement (a hypothesis refined to mention a
+/// later pattern variable, a `✝` or compiler-made name, a lifted `%match`,
+/// a lambda whose binder the printer captured).
+pub struct GoalSnapshot {
+    /// The variables, each one's type mentioning only those before it:
+    /// the context's order, except that a hypothesis a case split refined
+    /// to mention a later variable (`h: line < 3` before `line`) comes
+    /// after it.
+    pub(crate) vars: Vec<SnapVar>,
+    /// The number of variables in scope at the `?`: the terms below are in
+    /// that context.
+    pub(crate) level: usize,
+    pub(crate) target: Term,
+}
+
+pub(crate) struct SnapVar {
+    /// Its level at the `?`.
+    pub(crate) level: usize,
+    /// As shown: `n`, or `n✝`, `%x`, `_` for one a proof can't name.
+    pub(crate) name: Name,
+    /// Whether a proof can refer to it by `name`.
+    pub(crate) writable: bool,
+    pub(crate) ty: Term,
+    /// For a `let` of data, its value.
+    pub(crate) value: Option<Term>,
+}
+
+/// The levels `term`, in a context of `level` variables, mentions; `None`
+/// if it has an unknown in it.
+fn levels_in(term: &Term, level: usize) -> Option<Vec<usize>> {
+    let mut out = Vec::new();
+    for (t, binders) in term.subterms() {
+        match t {
+            Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) if *i >= binders => {
+                out.push(level.checked_sub(1 + (i - binders))?);
+            }
+            Term::Meta(_) => return None,
+            _ => {}
+        }
+    }
+    Some(out)
+}
+
+impl Elaborator {
+    /// The goal `p` as terms ([`GoalSnapshot`]), if it can be: every part
+    /// known (no unknown left in it), mentioning only variables of the
+    /// context, in an order where each type mentions only those before.
+    fn goal_snapshot_of(&self, p: &Pending) -> Option<GoalSnapshot> {
+        let g = &self.globals;
+        let level = p.names.len();
+        let quote = |v: &Value| stitchwort_core::value::quote_folded(g, level, v).ok();
+        let mut vars: Vec<SnapVar> = Vec::new();
+        for e in &p.context {
+            vars.push(SnapVar {
+                level: e.level,
+                writable: is_identifier(&e.name),
+                name: e.name.as_str().into(),
+                ty: quote(&e.ty)?,
+                value: match &e.value {
+                    Some(v) => Some(quote(v)?),
+                    None => None,
+                },
+            });
+        }
+        for (l, ty) in &p.hidden {
+            vars.push(SnapVar {
+                level: *l,
+                name: p.names[*l].clone(),
+                writable: false,
+                ty: quote(ty)?,
+                value: None,
+            });
+        }
+        let target = quote(&p.target)?;
+        // What each mentions, of the variables kept.
+        let known: Vec<usize> = vars.iter().map(|v| v.level).collect();
+        let mut needs: Vec<Vec<usize>> = Vec::new();
+        for v in &vars {
+            let mut n = levels_in(&v.ty, level)?;
+            if let Some(value) = &v.value {
+                n.extend(levels_in(value, level)?);
+            }
+            n.retain(|l| *l != v.level);
+            if !n.iter().all(|l| known.contains(l)) {
+                return None;
+            }
+            needs.push(n);
+        }
+        if !levels_in(&target, level)?.iter().all(|l| known.contains(l)) {
+            return None;
+        }
+        // Each in turn: the lowest level whose needs are placed.
+        let mut order: Vec<usize> = Vec::new();
+        let mut placed: Vec<usize> = Vec::new();
+        while order.len() < vars.len() {
+            let next = (0..vars.len())
+                .filter(|i| !order.contains(i))
+                .filter(|i| needs[*i].iter().all(|l| placed.contains(l)))
+                .min_by_key(|i| vars[*i].level)?;
+            order.push(next);
+            placed.push(vars[next].level);
+        }
+        let mut slots: Vec<Option<SnapVar>> = vars.into_iter().map(Some).collect();
+        let vars = (order.into_iter())
+            .map(|i| slots[i].take().expect("placed once"))
+            .collect();
+        Some(GoalSnapshot {
+            vars,
+            level,
+            target,
+        })
+    }
+
+    /// The snapshot of the goal whose `?` is at `span`, if one was taken
+    /// (among the latest goals this elaborator printed).
+    pub fn goal_snapshot(&self, span: Span) -> Option<std::rc::Rc<GoalSnapshot>> {
+        (self.goal_snapshots.borrow().iter())
+            .rev()
+            .find(|(s, _)| *s == span)
+            .map(|(_, snapshot)| snapshot.clone())
+    }
+
+    /// A context with `snapshot`'s variables bound in its order (a `let` of
+    /// data as the `let`; one a proof can't name, hidden), its target there,
+    /// and how each was bound.
+    pub(crate) fn enter_snapshot<'e>(
+        &'e self,
+        snapshot: &GoalSnapshot,
+        span: Span,
+    ) -> crate::Result<(Ctx<'e>, Value, Vec<SnapBinder>)> {
+        let g = &self.globals;
+        let mut cx = Ctx::new(self, span);
+        // What stands for each variable at the `?`, by its level there.
+        let mut env: Vec<Value> = vec![Value::Sort(Sort::Prop); snapshot.level];
+        let mut binders = Vec::new();
+        for v in &snapshot.vars {
+            let ty = stitchwort_core::value::eval(g, &env, &v.ty)?;
+            let ty_term = cx.quote(&ty)?;
+            match &v.value {
+                Some(value) => {
+                    let value = stitchwort_core::value::eval(g, &env, value)?;
+                    let value = cx.quote(&value)?;
+                    let name = v.writable.then_some(&*v.name);
+                    cx.define(name, v.name.clone(), ty, ty_term.clone(), value.clone())?;
+                    binders.push(SnapBinder::Let(v.name.clone(), ty_term, value));
+                }
+                None => {
+                    if v.writable {
+                        cx.bind(&v.name, ty);
+                    } else {
+                        cx.bind_hidden(v.name.clone(), ty);
+                    }
+                    binders.push(SnapBinder::Lam(v.name.clone(), ty_term));
+                }
+            }
+            env[v.level] = cx.env.last().expect("just bound").clone();
+        }
+        let target = stitchwort_core::value::eval(g, &env, &snapshot.target)?;
+        Ok((cx, target, binders))
+    }
+}
+
+/// How [`Elaborator::enter_snapshot`] bound a variable, for the closed term
+/// the kernel checks.
+pub(crate) enum SnapBinder {
+    Lam(Name, Term),
+    Let(Name, Term, Term),
+}
+
+/// `body`, of type `ty`, terms under `binders`, as one closed term:
+/// `((x: A) => let y: B := v; body) : (x: A) → let y: B := v; ty`.
+pub(crate) fn close_over(binders: &[SnapBinder], body: Term, ty: Term) -> Term {
+    let (mut body, mut ty) = (body, ty);
+    for b in binders.iter().rev() {
+        match b {
+            SnapBinder::Lam(name, a) => {
+                body = Term::Lam(name.clone(), Icit::Explicit, std::rc::Rc::new(body));
+                ty = Term::Pi(
+                    name.clone(),
+                    Icit::Explicit,
+                    std::rc::Rc::new(a.clone()),
+                    std::rc::Rc::new(ty),
+                );
+            }
+            SnapBinder::Let(name, a, v) => {
+                body = Term::let_(name.clone(), a.clone(), v.clone(), body);
+                ty = Term::let_(name.clone(), a.clone(), v.clone(), ty);
+            }
+        }
+    }
+    Term::Ann(std::rc::Rc::new(body), std::rc::Rc::new(ty))
 }

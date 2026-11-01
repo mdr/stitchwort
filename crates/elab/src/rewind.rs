@@ -202,6 +202,7 @@ impl Elaborator {
             local_dictionaries,
             local_defaults,
             goals,
+            goal_snapshots,
             proof_holes,
             parameter_metas,
             hole_log: _,
@@ -310,6 +311,8 @@ impl Elaborator {
         local_dictionaries.get_mut().clear();
         local_defaults.get_mut().clear();
         *goals.get_mut() = Default::default();
+        // Their terms may name what is forgotten.
+        goal_snapshots.get_mut().clear();
         proof_holes.get_mut().clear();
         parameter_metas.get_mut().clear();
         cong_candidates.get_mut().clear();

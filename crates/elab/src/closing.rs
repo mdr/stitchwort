@@ -27,6 +27,7 @@ use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Elaborator;
+use crate::GoalSnapshot;
 use crate::check::{Ctx, infer};
 use crate::search::{
     ATTEMPT, Candidate, Found, HeadKey, Hit, Item, Mode, Opts, Pattern, Place, Relation, Restore,
@@ -69,6 +70,10 @@ pub enum Arg {
     Hyp(String),
     /// A premise nothing filled: `?`, for the closing step.
     Open,
+    /// Nothing solved it and it isn't a premise (a witness, a function a
+    /// premise mentions): `_`, or `?` for the proof's writer where
+    /// elaboration can't work it out (SW-989).
+    Unsolved,
 }
 
 /// An application of a declaration, planned: its explicit arguments.
@@ -84,6 +89,13 @@ pub struct Plan {
     /// y`, `p x`): it matches nearly any goal, so it is worth suggesting
     /// only if it closes the goal, not as one that leaves goals.
     pub general: bool,
+    /// Its conclusion is the goal's equation the other way round: the
+    /// application goes inside `Eq.sym` (as the file writes it).
+    pub sym: Option<String>,
+    /// Its conclusion names a definition inside its relation (`List.Distinct
+    /// (List.flatMap xs f)`, not `a ≤ c`): worth offering with a `?` for
+    /// what nothing solved (a witness), as one that leaves goals.
+    pub specific: bool,
 }
 
 /// A rewrite planned: `rewrite [<-] PLAN in ?` at the call `subterm`.
@@ -105,6 +117,15 @@ pub struct Closing {
     pub found: Found,
     /// For each hit tried (the first `max`, in rank order), its plans.
     pub plans: Vec<(Hit, Vec<Plan>)>,
+}
+
+/// Whether a proof can refer to a variable called `name`: not `n✝`, a
+/// compiler-made `%x` or `_`.
+fn nameable(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars.next().is_some_and(|c| c.is_alphabetic() || c == '_')
+        && chars.all(|c| c.is_alphanumeric() || c == '_' || c == '\'')
+        && name != "_"
 }
 
 /// `name`, or the first of `name1`, `name2`, … that `taken` doesn't have.
@@ -165,9 +186,66 @@ impl Elaborator {
             let span = expr.span();
             let mut cx = Ctx::new(self, span);
             let (term, _) = infer(&mut cx, expr)?;
+            let v = cx.eval(&term)?;
+            self.open_from(&cx, Vec::new(), hyps, v, span)
+        })();
+        self.globals.budget.restore(saved);
+        self.globals.glue.set(was);
+        result
+    }
+
+    /// Opens a goal for stage 2 as the elaborator had it at its `?`
+    /// ([`GoalSnapshot`], SW-989): each variable a frozen unknown (a `let`
+    /// of data its value), then the target as [`Elaborator::open_goal`]
+    /// opens it. Nothing is read back from printed text.
+    pub fn open_goal_at(
+        &mut self,
+        snapshot: &GoalSnapshot,
+        span: Span,
+    ) -> Result<Goal, Diagnostic> {
+        self.clear_metas();
+        let was = self.globals.glue.replace(self.glue);
+        let saved = self.globals.budget.start(self.limits);
+        let result = (|| -> Result<Goal, Diagnostic> {
             let g = &self.globals;
-            let mut v = cx.eval(&term)?;
+            let cx = Ctx::new(self, span);
+            let mut env = vec![Value::Sort(stitchwort_core::Sort::Prop); snapshot.level];
             let mut vars: Vec<(Name, usize)> = Vec::new();
+            for var in &snapshot.vars {
+                let ty = eval(g, &env, &var.ty)?;
+                if let Some(value) = &var.value {
+                    env[var.level] = eval(g, &env, value)?;
+                    continue;
+                }
+                let m = g.new_meta(span);
+                g.set_meta_type(m, ty, 0);
+                g.freeze_meta(m);
+                env[var.level] = eval(g, &[], &Term::Meta(m))?;
+                vars.push((var.name.clone(), m));
+            }
+            let v = eval(g, &env, &snapshot.target)?;
+            let hyps = vars.len();
+            self.open_from(&cx, vars, hyps, v, span)
+        })();
+        self.globals.budget.restore(saved);
+        self.globals.glue.set(was);
+        result
+    }
+
+    /// The goal `v` with `vars` opened so far: binders of `v` are opened too
+    /// until there are `hyps`, then its leading explicit binders as
+    /// variables the proof introduces.
+    fn open_from(
+        &self,
+        cx: &Ctx,
+        mut vars: Vec<(Name, usize)>,
+        hyps: usize,
+        v: Value,
+        span: Span,
+    ) -> Result<Goal, Diagnostic> {
+        {
+            let g = &self.globals;
+            let mut v = v;
             let mut intros = Vec::new();
             loop {
                 let Value::Pi(name, icit, dom, closure) = force(g, v.clone())? else {
@@ -192,7 +270,7 @@ impl Elaborator {
                 v = closure.apply(g, var)?;
             }
             let target = force(g, v)?;
-            let prop = crate::rewrite::is_proof_type(&cx, &target)?;
+            let prop = crate::rewrite::is_proof_type(cx, &target)?;
             let quoted = quote_folded(g, 0, &target)?;
             let shown = self.show_with_vars(&vars, &target)?;
             let metas = g.metas.borrow().len();
@@ -219,10 +297,7 @@ impl Elaborator {
                 target: shown,
                 deadline: None,
             })
-        })();
-        self.globals.budget.restore(saved);
-        self.globals.glue.set(was);
-        result
+        }
     }
 
     /// `value`, printed as a goal is, the goal's variables by their names.
@@ -272,12 +347,74 @@ impl Elaborator {
             deadline: goal.deadline,
         };
         let found = self.search(std::slice::from_ref(&goal.pattern), candidates, &opts, keep);
-        let plans = (found.hits.iter())
-            .filter(|h| h.relation == Relation::Instance && h.place == Place::Conclusion)
+        // The candidates whose conclusion names more definitions first (SW-989):
+        // a goal `f a ≤ f b` (`Nat.leq … = True`) is an instance of `b = True`
+        // as of `List.count xs p ≤ List.count xs q`, and the search ranks the
+        // first higher, since its variables took less; for closing a goal,
+        // the specific lemma is the one worth trying. Otherwise in the
+        // search's order.
+        let conclusion_defs = |item: Item| {
+            (candidates.iter().find(|c| c.item == item))
+                .map_or(0, |c| defs_named(conclusion_of(&c.ty)))
+        };
+        let closes = |h: &Hit| h.relation == Relation::Instance && h.place == Place::Conclusion;
+        let mut hits: Vec<(Hit, bool)> = (found.hits.iter())
+            .filter(|h| closes(h))
+            .map(|h| (h.clone(), false))
+            .collect();
+        // An equation, also the other way round: `Eq.sym (L …)` (SW-971).
+        // Not by a lemma whose conclusion names nothing (`x = y`).
+        let g = &self.globals;
+        let swapped = match force(g, goal.pattern.value.clone()) {
+            Ok(Value::Eq(ty, a, b)) => self.write_name("Std.Eq.sym").map(|sym| {
+                let pattern = Pattern {
+                    value: Value::Eq(ty, b, a),
+                    constants: goal.pattern.constants.clone(),
+                    data: goal.pattern.data.clone(),
+                    head: goal.pattern.head,
+                    metas: goal.pattern.metas,
+                    size: goal.pattern.size,
+                    free: goal.pattern.free.clone(),
+                    decisive: goal.pattern.decisive.clone(),
+                    distinct: goal.pattern.distinct,
+                    ty: goal.pattern.ty.clone(),
+                    via: None,
+                };
+                (pattern, sym)
+            }),
+            _ => None,
+        };
+        if let Some((pattern, _)) = &swapped {
+            let other = self.search(std::slice::from_ref(pattern), candidates, &opts, keep);
+            let named_something = |h: &Hit| {
+                (candidates.iter().find(|c| c.item == h.item))
+                    .is_some_and(|c| named(conclusion_of(&c.ty)) > 0)
+            };
+            hits.extend(
+                (other.hits.into_iter())
+                    .filter(|h| closes(h) && named_something(h))
+                    .filter(|h| !hits.iter().any(|(k, _)| k.item == h.item))
+                    .map(|h| (h, true))
+                    .collect::<Vec<_>>(),
+            );
+        }
+        hits.sort_by_key(|(h, _)| std::cmp::Reverse(conclusion_defs(h.item)));
+        let plans = (hits.into_iter())
             .take(max)
-            .filter_map(|hit| {
+            .filter_map(|(hit, sym)| {
                 let candidate = candidates.iter().find(|c| c.item == hit.item)?;
-                Some((hit.clone(), self.plans_for(goal, candidate)))
+                let mut plans = match (&swapped, sym) {
+                    (Some((pattern, head)), true) => {
+                        let mut plans = self.plans_for(goal, &pattern.value, candidate);
+                        for plan in &mut plans {
+                            plan.sym = Some(head.clone());
+                        }
+                        plans
+                    }
+                    _ => self.plans_for(goal, &goal.pattern.value, candidate),
+                };
+                plans.retain(|p| !(sym && p.general));
+                Some((hit, plans))
             })
             .collect();
         Closing { found, plans }
@@ -286,7 +423,7 @@ impl Elaborator {
     /// The ways of applying `candidate` to close `goal` (none if its
     /// conclusion doesn't match): each a choice of hypotheses for its
     /// premises, those that fill more first.
-    fn plans_for(&self, goal: &Goal, candidate: &Candidate) -> Vec<Plan> {
+    fn plans_for(&self, goal: &Goal, target: &Value, candidate: &Candidate) -> Vec<Plan> {
         let g = &self.globals;
         let _restore = Restore {
             g,
@@ -300,7 +437,7 @@ impl Elaborator {
             let _op = g.budget.attempt(ATTEMPT);
             let opened = open_binders(g, &candidate.ty, span)?;
             let conclusion = eval(g, &opened.env, &opened.conclusion)?;
-            if !crate::unify::unify_solving_arguments(g, 0, &goal.pattern.value, &conclusion)? {
+            if !crate::unify::unify_solving_arguments(g, 0, target, &conclusion)? {
                 return Ok(Vec::new());
             }
             let cx = Ctx::new(self, span);
@@ -315,7 +452,8 @@ impl Elaborator {
                 .map(|(i, _)| i)
                 .collect();
             let hyps: Vec<(usize, Value)> = (goal.vars.iter().enumerate())
-                .filter(|(_, (_, m))| is_prop(*m))
+                // Only those a proof can name (not `h✝`, a compiler-made `%x`).
+                .filter(|(_, (n, m))| is_prop(*m) && nameable(n))
                 .filter_map(|(i, (_, m))| Some((i, g.meta_type(*m)?.0)))
                 .collect();
             let mut search = Fill {
@@ -331,8 +469,10 @@ impl Elaborator {
             self.fill_premises(&mut search, 0)?;
             let mut plans = search.plans;
             let general = named(&opened.conclusion) == 0;
+            let specific = inner_defs(&opened.conclusion) > 0;
             for plan in &mut plans {
                 plan.general = general;
+                plan.specific = specific;
             }
             plans.sort_by_key(|p| p.args.iter().filter(|a| **a == Arg::Open).count());
             Ok(plans)
@@ -404,6 +544,8 @@ impl Elaborator {
             item_path: item.path(&self.globals),
             args,
             general: false,
+            sym: None,
+            specific: false,
         })
     }
 
@@ -412,7 +554,7 @@ impl Elaborator {
     fn arg(&self, goal: &Goal, m: usize, premise: bool) -> Res<Arg> {
         let g = &self.globals;
         let Some(solution) = g.meta_solution(m) else {
-            return Ok(if premise { Arg::Open } else { Arg::Infer });
+            return Ok(if premise { Arg::Open } else { Arg::Unsolved });
         };
         let text = self.show_with_vars(&goal.vars, &solution)?;
         let unwritable = text.contains(['?', '…', '✝', '\n'])
@@ -575,12 +717,70 @@ impl Elaborator {
                 return Ok(None);
             }
             let mut plan = self.plan(goal, candidate.item, &opened.binders, &[], &[])?;
-            while plan.args.last() == Some(&Arg::Infer) {
+            while matches!(plan.args.last(), Some(Arg::Infer | Arg::Unsolved)) {
                 plan.args.pop();
             }
             Ok(Some(plan))
         })();
         made.ok().flatten()
+    }
+}
+
+/// How many definitions a conclusion names inside its relation: in the
+/// explicit arguments of its head (`List.Distinct (List.flatMap xs f)`: 1;
+/// `a ≤ c`, which is `Nat.leq a c = True`: 0).
+fn inner_defs(conclusion: &Term) -> usize {
+    let mut t = conclusion.strip_loc();
+    // `x = True`, a `Bool` fact: `x`'s relation.
+    if let Term::Eq(_, a, b) = t
+        && matches!(b.strip_loc(), Term::Ctor(_, _, args) if args.is_empty())
+    {
+        t = a.strip_loc();
+    }
+    let mut args = Vec::new();
+    while let Term::App(f, a, icit) = t {
+        if *icit == Icit::Explicit {
+            args.push(&**a);
+        }
+        t = f.strip_loc();
+    }
+    match t {
+        Term::Eq(_, a, b) => defs_named(a) + defs_named(b),
+        Term::Data(_, params) => {
+            params.iter().map(|p| defs_named(p)).sum::<usize>()
+                + args.into_iter().map(defs_named).sum::<usize>()
+        }
+        _ => args.into_iter().map(defs_named).sum(),
+    }
+}
+
+/// What a type `(x: A) → … → C` concludes: `C`.
+fn conclusion_of(ty: &Term) -> &Term {
+    let mut t = ty.strip_loc();
+    while let Term::Pi(_, _, _, cod) = t {
+        t = cod.strip_loc();
+    }
+    t
+}
+
+/// How many times `term` names a definition (`List.count`, `Nat.leq`),
+/// outside implicit arguments.
+fn defs_named(term: &Term) -> usize {
+    match term {
+        Term::Loc(_, t) => defs_named(t),
+        Term::Def(_) => 1,
+        Term::App(f, a, icit) => {
+            defs_named(f)
+                + if *icit == Icit::Explicit {
+                    defs_named(a)
+                } else {
+                    0
+                }
+        }
+        Term::Eq(_, a, b) => defs_named(a) + defs_named(b),
+        Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().map(|a| defs_named(a)).sum(),
+        Term::Lam(_, _, b) => defs_named(b),
+        _ => 0,
     }
 }
 

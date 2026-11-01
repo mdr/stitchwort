@@ -80,7 +80,22 @@ pub struct FoundGoal {
     pub index: usize,
     /// The `?`, as byte offsets in the file's text.
     pub span: (usize, usize),
+    /// The file, in the session that found the goal: with `span`, where to
+    /// find the goal as the elaborator had it (`Elaborator::goal_snapshot`).
+    pub file: Option<FileId>,
     pub data: GoalData,
+}
+
+impl FoundGoal {
+    /// The goal as `session`'s elaborator had it at its `?` (SW-989), if
+    /// it checked this file and kept it.
+    fn snapshot(&self, session: &Session) -> Option<Rc<stitchwort_elab::GoalSnapshot>> {
+        session.elab.goal_snapshot(stitchwort_syntax::Span {
+            file: self.file?,
+            start: self.span.0 as u32,
+            end: self.span.1 as u32,
+        })
+    }
 }
 
 /// The goals among `diagnostics` that are in `file`, in source order.
@@ -107,6 +122,7 @@ pub fn goals_in(sources: &SourceMap, file: FileId, diagnostics: &[Diagnostic]) -
                 column,
                 index: i + 1,
                 span: (at as usize, end as usize),
+                file: Some(file),
                 data,
             }
         })
@@ -243,6 +259,9 @@ pub struct Suggestion {
     /// a rewrite followed by `rfl` or `omega`.
     #[serde(rename = "searchRank", skip_serializing_if = "Option::is_none")]
     pub search_rank: Option<usize>,
+    /// It has a `?` for a witness, nothing solved (shown after the rest).
+    #[serde(skip)]
+    pub witnesses: bool,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -366,12 +385,15 @@ fn render(plan: &Plan, fills: &[String], infer: bool) -> String {
         match arg {
             Arg::Given(_) if infer => out.push('_'),
             Arg::Given(text) => out.push_str(&atom(text)),
-            Arg::Infer => out.push('_'),
+            Arg::Infer | Arg::Unsolved => out.push('_'),
             Arg::Hyp(name) => out.push_str(name),
             Arg::Open => out.push_str(&atom(fills.next().map_or("?", String::as_str))),
         }
     }
-    out
+    match &plan.sym {
+        Some(sym) => format!("{sym} ({out})"),
+        None => out,
+    }
 }
 
 /// A type after `:` in a binder: a record update would read as a block.
@@ -425,6 +447,10 @@ enum Outcome {
 /// deadline.
 struct Checker<'s> {
     session: &'s mut Session,
+    /// The goal as the checking session's elaborator had it: proofs are
+    /// checked there, with no text read back. `None`: by text, inside
+    /// [`wrap`].
+    snapshot: Option<Rc<stitchwort_elab::GoalSnapshot>>,
     goal: GoalData,
     intros: Vec<String>,
     /// The target, printed as goals are (the introduced variables named).
@@ -445,12 +471,32 @@ impl Checker<'_> {
         } else {
             format!("{} => {proof}", self.intros.join(" => "))
         };
-        let text = wrap(&self.goal, extra, &body);
+        let began = Instant::now();
         self.checks += 1;
-        let Ok(expr) = self.session.parse_expression("<search --at>", &text) else {
-            return Outcome::Failed;
+        let checked = match &self.snapshot {
+            Some(snapshot) => {
+                let Ok(expr) = self.session.parse_expression("<search --at>", &body) else {
+                    return Outcome::Failed;
+                };
+                let mut hyps = Vec::new();
+                for (name, ty) in extra {
+                    let Ok(ty) = self.session.parse_expression("<search --at>", ty) else {
+                        return Outcome::Failed;
+                    };
+                    hyps.push((name.clone(), ty));
+                }
+                self.session.elab.check_proof_at(snapshot, &hyps, &expr)
+            }
+            None => {
+                let text = wrap(&self.goal, extra, &body);
+                let Ok(expr) = self.session.parse_expression("<search --at>", &text) else {
+                    return Outcome::Failed;
+                };
+                self.session.elab.check_proof(&expr)
+            }
         };
-        match self.session.elab.check_proof(&expr) {
+        debug_time(&format!("checked `{body}`"), began);
+        match checked {
             Ok(Checked::Closed) => Outcome::Closed,
             Ok(Checked::Goals(goals)) => Outcome::Goals(
                 goals
@@ -483,12 +529,27 @@ impl Session {
     ) -> Result<AtReport, Diagnostic> {
         let started = Instant::now();
         let data = found.data.clone();
-        let stmt = statement(&data);
-        let expr = self
-            .parse_expression("<goal>", &stmt)
-            .map_err(|d| cannot_open(&data, d))?;
-        let mut goal: Goal = (self.elab.open_goal(&expr, data.hypotheses.len()))
-            .map_err(|d| cannot_open(&data, d))?;
+        // The goal as the elaborator had it, if it kept it; else its
+        // statement, printed and read back.
+        let snapshot = found.snapshot(self);
+        let mut goal: Goal = match &snapshot {
+            Some(snapshot) => {
+                let span = stitchwort_syntax::Span {
+                    file: found.file.expect("a snapshot has a file"),
+                    start: found.span.0 as u32,
+                    end: found.span.1 as u32,
+                };
+                (self.elab.open_goal_at(snapshot, span)).map_err(|d| cannot_open(&data, d))?
+            }
+            None => {
+                let stmt = statement(&data);
+                let expr = self
+                    .parse_expression("<goal>", &stmt)
+                    .map_err(|d| cannot_open(&data, d))?;
+                (self.elab.open_goal(&expr, data.hypotheses.len()))
+                    .map_err(|d| cannot_open(&data, d))?
+            }
+        };
         goal.deadline = Some(started + options.time);
         let g = &self.elab.globals;
         let all = options.all;
@@ -545,7 +606,12 @@ impl Session {
             Some(other) => other,
             None => self,
         };
+        // The checking session's own: its declarations are numbered as it
+        // loaded them. Both or neither, so that what is checked is what was
+        // searched.
+        let check_snapshot = snapshot.as_ref().and_then(|_| found.snapshot(checking));
         let mut checker = Checker {
+            snapshot: check_snapshot,
             session: checking,
             goal: data.clone(),
             intros: intros.clone(),
@@ -563,7 +629,35 @@ impl Session {
             }
         }
         let mut results: Vec<(Suggestion, usize)> = Vec::new();
-        'hits: for (hit, plans) in &closing.plans {
+        // A hypothesis that is the goal (SW-989): it closes it alone.
+        for h in &data.hypotheses {
+            let named = h
+                .name
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '\'');
+            if named
+                && !checker.out_of_time()
+                && matches!(checker.check(&h.name, &[]), Outcome::Closed)
+            {
+                let s = Suggestion {
+                    class: "withHypotheses",
+                    proof: h.name.clone(),
+                    name: h.name.clone(),
+                    kind: "hypothesis",
+                    ty: h.ty.clone(),
+                    file: String::new(),
+                    line: 0,
+                    import: None,
+                    checked: "kernel",
+                    obligations: Vec::new(),
+                    goals: Vec::new(),
+                    search_rank: None,
+                    witnesses: false,
+                };
+                results.push((s, 0));
+            }
+        }
+        'hits: for (order, (hit, plans)) in closing.plans.iter().enumerate() {
             let rank = ranks.iter().position(|i| *i == hit.item).unwrap_or(0) + 1;
             let mut best: Option<Suggestion> = None;
             for plan in plans {
@@ -588,7 +682,8 @@ impl Session {
             if let Some(s) = best
                 && !results.iter().any(|(r, _)| r.proof == s.proof)
             {
-                results.push((s, rank));
+                // In the order tried (`closing_plans`), not the search's.
+                results.push((s, order + 1));
             }
         }
         debug_time("closing checked", started);
@@ -602,6 +697,31 @@ impl Session {
                 && !rewrites.iter().any(|x: &Rewrite| x.goal == r.goal)
             {
                 rewrites.push(r);
+            }
+        }
+        // The goal's equations, each way (SW-976: `rewrite <- h in …`).
+        for h in &data.hypotheses {
+            let named = h
+                .name
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '\'');
+            let equation = h.ty.contains(" = ") || h.ty.contains(" ↔ ");
+            if !named || !equation || checker.out_of_time() {
+                continue;
+            }
+            for backwards in [false, true] {
+                let rule = Rule {
+                    text: &h.name,
+                    backwards,
+                    iff: h.ty.contains(" ↔ "),
+                    name: &h.name,
+                    at: "",
+                };
+                if let Some(r) = try_rule(&mut checker, &rule, &target_now)
+                    && !rewrites.iter().any(|x: &Rewrite| x.goal == r.goal)
+                {
+                    rewrites.push(r);
+                }
             }
         }
         // A rewrite after which `rfl` or `omega` closes the goal closes it:
@@ -632,6 +752,7 @@ impl Session {
                     }],
                     goals: Vec::new(),
                     search_rank: None,
+                    witnesses: false,
                 };
                 results.push((suggestion, usize::MAX));
             }
@@ -640,7 +761,7 @@ impl Session {
         budget.checks = checker.checks;
         drop(checker);
         let session = &*self;
-        results.sort_by_key(|(s, rank)| (class_rank(s.class), s.goals.len(), *rank));
+        results.sort_by_key(|(s, rank)| (class_rank(s.class), s.witnesses, s.goals.len(), *rank));
         let mut results: Vec<Suggestion> = results.into_iter().map(|(s, _)| s).collect();
         for s in results.iter_mut() {
             session.describe(s, scope);
@@ -724,6 +845,9 @@ impl Session {
     /// Fills in a suggestion's declaration: name, kind, type, place, import.
     fn describe(&self, s: &mut Suggestion, scope: &Scope) {
         let g = &self.elab.globals;
+        if s.kind == "hypothesis" {
+            return;
+        }
         let Some(item) = find_item(self, &s.name) else {
             return;
         };
@@ -784,12 +908,56 @@ fn try_plan(
     closers: &[(&'static str, String)],
     rank: usize,
 ) -> Option<Suggestion> {
+    let tried = try_plan_with(checker, plan, closers, rank, &[]);
+    if tried.is_some() || !plan.specific || !plan.args.contains(&Arg::Unsolved) {
+        return tried;
+    }
+    // What nothing solved and `_` can't work out (`List.memFlatMapIntro`'s
+    // `x`, `List.distinctFlatMap`'s `key`): a `?` for the writer, the goals
+    // after it mentioning it (SW-989). Which `?`s are such.
+    let witness: Vec<bool> = (plan.args.iter())
+        .filter(|a| matches!(a, Arg::Open | Arg::Unsolved))
+        .map(|a| *a == Arg::Unsolved)
+        .collect();
+    let mut witnesses = plan.clone();
+    for arg in &mut witnesses.args {
+        if *arg == Arg::Unsolved {
+            *arg = Arg::Open;
+        }
+    }
+    try_plan_with(checker, &witnesses, closers, rank, &witness)
+}
+
+/// [`try_plan`]; with `witnesses` (`?`s that stand for data), the goals it
+/// leaves may mention an unknown.
+fn try_plan_with(
+    checker: &mut Checker,
+    plan: &Plan,
+    closers: &[(&'static str, String)],
+    rank: usize,
+    witness: &[bool],
+) -> Option<Suggestion> {
     let mut text = render(plan, &[], false);
     let mut first = checker.check(&text, &[]);
     let has_given = plan.args.iter().any(|a| matches!(a, Arg::Given(_)));
     if matches!(first, Outcome::Failed) && has_given {
         text = render(plan, &[], true);
         first = checker.check(&text, &[]);
+    } else if (plan.args.iter()).any(|a| matches!(a, Arg::Given(t) if t.chars().count() > 40)) {
+        // A long argument, often the goal's term computed (`List.concat
+        // (List.map …)` for a `flatMap`): `_` reads better, where it does
+        // as well (SW-989).
+        let short = render(plan, &[], true);
+        let second = checker.check(&short, &[]);
+        let same = match (&first, &second) {
+            (Outcome::Closed, Outcome::Closed) => true,
+            (Outcome::Goals(a), Outcome::Goals(b)) => a.len() == b.len(),
+            _ => false,
+        };
+        if same {
+            text = short;
+            first = second;
+        }
     }
     let infer = text != render(plan, &[], false);
     let uses_hyp = plan.args.iter().any(|a| matches!(a, Arg::Hyp(_)));
@@ -806,6 +974,7 @@ fn try_plan(
         obligations: Vec::new(),
         goals: Vec::new(),
         search_rank: Some(rank),
+        witnesses: !witness.is_empty(),
     };
     let mut suggestion = match first {
         Outcome::Failed => return None,
@@ -825,6 +994,12 @@ fn try_plan(
             let mut fills: Vec<String> = vec!["?".to_string(); n];
             let mut obligations = Vec::new();
             for (j, left) in goals.iter().enumerate() {
+                // With a witness to give, every goal is the writer's: the
+                // goals needn't line up with the `?`s (a witness's goal may
+                // not be listed), and a closer could take a witness's place.
+                if !witness.is_empty() {
+                    break;
+                }
                 for (name, closer) in closers {
                     if checker.out_of_time() {
                         break;
@@ -873,7 +1048,14 @@ fn try_plan(
                 };
                 // A goal with an unknown in it (`?3 m n`) says nothing
                 // about what to prove next.
-                if left.iter().any(|g| g.target.contains('?')) {
+                if witness.is_empty() && left.iter().any(|g| g.target.contains('?')) {
+                    return None;
+                }
+                // Nor does one that leaves the goal as it was
+                // (`Bool.canonicalTrue … ?`, SW-963).
+                if (left.iter())
+                    .any(|g| g.target == checker.target_now || g.target == checker.goal.target)
+                {
                     return None;
                 }
                 let mut s = base("applicable", proof.clone());
@@ -940,6 +1122,30 @@ fn try_rewrite(
     target_now: &str,
 ) -> Option<Rewrite> {
     let rule = render(&rp.plan, &[], false);
+    let rule = Rule {
+        text: &rule,
+        backwards: rp.backwards,
+        iff: rp.iff,
+        name: &rp.plan.item_path,
+        at: &rp.subterm,
+    };
+    try_rule(checker, &rule, target_now)
+}
+
+/// A rewrite to try: `rewrite [<-] text in ?`.
+struct Rule<'a> {
+    text: &'a str,
+    backwards: bool,
+    iff: bool,
+    /// The lemma's full name, or the hypothesis's.
+    name: &'a str,
+    /// The call it rewrites, printed (empty for a hypothesis).
+    at: &'a str,
+}
+
+/// [`try_rewrite`] for any rule.
+fn try_rule(checker: &mut Checker, rp: &Rule, target_now: &str) -> Option<Rewrite> {
+    let rule = rp.text;
     let arrow = if rp.backwards { "<- " } else { "" };
     let proof = format!("rewrite {arrow}{rule} in ?");
     let left = match checker.check(&proof, &[]) {
@@ -982,12 +1188,12 @@ fn try_rewrite(
     }
     Some(Rewrite {
         proof,
-        name: rp.plan.item_path.clone(),
+        name: rp.name.to_string(),
         ty: String::new(),
         file: String::new(),
         line: 0,
         import: None,
-        at: rp.subterm.clone(),
+        at: rp.at.to_string(),
         direction: if rp.backwards {
             "rightToLeft"
         } else {

@@ -1080,3 +1080,90 @@ three-namespace project: alias, full name and import, nothing that uses the goal
 folder; JSON snapshot), `crates/cli/tests/lsp.rs`
 `a_code_action_at_a_goal_in_a_project_offers_what_closes_it` (the editor's unsaved text), and
 `search_at.rs` `cases_closes_a_goal_alone`.
+
+## As built (stage 3)
+
+Stage 3 (SW-989, D2116) makes `search --at` work on the goals the AoC 2021 lanes met (days 9 to
+18, 1 November 2026), measured on a benchmark of those goals first.
+
+**The benchmark** (`crates/driver/tests/search_at_aoc.rs` `search_at_on_real_2021_goals`, daily and
+full tiers): 29 proof positions the lanes asked `search --at` about or wrote by hand
+(aoc/NOTES-2021.md, SW-960 to SW-980), each with its proof replaced by `?` in memory, in the
+project (`Aoc.Common`, the 2021 days, 2024 day 24), with what closed it. A goal is a hit when what
+its proof used is among the closing suggestions or offered as a step (applicable, or a rewrite);
+for the 6 that were refused and have no single known closer, when it is read at all. The lane
+tier has the refusal kinds as a small file (`search_at.rs`
+`goals_that_dont_print_back_are_searched`: every closer pasted and checked again).
+
+| | refused | closed by what the proof used | offered it as a step | hit rate | a goal (median, max) |
+|---|---|---|---|---|---|
+| main (before) | 9 | 8 of 23 | 4 | 14/29 (48%) | 1.8 s, 39 s |
+| after | 0 | 10 of 23 | 7 | 23/29 (79%) | 1.5 s, 31 s |
+
+The maximum is AoC 2021 day 16, whose proofs namespace takes about 14 s to check, once and again
+for each suggestion confirmed in the file. One run each, on a machine with a load average near 22.
+
+**The query log** (stage 1's `--log`, `STITCHWORT_SEARCH_LOG`) was never switched on: no log
+file existed. What the lanes searched was read from their transcripts instead (11 AoC lanes, 1
+November): 44 `search --at` runs (9 refused, 9 closed the goal, the rest offered nothing that
+closed it) and about 50 pattern or `--rewrite` searches (26 with results).
+
+**The goal as the elaborator had it.** `--at` used to read its goal by printing the statement,
+`(h: A) → … → T`, and elaborating that text; a goal whose printed form isn't valid source was
+refused. Two ways out were weighed: make every printed goal valid source, or search the goal's
+terms. The second was built, because some goals can't be printed as source at all: a `x✝`
+variable has no name a proof can use (renaming it in the statement would make suggestions that
+don't paste), a lifted `f.%match1` has no source form unless the printer folds it back, and a
+hypothesis a case split refined to mention a later pattern variable has to be moved. And each
+gap the printer has, now or later, would be a refusal. So the elaborator keeps each goal it
+prints as terms (`goals.rs`, `GoalSnapshot`: the context's own variables, hidden ones included,
+in an order where each type mentions only those before, a `let` of data with its value, and the
+target, read back folded, no unknown left in them), keyed by the `?`'s span, the latest 256;
+`Elaborator::open_goal_at` opens one for search and `Elaborator::check_proof_at` checks a proof
+text in its context (the variables bound, those a proof can't name hidden), closing the term over
+the context for the kernel. The printed text is the fallback when no snapshot was kept (the
+std benchmark's made-up goals). The printer's own bugs remain display bugs (SW-969 item 5,
+SW-971 item 3, SW-980 item 1, SW-967 item 5): goals still show `split.%match1`, and
+`List.Any (y => y = y)` for `y ∈ xs` with a `y` in scope.
+
+**Better candidates**, each measured on the benchmark:
+
+- **Specific lemmas first** (19 → 20 with the next two): the candidates tried, 50 at most, are
+  ordered by how many definitions their conclusion names, then as `search` ranks them. A `≤` on
+  `Nat` is `Nat.leq a b = True`, which every `b = True` lemma fits; those had filled the 50 and
+  pushed `List.countLeMem` (day 11) to 75th.
+- **`Eq.sym`**: an equation goal is searched the other way round too; a lemma found so is
+  suggested as `Eq.sym (L …)` (day 14's `List.sumByFlatMap`).
+- **Hypotheses**: one that is the goal closes it; each equation or `Iff` is tried as a rewrite
+  both ways (day 16's `rewrite <- h in ?`, a step; the lemma after it, `List.takeAppend`, needs
+  a second round, not built).
+- **No-op results**: an applicable result that leaves the goal itself is dropped
+  (`Bool.canonicalTrue … ?`, SW-963).
+- **Witnesses** (21 → 23): the "folded goal" misses (days 15 and 17, SW-965 item 3) weren't about
+  folding: matching unfolds `flatMap` and `count` (calls are compared by their arguments, then
+  unfolded), and `List.distinctFlatMap` and `List.memFlatMapIntro` matched. Their plans failed
+  because an explicit argument only premises mention (`key`, `x`) was written `_`, which
+  elaboration can't work out. Such an argument is now a `?` for the writer, when the lemma's
+  conclusion names a definition inside its relation, and the suggestion lists the goals it
+  leaves, after the others.
+- A long solved argument (the goal's term computed) is written `_` where that checks the same.
+
+**Not built** (what the benchmark still misses, and the rest of SW-989's list):
+
+- **The induction hypothesis** (4 goals: days 10, 12, 16, 17). In an equation-style theorem the
+  recursive call is the declaration being proved, which isn't finished, so it isn't a candidate,
+  and a proof checked at the goal can't name it. Offering it means binding the declaration in the
+  goal's context as a hypothesis and checking termination only in the file (project files already
+  are), with `checked: elaborated` in a file on its own; and offering `omega [IH]` as a closer.
+- **A second round**: a rewrite by a hypothesis followed by a lemma (`rewrite <- h in
+  List.takeAppend xs ys`).
+- Day 9's `List.length (Map.keys r) = Map.size r` (`Map.sizeToList` under `Eq.trans`).
+- Not measured, not built: conjuncts of a conclusion that is a defined conjunction
+  (`Graph.distancesShortest`), class laws as lemmas (`Ord`'s `equal`), the generated `T.ext`,
+  `byDecision` obligations on undecidable goals, a premise pattern `P → _` matching a later
+  premise, `--in NAMESPACE`.
+- Found: one closer check can cost a lot. `cases` as the obligation of
+  `Std.Float.Theory.magUnitsLeReflect line 3 ?` (a goal `line < 4`) took 1.5 s and 1.2 GB; each
+  check runs under the declaration's resource limits, and a smaller step budget doesn't stop
+  `cases` (tried: no change). The lane tests leave that lemma out (`search_at.rs` `options`),
+  which keeps the lane tier under its 3 GB.
