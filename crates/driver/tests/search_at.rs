@@ -48,6 +48,17 @@ fn load(session: &mut Session, text: &str) -> (FileId, Vec<Diagnostic>) {
     (file, diagnostics)
 }
 
+/// The options the tests search with: the defaults, less
+/// `Float.Theory.magUnitsLeReflect`, which fits every `a ≤ b` and whose
+/// premise `cases` takes about 1.2 GB and seconds to fail on, more than the
+/// lane tier's memory allows beside the other tests (SW-989).
+fn options() -> AtOptions {
+    AtOptions {
+        exclude: vec!["Std.Float.Theory.magUnitsLeReflect".to_string()],
+        ..AtOptions::default()
+    }
+}
+
 /// What closes the goal on `line` of `text`.
 fn at(text: &str, line: usize) -> AtReport {
     with_session(STACK, Session::for_stack, |session| {
@@ -68,7 +79,7 @@ fn at(text: &str, line: usize) -> AtReport {
             .search_at(
                 &found,
                 "goals.sw",
-                &AtOptions::default(),
+                &options(),
                 &Scope::File,
                 Some(&mut checking),
             )
@@ -330,7 +341,7 @@ fn at_each(text: &str, lines: &[usize]) -> Vec<AtReport> {
                     .search_at(
                         &found,
                         "goals.sw",
-                        &AtOptions::default(),
+                        &options(),
                         &Scope::File,
                         Some(&mut checking),
                     )
