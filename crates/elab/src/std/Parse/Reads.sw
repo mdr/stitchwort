@@ -1,60 +1,61 @@
 import Parse.Problem (Expected, Literal, Message)
 import Effect.AlwaysTreeOf (AlwaysCall)
 
--- What a successful parse read (SW-998). `Parse.Reads parser spec` says:
--- whenever `parser` succeeds, it read a start of the input, and `spec`
--- holds of the characters it read and the value it gave. Each piece and
--- combinator below has such a lemma (`Parse.readsNat`, `Parse.readsMany`,
--- `Parse.readsPick`, …), and the runners turn one into a statement about
--- the input (`Parse.eachLineReads`: a successful `eachLine` gives one value
--- per line, each `spec` of that line). So a parser guarantee (D2108) is
--- the runner's lemma applied to the combinators' lemmas:
---
---   theorem parseReads (input: Text) (lines: List (List Token))
---       (parsed: Fail.toResult (() => Parse.eachLine input (() => Parse.many token)) = Ok lines):
---       List.All2 (Parse.Each tokenSpec) (input.lines.map Text.toList) lines :=
---     Parse.eachLineReads input _ _ lines parsed (Parse.readsMany _ _ readsToken)
---
--- The statement is soundness only, as for Hoare triples and for the
--- refinement specs of verified parsers (Baanen and Swierstra, "Combining
--- predicate transformer semantics for effects", 2020; TRX's big-step
--- semantics of PEGs, Koprowski and Binsztok, 2010): it says nothing about
--- when a parser succeeds, only what a success means, which is what a
--- program's theorems need of its input.
---
--- A spec relates what was read to the value, not to what comes after it,
--- so "a number, and then no more digits" isn't said. And `reset` can go
--- to any mark, so a parser that resets to a mark it made up has no such
--- lemma; every parser in `Std.Parse` resets only to marks it took itself.
+--| `Parse.Reads parser spec` says:
+--| whenever `parser` succeeds, it read a start of the input, and `spec`
+--| holds of the characters it read and the value it gave. Each piece and
+--| combinator below has such a lemma (`Parse.readsNat`, `Parse.readsMany`,
+--| `Parse.readsPick`, …), and the runners turn one into a statement about
+--| the input (`Parse.eachLineReads`: a successful `eachLine` gives one value
+--| per line, each `spec` of that line). So a parser guarantee (D2108) is
+--| the runner's lemma applied to the combinators' lemmas:
+--|
+--|   theorem parseReads (input: Text) (lines: List (List Token))
+--|       (parsed: Fail.toResult (() => Parse.eachLine input (() => Parse.many token)) = Ok lines):
+--|       List.All2 (Parse.Each tokenSpec) (input.lines.map Text.toList) lines :=
+--|     Parse.eachLineReads input _ _ lines parsed (Parse.readsMany _ _ readsToken)
+--|
+--| The statement is soundness only, as for Hoare triples and for the
+--| refinement specs of verified parsers (Baanen and Swierstra, "Combining
+--| predicate transformer semantics for effects", 2020; TRX's big-step
+--| semantics of PEGs, Koprowski and Binsztok, 2010): it says nothing about
+--| when a parser succeeds, only what a success means, which is what a
+--| program's theorems need of its input.
+--|
+--| A spec relates what was read to the value, not to what comes after it,
+--| so "a number, and then no more digits" isn't said. And `reset` can go
+--| to any mark, so a parser that resets to a mark it made up has no such
+--| lemma; every parser in `Std.Parse` resets only to marks it took itself.
+-- What a successful parse read (SW-998).
 --
 -- The proofs go through the handler by induction on the parser's
 -- computation tree (`Effect.AlwaysTree`, as `Rogue.Proofs.withSeedAlways`
 -- does), splitting on its next operation with `match reify`.
 
--- A mark is honest when `left` counts the characters in `rest`, as every
--- mark of a run from the start is; `end` and `lineEnd` look at `left`.
---
--- `parser`, run from any honest state, if it succeeds giving `value`,
--- has read a start `read` of the input, left an honest state, and `spec
--- read value` holds.
+--| A mark is honest when `left` counts the characters in `rest`, as every
+--| mark of a run from the start is; `end` and `lineEnd` look at `left`.
+--|
+--| `parser`, run from any honest state, if it succeeds giving `value`,
+--| has read a start `read` of the input, left an honest state, and `spec
+--| read value` holds.
 def Parse.Reads (parser: () → {Parse} a) (spec: List Char → a → Prop): Prop :=
   (state: Parse.State) → (value: a) → (after: Parse.Mark) → state.at.left = state.at.rest.length →
     Parse.runFrom state (() => (parser(), Parse.mark())) = Ok (value, after) →
     ∃ (read: List Char) => state.at.rest = read ++ after.rest ∧ after.left = after.rest.length ∧ spec read value
 
--- What `first` then `next` read: `first`'s part, then `next`'s, given the
--- value `first` gave.
+--| What `first` then `next` read: `first`'s part, then `next`'s, given the
+--| value `first` gave.
 def Parse.Then (first: List Char → a → Prop) (next: a → List Char → b → Prop) (read: List Char) (value: b): Prop :=
   ∃ (firstRead: List Char) => ∃ (nextRead: List Char) => ∃ (firstValue: a) =>
     read = firstRead ++ nextRead ∧ first firstRead firstValue ∧ next firstValue nextRead value
 
--- What `optional` read: nothing for `None`, `spec`'s read for `Some`.
+--| What `optional` read: nothing for `None`, `spec`'s read for `Some`.
 def Parse.Maybe (spec: List Char → a → Prop) (read: List Char): Option a → Prop
   | None => read = []
   | Some value => spec read value
 
--- What a repetition read: one part per value, one after another, each
--- `spec` of its value.
+--| What a repetition read: one part per value, one after another, each
+--| `spec` of its value.
 def Parse.Each (spec: List Char → a → Prop): List Char → List a → Prop
   | read, Nil => read = Nil
   | read, Cons value values =>
@@ -64,8 +65,8 @@ def Parse.Each (spec: List Char → a → Prop): List Char → List a → Prop
 -- does next; the `Tree` argument is the induction (any computation has one,
 -- `Effect.alwaysUnit`).
 
--- A run of `p` then `k` that succeeded: `p` succeeded on its own, and `k`
--- of its value went on from where `p` stopped.
+--| A run of `p` then `k` that succeeded: `p` succeeded on its own, and `k`
+--| of its value went on from where `p` stopped.
 theorem Parse.runFromThenOkTree (p: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (p ())) (s: Parse.State) (k: a → {Parse} b)
     (w: b) (h: Parse.runFrom s (() => k (p())) = Ok w):
     ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k v) = Ok w :=
@@ -96,9 +97,9 @@ theorem Parse.runFromThenOk (p: () → {Parse} a) (s: Parse.State) (k: a → {Pa
     ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k v) = Ok w :=
   Parse.runFromThenOkTree p (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))) s k w h
 
--- The same with two continuations, `k (j (p()))`, which isn't `(x => k (j
--- x)) (p())` until the computation is known: a combinator's own rest, then
--- the caller's.
+--| The same with two continuations, `k (j (p()))`, which isn't `(x => k (j
+--| x)) (p())` until the computation is known: a combinator's own rest, then
+--| the caller's.
 theorem Parse.runFromThenOk2Tree (p: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (p ())) (s: Parse.State) (j: a → {Parse} c)
     (k: c → {Parse} b) (w: b) (h: Parse.runFrom s (() => k (j (p()))) = Ok w):
     ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k (j v)) = Ok w :=
@@ -131,9 +132,9 @@ theorem Parse.runFromThenOk2 (p: () → {Parse} a) (s: Parse.State) (j: a → {P
     ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k (j v)) = Ok w :=
   Parse.runFromThenOk2Tree p (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))) s j k w h
 
--- `optionalFrom start q` that let the rest succeed: `q` succeeded, or it
--- stopped and the input is back at `start`. `optionalFrom` passes each of
--- `q`'s operations on, so `q`'s run under it is its run on its own.
+--| `optionalFrom start q` that let the rest succeed: `q` succeeded, or it
+--| stopped and the input is back at `start`. `optionalFrom` passes each of
+--| `q`'s operations on, so `q`'s run under it is its run on its own.
 theorem Parse.runFromOptionalFromOkTree (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (start: Parse.Mark)
     (s: Parse.State) (k: Option a → {Parse} b) (w: b) (h: Parse.runFrom s (() => k (Parse.optionalFrom start q)) = Ok w):
     (∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k (Some v)) = Ok w) ∨
@@ -222,7 +223,7 @@ theorem Parse.readsWeaken (p: () → {Parse} a) (spec: List Char → a → Prop)
     match reads state value after honest h with
       | Witness read (Both starts (Both honestAfter holds)) => Witness read (Both starts (Both honestAfter (implies read value holds)))
 
--- `p`, then `j` of its value: what `p` read, then what `j` read.
+--| `p`, then `j` of its value: what `p` read, then what `j` read.
 theorem Parse.readsBind (p: () → {Parse} a) (j: a → {Parse} b) (first: List Char → a → Prop) (next: a → List Char → b → Prop)
     (readsFirst: Parse.Reads p first) (readsNext: (v: a) → Parse.Reads (() => j v) (next v)): Parse.Reads (() => j (p())) (Parse.Then first next) :=
   state value after honest h =>
@@ -242,7 +243,7 @@ theorem Parse.readsIf (c: Bool) (yes: () → {Parse} a) (no: () → {Parse} a) (
     | True => readsYes
     | False => readsNo
 
--- After something that read nothing, what the rest read is all.
+--| After something that read nothing, what the rest read is all.
 theorem Parse.thenNothing (next: a → List Char → b → Prop) (read: List Char) (value: b) (h: Parse.Then (read v => read = []) next read value):
     ∃ (v: a) => next v read value :=
   match h with
@@ -254,7 +255,7 @@ theorem Parse.readsMark: Parse.Reads (() => Parse.mark()) (read m => read = []) 
     let atSame: state.at = after := Pair.mkInjectiveSnd _ _ _ _ same
     Witness [] (rewrite <- atSame in Both rfl (Both honest rfl))
 
--- A note changes only what an error says.
+--| A note changes only what an error says.
 theorem Parse.expectAt (state: Parse.State) (what: Text): (state.expect what).at = state.at := cases
 
 theorem Parse.addAt (state: Parse.State) (problem: Parse.Problem): (state.add problem).at = state.at :=
@@ -271,8 +272,8 @@ theorem Parse.readsNote (problem: Parse.Problem): Parse.Reads (() => Parse.note 
     let atSame: (state.note problem).at = after := Pair.mkInjectiveSnd _ _ _ _ same
     Witness [] (rewrite <- atSame, Parse.noteAt state problem in Both rfl (Both honest rfl))
 
--- A parser that stops or fails the whole parse never succeeds, so any spec
--- holds of it.
+--| A parser that stops or fails the whole parse never succeeds, so any spec
+--| holds of it.
 theorem Parse.readsStop (spec: List Char → a → Prop): Parse.Reads (() => Empty.absurd Parse.stop()) spec :=
   state value after honest h => Void.exfalso (Result.errNotOk _ _ h)
 
@@ -281,7 +282,7 @@ theorem Parse.readsFatal (message: Text) (spec: List Char → a → Prop): Parse
 
 -- The reading operations.
 
--- `span` reads the characters it gives, all of which pass.
+--| `span` reads the characters it gives, all of which pass.
 theorem Parse.readsSpan (passes: Char → Bool): Parse.Reads (() => Parse.span passes) (read taken => read = taken ∧ taken.all passes = True) :=
   state value after honest h =>
     let same := Result.okInjective _ _ h
@@ -294,7 +295,7 @@ theorem Parse.readsSpan (passes: Char → Bool): Parse.Reads (() => Parse.span p
       (rewrite <- valueSame, <- atSame, List.spanTakeDrop state.at.rest passes in
         Both (Eq.sym whole) (Both (omega [honest, lengths]) (Both rfl (List.allTakeWhile passes state.at.rest))))
 
--- `next` reads the character it gives, which passes, or nothing.
+--| `next` reads the character it gives, which passes, or nothing.
 theorem Parse.readsNext (passes: Char → Bool): Parse.Reads (() => Parse.next passes) (Parse.Maybe (read char => read = [char] ∧ passes char = True)) :=
   state value after honest h =>
     match e: state.at.rest with
@@ -316,7 +317,7 @@ theorem Parse.readsNext (passes: Char → Bool): Parse.Reads (() => Parse.next p
             let atSame: state.at = after := Pair.mkInjectiveSnd _ _ _ _ same
             Witness [] (rewrite <- valueSame, <- atSame, e in Both rfl (Both honest rfl))
 
--- `stripPrefixChars` finds what follows the prefix.
+--| `stripPrefixChars` finds what follows the prefix.
 theorem Parse.stripPrefixSome: (prefix: List Char) → (chars: List Char) → (rest: List Char) → Text.stripPrefixChars prefix chars = Some rest →
     chars = prefix ++ rest
   | Nil, chars, rest, h => Option.someInjective _ _ h
@@ -327,7 +328,7 @@ theorem Parse.stripPrefixSome: (prefix: List Char) → (chars: List Char) → (r
         rewrite Char.ext p c (Nat.equalSound (Char.toNat p) (Char.toNat c) same), Parse.stripPrefixSome ps cs rest h in rfl
       | False => Void.exfalso (Option.noneNotSome _ h)
 
--- `literal` reads its characters if it gives `True`, nothing if `False`.
+--| `literal` reads its characters if it gives `True`, nothing if `False`.
 theorem Parse.readsLiteral (chars: List Char): Parse.Reads (() => Parse.literal chars) (read found => read = (if found then chars else [])) :=
   state value after honest h =>
     match e: Text.stripPrefixChars chars state.at.rest with
@@ -352,7 +353,7 @@ theorem Parse.readsExpected (what: Text) (spec: List Char → a → Prop): Parse
 theorem Parse.readsFail (message: Text) (spec: List Char → a → Prop): Parse.Reads (() => Parse.fail message) spec :=
   state value after honest h => Void.exfalso (Result.errNotOk _ _ h)
 
--- A value after what `first` read is what `first` read.
+--| A value after what `first` read is what `first` read.
 theorem Parse.thenPure (first: List Char → a → Prop) (f: a → b) (read: List Char) (value: b)
     (h: Parse.Then first (v read w => read = [] ∧ w = f v) read value): ∃ (v: a) => first read v ∧ value = f v :=
   match h with
@@ -373,7 +374,7 @@ theorem Parse.readsSatisfy (what: Text) (passes: Char → Bool): Parse.Reads (()
         | Witness firstRead (Witness nextRead (Witness found (Both split (Both holds (Both none same))))) =>
           rewrite split, none, List.appendNil firstRead in (rewrite same at holds in holds))
 
--- A pure function of what `first` gave: what `first` read.
+--| A pure function of what `first` gave: what `first` read.
 theorem Parse.readsMap (p: () → {Parse} a) (f: a → b) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => f (p())) (read value => ∃ (v: a) => spec read v ∧ value = f v) :=
   Parse.readsWeaken _ _ _ (Parse.readsBind p (x => f x) spec (v read w => read = [] ∧ w = f v) reads (v => Parse.readsPure (f v)))
@@ -410,7 +411,7 @@ theorem Parse.readsTakeWhile (passes: Char → Bool):
       match h with
         | Witness chars (Both (Both same all) made) => rewrite made, <- same in Both rfl (rewrite same in all))
 
--- A run that isn't empty: `takeWhile1`, `nat`.
+--| A run that isn't empty: `takeWhile1`, `nat`.
 theorem Parse.readsSpanNonEmpty (passes: Char → Bool) (what: Text) (f: List Char → a):
     Parse.Reads (() => match Parse.span passes with | Nil => Parse.expected what | chars => f chars)
       (read value => Not (read = []) ∧ read.all passes = True ∧ value = f read) :=
@@ -431,10 +432,10 @@ theorem Parse.readsTakeWhile1 (what: Text) (passes: Char → Bool):
     Parse.Reads (() => Parse.takeWhile1 what passes) (read taken => Not (read = []) ∧ read.all passes = True ∧ taken = Text.fromList read) :=
   Parse.readsSpanNonEmpty passes what Text.fromList
 
--- The value of decimal digits.
+--| The value of decimal digits.
 def Parse.digitsValue (digits: List Char): Nat := digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
 
--- `nat` reads one or more digits, and gives their value.
+--| `nat` reads one or more digits, and gives their value.
 theorem Parse.readsNat: Parse.Reads Parse.nat (read n => Not (read = []) ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read) :=
   Parse.readsSpanNonEmpty Parse.isDigit "a number" Parse.digitsValue
 
@@ -443,7 +444,7 @@ theorem Parse.readsNeed (found: Option a) (message: Text): Parse.Reads (() => Pa
     | Some v => Parse.readsWeaken _ _ _ (Parse.readsPure v) (read value both => Both (And.left both) (Eq.cong Some (Eq.sym (And.right both))))
     | None => Parse.readsFail message _
 
--- `digit` reads one digit and gives its value.
+--| `digit` reads one digit and gives its value.
 theorem Parse.readsDigit: Parse.Reads Parse.digit (read d => ∃ (char: Char) => read = [char] ∧ char.toDigit = Some d) :=
   Parse.readsWeaken _ _ _
     (Parse.readsBind (() => Parse.satisfy "a digit" Parse.isDigit) (char => Parse.need char.toDigit "expected a digit") _
@@ -465,7 +466,7 @@ theorem Parse.readsSpaces1: Parse.Reads Parse.spaces1 (read u => Not (read = [])
       match h with
         | Witness skipped (Both (Both some (Both all made)) unit) => Both some all)
 
--- What `token` reads: spaces, what `p` read, spaces.
+--| What `token` reads: spaces, what `p` read, spaces.
 def Parse.Padded (spec: List Char → a → Prop) (read: List Char) (value: a): Prop :=
   ∃ (before: List Char) => ∃ (middle: List Char) => ∃ (after: List Char) =>
     read = before ++ (middle ++ after) ∧ before.all Parse.isSpace = True ∧ spec middle value ∧ after.all Parse.isSpace = True
@@ -496,10 +497,10 @@ theorem Parse.readsToken (p: () → {Parse} a) (spec: List Char → a → Prop) 
             | Witness middle (Witness after (Witness v (Both split2 (Both holds (Both spacedAfter same))))) =>
               Witness before (Witness middle (Witness after (Both (rewrite split, split2 in rfl) (Both spaced (Both (rewrite same in holds) spacedAfter))))))
 
--- A line break: "\n" or "\r\n".
+--| A line break: "\n" or "\r\n".
 def Parse.LineBreak (read: List Char): Prop := read = ['\n'] ∨ read = ['\r', '\n']
 
--- "\n", else "\r\n", else fail: `newline`, and `lineEnd` away from the end.
+--| "\n", else "\r\n", else fail: `newline`, and `lineEnd` away from the end.
 theorem Parse.readsLineBreak (what: Text):
     Parse.Reads (() => if Parse.literal ['\n'] then () else if Parse.literal ['\r', '\n'] then () else Parse.expected what) (read u => Parse.LineBreak read) :=
   Parse.readsWeaken _ _ _
@@ -529,7 +530,7 @@ theorem Parse.readsLineBreak (what: Text):
 
 theorem Parse.readsNewline: Parse.Reads Parse.newline (read u => Parse.LineBreak read) := Parse.readsLineBreak "a line break"
 
--- `lineEnd` reads a line break, or nothing (at the end).
+--| `lineEnd` reads a line break, or nothing (at the end).
 theorem Parse.readsLineEnd: Parse.Reads Parse.lineEnd (read u => read = [] ∨ Parse.LineBreak read) :=
   Parse.readsWeaken _ _ _
     (Parse.readsBind (() => Parse.mark())
@@ -556,13 +557,13 @@ theorem Parse.readsBefore (value: a) (suffix: Text): Parse.Reads (() => Parse.be
       match h with
         | Witness u (Both same made) => Both same made)
 
--- A parser that stops after `p` never succeeds, whatever `p` did.
+--| A parser that stops after `p` never succeeds, whatever `p` did.
 theorem Parse.readsThenStop (p: () → {Parse} a) (spec: List Char → b → Prop): Parse.Reads (() => (p(); Empty.absurd Parse.stop())) spec :=
   state value after honest h =>
     match Parse.runFromThenOk2 p state (u => Empty.absurd Parse.stop()) _ _ h with
       | Witness v (Witness middle (Both ran rest)) => Void.exfalso (Result.errNotOk _ _ rest)
 
--- What `pick` tries: the first choice whose word comes next.
+--| What `pick` tries: the first choice whose word comes next.
 def Parse.Picked (choices: List (Text, a)) (read: List Char) (choice: (Text, a)): Prop := choice ∈ choices ∧ read = choice.fst.toList
 
 theorem Parse.readsFindWord: (choices: List (Text, a)) →
@@ -596,7 +597,7 @@ theorem Parse.findLater (first: (Text, a)) (rest: List (Text, a)) (read: List Ch
       match later with
         | Both member same => Both (Inr member) (rewrite split, none in same)
 
--- `pick` reads one of its words, and gives that word's value.
+--| `pick` reads one of its words, and gives that word's value.
 theorem Parse.readsPick (choices: List (Text, a)): Parse.Reads (() => Parse.pick choices) (read value => ∃ (word: Text) => (word, value) ∈ choices ∧ read = word.toList) :=
   Parse.readsWeaken _ _ (read value => ∃ (word: Text) => (word, value) ∈ choices ∧ read = word.toList)
     (Parse.readsBind (() => choices.find (choice => Parse.literal choice.fst.toList))
@@ -619,7 +620,7 @@ theorem Parse.readsPick (choices: List (Text, a)): Parse.Reads (() => Parse.pick
 
 -- Choice and repetition.
 
--- `optional p` reads what `p` read, or nothing for `None`.
+--| `optional p` reads what `p` read, or nothing for `None`.
 theorem Parse.readsOptional (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.optional p) (Parse.Maybe spec) :=
   state value after honest h =>
@@ -637,7 +638,7 @@ theorem Parse.readsOptional (p: () → {Parse} a) (spec: List Char → a → Pro
         let atSame: middle.at = after := Pair.mkInjectiveSnd _ _ _ _ same
         Witness [] (rewrite <- valueSame, <- atSame, back in Both rfl (Both honest rfl))
 
--- One round of `many` reads what its next step read, or nothing when it is done.
+--| One round of `many` reads what its next step read, or nothing when it is done.
 theorem Parse.readsManyStep (before: Parse.Mark) (found: Option a) (next: a → {Parse} b) (done: b) (spec: List Char → b → Prop)
     (readsNext: (v: a) → found = Some v → Parse.Reads (() => next v) spec) (readsDone: found = None → Parse.Reads (() => done) spec):
     Parse.Reads (() => Parse.manyStep before found next done) spec :=
@@ -653,11 +654,11 @@ theorem Parse.readsManyStep (before: Parse.Mark) (found: Option a) (next: a → 
           match Parse.thenNothing _ read w h with
             | Witness at holds => holds)
 
--- What `manyFuel` read, after `found` (newest first) had been read.
+--| What `manyFuel` read, after `found` (newest first) had been read.
 def Parse.ManyFound (spec: List Char → a → Prop) (found: List a) (read: List Char) (values: List a): Prop :=
   ∃ (more: List a) => values = found.reverse ++ more ∧ Parse.Each spec read more
 
--- What the rest of `manyFuel` read, after a round gave `result`.
+--| What the rest of `manyFuel` read, after a round gave `result`.
 def Parse.ManyNext (spec: List Char → a → Prop) (found: List a) (result: Option a) (read: List Char) (values: List a): Prop :=
   match result with
     | None => read = [] ∧ values = found.reverse
@@ -700,7 +701,7 @@ theorem Parse.readsManyFuel (p: () → {Parse} a) (spec: List Char → a → Pro
           match Parse.thenNothing (at => Parse.Then (Parse.Maybe spec) (Parse.ManyNext spec found)) read vs h with
             | Witness at holds => Parse.manyCombine spec found read vs holds)
 
--- `many p` reads one part per value, each what `p` read.
+--| `many p` reads one part per value, each what `p` read.
 theorem Parse.readsMany (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec): Parse.Reads (() => Parse.many p) (Parse.Each spec) :=
   Parse.readsWeaken _ _ _
     (Parse.readsBind (() => Parse.mark()) (at => Parse.manyFuel (at.left + 1) p []) (read at => read = []) (at => Parse.ManyFound spec [])
@@ -709,7 +710,7 @@ theorem Parse.readsMany (p: () → {Parse} a) (spec: List Char → a → Prop) (
       match Parse.thenNothing (at => Parse.ManyFound spec []) read values h with
         | Witness at (Witness more (Both same each)) => rewrite same in each)
 
--- `many1 p`: the same, with at least one value.
+--| `many1 p`: the same, with at least one value.
 theorem Parse.readsMany1 (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.many1 p) (read values => Parse.Each spec read values ∧ Not (values = [])) :=
   Parse.readsWeaken _ _ _
@@ -720,8 +721,8 @@ theorem Parse.readsMany1 (p: () → {Parse} a) (spec: List Char → a → Prop) 
         | Witness firstRead (Witness restRead (Witness first (Both split (Both holds (Witness rest (Both each same)))))) =>
           rewrite same in Both (Witness firstRead (Witness restRead (Both split (Both holds each)))) (List.consNotNil first rest))
 
--- What `sepBy1 p separator` reads: `p`'s part, then a separator's and
--- `p`'s for each further value.
+--| What `sepBy1 p separator` reads: `p`'s part, then a separator's and
+--| `p`'s for each further value.
 def Parse.SepBy (spec: List Char → a → Prop) (separator: List Char → () → Prop) (read: List Char) (values: List a): Prop :=
   ∃ (first: a) => ∃ (rest: List a) => values = Cons first rest ∧ Parse.Then spec (v => Parse.Each (Parse.Then separator (u => spec))) read rest
 
@@ -759,17 +760,17 @@ theorem Parse.readsSepBy (p: () → {Parse} a) (separator: () → {Parse} ()) (s
         | Witness None (Both none same) => Inl (Both none same)
         | Witness (Some found) (Both holds same) => Inr (rewrite same in holds))
 
--- `lines p`: one value per line, line breaks between.
+--| `lines p`: one value per line, line breaks between.
 theorem Parse.readsLines (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.lines p) (Parse.SepBy spec (read u => Parse.LineBreak read)) :=
   Parse.readsSepBy1 p Parse.newline spec _ reads Parse.readsNewline
 
--- `grid cell`: rows of one or more cells, line breaks between.
+--| `grid cell`: rows of one or more cells, line breaks between.
 theorem Parse.readsGrid (cell: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads cell spec):
     Parse.Reads (() => Parse.grid cell) (Parse.SepBy (read row => Parse.Each spec read row ∧ Not (row = [])) (read u => Parse.LineBreak read)) :=
   Parse.readsLines _ _ (Parse.readsMany1 cell spec reads)
 
--- What `looseRow cell` reads: its cells, then a line break or nothing.
+--| What `looseRow cell` reads: its cells, then a line break or nothing.
 def Parse.LooseRow (spec: List Char → a → Prop) (read: List Char) (cells: List a): Prop :=
   ∃ (cellsRead: List Char) => ∃ (endRead: List Char) =>
     read = cellsRead ++ endRead ∧ Parse.Each spec cellsRead cells ∧ (endRead = [] ∨ Parse.LineBreak endRead)
@@ -811,14 +812,14 @@ theorem Parse.readsLooseRow (cell: () → {Parse} a) (spec: List Char → a → 
       match Parse.thenNothing (at => Parse.LooseRow spec) read row h with
         | Witness at holds => holds)
 
--- `looseGrid cell`: one row per line, each its cells and its line break.
+--| `looseGrid cell`: one row per line, each its cells and its line break.
 theorem Parse.readsLooseGrid (cell: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads cell spec):
     Parse.Reads (() => Parse.looseGrid cell) (Parse.Each (Parse.LooseRow spec)) :=
   Parse.readsMany _ _ (Parse.readsLooseRow cell spec reads)
 
 -- Runners: from a successful run to the input.
 
--- `end` succeeded: nothing was left.
+--| `end` succeeded: nothing was left.
 theorem Parse.endOk (s: Parse.State) (x: a) (w: a) (h: Parse.runFrom s (() =>
     Parse.end()
     x) = Ok w): s.at.left = 0 ∧ x = w :=
@@ -826,7 +827,7 @@ theorem Parse.endOk (s: Parse.State) (x: a) (w: a) (h: Parse.runFrom s (() =>
     | Zero => Both rfl (Result.okInjective _ _ h)
     | Succ n => Void.exfalso (Result.errNotOk _ _ h)
 
--- `whole chars p` succeeded: `p` read all of `chars`.
+--| `whole chars p` succeeded: `p` read all of `chars`.
 theorem Parse.wholeReads (chars: List Char) (p: () → {Parse} a) (spec: List Char → a → Prop) (value: a) (reads: Parse.Reads p spec)
     (h: Parse.whole chars p = Ok value): spec chars value :=
   match Parse.runFromThenOk p (Parse.State.start chars) (v =>
@@ -840,7 +841,7 @@ theorem Parse.wholeReads (chars: List Char) (p: () → {Parse} a) (spec: List Ch
               let empty := List.lengthZero middle.at.rest (omega [honest, atEnd])
               rewrite starts, empty, List.appendNil read, <- same in holds
 
--- One line of `eachLine`, read.
+--| One line of `eachLine`, read.
 theorem Parse.eachLineOne (index: Nat) (line: Text) (parser: () → {Parse} a) (value: a)
     (h: Fail.toResult (() =>
       let chars := line.toList
@@ -852,8 +853,8 @@ theorem Parse.eachLineOne (index: Nat) (line: Text) (parser: () → {Parse} a) (
     | Ok v => rewrite Result.okInjective _ _ h in rfl
     | Err failure => Void.exfalso (Result.errNotOk _ _ h)
 
--- `eachLine input p` succeeded: one value per line, each `spec` of all of
--- its line.
+--| `eachLine input p` succeeded: one value per line, each `spec` of all of
+--| its line.
 theorem Parse.eachLineReads (input: Text) (p: () → {Parse} a) (spec: List Char → a → Prop) (values: List a)
     (h: Fail.toResult (() => Parse.eachLine input p) = Ok values) (reads: Parse.Reads p spec): List.All2 spec (input.lines.map Text.toList) values :=
   let traversed := rewrite Fail.toResultMap _ input.lines.withIndex at h in h
@@ -865,9 +866,9 @@ theorem Parse.eachLineReads (input: Text) (p: () → {Parse} a) (spec: List Char
             | (index, line) => Parse.wholeReads line.toList p spec v reads (Parse.eachLineOne index line p v read))
         input.lines.withIndex values traversed))
 
--- `pick` over values each with its own word, `word x` for `x`: it reads one
--- of the values' words and gives that value. A table made from a printer
--- this way makes the parser's guarantee a fact about the printer.
+--| `pick` over values each with its own word, `word x` for `x`: it reads one
+--| of the values' words and gives that value. A table made from a printer
+--| this way makes the parser's guarantee a fact about the printer.
 theorem Parse.readsPickBy (values: List a) (word: a → Text):
     Parse.Reads (() => Parse.pick (values.map (value => (word value, value)))) (read value => value ∈ values ∧ read = (word value).toList) :=
   Parse.readsWeaken _ _ _ (Parse.readsPick (values.map (value => (word value, value))))
@@ -880,7 +881,7 @@ theorem Parse.readsPickBy (values: List a) (word: a → Text):
               let wordSame: word original = found := Pair.mkInjectiveFst _ _ _ _ made
               rewrite <- valueSame in Both isIn (rewrite same, <- wordSame in rfl))
 
--- What each part of a repetition read, under a weaker spec.
+--| What each part of a repetition read, under a weaker spec.
 theorem Parse.eachWeaken (spec: List Char → a → Prop) (weaker: List Char → a → Prop) (implies: (read: List Char) → (value: a) → spec read value → weaker read value):
     (read: List Char) → (values: List a) → Parse.Each spec read values → Parse.Each weaker read values
   | read, Nil, each => each
@@ -889,15 +890,15 @@ theorem Parse.eachWeaken (spec: List Char → a → Prop) (weaker: List Char →
       | Witness first (Witness rest (Both split (Both holds others))) =>
         Witness first (Witness rest (Both split (Both (implies first value holds) (Parse.eachWeaken spec weaker implies rest values others))))
 
--- A repetition each of whose parts is one character, `f` of its value,
--- read the values' characters.
+--| A repetition each of whose parts is one character, `f` of its value,
+--| read the values' characters.
 theorem Parse.eachChars (f: a → Char): (read: List Char) → (values: List a) → Parse.Each (read value => read = [f value]) read values → read = values.map f
   | read, Nil, each => each
   | read, Cons value values, each =>
     match each with
       | Witness first (Witness rest (Both split (Both one others))) => rewrite split, one, Parse.eachChars f rest values others in rfl
 
--- A runner's `match` that gave a value: the run gave it.
+--| A runner's `match` that gave a value: the run gave it.
 theorem Parse.runnerOk (chars: List Char) (parser: () → {Parse} a) (message: Parse.Failure → Text) (value: a)
     (h: Fail.toResult (() =>
       match Parse.whole chars parser with
@@ -908,7 +909,7 @@ theorem Parse.runnerOk (chars: List Char) (parser: () → {Parse} a) (message: P
     | Ok v => rewrite Result.okInjective _ _ h in rfl
     | Err failure => Void.exfalso (Result.errNotOk _ _ h)
 
--- `line text p` succeeded: `p` read all of `text` but a final line break.
+--| `line text p` succeeded: `p` read all of `text` but a final line break.
 theorem Parse.lineReads (text: Text) (p: () → {Parse} a) (spec: List Char → a → Prop) (value: a)
     (h: Fail.toResult (() => Parse.line text p) = Ok value) (reads: Parse.Reads p spec):
     ∃ (read: List Char) => ∃ (ending: List Char) => text.toList = read ++ ending ∧ spec read value ∧ (ending = [] ∨ Parse.LineBreak ending) :=
@@ -927,7 +928,7 @@ theorem Parse.lineEnding (ending: List Char): (found: Option ()) → Parse.Maybe
   | None, none => Inl none
   | Some u, breaks => Inr breaks
 
--- `all input p` succeeded: `p` read all of `input` but final line breaks.
+--| `all input p` succeeded: `p` read all of `input` but final line breaks.
 theorem Parse.allReads (input: Text) (p: () → {Parse} a) (spec: List Char → a → Prop) (value: a)
     (h: Fail.toResult (() => Parse.all input p) = Ok value) (reads: Parse.Reads p spec):
     ∃ (read: List Char) => ∃ (ending: List Char) => input.toList = read ++ ending ∧ spec read value ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
@@ -1014,9 +1015,9 @@ theorem Parse.runFromAtTree (c: () → {Parse} b) (tree: Effect.AlwaysTree (x =>
 theorem Parse.runFromAt (c: () → {Parse} b) (s: Parse.State) (t: Parse.State) (w: b) (h: Parse.runFrom s c = Ok w): Parse.runFrom ({ t | at = s.at }) c = Ok w :=
   Parse.runFromAtTree c (Effect.Always.tree (x => Unit) (c ()) (Effect.alwaysUnit (c ()))) s t w h
 
--- `labelFrom what start q` that let the rest succeed: `q` succeeded on its
--- own. The label passes `q`'s reading on and drops some of its notes, which
--- only change what an error says (`Parse.runFromAt`).
+--| `labelFrom what start q` that let the rest succeed: `q` succeeded on its
+--| own. The label passes `q`'s reading on and drops some of its notes, which
+--| only change what an error says (`Parse.runFromAt`).
 theorem Parse.runFromLabelFromOkTree (what: Text) (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (start: Parse.Mark)
     (s: Parse.State) (k: a → {Parse} b) (w: b) (h: Parse.runFrom s (() => k (Parse.labelFrom what start q)) = Ok w):
     ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k v) = Ok w :=
@@ -1056,7 +1057,7 @@ theorem Parse.runFromLabelFromOkTree (what: Text) (q: () → {Parse} a) (tree: E
     | Parse.stop u, r => Void.exfalso (Result.errNotOk _ w h)
     | Parse.fatal message, r => Void.exfalso (Result.errNotOk _ w h)
 
--- `label what p` reads what `p` read.
+--| `label what p` reads what `p` read.
 theorem Parse.readsLabel (what: Text) (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.label what p) spec :=
   state value after honest h =>
@@ -1070,7 +1071,7 @@ theorem Parse.readsLabel (what: Text) (p: () → {Parse} a) (spec: List Char →
             let atSame: middle.at = after := Pair.mkInjectiveSnd _ _ _ _ same
             Witness read (rewrite <- valueSame, <- atSame in Both starts (Both honest1 holds))
 
--- What `int` reads: digits, with a '-' in front for a negative number.
+--| What `int` reads: digits, with a '-' in front for a negative number.
 def Parse.IntRead (read: List Char) (n: Int): Prop :=
   ∃ (digits: List Char) => Not (digits = []) ∧ digits.all Parse.isDigit = True ∧
     ((read = Cons '-' digits ∧ n = -(Parse.digitsValue digits).toInt) ∨ (read = digits ∧ n = (Parse.digitsValue digits).toInt))
@@ -1106,8 +1107,8 @@ theorem Parse.readsInt: Parse.Reads Parse.int Parse.IntRead :=
             | Inr (Both isFalse value) =>
               Witness digits (Both some (Both all (Inr (Both (rewrite split, literal, isFalse, same in rfl) value)))))
 
--- `oneOf`: what the alternative that succeeded read. Every alternative
--- with the same spec gives it to the choice.
+--| `oneOf`: what the alternative that succeeded read. Every alternative
+--| with the same spec gives it to the choice.
 theorem Parse.readsOneOfFrom (spec: List Char → a → Prop) (first: () → {Parse} a) (readsFirst: Parse.Reads first spec):
     (rest: List (() → {Parse} a)) → List.All (p => Parse.Reads p spec) rest → Parse.Reads (() => Parse.oneOfFrom first rest) spec
     := rest all =>
@@ -1139,8 +1140,8 @@ theorem Parse.readsOneOf (spec: List Char → a → Prop):
 
 -- Sections and blank lines (SW-1002).
 
--- A handler that passed `p` on, as `label` does, left a run of `p` then
--- `(v, mark())`: what `p` read.
+--| A handler that passed `p` on, as `label` does, left a run of `p` then
+--| `(v, mark())`: what `p` read.
 theorem Parse.readsFromRun (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec) (state: Parse.State) (value: a)
     (after: Parse.Mark) (honest: state.at.left = state.at.rest.length) (v: a) (middle: Parse.State)
     (ran: Parse.runFrom state (() => (p(), Parse.mark())) = Ok (v, middle.at)) (rest: Parse.runFrom middle (() => (v, Parse.mark())) = Ok (value, after)):
@@ -1152,9 +1153,9 @@ theorem Parse.readsFromRun (p: () → {Parse} a) (spec: List Char → a → Prop
       let atSame: middle.at = after := Pair.mkInjectiveSnd _ _ _ _ same
       Witness read (rewrite <- valueSame, <- atSame in Both starts (Both honest1 holds))
 
--- `sectionLineFrom start q` that let the rest succeed: `q` succeeded on
--- its own. It passes each of `q`'s operations on, and adds a note only
--- when `q` stops.
+--| `sectionLineFrom start q` that let the rest succeed: `q` succeeded on
+--| its own. It passes each of `q`'s operations on, and adds a note only
+--| when `q` stops.
 theorem Parse.runFromSectionLineFromOkTree (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (start: Parse.Mark) (s: Parse.State)
     (k: a → {Parse} b) (w: b) (h: Parse.runFrom s (() => k (Parse.sectionLineFrom start q)) = Ok w):
     ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k v) = Ok w :=
@@ -1182,7 +1183,7 @@ theorem Parse.runFromSectionLineFromOkTree (q: () → {Parse} a) (tree: Effect.A
     | Parse.stop u, r => Void.exfalso (Result.errNotOk _ w h)
     | Parse.fatal message, r => Void.exfalso (Result.errNotOk _ w h)
 
--- `sectionLine p` reads what `p` read.
+--| `sectionLine p` reads what `p` read.
 theorem Parse.readsSectionLine (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.sectionLine p) spec :=
   state value after honest h =>
@@ -1190,10 +1191,10 @@ theorem Parse.readsSectionLine (p: () → {Parse} a) (spec: List Char → a → 
       (value, after) h with
       | Witness v (Witness middle (Both ran rest)) => Parse.readsFromRun p spec reads state value after honest v middle ran rest
 
--- `labelWholeFrom what start q furthest` that let the rest succeed: `q`
--- succeeded on its own. The handler passes `q`'s reading on, carries the
--- furthest point along, which only a failure uses, and drops `q`'s notes,
--- which only change what an error says (`Parse.runFromAt`).
+--| `labelWholeFrom what start q furthest` that let the rest succeed: `q`
+--| succeeded on its own. The handler passes `q`'s reading on, carries the
+--| furthest point along, which only a failure uses, and drops `q`'s notes,
+--| which only change what an error says (`Parse.runFromAt`).
 theorem Parse.runFromLabelWholeFromOkTree (what: Text) (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (start: Parse.Mark)
     (furthest: Parse.Mark) (s: Parse.State) (k: a → {Parse} b) (w: b) (h: Parse.runFrom s (() => k (Parse.labelWholeFrom what start q furthest)) = Ok w):
     ∃ (v: a) => ∃ (after: Parse.State) => Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at) ∧ Parse.runFrom after (() => k v) = Ok w :=
@@ -1248,7 +1249,7 @@ theorem Parse.runFromLabelWholeFromOkTree (what: Text) (q: () → {Parse} a) (tr
     | Parse.stop u, r => Void.exfalso (Result.errNotOk _ w h)
     | Parse.fatal message, r => Void.exfalso (Result.errNotOk _ w h)
 
--- `labelWhole what p` reads what `p` read.
+--| `labelWhole what p` reads what `p` read.
 theorem Parse.readsLabelWhole (what: Text) (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.labelWhole what p) spec :=
   state value after honest h =>
@@ -1256,7 +1257,7 @@ theorem Parse.readsLabelWhole (what: Text) (p: () → {Parse} a) (spec: List Cha
       (x => (x, Parse.mark())) (value, after) h with
       | Witness v (Witness middle (Both ran rest)) => Parse.readsFromRun p spec reads state value after honest v middle ran rest
 
--- What `blankLine` reads: a line break, spaces and tabs, a line break.
+--| What `blankLine` reads: a line break, spaces and tabs, a line break.
 def Parse.BlankLine (read: List Char): Prop :=
   ∃ (first: List Char) => ∃ (middle: List Char) => ∃ (last: List Char) =>
     read = first ++ (middle ++ last) ∧ Parse.LineBreak first ∧ middle.all Parse.isSpace = True ∧ Parse.LineBreak last
@@ -1282,13 +1283,13 @@ theorem Parse.readsBlankLine: Parse.Reads Parse.blankLine (read u => Parse.Blank
               | Witness middle (Witness last (Witness u2 (Both split2 (Both spaced breaks2)))) =>
                 Witness first (Witness middle (Witness last (Both (rewrite split, split2 in rfl) (Both breaks (Both spaced breaks2)))))))
 
--- `sections p`: `p`'s blocks, a blank line between each two.
+--| `sections p`: `p`'s blocks, a blank line between each two.
 theorem Parse.readsSections (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.sections p) (Parse.SepBy spec (read u => Parse.BlankLine read)) :=
   Parse.readsSepBy1 p Parse.blankLine spec _ reads Parse.readsBlankLine
 
--- What `section p` reads: one value per line, line breaks between, then a
--- blank line.
+--| What `section p` reads: one value per line, line breaks between, then a
+--| blank line.
 def Parse.Section (spec: List Char → a → Prop) (read: List Char) (values: List a): Prop :=
   ∃ (linesRead: List Char) => ∃ (blankRead: List Char) =>
     read = linesRead ++ blankRead ∧ Parse.SepBy spec (read u => Parse.LineBreak read) linesRead values ∧ Parse.BlankLine blankRead
@@ -1335,8 +1336,9 @@ theorem Parse.readsSection (p: () → {Parse} a) (spec: List Char → a → Prop
 -- Recursion, counted repetition, numbers of so many digits, and matches
 -- among noise (SW-1002).
 
--- `recursiveFuel fuel body` keeps `spec` when `body` keeps it of any nested
--- parser that does: induction over the levels.
+--| `recursiveFuel fuel body` keeps `spec` when `body` keeps it of any nested
+--| parser that does.
+-- Induction over the levels.
 theorem Parse.readsRecursiveFuel (body: (() → {Parse} a) → {Parse} a) (spec: List Char → a → Prop)
     (readsBody: (self: () → {Parse} a) → Parse.Reads self spec → Parse.Reads (() => body self) spec):
     (fuel: Nat) → Parse.Reads (() => Parse.recursiveFuel fuel body) spec
@@ -1345,8 +1347,8 @@ theorem Parse.readsRecursiveFuel (body: (() → {Parse} a) → {Parse} a) (spec:
     | Zero => Parse.readsFatal _ spec
     | Succ more => readsBody (() => Parse.recursiveFuel more body) (Parse.readsRecursiveFuel body spec readsBody more)
 
--- `recursive body` reads what `spec` says, when `body` reads what `spec`
--- says given a nested parser that does.
+--| `recursive body` reads what `spec` says, when `body` reads what `spec`
+--| says given a nested parser that does.
 theorem Parse.readsRecursive (body: (() → {Parse} a) → {Parse} a) (spec: List Char → a → Prop)
     (readsBody: (self: () → {Parse} a) → Parse.Reads self spec → Parse.Reads (() => body self) spec): Parse.Reads (() => Parse.recursive body) spec :=
   Parse.readsWeaken _ _ _
@@ -1356,8 +1358,8 @@ theorem Parse.readsRecursive (body: (() → {Parse} a) → {Parse} a) (spec: Lis
       match Parse.thenNothing (at => spec) read v h with
         | Witness at holds => holds)
 
--- What `natDigits atLeast atMost` reads: `atLeast` to `atMost` digits, at
--- least one, and it gives their value.
+--| What `natDigits atLeast atMost` reads: `atLeast` to `atMost` digits, at
+--| least one, and it gives their value.
 def Parse.DigitsRead (atLeast: Nat) (atMost: Nat) (read: List Char) (n: Nat): Prop :=
   read.all Parse.isDigit = True ∧ 0 < read.length ∧ atLeast ≤ read.length ∧ read.length ≤ atMost ∧ n = Parse.digitsValue read
 
@@ -1400,8 +1402,8 @@ theorem Parse.readsNatDigits (atLeast: Nat) (atMost: Nat): Parse.Reads (() => Pa
       match Parse.thenNothing (at => Parse.DigitsRead atLeast atMost) read n h with
         | Witness at holds => holds)
 
--- `onFound found next done` reads what `next` of the value found reads, or
--- what `done` reads.
+--| `onFound found next done` reads what `next` of the value found reads, or
+--| what `done` reads.
 theorem Parse.readsOnFound (found: Option a) (next: a → {Parse} b) (done: () → {Parse} b) (spec: List Char → b → Prop)
     (readsNext: (v: a) → found = Some v → Parse.Reads (() => next v) spec) (readsDone: found = None → Parse.Reads done spec):
     Parse.Reads (() => Parse.onFound found next done) spec :=
@@ -1409,9 +1411,9 @@ theorem Parse.readsOnFound (found: Option a) (next: a → {Parse} b) (done: () �
     | Some v => readsNext v rfl
     | None => readsDone rfl
 
--- What a counted repetition read after `found` (newest first) had been
--- read: one part per further value, each `spec` of it, `fewest` to `most`
--- of them.
+--| What a counted repetition read after `found` (newest first) had been
+--| read: one part per further value, each `spec` of it, `fewest` to `most`
+--| of them.
 def Parse.RepeatFound (spec: List Char → a → Prop) (found: List a) (fewest: Nat) (most: Nat) (read: List Char) (values: List a): Prop :=
   ∃ (more: List a) => values = found.reverse ++ more ∧ Parse.Each spec read more ∧ fewest ≤ more.length ∧ more.length ≤ most
 
@@ -1428,7 +1430,7 @@ theorem Parse.repeatCombine (spec: List Char → a → Prop) (found: List a) (mo
         (Both (rewrite same, List.reverseCons v found, List.appendAssoc (List.reverse found) [v] rest in rfl)
           (Both (Witness firstRead (Witness nextRead (Both split (Both (rewrite isSome at maybe in maybe) each)))) (Both (omega) (omega))))
 
--- `repeatOptional count p found`: at most `count` more values.
+--| `repeatOptional count p found`: at most `count` more values.
 theorem Parse.readsRepeatOptional (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec): (count: Nat) → (found: List a) →
     Parse.Reads (() => Parse.repeatOptional count p found) (Parse.RepeatFound spec found 0 count)
     := count found =>
@@ -1450,7 +1452,7 @@ theorem Parse.readsRepeatOptional (p: () → {Parse} a) (spec: List Char → a �
               (e => Parse.readsWeaken _ _ _ (Parse.readsPure (List.reverse found)) (read values both => Inl (Both e both)))))
         (read values h => Parse.repeatCombine spec found more read values h)
 
--- `repeatFrom count extra p found`: `count` to `count + extra` more values.
+--| `repeatFrom count extra p found`: `count` to `count + extra` more values.
 theorem Parse.readsRepeatFrom (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec) (extra: Nat): (count: Nat) → (found: List a) →
     Parse.Reads (() => Parse.repeatFrom count extra p found) (Parse.RepeatFound spec found count (count + extra))
     := count found =>
@@ -1471,8 +1473,8 @@ theorem Parse.readsRepeatFrom (p: () → {Parse} a) (spec: List Char → a → P
                 (Both (rewrite same, List.reverseCons v found, List.appendAssoc (List.reverse found) [v] rest in rfl)
                   (Both (Witness firstRead (Witness restRead (Both split (Both holds each)))) (Both (omega) (omega)))))
 
--- `repeat atLeast atMost p` reads one part per value, each `spec` of it:
--- at least `atLeast` values, and at most `atMost` unless that is fewer.
+--| `repeat atLeast atMost p` reads one part per value, each `spec` of it:
+--| at least `atLeast` values, and at most `atMost` unless that is fewer.
 theorem Parse.readsRepeat (atLeast: Nat) (atMost: Nat) (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.repeat atLeast atMost p)
       (read values => Parse.Each spec read values ∧ atLeast ≤ values.length ∧ values.length ≤ Nat.max atLeast atMost) :=
@@ -1483,9 +1485,9 @@ theorem Parse.readsRepeat (atLeast: Nat) (atMost: Nat) (p: () → {Parse} a) (sp
           let same2: values = more := same
           rewrite same2 in Both each (Both least (omega)))
 
--- `attemptFrom start q` that let the rest succeed: `q` succeeded, and the
--- rest went on from its value and whether it read anything; or `q`
--- stopped, and the input is back at `start`.
+--| `attemptFrom start q` that let the rest succeed: `q` succeeded, and the
+--| rest went on from its value and whether it read anything; or `q`
+--| stopped, and the input is back at `start`.
 theorem Parse.runFromAttemptFromOkTree (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (start: Parse.Mark) (s: Parse.State)
     (k: Option (a, Bool) → {Parse} b) (w: b) (h: Parse.runFrom s (() => k (Parse.attemptFrom start q)) = Ok w):
     (∃ (v: a) => ∃ (after: Parse.State) =>
@@ -1515,7 +1517,7 @@ theorem Parse.runFromAttemptFromOkTree (q: () → {Parse} a) (tree: Effect.Alway
     | Parse.stop u, r => Inr (Witness ({ s | at = start }) (Both rfl h))
     | Parse.fatal message, r => Void.exfalso (Result.errNotOk _ w h)
 
--- `attempt p` reads what `p` read, or nothing for `None`.
+--| `attempt p` reads what `p` read, or nothing for `None`.
 theorem Parse.readsAttempt (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.attempt p) (Parse.Maybe (read (matched: (a, Bool)) => spec read matched.fst)) :=
   state value after honest h =>
@@ -1534,16 +1536,16 @@ theorem Parse.readsAttempt (p: () → {Parse} a) (spec: List Char → a → Prop
         let atSame: middle.at = after := Pair.mkInjectiveSnd _ _ _ _ same
         Witness [] (rewrite <- valueSame, <- atSame, back in Both rfl (Both honest rfl))
 
--- What `findAll p` reads: each value is `spec` of a part of what was read,
--- in order and not overlapping, with anything before, between and after
--- the parts.
+--| What `findAll p` reads: each value is `spec` of a part of what was read,
+--| in order and not overlapping, with anything before, between and after
+--| the parts.
 def Parse.Scattered (spec: List Char → a → Prop): List Char → List a → Prop
   | read, Nil => Unit
   | read, Cons value values =>
     ∃ (skipped: List Char) => ∃ (first: List Char) => ∃ (rest: List Char) =>
       read = skipped ++ (first ++ rest) ∧ spec first value ∧ Parse.Scattered spec rest values
 
--- More skipped in front changes nothing.
+--| More skipped in front changes nothing.
 theorem Parse.scatteredSkip (spec: List Char → a → Prop) (skipped: List Char): (read: List Char) → (values: List a) → Parse.Scattered spec read values →
     Parse.Scattered spec (skipped ++ read) values
   | read, Nil, scattered => Trivial
@@ -1553,12 +1555,12 @@ theorem Parse.scatteredSkip (spec: List Char → a → Prop) (skipped: List Char
         Witness (skipped ++ before)
           (Witness first (Witness rest (Both (rewrite split, List.appendAssoc skipped before (first ++ rest) in rfl) (Both holds others))))
 
--- What the rest of `findAllFuel` read, after `found` (newest first).
+--| What the rest of `findAllFuel` read, after `found` (newest first).
 def Parse.FindFound (spec: List Char → a → Prop) (found: List a) (read: List Char) (values: List a): Prop :=
   ∃ (more: List a) => values = found.reverse ++ more ∧ Parse.Scattered spec read more
 
--- `findAll`'s round when the parser didn't read anything: one character
--- skipped, then the rest of the rounds.
+--| `findAll`'s round when the parser didn't read anything: one character
+--| skipped, then the rest of the rounds.
 theorem Parse.readsFindSkip (skipNoise: () → {Parse} ()) (p: () → {Parse} a) (spec: List Char → a → Prop) (more: Nat) (now: List a)
     (rest: Parse.Reads (() => Parse.findAllFuel more skipNoise p now) (Parse.FindFound spec now)):
     Parse.Reads (() => Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise p now) (() => now.reverse)) (Parse.FindFound spec now) :=
@@ -1631,9 +1633,9 @@ theorem Parse.readsFindAllFuel (skipNoise: () → {Parse} ()) (p: () → {Parse}
                         Parse.readsFindSkip skipNoise p spec more (Cons v found) (Parse.readsFindAllFuel skipNoise p spec readsNoise reads more (Cons v found)))))
         (read values h => Parse.findCombine spec found read values h)
 
--- `findAllFuel` from the start, with noise skipped by `skipNoise`: each
--- value is `spec` of a part of the input, in order, the parts not
--- overlapping.
+--| `findAllFuel` from the start, with noise skipped by `skipNoise`: each
+--| value is `spec` of a part of the input, in order, the parts not
+--| overlapping.
 theorem Parse.readsFindAllWith (skipNoise: () → {Parse} ()) (p: () → {Parse} a) (spec: List Char → a → Prop)
     (readsNoise: Parse.Reads skipNoise (read (u: ()) => Unit)) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.findAllFuel (Parse.mark().left + 1) skipNoise p []) (Parse.Scattered spec) :=
@@ -1646,12 +1648,12 @@ theorem Parse.readsFindAllWith (skipNoise: () → {Parse} ()) (p: () → {Parse}
           let same2: values = matches := same
           rewrite same2 in scattered)
 
--- `findAll p`: each value is `spec` of a part of the input, in order, the
--- parts not overlapping.
+--| `findAll p`: each value is `spec` of a part of the input, in order, the
+--| parts not overlapping.
 theorem Parse.readsFindAll (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec): Parse.Reads (() => Parse.findAll p) (Parse.Scattered spec) :=
   Parse.readsFindAllWith (() => ()) p spec (Parse.readsWeaken _ _ _ (Parse.readsPure ()) (read u both => Trivial)) reads
 
--- `findAllStarting starts p`: the same.
+--| `findAllStarting starts p`: the same.
 theorem Parse.readsFindAllStarting (starts: Char → Bool) (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.findAllStarting starts p) (Parse.Scattered spec) :=
   Parse.readsFindAllWith _ p spec
