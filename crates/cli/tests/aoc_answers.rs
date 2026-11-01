@@ -28,6 +28,18 @@ const ANSWERS: &[(&str, &str, &str, &str)] = &[
     ("2021", "10", "364389", "2870201088"),
     ("2021", "11", "1773", "494"),
     ("2021", "12", "3510", "122880"),
+    (
+        "2021",
+        "13",
+        "666",
+        // The picture, which spells CJHAZHKU.
+        ".##....##.#..#..##..####.#..#.#..#.#..#\n\
+         #..#....#.#..#.#..#....#.#..#.#.#..#..#\n\
+         #.......#.####.#..#...#..####.##...#..#\n\
+         #.......#.#..#.####..#...#..#.#.#..#..#\n\
+         #..#.#..#.#..#.#..#.#....#..#.#.#..#..#\n\
+         .##...##..#..#.#..#.####.#..#.#..#..##.",
+    ),
     ("2024", "01", "2066446", "24931009"),
     ("2024", "02", "534", "577"),
     ("2024", "03", "174960292", "56275602"),
@@ -87,9 +99,16 @@ fn check_with(year: &str, day: &str, cache: &[&str]) {
         "{year} day {day} failed:\n{stderr}"
     );
     let stdout = String::from_utf8(output.stdout).expect("output is UTF-8");
+    // An answer of several lines (2021 day 13's picture) starts on the line
+    // after its label.
+    let part2 = if part2.contains('\n') {
+        format!("\n{part2}")
+    } else {
+        format!(" {part2}")
+    };
     assert_eq!(
         stdout,
-        format!("Part 1: {part1}\nPart 2: {part2}\n"),
+        format!("Part 1: {part1}\nPart 2:{part2}\n"),
         "{year} day {day}:\n{stderr}"
     );
 }
@@ -156,6 +175,11 @@ fn year2021_day11() {
 #[test]
 fn year2021_day12() {
     check("2021", "12");
+}
+
+#[test]
+fn year2021_day13() {
+    check("2021", "13");
 }
 
 #[test]
